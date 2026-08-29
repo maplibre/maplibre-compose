@@ -6,6 +6,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.unit.dp
 import kotlin.js.Promise
+import kotlin.js.js
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -23,10 +24,9 @@ import org.maplibre.compose.map.createMapRuntime
 import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LocalStyleNode
+import org.maplibre.compose.style.StyleComposition
 import org.maplibre.compose.style.StyleIdentity
-import org.maplibre.compose.style.StyleNode
 import org.maplibre.compose.style.StyleState
-import org.maplibre.compose.style.install
 import org.maplibre.compose.style.rememberStyleState
 
 @OptIn(ExperimentalTestApi::class)
@@ -123,29 +123,74 @@ class BrowserStyleStateTest {
       val runtime = createMapRuntime(MapRuntimeOptions())
       val state = runtime.createMapState(initialBaseStyle = STYLE_A)
       val presented = mutableStateOf(true)
+      val useLatestRevision = mutableStateOf(false)
+      val composition = StyleComposition {
+        val suffix = if (useLatestRevision.value) "latest" else "initial"
+        RasterLayer(
+          id = "$suffix-overlay",
+          source = RasterSource("$suffix-source", "https://example.invalid/$suffix.json"),
+          visible = true,
+        )
+      }
 
-      setBrowserMapContent { if (presented.value) MaplibreMap(state) }
+      setBrowserMapContent {
+        if (presented.value) MaplibreMap(state, styleComposition = composition)
+      }
       waitUntilMap("style A to become ready") {
         state.presentation != null && state.style.loadState == StyleLoadState.Ready
       }
+      val initialSession = requireNotNull(state.presentation).adapter as GlJsMapSession
+      assertTrue(
+        initialSession.engineMapForTest()?.getStyle()?.layers?.any { it.id == "initial-overlay" } ==
+          true
+      )
 
       runOnIdle { presented.value = false }
       waitUntilMap("the Web map to detach") { state.presentation == null }
-      runOnIdle { state.style.baseStyle = STYLE_B }
+      runOnIdle {
+        useLatestRevision.value = true
+        state.style.baseStyle = STYLE_B
+      }
 
       assertEquals(STYLE_B, state.style.baseStyle)
       assertEquals(StyleLoadState.Pending, state.style.loadState)
 
-      runOnIdle { presented.value = true }
-      waitUntilMap("style B to load on the replacement map") {
-        state.presentation != null && state.style.loadState == StyleLoadState.Ready
-      }
-      val session = requireNotNull(state.presentation).adapter as GlJsMapSession
+      val layerAdditions = mutableListOf<String>()
+      val mapPrototype = org.maplibre.compose.gljs.MaplibreMap::class.js.asDynamic().prototype
+      val originalAddLayer = mapPrototype.addLayer
+      val wrapAddLayer =
+        js(
+          """(function(original, record) {
+            return function(layer, before) {
+              record(layer.id);
+              return original.call(this, layer, before);
+            };
+          })"""
+        )
+      mapPrototype.addLayer = wrapAddLayer(originalAddLayer) { id: String -> layerAdditions += id }
+      try {
+        runOnIdle { presented.value = true }
+        waitUntilMap("style B to load on the replacement map") {
+          state.presentation != null && state.style.loadState == StyleLoadState.Ready
+        }
+        val session = requireNotNull(state.presentation).adapter as GlJsMapSession
 
-      assertEquals(
-        listOf("b"),
-        requireNotNull(session.engineMapForTest()).getStyle().layers.map { it.id },
-      )
+        assertTrue(layerAdditions.indexOf("initial-overlay") >= 0)
+        assertTrue(
+          layerAdditions.indexOf("latest-overlay") > layerAdditions.indexOf("initial-overlay")
+        )
+        assertEquals(
+          listOf("b", "latest-overlay"),
+          requireNotNull(session.engineMapForTest()).getStyle().layers.map { it.id },
+        )
+        assertFalse(
+          requireNotNull(session.engineMapForTest()).getStyle().layers.any {
+            it.id == "initial-overlay"
+          }
+        )
+      } finally {
+        mapPrototype.addLayer = originalAddLayer
+      }
 
       runtime.close()
       runtime.awaitClosed()
@@ -158,7 +203,7 @@ class BrowserStyleStateTest {
       val state = runtime.createMapState(initialBaseStyle = STYLE_A)
       val size = mutableStateOf(0.dp)
 
-      setBrowserMapContent { MaplibreMap(state, Modifier.size(size.value)) }
+      setBrowserMapContent { MaplibreMap(state, modifier = Modifier.size(size.value)) }
       waitForIdle()
 
       assertNull(state.presentation)
@@ -249,7 +294,8 @@ class BrowserStyleStateTest {
     runBrowserMapTest {
       val tileJson = installDeferredTileJson()
       try {
-        var node: StyleNode? = null
+        val showLateSource = mutableStateOf(false)
+        val source = RasterSource("late-source", "https://tilejson.test/x.json")
         var state: StyleState? = null
         var loads = 0
         setBrowserMapContent {
@@ -261,16 +307,14 @@ class BrowserStyleStateTest {
             styleState = styleState,
             onMapLoadFinished = { loads += 1 },
           ) {
-            node = LocalStyleNode.current
+            if (showLateSource.value) {
+              RasterLayer(id = "late-layer", source = source, visible = true)
+            }
           }
         }
-        waitUntilMap("the empty map to finish loading") { loads == 1 && node != null }
+        waitUntilMap("the empty map to finish loading") { loads == 1 }
 
-        val source = RasterSource("late-source", "https://tilejson.test/x.json")
-        checkNotNull(node).let { liveNode ->
-          liveNode.sourceManager.addReference(source)
-          liveNode.style.install(RasterLayer(id = "late-layer", source = source))
-        }
+        showLateSource.value = true
 
         waitUntilMap("the late source's initial snapshot") { state?.sources?.size == 1 }
         assertEquals(listOf(""), state?.sources?.values?.map { it.attributionHtml })

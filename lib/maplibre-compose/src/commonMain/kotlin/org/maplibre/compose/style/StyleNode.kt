@@ -3,12 +3,18 @@ package org.maplibre.compose.style
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
-import co.touchlab.kermit.Logger
 
-internal class StyleNode(var style: StyleBinding, internal var logger: Logger?) : MapNode() {
+internal class StyleNode(
+  var style: StyleBinding,
+  internal val replaceableSourceIds: Set<String> = emptySet(),
+  replaceableLayerIds: Set<String> = emptySet(),
+) : MapNode() {
 
+  private val baseLayerIds =
+    style.getLayers().mapNotNullTo(mutableSetOf()) {
+      it.id.takeUnless(replaceableLayerIds::contains)
+    }
   internal val sourceManager = SourceManager(this)
-  internal val layerManager = LayerManager(this)
   internal val imageManager = ImageManager(this)
 
   // A nested content scope can recompose without its StyleContent parent. This state invalidates
@@ -24,20 +30,25 @@ internal class StyleNode(var style: StyleBinding, internal var logger: Logger?) 
 
   override fun allowsChild(node: MapNode) = node is LayerNode<*>
 
-  override fun onChildRemoved(oldIndex: Int, node: MapNode) {
-    node as LayerNode<*>
-    layerManager.removeLayer(node, oldIndex)
-  }
-
   override fun onChildInserted(index: Int, node: MapNode) {
     node as LayerNode<*>
-    layerManager.addLayer(node, index)
+    require(node.layer.id !in baseLayerIds) {
+      "Layer ID '${node.layer.id}' already exists in base style"
+    }
   }
 
-  override fun onChildMoved(oldIndex: Int, index: Int, node: MapNode) {
-    node as LayerNode<*>
-    layerManager.moveLayer(node, oldIndex, index)
-  }
-
-  internal fun applyChanges() = layerManager.applyChanges()
+  internal fun snapshotRevision(): DesiredStyleRevision =
+    DesiredStyleRevision(
+      sources = sourceManager.desiredSources.map { it.definition() },
+      layers =
+        children.filterIsInstance<LayerNode<*>>().map { node ->
+          DesiredStyleLayer(
+            definition = node.layer.definition(),
+            anchor = node.anchor,
+            onClick = node.onClick,
+            onLongClick = node.onLongClick,
+          )
+        },
+      images = imageManager.desiredImages,
+    )
 }

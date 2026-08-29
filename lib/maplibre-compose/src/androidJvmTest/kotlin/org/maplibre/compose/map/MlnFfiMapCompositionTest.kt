@@ -8,9 +8,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,8 +51,11 @@ import org.maplibre.compose.expressions.dsl.case
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.expressions.dsl.switch
+import org.maplibre.compose.layers.Anchor
+import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.FillLayer
+import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
@@ -59,8 +64,10 @@ import org.maplibre.compose.offline.rememberOfflineManager
 import org.maplibre.compose.offline.rememberOfflinePacksSource
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.sources.GeoJsonData
+import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.StyleComposition
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
@@ -118,6 +125,151 @@ class MlnFfiMapCompositionTest {
     assertTrue(state.isClosed)
     assertNull(state.presentation)
   }
+
+  @Test
+  fun one_style_composition_is_evaluated_independently_for_two_maps() = runFfiComposeUiTest {
+    val runtime = createNativeMapRuntime(runtimeOptions)
+    val first = runtime.createMapState(initialBaseStyle = BaseStyle.Empty)
+    val second = runtime.createMapState(initialBaseStyle = BaseStyle.Empty)
+    val evaluatorIdentities = mutableSetOf<Any>()
+    var showFirst by mutableStateOf(true)
+    val style = StyleComposition {
+      val evaluatorIdentity = remember { Any() }
+      RasterLayer(
+        id = "shared-layer",
+        source =
+          RasterSource(
+            "shared-source",
+            listOf("https://example.invalid/{z}/{x}/{y}.png"),
+          ),
+        visible = true,
+      )
+      DisposableEffect(Unit) {
+        evaluatorIdentities += evaluatorIdentity
+        onDispose {}
+      }
+    }
+
+    setFfiTestMapContent(runtimeOptions, presentationCount = 2) {
+      if (showFirst) MaplibreMap(first, style) else MaplibreMap(second, style)
+    }
+    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      first.presentation != null &&
+        evaluatorIdentities.size == 1 &&
+        first.desiredStyleRevision.layers.any { it.definition.id == "shared-layer" }
+    }
+    val firstSession = first.presentation?.adapter as MlnFfiMapSession
+    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      "shared-layer" in firstSession.currentStyleLayerIds()
+    }
+
+    showFirst = false
+    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      first.presentation == null && second.presentation != null && evaluatorIdentities.size == 2
+    }
+    val secondSession = second.presentation?.adapter as MlnFfiMapSession
+    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      "shared-layer" in secondSession.currentStyleLayerIds()
+    }
+    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      first.style.loadState == StyleLoadState.Ready &&
+        second.style.loadState == StyleLoadState.Ready
+    }
+    assertEquals(2, evaluatorIdentities.size)
+    assertEquals(
+      listOf(StyleLoadState.Ready, StyleLoadState.Ready),
+      listOf(first, second).map {
+        it.style.loadState
+      },
+    )
+
+    runtime.close()
+    runtime.awaitClosed()
+  }
+
+  @Test
+  fun detached_native_map_keeps_its_applied_revision_until_current_state_is_reattached() =
+    runFfiComposeUiTest {
+      val runtime = createNativeMapRuntime(runtimeOptions)
+      val state = runtime.createMapState(initialBaseStyle = BaseStyle.Empty)
+      var presented by mutableStateOf(true)
+      var latest by mutableStateOf(false)
+      val composition = StyleComposition {
+        BackgroundLayer(
+          id = if (latest) "latest-background" else "initial-background",
+          color = const(if (latest) Color.Blue else Color.Red),
+        )
+      }
+
+      setFfiTestMapContent(runtimeOptions, presentationCount = 2) {
+        if (presented) MaplibreMap(state, composition)
+      }
+      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        state.style.loadState == StyleLoadState.Ready && state.presentation != null
+      }
+      val session = requireNotNull(state.presentation).adapter as MlnFfiMapSession
+      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        "initial-background" in session.currentStyleLayerIds()
+      }
+
+      presented = false
+      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { state.presentation == null }
+      latest = true
+      assertTrue("initial-background" in session.currentStyleLayerIds())
+      assertTrue("latest-background" !in session.currentStyleLayerIds())
+
+      presented = true
+      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        state.presentation != null &&
+          state.desiredStyleRevision.layers.any {
+            it.definition.id == "latest-background"
+          }
+      }
+      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        "latest-background" in session.currentStyleLayerIds() &&
+          "initial-background" !in session.currentStyleLayerIds()
+      }
+
+      runtime.close()
+      runtime.awaitClosed()
+    }
+
+  @Test
+  fun a_later_revision_supersedes_reconciliation_failure_before_the_surface_is_revealed() =
+    runFfiComposeUiTest {
+      val runtime = createNativeMapRuntime(runtimeOptions)
+      val state = runtime.createMapState(initialBaseStyle = BaseStyle.Empty)
+      var invalidAnchor by mutableStateOf(true)
+      val composition = StyleComposition {
+        if (invalidAnchor) {
+          Anchor.Below("missing-base-layer") {
+            BackgroundLayer(id = "application-background", color = const(Color.Red))
+          }
+        } else {
+          BackgroundLayer(id = "application-background", color = const(Color.Blue))
+        }
+      }
+
+      setFfiTestMapContent(runtimeOptions) { MaplibreMap(state, composition) }
+      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        state.style.loadState is StyleLoadState.Failed
+      }
+      assertTrue(
+        onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isNotEmpty(),
+        "the failed revision must leave the map surface hidden",
+      )
+
+      invalidAnchor = false
+      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        state.style.loadState == StyleLoadState.Ready
+      }
+      val session = requireNotNull(state.presentation).adapter as MlnFfiMapSession
+      assertTrue("application-background" in session.currentStyleLayerIds())
+      assertTrue(onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty())
+
+      runtime.close()
+      runtime.awaitClosed()
+    }
 
   @Test
   fun a_map_state_retains_its_native_map_between_presentations() = runFfiComposeUiTest {

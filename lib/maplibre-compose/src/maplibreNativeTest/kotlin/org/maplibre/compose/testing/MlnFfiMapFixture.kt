@@ -7,6 +7,7 @@ import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
 
 /** The map runs on threads of its own, so blocking the test thread in a wait stops nothing. */
@@ -32,7 +33,12 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent
     get() = bridge.errors
 
   override suspend fun loadStyle(style: BaseStyle, timeout: Duration) {
+    val finishedLoadsBefore = events.count { it == MapFixture.LOAD_FINISHED }
     bridge.loadStyle(style, timeout, extent)
+    bridge.session.reconcileStyleRevision(DesiredStyleRevision.Empty)
+    bridge.pumpUntil("style $style to finish reconciliation", timeout, extent) {
+      events.count { it == MapFixture.LOAD_FINISHED } > finishedLoadsBefore
+    }
   }
 
   override suspend fun awaitMapReady(timeout: Duration) {

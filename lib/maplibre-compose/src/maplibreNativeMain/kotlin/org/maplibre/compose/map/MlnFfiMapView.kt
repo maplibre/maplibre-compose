@@ -104,7 +104,7 @@ internal fun MlnFfiMapView(
     }
   val retainedSession = state?.retainedAdapter(compatibility) as? MlnFfiMapSession
 
-  val session =
+  val unpreparedSession =
     retainedSession
       ?: remember(renderBackend, scaleFactor, applicationOptions, state) {
         MlnFfiMapSession(
@@ -117,6 +117,7 @@ internal fun MlnFfiMapView(
           resourceProviderFactory = applicationOptions.resourceProviderFactory,
         )
       }
+  val session = remember(unpreparedSession) { unpreparedSession.apply { preparePresentation() } }
 
   session.callbacks = callbacks
   session.logger = logger

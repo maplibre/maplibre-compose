@@ -26,21 +26,26 @@ import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
+import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.MapNodeApplier
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleContent
 import org.maplibre.compose.style.StyleNode
+import org.maplibre.compose.style.StyleReconciler
+import org.maplibre.compose.testing.supportsComposeRuntimeTests
 import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
 
 class SymbolLayerCompositionTest {
 
   @Test
   fun variable_anchor_offsets_reach_the_layer_through_the_public_api() = runTest {
+    if (!supportsComposeRuntimeTests) return@runTest
     val frameClock = BroadcastFrameClock()
     withContext(frameClock) {
       withRunningRecomposer { recomposer ->
         val style = RecordingStyleBinding(emptyList(), emptyList(), emptyList())
-        val rootNode = StyleNode(style, logger = null)
+        val rootNode = StyleNode(style)
+        var revision: DesiredStyleRevision? = null
         val source =
           GeoJsonSource(
             "features",
@@ -54,7 +59,7 @@ class SymbolLayerCompositionTest {
               LocalDensity provides Density(1f),
               LocalLayoutDirection provides LayoutDirection.Ltr,
             ) {
-              StyleContent(rootNode) {
+              StyleContent(rootNode, publish = { revision = it }) {
                 SymbolLayer(
                   id = "labels",
                   source = source,
@@ -71,6 +76,7 @@ class SymbolLayerCompositionTest {
           frameClock.sendFrame(0)
           yield()
           recomposer.awaitIdle()
+          StyleReconciler().apply(style, requireNotNull(revision))
 
           val layer = assertNotNull(style.getLayer("labels"))
           val layout = assertNotNull(layer.toJson()["layout"] as? JsonObject)

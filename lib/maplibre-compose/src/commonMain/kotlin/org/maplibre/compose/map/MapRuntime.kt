@@ -26,6 +26,7 @@ import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleState
 import org.maplibre.spatialk.geojson.Position
 
@@ -134,6 +135,7 @@ internal constructor(
 
   internal val cameraState = CameraState(initialCameraPosition)
   internal val compatibilityStyleState = StyleState()
+  internal var desiredStyleRevision: DesiredStyleRevision = DesiredStyleRevision.Empty
 
   public val style: MapStyleState = MapStyleState(initialBaseStyle).also { it.attach(this) }
 
@@ -267,6 +269,15 @@ internal constructor(
     lock.withLock {
       if (!closed && (attachment?.adapter === adapter || retainedAdapter === adapter)) {
         style.loadState = StyleLoadState.Failed(reason)
+      }
+    }
+  }
+
+  internal fun beginStyleRevision(adapter: MapAdapter, revision: DesiredStyleRevision) {
+    lock.withLock {
+      if (!closed && (attachment?.adapter === adapter || retainedAdapter === adapter)) {
+        desiredStyleRevision = revision
+        style.loadState = StyleLoadState.Loading
       }
     }
   }
