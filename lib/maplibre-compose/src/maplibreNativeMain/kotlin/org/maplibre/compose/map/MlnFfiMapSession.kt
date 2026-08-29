@@ -425,6 +425,10 @@ internal class MlnFfiMapSession(
     }
   }
 
+  override suspend fun awaitClosed() {
+    lifecycle.awaitClosed()
+  }
+
   override suspend fun createEngine(identity: EngineMapIdentity) {
     lifecycleEngineIdentity = identity
     lifecycleStyleRequestIdentity = lifecycle.claimStyleRequestIdentity(identity)

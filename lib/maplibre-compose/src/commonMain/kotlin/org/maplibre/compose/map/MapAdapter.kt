@@ -19,6 +19,10 @@ import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
 internal interface MapAdapter {
+  fun close()
+
+  suspend fun awaitClosed()
+
   suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration)
 
   suspend fun animateCameraPosition(

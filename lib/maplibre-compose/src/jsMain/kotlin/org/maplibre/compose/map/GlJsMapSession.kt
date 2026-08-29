@@ -89,6 +89,10 @@ internal class GlJsMapSession(
   internal var layoutDirection: LayoutDirection,
 ) : MapAdapter, GlJsMapRenderer, GestureTarget, MapLifecyclePlatformAdapter {
 
+  init {
+    createdCount += 1
+  }
+
   internal var callbacks: MapAdapter.Callbacks = callbacks
   private val lifecycle = MapLifecycleAuthority(this)
   private val lifecycleCallbacks = MapLifecycleCallbacks(lifecycle) { this.callbacks }
@@ -241,6 +245,10 @@ internal class GlJsMapSession(
     } finally {
       lifecycle.close()
     }
+  }
+
+  override suspend fun awaitClosed() {
+    lifecycle.awaitClosed()
   }
 
   fun start() {
@@ -1160,8 +1168,11 @@ internal class GlJsMapSession(
       )
       .toPosition()
 
-  private companion object {
+  internal companion object {
     const val OFFSCREEN_CONTAINER_STYLE =
       "position:absolute;left:-10000px;top:0;visibility:hidden;pointer-events:none;"
+
+    var createdCount: Int = 0
+      private set
   }
 }

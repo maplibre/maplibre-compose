@@ -6,7 +6,7 @@ import java.io.File
 import kotlinx.io.files.Path
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 
-/** Process-wide configuration for MapLibre Native on Android. */
+/** Configuration for one MapLibre Native runtime on Android. */
 @Immutable
 public data class AndroidRuntimeOptions(
   /** Where the ambient resource cache and offline-region database live. */

@@ -76,7 +76,7 @@ exact result types.
 ```kotlin
 fun createMapRuntime(
   options: MapRuntimeOptions,
-): OwnedMapRuntime
+): MapRuntime
 
 @Composable
 fun rememberMapRuntime(): MapRuntime
@@ -98,6 +98,7 @@ fun MaplibreMap(
 interface MapRuntime {
   val capabilities: MapRuntimeCapabilities
   val offlineManager: OfflineManager
+  val isClosed: Boolean
 
   fun createMapState(
     initialCameraPosition: CameraPosition = CameraPosition(),
@@ -108,17 +109,15 @@ interface MapRuntime {
     baseStyle: BaseStyle,
     styleComposition: StyleComposition = StyleComposition.Empty,
   ): MapSnapshotter
+
+  fun close()
+  suspend fun awaitClosed()
 }
 
 data class MapRuntimeCapabilities(
   val supportsOfflinePacks: Boolean,
   val supportsAmbientCacheManagement: Boolean,
 )
-
-interface OwnedMapRuntime : MapRuntime {
-  fun close()
-  suspend fun awaitClosed()
-}
 
 interface MapState {
   val cameraPosition: CameraPosition
@@ -156,12 +155,15 @@ interface MapSnapshotter {
 }
 ```
 
-`rememberMapRuntime()` returns the process-owned default runtime. It does not
-create one runtime per call and does not expose closure. Applications call
-`createMapRuntime()` when they need custom configuration or deterministic
-closure; the result is an `OwnedMapRuntime`. Independently configured owned
-runtimes can coexist. There is no `LocalMapRuntime`; runtime ownership is
-explicit in `rememberMapState`.
+`rememberMapRuntime()` returns one default runtime for the process. It does not
+create one runtime per call. `createMapRuntime()` creates a runtime with custom
+configuration. Independently configured runtimes can coexist. There is no
+`LocalMapRuntime`; `rememberMapState` receives its runtime explicitly.
+
+Every runtime exposes `close()` and `awaitClosed()`. Closing the process default
+closes its children and permanently closes that instance. Later
+`rememberMapRuntime()` calls return the same closed instance, and new child
+creation fails.
 
 ### Runtime
 
@@ -175,15 +177,13 @@ explicit in `rememberMapState`.
 - Expose platform capabilities when a common operation is not universally
   available.
 
-`OwnedMapRuntime.close()` commits logical closure synchronously. New work fails
-after that call. Physical cleanup runs in a non-cancellable path.
-`awaitClosed()` waits until every child and shared resource has finished
-cleanup. Closing a child does not close its runtime.
+`MapRuntime.close()` commits logical closure synchronously. New work fails after
+that call. Physical cleanup runs in a non-cancellable path. `awaitClosed()`
+waits until every child and shared resource has finished cleanup. Closing a
+child does not close its runtime.
 
-The default runtime is process-owned and is not closeable through the public
-API. An explicit runtime is application-owned. The current process-wide native
-configuration singleton is an implementation constraint to remove, not a public
-invariant to preserve.
+The current process-wide native configuration singleton is an implementation
+constraint to remove, not a public invariant to preserve.
 
 Web implements the same runtime type. `MapRuntimeCapabilities` reports
 `supportsOfflinePacks` and `supportsAmbientCacheManagement`. Native reports the

@@ -5,6 +5,17 @@ import java.nio.file.Paths
 import org.maplibre.compose.mlnffi.MlnFfiApplication
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 
+/** Configuration for one desktop map runtime that the caller closes. */
+public data class DesktopRuntimeOptions(
+  /** Reverse-domain name for the runtime's cache directory. */
+  public val applicationId: String = inferredApplicationId(),
+  /** Ambient cache size in bytes, or null for MapLibre's default. */
+  public val maximumCacheSizeBytes: Long? = null,
+)
+
+internal fun DesktopRuntimeOptions.toMlnFfiRuntimeOptions(): MlnFfiRuntimeOptions =
+  desktopRuntimeOptions(applicationId, maximumCacheSizeBytes)
+
 /** Desktop configuration for MapLibre Compose. */
 public object MapLibre {
   /**
