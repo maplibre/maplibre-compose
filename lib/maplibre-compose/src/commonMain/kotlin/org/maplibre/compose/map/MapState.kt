@@ -90,8 +90,10 @@ private val EMPTY_STYLE_COMPOSITION: @Composable @MaplibreComposable () -> Unit 
  * [loadState] becomes [MapLoadState.Ready] for the new generation, or from the [MaplibreMap]
  * `onMapLoadFinished` callback, and watch [styleErrors] for a reapplication the new style refuses.
  *
- * Logical writes run on the host dispatcher, [Dispatchers.Main] in an app. Platform callbacks post
- * to that dispatcher and do not enter this state from the native owner thread.
+ * Logical writes run on the host dispatcher. An app with Compose Main uses that dispatcher. A
+ * desktop CLI that constructs [MapState] for [captureStillImage] uses a dedicated host thread.
+ * Platform callbacks post to that dispatcher and do not enter this state from the native owner
+ * thread.
  */
 public class MapState
 internal constructor(
@@ -100,13 +102,15 @@ internal constructor(
   layoutDirection: LayoutDirection = LayoutDirection.Ltr,
   logger: Logger? = null,
   inheritedLocals: CompositionLocalContext? = null,
-  hostDispatcher: CoroutineDispatcher = Dispatchers.Main,
+  hostDispatcher: CoroutineDispatcher = defaultHostDispatcher(),
 ) : AutoCloseable {
 
   /**
    * Creates a state that owns its own camera and style wiring.
    *
-   * The camera starts at [cameraPosition], and a session that attaches starts the map there.
+   * The camera starts at [cameraPosition], and a session that attaches starts the map there. A
+   * desktop caller that never starts Compose still gets a host thread for logical writes, so
+   * [captureStillImage] can run from a CLI.
    *
    * @param density Scales dp-sized values, such as the [captureStillImage] output and rasterized
    *   painter images.
@@ -254,7 +258,10 @@ internal constructor(
   init {
     host.inheritedLocals = inheritedLocals
     styleNode.appSourceOwned = { id -> record.read { id in appSources } }
-    record.applySessionOptions = { adapter -> sessionOptions?.applyTo(adapter) }
+    record.applySessionOptions = { adapter ->
+      adapter.setLayoutDirection(layoutDirection)
+      sessionOptions?.applyTo(adapter)
+    }
     record.pointBinding = { binding ->
       styleNode.binding = binding
       adoptOwnedSources()
@@ -598,6 +605,7 @@ internal constructor(
     callbacks.onMapLongClick = onMapLongClick
     callbacks.onFrame = onFrame
     callbacks.clickScope = clickScope
+    attachedAdapter?.setLayoutDirection(layoutDirection)
     attachedAdapter?.let(options::applyTo)
     return true
   }

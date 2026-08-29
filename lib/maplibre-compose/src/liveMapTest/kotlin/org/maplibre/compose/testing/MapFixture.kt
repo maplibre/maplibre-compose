@@ -147,7 +147,7 @@ internal class RecordingMapCallbacks : MapAdapter.Callbacks {
     sourceChanges += sourceId
   }
 
-  override fun onMapFailLoading(reason: String?, styleGeneration: Long) {
+  override fun onMapFailLoading(map: MapAdapter, reason: String?, styleGeneration: Long) {
     errors += "mapFailLoading: $reason"
   }
 

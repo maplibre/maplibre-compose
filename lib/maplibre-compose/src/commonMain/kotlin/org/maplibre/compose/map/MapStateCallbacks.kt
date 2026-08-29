@@ -46,10 +46,9 @@ internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callb
     state.postLogical { styleChanged(map, style, styleGeneration) }
   }
 
-  override fun onMapFailLoading(reason: String?, styleGeneration: Long) {
-    val source = state.attachedAdapter ?: state.engine.detachedAdapter
+  override fun onMapFailLoading(map: MapAdapter, reason: String?, styleGeneration: Long) {
     state.postLogical {
-      styleLoadFailed(source, styleGeneration, reason ?: "MapLibre failed to load the map")
+      styleLoadFailed(map, styleGeneration, reason ?: "MapLibre failed to load the map")
     }
   }
 
@@ -62,11 +61,10 @@ internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callb
     state.commit { styleLoadFinished(map, state.styleGeneration) }
   }
 
-  /** Test helper: fail the current generation. */
-  fun onMapFailLoading(reason: String?) {
-    val source = state.attachedAdapter ?: state.engine.detachedAdapter
+  /** Test helper: fail the current generation from [map]. */
+  fun onMapFailLoading(map: MapAdapter, reason: String?) {
     state.commit {
-      styleLoadFailed(source, state.styleGeneration, reason ?: "MapLibre failed to load the map")
+      styleLoadFailed(map, state.styleGeneration, reason ?: "MapLibre failed to load the map")
     }
   }
 

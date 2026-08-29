@@ -527,7 +527,7 @@ internal class MlnFfiMapCore(
         // setter.
         val reason = event.message.ifBlank { "MapLibre failed to load the map" }
         logger?.e { "Map loading failed (code ${event.code}): $reason" }
-        callbacks.onMapFailLoading(reason, commandedGeneration)
+        callbacks.onMapFailLoading(this, reason, commandedGeneration)
       }
 
       RuntimeEventType.MAP_CAMERA_WILL_CHANGE -> beginCameraMove()
@@ -868,6 +868,10 @@ internal class MlnFfiMapCore(
 
   override fun setCameraPosition(cameraPosition: CameraPosition) {
     recordCamera(cameraPosition)
+  }
+
+  override fun setLayoutDirection(direction: LayoutDirection) {
+    layoutDirection = direction
   }
 
   override fun setCameraPadding(padding: PaddingValues) {

@@ -36,7 +36,6 @@ internal actual fun ComposableMapView(state: MapState, modifier: Modifier, optio
 
   session.callbacks = state.callbacks
   session.logger = logger
-  session.layoutDirection = layoutDirection
 
   MapSessionHost(
     resource = resource,

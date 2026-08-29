@@ -96,7 +96,6 @@ internal fun MlnFfiMapView(
 
   core.callbacks = state.callbacks
   core.logger = logger
-  core.layoutDirection = layoutDirection
 
   MapSessionHost(
     resource = resource,

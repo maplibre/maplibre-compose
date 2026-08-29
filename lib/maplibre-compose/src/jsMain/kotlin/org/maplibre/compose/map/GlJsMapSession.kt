@@ -424,7 +424,7 @@ internal class GlJsMapSession(
       if (styleLoadPending && event.isStyleDocumentError()) {
         styleLoadPending = false
         logger?.e { "Map loading failed: $reason" }
-        callbacks.onMapFailLoading(reason, commandedGeneration)
+        callbacks.onMapFailLoading(this, reason, commandedGeneration)
         if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
       } else {
         // Source, tile, and sprite failures land here too, and are not the map failing to load.
@@ -535,7 +535,7 @@ internal class GlJsMapSession(
       styleLoadPending = false
       val reason = error.message ?: "MapLibre failed to load the map"
       logger?.e(error) { "Map loading failed: $reason" }
-      callbacks.onMapFailLoading(reason, generation)
+      callbacks.onMapFailLoading(this, reason, generation)
       if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
     }
   }
@@ -558,6 +558,10 @@ internal class GlJsMapSession(
   override fun setCameraPosition(cameraPosition: CameraPosition) {
     requestedCamera = cameraPosition
     onMap { map -> map.jumpTo(cameraPosition.toJumpToOptions()) }
+  }
+
+  override fun setLayoutDirection(direction: LayoutDirection) {
+    layoutDirection = direction
   }
 
   override fun setCameraPadding(padding: PaddingValues) {

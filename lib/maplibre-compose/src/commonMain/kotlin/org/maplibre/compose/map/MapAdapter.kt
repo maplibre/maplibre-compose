@@ -3,6 +3,7 @@ package org.maplibre.compose.map
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
+import androidx.compose.ui.unit.LayoutDirection
 import kotlin.time.Duration
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraMoveReason
@@ -58,6 +59,9 @@ internal interface MapAdapter {
 
   fun setTileLodSettings(value: TileLodOptions)
 
+  /** Uses [direction] when this adapter resolves start and end padding. */
+  fun setLayoutDirection(direction: LayoutDirection) {}
+
   /** Null while the map has no viewport to convert with. */
   fun positionFromScreenLocation(offset: DpOffset): Position?
 
@@ -88,7 +92,8 @@ internal interface MapAdapter {
     /** A null [sourceId] means that the adapter cannot identify the changed source. */
     fun onSourceChanged(map: MapAdapter, sourceId: String?)
 
-    fun onMapFailLoading(reason: String?, styleGeneration: Long)
+    /** [map] failed to load [styleGeneration]. */
+    fun onMapFailLoading(map: MapAdapter, reason: String?, styleGeneration: Long)
 
     /**
      * The render surface went away; projection and viewport stay unavailable until a replacement.

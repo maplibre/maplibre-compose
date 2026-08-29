@@ -3,6 +3,7 @@ package org.maplibre.compose.map
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
+import androidx.compose.ui.unit.LayoutDirection
 import kotlin.time.Duration
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
@@ -21,6 +22,7 @@ internal class FakeMapAdapter : MapAdapter {
   val styleLoads: MutableList<Pair<BaseStyle, Long>> = mutableListOf()
   var camera: CameraPosition = CameraPosition()
   var reportedViewport: Viewport? = null
+  var appliedLayoutDirection: LayoutDirection = LayoutDirection.Ltr
 
   override suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration) {
     calls += "animateCameraPosition"
@@ -81,6 +83,11 @@ internal class FakeMapAdapter : MapAdapter {
 
   override fun setTileLodSettings(value: TileLodOptions) {
     calls += "setTileLodSettings"
+  }
+
+  override fun setLayoutDirection(direction: LayoutDirection) {
+    calls += "setLayoutDirection"
+    appliedLayoutDirection = direction
   }
 
   override fun positionFromScreenLocation(offset: DpOffset): Position? = null

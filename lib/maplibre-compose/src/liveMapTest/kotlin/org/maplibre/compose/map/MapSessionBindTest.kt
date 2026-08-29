@@ -114,7 +114,7 @@ class MapSessionBindTest {
       state.publishSessionEnvironment(
         owner = owner,
         density = Density(2f),
-        layoutDirection = LayoutDirection.Ltr,
+        layoutDirection = LayoutDirection.Rtl,
         inheritedLocals = null,
         options = sessionOptions(zoomRange = 1f..10f),
         onMapClick = { _, _ -> ClickResult.Pass },
@@ -123,12 +123,13 @@ class MapSessionBindTest {
         clickScope = scope,
       )
     )
+    assertEquals(LayoutDirection.Rtl, adapter.appliedLayoutDirection)
     val constraintWrites = adapter.calls.count { it == "setCameraConstraints" }
     assertFalse(
       state.publishSessionEnvironment(
         owner = rival,
         density = Density(3f),
-        layoutDirection = LayoutDirection.Rtl,
+        layoutDirection = LayoutDirection.Ltr,
         inheritedLocals = null,
         options = sessionOptions(zoomRange = 4f..8f),
         onMapClick = { _, _ -> ClickResult.Pass },
@@ -138,7 +139,8 @@ class MapSessionBindTest {
       )
     )
     assertEquals(2f, state.density.density)
-    assertEquals(LayoutDirection.Ltr, state.layoutDirection)
+    assertEquals(LayoutDirection.Rtl, state.layoutDirection)
+    assertEquals(LayoutDirection.Rtl, adapter.appliedLayoutDirection)
     assertEquals(constraintWrites, adapter.calls.count { it == "setCameraConstraints" })
     state.detachSession()
     assertEquals(1f, state.density.density)

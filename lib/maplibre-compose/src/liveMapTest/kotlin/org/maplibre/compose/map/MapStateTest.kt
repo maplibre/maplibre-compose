@@ -248,6 +248,25 @@ class MapStateTest {
   }
 
   @Test
+  fun a_stale_adapter_load_failure_does_not_fail_the_replacement_session() = runTest {
+    val state = mapState()
+    val first = FakeMapAdapter()
+    val second = FakeMapAdapter()
+    state.attachSession(first)
+    val generation = state.styleGeneration
+    state.detachSession()
+    state.attachSession(second)
+    state.callbacks.onMapFailLoading(first, "stale", generation)
+    testScheduler.advanceUntilIdle()
+    assertIs<MapLoadState.Loading>(state.loadState)
+    state.callbacks.onMapFailLoading(second, "real", generation)
+    testScheduler.advanceUntilIdle()
+    val failed = assertIs<MapLoadState.Failed>(state.loadState)
+    assertEquals("real", failed.reason)
+    state.close()
+  }
+
+  @Test
   fun a_stale_style_completion_does_not_finish_the_current_load() = runTest {
     val state = mapState()
     val adapter = FakeMapAdapter()
