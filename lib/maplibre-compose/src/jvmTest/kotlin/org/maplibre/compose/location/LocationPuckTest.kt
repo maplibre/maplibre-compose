@@ -23,7 +23,7 @@ class LocationPuckTest {
   @Test
   fun locationFeatureExposesStaleness() {
     val location =
-      LocationFix(
+      LocationReading(
         position = Position(longitude = 13.0, latitude = 52.0),
         measuredAt = Clock.System.now(),
       )
@@ -41,7 +41,7 @@ class LocationPuckTest {
     val course = Bearing.North + 30.degrees
     val accuracy = 5.degrees
     val location =
-      LocationFix(
+      LocationReading(
         position = Position(longitude = 13.0, latitude = 52.0),
         course = course,
         courseAccuracy = accuracy,
@@ -77,7 +77,7 @@ class LocationPuckTest {
   @Test
   fun suppliedMonotonicMarkDeterminesLiveStaleness() = runComposeUiTest {
     val location =
-      LocationFix(
+      LocationReading(
         position = Position(longitude = 13.0, latitude = 52.0),
         measuredAt = Clock.System.now(),
       )

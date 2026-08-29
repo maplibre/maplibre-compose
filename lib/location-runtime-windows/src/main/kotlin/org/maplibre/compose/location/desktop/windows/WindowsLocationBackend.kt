@@ -38,8 +38,8 @@ public class WindowsLocationBackend : DesktopLocationBackend {
  * desired accuracy to 1, 10, 100, 1,000, or 5,000 meters from [LocationAccuracy.BestForNavigation]
  * through [LocationAccuracy.Lowest], configures `ReportInterval`, and also enforces
  * [LocationRequest.minimumInterval] and [LocationRequest.minimumDistance] before delivery. The
- * first valid fix is always delivered. Cancelling collection removes both native event handlers and
- * releases the geolocator.
+ * first valid reading is always delivered. Cancelling collection removes both native event handlers
+ * and releases the geolocator.
  *
  * `Initializing`, `NoData`, and `NotInitialized` report
  * [LocationUnavailableReason.TemporarilyUnavailable]. `Disabled` reports
@@ -96,10 +96,10 @@ internal constructor(private val client: WindowsLocationClient) : DesktopLocatio
     val filter = WindowsLocationFilter(request.minimumInterval, request.minimumDistance.inMeters)
     val listener =
       object : WindowsLocationListener {
-        override fun onPosition(fix: WindowsLocationFix) {
-          val location = fix.asMapLibreLocationFix() ?: return
+        override fun onPosition(reading: WindowsLocationReading) {
+          val location = reading.asMapLibreLocationReading() ?: return
           synchronized(filter) {
-            if (filter.shouldDeliver(fix)) trySend(LocationEvent.Fix(location))
+            if (filter.shouldDeliver(reading)) trySend(LocationEvent.Update(location))
           }
         }
 

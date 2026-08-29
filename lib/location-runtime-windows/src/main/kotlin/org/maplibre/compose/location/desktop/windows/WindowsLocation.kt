@@ -10,8 +10,8 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 import org.maplibre.compose.location.LocationAccuracy
 import org.maplibre.compose.location.LocationAccuracyAuthorization
-import org.maplibre.compose.location.LocationFix
 import org.maplibre.compose.location.LocationPermission
+import org.maplibre.compose.location.LocationReading
 import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.units.Bearing
@@ -37,7 +37,7 @@ internal enum class WindowsPositionStatus {
   Unknown,
 }
 
-internal data class WindowsLocationFix(
+internal data class WindowsLocationReading(
   val latitude: Double,
   val longitude: Double,
   val altitudeMeters: Double?,
@@ -97,7 +97,7 @@ internal fun WindowsPositionStatus.asUnavailableReason(
     WindowsPositionStatus.Unknown -> LocationUnavailableReason.UnexpectedFailure
   }
 
-internal fun WindowsLocationFix.asMapLibreLocationFix(): LocationFix? {
+internal fun WindowsLocationReading.asMapLibreLocationReading(): LocationReading? {
   if (!latitude.isFinite() || latitude !in -90.0..90.0) return null
   if (!longitude.isFinite() || longitude !in -180.0..180.0) return null
   if (!horizontalAccuracyMeters.isFinite() || horizontalAccuracyMeters < 0.0) return null
@@ -112,7 +112,7 @@ internal fun WindowsLocationFix.asMapLibreLocationFix(): LocationFix? {
   val speed = speedMetersPerSecond?.takeIf { it.isFinite() && it >= 0.0 }?.meters
   val capturedAtMillis = (windowsTimestampTicks - WINDOWS_EPOCH_TICKS) / TICKS_PER_MILLISECOND
 
-  return LocationFix(
+  return LocationReading(
     position = Position(longitude = longitude, latitude = latitude, altitude = altitude),
     horizontalAccuracy = horizontalAccuracyMeters.meters,
     altitudeAccuracy = verticalAccuracy,
@@ -126,32 +126,32 @@ internal class WindowsLocationFilter(
   private val minimumInterval: Duration,
   private val minimumDistanceMeters: Double,
 ) {
-  private var previousFix: WindowsLocationFix? = null
+  private var previousReading: WindowsLocationReading? = null
   private var previousTimestampTicks: Long = 0
 
-  fun shouldDeliver(fix: WindowsLocationFix): Boolean {
-    val previous = previousFix
+  fun shouldDeliver(reading: WindowsLocationReading): Boolean {
+    val previous = previousReading
     if (previous == null) {
-      remember(fix)
+      remember(reading)
       return true
     }
     val elapsed =
-      ((fix.windowsTimestampTicks - previousTimestampTicks).coerceAtLeast(0) /
+      ((reading.windowsTimestampTicks - previousTimestampTicks).coerceAtLeast(0) /
           TICKS_PER_MILLISECOND)
         .milliseconds
     if (elapsed < minimumInterval) return false
-    if (haversineMeters(previous, fix) < minimumDistanceMeters) return false
-    remember(fix)
+    if (haversineMeters(previous, reading) < minimumDistanceMeters) return false
+    remember(reading)
     return true
   }
 
-  private fun remember(fix: WindowsLocationFix) {
-    previousFix = fix
-    previousTimestampTicks = fix.windowsTimestampTicks
+  private fun remember(reading: WindowsLocationReading) {
+    previousReading = reading
+    previousTimestampTicks = reading.windowsTimestampTicks
   }
 }
 
-private fun haversineMeters(first: WindowsLocationFix, second: WindowsLocationFix): Double {
+private fun haversineMeters(first: WindowsLocationReading, second: WindowsLocationReading): Double {
   val firstLatitude = first.latitude.toRadians()
   val secondLatitude = second.latitude.toRadians()
   val latitudeDelta = secondLatitude - firstLatitude

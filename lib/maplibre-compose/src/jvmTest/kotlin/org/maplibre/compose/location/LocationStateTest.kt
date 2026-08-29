@@ -85,7 +85,7 @@ class LocationStateTest {
         provider.permission.value =
           LocationPermission.Granted(LocationAccuracyAuthorization.Precise)
       }
-      waitUntil { locationProvider.active && state?.lastFix == locationProvider.location }
+      waitUntil { locationProvider.active && state?.lastReading == locationProvider.location }
 
       runOnIdle {
         provider.permission.value = LocationPermission.NotGranted(canRequest = false)
@@ -168,7 +168,7 @@ class LocationStateTest {
           )
       }
 
-      waitUntil { provider.active && state?.lastFix == provider.location }
+      waitUntil { provider.active && state?.lastReading == provider.location }
       assertEquals(
         LocationPermission.Granted(LocationAccuracyAuthorization.Unknown),
         state?.permission,
@@ -214,7 +214,7 @@ class LocationStateTest {
       waitUntil {
         locationProvider.active &&
           state?.let {
-            it.lastFix == locationProvider.location &&
+            it.lastReading == locationProvider.location &&
               it.headingStatus == HeadingTrackingStatus.Unavailable(failure)
           } == true
       }
@@ -270,7 +270,7 @@ class LocationStateTest {
 
       waitUntil { locationProvider.active && headingProvider.activeCollectors == 1 }
       runOnIdle { headingProvider.headings.tryEmit(expectedHeading) }
-      waitUntil { state?.lastFix == expectedLocation && state.lastHeading == expectedHeading }
+      waitUntil { state?.lastReading == expectedLocation && state.lastHeading == expectedHeading }
 
       runOnIdle { enabled = false }
       waitUntil {
@@ -279,7 +279,7 @@ class LocationStateTest {
           state?.status == LocationTrackingStatus.Stopped &&
           state.headingStatus == HeadingTrackingStatus.Stopped
       }
-      assertEquals(expectedLocation, state?.lastFix)
+      assertEquals(expectedLocation, state?.lastReading)
       assertEquals(expectedHeading, state?.lastHeading)
     }
   }
@@ -300,7 +300,8 @@ class LocationStateTest {
       }
 
       waitUntil {
-        state?.let { it.lastFix == expected && it.status == LocationTrackingStatus.Stopped } == true
+        state?.let { it.lastReading == expected && it.status == LocationTrackingStatus.Stopped } ==
+          true
       }
     }
   }
@@ -343,21 +344,21 @@ class LocationStateTest {
     val first = LocationState()
     val second = LocationState()
     var trackedState by mutableStateOf(first)
-    val observed = mutableListOf<LocationFix>()
+    val observed = mutableListOf<LocationReading>()
 
     setContent {
       LocationTrackingEffect(trackedState) {
-        observed += currentFix
+        observed += currentReading
       }
     }
     val firstLocation = location(13.0)
-    runOnIdle { first.lastFix = firstLocation }
+    runOnIdle { first.lastReading = firstLocation }
     waitUntil { observed == listOf(firstLocation) }
 
     val secondLocation = location(14.0)
     runOnIdle {
       trackedState = second
-      second.lastFix = secondLocation
+      second.lastReading = secondLocation
     }
 
     waitUntil { observed == listOf(firstLocation, secondLocation) }
@@ -387,13 +388,14 @@ private class ResumedLifecycleOwner : LifecycleOwner {
   }
 }
 
-private class FiniteLocationProvider(private vararg val locations: LocationFix) : LocationProvider {
+private class FiniteLocationProvider(private vararg val locations: LocationReading) :
+  LocationProvider {
   override fun updates(request: LocationRequest): Flow<LocationEvent> =
-    flowOf(*locations.map(LocationEvent::Fix).toTypedArray())
+    flowOf(*locations.map(LocationEvent::Update).toTypedArray())
 }
 
 private class ActiveLocationProvider(
-  val location: LocationFix,
+  val location: LocationReading,
   override val backendAvailability: LocationBackendAvailability =
     LocationBackendAvailability.Available,
 ) : LocationProvider {
@@ -403,7 +405,7 @@ private class ActiveLocationProvider(
   override fun updates(request: LocationRequest): Flow<LocationEvent> = flow {
     active = true
     try {
-      emit(LocationEvent.Fix(location))
+      emit(LocationEvent.Update(location))
       awaitCancellation()
     } finally {
       active = false
@@ -474,8 +476,8 @@ private fun heading(degrees: Double): Heading =
     measuredAt = Clock.System.now(),
   )
 
-private fun location(longitude: Double): LocationFix =
-  LocationFix(
+private fun location(longitude: Double): LocationReading =
+  LocationReading(
     position = Position(longitude, 52.0),
     measuredAt = Clock.System.now(),
   )

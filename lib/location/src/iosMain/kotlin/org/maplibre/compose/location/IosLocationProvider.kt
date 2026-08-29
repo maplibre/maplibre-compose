@@ -106,8 +106,8 @@ public class IosLocationProvider : LocationProvider {
 
     fun sendLocation(location: CLLocation) {
       channel.trySend(
-        LocationEvent.Fix(
-          location.asMapLibreLocationFix(),
+        LocationEvent.Update(
+          location.asMapLibreLocationReading(),
           TimeSource.Monotonic.markNow() - location.ageAtReceipt(),
         )
       )

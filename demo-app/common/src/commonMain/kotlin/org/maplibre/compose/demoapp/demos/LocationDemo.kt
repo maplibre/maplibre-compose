@@ -43,7 +43,7 @@ object LocationDemo : Demo {
   override val destination = DemoDestination.None
 
   override val pointerPin: DemoPointerPin?
-    get() = lastFix?.let { position ->
+    get() = lastReading?.let { position ->
       val delta = 0.005
       val bounds =
         BoundingBox(
@@ -58,7 +58,7 @@ object LocationDemo : Demo {
   private var follow by mutableStateOf(true)
   private var engine by mutableStateOf(demoLocationEngines.first())
   private var useNativeIndicator by mutableStateOf(false)
-  private var lastFix by mutableStateOf<Position?>(null)
+  private var lastReading by mutableStateOf<Position?>(null)
   private var panelLocationState by mutableStateOf<LocationState?>(null)
   private var panelLocationBackendId by mutableStateOf<String?>(null)
 
@@ -94,13 +94,13 @@ object LocationDemo : Demo {
         }
     }
 
-    val location = locationState.lastFix
-    LaunchedEffect(location) { location?.position?.let { lastFix = it } }
+    val location = locationState.lastReading
+    LaunchedEffect(location) { location?.position?.let { lastReading = it } }
 
     LocationTrackingEffect(locationState = locationState, enabled = follow) {
-      if (previousFix == null) {
+      if (previousReading == null) {
         cameraState.animateTo(
-          CameraPosition(target = currentFix.position, zoom = 16.0),
+          CameraPosition(target = currentReading.position, zoom = 16.0),
           duration = DemoFlightDuration,
         )
       } else {

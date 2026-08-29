@@ -24,7 +24,7 @@ import org.maplibre.spatialk.units.Rotation
  * @property measuredAt Wall-clock instant when the location was measured.
  */
 @Serializable
-public data class LocationFix(
+public data class LocationReading(
   val position: Position,
   val horizontalAccuracy: Length? = null,
   val altitudeAccuracy: Length? = null,

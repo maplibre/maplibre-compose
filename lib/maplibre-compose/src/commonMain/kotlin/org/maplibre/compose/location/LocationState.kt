@@ -26,23 +26,23 @@ import org.maplibre.spatialk.units.extensions.degrees
 /**
  * Lifecycle-aware state for foreground location and heading tracking.
  *
- * [lastFix] and [lastHeading] retain their most recently received measurements when collection
+ * [lastReading] and [lastHeading] retain their most recently received measurements when collection
  * stops. [status] separately describes whether updates are active, so retained data is not mistaken
  * for a live update.
  */
 @Stable
 public class LocationState
 internal constructor(initialPermission: LocationPermission = LocationPermission.NotGranted(null)) {
-  /** The user's last known location fix. */
-  public var lastFix: LocationFix? by mutableStateOf(null)
+  /** The user's last known location reading. */
+  public var lastReading: LocationReading? by mutableStateOf(null)
     internal set
 
   /** The device's last known heading. */
   public var lastHeading: Heading? by mutableStateOf(null)
     internal set
 
-  /** Process-local monotonic mark for [lastFix], or `null` before the first fix. */
-  public var lastFixMeasurementMark: TimeMark? by mutableStateOf(null)
+  /** Process-local monotonic mark for [lastReading], or `null` before the first reading. */
+  public var lastReadingMeasurementMark: TimeMark? by mutableStateOf(null)
     internal set
 
   /** Current foreground location authorization. */
@@ -78,9 +78,9 @@ internal constructor(initialPermission: LocationPermission = LocationPermission.
     retryKey++
   }
 
-  internal fun accept(event: LocationEvent.Fix) {
-    lastFix = event.location
-    lastFixMeasurementMark = event.measurementMark
+  internal fun accept(event: LocationEvent.Update) {
+    lastReading = event.reading
+    lastReadingMeasurementMark = event.measurementMark
     status = LocationTrackingStatus.Tracking
   }
 }
@@ -211,7 +211,7 @@ public fun rememberLocationState(
                     }
                     .collect { event ->
                       when (event) {
-                        is LocationEvent.Fix -> state.accept(event)
+                        is LocationEvent.Update -> state.accept(event)
                         is LocationEvent.Unavailable ->
                           state.status =
                             LocationTrackingStatus.Unavailable(event.reason, event.cause)
@@ -285,8 +285,8 @@ public fun rememberLocationState(
  * Returns the most accurate bearing measurement available.
  *
  * This function considers the bearing from two potential sources:
- * 1. The course from the user's [LocationFix] (derived from GPS or other location services), which
- *    indicates the direction of travel.
+ * 1. The course from the user's [LocationReading] (derived from GPS or other location services),
+ *    which indicates the direction of travel.
  * 2. The device [Heading] (derived from the compass/magnetometer), which indicates the direction
  *    the top of the device is pointing.
  *
@@ -306,7 +306,7 @@ private data class BearingMeasurement(val bearing: Bearing, val accuracy: Rotati
 
 private fun LocationState.mostAccurateBearingMeasurement(): BearingMeasurement? =
   listOfNotNull(
-      lastFix?.course?.let { BearingMeasurement(it, lastFix?.courseAccuracy) },
+      lastReading?.course?.let { BearingMeasurement(it, lastReading?.courseAccuracy) },
       lastHeading?.let { BearingMeasurement(it.bearing, it.accuracy) },
     )
     .minByOrNull { it.accuracy ?: Double.POSITIVE_INFINITY.degrees }

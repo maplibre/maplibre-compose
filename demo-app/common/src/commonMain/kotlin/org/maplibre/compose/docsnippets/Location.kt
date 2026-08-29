@@ -23,6 +23,7 @@ fun Location() {
 
   val locationProvider = rememberDefaultLocationProvider()
   val headingProvider = rememberDefaultHeadingProvider() // optional: get heading from sensors
+
   val locationState =
     rememberLocationState(
       provider = locationProvider,
@@ -36,8 +37,8 @@ fun Location() {
       cameraState = cameraState,
     )
 
-    LocationTrackingEffect(locationState = locationState) {
-      cameraState.animateTo(CameraPosition(target = currentFix.position, zoom = 15.0))
+    LocationTrackingEffect(locationState) {
+      cameraState.animateTo(CameraPosition(target = currentReading.position, zoom = 15.0))
     }
   }
   // #endregion puck

@@ -35,10 +35,10 @@ actual val isDemoNativeLocationPuckAvailable: Boolean = true
 @Composable
 @MaplibreComposable
 actual fun DemoNativeLocationPuck(locationState: LocationState) {
-  val location = locationState.lastFix ?: return
+  val location = locationState.lastReading ?: return
   val bearing = locationState.mostAccurateBearing()
 
-  val isOld = rememberIsLocationOld(locationState.lastFixMeasurementMark)
+  val isOld = rememberIsLocationOld(locationState.lastReadingMeasurementMark)
   val colors = LocationPuckDefaults.colors()
   val dotFill = if (isOld) colors.dotFillColorOldLocation else colors.dotFillColorCurrentLocation
   val dot = remember(dotFill, colors) { DotPainter(dotFill, colors.dotStrokeColor) }
@@ -59,7 +59,7 @@ actual fun DemoNativeLocationPuck(locationState: LocationState) {
 
 /**
  * Whether [measurementMark] exceeds the same 30-second threshold that [LocationPuck]
- * [org.maplibre.compose.location.LocationPuck] uses to mark a retained fix as stale.
+ * [org.maplibre.compose.location.LocationPuck] uses to mark a retained reading as stale.
  */
 @Composable
 private fun rememberIsLocationOld(measurementMark: TimeMark?): Boolean {

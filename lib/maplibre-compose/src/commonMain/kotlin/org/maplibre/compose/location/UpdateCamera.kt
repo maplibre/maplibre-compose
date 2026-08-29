@@ -25,14 +25,14 @@ public suspend fun LocationChangeScope.updateCamera(
     when (updateBearing) {
       BearingUpdate.IGNORE -> null
       BearingUpdate.ALWAYS_NORTH -> Bearing.North
-      BearingUpdate.TRACK_COURSE -> currentFix.course
+      BearingUpdate.TRACK_COURSE -> currentReading.course
       BearingUpdate.TRACK_HEADING -> currentHeading?.bearing
       BearingUpdate.TRACK_AUTOMATIC -> mostAccurateBearing()
     }
 
   val newPosition =
     camera.position.copy(
-      target = currentFix.position,
+      target = currentReading.position,
       bearing =
         when (updateBearing) {
           BearingUpdate.IGNORE -> camera.position.bearing
@@ -67,7 +67,7 @@ public enum class BearingUpdate {
 
 private fun LocationChangeScope.mostAccurateBearing(): Bearing? =
   listOfNotNull(
-      currentFix.course?.let { CameraBearingMeasurement(it, currentFix.courseAccuracy) },
+      currentReading.course?.let { CameraBearingMeasurement(it, currentReading.courseAccuracy) },
       currentHeading?.let { CameraBearingMeasurement(it.bearing, it.accuracy) },
     )
     .minByOrNull { it.accuracy ?: Double.POSITIVE_INFINITY.degrees }

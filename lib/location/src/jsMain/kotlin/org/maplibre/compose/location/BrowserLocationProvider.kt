@@ -107,7 +107,7 @@ internal constructor(
               current.capturedAt - previous!!.capturedAt >= request.minimumInterval
           ) {
             previous = current
-            trySend(LocationEvent.Fix(current.asLocationFix()))
+            trySend(LocationEvent.Update(current.asLocationReading()))
           }
         }
         is BrowserResult.Error -> {
@@ -393,8 +393,8 @@ private fun GeolocationPositionError.toValue(): BrowserError =
     GeolocationPositionError.TIMEOUT -> BrowserError.Timeout
   }
 
-private fun BrowserPosition.asLocationFix(): LocationFix =
-  LocationFix(
+private fun BrowserPosition.asLocationReading(): LocationReading =
+  LocationReading(
     position = Position(longitude, latitude, altitude),
     horizontalAccuracy = horizontalAccuracyMeters.meters,
     altitudeAccuracy = if (altitude != null) altitudeAccuracyMeters?.meters else null,

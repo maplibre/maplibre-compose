@@ -65,10 +65,10 @@ import org.maplibre.spatialk.units.extensions.meters
 /**
  * Adds multiple layers to form a location puck from lifecycle-aware [locationState].
  *
- * The puck displays [LocationState.lastFix], schedules its stale styling from the monotonic
+ * The puck displays [LocationState.lastReading], schedules its stale styling from the monotonic
  * measurement age, and selects the more accurate of the travel course and device heading for its
- * bearing indicator. Use the [LocationFix] overload to display an arbitrary or replayed measurement
- * instead.
+ * bearing indicator. Use the [LocationReading] overload to display an arbitrary or replayed
+ * measurement instead.
  *
  * @param idPrefix The prefix used for the layers to display the location indicator.
  * @param locationState State providing the location and heading measurements to display.
@@ -77,8 +77,8 @@ import org.maplibre.spatialk.units.extensions.meters
  *   correctly draw the accuracy circle.
  * @param oldLocationThreshold Locations older than this will be styled differently.
  * @param accuracyThreshold A circle showing the accuracy range will be drawn when
- *   [LocationFix.horizontalAccuracy] is larger than this value. Use [Length.PositiveInfinity] to
- *   never show the accuracy range.
+ *   [LocationReading.horizontalAccuracy] is larger than this value. Use [Length.PositiveInfinity]
+ *   to never show the accuracy range.
  * @param colors The colors to use for the location puck.
  * @param sizes The sizes to use for the location puck.
  * @param onClick A [LocationClickHandler] to invoke when the main location indicator dot is
@@ -100,9 +100,9 @@ public fun LocationPuck(
 ) {
   LocationPuckContent(
     idPrefix = idPrefix,
-    location = locationState.lastFix,
+    location = locationState.lastReading,
     cameraState = cameraState,
-    measurementMark = locationState.lastFixMeasurementMark,
+    measurementMark = locationState.lastReadingMeasurementMark,
     bearing = locationState.mostAccurateBearing(),
     bearingAccuracy = locationState.mostAccurateBearingAccuracy(),
     oldLocationThreshold = oldLocationThreshold,
@@ -122,7 +122,7 @@ public fun LocationPuck(
  * and bearing accuracy are shown as well.
  *
  * @param idPrefix The prefix used for the layers to display the location indicator.
- * @param location The [LocationFix] providing the current or last known location.
+ * @param location The [LocationReading] providing the current or last known location.
  * @param measurementMark Process-local monotonic mark for when [location] was measured. A `null`
  *   value keeps the location styled as current.
  * @param bearing The bearing of the location puck, which determines the rotation of the bearing
@@ -135,8 +135,8 @@ public fun LocationPuck(
  *   want the camera to track the current location, use [LocationTrackingEffect].
  * @param oldLocationThreshold Locations older than this will be styled differently.
  * @param accuracyThreshold A circle showing the accuracy range will be drawn when
- *   [LocationFix.horizontalAccuracy] is larger than this value. Use [Length.PositiveInfinity] to
- *   never show the accuracy range.
+ *   [LocationReading.horizontalAccuracy] is larger than this value. Use [Length.PositiveInfinity]
+ *   to never show the accuracy range.
  * @param colors The colors to use for the location puck.
  * @param sizes The sizes to use for the location puck.
  * @param onClick A [LocationClickHandler] to invoke when the main location indicator dot is
@@ -147,7 +147,7 @@ public fun LocationPuck(
 @Composable
 public fun LocationPuck(
   idPrefix: String,
-  location: LocationFix?,
+  location: LocationReading?,
   cameraState: CameraState,
   measurementMark: TimeMark? = null,
   bearing: Bearing? = location?.course,
@@ -178,7 +178,7 @@ public fun LocationPuck(
 @Composable
 private fun LocationPuckContent(
   idPrefix: String,
-  location: LocationFix?,
+  location: LocationReading?,
   cameraState: CameraState,
   measurementMark: TimeMark?,
   bearing: Bearing?,
@@ -293,7 +293,7 @@ private fun LocationPuckContent(
   }
 }
 
-internal fun defaultBearingAccuracy(location: LocationFix?, bearing: Bearing?): Rotation? =
+internal fun defaultBearingAccuracy(location: LocationReading?, bearing: Bearing?): Rotation? =
   location?.courseAccuracy.takeIf { bearing == location?.course }
 
 @Composable
@@ -373,7 +373,7 @@ private fun rememberBearingAccuracyPainter(
 
 @Composable
 private fun rememberLocationSource(
-  location: LocationFix?,
+  location: LocationReading?,
   measurementMark: TimeMark?,
   bearing: Bearing? = location?.course,
   bearingAccuracy: Rotation? = location?.courseAccuracy,
@@ -389,7 +389,7 @@ private fun rememberLocationSource(
 }
 
 internal fun locationFeatures(
-  location: LocationFix?,
+  location: LocationReading?,
   bearing: Bearing?,
   bearingAccuracy: Rotation?,
   isOldLocation: Boolean,
@@ -431,4 +431,4 @@ internal fun rememberIsLocationOld(
   return isOld
 }
 
-public typealias LocationClickHandler = (LocationFix) -> Unit
+public typealias LocationClickHandler = (LocationReading) -> Unit

@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.filterNotNull
 /**
  * A form of [LaunchedEffect] that is specialized for tracking user location.
  *
- * [onLocationChange] is called when [LocationState.lastFix] changes. Course or device-heading
+ * [onLocationChange] is called when [LocationState.lastReading] changes. Course or device-heading
  * changes also trigger it when [trackBearing] is `true`.
  *
  * If [enabled] is `false`, [onLocationChange] is never called. Disabling this effect stops
@@ -38,7 +38,7 @@ public fun LocationTrackingEffect(
     // Read both mutable properties inside snapshotFlow; observing LocationState itself would not
     // emit when either property changes.
     snapshotFlow {
-        locationState.lastFix?.let { LocationSnapshot(it, locationState.lastHeading) }
+        locationState.lastReading?.let { LocationSnapshot(it, locationState.lastHeading) }
       }
       .filterNotNull()
       .distinctUntilChanged { old, new ->
@@ -53,27 +53,27 @@ public fun LocationTrackingEffect(
 
 /** The measurements that triggered a [LocationTrackingEffect] callback. */
 public interface LocationChangeScope {
-  /** The location fix from the previous callback, or `null` for the first callback. */
-  public val previousFix: LocationFix?
+  /** The location reading from the previous callback, or `null` for the first callback. */
+  public val previousReading: LocationReading?
 
-  /** The location fix that triggered this callback. */
-  public val currentFix: LocationFix
+  /** The location reading that triggered this callback. */
+  public val currentReading: LocationReading
 
   /** The most recently received device heading. */
   public val currentHeading: Heading?
 }
 
-private data class LocationSnapshot(val location: LocationFix, val heading: Heading?)
+private data class LocationSnapshot(val location: LocationReading, val heading: Heading?)
 
 private class LocationChangeCollector(private val onEmit: suspend LocationChangeScope.() -> Unit) :
   FlowCollector<LocationSnapshot>, LocationChangeScope {
   private var previousSnapshot: LocationSnapshot? = null
   private lateinit var currentSnapshot: LocationSnapshot
 
-  override val previousFix: LocationFix?
+  override val previousReading: LocationReading?
     get() = previousSnapshot?.location
 
-  override val currentFix: LocationFix
+  override val currentReading: LocationReading
     get() = currentSnapshot.location
 
   override val currentHeading: Heading?
