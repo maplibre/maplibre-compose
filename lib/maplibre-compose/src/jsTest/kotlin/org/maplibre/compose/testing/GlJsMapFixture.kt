@@ -73,6 +73,10 @@ internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
     pumpUntil("style $style to load", timeout) { events.contains(MapFixture.STYLE_LOADED) }
   }
 
+  internal fun fireStyleError(message: String) {
+    glJsSession.fireStyleErrorForTest(message)
+  }
+
   override suspend fun awaitMapReady(timeout: Duration) {
     pumpUntil("the map to render its first frame", timeout) { hasRendered }
   }

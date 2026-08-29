@@ -35,6 +35,7 @@ import org.maplibre.compose.gljs.GlJsRenderTarget
 import org.maplibre.compose.gljs.GlJsRuntime
 import org.maplibre.compose.gljs.GlJsSurfaceSession
 import org.maplibre.compose.gljs.JumpToOptions
+import org.maplibre.compose.gljs.MapEvent
 import org.maplibre.compose.gljs.MapOptions
 import org.maplibre.compose.gljs.MaplibreMap
 import org.maplibre.compose.gljs.PaddingOptions
@@ -134,7 +135,7 @@ internal class GlJsMapSession(
   private var styleLoadTracker: StyleLoadTracker? = null
   private var appliedStyleRequest: StyleRequestId? = null
 
-  /** Set while a style load is outstanding, so an `error` can be told from a tile failure. */
+  /** Set while a style load is outstanding and its listener classifies `error` events. */
   private var styleLoadPending = false
 
   private var styleBinding: GlJsStyleBinding? = null
@@ -608,6 +609,7 @@ internal class GlJsMapSession(
       }
     errorSubscription =
       map.subscribe("error") { event ->
+        if (!event.isTerminalStyleLoadFailure()) return@subscribe
         loadSubscription.cancel()
         errorSubscription.cancel()
         if (styleLoadSubscription === loadSubscription) styleLoadSubscription = null
@@ -655,6 +657,26 @@ internal class GlJsMapSession(
       }
       if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
     }
+  }
+
+  /**
+   * MapLibre sends style-request, source, sprite, tile, and API errors through one event. A
+   * terminal style-request error has no active request and occurs before MapLibre marks the style
+   * as loaded. The pinned MapLibre version exposes these fields on its internal `Style` object.
+   */
+  private fun MapEvent.isTerminalStyleLoadFailure(): Boolean {
+    val style = asDynamic().style ?: return false
+    return style._loaded != true && style._loadStyleRequest == null && style._frameRequest == null
+  }
+
+  internal fun fireStyleErrorForTest(message: String) {
+    val currentMap = map ?: return
+    val properties = js("({})")
+    properties.error = js("new Error()")
+    properties.error.message = message
+    properties.style = currentMap.asDynamic().style
+    properties.sourceId = "unrelated-source"
+    currentMap.fire("error", properties)
   }
 
   /** Answers camera reads made before the map exists. */
