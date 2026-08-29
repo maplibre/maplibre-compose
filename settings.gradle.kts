@@ -13,6 +13,9 @@ pluginManagement {
       }
     }
     mavenCentral()
+    maven("https://packages.jetbrains.team/maven/p/cmp/dev") {
+      content { includeGroupAndSubgroups("org.jetbrains.compose") }
+    }
     gradlePluginPortal()
   }
 }
@@ -20,6 +23,12 @@ pluginManagement {
 dependencyResolutionManagement {
   @Suppress("UnstableApiUsage")
   repositories {
+    maven("https://packages.jetbrains.team/maven/p/cmp/dev") {
+      content {
+        includeGroupAndSubgroups("org.jetbrains.compose")
+        includeGroupAndSubgroups("org.jetbrains.skiko")
+      }
+    }
     google {
       mavenContent {
         includeGroupAndSubgroups("androidx")
