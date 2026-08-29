@@ -24,11 +24,9 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
-import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeMark
-import kotlin.time.TimeSource
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -67,9 +65,10 @@ import org.maplibre.spatialk.units.extensions.meters
 /**
  * Adds multiple layers to form a location puck from lifecycle-aware [locationState].
  *
- * The puck displays [LocationState.lastFix], uses its process-local measurement mark for staleness,
- * and selects the more accurate of the travel course and device heading for its bearing indicator.
- * Use the [LocationFix] overload to display an arbitrary or replayed measurement instead.
+ * The puck displays [LocationState.lastFix], schedules its stale styling from the monotonic
+ * measurement age, and selects the more accurate of the travel course and device heading for its
+ * bearing indicator. Use the [LocationFix] overload to display an arbitrary or replayed measurement
+ * instead.
  *
  * @param idPrefix The prefix used for the layers to display the location indicator.
  * @param locationState State providing the location and heading measurements to display.
@@ -99,7 +98,7 @@ public fun LocationPuck(
   onClick: LocationClickHandler? = null,
   onLongClick: LocationClickHandler? = null,
 ) {
-  LocationPuck(
+  LocationPuckContent(
     idPrefix = idPrefix,
     location = locationState.lastFix,
     cameraState = cameraState,
@@ -123,11 +122,9 @@ public fun LocationPuck(
  * and bearing accuracy are shown as well.
  *
  * @param idPrefix The prefix used for the layers to display the location indicator.
- * @param location The [LocationFix] providing the current or last known location. Its
- *   [measurement instant][LocationFix.measuredAt] determines whether it is styled as old.
- * @param measurementMark The process-local monotonic mark for [location]. Pass
- *   [LocationState.lastFixMeasurementMark] with a fix from [LocationState]. The puck derives a mark
- *   from [LocationFix.measuredAt] when this value is `null`.
+ * @param location The [LocationFix] providing the current or last known location.
+ * @param measurementMark Process-local monotonic mark for when [location] was measured. A `null`
+ *   value keeps the location styled as current.
  * @param bearing The bearing of the location puck, which determines the rotation of the bearing
  *   indicator. Defaults to `location.course`, which is the direction of travel.
  * @param bearingAccuracy Estimated bearing error. Defaults to `location.courseAccuracy` when
@@ -161,6 +158,37 @@ public fun LocationPuck(
   sizes: LocationPuckSizes = LocationPuckSizes(),
   onClick: LocationClickHandler? = null,
   onLongClick: LocationClickHandler? = null,
+) {
+  LocationPuckContent(
+    idPrefix = idPrefix,
+    location = location,
+    cameraState = cameraState,
+    measurementMark = measurementMark,
+    bearing = bearing,
+    bearingAccuracy = bearingAccuracy,
+    oldLocationThreshold = oldLocationThreshold,
+    accuracyThreshold = accuracyThreshold,
+    colors = colors,
+    sizes = sizes,
+    onClick = onClick,
+    onLongClick = onLongClick,
+  )
+}
+
+@Composable
+private fun LocationPuckContent(
+  idPrefix: String,
+  location: LocationFix?,
+  cameraState: CameraState,
+  measurementMark: TimeMark?,
+  bearing: Bearing?,
+  bearingAccuracy: Rotation?,
+  oldLocationThreshold: Duration,
+  accuracyThreshold: Length,
+  colors: LocationPuckColors,
+  sizes: LocationPuckSizes,
+  onClick: LocationClickHandler?,
+  onLongClick: LocationClickHandler?,
 ) {
   val bearingPainter = rememberBearingPainter(sizes, colors)
   val positionAccuracy = location?.horizontalAccuracy
@@ -351,7 +379,7 @@ private fun rememberLocationSource(
   bearingAccuracy: Rotation? = location?.courseAccuracy,
   oldLocationThreshold: Duration = 30.seconds,
 ): GeoJsonSource {
-  val isOldLocation = rememberIsLocationOld(location, oldLocationThreshold, measurementMark)
+  val isOldLocation = rememberIsLocationOld(oldLocationThreshold, measurementMark)
   val features =
     remember(location, bearing, bearingAccuracy, isOldLocation) {
       locationFeatures(location, bearing, bearingAccuracy, isOldLocation)
@@ -385,35 +413,22 @@ internal fun locationFeatures(
 
 @Composable
 internal fun rememberIsLocationOld(
-  location: LocationFix?,
   oldLocationThreshold: Duration,
-  measurementMark: TimeMark? = null,
+  measurementMark: TimeMark?,
 ): Boolean {
-  val effectiveMeasurementMark = measurementMark ?: rememberMeasurementMark(location)
   var isOld by
-    remember(effectiveMeasurementMark, oldLocationThreshold) {
-      mutableStateOf(
-        effectiveMeasurementMark?.elapsedNow()?.let { it > oldLocationThreshold } == true
-      )
+    remember(measurementMark, oldLocationThreshold) {
+      mutableStateOf(measurementMark?.elapsedNow()?.let { it > oldLocationThreshold } == true)
     }
-  LaunchedEffect(effectiveMeasurementMark, oldLocationThreshold) {
-    if (effectiveMeasurementMark == null || isOld) return@LaunchedEffect
+  LaunchedEffect(measurementMark, oldLocationThreshold) {
+    if (measurementMark == null || isOld) return@LaunchedEffect
 
-    val remaining = oldLocationThreshold - effectiveMeasurementMark.elapsedNow()
+    val remaining = oldLocationThreshold - measurementMark.elapsedNow()
     if (remaining.isInfinite()) return@LaunchedEffect
     if (remaining > Duration.ZERO) delay(remaining)
     isOld = true
   }
   return isOld
 }
-
-@Composable
-private fun rememberMeasurementMark(location: LocationFix?): TimeMark? =
-  remember(location) {
-    location?.let {
-      TimeSource.Monotonic.markNow() -
-        (Clock.System.now() - it.measuredAt).coerceAtLeast(Duration.ZERO)
-    }
-  }
 
 public typealias LocationClickHandler = (LocationFix) -> Unit

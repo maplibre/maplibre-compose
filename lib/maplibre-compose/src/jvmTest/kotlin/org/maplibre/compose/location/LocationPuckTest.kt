@@ -54,17 +54,11 @@ class LocationPuckTest {
   }
 
   @Test
-  fun unchangedLocationBecomesOldAndNewLocationStartsFresh() = runComposeUiTest {
+  fun measurementBecomesOldAndNewMeasurementStartsFresh() = runComposeUiTest {
     mainClock.autoAdvance = false
-    var location by
-      mutableStateOf(
-        LocationFix(
-          position = Position(longitude = 13.0, latitude = 52.0),
-          measuredAt = Clock.System.now(),
-        )
-      )
+    var measurementMark by mutableStateOf(TimeSource.Monotonic.markNow())
     var isOld = false
-    setContent { isOld = rememberIsLocationOld(location, 1.seconds) }
+    setContent { isOld = rememberIsLocationOld(1.seconds, measurementMark) }
 
     mainClock.advanceTimeByFrame()
     waitForIdle()
@@ -74,7 +68,7 @@ class LocationPuckTest {
     waitForIdle()
     assertTrue(isOld)
 
-    location = location.copy(measuredAt = Clock.System.now())
+    measurementMark = TimeSource.Monotonic.markNow()
     mainClock.advanceTimeByFrame()
     waitForIdle()
     assertFalse(isOld)
@@ -91,7 +85,7 @@ class LocationPuckTest {
     var isOld = false
 
     setContent {
-      isOld = rememberIsLocationOld(location, 1.seconds, measurementMark)
+      isOld = rememberIsLocationOld(1.seconds, measurementMark)
     }
 
     waitForIdle()

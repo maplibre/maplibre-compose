@@ -14,17 +14,14 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
-import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeMark
-import kotlin.time.TimeSource
 import kotlinx.coroutines.delay
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.layers.LocationIndicatorLayer
-import org.maplibre.compose.location.LocationFix
 import org.maplibre.compose.location.LocationState
 import org.maplibre.compose.location.mostAccurateBearing
 import org.maplibre.compose.material3.LocationPuckDefaults
@@ -41,7 +38,7 @@ actual fun DemoNativeLocationPuck(locationState: LocationState) {
   val location = locationState.lastFix ?: return
   val bearing = locationState.mostAccurateBearing()
 
-  val isOld = rememberIsLocationOld(location, locationState.lastFixMeasurementMark)
+  val isOld = rememberIsLocationOld(locationState.lastFixMeasurementMark)
   val colors = LocationPuckDefaults.colors()
   val dotFill = if (isOld) colors.dotFillColorOldLocation else colors.dotFillColorCurrentLocation
   val dot = remember(dotFill, colors) { DotPainter(dotFill, colors.dotStrokeColor) }
@@ -61,25 +58,19 @@ actual fun DemoNativeLocationPuck(locationState: LocationState) {
 }
 
 /**
- * Whether [location] is older than the same 30-second threshold [LocationPuck]
+ * Whether [measurementMark] exceeds the same 30-second threshold that [LocationPuck]
  * [org.maplibre.compose.location.LocationPuck] uses to mark a retained fix as stale.
  */
 @Composable
-private fun rememberIsLocationOld(location: LocationFix, measurementMark: TimeMark?): Boolean {
+private fun rememberIsLocationOld(measurementMark: TimeMark?): Boolean {
   val threshold = 30.seconds
-  val effectiveMeasurementMark =
-    remember(location, measurementMark) {
-      measurementMark
-        ?: TimeSource.Monotonic.markNow() -
-          (Clock.System.now() - location.measuredAt).coerceAtLeast(Duration.ZERO)
-    }
   var isOld by
-    remember(effectiveMeasurementMark) {
-      mutableStateOf(effectiveMeasurementMark.elapsedNow() > threshold)
+    remember(measurementMark) {
+      mutableStateOf(measurementMark?.elapsedNow()?.let { it > threshold } == true)
     }
-  LaunchedEffect(effectiveMeasurementMark) {
-    if (isOld) return@LaunchedEffect
-    val remaining = threshold - effectiveMeasurementMark.elapsedNow()
+  LaunchedEffect(measurementMark) {
+    if (measurementMark == null || isOld) return@LaunchedEffect
+    val remaining = threshold - measurementMark.elapsedNow()
     if (remaining > Duration.ZERO) delay(remaining)
     isOld = true
   }

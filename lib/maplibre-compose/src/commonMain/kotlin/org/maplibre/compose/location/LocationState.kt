@@ -41,12 +41,7 @@ internal constructor(initialPermission: LocationPermission = LocationPermission.
   public var lastHeading: Heading? by mutableStateOf(null)
     internal set
 
-  /**
-   * Process-local monotonic mark for [lastFix], or `null` before the first fix.
-   *
-   * Use this value for live age calculations. Use [LocationFix.measuredAt] for persistence and
-   * replay.
-   */
+  /** Process-local monotonic mark for [lastFix], or `null` before the first fix. */
   public var lastFixMeasurementMark: TimeMark? by mutableStateOf(null)
     internal set
 

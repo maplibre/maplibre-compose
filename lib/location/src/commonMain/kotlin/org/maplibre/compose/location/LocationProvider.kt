@@ -147,7 +147,12 @@ public enum class LocationAccuracy {
 
 /** Events emitted while collecting [LocationProvider.updates]. */
 public sealed interface LocationEvent {
-  /** A measured location. */
+  /**
+   * A measured location.
+   *
+   * @property location The measured location.
+   * @property measurementMark Process-local monotonic mark for when [location] was measured.
+   */
   public data class Fix(
     val location: LocationFix,
     val measurementMark: TimeMark = location.measurementMark(),
