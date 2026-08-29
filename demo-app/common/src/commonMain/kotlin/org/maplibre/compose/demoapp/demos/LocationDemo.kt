@@ -29,8 +29,6 @@ import org.maplibre.compose.location.LocationState
 import org.maplibre.compose.location.LocationTrackingEffect
 import org.maplibre.compose.location.LocationTrackingStatus
 import org.maplibre.compose.location.LocationUnavailableReason
-import org.maplibre.compose.location.mostAccurateBearing
-import org.maplibre.compose.location.mostAccurateBearingAccuracy
 import org.maplibre.compose.location.rememberLocationState
 import org.maplibre.compose.location.rememberSystemSettingsLauncher
 import org.maplibre.compose.location.updateCamera
@@ -111,19 +109,11 @@ object LocationDemo : Demo {
     }
 
     if (useNativeIndicator) {
-      NativeLocationIndicator(
-        location = location,
-        measurementMark = locationState.lastFixMeasurementMark,
-        bearing = locationState.mostAccurateBearing(),
-        bearingAccuracy = locationState.mostAccurateBearingAccuracy(),
-      )
+      DemoNativeLocationPuck(locationState)
     } else {
       LocationPuck(
         idPrefix = "user",
-        location = location,
-        measurementMark = locationState.lastFixMeasurementMark,
-        bearing = locationState.mostAccurateBearing(),
-        bearingAccuracy = locationState.mostAccurateBearingAccuracy(),
+        locationState = locationState,
         cameraState = cameraState,
         colors = LocationPuckDefaults.colors(),
       )
@@ -158,7 +148,7 @@ object LocationDemo : Demo {
       ButtonRow("Retry") { panelLocationState?.retry() }
     }
     SwitchRow("Follow me", follow) { follow = it }
-    if (isNativeLocationIndicatorAvailable) {
+    if (isDemoNativeLocationPuckAvailable) {
       SwitchRow("Native indicator", useNativeIndicator) { useNativeIndicator = it }
     }
     if (demoLocationEngines.size > 1) {

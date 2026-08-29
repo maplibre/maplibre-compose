@@ -25,26 +25,23 @@ import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.layers.LocationIndicatorLayer
 import org.maplibre.compose.location.LocationFix
+import org.maplibre.compose.location.LocationState
+import org.maplibre.compose.location.mostAccurateBearing
 import org.maplibre.compose.material3.LocationPuckDefaults
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.units.Bearing
-import org.maplibre.spatialk.units.Rotation
 import org.maplibre.spatialk.units.extensions.inDegrees
 import org.maplibre.spatialk.units.extensions.inMeters
 
-actual val isNativeLocationIndicatorAvailable: Boolean = true
+actual val isDemoNativeLocationPuckAvailable: Boolean = true
 
 @Composable
 @MaplibreComposable
-actual fun NativeLocationIndicator(
-  location: LocationFix?,
-  measurementMark: TimeMark?,
-  bearing: Bearing?,
-  bearingAccuracy: Rotation?,
-) {
-  if (location == null) return
+actual fun DemoNativeLocationPuck(locationState: LocationState) {
+  val location = locationState.lastFix ?: return
+  val bearing = locationState.mostAccurateBearing()
 
-  val isOld = rememberIsLocationOld(location, measurementMark)
+  val isOld = rememberIsLocationOld(location, locationState.lastFixMeasurementMark)
   val colors = LocationPuckDefaults.colors()
   val dotFill = if (isOld) colors.dotFillColorOldLocation else colors.dotFillColorCurrentLocation
   val dot = remember(dotFill, colors) { DotPainter(dotFill, colors.dotStrokeColor) }

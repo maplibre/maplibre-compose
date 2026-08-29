@@ -8,8 +8,6 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.location.LocationPuck
 import org.maplibre.compose.location.LocationTrackingEffect
-import org.maplibre.compose.location.mostAccurateBearing
-import org.maplibre.compose.location.mostAccurateBearingAccuracy
 import org.maplibre.compose.location.rememberDefaultHeadingProvider
 import org.maplibre.compose.location.rememberDefaultLocationProvider
 import org.maplibre.compose.location.rememberLocationState
@@ -34,11 +32,7 @@ fun Location() {
   MaplibreMap(cameraState = cameraState) {
     LocationPuck(
       idPrefix = "user",
-      location = locationState.lastFix,
-      measurementMark = locationState.lastFixMeasurementMark,
-      // optional: combine the travel course and device heading
-      bearing = locationState.mostAccurateBearing(),
-      bearingAccuracy = locationState.mostAccurateBearingAccuracy(),
+      locationState = locationState,
       cameraState = cameraState,
     )
 

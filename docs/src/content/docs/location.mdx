@@ -25,10 +25,10 @@ unsupported or misconfigured platform without throwing.
 initially draws nothing. Afterward, the state retains the last fix when
 tracking stops or permission changes.
 
-A `Bearing` is an absolute horizontal direction from north. A heading is the
-bearing that the device faces, and a course is the bearing along which the
-device moves. A `Rotation` is a relative angular displacement. Use
-Use `(bearing - Bearing.North).inDegrees` to display an absolute bearing in degrees.
+A `Bearing` is an absolute horizontal direction, such as South or East. A
+heading is the bearing that the device faces, and a course is the bearing along
+which the device moves. A `Rotation` is a relative angular displacement, for
+example the angle between two bearings.
 
 ## Request permission
 
