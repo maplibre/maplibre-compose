@@ -1,11 +1,10 @@
-# 14: Expose generation-bound imperative style handles
+# 09: Expose generation-bound imperative style handles
 
 **What to build:** Expose imperative source and layer access through live
 handles that belong to exactly one loaded style identity. Keep persistent
 application content in StyleComposition.
 
-**Blocked by:** 01: Separate reusable style definitions from loaded styles; 11:
-Remove the superseded map APIs
+**Blocked by:** 01, 06
 
 **Status:** ready-for-agent
 
@@ -20,3 +19,18 @@ Remove the superseded map APIs
 - [ ] Persistent sources, layers, and images remain the responsibility of
       StyleComposition.
 - [ ] Immutable definitions remain reusable across maps and snapshotters.
+- [ ] Typed source handles cover transient data updates, feature state, source
+      and cluster queries, and custom-source invalidation.
+- [ ] Typed layer handles cover imperative property access.
+- [ ] Base-style resources are acquired by ID only after MapStyleState is ready.
+
+## Test ledger
+
+- Rewrite `FeatureStateTest.kt`, `GeoJsonClusterTest.kt`,
+  `BaseStyleSourceReadTest.kt`, `GeoJsonSourceUpdateTest.kt`,
+  `GeoJsonSourceStyleReloadTest.kt`, `VectorSourceQueryTest.kt`, and
+  custom-source invalidation tests through typed generation-bound handles.
+- Consolidate stale-handle semantics in common tests and keep platform tests for
+  each distinct engine operation only.
+- Run `mise run test:android`, `mise run test:desktop`, `mise run test:ios`, and
+  `mise run test:js`.

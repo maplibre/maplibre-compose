@@ -23,6 +23,10 @@ Local agent-facing issues use the canonical triage status vocabulary. See
 This repository uses the single-context domain-document layout. See
 `.agents/docs/domain.md`.
 
+Use `.agents/CONTEXT.md` for the glossary and `.agents/docs/adr/` for
+architectural decisions. These repository paths override skill defaults. Do not
+create `CONTEXT.md`, `docs/adr/`, or `docs/agents/`.
+
 ## Development commands
 
 Mise defines the tasks you run locally, pins every tool in `mise.toml`, and

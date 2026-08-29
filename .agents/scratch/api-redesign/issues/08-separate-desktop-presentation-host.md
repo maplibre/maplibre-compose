@@ -4,7 +4,7 @@
 resource with presentation-specific naming. Keep runtime configuration,
 logical-map ownership, and offline services outside that host.
 
-**Blocked by:** 04: Retain native engine maps between presentations
+**Blocked by:** 04
 
 **Status:** ready-for-agent
 
@@ -15,6 +15,18 @@ logical-map ownership, and offline services outside that host.
 - [ ] Cache, resource, HTTP, and offline configuration belongs to MapRuntime.
 - [ ] Replacing a presentation host replaces the presentation without replacing
       MapRuntime or MapState.
+- [ ] Backend or scale-factor incompatibility follows the native engine
+      replacement policy without transferring runtime ownership to the host.
 - [ ] Every desktop render backend and application host uses the renamed
       contract.
 - [ ] Desktop tests prove host, runtime, and logical-map lifetime independence.
+
+## Test ledger
+
+- Rewrite `ComposeMapHostBridgeLifecycleTest.kt` and
+  `RenderBackendNegotiationTest.kt` around presentation-host ownership and
+  compatibility.
+- Retain the Metal, Vulkan/OpenGL, and Direct3D contract tests only where they
+  verify a distinct backend boundary.
+- Run `mise run test:desktop` for the default backend and every backend changed
+  by the implementation.

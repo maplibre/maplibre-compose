@@ -5,8 +5,8 @@ code.
 
 ## Sources
 
-- Read `CONTEXT.md` at the repository root when it exists.
-- Read relevant decisions under `docs/adr/` when they exist.
+- Read `.agents/CONTEXT.md` when it exists.
+- Read relevant decisions under `.agents/docs/adr/` when they exist.
 - Proceed silently when these files do not exist. Domain-modeling skills create
   them when the work establishes a glossary or architectural decision.
 
@@ -14,8 +14,11 @@ code.
 
 This repository uses one domain context:
 
-- `CONTEXT.md` contains the shared glossary and domain model.
-- `docs/adr/` contains architectural decisions.
+- `.agents/CONTEXT.md` contains the shared glossary and domain model.
+- `.agents/docs/adr/` contains architectural decisions.
 
-Use terms from `CONTEXT.md` consistently. Surface any conflict with an existing
-ADR instead of silently overriding it.
+These paths override defaults in installed skills. Do not create root
+`CONTEXT.md`, `docs/adr/`, or `docs/agents/` paths.
+
+Use terms from `.agents/CONTEXT.md` consistently. Surface any conflict with an
+existing ADR instead of silently overriding it.
