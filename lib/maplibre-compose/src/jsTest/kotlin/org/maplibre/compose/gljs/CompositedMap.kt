@@ -78,7 +78,7 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
 
     override fun onSourceChanged(map: MapAdapter, sourceId: String?) = Unit
 
-    override fun onMapFailLoading(reason: String?) {
+    override fun onMapFailLoading(map: MapAdapter, reason: String?) {
       loadFailure = reason ?: "unknown"
     }
 

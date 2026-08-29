@@ -42,7 +42,7 @@ import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
 private class MapStateAttachment(
-  private val state: MapState,
+  val state: MapState,
   private val token: MapPresentationToken,
 ) {
   val runtime: RuntimeImplementation
@@ -221,8 +221,8 @@ public fun MaplibreMap(
           if (cameraState.map === map) cameraState.viewportState.value = map.getViewport()
         }
 
-        override fun onMapFailLoading(reason: String?) {
-          cameraState.map?.let { map -> stateAttachment?.markStyleFailed(map, reason) }
+        override fun onMapFailLoading(map: MapAdapter, reason: String?) {
+          stateAttachment?.markStyleFailed(map, reason)
           onMapLoadFailed(reason)
         }
 
@@ -317,6 +317,7 @@ public fun MaplibreMap(
     ComposableMapView(
       modifier = Modifier.fillMaxSize(),
       runtime = stateAttachment?.runtime,
+      state = stateAttachment?.state,
       style = baseStyle,
       update = { map ->
         map.setCameraPadding(cameraPadding)

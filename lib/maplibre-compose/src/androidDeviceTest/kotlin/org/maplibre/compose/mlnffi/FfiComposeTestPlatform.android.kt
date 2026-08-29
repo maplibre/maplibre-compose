@@ -19,8 +19,10 @@ internal actual fun runFfiComposeUiTest(block: suspend ComposeUiTest.() -> Unit)
 @OptIn(ExperimentalTestApi::class)
 internal actual fun ComposeUiTest.setFfiTestMapContent(
   runtimeOptions: MlnFfiRuntimeOptions,
+  presentationCount: Int,
   content: @Composable () -> Unit,
 ) {
+  require(presentationCount > 0) { "A map test must prepare at least one presentation" }
   MlnFfiApplication.configure(runtimeOptions)
   setContent(content)
 }
