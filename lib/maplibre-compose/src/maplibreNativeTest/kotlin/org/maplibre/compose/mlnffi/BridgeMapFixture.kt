@@ -48,6 +48,9 @@ private constructor(
   val errors: MutableList<String>
     get() = recorder.errors
 
+  val failGenerations: MutableList<Long>
+    get() = recorder.failGenerations
+
   /** The live style, once one has loaded. */
   val style: StyleBinding?
     get() = recorder.style

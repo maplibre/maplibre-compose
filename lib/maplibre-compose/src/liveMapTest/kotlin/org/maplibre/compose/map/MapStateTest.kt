@@ -238,6 +238,10 @@ class MapStateTest {
     testScheduler.advanceUntilIdle()
     job.cancel()
     testScheduler.advanceUntilIdle()
+    assertTrue(
+      state.record.read { pendingOperations.isEmpty() },
+      "a cancelled fit removes its unbound registry entry",
+    )
     val adapter = FakeMapAdapter()
     state.attachSession(adapter)
     testScheduler.advanceUntilIdle()

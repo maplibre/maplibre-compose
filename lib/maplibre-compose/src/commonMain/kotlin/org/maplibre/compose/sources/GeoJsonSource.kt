@@ -50,14 +50,24 @@ public class GeoJsonSource : Source {
     }
   }
 
+  /** Replaces [data] on the host with the engine command. */
+  internal fun replaceData(data: GeoJsonData) {
+    this.data = data
+  }
+
   /**
-   * Replaces the source's data. The definition updates immediately. When this source belongs to a
-   * [MapState][org.maplibre.compose.map.MapState], the state enqueues the install as a command.
+   * Replaces the source's data. When this source belongs to a
+   * [MapState][org.maplibre.compose.map.MapState], the definition and the engine write update
+   * together on the host.
    */
   public fun setData(data: GeoJsonData) {
-    if (data == this.data) return
-    this.data = data
-    map?.setGeoJsonData(id, data, options)
+    val state = map
+    if (state == null) {
+      if (data == this.data) return
+      this.data = data
+      return
+    }
+    state.setGeoJsonData(this, data)
   }
 
   public fun isCluster(feature: Feature<*, JsonObject?>): Boolean =

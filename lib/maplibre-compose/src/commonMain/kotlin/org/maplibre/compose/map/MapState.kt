@@ -36,7 +36,7 @@ import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.LayerPropertyCompiler
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.GeoJsonOptions
+import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.TileCoordinate
 import org.maplibre.compose.style.BaseStyle
@@ -421,7 +421,9 @@ internal constructor(
     writeAuthorizedLayer(styleGeneration, bindingGeneration, id) { binding ->
       if (!binding.isLoaded) return@writeAuthorizedLayer
       try {
-        binding.setLayerProperty(id, name, value, kind)
+        check(binding.setLayerProperty(id, name, value, kind)) {
+          "Layer '$id' write did not reach the style; the style unloaded first"
+        }
       } catch (error: StyleMutationException) {
         logger?.w {
           "Layer '$id' kept its previous '$name': MapLibre rejected $value (${error.message})."
@@ -438,7 +440,10 @@ internal constructor(
     filter: JsonElement,
   ) {
     writeAuthorizedLayer(styleGeneration, bindingGeneration, id) { binding ->
-      if (binding.isLoaded) binding.setLayerFilter(id, filter)
+      if (!binding.isLoaded) return@writeAuthorizedLayer
+      check(binding.setLayerFilter(id, filter)) {
+        "Layer '$id' write did not reach the style; the style unloaded first"
+      }
     }
   }
 
@@ -453,12 +458,21 @@ internal constructor(
     }
   }
 
-  internal fun setGeoJsonData(id: String, data: GeoJsonData, options: GeoJsonOptions) {
-    writeSource { binding ->
-      if (data is GeoJsonData.Uri) {
-        binding.setGeoJsonSourceUrl(id, data.uri)
-      } else {
-        binding.prepareGeoJson(data, options).use { binding.setGeoJsonSourceData(id, it) }
+  internal fun setGeoJsonData(source: GeoJsonSource, data: GeoJsonData) {
+    commit {
+      if (data == source.data) return@commit
+      source.replaceData(data)
+      val captured = binding
+      if (closed || captured === StyleBinding.UNLOADED || !captured.isLoaded) return@commit
+      enqueue {
+        if (!captured.isLoaded) return@enqueue
+        if (data is GeoJsonData.Uri) {
+          captured.setGeoJsonSourceUrl(source.id, data.uri)
+        } else {
+          captured.prepareGeoJson(data, source.options).use {
+            captured.setGeoJsonSourceData(source.id, it)
+          }
+        }
       }
     }
   }
@@ -781,7 +795,7 @@ internal constructor(
       commitOnHost { failOperation(opId) }
       throw error
     } finally {
-      commitOnHost { cancelOperation(opId) }
+      host.runOnHostBlocking { commitNow { cancelOperation(opId) } }
     }
   }
 

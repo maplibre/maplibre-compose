@@ -103,6 +103,30 @@ class LayerHandleFilterTest {
   }
 
   @Test
+  fun an_unloaded_style_reports_a_dropped_layer_write() = runTest {
+    val state = mapState()
+    state.setStyleComposition {}
+    val binding =
+      object : OpRecordingStyleBinding(baseLayers = listOf(BackgroundLayerDescriptor("bg"))) {
+        override fun setLayerProperty(
+          layerId: String,
+          name: String,
+          value: JsonElement,
+          kind: LayerPropertyKind,
+        ): Boolean = false
+
+        override fun setLayerFilter(layerId: String, filter: JsonElement): Boolean = false
+      }
+    attach(state, binding)
+    val handle = assertNotNull(state.layers["bg"])
+    val propertyError = assertFailsWith<IllegalStateException> { handle.minZoom = 4f }
+    assertTrue("unloaded" in propertyError.message.orEmpty(), propertyError.message)
+    val filterError = assertFailsWith<IllegalStateException> { handle.setFilter(nil()) }
+    assertTrue("unloaded" in filterError.message.orEmpty(), filterError.message)
+    state.close()
+  }
+
+  @Test
   fun a_handle_reads_the_live_layer_after_another_handle_writes() = runTest {
     val state = mapState()
     state.setStyleComposition {}

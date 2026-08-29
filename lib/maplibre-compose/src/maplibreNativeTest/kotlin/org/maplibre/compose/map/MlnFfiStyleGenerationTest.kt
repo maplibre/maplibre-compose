@@ -94,9 +94,27 @@ class MlnFfiStyleGenerationTest {
     }
   }
 
+  @Test
+  fun a_throwing_style_setter_fails_the_requested_generation() {
+    BridgeMapFixture.create().use { fixture ->
+      val core = fixture.core
+      fixture.loadStyle(FIRST_STYLE)
+      val firstGeneration = core.commandedStyleGeneration
+      core.setBaseStyle(MALFORMED_STYLE, firstGeneration + 1L)
+      fixture.pumpUntil("the requested style to fail") { fixture.failGenerations.isNotEmpty() }
+      assertEquals(
+        firstGeneration + 1L,
+        fixture.failGenerations.first(),
+        "a throw from the new setter belongs to the requested generation",
+      )
+    }
+  }
+
   private companion object {
     val FIRST_STYLE = BaseStyle.Json("""{"version":8,"name":"first","sources":{},"layers":[]}""")
 
     val SECOND_STYLE = BaseStyle.Json("""{"version":8,"name":"second","sources":{},"layers":[]}""")
+
+    val MALFORMED_STYLE = BaseStyle.Json("{ this is not json")
   }
 }

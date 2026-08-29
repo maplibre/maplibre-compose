@@ -757,8 +757,11 @@ internal class MlnFfiMapCore(
       appliedStyle = style
       appliedGeneration = generation
     } catch (error: MaplibreException) {
-      // The applied style stays unset so rebuilding the map retries.
+      // The applied style stays unset so rebuilding the map retries. Report [generation] here:
+      // styleLoadFailureGeneration still names the previous pump's applied style.
       logger?.e(error) { "Failed to apply style $style" }
+      val reason = error.message?.ifBlank { null } ?: "MapLibre failed to load the map"
+      callbacks.onMapFailLoading(this, reason, generation)
     }
   }
 

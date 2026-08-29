@@ -131,6 +131,8 @@ internal class RecordingMapCallbacks : MapAdapter.Callbacks {
 
   val errors: MutableList<String> = RecordingList()
 
+  val failGenerations: MutableList<Long> = RecordingList()
+
   var style: StyleBinding? = null
     private set
 
@@ -149,6 +151,7 @@ internal class RecordingMapCallbacks : MapAdapter.Callbacks {
 
   override fun onMapFailLoading(map: MapAdapter, reason: String?, styleGeneration: Long) {
     errors += "mapFailLoading: $reason"
+    failGenerations += styleGeneration
   }
 
   override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {

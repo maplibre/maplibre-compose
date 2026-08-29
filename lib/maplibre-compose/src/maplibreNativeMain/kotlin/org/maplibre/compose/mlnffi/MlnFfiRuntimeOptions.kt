@@ -7,6 +7,7 @@ import kotlinx.io.files.Path
 import org.maplibre.compose.offline.MlnFfiOfflineManager
 import org.maplibre.compose.resource.MlnFfiResourceProvider
 import org.maplibre.compose.resource.MlnFfiResourceProviderFactory
+import org.maplibre.nativeffi.Maplibre
 
 /** Platform-resolved configuration for a MapLibre Native FFI runtime. */
 @Immutable
@@ -63,6 +64,8 @@ internal object MlnFfiApplication {
 
   /** Starts the shared runtime; the offline manager's construction gates on its configuration. */
   private fun createState(options: MlnFfiRuntimeOptions): State {
+    // A UI-less first access reaches here without MlnFfiMapView.loadRuntimeBackends.
+    Maplibre.loadNativeLibrary()
     val runtime = MlnFfiRuntime(options, Logger.withTag("maplibre-compose"))
     runtime.start()
     return State(options, runtime, MlnFfiOfflineManager(options, runtime))

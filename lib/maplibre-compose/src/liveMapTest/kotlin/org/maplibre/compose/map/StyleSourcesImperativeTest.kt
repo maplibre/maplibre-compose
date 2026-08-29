@@ -497,4 +497,21 @@ class StyleSourcesImperativeTest {
     state.close()
     testScheduler.advanceUntilIdle()
   }
+
+  @Test
+  fun setData_updates_the_definition_with_the_engine_write() = runTest {
+    val state = mapState()
+    state.setStyleComposition {}
+    val binding = OpRecordingStyleBinding()
+    attach(state, binding)
+    val first = GeoJsonData.Uri("https://example.invalid/a.json")
+    val second = GeoJsonData.Uri("https://example.invalid/b.json")
+    val source = GeoJsonSource("geo", first, GeoJsonOptions())
+    state.sources.add(source)
+    source.setData(second)
+    assertEquals(second, source.data)
+    assertEquals(listOf(second.uri), binding.installedGeoJson["geo"])
+    state.close()
+    testScheduler.advanceUntilIdle()
+  }
 }
