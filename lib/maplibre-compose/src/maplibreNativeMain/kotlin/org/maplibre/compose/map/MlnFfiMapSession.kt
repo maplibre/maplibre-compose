@@ -156,7 +156,7 @@ internal class MlnFfiMapSession(
   @Volatile private var lifecycleEngineIdentity: EngineMapIdentity? = null
   @Volatile private var lifecycleRenderLease: RenderLease? = null
   @Volatile private var lifecycleStyleRequestIdentity: StyleRequestIdentity? = null
-  @Volatile private var appliedStyleRequestIdentity: StyleRequestIdentity? = null
+  @Volatile private var styleEventProducer: StyleEventProducer? = null
   @Volatile private var lifecycleStyleIdentity: StyleIdentity? = null
 
   override val engineRetention: EngineRetention = EngineRetention.RETAIN
@@ -415,8 +415,11 @@ internal class MlnFfiMapSession(
   }
 
   override fun close() {
-    endCameraMove()
-    lifecycle.close()
+    try {
+      endCameraMove()
+    } finally {
+      lifecycle.close()
+    }
   }
 
   override suspend fun createEngine(identity: EngineMapIdentity) {
@@ -437,7 +440,7 @@ internal class MlnFfiMapSession(
     if (lifecycleEngineIdentity == identity) {
       lifecycleEngineIdentity = null
       lifecycleStyleRequestIdentity = null
-      appliedStyleRequestIdentity = null
+      styleEventProducer = null
       lifecycleStyleIdentity = null
     }
     closePlatform()
@@ -720,11 +723,14 @@ internal class MlnFfiMapSession(
 
   private fun reportLoadedStyle(engine: EngineMapIdentity) {
     if (!styleLoadUnreported) return
-    styleLoadUnreported = false
     val request = appliedStyleRequest ?: return
     val identity = styleBinding?.identity ?: return
     if (styleLoadTracker?.reconciled(request, identity) == true) {
-      lifecycleStyleIdentity?.let { lifecycleCallbacks.onMapFinishedLoading(engine, it, this) }
+      lifecycleStyleIdentity?.let {
+        if (lifecycleCallbacks.onMapFinishedLoading(engine, it, this)) {
+          styleLoadUnreported = false
+        }
+      }
     }
   }
 
@@ -736,20 +742,26 @@ internal class MlnFfiMapSession(
 
       RuntimeEventType.MAP_STYLE_LOADED -> {
         styleLoadPending = false
-        // Descriptors holding the previous binding must not write into a style that is gone.
-        styleBinding?.invalidate()
-        val binding = createStyleBinding().also { styleBinding = it }
-        val request = appliedStyleRequest ?: return binding.invalidate()
-        if (styleLoadTracker?.loaded(request, binding.identity) != true) {
+        val producer = styleEventProducer?.takeIf { it.engine == engine } ?: return
+        val binding = createStyleBinding()
+        val trackerRequest = appliedStyleRequest ?: return binding.invalidate()
+        if (styleLoadTracker?.loaded(trackerRequest, binding.identity) != true) {
           binding.invalidate()
           loop?.map?.let(::applyRequestedStyle)
           return
         }
+        val acceptedStyle =
+          lifecycleCallbacks.onStyleChanged(engine, producer.request, this, binding)
+        if (acceptedStyle == null) {
+          binding.invalidate()
+          return
+        }
+        // Descriptors holding the previous binding must not write into a style that is gone.
+        styleBinding?.invalidate()
+        styleBinding = binding
         featureStateReplayPending.store(true)
         hasLoadedFirstStyle = true
-        val lifecycleRequest = appliedStyleRequestIdentity ?: return binding.invalidate()
-        lifecycleStyleIdentity =
-          lifecycleCallbacks.onStyleChanged(engine, lifecycleRequest, this, binding)
+        lifecycleStyleIdentity = acceptedStyle
         styleLoadUnreported = true
         reportedUrlAttribution.clear()
         // A producer frame that started before this callback can still hold the previous style.
@@ -779,7 +791,6 @@ internal class MlnFfiMapSession(
         // The only channel for a URL style's failure; a malformed inline style also throws from the
         // setter.
         val reason = event.message.ifBlank { "MapLibre failed to load the map" }
-        logger?.e { "Map loading failed (code ${event.code}): $reason" }
         val request = appliedStyleRequest
         val accepted =
           request != null &&
@@ -789,9 +800,13 @@ internal class MlnFfiMapSession(
               reason,
             ) == true
         if (accepted) {
-          appliedStyleRequestIdentity?.let {
-            lifecycleCallbacks.onMapFailLoading(engine, it, reason)
-          }
+          styleEventProducer
+            ?.takeIf { it.engine == engine }
+            ?.let {
+              if (lifecycleCallbacks.onMapFailLoading(engine, it.request, reason)) {
+                logger?.e { "Map loading failed (code ${event.code}): $reason" }
+              }
+            }
         } else {
           loop?.map?.let(::applyRequestedStyle)
         }
@@ -854,9 +869,10 @@ internal class MlnFfiMapSession(
     val reason =
       if (isGestureInProgress) CameraMoveReason.GESTURE else CameraMoveReason.PROGRAMMATIC
     if (reportedMoveReason == reason) return
-    reportedMoveReason = reason
     if (engine != null && lease != null) {
-      lifecycleCallbacks.onCameraMoveStarted(engine, lease, this, reason)
+      if (lifecycleCallbacks.onCameraMoveStarted(engine, lease, this, reason)) {
+        reportedMoveReason = reason
+      }
     }
   }
 
@@ -865,8 +881,9 @@ internal class MlnFfiMapSession(
     lease: RenderLease? = lifecycleRenderLease,
   ) {
     if (reportedMoveReason == null) return
-    reportedMoveReason = null
-    if (engine != null && lease != null) lifecycleCallbacks.onCameraMoveEnded(engine, lease, this)
+    if (engine != null && lease != null) {
+      if (lifecycleCallbacks.onCameraMoveEnded(engine, lease, this)) reportedMoveReason = null
+    }
   }
 
   /** Exists for tests. */
@@ -1020,7 +1037,11 @@ internal class MlnFfiMapSession(
     val request = styleLoadTracker?.beginLoading() ?: return
     appliedStyleRequest = request
     styleLoadPending = true
-    appliedStyleRequestIdentity = lifecycleStyleRequestIdentity
+    val engine = lifecycleEngineIdentity ?: return
+    val lifecycleRequest = lifecycleStyleRequestIdentity ?: return
+    // Replacing the native style disconnects the preceding style event producer. The runtime loop
+    // serializes this command with its event callback, so later events belong to this producer.
+    styleEventProducer = StyleEventProducer(engine, lifecycleRequest)
     // setStyleJson parses inline, so a malformed style throws as well as queueing
     // MAP_LOADING_FAILED; the queued event is what reports it.
     try {
@@ -1034,6 +1055,11 @@ internal class MlnFfiMapSession(
       logger?.e(error) { "Failed to apply style $style" }
     }
   }
+
+  private data class StyleEventProducer(
+    val engine: EngineMapIdentity,
+    val request: StyleRequestIdentity,
+  )
 
   /** Applied when a map is created. Getters read [mirroredViewport] after native applies it. */
   @Volatile private var requestedCamera: CameraPosition? = null

@@ -93,8 +93,11 @@ internal class GlJsMapSession(
   private var lifecycleEngineIdentity: EngineMapIdentity? = null
   private var lifecycleRenderLease: RenderLease? = null
   private var lifecycleStyleRequestIdentity: StyleRequestIdentity? = null
-  private var appliedStyleRequestIdentity: StyleRequestIdentity? = null
   private var lifecycleStyleIdentity: StyleIdentity? = null
+  private var styleLoadSubscription: GlJsSubscription? = null
+  private var styleErrorSubscription: GlJsSubscription? = null
+  private var styleDataSubscription: GlJsSubscription? = null
+  private var sourceDataSubscription: GlJsSubscription? = null
 
   override val engineRetention: EngineRetention = EngineRetention.DESTROY
 
@@ -164,8 +167,11 @@ internal class GlJsMapSession(
     val engine = lifecycleEngineIdentity
     val lease = lifecycleRenderLease
     if (engine != null && lease != null) {
-      endCameraMove(engine, lease)
-      lifecycle.beginEngineReplacement(engine, lease)
+      try {
+        endCameraMove(engine, lease)
+      } finally {
+        lifecycle.beginEngineReplacement(engine, lease)
+      }
     }
     surface = null
   }
@@ -226,8 +232,11 @@ internal class GlJsMapSession(
     if (lentContext != null) null else map?.getCanvas()
 
   override fun close() {
-    endCameraMove()
-    lifecycle.close()
+    try {
+      endCameraMove()
+    } finally {
+      lifecycle.close()
+    }
   }
 
   fun start() {
@@ -255,7 +264,6 @@ internal class GlJsMapSession(
     if (lifecycleEngineIdentity == identity) {
       lifecycleEngineIdentity = null
       lifecycleStyleRequestIdentity = null
-      appliedStyleRequestIdentity = null
       lifecycleStyleIdentity = null
     }
     destroyMap()
@@ -336,6 +344,14 @@ internal class GlJsMapSession(
     callbacks.onStyleChanged(this, null)
     styleBinding?.invalidate()
     styleBinding = null
+    styleLoadSubscription?.cancel()
+    styleLoadSubscription = null
+    styleErrorSubscription?.cancel()
+    styleErrorSubscription = null
+    styleDataSubscription?.cancel()
+    styleDataSubscription = null
+    sourceDataSubscription?.cancel()
+    sourceDataSubscription = null
     appliedStyle = null
     appliedStyleRequest = null
     styleLoadPending = false
@@ -402,72 +418,9 @@ internal class GlJsMapSession(
   // region events
 
   private fun wireEvents(map: MaplibreMap, engine: EngineMapIdentity, lease: RenderLease) {
-    var styleIdentity: StyleIdentity? = null
-    map.subscribe("style.load") {
-      val lifecycleRequest = appliedStyleRequestIdentity ?: return@subscribe
-      styleLoadPending = false
-      styleBinding?.invalidate()
-      val binding =
-        GlJsStyleBinding(map, logger) { appliedExtent.scaleFactor.toFloat() }
-          .also { styleBinding = it }
-      val trackerRequest = appliedStyleRequest ?: return@subscribe binding.invalidate()
-      if (styleLoadTracker?.loaded(trackerRequest, binding.identity) != true) {
-        binding.invalidate()
-        applyRequestedStyle(map)
-        return@subscribe
-      }
-      hasLoadedFirstStyle = true
-      styleIdentity =
-        lifecycleCallbacks.onStyleChanged(
-          engine,
-          lifecycleRequest,
-          this,
-          binding,
-        )
-      lifecycleStyleIdentity = styleIdentity
-      applyTileLod(map)
-      if (!hasLoadedInitialStyle) {
-        hasLoadedInitialStyle = true
-        runPending(pendingInitialStyleActions, map)
-      }
-      reportStyleLoaded = true
-      reportLoadedOnceStyleIsReady(map, engine, styleIdentity)
-    }
-    // A source naming a TileJSON fetches it after `style.load`, so its attribution is not readable
-    // there.
-    map.subscribe("styledata") { reportLoadedOnceStyleIsReady(map, engine, styleIdentity) }
-    map.subscribe("sourcedata") { event ->
-      reportLoadedOnceStyleIsReady(map, engine, styleIdentity)
-      if (event.sourceDataType == "metadata") {
-        applyTileLod(map)
-        val style = styleIdentity
-        if (style != null) {
-          event.sourceId?.let { lifecycleCallbacks.onSourceChanged(engine, style, this, it) }
-        }
-      }
-    }
     map.subscribe("error") { event ->
       val reason = event.error?.message ?: "MapLibre failed to load the map"
-      if (styleLoadPending) {
-        styleLoadPending = false
-        logger?.e { "Map loading failed: $reason" }
-        val trackerRequest = appliedStyleRequest
-        val accepted =
-          trackerRequest != null &&
-            styleLoadTracker?.failed(
-              trackerRequest,
-              TrackedStyleLoadState.Failed.Stage.BASE_STYLE,
-              reason,
-            ) == true
-        if (accepted) {
-          appliedStyleRequestIdentity?.let {
-            lifecycleCallbacks.onMapFailLoading(engine, it, reason)
-          }
-        } else {
-          applyRequestedStyle(map)
-        }
-        if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
-      } else {
+      if (!styleLoadPending) {
         // Tile and sprite failures land here too, and are not the map failing to load.
         logger?.w { "MapLibre reported an error: $reason" }
       }
@@ -506,9 +459,10 @@ internal class GlJsMapSession(
     val reason =
       if (isGestureInProgress) CameraMoveReason.GESTURE else CameraMoveReason.PROGRAMMATIC
     if (reportedMoveReason == reason) return
-    reportedMoveReason = reason
     if (engine != null && lease != null) {
-      lifecycleCallbacks.onCameraMoveStarted(engine, lease, this, reason)
+      if (lifecycleCallbacks.onCameraMoveStarted(engine, lease, this, reason)) {
+        reportedMoveReason = reason
+      }
     }
   }
 
@@ -517,8 +471,9 @@ internal class GlJsMapSession(
     lease: RenderLease? = lifecycleRenderLease,
   ) {
     if (reportedMoveReason == null) return
-    reportedMoveReason = null
-    if (engine != null && lease != null) lifecycleCallbacks.onCameraMoveEnded(engine, lease, this)
+    if (engine != null && lease != null) {
+      if (lifecycleCallbacks.onCameraMoveEnded(engine, lease, this)) reportedMoveReason = null
+    }
   }
 
   private var reportedMoveReason: CameraMoveReason? = null
@@ -592,10 +547,83 @@ internal class GlJsMapSession(
     if (style == appliedStyle) return
     if (styleLoadPending) return
     appliedStyle = style
-    val request = styleLoadTracker?.beginLoading() ?: return
-    appliedStyleRequest = request
+    val trackerRequest = styleLoadTracker?.beginLoading() ?: return
+    appliedStyleRequest = trackerRequest
     styleLoadPending = true
-    appliedStyleRequestIdentity = lifecycleStyleRequestIdentity
+    val engine = lifecycleEngineIdentity ?: return
+    val lifecycleRequest = lifecycleStyleRequestIdentity ?: return
+    styleLoadSubscription?.cancel()
+    styleErrorSubscription?.cancel()
+    styleDataSubscription?.cancel()
+    sourceDataSubscription?.cancel()
+    lateinit var loadSubscription: GlJsSubscription
+    lateinit var errorSubscription: GlJsSubscription
+    loadSubscription =
+      map.subscribe("style.load") {
+        loadSubscription.cancel()
+        errorSubscription.cancel()
+        if (styleLoadSubscription === loadSubscription) styleLoadSubscription = null
+        if (styleErrorSubscription === errorSubscription) styleErrorSubscription = null
+        val binding = GlJsStyleBinding(map, logger) { appliedExtent.scaleFactor.toFloat() }
+        if (styleLoadTracker?.loaded(trackerRequest, binding.identity) != true) {
+          binding.invalidate()
+          applyRequestedStyle(map)
+          return@subscribe
+        }
+        val acceptedStyle =
+          lifecycleCallbacks.onStyleChanged(engine, lifecycleRequest, this, binding)
+        if (acceptedStyle != null) {
+          styleLoadPending = false
+          hasLoadedFirstStyle = true
+          styleBinding?.invalidate()
+          styleBinding = binding
+          lifecycleStyleIdentity = acceptedStyle
+          styleDataSubscription =
+            map.subscribe("styledata") {
+              reportLoadedOnceStyleIsReady(map, engine, acceptedStyle)
+            }
+          sourceDataSubscription =
+            map.subscribe("sourcedata") { event ->
+              reportLoadedOnceStyleIsReady(map, engine, acceptedStyle)
+              if (event.sourceDataType == "metadata") {
+                applyTileLod(map)
+                event.sourceId?.let {
+                  lifecycleCallbacks.onSourceChanged(engine, acceptedStyle, this, it)
+                }
+              }
+            }
+          applyTileLod(map)
+          if (!hasLoadedInitialStyle) {
+            hasLoadedInitialStyle = true
+            runPending(pendingInitialStyleActions, map)
+          }
+          reportStyleLoaded = true
+          reportLoadedOnceStyleIsReady(map, engine, acceptedStyle)
+        } else {
+          binding.invalidate()
+        }
+      }
+    errorSubscription =
+      map.subscribe("error") { event ->
+        loadSubscription.cancel()
+        errorSubscription.cancel()
+        if (styleLoadSubscription === loadSubscription) styleLoadSubscription = null
+        if (styleErrorSubscription === errorSubscription) styleErrorSubscription = null
+        val reason = event.error?.message ?: "MapLibre failed to load the map"
+        if (
+          styleLoadTracker?.failed(
+            trackerRequest,
+            TrackedStyleLoadState.Failed.Stage.BASE_STYLE,
+            reason,
+          ) == true && lifecycleCallbacks.onMapFailLoading(engine, lifecycleRequest, reason)
+        ) {
+          styleLoadPending = false
+          logger?.e { "Map loading failed: $reason" }
+          if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
+        }
+      }
+    styleLoadSubscription = loadSubscription
+    styleErrorSubscription = errorSubscription
     // MapLibre diffs by default, keeping the same Style object, so no `style.load` would fire.
     val options = unsafeJso<SetStyleOptions> { diff = false }
     try {
@@ -606,21 +634,21 @@ internal class GlJsMapSession(
     } catch (error: Throwable) {
       // An inline style is parsed here rather than fetched, so a malformed one throws where every
       // other load failure arrives as an `error` event.
+      styleLoadSubscription?.cancel()
+      styleLoadSubscription = null
+      styleErrorSubscription?.cancel()
+      styleErrorSubscription = null
       styleLoadPending = false
       val reason = error.message ?: "MapLibre failed to load the map"
       logger?.e(error) { "Map loading failed: $reason" }
       if (
         styleLoadTracker?.failed(
-          request,
+          trackerRequest,
           TrackedStyleLoadState.Failed.Stage.BASE_STYLE,
           reason,
         ) == true
       ) {
-        val engine = lifecycleEngineIdentity
-        val lifecycleRequest = appliedStyleRequestIdentity
-        if (engine != null && lifecycleRequest != null) {
-          lifecycleCallbacks.onMapFailLoading(engine, lifecycleRequest, reason)
-        }
+        lifecycleCallbacks.onMapFailLoading(engine, lifecycleRequest, reason)
       }
       if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
     }
