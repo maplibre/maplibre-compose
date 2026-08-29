@@ -110,6 +110,9 @@ internal class MapLifecycleCallbacks(
   fun onFrame(engine: EngineMapIdentity, lease: RenderLease, fps: Double) =
     withPresentation(engine, lease) { delegate().onFrame(fps) }
 
+  fun onPresentationEvent(engine: EngineMapIdentity, lease: RenderLease, event: () -> Unit) =
+    withPresentation(engine, lease, event)
+
   private fun withStyle(
     engine: EngineMapIdentity,
     style: StyleIdentity,

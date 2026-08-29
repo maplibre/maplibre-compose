@@ -432,12 +432,15 @@ internal class MlnFfiMapSession(
   }
 
   override suspend fun attach(identity: EngineMapIdentity, lease: RenderLease) {
-    updateOwnerThreadPresentation { ownerThreadRenderLease = lease }
+    updateOwnerThreadPresentationAfterDrain { ownerThreadRenderLease = lease }
     lifecycleRenderLease = lease
   }
 
   override suspend fun detach(identity: EngineMapIdentity, lease: RenderLease) {
     if (lifecycleRenderLease == lease) lifecycleRenderLease = null
+    // This must happen before the first suspension. A host may tear down its renderer thread as
+    // soon as close() returns, but the native handle can only be closed through that thread.
+    closeRenderSession()
     updateOwnerThreadPresentation {
       if (ownerThreadRenderLease == lease) ownerThreadRenderLease = null
     }
@@ -488,7 +491,7 @@ internal class MlnFfiMapSession(
           resourceProviderFactory = resourceProviderFactory,
           onMapCreated = ::onMapCreated,
           onEvent = { handleEvent(identity, it) },
-          onEventsDrained = ::onEventsDrained,
+          onEventsDrained = { onEventsDrained(identity, it) },
           requestFrame = ::requestRender,
           mapEventMask = HANDLED_MAP_EVENTS,
         )
@@ -962,12 +965,30 @@ internal class MlnFfiMapSession(
   private suspend fun updateOwnerThreadPresentation(action: () -> Unit) {
     val completion = CompletableDeferred<Result<Unit>>()
     val accepted =
-      postWhenMapExists(
+      loop?.post(
         action = { completion.complete(runCatching(action)) },
         abandon = {
           completion.complete(Result.failure(IllegalStateException("Map owner loop stopped")))
         },
-      )
+      ) ?: false
+    if (!accepted) {
+      completion.complete(Result.failure(IllegalStateException("Map owner loop is unavailable")))
+    }
+    completion.await().getOrThrow()
+  }
+
+  /**
+   * Installs a new producer only after events raised without a presentation have been discarded.
+   */
+  private suspend fun updateOwnerThreadPresentationAfterDrain(action: () -> Unit) {
+    val completion = CompletableDeferred<Result<Unit>>()
+    val accepted =
+      loop?.postEventDrainBarrier(
+        action = { completion.complete(runCatching(action)) },
+        abandon = {
+          completion.complete(Result.failure(IllegalStateException("Map owner loop stopped")))
+        },
+      ) ?: false
     if (!accepted) {
       completion.complete(Result.failure(IllegalStateException("Map owner loop is unavailable")))
     }
@@ -1602,10 +1623,13 @@ internal class MlnFfiMapSession(
     endCameraMove()
   }
 
-  private fun onEventsDrained(map: MapHandle) {
-    snapshotViewport(map)
-    finishPendingGesture(map)
-    flushTransitionResumes()
+  private fun onEventsDrained(engine: EngineMapIdentity, map: MapHandle) {
+    val lease = ownerThreadRenderLease ?: return
+    lifecycleCallbacks.onPresentationEvent(engine, lease) {
+      snapshotViewport(map)
+      finishPendingGesture(map)
+      flushTransitionResumes()
+    }
   }
 
   private fun onMap(gestureToken: GestureToken?, action: (MapHandle) -> Unit) {
