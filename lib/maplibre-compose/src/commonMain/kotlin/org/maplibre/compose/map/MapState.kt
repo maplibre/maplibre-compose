@@ -311,7 +311,7 @@ internal constructor(
     // Read closed from the record, not the published snapshot: this runs during composition, and
     // a snapshot read would recompose rememberMapState on every load or camera change and reset
     // the baseStyle parameter over an imperative assignment.
-    if (!record.mutate { replaceStyleComposition(content) }) return
+    if (!host.runOnHostBlocking { record.mutate { replaceStyleComposition(content) } }) return
     publishStyleComposition()
   }
 
@@ -989,7 +989,12 @@ internal constructor(
    * Applies [transform], publishes the Compose snapshot, then flushes queued effects. A reentrant
    * commit from an effect only enqueues.
    */
-  internal fun <T> commit(transform: MapRecord.() -> T): T {
+  internal fun <T> commit(transform: MapRecord.() -> T): T = host.runOnHostBlocking {
+    commitNow(transform)
+  }
+
+  /** Applies [transform] on the calling thread. The caller is already on the host. */
+  private fun <T> commitNow(transform: MapRecord.() -> T): T {
     val value = record.mutate(transform)
     publishRecord()
     record.drain()
@@ -1001,19 +1006,19 @@ internal constructor(
    * [Dispatchers.Default] cannot drain against a Main-posted platform event.
    */
   private suspend fun <T> commitOnHost(transform: MapRecord.() -> T): T = host.runOnHost {
-    commit(transform)
+    commitNow(transform)
   }
 
   /** Posts a platform event onto the host dispatcher. Native callbacks must use this. */
   internal fun postLogical(transform: MapRecord.() -> Unit) {
-    host.postLogical { commit(transform) }
+    host.postLogical { commitNow(transform) }
   }
 
   /** Runs a style mutation on the host, then publishes ownership only if the binding is current. */
   internal suspend fun runStyleEffect(effect: (StyleBinding) -> Unit) {
     host.runSerialized {
       var failure: Throwable? = null
-      commit {
+      commitNow {
         val captured = binding
         enqueue { failure = runCatching { effect(captured) }.exceptionOrNull() }
       }

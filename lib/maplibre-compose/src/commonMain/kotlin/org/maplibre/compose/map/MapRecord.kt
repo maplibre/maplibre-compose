@@ -289,7 +289,9 @@ internal class MapRecord(initialCamera: CameraPosition) {
   fun styleChanged(source: MapAdapter, binding: StyleBinding?, generation: Long) {
     if (closed) return
     if (!isStyleSource(source)) return
-    if (!acceptsStyleGeneration(generation)) return
+    val capturing = renderer as? RendererState.Capture
+    val forCapture = capturing != null && generation == capturing.styleGeneration
+    if (!acceptsStyleGeneration(generation) && !forCapture) return
     val next = binding ?: StyleBinding.UNLOADED
     if (next === this.binding && bindingGeneration != 0L && binding != null) return
     bindingGeneration += 1L
@@ -301,7 +303,7 @@ internal class MapRecord(initialCamera: CameraPosition) {
       compositionSources = emptyMap()
       compositionImages = emptyList()
     }
-    if (binding != null) lastLoadFailure = null
+    if (binding != null && acceptsStyleGeneration(generation)) lastLoadFailure = null
     enqueue { pointBinding(next) }
     enqueue { refreshCollections() }
   }

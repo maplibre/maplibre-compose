@@ -75,8 +75,10 @@ public class StyleSources internal constructor(private val state: MapState) {
    *   MapLibre refuses the source.
    */
   public suspend fun add(source: Source) {
-    state.runStyleEffect { binding -> addAccepted(binding, source)?.let { throw it } }
-    refreshSource(source.id)
+    state.runStyleEffect { binding ->
+      addAccepted(binding, source)?.let { throw it }
+      refreshSource(source.id)
+    }
   }
 
   /**
@@ -87,8 +89,10 @@ public class StyleSources internal constructor(private val state: MapState) {
    *   style or the style composition owns [id], or when a live layer still draws from the source.
    */
   public suspend fun remove(id: String) {
-    state.runStyleEffect { binding -> removeAccepted(binding, id)?.let { throw it } }
-    refreshSource(id)
+    state.runStyleEffect { binding ->
+      removeAccepted(binding, id)?.let { throw it }
+      refreshSource(id)
+    }
   }
 
   private fun addAccepted(binding: StyleBinding, source: Source): Throwable? {

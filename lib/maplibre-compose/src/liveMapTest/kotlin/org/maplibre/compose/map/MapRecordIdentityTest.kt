@@ -14,6 +14,7 @@ import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
@@ -264,6 +265,23 @@ class MapRecordIdentityTest {
     record.mutate { setCamera(moved) }
     record.mutate { cameraMoved(adapter, start, null) }
     assertEquals(moved, record.read { camera })
+  }
+
+  @Test
+  fun a_frozen_style_binding_is_applied_without_publishing_the_later_generation() {
+    val record = MapRecord(start)
+    val adapter = FakeMapAdapter()
+    record.mutate { attach(adapter) }
+    val frozenGeneration = record.read { styleGeneration }
+    record.mutate { detach(adapter) }
+    record.mutate { beginCapture() }
+    record.mutate { selectStyle(BaseStyle.Empty) }
+    val binding = RecordingStyleBinding()
+    record.mutate { styleChanged(adapter, binding, frozenGeneration) }
+    assertSame(binding, record.read { this.binding })
+    val loading = assertIs<MapLoadState.Loading>(record.read { loadState })
+    assertTrue(loading.generation > frozenGeneration)
+    assertEquals(BaseStyle.Empty, loading.style)
   }
 
   @Test

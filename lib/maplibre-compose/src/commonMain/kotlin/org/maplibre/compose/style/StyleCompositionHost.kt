@@ -22,6 +22,7 @@ import kotlin.concurrent.atomics.AtomicLong
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellationException
@@ -40,9 +41,13 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.map.MapState
+import org.maplibre.compose.map.isVirtualTestDispatcher
+import org.maplibre.compose.map.runBlockingOn
 import org.maplibre.compose.util.rethrowIfFatal
 
 /**
@@ -113,6 +118,8 @@ internal class StyleCompositionHost(
     logger?.e(error) { "Uncaught error on the style composition host" }
   }
   private val scope = CoroutineScope(job + dispatcher + clock + exceptionHandler)
+
+  private val serialized = Mutex()
 
   internal val recomposer = Recomposer(scope.coroutineContext)
 
@@ -320,9 +327,23 @@ internal class StyleCompositionHost(
   internal suspend fun <T> runOnHost(block: () -> T): T = withContext(uiDispatcher) { block() }
 
   /**
+   * Runs [block] on the host, blocking the caller when a hop is required. A caller already on the
+   * host, or a test that drives a virtual dispatcher, continues inline.
+   */
+  internal fun <T> runOnHostBlocking(block: () -> T): T {
+    if (isVirtualTestDispatcher(uiDispatcher)) return block()
+    val onHost = runCatching {
+      !uiDispatcher.isDispatchNeeded(EmptyCoroutineContext)
+    }
+      .getOrDefault(false)
+    if (onHost) return block()
+    return runBlockingOn(uiDispatcher, block)
+  }
+
+  /**
    * Runs [block] on the host dispatcher and returns its result, rethrowing what it throws. The
-   * dispatcher is single-threaded, so [block] serializes with the composition's syncs and with
-   * every other imperative operation. Throws [IllegalStateException] when the host has closed.
+   * mutex serializes callers even when the dispatcher has many threads. Throws
+   * [IllegalStateException] when the host has closed.
    */
   internal suspend fun <T> runSerialized(block: () -> T): T {
     check(!closed) { "MapState is closed; no loaded style to mutate" }
@@ -331,8 +352,10 @@ internal class StyleCompositionHost(
     // cancel; fatal errors still propagate. A caller cancelled while its block queued must not
     // mutate the style it no longer awaits.
     val deferred = scope.async {
-      caller.ensureActive()
-      runCatching(block).onFailure { rethrowIfFatal(it) }
+      serialized.withLock {
+        caller.ensureActive()
+        runCatching(block).onFailure { rethrowIfFatal(it) }
+      }
     }
     val result =
       try {
