@@ -434,11 +434,11 @@ class StyleCompositionHostTest {
     val rootNode = StyleNode(recording, null)
     val host = testHost(rootNode)
     host.setContent { LaunchedEffect(Unit) { while (true) withFrameNanos {} } }
-    val waiter = async { host.awaitPendingWork() }
+    val waiter = async { runCatching { host.awaitPendingWork() } }
     testScheduler.runCurrent()
     host.close()
     testScheduler.advanceUntilIdle()
-    val error = assertFailsWith<IllegalStateException> { waiter.await() }
+    val error = assertFailsWith<IllegalStateException> { waiter.await().getOrThrow() }
     assertTrue("closed" in error.message.orEmpty(), error.message)
   }
 }
