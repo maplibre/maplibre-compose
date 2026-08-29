@@ -57,7 +57,6 @@ object LocationDemo : Demo {
 
   private var follow by mutableStateOf(true)
   private var engine by mutableStateOf(demoLocationEngines.first())
-  private var useNativeIndicator by mutableStateOf(false)
   private var lastReading by mutableStateOf<Position?>(null)
   private var panelLocationState by mutableStateOf<LocationState?>(null)
   private var panelLocationBackendId by mutableStateOf<String?>(null)
@@ -108,16 +107,12 @@ object LocationDemo : Demo {
       }
     }
 
-    if (useNativeIndicator) {
-      DemoNativeLocationPuck(locationState)
-    } else {
-      LocationPuck(
-        idPrefix = "user",
-        locationState = locationState,
-        cameraState = cameraState,
-        colors = LocationPuckDefaults.colors(),
-      )
-    }
+    LocationPuck(
+      idPrefix = "user",
+      locationState = locationState,
+      cameraState = cameraState,
+      colors = LocationPuckDefaults.colors(),
+    )
   }
 
   @Composable
@@ -148,9 +143,6 @@ object LocationDemo : Demo {
       ButtonRow("Retry") { panelLocationState?.retry() }
     }
     SwitchRow("Follow me", follow) { follow = it }
-    if (isDemoNativeLocationPuckAvailable) {
-      SwitchRow("Native indicator", useNativeIndicator) { useNativeIndicator = it }
-    }
     if (demoLocationEngines.size > 1) {
       SegmentedRow(
         label = "Location engine",

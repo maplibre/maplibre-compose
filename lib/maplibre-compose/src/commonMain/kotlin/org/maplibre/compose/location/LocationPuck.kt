@@ -78,7 +78,7 @@ import org.maplibre.spatialk.units.extensions.meters
  * @param oldLocationThreshold Locations older than this will be styled differently.
  * @param accuracyThreshold A circle showing the accuracy range will be drawn when
  *   [LocationReading.horizontalAccuracy] is larger than this value. Use [Length.PositiveInfinity]
- *   to never show the accuracy range.
+ *   to hide the accuracy range.
  * @param colors The colors to use for the location puck.
  * @param sizes The sizes to use for the location puck.
  * @param onClick A [LocationClickHandler] to invoke when the main location indicator dot is
@@ -100,11 +100,14 @@ public fun LocationPuck(
 ) {
   LocationPuckContent(
     idPrefix = idPrefix,
-    location = locationState.lastReading,
+    measurement =
+      locationPuckMeasurement(
+        location = locationState.lastReading,
+        measurementMark = locationState.lastReadingMeasurementMark,
+        bearing = locationState.mostAccurateBearing(),
+        bearingAccuracy = locationState.mostAccurateBearingAccuracy(),
+      ),
     cameraState = cameraState,
-    measurementMark = locationState.lastReadingMeasurementMark,
-    bearing = locationState.mostAccurateBearing(),
-    bearingAccuracy = locationState.mostAccurateBearingAccuracy(),
     oldLocationThreshold = oldLocationThreshold,
     accuracyThreshold = accuracyThreshold,
     colors = colors,
@@ -125,8 +128,8 @@ public fun LocationPuck(
  * @param location The [LocationReading] providing the current or last known location.
  * @param measurementMark Process-local monotonic mark for when [location] was measured. A `null`
  *   value keeps the location styled as current.
- * @param bearing The bearing of the location puck, which determines the rotation of the bearing
- *   indicator. Defaults to `location.course`, which is the direction of travel.
+ * @param bearing The bearing that rotates the location puck indicator. The default value is
+ *   `location.course`, the direction of travel.
  * @param bearingAccuracy Estimated bearing error. Defaults to `location.courseAccuracy` when
  *   [bearing] is the location course.
  * @param cameraState The [CameraState] of the map, used only for
@@ -136,7 +139,7 @@ public fun LocationPuck(
  * @param oldLocationThreshold Locations older than this will be styled differently.
  * @param accuracyThreshold A circle showing the accuracy range will be drawn when
  *   [LocationReading.horizontalAccuracy] is larger than this value. Use [Length.PositiveInfinity]
- *   to never show the accuracy range.
+ *   to hide the accuracy range.
  * @param colors The colors to use for the location puck.
  * @param sizes The sizes to use for the location puck.
  * @param onClick A [LocationClickHandler] to invoke when the main location indicator dot is
@@ -161,11 +164,8 @@ public fun LocationPuck(
 ) {
   LocationPuckContent(
     idPrefix = idPrefix,
-    location = location,
+    measurement = locationPuckMeasurement(location, measurementMark, bearing, bearingAccuracy),
     cameraState = cameraState,
-    measurementMark = measurementMark,
-    bearing = bearing,
-    bearingAccuracy = bearingAccuracy,
     oldLocationThreshold = oldLocationThreshold,
     accuracyThreshold = accuracyThreshold,
     colors = colors,
@@ -178,11 +178,8 @@ public fun LocationPuck(
 @Composable
 private fun LocationPuckContent(
   idPrefix: String,
-  location: LocationReading?,
+  measurement: LocationPuckMeasurement?,
   cameraState: CameraState,
-  measurementMark: TimeMark?,
-  bearing: Bearing?,
-  bearingAccuracy: Rotation?,
   oldLocationThreshold: Duration,
   accuracyThreshold: Length,
   colors: LocationPuckColors,
@@ -190,16 +187,12 @@ private fun LocationPuckContent(
   onClick: LocationClickHandler?,
   onLongClick: LocationClickHandler?,
 ) {
+  val location = measurement?.location
+  val bearing = measurement?.bearing
+  val bearingAccuracy = measurement?.bearingAccuracy
   val bearingPainter = rememberBearingPainter(sizes, colors)
   val positionAccuracy = location?.horizontalAccuracy
-  val locationSource =
-    rememberLocationSource(
-      location,
-      measurementMark,
-      bearing,
-      bearingAccuracy,
-      oldLocationThreshold,
-    )
+  val locationSource = rememberLocationSource(measurement, oldLocationThreshold)
   val isOldLocation = feature["isOldLocation"].asBoolean(const(false))
 
   CircleLayer(
@@ -373,43 +366,53 @@ private fun rememberBearingAccuracyPainter(
 
 @Composable
 private fun rememberLocationSource(
-  location: LocationReading?,
-  measurementMark: TimeMark?,
-  bearing: Bearing? = location?.course,
-  bearingAccuracy: Rotation? = location?.courseAccuracy,
+  measurement: LocationPuckMeasurement?,
   oldLocationThreshold: Duration = 30.seconds,
 ): GeoJsonSource {
-  val isOldLocation = rememberIsLocationOld(oldLocationThreshold, measurementMark)
+  val isOldLocation = rememberIsLocationOld(oldLocationThreshold, measurement?.measurementMark)
   val features =
-    remember(location, bearing, bearingAccuracy, isOldLocation) {
-      locationFeatures(location, bearing, bearingAccuracy, isOldLocation)
-    }
+    remember(measurement, isOldLocation) { locationFeatures(measurement, isOldLocation) }
 
   return rememberGeoJsonSource(GeoJsonData.Features(features))
 }
 
 internal fun locationFeatures(
-  location: LocationReading?,
-  bearing: Bearing?,
-  bearingAccuracy: Rotation?,
+  measurement: LocationPuckMeasurement?,
   isOldLocation: Boolean,
 ) =
-  if (location == null) {
+  if (measurement == null) {
     FeatureCollection()
   } else {
+    val location = measurement.location
     FeatureCollection(
       Feature(
         geometry = Point(location.position),
         properties =
           buildJsonObject {
             put("accuracy", location.horizontalAccuracy?.inMeters)
-            put("bearing", bearing?.let { (it - Bearing.North).inDegrees })
-            put("bearingAccuracy", bearingAccuracy?.inDegrees)
+            put("bearing", measurement.bearing?.let { (it - Bearing.North).inDegrees })
+            put("bearingAccuracy", measurement.bearingAccuracy?.inDegrees)
             put("isOldLocation", isOldLocation)
           },
       )
     )
   }
+
+internal data class LocationPuckMeasurement(
+  val location: LocationReading,
+  val measurementMark: TimeMark?,
+  val bearing: Bearing?,
+  val bearingAccuracy: Rotation?,
+)
+
+private fun locationPuckMeasurement(
+  location: LocationReading?,
+  measurementMark: TimeMark?,
+  bearing: Bearing?,
+  bearingAccuracy: Rotation?,
+): LocationPuckMeasurement? = location?.let {
+  LocationPuckMeasurement(it, measurementMark, bearing, bearingAccuracy)
+}
 
 @Composable
 internal fun rememberIsLocationOld(

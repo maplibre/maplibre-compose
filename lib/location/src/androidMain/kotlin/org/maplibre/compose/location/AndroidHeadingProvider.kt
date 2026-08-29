@@ -26,8 +26,8 @@ import org.maplibre.spatialk.units.extensions.radians
  *
  * It maps the azimuth from a
  * [rotation-vector sensor](https://developer.android.com/reference/android/hardware/Sensor#TYPE_ROTATION_VECTOR)
- * to [Heading.bearing]. A sensor that reports its accuracy as unavailable maps to a `null`
- * [Heading.accuracy].
+ * to [Heading.bearing] with [HeadingReference.MagneticNorth]. A sensor that reports its accuracy as
+ * unavailable maps to a `null` [Heading.accuracy].
  *
  * @param context Context used to obtain the platform sensor manager.
  */
@@ -58,6 +58,7 @@ public class AndroidHeadingProvider(context: Context) : HeadingProvider {
             trySend(
               Heading(
                 bearing = Bearing.North + azimuth,
+                reference = HeadingReference.MagneticNorth,
                 accuracy = accuracy?.toDouble()?.radians,
                 measuredAt =
                   Clock.System.now() -

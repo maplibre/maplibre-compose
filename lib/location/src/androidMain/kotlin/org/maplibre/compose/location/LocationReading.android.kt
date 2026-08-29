@@ -47,7 +47,7 @@ public fun AndroidLocation.asMapLibreLocationReading(): LocationReading =
   )
 
 /** Converts this platform location and preserves its monotonic age at receipt. */
-public fun AndroidLocation.asMapLibreLocationEvent(): LocationEvent.Update =
+public fun AndroidLocation.asMapLibreLocationUpdate(): LocationEvent.Update =
   LocationEvent.Update(
     reading = asMapLibreLocationReading(),
     measurementMark = TimeSource.Monotonic.markNow() - ageAtReceipt(),

@@ -284,11 +284,9 @@ public fun rememberLocationState(
 /**
  * Returns the most accurate bearing measurement available.
  *
- * This function considers the bearing from two potential sources:
- * 1. The course from the user's [LocationReading] (derived from GPS or other location services),
- *    which indicates the direction of travel.
- * 2. The device [Heading] (derived from the compass/magnetometer), which indicates the direction
- *    the top of the device is pointing.
+ * This function considers bearings from two potential sources:
+ * 1. The [LocationReading] course indicates the direction of travel.
+ * 2. The device [Heading] indicates the direction that the top of the device faces.
  *
  * It compares the accuracy of these two measurements and returns the one with the smallest accuracy
  * value (i.e., the most precise). If a measurement has no accuracy specified (`null`), it is
@@ -302,11 +300,16 @@ public fun LocationState.mostAccurateBearing(): Bearing? = mostAccurateBearingMe
 public fun LocationState.mostAccurateBearingAccuracy(): Rotation? =
   mostAccurateBearingMeasurement()?.accuracy
 
-private data class BearingMeasurement(val bearing: Bearing, val accuracy: Rotation?)
+internal data class BearingMeasurement(val bearing: Bearing, val accuracy: Rotation?)
 
 private fun LocationState.mostAccurateBearingMeasurement(): BearingMeasurement? =
-  listOfNotNull(
-      lastReading?.course?.let { BearingMeasurement(it, lastReading?.courseAccuracy) },
-      lastHeading?.let { BearingMeasurement(it.bearing, it.accuracy) },
-    )
-    .minByOrNull { it.accuracy ?: Double.POSITIVE_INFINITY.degrees }
+  selectMostAccurateBearing(
+    lastReading?.course?.let { BearingMeasurement(it, lastReading?.courseAccuracy) },
+    lastHeading?.let { BearingMeasurement(it.bearing, it.accuracy) },
+  )
+
+internal fun selectMostAccurateBearing(
+  first: BearingMeasurement?,
+  second: BearingMeasurement?,
+): BearingMeasurement? =
+  listOfNotNull(first, second).minByOrNull { it.accuracy ?: Double.POSITIVE_INFINITY.degrees }

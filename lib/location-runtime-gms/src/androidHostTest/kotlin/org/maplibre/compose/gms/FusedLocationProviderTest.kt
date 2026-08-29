@@ -10,11 +10,13 @@ import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.location.LocationRequest
 
@@ -32,7 +34,7 @@ class FusedLocationProviderTest {
     assertFalse(removed.isCompleted)
 
     registration.setResult(null)
-    withTimeout(5.seconds) { removed.await() }
+    withContext(Dispatchers.Default) { withTimeout(5.seconds) { removed.await() } }
   }
 
   private fun fakeClient(

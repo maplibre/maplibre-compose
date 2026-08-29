@@ -17,8 +17,10 @@ import org.maplibre.spatialk.units.Rotation
  * @property horizontalAccuracy Estimated horizontal error radius, or `null` when unknown.
  * @property altitudeAccuracy Estimated altitude error, or `null` when unknown or when [position]
  *   contains no altitude.
- * @property speed Distance travelled per second, or `null` when the source reports no speed.
- * @property speedAccuracy Estimated speed error per second, or `null` when unknown.
+ * @property speed Speed in meters per second. The [Length] meter value represents the per-second
+ *   rate. A `null` value means that the source reports no speed.
+ * @property speedAccuracy Estimated speed error in meters per second. The [Length] meter value
+ *   represents the per-second error. A `null` value means that the error is unknown.
  * @property course Bearing in the direction of travel, or `null` when the source reports no course.
  * @property courseAccuracy Estimated course error, or `null` when unknown.
  * @property measuredAt Wall-clock instant when the location was measured.
