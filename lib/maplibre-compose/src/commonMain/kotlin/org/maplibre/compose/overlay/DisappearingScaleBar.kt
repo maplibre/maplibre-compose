@@ -22,8 +22,8 @@ import kotlinx.coroutines.delay
  * An animated scale bar that appears when the [zoom] level of the map changes, and then disappears
  * after [visibilityDuration]. This composable wraps [ScaleBar] with visibility animations.
  *
- * This component draws with Compose Foundation alone. The
- * [Material 3 module][org.maplibre.compose.material3] provides a themed version of it.
+ * This component draws with Compose Foundation alone. The Material 3 module provides a themed
+ * version of it.
  *
  * @param metersPerDp how many meters are displayed in one device independent pixel (dp), i.e. the
  *   scale. See

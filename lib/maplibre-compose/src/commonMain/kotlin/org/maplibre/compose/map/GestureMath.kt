@@ -99,7 +99,7 @@ internal object GestureMath {
 
   /**
    * Screen-space travel for a flick of this speed. Equal speeds produce equal offsets, whether or
-   * not the camera is pitched. [MapInput] applies the offset in small `moveBy` steps.
+   * not the camera is pitched. [mapInput] applies the offset in small `moveBy` steps.
    */
   fun fling(velocityXDpPerSecond: Double, velocityYDpPerSecond: Double): Fling? {
     val velocity = hypot(velocityXDpPerSecond, velocityYDpPerSecond)

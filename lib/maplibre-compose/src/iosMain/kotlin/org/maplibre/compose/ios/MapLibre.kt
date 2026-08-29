@@ -9,7 +9,7 @@ public object MapLibre {
    * process.
    *
    * Defaults to [iosCacheFile] and MapLibre's cache budget. A conflicting call throws
-   * [IllegalStateException].
+   * `IllegalStateException`.
    */
   public fun configure(options: IosRuntimeOptions = IosRuntimeOptions(iosCacheFile())) {
     MlnFfiApplication.configure(options.toMlnFfiRuntimeOptions())

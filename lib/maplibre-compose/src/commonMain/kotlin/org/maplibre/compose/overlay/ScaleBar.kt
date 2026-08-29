@@ -33,8 +33,8 @@ import org.maplibre.spatialk.units.extensions.meters
  * A scale bar composable that shows the current scale of the map in feet, meters or feet and meters
  * when zoomed in to the map, changing to miles and kilometers, respectively, when zooming out.
  *
- * This component draws with Compose Foundation alone. The
- * [Material 3 module][org.maplibre.compose.material3] provides a themed version of it.
+ * This component draws with Compose Foundation alone. The Material 3 module provides a themed
+ * version of it.
  *
  * @param metersPerDp how many meters are displayed in one device independent pixel (dp), i.e. the
  *   scale. See

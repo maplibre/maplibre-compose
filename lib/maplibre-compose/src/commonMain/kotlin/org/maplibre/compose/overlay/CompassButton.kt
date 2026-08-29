@@ -56,8 +56,8 @@ import org.maplibre.compose.util.AngleMath
 /**
  * A compass that points north and returns the camera to [getHomePosition] when it is clicked.
  *
- * This component draws with Compose Foundation alone. The
- * [Material 3 module][org.maplibre.compose.material3] provides a themed version of it.
+ * This component draws with Compose Foundation alone. The Material 3 module provides a themed
+ * version of it.
  *
  * @param cameraState The camera that the needle follows and that a click resets.
  * @param onClick Called after the camera animation starts.
@@ -121,8 +121,8 @@ public fun CompassButton(
  * A [CompassButton] that appears when the camera turns away from [getHomePosition] and fades out
  * once the camera returns to it.
  *
- * This component draws with Compose Foundation alone. The
- * [Material 3 module][org.maplibre.compose.material3] provides a themed version of it.
+ * This component draws with Compose Foundation alone. The Material 3 module provides a themed
+ * version of it.
  *
  * @param visibilityDuration How long the button stays visible after the camera returns home.
  * @param slop How far the camera may turn from [getHomePosition] before the button appears, in
