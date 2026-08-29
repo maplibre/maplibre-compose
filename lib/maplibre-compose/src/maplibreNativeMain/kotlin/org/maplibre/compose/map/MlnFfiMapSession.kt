@@ -25,6 +25,7 @@ import kotlin.time.Duration
 import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.io.files.Path
 import kotlinx.serialization.json.JsonObject
@@ -155,6 +156,8 @@ internal class MlnFfiMapSession(
   private val lifecycleCallbacks = MapLifecycleCallbacks(lifecycle) { this.callbacks }
   @Volatile private var lifecycleEngineIdentity: EngineMapIdentity? = null
   @Volatile private var lifecycleRenderLease: RenderLease? = null
+  /** Presentation producer installed and sampled only on the native map's owner thread. */
+  private var ownerThreadRenderLease: RenderLease? = null
   @Volatile private var lifecycleStyleRequestIdentity: StyleRequestIdentity? = null
   @Volatile private var styleEventProducer: StyleEventProducer? = null
   @Volatile private var lifecycleStyleIdentity: StyleIdentity? = null
@@ -429,11 +432,16 @@ internal class MlnFfiMapSession(
   }
 
   override suspend fun attach(identity: EngineMapIdentity, lease: RenderLease) {
+    updateOwnerThreadPresentation { ownerThreadRenderLease = lease }
     lifecycleRenderLease = lease
   }
 
   override suspend fun detach(identity: EngineMapIdentity, lease: RenderLease) {
     if (lifecycleRenderLease == lease) lifecycleRenderLease = null
+    updateOwnerThreadPresentation {
+      if (ownerThreadRenderLease == lease) ownerThreadRenderLease = null
+    }
+    awaitEventDrain()
   }
 
   override suspend fun destroyEngine(identity: EngineMapIdentity) {
@@ -736,7 +744,7 @@ internal class MlnFfiMapSession(
 
   /** Runs on the map's owner thread, as do the callbacks it makes. */
   private fun handleEvent(engine: EngineMapIdentity, event: RuntimeEvent) {
-    val lease = lifecycleRenderLease
+    val lease = ownerThreadRenderLease
     when (event.type) {
       RuntimeEventType.MAP_RENDER_UPDATE_AVAILABLE -> requestRender()
 
@@ -815,15 +823,24 @@ internal class MlnFfiMapSession(
       RuntimeEventType.MAP_CAMERA_WILL_CHANGE -> beginCameraMove(engine, lease)
 
       RuntimeEventType.MAP_CAMERA_IS_CHANGING -> {
-        loop?.map?.let(::snapshotViewport)
-        lease?.let { lifecycleCallbacks.onCameraMoved(engine, it, this) }
+        lease?.let {
+          lifecycleCallbacks.onCameraMoved(engine, it, this) {
+            loop?.map?.let(::snapshotViewport)
+          }
+        }
       }
 
       RuntimeEventType.MAP_CAMERA_DID_CHANGE -> {
-        loop?.map?.let(::snapshotViewport)
-        lease?.let { lifecycleCallbacks.onCameraMoved(engine, it, this) }
-        // A drag is a stream of jumps, each with its own did-change.
-        if (!isGestureInProgress) endCameraMove(engine, lease)
+        lease?.let {
+          if (
+            lifecycleCallbacks.onCameraMoved(engine, it, this) {
+              loop?.map?.let(::snapshotViewport)
+            }
+          ) {
+            // A drag is a stream of jumps, each with its own did-change.
+            if (!isGestureInProgress) endCameraMove(engine, lease)
+          }
+        }
       }
 
       RuntimeEventType.MAP_CAMERA_TRANSITION_FINISHED -> {
@@ -882,7 +899,7 @@ internal class MlnFfiMapSession(
   ) {
     if (reportedMoveReason == null) return
     if (engine != null && lease != null) {
-      if (lifecycleCallbacks.onCameraMoveEnded(engine, lease, this)) reportedMoveReason = null
+      lifecycleCallbacks.onCameraMoveEnded(engine, lease, this) { reportedMoveReason = null }
     }
   }
 
@@ -940,7 +957,38 @@ internal class MlnFfiMapSession(
 
   /** Test seam that runs [action] after the next native pump and event drain. */
   internal fun postEventDrainBarrierForTest(action: () -> Unit): Boolean =
-    loop?.postEventDrainBarrierForTest(action) ?: false
+    loop?.postEventDrainBarrier(action) ?: false
+
+  private suspend fun updateOwnerThreadPresentation(action: () -> Unit) {
+    val completion = CompletableDeferred<Result<Unit>>()
+    val accepted =
+      postWhenMapExists(
+        action = { completion.complete(runCatching(action)) },
+        abandon = {
+          completion.complete(Result.failure(IllegalStateException("Map owner loop stopped")))
+        },
+      )
+    if (!accepted) {
+      completion.complete(Result.failure(IllegalStateException("Map owner loop is unavailable")))
+    }
+    completion.await().getOrThrow()
+  }
+
+  /** Prevents a later attachment from adopting native events queued by the departed lease. */
+  private suspend fun awaitEventDrain() {
+    val completion = CompletableDeferred<Result<Unit>>()
+    val accepted =
+      loop?.postEventDrainBarrier(
+        action = { completion.complete(Result.success(Unit)) },
+        abandon = {
+          completion.complete(Result.failure(IllegalStateException("Map owner loop stopped")))
+        },
+      ) ?: false
+    if (!accepted) {
+      completion.complete(Result.failure(IllegalStateException("Map owner loop is unavailable")))
+    }
+    completion.await().getOrThrow()
+  }
 
   /** Queues [action] until a map exists, including before the session starts. */
   private fun postWhenMapExists(action: (MapHandle) -> Unit, abandon: () -> Unit): Boolean {

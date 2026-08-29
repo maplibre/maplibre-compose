@@ -23,9 +23,7 @@ internal class MapLifecycleCallbacks(
     map: MapAdapter,
     style: StyleBinding,
   ): StyleIdentity? {
-    val identity = lifecycle.claimStyleIdentity(engine, request) ?: return null
-    lifecycle.acceptStyleEvent(engine, identity) { delegate().onStyleChanged(map, style) }
-    return identity
+    return lifecycle.claimStyleIdentity(engine, request) { delegate().onStyleChanged(map, style) }
   }
 
   fun onMapFinishedLoading(engine: EngineMapIdentity, style: StyleIdentity, map: MapAdapter) =
@@ -62,14 +60,29 @@ internal class MapLifecycleCallbacks(
       delegate().onCameraMoveStarted(map, reason)
     }
 
-  fun onCameraMoved(engine: EngineMapIdentity, lease: RenderLease, map: MapAdapter) =
+  fun onCameraMoved(
+    engine: EngineMapIdentity,
+    lease: RenderLease,
+    map: MapAdapter,
+    beforeDelegate: () -> Unit = {},
+  ) =
     withPresentation(engine, lease) {
+      beforeDelegate()
       delegate().onCameraMoved(map)
     }
 
-  fun onCameraMoveEnded(engine: EngineMapIdentity, lease: RenderLease, map: MapAdapter) =
+  fun onCameraMoveEnded(
+    engine: EngineMapIdentity,
+    lease: RenderLease,
+    map: MapAdapter,
+    afterDelegate: () -> Unit = {},
+  ) =
     withPresentation(engine, lease) {
-      delegate().onCameraMoveEnded(map)
+      try {
+        delegate().onCameraMoveEnded(map)
+      } finally {
+        afterDelegate()
+      }
     }
 
   fun onClick(

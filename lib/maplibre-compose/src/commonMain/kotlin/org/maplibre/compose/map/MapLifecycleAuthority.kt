@@ -152,6 +152,20 @@ internal class MapLifecycleAuthority(
     }
   }
 
+  /** Claims and delivers a loaded style as one serialized operation. */
+  fun claimStyleIdentity(
+    engine: EngineMapIdentity,
+    request: StyleRequestIdentity,
+    event: () -> Unit,
+  ): StyleIdentity? = serialized {
+    if (!acceptEngineIdentity(engine)) return@serialized null
+    if (currentStyleRequest.load() != StyleRequestClaim(engine, request)) return@serialized null
+    val identity = StyleIdentity(nextIdentity.incrementAndFetch())
+    currentStyle.store(StyleClaim(engine, identity))
+    event()
+    identity
+  }
+
   fun invalidateStyleIdentity(engine: EngineMapIdentity): Boolean {
     return serialized {
       if (!acceptEngineIdentity(engine)) return@serialized false

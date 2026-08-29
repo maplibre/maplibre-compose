@@ -170,10 +170,12 @@ internal class GlJsMapSession(
       try {
         endCameraMove(engine, lease)
       } finally {
+        surface = null
         lifecycle.beginEngineReplacement(engine, lease)
       }
+    } else {
+      surface = null
     }
-    surface = null
   }
 
   override fun render(target: GlJsFrameTarget, extent: MapExtent): Boolean {
@@ -429,10 +431,11 @@ internal class GlJsMapSession(
     map.subscribe("movestart") { beginCameraMove(engine, lease) }
     map.subscribe("move") { lifecycleCallbacks.onCameraMoved(engine, lease, this) }
     map.subscribe("moveend") {
-      lifecycleCallbacks.onCameraMoved(engine, lease, this)
-      // A drag is a stream of jumps, each with its own moveend.
-      if (!isGestureInProgress) endCameraMove(engine, lease)
-      resumeTransitions()
+      if (lifecycleCallbacks.onCameraMoved(engine, lease, this)) {
+        // A drag is a stream of jumps, each with its own moveend.
+        if (!isGestureInProgress) endCameraMove(engine, lease)
+        resumeTransitions()
+      }
     }
   }
 
@@ -472,7 +475,7 @@ internal class GlJsMapSession(
   ) {
     if (reportedMoveReason == null) return
     if (engine != null && lease != null) {
-      if (lifecycleCallbacks.onCameraMoveEnded(engine, lease, this)) reportedMoveReason = null
+      lifecycleCallbacks.onCameraMoveEnded(engine, lease, this) { reportedMoveReason = null }
     }
   }
 
