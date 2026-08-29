@@ -54,6 +54,12 @@ private constructor(
 
   private var frameId = 0L
   private var frameRequested = true
+  private var nextStyleGeneration = 1L
+
+  /** Issues the next style generation and loads [style] with it. */
+  fun commandStyle(style: BaseStyle) {
+    core.setBaseStyle(style, nextStyleGeneration++)
+  }
 
   val core: MlnFfiMapCore =
     MlnFfiMapCore(
@@ -234,7 +240,7 @@ private constructor(
     extent: MapExtent = DEFAULT_EXTENT,
   ) {
     val styleLoadsBefore = events.count { it == STYLE_LOADED }
-    core.setBaseStyle(style)
+    commandStyle(style)
     pumpUntil("style $style to load", timeout, extent) {
       events.count { it == STYLE_LOADED } > styleLoadsBefore && this.style != null
     }
@@ -245,7 +251,7 @@ private constructor(
    */
   fun loadStyleBeforeRendering(style: BaseStyle, timeout: Duration = 60.seconds) {
     val styleLoadsBefore = events.count { it == STYLE_LOADED }
-    core.setBaseStyle(style)
+    commandStyle(style)
     val deadline = TimeSource.Monotonic.markNow() + timeout
     while (events.count { it == STYLE_LOADED } <= styleLoadsBefore || this.style == null) {
       check(deadline.hasNotPassedNow()) {

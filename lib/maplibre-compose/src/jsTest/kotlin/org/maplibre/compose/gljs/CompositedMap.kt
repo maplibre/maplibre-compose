@@ -34,7 +34,7 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
         }
       }
     )
-    session.setBaseStyle(style)
+    session.setBaseStyle(style, 1L)
   }
 
   /** Synchronous, so a caller can bracket it with GL of its own. */

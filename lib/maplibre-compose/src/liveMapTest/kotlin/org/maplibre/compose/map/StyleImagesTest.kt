@@ -160,7 +160,9 @@ class StyleImagesTest {
     val key = ImageManager.BitmapKey(bitmap, isSdf = false, stretch = null)
     val generatedId = manager.acquireBitmap(key)
     assertTrue(generatedId != "star", "the composition registers under its own generated id")
+    manager.flushTo(binding)
     manager.releaseBitmap(ImageManager.BitmapKey(bitmap, isSdf = false, stretch = null))
+    manager.flushTo(binding)
 
     assertSame(bitmap, binding.images["star"], "the app image survives the equal-content release")
     assertEquals(listOf("star"), state.images.ids)

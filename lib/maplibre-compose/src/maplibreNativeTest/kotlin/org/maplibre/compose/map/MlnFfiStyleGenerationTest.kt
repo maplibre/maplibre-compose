@@ -18,34 +18,36 @@ class MlnFfiStyleGenerationTest {
   fun a_style_change_outdates_the_loaded_generation_until_the_new_style_loads() {
     BridgeMapFixture.create().use { fixture ->
       val core = fixture.core
-      assertEquals(0L, core.requestedStyleGeneration)
+      assertEquals(0L, core.commandedStyleGeneration)
       assertEquals(0L, core.loadedStyleGeneration)
 
       fixture.loadStyle(FIRST_STYLE)
       assertTrue(core.hasLoadedFirstStyle)
-      assertEquals(core.requestedStyleGeneration, core.loadedStyleGeneration)
+      assertEquals(core.commandedStyleGeneration, core.loadedStyleGeneration)
       val firstLoaded = core.loadedStyleGeneration
+      val secondGeneration = firstLoaded + 1L
 
       // The slow-load window, held open deterministically: the owner thread is parked, so the
       // change is requested but the new style cannot have loaded.
       val hold = TestLatch(1)
       assertTrue(core.postOwnerTaskForTest { hold.await() })
-      core.setBaseStyle(SECOND_STYLE)
+      core.setBaseStyle(SECOND_STYLE, secondGeneration)
       assertTrue(core.hasLoadedFirstStyle, "the sticky flag alone would skip the wait")
       assertTrue(
-        core.loadedStyleGeneration < core.requestedStyleGeneration,
+        core.loadedStyleGeneration < core.commandedStyleGeneration,
         "a waiter on the generations must see the new style as not yet loaded",
       )
+      assertEquals(secondGeneration, core.commandedStyleGeneration)
 
       hold.countDown()
       fixture.pumpUntil("the second style to load") {
-        core.loadedStyleGeneration == core.requestedStyleGeneration
+        core.loadedStyleGeneration == core.commandedStyleGeneration
       }
       assertTrue(core.loadedStyleGeneration > firstLoaded)
 
-      // Re-selecting the loaded style bumps nothing, so an unchanged style needs no wait.
-      core.setBaseStyle(SECOND_STYLE)
-      assertEquals(core.requestedStyleGeneration, core.loadedStyleGeneration)
+      // Re-issuing the same command is a no-op, so an unchanged style needs no wait.
+      core.setBaseStyle(SECOND_STYLE, secondGeneration)
+      assertEquals(core.commandedStyleGeneration, core.loadedStyleGeneration)
     }
   }
 
@@ -54,19 +56,21 @@ class MlnFfiStyleGenerationTest {
     BridgeMapFixture.create().use { fixture ->
       val core = fixture.core
       fixture.loadStyle(FIRST_STYLE)
-      assertEquals(core.requestedStyleGeneration, core.loadedStyleGeneration)
+      val firstGeneration = core.commandedStyleGeneration
+      assertEquals(firstGeneration, core.loadedStyleGeneration)
 
-      // Both requests queue behind the parked owner thread, so the switch coalesces: the second
-      // request restores the applied style and no apply, and so no load, ever runs for either.
+      // Both commands queue behind the parked owner thread, so the switch coalesces: the second
+      // command restores the applied style and no apply, and so no load, ever runs for either.
       val hold = TestLatch(1)
       assertTrue(core.postOwnerTaskForTest { hold.await() })
-      core.setBaseStyle(SECOND_STYLE)
-      core.setBaseStyle(FIRST_STYLE)
-      assertTrue(core.loadedStyleGeneration < core.requestedStyleGeneration)
+      core.setBaseStyle(SECOND_STYLE, firstGeneration + 1L)
+      core.setBaseStyle(FIRST_STYLE, firstGeneration + 2L)
+      assertTrue(core.loadedStyleGeneration < core.commandedStyleGeneration)
+      assertEquals(firstGeneration + 2L, core.commandedStyleGeneration)
 
       hold.countDown()
       fixture.pumpUntil("the coalesced generation to be acknowledged") {
-        core.loadedStyleGeneration == core.requestedStyleGeneration
+        core.loadedStyleGeneration == core.commandedStyleGeneration
       }
     }
   }

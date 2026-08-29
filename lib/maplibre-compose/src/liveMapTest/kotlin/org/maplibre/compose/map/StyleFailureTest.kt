@@ -12,7 +12,7 @@ class StyleFailureTest {
   @Test
   fun a_malformed_inline_style_is_reported_once(): MapTestResult = runMapTest {
     createMapFixture().use {
-      it.session.setBaseStyle(BaseStyle.Json("{ this is not json"))
+      it.session.setBaseStyle(BaseStyle.Json("{ this is not json"), 1L)
       it.pumpUntil("the load to fail") {
         it.errors.any { error -> error.startsWith("mapFailLoading") }
       }

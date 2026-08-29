@@ -303,9 +303,11 @@ class LinuxVulkanOpenGlInteropTest {
       renderer.onSurfaceAvailable(hostSession)
     }
 
+    private var nextStyleGeneration = 1L
+
     fun renderStyle(style: BaseStyle, extent: MapExtent): MlnFfiRenderTarget {
       val expectedStyleLoads = styleLoads + 1
-      core.setBaseStyle(style)
+      core.setBaseStyle(style, nextStyleGeneration++)
       val deadline = TimeSource.Monotonic.markNow() + TEST_TIMEOUT
       var rendered: MlnFfiRenderTarget? = null
       var renderedFrames = 0

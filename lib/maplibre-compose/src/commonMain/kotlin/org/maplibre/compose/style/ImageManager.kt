@@ -22,51 +22,59 @@ internal class ImageManager(private val node: StyleNode) {
   private val painterIds = IncrementingIdMap<PainterKey>("painter")
   private val painterCounter = ReferenceCounter<PainterKey>()
 
-  private var attachedTo: StyleBinding = node.binding
+  private var flushedTo: StyleBinding? = null
+  private val uploaded = mutableSetOf<String>()
 
-  /** Re-adds every held image when the node has been re-pointed at a new style. */
-  internal fun ensureAttached() {
-    ensureAttachedLocked()
-  }
+  /** The image ids the composition currently holds. */
+  internal val heldIds: List<String>
+    get() = bitmapIds.entries.map { it.value } + painterIds.entries.map { it.value }
 
-  private fun ensureAttachedLocked() {
-    val binding = node.binding
-    if (attachedTo === binding) return
+  /**
+   * Uploads held images onto [binding] and removes images this manager no longer holds. The style
+   * applier is the only caller.
+   */
+  internal fun flushTo(binding: StyleBinding) {
+    if (flushedTo !== binding) {
+      uploaded.clear()
+      flushedTo = binding
+    }
+    val desired = linkedMapOf<String, () -> Unit>()
     bitmapIds.entries.forEach { (key, id) ->
-      node.logger?.i { "Re-adding bitmap $id" }
-      binding.addImage(id, key.bitmap, key.isSdf, key.stretch)
+      desired[id] = {
+        node.logger?.i { "Adding bitmap $id" }
+        binding.addImage(id, key.bitmap, key.isSdf, key.stretch)
+      }
     }
     painterIds.entries.forEach { (key, id) ->
-      node.logger?.i { "Re-adding painter $id" }
-      binding.addImage(id, key.renderToImage(), key.drawAsSdf, key.stretch)
+      desired[id] = {
+        node.logger?.i { "Adding painter $id" }
+        binding.addImage(id, key.renderToImage(), key.drawAsSdf, key.stretch)
+      }
     }
-    // Published last: a throw above leaves the attachment incomplete, and the next sync retries
-    // the whole replay.
-    attachedTo = binding
+    uploaded
+      .filter { it !in desired }
+      .forEach { id ->
+        node.logger?.i { "Removing image $id" }
+        binding.removeImage(id)
+        uploaded.remove(id)
+      }
+    desired.forEach { (id, upload) ->
+      if (id !in uploaded) {
+        upload()
+        uploaded += id
+      }
+    }
   }
 
   internal fun acquireBitmap(key: BitmapKey): String {
-    ensureAttachedLocked()
-    try {
-      bitmapCounter.increment(key) {
-        val id = bitmapIds.addId(key)
-        node.logger?.i { "Adding bitmap $id" }
-        node.binding.addImage(id, key.bitmap, key.isSdf, key.stretch)
-      }
-    } catch (error: Throwable) {
-      // A failed first upload must not leave a count that makes the retry skip the upload.
-      bitmapCounter.decrement(key) { runCatching { bitmapIds.removeId(key) } }
-      throw error
-    }
+    bitmapCounter.increment(key) { bitmapIds.addId(key) }
+    node.requestSync()
     return bitmapIds.getId(key)
   }
 
   internal fun releaseBitmap(key: BitmapKey) {
-    bitmapCounter.decrement(key) {
-      val id = bitmapIds.removeId(key)
-      node.logger?.i { "Removing bitmap $id" }
-      node.binding.removeImage(id)
-    }
+    bitmapCounter.decrement(key) { bitmapIds.removeId(key) }
+    node.requestSync()
   }
 
   /** The pixels MapLibre receives: an SDF painter's rasterization converted to a distance field. */
@@ -74,27 +82,14 @@ internal class ImageManager(private val node: StyleNode) {
     rasterizePainter(painter, density, layoutDirection, size, alpha, colorFilter, drawAsSdf)
 
   internal fun acquirePainter(key: PainterKey): String {
-    ensureAttachedLocked()
-    try {
-      painterCounter.increment(key) {
-        val id = painterIds.addId(key)
-        node.logger?.i { "Adding painter $id" }
-        node.binding.addImage(id, key.renderToImage(), key.drawAsSdf, key.stretch)
-      }
-    } catch (error: Throwable) {
-      // A failed first upload must not leave a count that makes the retry skip the upload.
-      painterCounter.decrement(key) { runCatching { painterIds.removeId(key) } }
-      throw error
-    }
+    painterCounter.increment(key) { painterIds.addId(key) }
+    node.requestSync()
     return painterIds.getId(key)
   }
 
   internal fun releasePainter(key: PainterKey) {
-    painterCounter.decrement(key) {
-      val id = painterIds.removeId(key)
-      node.logger?.i { "Removing painter $id" }
-      node.binding.removeImage(id)
-    }
+    painterCounter.decrement(key) { painterIds.removeId(key) }
+    node.requestSync()
   }
 
   internal data class BitmapKey(

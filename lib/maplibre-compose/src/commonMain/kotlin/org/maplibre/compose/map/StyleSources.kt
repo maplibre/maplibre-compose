@@ -110,9 +110,6 @@ public class StyleSources internal constructor(private val state: MapState) {
         }
       }
     if (refusal != null) return refusal
-    if (state.styleNode.sourceManager.desiredSources.any { it.id == id }) {
-      return IllegalArgumentException("Source id '$id' is owned by the style composition")
-    }
     if (!binding.isLoaded) {
       return IllegalStateException("No loaded style; a source can only be added to a loaded style")
     }

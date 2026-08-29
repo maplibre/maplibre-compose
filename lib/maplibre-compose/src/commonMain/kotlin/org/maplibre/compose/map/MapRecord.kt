@@ -18,7 +18,7 @@ import org.maplibre.compose.util.MaplibreComposable
  * is a no-op.
  */
 internal class MapRecord(initialCamera: CameraPosition) {
-  private val lock = newSessionLock()
+  private val lock = SessionLock.None
   private val work = mutableListOf<() -> Unit>()
   private val effects = ArrayDeque<() -> Unit>()
   private var flushing = false
@@ -145,6 +145,9 @@ internal class MapRecord(initialCamera: CameraPosition) {
     private set
 
   var compositionSources: Map<String, Source> = emptyMap()
+    private set
+
+  var compositionImages: List<String> = emptyList()
     private set
 
   var appSources: Map<String, Source> = emptyMap()
@@ -296,6 +299,7 @@ internal class MapRecord(initialCamera: CameraPosition) {
     if (binding == null || !next.isLoaded) {
       compositionLayerIds = emptySet()
       compositionSources = emptyMap()
+      compositionImages = emptyList()
     }
     if (binding != null) lastLoadFailure = null
     enqueue { pointBinding(next) }
@@ -311,6 +315,7 @@ internal class MapRecord(initialCamera: CameraPosition) {
     appImages = emptyList()
     compositionLayerIds = emptySet()
     compositionSources = emptyMap()
+    compositionImages = emptyList()
     hasAuthoritativeSurface = false
     viewport = null
     isCameraMoving = false
@@ -345,6 +350,7 @@ internal class MapRecord(initialCamera: CameraPosition) {
     loadState = MapLoadState.Failed(styleGeneration, currentStyle(), reason)
     appSources = emptyMap()
     compositionSources = emptyMap()
+    compositionImages = emptyList()
     enqueue { refreshCollections() }
   }
 
@@ -532,10 +538,12 @@ internal class MapRecord(initialCamera: CameraPosition) {
     binding: StyleBinding,
     layerIds: Set<String>,
     sources: Map<String, Source>,
+    images: List<String> = emptyList(),
   ): Boolean {
     if (!accepts(binding)) return false
     compositionLayerIds = layerIds
     compositionSources = sources
+    compositionImages = images
     return true
   }
 
@@ -584,6 +592,7 @@ internal class MapRecord(initialCamera: CameraPosition) {
     appImages = emptyList()
     compositionLayerIds = emptySet()
     compositionSources = emptyMap()
+    compositionImages = emptyList()
     pendingOperations.values.forEach { it.cancelled = true }
     pendingOperations.clear()
     enqueue { resetSessionHooks() }
@@ -594,8 +603,9 @@ internal class MapRecord(initialCamera: CameraPosition) {
   }
 
   /** A consistent copy of the fields [MapState] publishes to Compose. */
-  fun publishedSnapshot(): PublishedMapSnapshot =
-    PublishedMapSnapshot(
+  fun publishedSnapshot(): PublishedMapSnapshot {
+    val capturing = renderer as? RendererState.Capture
+    return PublishedMapSnapshot(
       closed = closed,
       session = session,
       camera = camera,
@@ -605,7 +615,11 @@ internal class MapRecord(initialCamera: CameraPosition) {
       isCameraMoving = isCameraMoving,
       loadState = loadState,
       appImages = appImages,
+      capturing = capturing != null,
+      captureStyleGeneration = capturing?.styleGeneration,
+      captureLoadFailure = if (capturing != null) captureLoadFailure else null,
     )
+  }
 }
 
 /** Compose-visible fields copied under the record lock, then written after the lock is released. */
@@ -619,6 +633,9 @@ internal data class PublishedMapSnapshot(
   val isCameraMoving: Boolean,
   val loadState: MapLoadState,
   val appImages: List<String>,
+  val capturing: Boolean = false,
+  val captureStyleGeneration: Long? = null,
+  val captureLoadFailure: String? = null,
 )
 
 /** One in-flight camera operation bound to the session generation that accepted it. */

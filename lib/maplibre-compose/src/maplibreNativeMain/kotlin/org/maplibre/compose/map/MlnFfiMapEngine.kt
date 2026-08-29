@@ -63,7 +63,7 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
 
   private fun refuseUnlessOpen() {
     check(!closed) { "Cannot attach a render session to a closed map state" }
-    check(state.record.read { renderer !is RendererState.Capture }) { SNAPSHOT_SESSION_ERROR }
+    check(!state.isCapturing) { SNAPSHOT_SESSION_ERROR }
   }
 
   /** Creates the render session over [core]; the record lease refuses every other slot holder. */
@@ -108,7 +108,7 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
   ): MlnFfiMapCore = sessionLock.withLock {
     // An eviction under a live snapshot would destroy the core the snapshot is rendering; the
     // snapshot path replaces its own core through acquireCoreLocked as the lease holder.
-    check(state.record.read { renderer !is RendererState.Capture }) { SNAPSHOT_SESSION_ERROR }
+    check(!state.isCapturing) { SNAPSHOT_SESSION_ERROR }
     acquireCoreLocked(scaleFactor, layoutDirection, backend)
   }
 
@@ -144,7 +144,7 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
   internal fun publishCore(pending: MlnFfiMapCore, scaleFactor: Double, backend: MapRenderBackend) {
     sessionLock.withLock {
       if (core === pending) return
-      check(state.record.read { renderer !is RendererState.Capture }) { SNAPSHOT_SESSION_ERROR }
+      check(!state.isCapturing) { SNAPSHOT_SESSION_ERROR }
       check(!closed) { "Cannot attach a render session to a closed map state" }
       // A rival composable must not evict the session that owns the slot; a legitimate density or
       // backend change disposes the old resource before its replacement publishes.

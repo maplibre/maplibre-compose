@@ -254,7 +254,7 @@ internal class StyleCompositionHost(
 
   private fun applyStyleRevision() {
     val map = mapState
-    if (map != null) map.syncStyleComposition() else rootNode.applyChanges()
+    if (map != null) map.syncStyleComposition() else applyStyleRevision(rootNode)
   }
 
   private fun applyChanges() {

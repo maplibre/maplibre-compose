@@ -22,7 +22,7 @@ class BrowserCameraTransitionLifecycleTest {
   fun cancelling_transitions_releases_an_animation_queued_before_the_first_style(): MapTestResult =
     runMapTest {
       createMapFixture().use {
-        it.session.setBaseStyle(BaseStyle.Empty)
+        it.session.setBaseStyle(BaseStyle.Empty, 1L)
         val animation =
           CoroutineScope(Dispatchers.Default).launch(start = CoroutineStart.UNDISPATCHED) {
             it.session.animateCameraPosition(TARGET, 60.seconds)
@@ -46,7 +46,7 @@ class BrowserCameraTransitionLifecycleTest {
   @Test
   fun a_failed_initial_style_resumes_a_queued_animation(): MapTestResult = runMapTest {
     createMapFixture().use {
-      it.session.setBaseStyle(BaseStyle.Json("{ this is not json"))
+      it.session.setBaseStyle(BaseStyle.Json("{ this is not json"), 1L)
       val animation =
         CoroutineScope(Dispatchers.Default).launch(start = CoroutineStart.UNDISPATCHED) {
           it.session.animateCameraPosition(

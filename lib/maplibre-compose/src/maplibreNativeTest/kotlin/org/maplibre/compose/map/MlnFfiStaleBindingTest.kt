@@ -46,7 +46,7 @@ class MlnFfiStaleBindingTest {
       }
       assertTrue(queued.await(30_000), "the mutating task never started")
 
-      fixture.core.setBaseStyle(
+      fixture.commandStyle(
         BaseStyle.Json("""{"version":8,"name":"swap","sources":{},"layers":[]}""")
       )
       hold.countDown()

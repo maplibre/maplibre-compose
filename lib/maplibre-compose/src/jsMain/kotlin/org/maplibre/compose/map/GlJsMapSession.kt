@@ -154,11 +154,10 @@ internal class GlJsMapSession(
   internal var hasLoadedFirstStyle by mutableStateOf(false)
     private set
 
-  private var requestedStyle: BaseStyle? = null
-  private var requestedGeneration: Long = 0L
+  private var commandedStyle: BaseStyle? = null
+  private var commandedGeneration: Long = 0L
   private var appliedStyle: BaseStyle? = null
   private var appliedGeneration: Long = 0L
-  private var mintedStyleGeneration: Long = 0L
 
   /** Set while a style load is outstanding, so an `error` can be told from a tile failure. */
   private var styleLoadPending = false
@@ -313,7 +312,7 @@ internal class GlJsMapSession(
     map = created
     hasLoadedInitialStyle = false
     appliedExtent = MapExtent.Empty
-    applyRequestedStyle(created)
+    applyCommandedStyle(created)
     cameraConstraints?.let { applyCameraConstraints(created, it) }
     // The destroyed map took its padding and camera with it; the saved values apply here.
     created.jumpTo(unsafeJso<JumpToOptions> { this.padding = cameraPadding })
@@ -425,7 +424,7 @@ internal class GlJsMapSession(
       if (styleLoadPending && event.isStyleDocumentError()) {
         styleLoadPending = false
         logger?.e { "Map loading failed: $reason" }
-        callbacks.onMapFailLoading(reason, requestedGeneration)
+        callbacks.onMapFailLoading(reason, commandedGeneration)
         if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
       } else {
         // Source, tile, and sprite failures land here too, and are not the map failing to load.
@@ -506,37 +505,22 @@ internal class GlJsMapSession(
   // region MapAdapter
 
   override fun setBaseStyle(style: BaseStyle, generation: Long) {
-    val next = acceptStyleRequest(style, generation) ?: return
+    require(generation > 0L) { "setBaseStyle requires a record style generation" }
+    if (generation == commandedGeneration && style == commandedStyle) return
+    commandedStyle = style
+    commandedGeneration = generation
     styleBinding?.unload()
-    callbacks.onStyleChanged(this, null, next)
-    onMap(::applyRequestedStyle)
+    callbacks.onStyleChanged(this, null, generation)
+    onMap(::applyCommandedStyle)
   }
 
-  /**
-   * Records [style] as the next apply, or returns null when [generation] is already the requested
-   * generation. A zero generation mints a local id for engine-only tests.
-   */
-  private fun acceptStyleRequest(style: BaseStyle, generation: Long): Long? {
-    if (generation > 0L) {
-      if (generation == requestedGeneration) return null
-      if (generation > mintedStyleGeneration) mintedStyleGeneration = generation
-      requestedStyle = style
-      requestedGeneration = generation
-      return generation
-    }
-    if (style == requestedStyle) return null
-    val next = ++mintedStyleGeneration
-    requestedStyle = style
-    requestedGeneration = next
-    return next
-  }
-
-  private fun applyRequestedStyle(map: MaplibreMap) {
-    val style = requestedStyle ?: return
-    if (requestedGeneration == appliedGeneration && appliedStyle != null) return
+  private fun applyCommandedStyle(map: MaplibreMap) {
+    val style = commandedStyle ?: return
+    val generation = commandedGeneration
+    if (generation == appliedGeneration && appliedStyle != null) return
     // Marked before the try so a throw below is not retried against the same map.
     appliedStyle = style
-    appliedGeneration = requestedGeneration
+    appliedGeneration = generation
     styleLoadPending = true
     // MapLibre diffs by default, keeping the same Style object, so no `style.load` would fire.
     val options = unsafeJso<SetStyleOptions> { diff = false }
@@ -551,7 +535,7 @@ internal class GlJsMapSession(
       styleLoadPending = false
       val reason = error.message ?: "MapLibre failed to load the map"
       logger?.e(error) { "Map loading failed: $reason" }
-      callbacks.onMapFailLoading(reason, requestedGeneration)
+      callbacks.onMapFailLoading(reason, generation)
       if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
     }
   }

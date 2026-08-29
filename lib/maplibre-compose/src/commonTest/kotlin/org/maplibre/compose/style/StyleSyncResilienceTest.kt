@@ -40,10 +40,10 @@ class StyleSyncResilienceTest {
     node.insertLayer(LayerNode(LineLayerDescriptor("l2", baseSource), Anchor.Top), 1)
 
     binding.failOnOpNumber = 2
-    assertFails { node.applyChanges() }
+    assertFails { applyStyleRevision(node) }
     assertEquals(listOf("addLayer:l1"), binding.ops.toList())
 
-    node.applyChanges()
+    applyStyleRevision(node)
 
     // The exact pair: the resumed sync adds only what the failed one had left to do.
     assertEquals(listOf("addLayer:l1", "addLayerAbove:l2"), binding.ops.toList())
@@ -60,10 +60,10 @@ class StyleSyncResilienceTest {
     node.sourceManager.addReference(second)
 
     binding.failOnOpNumber = 2
-    assertFails { node.applyChanges() }
+    assertFails { applyStyleRevision(node) }
     assertNull(binding.getSource("second"))
 
-    node.applyChanges()
+    applyStyleRevision(node)
 
     assertEquals(1, binding.ops.count { it == "addSource:second" }, "the retry ran once")
     assertEquals(1, binding.ops.count { it == "addSource:first" }, "the earlier add did not repeat")
@@ -79,14 +79,14 @@ class StyleSyncResilienceTest {
     val node = StyleNode(binding, null)
     val l1 = LayerNode(LineLayerDescriptor("l1", baseSource), Anchor.Top)
     node.insertLayer(l1, 0)
-    node.applyChanges()
+    applyStyleRevision(node)
 
     node.children.remove(l1)
     binding.failOnOpNumber = 2
-    assertFails { node.applyChanges() }
+    assertFails { applyStyleRevision(node) }
     assertNotNull(binding.getLayer("l1"))
 
-    node.applyChanges()
+    applyStyleRevision(node)
 
     assertEquals(1, binding.ops.count { it == "removeLayer:l1" }, "the retry removed it once")
     assertEquals(1, binding.ops.count { it == "addLayer:l1" }, "the earlier add did not repeat")
@@ -104,11 +104,11 @@ class StyleSyncResilienceTest {
 
     // Op 1 adds the replacement; op 2 is the original's removal.
     binding.failOnOpNumber = 2
-    assertFails { node.applyChanges() }
+    assertFails { applyStyleRevision(node) }
     assertNotNull(binding.getLayer("base"))
     assertNotNull(binding.getLayer("mine"))
 
-    node.applyChanges()
+    applyStyleRevision(node)
 
     assertEquals(1, binding.ops.count { it == "removeLayer:base" }, "the retry removed it once")
     assertEquals(
@@ -120,7 +120,7 @@ class StyleSyncResilienceTest {
 
     // The finished replace still restores the original when the replacement leaves.
     node.children.remove(replacement)
-    node.applyChanges()
+    applyStyleRevision(node)
     assertEquals(listOf("base"), binding.getLayers().map(Layer::id))
   }
 
@@ -134,11 +134,11 @@ class StyleSyncResilienceTest {
     node.insertLayer(replacement, 0)
 
     binding.failOnOpNumber = 2
-    assertFails { node.applyChanges() }
+    assertFails { applyStyleRevision(node) }
 
     // The replacement leaves before the original's removal ever succeeds.
     node.children.remove(replacement)
-    node.applyChanges()
+    applyStyleRevision(node)
 
     assertEquals(1, binding.ops.count { it == "removeLayer:mine" }, "the replacement left once")
     assertEquals(

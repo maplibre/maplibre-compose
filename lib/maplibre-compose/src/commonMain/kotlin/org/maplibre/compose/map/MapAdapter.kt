@@ -28,8 +28,8 @@ internal interface MapAdapter {
     duration: Duration,
   )
 
-  /** Loads [style]. [generation] is the record's style generation, or 0 from engine-only tests. */
-  fun setBaseStyle(style: BaseStyle, generation: Long = 0L)
+  /** Loads [style] as [generation]. The adapter executes this pair; it does not remint it. */
+  fun setBaseStyle(style: BaseStyle, generation: Long)
 
   fun getCameraPosition(): CameraPosition
 

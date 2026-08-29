@@ -39,11 +39,11 @@ internal class StyleApplier {
       replacedLayers.clear()
       pendingReplaceRemovals.clear()
       reportedUnresolvableAnchors.clear()
-      imageManager.ensureAttached()
       syncedBinding = binding
     }
     if (!binding.isLoaded) return
 
+    imageManager.flushTo(binding)
     val desiredLayers = revision.layers
     retryPendingReplaceRemovals(binding, desiredLayers.mapTo(hashSetOf()) { it.anchor }, logger)
     removeUndesiredLayers(binding, desiredLayers, logger)
@@ -55,6 +55,7 @@ internal class StyleApplier {
       syncAnchorGroup(binding, anchor, group, baseStyle, reportError, logger)
     }
     desiredLayers.forEach { it.layer.applyProperties(binding) }
+    imageManager.flushTo(binding)
   }
 
   private fun retryPendingReplaceRemovals(

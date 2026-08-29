@@ -87,7 +87,7 @@ class StyleNodeTest {
       val newSource =
         GeoJsonSource("new", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
       s.sourceManager.addReference(newSource)
-      s.applyChanges()
+      applyStyleRevision(s)
       assertEquals(4, s.binding.getSources().size)
       assertEquals(newSource, s.binding.getSource("new"))
     }
@@ -100,9 +100,9 @@ class StyleNodeTest {
       val newSource =
         GeoJsonSource("new", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
       s.sourceManager.addReference(newSource)
-      s.applyChanges()
+      applyStyleRevision(s)
       s.sourceManager.removeReference(newSource)
-      s.applyChanges()
+      applyStyleRevision(s)
       assertEquals(3, s.binding.getSources().size)
       assertNull(s.binding.getSource("new"))
     }
@@ -222,7 +222,7 @@ class StyleNodeTest {
       val nodes =
         (0..2).map { LayerNode(LineLayerDescriptor("new$it", testSources[0]), Anchor.Top) }
       nodes.forEachIndexed { i, node -> s.insertLayer(node, i) }
-      s.applyChanges()
+      applyStyleRevision(s)
       assertEquals(
         listOf("foo", "bar", "baz", "new0", "new1", "new2"),
         s.binding.getLayers().map(Layer::id),
@@ -237,7 +237,7 @@ class StyleNodeTest {
       val nodes =
         (0..2).map { LayerNode(LineLayerDescriptor("new$it", testSources[0]), Anchor.Bottom) }
       nodes.forEachIndexed { i, node -> s.insertLayer(node, i) }
-      s.applyChanges()
+      applyStyleRevision(s)
       assertEquals(
         listOf("new0", "new1", "new2", "foo", "bar", "baz"),
         s.binding.getLayers().map(Layer::id),
@@ -252,7 +252,7 @@ class StyleNodeTest {
       val nodes =
         (0..2).map { LayerNode(LineLayerDescriptor("new$it", testSources[0]), Anchor.Above("foo")) }
       nodes.forEachIndexed { i, node -> s.insertLayer(node, i) }
-      s.applyChanges()
+      applyStyleRevision(s)
       assertEquals(
         listOf("foo", "new0", "new1", "new2", "bar", "baz"),
         s.binding.getLayers().map(Layer::id),
@@ -267,7 +267,7 @@ class StyleNodeTest {
       val nodes =
         (0..2).map { LayerNode(LineLayerDescriptor("new$it", testSources[0]), Anchor.Below("baz")) }
       nodes.forEachIndexed { i, node -> s.insertLayer(node, i) }
-      s.applyChanges()
+      applyStyleRevision(s)
       assertEquals(
         listOf("foo", "bar", "new0", "new1", "new2", "baz"),
         s.binding.getLayers().map(Layer::id),
@@ -284,7 +284,7 @@ class StyleNodeTest {
           LayerNode(LineLayerDescriptor("new$it", testSources[0]), Anchor.Replace("bar"))
         }
       nodes.forEachIndexed { i, node -> s.insertLayer(node, i) }
-      s.applyChanges()
+      applyStyleRevision(s)
       assertEquals(
         listOf("foo", "new0", "new1", "new2", "baz"),
         s.binding.getLayers().map(Layer::id),
@@ -302,7 +302,7 @@ class StyleNodeTest {
         }
 
       nodes.forEachIndexed { i, node -> s.insertLayer(node, i) }
-      s.applyChanges()
+      applyStyleRevision(s)
 
       assertEquals(
         listOf("foo", "new0", "new1", "new2", "baz"),
@@ -310,7 +310,7 @@ class StyleNodeTest {
       )
 
       repeat(nodes.size) { s.removeLayerAt(0) }
-      s.applyChanges()
+      applyStyleRevision(s)
 
       assertEquals(listOf("foo", "bar", "baz"), s.binding.getLayers().map(Layer::id))
     }
@@ -324,12 +324,12 @@ class StyleNodeTest {
       val newNode = LayerNode(LineLayerDescriptor("new", testSources[0]), Anchor.Replace("bar"))
 
       s.insertLayer(oldNode, 0)
-      s.applyChanges()
+      applyStyleRevision(s)
       (s.binding as RecordingStyleBinding).unload()
 
       s.insertLayer(newNode, 0)
       s.removeLayerAt(1)
-      s.applyChanges()
+      applyStyleRevision(s)
       s.removeLayerAt(0)
 
       // An unloaded style takes no mutations, so it keeps the layers the last loaded sync left.
@@ -345,13 +345,13 @@ class StyleNodeTest {
       val l2 = LayerNode(LineLayerDescriptor("new", testSources[1]), Anchor.Top)
 
       s.insertLayer(l1, 0)
-      s.applyChanges()
+      applyStyleRevision(s)
 
       assertEquals(l1.layer, s.binding.getLayer("new"))
 
       s.insertLayer(l2, 0)
       s.removeLayerAt(1)
-      s.applyChanges()
+      applyStyleRevision(s)
 
       assertEquals(l2.layer, s.binding.getLayer("new"))
     }
@@ -364,13 +364,13 @@ class StyleNodeTest {
 
       s.insertLayer(LayerNode(LineLayerDescriptor("b1", testSources[0]), Anchor.Bottom), 0)
       s.insertLayer(LayerNode(LineLayerDescriptor("t1", testSources[0]), Anchor.Top), 0)
-      s.applyChanges()
+      applyStyleRevision(s)
 
       assertEquals(listOf("b1", "foo", "bar", "baz", "t1"), s.binding.getLayers().map(Layer::id))
 
       s.insertLayer(LayerNode(LineLayerDescriptor("b2", testSources[0]), Anchor.Bottom), 0)
       s.insertLayer(LayerNode(LineLayerDescriptor("t2", testSources[0]), Anchor.Top), 0)
-      s.applyChanges()
+      applyStyleRevision(s)
 
       assertEquals(
         listOf("b2", "b1", "foo", "bar", "baz", "t2", "t1"),

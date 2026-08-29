@@ -34,8 +34,8 @@ class MapLoadReportingTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(FIRST)
 
-      fixture.session.setBaseStyle(SECOND)
-      fixture.session.setBaseStyle(THIRD)
+      fixture.session.setBaseStyle(SECOND, 2L)
+      fixture.session.setBaseStyle(THIRD, 3L)
 
       fixture.pumpUntil("the third style to become active") {
         fixture.style?.getLayer("third") != null

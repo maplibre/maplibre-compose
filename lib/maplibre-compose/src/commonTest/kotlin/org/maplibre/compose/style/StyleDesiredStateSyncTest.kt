@@ -27,14 +27,14 @@ class StyleDesiredStateSyncTest {
 
     node.insertLayer(x, 0)
     node.insertLayer(y, 1)
-    node.applyChanges()
+    applyStyleRevision(node)
     assertEquals(listOf("x", "y"), binding.getLayers().map(Layer::id))
     assertNull(binding.getLayer("target"))
     binding.ops.clear()
 
     node.children.removeAt(0)
     node.children.add(1, x)
-    node.applyChanges()
+    applyStyleRevision(node)
 
     assertEquals(listOf("moveLayer:x"), binding.ops.toList())
     assertEquals(listOf("y", "x"), binding.getLayers().map(Layer::id))
@@ -47,12 +47,12 @@ class StyleDesiredStateSyncTest {
     val node = StyleNode(binding, null)
     val a = vectorSource("shared")
     node.sourceManager.addReference(a)
-    node.applyChanges()
+    applyStyleRevision(node)
 
     val b = vectorSource("shared")
     node.sourceManager.removeReference(a)
     node.sourceManager.addReference(b)
-    node.applyChanges()
+    applyStyleRevision(node)
 
     assertEquals(
       listOf("addSource:shared", "removeSource:shared", "addSource:shared"),
@@ -69,7 +69,7 @@ class StyleDesiredStateSyncTest {
       OpRecordingStyleBinding(baseSources = listOf(baseSource), baseLayers = listOf(base))
     val node = StyleNode(binding, null)
     node.insertLayer(LayerNode(LineLayerDescriptor("mine", baseSource), Anchor.Top), 0)
-    node.applyChanges()
+    applyStyleRevision(node)
 
     node.insertLayer(
       LayerNode(LineLayerDescriptor("above-mine", baseSource), Anchor.Above("mine")),
@@ -79,7 +79,7 @@ class StyleDesiredStateSyncTest {
       LayerNode(LineLayerDescriptor("above-base", baseSource), Anchor.Above("base")),
       2,
     )
-    node.applyChanges()
+    applyStyleRevision(node)
 
     // "mine" is composition-owned, so its anchor never resolves; "base" is a base-style layer.
     assertNull(binding.getLayer("above-mine"))

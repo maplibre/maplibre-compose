@@ -23,7 +23,7 @@ internal class ClickRoute(
 
 /**
  * The root of the style composition. The composition's callbacks record desired state only. A
- * [DesiredStyleRevision] is captured from the tree, and [StyleApplier] applies it to the binding.
+ * [DesiredStyleRevision] is captured from the tree; the host or [MapState] applies it.
  */
 internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : MapNode() {
 
@@ -32,7 +32,7 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
 
   internal val sourceManager = SourceManager(this)
   internal val imageManager = ImageManager(this)
-  private val applier = StyleApplier()
+  internal val revisionApplier = StyleApplier()
 
   /** Set by the host; asks it to run a sync when desired state changes outside a frame. */
   internal var requestSync: () -> Unit = {}
@@ -99,37 +99,22 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
     DesiredStyleRevision(
       sources = LinkedHashSet(sourceManager.desiredSources),
       layers = children.filterIsInstance<LayerNode<*>>(),
+      images = imageManager.heldIds,
     )
 
-  /**
-   * Applies [revision] to the current binding and publishes live layer ids and click routes. Tests
-   * and host-less compositions call [applyChanges], which snapshots then applies.
-   */
-  internal fun applyRevision(revision: DesiredStyleRevision) {
+  /** Recaptures the base style when the binding has changed. */
+  internal fun prepareBaseStyle() {
     val binding = binding
     if (baseStyleSnapshot?.binding !== binding) {
       baseStyleSnapshot = null
       baseStyle()
     }
-    applier.apply(
-      binding = binding,
-      revision = revision,
-      baseStyle = baseStyle(),
-      imageManager = imageManager,
-      refreshSource = { sourceManager.sources?.refreshSource(it) },
-      reportError = reportError,
-      logger = logger,
-    )
-    compositionLayerIds = revision.layerIds
-    publishLiveLayers()
   }
 
-  /**
-   * Snapshots the desired tree and applies it. [MapState] commits ownership first, then calls
-   * [applyRevision] so a queued apply after close or a style reload cannot republish.
-   */
-  internal fun applyChanges() {
-    applyRevision(snapshotRevision())
+  /** Publishes live layer ids and click routes after a revision has been applied. */
+  internal fun publishAfterApply(revision: DesiredStyleRevision) {
+    compositionLayerIds = revision.layerIds
+    publishLiveLayers()
   }
 
   /**

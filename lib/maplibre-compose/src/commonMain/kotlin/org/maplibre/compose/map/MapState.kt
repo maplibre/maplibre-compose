@@ -46,6 +46,7 @@ import org.maplibre.compose.style.StyleCompositionHost
 import org.maplibre.compose.style.StyleError
 import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.StyleNode
+import org.maplibre.compose.style.applyStyleRevision
 import org.maplibre.compose.util.MapClickHandler
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.compose.util.toStyleJson
@@ -178,10 +179,16 @@ internal constructor(
     get() = published.value.let { if (it.closed) emptyList() else it.appImages }
 
   /** The failure of the style generation [generation] frozen at capture, or null. */
-  internal fun captureLoadFailure(generation: Long): String? = record.read {
-    val capturing = renderer as? RendererState.Capture ?: return@read null
-    if (capturing.styleGeneration == generation) captureLoadFailure else null
+  internal fun captureLoadFailure(generation: Long): String? {
+    val snapshot = published.value
+    return if (snapshot.capturing && snapshot.captureStyleGeneration == generation)
+      snapshot.captureLoadFailure
+    else null
   }
+
+  /** True while a still-image capture holds the render slot. Off-host readers use this. */
+  internal val isCapturing: Boolean
+    get() = published.value.capturing
 
   /**
    * The failure the still-image pump must observe: a frozen-generation error stored on the lease,
@@ -913,9 +920,9 @@ internal constructor(
     val revision = styleNode.snapshotRevision()
     if (
       !commit {
-        if (!commitComposition(binding, revision.layerIds, revision.sourcesById))
+        if (!commitComposition(binding, revision.layerIds, revision.sourcesById, revision.images))
           return@commit false
-        enqueue { styleNode.applyRevision(revision) }
+        enqueue { applyStyleRevision(styleNode, revision, styleNode.revisionApplier) }
         true
       }
     ) {
@@ -929,7 +936,8 @@ internal constructor(
     binding: StyleBinding,
     layerIds: Set<String>,
     sources: Map<String, Source>,
-  ): Boolean = commit { commitComposition(binding, layerIds, sources) }
+    images: List<String> = emptyList(),
+  ): Boolean = commit { commitComposition(binding, layerIds, sources, images) }
 
   /** Commits an imperative source only when [binding] is still the current loaded style. */
   internal fun commitAppSource(binding: StyleBinding, source: Source): Boolean {

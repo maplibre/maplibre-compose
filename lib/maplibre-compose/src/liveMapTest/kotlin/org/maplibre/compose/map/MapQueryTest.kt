@@ -89,7 +89,7 @@ class MapQueryTest {
       it.pump(frames = 5)
 
       // Not awaited: the query below must land inside the loading window.
-      it.session.setBaseStyle(BaseStyle.Json(EMPTY_STYLE))
+      it.session.setBaseStyle(BaseStyle.Json(EMPTY_STYLE), 1L)
       it.session.queryRenderedFeatures(
         offset = CENTER,
         layerIds = setOf("no-such-layer"),

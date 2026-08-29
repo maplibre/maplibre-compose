@@ -304,6 +304,26 @@ class MapRecordIdentityTest {
   }
 
   @Test
+  fun published_snapshot_carries_capture_fields_without_a_record_read() {
+    val record = MapRecord(start)
+    val adapter = FakeMapAdapter()
+    record.mutate { attach(adapter) }
+    val generation = record.read { styleGeneration }
+    record.mutate { detach(adapter) }
+    record.mutate { beginCapture() }
+    record.mutate { styleLoadFailed(adapter, generation, "frozen failed") }
+    val snapshot = record.read { publishedSnapshot() }
+    assertTrue(snapshot.capturing)
+    assertEquals(generation, snapshot.captureStyleGeneration)
+    assertEquals("frozen failed", snapshot.captureLoadFailure)
+    val lease = record.read { renderer as RendererState.Capture }
+    record.mutate { finishCapture(lease.id) }
+    val after = record.read { publishedSnapshot() }
+    assertTrue(!after.capturing)
+    assertEquals(null, after.captureLoadFailure)
+  }
+
+  @Test
   fun close_rejects_a_racing_style_composition() {
     val record = MapRecord(start)
     val accepted = record.mutate { replaceStyleComposition {} }

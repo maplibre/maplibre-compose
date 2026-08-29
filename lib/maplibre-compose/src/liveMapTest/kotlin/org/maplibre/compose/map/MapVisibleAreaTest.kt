@@ -22,7 +22,7 @@ class MapVisibleAreaTest {
   @Test
   fun the_bounding_box_frames_the_camera_target(): MapTestResult = runMapTest {
     createMapFixture().use {
-      it.session.setBaseStyle(BaseStyle.Empty)
+      it.session.setBaseStyle(BaseStyle.Empty, 1L)
       it.awaitMapReady()
       it.session.setCameraPosition(CAMERA)
       it.pumpUntil("the camera to apply") { it.session.hasNativeCamera(CAMERA) }
@@ -42,7 +42,7 @@ class MapVisibleAreaTest {
   @Test
   fun the_camera_and_bounding_box_come_from_one_native_snapshot(): MapTestResult = runMapTest {
     createMapFixture().use {
-      it.session.setBaseStyle(BaseStyle.Empty)
+      it.session.setBaseStyle(BaseStyle.Empty, 1L)
       it.awaitMapReady()
       it.session.setCameraPosition(CAMERA)
 
@@ -65,7 +65,7 @@ class MapVisibleAreaTest {
   fun the_bounding_box_covers_the_region_of_a_rotated_and_tilted_camera(): MapTestResult =
     runMapTest {
       createMapFixture().use {
-        it.session.setBaseStyle(BaseStyle.Empty)
+        it.session.setBaseStyle(BaseStyle.Empty, 1L)
         it.awaitMapReady()
         it.session.setCameraPosition(ROTATED_CAMERA)
         it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(ROTATED_CAMERA) }
@@ -84,7 +84,7 @@ class MapVisibleAreaTest {
   fun the_region_of_a_rotated_and_tilted_camera_is_a_proper_quadrilateral(): MapTestResult =
     runMapTest {
       createMapFixture().use {
-        it.session.setBaseStyle(BaseStyle.Empty)
+        it.session.setBaseStyle(BaseStyle.Empty, 1L)
         it.awaitMapReady()
         it.session.setCameraPosition(ROTATED_CAMERA)
         it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(ROTATED_CAMERA) }
@@ -106,7 +106,7 @@ class MapVisibleAreaTest {
   @Test
   fun the_bounding_box_stays_narrow_across_the_antimeridian(): MapTestResult = runMapTest {
     createMapFixture().use {
-      it.session.setBaseStyle(BaseStyle.Empty)
+      it.session.setBaseStyle(BaseStyle.Empty, 1L)
       it.awaitMapReady()
       it.session.setCameraPosition(ANTIMERIDIAN_CAMERA)
       it.pumpUntil("the camera to apply") { it.session.hasNativeCamera(ANTIMERIDIAN_CAMERA) }

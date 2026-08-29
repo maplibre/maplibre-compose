@@ -67,9 +67,15 @@ internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
     return glJsSession.render(GlJsFrameTarget.Detached, extent).also { if (it) hasRendered = true }
   }
 
+  private var nextStyleGeneration = 1L
+
   override suspend fun loadStyle(style: BaseStyle, timeout: Duration) {
-    glJsSession.setBaseStyle(style)
+    glJsSession.setBaseStyle(style, nextStyleGeneration++)
     pumpUntil("style $style to load", timeout) { events.contains(MapFixture.STYLE_LOADED) }
+  }
+
+  internal fun commandStyle(style: BaseStyle) {
+    glJsSession.setBaseStyle(style, nextStyleGeneration++)
   }
 
   override suspend fun awaitMapReady(timeout: Duration) {

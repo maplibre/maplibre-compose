@@ -11,7 +11,7 @@ class MlnFfiStyleFailureTest {
   fun an_unreachable_style_url_is_reported_rather_than_thrown() {
     val fixture = BridgeMapFixture.create()
     fixture.use {
-      it.core.setBaseStyle(BaseStyle.Uri("https://example.invalid/style.json"))
+      it.commandStyle(BaseStyle.Uri("https://example.invalid/style.json"))
 
       it.pumpUntil("the load to fail") {
         it.errors.any { error -> error.startsWith("mapFailLoading") }

@@ -191,19 +191,18 @@ internal class MlnFfiMapCore(
   internal val isClosed: Boolean
     get() = closed
 
-  private var requestedStyle: BaseStyle? = null
-  private var requestedGeneration: Long = 0L
+  private var commandedStyle: BaseStyle? = null
+  private var commandedGeneration: Long = 0L
   private var appliedStyle: BaseStyle? = null
   private var appliedGeneration: Long = 0L
-  private var mintedStyleGeneration: Long = 0L
 
-  /** The generation of the most recently requested base style; each [setBaseStyle] bumps it. */
-  internal val requestedStyleGeneration: Long
-    get() = requestedGeneration
+  /** The generation of the last [setBaseStyle] command this core accepted. */
+  internal val commandedStyleGeneration: Long
+    get() = commandedGeneration
 
   /**
    * The generation of the most recently loaded style. [hasLoadedFirstStyle] is sticky, so a waiter
-   * that must observe a NEW style's load compares this against [requestedStyleGeneration] instead.
+   * that must observe a NEW style's load compares this against [commandedStyleGeneration] instead.
    */
   @Volatile
   internal var loadedStyleGeneration: Long = 0L
@@ -480,7 +479,7 @@ internal class MlnFfiMapCore(
 
   /** Runs on the loop's thread, once, before the map is published. */
   private fun onMapCreated(map: MapHandle) {
-    applyRequestedStyle(map)
+    applyCommandedStyle(map)
     // A camera set before this map existed reaches it as a queued jump, which a loop that stopped
     // before running it has already abandoned.
     requestedCamera?.let { map.jumpTo(it.toCameraOptions(cameraPadding)) }
@@ -528,7 +527,7 @@ internal class MlnFfiMapCore(
         // setter.
         val reason = event.message.ifBlank { "MapLibre failed to load the map" }
         logger?.e { "Map loading failed (code ${event.code}): $reason" }
-        callbacks.onMapFailLoading(reason, requestedGeneration)
+        callbacks.onMapFailLoading(reason, commandedGeneration)
       }
 
       RuntimeEventType.MAP_CAMERA_WILL_CHANGE -> beginCameraMove()
@@ -706,40 +705,24 @@ internal class MlnFfiMapCore(
   // region MapAdapter
 
   override fun setBaseStyle(style: BaseStyle, generation: Long) {
-    val next = acceptStyleRequest(style, generation) ?: return
+    require(generation > 0L) { "setBaseStyle requires a record style generation" }
+    if (generation == commandedGeneration && style == commandedStyle) return
+    commandedStyle = style
+    commandedGeneration = generation
     styleBinding?.unload()
-    callbacks.onStyleChanged(this, null, next)
-    onMap(::applyRequestedStyle)
-  }
-
-  /**
-   * Records [style] as the next apply, or returns null when [generation] is already the requested
-   * generation. A zero generation mints a local id for engine-only tests.
-   */
-  private fun acceptStyleRequest(style: BaseStyle, generation: Long): Long? {
-    if (generation > 0L) {
-      if (generation == requestedGeneration) return null
-      if (generation > mintedStyleGeneration) mintedStyleGeneration = generation
-      requestedStyle = style
-      requestedGeneration = generation
-      return generation
-    }
-    if (style == requestedStyle) return null
-    val next = ++mintedStyleGeneration
-    requestedStyle = style
-    requestedGeneration = next
-    return next
+    callbacks.onStyleChanged(this, null, generation)
+    onMap(::applyCommandedStyle)
   }
 
   /** Owner thread only. */
-  private fun applyRequestedStyle(map: MapHandle) {
-    val style = requestedStyle ?: return
-    if (style == appliedStyle && requestedGeneration != appliedGeneration) {
-      // A coalesced switch back to the applied style needs no push, but the request already
+  private fun applyCommandedStyle(map: MapHandle) {
+    val style = commandedStyle ?: return
+    val generation = commandedGeneration
+    if (style == appliedStyle && generation != appliedGeneration) {
+      // A coalesced switch back to the applied style needs no push, but the command already
       // unloaded the binding and no load event will come, so a loaded style republishes its
       // binding here and the acknowledged generation reaches waiters; a pending load carries
       // both itself.
-      val generation = requestedGeneration
       val alreadyLoaded = loadedStyleGeneration > 0L && loadedStyleGeneration >= appliedGeneration
       appliedGeneration = generation
       if (alreadyLoaded) {
@@ -754,7 +737,7 @@ internal class MlnFfiMapCore(
       }
       return
     }
-    if (requestedGeneration == appliedGeneration) return
+    if (generation == appliedGeneration) return
     // setStyleJson parses inline, so a malformed style throws as well as queueing
     // MAP_LOADING_FAILED; the queued event is what reports it.
     try {
@@ -763,7 +746,7 @@ internal class MlnFfiMapCore(
         is BaseStyle.Json -> map.setStyleJson(style.json.encodeToByteArray())
       }
       appliedStyle = style
-      appliedGeneration = requestedGeneration
+      appliedGeneration = generation
     } catch (error: MaplibreException) {
       // The applied style stays unset so rebuilding the map retries.
       logger?.e(error) { "Failed to apply style $style" }
@@ -779,7 +762,7 @@ internal class MlnFfiMapCore(
     val unreported = styleLoadUnreportedGeneration
     if (unreported == 0L) return false
     styleLoadUnreportedGeneration = 0L
-    if (unreported == requestedGeneration) {
+    if (unreported == commandedGeneration) {
       callbacks.onMapFinishedLoading(this, unreported)
     }
     return true

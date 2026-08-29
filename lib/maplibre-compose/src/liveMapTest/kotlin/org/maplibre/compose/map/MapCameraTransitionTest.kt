@@ -33,7 +33,7 @@ class MapCameraTransitionTest {
   fun an_animation_requested_before_the_first_frame_reaches_its_target(): MapTestResult =
     runMapTest {
       createMapFixture().use {
-        it.session.setBaseStyle(BaseStyle.Empty)
+        it.session.setBaseStyle(BaseStyle.Empty, 1L)
         val animation =
           CoroutineScope(Dispatchers.Default).launch(start = CoroutineStart.UNDISPATCHED) {
             it.session.animateCameraPosition(TARGET, 200.milliseconds)
@@ -67,7 +67,7 @@ class MapCameraTransitionTest {
   @Test
   fun closing_before_the_first_frame_resumes_a_queued_animation(): MapTestResult = runMapTest {
     createMapFixture().use {
-      it.session.setBaseStyle(BaseStyle.Empty)
+      it.session.setBaseStyle(BaseStyle.Empty, 1L)
       val animation =
         CoroutineScope(Dispatchers.Default).launch(start = CoroutineStart.UNDISPATCHED) {
           it.session.animateCameraPosition(TARGET, 60.seconds)

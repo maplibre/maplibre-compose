@@ -110,6 +110,8 @@ public class StyleImages internal constructor(private val state: MapState) {
             IllegalStateException("MapState is closed; a closed state cannot mutate the style")
           this.binding !== binding ->
             IllegalStateException("Image '$id' was not added: the style unloaded during the add")
+          id in compositionImages ->
+            IllegalArgumentException("Image id '$id' is owned by the style composition")
           else -> null
         }
       }
