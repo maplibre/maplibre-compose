@@ -53,6 +53,7 @@ internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
   private var frameRequested = true
 
   init {
+    glJsSession.start()
     glJsSession.onSurfaceAvailable(
       object : GlJsSurfaceSession {
         override fun requestFrame() {
@@ -70,6 +71,10 @@ internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
   override suspend fun loadStyle(style: BaseStyle, timeout: Duration) {
     glJsSession.setBaseStyle(style)
     pumpUntil("style $style to load", timeout) { events.contains(MapFixture.STYLE_LOADED) }
+  }
+
+  internal fun fireStyleError(message: String) {
+    glJsSession.fireStyleErrorForTest(message)
   }
 
   override suspend fun awaitMapReady(timeout: Duration) {

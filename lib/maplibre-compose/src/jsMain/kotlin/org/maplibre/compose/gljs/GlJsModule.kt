@@ -28,6 +28,8 @@ internal external class MaplibreMap(options: MapOptions) {
 
   fun on(type: String, listener: (event: MapEvent) -> Unit): Subscription
 
+  fun fire(type: String, properties: Any)
+
   fun getCanvas(): HTMLCanvasElement
 
   fun setPixelRatio(pixelRatio: Double)

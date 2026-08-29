@@ -27,6 +27,7 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
   private val session = GlJsMapSession(Callbacks(), logger = null, LayoutDirection.Ltr)
 
   init {
+    session.start()
     session.onSurfaceAvailable(
       object : GlJsSurfaceSession {
         override fun requestFrame() {

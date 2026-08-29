@@ -162,9 +162,9 @@ internal class MlnFfiMapRuntimeLoop(
   fun post(action: (MapHandle) -> Unit, abandon: () -> Unit = {}): Boolean =
     submit(run = action, abandon = abandon)
 
-  /** Queues a test callback that runs after the next native pump and event drain. */
-  fun postEventDrainBarrierForTest(action: () -> Unit): Boolean =
-    post(action = { eventDrainBarriers += action })
+  /** Queues a callback that runs after the next native pump and event drain. */
+  fun postEventDrainBarrier(action: () -> Unit, abandon: () -> Unit = {}): Boolean =
+    post(action = { eventDrainBarriers += action }, abandon = abandon)
 
   private fun submit(run: (MapHandle) -> Unit, abandon: () -> Unit): Boolean = acceptLock.withLock {
     if (!accepting) return false
