@@ -69,8 +69,8 @@ public class StyleSources internal constructor(private val state: MapState) {
    *
    * A [MapState.baseStyle] reload drops the source; reapply it after the load.
    *
-   * @throws IllegalArgumentException when a source with the id already exists; the message names
-   *   the owner.
+   * @throws IllegalArgumentException when a source with the id already exists, or when [source]
+   *   already belongs to another [MapState]; the message names the owner.
    * @throws IllegalStateException when no style is loaded, when the state is closed, or when
    *   MapLibre refuses the source.
    */
@@ -104,6 +104,8 @@ public class StyleSources internal constructor(private val state: MapState) {
             IllegalArgumentException("Source id '$id' is owned by the style composition")
           id in appSources ->
             IllegalArgumentException("Source id '$id' was already added through this state")
+          source.map != null && source.map !== state ->
+            IllegalArgumentException("Source '$id' already belongs to another MapState")
           else -> null
         }
       }
@@ -121,8 +123,9 @@ public class StyleSources internal constructor(private val state: MapState) {
       )
     }
     return try {
-      binding.addSource(source)
-      if (!state.commitAppSource(binding, source)) {
+      if (!binding.addSource(source)) {
+        IllegalStateException("Source '$id' was not added: the style unloaded during the add")
+      } else if (!state.commitAppSource(binding, source)) {
         IllegalStateException("Source '$id' was not added: the style unloaded during the add")
       } else {
         null

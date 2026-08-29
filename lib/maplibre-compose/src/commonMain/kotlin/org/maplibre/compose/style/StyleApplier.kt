@@ -120,7 +120,10 @@ internal class StyleApplier {
     desired.forEach { source ->
       if (source !in appliedSources) {
         logger?.i { "Adding source ${source.id}" }
-        binding.addSource(source)
+        if (!binding.addSource(source)) {
+          logger?.w { "Source ${source.id} was not added; the style unloaded" }
+          return@forEach
+        }
         appliedSources.add(source)
         if (source is GeoJsonSource) appliedGeoJson[source.id] = source.data
         refreshSource(source.id)

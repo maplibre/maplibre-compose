@@ -31,6 +31,9 @@ import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.BackgroundLayerDescriptor
 import org.maplibre.compose.layers.FillLayerDescriptor
 import org.maplibre.compose.layers.RasterLayer
+import org.maplibre.compose.sources.GeoJsonData
+import org.maplibre.compose.sources.GeoJsonOptions
+import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.TileSetOptions
@@ -420,7 +423,7 @@ class StyleSourcesImperativeTest {
     state.setStyleComposition {}
     val binding =
       object : OpRecordingStyleBinding() {
-        override fun addSource(source: Source) {
+        override fun addSource(source: Source): Boolean {
           op("addSource:${source.id}")
           error("engine refused ${source.id}")
         }
@@ -431,6 +434,65 @@ class StyleSourcesImperativeTest {
     assertTrue("engine refused" in error.message.orEmpty(), error.message)
     assertNull(state.sources["app-src"], "ownership publishes only after the engine accepts")
     assertEquals(listOf("addSource:app-src"), binding.ops.filter { it.startsWith("addSource") })
+
+    state.close()
+    testScheduler.advanceUntilIdle()
+  }
+
+  @Test
+  fun an_unloaded_add_does_not_publish_ownership() = runTest {
+    val state = mapState()
+    state.setStyleComposition {}
+    val binding =
+      object : OpRecordingStyleBinding() {
+        override fun addSource(source: Source): Boolean {
+          op("addSource:${source.id}")
+          return false
+        }
+      }
+    attach(state, binding)
+
+    val error = assertFailsWith<IllegalStateException> { state.sources.add(testSource("app-src")) }
+    assertTrue("unloaded" in error.message.orEmpty(), error.message)
+    assertNull(state.sources["app-src"], "a dropped install must not publish ownership")
+
+    state.close()
+    testScheduler.advanceUntilIdle()
+  }
+
+  @Test
+  fun a_source_already_owned_by_another_state_is_refused() = runTest {
+    val first = mapState()
+    val second = mapState()
+    first.setStyleComposition {}
+    second.setStyleComposition {}
+    attach(first, OpRecordingStyleBinding())
+    attach(second, OpRecordingStyleBinding())
+    val source = testSource("shared")
+    first.sources.add(source)
+    val error = assertFailsWith<IllegalArgumentException> { second.sources.add(source) }
+    assertTrue("another MapState" in error.message.orEmpty(), error.message)
+    assertSame(source, first.sources["shared"])
+    assertNull(second.sources["shared"])
+    first.close()
+    second.close()
+    testScheduler.advanceUntilIdle()
+  }
+
+  @Test
+  fun an_unchanged_geojson_setData_does_not_write_the_engine() = runTest {
+    val state = mapState()
+    state.setStyleComposition {}
+    val binding = OpRecordingStyleBinding()
+    attach(state, binding)
+    val data = GeoJsonData.Uri("https://example.invalid/a.json")
+    val source = GeoJsonSource("geo", data, GeoJsonOptions())
+    state.sources.add(source)
+    val writes = binding.ops.count { it.startsWith("addSource") }
+    source.setData(data)
+    assertEquals(writes, binding.ops.count { it.startsWith("addSource") })
+    source.setData(GeoJsonData.Uri("https://example.invalid/b.json"))
+    assertEquals(GeoJsonData.Uri("https://example.invalid/b.json"), source.data)
 
     state.close()
     testScheduler.advanceUntilIdle()

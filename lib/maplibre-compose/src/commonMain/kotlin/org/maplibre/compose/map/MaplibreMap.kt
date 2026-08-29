@@ -184,6 +184,7 @@ public fun MaplibreMap(
     val layoutDirection = LocalLayoutDirection.current
     val locals = currentCompositionLocalContext
     val mapClickScope = rememberCoroutineScope()
+    val sessionEnvironmentOwner = remember { Any() }
 
     // Reading each side during composition recomposes this map when the insets change, so the
     // session receives the new padding. Resolving against the current layout direction here makes a
@@ -192,19 +193,23 @@ public fun MaplibreMap(
     val resolvedCameraPadding = (cameraPadding ?: insetPadding).resolveAbsolute(layoutDirection)
 
     // Written during composition: a session can attach in the same apply pass, before any
-    // SideEffect, and the native core captures the logger when it is created.
-    state.logger = logger
+    // SideEffect, and the native core captures the logger when it is created. A rival map
+    // that will be refused must not replace the owner’s logger.
+    if (state.acceptsSessionEnvironment(sessionEnvironmentOwner)) state.logger = logger
 
     SideEffect {
-      state.density = density
-      state.layoutDirection = layoutDirection
-      state.inheritedLocals = locals
-      state.sessionOptions =
-        SessionOptions(resolvedCameraPadding, zoomRange, pitchRange, boundingBox, options)
-      state.callbacks.onMapClick = onMapClick
-      state.callbacks.onMapLongClick = onMapLongClick
-      state.callbacks.onFrame = onFrame
-      state.callbacks.clickScope = mapClickScope
+      state.publishSessionEnvironment(
+        owner = sessionEnvironmentOwner,
+        density = density,
+        layoutDirection = layoutDirection,
+        inheritedLocals = locals,
+        options =
+          SessionOptions(resolvedCameraPadding, zoomRange, pitchRange, boundingBox, options),
+        onMapClick = onMapClick,
+        onMapLongClick = onMapLongClick,
+        onFrame = onFrame,
+        clickScope = mapClickScope,
+      )
     }
 
     ObserveMapLoadState(

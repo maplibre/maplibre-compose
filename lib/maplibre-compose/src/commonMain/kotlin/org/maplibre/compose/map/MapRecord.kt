@@ -180,8 +180,7 @@ internal class MapRecord(initialCamera: CameraPosition) {
 
   private fun acceptsStyleGeneration(generation: Long): Boolean = generation == styleGeneration
 
-  private fun emitLoad(adapter: MapAdapter, style: BaseStyle) {
-    val generation = styleGeneration
+  private fun emitLoad(adapter: MapAdapter, style: BaseStyle, generation: Long = styleGeneration) {
     enqueue { adapter.setBaseStyle(style, generation) }
   }
 
@@ -277,7 +276,8 @@ internal class MapRecord(initialCamera: CameraPosition) {
       if (selectedStyle != null) {
         loadState = MapLoadState.Loading(styleGeneration, currentStyle())
         if (renderer is RendererState.Capture && adapter != null) {
-          emitLoad(adapter, (renderer as RendererState.Capture).style)
+          val capture = renderer as RendererState.Capture
+          emitLoad(adapter, capture.style, capture.styleGeneration)
         }
       }
     }
@@ -430,8 +430,9 @@ internal class MapRecord(initialCamera: CameraPosition) {
     renderer = capture
     captureLoadFailure = null
     // A matching retained core is not replaced, so capture must push the snapshotted style
-    // itself when a core already exists and never loaded.
-    styleSource?.let { emitLoad(it, currentStyle()) }
+    // itself when a core already exists and never loaded. Tag it with the frozen generation,
+    // not a later logical selection.
+    styleSource?.let { emitLoad(it, capture.style, capture.styleGeneration) }
     return capture
   }
 

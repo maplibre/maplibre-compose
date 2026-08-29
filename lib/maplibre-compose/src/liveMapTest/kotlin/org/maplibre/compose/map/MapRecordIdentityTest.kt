@@ -281,6 +281,29 @@ class MapRecordIdentityTest {
   }
 
   @Test
+  fun capture_replays_the_frozen_style_under_its_own_generation() {
+    val record = MapRecord(start)
+    val adapter = FakeMapAdapter()
+    record.mutate {
+      attach(adapter)
+      detach(adapter)
+    }
+    record.drain()
+    val frozenGeneration = record.read { styleGeneration }
+    val frozenStyle = record.read { selectedStyle }
+    record.mutate { beginCapture() }
+    record.mutate { selectStyle(BaseStyle.Empty) }
+    record.mutate { replaceCore(adapter) }
+    record.drain()
+    assertEquals(frozenStyle to frozenGeneration, adapter.styleLoads.last())
+    val lease = record.read { renderer as RendererState.Capture }
+    record.mutate { finishCapture(lease.id) }
+    record.drain()
+    assertEquals(BaseStyle.Empty to record.read { styleGeneration }, adapter.styleLoads.last())
+    assertTrue(record.read { styleGeneration } > frozenGeneration)
+  }
+
+  @Test
   fun close_rejects_a_racing_style_composition() {
     val record = MapRecord(start)
     val accepted = record.mutate { replaceStyleComposition {} }

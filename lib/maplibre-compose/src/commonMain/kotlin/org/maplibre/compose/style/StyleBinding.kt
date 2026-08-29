@@ -158,10 +158,14 @@ internal interface StyleBinding {
    */
   fun sourceExists(sourceId: String): Boolean?
 
-  /** Adds [source]'s definition to this style; dropped when the style has unloaded. */
-  fun addSource(source: Source) {
-    if (!isLoaded) return
-    source.install(this)
+  /**
+   * Adds [source]'s definition to this style.
+   *
+   * @return false if the style has unloaded, in which case nothing was added.
+   */
+  fun addSource(source: Source): Boolean {
+    if (!isLoaded) return false
+    return source.install(this)
   }
 
   /** Removes the live source that [source] names. */

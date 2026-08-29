@@ -55,6 +55,7 @@ public class GeoJsonSource : Source {
    * [MapState][org.maplibre.compose.map.MapState], the state enqueues the install as a command.
    */
   public fun setData(data: GeoJsonData) {
+    if (data == this.data) return
     this.data = data
     map?.setGeoJsonData(id, data, options)
   }

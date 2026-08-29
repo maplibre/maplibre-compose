@@ -19,6 +19,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.first
@@ -45,6 +46,7 @@ import org.maplibre.compose.style.StyleCompositionHost
 import org.maplibre.compose.style.StyleError
 import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.StyleNode
+import org.maplibre.compose.util.MapClickHandler
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.compose.util.toStyleJson
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -122,6 +124,16 @@ internal constructor(
 
   /** The logical record for every transition this state makes. */
   internal val record = MapRecord(cameraPosition)
+
+  private val detachedDensity = density
+  private val detachedLayoutDirection = layoutDirection
+
+  /**
+   * The composition that currently writes session-scoped environment. A rival [MaplibreMap] must
+   * not replace density, layout, or [sessionOptions] on a state another map already owns.
+   */
+  internal var sessionEnvironmentOwner: Any? = null
+    private set
 
   private val published =
     mutableStateOf(
@@ -250,7 +262,12 @@ internal constructor(
       else if (shouldClearUnloadedSources()) sources.clear()
     }
     record.resetSessionHooks = { callbacks.resetSessionHooks() }
-    record.clearInheritedLocals = { host.inheritedLocals = null }
+    record.clearInheritedLocals = {
+      host.inheritedLocals = null
+      host.density = detachedDensity
+      host.layoutDirection = detachedLayoutDirection
+      sessionEnvironmentOwner = null
+    }
   }
 
   private var contentStarted = false
@@ -533,8 +550,49 @@ internal constructor(
     val next = record.read { (compositionSources.values + appSources.values).toList() }
     val nextSet = next.toHashSet()
     ownedSources.forEach { if (it !in nextSet && it.map === this) it.map = null }
-    next.forEach { it.map = this }
+    next.forEach { source ->
+      val owner = source.map
+      check(owner == null || owner === this) {
+        "Source '${source.id}' already belongs to another MapState"
+      }
+      source.map = this
+    }
     ownedSources = next
+  }
+
+  /** True when [owner] may write session-scoped environment onto this state. */
+  internal fun acceptsSessionEnvironment(owner: Any): Boolean {
+    val current = sessionEnvironmentOwner
+    return current == null || current === owner
+  }
+
+  /**
+   * Stores session-scoped environment when [owner] is the accepted writer. A rival composition is
+   * refused, so it cannot apply padding or density to a live adapter it does not own.
+   */
+  internal fun publishSessionEnvironment(
+    owner: Any,
+    density: Density,
+    layoutDirection: LayoutDirection,
+    inheritedLocals: CompositionLocalContext?,
+    options: SessionOptions,
+    onMapClick: MapClickHandler,
+    onMapLongClick: MapClickHandler,
+    onFrame: (Double) -> Unit,
+    clickScope: CoroutineScope,
+  ): Boolean {
+    if (!acceptsSessionEnvironment(owner)) return false
+    sessionEnvironmentOwner = owner
+    this.density = density
+    this.layoutDirection = layoutDirection
+    this.inheritedLocals = inheritedLocals
+    sessionOptions = options
+    callbacks.onMapClick = onMapClick
+    callbacks.onMapLongClick = onMapLongClick
+    callbacks.onFrame = onFrame
+    callbacks.clickScope = clickScope
+    attachedAdapter?.let(options::applyTo)
+    return true
   }
 
   private fun writeAuthorizedLayer(
@@ -821,11 +879,6 @@ internal constructor(
 
   /** The per-composable session options; attach applies them, and a change reaches a live map. */
   internal var sessionOptions: SessionOptions? = null
-    set(value) {
-      if (value == field) return
-      field = value
-      if (value != null) attachedAdapter?.let(value::applyTo)
-    }
 
   internal fun onCaptureViewport(viewport: Viewport?) {
     postLogical { publishCaptureViewport(viewport) }

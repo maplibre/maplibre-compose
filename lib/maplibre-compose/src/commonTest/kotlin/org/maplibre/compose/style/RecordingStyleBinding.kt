@@ -79,17 +79,17 @@ internal open class RecordingStyleBinding(
 
   override fun getSources(): List<Source> = sourceMap.values.toList()
 
-  override fun addSource(source: Source) {
-    if (!loaded) return
+  override fun addSource(source: Source): Boolean {
+    if (!loaded) return false
     if (source.id in sourceMap) error("Source ID '${source.id}' already exists in style")
-    source.install(this)
-    sourceMap[source.id] = source
+    val installed = source.install(this)
+    if (installed) sourceMap[source.id] = source
+    return installed
   }
 
   override fun removeSource(source: Source) {
     if (source.id !in sourceMap) error("Source ID '${source.id}' not found in style")
     removeSource(source.id)
-    sourceMap.remove(source.id)
   }
 
   internal fun replaceSource(source: Source) {
@@ -152,6 +152,7 @@ internal open class RecordingStyleBinding(
 
   override fun removeSource(sourceId: String) {
     sources.remove(sourceId)
+    sourceMap.remove(sourceId)
   }
 
   override fun sourceExists(sourceId: String): Boolean =

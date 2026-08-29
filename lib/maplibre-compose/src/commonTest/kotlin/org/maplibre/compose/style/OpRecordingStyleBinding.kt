@@ -14,9 +14,9 @@ internal open class OpRecordingStyleBinding(
     ops.add(name)
   }
 
-  override fun addSource(source: Source) {
+  override fun addSource(source: Source): Boolean {
     op("addSource:${source.id}")
-    super.addSource(source)
+    return super.addSource(source)
   }
 
   override fun removeSource(source: Source) {

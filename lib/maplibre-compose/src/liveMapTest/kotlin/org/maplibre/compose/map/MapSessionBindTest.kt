@@ -1,5 +1,9 @@
 package org.maplibre.compose.map
 
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -7,8 +11,11 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.util.ClickResult
 
 class MapSessionBindTest {
 
@@ -94,7 +101,60 @@ class MapSessionBindTest {
     state.commit { finishCapture(state.record.read { (renderer as RendererState.Capture).id }) }
     state.close()
   }
+
+  @Test
+  fun a_rival_composition_cannot_apply_session_environment() {
+    val state = MapState(CameraPosition(), density = Density(1f))
+    val adapter = FakeMapAdapter()
+    state.attachSession(adapter)
+    val owner = Any()
+    val rival = Any()
+    val scope = CoroutineScope(Dispatchers.Unconfined)
+    assertTrue(
+      state.publishSessionEnvironment(
+        owner = owner,
+        density = Density(2f),
+        layoutDirection = LayoutDirection.Ltr,
+        inheritedLocals = null,
+        options = sessionOptions(zoomRange = 1f..10f),
+        onMapClick = { _, _ -> ClickResult.Pass },
+        onMapLongClick = { _, _ -> ClickResult.Pass },
+        onFrame = {},
+        clickScope = scope,
+      )
+    )
+    val constraintWrites = adapter.calls.count { it == "setCameraConstraints" }
+    assertFalse(
+      state.publishSessionEnvironment(
+        owner = rival,
+        density = Density(3f),
+        layoutDirection = LayoutDirection.Rtl,
+        inheritedLocals = null,
+        options = sessionOptions(zoomRange = 4f..8f),
+        onMapClick = { _, _ -> ClickResult.Pass },
+        onMapLongClick = { _, _ -> ClickResult.Pass },
+        onFrame = {},
+        clickScope = scope,
+      )
+    )
+    assertEquals(2f, state.density.density)
+    assertEquals(LayoutDirection.Ltr, state.layoutDirection)
+    assertEquals(constraintWrites, adapter.calls.count { it == "setCameraConstraints" })
+    state.detachSession()
+    assertEquals(1f, state.density.density)
+    assertNull(state.sessionEnvironmentOwner)
+    state.close()
+  }
 }
+
+private fun sessionOptions(zoomRange: ClosedRange<Float>) =
+  SessionOptions(
+    cameraPadding = PaddingValues(0.dp),
+    zoomRange = zoomRange,
+    pitchRange = 0f..60f,
+    boundingBox = null,
+    options = MapOptions(),
+  )
 
 private class RecordingSessionResource(
   private val registerAction: () -> Unit = {},
