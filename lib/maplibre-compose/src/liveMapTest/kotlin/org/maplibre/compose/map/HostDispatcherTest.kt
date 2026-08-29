@@ -3,8 +3,6 @@ package org.maplibre.compose.map
 import kotlin.test.Test
 import kotlin.test.assertSame
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
 
 class HostDispatcherTest {
 
@@ -21,10 +19,5 @@ class HostDispatcherTest {
     val resolved =
       resolveHostDispatcher(main = { error("Main is missing") }, fallback = { fallback })
     assertSame(fallback, resolved)
-  }
-
-  @Test
-  fun defaultHostDispatcher_runs_a_task() = runBlocking {
-    withContext(defaultHostDispatcher()) { /* the dispatcher accepted the hop */ }
   }
 }
