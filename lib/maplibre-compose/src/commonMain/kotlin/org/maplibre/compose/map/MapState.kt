@@ -463,7 +463,9 @@ internal constructor(
       if (data == source.data) return@commit
       source.replaceData(data)
       val captured = binding
-      if (closed || captured === StyleBinding.UNLOADED || !captured.isLoaded) return@commit
+      val owned = appSources[source.id] === source || compositionSources[source.id] === source
+      if (!owned || closed || captured === StyleBinding.UNLOADED || !captured.isLoaded)
+        return@commit
       enqueue {
         if (!captured.isLoaded) return@enqueue
         if (data is GeoJsonData.Uri) {
@@ -622,6 +624,20 @@ internal constructor(
     attachedAdapter?.setLayoutDirection(layoutDirection)
     attachedAdapter?.let(options::applyTo)
     return true
+  }
+
+  /**
+   * Drops session-scoped environment when [owner] still holds it. A composition that claimed
+   * environment and left before attach must not keep the next map on the departed density.
+   */
+  internal fun releaseSessionEnvironment(owner: Any) {
+    if (sessionEnvironmentOwner !== owner) return
+    host.inheritedLocals = null
+    host.density = detachedDensity
+    host.layoutDirection = detachedLayoutDirection
+    sessionEnvironmentOwner = null
+    sessionOptions = null
+    callbacks.resetSessionHooks()
   }
 
   private fun writeAuthorizedLayer(

@@ -147,6 +147,46 @@ class MapSessionBindTest {
     assertNull(state.sessionEnvironmentOwner)
     state.close()
   }
+
+  @Test
+  fun releasing_environment_without_attach_restores_the_constructor_density() {
+    val state = MapState(CameraPosition(), density = Density(1f))
+    val owner = Any()
+    val next = Any()
+    val scope = CoroutineScope(Dispatchers.Unconfined)
+    assertTrue(
+      state.publishSessionEnvironment(
+        owner = owner,
+        density = Density(3f),
+        layoutDirection = LayoutDirection.Rtl,
+        inheritedLocals = null,
+        options = sessionOptions(zoomRange = 1f..10f),
+        onMapClick = { _, _ -> ClickResult.Pass },
+        onMapLongClick = { _, _ -> ClickResult.Pass },
+        onFrame = {},
+        clickScope = scope,
+      )
+    )
+    state.releaseSessionEnvironment(owner)
+    assertEquals(1f, state.density.density)
+    assertNull(state.sessionEnvironmentOwner)
+    assertTrue(
+      state.publishSessionEnvironment(
+        owner = next,
+        density = Density(2f),
+        layoutDirection = LayoutDirection.Ltr,
+        inheritedLocals = null,
+        options = sessionOptions(zoomRange = 2f..8f),
+        onMapClick = { _, _ -> ClickResult.Pass },
+        onMapLongClick = { _, _ -> ClickResult.Pass },
+        onFrame = {},
+        clickScope = scope,
+      )
+    )
+    assertEquals(2f, state.density.density)
+    state.releaseSessionEnvironment(next)
+    state.close()
+  }
 }
 
 private fun sessionOptions(zoomRange: ClosedRange<Float>) =

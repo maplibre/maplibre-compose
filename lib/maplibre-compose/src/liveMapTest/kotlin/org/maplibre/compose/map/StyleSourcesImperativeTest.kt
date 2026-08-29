@@ -514,4 +514,29 @@ class StyleSourcesImperativeTest {
     state.close()
     testScheduler.advanceUntilIdle()
   }
+
+  @Test
+  fun setData_does_not_write_a_replaced_source_id() = runTest {
+    val state = mapState()
+    state.setStyleComposition {}
+    val binding = OpRecordingStyleBinding()
+    attach(state, binding)
+    val first = GeoJsonData.Uri("https://example.invalid/a.json")
+    val replacement = GeoJsonData.Uri("https://example.invalid/b.json")
+    val stale = GeoJsonData.Uri("https://example.invalid/stale.json")
+    val removed = GeoJsonSource("geo", first, GeoJsonOptions())
+    val current = GeoJsonSource("geo", replacement, GeoJsonOptions())
+    state.sources.add(removed)
+    state.sources.remove("geo")
+    state.sources.add(current)
+    state.setGeoJsonData(removed, stale)
+    assertEquals(stale, removed.data)
+    assertEquals(replacement, current.data)
+    assertTrue(
+      binding.installedGeoJson["geo"].orEmpty().none { it == stale.uri },
+      "a departed source must not write the replacement by id",
+    )
+    state.close()
+    testScheduler.advanceUntilIdle()
+  }
 }

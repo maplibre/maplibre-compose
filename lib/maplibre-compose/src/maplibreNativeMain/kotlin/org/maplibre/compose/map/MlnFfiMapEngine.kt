@@ -274,9 +274,9 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
       // target's; a mismatch or a detached bare state gets a fresh one, allocated under the lock
       // as the reservation holder so a close cannot orphan it.
       val core = mutateCore {
-        val retainedMatches = core != null && coreBackend == target.backend
+        // A departed session can leave a core at a different scale than the restored density.
         acquireCoreLocked(
-          scaleFactor = if (retainedMatches) coreScaleFactor else state.density.density.toDouble(),
+          scaleFactor = state.density.density.toDouble(),
           layoutDirection = state.layoutDirection,
           backend = target.backend,
         )

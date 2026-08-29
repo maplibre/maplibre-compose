@@ -3,6 +3,7 @@ package org.maplibre.compose.map
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.test.AfterTest
@@ -16,6 +17,7 @@ import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.mlnffi.FfiTestCache
+import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiApplication
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
@@ -116,6 +118,19 @@ class MlnFfiMapSnapshotTest {
 
     assertEquals(40, image.width, "a density of 2 doubles the pixel width of the dp size")
     assertEquals(60, image.height, "a density of 2 doubles the pixel height of the dp size")
+  }
+
+  @Test
+  fun a_departed_session_density_does_not_scale_a_detached_capture() {
+    cache.configure()
+    val state = MapState(density = Density(1f)).also { this.state = it }
+    state.baseStyle = RED_BACKGROUND_STYLE
+    state.engine.acquireCore(3.0, LayoutDirection.Ltr, MapRenderBackend.VULKAN)
+    val image = runBlocking {
+      state.captureStillImage(width = 20.dp, height = 20.dp, timeout = 60.seconds)
+    }
+    assertEquals(20, image.width, "the restored constructor density scales the capture")
+    assertEquals(20, image.height, "the restored constructor density scales the capture")
   }
 
   private fun assertColor(expected: Color, actual: Color, description: String) {

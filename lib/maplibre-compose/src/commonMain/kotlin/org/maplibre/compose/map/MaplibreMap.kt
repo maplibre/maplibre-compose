@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.RememberObserver
 import androidx.compose.runtime.SideEffect
@@ -210,6 +211,9 @@ public fun MaplibreMap(
         onFrame = onFrame,
         clickScope = mapClickScope,
       )
+    }
+    DisposableEffect(sessionEnvironmentOwner) {
+      onDispose { state.releaseSessionEnvironment(sessionEnvironmentOwner) }
     }
 
     ObserveMapLoadState(

@@ -148,6 +148,9 @@ internal class StyleCompositionHost(
     logger?.e(error) { message }
   }
 
+  private fun closedWhileSettling(): IllegalStateException =
+    IllegalStateException("MapState was closed while the style composition was settling")
+
   private val writeObserver = Snapshot.registerGlobalWriteObserver { snapshotSignal.trySend(Unit) }
 
   init {
@@ -296,25 +299,31 @@ internal class StyleCompositionHost(
     // asynchronous scheduling hop away from every check in a single round.
     var cleanRounds = 0
     while (true) {
-      // Delivers any written-but-unnotified snapshot state, so a caller's plain write is enough.
-      withContext(dispatcher) { Snapshot.sendApplyNotifications() }
-      recomposer.currentState.first { it != Recomposer.State.PendingWork }
-      scope.launch {}.join()
-      if (recomposer.currentState.value == Recomposer.State.PendingWork) {
-        cleanRounds = 0
-        continue
-      }
-      // A requested frame runs applyChanges after the pacing delay; that sync is pending work.
-      if (frameIsPending) {
-        cleanRounds = 0
-        continue
-      }
-      // A notification queued during the last task must be delivered before deciding.
-      scope.launch {}.join()
-      if (recomposer.currentState.value != Recomposer.State.PendingWork && !frameIsPending) {
-        if (++cleanRounds >= 2) return
-      } else {
-        cleanRounds = 0
+      if (closed) throw closedWhileSettling()
+      try {
+        // Delivers any written-but-unnotified snapshot state, so a caller's plain write is enough.
+        withContext(dispatcher) { Snapshot.sendApplyNotifications() }
+        recomposer.currentState.first { it != Recomposer.State.PendingWork }
+        scope.launch {}.join()
+        if (recomposer.currentState.value == Recomposer.State.PendingWork) {
+          cleanRounds = 0
+          continue
+        }
+        // A requested frame runs applyChanges after the pacing delay; that sync is pending work.
+        if (frameIsPending) {
+          cleanRounds = 0
+          continue
+        }
+        // A notification queued during the last task must be delivered before deciding.
+        scope.launch {}.join()
+        if (recomposer.currentState.value != Recomposer.State.PendingWork && !frameIsPending) {
+          if (++cleanRounds >= 2) return
+        } else {
+          cleanRounds = 0
+        }
+      } catch (error: CancellationException) {
+        if (closed) throw closedWhileSettling()
+        throw error
       }
     }
   }

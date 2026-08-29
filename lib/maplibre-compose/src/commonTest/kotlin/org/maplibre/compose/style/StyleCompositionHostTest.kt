@@ -10,6 +10,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -17,6 +18,7 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -424,5 +426,19 @@ class StyleCompositionHostTest {
       host.close()
       testScheduler.advanceUntilIdle()
     }
+  }
+
+  @Test
+  fun awaitPendingWork_fails_when_the_host_closes_with_a_pending_frame() = runTest {
+    val recording = OpRecordingStyleBinding()
+    val rootNode = StyleNode(recording, null)
+    val host = testHost(rootNode)
+    host.setContent { LaunchedEffect(Unit) { while (true) withFrameNanos {} } }
+    val waiter = async { host.awaitPendingWork() }
+    testScheduler.runCurrent()
+    host.close()
+    testScheduler.advanceUntilIdle()
+    val error = assertFailsWith<IllegalStateException> { waiter.await() }
+    assertTrue("closed" in error.message.orEmpty(), error.message)
   }
 }
