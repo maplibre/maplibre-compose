@@ -65,7 +65,9 @@ internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
 
   private fun frame(): Boolean {
     frameRequested = false
-    return glJsSession.render(GlJsFrameTarget.Detached, extent).also { if (it) hasRendered = true }
+    val rendered = glJsSession.render(GlJsFrameTarget.Detached, extent)
+    glJsSession.markPresentationStateReplayed()
+    return rendered.also { if (it) hasRendered = true }
   }
 
   override suspend fun loadStyle(style: BaseStyle, timeout: Duration) {

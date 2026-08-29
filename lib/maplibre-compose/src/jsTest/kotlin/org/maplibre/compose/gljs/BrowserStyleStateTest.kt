@@ -1,18 +1,25 @@
 package org.maplibre.compose.gljs
 
-import androidx.compose.runtime.getValue
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.unit.dp
 import kotlin.js.Promise
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNotSame
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.browser.window
 import org.maplibre.compose.layers.RasterLayer
+import org.maplibre.compose.map.GlJsMapSession
+import org.maplibre.compose.map.MapRuntimeOptions
 import org.maplibre.compose.map.MaplibreMap
+import org.maplibre.compose.map.StyleLoadState
+import org.maplibre.compose.map.createMapRuntime
 import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LocalStyleNode
@@ -111,6 +118,76 @@ class BrowserStyleStateTest {
     js("new Response(body, { status: 200, headers: { 'content-type': 'application/json' } })")
 
   @Test
+  fun a_detached_web_map_keeps_its_desired_style_pending_and_replays_it(): Promise<*> =
+    runBrowserMapTest {
+      val runtime = createMapRuntime(MapRuntimeOptions())
+      val state = runtime.createMapState(initialBaseStyle = STYLE_A)
+      val presented = mutableStateOf(true)
+
+      setBrowserMapContent { if (presented.value) MaplibreMap(state) }
+      waitUntilMap("style A to become ready") {
+        state.presentation != null && state.style.loadState == StyleLoadState.Ready
+      }
+
+      runOnIdle { presented.value = false }
+      waitUntilMap("the Web map to detach") { state.presentation == null }
+      runOnIdle { state.style.baseStyle = STYLE_B }
+
+      assertEquals(STYLE_B, state.style.baseStyle)
+      assertEquals(StyleLoadState.Pending, state.style.loadState)
+
+      runOnIdle { presented.value = true }
+      waitUntilMap("style B to load on the replacement map") {
+        state.presentation != null && state.style.loadState == StyleLoadState.Ready
+      }
+      val session = requireNotNull(state.presentation).adapter as GlJsMapSession
+
+      assertEquals(
+        listOf("b"),
+        requireNotNull(session.engineMapForTest()).getStyle().layers.map { it.id },
+      )
+
+      runtime.close()
+      runtime.awaitClosed()
+    }
+
+  @Test
+  fun a_web_presentation_waits_for_a_viewport_and_survives_style_failure(): Promise<*> =
+    runBrowserMapTest {
+      val runtime = createMapRuntime(MapRuntimeOptions())
+      val state = runtime.createMapState(initialBaseStyle = STYLE_A)
+      val size = mutableStateOf(0.dp)
+
+      setBrowserMapContent { MaplibreMap(state, Modifier.size(size.value)) }
+      waitForIdle()
+
+      assertNull(state.presentation)
+      assertEquals(StyleLoadState.Pending, state.style.loadState)
+
+      runOnIdle { size.value = 128.dp }
+      waitUntilMap("the attached style to become ready") {
+        state.presentation != null && state.style.loadState == StyleLoadState.Ready
+      }
+      val presentation = requireNotNull(state.presentation)
+      val session = requireNotNull(state.presentation).adapter as GlJsMapSession
+
+      assertNotNull(session.engineMapForTest())
+      assertTrue(session.canPresentFrames)
+
+      runOnIdle { state.style.baseStyle = INVALID_STYLE }
+      waitUntilMap("the replacement style request to fail") {
+        state.style.loadState is StyleLoadState.Failed
+      }
+
+      assertTrue(state.presentation === presentation)
+      assertTrue(presentation.isValid)
+      assertFalse(session.canPresentFrames, "the failed map surface must remain hidden")
+
+      runtime.close()
+      runtime.awaitClosed()
+    }
+
+  @Test
   fun a_source_reports_the_attribution_its_tilejson_carries(): Promise<*> = runBrowserMapTest {
     val restoreFetch = installSlowTileJson()
     try {
@@ -143,7 +220,7 @@ class BrowserStyleStateTest {
   fun switching_to_a_tilejson_style_keeps_the_attribution(): Promise<*> = runBrowserMapTest {
     val restoreFetch = installSlowTileJson()
     try {
-      var current by mutableStateOf(styleWith("first", "first-source"))
+      val current = mutableStateOf(styleWith("first", "first-source"))
       var state: StyleState? = null
       var loads = 0
       setBrowserMapContent {
@@ -151,14 +228,14 @@ class BrowserStyleStateTest {
         state = styleState
         MaplibreMap(
           modifier = Modifier,
-          baseStyle = current,
+          baseStyle = current.value,
           styleState = styleState,
           onMapLoadFinished = { loads += 1 },
         )
       }
       waitUntilMap("the first style to load") { loads >= 1 }
 
-      current = tileJsonStyle
+      current.value = tileJsonStyle
       waitUntilMap("the switched style's attribution to be reported") {
         state?.sources?.values?.map { it.attributionHtml } == listOf("fetched attribution")
       }
@@ -213,7 +290,7 @@ class BrowserStyleStateTest {
 
   @Test
   fun switching_styles_keeps_the_sources_visible(): Promise<*> = runBrowserMapTest {
-    var current by mutableStateOf(styleWith("first", "first-source"))
+    val current = mutableStateOf(styleWith("first", "first-source"))
     var state: StyleState? = null
     var identity: StyleIdentity? = null
     var loads = 0
@@ -222,21 +299,21 @@ class BrowserStyleStateTest {
       state = styleState
       MaplibreMap(
         modifier = Modifier,
-        baseStyle = current,
+        baseStyle = current.value,
         styleState = styleState,
         onMapLoadFinished = { loads += 1 },
       ) {
         identity = LocalStyleNode.current.style.identity
       }
     }
-    waitUntilMap("the first style to load") { loads >= 1 && state?.sources?.isNotEmpty() == true }
+    waitUntilMap("the first style to load") {
+      loads >= 1 && state?.sources?.isNotEmpty() == true
+    }
     val firstIdentity = identity
     assertEquals(listOf("first attribution"), state?.sources?.values?.map { it.attributionHtml })
 
-    // Sampled per frame, not just at the end: a window where the attribution is empty would flicker
-    // the attribution UI.
     val observed = mutableListOf<List<String>>()
-    current = styleWith("second", "second-source")
+    current.value = styleWith("second", "second-source")
     waitUntilMap("the second style's sources to be reported") {
       state?.sources?.values?.map { it.attributionHtml }?.let { observed += it }
       loads >= 2 && state?.sources?.keys == setOf("second-source")
@@ -251,6 +328,15 @@ class BrowserStyleStateTest {
   }
 
   private companion object {
+    val STYLE_A =
+      BaseStyle.Json(
+        """{"version":8,"name":"a","sources":{},"layers":[{"id":"a","type":"background"}]}"""
+      )
+    val STYLE_B =
+      BaseStyle.Json(
+        """{"version":8,"name":"b","sources":{},"layers":[{"id":"b","type":"background"}]}"""
+      )
+    val INVALID_STYLE = BaseStyle.Json("""{"version":7,"sources":{},"layers":[]}""")
     const val TILE_JSON =
       """{"tilejson":"2.2.0","tiles":["https://example.invalid/{z}/{x}/{y}.pbf"],""" +
         """"attribution":"fetched attribution"}"""

@@ -36,7 +36,11 @@ internal actual fun ComposableMapView(
 
   val session =
     remember(scaleFactor) {
-      GlJsMapSession(callbacks = callbacks, logger = logger, layoutDirection = layoutDirection)
+      GlJsMapSession(
+        callbacks = callbacks,
+        logger = logger,
+        layoutDirection = layoutDirection,
+      )
     }
 
   session.callbacks = callbacks
@@ -47,7 +51,12 @@ internal actual fun ComposableMapView(
   // Must run in the apply phase, not from a coroutine: the unload has to precede the content
   // subcomposition inserting layers, or a style switch crashes on anchor validation (see #269).
   SideEffect { session.setBaseStyle(style) }
-  SideEffect { update(session) }
+  if (session.hasUsableViewport) {
+    SideEffect {
+      update(session)
+      session.markPresentationStateReplayed()
+    }
+  }
 
   LaunchedEffect(session) { session.start() }
 
@@ -69,7 +78,7 @@ internal actual fun ComposableMapView(
       modifier =
         modifier.mapInput(session, options.gestureOptions, density, focusRequester, continuation),
       logger = logger,
-      presentFrames = session.hasLoadedFirstStyle,
+      presentFrames = session.canPresentFrames,
     )
   }
 }

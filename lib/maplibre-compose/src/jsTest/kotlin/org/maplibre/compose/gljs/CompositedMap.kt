@@ -39,8 +39,11 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
   }
 
   /** Synchronous, so a caller can bracket it with GL of its own. */
-  fun drawOnce(target: GlJsRenderTarget): Boolean =
-    session.render(GlJsFrameTarget.Composited(target), extentOf(target))
+  fun drawOnce(target: GlJsRenderTarget): Boolean {
+    val rendered = session.render(GlJsFrameTarget.Composited(target), extentOf(target))
+    session.markPresentationStateReplayed()
+    return rendered
+  }
 
   fun setOverdrawInspector(enabled: Boolean) {
     session.setRenderSettings(RenderOptions(isOverdrawInspectorEnabled = enabled))

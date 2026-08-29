@@ -125,15 +125,22 @@ internal class GlJsMapSession(
   /** Transitions MapLibre would cancel while applying the first style's camera. */
   private val pendingInitialStyleActions = mutableListOf<PendingMapAction>()
 
-  /** Readiness belongs to a map instance, not to its current, replaceable style. */
+  /** Whether the current engine map has loaded its first base style. */
   private var hasLoadedInitialStyle = false
 
-  /**
-   * True once this session has loaded a style. The surface presents no frame while this is false,
-   * and it stays true so a later style switch does not blank a live map.
-   */
-  internal var hasLoadedFirstStyle by mutableStateOf(false)
+  /** Whether the current engine map has reconciled the latest requested style. */
+  private var hasReconciledStyle by mutableStateOf(false)
     private set
+
+  /** True after the current engine map has applied a non-empty presentation viewport. */
+  internal var hasUsableViewport by mutableStateOf(false)
+    private set
+
+  private var hasReplayedPresentationState by mutableStateOf(false)
+
+  /** Whether the current engine map may be copied onto the visible Compose surface. */
+  internal val canPresentFrames: Boolean
+    get() = hasReconciledStyle && hasReplayedPresentationState
 
   private var requestedStyle: BaseStyle? = null
   private var appliedStyle: BaseStyle? = null
@@ -343,7 +350,6 @@ internal class GlJsMapSession(
     map = created
     hasLoadedInitialStyle = false
     appliedExtent = MapExtent.Empty
-    applyRequestedStyle(created)
     cameraConstraints?.let { applyCameraConstraints(created, it) }
     runPending(pendingMapActions, created)
     return created
@@ -353,6 +359,9 @@ internal class GlJsMapSession(
     hasLoadedInitialStyle = false
     val current = map ?: return
     map = null
+    hasReconciledStyle = false
+    hasUsableViewport = false
+    hasReplayedPresentationState = false
     callbacks.onStyleChanged(this, null)
     styleBinding?.invalidate()
     styleBinding = null
@@ -391,12 +400,24 @@ internal class GlJsMapSession(
     }
     map.setPixelRatio(extent.scaleFactor)
     map.resize()
+    hasUsableViewport = true
     // resize() may also fire `move`; a second onCameraMoved is how overlays learn the viewport
     // changed when the camera position did not.
     withLifecyclePresentation { engine, lease ->
       lifecycleCallbacks.onCameraMoved(engine, lease, this)
     }
   }
+
+  /** Records that the current engine map has applied the logical map's desired state. */
+  internal fun markPresentationStateReplayed() {
+    if (hasReplayedPresentationState) return
+    hasReplayedPresentationState = true
+    map?.let(::applyRequestedStyle)
+    surface?.requestFrame()
+  }
+
+  /** The current GL JS engine-map instance, exposed only to browser boundary tests. */
+  internal fun engineMapForTest(): MaplibreMap? = map
 
   private fun maxTextureSize(gl: dynamic): Array<Double> {
     val size = (gl.getParameter(gl.MAX_TEXTURE_SIZE) as? Int)?.toDouble() ?: 4096.0
@@ -460,7 +481,9 @@ internal class GlJsMapSession(
     val trackerRequest = appliedStyleRequest ?: return
     val identity = styleBinding?.identity ?: return
     if (styleLoadTracker?.reconciled(trackerRequest, identity) == true) {
-      lifecycleCallbacks.onMapFinishedLoading(engine, style, this)
+      if (lifecycleCallbacks.onMapFinishedLoading(engine, style, this)) {
+        hasReconciledStyle = true
+      }
     }
   }
 
@@ -538,6 +561,7 @@ internal class GlJsMapSession(
 
   override fun setBaseStyle(style: BaseStyle) {
     if (style == requestedStyle) return
+    hasReconciledStyle = false
     // Must precede the new style: the old style's sources and layers would otherwise recompose
     // against base layers being replaced.
     styleBinding?.invalidate()
@@ -552,7 +576,7 @@ internal class GlJsMapSession(
       lifecycleStyleRequestIdentity = lifecycleCallbacks.beginStyleRequest(it, this)
     }
     lifecycleStyleIdentity = null
-    onMap(::applyRequestedStyle)
+    if (hasReplayedPresentationState) onMap(::applyRequestedStyle)
   }
 
   private fun applyRequestedStyle(map: MaplibreMap) {
@@ -588,7 +612,6 @@ internal class GlJsMapSession(
           lifecycleCallbacks.onStyleChanged(engine, lifecycleRequest, this, binding)
         if (acceptedStyle != null) {
           styleLoadPending = false
-          hasLoadedFirstStyle = true
           styleBinding?.invalidate()
           styleBinding = binding
           lifecycleStyleIdentity = acceptedStyle
