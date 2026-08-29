@@ -46,7 +46,10 @@ internal actual fun ComposableMapView(
   // subcomposition inserting layers, or a style switch crashes on anchor validation (see #269).
   SideEffect { session.setBaseStyle(style) }
 
-  LaunchedEffect(session, options, update) { update(session) }
+  LaunchedEffect(session, options, update) {
+    update(session)
+    session.start()
+  }
 
   DisposableEffect(session) {
     onDispose {

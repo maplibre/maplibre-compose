@@ -82,10 +82,16 @@ private const val FRAME_INTERVAL_SLACK = 0.1
  * calls before then are queued and reads answer from what was last asked for.
  */
 internal class GlJsMapSession(
-  internal var callbacks: MapAdapter.Callbacks,
+  callbacks: MapAdapter.Callbacks,
   internal var logger: Logger?,
   internal var layoutDirection: LayoutDirection,
-) : MapAdapter, GlJsMapRenderer, GestureTarget {
+) : MapAdapter, GlJsMapRenderer, GestureTarget, MapLifecyclePlatformAdapter {
+
+  internal var callbacks: MapAdapter.Callbacks = callbacks
+  private val lifecycle = MapLifecycleAuthority(this)
+  private val lifecycleCallbacks = MapLifecycleCallbacks(lifecycle) { this.callbacks }
+
+  override val engineRetention: EngineRetention = EngineRetention.DESTROY
 
   private var map: MaplibreMap? = null
 
@@ -93,7 +99,6 @@ internal class GlJsMapSession(
   private var container: HTMLElement? = null
 
   private var surface: GlJsSurfaceSession? = null
-  private var closed = false
 
   private class PendingMapAction(
     val run: (MaplibreMap) -> Unit,
@@ -144,7 +149,7 @@ internal class GlJsMapSession(
   // region surface lifecycle
 
   override fun onSurfaceAvailable(surface: GlJsSurfaceSession) {
-    if (closed) return
+    if (!lifecycle.acceptsWork) return
     this.surface = surface
     surface.requestFrame()
   }
@@ -156,7 +161,7 @@ internal class GlJsMapSession(
   }
 
   override fun render(target: GlJsFrameTarget, extent: MapExtent): Boolean {
-    if (closed || extent.isEmpty) return false
+    if (!lifecycle.acceptsWork || extent.isEmpty) return false
     // A detached map cannot later adopt a context: everything it uploaded belongs to the one it
     // has.
     val composited = target as? GlJsFrameTarget.Composited
@@ -211,13 +216,32 @@ internal class GlJsMapSession(
     if (lentContext != null) null else map?.getCanvas()
 
   override fun close() {
-    if (closed) return
-    closed = true
+    lifecycle.close()
+  }
+
+  fun start() {
+    when (lifecycle.state) {
+      is MapLifecycleState.Attaching,
+      is MapLifecycleState.Attached -> return
+      else -> lifecycle.beginAttach()
+    }
+  }
+
+  override suspend fun createEngine(identity: EngineMapIdentity) = Unit
+
+  override suspend fun attach(identity: EngineMapIdentity, lease: RenderLease) = Unit
+
+  override suspend fun detach(identity: EngineMapIdentity, lease: RenderLease) = Unit
+
+  override suspend fun destroyEngine(identity: EngineMapIdentity) {
+    destroyMap()
+  }
+
+  override suspend fun closeResources() {
     isGestureInProgress = false
-    endCameraMove()
+    endCameraMove(duringCleanup = true)
     abandonPending(pendingMapActions)
     abandonPending(pendingInitialStyleActions)
-    destroyMap()
     surface = null
   }
 
@@ -230,7 +254,7 @@ internal class GlJsMapSession(
     map?.let {
       return it
     }
-    if (closed) return null
+    if (!lifecycle.acceptsWork) return null
 
     val host = document.createElement("div").unsafeCast<HTMLElement>()
     host.style.cssText = OFFSCREEN_CONTAINER_STYLE
@@ -284,7 +308,7 @@ internal class GlJsMapSession(
     hasLoadedInitialStyle = false
     val current = map ?: return
     map = null
-    callbacks.onStyleChanged(this, null)
+    lifecycleCallbacks.onStyleChanged(this, null)
     styleBinding?.invalidate()
     styleBinding = null
     appliedStyle = null
@@ -316,7 +340,7 @@ internal class GlJsMapSession(
     map.resize()
     // resize() may also fire `move`; a second onCameraMoved is how overlays learn the viewport
     // changed when the camera position did not.
-    callbacks.onCameraMoved(this)
+    lifecycleCallbacks.onCameraMoved(this)
   }
 
   private fun maxTextureSize(gl: dynamic): Array<Double> {
@@ -339,7 +363,7 @@ internal class GlJsMapSession(
     val now = TimeSource.Monotonic.markNow()
     val elapsed = (now - lastFrameTime).toDouble(DurationUnit.SECONDS)
     lastFrameTime = now
-    if (elapsed > 0.0) callbacks.onFrame(1.0 / elapsed)
+    if (elapsed > 0.0) lifecycleCallbacks.onFrame(1.0 / elapsed)
   }
 
   // endregion
@@ -360,7 +384,7 @@ internal class GlJsMapSession(
         return@subscribe
       }
       hasLoadedFirstStyle = true
-      callbacks.onStyleChanged(this, binding)
+      lifecycleCallbacks.onStyleChanged(this, binding)
       applyTileLod(map)
       if (!hasLoadedInitialStyle) {
         hasLoadedInitialStyle = true
@@ -376,7 +400,7 @@ internal class GlJsMapSession(
       reportLoadedOnceStyleIsReady(map)
       if (event.sourceDataType == "metadata") {
         applyTileLod(map)
-        event.sourceId?.let { callbacks.onSourceChanged(this, it) }
+        event.sourceId?.let { lifecycleCallbacks.onSourceChanged(this, it) }
       }
     }
     map.subscribe("error") { event ->
@@ -393,7 +417,7 @@ internal class GlJsMapSession(
               reason,
             ) == true
         if (accepted) {
-          callbacks.onMapFailLoading(reason)
+          lifecycleCallbacks.onMapFailLoading(reason)
         } else {
           applyRequestedStyle(map)
         }
@@ -405,9 +429,9 @@ internal class GlJsMapSession(
     }
 
     map.subscribe("movestart") { beginCameraMove() }
-    map.subscribe("move") { callbacks.onCameraMoved(this) }
+    map.subscribe("move") { lifecycleCallbacks.onCameraMoved(this) }
     map.subscribe("moveend") {
-      callbacks.onCameraMoved(this)
+      lifecycleCallbacks.onCameraMoved(this)
       // A drag is a stream of jumps, each with its own moveend.
       if (!isGestureInProgress) endCameraMove()
       resumeTransitions()
@@ -420,7 +444,7 @@ internal class GlJsMapSession(
     val request = appliedStyleRequest ?: return
     val identity = styleBinding?.identity ?: return
     if (styleLoadTracker?.reconciled(request, identity) == true) {
-      callbacks.onMapFinishedLoading(this)
+      lifecycleCallbacks.onMapFinishedLoading(this)
     }
   }
 
@@ -430,13 +454,14 @@ internal class GlJsMapSession(
       if (isGestureInProgress) CameraMoveReason.GESTURE else CameraMoveReason.PROGRAMMATIC
     if (reportedMoveReason == reason) return
     reportedMoveReason = reason
-    callbacks.onCameraMoveStarted(this, reason)
+    lifecycleCallbacks.onCameraMoveStarted(this, reason)
   }
 
-  private fun endCameraMove() {
+  private fun endCameraMove(duringCleanup: Boolean = false) {
     if (reportedMoveReason == null) return
     reportedMoveReason = null
-    callbacks.onCameraMoveEnded(this)
+    if (duringCleanup) callbacks.onCameraMoveEnded(this)
+    else lifecycleCallbacks.onCameraMoveEnded(this)
   }
 
   private var reportedMoveReason: CameraMoveReason? = null
@@ -450,7 +475,7 @@ internal class GlJsMapSession(
   }
 
   private fun postWhenMapExists(action: PendingMapAction) {
-    if (closed) {
+    if (!lifecycle.acceptsWork) {
       action.abandon()
       return
     }
@@ -459,7 +484,7 @@ internal class GlJsMapSession(
   }
 
   private fun postWhenInitialStyleLoaded(action: PendingMapAction) {
-    if (closed) {
+    if (!lifecycle.acceptsWork) {
       action.abandon()
       return
     }
@@ -498,7 +523,7 @@ internal class GlJsMapSession(
     } else {
       tracker.request(style, engineAvailable = map != null)
     }
-    callbacks.onStyleChanged(this, null)
+    lifecycleCallbacks.onStyleChanged(this, null)
     onMap(::applyRequestedStyle)
   }
 
@@ -530,7 +555,7 @@ internal class GlJsMapSession(
           reason,
         ) == true
       ) {
-        callbacks.onMapFailLoading(reason)
+        lifecycleCallbacks.onMapFailLoading(reason)
       }
       if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
     }
@@ -961,13 +986,13 @@ internal class GlJsMapSession(
 
   override fun onPrimaryClick(offset: DpOffset) {
     val position = map?.unprojectAt(offset.x.value.toDouble(), offset.y.value.toDouble()) ?: return
-    callbacks.onClick(this, position, offset)
+    lifecycleCallbacks.onClick(this, position, offset)
   }
 
   /** A mouse has no press-and-hold convention, so the secondary button is the long press. */
   override fun onSecondaryClick(offset: DpOffset) {
     val position = map?.unprojectAt(offset.x.value.toDouble(), offset.y.value.toDouble()) ?: return
-    callbacks.onLongClick(this, position, offset)
+    lifecycleCallbacks.onLongClick(this, position, offset)
   }
 
   // endregion

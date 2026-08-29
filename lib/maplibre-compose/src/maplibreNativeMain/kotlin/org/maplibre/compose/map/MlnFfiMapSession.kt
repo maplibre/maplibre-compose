@@ -141,14 +141,20 @@ private const val FRAME_INTERVAL_SLACK = 0.1
  * advances it from `onDidFinishRenderingFrame`.
  */
 internal class MlnFfiMapSession(
-  @Volatile internal var callbacks: MapAdapter.Callbacks,
+  callbacks: MapAdapter.Callbacks,
   @Volatile internal var logger: Logger?,
   renderBackend: MapRenderBackend,
   scaleFactor: Double = 1.0,
   @Volatile internal var layoutDirection: LayoutDirection,
   private val cacheFile: Path,
   private val resourceProviderFactory: MlnFfiResourceProviderFactory = ::MlnFfiResourceProvider,
-) : MapAdapter, MlnFfiMapRenderer, GestureTarget {
+) : MapAdapter, MlnFfiMapRenderer, GestureTarget, MapLifecyclePlatformAdapter {
+
+  @Volatile internal var callbacks: MapAdapter.Callbacks = callbacks
+  private val lifecycle = MapLifecycleAuthority(this)
+  private val lifecycleCallbacks = MapLifecycleCallbacks(lifecycle) { this.callbacks }
+
+  override val engineRetention: EngineRetention = EngineRetention.RETAIN
 
   override val backend: MapRenderBackend = renderBackend
   private val initialExtent = MapExtent.fromLogical(1, 1, scaleFactor)
@@ -208,7 +214,6 @@ internal class MlnFfiMapSession(
 
   private var hasRenderedAFrame = false
 
-  @Volatile private var closed = false
   private var failureReported = false
 
   @Volatile private var requestedStyle: BaseStyle? = null
@@ -253,7 +258,7 @@ internal class MlnFfiMapSession(
           !info.attribution.isNullOrEmpty() &&
           reportedUrlAttribution.add(id)
       ) {
-        callbacks.onSourceChanged(this, id)
+        lifecycleCallbacks.onSourceChanged(this, id)
       }
     }
   }
@@ -261,12 +266,12 @@ internal class MlnFfiMapSession(
   private fun createStyleBinding(): MlnFfiStyleBinding =
     MlnFfiStyleBinding(
       loggerProvider = { logger },
-      sessionOpen = { !closed },
+      sessionOpen = { lifecycle.acceptsWork },
       accessMap = { action ->
-        if (closed) false else runOnMap(action).let { true }
+        if (!lifecycle.acceptsWork) false else runOnMap(action).let { true }
       },
       accessRenderSession = { action ->
-        if (closed || !renderSessionReady) {
+        if (!lifecycle.acceptsWork || !renderSessionReady) {
           false
         } else {
           withRendererAccess {
@@ -284,7 +289,7 @@ internal class MlnFfiMapSession(
       sourceChanged = { sourceId ->
         featureStateReplayPending.store(true)
         reportedUrlAttribution.remove(sourceId)
-        callbacks.onSourceChanged(this, sourceId)
+        lifecycleCallbacks.onSourceChanged(this, sourceId)
       },
       getScale = ::imageScale,
     )
@@ -300,7 +305,7 @@ internal class MlnFfiMapSession(
   // region host surface lifecycle
 
   override fun onSurfaceAvailable(session: MlnFfiMapHostSession) {
-    if (closed) {
+    if (!lifecycle.acceptsWork) {
       logger?.w { "Ignoring a host surface offered to a closed map session" }
       return
     }
@@ -324,7 +329,7 @@ internal class MlnFfiMapSession(
   }
 
   override fun render(frame: MlnFfiMapFrame): MlnFfiFrameResult {
-    if (closed || frame.extent.isEmpty) return MlnFfiFrameResult.SKIPPED
+    if (!lifecycle.acceptsWork || frame.extent.isEmpty) return MlnFfiFrameResult.SKIPPED
 
     val loop = loop ?: return MlnFfiFrameResult.SKIPPED
     loop.failure?.let { error ->
@@ -401,8 +406,24 @@ internal class MlnFfiMapSession(
   }
 
   override fun close() {
-    if (closed) return
-    closed = true
+    lifecycle.close()
+  }
+
+  override suspend fun createEngine(identity: EngineMapIdentity) {
+    startEngine()
+  }
+
+  override suspend fun attach(identity: EngineMapIdentity, lease: RenderLease) = Unit
+
+  override suspend fun detach(identity: EngineMapIdentity, lease: RenderLease) = Unit
+
+  override suspend fun destroyEngine(identity: EngineMapIdentity) {
+    closePlatform()
+  }
+
+  override suspend fun closeResources() = Unit
+
+  private fun closePlatform() {
     try {
       stopLoop(endOutstandingMove = true)
     } finally {
@@ -413,8 +434,16 @@ internal class MlnFfiMapSession(
   }
 
   fun start() {
+    when (lifecycle.state) {
+      is MapLifecycleState.Attaching,
+      is MapLifecycleState.Attached -> return
+      else -> lifecycle.beginAttach()
+    }
+  }
+
+  private fun startEngine() {
     val started = stateLock.withLock {
-      check(!closed) { "Cannot start a closed map session" }
+      check(lifecycle.acceptsWork) { "Cannot start a closed map session" }
       loop?.let {
         return
       }
@@ -453,7 +482,7 @@ internal class MlnFfiMapSession(
       current
     }
     abandoned.forEach { it.abandon() }
-    if (styleBinding != null) callbacks.onStyleChanged(this, null)
+    if (styleBinding != null) lifecycleCallbacks.onStyleChanged(this, null)
     styleBinding?.invalidate()
     styleBinding = null
     appliedStyle = null
@@ -470,7 +499,7 @@ internal class MlnFfiMapSession(
         isGestureInProgress = false
         activeGestureToken = null
         pendingGestureEndToken = null
-        endCameraMove()
+        endCameraMove(duringCleanup = true)
       }
       resumeStrandedTransitions()
     }
@@ -676,7 +705,7 @@ internal class MlnFfiMapSession(
     val request = appliedStyleRequest ?: return
     val identity = styleBinding?.identity ?: return
     if (styleLoadTracker?.reconciled(request, identity) == true) {
-      callbacks.onMapFinishedLoading(this)
+      lifecycleCallbacks.onMapFinishedLoading(this)
     }
   }
 
@@ -698,7 +727,7 @@ internal class MlnFfiMapSession(
         }
         featureStateReplayPending.store(true)
         hasLoadedFirstStyle = true
-        callbacks.onStyleChanged(this, binding)
+        lifecycleCallbacks.onStyleChanged(this, binding)
         styleLoadUnreported = true
         reportedUrlAttribution.clear()
         // A producer frame that started before this callback can still hold the previous style.
@@ -738,7 +767,7 @@ internal class MlnFfiMapSession(
               reason,
             ) == true
         if (accepted) {
-          callbacks.onMapFailLoading(reason)
+          lifecycleCallbacks.onMapFailLoading(reason)
         } else {
           loop?.map?.let(::applyRequestedStyle)
         }
@@ -748,12 +777,12 @@ internal class MlnFfiMapSession(
 
       RuntimeEventType.MAP_CAMERA_IS_CHANGING -> {
         loop?.map?.let(::snapshotViewport)
-        callbacks.onCameraMoved(this)
+        lifecycleCallbacks.onCameraMoved(this)
       }
 
       RuntimeEventType.MAP_CAMERA_DID_CHANGE -> {
         loop?.map?.let(::snapshotViewport)
-        callbacks.onCameraMoved(this)
+        lifecycleCallbacks.onCameraMoved(this)
         // A drag is a stream of jumps, each with its own did-change.
         if (!isGestureInProgress) endCameraMove()
       }
@@ -799,13 +828,14 @@ internal class MlnFfiMapSession(
       if (isGestureInProgress) CameraMoveReason.GESTURE else CameraMoveReason.PROGRAMMATIC
     if (reportedMoveReason == reason) return
     reportedMoveReason = reason
-    callbacks.onCameraMoveStarted(this, reason)
+    lifecycleCallbacks.onCameraMoveStarted(this, reason)
   }
 
-  private fun endCameraMove() {
+  private fun endCameraMove(duringCleanup: Boolean = false) {
     if (reportedMoveReason == null) return
     reportedMoveReason = null
-    callbacks.onCameraMoveEnded(this)
+    if (duringCleanup) callbacks.onCameraMoveEnded(this)
+    else lifecycleCallbacks.onCameraMoveEnded(this)
   }
 
   /** Exists for tests. */
@@ -840,7 +870,7 @@ internal class MlnFfiMapSession(
     val now = frameTimer.markNow()
     val elapsed = (now - lastFrameTime).toDouble(DurationUnit.SECONDS)
     lastFrameTime = now
-    if (elapsed > 0.0) callbacks.onFrame(1.0 / elapsed)
+    if (elapsed > 0.0) lifecycleCallbacks.onFrame(1.0 / elapsed)
   }
 
   // endregion
@@ -863,7 +893,7 @@ internal class MlnFfiMapSession(
   /** Queues [action] until a map exists, including before the session starts. */
   private fun postWhenMapExists(action: (MapHandle) -> Unit, abandon: () -> Unit): Boolean {
     val current = stateLock.withLock {
-      if (closed) return false
+      if (!lifecycle.acceptsWork) return false
       loop.also { if (it == null) pendingMapActions += PendingMapAction(action, abandon) }
     }
     return current?.post(action, abandon) ?: true
@@ -876,7 +906,7 @@ internal class MlnFfiMapSession(
   /** Queues [action] until the first render target has supplied the map's real dimensions. */
   private fun postWhenViewportExists(action: (MapHandle) -> Unit, abandon: () -> Unit): Boolean {
     val current = stateLock.withLock {
-      if (closed) return false
+      if (!lifecycle.acceptsWork) return false
       if (!hasAttachedViewport) {
         pendingViewportActions += PendingMapAction(action, abandon)
         return true
@@ -889,7 +919,7 @@ internal class MlnFfiMapSession(
   private fun publishAttachedViewport() {
     val (current, pending) =
       stateLock.withLock {
-        if (closed || hasAttachedViewport) return
+        if (!lifecycle.acceptsWork || hasAttachedViewport) return
         hasAttachedViewport = true
         loop to pendingViewportActions.toList().also { pendingViewportActions.clear() }
       }
@@ -940,7 +970,7 @@ internal class MlnFfiMapSession(
     }
     // Disposes the composition holding the old style's sources and layers, which would otherwise
     // fail anchor validation against the base layers being replaced.
-    callbacks.onStyleChanged(this, null)
+    lifecycleCallbacks.onStyleChanged(this, null)
     onMap(::applyRequestedStyle)
   }
 
@@ -999,7 +1029,7 @@ internal class MlnFfiMapSession(
    */
   private fun snapshotViewportAndNotify(map: MapHandle) {
     snapshotViewport(map)
-    callbacks.onCameraMoved(this)
+    lifecycleCallbacks.onCameraMoved(this)
   }
 
   /** Owner thread only. Publishes the applied camera and viewport for any-thread getters. */
@@ -1095,7 +1125,9 @@ internal class MlnFfiMapSession(
     // After one exists it runs as one round-trip instead, so a camera or viewport read made right
     // after this call observes the fitted camera rather than the previous mirrored snapshot —
     // the ordering the blocking getters on main provided.
-    val hasViewport = stateLock.withLock { hasAttachedViewport && !closed && loop != null }
+    val hasViewport = stateLock.withLock {
+      hasAttachedViewport && lifecycle.acceptsWork && loop != null
+    }
     if (hasViewport && runOnMap(fit) != null) return
     postWhenViewportExists(fit, abandon = {})
   }
@@ -1388,7 +1420,7 @@ internal class MlnFfiMapSession(
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
   ): List<Feature<Geometry, JsonObject?>> = suspendCancellableCoroutine { continuation ->
-    if (closed) {
+    if (!lifecycle.acceptsWork) {
       continuation.resume(emptyList())
       return@suspendCancellableCoroutine
     }
@@ -1568,24 +1600,24 @@ internal class MlnFfiMapSession(
   }
 
   override fun onPrimaryClick(offset: DpOffset) {
-    if (closed) return
+    if (!lifecycle.acceptsWork) return
     val position = withSnapshotProjection { it.latLngForPixel(offset.toScreenPoint()).toPosition() }
     if (position == null) {
       logger?.w { "Dropped a map click at $offset: the map has no viewport" }
       return
     }
-    callbacks.onClick(this, position, offset)
+    lifecycleCallbacks.onClick(this, position, offset)
   }
 
   /** A mouse has no press-and-hold convention, so the secondary button is the long press. */
   override fun onSecondaryClick(offset: DpOffset) {
-    if (closed) return
+    if (!lifecycle.acceptsWork) return
     val position = withSnapshotProjection { it.latLngForPixel(offset.toScreenPoint()).toPosition() }
     if (position == null) {
       logger?.w { "Dropped a map long click at $offset: the map has no viewport" }
       return
     }
-    callbacks.onLongClick(this, position, offset)
+    lifecycleCallbacks.onLongClick(this, position, offset)
   }
 
   override fun cancelTransitions() {

@@ -53,6 +53,7 @@ internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
   private var frameRequested = true
 
   init {
+    glJsSession.start()
     glJsSession.onSurfaceAvailable(
       object : GlJsSurfaceSession {
         override fun requestFrame() {
