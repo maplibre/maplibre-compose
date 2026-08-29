@@ -382,6 +382,10 @@ class MapStateTest {
     job.cancel()
     job.join()
     assertIs<RendererState.None>(state.record.read { renderer })
+    // A stuck Capture would refuse the next still image.
+    val again = state.commit { beginCapture() }
+    assertIs<RendererState.Capture>(state.record.read { renderer })
+    state.commit { finishCapture(again.id) }
     state.close()
   }
 
