@@ -17,6 +17,7 @@ import kotlin.time.Duration
 import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraMoveReason
@@ -51,8 +52,10 @@ import org.maplibre.compose.gljs.styleJson
 import org.maplibre.compose.gljs.styleUrl
 import org.maplibre.compose.gljs.subscribe
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.GlJsStyleBinding
 import org.maplibre.compose.style.StyleLoadTracker
+import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleRequestId
 import org.maplibre.compose.style.TrackedStyleLoadState
 import org.maplibre.compose.util.VisibleRegion
@@ -151,6 +154,9 @@ internal class GlJsMapSession(
   private var styleLoadPending = false
 
   private var styleBinding: GlJsStyleBinding? = null
+  private val styleReconciler = StyleReconciler()
+  private var revisionApplied = false
+  private var baseStyleReady = false
 
   private var reportStyleLoaded = false
 
@@ -377,6 +383,7 @@ internal class GlJsMapSession(
     appliedStyleRequest = null
     styleLoadPending = false
     reportStyleLoaded = false
+    baseStyleReady = false
     styleLoadTracker?.engineBecameUnavailable()
     hasRenderedAFrame = false
     val borrowed = lentContext
@@ -471,17 +478,16 @@ internal class GlJsMapSession(
   }
 
   private fun reportLoadedOnceStyleIsReady(
-    map: MaplibreMap,
     engine: EngineMapIdentity,
     style: StyleIdentity?,
   ) {
-    if (!reportStyleLoaded || !map.isStyleLoaded()) return
+    if (!reportStyleLoaded || !revisionApplied || !baseStyleReady) return
     style ?: return
-    reportStyleLoaded = false
     val trackerRequest = appliedStyleRequest ?: return
     val identity = styleBinding?.identity ?: return
     if (styleLoadTracker?.reconciled(trackerRequest, identity) == true) {
       if (lifecycleCallbacks.onMapFinishedLoading(engine, style, this)) {
+        reportStyleLoaded = false
         hasReconciledStyle = true
       }
     }
@@ -562,6 +568,8 @@ internal class GlJsMapSession(
   override fun setBaseStyle(style: BaseStyle) {
     if (style == requestedStyle) return
     hasReconciledStyle = false
+    revisionApplied = false
+    baseStyleReady = false
     // Must precede the new style: the old style's sources and layers would otherwise recompose
     // against base layers being replaced.
     styleBinding?.invalidate()
@@ -577,6 +585,46 @@ internal class GlJsMapSession(
     }
     lifecycleStyleIdentity = null
     if (hasReplayedPresentationState) onMap(::applyRequestedStyle)
+  }
+
+  override suspend fun reconcileStyleRevision(revision: DesiredStyleRevision): Boolean {
+    val binding = styleBinding ?: return false
+    val tracker = styleLoadTracker ?: return false
+    val wasReady = tracker.state is TrackedStyleLoadState.Ready
+    val request = tracker.beginReconciliation()
+    hasReconciledStyle = false
+    revisionApplied = false
+    try {
+      styleReconciler.apply(binding, revision)
+    } catch (error: CancellationException) {
+      throw error
+    } catch (error: Throwable) {
+      tracker.failed(
+        request,
+        TrackedStyleLoadState.Failed.Stage.RECONCILIATION,
+        error.message ?: "Style reconciliation failed",
+      )
+      throw error
+    }
+    revisionApplied = true
+    if (wasReady && tracker.reconciled(request, binding.identity)) {
+      hasReconciledStyle = true
+      surface?.requestFrame()
+    } else {
+      val engine = lifecycleEngineIdentity
+      if (engine != null) {
+        reportLoadedOnceStyleIsReady(engine, lifecycleStyleIdentity)
+      }
+    }
+    return hasReconciledStyle
+  }
+
+  override suspend fun replayStyleRevision(revision: DesiredStyleRevision) {
+    val binding = styleBinding ?: return
+    hasReconciledStyle = false
+    revisionApplied = false
+    styleReconciler.apply(binding, revision)
+    surface?.requestFrame()
   }
 
   private fun applyRequestedStyle(map: MaplibreMap) {
@@ -602,6 +650,7 @@ internal class GlJsMapSession(
         if (styleLoadSubscription === loadSubscription) styleLoadSubscription = null
         if (styleErrorSubscription === errorSubscription) styleErrorSubscription = null
         styleLoadPending = false
+        baseStyleReady = map.isStyleLoaded()
         val binding = GlJsStyleBinding(map, logger) { appliedExtent.scaleFactor.toFloat() }
         if (styleLoadTracker?.loaded(trackerRequest, binding.identity) != true) {
           binding.invalidate()
@@ -617,11 +666,13 @@ internal class GlJsMapSession(
           lifecycleStyleIdentity = acceptedStyle
           styleDataSubscription =
             map.subscribe("styledata") {
-              reportLoadedOnceStyleIsReady(map, engine, acceptedStyle)
+              if (!baseStyleReady && map.isStyleLoaded()) baseStyleReady = true
+              reportLoadedOnceStyleIsReady(engine, acceptedStyle)
             }
           sourceDataSubscription =
             map.subscribe("sourcedata") { event ->
-              reportLoadedOnceStyleIsReady(map, engine, acceptedStyle)
+              if (!baseStyleReady && map.isStyleLoaded()) baseStyleReady = true
+              reportLoadedOnceStyleIsReady(engine, acceptedStyle)
               if (event.sourceDataType == "metadata") {
                 applyTileLod(map)
                 event.sourceId?.let {
@@ -635,7 +686,7 @@ internal class GlJsMapSession(
             runPending(pendingInitialStyleActions, map)
           }
           reportStyleLoaded = true
-          reportLoadedOnceStyleIsReady(map, engine, acceptedStyle)
+          reportLoadedOnceStyleIsReady(engine, acceptedStyle)
         } else {
           binding.invalidate()
         }

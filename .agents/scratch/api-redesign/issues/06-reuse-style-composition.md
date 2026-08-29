@@ -7,28 +7,28 @@ presentation loss.
 
 **Blocked by:** 01, 04, 05
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] The changed test area contains no redundant, impossible,
+- [x] The changed test area contains no redundant, impossible,
       compatibility-only, or implementation-shape scenarios.
-- [ ] One StyleComposition definition can be supplied to two maps.
-- [ ] Each consumer receives independent remember state and effects.
-- [ ] Shared application state enters each evaluator through hoisted inputs.
-- [ ] An evaluator publishes a complete immutable ordered style revision.
-- [ ] A desired revision contains no engine map, live binding, or mutable
+- [x] One StyleComposition definition can be supplied to two maps.
+- [x] Each consumer receives independent remember state and effects.
+- [x] Shared application state enters each evaluator through hoisted inputs.
+- [x] An evaluator publishes a complete immutable ordered style revision.
+- [x] A desired revision contains no engine map, live binding, or mutable
       definition.
-- [ ] Definition identity is resource kind plus ID; duplicate IDs fail
+- [x] Definition identity is resource kind plus ID; duplicate IDs fail
       evaluation and layer order is explicit.
-- [ ] Mutable payloads are defensively copied, and painter-backed images resolve
+- [x] Mutable payloads are defensively copied, and painter-backed images resolve
       to immutable payloads for the evaluator density and layout direction.
-- [ ] Custom provider replacement publishes a new complete revision.
-- [ ] Detachment disposes the evaluator without removing the last applied native
+- [x] Custom provider replacement publishes a new complete revision.
+- [x] Detachment disposes the evaluator without removing the last applied native
       revision.
-- [ ] Web replay applies the last desired revision to the replacement map.
-- [ ] Reattachment evaluates current external state before the first visible
+- [x] Web replay applies the last desired revision to the replacement map.
+- [x] Reattachment evaluates current external state before the first visible
       frame.
-- [ ] A base-style reload reconciles the complete latest revision.
-- [ ] Reconciliation failure reports Failed for the latest request, keeps the
+- [x] A base-style reload reconciles the complete latest revision.
+- [x] Reconciliation failure reports Failed for the latest request, keeps the
       surface hidden, and can be superseded by a later revision or base style.
 
 ## Test ledger
@@ -41,3 +41,18 @@ presentation loss.
   only for native and GL JS reconciliation boundaries.
 - Run `mise run style-spec:parity --check`, `mise run test:android`,
   `mise run test:desktop`, and `mise run test:js`.
+
+## Answer
+
+`StyleComposition` is now a reusable value. Each map evaluates it in an
+independent nested composition and publishes a complete immutable revision of
+its sources, layers, images, ordering, and handlers. Persistent platform
+reconcilers apply those revisions without tying desired state to a live style
+binding.
+
+Native detachment retains the last applied revision and reevaluates current
+hoisted state before revealing a reattached presentation. Web presentations
+replay the latest revision after engine replacement. Base-style and
+reconciliation failures remain hidden and can be superseded by later requests.
+
+The style-spec parity, Android host, Desktop, and browser test suites pass.

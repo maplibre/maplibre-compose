@@ -21,6 +21,7 @@ import org.maplibre.compose.map.GlJsMapSession
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
 
 /** A [GlJsMapSession] on a canvas of its own, with no Compose or skiko, never composited. */
@@ -71,8 +72,14 @@ internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
   }
 
   override suspend fun loadStyle(style: BaseStyle, timeout: Duration) {
+    val styleLoadsBefore = events.count { it == MapFixture.STYLE_LOADED }
     glJsSession.setBaseStyle(style)
-    pumpUntil("style $style to load", timeout) { events.contains(MapFixture.STYLE_LOADED) }
+    if (recorder.style?.isLoaded != true) {
+      pumpUntil("style $style to load", timeout) {
+        events.count { it == MapFixture.STYLE_LOADED } > styleLoadsBefore
+      }
+    }
+    glJsSession.reconcileStyleRevision(DesiredStyleRevision.Empty)
   }
 
   internal fun fireStyleError(message: String) {

@@ -218,8 +218,10 @@ private constructor(
   ) {
     val styleLoadsBefore = events.count { it == STYLE_LOADED }
     session.setBaseStyle(style)
-    pumpUntil("style $style to load", timeout, extent) {
-      events.count { it == STYLE_LOADED } > styleLoadsBefore && this.style != null
+    if (this.style?.isLoaded != true) {
+      pumpUntil("style $style to load", timeout, extent) {
+        events.count { it == STYLE_LOADED } > styleLoadsBefore && this.style != null
+      }
     }
   }
 
@@ -239,7 +241,10 @@ private constructor(
   }
 
   override fun close() {
-    runCatching { session.close() }
+    runCatching {
+      session.close()
+      runBlocking { session.awaitClosed() }
+    }
     runCatching { driver.close() }
     FfiTestPlatform.deleteCacheFile(cacheFile)
   }

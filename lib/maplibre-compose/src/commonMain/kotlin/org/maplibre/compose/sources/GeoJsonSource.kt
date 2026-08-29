@@ -12,9 +12,7 @@ import org.maplibre.compose.expressions.value.ExpressionValue
 import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.spatialk.geojson.Feature
-import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.GeoJsonObject
-import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.toJson
 
 /** The style-spec property MapLibre stamps on a feature that stands in for a cluster. */
@@ -155,7 +153,7 @@ public fun rememberGeoJsonSource(
     val node = LocalStyleNode.current
     val source =
       rememberUserSource(
-        factory = { GeoJsonSource(id = it, data = EmptyInlineGeoJson, options = options) },
+        factory = { GeoJsonSource(id = it, data = data, options = options) },
         update = {},
       )
     LaunchedEffect(source, data, !node.style.isLoaded) {
@@ -166,6 +164,3 @@ public fun rememberGeoJsonSource(
     }
     source
   }
-
-private val EmptyInlineGeoJson: GeoJsonData =
-  GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>(emptyList()))

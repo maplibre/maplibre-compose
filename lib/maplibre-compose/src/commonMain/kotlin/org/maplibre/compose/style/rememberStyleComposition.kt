@@ -11,7 +11,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCompositionContext
 import androidx.compose.runtime.staticCompositionLocalOf
-import co.touchlab.kermit.Logger
 import kotlinx.coroutines.awaitCancellation
 import org.maplibre.compose.util.MaplibreComposable
 
@@ -23,44 +22,58 @@ import org.maplibre.compose.util.MaplibreComposable
  */
 @Composable
 internal fun rememberStyleComposition(
-  styleState: StyleState,
+  composition: StyleComposition,
   maybeStyle: StyleBinding?,
-  logger: Logger?,
-  content: @Composable @MaplibreComposable () -> Unit,
-): State<StyleNode?> {
-  val nodeState = remember { mutableStateOf<StyleNode?>(null) }
+  replaceableSourceIds: Set<String> = emptySet(),
+  replaceableLayerIds: Set<String> = emptySet(),
+  styleState: StyleState? = null,
+): State<DesiredStyleRevision?> {
+  val revisionState =
+    remember(composition, maybeStyle) { mutableStateOf<DesiredStyleRevision?>(null) }
   val compositionContext = rememberCompositionContext()
 
-  LaunchedEffect(styleState, maybeStyle, compositionContext) {
+  LaunchedEffect(composition, maybeStyle) {
     val style = maybeStyle ?: return@LaunchedEffect
-    val rootNode = StyleNode(style, logger).also { nodeState.value = it }
-    styleState.attach(rootNode)
-    val composition = Composition(MapNodeApplier(rootNode), compositionContext)
+    if (!style.isLoaded) return@LaunchedEffect
+    val rootNode =
+      try {
+        StyleNode(style, replaceableSourceIds, replaceableLayerIds)
+      } catch (error: IllegalStateException) {
+        if (!style.isLoaded) return@LaunchedEffect
+        throw error
+      }
+    styleState?.attach(rootNode)
+    val evaluator = Composition(MapNodeApplier(rootNode), compositionContext)
 
-    composition.setContent { StyleContent(rootNode, content) }
+    evaluator.setContent {
+      StyleContent(
+        rootNode = rootNode,
+        publish = { revisionState.value = it },
+        content = composition.content,
+      )
+    }
 
     try {
       awaitCancellation()
     } finally {
-      nodeState.value = null
-      composition.dispose()
+      evaluator.dispose()
+      styleState?.attach(null)
     }
   }
 
-  SideEffect { nodeState.value?.logger = logger }
-
-  return nodeState
+  return revisionState
 }
 
 @Composable
 internal fun StyleContent(
   rootNode: StyleNode,
+  publish: (DesiredStyleRevision) -> Unit = {},
   content: @Composable @MaplibreComposable () -> Unit,
 ) {
   CompositionLocalProvider(LocalStyleNode provides rootNode) { content() }
   key(rootNode.currentApplyGeneration) {
-    // Side effects run after remember observers, so source effects attach before layers do.
-    SideEffect { rootNode.applyChanges() }
+    // Side effects run after remember observers, so the evaluator publishes a complete revision.
+    SideEffect { publish(rootNode.snapshotRevision()) }
   }
 }
 

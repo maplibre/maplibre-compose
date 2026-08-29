@@ -11,6 +11,7 @@ import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -51,6 +52,12 @@ internal interface MapAdapter {
   )
 
   fun setBaseStyle(style: BaseStyle)
+
+  /** Applies one complete style-composition revision and reports whether it is ready to present. */
+  suspend fun reconcileStyleRevision(revision: DesiredStyleRevision): Boolean
+
+  /** Restores a retained revision before the current composition is evaluated. */
+  suspend fun replayStyleRevision(revision: DesiredStyleRevision)
 
   fun getCameraPosition(): CameraPosition
 

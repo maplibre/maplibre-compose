@@ -25,6 +25,7 @@ import kotlin.time.Duration
 import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.io.files.Path
@@ -58,8 +59,10 @@ import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.compose.resource.MlnFfiResourceProvider
 import org.maplibre.compose.resource.MlnFfiResourceProviderFactory
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.StyleLoadTracker
+import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleRequestId
 import org.maplibre.compose.style.TrackedStyleLoadState
 import org.maplibre.compose.util.VisibleRegion
@@ -235,6 +238,7 @@ internal class MlnFfiMapSession(
   private var failureReported = false
 
   @Volatile private var requestedStyle: BaseStyle? = null
+  @Volatile private var requestedStyleLoad: RequestedStyleLoad? = null
   private var appliedStyle: BaseStyle? = null
   private var styleLoadTracker: StyleLoadTracker? = null
   private var appliedStyleRequest: StyleRequestId? = null
@@ -248,6 +252,8 @@ internal class MlnFfiMapSession(
   private var reportedMoveReason: CameraMoveReason? = null
 
   @Volatile private var styleBinding: MlnFfiStyleBinding? = null
+  private val styleReconciler = StyleReconciler()
+  @Volatile private var revisionApplied = false
 
   internal val loadedStyleIdentity
     get() = styleBinding?.identity
@@ -439,8 +445,14 @@ internal class MlnFfiMapSession(
     lifecycle.awaitClosed()
   }
 
+  internal fun preparePresentation() {
+    hasLoadedFirstStyle = false
+  }
+
   override suspend fun attachPresentation() {
+    preparePresentation()
     lifecycle.attachRetainedEngine()
+    styleBinding?.let { callbacks.onStyleChanged(this, it) }
   }
 
   override suspend fun detachPresentation() {
@@ -762,13 +774,14 @@ internal class MlnFfiMapSession(
   // region events, on the map's owner thread
 
   private fun reportLoadedStyle(engine: EngineMapIdentity) {
-    if (!styleLoadUnreported) return
+    if (!styleLoadUnreported || !revisionApplied) return
     val request = appliedStyleRequest ?: return
     val identity = styleBinding?.identity ?: return
     if (styleLoadTracker?.reconciled(request, identity) == true) {
       lifecycleStyleIdentity?.let {
         if (lifecycleCallbacks.onMapFinishedLoading(engine, it, this)) {
           styleLoadUnreported = false
+          hasLoadedFirstStyle = true
         }
       }
     }
@@ -800,7 +813,6 @@ internal class MlnFfiMapSession(
         styleBinding?.invalidate()
         styleBinding = binding
         featureStateReplayPending.store(true)
-        hasLoadedFirstStyle = true
         lifecycleStyleIdentity = acceptedStyle
         styleLoadUnreported = true
         reportedUrlAttribution.clear()
@@ -1111,32 +1123,92 @@ internal class MlnFfiMapSession(
   override fun setBaseStyle(style: BaseStyle) {
     if (style == requestedStyle) return
     styleBinding?.invalidate()
+    revisionApplied = false
+    hasLoadedFirstStyle = false
     requestedStyle = style
+    val engineAvailable = loop != null
     val tracker = styleLoadTracker
-    if (tracker == null) {
-      styleLoadTracker = StyleLoadTracker(style, engineAvailable = loop != null)
-    } else {
-      tracker.request(style, engineAvailable = loop != null)
-    }
+    val trackerRequest =
+      if (tracker == null) {
+        StyleLoadTracker(style, engineAvailable).also { styleLoadTracker = it }.requestId
+      } else {
+        tracker.request(style, engineAvailable)
+      }
+    val capturedTrackerRequest = trackerRequest.takeIf { engineAvailable }
     // Disposes the composition holding the old style's sources and layers, which would otherwise
     // fail anchor validation against the base layers being replaced.
-    lifecycleEngineIdentity?.let {
-      lifecycleStyleRequestIdentity = lifecycleCallbacks.beginStyleRequest(it, this)
+    val lifecycleRequest = lifecycleEngineIdentity?.let {
+      lifecycleCallbacks.beginStyleRequest(it, this).also { request ->
+        lifecycleStyleRequestIdentity = request
+      }
     }
     lifecycleStyleIdentity = null
-    onMap(::applyRequestedStyle)
+    val load = RequestedStyleLoad(style, capturedTrackerRequest, lifecycleRequest)
+    requestedStyleLoad = load
+    onMap { applyRequestedStyle(it, load) }
+  }
+
+  override suspend fun reconcileStyleRevision(revision: DesiredStyleRevision): Boolean {
+    val binding = styleBinding ?: return false
+    val tracker = styleLoadTracker ?: return false
+    val wasReady = tracker.state is TrackedStyleLoadState.Ready
+    val request = tracker.beginReconciliation()
+    revisionApplied = false
+    hasLoadedFirstStyle = false
+    try {
+      styleReconciler.apply(binding, revision)
+    } catch (error: CancellationException) {
+      throw error
+    } catch (error: Throwable) {
+      tracker.failed(
+        request,
+        TrackedStyleLoadState.Failed.Stage.RECONCILIATION,
+        error.message ?: "Style reconciliation failed",
+      )
+      throw error
+    }
+    revisionApplied = true
+    if (wasReady && tracker.reconciled(request, binding.identity)) {
+      hasLoadedFirstStyle = true
+    }
+    val engine = lifecycleEngineIdentity
+    runOnMap {
+      it.requestRepaint()
+      if (!hasLoadedFirstStyle && engine != null) reportLoadedStyle(engine)
+    }
+    requestRender()
+    return hasLoadedFirstStyle
+  }
+
+  override suspend fun replayStyleRevision(revision: DesiredStyleRevision) {
+    val binding = styleBinding ?: return
+    revisionApplied = false
+    hasLoadedFirstStyle = false
+    styleReconciler.apply(binding, revision)
+    onMap { it.requestRepaint() }
+    requestRender()
   }
 
   /** Owner thread only. */
   private fun applyRequestedStyle(map: MapHandle) {
-    val style = requestedStyle ?: return
+    requestedStyleLoad?.let { applyRequestedStyle(map, it) }
+  }
+
+  /** Owner thread only. */
+  private fun applyRequestedStyle(map: MapHandle, load: RequestedStyleLoad) {
+    if (load !== requestedStyleLoad) return
+    val style = load.style
     if (style == appliedStyle) return
     if (styleLoadPending) return
+    val engine = lifecycleEngineIdentity ?: return
+    val lifecycleRequest = load.lifecycleRequest ?: lifecycleStyleRequestIdentity ?: return
+    if (load.lifecycleRequest != null && load.lifecycleRequest != lifecycleStyleRequestIdentity) {
+      return
+    }
     val request = styleLoadTracker?.beginLoading() ?: return
+    if (load.trackerRequest != null && load.trackerRequest != request) return
     appliedStyleRequest = request
     styleLoadPending = true
-    val engine = lifecycleEngineIdentity ?: return
-    val lifecycleRequest = lifecycleStyleRequestIdentity ?: return
     // Replacing the native style disconnects the preceding style event producer. The runtime loop
     // serializes this command with its event callback, so later events belong to this producer.
     styleEventProducer = StyleEventProducer(engine, lifecycleRequest)
@@ -1157,6 +1229,12 @@ internal class MlnFfiMapSession(
   private data class StyleEventProducer(
     val engine: EngineMapIdentity,
     val request: StyleRequestIdentity,
+  )
+
+  private class RequestedStyleLoad(
+    val style: BaseStyle,
+    val trackerRequest: StyleRequestId?,
+    val lifecycleRequest: StyleRequestIdentity?,
   )
 
   /** Applied when a map is created. Getters read [mirroredViewport] after native applies it. */

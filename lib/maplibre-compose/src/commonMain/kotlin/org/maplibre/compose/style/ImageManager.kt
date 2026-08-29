@@ -18,29 +18,30 @@ import org.maplibre.compose.util.toImageBitmap
 internal class ImageManager(private val node: StyleNode) {
   private val bitmapIds = IncrementingIdMap<BitmapKey>("bitmap")
   private val bitmapCounter = ReferenceCounter<BitmapKey>()
+  private val bitmapDefinitions = linkedMapOf<BitmapKey, StyleImageDefinition>()
 
   private val painterIds = IncrementingIdMap<PainterKey>("painter")
   private val painterCounter = ReferenceCounter<PainterKey>()
-  private val painterBitmaps = mutableMapOf<PainterKey, ImageBitmap>()
+  private val painterDefinitions = linkedMapOf<PainterKey, StyleImageDefinition>()
+
+  internal val desiredImages: List<StyleImageDefinition>
+    get() = bitmapDefinitions.values.toList() + painterDefinitions.values
 
   internal fun acquireBitmap(key: BitmapKey): String {
     bitmapCounter.increment(key) {
-      if (!node.style.isLoaded) return@increment
       val id = bitmapIds.addId(key)
-      node.logger?.i { "Adding bitmap $id" }
-      node.style.addImage(
+      bitmapDefinitions[key] =
         StyleImageDefinition(id, ImageSnapshot.capture(key.bitmap), key.isSdf, key.stretch)
-      )
+      node.scheduleApplyChanges()
     }
     return bitmapIds.getId(key)
   }
 
   internal fun releaseBitmap(key: BitmapKey) {
     bitmapCounter.decrement(key) {
-      if (!node.style.isLoaded) return@decrement
-      val id = bitmapIds.removeId(key)
-      node.logger?.i { "Removing bitmap $id" }
-      node.style.removeImage(id)
+      bitmapIds.removeId(key)
+      bitmapDefinitions.remove(key)
+      node.scheduleApplyChanges()
     }
   }
 
@@ -69,26 +70,22 @@ internal class ImageManager(private val node: StyleNode) {
 
   internal fun acquirePainter(key: PainterKey): String {
     painterCounter.increment(key) {
-      if (!node.style.isLoaded) return@increment
       val id = painterIds.addId(key)
-      node.logger?.i { "Adding painter $id" }
       key.drawToBitmap().let { bitmap ->
-        painterBitmaps[key] = if (key.drawAsSdf) bitmap.toSdf() else bitmap
-        node.style.addImage(
-          StyleImageDefinition(id, ImageSnapshot.capture(bitmap), key.drawAsSdf, key.stretch)
-        )
+        val resolved = if (key.drawAsSdf) bitmap.toSdf() else bitmap
+        painterDefinitions[key] =
+          StyleImageDefinition(id, ImageSnapshot.capture(resolved), key.drawAsSdf, key.stretch)
       }
+      node.scheduleApplyChanges()
     }
     return painterIds.getId(key)
   }
 
   internal fun releasePainter(key: PainterKey) {
     painterCounter.decrement(key) {
-      if (!node.style.isLoaded) return@decrement
-      val id = painterIds.removeId(key)
-      node.logger?.i { "Removing painter $id" }
-      painterBitmaps.remove(key)
-      node.style.removeImage(id)
+      painterIds.removeId(key)
+      painterDefinitions.remove(key)
+      node.scheduleApplyChanges()
     }
   }
 

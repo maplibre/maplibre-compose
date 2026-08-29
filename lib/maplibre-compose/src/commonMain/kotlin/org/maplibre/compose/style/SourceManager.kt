@@ -4,10 +4,13 @@ import org.maplibre.compose.sources.Source
 
 internal class SourceManager(private val node: StyleNode) {
 
-  private val baseSources = node.style.getSources().associateBy { it.id }
+  private val baseSources =
+    node.style.getSources().filterNot { it.id in node.replaceableSourceIds }.associateBy { it.id }
   private val counter = ReferenceCounter<Source>()
-  private val handles = mutableMapOf<Source, SourceHandle>()
   private val sourceIds = IncrementingId("source")
+
+  /** Application-owned sources in the order in which the evaluator first referenced them. */
+  internal val desiredSources = LinkedHashSet<Source>()
 
   /** Receives updates on changes to the style */
   internal var state: StyleState? = null
@@ -21,10 +24,8 @@ internal class SourceManager(private val node: StyleNode) {
   internal fun addReference(source: Source) {
     require(source.id !in baseSources) { "Source ID '${source.id}' already exists in base style" }
     counter.increment(source) {
-      if (!node.style.isLoaded) return@increment
-      node.logger?.i { "Adding source ${source.id}" }
-      handles[source] = SourceHandle(node.style, source.definition())
-      state?.refreshSource(source.id)
+      desiredSources += source
+      node.scheduleApplyChanges()
     }
   }
 
@@ -33,15 +34,12 @@ internal class SourceManager(private val node: StyleNode) {
       "Source ID '${source.id}' is part of the base style and can't be removed here"
     }
     counter.decrement(source) {
-      if (!node.style.isLoaded) return@decrement
-      node.logger?.i { "Removing source ${source.id}" }
-      handles.remove(source)?.remove()
-      state?.refreshSource(source.id)
+      desiredSources -= source
+      node.scheduleApplyChanges()
     }
   }
 
   internal suspend fun updateReference(source: Source) {
-    if (!node.style.isLoaded) return
-    handles[source]?.update(source.definition())
+    if (source in desiredSources) node.scheduleApplyChanges()
   }
 }
