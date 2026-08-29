@@ -129,7 +129,8 @@ launch on iOS. Every other host has a task:
 
 - Android: `mise run demo:android`
 - Desktop: `mise run demo:desktop`
-- Web: `mise run demo:js`
+- Web (Kotlin/Wasm, the live site): `mise run demo:wasm`
+- Web (Kotlin/JS): `mise run demo:js`
 - Desktop on the compose-glfw host instead of the AWT one:
   `mise run demo:desktop-glfw`
 - Desktop on the Nucleus Tao host instead of the AWT one:

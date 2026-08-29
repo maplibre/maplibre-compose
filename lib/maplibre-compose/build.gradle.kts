@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+
 plugins {
   id("library-conventions")
   id("android-library-conventions")
@@ -43,6 +45,8 @@ kotlin {
     browser { testTask { useKarma { useChromeHeadless() } } }
   }
 
+  @OptIn(ExperimentalWasmDsl::class) wasmJs { browser() }
+
   applyDefaultHierarchyTemplate()
 
   sourceSets {
@@ -66,11 +70,25 @@ kotlin {
 
     // Desktop, iOS, and the browser. Android implements the same expect APIs in androidMain,
     // because Compose on Android draws through the Android Canvas API instead of Skia.
-    create("nonAndroidMain") {
-      dependsOn(commonMain.get())
-      jvmMain.dependsOn(this)
-      iosMain.get().dependsOn(this)
-      jsMain.get().dependsOn(this)
+    val nonAndroidMain =
+      create("nonAndroidMain") {
+        dependsOn(commonMain.get())
+        jvmMain.dependsOn(this)
+        iosMain.get().dependsOn(this)
+      }
+
+    // js and wasmJs share MapLibre GL JS. The default hierarchy already created webMain.
+    webMain {
+      dependsOn(nonAndroidMain)
+      dependencies {
+        implementation(libs.kotlin.wrappers.js)
+        implementation(libs.kotlin.wrappers.browser)
+        implementation(npm("maplibre-gl", libs.versions.maplibre.js.get()))
+      }
+    }
+
+    listOf(webMain, jsMain, wasmJsMain, jsTest, wasmJsTest).forEach {
+      it { languageSettings { optIn("kotlin.js.ExperimentalWasmJsInterop") } }
     }
 
     // MapLibre Native platforms (Android, iOS, desktop). The browser stays on MapLibre GL JS.
@@ -113,12 +131,6 @@ kotlin {
         implementation(libs.lwjgl.opengl)
         implementation(libs.lwjgl.vulkan)
       }
-    }
-
-    jsMain.dependencies {
-      implementation(libs.kotlin.wrappers.js)
-      implementation(libs.kotlin.wrappers.browser)
-      implementation(npm("maplibre-gl", libs.versions.maplibre.js.get()))
     }
 
     commonTest.dependencies {
