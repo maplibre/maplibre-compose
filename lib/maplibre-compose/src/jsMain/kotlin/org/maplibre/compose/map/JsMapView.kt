@@ -28,7 +28,7 @@ internal actual fun ComposableMapView(
   onReset: () -> Unit,
   logger: Logger?,
   callbacks: MapAdapter.Callbacks,
-  options: MapOptions,
+  options: MapPresentationOptions,
 ) {
   val density = LocalDensity.current
   val layoutDirection = LocalLayoutDirection.current

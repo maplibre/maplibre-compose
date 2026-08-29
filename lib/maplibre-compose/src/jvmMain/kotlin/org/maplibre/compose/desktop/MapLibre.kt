@@ -1,5 +1,6 @@
 package org.maplibre.compose.desktop
 
+import co.touchlab.kermit.Logger
 import java.nio.file.Path
 import java.nio.file.Paths
 import org.maplibre.compose.mlnffi.MlnFfiApplication
@@ -11,10 +12,13 @@ public data class DesktopRuntimeOptions(
   public val applicationId: String = inferredApplicationId(),
   /** Ambient cache size in bytes, or null for MapLibre's default. */
   public val maximumCacheSizeBytes: Long? = null,
+
+  /** Receives diagnostic messages from maps and shared runtime resources. */
+  public val logger: Logger? = Logger.withTag("maplibre-compose"),
 )
 
 internal fun DesktopRuntimeOptions.toMlnFfiRuntimeOptions(): MlnFfiRuntimeOptions =
-  desktopRuntimeOptions(applicationId, maximumCacheSizeBytes)
+  desktopRuntimeOptions(applicationId, maximumCacheSizeBytes, logger)
 
 /** Desktop configuration for MapLibre Compose. */
 public object MapLibre {
@@ -31,20 +35,26 @@ public object MapLibre {
   public fun configure(
     applicationId: String = inferredApplicationId(),
     maximumCacheSizeBytes: Long? = null,
+    logger: Logger? = Logger.withTag("maplibre-compose"),
   ) {
-    MlnFfiApplication.configure(desktopRuntimeOptions(applicationId, maximumCacheSizeBytes))
+    MlnFfiApplication.configure(desktopRuntimeOptions(applicationId, maximumCacheSizeBytes, logger))
   }
 }
 
 internal fun desktopRuntimeOptions(
   applicationId: String = inferredApplicationId(),
   maximumCacheSizeBytes: Long? = null,
+  logger: Logger? = Logger.withTag("maplibre-compose"),
 ): MlnFfiRuntimeOptions {
   require(APPLICATION_ID.matches(applicationId)) {
     "applicationId must contain only nonempty dot-separated letters, digits, underscores, or hyphens"
   }
   val cachePath = desktopCachePath(applicationId)
-  return MlnFfiRuntimeOptions(kotlinx.io.files.Path(cachePath.toString()), maximumCacheSizeBytes)
+  return MlnFfiRuntimeOptions(
+    kotlinx.io.files.Path(cachePath.toString()),
+    maximumCacheSizeBytes,
+    logger,
+  )
 }
 
 /**

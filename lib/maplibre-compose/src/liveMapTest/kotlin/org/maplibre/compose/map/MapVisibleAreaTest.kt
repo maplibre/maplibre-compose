@@ -22,12 +22,12 @@ class MapVisibleAreaTest {
   @Test
   fun the_bounding_box_frames_the_camera_target(): MapTestResult = runMapTest {
     createMapFixture().use {
-      it.session.setBaseStyle(BaseStyle.Empty)
+      it.loadStyle(BaseStyle.Empty)
       it.awaitMapReady()
-      it.session.setCameraPosition(CAMERA)
+      it.presentation.setCameraPosition(CAMERA)
       it.pumpUntil("the camera to apply") { it.session.hasNativeCamera(CAMERA) }
 
-      val box = it.session.getVisibleBoundingBox()
+      val box = it.presentation.getVisibleBoundingBox()
       assertContains(box, CAMERA.target, "the camera target")
       assertTrue(box.northeast.latitude > box.southwest.latitude, "the box should span latitude")
       assertTrue(box.northeast.longitude > box.southwest.longitude, "the box should span longitude")
@@ -35,38 +35,16 @@ class MapVisibleAreaTest {
   }
 
   @Test
-  fun the_camera_and_bounding_box_come_from_one_native_snapshot(): MapTestResult = runMapTest {
-    createMapFixture().use {
-      it.session.setBaseStyle(BaseStyle.Empty)
-      it.awaitMapReady()
-      it.session.setCameraPosition(CAMERA)
-
-      val camera = it.session.getCameraPosition()
-      val box = it.session.getVisibleBoundingBox()
-      val cameraApplied =
-        abs(camera.zoom - CAMERA.zoom) < 0.01 && abs(camera.bearing - CAMERA.bearing) < 0.01
-      val latSpan = box.northeast.latitude - box.southwest.latitude
-      val boxApplied = latSpan > 0.01 && latSpan < 40.0
-      assertTrue(
-        cameraApplied == boxApplied,
-        "the camera and bounding box should update together, camera applied=$cameraApplied box applied=$boxApplied (camera=$camera box=$box)",
-      )
-
-      it.pumpUntil("the camera to apply") { it.session.hasNativeCamera(CAMERA) }
-    }
-  }
-
-  @Test
   fun the_bounding_box_covers_the_region_of_a_rotated_and_tilted_camera(): MapTestResult =
     runMapTest {
       createMapFixture().use {
-        it.session.setBaseStyle(BaseStyle.Empty)
+        it.loadStyle(BaseStyle.Empty)
         it.awaitMapReady()
-        it.session.setCameraPosition(ROTATED_CAMERA)
+        it.presentation.setCameraPosition(ROTATED_CAMERA)
         it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(ROTATED_CAMERA) }
 
-        val region = it.session.getVisibleRegion()
-        val box = it.session.getVisibleBoundingBox()
+        val region = it.presentation.getVisibleRegion()
+        val box = it.presentation.getVisibleBoundingBox()
         assertContains(box, region.farLeft, "the far left corner")
         assertContains(box, region.farRight, "the far right corner")
         assertContains(box, region.nearLeft, "the near left corner")
@@ -78,12 +56,12 @@ class MapVisibleAreaTest {
   fun the_region_of_a_rotated_and_tilted_camera_is_a_proper_quadrilateral(): MapTestResult =
     runMapTest {
       createMapFixture().use {
-        it.session.setBaseStyle(BaseStyle.Empty)
+        it.loadStyle(BaseStyle.Empty)
         it.awaitMapReady()
-        it.session.setCameraPosition(ROTATED_CAMERA)
+        it.presentation.setCameraPosition(ROTATED_CAMERA)
         it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(ROTATED_CAMERA) }
 
-        val region = it.session.getVisibleRegion()
+        val region = it.presentation.getVisibleRegion()
         val corners = region.corners()
         assertTrue(
           corners.distinct().size == 4,
@@ -100,12 +78,12 @@ class MapVisibleAreaTest {
   @Test
   fun the_bounding_box_stays_narrow_across_the_antimeridian(): MapTestResult = runMapTest {
     createMapFixture().use {
-      it.session.setBaseStyle(BaseStyle.Empty)
+      it.loadStyle(BaseStyle.Empty)
       it.awaitMapReady()
-      it.session.setCameraPosition(ANTIMERIDIAN_CAMERA)
+      it.presentation.setCameraPosition(ANTIMERIDIAN_CAMERA)
       it.pumpUntil("the camera to apply") { it.session.hasNativeCamera(ANTIMERIDIAN_CAMERA) }
 
-      val box = it.session.getVisibleBoundingBox()
+      val box = it.presentation.getVisibleBoundingBox()
       // A wrapped hull would span nearly the whole world instead of the short interval, which may
       // extend past ±180.
       assertTrue(
@@ -119,13 +97,13 @@ class MapVisibleAreaTest {
   @Test
   fun the_viewport_matches_the_session(): MapTestResult = runMapTest {
     createMapFixture().use {
-      it.session.setBaseStyle(BaseStyle.Empty)
+      it.loadStyle(BaseStyle.Empty)
       it.awaitMapReady()
-      it.session.setCameraPosition(ROTATED_CAMERA)
+      it.presentation.setCameraPosition(ROTATED_CAMERA)
       it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(ROTATED_CAMERA) }
 
-      val viewport = assertNotNull(it.session.getViewport())
-      assertNear(it.session.getVisibleBoundingBox(), viewport.visibleBoundingBox)
+      val viewport = assertNotNull(it.presentation.viewport)
+      assertNear(it.presentation.getVisibleBoundingBox(), viewport.visibleBoundingBox)
       assertTrue(
         viewport.size.width.value > 0f && viewport.size.height.value > 0f,
         "the viewport should carry the map's size, was ${viewport.size}",

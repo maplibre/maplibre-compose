@@ -6,29 +6,29 @@ bind every presentation operation to its render lease.
 
 **Blocked by:** 04, 05
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] The changed test area contains no redundant, impossible,
+- [x] The changed test area contains no redundant, impossible,
       compatibility-only, or implementation-shape scenarios.
-- [ ] MapState exposes its durable camera position as read-only state.
-- [ ] Camera set, fit, and animation operations belong to MapPresentation.
-- [ ] Viewport, visible-region, projection, and rendered-feature queries belong
+- [x] MapState exposes its durable camera position as read-only state.
+- [x] Camera set, fit, and animation operations belong to MapPresentation.
+- [x] Viewport, visible-region, projection, and rendered-feature queries belong
       to MapPresentation.
-- [ ] Gesture state, gesture events, and presentation render settings belong to
+- [x] Gesture state, gesture events, and presentation render settings belong to
       MapPresentation.
-- [ ] Camera padding, camera constraints, render, gesture, and tile-LOD options
+- [x] Camera padding, camera constraints, render, gesture, and tile-LOD options
       enter MaplibreMap as one immutable MapPresentationOptions value.
-- [ ] Map click, long-click, and frame callbacks enter MaplibreMap as one
+- [x] Map click, long-click, and frame callbacks enter MaplibreMap as one
       MapPresentationCallbacks value.
-- [ ] Style loading is observed through MapStyleState rather than duplicate
+- [x] Style loading is observed through MapStyleState rather than duplicate
       composable callbacks; logging belongs to MapRuntimeOptions.
-- [ ] Overlay and content-window insets remain UI-only MaplibreMap inputs.
-- [ ] Public observable values use Compose snapshot state.
-- [ ] Suspending operations accept calls from any coroutine dispatcher and run
+- [x] Overlay and content-window insets remain UI-only MaplibreMap inputs.
+- [x] Public observable values use Compose snapshot state.
+- [x] Suspending operations accept calls from any coroutine dispatcher and run
       engine work on the owner context.
-- [ ] A cached presentation fails immediately after detachment.
-- [ ] A detached operation never waits for or targets a future presentation.
-- [ ] A replacement camera animation cancels only the prior camera mutation.
+- [x] A cached presentation fails immediately after detachment.
+- [x] A detached operation never waits for or targets a future presentation.
+- [x] A replacement camera animation cancels only the prior camera mutation.
 
 ## Test ledger
 
@@ -41,3 +41,25 @@ bind every presentation operation to its render lease.
   suite.
 - Run `mise run test:android`, `mise run test:desktop`, `mise run test:ios`, and
   `mise run test:js`.
+
+## Answer
+
+`MapState` now retains a read-only camera position and publishes one snapshot-
+observable `MapPresentation` for the current render lease. Camera mutations,
+visible-area reads, projection, rendered-feature queries, movement state, and
+presentation settings are available only through that lease. Detachment
+invalidates cached presentations immediately and cancels in-flight lease-bound
+work. A new camera animation cancels the previous camera mutation without
+cancelling unrelated work.
+
+`MaplibreMap` now accepts one immutable `MapPresentationOptions` value and one
+`MapPresentationCallbacks` value. Base-style load status is observed through
+`MapStyleState`, runtime options configure logging, and overlays receive
+`MapState` plus the current presentation. The demo, controls, location
+integration, benchmarks, documentation snippets, and platform tests use the new
+API. The public `CameraState`, its saver, the superseded composable signature,
+and compatibility-only tests were removed.
+
+Validation passed with `mise run check`, `mise run test:android`,
+`mise run test:desktop`, `mise run test:ios`, and
+`caffeinate -dimsu mise run test:js`.

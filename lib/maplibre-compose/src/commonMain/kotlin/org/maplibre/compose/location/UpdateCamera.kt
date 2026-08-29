@@ -2,20 +2,22 @@ package org.maplibre.compose.location
 
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
-import org.maplibre.compose.camera.CameraState
+import org.maplibre.compose.map.MapPresentation
+import org.maplibre.compose.map.MapState
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.inDegrees
 
 /**
- * Convenience method for keeping [camera] in sync with the location change that triggered this
+ * Convenience method for keeping [mapState] in sync with the location change that triggered this
  * [LocationTrackingEffect] callback.
  *
- * @param animationDuration if `null`, updates [CameraState.position] directly without animation;
+ * @param animationDuration if `null`, updates the presentation directly without animation;
  *   otherwise, specifies the duration of the camera animation.
  * @param updateBearing determines how the bearing affects the camera state.
  */
 public suspend fun LocationChangeScope.updateCamera(
-  camera: CameraState,
+  mapState: MapState,
+  presentation: MapPresentation,
   animationDuration: Duration? = 300.milliseconds,
   updateBearing: BearingUpdate = BearingUpdate.TRACK_AUTOMATIC,
 ) {
@@ -29,17 +31,19 @@ public suspend fun LocationChangeScope.updateCamera(
     }
 
   val newPosition =
-    camera.position.copy(
+    mapState.cameraPosition.copy(
       target = currentReading.position,
       bearing =
         when (updateBearing) {
-          BearingUpdate.IGNORE -> camera.position.bearing
-          else -> selectedBearing?.let { (it - Bearing.North).inDegrees } ?: camera.position.bearing
+          BearingUpdate.IGNORE -> mapState.cameraPosition.bearing
+          else ->
+            selectedBearing?.let { (it - Bearing.North).inDegrees }
+              ?: mapState.cameraPosition.bearing
         },
     )
 
-  if (animationDuration == null) camera.position = newPosition
-  else camera.animateTo(newPosition, animationDuration)
+  if (animationDuration == null) presentation.setCameraPosition(newPosition)
+  else presentation.animateCameraPosition(newPosition, animationDuration)
 }
 
 /** How [updateCamera] updates camera bearing. */

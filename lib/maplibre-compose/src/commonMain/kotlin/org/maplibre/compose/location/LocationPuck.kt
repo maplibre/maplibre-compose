@@ -30,7 +30,6 @@ import kotlin.time.TimeMark
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.expressions.dsl.asBoolean
 import org.maplibre.compose.expressions.dsl.asNumber
 import org.maplibre.compose.expressions.dsl.condition
@@ -48,6 +47,7 @@ import org.maplibre.compose.expressions.value.IconRotationAlignment
 import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.SymbolLayer
+import org.maplibre.compose.map.MapPresentation
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.rememberGeoJsonSource
@@ -72,7 +72,7 @@ import org.maplibre.spatialk.units.extensions.meters
  *
  * @param idPrefix The prefix used for the layers to display the location indicator.
  * @param locationState State providing the location and heading measurements to display.
- * @param cameraState The [CameraState] of the map, used only for
+ * @param presentation The current map presentation, used only for
  *   [Viewport.metersPerDpAtTarget][org.maplibre.compose.camera.Viewport.metersPerDpAtTarget] to
  *   correctly draw the accuracy circle.
  * @param oldLocationThreshold Locations older than this will be styled differently.
@@ -90,7 +90,7 @@ import org.maplibre.spatialk.units.extensions.meters
 public fun LocationPuck(
   idPrefix: String,
   locationState: LocationState,
-  cameraState: CameraState,
+  presentation: MapPresentation?,
   oldLocationThreshold: Duration = 30.seconds,
   accuracyThreshold: Length = 50.meters,
   colors: LocationPuckColors = LocationPuckColors(),
@@ -107,7 +107,7 @@ public fun LocationPuck(
         bearing = locationState.mostAccurateBearing(),
         bearingAccuracy = locationState.mostAccurateBearingAccuracy(),
       ),
-    cameraState = cameraState,
+    presentation = presentation,
     oldLocationThreshold = oldLocationThreshold,
     accuracyThreshold = accuracyThreshold,
     colors = colors,
@@ -132,9 +132,9 @@ public fun LocationPuck(
  *   `location.course`, the direction of travel.
  * @param bearingAccuracy Estimated bearing error. Defaults to `location.courseAccuracy` when
  *   [bearing] is the location course.
- * @param cameraState The [CameraState] of the map, used only for
+ * @param presentation The current map presentation, used only for
  *   [Viewport.metersPerDpAtTarget][org.maplibre.compose.camera.Viewport.metersPerDpAtTarget] to
- *   correctly draw the accuracy circle. The camera state is not modified by this composable; if you
+ *   correctly draw the accuracy circle. The presentation is not modified by this composable; if you
  *   want the camera to track the current location, use [LocationTrackingEffect].
  * @param oldLocationThreshold Locations older than this will be styled differently.
  * @param accuracyThreshold A circle showing the accuracy range will be drawn when
@@ -151,7 +151,7 @@ public fun LocationPuck(
 public fun LocationPuck(
   idPrefix: String,
   location: LocationReading?,
-  cameraState: CameraState,
+  presentation: MapPresentation?,
   measurementMark: TimeMark? = null,
   bearing: Bearing? = location?.course,
   bearingAccuracy: Rotation? = defaultBearingAccuracy(location, bearing),
@@ -165,7 +165,7 @@ public fun LocationPuck(
   LocationPuckContent(
     idPrefix = idPrefix,
     measurement = locationPuckMeasurement(location, measurementMark, bearing, bearingAccuracy),
-    cameraState = cameraState,
+    presentation = presentation,
     oldLocationThreshold = oldLocationThreshold,
     accuracyThreshold = accuracyThreshold,
     colors = colors,
@@ -179,7 +179,7 @@ public fun LocationPuck(
 private fun LocationPuckContent(
   idPrefix: String,
   measurement: LocationPuckMeasurement?,
-  cameraState: CameraState,
+  presentation: MapPresentation?,
   oldLocationThreshold: Duration,
   accuracyThreshold: Length,
   colors: LocationPuckColors,
@@ -204,7 +204,7 @@ private fun LocationPuckContent(
         condition(test = isOldLocation, output = const(0.dp)),
         fallback =
           (feature["accuracy"].asNumber() /
-              const((cameraState.viewport?.metersPerDpAtTarget ?: 0.0).toFloat()))
+              const((presentation?.viewport?.metersPerDpAtTarget ?: 0.0).toFloat()))
             .dp,
       ),
     color = const(colors.accuracyFillColor),

@@ -5,15 +5,12 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.style.BaseStyle
@@ -30,121 +27,17 @@ import org.maplibre.spatialk.geojson.Position
 class MapCameraTransitionTest {
 
   @Test
-  fun an_animation_requested_before_the_first_frame_reaches_its_target(): MapTestResult =
-    runMapTest {
-      createMapFixture().use {
-        it.session.setBaseStyle(BaseStyle.Empty)
-        val animation =
-          CoroutineScope(Dispatchers.Default).launch(start = CoroutineStart.UNDISPATCHED) {
-            it.session.animateCameraPosition(TARGET, 200.milliseconds)
-          }
-
-        assertFalse(
-          animation.isCompleted,
-          "the animation should wait until the map can run it",
-        )
-        it.pumpUntil("the startup animation to complete") { animation.isCompleted }
-
-        assertFalse(animation.isCancelled, "the startup animation should complete normally")
-        assertNear(
-          TARGET.zoom,
-          it.session.getCameraPosition().zoom,
-          "the startup animation should reach its target zoom",
-        )
-        assertNear(
-          TARGET.target.longitude,
-          it.session.getCameraPosition().target.longitude,
-          "the startup animation should reach its target longitude",
-        )
-        assertNear(
-          TARGET.target.latitude,
-          it.session.getCameraPosition().target.latitude,
-          "the startup animation should reach its target latitude",
-        )
-      }
-    }
-
-  @Test
-  fun closing_before_the_first_frame_resumes_a_queued_animation(): MapTestResult = runMapTest {
-    createMapFixture().use {
-      it.session.setBaseStyle(BaseStyle.Empty)
-      val animation =
-        CoroutineScope(Dispatchers.Default).launch(start = CoroutineStart.UNDISPATCHED) {
-          it.session.animateCameraPosition(TARGET, 60.seconds)
-        }
-
-      assertFalse(
-        animation.isCompleted,
-        "the animation should still be waiting when the session closes",
-      )
-      it.closeSession()
-      it.pumpUntil("the queued animation to resume during teardown") { animation.isCompleted }
-
-      assertFalse(animation.isCancelled, "teardown should resume the waiter, not cancel it")
-    }
-  }
-
-  @Test
-  fun a_bounds_fit_requested_before_the_first_frame_uses_the_real_viewport(): MapTestResult =
-    runMapTest {
-      createMapFixture().use {
-        // A camera read makes mln-ffi's map creation deterministic without a render target.
-        it.session.getCameraPosition()
-        it.session.setCameraPosition(
-          BOUNDS,
-          bearing = 0.0,
-          tilt = 0.0,
-          padding = PaddingValues(0.dp),
-        )
-        it.session.getCameraPosition()
-
-        it.awaitMapReady()
-        it.pumpUntil("the deferred bounds fit to be applied") {
-          it.session.getCameraPosition().zoom > 1.0
-        }
-        val deferredFit = it.session.getCameraPosition()
-
-        it.session.setCameraPosition(START)
-        it.pumpUntil("the camera to reset") {
-          abs(it.session.getCameraPosition().zoom - START.zoom) < 0.01
-        }
-        it.session.setCameraPosition(
-          BOUNDS,
-          bearing = 0.0,
-          tilt = 0.0,
-          padding = PaddingValues(0.dp),
-        )
-        it.pumpUntil("the attached bounds fit to be applied") {
-          abs(it.session.getCameraPosition().zoom - START.zoom) > 0.1
-        }
-        val attachedFit = it.session.getCameraPosition()
-
-        assertNear(attachedFit.zoom, deferredFit.zoom, "the first fit used the startup viewport")
-        assertNear(
-          attachedFit.target.longitude,
-          deferredFit.target.longitude,
-          "the first fit chose the wrong longitude",
-        )
-        assertNear(
-          attachedFit.target.latitude,
-          deferredFit.target.latitude,
-          "the first fit chose the wrong latitude",
-        )
-      }
-    }
-
-  @Test
   fun a_bounds_jump_adds_transient_fit_padding_to_camera_padding(): MapTestResult = runMapTest {
     createMapFixture().use {
       it.loadStyle(BaseStyle.Empty)
       it.session.setCameraPadding(CAMERA_PADDING)
-      it.session.setCameraPosition(START)
+      it.presentation.setCameraPosition(START)
       it.awaitMapReady()
       it.pumpUntil("the camera padding to be applied") {
         it.cameraTargetMatches(START, CAMERA_PADDING)
       }
 
-      it.session.setCameraPosition(BOUNDS, 0.0, 0.0, FIT_PADDING)
+      it.presentation.setCameraPosition(BOUNDS, 0.0, 0.0, FIT_PADDING)
       it.pumpUntil("the bounds fit to be applied") {
         abs(it.session.getCameraPosition().zoom - START.zoom) > 0.1
       }
@@ -152,7 +45,7 @@ class MapCameraTransitionTest {
       it.assertCameraTarget(fitAfterPadding, CAMERA_PADDING)
       it.assertBoundsInside(CAMERA_PADDING + FIT_PADDING)
 
-      it.session.setCameraPosition(BOUNDS, 0.0, 0.0, FIT_PADDING)
+      it.presentation.setCameraPosition(BOUNDS, 0.0, 0.0, FIT_PADDING)
       it.pump(frames = 2)
       val repeatedFit = it.session.getCameraPosition()
       assertSameFit(fitAfterPadding, repeatedFit, "repeating the bounds fit changed its camera")
@@ -169,7 +62,7 @@ class MapCameraTransitionTest {
     createMapFixture().use {
       it.startAtOrigin()
 
-      it.session.setCameraPosition(ANTIMERIDIAN_BOUNDS, 0.0, 0.0, PaddingValues(0.dp))
+      it.presentation.setCameraPosition(ANTIMERIDIAN_BOUNDS, 0.0, 0.0, PaddingValues(0.dp))
       it.pumpUntil("the antimeridian bounds fit to be applied") {
         val camera = it.session.getCameraPosition()
         abs(abs(camera.target.longitude) - 180.0) < 1.0 && camera.zoom > START.zoom
@@ -182,14 +75,14 @@ class MapCameraTransitionTest {
     createMapFixture().use {
       it.loadStyle(BaseStyle.Empty)
       it.session.setCameraPadding(CAMERA_PADDING)
-      it.session.setCameraPosition(START)
+      it.presentation.setCameraPosition(START)
       it.awaitMapReady()
       it.pumpUntil("the camera padding to be applied") {
         it.cameraTargetMatches(START, CAMERA_PADDING)
       }
 
       it.awaitWhileRendering("the bounds animation to complete") {
-        it.session.animateCameraPosition(BOUNDS, 0.0, 0.0, FIT_PADDING, 200.milliseconds)
+        it.presentation.animateCameraPosition(BOUNDS, 0.0, 0.0, FIT_PADDING, 200.milliseconds)
       }
 
       val firstFit = it.session.getCameraPosition()
@@ -197,7 +90,7 @@ class MapCameraTransitionTest {
       it.assertBoundsInside(CAMERA_PADDING + FIT_PADDING)
 
       it.awaitWhileRendering("the repeated bounds animation to complete") {
-        it.session.animateCameraPosition(BOUNDS, 0.0, 0.0, FIT_PADDING, 200.milliseconds)
+        it.presentation.animateCameraPosition(BOUNDS, 0.0, 0.0, FIT_PADDING, 200.milliseconds)
       }
 
       assertSameFit(
@@ -214,7 +107,7 @@ class MapCameraTransitionTest {
       it.startAtOrigin()
 
       it.awaitWhileRendering("the animation to complete") {
-        it.session.animateCameraPosition(TARGET, 200.milliseconds)
+        it.presentation.animateCameraPosition(TARGET, 200.milliseconds)
       }
 
       assertNear(
@@ -235,7 +128,7 @@ class MapCameraTransitionTest {
 
         val animation =
           CoroutineScope(Dispatchers.Default).launch {
-            it.session.animateCameraPosition(TARGET, 2.seconds)
+            it.presentation.animateCameraPosition(TARGET, 2.seconds)
           }
         it.awaitCameraMoving()
         it.session.applyTestConstraints()
@@ -273,7 +166,7 @@ class MapCameraTransitionTest {
       it.startAtOrigin()
 
       it.awaitWhileRendering("the instant animation to complete") {
-        it.session.animateCameraPosition(TARGET, 0.milliseconds)
+        it.presentation.animateCameraPosition(TARGET, 0.milliseconds)
       }
     }
   }
@@ -288,15 +181,17 @@ class MapCameraTransitionTest {
 
       val superseded =
         CoroutineScope(Dispatchers.Default).launch {
-          it.session.animateCameraPosition(TARGET, 10.seconds)
+          it.presentation.animateCameraPosition(TARGET, 10.seconds)
         }
       it.awaitCameraMoving()
 
       val replacement =
         CoroutineScope(Dispatchers.Default).launch {
-          it.session.animateCameraPosition(MIDPOINT, 2.seconds)
+          it.presentation.animateCameraPosition(MIDPOINT, 2.seconds)
         }
-      it.pumpUntil("the superseded animation to resume") { superseded.isCompleted }
+      it.pumpUntil("the superseded animation to cancel") { superseded.isCompleted }
+
+      assertTrue(superseded.isCancelled, "the replacement should cancel the prior mutation")
 
       assertFalse(
         replacement.isCompleted,
@@ -313,23 +208,6 @@ class MapCameraTransitionTest {
   }
 
   @Test
-  fun a_superseded_animation_resumes_rather_than_hanging(): MapTestResult = runMapTest {
-    createMapFixture().use {
-      it.startAtOrigin()
-
-      val animation: Job =
-        CoroutineScope(Dispatchers.Default).launch {
-          it.session.animateCameraPosition(TARGET, 10.seconds)
-        }
-      it.awaitCameraMoving()
-      it.session.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = 4.0))
-
-      it.pumpUntil("the superseded animation to resume") { animation.isCompleted }
-      assertFalse(animation.isCancelled, "a superseded animation should resume, not cancel")
-    }
-  }
-
-  @Test
   fun cancelling_an_animation_stops_the_camera_and_leaves_nothing_registered(): MapTestResult =
     runMapTest {
       createMapFixture().use {
@@ -338,7 +216,7 @@ class MapCameraTransitionTest {
 
         val animation =
           CoroutineScope(Dispatchers.Default).launch {
-            it.session.animateCameraPosition(TARGET, 30.seconds)
+            it.presentation.animateCameraPosition(TARGET, 30.seconds)
           }
         it.awaitCameraMoving()
         animation.cancel()
@@ -351,7 +229,7 @@ class MapCameraTransitionTest {
         )
 
         it.awaitWhileRendering("a later animation to complete") {
-          it.session.animateCameraPosition(TARGET, 200.milliseconds)
+          it.presentation.animateCameraPosition(TARGET, 200.milliseconds)
         }
         assertNear(
           TARGET.zoom,
@@ -361,38 +239,10 @@ class MapCameraTransitionTest {
       }
     }
 
-  @Test
-  fun closing_the_session_resumes_an_outstanding_animation(): MapTestResult = runMapTest {
-    createMapFixture().use {
-      it.startAtOrigin()
-
-      val animation =
-        CoroutineScope(Dispatchers.Default).launch {
-          it.session.animateCameraPosition(TARGET, 60.seconds)
-        }
-      it.awaitCameraMoving()
-      it.pumpUntil("the animation's camera move to be reported") {
-        it.events.count { event -> event.startsWith("cameraMoveStarted") } >
-          it.events.count { event -> event == "cameraMoveEnded" }
-      }
-      val endedBeforeClose = it.events.count { event -> event == "cameraMoveEnded" }
-
-      it.closeSession()
-
-      it.pumpUntil("the stranded animation to resume") { animation.isCompleted }
-      assertFalse(animation.isCancelled, "teardown should resume the waiter, not cancel it")
-      assertEquals(
-        endedBeforeClose + 1,
-        it.events.count { event -> event == "cameraMoveEnded" },
-        "teardown should close the outstanding camera move exactly once: ${it.events}",
-      )
-    }
-  }
-
   private suspend fun MapFixture.startAtOrigin() {
     // GL JS renders nothing without a style.
     loadStyle(BaseStyle.Empty)
-    session.setCameraPosition(START)
+    presentation.setCameraPosition(START)
     // Render first: before the map exists, a camera read echoes back whatever was last set.
     awaitMapReady()
     pumpUntil("the map to reach its starting camera") {

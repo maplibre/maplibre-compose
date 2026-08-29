@@ -25,7 +25,7 @@ internal actual fun ComposableMapView(
   onReset: () -> Unit,
   logger: Logger?,
   callbacks: MapAdapter.Callbacks,
-  options: MapOptions,
+  options: MapPresentationOptions,
 ) {
   if (runtime == null) EnsureMlnFfiConfigured()
   else AndroidMlnFfiPlatform.initialize(LocalContext.current)

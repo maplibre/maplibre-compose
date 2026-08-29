@@ -45,7 +45,7 @@ internal fun MlnFfiMapView(
   onReset: () -> Unit,
   logger: Logger?,
   callbacks: MapAdapter.Callbacks,
-  options: MapOptions,
+  options: MapPresentationOptions,
 ) {
   val density = LocalDensity.current
 
@@ -91,7 +91,7 @@ internal fun MlnFfiMapView(
   onReset: () -> Unit,
   logger: Logger?,
   callbacks: MapAdapter.Callbacks,
-  options: MapOptions,
+  options: MapPresentationOptions,
 ) {
   if (runtimeOptions == null) EnsureMlnFfiConfigured()
   val applicationOptions = runtimeOptions ?: MlnFfiApplication.options

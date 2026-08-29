@@ -3,6 +3,7 @@
 package org.maplibre.compose.docsnippets
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.ExperimentalResourceApi
@@ -17,10 +18,12 @@ import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.map.MaplibreMap
+import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.getBaseSource
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.StyleComposition
 import org.maplibre.compose.util.ClickResult
 import org.maplibre.spatialk.geojson.toJson
 
@@ -28,66 +31,76 @@ import org.maplibre.spatialk.geojson.toJson
 @OptIn(ExperimentalResourceApi::class)
 fun Layers() {
   // #region simple
-  MaplibreMap(baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty")) {
-    getBaseSource(id = "openmaptiles")?.let { tiles ->
-      CircleLayer(id = "example", source = tiles, sourceLayer = "poi")
+  val baseState =
+    rememberMapState(
+      initialBaseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty")
+    )
+  val baseComposition = remember {
+    StyleComposition {
+      getBaseSource(id = "openmaptiles")?.let { tiles ->
+        CircleLayer(id = "example", source = tiles, sourceLayer = "poi")
+      }
     }
   }
+  MaplibreMap(state = baseState, styleComposition = baseComposition)
   // #endregion simple
 
-  MaplibreMap {
-    // #region amtrak-1
-    val amtrakStations =
-      rememberGeoJsonSource(GeoJsonData.Uri(Res.getUri("files/data/amtrak_stations.geojson")))
+  val amtrakComposition = remember {
+    StyleComposition {
+      // #region amtrak-1
+      val amtrakStations =
+        rememberGeoJsonSource(GeoJsonData.Uri(Res.getUri("files/data/amtrak_stations.geojson")))
 
-    val amtrakRoutes =
-      rememberGeoJsonSource(GeoJsonData.Uri(Res.getUri("files/data/amtrak_routes.geojson")))
-    LineLayer(
-      id = "amtrak-routes-casing",
-      source = amtrakRoutes,
-      color = const(Color.White),
-      width = const(6.dp),
-    )
-    LineLayer(
-      id = "amtrak-routes",
-      source = amtrakRoutes,
-      color = const(Color.Blue),
-      width = const(4.dp),
-    )
-    // #endregion amtrak-1
+      val amtrakRoutes =
+        rememberGeoJsonSource(GeoJsonData.Uri(Res.getUri("files/data/amtrak_routes.geojson")))
+      LineLayer(
+        id = "amtrak-routes-casing",
+        source = amtrakRoutes,
+        color = const(Color.White),
+        width = const(6.dp),
+      )
+      LineLayer(
+        id = "amtrak-routes",
+        source = amtrakRoutes,
+        color = const(Color.Blue),
+        width = const(4.dp),
+      )
+      // #endregion amtrak-1
 
-    // #region amtrak-2
-    LineLayer(
-      id = "amtrak-routes",
-      source = amtrakRoutes,
-      cap = const(LineCap.Round),
-      join = const(LineJoin.Round),
-      color = const(Color.Blue),
-      width =
-        interpolate(
-          type = exponential(1.2f),
-          input = zoom(),
-          5 to const(0.4.dp),
-          6 to const(0.7.dp),
-          7 to const(1.75.dp),
-          20 to const(22.dp),
-        ),
-    )
-    // #endregion amtrak-2
+      // #region amtrak-2
+      LineLayer(
+        id = "amtrak-routes",
+        source = amtrakRoutes,
+        cap = const(LineCap.Round),
+        join = const(LineJoin.Round),
+        color = const(Color.Blue),
+        width =
+          interpolate(
+            type = exponential(1.2f),
+            input = zoom(),
+            5 to const(0.4.dp),
+            6 to const(0.7.dp),
+            7 to const(1.75.dp),
+            20 to const(22.dp),
+          ),
+      )
+      // #endregion amtrak-2
 
-    // #region anchors
-    Anchor.Above("road_motorway") { LineLayer(id = "amtrak-routes", source = amtrakRoutes) }
-    // #endregion anchors
+      // #region anchors
+      Anchor.Above("road_motorway") { LineLayer(id = "amtrak-routes", source = amtrakRoutes) }
+      // #endregion anchors
 
-    // #region interaction
-    CircleLayer(
-      id = "amtrak-stations",
-      source = amtrakStations,
-      onClick = { features ->
-        println("Clicked on ${features[0].toJson()}")
-        ClickResult.Consume
-      },
-    )
-    // #endregion interaction
+      // #region interaction
+      CircleLayer(
+        id = "amtrak-stations",
+        source = amtrakStations,
+        onClick = { features ->
+          println("Clicked on ${features[0].toJson()}")
+          ClickResult.Consume
+        },
+      )
+      // #endregion interaction
+    }
   }
+  MaplibreMap(styleComposition = amtrakComposition)
 }

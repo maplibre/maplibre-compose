@@ -1,7 +1,7 @@
 package org.maplibre.compose.demoapp.benchmark
 
 import androidx.compose.runtime.Composable
-import org.maplibre.compose.camera.CameraState
+import org.maplibre.compose.map.MapState
 import org.maplibre.spatialk.geojson.BoundingBox
 
 interface TilePrefetcher {
@@ -13,7 +13,7 @@ interface TilePrefetcher {
     bounds: BoundingBox,
     minZoom: Int,
     maxZoom: Int,
-    camera: CameraState,
+    camera: MapState,
     onStatus: (String) -> Unit,
   )
 }

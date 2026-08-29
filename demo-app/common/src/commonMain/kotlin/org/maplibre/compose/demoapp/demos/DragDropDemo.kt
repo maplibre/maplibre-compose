@@ -22,9 +22,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
@@ -32,6 +32,8 @@ import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.layers.LineLayer
+import org.maplibre.compose.map.MapPresentation
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
@@ -71,21 +73,21 @@ object DragDropDemo : Demo {
    * Moves the overlay child with the pointer. The screen offset of [position] is captured on drag
    * start and pointer deltas are accumulated onto it, so the child never has to be read back while
    * it moves under the pointer. Pointer events report pixels, so the anchor captured from
-   * [CameraState.screenLocationFromPosition] is scaled up before the px-based
-   * [CameraState.positionFromScreenLocation] receives the sum.
+   * [MapPresentation.screenLocationFromPosition] is scaled up before the px-based projection
+   * receives the sum.
    */
   private fun Modifier.draggablePosition(
-    cameraState: CameraState,
+    presentation: MapPresentation?,
     position: () -> Position,
     onDrag: (Position) -> Unit,
   ): Modifier =
-    pointerInput(cameraState) {
+    pointerInput(presentation) {
       var start: Offset? = null
       var accumulated = Offset.Zero
       detectDragGestures(
         onDragStart = {
           start =
-            cameraState.screenLocationFromPosition(position())?.let {
+            presentation?.screenLocationFromPosition(position())?.let {
               Offset(it.x.toPx(), it.y.toPx())
             }
           accumulated = Offset.Zero
@@ -94,7 +96,10 @@ object DragDropDemo : Demo {
             change.consume()
             val startOffset = start ?: return@onDrag
             accumulated += dragAmount
-            cameraState.positionFromScreenLocation(startOffset + accumulated)?.let(onDrag)
+            val screen = startOffset + accumulated
+            presentation
+              ?.positionFromScreenLocation(DpOffset(screen.x.toDp(), screen.y.toDp()))
+              ?.let(onDrag)
           },
       )
     }
@@ -122,7 +127,7 @@ object DragDropDemo : Demo {
     )
 
   @Composable
-  override fun MapContent(cameraState: CameraState) {
+  override fun MapContent(mapState: MapState) {
     if (mode != Mode.BoundingBox) return
     val source =
       rememberGeoJsonSource(
@@ -148,7 +153,7 @@ object DragDropDemo : Demo {
       Mode.Pin ->
         Pin(
           Modifier.placedAt(pinPosition, Alignment.BottomCenter).draggablePosition(
-            cameraState,
+            presentation,
             { pinPosition },
           ) {
             pinPosition = it
@@ -156,12 +161,12 @@ object DragDropDemo : Demo {
         )
       Mode.BoundingBox -> {
         Handle(
-          Modifier.placedAt(northwest).draggablePosition(cameraState, { northwest }) {
+          Modifier.placedAt(northwest).draggablePosition(presentation, { northwest }) {
             northwest = it
           }
         )
         Handle(
-          Modifier.placedAt(southeast).draggablePosition(cameraState, { southeast }) {
+          Modifier.placedAt(southeast).draggablePosition(presentation, { southeast }) {
             southeast = it
           }
         )

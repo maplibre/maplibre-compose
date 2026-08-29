@@ -15,10 +15,10 @@ internal object ZoomPumpScenario : BenchmarkScenario {
   override suspend fun run(session: BenchmarkSession) {
     val wide = CameraPosition(target = BenchmarkCenter, zoom = WideZoom)
     val tight = CameraPosition(target = BenchmarkCenter, zoom = TightZoom)
-    session.cameraState.position = wide
+    session.mapState.presentation?.setCameraPosition(wide)
     repeat(Cycles) {
-      playCamera(session.cameraState, wide, tight, HalfCycle)
-      playCamera(session.cameraState, tight, wide, HalfCycle)
+      playCamera(session.mapState, wide, tight, HalfCycle)
+      playCamera(session.mapState, tight, wide, HalfCycle)
     }
   }
 

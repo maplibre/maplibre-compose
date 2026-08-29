@@ -32,15 +32,19 @@ import kotlin.math.sqrt
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.vectorResource
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.filter_center_focus_24px
-import org.maplibre.compose.map.MapOptions
+import org.maplibre.compose.map.MapPresentation
+import org.maplibre.compose.map.MapPresentationCallbacks
+import org.maplibre.compose.map.MapPresentationOptions
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
+import org.maplibre.compose.map.StyleLoadState
 import org.maplibre.compose.material3.Material3
 import org.maplibre.compose.material3.PointerPinButton
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.include
+import org.maplibre.compose.style.StyleComposition
 import org.maplibre.spatialk.geojson.Position
 
 /** How long the camera takes to fly to a newly selected demo. */
@@ -49,12 +53,16 @@ val DemoFlightDuration = 2.seconds
 /** Padding between fitted bounds and the edge of the map viewport. */
 val DemoBoundsPadding = PaddingValues(48.dp)
 
-internal suspend fun CameraState.flyTo(destination: DemoDestination) {
+internal suspend fun MapState.flyTo(destination: DemoDestination) {
+  val currentPresentation = presentation ?: return
   when (destination) {
     is DemoDestination.ExactCamera ->
-      animateTo(finalPosition = destination.position, duration = DemoFlightDuration)
+      currentPresentation.animateCameraPosition(
+        position = destination.position,
+        duration = DemoFlightDuration,
+      )
     is DemoDestination.FitBounds ->
-      animateTo(
+      currentPresentation.animateCameraPosition(
         boundingBox = destination.bounds,
         padding = DemoBoundsPadding,
         duration = DemoFlightDuration,
@@ -69,7 +77,10 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
   val scope = rememberCoroutineScope()
   val appliedStyle = state.appliedStyle
   val appliedBase = appliedStyle.base
-  SideEffect { state.appliedStyleSnapshot = appliedStyle }
+  SideEffect {
+    state.appliedStyleSnapshot = appliedStyle
+    state.mapState.style.baseStyle = appliedBase
+  }
   // Composing the map with a base means its load is in flight until noteStyleLoad clears it.
   DisposableEffect(appliedBase) {
     state.pendingStyleLoad = appliedBase
@@ -78,6 +89,20 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
     }
   }
   val selectedDemo = state.selectedDemo
+  val styleComposition =
+    remember(state.mapState, selectedDemo) {
+      StyleComposition {
+        selectedDemo?.let { demo -> key(demo) { demo.MapContent(state.mapState) } }
+      }
+    }
+  LaunchedEffect(state.mapState.style.loadState, appliedBase) {
+    when (state.mapState.style.loadState) {
+      StyleLoadState.Ready,
+      is StyleLoadState.Failed -> state.noteStyleLoad(appliedBase)
+      StyleLoadState.Loading,
+      StyleLoadState.Pending -> Unit
+    }
+  }
   val pointerPin = selectedDemo?.pointerPin
   val placementPadding =
     PaddingValues.Absolute(
@@ -88,19 +113,16 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
     )
   Box(Modifier.fillMaxSize()) {
     MaplibreMap(
-      baseStyle = appliedBase,
-      cameraState = state.cameraState,
-      cameraPadding = viewportInsets.asPaddingValues(),
-      styleState = state.styleState,
-      options =
-        MapOptions(
+      state = state.mapState,
+      styleComposition = styleComposition,
+      presentationOptions =
+        MapPresentationOptions(
+          cameraPadding = viewportInsets.asPaddingValues(),
           renderOptions = state.settings.renderOptions,
           gestureOptions = state.settings.gestureOptions,
           tileLodOptions = state.settings.tileLodOptions,
         ),
-      onFrame = { state.frameRateState.record() },
-      onMapLoadFailed = { state.noteStyleLoad(appliedBase) },
-      onMapLoadFinished = { state.noteStyleLoad(appliedBase) },
+      callbacks = MapPresentationCallbacks(onFrame = { state.frameRateState.record() }),
       contentWindowInsets = viewportInsets.asWindowInsets(),
       overlay =
         MapOverlay {
@@ -113,7 +135,7 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
               pointerPin?.let {
                 PointerPinButton(
                   targetPosition = it.target,
-                  onClick = { scope.launch { cameraState.flyTo(it.destination) } },
+                  onClick = { scope.launch { state.mapState.flyTo(it.destination) } },
                 ) {
                   Icon(
                     vectorResource(Res.drawable.filter_center_focus_24px),
@@ -124,26 +146,16 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
             }
           }
         },
-    ) {
-      // Keyed: without it, layers and sources are identified by position, so switching demos
-      // would dispose and recreate unrelated content.
-      allDemos.forEach { demo ->
-        key(demo) {
-          if (demo == state.selectedDemo) {
-            demo.MapContent(state.cameraState)
-          }
-        }
-      }
-    }
+    )
 
     if (state.settings.showPointerPinDiagnostics && pointerPin != null) {
       PointerPinDestinationOverlay(
-        cameraState = state.cameraState,
+        presentation = state.mapState.presentation,
         destination = pointerPin.destination,
         modifier = Modifier.fillMaxSize(),
       )
       PointerPinPlacementOverlay(
-        cameraState = state.cameraState,
+        presentation = state.mapState.presentation,
         target = pointerPin.target,
         placementPadding = placementPadding,
         modifier = Modifier.fillMaxSize(),
@@ -158,17 +170,17 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
 
 @Composable
 private fun PointerPinDestinationOverlay(
-  cameraState: CameraState,
+  presentation: MapPresentation?,
   destination: DemoDestination,
   modifier: Modifier = Modifier,
 ) {
   // The viewport read recomputes the projection when the camera changes.
-  val viewport = cameraState.viewport
+  val viewport = presentation?.viewport
   val projected =
     remember(destination, viewport) {
       when (destination) {
         is DemoDestination.ExactCamera ->
-          cameraState.screenLocationFromPosition(destination.position.target)?.let(::listOf)
+          presentation?.screenLocationFromPosition(destination.position.target)?.let(::listOf)
         is DemoDestination.FitBounds -> {
           val bounds = destination.bounds
           listOf(
@@ -177,7 +189,7 @@ private fun PointerPinDestinationOverlay(
               Position(longitude = bounds.east, latitude = bounds.south),
               Position(longitude = bounds.west, latitude = bounds.south),
             )
-            .mapNotNull(cameraState::screenLocationFromPosition)
+            .mapNotNull { presentation?.screenLocationFromPosition(it) }
             .takeIf { it.size == 4 }
         }
         DemoDestination.None -> null
@@ -210,13 +222,13 @@ private fun PointerPinDestinationOverlay(
 
 @Composable
 private fun PointerPinPlacementOverlay(
-  cameraState: CameraState,
+  presentation: MapPresentation?,
   target: Position,
   placementPadding: PaddingValues,
   modifier: Modifier = Modifier,
 ) {
-  val viewport = cameraState.viewport
-  val projected = remember(target, viewport) { cameraState.screenLocationFromPosition(target) }
+  val viewport = presentation?.viewport
+  val projected = remember(target, viewport) { presentation?.screenLocationFromPosition(target) }
   val layoutDirection = LocalLayoutDirection.current
 
   Canvas(modifier) {
@@ -338,7 +350,7 @@ private fun DiagnosticOverlays(state: DemoAppState, modifier: Modifier = Modifie
       )
     }
     if (state.settings.showCameraOverlay) {
-      val position = state.cameraState.position
+      val position = state.mapState.cameraPosition
       Text(
         text =
           "lat ${position.target.latitude.format(4)} " +

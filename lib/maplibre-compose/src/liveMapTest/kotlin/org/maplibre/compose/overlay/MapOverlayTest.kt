@@ -13,8 +13,8 @@ import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertFalse
-import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.CameraState
+import org.maplibre.compose.map.mapRuntimeForTest
+import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleState
 import org.maplibre.spatialk.geojson.Position
 
@@ -22,6 +22,7 @@ import org.maplibre.spatialk.geojson.Position
 class MapOverlayTest {
   @Test
   fun overlay_composes_before_the_map_attaches() = runComposeUiTest {
+    val mapState = mapRuntimeForTest().createMapState(initialBaseStyle = BaseStyle.Empty)
     setContent {
       MapOverlayHost(
         overlay =
@@ -30,7 +31,8 @@ class MapOverlayTest {
             Box(Modifier.size(8.dp).placedTowards(Position(90.0, 0.0)))
             Box(Modifier.size(8.dp).align(Alignment.TopStart))
           },
-        cameraState = CameraState(CameraPosition()),
+        mapState = mapState,
+        presentation = null,
         styleState = StyleState(),
         contentWindowInsets = WindowInsets(0),
       )
@@ -40,6 +42,7 @@ class MapOverlayTest {
 
   @Test
   fun removing_a_placed_towards_child_resets_its_state() = runComposeUiTest {
+    val mapState = mapRuntimeForTest().createMapState(initialBaseStyle = BaseStyle.Empty)
     val state = PlacedTowardsState().apply { isPlaced = true }
     var show by mutableStateOf(true)
     setContent {
@@ -50,7 +53,8 @@ class MapOverlayTest {
               Box(Modifier.size(8.dp).placedTowards(Position(90.0, 0.0), state))
             }
           },
-        cameraState = CameraState(CameraPosition()),
+        mapState = mapState,
+        presentation = null,
         styleState = StyleState(),
         contentWindowInsets = WindowInsets(0),
       )

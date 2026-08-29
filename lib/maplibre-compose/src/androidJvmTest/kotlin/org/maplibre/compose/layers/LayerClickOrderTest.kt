@@ -12,7 +12,6 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.DpOffset
-import co.touchlab.kermit.Logger
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
@@ -22,10 +21,11 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.CameraState
-import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.map.MapPresentationCallbacks
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
+import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
@@ -33,6 +33,7 @@ import org.maplibre.compose.mlnffi.setFfiTestMapContent
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.StyleComposition
 import org.maplibre.compose.util.ClickResult
 import org.maplibre.spatialk.geojson.Position
 
@@ -141,67 +142,68 @@ class LayerClickOrderTest {
     body: ComposeUiTest.(center: Offset) -> Unit,
   ) = runFfiComposeUiTest {
     val frames = AtomicInt(0)
-    lateinit var cameraState: CameraState
+    lateinit var mapState: MapState
 
     setFfiTestMapContent(runtimeOptions) {
-      cameraState =
-        rememberCameraState(
-          firstPosition = CameraPosition(target = Position(0.0, 0.0), zoom = START_ZOOM)
+      mapState =
+        rememberMapState(
+          initialCameraPosition = CameraPosition(target = Position(0.0, 0.0), zoom = START_ZOOM),
+          initialBaseStyle = BaseStyle.Empty,
         )
       MaplibreMap(
+        state = mapState,
         modifier = Modifier.fillMaxSize(),
-        baseStyle = BaseStyle.Empty,
-        cameraState = cameraState,
-        onFrame = { frames.incrementAndFetch() },
-        logger = Logger.withTag("layer-click-order"),
-      ) {
-        val source = rememberGeoJsonSource(data = GeoJsonData.JsonString(WORLD_POLYGON))
+        callbacks = MapPresentationCallbacks(onFrame = { frames.incrementAndFetch() }),
+        styleComposition =
+          StyleComposition {
+            val source = rememberGeoJsonSource(data = GeoJsonData.JsonString(WORLD_POLYGON))
 
-        val front: @Composable () -> Unit = {
-          FillLayer(
-            id = FRONT,
-            source = source,
-            color = const(Color.Red),
-            onClick = {
-              clicked += FRONT
-              frontResult
-            },
-            onLongClick = {
-              longClicked += FRONT
-              frontResult
-            },
-          )
-        }
-        val back: @Composable () -> Unit = {
-          FillLayer(
-            id = BACK,
-            source = source,
-            color = const(Color.Blue),
-            onClick = {
-              clicked += BACK
-              ClickResult.Consume
-            },
-            onLongClick = {
-              longClicked += BACK
-              ClickResult.Consume
-            },
-          )
-        }
+            val front: @Composable () -> Unit = {
+              FillLayer(
+                id = FRONT,
+                source = source,
+                color = const(Color.Red),
+                onClick = {
+                  clicked += FRONT
+                  frontResult
+                },
+                onLongClick = {
+                  longClicked += FRONT
+                  frontResult
+                },
+              )
+            }
+            val back: @Composable () -> Unit = {
+              FillLayer(
+                id = BACK,
+                source = source,
+                color = const(Color.Blue),
+                onClick = {
+                  clicked += BACK
+                  ClickResult.Consume
+                },
+                onLongClick = {
+                  longClicked += BACK
+                  ClickResult.Consume
+                },
+              )
+            }
 
-        if (composeFrontLayerFirst) {
-          // `back` is composed second, and the anchor is the only reason it ends up behind.
-          front()
-          Anchor.Bottom { back() }
-        } else {
-          back()
-          front()
-        }
-      }
+            if (composeFrontLayerFirst) {
+              // `back` is composed second, and the anchor is the only reason it ends up behind.
+              front()
+              Anchor.Bottom { back() }
+            } else {
+              back()
+              front()
+            }
+          },
+      )
     }
 
     waitUntil(timeoutMillis = TIMEOUT) { frames.load() > 0 }
 
-    val map = assertNotNull(cameraState.map, "the camera never attached to a map")
+    val presentation = assertNotNull(mapState.presentation, "the map never published a lease")
     val size = onRoot().fetchSemanticsNode().size
     val centerDp = with(density) { DpOffset((size.width / 2).toDp(), (size.height / 2).toDp()) }
 
@@ -209,7 +211,7 @@ class LayerClickOrderTest {
     // parsed source populates that. Both layers must be hittable, or the assertions prove nothing.
     waitUntil(timeoutMillis = TIMEOUT) {
       listOf(FRONT, BACK).all { id ->
-        runBlocking { map.queryRenderedFeatures(offset = centerDp, layerIds = setOf(id)) }
+        runBlocking { presentation.queryRenderedFeatures(offset = centerDp, layerIds = setOf(id)) }
           .isNotEmpty()
       }
     }

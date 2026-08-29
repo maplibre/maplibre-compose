@@ -14,7 +14,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
@@ -32,6 +31,7 @@ import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.compose.location.rememberLocationState
 import org.maplibre.compose.location.rememberSystemSettingsLauncher
 import org.maplibre.compose.location.updateCamera
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.material3.LocationPuckDefaults
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
@@ -62,7 +62,8 @@ object LocationDemo : Demo {
   private var panelLocationBackendId by mutableStateOf<String?>(null)
 
   @Composable
-  override fun MapContent(cameraState: CameraState) {
+  override fun MapContent(mapState: MapState) {
+    val presentation = mapState.presentation
     val locationProvider = engine.rememberLocationProvider()
     val locationState =
       rememberLocationState(
@@ -81,9 +82,9 @@ object LocationDemo : Demo {
     }
     LaunchedEffect(locationState) { locationState.requestPermission() }
 
-    LaunchedEffect(cameraState) {
-      var previous = cameraState.moveReason
-      snapshotFlow { cameraState.moveReason }
+    LaunchedEffect(presentation) {
+      var previous = presentation?.cameraMoveReason ?: CameraMoveReason.NONE
+      snapshotFlow { presentation?.cameraMoveReason ?: CameraMoveReason.NONE }
         .collect { reason ->
           // Follow moves the camera programmatically; a pan is the GESTURE that interrupts it.
           if (previous != CameraMoveReason.GESTURE && reason == CameraMoveReason.GESTURE) {
@@ -98,19 +99,19 @@ object LocationDemo : Demo {
 
     LocationTrackingEffect(locationState = locationState, enabled = follow) {
       if (previousReading == null) {
-        cameraState.animateTo(
+        presentation?.animateCameraPosition(
           CameraPosition(target = currentReading.position, zoom = 16.0),
           duration = DemoFlightDuration,
         )
       } else {
-        updateCamera(cameraState)
+        presentation?.let { updateCamera(mapState, it) }
       }
     }
 
     LocationPuck(
       idPrefix = "user",
       locationState = locationState,
-      cameraState = cameraState,
+      presentation = presentation,
       colors = LocationPuckDefaults.colors(),
     )
   }
