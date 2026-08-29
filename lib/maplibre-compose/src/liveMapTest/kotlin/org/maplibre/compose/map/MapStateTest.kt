@@ -379,6 +379,8 @@ class MapStateTest {
         state.releaseCaptureLease(capture.id)
       }
     }
+    // The job must park before cancel; a never-started launch skips finally.
+    testScheduler.runCurrent()
     job.cancel()
     job.join()
     assertIs<RendererState.None>(state.record.read { renderer })
