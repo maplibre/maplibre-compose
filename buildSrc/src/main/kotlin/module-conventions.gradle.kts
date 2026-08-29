@@ -1,4 +1,5 @@
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+import org.jetbrains.dokka.gradle.DokkaExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 
 group = "org.maplibre.compose"
@@ -9,6 +10,13 @@ version = providers.gradleProperty("maplibreVersion").get()
 // task rather than by extension so that it does not matter which Kotlin plugin a module applies.
 tasks.withType<KotlinCompilationTask<*>>().configureEach {
   compilerOptions { allWarningsAsErrors = true }
+}
+
+// Unresolved KDoc links otherwise only print `w:` in the docs and publishing jobs.
+pluginManager.withPlugin("org.jetbrains.dokka") {
+  extensions.configure<DokkaExtension> {
+    dokkaPublications.configureEach { failOnWarning.set(true) }
+  }
 }
 
 // Compose's iOS metadata contains duplicate KLIB names. Keep the upstream warning visible without
