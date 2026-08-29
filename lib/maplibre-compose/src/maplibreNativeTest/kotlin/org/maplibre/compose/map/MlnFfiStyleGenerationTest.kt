@@ -75,6 +75,25 @@ class MlnFfiStyleGenerationTest {
     }
   }
 
+  @Test
+  fun a_load_failure_keeps_the_generation_that_was_loading() {
+    BridgeMapFixture.create().use { fixture ->
+      val core = fixture.core
+      fixture.loadStyle(FIRST_STYLE)
+      val firstGeneration = core.commandedStyleGeneration
+      val hold = TestLatch(1)
+      assertTrue(core.postOwnerTaskForTest { hold.await() })
+      core.setBaseStyle(SECOND_STYLE, firstGeneration + 1L)
+      assertEquals(firstGeneration + 1L, core.commandedStyleGeneration)
+      assertEquals(
+        firstGeneration,
+        core.styleLoadFailureGeneration(),
+        "a failure pumped before the next apply belongs to the style that was loading",
+      )
+      hold.countDown()
+    }
+  }
+
   private companion object {
     val FIRST_STYLE = BaseStyle.Json("""{"version":8,"name":"first","sources":{},"layers":[]}""")
 

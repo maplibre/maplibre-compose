@@ -159,6 +159,15 @@ internal class GlJsMapSession(
   private var appliedStyle: BaseStyle? = null
   private var appliedGeneration: Long = 0L
 
+  /**
+   * The generation a style-document error belongs to. [setBaseStyle] updates [commandedGeneration]
+   * before the map applies the new style, so a failure from the previous load still names
+   * [appliedGeneration].
+   */
+  internal fun styleLoadFailureGeneration(): Long =
+    if (appliedGeneration != 0L && appliedGeneration != commandedGeneration) appliedGeneration
+    else commandedGeneration
+
   /** Set while a style load is outstanding, so an `error` can be told from a tile failure. */
   private var styleLoadPending = false
 
@@ -424,7 +433,7 @@ internal class GlJsMapSession(
       if (styleLoadPending && event.isStyleDocumentError()) {
         styleLoadPending = false
         logger?.e { "Map loading failed: $reason" }
-        callbacks.onMapFailLoading(this, reason, commandedGeneration)
+        callbacks.onMapFailLoading(this, reason, styleLoadFailureGeneration())
         if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
       } else {
         // Source, tile, and sprite failures land here too, and are not the map failing to load.

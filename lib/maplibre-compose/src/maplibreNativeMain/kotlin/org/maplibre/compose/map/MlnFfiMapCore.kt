@@ -201,6 +201,15 @@ internal class MlnFfiMapCore(
     get() = commandedGeneration
 
   /**
+   * The generation a native load-failure event belongs to. [setBaseStyle] updates
+   * [commandedGeneration] before the owner thread applies the new style, so a failure drained from
+   * the previous pump still names [appliedGeneration].
+   */
+  internal fun styleLoadFailureGeneration(): Long =
+    if (appliedGeneration != 0L && appliedGeneration != commandedGeneration) appliedGeneration
+    else commandedGeneration
+
+  /**
    * The generation of the most recently loaded style. [hasLoadedFirstStyle] is sticky, so a waiter
    * that must observe a NEW style's load compares this against [commandedStyleGeneration] instead.
    */
@@ -527,7 +536,7 @@ internal class MlnFfiMapCore(
         // setter.
         val reason = event.message.ifBlank { "MapLibre failed to load the map" }
         logger?.e { "Map loading failed (code ${event.code}): $reason" }
-        callbacks.onMapFailLoading(this, reason, commandedGeneration)
+        callbacks.onMapFailLoading(this, reason, styleLoadFailureGeneration())
       }
 
       RuntimeEventType.MAP_CAMERA_WILL_CHANGE -> beginCameraMove()

@@ -21,8 +21,10 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraMoveReason
@@ -881,7 +883,17 @@ internal constructor(
     try {
       return engine.captureStillImage(width, height, timeout, capture)
     } finally {
-      commitOnHost { finishCapture(capture.id) }
+      releaseCaptureLease(capture.id)
+    }
+  }
+
+  /**
+   * Releases the capture lease in a non-cancellable context. A `withTimeout` or job cancel still
+   * returns the renderer to [RendererState.None].
+   */
+  internal suspend fun releaseCaptureLease(id: Long) {
+    withContext(NonCancellable) {
+      host.runOnHost { commitNow { finishCapture(id) } }
       host.requestApplyChanges()
     }
   }

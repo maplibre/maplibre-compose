@@ -19,6 +19,7 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -363,6 +364,24 @@ class MapStateTest {
     testScheduler.advanceUntilIdle()
 
     assertIs<MapLoadState.Ready>(state.loadState)
+    state.close()
+  }
+
+  @Test
+  fun a_cancelled_capture_still_releases_the_lease() = runTest {
+    val state = mapState()
+    val capture = state.commit { beginCapture() }
+    assertIs<RendererState.Capture>(state.record.read { renderer })
+    val job = launch {
+      try {
+        awaitCancellation()
+      } finally {
+        state.releaseCaptureLease(capture.id)
+      }
+    }
+    job.cancel()
+    job.join()
+    assertIs<RendererState.None>(state.record.read { renderer })
     state.close()
   }
 

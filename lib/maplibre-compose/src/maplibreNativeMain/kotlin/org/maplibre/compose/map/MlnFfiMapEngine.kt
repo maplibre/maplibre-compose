@@ -61,6 +61,23 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
    */
   private val sessionLock = MlnFfiLock()
 
+  /**
+   * Mutates the core under [sessionLock], then publishes a replacement after the lock is released.
+   * [MapState.replaceCore] hops to the host, and [MapState.close] takes this lock after that hop,
+   * so a publish inside the lock deadlocks a concurrent close.
+   */
+  private inline fun <T> mutateCore(block: () -> T): T {
+    var published: MlnFfiMapCore? = null
+    val result = sessionLock.withLock {
+      val previous = core
+      val result = block()
+      if (core !== previous) published = core
+      result
+    }
+    published?.let(state::replaceCore)
+    return result
+  }
+
   private fun refuseUnlessOpen() {
     check(!closed) { "Cannot attach a render session to a closed map state" }
     check(!state.isCapturing) { SNAPSHOT_SESSION_ERROR }
@@ -105,7 +122,7 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
     scaleFactor: Double,
     layoutDirection: LayoutDirection,
     backend: MapRenderBackend,
-  ): MlnFfiMapCore = sessionLock.withLock {
+  ): MlnFfiMapCore = mutateCore {
     // An eviction under a live snapshot would destroy the core the snapshot is rendering; the
     // snapshot path replaces its own core through acquireCoreLocked as the lease holder.
     check(!state.isCapturing) { SNAPSHOT_SESSION_ERROR }
@@ -142,8 +159,8 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
 
   /** Installs an [obtainCore] replacement, evicting the previous session and core. */
   internal fun publishCore(pending: MlnFfiMapCore, scaleFactor: Double, backend: MapRenderBackend) {
-    sessionLock.withLock {
-      if (core === pending) return
+    mutateCore {
+      if (core === pending) return@mutateCore
       check(!state.isCapturing) { SNAPSHOT_SESSION_ERROR }
       check(!closed) { "Cannot attach a render session to a closed map state" }
       // A rival composable must not evict the session that owns the slot; a legitimate density or
@@ -153,7 +170,6 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
       core = pending
       coreScaleFactor = scaleFactor
       coreBackend = backend
-      state.replaceCore(pending)
     }
   }
 
@@ -163,8 +179,9 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
   }
 
   /**
-   * The acquire body, under [sessionLock] so allocation and publication cannot race [close] or a
-   * snapshot's reservation.
+   * The acquire body, under [sessionLock] so allocation cannot race [close] or a snapshot's
+   * reservation. The caller publishes a replacement through [mutateCore] after the lock is
+   * released.
    */
   private fun acquireCoreLocked(
     scaleFactor: Double,
@@ -198,7 +215,6 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
     core = created
     coreScaleFactor = scaleFactor
     coreBackend = backend
-    state.replaceCore(created)
     return created
   }
 
@@ -257,7 +273,7 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
       // A live core keeps its loaded style and scale only while its backend matches the snapshot
       // target's; a mismatch or a detached bare state gets a fresh one, allocated under the lock
       // as the reservation holder so a close cannot orphan it.
-      val core = sessionLock.withLock {
+      val core = mutateCore {
         val retainedMatches = core != null && coreBackend == target.backend
         acquireCoreLocked(
           scaleFactor = if (retainedMatches) coreScaleFactor else state.density.density.toDouble(),
