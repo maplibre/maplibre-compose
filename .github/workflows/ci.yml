@@ -34,10 +34,13 @@ jobs:
         if: env.DEPENDABOT_PR != 'true'
         with:
           persist-credentials: false
+          # The docs versions file is generated from the release tags.
+          fetch-tags: true
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: env.DEPENDABOT_PR == 'true'
         with:
           ref: ${{ github.head_ref }}
+          fetch-tags: true
       - uses: ./.github/actions/setup-ci-deps
         with:
           dprint-cache: "true"
