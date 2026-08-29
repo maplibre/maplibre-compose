@@ -18,7 +18,16 @@ printf '%s\n' "$flags" | node docs/scripts/generate-versions.mjs
 '''
 
 [tasks.install]
-run = "pnpm exec astro sync"
+# Hygiene runs this for Astro's generated types and does not fetch Git tags, so
+# `versions` cannot run there. A stub is enough for `astro sync`; `build` and
+# `dev` overwrite it with the real file.
+run = '''
+if [ ! -f src/generated/versions.json ]; then
+  mkdir -p src/generated
+  printf '%s\n' '{"release":"0.0.0","snapshot":"0.0.0-SNAPSHOT","maplibreJs":"0.0.0"}' > src/generated/versions.json
+fi
+pnpm exec astro sync
+'''
 
 [tasks.demo]
 description = "Copy the browser demo into the site's public directory."
