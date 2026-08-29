@@ -441,7 +441,10 @@ concepts:
 
 The existing `StyleBinding` name may disappear. The required result is that a
 definition contains no live map reference, and liveness belongs to one loaded
-style identity.
+style identity. Collapse the current `StyleBinding`, `MlnFfiStyleBinding`, and
+native session binding layers into one loaded-style port contract. Native and
+Web provide implementations of that contract rather than additional interface
+layers.
 
 Acceptance criteria:
 
