@@ -73,8 +73,8 @@ import org.maplibre.compose.util.vertical
  * Info button from which an attribution popup text is expanded. This version retracts when the user
  * interacts with the map.
  *
- * This component draws with Compose Foundation alone. The
- * [Material 3 module][org.maplibre.compose.material3] provides a themed version of it.
+ * This component draws with Compose Foundation alone. The Material 3 module provides a themed
+ * version of it.
  *
  * @param cameraState Used to dismiss the attribution when the user interacts with the map.
  * @param styleState Used to get the attribution links to display.
@@ -132,8 +132,8 @@ public fun ExpandingAttributionButton(
  * Info button from which an attribution popup text is expanded. This version allows the caller to
  * manage the state.
  *
- * This component draws with Compose Foundation alone. The
- * [Material 3 module][org.maplibre.compose.material3] provides a themed version of it.
+ * This component draws with Compose Foundation alone. The Material 3 module provides a themed
+ * version of it.
  *
  * @param expanded Whether the attribution text is expanded.
  * @param onClick Called when the button is pressed. Should toggle the expanded state.

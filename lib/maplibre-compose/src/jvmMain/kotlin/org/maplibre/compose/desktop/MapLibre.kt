@@ -12,7 +12,7 @@ public object MapLibre {
    * process.
    *
    * [applicationId] defaults to the package of the process `main` class. [maximumCacheSizeBytes]
-   * defaults to MapLibre's cache budget. A conflicting call throws [IllegalStateException].
+   * defaults to MapLibre's cache budget. A conflicting call throws `IllegalStateException`.
    *
    * @param applicationId Reverse-domain name for the cache directory, such as `com.example.myapp`.
    * @param maximumCacheSizeBytes Ambient cache size in bytes, or null for MapLibre's default.

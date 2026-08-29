@@ -32,7 +32,8 @@ import org.maplibre.compose.util.MaplibreComposable
  *   supported.
  * @param visible Whether the layer should be displayed.
  * @param color Defines the color of each pixel based on its density value in a heatmap. Should be
- *   an expression that uses [heatmapDensity] as input.
+ *   an expression that uses [heatmapDensity][org.maplibre.compose.expressions.dsl.heatmapDensity]
+ *   as input.
  * @param opacity The global opacity at which the heatmap layer will be drawn.
  * @param radius Radius of influence of one heatmap point. Increasing the value makes the heatmap
  *   smoother, but less detailed. The expression may use feature properties and feature state.

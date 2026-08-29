@@ -32,7 +32,7 @@ internal data class Direct3DTextureTarget(
   /** The size [texture] was allocated at. */
   val extent: MapExtent,
   /**
-   * The [org.maplibre.compose.desktop.MlnFfiRenderTarget.generation] this texture corresponds to.
+   * The [org.maplibre.compose.mlnffi.MlnFfiRenderTarget.generation] this texture corresponds to.
    */
   val generation: Long,
 )

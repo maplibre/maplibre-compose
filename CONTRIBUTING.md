@@ -178,9 +178,9 @@ build tree removes the device.
 
 The site is a pnpm workspace and its own mise config root, so its tasks run as
 `//docs:<task>`. `//docs:api` generates the Dokka reference into
-`docs/public/api/`, and `//docs:versions` writes the versions the pages quote
-into `docs/src/generated/versions.json`. Both are generated rather than checked
-in, and the `dev`, `build`, and `preview` tasks depend on them.
+`docs/public/api/`. A mise dependency of the docs config root writes the quoted
+versions into `docs/src/generated/versions.json`. Both are generated rather than
+checked in, and the `dev`, `build`, and `preview` tasks depend on them.
 
 Use the tasks rather than Astro or Gradle directly. They pass the versions
 derived from the Git tags, which the site prints as the coordinates to depend

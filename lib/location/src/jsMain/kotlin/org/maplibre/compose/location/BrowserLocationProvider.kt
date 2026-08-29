@@ -142,8 +142,13 @@ internal constructor(
  *
  * [BrowserLocationProvider] delegates [LocationProvider.permission] and
  * [LocationProvider.requestPermission] to an instance of this class. Construct one with a
- * [CoroutineScope] to back a custom [LocationProvider], or use
- * [rememberBrowserLocationPermissionRequester] to bind permission observation to the composition.
+ * [CoroutineScope] to back a custom [LocationProvider].
+ *
+ * [`PermissionStatus.state`](https://developer.mozilla.org/en-US/docs/Web/API/PermissionStatus/state)
+ * maps `granted` to [LocationPermission.Granted], `prompt` to [LocationPermission.NotGranted] with
+ * `canRequest = true`, and `denied` to `canRequest = false`. A browser without the Permissions API
+ * reports `canRequest = null` until an explicit request determines the result. A missing
+ * Geolocation API maps [backendAvailability] to [LocationBackendAvailability.Unsupported].
  */
 public class BrowserLocationPermissionRequester
 internal constructor(
@@ -231,14 +236,8 @@ internal constructor(
 }
 
 /**
- * Creates and remembers the browser geolocation permission requester.
- *
- * [`PermissionStatus.state`](https://developer.mozilla.org/en-US/docs/Web/API/PermissionStatus/state)
- * maps `granted` to [LocationPermission.Granted], `prompt` to [LocationPermission.NotGranted] with
- * `canRequest = true`, and `denied` to `canRequest = false`. A browser without the Permissions API
- * reports `canRequest = null` until an explicit request determines the result. A missing
- * Geolocation API maps [BrowserLocationPermissionRequester.backendAvailability] to
- * [LocationBackendAvailability.Unsupported].
+ * Browser Permissions API states that [BrowserLocationPermissionRequester] maps to
+ * [LocationPermission].
  */
 internal enum class BrowserPermission {
   Unknown,

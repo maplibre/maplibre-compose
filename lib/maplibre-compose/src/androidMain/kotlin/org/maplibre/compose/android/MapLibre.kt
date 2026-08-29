@@ -11,7 +11,7 @@ public object MapLibre {
    * process.
    *
    * Defaults to [androidCacheFile] and MapLibre's cache budget. A conflicting call throws
-   * [IllegalStateException].
+   * `IllegalStateException`.
    */
   public fun configure(
     context: Context,

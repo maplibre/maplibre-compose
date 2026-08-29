@@ -2,6 +2,7 @@
 
 import { publicDirectoryIndex } from "./src/integrations/public-directory-index";
 import { remarkVersions } from "./src/plugins/remark-versions.mjs";
+import { unified } from "@astrojs/markdown-remark";
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
 import starlightCopyButton from "starlight-copy-button";
@@ -13,7 +14,11 @@ const base = "/maplibre-compose";
 export default defineConfig({
   site: "https://maplibre.org",
   base,
-  markdown: { remarkPlugins: [remarkVersions] },
+  markdown: {
+    processor: unified({
+      remarkPlugins: [remarkVersions],
+    }),
+  },
   integrations: [
     publicDirectoryIndex(base),
     starlight({
