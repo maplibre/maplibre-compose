@@ -7,6 +7,7 @@ internal class LayerManager(private val styleNode: StyleNode) {
   private val baseLayers = styleNode.style.getLayers().associateBy { it.id }
 
   private val userLayers = mutableListOf<LayerNode<*>>()
+  private val handles = mutableMapOf<LayerNode<*>, LayerHandle>()
 
   // special handling for Replace anchors
   private val replacedLayers = mutableMapOf<Anchor.Replace, Layer>()
@@ -26,6 +27,10 @@ internal class LayerManager(private val styleNode: StyleNode) {
   internal fun removeLayer(node: LayerNode<*>, oldIndex: Int) {
     userLayers.removeAt(oldIndex)
     if (!node.added) return
+    if (!styleNode.style.isLoaded) {
+      node.added = false
+      return
+    }
 
     // special handling for Replace anchors
     // restore the original before removing if this layer was the last replacement
@@ -36,12 +41,12 @@ internal class LayerManager(private val styleNode: StyleNode) {
       else {
         replacementCounters.remove(anchor)
         styleNode.logger?.i { "Restoring layer ${anchor.layerId}" }
-        styleNode.style.addLayerBelow(node.layer.id, replacedLayers.remove(anchor)!!)
+        install(replacedLayers.remove(anchor)!!, beforeLayerId = node.layer.id)
       }
     }
 
     styleNode.logger?.i { "Removing layer ${node.layer.id}" }
-    styleNode.style.removeLayer(node.layer)
+    handles.remove(node)?.remove()
     node.added = false
   }
 
@@ -53,7 +58,7 @@ internal class LayerManager(private val styleNode: StyleNode) {
   }
 
   internal fun applyChanges() {
-    if (styleNode.style.isUnloaded) return
+    if (!styleNode.style.isLoaded) return
 
     val tailLayerIds = mutableMapOf<Anchor, String>()
     val missedLayers = mutableMapOf<Anchor, MutableList<LayerNode<*>>>()
@@ -67,7 +72,7 @@ internal class LayerManager(private val styleNode: StyleNode) {
         val layersToAdd = missedLayers.remove(anchor)!!
         layersToAdd.forEach { missedLayer ->
           styleNode.logger?.i { "Adding layer ${missedLayer.layer.id} below ${layer.id}" }
-          styleNode.style.addLayerBelow(layer.id, missedLayer.layer)
+          install(missedLayer, beforeLayerId = layer.id)
           missedLayer.markAdded()
         }
       }
@@ -76,7 +81,7 @@ internal class LayerManager(private val styleNode: StyleNode) {
         // we found a layer to add; let's try to add it, or queue it up until we find a head
         tailLayerIds[anchor]?.let { tailLayerId ->
           styleNode.logger?.i { "Adding layer ${layer.id} above $tailLayerId" }
-          styleNode.style.addLayerAbove(tailLayerId, layer)
+          install(node, beforeLayerId = layerIdAbove(tailLayerId))
           node.markAdded()
         } ?: missedLayers.getOrPut(anchor) { mutableListOf() }.add(node)
       }
@@ -91,15 +96,16 @@ internal class LayerManager(private val styleNode: StyleNode) {
       val tail = nodes.removeAt(nodes.size - 1)
       styleNode.logger?.i { "Initializing anchor $anchor with layer ${tail.layer.id}" }
       when (anchor) {
-        is Anchor.Top -> styleNode.style.addLayer(tail.layer)
-        is Anchor.Bottom -> styleNode.style.addLayerAt(0, tail.layer)
-        is Anchor.Above -> styleNode.style.addLayerAbove(anchor.layerId, tail.layer)
-        is Anchor.Below -> styleNode.style.addLayerBelow(anchor.layerId, tail.layer)
+        is Anchor.Top -> install(tail, beforeLayerId = "")
+        is Anchor.Bottom ->
+          install(tail, beforeLayerId = styleNode.style.layerIds().firstOrNull().orEmpty())
+        is Anchor.Above -> install(tail, beforeLayerId = layerIdAbove(anchor.layerId))
+        is Anchor.Below -> install(tail, beforeLayerId = anchor.layerId)
         is Anchor.Replace -> {
           val layerToReplace = styleNode.style.getLayer(anchor.layerId)!!
-          styleNode.style.addLayerAbove(layerToReplace.id, tail.layer)
+          install(tail, beforeLayerId = layerIdAbove(layerToReplace.id))
           styleNode.logger?.i { "Replacing layer ${layerToReplace.id} with ${tail.layer.id}" }
-          styleNode.style.removeLayer(layerToReplace)
+          styleNode.style.removeLayer(layerToReplace.id)
           replacedLayers[anchor] = layerToReplace
           replacementCounters[anchor] = 0
         }
@@ -109,10 +115,27 @@ internal class LayerManager(private val styleNode: StyleNode) {
       // and add the rest below it
       nodes.forEach { node ->
         styleNode.logger?.i { "Adding layer ${node.layer.id} below ${tail.layer.id}" }
-        styleNode.style.addLayerBelow(tail.layer.id, node.layer)
+        install(node, beforeLayerId = tail.layer.id)
         node.markAdded()
       }
     }
+
+    userLayers.forEach { node -> handles[node]?.update(node.layer.definition()) }
+  }
+
+  private fun install(node: LayerNode<*>, beforeLayerId: String) {
+    handles[node] = LayerHandle(styleNode.style, node.layer.definition(), beforeLayerId)
+  }
+
+  private fun install(layer: Layer, beforeLayerId: String) {
+    LayerHandle(styleNode.style, layer.definition(), beforeLayerId)
+  }
+
+  private fun layerIdAbove(layerId: String): String {
+    val ids = styleNode.style.layerIds()
+    val index = ids.indexOf(layerId)
+    require(index >= 0) { "Layer ID '$layerId' not found in base style" }
+    return ids.getOrNull(index + 1).orEmpty()
   }
 
   private fun LayerNode<*>.markAdded() {
@@ -127,7 +150,7 @@ internal class LayerManager(private val styleNode: StyleNode) {
       // outgoing style's node, so its anchors name layers this node never had; the unloaded flag
       // marks that window. This throws from inside `addLayer` before `userLayers` is updated, so a
       // real failure here also desynchronizes the manager's list from Compose's child list.
-      require(baseLayers.containsKey(layerId) || styleNode.style.isUnloaded) {
+      require(baseLayers.containsKey(layerId) || !styleNode.style.isLoaded) {
         "Layer ID '$layerId' not found in base style"
       }
     }

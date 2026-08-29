@@ -6,6 +6,8 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.install
+import org.maplibre.compose.style.uninstall
 import org.maplibre.compose.testing.MapLibreFlavor
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
@@ -27,13 +29,13 @@ class SourceChangeReportingTest {
           data = GeoJsonData.Features(featureCollectionOf()),
           options = GeoJsonOptions(),
         )
-      assertNotNull(fixture.style).addSource(source)
+      assertNotNull(fixture.style).install(source)
       fixture.pumpUntil("the added source to be reported") { SOURCE_ID in fixture.sourceChanges }
 
       // GL JS reports metadata on sourcedata; native reports add and remove from the binding.
       if (mapLibreFlavor != MapLibreFlavor.NATIVE) return@use
       fixture.sourceChanges.clear()
-      assertNotNull(fixture.style).removeSource(source)
+      assertNotNull(fixture.style).uninstall(source)
       fixture.pumpUntil("the removed source to be reported") { SOURCE_ID in fixture.sourceChanges }
     }
   }

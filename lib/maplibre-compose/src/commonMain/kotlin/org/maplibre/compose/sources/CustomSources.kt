@@ -3,8 +3,6 @@ package org.maplibre.compose.sources
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.key
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import kotlin.math.PI
 import kotlin.math.atan
 import kotlin.math.pow
@@ -13,14 +11,9 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
-import org.maplibre.compose.expressions.ast.Expression
-import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.value.BooleanValue
-import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.spatialk.geojson.BoundingBox
-import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
-import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
 /** The canonical XYZ coordinate of one Web Mercator tile. */
@@ -87,11 +80,11 @@ public fun interface VectorTileProvider {
 public class CustomGeometrySource(
   id: String,
   private val options: CustomGeometrySourceOptions = CustomGeometrySourceOptions(),
-  private val provider: GeometryTileProvider,
+  private var provider: GeometryTileProvider,
 ) : Source(id) {
 
-  override fun addTo(binding: StyleBinding): Boolean =
-    binding.addCustomGeometrySource(id, options, provider)
+  override fun definition(): SourceDefinition =
+    SourceDefinition.CustomGeometry(id, options, provider)
 
   override fun toJson(): JsonObject = buildJsonObject {
     put("type", "custom-geometry")
@@ -103,14 +96,8 @@ public class CustomGeometrySource(
     put("wrap", options.wrap)
   }
 
-  /** Requests new features for tiles that intersect [bounds]. */
-  public fun invalidateBounds(bounds: BoundingBox) {
-    binding.invalidateCustomGeometrySourceBounds(id, bounds)
-  }
-
-  /** Requests new features for [tile] when MapLibre needs it. */
-  public fun invalidateTile(tile: TileCoordinate) {
-    binding.invalidateCustomGeometrySourceTile(id, tile)
+  internal fun setDesiredProvider(provider: GeometryTileProvider) {
+    this.provider = provider
   }
 }
 
@@ -122,11 +109,10 @@ public class CustomGeometrySource(
 public class CustomVectorSource(
   id: String,
   private val options: CustomVectorSourceOptions = CustomVectorSourceOptions(),
-  private val provider: VectorTileProvider,
+  private var provider: VectorTileProvider,
 ) : Source(id) {
 
-  override fun addTo(binding: StyleBinding): Boolean =
-    binding.addCustomVectorSource(id, options, provider)
+  override fun definition(): SourceDefinition = SourceDefinition.CustomVector(id, options, provider)
 
   override fun toJson(): JsonObject = buildJsonObject {
     put("type", "vector")
@@ -135,44 +121,8 @@ public class CustomVectorSource(
     put("maxzoom", options.maxZoom)
   }
 
-  /**
-   * Requests new data for [tile] when MapLibre needs it.
-   *
-   * @throws UnsupportedOperationException on the browser platform because MapLibre GL JS exposes no
-   *   public per-tile invalidation operation.
-   */
-  public fun invalidateTile(tile: TileCoordinate) {
-    binding.invalidateCustomVectorSourceTile(id, tile)
-  }
-
-  /** Returns features from the given source layers that match [predicate]. */
-  public fun querySourceFeatures(
-    sourceLayerIds: Set<String>,
-    predicate: Expression<BooleanValue> = const(true),
-  ): List<Feature<Geometry, JsonObject?>> =
-    binding.querySourceFeatures(id, sourceLayerIds, predicate.toFilterJson())
-
-  /** Merges [state] into the runtime state of the identified feature. */
-  public fun setFeatureState(sourceLayerId: String, featureId: String, state: JsonObject) {
-    binding.setFeatureState(id, sourceLayerId, featureId, state)
-  }
-
-  /** Returns the runtime state of the identified feature. */
-  public fun getFeatureState(sourceLayerId: String, featureId: String): JsonObject =
-    binding.featureState(id, sourceLayerId, featureId)
-
-  /** Removes [stateKey], or every state key when [stateKey] is null. */
-  public fun removeFeatureState(
-    sourceLayerId: String,
-    featureId: String,
-    stateKey: String? = null,
-  ) {
-    binding.removeFeatureState(id, sourceLayerId, featureId, stateKey)
-  }
-
-  /** Removes runtime state from every feature in [sourceLayerId]. */
-  public fun resetFeatureStates(sourceLayerId: String) {
-    binding.resetFeatureStates(id, sourceLayerId)
+  internal fun setDesiredProvider(provider: VectorTileProvider) {
+    this.provider = provider
   }
 }
 
@@ -220,14 +170,10 @@ public fun rememberCustomGeometrySource(
   options: CustomGeometrySourceOptions = CustomGeometrySourceOptions(),
   provider: GeometryTileProvider,
 ): CustomGeometrySource {
-  val currentProvider = rememberUpdatedState(provider)
-  val forwardingProvider = remember {
-    GeometryTileProvider { tile -> currentProvider.value.loadTile(tile) }
-  }
   return key(options) {
     rememberUserSource(
-      factory = { CustomGeometrySource(id = it, options = options, provider = forwardingProvider) },
-      update = {},
+      factory = { CustomGeometrySource(id = it, options = options, provider = provider) },
+      update = { setDesiredProvider(provider) },
     )
   }
 }
@@ -238,14 +184,10 @@ public fun rememberCustomVectorSource(
   options: CustomVectorSourceOptions = CustomVectorSourceOptions(),
   provider: VectorTileProvider,
 ): CustomVectorSource {
-  val currentProvider = rememberUpdatedState(provider)
-  val forwardingProvider = remember {
-    VectorTileProvider { tile -> currentProvider.value.loadTile(tile) }
-  }
   return key(options) {
     rememberUserSource(
-      factory = { CustomVectorSource(id = it, options = options, provider = forwardingProvider) },
-      update = {},
+      factory = { CustomVectorSource(id = it, options = options, provider = provider) },
+      update = { setDesiredProvider(provider) },
     )
   }
 }

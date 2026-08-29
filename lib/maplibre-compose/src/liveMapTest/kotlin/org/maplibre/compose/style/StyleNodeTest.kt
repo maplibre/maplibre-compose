@@ -39,7 +39,7 @@ class StyleNodeTest {
   }
 
   private fun makeStyleNode(): StyleNode {
-    return StyleNode(SafeStyle(FakeStyle(emptyList(), testSources, testLayers)), null)
+    return StyleNode(RecordingStyleBinding(emptyList(), testSources, testLayers), null)
   }
 
   private fun vectorSource(id: String, attribution: String): VectorSource =
@@ -72,7 +72,7 @@ class StyleNodeTest {
       s.sourceManager.addReference(newSource)
       s.applyChanges()
       assertEquals(4, s.style.getSources().size)
-      assertEquals(newSource, s.style.getSource("new"))
+      assertEquals(newSource.toJson(), s.style.getSource("new")?.toJson())
     }
   }
 
@@ -94,9 +94,9 @@ class StyleNodeTest {
   fun unchangedSourceStatePreservesTheSnapshot() = runComposeUiTest {
     runOnUiThread {
       val source = vectorSource("source", "same")
-      val style = FakeStyle(emptyList(), listOf(source), emptyList())
+      val style = RecordingStyleBinding(emptyList(), listOf(source), emptyList())
       val state = StyleState()
-      state.attach(StyleNode(SafeStyle(style), null))
+      state.attach(StyleNode(style, null))
       val previousSources = state.sources
 
       style.replaceSource(vectorSource("source", "same"))
@@ -112,9 +112,9 @@ class StyleNodeTest {
     runOnUiThread {
       val source = vectorSource("source", "attribution")
       val stable = vectorSource("stable", "stable attribution")
-      val style = FakeStyle(emptyList(), listOf(source, stable), emptyList())
+      val style = RecordingStyleBinding(emptyList(), listOf(source, stable), emptyList())
       val state = StyleState()
-      state.attach(StyleNode(SafeStyle(style), null))
+      state.attach(StyleNode(style, null))
       val previousSources = state.sources
       val replacement =
         RasterSource(
@@ -136,11 +136,11 @@ class StyleNodeTest {
   fun missingSourceIsRemovedFromState() = runComposeUiTest {
     runOnUiThread {
       val source = vectorSource("source", "attribution")
-      val style = FakeStyle(emptyList(), listOf(source), emptyList())
+      val style = RecordingStyleBinding(emptyList(), listOf(source), emptyList())
       val state = StyleState()
-      state.attach(StyleNode(SafeStyle(style), null))
+      state.attach(StyleNode(style, null))
 
-      style.removeSource(source)
+      style.uninstall(source)
       state.refreshSource("source")
 
       assertNull(state.sources["source"])
@@ -151,14 +151,14 @@ class StyleNodeTest {
   fun unloadedStyleIgnoresSourceCallbacks() = runComposeUiTest {
     runOnUiThread {
       val source = vectorSource("source", "attribution")
-      val style = FakeStyle(emptyList(), listOf(source), emptyList())
-      val safeStyle = SafeStyle(style)
+      val style = RecordingStyleBinding(emptyList(), listOf(source), emptyList())
+      val styleBinding = style
       val state = StyleState()
-      state.attach(StyleNode(safeStyle, null))
+      state.attach(StyleNode(styleBinding, null))
       val previousSources = state.sources
 
-      safeStyle.unload()
-      style.removeSource(source)
+      styleBinding.invalidate()
+      style.uninstall(source)
       state.refreshSource("source")
       state.refreshSources()
 
@@ -283,7 +283,7 @@ class StyleNodeTest {
 
       s.layerManager.addLayer(oldNode, 0)
       s.applyChanges()
-      s.style.unload()
+      s.style.invalidate()
 
       s.layerManager.addLayer(newNode, 0)
       s.layerManager.removeLayer(oldNode, 1)
@@ -302,13 +302,13 @@ class StyleNodeTest {
       s.layerManager.addLayer(l1, 0)
       s.applyChanges()
 
-      assertEquals(l1.layer, s.style.getLayer("new"))
+      assertEquals(l1.layer.toJson(), s.style.getLayer("new")?.toJson())
 
       s.layerManager.addLayer(l2, 0)
       s.layerManager.removeLayer(l1, 1)
       s.applyChanges()
 
-      assertEquals(l2.layer, s.style.getLayer("new"))
+      assertEquals(l2.layer.toJson(), s.style.getLayer("new")?.toJson())
     }
   }
 

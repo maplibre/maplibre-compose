@@ -15,13 +15,13 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import co.touchlab.kermit.Logger
 import org.maplibre.compose.gljs.GlJsMapSurface
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.SafeStyle
+import org.maplibre.compose.style.StyleBinding
 
 @Composable
 internal actual fun ComposableMapView(
   modifier: Modifier,
   style: BaseStyle,
-  rememberedStyle: SafeStyle?,
+  rememberedStyle: StyleBinding?,
   update: (map: MapAdapter) -> Unit,
   onReset: () -> Unit,
   logger: Logger?,

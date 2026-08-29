@@ -9,7 +9,8 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
-import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.ImageSnapshot
+import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.util.PositionQuad
 import org.maplibre.spatialk.geojson.Position
 
@@ -40,10 +41,8 @@ public class ImageSource : Source {
    * Adds the source with its pixels when it has them; source JSON can only name a URL, so a
    * pixel-backed source added from [toJson] would be added empty.
    */
-  override fun addTo(binding: StyleBinding): Boolean {
-    val pixels = image ?: return super.addTo(binding)
-    return binding.addImageSourceImage(id, bounds.toCorners(), pixels)
-  }
+  override fun definition(): SourceDefinition =
+    SourceDefinition.Image(id, toJson(), bounds.toCorners(), image?.let(ImageSnapshot::capture))
 
   /** The URL form of this source; a pixel-backed source reports an empty `url` here. */
   override fun toJson(): JsonObject = buildJsonObject {
@@ -52,33 +51,18 @@ public class ImageSource : Source {
     putJsonArray("coordinates") { bounds.toCorners().forEach { add(it.toCoordinateJson()) } }
   }
 
-  /**
-   * The corners MapLibre holds for this source, or null when its style has unloaded. Exists so a
-   * test can assert the corner order, which MapLibre does not validate.
-   */
-  internal fun attachedCorners(): List<Position>? = binding.imageSourceCoordinates(id)
-
-  /** Updates the latitude and longitude of the four corners of the image. */
-  public fun setBounds(bounds: PositionQuad) {
+  internal fun setDesiredBounds(bounds: PositionQuad) {
     this.bounds = bounds
-    binding.setImageSourceCoordinates(id, bounds.toCorners())
   }
 
-  /** Updates the source image to a bitmap. */
-  public fun setImage(image: ImageBitmap) {
-    // MapLibre drops the URL when handed pixels, so the descriptor must too, or a re-add after a
-    // style change would resurrect the old image.
+  internal fun setDesiredImage(image: ImageBitmap) {
     url = ""
     this.image = image
-    binding.setImageSourceImage(id, image)
   }
 
-  /** Updates the source image URI. */
-  public fun setUri(uri: String) {
+  internal fun setDesiredUri(uri: String) {
     url = uri
-    // Mirror of setImage: a re-add must fetch the new URL, not re-upload the replaced pixels.
     image = null
-    binding.setImageSourceUrl(id, uri)
   }
 }
 
@@ -94,31 +78,29 @@ private fun Position.toCoordinateJson(): JsonArray = buildJsonArray {
 /**
  * Remember a new [ImageSource] from the given [uri].
  *
- * Recomposition updates this source in place through [ImageSource.setUri] and
- * [ImageSource.setBounds].
+ * Recomposition publishes a new immutable source definition when [position] or [uri] changes.
  */
 @Composable
 public fun rememberImageSource(position: PositionQuad, uri: String): ImageSource =
   rememberUserSource(
     factory = { ImageSource(id = it, position = position, uri = uri) },
     update = {
-      setBounds(position)
-      setUri(uri)
+      setDesiredBounds(position)
+      setDesiredUri(uri)
     },
   )
 
 /**
  * Remember a new [ImageSource] from the given [bitmap].
  *
- * Recomposition updates this source in place through [ImageSource.setImage] and
- * [ImageSource.setBounds].
+ * Recomposition publishes a new immutable source definition when [position] or [bitmap] changes.
  */
 @Composable
 public fun rememberImageSource(position: PositionQuad, bitmap: ImageBitmap): ImageSource =
   rememberUserSource(
     factory = { ImageSource(id = it, position = position, image = bitmap) },
     update = {
-      setBounds(position)
-      setImage(bitmap)
+      setDesiredBounds(position)
+      setDesiredImage(bitmap)
     },
   )

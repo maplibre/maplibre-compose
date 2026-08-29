@@ -2,10 +2,20 @@ package org.maplibre.compose.style
 
 import androidx.compose.ui.graphics.ImageBitmap
 import co.touchlab.kermit.Logger
+import kotlin.concurrent.Volatile
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonObjectBuilder
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import org.maplibre.compose.layers.Layer
+import org.maplibre.compose.layers.UnknownLayer
+import org.maplibre.compose.mlnffi.MlnFfiLock
+import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
 import org.maplibre.compose.sources.CustomVectorSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
@@ -14,7 +24,9 @@ import org.maplibre.compose.sources.GeometryTileProvider
 import org.maplibre.compose.sources.MlnFfiFeatureStateStore
 import org.maplibre.compose.sources.MlnFfiTileCoordinatorStore
 import org.maplibre.compose.sources.MlnFfiTileRequestCoordinator
+import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.TileCoordinate
+import org.maplibre.compose.sources.UnknownSource
 import org.maplibre.compose.sources.VectorTileProvider
 import org.maplibre.compose.sources.featureStateSelector
 import org.maplibre.compose.sources.forgetFeatureStates
@@ -23,7 +35,10 @@ import org.maplibre.compose.sources.mutateLiveFeatureState
 import org.maplibre.compose.sources.putClusterProperties
 import org.maplibre.compose.sources.toInlineUtf8
 import org.maplibre.compose.sources.toMlnFfiTileId
+import org.maplibre.compose.sources.toStyleSpecEncoding
+import org.maplibre.compose.sources.toStyleSpecType
 import org.maplibre.compose.sources.toTileCoordinate
+import org.maplibre.compose.util.toBoundingBox
 import org.maplibre.compose.util.toFfiClusterFeature
 import org.maplibre.compose.util.toGeoJsonFeatures
 import org.maplibre.compose.util.toJsonBytes
@@ -43,6 +58,12 @@ import org.maplibre.nativeffi.style.CustomMvtVectorSourceCallback
 import org.maplibre.nativeffi.style.CustomMvtVectorSourceOptions
 import org.maplibre.nativeffi.style.GeoJsonSourceDataHandle
 import org.maplibre.nativeffi.style.GeoJsonSourceOptions
+import org.maplibre.nativeffi.style.ImageContent
+import org.maplibre.nativeffi.style.ImageStretch as FfiImageStretch
+import org.maplibre.nativeffi.style.SourceType
+import org.maplibre.nativeffi.style.StyleImageOptions
+import org.maplibre.nativeffi.style.TileJson
+import org.maplibre.nativeffi.style.TileScheme
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -51,18 +72,200 @@ import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.geojson.toJson
 
 /**
- * [StyleBinding] over a MapLibre Native map. Every `MapHandle` call has to run on the owner thread;
- * the session supplies that hop.
+ * [StyleBinding] for one loaded style in a MapLibre Native map. The supplied access functions
+ * marshal every engine call to the map's owner thread.
  */
-internal interface MlnFfiStyleBinding : StyleBinding {
+internal open class MlnFfiStyleBinding(
+  override val identity: StyleIdentity = StyleIdentity.create(),
+  private val loggerProvider: () -> Logger? = { null },
+  private val sessionOpen: () -> Boolean = { false },
+  private val accessMap: ((MapHandle) -> Unit) -> Boolean = { false },
+  private val accessRenderSession: ((RenderSessionHandle) -> Unit) -> Boolean = { false },
+  private val sourceChanged: (String) -> Unit = {},
+  private val failWhenUnavailable: Boolean = true,
+  private val getScale: () -> Float = { 1f },
+) : StyleBinding {
+  @Volatile private var loaded = true
+  private val unloadActions = mutableSetOf<() -> Unit>()
+  private val unloadActionsLock = MlnFfiLock()
+
   /** Feature state retained for this loaded style. */
-  val featureStateStore: MlnFfiFeatureStateStore?
+  open val featureStateStore: MlnFfiFeatureStateStore? = MlnFfiFeatureStateStore()
 
   /** The tile coordinators serving this loaded style's custom sources; null when unloaded. */
-  val tileCoordinators: MlnFfiTileCoordinatorStore?
+  open val tileCoordinators: MlnFfiTileCoordinatorStore? = MlnFfiTileCoordinatorStore()
+
+  override val isLoaded: Boolean
+    get() = loaded && sessionOpen()
+
+  override val logger: Logger?
+    get() = loggerProvider()
+
+  override fun addImage(definition: StyleImageDefinition) {
+    val (id, snapshot, sdf, stretch) = definition
+    val image = snapshot.toImageBitmap()
+    val scale = getScale()
+    val pixels = image.toPremultipliedRgba8()
+    val stretchPx = stretch?.resolve(image.width, image.height, scale)
+    mutateMap { map ->
+      map.setStyleImage(
+        imageId = id,
+        image = pixels,
+        options =
+          StyleImageOptions().also { options ->
+            options.sdf = sdf
+            options.pixelRatio = scale
+            stretchPx?.let { px ->
+              if (px.stretchX.isNotEmpty()) {
+                options.stretchX = px.stretchX.map { (start, end) -> FfiImageStretch(start, end) }
+              }
+              if (px.stretchY.isNotEmpty()) {
+                options.stretchY = px.stretchY.map { (start, end) -> FfiImageStretch(start, end) }
+              }
+              px.content?.let { box ->
+                options.content = ImageContent(box.left, box.top, box.right, box.bottom)
+              }
+            }
+          },
+      )
+    }
+  }
+
+  internal fun imageStretches(id: String): Pair<List<FfiImageStretch>, List<FfiImageStretch>>? =
+    readMap {
+      it.styleImageStretches(id)
+    }
+
+  override fun removeImage(id: String) {
+    mutateMap { it.removeStyleImage(id) }
+  }
+
+  override fun getSource(id: String): Source? = readMap { map ->
+    if (!isStyleSource(map, id)) null else reconstructSource(map, id)
+  }
+
+  override fun getSources(): List<Source> = readMap { map ->
+    map.styleSourceIds().filter { isStyleSource(map, it) }.map { reconstructSource(map, it) }
+  }
+    .orEmpty()
+
+  override fun getLayer(id: String): Layer? = readMap { map ->
+    if (!map.styleLayerExists(id)) null else reconstructLayer(map, id)
+  }
+
+  override fun getLayers(): List<Layer> = readMap { map ->
+    map.styleLayerIds().map { reconstructLayer(map, it) }
+  }
+    .orEmpty()
+
+  override fun layerIds(): List<String> = readMap { it.styleLayerIds() }.orEmpty()
+
+  private fun isStyleSource(map: MapHandle, id: String): Boolean =
+    map.styleSourceExists(id) && map.styleSourceType(id) != SourceType.ANNOTATIONS
+
+  private fun reconstructSource(map: MapHandle, id: String): Source =
+    UnknownSource(id, sourceDefinition(map, id))
+
+  private fun sourceDefinition(map: MapHandle, id: String): JsonObject {
+    val info = map.styleSourceInfo(id)
+    return buildJsonObject {
+      (info?.type ?: map.styleSourceType(id))?.toStyleSpecType()?.let { put("type", it) }
+      val attribution =
+        info?.attribution?.takeIf { it.isNotEmpty() } ?: declaredAttribution(map, id)
+      attribution?.let { put("attribution", it) }
+      info?.tileSize?.takeIf { it > 0 }?.let { put("tileSize", it) }
+      if (info?.volatileSource == true) put("volatile", true)
+      if (info?.type == SourceType.VECTOR)
+        info.vectorEncoding?.toStyleSpecEncoding()?.let { put("encoding", it) }
+      if (info?.type == SourceType.RASTER_DEM)
+        info.rasterDemEncoding?.toStyleSpecEncoding()?.let { put("encoding", it) }
+      val url = info?.url?.takeIf { it.isNotEmpty() }
+      if (url != null) put("url", url) else info?.tileJson?.let { putTileJson(it) }
+    }
+  }
+
+  private fun JsonObjectBuilder.putTileJson(tileJson: TileJson) {
+    if (tileJson.tileUrls.isNotEmpty())
+      putJsonArray("tiles") { tileJson.tileUrls.forEach { add(it) } }
+    put("minzoom", tileJson.minZoom)
+    put("maxzoom", tileJson.maxZoom)
+    when (tileJson.scheme) {
+      TileScheme.XYZ -> put("scheme", "xyz")
+      TileScheme.TMS -> put("scheme", "tms")
+      else -> Unit
+    }
+    tileJson.bounds?.toBoundingBox()?.let { box ->
+      putJsonArray("bounds") {
+        add(box.west)
+        add(box.south)
+        add(box.east)
+        add(box.north)
+      }
+    }
+  }
+
+  private fun declaredAttribution(map: MapHandle, id: String): String? {
+    val sources =
+      declaredSources
+        ?: run {
+          val document = runCatching { map.loadedStyleJson().toJsonElement() }.getOrNull()
+          ((document as? JsonObject)?.get("sources") as? JsonObject ?: JsonObject(emptyMap()))
+            .also { declaredSources = it }
+        }
+    return ((sources[id] as? JsonObject)?.get("attribution") as? JsonPrimitive)?.contentOrNull
+  }
+
+  private var declaredSources: JsonObject? = null
+
+  private fun reconstructLayer(map: MapHandle, id: String): Layer {
+    val definition =
+      (map.styleLayerJson(id)?.toJsonElement() as? JsonObject)
+        ?: buildJsonObject { map.styleLayerType(id)?.let { put("type", it) } }
+    return UnknownLayer(id, definition)
+  }
+
+  override fun invalidate() {
+    if (!loaded) return
+    loaded = false
+    val actions = unloadActionsLock.withLock {
+      unloadActions.toList().also { unloadActions.clear() }
+    }
+    actions.forEach { it() }
+  }
+
+  private fun onUnload(action: () -> Unit): () -> Unit {
+    if (!isLoaded) {
+      action()
+      return {}
+    }
+    var runImmediately = false
+    unloadActionsLock.withLock {
+      if (!isLoaded) runImmediately = true else unloadActions += action
+    }
+    if (runImmediately) {
+      action()
+      return {}
+    }
+    return { unloadActionsLock.withLock { unloadActions -= action } }
+  }
+
+  override fun reportSourceChanged(sourceId: String) {
+    sourceChanged(sourceId)
+  }
+
+  private fun isAvailable(): Boolean {
+    if (isLoaded) return true
+    check(!failWhenUnavailable) { "Style operation belongs to a stale loaded-style identity" }
+    return false
+  }
 
   /** Null if the style has unloaded; reads should then fall back to the descriptor. */
-  fun <T> readMap(action: (MapHandle) -> T): T?
+  open fun <T> readMap(action: (MapHandle) -> T): T? {
+    if (!isAvailable()) return null
+    var result: Result<T>? = null
+    if (!accessMap { map -> result = runCatching { action(map) } }) return null
+    return checkNotNull(result).getOrThrow()
+  }
 
   /** Requests a repaint after native accepts the mutation. */
   fun <T> mutateMap(action: (MapHandle) -> T): T? = mutateMap({}, action)
@@ -72,22 +275,42 @@ internal interface MlnFfiStyleBinding : StyleBinding {
    *
    * Returns after [action] has run or been dropped. [abandon] runs when [action] will not run.
    */
-  fun <T> mutateMap(abandon: () -> Unit, action: (MapHandle) -> T): T?
+  open fun <T> mutateMap(abandon: () -> Unit, action: (MapHandle) -> T): T? {
+    if (!isAvailable()) {
+      abandon()
+      return null
+    }
+    var result: Result<T>? = null
+    if (
+      !accessMap { map ->
+        result = runCatching { action(map).also { map.requestRepaint() } }
+      }
+    ) {
+      abandon()
+      return null
+    }
+    return checkNotNull(result).getOrThrow()
+  }
 
   /**
    * Null when the style has unloaded or no renderer is ready. The renderer exists after the first
    * successful frame and until teardown. The handle must not escape [action].
    */
-  fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T?
+  open fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T? {
+    if (!isAvailable()) return null
+    var result: Result<T>? = null
+    if (!accessRenderSession { session -> result = runCatching { action(session) } }) return null
+    return checkNotNull(result).getOrThrow()
+  }
 
   /**
    * MapLibre Native implements no encoding but mapbox and terrarium.
    * [#2783](https://github.com/maplibre/maplibre-native/issues/2783)
    */
-  override val supportsCustomDemEncoding: Boolean
+  final override val supportsCustomDemEncoding: Boolean
     get() = false
 
-  override val supportsRasterDemScheme: Boolean
+  final override val supportsRasterDemScheme: Boolean
     get() = true
 
   override fun addSource(sourceId: String, source: JsonObject): Boolean =
@@ -539,30 +762,7 @@ internal interface MlnFfiStyleBinding : StyleBinding {
       )
 
     /** A binding for a descriptor that has never been added to a style. */
-    val UNLOADED: MlnFfiStyleBinding =
-      object : MlnFfiStyleBinding {
-        override val featureStateStore: MlnFfiFeatureStateStore? = null
-
-        override val tileCoordinators: MlnFfiTileCoordinatorStore? = null
-
-        override val isLoaded: Boolean = false
-
-        override val logger: Logger? = null
-
-        override fun onUnload(action: () -> Unit): () -> Unit {
-          action()
-          return {}
-        }
-
-        override fun <T> readMap(action: (MapHandle) -> T): T? = null
-
-        override fun <T> mutateMap(abandon: () -> Unit, action: (MapHandle) -> T): T? {
-          abandon()
-          return null
-        }
-
-        override fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T? = null
-      }
+    val UNLOADED: MlnFfiStyleBinding = MlnFfiStyleBinding(failWhenUnavailable = false)
   }
 }
 

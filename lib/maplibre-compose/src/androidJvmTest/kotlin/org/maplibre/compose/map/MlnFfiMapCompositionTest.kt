@@ -45,6 +45,7 @@ import org.maplibre.compose.expressions.dsl.case
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.expressions.dsl.switch
+import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
@@ -59,7 +60,10 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
+import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Position
+import org.maplibre.spatialk.geojson.dsl.addFeature
+import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
 
 /** Composes real maps against the platform's real FFI runtime and rendering host. */
 @OptIn(ExperimentalTestApi::class)
@@ -154,6 +158,42 @@ class MlnFfiMapCompositionTest {
         color = const(Color.Red),
       )
     }
+  }
+
+  @Test
+  fun changing_geojson_data_recomposes_and_requests_a_frame() = runFfiComposeUiTest {
+    var data by mutableStateOf(pointAt(ORIGIN))
+    val errors = RecordingList<String>()
+    val frames = AtomicInt(0)
+    val camera = CameraState(CameraPosition(target = ORIGIN, zoom = 14.0))
+
+    setFfiTestMapContent(runtimeOptions) {
+      MaplibreMap(
+        modifier = Modifier.size(128.dp),
+        baseStyle = GEOJSON_UPDATE_STYLE,
+        cameraState = camera,
+        logger = Logger.withTag("geojson-update-test"),
+        onMapLoadFailed = { errors += "mapLoadFailed: $it" },
+        onFrame = { frames.incrementAndFetch() },
+      ) {
+        CircleLayer(
+          id = "point",
+          source = rememberGeoJsonSource(GeoJsonData.Features(data)),
+          radius = const(16.dp),
+          color = const(Color.Black),
+        )
+      }
+    }
+
+    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { frames.load() > 0 || errors.isNotEmpty() }
+    assertTrue(errors.isEmpty(), "The initial point did not render: $errors")
+    waitForIdle()
+    val framesBeforeUpdate = frames.load()
+
+    data = pointAt(FAR_AWAY)
+
+    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { frames.load() > framesBeforeUpdate }
+    assertTrue(errors.isEmpty(), "The GeoJSON update reported errors: $errors")
   }
 
   @Test
@@ -408,5 +448,22 @@ class MlnFfiMapCompositionTest {
     const val RENDER_TIMEOUT_MILLIS = 30_000L
 
     const val PLACED_AT_TAG = "map-placed-at"
+
+    val ORIGIN = Position(0.0, 0.0)
+    val FAR_AWAY = Position(5.0, 5.0)
+    val GEOJSON_UPDATE_STYLE =
+      BaseStyle.Json(
+        """
+        {"version":8,"sources":{},"layers":[
+          {"id":"background","type":"background","paint":{"background-color":"#336699"}}
+        ]}
+        """
+          .trimIndent()
+      )
   }
 }
+
+private fun pointAt(position: Position): FeatureCollection<Geometry, JsonObject?> =
+  buildFeatureCollection {
+    addFeature(geometry = Point(position))
+  }

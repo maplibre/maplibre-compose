@@ -49,8 +49,10 @@ import org.maplibre.compose.gljs.styleJson
 import org.maplibre.compose.gljs.styleUrl
 import org.maplibre.compose.gljs.subscribe
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.GlJsStyle
 import org.maplibre.compose.style.GlJsStyleBinding
+import org.maplibre.compose.style.StyleLoadTracker
+import org.maplibre.compose.style.StyleRequestId
+import org.maplibre.compose.style.TrackedStyleLoadState
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.metersPerDpAtLatitude
 import org.maplibre.compose.util.toBoundingBox
@@ -116,6 +118,8 @@ internal class GlJsMapSession(
 
   private var requestedStyle: BaseStyle? = null
   private var appliedStyle: BaseStyle? = null
+  private var styleLoadTracker: StyleLoadTracker? = null
+  private var appliedStyleRequest: StyleRequestId? = null
 
   /** Set while a style load is outstanding, so an `error` can be told from a tile failure. */
   private var styleLoadPending = false
@@ -280,9 +284,14 @@ internal class GlJsMapSession(
     hasLoadedInitialStyle = false
     val current = map ?: return
     map = null
-    styleBinding?.unload()
+    callbacks.onStyleChanged(this, null)
+    styleBinding?.invalidate()
     styleBinding = null
     appliedStyle = null
+    appliedStyleRequest = null
+    styleLoadPending = false
+    reportStyleLoaded = false
+    styleLoadTracker?.engineBecameUnavailable()
     hasRenderedAFrame = false
     val borrowed = lentContext
     lentContext = null
@@ -340,10 +349,18 @@ internal class GlJsMapSession(
   private fun wireEvents(map: MaplibreMap) {
     map.subscribe("style.load") {
       styleLoadPending = false
+      styleBinding?.invalidate()
+      val binding =
+        GlJsStyleBinding(map, logger) { appliedExtent.scaleFactor.toFloat() }
+          .also { styleBinding = it }
+      val request = appliedStyleRequest ?: return@subscribe binding.invalidate()
+      if (styleLoadTracker?.loaded(request, binding.identity) != true) {
+        binding.invalidate()
+        applyRequestedStyle(map)
+        return@subscribe
+      }
       hasLoadedFirstStyle = true
-      styleBinding?.unload()
-      val binding = GlJsStyleBinding(map, logger).also { styleBinding = it }
-      callbacks.onStyleChanged(this, GlJsStyle(binding) { appliedExtent.scaleFactor.toFloat() })
+      callbacks.onStyleChanged(this, binding)
       applyTileLod(map)
       if (!hasLoadedInitialStyle) {
         hasLoadedInitialStyle = true
@@ -367,7 +384,19 @@ internal class GlJsMapSession(
       if (styleLoadPending) {
         styleLoadPending = false
         logger?.e { "Map loading failed: $reason" }
-        callbacks.onMapFailLoading(reason)
+        val request = appliedStyleRequest
+        val accepted =
+          request != null &&
+            styleLoadTracker?.failed(
+              request,
+              TrackedStyleLoadState.Failed.Stage.BASE_STYLE,
+              reason,
+            ) == true
+        if (accepted) {
+          callbacks.onMapFailLoading(reason)
+        } else {
+          applyRequestedStyle(map)
+        }
         if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
       } else {
         // Tile and sprite failures land here too, and are not the map failing to load.
@@ -388,7 +417,11 @@ internal class GlJsMapSession(
   private fun reportLoadedOnceStyleIsReady(map: MaplibreMap) {
     if (!reportStyleLoaded || !map.isStyleLoaded()) return
     reportStyleLoaded = false
-    callbacks.onMapFinishedLoading(this)
+    val request = appliedStyleRequest ?: return
+    val identity = styleBinding?.identity ?: return
+    if (styleLoadTracker?.reconciled(request, identity) == true) {
+      callbacks.onMapFinishedLoading(this)
+    }
   }
 
   /** A move spans the gesture rather than the jump, as every other platform reports it. */
@@ -457,8 +490,14 @@ internal class GlJsMapSession(
     if (style == requestedStyle) return
     // Must precede the new style: the old style's sources and layers would otherwise recompose
     // against base layers being replaced.
-    styleBinding?.unload()
+    styleBinding?.invalidate()
     requestedStyle = style
+    val tracker = styleLoadTracker
+    if (tracker == null) {
+      styleLoadTracker = StyleLoadTracker(style, engineAvailable = map != null)
+    } else {
+      tracker.request(style, engineAvailable = map != null)
+    }
     callbacks.onStyleChanged(this, null)
     onMap(::applyRequestedStyle)
   }
@@ -466,7 +505,10 @@ internal class GlJsMapSession(
   private fun applyRequestedStyle(map: MaplibreMap) {
     val style = requestedStyle ?: return
     if (style == appliedStyle) return
+    if (styleLoadPending) return
     appliedStyle = style
+    val request = styleLoadTracker?.beginLoading() ?: return
+    appliedStyleRequest = request
     styleLoadPending = true
     // MapLibre diffs by default, keeping the same Style object, so no `style.load` would fire.
     val options = unsafeJso<SetStyleOptions> { diff = false }
@@ -481,7 +523,15 @@ internal class GlJsMapSession(
       styleLoadPending = false
       val reason = error.message ?: "MapLibre failed to load the map"
       logger?.e(error) { "Map loading failed: $reason" }
-      callbacks.onMapFailLoading(reason)
+      if (
+        styleLoadTracker?.failed(
+          request,
+          TrackedStyleLoadState.Failed.Stage.BASE_STYLE,
+          reason,
+        ) == true
+      ) {
+        callbacks.onMapFailLoading(reason)
+      }
       if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
     }
   }

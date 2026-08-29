@@ -7,7 +7,7 @@ import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
-import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleMutationException
 
 /** A map data source of DEM raster images. */
@@ -56,32 +56,31 @@ public class RasterDemSource : Source {
     tileSize: Int = SourceDefaults.RASTER_TILE_SIZE,
     demEncoding: RasterDemEncoding = RasterDemEncoding.Mapbox,
   ) : super(id) {
-    val tileSet = TileSet(tiles, options, tileSize, demEncoding)
+    val tileSet = TileSet(tiles.toList(), options, tileSize, demEncoding)
     this.tileSet = tileSet
     json = tileSet.toJson(customEncoding = true, includeScheme = true)
   }
 
   override fun toJson(): JsonObject = json
 
-  override fun addTo(binding: StyleBinding): Boolean {
-    val tileSet = tileSet ?: return super.addTo(binding)
-    if (
-      !binding.supportsRasterDemScheme &&
-        tileSet.options.tileCoordinateSystem != TileCoordinateSystem.XYZ
-    ) {
-      throw StyleMutationException(
-        "this engine has no scheme on a raster-dem source and reads only XYZ tiles; use " +
-          "TileCoordinateSystem.XYZ",
-        null,
+  override fun definition(): SourceDefinition {
+    val tileSet = tileSet ?: return super.definition()
+    return SourceDefinition.RasterDem(id) { capabilities ->
+      if (
+        !capabilities.supportsRasterDemScheme &&
+          tileSet.options.tileCoordinateSystem != TileCoordinateSystem.XYZ
+      ) {
+        throw StyleMutationException(
+          "this engine has no scheme on a raster-dem source and reads only XYZ tiles; use " +
+            "TileCoordinateSystem.XYZ",
+          null,
+        )
+      }
+      tileSet.toJson(
+        customEncoding = capabilities.supportsCustomDemEncoding,
+        includeScheme = capabilities.supportsRasterDemScheme,
       )
     }
-    return binding.addSource(
-      id,
-      tileSet.toJson(
-        customEncoding = binding.supportsCustomDemEncoding,
-        includeScheme = binding.supportsRasterDemScheme,
-      ),
-    )
   }
 
   private class TileSet(

@@ -16,8 +16,10 @@ import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LocalStyleNode
+import org.maplibre.compose.style.StyleIdentity
 import org.maplibre.compose.style.StyleNode
 import org.maplibre.compose.style.StyleState
+import org.maplibre.compose.style.install
 import org.maplibre.compose.style.rememberStyleState
 
 @OptIn(ExperimentalTestApi::class)
@@ -190,7 +192,7 @@ class BrowserStyleStateTest {
         val source = RasterSource("late-source", "https://tilejson.test/x.json")
         checkNotNull(node).let { liveNode ->
           liveNode.sourceManager.addReference(source)
-          liveNode.style.addLayer(RasterLayer(id = "late-layer", source = source))
+          liveNode.style.install(RasterLayer(id = "late-layer", source = source))
         }
 
         waitUntilMap("the late source's initial snapshot") { state?.sources?.size == 1 }
@@ -213,6 +215,7 @@ class BrowserStyleStateTest {
   fun switching_styles_keeps_the_sources_visible(): Promise<*> = runBrowserMapTest {
     var current by mutableStateOf(styleWith("first", "first-source"))
     var state: StyleState? = null
+    var identity: StyleIdentity? = null
     var loads = 0
     setBrowserMapContent {
       val styleState = rememberStyleState()
@@ -222,9 +225,12 @@ class BrowserStyleStateTest {
         baseStyle = current,
         styleState = styleState,
         onMapLoadFinished = { loads += 1 },
-      )
+      ) {
+        identity = LocalStyleNode.current.style.identity
+      }
     }
     waitUntilMap("the first style to load") { loads >= 1 && state?.sources?.isNotEmpty() == true }
+    val firstIdentity = identity
     assertEquals(listOf("first attribution"), state?.sources?.values?.map { it.attributionHtml })
 
     // Sampled per frame, not just at the end: a window where the attribution is empty would flicker
@@ -237,6 +243,7 @@ class BrowserStyleStateTest {
     }
 
     assertEquals(listOf("second attribution"), state?.sources?.values?.map { it.attributionHtml })
+    assertNotSame(firstIdentity, identity)
     assertTrue(
       observed.none { attributions -> attributions.any { it.isEmpty() } },
       "No source should ever report an empty attribution across a style switch. Observed: $observed",

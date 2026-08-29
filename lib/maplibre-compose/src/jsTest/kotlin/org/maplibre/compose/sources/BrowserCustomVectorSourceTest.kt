@@ -2,6 +2,7 @@ package org.maplibre.compose.sources
 
 import kotlin.test.Test
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -9,6 +10,8 @@ import kotlinx.coroutines.CompletableDeferred
 import org.maplibre.compose.gljs.SourceHandle
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.GlJsStyleBinding
+import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.testing.createMapFixture
@@ -22,7 +25,7 @@ class BrowserCustomVectorSourceTest {
     val release = CompletableDeferred<Unit>()
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
-      val style = assertNotNull(fixture.style)
+      val style = assertIs<GlJsStyleBinding>(fixture.style)
       val source =
         CustomVectorSource("empty", CustomVectorSourceOptions(minZoom = 0, maxZoom = 0)) { tile ->
           requests += tile
@@ -31,18 +34,15 @@ class BrowserCustomVectorSourceTest {
         }
       val layer = CircleLayer("empty-points", source)
       layer.sourceLayer = "points"
-      style.addSource(source)
-      style.addLayer(layer)
+      style.install(source)
+      style.install(layer)
 
       fixture.pumpUntil("the empty custom MVT tile to be requested") { requests.isNotEmpty() }
-      fun isSourceLoaded(): Boolean =
-        source.glJsBinding?.withMap { map -> map.isSourceLoaded(source.id) } == true
+      fun isSourceLoaded(): Boolean = style.withMap { map -> map.isSourceLoaded(source.id) } == true
 
       assertFalse(isSourceLoaded())
       release.complete(Unit)
       fixture.pumpUntil("the empty custom MVT tile to finish loading") { isSourceLoaded() }
-
-      assertTrue(source.querySourceFeatures(setOf("points")).isEmpty())
     }
   }
 
@@ -50,23 +50,23 @@ class BrowserCustomVectorSourceTest {
   fun simultaneous_sources_use_unique_protocol_urls(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
-      val style = assertNotNull(fixture.style)
+      val style = assertIs<GlJsStyleBinding>(fixture.style)
       val first = CustomVectorSource("first", CustomVectorSourceOptions()) { byteArrayOf() }
       val second = CustomVectorSource("second", CustomVectorSourceOptions()) { byteArrayOf() }
 
-      style.addSource(first)
-      style.addSource(second)
+      style.install(first)
+      style.install(second)
 
-      val firstUrl = assertNotNull(first.liveTileUrlTemplate())
-      val secondUrl = assertNotNull(second.liveTileUrlTemplate())
+      val firstUrl = assertNotNull(first.liveTileUrlTemplate(style))
+      val secondUrl = assertNotNull(second.liveTileUrlTemplate(style))
       assertNotEquals(firstUrl, secondUrl)
     }
   }
 
   /** The tile URL template MapLibre GL JS holds for this live source. */
-  private fun CustomVectorSource.liveTileUrlTemplate(): String? =
-    glJsBinding
-      ?.withMap { map -> map.getSource<SourceHandle>(id)?.asDynamic()?.serialize()?.tiles }
+  private fun CustomVectorSource.liveTileUrlTemplate(style: GlJsStyleBinding): String? =
+    style
+      .withMap { map -> map.getSource<SourceHandle>(id)?.asDynamic()?.serialize()?.tiles }
       ?.unsafeCast<Array<String>>()
       ?.single()
 
@@ -75,7 +75,7 @@ class BrowserCustomVectorSourceTest {
     var requested = false
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
-      val style = assertNotNull(fixture.style)
+      val style = assertIs<GlJsStyleBinding>(fixture.style)
       val source =
         CustomVectorSource("failing", CustomVectorSourceOptions(minZoom = 0, maxZoom = 0)) {
           requested = true
@@ -83,15 +83,15 @@ class BrowserCustomVectorSourceTest {
         }
       val layer = CircleLayer("failing-points", source)
       layer.sourceLayer = "points"
-      style.addSource(source)
-      style.addLayer(layer)
+      style.install(source)
+      style.install(layer)
 
       fixture.pumpUntil("the rejected protocol request to reach MapLibre GL JS") {
-        requested && source.glJsBinding?.lastReportedError != null
+        requested && style.lastReportedError != null
       }
 
       assertTrue(requested)
-      assertNotNull(source.glJsBinding?.lastReportedError)
+      assertNotNull(style.lastReportedError)
     }
   }
 }

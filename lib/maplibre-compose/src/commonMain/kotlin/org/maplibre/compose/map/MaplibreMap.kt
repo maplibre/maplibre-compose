@@ -12,7 +12,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -29,8 +28,7 @@ import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MapOverlayHost
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LayerNode
-import org.maplibre.compose.style.SafeStyle
-import org.maplibre.compose.style.Style
+import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleState
 import org.maplibre.compose.style.rememberStyleComposition
 import org.maplibre.compose.style.rememberStyleState
@@ -146,10 +144,8 @@ public fun MaplibreMap(
     return
   }
 
-  var rememberedStyle by remember { mutableStateOf<SafeStyle?>(null) }
-  val currentLogger by rememberUpdatedState(logger)
+  var rememberedStyle by remember { mutableStateOf<StyleBinding?>(null) }
   val styleComposition by rememberStyleComposition(styleState, rememberedStyle, logger, content)
-  SideEffect { rememberedStyle?.logger = currentLogger }
   val mapClickScope = rememberCoroutineScope()
 
   val density = LocalDensity.current
@@ -158,10 +154,8 @@ public fun MaplibreMap(
   val callbacks =
     remember(cameraState, styleState, styleComposition, mapClickScope) {
       object : MapAdapter.Callbacks {
-        override fun onStyleChanged(map: MapAdapter, style: Style?) {
-          rememberedStyle?.unload()
-          val safeStyle = style?.let { SafeStyle(it, currentLogger) }
-          rememberedStyle = safeStyle
+        override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
+          rememberedStyle = style
           if (cameraState.map === map) cameraState.viewportState.value = map.getViewport()
         }
 

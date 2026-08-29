@@ -21,7 +21,7 @@ import org.maplibre.compose.map.GlJsMapSession
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.Style
+import org.maplibre.compose.style.StyleBinding
 
 /** A [GlJsMapSession] on a canvas of its own, with no Compose or skiko, never composited. */
 internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
@@ -37,7 +37,7 @@ internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
   override val gestures: GestureTarget
     get() = glJsSession
 
-  override val style: Style?
+  override val style: StyleBinding?
     get() = recorder.style
 
   override val events: MutableList<String>

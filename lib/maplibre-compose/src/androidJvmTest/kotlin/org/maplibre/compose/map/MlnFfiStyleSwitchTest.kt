@@ -17,6 +17,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonObject
@@ -101,6 +102,7 @@ class MlnFfiStyleSwitchTest {
     // this test deliberately does not cover.
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { loadsFinished > 0 && frames.load() > 0 }
     val session = requireNotNull(cameraState.map as? MlnFfiMapSession) { "no desktop session" }
+    var identity = assertNotNull(session.loadedStyleIdentity)
     assertStyleLayers(session, style, extraLayer)
 
     repeat(ROTATIONS) { round ->
@@ -111,6 +113,9 @@ class MlnFfiStyleSwitchTest {
       waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
         loadsFinished > loadsBefore && frames.load() > framesBefore
       }
+      val replacementIdentity = assertNotNull(session.loadedStyleIdentity)
+      assertNotSame(identity, replacementIdentity)
+      identity = replacementIdentity
       assertStyleLayers(session, style, extraLayer)
     }
 
@@ -237,10 +242,7 @@ class MlnFfiStyleSwitchTest {
       // unloaded, so these writes cannot reach the replaced native style.
       showExtraLayer = true
       style = BaseStyle.Uri(C_STYLE_URL)
-      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-        resources.styleCCompletionFinished.count == 0L
-      }
-      assertNull(resources.styleCCompletionError.load(), "style C's native completion failed")
+      assertEquals(1L, resources.styleCStarted.count, "style C must wait for style B's callback")
       resources.releaseStyleB.countDown()
 
       fun relevantLayers(): List<String> =
@@ -248,10 +250,11 @@ class MlnFfiStyleSwitchTest {
       waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
         resources.styleBCompletionFinished.count == 0L
       }
-      assertNotNull(
-        resources.styleBCompletionError.load(),
-        "style B's stale response should be rejected",
-      )
+      assertNull(resources.styleBCompletionError.load(), "style B's native completion failed")
+      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+        resources.styleCCompletionFinished.count == 0L
+      }
+      assertNull(resources.styleCCompletionError.load(), "style C's native completion failed")
       val postBEventsDrained = TestLatch(1)
       assertTrue(
         session.postEventDrainBarrierForTest(postBEventsDrained::countDown),
@@ -306,6 +309,7 @@ class MlnFfiStyleSwitchTest {
 
   private class BlockingStyleResources {
     val styleBStarted = TestLatch(1)
+    val styleCStarted = TestLatch(1)
     val styleBCompletionFinished = TestLatch(1)
     val styleCCompletionFinished = TestLatch(1)
     val releaseStyleB = TestLatch(1)
@@ -336,6 +340,7 @@ class MlnFfiStyleSwitchTest {
             STYLE_B_JSON
           }
           C_STYLE_URL -> {
+            styleCStarted.countDown()
             STYLE_C_JSON
           }
           else -> error("Unexpected resource request for $url (requested as $requestedUrl)")

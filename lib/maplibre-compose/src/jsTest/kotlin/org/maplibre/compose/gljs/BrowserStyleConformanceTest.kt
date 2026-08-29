@@ -28,7 +28,7 @@ import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.sources.rememberVectorSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LocalStyleNode
-import org.maplibre.compose.style.Style
+import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.util.MaplibreComposable
 
 @OptIn(ExperimentalTestApi::class)
@@ -162,7 +162,7 @@ class BrowserStyleConformanceTest {
   fun changing_a_source_layer_recreates_the_layer_and_keeps_its_anchor() = runBrowserMapTest {
     var sourceLayer by mutableStateOf("places")
     var showLayer by mutableStateOf(true)
-    var style by mutableStateOf<Style?>(null)
+    var style by mutableStateOf<StyleBinding?>(null)
     val failures = mutableListOf<String>()
 
     fun liveSourceLayer(): String? =
@@ -223,9 +223,9 @@ class BrowserStyleConformanceTest {
 
   private fun runStyleTest(
     content: @Composable @MaplibreComposable () -> Unit = {},
-    assertions: (Style) -> Unit,
+    assertions: (StyleBinding) -> Unit,
   ): Promise<*> = runBrowserMapTest {
-    var style by mutableStateOf<Style?>(null)
+    var style by mutableStateOf<StyleBinding?>(null)
     val failures = mutableListOf<String>()
     setBrowserMapContent {
       MaplibreMap(
@@ -244,7 +244,7 @@ class BrowserStyleConformanceTest {
 
   @Composable
   @MaplibreComposable
-  private fun CaptureStyle(onStyle: (Style) -> Unit) {
+  private fun CaptureStyle(onStyle: (StyleBinding) -> Unit) {
     val node = LocalStyleNode.current
     LaunchedEffect(node) { onStyle(node.style) }
   }

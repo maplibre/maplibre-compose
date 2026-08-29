@@ -10,15 +10,15 @@ import org.jetbrains.skia.ImageInfo
 
 internal actual fun IntArray.toImageBitmap(width: Int, height: Int): ImageBitmap {
   val bmp = Bitmap()
-  val info = ImageInfo(width, height, ColorType.RGBA_8888, ColorAlphaType.PREMUL, ColorSpace.sRGB)
+  val info = ImageInfo(width, height, ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, ColorSpace.sRGB)
   bmp.installPixels(
     info = info,
     pixels =
       this.foldIndexed(ByteArray(width * height * info.bytesPerPixel)) { index, acc, pixel ->
-        acc[index * 4] = (pixel shr 24).toByte() // Alpha
-        acc[index * 4 + 1] = (pixel shr 16).toByte() // Red
-        acc[index * 4 + 2] = (pixel shr 8).toByte() // Green
-        acc[index * 4 + 3] = pixel.toByte() // Blue
+        acc[index * 4] = (pixel shr 16).toByte() // Red
+        acc[index * 4 + 1] = (pixel shr 8).toByte() // Green
+        acc[index * 4 + 2] = pixel.toByte() // Blue
+        acc[index * 4 + 3] = (pixel shr 24).toByte() // Alpha
         acc
       },
     rowBytes = info.minRowBytes,

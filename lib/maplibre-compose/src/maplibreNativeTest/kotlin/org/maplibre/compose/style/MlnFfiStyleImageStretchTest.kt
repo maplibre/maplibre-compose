@@ -21,7 +21,8 @@ class MlnFfiStyleImageStretchTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty, extent = BridgeMapFixture.DEFAULT_EXTENT)
-      val style = assertIs<MlnFfiStyle>(it.style, "the style should have reached the callbacks")
+      val style =
+        assertIs<MlnFfiStyleBinding>(it.style, "the style should have reached the callbacks")
 
       style.addImage(
         IMAGE_ID,
@@ -45,7 +46,8 @@ class MlnFfiStyleImageStretchTest {
     val fixture = BridgeMapFixture.create(BridgeMapFixture.RETINA_EXTENT)
     fixture.use {
       it.loadStyle(BaseStyle.Empty, extent = BridgeMapFixture.RETINA_EXTENT)
-      val style = assertIs<MlnFfiStyle>(it.style, "the style should have reached the callbacks")
+      val style =
+        assertIs<MlnFfiStyleBinding>(it.style, "the style should have reached the callbacks")
 
       style.addImage(
         IMAGE_ID,
@@ -70,7 +72,8 @@ class MlnFfiStyleImageStretchTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty, extent = BridgeMapFixture.DEFAULT_EXTENT)
-      val style = assertIs<MlnFfiStyle>(it.style, "the style should have reached the callbacks")
+      val style =
+        assertIs<MlnFfiStyleBinding>(it.style, "the style should have reached the callbacks")
 
       style.addImage(
         IMAGE_ID,
@@ -98,7 +101,8 @@ class MlnFfiStyleImageStretchTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty, extent = BridgeMapFixture.DEFAULT_EXTENT)
-      val style = assertIs<MlnFfiStyle>(it.style, "the style should have reached the callbacks")
+      val style =
+        assertIs<MlnFfiStyleBinding>(it.style, "the style should have reached the callbacks")
 
       style.addImage(
         IMAGE_ID,
@@ -128,7 +132,8 @@ class MlnFfiStyleImageStretchTest {
     val fixture = BridgeMapFixture.create(BridgeMapFixture.RETINA_EXTENT)
     fixture.use {
       it.loadStyle(BaseStyle.Empty, extent = BridgeMapFixture.RETINA_EXTENT)
-      val style = assertIs<MlnFfiStyle>(it.style, "the style should have reached the callbacks")
+      val style =
+        assertIs<MlnFfiStyleBinding>(it.style, "the style should have reached the callbacks")
 
       style.addImage(
         IMAGE_ID,

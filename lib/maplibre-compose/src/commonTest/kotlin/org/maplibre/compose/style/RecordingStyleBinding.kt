@@ -5,12 +5,16 @@ import co.touchlab.kermit.Logger
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import org.maplibre.compose.layers.Layer
+import org.maplibre.compose.layers.UnknownLayer
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
 import org.maplibre.compose.sources.CustomVectorSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeometryTileProvider
+import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.TileCoordinate
+import org.maplibre.compose.sources.UnknownSource
 import org.maplibre.compose.sources.VectorTileProvider
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
@@ -18,27 +22,87 @@ import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
-/** A loaded [StyleBinding] that keeps the JSON it is handed, standing in for an engine. */
+/** A [StyleBinding] that records one fake engine's base style and installed definitions. */
 internal class RecordingStyleBinding(
+  images: List<Pair<String, ImageBitmap>> = emptyList(),
+  sources: List<Source> = emptyList(),
+  layers: List<Layer> = emptyList(),
   override val supportsCustomDemEncoding: Boolean = false,
   override val supportsRasterDemScheme: Boolean = true,
 ) : StyleBinding {
 
-  val sources: MutableMap<String, JsonObject> = mutableMapOf()
+  override val identity: StyleIdentity = StyleIdentity.create()
 
-  override val isLoaded: Boolean = true
+  val sources: MutableMap<String, JsonObject> = mutableMapOf()
+  val layers: MutableMap<String, JsonObject> = mutableMapOf()
+  private val images =
+    images.associate { (id, bitmap) -> id to ImageSnapshot.capture(bitmap) }.toMutableMap()
+  private val baseSources = sources.associateBy { it.id }.toMutableMap()
+  private val baseLayers = layers.associateBy { it.id }.toMutableMap()
+  private val orderedLayerIds = mutableListOf<String>()
+
+  override var isLoaded: Boolean = true
+    private set
+
+  val installedSourceIds: Set<String>
+    get() = this.sources.keys - baseSources.keys
+
+  val installedLayerIds: Set<String>
+    get() = this.layers.keys - baseLayers.keys
+
+  var customGeometryProvider: GeometryTileProvider? = null
+    private set
+
+  var customVectorProvider: VectorTileProvider? = null
+    private set
+
+  init {
+    sources.forEach { addSource(it.definition()) }
+    layers.forEach { addLayer(it.definition(), beforeLayerId = "") }
+  }
+
+  override fun invalidate() {
+    isLoaded = false
+  }
 
   override val logger: Logger? = null
 
-  override fun onUnload(action: () -> Unit): () -> Unit = {}
+  override fun addImage(definition: StyleImageDefinition) {
+    check(definition.id !in images) { "Image ID '${definition.id}' already exists in style" }
+    images[definition.id] = definition.image
+  }
+
+  override fun removeImage(id: String) {
+    check(images.remove(id) != null) { "Image ID '$id' not found in style" }
+  }
+
+  override fun getSource(id: String): Source? =
+    baseSources[id] ?: sources[id]?.let { UnknownSource(id, it) }
+
+  override fun getSources(): List<Source> = sources.keys.mapNotNull(::getSource)
+
+  override fun getLayer(id: String): Layer? =
+    baseLayers[id] ?: layers[id]?.let { UnknownLayer(id, it) }
+
+  override fun getLayers(): List<Layer> = orderedLayerIds.mapNotNull(::getLayer)
+
+  override fun layerIds() = orderedLayerIds.toList()
 
   override fun addSource(sourceId: String, source: JsonObject): Boolean {
+    check(sourceId !in sources) { "Source ID '$sourceId' already exists in style" }
     sources[sourceId] = source
     return true
   }
 
   override fun removeSource(sourceId: String) {
     sources.remove(sourceId)
+    baseSources.remove(sourceId)
+  }
+
+  fun replaceSource(source: Source) {
+    check(source.id in baseSources) { "Source ID '${source.id}' not found in style" }
+    sources[source.id] = source.toJson()
+    baseSources[source.id] = source
   }
 
   override fun sourceExists(sourceId: String): Boolean = sourceId in sources
@@ -86,6 +150,7 @@ internal class RecordingStyleBinding(
     options: CustomGeometrySourceOptions,
     provider: GeometryTileProvider,
   ): Boolean {
+    customGeometryProvider = provider
     sources[sourceId] = JsonObject(mapOf("type" to JsonPrimitive("custom-geometry")))
     return true
   }
@@ -99,6 +164,7 @@ internal class RecordingStyleBinding(
     options: CustomVectorSourceOptions,
     provider: VectorTileProvider,
   ): Boolean {
+    customVectorProvider = provider
     sources[sourceId] = JsonObject(mapOf("type" to JsonPrimitive("vector")))
     return true
   }
@@ -131,11 +197,30 @@ internal class RecordingStyleBinding(
     }
   }
 
-  override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean = true
+  override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean {
+    val id = (layer["id"] as JsonPrimitive).content
+    check(id !in layers) { "Layer ID '$id' already exists in style" }
+    val index =
+      if (beforeLayerId.isEmpty()) orderedLayerIds.size else orderedLayerIds.indexOf(beforeLayerId)
+    require(index >= 0) { "Layer ID '$beforeLayerId' not found in style" }
+    orderedLayerIds.add(index, id)
+    layers[id] = layer
+    return true
+  }
 
-  override fun removeLayer(layerId: String) = Unit
+  override fun removeLayer(layerId: String) {
+    layers.remove(layerId)
+    baseLayers.remove(layerId)
+    orderedLayerIds.remove(layerId)
+  }
 
-  override fun moveLayer(layerId: String, beforeLayerId: String) = Unit
+  override fun moveLayer(layerId: String, beforeLayerId: String) {
+    check(orderedLayerIds.remove(layerId)) { "Layer ID '$layerId' not found in style" }
+    val index =
+      if (beforeLayerId.isEmpty()) orderedLayerIds.size else orderedLayerIds.indexOf(beforeLayerId)
+    require(index >= 0) { "Layer ID '$beforeLayerId' not found in style" }
+    orderedLayerIds.add(index, layerId)
+  }
 
   override fun setLayerProperty(
     layerId: String,

@@ -9,7 +9,9 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.MlnFfiStyle
+import org.maplibre.compose.style.MlnFfiStyleBinding
+import org.maplibre.compose.style.install
+import org.maplibre.compose.style.uninstall
 
 class UnknownSourceRestoreTest {
 
@@ -18,7 +20,7 @@ class UnknownSourceRestoreTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Json(VECTOR_STYLE))
-      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
 
       val source = assertIs<UnknownSource>(style.getSource(SOURCE_ID))
 
@@ -41,11 +43,11 @@ class UnknownSourceRestoreTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Json(VECTOR_STYLE))
-      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
 
       val source = assertIs<UnknownSource>(style.getSource(SOURCE_ID))
-      style.removeSource(source)
-      style.addSource(source)
+      style.uninstall(source)
+      style.install(source)
 
       val restored = assertIs<UnknownSource>(style.getSource(SOURCE_ID))
       assertEquals(
@@ -62,7 +64,7 @@ class UnknownSourceRestoreTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Json(VECTOR_STYLE))
-      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
 
       assertEquals(
         mapOf(SOURCE_ID to "vector", RASTER_SOURCE_ID to "raster"),

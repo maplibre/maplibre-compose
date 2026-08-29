@@ -7,6 +7,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
@@ -26,7 +27,7 @@ class BrowserRasterDemSourceTest {
           options = TileSetOptions(tileCoordinateSystem = TileCoordinateSystem.TMS),
         )
 
-      val error = assertFailsWith<IllegalStateException> { style.addSource(source) }
+      val error = assertFailsWith<IllegalStateException> { style.install(source) }
       assertContains(error.message.orEmpty(), "TileCoordinateSystem.XYZ")
       assertEquals(emptyList(), fixture.errors, "the map should report nothing")
     }
@@ -45,7 +46,7 @@ class BrowserRasterDemSourceTest {
           demEncoding = RasterDemEncoding.Custom(redFactor = 2f),
         )
 
-      style.addSource(source)
+      style.install(source)
 
       assertEquals("custom", source.toJson()["encoding"]?.jsonPrimitive?.content)
       assertEquals(emptyList(), fixture.errors, "the map should report nothing")

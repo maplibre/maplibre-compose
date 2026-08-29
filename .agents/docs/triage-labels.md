@@ -7,5 +7,6 @@
 | `ready-for-agent` | `ready-for-agent` | An agent can implement the issue         |
 | `ready-for-human` | `ready-for-human` | The issue requires human implementation  |
 | `wontfix`         | `wontfix`         | The project will not implement the issue |
+| `resolved`        | `resolved`        | The issue has been completed             |
 
 When a skill names a canonical triage role, use the corresponding local status.
