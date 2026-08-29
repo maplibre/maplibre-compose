@@ -13,7 +13,7 @@ import org.maplibre.compose.location.createDefaultLocationProvider
  * [java.util.ServiceLoader] discovers this backend when an application packages this module, so
  * [createDefaultLocationProvider] returns [FusedLocationProvider]. [isAvailable] reports whether
  * Huawei Mobile Services is available on the device, and the default falls back to the framework
- * provider on a device without it. Android's framework provider continues to supply orientation.
+ * provider on a device without it. Android's framework provider continues to supply heading.
  */
 public class HmsLocationBackend : AndroidLocationBackend {
   override val id: String = HmsLocationBackendId

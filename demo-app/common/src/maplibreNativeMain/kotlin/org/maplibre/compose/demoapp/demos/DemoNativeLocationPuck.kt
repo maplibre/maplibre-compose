@@ -16,27 +16,29 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeMark
 import kotlinx.coroutines.delay
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.layers.LocationIndicatorLayer
-import org.maplibre.compose.location.BearingWithAccuracy
-import org.maplibre.compose.location.Location
+import org.maplibre.compose.location.LocationState
+import org.maplibre.compose.location.mostAccurateBearing
 import org.maplibre.compose.material3.LocationPuckDefaults
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.inDegrees
 import org.maplibre.spatialk.units.extensions.inMeters
 
-actual val isNativeLocationIndicatorAvailable: Boolean = true
+actual val isDemoNativeLocationPuckAvailable: Boolean = true
 
 @Composable
 @MaplibreComposable
-actual fun NativeLocationIndicator(location: Location?, bearing: BearingWithAccuracy?) {
-  if (location == null) return
+actual fun DemoNativeLocationPuck(locationState: LocationState) {
+  val location = locationState.lastReading ?: return
+  val bearing = locationState.mostAccurateBearing()
 
-  val isOld = rememberIsLocationOld(location)
+  val isOld = rememberIsLocationOld(locationState.lastReadingMeasurementMark)
   val colors = LocationPuckDefaults.colors()
   val dotFill = if (isOld) colors.dotFillColorOldLocation else colors.dotFillColorCurrentLocation
   val dot = remember(dotFill, colors) { DotPainter(dotFill, colors.dotStrokeColor) }
@@ -44,10 +46,10 @@ actual fun NativeLocationIndicator(location: Location?, bearing: BearingWithAccu
 
   LocationIndicatorLayer(
     id = "native-location-indicator",
-    location = location.position.value,
-    bearing = const(bearing?.let { (it.value - Bearing.North).inDegrees.toFloat() } ?: 0f),
+    location = location.position,
+    bearing = const(bearing?.let { (it - Bearing.North).inDegrees.toFloat() } ?: 0f),
     accuracyRadius =
-      const(if (isOld) 0f else location.position.accuracy?.inMeters?.toFloat() ?: 0f),
+      const(if (isOld) 0f else location.horizontalAccuracy?.inMeters?.toFloat() ?: 0f),
     accuracyRadiusColor = const(colors.accuracyFillColor),
     accuracyRadiusBorderColor = const(colors.accuracyStrokeColor),
     topImage = image(dot, size = DpSize(24.dp, 24.dp)),
@@ -56,16 +58,19 @@ actual fun NativeLocationIndicator(location: Location?, bearing: BearingWithAccu
 }
 
 /**
- * Whether [location] is older than the same 30-second threshold [LocationPuck]
- * [org.maplibre.compose.location.LocationPuck] uses to mark a retained fix as stale.
+ * Whether [measurementMark] exceeds the same 30-second threshold that [LocationPuck]
+ * [org.maplibre.compose.location.LocationPuck] uses to mark a retained reading as stale.
  */
 @Composable
-private fun rememberIsLocationOld(location: Location): Boolean {
+private fun rememberIsLocationOld(measurementMark: TimeMark?): Boolean {
   val threshold = 30.seconds
-  var isOld by remember(location) { mutableStateOf(location.timestamp.elapsedNow() > threshold) }
-  LaunchedEffect(location) {
-    if (isOld) return@LaunchedEffect
-    val remaining = threshold - location.timestamp.elapsedNow()
+  var isOld by
+    remember(measurementMark) {
+      mutableStateOf(measurementMark?.elapsedNow()?.let { it > threshold } == true)
+    }
+  LaunchedEffect(measurementMark) {
+    if (measurementMark == null || isOld) return@LaunchedEffect
+    val remaining = threshold - measurementMark.elapsedNow()
     if (remaining > Duration.ZERO) delay(remaining)
     isOld = true
   }

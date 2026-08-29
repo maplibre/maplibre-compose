@@ -9,7 +9,7 @@ plugins {
 mavenPublishing {
   pom {
     name = "MapLibre Compose Location Google Play Services"
-    description = "Google Play Services location and orientation providers for MapLibre Compose."
+    description = "Google Play Services location and heading providers for MapLibre Compose."
     url = "https://github.com/maplibre/maplibre-compose"
   }
 }

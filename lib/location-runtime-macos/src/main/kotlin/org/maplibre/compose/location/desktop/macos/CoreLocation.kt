@@ -1,17 +1,14 @@
 package org.maplibre.compose.location.desktop.macos
 
+import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
-import kotlin.time.TimeSource
-import org.maplibre.compose.location.BearingWithAccuracy
-import org.maplibre.compose.location.Location
 import org.maplibre.compose.location.LocationAccuracy
 import org.maplibre.compose.location.LocationAccuracyAuthorization
 import org.maplibre.compose.location.LocationBackendAvailability
 import org.maplibre.compose.location.LocationPermission
+import org.maplibre.compose.location.LocationReading
 import org.maplibre.compose.location.LocationUnavailableReason
-import org.maplibre.compose.location.PositionWithAccuracy
-import org.maplibre.compose.location.SpeedWithAccuracy
 import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.degrees
@@ -44,7 +41,7 @@ internal val CL_LOCATION_ACCURACY_REDUCED: Double by lazy {
     ?: CL_LOCATION_ACCURACY_REDUCED_FALLBACK
 }
 
-internal data class CoreLocationFix(
+internal data class CoreLocationReading(
   val latitude: Double,
   val longitude: Double,
   val altitude: Double,
@@ -60,7 +57,7 @@ internal data class CoreLocationFix(
 internal data class CoreLocationError(val domain: String, val code: Long)
 
 internal interface CoreLocationDelegate {
-  fun didUpdateLocations(locations: List<CoreLocationFix>)
+  fun didUpdateLocations(locations: List<CoreLocationReading>)
 
   fun didFailWithError(error: CoreLocationError)
 
@@ -70,7 +67,7 @@ internal interface CoreLocationDelegate {
 internal interface CoreLocationManager : AutoCloseable {
   var desiredAccuracy: Double
   var distanceFilter: Double
-  val location: CoreLocationFix?
+  val location: CoreLocationReading?
   val authorizationStatus: Long
   val accuracyAuthorization: Long
 
@@ -118,36 +115,19 @@ internal fun CoreLocationError.asUnavailableReason(
     else -> LocationUnavailableReason.UnexpectedFailure
   }
 
-internal fun CoreLocationFix.asMapLibreLocation(): Location =
-  Location(
-    position =
-      PositionWithAccuracy(
-        value = Position(longitude = longitude, latitude = latitude, altitude = altitude),
-        accuracy = horizontalAccuracy.meters,
-      ),
+internal fun CoreLocationReading.asMapLibreLocationReading(): LocationReading =
+  LocationReading(
+    position = Position(longitude = longitude, latitude = latitude, altitude = altitude),
+    horizontalAccuracy = horizontalAccuracy.meters,
     altitudeAccuracy = if (verticalAccuracy >= 0.0) verticalAccuracy.meters else null,
-    course =
-      if (course >= 0.0) {
-        BearingWithAccuracy(
-          value = Bearing.North + course.degrees,
-          accuracy = if (courseAccuracy >= 0.0) courseAccuracy.degrees else null,
-        )
-      } else {
-        null
-      },
-    speed =
-      if (speed >= 0.0) {
-        SpeedWithAccuracy(
-          distancePerSecond = speed.meters,
-          accuracy = if (speedAccuracy >= 0.0) speedAccuracy.meters else null,
-        )
-      } else {
-        null
-      },
-    timestamp = TimeSource.Monotonic.markNow() - ageAtReceipt(),
+    course = if (course >= 0.0) Bearing.North + course.degrees else null,
+    courseAccuracy = if (course >= 0.0 && courseAccuracy >= 0.0) courseAccuracy.degrees else null,
+    speed = if (speed >= 0.0) speed.meters else null,
+    speedAccuracy = if (speed >= 0.0 && speedAccuracy >= 0.0) speedAccuracy.meters else null,
+    measuredAt = Clock.System.now() - ageAtReceipt(),
   )
 
-internal fun CoreLocationFix.ageAtReceipt(): Duration = ageSeconds.coerceAtLeast(0.0).seconds
+internal fun CoreLocationReading.ageAtReceipt(): Duration = ageSeconds.coerceAtLeast(0.0).seconds
 
 internal fun readPermission(
   authorizationStatus: Long,

@@ -4,6 +4,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.spatialk.units.Bearing
+import org.maplibre.spatialk.units.Rotation
 import org.maplibre.spatialk.units.extensions.degrees
 import org.maplibre.spatialk.units.extensions.inDegrees
 
@@ -24,14 +25,14 @@ public suspend fun LocationChangeScope.updateCamera(
     when (updateBearing) {
       BearingUpdate.IGNORE -> null
       BearingUpdate.ALWAYS_NORTH -> Bearing.North
-      BearingUpdate.TRACK_COURSE -> currentLocation.course?.value
-      BearingUpdate.TRACK_ORIENTATION -> currentOrientation?.orientation?.value
+      BearingUpdate.TRACK_COURSE -> currentReading.course
+      BearingUpdate.TRACK_HEADING -> currentHeading?.bearing
       BearingUpdate.TRACK_AUTOMATIC -> mostAccurateBearing()
     }
 
   val newPosition =
     camera.position.copy(
-      target = currentLocation.position.value,
+      target = currentReading.position,
       bearing =
         when (updateBearing) {
           BearingUpdate.IGNORE -> camera.position.bearing
@@ -54,17 +55,22 @@ public enum class BearingUpdate {
   /** Update camera rotation based on location course (direction of movement). */
   TRACK_COURSE,
 
-  /** Update camera rotation based on device orientation (heading). */
-  TRACK_ORIENTATION,
+  /** Update camera rotation based on the device heading. */
+  TRACK_HEADING,
 
   /**
    * Update the camera's bearing based on the more accurate of two sources: course (direction of
-   * movement) or orientation (device heading).
+   * movement) or heading (the direction that the device faces).
    */
   TRACK_AUTOMATIC,
 }
 
 private fun LocationChangeScope.mostAccurateBearing(): Bearing? =
-  listOfNotNull(currentLocation.course, currentOrientation?.orientation)
+  listOfNotNull(
+      currentReading.course?.let { CameraBearingMeasurement(it, currentReading.courseAccuracy) },
+      currentHeading?.let { CameraBearingMeasurement(it.bearing, it.accuracy) },
+    )
     .minByOrNull { it.accuracy ?: Double.POSITIVE_INFINITY.degrees }
-    ?.value
+    ?.bearing
+
+private data class CameraBearingMeasurement(val bearing: Bearing, val accuracy: Rotation?)

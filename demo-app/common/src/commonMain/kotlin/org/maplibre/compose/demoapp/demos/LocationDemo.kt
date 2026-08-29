@@ -29,7 +29,6 @@ import org.maplibre.compose.location.LocationState
 import org.maplibre.compose.location.LocationTrackingEffect
 import org.maplibre.compose.location.LocationTrackingStatus
 import org.maplibre.compose.location.LocationUnavailableReason
-import org.maplibre.compose.location.mostAccurateBearing
 import org.maplibre.compose.location.rememberLocationState
 import org.maplibre.compose.location.rememberSystemSettingsLauncher
 import org.maplibre.compose.location.updateCamera
@@ -44,7 +43,7 @@ object LocationDemo : Demo {
   override val destination = DemoDestination.None
 
   override val pointerPin: DemoPointerPin?
-    get() = lastFix?.let { position ->
+    get() = lastReading?.let { position ->
       val delta = 0.005
       val bounds =
         BoundingBox(
@@ -59,7 +58,7 @@ object LocationDemo : Demo {
   private var follow by mutableStateOf(true)
   private var engine by mutableStateOf(demoLocationEngines.first())
   private var useNativeIndicator by mutableStateOf(false)
-  private var lastFix by mutableStateOf<Position?>(null)
+  private var lastReading by mutableStateOf<Position?>(null)
   private var panelLocationState by mutableStateOf<LocationState?>(null)
   private var panelLocationBackendId by mutableStateOf<String?>(null)
 
@@ -69,7 +68,7 @@ object LocationDemo : Demo {
     val locationState =
       rememberLocationState(
         provider = locationProvider,
-        orientationProvider = engine.rememberOrientationProvider(),
+        headingProvider = engine.rememberHeadingProvider(),
       )
     DisposableEffect(locationState, locationProvider) {
       panelLocationState = locationState
@@ -95,13 +94,13 @@ object LocationDemo : Demo {
         }
     }
 
-    val location = locationState.location
-    LaunchedEffect(location) { location?.position?.value?.let { lastFix = it } }
+    val location = locationState.lastReading
+    LaunchedEffect(location) { location?.position?.let { lastReading = it } }
 
     LocationTrackingEffect(locationState = locationState, enabled = follow) {
-      if (previousLocation == null) {
+      if (previousReading == null) {
         cameraState.animateTo(
-          CameraPosition(target = currentLocation.position.value, zoom = 16.0),
+          CameraPosition(target = currentReading.position, zoom = 16.0),
           duration = DemoFlightDuration,
         )
       } else {
@@ -110,12 +109,11 @@ object LocationDemo : Demo {
     }
 
     if (useNativeIndicator) {
-      NativeLocationIndicator(location = location, bearing = locationState.mostAccurateBearing())
+      DemoNativeLocationPuck(locationState)
     } else {
       LocationPuck(
         idPrefix = "user",
-        location = location,
-        bearing = locationState.mostAccurateBearing(),
+        locationState = locationState,
         cameraState = cameraState,
         colors = LocationPuckDefaults.colors(),
       )
@@ -150,7 +148,7 @@ object LocationDemo : Demo {
       ButtonRow("Retry") { panelLocationState?.retry() }
     }
     SwitchRow("Follow me", follow) { follow = it }
-    if (isNativeLocationIndicatorAvailable) {
+    if (isDemoNativeLocationPuckAvailable) {
       SwitchRow("Native indicator", useNativeIndicator) { useNativeIndicator = it }
     }
     if (demoLocationEngines.size > 1) {

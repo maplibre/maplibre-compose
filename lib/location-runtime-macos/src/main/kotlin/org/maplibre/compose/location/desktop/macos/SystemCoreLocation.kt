@@ -51,7 +51,7 @@ internal class SystemCoreLocationManager : CoreLocationManager {
       onMain { ObjectiveC.sendVoidDouble(manager, "setDistanceFilter:", value) }
     }
 
-  override val location: CoreLocationFix?
+  override val location: CoreLocationReading?
     get() = onMain {
       val value = ObjectiveC.sendPointer(manager, "location")
       if (value == NULL) null else readCoreLocation(value)
@@ -261,7 +261,7 @@ internal object CoreLocationDelegateClass {
   }
 }
 
-internal fun readLocations(array: Long): List<CoreLocationFix> {
+internal fun readLocations(array: Long): List<CoreLocationReading> {
   if (array == NULL) return emptyList()
   val count = ObjectiveC.sendLong(array, "count")
   return (0L until count).map { index ->
@@ -269,14 +269,14 @@ internal fun readLocations(array: Long): List<CoreLocationFix> {
   }
 }
 
-internal fun readCoreLocation(location: Long): CoreLocationFix {
+internal fun readCoreLocation(location: Long): CoreLocationReading {
   check(location != NULL) { "CLLocation is null" }
   val coordinate = ObjectiveC.sendCoordinate(location, "coordinate")
   val timestamp = ObjectiveC.sendPointer(location, "timestamp")
   val ageSeconds =
     if (timestamp == NULL) 0.0
     else (-ObjectiveC.sendDouble(timestamp, "timeIntervalSinceNow")).coerceAtLeast(0.0)
-  return CoreLocationFix(
+  return CoreLocationReading(
     latitude = coordinate.latitude,
     longitude = coordinate.longitude,
     altitude = ObjectiveC.sendDouble(location, "altitude"),

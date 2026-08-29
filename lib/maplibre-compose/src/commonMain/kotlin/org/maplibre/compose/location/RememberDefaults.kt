@@ -1,8 +1,8 @@
 package org.maplibre.compose.location
 
 import androidx.compose.runtime.Composable
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 
 /**
  * Creates and remembers the default location provider for the current platform.
@@ -15,14 +15,16 @@ import kotlin.time.Duration.Companion.seconds
 @Composable public expect fun rememberDefaultLocationProvider(): LocationProvider
 
 /**
- * Creates and remembers the default orientation provider for the current platform.
+ * Creates and remembers the default heading provider for the current platform.
  *
- * Android and iOS supply sensor-based headings. Web and desktop return [NullOrientationProvider].
+ * Android and iOS supply sensor-based headings. Web and desktop return a provider that completes
+ * without measurements.
  */
-@Composable
-public expect fun rememberDefaultOrientationProvider(
-  updateInterval: Duration = 1.seconds
-): OrientationProvider
+@Composable public expect fun rememberDefaultHeadingProvider(): HeadingProvider
+
+internal object NoHeadingProvider : HeadingProvider {
+  override fun updates(request: HeadingRequest): Flow<Heading> = emptyFlow()
+}
 
 /** Creates and remembers the platform [SystemSettingsLauncher]. */
 @Composable public expect fun rememberSystemSettingsLauncher(): SystemSettingsLauncher

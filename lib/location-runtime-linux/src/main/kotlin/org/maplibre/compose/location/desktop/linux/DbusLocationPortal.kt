@@ -28,14 +28,11 @@ import org.freedesktop.dbus.interfaces.DBus
 import org.freedesktop.dbus.interfaces.Properties
 import org.freedesktop.dbus.types.UInt32
 import org.freedesktop.dbus.types.Variant
-import org.maplibre.compose.location.BearingWithAccuracy
-import org.maplibre.compose.location.Location
 import org.maplibre.compose.location.LocationAccuracy
 import org.maplibre.compose.location.LocationEvent
+import org.maplibre.compose.location.LocationReading
 import org.maplibre.compose.location.LocationRequest
 import org.maplibre.compose.location.LocationUnavailableReason
-import org.maplibre.compose.location.PositionWithAccuracy
-import org.maplibre.compose.location.SpeedWithAccuracy
 import org.maplibre.compose.location.XdgPortalWindow
 import org.maplibre.compose.location.desktop.linux.portal.LocationPortal
 import org.maplibre.compose.location.desktop.linux.portal.PortalRequest
@@ -222,7 +219,7 @@ internal class DbusLocationPortal(private val window: XdgPortalWindow? = null) :
     }
   }
 
-  // No distance-threshold: GeoClue emits nothing, not even the first fix, when the position has
+  // No distance-threshold: GeoClue emits nothing, not even the first reading, when the position has
   // not moved that far, and a GeoIP-located desktop never moves.
   private fun sessionOptions(request: LocationRequest): Map<String, Variant<*>> =
     mapOf(
@@ -262,7 +259,7 @@ private val LocationAccuracy.portalValue: Long
 private fun Duration.asPortalThreshold(): Long =
   ceil(inWholeMilliseconds / 1_000.0).toLong().coerceIn(0, UInt32.MAX_VALUE)
 
-internal fun Map<String, Variant<*>>.toLocationEvent(): LocationEvent.Fix {
+internal fun Map<String, Variant<*>>.toLocationEvent(): LocationEvent.Update {
   val timestamp =
     get("Timestamp")?.let {
       StructHelper.createStructFromVariant(it, PortalTimestamp::class.java)
@@ -275,35 +272,23 @@ internal fun Map<String, Variant<*>>.toLocationEvent(): LocationEvent.Fix {
       )
     } ?: Clock.System.now()
   val location =
-    Location(
+    LocationReading(
       position =
-        PositionWithAccuracy(
-          value =
-            Position(
-              longitude = number("Longitude") ?: error("Portal location has no Longitude"),
-              latitude = number("Latitude") ?: error("Portal location has no Latitude"),
-              // GeoClue reports unknown altitude as -G_MAXDOUBLE.
-              altitude = number("Altitude")?.takeIf { it != -Double.MAX_VALUE },
-            ),
-          accuracy = number("Accuracy")?.meters,
+        Position(
+          longitude = number("Longitude") ?: error("Portal location has no Longitude"),
+          latitude = number("Latitude") ?: error("Portal location has no Latitude"),
+          // GeoClue reports unknown altitude as -G_MAXDOUBLE.
+          altitude = number("Altitude")?.takeIf { it != -Double.MAX_VALUE },
         ),
-      speed =
-        number("Speed")
-          ?.takeIf { it >= 0.0 }
-          ?.let {
-            SpeedWithAccuracy(it.meters, accuracy = null)
-          },
-      course =
-        number("Heading")
-          ?.takeIf { it >= 0.0 }
-          ?.let {
-            BearingWithAccuracy(Bearing.North + it.degrees, accuracy = null)
-          },
-      timestamp =
-        TimeSource.Monotonic.markNow() -
-          (Clock.System.now() - capturedAt).coerceAtLeast(Duration.ZERO),
+      horizontalAccuracy = number("Accuracy")?.meters,
+      speed = number("Speed")?.takeIf { it >= 0.0 }?.meters,
+      course = number("Heading")?.takeIf { it >= 0.0 }?.let { Bearing.North + it.degrees },
+      measuredAt = capturedAt,
     )
-  return LocationEvent.Fix(location)
+  return LocationEvent.Update(
+    location,
+    TimeSource.Monotonic.markNow() - (Clock.System.now() - capturedAt).coerceAtLeast(Duration.ZERO),
+  )
 }
 
 private fun Map<String, Variant<*>>.number(name: String): Double? =

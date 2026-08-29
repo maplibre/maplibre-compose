@@ -3,6 +3,7 @@ package org.maplibre.compose.location.desktop.macos
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.CoroutineContext
+import kotlin.time.TimeSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.SendChannel
@@ -154,7 +155,7 @@ internal constructor(
     private val client: CoreLocationClient,
     private val ioDispatcher: CoroutineContext,
   ) : CoreLocationDelegate {
-    override fun didUpdateLocations(locations: List<CoreLocationFix>) {
+    override fun didUpdateLocations(locations: List<CoreLocationReading>) {
       locations.forEach(::sendLocation)
     }
 
@@ -172,9 +173,14 @@ internal constructor(
 
     override fun didChangeAuthorization() = Unit
 
-    fun sendLocation(location: CoreLocationFix) {
+    fun sendLocation(location: CoreLocationReading) {
       if (location.horizontalAccuracy < 0.0) return
-      channel.trySend(LocationEvent.Fix(location.asMapLibreLocation()))
+      channel.trySend(
+        LocationEvent.Update(
+          location.asMapLibreLocationReading(),
+          TimeSource.Monotonic.markNow() - location.ageAtReceipt(),
+        )
+      )
     }
   }
 }
@@ -233,7 +239,7 @@ internal constructor(private val client: CoreLocationClient) : AutoCloseable {
 
   private val delegate =
     object : CoreLocationDelegate {
-      override fun didUpdateLocations(locations: List<CoreLocationFix>) = Unit
+      override fun didUpdateLocations(locations: List<CoreLocationReading>) = Unit
 
       override fun didFailWithError(error: CoreLocationError) {
         manager?.stopUpdatingLocation()

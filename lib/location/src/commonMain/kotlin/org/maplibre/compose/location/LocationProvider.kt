@@ -1,7 +1,10 @@
 package org.maplibre.compose.location
 
+import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeMark
+import kotlin.time.TimeSource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -60,7 +63,7 @@ public interface LocationProvider {
    * Each collector starts an independent platform location request. Cancelling collection stops
    * that request and unregisters its callbacks.
    */
-  public fun updates(request: LocationRequest): Flow<LocationEvent>
+  public fun updates(request: LocationRequest = LocationRequest()): Flow<LocationEvent>
 }
 
 private val AlwaysGrantedLocationPermission: StateFlow<LocationPermission> =
@@ -70,7 +73,7 @@ private val AlwaysGrantedLocationPermission: StateFlow<LocationPermission> =
  * Whether a location implementation has a usable platform backend.
  *
  * This describes application and backend setup. It does not describe location permission, system
- * location services, or whether the next request can obtain a fix.
+ * location services, or whether the next request can obtain a reading.
  */
 public sealed interface LocationBackendAvailability {
   /** A platform implementation is installed and initialized. */
@@ -144,8 +147,16 @@ public enum class LocationAccuracy {
 
 /** Events emitted while collecting [LocationProvider.updates]. */
 public sealed interface LocationEvent {
-  /** A measured location. */
-  public data class Fix(val location: Location) : LocationEvent
+  /**
+   * A location reading delivered by the provider.
+   *
+   * @property reading The delivered location reading.
+   * @property measurementMark Process-local monotonic mark for when [reading] was measured.
+   */
+  public data class Update(
+    val reading: LocationReading,
+    val measurementMark: TimeMark = reading.measurementMark(),
+  ) : LocationEvent
 
   /**
    * A condition or failure that currently prevents location delivery.
@@ -158,6 +169,9 @@ public sealed interface LocationEvent {
     val cause: Throwable? = null,
   ) : LocationEvent
 }
+
+private fun LocationReading.measurementMark(): TimeMark =
+  TimeSource.Monotonic.markNow() - (Clock.System.now() - measuredAt).coerceAtLeast(Duration.ZERO)
 
 /** Reasons that a provider cannot currently deliver location measurements. */
 public enum class LocationUnavailableReason {
@@ -172,8 +186,8 @@ public enum class LocationUnavailableReason {
   /**
    * The provider cannot deliver a location now, but a later location request may succeed.
    *
-   * For example, a device in a tunnel may temporarily lose its GPS fix, or a browser request may
-   * time out before a position is available.
+   * For example, a device in a tunnel may temporarily lose satellite positioning, or a browser
+   * request may time out before a position is available.
    */
   TemporarilyUnavailable,
 

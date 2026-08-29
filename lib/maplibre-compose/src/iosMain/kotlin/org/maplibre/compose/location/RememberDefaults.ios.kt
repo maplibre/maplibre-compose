@@ -2,8 +2,6 @@ package org.maplibre.compose.location
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlin.time.Duration
 
 @Composable
 public actual fun rememberDefaultLocationProvider(): LocationProvider = remember {
@@ -11,13 +9,8 @@ public actual fun rememberDefaultLocationProvider(): LocationProvider = remember
 }
 
 @Composable
-public actual fun rememberDefaultOrientationProvider(
-  updateInterval: Duration
-): OrientationProvider {
-  val coroutineScope = rememberCoroutineScope()
-  return remember(updateInterval, coroutineScope) {
-    IosOrientationProvider(updateInterval, coroutineScope)
-  }
+public actual fun rememberDefaultHeadingProvider(): HeadingProvider = remember {
+  IosHeadingProvider()
 }
 
 @Composable

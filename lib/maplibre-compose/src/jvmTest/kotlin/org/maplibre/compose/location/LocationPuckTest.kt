@@ -9,43 +9,56 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.spatialk.geojson.Position
+import org.maplibre.spatialk.units.Bearing
+import org.maplibre.spatialk.units.extensions.degrees
 
 @OptIn(ExperimentalTestApi::class)
 class LocationPuckTest {
   @Test
   fun locationFeatureExposesStaleness() {
     val location =
-      Location(
-        position = PositionWithAccuracy(Position(longitude = 13.0, latitude = 52.0), null),
-        timestamp = TimeSource.Monotonic.markNow(),
+      LocationReading(
+        position = Position(longitude = 13.0, latitude = 52.0),
+        measuredAt = Clock.System.now(),
       )
 
-    val feature = locationFeatures(location, bearing = null, isOldLocation = true).features.single()
+    val feature =
+      locationFeatures(location, bearing = null, bearingAccuracy = null, isOldLocation = true)
+        .features
+        .single()
 
     assertEquals(true, feature.properties["isOldLocation"]?.jsonPrimitive?.boolean)
   }
 
   @Test
-  fun unchangedLocationBecomesOldAndNewLocationStartsFresh() = runComposeUiTest {
-    mainClock.autoAdvance = false
-    var location by
-      mutableStateOf(
-        Location(
-          position =
-            PositionWithAccuracy(
-              value = Position(longitude = 13.0, latitude = 52.0),
-              accuracy = null,
-            ),
-          timestamp = TimeSource.Monotonic.markNow(),
-        )
+  fun courseAccuracyIsOnlyTheDefaultForTheCourseBearing() {
+    val course = Bearing.North + 30.degrees
+    val accuracy = 5.degrees
+    val location =
+      LocationReading(
+        position = Position(longitude = 13.0, latitude = 52.0),
+        course = course,
+        courseAccuracy = accuracy,
+        measuredAt = Clock.System.now(),
       )
+
+    assertEquals(accuracy, defaultBearingAccuracy(location, course))
+    assertEquals(null, defaultBearingAccuracy(location, Bearing.North + 90.degrees))
+    assertEquals(null, defaultBearingAccuracy(location, null))
+  }
+
+  @Test
+  fun measurementBecomesOldAndNewMeasurementStartsFresh() = runComposeUiTest {
+    mainClock.autoAdvance = false
+    var measurementMark by mutableStateOf(TimeSource.Monotonic.markNow())
     var isOld = false
-    setContent { isOld = rememberIsLocationOld(location, 1.seconds) }
+    setContent { isOld = rememberIsLocationOld(1.seconds, measurementMark) }
 
     mainClock.advanceTimeByFrame()
     waitForIdle()
@@ -55,9 +68,27 @@ class LocationPuckTest {
     waitForIdle()
     assertTrue(isOld)
 
-    location = location.copy(timestamp = TimeSource.Monotonic.markNow())
+    measurementMark = TimeSource.Monotonic.markNow()
     mainClock.advanceTimeByFrame()
     waitForIdle()
     assertFalse(isOld)
+  }
+
+  @Test
+  fun suppliedMonotonicMarkDeterminesLiveStaleness() = runComposeUiTest {
+    val location =
+      LocationReading(
+        position = Position(longitude = 13.0, latitude = 52.0),
+        measuredAt = Clock.System.now(),
+      )
+    val measurementMark = TimeSource.Monotonic.markNow() - 2.seconds
+    var isOld = false
+
+    setContent {
+      isOld = rememberIsLocationOld(1.seconds, measurementMark)
+    }
+
+    waitForIdle()
+    assertTrue(isOld)
   }
 }

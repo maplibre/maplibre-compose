@@ -8,9 +8,8 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.location.LocationPuck
 import org.maplibre.compose.location.LocationTrackingEffect
-import org.maplibre.compose.location.mostAccurateBearing
+import org.maplibre.compose.location.rememberDefaultHeadingProvider
 import org.maplibre.compose.location.rememberDefaultLocationProvider
-import org.maplibre.compose.location.rememberDefaultOrientationProvider
 import org.maplibre.compose.location.rememberLocationState
 import org.maplibre.compose.map.MaplibreMap
 
@@ -23,25 +22,23 @@ fun Location() {
   val cameraState = rememberCameraState()
 
   val locationProvider = rememberDefaultLocationProvider()
-  val orientationProvider =
-    rememberDefaultOrientationProvider() // optional: get device orientation from sensors
+  val headingProvider = rememberDefaultHeadingProvider() // optional: get heading from sensors
+
   val locationState =
     rememberLocationState(
       provider = locationProvider,
-      orientationProvider = orientationProvider,
+      headingProvider = headingProvider,
     )
 
   MaplibreMap(cameraState = cameraState) {
     LocationPuck(
       idPrefix = "user",
-      location = locationState.location,
-      // optional: combine course and orientation bearing
-      bearing = locationState.mostAccurateBearing(),
+      locationState = locationState,
       cameraState = cameraState,
     )
 
-    LocationTrackingEffect(locationState = locationState) {
-      cameraState.animateTo(CameraPosition(target = currentLocation.position.value, zoom = 15.0))
+    LocationTrackingEffect(locationState) {
+      cameraState.animateTo(CameraPosition(target = currentReading.position, zoom = 15.0))
     }
   }
   // #endregion puck
