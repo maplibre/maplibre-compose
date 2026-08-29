@@ -440,7 +440,7 @@ internal class MlnFfiMapSession(
     if (lifecycleRenderLease == lease) lifecycleRenderLease = null
     // This must happen before the first suspension. A host may tear down its renderer thread as
     // soon as close() returns, but the native handle can only be closed through that thread.
-    closeRenderSession()
+    closeRenderSessionForLifecycle()
     updateOwnerThreadPresentation {
       if (ownerThreadRenderLease == lease) ownerThreadRenderLease = null
     }
@@ -538,26 +538,33 @@ internal class MlnFfiMapSession(
     }
   }
 
-  /**
-   * Never throws. The bookkeeping is cleared first and unconditionally: a stale [attachedTarget]
-   * would leave the next frame attaching a second session to a map that permits only one.
-   */
+  /** Best-effort cleanup for render and surface transitions that cannot report a failure. */
   private fun closeRenderSession() {
+    releaseRenderSession()?.let { logger?.e(it) { "Failed to close the MapLibre render session" } }
+  }
+
+  /** Lifecycle cleanup reports this resource failure so [MapLifecycleAuthority.awaitClosed] can. */
+  private fun closeRenderSessionForLifecycle() {
+    releaseRenderSession()?.let { throw it }
+  }
+
+  /** Clears bookkeeping before attempting the owner-thread close and returns its failure. */
+  private fun releaseRenderSession(): Throwable? {
     val handle = renderSession
     renderSession = null
     renderSessionReady = false
     attachedTarget = null
-    if (handle == null) return
+    if (handle == null) return null
 
     val host = hostSession
     if (host == null) {
       // Only the thread that attached the handle may close it, and that is reached through the
       // host.
-      logger?.w { "Leaking a MapLibre render session: its host surface is already gone" }
-      return
+      return IllegalStateException(
+        "Cannot close the MapLibre render session because its host surface is already gone"
+      )
     }
-    runCatching { host.withRendererAccess { handle.close() } }
-      .onFailure { logger?.e(it) { "Failed to close the MapLibre render session" } }
+    return runCatching { host.withRendererAccess { handle.close() } }.exceptionOrNull()
   }
 
   // endregion
