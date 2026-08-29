@@ -16,6 +16,7 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.browser.window
 import kotlinx.coroutines.await
 import org.jetbrains.skiko.wasm.onWasmReady
+import org.maplibre.compose.camera.CameraPosition
 
 /**
  * The worker URL Karma serves the suite, copied next to the test bundle by
@@ -69,6 +70,15 @@ internal suspend fun ComposeUiTest.waitUntilMap(
     yieldToBrowser()
   }
 }
+
+internal fun CameraPosition.isNear(other: CameraPosition): Boolean =
+  target.longitude.isNear(other.target.longitude) &&
+    target.latitude.isNear(other.target.latitude) &&
+    zoom.isNear(other.zoom) &&
+    bearing.isNear(other.bearing) &&
+    tilt.isNear(other.tilt)
+
+private fun Double.isNear(other: Double): Boolean = kotlin.math.abs(this - other) < 0.001
 
 /** Gives the browser's own event loop a turn, which the test dispatcher otherwise never does. */
 internal suspend fun yieldToBrowser() {
