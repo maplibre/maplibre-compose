@@ -20,6 +20,7 @@ import org.maplibre.compose.style.StyleBinding
 @Composable
 internal actual fun ComposableMapView(
   modifier: Modifier,
+  runtime: RuntimeImplementation?,
   style: BaseStyle,
   rememberedStyle: StyleBinding?,
   update: (map: MapAdapter) -> Unit,
@@ -45,11 +46,9 @@ internal actual fun ComposableMapView(
   // Must run in the apply phase, not from a coroutine: the unload has to precede the content
   // subcomposition inserting layers, or a style switch crashes on anchor validation (see #269).
   SideEffect { session.setBaseStyle(style) }
+  SideEffect { update(session) }
 
-  LaunchedEffect(session, options, update) {
-    update(session)
-    session.start()
-  }
+  LaunchedEffect(session) { session.start() }
 
   DisposableEffect(session) {
     onDispose {

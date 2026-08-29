@@ -7,12 +7,15 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
@@ -37,6 +40,64 @@ import org.maplibre.compose.util.MapClickHandler
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
+
+private class MapStateAttachment(
+  private val state: MapState,
+  private val token: MapPresentationToken,
+) {
+  val runtime: RuntimeImplementation
+    get() = state.runtime
+
+  fun publish(map: MapAdapter) {
+    state.publishPresentation(token, map)
+  }
+
+  fun release(map: MapAdapter? = null) {
+    state.releasePresentation(token, map)
+  }
+
+  fun markStyleReady(map: MapAdapter) {
+    state.markStyleReady(map)
+  }
+
+  fun markStyleFailed(map: MapAdapter, reason: String?) {
+    state.markStyleFailed(map, reason)
+  }
+}
+
+private val LocalMapStateAttachment = staticCompositionLocalOf<MapStateAttachment?> { null }
+
+/**
+ * Displays [state] through one temporary presentation.
+ *
+ * The caller keeps [state] alive. This composable creates only the current presentation and
+ * releases it when the call leaves composition.
+ */
+@Composable
+public fun MaplibreMap(
+  state: MapState,
+  modifier: Modifier = Modifier,
+  options: MapOptions = MapOptions(),
+  contentWindowInsets: WindowInsets = WindowInsets.safeDrawing,
+  overlay: MapOverlay = MapOverlay.Default,
+  content: @Composable @MaplibreComposable () -> Unit = {},
+) {
+  val token = remember(state) { state.reservePresentation() }
+  val attachment = remember(state, token) { MapStateAttachment(state, token) }
+  DisposableEffect(attachment) { onDispose { attachment.release() } }
+  CompositionLocalProvider(LocalMapStateAttachment provides attachment) {
+    MaplibreMap(
+      modifier = modifier,
+      baseStyle = state.style.baseStyle,
+      cameraState = state.cameraState,
+      styleState = state.compatibilityStyleState,
+      options = options,
+      contentWindowInsets = contentWindowInsets,
+      overlay = overlay,
+      content = content,
+    )
+  }
+}
 
 /**
  * Displays a MapLibre based map.
@@ -144,6 +205,7 @@ public fun MaplibreMap(
     return
   }
 
+  val stateAttachment = LocalMapStateAttachment.current
   var rememberedStyle by remember { mutableStateOf<StyleBinding?>(null) }
   val styleComposition by rememberStyleComposition(styleState, rememberedStyle, logger, content)
   val mapClickScope = rememberCoroutineScope()
@@ -152,7 +214,7 @@ public fun MaplibreMap(
   SideEffect { cameraState.density = density }
 
   val callbacks =
-    remember(cameraState, styleState, styleComposition, mapClickScope) {
+    remember(cameraState, styleState, styleComposition, mapClickScope, stateAttachment) {
       object : MapAdapter.Callbacks {
         override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
           rememberedStyle = style
@@ -160,10 +222,12 @@ public fun MaplibreMap(
         }
 
         override fun onMapFailLoading(reason: String?) {
+          cameraState.map?.let { map -> stateAttachment?.markStyleFailed(map, reason) }
           onMapLoadFailed(reason)
         }
 
         override fun onMapFinishedLoading(map: MapAdapter) {
+          stateAttachment?.markStyleReady(map)
           styleState.refreshSources()
           onMapLoadFinished()
         }
@@ -252,10 +316,12 @@ public fun MaplibreMap(
   Box(modifier.fillMaxSize()) {
     ComposableMapView(
       modifier = Modifier.fillMaxSize(),
+      runtime = stateAttachment?.runtime,
       style = baseStyle,
       update = { map ->
         map.setCameraPadding(cameraPadding)
         cameraState.map = map
+        stateAttachment?.publish(map)
         map.setCameraConstraints(
           CameraConstraints(
             minZoom = zoomRange.start.toDouble(),
@@ -270,6 +336,7 @@ public fun MaplibreMap(
         map.setTileLodSettings(options.tileLodOptions)
       },
       onReset = {
+        stateAttachment?.release(cameraState.map)
         cameraState.map = null
         rememberedStyle = null
       },

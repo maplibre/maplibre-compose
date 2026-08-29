@@ -7,7 +7,7 @@ import platform.Foundation.NSCachesDirectory
 import platform.Foundation.NSSearchPathForDirectoriesInDomains
 import platform.Foundation.NSUserDomainMask
 
-/** Process-wide configuration for MapLibre Native on iOS. */
+/** Configuration for one MapLibre Native runtime on iOS. */
 @Immutable
 public data class IosRuntimeOptions(
   /** Where the ambient resource cache and offline-region database live. */

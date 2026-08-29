@@ -9,6 +9,7 @@ import org.maplibre.compose.style.StyleBinding
 @Composable
 internal expect fun ComposableMapView(
   modifier: Modifier,
+  runtime: RuntimeImplementation?,
   style: BaseStyle,
   rememberedStyle: StyleBinding?,
   update: (map: MapAdapter) -> Unit,

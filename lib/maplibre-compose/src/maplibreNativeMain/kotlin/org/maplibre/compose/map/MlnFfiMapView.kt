@@ -38,6 +38,7 @@ internal const val MAP_LOAD_PLACEHOLDER_TAG = "maplibre-map-load-placeholder"
 internal fun MlnFfiMapView(
   hostFactory: MlnFfiMapHostFactory,
   modifier: Modifier,
+  runtimeOptions: org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions? = null,
   style: BaseStyle,
   update: (map: MapAdapter) -> Unit,
   onReset: () -> Unit,
@@ -65,6 +66,7 @@ internal fun MlnFfiMapView(
       )
     },
     modifier = modifier,
+    runtimeOptions = runtimeOptions,
     style = style,
     update = update,
     onReset = onReset,
@@ -80,6 +82,7 @@ internal fun MlnFfiMapView(
   renderBackend: MapRenderBackend,
   surface: @Composable (MlnFfiMapRenderer, Modifier, Logger?, Boolean) -> Unit,
   modifier: Modifier,
+  runtimeOptions: org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions? = null,
   style: BaseStyle,
   update: (map: MapAdapter) -> Unit,
   onReset: () -> Unit,
@@ -87,8 +90,8 @@ internal fun MlnFfiMapView(
   callbacks: MapAdapter.Callbacks,
   options: MapOptions,
 ) {
-  EnsureMlnFfiConfigured()
-  val applicationOptions = MlnFfiApplication.options
+  if (runtimeOptions == null) EnsureMlnFfiConfigured()
+  val applicationOptions = runtimeOptions ?: MlnFfiApplication.options
   val layoutDirection = LocalLayoutDirection.current
   val density = LocalDensity.current
   val scaleFactor = density.density.toDouble()
@@ -114,12 +117,10 @@ internal fun MlnFfiMapView(
   // Must run in the apply phase, not from a coroutine: the unload has to precede the content
   // subcomposition inserting layers, or a style switch fails anchor validation (see #269).
   SideEffect { session.setBaseStyle(style) }
+  // Publish the adapter before another thread can close a runtime whose composition has applied.
+  SideEffect { update(session) }
 
-  LaunchedEffect(session, options, update) {
-    // Attach deferred state before native events can report the map's default state to Compose.
-    update(session)
-    session.start()
-  }
+  LaunchedEffect(session) { session.start() }
 
   DisposableEffect(session) {
     onDispose {

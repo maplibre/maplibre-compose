@@ -13,7 +13,12 @@ import kotlin.test.Test
 import kotlin.test.assertNotSame
 import kotlin.test.assertTrue
 import org.maplibre.compose.map.MapAdapter
+import org.maplibre.compose.map.MapRuntime
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
+import org.maplibre.compose.map.StyleLoadState
+import org.maplibre.compose.map.rememberMapRuntime
+import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiApplication
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
@@ -32,33 +37,37 @@ class AndroidCameraStateRecreationTest {
 
     try {
       runAndroidComposeUiTest<CameraStateRecreationActivity> {
-        waitUntil(timeoutMillis = TIMEOUT_MILLIS) { activity?.cameraState?.map != null }
+        waitUntil(timeoutMillis = TIMEOUT_MILLIS) { activity?.mapState?.presentation != null }
         val firstActivity = requireNotNull(activity)
+        val firstState = requireNotNull(firstActivity.mapState)
+        assertTrue(firstActivity.defaultRuntimeIsShared)
 
-        runOnIdle { requireNotNull(firstActivity.cameraState).position = EXPECTED_CAMERA }
+        runOnIdle { firstState.cameraState.position = EXPECTED_CAMERA }
         waitUntil(timeoutMillis = TIMEOUT_MILLIS) {
-          firstActivity.cameraState?.map?.hasCamera(EXPECTED_CAMERA) == true
+          firstState.presentation?.adapter?.hasCamera(EXPECTED_CAMERA) == true
         }
 
         runOnIdle { firstActivity.recreate() }
         waitUntil(timeoutMillis = TIMEOUT_MILLIS) {
           activity != null &&
             activity !== firstActivity &&
-            activity?.cameraState?.map?.hasCamera(EXPECTED_CAMERA) == true
+            activity?.mapState?.presentation?.adapter?.hasCamera(EXPECTED_CAMERA) == true
         }
 
         val replacementActivity = requireNotNull(activity)
         assertNotSame(firstActivity, replacementActivity, "the activity should have been recreated")
-        val restoredState = requireNotNull(replacementActivity.cameraState)
-        assertCamera(EXPECTED_CAMERA, restoredState.position, "restored CameraState")
+        val restoredState = requireNotNull(replacementActivity.mapState)
+        assertNotSame(firstState, restoredState, "restoration should create a new logical map")
+        assertCamera(EXPECTED_CAMERA, restoredState.cameraPosition, "restored MapState")
         assertCamera(
           EXPECTED_CAMERA,
-          requireNotNull(restoredState.map).getCameraPosition(),
+          requireNotNull(restoredState.presentation).adapter.getCameraPosition(),
           "replacement native map",
         )
+        assertTrue(restoredState.style.baseStyle == BaseStyle.Empty)
         assertTrue(
-          replacementActivity.mapLoadFailures.isEmpty(),
-          "the replacement map reported load failures: ${replacementActivity.mapLoadFailures}",
+          restoredState.style.loadState !is StyleLoadState.Failed,
+          "the replacement map reported ${restoredState.style.loadState}",
         )
       }
     } finally {
@@ -102,21 +111,25 @@ class AndroidCameraStateRecreationTest {
 }
 
 class CameraStateRecreationActivity : ComponentActivity() {
-  var cameraState: CameraState? = null
+  var mapState: MapState? = null
     private set
 
-  val mapLoadFailures = mutableListOf<String?>()
+  var defaultRuntimeIsShared: Boolean = false
+    private set
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     setContent {
-      val state = rememberCameraState()
-      SideEffect { cameraState = state }
+      val firstRuntime: MapRuntime = rememberMapRuntime()
+      val secondRuntime: MapRuntime = rememberMapRuntime()
+      val state = rememberMapState(firstRuntime, initialBaseStyle = BaseStyle.Empty)
+      SideEffect {
+        mapState = state
+        defaultRuntimeIsShared = firstRuntime === secondRuntime
+      }
       MaplibreMap(
+        state = state,
         modifier = Modifier.fillMaxSize(),
-        baseStyle = BaseStyle.Empty,
-        cameraState = state,
-        onMapLoadFailed = { mapLoadFailures += it },
       )
     }
   }

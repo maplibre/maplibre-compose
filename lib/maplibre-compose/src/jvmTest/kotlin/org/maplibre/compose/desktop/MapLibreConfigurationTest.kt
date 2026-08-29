@@ -7,7 +7,8 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import org.maplibre.compose.mlnffi.MlnFfiApplication
+import kotlinx.coroutines.test.runTest
+import org.maplibre.compose.map.createMapRuntime
 
 class MapLibreConfigurationTest {
 
@@ -23,8 +24,12 @@ class MapLibreConfigurationTest {
 
   @Test
   fun application_ids_cannot_escape_the_cache_directory() {
-    assertFailsWith<IllegalArgumentException> { MapLibre.configure("../another-app") }
-    assertFailsWith<IllegalArgumentException> { MapLibre.configure("com/example/app") }
+    assertFailsWith<IllegalArgumentException> {
+      createMapRuntime(DesktopRuntimeOptions("../another-app"))
+    }
+    assertFailsWith<IllegalArgumentException> {
+      createMapRuntime(DesktopRuntimeOptions("com/example/app"))
+    }
   }
 
   @Test
@@ -38,49 +43,21 @@ class MapLibreConfigurationTest {
   }
 
   @Test
-  fun repeating_the_same_configuration_is_harmless() {
-    try {
-      MapLibre.configure("com.example.same")
-      MapLibre.configure("com.example.same")
-    } finally {
-      MlnFfiApplication.resetForTest()
-    }
-  }
+  fun independently_configured_runtimes_coexist_and_close_independently() = runTest {
+    val first = createMapRuntime(DesktopRuntimeOptions("com.example.first"))
+    val second =
+      createMapRuntime(DesktopRuntimeOptions("com.example.second", maximumCacheSizeBytes = 2_000))
+    val firstState = first.createMapState()
+    val secondState = second.createMapState()
 
-  @Test
-  fun replacing_the_application_configuration_fails() {
-    try {
-      MapLibre.configure("com.example.first")
+    first.close()
+    first.awaitClosed()
 
-      assertFailsWith<IllegalStateException> { MapLibre.configure("com.example.second") }
-    } finally {
-      MlnFfiApplication.resetForTest()
-    }
-  }
-
-  @Test
-  fun replacing_the_cache_limit_fails() {
-    try {
-      MapLibre.configure("com.example.same", maximumCacheSizeBytes = 1_000)
-
-      assertFailsWith<IllegalStateException> {
-        MapLibre.configure("com.example.same", maximumCacheSizeBytes = 2_000)
-      }
-    } finally {
-      MlnFfiApplication.resetForTest()
-    }
-  }
-
-  @Test
-  fun default_configuration_does_not_replace_an_existing_one() {
-    try {
-      MapLibre.configure("com.example.first")
-      MlnFfiApplication.ensureConfigured { desktopRuntimeOptions("com.example.second") }
-      val installed = MlnFfiApplication.options.cacheFile.toString()
-      assertTrue(installed.contains("com.example.first"))
-    } finally {
-      MlnFfiApplication.resetForTest()
-    }
+    assertTrue(firstState.isClosed)
+    assertTrue(!secondState.isClosed)
+    second.createMapState().close()
+    second.close()
+    second.awaitClosed()
   }
 
   @Test

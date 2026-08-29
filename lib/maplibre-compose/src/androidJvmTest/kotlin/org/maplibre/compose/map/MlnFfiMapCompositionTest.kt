@@ -93,6 +93,28 @@ class MlnFfiMapCompositionTest {
     )
   }
 
+  @Test
+  fun map_state_renders_a_base_style_and_publishes_one_presentation() = runFfiComposeUiTest {
+    val runtime = createNativeMapRuntime(runtimeOptions)
+    val state = runtime.createMapState(initialBaseStyle = BaseStyle.Empty)
+
+    setFfiTestMapContent(runtimeOptions) { MaplibreMap(state) }
+    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      state.presentation != null && state.style.loadState == StyleLoadState.Ready
+    }
+
+    assertTrue(state.presentation?.isValid == true)
+    assertTrue(
+      onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty(),
+      "the load placeholder should be absent after the base style is ready",
+    )
+
+    runtime.close()
+    runtime.awaitClosed()
+    assertTrue(state.isClosed)
+    assertNull(state.presentation)
+  }
+
   /** Style loading needs no rendering, so no frame runs — and none is drawn — before a style. */
   @Test
   fun an_unloaded_style_keeps_the_transparent_load_placeholder() = runFfiComposeUiTest {
