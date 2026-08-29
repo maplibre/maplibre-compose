@@ -209,19 +209,24 @@ description = "Build the documentation site and the Dokka API reference into doc
 run = "mise run //docs:build"
 
 [tasks."build:js-app"]
-description = "Build the browser demo app for static hosting."
+description = "Build the Kotlin/JS browser demo app for static hosting."
 # The docs api task also runs Gradle; two Gradle builds in one checkout can
 # fail, so run one at a time when a docs task schedules both.
 wait_for = ["//docs:api"]
 run = "./gradlew :demo-app:common:jsBrowserDistribution"
 
+[tasks."build:wasm-app"]
+description = "Build the Kotlin/Wasm browser demo app for static hosting."
+wait_for = ["//docs:api"]
+run = "./gradlew :demo-app:common:wasmJsBrowserDistribution"
+
 [tasks."build:pages"]
 description = "Build the complete GitHub Pages site into docs/dist."
 run = '''
 mise run build:docs
-mise run build:js-app
+mise run build:wasm-app
 mkdir -p docs/dist/demo/app
-cp -a demo-app/common/build/dist/js/productionExecutable/. docs/dist/demo/app/
+cp -a demo-app/common/build/dist/wasmJs/productionExecutable/. docs/dist/demo/app/
 mise run package:cloudflare-pages
 '''
 
@@ -254,6 +259,10 @@ trap cleanup EXIT
 grep --fixed-strings --line-regexp --quiet \
   "/ /maplibre-compose/ 302" \
   build/cloudflare-pages/_redirects
+
+# The hosted demo is the Kotlin/Wasm binary, not the Kotlin/JS one.
+find build/cloudflare-pages/maplibre-compose/demo/app -name '*.wasm' \
+  | grep --quiet .
 
 python -m http.server 4321 \
   --bind 127.0.0.1 \
@@ -357,8 +366,12 @@ fi
 '''
 
 [tasks."demo:js"]
-description = "Run the demo app in a browser."
+description = "Run the Kotlin/JS demo app in a browser."
 run = "./gradlew :demo-app:common:jsBrowserDevelopmentRun"
+
+[tasks."demo:wasm"]
+description = "Run the Kotlin/Wasm demo app in a browser."
+run = "./gradlew :demo-app:common:wasmJsBrowserDevelopmentRun"
 
 [tasks."demo:ios"]
 description = "Run the demo app on an iOS simulator or a connected iPhone."

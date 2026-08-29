@@ -30,6 +30,7 @@ per `./gradlew` invocation. Two together can fail in ways neither does alone.
 - `mise run demo:ios` (pass `--device` for a connected iPhone; prompts when
   several are ready; `--release` builds the optimized framework)
 - `mise run demo:js`
+- `mise run demo:wasm`
 
 ### Formatting and linting
 

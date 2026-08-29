@@ -21,13 +21,13 @@ printf '%s\n' "$flags" | node docs/scripts/generate-versions.mjs
 run = "pnpm exec astro sync"
 
 [tasks.demo]
-description = "Copy the browser demo into the site's public directory."
+description = "Copy the Kotlin/Wasm browser demo into the site's public directory."
 dir = ".."
-depends = ["//:build:js-app"]
+depends = ["//:build:wasm-app"]
 run = '''
 rm -rf docs/public/demo
 mkdir -p docs/public/demo/app
-cp -a demo-app/common/build/dist/js/productionExecutable/. docs/public/demo/app/
+cp -a demo-app/common/build/dist/wasmJs/productionExecutable/. docs/public/demo/app/
 '''
 
 [tasks.dev]
