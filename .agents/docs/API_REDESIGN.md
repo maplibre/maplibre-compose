@@ -1,355 +1,617 @@
 # Map API redesign
 
-## Problem Statement
+This document specifies the target map API and the implementation plan. It is
+the source of truth for the redesign. The type names below are part of the
+design. Small signature changes are acceptable when Kotlin or Compose requires
+them, but the ownership and lifetime rules are not optional.
 
-The map API must support durable map state, temporary UI presentation, style
-composition, imperative style mutation, snapshots, runtime resources, and
-controlled platform access. These concerns have different lifetimes. Treating
-them as one state object creates ambiguous ownership and invalid intermediate
-states.
+## Objective
 
-One logical map can have at most one UI presentation. Native platforms can
-retain the engine map without a presentation. Web must recreate its GL JS map
-and replay the desired state. Attachment, detachment, closure, and platform
-events therefore need one atomic lifecycle model despite the different platform
-implementations.
+The API must separate resources that have different lifetimes:
 
-Declarative style content must work with both interactive maps and snapshots.
-Snapshot capture must not retarget or interrupt an interactive map. Imperative
-style handles must identify one loaded style generation, because a base-style
-reload invalidates the resources that those handles address.
+- A runtime owns application-wide MapLibre resources.
+- A map state owns one logical map.
+- A presentation connects that map to one UI surface.
+- A style composition defines reusable declarative style content.
+- A snapshotter owns a separate map that never attaches to UI.
+- A presentation host provides window-specific rendering resources.
 
-The public API must express these ownership and lifetime boundaries directly.
-Backward compatibility is not a constraint. The design favors a small and
-coherent interface over compatibility shims.
+One logical map can have at most one UI presentation. Native platforms retain
+the engine map while the UI is absent. Web destroys its GL JS map when the UI is
+absent and restores the desired state into a new map on the next attachment.
 
-## Solution
+The redesign may break every existing public map API. Prefer the smallest
+coherent interface. Do not add compatibility shims.
 
-Use separate runtime, map, presentation, style-composition, snapshotter, and
-platform-access modules. Each module has one lifetime and a narrow interface.
+## Domain model
 
-An explicit `MaplibreRuntime` owns shared cache, resource, HTTP, and offline
-configuration. It creates and tracks `MapState` and `MapSnapshotter` children. A
-process-owned default runtime keeps ordinary Compose call sites short.
-Applications use an explicit runtime when they need custom configuration or
-deterministic shutdown.
+The following terms have precise meanings in this document.
 
-One `MapState` represents one map. Native platforms create its map when the
-first engine operation needs it and retain that map across UI detachment. Web
-creates a GL JS map for each presentation and replays the desired state. One
-`MapState` supports at most one attached `MaplibreMap`.
+| Term                   | Definition                                                                                                   |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Runtime                | The application-scoped owner of shared cache, resource, HTTP, and offline services.                          |
+| Logical map            | The durable map represented by one `MapState`, independent of a UI surface.                                  |
+| Engine map             | The platform object that performs MapLibre operations: a native FFI map or a GL JS map.                      |
+| Presentation           | One temporary connection between a logical map and a UI surface, exposed as `MapPresentation`.               |
+| Presentation host      | Platform rendering resources that belong to a window or Compose host, such as a desktop GPU context.         |
+| Render lease           | An internal opaque identity for one presentation attachment.                                                 |
+| Desired state          | Configuration accepted from the caller that the engine has not necessarily applied yet.                      |
+| Applied state          | The latest state that the current engine map reports as applied.                                             |
+| Base style             | The MapLibre style document that supplies the initial sources, layers, images, and style properties.         |
+| Style composition      | Reusable Compose content that declares application-owned sources, layers, and images on top of a base style. |
+| Style evaluator        | The internal Compose host that evaluates one style composition for one consumer.                             |
+| Desired style revision | One immutable, complete result from evaluating a style composition.                                          |
+| Style reconciliation   | The process that changes an applied style to match one complete desired style revision.                      |
+| Style identity         | An internal opaque identity for one loaded base-style generation on one engine map.                          |
+| Live style handle      | An imperative source or layer handle that is valid only for one style identity.                              |
+| Style consumer         | An attached map presentation or an in-progress snapshot capture that needs a style composition evaluated.    |
+| Snapshotter            | A runtime-owned object with its own engine map and no UI attachment API.                                     |
+| Owner context          | The platform thread or serialized executor on which an engine map may be accessed.                           |
+| Delicate API           | An advanced opt-in API whose platform-specific contract requires extra caller care.                          |
 
-A single serialized lifecycle module controls map creation, attachment,
-detachment, closure, and platform-event acceptance. Each attachment receives an
-opaque render lease. Only the current lease can publish presentation state or
-detach the map.
+The ownership tree is:
 
-`MapState` exposes durable desired state and a nullable `MapPresentation`. The
-presentation contains the current viewport, camera operations, projections,
-gesture state, and rendered-feature queries. Presentation operations never wait
-for a future attachment.
+```text
+MapRuntime
+├── MapState
+│   ├── engine map: zero or one
+│   └── MapPresentation: zero or one
+└── MapSnapshotter
+    └── engine map: zero or one
 
-`StyleComposition` is a reusable declarative definition. A map and a snapshotter
-can evaluate the same definition in separate Compose compositions. An evaluator
-exists only while the object has a consumer. It publishes an immutable
-desired-style revision. Detachment disposes the evaluator but keeps the last
-revision on the retained native map. A later attachment evaluates the definition
-again and reconciles the complete revision.
+StyleComposition ──evaluated independently──> MapState or MapSnapshotter
+ComposeMapPresentationHost ──used only by──> MapPresentation
+```
 
-`MapSnapshotter` owns a separate non-UI map. Each capture supplies immutable
-size, camera, and output environment values. Snapshot work never replaces or
-retargets the map inside a `MapState`.
+`StyleComposition` and immutable layer or source definitions are values, so an
+application can reuse them. Runtime children, presentations, engine maps, and
+live handles are owned resources and cannot be shared.
 
-## User Stories
+## Public API model
 
-1. As an application developer, I want a map to survive temporary removal from
-   composition, so that navigation and adaptive layouts do not reload it.
-2. As an application developer, I want one state object to represent one map, so
-   that resource identity is predictable.
-3. As an application developer, I want a second UI attachment to fail
-   immediately, so that two viewports cannot compete for one map.
-4. As an application developer, I want the native map to retain its loaded style
-   and camera while detached, so that reattachment is inexpensive.
-5. As a Web application developer, I want a recreated GL JS map to restore
-   desired state, so that unavoidable browser recreation preserves application
-   behavior.
-6. As an application developer, I want a durable camera position on `MapState`,
-   so that the next presentation starts at the intended position.
-7. As an application developer, I want viewport-dependent camera operations on
-   the current presentation, so that their availability is explicit.
-8. As an application developer, I want camera fits to use the current viewport,
-   so that the result cannot use dimensions from a departed surface.
-9. As an application developer, I want camera animations to belong to one
-   presentation, so that detachment cannot transfer an animation to a later
-   attachment.
-10. As an application developer, I want projections to belong to the current
-    presentation, so that a cached transform cannot describe a replaced
-    viewport.
-11. As an application developer, I want rendered-feature queries to require a
-    presentation, so that a detached query has no ambiguous target.
-12. As an application developer, I want observable map values to use Compose
-    snapshot state, so that UI recomposes after accepted changes.
-13. As an application developer, I want suspending engine operations to accept
-    calls from any coroutine context, so that I do not need platform-thread
-    knowledge.
-14. As an application developer, I want desired configuration writes to return
-    immediately, so that configuration remains easy to use from Compose and
-    ViewModels.
-15. As an application developer, I want load and reconciliation state to report
-    engine progress, so that a desired write does not imply completed rendering.
-16. As an application developer, I want one reusable style-composition
-    definition, so that an interactive map and a snapshotter can render the same
-    declarative content.
-17. As an application developer, I want style state shared between composition
-    roots to be hoisted, so that snapshots and interactive maps receive explicit
-    shared inputs.
-18. As an application developer, I want a detached map to keep its last applied
-    style revision, so that detachment does not remove composed layers from the
-    retained native map.
-19. As an application developer, I want reattachment to evaluate the current
-    external state, so that changes made while detached appear before the next
-    presentation renders.
-20. As an application developer, I want base-style selection to be desired
-    configuration, so that a map can record the next style without claiming that
-    it has loaded.
-21. As an application developer, I want persistent application layers and
-    sources in the style composition, so that a base-style reload reconciles
-    them declaratively.
-22. As an application developer, I want imperative style changes to target one
-    loaded generation, so that their lifetime is explicit.
-23. As an application developer, I want a stale style handle to fail clearly, so
-    that it cannot mutate a replacement style.
-24. As an application developer, I want immutable layer and source definitions,
-    so that I can reuse them across maps and snapshotters.
-25. As an application developer, I want live handles to contain opaque style
-    identity, so that I cannot combine an ID with the wrong generation.
-26. As an application developer, I want a reusable snapshotter, so that repeated
-    snapshots can reuse one non-UI map.
-27. As an application developer, I want each capture to provide its camera and
-    output size, so that snapshot configuration has no hidden mutable state.
-28. As an application developer, I want snapshots to use the declarative style
-    composition, so that still images match application-owned style content.
-29. As an application developer, I want snapshot work to remain independent from
-    an interactive map, so that capture cannot interrupt a UI render session.
-30. As an application developer, I want one runtime to own maps, snapshots,
-    cache configuration, and offline work, so that their resource lifetime is
-    consistent.
-31. As an application developer, I want a shared default runtime, so that a
-    basic application does not need runtime setup.
-32. As an application developer, I want an explicit runtime option, so that
-    applications can select cache and resource configuration.
-33. As an application developer, I want runtime closure to close its maps and
-    snapshotters, so that no child uses released shared resources.
-34. As an application developer, I want map closure to reject new work
-    immediately, so that closure has one observable commit point.
-35. As an application developer, I want to await physical cleanup when required,
-    so that tests and application shutdown can verify resource release.
-36. As a desktop application developer, I want presentation-host configuration
-    to remain window-scoped, so that changing a GPU context does not replace the
-    application runtime.
-37. As a Web application developer, I want the common runtime interface, so that
-    common code can create map state consistently.
-38. As a Web application developer, I want unsupported runtime operations to
-    fail explicitly, so that missing GL JS capabilities are visible.
-39. As an advanced application developer, I want controlled platform-map access,
-    so that I can use engine capabilities that the common interface does not
-    expose.
-40. As a library maintainer, I want lifecycle behavior behind one interface, so
-    that a transition change has one implementation and one test surface.
-41. As a library maintainer, I want platform callbacks tagged with opaque
-    identity, so that stale events are rejected uniformly.
-42. As a library maintainer, I want each implementation stage to be complete and
-    useful, so that no temporary scaffolding depends on a later repair.
+The following sketches show the intended shape. They omit secondary options and
+exact result types.
 
-## Implementation Decisions
+```kotlin
+fun createMapRuntime(
+  options: MapRuntimeOptions,
+): MapRuntime
 
-- Public compatibility is not a design constraint. Use the smallest interface
-  that serves the domain.
-- `MaplibreRuntime` is an application-scoped module. Runtime options contain
-  cache, resource, HTTP, and offline configuration.
-- The shared default runtime is process-owned. A child created through the
-  default runtime does not close that runtime.
-- Explicit runtimes support custom configuration and deterministic closure.
-- A runtime tracks every child that it creates. Runtime closure rejects new
-  children and closes existing children. Child closure does not close the
-  runtime.
-- Web implements the common runtime interface. Operations that GL JS cannot
-  support throw `UnsupportedOperationException` initially.
-- The desktop presentation host remains separate from the runtime because it has
-  window and GPU context scope. Rename it to describe presentation rather than
-  map ownership.
-- `MapState` represents exactly one map. It exposes ownership, closure, desired
-  camera position, style state, and the current presentation.
-- Native map allocation is lazy. The first operation that requires a native map
-  creates it. The map remains alive until state or runtime closure.
-- Web creates a GL JS map for each presentation and replays desired state into
-  it.
-- A `MapState` accepts one presentation at a time. A rival attachment throws
-  before changing logical or physical state.
-- One serialized lifecycle module owns the complete transition. Platform
-  adapters do not maintain a second authoritative render-slot state.
-- The lifecycle model has the following states:
+@Composable
+fun rememberMapRuntime(): MapRuntime
 
-  ```text
-  Uninitialized -> Detached -> Attaching(lease) -> Attached(lease)
-       |              |                               |
-       +--------------+-------------------------------+
-                              |
-                           Closing -> Closed
-  ```
+@Composable
+fun rememberMapState(
+  runtime: MapRuntime = rememberMapRuntime(),
+  initialCameraPosition: CameraPosition = CameraPosition(),
+): MapState
 
-- An opaque render lease identifies an attachment. Events, operations, and
-  detachment name that lease. Work from a departed lease has no effect.
-- Lifecycle cleanup is non-cancellable after its commit point. Camera animation
-  arbitration can use cancellation because replacement is valid behavior in that
-  domain.
-- Public engine operations are suspending and marshal to the module that owns
-  the platform map.
-- Public engine-derived values are read-only snapshot state.
-- Synchronous writes are limited to desired configuration. They publish desired
-  values and schedule reconciliation without claiming engine completion.
-- `close()` publishes logical closure and schedules physical cleanup.
-  `awaitClosed()` waits for composition, presentation, map, and runtime
-  resources to finish cleanup.
-- `MapPresentation` exists only for the current render lease. It contains
-  viewport state, camera movement operations, camera movement reporting,
-  projections, gestures, and rendered-feature queries.
-- `MapState` exposes the durable camera position. Camera movement operations
-  belong to `MapPresentation`.
-- Presentation operations never wait for a later attachment. A cached
-  presentation fails after its lease departs.
-- `StyleComposition` is a public reusable value that contains only declarative
-  style content. Base style and imperative mutation remain on the map-like
-  object's style module.
-- Each map or snapshotter evaluates a `StyleComposition` in its own Compose
-  composition. Internal `remember` state and effects are not shared between
-  evaluators.
-- The initial implementation creates the evaluator only while a consumer exists.
-  Consumer loss disposes the evaluator and preserves the last immutable
-  desired-style revision.
-- Evaluator disposal does not apply an empty revision to a retained map. A later
-  consumer creates a new evaluator and reconciles its complete revision.
-- Continuous detached evaluation is a lower-priority extension. It must preserve
-  the same public `StyleComposition` contract.
-- A base-style reload drops imperative style mutations and invalidates every
-  live handle. The style composition defines persistent application content.
-- Layer and source definitions are immutable reusable values. Live layer and
-  source handles belong to one loaded style identity.
-- An opaque style identity replaces separate style-generation,
-  binding-generation, and ID authority parameters.
-- `MapSnapshotter` is a runtime-owned, non-UI map. It has no
-  presentation-attachment interface.
-- A snapshotter creates its map on the first capture and can retain it for later
-  captures.
-- Each capture request contains immutable output size, camera, density, and
-  layout-direction inputs.
-- A snapshot evaluator uses the same `StyleComposition` definition as an
-  interactive map when the caller supplies that value to both objects.
-- `MapState` does not initially expose capture. Future same-map capture is
-  acceptable only when the texture rendering mode can produce it without
-  replacing or interrupting the active presentation.
-- Delicate platform access uses a suspending lambda. The platform handle does
-  not escape the call. Native access is available after lazy map creation,
-  including while detached. Web access requires an attached presentation.
-- Implement the design in this order:
-  1. Isolate the `StyleBinding` collapse.
-  2. Add explicit runtime ownership, runtime configuration, and one internal
-     lifecycle authority.
-  3. Add typed render leases and the retained-native and Web-replay presentation
-     adapters.
-  4. Publish the breaking `MapState`, `MapPresentation`, and `StyleComposition`
-     interface and migrate callers.
-  5. Add `MapSnapshotter`.
-  6. Add generation-bound imperative handles, runtime capabilities, and delicate
-     platform access in focused changes.
-- Every stage implements a complete invariant. A stage does not depend on a
-  later stage for correctness.
+@Composable
+fun MaplibreMap(
+  state: MapState = rememberMapState(),
+  styleComposition: StyleComposition = StyleComposition.Empty,
+  modifier: Modifier = Modifier,
+)
 
-## Testing Decisions
+interface MapRuntime {
+  val capabilities: MapRuntimeCapabilities
 
-- Tests assert observable behavior through the highest available interface. They
-  avoid locks, queues, callback fields, generation counters, and
-  platform-adapter internals.
-- The lifecycle authority is the primary test seam. Tests drive attachment,
-  detachment, closure, event delivery, and rival attachment through that
-  interface.
-- A fake platform adapter records accepted commands and emits lease-tagged
-  events. Tests verify that stale leases cannot change state.
-- Scenario tests cover every valid lifecycle transition and every refused
-  transition.
-- A rival attachment test verifies that refusal changes neither the existing
-  presentation nor the platform session.
-- Detachment tests verify that presentation state becomes unavailable before a
-  later lease can publish.
-- Closure tests verify immediate logical closure, refusal of new work, child
-  cleanup, and `awaitClosed()` completion.
-- Cancellation tests verify that cleanup completes after the lifecycle commit
-  point.
-- Camera tests verify durable position restoration and presentation-scoped
-  animation, fit, and gesture behavior.
-- Presentation tests verify that cached presentations fail after detachment and
-  never target a later lease.
-- Style evaluator tests treat the immutable desired-style revision as the
-  interface. They verify complete reconciliation without inspecting Compose
-  runtime machinery.
-- Detachment tests verify that evaluator disposal preserves the last applied
-  revision on a retained native map.
-- Reattachment tests verify that a fresh evaluator reconciles current external
-  state before the map presents the new revision.
-- Style reload tests verify that composition-owned content returns and
-  imperative handles become stale.
-- Definition tests verify that immutable layer and source definitions can be
-  used by two independent maps.
-- Handle tests verify that a live handle cannot mutate another style generation
-  or another map.
-- Native integration tests verify retained map identity across presentation
-  replacement.
-- Browser integration tests verify GL JS recreation and replay across
-  presentation replacement.
-- Snapshotter tests verify repeated captures, immutable per-capture
-  configuration, independent map ownership, style-composition evaluation,
-  timeout, cancellation, and closure.
-- Runtime tests verify shared default behavior, explicit configuration, child
-  tracking, closure order, and rejection after closure.
-- Desktop integration tests verify that replacing a presentation host does not
-  replace or close the runtime.
-- Web tests verify explicit failures for unsupported runtime operations.
-- Platform-access tests verify owner-thread execution and prevent use of the
-  platform handle after the lambda returns.
-- Tests that depend on real rendering run in the existing live-map platform
-  source sets. Common lifecycle and desired-state tests use fake adapters.
-- Regression tests must prove sensitivity by disabling or bypassing the
-  production invariant when a narrow defect would otherwise permit a false
-  positive.
+  fun createMapState(
+    initialCameraPosition: CameraPosition = CameraPosition(),
+  ): MapState
 
-## Out of Scope
+  fun createSnapshotter(
+    baseStyle: BaseStyle,
+    styleComposition: StyleComposition = StyleComposition.Empty,
+  ): MapSnapshotter
 
-- Compatibility shims for superseded APIs.
+  fun close()
+  suspend fun awaitClosed()
+}
+
+interface MapState {
+  val cameraPosition: CameraPosition
+  val style: MapStyleState
+  val presentation: MapPresentation?
+  val isClosed: Boolean
+
+  fun close()
+  suspend fun awaitClosed()
+}
+
+interface MapStyleState {
+  var baseStyle: BaseStyle
+  val loadState: StyleLoadState
+}
+
+interface MapPresentation {
+  val viewport: Viewport
+  val isCameraMoving: Boolean
+
+  fun setCameraPosition(position: CameraPosition)
+  suspend fun animateCameraPosition(position: CameraPosition, duration: Duration)
+  suspend fun queryRenderedFeatures(...): List<Feature<*, *>>
+}
+
+interface MapSnapshotter {
+  val style: MapStyleState
+
+  suspend fun capture(request: MapSnapshotRequest): ImageBitmap
+  fun close()
+  suspend fun awaitClosed()
+}
+```
+
+`rememberMapRuntime()` returns the process-owned default runtime. It does not
+create one runtime per call. Applications create an explicit runtime when they
+need custom configuration or deterministic closure. There is no
+`LocalMapRuntime`; runtime ownership is explicit in `rememberMapState`.
+
+### Runtime
+
+`MapRuntime` has these responsibilities:
+
+- Store runtime options, including cache, resource, HTTP, and offline
+  configuration.
+- Create and track `MapState` and `MapSnapshotter` children.
+- Reject child creation after closure starts.
+- Close every child before releasing shared resources.
+- Expose platform capabilities when a common operation is not universally
+  available.
+
+`close()` commits logical closure synchronously. New work fails after that call.
+Physical cleanup runs in a non-cancellable path. `awaitClosed()` waits until
+every child and shared resource has finished cleanup. Closing a child does not
+close its runtime.
+
+The default runtime is process-owned and is not closed by its children. An
+explicit runtime is application-owned.
+
+Web implements the same runtime type. A common operation that GL JS cannot
+support throws `UnsupportedOperationException` until the capabilities API is
+available. The first such operations are native offline and cache-management
+operations; ordinary map creation remains available.
+
+### Map state
+
+One `MapState` represents exactly one logical map. It contains:
+
+- The durable camera position.
+- Desired base-style configuration and observable style-load status.
+- The current `MapPresentation?`.
+- Logical closure state and `awaitClosed()`.
+- Internal ownership of zero or one engine map.
+
+The camera position is durable and read-only on `MapState`. The initial value
+comes from state creation. An attached engine updates it after accepted camera
+events, including direct sets through `MapPresentation`. The next attachment
+uses the last accepted value. Camera movement operations do not belong on
+`MapState`.
+
+Native engine-map creation is lazy. Attachment, controlled platform access, or a
+future operation that requires the engine can create it. After creation, the
+native map remains alive until the state or runtime closes.
+
+Web engine-map creation requires a presentation because a GL JS map requires a
+rendering target. Detachment destroys that engine map. `MapState` retains the
+desired camera, base style, style revision, and other replayable configuration.
+
+### Presentation
+
+`MapPresentation` represents the current render lease. It contains all
+operations and values that require a viewport or rendering surface:
+
+- The viewport and visible region.
+- Camera set, fit, and animation operations.
+- Camera movement state and movement reason.
+- Position-to-screen and screen-to-position projection.
+- Rendered-feature queries.
+- Gesture configuration and gesture events.
+- Presentation-specific render settings.
+
+`MapState.presentation` is null while detached. A presentation object becomes
+invalid when its lease ends. Calling an operation on a cached, invalid
+presentation fails immediately. It never waits for another attachment and never
+targets a later presentation.
+
+Attaching a second `MaplibreMap` to the same `MapState` throws before either
+logical state or platform state changes. Two UI maps must use two map states.
+
+### Style composition
+
+`StyleComposition` is a reusable value with a composable builder:
+
+```kotlin
+val transitStyle = StyleComposition {
+  GeoJsonSource(source)
+  LineLayer(...)
+  SymbolLayer(...)
+}
+```
+
+The value stores the composable definition, not a running composition and not a
+live map reference. Supplying the same value to two consumers creates two
+independent Compose compositions. Each composition has its own `remember` values
+and effects. Shared application state must be hoisted and passed into the
+definition. Replacing the value on an attached `MaplibreMap` replaces the
+evaluator content and publishes a new complete revision.
+
+An evaluator converts the composable definition into a complete immutable
+`DesiredStyleRevision`. The revision contains the ordered application-owned
+sources, layers, images, and their properties. It does not contain an engine
+map, a style binding, or mutable source and layer objects.
+
+A map evaluates its style composition only while it has a presentation. On
+detachment, it disposes the evaluator and retains the last desired revision. A
+retained native engine map keeps the last applied revision. Reattachment creates
+a new evaluator and reconciles its complete first revision before presenting the
+result.
+
+A snapshotter evaluates its style composition while a capture needs it. It can
+dispose the evaluator after the capture and retain the last desired revision for
+the next reconciliation.
+
+Base-style selection is desired configuration on the map or snapshotter, not
+part of `StyleComposition`. Changing the base style has this order:
+
+1. Accept the new desired base style and report loading state.
+2. Invalidate live handles for the outgoing style identity.
+3. Load the new base style.
+4. Create a new opaque style identity.
+5. Reconcile the complete latest desired style revision.
+6. Report the applied style as ready.
+
+Imperative style mutations target the current style identity. They do not
+survive a base-style reload. Application content that must survive reloads
+belongs in `StyleComposition`.
+
+Layer and source definitions are immutable reusable values. A live style handle
+combines a resource ID with one opaque style identity. A stale handle fails
+clearly; it does not silently target a replacement style or another map.
+
+### Snapshotter
+
+`MapSnapshotter` owns one non-UI logical map and has no presentation attachment
+method. Create it through a runtime with its base style and style composition.
+
+Each capture receives an immutable request that includes:
+
+- Pixel width and height.
+- Camera position.
+- Density or pixel ratio.
+- Layout direction.
+- Any output format or transparency options.
+
+Capture configuration is not mutable snapshotter state. Reusing a snapshotter
+reuses its engine resources, not the previous request.
+
+A snapshotter serializes concurrent capture requests. Cancellation can remove a
+queued request or stop an in-progress request when the platform supports it.
+Resource cleanup after a capture starts remains non-cancellable.
+
+Snapshotting never attaches the snapshotter to `MaplibreMap`, and it never uses
+the engine map inside a `MapState`. Future same-map capture is a separate
+feature. It is acceptable only in texture mode and only if it does not retarget,
+pause, or interrupt the presentation.
+
+### Presentation host
+
+A presentation host supplies resources that belong to a Compose window or
+rendering host. On desktop this includes the GPU context currently exposed
+through `LocalComposeMapHost`. Rename that type and local to
+`ComposeMapPresentationHost` and `LocalComposeMapPresentationHost`.
+
+The presentation host does not own cache configuration, offline services, a
+logical map, or the application runtime. Replacing a host can replace a
+presentation, but it cannot replace or close the runtime or map state.
+
+Platforms that need no public host use an internal default implementation. Do
+not add a runtime composition local.
+
+### Platform access
+
+Controlled access to the platform engine is a delicate suspending API:
+
+```kotlin
+suspend fun <T> MapState.withPlatformMap(
+  block: PlatformMapScope.() -> T,
+): T
+```
+
+The implementation runs the lambda on the owner context. The platform handle
+cannot escape the lambda or remain usable after it returns. Native access can
+create the lazy engine map and works while detached. Web access requires a
+current presentation because no GL JS map exists while detached.
+
+This escape hatch is lower priority than the common API. Do not expose a raw
+handle property.
+
+## Lifecycle and concurrency
+
+One internal lifecycle authority owns engine creation, attachment, detachment,
+closure, and event acceptance. A platform adapter performs commands for that
+authority; it does not keep a second authoritative attachment state.
+
+The logical states are:
+
+```text
+OpenDetached(engine absent or present)
+    │
+    ├── attach ──> Attaching(lease) ──> Attached(lease)
+    │                    │                    │
+    │                    └── failure ─────────┤
+    │                                         │ detach
+    └─────────────────────────────────────────┘
+
+Any open state ── close ──> Closing ── cleanup complete ──> Closed
+```
+
+Native detachment returns to `OpenDetached` with the engine present. Web
+detachment returns with the engine absent after it records replayable state and
+destroys the GL JS map.
+
+Attachment creates a new opaque render lease. Every platform callback,
+presentation operation, and detach request identifies its lease. The lifecycle
+authority accepts work only for the current lease. A delayed event from a
+departed lease has no effect.
+
+The transition to `Closing` is the closure commit point. After it:
+
+- Public operations fail.
+- Desired configuration writes fail.
+- New attachments fail.
+- Platform callbacks are ignored.
+- Cleanup continues despite caller cancellation.
+
+All suspending public engine operations can be called from any coroutine
+dispatcher. The lifecycle authority marshals them to the owner context. Callers
+do not need platform-thread knowledge.
+
+Observable public values use Compose snapshot state. Synchronous setters are
+limited to desired configuration and obey normal Compose snapshot rules. A
+setter records intent and schedules reconciliation; it does not claim that the
+engine has applied the value. Separate status exposes loading or reconciliation
+progress.
+
+Use cancellation arbitration only where replacement is valid domain behavior.
+Camera animation can use `MutatorMutex`, because a new animation may replace an
+old one. Global lifecycle work must not use one cancellation mutex.
+
+## Platform behavior
+
+| Behavior                            | Android, iOS, Desktop                       | Web                                            |
+| ----------------------------------- | ------------------------------------------- | ---------------------------------------------- |
+| Engine implementation               | MapLibre Native through the FFI             | MapLibre GL JS                                 |
+| Engine map while detached           | Retained after lazy creation                | Does not exist                                 |
+| Reattachment                        | Attach retained map to a new presentation   | Create map and replay desired state            |
+| Platform access while detached      | Available after lazy creation               | Unsupported                                    |
+| Style composition                   | Independent evaluator per consumer          | Independent evaluator per consumer             |
+| Snapshotter                         | Separate engine map                         | Separate non-UI GL JS map and rendering target |
+| Native offline and cache operations | Supported according to runtime capabilities | Throw until a capability-specific API exists   |
+
+Platform lifetime differences are intentional. Public desired-state behavior
+must remain consistent.
+
+## Existing implementation entry points
+
+A fresh implementation agent should start with these files:
+
+- `lib/maplibre-compose/src/commonMain/kotlin/org/maplibre/compose/map/MaplibreMap.kt`
+  currently combines composition, camera wiring, style wiring, callbacks, and
+  presentation creation. Its target responsibility is a thin UI attachment to
+  `MapState`.
+- `lib/maplibre-compose/src/commonMain/kotlin/org/maplibre/compose/map/MapAdapter.kt`
+  currently mixes durable map commands with presentation-only commands. Split
+  those responsibilities according to `MapState` and `MapPresentation`.
+- `lib/maplibre-compose/src/maplibreNativeMain/kotlin/org/maplibre/compose/map/MlnFfiMapSession.kt`
+  and
+  `lib/maplibre-compose/src/jsMain/kotlin/org/maplibre/compose/map/GlJsMapSession.kt`
+  are the native and Web engine-session implementations. They become platform
+  adapters controlled by the lifecycle authority.
+- `lib/maplibre-compose/src/commonMain/kotlin/org/maplibre/compose/style/StyleBinding.kt`
+  is the broad live-engine interface used by sources and layers. It currently
+  combines style liveness, engine operations, and resource lookup. Replace those
+  roles with immutable definitions, an internal applied-style port, and
+  style-identity-bound live handles.
+- `lib/maplibre-compose/src/maplibreNativeMain/kotlin/org/maplibre/compose/mlnffi/MlnFfiRuntimeOptions.kt`
+  contains the process-wide native configuration owner. Move its
+  application-facing configuration and resource lifetime into `MapRuntime`.
+- `lib/maplibre-compose/src/jvmMain/kotlin/org/maplibre/compose/desktop/LocalComposeMapHost.kt`
+  contains the window-scoped desktop GPU host. Rename it as the presentation
+  host and keep it separate from the runtime.
+
+These are navigation points, not required module boundaries. New internal types
+should follow the ownership model in this specification.
+
+## Implementation plan
+
+Each stage must leave the repository buildable and must establish a complete
+invariant. Do not merge placeholder APIs that require a later stage for
+correctness.
+
+### Stage 1: Separate style definitions from a loaded style
+
+Replace the current mutable binding relationship with three explicit internal
+concepts:
+
+1. Immutable layer, source, and image definitions.
+2. An internal applied-style port that performs engine operations for one loaded
+   style.
+3. An opaque style identity that marks the lifetime of that loaded style.
+
+The existing `StyleBinding` name may disappear. The required result is that a
+definition contains no live map reference, and liveness belongs to one loaded
+style identity.
+
+Acceptance criteria:
+
+- The same definition can be evaluated for two maps without shared mutable
+  binding state.
+- A base-style reload invalidates every handle from the previous identity.
+- A stale handle cannot mutate the next style or another map.
+- Existing style-spec parity checks remain green.
+
+### Stage 2: Add runtime ownership and the lifecycle authority
+
+Introduce `MapRuntime`, runtime options, child tracking, and logical closure.
+Add one platform-independent lifecycle authority with a fake platform adapter.
+Move native process resources behind the runtime.
+
+This stage can keep the existing public map composable, but its internal engine
+creation and closure must go through the new authority.
+
+Acceptance criteria:
+
+- One authority decides engine creation, attachment, detachment, and closure.
+- Runtime closure closes children before shared resources.
+- Child closure does not close the runtime.
+- Logical closure rejects new work immediately.
+- `awaitClosed()` observes completed physical cleanup.
+- Common tests cover every valid and refused lifecycle transition.
+
+### Stage 3: Add render leases and platform retention policies
+
+Give every attachment an opaque render lease. Split platform work into durable
+engine-map operations and lease-bound presentation operations. Implement native
+retention and Web recreation with desired-state replay.
+
+Acceptance criteria:
+
+- A rival attachment fails before platform state changes.
+- Events and detach requests from stale leases have no effect.
+- Native reattachment uses the same engine map.
+- Web reattachment uses a new GL JS map with restored desired state.
+- Detachment makes `MapPresentation` unavailable before later events can
+  publish.
+
+### Stage 4: Publish the new map and style-composition API
+
+Publish `MapState`, `rememberMapState`, `MapPresentation`, and
+`StyleComposition`. Change `MaplibreMap` into a presentation attachment. Move
+camera, query, projection, gesture, and render responsibilities to the owners
+specified above. Delete superseded public state types and migrate the library,
+tests, demo, and documentation directly.
+
+Add the consumer-driven style evaluator. Its only output is an immutable
+complete desired style revision. Reconcile that revision through the lifecycle
+authority.
+
+Acceptance criteria:
+
+- One `MapState` represents one logical map and exposes at most one
+  presentation.
+- Cached presentation operations fail after detachment.
+- Desired camera position survives detachment and Web recreation.
+- Viewport-dependent work exists only on `MapPresentation`.
+- Evaluator disposal does not remove the last applied native style revision.
+- Reattachment evaluates current external state and reconciles the complete
+  revision.
+- No compatibility wrapper preserves the superseded API.
+
+### Stage 5: Add the independent snapshotter
+
+Publish `MapSnapshotter` and immutable capture requests. Give the snapshotter
+its own engine map and style evaluator. Reuse `StyleComposition` definitions,
+not running compositions or live handles.
+
+Acceptance criteria:
+
+- Repeated captures reuse one snapshotter without retaining request state.
+- A map and snapshotter can evaluate the same style composition independently.
+- Snapshot capture does not attach, detach, retarget, or pause a `MapState`.
+- Concurrent captures follow the documented serialization rule.
+- Timeout, cancellation, closure, and runtime closure release resources.
+- Native and browser integration tests render a representative composed style.
+
+### Stage 6: Add advanced engine access
+
+Add generation-bound imperative handles, runtime capability reporting, and the
+delicate platform-access lambda. Keep each addition in a focused change.
+
+Acceptance criteria:
+
+- Imperative mutations apply only to the current style identity.
+- Capability checks distinguish unsupported Web runtime operations.
+- Platform access runs on the owner context.
+- A platform handle cannot be used after the lambda returns.
+- Native detached access and Web attached-only access follow the platform table.
+
+## Test strategy
+
+Common tests use a fake platform adapter that records commands and emits events
+with render leases. Test behavior through the lifecycle authority or public API,
+not through locks, queues, callback fields, or generation counters.
+
+The common suite must cover:
+
+- Every lifecycle transition and refused transition.
+- Rival attachment with no state change.
+- Stale event, stale detach, and stale presentation rejection.
+- Immediate logical closure and completed physical cleanup.
+- Cancellation after each lifecycle commit point.
+- Durable desired camera and base-style state.
+- Complete style reconciliation and style-identity invalidation.
+- Runtime child tracking and closure order.
+- Serialized snapshot captures.
+
+Live-map tests verify platform boundaries:
+
+- Native tests prove engine-map identity across detachment and reattachment.
+- Browser tests prove GL JS destruction, recreation, and desired-state replay.
+- Snapshotter tests render a representative base style plus composed sources and
+  layers.
+- Desktop tests prove that presentation-host replacement does not replace the
+  runtime or logical map.
+- Platform-access tests prove owner-context execution and handle confinement.
+
+Place real-engine tests in the existing `liveMapTest`, `jsTest`, and other
+platform source sets described in `AGENTS.md`. Keep lifecycle tests in common
+code with fakes.
+
+A regression test must fail when its production invariant is deliberately
+bypassed. This sensitivity check prevents tests that pass without exercising the
+behavior under test.
+
+Every stage runs `mise run check` and the focused tests for its changed source
+sets. Style work also runs `mise run style-spec:parity --check`. Before the
+redesign is complete, run the full supported matrix:
+
+- `mise run test:android`
+- `mise run test:android:device`
+- `mise run test:ios`
+- `mise run test:desktop`
+- `mise run test:js`
+
+Run browser tests under `caffeinate -dimsu` on macOS, as required by
+`AGENTS.md`. Record unavailable platform evidence as unavailable; a passing
+common test does not substitute for a required live-engine test.
+
+## Out of scope
+
+- Compatibility with superseded map APIs.
 - Two simultaneous UI presentations for one `MapState`.
-- Waiting or queueing presentation operations until a future attachment.
-- Continuous detached style evaluation in the initial implementation.
-- Sharing one running Compose composition between an interactive map and a
-  snapshotter.
-- Snapshot capture through `MapState` in the initial implementation.
-- Retargeting or pausing an interactive render session to produce a still image.
-- Identical native and Web resource lifetimes.
-- Native offline behavior on GL JS. Unsupported common runtime operations throw
-  initially.
+- Waiting for a future presentation when a presentation operation is called
+  while detached.
+- Continuous style evaluation while a map has no presentation.
+- Sharing one running Compose composition between consumers.
+- Snapshot capture through `MapState`.
+- Retargeting an interactive engine map for a snapshot.
 - Persistent imperative mutations across a base-style reload.
-- Raw platform handles that remain valid after the delicate access call returns.
-- A combined application-runtime and desktop-presentation-host object.
-- Delivery of the complete redesign as one change.
+- A raw platform handle property.
+- Combining the application runtime with a window-scoped presentation host.
+- Identical engine-resource lifetimes on native and Web.
+- Native offline behavior on GL JS.
 
-## Further Notes
+## Completion criteria
 
-The implementation sequence keeps the complete target design visible while
-limiting each delivery stage to one coherent module or contract. Small stages
-make each invariant easier to verify.
+The redesign is complete when:
 
-The style-composition evaluator is a necessary complex module. Its interface
-contains its recomposer, frame clock, snapshot observation, environment, error
-reporting, and shutdown behavior.
-
-The design treats native retention as the primary behavior. Web replay is an
-explicit adapter for a platform that cannot detach a GL JS map from its
-rendering context.
+- The public API follows the ownership model in this document.
+- One lifecycle authority controls every map transition and callback.
+- One map state cannot acquire two presentations.
+- Native maps survive presentation loss and Web maps replay desired state.
+- Style compositions are reusable definitions with independent evaluators.
+- Imperative handles are confined to one loaded style identity.
+- Snapshotters use independent maps.
+- Runtime and presentation-host lifetimes remain separate.
+- All common, native, browser, desktop, snapshotter, and static checks pass.
