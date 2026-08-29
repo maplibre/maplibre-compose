@@ -510,7 +510,7 @@ class StyleSourcesImperativeTest {
     state.sources.add(source)
     source.setData(second)
     assertEquals(second, source.data)
-    assertEquals(listOf(second.uri), binding.installedGeoJson["geo"])
+    assertEquals(second.uri, binding.installedGeoJson["geo"]?.single())
     state.close()
     testScheduler.advanceUntilIdle()
   }
