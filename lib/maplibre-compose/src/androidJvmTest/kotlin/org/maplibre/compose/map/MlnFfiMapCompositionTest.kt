@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ComposeUiTest
@@ -22,6 +23,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
@@ -32,6 +34,8 @@ import kotlin.math.abs
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -113,6 +117,105 @@ class MlnFfiMapCompositionTest {
     runtime.awaitClosed()
     assertTrue(state.isClosed)
     assertNull(state.presentation)
+  }
+
+  @Test
+  fun a_map_state_retains_its_native_map_between_presentations() = runFfiComposeUiTest {
+    val runtime = createNativeMapRuntime(runtimeOptions)
+    val camera = CameraPosition(target = Position(longitude = 11.0, latitude = 47.0), zoom = 6.0)
+    val state =
+      runtime.createMapState(initialCameraPosition = camera, initialBaseStyle = BaseStyle.Empty)
+    var presented by mutableStateOf(true)
+
+    setFfiTestMapContent(runtimeOptions, presentationCount = 2) {
+      if (presented) MaplibreMap(state)
+    }
+    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      state.presentation != null && state.style.loadState == StyleLoadState.Ready
+    }
+    val firstPresentation = requireNotNull(state.presentation)
+    val firstMap = firstPresentation.adapter
+
+    presented = false
+    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { state.presentation == null }
+
+    assertTrue(!firstPresentation.isValid)
+    assertFailsWith<IllegalStateException> { firstPresentation.setCameraPosition(CameraPosition()) }
+    assertEquals(StyleLoadState.Ready, state.style.loadState)
+    state.style.baseStyle = BaseStyle.Json("{")
+    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      state.presentation == null && state.style.loadState is StyleLoadState.Failed
+    }
+    state.style.baseStyle = RETAINED_STYLE
+    assertEquals(StyleLoadState.Loading, state.style.loadState)
+
+    presented = true
+    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      state.presentation != null && state.style.loadState == StyleLoadState.Ready
+    }
+
+    assertSame(firstMap, requireNotNull(state.presentation).adapter)
+    assertCameraEquals(camera, state.cameraPosition)
+    assertTrue("retained-style" in (firstMap as MlnFfiMapSession).currentStyleLayerIds())
+
+    presented = false
+    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { state.presentation == null }
+    runtime.close()
+    runtime.awaitClosed()
+  }
+
+  @Test
+  fun an_incompatible_scale_factor_replaces_the_native_map_and_replays_state() =
+    runFfiComposeUiTest {
+      val runtime = createNativeMapRuntime(runtimeOptions)
+      val camera =
+        CameraPosition(target = Position(longitude = -122.4, latitude = 37.8), zoom = 10.0)
+      val state =
+        runtime.createMapState(
+          initialCameraPosition = camera,
+          initialBaseStyle = REPLACEMENT_STYLE,
+        )
+      var presented by mutableStateOf(true)
+      var scaleFactor by mutableStateOf(1f)
+
+      setFfiTestMapContent(runtimeOptions, presentationCount = 2) {
+        CompositionLocalProvider(LocalDensity provides Density(scaleFactor)) {
+          if (presented) MaplibreMap(state)
+        }
+      }
+      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        state.presentation != null && state.style.loadState == StyleLoadState.Ready
+      }
+      val firstMap = requireNotNull(state.presentation).adapter
+
+      presented = false
+      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { state.presentation == null }
+      scaleFactor = 2f
+      presented = true
+      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        state.presentation != null && state.style.loadState == StyleLoadState.Ready
+      }
+
+      val replacementMap = requireNotNull(state.presentation).adapter
+      assertNotSame(firstMap, replacementMap)
+      assertCameraEquals(camera, state.cameraPosition)
+      assertTrue("replacement-style" in (replacementMap as MlnFfiMapSession).currentStyleLayerIds())
+
+      runtime.close()
+      runtime.awaitClosed()
+    }
+
+  private fun assertCameraEquals(expected: CameraPosition, actual: CameraPosition) {
+    assertEquals(expected.bearing, actual.bearing, POSITION_TOLERANCE, "bearing")
+    assertEquals(
+      expected.target.longitude,
+      actual.target.longitude,
+      POSITION_TOLERANCE,
+      "longitude",
+    )
+    assertEquals(expected.target.latitude, actual.target.latitude, POSITION_TOLERANCE, "latitude")
+    assertEquals(expected.tilt, actual.tilt, POSITION_TOLERANCE, "tilt")
+    assertEquals(expected.zoom, actual.zoom, POSITION_TOLERANCE, "zoom")
   }
 
   /** Style loading needs no rendering, so no frame runs — and none is drawn — before a style. */
@@ -467,6 +570,16 @@ class MlnFfiMapCompositionTest {
   }
 
   private companion object {
+    val RETAINED_STYLE =
+      BaseStyle.Json(
+        """{"version":8,"sources":{},"layers":[{"id":"retained-style","type":"background"}]}"""
+      )
+
+    val REPLACEMENT_STYLE =
+      BaseStyle.Json(
+        """{"version":8,"sources":{},"layers":[{"id":"replacement-style","type":"background"}]}"""
+      )
+
     const val RENDER_TIMEOUT_MILLIS = 30_000L
 
     const val PLACED_AT_TAG = "map-placed-at"

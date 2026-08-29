@@ -13,6 +13,7 @@ import org.maplibre.compose.style.StyleBinding
 internal actual fun ComposableMapView(
   modifier: Modifier,
   runtime: RuntimeImplementation?,
+  state: MapState?,
   style: BaseStyle,
   rememberedStyle: StyleBinding?,
   update: (map: MapAdapter) -> Unit,
@@ -35,6 +36,7 @@ internal actual fun ComposableMapView(
       )
     },
     modifier = modifier,
+    state = state,
     runtimeOptions = runtime?.nativeRuntimeOptions,
     style = style,
     update = update,

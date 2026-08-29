@@ -633,7 +633,7 @@ internal class GlJsMapSession(
             reason,
           ) == true
         if (accepted) {
-          if (lifecycleCallbacks.onMapFailLoading(engine, lifecycleRequest, reason)) {
+          if (lifecycleCallbacks.onMapFailLoading(engine, lifecycleRequest, this, reason)) {
             logger?.e { "Map loading failed: $reason" }
             if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
           }
@@ -667,7 +667,7 @@ internal class GlJsMapSession(
           reason,
         ) == true
       ) {
-        lifecycleCallbacks.onMapFailLoading(engine, lifecycleRequest, reason)
+        lifecycleCallbacks.onMapFailLoading(engine, lifecycleRequest, this, reason)
       }
       if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
     }

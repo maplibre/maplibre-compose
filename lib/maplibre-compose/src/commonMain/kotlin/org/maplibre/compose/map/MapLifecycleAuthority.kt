@@ -215,6 +215,20 @@ internal class MapLifecycleAuthority(
     }
   }
 
+  /** Attaches after a preceding presentation has completed its physical detachment. */
+  suspend fun attachRetainedEngine(): RenderLease {
+    while (true) {
+      when (val observed = current.load()) {
+        is InternalState.OpenDetached -> return attach()
+        is InternalState.Attaching -> return observed.result.await().getOrThrow()
+        is InternalState.Attached -> return observed.lease
+        is InternalState.Detaching -> observed.result.await().getOrThrow()
+        is InternalState.Closing,
+        InternalState.Closed -> throw MapClosedException()
+      }
+    }
+  }
+
   /** Commits attachment before starting its physical commands. */
   fun beginAttach(): PendingAttachment {
     val result = CompletableDeferred<Result<RenderLease>>()
@@ -301,6 +315,22 @@ internal class MapLifecycleAuthority(
     val result = beginDetach(lease) ?: return false
     result.await().getOrThrow()
     return true
+  }
+
+  /** Detaches the current presentation, or joins a detachment that already started. */
+  suspend fun detachCurrentPresentation(): Boolean {
+    val observed = current.load()
+    return when (observed) {
+      is InternalState.Attaching -> detach(observed.lease)
+      is InternalState.Attached -> detach(observed.lease)
+      is InternalState.Detaching -> {
+        observed.result.await().getOrThrow()
+        true
+      }
+      is InternalState.OpenDetached,
+      is InternalState.Closing,
+      InternalState.Closed -> false
+    }
   }
 
   private fun beginDetach(lease: RenderLease): CompletableDeferred<Result<Unit>>? {

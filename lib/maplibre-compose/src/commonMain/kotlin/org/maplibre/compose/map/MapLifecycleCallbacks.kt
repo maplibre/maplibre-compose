@@ -44,10 +44,11 @@ internal class MapLifecycleCallbacks(
   fun onMapFailLoading(
     engine: EngineMapIdentity,
     request: StyleRequestIdentity,
+    map: MapAdapter,
     reason: String?,
   ) =
     lifecycle.acceptStyleRequestEvent(engine, request) {
-      delegate().onMapFailLoading(reason)
+      delegate().onMapFailLoading(map, reason)
     }
 
   fun onCameraMoveStarted(

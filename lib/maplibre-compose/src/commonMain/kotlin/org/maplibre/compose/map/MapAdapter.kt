@@ -19,6 +19,23 @@ import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
 internal interface MapAdapter {
+  /** Whether the engine remains alive after its current presentation detaches. */
+  val retainsEngineBetweenPresentations: Boolean
+    get() = false
+
+  /** Identifies the presentation properties that constrain engine reuse. */
+  val presentationCompatibilityKey: Any?
+    get() = null
+
+  /** Attaches this engine to its current presentation host. */
+  suspend fun attachPresentation() = Unit
+
+  /** Detaches this engine from its current presentation host. */
+  suspend fun detachPresentation() {
+    close()
+    awaitClosed()
+  }
+
   fun close()
 
   suspend fun awaitClosed()
@@ -95,7 +112,7 @@ internal interface MapAdapter {
     /** A null [sourceId] means that the adapter cannot identify the changed source. */
     fun onSourceChanged(map: MapAdapter, sourceId: String?)
 
-    fun onMapFailLoading(reason: String?)
+    fun onMapFailLoading(map: MapAdapter, reason: String?)
 
     fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason)
 

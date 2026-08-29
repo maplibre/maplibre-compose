@@ -55,10 +55,11 @@ private fun startHangWatchdog(): Thread {
 @OptIn(ExperimentalTestApi::class)
 internal actual fun ComposeUiTest.setFfiTestMapContent(
   runtimeOptions: MlnFfiRuntimeOptions,
+  presentationCount: Int,
   content: @Composable () -> Unit,
 ) {
   MlnFfiApplication.configure(runtimeOptions)
-  val preparedFactory = CurrentRuntimeTestMapHostFactory.prepare()
+  val preparedFactory = CurrentRuntimeTestMapHostFactory.prepare(presentationCount)
   try {
     setContent {
       CompositionLocalProvider(
@@ -75,7 +76,9 @@ internal actual fun ComposeUiTest.setFfiTestMapContent(
 
 /** Creates a production bridge for whichever runtime this Desktop test process packages. */
 private class CurrentRuntimeTestMapHostFactory
-private constructor(private var preparedDriver: FfiTestRenderDriver?) : MlnFfiMapHostFactory {
+private constructor(private val preparedDrivers: ArrayDeque<FfiTestRenderDriver>) :
+  MlnFfiMapHostFactory {
+  private val initialDriverCount = preparedDrivers.size
   override val bridges: List<RenderBackendPair> =
     listOf(
       when (val packaged = Maplibre.supportedRenderBackends().singleOrNull()) {
@@ -89,21 +92,20 @@ private constructor(private var preparedDriver: FfiTestRenderDriver?) : MlnFfiMa
 
   override fun create(backends: RenderBackendPair): MlnFfiMapHostResult {
     val driver =
-      preparedDriver
+      preparedDrivers.removeFirstOrNull()
         ?: return MlnFfiMapHostResult.Failed(
-          "The prepared Desktop test bridge was already consumed; each test map may create one host"
+          "The Desktop test used more presentation hosts than it prepared"
         )
-    preparedDriver = null
     return MlnFfiMapHostResult.Created(driver)
   }
 
   fun closePendingDriver() {
-    preparedDriver?.close()
-    preparedDriver = null
+    preparedDrivers.forEach(FfiTestRenderDriver::close)
+    preparedDrivers.clear()
   }
 
   fun requireConsumed() {
-    if (preparedDriver == null) return
+    if (preparedDrivers.size < initialDriverCount) return
     closePendingDriver()
     error("The test content did not create a Desktop map host during initial composition")
   }
@@ -116,11 +118,14 @@ private constructor(private var preparedDriver: FfiTestRenderDriver?) : MlnFfiMa
     }
 
   companion object {
-    fun prepare(): CurrentRuntimeTestMapHostFactory {
+    fun prepare(presentationCount: Int): CurrentRuntimeTestMapHostFactory {
       check(!EventQueue.isDispatchThread()) {
         "The Desktop test bridge must be prepared off the EDT"
       }
-      return CurrentRuntimeTestMapHostFactory(FfiTestPlatform.createRenderDriver())
+      require(presentationCount > 0) { "A map test must prepare at least one presentation host" }
+      return CurrentRuntimeTestMapHostFactory(
+        ArrayDeque(List(presentationCount) { FfiTestPlatform.createRenderDriver() })
+      )
     }
   }
 }

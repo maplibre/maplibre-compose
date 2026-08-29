@@ -136,6 +136,11 @@ private val HANDLED_MAP_EVENTS: RuntimeEventMask =
 /** The fraction of a capped frame interval a frame may arrive early and still be drawn. */
 private const val FRAME_INTERVAL_SLACK = 0.1
 
+internal data class NativeEngineCompatibility(
+  val renderBackend: MapRenderBackend,
+  val scaleFactor: Double,
+)
+
 /**
  * The runtime and the map belong to [MlnFfiMapRuntimeLoop]'s thread; the render session belongs to
  * the host's renderer thread. A camera transition only steps while frames are being drawn: mbgl
@@ -163,6 +168,11 @@ internal class MlnFfiMapSession(
   @Volatile private var lifecycleStyleIdentity: StyleIdentity? = null
 
   override val engineRetention: EngineRetention = EngineRetention.RETAIN
+
+  override val retainsEngineBetweenPresentations: Boolean = true
+
+  override val presentationCompatibilityKey: Any =
+    NativeEngineCompatibility(renderBackend = renderBackend, scaleFactor = scaleFactor)
 
   override val backend: MapRenderBackend = renderBackend
   private val initialExtent = MapExtent.fromLogical(1, 1, scaleFactor)
@@ -427,6 +437,14 @@ internal class MlnFfiMapSession(
 
   override suspend fun awaitClosed() {
     lifecycle.awaitClosed()
+  }
+
+  override suspend fun attachPresentation() {
+    lifecycle.attachRetainedEngine()
+  }
+
+  override suspend fun detachPresentation() {
+    lifecycle.detachCurrentPresentation()
   }
 
   override suspend fun createEngine(identity: EngineMapIdentity) {
@@ -825,7 +843,7 @@ internal class MlnFfiMapSession(
           styleEventProducer
             ?.takeIf { it.engine == engine }
             ?.let {
-              if (lifecycleCallbacks.onMapFailLoading(engine, it.request, reason)) {
+              if (lifecycleCallbacks.onMapFailLoading(engine, it.request, this, reason)) {
                 logger?.e { "Map loading failed (code ${event.code}): $reason" }
               }
             }

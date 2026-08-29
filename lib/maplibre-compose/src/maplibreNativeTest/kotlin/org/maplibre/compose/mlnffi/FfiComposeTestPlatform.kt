@@ -15,5 +15,6 @@ internal expect fun runFfiComposeUiTest(block: suspend ComposeUiTest.() -> Unit)
 @ExperimentalTestApi
 internal expect fun ComposeUiTest.setFfiTestMapContent(
   runtimeOptions: MlnFfiRuntimeOptions,
+  presentationCount: Int = 1,
   content: @Composable () -> Unit,
 )

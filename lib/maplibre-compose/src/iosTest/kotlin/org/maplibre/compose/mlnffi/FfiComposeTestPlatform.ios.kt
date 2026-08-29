@@ -18,10 +18,12 @@ internal actual fun runFfiComposeUiTest(block: suspend ComposeUiTest.() -> Unit)
 @OptIn(ExperimentalTestApi::class)
 internal actual fun ComposeUiTest.setFfiTestMapContent(
   runtimeOptions: MlnFfiRuntimeOptions,
+  presentationCount: Int,
   content: @Composable () -> Unit,
 ) {
   // The iOS map view builds its own surface controller, like Android's, so no host factory needs
   // to be prepared off the test thread.
+  require(presentationCount > 0) { "A map test must prepare at least one presentation" }
   MlnFfiApplication.configure(runtimeOptions)
   setContent(content)
 }

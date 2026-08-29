@@ -111,6 +111,11 @@ internal constructor(
   /** Whether this presentation is still the current connection. */
   public val isValid: Boolean
     get() = owner.isCurrent(this)
+
+  /** Sets the camera for this presentation, or fails if its render lease has ended. */
+  public fun setCameraPosition(position: CameraPosition) {
+    owner.setCameraPosition(this, position)
+  }
 }
 
 /** One logical map, independent from its temporary UI presentation. */
@@ -123,6 +128,8 @@ internal constructor(
   private val lock = reentrantLock()
   private val closure = CompletableDeferred<Result<Unit>>()
   private var attachment: Attachment? = null
+  private var retainedAdapter: MapAdapter? = null
+  private val retiringAdapters = linkedSetOf<MapAdapter>()
   private var closed = false
 
   internal val cameraState = CameraState(initialCameraPosition)
@@ -141,22 +148,35 @@ internal constructor(
 
   /** Marks this state as closed and starts cleanup of the current presentation. */
   public fun close() {
-    val map = lock.withLock {
+    val maps = lock.withLock {
       if (closed) return
       closed = true
-      val map = attachment?.adapter
+      val maps = buildSet {
+        retainedAdapter?.let(::add)
+        attachment?.adapter?.let(::add)
+        addAll(retiringAdapters)
+      }
       attachment = null
+      retainedAdapter = null
+      retiringAdapters.clear()
       Snapshot.withMutableSnapshot { presentation = null }
-      map
+      maps
     }
     cameraState.map = null
-    if (map == null) {
+    if (maps.isEmpty()) {
       completeClosure(Result.success(Unit))
       return
     }
-    map.close()
+    maps.forEach(MapAdapter::close)
     runtime.physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
-      completeClosure(runCatching { map.awaitClosed() })
+      val failures = mutableListOf<Throwable>()
+      maps.forEach { map ->
+        runCatching { map.awaitClosed() }.exceptionOrNull()?.let(failures::add)
+      }
+      completeClosure(
+        if (failures.isEmpty()) Result.success(Unit)
+        else Result.failure(MapStateCleanupException(failures))
+      )
     }
   }
 
@@ -174,7 +194,7 @@ internal constructor(
   }
 
   internal fun publishPresentation(token: MapPresentationToken, adapter: MapAdapter) {
-    lock.withLock {
+    val replaced = lock.withLock {
       requireOpenLocked()
       val current = attachment
       check(current?.token == token && !current.releasing) {
@@ -183,10 +203,24 @@ internal constructor(
       if (current.adapter === adapter) return
       check(current.adapter == null) { "The map state already has a presentation" }
       current.adapter = adapter
+      val reusesRetainedAdapter = retainedAdapter === adapter
+      val replaced = retainedAdapter?.takeUnless { retained ->
+        retained === adapter || !adapter.retainsEngineBetweenPresentations
+      }
+      if (adapter.retainsEngineBetweenPresentations) retainedAdapter = adapter
+      if (replaced != null) retiringAdapters += replaced
       MapPresentation(this, token, adapter).also { presentation = it }
       cameraState.map = adapter
       adapter.setBaseStyle(style.baseStyle)
-      style.loadState = StyleLoadState.Loading
+      if (!reusesRetainedAdapter) style.loadState = StyleLoadState.Loading
+      replaced
+    }
+    if (replaced != null) {
+      replaced.close()
+      runtime.physicalScope.launch {
+        runCatching { replaced.awaitClosed() }
+        lock.withLock { retiringAdapters.remove(replaced) }
+      }
     }
   }
 
@@ -198,7 +232,9 @@ internal constructor(
       if (current.releasing) return
       current.releasing = true
       presentation = null
-      style.loadState = StyleLoadState.Pending
+      if (current.adapter?.retainsEngineBetweenPresentations != true) {
+        style.loadState = StyleLoadState.Pending
+      }
       current.adapter
     }
     if (cameraState.map === closingAdapter) cameraState.map = null
@@ -206,22 +242,30 @@ internal constructor(
       lock.withLock { if (attachment?.token == token) attachment = null }
       return
     }
-    closingAdapter.close()
     runtime.physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
-      runCatching { closingAdapter.awaitClosed() }
+      runCatching { closingAdapter.detachPresentation() }
       lock.withLock { if (attachment?.token == token) attachment = null }
+    }
+  }
+
+  internal fun retainedAdapter(compatibilityKey: Any): MapAdapter? = lock.withLock {
+    retainedAdapter?.takeIf { adapter ->
+      adapter.retainsEngineBetweenPresentations &&
+        adapter.presentationCompatibilityKey == compatibilityKey
     }
   }
 
   internal fun markStyleReady(adapter: MapAdapter) {
     lock.withLock {
-      if (!closed && attachment?.adapter === adapter) style.loadState = StyleLoadState.Ready
+      if (!closed && (attachment?.adapter === adapter || retainedAdapter === adapter)) {
+        style.loadState = StyleLoadState.Ready
+      }
     }
   }
 
   internal fun markStyleFailed(adapter: MapAdapter, reason: String?) {
     lock.withLock {
-      if (!closed && attachment?.adapter === adapter) {
+      if (!closed && (attachment?.adapter === adapter || retainedAdapter === adapter)) {
         style.loadState = StyleLoadState.Failed(reason)
       }
     }
@@ -232,7 +276,7 @@ internal constructor(
       requireOpenLocked()
       if (style.baseStyle == value) return
       style.setBaseStyleState(value)
-      val adapter = attachment?.adapter
+      val adapter = attachment?.adapter ?: retainedAdapter
       if (adapter == null) {
         style.loadState = StyleLoadState.Pending
       } else {
@@ -244,6 +288,15 @@ internal constructor(
 
   internal fun isCurrent(candidate: MapPresentation): Boolean = lock.withLock {
     !closed && presentation === candidate && attachment?.token == candidate.token
+  }
+
+  internal fun setCameraPosition(candidate: MapPresentation, position: CameraPosition) {
+    lock.withLock {
+      check(!closed && presentation === candidate && attachment?.token == candidate.token) {
+        "The map presentation lease has ended"
+      }
+      candidate.adapter.setCameraPosition(position)
+    }
   }
 
   private fun requireOpenLocked() {
@@ -262,6 +315,13 @@ internal constructor(
 
   private companion object {
     val nextPresentationToken = AtomicLong(0L)
+  }
+}
+
+internal class MapStateCleanupException(failures: List<Throwable>) :
+  RuntimeException("Map state cleanup failed in ${failures.size} resource(s)", failures.first()) {
+  init {
+    failures.drop(1).forEach(::addSuppressed)
   }
 }
 
