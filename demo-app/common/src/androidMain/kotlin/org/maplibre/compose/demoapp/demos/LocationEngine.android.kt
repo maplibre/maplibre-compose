@@ -2,15 +2,13 @@ package org.maplibre.compose.demoapp.demos
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
-import kotlin.time.Duration.Companion.seconds
 import org.maplibre.compose.gms.GmsLocationBackend
 import org.maplibre.compose.hms.HmsLocationBackend
+import org.maplibre.compose.location.AndroidHeadingProvider
 import org.maplibre.compose.location.AndroidLocationProvider
-import org.maplibre.compose.location.AndroidOrientationProvider
+import org.maplibre.compose.location.HeadingProvider
 import org.maplibre.compose.location.LocationProvider
-import org.maplibre.compose.location.OrientationProvider
 
 /** The Google Play Services fused providers, regardless of backend discovery. */
 private object GmsLocationEngine : DemoLocationEngine {
@@ -23,16 +21,13 @@ private object GmsLocationEngine : DemoLocationEngine {
   }
 
   @Composable
-  override fun rememberOrientationProvider(): OrientationProvider {
+  override fun rememberHeadingProvider(): HeadingProvider {
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-    return remember(context, coroutineScope) {
-      GmsLocationBackend().createOrientationProvider(context, 1.seconds, coroutineScope)
-    }
+    return remember(context) { GmsLocationBackend().createHeadingProvider(context) }
   }
 }
 
-/** Huawei Mobile Services fused location with framework orientation. */
+/** Huawei Mobile Services fused location with framework heading. */
 private object HmsLocationEngine : DemoLocationEngine {
   override val label = "HMS"
 
@@ -43,12 +38,9 @@ private object HmsLocationEngine : DemoLocationEngine {
   }
 
   @Composable
-  override fun rememberOrientationProvider(): OrientationProvider {
+  override fun rememberHeadingProvider(): HeadingProvider {
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-    return remember(context, coroutineScope) {
-      AndroidOrientationProvider(context, 1.seconds, coroutineScope)
-    }
+    return remember(context) { AndroidHeadingProvider(context) }
   }
 }
 
@@ -63,12 +55,9 @@ private object FrameworkLocationEngine : DemoLocationEngine {
   }
 
   @Composable
-  override fun rememberOrientationProvider(): OrientationProvider {
+  override fun rememberHeadingProvider(): HeadingProvider {
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-    return remember(context, coroutineScope) {
-      AndroidOrientationProvider(context, 1.seconds, coroutineScope)
-    }
+    return remember(context) { AndroidHeadingProvider(context) }
   }
 }
 

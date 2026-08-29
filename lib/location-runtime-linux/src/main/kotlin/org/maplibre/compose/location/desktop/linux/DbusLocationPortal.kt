@@ -28,14 +28,11 @@ import org.freedesktop.dbus.interfaces.DBus
 import org.freedesktop.dbus.interfaces.Properties
 import org.freedesktop.dbus.types.UInt32
 import org.freedesktop.dbus.types.Variant
-import org.maplibre.compose.location.BearingWithAccuracy
-import org.maplibre.compose.location.Location
 import org.maplibre.compose.location.LocationAccuracy
 import org.maplibre.compose.location.LocationEvent
+import org.maplibre.compose.location.LocationFix
 import org.maplibre.compose.location.LocationRequest
 import org.maplibre.compose.location.LocationUnavailableReason
-import org.maplibre.compose.location.PositionWithAccuracy
-import org.maplibre.compose.location.SpeedWithAccuracy
 import org.maplibre.compose.location.XdgPortalWindow
 import org.maplibre.compose.location.desktop.linux.portal.LocationPortal
 import org.maplibre.compose.location.desktop.linux.portal.PortalRequest
@@ -275,35 +272,23 @@ internal fun Map<String, Variant<*>>.toLocationEvent(): LocationEvent.Fix {
       )
     } ?: Clock.System.now()
   val location =
-    Location(
+    LocationFix(
       position =
-        PositionWithAccuracy(
-          value =
-            Position(
-              longitude = number("Longitude") ?: error("Portal location has no Longitude"),
-              latitude = number("Latitude") ?: error("Portal location has no Latitude"),
-              // GeoClue reports unknown altitude as -G_MAXDOUBLE.
-              altitude = number("Altitude")?.takeIf { it != -Double.MAX_VALUE },
-            ),
-          accuracy = number("Accuracy")?.meters,
+        Position(
+          longitude = number("Longitude") ?: error("Portal location has no Longitude"),
+          latitude = number("Latitude") ?: error("Portal location has no Latitude"),
+          // GeoClue reports unknown altitude as -G_MAXDOUBLE.
+          altitude = number("Altitude")?.takeIf { it != -Double.MAX_VALUE },
         ),
-      speed =
-        number("Speed")
-          ?.takeIf { it >= 0.0 }
-          ?.let {
-            SpeedWithAccuracy(it.meters, accuracy = null)
-          },
-      course =
-        number("Heading")
-          ?.takeIf { it >= 0.0 }
-          ?.let {
-            BearingWithAccuracy(Bearing.North + it.degrees, accuracy = null)
-          },
-      timestamp =
-        TimeSource.Monotonic.markNow() -
-          (Clock.System.now() - capturedAt).coerceAtLeast(Duration.ZERO),
+      horizontalAccuracy = number("Accuracy")?.meters,
+      speed = number("Speed")?.takeIf { it >= 0.0 }?.meters,
+      course = number("Heading")?.takeIf { it >= 0.0 }?.let { Bearing.North + it.degrees },
+      measuredAt = capturedAt,
     )
-  return LocationEvent.Fix(location)
+  return LocationEvent.Fix(
+    location,
+    TimeSource.Monotonic.markNow() - (Clock.System.now() - capturedAt).coerceAtLeast(Duration.ZERO),
+  )
 }
 
 private fun Map<String, Variant<*>>.number(name: String): Double? =

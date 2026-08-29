@@ -1,7 +1,10 @@
 package org.maplibre.compose.location
 
+import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeMark
+import kotlin.time.TimeSource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -145,7 +148,10 @@ public enum class LocationAccuracy {
 /** Events emitted while collecting [LocationProvider.updates]. */
 public sealed interface LocationEvent {
   /** A measured location. */
-  public data class Fix(val location: Location) : LocationEvent
+  public data class Fix(
+    val location: LocationFix,
+    val measurementMark: TimeMark = location.measurementMark(),
+  ) : LocationEvent
 
   /**
    * A condition or failure that currently prevents location delivery.
@@ -158,6 +164,9 @@ public sealed interface LocationEvent {
     val cause: Throwable? = null,
   ) : LocationEvent
 }
+
+private fun LocationFix.measurementMark(): TimeMark =
+  TimeSource.Monotonic.markNow() - (Clock.System.now() - measuredAt).coerceAtLeast(Duration.ZERO)
 
 /** Reasons that a provider cannot currently deliver location measurements. */
 public enum class LocationUnavailableReason {

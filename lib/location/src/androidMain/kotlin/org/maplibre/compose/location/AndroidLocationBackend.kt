@@ -3,8 +3,6 @@ package org.maplibre.compose.location
 import android.content.Context
 import java.util.ServiceConfigurationError
 import java.util.ServiceLoader
-import kotlin.time.Duration
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 
@@ -12,12 +10,12 @@ import kotlinx.coroutines.flow.flowOf
  * An Android location implementation discovered through [ServiceLoader].
  *
  * An installed and available backend supplies the providers that [createDefaultLocationProvider]
- * and [createDefaultOrientationProvider] create; the framework providers remain the default
- * otherwise. When several backends are available, the highest [priority] wins, and equal priorities
- * resolve to the first [id] in lexicographic order. A [ServiceConfigurationError], a
- * [LinkageError], or an exception while loading or checking a backend maps
- * [LocationProvider.backendAvailability] to [LocationBackendAvailability.Misconfigured]. The
- * installed backend documents its own availability conditions.
+ * and [createDefaultHeadingProvider] create; the framework providers remain the default otherwise.
+ * When several backends are available, the highest [priority] wins, and equal priorities resolve to
+ * the first [id] in lexicographic order. A [ServiceConfigurationError], a [LinkageError], or an
+ * exception while loading or checking a backend maps [LocationProvider.backendAvailability] to
+ * [LocationBackendAvailability.Misconfigured]. The installed backend documents its own availability
+ * conditions.
  */
 public interface AndroidLocationBackend {
   /** A stable name used in diagnostics and to break priority ties. */
@@ -38,14 +36,10 @@ public interface AndroidLocationBackend {
   public fun createLocationProvider(context: Context): LocationProvider
 
   /**
-   * Creates this backend's orientation provider, or returns null so the default framework
-   * orientation provider is used. [coroutineScope] shares the provider's orientation flow.
+   * Creates this backend's heading provider, or returns null so the default framework heading
+   * provider is used.
    */
-  public fun createOrientationProvider(
-    context: Context,
-    updateInterval: Duration,
-    coroutineScope: CoroutineScope,
-  ): OrientationProvider? = null
+  public fun createHeadingProvider(context: Context): HeadingProvider? = null
 }
 
 internal sealed interface AndroidBackendResolution {

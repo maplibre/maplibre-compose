@@ -9,6 +9,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.first
@@ -162,27 +163,27 @@ class WindowsLocationProviderTest {
         windowsTimestampTicks =
           WINDOWS_EPOCH_TICKS + (currentTimeMillis - 2_000) * TICKS_PER_MILLISECOND
       )
-    val location = checkNotNull(fix.asMapLibreLocation(currentTimeMillis))
+    val location = checkNotNull(fix.asMapLibreLocationFix())
 
-    assertEquals(52.0, location.position.value.latitude)
-    assertEquals(13.0, location.position.value.longitude)
-    assertEquals(40.0, location.position.value.altitude)
-    assertEquals(8.0, location.position.accuracy?.inMeters)
+    assertEquals(52.0, location.position.latitude)
+    assertEquals(13.0, location.position.longitude)
+    assertEquals(40.0, location.position.altitude)
+    assertEquals(8.0, location.horizontalAccuracy?.inMeters)
     assertEquals(3.0, location.altitudeAccuracy?.inMeters)
-    assertEquals(4.0, location.speed?.distancePerSecond?.inMeters)
-    assertNull(location.speed?.accuracy)
-    assertEquals(Bearing.North + 90.degrees, location.course?.value)
-    assertNull(location.course?.accuracy)
-    assertTrue(location.timestamp.elapsedNow() >= 2.seconds)
+    assertEquals(4.0, location.speed?.inMeters)
+    assertNull(location.speedAccuracy)
+    assertEquals(Bearing.North + 90.degrees, location.course)
+    assertNull(location.courseAccuracy)
+    assertEquals(Instant.fromEpochMilliseconds(currentTimeMillis - 2_000), location.measuredAt)
   }
 
   @Test
   fun rejectsMalformedRequiredValuesAndOmitsMalformedOptionalValues() {
-    assertNull(sampleFix(latitude = Double.NaN).asMapLibreLocation())
-    assertNull(sampleFix(latitude = 91.0).asMapLibreLocation())
-    assertNull(sampleFix(longitude = -181.0).asMapLibreLocation())
-    assertNull(sampleFix(horizontalAccuracyMeters = -1.0).asMapLibreLocation())
-    assertNull(sampleFix(windowsTimestampTicks = Long.MIN_VALUE).asMapLibreLocation())
+    assertNull(sampleFix(latitude = Double.NaN).asMapLibreLocationFix())
+    assertNull(sampleFix(latitude = 91.0).asMapLibreLocationFix())
+    assertNull(sampleFix(longitude = -181.0).asMapLibreLocationFix())
+    assertNull(sampleFix(horizontalAccuracyMeters = -1.0).asMapLibreLocationFix())
+    assertNull(sampleFix(windowsTimestampTicks = Long.MIN_VALUE).asMapLibreLocationFix())
 
     val location =
       checkNotNull(
@@ -192,9 +193,9 @@ class WindowsLocationProviderTest {
             headingDegrees = Double.POSITIVE_INFINITY,
             speedMetersPerSecond = -1.0,
           )
-          .asMapLibreLocation()
+          .asMapLibreLocationFix()
       )
-    assertNull(location.position.value.altitude)
+    assertNull(location.position.altitude)
     assertNull(location.altitudeAccuracy)
     assertNull(location.course)
     assertNull(location.speed)

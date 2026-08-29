@@ -2,11 +2,9 @@ package org.maplibre.compose.location
 
 import js.objects.unsafeJso
 import kotlin.coroutines.resume
-import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
-import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -109,7 +107,7 @@ internal constructor(
               current.capturedAt - previous!!.capturedAt >= request.minimumInterval
           ) {
             previous = current
-            trySend(LocationEvent.Fix(current.asLocation()))
+            trySend(LocationEvent.Fix(current.asLocationFix()))
           }
         }
         is BrowserResult.Error -> {
@@ -395,22 +393,14 @@ private fun GeolocationPositionError.toValue(): BrowserError =
     GeolocationPositionError.TIMEOUT -> BrowserError.Timeout
   }
 
-private fun BrowserPosition.asLocation(): Location =
-  Location(
-    position =
-      PositionWithAccuracy(
-        Position(longitude, latitude, altitude),
-        horizontalAccuracyMeters.meters,
-      ),
-    altitudeAccuracy = altitudeAccuracyMeters?.meters,
-    speed = speedMetersPerSecond?.let { SpeedWithAccuracy(it.meters, accuracy = null) },
-    course =
-      headingDegrees
-        ?.takeIf { it.isFinite() }
-        ?.let { BearingWithAccuracy(Bearing.North + it.degrees, accuracy = null) },
-    timestamp =
-      TimeSource.Monotonic.markNow() -
-        (Clock.System.now() - capturedAt).coerceAtLeast(Duration.ZERO),
+private fun BrowserPosition.asLocationFix(): LocationFix =
+  LocationFix(
+    position = Position(longitude, latitude, altitude),
+    horizontalAccuracy = horizontalAccuracyMeters.meters,
+    altitudeAccuracy = if (altitude != null) altitudeAccuracyMeters?.meters else null,
+    speed = speedMetersPerSecond?.meters,
+    course = headingDegrees?.takeIf { it.isFinite() }?.let { Bearing.North + it.degrees },
+    measuredAt = capturedAt,
   )
 
 private fun BrowserError.asUnavailableReason(): LocationUnavailableReason =

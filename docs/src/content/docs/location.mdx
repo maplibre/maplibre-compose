@@ -18,12 +18,17 @@ in sync with location changes:
 <Code code={region(location, "puck")} lang="kotlin" title="App.kt" />
 
 All platforms provide default location providers. Android and iOS also provide
-default orientation providers. <Api of="LocationState.status" /> reports an
+default heading providers. <Api of="LocationState.status" /> reports an
 unsupported or misconfigured platform without throwing.
 
-`locationState.location` is null until the first fix arrives, so the puck
+`locationState.lastFix` is null until the first fix arrives, so the puck
 initially draws nothing. Afterward, the state retains the last fix when
 tracking stops or permission changes.
+
+A `Bearing` is an absolute horizontal direction from north. A heading is the
+bearing that the device faces, and a course is the bearing along which the
+device moves. A `Rotation` is a relative angular displacement. Use
+Use `(bearing - Bearing.North).inDegrees` to display an absolute bearing in degrees.
 
 ## Request permission
 
@@ -69,7 +74,7 @@ manifest. Declare `ACCESS_BACKGROUND_LOCATION` only when the application tracks
 location in the background.
 
 For fused location on devices with Google Play services, add the optional
-runtime module. The default providers then use fused location and orientation
+runtime module. The default providers then use fused location and heading
 where Google Play services is available, and the framework providers
 otherwise.
 

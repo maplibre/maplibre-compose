@@ -9,6 +9,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -128,18 +129,18 @@ class MacosLocationProviderTest {
           speedAccuracy = 0.5,
           ageSeconds = 2.0,
         )
-        .asMapLibreLocation()
+        .asMapLibreLocationFix()
 
-    assertEquals(52.0, location.position.value.latitude)
-    assertEquals(13.0, location.position.value.longitude)
-    assertEquals(40.0, location.position.value.altitude)
-    assertEquals(8.0, location.position.accuracy?.inMeters)
+    assertEquals(52.0, location.position.latitude)
+    assertEquals(13.0, location.position.longitude)
+    assertEquals(40.0, location.position.altitude)
+    assertEquals(8.0, location.horizontalAccuracy?.inMeters)
     assertEquals(3.0, location.altitudeAccuracy?.inMeters)
-    assertEquals(3.0, location.speed?.distancePerSecond?.inMeters)
-    assertEquals(0.5, location.speed?.accuracy?.inMeters)
-    assertEquals(Bearing.North + 90.degrees, location.course?.value)
-    assertEquals(5.degrees, location.course?.accuracy)
-    assertTrue(location.timestamp.elapsedNow() >= 2.seconds)
+    assertEquals(3.0, location.speed?.inMeters)
+    assertEquals(0.5, location.speedAccuracy?.inMeters)
+    assertEquals(Bearing.North + 90.degrees, location.course)
+    assertEquals(5.degrees, location.courseAccuracy)
+    assertTrue(Clock.System.now() - location.measuredAt >= 2.seconds)
   }
 
   @Test
@@ -157,7 +158,7 @@ class MacosLocationProviderTest {
           speedAccuracy = -1.0,
           ageSeconds = 0.0,
         )
-        .asMapLibreLocation()
+        .asMapLibreLocationFix()
 
     assertNull(location.altitudeAccuracy)
     assertNull(location.course)
@@ -172,7 +173,7 @@ class MacosLocationProviderTest {
     client.nextLocation = fix
 
     val event = assertIs<LocationEvent.Fix>(provider.updates(LocationRequest()).first())
-    assertEquals(52.0, event.location.position.value.latitude)
+    assertEquals(52.0, event.location.position.latitude)
     assertEquals(2, client.managers.size)
     val manager = client.managers.last()
     assertEquals(CL_LOCATION_ACCURACY_BEST, manager.desiredAccuracy)
@@ -247,7 +248,7 @@ class MacosLocationProviderTest {
       LocationUnavailableReason.TemporarilyUnavailable,
       assertIs<LocationEvent.Unavailable>(events[1]).reason,
     )
-    assertEquals(53.0, assertIs<LocationEvent.Fix>(events[2]).location.position.value.latitude)
+    assertEquals(53.0, assertIs<LocationEvent.Fix>(events[2]).location.position.latitude)
   }
 
   @Test

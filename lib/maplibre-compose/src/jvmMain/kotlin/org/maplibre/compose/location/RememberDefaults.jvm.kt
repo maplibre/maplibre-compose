@@ -3,7 +3,6 @@ package org.maplibre.compose.location
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
-import kotlin.time.Duration
 
 @Composable
 public actual fun rememberDefaultLocationProvider(): LocationProvider {
@@ -13,10 +12,7 @@ public actual fun rememberDefaultLocationProvider(): LocationProvider {
   return provider
 }
 
-@Composable
-public actual fun rememberDefaultOrientationProvider(
-  updateInterval: Duration
-): OrientationProvider = NullOrientationProvider
+@Composable public actual fun rememberDefaultHeadingProvider(): HeadingProvider = NoHeadingProvider
 
 @Composable
 public actual fun rememberSystemSettingsLauncher(): SystemSettingsLauncher = remember {

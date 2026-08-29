@@ -3,6 +3,7 @@ package org.maplibre.compose.location.desktop.macos
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.CoroutineContext
+import kotlin.time.TimeSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.SendChannel
@@ -174,7 +175,12 @@ internal constructor(
 
     fun sendLocation(location: CoreLocationFix) {
       if (location.horizontalAccuracy < 0.0) return
-      channel.trySend(LocationEvent.Fix(location.asMapLibreLocation()))
+      channel.trySend(
+        LocationEvent.Fix(
+          location.asMapLibreLocationFix(),
+          TimeSource.Monotonic.markNow() - location.ageAtReceipt(),
+        )
+      )
     }
   }
 }

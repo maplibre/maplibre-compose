@@ -7,15 +7,12 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.TimeSource
-import org.maplibre.compose.location.BearingWithAccuracy
-import org.maplibre.compose.location.Location
+import kotlin.time.Instant
 import org.maplibre.compose.location.LocationAccuracy
 import org.maplibre.compose.location.LocationAccuracyAuthorization
+import org.maplibre.compose.location.LocationFix
 import org.maplibre.compose.location.LocationPermission
 import org.maplibre.compose.location.LocationUnavailableReason
-import org.maplibre.compose.location.PositionWithAccuracy
-import org.maplibre.compose.location.SpeedWithAccuracy
 import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.degrees
@@ -100,42 +97,28 @@ internal fun WindowsPositionStatus.asUnavailableReason(
     WindowsPositionStatus.Unknown -> LocationUnavailableReason.UnexpectedFailure
   }
 
-internal fun WindowsLocationFix.asMapLibreLocation(
-  currentTimeMillis: Long = System.currentTimeMillis()
-): Location? {
+internal fun WindowsLocationFix.asMapLibreLocationFix(): LocationFix? {
   if (!latitude.isFinite() || latitude !in -90.0..90.0) return null
   if (!longitude.isFinite() || longitude !in -180.0..180.0) return null
   if (!horizontalAccuracyMeters.isFinite() || horizontalAccuracyMeters < 0.0) return null
   if (windowsTimestampTicks < WINDOWS_EPOCH_TICKS) return null
 
   val altitude = altitudeMeters?.takeIf(Double::isFinite)
-  val verticalAccuracy = verticalAccuracyMeters?.takeIf { it.isFinite() && it >= 0.0 }?.meters
-  val heading =
-    headingDegrees
-      ?.takeIf { it.isFinite() && it >= 0.0 }
-      ?.let { BearingWithAccuracy(Bearing.North + it.degrees, accuracy = null) }
-  val speed =
-    speedMetersPerSecond
-      ?.takeIf { it.isFinite() && it >= 0.0 }
-      ?.let { SpeedWithAccuracy(it.meters, accuracy = null) }
+  val verticalAccuracy =
+    if (altitude == null) null
+    else verticalAccuracyMeters?.takeIf { it.isFinite() && it >= 0.0 }?.meters
+  val course =
+    headingDegrees?.takeIf { it.isFinite() && it >= 0.0 }?.let { Bearing.North + it.degrees }
+  val speed = speedMetersPerSecond?.takeIf { it.isFinite() && it >= 0.0 }?.meters
   val capturedAtMillis = (windowsTimestampTicks - WINDOWS_EPOCH_TICKS) / TICKS_PER_MILLISECOND
-  val age =
-    if (capturedAtMillis >= currentTimeMillis) {
-      Duration.ZERO
-    } else {
-      (currentTimeMillis - capturedAtMillis).milliseconds
-    }
 
-  return Location(
-    position =
-      PositionWithAccuracy(
-        Position(longitude = longitude, latitude = latitude, altitude = altitude),
-        horizontalAccuracyMeters.meters,
-      ),
+  return LocationFix(
+    position = Position(longitude = longitude, latitude = latitude, altitude = altitude),
+    horizontalAccuracy = horizontalAccuracyMeters.meters,
     altitudeAccuracy = verticalAccuracy,
     speed = speed,
-    course = heading,
-    timestamp = TimeSource.Monotonic.markNow() - age,
+    course = course,
+    measuredAt = Instant.fromEpochMilliseconds(capturedAtMillis),
   )
 }
 

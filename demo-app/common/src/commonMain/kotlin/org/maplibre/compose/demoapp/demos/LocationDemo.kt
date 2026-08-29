@@ -30,6 +30,7 @@ import org.maplibre.compose.location.LocationTrackingEffect
 import org.maplibre.compose.location.LocationTrackingStatus
 import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.compose.location.mostAccurateBearing
+import org.maplibre.compose.location.mostAccurateBearingAccuracy
 import org.maplibre.compose.location.rememberLocationState
 import org.maplibre.compose.location.rememberSystemSettingsLauncher
 import org.maplibre.compose.location.updateCamera
@@ -69,7 +70,7 @@ object LocationDemo : Demo {
     val locationState =
       rememberLocationState(
         provider = locationProvider,
-        orientationProvider = engine.rememberOrientationProvider(),
+        headingProvider = engine.rememberHeadingProvider(),
       )
     DisposableEffect(locationState, locationProvider) {
       panelLocationState = locationState
@@ -95,13 +96,13 @@ object LocationDemo : Demo {
         }
     }
 
-    val location = locationState.location
-    LaunchedEffect(location) { location?.position?.value?.let { lastFix = it } }
+    val location = locationState.lastFix
+    LaunchedEffect(location) { location?.position?.let { lastFix = it } }
 
     LocationTrackingEffect(locationState = locationState, enabled = follow) {
-      if (previousLocation == null) {
+      if (previousFix == null) {
         cameraState.animateTo(
-          CameraPosition(target = currentLocation.position.value, zoom = 16.0),
+          CameraPosition(target = currentFix.position, zoom = 16.0),
           duration = DemoFlightDuration,
         )
       } else {
@@ -110,12 +111,19 @@ object LocationDemo : Demo {
     }
 
     if (useNativeIndicator) {
-      NativeLocationIndicator(location = location, bearing = locationState.mostAccurateBearing())
+      NativeLocationIndicator(
+        location = location,
+        measurementMark = locationState.lastFixMeasurementMark,
+        bearing = locationState.mostAccurateBearing(),
+        bearingAccuracy = locationState.mostAccurateBearingAccuracy(),
+      )
     } else {
       LocationPuck(
         idPrefix = "user",
         location = location,
+        measurementMark = locationState.lastFixMeasurementMark,
         bearing = locationState.mostAccurateBearing(),
+        bearingAccuracy = locationState.mostAccurateBearingAccuracy(),
         cameraState = cameraState,
         colors = LocationPuckDefaults.colors(),
       )

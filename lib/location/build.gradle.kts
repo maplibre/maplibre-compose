@@ -9,7 +9,7 @@ plugins {
 mavenPublishing {
   pom {
     name = "MapLibre Compose Location"
-    description = "Multiplatform location and orientation providers, usable without Compose."
+    description = "Multiplatform location and heading providers, usable without Compose."
     url = "https://github.com/maplibre/maplibre-compose"
   }
 }

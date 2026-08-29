@@ -12,6 +12,7 @@ import com.google.android.gms.location.LocationRequest as GmsLocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.Task
 import java.util.concurrent.Executors
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.channels.awaitClose
@@ -26,7 +27,7 @@ import org.maplibre.compose.location.LocationPermission
 import org.maplibre.compose.location.LocationProvider
 import org.maplibre.compose.location.LocationRequest
 import org.maplibre.compose.location.LocationUnavailableReason
-import org.maplibre.compose.location.asMapLibreLocation
+import org.maplibre.compose.location.asMapLibreLocationEvent
 import org.maplibre.spatialk.units.extensions.inMeters
 
 /**
@@ -99,7 +100,7 @@ internal constructor(
       object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
           result.locations.forEach { location ->
-            trySend(LocationEvent.Fix(location.asMapLibreLocation()))
+            trySend(location.asMapLibreLocationEvent())
           }
         }
 
@@ -110,6 +111,7 @@ internal constructor(
         }
       }
 
+    var registration: Task<Void>? = null
     try {
       try {
         locationClient
@@ -120,12 +122,16 @@ internal constructor(
           )
           .await()
           ?.let { location ->
-            trySend(LocationEvent.Fix(location.asMapLibreLocation()))
+            trySend(location.asMapLibreLocationEvent())
           }
 
-        locationClient
-          .requestLocationUpdates(request.asGmsLocationRequest(), dispatcher.executor, callback)
-          .await()
+        registration =
+          locationClient.requestLocationUpdates(
+            request.asGmsLocationRequest(),
+            dispatcher.executor,
+            callback,
+          )
+        registration.await()
       } catch (error: SecurityException) {
         trySend(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied, error))
         close()
@@ -133,7 +139,9 @@ internal constructor(
 
       awaitClose()
     } finally {
-      locationClient.removeLocationUpdates(callback)
+      registration?.addOnCompleteListener(dispatcher.executor) {
+        locationClient.removeLocationUpdates(callback)
+      }
     }
   }
 

@@ -15,29 +15,39 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
+import kotlin.time.TimeMark
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.maplibre.spatialk.units.Bearing
+import org.maplibre.spatialk.units.Rotation
 import org.maplibre.spatialk.units.extensions.degrees
 
 /**
- * Lifecycle-aware state for foreground location and orientation tracking.
+ * Lifecycle-aware state for foreground location and heading tracking.
  *
- * [location] and [orientation] retain their most recently received measurements when collection
+ * [lastFix] and [lastHeading] retain their most recently received measurements when collection
  * stops. [status] separately describes whether updates are active, so retained data is not mistaken
  * for a live update.
  */
 @Stable
 public class LocationState
 internal constructor(initialPermission: LocationPermission = LocationPermission.NotGranted(null)) {
-  /** The user's current or last known location. */
-  public var location: Location? by mutableStateOf(null)
+  /** The user's last known location fix. */
+  public var lastFix: LocationFix? by mutableStateOf(null)
     internal set
 
-  /** The device's current or last known orientation. */
-  public var orientation: Orientation? by mutableStateOf(null)
+  /** The device's last known heading. */
+  public var lastHeading: Heading? by mutableStateOf(null)
+    internal set
+
+  /**
+   * Process-local monotonic mark for [lastFix], or `null` before the first fix.
+   *
+   * Use this value for live age calculations. Use [LocationFix.measuredAt] for persistence and
+   * replay.
+   */
+  public var lastFixMeasurementMark: TimeMark? by mutableStateOf(null)
     internal set
 
   /** Current foreground location authorization. */
@@ -46,6 +56,10 @@ internal constructor(initialPermission: LocationPermission = LocationPermission.
 
   /** Current foreground tracking state. */
   public var status: LocationTrackingStatus by mutableStateOf(LocationTrackingStatus.Stopped)
+    internal set
+
+  /** Current device-heading tracking state. */
+  public var headingStatus: HeadingTrackingStatus by mutableStateOf(HeadingTrackingStatus.Stopped)
     internal set
 
   internal var requestPermissionAction: () -> Unit = {}
@@ -70,9 +84,25 @@ internal constructor(initialPermission: LocationPermission = LocationPermission.
   }
 
   internal fun accept(event: LocationEvent.Fix) {
-    location = event.location
+    lastFix = event.location
+    lastFixMeasurementMark = event.measurementMark
     status = LocationTrackingStatus.Tracking
   }
+}
+
+/** Current state of device-heading collection managed by [rememberLocationState]. */
+public sealed interface HeadingTrackingStatus {
+  /** No platform heading request is active. */
+  public data object Stopped : HeadingTrackingStatus
+
+  /** A platform heading request is active and has not delivered a measurement. */
+  public data object Starting : HeadingTrackingStatus
+
+  /** The active heading request has delivered a measurement. */
+  public data object Tracking : HeadingTrackingStatus
+
+  /** The heading provider failed unexpectedly. */
+  public data class Unavailable(val cause: Throwable) : HeadingTrackingStatus
 }
 
 /** Current state of the foreground location updates managed by [rememberLocationState]. */
@@ -97,7 +127,7 @@ public sealed interface LocationTrackingStatus {
 }
 
 /**
- * Remembers foreground location and orientation state.
+ * Remembers foreground location and heading state.
  *
  * Location updates are collected while [enabled] is `true` and the lifecycle is active. This
  * function never requests permission automatically; the application chooses when to call
@@ -105,14 +135,14 @@ public sealed interface LocationTrackingStatus {
  * retaining the last measurements in [LocationState]. An unsupported or misconfigured provider is
  * reported through [LocationState.status] before permission is requested.
  *
- * @param enabled Whether location and orientation updates should run while lifecycle-active.
+ * @param enabled Whether location and heading updates should run while lifecycle-active.
  * @param provider The [LocationProvider] to use for obtaining location updates and for observing
  *   and requesting foreground location permission. A custom provider whose
  *   [LocationProvider.permission] keeps the granted default needs no permission handling.
  * @param request Preferences for location updates.
- * @param orientationProvider The optional [OrientationProvider] to use for obtaining device
- *   orientation updates. By default, a provider that emits no orientation updates is used, meaning
- *   the orientation in the returned state will always be `null`.
+ * @param headingProvider The optional [HeadingProvider] to use for obtaining device-heading
+ *   updates. By default, a provider that emits no headings is used.
+ * @param headingRequest Preferences for device-heading updates.
  * @param lifecycleOwner The [LifecycleOwner] to scope the collection of updates to. Defaults to the
  *   current [LocalLifecycleOwner].
  * @param minActiveState The minimum [Lifecycle.State] at which to collect updates. Defaults to
@@ -126,7 +156,8 @@ public fun rememberLocationState(
   enabled: Boolean = true,
   provider: LocationProvider = rememberDefaultLocationProvider(),
   request: LocationRequest = LocationRequest(),
-  orientationProvider: OrientationProvider = NullOrientationProvider,
+  headingProvider: HeadingProvider = NoHeadingProvider,
+  headingRequest: HeadingRequest = HeadingRequest(),
   lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
   minActiveState: Lifecycle.State = Lifecycle.State.STARTED,
   coroutineContext: CoroutineContext = EmptyCoroutineContext,
@@ -212,23 +243,42 @@ public fun rememberLocationState(
 
   LaunchedEffect(
     enabled,
-    orientationProvider,
+    headingProvider,
+    headingRequest,
     permission,
     state,
     lifecycleOwner.lifecycle,
     minActiveState,
     coroutineContext,
+    state.retryKey,
   ) {
-    if (!enabled || permission !is LocationPermission.Granted) return@LaunchedEffect
+    if (!enabled || permission !is LocationPermission.Granted) {
+      state.headingStatus = HeadingTrackingStatus.Stopped
+      return@LaunchedEffect
+    }
     lifecycleOwner.lifecycle.repeatOnLifecycle(minActiveState) {
-      coroutineScope {
-        launch {
-          val collectOrientation: suspend () -> Unit = {
-            orientationProvider.orientation.collect { state.orientation = it }
-          }
-          if (coroutineContext == EmptyCoroutineContext) collectOrientation()
-          else withContext(coroutineContext) { collectOrientation() }
+      try {
+        val collectHeading: suspend () -> Unit = {
+          state.headingStatus = HeadingTrackingStatus.Starting
+          headingProvider
+            .updates(headingRequest)
+            .catch { error -> state.headingStatus = HeadingTrackingStatus.Unavailable(error) }
+            .collect { heading ->
+              state.lastHeading = heading
+              state.headingStatus = HeadingTrackingStatus.Tracking
+            }
         }
+        if (coroutineContext == EmptyCoroutineContext) collectHeading()
+        else withContext(coroutineContext) { collectHeading() }
+        if (
+          state.headingStatus == HeadingTrackingStatus.Starting ||
+            state.headingStatus == HeadingTrackingStatus.Tracking
+        ) {
+          state.headingStatus = HeadingTrackingStatus.Stopped
+        }
+      } catch (error: CancellationException) {
+        state.headingStatus = HeadingTrackingStatus.Stopped
+        throw error
       }
     }
   }
@@ -240,19 +290,28 @@ public fun rememberLocationState(
  * Returns the most accurate bearing measurement available.
  *
  * This function considers the bearing from two potential sources:
- * 1. The course from the user's [Location] (derived from GPS or other location services), which
+ * 1. The course from the user's [LocationFix] (derived from GPS or other location services), which
  *    indicates the direction of travel.
- * 2. The orientation from the device's [Orientation] (derived from the compass/magnetometer), which
- *    indicates the direction the top of the device is pointing.
+ * 2. The device [Heading] (derived from the compass/magnetometer), which indicates the direction
+ *    the top of the device is pointing.
  *
  * It compares the accuracy of these two measurements and returns the one with the smallest accuracy
  * value (i.e., the most precise). If a measurement has no accuracy specified (`null`), it is
  * treated as having infinite (the worst possible) accuracy.
  *
- * @return The [BearingWithAccuracy] with the highest accuracy, or `null` if both the [Location] and
- *   [Orientation] are `null` or do not provide a bearing.
+ * @return The bearing with the highest accuracy, or `null` when neither source provides a bearing.
  */
-public fun LocationState.mostAccurateBearing(): BearingWithAccuracy? =
-  listOfNotNull(location?.course, orientation?.orientation).minByOrNull {
-    it.accuracy ?: Double.POSITIVE_INFINITY.degrees
-  }
+public fun LocationState.mostAccurateBearing(): Bearing? = mostAccurateBearingMeasurement()?.bearing
+
+/** Returns the estimated error of [mostAccurateBearing], or `null` when unknown. */
+public fun LocationState.mostAccurateBearingAccuracy(): Rotation? =
+  mostAccurateBearingMeasurement()?.accuracy
+
+private data class BearingMeasurement(val bearing: Bearing, val accuracy: Rotation?)
+
+private fun LocationState.mostAccurateBearingMeasurement(): BearingMeasurement? =
+  listOfNotNull(
+      lastFix?.course?.let { BearingMeasurement(it, lastFix?.courseAccuracy) },
+      lastHeading?.let { BearingMeasurement(it.bearing, it.accuracy) },
+    )
+    .minByOrNull { it.accuracy ?: Double.POSITIVE_INFINITY.degrees }

@@ -1,10 +1,10 @@
 package org.maplibre.compose.demoapp.demos
 
 import androidx.compose.runtime.Composable
+import org.maplibre.compose.location.HeadingProvider
 import org.maplibre.compose.location.LocationProvider
-import org.maplibre.compose.location.OrientationProvider
+import org.maplibre.compose.location.rememberDefaultHeadingProvider
 import org.maplibre.compose.location.rememberDefaultLocationProvider
-import org.maplibre.compose.location.rememberDefaultOrientationProvider
 
 /** A location engine that [LocationDemo] offers on its engine selector. */
 internal interface DemoLocationEngine {
@@ -13,7 +13,7 @@ internal interface DemoLocationEngine {
 
   @Composable fun rememberLocationProvider(): LocationProvider
 
-  @Composable fun rememberOrientationProvider(): OrientationProvider
+  @Composable fun rememberHeadingProvider(): HeadingProvider
 }
 
 /** The providers that the platform selects by default. */
@@ -24,8 +24,7 @@ internal object DefaultLocationEngine : DemoLocationEngine {
   override fun rememberLocationProvider(): LocationProvider = rememberDefaultLocationProvider()
 
   @Composable
-  override fun rememberOrientationProvider(): OrientationProvider =
-    rememberDefaultOrientationProvider()
+  override fun rememberHeadingProvider(): HeadingProvider = rememberDefaultHeadingProvider()
 }
 
 /**

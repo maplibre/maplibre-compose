@@ -1,9 +1,11 @@
 package org.maplibre.compose.demoapp.demos
 
 import androidx.compose.runtime.Composable
-import org.maplibre.compose.location.BearingWithAccuracy
-import org.maplibre.compose.location.Location
+import kotlin.time.TimeMark
+import org.maplibre.compose.location.LocationFix
 import org.maplibre.compose.util.MaplibreComposable
+import org.maplibre.spatialk.units.Bearing
+import org.maplibre.spatialk.units.Rotation
 
 /**
  * Whether this platform draws the location indicator with MapLibre Native's built-in layer. The
@@ -18,4 +20,9 @@ expect val isNativeLocationIndicatorAvailable: Boolean
  */
 @Composable
 @MaplibreComposable
-expect fun NativeLocationIndicator(location: Location?, bearing: BearingWithAccuracy?)
+expect fun NativeLocationIndicator(
+  location: LocationFix?,
+  measurementMark: TimeMark?,
+  bearing: Bearing?,
+  bearingAccuracy: Rotation?,
+)

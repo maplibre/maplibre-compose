@@ -97,7 +97,7 @@ internal constructor(private val client: WindowsLocationClient) : DesktopLocatio
     val listener =
       object : WindowsLocationListener {
         override fun onPosition(fix: WindowsLocationFix) {
-          val location = fix.asMapLibreLocation() ?: return
+          val location = fix.asMapLibreLocationFix() ?: return
           synchronized(filter) {
             if (filter.shouldDeliver(fix)) trySend(LocationEvent.Fix(location))
           }

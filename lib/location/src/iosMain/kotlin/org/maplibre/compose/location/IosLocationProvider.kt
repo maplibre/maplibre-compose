@@ -1,5 +1,6 @@
 package org.maplibre.compose.location
 
+import kotlin.time.TimeSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.awaitClose
@@ -104,7 +105,12 @@ public class IosLocationProvider : LocationProvider {
     }
 
     fun sendLocation(location: CLLocation) {
-      channel.trySend(LocationEvent.Fix(location.asMapLibreLocation()))
+      channel.trySend(
+        LocationEvent.Fix(
+          location.asMapLibreLocationFix(),
+          TimeSource.Monotonic.markNow() - location.ageAtReceipt(),
+        )
+      )
     }
 
     fun stop(manager: CLLocationManager) {

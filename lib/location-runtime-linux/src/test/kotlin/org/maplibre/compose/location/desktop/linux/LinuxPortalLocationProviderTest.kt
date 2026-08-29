@@ -142,13 +142,13 @@ class LinuxPortalLocationProviderTest {
         )
         .toLocationEvent()
 
-    assertEquals(52.0, event.location.position.value.latitude)
-    assertEquals(13.0, event.location.position.value.longitude)
-    assertEquals(40.0, event.location.position.value.altitude)
-    assertEquals(8.0, event.location.position.accuracy?.inMeters)
-    assertEquals(3.0, event.location.speed?.distancePerSecond?.inMeters)
-    assertEquals(Bearing.North + 90.degrees, event.location.course?.value)
-    assertTrue(event.location.timestamp.elapsedNow() > 1.seconds)
+    assertEquals(52.0, event.location.position.latitude)
+    assertEquals(13.0, event.location.position.longitude)
+    assertEquals(40.0, event.location.position.altitude)
+    assertEquals(8.0, event.location.horizontalAccuracy?.inMeters)
+    assertEquals(3.0, event.location.speed?.inMeters)
+    assertEquals(Bearing.North + 90.degrees, event.location.course)
+    assertTrue(event.measurementMark.elapsedNow() > 1.seconds)
   }
 
   @Test
@@ -163,7 +163,7 @@ class LinuxPortalLocationProviderTest {
         )
         .toLocationEvent()
 
-    assertEquals(null, event.location.position.value.altitude)
+    assertEquals(null, event.location.position.altitude)
     assertEquals(null, event.location.speed)
     assertEquals(null, event.location.course)
   }
