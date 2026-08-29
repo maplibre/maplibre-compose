@@ -9,6 +9,7 @@ import kotlin.js.JsAny
 import kotlin.js.JsArray
 import kotlin.js.JsNumber
 import kotlin.js.toJsString
+import kotlin.js.toList
 import kotlinx.coroutines.await
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -40,6 +41,7 @@ import org.maplibre.compose.gljs.TransitionSpecification
 import org.maplibre.compose.gljs.UpdateImageOptions
 import org.maplibre.compose.gljs.keys
 import org.maplibre.compose.gljs.jsNumberAt
+import org.maplibre.compose.gljs.jsNumberToDouble
 import org.maplibre.compose.gljs.jsPair
 import org.maplibre.compose.gljs.jsUnsafeCast
 import org.maplibre.compose.gljs.subscribe
@@ -367,7 +369,7 @@ internal class GlJsStyleBinding(
     feature: Feature<*, JsonObject?>,
   ): Double? {
     val query = clusterQuery(sourceId, feature) ?: return null
-    return query.source.getClusterExpansionZoom(query.clusterId).await()
+    return jsNumberToDouble(query.source.getClusterExpansionZoom(query.clusterId).await())
   }
 
   override suspend fun clusterChildren(
@@ -478,7 +480,7 @@ internal class GlJsStyleBinding(
           sourceLayer = layer
           this.filter = js
         }
-      map.querySourceFeatures(sourceId, options).map { it.toGeoJsonFeature() }
+      map.querySourceFeatures(sourceId, options).toList().map { it.toGeoJsonFeature() }
     }
   }
 
