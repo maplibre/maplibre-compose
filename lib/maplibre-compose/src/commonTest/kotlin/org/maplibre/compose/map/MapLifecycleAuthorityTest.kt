@@ -84,6 +84,21 @@ class MapLifecycleAuthorityTest {
   }
 
   @Test
+  fun destroy_on_detach_policy_destroys_an_engine_after_attach_failure() = runTest {
+    val adapter =
+      FakeMapLifecycleAdapter().apply {
+        retention = EngineRetention.DESTROY
+        attachFailure = TestFailure("attach")
+      }
+    val lifecycle = MapLifecycleAuthority(adapter, backgroundScope)
+
+    assertFailsWith<TestFailure> { lifecycle.attach() }
+
+    assertEquals(MapLifecycleState.OpenDetached(null), lifecycle.state)
+    assertEquals(1, adapter.commands.count { it.startsWith("destroy ") })
+  }
+
+  @Test
   fun detach_during_attach_invalidates_the_lease_and_cleans_the_partial_attachment() = runTest {
     val adapter = FakeMapLifecycleAdapter().apply { allowAttach = CompletableDeferred() }
     val lifecycle = MapLifecycleAuthority(adapter, backgroundScope)
@@ -108,7 +123,7 @@ class MapLifecycleAuthorityTest {
     val lifecycle = MapLifecycleAuthority(adapter, backgroundScope)
     val lease = lifecycle.attach()
     val engine = checkNotNull(lifecycle.engineIdentity)
-    val style = checkNotNull(lifecycle.claimStyleIdentity(engine))
+    val style = lifecycle.claimStyle(engine)
 
     lifecycle.close()
     lifecycle.close()
@@ -167,8 +182,8 @@ class MapLifecycleAuthorityTest {
     val lifecycle = MapLifecycleAuthority(FakeMapLifecycleAdapter(), backgroundScope)
     val lease = lifecycle.attach()
     val engine = checkNotNull(lifecycle.engineIdentity)
-    val firstStyle = checkNotNull(lifecycle.claimStyleIdentity(engine))
-    val currentStyle = checkNotNull(lifecycle.claimStyleIdentity(engine))
+    val firstStyle = lifecycle.claimStyle(engine)
+    val currentStyle = lifecycle.claimStyle(engine)
     lifecycle.detach(lease)
     val accepted = mutableListOf<String>()
 
@@ -208,7 +223,7 @@ class MapLifecycleAuthorityTest {
     val lifecycle = MapLifecycleAuthority(adapter, backgroundScope)
     val firstLease = lifecycle.attach()
     val firstEngine = checkNotNull(lifecycle.engineIdentity)
-    val firstStyle = checkNotNull(lifecycle.claimStyleIdentity(firstEngine))
+    val firstStyle = lifecycle.claimStyle(firstEngine)
 
     lifecycle.detach(firstLease)
 
@@ -220,6 +235,27 @@ class MapLifecycleAuthorityTest {
 
     lifecycle.attach()
     assertTrue(lifecycle.engineIdentity != firstEngine)
+  }
+
+  @Test
+  fun destroy_on_detach_engine_replacement_keeps_the_lease_but_changes_engine_identity() = runTest {
+    val adapter = FakeMapLifecycleAdapter().apply { retention = EngineRetention.DESTROY }
+    val lifecycle = MapLifecycleAuthority(adapter, backgroundScope)
+    val lease = lifecycle.attach()
+    val departedEngine = checkNotNull(lifecycle.engineIdentity)
+    val departedStyle = lifecycle.claimStyle(departedEngine)
+
+    assertTrue(lifecycle.beginEngineReplacement(departedEngine, lease))
+
+    val replacement = assertIs<MapLifecycleState.Attached>(lifecycle.state)
+    assertEquals(lease, replacement.lease)
+    assertTrue(replacement.engine != departedEngine)
+    assertTrue(!lifecycle.acceptEngineEvent(departedEngine) { error("departed engine event ran") })
+    assertTrue(
+      !lifecycle.acceptStyleEvent(departedEngine, departedStyle) {
+        error("departed style event ran")
+      }
+    )
   }
 
   @Test
@@ -348,3 +384,8 @@ private class FakeMapLifecycleAdapter : MapLifecyclePlatformAdapter {
 }
 
 private class TestFailure(message: String) : RuntimeException(message)
+
+private fun MapLifecycleAuthority.claimStyle(engine: EngineMapIdentity): StyleIdentity {
+  val request = checkNotNull(claimStyleRequestIdentity(engine))
+  return checkNotNull(claimStyleIdentity(engine, request))
+}

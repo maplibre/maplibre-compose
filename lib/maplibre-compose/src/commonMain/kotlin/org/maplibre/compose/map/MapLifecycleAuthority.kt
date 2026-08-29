@@ -25,6 +25,9 @@ import kotlinx.coroutines.launch
 /** Identifies one loaded base-style generation on one engine map. */
 @JvmInline internal value class StyleIdentity(private val value: Long)
 
+/** Identifies one requested base-style generation before it has loaded. */
+@JvmInline internal value class StyleRequestIdentity(private val value: Long)
+
 /** Whether detaching a presentation also destroys its engine map. */
 internal enum class EngineRetention {
   RETAIN,
@@ -92,6 +95,8 @@ internal class MapLifecycleAuthority(
   private val nextIdentity = AtomicLong(0L)
   private val current = AtomicReference<InternalState>(InternalState.OpenDetached(null))
   private val currentStyle = AtomicReference<StyleClaim?>(null)
+  private val currentStyleRequest = AtomicReference<StyleRequestClaim?>(null)
+  private val lifecycleGate = AtomicBoolean(false)
   private val closure = CompletableDeferred<Result<Unit>>()
 
   val state: MapLifecycleState
@@ -106,6 +111,25 @@ internal class MapLifecycleAuthority(
   val styleIdentity: StyleIdentity?
     get() = currentStyle.load()?.style
 
+  fun claimStyleRequestIdentity(engine: EngineMapIdentity): StyleRequestIdentity? = serialized {
+    if (!acceptEngineIdentity(engine)) return@serialized null
+    val identity = StyleRequestIdentity(nextIdentity.incrementAndFetch())
+    currentStyle.store(null)
+    currentStyleRequest.store(StyleRequestClaim(engine, identity))
+    identity
+  }
+
+  fun acceptStyleRequestEvent(
+    engine: EngineMapIdentity,
+    request: StyleRequestIdentity,
+    event: () -> Unit,
+  ): Boolean = serialized {
+    if (!acceptEngineIdentity(engine)) return@serialized false
+    if (currentStyleRequest.load() != StyleRequestClaim(engine, request)) return@serialized false
+    event()
+    true
+  }
+
   val acceptsWork: Boolean
     get() {
       val observed = current.load()
@@ -113,27 +137,36 @@ internal class MapLifecycleAuthority(
     }
 
   /** Claims the next loaded-style generation for [engine], invalidating the preceding one. */
-  fun claimStyleIdentity(engine: EngineMapIdentity): StyleIdentity? {
-    if (!acceptEngineIdentity(engine)) return null
-    val identity = StyleIdentity(nextIdentity.incrementAndFetch())
-    currentStyle.store(StyleClaim(engine, identity))
-    return identity
+  fun claimStyleIdentity(
+    engine: EngineMapIdentity,
+    request: StyleRequestIdentity,
+  ): StyleIdentity? {
+    return serialized {
+      if (!acceptEngineIdentity(engine)) return@serialized null
+      if (currentStyleRequest.load() != StyleRequestClaim(engine, request)) return@serialized null
+      val identity = StyleIdentity(nextIdentity.incrementAndFetch())
+      currentStyle.store(StyleClaim(engine, identity))
+      identity
+    }
   }
 
   fun invalidateStyleIdentity(engine: EngineMapIdentity): Boolean {
-    if (!acceptEngineIdentity(engine)) return false
-    while (true) {
-      val claimed = currentStyle.load() ?: return true
-      if (claimed.engine != engine) return false
-      if (currentStyle.compareAndSet(claimed, null)) return true
+    return serialized {
+      if (!acceptEngineIdentity(engine)) return@serialized false
+      val claimed = currentStyle.load() ?: return@serialized true
+      if (claimed.engine != engine) return@serialized false
+      currentStyle.store(null)
+      true
     }
   }
 
   /** Accepts an engine-durable event, including while a retained native engine is detached. */
   fun acceptEngineEvent(engine: EngineMapIdentity, event: () -> Unit): Boolean {
-    if (!acceptEngineIdentity(engine)) return false
-    event()
-    return true
+    return serialized {
+      if (!acceptEngineIdentity(engine)) return@serialized false
+      event()
+      true
+    }
   }
 
   /** Accepts an event only from the current loaded style on the current engine map. */
@@ -142,10 +175,12 @@ internal class MapLifecycleAuthority(
     style: StyleIdentity,
     event: () -> Unit,
   ): Boolean {
-    if (!acceptEngineIdentity(engine)) return false
-    if (currentStyle.load() != StyleClaim(engine, style)) return false
-    event()
-    return true
+    return serialized {
+      if (!acceptEngineIdentity(engine)) return@serialized false
+      if (currentStyle.load() != StyleClaim(engine, style)) return@serialized false
+      event()
+      true
+    }
   }
 
   private fun acceptEngineIdentity(engine: EngineMapIdentity): Boolean {
@@ -169,7 +204,7 @@ internal class MapLifecycleAuthority(
     val result = CompletableDeferred<Result<RenderLease>>()
     val engine = EngineMapIdentity(nextIdentity.incrementAndFetch())
     val lease = RenderLease(nextIdentity.incrementAndFetch())
-    while (true) {
+    val selected = serialized {
       val observed = current.load()
       when (observed) {
         is InternalState.OpenDetached -> {
@@ -181,11 +216,8 @@ internal class MapLifecycleAuthority(
               result = result,
               engineCreated = AtomicBoolean(observed.engine != null),
             )
-          if (!current.compareAndSet(observed, selected)) continue
-          physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
-            performAttach(selected, observed.engine == null)
-          }
-          return PendingAttachment(lease, result)
+          current.store(selected)
+          selected to (observed.engine == null)
         }
         is InternalState.Attaching,
         is InternalState.Attached,
@@ -194,18 +226,53 @@ internal class MapLifecycleAuthority(
         InternalState.Closed -> throw MapClosedException()
       }
     }
+    physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
+      performAttach(selected.first, selected.second)
+    }
+    return PendingAttachment(lease, result)
+  }
+
+  /** Replaces a destroy-on-detach engine without transferring its current presentation lease. */
+  fun beginEngineReplacement(engine: EngineMapIdentity, lease: RenderLease): Boolean {
+    check(adapter.engineRetention == EngineRetention.DESTROY) {
+      "Retained engines do not need same-presentation replacement"
+    }
+    val result = CompletableDeferred<Result<RenderLease>>()
+    val replacement = EngineMapIdentity(nextIdentity.incrementAndFetch())
+    val replacing =
+      serialized {
+        val observed = current.load()
+        if (observed !is InternalState.Attached) return@serialized null
+        if (observed.engine != engine || observed.lease != lease) return@serialized null
+        InternalState.Attaching(
+            engine = replacement,
+            lease = lease,
+            result = result,
+            engineCreated = AtomicBoolean(false),
+          )
+          .also { current.store(it) }
+      } ?: return false
+    currentStyle.store(null)
+    currentStyleRequest.store(null)
+    physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
+      performEngineReplacement(engine, replacing)
+    }
+    return true
   }
 
   /** Commits logical closure synchronously and starts one cancellation-independent cleanup. */
   fun close() {
-    while (true) {
-      val observed = current.load()
-      if (observed is InternalState.Closing || observed === InternalState.Closed) return
-      val closing = InternalState.Closing(observed)
-      if (!current.compareAndSet(observed, closing)) continue
-      physicalScope.launch(start = CoroutineStart.UNDISPATCHED) { performClose(closing) }
-      return
-    }
+    val closing =
+      serialized {
+        val observed = current.load()
+        if (observed is InternalState.Closing || observed === InternalState.Closed) {
+          return@serialized null
+        }
+        val closing = InternalState.Closing(observed)
+        current.store(closing)
+        closing
+      } ?: return
+    physicalScope.launch(start = CoroutineStart.UNDISPATCHED) { performClose(closing) }
   }
 
   /** Waits for every cleanup attempt and reports their combined outcome. */
@@ -221,42 +288,43 @@ internal class MapLifecycleAuthority(
   }
 
   private fun beginDetach(lease: RenderLease): CompletableDeferred<Result<Unit>>? {
-    while (true) {
-      val observed = current.load()
-      when (observed) {
-        is InternalState.Attaching -> {
-          if (observed.lease != lease) return null
-          val result = CompletableDeferred<Result<Unit>>()
-          val detaching =
-            InternalState.Detaching(
-              engine = observed.engine,
-              lease = lease,
-              result = result,
-              attachResult = observed.result,
-              engineCreated = observed.engineCreated,
-            )
-          if (!current.compareAndSet(observed, detaching)) continue
-          physicalScope.launch(start = CoroutineStart.UNDISPATCHED) { performDetach(detaching) }
-          return result
+    val detaching =
+      serialized {
+        val observed = current.load()
+        when (observed) {
+          is InternalState.Attaching -> {
+            if (observed.lease != lease) return null
+            val result = CompletableDeferred<Result<Unit>>()
+            val detaching =
+              InternalState.Detaching(
+                engine = observed.engine,
+                lease = lease,
+                result = result,
+                attachResult = observed.result,
+                engineCreated = observed.engineCreated,
+              )
+            current.store(detaching)
+            detaching
+          }
+          is InternalState.Attached -> {
+            if (observed.lease != lease) return null
+            val result = CompletableDeferred<Result<Unit>>()
+            val detaching =
+              InternalState.Detaching(
+                engine = observed.engine,
+                lease = lease,
+                result = result,
+                attachResult = null,
+                engineCreated = null,
+              )
+            current.store(detaching)
+            detaching
+          }
+          else -> null
         }
-        is InternalState.Attached -> {
-          if (observed.lease != lease) return null
-          val result = CompletableDeferred<Result<Unit>>()
-          val detaching =
-            InternalState.Detaching(
-              engine = observed.engine,
-              lease = lease,
-              result = result,
-              attachResult = null,
-              engineCreated = null,
-            )
-          if (!current.compareAndSet(observed, detaching)) continue
-          physicalScope.launch(start = CoroutineStart.UNDISPATCHED) { performDetach(detaching) }
-          return result
-        }
-        else -> return null
-      }
-    }
+      } ?: return null
+    physicalScope.launch(start = CoroutineStart.UNDISPATCHED) { performDetach(detaching) }
+    return detaching.result
   }
 
   /** Accepts a viewport-bound event only for the currently attached engine and lease. */
@@ -265,11 +333,13 @@ internal class MapLifecycleAuthority(
     lease: RenderLease,
     event: () -> Unit,
   ): Boolean {
-    val observed = current.load()
-    if (observed !is InternalState.Attached) return false
-    if (observed.engine != engine || observed.lease != lease) return false
-    event()
-    return true
+    return serialized {
+      val observed = current.load()
+      if (observed !is InternalState.Attached) return@serialized false
+      if (observed.engine != engine || observed.lease != lease) return@serialized false
+      event()
+      true
+    }
   }
 
   private suspend fun performAttach(attaching: InternalState.Attaching, createEngine: Boolean) {
@@ -286,35 +356,86 @@ internal class MapLifecycleAuthority(
       } catch (error: Throwable) {
         Result.failure(error)
       }
-    val observed = current.load()
-    if (outcome.isSuccess && observed === attaching) {
-      current.compareAndSet(
-        attaching,
-        InternalState.Attached(attaching.engine, attaching.lease),
-      )
-      attaching.result.complete(outcome)
-    } else if (outcome.isFailure && observed === attaching) {
+    val stillAttaching = serialized { current.load() === attaching }
+    if (outcome.isSuccess && stillAttaching) {
+      val committed = serialized {
+        if (current.load() === attaching) {
+          current.store(InternalState.Attached(attaching.engine, attaching.lease))
+          true
+        } else {
+          false
+        }
+      }
+      if (committed) {
+        attaching.result.complete(outcome)
+      } else {
+        attaching.result.complete(Result.failure(MapLeaseInvalidatedException()))
+      }
+    } else if (outcome.isFailure && stillAttaching) {
       val error = checkNotNull(outcome.exceptionOrNull())
       if (attachAttempted) {
         runCatching { adapter.detach(attaching.engine, attaching.lease) }
           .exceptionOrNull()
           ?.let(error::addSuppressed)
       }
-      if (!attaching.engineCreated.load()) {
+      val destroyEngine =
+        !attaching.engineCreated.load() || adapter.engineRetention == EngineRetention.DESTROY
+      if (destroyEngine) {
         runCatching { adapter.destroyEngine(attaching.engine) }
           .exceptionOrNull()
           ?.let(error::addSuppressed)
+        currentStyle.store(null)
+        currentStyleRequest.store(null)
       }
-      current.compareAndSet(
-        attaching,
-        InternalState.OpenDetached(attaching.engine.takeIf { attaching.engineCreated.load() }),
-      )
+      serialized {
+        if (current.load() === attaching) {
+          current.store(InternalState.OpenDetached(attaching.engine.takeIf { !destroyEngine }))
+        }
+      }
       attaching.result.complete(Result.failure(error))
     } else {
       val invalidated = MapLeaseInvalidatedException()
       outcome.exceptionOrNull()?.let(invalidated::addSuppressed)
       attaching.result.complete(Result.failure(invalidated))
     }
+  }
+
+  private suspend fun performEngineReplacement(
+    previousEngine: EngineMapIdentity,
+    attaching: InternalState.Attaching,
+  ) {
+    val failure = runCatching {
+      adapter.destroyEngine(previousEngine)
+      adapter.createEngine(attaching.engine)
+      attaching.engineCreated.store(true)
+      adapter.attach(attaching.engine, attaching.lease)
+    }
+      .exceptionOrNull()
+    if (failure == null) {
+      val committed = serialized {
+        if (current.load() !== attaching) return@serialized false
+        current.store(InternalState.Attached(attaching.engine, attaching.lease))
+        true
+      }
+      attaching.result.complete(
+        if (committed) Result.success(attaching.lease)
+        else Result.failure(MapLeaseInvalidatedException())
+      )
+      return
+    }
+
+    if (attaching.engineCreated.load()) {
+      runCatching { adapter.detach(attaching.engine, attaching.lease) }
+        .exceptionOrNull()
+        ?.let(failure::addSuppressed)
+      runCatching { adapter.destroyEngine(attaching.engine) }
+        .exceptionOrNull()
+        ?.let(failure::addSuppressed)
+    }
+    serialized {
+      if (current.load() === attaching) current.store(InternalState.OpenDetached(null))
+    }
+    attaching.result.complete(Result.failure(failure))
   }
 
   private suspend fun performDetach(detaching: InternalState.Detaching) {
@@ -326,13 +447,16 @@ internal class MapLifecycleAuthority(
     if (destroyEngine) {
       collectFailure(failures) { adapter.destroyEngine(detaching.engine) }
       currentStyle.store(null)
+      currentStyleRequest.store(null)
     }
     val outcome =
       if (failures.isEmpty()) Result.success(Unit)
       else Result.failure(MapLifecycleCleanupException(failures))
     val nextEngine =
       detaching.engine.takeIf { adapter.engineRetention == EngineRetention.RETAIN && engineCreated }
-    current.compareAndSet(detaching, InternalState.OpenDetached(nextEngine))
+    serialized {
+      if (current.load() === detaching) current.store(InternalState.OpenDetached(nextEngine))
+    }
     detaching.result.complete(outcome)
   }
 
@@ -361,9 +485,10 @@ internal class MapLifecycleAuthority(
       collectFailure(failures) { adapter.destroyEngine(engine) }
     }
     currentStyle.store(null)
+    currentStyleRequest.store(null)
     collectFailure(failures) { adapter.closeResources() }
 
-    current.compareAndSet(closing, InternalState.Closed)
+    serialized { if (current.load() === closing) current.store(InternalState.Closed) }
     closure.complete(
       if (failures.isEmpty()) Result.success(Unit)
       else Result.failure(MapLifecycleCleanupException(failures))
@@ -382,7 +507,24 @@ internal class MapLifecycleAuthority(
     else failures += failure
   }
 
+  /** Serializes non-suspending lifecycle commits with callback validation and delivery. */
+  private inline fun <T> serialized(action: () -> T): T {
+    while (!lifecycleGate.compareAndSet(expectedValue = false, newValue = true)) {
+      // Platform callbacks are non-suspending, so the owner releases this gate promptly.
+    }
+    return try {
+      action()
+    } finally {
+      lifecycleGate.store(false)
+    }
+  }
+
   private data class StyleClaim(val engine: EngineMapIdentity, val style: StyleIdentity)
+
+  private data class StyleRequestClaim(
+    val engine: EngineMapIdentity,
+    val request: StyleRequestIdentity,
+  )
 
   private sealed interface InternalState {
     val engine: EngineMapIdentity?

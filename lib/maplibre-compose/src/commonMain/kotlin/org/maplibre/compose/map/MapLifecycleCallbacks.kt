@@ -5,72 +5,103 @@ import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.spatialk.geojson.Position
 
-/** Filters platform callbacks through the identities owned by [lifecycle]. */
+/** Filters platform callbacks through identities captured by their platform producer. */
 internal class MapLifecycleCallbacks(
   private val lifecycle: MapLifecycleAuthority,
   private val delegate: () -> MapAdapter.Callbacks,
-) : MapAdapter.Callbacks {
+) {
 
-  override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
-    val engine = lifecycle.engineIdentity ?: return
-    if (style == null) {
-      if (lifecycle.invalidateStyleIdentity(engine)) {
-        lifecycle.acceptEngineEvent(engine) { delegate().onStyleChanged(map, null) }
-      }
-      return
-    }
-    val identity = lifecycle.claimStyleIdentity(engine) ?: return
+  fun beginStyleRequest(engine: EngineMapIdentity, map: MapAdapter): StyleRequestIdentity? {
+    val request = lifecycle.claimStyleRequestIdentity(engine) ?: return null
+    lifecycle.acceptStyleRequestEvent(engine, request) { delegate().onStyleChanged(map, null) }
+    return request
+  }
+
+  fun onStyleChanged(
+    engine: EngineMapIdentity,
+    request: StyleRequestIdentity,
+    map: MapAdapter,
+    style: StyleBinding,
+  ): StyleIdentity? {
+    val identity = lifecycle.claimStyleIdentity(engine, request) ?: return null
     lifecycle.acceptStyleEvent(engine, identity) { delegate().onStyleChanged(map, style) }
+    return identity
   }
 
-  override fun onMapFinishedLoading(map: MapAdapter) = withStyle {
-    delegate().onMapFinishedLoading(map)
-  }
+  fun onMapFinishedLoading(engine: EngineMapIdentity, style: StyleIdentity, map: MapAdapter) =
+    withStyle(engine, style) {
+      delegate().onMapFinishedLoading(map)
+    }
 
-  override fun onSourceChanged(map: MapAdapter, sourceId: String?) = withStyle {
-    delegate().onSourceChanged(map, sourceId)
-  }
+  fun onSourceChanged(
+    engine: EngineMapIdentity,
+    style: StyleIdentity,
+    map: MapAdapter,
+    sourceId: String?,
+  ) =
+    withStyle(engine, style) {
+      delegate().onSourceChanged(map, sourceId)
+    }
 
-  override fun onMapFailLoading(reason: String?) = withEngine {
-    delegate().onMapFailLoading(reason)
-  }
+  fun onMapFailLoading(
+    engine: EngineMapIdentity,
+    request: StyleRequestIdentity,
+    reason: String?,
+  ) =
+    lifecycle.acceptStyleRequestEvent(engine, request) {
+      delegate().onMapFailLoading(reason)
+    }
 
-  override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) = withPresentation {
-    delegate().onCameraMoveStarted(map, reason)
-  }
+  fun onCameraMoveStarted(
+    engine: EngineMapIdentity,
+    lease: RenderLease,
+    map: MapAdapter,
+    reason: CameraMoveReason,
+  ) =
+    withPresentation(engine, lease) {
+      delegate().onCameraMoveStarted(map, reason)
+    }
 
-  override fun onCameraMoved(map: MapAdapter) = withPresentation {
-    delegate().onCameraMoved(map)
-  }
+  fun onCameraMoved(engine: EngineMapIdentity, lease: RenderLease, map: MapAdapter) =
+    withPresentation(engine, lease) {
+      delegate().onCameraMoved(map)
+    }
 
-  override fun onCameraMoveEnded(map: MapAdapter) = withPresentation {
-    delegate().onCameraMoveEnded(map)
-  }
+  fun onCameraMoveEnded(engine: EngineMapIdentity, lease: RenderLease, map: MapAdapter) =
+    withPresentation(engine, lease) {
+      delegate().onCameraMoveEnded(map)
+    }
 
-  override fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset) = withPresentation {
-    delegate().onClick(map, latLng, offset)
-  }
+  fun onClick(
+    engine: EngineMapIdentity,
+    lease: RenderLease,
+    map: MapAdapter,
+    latLng: Position,
+    offset: DpOffset,
+  ) =
+    withPresentation(engine, lease) {
+      delegate().onClick(map, latLng, offset)
+    }
 
-  override fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset) = withPresentation {
-    delegate().onLongClick(map, latLng, offset)
-  }
+  fun onLongClick(
+    engine: EngineMapIdentity,
+    lease: RenderLease,
+    map: MapAdapter,
+    latLng: Position,
+    offset: DpOffset,
+  ) =
+    withPresentation(engine, lease) {
+      delegate().onLongClick(map, latLng, offset)
+    }
 
-  override fun onFrame(fps: Double) = withPresentation { delegate().onFrame(fps) }
+  fun onFrame(engine: EngineMapIdentity, lease: RenderLease, fps: Double) =
+    withPresentation(engine, lease) { delegate().onFrame(fps) }
 
-  private fun withEngine(event: () -> Unit) {
-    val engine = lifecycle.engineIdentity ?: return
-    lifecycle.acceptEngineEvent(engine, event)
-  }
-
-  private fun withStyle(event: () -> Unit) {
-    val engine = lifecycle.engineIdentity ?: return
-    val style = lifecycle.styleIdentity ?: return
+  private fun withStyle(engine: EngineMapIdentity, style: StyleIdentity, event: () -> Unit) {
     lifecycle.acceptStyleEvent(engine, style, event)
   }
 
-  private fun withPresentation(event: () -> Unit) {
-    val engine = lifecycle.engineIdentity ?: return
-    val lease = lifecycle.renderLease ?: return
+  private fun withPresentation(engine: EngineMapIdentity, lease: RenderLease, event: () -> Unit) {
     lifecycle.acceptPresentationEvent(engine, lease, event)
   }
 }
