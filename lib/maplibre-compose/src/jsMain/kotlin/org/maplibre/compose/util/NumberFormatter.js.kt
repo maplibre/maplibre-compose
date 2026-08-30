@@ -13,7 +13,9 @@ actual constructor(locale: Locale, maximumFractionDigits: Int) {
       options =
         NumberFormatOptions(
           // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/NumberFormat/NumberFormat#maximumfractiondigits
-          maximumFractionDigits = maximumFractionDigits.coerceAtMost(100)
+          // Safari raised this limit from 20 to 100 in Safari Technology Preview 178.
+          // https://developer.apple.com/documentation/safari-technology-preview-release-notes/stp-release-178
+          maximumFractionDigits = maximumFractionDigits.coerceAtMost(20)
         ),
     )
 
