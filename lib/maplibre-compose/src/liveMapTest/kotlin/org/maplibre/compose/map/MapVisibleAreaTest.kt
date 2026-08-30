@@ -102,6 +102,11 @@ class MapVisibleAreaTest {
       it.presentation.setCameraPosition(ROTATED_CAMERA)
       it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(ROTATED_CAMERA) }
 
+      it.pumpUntil("the public viewport to match the session") {
+        val publicBox = it.presentation.viewport?.visibleBoundingBox ?: return@pumpUntil false
+        boxesAreNear(it.presentation.getVisibleBoundingBox(), publicBox)
+      }
+
       val viewport = assertNotNull(it.presentation.viewport)
       assertNear(
         assertNotNull(it.presentation.getVisibleBoundingBox()),
@@ -149,6 +154,14 @@ class MapVisibleAreaTest {
     }
 
     fun assertNear(expected: BoundingBox, actual: BoundingBox) {
+      assertTrue(
+        boxesAreNear(expected, actual),
+        "the queried box should match the session's: $actual was not $expected",
+      )
+    }
+
+    fun boxesAreNear(expected: BoundingBox?, actual: BoundingBox): Boolean {
+      if (expected == null) return false
       val corners =
         listOf(
           expected.southwest.longitude to actual.southwest.longitude,
@@ -156,10 +169,7 @@ class MapVisibleAreaTest {
           expected.northeast.longitude to actual.northeast.longitude,
           expected.northeast.latitude to actual.northeast.latitude,
         )
-      assertTrue(
-        corners.all { (e, a) -> abs(e - a) < TOLERANCE },
-        "the queried box should match the session's: $actual was not $expected",
-      )
+      return corners.all { (e, a) -> abs(e - a) < TOLERANCE }
     }
   }
 }

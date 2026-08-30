@@ -11,6 +11,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -64,6 +65,187 @@ class MapPresentationTest {
     assertTrue(state.isClosed)
     runtime.close()
     assertTrue(runtime.isClosed)
+  }
+
+  @Test
+  fun closing_map_state_closes_a_bound_session_before_it_is_published() = runTest {
+    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
+    val state = runtime.createMapState()
+    val session = BoundLifecycleSession()
+    session.lifecycle = state.lifecycle.bind(session)
+    session.lifecycle.attach()
+
+    state.close()
+    state.awaitClosed()
+
+    assertEquals(
+      listOf("create", "attach", "detach", "destroy", "close resources"),
+      session.commands,
+    )
+    runtime.close()
+  }
+
+  @Test
+  fun a_session_that_closes_itself_is_retired_and_its_failure_reaches_map_closure() = runTest {
+    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
+    val state = runtime.createMapState()
+    val finishCleanup = CompletableDeferred<Unit>()
+    val session = BoundLifecycleSession(failOnClose = true, finishCleanup = finishCleanup)
+    session.lifecycle = state.lifecycle.bind(session)
+    session.lifecycle.attach()
+    val token = state.reservePresentation()
+    state.publishPresentation(token, session)
+    assertSame(session, state.presentation?.adapter)
+    assertTrue(state.markStyleReady(session))
+    assertEquals(StyleLoadState.Ready, state.style.loadState)
+
+    session.close()
+
+    assertNull(state.presentation)
+    assertNull(state.retainedAdapter(session.presentationCompatibilityKey))
+    assertFalse(state.acceptsPresentationEvent(session))
+    assertEquals(StyleLoadState.Pending, state.style.loadState)
+    assertFalse(session.lifecycle.state == MapLifecycleState.Closed)
+    finishCleanup.complete(Unit)
+    assertFailsWith<MapLifecycleCleanupException> { session.awaitClosed() }
+    testScheduler.runCurrent()
+
+    state.durableStyleCallbacks().onMapFailLoading(session, "stale callback")
+    assertFalse(state.style.loadState is StyleLoadState.Failed)
+
+    val replacement = PresentationTestAdapter()
+    val replacementToken = state.reservePresentation()
+    state.publishPresentation(replacementToken, replacement)
+    assertSame(replacement, state.presentation?.adapter)
+
+    state.close()
+    val failure = assertFailsWith<MapStateCleanupException> { state.awaitClosed() }
+    assertTrue(
+      generateSequence(failure as Throwable) { it.cause }
+        .any { it.message.orEmpty().contains("bound session cleanup failed") }
+    )
+    runtime.close()
+  }
+
+  @Test
+  fun a_detached_retained_session_that_closes_itself_invalidates_its_style() = runTest {
+    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
+    val state = runtime.createMapState()
+    val finishCleanup = CompletableDeferred<Unit>()
+    val session = BoundLifecycleSession(finishCleanup = finishCleanup)
+    session.lifecycle = state.lifecycle.bind(session)
+    session.lifecycle.attach()
+    val token = state.reservePresentation()
+    state.publishPresentation(token, session)
+    assertTrue(state.markStyleReady(session))
+
+    state.releasePresentation(token, session)
+    testScheduler.runCurrent()
+    assertNull(state.presentation)
+    assertSame(session, state.retainedAdapter(session.presentationCompatibilityKey))
+    assertEquals(StyleLoadState.Ready, state.style.loadState)
+
+    session.close()
+
+    assertNull(state.retainedAdapter(session.presentationCompatibilityKey))
+    assertEquals(StyleLoadState.Pending, state.style.loadState)
+    assertFalse(session.lifecycle.state == MapLifecycleState.Closed)
+    finishCleanup.complete(Unit)
+    session.awaitClosed()
+    state.close()
+    state.awaitClosed()
+    runtime.close()
+  }
+
+  @Test
+  fun a_new_presentation_can_reserve_while_the_previous_one_is_still_detaching() = runTest {
+    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
+    val state = runtime.createMapState()
+    val first = BlockingDetachAdapter()
+    val firstToken = state.reservePresentation(MapPresentationOwnerToken())
+    state.publishPresentation(firstToken, first)
+
+    state.releasePresentation(firstToken, first)
+    first.detachStarted.await()
+    assertNull(state.presentation)
+
+    val replacement = PresentationTestAdapter()
+    val replacementToken = state.reservePresentation(MapPresentationOwnerToken())
+    state.publishPresentation(replacementToken, replacement)
+    assertSame(replacement, state.presentation?.adapter)
+
+    first.finishDetach.complete(Unit)
+    testScheduler.runCurrent()
+    assertSame(replacement, state.presentation?.adapter)
+    state.close()
+    state.awaitClosed()
+    runtime.close()
+  }
+
+  @Test
+  fun closure_reports_a_superseded_presentations_in_flight_detach_failure() = runTest {
+    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
+    val state = runtime.createMapState()
+    val first = BlockingDetachAdapter(failOnDetach = true)
+    val firstToken = state.reservePresentation(MapPresentationOwnerToken())
+    state.publishPresentation(firstToken, first)
+    state.releasePresentation(firstToken, first)
+    first.detachStarted.await()
+
+    val replacement = PresentationTestAdapter()
+    val replacementToken = state.reservePresentation(MapPresentationOwnerToken())
+    state.publishPresentation(replacementToken, replacement)
+    state.close()
+
+    first.finishDetach.complete(Unit)
+    val failure = assertFailsWith<MapStateCleanupException> { state.awaitClosed() }
+    assertTrue(
+      generateSequence(failure as Throwable) { it.cause }.any { it.message == "detach failed" }
+    )
+    runtime.close()
+  }
+
+  @Test
+  fun closure_reports_an_in_flight_session_detach_failure_once() = runTest {
+    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
+    val state = runtime.createMapState()
+    val finishDetach = CompletableDeferred<Unit>()
+    val detachStarted = CompletableDeferred<Unit>()
+    val session =
+      BoundLifecycleSession(
+        failOnDetach = true,
+        finishDetach = finishDetach,
+        detachStarted = detachStarted,
+      )
+    session.lifecycle = state.lifecycle.bind(session)
+    session.lifecycle.attach()
+    val token = state.reservePresentation()
+    state.publishPresentation(token, session)
+
+    state.releasePresentation(token, session)
+    detachStarted.await()
+    state.close()
+    finishDetach.complete(Unit)
+
+    val failure = assertFailsWith<MapStateCleanupException> { state.awaitClosed() }
+    assertEquals("Map state cleanup failed in 1 resource(s)", failure.message)
+    assertEquals("detach failed", failure.cause?.message)
+    runtime.close()
+  }
+
+  @Test
+  fun closure_during_presentation_configuration_makes_publication_inert() = runTest {
+    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
+    val state = runtime.createMapState()
+    val token = state.reservePresentation()
+    val adapter = ClosingDuringConfigurationAdapter(state::close)
+
+    state.publishPresentation(token, adapter)
+
+    assertTrue(state.isClosed)
+    assertNull(state.presentation)
+    state.awaitClosed()
+    runtime.close()
   }
 
   @Test
@@ -476,7 +658,81 @@ private class RetainedAdapter(private val failOnClose: Boolean) : PresentationTe
   }
 }
 
-private open class PresentationTestAdapter(
+private class BlockingDetachAdapter(private val failOnDetach: Boolean = false) :
+  PresentationTestAdapter() {
+  val detachStarted = CompletableDeferred<Unit>()
+  val finishDetach = CompletableDeferred<Unit>()
+
+  override suspend fun detachPresentation() {
+    detachStarted.complete(Unit)
+    finishDetach.await()
+    if (failOnDetach) error("detach failed")
+  }
+}
+
+private class BoundLifecycleSession(
+  private val failOnClose: Boolean = false,
+  private val finishCleanup: CompletableDeferred<Unit>? = null,
+  private val failOnDetach: Boolean = false,
+  private val finishDetach: CompletableDeferred<Unit>? = null,
+  private val detachStarted: CompletableDeferred<Unit>? = null,
+) : PresentationTestAdapter(), MapLifecycleSession {
+  lateinit var lifecycle: MapLifecycleBinding
+  val commands = mutableListOf<String>()
+
+  override val retainsEngineBetweenPresentations = true
+  override val presentationCompatibilityKey: Any = Any()
+
+  override val engineRetention: EngineRetention = EngineRetention.RETAIN
+
+  override suspend fun createEngine(identity: EngineMapIdentity) {
+    commands += "create"
+  }
+
+  override suspend fun attach(identity: EngineMapIdentity, lease: RenderLease) {
+    commands += "attach"
+  }
+
+  override suspend fun detach(identity: EngineMapIdentity, lease: RenderLease) {
+    commands += "detach"
+    detachStarted?.complete(Unit)
+    finishDetach?.await()
+    if (failOnDetach) error("detach failed")
+  }
+
+  override suspend fun destroyEngine(identity: EngineMapIdentity) {
+    commands += "destroy"
+  }
+
+  override suspend fun closeResources() {
+    commands += "close resources"
+    finishCleanup?.await()
+    if (failOnClose) error("bound session cleanup failed")
+  }
+
+  override suspend fun detachPresentation() {
+    lifecycle.detachCurrentPresentation()
+  }
+
+  override fun close() = lifecycle.close()
+
+  override suspend fun awaitClosed() = lifecycle.awaitClosed()
+}
+
+private class ClosingDuringConfigurationAdapter(private val closeState: () -> Unit) :
+  PresentationTestAdapter() {
+  private var closed = false
+
+  override fun setCameraPosition(cameraPosition: CameraPosition) {
+    super.setCameraPosition(cameraPosition)
+    if (!closed) {
+      closed = true
+      closeState()
+    }
+  }
+}
+
+internal open class PresentationTestAdapter(
   private val currentPresentation: () -> MapPresentation? = { null }
 ) : MapAdapter {
   var lastCameraPosition = CameraPosition()
@@ -486,7 +742,7 @@ private open class PresentationTestAdapter(
   val animationStarted = CompletableDeferred<Unit>()
   val finishAnimation = CompletableDeferred<Unit>()
 
-  override fun close() = Unit
+  open override fun close() = Unit
 
   open override suspend fun awaitClosed() = Unit
 

@@ -70,6 +70,7 @@ import org.maplibre.compose.desktop.OpenGlComposeGpuContext
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MlnFfiMapSession
+import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
 import org.maplibre.compose.mlnffi.MlnFfiMapDestination
@@ -271,8 +272,11 @@ class LinuxVulkanOpenGlInteropTest {
         override fun onFrame(fps: Double) {}
       }
 
+    private val runtime = mapRuntimeForTest()
+    private val state = runtime.createMapState()
     private val renderer =
       MlnFfiMapSession(
+        lifecycleAuthority = state.lifecycle,
         callbacks = callbacks,
         logger = null,
         renderBackend = host.backends.producer,
@@ -356,7 +360,8 @@ class LinuxVulkanOpenGlInteropTest {
     }
 
     override fun close() {
-      renderer.close()
+      state.close()
+      runtime.close()
       cacheDirectory.toFile().deleteRecursively()
     }
 

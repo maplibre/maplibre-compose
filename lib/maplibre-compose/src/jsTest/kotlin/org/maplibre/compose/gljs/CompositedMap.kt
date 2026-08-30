@@ -12,6 +12,7 @@ import org.maplibre.compose.map.GlJsMapSession
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.RenderOptions
+import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
@@ -25,11 +26,14 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
   private var loadFailure: String? = null
   private var styleLoaded = false
   private val scope = MainScope()
+  private val runtime = mapRuntimeForTest()
+  private val state = runtime.createMapState()
 
   var frameRequests: Int = 0
     private set
 
-  private val session = GlJsMapSession(Callbacks(), logger = null, LayoutDirection.Ltr)
+  private val session =
+    GlJsMapSession(state.lifecycle, Callbacks(), logger = null, LayoutDirection.Ltr)
 
   init {
     session.start()
@@ -73,8 +77,9 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
     styleLoaded && session.queryRenderedFeatures(DpOffset(x.dp, y.dp), setOf(layerId)).isNotEmpty()
 
   override fun close() {
+    state.close()
+    runtime.close()
     scope.cancel()
-    session.close()
   }
 
   private fun extentOf(target: GlJsRenderTarget) =

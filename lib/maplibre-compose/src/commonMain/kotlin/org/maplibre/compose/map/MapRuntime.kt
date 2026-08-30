@@ -17,10 +17,8 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
-import kotlin.concurrent.atomics.AtomicLong
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.jvm.JvmInline
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -389,13 +387,9 @@ internal constructor(
   initialCameraPosition: CameraPosition,
   initialBaseStyle: BaseStyle,
 ) {
-  private val lock = reentrantLock()
-  private val closure = CompletableDeferred<Result<Unit>>()
-  private var attachment: Attachment? = null
-  private var retainedAdapter: MapAdapter? = null
-  private val retiringAdapters = linkedSetOf<MapAdapter>()
-  private val pendingCleanupFailures = mutableListOf<Throwable>()
-  private var closed = false
+  internal val lifecycle = MapLifecycleAuthority(this, runtime.physicalScope)
+  private var baseStyleCommandRevision = 0L
+  private var cameraCommandRevision = 0L
   private var styleHandleEpoch = 0L
   private var closedState: Boolean by mutableStateOf(false)
   private var cameraPositionState: CameraPosition by
@@ -409,207 +403,71 @@ internal constructor(
     get() = cameraPositionState
 
   public var presentation: MapPresentation? by mutableStateOf(null)
-    private set
+    internal set
 
   public val isClosed: Boolean
     get() = closedState
 
   /** Marks this state as closed and starts cleanup of the current presentation. */
-  public fun close() {
-    val (maps, recordedFailures) =
-      lock.withLock {
-        if (closed) return
-        closed = true
-        val maps = buildSet {
-          retainedAdapter?.let(::add)
-          attachment?.adapter?.let(::add)
-          addAll(retiringAdapters)
-        }
-        val recordedFailures = pendingCleanupFailures.toList()
-        attachment = null
-        retainedAdapter = null
-        retiringAdapters.clear()
-        pendingCleanupFailures.clear()
-        styleHandleEpoch++
-        style.invalidateLoadedStyle()
-        Snapshot.withMutableSnapshot {
-          closedState = true
-          presentation?.invalidate()
-          presentation = null
-        }
-        maps to recordedFailures
-      }
-    if (maps.isEmpty()) {
-      completeClosure(
-        if (recordedFailures.isEmpty()) Result.success(Unit)
-        else Result.failure(MapStateCleanupException(recordedFailures))
-      )
-      return
-    }
-    maps.forEach(MapAdapter::close)
-    runtime.physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
-      val failures = recordedFailures.toMutableList()
-      maps.forEach { map ->
-        runCatching { map.awaitClosed() }.exceptionOrNull()?.let(failures::add)
-      }
-      completeClosure(
-        if (failures.isEmpty()) Result.success(Unit)
-        else Result.failure(MapStateCleanupException(failures))
-      )
-    }
-  }
+  public fun close(): Unit = lifecycle.close()
 
   /** Waits until presentation cleanup has completed. */
-  public suspend fun awaitClosed() {
-    closure.await().getOrThrow()
-  }
+  public suspend fun awaitClosed(): Unit = lifecycle.awaitClosed()
 
   internal fun reservePresentation(
     owner: MapPresentationOwnerToken = MapPresentationOwnerToken()
-  ): MapPresentationToken {
-    var replaced: MapAdapter? = null
-    val token = lock.withLock {
-      requireOpenLocked()
-      val current = attachment
-      check(current == null || current.owner === owner) {
-        "The map state already has a presentation"
-      }
-      replaced = current?.adapter
-      if (replaced != null) {
-        presentation?.invalidate()
-        presentation = null
-        if (!replaced.retainsEngineBetweenPresentations) {
-          style.loadState = StyleLoadState.Pending
-        }
-      }
-      val token = MapPresentationToken(nextPresentationToken.incrementAndFetch())
-      attachment = Attachment(owner, token)
-      token
-    }
-    replaced?.let { adapter ->
-      runtime.physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
-        runCatching { adapter.detachPresentation() }
-      }
-    }
-    return token
-  }
+  ): MapPresentationToken = lifecycle.reservePresentation(owner)
 
   internal fun publishPresentation(
     token: MapPresentationToken,
     adapter: MapAdapter,
     options: MapPresentationOptions = MapPresentationOptions(),
-  ) {
-    val replaced = lock.withLock {
-      if (closed) return
-      requireOpenLocked()
-      val current = attachment
-      check(current?.token == token && !current.releasing) {
-        "The map presentation reservation is no longer current"
-      }
-      if (current.adapter === adapter) {
-        presentation?.updateOptions(options)
-        return
-      }
-      check(current.adapter == null) { "The map state already has a presentation" }
-      current.adapter = adapter
-      val reusesRetainedAdapter = retainedAdapter === adapter
-      val replaced = retainedAdapter?.takeUnless { retained ->
-        retained === adapter || !adapter.retainsEngineBetweenPresentations
-      }
-      if (adapter.retainsEngineBetweenPresentations) retainedAdapter = adapter
-      if (replaced != null) retiringAdapters += replaced
-      adapter.setCameraPosition(cameraPositionState)
-      if (!reusesRetainedAdapter) {
-        styleHandleEpoch++
-        style.invalidateLoadedStyle()
-      }
-      adapter.setBaseStyle(style.baseStyle)
-      if (!reusesRetainedAdapter) style.loadState = StyleLoadState.Loading
-      MapPresentation(this, token, adapter, options).also { presentation = it }
-      replaced
-    }
-    if (replaced != null) {
-      replaced.close()
-      runtime.physicalScope.launch {
-        val failure = runCatching { replaced.awaitClosed() }.exceptionOrNull()
-        lock.withLock {
-          retiringAdapters.remove(replaced)
-          if (failure != null && !closed) pendingCleanupFailures += failure
-        }
-      }
-    }
-  }
+  ) = lifecycle.publishPresentation(token, adapter, options)
 
-  internal fun releasePresentation(token: MapPresentationToken, adapter: MapAdapter? = null) {
-    val closingAdapter = lock.withLock {
-      val current = attachment ?: return
-      if (current.token != token) return
-      if (adapter != null && current.adapter !== adapter) return
-      if (current.releasing) return
-      current.releasing = true
-      presentation?.invalidate()
-      presentation = null
-      if (current.adapter?.retainsEngineBetweenPresentations != true) {
-        style.loadState = StyleLoadState.Pending
-      }
-      current.adapter
-    }
-    if (closingAdapter == null) {
-      lock.withLock { if (attachment?.token == token) attachment = null }
-      return
-    }
-    runtime.physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
-      runCatching { closingAdapter.detachPresentation() }
-      lock.withLock { if (attachment?.token == token) attachment = null }
-    }
-  }
+  internal fun releasePresentation(token: MapPresentationToken, adapter: MapAdapter? = null) =
+    lifecycle.releasePresentation(token, adapter)
 
-  internal fun retainedAdapter(compatibilityKey: Any): MapAdapter? = lock.withLock {
-    retainedAdapter?.takeIf { adapter ->
-      adapter.retainsEngineBetweenPresentations &&
-        adapter.presentationCompatibilityKey == compatibilityKey
-    }
-  }
+  internal fun retainedAdapter(compatibilityKey: Any): MapAdapter? =
+    lifecycle.retainedAdapter(compatibilityKey)
 
   internal fun durableStyleCallbacks(): MapAdapter.Callbacks = DurableStyleCallbacks(this)
 
-  internal fun markStyleReady(adapter: MapAdapter): Boolean = lock.withLock {
-    if (closed || (attachment?.adapter !== adapter && retainedAdapter !== adapter)) return false
+  internal fun markStyleReady(adapter: MapAdapter): Boolean = lifecycle.serialized {
+    if (!lifecycle.acceptsAdapter(adapter)) return false
     style.loadState = StyleLoadState.Ready
     style.refreshSources()
     true
   }
 
-  internal fun acceptsPresentationEvent(adapter: MapAdapter): Boolean = lock.withLock {
-    !closed && attachment?.adapter === adapter && presentation?.adapter === adapter
-  }
+  internal fun acceptsPresentationEvent(adapter: MapAdapter): Boolean =
+    lifecycle.acceptsPresentation(adapter)
 
   internal fun refreshStyleSources(adapter: MapAdapter, sourceId: String?): Boolean =
-    lock.withLock {
-      if (closed || (attachment?.adapter !== adapter && retainedAdapter !== adapter)) return false
+    lifecycle.serialized {
+      if (!lifecycle.acceptsAdapter(adapter)) return false
       if (sourceId == null) style.refreshSources() else style.refreshSource(sourceId)
       true
     }
 
   internal fun updateLoadedStyle(adapter: MapAdapter, loadedStyle: StyleBinding?): Boolean =
-    lock.withLock {
-      if (closed || (attachment?.adapter !== adapter && retainedAdapter !== adapter)) return false
+    lifecycle.serialized {
+      if (!lifecycle.acceptsAdapter(adapter)) return false
       styleHandleEpoch++
       style.updateLoadedStyle(loadedStyle)
       true
     }
 
   internal fun markStyleFailed(adapter: MapAdapter, reason: String?) {
-    lock.withLock {
-      if (!closed && (attachment?.adapter === adapter || retainedAdapter === adapter)) {
+    lifecycle.serialized {
+      if (lifecycle.acceptsAdapter(adapter)) {
         style.loadState = StyleLoadState.Failed(reason)
       }
     }
   }
 
   internal fun beginStyleRevision(adapter: MapAdapter, revision: DesiredStyleRevision) {
-    lock.withLock {
-      if (!closed && (attachment?.adapter === adapter || retainedAdapter === adapter)) {
+    lifecycle.serialized {
+      if (lifecycle.acceptsAdapter(adapter)) {
         styleHandleEpoch++
         desiredStyleRevision = revision
         style.loadState = StyleLoadState.Loading
@@ -618,38 +476,42 @@ internal constructor(
   }
 
   internal fun setBaseStyle(value: BaseStyle) {
-    lock.withLock {
+    val command = lifecycle.serialized {
       requireOpenLocked()
       if (style.baseStyle == value) return
       styleHandleEpoch++
       style.setBaseStyleState(value)
       style.invalidateLoadedStyle()
-      val adapter = attachment?.adapter ?: retainedAdapter
+      val adapter = lifecycle.currentAdapter()
       if (adapter == null) {
         style.loadState = StyleLoadState.Pending
+        baseStyleCommandRevision++
+        return
       } else {
         style.loadState = StyleLoadState.Loading
-        adapter.setBaseStyle(value)
       }
+      BaseStyleCommand(adapter, value, ++baseStyleCommandRevision)
     }
+    applyBaseStyleCommand(command)
   }
 
   internal fun desiredSourceDefinition(id: String) =
     desiredStyleRevision.sources.firstOrNull { it.id == id }
 
-  internal fun <T> runStyleHandleOperation(binding: StyleBinding, action: () -> T): T =
-    lock.withLock {
-      requireStyleHandleLocked(binding)
-      action()
-    }
+  internal fun <T> runStyleHandleOperation(binding: StyleBinding, action: () -> T): T {
+    lifecycle.serialized { requireStyleHandleLocked(binding) }
+    val result = action()
+    lifecycle.serialized { requireStyleHandleLocked(binding) }
+    return result
+  }
 
-  internal fun styleHandleCheckpoint(binding: StyleBinding): Long = lock.withLock {
+  internal fun styleHandleCheckpoint(binding: StyleBinding): Long = lifecycle.serialized {
     requireStyleHandleLocked(binding)
     styleHandleEpoch
   }
 
   internal fun requireStyleHandleUnchanged(binding: StyleBinding, checkpoint: Long) {
-    lock.withLock {
+    lifecycle.serialized {
       requireStyleHandleLocked(binding)
       check(styleHandleEpoch == checkpoint) {
         "Style operation crossed a loaded-style resource change"
@@ -665,54 +527,150 @@ internal constructor(
   }
 
   internal fun setCameraPosition(candidate: MapPresentation, position: CameraPosition) {
-    withCurrent(candidate) {
-      candidate.adapter.setCameraPosition(position)
+    lifecycle.serialized { requireCurrentLocked(candidate) }
+    candidate.adapter.setCameraPosition(position)
+    lifecycle.serialized {
+      requireCurrentLocked(candidate)
       cameraPositionState = position
+      cameraCommandRevision++
     }
   }
 
-  internal fun synchronizeCamera(adapter: MapAdapter): MapPresentation? = lock.withLock {
-    if (closed || attachment?.adapter !== adapter) return null
-    cameraPositionState = adapter.getCameraPosition()
-    val current = presentation ?: return null
+  internal fun synchronizeCamera(adapter: MapAdapter): MapPresentation? {
+    if (!lifecycle.acceptsPresentation(adapter)) return null
+    val cameraPosition = adapter.getCameraPosition()
     val viewport = adapter.getViewport() ?: return null
-    current.cameraMoved(viewport)
-    current
+    return lifecycle.serialized {
+      if (!lifecycle.acceptsPresentation(adapter)) return@serialized null
+      cameraPositionState = cameraPosition
+      val current = presentation ?: return@serialized null
+      current.cameraMoved(viewport)
+      current
+    }
   }
 
   internal fun requireCurrent(candidate: MapPresentation) {
-    lock.withLock { requireCurrentLocked(candidate) }
+    lifecycle.serialized { requireCurrentLocked(candidate) }
   }
 
-  internal fun <T> withCurrent(candidate: MapPresentation, block: () -> T): T = lock.withLock {
-    requireCurrentLocked(candidate)
-    block()
+  internal fun <T> withCurrent(candidate: MapPresentation, block: () -> T): T {
+    lifecycle.serialized { requireCurrentLocked(candidate) }
+    val result = block()
+    lifecycle.serialized { requireCurrentLocked(candidate) }
+    return result
   }
 
   private fun requireCurrentLocked(candidate: MapPresentation) {
-    if (closed || presentation !== candidate || attachment?.token != candidate.token) {
+    if (presentation !== candidate || !lifecycle.isCurrent(candidate.token, candidate.adapter)) {
       throw MapPresentationDetachedException()
     }
   }
 
   private fun requireOpenLocked() {
-    if (closed) throw MapStateClosedException()
+    if (lifecycle.isClosed) throw MapStateClosedException()
   }
 
-  private fun completeClosure(result: Result<Unit>) {
-    if (closure.complete(result)) runtime.childClosed(this)
+  internal fun commitClosed() {
+    styleHandleEpoch++
+    style.invalidateLoadedStyle()
+    Snapshot.withMutableSnapshot {
+      closedState = true
+      presentation?.invalidate()
+      presentation = null
+    }
   }
 
-  private class Attachment(
-    val owner: MapPresentationOwnerToken,
-    val token: MapPresentationToken,
-    var adapter: MapAdapter? = null,
-    var releasing: Boolean = false,
+  internal fun invalidatePresentation(adapter: MapAdapter?) {
+    Snapshot.withMutableSnapshot {
+      presentation?.invalidate()
+      presentation = null
+      if (adapter?.retainsEngineBetweenPresentations != true) {
+        style.loadState = StyleLoadState.Pending
+      }
+    }
+  }
+
+  internal fun invalidateClosedAdapter(adapter: MapAdapter) {
+    Snapshot.withMutableSnapshot {
+      styleHandleEpoch++
+      style.invalidateLoadedStyle()
+      style.loadState = StyleLoadState.Pending
+      if (presentation?.adapter === adapter) {
+        presentation?.invalidate()
+        presentation = null
+      }
+    }
+  }
+
+  internal fun configurePresentationAdapter(adapter: MapAdapter) {
+    val configuration = lifecycle.serialized {
+      if (!lifecycle.acceptsAdapter(adapter)) return
+      PresentationConfiguration(
+        camera = CameraCommand(adapter, cameraPositionState, cameraCommandRevision),
+        baseStyle = BaseStyleCommand(adapter, style.baseStyle, baseStyleCommandRevision),
+      )
+    }
+    applyCameraCommand(configuration.camera)
+    if (!lifecycle.acceptsAdapter(adapter)) return
+    applyBaseStyleCommand(configuration.baseStyle)
+  }
+
+  private fun applyBaseStyleCommand(initial: BaseStyleCommand) {
+    var command = initial
+    while (true) {
+      if (lifecycle.currentAdapter() !== command.adapter) return
+      command.adapter.setBaseStyle(command.value)
+      command = lifecycle.serialized {
+        if (lifecycle.currentAdapter() !== command.adapter) return
+        if (baseStyleCommandRevision == command.revision) return
+        BaseStyleCommand(command.adapter, style.baseStyle, baseStyleCommandRevision)
+      }
+    }
+  }
+
+  private fun applyCameraCommand(initial: CameraCommand) {
+    var command = initial
+    while (true) {
+      if (lifecycle.currentAdapter() !== command.adapter) return
+      command.adapter.setCameraPosition(command.value)
+      command = lifecycle.serialized {
+        if (lifecycle.currentAdapter() !== command.adapter) return
+        if (cameraCommandRevision == command.revision) return
+        CameraCommand(command.adapter, cameraPositionState, cameraCommandRevision)
+      }
+    }
+  }
+
+  internal fun commitPresentation(
+    token: MapPresentationToken,
+    adapter: MapAdapter,
+    options: MapPresentationOptions,
+    reusesRetainedAdapter: Boolean,
+  ) {
+    if (!reusesRetainedAdapter) {
+      styleHandleEpoch++
+      style.invalidateLoadedStyle()
+    }
+    if (!reusesRetainedAdapter) style.loadState = StyleLoadState.Loading
+    presentation = MapPresentation(this, token, adapter, options)
+  }
+
+  private data class PresentationConfiguration(
+    val camera: CameraCommand,
+    val baseStyle: BaseStyleCommand,
   )
 
-  private companion object {
-    val nextPresentationToken = AtomicLong(0L)
-  }
+  private data class CameraCommand(
+    val adapter: MapAdapter,
+    val value: CameraPosition,
+    val revision: Long,
+  )
+
+  private data class BaseStyleCommand(
+    val adapter: MapAdapter,
+    val value: BaseStyle,
+    val revision: Long,
+  )
 }
 
 internal class MapStateCleanupException(failures: List<Throwable>) :
@@ -860,9 +818,13 @@ internal class MapRuntimeCleanupException(failures: List<Throwable>) :
   }
 }
 
-internal fun mapRuntimeForTest(closeResources: suspend () -> Unit = {}): MapRuntime =
+internal fun mapRuntimeForTest(
+  physicalScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+  closeResources: suspend () -> Unit = {},
+): MapRuntime =
   RuntimeImplementation(
     platformOptions = null,
     resources = MapRuntimeResources(closeResources),
     logger = null,
+    physicalScope = physicalScope,
   )
