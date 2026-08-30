@@ -10,7 +10,7 @@ import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
 import org.jetbrains.skia.Surface
 import org.jetbrains.skia.SurfaceColorFormat
-import org.maplibre.compose.desktop.ComposeMapHost
+import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.MlnFfiHostException
 import org.maplibre.compose.mlnffi.MlnFfiMapDestination
@@ -38,7 +38,8 @@ internal data class Direct3DTextureTarget(
 )
 
 /** Draws a Direct3D 12 texture into Compose's Skia canvas on Windows. */
-internal class Direct3D12Presenter(private val gpuHost: ComposeMapHost) : AutoCloseable {
+internal class Direct3D12Presenter(private val presentationHost: ComposeMapPresentationHost) :
+  AutoCloseable {
   private val presenters = mutableMapOf<Long, TexturePresenter>()
 
   fun draw(
@@ -66,16 +67,16 @@ internal class Direct3D12Presenter(private val gpuHost: ComposeMapHost) : AutoCl
 
   /** Drops the Skia wrapper for a texture; must happen before the texture itself is released. */
   fun forget(texture: NativeHandle) {
-    gpuHost.runOnGpuThread { presenters.remove(texture.address)?.close() }
+    presentationHost.runOnGpuThread { presenters.remove(texture.address)?.close() }
   }
 
   /** Releases wrappers created by a Skia context that the host replaced. */
   fun resetContext() {
-    gpuHost.runOnGpuThread(::closePresenters)
+    presentationHost.runOnGpuThread(::closePresenters)
   }
 
   override fun close() {
-    gpuHost.runOnGpuThread(::closePresenters)
+    presentationHost.runOnGpuThread(::closePresenters)
   }
 
   private fun closePresenters() {

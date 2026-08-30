@@ -6,38 +6,38 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class RenderBackendNegotiationTest {
-  private val openGlHostBridges =
+  private val openGlPresentationHostBridges =
     listOf(
       RenderBackendPair(MapRenderBackend.OPENGL, ComposeRenderBackend.OPENGL),
       RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL),
     )
 
   private fun selected(runtimeBackends: Set<MapRenderBackend>): RenderBackendPair? =
-    selectBridge(runtimeBackends, openGlHostBridges)
+    selectBridge(runtimeBackends, openGlPresentationHostBridges)
 
   private fun diagnostic(runtimeBackends: Set<MapRenderBackend>): String? =
     backendDiagnostic(
       runtimeBackends = runtimeBackends,
-      hostBridges = openGlHostBridges,
-      hostDescription = "fake test host",
+      hostBridges = openGlPresentationHostBridges,
+      hostDescription = "fake presentation host",
       operatingSystem = "Linux",
       architecture = "amd64",
     )
 
   @Test
   fun selects_the_first_bridge_the_runtime_drives() {
-    assertEquals(openGlHostBridges[0], selected(setOf(MapRenderBackend.OPENGL)))
+    assertEquals(openGlPresentationHostBridges[0], selected(setOf(MapRenderBackend.OPENGL)))
   }
 
   @Test
   fun falls_back_to_a_later_bridge_when_the_runtime_does_not_drive_the_first() {
-    assertEquals(openGlHostBridges[1], selected(setOf(MapRenderBackend.VULKAN)))
+    assertEquals(openGlPresentationHostBridges[1], selected(setOf(MapRenderBackend.VULKAN)))
   }
 
   @Test
   fun selects_among_extra_backends_the_runtime_provides() {
     assertEquals(
-      openGlHostBridges[1],
+      openGlPresentationHostBridges[1],
       selected(setOf(MapRenderBackend.VULKAN, MapRenderBackend.METAL)),
     )
   }
@@ -49,7 +49,7 @@ class RenderBackendNegotiationTest {
   }
 
   @Test
-  fun accepts_a_host_bridge_whose_producer_is_packaged() {
+  fun accepts_a_presentation_host_bridge_whose_producer_is_packaged() {
     assertNull(diagnostic(setOf(MapRenderBackend.VULKAN)))
   }
 
@@ -67,7 +67,10 @@ class RenderBackendNegotiationTest {
     assertContains(message, "OPENGL -> OPENGL")
     assertContains(message, "VULKAN -> OPENGL")
     assertContains(message, "operating system: Linux (amd64)")
-    assertContains(message, "Compose host: fake test host")
-    assertContains(message, "available bridges: ${openGlHostBridges.joinToString()}")
+    assertContains(message, "Compose host: fake presentation host")
+    assertContains(
+      message,
+      "available bridges: ${openGlPresentationHostBridges.joinToString()}",
+    )
   }
 }

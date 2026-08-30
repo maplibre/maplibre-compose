@@ -8,7 +8,7 @@ import dev.nucleusframework.window.tao.TaoOpenGlRenderContext
 import dev.nucleusframework.window.tao.TaoRenderBackend
 import dev.nucleusframework.window.tao.rememberTaoGpuRenderContext
 import org.maplibre.compose.desktop.ComposeGpuContext
-import org.maplibre.compose.desktop.ComposeMapHost
+import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.desktop.MetalComposeGpuContext
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
 import org.maplibre.compose.desktop.OpenGlInterop
@@ -16,11 +16,12 @@ import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.NativeHandle
 
 /**
- * A [ComposeMapHost] over a Nucleus Tao surface's graphics context.
+ * A [ComposeMapPresentationHost] over a Nucleus Tao surface's graphics context.
  *
  * Tao publishes the context that Compose uses, so this host passes it through unchanged.
  */
-public class TaoComposeMapHost(private val renderContext: TaoGpuRenderContext) : ComposeMapHost {
+public class TaoComposeMapPresentationHost(private val renderContext: TaoGpuRenderContext) :
+  ComposeMapPresentationHost {
 
   override val description: String
     get() = "the Nucleus Tao host on ${backend.name.lowercase()}"
@@ -75,13 +76,14 @@ public class TaoComposeMapHost(private val renderContext: TaoGpuRenderContext) :
 }
 
 /**
- * The [ComposeMapHost] for the current Nucleus Tao surface, or null until it has a GPU context.
+ * The [ComposeMapPresentationHost] for the current Nucleus Tao surface, or null until it has a GPU
+ * context.
  *
  * Tao replaces the render context when it rebuilds a surface's graphics stack. Keying this host on
  * that context recreates the map bridge without retaining stale native handles.
  */
 @Composable
-public fun rememberTaoComposeMapHost(): ComposeMapHost? {
+public fun rememberTaoComposeMapPresentationHost(): ComposeMapPresentationHost? {
   val renderContext = rememberTaoGpuRenderContext() ?: return null
-  return remember(renderContext) { TaoComposeMapHost(renderContext) }
+  return remember(renderContext) { TaoComposeMapPresentationHost(renderContext) }
 }

@@ -6,20 +6,20 @@ logical-map ownership, and offline services outside that host.
 
 **Blocked by:** 04
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] The changed test area contains no redundant, impossible,
+- [x] The changed test area contains no redundant, impossible,
       compatibility-only, or implementation-shape scenarios.
-- [ ] The desktop host API uses ComposeMapPresentationHost terminology.
-- [ ] The presentation host contains only window and GPU presentation resources.
-- [ ] Cache, resource, HTTP, and offline configuration belongs to MapRuntime.
-- [ ] Replacing a presentation host replaces the presentation without replacing
+- [x] The desktop host API uses ComposeMapPresentationHost terminology.
+- [x] The presentation host contains only window and GPU presentation resources.
+- [x] Cache, resource, HTTP, and offline configuration belongs to MapRuntime.
+- [x] Replacing a presentation host replaces the presentation without replacing
       MapRuntime or MapState.
-- [ ] Backend or scale-factor incompatibility follows the native engine
+- [x] Backend or scale-factor incompatibility follows the native engine
       replacement policy without transferring runtime ownership to the host.
-- [ ] Every desktop render backend and application host uses the renamed
+- [x] Every desktop render backend and application host uses the renamed
       contract.
-- [ ] Desktop tests prove host, runtime, and logical-map lifetime independence.
+- [x] Desktop tests prove host, runtime, and logical-map lifetime independence.
 
 ## Test ledger
 
@@ -30,3 +30,19 @@ logical-map ownership, and offline services outside that host.
   verify a distinct backend boundary.
 - Run `mise run test:desktop` for the default backend and every backend changed
   by the implementation.
+
+## Answer
+
+The desktop API now names its window-scoped rendering resource
+`ComposeMapPresentationHost`. The AWT, GLFW, and Nucleus Tao hosts use the same
+presentation-specific contract. Runtime configuration and logical-map ownership
+remain on `MapRuntime` and `MapState`.
+
+Changing the presentation host ends the current render lease and creates a new
+`MapPresentation`. A compatible host retains the native engine map. The existing
+backend and scale-factor compatibility key replaces an incompatible engine and
+replays the durable map state.
+
+The Desktop presentation-host lifetime test covers host replacement, engine
+retention, and runtime and logical-map independence. The bridge and backend
+tests retain distinct Metal, Vulkan/OpenGL, and Direct3D boundaries.

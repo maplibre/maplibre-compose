@@ -8,7 +8,7 @@ import dev.sargunv.composeglfw.MetalRenderContext
 import dev.sargunv.composeglfw.OpenGlRenderContext
 import dev.sargunv.composeglfw.RenderContext
 import org.maplibre.compose.desktop.ComposeGpuContext
-import org.maplibre.compose.desktop.ComposeMapHost
+import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.desktop.Direct3D12ComposeGpuContext
 import org.maplibre.compose.desktop.MetalComposeGpuContext
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
@@ -16,12 +16,13 @@ import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.NativeHandle
 
 /**
- * A [ComposeMapHost] over a compose-glfw window's own graphics context.
+ * A [ComposeMapPresentationHost] over a compose-glfw window's own graphics context.
  *
  * compose-glfw publishes what Compose draws with, so this hands it over unchanged: no AWT, no
  * Skiko, and no reflection.
  */
-public class GlfwComposeMapHost(private val renderContext: RenderContext) : ComposeMapHost {
+public class GlfwComposeMapPresentationHost(private val renderContext: RenderContext) :
+  ComposeMapPresentationHost {
 
   // TODO: Implement xdgPortalWindow after compose-glfw publishes its native GLFW window. Return an
   // XdgPortalWindow.X11 on X11. On Wayland, implement XdgPortalWindow.Wayland in compose-glfw so it
@@ -80,7 +81,7 @@ public class GlfwComposeMapHost(private val renderContext: RenderContext) : Comp
 }
 
 /**
- * The [ComposeMapHost] for the compose-glfw window this composable is running in.
+ * The [ComposeMapPresentationHost] for the compose-glfw window this composable is running in.
  *
  * Keyed on the render context, which compose-glfw replaces when it rebuilds a window's graphics
  * stack, so that a new context recreates the map's bridge and drops every stale native handle. Note
@@ -88,7 +89,7 @@ public class GlfwComposeMapHost(private val renderContext: RenderContext) : Comp
  * replacement does not by itself recompose.
  */
 @Composable
-public fun rememberGlfwComposeMapHost(): ComposeMapHost {
+public fun rememberGlfwComposeMapPresentationHost(): ComposeMapPresentationHost {
   val renderContext = LocalWindow.current.renderContext
-  return remember(renderContext) { GlfwComposeMapHost(renderContext) }
+  return remember(renderContext) { GlfwComposeMapPresentationHost(renderContext) }
 }

@@ -14,6 +14,8 @@ import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 
+@Composable internal actual fun mapPresentationHostIdentity(): Any = Unit
+
 @Composable
 internal actual fun ComposableMapView(
   modifier: Modifier,

@@ -1,7 +1,7 @@
 package org.maplibre.compose.desktop.bridge
 
 import org.maplibre.compose.desktop.ComposeGpuContext
-import org.maplibre.compose.desktop.ComposeMapHost
+import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
 import org.maplibre.compose.desktop.OpenGlInterop
 import org.maplibre.compose.desktop.onGpuThread
@@ -12,14 +12,16 @@ import org.maplibre.compose.mlnffi.MlnFfiMapHostFactory
 import org.maplibre.compose.mlnffi.MlnFfiMapHostResult
 import org.maplibre.compose.mlnffi.RenderBackendPair
 
-/** Builds the bridge from MapLibre Native into whatever [mapHost] draws with. */
-internal class ComposeMapHostFactory(private val mapHost: ComposeMapHost) : MlnFfiMapHostFactory {
+/** Builds the bridge from MapLibre Native into whatever [presentationHost] draws with. */
+internal class ComposeMapPresentationHostFactory(
+  private val presentationHost: ComposeMapPresentationHost
+) : MlnFfiMapHostFactory {
 
   override val description: String
-    get() = mapHost.description
+    get() = presentationHost.description
 
   override val bridges: List<RenderBackendPair> =
-    when (mapHost.backend) {
+    when (presentationHost.backend) {
       ComposeRenderBackend.METAL ->
         listOf(RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL))
       ComposeRenderBackend.OPENGL ->
@@ -33,14 +35,14 @@ internal class ComposeMapHostFactory(private val mapHost: ComposeMapHost) : MlnF
       val host =
         when (backends) {
           RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL) ->
-            MetalMapHost(mapHost)
+            MetalMapHost(presentationHost)
           RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL) ->
-            when (selectOpenGlBridge(mapHost.openGlInterop)) {
-              OpenGlBridge.NATIVE -> VulkanOpenGlMapHost(mapHost)
-              OpenGlBridge.ANGLE_D3D11 -> VulkanOpenGlWin32MapHost(mapHost)
+            when (selectOpenGlBridge(presentationHost.openGlInterop)) {
+              OpenGlBridge.NATIVE -> VulkanOpenGlMapHost(presentationHost)
+              OpenGlBridge.ANGLE_D3D11 -> VulkanOpenGlWin32MapHost(presentationHost)
             }
           RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.DIRECT3D12) ->
-            VulkanDirect3D12MapHost(mapHost)
+            VulkanDirect3D12MapHost(presentationHost)
           else -> return MlnFfiMapHostResult.Failed("$description cannot bridge $backends")
         }
       MlnFfiMapHostResult.Created(host)
@@ -84,10 +86,12 @@ internal fun selectOpenGlBridge(
  * its map is built: Compose backends commonly create their Skia context while producing the first
  * frame. Null means the caller skips this frame.
  */
-internal fun ComposeMapHost.currentContext(): ComposeGpuContext? = onGpuThread { gpuContext() }
+internal fun ComposeMapPresentationHost.currentContext(): ComposeGpuContext? = onGpuThread {
+  gpuContext()
+}
 
 /** This host's context as [T], or a failure naming what it reported instead. */
-internal inline fun <reified T : ComposeGpuContext> ComposeMapHost.requireContext(): T {
+internal inline fun <reified T : ComposeGpuContext> ComposeMapPresentationHost.requireContext(): T {
   val context = currentContext() ?: throw MlnFfiHostException("$description reports no GPU context")
   return context as? T
     ?: throw MlnFfiHostException(
@@ -102,12 +106,14 @@ internal inline fun <reified T : ComposeGpuContext> ComposeMapHost.requireContex
  * Scoped on both axes because Compose Desktop's is: making Skiko's context current locks the
  * window's drawing surface, and the surface has to stay locked until the context is released again.
  */
-internal fun <T> ComposeMapHost.withOpenGlContext(action: (OpenGlComposeGpuContext) -> T): T =
+internal fun <T> ComposeMapPresentationHost.withOpenGlContext(
+  action: (OpenGlComposeGpuContext) -> T
+): T =
   withOpenGlContextOrNull(action)
     ?: throw MlnFfiHostException("$description reports no GPU context")
 
 /** [withOpenGlContext], but null means this host has no context for the current frame yet. */
-internal fun <T> ComposeMapHost.withOpenGlContextOrNull(
+internal fun <T> ComposeMapPresentationHost.withOpenGlContextOrNull(
   action: (OpenGlComposeGpuContext) -> T
 ): T? = onGpuThread {
   val reported = gpuContext() ?: return@onGpuThread null

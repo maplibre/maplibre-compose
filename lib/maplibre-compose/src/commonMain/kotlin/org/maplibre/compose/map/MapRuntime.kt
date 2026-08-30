@@ -380,12 +380,35 @@ internal constructor(
     closure.await().getOrThrow()
   }
 
-  internal fun reservePresentation(): MapPresentationToken = lock.withLock {
-    requireOpenLocked()
-    check(attachment == null) { "The map state already has a presentation" }
-    val token = MapPresentationToken(nextPresentationToken.incrementAndFetch())
-    attachment = Attachment(token)
-    token
+  internal fun reservePresentation(
+    owner: MapPresentationOwnerToken = MapPresentationOwnerToken()
+  ): MapPresentationToken {
+    var replaced: MapAdapter? = null
+    val token = lock.withLock {
+      requireOpenLocked()
+      val current = attachment
+      check(current == null || current.owner === owner) {
+        "The map state already has a presentation"
+      }
+      replaced = current?.adapter
+      if (replaced != null) {
+        presentation?.invalidate()
+        presentation = null
+        if (!replaced.retainsEngineBetweenPresentations) {
+          style.loadState = StyleLoadState.Pending
+        }
+      }
+      val token = MapPresentationToken(nextPresentationToken.incrementAndFetch())
+      attachment = Attachment(owner, token)
+      token
+    }
+    if (cameraState.map === replaced) cameraState.map = null
+    replaced?.let { adapter ->
+      runtime.physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
+        runCatching { adapter.detachPresentation() }
+      }
+    }
+    return token
   }
 
   internal fun publishPresentation(
@@ -529,6 +552,7 @@ internal constructor(
   }
 
   private class Attachment(
+    val owner: MapPresentationOwnerToken,
     val token: MapPresentationToken,
     var adapter: MapAdapter? = null,
     var releasing: Boolean = false,
@@ -547,6 +571,8 @@ internal class MapStateCleanupException(failures: List<Throwable>) :
 }
 
 @JvmInline internal value class MapPresentationToken(val value: Long)
+
+internal class MapPresentationOwnerToken
 
 /**
  * Remembers a logical map and closes it when this call leaves composition. Restoration creates a

@@ -4,10 +4,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import co.touchlab.kermit.Logger
-import org.maplibre.compose.desktop.LocalComposeMapHost
-import org.maplibre.compose.desktop.bridge.ComposeMapHostFactory
+import org.maplibre.compose.desktop.LocalComposeMapPresentationHost
+import org.maplibre.compose.desktop.bridge.ComposeMapPresentationHostFactory
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
+
+@Composable
+internal actual fun mapPresentationHostIdentity(): Any =
+  LocalMlnFfiMapHostFactory.current ?: LocalComposeMapPresentationHost.current
 
 @Composable
 internal actual fun ComposableMapView(
@@ -24,8 +28,8 @@ internal actual fun ComposableMapView(
 ) {
   val hostFactory =
     LocalMlnFfiMapHostFactory.current
-      ?: LocalComposeMapHost.current.let { mapHost ->
-        remember(mapHost) { ComposeMapHostFactory(mapHost) }
+      ?: LocalComposeMapPresentationHost.current.let { presentationHost ->
+        remember(presentationHost) { ComposeMapPresentationHostFactory(presentationHost) }
       }
   MlnFfiMapView(
     hostFactory = hostFactory,

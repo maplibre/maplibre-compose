@@ -11,6 +11,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -99,7 +100,34 @@ public fun MaplibreMap(
   contentWindowInsets: WindowInsets = WindowInsets.safeDrawing,
   overlay: MapOverlay = MapOverlay.Default,
 ) {
-  val token = remember(state) { state.reservePresentation() }
+  val presentationHostIdentity = mapPresentationHostIdentity()
+  val presentationOwner = remember(state) { MapPresentationOwnerToken() }
+  key(state, presentationHostIdentity) {
+    PresentedMaplibreMap(
+      state = state,
+      presentationOwner = presentationOwner,
+      styleComposition = styleComposition,
+      modifier = modifier,
+      presentationOptions = presentationOptions,
+      callbacks = callbacks,
+      contentWindowInsets = contentWindowInsets,
+      overlay = overlay,
+    )
+  }
+}
+
+@Composable
+private fun PresentedMaplibreMap(
+  state: MapState,
+  presentationOwner: MapPresentationOwnerToken,
+  styleComposition: StyleComposition,
+  modifier: Modifier,
+  presentationOptions: MapPresentationOptions,
+  callbacks: MapPresentationCallbacks,
+  contentWindowInsets: WindowInsets,
+  overlay: MapOverlay,
+) {
+  val token = remember(state, presentationOwner) { state.reservePresentation(presentationOwner) }
   val attachment = remember(state, token) { MapStateAttachment(state, token) }
   DisposableEffect(attachment) { onDispose { attachment.release() } }
   CompositionLocalProvider(

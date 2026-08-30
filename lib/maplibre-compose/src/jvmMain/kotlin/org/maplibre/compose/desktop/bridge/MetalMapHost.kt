@@ -1,7 +1,7 @@
 package org.maplibre.compose.desktop.bridge
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import org.maplibre.compose.desktop.ComposeMapHost
+import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.desktop.MetalComposeGpuContext
 import org.maplibre.compose.desktop.onGpuThread
 import org.maplibre.compose.map.MapExtent
@@ -19,9 +19,10 @@ import org.maplibre.compose.mlnffi.RenderBackendPair
 import org.maplibre.compose.mlnffi.TextureOrigin
 
 /** Bridges MapLibre's Metal rendering into a Compose scene drawn with Metal. */
-internal class MetalMapHost(private val gpuHost: ComposeMapHost) : MlnFfiMapHost {
+internal class MetalMapHost(private val presentationHost: ComposeMapPresentationHost) :
+  MlnFfiMapHost {
   private val rendererThread = MapRendererThread("maplibre-metal-renderer")
-  private val presenter = MetalPresenter(gpuHost)
+  private val presenter = MetalPresenter(presentationHost)
   private val frameCompletion = ComposeFrameCompletion()
 
   private var texture = NativeHandle(0L)
@@ -155,12 +156,12 @@ internal class MetalMapHost(private val gpuHost: ComposeMapHost) : MlnFfiMapHost
   }
 
   private fun <T> withPreparedContext(action: (MetalComposeGpuContext) -> T): T? =
-    gpuHost.onGpuThread {
-      val context = gpuHost.gpuContext() ?: return@onGpuThread null
+    presentationHost.onGpuThread {
+      val context = presentationHost.gpuContext() ?: return@onGpuThread null
       val metalContext =
         context as? MetalComposeGpuContext
           ?: throw MlnFfiHostException(
-            "${gpuHost.description} switched from MetalComposeGpuContext to " +
+            "${presentationHost.description} switched from MetalComposeGpuContext to " +
               context::class.simpleName
           )
       frameCompletion.prepare(metalContext.skiaContext, presenter::resetContext)

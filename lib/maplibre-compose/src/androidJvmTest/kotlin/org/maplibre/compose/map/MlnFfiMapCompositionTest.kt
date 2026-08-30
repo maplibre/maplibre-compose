@@ -312,7 +312,7 @@ class MlnFfiMapCompositionTest {
   }
 
   @Test
-  fun an_incompatible_scale_factor_replaces_the_native_map_and_replays_state() =
+  fun an_incompatible_presentation_scale_replaces_the_native_map_and_replays_logical_state() =
     runFfiComposeUiTest {
       val runtime = createNativeMapRuntime(runtimeOptions)
       val camera =
@@ -333,7 +333,8 @@ class MlnFfiMapCompositionTest {
       waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
         state.presentation != null && state.style.loadState == StyleLoadState.Ready
       }
-      val firstMap = requireNotNull(state.presentation).adapter
+      val firstPresentation = requireNotNull(state.presentation)
+      val firstMap = firstPresentation.adapter
 
       presented = false
       waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { state.presentation == null }
@@ -344,9 +345,14 @@ class MlnFfiMapCompositionTest {
       }
 
       val replacementMap = requireNotNull(state.presentation).adapter
+      assertTrue(!firstPresentation.isValid)
+      assertNotSame(firstPresentation, state.presentation)
       assertNotSame(firstMap, replacementMap)
       assertCameraEquals(camera, state.cameraPosition)
       assertTrue("replacement-style" in (replacementMap as MlnFfiMapSession).currentStyleLayerIds())
+      assertSame(runtime, state.runtime)
+      assertTrue(!runtime.isClosed)
+      assertTrue(!state.isClosed)
 
       runtime.close()
       runtime.awaitClosed()

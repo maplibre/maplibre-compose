@@ -1,7 +1,7 @@
 package org.maplibre.compose.desktop.bridge
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import org.maplibre.compose.desktop.ComposeMapHost
+import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.MapRenderBackend
@@ -20,7 +20,8 @@ import org.maplibre.compose.mlnffi.VulkanImageTarget
  * MapLibre draws into a D3D11 texture created on ANGLE's device. Vulkan imports the NT handle;
  * Compose samples the same texture via `EGL_ANGLE_d3d_texture_client_buffer`.
  */
-internal class VulkanOpenGlWin32MapHost(private val gpuHost: ComposeMapHost) : MlnFfiMapHost {
+internal class VulkanOpenGlWin32MapHost(private val presentationHost: ComposeMapPresentationHost) :
+  MlnFfiMapHost {
   private val rendererThread = MapRendererThread("maplibre-windows-vulkan-gl-renderer")
   private val presenter = OpenGlPresenter.angle()
   private val frameCompletion = ComposeFrameCompletion()
@@ -40,7 +41,7 @@ internal class VulkanOpenGlWin32MapHost(private val gpuHost: ComposeMapHost) : M
     extent: MapExtent,
     presentationTimeNanos: Long?,
   ): MlnFfiMapFrameAcquisition =
-    gpuHost.withOpenGlContextOrNull { context ->
+    presentationHost.withOpenGlContextOrNull { context ->
       frameCompletion.prepare(context.skiaContext, ::abandonContext)
       if (texture == null || extent != currentExtent) recreateTexture(extent)
       MlnFfiMapFrameAcquisition.Acquired(
@@ -73,7 +74,7 @@ internal class VulkanOpenGlWin32MapHost(private val gpuHost: ComposeMapHost) : M
     destination: MlnFfiMapDestination,
   ): Boolean {
     if (target !is VulkanImageTarget) return false
-    return gpuHost.withOpenGlContextOrNull { context ->
+    return presentationHost.withOpenGlContextOrNull { context ->
       frameCompletion.prepare(context.skiaContext, ::abandonContext)
       val sharedTexture =
         if (target.generation == generation) texture else retiredTextures[target.generation]
@@ -203,7 +204,7 @@ internal class VulkanOpenGlWin32MapHost(private val gpuHost: ComposeMapHost) : M
     retireCurrentTexture()
     val closing = retiredTextures.values.toList()
     val closedWithContext = runCatching {
-      gpuHost.withOpenGlContext {
+      presentationHost.withOpenGlContext {
         closing.forEach(WindowsOpenGlSharedTexture::closeImported)
         presenter.close()
       }
