@@ -211,14 +211,15 @@ private fun MaplibreMapPresentation(
       options,
     ) {
       object : MapAdapter.Callbacks {
+        private fun currentPresentation(map: MapAdapter): MapPresentation? =
+          stateAttachment?.currentPresentation(map) ?: presentation?.takeIf { it.adapter === map }
+
         private fun synchronizeCamera(map: MapAdapter): MapPresentation? {
           if (cameraState.map !== map) return null
           val viewport = map.getViewport()
           cameraState.positionState.value = map.getCameraPosition()
           if (viewport == null) return null
-          val current =
-            stateAttachment?.currentPresentation(map) ?: presentation?.takeIf { it.adapter === map }
-          return current?.also { it.cameraMoved(viewport) }
+          return currentPresentation(map)?.also { it.cameraMoved(viewport) }
         }
 
         override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
@@ -243,8 +244,7 @@ private fun MaplibreMapPresentation(
 
         override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {
           if (cameraState.map !== map) return
-          (stateAttachment?.currentPresentation(map) ?: presentation?.takeIf { it.adapter === map })
-            ?.cameraMoveStarted(reason)
+          currentPresentation(map)?.cameraMoveStarted(reason)
         }
 
         override fun onCameraMoved(map: MapAdapter) {
@@ -262,6 +262,7 @@ private fun MaplibreMapPresentation(
         }
 
         override fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset) {
+          if (currentPresentation(map) == null) return
           if (onMapClick(latLng, offset).consumed) return
           mapClickScope.launch {
             for (node in layerNodesInOrder()) {
@@ -284,6 +285,7 @@ private fun MaplibreMapPresentation(
         }
 
         override fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset) {
+          if (currentPresentation(map) == null) return
           if (onMapLongClick(latLng, offset).consumed) return
           mapClickScope.launch {
             for (node in layerNodesInOrder()) {
@@ -307,7 +309,9 @@ private fun MaplibreMapPresentation(
         }
 
         override fun onFrame(fps: Double) {
-          cameraState.map?.let(::synchronizeCamera)
+          val map = cameraState.map ?: return
+          if (currentPresentation(map) == null) return
+          synchronizeCamera(map)
           onFrame(fps)
         }
       }
@@ -321,8 +325,6 @@ private fun MaplibreMapPresentation(
       style = baseStyle,
       update = { map ->
         map.setCameraPadding(cameraPadding)
-        cameraState.map = map
-        stateAttachment?.publish(map, options)
         map.setCameraConstraints(
           CameraConstraints(
             minZoom = zoomRange.start.toDouble(),
@@ -335,6 +337,8 @@ private fun MaplibreMapPresentation(
         map.setRenderSettings(options.renderOptions)
         map.setGestureSettings(options.gestureOptions)
         map.setTileLodSettings(options.tileLodOptions)
+        cameraState.map = map
+        stateAttachment?.publish(map, options)
       },
       onReset = {
         stateAttachment?.release(cameraState.map)

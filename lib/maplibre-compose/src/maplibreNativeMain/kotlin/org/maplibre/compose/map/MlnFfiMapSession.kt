@@ -1679,7 +1679,7 @@ internal class MlnFfiMapSession(
     val accepted = host.enqueueRenderer {
       if (!continuation.isActive) return@enqueueRenderer
       val session = renderSession
-      if (session == null) {
+      if (session == null || !renderSessionReady) {
         continuation.resume(emptyList())
         return@enqueueRenderer
       }

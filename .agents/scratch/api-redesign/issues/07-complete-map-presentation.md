@@ -29,6 +29,10 @@ bind every presentation operation to its render lease.
 - [x] A cached presentation fails immediately after detachment.
 - [x] A detached operation never waits for or targets a future presentation.
 - [x] A replacement camera animation cancels only the prior camera mutation.
+- [x] Presentation publication commits the initial camera, style, and options
+      before callbacks can observe the render lease.
+- [x] A presentation can exist before its first viewport. Nullable observations
+      report this state, and suspending queries wait for that viewport.
 
 ## Test ledger
 
@@ -51,6 +55,12 @@ presentation settings are available only through that lease. Detachment
 invalidates cached presentations immediately and cancels in-flight lease-bound
 work. A new camera animation cancels the previous camera mutation without
 cancelling unrelated work.
+
+Presentation publication commits the adapter's initial camera, base style, and
+options. The presentation can initially have no viewport. Visible-region,
+projection, and scale observations return null during this interval. Rendered-
+feature queries wait for the first viewport from the same lease. Presentation
+callbacks start after publication and stop when the lease ends.
 
 `MaplibreMap` now accepts one immutable `MapPresentationOptions` value and one
 `MapPresentationCallbacks` value. Base-style load status is observed through

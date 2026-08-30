@@ -3,10 +3,13 @@ package org.maplibre.compose.map
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -80,8 +83,52 @@ class MapPresentationTest {
   }
 
   @Test
+  fun publication_happens_after_the_adapter_accepts_initial_map_state() {
+    val runtime = mapRuntimeForTest()
+    val state = runtime.createMapState()
+    val token = state.reservePresentation()
+    val adapter = PresentationTestAdapter { state.presentation }
+
+    state.publishPresentation(token, adapter)
+
+    assertFalse(adapter.presentationWasVisibleWhileConfiguring)
+    assertTrue(state.presentation != null)
+    state.close()
+    runtime.close()
+  }
+
+  @Test
+  fun viewport_observations_are_null_before_the_first_viewport() {
+    val fixture = presentationFixture()
+
+    assertNull(fixture.presentation.getVisibleRegion())
+    assertNull(fixture.presentation.getVisibleBoundingBox())
+    assertNull(fixture.presentation.metersPerDpAtLatitude(0.0))
+    fixture.close()
+  }
+
+  @Test
+  fun a_rendered_query_waits_for_the_first_viewport() = runTest {
+    val fixture = presentationFixture()
+    supervisorScope {
+      val query = async { fixture.presentation.queryRenderedFeatures(DpOffset.Zero) }
+      testScheduler.runCurrent()
+
+      assertFalse(fixture.adapter.queryStarted.isCompleted)
+
+      fixture.presentation.updateViewport(testViewport())
+      fixture.adapter.queryStarted.await()
+      fixture.state.releasePresentation(fixture.token, fixture.adapter)
+
+      assertFailsWith<MapPresentationDetachedException> { query.await() }
+    }
+    fixture.close()
+  }
+
+  @Test
   fun detachment_fails_an_active_query_instead_of_targeting_another_presentation() = runTest {
     val fixture = presentationFixture()
+    fixture.presentation.updateViewport(testViewport())
     supervisorScope {
       val query = async { fixture.presentation.queryRenderedFeatures(DpOffset.Zero) }
       fixture.adapter.queryStarted.await()
@@ -137,8 +184,11 @@ private fun presentationFixture(): PresentationFixture {
   return PresentationFixture(runtime, state, token, adapter, requireNotNull(state.presentation))
 }
 
-private class PresentationTestAdapter : MapAdapter {
+private class PresentationTestAdapter(
+  private val currentPresentation: () -> MapPresentation? = { null }
+) : MapAdapter {
   var lastCameraPosition = CameraPosition()
+  var presentationWasVisibleWhileConfiguring = false
   val queryStarted = CompletableDeferred<Unit>()
   val animationStarted = CompletableDeferred<Unit>()
   val finishAnimation = CompletableDeferred<Unit>()
@@ -160,7 +210,10 @@ private class PresentationTestAdapter : MapAdapter {
     duration: Duration,
   ) = awaitCancellation()
 
-  override fun setBaseStyle(style: BaseStyle) = Unit
+  override fun setBaseStyle(style: BaseStyle) {
+    presentationWasVisibleWhileConfiguring =
+      presentationWasVisibleWhileConfiguring || currentPresentation() != null
+  }
 
   override suspend fun reconcileStyleRevision(revision: DesiredStyleRevision): Boolean = true
 
@@ -169,6 +222,8 @@ private class PresentationTestAdapter : MapAdapter {
   override fun getCameraPosition(): CameraPosition = lastCameraPosition
 
   override fun setCameraPosition(cameraPosition: CameraPosition) {
+    presentationWasVisibleWhileConfiguring =
+      presentationWasVisibleWhileConfiguring || currentPresentation() != null
     lastCameraPosition = cameraPosition
   }
 
@@ -223,3 +278,17 @@ private class PresentationTestAdapter : MapAdapter {
 
   override fun metersPerDpAtLatitude(latitude: Double): Double = 1.0
 }
+
+private fun testViewport(): Viewport =
+  Viewport(
+    size = DpSize(100.dp, 100.dp),
+    visibleBoundingBox = BoundingBox(Position(-1.0, -1.0), Position(1.0, 1.0)),
+    visibleRegion =
+      VisibleRegion(
+        farLeft = Position(-1.0, 1.0),
+        farRight = Position(1.0, 1.0),
+        nearLeft = Position(-1.0, -1.0),
+        nearRight = Position(1.0, -1.0),
+      ),
+    metersPerDpAtTarget = 1.0,
+  )

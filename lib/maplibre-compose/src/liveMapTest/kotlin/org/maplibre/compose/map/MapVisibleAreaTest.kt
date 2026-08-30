@@ -27,7 +27,7 @@ class MapVisibleAreaTest {
       it.presentation.setCameraPosition(CAMERA)
       it.pumpUntil("the camera to apply") { it.session.hasNativeCamera(CAMERA) }
 
-      val box = it.presentation.getVisibleBoundingBox()
+      val box = assertNotNull(it.presentation.getVisibleBoundingBox())
       assertContains(box, CAMERA.target, "the camera target")
       assertTrue(box.northeast.latitude > box.southwest.latitude, "the box should span latitude")
       assertTrue(box.northeast.longitude > box.southwest.longitude, "the box should span longitude")
@@ -43,8 +43,8 @@ class MapVisibleAreaTest {
         it.presentation.setCameraPosition(ROTATED_CAMERA)
         it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(ROTATED_CAMERA) }
 
-        val region = it.presentation.getVisibleRegion()
-        val box = it.presentation.getVisibleBoundingBox()
+        val region = assertNotNull(it.presentation.getVisibleRegion())
+        val box = assertNotNull(it.presentation.getVisibleBoundingBox())
         assertContains(box, region.farLeft, "the far left corner")
         assertContains(box, region.farRight, "the far right corner")
         assertContains(box, region.nearLeft, "the near left corner")
@@ -61,7 +61,7 @@ class MapVisibleAreaTest {
         it.presentation.setCameraPosition(ROTATED_CAMERA)
         it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(ROTATED_CAMERA) }
 
-        val region = it.presentation.getVisibleRegion()
+        val region = assertNotNull(it.presentation.getVisibleRegion())
         val corners = region.corners()
         assertTrue(
           corners.distinct().size == 4,
@@ -83,7 +83,7 @@ class MapVisibleAreaTest {
       it.presentation.setCameraPosition(ANTIMERIDIAN_CAMERA)
       it.pumpUntil("the camera to apply") { it.session.hasNativeCamera(ANTIMERIDIAN_CAMERA) }
 
-      val box = it.presentation.getVisibleBoundingBox()
+      val box = assertNotNull(it.presentation.getVisibleBoundingBox())
       // A wrapped hull would span nearly the whole world instead of the short interval, which may
       // extend past ±180.
       assertTrue(
@@ -103,7 +103,10 @@ class MapVisibleAreaTest {
       it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(ROTATED_CAMERA) }
 
       val viewport = assertNotNull(it.presentation.viewport)
-      assertNear(it.presentation.getVisibleBoundingBox(), viewport.visibleBoundingBox)
+      assertNear(
+        assertNotNull(it.presentation.getVisibleBoundingBox()),
+        viewport.visibleBoundingBox,
+      )
       assertTrue(
         viewport.size.width.value > 0f && viewport.size.height.value > 0f,
         "the viewport should carry the map's size, was ${viewport.size}",

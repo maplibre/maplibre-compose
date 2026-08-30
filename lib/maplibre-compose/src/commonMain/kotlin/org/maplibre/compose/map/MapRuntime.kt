@@ -11,7 +11,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.runtime.structuralEqualityPolicy
 import androidx.compose.ui.unit.DpOffset
@@ -34,7 +33,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import kotlinx.serialization.json.JsonObject
@@ -144,6 +142,8 @@ internal constructor(
   private val cameraMutation = MutatorMutex()
   private var validState: Boolean by mutableStateOf(true)
   private var viewportState: Viewport? by mutableStateOf(adapter.getViewport())
+  private val firstViewport =
+    CompletableDeferred<Viewport>().also { readiness -> viewportState?.let(readiness::complete) }
   private var cameraMovingState: Boolean by mutableStateOf(false)
   private var moveReasonState: CameraMoveReason by mutableStateOf(CameraMoveReason.NONE)
   private var optionsState: MapPresentationOptions by
@@ -209,25 +209,26 @@ internal constructor(
     }
   }
 
-  /** Returns the visible region of the current viewport. */
-  public fun getVisibleRegion(): VisibleRegion =
-    owner.withCurrent(this) { adapter.getVisibleRegion() }
+  /** Returns the visible region, or null before this presentation has a viewport. */
+  public fun getVisibleRegion(): VisibleRegion? = withViewport { it.getVisibleRegion() }
 
-  /** Returns the axis-aligned bounds that contain the current visible region. */
-  public fun getVisibleBoundingBox(): BoundingBox =
-    owner.withCurrent(this) { adapter.getVisibleBoundingBox() }
+  /** Returns the visible axis-aligned bounds, or null before this presentation has a viewport. */
+  public fun getVisibleBoundingBox(): BoundingBox? = withViewport { it.getVisibleBoundingBox() }
 
   /** Projects [position] into a logical-pixel offset in this presentation. */
-  public fun screenLocationFromPosition(position: Position): DpOffset? =
-    owner.withCurrent(this) { adapter.screenLocationFromPosition(position) }
+  public fun screenLocationFromPosition(position: Position): DpOffset? = withViewport {
+    it.screenLocationFromPosition(position)
+  }
 
   /** Unprojects a logical-pixel [offset] into a geographic position. */
-  public fun positionFromScreenLocation(offset: DpOffset): Position? =
-    owner.withCurrent(this) { adapter.positionFromScreenLocation(offset) }
+  public fun positionFromScreenLocation(offset: DpOffset): Position? = withViewport {
+    it.positionFromScreenLocation(offset)
+  }
 
-  /** Returns the ground distance represented by one dp at [latitude]. */
-  public fun metersPerDpAtLatitude(latitude: Double): Double =
-    owner.withCurrent(this) { adapter.metersPerDpAtLatitude(latitude) }
+  /** Returns the ground distance per dp, or null before this presentation has a viewport. */
+  public fun metersPerDpAtLatitude(latitude: Double): Double? = withViewport {
+    it.metersPerDpAtLatitude(latitude)
+  }
 
   /** Queries rendered features at [offset] in front-to-back render order. */
   public suspend fun queryRenderedFeatures(
@@ -235,6 +236,7 @@ internal constructor(
     layerIds: Set<String>? = null,
     predicate: Expression<BooleanValue> = const(true),
   ): List<Feature<Geometry, JsonObject?>> = runLeaseBound {
+    awaitViewportState()
     adapter.queryRenderedFeatures(offset, layerIds, predicate.compileOrNull())
   }
 
@@ -244,16 +246,16 @@ internal constructor(
     layerIds: Set<String>? = null,
     predicate: Expression<BooleanValue> = const(true),
   ): List<Feature<Geometry, JsonObject?>> = runLeaseBound {
+    awaitViewportState()
     adapter.queryRenderedFeatures(rect, layerIds, predicate.compileOrNull())
   }
 
   /** Suspends until this presentation has rendered its first viewport. */
-  public suspend fun awaitViewport(): Viewport = runLeaseBound {
-    snapshotFlow { viewport }.first { it != null }!!
-  }
+  public suspend fun awaitViewport(): Viewport = runLeaseBound { awaitViewportState() }
 
   internal fun updateViewport(value: Viewport?) {
     viewportState = value
+    value?.let(firstViewport::complete)
   }
 
   internal fun cameraMoveStarted(reason: CameraMoveReason) {
@@ -262,7 +264,7 @@ internal constructor(
   }
 
   internal fun cameraMoved(viewport: Viewport?) {
-    viewportState = viewport
+    updateViewport(viewport)
   }
 
   internal fun cameraMoveEnded() {
@@ -282,6 +284,11 @@ internal constructor(
     if (this == const(true)) return null
     return compile(ExpressionContext.None)
   }
+
+  private fun <T> withViewport(block: (MapAdapter) -> T): T? =
+    owner.withCurrent(this) { if (viewportState == null) null else block(adapter) }
+
+  private suspend fun awaitViewportState(): Viewport = firstViewport.await()
 
   private suspend fun <T> runLeaseBound(block: suspend () -> T): T = coroutineScope {
     owner.requireCurrent(this@MapPresentation)
@@ -404,10 +411,10 @@ internal constructor(
       }
       if (adapter.retainsEngineBetweenPresentations) retainedAdapter = adapter
       if (replaced != null) retiringAdapters += replaced
-      MapPresentation(this, token, adapter, options).also { presentation = it }
       cameraState.map = adapter
       adapter.setBaseStyle(style.baseStyle)
       if (!reusesRetainedAdapter) style.loadState = StyleLoadState.Loading
+      MapPresentation(this, token, adapter, options).also { presentation = it }
       replaced
     }
     if (replaced != null) {

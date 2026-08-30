@@ -9,6 +9,9 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -116,9 +119,19 @@ class MapQueryTest {
   }
 
   @Test
-  fun a_query_before_any_frame_returns_empty_rather_than_throwing(): MapTestResult = runMapTest {
-    createMapFixture().use {
-      assertTrue(it.presentation.queryRenderedFeatures(offset = CENTER).isEmpty())
+  fun a_query_before_any_frame_waits_for_the_first_viewport(): MapTestResult = runMapTest {
+    createMapFixture().use { fixture ->
+      coroutineScope {
+        val query =
+          async(start = CoroutineStart.UNDISPATCHED) {
+            fixture.presentation.queryRenderedFeatures(offset = CENTER)
+          }
+
+        assertFalse(query.isCompleted)
+        fixture.pumpUntil("the first viewport to make the query available") { query.isCompleted }
+
+        assertTrue(query.await().isEmpty())
+      }
     }
   }
 
