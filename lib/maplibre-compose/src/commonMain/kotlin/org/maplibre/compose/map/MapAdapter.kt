@@ -157,7 +157,6 @@ internal object EmptyMapAdapterCallbacks : MapAdapter.Callbacks {
   override fun onFrame(fps: Double) = Unit
 }
 
-/** Style-load events for a retained engine after its presentation has left composition. */
 internal class DurableStyleCallbacks(private val owner: MapState) : MapAdapter.Callbacks {
   override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) = Unit
 

@@ -45,7 +45,6 @@ internal sealed interface SourceDefinition {
     val provider: VectorTileProvider,
   ) : SourceDefinition
 
-  /** A tiled raster DEM definition. Engine JSON is resolved at install time. */
   data class RasterDem(
     override val id: String,
     val tiles: List<String>,
