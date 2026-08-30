@@ -33,6 +33,8 @@ superseded map, camera, or style state.
 - Add loaded-source enumeration to `MapStyleState` in the core `map` package.
   Attribution controls require this current style metadata to stop depending on
   the superseded `StyleState`.
+- Route durable source-change callbacks through `MapState` in the core `map`
+  package. A retained native style can update source metadata while detached.
 - Preserve pure location-provider tests unchanged and do not duplicate core
   MapState or presentation lifecycle scenarios in integration modules.
 - Run `mise run test:android`, `mise run test:desktop`, `mise run test:ios`, and
@@ -47,8 +49,9 @@ overlay host no longer stores a presentation lease. Attribution controls use
 
 `MapStyleState.sources` exposes generation-bound handles for the current ready
 style. The map refreshes that collection when a style becomes ready and when a
-source changes. This supplies attribution metadata without a compatibility
-state.
+source changes, including durable native source events received while the
+presentation is detached. This supplies attribution metadata without a
+compatibility state.
 
 The location APIs already use `MapState` for the durable camera position and
 `MapPresentation` for viewport and camera operations. Their production code and
@@ -59,6 +62,7 @@ ownership boundaries as the base controls.
 | -------------- | ------------------------- |
 | Rewritten      | `MapOverlayTest`          |
 | Rewritten      | `BaseStyleSourceReadTest` |
+| Rewritten      | `MapPresentationTest`     |
 | Retained       | `MaplibreLogoTest`        |
 | Retained       | `LocationPuckTest`        |
 | Retained       | `LocationStateTest`       |
@@ -67,8 +71,10 @@ ownership boundaries as the base controls.
 
 `MapOverlayTest` now exercises the host through `MapState`. The source-read test
 verifies the current source collection and its attribution through the public
-style API. The retained logo, puck, and provider tests cover distinct artwork,
-measurement, staleness, lifecycle, permission, failure, and retry behavior.
+style API. `MapPresentationTest` verifies that a retained style refreshes the
+public collection after detachment. The retained logo, puck, and provider tests
+cover distinct artwork, measurement, staleness, lifecycle, permission, failure,
+and retry behavior.
 
 Validation passed with `mise run check`, `mise run test:android`,
 `mise run test:desktop`, `mise run test:ios`, and

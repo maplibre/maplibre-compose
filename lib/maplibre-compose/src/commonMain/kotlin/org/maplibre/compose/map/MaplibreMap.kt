@@ -214,13 +214,11 @@ private fun MaplibreMapPresentation(
         }
 
         override fun onSourceChanged(map: MapAdapter, sourceId: String?) {
-          if (!state.acceptsPresentationEvent(map)) return
+          if (!state.refreshStyleSources(map, sourceId)) return
           if (sourceId == null) {
             styleState.refreshSources()
-            state.style.refreshSources()
           } else {
             styleState.refreshSource(sourceId)
-            state.style.refreshSource(sourceId)
           }
         }
 

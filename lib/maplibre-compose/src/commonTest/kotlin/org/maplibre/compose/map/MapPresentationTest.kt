@@ -36,6 +36,7 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.GeoJsonSourceHandle
+import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.sources.VectorSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
@@ -150,6 +151,28 @@ class MapPresentationTest {
     state.durableStyleCallbacks().onMapFailLoading(adapter, "style refused")
 
     assertTrue(state.style.loadState is StyleLoadState.Failed)
+    state.close()
+    runtime.close()
+  }
+
+  @Test
+  fun a_durable_source_change_refreshes_sources_after_the_presentation_leaves() = runTest {
+    val runtime = mapRuntimeForTest()
+    val state = runtime.createMapState()
+    val token = state.reservePresentation()
+    val adapter = RetainedAdapter(failOnClose = false)
+    state.publishPresentation(token, adapter)
+    val style = RecordingStyleBinding(sources = listOf(attributedVectorSource()))
+    val callbacks = state.durableStyleCallbacks()
+    callbacks.onStyleChanged(adapter, style)
+    callbacks.onMapFinishedLoading(adapter)
+    state.releasePresentation(token, adapter)
+    testScheduler.advanceUntilIdle()
+
+    style.removeSource("tiles")
+    callbacks.onSourceChanged(adapter, "tiles")
+
+    assertTrue(state.style.sources.isEmpty())
     state.close()
     runtime.close()
   }
@@ -413,6 +436,13 @@ class MapPresentationTest {
     fixture.close()
   }
 }
+
+private fun attributedVectorSource(): VectorSource =
+  VectorSource(
+    id = "tiles",
+    tiles = listOf("https://example.com/{z}/{x}/{y}.pbf"),
+    options = TileSetOptions(attributionHtml = "attribution"),
+  )
 
 private data class PresentationFixture(
   val runtime: MapRuntime,

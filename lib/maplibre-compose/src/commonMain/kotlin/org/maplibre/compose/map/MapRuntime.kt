@@ -586,6 +586,13 @@ internal constructor(
     !closed && attachment?.adapter === adapter && presentation?.adapter === adapter
   }
 
+  internal fun refreshStyleSources(adapter: MapAdapter, sourceId: String?): Boolean =
+    lock.withLock {
+      if (closed || (attachment?.adapter !== adapter && retainedAdapter !== adapter)) return false
+      if (sourceId == null) style.refreshSources() else style.refreshSource(sourceId)
+      true
+    }
+
   internal fun updateLoadedStyle(adapter: MapAdapter, loadedStyle: StyleBinding?): Boolean =
     lock.withLock {
       if (closed || (attachment?.adapter !== adapter && retainedAdapter !== adapter)) return false
