@@ -9,6 +9,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -92,7 +93,9 @@ internal fun AndroidMlnFfiSurface(
       }
     AndroidMapSurfaceKind.Surface ->
       AndroidExternalSurface(
-        modifier = modifier,
+        // Work around #1150: Compose can delay a replacement SurfaceView until another window
+        // invalidation. The graphics layer forces that traversal when the map has no overlay.
+        modifier = modifier.graphicsLayer(),
         // Never opaque: before its first swap the hole would otherwise read as black.
         isOpaque = false,
         // Behind the window, matching MapLibre's MapView: Compose overlays draw on top of the map.
