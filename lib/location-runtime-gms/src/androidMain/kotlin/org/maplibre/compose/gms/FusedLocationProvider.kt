@@ -25,7 +25,9 @@ import org.maplibre.compose.location.LocationAccuracy
 import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationPermission
 import org.maplibre.compose.location.LocationProvider
+import org.maplibre.compose.location.LocationProviderAvailability
 import org.maplibre.compose.location.LocationRequest
+import org.maplibre.compose.location.LocationServicesStatus
 import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.compose.location.asMapLibreLocationUpdate
 import org.maplibre.spatialk.units.extensions.inMeters
@@ -50,30 +52,18 @@ import org.maplibre.spatialk.units.extensions.inMeters
  * `SecurityException` maps to [LocationUnavailableReason.PermissionDenied]. Other exceptions escape
  * the flow, and the collector classifies them as [LocationUnavailableReason.UnexpectedFailure].
  *
- * The [Context] constructor delegates [permission] and [requestPermission] to an
- * [AndroidLocationProvider]. The [FusedLocationProviderClient] constructor keeps the default
- * [LocationProvider.permission], which is always granted, and its [updates] still surface a
- * `SecurityException` as [LocationUnavailableReason.PermissionDenied].
+ * [availability], [permission], [locationServices], and [requestPermission] delegate to an
+ * [AndroidLocationProvider].
  */
 public class FusedLocationProvider
 internal constructor(
   private val locationClient: FusedLocationProviderClient,
-  private val permissionDelegate: LocationProvider?,
+  private val platformDelegate: LocationProvider,
 ) : LocationProvider {
 
   override val backendId: String = GmsLocationBackendId
 
-  /**
-   * Creates a provider backed by [locationClient].
-   *
-   * Permission keeps the [LocationProvider.permission] default, which is always granted.
-   */
-  public constructor(locationClient: FusedLocationProviderClient) : this(locationClient, null)
-
-  /**
-   * Creates a provider with its own fused client and an [AndroidLocationProvider] as its permission
-   * delegate.
-   */
+  /** Creates a provider with an [AndroidLocationProvider] for platform state and permission. */
   public constructor(
     context: Context
   ) : this(
@@ -81,16 +71,16 @@ internal constructor(
     AndroidLocationProvider(context),
   )
 
-  override val permission: StateFlow<LocationPermission>
-    get() = permissionDelegate?.permission ?: super.permission
+  override val availability: LocationProviderAvailability
+    get() = platformDelegate.availability
 
-  override fun requestPermission() {
-    if (permissionDelegate != null) {
-      permissionDelegate.requestPermission()
-    } else {
-      super.requestPermission()
-    }
-  }
+  override val permission: StateFlow<LocationPermission>
+    get() = platformDelegate.permission
+
+  override val locationServices: StateFlow<LocationServicesStatus>
+    get() = platformDelegate.locationServices
+
+  override fun requestPermission(): Unit = platformDelegate.requestPermission()
 
   @RequiresPermission(
     anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]

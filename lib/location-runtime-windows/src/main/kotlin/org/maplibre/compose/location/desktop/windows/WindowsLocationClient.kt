@@ -1,6 +1,6 @@
 package org.maplibre.compose.location.desktop.windows
 
-import org.maplibre.compose.location.LocationBackendAvailability
+import org.maplibre.compose.location.LocationProviderAvailability
 
 internal fun interface WindowsCloseable : AutoCloseable {
   override fun close()
@@ -15,7 +15,7 @@ internal interface WindowsLocationListener {
 }
 
 internal interface WindowsLocationClient : AutoCloseable {
-  val backendAvailability: LocationBackendAvailability
+  val backendAvailability: LocationProviderAvailability
 
   fun checkAccess(): WindowsAccessStatus
 

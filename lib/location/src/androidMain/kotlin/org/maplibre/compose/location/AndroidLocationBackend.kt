@@ -13,9 +13,9 @@ import kotlinx.coroutines.flow.flowOf
  * and [createDefaultHeadingProvider] create; the framework providers remain the default otherwise.
  * When several backends are available, the highest [priority] wins, and equal priorities resolve to
  * the first [id] in lexicographic order. A [ServiceConfigurationError], a [LinkageError], or an
- * exception while loading or checking a backend maps [LocationProvider.backendAvailability] to
- * [LocationBackendAvailability.Misconfigured]. The installed backend documents its own availability
- * conditions.
+ * exception while loading or checking a backend maps [LocationProvider.availability] to
+ * [LocationProviderAvailability.Misconfigured]. The installed backend documents its own
+ * availability conditions.
  */
 public interface AndroidLocationBackend {
   /** A stable name used in diagnostics and to break priority ties. */
@@ -82,8 +82,8 @@ internal object AndroidLocationBackendResolver {
 }
 
 internal class MisconfiguredLocationProvider(private val cause: Throwable) : LocationProvider {
-  override val backendAvailability: LocationBackendAvailability =
-    LocationBackendAvailability.Misconfigured(cause)
+  override val availability: LocationProviderAvailability =
+    LocationProviderAvailability.Misconfigured(cause)
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> =
     flowOf(LocationEvent.Unavailable(LocationUnavailableReason.Misconfigured, cause))

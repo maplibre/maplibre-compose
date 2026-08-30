@@ -72,11 +72,11 @@ internal fun Duration.toReportIntervalMilliseconds(): Int =
 internal fun WindowsAccessStatus.asLocationPermission(): LocationPermission =
   when (this) {
     WindowsAccessStatus.Allowed -> LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)
-    WindowsAccessStatus.UserPromptRequired -> LocationPermission.NotGranted(canRequest = true)
+    WindowsAccessStatus.UserPromptRequired -> LocationPermission.Required(canRequest = true)
     WindowsAccessStatus.DeniedBySystem,
     WindowsAccessStatus.NotDeclared,
-    WindowsAccessStatus.DeniedByUser -> LocationPermission.NotGranted(canRequest = false)
-    WindowsAccessStatus.Unknown -> LocationPermission.NotGranted(canRequest = null)
+    WindowsAccessStatus.DeniedByUser -> LocationPermission.Required(canRequest = false)
+    WindowsAccessStatus.Unknown -> LocationPermission.Unknown
   }
 
 internal fun WindowsPositionStatus.asUnavailableReason(

@@ -11,11 +11,11 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import org.lwjgl.system.MemoryUtil.NULL
 import org.lwjgl.system.macosx.ObjCRuntime
-import org.maplibre.compose.location.LocationBackendAvailability
+import org.maplibre.compose.location.LocationProviderAvailability
 import org.maplibre.compose.location.desktop.macos.ObjectiveC.DELEGATE_CLASS_NAME
 
 internal class SystemCoreLocationClient : CoreLocationClient {
-  override val backendAvailability: LocationBackendAvailability
+  override val backendAvailability: LocationProviderAvailability
 
   init {
     ObjectiveC.loadFramework("Foundation")
@@ -119,9 +119,9 @@ private fun <T> onMain(action: () -> T): T = CocoaMain.run {
 private val usageDescriptionKeys =
   listOf("NSLocationWhenInUseUsageDescription", "NSLocationUsageDescription")
 
-private fun readUsageDescriptionAvailability(): LocationBackendAvailability {
-  if (usageDescription() != null) return LocationBackendAvailability.Available
-  return LocationBackendAvailability.Misconfigured(
+private fun readUsageDescriptionAvailability(): LocationProviderAvailability {
+  if (usageDescription() != null) return LocationProviderAvailability.Available
+  return LocationProviderAvailability.Misconfigured(
     IllegalStateException(
       "The main bundle${ObjectiveC.mainBundlePath()?.let { " at $it" } ?: ""} " +
         "does not declare NSLocationWhenInUseUsageDescription. " +

@@ -18,10 +18,11 @@ import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.location.DesktopLocationBackend
 import org.maplibre.compose.location.LocationAccuracy
 import org.maplibre.compose.location.LocationAccuracyAuthorization
-import org.maplibre.compose.location.LocationBackendAvailability
 import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationPermission
+import org.maplibre.compose.location.LocationProviderAvailability
 import org.maplibre.compose.location.LocationRequest
+import org.maplibre.compose.location.LocationServicesStatus
 import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.degrees
@@ -81,19 +82,19 @@ class MacosLocationProviderTest {
       readPermission(CL_AUTHORIZATION_AUTHORIZED_WHEN_IN_USE, 1),
     )
     assertEquals(
-      LocationPermission.NotGranted(canRequest = true),
+      LocationPermission.Required(canRequest = true),
       readPermission(CL_AUTHORIZATION_NOT_DETERMINED, CL_ACCURACY_AUTHORIZATION_FULL),
     )
     assertEquals(
-      LocationPermission.NotGranted(canRequest = false),
+      LocationPermission.Required(canRequest = false),
       readPermission(CL_AUTHORIZATION_DENIED, CL_ACCURACY_AUTHORIZATION_FULL),
     )
     assertEquals(
-      LocationPermission.NotGranted(canRequest = false),
+      LocationPermission.Required(canRequest = false),
       readPermission(CL_AUTHORIZATION_RESTRICTED, CL_ACCURACY_AUTHORIZATION_FULL),
     )
     assertEquals(
-      LocationPermission.NotGranted(canRequest = null),
+      LocationPermission.Unknown,
       readPermission(99, CL_ACCURACY_AUTHORIZATION_FULL),
     )
   }
@@ -208,6 +209,7 @@ class MacosLocationProviderTest {
 
     val event = assertIs<LocationEvent.Unavailable>(provider.updates(LocationRequest()).first())
     assertEquals(LocationUnavailableReason.ServicesDisabled, event.reason)
+    assertEquals(LocationServicesStatus.Disabled, provider.locationServices.value)
     assertEquals(managersBeforeUpdates, client.managers.size)
   }
 
@@ -272,6 +274,7 @@ class MacosLocationProviderTest {
     val unavailable = assertIs<LocationEvent.Unavailable>(events.last())
     assertEquals(2, events.size)
     assertEquals(LocationUnavailableReason.ServicesDisabled, unavailable.reason)
+    assertEquals(LocationServicesStatus.Disabled, provider.locationServices.value)
   }
 
   @Test
@@ -292,12 +295,7 @@ class MacosLocationProviderTest {
 
     val provider = MacosLocationProvider(client, Dispatchers.Unconfined)
 
-    // Permission reports granted at unknown accuracy so that collection reaches the guarded update
-    // path, which retries the allocation and reports the persistent failure.
-    assertEquals(
-      LocationPermission.Granted(LocationAccuracyAuthorization.Unknown),
-      provider.permission.value,
-    )
+    assertEquals(LocationPermission.Unknown, provider.permission.value)
     provider.requestPermission()
     val event = assertIs<LocationEvent.Unavailable>(provider.updates(LocationRequest()).first())
     assertEquals(LocationUnavailableReason.UnexpectedFailure, event.reason)
@@ -310,7 +308,7 @@ class MacosLocationProviderTest {
     val provider = MacosLocationProvider(client, Dispatchers.Unconfined)
     val manager = client.managers.single()
 
-    assertEquals(LocationPermission.NotGranted(canRequest = true), provider.permission.value)
+    assertEquals(LocationPermission.Required(canRequest = true), provider.permission.value)
 
     provider.requestPermission()
     provider.requestPermission()
@@ -356,7 +354,7 @@ class MacosLocationProviderTest {
     val client = FakeCoreLocationClient(hasUsageDescription = false)
     val provider = MacosLocationProvider(client, Dispatchers.Unconfined)
 
-    assertIs<LocationBackendAvailability.Misconfigured>(provider.backendAvailability)
+    assertIs<LocationProviderAvailability.Misconfigured>(provider.availability)
     val event = assertIs<LocationEvent.Unavailable>(provider.updates(LocationRequest()).first())
     assertEquals(LocationUnavailableReason.Misconfigured, event.reason)
     provider.requestPermission()
@@ -373,7 +371,7 @@ class MacosLocationProviderTest {
     manager.boundDelegate?.didChangeAuthorization()
     provider.requestPermission()
 
-    assertEquals(LocationPermission.NotGranted(canRequest = false), provider.permission.value)
+    assertEquals(LocationPermission.Required(canRequest = false), provider.permission.value)
     assertEquals(0, manager.whenInUseRequests)
   }
 
@@ -433,11 +431,11 @@ private class FakeCoreLocationClient(
   override var locationServicesEnabled: Boolean = true,
   hasUsageDescription: Boolean = true,
 ) : CoreLocationClient {
-  override val backendAvailability: LocationBackendAvailability =
+  override val backendAvailability: LocationProviderAvailability =
     if (hasUsageDescription) {
-      LocationBackendAvailability.Available
+      LocationProviderAvailability.Available
     } else {
-      LocationBackendAvailability.Misconfigured(IllegalStateException("missing usage description"))
+      LocationProviderAvailability.Misconfigured(IllegalStateException("missing usage description"))
     }
   val managers = mutableListOf<FakeCoreLocationManager>()
   var closed = false

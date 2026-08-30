@@ -18,10 +18,11 @@ import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.location.DesktopLocationBackend
 import org.maplibre.compose.location.LocationAccuracy
 import org.maplibre.compose.location.LocationAccuracyAuthorization
-import org.maplibre.compose.location.LocationBackendAvailability
 import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationPermission
+import org.maplibre.compose.location.LocationProviderAvailability
 import org.maplibre.compose.location.LocationRequest
+import org.maplibre.compose.location.LocationServicesStatus
 import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.degrees
@@ -53,7 +54,7 @@ class WindowsLocationProviderTest {
       WindowsAccessStatus.Allowed.asLocationPermission(),
     )
     assertEquals(
-      LocationPermission.NotGranted(canRequest = true),
+      LocationPermission.Required(canRequest = true),
       WindowsAccessStatus.UserPromptRequired.asLocationPermission(),
     )
     listOf(
@@ -63,14 +64,11 @@ class WindowsLocationProviderTest {
       )
       .forEach {
         assertEquals(
-          LocationPermission.NotGranted(canRequest = false),
+          LocationPermission.Required(canRequest = false),
           it.asLocationPermission(),
         )
       }
-    assertEquals(
-      LocationPermission.NotGranted(canRequest = null),
-      WindowsAccessStatus.Unknown.asLocationPermission(),
-    )
+    assertEquals(LocationPermission.Unknown, WindowsAccessStatus.Unknown.asLocationPermission())
   }
 
   @Test
@@ -91,7 +89,7 @@ class WindowsLocationProviderTest {
     assertEquals(1, client.accessRequests)
 
     client.changeAccess(WindowsAccessStatus.DeniedByUser)
-    assertEquals(LocationPermission.NotGranted(canRequest = false), requester.status.value)
+    assertEquals(LocationPermission.Required(canRequest = false), requester.status.value)
 
     requester.close()
     requester.close()
@@ -105,7 +103,7 @@ class WindowsLocationProviderTest {
     client.checkFailure = IllegalStateException("native failure")
     val requester = WindowsLocationPermissionRequester(client)
 
-    assertEquals(LocationPermission.NotGranted(canRequest = null), requester.status.value)
+    assertEquals(LocationPermission.Unknown, requester.status.value)
     requester.close()
   }
 
@@ -124,7 +122,7 @@ class WindowsLocationProviderTest {
   @Test
   fun mapsPositionStatuses() {
     val granted = LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)
-    val denied = LocationPermission.NotGranted(canRequest = false)
+    val denied = LocationPermission.Required(canRequest = false)
     assertNull(WindowsPositionStatus.Ready.asUnavailableReason(granted))
     listOf(
         WindowsPositionStatus.Initializing,
@@ -248,6 +246,7 @@ class WindowsLocationProviderTest {
     assertEquals(2_000, session.configuration.reportIntervalMilliseconds)
 
     session.listener.onPosition(sampleMeasurement())
+    assertEquals(LocationServicesStatus.Enabled, provider.locationServices.value)
     session.listener.onStatus(WindowsPositionStatus.NoData)
     session.listener.onFailure(IllegalStateException("native failure"))
 
@@ -300,7 +299,7 @@ class WindowsLocationProviderTest {
     val cause = IllegalStateException("activation failed")
     val client =
       FakeWindowsLocationClient(
-        backendAvailability = LocationBackendAvailability.Misconfigured(cause)
+        backendAvailability = LocationProviderAvailability.Misconfigured(cause)
       )
     val provider = WindowsLocationProvider(client)
 
@@ -324,8 +323,8 @@ class WindowsLocationProviderTest {
 
 private class FakeWindowsLocationClient(
   var access: WindowsAccessStatus = WindowsAccessStatus.UserPromptRequired,
-  override val backendAvailability: LocationBackendAvailability =
-    LocationBackendAvailability.Available,
+  override val backendAvailability: LocationProviderAvailability =
+    LocationProviderAvailability.Available,
 ) : WindowsLocationClient {
   val sessions = mutableListOf<FakeWindowsSession>()
   var accessRequests = 0

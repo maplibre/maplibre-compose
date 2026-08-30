@@ -9,10 +9,10 @@ import kotlinx.coroutines.flow.flowOf
  * A host-specific desktop location implementation discovered through [ServiceLoader].
  *
  * A backend installs one provider that carries both location updates and permission. No installed
- * or available backend maps [LocationProvider.backendAvailability] to
- * [LocationBackendAvailability.Unsupported]. Multiple available backends, a
+ * or available backend maps [LocationProvider.availability] to
+ * [LocationProviderAvailability.Unsupported]. Multiple available backends, a
  * [ServiceConfigurationError], or an exception while checking or creating a backend maps the
- * property to [LocationBackendAvailability.Misconfigured]. The selected backend documents its
+ * property to [LocationProviderAvailability.Misconfigured]. The selected backend documents its
  * location-event and permission mappings.
  */
 public interface DesktopLocationBackend {
@@ -47,7 +47,7 @@ internal object DesktopLocationBackendResolver {
     try {
       resolve(loadBackends(), window)
     } catch (error: ServiceConfigurationError) {
-      UnavailableDesktopLocationProvider(LocationBackendAvailability.Misconfigured(error))
+      UnavailableDesktopLocationProvider(LocationProviderAvailability.Misconfigured(error))
     }
 
   fun resolve(
@@ -58,14 +58,14 @@ internal object DesktopLocationBackendResolver {
       try {
         backends.filter { it.isAvailable() }
       } catch (error: Throwable) {
-        return UnavailableDesktopLocationProvider(LocationBackendAvailability.Misconfigured(error))
+        return UnavailableDesktopLocationProvider(LocationProviderAvailability.Misconfigured(error))
       }
     return when {
       availableBackends.isEmpty() ->
-        UnavailableDesktopLocationProvider(LocationBackendAvailability.Unsupported)
+        UnavailableDesktopLocationProvider(LocationProviderAvailability.Unsupported)
       availableBackends.size > 1 ->
         UnavailableDesktopLocationProvider(
-          LocationBackendAvailability.Misconfigured(
+          LocationProviderAvailability.Misconfigured(
             IllegalStateException(
               "Multiple desktop location backends are available: " +
                 availableBackends.joinToString { it.id }
@@ -76,26 +76,26 @@ internal object DesktopLocationBackendResolver {
         try {
           availableBackends.single().createProvider(window)
         } catch (error: Throwable) {
-          UnavailableDesktopLocationProvider(LocationBackendAvailability.Misconfigured(error))
+          UnavailableDesktopLocationProvider(LocationProviderAvailability.Misconfigured(error))
         }
     }
   }
 }
 
 private class UnavailableDesktopLocationProvider(
-  override val backendAvailability: LocationBackendAvailability
+  override val availability: LocationProviderAvailability
 ) : DesktopLocationProvider {
   override fun updates(request: LocationRequest): Flow<LocationEvent> =
     flowOf(
-      when (val availability = backendAvailability) {
-        LocationBackendAvailability.Available ->
+      when (val current = availability) {
+        LocationProviderAvailability.Available ->
           error("An unavailable provider cannot report an available backend")
-        is LocationBackendAvailability.Misconfigured ->
+        is LocationProviderAvailability.Misconfigured ->
           LocationEvent.Unavailable(
             LocationUnavailableReason.Misconfigured,
-            availability.cause,
+            current.cause,
           )
-        LocationBackendAvailability.Unsupported ->
+        LocationProviderAvailability.Unsupported ->
           LocationEvent.Unavailable(LocationUnavailableReason.Unsupported)
       }
     )

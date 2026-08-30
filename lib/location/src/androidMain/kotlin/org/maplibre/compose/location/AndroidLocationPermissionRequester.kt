@@ -37,7 +37,7 @@ public class AndroidLocationPermissionRequester(private val context: Context) {
    * Current foreground location permission.
    *
    * Fine permission maps to [LocationPermission.Granted] at precise accuracy, and coarse at
-   * approximate. Otherwise the status is [LocationPermission.NotGranted]:
+   * approximate. Otherwise the status is [LocationPermission.Required]:
    * - `shouldShowRationale = true` when Android advises explaining the request first.
    * - `canRequest = false` after a permanent denial that [requestForegroundPermission] recorded.
    * - `canRequest = null` when [context] cannot reach an activity for the rationale check.
@@ -153,10 +153,10 @@ internal fun resolveAndroidLocationPermission(
 ): LocationPermission =
   when {
     granted != null -> LocationPermission.Granted(granted)
-    shouldShowRationale == null -> LocationPermission.NotGranted(canRequest = null)
+    shouldShowRationale == null -> LocationPermission.Required(canRequest = null)
     shouldShowRationale ->
-      LocationPermission.NotGranted(canRequest = true, shouldShowRationale = true)
-    else -> LocationPermission.NotGranted(canRequest = !permanentlyDenied)
+      LocationPermission.Required(canRequest = true, shouldShowRationale = true)
+    else -> LocationPermission.Required(canRequest = !permanentlyDenied)
   }
 
 internal tailrec fun Context.findActivityOrNull(): Activity? =

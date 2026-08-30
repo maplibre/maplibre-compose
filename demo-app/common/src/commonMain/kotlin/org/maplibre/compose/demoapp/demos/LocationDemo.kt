@@ -23,7 +23,9 @@ import org.maplibre.compose.demoapp.design.ButtonRow
 import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.demoapp.design.SwitchRow
 import org.maplibre.compose.location.LocationPermission
+import org.maplibre.compose.location.LocationProviderAvailability
 import org.maplibre.compose.location.LocationPuck
+import org.maplibre.compose.location.LocationServicesStatus
 import org.maplibre.compose.location.LocationState
 import org.maplibre.compose.location.LocationTrackingEffect
 import org.maplibre.compose.location.LocationTrackingStatus
@@ -127,17 +129,13 @@ object LocationDemo : Demo {
     val settings = rememberSystemSettingsLauncher()
     val permission = panelLocationState?.permission
     if (
-      permission is LocationPermission.NotGranted &&
+      permission is LocationPermission.Required &&
         permission.canRequest == false &&
         settings.canOpenApplicationSettings
     ) {
       ButtonRow("Open system settings") { settings.openApplicationSettings() }
     }
-    val status = panelLocationState?.status
-    if (
-      status is LocationTrackingStatus.Unavailable &&
-        status.reason == LocationUnavailableReason.ServicesDisabled
-    ) {
+    if (panelLocationState?.locationServices == LocationServicesStatus.Disabled) {
       if (settings.canOpenLocationServicesSettings) {
         ButtonRow("Open location settings") { settings.openLocationServicesSettings() }
       }
@@ -166,26 +164,40 @@ object LocationDemo : Demo {
   }
 }
 
-private fun LocationState.statusMessage(): String =
-  when (val status = this.status) {
-    LocationTrackingStatus.Stopped -> "Location is off"
-    LocationTrackingStatus.WaitingForPermission -> {
-      val permission = this.permission
-      if (permission is LocationPermission.NotGranted && permission.canRequest == false) {
+private fun LocationState.statusMessage(): String {
+  val requiredPermission = permission as? LocationPermission.Required
+  return when {
+    availability == LocationProviderAvailability.Unsupported ->
+      "Location is not available on this device"
+    availability is LocationProviderAvailability.Misconfigured ->
+      "Location is misconfigured on this device"
+    requiredPermission != null -> {
+      if (requiredPermission.canRequest == false) {
         "Location permission was denied; turn it on in the system settings"
       } else {
         "Waiting for location permission"
       }
     }
-    LocationTrackingStatus.Starting -> "Finding your location"
-    LocationTrackingStatus.Tracking -> "Tracking your location"
-    is LocationTrackingStatus.Unavailable ->
-      when (status.reason) {
-        LocationUnavailableReason.ServicesDisabled -> "Location services are turned off"
-        LocationUnavailableReason.TemporarilyUnavailable -> "Location is temporarily unavailable"
-        LocationUnavailableReason.Unsupported -> "Location is not available on this device"
-        LocationUnavailableReason.Misconfigured -> "Location is misconfigured on this device"
-        LocationUnavailableReason.PermissionDenied -> "Location permission was denied"
-        LocationUnavailableReason.UnexpectedFailure -> "Location failed"
+    permission == LocationPermission.Unknown -> "Location permission status is unknown"
+    else ->
+      if (locationServices == LocationServicesStatus.Disabled) {
+        "Location services are turned off"
+      } else {
+        when (val tracking = status) {
+          LocationTrackingStatus.Stopped -> "Location is off"
+          LocationTrackingStatus.Starting -> "Finding your location"
+          LocationTrackingStatus.Tracking -> "Tracking your location"
+          is LocationTrackingStatus.Unavailable ->
+            when (tracking.reason) {
+              LocationUnavailableReason.TemporarilyUnavailable ->
+                "Location is temporarily unavailable"
+              LocationUnavailableReason.UnexpectedFailure -> "Location failed"
+              LocationUnavailableReason.ServicesDisabled -> "Location services are turned off"
+              LocationUnavailableReason.Unsupported -> "Location is not available on this device"
+              LocationUnavailableReason.Misconfigured -> "Location is misconfigured on this device"
+              LocationUnavailableReason.PermissionDenied -> "Location permission was denied"
+            }
+        }
       }
   }
+}

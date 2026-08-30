@@ -25,7 +25,7 @@ class BrowserLocationProviderTest {
     val boundary = FakeBrowserGeolocationBoundary(supported = false)
     val provider = BrowserLocationProvider(boundary, backgroundScope)
 
-    assertEquals(LocationBackendAvailability.Unsupported, provider.backendAvailability)
+    assertEquals(LocationProviderAvailability.Unsupported, provider.availability)
     provider.requestPermission()
     runCurrent()
     assertEquals(emptyList(), boundary.requestedOptions)
@@ -50,6 +50,7 @@ class BrowserLocationProviderTest {
     runCurrent()
 
     assertEquals(2, events.size)
+    assertEquals(LocationServicesStatus.Enabled, provider.locationServices.value)
     val first = assertIs<LocationEvent.Update>(events[0]).measurement
     assertEquals(12.0, first.position.altitude)
     assertEquals(4.0, first.horizontalAccuracy?.inMeters)
@@ -98,7 +99,7 @@ class BrowserLocationProviderTest {
     boundary.send(BrowserResult.Error(BrowserError.PermissionDenied))
     runCurrent()
 
-    assertEquals(LocationPermission.NotGranted(canRequest = null), provider.permission.value)
+    assertEquals(LocationPermission.Required(canRequest = null), provider.permission.value)
     provider.requestPermission()
     runCurrent()
     assertEquals(1, boundary.requestedOptions.size)
@@ -150,7 +151,7 @@ class BrowserLocationProviderTest {
     boundary.permission.value = BrowserPermission.Prompt
     val provider = BrowserLocationProvider(boundary, backgroundScope)
     runCurrent()
-    assertEquals(LocationPermission.NotGranted(canRequest = true), provider.permission.value)
+    assertEquals(LocationPermission.Required(canRequest = true), provider.permission.value)
 
     boundary.permission.value = BrowserPermission.Granted
     runCurrent()
@@ -164,7 +165,7 @@ class BrowserLocationProviderTest {
     runCurrent()
     provider.requestPermission()
     runCurrent()
-    assertEquals(LocationPermission.NotGranted(canRequest = true), provider.permission.value)
+    assertEquals(LocationPermission.Required(canRequest = true), provider.permission.value)
     provider.requestPermission()
     runCurrent()
     assertEquals(2, boundary.requestedOptions.size)
@@ -179,7 +180,7 @@ class BrowserLocationProviderTest {
     val provider = BrowserLocationProvider(boundary, backgroundScope)
     runCurrent()
 
-    assertEquals(LocationPermission.NotGranted(canRequest = null), provider.permission.value)
+    assertEquals(LocationPermission.Unknown, provider.permission.value)
     provider.requestPermission()
     runCurrent()
     assertEquals(
@@ -224,7 +225,7 @@ class BrowserLocationProviderTest {
 
     provider.requestPermission()
     runCurrent()
-    assertEquals(LocationPermission.NotGranted(canRequest = null), provider.permission.value)
+    assertEquals(LocationPermission.Unknown, provider.permission.value)
 
     fail = false
     provider.requestPermission()

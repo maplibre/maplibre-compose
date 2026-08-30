@@ -48,8 +48,8 @@ import web.permissions.query
  * because [`PositionOptions`](https://developer.mozilla.org/en-US/docs/Web/API/PositionOptions) has
  * no distance threshold.
  *
- * A missing Geolocation API maps [LocationProvider.backendAvailability] to
- * [LocationBackendAvailability.Unsupported], and collection emits
+ * A missing Geolocation API maps [LocationProvider.availability] to
+ * [LocationProviderAvailability.Unsupported], and collection emits
  * [LocationUnavailableReason.Unsupported].
  * [`GeolocationPositionError.PERMISSION_DENIED`](https://developer.mozilla.org/en-US/docs/Web/API/GeolocationPositionError/code#geolocationpositionerror.permission_denied)
  * maps to [LocationUnavailableReason.PermissionDenied].
@@ -79,16 +79,19 @@ internal constructor(
   public constructor(coroutineScope: CoroutineScope) : this(BrowserGeolocation, coroutineScope)
 
   private val requester = BrowserLocationPermissionRequester(boundary, coroutineScope)
+  private val mutableLocationServices = MutableStateFlow(LocationServicesStatus.Unknown)
 
-  override val backendAvailability: LocationBackendAvailability =
+  override val availability: LocationProviderAvailability =
     if (boundary.supported) {
-      LocationBackendAvailability.Available
+      LocationProviderAvailability.Available
     } else {
-      LocationBackendAvailability.Unsupported
+      LocationProviderAvailability.Unsupported
     }
 
   override val permission: StateFlow<LocationPermission>
     get() = requester.status
+
+  override val locationServices: StateFlow<LocationServicesStatus> = mutableLocationServices
 
   override fun requestPermission(): Unit = requester.requestForegroundPermission()
 
@@ -102,6 +105,7 @@ internal constructor(
     fun publish(result: BrowserResult) {
       when (result) {
         is BrowserResult.Position -> {
+          mutableLocationServices.value = LocationServicesStatus.Enabled
           val current = result.value
           if (
             previous == null ||
@@ -149,10 +153,9 @@ internal constructor(
  * [CoroutineScope] to back a custom [LocationProvider].
  *
  * [`PermissionStatus.state`](https://developer.mozilla.org/en-US/docs/Web/API/PermissionStatus/state)
- * maps `granted` to [LocationPermission.Granted], `prompt` to [LocationPermission.NotGranted] with
+ * maps `granted` to [LocationPermission.Granted], `prompt` to [LocationPermission.Required] with
  * `canRequest = true`, and `denied` to `canRequest = false`. A browser without the Permissions API
- * reports `canRequest = null` until an explicit request determines the result. A missing
- * Geolocation API maps [backendAvailability] to [LocationBackendAvailability.Unsupported].
+ * reports [LocationPermission.Unknown] until an explicit request determines the result.
  */
 public class BrowserLocationPermissionRequester
 internal constructor(
@@ -164,14 +167,6 @@ internal constructor(
    * stops the observation.
    */
   public constructor(coroutineScope: CoroutineScope) : this(BrowserGeolocation, coroutineScope)
-
-  /** Whether the browser has a usable Geolocation API. */
-  public val backendAvailability: LocationBackendAvailability =
-    if (boundary.supported) {
-      LocationBackendAvailability.Available
-    } else {
-      LocationBackendAvailability.Unsupported
-    }
 
   /** Current foreground location permission. */
   public val status: StateFlow<LocationPermission> = boundary.permissionState.status
@@ -198,7 +193,7 @@ internal constructor(
     if (
       !boundary.supported ||
         current is LocationPermission.Granted ||
-        current == LocationPermission.NotGranted(canRequest = false) ||
+        current == LocationPermission.Required(canRequest = false) ||
         requestPending
     ) {
       return
@@ -227,7 +222,7 @@ internal constructor(
         }
       } catch (error: Throwable) {
         if (error is CancellationException) throw error
-        boundary.permissionState.accept(LocationPermission.NotGranted(canRequest = null))
+        boundary.permissionState.accept(LocationPermission.Unknown)
       } finally {
         requestPending = false
       }
@@ -280,8 +275,7 @@ internal sealed interface BrowserResult {
 }
 
 internal class BrowserLocationPermissionState {
-  private val mutableStatus =
-    MutableStateFlow<LocationPermission>(LocationPermission.NotGranted(canRequest = null))
+  private val mutableStatus = MutableStateFlow<LocationPermission>(LocationPermission.Unknown)
   val status: StateFlow<LocationPermission> = mutableStatus
 
   fun accept(permission: LocationPermission) {
@@ -290,7 +284,7 @@ internal class BrowserLocationPermissionState {
 
   fun acceptDenial() {
     if (mutableStatus.value is LocationPermission.Granted) {
-      mutableStatus.value = LocationPermission.NotGranted(canRequest = null)
+      mutableStatus.value = LocationPermission.Required(canRequest = null)
     }
   }
 }
@@ -418,10 +412,10 @@ private fun BrowserError.asUnavailableReason(): LocationUnavailableReason =
 
 private fun BrowserPermission.asLocationPermission(): LocationPermission =
   when (this) {
-    BrowserPermission.Unknown -> LocationPermission.NotGranted(canRequest = null)
-    BrowserPermission.Prompt -> LocationPermission.NotGranted(canRequest = true)
+    BrowserPermission.Unknown -> LocationPermission.Unknown
+    BrowserPermission.Prompt -> LocationPermission.Required(canRequest = true)
     BrowserPermission.Granted -> LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)
-    BrowserPermission.Denied -> LocationPermission.NotGranted(canRequest = false)
+    BrowserPermission.Denied -> LocationPermission.Required(canRequest = false)
   }
 
 private fun PermissionState.asBrowserPermission(): BrowserPermission =

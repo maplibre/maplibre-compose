@@ -17,9 +17,9 @@ import org.maplibre.spatialk.units.extensions.meters
  *
  * If you have a more general use case, prefer using the platform APIs directly or using a more
  * powerful wrapper. In that case, you may want to provide your own [LocationProvider]
- * implementation to unify the API underneath. This is an explicitly supported use case:
- * [permission] defaults to granted, so a source where permission is not a concept needs no
- * permission handling.
+ * implementation to unify the interface underneath. This is an explicitly supported use case. The
+ * defaults describe an available source where permission and system location services do not apply,
+ * such as an external receiver or a network feed.
  *
  * Each collector of [updates] starts an independent platform location request. Cancelling
  * collection must stop that request and unregister its callbacks.
@@ -29,21 +29,24 @@ public interface LocationProvider {
   public val backendId: String?
     get() = null
 
-  /** Whether this provider has a usable platform implementation. */
-  public val backendAvailability: LocationBackendAvailability
-    get() = LocationBackendAvailability.Available
+  /** Whether this provider can run on the current target or host for its lifetime. */
+  public val availability: LocationProviderAvailability
+    get() = LocationProviderAvailability.Available
 
   /**
-   * Current foreground location permission.
-   *
-   * This value also reflects changes made outside the application when the platform reports them.
-   *
-   * The default is always [LocationPermission.Granted] at [LocationAccuracyAuthorization.Unknown].
-   * A source where permission is not a concept, such as an external receiver or a network feed,
-   * keeps the default and needs no permission handling.
+   * Current foreground location permission, including platform changes that the provider observes.
    */
   public val permission: StateFlow<LocationPermission>
-    get() = AlwaysGrantedLocationPermission
+    get() = PermissionNotApplicable
+
+  /**
+   * Current system location services status.
+   *
+   * A provider reports [LocationServicesStatus.Unknown] until it can determine the status, and it
+   * reports [LocationServicesStatus.Enabled] after it delivers a measurement.
+   */
+  public val locationServices: StateFlow<LocationServicesStatus>
+    get() = LocationServicesNotApplicable
 
   /**
    * Starts a foreground permission request and returns immediately.
@@ -51,7 +54,7 @@ public interface LocationProvider {
    * The result is published to [permission]. Calls made while a request is active must not start
    * another platform request.
    *
-   * The default does nothing, to match the default [permission] that is always granted.
+   * The default does nothing, to match the default [permission].
    */
   public fun requestPermission(): Unit = Unit
 
@@ -64,8 +67,25 @@ public interface LocationProvider {
   public fun updates(request: LocationRequest = LocationRequest()): Flow<LocationEvent>
 }
 
-private val AlwaysGrantedLocationPermission: StateFlow<LocationPermission> =
-  MutableStateFlow(LocationPermission.Granted(LocationAccuracyAuthorization.Unknown))
+private val PermissionNotApplicable =
+  MutableStateFlow<LocationPermission>(LocationPermission.NotApplicable)
+
+private val LocationServicesNotApplicable = MutableStateFlow(LocationServicesStatus.NotApplicable)
+
+/** Whether the system location services that a provider uses are enabled. */
+public enum class LocationServicesStatus {
+  /** System location services are enabled. */
+  Enabled,
+
+  /** System location services are disabled. */
+  Disabled,
+
+  /** The platform cannot determine the status before or outside an active request. */
+  Unknown,
+
+  /** The provider does not use system location services. */
+  NotApplicable,
+}
 
 /**
  * Whether a location implementation has a usable platform backend.
@@ -73,9 +93,9 @@ private val AlwaysGrantedLocationPermission: StateFlow<LocationPermission> =
  * This describes application and backend setup. It does not describe location permission, system
  * location services, or whether the next request can obtain a measurement.
  */
-public sealed interface LocationBackendAvailability {
+public sealed interface LocationProviderAvailability {
   /** A platform implementation is installed and initialized. */
-  public data object Available : LocationBackendAvailability
+  public data object Available : LocationProviderAvailability
 
   /**
    * No implementation can run on this target or host.
@@ -83,7 +103,7 @@ public sealed interface LocationBackendAvailability {
    * For example, a browser may omit its Geolocation API, or a desktop runtime may omit the location
    * artifact for its operating system.
    */
-  public data object Unsupported : LocationBackendAvailability
+  public data object Unsupported : LocationProviderAvailability
 
   /**
    * An installed implementation could not be selected or initialized.
@@ -92,7 +112,7 @@ public sealed interface LocationBackendAvailability {
    *
    * @property cause The underlying setup failure, when one is available.
    */
-  public data class Misconfigured(val cause: Throwable? = null) : LocationBackendAvailability
+  public data class Misconfigured(val cause: Throwable? = null) : LocationProviderAvailability
 }
 
 /**
@@ -248,16 +268,21 @@ public sealed interface LocationPermission {
    *   [`shouldShowRequestPermissionRationale`](https://developer.android.com/reference/android/app/Activity#shouldShowRequestPermissionRationale(java.lang.String));
    *   every other platform reports `false`.
    */
-  public data class NotGranted(
+  public data class Required(
     val canRequest: Boolean?,
     val shouldShowRationale: Boolean = false,
   ) : LocationPermission
+
+  /** The platform cannot determine the current foreground permission. */
+  public data object Unknown : LocationPermission
+
+  /** The provider does not use system location permission. */
+  public data object NotApplicable : LocationPermission
 }
 
 /** A provider for a target or host that has no installed location implementation. */
 public object UnsupportedLocationProvider : LocationProvider {
-  override val backendAvailability: LocationBackendAvailability =
-    LocationBackendAvailability.Unsupported
+  override val availability: LocationProviderAvailability = LocationProviderAvailability.Unsupported
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> =
     flowOf(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))

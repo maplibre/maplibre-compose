@@ -21,10 +21,11 @@ import org.freedesktop.dbus.types.UInt64
 import org.freedesktop.dbus.types.Variant
 import org.maplibre.compose.location.DesktopLocationBackend
 import org.maplibre.compose.location.LocationAccuracyAuthorization
-import org.maplibre.compose.location.LocationBackendAvailability
 import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationPermission
+import org.maplibre.compose.location.LocationProviderAvailability
 import org.maplibre.compose.location.LocationRequest
+import org.maplibre.compose.location.LocationServicesStatus
 import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.compose.location.XdgPortalWindow
 import org.maplibre.spatialk.units.Bearing
@@ -99,7 +100,7 @@ class LinuxPortalLocationProviderTest {
     val portal = FakeLinuxLocationPortal(available = false)
     val provider = LinuxPortalLocationProvider(portal, backgroundScope)
 
-    assertEquals(LocationBackendAvailability.Unsupported, provider.backendAvailability)
+    assertEquals(LocationProviderAvailability.Unsupported, provider.availability)
     provider.requestPermission()
     runCurrent()
     assertEquals(0, portal.permissionRequests)
@@ -119,8 +120,11 @@ class LinuxPortalLocationProviderTest {
 
     pendingResult.complete(PortalPermissionResult.Granted)
     runCurrent()
-    val granted = LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)
-    assertEquals(granted, provider.permission.value)
+    assertEquals(
+      LocationPermission.Granted(LocationAccuracyAuthorization.Unknown),
+      provider.permission.value,
+    )
+    assertEquals(LocationServicesStatus.Unknown, provider.locationServices.value)
     provider.requestPermission()
     assertEquals(1, portal.permissionRequests)
 

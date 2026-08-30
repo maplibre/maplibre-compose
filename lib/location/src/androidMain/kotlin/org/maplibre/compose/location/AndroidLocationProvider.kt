@@ -16,8 +16,12 @@ import android.os.Handler
 import android.os.HandlerThread
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import org.maplibre.spatialk.units.extensions.inMeters
@@ -56,7 +60,9 @@ import org.maplibre.spatialk.units.extensions.inMeters
 public class AndroidLocationProvider
 internal constructor(context: Context, private val requester: AndroidLocationPermissionRequester) :
   LocationProvider {
+  private val activity = context.findActivityOrNull()
   private val context: Context = context.applicationContext
+  private val mutableLocationServices = MutableStateFlow(readLocationServicesStatus())
 
   override val backendId: String = "android-framework"
 
@@ -65,6 +71,20 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
 
   override val permission: StateFlow<LocationPermission>
     get() = requester.status
+
+  override val locationServices: StateFlow<LocationServicesStatus> = mutableLocationServices
+
+  init {
+    (activity as? LifecycleOwner)
+      ?.lifecycle
+      ?.addObserver(
+        LifecycleEventObserver { _, event ->
+          if (event == Lifecycle.Event.ON_RESUME) {
+            mutableLocationServices.value = readLocationServicesStatus()
+          }
+        }
+      )
+  }
 
   override fun requestPermission(): Unit = requester.requestForegroundPermission()
 
@@ -101,9 +121,11 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
 
       val provider = selectProvider(manager, request.accuracy)
       if (provider == null) {
+        mutableLocationServices.value = LocationServicesStatus.Disabled
         trySend(LocationEvent.Unavailable(LocationUnavailableReason.ServicesDisabled))
         return
       }
+      mutableLocationServices.value = LocationServicesStatus.Enabled
 
       manager.getLastKnownLocation(provider)?.let { location ->
         trySend(location.asMapLibreLocationUpdate())
@@ -153,6 +175,15 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
     awaitClose {
       runCatching { context.unregisterReceiver(settingsReceiver) }
       manager.removeUpdates(listener)
+    }
+  }
+
+  private fun readLocationServicesStatus(): LocationServicesStatus {
+    val manager = context.getSystemService(LocationManager::class.java)
+    return if (manager.isLocationEnabledCompat()) {
+      LocationServicesStatus.Enabled
+    } else {
+      LocationServicesStatus.Disabled
     }
   }
 

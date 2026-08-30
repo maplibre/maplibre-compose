@@ -13,12 +13,20 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import org.maplibre.compose.location.LocationEvent
+import org.maplibre.compose.location.LocationProvider
 import org.maplibre.compose.location.LocationRequest
+
+private object FakePlatformDelegate : LocationProvider {
+  override fun updates(request: LocationRequest): Flow<LocationEvent> = emptyFlow()
+}
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class FusedLocationProviderTest {
@@ -26,7 +34,7 @@ class FusedLocationProviderTest {
   fun `cancellation removes callback after delayed registration completes`() = runTest {
     val registration = TaskCompletionSource<Void>()
     val removed = CompletableDeferred<Unit>()
-    val provider = FusedLocationProvider(fakeClient(registration, removed))
+    val provider = FusedLocationProvider(fakeClient(registration, removed), FakePlatformDelegate)
     val collection = launch { provider.updates(LocationRequest()).collect {} }
 
     runCurrent()

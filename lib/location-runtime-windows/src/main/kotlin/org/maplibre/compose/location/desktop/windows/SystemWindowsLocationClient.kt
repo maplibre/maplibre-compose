@@ -15,7 +15,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
-import org.maplibre.compose.location.LocationBackendAvailability
+import org.maplibre.compose.location.LocationProviderAvailability
 
 internal class SystemWindowsLocationClient : WindowsLocationClient {
   private val closed = AtomicBoolean()
@@ -33,9 +33,9 @@ internal class SystemWindowsLocationClient : WindowsLocationClient {
   }
   private val sessions = ConcurrentHashMap.newKeySet<SystemWindowsLocationSession>()
 
-  override val backendAvailability: LocationBackendAvailability =
+  override val backendAvailability: LocationProviderAvailability =
     if (!isWindows(System.getProperty("os.name"))) {
-      LocationBackendAvailability.Unsupported
+      LocationProviderAvailability.Unsupported
     } else {
       try {
         blocking {
@@ -44,14 +44,14 @@ internal class SystemWindowsLocationClient : WindowsLocationClient {
             WinRt.queryInterface(inspectable.value, IID_GEOLOCATOR).close()
           }
         }
-        LocationBackendAvailability.Available
+        LocationProviderAvailability.Available
       } catch (error: Throwable) {
-        LocationBackendAvailability.Misconfigured(error)
+        LocationProviderAvailability.Misconfigured(error)
       }
     }
 
   override fun checkAccess(): WindowsAccessStatus {
-    if (backendAvailability != LocationBackendAvailability.Available)
+    if (backendAvailability != LocationProviderAvailability.Available)
       return WindowsAccessStatus.Unknown
     return blocking(::checkAccessNative)
   }
@@ -233,7 +233,7 @@ internal class SystemWindowsLocationClient : WindowsLocationClient {
     }
 
   private fun checkAvailable() {
-    check(backendAvailability == LocationBackendAvailability.Available) {
+    check(backendAvailability == LocationProviderAvailability.Available) {
       "Windows Runtime geolocation is unavailable: $backendAvailability"
     }
   }

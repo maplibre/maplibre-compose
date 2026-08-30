@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.emptyFlow
  *
  * Platform provider constructors remain available when an application needs configuration beyond
  * [LocationRequest]. An unsupported target or host returns a provider whose
- * [LocationProvider.backendAvailability] is [LocationBackendAvailability.Unsupported] instead of
+ * [LocationProvider.availability] reports [LocationProviderAvailability.Unsupported] instead of
  * throwing during composition.
  */
 @Composable public expect fun rememberDefaultLocationProvider(): LocationProvider

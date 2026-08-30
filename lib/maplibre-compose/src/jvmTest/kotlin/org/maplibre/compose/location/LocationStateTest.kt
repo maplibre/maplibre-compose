@@ -40,7 +40,7 @@ class LocationStateTest {
       val provider =
         ActiveLocationProvider(
           location(13.0),
-          backendAvailability = LocationBackendAvailability.Misconfigured(cause),
+          availability = LocationProviderAvailability.Misconfigured(cause),
         )
       var state: LocationState? = null
 
@@ -52,10 +52,7 @@ class LocationStateTest {
           )
       }
 
-      waitUntil {
-        state?.status ==
-          LocationTrackingStatus.Unavailable(LocationUnavailableReason.Misconfigured, cause)
-      }
+      waitUntil { state?.availability == LocationProviderAvailability.Misconfigured(cause) }
       assertFalse(provider.active)
     }
   }
@@ -65,7 +62,11 @@ class LocationStateTest {
     runComposeUiTest {
       val lifecycleOwner = ResumedLifecycleOwner()
       val locationProvider = ActiveLocationProvider(location(13.0))
-      val provider = MutablePermissionProvider(locationProvider)
+      val provider =
+        MutablePermissionProvider(
+          locationProvider,
+          initialLocationServices = LocationServicesStatus.Enabled,
+        )
       var state: LocationState? = null
 
       setContent {
@@ -76,7 +77,10 @@ class LocationStateTest {
           )
       }
 
-      waitUntil { state?.status == LocationTrackingStatus.WaitingForPermission }
+      waitUntil {
+        state?.permission is LocationPermission.Required &&
+          state.locationServices == LocationServicesStatus.Enabled
+      }
       assertFalse(locationProvider.active)
       runOnIdle { state?.requestPermission() }
       assertEquals(1, provider.requestCount)
@@ -88,10 +92,10 @@ class LocationStateTest {
       waitUntil { locationProvider.active && state?.lastLocation == locationProvider.location }
 
       runOnIdle {
-        provider.permission.value = LocationPermission.NotGranted(canRequest = false)
+        provider.permission.value = LocationPermission.Required(canRequest = false)
       }
       waitUntil {
-        !locationProvider.active && state?.status == LocationTrackingStatus.WaitingForPermission
+        !locationProvider.active && state?.status == LocationTrackingStatus.Stopped
       }
       assertTrue(locationProvider.stopCount > 0)
     }
@@ -113,7 +117,7 @@ class LocationStateTest {
           )
       }
 
-      waitUntil { state?.status == LocationTrackingStatus.WaitingForPermission }
+      waitUntil { state?.permission is LocationPermission.Required }
       assertEquals(0, headingProvider.activeCollectors)
 
       runOnIdle {
@@ -123,7 +127,7 @@ class LocationStateTest {
       waitUntil { headingProvider.activeCollectors == 1 }
 
       runOnIdle {
-        provider.permission.value = LocationPermission.NotGranted(canRequest = false)
+        provider.permission.value = LocationPermission.Required(canRequest = false)
       }
       waitUntil { headingProvider.activeCollectors == 0 }
     }
@@ -169,10 +173,8 @@ class LocationStateTest {
       }
 
       waitUntil { provider.active && state?.lastLocation == provider.location }
-      assertEquals(
-        LocationPermission.Granted(LocationAccuracyAuthorization.Unknown),
-        state?.permission,
-      )
+      assertEquals(LocationPermission.NotApplicable, state?.permission)
+      assertEquals(LocationServicesStatus.NotApplicable, state?.locationServices)
     }
   }
 
@@ -405,8 +407,7 @@ private class FiniteLocationProvider(private vararg val locations: LocationMeasu
 
 private class ActiveLocationProvider(
   val location: LocationMeasurement,
-  override val backendAvailability: LocationBackendAvailability =
-    LocationBackendAvailability.Available,
+  override val availability: LocationProviderAvailability = LocationProviderAvailability.Available,
 ) : LocationProvider {
   var active = false
   var stopCount = 0
@@ -430,12 +431,11 @@ private class ActiveLocationProvider(
 
 private class MutablePermissionProvider(
   private val delegate: LocationProvider,
-  initialPermission: LocationPermission = LocationPermission.NotGranted(canRequest = true),
+  initialPermission: LocationPermission = LocationPermission.Required(canRequest = true),
+  initialLocationServices: LocationServicesStatus = LocationServicesStatus.NotApplicable,
 ) : LocationProvider {
-  override val backendAvailability: LocationBackendAvailability
-    get() = delegate.backendAvailability
-
   override val permission = MutableStateFlow(initialPermission)
+  override val locationServices = MutableStateFlow(initialLocationServices)
   var requestCount = 0
 
   override fun requestPermission() {

@@ -20,7 +20,7 @@ class DesktopLocationBackendResolverTest {
       )
 
     providers.forEach { provider ->
-      assertEquals(LocationBackendAvailability.Unsupported, provider.backendAvailability)
+      assertEquals(LocationProviderAvailability.Unsupported, provider.availability)
       assertEquals(
         LocationUnavailableReason.Unsupported,
         (provider.updates(LocationRequest()).first() as LocationEvent.Unavailable).reason,
@@ -34,7 +34,7 @@ class DesktopLocationBackendResolverTest {
     val backends = listOf(FakeBackend("first"), FakeBackend("second"))
     val provider = DesktopLocationBackendResolver.resolve(backends)
 
-    assertIs<LocationBackendAvailability.Misconfigured>(provider.backendAvailability)
+    assertIs<LocationProviderAvailability.Misconfigured>(provider.availability)
     assertEquals(
       LocationUnavailableReason.Misconfigured,
       (provider.updates(LocationRequest()).first() as LocationEvent.Unavailable).reason,
@@ -62,8 +62,7 @@ class DesktopLocationBackendResolverTest {
     val provider = DesktopLocationBackendResolver.resolve(listOf(backend))
     val event = assertIs<LocationEvent.Unavailable>(provider.updates(LocationRequest()).first())
 
-    val availability =
-      assertIs<LocationBackendAvailability.Misconfigured>(provider.backendAvailability)
+    val availability = assertIs<LocationProviderAvailability.Misconfigured>(provider.availability)
     assertEquals(LocationUnavailableReason.Misconfigured, event.reason)
     assertSame(failure, availability.cause)
     assertSame(failure, event.cause)
@@ -80,7 +79,7 @@ class DesktopLocationBackendResolverTest {
     assertSame(failure, event.cause)
     assertSame(
       failure,
-      assertIs<LocationBackendAvailability.Misconfigured>(provider.backendAvailability).cause,
+      assertIs<LocationProviderAvailability.Misconfigured>(provider.availability).cause,
     )
   }
 }

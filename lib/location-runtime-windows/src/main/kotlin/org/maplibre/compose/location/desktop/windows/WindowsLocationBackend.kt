@@ -13,11 +13,12 @@ import org.maplibre.compose.location.DesktopLocationBackend
 import org.maplibre.compose.location.DesktopLocationProvider
 import org.maplibre.compose.location.LocationAccuracy
 import org.maplibre.compose.location.LocationAccuracyAuthorization
-import org.maplibre.compose.location.LocationBackendAvailability
 import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationPermission
 import org.maplibre.compose.location.LocationProvider
+import org.maplibre.compose.location.LocationProviderAvailability
 import org.maplibre.compose.location.LocationRequest
+import org.maplibre.compose.location.LocationServicesStatus
 import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.compose.location.XdgPortalWindow
 import org.maplibre.spatialk.units.extensions.inMeters
@@ -57,31 +58,34 @@ internal constructor(private val client: WindowsLocationClient) : DesktopLocatio
   public constructor() : this(SystemWindowsLocationClient())
 
   private val requester = WindowsLocationPermissionRequester(client, ownsClient = false)
+  private val mutableLocationServices = MutableStateFlow(LocationServicesStatus.Unknown)
   private val sessions = ConcurrentHashMap.newKeySet<WindowsCloseable>()
   private val closed = AtomicBoolean()
 
-  override val backendAvailability: LocationBackendAvailability = client.backendAvailability
+  override val availability: LocationProviderAvailability = client.backendAvailability
 
   override val permission: StateFlow<LocationPermission>
     get() = requester.status
 
+  override val locationServices: StateFlow<LocationServicesStatus> = mutableLocationServices
+
   override fun requestPermission(): Unit = requester.requestForegroundPermission()
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
-    when (val availability = backendAvailability) {
-      is LocationBackendAvailability.Misconfigured -> {
+    when (val availability = client.backendAvailability) {
+      is LocationProviderAvailability.Misconfigured -> {
         trySend(
           LocationEvent.Unavailable(LocationUnavailableReason.Misconfigured, availability.cause)
         )
         close()
         return@callbackFlow
       }
-      LocationBackendAvailability.Unsupported -> {
+      LocationProviderAvailability.Unsupported -> {
         trySend(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
         close()
         return@callbackFlow
       }
-      LocationBackendAvailability.Available -> Unit
+      LocationProviderAvailability.Available -> Unit
     }
     if (closed.get()) {
       trySend(
@@ -98,6 +102,7 @@ internal constructor(private val client: WindowsLocationClient) : DesktopLocatio
     val listener =
       object : WindowsLocationListener {
         override fun onPosition(measurement: WindowsLocationMeasurement) {
+          mutableLocationServices.value = LocationServicesStatus.Enabled
           val location = measurement.asMapLibreLocationMeasurement() ?: return
           synchronized(filter) {
             if (filter.shouldDeliver(measurement)) {
@@ -112,7 +117,16 @@ internal constructor(private val client: WindowsLocationClient) : DesktopLocatio
         }
 
         override fun onStatus(status: WindowsPositionStatus) {
-          status.asUnavailableReason(permission.value)?.let {
+          when (status) {
+            WindowsPositionStatus.Ready ->
+              mutableLocationServices.value = LocationServicesStatus.Enabled
+            WindowsPositionStatus.Disabled ->
+              if (requester.status.value is LocationPermission.Granted) {
+                mutableLocationServices.value = LocationServicesStatus.Disabled
+              }
+            else -> Unit
+          }
+          status.asUnavailableReason(requester.status.value)?.let {
             trySend(LocationEvent.Unavailable(it))
           }
         }
@@ -158,7 +172,7 @@ internal constructor(private val client: WindowsLocationClient) : DesktopLocatio
  * [LocationProvider.requestPermission] to this class. Custom providers can use it directly.
  * `AppCapability.Create("location").CheckAccess()` maps `Allowed` to [LocationPermission.Granted]
  * with [LocationAccuracyAuthorization.Unknown], `UserPromptRequired` to a requestable
- * [LocationPermission.NotGranted], user or system denial and a missing packaged capability to a
+ * [LocationPermission.Required], user or system denial and a missing packaged capability to a
  * non-requestable value, and unknown failures to `canRequest = null`. `AccessChanged` keeps
  * [status] synchronized with changes made in Windows Settings.
  *
@@ -172,10 +186,7 @@ internal constructor(
 ) : AutoCloseable {
   public constructor() : this(SystemWindowsLocationClient())
 
-  /** Whether the process has a usable Windows Runtime location implementation. */
-  public val backendAvailability: LocationBackendAvailability = client.backendAvailability
-  private val mutableStatus =
-    MutableStateFlow<LocationPermission>(LocationPermission.NotGranted(canRequest = null))
+  private val mutableStatus = MutableStateFlow<LocationPermission>(LocationPermission.Unknown)
 
   /** Current Windows location access, including changes made outside the application. */
   public val status: StateFlow<LocationPermission> = mutableStatus
@@ -184,13 +195,13 @@ internal constructor(
   private var accessObservation: WindowsCloseable? = null
 
   init {
-    if (backendAvailability == LocationBackendAvailability.Available) {
+    if (client.backendAvailability == LocationProviderAvailability.Available) {
       mutableStatus.value = readAccess()
       accessObservation =
         try {
           client.observeAccess { mutableStatus.value = it.asLocationPermission() }
         } catch (_: Throwable) {
-          mutableStatus.value = LocationPermission.NotGranted(canRequest = null)
+          mutableStatus.value = LocationPermission.Unknown
           null
         }
     }
@@ -198,8 +209,8 @@ internal constructor(
 
   /** Starts a foreground permission request and publishes its result to [status]. */
   public fun requestForegroundPermission() {
-    if (closed.get() || backendAvailability != LocationBackendAvailability.Available) return
-    if (status.value != LocationPermission.NotGranted(canRequest = true)) return
+    if (closed.get() || client.backendAvailability != LocationProviderAvailability.Available) return
+    if (status.value != LocationPermission.Required(canRequest = true)) return
     if (!requestPending.compareAndSet(false, true)) return
     try {
       client.requestAccess {
@@ -207,7 +218,7 @@ internal constructor(
         requestPending.set(false)
       }
     } catch (_: Throwable) {
-      mutableStatus.value = LocationPermission.NotGranted(canRequest = null)
+      mutableStatus.value = LocationPermission.Unknown
       requestPending.set(false)
     }
   }
@@ -226,7 +237,7 @@ internal constructor(
     try {
       client.checkAccess().asLocationPermission()
     } catch (_: Throwable) {
-      LocationPermission.NotGranted(canRequest = null)
+      LocationPermission.Unknown
     }
 }
 

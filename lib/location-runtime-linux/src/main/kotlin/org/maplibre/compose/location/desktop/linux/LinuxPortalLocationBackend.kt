@@ -15,11 +15,12 @@ import org.maplibre.compose.location.DesktopLocationBackend
 import org.maplibre.compose.location.DesktopLocationProvider
 import org.maplibre.compose.location.LocationAccuracy
 import org.maplibre.compose.location.LocationAccuracyAuthorization
-import org.maplibre.compose.location.LocationBackendAvailability
 import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationPermission
 import org.maplibre.compose.location.LocationProvider
+import org.maplibre.compose.location.LocationProviderAvailability
 import org.maplibre.compose.location.LocationRequest
+import org.maplibre.compose.location.LocationServicesStatus
 import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.compose.location.XdgPortalWindow
 
@@ -67,8 +68,8 @@ internal suspend fun <T> XdgPortalWindow?.withPortalParentWindow(action: suspend
  * portal distance threshold suppresses every update, including the first, on a host whose GeoIP
  * position never moves.
  *
- * A missing portal maps [LocationProvider.backendAvailability] to
- * [LocationBackendAvailability.Unsupported], and collection emits
+ * A missing portal maps [LocationProvider.availability] to
+ * [LocationProviderAvailability.Unsupported], and collection emits
  * [LocationUnavailableReason.Unsupported]. A cancelled
  * [`Request.Response`](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Request.html#org-freedesktop-portal-request-response)
  * maps to [LocationUnavailableReason.PermissionDenied]. A closed session, a stopped portal service,
@@ -84,16 +85,19 @@ internal constructor(
   public constructor(window: XdgPortalWindow? = null) : this(DbusLocationPortal(window))
 
   private val requester = LinuxPortalLocationPermissionRequester(portal, coroutineScope)
+  private val mutableLocationServices = MutableStateFlow(LocationServicesStatus.Unknown)
 
-  override val backendAvailability: LocationBackendAvailability =
+  override val availability: LocationProviderAvailability =
     if (portal.available) {
-      LocationBackendAvailability.Available
+      LocationProviderAvailability.Available
     } else {
-      LocationBackendAvailability.Unsupported
+      LocationProviderAvailability.Unsupported
     }
 
   override val permission: StateFlow<LocationPermission>
     get() = requester.status
+
+  override val locationServices: StateFlow<LocationServicesStatus> = mutableLocationServices
 
   override fun requestPermission(): Unit = requester.requestForegroundPermission()
 
@@ -102,7 +106,16 @@ internal constructor(
       emit(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
       return@flow
     }
-    portal.updates(request).collect { emit(it) }
+    portal.updates(request).collect { event ->
+      when (event) {
+        is LocationEvent.Update -> mutableLocationServices.value = LocationServicesStatus.Enabled
+        is LocationEvent.Unavailable ->
+          if (event.reason == LocationUnavailableReason.ServicesDisabled) {
+            mutableLocationServices.value = LocationServicesStatus.Disabled
+          }
+      }
+      emit(event)
+    }
   }
 
   override fun close() {
@@ -119,11 +132,11 @@ internal constructor(
  * provider needs the same portal permission behavior.
  *
  * The portal has no permission-status query. Permission therefore remains
- * [LocationPermission.NotGranted] with `canRequest = null` until a successful
+ * [LocationPermission.Unknown] until a successful
  * [`Location.Start`](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Location.html#org-freedesktop-portal-location-start)
- * response maps it to [LocationPermission.Granted] with [LocationAccuracyAuthorization.Unknown].
- * Denied and unavailable responses remain `NotGranted` with `canRequest = null`. A missing portal
- * maps [backendAvailability] to [LocationBackendAvailability.Unsupported].
+ * response maps it to [LocationPermission.Granted] with [LocationAccuracyAuthorization.Unknown]. A
+ * denied response maps to [LocationPermission.Required] with `canRequest = null`. An unavailable
+ * response keeps [LocationPermission.Unknown].
  */
 public class LinuxPortalLocationPermissionRequester
 internal constructor(
@@ -133,15 +146,7 @@ internal constructor(
 ) : AutoCloseable {
   public constructor(window: XdgPortalWindow? = null) : this(DbusLocationPortal(window))
 
-  /** Whether the XDG Location portal is installed. */
-  public val backendAvailability: LocationBackendAvailability =
-    if (portal.available) {
-      LocationBackendAvailability.Available
-    } else {
-      LocationBackendAvailability.Unsupported
-    }
-  private val mutableStatus =
-    MutableStateFlow<LocationPermission>(LocationPermission.NotGranted(canRequest = null))
+  private val mutableStatus = MutableStateFlow<LocationPermission>(LocationPermission.Unknown)
 
   /** Current foreground location permission. */
   public val status: StateFlow<LocationPermission> = mutableStatus
@@ -153,7 +158,7 @@ internal constructor(
    */
   public fun requestForegroundPermission() {
     if (
-      backendAvailability != LocationBackendAvailability.Available ||
+      !portal.available ||
         status.value is LocationPermission.Granted ||
         !requestPending.compareAndSet(false, true)
     ) {
@@ -165,9 +170,8 @@ internal constructor(
           when (portal.requestPermission()) {
             PortalPermissionResult.Granted ->
               LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)
-            PortalPermissionResult.Denied -> LocationPermission.NotGranted(canRequest = null)
-            is PortalPermissionResult.Unavailable ->
-              LocationPermission.NotGranted(canRequest = null)
+            PortalPermissionResult.Denied -> LocationPermission.Required(canRequest = null)
+            is PortalPermissionResult.Unavailable -> LocationPermission.Unknown
           }
       } finally {
         requestPending.set(false)

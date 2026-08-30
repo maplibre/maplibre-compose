@@ -21,14 +21,13 @@ import platform.darwin.NSObject
  *
  * [`CLAuthorizationStatus`](https://developer.apple.com/documentation/corelocation/clauthorizationstatus)
  * maps an authorized status to [LocationPermission.Granted], `notDetermined` to
- * [LocationPermission.NotGranted] with `canRequest = true`, `denied` or `restricted` to `canRequest
- * = false`, and an unrecognized value to `canRequest = null`.
+ * [LocationPermission.Required] with `canRequest = true`, `denied` or `restricted` to `canRequest =
+ * false`, and an unrecognized value to `canRequest = null`.
  * [`CLLocationManager.accuracyAuthorization`](https://developer.apple.com/documentation/corelocation/cllocationmanager/accuracyauthorization)
  * distinguishes precise from approximate grants.
  */
 public class IosLocationPermissionRequester {
-  private val mutableStatus =
-    MutableStateFlow<LocationPermission>(LocationPermission.NotGranted(canRequest = null))
+  private val mutableStatus = MutableStateFlow<LocationPermission>(LocationPermission.Unknown)
 
   /** Current foreground location permission, updated when Core Location reports a change. */
   public val status: StateFlow<LocationPermission> = mutableStatus
@@ -55,7 +54,7 @@ public class IosLocationPermissionRequester {
    */
   public fun requestForegroundPermission() {
     val current = readStatus(manager)
-    if (current !is LocationPermission.NotGranted || current.canRequest != true || requestPending)
+    if (current !is LocationPermission.Required || current.canRequest != true || requestPending)
       return
     requestPending = true
     manager.requestWhenInUseAuthorization()
@@ -72,9 +71,9 @@ public class IosLocationPermissionRequester {
             LocationAccuracyAuthorization.Approximate
           }
         )
-      kCLAuthorizationStatusNotDetermined -> LocationPermission.NotGranted(canRequest = true)
+      kCLAuthorizationStatusNotDetermined -> LocationPermission.Required(canRequest = true)
       kCLAuthorizationStatusDenied,
-      kCLAuthorizationStatusRestricted -> LocationPermission.NotGranted(canRequest = false)
-      else -> LocationPermission.NotGranted(canRequest = null)
+      kCLAuthorizationStatusRestricted -> LocationPermission.Required(canRequest = false)
+      else -> LocationPermission.Unknown
     }
 }

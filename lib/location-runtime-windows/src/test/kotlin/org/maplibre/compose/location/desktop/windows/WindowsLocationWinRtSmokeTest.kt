@@ -3,14 +3,14 @@ package org.maplibre.compose.location.desktop.windows
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import org.maplibre.compose.location.LocationBackendAvailability
+import org.maplibre.compose.location.LocationProviderAvailability
 
 class WindowsLocationWinRtSmokeTest {
   @Test
   fun activatesAppCapabilityAndGeolocatorAndSubscribesWithoutPrompting() {
     if (!isWindows(System.getProperty("os.name"))) return
     val client = SystemWindowsLocationClient()
-    assertEquals(LocationBackendAvailability.Available, client.backendAvailability)
+    assertEquals(LocationProviderAvailability.Available, client.backendAvailability)
 
     client.checkAccess()
     val permissionObservation = client.observeAccess {}

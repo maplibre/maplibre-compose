@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
@@ -60,21 +61,30 @@ import platform.darwin.NSObject
  */
 public class IosLocationProvider : LocationProvider {
   private val requester = IosLocationPermissionRequester()
+  private val mutableLocationServices =
+    MutableStateFlow(
+      if (CLLocationManager.locationServicesEnabled()) LocationServicesStatus.Enabled
+      else LocationServicesStatus.Disabled
+    )
 
   override val permission: StateFlow<LocationPermission>
     get() = requester.status
+
+  override val locationServices: StateFlow<LocationServicesStatus> = mutableLocationServices
 
   override fun requestPermission(): Unit = requester.requestForegroundPermission()
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
     if (!CLLocationManager.locationServicesEnabled()) {
+      mutableLocationServices.value = LocationServicesStatus.Disabled
       trySend(LocationEvent.Unavailable(LocationUnavailableReason.ServicesDisabled))
       close()
       return@callbackFlow
     }
+    mutableLocationServices.value = LocationServicesStatus.Enabled
 
     val manager = CLLocationManager()
-    val delegate = Delegate(channel)
+    val delegate = Delegate(channel, mutableLocationServices)
     manager.delegate = delegate
     manager.desiredAccuracy =
       when (request.accuracy) {
@@ -94,14 +104,20 @@ public class IosLocationProvider : LocationProvider {
   }
     .flowOn(Dispatchers.Main)
 
-  private class Delegate(private val channel: SendChannel<LocationEvent>) :
-    NSObject(), CLLocationManagerDelegateProtocol {
+  private class Delegate(
+    private val channel: SendChannel<LocationEvent>,
+    private val locationServices: MutableStateFlow<LocationServicesStatus>,
+  ) : NSObject(), CLLocationManagerDelegateProtocol {
     override fun locationManager(manager: CLLocationManager, didUpdateLocations: List<*>) {
       @Suppress("UNCHECKED_CAST") (didUpdateLocations as? List<CLLocation>)?.forEach(::sendLocation)
     }
 
     override fun locationManager(manager: CLLocationManager, didFailWithError: NSError) {
-      channel.trySend(LocationEvent.Unavailable(didFailWithError.asUnavailableReason()))
+      val reason = didFailWithError.asUnavailableReason()
+      if (reason == LocationUnavailableReason.ServicesDisabled) {
+        locationServices.value = LocationServicesStatus.Disabled
+      }
+      channel.trySend(LocationEvent.Unavailable(reason))
     }
 
     fun sendLocation(location: CLLocation) {

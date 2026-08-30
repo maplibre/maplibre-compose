@@ -5,9 +5,9 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import org.maplibre.compose.location.LocationAccuracy
 import org.maplibre.compose.location.LocationAccuracyAuthorization
-import org.maplibre.compose.location.LocationBackendAvailability
 import org.maplibre.compose.location.LocationMeasurement
 import org.maplibre.compose.location.LocationPermission
+import org.maplibre.compose.location.LocationProviderAvailability
 import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.units.Bearing
@@ -83,8 +83,8 @@ internal interface CoreLocationManager : AutoCloseable {
 internal interface CoreLocationClient : AutoCloseable {
   val locationServicesEnabled: Boolean
 
-  val backendAvailability: LocationBackendAvailability
-    get() = LocationBackendAvailability.Available
+  val backendAvailability: LocationProviderAvailability
+    get() = LocationProviderAvailability.Available
 
   fun createManager(): CoreLocationManager
 }
@@ -144,8 +144,8 @@ internal fun readPermission(
           LocationAccuracyAuthorization.Approximate
         }
       )
-    CL_AUTHORIZATION_NOT_DETERMINED -> LocationPermission.NotGranted(canRequest = true)
+    CL_AUTHORIZATION_NOT_DETERMINED -> LocationPermission.Required(canRequest = true)
     CL_AUTHORIZATION_DENIED,
-    CL_AUTHORIZATION_RESTRICTED -> LocationPermission.NotGranted(canRequest = false)
-    else -> LocationPermission.NotGranted(canRequest = null)
+    CL_AUTHORIZATION_RESTRICTED -> LocationPermission.Required(canRequest = false)
+    else -> LocationPermission.Unknown
   }

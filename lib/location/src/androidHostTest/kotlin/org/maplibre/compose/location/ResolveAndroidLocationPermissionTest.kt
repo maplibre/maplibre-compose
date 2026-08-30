@@ -20,7 +20,7 @@ class ResolveAndroidLocationPermissionTest {
   @Test
   fun a_never_requested_permission_can_be_requested() {
     assertEquals(
-      LocationPermission.NotGranted(canRequest = true),
+      LocationPermission.Required(canRequest = true),
       resolveAndroidLocationPermission(
         granted = null,
         shouldShowRationale = false,
@@ -32,7 +32,7 @@ class ResolveAndroidLocationPermissionTest {
   @Test
   fun a_rationale_reports_a_requestable_permission() {
     assertEquals(
-      LocationPermission.NotGranted(canRequest = true, shouldShowRationale = true),
+      LocationPermission.Required(canRequest = true, shouldShowRationale = true),
       resolveAndroidLocationPermission(
         granted = null,
         shouldShowRationale = true,
@@ -44,7 +44,7 @@ class ResolveAndroidLocationPermissionTest {
   @Test
   fun no_activity_reports_an_unknown_request_path() {
     assertEquals(
-      LocationPermission.NotGranted(canRequest = null),
+      LocationPermission.Required(canRequest = null),
       resolveAndroidLocationPermission(
         granted = null,
         shouldShowRationale = null,
@@ -56,7 +56,7 @@ class ResolveAndroidLocationPermissionTest {
   @Test
   fun a_permanent_denial_blocks_further_requests() {
     assertEquals(
-      LocationPermission.NotGranted(canRequest = false),
+      LocationPermission.Required(canRequest = false),
       resolveAndroidLocationPermission(
         granted = null,
         shouldShowRationale = false,

@@ -2,15 +2,20 @@
 
 package org.maplibre.compose.docsnippets
 
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.location.LocationPermission
 import org.maplibre.compose.location.LocationPuck
+import org.maplibre.compose.location.LocationState
 import org.maplibre.compose.location.LocationTrackingEffect
 import org.maplibre.compose.location.rememberDefaultHeadingProvider
 import org.maplibre.compose.location.rememberDefaultLocationProvider
 import org.maplibre.compose.location.rememberLocationState
+import org.maplibre.compose.location.rememberSystemSettingsLauncher
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.style.StyleComposition
@@ -50,4 +55,26 @@ fun Location() {
     }
   MaplibreMap(state = mapState, styleComposition = composition)
   // #endregion puck
+}
+
+@Composable
+fun LocationPermissionControls(locationState: LocationState) {
+  // #region permission
+  val settings = rememberSystemSettingsLauncher()
+  when (val permission = locationState.permission) {
+    LocationPermission.Unknown ->
+      Button(onClick = locationState::requestPermission) { Text("Use my location") }
+    is LocationPermission.Required ->
+      when {
+        permission.shouldShowRationale ->
+          Button(onClick = locationState::requestPermission) { Text("Continue") }
+        permission.canRequest != false ->
+          Button(onClick = locationState::requestPermission) { Text("Use my location") }
+        settings.canOpenApplicationSettings ->
+          Button(onClick = settings::openApplicationSettings) { Text("Open settings") }
+      }
+    is LocationPermission.Granted,
+    LocationPermission.NotApplicable -> Unit
+  }
+  // #endregion permission
 }

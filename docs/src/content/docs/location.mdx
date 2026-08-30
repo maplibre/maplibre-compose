@@ -18,8 +18,9 @@ in sync with location changes:
 <Code code={region(location, "puck")} lang="kotlin" title="App.kt" />
 
 All platforms provide default location providers. Android and iOS also provide
-default heading providers. <Api of="LocationState.status" /> reports an
-unsupported or misconfigured platform without throwing.
+default heading providers. <Api of="LocationState.availability" />,
+<Api of="LocationState.permission" />, and
+<Api of="LocationState.locationServices" /> report independent platform conditions.
 
 `locationState.lastLocation` is null until the first measurement arrives, so the puck
 initially draws nothing. Afterward, the state retains the last measurement when
@@ -36,34 +37,14 @@ The library never requests location permission automatically. Call
 <Api of="LocationState.requestPermission" /> when the application is ready to
 present the platform permission UI:
 
-```kotlin title="App.kt"
-if (locationState.permission !is LocationPermission.Granted) {
-  Button(onClick = locationState::requestPermission) {
-    Text("Use my location")
-  }
-}
-```
-
-When permission is not granted, <Api of="LocationPermission.NotGranted" />
-reports the next step: explain first when `shouldShowRationale` is set
-(Android only), request when `canRequest` is not `false`, and send the user to
-the system settings otherwise. <Api of="rememberSystemSettingsLauncher" />
+<Api of="LocationPermission.Required" /> reports the next step: explain first
+when `shouldShowRationale` is set (Android only), request when `canRequest` is
+not `false`, and send the user to the system settings otherwise.
+<Api of="LocationPermission.Unknown" /> means that the platform must attempt a
+request to determine permission. <Api of="rememberSystemSettingsLauncher" />
 opens the settings screens on the platforms that have them.
 
-```kotlin title="App.kt"
-val settings = rememberSystemSettingsLauncher()
-val permission = locationState.permission
-if (permission is LocationPermission.NotGranted) {
-  when {
-    permission.shouldShowRationale ->
-      LocationRationale(onAccept = locationState::requestPermission)
-    permission.canRequest != false ->
-      Button(onClick = locationState::requestPermission) { Text("Use my location") }
-    settings.canOpenApplicationSettings ->
-      Button(onClick = { settings.openApplicationSettings() }) { Text("Open settings") }
-  }
-}
-```
+<Code code={region(location, "permission")} lang="kotlin" title="App.kt" />
 
 ## Platform requirements
 
@@ -110,4 +91,4 @@ that Apple requires. On Linux, location comes from the desktop portal on the
 D-Bus session bus, commonly backed by
 [GeoClue](https://gitlab.freedesktop.org/geoclue/geoclue). On Windows, location
 comes from Windows Runtime geolocation. A missing backend reports an
-unsupported status through `LocationState.status`.
+unsupported state through <Api of="LocationState.availability" />.
