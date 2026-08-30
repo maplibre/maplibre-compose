@@ -7,6 +7,8 @@ import org.maplibre.compose.sources.CustomVectorSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeometryTileProvider
+import org.maplibre.compose.sources.RasterDemEncoding
+import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.sources.VectorTileProvider
 import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.toImageBitmap
@@ -43,10 +45,12 @@ internal sealed interface SourceDefinition {
     val provider: VectorTileProvider,
   ) : SourceDefinition
 
-  /** A raster DEM definition whose JSON depends on the loaded engine's style capabilities. */
   data class RasterDem(
     override val id: String,
-    val createJson: (RasterDemCapabilities) -> JsonObject,
+    val tiles: List<String>,
+    val options: TileSetOptions,
+    val tileSize: Int,
+    val demEncoding: RasterDemEncoding,
   ) : SourceDefinition
 }
 

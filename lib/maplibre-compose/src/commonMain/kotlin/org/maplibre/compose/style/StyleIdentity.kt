@@ -77,6 +77,9 @@ internal class StyleLoadTracker(initialStyle: BaseStyle, engineAvailable: Boolea
   fun beginLoading(): StyleRequestId =
     if (state is TrackedStyleLoadState.Pending) engineBecameAvailable() else currentRequest
 
+  fun shouldApplyToEngine(appliedRequest: StyleRequestId?): Boolean =
+    appliedRequest != currentRequest
+
   /** Starts reconciliation of a new complete revision against the loaded base style. */
   fun beginReconciliation(): StyleRequestId {
     check(loadedIdentity != null) { "No loaded style is available for reconciliation" }

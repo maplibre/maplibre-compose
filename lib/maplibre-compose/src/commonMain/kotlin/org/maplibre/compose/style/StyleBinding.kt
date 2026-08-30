@@ -16,6 +16,7 @@ import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.TileCoordinate
 import org.maplibre.compose.sources.VectorTileProvider
 import org.maplibre.compose.sources.putGeoJsonOptions
+import org.maplibre.compose.sources.rasterDemSourceJson
 import org.maplibre.compose.sources.toDataJson
 import org.maplibre.compose.util.ImageStretch
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -147,8 +148,13 @@ internal interface StyleBinding {
       is SourceDefinition.RasterDem ->
         addSource(
           definition.id,
-          definition.createJson(
-            RasterDemCapabilities(supportsCustomDemEncoding, supportsRasterDemScheme)
+          rasterDemSourceJson(
+            tiles = definition.tiles,
+            options = definition.options,
+            tileSize = definition.tileSize,
+            demEncoding = definition.demEncoding,
+            capabilities =
+              RasterDemCapabilities(supportsCustomDemEncoding, supportsRasterDemScheme),
           ),
         )
     }

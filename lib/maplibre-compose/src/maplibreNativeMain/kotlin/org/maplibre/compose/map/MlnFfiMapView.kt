@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import co.touchlab.kermit.Logger
+import kotlinx.coroutines.CancellationException
 import org.maplibre.compose.mlnffi.EnsureMlnFfiConfigured
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiApplication
@@ -119,6 +120,7 @@ internal fun MlnFfiMapView(
       }
   val session = remember(unpreparedSession) { unpreparedSession.apply { preparePresentation() } }
 
+  session.durableCallbacks = state?.durableStyleCallbacks() ?: EmptyMapAdapterCallbacks
   session.callbacks = callbacks
   session.logger = logger
   session.layoutDirection = layoutDirection
@@ -130,7 +132,19 @@ internal fun MlnFfiMapView(
   // Publish the adapter before another thread can close a runtime whose composition has applied.
   SideEffect { update(session) }
 
-  LaunchedEffect(session) { session.attachPresentation() }
+  LaunchedEffect(session) {
+    try {
+      session.attachPresentation()
+    } catch (error: CancellationException) {
+      throw error
+    } catch (_: MapClosedException) {
+      // A still-mounted UI on a closed map is inert.
+    } catch (_: MapLeaseInvalidatedException) {
+      // Detach or close won before attach finished.
+    } catch (error: Throwable) {
+      callbacks.onMapFailLoading(session, error.message)
+    }
+  }
 
   DisposableEffect(session) {
     onDispose {

@@ -160,6 +160,7 @@ internal class MlnFfiMapSession(
 ) : MapAdapter, MlnFfiMapRenderer, GestureTarget, MapLifecyclePlatformAdapter {
 
   @Volatile internal var callbacks: MapAdapter.Callbacks = callbacks
+  @Volatile internal var durableCallbacks: MapAdapter.Callbacks = EmptyMapAdapterCallbacks
   private val lifecycle = MapLifecycleAuthority(this)
   private val lifecycleCallbacks = MapLifecycleCallbacks(lifecycle) { this.callbacks }
   @Volatile private var lifecycleEngineIdentity: EngineMapIdentity? = null
@@ -475,6 +476,7 @@ internal class MlnFfiMapSession(
   }
 
   override suspend fun detach(identity: EngineMapIdentity, lease: RenderLease) {
+    callbacks = durableCallbacks
     if (lifecycleRenderLease == lease) lifecycleRenderLease = null
     // This must happen before the first suspension. A host may tear down its renderer thread as
     // soon as close() returns, but the native handle can only be closed through that thread.
@@ -495,7 +497,18 @@ internal class MlnFfiMapSession(
     closePlatform()
   }
 
-  override suspend fun closeResources() = Unit
+  override suspend fun closeResources() {
+    val abandoned = stateLock.withLock {
+      buildList {
+        addAll(pendingMapActions)
+        pendingMapActions.clear()
+        addAll(pendingViewportActions)
+        pendingViewportActions.clear()
+      }
+    }
+    abandoned.forEach { it.abandon() }
+    resumeStrandedTransitions()
+  }
 
   private fun closePlatform() {
     try {
@@ -1202,15 +1215,16 @@ internal class MlnFfiMapSession(
   private fun applyRequestedStyle(map: MapHandle, load: RequestedStyleLoad) {
     if (load !== requestedStyleLoad) return
     val style = load.style
-    if (style == appliedStyle) return
     if (styleLoadPending) return
     val engine = lifecycleEngineIdentity ?: return
     val lifecycleRequest = load.lifecycleRequest ?: lifecycleStyleRequestIdentity ?: return
     if (load.lifecycleRequest != null && load.lifecycleRequest != lifecycleStyleRequestIdentity) {
       return
     }
-    val request = styleLoadTracker?.beginLoading() ?: return
+    val tracker = styleLoadTracker ?: return
+    val request = tracker.beginLoading()
     if (load.trackerRequest != null && load.trackerRequest != request) return
+    if (!tracker.shouldApplyToEngine(appliedStyleRequest)) return
     appliedStyleRequest = request
     styleLoadPending = true
     // Replacing the native style disconnects the preceding style event producer. The runtime loop
@@ -1528,6 +1542,7 @@ internal class MlnFfiMapSession(
     transitionWaiters.clear()
     currentTransitionId = null
     waiters.forEach { waiter -> runCatching { waiter.resume(Unit) } }
+    flushTransitionResumes()
   }
 
   override fun setCameraConstraints(value: CameraConstraints) {

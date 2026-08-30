@@ -419,10 +419,22 @@ internal class MapLifecycleAuthority(
       }
     } else if (outcome.isFailure && stillAttaching) {
       val error = checkNotNull(outcome.exceptionOrNull())
+      if (serialized { current.load() !== attaching }) {
+        attaching.result.complete(
+          Result.failure(MapLeaseInvalidatedException().also { error.let(it::addSuppressed) })
+        )
+        return
+      }
       if (attachAttempted) {
         runCatching { adapter.detach(attaching.engine, attaching.lease) }
           .exceptionOrNull()
           ?.let(error::addSuppressed)
+      }
+      if (serialized { current.load() !== attaching }) {
+        attaching.result.complete(
+          Result.failure(MapLeaseInvalidatedException().also { error.let(it::addSuppressed) })
+        )
+        return
       }
       val destroyEngine =
         !attaching.engineCreated.load() || adapter.engineRetention == EngineRetention.DESTROY

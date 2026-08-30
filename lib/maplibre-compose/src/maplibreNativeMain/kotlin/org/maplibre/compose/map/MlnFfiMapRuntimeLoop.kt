@@ -66,6 +66,8 @@ internal class MlnFfiMapRuntimeLoop(
   /** Work for the owner thread; [OwnerTask.abandon] runs instead if it never gets to run. */
   private class OwnerTask(val run: (MapHandle) -> Unit, val abandon: () -> Unit)
 
+  private class DrainBarrier(val run: () -> Unit, val abandon: () -> Unit)
+
   /**
    * The owner thread. A parked pump ignores interruption, so [close] is the only way to stop it.
    */
@@ -78,7 +80,7 @@ internal class MlnFfiMapRuntimeLoop(
   private val acceptLock = MlnFfiOwnerLock(thread)
   private val tasks = ArrayDeque<OwnerTask>()
   /** Test callbacks that run after the next native pump and event drain. Owner thread only. */
-  private val eventDrainBarriers = mutableListOf<() -> Unit>()
+  private val eventDrainBarriers = mutableListOf<DrainBarrier>()
   private var accepting = true
   private var wake: WakeSource? = null
 
@@ -164,7 +166,7 @@ internal class MlnFfiMapRuntimeLoop(
 
   /** Queues a callback that runs after the next native pump and event drain. */
   fun postEventDrainBarrier(action: () -> Unit, abandon: () -> Unit = {}): Boolean =
-    post(action = { eventDrainBarriers += action }, abandon = abandon)
+    post(action = { eventDrainBarriers += DrainBarrier(action, abandon) }, abandon = abandon)
 
   private fun submit(run: (MapHandle) -> Unit, abandon: () -> Unit): Boolean = acceptLock.withLock {
     if (!accepting) return false
@@ -237,7 +239,10 @@ internal class MlnFfiMapRuntimeLoop(
     while (!stopRequested) {
       // Queued work first: a task posted before the source was published set no wake flag.
       val ranTasks = runTasks(map)
-      if (stopRequested) break
+      if (stopRequested) {
+        abandonDrainBarriers()
+        break
+      }
       check(!acceptLock.isHeldByOwnerThread) { "the pump must not run under acceptLock" }
       // A batch that ran must not park: a task queuing nothing for native has nothing to wake it.
       runtime.pump(if (ranTasks) 0L else PUMP_PARK_MILLIS, PUMP_BUDGET_MILLIS)
@@ -272,7 +277,7 @@ internal class MlnFfiMapRuntimeLoop(
       .onFailure { logger?.e(it) { "Failed to finish handling a MapLibre event batch" } }
     val barriers = eventDrainBarriers.toList()
     eventDrainBarriers.clear()
-    barriers.forEach { runCatching(it) }
+    barriers.forEach { runCatching { it.run() } }
   }
 
   /** Runs everything queued, reporting whether anything ran. */
@@ -316,10 +321,17 @@ internal class MlnFfiMapRuntimeLoop(
     }
     // Released rather than run: a caller blocked in call() would otherwise never be resumed.
     abandoned.forEach { runCatching { it.abandon() } }
+    abandonDrainBarriers()
     // A wake source is its own native handle, so closing the runtime does not release it.
     source?.let { closing ->
       runCatching { closing.close() }
         .onFailure { logger?.w(it) { "Failed to close the map runtime's wake source" } }
     }
+  }
+
+  private fun abandonDrainBarriers() {
+    val barriers = eventDrainBarriers.toList()
+    eventDrainBarriers.clear()
+    barriers.forEach { runCatching { it.abandon() } }
   }
 }

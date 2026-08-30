@@ -266,9 +266,12 @@ rendered viewport. Native platforms can expose this interval. Web can publish
 with a usable viewport because GL JS map creation requires a rendering target.
 
 Presentation callbacks begin after publication and apply only to that render
-lease. The lifecycle authority ignores callbacks after detachment. Platform
-events before publication can update internal durable state, but they do not
-invoke presentation callbacks.
+lease. After detachment the lifecycle authority accepts viewport, camera,
+gesture, click, frame, and surface events only for the current render lease.
+Durable native base-style load, failure, and source-state events remain accepted
+under the current engine-map and style-request identities. Platform events
+before publication can update internal durable state, but they do not invoke
+presentation callbacks.
 
 Presentation readiness is independent from style readiness. The map surface
 remains hidden behind the composable placeholder until the requested base style
@@ -341,9 +344,12 @@ part of `StyleComposition`. Changing the base style has this order:
 6. Report the applied style as ready.
 
 Each accepted base-style change receives an internal monotonically increasing
-request identity. Assigning an equal `BaseStyle` is a no-op. A newer request
-supersedes an older request at once, and callbacks from the older request cannot
-change public state. `MapStyleState.loadState` has these public states:
+request identity. Assigning a `BaseStyle` that equals the current desired value
+is a no-op. Engine apply is keyed on the accepted request identity. An A-B-A
+cycle is three requests, and the third request loads A again even when the
+engine last applied A. A newer request supersedes an older request at once, and
+callbacks from the older request cannot change public state.
+`MapStyleState.loadState` has these public states:
 
 - `Pending` means the desired base style is recorded but no engine can currently
   load it, as on a detached Web map.
@@ -554,6 +560,10 @@ The transition to `Closing` is the closure commit point. After it:
 - New attachments fail.
 - Platform callbacks are ignored.
 - Cleanup continues despite caller cancellation.
+
+A `MaplibreMap` that remains composed after its `MapState` closes stays inert.
+Internal publication and attach attempts have no effect. Public `MapState` and
+`MapPresentation` operations still fail.
 
 All suspending public engine operations can be called from any coroutine
 dispatcher. The lifecycle authority marshals them to the owner context. Callers
