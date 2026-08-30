@@ -116,6 +116,7 @@ public sealed interface StyleLoadState {
 public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   private var owner: MapState? = null
   private val loadedStyle = AtomicReference<StyleBinding?>(null)
+  private var sourcesState: Map<String, SourceHandle> by mutableStateOf(emptyMap())
   private var baseStyleState: BaseStyle by
     mutableStateOf(initialBaseStyle, structuralEqualityPolicy())
 
@@ -128,17 +129,24 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   public var loadState: StyleLoadState by mutableStateOf(StyleLoadState.Pending)
     internal set
 
+  /** The sources in the current loaded style, in style order. */
+  public val sources: Map<String, SourceHandle>
+    get() = if (loadState == StyleLoadState.Ready) sourcesState else emptyMap()
+
   /** Returns a generation-bound handle for [id], or null until the style is ready or if absent. */
   public fun source(id: String): SourceHandle? {
     if (loadState != StyleLoadState.Ready) return null
     val current = loadedStyle.load() ?: return null
-    return current.sourceHandle(
+    return sourceHandle(current, id)
+  }
+
+  private fun sourceHandle(current: StyleBinding, id: String): SourceHandle? =
+    current.sourceHandle(
       id = id,
       definition = owner?.desiredSourceDefinition(id),
       currentDefinition = { owner?.desiredSourceDefinition(id) },
       operations = operationGuard(current),
     )
-  }
 
   /** Returns a generation-bound handle for [id], or null until the style is ready or if absent. */
   public fun layer(id: String): LayerHandle? {
@@ -157,13 +165,33 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
 
   internal fun updateLoadedStyle(style: StyleBinding?) {
     loadedStyle.store(style)
+    sourcesState = emptyMap()
   }
 
   internal fun invalidateLoadedStyle() {
     loadedStyle.exchange(null)?.invalidate()
+    sourcesState = emptyMap()
   }
 
   internal fun isCurrentLoadedStyle(style: StyleBinding): Boolean = loadedStyle.load() === style
+
+  internal fun refreshSource(id: String) {
+    val refreshed = source(id)
+    sourcesState = if (refreshed == null) sourcesState - id else sourcesState + (id to refreshed)
+  }
+
+  internal fun refreshSources() {
+    val current = loadedStyle.load()
+    sourcesState =
+      if (loadState != StyleLoadState.Ready || current == null) emptyMap()
+      else
+        current
+          .getSources()
+          .mapNotNull { source ->
+            sourceHandle(current, source.id)?.let { source.id to it }
+          }
+          .toMap()
+  }
 
   private fun operationGuard(style: StyleBinding): StyleHandleOperationGuard =
     object : StyleHandleOperationGuard {
@@ -550,12 +578,20 @@ internal constructor(
   internal fun markStyleReady(adapter: MapAdapter): Boolean = lock.withLock {
     if (closed || (attachment?.adapter !== adapter && retainedAdapter !== adapter)) return false
     style.loadState = StyleLoadState.Ready
+    style.refreshSources()
     true
   }
 
   internal fun acceptsPresentationEvent(adapter: MapAdapter): Boolean = lock.withLock {
     !closed && attachment?.adapter === adapter && presentation?.adapter === adapter
   }
+
+  internal fun refreshStyleSources(adapter: MapAdapter, sourceId: String?): Boolean =
+    lock.withLock {
+      if (closed || (attachment?.adapter !== adapter && retainedAdapter !== adapter)) return false
+      if (sourceId == null) style.refreshSources() else style.refreshSource(sourceId)
+      true
+    }
 
   internal fun updateLoadedStyle(adapter: MapAdapter, loadedStyle: StyleBinding?): Boolean =
     lock.withLock {

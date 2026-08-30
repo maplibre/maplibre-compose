@@ -166,7 +166,9 @@ internal class DurableStyleCallbacks(private val owner: MapState) : MapAdapter.C
     owner.markStyleReady(map)
   }
 
-  override fun onSourceChanged(map: MapAdapter, sourceId: String?) = Unit
+  override fun onSourceChanged(map: MapAdapter, sourceId: String?) {
+    owner.refreshStyleSources(map, sourceId)
+  }
 
   override fun onMapFailLoading(map: MapAdapter, reason: String?) {
     owner.markStyleFailed(map, reason)

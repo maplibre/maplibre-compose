@@ -15,7 +15,6 @@ import kotlin.test.Test
 import kotlin.test.assertFalse
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.StyleState
 import org.maplibre.spatialk.geojson.Position
 
 @OptIn(ExperimentalTestApi::class)
@@ -32,8 +31,6 @@ class MapOverlayTest {
             Box(Modifier.size(8.dp).align(Alignment.TopStart))
           },
         mapState = mapState,
-        presentation = null,
-        styleState = StyleState(),
         contentWindowInsets = WindowInsets(0),
       )
     }
@@ -54,8 +51,6 @@ class MapOverlayTest {
             }
           },
         mapState = mapState,
-        presentation = null,
-        styleState = StyleState(),
         contentWindowInsets = WindowInsets(0),
       )
     }

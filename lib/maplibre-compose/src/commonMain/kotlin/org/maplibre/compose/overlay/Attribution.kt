@@ -63,7 +63,7 @@ import org.maplibre.compose.generated.Res
 import org.maplibre.compose.generated.attribution
 import org.maplibre.compose.generated.info
 import org.maplibre.compose.map.MapPresentation
-import org.maplibre.compose.style.StyleState
+import org.maplibre.compose.map.MapStyleState
 import org.maplibre.compose.util.horizontal
 import org.maplibre.compose.util.reverse
 import org.maplibre.compose.util.toArrangement
@@ -93,7 +93,7 @@ import org.maplibre.compose.util.vertical
 @Composable
 public fun ExpandingAttributionButton(
   presentation: MapPresentation?,
-  styleState: StyleState,
+  styleState: MapStyleState,
   modifier: Modifier = Modifier,
   contentAlignment: Alignment = Alignment.BottomEnd,
   toggleButton: @Composable (onClick: () -> Unit) -> Unit = AttributionDefaults.button,
@@ -157,7 +157,7 @@ public fun ExpandingAttributionButton(
 public fun ExpandingAttributionButton(
   expanded: Boolean,
   onClick: () -> Unit,
-  styleState: StyleState,
+  styleState: MapStyleState,
   modifier: Modifier = Modifier,
   contentAlignment: Alignment = Alignment.BottomEnd,
   toggleButton: @Composable (onClick: () -> Unit) -> Unit = AttributionDefaults.button,
@@ -268,7 +268,7 @@ public fun AttributionLinks(
  * The distinct attribution texts of every source in the style, in the order that the style declares
  * them. Sources that declare no attribution are skipped.
  */
-public fun StyleState.attributions(): List<String> =
+public fun MapStyleState.attributions(): List<String> =
   sources.values.map { it.attributionHtml }.filter { it.isNotEmpty() }.distinct()
 
 public object AttributionDefaults {
