@@ -85,7 +85,6 @@ internal open class MlnFfiStyleBinding(
   private val accessMap: ((MapHandle) -> Unit) -> Boolean = { false },
   private val accessRenderSession: ((RenderSessionHandle) -> Unit) -> Boolean = { false },
   private val sourceChanged: (String) -> Unit = {},
-  private val failWhenUnavailable: Boolean = true,
   private val getScale: () -> Float = { 1f },
 ) : StyleBinding {
   @Volatile private var loaded = true
@@ -258,15 +257,13 @@ internal open class MlnFfiStyleBinding(
     sourceChanged(sourceId)
   }
 
-  private fun isAvailable(): Boolean {
-    if (isLoaded) return true
-    check(!failWhenUnavailable) { "Style operation belongs to a stale loaded-style identity" }
-    return false
+  private fun requireLoadedStyle() {
+    check(isLoaded) { "Style operation belongs to a stale loaded-style identity" }
   }
 
-  /** Null if the style has unloaded; reads should then fall back to the descriptor. */
+  /** Returns null if owner access ends before [action] can run. */
   open fun <T> readMap(action: (MapHandle) -> T): T? {
-    if (!isAvailable()) return null
+    requireLoadedStyle()
     var result: Result<T>? = null
     if (!accessMap { map -> result = runCatching { action(map) } }) return null
     return checkNotNull(result).getOrThrow()
@@ -281,10 +278,7 @@ internal open class MlnFfiStyleBinding(
    * Returns after [action] has run or been dropped. [abandon] runs when [action] will not run.
    */
   open fun <T> mutateMap(abandon: () -> Unit, action: (MapHandle) -> T): T? {
-    if (!isAvailable()) {
-      abandon()
-      return null
-    }
+    requireLoadedStyle()
     var result: Result<T>? = null
     if (
       !accessMap { map ->
@@ -298,11 +292,12 @@ internal open class MlnFfiStyleBinding(
   }
 
   /**
-   * Null when the style has unloaded or no renderer is ready. The renderer exists after the first
-   * successful frame and until teardown. The handle must not escape [action].
+   * Returns null when no renderer is ready or owner access ends before [action] can run. The
+   * renderer exists after the first successful frame and until teardown. The handle must not escape
+   * [action].
    */
   open fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T? {
-    if (!isAvailable()) return null
+    requireLoadedStyle()
     var result: Result<T>? = null
     if (!accessRenderSession { session -> result = runCatching { action(session) } }) return null
     return checkNotNull(result).getOrThrow()
@@ -497,9 +492,9 @@ internal open class MlnFfiStyleBinding(
   }
 
   /**
-   * The parse and index run here, on the caller, because they must not run on the map's owner
-   * thread. `addSourceWith` returns once its hop has run or been dropped, so the handle outlives
-   * every use of it.
+   * The parse and index run here on the caller thread. They must not run on the map's owner thread.
+   * `addSourceWith` returns after its owner-thread operation has run or been dropped. The handle
+   * remains valid until that operation completes.
    */
   override fun addGeoJsonSource(
     sourceId: String,
@@ -842,9 +837,6 @@ internal open class MlnFfiStyleBinding(
         ("hillshade" to "resampling") to "MapLibre Native does not implement it.",
         ("color-relief" to "resampling") to "MapLibre Native does not implement it.",
       )
-
-    /** A binding for a descriptor that has never been added to a style. */
-    val UNLOADED: MlnFfiStyleBinding = MlnFfiStyleBinding(failWhenUnavailable = false)
   }
 }
 
@@ -855,7 +847,7 @@ private class MlnFfiPreparedGeoJson(val handle: GeoJsonSourceDataHandle) : Prepa
   }
 }
 
-/** The same options the descriptor writes into source JSON, as the typed adder takes them. */
+/** The same options that the definition writes into source JSON, as the typed adder takes them. */
 private fun GeoJsonOptions.toFfiOptions(): GeoJsonSourceOptions =
   GeoJsonSourceOptions().also {
     it.minZoom = minZoom.toDouble()

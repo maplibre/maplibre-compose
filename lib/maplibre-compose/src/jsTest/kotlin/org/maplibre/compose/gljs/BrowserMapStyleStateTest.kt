@@ -33,7 +33,7 @@ import org.maplibre.compose.style.StyleComposition
 import org.maplibre.compose.style.StyleIdentity
 
 @OptIn(ExperimentalTestApi::class)
-class BrowserStyleStateTest {
+class BrowserMapStyleStateTest {
 
   private fun styleWith(name: String, sourceId: String) =
     BaseStyle.Json(

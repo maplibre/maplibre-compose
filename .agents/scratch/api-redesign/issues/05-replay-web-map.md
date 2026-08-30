@@ -28,7 +28,7 @@ next presentation.
 
 ## Test ledger
 
-- Rewrite `BrowserMapLifecycleTest.kt`, `BrowserStyleStateTest.kt`, and
+- Rewrite `BrowserMapLifecycleTest.kt`, `BrowserMapStyleStateTest.kt`, and
   `BrowserCameraTransitionLifecycleTest.kt` around logical state, engine
   identity, presentation readiness, and replay.
 - Delete browser cases that only assert obsolete session callback storage or

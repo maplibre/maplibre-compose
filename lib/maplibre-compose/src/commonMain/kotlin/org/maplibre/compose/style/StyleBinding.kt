@@ -237,10 +237,10 @@ internal interface StyleBinding {
   /**
    * Installs [prepared] on a live GeoJSON source when [claim] answers true.
    *
-   * [claim] runs where this engine serializes installs, so overlapping installs resolve their order
-   * in one place. It runs even when the style has unloaded or the install is dropped, so the live
-   * handle records the applied data. Returns after the install has run or been dropped, so the
-   * caller may close [prepared].
+   * [claim] runs where this engine serializes installs. Overlapping installs resolve their order in
+   * one place. It runs even when the style has unloaded or the install is dropped. The live handle
+   * records the applied data. This function returns after the install has run or been dropped. The
+   * caller may then close [prepared].
    */
   fun setGeoJsonSourceData(sourceId: String, prepared: PreparedGeoJson, claim: () -> Boolean)
 

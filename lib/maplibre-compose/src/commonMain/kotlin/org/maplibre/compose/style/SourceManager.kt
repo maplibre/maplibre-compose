@@ -12,9 +12,6 @@ internal class SourceManager(private val node: StyleNode) {
   /** Application-owned sources in the order in which the evaluator first referenced them. */
   internal val desiredSources = LinkedHashSet<Source>()
 
-  /** Receives updates on changes to the style */
-  internal var state: StyleState? = null
-
   internal fun getBaseSource(id: String): Source? {
     return baseSources[id]
   }

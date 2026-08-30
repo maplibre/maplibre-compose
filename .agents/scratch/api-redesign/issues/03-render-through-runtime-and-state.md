@@ -34,7 +34,7 @@ temporarily so later migrations remain green.
 
 - Add public-API tests for runtime child ordering, independently configured
   runtimes, remembered-state disposal, caller-closed state, and camera restore.
-- Rewrite `AndroidCameraStateRecreationTest.kt`, `MapLibreConfigurationTest.kt`,
+- Rewrite `AndroidMapStateRecreationTest.kt`, `MapLibreConfigurationTest.kt`,
   and `MlnFfiOfflineRuntimeTest.kt` where their contracts remain public; remove
   process-singleton assertions.
 - Run `mise run test:android`, `mise run test:android:device`,
@@ -60,5 +60,5 @@ configuration tests cover runtime closure order, independent runtimes,
 remembered and caller-closed lifetimes, restoration, base-style rendering, and
 single-presentation rejection. The Android host, Android device, Desktop, and
 Web suites pass. A temporary mutation that skipped child closure made the
-closure-order regression test fail, which confirms that test exercises the
-production invariant.
+closure-order regression test fail. This result confirms that the test exercises
+the production invariant.

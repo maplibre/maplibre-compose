@@ -42,10 +42,10 @@ current state, and let the runtime reconcile it.
 ## Style switches re-apply your content
 
 When `MapState.style.baseStyle` changes, the map loads the new style and
-evaluates the style composition against it. Your sources and layers are
-declared again, so they persist across the switch without extra code. An
-`Anchor` that names a base layer applies only when that layer exists in the new
-style.
+evaluates the style composition against it. Each evaluation declares your
+sources and layers against the new style. They persist across the switch
+without extra code. An `Anchor` that names a base layer applies only when that
+layer exists in the new style.
 
 ## Layer and source IDs
 

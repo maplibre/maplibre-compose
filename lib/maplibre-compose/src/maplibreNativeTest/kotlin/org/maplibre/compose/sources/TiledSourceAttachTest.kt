@@ -136,8 +136,7 @@ class TiledSourceAttachTest {
         )
       style.install(source)
       style.uninstall(source)
-      // Read through the witness: a detached descriptor has no binding, so it answers null either
-      // way.
+      // Read through the loaded style because the reusable definition contains no live map.
       assertEquals(
         false,
         style.onMap { map -> map.styleSourceExists("tiles") },
@@ -172,7 +171,7 @@ class TiledSourceAttachTest {
           tileSize = 256,
           demEncoding = RasterDemEncoding.Custom(redFactor = 2f),
         )
-      // The descriptor keeps the encoding it was given; the downgrade happens on the way in.
+      // The definition keeps the encoding it was given; the downgrade happens on installation.
       assertEquals(Json.parseToJsonElement("\"custom\""), source.toJson()["encoding"])
 
       val layer = HillshadeLayer("hillshade", source)

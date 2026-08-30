@@ -28,15 +28,14 @@ import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleComposition
 import org.maplibre.compose.style.rememberStyleComposition
+import org.maplibre.compose.util.FeaturesClickHandler
+import org.maplibre.compose.util.MapClickHandler
 import org.maplibre.spatialk.geojson.Position
 
 private class MapStateAttachment(
   val state: MapState,
   private val token: MapPresentationToken,
 ) {
-  val runtime: RuntimeImplementation
-    get() = state.runtime
-
   fun publish(map: MapAdapter, options: MapPresentationOptions) {
     state.publishPresentation(token, map, options)
   }
@@ -142,7 +141,6 @@ private fun MaplibreMapPresentation(
   }
 
   var rememberedStyle by remember { mutableStateOf<StyleBinding?>(null) }
-  val styleState = state.compatibilityStyleState
   val desiredRevision by
     rememberStyleComposition(
       composition = styleComposition,
@@ -152,7 +150,6 @@ private fun MaplibreMapPresentation(
         state.desiredStyleRevision.layers.mapTo(mutableSetOf()) {
           it.definition.id
         },
-      styleState = styleState,
     )
   val mapClickScope = rememberCoroutineScope()
   val presentation = state.presentation
@@ -177,12 +174,10 @@ private fun MaplibreMapPresentation(
     val map = presentation?.adapter ?: return@LaunchedEffect
     val revision = desiredRevision ?: return@LaunchedEffect
     attachment.reconcileStyleRevision(map, revision)
-    styleState.refreshSources()
   }
 
   val adapterCallbacks =
     remember(
-      styleState,
       desiredRevision,
       mapClickScope,
       attachment,
@@ -209,17 +204,11 @@ private fun MaplibreMapPresentation(
         }
 
         override fun onMapFinishedLoading(map: MapAdapter) {
-          if (!attachment.markStyleReady(map)) return
-          styleState.refreshSources()
+          attachment.markStyleReady(map)
         }
 
         override fun onSourceChanged(map: MapAdapter, sourceId: String?) {
-          if (!state.refreshStyleSources(map, sourceId)) return
-          if (sourceId == null) {
-            styleState.refreshSources()
-          } else {
-            styleState.refreshSource(sourceId)
-          }
+          state.refreshStyleSources(map, sourceId)
         }
 
         override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {
@@ -240,35 +229,18 @@ private fun MaplibreMapPresentation(
           return layers.asReversed().mapNotNull { layer -> layerNodes[layer.id] }
         }
 
-        override fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset) {
+        private fun dispatchPointerEvent(
+          map: MapAdapter,
+          latLng: Position,
+          offset: DpOffset,
+          mapHandler: MapClickHandler,
+          layerHandler: (DesiredStyleLayer) -> FeaturesClickHandler?,
+        ) {
           if (currentPresentation(map) == null) return
-          if (callbacks.onClick(latLng, offset).consumed) return
+          if (mapHandler(latLng, offset).consumed) return
           mapClickScope.launch {
             for (node in layerNodesInOrder()) {
-              if (node.onClick == null) continue
-              val features =
-                map.queryRenderedFeatures(
-                  offset = offset,
-                  layerIds = setOf(node.definition.id),
-                  predicate = null,
-                )
-              // Recomposition may replace or remove the node while the query is suspended. A
-              // removed node never receives the click; a replaced one answers with the handler
-              // it has now.
-              val currentHandle =
-                layerNodesInOrder().firstOrNull { it.definition.id == node.definition.id }?.onClick
-                  ?: continue
-              if (features.isNotEmpty() && currentHandle(features).consumed) break
-            }
-          }
-        }
-
-        override fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset) {
-          if (currentPresentation(map) == null) return
-          if (callbacks.onLongClick(latLng, offset).consumed) return
-          mapClickScope.launch {
-            for (node in layerNodesInOrder()) {
-              if (node.onLongClick == null) continue
+              if (layerHandler(node) == null) continue
               val features =
                 map.queryRenderedFeatures(
                   offset = offset,
@@ -281,11 +253,23 @@ private fun MaplibreMapPresentation(
               val currentHandle =
                 layerNodesInOrder()
                   .firstOrNull { it.definition.id == node.definition.id }
-                  ?.onLongClick ?: continue
+                  ?.let(layerHandler) ?: continue
               if (features.isNotEmpty() && currentHandle(features).consumed) break
             }
           }
         }
+
+        override fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset) =
+          dispatchPointerEvent(map, latLng, offset, callbacks.onClick, DesiredStyleLayer::onClick)
+
+        override fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset) =
+          dispatchPointerEvent(
+            map,
+            latLng,
+            offset,
+            callbacks.onLongClick,
+            DesiredStyleLayer::onLongClick,
+          )
 
         override fun onFrame(fps: Double) {
           val map = state.presentation?.adapter ?: return
@@ -298,7 +282,6 @@ private fun MaplibreMapPresentation(
   Box(modifier.fillMaxSize()) {
     ComposableMapView(
       modifier = Modifier.fillMaxSize(),
-      runtime = attachment.runtime,
       state = state,
       style = state.style.baseStyle,
       update = update@{ map ->
@@ -324,7 +307,6 @@ private fun MaplibreMapPresentation(
       },
       logger = state.runtime.logger,
       callbacks = adapterCallbacks,
-      rememberedStyle = rememberedStyle,
       options = presentationOptions,
     )
 

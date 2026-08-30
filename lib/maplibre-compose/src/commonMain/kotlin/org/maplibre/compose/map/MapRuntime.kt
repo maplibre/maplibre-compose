@@ -53,7 +53,6 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleOperationGuard
-import org.maplibre.compose.style.StyleState
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
@@ -402,7 +401,6 @@ internal constructor(
   private var cameraPositionState: CameraPosition by
     mutableStateOf(initialCameraPosition, structuralEqualityPolicy())
 
-  internal val compatibilityStyleState = StyleState()
   internal var desiredStyleRevision: DesiredStyleRevision = DesiredStyleRevision.Empty
 
   public val style: MapStyleState = MapStyleState(initialBaseStyle).also { it.attach(this) }

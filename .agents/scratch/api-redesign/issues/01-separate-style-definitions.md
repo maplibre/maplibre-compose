@@ -35,7 +35,7 @@ a replacement style or another map.
 - Replace `RecordingStyleBinding.kt` and `FakeStyle.kt` with tests of immutable
   definitions and the single loaded-style port.
 - Rewrite `StyleOwnershipTest.kt`, `StyleCompositionOrderTest.kt`,
-  `MlnFfiStyleSwitchTest.kt`, and `BrowserStyleStateTest.kt` around style
+  `MlnFfiStyleSwitchTest.kt`, and `BrowserMapStyleStateTest.kt` around style
   identities; delete cases that only distinguish the three old binding layers.
 - Run `mise run style-spec:parity --check`, `mise run test:android`,
   `mise run test:desktop`, and `mise run test:js`.
