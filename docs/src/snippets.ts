@@ -27,18 +27,13 @@ export function region(source: string, name: string): string {
   return dedent(trimBlankEdges(body)).join("\n");
 }
 
-/**
- * Nests a region inside the block it belongs to.
- *
- * Some regions sit inside a `MaplibreMap { ... }` in the source, where the
- * surrounding call is context the page needs but the region should not repeat.
- */
-export function inside(opening: string, body: string): string {
+/** Wraps a region in the style composition and map call that consume it. */
+export function styleComposition(body: string): string {
   const indented = body
     .split("\n")
-    .map((line) => (line.trim() === "" ? line : `  ${line}`))
+    .map((line) => (line.trim() === "" ? line : `    ${line}`))
     .join("\n");
-  return `${opening}\n${indented}\n}`;
+  return `val composition = remember {\n  StyleComposition {\n${indented}\n  }\n}\nMaplibreMap(styleComposition = composition)`;
 }
 
 function isMarker(line: string, kind: string, name?: string): boolean {
