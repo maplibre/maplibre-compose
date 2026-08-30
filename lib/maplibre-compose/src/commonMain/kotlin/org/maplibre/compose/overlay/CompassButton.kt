@@ -47,10 +47,11 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.generated.Res
 import org.maplibre.compose.generated.compass
 import org.maplibre.compose.generated.compass_needle
+import org.maplibre.compose.map.MapPresentation
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.util.AngleMath
 
 /**
@@ -59,7 +60,8 @@ import org.maplibre.compose.util.AngleMath
  * This component draws with Compose Foundation alone. The Material 3 module provides a themed
  * version of it.
  *
- * @param cameraState The camera that the needle follows and that a click resets.
+ * @param mapState The logical map whose durable camera position the needle follows.
+ * @param presentation The current presentation that a click resets.
  * @param onClick Called after the camera animation starts.
  * @param style Colors, shape, and elevation of the button behind the needle.
  * @param contentDescription Accessibility label for the needle.
@@ -70,7 +72,8 @@ import org.maplibre.compose.util.AngleMath
  */
 @Composable
 public fun CompassButton(
-  cameraState: CameraState,
+  mapState: MapState,
+  presentation: MapPresentation?,
   modifier: Modifier = Modifier,
   onClick: () -> Unit = {},
   style: CompassButtonStyle = CompassDefaults.style(),
@@ -98,7 +101,11 @@ public fun CompassButton(
         indication = LocalIndication.current,
         role = Role.Button,
       ) {
-        coroutineScope.launch { cameraState.animateTo(getHomePosition(cameraState.position)) }
+        presentation?.let { current ->
+          coroutineScope.launch {
+            current.animateCameraPosition(getHomePosition(mapState.cameraPosition))
+          }
+        }
         onClick()
       }
       .padding(contentPadding),
@@ -110,8 +117,8 @@ public fun CompassButton(
       modifier =
         Modifier.fillMaxSize()
           .graphicsLayer(
-            rotationZ = -cameraState.position.bearing.toFloat(),
-            rotationX = cameraState.position.tilt.toFloat(),
+            rotationZ = -mapState.cameraPosition.bearing.toFloat(),
+            rotationX = mapState.cameraPosition.tilt.toFloat(),
           ),
     )
   }
@@ -130,7 +137,8 @@ public fun CompassButton(
  */
 @Composable
 public fun DisappearingCompassButton(
-  cameraState: CameraState,
+  mapState: MapState,
+  presentation: MapPresentation?,
   modifier: Modifier = Modifier,
   onClick: () -> Unit = {},
   style: CompassButtonStyle = CompassDefaults.style(),
@@ -150,12 +158,12 @@ public fun DisappearingCompassButton(
   val currentSlop by rememberUpdatedState(slop)
 
   val shouldBeVisible by
-    remember(cameraState) {
+    remember(mapState) {
       derivedStateOf {
-        val home = currentGetHomePosition(cameraState.position)
+        val home = currentGetHomePosition(mapState.cameraPosition)
         with(AngleMath) {
-          val tiltDiff = cameraState.position.tilt.diff(home.tilt).absoluteValue
-          val bearingDiff = cameraState.position.bearing.diff(home.bearing).absoluteValue
+          val tiltDiff = mapState.cameraPosition.tilt.diff(home.tilt).absoluteValue
+          val bearingDiff = mapState.cameraPosition.bearing.diff(home.bearing).absoluteValue
           tiltDiff > currentSlop || bearingDiff > currentSlop
         }
       }
@@ -177,7 +185,8 @@ public fun DisappearingCompassButton(
     exit = exitTransition,
   ) {
     CompassButton(
-      cameraState = cameraState,
+      mapState = mapState,
+      presentation = presentation,
       onClick = onClick,
       style = style,
       contentDescription = contentDescription,

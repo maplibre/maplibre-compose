@@ -6,7 +6,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
@@ -23,6 +22,7 @@ import org.maplibre.compose.expressions.dsl.step
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.HeatmapLayer
 import org.maplibre.compose.layers.SymbolLayer
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.rememberGeoJsonSource
@@ -52,7 +52,7 @@ object DataVizDemo : Demo {
   private val magnitude = feature["mag"].asNumber()
 
   @Composable
-  override fun MapContent(cameraState: CameraState) {
+  override fun MapContent(mapState: MapState) {
     when (mode) {
       Mode.Points -> Points()
       Mode.Heatmap -> Heatmap()

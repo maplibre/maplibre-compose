@@ -14,6 +14,7 @@ internal object ProcessNativeMapRuntime {
       ?: RuntimeImplementation(
           platformOptions = options,
           resources = MapRuntimeResources {},
+          logger = options.logger,
         )
         .also {
           currentOptions = options
@@ -23,7 +24,11 @@ internal object ProcessNativeMapRuntime {
 }
 
 internal fun createNativeMapRuntime(options: MlnFfiRuntimeOptions): MapRuntime =
-  RuntimeImplementation(platformOptions = options, resources = MapRuntimeResources {})
+  RuntimeImplementation(
+    platformOptions = options,
+    resources = MapRuntimeResources {},
+    logger = options.logger,
+  )
 
 internal val RuntimeImplementation.nativeRuntimeOptions: MlnFfiRuntimeOptions
   get() = platformOptions as MlnFfiRuntimeOptions

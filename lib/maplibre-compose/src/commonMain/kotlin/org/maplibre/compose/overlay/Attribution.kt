@@ -59,10 +59,10 @@ import be.digitalia.compose.htmlconverter.htmlToAnnotatedString
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.maplibre.compose.camera.CameraMoveReason
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.generated.Res
 import org.maplibre.compose.generated.attribution
 import org.maplibre.compose.generated.info
+import org.maplibre.compose.map.MapPresentation
 import org.maplibre.compose.style.StyleState
 import org.maplibre.compose.util.horizontal
 import org.maplibre.compose.util.reverse
@@ -76,7 +76,7 @@ import org.maplibre.compose.util.vertical
  * This component draws with Compose Foundation alone. The Material 3 module provides a themed
  * version of it.
  *
- * @param cameraState Used to dismiss the attribution when the user interacts with the map.
+ * @param presentation Used to dismiss the attribution when the user interacts with the map.
  * @param styleState Used to get the attribution links to display.
  * @param contentAlignment Will be used to determine layout of the attribution icon and text.
  * @param toggleButton Composable that defines the button used to toggle the attribution display.
@@ -92,7 +92,7 @@ import org.maplibre.compose.util.vertical
  */
 @Composable
 public fun ExpandingAttributionButton(
-  cameraState: CameraState,
+  presentation: MapPresentation?,
   styleState: StyleState,
   modifier: Modifier = Modifier,
   contentAlignment: Alignment = Alignment.BottomEnd,
@@ -107,8 +107,11 @@ public fun ExpandingAttributionButton(
   var expanded by remember { mutableStateOf(true) }
 
   // dismiss on any map gesture
-  LaunchedEffect(cameraState.isCameraMoving, cameraState.moveReason) {
-    if (cameraState.isCameraMoving && cameraState.moveReason == CameraMoveReason.GESTURE) {
+  LaunchedEffect(presentation?.isCameraMoving, presentation?.cameraMoveReason) {
+    if (
+      presentation?.isCameraMoving == true &&
+        presentation.cameraMoveReason == CameraMoveReason.GESTURE
+    ) {
       expanded = false
     }
   }

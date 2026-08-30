@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.first
-import org.maplibre.compose.camera.CameraState
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.offline.DownloadProgress
 import org.maplibre.compose.offline.DownloadStatus
 import org.maplibre.compose.offline.OfflineManager
@@ -31,7 +31,7 @@ private class OfflinePackPrefetcher(private val manager: OfflineManager) : TileP
     bounds: BoundingBox,
     minZoom: Int,
     maxZoom: Int,
-    camera: CameraState,
+    camera: MapState,
     onStatus: (String) -> Unit,
   ) {
     manager.setTileCountLimit(50_000)

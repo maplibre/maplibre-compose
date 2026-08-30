@@ -2,6 +2,8 @@
 
 package org.maplibre.compose.map
 
+import androidx.compose.foundation.MutatorMutex
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -11,10 +13,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.runtime.structuralEqualityPolicy
+import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.DpRect
+import androidx.compose.ui.unit.dp
+import co.touchlab.kermit.Logger
 import kotlin.concurrent.atomics.AtomicLong
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.jvm.JvmInline
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
 import kotlinx.coroutines.CompletableDeferred
@@ -22,12 +30,28 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.selects.select
+import kotlinx.serialization.json.JsonObject
+import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
+import org.maplibre.compose.camera.Viewport
+import org.maplibre.compose.expressions.ast.CompiledExpression
+import org.maplibre.compose.expressions.ast.Expression
+import org.maplibre.compose.expressions.ast.ExpressionContext
+import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleState
+import org.maplibre.compose.util.VisibleRegion
+import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
 /** Platform configuration for one [MapRuntime]. */
@@ -62,6 +86,10 @@ public class MapRuntimeClosedException : IllegalStateException("The map runtime 
 
 /** Thrown when an operation targets a closed logical map. */
 public class MapStateClosedException : IllegalStateException("The map state is closed")
+
+/** Thrown when an operation targets a presentation whose render lease has ended. */
+public class MapPresentationDetachedException :
+  IllegalStateException("The map presentation lease has ended")
 
 /** The load state for the desired base style of one logical map. */
 public sealed interface StyleLoadState {
@@ -108,14 +136,174 @@ internal constructor(
   private val owner: MapState,
   internal val token: MapPresentationToken,
   internal val adapter: MapAdapter,
+  initialOptions: MapPresentationOptions = MapPresentationOptions(),
 ) {
+  private val invalidated = CompletableDeferred<Unit>()
+  private val cameraMutation = MutatorMutex()
+  private var validState: Boolean by mutableStateOf(true)
+  private var viewportState: Viewport? by mutableStateOf(adapter.getViewport())
+  private val firstViewport =
+    CompletableDeferred<Viewport>().also { readiness -> viewportState?.let(readiness::complete) }
+  private var cameraMovingState: Boolean by mutableStateOf(false)
+  private var moveReasonState: CameraMoveReason by mutableStateOf(CameraMoveReason.NONE)
+  private var optionsState: MapPresentationOptions by
+    mutableStateOf(initialOptions, structuralEqualityPolicy())
+
   /** Whether this presentation is still the current connection. */
   public val isValid: Boolean
-    get() = owner.isCurrent(this)
+    get() = validState
+
+  /** The current viewport, or null before the presentation has rendered its first viewport. */
+  public val viewport: Viewport?
+    get() = viewportState
+
+  /** Whether the current camera mutation is still in progress. */
+  public val isCameraMoving: Boolean
+    get() = cameraMovingState
+
+  /** The reason that the current or most recent camera mutation started. */
+  public val cameraMoveReason: CameraMoveReason
+    get() = moveReasonState
+
+  /** The settings that the current [MaplibreMap] call applies to this render lease. */
+  public val options: MapPresentationOptions
+    get() = optionsState
 
   /** Sets the camera for this presentation, or fails if its render lease has ended. */
   public fun setCameraPosition(position: CameraPosition) {
     owner.setCameraPosition(this, position)
+  }
+
+  /** Fits [boundingBox] in the current viewport and keeps the presentation camera padding. */
+  public fun setCameraPosition(
+    boundingBox: BoundingBox,
+    bearing: Double = 0.0,
+    tilt: Double = 0.0,
+    padding: PaddingValues = PaddingValues(0.dp),
+  ) {
+    owner.withCurrent(this) { adapter.setCameraPosition(boundingBox, bearing, tilt, padding) }
+  }
+
+  /** Animates the camera to [position]. A new camera animation replaces the previous one. */
+  public suspend fun animateCameraPosition(
+    position: CameraPosition,
+    duration: Duration = 300.milliseconds,
+  ) {
+    cameraMutation.mutate {
+      runLeaseBound { adapter.animateCameraPosition(position, duration) }
+    }
+  }
+
+  /** Animates the camera to fit [boundingBox]. A new camera animation replaces the previous one. */
+  public suspend fun animateCameraPosition(
+    boundingBox: BoundingBox,
+    bearing: Double = 0.0,
+    tilt: Double = 0.0,
+    padding: PaddingValues = PaddingValues(0.dp),
+    duration: Duration = 300.milliseconds,
+  ) {
+    cameraMutation.mutate {
+      runLeaseBound {
+        adapter.animateCameraPosition(boundingBox, bearing, tilt, padding, duration)
+      }
+    }
+  }
+
+  /** Returns the visible region, or null before this presentation has a viewport. */
+  public fun getVisibleRegion(): VisibleRegion? = withViewport { it.getVisibleRegion() }
+
+  /** Returns the visible axis-aligned bounds, or null before this presentation has a viewport. */
+  public fun getVisibleBoundingBox(): BoundingBox? = withViewport { it.getVisibleBoundingBox() }
+
+  /** Projects [position] into a logical-pixel offset in this presentation. */
+  public fun screenLocationFromPosition(position: Position): DpOffset? = withViewport {
+    it.screenLocationFromPosition(position)
+  }
+
+  /** Unprojects a logical-pixel [offset] into a geographic position. */
+  public fun positionFromScreenLocation(offset: DpOffset): Position? = withViewport {
+    it.positionFromScreenLocation(offset)
+  }
+
+  /** Returns the ground distance per dp, or null before this presentation has a viewport. */
+  public fun metersPerDpAtLatitude(latitude: Double): Double? = withViewport {
+    it.metersPerDpAtLatitude(latitude)
+  }
+
+  /** Queries rendered features at [offset] in front-to-back render order. */
+  public suspend fun queryRenderedFeatures(
+    offset: DpOffset,
+    layerIds: Set<String>? = null,
+    predicate: Expression<BooleanValue> = const(true),
+  ): List<Feature<Geometry, JsonObject?>> = runLeaseBound {
+    awaitViewportState()
+    adapter.queryRenderedFeatures(offset, layerIds, predicate.compileOrNull())
+  }
+
+  /** Queries rendered features that intersect [rect] in front-to-back render order. */
+  public suspend fun queryRenderedFeatures(
+    rect: DpRect,
+    layerIds: Set<String>? = null,
+    predicate: Expression<BooleanValue> = const(true),
+  ): List<Feature<Geometry, JsonObject?>> = runLeaseBound {
+    awaitViewportState()
+    adapter.queryRenderedFeatures(rect, layerIds, predicate.compileOrNull())
+  }
+
+  /** Suspends until this presentation has rendered its first viewport. */
+  public suspend fun awaitViewport(): Viewport = runLeaseBound { awaitViewportState() }
+
+  internal fun updateViewport(value: Viewport?) {
+    viewportState = value
+    value?.let(firstViewport::complete)
+  }
+
+  internal fun cameraMoveStarted(reason: CameraMoveReason) {
+    moveReasonState = reason
+    cameraMovingState = true
+  }
+
+  internal fun cameraMoved(viewport: Viewport?) {
+    updateViewport(viewport)
+  }
+
+  internal fun cameraMoveEnded() {
+    cameraMovingState = false
+  }
+
+  internal fun updateOptions(value: MapPresentationOptions) {
+    optionsState = value
+  }
+
+  internal fun invalidate() {
+    validState = false
+    invalidated.complete(Unit)
+  }
+
+  private fun Expression<BooleanValue>.compileOrNull(): CompiledExpression<BooleanValue>? {
+    if (this == const(true)) return null
+    return compile(ExpressionContext.None)
+  }
+
+  private fun <T> withViewport(block: (MapAdapter) -> T): T? =
+    owner.withCurrent(this) { if (viewportState == null) null else block(adapter) }
+
+  private suspend fun awaitViewportState(): Viewport = firstViewport.await()
+
+  private suspend fun <T> runLeaseBound(block: suspend () -> T): T = coroutineScope {
+    owner.requireCurrent(this@MapPresentation)
+    val operation =
+      async(start = CoroutineStart.UNDISPATCHED) {
+        owner.requireCurrent(this@MapPresentation)
+        block()
+      }
+    select {
+      operation.onAwait { it }
+      invalidated.onAwait {
+        operation.cancelAndJoin()
+        throw MapPresentationDetachedException()
+      }
+    }
   }
 }
 
@@ -132,6 +320,7 @@ internal constructor(
   private var retainedAdapter: MapAdapter? = null
   private val retiringAdapters = linkedSetOf<MapAdapter>()
   private var closed = false
+  private var closedState: Boolean by mutableStateOf(false)
 
   internal val cameraState = CameraState(initialCameraPosition)
   internal val compatibilityStyleState = StyleState()
@@ -140,13 +329,13 @@ internal constructor(
   public val style: MapStyleState = MapStyleState(initialBaseStyle).also { it.attach(this) }
 
   public val cameraPosition: CameraPosition
-    get() = cameraState.position
+    get() = cameraState.positionState.value
 
   public var presentation: MapPresentation? by mutableStateOf(null)
     private set
 
   public val isClosed: Boolean
-    get() = lock.withLock { closed }
+    get() = closedState
 
   /** Marks this state as closed and starts cleanup of the current presentation. */
   public fun close() {
@@ -161,7 +350,11 @@ internal constructor(
       attachment = null
       retainedAdapter = null
       retiringAdapters.clear()
-      Snapshot.withMutableSnapshot { presentation = null }
+      Snapshot.withMutableSnapshot {
+        closedState = true
+        presentation?.invalidate()
+        presentation = null
+      }
       maps
     }
     cameraState.map = null
@@ -195,14 +388,21 @@ internal constructor(
     token
   }
 
-  internal fun publishPresentation(token: MapPresentationToken, adapter: MapAdapter) {
+  internal fun publishPresentation(
+    token: MapPresentationToken,
+    adapter: MapAdapter,
+    options: MapPresentationOptions = MapPresentationOptions(),
+  ) {
     val replaced = lock.withLock {
       requireOpenLocked()
       val current = attachment
       check(current?.token == token && !current.releasing) {
         "The map presentation reservation is no longer current"
       }
-      if (current.adapter === adapter) return
+      if (current.adapter === adapter) {
+        presentation?.updateOptions(options)
+        return
+      }
       check(current.adapter == null) { "The map state already has a presentation" }
       current.adapter = adapter
       val reusesRetainedAdapter = retainedAdapter === adapter
@@ -211,10 +411,10 @@ internal constructor(
       }
       if (adapter.retainsEngineBetweenPresentations) retainedAdapter = adapter
       if (replaced != null) retiringAdapters += replaced
-      MapPresentation(this, token, adapter).also { presentation = it }
       cameraState.map = adapter
       adapter.setBaseStyle(style.baseStyle)
       if (!reusesRetainedAdapter) style.loadState = StyleLoadState.Loading
+      MapPresentation(this, token, adapter, options).also { presentation = it }
       replaced
     }
     if (replaced != null) {
@@ -233,6 +433,7 @@ internal constructor(
       if (adapter != null && current.adapter !== adapter) return
       if (current.releasing) return
       current.releasing = true
+      presentation?.invalidate()
       presentation = null
       if (current.adapter?.retainsEngineBetweenPresentations != true) {
         style.loadState = StyleLoadState.Pending
@@ -297,16 +498,25 @@ internal constructor(
     }
   }
 
-  internal fun isCurrent(candidate: MapPresentation): Boolean = lock.withLock {
-    !closed && presentation === candidate && attachment?.token == candidate.token
+  internal fun setCameraPosition(candidate: MapPresentation, position: CameraPosition) {
+    withCurrent(candidate) {
+      candidate.adapter.setCameraPosition(position)
+      cameraState.positionState.value = position
+    }
   }
 
-  internal fun setCameraPosition(candidate: MapPresentation, position: CameraPosition) {
-    lock.withLock {
-      check(!closed && presentation === candidate && attachment?.token == candidate.token) {
-        "The map presentation lease has ended"
-      }
-      candidate.adapter.setCameraPosition(position)
+  internal fun requireCurrent(candidate: MapPresentation) {
+    lock.withLock { requireCurrentLocked(candidate) }
+  }
+
+  internal fun <T> withCurrent(candidate: MapPresentation, block: () -> T): T = lock.withLock {
+    requireCurrentLocked(candidate)
+    block()
+  }
+
+  private fun requireCurrentLocked(candidate: MapPresentation) {
+    if (closed || presentation !== candidate || attachment?.token != candidate.token) {
+      throw MapPresentationDetachedException()
     }
   }
 
@@ -414,6 +624,7 @@ internal fun interface MapRuntimeResources {
 internal class RuntimeImplementation(
   internal val platformOptions: Any?,
   private val resources: MapRuntimeResources,
+  internal val logger: Logger?,
   internal val physicalScope: CoroutineScope =
     CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) : MapRuntime {
@@ -421,6 +632,7 @@ internal class RuntimeImplementation(
   private val children = linkedSetOf<MapState>()
   private val closure = CompletableDeferred<Result<Unit>>()
   private var closed = false
+  private var closedState: Boolean by mutableStateOf(false)
 
   final override fun createMapState(
     initialCameraPosition: CameraPosition,
@@ -434,6 +646,7 @@ internal class RuntimeImplementation(
     val closingChildren = lock.withLock {
       if (closed) return
       closed = true
+      Snapshot.withMutableSnapshot { closedState = true }
       children.toList()
     }
     closingChildren.forEach(MapState::close)
@@ -451,7 +664,7 @@ internal class RuntimeImplementation(
   }
 
   override val isClosed: Boolean
-    get() = lock.withLock { closed }
+    get() = closedState
 
   override suspend fun awaitClosed() {
     closure.await().getOrThrow()
@@ -473,4 +686,5 @@ internal fun mapRuntimeForTest(closeResources: suspend () -> Unit = {}): MapRunt
   RuntimeImplementation(
     platformOptions = null,
     resources = MapRuntimeResources(closeResources),
+    logger = null,
   )

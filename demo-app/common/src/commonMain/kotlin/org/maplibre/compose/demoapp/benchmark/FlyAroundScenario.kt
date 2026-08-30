@@ -19,13 +19,14 @@ internal object FlyAroundScenario : BenchmarkScenario {
     val durationNs = Duration.inWholeNanoseconds.toDouble()
     while (true) {
       val t = (start.elapsedNow().inWholeNanoseconds.toDouble() / durationNs).coerceIn(0.0, 1.0)
-      session.cameraState.position =
+      session.mapState.presentation?.setCameraPosition(
         CameraPosition(
           target = orbitPosition(BenchmarkCenter, RadiusLon, RadiusLat, t),
           zoom = OrbitZoom,
           tilt = OrbitTilt,
           bearing = t * 360.0,
         )
+      )
       if (t >= 1.0) break
       withFrameNanos {}
     }

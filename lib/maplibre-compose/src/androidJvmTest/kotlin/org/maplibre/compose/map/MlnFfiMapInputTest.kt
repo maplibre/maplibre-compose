@@ -47,8 +47,6 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.CameraState
-import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
@@ -67,7 +65,11 @@ class MlnFfiMapInputTest {
   private val longClicks = mutableListOf<Position>()
 
   private val runtimeOptions =
-    MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+    MlnFfiRuntimeOptions(
+      cacheFile = cacheFile,
+      maximumCacheSizeBytes = null,
+      logger = Logger.withTag("input-test"),
+    )
 
   @AfterTest
   fun cleanUp() {
@@ -94,7 +96,7 @@ class MlnFfiMapInputTest {
         onRoot().performMouseInput { moveTo(center) }
         mainClock.advanceTimeByFrame()
         // waitForIdle() would wait until overlay layout stops invalidating, which follows
-        // CameraState.viewport replacements through the rest of this native ease.
+        // MapPresentation viewport replacements through the rest of this native ease.
         assertTrue(camera.isCameraMoving, "a hover cancelled the keyboard pan")
       } finally {
         mainClock.autoAdvance = true
@@ -811,7 +813,7 @@ class MlnFfiMapInputTest {
    * swipes are positive Y and move the camera north.
    */
   private fun androidx.compose.ui.test.ComposeUiTest.verticalFlingLatitudeDelta(
-    camera: CameraState,
+    camera: PresentationCamera,
     swipeY: Float,
   ): Double {
     val before = camera.position.target.latitude
@@ -901,14 +903,17 @@ class MlnFfiMapInputTest {
    * later frames, and the interruption under test still sees a moving camera.
    */
   private fun androidx.compose.ui.test.ComposeUiTest.awaitReleasedTouchMomentum(
-    camera: CameraState
+    camera: PresentationCamera
   ) {
     mainClock.advanceTimeByFrame()
     waitUntil(timeoutMillis = TIMEOUT) { camera.isCameraMoving }
   }
 
   /** Waits for the camera to settle at [zoom]. */
-  private fun androidx.compose.ui.test.ComposeUiTest.awaitZoom(camera: CameraState, zoom: Double) {
+  private fun androidx.compose.ui.test.ComposeUiTest.awaitZoom(
+    camera: PresentationCamera,
+    zoom: Double,
+  ) {
     waitUntil(timeoutMillis = TIMEOUT) { abs(camera.position.zoom - zoom) < ZOOM_TOLERANCE }
   }
 
@@ -957,30 +962,35 @@ class MlnFfiMapInputTest {
     mapModifier: @Composable () -> Modifier = { Modifier.fillMaxSize() },
     parentOnClick: (() -> Unit)? = null,
     parentOnLongClick: (() -> Unit)? = null,
-    body: androidx.compose.ui.test.ComposeUiTest.(CameraState) -> Unit,
+    body: androidx.compose.ui.test.ComposeUiTest.(PresentationCamera) -> Unit,
   ) = runFfiComposeUiTest {
     val frames = AtomicInt(0)
     val initialPosition = CameraPosition(target = Position(0.0, 0.0), zoom = START_ZOOM)
-    lateinit var cameraState: CameraState
+    lateinit var mapState: MapState
 
     setFfiTestMapContent(runtimeOptions) {
-      cameraState = rememberCameraState(firstPosition = initialPosition)
+      mapState =
+        rememberMapState(
+          initialCameraPosition = initialPosition,
+          initialBaseStyle = BaseStyle.Empty,
+        )
       val content: @Composable () -> Unit = {
         MaplibreMap(
+          state = mapState,
           modifier = mapModifier(),
-          baseStyle = BaseStyle.Empty,
-          cameraState = cameraState,
-          options = MapOptions(gestureOptions = gestures),
-          onMapClick = { position, _ ->
-            clicks.add(position)
-            ClickResult.Pass
-          },
-          onMapLongClick = { position, _ ->
-            longClicks.add(position)
-            ClickResult.Pass
-          },
-          onFrame = { frames.incrementAndFetch() },
-          logger = Logger.withTag("input-test"),
+          presentationOptions = MapPresentationOptions(gestureOptions = gestures),
+          callbacks =
+            MapPresentationCallbacks(
+              onClick = { position, _ ->
+                clicks.add(position)
+                ClickResult.Pass
+              },
+              onLongClick = { position, _ ->
+                longClicks.add(position)
+                ClickResult.Pass
+              },
+              onFrame = { frames.incrementAndFetch() },
+            ),
         )
       }
       when {
@@ -998,18 +1008,40 @@ class MlnFfiMapInputTest {
 
     // The map thread reports the first viewport, and a suspended test body pumps no snapshot apply
     // notifications; waitUntil polls with frame pumps, so that report can't strand it.
-    waitUntil(timeoutMillis = TIMEOUT) { cameraState.viewport != null }
-    cameraState.position = initialPosition
+    waitUntil(timeoutMillis = TIMEOUT) { mapState.presentation?.viewport != null }
+    val camera = PresentationCamera(mapState)
+    camera.position = initialPosition
     waitUntil(timeoutMillis = TIMEOUT) { frames.load() > 0 }
     waitUntil(timeoutMillis = TIMEOUT) {
-      kotlin.math.abs(cameraState.position.zoom - START_ZOOM) < 0.001
+      kotlin.math.abs(camera.position.zoom - START_ZOOM) < 0.001
     }
 
     // A click is what gives the map focus, so the keyboard cases depend on it too. Keep it outside
     // the double-click slop, or a test's first click becomes the second half of this one.
     if (focusWithMouse) onRoot().performMouseInput { click(Offset(10f, 10f)) }
 
-    body(cameraState)
+    body(camera)
+  }
+
+  /** Keeps input-test assertions compact while routing every mutation through the live lease. */
+  private class PresentationCamera(private val state: MapState) {
+    private val presentation: MapPresentation
+      get() = requireNotNull(state.presentation)
+
+    var position: CameraPosition
+      get() = state.cameraPosition
+      set(value) {
+        presentation.setCameraPosition(value)
+      }
+
+    val viewport
+      get() = presentation.viewport
+
+    val isCameraMoving
+      get() = presentation.isCameraMoving
+
+    val moveReason
+      get() = presentation.cameraMoveReason
   }
 
   /**

@@ -10,15 +10,19 @@ import org.maplibre.compose.overlay.MaplibreLogo
 
 private val Material3Overlay = MapOverlay {
   DisappearingScaleBar(
-    metersPerDp = cameraState.viewport?.metersPerDpAtTarget ?: 0.0,
-    zoom = cameraState.position.zoom,
+    metersPerDp = presentation?.viewport?.metersPerDpAtTarget ?: 0.0,
+    zoom = mapState.cameraPosition.zoom,
     modifier = Modifier.align(Alignment.TopStart),
   )
 
-  DisappearingCompassButton(cameraState = cameraState, modifier = Modifier.align(Alignment.TopEnd))
+  DisappearingCompassButton(
+    mapState = mapState,
+    presentation = presentation,
+    modifier = Modifier.align(Alignment.TopEnd),
+  )
 
   // Read before entering the Row, whose scope shadows this one.
-  val camera = cameraState
+  val currentPresentation = presentation
   val style = styleState
   Row(
     Modifier.align(Alignment.BottomStart).fillMaxWidth(),
@@ -26,7 +30,7 @@ private val Material3Overlay = MapOverlay {
     verticalAlignment = Alignment.CenterVertically,
   ) {
     MaplibreLogo()
-    ExpandingAttributionButton(cameraState = camera, styleState = style)
+    ExpandingAttributionButton(presentation = currentPresentation, styleState = style)
   }
 }
 

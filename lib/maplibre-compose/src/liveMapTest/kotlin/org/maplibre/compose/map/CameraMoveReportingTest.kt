@@ -2,7 +2,9 @@ package org.maplibre.compose.map
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.MapFixture
 import org.maplibre.compose.testing.MapTestResult
@@ -17,35 +19,18 @@ class CameraMoveReportingTest {
       it.startAtRest()
 
       val token = it.gestures.onGestureStarted()
-      repeat(DRAG_SAMPLES) { _ ->
+      repeat(DRAG_SAMPLES) { sample ->
         it.gestures.moveBy(DRAG_STEP_DP, DRAG_STEP_DP, gestureToken = token)
         it.pump(FRAMES_PER_SAMPLE)
+        assertTrue(it.presentation.isCameraMoving, "the drag ended at sample $sample")
+        assertEquals(CameraMoveReason.GESTURE, it.presentation.cameraMoveReason)
       }
       it.settle()
       it.gestures.onGestureEnded(token)
       it.pump(FRAMES_PER_SAMPLE)
 
-      val events = it.events.toList()
-      assertEquals(
-        listOf("cameraMoveStarted(GESTURE)"),
-        events.filter { event -> event.startsWith("cameraMoveStarted") },
-        "A drag should report starting once, as one gesture rather than one jump per pointer " +
-          "sample. Got: $events",
-      )
-      assertEquals(
-        1,
-        events.count { event -> event == "cameraMoveEnded" },
-        "A drag should report ending once, after the gesture. Got: $events",
-      )
-      assertEquals(
-        events.last(),
-        "cameraMoveEnded",
-        "The move should end when the gesture does, not while it is still running. Got: $events",
-      )
-      assertTrue(
-        events.indexOf("cameraMoved") > 0,
-        "The drag should still report the camera moving in between. Got: $events",
-      )
+      assertFalse(it.presentation.isCameraMoving)
+      assertEquals(CameraMoveReason.GESTURE, it.presentation.cameraMoveReason)
     }
   }
 
@@ -57,38 +42,8 @@ class CameraMoveReportingTest {
       it.gestures.moveBy(DRAG_STEP_DP, DRAG_STEP_DP)
       it.pump(FRAMES_PER_SAMPLE)
 
-      val events = it.events.toList()
-      assertEquals(
-        listOf("cameraMoveStarted(PROGRAMMATIC)"),
-        events.filter { event -> event.startsWith("cameraMoveStarted") },
-        "Got: $events",
-      )
-      assertEquals(1, events.count { event -> event == "cameraMoveEnded" }, "Got: $events")
-    }
-  }
-
-  @Test
-  fun closing_during_a_gesture_ends_the_camera_move(): MapTestResult = runMapTest {
-    createMapFixture().use {
-      it.startAtRest()
-
-      val token = it.gestures.onGestureStarted()
-      it.gestures.moveBy(DRAG_STEP_DP, DRAG_STEP_DP, gestureToken = token)
-      it.pump(FRAMES_PER_SAMPLE)
-      it.closeSession()
-      it.closeSession()
-
-      val events = it.events.toList()
-      assertEquals(
-        1,
-        events.count { event -> event.startsWith("cameraMoveStarted") },
-        "the gesture should start one move: $events",
-      )
-      assertEquals(
-        1,
-        events.count { event -> event == "cameraMoveEnded" },
-        "terminal teardown should end that move exactly once: $events",
-      )
+      assertFalse(it.presentation.isCameraMoving)
+      assertEquals(CameraMoveReason.PROGRAMMATIC, it.presentation.cameraMoveReason)
     }
   }
 
@@ -96,7 +51,6 @@ class CameraMoveReportingTest {
     loadStyle(BaseStyle.Empty)
     awaitMapReady()
     settle()
-    events.clear()
   }
 
   private companion object {

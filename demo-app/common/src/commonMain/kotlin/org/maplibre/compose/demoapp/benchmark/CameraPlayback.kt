@@ -7,22 +7,22 @@ import kotlin.math.sin
 import kotlin.time.Duration
 import kotlin.time.TimeSource
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.CameraState
+import org.maplibre.compose.map.MapState
 import org.maplibre.spatialk.geojson.Position
 
 internal suspend fun playCamera(
-  camera: CameraState,
+  mapState: MapState,
   from: CameraPosition,
   to: CameraPosition,
   duration: Duration,
 ) {
   val start = TimeSource.Monotonic.markNow()
   val durationNs = duration.inWholeNanoseconds.toDouble().coerceAtLeast(1.0)
-  camera.position = from
+  mapState.presentation?.setCameraPosition(from)
   while (true) {
     val elapsedNs = start.elapsedNow().inWholeNanoseconds.toDouble()
     val t = (elapsedNs / durationNs).coerceIn(0.0, 1.0)
-    camera.position = lerp(from, to, t)
+    mapState.presentation?.setCameraPosition(lerp(from, to, t))
     if (t >= 1.0) break
     withFrameNanos {}
   }

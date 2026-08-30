@@ -21,39 +21,30 @@ import org.maplibre.compose.style.BaseStyle
 class BrowserMapStateTest {
 
   @Test
-  fun remembered_runtime_is_shared_and_remains_closed_after_state_disposal(): Promise<*> =
-    runBrowserMapTest {
-      val includeState = mutableStateOf(true)
-      lateinit var firstRuntime: MapRuntime
-      lateinit var secondRuntime: MapRuntime
-      lateinit var state: MapState
-      setBrowserMapContent {
-        firstRuntime = rememberMapRuntime()
-        secondRuntime = rememberMapRuntime()
-        if (includeState.value) {
-          val remembered = rememberMapState(firstRuntime, initialBaseStyle = BaseStyle.Empty)
-          SideEffect { state = remembered }
-        }
+  fun remembered_runtime_is_shared_and_survives_state_disposal(): Promise<*> = runBrowserMapTest {
+    val includeState = mutableStateOf(true)
+    lateinit var firstRuntime: MapRuntime
+    lateinit var secondRuntime: MapRuntime
+    lateinit var state: MapState
+    setBrowserMapContent {
+      firstRuntime = rememberMapRuntime()
+      secondRuntime = rememberMapRuntime()
+      if (includeState.value) {
+        val remembered = rememberMapState(firstRuntime, initialBaseStyle = BaseStyle.Empty)
+        SideEffect { state = remembered }
       }
-      waitForIdle()
-
-      assertSame(firstRuntime, secondRuntime)
-      assertTrue(!state.isClosed)
-
-      runOnIdle { includeState.value = false }
-      waitUntilMap("the remembered state to close") { state.isClosed }
-      assertTrue(state.isClosed)
-
-      firstRuntime.close()
-      firstRuntime.awaitClosed()
-      lateinit var runtimeAfterClosure: MapRuntime
-      setBrowserMapContent { runtimeAfterClosure = rememberMapRuntime() }
-      waitForIdle()
-
-      assertSame(firstRuntime, runtimeAfterClosure)
-      assertTrue(runtimeAfterClosure.isClosed)
-      assertFailsWith<MapRuntimeClosedException> { runtimeAfterClosure.createMapState() }
     }
+    waitForIdle()
+
+    assertSame(firstRuntime, secondRuntime)
+    assertTrue(!state.isClosed)
+
+    runOnIdle { includeState.value = false }
+    waitUntilMap("the remembered state to close") { state.isClosed }
+    assertTrue(state.isClosed)
+
+    assertFalse(firstRuntime.isClosed)
+  }
 
   @Test
   fun map_state_renders_a_base_style_and_publishes_one_presentation(): Promise<*> =

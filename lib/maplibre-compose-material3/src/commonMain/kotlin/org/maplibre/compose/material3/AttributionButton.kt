@@ -17,7 +17,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import org.maplibre.compose.camera.CameraState
+import org.maplibre.compose.map.MapPresentation
 import org.maplibre.compose.overlay.AttributionDefaults
 import org.maplibre.compose.overlay.AttributionLinks as BaseAttributionLinks
 import org.maplibre.compose.overlay.AttributionStyle
@@ -31,7 +31,7 @@ import org.maplibre.compose.style.StyleState
  * This is [org.maplibre.compose.overlay.ExpandingAttributionButton] with its colors, typography,
  * and widgets taken from the Material 3 theme.
  *
- * @param cameraState Used to dismiss the attribution when the user interacts with the map.
+ * @param presentation Used to dismiss the attribution when the user interacts with the map.
  * @param styleState Used to get the attribution links to display.
  * @param contentAlignment Will be used to determine layout of the attribution icon and text.
  * @param toggleButton Composable that defines the button used to toggle the attribution display.
@@ -47,7 +47,7 @@ import org.maplibre.compose.style.StyleState
  */
 @Composable
 public fun ExpandingAttributionButton(
-  cameraState: CameraState,
+  presentation: MapPresentation?,
   styleState: StyleState,
   modifier: Modifier = Modifier,
   contentAlignment: Alignment = Alignment.BottomEnd,
@@ -60,7 +60,7 @@ public fun ExpandingAttributionButton(
   collapse: (Alignment) -> ExitTransition = AttributionDefaults.collapse,
 ) {
   BaseExpandingAttributionButton(
-    cameraState = cameraState,
+    presentation = presentation,
     styleState = styleState,
     modifier = modifier,
     contentAlignment = contentAlignment,

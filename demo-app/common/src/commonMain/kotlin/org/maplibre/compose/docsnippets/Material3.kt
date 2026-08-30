@@ -24,13 +24,13 @@ fun Material3() {
     overlay =
       MapOverlay {
         ScaleBar(
-          cameraState.viewport?.metersPerDpAtTarget ?: 0.0,
+          presentation?.viewport?.metersPerDpAtTarget ?: 0.0,
           modifier = Modifier.align(Alignment.TopStart),
         ) // (1)!
-        CompassButton(cameraState, modifier = Modifier.align(Alignment.TopEnd))
+        CompassButton(mapState, presentation, modifier = Modifier.align(Alignment.TopEnd))
         MaplibreLogo(Modifier.align(Alignment.BottomStart))
         ExpandingAttributionButton(
-          cameraState = cameraState,
+          presentation = presentation,
           styleState = styleState,
           modifier = Modifier.align(Alignment.BottomEnd),
           contentAlignment = Alignment.BottomEnd,

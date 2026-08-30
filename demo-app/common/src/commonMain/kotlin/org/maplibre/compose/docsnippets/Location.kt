@@ -3,15 +3,17 @@
 package org.maplibre.compose.docsnippets
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.location.LocationPuck
 import org.maplibre.compose.location.LocationTrackingEffect
 import org.maplibre.compose.location.rememberDefaultHeadingProvider
 import org.maplibre.compose.location.rememberDefaultLocationProvider
 import org.maplibre.compose.location.rememberLocationState
 import org.maplibre.compose.map.MaplibreMap
+import org.maplibre.compose.map.rememberMapState
+import org.maplibre.compose.style.StyleComposition
 
 @Composable
 @OptIn(ExperimentalResourceApi::class)
@@ -19,7 +21,7 @@ import org.maplibre.compose.map.MaplibreMap
 // app, which the documentation covers in prose.
 fun Location() {
   // #region puck
-  val cameraState = rememberCameraState()
+  val mapState = rememberMapState()
 
   val locationProvider = rememberDefaultLocationProvider()
   val headingProvider = rememberDefaultHeadingProvider() // optional: get heading from sensors
@@ -30,16 +32,22 @@ fun Location() {
       headingProvider = headingProvider,
     )
 
-  MaplibreMap(cameraState = cameraState) {
-    LocationPuck(
-      idPrefix = "user",
-      locationState = locationState,
-      cameraState = cameraState,
-    )
+  val composition =
+    remember(locationState) {
+      StyleComposition {
+        LocationPuck(
+          idPrefix = "user",
+          locationState = locationState,
+          presentation = mapState.presentation,
+        )
 
-    LocationTrackingEffect(locationState) {
-      cameraState.animateTo(CameraPosition(target = currentReading.position, zoom = 15.0))
+        LocationTrackingEffect(locationState = locationState) {
+          mapState.presentation?.animateCameraPosition(
+            CameraPosition(target = currentReading.position, zoom = 15.0)
+          )
+        }
+      }
     }
-  }
+  MaplibreMap(state = mapState, styleComposition = composition)
   // #endregion puck
 }

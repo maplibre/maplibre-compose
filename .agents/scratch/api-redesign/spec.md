@@ -138,9 +138,10 @@ interface MapStyleState {
 }
 
 interface MapPresentation {
-  val viewport: Viewport
+  val viewport: Viewport?
   val isCameraMoving: Boolean
 
+  suspend fun awaitViewport(): Viewport
   fun setCameraPosition(position: CameraPosition)
   suspend fun animateCameraPosition(position: CameraPosition, duration: Duration)
   suspend fun queryRenderedFeatures(...): List<Feature<*, *>>
@@ -244,15 +245,36 @@ invalid when its lease ends. Calling an operation on a cached, invalid
 presentation fails immediately. It never waits for another attachment and never
 targets a later presentation.
 
+The nullable `MapPresentation.viewport` is the viewport-readiness state.
+`awaitViewport()` waits for the first viewport from that presentation. It fails
+if the render lease ends first. Direct camera-position commands can run before
+the first viewport. Bounds-based commands wait for a viewport from the same
+lease.
+
+Visible-region and scale observations return null before the first viewport.
+Projection methods also return null during this interval. Rendered-feature
+queries wait for the first viewport, then query the current rendered state. A
+query does not wait for style loading or reconciliation.
+
 Attaching a second `MaplibreMap` to the same `MapState` throws before either
 logical state or platform state changes. Two UI maps must use two map states.
 
-`MaplibreMap` publishes a presentation after its platform host and viewport are
-usable. It may therefore be attached while its style is still loading. The map
-surface remains hidden behind the composable placeholder until the requested
-base style has loaded and the first complete style-composition revision has
-reconciled. A style failure leaves the presentation attached, publishes the
-failure through `MapStyleState.loadState`, and keeps the placeholder visible.
+`MaplibreMap` publishes a presentation when it commits the render lease. Before
+publication, the adapter accepts the durable camera, base style, and complete
+initial `MapPresentationOptions`. The viewport can remain null until the first
+rendered viewport. Native platforms can expose this interval. Web can publish
+with a usable viewport because GL JS map creation requires a rendering target.
+
+Presentation callbacks begin after publication and apply only to that render
+lease. The lifecycle authority ignores callbacks after detachment. Platform
+events before publication can update internal durable state, but they do not
+invoke presentation callbacks.
+
+Presentation readiness is independent from style readiness. The map surface
+remains hidden behind the composable placeholder until the requested base style
+has loaded and the first complete style-composition revision has reconciled. A
+style failure leaves the presentation attached, publishes the failure through
+`MapStyleState.loadState`, and keeps the placeholder visible.
 
 ### Map composable inputs
 

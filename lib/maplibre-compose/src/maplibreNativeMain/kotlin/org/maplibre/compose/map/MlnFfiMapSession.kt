@@ -456,6 +456,10 @@ internal class MlnFfiMapSession(
   }
 
   override suspend fun detachPresentation() {
+    val abandoned = stateLock.withLock {
+      pendingViewportActions.toList().also { pendingViewportActions.clear() }
+    }
+    abandoned.forEach { it.abandon() }
     lifecycle.detachCurrentPresentation()
   }
 
@@ -1264,9 +1268,9 @@ internal class MlnFfiMapSession(
   private val projectionLock = MlnFfiLock()
 
   /**
-   * A resize changes the projection without a camera event, so Compose overlays that key on
-   * [org.maplibre.compose.camera.CameraState.viewport] would keep the previous screen locations
-   * unless this reports the new snapshot.
+   * A resize changes the projection without a camera event, so Compose overlays that read
+   * [MapPresentation.viewport] would keep the previous screen locations unless this reports the new
+   * snapshot.
    */
   private fun snapshotViewportAndNotify(map: MapHandle) {
     snapshotViewport(map)
@@ -1675,7 +1679,7 @@ internal class MlnFfiMapSession(
     val accepted = host.enqueueRenderer {
       if (!continuation.isActive) return@enqueueRenderer
       val session = renderSession
-      if (session == null) {
+      if (session == null || !renderSessionReady) {
         continuation.resume(emptyList())
         return@enqueueRenderer
       }
@@ -1684,8 +1688,8 @@ internal class MlnFfiMapSession(
           session
             .queryRenderedFeatures(geometry, renderedQueryOptions(layerIds, predicate))
             .toGeoJsonFeatures()
-            // Native walks style layers from the bottom. CameraState and GL JS put
-            // the feature in front first.
+            // Native walks style layers from the bottom. MapPresentation and GL JS put the
+            // feature in front first.
             .asReversed()
         }
       )

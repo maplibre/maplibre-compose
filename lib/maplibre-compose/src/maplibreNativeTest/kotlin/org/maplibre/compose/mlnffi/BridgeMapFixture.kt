@@ -12,6 +12,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.files.Path
 import org.maplibre.compose.map.MapExtent
+import org.maplibre.compose.map.MapPresentation
 import org.maplibre.compose.map.MlnFfiMapSession
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
@@ -57,6 +58,10 @@ private constructor(
       layoutDirection = LayoutDirection.Ltr,
       cacheFile = cacheFile,
     )
+
+  fun bindPresentation(presentation: MapPresentation) {
+    recorder.presentation = presentation
+  }
 
   private val hostSession =
     object : MlnFfiMapHostSession {

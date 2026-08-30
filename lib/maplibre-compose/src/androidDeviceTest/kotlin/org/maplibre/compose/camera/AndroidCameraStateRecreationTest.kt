@@ -26,7 +26,7 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.Position
 
 @OptIn(ExperimentalTestApi::class)
-class AndroidCameraStateRecreationTest {
+class AndroidMapStateRecreationTest {
 
   @Test
   fun camera_position_survives_activity_recreation() {
@@ -36,13 +36,13 @@ class AndroidCameraStateRecreationTest {
     )
 
     try {
-      runAndroidComposeUiTest<CameraStateRecreationActivity> {
+      runAndroidComposeUiTest<MapStateRecreationActivity> {
         waitUntil(timeoutMillis = TIMEOUT_MILLIS) { activity?.mapState?.presentation != null }
         val firstActivity = requireNotNull(activity)
         val firstState = requireNotNull(firstActivity.mapState)
         assertTrue(firstActivity.defaultRuntimeIsShared)
 
-        runOnIdle { firstState.cameraState.position = EXPECTED_CAMERA }
+        runOnIdle { requireNotNull(firstState.presentation).setCameraPosition(EXPECTED_CAMERA) }
         waitUntil(timeoutMillis = TIMEOUT_MILLIS) {
           firstState.presentation?.adapter?.hasCamera(EXPECTED_CAMERA) == true
         }
@@ -110,7 +110,7 @@ class AndroidCameraStateRecreationTest {
   }
 }
 
-class CameraStateRecreationActivity : ComponentActivity() {
+class MapStateRecreationActivity : ComponentActivity() {
   var mapState: MapState? = null
     private set
 

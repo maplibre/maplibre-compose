@@ -1,6 +1,7 @@
 package org.maplibre.compose.ios
 
 import androidx.compose.runtime.Immutable
+import co.touchlab.kermit.Logger
 import kotlinx.io.files.Path
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import platform.Foundation.NSCachesDirectory
@@ -15,6 +16,9 @@ public data class IosRuntimeOptions(
 
   /** Maximum ambient cache size in bytes, or null for MapLibre's own default. */
   public val maximumCacheSizeBytes: Long? = null,
+
+  /** Receives diagnostic messages from maps and shared runtime resources. */
+  public val logger: Logger? = Logger.withTag("maplibre-compose"),
 )
 
 /** Returns the default private cache database for this application. */
@@ -26,4 +30,4 @@ public fun iosCacheFile(): String {
 }
 
 internal fun IosRuntimeOptions.toMlnFfiRuntimeOptions(): MlnFfiRuntimeOptions =
-  MlnFfiRuntimeOptions(Path(cacheFile), maximumCacheSizeBytes)
+  MlnFfiRuntimeOptions(Path(cacheFile), maximumCacheSizeBytes, logger)

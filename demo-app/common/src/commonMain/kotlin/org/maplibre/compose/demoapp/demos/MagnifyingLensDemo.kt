@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableFloatStateOf
@@ -31,10 +32,10 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
-import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
@@ -45,9 +46,10 @@ import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.demoapp.design.SliderRow
 import org.maplibre.compose.demoapp.design.SwitchRow
 import org.maplibre.compose.map.GestureOptions
-import org.maplibre.compose.map.MapOptions
+import org.maplibre.compose.map.MapPresentationOptions
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.RenderOptions
+import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -55,9 +57,8 @@ import org.maplibre.spatialk.geojson.BoundingBox
 /**
  * A second map floats over the shared one as a magnifying lens.
  *
- * A [CameraState][org.maplibre.compose.camera.CameraState] binds to a single map, so the lens has
- * its own, synced one-way from the main camera. The lens map disables gestures so the sync cannot
- * loop.
+ * The lens has its own logical map, synced one-way from the main map. The lens map disables
+ * gestures so the sync cannot loop.
  *
  * On Android, Compose modifiers reach the map only in texture mode, so the panel exposes the lens
  * map's render mode.
@@ -92,19 +93,26 @@ object MagnifyingLensDemo : Demo {
 
   @Composable
   override fun MapOverlayScope.Overlay(state: DemoAppState) {
-    val lensCamera = rememberCameraState()
-    val lensSizePx = with(LocalDensity.current) { lensSize.dp.toPx() }
+    val lensState = rememberMapState()
+    val appliedStyle = state.appliedStyle
+    SideEffect { lensState.style.baseStyle = appliedStyle.base }
+    val density = LocalDensity.current
+    val lensSizePx = with(density) { lensSize.dp.toPx() }
 
     // The overlay's coordinates are the main map's screen coordinates.
     var lensCenter by remember { mutableStateOf<Offset?>(null) }
     LaunchedEffect(Unit) {
       snapshotFlow {
-        val position = cameraState.position
+        val position = mapState.cameraPosition
         val target =
-          lensCenter?.let { cameraState.positionFromScreenLocation(it) } ?: position.target
+          lensCenter?.let {
+            presentation?.positionFromScreenLocation(
+              with(density) { DpOffset(it.x.toDp(), it.y.toDp()) }
+            )
+          } ?: position.target
         position.copy(target = target, zoom = position.zoom + magnification)
       }
-        .collect { lensCamera.position = it }
+        .collect { lensState.presentation?.setCameraPosition(it) }
     }
 
     Box(
@@ -136,10 +144,9 @@ object MagnifyingLensDemo : Demo {
           } else {
             Modifier.fillMaxSize()
           },
-        baseStyle = state.appliedStyle.base,
-        cameraState = lensCamera,
-        options =
-          MapOptions(
+        state = lensState,
+        presentationOptions =
+          MapPresentationOptions(
             renderOptions = lensRenderOptions,
             gestureOptions = GestureOptions.AllDisabled,
           ),

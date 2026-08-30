@@ -2,9 +2,12 @@ package org.maplibre.compose.testing
 
 import kotlin.time.Duration
 import kotlinx.coroutines.runBlocking
+import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.map.GestureTarget
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapExtent
+import org.maplibre.compose.map.MapPresentation
+import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
@@ -14,8 +17,24 @@ import org.maplibre.compose.style.StyleBinding
 internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent: MapExtent) :
   MapFixture {
 
+  private val runtime = mapRuntimeForTest()
+  private val state =
+    runtime.createMapState(
+      initialCameraPosition = CameraPosition(zoom = 0.0),
+      initialBaseStyle = BaseStyle.Empty,
+    )
+  private val token = state.reservePresentation()
+
+  init {
+    state.publishPresentation(token, bridge.session)
+    bridge.bindPresentation(requireNotNull(state.presentation))
+  }
+
   override val session: MapAdapter
     get() = bridge.session
+
+  override val presentation: MapPresentation
+    get() = requireNotNull(state.presentation)
 
   override val gestures: GestureTarget
     get() = bridge.session
@@ -78,10 +97,11 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent
   ): T = bridge.awaitWhileRendering(description, timeout, block)
 
   override fun closeSession() {
-    bridge.session.close()
+    state.close()
   }
 
   override fun close() {
+    runtime.close()
     bridge.close()
   }
 }

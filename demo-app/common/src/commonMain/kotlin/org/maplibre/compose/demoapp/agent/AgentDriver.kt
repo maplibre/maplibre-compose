@@ -12,8 +12,8 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.Serializable
+import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoShell
@@ -21,6 +21,8 @@ import org.maplibre.compose.demoapp.DemoStyle
 import org.maplibre.compose.demoapp.allDemoStyles
 import org.maplibre.compose.demoapp.allDemos
 import org.maplibre.compose.demoapp.flyTo
+import org.maplibre.compose.map.MapPresentation
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Position
@@ -201,7 +203,7 @@ internal class AgentDriver(
         false
       }
     // Fly even when the style wait failed, so a timeout never leaves the demo half-applied.
-    state.cameraState.flyTo(demo.destination)
+    state.mapState.flyTo(demo.destination)
     if (styleTimedOut) {
       throw AgentException(
         408,
@@ -211,12 +213,12 @@ internal class AgentDriver(
     return demo.toDto()
   }
 
-  fun camera() = state.cameraState.toDto()
+  fun camera() = state.mapState.toDto()
 
   fun jumpCamera(request: CameraUpdateRequest): CameraDto {
     request.validateRanges()
     markDemoMapReload()
-    state.cameraState.position = state.cameraState.position.merged(request)
+    presentation().setCameraPosition(state.mapState.cameraPosition.merged(request))
     return camera()
   }
 
@@ -225,10 +227,11 @@ internal class AgentDriver(
     val durationMs = request.durationMs ?: DEFAULT_ANIMATION_MS
     if (durationMs < 0) throw AgentException(400, "'durationMs' must be >= 0, got $durationMs")
     markDemoMapReload()
-    state.cameraState.animateTo(
-      finalPosition = state.cameraState.position.merged(request),
-      duration = durationMs.milliseconds,
-    )
+    presentation()
+      .animateCameraPosition(
+        position = state.mapState.cameraPosition.merged(request),
+        duration = durationMs.milliseconds,
+      )
     return camera()
   }
 
@@ -310,7 +313,7 @@ internal class AgentDriver(
         snapshotFlow {
           state.lastStyleLoad.count > 0 &&
             state.pendingStyleLoad == null &&
-            !state.cameraState.isCameraMoving
+            state.mapState.presentation?.isCameraMoving != true
         }
           .first { it }
       }
@@ -326,7 +329,7 @@ internal class AgentDriver(
 
   suspend fun featuresJson(xPx: Float, yPx: Float, layerIds: Set<String>?): String {
     val offset = with(density) { DpOffset(xPx.toDp(), yPx.toDp()) }
-    val features = state.cameraState.queryRenderedFeatures(offset = offset, layerIds = layerIds)
+    val features = presentation().queryRenderedFeatures(offset = offset, layerIds = layerIds)
     return FeatureCollection(features).toJson()
   }
 
@@ -335,17 +338,18 @@ internal class AgentDriver(
     requireFinite("dxPx", request.dxPx)
     requireFinite("dyPx", request.dyPx)
     val size =
-      state.cameraState.viewport?.size ?: throw AgentException(503, "the map has no viewport yet")
+      presentation().viewport?.size ?: throw AgentException(503, "the map has no viewport yet")
     val center = DpOffset(size.width / 2, size.height / 2)
     val moved =
       with(density) { DpOffset(center.x + request.dxPx.toDp(), center.y + request.dyPx.toDp()) }
     // Best effort: a screen point off the map has no position, so report the camera unchanged.
-    val atCenter = state.cameraState.positionFromScreenLocation(center) ?: return camera()
-    val atMoved = state.cameraState.positionFromScreenLocation(moved) ?: return camera()
-    val current = state.cameraState.position
+    val presentation = presentation()
+    val atCenter = presentation.positionFromScreenLocation(center) ?: return camera()
+    val atMoved = presentation.positionFromScreenLocation(moved) ?: return camera()
+    val current = state.mapState.cameraPosition
     // The projection wraps longitude to ±180; take the short way across the antimeridian.
     val deltaLng = shortLongitudeDelta(from = atMoved.longitude, to = atCenter.longitude)
-    state.cameraState.position =
+    presentation.setCameraPosition(
       current.copy(
         target =
           Position(
@@ -353,6 +357,7 @@ internal class AgentDriver(
             latitude = current.target.latitude + (atCenter.latitude - atMoved.latitude),
           )
       )
+    )
     return camera()
   }
 
@@ -369,11 +374,12 @@ internal class AgentDriver(
     }
     request.x?.let { requireFinite("x", it) }
     request.y?.let { requireFinite("y", it) }
-    val current = state.cameraState.position
+    val current = state.mapState.cameraPosition
+    val presentation = presentation()
     val anchor =
       if (request.x != null && request.y != null) {
         with(density) { DpOffset(request.x.toDp(), request.y.toDp()) }
-          .let(state.cameraState::positionFromScreenLocation)
+          .let(presentation::positionFromScreenLocation)
       } else {
         null
       }
@@ -389,7 +395,7 @@ internal class AgentDriver(
           latitude = current.target.latitude + (it.latitude - current.target.latitude) * fraction,
         )
       } ?: current.target
-    state.cameraState.position = current.copy(target = target, zoom = newZoom)
+    presentation.setCameraPosition(current.copy(target = target, zoom = newZoom))
     return camera()
   }
 
@@ -457,8 +463,8 @@ internal class AgentDriver(
       tilt = request.tilt ?: tilt,
     )
 
-  private fun CameraState.toDto(): CameraDto {
-    val position = position
+  private fun MapState.toDto(): CameraDto {
+    val position = cameraPosition
     return CameraDto(
       position =
         CameraPositionDto(
@@ -468,10 +474,13 @@ internal class AgentDriver(
           bearing = position.bearing,
           tilt = position.tilt,
         ),
-      isCameraMoving = isCameraMoving,
-      moveReason = moveReason.name,
+      isCameraMoving = presentation?.isCameraMoving == true,
+      moveReason = presentation?.cameraMoveReason?.name ?: CameraMoveReason.NONE.name,
     )
   }
+
+  private fun presentation(): MapPresentation =
+    state.mapState.presentation ?: throw AgentException(503, "the map has no presentation")
 
   private fun Demo.toDto() =
     DemoDto(name = name, description = description, preferredStyle = preferredStyle?.displayName)
