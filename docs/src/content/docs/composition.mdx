@@ -24,10 +24,9 @@ stack.
 
 <Code code={region(composition, "base-plus-content")} lang="kotlin" title="App.kt" />
 
-The library manages the sources and layers that you declare in the content
-block, and does not modify the rest of the base style. To change a base style
-layer, replace it with <Api of="Anchor.Replace" /> and declare its replacement
-yourself.
+The library manages the sources and layers in the `StyleComposition` block. It
+does not modify the rest of the base style. To change a base style layer,
+replace it with <Api of="Anchor.Replace" /> and declare its replacement yourself.
 
 ## Recomposition updates the style
 

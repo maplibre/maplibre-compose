@@ -5,7 +5,7 @@ description: Configure gestures, and respond to clicks on the map and on layers.
 
 import { Code } from "@astrojs/starlight/components";
 import Api from "../../components/Api.astro";
-import { inside, region } from "../../snippets";
+import { region, styleComposition } from "../../snippets";
 
 import interaction from "../../../../demo-app/common/src/androidMain/kotlin/org/maplibre/compose/docsnippets/Interaction.kt?raw";
 import layers from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Layers.kt?raw";
@@ -35,10 +35,10 @@ click on to the layer listeners:
 
 ## Layer clicks
 
-Layer composables have click listeners of their own, which receive the features
-that were clicked in that layer:
+Layer composables in a `StyleComposition` have click listeners that receive the
+features that were clicked in that layer:
 
-<Code code={inside("MaplibreMap {", region(layers, "interaction"))} lang="kotlin" title="App.kt" />
+<Code code={styleComposition(region(layers, "interaction"))} lang="kotlin" title="App.kt" />
 
 Click listeners run on the map first, then on layers from the top to the bottom
 of the map. The first listener that returns <Api of="ClickResult.Consume" />
