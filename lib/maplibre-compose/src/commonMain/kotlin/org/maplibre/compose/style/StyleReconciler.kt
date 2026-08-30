@@ -59,8 +59,9 @@ internal class StyleReconciler {
       .groupByTo(linkedMapOf()) { it.anchor }
       .forEach { (anchor, group) ->
         var previousId: String? = null
-        group.forEach { desired ->
+        group.forEachIndexed { index, desired ->
           val id = desired.definition.id
+          val nextDesiredId = group.getOrNull(index + 1)?.definition?.id
           var applied = layers[id]
           if (applied == null) {
             val before = beforeLayerId(style, anchor, previousId, id)
@@ -84,8 +85,10 @@ internal class StyleReconciler {
           } else {
             applied.handle.update(desired.definition)
             applied.definition = desired.definition
-            val before = beforeLayerId(style, anchor, previousId, id)
-            if (style.layerIds().positionBefore(id) != before) applied.handle.move(before)
+            if (shouldMoveLayer(style, anchor, previousId, id, nextDesiredId)) {
+              val before = beforeLayerId(style, anchor, previousId, id)
+              if (before != id) applied.handle.move(before)
+            }
           }
           previousId = id
         }
@@ -136,6 +139,20 @@ internal class StyleReconciler {
         images[definition.id] = definition
       }
     }
+  }
+
+  private fun shouldMoveLayer(
+    style: StyleBinding,
+    anchor: Anchor,
+    previousId: String?,
+    id: String,
+    nextDesiredId: String?,
+  ): Boolean {
+    val ids = style.layerIds()
+    if (previousId != null) return ids.idAbove(previousId) != id
+    if (nextDesiredId != null) return ids.positionBefore(id) != nextDesiredId
+    val before = beforeLayerId(style, anchor, previousId = null, desiredId = id)
+    return before != id && ids.positionBefore(id) != before
   }
 
   private fun beforeLayerId(

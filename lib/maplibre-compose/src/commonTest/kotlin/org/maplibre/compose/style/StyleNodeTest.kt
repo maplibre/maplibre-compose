@@ -6,7 +6,9 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.layers.Anchor
+import org.maplibre.compose.layers.HillshadeLayer
 import org.maplibre.compose.layers.RasterLayer
+import org.maplibre.compose.sources.RasterDemSource
 import org.maplibre.compose.sources.RasterSource
 
 class StyleNodeTest {
@@ -59,6 +61,28 @@ class StyleNodeTest {
     reconciler.apply(recording, revision)
     assertTrue(recording.additions.isEmpty())
     assertEquals(listOf("raster"), style.layerIds())
+  }
+
+  @Test
+  fun a_second_raster_dem_revision_does_not_replace_the_source() = runTest {
+    val style = RecordingStyleBinding()
+    val recording = RecordingOperations(style)
+    val reconciler = StyleReconciler()
+    val source = RasterDemSource("dem", listOf("https://example.invalid/{z}/{x}/{y}.png"))
+    val layer = HillshadeLayer("hillshade", source)
+    val revision =
+      DesiredStyleRevision(
+        sources = listOf(source.definition()),
+        layers = listOf(DesiredStyleLayer(layer.definition(), Anchor.Top, null, null)),
+        images = emptyList(),
+      )
+
+    reconciler.apply(recording, revision)
+    recording.additions.clear()
+    reconciler.apply(recording, revision)
+
+    assertTrue(recording.additions.isEmpty())
+    assertEquals(listOf("hillshade"), style.layerIds())
   }
 
   @Test

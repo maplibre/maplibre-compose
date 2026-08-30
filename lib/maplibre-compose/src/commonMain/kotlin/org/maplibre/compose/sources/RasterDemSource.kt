@@ -7,6 +7,7 @@ import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import org.maplibre.compose.style.RasterDemCapabilities
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleMutationException
 
@@ -58,29 +59,31 @@ public class RasterDemSource : Source {
   ) : super(id) {
     val tileSet = TileSet(tiles.toList(), options, tileSize, demEncoding)
     this.tileSet = tileSet
-    json = tileSet.toJson(customEncoding = true, includeScheme = true)
+    json =
+      rasterDemSourceJson(
+        tiles = tileSet.tiles,
+        options = tileSet.options,
+        tileSize = tileSet.tileSize,
+        demEncoding = tileSet.demEncoding,
+        capabilities =
+          RasterDemCapabilities(
+            supportsCustomDemEncoding = true,
+            supportsRasterDemScheme = true,
+          ),
+      )
   }
 
   override fun toJson(): JsonObject = json
 
   override fun definition(): SourceDefinition {
     val tileSet = tileSet ?: return super.definition()
-    return SourceDefinition.RasterDem(id) { capabilities ->
-      if (
-        !capabilities.supportsRasterDemScheme &&
-          tileSet.options.tileCoordinateSystem != TileCoordinateSystem.XYZ
-      ) {
-        throw StyleMutationException(
-          "this engine has no scheme on a raster-dem source and reads only XYZ tiles; use " +
-            "TileCoordinateSystem.XYZ",
-          null,
-        )
-      }
-      tileSet.toJson(
-        customEncoding = capabilities.supportsCustomDemEncoding,
-        includeScheme = capabilities.supportsRasterDemScheme,
-      )
-    }
+    return SourceDefinition.RasterDem(
+      id = id,
+      tiles = tileSet.tiles,
+      options = tileSet.options,
+      tileSize = tileSet.tileSize,
+      demEncoding = tileSet.demEncoding,
+    )
   }
 
   private class TileSet(
@@ -88,26 +91,44 @@ public class RasterDemSource : Source {
     val options: TileSetOptions,
     val tileSize: Int,
     val demEncoding: RasterDemEncoding,
+  )
+}
+
+internal fun rasterDemSourceJson(
+  tiles: List<String>,
+  options: TileSetOptions,
+  tileSize: Int,
+  demEncoding: RasterDemEncoding,
+  capabilities: RasterDemCapabilities,
+): JsonObject {
+  if (
+    !capabilities.supportsRasterDemScheme &&
+      options.tileCoordinateSystem != TileCoordinateSystem.XYZ
   ) {
-    fun toJson(customEncoding: Boolean, includeScheme: Boolean): JsonObject = buildJsonObject {
-      put("type", "raster-dem")
-      putJsonArray("tiles") { tiles.forEach { add(it) } }
-      put("tileSize", tileSize)
-      val custom = demEncoding as? RasterDemEncoding.Custom
-      // An engine that does not implement the custom factors decodes as Mapbox instead.
-      put(
-        "encoding",
-        if (custom != null && !customEncoding) RasterDemEncoding.Mapbox.value
-        else demEncoding.value,
-      )
-      if (custom != null && customEncoding) {
-        put("redFactor", custom.redFactor)
-        put("greenFactor", custom.greenFactor)
-        put("blueFactor", custom.blueFactor)
-        put("baseShift", custom.baseShift)
-      }
-      putTileSetOptions(options, includeScheme = includeScheme)
+    throw StyleMutationException(
+      "this engine has no scheme on a raster-dem source and reads only XYZ tiles; use " +
+        "TileCoordinateSystem.XYZ",
+      null,
+    )
+  }
+  val customEncoding = capabilities.supportsCustomDemEncoding
+  val includeScheme = capabilities.supportsRasterDemScheme
+  return buildJsonObject {
+    put("type", "raster-dem")
+    putJsonArray("tiles") { tiles.forEach { add(it) } }
+    put("tileSize", tileSize)
+    val custom = demEncoding as? RasterDemEncoding.Custom
+    put(
+      "encoding",
+      if (custom != null && !customEncoding) RasterDemEncoding.Mapbox.value else demEncoding.value,
+    )
+    if (custom != null && customEncoding) {
+      put("redFactor", custom.redFactor)
+      put("greenFactor", custom.greenFactor)
+      put("blueFactor", custom.blueFactor)
+      put("baseShift", custom.baseShift)
     }
+    putTileSetOptions(options, includeScheme = includeScheme)
   }
 }
 
@@ -164,7 +185,7 @@ public fun rememberRasterDemSource(
   tileSize: Int = SourceDefaults.RASTER_TILE_SIZE,
   encoding: RasterDemEncoding = RasterDemEncoding.Mapbox,
 ): RasterDemSource =
-  key(tiles, options, tileSize) {
+  key(tiles, options, tileSize, encoding) {
     rememberUserSource(
       factory = {
         RasterDemSource(

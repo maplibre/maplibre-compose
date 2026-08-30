@@ -351,23 +351,24 @@ private fun MaplibreMapPresentation(
       runtime = stateAttachment?.runtime,
       state = stateAttachment?.state,
       style = baseStyle,
-      update = { map ->
-        map.setCameraPadding(cameraPadding)
-        map.setCameraConstraints(
-          CameraConstraints(
-            minZoom = zoomRange.start.toDouble(),
-            maxZoom = zoomRange.endInclusive.toDouble(),
-            minPitch = pitchRange.start.toDouble(),
-            maxPitch = pitchRange.endInclusive.toDouble(),
-            boundingBox = boundingBox,
+      update = update@{ map ->
+          if (stateAttachment?.state?.isClosed == true) return@update
+          map.setCameraPadding(cameraPadding)
+          map.setCameraConstraints(
+            CameraConstraints(
+              minZoom = zoomRange.start.toDouble(),
+              maxZoom = zoomRange.endInclusive.toDouble(),
+              minPitch = pitchRange.start.toDouble(),
+              maxPitch = pitchRange.endInclusive.toDouble(),
+              boundingBox = boundingBox,
+            )
           )
-        )
-        map.setRenderSettings(options.renderOptions)
-        map.setGestureSettings(options.gestureOptions)
-        map.setTileLodSettings(options.tileLodOptions)
-        cameraState.map = map
-        stateAttachment?.publish(map, options)
-      },
+          map.setRenderSettings(options.renderOptions)
+          map.setGestureSettings(options.gestureOptions)
+          map.setTileLodSettings(options.tileLodOptions)
+          cameraState.map = map
+          stateAttachment?.publish(map, options)
+        },
       onReset = {
         stateAttachment?.release(cameraState.map)
         cameraState.map = null

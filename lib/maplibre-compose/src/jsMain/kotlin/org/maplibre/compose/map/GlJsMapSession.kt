@@ -629,10 +629,11 @@ internal class GlJsMapSession(
 
   private fun applyRequestedStyle(map: MaplibreMap) {
     val style = requestedStyle ?: return
-    if (style == appliedStyle) return
     if (styleLoadPending) return
+    val tracker = styleLoadTracker ?: return
+    val trackerRequest = tracker.beginLoading()
+    if (!tracker.shouldApplyToEngine(appliedStyleRequest)) return
     appliedStyle = style
-    val trackerRequest = styleLoadTracker?.beginLoading() ?: return
     appliedStyleRequest = trackerRequest
     styleLoadPending = true
     val engine = lifecycleEngineIdentity ?: return

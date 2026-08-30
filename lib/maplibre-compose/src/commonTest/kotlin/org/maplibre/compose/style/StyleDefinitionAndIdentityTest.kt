@@ -95,6 +95,22 @@ class StyleDefinitionAndIdentityTest {
   }
 
   @Test
+  fun cycling_back_to_the_same_style_value_is_a_new_engine_apply() {
+    val first = BaseStyle.Json("A")
+    val second = BaseStyle.Json("B")
+    val tracker = StyleLoadTracker(first, engineAvailable = true)
+    val firstRequest = tracker.requestId
+
+    assertTrue(tracker.shouldApplyToEngine(appliedRequest = null))
+    tracker.request(second, engineAvailable = true)
+    val thirdRequest = tracker.request(first, engineAvailable = true)
+
+    assertTrue(tracker.shouldApplyToEngine(firstRequest))
+    assertEquals(thirdRequest, tracker.requestId)
+    assertFalse(tracker.shouldApplyToEngine(thirdRequest))
+  }
+
+  @Test
   fun superseded_requests_cannot_publish_state() {
     val firstStyle = BaseStyle.Json("first")
     val secondStyle = BaseStyle.Json("second")

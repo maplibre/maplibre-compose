@@ -83,6 +83,56 @@ class MapPresentationTest {
   }
 
   @Test
+  fun publishing_into_a_closed_state_is_inert() {
+    val fixture = presentationFixture()
+    fixture.state.close()
+
+    fixture.state.publishPresentation(fixture.token, fixture.adapter)
+
+    assertTrue(fixture.state.isClosed)
+    assertNull(fixture.state.presentation)
+    fixture.runtime.close()
+  }
+
+  @Test
+  fun replacement_cleanup_failures_are_reported_on_close() = runTest {
+    val runtime = mapRuntimeForTest()
+    val state = runtime.createMapState()
+    val firstToken = state.reservePresentation()
+    val first = RetainedAdapter(failOnClose = true)
+    state.publishPresentation(firstToken, first)
+    state.releasePresentation(firstToken, first)
+    testScheduler.advanceUntilIdle()
+
+    val secondToken = state.reservePresentation()
+    val second = RetainedAdapter(failOnClose = false)
+    state.publishPresentation(secondToken, second)
+    testScheduler.advanceUntilIdle()
+
+    state.close()
+    val failure = assertFailsWith<MapStateCleanupException> { state.awaitClosed() }
+    assertTrue(failure.message.orEmpty().contains("cleanup failed"))
+    runtime.close()
+  }
+
+  @Test
+  fun a_durable_callback_updates_style_load_state_after_the_presentation_leaves() = runTest {
+    val runtime = mapRuntimeForTest()
+    val state = runtime.createMapState()
+    val token = state.reservePresentation()
+    val adapter = RetainedAdapter(failOnClose = false)
+    state.publishPresentation(token, adapter)
+    state.releasePresentation(token, adapter)
+    testScheduler.advanceUntilIdle()
+
+    state.durableStyleCallbacks().onMapFailLoading(adapter, "style refused")
+
+    assertTrue(state.style.loadState is StyleLoadState.Failed)
+    state.close()
+    runtime.close()
+  }
+
+  @Test
   fun publication_happens_after_the_adapter_accepts_initial_map_state() {
     val runtime = mapRuntimeForTest()
     val state = runtime.createMapState()
@@ -184,7 +234,17 @@ private fun presentationFixture(): PresentationFixture {
   return PresentationFixture(runtime, state, token, adapter, requireNotNull(state.presentation))
 }
 
-private class PresentationTestAdapter(
+private class RetainedAdapter(private val failOnClose: Boolean) : PresentationTestAdapter() {
+  override val retainsEngineBetweenPresentations: Boolean = true
+
+  override suspend fun detachPresentation() = Unit
+
+  override suspend fun awaitClosed() {
+    if (failOnClose) error("cleanup failed")
+  }
+}
+
+private open class PresentationTestAdapter(
   private val currentPresentation: () -> MapPresentation? = { null }
 ) : MapAdapter {
   var lastCameraPosition = CameraPosition()
@@ -195,7 +255,7 @@ private class PresentationTestAdapter(
 
   override fun close() = Unit
 
-  override suspend fun awaitClosed() = Unit
+  open override suspend fun awaitClosed() = Unit
 
   override suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration) {
     animationStarted.complete(Unit)

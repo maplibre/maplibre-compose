@@ -134,3 +134,52 @@ internal interface MapAdapter {
     fun onFrame(fps: Double)
   }
 }
+
+internal object EmptyMapAdapterCallbacks : MapAdapter.Callbacks {
+  override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) = Unit
+
+  override fun onMapFinishedLoading(map: MapAdapter) = Unit
+
+  override fun onSourceChanged(map: MapAdapter, sourceId: String?) = Unit
+
+  override fun onMapFailLoading(map: MapAdapter, reason: String?) = Unit
+
+  override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) = Unit
+
+  override fun onCameraMoved(map: MapAdapter) = Unit
+
+  override fun onCameraMoveEnded(map: MapAdapter) = Unit
+
+  override fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset) = Unit
+
+  override fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset) = Unit
+
+  override fun onFrame(fps: Double) = Unit
+}
+
+/** Style-load events for a retained engine after its presentation has left composition. */
+internal class DurableStyleCallbacks(private val owner: MapState) : MapAdapter.Callbacks {
+  override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) = Unit
+
+  override fun onMapFinishedLoading(map: MapAdapter) {
+    owner.markStyleReady(map)
+  }
+
+  override fun onSourceChanged(map: MapAdapter, sourceId: String?) = Unit
+
+  override fun onMapFailLoading(map: MapAdapter, reason: String?) {
+    owner.markStyleFailed(map, reason)
+  }
+
+  override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) = Unit
+
+  override fun onCameraMoved(map: MapAdapter) = Unit
+
+  override fun onCameraMoveEnded(map: MapAdapter) = Unit
+
+  override fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset) = Unit
+
+  override fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset) = Unit
+
+  override fun onFrame(fps: Double) = Unit
+}

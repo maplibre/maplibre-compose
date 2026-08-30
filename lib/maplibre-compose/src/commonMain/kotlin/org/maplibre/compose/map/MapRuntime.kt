@@ -319,6 +319,7 @@ internal constructor(
   private var attachment: Attachment? = null
   private var retainedAdapter: MapAdapter? = null
   private val retiringAdapters = linkedSetOf<MapAdapter>()
+  private val pendingCleanupFailures = mutableListOf<Throwable>()
   private var closed = false
   private var closedState: Boolean by mutableStateOf(false)
 
@@ -339,32 +340,38 @@ internal constructor(
 
   /** Marks this state as closed and starts cleanup of the current presentation. */
   public fun close() {
-    val maps = lock.withLock {
-      if (closed) return
-      closed = true
-      val maps = buildSet {
-        retainedAdapter?.let(::add)
-        attachment?.adapter?.let(::add)
-        addAll(retiringAdapters)
+    val (maps, recordedFailures) =
+      lock.withLock {
+        if (closed) return
+        closed = true
+        val maps = buildSet {
+          retainedAdapter?.let(::add)
+          attachment?.adapter?.let(::add)
+          addAll(retiringAdapters)
+        }
+        val recordedFailures = pendingCleanupFailures.toList()
+        attachment = null
+        retainedAdapter = null
+        retiringAdapters.clear()
+        pendingCleanupFailures.clear()
+        Snapshot.withMutableSnapshot {
+          closedState = true
+          presentation?.invalidate()
+          presentation = null
+        }
+        maps to recordedFailures
       }
-      attachment = null
-      retainedAdapter = null
-      retiringAdapters.clear()
-      Snapshot.withMutableSnapshot {
-        closedState = true
-        presentation?.invalidate()
-        presentation = null
-      }
-      maps
-    }
     cameraState.map = null
     if (maps.isEmpty()) {
-      completeClosure(Result.success(Unit))
+      completeClosure(
+        if (recordedFailures.isEmpty()) Result.success(Unit)
+        else Result.failure(MapStateCleanupException(recordedFailures))
+      )
       return
     }
     maps.forEach(MapAdapter::close)
     runtime.physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
-      val failures = mutableListOf<Throwable>()
+      val failures = recordedFailures.toMutableList()
       maps.forEach { map ->
         runCatching { map.awaitClosed() }.exceptionOrNull()?.let(failures::add)
       }
@@ -417,6 +424,7 @@ internal constructor(
     options: MapPresentationOptions = MapPresentationOptions(),
   ) {
     val replaced = lock.withLock {
+      if (closed) return
       requireOpenLocked()
       val current = attachment
       check(current?.token == token && !current.releasing) {
@@ -443,8 +451,11 @@ internal constructor(
     if (replaced != null) {
       replaced.close()
       runtime.physicalScope.launch {
-        runCatching { replaced.awaitClosed() }
-        lock.withLock { retiringAdapters.remove(replaced) }
+        val failure = runCatching { replaced.awaitClosed() }.exceptionOrNull()
+        lock.withLock {
+          retiringAdapters.remove(replaced)
+          if (failure != null && !closed) pendingCleanupFailures += failure
+        }
       }
     }
   }
@@ -480,6 +491,8 @@ internal constructor(
         adapter.presentationCompatibilityKey == compatibilityKey
     }
   }
+
+  internal fun durableStyleCallbacks(): MapAdapter.Callbacks = DurableStyleCallbacks(this)
 
   internal fun markStyleReady(adapter: MapAdapter) {
     lock.withLock {

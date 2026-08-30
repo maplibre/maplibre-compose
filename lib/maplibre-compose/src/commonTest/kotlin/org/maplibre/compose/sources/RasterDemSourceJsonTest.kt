@@ -112,6 +112,14 @@ class RasterDemSourceJsonTest {
   }
 
   @Test
+  fun tiled_definitions_from_the_same_source_compare_equal() {
+    val source = RasterDemSource(id = "dem", tiles = listOf(TILE_TEMPLATE))
+
+    assertEquals(source.definition(), source.definition())
+    assertEquals(source.definition().hashCode(), source.definition().hashCode())
+  }
+
+  @Test
   fun a_tile_json_source_carries_neither_key() {
     val binding = RecordingStyleBinding(supportsRasterDemScheme = false)
     val source = RasterDemSource(id = "dem", uri = "https://example.invalid/tiles.json")
