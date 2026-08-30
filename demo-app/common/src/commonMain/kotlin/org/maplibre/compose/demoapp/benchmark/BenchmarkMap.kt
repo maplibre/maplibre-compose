@@ -56,7 +56,8 @@ internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets
   val scenario = state.selectedScenario
   val density = LocalDensity.current
   val prefetcher = rememberTilePrefetcher()
-  val mapState = rememberMapState(initialCameraPosition = scenario.camera)
+  val mapState =
+    rememberMapState(runtime = state.mapRuntime, initialCameraPosition = scenario.camera)
   SideEffect { mapState.style.baseStyle = scenario.style.base }
   val session =
     remember(mapState, prefetcher, density) {

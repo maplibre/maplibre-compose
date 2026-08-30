@@ -13,7 +13,9 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.demoapp.benchmark.BenchmarkScenario
 import org.maplibre.compose.demoapp.benchmark.BenchmarkUiState
 import org.maplibre.compose.demoapp.benchmark.allBenchmarkScenarios
+import org.maplibre.compose.map.MapRuntime
 import org.maplibre.compose.map.MapState
+import org.maplibre.compose.map.rememberMapRuntime
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.Position
@@ -31,6 +33,7 @@ enum class DemoShell {
 /** The state the shell owns: the shared map, the selection, and the settings. */
 @Stable
 class DemoAppState(
+  val mapRuntime: MapRuntime,
   val mapState: MapState,
   val settings: DemoSettings,
   val frameRateState: FrameRateState,
@@ -114,8 +117,9 @@ internal data class StyleLoad(val count: Int, val base: BaseStyle?)
 
 @Composable
 fun rememberDemoAppState(): DemoAppState {
-  val mapState = rememberMapState(initialCameraPosition = StartPosition)
+  val mapRuntime = rememberMapRuntime()
+  val mapState = rememberMapState(runtime = mapRuntime, initialCameraPosition = StartPosition)
   val settings = rememberDemoSettings()
   val frameRateState = remember { FrameRateState() }
-  return remember { DemoAppState(mapState, settings, frameRateState) }
+  return remember { DemoAppState(mapRuntime, mapState, settings, frameRateState) }
 }

@@ -93,7 +93,7 @@ object MagnifyingLensDemo : Demo {
 
   @Composable
   override fun MapOverlayScope.Overlay(state: DemoAppState) {
-    val lensState = rememberMapState()
+    val lensState = rememberMapState(runtime = state.mapRuntime)
     val appliedStyle = state.appliedStyle
     SideEffect { lensState.style.baseStyle = appliedStyle.base }
     val density = LocalDensity.current
