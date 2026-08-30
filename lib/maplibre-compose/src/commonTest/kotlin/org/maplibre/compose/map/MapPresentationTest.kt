@@ -78,13 +78,18 @@ class MapPresentationTest {
   }
 
   @Test
-  fun a_cached_presentation_fails_immediately_after_detachment() {
+  fun a_departed_presentation_rejects_cached_operations_and_delayed_camera_events() {
     val fixture = presentationFixture()
     fixture.state.releasePresentation(fixture.token, fixture.adapter)
 
     assertFailsWith<MapPresentationDetachedException> {
       fixture.presentation.setCameraPosition(CameraPosition(zoom = 4.0))
     }
+    val viewportReads = fixture.adapter.viewportReads
+    fixture.adapter.lastCameraPosition = CameraPosition(zoom = 7.0)
+    assertNull(fixture.state.synchronizeCamera(fixture.adapter))
+    assertEquals(viewportReads, fixture.adapter.viewportReads)
+    assertEquals(CameraPosition(), fixture.state.cameraPosition)
     fixture.close()
   }
 
@@ -330,13 +335,15 @@ class MapPresentationTest {
   @Test
   fun publication_happens_after_the_adapter_accepts_initial_map_state() {
     val runtime = mapRuntimeForTest()
-    val state = runtime.createMapState()
+    val initialCamera = CameraPosition(target = Position(12.0, 34.0), zoom = 8.0)
+    val state = runtime.createMapState(initialCameraPosition = initialCamera)
     val token = state.reservePresentation()
     val adapter = PresentationTestAdapter { state.presentation }
 
     state.publishPresentation(token, adapter)
 
     assertFalse(adapter.presentationWasVisibleWhileConfiguring)
+    assertEquals(initialCamera, adapter.lastCameraPosition)
     assertTrue(state.presentation != null)
     state.close()
     runtime.close()
@@ -444,6 +451,7 @@ private open class PresentationTestAdapter(
 ) : MapAdapter {
   var lastCameraPosition = CameraPosition()
   var presentationWasVisibleWhileConfiguring = false
+  var viewportReads = 0
   val queryStarted = CompletableDeferred<Unit>()
   val animationStarted = CompletableDeferred<Unit>()
   val finishAnimation = CompletableDeferred<Unit>()
@@ -504,7 +512,10 @@ private open class PresentationTestAdapter(
       nearRight = Position(1.0, -1.0),
     )
 
-  override fun getViewport(): Viewport? = null
+  override fun getViewport(): Viewport? {
+    viewportReads++
+    return null
+  }
 
   override fun setRenderSettings(value: RenderOptions) = Unit
 
