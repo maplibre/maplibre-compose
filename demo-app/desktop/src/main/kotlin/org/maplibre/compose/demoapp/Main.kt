@@ -7,16 +7,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.singleWindowApplication
 import org.maplibre.compose.demoapp.agent.LocalAgentScreenshotRecorder
 import org.maplibre.compose.demoapp.agent.rememberAgentScreenshotRecorder
-import org.maplibre.compose.desktop.ProvideMapHost
-import org.maplibre.compose.desktop.rememberAwtComposeMapHost
+import org.maplibre.compose.desktop.ProvideMapPresentationHost
+import org.maplibre.compose.desktop.rememberAwtComposeMapPresentationHost
 
 // #region main
 fun main() {
   singleWindowApplication {
-    val host = rememberAwtComposeMapHost(window)
+    val host = rememberAwtComposeMapPresentationHost(window)
     val screenshotRecorder = rememberAgentScreenshotRecorder(host::runOnGpuThread)
     CompositionLocalProvider(LocalAgentScreenshotRecorder provides screenshotRecorder) {
-      ProvideMapHost(host = host) {
+      ProvideMapPresentationHost(host = host) {
         Box(Modifier.fillMaxSize().then(screenshotRecorder.modifier)) { DemoApp() }
       }
     }

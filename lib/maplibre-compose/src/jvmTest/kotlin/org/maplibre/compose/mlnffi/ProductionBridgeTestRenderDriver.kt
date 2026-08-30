@@ -67,18 +67,18 @@ import org.lwjgl.system.macosx.DynamicLinkLoader.dlclose
 import org.lwjgl.system.macosx.DynamicLinkLoader.dlopen
 import org.lwjgl.system.macosx.DynamicLinkLoader.dlsym
 import org.maplibre.compose.desktop.ComposeGpuContext
-import org.maplibre.compose.desktop.ComposeMapHost
+import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.desktop.Direct3D12ComposeGpuContext
 import org.maplibre.compose.desktop.MetalComposeGpuContext
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
-import org.maplibre.compose.desktop.bridge.ComposeMapHostFactory
+import org.maplibre.compose.desktop.bridge.ComposeMapPresentationHostFactory
 import org.maplibre.compose.desktop.bridge.MapRendererThread
 import org.maplibre.compose.desktop.bridge.ObjectiveC
 import org.maplibre.compose.desktop.bridge.currentContext
 import org.maplibre.compose.desktop.bridge.requireContext
 import org.maplibre.compose.desktop.bridge.withOpenGlContext
 import org.maplibre.compose.desktop.onGpuThread
-import org.maplibre.compose.desktop.skiko.AwtComposeMapHost
+import org.maplibre.compose.desktop.skiko.AwtComposeMapPresentationHost
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.nativeffi.Maplibre
@@ -131,7 +131,7 @@ private constructor(
         }
       val environment = DesktopTestGpuEnvironment.create()
       return try {
-        val factory = ComposeMapHostFactory(environment.gpuHost)
+        val factory = ComposeMapPresentationHostFactory(environment.presentationHost)
         val backends =
           factory.bridges.singleOrNull { it.producer == producer }
             ?: error("${factory.description} cannot bridge packaged runtime $producer")
@@ -151,7 +151,7 @@ private constructor(
 }
 
 private abstract class DesktopTestGpuEnvironment : AutoCloseable {
-  abstract val gpuHost: ComposeMapHost
+  abstract val presentationHost: ComposeMapPresentationHost
 
   private var destination: Surface? = null
   private var destinationWidth = 0
@@ -254,8 +254,8 @@ private constructor(
 ) : DesktopTestGpuEnvironment() {
   private val composeContext = MetalComposeGpuContext(context, NativeHandle(device))
 
-  override val gpuHost =
-    object : ComposeMapHost {
+  override val presentationHost =
+    object : ComposeMapPresentationHost {
       override val description = "the test Metal context"
       override val backend = ComposeRenderBackend.METAL
 
@@ -339,8 +339,8 @@ private constructor(private val gpuThread: MapRendererThread, private val egl: E
   private val composeContext =
     OpenGlComposeGpuContext(egl.directContext) { action -> egl.withCurrent { action.run() } }
 
-  override val gpuHost =
-    object : ComposeMapHost {
+  override val presentationHost =
+    object : ComposeMapPresentationHost {
       override val description = "the test EGL OpenGL context"
       override val backend = ComposeRenderBackend.OPENGL
 
@@ -351,9 +351,10 @@ private constructor(private val gpuThread: MapRendererThread, private val egl: E
       }
     }
 
-  override fun <T> withContext(action: (ComposeGpuContext) -> T): T = gpuHost.withOpenGlContext {
-    action(it)
-  }
+  override fun <T> withContext(action: (ComposeGpuContext) -> T): T =
+    presentationHost.withOpenGlContext {
+      action(it)
+    }
 
   override fun close() {
     try {
@@ -380,10 +381,10 @@ private constructor(private val gpuThread: MapRendererThread, private val egl: E
 @OptIn(ExperimentalComposeUiApi::class)
 private class Direct3D12TestGpuEnvironment private constructor(private val window: ComposeWindow) :
   DesktopTestGpuEnvironment() {
-  override val gpuHost: ComposeMapHost = AwtComposeMapHost(window)
+  override val presentationHost: ComposeMapPresentationHost = AwtComposeMapPresentationHost(window)
 
-  override fun <T> withContext(action: (ComposeGpuContext) -> T): T = gpuHost.onGpuThread {
-    action(gpuHost.requireContext<Direct3D12ComposeGpuContext>())
+  override fun <T> withContext(action: (ComposeGpuContext) -> T): T = presentationHost.onGpuThread {
+    action(presentationHost.requireContext<Direct3D12ComposeGpuContext>())
   }
 
   override fun close() {
@@ -447,7 +448,7 @@ private class Direct3D12TestGpuEnvironment private constructor(private val windo
       val environment = Direct3D12TestGpuEnvironment(window)
       try {
         val deadline = TimeSource.Monotonic.markNow() + CONTEXT_TIMEOUT
-        while (environment.gpuHost.currentContext() == null) {
+        while (environment.presentationHost.currentContext() == null) {
           check(deadline.hasNotPassedNow()) { "Timed out waiting for Skiko's D3D12 context" }
           EventQueue.invokeAndWait { window.renderImmediately() }
           Thread.sleep(10)

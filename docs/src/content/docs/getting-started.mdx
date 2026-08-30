@@ -9,6 +9,7 @@ import { region } from "../../snippets";
 import versions from "../../generated/versions.json";
 
 import gettingStarted from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/GettingStarted.kt?raw";
+import desktopGettingStarted from "../../../../demo-app/common/src/jvmMain/kotlin/org/maplibre/compose/docsnippets/GettingStartedDesktop.kt?raw";
 
 This page assumes you have a Compose Multiplatform project. To create one,
 follow [the official JetBrains documentation][compose-guide] or run
@@ -182,23 +183,15 @@ Available runtimes:
 | Windows x64   | `maplibre-compose-runtime-vulkan-windows-x64`   |
 | Windows arm64 | `maplibre-compose-runtime-vulkan-windows-arm64` |
 
-On desktop, a <Api of="ComposeMapHost" /> supplies the window's graphics
-context. For Java AWT windows, use <Api of="rememberAwtComposeMapHost" />. For
-an alternative Compose host, implement `ComposeMapHost` yourself.
+On desktop, a <Api of="ComposeMapPresentationHost" /> supplies the window's
+graphics context. For Java AWT windows, use
+<Api of="rememberAwtComposeMapPresentationHost" />. For an alternative Compose
+host, implement `ComposeMapPresentationHost` yourself.
 
 Call `MapLibre.configure` before the window opens. Pass a reverse-domain
 `applicationId`. A packaged `main` can omit that argument.
 
-```kotlin title="Main.kt"
-fun main() {
-  MapLibre.configure(applicationId = "com.example.myapp")
-  singleWindowApplication {
-    ProvideMapHost(host = rememberAwtComposeMapHost(window)) {
-      App()
-    }
-  }
-}
-```
+<Code code={region(desktopGettingStarted, "main")} lang="kotlin" title="Main.kt" />
 
 The native bindings make FFM downcalls. Enable native access when you run the
 app:

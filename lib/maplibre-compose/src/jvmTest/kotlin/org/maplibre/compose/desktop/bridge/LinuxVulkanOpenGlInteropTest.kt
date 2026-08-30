@@ -65,7 +65,7 @@ import org.lwjgl.system.Pointer.POINTER_SIZE
 import org.lwjgl.system.libffi.LibFFI.ffi_type_pointer
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.desktop.ComposeGpuContext
-import org.maplibre.compose.desktop.ComposeMapHost
+import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapExtent
@@ -89,7 +89,7 @@ class LinuxVulkanOpenGlInteropTest {
   fun `an inherited GL error does not poison the first memory import`() =
     onLinux("importing a Vulkan memory fd into OpenGL is a Linux-only path") {
       EglTestContext.create().use { egl ->
-        val host = VulkanOpenGlMapHost(EglMapHost(egl))
+        val host = VulkanOpenGlMapHost(EglPresentationHost(egl))
         try {
           egl.withCurrent {
             clearGlErrors()
@@ -110,7 +110,7 @@ class LinuxVulkanOpenGlInteropTest {
   fun `a resize can still present the last completed generation`() =
     onLinux("the Vulkan to OpenGL bridge this resizes exists only on Linux") {
       EglTestContext.create().use { egl ->
-        val host = VulkanOpenGlMapHost(EglMapHost(egl))
+        val host = VulkanOpenGlMapHost(EglPresentationHost(egl))
         try {
           val first =
             InteropMap(host).use { map ->
@@ -136,8 +136,8 @@ class LinuxVulkanOpenGlInteropTest {
     onLinux("the Vulkan to OpenGL bridge this replaces exists only on Linux") {
       EglTestContext.create().use { firstEgl ->
         EglTestContext.create().use { secondEgl ->
-          val mapHost = EglMapHost(firstEgl)
-          val host = VulkanOpenGlMapHost(mapHost)
+          val presentationHost = EglPresentationHost(firstEgl)
+          val host = VulkanOpenGlMapHost(presentationHost)
           try {
             InteropMap(host).use { map ->
               val first = firstEgl.withCurrent { map.renderStyle(FIRST_STYLE, FIRST_EXTENT) }
@@ -147,7 +147,7 @@ class LinuxVulkanOpenGlInteropTest {
                 "first context before replacement",
               )
 
-              mapHost.replaceContext(secondEgl)
+              presentationHost.replaceContext(secondEgl)
               val second = secondEgl.withCurrent { map.pumpUntilRendered(FIRST_EXTENT) }
               assertTrue(
                 second.generation != first.generation,
@@ -171,7 +171,7 @@ class LinuxVulkanOpenGlInteropTest {
   fun `reusing the shared target presents the new pixels`() =
     onLinux("the Vulkan to OpenGL bridge this reuses exists only on Linux") {
       EglTestContext.create().use { egl ->
-        val host = VulkanOpenGlMapHost(EglMapHost(egl))
+        val host = VulkanOpenGlMapHost(EglPresentationHost(egl))
         try {
           InteropMap(host).use { map ->
             egl.withCurrent {
@@ -213,7 +213,7 @@ class LinuxVulkanOpenGlInteropTest {
     )
   }
 
-  private class EglMapHost(egl: EglTestContext) : ComposeMapHost {
+  private class EglPresentationHost(egl: EglTestContext) : ComposeMapPresentationHost {
     private val ownerThread = Thread.currentThread()
     private var context = egl.asComposeContext()
 

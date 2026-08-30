@@ -4,13 +4,13 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import org.maplibre.compose.desktop.ComposeGpuContext
-import org.maplibre.compose.desktop.ComposeMapHost
+import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.desktop.OpenGlInterop
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiHostException
 
-class ComposeMapHostBridgeLifecycleTest {
+class ComposeMapPresentationHostBridgeLifecycleTest {
 
   @Test
   fun native_opengl_selects_the_linux_bridge() {
@@ -44,24 +44,28 @@ class ComposeMapHostBridgeLifecycleTest {
 
   @Test
   fun metal_resize_waits_for_the_first_gpu_context() {
-    MetalMapHost(ContextlessMapHost(ComposeRenderBackend.METAL)).use { host -> host.resize(EXTENT) }
+    MetalMapHost(ContextlessPresentationHost(ComposeRenderBackend.METAL)).use { host ->
+      host.resize(EXTENT)
+    }
   }
 
   @Test
   fun direct3d_resize_waits_for_the_first_gpu_context() {
-    VulkanDirect3D12MapHost(ContextlessMapHost(ComposeRenderBackend.DIRECT3D12)).use { host ->
+    VulkanDirect3D12MapHost(ContextlessPresentationHost(ComposeRenderBackend.DIRECT3D12)).use { host
+      ->
       host.resize(EXTENT)
     }
   }
 
   @Test
   fun windows_opengl_resize_waits_for_the_first_gpu_context() {
-    VulkanOpenGlWin32MapHost(ContextlessMapHost(ComposeRenderBackend.OPENGL)).use { host ->
+    VulkanOpenGlWin32MapHost(ContextlessPresentationHost(ComposeRenderBackend.OPENGL)).use { host ->
       host.resize(EXTENT)
     }
   }
 
-  private class ContextlessMapHost(override val backend: ComposeRenderBackend) : ComposeMapHost {
+  private class ContextlessPresentationHost(override val backend: ComposeRenderBackend) :
+    ComposeMapPresentationHost {
     override val description: String = "contextless test host"
 
     override fun gpuContext(): ComposeGpuContext? = null

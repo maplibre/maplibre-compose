@@ -3,7 +3,7 @@ package org.maplibre.compose.desktop.skiko
 import java.awt.Window
 import org.jetbrains.skia.DirectContext
 import org.maplibre.compose.desktop.ComposeGpuContext
-import org.maplibre.compose.desktop.ComposeMapHost
+import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.desktop.Direct3D12ComposeGpuContext
 import org.maplibre.compose.desktop.MetalComposeGpuContext
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
@@ -46,13 +46,14 @@ internal enum class HostOperatingSystem {
 }
 
 /**
- * A [ComposeMapHost] for one AWT-backed Compose Desktop [window].
+ * A [ComposeMapPresentationHost] for one AWT-backed Compose Desktop [window].
  *
  * Compose Desktop exposes no supported hook for any of this, so it is read reflectively; all of
  * that is confined to [SkikoReflection] and to the supplied window. An application running its own
  * Compose windowing supplies a different host and needs no reflection at all.
  */
-internal class AwtComposeMapHost(private val window: Window) : ComposeMapHost {
+internal class AwtComposeMapPresentationHost(private val window: Window) :
+  ComposeMapPresentationHost {
 
   private val operatingSystem = HostOperatingSystem.current()
 

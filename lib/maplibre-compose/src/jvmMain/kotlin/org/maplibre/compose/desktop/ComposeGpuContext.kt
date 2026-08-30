@@ -81,9 +81,9 @@ public class Direct3D12ComposeGpuContext(
  * Supplies the window integrations a map uses on desktop.
  *
  * Applications running their own Compose windowing report the GPU context and its owning thread,
- * plus any supported platform-window integration. Install one with [ProvideMapHost].
+ * plus any supported platform-window integration. Install one with [ProvideMapPresentationHost].
  */
-public interface ComposeMapHost {
+public interface ComposeMapPresentationHost {
   /** A short description of this host, used in diagnostics. */
   public val description: String
 
@@ -128,8 +128,8 @@ public interface ComposeMapHost {
   public fun runOnGpuThread(action: Runnable)
 }
 
-/** Runs [action] on [ComposeMapHost.runOnGpuThread] and returns its result. */
-internal fun <T> ComposeMapHost.onGpuThread(action: () -> T): T {
+/** Runs [action] on [ComposeMapPresentationHost.runOnGpuThread] and returns its result. */
+internal fun <T> ComposeMapPresentationHost.onGpuThread(action: () -> T): T {
   var result: Result<T>? = null
   runOnGpuThread { result = runCatching(action) }
   return checkNotNull(result) { "$description did not run the action it was given" }.getOrThrow()

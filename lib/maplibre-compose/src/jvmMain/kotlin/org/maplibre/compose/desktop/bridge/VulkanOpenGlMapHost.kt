@@ -99,7 +99,7 @@ import org.lwjgl.vulkan.VkPhysicalDevice
 import org.lwjgl.vulkan.VkPhysicalDeviceIDProperties
 import org.lwjgl.vulkan.VkPhysicalDeviceProperties2
 import org.lwjgl.vulkan.VkQueue
-import org.maplibre.compose.desktop.ComposeMapHost
+import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.EglContextHandles
@@ -120,7 +120,8 @@ import org.maplibre.compose.mlnffi.VulkanImageTarget
 private const val VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR = 1000074002
 
 /** Bridges MapLibre's Vulkan rendering into Compose's OpenGL context on Linux. */
-internal class VulkanOpenGlMapHost(private val gpuHost: ComposeMapHost) : MlnFfiMapHost {
+internal class VulkanOpenGlMapHost(private val presentationHost: ComposeMapPresentationHost) :
+  MlnFfiMapHost {
   private val rendererThread = MapRendererThread("maplibre-linux-vulkan-renderer")
   private val presenter = OpenGlPresenter.native()
   private val frameCompletion = ComposeFrameCompletion()
@@ -144,7 +145,7 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeMapHost) : MlnFfi
     extent: MapExtent,
     presentationTimeNanos: Long?,
   ): MlnFfiMapFrameAcquisition =
-    gpuHost.withOpenGlContextOrNull { context ->
+    presentationHost.withOpenGlContextOrNull { context ->
       frameCompletion.prepare(context.skiaContext, ::abandonContext)
       if (texture == null || extent != currentExtent) recreateTexture(extent)
       MlnFfiMapFrameAcquisition.Acquired(
@@ -178,7 +179,7 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeMapHost) : MlnFfi
     destination: MlnFfiMapDestination,
   ): Boolean {
     if (target !is VulkanImageTarget) return false
-    return gpuHost.withOpenGlContextOrNull { context ->
+    return presentationHost.withOpenGlContextOrNull { context ->
       frameCompletion.prepare(context.skiaContext, ::abandonContext)
       if (acquireProducerWrites) {
         // EXT_memory_object does not make Vulkan's waitIdle visible to this context. glFinish
@@ -208,7 +209,7 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeMapHost) : MlnFfi
       // At window close the Compose surface may already be gone; the driver reclaims the GL objects
       // along with the context.
       runCatching {
-        gpuHost.withOpenGlContext {
+        presentationHost.withOpenGlContext {
           disposeAllTextures()
           presenter.close()
         }

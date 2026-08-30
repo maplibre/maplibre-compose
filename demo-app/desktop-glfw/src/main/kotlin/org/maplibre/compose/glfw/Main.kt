@@ -12,11 +12,11 @@ import dev.sargunv.composeglfw.glfwApplication
 import dev.sargunv.composeglfw.rememberWindowState
 import org.maplibre.compose.demoapp.DemoApp
 import org.maplibre.compose.desktop.MapLibre
-import org.maplibre.compose.desktop.ProvideMapHost
+import org.maplibre.compose.desktop.ProvideMapPresentationHost
 
 /**
  * The same `DemoApp` the Compose Desktop demo runs, in a GLFW window instead of an AWT one; the
- * only difference is which `ComposeMapHost` is in scope.
+ * only difference is which `ComposeMapPresentationHost` is in scope.
  *
  * Run it with `mise run demo:desktop-glfw`. On macOS the launcher must pass `-XstartOnFirstThread`;
  * the Gradle task does.
@@ -31,7 +31,7 @@ fun main() {
     ) {
       InstallGlfwMainDispatcher()
       LogGlfwScale()
-      ProvideMapHost(host = rememberGlfwComposeMapHost()) { DemoApp() }
+      ProvideMapPresentationHost(host = rememberGlfwComposeMapPresentationHost()) { DemoApp() }
     }
   }
 }

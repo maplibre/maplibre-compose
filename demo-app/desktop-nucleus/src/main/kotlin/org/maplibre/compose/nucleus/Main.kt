@@ -21,11 +21,11 @@ import org.maplibre.compose.demoapp.DemoApp
 import org.maplibre.compose.demoapp.DemoAppTheme
 import org.maplibre.compose.demoapp.rememberDemoAppState
 import org.maplibre.compose.desktop.MapLibre
-import org.maplibre.compose.desktop.ProvideMapHost
+import org.maplibre.compose.desktop.ProvideMapPresentationHost
 
 /**
  * The same `DemoApp` the Compose Desktop demo runs, in a Nucleus Tao window instead of an AWT one;
- * the only difference is which `ComposeMapHost` is in scope.
+ * the only difference is which `ComposeMapPresentationHost` is in scope.
  */
 fun main() {
   MapLibre.configure(applicationId = "org.maplibre.compose.nucleus-fixture")
@@ -75,8 +75,8 @@ fun main() {
           },
           titleBarPlacement = TitleBarPlacement.Overlay(),
         ) { chromePadding ->
-          val host = rememberTaoComposeMapHost() ?: return@WindowScaffold
-          ProvideMapHost(host = host) { DemoApp(state, contentPadding = chromePadding) }
+          val host = rememberTaoComposeMapPresentationHost() ?: return@WindowScaffold
+          ProvideMapPresentationHost(host = host) { DemoApp(state, contentPadding = chromePadding) }
         }
       }
     }

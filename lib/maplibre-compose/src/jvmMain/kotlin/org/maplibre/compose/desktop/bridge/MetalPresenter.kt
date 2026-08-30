@@ -11,7 +11,7 @@ import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
 import org.jetbrains.skia.Surface
 import org.jetbrains.skia.SurfaceColorFormat
-import org.maplibre.compose.desktop.ComposeMapHost
+import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.MetalTextureTarget
 import org.maplibre.compose.mlnffi.MlnFfiHostException
@@ -23,7 +23,8 @@ import org.maplibre.compose.mlnffi.TextureOrigin
  * Draws MapLibre's Metal texture into the Compose scene by wrapping it as a Skia surface. Every
  * Skia object here is accessed inside the host's exclusive context boundary, freeing included.
  */
-internal class MetalPresenter(private val gpuHost: ComposeMapHost) : AutoCloseable {
+internal class MetalPresenter(private val presentationHost: ComposeMapPresentationHost) :
+  AutoCloseable {
   private val presenters = mutableMapOf<Long, TexturePresenter>()
 
   /** Textures whose Skia wrappers are still alive, waiting for a thread that may free them. */
@@ -60,11 +61,11 @@ internal class MetalPresenter(private val gpuHost: ComposeMapHost) : AutoCloseab
 
   /** Releases wrappers created by a Skia context that the host replaced. */
   fun resetContext() {
-    gpuHost.runOnGpuThread { closePresenters() }
+    presentationHost.runOnGpuThread { closePresenters() }
   }
 
   override fun close() {
-    gpuHost.runOnGpuThread {
+    presentationHost.runOnGpuThread {
       releaseRetired(keepAlive = 0L)
       closePresenters()
     }

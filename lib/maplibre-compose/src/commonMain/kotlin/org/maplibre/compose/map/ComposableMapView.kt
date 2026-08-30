@@ -6,6 +6,9 @@ import co.touchlab.kermit.Logger
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 
+/** Identifies the platform presentation host that owns the current UI surface. */
+@Composable internal expect fun mapPresentationHostIdentity(): Any
+
 @Composable
 internal expect fun ComposableMapView(
   modifier: Modifier,
