@@ -2,12 +2,10 @@ package org.maplibre.compose.map
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -16,31 +14,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.DpOffset
-import androidx.compose.ui.unit.dp
-import co.touchlab.kermit.Logger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraMoveReason
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MapOverlayHost
-import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleLayer
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleComposition
-import org.maplibre.compose.style.StyleState
 import org.maplibre.compose.style.rememberStyleComposition
-import org.maplibre.compose.style.rememberStyleState
-import org.maplibre.compose.util.ClickResult
-import org.maplibre.compose.util.MapClickHandler
-import org.maplibre.compose.util.MaplibreComposable
-import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
 private class MapStateAttachment(
@@ -61,9 +48,7 @@ private class MapStateAttachment(
     state.releasePresentation(token, map)
   }
 
-  fun markStyleReady(map: MapAdapter) {
-    state.markStyleReady(map)
-  }
+  fun markStyleReady(map: MapAdapter): Boolean = state.markStyleReady(map)
 
   fun markStyleFailed(map: MapAdapter, reason: String?) {
     state.markStyleFailed(map, reason)
@@ -80,9 +65,6 @@ private class MapStateAttachment(
     }
   }
 }
-
-private val LocalMapStateAttachment = staticCompositionLocalOf<MapStateAttachment?> { null }
-private val LocalStyleComposition = staticCompositionLocalOf<StyleComposition?> { null }
 
 /**
  * Displays [state] through one temporary presentation.
@@ -130,51 +112,28 @@ private fun PresentedMaplibreMap(
   val token = remember(state, presentationOwner) { state.reservePresentation(presentationOwner) }
   val attachment = remember(state, token) { MapStateAttachment(state, token) }
   DisposableEffect(attachment) { onDispose { attachment.release() } }
-  CompositionLocalProvider(
-    LocalMapStateAttachment provides attachment,
-    LocalStyleComposition provides styleComposition,
-  ) {
-    MaplibreMapPresentation(
-      modifier = modifier,
-      baseStyle = state.style.baseStyle,
-      cameraState = state.cameraState,
-      styleState = state.compatibilityStyleState,
-      cameraPadding = presentationOptions.cameraPadding,
-      zoomRange = presentationOptions.zoomRange,
-      pitchRange = presentationOptions.pitchRange,
-      boundingBox = presentationOptions.boundingBox,
-      onMapClick = callbacks.onClick,
-      onMapLongClick = callbacks.onLongClick,
-      onFrame = callbacks.onFrame,
-      options = presentationOptions,
-      logger = state.runtime.logger,
-      contentWindowInsets = contentWindowInsets,
-      overlay = overlay,
-    )
-  }
+  MaplibreMapPresentation(
+    state = state,
+    attachment = attachment,
+    styleComposition = styleComposition,
+    modifier = modifier,
+    presentationOptions = presentationOptions,
+    callbacks = callbacks,
+    contentWindowInsets = contentWindowInsets,
+    overlay = overlay,
+  )
 }
 
-/** Internal host for the current map presentation while callers migrate through [MaplibreMap]. */
 @Composable
 private fun MaplibreMapPresentation(
-  modifier: Modifier = Modifier,
-  baseStyle: BaseStyle = BaseStyle.Demo,
-  cameraState: CameraState,
-  cameraPadding: PaddingValues = PaddingValues(0.dp),
-  zoomRange: ClosedRange<Float> = 0f..20f,
-  pitchRange: ClosedRange<Float> = 0f..60f,
-  boundingBox: BoundingBox? = null,
-  styleState: StyleState = rememberStyleState(),
-  onMapClick: MapClickHandler = { _, _ -> ClickResult.Pass },
-  onMapLongClick: MapClickHandler = { _, _ -> ClickResult.Pass },
-  onFrame: (framesPerSecond: Double) -> Unit = {},
-  options: MapPresentationOptions = MapPresentationOptions(),
-  logger: Logger? = remember { Logger.withTag("maplibre-compose") },
-  onMapLoadFailed: (reason: String?) -> Unit = {},
-  onMapLoadFinished: () -> Unit = {},
-  contentWindowInsets: WindowInsets = WindowInsets.safeDrawing,
-  overlay: MapOverlay = MapOverlay.Default,
-  content: @Composable @MaplibreComposable () -> Unit = {},
+  state: MapState,
+  attachment: MapStateAttachment,
+  styleComposition: StyleComposition,
+  modifier: Modifier,
+  presentationOptions: MapPresentationOptions,
+  callbacks: MapPresentationCallbacks,
+  contentWindowInsets: WindowInsets,
+  overlay: MapOverlay,
 ) {
   // In preview/inspection mode, show a placeholder instead of trying to render the map
   if (LocalInspectionMode.current) {
@@ -182,39 +141,32 @@ private fun MaplibreMapPresentation(
     return
   }
 
-  val stateAttachment = LocalMapStateAttachment.current
-  val suppliedStyleComposition = LocalStyleComposition.current
   var rememberedStyle by remember { mutableStateOf<StyleBinding?>(null) }
-  val legacyStyleComposition = remember(content) { StyleComposition(content) }
-  val evaluatedComposition = suppliedStyleComposition ?: legacyStyleComposition
+  val styleState = state.compatibilityStyleState
   val desiredRevision by
     rememberStyleComposition(
-      composition = evaluatedComposition,
+      composition = styleComposition,
       maybeStyle = rememberedStyle,
-      replaceableSourceIds =
-        stateAttachment?.state?.desiredStyleRevision?.sources?.mapTo(mutableSetOf()) { it.id }
-          ?: emptySet(),
+      replaceableSourceIds = state.desiredStyleRevision.sources.mapTo(mutableSetOf()) { it.id },
       replaceableLayerIds =
-        stateAttachment?.state?.desiredStyleRevision?.layers?.mapTo(mutableSetOf()) {
+        state.desiredStyleRevision.layers.mapTo(mutableSetOf()) {
           it.definition.id
-        } ?: emptySet(),
+        },
       styleState = styleState,
     )
   val mapClickScope = rememberCoroutineScope()
-  val presentation = stateAttachment?.state?.presentation
-  var retainedRevisionReplayed by
-    remember(rememberedStyle, presentation) { mutableStateOf(stateAttachment == null) }
+  val presentation = state.presentation
+  var retainedRevisionReplayed by remember(rememberedStyle, presentation) { mutableStateOf(false) }
 
-  LaunchedEffect(rememberedStyle, presentation, stateAttachment) {
-    val attachment = stateAttachment ?: return@LaunchedEffect
+  LaunchedEffect(rememberedStyle, presentation, attachment) {
     val map = presentation?.adapter ?: return@LaunchedEffect
     if (rememberedStyle == null) return@LaunchedEffect
     try {
-      map.replayStyleRevision(attachment.state.desiredStyleRevision)
+      map.replayStyleRevision(state.desiredStyleRevision)
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
-      logger?.w(error) { "Could not replay the retained style revision" }
+      state.runtime.logger?.w(error) { "Could not replay the retained style revision" }
     } finally {
       retainedRevisionReplayed = true
     }
@@ -222,57 +174,51 @@ private fun MaplibreMapPresentation(
 
   LaunchedEffect(rememberedStyle, desiredRevision, presentation, retainedRevisionReplayed) {
     if (!retainedRevisionReplayed) return@LaunchedEffect
-    val map = presentation?.adapter ?: cameraState.map ?: return@LaunchedEffect
+    val map = presentation?.adapter ?: return@LaunchedEffect
     val revision = desiredRevision ?: return@LaunchedEffect
-    stateAttachment?.reconcileStyleRevision(map, revision) ?: map.reconcileStyleRevision(revision)
+    attachment.reconcileStyleRevision(map, revision)
     styleState.refreshSources()
   }
 
   val adapterCallbacks =
     remember(
-      cameraState,
       styleState,
       desiredRevision,
       mapClickScope,
-      stateAttachment,
+      attachment,
       presentation,
-      options,
+      presentationOptions,
+      callbacks,
     ) {
       object : MapAdapter.Callbacks {
         private fun currentPresentation(map: MapAdapter): MapPresentation? =
-          stateAttachment?.currentPresentation(map) ?: presentation?.takeIf { it.adapter === map }
+          attachment.currentPresentation(map)
 
         private fun synchronizeCamera(map: MapAdapter): MapPresentation? {
-          if (cameraState.map !== map) return null
-          val viewport = map.getViewport()
-          cameraState.positionState.value = map.getCameraPosition()
-          if (viewport == null) return null
-          return currentPresentation(map)?.also { it.cameraMoved(viewport) }
+          return state.synchronizeCamera(map)
         }
 
         override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
+          if (!state.updateLoadedStyle(map, style)) return
           rememberedStyle = style
-          stateAttachment?.state?.updateLoadedStyle(map, style)
           synchronizeCamera(map)
         }
 
         override fun onMapFailLoading(map: MapAdapter, reason: String?) {
-          stateAttachment?.markStyleFailed(map, reason)
-          onMapLoadFailed(reason)
+          attachment.markStyleFailed(map, reason)
         }
 
         override fun onMapFinishedLoading(map: MapAdapter) {
-          stateAttachment?.markStyleReady(map)
+          if (!attachment.markStyleReady(map)) return
           styleState.refreshSources()
-          onMapLoadFinished()
         }
 
         override fun onSourceChanged(map: MapAdapter, sourceId: String?) {
+          if (!state.acceptsPresentationEvent(map)) return
           if (sourceId == null) styleState.refreshSources() else styleState.refreshSource(sourceId)
         }
 
         override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {
-          if (cameraState.map !== map) return
           currentPresentation(map)?.cameraMoveStarted(reason)
         }
 
@@ -292,7 +238,7 @@ private fun MaplibreMapPresentation(
 
         override fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset) {
           if (currentPresentation(map) == null) return
-          if (onMapClick(latLng, offset).consumed) return
+          if (callbacks.onClick(latLng, offset).consumed) return
           mapClickScope.launch {
             for (node in layerNodesInOrder()) {
               if (node.onClick == null) continue
@@ -315,7 +261,7 @@ private fun MaplibreMapPresentation(
 
         override fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset) {
           if (currentPresentation(map) == null) return
-          if (onMapLongClick(latLng, offset).consumed) return
+          if (callbacks.onLongClick(latLng, offset).consumed) return
           mapClickScope.launch {
             for (node in layerNodesInOrder()) {
               if (node.onLongClick == null) continue
@@ -338,10 +284,9 @@ private fun MaplibreMapPresentation(
         }
 
         override fun onFrame(fps: Double) {
-          val map = cameraState.map ?: return
-          if (currentPresentation(map) == null) return
+          val map = state.presentation?.adapter ?: return
           synchronizeCamera(map)
-          onFrame(fps)
+          callbacks.onFrame(fps)
         }
       }
     }
@@ -349,47 +294,43 @@ private fun MaplibreMapPresentation(
   Box(modifier.fillMaxSize()) {
     ComposableMapView(
       modifier = Modifier.fillMaxSize(),
-      runtime = stateAttachment?.runtime,
-      state = stateAttachment?.state,
-      style = baseStyle,
+      runtime = attachment.runtime,
+      state = state,
+      style = state.style.baseStyle,
       update = update@{ map ->
-          if (stateAttachment?.state?.isClosed == true) return@update
-          map.setCameraPadding(cameraPadding)
+          if (state.isClosed) return@update
+          map.setCameraPadding(presentationOptions.cameraPadding)
           map.setCameraConstraints(
             CameraConstraints(
-              minZoom = zoomRange.start.toDouble(),
-              maxZoom = zoomRange.endInclusive.toDouble(),
-              minPitch = pitchRange.start.toDouble(),
-              maxPitch = pitchRange.endInclusive.toDouble(),
-              boundingBox = boundingBox,
+              minZoom = presentationOptions.zoomRange.start.toDouble(),
+              maxZoom = presentationOptions.zoomRange.endInclusive.toDouble(),
+              minPitch = presentationOptions.pitchRange.start.toDouble(),
+              maxPitch = presentationOptions.pitchRange.endInclusive.toDouble(),
+              boundingBox = presentationOptions.boundingBox,
             )
           )
-          map.setRenderSettings(options.renderOptions)
-          map.setGestureSettings(options.gestureOptions)
-          map.setTileLodSettings(options.tileLodOptions)
-          cameraState.map = map
-          stateAttachment?.publish(map, options)
+          map.setRenderSettings(presentationOptions.renderOptions)
+          map.setGestureSettings(presentationOptions.gestureOptions)
+          map.setTileLodSettings(presentationOptions.tileLodOptions)
+          attachment.publish(map, presentationOptions)
         },
       onReset = {
-        stateAttachment?.release(cameraState.map)
-        cameraState.map = null
+        attachment.release()
         rememberedStyle = null
       },
-      logger = logger,
+      logger = state.runtime.logger,
       callbacks = adapterCallbacks,
       rememberedStyle = rememberedStyle,
-      options = options,
+      options = presentationOptions,
     )
 
-    stateAttachment?.state?.let { state ->
-      MapOverlayHost(
-        overlay = overlay,
-        mapState = state,
-        presentation = presentation,
-        styleState = styleState,
-        contentWindowInsets = contentWindowInsets,
-        modifier = Modifier.matchParentSize(),
-      )
-    }
+    MapOverlayHost(
+      overlay = overlay,
+      mapState = state,
+      presentation = presentation,
+      styleState = styleState,
+      contentWindowInsets = contentWindowInsets,
+      modifier = Modifier.matchParentSize(),
+    )
   }
 }

@@ -39,7 +39,6 @@ import kotlinx.coroutines.selects.select
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
@@ -372,15 +371,16 @@ internal constructor(
   private var closed = false
   private var styleHandleEpoch = 0L
   private var closedState: Boolean by mutableStateOf(false)
+  private var cameraPositionState: CameraPosition by
+    mutableStateOf(initialCameraPosition, structuralEqualityPolicy())
 
-  internal val cameraState = CameraState(initialCameraPosition)
   internal val compatibilityStyleState = StyleState()
   internal var desiredStyleRevision: DesiredStyleRevision = DesiredStyleRevision.Empty
 
   public val style: MapStyleState = MapStyleState(initialBaseStyle).also { it.attach(this) }
 
   public val cameraPosition: CameraPosition
-    get() = cameraState.positionState.value
+    get() = cameraPositionState
 
   public var presentation: MapPresentation? by mutableStateOf(null)
     private set
@@ -413,7 +413,6 @@ internal constructor(
         }
         maps to recordedFailures
       }
-    cameraState.map = null
     if (maps.isEmpty()) {
       completeClosure(
         if (recordedFailures.isEmpty()) Result.success(Unit)
@@ -461,7 +460,6 @@ internal constructor(
       attachment = Attachment(owner, token)
       token
     }
-    if (cameraState.map === replaced) cameraState.map = null
     replaced?.let { adapter ->
       runtime.physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
         runCatching { adapter.detachPresentation() }
@@ -494,7 +492,7 @@ internal constructor(
       }
       if (adapter.retainsEngineBetweenPresentations) retainedAdapter = adapter
       if (replaced != null) retiringAdapters += replaced
-      cameraState.map = adapter
+      adapter.setCameraPosition(cameraPositionState)
       if (!reusesRetainedAdapter) {
         styleHandleEpoch++
         style.invalidateLoadedStyle()
@@ -530,7 +528,6 @@ internal constructor(
       }
       current.adapter
     }
-    if (cameraState.map === closingAdapter) cameraState.map = null
     if (closingAdapter == null) {
       lock.withLock { if (attachment?.token == token) attachment = null }
       return
@@ -550,22 +547,23 @@ internal constructor(
 
   internal fun durableStyleCallbacks(): MapAdapter.Callbacks = DurableStyleCallbacks(this)
 
-  internal fun markStyleReady(adapter: MapAdapter) {
-    lock.withLock {
-      if (!closed && (attachment?.adapter === adapter || retainedAdapter === adapter)) {
-        style.loadState = StyleLoadState.Ready
-      }
-    }
+  internal fun markStyleReady(adapter: MapAdapter): Boolean = lock.withLock {
+    if (closed || (attachment?.adapter !== adapter && retainedAdapter !== adapter)) return false
+    style.loadState = StyleLoadState.Ready
+    true
   }
 
-  internal fun updateLoadedStyle(adapter: MapAdapter, loadedStyle: StyleBinding?) {
-    lock.withLock {
-      if (!closed && (attachment?.adapter === adapter || retainedAdapter === adapter)) {
-        styleHandleEpoch++
-        style.updateLoadedStyle(loadedStyle)
-      }
-    }
+  internal fun acceptsPresentationEvent(adapter: MapAdapter): Boolean = lock.withLock {
+    !closed && attachment?.adapter === adapter && presentation?.adapter === adapter
   }
+
+  internal fun updateLoadedStyle(adapter: MapAdapter, loadedStyle: StyleBinding?): Boolean =
+    lock.withLock {
+      if (closed || (attachment?.adapter !== adapter && retainedAdapter !== adapter)) return false
+      styleHandleEpoch++
+      style.updateLoadedStyle(loadedStyle)
+      true
+    }
 
   internal fun markStyleFailed(adapter: MapAdapter, reason: String?) {
     lock.withLock {
@@ -635,8 +633,17 @@ internal constructor(
   internal fun setCameraPosition(candidate: MapPresentation, position: CameraPosition) {
     withCurrent(candidate) {
       candidate.adapter.setCameraPosition(position)
-      cameraState.positionState.value = position
+      cameraPositionState = position
     }
+  }
+
+  internal fun synchronizeCamera(adapter: MapAdapter): MapPresentation? = lock.withLock {
+    if (closed || attachment?.adapter !== adapter) return null
+    cameraPositionState = adapter.getCameraPosition()
+    val current = presentation ?: return null
+    val viewport = adapter.getViewport() ?: return null
+    current.cameraMoved(viewport)
+    current
   }
 
   internal fun requireCurrent(candidate: MapPresentation) {
