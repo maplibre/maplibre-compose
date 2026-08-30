@@ -155,7 +155,7 @@ internal constructor(
     private val client: CoreLocationClient,
     private val ioDispatcher: CoroutineContext,
   ) : CoreLocationDelegate {
-    override fun didUpdateLocations(locations: List<CoreLocationReading>) {
+    override fun didUpdateLocations(locations: List<CoreLocationMeasurement>) {
       locations.forEach(::sendLocation)
     }
 
@@ -173,11 +173,11 @@ internal constructor(
 
     override fun didChangeAuthorization() = Unit
 
-    fun sendLocation(location: CoreLocationReading) {
+    fun sendLocation(location: CoreLocationMeasurement) {
       if (location.horizontalAccuracy < 0.0) return
       channel.trySend(
         LocationEvent.Update(
-          location.asMapLibreLocationReading(),
+          location.asMapLibreLocationMeasurement(),
           TimeSource.Monotonic.markNow() - location.ageAtReceipt(),
         )
       )
@@ -239,7 +239,7 @@ internal constructor(private val client: CoreLocationClient) : AutoCloseable {
 
   private val delegate =
     object : CoreLocationDelegate {
-      override fun didUpdateLocations(locations: List<CoreLocationReading>) = Unit
+      override fun didUpdateLocations(locations: List<CoreLocationMeasurement>) = Unit
 
       override fun didFailWithError(error: CoreLocationError) {
         manager?.stopUpdatingLocation()

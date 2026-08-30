@@ -6,8 +6,8 @@ import kotlin.time.Duration.Companion.seconds
 import org.maplibre.compose.location.LocationAccuracy
 import org.maplibre.compose.location.LocationAccuracyAuthorization
 import org.maplibre.compose.location.LocationBackendAvailability
+import org.maplibre.compose.location.LocationMeasurement
 import org.maplibre.compose.location.LocationPermission
-import org.maplibre.compose.location.LocationReading
 import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.units.Bearing
@@ -41,7 +41,7 @@ internal val CL_LOCATION_ACCURACY_REDUCED: Double by lazy {
     ?: CL_LOCATION_ACCURACY_REDUCED_FALLBACK
 }
 
-internal data class CoreLocationReading(
+internal data class CoreLocationMeasurement(
   val latitude: Double,
   val longitude: Double,
   val altitude: Double,
@@ -57,7 +57,7 @@ internal data class CoreLocationReading(
 internal data class CoreLocationError(val domain: String, val code: Long)
 
 internal interface CoreLocationDelegate {
-  fun didUpdateLocations(locations: List<CoreLocationReading>)
+  fun didUpdateLocations(locations: List<CoreLocationMeasurement>)
 
   fun didFailWithError(error: CoreLocationError)
 
@@ -67,7 +67,7 @@ internal interface CoreLocationDelegate {
 internal interface CoreLocationManager : AutoCloseable {
   var desiredAccuracy: Double
   var distanceFilter: Double
-  val location: CoreLocationReading?
+  val location: CoreLocationMeasurement?
   val authorizationStatus: Long
   val accuracyAuthorization: Long
 
@@ -115,8 +115,8 @@ internal fun CoreLocationError.asUnavailableReason(
     else -> LocationUnavailableReason.UnexpectedFailure
   }
 
-internal fun CoreLocationReading.asMapLibreLocationReading(): LocationReading =
-  LocationReading(
+internal fun CoreLocationMeasurement.asMapLibreLocationMeasurement(): LocationMeasurement =
+  LocationMeasurement(
     position = Position(longitude = longitude, latitude = latitude, altitude = altitude),
     horizontalAccuracy = horizontalAccuracy.meters,
     altitudeAccuracy = if (verticalAccuracy >= 0.0) verticalAccuracy.meters else null,
@@ -127,7 +127,8 @@ internal fun CoreLocationReading.asMapLibreLocationReading(): LocationReading =
     measuredAt = Clock.System.now() - ageAtReceipt(),
   )
 
-internal fun CoreLocationReading.ageAtReceipt(): Duration = ageSeconds.coerceAtLeast(0.0).seconds
+internal fun CoreLocationMeasurement.ageAtReceipt(): Duration =
+  ageSeconds.coerceAtLeast(0.0).seconds
 
 internal fun readPermission(
   authorizationStatus: Long,

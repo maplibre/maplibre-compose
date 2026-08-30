@@ -28,7 +28,7 @@ class IosHeadingProviderTest {
 
   @Test
   fun coreLocationFailureTerminatesWithCause() = runTest {
-    val channel = Channel<Heading>()
+    val channel = Channel<HeadingMeasurement>()
     val delegate = IosHeadingDelegate(channel)
     val error = NSError.errorWithDomain("test.heading", 1, null)
 

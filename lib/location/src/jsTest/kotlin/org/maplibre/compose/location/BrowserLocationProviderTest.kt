@@ -50,7 +50,7 @@ class BrowserLocationProviderTest {
     runCurrent()
 
     assertEquals(2, events.size)
-    val first = assertIs<LocationEvent.Update>(events[0]).reading
+    val first = assertIs<LocationEvent.Update>(events[0]).measurement
     assertEquals(12.0, first.position.altitude)
     assertEquals(4.0, first.horizontalAccuracy?.inMeters)
     assertEquals(2.0, first.altitudeAccuracy?.inMeters)
@@ -120,7 +120,7 @@ class BrowserLocationProviderTest {
     runCurrent()
 
     assertEquals(2, events.size)
-    events.forEach { assertNull(assertIs<LocationEvent.Update>(it).reading.course) }
+    events.forEach { assertNull(assertIs<LocationEvent.Update>(it).measurement.course) }
   }
 
   @Test
@@ -139,9 +139,9 @@ class BrowserLocationProviderTest {
     runCurrent()
 
     assertEquals(3, events.size)
-    assertEquals(1.0, assertIs<LocationEvent.Update>(events[0]).reading.position.longitude)
+    assertEquals(1.0, assertIs<LocationEvent.Update>(events[0]).measurement.position.longitude)
     assertIs<LocationEvent.Unavailable>(events[1])
-    assertEquals(2.0, assertIs<LocationEvent.Update>(events[2]).reading.position.longitude)
+    assertEquals(2.0, assertIs<LocationEvent.Update>(events[2]).measurement.position.longitude)
   }
 
   @Test

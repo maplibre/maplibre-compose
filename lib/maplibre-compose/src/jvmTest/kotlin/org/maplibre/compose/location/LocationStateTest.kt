@@ -13,6 +13,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+import kotlin.time.TimeSource
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.Dispatchers
@@ -24,7 +25,6 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import org.maplibre.spatialk.geojson.Position
@@ -85,7 +85,7 @@ class LocationStateTest {
         provider.permission.value =
           LocationPermission.Granted(LocationAccuracyAuthorization.Precise)
       }
-      waitUntil { locationProvider.active && state?.lastReading == locationProvider.location }
+      waitUntil { locationProvider.active && state?.lastLocation == locationProvider.location }
 
       runOnIdle {
         provider.permission.value = LocationPermission.NotGranted(canRequest = false)
@@ -168,7 +168,7 @@ class LocationStateTest {
           )
       }
 
-      waitUntil { provider.active && state?.lastReading == provider.location }
+      waitUntil { provider.active && state?.lastLocation == provider.location }
       assertEquals(
         LocationPermission.Granted(LocationAccuracyAuthorization.Unknown),
         state?.permission,
@@ -214,7 +214,7 @@ class LocationStateTest {
       waitUntil {
         locationProvider.active &&
           state?.let {
-            it.lastReading == locationProvider.location &&
+            it.lastLocation == locationProvider.location &&
               it.headingStatus == HeadingTrackingStatus.Unavailable(failure)
           } == true
       }
@@ -270,7 +270,7 @@ class LocationStateTest {
 
       waitUntil { locationProvider.active && headingProvider.activeCollectors == 1 }
       runOnIdle { headingProvider.headings.tryEmit(expectedHeading) }
-      waitUntil { state?.lastReading == expectedLocation && state.lastHeading == expectedHeading }
+      waitUntil { state?.lastLocation == expectedLocation && state.lastHeading == expectedHeading }
 
       runOnIdle { enabled = false }
       waitUntil {
@@ -279,7 +279,7 @@ class LocationStateTest {
           state?.status == LocationTrackingStatus.Stopped &&
           state.headingStatus == HeadingTrackingStatus.Stopped
       }
-      assertEquals(expectedLocation, state?.lastReading)
+      assertEquals(expectedLocation, state?.lastLocation)
       assertEquals(expectedHeading, state?.lastHeading)
     }
   }
@@ -300,7 +300,7 @@ class LocationStateTest {
       }
 
       waitUntil {
-        state?.let { it.lastReading == expected && it.status == LocationTrackingStatus.Stopped } ==
+        state?.let { it.lastLocation == expected && it.status == LocationTrackingStatus.Stopped } ==
           true
       }
     }
@@ -327,7 +327,7 @@ class LocationStateTest {
       runOnIdle { provider = FiniteLocationProvider() }
       waitUntil { state !== originalState }
       val expected =
-        Heading(
+        HeadingMeasurement(
           bearing = Bearing.North + 90.0.degrees,
           reference = HeadingReference.TrueNorth,
           accuracy = null,
@@ -345,21 +345,21 @@ class LocationStateTest {
     val first = LocationState()
     val second = LocationState()
     var trackedState by mutableStateOf(first)
-    val observed = mutableListOf<LocationReading>()
+    val observed = mutableListOf<LocationMeasurement>()
 
     setContent {
       LocationTrackingEffect(trackedState) {
-        observed += currentReading
+        observed += currentLocation
       }
     }
     val firstLocation = location(13.0)
-    runOnIdle { first.lastReading = firstLocation }
+    runOnIdle { first.lastLocation = firstLocation }
     waitUntil { observed == listOf(firstLocation) }
 
     val secondLocation = location(14.0)
     runOnIdle {
       trackedState = second
-      second.lastReading = secondLocation
+      second.lastLocation = secondLocation
     }
 
     waitUntil { observed == listOf(firstLocation, secondLocation) }
@@ -389,14 +389,22 @@ private class ResumedLifecycleOwner : LifecycleOwner {
   }
 }
 
-private class FiniteLocationProvider(private vararg val locations: LocationReading) :
+private class FiniteLocationProvider(private vararg val locations: LocationMeasurement) :
   LocationProvider {
-  override fun updates(request: LocationRequest): Flow<LocationEvent> =
-    flowOf(*locations.map(LocationEvent::Update).toTypedArray())
+  override fun updates(request: LocationRequest): Flow<LocationEvent> = flow {
+    for (location in locations) {
+      emit(
+        LocationEvent.Update(
+          measurement = location,
+          measurementMark = TimeSource.Monotonic.markNow(),
+        )
+      )
+    }
+  }
 }
 
 private class ActiveLocationProvider(
-  val location: LocationReading,
+  val location: LocationMeasurement,
   override val backendAvailability: LocationBackendAvailability =
     LocationBackendAvailability.Available,
 ) : LocationProvider {
@@ -406,7 +414,12 @@ private class ActiveLocationProvider(
   override fun updates(request: LocationRequest): Flow<LocationEvent> = flow {
     active = true
     try {
-      emit(LocationEvent.Update(location))
+      emit(
+        LocationEvent.Update(
+          measurement = location,
+          measurementMark = TimeSource.Monotonic.markNow(),
+        )
+      )
       awaitCancellation()
     } finally {
       active = false
@@ -433,10 +446,10 @@ private class MutablePermissionProvider(
 }
 
 private class MutableHeadingProvider : HeadingProvider {
-  val headings = MutableSharedFlow<Heading>(extraBufferCapacity = 1)
+  val headings = MutableSharedFlow<HeadingMeasurement>(extraBufferCapacity = 1)
   var activeCollectors = 0
 
-  override fun updates(request: HeadingRequest): Flow<Heading> = flow {
+  override fun updates(request: HeadingRequest): Flow<HeadingMeasurement> = flow {
     activeCollectors++
     try {
       emitAll(headings)
@@ -449,20 +462,20 @@ private class MutableHeadingProvider : HeadingProvider {
 private class ContextRecordingHeadingProvider : HeadingProvider {
   val collectionName = CompletableDeferred<String?>()
 
-  override fun updates(request: HeadingRequest): Flow<Heading> = flow {
+  override fun updates(request: HeadingRequest): Flow<HeadingMeasurement> = flow {
     collectionName.complete(currentCoroutineContext()[CoroutineName]?.name)
     awaitCancellation()
   }
 }
 
 private class FailingHeadingProvider(private val failure: Throwable) : HeadingProvider {
-  override fun updates(request: HeadingRequest): Flow<Heading> = flow { throw failure }
+  override fun updates(request: HeadingRequest): Flow<HeadingMeasurement> = flow { throw failure }
 }
 
-private class RetryableHeadingProvider(private val heading: Heading) : HeadingProvider {
+private class RetryableHeadingProvider(private val heading: HeadingMeasurement) : HeadingProvider {
   var attempts = 0
 
-  override fun updates(request: HeadingRequest): Flow<Heading> = flow {
+  override fun updates(request: HeadingRequest): Flow<HeadingMeasurement> = flow {
     attempts++
     if (attempts == 1) throw IllegalStateException("sensor failed")
     emit(heading)
@@ -470,16 +483,16 @@ private class RetryableHeadingProvider(private val heading: Heading) : HeadingPr
   }
 }
 
-private fun heading(degrees: Double): Heading =
-  Heading(
+private fun heading(degrees: Double): HeadingMeasurement =
+  HeadingMeasurement(
     bearing = Bearing.North + degrees.degrees,
     reference = HeadingReference.TrueNorth,
     accuracy = null,
     measuredAt = Clock.System.now(),
   )
 
-private fun location(longitude: Double): LocationReading =
-  LocationReading(
+private fun location(longitude: Double): LocationMeasurement =
+  LocationMeasurement(
     position = Position(longitude, 52.0),
     measuredAt = Clock.System.now(),
   )

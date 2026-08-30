@@ -115,9 +115,9 @@ class MacosLocationProviderTest {
   }
 
   @Test
-  fun convertsCoreLocationReading() {
+  fun convertsCoreLocationMeasurement() {
     val location =
-      CoreLocationReading(
+      CoreLocationMeasurement(
           latitude = 52.0,
           longitude = 13.0,
           altitude = 40.0,
@@ -129,7 +129,7 @@ class MacosLocationProviderTest {
           speedAccuracy = 0.5,
           ageSeconds = 2.0,
         )
-        .asMapLibreLocationReading()
+        .asMapLibreLocationMeasurement()
 
     assertEquals(52.0, location.position.latitude)
     assertEquals(13.0, location.position.longitude)
@@ -146,7 +146,7 @@ class MacosLocationProviderTest {
   @Test
   fun omitsInvalidOptionalFixFields() {
     val location =
-      CoreLocationReading(
+      CoreLocationMeasurement(
           latitude = 1.0,
           longitude = 2.0,
           altitude = 0.0,
@@ -158,7 +158,7 @@ class MacosLocationProviderTest {
           speedAccuracy = -1.0,
           ageSeconds = 0.0,
         )
-        .asMapLibreLocationReading()
+        .asMapLibreLocationMeasurement()
 
     assertNull(location.altitudeAccuracy)
     assertNull(location.course)
@@ -169,11 +169,11 @@ class MacosLocationProviderTest {
   fun providerForwardsClientUpdatesAndClosesItsManager() = runTest {
     val client = FakeCoreLocationClient()
     val provider = MacosLocationProvider(client, Dispatchers.Unconfined)
-    val reading = sampleReading()
-    client.nextLocation = reading
+    val measurement = sampleMeasurement()
+    client.nextLocation = measurement
 
     val event = assertIs<LocationEvent.Update>(provider.updates(LocationRequest()).first())
-    assertEquals(52.0, event.reading.position.latitude)
+    assertEquals(52.0, event.measurement.position.latitude)
     assertEquals(2, client.managers.size)
     val manager = client.managers.last()
     assertEquals(CL_LOCATION_ACCURACY_BEST, manager.desiredAccuracy)
@@ -190,7 +190,7 @@ class MacosLocationProviderTest {
   fun providerAppliesRequestPreferences() = runTest {
     val client = FakeCoreLocationClient()
     val provider = MacosLocationProvider(client, Dispatchers.Unconfined)
-    client.nextLocation = sampleReading()
+    client.nextLocation = sampleMeasurement()
 
     provider
       .updates(LocationRequest(accuracy = LocationAccuracy.Balanced, minimumDistance = 10.meters))
@@ -215,7 +215,7 @@ class MacosLocationProviderTest {
   fun providerDropsFixesWithInvalidHorizontalAccuracy() = runTest {
     val client = FakeCoreLocationClient()
     val provider = MacosLocationProvider(client, Dispatchers.Unconfined, Dispatchers.Unconfined)
-    client.nextLocation = sampleReading().copy(horizontalAccuracy = -1.0)
+    client.nextLocation = sampleMeasurement().copy(horizontalAccuracy = -1.0)
 
     val events = mutableListOf<LocationEvent>()
     backgroundScope.launch(Dispatchers.Unconfined) {
@@ -223,7 +223,7 @@ class MacosLocationProviderTest {
     }
 
     assertTrue(events.isEmpty())
-    client.managers.last().boundDelegate?.didUpdateLocations(listOf(sampleReading()))
+    client.managers.last().boundDelegate?.didUpdateLocations(listOf(sampleMeasurement()))
     assertIs<LocationEvent.Update>(events.single())
   }
 
@@ -231,7 +231,7 @@ class MacosLocationProviderTest {
   fun transientErrorKeepsCallbackOrderAheadOfLaterFix() = runTest {
     val client = FakeCoreLocationClient()
     val provider = MacosLocationProvider(client, Dispatchers.Unconfined, Dispatchers.Unconfined)
-    client.nextLocation = sampleReading()
+    client.nextLocation = sampleMeasurement()
 
     val events = mutableListOf<LocationEvent>()
     backgroundScope.launch(Dispatchers.Unconfined) {
@@ -241,21 +241,21 @@ class MacosLocationProviderTest {
     assertIs<LocationEvent.Update>(events.single())
     val delegate = client.managers.last().boundDelegate
     delegate?.didFailWithError(CoreLocationError(CL_ERROR_DOMAIN, CL_ERROR_LOCATION_UNKNOWN))
-    delegate?.didUpdateLocations(listOf(sampleReading().copy(latitude = 53.0)))
+    delegate?.didUpdateLocations(listOf(sampleMeasurement().copy(latitude = 53.0)))
 
     assertEquals(3, events.size)
     assertEquals(
       LocationUnavailableReason.TemporarilyUnavailable,
       assertIs<LocationEvent.Unavailable>(events[1]).reason,
     )
-    assertEquals(53.0, assertIs<LocationEvent.Update>(events[2]).reading.position.latitude)
+    assertEquals(53.0, assertIs<LocationEvent.Update>(events[2]).measurement.position.latitude)
   }
 
   @Test
   fun deniedErrorRechecksLocationServices() = runTest {
     val client = FakeCoreLocationClient()
     val provider = MacosLocationProvider(client, Dispatchers.Unconfined, Dispatchers.Unconfined)
-    client.nextLocation = sampleReading()
+    client.nextLocation = sampleMeasurement()
 
     val events = mutableListOf<LocationEvent>()
     backgroundScope.launch(Dispatchers.Unconfined) {
@@ -415,8 +415,8 @@ class MacosLocationProviderTest {
   }
 }
 
-private fun sampleReading(): CoreLocationReading =
-  CoreLocationReading(
+private fun sampleMeasurement(): CoreLocationMeasurement =
+  CoreLocationMeasurement(
     latitude = 52.0,
     longitude = 13.0,
     altitude = 40.0,
@@ -441,7 +441,7 @@ private class FakeCoreLocationClient(
     }
   val managers = mutableListOf<FakeCoreLocationManager>()
   var closed = false
-  var nextLocation: CoreLocationReading? = null
+  var nextLocation: CoreLocationMeasurement? = null
   var createFailure: Throwable? = null
 
   override fun createManager(): CoreLocationManager {
@@ -454,7 +454,7 @@ private class FakeCoreLocationClient(
   }
 }
 
-private class FakeCoreLocationManager(override var location: CoreLocationReading? = null) :
+private class FakeCoreLocationManager(override var location: CoreLocationMeasurement? = null) :
   CoreLocationManager {
   override var desiredAccuracy: Double = 0.0
   override var distanceFilter: Double = 0.0

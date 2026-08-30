@@ -43,7 +43,7 @@ fun Location() {
 
         LocationTrackingEffect(locationState = locationState) {
           mapState.presentation?.animateCameraPosition(
-            CameraPosition(target = currentReading.position, zoom = 15.0)
+            CameraPosition(target = currentLocation.position, zoom = 15.0)
           )
         }
       }

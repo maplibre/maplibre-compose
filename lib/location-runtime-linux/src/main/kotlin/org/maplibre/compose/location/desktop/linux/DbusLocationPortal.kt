@@ -30,7 +30,7 @@ import org.freedesktop.dbus.types.UInt32
 import org.freedesktop.dbus.types.Variant
 import org.maplibre.compose.location.LocationAccuracy
 import org.maplibre.compose.location.LocationEvent
-import org.maplibre.compose.location.LocationReading
+import org.maplibre.compose.location.LocationMeasurement
 import org.maplibre.compose.location.LocationRequest
 import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.compose.location.XdgPortalWindow
@@ -219,7 +219,8 @@ internal class DbusLocationPortal(private val window: XdgPortalWindow? = null) :
     }
   }
 
-  // No distance-threshold: GeoClue emits nothing, not even the first reading, when the position has
+  // No distance-threshold: GeoClue emits nothing, not even the first measurement, when the position
+  // has
   // not moved that far, and a GeoIP-located desktop never moves.
   private fun sessionOptions(request: LocationRequest): Map<String, Variant<*>> =
     mapOf(
@@ -272,7 +273,7 @@ internal fun Map<String, Variant<*>>.toLocationEvent(): LocationEvent.Update {
       )
     } ?: Clock.System.now()
   val location =
-    LocationReading(
+    LocationMeasurement(
       position =
         Position(
           longitude = number("Longitude") ?: error("Portal location has no Longitude"),
@@ -286,8 +287,8 @@ internal fun Map<String, Variant<*>>.toLocationEvent(): LocationEvent.Update {
       measuredAt = capturedAt,
     )
   return LocationEvent.Update(
-    location,
-    TimeSource.Monotonic.markNow() - (Clock.System.now() - capturedAt).coerceAtLeast(Duration.ZERO),
+    measurement = location,
+    measurementMark = TimeSource.Monotonic.markNow(),
   )
 }
 

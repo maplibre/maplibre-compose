@@ -21,7 +21,7 @@ class HeadingProviderTest {
     var starts = 0
     var stops = 0
     val expected =
-      Heading(
+      HeadingMeasurement(
         bearing = Bearing.East,
         reference = HeadingReference.TrueNorth,
         accuracy = 3.0.degrees,
@@ -29,7 +29,7 @@ class HeadingProviderTest {
       )
     val provider =
       object : HeadingProvider {
-        override fun updates(request: HeadingRequest): Flow<Heading> = flow {
+        override fun updates(request: HeadingRequest): Flow<HeadingMeasurement> = flow {
           starts++
           try {
             emit(expected)
@@ -49,7 +49,7 @@ class HeadingProviderTest {
   @Test
   fun headingSerializesWithoutRuntimeState() {
     val expected =
-      Heading(
+      HeadingMeasurement(
         bearing = Bearing.East,
         reference = HeadingReference.MagneticNorth,
         accuracy = null,
@@ -58,7 +58,7 @@ class HeadingProviderTest {
 
     val encoded = Json.encodeToString(expected)
 
-    assertEquals(expected, Json.decodeFromString<Heading>(encoded))
+    assertEquals(expected, Json.decodeFromString<HeadingMeasurement>(encoded))
     assertEquals(false, encoded.contains("TimeMark"))
   }
 

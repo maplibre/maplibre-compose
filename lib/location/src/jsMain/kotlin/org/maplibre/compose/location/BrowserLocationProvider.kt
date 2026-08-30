@@ -5,6 +5,7 @@ import kotlin.coroutines.resume
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
+import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -107,7 +108,12 @@ internal constructor(
               current.capturedAt - previous!!.capturedAt >= request.minimumInterval
           ) {
             previous = current
-            trySend(LocationEvent.Update(current.asLocationReading()))
+            trySend(
+              LocationEvent.Update(
+                measurement = current.asLocationMeasurement(),
+                measurementMark = TimeSource.Monotonic.markNow(),
+              )
+            )
           }
         }
         is BrowserResult.Error -> {
@@ -392,8 +398,8 @@ private fun GeolocationPositionError.toValue(): BrowserError =
     GeolocationPositionError.TIMEOUT -> BrowserError.Timeout
   }
 
-private fun BrowserPosition.asLocationReading(): LocationReading =
-  LocationReading(
+private fun BrowserPosition.asLocationMeasurement(): LocationMeasurement =
+  LocationMeasurement(
     position = Position(longitude, latitude, altitude),
     horizontalAccuracy = horizontalAccuracyMeters.meters,
     altitudeAccuracy = if (altitude != null) altitudeAccuracyMeters?.meters else null,

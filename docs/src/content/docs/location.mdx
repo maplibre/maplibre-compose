@@ -12,7 +12,7 @@ import location from "../../../../demo-app/common/src/commonMain/kotlin/org/mapl
 The location module tracks the user's position and draws it on the map. A
 <Api of="LocationProvider" /> supplies location updates,
 <Api of="rememberLocationState" /> collects them, <Api of="LocationPuck" />
-draws the latest reading, and <Api of="LocationTrackingEffect" /> keeps the camera
+draws the latest measurement, and <Api of="LocationTrackingEffect" /> keeps the camera
 in sync with location changes:
 
 <Code code={region(location, "puck")} lang="kotlin" title="App.kt" />
@@ -21,8 +21,8 @@ All platforms provide default location providers. Android and iOS also provide
 default heading providers. <Api of="LocationState.status" /> reports an
 unsupported or misconfigured platform without throwing.
 
-`locationState.lastReading` is null until the first reading arrives, so the puck
-initially draws nothing. Afterward, the state retains the last reading when
+`locationState.lastLocation` is null until the first measurement arrives, so the puck
+initially draws nothing. Afterward, the state retains the last measurement when
 tracking stops or permission changes.
 
 A `Bearing` is an absolute horizontal direction, such as South or East. A

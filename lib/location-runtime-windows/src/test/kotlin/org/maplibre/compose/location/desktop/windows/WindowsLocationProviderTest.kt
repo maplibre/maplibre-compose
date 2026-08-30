@@ -158,12 +158,12 @@ class WindowsLocationProviderTest {
   @Test
   fun convertsWindowsFixAndTimestamp() {
     val currentTimeMillis = 1_700_000_000_000
-    val reading =
-      sampleReading(
+    val measurement =
+      sampleMeasurement(
         windowsTimestampTicks =
           WINDOWS_EPOCH_TICKS + (currentTimeMillis - 2_000) * TICKS_PER_MILLISECOND
       )
-    val location = checkNotNull(reading.asMapLibreLocationReading())
+    val location = checkNotNull(measurement.asMapLibreLocationMeasurement())
 
     assertEquals(52.0, location.position.latitude)
     assertEquals(13.0, location.position.longitude)
@@ -179,21 +179,23 @@ class WindowsLocationProviderTest {
 
   @Test
   fun rejectsMalformedRequiredValuesAndOmitsMalformedOptionalValues() {
-    assertNull(sampleReading(latitude = Double.NaN).asMapLibreLocationReading())
-    assertNull(sampleReading(latitude = 91.0).asMapLibreLocationReading())
-    assertNull(sampleReading(longitude = -181.0).asMapLibreLocationReading())
-    assertNull(sampleReading(horizontalAccuracyMeters = -1.0).asMapLibreLocationReading())
-    assertNull(sampleReading(windowsTimestampTicks = Long.MIN_VALUE).asMapLibreLocationReading())
+    assertNull(sampleMeasurement(latitude = Double.NaN).asMapLibreLocationMeasurement())
+    assertNull(sampleMeasurement(latitude = 91.0).asMapLibreLocationMeasurement())
+    assertNull(sampleMeasurement(longitude = -181.0).asMapLibreLocationMeasurement())
+    assertNull(sampleMeasurement(horizontalAccuracyMeters = -1.0).asMapLibreLocationMeasurement())
+    assertNull(
+      sampleMeasurement(windowsTimestampTicks = Long.MIN_VALUE).asMapLibreLocationMeasurement()
+    )
 
     val location =
       checkNotNull(
-        sampleReading(
+        sampleMeasurement(
             altitudeMeters = Double.NaN,
             verticalAccuracyMeters = -1.0,
             headingDegrees = Double.POSITIVE_INFINITY,
             speedMetersPerSecond = -1.0,
           )
-          .asMapLibreLocationReading()
+          .asMapLibreLocationMeasurement()
       )
     assertNull(location.position.altitude)
     assertNull(location.altitudeAccuracy)
@@ -204,7 +206,7 @@ class WindowsLocationProviderTest {
   @Test
   fun localFilterAlwaysDeliversFirstFixAndEnforcesBothThresholds() {
     val filter = WindowsLocationFilter(1.seconds, minimumDistanceMeters = 100.0)
-    val first = sampleReading(windowsTimestampTicks = 0)
+    val first = sampleMeasurement(windowsTimestampTicks = 0)
 
     assertTrue(filter.shouldDeliver(first))
     assertFalse(
@@ -245,7 +247,7 @@ class WindowsLocationProviderTest {
     assertEquals(1_000, session.configuration.desiredAccuracyMeters)
     assertEquals(2_000, session.configuration.reportIntervalMilliseconds)
 
-    session.listener.onPosition(sampleReading())
+    session.listener.onPosition(sampleMeasurement())
     session.listener.onStatus(WindowsPositionStatus.NoData)
     session.listener.onFailure(IllegalStateException("native failure"))
 
@@ -393,7 +395,7 @@ private class FakeWindowsSession(
   }
 }
 
-private fun sampleReading(
+private fun sampleMeasurement(
   latitude: Double = 52.0,
   longitude: Double = 13.0,
   altitudeMeters: Double? = 40.0,
@@ -402,8 +404,8 @@ private fun sampleReading(
   headingDegrees: Double? = 90.0,
   speedMetersPerSecond: Double? = 4.0,
   windowsTimestampTicks: Long = WINDOWS_EPOCH_TICKS + 1_700_000_000_000 * TICKS_PER_MILLISECOND,
-): WindowsLocationReading =
-  WindowsLocationReading(
+): WindowsLocationMeasurement =
+  WindowsLocationMeasurement(
     latitude,
     longitude,
     altitudeMeters,

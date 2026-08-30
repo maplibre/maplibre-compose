@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.filterNotNull
 /**
  * A form of [LaunchedEffect] that is specialized for tracking user location.
  *
- * [onLocationChange] is called when [LocationState.lastReading] changes. Course or device-heading
+ * [onLocationChange] is called when [LocationState.lastLocation] changes. Course or device-heading
  * changes also trigger it when [trackBearing] is `true`.
  *
  * If [enabled] is `false`, [onLocationChange] is never called. Disabling this effect stops
@@ -38,7 +38,7 @@ public fun LocationTrackingEffect(
     // Read both mutable properties inside snapshotFlow; observing LocationState itself would not
     // emit when either property changes.
     snapshotFlow {
-        locationState.lastReading?.let { LocationSnapshot(it, locationState.lastHeading) }
+        locationState.lastLocation?.let { LocationSnapshot(it, locationState.lastHeading) }
       }
       .filterNotNull()
       .distinctUntilChanged { old, new ->
@@ -53,30 +53,33 @@ public fun LocationTrackingEffect(
 
 /** The measurements that triggered a [LocationTrackingEffect] callback. */
 public interface LocationChangeScope {
-  /** The location reading from the previous callback, or `null` for the first callback. */
-  public val previousReading: LocationReading?
+  /** The location measurement from the previous callback, or `null` for the first callback. */
+  public val previousLocation: LocationMeasurement?
 
-  /** The location reading that triggered this callback. */
-  public val currentReading: LocationReading
+  /** The location measurement that triggered this callback. */
+  public val currentLocation: LocationMeasurement
 
   /** The most recently received device heading. */
-  public val currentHeading: Heading?
+  public val currentHeading: HeadingMeasurement?
 }
 
-private data class LocationSnapshot(val location: LocationReading, val heading: Heading?)
+private data class LocationSnapshot(
+  val location: LocationMeasurement,
+  val heading: HeadingMeasurement?,
+)
 
 private class LocationChangeCollector(private val onEmit: suspend LocationChangeScope.() -> Unit) :
   FlowCollector<LocationSnapshot>, LocationChangeScope {
   private var previousSnapshot: LocationSnapshot? = null
   private lateinit var currentSnapshot: LocationSnapshot
 
-  override val previousReading: LocationReading?
+  override val previousLocation: LocationMeasurement?
     get() = previousSnapshot?.location
 
-  override val currentReading: LocationReading
+  override val currentLocation: LocationMeasurement
     get() = currentSnapshot.location
 
-  override val currentHeading: Heading?
+  override val currentHeading: HeadingMeasurement?
     get() = currentSnapshot.heading
 
   override suspend fun emit(value: LocationSnapshot) {

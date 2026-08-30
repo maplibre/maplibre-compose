@@ -26,23 +26,23 @@ import org.maplibre.spatialk.units.extensions.degrees
 /**
  * Lifecycle-aware state for foreground location and heading tracking.
  *
- * [lastReading] and [lastHeading] retain their most recently received measurements when collection
+ * [lastLocation] and [lastHeading] retain their most recently received measurements when collection
  * stops. [status] separately describes whether updates are active, so retained data is not mistaken
  * for a live update.
  */
 @Stable
 public class LocationState
 internal constructor(initialPermission: LocationPermission = LocationPermission.NotGranted(null)) {
-  /** The user's last known location reading. */
-  public var lastReading: LocationReading? by mutableStateOf(null)
+  /** The user's last known location measurement. */
+  public var lastLocation: LocationMeasurement? by mutableStateOf(null)
     internal set
 
   /** The device's last known heading. */
-  public var lastHeading: Heading? by mutableStateOf(null)
+  public var lastHeading: HeadingMeasurement? by mutableStateOf(null)
     internal set
 
-  /** Process-local monotonic mark for [lastReading], or `null` before the first reading. */
-  public var lastReadingMeasurementMark: TimeMark? by mutableStateOf(null)
+  /** Process-local monotonic mark for [lastLocation], or `null` before the first measurement. */
+  public var lastLocationMeasurementMark: TimeMark? by mutableStateOf(null)
     internal set
 
   /** Current foreground location authorization. */
@@ -79,8 +79,8 @@ internal constructor(initialPermission: LocationPermission = LocationPermission.
   }
 
   internal fun accept(event: LocationEvent.Update) {
-    lastReading = event.reading
-    lastReadingMeasurementMark = event.measurementMark
+    lastLocation = event.measurement
+    lastLocationMeasurementMark = event.measurementMark
     status = LocationTrackingStatus.Tracking
   }
 }
@@ -285,8 +285,8 @@ public fun rememberLocationState(
  * Returns the most accurate bearing measurement available.
  *
  * This function considers bearings from two potential sources:
- * 1. The [LocationReading] course indicates the direction of travel.
- * 2. The device [Heading] indicates the direction that the top of the device faces.
+ * 1. The [LocationMeasurement] course indicates the direction of travel.
+ * 2. The device [HeadingMeasurement] indicates the direction that the top of the device faces.
  *
  * It compares the accuracy of these two measurements and returns the one with the smallest accuracy
  * value (i.e., the most precise). If a measurement has no accuracy specified (`null`), it is
@@ -304,7 +304,7 @@ internal data class BearingMeasurement(val bearing: Bearing, val accuracy: Rotat
 
 private fun LocationState.mostAccurateBearingMeasurement(): BearingMeasurement? =
   selectMostAccurateBearing(
-    lastReading?.course?.let { BearingMeasurement(it, lastReading?.courseAccuracy) },
+    lastLocation?.course?.let { BearingMeasurement(it, lastLocation?.courseAccuracy) },
     lastHeading?.let { BearingMeasurement(it.bearing, it.accuracy) },
   )
 

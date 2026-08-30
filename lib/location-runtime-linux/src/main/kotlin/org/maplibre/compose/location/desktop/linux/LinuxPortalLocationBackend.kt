@@ -35,9 +35,10 @@ public class LinuxPortalLocationBackend : DesktopLocationBackend {
 }
 
 // TODO: Add a Linux heading backend when an independent heading API is available.
-// iio-sensor-proxy restricts its compass interface to GeoClue. GeoClue folds that reading into the
-// GeoClue location's `Heading` field, which can instead contain source-provided or derived course,
-// so it cannot reliably produce a device-facing Heading measurement.
+// iio-sensor-proxy restricts its compass interface to GeoClue. GeoClue folds that measurement into
+// the
+// GeoClue location's `Heading` field can instead contain a source-provided or derived course, so it
+// cannot reliably produce a device-facing heading measurement.
 
 internal suspend fun <T> XdgPortalWindow?.withPortalParentWindow(action: suspend (String) -> T): T =
   when (val window = this) {
