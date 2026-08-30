@@ -40,6 +40,7 @@ internal class RecordingStyleBinding(
   private val baseSources = sources.associateBy { it.id }.toMutableMap()
   private val baseLayers = layers.associateBy { it.id }.toMutableMap()
   private val orderedLayerIds = mutableListOf<String>()
+  private val featureStates = mutableMapOf<Triple<String, String?, String>, JsonObject>()
 
   override var isLoaded: Boolean = true
     private set
@@ -227,35 +228,74 @@ internal class RecordingStyleBinding(
     name: String,
     value: JsonElement,
     kind: LayerPropertyKind,
-  ) = Unit
+  ) {
+    val layer = checkNotNull(layers[layerId]) { "Layer ID '$layerId' not found in style" }
+    val section =
+      when (kind) {
+        LayerPropertyKind.LAYOUT -> "layout"
+        LayerPropertyKind.PAINT -> "paint"
+        LayerPropertyKind.ROOT -> null
+      }
+    layers[layerId] =
+      if (section == null) JsonObject(layer + (name to value))
+      else {
+        val properties = (layer[section] as? JsonObject).orEmpty()
+        JsonObject(layer + (section to JsonObject(properties + (name to value))))
+      }
+  }
 
-  override fun setLayerFilter(layerId: String, filter: JsonElement) = Unit
+  override fun setLayerFilter(layerId: String, filter: JsonElement) {
+    val layer = checkNotNull(layers[layerId]) { "Layer ID '$layerId' not found in style" }
+    layers[layerId] =
+      if (filter is kotlinx.serialization.json.JsonNull) JsonObject(layer - "filter")
+      else JsonObject(layer + ("filter" to filter))
+  }
 
-  override fun layerProperty(layerId: String, name: String): JsonElement? = null
+  override fun layerProperty(layerId: String, name: String): JsonElement? {
+    val layer = layers[layerId] ?: return null
+    return layer[name]
+      ?: (layer["layout"] as? JsonObject)?.get(name)
+      ?: (layer["paint"] as? JsonObject)?.get(name)
+  }
 
-  override fun layerExists(layerId: String): Boolean = false
+  override fun layerExists(layerId: String): Boolean = layerId in layers
 
   override fun setFeatureState(
     sourceId: String,
     sourceLayerId: String?,
     featureId: String,
     state: JsonObject,
-  ) = Unit
+  ) {
+    val key = Triple(sourceId, sourceLayerId, featureId)
+    val previous = featureStates[key].orEmpty()
+    val removed = state.filterValues { it is kotlinx.serialization.json.JsonNull }.keys
+    featureStates[key] =
+      JsonObject(
+        (previous - removed) + state.filterValues { it !is kotlinx.serialization.json.JsonNull }
+      )
+  }
 
   override fun featureState(
     sourceId: String,
     sourceLayerId: String?,
     featureId: String,
-  ): JsonObject = JsonObject(emptyMap())
+  ): JsonObject =
+    featureStates[Triple(sourceId, sourceLayerId, featureId)] ?: JsonObject(emptyMap())
 
   override fun removeFeatureState(
     sourceId: String,
     sourceLayerId: String?,
     featureId: String,
     stateKey: String?,
-  ) = Unit
+  ) {
+    val key = Triple(sourceId, sourceLayerId, featureId)
+    if (stateKey == null) featureStates.remove(key)
+    else featureStates[key]?.let { featureStates[key] = JsonObject(it - stateKey) }
+  }
 
-  override fun resetFeatureStates(sourceId: String, sourceLayerId: String?) = Unit
+  override fun resetFeatureStates(sourceId: String, sourceLayerId: String?) {
+    featureStates.keys.removeAll { it.first == sourceId && it.second == sourceLayerId }
+  }
 
   override fun querySourceFeatures(
     sourceId: String,

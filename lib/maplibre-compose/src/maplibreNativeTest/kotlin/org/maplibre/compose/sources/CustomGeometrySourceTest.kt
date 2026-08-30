@@ -19,9 +19,12 @@ import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.install
+import org.maplibre.compose.testing.MlnFfiMapFixture
 import org.maplibre.compose.testing.RecordingList
+import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -47,6 +50,46 @@ class CustomGeometrySourceTest {
       assertEquals(setOf("name"), feature.properties?.keys)
       assertEquals(emptyList(), fixture.errors, "the map should report nothing")
       assertEquals(TileCoordinate(0, 0, 0).bounds, requests.first { it.zoomLevel == 0 }.bounds)
+    }
+  }
+
+  @Test
+  fun a_custom_geometry_handle_invalidates_a_tile() = runBlocking {
+    requireCustomGeometrySourceCallbacks()
+    val fixture = createMapFixture() as MlnFfiMapFixture
+    fixture.use {
+      val handle = fixture.attachCustomGeometryHandle()
+      fixture.awaitCustomFeatures()
+      val answered = requests.size
+      featureName = SECOND_NAME
+
+      handle.invalidateTile(TileCoordinate(zoomLevel = 0, x = 0, y = 0))
+
+      fixture.pumpUntil("the invalidated tile to be requested again") { requests.size > answered }
+      fixture.pumpUntil("the provider's new features to render") {
+        fixture.queryCenter().any { feature ->
+          feature.properties?.get("name")?.jsonPrimitive?.content == SECOND_NAME
+        }
+      }
+    }
+  }
+
+  @Test
+  fun a_custom_geometry_handle_invalidates_intersecting_bounds() = runBlocking {
+    requireCustomGeometrySourceCallbacks()
+    val fixture = createMapFixture() as MlnFfiMapFixture
+    fixture.use {
+      val handle = fixture.attachCustomGeometryHandle()
+      fixture.awaitCustomFeatures()
+      val answered = requests.size
+
+      handle.invalidateBounds(
+        BoundingBox(southwest = Position(-10.0, -10.0), northeast = Position(10.0, 10.0))
+      )
+
+      fixture.pumpUntil("the invalidated bounds to be requested again") {
+        requests.size > answered
+      }
     }
   }
 
@@ -120,10 +163,33 @@ class CustomGeometrySourceTest {
     return source
   }
 
+  private suspend fun MlnFfiMapFixture.attachCustomGeometryHandle(): CustomGeometrySourceHandle {
+    loadStyle(BaseStyle.Empty)
+    val binding = checkNotNull(style)
+    val source =
+      CustomGeometrySource(id = SOURCE_ID, options = CustomGeometrySourceOptions()) { tile ->
+        requests += tile
+        cover(tile.bounds, featureName)
+      }
+    binding.install(source)
+    binding.install(FillLayer(id = "custom-fill", source = source))
+    state.desiredStyleRevision =
+      DesiredStyleRevision(listOf(source.definition()), emptyList(), emptyList())
+    return assertIs<CustomGeometrySourceHandle>(state.style.source(SOURCE_ID))
+  }
+
   private suspend fun BridgeMapFixture.queryCenter() =
     session.queryRenderedFeatures(offset = CENTER, layerIds = null, predicate = null)
 
+  private suspend fun MlnFfiMapFixture.queryCenter() =
+    presentation.queryRenderedFeatures(offset = CENTER)
+
   private fun BridgeMapFixture.awaitCustomFeatures() {
+    pumpUntil("the custom geometry source to request a tile") { requests.isNotEmpty() }
+    pumpUntil("the answered custom geometry tile to be queryable") { queryCenter().isNotEmpty() }
+  }
+
+  private suspend fun MlnFfiMapFixture.awaitCustomFeatures() {
     pumpUntil("the custom geometry source to request a tile") { requests.isNotEmpty() }
     pumpUntil("the answered custom geometry tile to be queryable") { queryCenter().isNotEmpty() }
   }

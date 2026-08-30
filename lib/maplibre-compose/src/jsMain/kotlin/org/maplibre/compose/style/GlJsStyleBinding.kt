@@ -310,13 +310,17 @@ internal class GlJsStyleBinding(
   ) {
     if (!claim()) return
     requireLoaded()
-    map.getSource<GlJsGeoJsonSource>(sourceId)?.setData((prepared as GlJsPreparedGeoJson).data)
+    mutate("set data on source '$sourceId'") {
+      map.getSource<GlJsGeoJsonSource>(sourceId)?.setData((prepared as GlJsPreparedGeoJson).data)
+    }
   }
 
   override fun setGeoJsonSourceUrl(sourceId: String, url: String, claim: () -> Boolean) {
     if (!claim()) return
     requireLoaded()
-    map.getSource<GlJsGeoJsonSource>(sourceId)?.setData(url.unsafeCast<GeoJsonSourceData>())
+    mutate("set data on source '$sourceId'") {
+      map.getSource<GlJsGeoJsonSource>(sourceId)?.setData(url.unsafeCast<GeoJsonSourceData>())
+    }
   }
 
   override suspend fun clusterExpansionZoom(
