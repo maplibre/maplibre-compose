@@ -22,7 +22,7 @@ class WindowsLocationWinRtSmokeTest {
           reportIntervalMilliseconds = 1_000,
         ),
         object : WindowsLocationListener {
-          override fun onPosition(reading: WindowsLocationReading) = Unit
+          override fun onPosition(measurement: WindowsLocationMeasurement) = Unit
 
           override fun onStatus(status: WindowsPositionStatus) = Unit
 

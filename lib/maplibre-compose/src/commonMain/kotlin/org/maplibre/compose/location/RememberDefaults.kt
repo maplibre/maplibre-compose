@@ -23,7 +23,7 @@ import kotlinx.coroutines.flow.emptyFlow
 @Composable public expect fun rememberDefaultHeadingProvider(): HeadingProvider
 
 internal object NoHeadingProvider : HeadingProvider {
-  override fun updates(request: HeadingRequest): Flow<Heading> = emptyFlow()
+  override fun updates(request: HeadingRequest): Flow<HeadingMeasurement> = emptyFlow()
 }
 
 /** Creates and remembers the platform [SystemSettingsLauncher]. */

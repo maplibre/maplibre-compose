@@ -26,12 +26,12 @@ import platform.darwin.NSObject
  *
  * A nonnegative
  * [`CLHeading.trueHeading`](https://developer.apple.com/documentation/corelocation/clheading/trueheading)
- * maps to [Heading.bearing] with [HeadingReference.TrueNorth]. Otherwise,
+ * maps to [HeadingMeasurement.bearing] with [HeadingReference.TrueNorth]. Otherwise,
  * [`CLHeading.magneticHeading`](https://developer.apple.com/documentation/corelocation/clheading/magneticheading)
- * maps to [Heading.bearing] with [HeadingReference.MagneticNorth]. A negative
+ * maps to [HeadingMeasurement.bearing] with [HeadingReference.MagneticNorth]. A negative
  * [`CLHeading.headingAccuracy`](https://developer.apple.com/documentation/corelocation/clheading/headingaccuracy)
  * marks the heading as invalid. The provider ignores that callback. A valid accuracy maps to
- * [Heading.accuracy].
+ * [HeadingMeasurement.accuracy].
  */
 @OptIn(FlowPreview::class)
 public class IosHeadingProvider
@@ -41,7 +41,7 @@ internal constructor(
 ) : HeadingProvider {
   public constructor() : this({ CLLocationManager.headingAvailable() }, Dispatchers.Main)
 
-  override fun updates(request: HeadingRequest): Flow<Heading> = callbackFlow {
+  override fun updates(request: HeadingRequest): Flow<HeadingMeasurement> = callbackFlow {
     val manager = CLLocationManager()
     val delegate = IosHeadingDelegate(channel)
     manager.delegate = delegate
@@ -61,7 +61,7 @@ internal constructor(
     }
 }
 
-internal class IosHeadingDelegate(private val channel: SendChannel<Heading>) :
+internal class IosHeadingDelegate(private val channel: SendChannel<HeadingMeasurement>) :
   NSObject(), CLLocationManagerDelegateProtocol {
   override fun locationManager(manager: CLLocationManager, didUpdateHeading: CLHeading) {
     if (didUpdateHeading.headingAccuracy < 0.0) return
@@ -69,7 +69,7 @@ internal class IosHeadingDelegate(private val channel: SendChannel<Heading>) :
     val heading =
       if (hasTrueHeading) didUpdateHeading.trueHeading else didUpdateHeading.magneticHeading
     channel.trySend(
-      Heading(
+      HeadingMeasurement(
         bearing = Bearing.North + heading.degrees,
         reference =
           if (hasTrueHeading) HeadingReference.TrueNorth else HeadingReference.MagneticNorth,

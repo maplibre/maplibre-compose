@@ -7,7 +7,7 @@ internal fun interface WindowsCloseable : AutoCloseable {
 }
 
 internal interface WindowsLocationListener {
-  fun onPosition(reading: WindowsLocationReading)
+  fun onPosition(measurement: WindowsLocationMeasurement)
 
   fun onStatus(status: WindowsPositionStatus)
 

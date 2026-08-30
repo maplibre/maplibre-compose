@@ -14,14 +14,14 @@ import org.maplibre.spatialk.units.Rotation
  * @property measuredAt Wall-clock instant when the heading was measured.
  */
 @Serializable
-public data class Heading(
+public data class HeadingMeasurement(
   val bearing: Bearing,
   val reference: HeadingReference,
   val accuracy: Rotation? = null,
   val measuredAt: Instant,
 )
 
-/** North reference for a [Heading] bearing. */
+/** North reference for a [HeadingMeasurement] bearing. */
 public enum class HeadingReference {
   /** Geographic true north. */
   TrueNorth,

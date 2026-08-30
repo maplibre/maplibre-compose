@@ -380,13 +380,13 @@ private fun configureGeolocator(
   )
 }
 
-private fun readPosition(arguments: MemorySegment): WindowsLocationReading =
+private fun readPosition(arguments: MemorySegment): WindowsLocationMeasurement =
   WinRt.queryInterface(arguments, IID_POSITION_CHANGED_ARGS).use { typedArguments ->
     WinRt.pointerResult(typedArguments.value, POSITION_CHANGED_ARGS_POSITION).use { position ->
       WinRt.queryInterface(position.value, IID_GEOPOSITION).use { typedPosition ->
         WinRt.pointerResult(typedPosition.value, GEOPOSITION_COORDINATE).use { coordinate ->
           WinRt.queryInterface(coordinate.value, IID_GEOCOORDINATE).use { typedCoordinate ->
-            WindowsLocationReading(
+            WindowsLocationMeasurement(
               latitude = WinRt.doubleResult(typedCoordinate.value, GEOCOORDINATE_LATITUDE),
               longitude = WinRt.doubleResult(typedCoordinate.value, GEOCOORDINATE_LONGITUDE),
               altitudeMeters = readOptionalDouble(typedCoordinate.value, GEOCOORDINATE_ALTITUDE),

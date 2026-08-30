@@ -12,8 +12,8 @@ import platform.CoreLocation.CLLocation
 import platform.Foundation.timeIntervalSince1970
 import platform.Foundation.timeIntervalSinceNow
 
-public fun CLLocation.asMapLibreLocationReading(): LocationReading =
-  LocationReading(
+public fun CLLocation.asMapLibreLocationMeasurement(): LocationMeasurement =
+  LocationMeasurement(
     position =
       coordinate.useContents {
         Position(longitude = longitude, latitude = latitude, altitude = altitude)

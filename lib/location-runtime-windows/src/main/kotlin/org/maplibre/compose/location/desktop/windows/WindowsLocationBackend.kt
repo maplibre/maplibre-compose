@@ -3,6 +3,7 @@ package org.maplibre.compose.location.desktop.windows
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.time.TimeSource
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,8 +39,8 @@ public class WindowsLocationBackend : DesktopLocationBackend {
  * desired accuracy to 1, 10, 100, 1,000, or 5,000 meters from [LocationAccuracy.BestForNavigation]
  * through [LocationAccuracy.Lowest], configures `ReportInterval`, and also enforces
  * [LocationRequest.minimumInterval] and [LocationRequest.minimumDistance] before delivery. The
- * first valid reading is always delivered. Cancelling collection removes both native event handlers
- * and releases the geolocator.
+ * first valid measurement is always delivered. Cancelling collection removes both native event
+ * handlers and releases the geolocator.
  *
  * `Initializing`, `NoData`, and `NotInitialized` report
  * [LocationUnavailableReason.TemporarilyUnavailable]. `Disabled` reports
@@ -96,10 +97,17 @@ internal constructor(private val client: WindowsLocationClient) : DesktopLocatio
     val filter = WindowsLocationFilter(request.minimumInterval, request.minimumDistance.inMeters)
     val listener =
       object : WindowsLocationListener {
-        override fun onPosition(reading: WindowsLocationReading) {
-          val location = reading.asMapLibreLocationReading() ?: return
+        override fun onPosition(measurement: WindowsLocationMeasurement) {
+          val location = measurement.asMapLibreLocationMeasurement() ?: return
           synchronized(filter) {
-            if (filter.shouldDeliver(reading)) trySend(LocationEvent.Update(location))
+            if (filter.shouldDeliver(measurement)) {
+              trySend(
+                LocationEvent.Update(
+                  measurement = location,
+                  measurementMark = TimeSource.Monotonic.markNow(),
+                )
+              )
+            }
           }
         }
 
