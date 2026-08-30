@@ -18,11 +18,11 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.map.MapPresentation
+import org.maplibre.compose.map.MapStyleState
 import org.maplibre.compose.overlay.AttributionDefaults
 import org.maplibre.compose.overlay.AttributionLinks as BaseAttributionLinks
 import org.maplibre.compose.overlay.AttributionStyle
 import org.maplibre.compose.overlay.ExpandingAttributionButton as BaseExpandingAttributionButton
-import org.maplibre.compose.style.StyleState
 
 /**
  * Info button from which an attribution popup text is expanded. This version retracts when the user
@@ -48,7 +48,7 @@ import org.maplibre.compose.style.StyleState
 @Composable
 public fun ExpandingAttributionButton(
   presentation: MapPresentation?,
-  styleState: StyleState,
+  styleState: MapStyleState,
   modifier: Modifier = Modifier,
   contentAlignment: Alignment = Alignment.BottomEnd,
   toggleButton: @Composable (onClick: () -> Unit) -> Unit = AttributionButtonDefaults.button,
@@ -99,7 +99,7 @@ public fun ExpandingAttributionButton(
 public fun ExpandingAttributionButton(
   expanded: Boolean,
   onClick: () -> Unit,
-  styleState: StyleState,
+  styleState: MapStyleState,
   modifier: Modifier = Modifier,
   contentAlignment: Alignment = Alignment.BottomEnd,
   toggleButton: @Composable (onClick: () -> Unit) -> Unit = AttributionButtonDefaults.button,

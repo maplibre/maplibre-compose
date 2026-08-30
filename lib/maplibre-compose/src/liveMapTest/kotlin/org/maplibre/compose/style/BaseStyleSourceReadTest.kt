@@ -17,6 +17,11 @@ class BaseStyleSourceReadTest {
       val source = assertIs<GeoJsonSourceHandle>(fixture.state.style.source("attributed"))
 
       assertEquals("inline attribution", source.attributionHtml)
+      assertEquals(listOf("attributed"), fixture.state.style.sources.keys.toList())
+      assertEquals(
+        "inline attribution",
+        fixture.state.style.sources.getValue("attributed").attributionHtml,
+      )
     }
   }
 

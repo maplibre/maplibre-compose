@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.PI
 import org.maplibre.compose.map.MapPresentation
 import org.maplibre.compose.map.MapState
-import org.maplibre.compose.style.StyleState
+import org.maplibre.compose.map.MapStyleState
 import org.maplibre.spatialk.geojson.Position
 
 /**
@@ -49,9 +49,11 @@ public interface MapOverlayScope {
 
   /** The map's current presentation, or null while the surface is attaching. */
   public val presentation: MapPresentation?
+    get() = mapState.presentation
 
   /** The style state of the map that this overlay belongs to. */
-  public val styleState: StyleState
+  public val styleState: MapStyleState
+    get() = mapState.style
 
   /**
    * The obstructed region of the map, as passed to
@@ -181,14 +183,12 @@ public class MapOverlay(
 internal fun MapOverlayHost(
   overlay: MapOverlay,
   mapState: MapState,
-  presentation: MapPresentation?,
-  styleState: StyleState,
   contentWindowInsets: WindowInsets,
   modifier: Modifier = Modifier,
 ) {
   val scope =
-    remember(mapState, presentation, styleState, contentWindowInsets) {
-      MapOverlayScopeImpl(mapState, presentation, styleState, contentWindowInsets)
+    remember(mapState, contentWindowInsets) {
+      MapOverlayScopeImpl(mapState, contentWindowInsets)
     }
   Layout(modifier = modifier, content = { overlay.content(scope) }) { measurables, constraints ->
     val width = if (constraints.hasBoundedWidth) constraints.maxWidth else 0
@@ -219,14 +219,15 @@ internal fun MapOverlayHost(
       // Aligned children stay put when the camera moves. Reading the viewport here would
       // invalidate this layout on every frame of a camera ease, so it is read only when a child
       // needs placing; the read is also what re-runs this layout when the transform changes.
-      val viewport = if (hasPlacedAt) presentation?.viewport else null
+      val presentation = if (hasPlacedAt) mapState.presentation else null
+      val viewport = presentation?.viewport
       measurables.forEachIndexed { index, measurable ->
         val placeable = placeables[index]
         when (val child = measurable.parentData as? OverlayChildData) {
           is OverlayChildData.PlacedAt -> {
             if (viewport == null || width == 0 || height == 0) return@forEachIndexed
             val screen =
-              presentation?.screenLocationFromPosition(child.position) ?: return@forEachIndexed
+              presentation.screenLocationFromPosition(child.position) ?: return@forEachIndexed
             val aligned =
               child.alignment.align(
                 size = IntSize(placeable.width, placeable.height),
@@ -246,7 +247,7 @@ internal fun MapOverlayHost(
             val intersection =
               if (viewport == null || innerWidth == 0 || innerHeight == 0) null
               else {
-                presentation?.screenLocationFromPosition(child.position)?.let { screen ->
+                presentation.screenLocationFromPosition(child.position)?.let { screen ->
                   findEllipseIntersection(
                     area =
                       Rect(
@@ -290,8 +291,6 @@ internal fun MapOverlayHost(
 @Stable
 internal class MapOverlayScopeImpl(
   override val mapState: MapState,
-  override val presentation: MapPresentation?,
-  override val styleState: StyleState,
   override val contentWindowInsets: WindowInsets,
 ) : MapOverlayScope {
   override fun Modifier.align(alignment: Alignment): Modifier = this.then(AlignElement(alignment))

@@ -215,7 +215,13 @@ private fun MaplibreMapPresentation(
 
         override fun onSourceChanged(map: MapAdapter, sourceId: String?) {
           if (!state.acceptsPresentationEvent(map)) return
-          if (sourceId == null) styleState.refreshSources() else styleState.refreshSource(sourceId)
+          if (sourceId == null) {
+            styleState.refreshSources()
+            state.style.refreshSources()
+          } else {
+            styleState.refreshSource(sourceId)
+            state.style.refreshSource(sourceId)
+          }
         }
 
         override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {
@@ -327,8 +333,6 @@ private fun MaplibreMapPresentation(
     MapOverlayHost(
       overlay = overlay,
       mapState = state,
-      presentation = presentation,
-      styleState = styleState,
       contentWindowInsets = contentWindowInsets,
       modifier = Modifier.matchParentSize(),
     )
