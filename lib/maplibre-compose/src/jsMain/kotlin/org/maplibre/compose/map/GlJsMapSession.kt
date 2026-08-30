@@ -87,17 +87,18 @@ private const val FRAME_INTERVAL_SLACK = 0.1
  * calls before then are queued and reads answer from what was last asked for.
  */
 internal class GlJsMapSession(
+  private val lifecycleAuthority: MapLifecycleAuthority,
   callbacks: MapAdapter.Callbacks,
   internal var logger: Logger?,
   internal var layoutDirection: LayoutDirection,
-) : MapAdapter, GlJsMapRenderer, GestureTarget, MapLifecyclePlatformAdapter {
+) : MapLifecycleSession, GlJsMapRenderer, GestureTarget {
 
   init {
     createdCount += 1
   }
 
   internal var callbacks: MapAdapter.Callbacks = callbacks
-  private val lifecycle = MapLifecycleAuthority(this)
+  private val lifecycle = lifecycleAuthority.bind(this)
   private val lifecycleCallbacks = MapLifecycleCallbacks(lifecycle) { this.callbacks }
   private var lifecycleEngineIdentity: EngineMapIdentity? = null
   private var lifecycleRenderLease: RenderLease? = null

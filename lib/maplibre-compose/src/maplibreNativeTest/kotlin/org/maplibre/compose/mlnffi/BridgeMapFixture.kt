@@ -14,6 +14,7 @@ import kotlinx.io.files.Path
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MapPresentation
 import org.maplibre.compose.map.MlnFfiMapSession
+import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.testing.MapFixture
@@ -48,9 +49,12 @@ private constructor(
 
   private var frameId = 0L
   private var frameRequested = true
+  private val runtime = mapRuntimeForTest()
+  private val state = runtime.createMapState()
 
   val session: MlnFfiMapSession =
     MlnFfiMapSession(
+      lifecycleAuthority = state.lifecycle,
       callbacks = recorder,
       logger = Logger.withTag("bridge-map"),
       renderBackend = driver.backends.producer,
@@ -247,8 +251,10 @@ private constructor(
 
   override fun close() {
     runCatching {
-      session.close()
-      runBlocking { session.awaitClosed() }
+      state.close()
+      runBlocking { state.awaitClosed() }
+      runtime.close()
+      runBlocking { runtime.awaitClosed() }
     }
     runCatching { driver.close() }
     FfiTestPlatform.deleteCacheFile(cacheFile)

@@ -9,16 +9,20 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class MapLifecycleAuthorityTest {
+class MapLifecycleBindingTest {
+
+  private fun TestScope.bindLifecycle(adapter: MapLifecyclePlatformAdapter): MapLifecycleBinding =
+    mapRuntimeForTest(physicalScope = backgroundScope).createMapState().lifecycle.bind(adapter)
 
   @Test
   fun a_map_attaches_with_an_engine_identity_and_render_lease() = runTest {
     val adapter = FakeMapLifecycleAdapter()
-    val lifecycle = MapLifecycleAuthority(adapter, backgroundScope)
+    val lifecycle = bindLifecycle(adapter)
 
     assertEquals(MapLifecycleState.OpenDetached(null), lifecycle.state)
 
@@ -32,7 +36,7 @@ class MapLifecycleAuthorityTest {
   @Test
   fun a_rival_attachment_fails_without_waiting_or_changing_platform_state() = runTest {
     val adapter = FakeMapLifecycleAdapter().apply { allowAttach = CompletableDeferred() }
-    val lifecycle = MapLifecycleAuthority(adapter, backgroundScope)
+    val lifecycle = bindLifecycle(adapter)
     val first = async { lifecycle.attach() }
     adapter.attachStarted.await()
 
@@ -47,7 +51,7 @@ class MapLifecycleAuthorityTest {
   @Test
   fun detaching_invalidates_the_lease_before_retained_engine_cleanup_finishes() = runTest {
     val adapter = FakeMapLifecycleAdapter()
-    val lifecycle = MapLifecycleAuthority(adapter, backgroundScope)
+    val lifecycle = bindLifecycle(adapter)
     val lease = lifecycle.attach()
     val engine = checkNotNull(lifecycle.engineIdentity)
     adapter.allowDetach = CompletableDeferred()
@@ -67,7 +71,7 @@ class MapLifecycleAuthorityTest {
   @Test
   fun attach_failure_cleans_partial_resources_and_returns_to_open_detached() = runTest {
     val adapter = FakeMapLifecycleAdapter().apply { attachFailure = TestFailure("attach") }
-    val lifecycle = MapLifecycleAuthority(adapter, backgroundScope)
+    val lifecycle = bindLifecycle(adapter)
 
     assertFailsWith<TestFailure> { lifecycle.attach() }
 
@@ -90,7 +94,7 @@ class MapLifecycleAuthorityTest {
         retention = EngineRetention.DESTROY
         attachFailure = TestFailure("attach")
       }
-    val lifecycle = MapLifecycleAuthority(adapter, backgroundScope)
+    val lifecycle = bindLifecycle(adapter)
 
     assertFailsWith<TestFailure> { lifecycle.attach() }
 
@@ -101,7 +105,7 @@ class MapLifecycleAuthorityTest {
   @Test
   fun detach_during_attach_invalidates_the_lease_and_cleans_the_partial_attachment() = runTest {
     val adapter = FakeMapLifecycleAdapter().apply { allowAttach = CompletableDeferred() }
-    val lifecycle = MapLifecycleAuthority(adapter, backgroundScope)
+    val lifecycle = bindLifecycle(adapter)
     val attaching = async { runCatching { lifecycle.attach() } }
     adapter.attachStarted.await()
     val state = lifecycle.state as MapLifecycleState.Attaching
@@ -120,7 +124,7 @@ class MapLifecycleAuthorityTest {
   @Test
   fun close_commits_immediately_and_repeated_callers_join_one_cleanup() = runTest {
     val adapter = FakeMapLifecycleAdapter().apply { allowDetach = CompletableDeferred() }
-    val lifecycle = MapLifecycleAuthority(adapter, backgroundScope)
+    val lifecycle = bindLifecycle(adapter)
     val lease = lifecycle.attach()
     val engine = checkNotNull(lifecycle.engineIdentity)
     val style = lifecycle.claimStyle(engine)
@@ -151,7 +155,7 @@ class MapLifecycleAuthorityTest {
         destroyFailure = TestFailure("engine")
         resourcesFailure = TestFailure("resources")
       }
-    val lifecycle = MapLifecycleAuthority(adapter, backgroundScope)
+    val lifecycle = bindLifecycle(adapter)
     lifecycle.attach()
 
     lifecycle.close()
@@ -164,7 +168,7 @@ class MapLifecycleAuthorityTest {
   @Test
   fun cancelling_an_attach_caller_invalidates_the_lease_but_physical_cleanup_continues() = runTest {
     val adapter = FakeMapLifecycleAdapter().apply { allowAttach = CompletableDeferred() }
-    val lifecycle = MapLifecycleAuthority(adapter, backgroundScope)
+    val lifecycle = bindLifecycle(adapter)
     val caller = async { lifecycle.attach() }
     adapter.attachStarted.await()
     val attaching = lifecycle.state as MapLifecycleState.Attaching
@@ -180,7 +184,7 @@ class MapLifecycleAuthorityTest {
   @Test
   fun durable_engine_and_current_style_events_are_accepted_while_native_is_detached() = runTest {
     val adapter = FakeMapLifecycleAdapter()
-    val lifecycle = MapLifecycleAuthority(adapter, backgroundScope)
+    val lifecycle = bindLifecycle(adapter)
     val lease = lifecycle.attach()
     val engine = checkNotNull(lifecycle.engineIdentity)
     val firstStyle = lifecycle.claimStyle(engine)
@@ -201,7 +205,7 @@ class MapLifecycleAuthorityTest {
   @Test
   fun the_fake_rejects_a_superseded_style_request_identity() = runTest {
     val adapter = FakeMapLifecycleAdapter()
-    val lifecycle = MapLifecycleAuthority(adapter, backgroundScope)
+    val lifecycle = bindLifecycle(adapter)
     lifecycle.attach()
     val engine = checkNotNull(lifecycle.engineIdentity)
     val superseded = checkNotNull(lifecycle.claimStyleRequestIdentity(engine))
@@ -222,7 +226,7 @@ class MapLifecycleAuthorityTest {
         allowDetach = CompletableDeferred()
         detachFailure = TestFailure("detach")
       }
-    val lifecycle = MapLifecycleAuthority(adapter, backgroundScope)
+    val lifecycle = bindLifecycle(adapter)
     val lease = lifecycle.attach()
     val detaching = async { runCatching { lifecycle.detach(lease) } }
     adapter.detachStarted.await()
@@ -240,7 +244,7 @@ class MapLifecycleAuthorityTest {
   @Test
   fun destroying_detach_invalidates_engine_and_style_identities_before_reattachment() = runTest {
     val adapter = FakeMapLifecycleAdapter().apply { retention = EngineRetention.DESTROY }
-    val lifecycle = MapLifecycleAuthority(adapter, backgroundScope)
+    val lifecycle = bindLifecycle(adapter)
     val firstLease = lifecycle.attach()
     val firstEngine = checkNotNull(lifecycle.engineIdentity)
     val firstStyle = lifecycle.claimStyle(firstEngine)
@@ -260,7 +264,7 @@ class MapLifecycleAuthorityTest {
   @Test
   fun destroy_on_detach_engine_replacement_keeps_the_lease_but_changes_engine_identity() = runTest {
     val adapter = FakeMapLifecycleAdapter().apply { retention = EngineRetention.DESTROY }
-    val lifecycle = MapLifecycleAuthority(adapter, backgroundScope)
+    val lifecycle = bindLifecycle(adapter)
     val lease = lifecycle.attach()
     val departedEngine = checkNotNull(lifecycle.engineIdentity)
     val departedStyle = lifecycle.claimStyle(departedEngine)
@@ -281,7 +285,7 @@ class MapLifecycleAuthorityTest {
   @Test
   fun a_departed_lease_cannot_detach_a_later_presentation() = runTest {
     val adapter = FakeMapLifecycleAdapter()
-    val lifecycle = MapLifecycleAuthority(adapter, backgroundScope)
+    val lifecycle = bindLifecycle(adapter)
     val departed = lifecycle.attach()
     lifecycle.detach(departed)
     val current = lifecycle.attach()
@@ -297,7 +301,7 @@ class MapLifecycleAuthorityTest {
   @Test
   fun close_during_attach_invalidates_the_lease_and_joins_its_cleanup() = runTest {
     val adapter = FakeMapLifecycleAdapter().apply { allowAttach = CompletableDeferred() }
-    val lifecycle = MapLifecycleAuthority(adapter, backgroundScope)
+    val lifecycle = bindLifecycle(adapter)
     val attaching = async { runCatching { lifecycle.attach() } }
     adapter.attachStarted.await()
 
@@ -314,7 +318,7 @@ class MapLifecycleAuthorityTest {
   @Test
   fun closing_a_never_attached_map_still_exposes_closing_until_shared_cleanup_finishes() = runTest {
     val adapter = FakeMapLifecycleAdapter().apply { allowResources = CompletableDeferred() }
-    val lifecycle = MapLifecycleAuthority(adapter, backgroundScope)
+    val lifecycle = bindLifecycle(adapter)
 
     lifecycle.close()
 
@@ -332,7 +336,7 @@ class MapLifecycleAuthorityTest {
         allowCreate = CompletableDeferred()
         createFailure = TestFailure("create")
       }
-    val lifecycle = MapLifecycleAuthority(adapter, backgroundScope)
+    val lifecycle = bindLifecycle(adapter)
     val attaching = async { runCatching { lifecycle.attach() } }
     adapter.createStarted.await()
     val lease = (lifecycle.state as MapLifecycleState.Attaching).lease
@@ -403,27 +407,27 @@ private class FakeMapLifecycleAdapter : MapLifecyclePlatformAdapter {
   }
 
   fun emitEngineEvent(
-    lifecycle: MapLifecycleAuthority,
+    lifecycle: MapLifecycleBinding,
     engine: EngineMapIdentity,
     event: () -> Unit,
   ): Boolean = lifecycle.acceptEngineEvent(engine, event)
 
   fun emitStyleEvent(
-    lifecycle: MapLifecycleAuthority,
+    lifecycle: MapLifecycleBinding,
     engine: EngineMapIdentity,
     style: StyleIdentity,
     event: () -> Unit,
   ): Boolean = lifecycle.acceptStyleEvent(engine, style, event)
 
   fun emitStyleRequestEvent(
-    lifecycle: MapLifecycleAuthority,
+    lifecycle: MapLifecycleBinding,
     engine: EngineMapIdentity,
     request: StyleRequestIdentity,
     event: () -> Unit,
   ): Boolean = lifecycle.acceptStyleRequestEvent(engine, request, event)
 
   fun emitPresentationEvent(
-    lifecycle: MapLifecycleAuthority,
+    lifecycle: MapLifecycleBinding,
     engine: EngineMapIdentity,
     lease: RenderLease,
     event: () -> Unit,
@@ -432,7 +436,7 @@ private class FakeMapLifecycleAdapter : MapLifecyclePlatformAdapter {
 
 private class TestFailure(message: String) : RuntimeException(message)
 
-private fun MapLifecycleAuthority.claimStyle(engine: EngineMapIdentity): StyleIdentity {
+private fun MapLifecycleBinding.claimStyle(engine: EngineMapIdentity): StyleIdentity {
   val request = checkNotNull(claimStyleRequestIdentity(engine))
   return checkNotNull(claimStyleIdentity(engine, request))
 }

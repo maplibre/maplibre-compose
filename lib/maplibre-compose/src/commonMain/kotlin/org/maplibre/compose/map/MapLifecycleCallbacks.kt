@@ -7,7 +7,7 @@ import org.maplibre.spatialk.geojson.Position
 
 /** Filters platform callbacks through identities captured by their platform producer. */
 internal class MapLifecycleCallbacks(
-  private val lifecycle: MapLifecycleAuthority,
+  private val lifecycle: MapLifecycleBinding,
   private val delegate: () -> MapAdapter.Callbacks,
 ) {
 

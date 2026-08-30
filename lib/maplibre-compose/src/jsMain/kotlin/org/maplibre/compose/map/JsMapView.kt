@@ -36,6 +36,7 @@ internal actual fun ComposableMapView(
   val session =
     remember(scaleFactor) {
       GlJsMapSession(
+        lifecycleAuthority = state.lifecycle,
         callbacks = callbacks,
         logger = logger,
         layoutDirection = layoutDirection,

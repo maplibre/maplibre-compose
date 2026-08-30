@@ -110,6 +110,8 @@ class MlnFfiMapCompositionTest {
     }
 
     assertTrue(state.presentation?.isValid == true)
+    val session = state.presentation?.adapter as MlnFfiMapSession
+    assertEquals(1, session.presentationPublicationCount)
     assertTrue(
       onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty(),
       "the load placeholder should be absent after the base style is ready",

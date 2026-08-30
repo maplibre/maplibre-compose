@@ -31,16 +31,14 @@ import org.maplibre.compose.style.StyleBinding
 internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
 
   private val recorder = RecordingMapCallbacks()
-
-  private val glJsSession =
-    GlJsMapSession(recorder, Logger.withTag("gljs-map"), LayoutDirection.Ltr)
-
   private val runtime = mapRuntimeForTest()
   override val state =
     runtime.createMapState(
       initialCameraPosition = CameraPosition(zoom = 0.0),
       initialBaseStyle = BaseStyle.Empty,
     )
+  private val glJsSession =
+    GlJsMapSession(state.lifecycle, recorder, Logger.withTag("gljs-map"), LayoutDirection.Ltr)
   private val token = state.reservePresentation()
 
   override val session: MapAdapter
@@ -175,8 +173,8 @@ internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
 
   override fun close() {
     // Every map holds a WebGL context, and browsers cap how many may live at once.
+    state.close()
     runtime.close()
-    glJsSession.close()
   }
 }
 

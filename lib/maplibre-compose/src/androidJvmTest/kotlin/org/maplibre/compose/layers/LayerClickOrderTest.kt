@@ -12,9 +12,6 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.DpOffset
-import kotlin.concurrent.atomics.AtomicInt
-import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -22,7 +19,6 @@ import kotlin.test.assertNotNull
 import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.map.MapPresentationCallbacks
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
@@ -135,13 +131,11 @@ class LayerClickOrderTest {
    * [BACK] in the style. [frontResult] is what [FRONT]'s handlers return, so a test can either stop
    * the event there or let it fall through.
    */
-  @OptIn(ExperimentalAtomicApi::class)
   private fun runLayerClickTest(
     composeFrontLayerFirst: Boolean,
     frontResult: ClickResult = ClickResult.Consume,
     body: ComposeUiTest.(center: Offset) -> Unit,
   ) = runFfiComposeUiTest {
-    val frames = AtomicInt(0)
     lateinit var mapState: MapState
 
     setFfiTestMapContent(runtimeOptions) {
@@ -153,7 +147,6 @@ class LayerClickOrderTest {
       MaplibreMap(
         state = mapState,
         modifier = Modifier.fillMaxSize(),
-        callbacks = MapPresentationCallbacks(onFrame = { frames.incrementAndFetch() }),
         styleComposition =
           StyleComposition {
             val source = rememberGeoJsonSource(data = GeoJsonData.JsonString(WORLD_POLYGON))
@@ -201,8 +194,7 @@ class LayerClickOrderTest {
       )
     }
 
-    waitUntil(timeoutMillis = TIMEOUT) { frames.load() > 0 }
-
+    waitUntil(timeoutMillis = TIMEOUT) { mapState.presentation != null }
     val presentation = assertNotNull(mapState.presentation, "the map never published a lease")
     val size = onRoot().fetchSemanticsNode().size
     val centerDp = with(density) { DpOffset((size.width / 2).toDp(), (size.height / 2).toDp()) }

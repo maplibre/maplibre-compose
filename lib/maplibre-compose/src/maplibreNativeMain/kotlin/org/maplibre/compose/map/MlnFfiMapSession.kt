@@ -150,6 +150,7 @@ internal data class NativeEngineCompatibility(
  * advances it from `onDidFinishRenderingFrame`.
  */
 internal class MlnFfiMapSession(
+  private val lifecycleAuthority: MapLifecycleAuthority,
   callbacks: MapAdapter.Callbacks,
   @Volatile internal var logger: Logger?,
   renderBackend: MapRenderBackend,
@@ -157,11 +158,11 @@ internal class MlnFfiMapSession(
   @Volatile internal var layoutDirection: LayoutDirection,
   private val cacheFile: Path,
   private val resourceProviderFactory: MlnFfiResourceProviderFactory = ::MlnFfiResourceProvider,
-) : MapAdapter, MlnFfiMapRenderer, GestureTarget, MapLifecyclePlatformAdapter {
+) : MapLifecycleSession, MlnFfiMapRenderer, GestureTarget {
 
   @Volatile internal var callbacks: MapAdapter.Callbacks = callbacks
   @Volatile internal var durableCallbacks: MapAdapter.Callbacks = EmptyMapAdapterCallbacks
-  private val lifecycle = MapLifecycleAuthority(this)
+  private val lifecycle = lifecycleAuthority.bind(this)
   private val lifecycleCallbacks = MapLifecycleCallbacks(lifecycle) { this.callbacks }
   @Volatile private var lifecycleEngineIdentity: EngineMapIdentity? = null
   @Volatile private var lifecycleRenderLease: RenderLease? = null
@@ -448,10 +449,34 @@ internal class MlnFfiMapSession(
 
   internal fun preparePresentation() {
     hasLoadedFirstStyle = false
+    presentationPublicationCount = 0
+  }
+
+  internal var presentationPublicationCount: Int = 0
+    private set
+
+  internal val isPresentationPublished: Boolean
+    get() = presentationPublicationCount > 0
+
+  /** Commits a render lease in the apply phase when no physical detachment must finish first. */
+  internal fun beginPresentationAttachment(): Boolean =
+    when (lifecycle.state) {
+      is MapLifecycleState.OpenDetached -> {
+        lifecycle.beginAttach()
+        true
+      }
+      is MapLifecycleState.Attaching,
+      is MapLifecycleState.Attached -> true
+      is MapLifecycleState.Detaching,
+      is MapLifecycleState.Closing,
+      MapLifecycleState.Closed -> false
+    }
+
+  internal fun markPresentationPublished() {
+    presentationPublicationCount++
   }
 
   override suspend fun attachPresentation() {
-    preparePresentation()
     lifecycle.attachRetainedEngine()
     styleBinding?.let { callbacks.onStyleChanged(this, it) }
   }

@@ -103,6 +103,7 @@ internal fun MlnFfiMapView(
     retainedSession
       ?: remember(renderBackend, scaleFactor, applicationOptions, state) {
         MlnFfiMapSession(
+          lifecycleAuthority = state.lifecycle,
           callbacks = callbacks,
           logger = logger,
           renderBackend = renderBackend,
@@ -123,12 +124,19 @@ internal fun MlnFfiMapView(
   // Must run in the apply phase, not from a coroutine: the unload has to precede the content
   // subcomposition inserting layers, or a style switch fails anchor validation (see #269).
   SideEffect { session.setBaseStyle(style) }
-  // Publish the adapter before another thread can close a runtime whose composition has applied.
-  SideEffect { update(session) }
-
+  SideEffect {
+    if (session.beginPresentationAttachment()) {
+      update(session)
+      if (!session.isPresentationPublished) session.markPresentationPublished()
+    }
+  }
   LaunchedEffect(session) {
     try {
       session.attachPresentation()
+      if (!session.isPresentationPublished) {
+        update(session)
+        session.markPresentationPublished()
+      }
     } catch (error: CancellationException) {
       throw error
     } catch (_: MapClosedException) {
