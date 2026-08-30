@@ -16,9 +16,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.CancellationException
-import org.maplibre.compose.mlnffi.EnsureMlnFfiConfigured
 import org.maplibre.compose.mlnffi.MapRenderBackend
-import org.maplibre.compose.mlnffi.MlnFfiApplication
 import org.maplibre.compose.mlnffi.MlnFfiMapHostFactory
 import org.maplibre.compose.mlnffi.MlnFfiMapHostResult
 import org.maplibre.compose.mlnffi.MlnFfiMapRenderer
@@ -39,8 +37,7 @@ internal const val MAP_LOAD_PLACEHOLDER_TAG = "maplibre-map-load-placeholder"
 internal fun MlnFfiMapView(
   hostFactory: MlnFfiMapHostFactory,
   modifier: Modifier,
-  state: MapState?,
-  runtimeOptions: org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions? = null,
+  state: MapState,
   style: BaseStyle,
   update: (map: MapAdapter) -> Unit,
   onReset: () -> Unit,
@@ -69,7 +66,6 @@ internal fun MlnFfiMapView(
     },
     modifier = modifier,
     state = state,
-    runtimeOptions = runtimeOptions,
     style = style,
     update = update,
     onReset = onReset,
@@ -85,8 +81,7 @@ internal fun MlnFfiMapView(
   renderBackend: MapRenderBackend,
   surface: @Composable (MlnFfiMapRenderer, Modifier, Logger?, Boolean) -> Unit,
   modifier: Modifier,
-  state: MapState?,
-  runtimeOptions: org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions? = null,
+  state: MapState,
   style: BaseStyle,
   update: (map: MapAdapter) -> Unit,
   onReset: () -> Unit,
@@ -94,8 +89,7 @@ internal fun MlnFfiMapView(
   callbacks: MapAdapter.Callbacks,
   options: MapPresentationOptions,
 ) {
-  if (runtimeOptions == null) EnsureMlnFfiConfigured()
-  val applicationOptions = runtimeOptions ?: MlnFfiApplication.options
+  val applicationOptions = state.runtime.nativeRuntimeOptions
   val layoutDirection = LocalLayoutDirection.current
   val density = LocalDensity.current
   val scaleFactor = density.density.toDouble()
@@ -103,7 +97,7 @@ internal fun MlnFfiMapView(
     remember(renderBackend, scaleFactor) {
       NativeEngineCompatibility(renderBackend = renderBackend, scaleFactor = scaleFactor)
     }
-  val retainedSession = state?.retainedAdapter(compatibility) as? MlnFfiMapSession
+  val retainedSession = state.retainedAdapter(compatibility) as? MlnFfiMapSession
 
   val unpreparedSession =
     retainedSession
@@ -120,7 +114,7 @@ internal fun MlnFfiMapView(
       }
   val session = remember(unpreparedSession) { unpreparedSession.apply { preparePresentation() } }
 
-  session.durableCallbacks = state?.durableStyleCallbacks() ?: EmptyMapAdapterCallbacks
+  session.durableCallbacks = state.durableStyleCallbacks()
   session.callbacks = callbacks
   session.logger = logger
   session.layoutDirection = layoutDirection
@@ -148,7 +142,6 @@ internal fun MlnFfiMapView(
 
   DisposableEffect(session) {
     onDispose {
-      if (state == null) session.close()
       currentOnReset.value()
     }
   }

@@ -7,7 +7,6 @@ import co.touchlab.kermit.Logger
 import org.maplibre.compose.desktop.LocalComposeMapPresentationHost
 import org.maplibre.compose.desktop.bridge.ComposeMapPresentationHostFactory
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.StyleBinding
 
 @Composable
 internal actual fun mapPresentationHostIdentity(): Any =
@@ -16,10 +15,8 @@ internal actual fun mapPresentationHostIdentity(): Any =
 @Composable
 internal actual fun ComposableMapView(
   modifier: Modifier,
-  runtime: RuntimeImplementation?,
-  state: MapState?,
+  state: MapState,
   style: BaseStyle,
-  rememberedStyle: StyleBinding?,
   update: (map: MapAdapter) -> Unit,
   onReset: () -> Unit,
   logger: Logger?,
@@ -35,7 +32,6 @@ internal actual fun ComposableMapView(
     hostFactory = hostFactory,
     modifier = modifier,
     state = state,
-    runtimeOptions = runtime?.nativeRuntimeOptions,
     style = style,
     update = update,
     onReset = onReset,

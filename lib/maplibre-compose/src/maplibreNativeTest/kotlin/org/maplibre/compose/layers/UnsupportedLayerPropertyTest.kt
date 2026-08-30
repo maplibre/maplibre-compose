@@ -33,7 +33,7 @@ import org.maplibre.spatialk.geojson.Geometry
 
 /**
  * What a layer does with a property MapLibre Native will not take. The two cases fail differently:
- * an unknown property *name* makes the core refuse the whole layer, so the descriptor must not
+ * an unknown property *name* makes the core refuse the whole layer, so the definition must not
  * write it at all; an unknown *value* is refused on its own and must not escape into the Compose
  * applier. `icon-overlap` and `text-rotation-alignment: viewport-glyph` are the respective cases.
  */
@@ -58,7 +58,7 @@ class UnsupportedLayerPropertyTest {
       layer.setIconOverlap(const("cooperative").compile(ExpressionContext.None))
       layer.setTextOverlap(const(SymbolOverlap.Always).compile(ExpressionContext.None))
       // The assertion is that this returns at all: a layer object carrying `icon-overlap` is
-      // refused wholesale, and attach turns that into a throw.
+      // refused wholesale, and installation turns that into a throw.
       val handle = style.install(layer)
 
       style.onMap { map ->
@@ -96,7 +96,7 @@ class UnsupportedLayerPropertyTest {
         // The read stays inside the block: onMap rejects a null *result* as an unbound layer.
         assertNull(
           map.layerProperty("labels", "icon-overlap"),
-          "icon-overlap should still not be written after attach",
+          "icon-overlap should still not be written after installation",
         )
       }
       assertEquals(emptyList(), it.errors, "the map should report nothing")

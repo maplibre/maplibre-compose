@@ -826,7 +826,7 @@ internal class MlnFfiMapSession(
           binding.invalidate()
           return
         }
-        // Descriptors holding the previous binding must not write into a style that is gone.
+        // Live handles from the previous binding must not write into a style that is gone.
         styleBinding?.invalidate()
         styleBinding = binding
         featureStateReplayPending.store(true)

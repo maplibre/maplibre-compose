@@ -35,7 +35,7 @@ presentation loss.
 
 - Rewrite `StyleCompositionOrderTest.kt`, `StyleOwnershipTest.kt`,
   `StyleNodeTest.kt`, `SymbolLayerCompositionTest.kt`,
-  `MlnFfiStyleSwitchTest.kt`, and `BrowserStyleStateTest.kt` around complete
+  `MlnFfiStyleSwitchTest.kt`, and `BrowserMapStyleStateTest.kt` around complete
   immutable revisions and independent evaluators.
 - Consolidate ordering and ownership semantics in common tests; keep live tests
   only for native and GL JS reconciliation boundaries.

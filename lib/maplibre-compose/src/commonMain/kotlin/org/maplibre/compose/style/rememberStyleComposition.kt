@@ -18,7 +18,7 @@ import org.maplibre.compose.util.MaplibreComposable
  * Hosts the map's content in a subcomposition tied to the style it draws into.
  *
  * The subcomposition follows the loaded style. The engine invalidates the binding before a style
- * switch, so effects from the outgoing composition cannot mutate the replacement style.
+ * switch. Effects from the outgoing composition cannot mutate the replacement style.
  */
 @Composable
 internal fun rememberStyleComposition(
@@ -26,7 +26,6 @@ internal fun rememberStyleComposition(
   maybeStyle: StyleBinding?,
   replaceableSourceIds: Set<String> = emptySet(),
   replaceableLayerIds: Set<String> = emptySet(),
-  styleState: StyleState? = null,
 ): State<DesiredStyleRevision?> {
   val revisionState =
     remember(composition, maybeStyle) { mutableStateOf<DesiredStyleRevision?>(null) }
@@ -42,7 +41,6 @@ internal fun rememberStyleComposition(
         if (!style.isLoaded) return@LaunchedEffect
         throw error
       }
-    styleState?.attach(rootNode)
     val evaluator = Composition(MapNodeApplier(rootNode), compositionContext)
 
     evaluator.setContent {
@@ -57,7 +55,6 @@ internal fun rememberStyleComposition(
       awaitCancellation()
     } finally {
       evaluator.dispose()
-      styleState?.attach(null)
     }
   }
 
