@@ -158,7 +158,9 @@ internal object EmptyMapAdapterCallbacks : MapAdapter.Callbacks {
 }
 
 internal class DurableStyleCallbacks(private val owner: MapState) : MapAdapter.Callbacks {
-  override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) = Unit
+  override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
+    owner.updateLoadedStyle(map, style)
+  }
 
   override fun onMapFinishedLoading(map: MapAdapter) {
     owner.markStyleReady(map)

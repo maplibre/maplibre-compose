@@ -252,6 +252,7 @@ private fun MaplibreMapPresentation(
 
         override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
           rememberedStyle = style
+          stateAttachment?.state?.updateLoadedStyle(map, style)
           synchronizeCamera(map)
         }
 

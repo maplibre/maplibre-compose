@@ -11,6 +11,7 @@ import org.maplibre.compose.map.GestureTarget
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MapPresentation
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.spatialk.geojson.Position
@@ -22,6 +23,9 @@ import org.maplibre.spatialk.geojson.Position
 internal interface MapFixture : AutoCloseable {
 
   val session: MapAdapter
+
+  /** Public logical-map surface exercised by style-handle tests. */
+  val state: MapState
 
   /** Public lease surface exercised by viewport-bound tests. */
   val presentation: MapPresentation

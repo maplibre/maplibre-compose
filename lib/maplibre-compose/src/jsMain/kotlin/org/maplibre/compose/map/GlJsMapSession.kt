@@ -190,6 +190,7 @@ internal class GlJsMapSession(
         endCameraMove(engine, lease)
       } finally {
         surface = null
+        invalidateStyleBinding()
         lifecycle.beginEngineReplacement(engine, lease)
       }
     } else {
@@ -368,9 +369,7 @@ internal class GlJsMapSession(
     hasReconciledStyle = false
     hasUsableViewport = false
     hasReplayedPresentationState = false
-    callbacks.onStyleChanged(this, null)
-    styleBinding?.invalidate()
-    styleBinding = null
+    invalidateStyleBinding()
     styleLoadSubscription?.cancel()
     styleLoadSubscription = null
     styleErrorSubscription?.cancel()
@@ -396,6 +395,12 @@ internal class GlJsMapSession(
     container?.let { runCatching { it.remove() } }
     container = null
     resumeStrandedTransitions()
+  }
+
+  private fun invalidateStyleBinding() {
+    callbacks.onStyleChanged(this, null)
+    styleBinding?.invalidate()
+    styleBinding = null
   }
 
   private fun applyExtent(map: MaplibreMap, extent: MapExtent) {

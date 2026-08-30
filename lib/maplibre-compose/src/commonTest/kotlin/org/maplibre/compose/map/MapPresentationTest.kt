@@ -9,6 +9,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration
@@ -20,17 +21,33 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.compose.layers.BackgroundLayer
+import org.maplibre.compose.layers.LayerHandle
+import org.maplibre.compose.sources.GeoJsonData
+import org.maplibre.compose.sources.GeoJsonOptions
+import org.maplibre.compose.sources.GeoJsonSource
+import org.maplibre.compose.sources.GeoJsonSourceHandle
+import org.maplibre.compose.sources.VectorSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
+import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
+import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Position
+import org.maplibre.spatialk.geojson.dsl.addFeature
+import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MapPresentationTest {
@@ -130,6 +147,184 @@ class MapPresentationTest {
     assertTrue(state.style.loadState is StyleLoadState.Failed)
     state.close()
     runtime.close()
+  }
+
+  @Test
+  fun a_live_source_handle_is_ready_bound_and_cannot_target_a_replacement_style() {
+    val fixture = presentationFixture()
+    val firstStyle =
+      RecordingStyleBinding(
+        sources =
+          listOf(
+            GeoJsonSource(
+              id = "points",
+              data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
+              options = GeoJsonOptions(),
+            )
+          )
+      )
+
+    assertNull(fixture.state.style.source("points"))
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, firstStyle)
+    assertNull(fixture.state.style.source("points"))
+    fixture.state.durableStyleCallbacks().onMapFinishedLoading(fixture.adapter)
+
+    val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.source("points"))
+    assertNull(fixture.state.style.source("missing"))
+    handle.setFeatureState("7", buildJsonObject { put("selected", true) })
+    assertEquals(
+      true,
+      firstStyle.featureState("points", null, "7")["selected"]?.jsonPrimitive?.boolean,
+    )
+
+    fixture.state.style.baseStyle = BaseStyle.Json("replacement")
+    assertFailsWith<IllegalStateException> {
+      handle.setFeatureState("7", buildJsonObject { put("stale", true) })
+    }
+    val replacement =
+      RecordingStyleBinding(
+        sources =
+          listOf(
+            GeoJsonSource(
+              id = "points",
+              data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
+              options = GeoJsonOptions(),
+            )
+          )
+      )
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, replacement)
+    fixture.state.durableStyleCallbacks().onMapFinishedLoading(fixture.adapter)
+
+    assertFailsWith<IllegalStateException> {
+      handle.setFeatureState("7", buildJsonObject { put("stale", true) })
+    }
+    assertEquals(JsonObject(emptyMap()), replacement.featureState("points", null, "7"))
+    fixture.close()
+  }
+
+  @Test
+  fun a_typed_source_handle_rejects_a_same_id_source_type_replacement() {
+    val fixture = presentationFixture()
+    val geoJson =
+      GeoJsonSource(
+        id = "shared",
+        data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
+        options = GeoJsonOptions(),
+      )
+    fixture.state.desiredStyleRevision =
+      DesiredStyleRevision(
+        sources = listOf(geoJson.definition()),
+        layers = emptyList(),
+        images = emptyList(),
+      )
+    val loadedStyle = RecordingStyleBinding(sources = listOf(geoJson))
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, loadedStyle)
+    fixture.state.durableStyleCallbacks().onMapFinishedLoading(fixture.adapter)
+    val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.source("shared"))
+    val vector = VectorSource("shared", "https://example.com/tiles.json")
+
+    fixture.state.beginStyleRevision(
+      fixture.adapter,
+      DesiredStyleRevision(
+        sources = listOf(vector.definition()),
+        layers = emptyList(),
+        images = emptyList(),
+      ),
+    )
+    assertFailsWith<IllegalStateException> {
+      handle.setFeatureState("7", buildJsonObject { put("stale", true) })
+    }
+    assertEquals(JsonObject(emptyMap()), loadedStyle.featureState("shared", null, "7"))
+
+    loadedStyle.replaceSource(vector)
+    fixture.state.markStyleReady(fixture.adapter)
+
+    assertFailsWith<IllegalStateException> { handle.getFeatureState("7") }
+    assertEquals(JsonObject(emptyMap()), loadedStyle.featureState("shared", null, "7"))
+    fixture.close()
+  }
+
+  @Test
+  fun geojson_cluster_queries_have_empty_fallbacks_for_a_non_cluster_feature() = runTest {
+    val fixture = presentationFixture()
+    val loadedStyle =
+      RecordingStyleBinding(
+        sources =
+          listOf(
+            GeoJsonSource(
+              id = "points",
+              data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
+              options = GeoJsonOptions(),
+            )
+          )
+      )
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, loadedStyle)
+    fixture.state.durableStyleCallbacks().onMapFinishedLoading(fixture.adapter)
+    val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.source("points"))
+    val point =
+      buildFeatureCollection<Geometry, JsonObject?> {
+          addFeature(geometry = Point(Position(0.0, 0.0)))
+        }
+        .features
+        .single()
+
+    assertFalse(handle.isCluster(point))
+    assertEquals(0.0, handle.getClusterExpansionZoom(point))
+    assertTrue(handle.getClusterChildren(point).features.isEmpty())
+    assertTrue(handle.getClusterLeaves(point, limit = 1, offset = 0).features.isEmpty())
+    fixture.close()
+  }
+
+  @Test
+  fun replacing_a_retained_engine_invalidates_its_style_handles_before_publication() = runTest {
+    val runtime = mapRuntimeForTest()
+    val state = runtime.createMapState()
+    val firstToken = state.reservePresentation()
+    val first = RetainedAdapter(failOnClose = false)
+    state.publishPresentation(firstToken, first)
+    val firstStyle =
+      RecordingStyleBinding(
+        sources =
+          listOf(
+            GeoJsonSource(
+              id = "points",
+              data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
+              options = GeoJsonOptions(),
+            )
+          )
+      )
+    state.durableStyleCallbacks().onStyleChanged(first, firstStyle)
+    state.durableStyleCallbacks().onMapFinishedLoading(first)
+    val handle = assertIs<GeoJsonSourceHandle>(state.style.source("points"))
+    state.releasePresentation(firstToken, first)
+    testScheduler.advanceUntilIdle()
+
+    val secondToken = state.reservePresentation()
+    state.publishPresentation(secondToken, RetainedAdapter(failOnClose = false))
+
+    assertFailsWith<IllegalStateException> {
+      handle.setFeatureState("7", buildJsonObject { put("stale", true) })
+    }
+    assertEquals(JsonObject(emptyMap()), firstStyle.featureState("points", null, "7"))
+    state.close()
+    runtime.close()
+  }
+
+  @Test
+  fun a_live_layer_handle_reads_and_writes_only_its_loaded_style() {
+    val fixture = presentationFixture()
+    val loadedStyle = RecordingStyleBinding(layers = listOf(BackgroundLayer("background")))
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, loadedStyle)
+    fixture.state.durableStyleCallbacks().onMapFinishedLoading(fixture.adapter)
+
+    val handle = assertIs<LayerHandle>(fixture.state.style.layer("background"))
+    assertNull(fixture.state.style.layer("missing"))
+    handle.setPaintProperty("background-opacity", JsonPrimitive(0.5))
+    assertEquals(JsonPrimitive(0.5), handle.getProperty("background-opacity"))
+
+    loadedStyle.invalidate()
+    assertFailsWith<IllegalStateException> { handle.getProperty("background-opacity") }
+    fixture.close()
   }
 
   @Test

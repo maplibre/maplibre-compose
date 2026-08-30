@@ -45,6 +45,12 @@ internal interface StyleBinding {
     }
   }
 
+  fun requireCurrent(expectedIdentity: StyleIdentity) {
+    check(identity === expectedIdentity && isLoaded) {
+      "Style operation belongs to a stale loaded-style identity"
+    }
+  }
+
   val logger: Logger?
 
   fun addImage(definition: StyleImageDefinition)
@@ -220,6 +226,13 @@ internal interface StyleBinding {
    * stays off the map's owner thread. A URL installs through [setGeoJsonSourceUrl] instead.
    */
   fun prepareGeoJson(data: GeoJsonData, options: GeoJsonOptions): PreparedGeoJson
+
+  /** Prepares an update with the options currently applied to [sourceId]. */
+  fun prepareGeoJsonUpdate(
+    sourceId: String,
+    data: GeoJsonData,
+    fallbackOptions: GeoJsonOptions,
+  ): PreparedGeoJson = prepareGeoJson(data, fallbackOptions)
 
   /**
    * Installs [prepared] on a live GeoJSON source when [claim] answers true.

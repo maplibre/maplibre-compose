@@ -2,10 +2,13 @@ package org.maplibre.compose.sources
 
 import kotlin.test.Test
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.MlnFfiMapFixture
@@ -41,6 +44,18 @@ class CustomVectorSourceNativeTest {
       assertFalse(isMapFullyLoaded())
       release.complete(Unit)
       fixture.pumpUntil("the empty custom MVT tile to finish loading") { isMapFullyLoaded() }
+
+      fixture.state.desiredStyleRevision =
+        DesiredStyleRevision(listOf(source.definition()), emptyList(), emptyList())
+      val handle = assertIs<CustomVectorSourceHandle>(fixture.state.style.source("empty"))
+      assertTrue(handle.querySourceFeatures(setOf("points")).isEmpty())
+      val answered = requests.size
+
+      handle.invalidateTile(TileCoordinate(zoomLevel = 0, x = 0, y = 0))
+
+      fixture.pumpUntil("the invalidated custom MVT tile to be requested again") {
+        requests.size > answered
+      }
     }
   }
 }

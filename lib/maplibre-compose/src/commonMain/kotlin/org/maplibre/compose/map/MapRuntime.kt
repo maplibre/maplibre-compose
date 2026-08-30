@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
 import kotlin.concurrent.atomics.AtomicLong
+import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.jvm.JvmInline
@@ -45,8 +46,14 @@ import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.compose.layers.LayerHandle
+import org.maplibre.compose.layers.layerHandle
+import org.maplibre.compose.sources.SourceHandle
+import org.maplibre.compose.sources.sourceHandle
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
+import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.style.StyleState
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -109,6 +116,7 @@ public sealed interface StyleLoadState {
 /** Desired and applied style state for one [MapState]. */
 public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   private var owner: MapState? = null
+  private val loadedStyle = AtomicReference<StyleBinding?>(null)
   private var baseStyleState: BaseStyle by
     mutableStateOf(initialBaseStyle, structuralEqualityPolicy())
 
@@ -121,6 +129,25 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   public var loadState: StyleLoadState by mutableStateOf(StyleLoadState.Pending)
     internal set
 
+  /** Returns a generation-bound handle for [id], or null until the style is ready or if absent. */
+  public fun source(id: String): SourceHandle? {
+    if (loadState != StyleLoadState.Ready) return null
+    val current = loadedStyle.load() ?: return null
+    return current.sourceHandle(
+      id = id,
+      definition = owner?.desiredSourceDefinition(id),
+      currentDefinition = { owner?.desiredSourceDefinition(id) },
+      operations = operationGuard(current),
+    )
+  }
+
+  /** Returns a generation-bound handle for [id], or null until the style is ready or if absent. */
+  public fun layer(id: String): LayerHandle? {
+    if (loadState != StyleLoadState.Ready) return null
+    val current = loadedStyle.load() ?: return null
+    return current.layerHandle(id, operationGuard(current))
+  }
+
   internal fun attach(owner: MapState) {
     this.owner = owner
   }
@@ -128,6 +155,28 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   internal fun setBaseStyleState(value: BaseStyle) {
     baseStyleState = value
   }
+
+  internal fun updateLoadedStyle(style: StyleBinding?) {
+    loadedStyle.store(style)
+  }
+
+  internal fun invalidateLoadedStyle() {
+    loadedStyle.exchange(null)?.invalidate()
+  }
+
+  internal fun isCurrentLoadedStyle(style: StyleBinding): Boolean = loadedStyle.load() === style
+
+  private fun operationGuard(style: StyleBinding): StyleHandleOperationGuard =
+    object : StyleHandleOperationGuard {
+      override fun <T> run(action: () -> T): T =
+        owner?.runStyleHandleOperation(style, action) ?: action()
+
+      override fun checkpoint(): Long = owner?.styleHandleCheckpoint(style) ?: 0L
+
+      override fun requireUnchanged(checkpoint: Long) {
+        owner?.requireStyleHandleUnchanged(style, checkpoint)
+      }
+    }
 }
 
 /** One temporary connection between a [MapState] and a map surface. */
@@ -321,6 +370,7 @@ internal constructor(
   private val retiringAdapters = linkedSetOf<MapAdapter>()
   private val pendingCleanupFailures = mutableListOf<Throwable>()
   private var closed = false
+  private var styleHandleEpoch = 0L
   private var closedState: Boolean by mutableStateOf(false)
 
   internal val cameraState = CameraState(initialCameraPosition)
@@ -354,6 +404,8 @@ internal constructor(
         retainedAdapter = null
         retiringAdapters.clear()
         pendingCleanupFailures.clear()
+        styleHandleEpoch++
+        style.invalidateLoadedStyle()
         Snapshot.withMutableSnapshot {
           closedState = true
           presentation?.invalidate()
@@ -443,6 +495,10 @@ internal constructor(
       if (adapter.retainsEngineBetweenPresentations) retainedAdapter = adapter
       if (replaced != null) retiringAdapters += replaced
       cameraState.map = adapter
+      if (!reusesRetainedAdapter) {
+        styleHandleEpoch++
+        style.invalidateLoadedStyle()
+      }
       adapter.setBaseStyle(style.baseStyle)
       if (!reusesRetainedAdapter) style.loadState = StyleLoadState.Loading
       MapPresentation(this, token, adapter, options).also { presentation = it }
@@ -502,6 +558,15 @@ internal constructor(
     }
   }
 
+  internal fun updateLoadedStyle(adapter: MapAdapter, loadedStyle: StyleBinding?) {
+    lock.withLock {
+      if (!closed && (attachment?.adapter === adapter || retainedAdapter === adapter)) {
+        styleHandleEpoch++
+        style.updateLoadedStyle(loadedStyle)
+      }
+    }
+  }
+
   internal fun markStyleFailed(adapter: MapAdapter, reason: String?) {
     lock.withLock {
       if (!closed && (attachment?.adapter === adapter || retainedAdapter === adapter)) {
@@ -513,6 +578,7 @@ internal constructor(
   internal fun beginStyleRevision(adapter: MapAdapter, revision: DesiredStyleRevision) {
     lock.withLock {
       if (!closed && (attachment?.adapter === adapter || retainedAdapter === adapter)) {
+        styleHandleEpoch++
         desiredStyleRevision = revision
         style.loadState = StyleLoadState.Loading
       }
@@ -523,7 +589,9 @@ internal constructor(
     lock.withLock {
       requireOpenLocked()
       if (style.baseStyle == value) return
+      styleHandleEpoch++
       style.setBaseStyleState(value)
+      style.invalidateLoadedStyle()
       val adapter = attachment?.adapter ?: retainedAdapter
       if (adapter == null) {
         style.loadState = StyleLoadState.Pending
@@ -531,6 +599,36 @@ internal constructor(
         style.loadState = StyleLoadState.Loading
         adapter.setBaseStyle(value)
       }
+    }
+  }
+
+  internal fun desiredSourceDefinition(id: String) =
+    desiredStyleRevision.sources.firstOrNull { it.id == id }
+
+  internal fun <T> runStyleHandleOperation(binding: StyleBinding, action: () -> T): T =
+    lock.withLock {
+      requireStyleHandleLocked(binding)
+      action()
+    }
+
+  internal fun styleHandleCheckpoint(binding: StyleBinding): Long = lock.withLock {
+    requireStyleHandleLocked(binding)
+    styleHandleEpoch
+  }
+
+  internal fun requireStyleHandleUnchanged(binding: StyleBinding, checkpoint: Long) {
+    lock.withLock {
+      requireStyleHandleLocked(binding)
+      check(styleHandleEpoch == checkpoint) {
+        "Style operation crossed a loaded-style resource change"
+      }
+    }
+  }
+
+  private fun requireStyleHandleLocked(binding: StyleBinding) {
+    requireOpenLocked()
+    check(style.loadState == StyleLoadState.Ready && style.isCurrentLoadedStyle(binding)) {
+      "Style operation belongs to a stale or unready loaded-style identity"
     }
   }
 
