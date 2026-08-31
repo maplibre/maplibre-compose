@@ -102,7 +102,10 @@ kotlin {
     }
 
     jvmMain.dependencies {
-      implementation(compose.desktop.currentOs)
+      // Host-neutral desktop APIs. currentOs belongs on the AWT application module; this
+      // source set is also compiled into the GLFW and Nucleus hosts, which stay off that
+      // artifact.
+      implementation(compose.desktop.common)
       implementation(libs.kotlinx.coroutines.swing)
       implementation(libs.ktor.client.okhttp)
     }
