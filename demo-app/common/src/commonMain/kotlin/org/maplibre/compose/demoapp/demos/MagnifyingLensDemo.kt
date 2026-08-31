@@ -19,6 +19,7 @@ import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -121,11 +122,12 @@ object MagnifyingLensDemo : Demo {
             spacingPx = spacingPx,
           ) + dragOffset
         }
+    val currentLensCenter by rememberUpdatedState(lensCenter)
     LaunchedEffect(Unit) {
       snapshotFlow {
         val position = mapState.cameraPosition
         val target =
-          lensCenter?.let {
+          currentLensCenter?.let {
             presentation?.positionFromScreenLocation(
               with(density) { DpOffset(it.x.toDp(), it.y.toDp()) }
             )
