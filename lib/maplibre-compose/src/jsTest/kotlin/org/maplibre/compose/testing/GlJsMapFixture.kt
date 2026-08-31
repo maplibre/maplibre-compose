@@ -104,6 +104,10 @@ internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
     glJsSession.fireStyleErrorForTest(message)
   }
 
+  internal fun detachPresentationForTest() {
+    state.releasePresentation(token, glJsSession)
+  }
+
   override suspend fun awaitMapReady(timeout: Duration) {
     pumpUntil("the map to render its first frame", timeout) { hasRendered }
   }
@@ -114,6 +118,8 @@ internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
       yieldToBrowser()
     }
   }
+
+  internal fun renderFrameForTest(): Boolean = frame()
 
   override suspend fun pumpUntil(
     description: String,

@@ -106,6 +106,8 @@ internal class MapLifecycleAuthority(
   private val releaseCleanups = linkedSetOf<CompletableDeferred<Result<Unit>>>()
   private val pendingCleanupFailures = mutableListOf<Throwable>()
   private var closed = false
+  private var platformAccessDepth = 0
+  private var closeAfterPlatformAccess = false
 
   val isClosed: Boolean
     get() = serialized { closed }
@@ -114,6 +116,10 @@ internal class MapLifecycleAuthority(
     val (maps, releases, recordedFailures) =
       serialized {
         if (closed) return
+        if (platformAccessDepth > 0) {
+          closeAfterPlatformAccess = true
+          return
+        }
         closed = true
         val maps = buildSet {
           retainedAdapter?.let(::add)
@@ -298,22 +304,48 @@ internal class MapLifecycleAuthority(
     true
   }
 
-  fun acceptsAdapter(adapter: MapAdapter): Boolean = serialized {
-    val current = attachment
-    !closed &&
-      ((current?.adapter === adapter && !current.releasing) ||
-        (current?.adapter == null && retainedAdapter === adapter))
-  }
+  fun acceptsAdapter(adapter: MapAdapter): Boolean = serialized { acceptsAdapterLocked(adapter) }
 
   fun isPendingPublication(adapter: MapAdapter): Boolean = serialized {
     !closed && attachment?.adapter === adapter && attachment?.releasing == false
   }
 
   fun acceptsPresentation(adapter: MapAdapter): Boolean = serialized {
-    !closed && attachment?.adapter === adapter && owner.presentation?.adapter === adapter
+    acceptsPresentationLocked(adapter)
   }
 
   fun currentAdapter(): MapAdapter? = serialized { attachment?.adapter ?: retainedAdapter }
+
+  fun retainAdapterForPlatformAccess(create: () -> MapAdapter): MapAdapter = serialized {
+    requireOpen()
+    (attachment?.adapter ?: retainedAdapter)?.let {
+      return it
+    }
+    create().also { adapter ->
+      check(adapter.retainsEngineBetweenPresentations) {
+        "A detached platform map requires an engine-retaining adapter"
+      }
+      retainedAdapter = adapter
+      owner.beginStyleLoadForNewAdapter()
+    }
+  }
+
+  fun presentationAdapterForPlatformAccess(): MapAdapter = serialized {
+    requireOpen()
+    val adapter = attachment?.adapter
+    check(adapter != null && acceptsPresentationLocked(adapter)) {
+      "Platform map access requires a current Web presentation"
+    }
+    adapter
+  }
+
+  fun acceptEnginePlatformAccess(adapter: MapAdapter, event: () -> Unit): Boolean =
+    acceptPlatformAccess(accepts = { acceptsAdapterLocked(adapter) }, event)
+
+  fun acceptPresentationPlatformAccess(
+    adapter: MapAdapter,
+    event: () -> Unit,
+  ): Boolean = acceptPlatformAccess(accepts = { acceptsPresentationLocked(adapter) }, event)
 
   fun isCurrent(token: MapPresentationToken, adapter: MapAdapter): Boolean = serialized {
     !closed &&
@@ -374,6 +406,37 @@ internal class MapLifecycleAuthority(
     check(current.adapter == null) { "The map state already has a presentation adapter" }
     current.adapter = adapter
     if (retainedAdapter !== adapter) owner.beginStyleLoadForNewAdapter()
+  }
+
+  private fun acceptsAdapterLocked(adapter: MapAdapter): Boolean {
+    val current = attachment
+    return !closed &&
+      ((current?.adapter === adapter && !current.releasing) || retainedAdapter === adapter)
+  }
+
+  private fun acceptsPresentationLocked(adapter: MapAdapter): Boolean =
+    !closed && attachment?.adapter === adapter && owner.presentation?.adapter === adapter
+
+  private fun acceptPlatformAccess(accepts: () -> Boolean, event: () -> Unit): Boolean {
+    var commitDeferredClose = false
+    try {
+      return serialized {
+        if (!accepts()) return@serialized false
+        platformAccessDepth++
+        try {
+          event()
+        } finally {
+          platformAccessDepth--
+          if (platformAccessDepth == 0 && closeAfterPlatformAccess) {
+            closeAfterPlatformAccess = false
+            commitDeferredClose = true
+          }
+        }
+        true
+      }
+    } finally {
+      if (commitDeferredClose) close()
+    }
   }
 
   private fun completeClosure(result: Result<Unit>) {
@@ -537,6 +600,7 @@ internal class MapLifecycleBinding(
     while (true) {
       when (val observed = current.load()) {
         is InternalState.OpenDetached -> return attach()
+        is InternalState.CreatingEngine -> observed.result.await().getOrThrow()
         is InternalState.Attaching -> return observed.result.await().getOrThrow()
         is InternalState.Attached -> return observed.lease
         is InternalState.Detaching -> observed.result.await().getOrThrow()
@@ -552,6 +616,7 @@ internal class MapLifecycleBinding(
       val observed = current.load()
       when (observed) {
         is InternalState.OpenDetached -> createAttachmentStart(observed)
+        is InternalState.CreatingEngine,
         is InternalState.Attaching,
         is InternalState.Attached,
         is InternalState.Detaching -> throw MapAlreadyAttachedException()
@@ -574,6 +639,10 @@ internal class MapLifecycleBinding(
           alreadyAttached = true
           null
         }
+        is InternalState.CreatingEngine -> {
+          alreadyAttached = true
+          null
+        }
         is InternalState.Detaching,
         is InternalState.Closing,
         InternalState.Closed -> null
@@ -581,6 +650,75 @@ internal class MapLifecycleBinding(
     }
     start?.let(::launchAttachment)
     return alreadyAttached || start != null
+  }
+
+  /** Creates a retained engine without requiring a presentation and returns its identity. */
+  suspend fun ensureEngine(): EngineMapIdentity {
+    check(adapter.engineRetention == EngineRetention.RETAIN) {
+      "Detached engine creation requires a retained engine"
+    }
+    while (true) {
+      var launchCreation = false
+      val observed = serialized {
+        when (val state = current.load()) {
+          is InternalState.OpenDetached -> {
+            state.engine?.let {
+              return it
+            }
+            InternalState.CreatingEngine(
+                engine = EngineMapIdentity(nextIdentity.incrementAndFetch()),
+                result = CompletableDeferred(),
+                engineCreated = AtomicBoolean(false),
+              )
+              .also {
+                current.store(it)
+                launchCreation = true
+              }
+          }
+          else -> state
+        }
+      }
+      when (observed) {
+        is InternalState.CreatingEngine -> {
+          if (launchCreation) {
+            physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
+              performEngineCreation(observed)
+            }
+          }
+          observed.result.await().getOrThrow()
+        }
+        is InternalState.Attaching -> observed.result.await().getOrThrow()
+        is InternalState.Attached -> return observed.engine
+        is InternalState.Detaching -> observed.result.await().getOrThrow()
+        is InternalState.OpenDetached ->
+          observed.engine?.let {
+            return it
+          }
+        is InternalState.Closing,
+        InternalState.Closed -> throw MapClosedException()
+      }
+    }
+  }
+
+  private suspend fun performEngineCreation(creating: InternalState.CreatingEngine) {
+    val outcome = runCatching {
+      adapter.createEngine(creating.engine)
+      creating.engineCreated.store(true)
+      creating.engine
+    }
+    outcome.exceptionOrNull()?.let { failure ->
+      runCatching { adapter.destroyEngine(creating.engine) }
+        .exceptionOrNull()
+        ?.let(failure::addSuppressed)
+      currentStyle.store(null)
+      currentStyleRequest.store(null)
+    }
+    serialized {
+      if (current.load() === creating) {
+        current.store(InternalState.OpenDetached(outcome.getOrNull()))
+      }
+    }
+    creating.result.complete(outcome)
   }
 
   private fun createAttachmentStart(observed: InternalState.OpenDetached): AttachmentStart {
@@ -675,6 +813,7 @@ internal class MapLifecycleBinding(
         true
       }
       is InternalState.OpenDetached,
+      is InternalState.CreatingEngine,
       is InternalState.Closing,
       InternalState.Closed -> false
     }
@@ -870,6 +1009,7 @@ internal class MapLifecycleBinding(
     val failures = mutableListOf<Throwable>()
 
     when (previous) {
+      is InternalState.CreatingEngine -> previous.result.await()
       is InternalState.Attaching -> {
         previous.result.await()
         collectFailure(failures) { adapter.detach(previous.engine, previous.lease) }
@@ -883,7 +1023,9 @@ internal class MapLifecycleBinding(
       InternalState.Closed -> error("Closure cannot start from ${previous.publicState}")
     }
 
-    val engine = previous.engine
+    val engine =
+      if (previous is InternalState.CreatingEngine && !previous.engineCreated.load()) null
+      else previous.engine
     val detachAlreadyDestroyedEngine =
       previous is InternalState.Detaching && adapter.engineRetention == EngineRetention.DESTROY
     if (engine != null && !detachAlreadyDestroyedEngine) {
@@ -934,6 +1076,14 @@ internal class MapLifecycleBinding(
 
     data class OpenDetached(override val engine: EngineMapIdentity?) : InternalState {
       override val publicState = MapLifecycleState.OpenDetached(engine)
+    }
+
+    data class CreatingEngine(
+      override val engine: EngineMapIdentity,
+      val result: CompletableDeferred<Result<EngineMapIdentity>>,
+      val engineCreated: AtomicBoolean,
+    ) : InternalState {
+      override val publicState = MapLifecycleState.OpenDetached(null)
     }
 
     data class Attaching(
