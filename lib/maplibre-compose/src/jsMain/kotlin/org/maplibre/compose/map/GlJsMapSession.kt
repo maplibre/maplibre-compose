@@ -37,7 +37,6 @@ import org.maplibre.compose.gljs.GlJsRuntime
 import org.maplibre.compose.gljs.GlJsSubscription
 import org.maplibre.compose.gljs.GlJsSurfaceSession
 import org.maplibre.compose.gljs.JumpToOptions
-import org.maplibre.compose.gljs.MapEvent
 import org.maplibre.compose.gljs.MapOptions
 import org.maplibre.compose.gljs.MaplibreMap
 import org.maplibre.compose.gljs.PaddingOptions
@@ -46,6 +45,7 @@ import org.maplibre.compose.gljs.QueryGeometry
 import org.maplibre.compose.gljs.QueryRenderedFeaturesOptions
 import org.maplibre.compose.gljs.SetStyleOptions
 import org.maplibre.compose.gljs.isCameraEasing
+import org.maplibre.compose.gljs.isTerminalStyleLoadFailure
 import org.maplibre.compose.gljs.queryBox
 import org.maplibre.compose.gljs.queryPoint
 import org.maplibre.compose.gljs.styleJson
@@ -808,16 +808,6 @@ internal class GlJsMapSession(
       }
       if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
     }
-  }
-
-  /**
-   * MapLibre sends style-request, source, sprite, tile, and API errors through one event. A
-   * terminal style-request error has no active request and occurs before MapLibre marks the style
-   * as loaded. The pinned MapLibre version exposes these fields on its internal `Style` object.
-   */
-  private fun MapEvent.isTerminalStyleLoadFailure(): Boolean {
-    val style = asDynamic().style ?: return false
-    return style._loaded != true && style._loadStyleRequest == null && style._frameRequest == null
   }
 
   internal fun fireStyleErrorForTest(message: String) {

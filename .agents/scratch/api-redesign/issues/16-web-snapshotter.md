@@ -6,22 +6,22 @@ MapState.
 
 **Blocked by:** 15
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] The changed test area contains no redundant, impossible,
+- [x] The changed test area contains no redundant, impossible,
       compatibility-only, or implementation-shape scenarios.
-- [ ] Web capture uses a dedicated GL JS map and private rendering target.
-- [ ] The rendering target is non-visible, owned by the snapshotter engine, and
+- [x] Web capture uses a dedicated GL JS map and private rendering target.
+- [x] The rendering target is non-visible, owned by the snapshotter engine, and
       removed from the DOM during cleanup.
-- [ ] The snapshotter never attaches to MaplibreMap.
-- [ ] Capture does not attach, detach, pause, or retarget an interactive map.
-- [ ] Immutable request values control each output.
-- [ ] StyleComposition evaluation remains independent from interactive maps.
-- [ ] FIFO execution, desired-style claiming, cancellation, timeout, and closure
+- [x] The snapshotter never attaches to MaplibreMap.
+- [x] Capture does not attach, detach, pause, or retarget an interactive map.
+- [x] Immutable request values control each output.
+- [x] StyleComposition evaluation remains independent from interactive maps.
+- [x] FIFO execution, desired-style claiming, cancellation, timeout, and closure
       follow the common snapshotter contract.
-- [ ] Cancellation and closure release the GL JS map, DOM target, and rendering
+- [x] Cancellation and closure release the GL JS map, DOM target, and rendering
       resources.
-- [ ] Browser tests verify representative composed output and interactive-map
+- [x] Browser tests verify representative composed output and interactive-map
       independence.
 
 ## Test ledger
@@ -31,3 +31,24 @@ MapState.
 - Add focused browser cases for representative pixels, private DOM ownership,
   cleanup, and independence from an attached interactive map.
 - Run `mise run test:js` under `caffeinate -dimsu` on macOS.
+
+## Answer
+
+The Web adapter owns a non-interactive MapLibre GL JS map in a private hidden
+DOM target. It keeps that engine across compatible captures, applies every
+request's physical extent, density, camera, and transparency, and copies the
+preserved drawing buffer into the returned bitmap. Closing the snapshotter
+removes both the map and its target.
+
+Active Web cancellation removes the private engine because GL JS cannot cancel
+every in-flight style and render operation independently. The common adapter
+contract now reports whether cancellation retained or released the engine. A
+release invalidates the old style binding and returns the snapshotter style to
+pending before queued work recreates the engine. Native cancellation reports
+that its engine was retained.
+
+Browser tests cover composed pixels, private target ownership and cleanup,
+successive request extents, camera, density, and transparency, engine recreation
+after cancellation, and independence from an attached interactive map.
+Validation passed with `mise run check`, `caffeinate -dimsu mise run test:js`,
+`mise run test:android`, `mise run test:desktop`, and `mise run test:ios`.
