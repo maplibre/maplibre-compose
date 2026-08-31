@@ -13,6 +13,7 @@ public actual fun createMapRuntime(options: MapRuntimeOptions): MapRuntime =
     platformOptions = options,
     resources = MapRuntimeResources {},
     logger = options.logger,
+    snapshotterAdapterFactory = GlJsSnapshotterAdapterFactory(options.logger),
   )
 
 private val processMapRuntime: MapRuntime =
@@ -20,6 +21,7 @@ private val processMapRuntime: MapRuntime =
     platformOptions = null,
     resources = MapRuntimeResources {},
     logger = Logger.withTag("maplibre-compose"),
+    snapshotterAdapterFactory = GlJsSnapshotterAdapterFactory(Logger.withTag("maplibre-compose")),
   )
 
 @Composable public actual fun rememberMapRuntime(): MapRuntime = processMapRuntime

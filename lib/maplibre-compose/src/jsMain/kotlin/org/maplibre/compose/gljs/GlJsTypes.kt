@@ -29,8 +29,13 @@ internal external interface MapOptions {
   var attributionControl: Boolean?
   var maplibreLogo: Boolean?
   var pixelRatio: Double?
+  var canvasContextAttributes: CanvasContextAttributes?
   /** `[width, height]` in physical pixels, above which MapLibre lowers its own pixel ratio. */
   var maxCanvasSize: Array<Double>?
+}
+
+internal external interface CanvasContextAttributes {
+  var preserveDrawingBuffer: Boolean?
 }
 
 internal external interface SetStyleOptions {
