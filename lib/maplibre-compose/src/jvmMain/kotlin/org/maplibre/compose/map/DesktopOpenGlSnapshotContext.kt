@@ -33,7 +33,7 @@ internal sealed interface DesktopOpenGlSnapshotContext : AutoCloseable {
   }
 }
 
-private class EglSnapshotContext private constructor(private var display: Long, config: Long) :
+private class EglSnapshotContext private constructor(display: Long, config: Long) :
   DesktopOpenGlSnapshotContext {
   override val descriptor: OpenGLContextDescriptor =
     EglContextDescriptor(
@@ -45,22 +45,22 @@ private class EglSnapshotContext private constructor(private var display: Long, 
       ownership = OpenGLContextOwnership.DEDICATED,
     )
 
-  override fun close() {
-    if (display == EGL14.EGL_NO_DISPLAY) return
-    EGL14.eglTerminate(display)
-    display = EGL14.EGL_NO_DISPLAY
-  }
+  // EGL display connections are process-shared. The FFI owns and destroys this snapshotter's
+  // context, while the connection remains initialized for other maps and snapshotters.
+  override fun close() = Unit
 
   companion object {
     private const val EGL_PLATFORM_SURFACELESS_MESA = 0x31DD
 
     @Suppress("SENSELESS_COMPARISON")
-    fun create(): EglSnapshotContext {
+    private val library by lazy {
       if (EGL.getFunctionProvider() == null) EGL.create()
-      return MemoryStack.stackPush().use { stack ->
+    }
+
+    private val connection: Pair<Long, Long> by lazy {
+      MemoryStack.stackPush().use { stack ->
         val display = initializedDisplay(stack)
         try {
-          check(EGL14.eglBindAPI(EGL14.EGL_OPENGL_API)) { "Could not bind EGL OpenGL" }
           val configs = stack.mallocPointer(1)
           val configCount = stack.mallocInt(1)
           val attributes =
@@ -88,12 +88,19 @@ private class EglSnapshotContext private constructor(private var display: Long, 
           ) {
             "No EGL config supports OpenGL pbuffer rendering"
           }
-          EglSnapshotContext(display, configs[0])
+          display to configs[0]
         } catch (error: Throwable) {
           EGL14.eglTerminate(display)
           throw error
         }
       }
+    }
+
+    fun create(): EglSnapshotContext {
+      library
+      check(EGL14.eglBindAPI(EGL14.EGL_OPENGL_API)) { "Could not bind EGL OpenGL" }
+      val (display, config) = connection
+      return EglSnapshotContext(display, config)
     }
 
     private fun initializedDisplay(stack: MemoryStack): Long {
