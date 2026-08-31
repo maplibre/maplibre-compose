@@ -87,7 +87,10 @@ internal constructor(
   private val requester = MacosLocationPermissionRequester(client)
   private val mutableLocationServices = MutableStateFlow(LocationServicesStatus.Unknown)
 
-  override val availability: LocationProviderAvailability = client.backendAvailability
+  override val availability: LocationProviderAvailability
+    get() =
+      requester.allocationError?.let { LocationProviderAvailability.Misconfigured(it) }
+        ?: client.backendAvailability
 
   override val permission: StateFlow<LocationPermission>
     get() = requester.status
@@ -208,8 +211,9 @@ internal constructor(
  * [`requestWhenInUseAuthorization()`](https://developer.apple.com/documentation/corelocation/cllocationmanager/requestwheninuseauthorization())
  * and starts location updates so macOS can present the system prompt.
  *
- * If the manager cannot be allocated, [status] remains [LocationPermission.Unknown]. A later
- * permission request retries the allocation.
+ * If the manager cannot be allocated, [status] remains [LocationPermission.Unknown] and the
+ * provider reports [LocationProviderAvailability.Misconfigured]. A later permission request retries
+ * the allocation.
  */
 public class MacosLocationPermissionRequester
 internal constructor(private val client: CoreLocationClient) : AutoCloseable {
@@ -224,6 +228,8 @@ internal constructor(private val client: CoreLocationClient) : AutoCloseable {
   // Allocation is fallible and must not throw from construction, so manager() retries it when the
   // requester needs the manager.
   private var manager: CoreLocationManager? = null
+  internal var allocationError: Throwable? = null
+    private set
 
   private fun manager(): CoreLocationManager? =
     manager
@@ -231,9 +237,11 @@ internal constructor(private val client: CoreLocationClient) : AutoCloseable {
         client.createManager().also {
           it.setDelegate(delegate)
           manager = it
+          allocationError = null
           mutableStatus.value = readPermission(it.authorizationStatus, it.accuracyAuthorization)
         }
       } catch (error: Throwable) {
+        allocationError = error
         null
       }
 

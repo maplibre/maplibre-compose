@@ -296,6 +296,8 @@ class MacosLocationProviderTest {
     val provider = MacosLocationProvider(client, Dispatchers.Unconfined)
 
     assertEquals(LocationPermission.Unknown, provider.permission.value)
+    val availability = assertIs<LocationProviderAvailability.Misconfigured>(provider.availability)
+    assertIs<IllegalStateException>(availability.cause)
     provider.requestPermission()
     val event = assertIs<LocationEvent.Unavailable>(provider.updates(LocationRequest()).first())
     assertEquals(LocationUnavailableReason.UnexpectedFailure, event.reason)
