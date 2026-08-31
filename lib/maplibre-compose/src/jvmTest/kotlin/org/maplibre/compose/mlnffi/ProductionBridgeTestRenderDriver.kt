@@ -107,6 +107,10 @@ private constructor(
 
   override fun readPixel(x: Int, y: Int): RgbaPixel = environment.readPixel(x, y)
 
+  override fun discardPresentedFrame() {
+    environment.discardPresentedFrame()
+  }
+
   override fun close() {
     try {
       bridge.close()
@@ -200,6 +204,16 @@ private abstract class DesktopTestGpuEnvironment : AutoCloseable {
       )
     }
   }
+
+  /**
+   * Forgets the last presented consumer frame so a later readback cannot use the previous session's
+   * GPU objects.
+   *
+   * Direct3D 12 keeps one Skiko window for the suite. Closing that destination mid-suite stalls the
+   * GPU thread on Windows ARM, so that environment leaves the surface in place. The fixture still
+   * rejects reads until the next present.
+   */
+  open fun discardPresentedFrame() = closeDestination()
 
   protected fun closeDestination() {
     if (destination == null) return
@@ -386,6 +400,8 @@ private class Direct3D12TestGpuEnvironment private constructor(private val windo
   override fun <T> withContext(action: (ComposeGpuContext) -> T): T = presentationHost.onGpuThread {
     action(presentationHost.requireContext<Direct3D12ComposeGpuContext>())
   }
+
+  override fun discardPresentedFrame() {}
 
   override fun close() {
     closeDestination()
