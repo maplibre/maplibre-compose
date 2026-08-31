@@ -6,7 +6,7 @@ borrowed, callback-scoped value.
 
 **Blocked by:** 04, 05, 07
 
-**Status:** needs-info
+**Status:** resolved
 
 - [x] The changed test area contains no redundant, impossible,
       compatibility-only, or implementation-shape scenarios.
@@ -15,7 +15,7 @@ borrowed, callback-scoped value.
 - [x] Documentation states honestly that Kotlin cannot prevent retention and
       requires callers to use the borrowed handle only during the lambda.
 - [x] Native access creates the engine map lazily when necessary.
-- [ ] Android native access can initialize a presentation-free explicit runtime.
+- [x] Android native access can initialize a presentation-free explicit runtime.
 - [x] Native access works while MapState has no presentation after platform
       initialization.
 - [x] Web access works only for the current attached presentation.

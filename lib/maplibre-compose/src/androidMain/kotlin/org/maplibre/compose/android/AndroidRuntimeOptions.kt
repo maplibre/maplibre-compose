@@ -10,8 +10,11 @@ import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 /** Configuration for one MapLibre Native runtime on Android. */
 @Immutable
 public data class AndroidRuntimeOptions(
+  /** Context used to initialize Android platform services; only its application is retained. */
+  public val context: Context,
+
   /** Where the ambient resource cache and offline-region database live. */
-  public val cacheFile: File,
+  public val cacheFile: File = androidCacheFile(context),
 
   /** Maximum ambient cache size in bytes, or null for MapLibre's own default. */
   public val maximumCacheSizeBytes: Long? = null,
