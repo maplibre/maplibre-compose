@@ -3,8 +3,10 @@ package org.maplibre.compose.map
 import androidx.compose.ui.graphics.ImageBitmap
 import co.touchlab.kermit.Logger
 import js.objects.unsafeJso
+import kotlin.coroutines.resume
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.suspendCancellableCoroutine
 import org.maplibre.compose.gljs.CanvasContextAttributes
 import org.maplibre.compose.gljs.DEFAULT_WORKER_URL
 import org.maplibre.compose.gljs.GlJsRuntime
@@ -39,7 +41,7 @@ private class GlJsSnapshotterAdapter(private val logger: Logger?) : SnapshotterA
   private var map: MaplibreMap? = null
   private var container: HTMLElement? = null
   private var styleBinding: GlJsStyleBinding? = null
-  private var loadedBaseStyle: BaseStyle? = null
+  private var loadedBaseStyleRevision: Long? = null
   private var loadedDensity: Float? = null
   private var currentDensity = 1f
   private var styleLoadSubscription: GlJsSubscription? = null
@@ -51,6 +53,7 @@ private class GlJsSnapshotterAdapter(private val logger: Logger?) : SnapshotterA
 
   override suspend fun prepare(
     baseStyle: BaseStyle,
+    baseStyleRevision: Long,
     request: MapSnapshotRequest,
   ): StyleBinding {
     check(open) { "The Web snapshotter is closed" }
@@ -58,14 +61,16 @@ private class GlJsSnapshotterAdapter(private val logger: Logger?) : SnapshotterA
     configure(currentMap, request)
     val current = styleBinding
     if (
-      loadedBaseStyle == baseStyle && loadedDensity == request.density && current?.isLoaded == true
+      loadedBaseStyleRevision == baseStyleRevision &&
+        loadedDensity == request.density &&
+        current?.isLoaded == true
     ) {
       return current
     }
 
     current?.invalidate()
     styleBinding = null
-    loadedBaseStyle = null
+    loadedBaseStyleRevision = null
     loadedDensity = null
     cancelStyleSubscriptions()
     val loading = CompletableDeferred<Result<Unit>>()
@@ -81,7 +86,7 @@ private class GlJsSnapshotterAdapter(private val logger: Logger?) : SnapshotterA
         val binding = GlJsStyleBinding(currentMap, logger) { currentDensity }
         styleBinding?.invalidate()
         styleBinding = binding
-        loadedBaseStyle = baseStyle
+        loadedBaseStyleRevision = baseStyleRevision
         loadedDensity = request.density
         loading.complete(Result.success(Unit))
       }
@@ -164,7 +169,7 @@ private class GlJsSnapshotterAdapter(private val logger: Logger?) : SnapshotterA
     }
   }
 
-  private fun ensureMap(request: MapSnapshotRequest): MaplibreMap {
+  private suspend fun ensureMap(request: MapSnapshotRequest): MaplibreMap {
     map?.let {
       return it
     }
@@ -173,7 +178,7 @@ private class GlJsSnapshotterAdapter(private val logger: Logger?) : SnapshotterA
     host.style.cssText = GlJsMapSession.OFFSCREEN_CONTAINER_STYLE
     host.setAttribute(SNAPSHOTTER_TARGET_ATTRIBUTE, "")
     size(host, request)
-    document.body.appendChild(host)
+    awaitDocumentBody().appendChild(host)
     container = host
 
     val options =
@@ -228,8 +233,11 @@ private class GlJsSnapshotterAdapter(private val logger: Logger?) : SnapshotterA
     val extent = request.extent()
     val width = extent.physicalWidth
     val height = extent.physicalHeight
-    check(source.width == width && source.height == height) {
-      "MapLibre rendered a ${source.width}x${source.height} snapshot canvas, expected ${width}x$height"
+    val renderedWidth = (extent.width * extent.scaleFactor).toInt().coerceAtLeast(1)
+    val renderedHeight = (extent.height * extent.scaleFactor).toInt().coerceAtLeast(1)
+    check(source.width == renderedWidth && source.height == renderedHeight) {
+      "MapLibre rendered a ${source.width}x${source.height} snapshot canvas, expected " +
+        "${renderedWidth}x$renderedHeight before fractional-density rounding"
     }
     val output = document.createElement("canvas").unsafeCast<HTMLCanvasElement>()
     output.width = width
@@ -263,7 +271,7 @@ private class GlJsSnapshotterAdapter(private val logger: Logger?) : SnapshotterA
     renderSubscription = null
     runCatching { styleBinding?.invalidate() }.exceptionOrNull()?.let(cleanupFailures::add)
     styleBinding = null
-    loadedBaseStyle = null
+    loadedBaseStyleRevision = null
     loadedDensity = null
     val currentMap = map
     map = null
@@ -278,6 +286,33 @@ private class GlJsSnapshotterAdapter(private val logger: Logger?) : SnapshotterA
     styleLoadSubscription = null
     styleErrorSubscription?.cancel()
     styleErrorSubscription = null
+  }
+
+  private suspend fun awaitDocumentBody(): HTMLElement {
+    documentBodyOrNull()?.let {
+      return it
+    }
+    return suspendCancellableCoroutine { continuation ->
+      val dynamicDocument = document.asDynamic()
+      lateinit var listener: (dynamic) -> Unit
+      listener = {
+        val body = documentBodyOrNull()
+        if (body != null) {
+          dynamicDocument.removeEventListener("DOMContentLoaded", listener)
+          if (continuation.isActive) continuation.resume(body)
+        }
+      }
+      dynamicDocument.addEventListener("DOMContentLoaded", listener)
+      continuation.invokeOnCancellation {
+        dynamicDocument.removeEventListener("DOMContentLoaded", listener)
+      }
+      listener(null)
+    }
+  }
+
+  private fun documentBodyOrNull(): HTMLElement? {
+    val body = document.asDynamic().body
+    return if (body == null) null else body.unsafeCast<HTMLElement>()
   }
 
   private fun MapSnapshotRequest.extent(): MapExtent =

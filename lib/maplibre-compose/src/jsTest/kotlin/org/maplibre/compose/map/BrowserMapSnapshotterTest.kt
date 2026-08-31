@@ -225,6 +225,32 @@ class BrowserMapSnapshotterTest {
     }
 
   @Test
+  fun fractional_density_rounds_the_output_up_from_the_gl_js_canvas(): Promise<*> =
+    runBrowserMapTest {
+      val runtime = createMapRuntime(MapRuntimeOptions())
+      val snapshotter = runtime.createSnapshotter(BASE_STYLE, StyleComposition {})
+      try {
+        val captured =
+          snapshotter.capture(MapSnapshotRequest(width = 31, height = 23, density = 1.25f))
+        val target = assertNotNull(snapshotTargets().singleOrNull())
+        val canvas = assertNotNull(target.querySelector("canvas")).unsafeCast<HTMLCanvasElement>()
+
+        assertEquals(39, captured.width)
+        assertEquals(29, captured.height)
+        assertEquals(31, target.clientWidth)
+        assertEquals(23, target.clientHeight)
+        assertEquals(38, canvas.width)
+        assertEquals(28, canvas.height)
+        assertEquals(BACKGROUND, captured.readPixel(38, 28))
+      } finally {
+        snapshotter.close()
+        snapshotter.awaitClosed()
+        runtime.close()
+        runtime.awaitClosed()
+      }
+    }
+
+  @Test
   fun page_css_does_not_change_the_private_viewport(): Promise<*> = runBrowserMapTest {
     val pageStyle = document.createElement("style").unsafeCast<HTMLElement>()
     pageStyle.textContent =
