@@ -2,6 +2,7 @@ package org.maplibre.compose.gljs
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -22,6 +23,7 @@ import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.layers.UnknownLayer
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.StyleLoadState
 import org.maplibre.compose.map.rememberMapState
@@ -167,6 +169,7 @@ class BrowserStyleConformanceTest {
     var sourceLayer by mutableStateOf("places")
     var showLayer by mutableStateOf(true)
     var style by mutableStateOf<StyleBinding?>(null)
+    var mapState by mutableStateOf<MapState?>(null)
     val failures = mutableListOf<String>()
 
     fun liveSourceLayer(): String? =
@@ -181,6 +184,7 @@ class BrowserStyleConformanceTest {
         modifier = Modifier,
         baseStyle = baseStyle,
         onMapLoadFailed = { failures += it.orEmpty() },
+        onMapState = { mapState = it },
       ) {
         CaptureStyle { style = it }
         val source =
@@ -201,7 +205,18 @@ class BrowserStyleConformanceTest {
       }
     }
 
-    waitUntilMap("the initial source layer to reach the live style") {
+    waitUntilMap(
+      "the initial source layer to reach the live style",
+      diagnostics = {
+        mapWaitDiagnostics(
+          mapState,
+          extra =
+            "style=${if (style == null) "null" else "bound"}, " +
+              "liveSourceLayer=${liveSourceLayer()}, failures=$failures",
+        )
+      },
+      pump = { pumpPublishedDetachedFrame(mapState) },
+    ) {
       liveSourceLayer() == "places"
     }
     assertEquals(
@@ -210,7 +225,18 @@ class BrowserStyleConformanceTest {
     )
 
     sourceLayer = "roads"
-    waitUntilMap("the replacement source layer to reach the live style") {
+    waitUntilMap(
+      "the replacement source layer to reach the live style",
+      diagnostics = {
+        mapWaitDiagnostics(
+          mapState,
+          extra =
+            "style=${if (style == null) "null" else "bound"}, " +
+              "liveSourceLayer=${liveSourceLayer()}, failures=$failures",
+        )
+      },
+      pump = { pumpPublishedDetachedFrame(mapState) },
+    ) {
       liveSourceLayer() == "roads"
     }
     assertEquals(
@@ -219,7 +245,16 @@ class BrowserStyleConformanceTest {
     )
 
     showLayer = false
-    waitUntilMap("the replaced base layer to be restored") {
+    waitUntilMap(
+      "the replaced base layer to be restored",
+      diagnostics = {
+        mapWaitDiagnostics(
+          mapState,
+          extra = "layers=${style?.getLayers()?.map { it.id }}, failures=$failures",
+        )
+      },
+      pump = { pumpPublishedDetachedFrame(mapState) },
+    ) {
       style?.getLayers()?.map { it.id } == listOf("base-background", "base-fill")
     }
     assertTrue(failures.isEmpty(), "the map reported load failures: $failures")
@@ -230,18 +265,31 @@ class BrowserStyleConformanceTest {
     assertions: (StyleBinding) -> Unit,
   ): Promise<*> = runBrowserMapTest {
     var style by mutableStateOf<StyleBinding?>(null)
+    var mapState by mutableStateOf<MapState?>(null)
     val failures = mutableListOf<String>()
     setBrowserMapContent {
       TestMap(
         modifier = Modifier,
         baseStyle = baseStyle,
         onMapLoadFailed = { failures += it.orEmpty() },
+        onMapState = { mapState = it },
       ) {
         CaptureStyle { style = it }
         content()
       }
     }
-    waitUntilMap("the style to load") { style != null }
+    waitUntilMap(
+      "the style to load",
+      diagnostics = {
+        mapWaitDiagnostics(
+          mapState,
+          extra = "style=${if (style == null) "null" else "bound"}, failures=$failures",
+        )
+      },
+      pump = { pumpPublishedDetachedFrame(mapState) },
+    ) {
+      style != null
+    }
     assertTrue(failures.isEmpty(), "the map reported load failures: $failures")
     assertions(style!!)
   }
@@ -258,9 +306,11 @@ class BrowserStyleConformanceTest {
     baseStyle: BaseStyle,
     modifier: Modifier = Modifier,
     onMapLoadFailed: (String?) -> Unit = {},
+    onMapState: (MapState) -> Unit = {},
     content: @Composable @MaplibreComposable () -> Unit = {},
   ) {
     val state = rememberMapState(initialBaseStyle = baseStyle)
+    SideEffect { onMapState(state) }
     val composition = remember(content) { StyleComposition(content) }
     val loadState = state.style.loadState
     LaunchedEffect(loadState) {

@@ -434,6 +434,15 @@ internal class GlJsMapSession(
     surface?.requestFrame()
   }
 
+  /**
+   * Draws one detached frame at the last Compose-applied extent. Returns false before the first
+   * layout or after this session has stopped accepting work.
+   */
+  internal fun renderDetachedIfReady(): Boolean {
+    if (appliedExtent.isEmpty) return false
+    return render(GlJsFrameTarget.Detached, appliedExtent)
+  }
+
   /** The current GL JS engine-map instance, exposed only to browser boundary tests. */
   internal fun engineMapForTest(): MaplibreMap? = map
 

@@ -16,6 +16,8 @@ import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.gljs.MapEvent
 import org.maplibre.compose.gljs.isNear
+import org.maplibre.compose.gljs.mapWaitDiagnostics
+import org.maplibre.compose.gljs.pumpPublishedDetachedFrame
 import org.maplibre.compose.gljs.runBrowserMapTest
 import org.maplibre.compose.gljs.setBrowserMapContent
 import org.maplibre.compose.gljs.waitUntilMap
@@ -80,7 +82,11 @@ class BrowserCameraTransitionLifecycleTest {
       val presented = mutableStateOf(true)
 
       setBrowserMapContent { if (presented.value) MaplibreMap(state) }
-      waitUntilMap("the Web presentation to become ready") {
+      waitUntilMap(
+        "the Web presentation to become ready",
+        diagnostics = { mapWaitDiagnostics(state) },
+        pump = { pumpPublishedDetachedFrame(state) },
+      ) {
         state.presentation != null && state.style.loadState == StyleLoadState.Ready
       }
       val departedPresentation = requireNotNull(state.presentation)
@@ -88,7 +94,17 @@ class BrowserCameraTransitionLifecycleTest {
       val departedEngine = requireNotNull(departedSession.engineMapForTest())
 
       runOnIdle { presented.value = false }
-      waitUntilMap("the GL JS map to be destroyed") {
+      waitUntilMap(
+        "the GL JS map to be destroyed",
+        diagnostics = {
+          mapWaitDiagnostics(
+            state,
+            extra =
+              "departedEngine=${if (departedSession.engineMapForTest() == null) "null" else "live"}",
+          )
+        },
+        pump = { pumpPublishedDetachedFrame(state) },
+      ) {
         state.presentation == null && departedSession.engineMapForTest() == null
       }
 

@@ -79,7 +79,11 @@ class BrowserMapLifecycleTest {
       val presented = mutableStateOf(true)
 
       setBrowserMapContent { if (presented.value) MaplibreMap(state) }
-      waitUntilMap("the first Web presentation to become ready") {
+      waitUntilMap(
+        "the first Web presentation to become ready",
+        diagnostics = { mapWaitDiagnostics(state) },
+        pump = { pumpPublishedDetachedFrame(state) },
+      ) {
         state.presentation != null && state.style.loadState == StyleLoadState.Ready
       }
       val firstPresentation = requireNotNull(state.presentation)
@@ -87,12 +91,26 @@ class BrowserMapLifecycleTest {
       val firstEngine = requireNotNull(firstSession.engineMapForTest())
 
       firstPresentation.setCameraPosition(replayedCamera)
-      waitUntilMap("the logical map to accept the camera") {
+      waitUntilMap(
+        "the logical map to accept the camera",
+        diagnostics = { mapWaitDiagnostics(state, extra = "camera=${state.cameraPosition}") },
+        pump = { pumpPublishedDetachedFrame(state) },
+      ) {
         state.cameraPosition.isNear(replayedCamera)
       }
 
       runOnIdle { presented.value = false }
-      waitUntilMap("the departed GL JS map to be destroyed") {
+      waitUntilMap(
+        "the departed GL JS map to be destroyed",
+        diagnostics = {
+          mapWaitDiagnostics(
+            state,
+            extra =
+              "departedEngine=${if (firstSession.engineMapForTest() == null) "null" else "live"}",
+          )
+        },
+        pump = { pumpPublishedDetachedFrame(state) },
+      ) {
         state.presentation == null && firstSession.engineMapForTest() == null
       }
 
@@ -104,7 +122,16 @@ class BrowserMapLifecycleTest {
       try {
         state.style.baseStyle = REPLAY_STYLE
         runOnIdle { presented.value = true }
-        waitUntilMap("the replacement Web map to request its retained style") {
+        waitUntilMap(
+          "the replacement Web map to request its retained style",
+          diagnostics = {
+            mapWaitDiagnostics(
+              state,
+              extra = "styleRequested=${deferredStyle.isStyleRequested()}",
+            )
+          },
+          pump = { pumpPublishedDetachedFrame(state) },
+        ) {
           state.presentation != null && deferredStyle.isStyleRequested()
         }
         val replacementSession = requireNotNull(state.presentation).adapter as GlJsMapSession
@@ -116,7 +143,16 @@ class BrowserMapLifecycleTest {
         assertTrue(!replacementSession.canPresentFrames)
 
         deferredStyle.resolveStyle()
-        waitUntilMap("the replacement style to request its source metadata") {
+        waitUntilMap(
+          "the replacement style to request its source metadata",
+          diagnostics = {
+            mapWaitDiagnostics(
+              state,
+              extra = "sourceRequested=${deferredStyle.isSourceRequested()}",
+            )
+          },
+          pump = { pumpPublishedDetachedFrame(state) },
+        ) {
           deferredStyle.isSourceRequested()
         }
 
@@ -124,7 +160,13 @@ class BrowserMapLifecycleTest {
         assertTrue(!replacementSession.canPresentFrames)
 
         deferredStyle.resolveSource()
-        waitUntilMap("the replacement Web presentation to replay the logical map") {
+        waitUntilMap(
+          "the replacement Web presentation to replay the logical map",
+          diagnostics = {
+            mapWaitDiagnostics(state, extra = "camera=${state.cameraPosition}")
+          },
+          pump = { pumpPublishedDetachedFrame(state) },
+        ) {
           state.presentation != null &&
             state.style.loadState == StyleLoadState.Ready &&
             state.cameraPosition.isNear(replayedCamera)

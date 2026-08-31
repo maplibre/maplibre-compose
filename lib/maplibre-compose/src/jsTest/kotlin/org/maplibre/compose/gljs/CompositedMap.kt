@@ -63,13 +63,25 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
 
   suspend fun drawUntil(target: GlJsRenderTarget, what: String, condition: suspend () -> Boolean) {
     val deadline = Date.now() + RENDER_TIMEOUT_MS
+    var frames = 0
     while (!condition()) {
       drawOnce(target)
+      frames++
       loadFailure?.let { error("the style failed to load: $it") }
-      check(Date.now() < deadline) { "timed out waiting for $what" }
+      if (Date.now() >= deadline) {
+        throw AssertionError(
+          "Timed out after $frames frames waiting for $what. ${renderTreeDump()}"
+        )
+      }
       yieldToBrowser()
     }
-    check(drawOnce(target)) { "the map drew no frame once $what" }
+    check(drawOnce(target)) { "the map drew no frame once $what. ${renderTreeDump()}" }
+  }
+
+  private fun renderTreeDump(): String {
+    val layers = session.engineMapForTest()?.getStyle()?.layers?.map { it.id } ?: emptyList()
+    return "styleLoaded=$styleLoaded, loadFailure=$loadFailure, " +
+      "frameRequests=$frameRequests, layers=$layers"
   }
 
   /**

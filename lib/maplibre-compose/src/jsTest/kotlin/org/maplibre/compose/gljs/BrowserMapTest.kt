@@ -17,6 +17,8 @@ import kotlinx.browser.window
 import kotlinx.coroutines.await
 import org.jetbrains.skiko.wasm.onWasmReady
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.map.GlJsMapSession
+import org.maplibre.compose.map.MapState
 
 /**
  * The worker URL Karma serves the suite, copied next to the test bundle by
@@ -53,22 +55,61 @@ internal fun ComposeUiTest.setBrowserMapContent(size: Int = 256, content: @Compo
 /**
  * Not [ComposeUiTest.waitUntil], which waits on the test clock: MapLibre runs on real promises and
  * timers, so each pass yields through a real `setTimeout`.
+ *
+ * Compose-hosted maps use [DetachedGlJsCompositor] and have no
+ * [org.maplibre.compose.testing.GlJsMapFixture]. [pump] may draw one [GlJsFrameTarget.Detached]
+ * frame from a published [GlJsMapSession] at the last Compose-applied extent. Timeout is still
+ * measured. The failure is an [AssertionError] that reports the frame count and [diagnostics].
  */
 @OptIn(ExperimentalTestApi::class)
 internal suspend fun ComposeUiTest.waitUntilMap(
   what: String,
   timeout: Duration = 20.seconds,
+  diagnostics: () -> String = { "" },
+  pump: () -> Unit = {},
   condition: () -> Boolean,
 ) {
   val start = Date.now()
+  var frames = 0
   while (true) {
     waitForIdle()
     if (condition()) return
     if (Date.now() - start > timeout.inWholeMilliseconds) {
-      throw AssertionError("Timed out after $timeout waiting for $what")
+      val dump = diagnostics().trim()
+      val suffix = if (dump.isEmpty()) "" else ". $dump"
+      throw AssertionError("Timed out after $frames frames waiting for $what$suffix")
     }
+    pump()
+    frames++
     yieldToBrowser()
   }
+}
+
+/**
+ * Presentation nullness, style load state, close state, and the current engine map when the
+ * presentation is a [GlJsMapSession].
+ */
+internal fun mapWaitDiagnostics(state: MapState?, extra: String = ""): String {
+  val presentation = state?.presentation
+  val session = presentation?.adapter as? GlJsMapSession
+  val parts = buildList {
+    add("presentation=${if (presentation == null) "null" else "attached"}")
+    if (presentation != null) add("valid=${presentation.isValid}")
+    add("style=${state?.style?.loadState}")
+    add("closed=${state?.isClosed}")
+    if (session != null) {
+      add("engine=${if (session.engineMapForTest() == null) "null" else "live"}")
+      add("canPresentFrames=${session.canPresentFrames}")
+    }
+    if (extra.isNotEmpty()) add(extra)
+  }
+  return parts.joinToString(", ")
+}
+
+/** No-op until Compose has published a [GlJsMapSession] with a non-empty extent. */
+internal fun pumpPublishedDetachedFrame(state: MapState?) {
+  val session = state?.presentation?.adapter as? GlJsMapSession ?: return
+  session.renderDetachedIfReady()
 }
 
 internal fun CameraPosition.isNear(other: CameraPosition): Boolean =

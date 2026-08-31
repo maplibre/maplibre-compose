@@ -139,7 +139,11 @@ class BrowserMapStyleStateTest {
       setBrowserMapContent {
         if (presented.value) MaplibreMap(state, styleComposition = composition)
       }
-      waitUntilMap("style A to become ready") {
+      waitUntilMap(
+        "style A to become ready",
+        diagnostics = { mapWaitDiagnostics(state) },
+        pump = { pumpPublishedDetachedFrame(state) },
+      ) {
         state.presentation != null && state.style.loadState == StyleLoadState.Ready
       }
       val initialSession = requireNotNull(state.presentation).adapter as GlJsMapSession
@@ -149,7 +153,13 @@ class BrowserMapStyleStateTest {
       )
 
       runOnIdle { presented.value = false }
-      waitUntilMap("the Web map to detach") { state.presentation == null }
+      waitUntilMap(
+        "the Web map to detach",
+        diagnostics = { mapWaitDiagnostics(state) },
+        pump = { pumpPublishedDetachedFrame(state) },
+      ) {
+        state.presentation == null
+      }
       runOnIdle {
         useLatestRevision.value = true
         state.style.baseStyle = STYLE_B
@@ -173,7 +183,13 @@ class BrowserMapStyleStateTest {
       mapPrototype.addLayer = wrapAddLayer(originalAddLayer) { id: String -> layerAdditions += id }
       try {
         runOnIdle { presented.value = true }
-        waitUntilMap("style B to load on the replacement map") {
+        waitUntilMap(
+          "style B to load on the replacement map",
+          diagnostics = {
+            mapWaitDiagnostics(state, extra = "layerAdditions=$layerAdditions")
+          },
+          pump = { pumpPublishedDetachedFrame(state) },
+        ) {
           state.presentation != null && state.style.loadState == StyleLoadState.Ready
         }
         val session = requireNotNull(state.presentation).adapter as GlJsMapSession
@@ -213,7 +229,11 @@ class BrowserMapStyleStateTest {
       assertEquals(StyleLoadState.Pending, state.style.loadState)
 
       runOnIdle { size.value = 128.dp }
-      waitUntilMap("the attached style to become ready") {
+      waitUntilMap(
+        "the attached style to become ready",
+        diagnostics = { mapWaitDiagnostics(state) },
+        pump = { pumpPublishedDetachedFrame(state) },
+      ) {
         state.presentation != null && state.style.loadState == StyleLoadState.Ready
       }
       val presentation = requireNotNull(state.presentation)
@@ -223,7 +243,11 @@ class BrowserMapStyleStateTest {
       assertTrue(session.canPresentFrames)
 
       runOnIdle { state.style.baseStyle = INVALID_STYLE }
-      waitUntilMap("the replacement style request to fail") {
+      waitUntilMap(
+        "the replacement style request to fail",
+        diagnostics = { mapWaitDiagnostics(state) },
+        pump = { pumpPublishedDetachedFrame(state) },
+      ) {
         state.style.loadState is StyleLoadState.Failed
       }
 
@@ -247,7 +271,17 @@ class BrowserMapStyleStateTest {
         styleState = current.style
         MaplibreMap(state = current, modifier = Modifier)
       }
-      waitUntilMap("the map to report that it finished loading") {
+      waitUntilMap(
+        "the map to report that it finished loading",
+        diagnostics = {
+          mapWaitDiagnostics(
+            mapState,
+            extra =
+              "sources=${styleState?.sources?.keys}, attributions=${styleState?.sources?.values?.map { it.attributionHtml }}",
+          )
+        },
+        pump = { pumpPublishedDetachedFrame(mapState) },
+      ) {
         mapState?.style?.loadState == StyleLoadState.Ready
       }
 
@@ -276,12 +310,25 @@ class BrowserMapStyleStateTest {
         SideEffect { logicalMap.style.baseStyle = current.value }
         MaplibreMap(state = logicalMap, modifier = Modifier)
       }
-      waitUntilMap("the first style to load") {
+      waitUntilMap(
+        "the first style to load",
+        diagnostics = { mapWaitDiagnostics(mapState) },
+        pump = { pumpPublishedDetachedFrame(mapState) },
+      ) {
         mapState?.style?.loadState == StyleLoadState.Ready
       }
 
       current.value = tileJsonStyle
-      waitUntilMap("the switched style's attribution to be reported") {
+      waitUntilMap(
+        "the switched style's attribution to be reported",
+        diagnostics = {
+          mapWaitDiagnostics(
+            mapState,
+            extra = "attributions=${styleState?.sources?.values?.map { it.attributionHtml }}",
+          )
+        },
+        pump = { pumpPublishedDetachedFrame(mapState) },
+      ) {
         styleState?.sources?.values?.map { it.attributionHtml } == listOf("fetched attribution")
       }
     } finally {
@@ -315,19 +362,51 @@ class BrowserMapStyleStateTest {
             modifier = Modifier,
           )
         }
-        waitUntilMap("the empty map to finish loading") {
+        waitUntilMap(
+          "the empty map to finish loading",
+          diagnostics = { mapWaitDiagnostics(mapState) },
+          pump = { pumpPublishedDetachedFrame(mapState) },
+        ) {
           mapState?.style?.loadState == StyleLoadState.Ready
         }
 
         showLateSource.value = true
 
-        waitUntilMap("the late source's initial snapshot") { styleState?.sources?.size == 1 }
+        waitUntilMap(
+          "the late source's initial snapshot",
+          diagnostics = {
+            mapWaitDiagnostics(
+              mapState,
+              extra = "sources=${styleState?.sources?.keys}",
+            )
+          },
+          pump = { pumpPublishedDetachedFrame(mapState) },
+        ) {
+          styleState?.sources?.size == 1
+        }
         assertEquals(listOf(""), styleState?.sources?.values?.map { it.attributionHtml })
         val initialSource = styleState?.sources?.values?.single()
 
-        waitUntilMap("MapLibre to request the TileJSON") { tileJson.isRequested() }
+        waitUntilMap(
+          "MapLibre to request the TileJSON",
+          diagnostics = {
+            mapWaitDiagnostics(mapState, extra = "tileJsonRequested=${tileJson.isRequested()}")
+          },
+          pump = { pumpPublishedDetachedFrame(mapState) },
+        ) {
+          tileJson.isRequested()
+        }
         tileJson.resolve()
-        waitUntilMap("the late source's attribution") {
+        waitUntilMap(
+          "the late source's attribution",
+          diagnostics = {
+            mapWaitDiagnostics(
+              mapState,
+              extra = "attributions=${styleState?.sources?.values?.map { it.attributionHtml }}",
+            )
+          },
+          pump = { pumpPublishedDetachedFrame(mapState) },
+        ) {
           styleState?.sources?.values?.map { it.attributionHtml } == listOf("fetched attribution")
         }
         assertNotSame(initialSource, styleState?.sources?.values?.single())
@@ -361,7 +440,16 @@ class BrowserMapStyleStateTest {
         modifier = Modifier,
       )
     }
-    waitUntilMap("the first style to load") {
+    waitUntilMap(
+      "the first style to load",
+      diagnostics = {
+        mapWaitDiagnostics(
+          mapState,
+          extra = "sources=${styleState?.sources?.keys}",
+        )
+      },
+      pump = { pumpPublishedDetachedFrame(mapState) },
+    ) {
       mapState?.style?.loadState == StyleLoadState.Ready &&
         styleState?.sources?.isNotEmpty() == true
     }
@@ -373,7 +461,16 @@ class BrowserMapStyleStateTest {
 
     val observed = mutableListOf<List<String>>()
     current.value = styleWith("second", "second-source")
-    waitUntilMap("the second style's sources to be reported") {
+    waitUntilMap(
+      "the second style's sources to be reported",
+      diagnostics = {
+        mapWaitDiagnostics(
+          mapState,
+          extra = "sources=${styleState?.sources?.keys}, observed=$observed",
+        )
+      },
+      pump = { pumpPublishedDetachedFrame(mapState) },
+    ) {
       styleState?.sources?.values?.map { it.attributionHtml }?.let { observed += it }
       mapState?.style?.loadState == StyleLoadState.Ready &&
         styleState?.sources?.keys == setOf("second-source")
