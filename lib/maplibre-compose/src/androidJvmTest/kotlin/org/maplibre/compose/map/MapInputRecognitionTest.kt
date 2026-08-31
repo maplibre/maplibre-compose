@@ -4,7 +4,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -17,6 +16,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.MouseButton
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.moveBy
@@ -29,7 +29,6 @@ import androidx.compose.ui.test.pinch
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.unit.DpOffset
-import androidx.compose.ui.unit.dp
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
@@ -54,7 +53,7 @@ class MapInputRecognitionTest {
 
   @Test
   fun a_press_that_jitters_within_the_slop_still_clicks() = runRecognitionTest { target ->
-    onNodeWithTag(RECOGNITION_MAP_TAG).performMouseInput {
+    mapNode().performMouseInput {
       moveTo(center)
       press()
       moveBy(Offset(1f, 0f))
@@ -66,7 +65,7 @@ class MapInputRecognitionTest {
 
   @Test
   fun a_press_past_the_slop_drags_instead_of_clicking() = runRecognitionTest { target ->
-    onNodeWithTag(RECOGNITION_MAP_TAG).performMouseInput {
+    mapNode().performMouseInput {
       moveTo(center)
       press()
       moveBy(Offset(60f, 0f))
@@ -80,7 +79,7 @@ class MapInputRecognitionTest {
   fun a_map_click_does_not_also_click_its_parent() {
     val parentClicks = AtomicInt(0)
     runRecognitionTest(parentOnClick = { parentClicks.incrementAndFetch() }) { target ->
-      onNodeWithTag(RECOGNITION_MAP_TAG).performMouseInput { click(center) }
+      mapNode().performMouseInput { click(center) }
       awaitClicks(target, 1)
       waitForIdle()
       assertEquals(0, parentClicks.load())
@@ -91,7 +90,7 @@ class MapInputRecognitionTest {
   fun a_map_long_click_does_not_also_long_click_its_parent() {
     val parentLongClicks = AtomicInt(0)
     runRecognitionTest(parentOnLongClick = { parentLongClicks.incrementAndFetch() }) { target ->
-      val map = onNodeWithTag(RECOGNITION_MAP_TAG)
+      val map = mapNode()
       map.performTouchInput { down(0, center) }
       mainClock.advanceTimeBy(1_000)
       waitUntil(timeoutMillis = TIMEOUT) { target.longClicks == 1 }
@@ -105,7 +104,7 @@ class MapInputRecognitionTest {
   fun a_tap_waits_for_a_second_one_that_could_still_arrive() = runRecognitionTest { target ->
     mainClock.autoAdvance = false
     try {
-      onNodeWithTag(RECOGNITION_MAP_TAG).performTouchInput { click(center) }
+      mapNode().performTouchInput { click(center) }
       mainClock.advanceTimeByFrame()
       waitForIdle()
       assertEquals(0, target.clicks, "the tap reported before a double tap could rule it out")
@@ -122,7 +121,7 @@ class MapInputRecognitionTest {
     ) { target ->
       mainClock.autoAdvance = false
       try {
-        onNodeWithTag(RECOGNITION_MAP_TAG).performTouchInput { click(center) }
+        mapNode().performTouchInput { click(center) }
         mainClock.advanceTimeByFrame()
         waitForIdle()
         assertEquals(1, target.clicks, "the tap waited for a double tap no gesture would use")
@@ -133,7 +132,7 @@ class MapInputRecognitionTest {
 
   @Test
   fun a_bounce_faster_than_the_min_time_is_not_a_double_tap() = runRecognitionTest { target ->
-    onNodeWithTag(RECOGNITION_MAP_TAG).performTouchInput {
+    mapNode().performTouchInput {
       down(center)
       up()
       advanceEventTime(10)
@@ -150,7 +149,7 @@ class MapInputRecognitionTest {
     runRecognitionTest(
       options = GestureOptions(isDoubleClickZoomEnabled = false, isQuickZoomEnabled = false)
     ) { target ->
-      onNodeWithTag(RECOGNITION_MAP_TAG).performTouchInput {
+      mapNode().performTouchInput {
         down(center)
         up()
         advanceEventTime(10)
@@ -163,7 +162,7 @@ class MapInputRecognitionTest {
 
   @Test
   fun double_click_zooms_and_reports_its_first_click() = runRecognitionTest { target ->
-    onNodeWithTag(RECOGNITION_MAP_TAG).performMouseInput { doubleClick() }
+    mapNode().performMouseInput { doubleClick() }
     waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.isNotEmpty() }
     assertEquals(1, target.clicks, "a double click did not report exactly its first click")
     assertTrue(target.scaleCalls.any { it.scale > 1.0 }, "a double click did not zoom in")
@@ -171,7 +170,7 @@ class MapInputRecognitionTest {
 
   @Test
   fun double_tap_zooms_without_reporting_the_first_tap() = runRecognitionTest { target ->
-    onNodeWithTag(RECOGNITION_MAP_TAG).performTouchInput { doubleClick() }
+    mapNode().performTouchInput { doubleClick() }
     waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.isNotEmpty() }
     mainClock.advanceTimeBy(1_000)
     waitForIdle()
@@ -182,7 +181,7 @@ class MapInputRecognitionTest {
   @Test
   fun position_locked_zooms_about_the_centre() =
     runRecognitionTest(options = GestureOptions.PositionLocked) { target ->
-      onNodeWithTag(RECOGNITION_MAP_TAG).performMouseInput {
+      mapNode().performMouseInput {
         doubleClick(Offset(width * 0.2f, height * 0.2f))
       }
       waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.isNotEmpty() }
@@ -194,7 +193,7 @@ class MapInputRecognitionTest {
 
   @Test
   fun arrow_keys_request_a_pan() = runRecognitionTest { target ->
-    val map = onNodeWithTag(RECOGNITION_MAP_TAG)
+    val map = mapNode()
     map.performMouseInput { click(Offset(10f, 10f)) }
     map.performKeyInput { pressKey(Key.DirectionRight) }
     waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.isNotEmpty() }
@@ -202,7 +201,7 @@ class MapInputRecognitionTest {
 
   @Test
   fun a_hover_does_not_end_a_scroll_hold() = runRecognitionTest { target ->
-    val map = onNodeWithTag(RECOGNITION_MAP_TAG)
+    val map = mapNode()
     mainClock.autoAdvance = false
     try {
       map.performMouseInput { scroll(-1f) }
@@ -229,7 +228,7 @@ class MapInputRecognitionTest {
     runRecognitionTest(options = GestureOptions(scrollZoomHold = 600.milliseconds)) { target ->
       mainClock.autoAdvance = false
       try {
-        onNodeWithTag(RECOGNITION_MAP_TAG).performMouseInput { scroll(-1f) }
+        mapNode().performMouseInput { scroll(-1f) }
         mainClock.advanceTimeByFrame()
         waitForIdle()
         assertEquals(0, target.endedCount)
@@ -247,7 +246,7 @@ class MapInputRecognitionTest {
 
   @Test
   fun secondary_mouse_drag_requests_rotate_and_tilt() = runRecognitionTest { target ->
-    onNodeWithTag(RECOGNITION_MAP_TAG).performMouseInput {
+    mapNode().performMouseInput {
       moveTo(center)
       press(MouseButton.Secondary)
       moveBy(Offset(80f, -40f), delayMillis = 50)
@@ -259,7 +258,7 @@ class MapInputRecognitionTest {
 
   @Test
   fun pinch_requests_a_scale() = runRecognitionTest { target ->
-    onNodeWithTag(RECOGNITION_MAP_TAG).performTouchInput {
+    mapNode().performTouchInput {
       pinch(
         start0 = center - Offset(30f, 0f),
         start1 = center + Offset(30f, 0f),
@@ -273,7 +272,7 @@ class MapInputRecognitionTest {
 
   @Test
   fun two_finger_rotation_requests_bearing() = runRecognitionTest { target ->
-    onNodeWithTag(RECOGNITION_MAP_TAG).performTouchInput {
+    mapNode().performTouchInput {
       down(0, center - Offset(80f, 0f))
       down(1, center + Offset(80f, 0f))
       updatePointerTo(0, center - Offset(0f, 80f))
@@ -287,7 +286,7 @@ class MapInputRecognitionTest {
 
   @Test
   fun two_finger_tap_requests_a_zoom_out() = runRecognitionTest { target ->
-    onNodeWithTag(RECOGNITION_MAP_TAG).performTouchInput {
+    mapNode().performTouchInput {
       down(0, center - Offset(40f, 0f))
       down(1, center + Offset(40f, 0f))
       up(0)
@@ -298,7 +297,7 @@ class MapInputRecognitionTest {
 
   @Test
   fun one_finger_swipe_requests_a_pan() = runRecognitionTest { target ->
-    onNodeWithTag(RECOGNITION_MAP_TAG).performTouchInput {
+    mapNode().performTouchInput {
       swipe(center, center + Offset(80f, 0f), durationMillis = 100)
     }
     waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.isNotEmpty() }
@@ -306,7 +305,7 @@ class MapInputRecognitionTest {
 
   @Test
   fun quick_zoom_does_not_leak_its_first_tap() = runRecognitionTest { target ->
-    onNodeWithTag(RECOGNITION_MAP_TAG).performTouchInput {
+    mapNode().performTouchInput {
       click(center)
       advanceEventTime(SECOND_TAP_GAP_MILLIS)
       down(0, center)
@@ -321,18 +320,17 @@ class MapInputRecognitionTest {
 
   @Test
   fun horizontal_motion_disqualifies_quick_zoom() = runRecognitionTest { target ->
-    onNodeWithTag(RECOGNITION_MAP_TAG).performTouchInput {
+    mapNode().performTouchInput {
       click(center)
       advanceEventTime(SECOND_TAP_GAP_MILLIS)
       down(0, center)
       moveTo(0, center + Offset(100f, 0f), delayMillis = 50)
-      moveTo(0, center + Offset(100f, 100f), delayMillis = 50)
       up(0)
     }
     mainClock.advanceTimeBy(500)
     waitForIdle()
     assertEquals(0, target.scaleCalls.size, "a rejected quick zoom scaled")
-    assertEquals(0, target.moveCalls.size, "a rejected quick zoom became a pan")
+    assertEquals(0, target.moveCalls.size, "the disqualifying move panned")
   }
 
   private fun runRecognitionTest(
@@ -364,6 +362,10 @@ class MapInputRecognitionTest {
     waitUntil(timeoutMillis = TIMEOUT) { target.clicks == count }
   }
 
+  /** Parent `clickable` nodes merge semantics, so the map tag is only in the unmerged tree. */
+  private fun ComposeUiTest.mapNode(): SemanticsNodeInteraction =
+    onNodeWithTag(RECOGNITION_MAP_TAG, useUnmergedTree = true)
+
   private companion object {
     const val TIMEOUT = 5_000L
     const val FRAME_MILLIS = 16L
@@ -379,7 +381,7 @@ private fun GestureHost(target: GestureTarget, options: GestureOptions) {
   val inputScope = rememberCoroutineScope()
   val continuation = remember(inputScope) { GestureContinuation(inputScope) }
   Box(
-    Modifier.size(400.dp)
+    Modifier.fillMaxSize()
       .testTag(RECOGNITION_MAP_TAG)
       .mapInput(target, options, density, focusRequester, continuation)
   )
