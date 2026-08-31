@@ -106,7 +106,7 @@ kotlin {
 
     jvmMain.apply {
       dependencies {
-        implementation(compose.desktop.currentOs)
+        implementation(compose.desktop.common)
 
         // The Compose host needs direct Vulkan/OpenGL access; the natives come from the runtime
         // artifact the application picks.
@@ -169,6 +169,7 @@ kotlin {
     // a CI matrix adds processes for additional applicable backends.
     val jvmTest by getting
     jvmTest.dependencies {
+      implementation(compose.desktop.currentOs)
       // Only the EGL interop tests bind EGL directly; nothing in the library does.
       implementation(libs.lwjgl.egl)
     }

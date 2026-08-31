@@ -102,7 +102,7 @@ kotlin {
     }
 
     jvmMain.dependencies {
-      implementation(compose.desktop.currentOs)
+      implementation(compose.desktop.common)
       implementation(libs.kotlinx.coroutines.swing)
       implementation(libs.ktor.client.okhttp)
     }
