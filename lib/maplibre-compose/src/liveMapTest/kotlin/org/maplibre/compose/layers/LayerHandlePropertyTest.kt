@@ -36,10 +36,29 @@ class LayerHandlePropertyTest {
     }
   }
 
+  @Test
+  fun root_properties_are_readable_and_rejected_writes_throw(): MapTestResult = runMapTest {
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(STYLE)
+      val handle = assertNotNull(fixture.state.style.layer("background"))
+      val circle = assertNotNull(fixture.state.style.layer("points"))
+
+      assertEquals(JsonPrimitive("background"), handle.getProperty("id"))
+      assertEquals(JsonPrimitive("background"), handle.getProperty("type"))
+      assertEquals(JsonPrimitive(2.0), handle.getProperty("minzoom"))
+      assertEquals(JsonPrimitive("points-source"), circle.getProperty("source"))
+      handle.setRootProperty("minzoom", JsonPrimitive(3.0))
+      assertEquals(JsonPrimitive(3.0), handle.getProperty("minzoom"))
+      assertFailsWith<StyleHandleException> {
+        handle.setRootProperty("source-layer", JsonPrimitive("replacement"))
+      }
+    }
+  }
+
   private companion object {
     val STYLE =
       BaseStyle.Json(
-        """{"version":8,"sources":{},"layers":[{"id":"background","type":"background"}]}"""
+        """{"version":8,"sources":{"points-source":{"type":"geojson","data":{"type":"FeatureCollection","features":[]}}},"layers":[{"id":"background","type":"background","minzoom":2},{"id":"points","type":"circle","source":"points-source"}]}"""
       )
   }
 }

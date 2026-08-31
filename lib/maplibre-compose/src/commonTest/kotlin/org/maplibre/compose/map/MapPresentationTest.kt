@@ -55,19 +55,6 @@ import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
 class MapPresentationTest {
 
   @Test
-  fun closure_updates_the_observable_runtime_and_map_flags_immediately() {
-    val runtime = mapRuntimeForTest()
-    val state = runtime.createMapState()
-
-    assertFalse(runtime.isClosed)
-    assertFalse(state.isClosed)
-    state.close()
-    assertTrue(state.isClosed)
-    runtime.close()
-    assertTrue(runtime.isClosed)
-  }
-
-  @Test
   fun closing_map_state_closes_a_bound_session_before_it_is_published() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
     val state = runtime.createMapState()
@@ -86,6 +73,23 @@ class MapPresentationTest {
   }
 
   @Test
+  fun a_bound_but_unpublished_session_cannot_mutate_durable_style_state() = runTest {
+    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
+    val state = runtime.createMapState()
+    val session = BoundLifecycleSession()
+    session.lifecycle = state.lifecycle.bind(session)
+    session.lifecycle.attach()
+
+    assertFalse(state.updateLoadedStyle(session, RecordingStyleBinding()))
+    assertFalse(state.markStyleReady(session))
+    assertEquals(StyleLoadState.Pending, state.style.loadState)
+
+    state.close()
+    state.awaitClosed()
+    runtime.close()
+  }
+
+  @Test
   fun a_session_that_closes_itself_is_retired_and_its_failure_reaches_map_closure() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
     val state = runtime.createMapState()
@@ -96,6 +100,7 @@ class MapPresentationTest {
     val token = state.reservePresentation()
     state.publishPresentation(token, session)
     assertSame(session, state.presentation?.adapter)
+    assertTrue(state.updateLoadedStyle(session, RecordingStyleBinding()))
     assertTrue(state.markStyleReady(session))
     assertEquals(StyleLoadState.Ready, state.style.loadState)
 
@@ -137,6 +142,7 @@ class MapPresentationTest {
     session.lifecycle.attach()
     val token = state.reservePresentation()
     state.publishPresentation(token, session)
+    assertTrue(state.updateLoadedStyle(session, RecordingStyleBinding()))
     assertTrue(state.markStyleReady(session))
 
     state.releasePresentation(token, session)
@@ -538,6 +544,24 @@ class MapPresentationTest {
   }
 
   @Test
+  fun publishing_a_replacement_style_makes_handles_unavailable_until_it_is_ready() {
+    val fixture = presentationFixture()
+    val first = RecordingStyleBinding()
+    assertTrue(fixture.state.updateLoadedStyle(fixture.adapter, first))
+    assertTrue(fixture.state.markStyleReady(fixture.adapter))
+    assertEquals(StyleLoadState.Ready, fixture.state.style.loadState)
+
+    val replacement = RecordingStyleBinding()
+    assertTrue(fixture.state.updateLoadedStyle(fixture.adapter, replacement))
+
+    assertEquals(StyleLoadState.Loading, fixture.state.style.loadState)
+    assertNull(fixture.state.style.layer("anything"))
+    assertTrue(fixture.state.markStyleReady(fixture.adapter))
+    assertEquals(StyleLoadState.Ready, fixture.state.style.loadState)
+    fixture.close()
+  }
+
+  @Test
   fun publication_happens_after_the_adapter_accepts_initial_map_state() {
     val runtime = mapRuntimeForTest()
     val initialCamera = CameraPosition(target = Position(12.0, 34.0), zoom = 8.0)
@@ -561,6 +585,35 @@ class MapPresentationTest {
     assertNull(fixture.presentation.getVisibleRegion())
     assertNull(fixture.presentation.getVisibleBoundingBox())
     assertNull(fixture.presentation.metersPerDpAtLatitude(0.0))
+    fixture.close()
+  }
+
+  @Test
+  fun a_new_presentation_does_not_inherit_the_adapters_previous_viewport() {
+    val runtime = mapRuntimeForTest()
+    val state = runtime.createMapState()
+    val token = state.reservePresentation()
+    val adapter = PresentationTestAdapter().apply { currentViewport = testViewport() }
+
+    state.publishPresentation(token, adapter)
+
+    assertNull(state.presentation?.viewport)
+    state.close()
+    runtime.close()
+  }
+
+  @Test
+  fun a_bounds_set_waits_for_this_presentations_viewport() = runTest {
+    val fixture = presentationFixture()
+    val operation = async {
+      fixture.presentation.setCameraPosition(BoundingBox(Position(-1.0, -1.0), Position(1.0, 1.0)))
+    }
+    testScheduler.runCurrent()
+
+    assertFalse(fixture.adapter.boundsSet.isCompleted)
+    fixture.presentation.updateViewport(testViewport())
+    operation.await()
+    assertTrue(fixture.adapter.boundsSet.isCompleted)
     fixture.close()
   }
 
@@ -738,6 +791,8 @@ internal open class PresentationTestAdapter(
   var lastCameraPosition = CameraPosition()
   var presentationWasVisibleWhileConfiguring = false
   var viewportReads = 0
+  var currentViewport: Viewport? = null
+  val boundsSet = CompletableDeferred<Unit>()
   val queryStarted = CompletableDeferred<Unit>()
   val animationStarted = CompletableDeferred<Unit>()
   val finishAnimation = CompletableDeferred<Unit>()
@@ -783,7 +838,9 @@ internal open class PresentationTestAdapter(
     bearing: Double,
     tilt: Double,
     padding: PaddingValues,
-  ) = Unit
+  ) {
+    boundsSet.complete(Unit)
+  }
 
   override fun setCameraConstraints(value: CameraConstraints) = Unit
 
@@ -800,7 +857,7 @@ internal open class PresentationTestAdapter(
 
   override fun getViewport(): Viewport? {
     viewportReads++
-    return null
+    return currentViewport
   }
 
   override fun setRenderSettings(value: RenderOptions) = Unit

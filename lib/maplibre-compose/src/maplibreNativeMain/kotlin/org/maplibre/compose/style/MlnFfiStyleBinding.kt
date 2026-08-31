@@ -542,6 +542,8 @@ internal open class MlnFfiStyleBinding(
     data: GeoJsonData,
     options: GeoJsonSourceOptions,
   ): PreparedGeoJson =
+    // TODO: Run native GeoJSON preparation asynchronously by default and report failures that occur
+    // after submission through an asynchronous source-error API.
     try {
       MlnFfiPreparedGeoJson(GeoJsonSourceDataHandle.create(data.toInlineUtf8()!!, options))
     } catch (error: MaplibreException) {
@@ -560,9 +562,10 @@ internal open class MlnFfiStyleBinding(
     val source = sources?.get(sourceId) as? JsonObject ?: return null
     if ((source["type"] as? JsonPrimitive)?.content != "geojson") return null
     val defaults = GeoJsonOptions()
+    val minZoom = (source["minzoom"] as? JsonPrimitive)?.doubleOrNull ?: defaults.minZoom.toDouble()
     val maxZoom = (source["maxzoom"] as? JsonPrimitive)?.doubleOrNull ?: defaults.maxZoom.toDouble()
     return GeoJsonSourceOptions().also { options ->
-      options.minZoom = defaults.minZoom.toDouble()
+      options.minZoom = minZoom
       options.maxZoom = maxZoom
       options.tolerance =
         (source["tolerance"] as? JsonPrimitive)?.doubleOrNull ?: defaults.tolerance.toDouble()
@@ -769,7 +772,6 @@ internal open class MlnFfiStyleBinding(
     mutateMap { map -> map.moveStyleLayer(layerId, beforeLayerId) }
   }
 
-  /** [kind] is unused: mbgl's `Layer::setProperty` takes layout, paint, and root keys alike. */
   override fun setLayerProperty(
     layerId: String,
     name: String,
@@ -778,7 +780,15 @@ internal open class MlnFfiStyleBinding(
   ) {
     mutateMap { map ->
       try {
-        map.setLayerProperty(layerId, name, value.toJsonBytes())
+        when {
+          kind != LayerPropertyKind.ROOT -> map.setLayerProperty(layerId, name, value.toJsonBytes())
+          name == "source" -> map.setLayerSourceId(layerId, value.requireRootString(layerId, name))
+          name == "source-layer" ->
+            map.setLayerSourceLayer(layerId, value.requireRootString(layerId, name))
+          name == "minzoom" -> map.setLayerMinZoom(layerId, value.requireRootNumber(layerId, name))
+          name == "maxzoom" -> map.setLayerMaxZoom(layerId, value.requireRootNumber(layerId, name))
+          else -> map.setLayerProperty(layerId, name, value.toJsonBytes())
+        }
       } catch (error: MaplibreException) {
         throw StyleMutationException(error.message, error)
       }
@@ -796,7 +806,17 @@ internal open class MlnFfiStyleBinding(
   }
 
   override fun layerProperty(layerId: String, name: String): JsonElement? = readMap { map ->
-    map.layerProperty(layerId, name)?.toJsonElement()
+    when (name) {
+      "id" -> JsonPrimitive(layerId)
+      "type" -> map.styleLayerType(layerId)?.let(::JsonPrimitive)
+      "source" -> map.layerSourceId(layerId).takeIf(String::isNotEmpty)?.let(::JsonPrimitive)
+      "source-layer" ->
+        map.layerSourceLayer(layerId).takeIf(String::isNotEmpty)?.let(::JsonPrimitive)
+      "minzoom" -> map.layerMinZoom(layerId).takeIf(Double::isFinite)?.let(::JsonPrimitive)
+      "maxzoom" -> map.layerMaxZoom(layerId).takeIf(Double::isFinite)?.let(::JsonPrimitive)
+      "filter" -> map.layerFilter(layerId)?.toJsonElement()
+      else -> map.layerProperty(layerId, name)?.toJsonElement()
+    }
   }
 
   override fun layerExists(layerId: String): Boolean? = readMap { map ->
@@ -839,6 +859,14 @@ internal open class MlnFfiStyleBinding(
       )
   }
 }
+
+private fun JsonElement.requireRootString(layerId: String, name: String): String =
+  (this as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
+    ?: throw StyleMutationException("Layer '$layerId' property '$name' requires a string", null)
+
+private fun JsonElement.requireRootNumber(layerId: String, name: String): Double =
+  (this as? JsonPrimitive)?.doubleOrNull
+    ?: throw StyleMutationException("Layer '$layerId' property '$name' requires a number", null)
 
 /** A parsed and indexed GeoJSON document, ready to install on the owner thread. */
 private class MlnFfiPreparedGeoJson(val handle: GeoJsonSourceDataHandle) : PreparedGeoJson {

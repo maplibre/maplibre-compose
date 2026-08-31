@@ -2,9 +2,11 @@ package org.maplibre.compose.desktop
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.NonSkippableComposable
 import androidx.compose.runtime.ProvidableCompositionLocal
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.referentialEqualityPolicy
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.staticCompositionLocalOf
 import java.awt.Window
 import org.maplibre.compose.desktop.skiko.AwtComposeMapPresentationHost
 import org.maplibre.compose.location.LocalXdgPortalWindow
@@ -16,10 +18,10 @@ import org.maplibre.compose.location.LocalXdgPortalWindow
  * from [rememberAwtComposeMapPresentationHost]. Prefer [ProvideMapPresentationHost] over setting
  * this directly.
  *
- * This is `static`: changing it rebuilds the map's GPU bridge rather than recomposing it.
+ * Replacing the host rebuilds the map's GPU bridge, even when the two host objects compare equal.
  */
 public val LocalComposeMapPresentationHost: ProvidableCompositionLocal<ComposeMapPresentationHost> =
-  staticCompositionLocalOf {
+  compositionLocalOf(referentialEqualityPolicy()) {
     error(
       "No ComposeMapPresentationHost is installed. Wrap this window's content in " +
         "ProvideMapPresentationHost(...)."
@@ -48,6 +50,7 @@ public fun rememberAwtComposeMapPresentationHost(window: Window): ComposeMapPres
  * ```
  */
 @Composable
+@NonSkippableComposable
 public fun ProvideMapPresentationHost(
   host: ComposeMapPresentationHost,
   content: @Composable () -> Unit,

@@ -162,8 +162,8 @@ internal class MlnFfiMapSession(
 
   @Volatile internal var callbacks: MapAdapter.Callbacks = callbacks
   @Volatile internal var durableCallbacks: MapAdapter.Callbacks = EmptyMapAdapterCallbacks
-  private val lifecycle = lifecycleAuthority.bind(this)
-  private val lifecycleCallbacks = MapLifecycleCallbacks(lifecycle) { this.callbacks }
+  private val lifecycle by lazy { lifecycleAuthority.bind(this) }
+  private val lifecycleCallbacks by lazy { MapLifecycleCallbacks(lifecycle) { this.callbacks } }
   @Volatile private var lifecycleEngineIdentity: EngineMapIdentity? = null
   @Volatile private var lifecycleRenderLease: RenderLease? = null
   /** Presentation producer installed and sampled only on the native map's owner thread. */
@@ -195,9 +195,6 @@ internal class MlnFfiMapSession(
   private class PendingMapAction(val run: (MapHandle) -> Unit, val abandon: () -> Unit)
 
   private val pendingMapActions = mutableListOf<PendingMapAction>()
-
-  /** Bounds fits accepted before the first real render target. Guarded by [stateLock]. */
-  private val pendingViewportActions = mutableListOf<PendingMapAction>()
 
   /** Guarded by [stateLock]; once true, the map has dimensions suitable for fitting bounds. */
   private var hasAttachedViewport = false
@@ -459,18 +456,7 @@ internal class MlnFfiMapSession(
     get() = presentationPublicationCount > 0
 
   /** Commits a render lease in the apply phase when no physical detachment must finish first. */
-  internal fun beginPresentationAttachment(): Boolean =
-    when (lifecycle.state) {
-      is MapLifecycleState.OpenDetached -> {
-        lifecycle.beginAttach()
-        true
-      }
-      is MapLifecycleState.Attaching,
-      is MapLifecycleState.Attached -> true
-      is MapLifecycleState.Detaching,
-      is MapLifecycleState.Closing,
-      MapLifecycleState.Closed -> false
-    }
+  internal fun beginPresentationAttachment(): Boolean = lifecycle.beginAttachIfOpen()
 
   internal fun markPresentationPublished() {
     presentationPublicationCount++
@@ -478,14 +464,13 @@ internal class MlnFfiMapSession(
 
   override suspend fun attachPresentation() {
     lifecycle.attachRetainedEngine()
+  }
+
+  internal fun publishRetainedStyle() {
     styleBinding?.let { callbacks.onStyleChanged(this, it) }
   }
 
   override suspend fun detachPresentation() {
-    val abandoned = stateLock.withLock {
-      pendingViewportActions.toList().also { pendingViewportActions.clear() }
-    }
-    abandoned.forEach { it.abandon() }
     lifecycle.detachCurrentPresentation()
   }
 
@@ -501,6 +486,7 @@ internal class MlnFfiMapSession(
   }
 
   override suspend fun detach(identity: EngineMapIdentity, lease: RenderLease) {
+    stateLock.withLock { hasAttachedViewport = false }
     callbacks = durableCallbacks
     if (lifecycleRenderLease == lease) lifecycleRenderLease = null
     // This must happen before the first suspension. A host may tear down its renderer thread as
@@ -524,12 +510,7 @@ internal class MlnFfiMapSession(
 
   override suspend fun closeResources() {
     val abandoned = stateLock.withLock {
-      buildList {
-        addAll(pendingMapActions)
-        pendingMapActions.clear()
-        addAll(pendingViewportActions)
-        pendingViewportActions.clear()
-      }
+      pendingMapActions.toList().also { pendingMapActions.clear() }
     }
     abandoned.forEach { it.abandon() }
     resumeStrandedTransitions()
@@ -546,11 +527,7 @@ internal class MlnFfiMapSession(
   }
 
   fun start() {
-    when (lifecycle.state) {
-      is MapLifecycleState.Attaching,
-      is MapLifecycleState.Attached -> return
-      else -> lifecycle.beginAttach()
-    }
+    lifecycle.beginAttachIfOpen()
   }
 
   private fun startEngine(identity: EngineMapIdentity) {
@@ -587,10 +564,9 @@ internal class MlnFfiMapSession(
     val stopping = stateLock.withLock {
       val current = loop
       loop = null
+      hasAttachedViewport = false
       abandoned += pendingMapActions
       pendingMapActions.clear()
-      abandoned += pendingViewportActions
-      pendingViewportActions.clear()
       current
     }
     abandoned.forEach { it.abandon() }
@@ -1107,28 +1083,10 @@ internal class MlnFfiMapSession(
     postWhenMapExists(action, abandon = {})
   }
 
-  /** Queues [action] until the first render target has supplied the map's real dimensions. */
-  private fun postWhenViewportExists(action: (MapHandle) -> Unit, abandon: () -> Unit): Boolean {
-    val current = stateLock.withLock {
-      if (!lifecycle.acceptsWork) return false
-      if (!hasAttachedViewport) {
-        pendingViewportActions += PendingMapAction(action, abandon)
-        return true
-      }
-      loop
-    }
-    return current?.post(action, abandon) ?: false
-  }
-
   private fun publishAttachedViewport() {
-    val (current, pending) =
-      stateLock.withLock {
-        if (!lifecycle.acceptsWork || hasAttachedViewport) return
-        hasAttachedViewport = true
-        loop to pendingViewportActions.toList().also { pendingViewportActions.clear() }
-      }
-    pending.forEach { action ->
-      if (current?.post(action.run, action.abandon) != true) action.abandon()
+    stateLock.withLock {
+      if (!lifecycle.acceptsWork) return
+      hasAttachedViewport = true
     }
   }
 
@@ -1407,15 +1365,12 @@ internal class MlnFfiMapSession(
       map.jumpTo(cameraForBounds(map, boundingBox, bearing, tilt, padding))
       snapshotViewport(map)
     }
-    // The fit reads the live map's dimensions, so before a viewport exists it can only queue.
-    // After one exists it runs as one round-trip instead, so a camera or viewport read made right
-    // after this call observes the fitted camera rather than the previous mirrored snapshot —
-    // the ordering the blocking getters on main provided.
+    // MapPresentation waits for the current lease's viewport before it calls this adapter.
     val hasViewport = stateLock.withLock {
       hasAttachedViewport && lifecycle.acceptsWork && loop != null
     }
-    if (hasViewport && runOnMap(fit) != null) return
-    postWhenViewportExists(fit, abandon = {})
+    check(hasViewport) { "A bounds fit requires the current presentation viewport" }
+    check(runOnMap(fit) != null) { "The map became unavailable during the bounds fit" }
   }
 
   private fun cameraForBounds(
@@ -1478,7 +1433,10 @@ internal class MlnFfiMapSession(
     padding: PaddingValues,
     duration: Duration,
   ) {
-    startTransitionAwaitingRelease(duration, requiresViewport = true) { map, animation ->
+    check(stateLock.withLock { hasAttachedViewport }) {
+      "A bounds animation requires the current presentation viewport"
+    }
+    startTransitionAwaitingRelease(duration) { map, animation ->
       map.flyTo(cameraForBounds(map, boundingBox, bearing, tilt, padding), animation)
     }
   }
@@ -1486,11 +1444,10 @@ internal class MlnFfiMapSession(
   /** Resumes normally however the transition ended. */
   private suspend fun startTransitionAwaitingRelease(
     duration: Duration,
-    requiresViewport: Boolean = false,
     start: (MapHandle, AnimationOptions) -> Unit,
   ): Unit = suspendCancellableCoroutine { continuation ->
     val queued =
-      (if (requiresViewport) ::postWhenViewportExists else ::postWhenMapExists)(
+      postWhenMapExists(
         { map -> startTransitionOnMap(map, duration, start, continuation) },
         { if (continuation.isActive) continuation.resume(Unit) },
       )

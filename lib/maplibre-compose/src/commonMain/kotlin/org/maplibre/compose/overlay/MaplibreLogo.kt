@@ -14,14 +14,13 @@ import org.maplibre.compose.generated.maplibre_logo
 import org.maplibre.compose.generated.maplibre_logo_description
 import org.maplibre.compose.util.tryOpenUri
 
-/** The address that [MaplibreLogo] opens when it is clicked. */
+/** Contains the address that [MaplibreLogo] opens when clicked. */
 public const val MaplibreWebsiteUrl: String = "https://maplibre.org/"
 
 /**
- * The MapLibre wordmark, drawn at its intrinsic size of 88x23 dp.
+ * Draws the MapLibre wordmark at its intrinsic size of 88x23 dp.
  *
- * The artwork carries its own drop shadow, so it reads over both light and dark basemaps without a
- * container behind it.
+ * The wordmark includes a drop shadow for contrast on light and dark basemaps.
  *
  * @param contentDescription Accessibility label for the logo.
  * @param onClick Called when the logo is clicked. Opens [MaplibreWebsiteUrl] by default. Pass

@@ -26,12 +26,13 @@ import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
 /**
- * The engine binding for one loaded style, identified by one opaque generation. The binding stops
- * working when its style unloads. Operations on an invalidated binding fail with a stale-style
+ * Provides engine operations for one loaded style and its opaque generation identifier.
+ *
+ * Style unload invalidates the binding. An operation on an invalid binding produces a stale-style
  * error.
  */
 internal interface StyleBinding {
-  /** The loaded base-style generation associated with every operation on this binding. */
+  /** Identifies the loaded base-style generation for this binding. */
   val identity: StyleIdentity
 
   val isLoaded: Boolean
@@ -75,7 +76,7 @@ internal interface StyleBinding {
    * Adds a complete layer object directly below [beforeLayerId], or on top when that is empty.
    *
    * @return false if the style has unloaded, in which case nothing was added.
-   * @throws StyleMutationException if MapLibre refuses the layer.
+   * @throws StyleMutationException if the engine returns an error.
    */
   fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean
 
@@ -86,57 +87,61 @@ internal interface StyleBinding {
 
   fun removeLayer(layerId: String)
 
-  /** Moves a layer to sit directly below [beforeLayerId], or on top when that is empty. */
+  /** Moves a layer directly below [beforeLayerId], or to the top when that ID is empty. */
   fun moveLayer(layerId: String, beforeLayerId: String)
 
   /**
    * Sets one property on a layer that is already in the style.
    *
-   * @param kind which of a layer object's three parts [name] belongs to; a name offered to the
-   *   wrong one is rejected.
-   * @throws StyleMutationException if MapLibre refuses [value]; the layer keeps its previous one.
+   * @param kind The section of the layer object that contains [name]. The engine returns an error
+   *   for an incorrect section.
+   * @throws StyleMutationException if the engine returns an error. An error does not change the
+   *   previous value.
    */
   fun setLayerProperty(layerId: String, name: String, value: JsonElement, kind: LayerPropertyKind)
 
   fun setLayerFilter(layerId: String, filter: JsonElement)
 
-  /** @return null if the style has unloaded, or the layer holds no value for [name]. */
+  /** @return null if the style has unloaded or the layer has no value for [name]. */
   fun layerProperty(layerId: String, name: String): JsonElement?
 
   /**
-   * Reports whether a live layer with [layerId] is in the style, so a duplicate can be refused on
-   * the caller with the message that names the cause.
+   * Checks whether the style contains a live layer with [layerId]. Callers use the result to report
+   * a specific duplicate-layer error.
    *
-   * @return null if the style has unloaded or the answer could not be determined; the add still
-   *   refuses a duplicate in that case.
+   * @return null if the style has unloaded or the implementation cannot determine the result. The
+   *   engine still rejects a duplicate during insertion.
    */
   fun layerExists(layerId: String): Boolean?
 
   /**
-   * Why this engine cannot take a layer property, or null when it can. The style spec is shared,
-   * but each engine implements it at its own pace; a non-null reason keeps the property out of
-   * every write to this binding, and the layer reports it once instead.
+   * Returns the reason that this engine does not support a layer property.
+   *
+   * A null result means that the property is supported. A non-null result omits the property from
+   * writes and produces one warning for the layer.
    */
   fun unsupportedLayerPropertyReason(layerType: String, name: String): String? = null
 
   /**
-   * Whether this engine decodes a raster-dem source's custom encoding factors; an engine that does
-   * not takes the Mapbox encoding instead.
+   * Returns true if this engine decodes custom encoding factors for raster DEM sources. An
+   * unsupported custom encoding uses the Mapbox encoding.
    */
   val supportsCustomDemEncoding: Boolean
 
-  /** Whether this engine takes a `scheme` on a raster-dem source; the style spec has none. */
+  /**
+   * Returns true if this engine accepts `scheme` on a raster DEM source. The style spec omits it.
+   */
   val supportsRasterDemScheme: Boolean
 
   /**
    * Adds a source from its style-spec definition.
    *
    * @return false if the style has unloaded, in which case nothing was added.
-   * @throws StyleMutationException if MapLibre refuses the source.
+   * @throws StyleMutationException if the engine returns an error.
    */
   fun addSource(sourceId: String, source: JsonObject): Boolean
 
-  /** Installs one immutable source definition in this loaded style. */
+  /** Installs an immutable source definition in this loaded style. */
   fun addSource(definition: SourceDefinition): Boolean {
     requireCurrent()
     return when (definition) {
@@ -166,25 +171,25 @@ internal interface StyleBinding {
     }
   }
 
-  /** Removes a source and forgets the feature state that belonged to it. */
+  /** Removes a source and its feature state. */
   fun removeSource(sourceId: String)
 
   /**
-   * Reports whether a live source with [sourceId] is in the style, so a duplicate can be refused on
-   * the caller with the message that names the cause.
+   * Checks whether the style contains a live source with [sourceId]. Callers use the result to
+   * report a specific duplicate-source error.
    *
-   * @return null if the style has unloaded or the answer could not be determined; the add still
-   *   refuses a duplicate in that case.
+   * @return null if the style has unloaded or the implementation cannot determine the result. The
+   *   engine still rejects a duplicate during insertion.
    */
   fun sourceExists(sourceId: String): Boolean?
 
   /**
-   * Adds an image source carrying its pixels, for engines whose source JSON can only name a URL.
+   * Adds an image source from pixel data when source JSON only supports a URL.
    *
    * @param coordinates the four corners in MapLibre's order: top left, top right, bottom right,
    *   bottom left.
    * @return false if the style has unloaded, in which case nothing was added.
-   * @throws StyleMutationException if MapLibre refuses the source.
+   * @throws StyleMutationException if the engine returns an error.
    */
   fun addImageSourceImage(
     sourceId: String,
@@ -198,18 +203,18 @@ internal interface StyleBinding {
   /** Replaces an image source's content with a URL. */
   fun setImageSourceUrl(sourceId: String, url: String)
 
-  /** Moves an image source's four corners, given in MapLibre's order. */
+  /** Sets an image source's four corners in MapLibre order. */
   fun setImageSourceCoordinates(sourceId: String, coordinates: List<Position>)
 
   /** @return null if the style has unloaded, or the source is not a live image source. */
   fun imageSourceCoordinates(sourceId: String): List<Position>?
 
   /**
-   * Adds a GeoJSON source from its data and options. The default writes the style-spec JSON; an
-   * engine with a typed adder overrides it.
+   * Adds a GeoJSON source from its data and options. The default implementation writes style-spec
+   * JSON. An engine can override this function to use a typed API.
    *
    * @return false if the style has unloaded, in which case nothing was added.
-   * @throws StyleMutationException if MapLibre refuses the source or the data.
+   * @throws StyleMutationException if the engine returns an error for the source or its data.
    */
   fun addGeoJsonSource(sourceId: String, data: GeoJsonData, options: GeoJsonOptions): Boolean =
     addSource(
@@ -222,8 +227,10 @@ internal interface StyleBinding {
     )
 
   /**
-   * Converts inline [data] into this engine's install form on the caller, so an expensive parse
-   * stays off the map's owner thread. A URL installs through [setGeoJsonSourceUrl] instead.
+   * Converts inline [data] to the engine-specific installation form on the calling thread.
+   *
+   * Callers can run this function outside the map owner thread. Use [setGeoJsonSourceUrl] for a
+   * URL.
    */
   fun prepareGeoJson(data: GeoJsonData, options: GeoJsonOptions): PreparedGeoJson
 
@@ -235,26 +242,25 @@ internal interface StyleBinding {
   ): PreparedGeoJson = prepareGeoJson(data, fallbackOptions)
 
   /**
-   * Installs [prepared] on a live GeoJSON source when [claim] answers true.
+   * Installs [prepared] on a live GeoJSON source if [claim] returns true.
    *
-   * [claim] runs where this engine serializes installs. Overlapping installs resolve their order in
-   * one place. It runs even when the style has unloaded or the install is dropped. The live handle
-   * records the applied data. This function returns after the install has run or been dropped. The
-   * caller may then close [prepared].
+   * The implementation invokes [claim] in the serialized installation context. It invokes [claim]
+   * even if the style has unloaded or the implementation discards the installation. This function
+   * returns after installation or disposal. The caller can then close [prepared].
    */
   fun setGeoJsonSourceData(sourceId: String, prepared: PreparedGeoJson, claim: () -> Boolean)
 
-  /** Points a live GeoJSON source at [url]; [claim] follows the [setGeoJsonSourceData] contract. */
+  /** Sets [url] on a live GeoJSON source. [claim] follows [setGeoJsonSourceData]. */
   fun setGeoJsonSourceUrl(sourceId: String, url: String, claim: () -> Boolean)
 
   /**
-   * Adds a custom geometry source whose feature tiles [provider] supplies. The engine owns the
-   * tile-serving machinery for the source and tears it down on remove or unload.
+   * Adds a custom geometry source that obtains feature tiles from [provider]. Removal or style
+   * unload stops the source and releases its resources.
    *
    * @return false if the style has unloaded, in which case nothing was added.
    * @throws UnsupportedOperationException on an engine with no custom geometry source (MapLibre GL
    *   JS).
-   * @throws StyleMutationException if MapLibre refuses the source.
+   * @throws StyleMutationException if the engine returns an error.
    */
   fun addCustomGeometrySource(
     sourceId: String,
@@ -269,11 +275,11 @@ internal interface StyleBinding {
   fun invalidateCustomGeometrySourceTile(sourceId: String, tile: TileCoordinate)
 
   /**
-   * Adds a custom vector source whose MVT tiles [provider] supplies. The engine owns the
-   * tile-serving machinery for the source and tears it down on remove or unload.
+   * Adds a custom vector source that obtains MVT tiles from [provider]. Removal or style unload
+   * stops the source and releases its resources.
    *
    * @return false if the style has unloaded, in which case nothing was added.
-   * @throws StyleMutationException if MapLibre refuses the source.
+   * @throws StyleMutationException if the engine returns an error.
    */
   fun addCustomVectorSource(
     sourceId: String,
@@ -290,18 +296,22 @@ internal interface StyleBinding {
   fun invalidateCustomVectorSourceTile(sourceId: String, tile: TileCoordinate)
 
   /**
-   * The zoom at which [feature]'s cluster breaks apart, or null when the feature carries no cluster
-   * id, no live source can answer, or the cluster is gone.
+   * Returns the cluster expansion zoom for [feature].
+   *
+   * @return null if the feature has no cluster ID, the source is unavailable, or the cluster no
+   *   longer exists.
    */
   suspend fun clusterExpansionZoom(sourceId: String, feature: Feature<*, JsonObject?>): Double?
 
-  /** The features one level down from [feature]'s cluster; null as [clusterExpansionZoom]. */
+  /**
+   * Returns the cluster children for [feature], or null under [clusterExpansionZoom] conditions.
+   */
   suspend fun clusterChildren(
     sourceId: String,
     feature: Feature<*, JsonObject?>,
   ): FeatureCollection<Geometry, JsonObject?>?
 
-  /** The original points under [feature]'s cluster; null as [clusterExpansionZoom]. */
+  /** Returns the cluster leaves for [feature], or null under [clusterExpansionZoom] conditions. */
   suspend fun clusterLeaves(
     sourceId: String,
     feature: Feature<*, JsonObject?>,
@@ -310,9 +320,9 @@ internal interface StyleBinding {
   ): FeatureCollection<Geometry, JsonObject?>?
 
   /**
-   * Reports that [sourceId] was added or removed, so the style state can refresh that source
-   * without waiting for idle. An engine that adds sources through its own hop calls this from
-   * inside that hop, after the add or remove.
+   * Reports the addition or removal of [sourceId] without waiting for an idle event.
+   *
+   * An asynchronous implementation calls this function after it completes the addition or removal.
    */
   fun reportSourceChanged(sourceId: String) {}
 
@@ -351,23 +361,23 @@ internal interface StyleBinding {
   ): List<Feature<Geometry, JsonObject?>>
 }
 
-/** An engine's install form of one GeoJSON payload. [close] releases what the engine holds. */
+/** Stores one GeoJSON payload in an engine-specific installation form. [close] releases it. */
 internal interface PreparedGeoJson : AutoCloseable
 
-/** The prepared form of an engine with nothing to prepare. */
+/** Represents a GeoJSON payload that requires no preparation. */
 internal object NoPreparedGeoJson : PreparedGeoJson {
   override fun close() = Unit
 }
 
-/** Which part of a layer object a property belongs to. */
+/** Identifies the section of a layer object that contains a property. */
 internal enum class LayerPropertyKind {
   LAYOUT,
   PAINT,
 
-  /** A key on the layer object itself, such as `minzoom`, rather than in `layout` or `paint`. */
+  /** Identifies a key on the layer object, such as `minzoom`, outside `layout` and `paint`. */
   ROOT,
 }
 
-/** A style mutation MapLibre refused. */
+/** Reports an engine error from a style mutation. */
 internal class StyleMutationException(message: String?, cause: Throwable?) :
   RuntimeException(message, cause)

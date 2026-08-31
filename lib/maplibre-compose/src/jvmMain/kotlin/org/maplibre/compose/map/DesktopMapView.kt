@@ -8,9 +8,16 @@ import org.maplibre.compose.desktop.LocalComposeMapPresentationHost
 import org.maplibre.compose.desktop.bridge.ComposeMapPresentationHostFactory
 import org.maplibre.compose.style.BaseStyle
 
+/** Gives Compose value-based keys reference-identity semantics for physical host resources. */
+internal class ReferenceIdentityKey(private val value: Any) {
+  override fun equals(other: Any?): Boolean = other is ReferenceIdentityKey && value === other.value
+
+  override fun hashCode(): Int = System.identityHashCode(value)
+}
+
 @Composable
 internal actual fun mapPresentationHostIdentity(): Any =
-  LocalMlnFfiMapHostFactory.current ?: LocalComposeMapPresentationHost.current
+  ReferenceIdentityKey(LocalMlnFfiMapHostFactory.current ?: LocalComposeMapPresentationHost.current)
 
 @Composable
 internal actual fun ComposableMapView(
@@ -26,7 +33,9 @@ internal actual fun ComposableMapView(
   val hostFactory =
     LocalMlnFfiMapHostFactory.current
       ?: LocalComposeMapPresentationHost.current.let { presentationHost ->
-        remember(presentationHost) { ComposeMapPresentationHostFactory(presentationHost) }
+        remember(ReferenceIdentityKey(presentationHost)) {
+          ComposeMapPresentationHostFactory(presentationHost)
+        }
       }
   MlnFfiMapView(
     hostFactory = hostFactory,

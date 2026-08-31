@@ -495,11 +495,10 @@ internal class GlJsStyleBinding(
     val number = (value as? JsonPrimitive)?.content?.toDoubleOrNull()
     val layer = map.getLayer(layerId)
     if (number == null || layer == null || (name != "minzoom" && name != "maxzoom")) {
-      logger?.w {
-        "Layer '$layerId' cannot change '$name' once it is in the style; MapLibre GL JS fixes it " +
-          "at construction."
-      }
-      return
+      throw StyleMutationException(
+        "Layer '$layerId' cannot change '$name' once it is in the style",
+        null,
+      )
     }
     val minZoom = if (name == "minzoom") number else layer.minzoom ?: 0.0
     val maxZoom = if (name == "maxzoom") number else layer.maxzoom ?: 24.0
@@ -519,7 +518,19 @@ internal class GlJsStyleBinding(
    */
   override fun layerProperty(layerId: String, name: String): JsonElement? {
     requireLoaded()
-    if (map.getLayer(layerId) == null) return null
+    val layer = map.getLayer(layerId) ?: return null
+    val root =
+      when (name) {
+        "id" -> JsonPrimitive(layer.id)
+        "type" -> JsonPrimitive(layer.type)
+        "source" -> layer.source?.let(::JsonPrimitive)
+        "source-layer" -> layer.sourceLayer?.let(::JsonPrimitive)
+        "minzoom" -> layer.minzoom?.let(::JsonPrimitive)
+        "maxzoom" -> layer.maxzoom?.let(::JsonPrimitive)
+        "filter" -> map.getFilter(layerId)?.toJsonElement()
+        else -> null
+      }
+    if (root != null) return root
     val value =
       runCatching { map.getPaintProperty(layerId, name) }.getOrNull()
         ?: runCatching { map.getLayoutProperty(layerId, name) }.getOrNull()

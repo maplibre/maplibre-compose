@@ -35,9 +35,9 @@ private val Material3Overlay = MapOverlay {
 }
 
 /**
- * The controls of [MapOverlay.Default], themed from the Material 3 color scheme and typography.
+ * Applies the Material 3 color scheme and typography to the controls from [MapOverlay.Default].
  *
- * The MapLibre logo is the same either way, because its artwork carries its own colors.
+ * The Material 3 theme does not change the MapLibre logo colors.
  */
 public val MapOverlay.Companion.Material3: MapOverlay
   get() = Material3Overlay

@@ -124,19 +124,16 @@ internal fun MlnFfiMapView(
   // Must run in the apply phase, not from a coroutine: the unload has to precede the content
   // subcomposition inserting layers, or a style switch fails anchor validation (see #269).
   SideEffect { session.setBaseStyle(style) }
-  SideEffect {
-    if (session.beginPresentationAttachment()) {
-      update(session)
-      if (!session.isPresentationPublished) session.markPresentationPublished()
-    }
-  }
+  SideEffect { session.beginPresentationAttachment() }
   LaunchedEffect(session) {
     try {
       session.attachPresentation()
       if (!session.isPresentationPublished) {
         update(session)
+        if (state.presentation?.adapter !== session) return@LaunchedEffect
         session.markPresentationPublished()
       }
+      session.publishRetainedStyle()
     } catch (error: CancellationException) {
       throw error
     } catch (_: MapClosedException) {

@@ -68,7 +68,7 @@ private class MapStateAttachment(
 /**
  * Displays [state] through one temporary presentation.
  *
- * The caller keeps [state] alive. This composable creates only the current presentation and
+ * The caller controls the lifetime of [state]. This composable creates the current presentation and
  * releases it when the call leaves composition.
  */
 @Composable
@@ -81,6 +81,11 @@ public fun MaplibreMap(
   contentWindowInsets: WindowInsets = WindowInsets.safeDrawing,
   overlay: MapOverlay = MapOverlay.Default,
 ) {
+  if (LocalInspectionMode.current) {
+    Box(modifier = modifier.fillMaxSize().background(Color.Gray))
+    return
+  }
+
   val presentationHostIdentity = mapPresentationHostIdentity()
   val presentationOwner = remember(state) { MapPresentationOwnerToken() }
   key(state, presentationHostIdentity) {
@@ -134,12 +139,6 @@ private fun MaplibreMapPresentation(
   contentWindowInsets: WindowInsets,
   overlay: MapOverlay,
 ) {
-  // In preview/inspection mode, show a placeholder instead of trying to render the map
-  if (LocalInspectionMode.current) {
-    Box(modifier = modifier.fillMaxSize().background(Color.Gray))
-    return
-  }
-
   var rememberedStyle by remember { mutableStateOf<StyleBinding?>(null) }
   val desiredRevision by
     rememberStyleComposition(
