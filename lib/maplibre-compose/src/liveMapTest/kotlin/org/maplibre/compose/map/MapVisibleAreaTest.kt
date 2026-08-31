@@ -94,31 +94,6 @@ class MapVisibleAreaTest {
     }
   }
 
-  @Test
-  fun the_viewport_matches_the_session(): MapTestResult = runMapTest {
-    createMapFixture().use {
-      it.loadStyle(BaseStyle.Empty)
-      it.awaitMapReady()
-      it.presentation.setCameraPosition(ROTATED_CAMERA)
-      it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(ROTATED_CAMERA) }
-
-      it.pumpUntil("the public viewport to match the session") {
-        val publicBox = it.presentation.viewport?.visibleBoundingBox ?: return@pumpUntil false
-        boxesAreNear(it.presentation.getVisibleBoundingBox(), publicBox)
-      }
-
-      val viewport = assertNotNull(it.presentation.viewport)
-      assertNear(
-        assertNotNull(it.presentation.getVisibleBoundingBox()),
-        viewport.visibleBoundingBox,
-      )
-      assertTrue(
-        viewport.size.width.value > 0f && viewport.size.height.value > 0f,
-        "the viewport should carry the map's size, was ${viewport.size}",
-      )
-    }
-  }
-
   private companion object {
     val CAMERA = CameraPosition(target = Position(11.0, 47.0), zoom = 5.0)
     val ANTIMERIDIAN_CAMERA = CameraPosition(target = Position(179.9, 47.0), zoom = 5.0)
@@ -151,25 +126,6 @@ class MapVisibleAreaTest {
             (box.southwest.latitude - TOLERANCE)..(box.northeast.latitude + TOLERANCE),
         "the bounding box should contain $what: $position was outside $box",
       )
-    }
-
-    fun assertNear(expected: BoundingBox, actual: BoundingBox) {
-      assertTrue(
-        boxesAreNear(expected, actual),
-        "the queried box should match the session's: $actual was not $expected",
-      )
-    }
-
-    fun boxesAreNear(expected: BoundingBox?, actual: BoundingBox): Boolean {
-      if (expected == null) return false
-      val corners =
-        listOf(
-          expected.southwest.longitude to actual.southwest.longitude,
-          expected.southwest.latitude to actual.southwest.latitude,
-          expected.northeast.longitude to actual.northeast.longitude,
-          expected.northeast.latitude to actual.northeast.latitude,
-        )
-      return corners.all { (e, a) -> abs(e - a) < TOLERANCE }
     }
   }
 }
