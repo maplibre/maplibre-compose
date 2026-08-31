@@ -113,7 +113,7 @@ jobs:
       fail-fast: false
       matrix:
         api-level: [36, 24]
-    timeout-minutes: 45
+    timeout-minutes: 90
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -138,10 +138,10 @@ jobs:
         env:
           TRUNK_API_TOKEN: ${{ secrets.TRUNK_API_TOKEN }}
       - name: Capture Android emulator diagnostics
-        if: ${{ failure() && steps.android-device-tests.outcome == 'failure' }}
+        if: ${{ steps.android-device-tests.outcome != 'success' }}
         run: mise run android-emulator:diagnostics
       - name: Upload Android emulator diagnostics
-        if: ${{ failure() && steps.android-device-tests.outcome == 'failure' }}
+        if: ${{ steps.android-device-tests.outcome != 'success' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           if-no-files-found: error

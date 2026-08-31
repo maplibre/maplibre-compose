@@ -21,6 +21,11 @@ kotlin {
       .configure {
         animationsDisabled = true
         instrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // One abort must not void the rest of the 431-test Compose plus FFI suite.
+        // Other Android library modules keep host execution.
+        if (project.path == ":lib:maplibre-compose") {
+          execution = "ANDROID_TEST_ORCHESTRATOR"
+        }
       }
 
     compilations.configureEach {

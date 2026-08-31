@@ -25,6 +25,7 @@ accompanistPermissions = "0.37.3"
 alchemist = "0.2.0"
 androidx-activity = "1.13.0"
 androidx-testRunner = "1.7.0"
+androidx-testOrchestrator = "1.6.1"
 bytesize = "2.2.1"
 composeGlfw = "0.3.0"
 dbusJava = "5.2.0"
@@ -83,6 +84,7 @@ androidx-activity = { module = "androidx.activity:activity", version.ref = "andr
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
 androidx-composeUi-testManifest = { module = "androidx.compose.ui:ui-test-manifest", version.ref = "androidx-compose" }
 androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidx-testRunner" }
+androidx-test-orchestrator = { module = "androidx.test:orchestrator", version.ref = "androidx-testOrchestrator" }
 androidx-navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-compose", version.ref = "jetbrains-navigation" }
 bytesize = { module = "me.saket.bytesize:bytesize", version.ref = "bytesize" }
 composeGlfw = { module = "dev.sargunv:compose-glfw", version.ref = "composeGlfw" }
