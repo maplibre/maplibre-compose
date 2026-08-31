@@ -91,21 +91,20 @@ rules.
 
 ```text
 hygiene
-unit / android-host     ← layers 0–1, once
+android-host            ← layers 0–1, once, no emulator
 js                      ← layers 0–1 plus JS live (GL JS)
 ios                     ← layers 0–3 on one simulator
 android-device × API    ← layers 3–4, emulator only
-desktop × backend       ← full live on one runner per backend
-desktop × arch copy     ← cheap + OS-specific only (later ticket)
+desktop × os × arch     ← full live suite on every architecture
 docs
 ```
 
 Android host tests run in their own job. They do not boot an emulator and they
 do not share a retry with device install.
 
-A later ticket removes the ARM desktop live copies. Those runners keep
-OS-specific tests (`location-runtime-*`, Windows D3D layout, Linux EGL interop
-when that is the bug).
+Every desktop architecture keeps the full live suite. ARM has already caught
+bugs that x64 missed. `maplibre-compose-material3` stays without tests in this
+overhaul.
 
 ## What this wave changes
 
@@ -118,12 +117,14 @@ when that is the bug).
 
 ## What this wave does not change
 
-- Desktop live matrix (ticket 05, 09)
-- Moving every cheap class out of `maplibreNativeTest` (ticket 04)
+- Desktop live matrix: full suite stays on every architecture (ticket 05
+  wontfix)
+- `maplibre-compose-material3` tests (ticket 10 wontfix)
+- Moving every cheap class out of live source sets (ticket 04)
 - Isolating the shared cache process (ticket 06)
 - Expanding `FakeMlnFfiMapHost` to idle, repaint, and composition (ticket 07)
 - Replacing JS `waitUntilMap` wall-clock waits (ticket 08)
-- Adding `maplibre-compose-material3` tests (ticket 10)
+- A local `test:desktop-unit` filter (ticket 09); CI still runs `test:desktop`
 
 ## Validation
 

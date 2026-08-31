@@ -1,14 +1,10 @@
 # 10: Decide Material 3 test coverage
 
-**What to build:** Either add layer-1 tests for `lib/maplibre-compose-material3`
-(theme, control placement, slot wiring) or document in `AGENTS.md` that the
-module is covered only through the demo app.
+**What to build:** Nothing in this overhaul. `maplibre-compose-material3` stays
+without a test source set for now.
 
-**Blocked by:** 01
+**Blocked by:** None
 
 **Type:** task
 
-**Status:** ready-for-human
-
-The module has no test source set. Do not add live-map screenshot tests as the
-first coverage. Controls that only wrap Compose can use `runPlainComposeUiTest`.
+**Status:** wontfix

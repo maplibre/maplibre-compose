@@ -78,10 +78,9 @@ engine or a pixel would catch.
 Existing live tests move down when their assertion is already expressible on a
 fake. Coverage is relocated, not deleted.
 
-Desktop CI can later run the full live suite on one runner per backend (Linux
-Vulkan, macOS Metal, Windows D3D or Vulkan) and run only cheap plus OS-specific
-tests on the ARM duplicates. That cut is a later ticket; this decision is the
-rule it applies.
+Desktop CI keeps the full live suite on every architecture that packages a
+backend. ARM runners have already caught real bugs that x64 missed. Do not drop
+an arch copy to buy a greener `main`.
 
 The contributor docs and `AGENTS.md` state the same table so agents stop adding
 live-map cases for recognition, JSON, and lifecycle.
