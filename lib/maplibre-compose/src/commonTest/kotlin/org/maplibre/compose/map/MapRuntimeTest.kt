@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.StyleComposition
 import org.maplibre.spatialk.geojson.Position
 
 class MapRuntimeTest {
@@ -108,5 +109,26 @@ class MapRuntimeTest {
     assertFalse(waiting.isCompleted)
     releaseResources.complete(Unit)
     waiting.await()
+  }
+
+  @Test
+  fun runtime_closes_snapshotter_children_before_shared_resources() = runTest {
+    lateinit var snapshotter: MapSnapshotter
+    var resourcesClosed = false
+    val runtime = mapRuntimeForTest {
+      resourcesClosed = true
+    }
+    snapshotter = runtime.createSnapshotter(BaseStyle.Empty, StyleComposition.Empty)
+
+    runtime.close()
+
+    assertFailsWith<MapRuntimeClosedException> {
+      runtime.createSnapshotter(BaseStyle.Empty, StyleComposition.Empty)
+    }
+    assertFailsWith<MapSnapshotterClosedException> {
+      snapshotter.capture(MapSnapshotRequest(1, 1))
+    }
+    runtime.awaitClosed()
+    assertTrue(resourcesClosed)
   }
 }

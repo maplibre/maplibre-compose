@@ -11,6 +11,7 @@ import org.maplibre.compose.resource.MlnFfiResourceProvider
 import org.maplibre.compose.resource.MlnFfiResourceProviderFactory
 import org.maplibre.compose.resource.MlnFfiRuntimeOwner
 import org.maplibre.nativeffi.map.MapHandle
+import org.maplibre.nativeffi.map.MapMode
 import org.maplibre.nativeffi.map.MapOptions
 import org.maplibre.nativeffi.runtime.RuntimeEvent
 import org.maplibre.nativeffi.runtime.RuntimeEventMask
@@ -58,6 +59,8 @@ internal class MlnFfiMapRuntimeLoop(
   /** Asks the host for a frame. Called from the owner thread. */
   private val requestFrame: () -> Unit,
   private val mapEventMask: RuntimeEventMask? = null,
+  private val mapMode: MapMode = MapMode.CONTINUOUS,
+  private val onFailure: (Throwable) -> Unit = {},
 ) : AutoCloseable {
 
   private val logger: Logger?
@@ -255,6 +258,7 @@ internal class MlnFfiMapRuntimeLoop(
       it.width = extent.width.coerceAtLeast(1)
       it.height = extent.height.coerceAtLeast(1)
       it.scaleFactor = extent.scaleFactor
+      it.mapMode = mapMode
       mapEventMask?.let { mask -> it.eventMask = mask }
     }
 
@@ -302,7 +306,9 @@ internal class MlnFfiMapRuntimeLoop(
   }
 
   private fun fail(error: Throwable) {
+    val firstFailure = failure == null
     failure = failure ?: error
+    if (firstFailure) runCatching { onFailure(error) }
     rejectQueuedTasks()
     // The renderer republishes the failure, but only from a frame.
     runCatching { requestFrame() }
