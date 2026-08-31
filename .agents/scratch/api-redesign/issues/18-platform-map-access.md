@@ -22,6 +22,8 @@ borrowed, callback-scoped value.
       both an engine-map identity and the current render lease.
 - [x] Replacement, Web detachment, or closure that wins before execution rejects
       the invocation without running its callback.
+- [x] Caller cancellation that wins while an invocation is queued prevents its
+      callback; cancellation after execution starts does not interrupt it.
 - [x] Once a callback starts, detach, replacement, and closure queue behind it
       and continue after it returns.
 - [x] Platform tests verify owner-context execution, native detached access, Web
@@ -33,8 +35,8 @@ borrowed, callback-scoped value.
   public access API and keep lower-level thread tests only for distinct FFI
   behavior.
 - Add native detached, pre-execution engine replacement, Web detached or stale
-  lease, callback-versus-close, and closed-state cases. Do not add a test
-  claiming Kotlin can prevent raw-handle retention.
+  lease, queued cancellation, callback-versus-close, and closed-state cases. Do
+  not add a test claiming Kotlin can prevent raw-handle retention.
 - Run `mise run test:android`, `mise run test:desktop`, `mise run test:ios`, and
   `mise run test:js`.
 
@@ -48,10 +50,13 @@ the render lease. A callback that has started finishes before detach,
 replacement, or closure proceeds. Identity validation and callback delivery hold
 both lifecycle serialization locks until the callback returns.
 
+Queued native and Web invocations arbitrate cancellation against execution with
+one atomic claim. Cancellation that wins suppresses the callback. Cancellation
+after execution wins leaves the caller cancelled without interrupting the
+non-suspending callback.
+
 The native tests cover detached creation, owner-thread execution, replacement
-before execution, closure after execution starts, and closed-state rejection.
-The Web tests cover detached rejection, attached access, and stale-lease
-rejection. The Android, desktop, and iOS tasks pass. The Web task runs all 263
-tests: the three platform-access tests pass, while nine existing
-`BrowserCompositingTest` cases time out waiting for rendered pixels on this
-host.
+before execution, queued cancellation, closure after execution starts, and
+closed-state rejection. The Web tests cover detached rejection, attached access,
+stale-lease rejection, and queued cancellation. The Android, desktop, and iOS
+tasks pass. The Web task runs all 264 tests successfully.

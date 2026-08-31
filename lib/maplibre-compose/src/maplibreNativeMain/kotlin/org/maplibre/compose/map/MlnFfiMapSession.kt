@@ -1615,12 +1615,13 @@ internal class MlnFfiMapSession(
 
   internal suspend fun <T> withPlatformMap(block: PlatformMapScope.() -> T): T {
     val engine = lifecycle.ensureEngine()
-    val completion = CompletableDeferred<Result<T>>()
-    val accepted =
-      postWhenMapExists(
-        action = { map ->
-          completion.complete(
-            runCatching {
+    return suspendCancellableCoroutine { continuation ->
+      val invocation = PlatformMapInvocation(continuation)
+      continuation.invokeOnCancellation { invocation.cancel() }
+      val accepted =
+        postWhenMapExists(
+          action = { map ->
+            invocation.execute {
               var result: Result<T>? = null
               val accepted =
                 lifecycle.acceptEngineEvent(engine) {
@@ -1641,20 +1642,15 @@ internal class MlnFfiMapSession(
               }
               checkNotNull(result).getOrThrow()
             }
-          )
-        },
-        abandon = {
-          completion.complete(
-            Result.failure(
+          },
+          abandon = {
+            invocation.fail(
               IllegalStateException("The native platform map changed before access could begin")
             )
-          )
-        },
-      )
-    if (!accepted) {
-      throw MapStateClosedException()
+          },
+        )
+      if (!accepted) invocation.fail(MapStateClosedException())
     }
-    return completion.await().getOrThrow()
   }
 
   override fun positionFromScreenLocation(offset: DpOffset): Position? = withSnapshotProjection {

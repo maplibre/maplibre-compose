@@ -7,6 +7,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -148,6 +149,46 @@ class PlatformMapAccessTest {
 
         val failure = assertFailsWith<IllegalStateException> { access.await() }
         assertEquals("The native platform map changed before access could begin", failure.message)
+      }
+      assertFalse(callbackRan)
+    }
+  }
+
+  @Test
+  fun cancelling_a_queued_native_invocation_prevents_its_callback() = runBlocking {
+    withNativeMapState { state, _ ->
+      state.withPlatformMap { map.hashCode() }
+      val session = state.lifecycle.currentAdapter() as MlnFfiMapSession
+      val ownerEntered = CompletableDeferred<Unit>()
+      val releaseOwner = MlnFfiGate()
+      assertTrue(
+        session.postOwnerTaskForTest {
+          ownerEntered.complete(Unit)
+          releaseOwner.awaitUntilOpen()
+        }
+      )
+      ownerEntered.await()
+
+      var callbackRan = false
+      try {
+        supervisorScope {
+          val access =
+            async(start = CoroutineStart.UNDISPATCHED) {
+              state.withPlatformMap {
+                callbackRan = true
+                map.hashCode()
+              }
+            }
+          val ownerDrained = CompletableDeferred<Unit>()
+          assertTrue(session.postOwnerTaskForTest { ownerDrained.complete(Unit) })
+
+          access.cancel()
+          assertFailsWith<CancellationException> { access.await() }
+          releaseOwner.open()
+          ownerDrained.await()
+        }
+      } finally {
+        releaseOwner.open()
       }
       assertFalse(callbackRan)
     }

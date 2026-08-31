@@ -7,6 +7,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.supervisorScope
@@ -62,6 +63,30 @@ class BrowserPlatformMapAccessTest {
         val failure = assertFailsWith<IllegalStateException> { access.await() }
         assertEquals("The Web platform map changed before access could begin", failure.message)
       }
+      assertFalse(callbackRan)
+    } finally {
+      fixture.close()
+    }
+  }
+
+  @Test
+  fun cancelling_a_queued_web_invocation_prevents_its_callback() = runBrowserMapTest {
+    val fixture = GlJsMapFixture(MapExtent.fromLogical(200, 100, 1.0))
+    try {
+      var callbackRan = false
+      supervisorScope {
+        val access =
+          async(start = CoroutineStart.UNDISPATCHED) {
+            fixture.state.withPlatformMap {
+              callbackRan = true
+              map.getZoom()
+            }
+          }
+
+        access.cancel()
+        assertFailsWith<CancellationException> { access.await() }
+      }
+      fixture.awaitMapReady()
       assertFalse(callbackRan)
     } finally {
       fixture.close()

@@ -18,7 +18,6 @@ import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraMoveReason
@@ -445,12 +444,13 @@ internal class GlJsMapSession(
     val lease =
       lifecycle.renderLease
         ?: throw IllegalStateException("The Web platform map changed before access could begin")
-    val completion = CompletableDeferred<Result<T>>()
-    val action =
-      PendingMapAction(
-        run = { map ->
-          completion.complete(
-            runCatching {
+    return suspendCancellableCoroutine { continuation ->
+      val invocation = PlatformMapInvocation(continuation)
+      lateinit var action: PendingMapAction
+      action =
+        PendingMapAction(
+          run = { map ->
+            invocation.execute {
               var result: Result<T>? = null
               val accepted =
                 lifecycle.acceptPresentationEvent(engine, lease) {
@@ -471,19 +471,21 @@ internal class GlJsMapSession(
               }
               checkNotNull(result).getOrThrow()
             }
-          )
-        },
-        abandon = {
-          completion.complete(
-            Result.failure(
+          },
+          abandon = {
+            invocation.fail(
               IllegalStateException("The Web platform map changed before access could begin")
             )
-          )
-        },
-      )
-    val current = map
-    if (current == null) pendingPlatformMapAccess += action else action.run(current)
-    return completion.await().getOrThrow()
+          },
+        )
+      continuation.invokeOnCancellation {
+        invocation.cancel()
+        pendingPlatformMapAccess.remove(action)
+      }
+      val current = map
+      if (current != null) action.run(current)
+      else if (invocation.isQueued) pendingPlatformMapAccess += action
+    }
   }
 
   private fun maxTextureSize(gl: dynamic): Array<Double> {
