@@ -230,7 +230,7 @@ expect val LensRenderOptionsDefault: RenderOptions
  * region. The child's layout bounds move by half a pixel when its size is odd. A camera target
  * taken from those bounds then moves with every size step.
  */
-internal fun overlayInnerCenterPx(
+private fun overlayInnerCenterPx(
   overlayWidthPx: Int,
   overlayHeightPx: Int,
   insetLeftPx: Int,
