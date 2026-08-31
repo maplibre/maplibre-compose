@@ -1,12 +1,14 @@
 package org.maplibre.compose.mlnffi
 
 import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
+import kotlinx.io.files.SystemTemporaryDirectory
 
 /**
  * Covers the `file:` URL the offline tests hand to MapLibre.
@@ -16,12 +18,20 @@ import kotlinx.io.files.SystemFileSystem
  */
 class FileUrlTest {
 
-  private val cacheFile = FfiTestPlatform.createCacheFile()
-  private val directory = requireNotNull(cacheFile.parent)
+  private lateinit var directory: Path
+
+  @BeforeTest
+  fun createDirectory() {
+    directory = Path(SystemTemporaryDirectory, "maplibre-file-url-test")
+    SystemFileSystem.createDirectories(directory)
+  }
 
   @AfterTest
-  fun cleanUp() {
-    FfiTestPlatform.deleteCacheFile(cacheFile)
+  fun deleteCreatedFiles() {
+    val written = Path(directory, "written.json")
+    if (SystemFileSystem.exists(written)) {
+      SystemFileSystem.delete(written)
+    }
   }
 
   @Test

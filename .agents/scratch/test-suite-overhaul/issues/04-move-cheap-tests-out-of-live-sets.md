@@ -8,19 +8,21 @@ unit set that android host can run when the types allow it.
 
 **Type:** task
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-Candidates that create no map today:
+- [x] `MapOverlayTest` and `MaplibreLogoTest` live in `commonTest` and return
+      before `runComposeUiTest` when `supportsComposeRuntimeTests` is false.
+- [x] `FileUrlTest` uses a `Path` under `SystemTemporaryDirectory` and does not
+      call `FfiTestPlatform`.
 
-- `JsonConversionsTest`, `MlnFfiConversionsTest` (native types: stay native, but
-  not on the GPU path)
+Classes that import `org.maplibre.nativeffi` stay in `maplibreNativeTest`.
+Ticket 09 allowlists them for the desktop unit filter:
+
+- `JsonConversionsTest`, `MlnFfiConversionsTest`
 - `OfflineProgressMappingTest`
 - `MlnFfiResourceProviderTest`, `MlnFfiResourceRequestTest`
 - `MlnFfiTileRequestCoordinatorTest`
-- `FileUrlTest`, `ImagePremultiplyTest`
-- `MapOverlayTest` and `MaplibreLogoTest` already use `mapRuntimeForTest`; they
-  need a Compose UI host, not a live map. They belong next to other Compose-only
-  tests, gated by `supportsComposeRuntimeTests`.
+- `ImagePremultiplyTest`
 
 Do not move a class that calls `BridgeMapFixture.create`, `createMapFixture`, or
 `runFfiComposeUiTest`.
@@ -38,14 +40,25 @@ session. Extra cheap rows ticket 04 did not list:
 `MlnFfiMapSurfaceRecoveryTest` is already layer 2 (`FakeMlnFfiMapHost`); keep it
 in this source set and put it on the unit filter.
 
-`FileUrlTest` calls `createCacheFile()`, which loads the native library for a
-temp path. Point it at a `Path` before the unit filter, or the filter still
-loads the `.so`.
+`FileUrlTest` used to call `createCacheFile()`, which loads the native library
+for a temp path. It now creates a directory under `SystemTemporaryDirectory`.
 
 Types that import `org.maplibre.nativeffi` and must stay native:
 `MlnFfiConversionsTest`, `OfflineProgressMappingTest`,
 `MlnFfiResourceRequestTest`, `MlnFfiTileRequestCoordinatorTest`,
 `ImagePremultiplyTest` (`PremultipliedRgba8Image`).
+
+## Answer
+
+`MapOverlayTest` and `MaplibreLogoTest` compose against `mapRuntimeForTest` and
+need a Compose UI host, not a live map. They live in `commonTest` with the other
+Compose-only tests. Each `@Test` returns when `supportsComposeRuntimeTests` is
+false. `androidHost` does not call `runComposeUiTest`.
+
+`FileUrlTest` creates its directory under `SystemTemporaryDirectory` in
+`@BeforeTest` and deletes the file that the existence case writes. The four
+`fileUrlOf` / `pathOfFileUrl` assertions are unchanged. The class obtains the
+path without `FfiTestPlatform` and without loading the native library.
 
 ## Test ledger
 
