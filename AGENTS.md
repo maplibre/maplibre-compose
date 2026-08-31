@@ -124,6 +124,24 @@ For a machine with no SDK, install the pinned SDK with
 - **Desktop:** `mise run test:desktop` (add `--backend <name>` to package a
   non-default render backend, e.g. `opengl` on Linux)
 
+Put a new test on the cheapest layer that can catch the bug. ADR
+`.agents/docs/adr/0001-test-suite-layers.md` is the rule. The overhaul spec is
+`.agents/scratch/test-suite-overhaul/spec.md`.
+
+| Layer                      | Host                                                                  | Typical source set                    |
+| -------------------------- | --------------------------------------------------------------------- | ------------------------------------- |
+| 0 Pure                     | no MapLibre, no clock                                                 | `commonTest`                          |
+| 1 Fake engine              | `mapRuntimeForTest`, `RecordingStyleBinding`, `runPlainComposeUiTest` | `commonTest`, `androidJvmTest`        |
+| 2 Fake GPU host            | `FakeMlnFfiMapHost`                                                   | `maplibreNativeTest`                  |
+| 3 Headless live engine     | `BridgeMapFixture`, `MapFixture`                                      | `liveMapTest`, `maplibreNativeTest`   |
+| 4 Compose plus live engine | `runFfiComposeUiTest`                                                 | `androidJvmTest`, device              |
+| 5 Pixel or compositing     | one renderer                                                          | a dedicated class, not a wrapper case |
+
+Do not create a live map for gesture recognition, JSON, style identity, or
+stored feature state. Recognition uses a recording `GestureTarget`. Feature
+state and surface loss assert handles and attach count; `FeatureStateTest` is
+the pixel proof that feature state changes the style.
+
 Tests live in platform-specific source sets:
 
 - Android device tests: `src/androidDeviceTest`
@@ -135,7 +153,8 @@ Tests live in platform-specific source sets:
 
 `liveMapTest` runs on every platform that hosts a MapLibre runtime. Those tests
 stay out of `commonTest` because `androidHostTest` inherits that source set and
-has no MapLibre runtime and no Compose UI test host.
+has no MapLibre runtime and no Compose UI test host. Prefer layer 0–2 over
+adding to `liveMapTest`.
 
 The browser tests drive a real map in headless Chrome. They need `CHROME_BIN` if
 Karma cannot find one, and they fail as timeouts rather than assertion
@@ -145,8 +164,10 @@ and still reports success.
 
 ### CI
 
-Workflows live in `.github/workflows`. Each job covers one platform, and
-`hygiene` covers all static analysis. Every job installs its toolchain through
+Workflows live in `.github/workflows`. `hygiene` covers static analysis.
+`android-host` runs the cheap Android suite once, without an emulator.
+`android-device` boots an emulator per API level. The other jobs each cover one
+platform. Every job installs its toolchain through
 `.github/actions/setup-ci-deps` and then runs a mise task. Change what a job
 does by changing the task rather than the YAML.
 

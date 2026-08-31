@@ -152,6 +152,23 @@ job ran:
 - `mise run test:js`
 - `mise run test:desktop`
 
+Put a new test on the cheapest layer that can catch the bug. A live MapLibre
+runtime is for engine contracts. A pixel is for color or framebuffer ownership.
+Gesture recognition, JSON, style identity, and stored feature state use
+recording adapters and do not create a map.
+
+| Layer                      | What it may touch                    |
+| -------------------------- | ------------------------------------ |
+| 0 Pure                     | Functions, JSON, math                |
+| 1 Fake engine              | Map types against recording adapters |
+| 2 Fake GPU host            | FFI host callbacks, no device        |
+| 3 Headless live engine     | Real MapLibre, explicit frames       |
+| 4 Compose plus live engine | Interop a fake cannot represent      |
+| 5 Pixel or compositing     | One representative renderer          |
+
+The placement rules live in
+[`.agents/docs/adr/0001-test-suite-layers.md`](.agents/docs/adr/0001-test-suite-layers.md).
+
 The device suites bring their own device. `test:android:device` boots a headless
 emulator for the API level you name, and installs the emulator and system image
 on first use. It passes `-Pmaplibre.android.abis=` for this host so the test
