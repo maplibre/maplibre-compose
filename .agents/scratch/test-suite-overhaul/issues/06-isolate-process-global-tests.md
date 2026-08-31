@@ -8,7 +8,15 @@ cannot interleave schema creation with another runtime in the same JVM.
 
 **Type:** task
 
-**Status:** ready-for-agent
+**Status:** resolved
+
+- [x] Give cache and dual-runtime tests their own `Test` task with
+      `forkEvery = 1`.
+- [x] Exclude those classes from the regular `jvmTest` task.
+- [x] `mise run test:desktop` / `./gradlew jvmTest` still run them through
+      `dependsOn`.
+- [x] Keep `resetForTest()` in `runFfiComposeUiTest` `finally`.
+- [x] Keep the dual-runtime case.
 
 Today `MlnFfiSharedCacheDatabaseTest` opens one cache from two runtimes on
 purpose. Desktop logs still print
@@ -16,10 +24,38 @@ purpose. Desktop logs still print
 (maplibre-native-ffi#667). Other tests call `FfiTestPlatform.createCacheFile()`
 and `MlnFfiApplication.resetForTest()` in the same process as the live suite.
 
-- Give cache and dual-runtime tests their own `Test` task or `forkEvery = 1`
-  class filter.
-- Keep `resetForTest()` in `runFfiComposeUiTest` `finally`.
-- Do not delete the dual-runtime case; it is the invariant the FFI issue tracks.
+## Answer
+
+`lib/maplibre-compose` registers `jvmProcessGlobalTest` in the verification
+group. The task reuses the Kotlin Multiplatform `jvmTest` classpath, allowlists
+the eight process-global classes, and sets `forkEvery = 1` so each class runs in
+a new JVM. `jvmTest` excludes those classes and `dependsOn` the isolated task.
+`mise run test:desktop` still runs `./gradlew jvmTest`, so CI keeps the coverage
+without a unit filter and without a CI job change.
+
+Gradle applies `--tests` only to Test tasks named on the command line. A
+`whenReady` hook copies that filter onto `jvmProcessGlobalTest` and skips the
+isolated task when the filter selects no isolated class. A `jvmTest` filter for
+`FileUrlTest` therefore runs that class alone.
+
+`runFfiComposeUiTest` still calls `MlnFfiApplication.resetForTest()` in
+`finally`. `MapLibreConfigurationTest` stays intact, including
+`independently_configured_runtimes_coexist_and_close_independently`. The whole
+class is isolated because splitting that one method is messier than moving the
+cheap path-math cases with it.
+
+Isolated classes:
+
+- `org.maplibre.compose.offline.MlnFfiSharedCacheDatabaseTest`
+- `org.maplibre.compose.offline.MlnFfiOfflinePackTest`
+- `org.maplibre.compose.offline.MlnFfiOfflineManagerTest`
+- `org.maplibre.compose.offline.MlnFfiOfflineRuntimeTest`
+- `org.maplibre.compose.map.PlatformMapAccessTest`
+- `org.maplibre.compose.desktop.MapLibreConfigurationTest`
+- `org.maplibre.compose.sources.ImageSourceAttachTest`
+- `org.maplibre.compose.layers.UnsupportedLayerPropertyTest`
+
+`AndroidExplicitRuntimeTest` stays in `androidDeviceTest`.
 
 ## Comments
 
@@ -42,6 +78,7 @@ same process. `FileUrlTest` only loads the native library via
 
 ## Test ledger
 
-- `two_runtimes_can_open_the_same_cache_database` still passes alone.
-- An unrelated live test no longer opens a second schema into the same file
-  while that case runs.
+- [x] `two_runtimes_can_use_the_same_cache_database` still passes alone.
+- [x] An unrelated live test no longer opens a second schema into the same file
+      while that case runs. `FileUrlTest` stays on `jvmTest` and does not start
+      `jvmProcessGlobalTest`.

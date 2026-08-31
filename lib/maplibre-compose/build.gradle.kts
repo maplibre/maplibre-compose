@@ -211,3 +211,83 @@ compose.resources { packageOfResClass = "org.maplibre.compose.generated" }
 tasks.withType<org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeSimulatorTest> {
   standalone.set(false)
 }
+
+// These classes open a shared cache, a second RuntimeHandle, or a process-wide
+// logger. They cannot share the live jvmTest JVM: a second createCacheFile()
+// interleaves schema creation with MlnFfiSharedCacheDatabaseTest
+// (maplibre-native-ffi#667). jvmProcessGlobalTest reuses the KMP jvmTest
+// classpath and forks a new JVM per class. jvmTest still runs them via
+// dependsOn, so `mise run test:desktop` and `./gradlew jvmTest` keep the
+// coverage.
+val jvmProcessGlobalTestClasses =
+  listOf(
+    "org.maplibre.compose.offline.MlnFfiSharedCacheDatabaseTest",
+    "org.maplibre.compose.offline.MlnFfiOfflinePackTest",
+    "org.maplibre.compose.offline.MlnFfiOfflineManagerTest",
+    "org.maplibre.compose.offline.MlnFfiOfflineRuntimeTest",
+    "org.maplibre.compose.map.PlatformMapAccessTest",
+    "org.maplibre.compose.desktop.MapLibreConfigurationTest",
+    "org.maplibre.compose.sources.ImageSourceAttachTest",
+    "org.maplibre.compose.layers.UnsupportedLayerPropertyTest",
+  )
+
+val jvmTestTask = tasks.named<Test>("jvmTest")
+
+val jvmProcessGlobalTest =
+  tasks.register<Test>("jvmProcessGlobalTest") {
+    group = "verification"
+    description =
+      "Run process-global cache, dual-runtime, and logger tests " + "in a new JVM per class."
+    val jvmTest = jvmTestTask.get()
+    testClassesDirs = jvmTest.testClassesDirs
+    classpath = jvmTest.classpath
+    // KMP jvmTest uses kotlin-test JUnit 4, not JUnit Platform.
+    useJUnit()
+    forkEvery = 1
+    filter {
+      jvmProcessGlobalTestClasses.forEach { className ->
+        includeTestsMatching(className)
+        includeTestsMatching("$className.*")
+      }
+      isFailOnNoMatchingTests = false
+    }
+  }
+
+jvmTestTask.configure {
+  filter {
+    jvmProcessGlobalTestClasses.forEach { className ->
+      excludeTestsMatching(className)
+      excludeTestsMatching("$className.*")
+    }
+    isFailOnNoMatchingTests = false
+  }
+  dependsOn(jvmProcessGlobalTest)
+}
+
+// `--tests` is stored on DefaultTestFilter, not on the public TestFilter type,
+// and Gradle applies it only to Test tasks named on the command line. Copy it
+// onto the isolated task so `jvmTest --tests FileUrlTest` does not run these
+// classes. Skip the isolated task when the filter cannot select one of them.
+gradle.taskGraph.whenReady {
+  val jvmTest = jvmTestTask.get()
+  val isolated = jvmProcessGlobalTest.get()
+  if (!hasTask(jvmTest) || !hasTask(isolated)) return@whenReady
+  val requested =
+    (jvmTest.filter as org.gradle.api.internal.tasks.testing.filter.DefaultTestFilter)
+      .commandLineIncludePatterns
+  if (requested.isEmpty()) return@whenReady
+  val selected =
+    requested
+      .flatMap { pattern ->
+        val prefix = pattern.trimEnd('*').removeSuffix(".")
+        jvmProcessGlobalTestClasses.filter { className ->
+          className == pattern ||
+            className.startsWith(prefix) ||
+            className.substringAfterLast('.') == pattern ||
+            pattern.startsWith(className)
+        }
+      }
+      .distinct()
+  isolated.filter.setIncludePatterns(*selected.flatMap { listOf(it, "$it.*") }.toTypedArray())
+  isolated.onlyIf { selected.isNotEmpty() }
+}
