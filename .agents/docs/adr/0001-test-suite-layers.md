@@ -84,3 +84,10 @@ an arch copy to buy a greener `main`.
 
 The contributor docs and `AGENTS.md` state the same table so agents stop adding
 live-map cases for recognition, JSON, and lifecycle.
+
+Live GPU tests stay on every architecture that can disagree. Reliability is not
+a smaller matrix. A live wait fails as one `AssertionError` with presentation,
+style load state, attach count, and layer ids, or it passes. A hang watchdog
+that kills a process is isolated to that one method. `resetForTest()` runs after
+the composition has disposed the map. `ci-retry` still reruns only one failed
+primary job, and only for infra.

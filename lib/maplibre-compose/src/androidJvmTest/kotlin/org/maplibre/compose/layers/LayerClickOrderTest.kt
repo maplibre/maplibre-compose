@@ -13,10 +13,12 @@ import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.DpOffset
 import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlinx.coroutines.runBlocking
+import kotlinx.io.files.Path
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.map.MapState
@@ -26,10 +28,12 @@ import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
 import org.maplibre.compose.mlnffi.setFfiTestMapContent
+import org.maplibre.compose.mlnffi.waitUntilLive
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleComposition
+import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.util.ClickResult
 import org.maplibre.spatialk.geojson.Position
 
@@ -46,28 +50,41 @@ import org.maplibre.spatialk.geojson.Position
 @OptIn(ExperimentalTestApi::class)
 class LayerClickOrderTest {
 
-  private val cacheFile = FfiTestPlatform.createCacheFile()
-
-  private val runtimeOptions =
-    MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+  private lateinit var cacheFile: Path
+  private lateinit var runtimeOptions: MlnFfiRuntimeOptions
 
   /** Which layers were offered the event, in the order the map offered them. */
-  private val clicked = mutableListOf<String>()
-  private val longClicked = mutableListOf<String>()
+  private val clicked = RecordingList<String>()
+  private val longClicked = RecordingList<String>()
+
+  @BeforeTest
+  fun createCache() {
+    clicked.clear()
+    longClicked.clear()
+    cacheFile = FfiTestPlatform.createCacheFile()
+    runtimeOptions = MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+  }
 
   @AfterTest
   fun cleanUp() {
-    FfiTestPlatform.deleteCacheFile(cacheFile)
+    if (::cacheFile.isInitialized) FfiTestPlatform.deleteCacheFile(cacheFile)
   }
 
   @Test
   fun a_click_goes_to_the_layer_in_front() =
-    runLayerClickTest(composeFrontLayerFirst = false) { center ->
+    runLayerClickTest(composeFrontLayerFirst = false) { center, state ->
       onRoot().performMouseInput { click(center) }
 
-      waitUntil(timeoutMillis = TIMEOUT) { clicked.isNotEmpty() }
+      waitUntilLive(
+        "the front layer to consume the click",
+        timeoutMillis = TIMEOUT,
+        state = state,
+        extra = { "clicked=$clicked" },
+      ) {
+        clicked.toList() == listOf(FRONT)
+      }
       waitForIdle()
-      assertEquals(listOf(FRONT), clicked)
+      assertEquals(listOf(FRONT), clicked.toList())
     }
 
   /**
@@ -78,49 +95,85 @@ class LayerClickOrderTest {
    */
   @Test
   fun a_click_goes_to_the_layer_in_front_even_when_it_was_composed_first() =
-    runLayerClickTest(composeFrontLayerFirst = true) { center ->
+    runLayerClickTest(composeFrontLayerFirst = true) { center, state ->
       onRoot().performMouseInput { click(center) }
 
-      waitUntil(timeoutMillis = TIMEOUT) { clicked.isNotEmpty() }
+      waitUntilLive(
+        "the front layer to consume the click when composed first",
+        timeoutMillis = TIMEOUT,
+        state = state,
+        extra = { "clicked=$clicked" },
+      ) {
+        clicked.toList() == listOf(FRONT)
+      }
       waitForIdle()
-      assertEquals(listOf(FRONT), clicked)
+      assertEquals(listOf(FRONT), clicked.toList())
     }
 
   @Test
   fun a_click_the_front_layer_passes_falls_through_to_the_layer_behind() =
-    runLayerClickTest(composeFrontLayerFirst = true, frontResult = ClickResult.Pass) { center ->
+    runLayerClickTest(composeFrontLayerFirst = true, frontResult = ClickResult.Pass) { center, state
+      ->
       onRoot().performMouseInput { click(center) }
 
-      waitUntil(timeoutMillis = TIMEOUT) { clicked.size == 2 }
+      waitUntilLive(
+        "the click to fall through to the back layer",
+        timeoutMillis = TIMEOUT,
+        state = state,
+        extra = { "clicked=$clicked" },
+      ) {
+        clicked.toList() == listOf(FRONT, BACK)
+      }
       waitForIdle()
-      assertEquals(listOf(FRONT, BACK), clicked)
+      assertEquals(listOf(FRONT, BACK), clicked.toList())
     }
 
   @Test
   fun a_long_click_goes_to_the_layer_in_front_too() =
-    runLayerClickTest(composeFrontLayerFirst = true) { center ->
+    runLayerClickTest(composeFrontLayerFirst = true) { center, state ->
       val map = onRoot()
       map.performTouchInput { down(0, center) }
-      mainClock.advanceTimeBy(1_000)
-      waitUntil(timeoutMillis = TIMEOUT) { longClicked.isNotEmpty() }
-      map.performTouchInput { up(0) }
+      try {
+        mainClock.advanceTimeBy(1_000)
+        waitUntilLive(
+          "the front layer to consume the long click",
+          timeoutMillis = TIMEOUT,
+          state = state,
+          extra = { "longClicked=$longClicked clicked=$clicked" },
+        ) {
+          longClicked.toList() == listOf(FRONT)
+        }
+      } finally {
+        map.performTouchInput { up(0) }
+      }
       waitForIdle()
 
-      assertEquals(listOf(FRONT), longClicked)
-      assertEquals(emptyList<String>(), clicked, "the long click also reported a click")
+      assertEquals(listOf(FRONT), longClicked.toList())
+      assertEquals(emptyList<String>(), clicked.toList(), "the long click also reported a click")
     }
 
   @Test
   fun a_long_click_the_front_layer_passes_falls_through_to_the_layer_behind() =
-    runLayerClickTest(composeFrontLayerFirst = true, frontResult = ClickResult.Pass) { center ->
+    runLayerClickTest(composeFrontLayerFirst = true, frontResult = ClickResult.Pass) { center, state
+      ->
       val map = onRoot()
       map.performTouchInput { down(0, center) }
-      mainClock.advanceTimeBy(1_000)
-      waitUntil(timeoutMillis = TIMEOUT) { longClicked.size == 2 }
-      map.performTouchInput { up(0) }
+      try {
+        mainClock.advanceTimeBy(1_000)
+        waitUntilLive(
+          "the long click to fall through to the back layer",
+          timeoutMillis = TIMEOUT,
+          state = state,
+          extra = { "longClicked=$longClicked" },
+        ) {
+          longClicked.toList() == listOf(FRONT, BACK)
+        }
+      } finally {
+        map.performTouchInput { up(0) }
+      }
       waitForIdle()
 
-      assertEquals(listOf(FRONT, BACK), longClicked)
+      assertEquals(listOf(FRONT, BACK), longClicked.toList())
     }
 
   /**
@@ -134,7 +187,7 @@ class LayerClickOrderTest {
   private fun runLayerClickTest(
     composeFrontLayerFirst: Boolean,
     frontResult: ClickResult = ClickResult.Consume,
-    body: ComposeUiTest.(center: Offset) -> Unit,
+    body: ComposeUiTest.(center: Offset, state: MapState) -> Unit,
   ) = runFfiComposeUiTest {
     lateinit var mapState: MapState
 
@@ -194,21 +247,31 @@ class LayerClickOrderTest {
       )
     }
 
-    waitUntil(timeoutMillis = TIMEOUT) { mapState.presentation != null }
+    waitUntilLive(
+      "the click-order map to publish a presentation",
+      timeoutMillis = TIMEOUT,
+      state = mapState,
+    ) {
+      mapState.presentation != null
+    }
     val presentation = assertNotNull(mapState.presentation, "the map never published a lease")
     val size = onRoot().fetchSemanticsNode().size
     val centerDp = with(density) { DpOffset((size.width / 2).toDp(), (size.height / 2).toDp()) }
 
     // A layer is only dispatched to if a rendered query hits it, and only a rendered frame of the
     // parsed source populates that. Both layers must be hittable, or the assertions prove nothing.
-    waitUntil(timeoutMillis = TIMEOUT) {
+    waitUntilLive(
+      "both fill layers to be queryable at the centre",
+      timeoutMillis = TIMEOUT,
+      state = mapState,
+    ) {
       listOf(FRONT, BACK).all { id ->
         runBlocking { presentation.queryRenderedFeatures(offset = centerDp, layerIds = setOf(id)) }
           .isNotEmpty()
       }
     }
 
-    body(Offset(size.width / 2f, size.height / 2f))
+    body(Offset(size.width / 2f, size.height / 2f), mapState)
   }
 
   private companion object {

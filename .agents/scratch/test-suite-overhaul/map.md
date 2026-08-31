@@ -12,9 +12,13 @@
 | 08 | Drive JS live tests with a deterministic frame pump   | task | resolved |
 | 09 | Add a local desktop unit Gradle filter                | task | resolved |
 | 10 | Decide Material 3 test coverage                       | task | wontfix  |
+| 11 | Live Compose waits dump diagnostics                   | task | resolved |
+| 12 | Close composition before resetForTest                 | task | resolved |
+| 13 | Isolate Android device tests with Orchestrator        | task | resolved |
 
 Keep the full live desktop suite on every architecture. Leave Material 3 without
-tests in this overhaul.
+tests in this overhaul. Live GPU tests stay. Reliability is a wait that fails as
+one assertion with a dump, or that passes.
 
 Spec: [spec.md](spec.md). ADR:
 [0001-test-suite-layers.md](../../docs/adr/0001-test-suite-layers.md).

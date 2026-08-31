@@ -8,12 +8,15 @@ checklists may add cases; they must not put a wrapper assertion on a GPU.
 
 CI on `main` must fail when a real bug lands, and pass when the tree is sound. A
 flake must not be the common outcome. The suite keeps the coverage that would
-catch a real bug, and stops paying for coverage that only re-rolls the same live
-engine.
+catch a real bug, including live GPU coverage on every architecture that can
+disagree.
+
+A live wait fails as one assertion with a dump, or it passes. It must not hang
+until the job is cancelled, and one native abort must not void the rest of the
+suite.
 
 The overhaul does not quarantine tests as the default fix, and it does not add
-retries inside test bodies. A flake is a test on the wrong seam or a job that
-multiplies that test.
+retries inside test bodies. `ci-retry` stays infra-only.
 
 ## Diagnosis
 
@@ -114,6 +117,15 @@ overhaul.
 - Rewrites the macOS surface-loss feature-state case to assert stored feature
   state and a restored render session. `FeatureStateTest` keeps the pixel proof
   that feature state changes the style.
+
+## What the reliability wave changes
+
+- Live Compose waits use `waitUntilLive` and dump presentation, style, attach
+  count, and layer ids.
+- `runFfiComposeUiTest` disposes map content, then closes the process runtime,
+  then calls `resetForTest()`.
+- Each `maplibre-compose` instrumented test runs in its own Orchestrator
+  process. The hang watchdog can still kill that one process.
 
 ## What this wave does not change
 

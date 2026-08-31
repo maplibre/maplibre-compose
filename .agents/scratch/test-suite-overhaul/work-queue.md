@@ -12,6 +12,14 @@ architecture. Material 3 stays without tests.
 | 5     | 09     | Local `test:desktop-unit` allowlist of layer 0–2 JVM classes. CI still runs full `test:desktop`.                                                                                          | `build.gradle.kts`, `mise.toml` — done                                     |
 | 6     | 07     | Host retain/replace/remount on `FakeMlnFfiMapHost`. Composition methods that still call `createNativeMapRuntime` stayed live. Android EGL replacement frame stays live.                   | `MlnFfiMapSurfaceReplacementTest.kt`, `MlnFfiMapHostSessionRequestTest.kt` |
 
+Reliability wave (live GPU stays):
+
+| Order | Ticket | Work                                                                                                                          | Files                                                                |
+| ----- | ------ | ----------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| 7     | 11     | `waitUntilLive` dumps presentation, style, attach count, and layer ids. Recognition and FakeHost stay on Compose `waitUntil`. | `LiveWait.kt`, composition / style-switch / layer-click / host tests |
+| 8     | 12     | Dispose map content before `resetForTest()`. Per-method cache. Close the process runtime.                                     | `FfiComposeTestPlatform.*`, `NativeMapRuntime.kt`                    |
+| 9     | 13     | Orchestrator on `maplibre-compose` device tests. Do not widen `ci-retry`.                                                     | `android-library-conventions`, catalog, `ci.yml`                     |
+
 Keep as-is (swarm consensus):
 
 - `commonTest` and `lib/location*` fakes

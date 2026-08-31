@@ -8,10 +8,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.test.ExperimentalTestApi
 import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertNotSame
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlinx.io.files.Path
 import org.maplibre.compose.desktop.ComposeGpuContext
 import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.desktop.ProvideMapPresentationHost
@@ -20,19 +22,25 @@ import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiApplication
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
+import org.maplibre.compose.mlnffi.waitUntilLive
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.render.RenderBackend
 
 @OptIn(ExperimentalTestApi::class)
 class DesktopPresentationHostLifetimeTest {
-  private val cacheFile = FfiTestPlatform.createCacheFile()
-  private val runtimeOptions =
-    MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+  private lateinit var cacheFile: Path
+  private lateinit var runtimeOptions: MlnFfiRuntimeOptions
+
+  @BeforeTest
+  fun createCache() {
+    cacheFile = FfiTestPlatform.createCacheFile()
+    runtimeOptions = MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+  }
 
   @AfterTest
   fun cleanUp() {
-    FfiTestPlatform.deleteCacheFile(cacheFile)
+    if (::cacheFile.isInitialized) FfiTestPlatform.deleteCacheFile(cacheFile)
   }
 
   @Test
@@ -52,12 +60,22 @@ class DesktopPresentationHostLifetimeTest {
           MaplibreMap(state)
         }
       }
-      waitUntil(timeoutMillis = 10_000) { state.presentation != null }
+      waitUntilLive(
+        "the first desktop host to publish a presentation",
+        timeoutMillis = 10_000,
+        state = state,
+      ) {
+        state.presentation != null
+      }
       val firstPresentation = requireNotNull(state.presentation)
       val engine = firstPresentation.adapter
 
       runOnIdle { host = ContextlessPresentationHost("second", equalityKey = "same") }
-      waitUntil(timeoutMillis = 10_000) {
+      waitUntilLive(
+        "the replacement host to publish a new presentation",
+        timeoutMillis = 10_000,
+        state = state,
+      ) {
         state.presentation != null && state.presentation !== firstPresentation
       }
 

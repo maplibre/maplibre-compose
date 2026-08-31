@@ -22,6 +22,7 @@ import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiApplication
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
+import org.maplibre.compose.mlnffi.waitUntilLive
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.Position
 
@@ -37,18 +38,33 @@ class AndroidMapStateRecreationTest {
 
     try {
       runAndroidComposeUiTest<MapStateRecreationActivity> {
-        waitUntil(timeoutMillis = TIMEOUT_MILLIS) { activity?.mapState?.presentation != null }
+        waitUntilLive(
+          "the recreation activity to publish a presentation",
+          timeoutMillis = TIMEOUT_MILLIS,
+          state = activity?.mapState,
+        ) {
+          activity?.mapState?.presentation != null
+        }
         val firstActivity = requireNotNull(activity)
         val firstState = requireNotNull(firstActivity.mapState)
         assertTrue(firstActivity.defaultRuntimeIsShared)
 
         runOnIdle { requireNotNull(firstState.presentation).setCameraPosition(EXPECTED_CAMERA) }
-        waitUntil(timeoutMillis = TIMEOUT_MILLIS) {
+        waitUntilLive(
+          "the first activity camera to reach the native map",
+          timeoutMillis = TIMEOUT_MILLIS,
+          state = firstState,
+        ) {
           firstState.presentation?.adapter?.hasCamera(EXPECTED_CAMERA) == true
         }
 
         runOnIdle { firstActivity.recreate() }
-        waitUntil(timeoutMillis = TIMEOUT_MILLIS) {
+        waitUntilLive(
+          "the recreated activity to restore the camera",
+          timeoutMillis = TIMEOUT_MILLIS,
+          state = activity?.mapState,
+          extra = { "sameActivity=${activity === firstActivity}" },
+        ) {
           activity != null &&
             activity !== firstActivity &&
             activity?.mapState?.presentation?.adapter?.hasCamera(EXPECTED_CAMERA) == true

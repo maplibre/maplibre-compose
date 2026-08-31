@@ -274,6 +274,7 @@ val jvmUnitTestClasses =
     "org.maplibre.compose.map.MlnFfiMapHostSessionRequestTest",
     "org.maplibre.compose.map.TapPairingTest",
     "org.maplibre.compose.mlnffi.FileUrlTest",
+    "org.maplibre.compose.mlnffi.LiveWaitTest",
     "org.maplibre.compose.mlnffi.MlnFfiMapSurfaceRecoveryTest",
     "org.maplibre.compose.mlnffi.MlnFfiMapSurfaceReplacementTest",
     "org.maplibre.compose.mlnffi.MlnFfiOwnerThreadTest",
@@ -366,3 +367,6 @@ gradle.taskGraph.whenReady {
   isolated.filter.setIncludePatterns(*selected.flatMap { listOf(it, "$it.*") }.toTypedArray())
   isolated.onlyIf { selected.isNotEmpty() }
 }
+
+// Orchestrator APK. Installed on the device beside the test APK; not compiled into it.
+dependencies { "androidTestUtil"(libs.androidx.test.orchestrator) }

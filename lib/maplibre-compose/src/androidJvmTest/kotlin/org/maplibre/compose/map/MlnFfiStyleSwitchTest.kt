@@ -10,11 +10,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.ExperimentalTestApi
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNotSame
 import kotlin.test.assertTrue
+import kotlinx.io.files.Path
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.Anchor
@@ -26,6 +28,7 @@ import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
 import org.maplibre.compose.mlnffi.setFfiTestMapContent
+import org.maplibre.compose.mlnffi.waitUntilLive
 import org.maplibre.compose.resource.MlnFfiResourceProvider
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
@@ -47,14 +50,18 @@ import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
 @OptIn(ExperimentalTestApi::class)
 class MlnFfiStyleSwitchTest {
 
-  private val cacheFile = FfiTestPlatform.createCacheFile()
+  private lateinit var cacheFile: Path
+  private lateinit var runtimeOptions: MlnFfiRuntimeOptions
 
-  private val runtimeOptions =
-    MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+  @BeforeTest
+  fun createCache() {
+    cacheFile = FfiTestPlatform.createCacheFile()
+    runtimeOptions = MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+  }
 
   @AfterTest
   fun cleanUp() {
-    FfiTestPlatform.deleteCacheFile(cacheFile)
+    if (::cacheFile.isInitialized) FfiTestPlatform.deleteCacheFile(cacheFile)
   }
 
   @Test
@@ -83,7 +90,11 @@ class MlnFfiStyleSwitchTest {
 
     // Each style finishes loading before the next is chosen; switching mid-load is a separate race
     // this test deliberately does not cover.
-    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+    waitUntilLive(
+      "the first style to publish a presentation",
+      timeoutMillis = SETTLE_TIMEOUT_MILLIS,
+      state = state,
+    ) {
       state.presentation != null && state.style.loadState == StyleLoadState.Ready
     }
     val session = requireNotNull(state.presentation).adapter as MlnFfiMapSession
@@ -96,7 +107,11 @@ class MlnFfiStyleSwitchTest {
         extraLayer = !extraLayer
         state.style.baseStyle = style.base
       }
-      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+      waitUntilLive(
+        "the rotated style to replace the previous identity",
+        timeoutMillis = SETTLE_TIMEOUT_MILLIS,
+        state = state,
+      ) {
         state.style.loadState == StyleLoadState.Ready && session.loadedStyleIdentity != identity
       }
       val replacementIdentity = assertNotNull(session.loadedStyleIdentity)
@@ -132,13 +147,22 @@ class MlnFfiStyleSwitchTest {
 
     setFfiTestMapContent(runtimeOptions) { MaplibreMap(state, composition, Modifier) }
 
-    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+    waitUntilLive(
+      "the first style to publish a presentation",
+      timeoutMillis = SETTLE_TIMEOUT_MILLIS,
+      state = state,
+    ) {
       state.presentation != null && state.style.loadState == StyleLoadState.Ready
     }
     val session = requireNotNull(state.presentation).adapter as MlnFfiMapSession
     fun replacementLayers(): List<String> =
       session.currentStyleLayerIds().filter { it in REPLACEMENT_LAYER_IDS }
-    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+    waitUntilLive(
+      "the first replacement layers",
+      timeoutMillis = SETTLE_TIMEOUT_MILLIS,
+      state = state,
+      extra = { "layers=${replacementLayers()}" },
+    ) {
       replacementLayers() == listOf("bg-a", "user-replacement")
     }
 
@@ -147,14 +171,28 @@ class MlnFfiStyleSwitchTest {
       sourceLayer = "roads"
       state.style.baseStyle = style
     }
-    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+    waitUntilLive(
+      "the rotated replacement style to become ready",
+      timeoutMillis = SETTLE_TIMEOUT_MILLIS,
+      state = state,
+    ) {
       state.style.loadState == StyleLoadState.Ready
     }
-    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+    waitUntilLive(
+      "the rotated replacement layers",
+      timeoutMillis = SETTLE_TIMEOUT_MILLIS,
+      state = state,
+      extra = { "layers=${replacementLayers()}" },
+    ) {
       replacementLayers() == listOf("bg-b", "user-replacement")
     }
     runOnUiThread { showReplacement = false }
-    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+    waitUntilLive(
+      "the replacement layer to leave the style",
+      timeoutMillis = SETTLE_TIMEOUT_MILLIS,
+      state = state,
+      extra = { "layers=${replacementLayers()}" },
+    ) {
       replacementLayers() == listOf("bg-b", "base-slot")
     }
     runtime.close()
@@ -191,7 +229,11 @@ class MlnFfiStyleSwitchTest {
 
     setFfiTestMapContent(options) { MaplibreMap(state, composition, Modifier) }
 
-    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+    waitUntilLive(
+      "the first style to publish a presentation",
+      timeoutMillis = SETTLE_TIMEOUT_MILLIS,
+      state = state,
+    ) {
       state.presentation != null && state.style.loadState == StyleLoadState.Ready
     }
     val session = requireNotNull(state.presentation).adapter as MlnFfiMapSession
@@ -199,7 +241,11 @@ class MlnFfiStyleSwitchTest {
     runOnUiThread {
       state.style.baseStyle = BaseStyle.Uri(B_STYLE_URL)
     }
-    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+    waitUntilLive(
+      "style B to start loading",
+      timeoutMillis = SETTLE_TIMEOUT_MILLIS,
+      state = state,
+    ) {
       resources.styleBStarted.count == 0L
     }
 
@@ -209,7 +255,11 @@ class MlnFfiStyleSwitchTest {
     }
     resources.releaseStyleB.countDown()
 
-    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+    waitUntilLive(
+      "the latest style to install user-latest",
+      timeoutMillis = SETTLE_TIMEOUT_MILLIS,
+      state = state,
+    ) {
       state.style.loadState == StyleLoadState.Ready &&
         "user-latest" in session.currentStyleLayerIds()
     }
@@ -237,7 +287,13 @@ class MlnFfiStyleSwitchTest {
     fun relevantLayers(): List<String> =
       session.currentStyleLayerIds().filter { it in RELEVANT_LAYER_IDS }
 
-    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { relevantLayers() == expected }
+    waitUntilLive(
+      "style layers $expected",
+      timeoutMillis = SETTLE_TIMEOUT_MILLIS,
+      extra = { "layers=${relevantLayers()}" },
+    ) {
+      relevantLayers() == expected
+    }
     assertEquals(expected, relevantLayers(), "live style layer order")
   }
 
