@@ -281,8 +281,8 @@ internal class MapLifecycleAuthority(
    * Seeds the published presentation from [adapter] after that adapter first has a viewport.
    *
    * Publication also seeds, but the first frame snapshot can arrive while the lease is still
-   * attaching. [acceptPresentationEvent] then rejects the camera callback, and an idle empty style
-   * may never emit another one.
+   * attaching. The attach-gated camera callback is then rejected, and an idle empty style may never
+   * emit another one.
    */
   fun seedCurrentPresentationViewport(adapter: MapAdapter) {
     val token =
