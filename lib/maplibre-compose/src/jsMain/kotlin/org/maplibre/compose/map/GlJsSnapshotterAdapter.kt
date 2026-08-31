@@ -183,6 +183,7 @@ private class GlJsSnapshotterAdapter(private val logger: Logger?) : SnapshotterA
         attributionControl = false
         maplibreLogo = false
         pixelRatio = request.density.toDouble()
+        maxCanvasSize = arrayOf(MAX_CANVAS_SIZE.toDouble(), MAX_CANVAS_SIZE.toDouble())
         canvasContextAttributes =
           unsafeJso<CanvasContextAttributes> { preserveDrawingBuffer = true }
       }
@@ -214,6 +215,13 @@ private class GlJsSnapshotterAdapter(private val logger: Logger?) : SnapshotterA
 
   private fun size(container: HTMLElement, request: MapSnapshotRequest) {
     val extent = MapExtent.fromPhysical(request.width, request.height, request.density.toDouble())
+    val rendered = MapExtent.fromLogical(extent.width, extent.height, extent.scaleFactor)
+    require(
+      rendered.physicalWidth <= MAX_CANVAS_SIZE && rendered.physicalHeight <= MAX_CANVAS_SIZE
+    ) {
+      "The Web snapshot needs a ${rendered.physicalWidth}x${rendered.physicalHeight} canvas, " +
+        "which exceeds MapLibre GL JS's ${MAX_CANVAS_SIZE}px canvas limit"
+    }
     container.style.width = "${extent.width}px"
     container.style.height = "${extent.height}px"
   }
@@ -271,6 +279,7 @@ private class GlJsSnapshotterAdapter(private val logger: Logger?) : SnapshotterA
   }
 
   private companion object {
+    const val MAX_CANVAS_SIZE = 4_096
     const val SNAPSHOTTER_TARGET_ATTRIBUTE = "data-maplibre-compose-snapshotter"
   }
 }

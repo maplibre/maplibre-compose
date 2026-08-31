@@ -1297,7 +1297,8 @@ internal class GlJsMapSession(
 
   internal companion object {
     const val OFFSCREEN_CONTAINER_STYLE =
-      "position:absolute;left:-10000px;top:0;visibility:hidden;pointer-events:none;"
+      "all:initial;position:absolute;display:block;left:-10000px;top:0;" +
+        "visibility:hidden;pointer-events:none;"
 
     var createdCount: Int = 0
       private set

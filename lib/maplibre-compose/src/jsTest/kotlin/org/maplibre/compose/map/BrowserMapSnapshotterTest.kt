@@ -10,6 +10,7 @@ import kotlin.js.Promise
 import kotlin.js.js
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -221,6 +222,53 @@ class BrowserMapSnapshotterTest {
       runtime.awaitClosed()
     }
   }
+
+  @Test
+  fun page_css_does_not_change_the_private_viewport(): Promise<*> = runBrowserMapTest {
+    val pageStyle = document.createElement("style").unsafeCast<HTMLElement>()
+    pageStyle.textContent =
+      "[data-maplibre-compose-snapshotter] { " +
+        "box-sizing: border-box; border: 7px solid; padding: 11px; }"
+    document.body?.appendChild(pageStyle.asDynamic())
+    val runtime = createMapRuntime(MapRuntimeOptions())
+    val snapshotter = runtime.createSnapshotter(BASE_STYLE, StyleComposition {})
+    try {
+      val captured = snapshotter.capture(MapSnapshotRequest(width = 31, height = 23))
+      val target = assertNotNull(snapshotTargets().singleOrNull())
+
+      assertEquals(31, captured.width)
+      assertEquals(23, captured.height)
+      assertEquals(31, target.clientWidth)
+      assertEquals(23, target.clientHeight)
+    } finally {
+      snapshotter.close()
+      snapshotter.awaitClosed()
+      runtime.close()
+      runtime.awaitClosed()
+      pageStyle.remove()
+    }
+  }
+
+  @Test
+  fun a_request_above_the_web_canvas_limit_fails_before_map_creation(): Promise<*> =
+    runBrowserMapTest {
+      val runtime = createMapRuntime(MapRuntimeOptions())
+      val snapshotter = runtime.createSnapshotter(BASE_STYLE, StyleComposition {})
+      try {
+        val error =
+          assertFailsWith<IllegalArgumentException> {
+            snapshotter.capture(MapSnapshotRequest(width = 4_097, height = 1))
+          }
+
+        assertTrue(error.message.orEmpty().contains("4096px canvas limit"))
+        assertEquals(0, snapshotTargets().size)
+      } finally {
+        snapshotter.close()
+        snapshotter.awaitClosed()
+        runtime.close()
+        runtime.awaitClosed()
+      }
+    }
 
   @Test
   fun a_density_change_reapplies_an_unchanged_style_image(): Promise<*> = runBrowserMapTest {
