@@ -327,9 +327,12 @@ internal class MapSnapshotterImplementation(
       }
     val operation =
       launch(start = CoroutineStart.LAZY) {
-        val claim = claimStyle()
+        var claim: StyleClaim? = null
         try {
-          val binding = platform.prepare(claim.baseStyle, claim.revision, capture.request)
+          val currentClaim = claimStyle()
+          claim = currentClaim
+          val binding =
+            platform.prepare(currentClaim.baseStyle, currentClaim.revision, capture.request)
           val request = capture.request
           val revision =
             styleEvaluator.evaluate(
@@ -337,14 +340,14 @@ internal class MapSnapshotterImplementation(
               binding,
               Density(request.density, request.fontScale),
               request.layoutDirection,
-              claim.ownership,
+              currentClaim.ownership,
             )
-          recordStyleOwnership(claim, revision)
+          recordStyleOwnership(currentClaim, revision)
           val image = platform.capture(request, revision)
-          publishStyle(claim, binding, revision)
+          publishStyle(currentClaim, binding, revision)
           capture.resume(image)
         } catch (error: Throwable) {
-          if (error !is CancellationException) publishStyleFailure(claim, error)
+          if (error !is CancellationException) claim?.let { publishStyleFailure(it, error) }
           capture.resumeFailure(error)
         }
       }

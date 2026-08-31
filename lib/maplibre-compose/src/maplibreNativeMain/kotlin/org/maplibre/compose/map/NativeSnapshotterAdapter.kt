@@ -90,8 +90,8 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
     reconciler.apply(binding, revision)
     configureRequest(request)
     val rendering = CompletableDeferred<Result<Unit>>()
-    terminalOperation = rendering
     stillImageOperation = true
+    terminalOperation = rendering
     renderedFrame = false
     try {
       postToMap { map -> map.requestStillImage() }
