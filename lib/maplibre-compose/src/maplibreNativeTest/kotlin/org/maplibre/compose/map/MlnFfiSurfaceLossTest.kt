@@ -143,24 +143,29 @@ class MlnFfiSurfaceLossTest {
       style.install(layer)
 
       style.setFeatureState(source.id, null, "1", state("before-surface"))
-      it.frame()
       it.pumpUntil("the incomplete feature state to render blue") {
-        it.readPixel(CENTER, CENTER).isNear(BLUE)
+        it.tryReadPixel(CENTER, CENTER)?.isNear(BLUE) == true
       }
       it.loseSurface()
       style.setFeatureState(source.id, null, "1", state("without-surface"))
+      assertEquals(
+        state("before-surface", "without-surface"),
+        style.featureState(source.id, null, "1"),
+      )
       it.restoreSurface()
-      it.frame()
       it.pumpUntil("feature state to replay into the replacement renderer") {
-        it.readPixel(CENTER, CENTER).isNear(RED)
+        it.tryReadPixel(CENTER, CENTER)?.isNear(RED) == true
       }
 
       it.loseSurface()
       style.resetFeatureStates(source.id, null)
+      assertEquals(
+        JsonObject(emptyMap()),
+        style.featureState(source.id, null, "1"),
+      )
       it.restoreSurface()
-      it.frame()
       it.pumpUntil("the reset feature state to replay") {
-        it.readPixel(CENTER, CENTER).isNear(BLUE)
+        it.tryReadPixel(CENTER, CENTER)?.isNear(BLUE) == true
       }
     }
   }
@@ -195,7 +200,9 @@ class MlnFfiSurfaceLossTest {
     /** Camera round trips lose a little precision through the projection. */
     const val TOLERANCE = 1e-3
 
-    fun state(key: String): JsonObject = buildJsonObject { put(key, true) }
+    fun state(vararg keys: String): JsonObject = buildJsonObject {
+      keys.forEach { key -> put(key, true) }
+    }
 
     fun assertNear(expected: Double, actual: Double, message: String) {
       assertTrue(abs(expected - actual) < TOLERANCE, "$message (expected $expected, got $actual)")

@@ -139,7 +139,16 @@ private constructor(
   }
 
   /** Reads one rendered RGBA pixel back from the platform/backend target. */
-  fun readPixel(x: Int, y: Int): RgbaPixel = driver.readPixel(x, y)
+  fun readPixel(x: Int, y: Int): RgbaPixel =
+    checkNotNull(tryReadPixel(x, y)) { "No production bridge frame has been presented" }
+
+  /**
+   * One rendered pixel after the current surface has presented a frame, or null.
+   *
+   * [readPixel] requires that presentation. A [pumpUntil] condition uses this so a skipped frame
+   * waits for the next one.
+   */
+  fun tryReadPixel(x: Int, y: Int): RgbaPixel? = if (hasRendered) driver.readPixel(x, y) else null
 
   /** Renders frames until MapLibre has drawn once, so the map is known to exist. */
   fun pumpUntilRendered(extent: MapExtent = initialExtent, timeout: Duration = 30.seconds) {
