@@ -253,15 +253,89 @@ val jvmProcessGlobalTest =
     }
   }
 
+// Layers 0–2 only. Used by `-Pmaplibre.tests=unit` / `mise run test:desktop-unit`.
+// Explicit class names, not package prefixes: MlnFfiConversionsTest and
+// MlnFfiMapPixelTest share a package. Do not allowlist PlatformMapAccessTest,
+// MlnFfiOffline*, or MapLibreConfigurationTest — they open a runtime or cache.
+val jvmUnitTestClasses =
+  listOf(
+    "org.maplibre.compose.layers.SymbolLayerCompositionTest",
+    "org.maplibre.compose.layers.UnknownLayerJsonTest",
+    "org.maplibre.compose.location.LocationPuckTest",
+    "org.maplibre.compose.location.LocationStateTest",
+    "org.maplibre.compose.map.GestureContinuationTest",
+    "org.maplibre.compose.map.GestureMathTest",
+    "org.maplibre.compose.map.MapExtentTest",
+    "org.maplibre.compose.map.MapInputRecognitionTest",
+    "org.maplibre.compose.map.MapLifecycleBindingTest",
+    "org.maplibre.compose.map.MapLifecycleCallbackRaceTest",
+    "org.maplibre.compose.map.MapPresentationTest",
+    "org.maplibre.compose.map.MapRuntimeTest",
+    "org.maplibre.compose.map.MlnFfiMapHostSessionRequestTest",
+    "org.maplibre.compose.map.TapPairingTest",
+    "org.maplibre.compose.mlnffi.FileUrlTest",
+    "org.maplibre.compose.mlnffi.MlnFfiMapSurfaceRecoveryTest",
+    "org.maplibre.compose.mlnffi.MlnFfiMapSurfaceReplacementTest",
+    "org.maplibre.compose.mlnffi.MlnFfiOwnerThreadTest",
+    "org.maplibre.compose.mlnffi.MlnFfiPathTest",
+    "org.maplibre.compose.mlnffi.RenderBackendNegotiationTest",
+    "org.maplibre.compose.offline.OfflineProgressMappingTest",
+    "org.maplibre.compose.overlay.EllipseIntersectionTest",
+    "org.maplibre.compose.overlay.MapOverlayTest",
+    "org.maplibre.compose.overlay.MaplibreLogoTest",
+    "org.maplibre.compose.resource.DesktopResourceReadTest",
+    "org.maplibre.compose.resource.MlnFfiResourceProviderTest",
+    "org.maplibre.compose.resource.MlnFfiResourceRequestTest",
+    "org.maplibre.compose.sources.CustomSourceDefinitionTest",
+    "org.maplibre.compose.sources.GeoJsonConflationTest",
+    "org.maplibre.compose.sources.MlnFfiFeatureStateStoreTest",
+    "org.maplibre.compose.sources.MlnFfiTileRequestCoordinatorTest",
+    "org.maplibre.compose.sources.RasterDemSourceJsonTest",
+    "org.maplibre.compose.sources.SourceJsonTest",
+    "org.maplibre.compose.sources.TileCoordinateTest",
+    "org.maplibre.compose.style.StyleCompositionEvaluatorTest",
+    "org.maplibre.compose.style.StyleCompositionOrderTest",
+    "org.maplibre.compose.style.StyleDefinitionAndIdentityTest",
+    "org.maplibre.compose.style.StyleNodeTest",
+    "org.maplibre.compose.style.StyleOwnershipTest",
+    "org.maplibre.compose.testing.RecordingListTest",
+    "org.maplibre.compose.util.AngleMathTest",
+    "org.maplibre.compose.util.ExpressionJsonTest",
+    "org.maplibre.compose.util.ExpressionSplitJoinTest",
+    "org.maplibre.compose.util.ExpressionSwitchTest",
+    "org.maplibre.compose.util.ImagePremultiplyTest",
+    "org.maplibre.compose.util.ImageStretchResolveTest",
+    "org.maplibre.compose.util.JsonConversionsTest",
+    "org.maplibre.compose.util.MlnFfiConversionsTest",
+    "org.maplibre.compose.util.NumberFormatterTest",
+    "org.maplibre.compose.desktop.skiko.SkikoReflectionContractTest",
+  )
+
+val unitTestsOnly = providers.gradleProperty("maplibre.tests").orNull == "unit"
+
 jvmTestTask.configure {
-  filter {
-    jvmProcessGlobalTestClasses.forEach { className ->
-      excludeTestsMatching(className)
-      excludeTestsMatching("$className.*")
+  if (unitTestsOnly) {
+    filter {
+      jvmUnitTestClasses.forEach { className ->
+        includeTestsMatching(className)
+        includeTestsMatching("$className.*")
+      }
+      isFailOnNoMatchingTests = true
     }
-    isFailOnNoMatchingTests = false
+  } else {
+    filter {
+      jvmProcessGlobalTestClasses.forEach { className ->
+        excludeTestsMatching(className)
+        excludeTestsMatching("$className.*")
+      }
+      isFailOnNoMatchingTests = false
+    }
+    dependsOn(jvmProcessGlobalTest)
   }
-  dependsOn(jvmProcessGlobalTest)
+}
+
+if (unitTestsOnly) {
+  jvmProcessGlobalTest.configure { enabled = false }
 }
 
 // `--tests` is stored on DefaultTestFilter, not on the public TestFilter type,
@@ -269,6 +343,7 @@ jvmTestTask.configure {
 // onto the isolated task so `jvmTest --tests FileUrlTest` does not run these
 // classes. Skip the isolated task when the filter cannot select one of them.
 gradle.taskGraph.whenReady {
+  if (unitTestsOnly) return@whenReady
   val jvmTest = jvmTestTask.get()
   val isolated = jvmProcessGlobalTest.get()
   if (!hasTask(jvmTest) || !hasTask(isolated)) return@whenReady

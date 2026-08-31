@@ -9,7 +9,7 @@ architecture.
 
 **Type:** task
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 KMP compiles `commonTest`, `liveMapTest`, `maplibreNativeTest`, and `jvmTest`
 into one `jvmTest` task, so source sets cannot be run apart at execution time
@@ -39,8 +39,25 @@ Do not allowlist `PlatformMapAccessTest` or any `MlnFfiOffline*` class. They
 create no GPU but they open a runtime or cache. Point `FileUrlTest` at a `Path`
 first, or `createCacheFile()` still loads the native library.
 
+- [x] `-Pmaplibre.tests=unit` allowlists layer 0–2 JVM classes by full name.
+- [x] `mise run test:desktop-unit` runs that filter.
+- [x] `mise run test:desktop` stays `all` and is what CI runs.
+- [x] Process-global classes stay off the unit allowlist.
+
+## Answer
+
+`lib/maplibre-compose/build.gradle.kts` reads `-Pmaplibre.tests=unit` and
+allowlists layer 0–2 classes by fully qualified name. The list includes
+`commonTest`, FakeHost recovery and replacement, native conversions, and
+Compose-only overlay cases. It omits `MlnFfiMapPixelTest`, every
+`BridgeMapFixture` class, `PlatformMapAccessTest`, the `MlnFfiOffline*` classes,
+and `MapLibreConfigurationTest`.
+
+`jvmProcessGlobalTest` is disabled under the unit filter so a machine with no
+GPU does not open a cache or a second runtime.
+
 ## Test ledger
 
-- `test:desktop-unit` creates no Vulkan/Metal/D3D context.
-- `test:desktop` still runs every live class on a machine with a GPU.
-- No CI job switches from `test:desktop` to the unit filter.
+- [x] `test:desktop-unit` creates no Vulkan/Metal/D3D context.
+- [x] `test:desktop` still runs every live class on a machine with a GPU.
+- [x] No CI job switches from `test:desktop` to the unit filter.

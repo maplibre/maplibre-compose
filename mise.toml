@@ -201,6 +201,10 @@ else
 fi
 '''
 
+[tasks."test:desktop-unit"]
+description = "Run layers 0–2 of the desktop JVM suite without a GPU render driver."
+run = "./gradlew jvmTest -Pmaplibre.tests=unit"
+
 [tasks."build:docs"]
 description = "Build the documentation site and the Dokka API reference into docs/dist."
 run = "mise run //docs:build"

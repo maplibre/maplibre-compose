@@ -151,6 +151,8 @@ job ran:
 - `mise run test:ios`
 - `mise run test:js`
 - `mise run test:desktop`
+- `mise run test:desktop-unit` — layers 0–2, no GPU. CI still runs
+  `test:desktop`.
 
 Put a new test on the cheapest layer that can catch the bug. A live MapLibre
 runtime is for engine contracts. A pixel is for color or framebuffer ownership.
