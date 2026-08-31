@@ -14,7 +14,7 @@ import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.toImageBitmap
 import org.maplibre.spatialk.geojson.Position
 
-/** One immutable source definition that can be installed in any loaded style. */
+/** Defines an immutable source that can be installed in any loaded style. */
 internal sealed interface SourceDefinition {
   val id: String
 
@@ -54,7 +54,7 @@ internal sealed interface SourceDefinition {
   ) : SourceDefinition
 }
 
-/** One immutable layer definition. Layer placement belongs to the desired style revision. */
+/** Defines an immutable layer. The desired style revision specifies its placement. */
 internal data class LayerDefinition(
   val id: String,
   val type: String,
@@ -63,9 +63,7 @@ internal data class LayerDefinition(
   val unsupportedProperties: Map<String, String> = emptyMap(),
 )
 
-/**
- * One resolved image definition. It contains no painter, composition, or loaded-style reference.
- */
+/** Defines a resolved image without a painter, composition, or loaded-style reference. */
 internal data class StyleImageDefinition(
   val id: String,
   val image: ImageSnapshot,
@@ -73,7 +71,7 @@ internal data class StyleImageDefinition(
   val stretch: ImageStretch?,
 )
 
-/** An engine-neutral image value that stores an independent copy of its pixels. */
+/** Stores an independent pixel copy in an engine-neutral format. */
 internal class ImageSnapshot
 private constructor(
   val width: Int,

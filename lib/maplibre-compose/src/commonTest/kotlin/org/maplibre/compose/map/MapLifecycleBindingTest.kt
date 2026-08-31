@@ -330,6 +330,19 @@ class MapLifecycleBindingTest {
   }
 
   @Test
+  fun a_late_attach_start_is_inert_after_closure_begins() = runTest {
+    val adapter = FakeMapLifecycleAdapter().apply { allowResources = CompletableDeferred() }
+    val lifecycle = bindLifecycle(adapter)
+    lifecycle.close()
+
+    assertTrue(!lifecycle.beginAttachIfOpen())
+
+    adapter.allowResources.complete(Unit)
+    lifecycle.awaitClosed()
+    assertEquals(listOf("close resources"), adapter.commands)
+  }
+
+  @Test
   fun detach_during_failed_engine_creation_cleans_partial_engine_resources() = runTest {
     val adapter =
       FakeMapLifecycleAdapter().apply {

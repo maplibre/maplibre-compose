@@ -84,20 +84,14 @@ internal sealed class Layer(val id: String) {
     root["filter"] = filter
   }
 
-  /** Property names asked for and not written, with why not; the live handle reports these once. */
+  /** Unsupported property names and their error messages. */
   private val unsupportedProperties = mutableMapOf<String, String>()
 
   /**
-   * Records a property [binding] will not accept, and says so once when attached; writing it anyway
-   * would make MapLibre refuse the entire layer. A null value asks for nothing and is not reported.
+   * Omits an unsupported [value] and records [reason] for one warning after attachment.
    *
-   * @return whether the property is unsupported and must not be written.
-   */
-  /**
-   * Drops a value MapLibre will not accept for a property it otherwise supports, and says so once.
-   * Properties an engine lacks outright belong in the loaded style's unsupported-property table.
-   *
-   * @param value the value that was asked for. A null literal asks for nothing and is not reported.
+   * A null literal does not set the property and does not produce a warning. Use the loaded style's
+   * unsupported-property table when an engine does not implement the property.
    */
   protected fun skipUnsupportedProperty(
     name: String,
@@ -109,8 +103,8 @@ internal sealed class Layer(val id: String) {
   }
 
   /**
-   * The complete layer object, as the style spec defines it. Null-valued properties are omitted;
-   * the spec has no null, and MapLibre rejects the whole layer over one.
+   * Returns the complete layer object defined by the style spec. This omits null-valued properties
+   * because the style spec does not permit null property values.
    */
   internal fun toJson(): JsonObject = buildJsonObject {
     // `id` and `type` first: MapLibre reads the type before the properties that depend on it.

@@ -9,11 +9,7 @@ import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.style.StyleIdentity
 import org.maplibre.compose.style.StyleMutationException
 
-/**
- * Imperative property access to one layer in one loaded base-style generation.
- *
- * A mutation that MapLibre refuses throws [StyleHandleException].
- */
+/** Provides imperative property access to a layer for one loaded base-style generation. */
 public class LayerHandle
 internal constructor(
   public val id: String,
@@ -28,17 +24,17 @@ internal constructor(
     return operation { style.layerProperty(id, name) }
   }
 
-  /** Sets one layout [property][name] for this loaded style. */
+  /** Sets the layout property [name] for this loaded style. */
   public fun setLayoutProperty(name: String, value: JsonElement) {
     setProperty(name, value, LayerPropertyKind.LAYOUT)
   }
 
-  /** Sets one paint [property][name] for this loaded style. */
+  /** Sets the paint property [name] for this loaded style. */
   public fun setPaintProperty(name: String, value: JsonElement) {
     setProperty(name, value, LayerPropertyKind.PAINT)
   }
 
-  /** Sets one top-level [property][name], such as `minzoom`, for this loaded style. */
+  /** Sets the top-level property [name], such as `minzoom`, for this loaded style. */
   public fun setRootProperty(name: String, value: JsonElement) {
     operation {
       mutate(name) {

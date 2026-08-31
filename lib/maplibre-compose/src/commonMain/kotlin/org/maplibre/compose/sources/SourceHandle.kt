@@ -23,7 +23,7 @@ import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
 
-/** Imperative access to one source in one loaded base-style generation. */
+/** Provides imperative access to a source for one loaded base-style generation. */
 public sealed class SourceHandle
 protected constructor(
   public val id: String,
@@ -42,7 +42,7 @@ protected constructor(
     }
   }
 
-  /** The source attribution that the current loaded style reports. */
+  /** Contains the source attribution from the current loaded style. */
   public val attributionHtml: String
     get() = operation { style.getSource(id)?.attributionHtml.orEmpty() }
 
@@ -81,11 +81,7 @@ protected constructor(
   }
 }
 
-/**
- * Imperative access to one GeoJSON source in one loaded base-style generation.
- *
- * A mutation that MapLibre refuses throws [StyleHandleException].
- */
+/** Provides imperative access to a GeoJSON source for one loaded base-style generation. */
 public class GeoJsonSourceHandle
 internal constructor(
   id: String,
@@ -104,7 +100,17 @@ internal constructor(
   private val requestedData = AtomicLong(0L)
   private val installedData = AtomicLong(0L)
 
-  /** Replaces the transient data in this loaded style. A base-style reload discards the change. */
+  /**
+   * Submits [data] to replace the source data for this loaded style.
+   *
+   * A successful return means only that the update was submitted to the current source generation.
+   * The function does not define when parsing, indexing, tiling, URL loading, or rendering
+   * completes. An implementation can perform part of this work before returning and continue it
+   * afterward. A newer call supersedes an older pending update. Loading a new base style discards
+   * the submitted data.
+   *
+   * @throws StyleHandleException if submission fails before this function returns.
+   */
   public fun setData(data: GeoJsonData) {
     operation {
       val generation = requestedData.incrementAndFetch()
@@ -120,24 +126,24 @@ internal constructor(
     }
   }
 
-  /** Whether [feature] represents a cluster created by this source. */
+  /** Returns true if [feature] represents a cluster created by this source. */
   public fun isCluster(feature: Feature<*, JsonObject?>): Boolean =
     CLUSTER_ID_PROPERTY in feature.properties.orEmpty()
 
-  /** The zoom at which [feature]'s cluster breaks apart, or zero for a non-cluster feature. */
+  /** Returns the cluster expansion zoom for [feature], or zero if [feature] is not a cluster. */
   public suspend fun getClusterExpansionZoom(feature: Feature<*, JsonObject?>): Double =
     suspendingOperation {
       style.clusterExpansionZoom(id, feature) ?: 0.0
     }
 
-  /** The features one level below [feature]'s cluster, or an empty collection for a non-cluster. */
+  /** Returns the cluster children for [feature], or an empty collection for a non-cluster. */
   public suspend fun getClusterChildren(
     feature: Feature<*, JsonObject?>
   ): FeatureCollection<Geometry, JsonObject?> = suspendingOperation {
     style.clusterChildren(id, feature) ?: FeatureCollection(emptyList())
   }
 
-  /** The original points in [feature]'s cluster, or an empty collection for a non-cluster. */
+  /** Returns the cluster leaves for [feature], or an empty collection for a non-cluster. */
   public suspend fun getClusterLeaves(
     feature: Feature<*, JsonObject?>,
     limit: Long,
@@ -186,7 +192,7 @@ internal constructor(
   }
 }
 
-/** Imperative access to one vector source in one loaded base-style generation. */
+/** Provides imperative access to a vector source for one loaded base-style generation. */
 public open class VectorSourceHandle
 internal constructor(
   id: String,
@@ -227,7 +233,7 @@ internal constructor(
   }
 }
 
-/** Imperative access to one application-supplied vector source. */
+/** Provides imperative access to an application-supplied vector source. */
 public class CustomVectorSourceHandle
 internal constructor(
   id: String,
@@ -248,7 +254,7 @@ internal constructor(
   }
 }
 
-/** Imperative access to one application-supplied geometry source. */
+/** Provides imperative access to an application-supplied geometry source. */
 public class CustomGeometrySourceHandle
 internal constructor(
   id: String,
@@ -267,7 +273,7 @@ internal constructor(
   }
 }
 
-/** Imperative access to one image source in one loaded base-style generation. */
+/** Provides imperative access to an image source for one loaded base-style generation. */
 public class ImageSourceHandle
 internal constructor(
   id: String,
@@ -296,7 +302,7 @@ internal constructor(
   }
 }
 
-/** Imperative access to one raster source in one loaded base-style generation. */
+/** Provides imperative access to a raster source for one loaded base-style generation. */
 public class RasterSourceHandle
 internal constructor(
   id: String,
@@ -305,7 +311,7 @@ internal constructor(
   operations: StyleHandleOperationGuard,
 ) : SourceHandle(id, style, "raster", currentKind, operations)
 
-/** Imperative access to one raster DEM source in one loaded base-style generation. */
+/** Provides imperative access to a raster DEM source for one loaded base-style generation. */
 public class RasterDemSourceHandle
 internal constructor(
   id: String,
@@ -314,7 +320,7 @@ internal constructor(
   operations: StyleHandleOperationGuard,
 ) : SourceHandle(id, style, "raster-dem", currentKind, operations)
 
-/** Imperative access to a source type with no specialized common handle. */
+/** Provides imperative access to a source type that has no specialized common handle. */
 public class UnknownSourceHandle
 internal constructor(
   id: String,

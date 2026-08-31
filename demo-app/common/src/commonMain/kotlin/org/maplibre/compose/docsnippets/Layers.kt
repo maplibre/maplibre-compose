@@ -68,9 +68,11 @@ fun Layers() {
       // #endregion amtrak-1
 
       // #region amtrak-2
+      val detailedAmtrakRoutes =
+        rememberGeoJsonSource(GeoJsonData.Uri(Res.getUri("files/data/amtrak_routes.geojson")))
       LineLayer(
         id = "amtrak-routes",
-        source = amtrakRoutes,
+        source = detailedAmtrakRoutes,
         cap = const(LineCap.Round),
         join = const(LineJoin.Round),
         color = const(Color.Blue),
@@ -87,13 +89,19 @@ fun Layers() {
       // #endregion amtrak-2
 
       // #region anchors
-      Anchor.Above("road_motorway") { LineLayer(id = "amtrak-routes", source = amtrakRoutes) }
+      val anchoredAmtrakRoutes =
+        rememberGeoJsonSource(GeoJsonData.Uri(Res.getUri("files/data/amtrak_routes.geojson")))
+      Anchor.Above("road_motorway") {
+        LineLayer(id = "amtrak-routes", source = anchoredAmtrakRoutes)
+      }
       // #endregion anchors
 
       // #region interaction
+      val interactiveAmtrakStations =
+        rememberGeoJsonSource(GeoJsonData.Uri(Res.getUri("files/data/amtrak_stations.geojson")))
       CircleLayer(
         id = "amtrak-stations",
-        source = amtrakStations,
+        source = interactiveAmtrakStations,
         onClick = { features ->
           println("Clicked on ${features[0].toJson()}")
           ClickResult.Consume

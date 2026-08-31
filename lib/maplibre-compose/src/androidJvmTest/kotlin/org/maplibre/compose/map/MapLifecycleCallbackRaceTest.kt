@@ -10,6 +10,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
+import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.RecordingStyleBinding
 
@@ -82,6 +83,33 @@ class MapLifecycleCallbackRaceTest {
 
     assertEquals(secondStyle, state.style.baseStyle)
     assertEquals(secondStyle, adapter.lastStyle)
+    state.close()
+    runtime.close()
+  }
+
+  @Test
+  fun a_late_camera_write_replays_the_latest_durable_camera() {
+    val runtime = mapRuntimeForTest()
+    val state = runtime.createMapState()
+    val adapter = BlockingCameraAdapter()
+    val token = state.reservePresentation()
+    state.publishPresentation(token, adapter)
+    val presentation = requireNotNull(state.presentation)
+    val first = CameraPosition(zoom = 4.0)
+    val second = CameraPosition(zoom = 8.0)
+    adapter.blockNextWrite = true
+
+    val firstThread = thread { presentation.setCameraPosition(first) }
+    assertTrue(adapter.blockedWriteEntered.await(5, TimeUnit.SECONDS))
+    val secondThread = thread { presentation.setCameraPosition(second) }
+    secondThread.join()
+    assertEquals(second, state.cameraPosition)
+
+    adapter.releaseBlockedWrite.countDown()
+    firstThread.join()
+
+    assertEquals(second, state.cameraPosition)
+    assertEquals(second, adapter.lastCamera)
     state.close()
     runtime.close()
   }
@@ -192,6 +220,22 @@ private class BlockingStyleAdapter(private val blockedStyle: BaseStyle) :
       assertTrue(releaseFirstWrite.await(5, TimeUnit.SECONDS))
     }
     lastStyle = style
+  }
+}
+
+private class BlockingCameraAdapter : PresentationTestAdapter() {
+  val blockedWriteEntered = CountDownLatch(1)
+  val releaseBlockedWrite = CountDownLatch(1)
+  @Volatile var blockNextWrite = false
+  @Volatile var lastCamera = CameraPosition()
+
+  override fun setCameraPosition(cameraPosition: CameraPosition) {
+    if (blockNextWrite) {
+      blockNextWrite = false
+      blockedWriteEntered.countDown()
+      assertTrue(releaseBlockedWrite.await(5, TimeUnit.SECONDS))
+    }
+    lastCamera = cameraPosition
   }
 }
 

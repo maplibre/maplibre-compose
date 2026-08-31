@@ -1,8 +1,11 @@
 package org.maplibre.compose.map
 
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.referentialEqualityPolicy
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.test.ExperimentalTestApi
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -38,7 +41,11 @@ class DesktopPresentationHostLifetimeTest {
       MlnFfiApplication.configure(runtimeOptions)
       val runtime = createNativeMapRuntime(runtimeOptions)
       val state = runtime.createMapState(initialBaseStyle = BaseStyle.Empty)
-      var host by mutableStateOf(ContextlessPresentationHost("first"))
+      var host by
+        mutableStateOf(
+          ContextlessPresentationHost("first", equalityKey = "same"),
+          referentialEqualityPolicy(),
+        )
 
       setContent {
         ProvideMapPresentationHost(host) {
@@ -49,7 +56,7 @@ class DesktopPresentationHostLifetimeTest {
       val firstPresentation = requireNotNull(state.presentation)
       val engine = firstPresentation.adapter
 
-      host = ContextlessPresentationHost("second")
+      runOnIdle { host = ContextlessPresentationHost("second", equalityKey = "same") }
       waitUntil(timeoutMillis = 10_000) {
         state.presentation != null && state.presentation !== firstPresentation
       }
@@ -65,7 +72,25 @@ class DesktopPresentationHostLifetimeTest {
       runtime.awaitClosed()
     }
 
-  private class ContextlessPresentationHost(private val name: String) : ComposeMapPresentationHost {
+  @Test
+  fun inspection_mode_does_not_require_a_presentation_host() = runFfiComposeUiTest {
+    val runtime = createNativeMapRuntime(runtimeOptions)
+    val state = runtime.createMapState(initialBaseStyle = BaseStyle.Empty)
+
+    setContent {
+      CompositionLocalProvider(LocalInspectionMode provides true) { MaplibreMap(state) }
+    }
+
+    waitForIdle()
+    assertTrue(state.presentation == null)
+    runtime.close()
+    runtime.awaitClosed()
+  }
+
+  private class ContextlessPresentationHost(
+    private val name: String,
+    private val equalityKey: String,
+  ) : ComposeMapPresentationHost {
     override val description: String = "$name contextless presentation host"
     override val backend: ComposeRenderBackend = packagedComposeBackend()
 
@@ -74,6 +99,11 @@ class DesktopPresentationHostLifetimeTest {
     override fun runOnGpuThread(action: Runnable) {
       action.run()
     }
+
+    override fun equals(other: Any?): Boolean =
+      other is ContextlessPresentationHost && equalityKey == other.equalityKey
+
+    override fun hashCode(): Int = equalityKey.hashCode()
   }
 
   private companion object {

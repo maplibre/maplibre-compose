@@ -133,6 +133,8 @@ internal external class MaplibreMap(options: MapOptions) {
 
   fun setFilter(layerId: String, filter: FilterSpecification?)
 
+  fun getFilter(layerId: String): FilterSpecification?
+
   fun setPaintProperty(layerId: String, name: String, value: Any?)
 
   fun getPaintProperty(layerId: String, name: String): Any?

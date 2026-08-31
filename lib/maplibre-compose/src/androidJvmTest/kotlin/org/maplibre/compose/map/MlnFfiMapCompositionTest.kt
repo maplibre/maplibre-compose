@@ -110,8 +110,6 @@ class MlnFfiMapCompositionTest {
     }
 
     assertTrue(state.presentation?.isValid == true)
-    val session = state.presentation?.adapter as MlnFfiMapSession
-    assertEquals(1, session.presentationPublicationCount)
     assertTrue(
       onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty(),
       "the load placeholder should be absent after the base style is ready",
@@ -121,6 +119,29 @@ class MlnFfiMapCompositionTest {
     runtime.awaitClosed()
     assertTrue(state.isClosed)
     assertNull(state.presentation)
+  }
+
+  @Test
+  fun presentation_options_update_without_replacing_the_native_map() = runFfiComposeUiTest {
+    val runtime = createNativeMapRuntime(runtimeOptions)
+    val state = runtime.createMapState(initialBaseStyle = BaseStyle.Empty)
+    var options by mutableStateOf(MapPresentationOptions())
+
+    setFfiTestMapContent(runtimeOptions) {
+      MaplibreMap(state, presentationOptions = options)
+    }
+    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { state.presentation != null }
+    val session = requireNotNull(state.presentation).adapter
+    val updated = MapPresentationOptions(zoomRange = 2f..18f, pitchRange = 3f..45f)
+
+    options = updated
+    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      state.presentation?.options == updated
+    }
+
+    assertSame(session, requireNotNull(state.presentation).adapter)
+    runtime.close()
+    runtime.awaitClosed()
   }
 
   @Test

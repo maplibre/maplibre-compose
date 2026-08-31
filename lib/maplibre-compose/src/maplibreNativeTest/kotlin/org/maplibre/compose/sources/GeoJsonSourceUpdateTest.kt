@@ -85,6 +85,24 @@ class GeoJsonSourceUpdateTest {
     }
 
   @Test
+  fun a_base_style_update_preserves_the_loaded_sources_minimum_zoom(): MapTestResult = runMapTest {
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(MIN_ZOOM_STYLE)
+      fixture.presentation.setCameraPosition(CameraPosition(target = ORIGIN, zoom = 6.0))
+      val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.source(SOURCE_ID))
+      fixture.pumpUntil("the source to stay hidden below its minimum zoom") {
+        fixture.readPixel(256, 256).isNear(BACKGROUND)
+      }
+
+      handle.setData(GeoJsonData.Features(pointAt(ORIGIN)))
+
+      fixture.settle()
+      assertTrue(fixture.readPixel(256, 256).isNear(BACKGROUND))
+      assertEquals(emptyList(), fixture.errors)
+    }
+  }
+
+  @Test
   fun a_cached_handle_uses_reconciled_options_after_a_same_id_replacement(): MapTestResult =
     runMapTest {
       createMapFixture().use { fixture ->
@@ -141,6 +159,18 @@ class GeoJsonSourceUpdateTest {
           "type":"FeatureCollection","features":[{"type":"Feature","geometry":{
             "type":"Point","coordinates":[0,0]},"properties":{}}]},
           "cluster":true,"clusterRadius":123,"clusterMaxZoom":10}},"layers":[
+          {"id":"background","type":"background","paint":{"background-color":"#336699"}},
+          {"id":"points-layer","type":"circle","source":"points","paint":{
+            "circle-radius":16,"circle-color":"#000000"}}]}
+        """
+          .trimIndent()
+      )
+    val MIN_ZOOM_STYLE =
+      BaseStyle.Json(
+        """
+        {"version":8,"sources":{"points":{"type":"geojson","minzoom":7,"data":{
+          "type":"FeatureCollection","features":[{"type":"Feature","geometry":{
+            "type":"Point","coordinates":[0,0]},"properties":{}}]}}},"layers":[
           {"id":"background","type":"background","paint":{"background-color":"#336699"}},
           {"id":"points-layer","type":"circle","source":"points","paint":{
             "circle-radius":16,"circle-color":"#000000"}}]}

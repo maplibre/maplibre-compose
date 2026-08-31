@@ -15,10 +15,10 @@ import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.GeoJsonObject
 import org.maplibre.spatialk.geojson.toJson
 
-/** The style-spec property MapLibre stamps on a feature that stands in for a cluster. */
+/** Names the style-spec property that identifies a cluster feature. */
 internal const val CLUSTER_ID_PROPERTY = "cluster_id"
 
-/** A map data source consisting of geojson data. */
+/** Defines a map data source that contains GeoJSON data. */
 public class GeoJsonSource : Source {
 
   private val options: GeoJsonOptions
@@ -103,9 +103,10 @@ private fun GeoJsonData.snapshot(): GeoJsonData =
  *
  * @param lineMetrics Whether to calculate line distance metrics. This is required for
  *   [LineLayer][org.maplibre.compose.layers.LineLayer]s that specify a `gradient`.
- * @param synchronousUpdate Whether in-memory GeoJSON updates should be applied synchronously,
- *   reducing update latency at the possible cost of frame rate. Android, iOS, and desktop honor
- *   this; the browser ignores it.
+ * @param synchronousUpdate Whether native engines generate requested tiles during the update pass.
+ *   This can make submitted data available to the next rendered frame, but it can reduce frame
+ *   rate. This option does not change when [GeoJsonSourceHandle.setData] returns. Android, iOS, and
+ *   desktop honor this option. The browser ignores it.
  */
 @Immutable
 public data class GeoJsonOptions(
