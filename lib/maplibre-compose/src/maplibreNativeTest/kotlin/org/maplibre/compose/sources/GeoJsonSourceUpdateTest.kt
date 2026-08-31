@@ -85,7 +85,9 @@ class GeoJsonSourceUpdateTest {
       fixture.loadStyle(MIN_ZOOM_STYLE)
       fixture.presentation.setCameraPosition(CameraPosition(target = ORIGIN, zoom = 6.0))
       val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.source(SOURCE_ID))
-      fixture.awaitMapReady()
+      // settle paints the zoom-6 camera on demand. An empty query before that frame is the
+      // default, not proof the minzoom hid the point.
+      fixture.settle()
       assertFalse(
         fixture.centerHits(),
         "the source rendered a point below its minimum zoom: ${fixture.errors}",

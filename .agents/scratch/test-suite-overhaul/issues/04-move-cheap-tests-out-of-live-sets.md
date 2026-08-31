@@ -62,5 +62,7 @@ path without `FfiTestPlatform` and without loading the native library.
 
 ## Test ledger
 
-- After a move, `mise run test:android` still runs the case.
-- `mise run test:desktop` does not create a GPU context for that class.
+- `mise run test:android` compiles the overlay cases and returns before
+  `runComposeUiTest` (`supportsComposeRuntimeTests` is false on the host).
+- `mise run test:android:device` and desktop/JS still compose them.
+- `FileUrlTest` does not load the native library.
