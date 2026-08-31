@@ -4,15 +4,27 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runComposeUiTest
+import org.maplibre.compose.map.ProcessNativeMapRuntime
 
 @OptIn(ExperimentalTestApi::class)
 internal actual fun runFfiComposeUiTest(block: suspend ComposeUiTest.() -> Unit) {
   FfiTestPlatform.initialize()
   try {
-    runComposeUiTest { block() }
+    runComposeUiTest {
+      try {
+        block()
+      } finally {
+        disposeFfiTestContent()
+      }
+    }
   } finally {
+    ProcessNativeMapRuntime.resetForTest()
     MlnFfiApplication.resetForTest()
   }
+}
+
+internal actual fun pingFfiTestHangWatchdog(timeoutMillis: Long) {
+  // iOS has no hang watchdog. A blocked native pump still fails the XCTest timeout.
 }
 
 @OptIn(ExperimentalTestApi::class)

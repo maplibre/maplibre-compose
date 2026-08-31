@@ -11,15 +11,32 @@ internal object ProcessNativeMapRuntime {
 
   fun get(options: MlnFfiRuntimeOptions): MapRuntime = lock.withLock {
     current?.takeIf { currentOptions == options }
-      ?: RuntimeImplementation(
-          platformOptions = options,
-          resources = MapRuntimeResources {},
-          logger = options.logger,
-        )
-        .also {
-          currentOptions = options
-          current = it
-        }
+      ?: run {
+        current?.close()
+        RuntimeImplementation(
+            platformOptions = options,
+            resources = MapRuntimeResources {},
+            logger = options.logger,
+          )
+          .also {
+            currentOptions = options
+            current = it
+          }
+      }
+  }
+
+  /**
+   * Tests only. Closes the process runtime before
+   * [org.maplibre.compose.mlnffi.MlnFfiApplication.resetForTest].
+   */
+  fun resetForTest() {
+    val previous = lock.withLock {
+      val runtime = current
+      current = null
+      currentOptions = null
+      runtime
+    }
+    previous?.close()
   }
 }
 

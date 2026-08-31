@@ -6,7 +6,9 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runComposeUiTest
 import java.awt.EventQueue
+import java.util.concurrent.atomic.AtomicLong
 import org.maplibre.compose.map.LocalMlnFfiMapHostFactory
+import org.maplibre.compose.map.ProcessNativeMapRuntime
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.render.RenderBackend
 
@@ -14,37 +16,58 @@ import org.maplibre.nativeffi.render.RenderBackend
 internal actual fun runFfiComposeUiTest(block: suspend ComposeUiTest.() -> Unit) {
   val watchdog = startHangWatchdog()
   try {
-    runComposeUiTest { block() }
+    runComposeUiTest {
+      try {
+        block()
+      } finally {
+        disposeFfiTestContent()
+      }
+    }
   } finally {
     watchdog.interrupt()
     // Tests share a JVM; a dump left printing here would interleave into the next test's output.
     // Bounded, so a wedged stderr could never hold up teardown for the daemon thread's sake.
     watchdog.join(1_000)
+    ProcessNativeMapRuntime.resetForTest()
     MlnFfiApplication.resetForTest()
   }
 }
 
 /**
- * How long a test may run before the watchdog dumps every thread's stack. Just under the one-minute
- * `runTest` watchdog, which reports only its own cancellation machinery.
+ * How long a wait may stay silent before the watchdog dumps every thread's stack.
+ *
+ * [pingFfiTestHangWatchdog] moves the deadline, so a long test with many waits is not dumped from
+ * process start.
  */
 private const val HANG_DUMP_DELAY_MILLIS = 50_000L
 
-/** Attributes a hang to a stack trace before `runTest` cancels the test body anonymously. */
+private val hangDeadlineMillis = AtomicLong(0L)
+
+internal actual fun pingFfiTestHangWatchdog(timeoutMillis: Long) {
+  hangDeadlineMillis.set(System.currentTimeMillis() + timeoutMillis)
+}
+
+/** Attributes a hang to a stack trace so a blocked frame pump is not a silent 45-minute job. */
 private fun startHangWatchdog(): Thread {
+  pingFfiTestHangWatchdog(HANG_DUMP_DELAY_MILLIS)
   val watchdog = Thread {
-    try {
-      Thread.sleep(HANG_DUMP_DELAY_MILLIS)
-    } catch (_: InterruptedException) {
-      return@Thread
+    while (true) {
+      val remaining = hangDeadlineMillis.get() - System.currentTimeMillis()
+      if (remaining <= 0L) break
+      try {
+        Thread.sleep(remaining)
+      } catch (_: InterruptedException) {
+        return@Thread
+      }
     }
     System.err.println(
-      "An FFI Compose test has run for ${HANG_DUMP_DELAY_MILLIS} ms; dumping all threads:"
+      "An FFI Compose test has been silent for ${HANG_DUMP_DELAY_MILLIS} ms; dumping all threads:"
     )
     for ((thread, stack) in Thread.getAllStackTraces()) {
       System.err.println(thread)
       for (frame in stack) System.err.println("\tat $frame")
     }
+    System.err.flush()
   }
   watchdog.name = "ffi-test-hang-watchdog"
   watchdog.isDaemon = true
@@ -110,9 +133,11 @@ private constructor(private val preparedDrivers: ArrayDeque<FfiTestRenderDriver>
   }
 
   fun requireConsumed() {
-    if (preparedDrivers.size < initialDriverCount) return
+    if (preparedDrivers.size == initialDriverCount) {
+      closePendingDriver()
+      error("The test content did not create a Desktop map host during initial composition")
+    }
     closePendingDriver()
-    error("The test content did not create a Desktop map host during initial composition")
   }
 
   private fun composeBackend(): ComposeRenderBackend =

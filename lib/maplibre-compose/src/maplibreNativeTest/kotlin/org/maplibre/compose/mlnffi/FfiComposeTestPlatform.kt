@@ -9,6 +9,26 @@ import androidx.compose.ui.test.ExperimentalTestApi
 internal expect fun runFfiComposeUiTest(block: suspend ComposeUiTest.() -> Unit)
 
 /**
+ * Extends the hang watchdog so a long test with many waits is not killed from process start.
+ *
+ * Android and Desktop implement a deadline. iOS has no watchdog.
+ */
+internal expect fun pingFfiTestHangWatchdog(timeoutMillis: Long = 50_000L)
+
+/**
+ * Replaces map content with an empty tree so [MlnFfiApplication.resetForTest] is not racing a
+ * surface.
+ */
+@ExperimentalTestApi
+internal fun ComposeUiTest.disposeFfiTestContent() {
+  try {
+    setContent {}
+  } catch (_: Throwable) {
+    // The runner may already have torn the composition down.
+  }
+}
+
+/**
  * Runs a Compose UI test that does not create a MapLibre runtime or render host.
  *
  * Recognition tests belong here. A blocked native frame pump never reaches the
