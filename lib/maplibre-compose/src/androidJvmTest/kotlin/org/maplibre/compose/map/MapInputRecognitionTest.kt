@@ -45,8 +45,8 @@ private const val RECOGNITION_MAP_TAG = "recognition-map"
 /**
  * Gesture recognition and binding for [mapInput], hosted on a recording [GestureTarget].
  *
- * These cases do not create a MapLibre map. Camera effects that need Native live in
- * [MlnFfiMapInputTest].
+ * These cases do not create a MapLibre map. Native camera effects of moveBy live in
+ * CameraMoveReportingTest.
  */
 @OptIn(ExperimentalAtomicApi::class, ExperimentalTestApi::class)
 class MapInputRecognitionTest {
