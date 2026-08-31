@@ -8,21 +8,19 @@ only in a layer-5 case whose bug is color or framebuffer ownership.
 
 **Type:** task
 
-**Status:** claimed
+**Status:** resolved
 
 - [x] `MlnFfiSurfaceLossTest.feature_state_accepts_mutations_without_a_surface_and_replays_into_its_replacement`
       asserts `style.featureState` and `pumpUntilRendered` across loss and
       restore.
-- [ ] `FeatureStateTest` stays as the one live pixel proof that feature state
+- [x] `FeatureStateTest` stays as the one live pixel proof that feature state
       changes the style.
-- [ ] `GeoJsonSourceUpdateTest` asserts source data or query results for the
-      wrapper path; keep at most one pixel case if color is the bug. Audit:
-      methods 1–3 use `readPixel`; method 4 asserts only `errors` empty after a
-      same-id replacement. See
-      [maplibre-native-test-audit.md](../maplibre-native-test-audit.md).
-- [ ] `CustomVectorSourceTest` and `ImageSourceDrawTest` keep a pixel only if no
-      query or callback can prove the draw.
-- [ ] `MlnFfiMapPixelTest` remains layer 5 and runs on one native backend.
+- [x] `GeoJsonSourceUpdateTest` asserts query hits after `settle` (on-demand
+      frames only). Method 4 also queries the replacement source through the
+      cached handle.
+- [x] `CustomVectorSourceTest.an_mvt_provider_renders_its_tile` asserts the tile
+      request and a query hit. `ImageSourceDrawTest` stays layer 5.
+- [x] `MlnFfiMapPixelTest` remains layer 5 and runs on one native backend.
 
 ## Test ledger
 

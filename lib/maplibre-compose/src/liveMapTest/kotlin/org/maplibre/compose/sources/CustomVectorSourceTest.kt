@@ -1,6 +1,6 @@
 package org.maplibre.compose.sources
 
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import kotlin.concurrent.Volatile
 import kotlin.test.Test
@@ -16,9 +16,7 @@ import org.maplibre.compose.style.install
 import org.maplibre.compose.style.uninstall
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RecordingList
-import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.compose.testing.createMapFixture
-import org.maplibre.compose.testing.pumpUntilPixel
 import org.maplibre.compose.testing.runMapTest
 
 class CustomVectorSourceTest {
@@ -35,13 +33,16 @@ class CustomVectorSourceTest {
           POINT_TILE
         }
       style.install(source)
-      val layer = CircleLayer("custom-vector-points", source)
+      val layer = CircleLayer(LAYER_ID, source)
       layer.sourceLayer = SOURCE_LAYER
       layer.setCircleRadius(const(48.dp).compile(ExpressionContext.None))
-      layer.setCircleColor(const(Color.Blue).compile(ExpressionContext.None))
       style.install(layer)
 
-      fixture.pumpUntilPixel("the custom MVT point to render", CENTER, CENTER, BLUE)
+      fixture.pumpUntil("the custom MVT point to be queryable") {
+        fixture.presentation
+          .queryRenderedFeatures(offset = CENTER, layerIds = setOf(LAYER_ID))
+          .isNotEmpty()
+      }
 
       assertTrue(requests.isNotEmpty())
       assertEquals(TileCoordinate(zoomLevel = 0, x = 0, y = 0), requests.first())
@@ -64,7 +65,7 @@ class CustomVectorSourceTest {
           }
         }
       style.install(source)
-      val layer = CircleLayer("custom-vector-points", source)
+      val layer = CircleLayer(LAYER_ID, source)
       layer.sourceLayer = SOURCE_LAYER
       style.install(layer)
       fixture.pumpUntil("the custom MVT provider to start") { state.started }
@@ -90,7 +91,7 @@ class CustomVectorSourceTest {
             state.cancelled = true
           }
         }
-      val layer = CircleLayer("custom-vector-points", source)
+      val layer = CircleLayer(LAYER_ID, source)
       layer.sourceLayer = SOURCE_LAYER
       style.install(source)
       style.install(layer)
@@ -111,8 +112,8 @@ class CustomVectorSourceTest {
   private companion object {
     const val SOURCE_ID = "custom-vector"
     const val SOURCE_LAYER = "points"
-    const val CENTER = 256
-    val BLUE = RgbaPixel(red = 0, green = 0, blue = 255, alpha = 255)
+    const val LAYER_ID = "custom-vector-points"
+    val CENTER = DpOffset(256.dp, 256.dp)
 
     val BLACK_STYLE =
       BaseStyle.Json(

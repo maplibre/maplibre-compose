@@ -1,9 +1,10 @@
 package org.maplibre.compose.sources
 
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonObject
@@ -13,8 +14,9 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.install
+import org.maplibre.compose.style.uninstall
+import org.maplibre.compose.testing.MapFixture
 import org.maplibre.compose.testing.MapTestResult
-import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -42,24 +44,19 @@ class GeoJsonSourceUpdateTest {
         style.install(source)
         val layer = CircleLayer(LAYER_ID, source)
         layer.setCircleRadius(const(16.dp).compile(ExpressionContext.None))
-        layer.setCircleColor(const(Color.Black))
-        layer.setCircleOpacity(const(1.0f))
         style.install(layer)
         val sourceHandle = assertIs<GeoJsonSourceHandle>(fixture.state.style.source(SOURCE_ID))
 
-        val centerX = 256
-        val centerY = 256
-        fixture.pumpUntil("the initial point to render") {
-          fixture.readPixel(centerX, centerY).isNear(CIRCLE)
-        }
+        fixture.pumpUntil("the initial point to be queryable") { fixture.centerHits() }
 
         sourceHandle.setData(GeoJsonData.Features(pointAt(FAR_AWAY)))
 
-        // Real hosts draw only requested frames. No unconditional pump may mask a missing repaint.
+        // Real hosts draw only requested frames. An unconditional pump would hide a missing
+        // repaint; settle draws only the frames the session asks for.
         fixture.settle()
-        assertTrue(
-          fixture.readPixel(centerX, centerY).isNear(BACKGROUND),
-          "the update did not render without pumping: ${fixture.errors}",
+        assertFalse(
+          fixture.centerHits(),
+          "the update did not leave the origin after settle: ${fixture.errors}",
         )
         assertEquals(emptyList(), fixture.errors, "the map should report nothing")
       }
@@ -72,14 +69,12 @@ class GeoJsonSourceUpdateTest {
         fixture.loadStyle(CLUSTERED_STYLE)
         fixture.presentation.setCameraPosition(CameraPosition(target = ORIGIN, zoom = 14.0))
         val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.source(SOURCE_ID))
-        fixture.pumpUntil("the base-style point to render") {
-          fixture.readPixel(256, 256).isNear(CIRCLE)
-        }
+        fixture.pumpUntil("the base-style point to be queryable") { fixture.centerHits() }
 
         handle.setData(GeoJsonData.Features(pointAt(FAR_AWAY)))
 
         fixture.settle()
-        assertTrue(fixture.readPixel(256, 256).isNear(BACKGROUND))
+        assertFalse(fixture.centerHits(), "the clustered source update stayed at the origin")
         assertEquals(emptyList(), fixture.errors)
       }
     }
@@ -90,14 +85,19 @@ class GeoJsonSourceUpdateTest {
       fixture.loadStyle(MIN_ZOOM_STYLE)
       fixture.presentation.setCameraPosition(CameraPosition(target = ORIGIN, zoom = 6.0))
       val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.source(SOURCE_ID))
-      fixture.pumpUntil("the source to stay hidden below its minimum zoom") {
-        fixture.readPixel(256, 256).isNear(BACKGROUND)
-      }
+      fixture.awaitMapReady()
+      assertFalse(
+        fixture.centerHits(),
+        "the source rendered a point below its minimum zoom: ${fixture.errors}",
+      )
 
       handle.setData(GeoJsonData.Features(pointAt(ORIGIN)))
 
       fixture.settle()
-      assertTrue(fixture.readPixel(256, 256).isNear(BACKGROUND))
+      assertFalse(
+        fixture.centerHits(),
+        "setData rendered a point below the loaded minzoom: ${fixture.errors}",
+      )
       assertEquals(emptyList(), fixture.errors)
     }
   }
@@ -107,29 +107,43 @@ class GeoJsonSourceUpdateTest {
     runMapTest {
       createMapFixture().use { fixture ->
         fixture.loadStyle(STYLE)
+        fixture.presentation.setCameraPosition(CameraPosition(target = ORIGIN, zoom = 14.0))
         val style = checkNotNull(fixture.style)
-        style.install(
+        val first =
           GeoJsonSource(
             SOURCE_ID,
             GeoJsonData.Features(pointAt(ORIGIN)),
             GeoJsonOptions(),
           )
-        )
+        style.install(first)
+        val layer = CircleLayer(LAYER_ID, first)
+        layer.setCircleRadius(const(16.dp).compile(ExpressionContext.None))
+        style.install(layer)
         val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.source(SOURCE_ID))
+        style.uninstall(layer)
         style.removeSource(SOURCE_ID)
         style.install(
           GeoJsonSource(
             SOURCE_ID,
-            GeoJsonData.Features(pointAt(ORIGIN)),
+            GeoJsonData.Features(pointAt(FAR_AWAY)),
             GeoJsonOptions(cluster = true, clusterRadius = 123, clusterMaxZoom = 10),
           )
         )
+        style.install(layer)
 
-        handle.setData(GeoJsonData.Features(pointAt(FAR_AWAY)))
+        handle.setData(GeoJsonData.Features(pointAt(ORIGIN)))
 
+        fixture.settle()
+        assertTrue(
+          fixture.centerHits(),
+          "the cached handle did not write into the replacement source: ${fixture.errors}",
+        )
         assertEquals(emptyList(), fixture.errors)
       }
     }
+
+  private suspend fun MapFixture.centerHits(): Boolean =
+    presentation.queryRenderedFeatures(offset = CENTER, layerIds = setOf(LAYER_ID)).isNotEmpty()
 
   private fun pointAt(position: Position): FeatureCollection<Geometry, JsonObject?> =
     buildFeatureCollection {
@@ -141,8 +155,7 @@ class GeoJsonSourceUpdateTest {
     const val LAYER_ID = "points-layer"
     val ORIGIN = Position(0.0, 0.0)
     val FAR_AWAY = Position(5.0, 5.0)
-    val BACKGROUND = RgbaPixel(0x33, 0x66, 0x99, 0xff)
-    val CIRCLE = RgbaPixel(0x00, 0x00, 0x00, 0xff)
+    val CENTER = DpOffset(256.dp, 256.dp)
     val STYLE =
       BaseStyle.Json(
         """
