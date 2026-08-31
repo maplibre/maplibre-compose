@@ -50,6 +50,9 @@ class LayerHandlePropertyTest {
       handle.setRootProperty("minzoom", JsonPrimitive(3.0))
       assertEquals(JsonPrimitive(3.0), handle.getProperty("minzoom"))
       assertFailsWith<StyleHandleException> {
+        handle.setRootProperty("minzoom", JsonPrimitive("4"))
+      }
+      assertFailsWith<StyleHandleException> {
         handle.setRootProperty("source-layer", JsonPrimitive("replacement"))
       }
     }

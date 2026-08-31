@@ -119,17 +119,22 @@ internal fun MlnFfiMapView(
   session.callbacks = callbacks
   session.logger = logger
   session.layoutDirection = layoutDirection
+  val currentUpdate = rememberUpdatedState(update)
   val currentOnReset = rememberUpdatedState(onReset)
 
   // Must run in the apply phase, not from a coroutine: the unload has to precede the content
   // subcomposition inserting layers, or a style switch fails anchor validation (see #269).
   SideEffect { session.setBaseStyle(style) }
-  SideEffect { session.beginPresentationAttachment() }
+  SideEffect {
+    if (session.beginPresentationAttachment() && session.isPresentationPublished) {
+      currentUpdate.value(session)
+    }
+  }
   LaunchedEffect(session) {
     try {
       session.attachPresentation()
       if (!session.isPresentationPublished) {
-        update(session)
+        currentUpdate.value(session)
         if (state.presentation?.adapter !== session) return@LaunchedEffect
         session.markPresentationPublished()
       }

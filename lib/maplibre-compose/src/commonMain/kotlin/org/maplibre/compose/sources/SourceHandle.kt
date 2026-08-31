@@ -103,10 +103,11 @@ internal constructor(
   /**
    * Submits [data] to replace the source data for this loaded style.
    *
-   * A successful return means that the update was submitted to the current source generation. This
-   * function does not wait for parsing, indexing, tiling, URL loading, or rendering. The engine can
-   * continue these operations after this function returns. A newer call supersedes an older pending
-   * update. Loading a new base style discards the submitted data.
+   * A successful return means only that the update was submitted to the current source generation.
+   * The function does not define when parsing, indexing, tiling, URL loading, or rendering
+   * completes. An implementation can perform part of this work before returning and continue it
+   * afterward. A newer call supersedes an older pending update. Loading a new base style discards
+   * the submitted data.
    *
    * @throws StyleHandleException if submission fails before this function returns.
    */

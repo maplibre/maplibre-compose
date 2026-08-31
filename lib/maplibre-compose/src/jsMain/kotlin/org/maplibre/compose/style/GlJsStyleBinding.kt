@@ -492,7 +492,7 @@ internal class GlJsStyleBinding(
    * so the half that was not asked for is read back off the live layer.
    */
   private fun setRootProperty(layerId: String, name: String, value: JsonElement) {
-    val number = (value as? JsonPrimitive)?.content?.toDoubleOrNull()
+    val number = (value as? JsonPrimitive)?.takeUnless { it.isString }?.doubleOrNull
     val layer = map.getLayer(layerId)
     if (number == null || layer == null || (name != "minzoom" && name != "maxzoom")) {
       throw StyleMutationException(

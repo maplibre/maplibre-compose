@@ -865,7 +865,7 @@ private fun JsonElement.requireRootString(layerId: String, name: String): String
     ?: throw StyleMutationException("Layer '$layerId' property '$name' requires a string", null)
 
 private fun JsonElement.requireRootNumber(layerId: String, name: String): Double =
-  (this as? JsonPrimitive)?.doubleOrNull
+  (this as? JsonPrimitive)?.takeUnless { it.isString }?.doubleOrNull
     ?: throw StyleMutationException("Layer '$layerId' property '$name' requires a number", null)
 
 /** A parsed and indexed GeoJSON document, ready to install on the owner thread. */
