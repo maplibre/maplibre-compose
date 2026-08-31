@@ -16,7 +16,10 @@ only in a layer-5 case whose bug is color or framebuffer ownership.
 - [ ] `FeatureStateTest` stays as the one live pixel proof that feature state
       changes the style.
 - [ ] `GeoJsonSourceUpdateTest` asserts source data or query results for the
-      wrapper path; keep at most one pixel case if color is the bug.
+      wrapper path; keep at most one pixel case if color is the bug. Audit:
+      methods 1–3 use `readPixel`; method 4 asserts only `errors` empty after a
+      same-id replacement. See
+      [maplibre-native-test-audit.md](../maplibre-native-test-audit.md).
 - [ ] `CustomVectorSourceTest` and `ImageSourceDrawTest` keep a pixel only if no
       query or callback can prove the draw.
 - [ ] `MlnFfiMapPixelTest` remains layer 5 and runs on one native backend.

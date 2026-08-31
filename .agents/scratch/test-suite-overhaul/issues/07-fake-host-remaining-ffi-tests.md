@@ -23,6 +23,27 @@ Candidates:
 Keep a live `BridgeMapFixture` case when the bug is native attach, style
 survival, or camera survival (`MlnFfiSurfaceLossTest` first two methods).
 
+## Comments
+
+### 2026-08-31 — maplibreNativeTest audit
+
+Full tables: [maplibre-native-test-audit.md](../maplibre-native-test-audit.md).
+
+`FakeMlnFfiMapHost` already covers `MlnFfiMapSurfaceRecoveryTest` (16 methods).
+It cannot absorb native style, camera, tiles, projection, offline, or pixels.
+
+Absorb later, and only after a recording `MlnFfiMapHostSession` exists:
+
+- `MlnFfiMapIdleTest` — wrapper `requestFrame` silence. Keep the camera-rest
+  case live; that is mbgl idle.
+- `MlnFfiMapRepaintTest` — wrapper `requestFrame` after add/remove source/image.
+  Keep a live “a frame was rendered” smoke. No pixels.
+
+Do not move onto FakeHost: `CustomGeometrySourceTest`,
+`CustomVectorSourceNativeTest`, `MlnFfiSurfaceLossTest` (native attach / style /
+camera / feature-state replay), `MlnFfiMapResizeTest` (`attachCount` /
+`retargetCount`), `PlatformMapAccessTest`, or any source/layer round-trip.
+
 ## Test ledger
 
 - Each moved case fails if the host skips a required acquire, draw, or close.

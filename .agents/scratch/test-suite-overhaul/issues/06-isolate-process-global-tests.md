@@ -21,6 +21,25 @@ and `MlnFfiApplication.resetForTest()` in the same process as the live suite.
 - Keep `resetForTest()` in `runFfiComposeUiTest` `finally`.
 - Do not delete the dual-runtime case; it is the invariant the FFI issue tracks.
 
+## Comments
+
+### 2026-08-31 — maplibreNativeTest audit
+
+Full tables: [maplibre-native-test-audit.md](../maplibre-native-test-audit.md).
+
+Classes that _are_ the shared-cache problem:
+
+1. `MlnFfiSharedCacheDatabaseTest` — two `RuntimeHandle`s, one file.
+2. `MlnFfiOfflinePackTest`, `MlnFfiOfflineManagerTest`,
+   `MlnFfiOfflineRuntimeTest` — open the cache schema without a map.
+3. `PlatformMapAccessTest` — live `RuntimeImplementation` + cache, no GPU.
+4. `ImageSourceAttachTest` — process-global `Maplibre.setLogCallback`.
+5. `UnsupportedLayerPropertyTest` — process-global Kermit writer, never removed.
+
+Every `BridgeMapFixture` / `createMapFixture` also opens a cache file in the
+same process. `FileUrlTest` only loads the native library via
+`createCacheFile()`; stop doing that and it drops off this list.
+
 ## Test ledger
 
 - `two_runtimes_can_open_the_same_cache_database` still passes alone.
