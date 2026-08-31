@@ -2,6 +2,7 @@ package org.maplibre.compose.location
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import platform.CoreLocation.CLLocationManager
 import platform.CoreLocation.kCLErrorDenied
 import platform.CoreLocation.kCLErrorDomain
 import platform.CoreLocation.kCLErrorLocationUnknown
@@ -9,6 +10,17 @@ import platform.CoreLocation.kCLErrorNetwork
 import platform.Foundation.NSError
 
 class IosLocationProviderTest {
+  @Test
+  fun reportsCurrentLocationServicesStatus() {
+    val expected =
+      if (CLLocationManager.locationServicesEnabled()) {
+        LocationServicesStatus.Enabled
+      } else {
+        LocationServicesStatus.Disabled
+      }
+    assertEquals(expected, IosLocationProvider().locationServices.value)
+  }
+
   @Test
   fun exposesPermissionFromItsRequester() {
     assertEquals(

@@ -32,6 +32,7 @@ public class IosLocationPermissionRequester {
   /** Current foreground location permission, updated when Core Location reports a change. */
   public val status: StateFlow<LocationPermission> = mutableStatus
   private var requestPending = false
+  internal var onAuthorizationChanged: (() -> Unit)? = null
 
   private val delegate =
     object : NSObject(), CLLocationManagerDelegateProtocol {
@@ -39,6 +40,7 @@ public class IosLocationPermissionRequester {
         val value = readStatus(manager)
         mutableStatus.value = value
         requestPending = false
+        onAuthorizationChanged?.invoke()
       }
     }
 

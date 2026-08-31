@@ -31,7 +31,10 @@ import platform.darwin.NSObject
  * [`CLLocationManager`](https://developer.apple.com/documentation/corelocation/cllocationmanager).
  *
  * [LocationProvider.permission] and [LocationProvider.requestPermission] delegate to an
- * [IosLocationPermissionRequester].
+ * [IosLocationPermissionRequester]. [LocationProvider.locationServices] reports
+ * [`locationServicesEnabled`](https://developer.apple.com/documentation/corelocation/cllocationmanager/locationservicesenabled()).
+ * The provider refreshes that status when Core Location reports an authorization change and when
+ * collection starts.
  *
  * Each collection creates a
  * [`CLLocationManager`](https://developer.apple.com/documentation/corelocation/cllocationmanager)
@@ -61,27 +64,26 @@ import platform.darwin.NSObject
  */
 public class IosLocationProvider : LocationProvider {
   private val requester = IosLocationPermissionRequester()
-  private val mutableLocationServices =
-    MutableStateFlow(
-      if (CLLocationManager.locationServicesEnabled()) LocationServicesStatus.Enabled
-      else LocationServicesStatus.Disabled
-    )
+  private val mutableLocationServices = MutableStateFlow(readLocationServicesStatus())
 
   override val permission: StateFlow<LocationPermission>
     get() = requester.status
 
   override val locationServices: StateFlow<LocationServicesStatus> = mutableLocationServices
 
+  init {
+    requester.onAuthorizationChanged = ::refreshLocationServices
+  }
+
   override fun requestPermission(): Unit = requester.requestForegroundPermission()
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
-    if (!CLLocationManager.locationServicesEnabled()) {
-      mutableLocationServices.value = LocationServicesStatus.Disabled
+    refreshLocationServices()
+    if (mutableLocationServices.value == LocationServicesStatus.Disabled) {
       trySend(LocationEvent.Unavailable(LocationUnavailableReason.ServicesDisabled))
       close()
       return@callbackFlow
     }
-    mutableLocationServices.value = LocationServicesStatus.Enabled
 
     val manager = CLLocationManager()
     val delegate = Delegate(channel, mutableLocationServices)
@@ -134,7 +136,18 @@ public class IosLocationProvider : LocationProvider {
       manager.delegate = null
     }
   }
+
+  private fun refreshLocationServices() {
+    mutableLocationServices.value = readLocationServicesStatus()
+  }
 }
+
+private fun readLocationServicesStatus(): LocationServicesStatus =
+  if (CLLocationManager.locationServicesEnabled()) {
+    LocationServicesStatus.Enabled
+  } else {
+    LocationServicesStatus.Disabled
+  }
 
 internal fun NSError.asUnavailableReason(
   locationServicesEnabled: Boolean = CLLocationManager.locationServicesEnabled()
