@@ -412,7 +412,9 @@ internal class GlJsMapSession(
     map.resize()
     hasUsableViewport = true
     // resize() may also fire `move`; a second onCameraMoved is how overlays learn the viewport
-    // changed when the camera position did not.
+    // changed when the camera position did not. Seed here too: the first resize can land before
+    // the lease is Attached, and acceptPresentationEvent then drops that callback.
+    lifecycleAuthority.seedCurrentPresentationViewport(this)
     withLifecyclePresentation { engine, lease ->
       lifecycleCallbacks.onCameraMoved(engine, lease, this)
     }

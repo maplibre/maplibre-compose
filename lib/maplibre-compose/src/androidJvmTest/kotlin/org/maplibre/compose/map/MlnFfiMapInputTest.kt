@@ -1008,7 +1008,15 @@ class MlnFfiMapInputTest {
 
     // The map thread reports the first viewport, and a suspended test body pumps no snapshot apply
     // notifications; waitUntil polls with frame pumps, so that report can't strand it.
-    waitUntil(timeoutMillis = TIMEOUT) { mapState.presentation?.viewport != null }
+    try {
+      waitUntil(timeoutMillis = TIMEOUT) { mapState.presentation?.viewport != null }
+    } catch (timeout: ComposeTimeoutException) {
+      throw AssertionError(
+        "the map never published a viewport within ${TIMEOUT}ms " +
+          "(presentation=${mapState.presentation != null})",
+        timeout,
+      )
+    }
     val camera = PresentationCamera(mapState)
     camera.position = initialPosition
     waitUntil(timeoutMillis = TIMEOUT) { frames.load() > 0 }
