@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -92,21 +93,26 @@ internal fun AndroidMlnFfiSurface(
         }
       }
     AndroidMapSurfaceKind.Surface ->
-      AndroidExternalSurface(
-        // Work around #1150: Compose can delay a replacement SurfaceView until another window
-        // invalidation. The graphics layer forces that traversal when the map has no overlay.
-        modifier = modifier.graphicsLayer(),
-        // Never opaque: before its first swap the hole would otherwise read as black.
-        isOpaque = false,
-        // Behind the window, matching MapLibre's MapView: Compose overlays draw on top of the map.
-        zOrder = AndroidExternalSurfaceZOrder.Behind,
-      ) {
-        onSurface { surface, width, height ->
-          controller.surfaceCreated(surface, width, height, density)
-          surface.onChanged { changedWidth, changedHeight ->
-            controller.surfaceChanged(changedWidth, changedHeight, density)
+      // Do not reuse a SurfaceView whose callback belongs to a disposed renderer session.
+      // https://issuetracker.google.com/issues/554586999
+      key(controller) {
+        AndroidExternalSurface(
+          // Force a traversal for a replacement SurfaceView that would otherwise wait for another
+          // window invalidation. https://issuetracker.google.com/issues/554732248
+          modifier = modifier.graphicsLayer(),
+          // Never opaque: before its first swap the hole would otherwise read as black.
+          isOpaque = false,
+          // Behind the window, matching MapLibre's MapView: Compose overlays draw on top of the
+          // map.
+          zOrder = AndroidExternalSurfaceZOrder.Behind,
+        ) {
+          onSurface { surface, width, height ->
+            controller.surfaceCreated(surface, width, height, density)
+            surface.onChanged { changedWidth, changedHeight ->
+              controller.surfaceChanged(changedWidth, changedHeight, density)
+            }
+            surface.onDestroyed { controller.surfaceDestroyed() }
           }
-          surface.onDestroyed { controller.surfaceDestroyed() }
         }
       }
   }
