@@ -205,6 +205,50 @@ internal class FakeMlnFfiMapHost(
   }
 }
 
+/**
+ * Records [MlnFfiMapHostSession] calls. An optional [delegate] forwards each call so a test can
+ * wrap the session a surface hands to its renderer.
+ */
+internal class RecordingMlnFfiMapHostSession(
+  private val delegate: MlnFfiMapHostSession? = null,
+  override val backends: RenderBackendPair =
+    delegate?.backends ?: RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL),
+) : MlnFfiMapHostSession {
+
+  val calls: MutableList<String> = mutableListOf()
+
+  var requestFrameCount: Int = 0
+    private set
+
+  var withRendererAccessCount: Int = 0
+    private set
+
+  var enqueueRendererCount: Int = 0
+    private set
+
+  override fun requestFrame() {
+    calls += "requestFrame"
+    requestFrameCount++
+    delegate?.requestFrame()
+  }
+
+  override fun <T> withRendererAccess(action: () -> T): T {
+    calls += "withRendererAccess"
+    withRendererAccessCount++
+    return delegate?.withRendererAccess(action) ?: action()
+  }
+
+  override fun enqueueRenderer(action: () -> Unit): Boolean {
+    calls += "enqueueRenderer"
+    enqueueRendererCount++
+    return delegate?.enqueueRenderer(action)
+      ?: run {
+        action()
+        true
+      }
+  }
+}
+
 /** A [MlnFfiMapHostFactory] producing [FakeMlnFfiMapHost]s. */
 internal class FakeMlnFfiMapHostFactory(
   private val bridge: RenderBackendPair =

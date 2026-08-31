@@ -78,6 +78,7 @@ class AndroidSurfaceReplacementTest {
     }
   }
 
+  // Host acquire/lose/restore without a device: MlnFfiMapSurfaceReplacementTest.
   @Test
   fun a_surface_host_receives_its_surface_after_reusable_content_is_reactivated() {
     ActivityScenario.launch(ReusableSurfaceActivity::class.java).use { scenario ->

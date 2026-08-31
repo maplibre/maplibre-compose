@@ -12,14 +12,13 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
-import org.maplibre.compose.map.MapExtent
 
 @OptIn(ExperimentalTestApi::class)
 class MlnFfiMapSurfaceRecoveryTest {
 
   @Test
   fun a_host_creation_failure_closes_the_renderer_once() = runFfiComposeUiTest {
-    val renderer = RecordingRenderer()
+    val renderer = RecordingMlnFfiMapRenderer()
     val showSurface = mutableStateOf(true)
     val failure =
       MlnFfiMapHostResult.Failed(
@@ -40,7 +39,7 @@ class MlnFfiMapSurfaceRecoveryTest {
 
   @Test
   fun a_host_that_fails_one_acquire_recovers_and_renders_a_later_frame() = runFfiComposeUiTest {
-    val renderer = RecordingRenderer()
+    val renderer = RecordingMlnFfiMapRenderer()
     val factory = FakeMlnFfiMapHostFactory(configureHost = { it.failingAcquires = 1 })
 
     setSurfaceContent(renderer, factory)
@@ -59,7 +58,7 @@ class MlnFfiMapSurfaceRecoveryTest {
   @Test
   fun a_skipped_frame_keeps_drawing_the_last_rendered_target() = runFfiComposeUiTest {
     val renderer =
-      RecordingRenderer(
+      RecordingMlnFfiMapRenderer(
         renderResults = ArrayDeque(listOf(MlnFfiFrameResult.RENDERED, MlnFfiFrameResult.SKIPPED)),
         additionalFrameRequests = 1,
       )
@@ -81,7 +80,7 @@ class MlnFfiMapSurfaceRecoveryTest {
 
   @Test
   fun resizes_acquire_targets_for_the_current_draw_size() = runFfiComposeUiTest {
-    val renderer = RecordingRenderer()
+    val renderer = RecordingMlnFfiMapRenderer()
     val factory = FakeMlnFfiMapHostFactory()
     val size = mutableStateOf(64.dp)
     val hostResult = factory.create(factory.bridges.single())
@@ -105,7 +104,7 @@ class MlnFfiMapSurfaceRecoveryTest {
 
   @Test
   fun resize_keeps_presenting_when_the_new_frame_is_skipped() = runFfiComposeUiTest {
-    val renderer = RecordingRenderer()
+    val renderer = RecordingMlnFfiMapRenderer()
     val factory = FakeMlnFfiMapHostFactory()
     val size = mutableStateOf(64.dp)
     val hostResult = factory.create(factory.bridges.single())
@@ -135,7 +134,7 @@ class MlnFfiMapSurfaceRecoveryTest {
   @Test
   fun resize_aligns_the_completed_frames_camera_anchor_with_the_current_anchor() =
     runFfiComposeUiTest {
-      val renderer = RecordingRenderer()
+      val renderer = RecordingMlnFfiMapRenderer()
       val factory = FakeMlnFfiMapHostFactory()
       val size = mutableStateOf(64.dp)
       val hostResult = factory.create(factory.bridges.single())
@@ -166,7 +165,7 @@ class MlnFfiMapSurfaceRecoveryTest {
 
   @Test
   fun render_uses_the_extent_configured_for_the_same_frame() = runFfiComposeUiTest {
-    val renderer = RecordingRenderer()
+    val renderer = RecordingMlnFfiMapRenderer()
     val factory = FakeMlnFfiMapHostFactory()
 
     setSurfaceContent(renderer, factory)
@@ -177,7 +176,7 @@ class MlnFfiMapSurfaceRecoveryTest {
 
   @Test
   fun extended_not_ready_does_not_consume_recovery() = runFfiComposeUiTest {
-    val renderer = RecordingRenderer()
+    val renderer = RecordingMlnFfiMapRenderer()
     val factory =
       FakeMlnFfiMapHostFactory(configureHost = { it.notReadyAcquires = MAX_RECOVERY_ATTEMPTS + 20 })
 
@@ -191,7 +190,7 @@ class MlnFfiMapSurfaceRecoveryTest {
 
   @Test
   fun not_ready_between_failures_neither_spends_nor_resets_recovery() = runFfiComposeUiTest {
-    val renderer = RecordingRenderer()
+    val renderer = RecordingMlnFfiMapRenderer()
     val factory =
       FakeMlnFfiMapHostFactory(
         configureHost = { host ->
@@ -212,7 +211,7 @@ class MlnFfiMapSurfaceRecoveryTest {
 
   @Test
   fun a_successful_render_resets_recovery() = runFfiComposeUiTest {
-    val renderer = RecordingRenderer(requestAnotherFrame = true)
+    val renderer = RecordingMlnFfiMapRenderer(requestAnotherFrame = true)
     val factory =
       FakeMlnFfiMapHostFactory(
         configureHost = { host ->
@@ -233,7 +232,7 @@ class MlnFfiMapSurfaceRecoveryTest {
 
   @Test
   fun a_renderer_that_fails_one_frame_recovers() = runFfiComposeUiTest {
-    val renderer = RecordingRenderer(failingRenders = 1)
+    val renderer = RecordingMlnFfiMapRenderer(failingRenders = 1)
     val factory = FakeMlnFfiMapHostFactory()
 
     setSurfaceContent(renderer, factory)
@@ -245,7 +244,7 @@ class MlnFfiMapSurfaceRecoveryTest {
 
   @Test
   fun a_renderer_that_cannot_release_the_lost_surface_stops_recovery() = runFfiComposeUiTest {
-    val renderer = RecordingRenderer(failingSurfaceLosses = 1)
+    val renderer = RecordingMlnFfiMapRenderer(failingSurfaceLosses = 1)
     val factory = FakeMlnFfiMapHostFactory(configureHost = { it.failingAcquires = 1 })
 
     setSurfaceContent(renderer, factory)
@@ -258,7 +257,7 @@ class MlnFfiMapSurfaceRecoveryTest {
 
   @Test
   fun repeated_acquire_failure_stops_at_the_bound() = runFfiComposeUiTest {
-    val renderer = RecordingRenderer()
+    val renderer = RecordingMlnFfiMapRenderer()
     val factory = FakeMlnFfiMapHostFactory(configureHost = { it.failingAcquires = Int.MAX_VALUE })
 
     setSurfaceContent(renderer, factory)
@@ -274,7 +273,7 @@ class MlnFfiMapSurfaceRecoveryTest {
 
   @Test
   fun unexpected_renderer_failure_stops_without_retrying() = runFfiComposeUiTest {
-    val renderer = RecordingRenderer(failingRenders = 1, unexpectedFailure = true)
+    val renderer = RecordingMlnFfiMapRenderer(failingRenders = 1, unexpectedFailure = true)
     val factory = FakeMlnFfiMapHostFactory()
 
     setSurfaceContent(renderer, factory)
@@ -286,7 +285,7 @@ class MlnFfiMapSurfaceRecoveryTest {
 
   @Test
   fun unexpected_host_failure_stops_without_retrying() = runFfiComposeUiTest {
-    val renderer = RecordingRenderer()
+    val renderer = RecordingMlnFfiMapRenderer()
     val factory =
       FakeMlnFfiMapHostFactory(
         configureHost = { host ->
@@ -303,7 +302,7 @@ class MlnFfiMapSurfaceRecoveryTest {
 
   @Test
   fun resize_failure_closes_the_renderer_once() = runFfiComposeUiTest {
-    val renderer = RecordingRenderer()
+    val renderer = RecordingMlnFfiMapRenderer()
     val factory = FakeMlnFfiMapHostFactory()
     val size = mutableStateOf(64.dp)
     val hostResult = factory.create(factory.bridges.single())
@@ -329,95 +328,6 @@ class MlnFfiMapSurfaceRecoveryTest {
         modifier = Modifier.size(64.dp),
         logger = Logger.withTag("surface-recovery-test"),
       )
-    }
-  }
-
-  private class RecordingRenderer(
-    private var failingRenders: Int = 0,
-    private val unexpectedFailure: Boolean = false,
-    private val requestAnotherFrame: Boolean = false,
-    private val renderResults: ArrayDeque<MlnFfiFrameResult> = ArrayDeque(),
-    private var additionalFrameRequests: Int = 0,
-    private var failingSurfaceLosses: Int = 0,
-  ) : MlnFfiMapRenderer {
-    override val backend: MapRenderBackend = MapRenderBackend.VULKAN
-    val lifecycle: MutableList<String> = mutableListOf()
-    val renderTargets: MutableList<MlnFfiRenderTarget> = mutableListOf()
-    val surfaceChanges: MutableList<MapExtent> = mutableListOf()
-    val surfaceExtentAtRenders: MutableList<MapExtent?> = mutableListOf()
-    var renderedFrames = 0
-      private set
-
-    var surfaceLostCount = 0
-      private set
-
-    var closeCount = 0
-      private set
-
-    var failingSurfaceChanges = 0
-    var skipNextRender = false
-    var skipAllRenders = false
-    var presentationAnchorOffsetX = 0
-    var presentationAnchorOffsetY = 0
-    var skippedFrames = 0
-      private set
-
-    private var hostSession: MlnFfiMapHostSession? = null
-
-    override fun onSurfaceChanged(extent: MapExtent) {
-      if (failingSurfaceChanges > 0) {
-        failingSurfaceChanges--
-        throw IllegalStateException("cannot resize to ${extent.width}x${extent.height}")
-      }
-      surfaceChanges += extent
-    }
-
-    override fun onSurfaceAvailable(session: MlnFfiMapHostSession) {
-      lifecycle += "onSurfaceAvailable"
-      hostSession = session
-    }
-
-    override fun onSurfaceLost() {
-      surfaceLostCount++
-      lifecycle += "onSurfaceLost"
-      if (failingSurfaceLosses > 0) {
-        failingSurfaceLosses--
-        throw IllegalStateException("deliberate surface loss failure")
-      }
-    }
-
-    override fun render(frame: MlnFfiMapFrame): MlnFfiFrameResult {
-      if (failingRenders > 0) {
-        failingRenders--
-        val error = "renderer lost its device on frame ${frame.frameId}"
-        throw if (unexpectedFailure) IllegalStateException(error)
-        else MlnFfiRecoverableFrameException(error, null)
-      }
-      renderedFrames++
-      renderTargets += frame.target
-      surfaceExtentAtRenders += surfaceChanges.lastOrNull()
-      if (requestAnotherFrame || additionalFrameRequests > 0) {
-        if (additionalFrameRequests > 0) additionalFrameRequests--
-        hostSession?.requestFrame()
-      }
-      if (skipNextRender || skipAllRenders) {
-        skipNextRender = false
-        skippedFrames++
-        return MlnFfiFrameResult.SKIPPED
-      }
-      return renderResults.removeFirstOrNull() ?: MlnFfiFrameResult.RENDERED
-    }
-
-    override fun presentationAnchor(extent: MapExtent): MlnFfiMapPresentationAnchor {
-      val center = extent.centerPresentationAnchor()
-      return MlnFfiMapPresentationAnchor(
-        x = center.x + presentationAnchorOffsetX,
-        y = center.y + presentationAnchorOffsetY,
-      )
-    }
-
-    override fun close() {
-      closeCount++
     }
   }
 
