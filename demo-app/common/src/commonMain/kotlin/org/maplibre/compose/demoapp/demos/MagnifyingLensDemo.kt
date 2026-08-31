@@ -32,8 +32,10 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import org.maplibre.compose.demoapp.Demo
@@ -97,10 +99,28 @@ object MagnifyingLensDemo : Demo {
     val appliedStyle = state.appliedStyle
     SideEffect { lensState.style.baseStyle = appliedStyle.base }
     val density = LocalDensity.current
+    val layoutDirection = LocalLayoutDirection.current
     val lensSizePx = with(density) { lensSize.dp.toPx() }
+    val spacingPx = with(density) { MapOverlay.Spacing.roundToPx() }
 
-    // The overlay's coordinates are the main map's screen coordinates.
-    var lensCenter by remember { mutableStateOf<Offset?>(null) }
+    // The overlay's coordinates are the main map's screen coordinates. The query point is the
+    // unobstructed overlay center plus the drag. The lens widget's layout bounds move by half a
+    // pixel when the lens size is odd, so they are not a stable camera target.
+    var overlaySize by remember { mutableStateOf(IntSize.Zero) }
+    val lensCenter =
+      overlaySize
+        .takeIf { it != IntSize.Zero }
+        ?.let { size ->
+          overlayInnerCenterPx(
+            overlayWidthPx = size.width,
+            overlayHeightPx = size.height,
+            insetLeftPx = contentWindowInsets.getLeft(density, layoutDirection),
+            insetTopPx = contentWindowInsets.getTop(density),
+            insetRightPx = contentWindowInsets.getRight(density, layoutDirection),
+            insetBottomPx = contentWindowInsets.getBottom(density),
+            spacingPx = spacingPx,
+          ) + dragOffset
+        }
     LaunchedEffect(Unit) {
       snapshotFlow {
         val position = mapState.cameraPosition
@@ -120,10 +140,7 @@ object MagnifyingLensDemo : Demo {
         Modifier.align(Alignment.Center)
           .offset { IntOffset(dragOffset.x.roundToInt(), dragOffset.y.roundToInt()) }
           .onGloballyPositioned { coordinates ->
-            lensCenter =
-              coordinates.parentLayoutCoordinates
-                ?.localBoundingBoxOf(coordinates, clipBounds = false)
-                ?.center
+            coordinates.parentLayoutCoordinates?.size?.let { overlaySize = it }
           }
           .pointerInput(Unit) {
             detectDragGestures { change, dragAmount ->
@@ -205,6 +222,31 @@ expect val LensRenderOptionsDefault: RenderOptions
 
 /** Applies a convex-lens distortion where the platform supports runtime shaders. */
 @Composable expect fun Modifier.radialLensDistortion(sizePx: Float): Modifier
+
+/**
+ * The center of the overlay's unobstructed region, in overlay pixels.
+ *
+ * Map overlay [Alignment.Center][androidx.compose.ui.Alignment.Center] places a child in that
+ * region. The child's layout bounds move by half a pixel when its size is odd. A camera target
+ * taken from those bounds then moves with every size step.
+ */
+internal fun overlayInnerCenterPx(
+  overlayWidthPx: Int,
+  overlayHeightPx: Int,
+  insetLeftPx: Int,
+  insetTopPx: Int,
+  insetRightPx: Int,
+  insetBottomPx: Int,
+  spacingPx: Int,
+): Offset {
+  val left = insetLeftPx + spacingPx
+  val top = insetTopPx + spacingPx
+  val right = insetRightPx + spacingPx
+  val bottom = insetBottomPx + spacingPx
+  val innerWidth = (overlayWidthPx - left - right).coerceAtLeast(0)
+  val innerHeight = (overlayHeightPx - top - bottom).coerceAtLeast(0)
+  return Offset(left + innerWidth / 2f, top + innerHeight / 2f)
+}
 
 internal const val LensShader =
   """

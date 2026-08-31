@@ -55,6 +55,42 @@ class MlnFfiProjectionTest {
   }
 
   @Test
+  fun consecutive_one_pixel_resizes_keep_the_camera_target() {
+    BridgeMapFixture.create().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      fixture.session.setCameraPosition(START_CAMERA)
+      fixture.pumpUntil("the starting camera to apply") {
+        abs(fixture.session.getCameraPosition().zoom - START_CAMERA.zoom) < 0.01 &&
+          fixture.session.screenLocationFromPosition(START_CAMERA.target).isNear(SCREEN_CENTER)
+      }
+
+      val start = fixture.session.getCameraPosition().target
+      for (width in 200..210) {
+        val extent = MapExtent.fromLogical(width, 200, scaleFactor = 1.0)
+        fixture.hasRendered = false
+        fixture.pumpUntil(
+          "the map to render at ${extent.width}x${extent.height}",
+          extent = extent,
+        ) {
+          fixture.hasRendered
+        }
+        val camera = fixture.session.getCameraPosition()
+        assertTrue(
+          abs(camera.target.latitude - start.latitude) < TARGET_TOLERANCE &&
+            abs(camera.target.longitude - start.longitude) < TARGET_TOLERANCE,
+          "resize to ${extent.width}x${extent.height} moved the camera from $start to ${camera.target}",
+        )
+        val projected = fixture.session.screenLocationFromPosition(start)
+        val expectedCenter = DpOffset((width / 2.0).dp, 100.dp)
+        assertTrue(
+          projected.isNear(expectedCenter),
+          "the camera target should stay at the visual center $expectedCenter ± $PIXEL_TOLERANCE, was $projected",
+        )
+      }
+    }
+  }
+
+  @Test
   fun a_resize_reprojects_the_camera_target_to_the_new_center() {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
@@ -117,6 +153,8 @@ class MlnFfiProjectionTest {
 
   private companion object {
     const val PIXEL_TOLERANCE = 1.0
+
+    const val TARGET_TOLERANCE = 1e-9
 
     val SCREEN_CENTER = DpOffset(256.dp, 256.dp)
 
