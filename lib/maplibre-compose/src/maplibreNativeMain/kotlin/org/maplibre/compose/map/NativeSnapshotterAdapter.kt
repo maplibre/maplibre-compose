@@ -137,7 +137,9 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
 
   private suspend fun ensureEngine(request: MapSnapshotRequest) {
     val extent = request.extent()
-    if (engine?.scaleFactor == extent.scaleFactor) return
+    if (engine?.let { it.scaleFactor == extent.scaleFactor && it.loop.failure == null } == true) {
+      return
+    }
     if (engine != null) {
       val failures = mutableListOf<Throwable>()
       runCatching { styleBinding?.invalidate() }.exceptionOrNull()?.let(failures::add)

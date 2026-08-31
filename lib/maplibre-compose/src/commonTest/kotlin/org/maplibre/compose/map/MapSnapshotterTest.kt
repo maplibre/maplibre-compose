@@ -254,11 +254,11 @@ class MapSnapshotterTest {
 
   @Test
   @OptIn(ExperimentalCoroutinesApi::class)
-  fun cancellation_that_releases_the_engine_marks_the_style_pending() = runTest {
+  fun active_cancellation_marks_the_style_pending_when_the_engine_is_retained() = runTest {
     val captureStarted = CompletableDeferred<Unit>()
     val image = FakeImageBitmap(1, 1)
     val initialBinding = RecordingStyleBinding()
-    var binding = initialBinding
+    val binding = initialBinding
     val adapter =
       FakeSnapshotterAdapter(
         prepare = { _, _ -> binding },
@@ -270,9 +270,7 @@ class MapSnapshotterTest {
           image
         },
         cancel = {
-          binding.invalidate()
-          binding = RecordingStyleBinding()
-          SnapshotterEngineDisposition.RELEASED
+          SnapshotterEngineDisposition.RETAINED
         },
       )
     val runtime =

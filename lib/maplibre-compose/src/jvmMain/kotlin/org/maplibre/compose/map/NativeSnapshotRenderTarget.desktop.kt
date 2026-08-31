@@ -15,6 +15,7 @@ import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.render.MetalContextDescriptor
 import org.maplibre.nativeffi.render.MetalOwnedTextureDescriptor
 import org.maplibre.nativeffi.render.NativePointer
+import org.maplibre.nativeffi.render.OpenGLOwnedTextureDescriptor
 import org.maplibre.nativeffi.render.RenderSessionHandle
 import org.maplibre.nativeffi.render.RenderTargetExtent
 import org.maplibre.nativeffi.render.VulkanContextDescriptor
@@ -37,6 +38,8 @@ private constructor(private val delegate: Delegate) : AutoCloseable {
           os.contains("mac") && MapRenderBackend.METAL in backends -> MetalDelegate.create()
           MapRenderBackend.VULKAN in backends ->
             VulkanDelegate(DesktopVulkanContext.createOffscreen())
+          MapRenderBackend.OPENGL in backends ->
+            OpenGlDelegate(DesktopOpenGlSnapshotContext.create(os))
           else ->
             throw UnsupportedOperationException(
               "No offscreen snapshot backend is available for $os from ${backends.joinToString()}"
@@ -102,6 +105,15 @@ private constructor(private val delegate: Delegate) : AutoCloseable {
           extent.toSnapshotRenderTargetExtent(),
           context.handles.toSnapshotVulkanContextDescriptor(),
         )
+      )
+
+    override fun close() = context.close()
+  }
+
+  private class OpenGlDelegate(private val context: DesktopOpenGlSnapshotContext) : Delegate {
+    override fun attach(map: MapHandle, extent: MapExtent): RenderSessionHandle =
+      map.attachOpenGLOwnedTexture(
+        OpenGLOwnedTextureDescriptor(extent.toSnapshotRenderTargetExtent(), context.descriptor)
       )
 
     override fun close() = context.close()

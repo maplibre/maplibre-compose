@@ -379,8 +379,8 @@ internal class MapSnapshotterImplementation(
   private fun startActiveCancellation(cancellation: CompletableDeferred<Result<Unit>>) {
     runtime.physicalScope.launch {
       val result = runCatching {
-        val disposition = adapter?.cancelActiveCapture() ?: SnapshotterEngineDisposition.RETAINED
-        if (disposition == SnapshotterEngineDisposition.RELEASED) engineReleased()
+        adapter?.cancelActiveCapture()
+        settleStyleAfterCancellation()
         Unit
       }
       result.exceptionOrNull()?.let { error ->
@@ -390,7 +390,7 @@ internal class MapSnapshotterImplementation(
     }
   }
 
-  private fun engineReleased() {
+  private fun settleStyleAfterCancellation() {
     lock.withLock {
       styleHandleEpoch++
       style.invalidateLoadedStyle()
