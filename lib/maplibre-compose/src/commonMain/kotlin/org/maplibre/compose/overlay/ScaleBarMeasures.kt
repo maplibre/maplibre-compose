@@ -16,6 +16,16 @@ public data class ScaleBarMeasures(
 /** use system locale APIs for the primary scale bar measure */
 @Composable internal expect fun systemDefaultPrimaryMeasure(): ScaleBarMeasure?
 
+internal fun scaleBarMeasureForAppleMeasurementSystem(
+  measurementSystem: String?
+): ScaleBarMeasure? =
+  when (measurementSystem) {
+    "Metric" -> Metric
+    "U.S." -> FeetAndMiles
+    "U.K." -> YardsAndMiles
+    else -> null
+  }
+
 /** if the system APIs don't provide a primary measure, fall back to our hardcoded lists */
 internal fun fallbackDefaultPrimaryMeasure(region: String?): ScaleBarMeasure =
   when (region) {
