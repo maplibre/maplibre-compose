@@ -362,7 +362,7 @@ class MapInputRecognitionTest {
     waitUntil(timeoutMillis = TIMEOUT) { target.clicks == count }
   }
 
-  /** Parent `clickable` nodes merge semantics, so the map tag is only in the unmerged tree. */
+  /** Parent clickable nodes merge semantics. The map tag is only in the unmerged tree. */
   private fun ComposeUiTest.mapNode(): SemanticsNodeInteraction =
     onNodeWithTag(RECOGNITION_MAP_TAG, useUnmergedTree = true)
 
