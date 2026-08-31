@@ -34,12 +34,12 @@ class ExpressionSwitchTest {
   }
 
   @Test
-  fun switch_with_several_conditions_nests_single_condition_cases() {
+  fun switch_with_several_conditions_is_one_case() {
     assertEquals(
       """["case",["==",["string",["get","icon"]],"1"],["image","one"],""" +
-        """["case",["==",["string",["get","icon"]],"2"],["image","two"],""" +
-        """["case",["==",["string",["get","icon"]],"3"],["image","three"],""" +
-        """["image","fallback"]]]]""",
+        """["==",["string",["get","icon"]],"2"],["image","two"],""" +
+        """["==",["string",["get","icon"]],"3"],["image","three"],""" +
+        """["image","fallback"]]""",
       json(compiled(iconSwitch())),
     )
   }
