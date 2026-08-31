@@ -48,7 +48,6 @@ private constructor(
       EGL14.eglDestroySurface(display, windowSurface)
       windowSurface = EGL14.EGL_NO_SURFACE
     }
-    EGL14.eglTerminate(display)
     EGL14.eglReleaseThread()
   }
 
@@ -57,23 +56,14 @@ private constructor(
     private val WINDOW_ATTRIBUTES = intArrayOf(EGL14.EGL_NONE)
 
     fun create(surface: Surface): AndroidEglContext {
-      val display = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY)
-      check(display != EGL14.EGL_NO_DISPLAY) { "EGL display is unavailable" }
+      val display = AndroidEglDisplay.default
+      eglCheck(EGL14.eglBindAPI(EGL14.EGL_OPENGL_ES_API), "bind the OpenGL ES API")
 
-      try {
-        val version = IntArray(2)
-        eglCheck(EGL14.eglInitialize(display, version, 0, version, 1), "initialize EGL")
-        eglCheck(EGL14.eglBindAPI(EGL14.EGL_OPENGL_ES_API), "bind the OpenGL ES API")
-
-        val config = chooseConfig(display)
-        val windowSurface =
-          EGL14.eglCreateWindowSurface(display, config, surface, WINDOW_ATTRIBUTES, 0)
-        check(windowSurface != EGL14.EGL_NO_SURFACE) { eglFailure("create the EGL window surface") }
-        return AndroidEglContext(display, config, windowSurface)
-      } catch (error: Throwable) {
-        EGL14.eglTerminate(display)
-        throw error
-      }
+      val config = chooseConfig(display)
+      val windowSurface =
+        EGL14.eglCreateWindowSurface(display, config, surface, WINDOW_ATTRIBUTES, 0)
+      check(windowSurface != EGL14.EGL_NO_SURFACE) { eglFailure("create the EGL window surface") }
+      return AndroidEglContext(display, config, windowSurface)
     }
 
     private fun chooseConfig(display: EGLDisplay): EGLConfig {

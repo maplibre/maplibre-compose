@@ -328,26 +328,31 @@ internal class MapSnapshotterImplementation(
     val operation =
       launch(start = CoroutineStart.LAZY) {
         var claim: StyleClaim? = null
+        var binding: StyleBinding? = null
         try {
           val currentClaim = claimStyle()
           claim = currentClaim
-          val binding =
+          val currentBinding =
             platform.prepare(currentClaim.baseStyle, currentClaim.revision, capture.request)
+          binding = currentBinding
           val request = capture.request
           val revision =
             styleEvaluator.evaluate(
               styleComposition,
-              binding,
+              currentBinding,
               Density(request.density, request.fontScale),
               request.layoutDirection,
               currentClaim.ownership,
             )
           recordStyleOwnership(currentClaim, revision)
           val image = platform.capture(request, revision)
-          publishStyle(currentClaim, binding, revision)
+          if (!publishStyle(capture, currentClaim, currentBinding, revision)) {
+            currentBinding.invalidate()
+          }
           capture.resume(image)
         } catch (error: Throwable) {
-          if (error !is CancellationException) claim?.let { publishStyleFailure(it, error) }
+          if (error is CancellationException) binding?.invalidate()
+          else claim?.let { publishStyleFailure(it, error) }
           capture.resumeFailure(error)
         }
       }
@@ -514,18 +519,18 @@ internal class MapSnapshotterImplementation(
   }
 
   private fun publishStyle(
+    capture: Capture,
     claim: StyleClaim,
     binding: StyleBinding,
     revision: DesiredStyleRevision,
-  ) {
-    lock.withLock {
-      if (closed || claim.revision != baseStyleRevision) return
-      styleHandleEpoch++
-      desiredRevision = revision
-      style.updateLoadedStyle(binding)
-      style.loadState = StyleLoadState.Ready
-      style.refreshSources()
-    }
+  ): Boolean = lock.withLock {
+    if (closed || capture.abandoned || claim.revision != baseStyleRevision) return@withLock false
+    styleHandleEpoch++
+    desiredRevision = revision
+    style.updateLoadedStyle(binding)
+    style.loadState = StyleLoadState.Ready
+    style.refreshSources()
+    true
   }
 
   private fun publishStyleFailure(claim: StyleClaim, error: Throwable) {

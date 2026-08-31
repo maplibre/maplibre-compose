@@ -4,7 +4,9 @@ import androidx.compose.ui.graphics.ImageBitmap
 import kotlin.concurrent.Volatile
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
@@ -16,6 +18,7 @@ import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.util.toCameraOptions
 import org.maplibre.compose.util.toImageBitmap
 import org.maplibre.nativeffi.camera.EdgeInsets
+import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.map.MapMode
 import org.maplibre.nativeffi.render.NativeBuffer
@@ -46,8 +49,8 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
   @Volatile private var styleBinding: MlnFfiStyleBinding? = null
   @Volatile private var loadedBaseStyleRevision: Long? = null
   @Volatile private var currentDensity = 1f
-  @Volatile private var terminalOperation: CompletableDeferred<Result<Unit>>? = null
-  @Volatile private var stillImageOperation = false
+  @Volatile private var terminalOperation: NativeSnapshotOperation? = null
+  @Volatile private var stillImageOperation: NativeSnapshotOperation? = null
   @Volatile private var renderedFrame = false
   private val reconciler = StyleReconciler()
 
@@ -67,15 +70,10 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
     current?.invalidate()
     styleBinding = null
     loadedBaseStyleRevision = null
-    val loading = CompletableDeferred<Result<Unit>>()
+    val loading = NativeSnapshotOperation(NativeSnapshotOperation.Kind.STYLE)
     terminalOperation = loading
-    postToMap { map ->
-      when (baseStyle) {
-        is BaseStyle.Uri -> map.setStyleUrl(baseStyle.uri)
-        is BaseStyle.Json -> map.setStyleJson(baseStyle.json.encodeToByteArray())
-      }
-    }
-    val loadResult = loading.await()
+    postStyleToMap(loading, baseStyle)
+    val loadResult = loading.completion.await()
     if (terminalOperation === loading) terminalOperation = null
     loadResult.getOrThrow()
     loadedBaseStyleRevision = baseStyleRevision
@@ -89,23 +87,36 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
     val binding = checkNotNull(styleBinding) { "A snapshot style has not loaded" }
     reconciler.apply(binding, revision)
     configureRequest(request)
-    val rendering = CompletableDeferred<Result<Unit>>()
-    stillImageOperation = true
+    val rendering = NativeSnapshotOperation(NativeSnapshotOperation.Kind.STILL_IMAGE)
+    stillImageOperation = rendering
     terminalOperation = rendering
     renderedFrame = false
     try {
-      postToMap { map -> map.requestStillImage() }
-      driveStillImage(rendering)
+      postToMap(rendering) { map -> map.requestStillImage() }
+      driveStillImage(rendering.completion)
       if (terminalOperation === rendering) terminalOperation = null
       readImage(request)
     } finally {
-      stillImageOperation = false
+      if (
+        (currentCoroutineContext().isActive ||
+          (rendering.completion.isCompleted && renderedFrame)) && stillImageOperation === rendering
+      ) {
+        stillImageOperation = null
+      }
     }
   }
 
   override suspend fun cancelActiveCapture(): SnapshotterEngineDisposition {
-    val operation = terminalOperation ?: return SnapshotterEngineDisposition.RETAINED
-    if (stillImageOperation) driveStillImage(operation) else operation.await()
+    val stillImage = stillImageOperation
+    if (stillImage != null) {
+      try {
+        driveStillImage(stillImage.completion)
+      } finally {
+        if (stillImageOperation === stillImage) stillImageOperation = null
+      }
+    } else {
+      terminalOperation?.completion?.await()
+    }
     return SnapshotterEngineDisposition.RETAINED
   }
 
@@ -148,7 +159,7 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
       releaseEngine(failures)
       throwCleanupFailures(failures)
     }
-    val created = CompletableDeferred<Result<Unit>>()
+    val created = NativeSnapshotOperation(NativeSnapshotOperation.Kind.ENGINE_CREATION)
     val resources = NativeSnapshotRenderResources(extent, options)
     lateinit var candidate: NativeSnapshotEngine
     val candidateLoop =
@@ -158,7 +169,7 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
         getLogger = { options.logger },
         resourceProviderFactory = options.resourceProviderFactory,
         onMapCreated = resources::attach,
-        onMapPublished = { created.complete(Result.success(Unit)) },
+        onMapPublished = { created.completion.complete(Result.success(Unit)) },
         onMapClosing = { resources.close() },
         onEvent = { event -> handleEvent(candidate, event) },
         onEventsDrained = {},
@@ -167,15 +178,15 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
         mapMode = MapMode.STATIC,
         onFailure = { error ->
           val failure = Result.failure<Unit>(error)
-          created.complete(failure)
-          if (engine === candidate) terminalOperation?.complete(failure)
+          created.completion.complete(failure)
+          if (engine === candidate) terminalOperation?.completion?.complete(failure)
         },
       )
     candidate = NativeSnapshotEngine(candidateLoop, resources, extent.scaleFactor)
     engine = candidate
     terminalOperation = created
     candidateLoop.start()
-    val creationResult = created.await()
+    val creationResult = created.completion.await()
     if (terminalOperation === created) terminalOperation = null
     try {
       creationResult.getOrThrow()
@@ -190,7 +201,7 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
     val currentEngine = checkNotNull(engine)
     val currentLoop = currentEngine.loop
     val extent = request.extent()
-    val resized = CompletableDeferred<Result<Unit>>()
+    val resized = NativeSnapshotOperation(NativeSnapshotOperation.Kind.RESIZE)
     terminalOperation = resized
     try {
       checkNotNull(
@@ -210,18 +221,22 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
       }
       if (
         !currentLoop.postEventDrainBarrier(
-          { resized.complete(Result.success(Unit)) },
+          { resized.completion.complete(Result.success(Unit)) },
           {
-            resized.complete(Result.failure(currentLoop.failure ?: MapSnapshotterClosedException()))
+            resized.completion.complete(
+              Result.failure(currentLoop.failure ?: MapSnapshotterClosedException())
+            )
           },
         )
       ) {
-        resized.complete(Result.failure(currentLoop.failure ?: MapSnapshotterClosedException()))
+        resized.completion.complete(
+          Result.failure(currentLoop.failure ?: MapSnapshotterClosedException())
+        )
       }
     } catch (error: Throwable) {
-      resized.complete(Result.failure(error))
+      resized.completion.complete(Result.failure(error))
     }
-    val resizeResult = resized.await()
+    val resizeResult = resized.completion.await()
     if (terminalOperation === resized) terminalOperation = null
     resizeResult.getOrThrow()
   }
@@ -232,27 +247,42 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
     } finally {
       val operation = terminalOperation
       if (operation != null) {
-        withContext(NonCancellable) { operation.await() }
+        withContext(NonCancellable) { operation.completion.await() }
         if (terminalOperation === operation) terminalOperation = null
       }
     }
 
   private fun handleEvent(source: NativeSnapshotEngine, event: RuntimeEvent) {
     if (engine !== source) return
+    val operation = terminalOperation
     when (event.type) {
       RuntimeEventType.MAP_STYLE_LOADED -> {
+        if (operation?.kind != NativeSnapshotOperation.Kind.STYLE) return
         val binding = createStyleBinding(source)
         styleBinding?.invalidate()
         styleBinding = binding
-        terminalOperation?.complete(Result.success(Unit))
+        operation.completion.complete(Result.success(Unit))
       }
-      RuntimeEventType.MAP_LOADING_FAILED,
-      RuntimeEventType.MAP_STILL_IMAGE_FAILED,
-      RuntimeEventType.MAP_RENDER_ERROR -> {
+      RuntimeEventType.MAP_LOADING_FAILED -> {
+        if (operation?.kind != NativeSnapshotOperation.Kind.STYLE) return
         val message = event.message.ifBlank { "MapLibre snapshot capture failed" }
-        terminalOperation?.complete(Result.failure(IllegalStateException(message)))
+        operation.completion.complete(Result.failure(IllegalStateException(message)))
       }
-      RuntimeEventType.MAP_STILL_IMAGE_FINISHED -> terminalOperation?.complete(Result.success(Unit))
+      RuntimeEventType.MAP_STILL_IMAGE_FAILED -> {
+        if (operation?.kind != NativeSnapshotOperation.Kind.STILL_IMAGE) return
+        val message = event.message.ifBlank { "MapLibre snapshot capture failed" }
+        operation.completion.complete(Result.failure(IllegalStateException(message)))
+      }
+      RuntimeEventType.MAP_RENDER_ERROR -> {
+        if (operation?.kind != NativeSnapshotOperation.Kind.STILL_IMAGE) return
+        val message = event.message.ifBlank { "MapLibre snapshot capture failed" }
+        operation.completion.complete(Result.failure(IllegalStateException(message)))
+      }
+      RuntimeEventType.MAP_STILL_IMAGE_FINISHED -> {
+        if (operation?.kind == NativeSnapshotOperation.Kind.STILL_IMAGE) {
+          operation.completion.complete(Result.success(Unit))
+        }
+      }
       else -> Unit
     }
   }
@@ -312,21 +342,36 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
     return pixels.toImageBitmap(info.width, info.height)
   }
 
-  private fun postToMap(action: (MapHandle) -> Unit) {
+  private fun postStyleToMap(operation: NativeSnapshotOperation, baseStyle: BaseStyle) {
+    postToMap(operation) { map ->
+      try {
+        when (baseStyle) {
+          is BaseStyle.Uri -> map.setStyleUrl(baseStyle.uri)
+          is BaseStyle.Json -> map.setStyleJson(baseStyle.json.encodeToByteArray())
+        }
+      } catch (_: MaplibreException) {
+        // A rejected inline style also queues MAP_LOADING_FAILED. That event owns completion so it
+        // is drained before the FIFO worker can expose the next operation to snapshot events.
+      }
+    }
+  }
+
+  private fun postToMap(operation: NativeSnapshotOperation, action: (MapHandle) -> Unit) {
     val currentLoop = checkNotNull(engine).loop
     if (
       !currentLoop.post(
         action = { map ->
-          runCatching { action(map) }.onFailure { terminalOperation?.complete(Result.failure(it)) }
+          runCatching { action(map) }
+            .onFailure { operation.completion.complete(Result.failure(it)) }
         },
         abandon = {
-          terminalOperation?.complete(
+          operation.completion.complete(
             Result.failure(currentLoop.failure ?: MapSnapshotterClosedException())
           )
         },
       )
     ) {
-      terminalOperation?.complete(
+      operation.completion.complete(
         Result.failure(currentLoop.failure ?: MapSnapshotterClosedException())
       )
     }
@@ -354,6 +399,17 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
 
   private fun MapSnapshotRequest.extent(): MapExtent =
     MapExtent.fromLogical(width, height, density.toDouble())
+
+  private class NativeSnapshotOperation(val kind: Kind) {
+    val completion = CompletableDeferred<Result<Unit>>()
+
+    enum class Kind {
+      ENGINE_CREATION,
+      STYLE,
+      RESIZE,
+      STILL_IMAGE,
+    }
+  }
 }
 
 /** A loop and the render resources owned exclusively by that loop's thread. */

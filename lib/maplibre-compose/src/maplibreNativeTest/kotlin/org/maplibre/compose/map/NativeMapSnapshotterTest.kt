@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.const
@@ -111,6 +112,35 @@ class NativeMapSnapshotterTest {
         FfiTestPlatform.deleteCacheFile(cacheFile)
       }
     }
+
+  @Test
+  fun a_rejected_inline_style_cannot_fail_the_next_capture(): MapTestResult = runMapTest {
+    FfiTestPlatform.initialize()
+    val cacheFile = FfiTestPlatform.createCacheFile()
+    val runtime =
+      createNativeMapRuntime(
+        MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+      )
+    try {
+      val snapshotter = runtime.createSnapshotter(BaseStyle.Json("{not json}"))
+      try {
+        val rejected = runCatching { snapshotter.capture(MapSnapshotRequest(SIZE, SIZE)) }
+        assertTrue(rejected.isFailure)
+
+        snapshotter.style.baseStyle = BASE_STYLE
+        val captured = snapshotter.capture(MapSnapshotRequest(SIZE, SIZE))
+
+        assertEquals(BACKGROUND, captured.readPixel(0, 0))
+      } finally {
+        snapshotter.close()
+        snapshotter.awaitClosed()
+      }
+    } finally {
+      runtime.close()
+      runtime.awaitClosed()
+      FfiTestPlatform.deleteCacheFile(cacheFile)
+    }
+  }
 
   private fun pointComposition(): StyleComposition {
     val points =

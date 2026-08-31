@@ -12,9 +12,11 @@ import kotlin.test.assertFalse
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
@@ -23,6 +25,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
@@ -293,6 +296,48 @@ class MapSnapshotterTest {
     assertEquals(StyleLoadState.Pending, snapshotter.style.loadState)
     snapshotter.capture(MapSnapshotRequest(3, 3))
     assertEquals(StyleLoadState.Ready, snapshotter.style.loadState)
+    close(snapshotter, runtime)
+  }
+
+  @Test
+  @OptIn(ExperimentalCoroutinesApi::class)
+  fun canceled_capture_cannot_republish_its_style_after_cleanup() = runTest {
+    val captureStarted = CompletableDeferred<Unit>()
+    val allowCaptureReturn = CompletableDeferred<Unit>()
+    val image = FakeImageBitmap(1, 1)
+    val binding = RecordingStyleBinding()
+    val adapter =
+      FakeSnapshotterAdapter(
+        prepare = { _, _ -> binding },
+        capture = { _, _ ->
+          captureStarted.complete(Unit)
+          try {
+            awaitCancellation()
+          } catch (_: CancellationException) {
+            withContext(NonCancellable) { allowCaptureReturn.await() }
+            image
+          }
+        },
+        cancel = {
+          allowCaptureReturn.complete(Unit)
+          SnapshotterEngineDisposition.RETAINED
+        },
+      )
+    val runtime =
+      mapRuntimeForTest(
+        physicalScope = this,
+        snapshotterAdapterFactory = SnapshotterAdapterFactory { adapter },
+        styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _ -> DesiredStyleRevision.Empty },
+      )
+    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
+    val active = async { snapshotter.capture(MapSnapshotRequest(1, 1)) }
+    captureStarted.await()
+
+    active.cancelAndJoin()
+    runCurrent()
+
+    assertFalse(binding.isLoaded)
+    assertEquals(StyleLoadState.Pending, snapshotter.style.loadState)
     close(snapshotter, runtime)
   }
 

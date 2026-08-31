@@ -5,6 +5,7 @@ import android.opengl.EGLConfig
 import android.opengl.EGLContext
 import android.opengl.EGLDisplay
 import android.opengl.EGLSurface
+import org.maplibre.compose.mlnffi.AndroidEglDisplay
 import org.maplibre.compose.mlnffi.AndroidVulkanOffscreenContext
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.VulkanContextHandles
@@ -96,7 +97,6 @@ private constructor(private val delegate: Delegate) : AutoCloseable {
         )
         if (surface != EGL14.EGL_NO_SURFACE) EGL14.eglDestroySurface(currentDisplay, surface)
         if (context != EGL14.EGL_NO_CONTEXT) EGL14.eglDestroyContext(currentDisplay, context)
-        EGL14.eglTerminate(currentDisplay)
       }
       display = null
       surface = EGL14.EGL_NO_SURFACE
@@ -108,13 +108,10 @@ private constructor(private val delegate: Delegate) : AutoCloseable {
       private const val EGL_OPENGL_ES3_BIT = 0x00000040
 
       fun create(): OpenGlDelegate {
-        val display = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY)
-        check(display != EGL14.EGL_NO_DISPLAY) { "EGL display is unavailable" }
+        val display = AndroidEglDisplay.default
         var context = EGL14.EGL_NO_CONTEXT
         var surface = EGL14.EGL_NO_SURFACE
         try {
-          val version = IntArray(2)
-          check(EGL14.eglInitialize(display, version, 0, version, 1)) { "Could not initialize EGL" }
           check(EGL14.eglBindAPI(EGL14.EGL_OPENGL_ES_API)) { "Could not bind OpenGL ES" }
           val attributes =
             intArrayOf(
@@ -177,7 +174,6 @@ private constructor(private val delegate: Delegate) : AutoCloseable {
           )
           if (surface != EGL14.EGL_NO_SURFACE) EGL14.eglDestroySurface(display, surface)
           if (context != EGL14.EGL_NO_CONTEXT) EGL14.eglDestroyContext(display, context)
-          EGL14.eglTerminate(display)
           EGL14.eglReleaseThread()
           throw error
         }
