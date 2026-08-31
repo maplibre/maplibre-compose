@@ -152,10 +152,10 @@ class BrowserMapSnapshotterTest {
         val second = snapshotter.capture(MapSnapshotRequest(width = 96, height = 64, density = 2f))
 
         assertSame(target, snapshotTargets().singleOrNull())
-        assertEquals(96, second.width)
-        assertEquals(64, second.height)
-        assertEquals(96, canvas.width)
-        assertEquals(64, canvas.height)
+        assertEquals(192, second.width)
+        assertEquals(128, second.height)
+        assertEquals(192, canvas.width)
+        assertEquals(128, canvas.height)
       } finally {
         snapshotter.close()
         snapshotter.awaitClosed()
@@ -201,27 +201,28 @@ class BrowserMapSnapshotterTest {
   }
 
   @Test
-  fun a_sub_density_request_keeps_a_nonzero_logical_viewport(): Promise<*> = runBrowserMapTest {
-    val runtime = createMapRuntime(MapRuntimeOptions())
-    val snapshotter = runtime.createSnapshotter(BASE_STYLE, StyleComposition {})
-    try {
-      val captured = snapshotter.capture(MapSnapshotRequest(width = 1, height = 1, density = 3f))
-      val target = assertNotNull(snapshotTargets().singleOrNull())
-      val canvas = assertNotNull(target.querySelector("canvas")).unsafeCast<HTMLCanvasElement>()
+  fun density_scales_the_bitmap_without_changing_the_logical_viewport(): Promise<*> =
+    runBrowserMapTest {
+      val runtime = createMapRuntime(MapRuntimeOptions())
+      val snapshotter = runtime.createSnapshotter(BASE_STYLE, StyleComposition {})
+      try {
+        val captured = snapshotter.capture(MapSnapshotRequest(width = 1, height = 1, density = 3f))
+        val target = assertNotNull(snapshotTargets().singleOrNull())
+        val canvas = assertNotNull(target.querySelector("canvas")).unsafeCast<HTMLCanvasElement>()
 
-      assertEquals(1, captured.width)
-      assertEquals(1, captured.height)
-      assertEquals(1, target.clientWidth)
-      assertEquals(1, target.clientHeight)
-      assertEquals(3, canvas.width)
-      assertEquals(3, canvas.height)
-    } finally {
-      snapshotter.close()
-      snapshotter.awaitClosed()
-      runtime.close()
-      runtime.awaitClosed()
+        assertEquals(3, captured.width)
+        assertEquals(3, captured.height)
+        assertEquals(1, target.clientWidth)
+        assertEquals(1, target.clientHeight)
+        assertEquals(3, canvas.width)
+        assertEquals(3, canvas.height)
+      } finally {
+        snapshotter.close()
+        snapshotter.awaitClosed()
+        runtime.close()
+        runtime.awaitClosed()
+      }
     }
-  }
 
   @Test
   fun page_css_does_not_change_the_private_viewport(): Promise<*> = runBrowserMapTest {
@@ -257,7 +258,7 @@ class BrowserMapSnapshotterTest {
       try {
         val error =
           assertFailsWith<IllegalArgumentException> {
-            snapshotter.capture(MapSnapshotRequest(width = 4_097, height = 1))
+            snapshotter.capture(MapSnapshotRequest(width = 2_049, height = 1, density = 2f))
           }
 
         assertTrue(error.message.orEmpty().contains("4096px canvas limit"))
@@ -285,10 +286,14 @@ class BrowserMapSnapshotterTest {
       val first = snapshotter.capture(request)
       val second = snapshotter.capture(request.copy(density = 2f))
 
+      assertEquals(SIZE, first.width)
+      assertEquals(SIZE, first.height)
+      assertEquals(SIZE * 2, second.width)
+      assertEquals(SIZE * 2, second.height)
       assertEquals(GREEN, first.readPixel(SIZE / 2, SIZE / 2))
       assertEquals(BACKGROUND, first.readPixel(SIZE / 2 + 6, SIZE / 2))
-      assertEquals(GREEN, second.readPixel(SIZE / 2, SIZE / 2))
-      assertEquals(BACKGROUND, second.readPixel(SIZE / 2 + 6, SIZE / 2))
+      assertEquals(GREEN, second.readPixel(SIZE, SIZE))
+      assertEquals(BACKGROUND, second.readPixel(SIZE + 12, SIZE))
     } finally {
       snapshotter.close()
       snapshotter.awaitClosed()

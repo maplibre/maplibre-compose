@@ -36,8 +36,8 @@ MapState.
 
 The Web adapter owns a non-interactive MapLibre GL JS map in a private hidden
 DOM target. It keeps that engine across compatible captures, applies every
-request's physical extent, density, camera, and transparency, and copies the
-preserved drawing buffer into the returned bitmap. Closing the snapshotter
+request's logical extent, density, camera, and transparency, and copies the
+physical drawing buffer into the returned bitmap. Closing the snapshotter
 removes both the map and its target.
 
 Active Web cancellation removes the private engine because GL JS cannot cancel

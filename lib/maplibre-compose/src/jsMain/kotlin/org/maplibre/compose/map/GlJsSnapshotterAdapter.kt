@@ -214,12 +214,9 @@ private class GlJsSnapshotterAdapter(private val logger: Logger?) : SnapshotterA
   }
 
   private fun size(container: HTMLElement, request: MapSnapshotRequest) {
-    val extent = MapExtent.fromPhysical(request.width, request.height, request.density.toDouble())
-    val rendered = MapExtent.fromLogical(extent.width, extent.height, extent.scaleFactor)
-    require(
-      rendered.physicalWidth <= MAX_CANVAS_SIZE && rendered.physicalHeight <= MAX_CANVAS_SIZE
-    ) {
-      "The Web snapshot needs a ${rendered.physicalWidth}x${rendered.physicalHeight} canvas, " +
+    val extent = request.extent()
+    require(extent.physicalWidth <= MAX_CANVAS_SIZE && extent.physicalHeight <= MAX_CANVAS_SIZE) {
+      "The Web snapshot needs a ${extent.physicalWidth}x${extent.physicalHeight} canvas, " +
         "which exceeds MapLibre GL JS's ${MAX_CANVAS_SIZE}px canvas limit"
     }
     container.style.width = "${extent.width}px"
@@ -228,29 +225,34 @@ private class GlJsSnapshotterAdapter(private val logger: Logger?) : SnapshotterA
 
   private fun readImage(map: MaplibreMap, request: MapSnapshotRequest): ImageBitmap {
     val source = map.getCanvas()
-    check(source.width > 0 && source.height > 0) { "MapLibre rendered an empty snapshot canvas" }
+    val extent = request.extent()
+    val width = extent.physicalWidth
+    val height = extent.physicalHeight
+    check(source.width == width && source.height == height) {
+      "MapLibre rendered a ${source.width}x${source.height} snapshot canvas, expected ${width}x$height"
+    }
     val output = document.createElement("canvas").unsafeCast<HTMLCanvasElement>()
-    output.width = request.width
-    output.height = request.height
+    output.width = width
+    output.height = height
     val context = output.asDynamic().getContext("2d")
     check(context != null && context != undefined) {
-      "The browser would not give a 2D context for a ${request.width}x${request.height} snapshot"
+      "The browser would not give a 2D context for a ${width}x$height snapshot"
     }
     if (!request.outputOptions.transparent) {
       context.fillStyle = "#ffffff"
-      context.fillRect(0, 0, request.width, request.height)
+      context.fillRect(0, 0, width, height)
     }
-    context.drawImage(source, 0, 0, request.width, request.height)
-    val data = context.getImageData(0, 0, request.width, request.height).data
+    context.drawImage(source, 0, 0, width, height)
+    val data = context.getImageData(0, 0, width, height).data
     val pixels =
-      IntArray(request.width * request.height) { index ->
+      IntArray(width * height) { index ->
         val offset = index * 4
         (data[offset].unsafeCast<Int>() shl 16) or
           (data[offset + 1].unsafeCast<Int>() shl 8) or
           data[offset + 2].unsafeCast<Int>() or
           (data[offset + 3].unsafeCast<Int>() shl 24)
       }
-    return pixels.toImageBitmap(request.width, request.height)
+    return pixels.toImageBitmap(width, height)
   }
 
   private fun releaseEngine(reason: Throwable) {
@@ -277,6 +279,9 @@ private class GlJsSnapshotterAdapter(private val logger: Logger?) : SnapshotterA
     styleErrorSubscription?.cancel()
     styleErrorSubscription = null
   }
+
+  private fun MapSnapshotRequest.extent(): MapExtent =
+    MapExtent.fromLogical(width, height, density.toDouble())
 
   private companion object {
     const val MAX_CANVAS_SIZE = 4_096
