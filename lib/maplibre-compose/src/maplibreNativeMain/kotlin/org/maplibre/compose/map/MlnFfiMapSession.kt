@@ -1613,6 +1613,50 @@ internal class MlnFfiMapSession(
   /** Test seam: runs [action] on the owner thread and waits for it. */
   internal fun <T> readMap(action: (MapHandle) -> T): T? = runOnMap(action)
 
+  internal suspend fun <T> withPlatformMap(block: PlatformMapScope.() -> T): T {
+    val engine = lifecycle.ensureEngine()
+    val completion = CompletableDeferred<Result<T>>()
+    val accepted =
+      postWhenMapExists(
+        action = { map ->
+          completion.complete(
+            runCatching {
+              var result: Result<T>? = null
+              val accepted =
+                lifecycle.acceptEngineEvent(engine) {
+                  val authorityAccepted =
+                    lifecycleAuthority.acceptEnginePlatformAccess(this) {
+                      result = runCatching { PlatformMapScope(map).block() }
+                    }
+                  if (!authorityAccepted) {
+                    throw IllegalStateException(
+                      "The native platform map changed before access could begin"
+                    )
+                  }
+                }
+              if (!accepted) {
+                throw IllegalStateException(
+                  "The native platform map changed before access could begin"
+                )
+              }
+              checkNotNull(result).getOrThrow()
+            }
+          )
+        },
+        abandon = {
+          completion.complete(
+            Result.failure(
+              IllegalStateException("The native platform map changed before access could begin")
+            )
+          )
+        },
+      )
+    if (!accepted) {
+      throw MapStateClosedException()
+    }
+    return completion.await().getOrThrow()
+  }
+
   override fun positionFromScreenLocation(offset: DpOffset): Position? = withSnapshotProjection {
     it.latLngForPixel(offset.toScreenPoint()).toPosition()
   }

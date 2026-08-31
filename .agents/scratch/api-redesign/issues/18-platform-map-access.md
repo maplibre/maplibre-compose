@@ -6,25 +6,25 @@ borrowed, callback-scoped value.
 
 **Blocked by:** 04, 05, 07
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] The changed test area contains no redundant, impossible,
+- [x] The changed test area contains no redundant, impossible,
       compatibility-only, or implementation-shape scenarios.
-- [ ] A caller can invoke platform access from any coroutine dispatcher.
-- [ ] The lambda executes on the engine map's owner context.
-- [ ] Documentation states honestly that Kotlin cannot prevent retention and
+- [x] A caller can invoke platform access from any coroutine dispatcher.
+- [x] The lambda executes on the engine map's owner context.
+- [x] Documentation states honestly that Kotlin cannot prevent retention and
       requires callers to use the borrowed handle only during the lambda.
-- [ ] Native access creates the engine map lazily when necessary.
-- [ ] Native access works while MapState has no presentation.
-- [ ] Web access works only for the current attached presentation.
-- [ ] Web access fails clearly while detached.
-- [ ] Native invocations bind to an engine-map identity; Web invocations bind to
+- [x] Native access creates the engine map lazily when necessary.
+- [x] Native access works while MapState has no presentation.
+- [x] Web access works only for the current attached presentation.
+- [x] Web access fails clearly while detached.
+- [x] Native invocations bind to an engine-map identity; Web invocations bind to
       both an engine-map identity and the current render lease.
-- [ ] Replacement, Web detachment, or closure that wins before execution rejects
+- [x] Replacement, Web detachment, or closure that wins before execution rejects
       the invocation without running its callback.
-- [ ] Once a callback starts, detach, replacement, and closure queue behind it
+- [x] Once a callback starts, detach, replacement, and closure queue behind it
       and continue after it returns.
-- [ ] Platform tests verify owner-context execution, native detached access, Web
+- [x] Platform tests verify owner-context execution, native detached access, Web
       attached-only access, and rejection after closure.
 
 ## Test ledger
@@ -37,3 +37,21 @@ borrowed, callback-scoped value.
   claiming Kotlin can prevent raw-handle retention.
 - Run `mise run test:android`, `mise run test:desktop`, `mise run test:ios`, and
   `mise run test:js`.
+
+## Answer
+
+`MapState.withPlatformMap` now provides delicate, callback-scoped access to the
+raw native or Web map. Native calls create and retain an engine without a
+presentation. Web calls require the current presentation. Both paths validate
+the captured engine identity immediately before the callback; Web also validates
+the render lease. A callback that has started finishes before detach,
+replacement, or closure proceeds. Identity validation and callback delivery hold
+both lifecycle serialization locks until the callback returns.
+
+The native tests cover detached creation, owner-thread execution, replacement
+before execution, closure after execution starts, and closed-state rejection.
+The Web tests cover detached rejection, attached access, and stale-lease
+rejection. The Android, desktop, and iOS tasks pass. The Web task runs all 263
+tests: the three platform-access tests pass, while nine existing
+`BrowserCompositingTest` cases time out waiting for rendered pixels on this
+host.

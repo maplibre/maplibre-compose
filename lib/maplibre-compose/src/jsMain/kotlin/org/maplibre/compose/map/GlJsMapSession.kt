@@ -18,6 +18,7 @@ import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraMoveReason
@@ -125,6 +126,9 @@ internal class GlJsMapSession(
 
   /** Actions accepted before Compose supplies the context used to construct the map. */
   private val pendingMapActions = mutableListOf<PendingMapAction>()
+
+  /** Platform-access callbacks waiting for this render lease's engine map. */
+  private val pendingPlatformMapAccess = mutableListOf<PendingMapAction>()
 
   /** Transitions MapLibre would cancel while applying the first style's camera. */
   private val pendingInitialStyleActions = mutableListOf<PendingMapAction>()
@@ -289,6 +293,7 @@ internal class GlJsMapSession(
       lifecycleStyleRequestIdentity = null
       lifecycleStyleIdentity = null
     }
+    abandonPending(pendingPlatformMapAccess)
     destroyMap()
   }
 
@@ -296,6 +301,7 @@ internal class GlJsMapSession(
     isGestureInProgress = false
     abandonPending(pendingMapActions)
     abandonPending(pendingInitialStyleActions)
+    abandonPending(pendingPlatformMapAccess)
     surface = null
   }
 
@@ -357,6 +363,7 @@ internal class GlJsMapSession(
     appliedExtent = MapExtent.Empty
     cameraConstraints?.let { applyCameraConstraints(created, it) }
     runPending(pendingMapActions, created)
+    runPending(pendingPlatformMapAccess, created)
     return created
   }
 
@@ -430,6 +437,54 @@ internal class GlJsMapSession(
 
   /** The current GL JS engine-map instance, exposed only to browser boundary tests. */
   internal fun engineMapForTest(): MaplibreMap? = map
+
+  internal suspend fun <T> withPlatformMap(block: PlatformMapScope.() -> T): T {
+    val engine =
+      lifecycle.engineIdentity
+        ?: throw IllegalStateException("The Web platform map changed before access could begin")
+    val lease =
+      lifecycle.renderLease
+        ?: throw IllegalStateException("The Web platform map changed before access could begin")
+    val completion = CompletableDeferred<Result<T>>()
+    val action =
+      PendingMapAction(
+        run = { map ->
+          completion.complete(
+            runCatching {
+              var result: Result<T>? = null
+              val accepted =
+                lifecycle.acceptPresentationEvent(engine, lease) {
+                  val authorityAccepted =
+                    lifecycleAuthority.acceptPresentationPlatformAccess(this) {
+                      result = runCatching { PlatformMapScope(map).block() }
+                    }
+                  if (!authorityAccepted) {
+                    throw IllegalStateException(
+                      "The Web platform map changed before access could begin"
+                    )
+                  }
+                }
+              if (!accepted) {
+                throw IllegalStateException(
+                  "The Web platform map changed before access could begin"
+                )
+              }
+              checkNotNull(result).getOrThrow()
+            }
+          )
+        },
+        abandon = {
+          completion.complete(
+            Result.failure(
+              IllegalStateException("The Web platform map changed before access could begin")
+            )
+          )
+        },
+      )
+    val current = map
+    if (current == null) pendingPlatformMapAccess += action else action.run(current)
+    return completion.await().getOrThrow()
+  }
 
   private fun maxTextureSize(gl: dynamic): Array<Double> {
     val size = (gl.getParameter(gl.MAX_TEXTURE_SIZE) as? Int)?.toDouble() ?: 4096.0
