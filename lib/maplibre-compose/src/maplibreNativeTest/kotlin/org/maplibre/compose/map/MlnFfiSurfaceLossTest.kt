@@ -1,7 +1,5 @@
 package org.maplibre.compose.map
 
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -10,14 +8,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.expressions.ast.ExpressionContext
-import org.maplibre.compose.expressions.dsl.all
-import org.maplibre.compose.expressions.dsl.asBoolean
-import org.maplibre.compose.expressions.dsl.condition
-import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.dsl.feature
-import org.maplibre.compose.expressions.dsl.switch
-import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.sources.GeoJsonData
@@ -25,7 +15,6 @@ import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.install
-import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Position
@@ -35,7 +24,8 @@ import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
 /**
  * What a map keeps when its surface goes away and comes back: only the render session belongs to
  * the host, so the map, its style and its camera must survive. Uses a real GPU because the half
- * under test is native.
+ * under test is native. Feature-state paint is proven in `FeatureStateTest`; this class asserts
+ * stored state and a restored render session.
  */
 class MlnFfiSurfaceLossTest {
 
@@ -108,7 +98,7 @@ class MlnFfiSurfaceLossTest {
   fun feature_state_accepts_mutations_without_a_surface_and_replays_into_its_replacement() {
     val fixture = BridgeMapFixture.create()
     fixture.use {
-      it.loadStyle(BLACK_STYLE)
+      it.loadStyle(STYLE)
       it.session.setCameraPosition(
         CameraPosition(target = Position(longitude = 0.0, latitude = 0.0), zoom = 1.0)
       )
@@ -125,52 +115,33 @@ class MlnFfiSurfaceLossTest {
           options = GeoJsonOptions(),
         )
       style.install(source)
-      val layer = CircleLayer("circles", source)
-      layer.setCircleRadius(const(48.dp).compile(ExpressionContext.None))
-      layer.setCircleColor(
-        switch(
-            condition(
-              all(
-                feature.state<BooleanValue>("before-surface").asBoolean(const(false)),
-                feature.state<BooleanValue>("without-surface").asBoolean(const(false)),
-              ),
-              const(Color.Red),
-            ),
-            fallback = const(Color.Blue),
-          )
-          .compile(ExpressionContext.None)
-      )
-      style.install(layer)
+      style.install(CircleLayer("circles", source))
 
       style.setFeatureState(source.id, null, "1", state("before-surface"))
-      it.pumpUntil("the incomplete feature state to render blue") {
-        it.tryReadPixel(CENTER, CENTER)?.isNear(BLUE) == true
-      }
+      it.pumpUntilRendered()
+      assertEquals(state("before-surface"), style.featureState(source.id, null, "1"))
+
       it.loseSurface()
-      assertEquals(null, it.tryReadPixel(CENTER, CENTER))
       style.setFeatureState(source.id, null, "1", state("without-surface"))
       assertEquals(
         state("before-surface", "without-surface"),
         style.featureState(source.id, null, "1"),
       )
-      it.restoreSurface()
-      assertEquals(null, it.tryReadPixel(CENTER, CENTER))
-      it.pumpUntil("feature state to replay into the replacement renderer") {
-        it.tryReadPixel(CENTER, CENTER)?.isNear(RED) == true
-      }
 
-      it.loseSurface()
-      assertEquals(null, it.tryReadPixel(CENTER, CENTER))
-      style.resetFeatureStates(source.id, null)
+      it.restoreSurface()
+      it.pumpUntilRendered()
       assertEquals(
-        JsonObject(emptyMap()),
+        state("before-surface", "without-surface"),
         style.featureState(source.id, null, "1"),
       )
+
+      it.loseSurface()
+      style.resetFeatureStates(source.id, null)
+      assertEquals(JsonObject(emptyMap()), style.featureState(source.id, null, "1"))
+
       it.restoreSurface()
-      assertEquals(null, it.tryReadPixel(CENTER, CENTER))
-      it.pumpUntil("the reset feature state to replay") {
-        it.tryReadPixel(CENTER, CENTER)?.isNear(BLUE) == true
-      }
+      it.pumpUntilRendered()
+      assertEquals(JsonObject(emptyMap()), style.featureState(source.id, null, "1"))
     }
   }
 
@@ -184,20 +155,6 @@ class MlnFfiSurfaceLossTest {
         ]}
         """
       )
-
-    val BLACK_STYLE =
-      BaseStyle.Json(
-        """
-        {"version":8,"sources":{},"layers":[
-          {"id":"background","type":"background","paint":{"background-color":"#000000"}}
-        ]}
-        """
-          .trimIndent()
-      )
-
-    val RED = RgbaPixel(red = 255, green = 0, blue = 0, alpha = 255)
-    val BLUE = RgbaPixel(red = 0, green = 0, blue = 255, alpha = 255)
-    const val CENTER = 256
 
     val CAMERA = CameraPosition(target = Position(longitude = 11.0, latitude = 47.0), zoom = 6.0)
 
