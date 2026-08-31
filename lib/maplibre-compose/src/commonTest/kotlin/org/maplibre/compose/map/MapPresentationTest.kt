@@ -255,6 +255,24 @@ class MapPresentationTest {
   }
 
   @Test
+  fun a_style_failure_during_presentation_configuration_is_published_after_admission() = runTest {
+    val runtime = mapRuntimeForTest()
+    val state = runtime.createMapState()
+    val callbacks = state.durableStyleCallbacks()
+    val token = state.reservePresentation()
+    val adapter = FailureDuringConfigurationAdapter { map ->
+      callbacks.onMapFailLoading(map, "style refused")
+    }
+
+    state.publishPresentation(token, adapter)
+
+    val failure = assertIs<StyleLoadState.Failed>(state.style.loadState)
+    assertEquals("style refused", failure.reason)
+    state.close()
+    runtime.close()
+  }
+
+  @Test
   fun an_accepted_camera_set_updates_the_durable_map_position() {
     val fixture = presentationFixture()
     val position = CameraPosition(target = Position(12.0, 34.0), zoom = 8.0)
@@ -782,6 +800,14 @@ private class ClosingDuringConfigurationAdapter(private val closeState: () -> Un
       closed = true
       closeState()
     }
+  }
+}
+
+private class FailureDuringConfigurationAdapter(private val reportFailure: (MapAdapter) -> Unit) :
+  PresentationTestAdapter() {
+  override fun setBaseStyle(style: BaseStyle) {
+    super.setBaseStyle(style)
+    reportFailure(this)
   }
 }
 

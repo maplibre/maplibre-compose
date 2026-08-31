@@ -232,6 +232,8 @@ internal class MapLifecycleAuthority(
         options = options,
         reusesRetainedAdapter = preparation.reusesRetainedAdapter,
       )
+      current.pendingStyleFailure?.let { owner.commitStyleFailure(it.reason) }
+      current.pendingStyleFailure = null
       preparation.replaced
     }
     if (replaced != null) {
@@ -287,6 +289,20 @@ internal class MapLifecycleAuthority(
     !closed &&
       ((attachment?.adapter === adapter && attachment?.admitted == true) ||
         retainedAdapter === adapter)
+  }
+
+  fun reportStyleFailure(adapter: MapAdapter, reason: String?): Unit = serialized {
+    if (closed) return@serialized
+    val current = attachment
+    if (current?.adapter === adapter && !current.releasing) {
+      if (current.admitted) {
+        owner.commitStyleFailure(reason)
+      } else {
+        current.pendingStyleFailure = PendingStyleFailure(reason)
+      }
+    } else if (retainedAdapter === adapter) {
+      owner.commitStyleFailure(reason)
+    }
   }
 
   fun isPendingPublication(adapter: MapAdapter): Boolean = serialized {
@@ -374,7 +390,10 @@ internal class MapLifecycleAuthority(
     var adapter: MapAdapter? = null,
     var admitted: Boolean = false,
     var releasing: Boolean = false,
+    var pendingStyleFailure: PendingStyleFailure? = null,
   )
+
+  private data class PendingStyleFailure(val reason: String?)
 
   private data class PresentationPreparation(
     val reusesRetainedAdapter: Boolean,

@@ -469,11 +469,11 @@ internal constructor(
   }
 
   internal fun markStyleFailed(adapter: MapAdapter, reason: String?) {
-    lifecycle.serialized {
-      if (lifecycle.acceptsAdapter(adapter)) {
-        style.loadState = StyleLoadState.Failed(reason)
-      }
-    }
+    lifecycle.reportStyleFailure(adapter, reason)
+  }
+
+  internal fun commitStyleFailure(reason: String?) {
+    style.loadState = StyleLoadState.Failed(reason)
   }
 
   internal fun beginStyleRevision(adapter: MapAdapter, revision: DesiredStyleRevision) {
