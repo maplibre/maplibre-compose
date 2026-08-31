@@ -52,10 +52,8 @@ class LocationStateTest {
           )
       }
 
-      waitUntil {
-        state?.status ==
-          LocationTrackingStatus.Unavailable(LocationUnavailableReason.Misconfigured, cause)
-      }
+      waitUntil { state?.availability == LocationBackendAvailability.Misconfigured(cause) }
+      assertEquals(LocationTrackingStatus.Stopped, state?.status)
       assertFalse(provider.active)
     }
   }
@@ -76,7 +74,10 @@ class LocationStateTest {
           )
       }
 
-      waitUntil { state?.status == LocationTrackingStatus.WaitingForPermission }
+      waitUntil {
+        state?.permission == LocationPermission.NotGranted(canRequest = true) &&
+          state.status == LocationTrackingStatus.Stopped
+      }
       assertFalse(locationProvider.active)
       runOnIdle { state?.requestPermission() }
       assertEquals(1, provider.requestCount)
@@ -90,9 +91,7 @@ class LocationStateTest {
       runOnIdle {
         provider.permission.value = LocationPermission.NotGranted(canRequest = false)
       }
-      waitUntil {
-        !locationProvider.active && state?.status == LocationTrackingStatus.WaitingForPermission
-      }
+      waitUntil { !locationProvider.active && state?.status == LocationTrackingStatus.Stopped }
       assertTrue(locationProvider.stopCount > 0)
     }
   }
@@ -113,7 +112,7 @@ class LocationStateTest {
           )
       }
 
-      waitUntil { state?.status == LocationTrackingStatus.WaitingForPermission }
+      waitUntil { state?.permission == LocationPermission.NotGranted(canRequest = true) }
       assertEquals(0, headingProvider.activeCollectors)
 
       runOnIdle {
@@ -244,6 +243,34 @@ class LocationStateTest {
         headingProvider.attempts == 2 &&
           state?.lastHeading == expected &&
           state.headingStatus == HeadingTrackingStatus.Tracking
+      }
+    }
+  }
+
+  @Test
+  fun retryRestartsLocationAfterUnavailableSession() = withMainDispatcher {
+    runComposeUiTest {
+      val expected = location(13.0)
+      val provider = RetryableLocationProvider(expected)
+      var state: LocationState? = null
+
+      setContent {
+        state =
+          rememberLocationState(
+            provider = provider,
+            lifecycleOwner = ResumedLifecycleOwner(),
+          )
+      }
+
+      waitUntil {
+        state?.status ==
+          LocationTrackingStatus.Unavailable(LocationUnavailableReason.ServicesDisabled)
+      }
+      runOnIdle { state?.retry() }
+      waitUntil {
+        provider.attempts == 2 &&
+          state?.lastLocation == expected &&
+          state.status == LocationTrackingStatus.Tracking
       }
     }
   }
@@ -479,6 +506,26 @@ private class RetryableHeadingProvider(private val heading: HeadingMeasurement) 
     attempts++
     if (attempts == 1) throw IllegalStateException("sensor failed")
     emit(heading)
+    awaitCancellation()
+  }
+}
+
+private class RetryableLocationProvider(private val location: LocationMeasurement) :
+  LocationProvider {
+  var attempts = 0
+
+  override fun updates(request: LocationRequest): Flow<LocationEvent> = flow {
+    attempts++
+    if (attempts == 1) {
+      emit(LocationEvent.Unavailable(LocationUnavailableReason.ServicesDisabled))
+      return@flow
+    }
+    emit(
+      LocationEvent.Update(
+        measurement = location,
+        measurementMark = TimeSource.Monotonic.markNow(),
+      )
+    )
     awaitCancellation()
   }
 }
