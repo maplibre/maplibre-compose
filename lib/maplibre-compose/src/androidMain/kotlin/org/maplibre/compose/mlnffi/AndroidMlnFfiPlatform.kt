@@ -23,4 +23,9 @@ internal object AndroidMlnFfiPlatform {
       this.application = application
     }
   }
+
+  /** Clears the Compose-side initialization guard. Tests only. */
+  internal fun resetForTest() {
+    synchronized(this) { application = null }
+  }
 }
