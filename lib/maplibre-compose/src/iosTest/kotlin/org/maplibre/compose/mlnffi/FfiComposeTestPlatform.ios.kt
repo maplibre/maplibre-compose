@@ -16,6 +16,11 @@ internal actual fun runFfiComposeUiTest(block: suspend ComposeUiTest.() -> Unit)
 }
 
 @OptIn(ExperimentalTestApi::class)
+internal actual fun runPlainComposeUiTest(block: suspend ComposeUiTest.() -> Unit) {
+  runComposeUiTest { block() }
+}
+
+@OptIn(ExperimentalTestApi::class)
 internal actual fun ComposeUiTest.setFfiTestMapContent(
   runtimeOptions: MlnFfiRuntimeOptions,
   presentationCount: Int,

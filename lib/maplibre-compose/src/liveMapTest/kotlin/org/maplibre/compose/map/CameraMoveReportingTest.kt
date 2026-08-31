@@ -1,15 +1,18 @@
 package org.maplibre.compose.map
 
+import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.maplibre.compose.camera.CameraMoveReason
+import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.MapFixture
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
+import org.maplibre.spatialk.geojson.Position
 
 class CameraMoveReportingTest {
 
@@ -47,6 +50,39 @@ class CameraMoveReportingTest {
     }
   }
 
+  @Test
+  fun a_scale_changes_the_native_zoom(): MapTestResult = runMapTest {
+    createMapFixture().use {
+      it.startAtRest()
+      it.presentation.setCameraPosition(START)
+      it.pumpUntil("the camera to adopt the start zoom") {
+        abs(it.session.getCameraPosition().zoom - START.zoom) < ZOOM_TOLERANCE
+      }
+
+      it.gestures.scaleBy(2.0, anchor = null)
+      it.pumpUntil("the native camera to scale") {
+        abs(it.session.getCameraPosition().zoom - (START.zoom + 1.0)) < ZOOM_TOLERANCE
+      }
+    }
+  }
+
+  @Test
+  fun a_rotate_and_pitch_changes_the_native_camera(): MapTestResult = runMapTest {
+    createMapFixture().use {
+      it.startAtRest()
+      it.presentation.setCameraPosition(START)
+      it.pumpUntil("the camera to adopt the start pose") {
+        abs(it.session.getCameraPosition().zoom - START.zoom) < ZOOM_TOLERANCE
+      }
+
+      it.gestures.rotateAndPitchBy(30.0, 15.0)
+      it.pumpUntil("the native camera to rotate and tilt") {
+        val camera = it.session.getCameraPosition()
+        abs(camera.bearing - 30.0) < ANGLE_TOLERANCE && abs(camera.tilt - 15.0) < ANGLE_TOLERANCE
+      }
+    }
+  }
+
   private suspend fun MapFixture.startAtRest() {
     loadStyle(BaseStyle.Empty)
     awaitMapReady()
@@ -59,5 +95,11 @@ class CameraMoveReportingTest {
     const val DRAG_STEP_DP = 10.0
 
     const val FRAMES_PER_SAMPLE = 4
+
+    const val ZOOM_TOLERANCE = 0.05
+
+    const val ANGLE_TOLERANCE = 0.5
+
+    val START = CameraPosition(target = Position(0.0, 0.0), zoom = 4.0)
   }
 }
