@@ -5,8 +5,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.ReusableContentHost
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.test.core.app.ActivityScenario
@@ -52,9 +55,89 @@ class AndroidSurfaceReplacementTest {
     }
   }
 
+  @Test
+  fun a_surface_host_receives_its_surface_after_reusable_content_is_reactivated() {
+    ActivityScenario.launch(ReusableSurfaceActivity::class.java).use { scenario ->
+      lateinit var activity: ReusableSurfaceActivity
+      scenario.onActivity { activity = it }
+      assertTrue(
+        activity.initialSurface.await(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS),
+        "the initial surface host did not receive its surface",
+      )
+
+      scenario.onActivity { it.deactivateSurface() }
+      assertTrue(
+        activity.surfaceDisposed.await(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS),
+        "the reusable surface content was not disposed",
+      )
+
+      scenario.onActivity { it.reactivateSurface() }
+      assertTrue(
+        activity.reactivatedSurface.await(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS),
+        "the reactivated surface host did not receive its surface",
+      )
+    }
+  }
+
   private companion object {
     const val TIMEOUT_MILLIS = 10_000L
   }
+}
+
+class ReusableSurfaceActivity : ComponentActivity() {
+  private var surfaceActive by mutableStateOf(true)
+  private var reactivationRequested = false
+
+  val initialSurface = CountDownLatch(1)
+  val surfaceDisposed = CountDownLatch(1)
+  val reactivatedSurface = CountDownLatch(1)
+
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    setContent {
+      ReusableContentHost(active = surfaceActive) {
+        val renderer = remember { ReusableTestRenderer(::onSurfaceAvailable) }
+        DisposableEffect(Unit) { onDispose { surfaceDisposed.countDown() } }
+        AndroidMlnFfiSurface(
+          renderer = renderer,
+          runtimeBackends = setOf(MapRenderBackend.OPENGL),
+          backend = MapRenderBackend.OPENGL,
+          kind = AndroidMapSurfaceKind.Surface,
+          modifier = Modifier.fillMaxSize(),
+          logger = null,
+        )
+      }
+    }
+  }
+
+  fun deactivateSurface() {
+    surfaceActive = false
+  }
+
+  fun reactivateSurface() {
+    reactivationRequested = true
+    surfaceActive = true
+  }
+
+  private fun onSurfaceAvailable() {
+    if (reactivationRequested) {
+      reactivatedSurface.countDown()
+    } else {
+      initialSurface.countDown()
+    }
+  }
+}
+
+private class ReusableTestRenderer(private val onSurfaceAvailable: () -> Unit) : MlnFfiMapRenderer {
+  override val backend = MapRenderBackend.OPENGL
+
+  override fun onSurfaceAvailable(session: MlnFfiMapHostSession) {
+    onSurfaceAvailable()
+  }
+
+  override fun render(frame: MlnFfiMapFrame) = MlnFfiFrameResult.SKIPPED
+
+  override fun close() {}
 }
 
 class SurfaceReplacementActivity : ComponentActivity() {
