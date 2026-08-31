@@ -58,4 +58,12 @@ internal interface FfiTestRenderDriver : MlnFfiMapHost {
 
   /** Reads one pixel after presentation. */
   fun readPixel(x: Int, y: Int): RgbaPixel
+
+  /**
+   * Forgets the last presented consumer frame.
+   *
+   * A replaced surface has a new producer. The previous destination still names the old session's
+   * GPU objects, and a readback through that destination can stall the test thread.
+   */
+  fun discardPresentedFrame() {}
 }

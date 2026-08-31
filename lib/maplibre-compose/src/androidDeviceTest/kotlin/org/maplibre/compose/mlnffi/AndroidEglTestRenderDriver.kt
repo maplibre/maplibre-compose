@@ -70,6 +70,14 @@ private constructor(private val display: EGLDisplay, private val config: EGLConf
   /** The producer renders directly into this EGL pbuffer, so there is no consumer-side bridge. */
   override fun present(target: MlnFfiRenderTarget): Boolean = true
 
+  override fun discardPresentedFrame() {
+    if (surface == EGL14.EGL_NO_SURFACE) return
+    // The session that just lost this surface may still name it while it closes.
+    retiredSurfaces += surface
+    surface = EGL14.EGL_NO_SURFACE
+    extent = MapExtent.Empty
+  }
+
   override fun readPixel(x: Int, y: Int): RgbaPixel {
     check(surface != EGL14.EGL_NO_SURFACE) { "No Android test frame has been rendered" }
     // A dedicated session keeps its context current on this thread after render. Symbol passes

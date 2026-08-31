@@ -94,12 +94,18 @@ private constructor(
    */
   fun loseSurface() {
     session.onSurfaceLost()
+    forgetPresentedFrame()
   }
 
   /** Hands the surface back, and forgets that anything was ever rendered into the old one. */
   fun restoreSurface() {
-    hasRendered = false
+    forgetPresentedFrame()
     session.onSurfaceAvailable(hostSession)
+  }
+
+  private fun forgetPresentedFrame() {
+    hasRendered = false
+    driver.discardPresentedFrame()
   }
 
   val attachCount: Int

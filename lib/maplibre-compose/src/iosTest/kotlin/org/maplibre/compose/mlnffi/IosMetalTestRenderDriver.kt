@@ -83,6 +83,12 @@ internal class IosMetalTestRenderDriver private constructor(private val device: 
   /** The producer renders directly into the test texture, so there is nothing to present. */
   override fun present(target: MlnFfiRenderTarget): Boolean = true
 
+  override fun discardPresentedFrame() {
+    texture?.let(retiredTextures::add)
+    texture = null
+    extent = MapExtent.Empty
+  }
+
   override fun readPixel(x: Int, y: Int): RgbaPixel = autoreleasepool {
     val texture = checkNotNull(texture) { "No iOS test frame has been rendered" }
     memScoped {

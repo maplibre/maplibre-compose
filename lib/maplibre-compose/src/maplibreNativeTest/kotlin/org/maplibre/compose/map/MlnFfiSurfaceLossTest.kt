@@ -147,23 +147,27 @@ class MlnFfiSurfaceLossTest {
         it.tryReadPixel(CENTER, CENTER)?.isNear(BLUE) == true
       }
       it.loseSurface()
+      assertEquals(null, it.tryReadPixel(CENTER, CENTER))
       style.setFeatureState(source.id, null, "1", state("without-surface"))
       assertEquals(
         state("before-surface", "without-surface"),
         style.featureState(source.id, null, "1"),
       )
       it.restoreSurface()
+      assertEquals(null, it.tryReadPixel(CENTER, CENTER))
       it.pumpUntil("feature state to replay into the replacement renderer") {
         it.tryReadPixel(CENTER, CENTER)?.isNear(RED) == true
       }
 
       it.loseSurface()
+      assertEquals(null, it.tryReadPixel(CENTER, CENTER))
       style.resetFeatureStates(source.id, null)
       assertEquals(
         JsonObject(emptyMap()),
         style.featureState(source.id, null, "1"),
       )
       it.restoreSurface()
+      assertEquals(null, it.tryReadPixel(CENTER, CENTER))
       it.pumpUntil("the reset feature state to replay") {
         it.tryReadPixel(CENTER, CENTER)?.isNear(BLUE) == true
       }

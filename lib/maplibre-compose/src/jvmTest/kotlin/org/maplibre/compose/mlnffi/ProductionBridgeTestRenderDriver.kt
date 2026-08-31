@@ -107,6 +107,10 @@ private constructor(
 
   override fun readPixel(x: Int, y: Int): RgbaPixel = environment.readPixel(x, y)
 
+  override fun discardPresentedFrame() {
+    environment.discardPresentedFrame()
+  }
+
   override fun close() {
     try {
       bridge.close()
@@ -200,6 +204,8 @@ private abstract class DesktopTestGpuEnvironment : AutoCloseable {
       )
     }
   }
+
+  fun discardPresentedFrame() = closeDestination()
 
   protected fun closeDestination() {
     if (destination == null) return
