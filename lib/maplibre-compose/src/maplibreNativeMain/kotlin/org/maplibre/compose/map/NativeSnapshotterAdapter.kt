@@ -203,7 +203,6 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
             target = offscreen
             renderSession = session
             engineScale = extent.scaleFactor
-            created.complete(Result.success(Unit))
           } catch (error: Throwable) {
             offscreen?.let { target ->
               runCatching { target.close() }.exceptionOrNull()?.let(error::addSuppressed)
@@ -212,6 +211,7 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
             throw error
           }
         },
+        onMapPublished = { created.complete(Result.success(Unit)) },
         onEvent = ::handleEvent,
         onEventsDrained = {},
         requestFrame = {},

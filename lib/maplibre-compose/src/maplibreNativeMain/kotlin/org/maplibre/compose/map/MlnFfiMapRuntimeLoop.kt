@@ -52,6 +52,8 @@ internal class MlnFfiMapRuntimeLoop(
   private val resourceProviderFactory: MlnFfiResourceProviderFactory = ::MlnFfiResourceProvider,
   /** Runs on the owner thread once the map exists, before it is published. */
   private val onMapCreated: (MapHandle) -> Unit,
+  /** Runs on the owner thread after [map] publishes the created map. */
+  private val onMapPublished: (MapHandle) -> Unit = {},
   /** Runs on the owner thread for every event this loop's runtime raises. */
   private val onEvent: (RuntimeEvent) -> Unit,
   /** Runs on the owner thread once the event queue is momentarily empty. */
@@ -215,6 +217,7 @@ internal class MlnFfiMapRuntimeLoop(
       created = MapHandle.create(runtime, mapOptions())
       onMapCreated(created)
       map = created
+      onMapPublished(created)
       // The renderer cannot attach until a map exists, and nothing else will tell it one now does.
       requestFrame()
       pump(runtime, created)
