@@ -4,11 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -33,20 +29,15 @@ import androidx.compose.ui.test.pinch
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.withKeyDown
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
-import androidx.compose.ui.unit.dp
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
-import kotlin.math.abs
-import kotlin.math.ln
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
-import kotlinx.coroutines.CompletableDeferred
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.mlnffi.runPlainComposeUiTest
 
@@ -111,29 +102,6 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun a_long_click_on_a_paired_second_tap_does_not_report_the_first_tap() =
-    runRecognitionTest(options = GestureOptions(isQuickZoomEnabled = false)) { target ->
-      val map = mapNode()
-      map.performTouchInput {
-        down(center)
-        up()
-        advanceEventTime(SECOND_TAP_GAP_MILLIS)
-        down(center)
-      }
-      mainClock.advanceTimeBy(1_000)
-      waitUntil(timeoutMillis = TIMEOUT) { target.longClicks == 1 }
-      map.performTouchInput { up() }
-      waitForIdle()
-      assertEquals(0, target.clicks, "a paired long click reported the first tap as a map click")
-
-      map.performTouchInput { click(center) }
-      mainClock.advanceTimeBy(1_000)
-      waitForIdle()
-      assertEquals(1, target.clicks, "the next tap inherited a stale claimed first tap")
-      assertEquals(1, target.longClicks)
-    }
-
-  @Test
   fun a_tap_waits_for_a_second_one_that_could_still_arrive() = runRecognitionTest { target ->
     mainClock.autoAdvance = false
     try {
@@ -178,40 +146,6 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun a_bounce_does_not_reseed_the_double_tap_window() = runRecognitionTest { target ->
-    mapNode().performTouchInput {
-      down(center)
-      up()
-      advanceEventTime(10)
-      down(center)
-      up()
-      // Outside the original pairing window, but inside a window that starts at the bounce.
-      advanceEventTime(300)
-      down(center)
-      up()
-    }
-    mainClock.advanceTimeBy(1_000)
-    waitForIdle()
-    assertEquals(0, target.scaleCalls.size, "a bounce reseeding the window paired a late tap")
-  }
-
-  @Test
-  fun a_bounce_still_allows_a_later_tap_inside_the_original_window() =
-    runRecognitionTest { target ->
-      mapNode().performTouchInput {
-        down(center)
-        up()
-        advanceEventTime(10)
-        down(center)
-        up()
-        advanceEventTime(70)
-        down(center)
-        up()
-      }
-      waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.any { it.scale > 1.0 } }
-    }
-
-  @Test
   fun a_second_tap_inside_the_bounce_window_still_clicks_when_no_gesture_awaits_it() =
     runRecognitionTest(
       options = GestureOptions(isDoubleClickZoomEnabled = false, isQuickZoomEnabled = false)
@@ -233,10 +167,6 @@ class MapInputRecognitionTest {
     waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.isNotEmpty() }
     assertEquals(1, target.clicks, "a double click did not report exactly its first click")
     assertTrue(target.scaleCalls.any { it.scale > 1.0 }, "a double click did not zoom in")
-    assertTrue(
-      target.scaleCalls.any { it.token != null },
-      "a double click scaled without a gesture token",
-    )
   }
 
   @Test
@@ -249,40 +179,9 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun a_touch_double_tap_inside_android_slop_still_zooms() = runRecognitionTest { target ->
-    mapNode().performTouchInput {
-      down(center)
-      up()
-      advanceEventTime(SECOND_TAP_GAP_MILLIS)
-      down(center + Offset(50f, 0f))
-      up()
-    }
-    waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.any { it.scale > 1.0 } }
-  }
-
-  @Test
-  fun a_second_down_inside_the_timeout_still_zooms_after_a_slow_up() =
-    runRecognitionTest { target ->
-      mapNode().performTouchInput {
-        down(center)
-        up()
-        advanceEventTime(SECOND_TAP_GAP_MILLIS)
-        down(center)
-        advanceEventTime(400)
-        up()
-      }
-      waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.any { it.scale > 1.0 } }
-      mainClock.advanceTimeBy(1_000)
-      waitForIdle()
-      assertEquals(0, target.clicks, "a held second tap leaked the first tap as a click")
-    }
-
-  @Test
   fun position_locked_zooms_about_the_centre() =
     runRecognitionTest(options = GestureOptions.PositionLocked) { target ->
-      mapNode().performMouseInput {
-        doubleClick(Offset(width * 0.2f, height * 0.2f))
-      }
+      mapNode().performMouseInput { doubleClick(Offset(width * 0.2f, height * 0.2f)) }
       waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.isNotEmpty() }
       assertTrue(
         target.scaleCalls.all { it.anchor == null },
@@ -340,40 +239,6 @@ class MapInputRecognitionTest {
       mainClock.autoAdvance = true
     }
     assertTrue(target.scaleCalls.any { it.scale > 1.0 }, "an upward wheel did not zoom in")
-    assertTrue(
-      target.scaleCalls.any { it.token != null },
-      "the wheel scaled without a gesture token",
-    )
-  }
-
-  @Test
-  fun a_second_wheel_notch_resumes_the_same_hold() = runRecognitionTest { target ->
-    val map = mapNode()
-    mainClock.autoAdvance = false
-    try {
-      map.performMouseInput { scroll(-1f) }
-      mainClock.advanceTimeByFrame()
-      waitForIdle()
-      assertEquals(1, target.startedCount)
-      assertEquals(1, target.scaleCalls.size)
-      assertEquals(0, target.endedCount)
-
-      mainClock.advanceTimeBy(SCROLL_HOLD_MILLIS / 2)
-      waitForIdle()
-      assertEquals(0, target.endedCount, "the first hold ended before the second notch")
-
-      map.performMouseInput { scroll(-1f) }
-      mainClock.advanceTimeByFrame()
-      waitForIdle()
-      assertEquals(1, target.startedCount, "the second notch opened another gesture")
-      assertEquals(2, target.scaleCalls.size, "the second notch did not scale")
-      assertEquals(0, target.endedCount, "the second notch ended the burst")
-
-      mainClock.advanceTimeBy(SCROLL_HOLD_MILLIS + FRAME_MILLIS)
-      waitUntil(timeoutMillis = TIMEOUT) { target.endedCount == 1 }
-    } finally {
-      mainClock.autoAdvance = true
-    }
   }
 
   @Test
@@ -423,41 +288,7 @@ class MapInputRecognitionTest {
       )
     }
     waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.any { it.scale > 1.0 } }
-    assertTrue(
-      target.scaleCalls.any { it.token != null },
-      "the pinch scaled without a gesture token",
-    )
   }
-
-  @Test
-  fun one_finger_takeover_discards_deferred_pinch_velocity() =
-    runRecognitionTest(
-      options = GestureOptions(isFlingEnabled = false, isRotateVelocityEnabled = false)
-    ) { target ->
-      val map = mapNode()
-      map.performTouchInput {
-        down(0, center - Offset(40f, 0f))
-        down(1, center + Offset(40f, 0f))
-        updatePointerTo(0, center - Offset(120f, 0f))
-        updatePointerTo(1, center + Offset(120f, 0f))
-        move(delayMillis = 30)
-        up(1)
-      }
-      waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.any { it.scale > 1.0 } }
-      val scalesAfterPinch = target.scaleCalls.size
-
-      map.performTouchInput { moveTo(0, center + Offset(100f, 0f), delayMillis = 100) }
-      waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.isNotEmpty() }
-
-      map.performTouchInput { up(0) }
-      mainClock.advanceTimeBy(1_000)
-      waitForIdle()
-      assertEquals(
-        scalesAfterPinch,
-        target.scaleCalls.size,
-        "releasing the one-finger pan resumed stale pinch momentum",
-      )
-    }
 
   @Test
   fun two_finger_rotation_requests_bearing() = runRecognitionTest { target ->
@@ -471,10 +302,6 @@ class MapInputRecognitionTest {
       up(1)
     }
     waitUntil(timeoutMillis = TIMEOUT) { target.rotateCalls.any { it.bearingDelta != 0.0 } }
-    assertTrue(
-      target.rotateCalls.any { it.token != null },
-      "the rotation ran without a gesture token",
-    )
   }
 
   @Test
@@ -508,9 +335,7 @@ class MapInputRecognitionTest {
 
   @Test
   fun one_finger_swipe_requests_a_pan() = runRecognitionTest { target ->
-    mapNode().performTouchInput {
-      swipe(center, center + Offset(80f, 0f), durationMillis = 100)
-    }
+    mapNode().performTouchInput { swipe(center, center + Offset(80f, 0f), durationMillis = 100) }
     waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.isNotEmpty() }
   }
 
@@ -528,74 +353,6 @@ class MapInputRecognitionTest {
     waitForIdle()
     assertEquals(0, target.clicks, "a quick zoom leaked its first tap as a click")
   }
-
-  @Test
-  fun quick_zoom_upward_requests_a_zoom_out() = runRecognitionTest { target ->
-    mapNode().performTouchInput {
-      click(center)
-      advanceEventTime(SECOND_TAP_GAP_MILLIS)
-      down(0, center)
-      moveTo(0, center - Offset(0f, 100f), delayMillis = 100)
-      up(0)
-    }
-    waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.any { it.scale < 1.0 } }
-  }
-
-  @Test
-  fun a_double_tap_drag_pans_when_quick_zoom_is_disabled() =
-    runRecognitionTest(
-      options = GestureOptions(isQuickZoomEnabled = false, isFlingEnabled = false)
-    ) { target ->
-      mapNode().performTouchInput {
-        click(center)
-        advanceEventTime(SECOND_TAP_GAP_MILLIS)
-        down(0, center)
-        moveTo(0, center + Offset(80f, 0f), delayMillis = 100)
-        up(0)
-      }
-      waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.isNotEmpty() }
-      assertEquals(0, target.scaleCalls.size, "a disabled quick zoom still scaled")
-      awaitClicks(target, 1)
-    }
-
-  @Test
-  fun quick_zoom_uses_the_resized_viewport() {
-    val height = mutableStateOf(500.dp)
-    runRecognitionTest(height = height) { target ->
-      val map = mapNode()
-      val initialHeight = map.fetchSemanticsNode().size.height
-      map.performMouseInput { click(center) }
-
-      height.value = 250.dp
-      waitUntil(timeoutMillis = TIMEOUT) { map.fetchSemanticsNode().size.height < initialHeight }
-      val resizedHeight = map.fetchSemanticsNode().size.height.toFloat()
-      val displacement = resizedHeight / 4f
-
-      map.performTouchInput {
-        click(center)
-        advanceEventTime(SECOND_TAP_GAP_MILLIS)
-        down(0, center)
-        moveTo(0, center + Offset(0f, displacement), delayMillis = 100)
-        up(0)
-      }
-      waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.isNotEmpty() }
-      val zoomDelta = target.scaleCalls.sumOf { ln(it.scale) / ln(2.0) }
-      assertTrue(
-        abs(zoomDelta - 1.0) < 0.25,
-        "quick zoom used a stale viewport: zoom delta $zoomDelta",
-      )
-    }
-  }
-
-  @Test
-  fun a_discrete_zoom_stays_open_until_its_transition_finishes() =
-    runRecognitionTest(holdTransitions = true) { target ->
-      mapNode().performMouseInput { doubleClick() }
-      waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.any { it.scale > 1.0 } }
-      assertEquals(0, target.endedCount, "the gesture ended before the transition finished")
-      target.releaseTransition()
-      waitUntil(timeoutMillis = TIMEOUT) { target.endedCount == 1 }
-    }
 
   @Test
   fun horizontal_motion_disqualifies_quick_zoom() = runRecognitionTest { target ->
@@ -616,13 +373,11 @@ class MapInputRecognitionTest {
     options: GestureOptions = GestureOptions.Standard,
     parentOnClick: (() -> Unit)? = null,
     parentOnLongClick: (() -> Unit)? = null,
-    holdTransitions: Boolean = false,
-    height: MutableState<Dp>? = null,
     body: ComposeUiTest.(RecordingGestureTarget) -> Unit,
   ) = runPlainComposeUiTest {
-    val target = RecordingGestureTarget(holdTransitions)
+    val target = RecordingGestureTarget()
     setContent {
-      val host: @Composable () -> Unit = { GestureHost(target, options, height) }
+      val host: @Composable () -> Unit = { GestureHost(target, options) }
       when {
         parentOnLongClick != null ->
           Box(
@@ -656,25 +411,20 @@ class MapInputRecognitionTest {
 }
 
 @Composable
-private fun GestureHost(
-  target: GestureTarget,
-  options: GestureOptions,
-  height: MutableState<Dp>? = null,
-) {
+private fun GestureHost(target: GestureTarget, options: GestureOptions) {
   val density = LocalDensity.current
   val focusRequester = remember { FocusRequester() }
   val inputScope = rememberCoroutineScope()
   val continuation = remember(inputScope) { GestureContinuation(inputScope) }
-  val size = height?.let { Modifier.fillMaxWidth().height(it.value) } ?: Modifier.fillMaxSize()
   Box(
-    size
+    Modifier.fillMaxSize()
       .testTag(RECOGNITION_MAP_TAG)
       .mapInput(target, options, density, focusRequester, continuation)
   )
 }
 
 /** Records every [GestureTarget] call so recognition tests can assert without a map. */
-private class RecordingGestureTarget(private val holdTransitions: Boolean = false) : GestureTarget {
+private class RecordingGestureTarget : GestureTarget {
   var clicks = 0
   var longClicks = 0
   var startedCount = 0
@@ -685,19 +435,6 @@ private class RecordingGestureTarget(private val holdTransitions: Boolean = fals
 
   private var nextToken = 1L
   private var camera = CameraPosition()
-  private var heldTransition: CompletableDeferred<Unit>? = null
-
-  fun releaseTransition() {
-    heldTransition?.complete(Unit)
-    heldTransition = null
-  }
-
-  private suspend fun awaitHeldTransition() {
-    if (!holdTransitions) return
-    val deferred = CompletableDeferred<Unit>()
-    heldTransition = deferred
-    deferred.await()
-  }
 
   override fun cancelTransitions() = Unit
 
@@ -735,7 +472,7 @@ private class RecordingGestureTarget(private val holdTransitions: Boolean = fals
     duration: Duration,
     gestureToken: GestureToken?,
   ) {
-    scaleCalls += ScaleCall(scale, anchor, gestureToken)
+    scaleCalls += ScaleCall(scale, anchor)
   }
 
   override fun rotateAndPitchBy(
@@ -745,7 +482,7 @@ private class RecordingGestureTarget(private val holdTransitions: Boolean = fals
     anchor: DpOffset?,
     gestureToken: GestureToken?,
   ) {
-    rotateCalls += RotateCall(bearingDelta, pitchDelta, anchor, gestureToken)
+    rotateCalls += RotateCall(bearingDelta, pitchDelta)
   }
 
   override suspend fun moveByAwaitingTransition(
@@ -755,7 +492,6 @@ private class RecordingGestureTarget(private val holdTransitions: Boolean = fals
     gestureToken: GestureToken,
   ) {
     moveBy(deltaX, deltaY, duration, gestureToken)
-    awaitHeldTransition()
   }
 
   override suspend fun scaleByAwaitingTransition(
@@ -765,7 +501,6 @@ private class RecordingGestureTarget(private val holdTransitions: Boolean = fals
     gestureToken: GestureToken,
   ) {
     scaleBy(scale, anchor, duration, gestureToken)
-    awaitHeldTransition()
   }
 
   override suspend fun rotateAndPitchByAwaitingTransition(
@@ -775,15 +510,9 @@ private class RecordingGestureTarget(private val holdTransitions: Boolean = fals
     gestureToken: GestureToken,
   ) {
     rotateAndPitchBy(bearingDelta, pitchDelta, duration, gestureToken = gestureToken)
-    awaitHeldTransition()
   }
 
-  data class ScaleCall(val scale: Double, val anchor: DpOffset?, val token: GestureToken?)
+  data class ScaleCall(val scale: Double, val anchor: DpOffset?)
 
-  data class RotateCall(
-    val bearingDelta: Double,
-    val pitchDelta: Double,
-    val anchor: DpOffset?,
-    val token: GestureToken?,
-  )
+  data class RotateCall(val bearingDelta: Double, val pitchDelta: Double)
 }

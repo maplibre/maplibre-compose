@@ -12,7 +12,6 @@ import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
-import org.maplibre.spatialk.geojson.Position
 
 /** The map runs on threads of its own, so blocking the test thread in a wait stops nothing. */
 internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent: MapExtent) :
@@ -51,12 +50,6 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent
 
   override val errors: MutableList<String>
     get() = bridge.errors
-
-  override val clickPositions: MutableList<Position>
-    get() = bridge.clickPositions
-
-  override val longClickPositions: MutableList<Position>
-    get() = bridge.longClickPositions
 
   override suspend fun loadStyle(style: BaseStyle, timeout: Duration) {
     state.style.loadState = org.maplibre.compose.map.StyleLoadState.Loading

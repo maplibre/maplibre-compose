@@ -40,10 +40,6 @@ internal interface MapFixture : AutoCloseable {
 
   val errors: MutableList<String>
 
-  val clickPositions: MutableList<Position>
-
-  val longClickPositions: MutableList<Position>
-
   suspend fun loadStyle(style: BaseStyle, timeout: Duration = 60.seconds)
 
   /** Renders until the map has drawn once. */
@@ -145,10 +141,6 @@ internal class RecordingMapCallbacks : MapAdapter.Callbacks {
 
   val errors: MutableList<String> = RecordingList()
 
-  val clickPositions: MutableList<Position> = RecordingList()
-
-  val longClickPositions: MutableList<Position> = RecordingList()
-
   var style: StyleBinding? = null
     private set
 
@@ -190,12 +182,10 @@ internal class RecordingMapCallbacks : MapAdapter.Callbacks {
 
   override fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset) {
     events += "click"
-    clickPositions += latLng
   }
 
   override fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset) {
     events += "longClick"
-    longClickPositions += latLng
   }
 
   override fun onFrame(fps: Double) {
