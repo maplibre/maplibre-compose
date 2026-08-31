@@ -233,6 +233,10 @@ class MapInputRecognitionTest {
     waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.isNotEmpty() }
     assertEquals(1, target.clicks, "a double click did not report exactly its first click")
     assertTrue(target.scaleCalls.any { it.scale > 1.0 }, "a double click did not zoom in")
+    assertTrue(
+      target.scaleCalls.any { it.token != null },
+      "a double click scaled without a gesture token",
+    )
   }
 
   @Test
@@ -242,6 +246,18 @@ class MapInputRecognitionTest {
     mainClock.advanceTimeBy(1_000)
     waitForIdle()
     assertEquals(0, target.clicks, "a double tap leaked its first tap as a click")
+  }
+
+  @Test
+  fun a_touch_double_tap_inside_android_slop_still_zooms() = runRecognitionTest { target ->
+    mapNode().performTouchInput {
+      down(center)
+      up()
+      advanceEventTime(SECOND_TAP_GAP_MILLIS)
+      down(center + Offset(50f, 0f))
+      up()
+    }
+    waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.any { it.scale > 1.0 } }
   }
 
   @Test
@@ -324,6 +340,40 @@ class MapInputRecognitionTest {
       mainClock.autoAdvance = true
     }
     assertTrue(target.scaleCalls.any { it.scale > 1.0 }, "an upward wheel did not zoom in")
+    assertTrue(
+      target.scaleCalls.any { it.token != null },
+      "the wheel scaled without a gesture token",
+    )
+  }
+
+  @Test
+  fun a_second_wheel_notch_resumes_the_same_hold() = runRecognitionTest { target ->
+    val map = mapNode()
+    mainClock.autoAdvance = false
+    try {
+      map.performMouseInput { scroll(-1f) }
+      mainClock.advanceTimeByFrame()
+      waitForIdle()
+      assertEquals(1, target.startedCount)
+      assertEquals(1, target.scaleCalls.size)
+      assertEquals(0, target.endedCount)
+
+      mainClock.advanceTimeBy(SCROLL_HOLD_MILLIS / 2)
+      waitForIdle()
+      assertEquals(0, target.endedCount, "the first hold ended before the second notch")
+
+      map.performMouseInput { scroll(-1f) }
+      mainClock.advanceTimeByFrame()
+      waitForIdle()
+      assertEquals(1, target.startedCount, "the second notch opened another gesture")
+      assertEquals(2, target.scaleCalls.size, "the second notch did not scale")
+      assertEquals(0, target.endedCount, "the second notch ended the burst")
+
+      mainClock.advanceTimeBy(SCROLL_HOLD_MILLIS + FRAME_MILLIS)
+      waitUntil(timeoutMillis = TIMEOUT) { target.endedCount == 1 }
+    } finally {
+      mainClock.autoAdvance = true
+    }
   }
 
   @Test
@@ -373,7 +423,41 @@ class MapInputRecognitionTest {
       )
     }
     waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.any { it.scale > 1.0 } }
+    assertTrue(
+      target.scaleCalls.any { it.token != null },
+      "the pinch scaled without a gesture token",
+    )
   }
+
+  @Test
+  fun one_finger_takeover_discards_deferred_pinch_velocity() =
+    runRecognitionTest(
+      options = GestureOptions(isFlingEnabled = false, isRotateVelocityEnabled = false)
+    ) { target ->
+      val map = mapNode()
+      map.performTouchInput {
+        down(0, center - Offset(40f, 0f))
+        down(1, center + Offset(40f, 0f))
+        updatePointerTo(0, center - Offset(120f, 0f))
+        updatePointerTo(1, center + Offset(120f, 0f))
+        move(delayMillis = 30)
+        up(1)
+      }
+      waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.any { it.scale > 1.0 } }
+      val scalesAfterPinch = target.scaleCalls.size
+
+      map.performTouchInput { moveTo(0, center + Offset(100f, 0f), delayMillis = 100) }
+      waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.isNotEmpty() }
+
+      map.performTouchInput { up(0) }
+      mainClock.advanceTimeBy(1_000)
+      waitForIdle()
+      assertEquals(
+        scalesAfterPinch,
+        target.scaleCalls.size,
+        "releasing the one-finger pan resumed stale pinch momentum",
+      )
+    }
 
   @Test
   fun two_finger_rotation_requests_bearing() = runRecognitionTest { target ->
@@ -387,6 +471,10 @@ class MapInputRecognitionTest {
       up(1)
     }
     waitUntil(timeoutMillis = TIMEOUT) { target.rotateCalls.any { it.bearingDelta != 0.0 } }
+    assertTrue(
+      target.rotateCalls.any { it.token != null },
+      "the rotation ran without a gesture token",
+    )
   }
 
   @Test
@@ -647,7 +735,7 @@ private class RecordingGestureTarget(private val holdTransitions: Boolean = fals
     duration: Duration,
     gestureToken: GestureToken?,
   ) {
-    scaleCalls += ScaleCall(scale, anchor)
+    scaleCalls += ScaleCall(scale, anchor, gestureToken)
   }
 
   override fun rotateAndPitchBy(
@@ -657,7 +745,7 @@ private class RecordingGestureTarget(private val holdTransitions: Boolean = fals
     anchor: DpOffset?,
     gestureToken: GestureToken?,
   ) {
-    rotateCalls += RotateCall(bearingDelta, pitchDelta)
+    rotateCalls += RotateCall(bearingDelta, pitchDelta, anchor, gestureToken)
   }
 
   override suspend fun moveByAwaitingTransition(
@@ -690,7 +778,12 @@ private class RecordingGestureTarget(private val holdTransitions: Boolean = fals
     awaitHeldTransition()
   }
 
-  data class ScaleCall(val scale: Double, val anchor: DpOffset?)
+  data class ScaleCall(val scale: Double, val anchor: DpOffset?, val token: GestureToken?)
 
-  data class RotateCall(val bearingDelta: Double, val pitchDelta: Double)
+  data class RotateCall(
+    val bearingDelta: Double,
+    val pitchDelta: Double,
+    val anchor: DpOffset?,
+    val token: GestureToken?,
+  )
 }

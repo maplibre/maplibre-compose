@@ -26,6 +26,7 @@ import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.spatialk.geojson.Position
 
 /** A [GlJsMapSession] on a canvas of its own, with no Compose or skiko, never composited. */
 internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
@@ -61,6 +62,12 @@ internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
 
   override val errors: MutableList<String>
     get() = recorder.errors
+
+  override val clickPositions: MutableList<Position>
+    get() = recorder.clickPositions
+
+  override val longClickPositions: MutableList<Position>
+    get() = recorder.longClickPositions
 
   private var hasRendered = false
   private var frameRequested = true

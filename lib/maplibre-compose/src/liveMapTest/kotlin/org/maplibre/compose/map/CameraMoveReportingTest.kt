@@ -1,9 +1,12 @@
 package org.maplibre.compose.map
 
+import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
@@ -59,10 +62,67 @@ class CameraMoveReportingTest {
         abs(it.session.getCameraPosition().zoom - START.zoom) < ZOOM_TOLERANCE
       }
 
-      it.gestures.scaleBy(2.0, anchor = null)
+      val token = it.gestures.onGestureStarted()
+      it.gestures.scaleBy(2.0, anchor = null, gestureToken = token)
       it.pumpUntil("the native camera to scale") {
         abs(it.session.getCameraPosition().zoom - (START.zoom + 1.0)) < ZOOM_TOLERANCE
       }
+      assertEquals(CameraMoveReason.GESTURE, it.presentation.cameraMoveReason)
+      it.gestures.onGestureEnded(token)
+    }
+  }
+
+  @Test
+  fun a_scale_keeps_its_anchor_fixed(): MapTestResult = runMapTest {
+    createMapFixture().use {
+      it.startAtRest()
+      it.presentation.setCameraPosition(START)
+      it.pumpUntil("the camera to adopt the start zoom") {
+        abs(it.session.getCameraPosition().zoom - START.zoom) < ZOOM_TOLERANCE
+      }
+
+      val before = assertNotNull(it.session.positionFromScreenLocation(ANCHOR))
+      it.gestures.scaleBy(2.0, anchor = ANCHOR)
+      it.pumpUntil("the native camera to scale about the anchor") {
+        abs(it.session.getCameraPosition().zoom - (START.zoom + 1.0)) < ZOOM_TOLERANCE
+      }
+      val after = assertNotNull(it.session.positionFromScreenLocation(ANCHOR))
+      assertEquals(before.longitude, after.longitude, ANCHOR_TOLERANCE, "longitude")
+      assertEquals(before.latitude, after.latitude, ANCHOR_TOLERANCE, "latitude")
+    }
+  }
+
+  @Test
+  fun a_primary_click_projects_its_offset(): MapTestResult = runMapTest {
+    createMapFixture().use {
+      it.startAtRest()
+      it.presentation.setCameraPosition(START)
+      it.pumpUntil("the camera to adopt the start zoom") {
+        abs(it.session.getCameraPosition().zoom - START.zoom) < ZOOM_TOLERANCE
+      }
+
+      val expected = assertNotNull(it.session.positionFromScreenLocation(ANCHOR))
+      it.gestures.onPrimaryClick(ANCHOR)
+      assertEquals(1, it.clickPositions.size)
+      assertEquals(expected.longitude, it.clickPositions.single().longitude, ANCHOR_TOLERANCE)
+      assertEquals(expected.latitude, it.clickPositions.single().latitude, ANCHOR_TOLERANCE)
+    }
+  }
+
+  @Test
+  fun a_secondary_click_projects_its_offset(): MapTestResult = runMapTest {
+    createMapFixture().use {
+      it.startAtRest()
+      it.presentation.setCameraPosition(START)
+      it.pumpUntil("the camera to adopt the start zoom") {
+        abs(it.session.getCameraPosition().zoom - START.zoom) < ZOOM_TOLERANCE
+      }
+
+      val expected = assertNotNull(it.session.positionFromScreenLocation(ANCHOR))
+      it.gestures.onSecondaryClick(ANCHOR)
+      assertEquals(1, it.longClickPositions.size)
+      assertEquals(expected.longitude, it.longClickPositions.single().longitude, ANCHOR_TOLERANCE)
+      assertEquals(expected.latitude, it.longClickPositions.single().latitude, ANCHOR_TOLERANCE)
     }
   }
 
@@ -101,5 +161,9 @@ class CameraMoveReportingTest {
     const val ANGLE_TOLERANCE = 0.5
 
     val START = CameraPosition(target = Position(0.0, 0.0), zoom = 4.0)
+
+    val ANCHOR = DpOffset(128.dp, 192.dp)
+
+    const val ANCHOR_TOLERANCE = 1e-4
   }
 }

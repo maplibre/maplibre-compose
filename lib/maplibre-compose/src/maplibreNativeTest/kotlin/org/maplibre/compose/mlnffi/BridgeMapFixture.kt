@@ -20,6 +20,7 @@ import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.testing.MapFixture
 import org.maplibre.compose.testing.RecordingMapCallbacks
 import org.maplibre.compose.testing.RgbaPixel
+import org.maplibre.spatialk.geojson.Position
 
 /**
  * Runs a real [MlnFfiMapSession] against the packaged runtime and production presentation bridge,
@@ -42,6 +43,12 @@ private constructor(
 
   val errors: MutableList<String>
     get() = recorder.errors
+
+  val clickPositions: MutableList<Position>
+    get() = recorder.clickPositions
+
+  val longClickPositions: MutableList<Position>
+    get() = recorder.longClickPositions
 
   /** The live style, once one has loaded. */
   val style: StyleBinding?
