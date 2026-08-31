@@ -42,13 +42,13 @@ public data class MapSnapshotOutputOptions(
 
 /** Immutable inputs for one snapshot capture. */
 public data class MapSnapshotRequest(
-  /** Output width in physical pixels. */
+  /** Viewport width in logical pixels. */
   public val width: Int,
-  /** Output height in physical pixels. */
+  /** Viewport height in logical pixels. */
   public val height: Int,
   /** Camera position used for this capture. */
   public val cameraPosition: CameraPosition = CameraPosition(),
-  /** Density used for the logical viewport and style evaluation; output size remains physical. */
+  /** Density used for rendering and style evaluation. */
   public val density: Float = 1f,
   /** Font scale used while evaluating the style composition. */
   public val fontScale: Float = 1f,
@@ -428,7 +428,8 @@ internal class MapSnapshotterImplementation(
         else -> Result.failure(MapSnapshotterCleanupException(failures))
       }
     }
-    if (closure.complete(result)) runtime.childClosed(this)
+    runtime.childClosed(this)
+    check(closure.complete(result)) { "Snapshotter closure completed more than once" }
   }
 
   internal fun setBaseStyle(value: BaseStyle) {

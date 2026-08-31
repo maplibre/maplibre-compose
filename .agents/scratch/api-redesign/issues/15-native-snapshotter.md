@@ -52,10 +52,12 @@ Requests run in FIFO order and use current external state without retaining the
 previous capture request.
 
 The native adapter owns a private static map, offscreen render target, and
-render session. It selects Android OpenGL, Apple Metal, or Desktop Metal/Vulkan
-from runtime support. Compatible captures reuse the private engine. A density
-change replaces that fixed-scale engine and replays the base style and newly
-evaluated revision inside the same logical snapshotter.
+render session. It selects Android OpenGL/Vulkan, Apple Metal, or Desktop
+Metal/Vulkan from runtime support. Capture dimensions are logical; density
+determines the physical bitmap size through the FFI render-target extent.
+Compatible captures reuse the private engine. A density change replaces that
+fixed-scale engine and replays the base style and newly evaluated revision
+inside the same logical snapshotter.
 
 The common fake-adapter suite covers queueing, style ownership, environment,
 cancellation, timeout, closure, and cleanup failures. Shared native tests render

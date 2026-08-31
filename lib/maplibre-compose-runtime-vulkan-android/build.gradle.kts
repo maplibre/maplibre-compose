@@ -44,6 +44,7 @@ android {
 
   defaultConfig {
     minSdk = libs.versions.android.minSdk.get().toInt()
+    testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
     ndk {
       // The FFI runtime packages these ABIs only.
@@ -54,4 +55,10 @@ android {
 
 dependencies {
   runtimeOnly(libs.maplibre.nativeFfi.runtimeVulkanKmp)
+
+  androidTestImplementation(project(":lib:maplibre-compose"))
+  androidTestImplementation(kotlin("test-junit"))
+  androidTestImplementation(libs.androidx.test.runner)
+  androidTestImplementation(libs.jetbrains.compose.ui)
+  androidTestImplementation(libs.kotlinx.coroutines.core)
 }

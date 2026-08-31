@@ -126,45 +126,49 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
     val currentLoop = loop
     loop = null
     engineScale = null
-
-    fun releaseOwnedResources() {
-      val currentTarget = target
-      if (currentTarget == null) {
-        val currentSession = renderSession
-        renderSession = null
-        runCatching { currentSession?.close() }.exceptionOrNull()?.let(failures::add)
-        return
-      }
-      try {
-        currentTarget.withAccess {
-          val currentSession = renderSession
-          renderSession = null
-          target = null
-          runCatching { currentSession?.close() }.exceptionOrNull()?.let(failures::add)
-          runCatching { currentTarget.close() }.exceptionOrNull()?.let(failures::add)
-        }
-      } catch (error: Throwable) {
-        failures += error
-        if (target === currentTarget) {
-          val currentSession = renderSession
-          renderSession = null
-          target = null
-          runCatching { currentSession?.close() }.exceptionOrNull()?.let(failures::add)
-          runCatching { currentTarget.close() }.exceptionOrNull()?.let(failures::add)
-        }
-      }
-    }
-
     if (currentLoop != null) {
-      val releasedOnOwner =
-        runCatching { currentLoop.call(action = { _ -> releaseOwnedResources() }) }
-          .onFailure(failures::add)
-          .getOrNull() != null
-      if (!releasedOnOwner) releaseOwnedResources()
       runCatching { currentLoop.close() }.exceptionOrNull()?.let(failures::add)
     } else {
-      releaseOwnedResources()
+      runCatching {
+          check(renderSession == null && target == null) {
+            "The snapshotter has render resources without an owner loop"
+          }
+        }
+        .exceptionOrNull()
+        ?.let(failures::add)
     }
+  }
+
+  /** Releases the render resources on the loop thread that attached them. */
+  private fun releaseOwnedResources() {
+    val failures = mutableListOf<Throwable>()
+    val currentTarget = target
+    if (currentTarget == null) {
+      val currentSession = renderSession
+      renderSession = null
+      runCatching { currentSession?.close() }.exceptionOrNull()?.let(failures::add)
+      throwCleanupFailures(failures)
+      return
+    }
+    try {
+      currentTarget.withAccess {
+        val currentSession = renderSession
+        renderSession = null
+        target = null
+        runCatching { currentSession?.close() }.exceptionOrNull()?.let(failures::add)
+        runCatching { currentTarget.close() }.exceptionOrNull()?.let(failures::add)
+      }
+    } catch (error: Throwable) {
+      failures += error
+      if (target === currentTarget) {
+        val currentSession = renderSession
+        renderSession = null
+        target = null
+        runCatching { currentSession?.close() }.exceptionOrNull()?.let(failures::add)
+        runCatching { currentTarget.close() }.exceptionOrNull()?.let(failures::add)
+      }
+    }
+    throwCleanupFailures(failures)
   }
 
   private fun throwCleanupFailures(failures: List<Throwable>) {
@@ -212,6 +216,7 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
           }
         },
         onMapPublished = { created.complete(Result.success(Unit)) },
+        onMapClosing = { releaseOwnedResources() },
         onEvent = ::handleEvent,
         onEventsDrained = {},
         requestFrame = {},
@@ -313,6 +318,7 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
     )
 
   private fun readImage(request: MapSnapshotRequest): ImageBitmap {
+    val expected = request.extent()
     val rgba =
       checkNotNull(loop)
         .call(
@@ -328,8 +334,9 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
           }
         ) ?: error("The snapshotter engine map is closed")
     val (info, bytes, transparent) = rgba
-    check(info.width == request.width && info.height == request.height) {
-      "Snapshot readback was ${info.width}x${info.height}, expected ${request.width}x${request.height}"
+    check(info.width == expected.physicalWidth && info.height == expected.physicalHeight) {
+      "Snapshot readback was ${info.width}x${info.height}, expected " +
+        "${expected.physicalWidth}x${expected.physicalHeight}"
     }
     val pixels = IntArray(info.width * info.height)
     for (y in 0 until info.height) {
@@ -397,7 +404,7 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
     if (alpha == 0) 0 else (channel * 255 + alpha / 2) / alpha
 
   private fun MapSnapshotRequest.extent(): MapExtent =
-    MapExtent.fromPhysical(width, height, density.toDouble())
+    MapExtent.fromLogical(width, height, density.toDouble())
 }
 
 internal expect class NativeSnapshotRenderTarget : AutoCloseable {

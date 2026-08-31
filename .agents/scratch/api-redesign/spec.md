@@ -415,9 +415,9 @@ method. Create it through a runtime with its base style and style composition.
 
 Each capture receives an immutable request that includes:
 
-- Pixel width and height.
+- Logical pixel width and height.
 - Camera position.
-- Density or pixel ratio.
+- Density or pixel ratio, which determines the physical image size.
 - Layout direction.
 - Any output format or transparency options.
 

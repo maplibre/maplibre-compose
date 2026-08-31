@@ -54,6 +54,8 @@ internal class MlnFfiMapRuntimeLoop(
   private val onMapCreated: (MapHandle) -> Unit,
   /** Runs on the owner thread after [map] publishes the created map. */
   private val onMapPublished: (MapHandle) -> Unit = {},
+  /** Runs on the owner thread before the map is unpublished and destroyed. */
+  private val onMapClosing: (MapHandle) -> Unit = {},
   /** Runs on the owner thread for every event this loop's runtime raises. */
   private val onEvent: (RuntimeEvent) -> Unit,
   /** Runs on the owner thread once the event queue is momentarily empty. */
@@ -105,6 +107,9 @@ internal class MlnFfiMapRuntimeLoop(
   @Volatile
   var failure: Throwable? = null
     private set
+
+  /** A failure from [onMapClosing]. */
+  @Volatile private var closingFailure: Throwable? = null
 
   /** The density this loop's map was created with; a change means a new loop, not a resize. */
   val scaleFactor: Double
@@ -182,8 +187,9 @@ internal class MlnFfiMapRuntimeLoop(
   }
 
   /**
-   * Stops the loop and waits for it to finish. The caller must have closed its render session
-   * first: native refuses to destroy a map that still has one attached.
+   * Stops the loop and waits for it to finish. [onMapClosing] releases registered owner-thread
+   * resources before map destruction. The caller must first close any render session that the
+   * callback does not release.
    */
   override fun close() {
     stopRequested = true
@@ -193,6 +199,7 @@ internal class MlnFfiMapRuntimeLoop(
     if (!thread.join(SHUTDOWN_WAIT_MILLIS)) {
       logger?.e { "The MapLibre map runtime thread did not stop within ${SHUTDOWN_WAIT_MILLIS}ms" }
     }
+    closingFailure?.let { throw it }
   }
 
   private fun runLoop() {
@@ -225,10 +232,15 @@ internal class MlnFfiMapRuntimeLoop(
       logger?.e(error) { "The MapLibre map runtime loop failed" }
       fail(error)
     } finally {
-      map = null
       awaitShutdown()
       rejectQueuedTasks()
       try {
+        runCatching { created?.let(onMapClosing) }
+          .onFailure {
+            closingFailure = it
+            logger?.e(it) { "Failed to finalize the MapLibre map on its owner thread" }
+          }
+        map = null
         runCatching { created?.close() }
           .onFailure { logger?.e(it) { "Failed to close the MapLibre map" } }
       } finally {

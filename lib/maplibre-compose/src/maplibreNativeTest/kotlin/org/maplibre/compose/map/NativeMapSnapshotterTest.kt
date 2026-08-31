@@ -76,8 +76,14 @@ class NativeMapSnapshotterTest {
             )
           )
 
+        assertEquals(SIZE, densityOne.width)
+        assertEquals(SIZE, densityOne.height)
+        assertEquals(SIZE * 2, densityTwo.width)
+        assertEquals(SIZE * 2, densityTwo.height)
         assertEquals(BACKGROUND, densityOne.readPixel(SIZE - 6, SIZE / 2))
-        assertEquals(GREEN, densityTwo.readPixel(SIZE - 6, SIZE / 2))
+        assertEquals(BACKGROUND, densityTwo.readPixel(SIZE * 2 - 12, SIZE))
+        assertEquals(GREEN, densityOne.readPixel(SIZE / 2, SIZE / 2))
+        assertEquals(GREEN, densityTwo.readPixel(SIZE, SIZE))
       } finally {
         snapshotter.close()
         snapshotter.awaitClosed()

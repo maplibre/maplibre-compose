@@ -48,7 +48,7 @@ auto throw_java_exception(JNIEnv* env, const char* message) -> void {
   }
 }
 
-auto create_instance() -> VkInstance {
+auto create_instance(bool needs_surface) -> VkInstance {
   const char* extensions[] = {
     VK_KHR_SURFACE_EXTENSION_NAME,
     VK_KHR_ANDROID_SURFACE_EXTENSION_NAME,
@@ -69,8 +69,8 @@ auto create_instance() -> VkInstance {
     .pApplicationInfo = &app_info,
     .enabledLayerCount = 0,
     .ppEnabledLayerNames = nullptr,
-    .enabledExtensionCount = 2,
-    .ppEnabledExtensionNames = extensions,
+    .enabledExtensionCount = needs_surface ? 2U : 0U,
+    .ppEnabledExtensionNames = needs_surface ? extensions : nullptr,
   };
   VkInstance instance = VK_NULL_HANDLE;
   require_vk(
@@ -147,7 +147,8 @@ auto pick_device(
   );
 
   for (auto* device : devices) {
-    if (!device_supports_swapchain(device)) {
+    const bool needs_presentation = surface != VK_NULL_HANDLE;
+    if (needs_presentation && !device_supports_swapchain(device)) {
       continue;
     }
     uint32_t family_count = 0;
@@ -159,6 +160,10 @@ auto pick_device(
     for (uint32_t index = 0; index < family_count; ++index) {
       if ((families[index].queueFlags & VK_QUEUE_GRAPHICS_BIT) == 0) {
         continue;
+      }
+      if (!needs_presentation) {
+        *out_queue_family = index;
+        return device;
       }
       VkBool32 present_supported = VK_FALSE;
       require_vk(
@@ -174,12 +179,15 @@ auto pick_device(
     }
   }
   throw std::runtime_error(
-    "No Vulkan device supports graphics and presentation"
+    surface == VK_NULL_HANDLE
+      ? "No Vulkan device supports graphics"
+      : "No Vulkan device supports graphics and presentation"
   );
 }
 
 auto create_device(
-  VkPhysicalDevice physical_device, uint32_t queue_family_index
+  VkPhysicalDevice physical_device, uint32_t queue_family_index,
+  bool needs_presentation
 ) -> VkDevice {
   constexpr float kQueuePriority = 1.0F;
   const VkDeviceQueueCreateInfo queue_info{
@@ -201,8 +209,8 @@ auto create_device(
     .pQueueCreateInfos = &queue_info,
     .enabledLayerCount = 0,
     .ppEnabledLayerNames = nullptr,
-    .enabledExtensionCount = 1,
-    .ppEnabledExtensionNames = extensions,
+    .enabledExtensionCount = needs_presentation ? 1U : 0U,
+    .ppEnabledExtensionNames = needs_presentation ? extensions : nullptr,
     .pEnabledFeatures = &features,
   };
   VkDevice device = VK_NULL_HANDLE;
@@ -241,14 +249,14 @@ Java_org_maplibre_compose_mlnffi_AndroidVulkanNativeBridge_create(
 ) {
   auto* context = new VulkanContext();
   try {
-    context->instance = create_instance();
+    context->instance = create_instance(true);
     context->surface =
       create_surface(env, context->instance, surface, &context->window);
     context->physical_device = pick_device(
       context->instance, context->surface, &context->graphics_queue_family_index
     );
     context->device = create_device(
-      context->physical_device, context->graphics_queue_family_index
+      context->physical_device, context->graphics_queue_family_index, true
     );
     vkGetDeviceQueue(
       context->device, context->graphics_queue_family_index, 0,
@@ -258,6 +266,36 @@ Java_org_maplibre_compose_mlnffi_AndroidVulkanNativeBridge_create(
   } catch (const std::exception& error) {
     __android_log_print(
       ANDROID_LOG_ERROR, kLogTag, "Vulkan setup failed: %s", error.what()
+    );
+    destroy_context(context);
+    throw_java_exception(env, error.what());
+    return 0;
+  }
+}
+
+extern "C" JNIEXPORT jlong JNICALL
+Java_org_maplibre_compose_mlnffi_AndroidVulkanNativeBridge_createOffscreen(
+  JNIEnv* env, jobject
+) {
+  auto* context = new VulkanContext();
+  try {
+    context->instance = create_instance(false);
+    context->physical_device = pick_device(
+      context->instance, VK_NULL_HANDLE,
+      &context->graphics_queue_family_index
+    );
+    context->device = create_device(
+      context->physical_device, context->graphics_queue_family_index, false
+    );
+    vkGetDeviceQueue(
+      context->device, context->graphics_queue_family_index, 0,
+      &context->graphics_queue
+    );
+    return static_cast<jlong>(reinterpret_cast<intptr_t>(context));
+  } catch (const std::exception& error) {
+    __android_log_print(
+      ANDROID_LOG_ERROR, kLogTag, "Offscreen Vulkan setup failed: %s",
+      error.what()
     );
     destroy_context(context);
     throw_java_exception(env, error.what());
