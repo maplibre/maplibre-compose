@@ -491,10 +491,10 @@ behind it on the serialized owner context. They continue after it returns. A
 long-running callback therefore blocks map progress and violates the delicate
 API contract.
 
-An invocation waiting in the owner queue is cancellable. Cancellation that wins
-before the owner claims the invocation prevents the callback. Once the owner
-claims it, cancellation does not interrupt the non-suspending callback; the
-caller remains cancelled and the callback result is discarded.
+An invocation waiting in the owner queue is cancellable. Cancellation before the
+owner claims the invocation prevents the callback. Once the owner claims the
+invocation, cancellation does not interrupt the non-suspending callback. The
+caller remains cancelled, and the callback result is discarded.
 
 This escape hatch is lower priority than the common API. Do not expose a raw
 handle property.

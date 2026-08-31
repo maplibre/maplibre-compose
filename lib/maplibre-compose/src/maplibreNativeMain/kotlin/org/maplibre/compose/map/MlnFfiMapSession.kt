@@ -1618,12 +1618,12 @@ internal class MlnFfiMapSession(
     return suspendCancellableCoroutine { continuation ->
       val invocation = PlatformMapInvocation(continuation)
       continuation.invokeOnCancellation { invocation.cancel() }
-      val accepted =
+      val queued =
         postWhenMapExists(
           action = { map ->
             invocation.execute {
               var result: Result<T>? = null
-              val accepted =
+              val engineAccepted =
                 lifecycle.acceptEngineEvent(engine) {
                   val authorityAccepted =
                     lifecycleAuthority.acceptEnginePlatformAccess(this) {
@@ -1635,7 +1635,7 @@ internal class MlnFfiMapSession(
                     )
                   }
                 }
-              if (!accepted) {
+              if (!engineAccepted) {
                 throw IllegalStateException(
                   "The native platform map changed before access could begin"
                 )
@@ -1649,7 +1649,7 @@ internal class MlnFfiMapSession(
             )
           },
         )
-      if (!accepted) invocation.fail(MapStateClosedException())
+      if (!queued) invocation.fail(MapStateClosedException())
     }
   }
 

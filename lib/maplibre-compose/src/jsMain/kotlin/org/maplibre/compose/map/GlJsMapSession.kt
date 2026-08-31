@@ -363,7 +363,7 @@ internal class GlJsMapSession(
     cameraConstraints?.let { applyCameraConstraints(created, it) }
     runPending(pendingMapActions, created)
     runPending(pendingPlatformMapAccess, created)
-    return created
+    return created.takeIf { lifecycle.acceptsWork && map === created }
   }
 
   private fun destroyMap() {
@@ -452,7 +452,7 @@ internal class GlJsMapSession(
           run = { map ->
             invocation.execute {
               var result: Result<T>? = null
-              val accepted =
+              val presentationAccepted =
                 lifecycle.acceptPresentationEvent(engine, lease) {
                   val authorityAccepted =
                     lifecycleAuthority.acceptPresentationPlatformAccess(this) {
@@ -464,7 +464,7 @@ internal class GlJsMapSession(
                     )
                   }
                 }
-              if (!accepted) {
+              if (!presentationAccepted) {
                 throw IllegalStateException(
                   "The Web platform map changed before access could begin"
                 )

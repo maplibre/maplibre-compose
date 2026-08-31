@@ -92,4 +92,27 @@ class BrowserPlatformMapAccessTest {
       fixture.close()
     }
   }
+
+  @Test
+  fun closing_from_a_queued_web_callback_makes_the_first_frame_inert() = runBrowserMapTest {
+    val fixture = GlJsMapFixture(MapExtent.fromLogical(200, 100, 1.0))
+    try {
+      supervisorScope {
+        val access =
+          async(start = CoroutineStart.UNDISPATCHED) {
+            fixture.state.withPlatformMap {
+              fixture.state.close()
+              map.getZoom()
+            }
+          }
+
+        assertFalse(fixture.renderFrameForTest())
+
+        assertEquals(0.0, access.await())
+        assertTrue(fixture.state.isClosed)
+      }
+    } finally {
+      fixture.close()
+    }
+  }
 }

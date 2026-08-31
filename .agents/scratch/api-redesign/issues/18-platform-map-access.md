@@ -6,7 +6,7 @@ borrowed, callback-scoped value.
 
 **Blocked by:** 04, 05, 07
 
-**Status:** resolved
+**Status:** needs-info
 
 - [x] The changed test area contains no redundant, impossible,
       compatibility-only, or implementation-shape scenarios.
@@ -15,15 +15,17 @@ borrowed, callback-scoped value.
 - [x] Documentation states honestly that Kotlin cannot prevent retention and
       requires callers to use the borrowed handle only during the lambda.
 - [x] Native access creates the engine map lazily when necessary.
-- [x] Native access works while MapState has no presentation.
+- [ ] Android native access can initialize a presentation-free explicit runtime.
+- [x] Native access works while MapState has no presentation after platform
+      initialization.
 - [x] Web access works only for the current attached presentation.
 - [x] Web access fails clearly while detached.
 - [x] Native invocations bind to an engine-map identity; Web invocations bind to
       both an engine-map identity and the current render lease.
 - [x] Replacement, Web detachment, or closure that wins before execution rejects
       the invocation without running its callback.
-- [x] Caller cancellation that wins while an invocation is queued prevents its
-      callback; cancellation after execution starts does not interrupt it.
+- [x] Caller cancellation before owner execution prevents a queued callback;
+      cancellation after execution starts does not interrupt it.
 - [x] Once a callback starts, detach, replacement, and closure queue behind it
       and continue after it returns.
 - [x] Platform tests verify owner-context execution, native detached access, Web
@@ -50,13 +52,14 @@ the render lease. A callback that has started finishes before detach,
 replacement, or closure proceeds. Identity validation and callback delivery hold
 both lifecycle serialization locks until the callback returns.
 
-Queued native and Web invocations arbitrate cancellation against execution with
-one atomic claim. Cancellation that wins suppresses the callback. Cancellation
-after execution wins leaves the caller cancelled without interrupting the
-non-suspending callback.
+Queued native and Web invocations use one atomic state transition for
+cancellation and execution. Cancellation before execution suppresses the
+callback. Cancellation after execution starts leaves the caller cancelled
+without interrupting the non-suspending callback.
 
 The native tests cover detached creation, owner-thread execution, replacement
 before execution, queued cancellation, closure after execution starts, and
 closed-state rejection. The Web tests cover detached rejection, attached access,
-stale-lease rejection, and queued cancellation. The Android, desktop, and iOS
-tasks pass. The Web task runs all 264 tests successfully.
+stale-lease rejection, queued cancellation, and closure during first-frame
+callback delivery. The Android, desktop, and iOS tasks pass. The Web task runs
+all 271 tests successfully.

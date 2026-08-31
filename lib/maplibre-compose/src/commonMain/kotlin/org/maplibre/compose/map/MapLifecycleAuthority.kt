@@ -411,8 +411,7 @@ internal class MapLifecycleAuthority(
   private fun acceptsAdapterLocked(adapter: MapAdapter): Boolean {
     val current = attachment
     return !closed &&
-      ((current?.adapter === adapter && !current.releasing) ||
-        (current?.adapter == null && retainedAdapter === adapter))
+      ((current?.adapter === adapter && !current.releasing) || retainedAdapter === adapter)
   }
 
   private fun acceptsPresentationLocked(adapter: MapAdapter): Boolean =
@@ -706,6 +705,13 @@ internal class MapLifecycleBinding(
       adapter.createEngine(creating.engine)
       creating.engineCreated.store(true)
       creating.engine
+    }
+    outcome.exceptionOrNull()?.let { failure ->
+      runCatching { adapter.destroyEngine(creating.engine) }
+        .exceptionOrNull()
+        ?.let(failure::addSuppressed)
+      currentStyle.store(null)
+      currentStyleRequest.store(null)
     }
     serialized {
       if (current.load() === creating) {

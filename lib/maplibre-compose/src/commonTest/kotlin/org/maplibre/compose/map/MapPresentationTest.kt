@@ -240,6 +240,32 @@ class MapPresentationTest {
   }
 
   @Test
+  fun retained_engine_access_remains_valid_while_the_presentation_detaches() = runTest {
+    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
+    val state = runtime.createMapState()
+    val finishDetach = CompletableDeferred<Unit>()
+    val detachStarted = CompletableDeferred<Unit>()
+    val session = BoundLifecycleSession(finishDetach = finishDetach, detachStarted = detachStarted)
+    session.lifecycle = state.lifecycle.bind(session)
+    session.lifecycle.attach()
+    val token = state.reservePresentation()
+    state.publishPresentation(token, session)
+
+    state.releasePresentation(token, session)
+    detachStarted.await()
+    var callbackRan = false
+
+    assertTrue(state.lifecycle.acceptEnginePlatformAccess(session) { callbackRan = true })
+    assertTrue(callbackRan)
+
+    finishDetach.complete(Unit)
+    testScheduler.runCurrent()
+    state.close()
+    state.awaitClosed()
+    runtime.close()
+  }
+
+  @Test
   fun closure_during_presentation_configuration_makes_publication_inert() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
     val state = runtime.createMapState()

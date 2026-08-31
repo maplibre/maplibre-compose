@@ -363,6 +363,17 @@ class MapLifecycleBindingTest {
     assertEquals(MapLifecycleState.OpenDetached(null), lifecycle.state)
     assertEquals(1, adapter.commands.count { it.startsWith("destroy ") })
   }
+
+  @Test
+  fun failed_detached_engine_creation_cleans_partial_engine_resources() = runTest {
+    val adapter = FakeMapLifecycleAdapter().apply { createFailure = TestFailure("create") }
+    val lifecycle = bindLifecycle(adapter)
+
+    assertFailsWith<TestFailure> { lifecycle.ensureEngine() }
+
+    assertEquals(MapLifecycleState.OpenDetached(null), lifecycle.state)
+    assertEquals(1, adapter.commands.count { it.startsWith("destroy ") })
+  }
 }
 
 private class FakeMapLifecycleAdapter : MapLifecyclePlatformAdapter {

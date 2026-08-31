@@ -119,6 +119,8 @@ internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
     }
   }
 
+  internal fun renderFrameForTest(): Boolean = frame()
+
   override suspend fun pumpUntil(
     description: String,
     timeout: Duration,
