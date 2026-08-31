@@ -1264,6 +1264,9 @@ internal class MlnFfiMapSession(
    */
   private fun snapshotViewportAndNotify(map: MapHandle) {
     snapshotViewport(map)
+    // The first attach snapshot can land before the lease is Attached. Seed from the snapshot
+    // itself so a dropped camera callback cannot leave MapPresentation.viewport null.
+    lifecycleAuthority.seedCurrentPresentationViewport(this)
     withLifecyclePresentation { engine, lease ->
       lifecycleCallbacks.onCameraMoved(engine, lease, this)
     }

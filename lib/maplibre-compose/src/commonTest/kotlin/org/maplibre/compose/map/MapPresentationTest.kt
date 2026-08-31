@@ -680,6 +680,25 @@ class MapPresentationTest {
   }
 
   @Test
+  fun a_viewport_that_arrives_after_publication_still_seeds_the_presentation() {
+    val runtime = mapRuntimeForTest()
+    val state = runtime.createMapState()
+    val token = state.reservePresentation()
+    val adapter = PresentationTestAdapter()
+
+    state.publishPresentation(token, adapter)
+    assertNull(state.presentation?.viewport)
+
+    val viewport = testViewport()
+    adapter.currentViewport = viewport
+    state.lifecycle.seedCurrentPresentationViewport(adapter)
+
+    assertEquals(viewport, state.presentation?.viewport)
+    state.close()
+    runtime.close()
+  }
+
+  @Test
   fun a_bounds_set_waits_for_this_presentations_viewport() = runTest {
     val fixture = presentationFixture()
     val operation = async {
