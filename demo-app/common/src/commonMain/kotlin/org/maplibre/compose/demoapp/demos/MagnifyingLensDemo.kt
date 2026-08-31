@@ -108,6 +108,7 @@ object MagnifyingLensDemo : Demo {
     // unobstructed overlay center plus the drag. The lens widget's layout bounds move by half a
     // pixel when the lens size is odd, so they are not a stable camera target.
     var overlaySize by remember { mutableStateOf(IntSize.Zero) }
+    val placedDrag = IntOffset(dragOffset.x.roundToInt(), dragOffset.y.roundToInt())
     val lensCenter =
       overlaySize
         .takeIf { it != IntSize.Zero }
@@ -120,7 +121,7 @@ object MagnifyingLensDemo : Demo {
             insetRightPx = contentWindowInsets.getRight(density, layoutDirection),
             insetBottomPx = contentWindowInsets.getBottom(density),
             spacingPx = spacingPx,
-          ) + dragOffset
+          ) + Offset(placedDrag.x.toFloat(), placedDrag.y.toFloat())
         }
     val currentLensCenter by rememberUpdatedState(lensCenter)
     LaunchedEffect(Unit) {
@@ -140,7 +141,7 @@ object MagnifyingLensDemo : Demo {
     Box(
       modifier =
         Modifier.align(Alignment.Center)
-          .offset { IntOffset(dragOffset.x.roundToInt(), dragOffset.y.roundToInt()) }
+          .offset { placedDrag }
           .onGloballyPositioned { coordinates ->
             coordinates.parentLayoutCoordinates?.size?.let { overlaySize = it }
           }
