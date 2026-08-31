@@ -18,8 +18,8 @@ in sync with location changes:
 <Code code={region(location, "puck")} lang="kotlin" title="App.kt" />
 
 All platforms provide default location providers. Android and iOS also provide
-default heading providers. <Api of="LocationState.status" /> reports an
-unsupported or misconfigured platform without throwing.
+default heading providers. <Api of="LocationState.availability" /> reports an
+unsupported or misconfigured provider before the application requests permission.
 
 `locationState.lastLocation` is null until the first measurement arrives, so the puck
 initially draws nothing. Afterward, the state retains the last measurement when
@@ -110,4 +110,4 @@ that Apple requires. On Linux, location comes from the desktop portal on the
 D-Bus session bus, commonly backed by
 [GeoClue](https://gitlab.freedesktop.org/geoclue/geoclue). On Windows, location
 comes from Windows Runtime geolocation. A missing backend reports an
-unsupported status through `LocationState.status`.
+unsupported value through <Api of="LocationState.availability" />.

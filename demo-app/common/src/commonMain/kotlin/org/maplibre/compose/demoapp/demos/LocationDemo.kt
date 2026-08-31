@@ -22,6 +22,7 @@ import org.maplibre.compose.demoapp.DemoPointerPin
 import org.maplibre.compose.demoapp.design.ButtonRow
 import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.demoapp.design.SwitchRow
+import org.maplibre.compose.location.LocationBackendAvailability
 import org.maplibre.compose.location.LocationPermission
 import org.maplibre.compose.location.LocationPuck
 import org.maplibre.compose.location.LocationState
@@ -166,17 +167,23 @@ object LocationDemo : Demo {
   }
 }
 
-private fun LocationState.statusMessage(): String =
-  when (val status = this.status) {
+private fun LocationState.statusMessage(): String {
+  val permission = permission as? LocationPermission.NotGranted
+  return when {
+    availability == LocationBackendAvailability.Unsupported ->
+      "Location is not available on this device"
+    availability is LocationBackendAvailability.Misconfigured ->
+      "Location is misconfigured on this device"
+    permission?.canRequest == false ->
+      "Location permission was denied; turn it on in the system settings"
+    permission != null -> "Waiting for location permission"
+    else -> trackingStatusMessage()
+  }
+}
+
+private fun LocationState.trackingStatusMessage(): String =
+  when (val status = status) {
     LocationTrackingStatus.Stopped -> "Location is off"
-    LocationTrackingStatus.WaitingForPermission -> {
-      val permission = this.permission
-      if (permission is LocationPermission.NotGranted && permission.canRequest == false) {
-        "Location permission was denied; turn it on in the system settings"
-      } else {
-        "Waiting for location permission"
-      }
-    }
     LocationTrackingStatus.Starting -> "Finding your location"
     LocationTrackingStatus.Tracking -> "Tracking your location"
     is LocationTrackingStatus.Unavailable ->
