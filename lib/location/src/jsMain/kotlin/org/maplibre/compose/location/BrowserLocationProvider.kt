@@ -283,9 +283,9 @@ internal class BrowserLocationPermissionState {
   }
 
   fun acceptDenial() {
-    if (mutableStatus.value is LocationPermission.Granted) {
-      mutableStatus.value = LocationPermission.Required(canRequest = null)
-    }
+    val current = mutableStatus.value
+    if (current is LocationPermission.Required && current.canRequest == false) return
+    mutableStatus.value = LocationPermission.Required(canRequest = null)
   }
 }
 

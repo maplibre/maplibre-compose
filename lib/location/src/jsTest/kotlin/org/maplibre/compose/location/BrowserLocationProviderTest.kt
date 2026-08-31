@@ -165,11 +165,25 @@ class BrowserLocationProviderTest {
     runCurrent()
     provider.requestPermission()
     runCurrent()
-    assertEquals(LocationPermission.Required(canRequest = true), provider.permission.value)
+    assertEquals(LocationPermission.Required(canRequest = null), provider.permission.value)
     provider.requestPermission()
     runCurrent()
     assertEquals(2, boundary.requestedOptions.size)
     assertEquals(listOf(1.seconds, 1.seconds), boundary.requestedOptions.map { it.timeout })
+  }
+
+  @Test
+  fun explicitDenialWhilePermissionIsUnknownRecordsRequired() = runTest {
+    val boundary = FakeBrowserGeolocationBoundary()
+    boundary.permission.value = BrowserPermission.Unknown
+    boundary.requestPositionAction = { BrowserResult.Error(BrowserError.PermissionDenied) }
+    val provider = BrowserLocationProvider(boundary, backgroundScope)
+    runCurrent()
+
+    assertEquals(LocationPermission.Unknown, provider.permission.value)
+    provider.requestPermission()
+    runCurrent()
+    assertEquals(LocationPermission.Required(canRequest = null), provider.permission.value)
   }
 
   @Test
