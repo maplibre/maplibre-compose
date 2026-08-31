@@ -28,6 +28,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.pinch
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.swipe
+import androidx.compose.ui.test.withKeyDown
 import androidx.compose.ui.unit.DpOffset
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
@@ -200,6 +201,26 @@ class MapInputRecognitionTest {
   }
 
   @Test
+  fun plus_and_minus_request_zoom() = runRecognitionTest { target ->
+    val map = mapNode()
+    map.performMouseInput { click(Offset(10f, 10f)) }
+    map.performKeyInput { pressKey(Key.Equals) }
+    waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.any { it.scale > 1.0 } }
+    map.performKeyInput { pressKey(Key.Minus) }
+    waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.any { it.scale < 1.0 } }
+  }
+
+  @Test
+  fun shift_and_arrow_keys_request_rotate_and_tilt() = runRecognitionTest { target ->
+    val map = mapNode()
+    map.performMouseInput { click(Offset(10f, 10f)) }
+    map.performKeyInput { withKeyDown(Key.ShiftLeft) { pressKey(Key.DirectionRight) } }
+    waitUntil(timeoutMillis = TIMEOUT) { target.rotateCalls.any { it.bearingDelta != 0.0 } }
+    map.performKeyInput { withKeyDown(Key.ShiftLeft) { pressKey(Key.DirectionUp) } }
+    waitUntil(timeoutMillis = TIMEOUT) { target.rotateCalls.any { it.pitchDelta != 0.0 } }
+  }
+
+  @Test
   fun a_hover_does_not_end_a_scroll_hold() = runRecognitionTest { target ->
     val map = mapNode()
     mainClock.autoAdvance = false
@@ -253,6 +274,8 @@ class MapInputRecognitionTest {
       release(MouseButton.Secondary)
     }
     waitUntil(timeoutMillis = TIMEOUT) { target.rotateCalls.isNotEmpty() }
+    assertTrue(target.rotateCalls.any { it.bearingDelta != 0.0 }, "a secondary drag did not rotate")
+    assertTrue(target.rotateCalls.any { it.pitchDelta != 0.0 }, "a secondary drag did not tilt")
     assertEquals(0, target.moveCalls.size, "a secondary drag panned")
   }
 
