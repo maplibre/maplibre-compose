@@ -187,7 +187,7 @@ private class GlJsSnapshotterAdapter(private val logger: Logger?) : SnapshotterA
         interactive = false
         attributionControl = false
         maplibreLogo = false
-        pixelRatio = request.density.toDouble()
+        pixelRatio = renderPixelRatio(request)
         maxCanvasSize = arrayOf(MAX_CANVAS_SIZE.toDouble(), MAX_CANVAS_SIZE.toDouble())
         canvasContextAttributes =
           unsafeJso<CanvasContextAttributes> { preserveDrawingBuffer = true }
@@ -205,7 +205,7 @@ private class GlJsSnapshotterAdapter(private val logger: Logger?) : SnapshotterA
   private fun configure(map: MaplibreMap, request: MapSnapshotRequest) {
     currentDensity = request.density
     container?.let { size(it, request) }
-    map.setPixelRatio(request.density.toDouble())
+    map.setPixelRatio(renderPixelRatio(request))
     map.resize()
     val camera = request.cameraPosition
     map.jumpTo(
@@ -220,8 +220,11 @@ private class GlJsSnapshotterAdapter(private val logger: Logger?) : SnapshotterA
 
   private fun size(container: HTMLElement, request: MapSnapshotRequest) {
     val extent = request.extent()
-    require(extent.physicalWidth <= MAX_CANVAS_SIZE && extent.physicalHeight <= MAX_CANVAS_SIZE) {
-      "The Web snapshot needs a ${extent.physicalWidth}x${extent.physicalHeight} canvas, " +
+    val pixelRatio = renderPixelRatio(request)
+    val renderedWidth = (extent.width * pixelRatio).toInt()
+    val renderedHeight = (extent.height * pixelRatio).toInt()
+    require(renderedWidth <= MAX_CANVAS_SIZE && renderedHeight <= MAX_CANVAS_SIZE) {
+      "The Web snapshot needs a ${renderedWidth}x$renderedHeight render canvas, " +
         "which exceeds MapLibre GL JS's ${MAX_CANVAS_SIZE}px canvas limit"
     }
     container.style.width = "${extent.width}px"
@@ -233,8 +236,9 @@ private class GlJsSnapshotterAdapter(private val logger: Logger?) : SnapshotterA
     val extent = request.extent()
     val width = extent.physicalWidth
     val height = extent.physicalHeight
-    val renderedWidth = (extent.width * extent.scaleFactor).toInt().coerceAtLeast(1)
-    val renderedHeight = (extent.height * extent.scaleFactor).toInt().coerceAtLeast(1)
+    val pixelRatio = renderPixelRatio(request)
+    val renderedWidth = (extent.width * pixelRatio).toInt()
+    val renderedHeight = (extent.height * pixelRatio).toInt()
     check(source.width == renderedWidth && source.height == renderedHeight) {
       "MapLibre rendered a ${source.width}x${source.height} snapshot canvas, expected " +
         "${renderedWidth}x$renderedHeight before fractional-density rounding"
@@ -261,6 +265,11 @@ private class GlJsSnapshotterAdapter(private val logger: Logger?) : SnapshotterA
           (data[offset + 3].unsafeCast<Int>() shl 24)
       }
     return pixels.toImageBitmap(width, height)
+  }
+
+  private fun renderPixelRatio(request: MapSnapshotRequest): Double {
+    val minimumRatio = 1.0 / minOf(request.width, request.height)
+    return maxOf(request.density.toDouble(), minimumRatio)
   }
 
   private fun releaseEngine(reason: Throwable) {

@@ -251,6 +251,29 @@ class BrowserMapSnapshotterTest {
     }
 
   @Test
+  fun subpixel_density_keeps_the_gl_js_canvas_nonzero(): Promise<*> = runBrowserMapTest {
+    val runtime = createMapRuntime(MapRuntimeOptions())
+    val snapshotter = runtime.createSnapshotter(BASE_STYLE, StyleComposition {})
+    try {
+      val captured = snapshotter.capture(MapSnapshotRequest(width = 1, height = 1, density = 0.5f))
+      val target = assertNotNull(snapshotTargets().singleOrNull())
+      val canvas = assertNotNull(target.querySelector("canvas")).unsafeCast<HTMLCanvasElement>()
+
+      assertEquals(1, captured.width)
+      assertEquals(1, captured.height)
+      assertEquals(1, target.clientWidth)
+      assertEquals(1, target.clientHeight)
+      assertEquals(1, canvas.width)
+      assertEquals(1, canvas.height)
+    } finally {
+      snapshotter.close()
+      snapshotter.awaitClosed()
+      runtime.close()
+      runtime.awaitClosed()
+    }
+  }
+
+  @Test
   fun page_css_does_not_change_the_private_viewport(): Promise<*> = runBrowserMapTest {
     val pageStyle = document.createElement("style").unsafeCast<HTMLElement>()
     pageStyle.textContent =
