@@ -6,18 +6,16 @@ import com.google.android.gms.tasks.Tasks
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
+import java.util.concurrent.Executor
 import kotlin.test.Test
 import kotlin.test.assertFalse
-import kotlin.time.Duration.Companion.seconds
+import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.location.LocationRequest
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -26,7 +24,12 @@ class FusedLocationProviderTest {
   fun `cancellation removes callback after delayed registration completes`() = runTest {
     val registration = TaskCompletionSource<Void>()
     val removed = CompletableDeferred<Unit>()
-    val provider = FusedLocationProvider(fakeClient(registration, removed))
+    val provider =
+      FusedLocationProvider(
+        locationClient = fakeClient(registration, removed),
+        permissionDelegate = null,
+        executor = DIRECT_EXECUTOR,
+      )
     val collection = launch { provider.updates(LocationRequest()).collect {} }
 
     runCurrent()
@@ -34,7 +37,7 @@ class FusedLocationProviderTest {
     assertFalse(removed.isCompleted)
 
     registration.setResult(null)
-    withContext(Dispatchers.Default) { withTimeout(5.seconds) { removed.await() } }
+    assertTrue(removed.isCompleted)
   }
 
   private fun fakeClient(
@@ -57,4 +60,8 @@ class FusedLocationProviderTest {
           }
       },
     ) as FusedLocationProviderClient
+
+  private companion object {
+    val DIRECT_EXECUTOR = Executor { it.run() }
+  }
 }

@@ -9,23 +9,21 @@ import com.google.android.gms.tasks.Tasks
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
+import java.util.concurrent.Executor
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.location.HeadingReference
 import org.maplibre.compose.location.HeadingRequest
 import org.maplibre.spatialk.units.Bearing
@@ -93,6 +91,7 @@ class FusedHeadingProviderTest {
             onRemove = { removed.complete(Unit) },
           ),
         elapsedRealtimeNanos = { 0L },
+        executor = DIRECT_EXECUTOR,
       )
     val collection = launch { provider.updates(HeadingRequest(Duration.ZERO)).collect {} }
 
@@ -101,7 +100,7 @@ class FusedHeadingProviderTest {
     assertFalse(removed.isCompleted)
 
     registration.setResult(null)
-    withContext(Dispatchers.Default) { withTimeout(5.seconds) { removed.await() } }
+    assertTrue(removed.isCompleted)
   }
 
   private fun fakeClient(
@@ -141,5 +140,9 @@ class FusedHeadingProviderTest {
         }
       },
     ) as FusedOrientationProviderClient
+  }
+
+  private companion object {
+    val DIRECT_EXECUTOR = Executor { it.run() }
   }
 }

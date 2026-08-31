@@ -13,6 +13,7 @@ import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.Task
+import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.channels.awaitClose
@@ -59,6 +60,7 @@ public class FusedLocationProvider
 internal constructor(
   private val locationClient: FusedLocationProviderClient,
   private val permissionDelegate: LocationProvider?,
+  private val executor: Executor = dispatcher.executor,
 ) : LocationProvider {
 
   override val backendId: String = GmsLocationBackendId
@@ -128,7 +130,7 @@ internal constructor(
         registration =
           locationClient.requestLocationUpdates(
             request.asGmsLocationRequest(),
-            dispatcher.executor,
+            executor,
             callback,
           )
         registration.await()
@@ -139,7 +141,7 @@ internal constructor(
 
       awaitClose()
     } finally {
-      registration?.addOnCompleteListener(dispatcher.executor) {
+      registration?.addOnCompleteListener(executor) {
         locationClient.removeLocationUpdates(callback)
       }
     }

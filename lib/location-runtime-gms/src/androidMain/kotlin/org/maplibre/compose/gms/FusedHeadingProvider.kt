@@ -4,6 +4,7 @@ import android.os.SystemClock
 import com.google.android.gms.location.DeviceOrientation
 import com.google.android.gms.location.DeviceOrientationRequest
 import com.google.android.gms.location.FusedOrientationProviderClient
+import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.nanoseconds
@@ -36,6 +37,7 @@ public class FusedHeadingProvider
 internal constructor(
   private val orientationClient: FusedOrientationProviderClient,
   private val elapsedRealtimeNanos: () -> Long,
+  private val executor: Executor = dispatcher.executor,
 ) : HeadingProvider {
   public constructor(
     orientationClient: FusedOrientationProviderClient
@@ -60,13 +62,13 @@ internal constructor(
     val registration =
       orientationClient.requestOrientationUpdates(
         deviceOrientationRequest,
-        dispatcher.executor,
+        executor,
         callback,
       )
-    registration.addOnFailureListener(dispatcher.executor) { error -> close(error) }
+    registration.addOnFailureListener(executor) { error -> close(error) }
 
     awaitClose {
-      registration.addOnCompleteListener(dispatcher.executor) {
+      registration.addOnCompleteListener(executor) {
         orientationClient.removeOrientationUpdates(callback)
       }
     }
