@@ -106,9 +106,6 @@ kotlin {
 
     jvmMain.apply {
       dependencies {
-        // Host-neutral desktop APIs. currentOs names a host-specific native artifact in the
-        // published JVM metadata, so every consumer receives the publishing host's Skiko
-        // runtime beside the one their own currentOs already selected.
         implementation(compose.desktop.common)
 
         // The Compose host needs direct Vulkan/OpenGL access; the natives come from the runtime
@@ -172,8 +169,6 @@ kotlin {
     // a CI matrix adds processes for additional applicable backends.
     val jvmTest by getting
     jvmTest.dependencies {
-      // Host Skiko natives for the live-map tests. jvmMain stays on compose.desktop.common so
-      // published metadata does not name a host-specific artifact.
       implementation(compose.desktop.currentOs)
       // Only the EGL interop tests bind EGL directly; nothing in the library does.
       implementation(libs.lwjgl.egl)
