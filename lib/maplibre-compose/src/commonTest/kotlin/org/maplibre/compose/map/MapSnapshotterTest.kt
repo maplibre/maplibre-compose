@@ -433,8 +433,11 @@ class MapSnapshotterTest {
     },
     private val close: suspend () -> Unit = {},
   ) : SnapshotterAdapter {
-    override suspend fun prepare(baseStyle: BaseStyle, request: MapSnapshotRequest): StyleBinding =
-      prepare.invoke(baseStyle, request)
+    override suspend fun prepare(
+      baseStyle: BaseStyle,
+      baseStyleRevision: Long,
+      request: MapSnapshotRequest,
+    ): StyleBinding = prepare.invoke(baseStyle, request)
 
     override suspend fun capture(
       request: MapSnapshotRequest,

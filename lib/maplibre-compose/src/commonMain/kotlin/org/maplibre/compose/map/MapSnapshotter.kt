@@ -69,7 +69,11 @@ public data class MapSnapshotRequest(
 
 /** Platform work for one snapshotter engine map. */
 internal interface SnapshotterAdapter {
-  suspend fun prepare(baseStyle: BaseStyle, request: MapSnapshotRequest): StyleBinding
+  suspend fun prepare(
+    baseStyle: BaseStyle,
+    baseStyleRevision: Long,
+    request: MapSnapshotRequest,
+  ): StyleBinding
 
   suspend fun capture(
     request: MapSnapshotRequest,
@@ -325,7 +329,7 @@ internal class MapSnapshotterImplementation(
       launch(start = CoroutineStart.LAZY) {
         val claim = claimStyle()
         try {
-          val binding = platform.prepare(claim.baseStyle, capture.request)
+          val binding = platform.prepare(claim.baseStyle, claim.revision, capture.request)
           val request = capture.request
           val revision =
             styleEvaluator.evaluate(

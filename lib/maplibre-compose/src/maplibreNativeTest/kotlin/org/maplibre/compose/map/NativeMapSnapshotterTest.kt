@@ -35,26 +35,7 @@ class NativeMapSnapshotterTest {
         MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
       )
     try {
-      val points =
-        GeoJsonSource(
-          id = "points",
-          data =
-            GeoJsonData.Features(
-              buildFeatureCollection<Geometry, JsonObject?> {
-                addFeature(geometry = Point(Position(longitude = 0.0, latitude = 0.0)))
-              }
-            ),
-          options = GeoJsonOptions(),
-        )
-      val composition = StyleComposition {
-        CircleLayer(
-          id = "composed-circle",
-          source = points,
-          color = const(Color.Green),
-          radius = const(20.dp),
-        )
-      }
-      val snapshotter = runtime.createSnapshotter(BASE_STYLE, composition)
+      val snapshotter = runtime.createSnapshotter(BASE_STYLE, pointComposition())
       try {
         val densityOne =
           snapshotter.capture(
@@ -95,6 +76,64 @@ class NativeMapSnapshotterTest {
     }
   }
 
+  @Test
+  fun returning_to_an_equal_base_style_creates_a_fresh_style_identity(): MapTestResult =
+    runMapTest {
+      FfiTestPlatform.initialize()
+      val cacheFile = FfiTestPlatform.createCacheFile()
+      val runtime =
+        createNativeMapRuntime(
+          MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+        )
+      try {
+        val snapshotter = runtime.createSnapshotter(BASE_STYLE, pointComposition())
+        try {
+          val request =
+            MapSnapshotRequest(
+              width = SIZE,
+              height = SIZE,
+              cameraPosition = CameraPosition(zoom = 2.0),
+            )
+          snapshotter.capture(request)
+
+          snapshotter.style.baseStyle = ALTERNATE_STYLE
+          snapshotter.style.baseStyle = BASE_STYLE
+          val captured = snapshotter.capture(request)
+
+          assertEquals(GREEN, captured.readPixel(SIZE / 2, SIZE / 2))
+        } finally {
+          snapshotter.close()
+          snapshotter.awaitClosed()
+        }
+      } finally {
+        runtime.close()
+        runtime.awaitClosed()
+        FfiTestPlatform.deleteCacheFile(cacheFile)
+      }
+    }
+
+  private fun pointComposition(): StyleComposition {
+    val points =
+      GeoJsonSource(
+        id = "points",
+        data =
+          GeoJsonData.Features(
+            buildFeatureCollection<Geometry, JsonObject?> {
+              addFeature(geometry = Point(Position(longitude = 0.0, latitude = 0.0)))
+            }
+          ),
+        options = GeoJsonOptions(),
+      )
+    return StyleComposition {
+      CircleLayer(
+        id = "composed-circle",
+        source = points,
+        color = const(Color.Green),
+        radius = const(20.dp),
+      )
+    }
+  }
+
   private fun androidx.compose.ui.graphics.ImageBitmap.readPixel(x: Int, y: Int): RgbaPixel {
     val pixel = IntArray(1)
     readPixels(
@@ -127,6 +166,10 @@ class NativeMapSnapshotterTest {
         ]}
         """
           .trimIndent()
+      )
+    val ALTERNATE_STYLE =
+      BaseStyle.Json(
+        """{"version":8,"sources":{},"layers":[{"id":"alternate","type":"background"}]}"""
       )
   }
 }

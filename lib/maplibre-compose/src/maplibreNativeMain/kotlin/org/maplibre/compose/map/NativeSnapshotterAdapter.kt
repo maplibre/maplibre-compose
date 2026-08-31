@@ -42,12 +42,9 @@ internal class NativeSnapshotterAdapterFactory(private val options: MlnFfiRuntim
 private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions) :
   SnapshotterAdapter {
   @Volatile private var open = true
-  @Volatile private var loop: MlnFfiMapRuntimeLoop? = null
-  @Volatile private var engineScale: Double? = null
-  @Volatile private var renderSession: RenderSessionHandle? = null
-  @Volatile private var target: NativeSnapshotRenderTarget? = null
+  @Volatile private var engine: NativeSnapshotEngine? = null
   @Volatile private var styleBinding: MlnFfiStyleBinding? = null
-  @Volatile private var loadedBaseStyle: BaseStyle? = null
+  @Volatile private var loadedBaseStyleRevision: Long? = null
   @Volatile private var currentDensity = 1f
   @Volatile private var terminalOperation: CompletableDeferred<Result<Unit>>? = null
   @Volatile private var stillImageOperation = false
@@ -56,19 +53,20 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
 
   override suspend fun prepare(
     baseStyle: BaseStyle,
+    baseStyleRevision: Long,
     request: MapSnapshotRequest,
   ): StyleBinding = runNativeRequest {
     ensureEngine(request)
     currentDensity = request.density
     configureRequest(request)
     val current = styleBinding
-    if (baseStyle == loadedBaseStyle && current?.isLoaded == true) {
+    if (baseStyleRevision == loadedBaseStyleRevision && current?.isLoaded == true) {
       return@runNativeRequest current
     }
 
     current?.invalidate()
     styleBinding = null
-    loadedBaseStyle = null
+    loadedBaseStyleRevision = null
     val loading = CompletableDeferred<Result<Unit>>()
     terminalOperation = loading
     postToMap { map ->
@@ -80,7 +78,7 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
     val loadResult = loading.await()
     if (terminalOperation === loading) terminalOperation = null
     loadResult.getOrThrow()
-    loadedBaseStyle = baseStyle
+    loadedBaseStyleRevision = baseStyleRevision
     checkNotNull(styleBinding) { "MapLibre reported a loaded style without a binding" }
   }
 
@@ -117,58 +115,15 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
     val failures = mutableListOf<Throwable>()
     runCatching { styleBinding?.invalidate() }.exceptionOrNull()?.let(failures::add)
     styleBinding = null
-    loadedBaseStyle = null
+    loadedBaseStyleRevision = null
     releaseEngine(failures)
     throwCleanupFailures(failures)
   }
 
   private fun releaseEngine(failures: MutableList<Throwable>) {
-    val currentLoop = loop
-    loop = null
-    engineScale = null
-    if (currentLoop != null) {
-      runCatching { currentLoop.close() }.exceptionOrNull()?.let(failures::add)
-    } else {
-      runCatching {
-          check(renderSession == null && target == null) {
-            "The snapshotter has render resources without an owner loop"
-          }
-        }
-        .exceptionOrNull()
-        ?.let(failures::add)
-    }
-  }
-
-  /** Releases the render resources on the loop thread that attached them. */
-  private fun releaseOwnedResources() {
-    val failures = mutableListOf<Throwable>()
-    val currentTarget = target
-    if (currentTarget == null) {
-      val currentSession = renderSession
-      renderSession = null
-      runCatching { currentSession?.close() }.exceptionOrNull()?.let(failures::add)
-      throwCleanupFailures(failures)
-      return
-    }
-    try {
-      currentTarget.withAccess {
-        val currentSession = renderSession
-        renderSession = null
-        target = null
-        runCatching { currentSession?.close() }.exceptionOrNull()?.let(failures::add)
-        runCatching { currentTarget.close() }.exceptionOrNull()?.let(failures::add)
-      }
-    } catch (error: Throwable) {
-      failures += error
-      if (target === currentTarget) {
-        val currentSession = renderSession
-        renderSession = null
-        target = null
-        runCatching { currentSession?.close() }.exceptionOrNull()?.let(failures::add)
-        runCatching { currentTarget.close() }.exceptionOrNull()?.let(failures::add)
-      }
-    }
-    throwCleanupFailures(failures)
+    val current = engine ?: return
+    engine = null
+    runCatching { current.loop.close() }.exceptionOrNull()?.let(failures::add)
   }
 
   private fun throwCleanupFailures(failures: List<Throwable>) {
@@ -182,42 +137,28 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
 
   private suspend fun ensureEngine(request: MapSnapshotRequest) {
     val extent = request.extent()
-    if (loop != null && engineScale == extent.scaleFactor) return
-    if (loop != null) {
+    if (engine?.scaleFactor == extent.scaleFactor) return
+    if (engine != null) {
       val failures = mutableListOf<Throwable>()
       runCatching { styleBinding?.invalidate() }.exceptionOrNull()?.let(failures::add)
       styleBinding = null
-      loadedBaseStyle = null
+      loadedBaseStyleRevision = null
       releaseEngine(failures)
       throwCleanupFailures(failures)
     }
     val created = CompletableDeferred<Result<Unit>>()
-    lateinit var candidate: MlnFfiMapRuntimeLoop
-    candidate =
+    val resources = NativeSnapshotRenderResources(extent, options)
+    lateinit var candidate: NativeSnapshotEngine
+    val candidateLoop =
       MlnFfiMapRuntimeLoop(
         extent = extent,
         cacheFile = options.cacheFile,
         getLogger = { options.logger },
         resourceProviderFactory = options.resourceProviderFactory,
-        onMapCreated = { map ->
-          var offscreen: NativeSnapshotRenderTarget? = null
-          try {
-            offscreen = NativeSnapshotRenderTarget.create(loadRuntimeBackends(options.logger))
-            val session = offscreen.attach(map, extent)
-            target = offscreen
-            renderSession = session
-            engineScale = extent.scaleFactor
-          } catch (error: Throwable) {
-            offscreen?.let { target ->
-              runCatching { target.close() }.exceptionOrNull()?.let(error::addSuppressed)
-            }
-            created.complete(Result.failure(error))
-            throw error
-          }
-        },
+        onMapCreated = resources::attach,
         onMapPublished = { created.complete(Result.success(Unit)) },
-        onMapClosing = { releaseOwnedResources() },
-        onEvent = ::handleEvent,
+        onMapClosing = { resources.close() },
+        onEvent = { event -> handleEvent(candidate, event) },
         onEventsDrained = {},
         requestFrame = {},
         mapEventMask = SNAPSHOT_EVENTS,
@@ -225,19 +166,27 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
         onFailure = { error ->
           val failure = Result.failure<Unit>(error)
           created.complete(failure)
-          terminalOperation?.complete(failure)
+          if (engine === candidate) terminalOperation?.complete(failure)
         },
       )
-    loop = candidate
+    candidate = NativeSnapshotEngine(candidateLoop, resources, extent.scaleFactor)
+    engine = candidate
     terminalOperation = created
-    candidate.start()
+    candidateLoop.start()
     val creationResult = created.await()
     if (terminalOperation === created) terminalOperation = null
-    creationResult.getOrThrow()
+    try {
+      creationResult.getOrThrow()
+    } catch (error: Throwable) {
+      if (engine === candidate) engine = null
+      runCatching { candidateLoop.close() }.exceptionOrNull()?.let(error::addSuppressed)
+      throw error
+    }
   }
 
   private suspend fun configureRequest(request: MapSnapshotRequest) {
-    val currentLoop = checkNotNull(loop)
+    val currentEngine = checkNotNull(engine)
+    val currentLoop = currentEngine.loop
     val extent = request.extent()
     val resized = CompletableDeferred<Result<Unit>>()
     terminalOperation = resized
@@ -245,11 +194,11 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
       checkNotNull(
         currentLoop.call(
           action = { map ->
-            target?.withAccess {
-              check(engineScale == extent.scaleFactor) {
+            currentEngine.resources.withSession { session ->
+              check(currentEngine.scaleFactor == extent.scaleFactor) {
                 "The snapshot engine scale does not match the capture request"
               }
-              renderSession?.resize(extent.width, extent.height, extent.scaleFactor)
+              session.resize(extent.width, extent.height, extent.scaleFactor)
             }
             map.jumpTo(request.cameraPosition.toCameraOptions(EdgeInsets.ZERO))
           }
@@ -286,10 +235,11 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
       }
     }
 
-  private fun handleEvent(event: RuntimeEvent) {
+  private fun handleEvent(source: NativeSnapshotEngine, event: RuntimeEvent) {
+    if (engine !== source) return
     when (event.type) {
       RuntimeEventType.MAP_STYLE_LOADED -> {
-        val binding = createStyleBinding()
+        val binding = createStyleBinding(source)
         styleBinding?.invalidate()
         styleBinding = binding
         terminalOperation?.complete(Result.success(Unit))
@@ -305,13 +255,13 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
     }
   }
 
-  private fun createStyleBinding(): MlnFfiStyleBinding =
+  private fun createStyleBinding(source: NativeSnapshotEngine): MlnFfiStyleBinding =
     MlnFfiStyleBinding(
       loggerProvider = { options.logger },
       sessionOpen = { open },
-      accessMap = { action -> loop?.call(action = action) != null },
+      accessMap = { action -> source.loop.call(action = action) != null },
       accessRenderSession = { action ->
-        loop?.call(action = { _ -> target?.withAccess { renderSession?.let(action) } }) != null
+        source.loop.call(action = { _ -> source.resources.withSession(action) }) != null
       },
       getScale = { currentDensity },
       requestRepaint = {},
@@ -319,20 +269,19 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
 
   private fun readImage(request: MapSnapshotRequest): ImageBitmap {
     val expected = request.extent()
+    val currentEngine = checkNotNull(engine)
     val rgba =
-      checkNotNull(loop)
-        .call(
-          action = { _ ->
-            checkNotNull(target).withAccess {
-              val session = checkNotNull(renderSession)
-              val info = session.textureImageInfo()
-              NativeBuffer.allocate(info.byteLength).use { buffer ->
-                val copied = session.readPremultipliedRgba8(buffer)
-                Triple(copied, buffer.toByteArray(), request.outputOptions.transparent)
-              }
+      currentEngine.loop.call(
+        action = { _ ->
+          currentEngine.resources.withSession { session ->
+            val info = session.textureImageInfo()
+            NativeBuffer.allocate(info.byteLength).use { buffer ->
+              val copied = session.readPremultipliedRgba8(buffer)
+              Triple(copied, buffer.toByteArray(), request.outputOptions.transparent)
             }
           }
-        ) ?: error("The snapshotter engine map is closed")
+        }
+      ) ?: error("The snapshotter engine map is closed")
     val (info, bytes, transparent) = rgba
     check(info.width == expected.physicalWidth && info.height == expected.physicalHeight) {
       "Snapshot readback was ${info.width}x${info.height}, expected " +
@@ -362,7 +311,7 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
   }
 
   private fun postToMap(action: (MapHandle) -> Unit) {
-    val currentLoop = checkNotNull(loop)
+    val currentLoop = checkNotNull(engine).loop
     if (
       !currentLoop.post(
         action = { map ->
@@ -382,15 +331,13 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
   }
 
   private suspend fun driveStillImage(operation: CompletableDeferred<Result<Unit>>) {
+    val currentEngine = checkNotNull(engine)
     while (!operation.isCompleted || !renderedFrame) {
       if (operation.isCompleted) operation.await().getOrThrow()
       val update =
-        checkNotNull(loop)
-          .call(
-            action = { _ ->
-              checkNotNull(target).withAccess { checkNotNull(renderSession).renderUpdate() }
-            }
-          )
+        currentEngine.loop.call(
+          action = { _ -> currentEngine.resources.withSession { it.renderUpdate() } }
+        )
           ?: throw MapSnapshotterClosedException().also { error ->
             operation.complete(Result.failure(error))
           }
@@ -405,6 +352,80 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
 
   private fun MapSnapshotRequest.extent(): MapExtent =
     MapExtent.fromLogical(width, height, density.toDouble())
+}
+
+/** A loop and the render resources owned exclusively by that loop's thread. */
+private class NativeSnapshotEngine(
+  val loop: MlnFfiMapRuntimeLoop,
+  val resources: NativeSnapshotRenderResources,
+  val scaleFactor: Double,
+)
+
+/** Offscreen resources that are attached, accessed, and closed only on one map's owner thread. */
+private class NativeSnapshotRenderResources(
+  private val extent: MapExtent,
+  private val options: MlnFfiRuntimeOptions,
+) {
+  private var target: NativeSnapshotRenderTarget? = null
+  private var session: RenderSessionHandle? = null
+
+  fun attach(map: MapHandle) {
+    var createdTarget: NativeSnapshotRenderTarget? = null
+    try {
+      createdTarget = NativeSnapshotRenderTarget.create(loadRuntimeBackends(options.logger))
+      val createdSession = createdTarget.attach(map, extent)
+      target = createdTarget
+      session = createdSession
+    } catch (error: Throwable) {
+      createdTarget?.let { target ->
+        runCatching { target.close() }.exceptionOrNull()?.let(error::addSuppressed)
+      }
+      throw error
+    }
+  }
+
+  fun <T> withSession(action: (RenderSessionHandle) -> T): T =
+    checkNotNull(target).withAccess { action(checkNotNull(session)) }
+
+  fun close() {
+    val failures = mutableListOf<Throwable>()
+    val currentTarget = target
+    if (currentTarget == null) {
+      val currentSession = session
+      session = null
+      runCatching { currentSession?.close() }.exceptionOrNull()?.let(failures::add)
+      throwCleanupFailures(failures)
+      return
+    }
+    try {
+      currentTarget.withAccess {
+        val currentSession = session
+        session = null
+        target = null
+        runCatching { currentSession?.close() }.exceptionOrNull()?.let(failures::add)
+        runCatching { currentTarget.close() }.exceptionOrNull()?.let(failures::add)
+      }
+    } catch (error: Throwable) {
+      failures += error
+      if (target === currentTarget) {
+        val currentSession = session
+        session = null
+        target = null
+        runCatching { currentSession?.close() }.exceptionOrNull()?.let(failures::add)
+        runCatching { currentTarget.close() }.exceptionOrNull()?.let(failures::add)
+      }
+    }
+    throwCleanupFailures(failures)
+  }
+
+  private fun throwCleanupFailures(failures: List<Throwable>) {
+    if (failures.isNotEmpty()) {
+      throw AggregateCleanupException(
+        "Native snapshotter cleanup failed in ${failures.size} resource(s)",
+        failures,
+      )
+    }
+  }
 }
 
 internal expect class NativeSnapshotRenderTarget : AutoCloseable {
