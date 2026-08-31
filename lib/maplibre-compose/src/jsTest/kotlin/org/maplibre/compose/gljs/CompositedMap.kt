@@ -34,6 +34,7 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
 
   private val session =
     GlJsMapSession(state.lifecycle, Callbacks(), logger = null, LayoutDirection.Ltr)
+  private val token = state.reservePresentation()
 
   init {
     session.start()
@@ -44,6 +45,8 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
         }
       }
     )
+    // ensureMap constructs the MapLibre map only after this session is the reserved adapter.
+    state.publishPresentation(token, session)
     session.setBaseStyle(style)
   }
 
