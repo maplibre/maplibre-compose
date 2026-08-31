@@ -136,7 +136,6 @@ internal fun MlnFfiMapView(
       if (!session.isPresentationPublished) {
         currentUpdate.value(session)
         if (state.presentation?.adapter !== session) return@LaunchedEffect
-        session.markPresentationPublished()
       }
       session.publishRetainedStyle()
     } catch (error: CancellationException) {

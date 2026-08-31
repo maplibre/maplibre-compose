@@ -187,55 +187,47 @@ internal class MapLifecycleAuthority(
     adapter: MapAdapter,
     options: MapPresentationOptions,
   ) {
-    val preparation = serialized {
+    val retainedToReplace = serialized {
       if (closed) return
       requireOpen()
       val current = attachment
       check(current?.token == token && !current.releasing) {
         "The map presentation reservation is no longer current"
       }
-      if (current.adapter === adapter) {
-        check(current.admitted) { "The map presentation is still being published" }
+      if (current.adapter === adapter && owner.presentation?.adapter === adapter) {
         owner.presentation?.updateOptions(options)
         return
       }
-      check(current.adapter == null) { "The map state already has a presentation" }
-      current.adapter = adapter
-      val reusesRetainedAdapter = retainedAdapter === adapter
-      val replaced = retainedAdapter?.takeUnless { retained ->
+      selectAdapterLocked(current, adapter)
+      retainedAdapter?.takeUnless { retained ->
         retained === adapter || !adapter.retainsEngineBetweenPresentations
       }
-      PresentationPreparation(reusesRetainedAdapter, replaced)
     }
-    try {
-      owner.configurePresentationAdapter(adapter)
-    } catch (error: Throwable) {
-      serialized {
-        if (attachment?.token == token && attachment?.adapter === adapter) {
-          attachment?.adapter = null
-          attachment?.admitted = false
-        }
+    val configurationFailure =
+      try {
+        owner.configurePresentationAdapter(adapter)
+        null
+      } catch (error: CancellationException) {
+        throw error
+      } catch (error: Exception) {
+        error
       }
-      throw error
-    }
     val replaced = serialized {
       val current = attachment
       if (closed || current?.token != token || current.releasing || current.adapter !== adapter) {
         return
       }
       if (adapter.retainsEngineBetweenPresentations) retainedAdapter = adapter
-      preparation.replaced?.let(retiringAdapters::add)
-      current.admitted = true
+      retainedToReplace?.let(retiringAdapters::add)
       owner.commitPresentation(
         token = token,
         adapter = adapter,
         options = options,
-        reusesRetainedAdapter = preparation.reusesRetainedAdapter,
       )
-      current.pendingStyleFailure?.let { owner.commitStyleFailure(it.reason) }
-      current.pendingStyleFailure = null
-      preparation.replaced
+      retainedToReplace
     }
+    owner.seedPresentationViewport(token, adapter)
+    configurationFailure?.let { owner.markStyleFailed(adapter, it.message) }
     if (replaced != null) {
       replaced.close()
       physicalScope.launch {
@@ -285,24 +277,19 @@ internal class MapLifecycleAuthority(
     }
   }
 
-  fun acceptsAdapter(adapter: MapAdapter): Boolean = serialized {
-    !closed &&
-      ((attachment?.adapter === adapter && attachment?.admitted == true) ||
-        retainedAdapter === adapter)
+  fun selectAdapterForPresentation(adapter: MapAdapter): Boolean = serialized {
+    if (closed) return@serialized false
+    val current = attachment ?: return@serialized false
+    if (current.releasing) return@serialized false
+    selectAdapterLocked(current, adapter)
+    true
   }
 
-  fun reportStyleFailure(adapter: MapAdapter, reason: String?): Unit = serialized {
-    if (closed) return@serialized
+  fun acceptsAdapter(adapter: MapAdapter): Boolean = serialized {
     val current = attachment
-    if (current?.adapter === adapter && !current.releasing) {
-      if (current.admitted) {
-        owner.commitStyleFailure(reason)
-      } else {
-        current.pendingStyleFailure = PendingStyleFailure(reason)
-      }
-    } else if (retainedAdapter === adapter) {
-      owner.commitStyleFailure(reason)
-    }
+    !closed &&
+      ((current?.adapter === adapter && !current.releasing) ||
+        (current?.adapter == null && retainedAdapter === adapter))
   }
 
   fun isPendingPublication(adapter: MapAdapter): Boolean = serialized {
@@ -310,10 +297,7 @@ internal class MapLifecycleAuthority(
   }
 
   fun acceptsPresentation(adapter: MapAdapter): Boolean = serialized {
-    !closed &&
-      attachment?.adapter === adapter &&
-      attachment?.admitted == true &&
-      owner.presentation?.adapter === adapter
+    !closed && attachment?.adapter === adapter && owner.presentation?.adapter === adapter
   }
 
   fun currentAdapter(): MapAdapter? = serialized { attachment?.adapter ?: retainedAdapter }
@@ -322,7 +306,7 @@ internal class MapLifecycleAuthority(
     !closed &&
       attachment?.token == token &&
       attachment?.adapter === adapter &&
-      attachment?.admitted == true
+      owner.presentation?.let { it.token == token && it.adapter === adapter } == true
   }
 
   fun bind(adapter: MapLifecyclePlatformAdapter): MapLifecycleBinding {
@@ -372,6 +356,13 @@ internal class MapLifecycleAuthority(
     if (closed) throw MapStateClosedException()
   }
 
+  private fun selectAdapterLocked(current: Attachment, adapter: MapAdapter) {
+    if (current.adapter === adapter) return
+    check(current.adapter == null) { "The map state already has a presentation adapter" }
+    current.adapter = adapter
+    if (retainedAdapter !== adapter) owner.beginStyleLoadForNewAdapter()
+  }
+
   private fun completeClosure(result: Result<Unit>) {
     if (closure.complete(result)) owner.runtime.childClosed(owner)
   }
@@ -388,16 +379,7 @@ internal class MapLifecycleAuthority(
     val owner: MapPresentationOwnerToken,
     val token: MapPresentationToken,
     var adapter: MapAdapter? = null,
-    var admitted: Boolean = false,
     var releasing: Boolean = false,
-    var pendingStyleFailure: PendingStyleFailure? = null,
-  )
-
-  private data class PendingStyleFailure(val reason: String?)
-
-  private data class PresentationPreparation(
-    val reusesRetainedAdapter: Boolean,
-    val replaced: MapAdapter?,
   )
 
   private data class ReleaseCleanup(

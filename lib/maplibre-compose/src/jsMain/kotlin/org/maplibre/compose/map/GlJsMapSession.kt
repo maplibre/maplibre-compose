@@ -309,6 +309,7 @@ internal class GlJsMapSession(
       return it
     }
     if (!lifecycle.acceptsWork) return null
+    if (!lifecycleAuthority.selectAdapterForPresentation(this)) return null
 
     val host = document.createElement("div").unsafeCast<HTMLElement>()
     host.style.cssText = OFFSCREEN_CONTAINER_STYLE

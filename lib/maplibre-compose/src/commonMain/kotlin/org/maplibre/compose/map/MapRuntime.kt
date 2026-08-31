@@ -469,11 +469,11 @@ internal constructor(
   }
 
   internal fun markStyleFailed(adapter: MapAdapter, reason: String?) {
-    lifecycle.reportStyleFailure(adapter, reason)
-  }
-
-  internal fun commitStyleFailure(reason: String?) {
-    style.loadState = StyleLoadState.Failed(reason)
+    lifecycle.serialized {
+      if (lifecycle.acceptsAdapter(adapter)) {
+        style.loadState = StyleLoadState.Failed(reason)
+      }
+    }
   }
 
   internal fun beginStyleRevision(adapter: MapAdapter, revision: DesiredStyleRevision) {
@@ -544,7 +544,6 @@ internal constructor(
       CameraCommand(candidate.adapter, position, ++cameraCommandRevision)
     }
     applyPresentationCameraCommand(candidate, command)
-    lifecycle.serialized { requireCurrentLocked(candidate) }
   }
 
   internal fun synchronizeCamera(adapter: MapAdapter): MapPresentation? {
@@ -626,6 +625,21 @@ internal constructor(
     applyBaseStyleCommand(configuration.baseStyle)
   }
 
+  internal fun beginStyleLoadForNewAdapter() {
+    styleHandleEpoch++
+    style.invalidateLoadedStyle()
+    style.loadState = StyleLoadState.Loading
+  }
+
+  internal fun seedPresentationViewport(token: MapPresentationToken, adapter: MapAdapter) {
+    val viewport = adapter.getViewport() ?: return
+    lifecycle.serialized {
+      val current = presentation ?: return@serialized
+      if (current.token != token || current.adapter !== adapter || current.viewport != null) return
+      current.updateViewport(viewport)
+    }
+  }
+
   private fun applyBaseStyleCommand(initial: BaseStyleCommand) {
     var command = initial
     while (true) {
@@ -672,13 +686,7 @@ internal constructor(
     token: MapPresentationToken,
     adapter: MapAdapter,
     options: MapPresentationOptions,
-    reusesRetainedAdapter: Boolean,
   ) {
-    if (!reusesRetainedAdapter) {
-      styleHandleEpoch++
-      style.invalidateLoadedStyle()
-    }
-    if (!reusesRetainedAdapter) style.loadState = StyleLoadState.Loading
     presentation = MapPresentation(this, token, adapter, options)
   }
 

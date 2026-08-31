@@ -446,21 +446,14 @@ internal class MlnFfiMapSession(
 
   internal fun preparePresentation() {
     hasLoadedFirstStyle = false
-    presentationPublicationCount = 0
   }
-
-  internal var presentationPublicationCount: Int = 0
-    private set
 
   internal val isPresentationPublished: Boolean
-    get() = presentationPublicationCount > 0
+    get() = lifecycleAuthority.acceptsPresentation(this)
 
   /** Commits a render lease in the apply phase when no physical detachment must finish first. */
-  internal fun beginPresentationAttachment(): Boolean = lifecycle.beginAttachIfOpen()
-
-  internal fun markPresentationPublished() {
-    presentationPublicationCount++
-  }
+  internal fun beginPresentationAttachment(): Boolean =
+    lifecycleAuthority.selectAdapterForPresentation(this) && lifecycle.beginAttachIfOpen()
 
   override suspend fun attachPresentation() {
     lifecycle.attachRetainedEngine()

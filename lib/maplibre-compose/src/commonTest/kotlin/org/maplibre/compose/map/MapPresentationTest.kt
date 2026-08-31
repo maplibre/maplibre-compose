@@ -255,7 +255,7 @@ class MapPresentationTest {
   }
 
   @Test
-  fun a_style_failure_during_presentation_configuration_is_published_after_admission() = runTest {
+  fun a_style_failure_before_publication_remains_the_durable_load_state() = runTest {
     val runtime = mapRuntimeForTest()
     val state = runtime.createMapState()
     val callbacks = state.durableStyleCallbacks()
@@ -273,6 +273,42 @@ class MapPresentationTest {
   }
 
   @Test
+  fun a_configuration_error_publishes_the_presentation_with_failed_style_state() = runTest {
+    val runtime = mapRuntimeForTest()
+    val state = runtime.createMapState()
+    val token = state.reservePresentation()
+    val adapter = ConfigurationErrorAdapter()
+
+    state.publishPresentation(token, adapter)
+
+    assertSame(adapter, state.presentation?.adapter)
+    val failure = assertIs<StyleLoadState.Failed>(state.style.loadState)
+    assertEquals("style rejected", failure.reason)
+    state.close()
+    runtime.close()
+  }
+
+  @Test
+  fun style_events_before_publication_update_the_durable_style_state() = runTest {
+    val runtime = mapRuntimeForTest()
+    val state = runtime.createMapState()
+    val token = state.reservePresentation()
+    val adapter = PresentationTestAdapter()
+    val callbacks = state.durableStyleCallbacks()
+    val style = RecordingStyleBinding()
+
+    assertTrue(state.lifecycle.selectAdapterForPresentation(adapter))
+    callbacks.onStyleChanged(adapter, style)
+    callbacks.onMapFinishedLoading(adapter)
+    state.publishPresentation(token, adapter)
+
+    assertEquals(StyleLoadState.Ready, state.style.loadState)
+    assertSame(style, state.style.currentLoadedStyle())
+    state.close()
+    runtime.close()
+  }
+
+  @Test
   fun an_accepted_camera_set_updates_the_durable_map_position() {
     val fixture = presentationFixture()
     val position = CameraPosition(target = Position(12.0, 34.0), zoom = 8.0)
@@ -282,6 +318,28 @@ class MapPresentationTest {
     assertEquals(position, fixture.state.cameraPosition)
     assertEquals(position, fixture.adapter.lastCameraPosition)
     fixture.close()
+  }
+
+  @Test
+  fun camera_intent_accepted_before_detachment_remains_durable() {
+    val runtime = mapRuntimeForTest()
+    val state = runtime.createMapState()
+    val token = state.reservePresentation()
+    val adapter = ReleasingCameraAdapter { map ->
+      state.releasePresentation(token, map)
+    }
+    state.publishPresentation(token, adapter)
+    val presentation = requireNotNull(state.presentation)
+    val position = CameraPosition(target = Position(12.0, 34.0), zoom = 8.0)
+    adapter.releaseOnNextCameraSet = true
+
+    presentation.setCameraPosition(position)
+
+    assertEquals(position, state.cameraPosition)
+    assertFalse(presentation.isValid)
+    assertNull(state.presentation)
+    state.close()
+    runtime.close()
   }
 
   @Test
@@ -607,15 +665,16 @@ class MapPresentationTest {
   }
 
   @Test
-  fun a_new_presentation_does_not_inherit_the_adapters_previous_viewport() {
+  fun publication_uses_the_viewport_the_adapter_has_for_the_current_attachment() {
     val runtime = mapRuntimeForTest()
     val state = runtime.createMapState()
     val token = state.reservePresentation()
-    val adapter = PresentationTestAdapter().apply { currentViewport = testViewport() }
+    val viewport = testViewport()
+    val adapter = PresentationTestAdapter().apply { currentViewport = viewport }
 
     state.publishPresentation(token, adapter)
 
-    assertNull(state.presentation?.viewport)
+    assertEquals(viewport, state.presentation?.viewport)
     state.close()
     runtime.close()
   }
@@ -808,6 +867,25 @@ private class FailureDuringConfigurationAdapter(private val reportFailure: (MapA
   override fun setBaseStyle(style: BaseStyle) {
     super.setBaseStyle(style)
     reportFailure(this)
+  }
+}
+
+private class ConfigurationErrorAdapter : PresentationTestAdapter() {
+  override fun setBaseStyle(style: BaseStyle) {
+    error("style rejected")
+  }
+}
+
+private class ReleasingCameraAdapter(private val release: (MapAdapter) -> Unit) :
+  PresentationTestAdapter() {
+  var releaseOnNextCameraSet = false
+
+  override fun setCameraPosition(cameraPosition: CameraPosition) {
+    super.setCameraPosition(cameraPosition)
+    if (releaseOnNextCameraSet) {
+      releaseOnNextCameraSet = false
+      release(this)
+    }
   }
 }
 
