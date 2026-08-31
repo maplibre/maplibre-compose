@@ -105,9 +105,10 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
     }
   }
 
-  override suspend fun cancelActiveCapture() {
-    val operation = terminalOperation ?: return
+  override suspend fun cancelActiveCapture(): SnapshotterEngineDisposition {
+    val operation = terminalOperation ?: return SnapshotterEngineDisposition.RETAINED
     if (stillImageOperation) driveStillImage(operation) else operation.await()
+    return SnapshotterEngineDisposition.RETAINED
   }
 
   override suspend fun close() {

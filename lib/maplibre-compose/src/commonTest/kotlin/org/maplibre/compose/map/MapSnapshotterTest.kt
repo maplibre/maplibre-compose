@@ -14,12 +14,14 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.supervisorScope
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.style.BaseStyle
@@ -146,6 +148,7 @@ class MapSnapshotterTest {
         },
         cancel = {
           cancellationRequests++
+          SnapshotterEngineDisposition.RETAINED
         },
       )
     val runtime = runtimeWith(adapter)
@@ -189,6 +192,7 @@ class MapSnapshotterTest {
         cancel = {
           cleanupStarted.complete(Unit)
           releaseCleanup.await()
+          SnapshotterEngineDisposition.RETAINED
         },
       )
     val runtime = runtimeWith(adapter)
@@ -225,6 +229,7 @@ class MapSnapshotterTest {
         cancel = {
           cleanupStarted.complete(Unit)
           releaseCleanup.await()
+          SnapshotterEngineDisposition.RETAINED
         },
       )
     val runtime = runtimeWith(adapter)
@@ -244,6 +249,52 @@ class MapSnapshotterTest {
     timedOut.await()
     assertEquals(2, started.receive().width)
     assertSame(nextImage, next.await())
+    close(snapshotter, runtime)
+  }
+
+  @Test
+  @OptIn(ExperimentalCoroutinesApi::class)
+  fun cancellation_that_releases_the_engine_marks_the_style_pending() = runTest {
+    val captureStarted = CompletableDeferred<Unit>()
+    val image = FakeImageBitmap(1, 1)
+    val initialBinding = RecordingStyleBinding()
+    var binding = initialBinding
+    val adapter =
+      FakeSnapshotterAdapter(
+        prepare = { _, _ -> binding },
+        capture = { request, _ ->
+          if (request.width == 2) {
+            captureStarted.complete(Unit)
+            awaitCancellation()
+          }
+          image
+        },
+        cancel = {
+          binding.invalidate()
+          binding = RecordingStyleBinding()
+          SnapshotterEngineDisposition.RELEASED
+        },
+      )
+    val runtime =
+      mapRuntimeForTest(
+        physicalScope = this,
+        snapshotterAdapterFactory = SnapshotterAdapterFactory { adapter },
+        styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _ -> DesiredStyleRevision.Empty },
+      )
+    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
+
+    snapshotter.capture(MapSnapshotRequest(1, 1))
+    assertEquals(StyleLoadState.Ready, snapshotter.style.loadState)
+    val active = async { snapshotter.capture(MapSnapshotRequest(2, 2)) }
+    captureStarted.await()
+
+    active.cancelAndJoin()
+    runCurrent()
+
+    assertFalse(initialBinding.isLoaded)
+    assertEquals(StyleLoadState.Pending, snapshotter.style.loadState)
+    snapshotter.capture(MapSnapshotRequest(3, 3))
+    assertEquals(StyleLoadState.Ready, snapshotter.style.loadState)
     close(snapshotter, runtime)
   }
 
@@ -331,6 +382,7 @@ class MapSnapshotterTest {
           },
           cancel = {
             releaseCleanup.await()
+            SnapshotterEngineDisposition.RETAINED
           },
         )
       val runtime = runtimeWith(adapter)
@@ -376,7 +428,9 @@ class MapSnapshotterTest {
       { request, _ ->
         FakeImageBitmap(request.width, request.height)
       },
-    private val cancel: suspend () -> Unit = {},
+    private val cancel: suspend () -> SnapshotterEngineDisposition = {
+      SnapshotterEngineDisposition.RETAINED
+    },
     private val close: suspend () -> Unit = {},
   ) : SnapshotterAdapter {
     override suspend fun prepare(baseStyle: BaseStyle, request: MapSnapshotRequest): StyleBinding =
@@ -387,7 +441,7 @@ class MapSnapshotterTest {
       revision: DesiredStyleRevision,
     ): ImageBitmap = capture.invoke(request, revision)
 
-    override suspend fun cancelActiveCapture() = cancel.invoke()
+    override suspend fun cancelActiveCapture(): SnapshotterEngineDisposition = cancel.invoke()
 
     override suspend fun close() = close.invoke()
   }

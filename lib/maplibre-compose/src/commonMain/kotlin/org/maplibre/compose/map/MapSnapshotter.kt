@@ -48,7 +48,7 @@ public data class MapSnapshotRequest(
   public val height: Int,
   /** Camera position used for this capture. */
   public val cameraPosition: CameraPosition = CameraPosition(),
-  /** Density used while evaluating the style composition. */
+  /** Density used for the logical viewport and style evaluation; output size remains physical. */
   public val density: Float = 1f,
   /** Font scale used while evaluating the style composition. */
   public val fontScale: Float = 1f,
@@ -77,9 +77,15 @@ internal interface SnapshotterAdapter {
   ): ImageBitmap
 
   /** Requests cancellation and returns after the active platform operation has ended. */
-  suspend fun cancelActiveCapture()
+  suspend fun cancelActiveCapture(): SnapshotterEngineDisposition
 
   suspend fun close()
+}
+
+/** Whether cancellation left the snapshotter engine and its loaded style available for reuse. */
+internal enum class SnapshotterEngineDisposition {
+  RETAINED,
+  RELEASED,
 }
 
 internal fun interface SnapshotterAdapterFactory {
@@ -369,13 +375,22 @@ internal class MapSnapshotterImplementation(
   private fun startActiveCancellation(cancellation: CompletableDeferred<Result<Unit>>) {
     runtime.physicalScope.launch {
       val result = runCatching {
-        adapter?.cancelActiveCapture()
+        val disposition = adapter?.cancelActiveCapture() ?: SnapshotterEngineDisposition.RETAINED
+        if (disposition == SnapshotterEngineDisposition.RELEASED) engineReleased()
         Unit
       }
       result.exceptionOrNull()?.let { error ->
         lock.withLock { if (cleanupFailures.none { it === error }) cleanupFailures += error }
       }
       cancellation.complete(result)
+    }
+  }
+
+  private fun engineReleased() {
+    lock.withLock {
+      styleHandleEpoch++
+      style.invalidateLoadedStyle()
+      if (!closed) style.loadState = StyleLoadState.Pending
     }
   }
 
