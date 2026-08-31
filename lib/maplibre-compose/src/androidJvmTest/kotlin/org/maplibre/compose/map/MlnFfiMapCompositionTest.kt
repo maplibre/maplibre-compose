@@ -502,15 +502,30 @@ class MlnFfiMapCompositionTest {
       body = {
         val session =
           requireNotNull(mapState.presentation?.adapter as? MlnFfiMapSession) {
-            "no desktop session"
+            "no native session"
           }
-        waitUntil { "toggled" in session.currentStyleLayerIds() }
+        waitUntil(
+          conditionDescription = "the initial layer to reach the native style",
+          timeoutMillis = RENDER_TIMEOUT_MILLIS,
+        ) {
+          "toggled" in session.currentStyleLayerIds()
+        }
 
         visible = false
-        waitUntil { "toggled" !in session.currentStyleLayerIds() }
+        waitUntil(
+          conditionDescription = "the removed layer to leave the native style",
+          timeoutMillis = RENDER_TIMEOUT_MILLIS,
+        ) {
+          "toggled" !in session.currentStyleLayerIds()
+        }
 
         visible = true
-        waitUntil { "toggled" in session.currentStyleLayerIds() }
+        waitUntil(
+          conditionDescription = "the re-added layer to return to the native style",
+          timeoutMillis = RENDER_TIMEOUT_MILLIS,
+        ) {
+          "toggled" in session.currentStyleLayerIds()
+        }
       }
     ) { errors, onFrame ->
       mapState =
@@ -663,7 +678,6 @@ class MlnFfiMapCompositionTest {
     waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { frames.load() > 0 || errors.isNotEmpty() }
     assertTrue(errors.isEmpty(), "The composition reported errors: $errors")
     body(errors)
-    waitForIdle()
     assertTrue(errors.isEmpty(), "The composition reported errors: $errors")
     assertTrue(frames.load() > 0, "No frame reached MapLibre; the map never rendered.")
   }

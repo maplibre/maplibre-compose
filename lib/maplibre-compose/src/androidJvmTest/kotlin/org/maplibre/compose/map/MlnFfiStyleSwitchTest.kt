@@ -8,18 +8,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.ExperimentalTestApi
-import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNotSame
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.Anchor
+import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.mlnffi.FfiTestPlatform
@@ -163,98 +162,65 @@ class MlnFfiStyleSwitchTest {
   }
 
   @Test
-  fun switching_styles_while_a_previous_style_is_loading_keeps_old_content_safe() =
-    runFfiComposeUiTest {
-      val resources = BlockingStyleResources()
-      val options =
-        MlnFfiRuntimeOptions(
-          cacheFile = cacheFile,
-          maximumCacheSizeBytes = null,
-          resourceProviderFactory = { getLogger ->
-            MlnFfiResourceProvider(
-              getLogger = getLogger,
-              read = resources::read,
-              passThroughNetwork = false,
-              onResponseCompletionFinished = resources::onResponseCompletionFinished,
-            )
-          },
-        )
-      val runtime = createNativeMapRuntime(options)
-      val state = runtime.createMapState(initialBaseStyle = INITIAL_STYLE)
-      var style by mutableStateOf<BaseStyle>(INITIAL_STYLE)
-      var showExtraLayer by mutableStateOf(false)
-      val composition = StyleComposition {
-        val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
-        val anchor =
-          when (style) {
-            INITIAL_STYLE -> "base-initial"
-            BaseStyle.Uri(B_STYLE_URL) -> "base-b"
-            else -> "base-c"
-          }
-        Anchor.Below(anchor) {
-          FillLayer(id = "user-fill", source = points, color = const(Color.Blue))
-          if (showExtraLayer) {
-            FillLayer(id = "user-extra", source = points, color = const(Color.Green))
-          }
+  fun a_late_style_load_cannot_receive_content_for_the_latest_style() = runFfiComposeUiTest {
+    // Common tests own request identity and reconciliation order. This test keeps only the native
+    // boundary where a late load can expose an obsolete style to a composed write.
+    val resources = BlockingStyleResources()
+    val options =
+      MlnFfiRuntimeOptions(
+        cacheFile = cacheFile,
+        maximumCacheSizeBytes = null,
+        resourceProviderFactory = { getLogger ->
+          MlnFfiResourceProvider(
+            getLogger = getLogger,
+            read = resources::read,
+            passThroughNetwork = false,
+          )
+        },
+      )
+    val runtime = createNativeMapRuntime(options)
+    val state = runtime.createMapState(initialBaseStyle = INITIAL_STYLE)
+    var showLatestLayer by mutableStateOf(false)
+    val composition = StyleComposition {
+      if (showLatestLayer) {
+        Anchor.Below("base-c") {
+          BackgroundLayer(id = "user-latest", color = const(Color.Blue))
         }
       }
-
-      setFfiTestMapContent(options) { MaplibreMap(state, composition, Modifier) }
-
-      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-        state.presentation != null && state.style.loadState == StyleLoadState.Ready
-      }
-      val session = requireNotNull(state.presentation).adapter as MlnFfiMapSession
-
-      runOnUiThread {
-        style = BaseStyle.Uri(B_STYLE_URL)
-        state.style.baseStyle = style
-      }
-      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-        resources.styleBStarted.count == 0L
-      }
-
-      // Change content while style B is still pending. The old style binding must already be
-      // unloaded, so these writes cannot reach the replaced native style.
-      runOnUiThread {
-        showExtraLayer = true
-        style = BaseStyle.Uri(C_STYLE_URL)
-        state.style.baseStyle = style
-      }
-      assertEquals(1L, resources.styleCStarted.count, "style C must wait for style B's callback")
-      resources.releaseStyleB.countDown()
-
-      fun relevantLayers(): List<String> =
-        session.currentStyleLayerIds().filter { it in RELEVANT_LAYER_IDS }
-      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-        resources.styleBCompletionFinished.count == 0L
-      }
-      assertNull(resources.styleBCompletionError.load(), "style B's native completion failed")
-      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-        resources.styleCCompletionFinished.count == 0L
-      }
-      assertNull(resources.styleCCompletionError.load(), "style C's native completion failed")
-      val postBEventsDrained = TestLatch(1)
-      assertTrue(
-        session.postEventDrainBarrierForTest(postBEventsDrained::countDown),
-        "the post-B event-drain barrier was rejected",
-      )
-      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-        postBEventsDrained.count == 0L
-      }
-      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-        state.style.loadState == StyleLoadState.Ready &&
-          relevantLayers() == listOf("user-fill", "user-extra", "base-c")
-      }
-
-      assertEquals(
-        listOf("user-fill", "user-extra", "base-c"),
-        relevantLayers(),
-        "the latest style must own the composed content",
-      )
-      runtime.close()
-      runtime.awaitClosed()
     }
+
+    setFfiTestMapContent(options) { MaplibreMap(state, composition, Modifier) }
+
+    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+      state.presentation != null && state.style.loadState == StyleLoadState.Ready
+    }
+    val session = requireNotNull(state.presentation).adapter as MlnFfiMapSession
+
+    runOnUiThread {
+      state.style.baseStyle = BaseStyle.Uri(B_STYLE_URL)
+    }
+    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+      resources.styleBStarted.count == 0L
+    }
+
+    runOnUiThread {
+      showLatestLayer = true
+      state.style.baseStyle = BaseStyle.Uri(C_STYLE_URL)
+    }
+    resources.releaseStyleB.countDown()
+
+    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+      state.style.loadState == StyleLoadState.Ready &&
+        "user-latest" in session.currentStyleLayerIds()
+    }
+
+    val layers = session.currentStyleLayerIds()
+    assertTrue("base-c" in layers, "the latest base style must be loaded")
+    assertTrue("base-b" !in layers, "the superseded base style must not remain loaded")
+    assertTrue("user-latest" in layers, "content for the latest style must be installed")
+    runtime.close()
+    runtime.awaitClosed()
+  }
 
   private fun androidx.compose.ui.test.ComposeUiTest.assertStyleLayers(
     session: MlnFfiMapSession,
@@ -289,25 +255,7 @@ class MlnFfiStyleSwitchTest {
 
   private class BlockingStyleResources {
     val styleBStarted = TestLatch(1)
-    val styleCStarted = TestLatch(1)
-    val styleBCompletionFinished = TestLatch(1)
-    val styleCCompletionFinished = TestLatch(1)
     val releaseStyleB = TestLatch(1)
-    val styleBCompletionError = AtomicReference<Throwable?>(null)
-    val styleCCompletionError = AtomicReference<Throwable?>(null)
-
-    fun onResponseCompletionFinished(url: String, error: Throwable?) {
-      when (url) {
-        B_STYLE_URL -> {
-          styleBCompletionError.store(error)
-          styleBCompletionFinished.countDown()
-        }
-        C_STYLE_URL -> {
-          styleCCompletionError.store(error)
-          styleCCompletionFinished.countDown()
-        }
-      }
-    }
 
     fun read(url: String, requestedUrl: String): ResourceResponse {
       val body =
@@ -319,10 +267,7 @@ class MlnFfiStyleSwitchTest {
             }
             STYLE_B_JSON
           }
-          C_STYLE_URL -> {
-            styleCStarted.countDown()
-            STYLE_C_JSON
-          }
+          C_STYLE_URL -> STYLE_C_JSON
           else -> error("Unexpected resource request for $url (requested as $requestedUrl)")
         }
       return ResourceResponse(ResourceResponseStatus.OK).also {

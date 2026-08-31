@@ -1,24 +1,33 @@
 package org.maplibre.compose.mlnffi
 
 import android.os.Bundle
+import android.view.SurfaceView
+import android.view.View
+import android.view.ViewGroup
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReusableContentHost
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.test.core.app.ActivityScenario
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 import kotlin.test.assertTrue
+import kotlinx.coroutines.flow.first
 import org.maplibre.compose.map.MapPresentationCallbacks
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
+import org.maplibre.compose.map.MlnFfiMapSession
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.style.BaseStyle
@@ -38,14 +47,28 @@ class AndroidSurfaceReplacementTest {
       ActivityScenario.launch(SurfaceReplacementActivity::class.java).use { scenario ->
         lateinit var activity: SurfaceReplacementActivity
         scenario.onActivity { activity = it }
-        assertTrue(
-          activity.initialFrame.await(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS),
+        awaitOrFail(
+          scenario,
+          activity.initialPresentation,
+          "the initial presentation was not published",
+        )
+        awaitOrFail(
+          scenario,
+          activity.initialFrame,
           "the initial surface map did not produce a frame",
         )
 
         scenario.onActivity { it.showReplacement() }
-        assertTrue(
-          activity.replacementFrame.await(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS),
+        awaitOrFail(
+          scenario,
+          activity.replacementPresentation,
+          "the replacement presentation was not published",
+        )
+        // Start the frame wait only after publication. A screenshot or Compose test synchronization
+        // would invalidate the window and can supply the frame that this regression loses.
+        awaitOrFail(
+          scenario,
+          activity.replacementFrame,
           "the replacement surface map did not produce a frame",
         )
       }
@@ -77,6 +100,19 @@ class AndroidSurfaceReplacementTest {
         "the reactivated surface host did not receive its surface",
       )
     }
+  }
+
+  private fun awaitOrFail(
+    scenario: ActivityScenario<SurfaceReplacementActivity>,
+    latch: CountDownLatch,
+    message: String,
+  ) {
+    val completed = latch.await(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+    if (completed) return
+
+    var diagnostic = "activity unavailable"
+    scenario.onActivity { diagnostic = it.diagnostic() }
+    assertTrue(completed, "$message\n$diagnostic")
   }
 
   private companion object {
@@ -146,6 +182,13 @@ class SurfaceReplacementActivity : ComponentActivity() {
 
   val initialFrame = CountDownLatch(1)
   val replacementFrame = CountDownLatch(1)
+  val initialPresentation = CountDownLatch(1)
+  val replacementPresentation = CountDownLatch(1)
+
+  private val initialFrameCount = AtomicInteger()
+  private val replacementFrameCount = AtomicInteger()
+  private var initialState: MapState? = null
+  private var replacementState: MapState? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -153,12 +196,22 @@ class SurfaceReplacementActivity : ComponentActivity() {
       if (showingReplacement) {
         TestMap(
           overlay = MapOverlay.None,
-          onFrame = { replacementFrame.countDown() },
+          onState = { replacementState = it },
+          onPresentation = { replacementPresentation.countDown() },
+          onFrame = {
+            replacementFrameCount.incrementAndGet()
+            replacementFrame.countDown()
+          },
         )
       } else {
         TestMap(
           overlay = MapOverlay.Default,
-          onFrame = { initialFrame.countDown() },
+          onState = { initialState = it },
+          onPresentation = { initialPresentation.countDown() },
+          onFrame = {
+            initialFrameCount.incrementAndGet()
+            initialFrame.countDown()
+          },
         )
       }
     }
@@ -167,17 +220,51 @@ class SurfaceReplacementActivity : ComponentActivity() {
   fun showReplacement() {
     showingReplacement = true
   }
+
+  fun diagnostic(): String {
+    val state = if (showingReplacement) replacementState else initialState
+    val session = state?.presentation?.adapter as? MlnFfiMapSession
+    val surfaces =
+      window.decorView.descendants().filterIsInstance<SurfaceView>().joinToString(
+        prefix = "[",
+        postfix = "]",
+      ) { surface ->
+        "shown=${surface.isShown}, valid=${surface.holder.surface.isValid}, " +
+          "size=${surface.width}x${surface.height}"
+      }
+    return "showingReplacement=$showingReplacement, " +
+      "presentation=${state?.presentation != null}, style=${state?.style?.loadState}, " +
+      "frames=${initialFrameCount.get()}/${replacementFrameCount.get()}, " +
+      "nativeTargets=${session?.attachCount}/${session?.retargetCount}, surfaces=$surfaces"
+  }
 }
 
 @Composable
-private fun TestMap(overlay: MapOverlay, onFrame: () -> Unit) {
+private fun TestMap(
+  overlay: MapOverlay,
+  onState: (MapState) -> Unit,
+  onPresentation: () -> Unit,
+  onFrame: () -> Unit,
+) {
   val state = rememberMapState(initialBaseStyle = SOLID_STYLE)
+  LaunchedEffect(state) {
+    onState(state)
+    snapshotFlow { state.presentation }.first { it != null }
+    onPresentation()
+  }
   MaplibreMap(
     state = state,
     modifier = Modifier.fillMaxSize(),
     callbacks = MapPresentationCallbacks(onFrame = { onFrame() }),
     overlay = overlay,
   )
+}
+
+private fun View.descendants(): Sequence<View> = sequence {
+  yield(this@descendants)
+  if (this@descendants is ViewGroup) {
+    repeat(childCount) { childIndex -> yieldAll(getChildAt(childIndex).descendants()) }
+  }
 }
 
 private val SOLID_STYLE =
