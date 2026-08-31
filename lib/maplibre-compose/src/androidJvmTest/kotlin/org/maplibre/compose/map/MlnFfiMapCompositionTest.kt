@@ -206,6 +206,39 @@ class MlnFfiMapCompositionTest {
   }
 
   @Test
+  fun one_style_composition_is_evaluated_independently_for_a_map_and_snapshotter() =
+    runFfiComposeUiTest {
+      val runtime = createNativeMapRuntime(runtimeOptions)
+      val state = runtime.createMapState(initialBaseStyle = BaseStyle.Empty)
+      val evaluatorIdentities = mutableSetOf<Any>()
+      val composition = StyleComposition {
+        val evaluatorIdentity = remember { Any() }
+        BackgroundLayer(id = "shared-background", color = const(Color.Green))
+        DisposableEffect(Unit) {
+          evaluatorIdentities += evaluatorIdentity
+          onDispose {}
+        }
+      }
+
+      setFfiTestMapContent(runtimeOptions) { MaplibreMap(state, composition) }
+      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        state.presentation != null &&
+          state.style.loadState == StyleLoadState.Ready &&
+          evaluatorIdentities.size == 1
+      }
+      val snapshotter = runtime.createSnapshotter(BaseStyle.Empty, composition)
+      val image = snapshotter.capture(MapSnapshotRequest(width = 16, height = 16))
+
+      assertEquals(16, image.width)
+      assertEquals(16, image.height)
+      assertEquals(2, evaluatorIdentities.size)
+      snapshotter.close()
+      snapshotter.awaitClosed()
+      runtime.close()
+      runtime.awaitClosed()
+    }
+
+  @Test
   fun detached_native_map_keeps_its_applied_revision_until_current_state_is_reattached() =
     runFfiComposeUiTest {
       val runtime = createNativeMapRuntime(runtimeOptions)

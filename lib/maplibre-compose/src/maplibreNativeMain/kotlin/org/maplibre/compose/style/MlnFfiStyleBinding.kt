@@ -86,6 +86,7 @@ internal open class MlnFfiStyleBinding(
   private val accessRenderSession: ((RenderSessionHandle) -> Unit) -> Boolean = { false },
   private val sourceChanged: (String) -> Unit = {},
   private val getScale: () -> Float = { 1f },
+  private val requestRepaint: (MapHandle) -> Unit = MapHandle::requestRepaint,
 ) : StyleBinding {
   @Volatile private var loaded = true
   private val unloadActions = mutableSetOf<() -> Unit>()
@@ -282,7 +283,7 @@ internal open class MlnFfiStyleBinding(
     var result: Result<T>? = null
     if (
       !accessMap { map ->
-        result = runCatching { action(map).also { map.requestRepaint() } }
+        result = runCatching { action(map).also { requestRepaint(map) } }
       }
     ) {
       abandon()

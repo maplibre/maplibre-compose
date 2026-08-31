@@ -19,16 +19,7 @@ internal class AndroidVulkanContext private constructor(private var handle: Long
     )
 
   private val contextHandles: VulkanContextHandles
-    get() =
-      VulkanContextHandles(
-        instance = NativeHandle(AndroidVulkanNativeBridge.instance(handle)),
-        physicalDevice = NativeHandle(AndroidVulkanNativeBridge.physicalDevice(handle)),
-        device = NativeHandle(AndroidVulkanNativeBridge.device(handle)),
-        graphicsQueue = NativeHandle(AndroidVulkanNativeBridge.graphicsQueue(handle)),
-        graphicsQueueFamilyIndex = AndroidVulkanNativeBridge.graphicsQueueFamilyIndex(handle),
-        getInstanceProcAddr = NativeHandle(AndroidVulkanNativeBridge.getInstanceProcAddr()),
-        getDeviceProcAddr = NativeHandle(AndroidVulkanNativeBridge.getDeviceProcAddr()),
-      )
+    get() = handle.toVulkanContextHandles()
 
   private val surfaceHandle: NativeHandle
     get() = NativeHandle(AndroidVulkanNativeBridge.surface(handle))
@@ -52,6 +43,43 @@ internal class AndroidVulkanContext private constructor(private var handle: Long
   }
 }
 
+/** A Vulkan device and graphics queue that require no presentation surface. */
+internal class AndroidVulkanOffscreenContext private constructor(private var handle: Long) :
+  AutoCloseable {
+
+  val handles: VulkanContextHandles
+    get() = handle.toVulkanContextHandles()
+
+  override fun close() {
+    if (handle == 0L) return
+    AndroidVulkanNativeBridge.destroy(handle)
+    handle = 0L
+  }
+
+  companion object {
+    fun create(): AndroidVulkanOffscreenContext =
+      try {
+        AndroidVulkanOffscreenContext(AndroidVulkanNativeBridge.createOffscreen())
+      } catch (error: UnsatisfiedLinkError) {
+        throw IllegalStateException(
+          "Vulkan snapshots require the maplibre-compose-runtime-vulkan-android runtime",
+          error,
+        )
+      }
+  }
+}
+
+private fun Long.toVulkanContextHandles() =
+  VulkanContextHandles(
+    instance = NativeHandle(AndroidVulkanNativeBridge.instance(this)),
+    physicalDevice = NativeHandle(AndroidVulkanNativeBridge.physicalDevice(this)),
+    device = NativeHandle(AndroidVulkanNativeBridge.device(this)),
+    graphicsQueue = NativeHandle(AndroidVulkanNativeBridge.graphicsQueue(this)),
+    graphicsQueueFamilyIndex = AndroidVulkanNativeBridge.graphicsQueueFamilyIndex(this),
+    getInstanceProcAddr = NativeHandle(AndroidVulkanNativeBridge.getInstanceProcAddr()),
+    getDeviceProcAddr = NativeHandle(AndroidVulkanNativeBridge.getDeviceProcAddr()),
+  )
+
 /** JNI bindings for the native Vulkan loader shim. */
 private object AndroidVulkanNativeBridge {
   init {
@@ -60,6 +88,9 @@ private object AndroidVulkanNativeBridge {
 
   /** Builds the context for [surface], or throws with the Vulkan failure. */
   external fun create(surface: Surface): Long
+
+  /** Builds a graphics context that requires no presentation surface. */
+  external fun createOffscreen(): Long
 
   external fun destroy(handle: Long)
 

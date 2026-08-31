@@ -50,6 +50,7 @@ import org.maplibre.compose.sources.sourceHandle
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.StyleComposition
 import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -73,6 +74,12 @@ public interface MapRuntime {
     initialCameraPosition: CameraPosition = CameraPosition(),
     initialBaseStyle: BaseStyle = BaseStyle.Demo,
   ): MapState
+
+  /** Creates an independent non-UI map for image capture. The caller must close the result. */
+  public fun createSnapshotter(
+    baseStyle: BaseStyle,
+    styleComposition: StyleComposition = StyleComposition.Empty,
+  ): MapSnapshotter
 
   /** Returns true after [close] marks this runtime as closed. */
   public val isClosed: Boolean
@@ -109,9 +116,23 @@ public sealed interface StyleLoadState {
   public data class Failed(public val reason: String?) : StyleLoadState
 }
 
-/** Desired and applied style state for one [MapState]. */
+internal interface MapStyleStateOwner {
+  fun setBaseStyle(value: BaseStyle)
+
+  fun desiredSourceDefinition(id: String): org.maplibre.compose.style.SourceDefinition?
+
+  fun readyLoadedStyle(): StyleBinding?
+
+  fun <T> runStyleHandleOperation(binding: StyleBinding, action: () -> T): T
+
+  fun styleHandleCheckpoint(binding: StyleBinding): Long
+
+  fun requireStyleHandleUnchanged(binding: StyleBinding, checkpoint: Long)
+}
+
+/** Desired and applied style state for one logical map or snapshotter. */
 public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
-  private var owner: MapState? = null
+  private var owner: MapStyleStateOwner? = null
   private val loadedStyle = AtomicReference<StyleBinding?>(null)
   private var sourcesState: Map<String, SourceHandle> by mutableStateOf(emptyMap())
   private var baseStyleState: BaseStyle by
@@ -153,7 +174,7 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   private fun readyLoadedStyle(): StyleBinding? =
     owner?.readyLoadedStyle() ?: loadedStyle.load()?.takeIf { loadState == StyleLoadState.Ready }
 
-  internal fun attach(owner: MapState) {
+  internal fun attach(owner: MapStyleStateOwner) {
     this.owner = owner
   }
 
@@ -401,7 +422,32 @@ internal constructor(
 
   internal var desiredStyleRevision: DesiredStyleRevision = DesiredStyleRevision.Empty
 
-  public val style: MapStyleState = MapStyleState(initialBaseStyle).also { it.attach(this) }
+  public val style: MapStyleState =
+    MapStyleState(initialBaseStyle).also {
+      it.attach(
+        object : MapStyleStateOwner {
+          override fun setBaseStyle(value: BaseStyle) = this@MapState.setBaseStyle(value)
+
+          override fun desiredSourceDefinition(id: String) =
+            this@MapState.desiredSourceDefinition(id)
+
+          override fun readyLoadedStyle() = this@MapState.readyLoadedStyle()
+
+          override fun <T> runStyleHandleOperation(
+            binding: StyleBinding,
+            action: () -> T,
+          ): T = this@MapState.runStyleHandleOperation(binding, action)
+
+          override fun styleHandleCheckpoint(binding: StyleBinding) =
+            this@MapState.styleHandleCheckpoint(binding)
+
+          override fun requireStyleHandleUnchanged(
+            binding: StyleBinding,
+            checkpoint: Long,
+          ) = this@MapState.requireStyleHandleUnchanged(binding, checkpoint)
+        }
+      )
+    }
 
   public val cameraPosition: CameraPosition
     get() = cameraPositionState
@@ -506,10 +552,13 @@ internal constructor(
     applyBaseStyleCommand(command)
   }
 
-  internal fun desiredSourceDefinition(id: String) =
+  internal fun desiredSourceDefinition(id: String): org.maplibre.compose.style.SourceDefinition? =
     desiredStyleRevision.sources.firstOrNull { it.id == id }
 
-  internal fun <T> runStyleHandleOperation(binding: StyleBinding, action: () -> T): T {
+  internal fun <T> runStyleHandleOperation(
+    binding: StyleBinding,
+    action: () -> T,
+  ): T {
     lifecycle.serialized { requireStyleHandleLocked(binding) }
     val result = action()
     lifecycle.serialized { requireStyleHandleLocked(binding) }
@@ -794,9 +843,13 @@ internal class RuntimeImplementation(
   internal val logger: Logger?,
   internal val physicalScope: CoroutineScope =
     CoroutineScope(SupervisorJob() + Dispatchers.Default),
+  internal val snapshotterAdapterFactory: SnapshotterAdapterFactory =
+    UnsupportedSnapshotterAdapterFactory,
+  internal val styleEvaluator: StyleCompositionEvaluator = DefaultStyleCompositionEvaluator,
 ) : MapRuntime {
   private val lock = reentrantLock()
   private val children = linkedSetOf<MapState>()
+  private val snapshotters = linkedSetOf<MapSnapshotterImplementation>()
   private val closure = CompletableDeferred<Result<Unit>>()
   private var closed = false
   private var closedState: Boolean by mutableStateOf(false)
@@ -809,17 +862,30 @@ internal class RuntimeImplementation(
     MapState(this, initialCameraPosition, initialBaseStyle).also(children::add)
   }
 
+  final override fun createSnapshotter(
+    baseStyle: BaseStyle,
+    styleComposition: StyleComposition,
+  ): MapSnapshotter = lock.withLock {
+    if (closed) throw MapRuntimeClosedException()
+    MapSnapshotterImplementation(this, baseStyle, styleComposition).also(snapshotters::add)
+  }
+
   override fun close() {
     val closingChildren = lock.withLock {
       if (closed) return
       closed = true
       Snapshot.withMutableSnapshot { closedState = true }
-      children.toList()
+      children.toList() to snapshotters.toList()
     }
-    closingChildren.forEach(MapState::close)
+    val (closingStates, closingSnapshotters) = closingChildren
+    closingStates.forEach(MapState::close)
+    closingSnapshotters.forEach(MapSnapshotterImplementation::close)
     physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
       val failures = mutableListOf<Throwable>()
-      closingChildren.forEach { child ->
+      closingStates.forEach { child ->
+        runCatching { child.awaitClosed() }.exceptionOrNull()?.let(failures::add)
+      }
+      closingSnapshotters.forEach { child ->
         runCatching { child.awaitClosed() }.exceptionOrNull()?.let(failures::add)
       }
       runCatching { resources.close() }.exceptionOrNull()?.let(failures::add)
@@ -839,6 +905,10 @@ internal class RuntimeImplementation(
 
   internal fun childClosed(child: MapState) {
     lock.withLock { children.remove(child) }
+  }
+
+  internal fun childClosed(child: MapSnapshotterImplementation) {
+    lock.withLock { snapshotters.remove(child) }
   }
 }
 
