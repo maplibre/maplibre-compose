@@ -1,6 +1,3 @@
-import com.android.build.api.variant.KotlinMultiplatformAndroidComponentsExtension
-import org.gradle.kotlin.dsl.configure
-
 plugins {
   id("org.jetbrains.kotlin.multiplatform")
   id("com.android.kotlin.multiplatform.library")
@@ -32,27 +29,6 @@ kotlin {
           jvmTarget = project.getAndroidJvmTarget()
         }
       }
-    }
-  }
-}
-
-// `-Pmaplibre.android.abis=` keeps the other JNI ABIs out of device-test APKs. Unset, every ABI
-// still ships: this is packaging for the test APK, not the published AAR.
-val deviceTestJniExcludes =
-  providers
-    .gradleProperty("maplibre.android.abis")
-    .map { keep ->
-      val abis = keep.split(',').map(String::trim).filter(String::isNotEmpty).toSet()
-      listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
-        .filterNot { it in abis }
-        .map { "lib/$it/**" }
-    }
-    .orElse(emptyList())
-
-extensions.configure<KotlinMultiplatformAndroidComponentsExtension> {
-  onVariants { variant ->
-    variant.deviceTests.values.forEach { deviceTest ->
-      deviceTest.packaging.jniLibs.excludes.addAll(deviceTestJniExcludes)
     }
   }
 }
