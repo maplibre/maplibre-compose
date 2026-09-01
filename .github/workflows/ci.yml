@@ -73,7 +73,10 @@ jobs:
         include:
           - api-level: 36
             artifact_name: demo-app-android
-          - api-level: 24
+          # API 24 is minSdk. Its Package Manager hangs on UTP streamed
+          # install-write (#1047). Oreo is the oldest image that completes
+          # that path.
+          - api-level: 26
     timeout-minutes: 45
     runs-on: ubuntu-24.04
     steps:
