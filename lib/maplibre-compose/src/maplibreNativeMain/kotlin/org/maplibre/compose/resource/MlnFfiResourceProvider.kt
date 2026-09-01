@@ -9,6 +9,7 @@ import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -214,14 +215,18 @@ internal class MlnFfiResourceProvider(
     provider: MapResourceProvider,
     mapRequest: MapResourceRequest,
   ): ResourceResponse = coroutineScope {
+    val load = async { provider.load(mapRequest).toResourceResponse() }
     val watch = launch {
-      while (true) {
-        if (request.isCancelled()) throw CancellationException("The resource request was cancelled")
+      while (load.isActive) {
+        if (request.isCancelled()) {
+          load.cancel()
+          return@launch
+        }
         delay(REQUEST_CANCEL_POLL_MILLIS)
       }
     }
     try {
-      provider.load(mapRequest).toResourceResponse()
+      load.await()
     } finally {
       watch.cancel()
     }
