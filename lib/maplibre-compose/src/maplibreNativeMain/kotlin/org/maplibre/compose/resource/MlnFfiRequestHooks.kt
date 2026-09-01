@@ -2,7 +2,7 @@ package org.maplibre.compose.resource
 
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
-import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
+import org.maplibre.compose.mlnffi.currentMlnFfiThreadKey
 import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.nativeffi.resource.HttpHeader
 import org.maplibre.nativeffi.resource.HttpHeaderTransformCallback
@@ -38,19 +38,19 @@ internal fun RuntimeHandle.installRequestInterceptor(config: MapResourceConfig) 
  * Remembers the URL-callback interceptor result so the header callback can reuse it.
  *
  * Native asks for the URL and headers in separate callbacks on the same network thread. One slot
- * per thread is overwritten by the next URL callback, so a cache hit that never reaches HTTP cannot
- * leak a transform to a later request. A request the user provider or the packaged-resource loader
- * will handle is not recorded.
+ * per thread identity is overwritten by the next URL callback, so a cache hit that never reaches
+ * HTTP cannot leak a transform to a later request. A request the user provider or the
+ * packaged-resource loader will handle is not recorded.
  */
 internal class NativeRequestTransforms(private val config: MapResourceConfig) {
   private val lock = reentrantLock()
-  private val pending = mutableMapOf<String, MapRequestTransform>()
+  private val pending = mutableMapOf<Any, MapRequestTransform>()
 
   fun rewrittenUrl(request: MapResourceRequest): String {
     val transform = config.interceptor().transform(request)
     val nextUrl = transform.url ?: request.url
     if (shouldRecord(nextUrl, request.kind)) {
-      lock.withLock { pending[currentMlnFfiThreadName()] = transform }
+      lock.withLock { pending[currentMlnFfiThreadKey()] = transform }
     }
     return transform.url.orEmpty()
   }
@@ -59,7 +59,7 @@ internal class NativeRequestTransforms(private val config: MapResourceConfig) {
     take(request).headers.map { HttpHeader(it.key, it.value) }
 
   internal fun take(request: MapResourceRequest): MapRequestTransform {
-    val remembered = lock.withLock { pending.remove(currentMlnFfiThreadName()) }
+    val remembered = lock.withLock { pending.remove(currentMlnFfiThreadKey()) }
     return remembered ?: config.interceptor().transform(request)
   }
 

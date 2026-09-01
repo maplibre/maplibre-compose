@@ -5,6 +5,9 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+import org.maplibre.compose.mlnffi.MlnFfiOwnerThread
+import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.nativeffi.resource.ResourceKind
 
 @OptIn(ExperimentalAtomicApi::class)
@@ -85,6 +88,48 @@ class MlnFfiRequestHooksTest {
     val headers =
       transforms.headers(MapResourceRequest("https://tiles.example.com/a", MapResourceKind.Tile))
     assertEquals("Bearer 2", headers.single().value)
+    assertEquals(0, transforms.pendingCount())
+  }
+
+  @Test
+  fun two_threads_with_the_same_name_keep_separate_transforms() {
+    val transforms =
+      NativeRequestTransforms(
+        MapResourceConfig(
+          interceptor = {
+            MapRequestTransform(headers = mapOf("Authorization" to "Bearer ${it.url}"))
+          }
+        )
+      )
+    val firstStored = TestLatch(1)
+    val secondStored = TestLatch(1)
+    var firstHeader: String? = null
+    val first =
+      MlnFfiOwnerThread("http-worker") {
+        transforms.rewrittenUrl(
+          MapResourceRequest("https://a.example/style.json", MapResourceKind.Style)
+        )
+        firstStored.countDown()
+        check(secondStored.await(10_000)) { "the second thread never stored a transform" }
+        firstHeader =
+          transforms
+            .headers(MapResourceRequest("https://a.example/style.json", MapResourceKind.Style))
+            .single()
+            .value
+      }
+    val second =
+      MlnFfiOwnerThread("http-worker") {
+        check(firstStored.await(10_000)) { "the first thread never stored a transform" }
+        transforms.rewrittenUrl(
+          MapResourceRequest("https://b.example/style.json", MapResourceKind.Style)
+        )
+        secondStored.countDown()
+      }
+    first.start()
+    second.start()
+    assertTrue(first.join(10_000), "the first worker never finished")
+    assertTrue(second.join(10_000), "the second worker never finished")
+    assertEquals("Bearer https://a.example/style.json", firstHeader)
     assertEquals(0, transforms.pendingCount())
   }
 

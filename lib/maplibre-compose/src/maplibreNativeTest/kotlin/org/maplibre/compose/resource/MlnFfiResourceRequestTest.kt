@@ -14,6 +14,8 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.mlnffi.launchTestTask
@@ -73,6 +75,42 @@ class MlnFfiResourceRequestTest {
     request.awaitAnswer()
     assertEquals("late", request.response.bytes.decodeToString())
     request.awaitClose()
+  }
+
+  @Test
+  fun a_user_scope_cancelled_before_dispatch_still_closes_the_handle() {
+    val provider =
+      MlnFfiResourceProvider(
+          getLogger = { null },
+          passThroughNetwork = true,
+          userCoroutineScope = CoroutineScope(SupervisorJob().apply { cancel() }),
+        )
+        .also { providers += it }
+    provider.userProvider =
+      MapResourceProvider(accepts = { true }, load = { MapResourceLoad.Bytes(ByteArray(0)) })
+    val request = RecordedRequest()
+    provider.takeUser(request, MapResourceRequest(URL, MapResourceKind.Style), URL, URL)
+    request.awaitClose()
+    assertEquals(1, request.closes)
+    assertEquals(1, request.completions)
+    assertEquals(ResourceResponseStatus.ERROR, request.response.status)
+  }
+
+  @Test
+  fun take_user_after_shutdown_is_refused() {
+    val provider =
+      MlnFfiResourceProvider(getLogger = { null }, passThroughNetwork = true).also {
+        providers += it
+      }
+    provider.userProvider =
+      MapResourceProvider(accepts = { true }, load = { MapResourceLoad.Bytes(ByteArray(0)) })
+    provider.close()
+    val request = RecordedRequest()
+    provider.takeUser(request, MapResourceRequest(URL, MapResourceKind.Style), URL, URL)
+    assertEquals(1, request.completions)
+    assertEquals(ResourceResponseStatus.ERROR, request.response.status)
+    assertContains(request.response.errorMessage.orEmpty(), "shut down")
+    assertEquals(1, request.closes)
   }
 
   @Test

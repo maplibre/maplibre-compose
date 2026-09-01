@@ -7,6 +7,7 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
@@ -53,6 +54,8 @@ internal class MlnFfiResourceProvider(
   private val passThroughNetwork: Boolean = true,
   /** Test seam: observes when a native completion call finishes and whether it failed. */
   private val onResponseCompletionFinished: ((url: String, error: Throwable?) -> Unit)? = null,
+  /** Test seam: a cancelled scope reproduces a close that races [takeUser]. */
+  userCoroutineScope: CoroutineScope? = null,
   @Volatile var userProvider: MapResourceProvider? = null,
 ) : ResourceProviderCallback, AutoCloseable {
 
@@ -61,9 +64,10 @@ internal class MlnFfiResourceProvider(
 
   private val accepting = AtomicBoolean(true)
   private val userScope =
-    CoroutineScope(
-      SupervisorJob() + Dispatchers.Default + CoroutineName("maplibre-compose-resource-provider")
-    )
+    userCoroutineScope
+      ?: CoroutineScope(
+        SupervisorJob() + Dispatchers.Default + CoroutineName("maplibre-compose-resource-provider")
+      )
 
   override fun handle(
     request: ResourceRequest,
@@ -101,9 +105,12 @@ internal class MlnFfiResourceProvider(
       refuse(request, url, requestedUrl)
       return
     }
-    userScope.launch {
+    var started = false
+    userScope.launch(start = CoroutineStart.UNDISPATCHED) {
+      started = true
       serveUser(request, provider, mapRequest, url, requestedUrl)
     }
+    if (!started) refuse(request, url, requestedUrl)
   }
 
   private suspend fun serveUser(
