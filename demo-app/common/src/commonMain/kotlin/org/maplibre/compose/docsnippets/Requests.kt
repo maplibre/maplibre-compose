@@ -8,7 +8,6 @@ import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapRuntime
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.resource.MapRequestTransform
-import org.maplibre.compose.resource.MapResourceLoad
 import org.maplibre.compose.resource.MapResourceProvider
 
 @Composable
@@ -34,16 +33,5 @@ fun assetProvider(): MapResourceProvider {
   // #region provider
   val provider = MapResourceProvider(scheme = "app") { request -> readAsset(request.url) }
   // #endregion provider
-  return provider
-}
-
-fun filteredProvider(): MapResourceProvider {
-  // #region provider-accept
-  val provider =
-    MapResourceProvider(
-      accepts = { request -> request.url.startsWith("app://") },
-      load = { request -> MapResourceLoad.Bytes(readAsset(request.url)) },
-    )
-  // #endregion provider-accept
   return provider
 }

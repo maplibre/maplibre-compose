@@ -60,7 +60,7 @@ export default defineConfig({
             { label: "Overlay Compose UI", slug: "controls" },
             { label: "Show the user's location", slug: "location" },
             { label: "Download maps for offline use", slug: "offline" },
-            { label: "Authenticate and serve map requests", slug: "requests" },
+            { label: "Rewrite or serve map requests", slug: "requests" },
           ],
         },
         {

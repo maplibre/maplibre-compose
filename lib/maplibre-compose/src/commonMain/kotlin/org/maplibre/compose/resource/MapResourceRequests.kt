@@ -19,8 +19,7 @@ public enum class MapResourceKind {
 /**
  * One resource MapLibre is about to fetch.
  *
- * [url] is the URL after the engine resolves tile-server aliases, when the platform supplies a
- * resolved URL.
+ * [url] is the URL after the engine resolves tile-server aliases.
  */
 public data class MapResourceRequest(
   public val url: String,
