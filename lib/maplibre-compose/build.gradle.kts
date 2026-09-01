@@ -340,34 +340,5 @@ if (unitTestsOnly) {
   jvmProcessGlobalTest.configure { enabled = false }
 }
 
-// `--tests` is stored on DefaultTestFilter, not on the public TestFilter type,
-// and Gradle applies it only to Test tasks named on the command line. Copy it
-// onto the isolated task so `jvmTest --tests FileUrlTest` does not run these
-// classes. Skip the isolated task when the filter cannot select one of them.
-gradle.taskGraph.whenReady {
-  if (unitTestsOnly) return@whenReady
-  val jvmTest = jvmTestTask.get()
-  val isolated = jvmProcessGlobalTest.get()
-  if (!hasTask(jvmTest) || !hasTask(isolated)) return@whenReady
-  val requested =
-    (jvmTest.filter as org.gradle.api.internal.tasks.testing.filter.DefaultTestFilter)
-      .commandLineIncludePatterns
-  if (requested.isEmpty()) return@whenReady
-  val selected =
-    requested
-      .flatMap { pattern ->
-        val prefix = pattern.trimEnd('*').removeSuffix(".")
-        jvmProcessGlobalTestClasses.filter { className ->
-          className == pattern ||
-            className.startsWith(prefix) ||
-            className.substringAfterLast('.') == pattern ||
-            pattern.startsWith(className)
-        }
-      }
-      .distinct()
-  isolated.filter.setIncludePatterns(*selected.flatMap { listOf(it, "$it.*") }.toTypedArray())
-  isolated.onlyIf { selected.isNotEmpty() }
-}
-
 // Orchestrator APK. Installed on the device beside the test APK; not compiled into it.
 dependencies { "androidTestUtil"(libs.androidx.test.orchestrator) }

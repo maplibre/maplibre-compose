@@ -133,11 +133,11 @@ private constructor(private val preparedDrivers: ArrayDeque<FfiTestRenderDriver>
   }
 
   fun requireConsumed() {
-    if (preparedDrivers.size == initialDriverCount) {
-      closePendingDriver()
-      error("The test content did not create a Desktop map host during initial composition")
-    }
+    // Leave unused prepared hosts in place. Remount tests consume the next one
+    // after the first presentation is hidden.
+    if (preparedDrivers.size < initialDriverCount) return
     closePendingDriver()
+    error("The test content did not create a Desktop map host during initial composition")
   }
 
   private fun composeBackend(): ComposeRenderBackend =

@@ -31,12 +31,9 @@ group. The task reuses the Kotlin Multiplatform `jvmTest` classpath, allowlists
 the eight process-global classes, and sets `forkEvery = 1` so each class runs in
 a new JVM. `jvmTest` excludes those classes and `dependsOn` the isolated task.
 `mise run test:desktop` still runs `./gradlew jvmTest`, so CI keeps the coverage
-without a unit filter and without a CI job change.
-
-Gradle applies `--tests` only to Test tasks named on the command line. A
-`whenReady` hook copies that filter onto `jvmProcessGlobalTest` and skips the
-isolated task when the filter selects no isolated class. A `jvmTest` filter for
-`FileUrlTest` therefore runs that class alone.
+without a unit filter and without a CI job change. `./gradlew jvmTest --tests`
+still runs the isolated task in full. That is the same as two Gradle test tasks;
+there is no command-line filter copier.
 
 `runFfiComposeUiTest` still calls `MlnFfiApplication.resetForTest()` in
 `finally`. `MapLibreConfigurationTest` stays intact, including
@@ -80,5 +77,4 @@ same process. `FileUrlTest` only loads the native library via
 
 - [x] `two_runtimes_can_use_the_same_cache_database` still passes alone.
 - [x] An unrelated live test no longer opens a second schema into the same file
-      while that case runs. `FileUrlTest` stays on `jvmTest` and does not start
-      `jvmProcessGlobalTest`.
+      while that case runs. `FileUrlTest` stays on the regular `jvmTest` task.
