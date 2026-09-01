@@ -32,10 +32,11 @@ internal fun RuntimeHandle.installRequestInterceptor(config: MapResourceConfig) 
 }
 
 /**
- * One interceptor invocation supplies both the rewritten URL and the headers for that request.
+ * Remembers the URL-callback interceptor result so the header callback can reuse it.
  *
- * Native asks for those fields in separate callbacks. This remembers the URL-callback result so the
- * header callback does not call the interceptor again.
+ * Native asks for the URL and headers in separate callbacks and identifies a request by URL and
+ * kind. Two in-flight requests that share that pair can overwrite the pending result; the displaced
+ * header callback calls the interceptor again.
  */
 internal class NativeRequestTransforms(private val config: MapResourceConfig) {
   private val lock = reentrantLock()
