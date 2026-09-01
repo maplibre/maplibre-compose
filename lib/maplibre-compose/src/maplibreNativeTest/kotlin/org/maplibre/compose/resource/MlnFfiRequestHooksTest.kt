@@ -104,6 +104,7 @@ class MlnFfiRequestHooksTest {
     val firstStored = TestLatch(1)
     val secondStored = TestLatch(1)
     var firstHeader: String? = null
+    var secondHeader: String? = null
     val first =
       MlnFfiOwnerThread("http-worker") {
         transforms.rewrittenUrl(
@@ -124,12 +125,18 @@ class MlnFfiRequestHooksTest {
           MapResourceRequest("https://b.example/style.json", MapResourceKind.Style)
         )
         secondStored.countDown()
+        secondHeader =
+          transforms
+            .headers(MapResourceRequest("https://b.example/style.json", MapResourceKind.Style))
+            .single()
+            .value
       }
     first.start()
     second.start()
     assertTrue(first.join(10_000), "the first worker never finished")
     assertTrue(second.join(10_000), "the second worker never finished")
     assertEquals("Bearer https://a.example/style.json", firstHeader)
+    assertEquals("Bearer https://b.example/style.json", secondHeader)
     assertEquals(0, transforms.pendingCount())
   }
 
