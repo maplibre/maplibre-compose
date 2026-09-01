@@ -124,14 +124,19 @@ internal class MlnFfiMapRuntimeLoop(
 
   /**
    * Runs [action] on the owner thread and waits until it has run or been dropped. Returns null when
-   * there is no map, or when the loop stopped before the work could run. Runs inline when the
-   * caller is already the owner thread.
+   * there is no map, when the loop stopped before the work could run, or when [timeoutMillis]
+   * elapses first. Runs inline when the caller is already the owner thread.
    *
    * [abandon] runs when [action] will not run: the loop has already stopped, or a queued task is
    * dropped. An interrupt on the waiting thread does not drop the work. The wait continues, and the
-   * interrupt status is restored when this returns.
+   * interrupt status is restored when this returns. A timed-out call leaves [action] queued; it
+   * still runs when the owner thread is free.
    */
-  fun <T> call(action: (MapHandle) -> T, abandon: () -> Unit = {}): T? {
+  fun <T> call(
+    action: (MapHandle) -> T,
+    abandon: () -> Unit = {},
+    timeoutMillis: Long? = null,
+  ): T? {
     if (thread.isCurrent()) {
       val current = map
       if (current == null) {
@@ -166,7 +171,11 @@ internal class MlnFfiMapRuntimeLoop(
       return null
     }
 
-    done.awaitUntilOpen()
+    if (timeoutMillis == null) {
+      done.awaitUntilOpen()
+    } else if (!done.await(timeoutMillis) && result == null) {
+      return null
+    }
     return result?.getOrThrow()
   }
 

@@ -139,6 +139,9 @@ private val HANDLED_MAP_EVENTS: RuntimeEventMask =
 /** The fraction of a capped frame interval a frame may arrive early and still be drawn. */
 private const val FRAME_INTERVAL_SLACK = 0.1
 
+/** Bound on a test owner-thread read so a hung pump fails the poll instead of parking it. */
+private const val OWNER_READ_TIMEOUT_MILLIS = 2_000L
+
 internal data class NativeEngineCompatibility(
   val renderBackend: MapRenderBackend,
   val scaleFactor: Double,
@@ -963,8 +966,12 @@ internal class MlnFfiMapSession(
     it.styleImageInfo(imageId)
   }
 
-  /** Exists for tests. */
-  internal fun currentStyleLayerIds(): List<String> = runOnMap { it.styleLayerIds() }.orEmpty()
+  /**
+   * Exists for tests. Bounded so a hung owner thread fails the poll instead of parking the waiter
+   * forever.
+   */
+  internal fun currentStyleLayerIds(): List<String> =
+    runOnMap(timeoutMillis = OWNER_READ_TIMEOUT_MILLIS) { it.styleLayerIds() }.orEmpty()
 
   private fun imageScale(): Float = (loop?.scaleFactor ?: 1.0).toFloat()
 
@@ -1092,15 +1099,19 @@ internal class MlnFfiMapSession(
     }
   }
 
-  private fun <T> runOnMap(action: (MapHandle) -> T): T? = runOnMap({}, action)
+  private fun <T> runOnMap(action: (MapHandle) -> T): T? = runOnMap({}, action = action)
 
-  private fun <T> runOnMap(abandon: () -> Unit, action: (MapHandle) -> T): T? {
+  private fun <T> runOnMap(
+    abandon: () -> Unit = {},
+    timeoutMillis: Long? = null,
+    action: (MapHandle) -> T,
+  ): T? {
     val current = loop
     if (current == null) {
       abandon()
       return null
     }
-    return current.call(action, abandon)
+    return current.call(action, abandon, timeoutMillis)
   }
 
   /** The render session lives on the host's renderer thread. */

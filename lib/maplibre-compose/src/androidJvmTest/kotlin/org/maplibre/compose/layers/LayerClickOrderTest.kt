@@ -18,6 +18,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.io.files.Path
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.const
@@ -266,7 +267,12 @@ class LayerClickOrderTest {
       state = mapState,
     ) {
       listOf(FRONT, BACK).all { id ->
-        runBlocking { presentation.queryRenderedFeatures(offset = centerDp, layerIds = setOf(id)) }
+        runBlocking {
+          withTimeoutOrNull(OWNER_READ_TIMEOUT_MILLIS) {
+            presentation.queryRenderedFeatures(offset = centerDp, layerIds = setOf(id))
+          }
+        }
+          .orEmpty()
           .isNotEmpty()
       }
     }
@@ -276,6 +282,9 @@ class LayerClickOrderTest {
 
   private companion object {
     const val TIMEOUT = 30_000L
+
+    /** Bound on one rendered-feature query so a hung renderer fails the poll, not the wait. */
+    const val OWNER_READ_TIMEOUT_MILLIS = 2_000L
 
     /** Zoomed in far enough that [WORLD_POLYGON] covers the viewport edge to edge. */
     const val START_ZOOM = 2.0
