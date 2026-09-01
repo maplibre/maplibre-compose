@@ -137,6 +137,8 @@ jobs:
           allow-missing-junit-files: "false"
         env:
           TRUNK_API_TOKEN: ${{ secrets.TRUNK_API_TOKEN }}
+      # Job timeout sets the step to cancelled, not failure. That is the hang
+      # whose logcat we need.
       - name: Capture Android emulator diagnostics
         if: ${{ steps.android-device-tests.outcome != 'success' }}
         run: mise run android-emulator:diagnostics
