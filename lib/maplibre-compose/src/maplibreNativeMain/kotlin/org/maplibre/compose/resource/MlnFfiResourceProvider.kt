@@ -120,7 +120,15 @@ internal class MlnFfiResourceProvider(
           try {
             loadWhileRequestOpen(open, provider, mapRequest)
           } catch (error: CancellationException) {
-            return
+            if (open.isCancelled()) return
+            failure(
+              url,
+              requestedUrl,
+              ResourceErrorReason.OTHER,
+              "was cancelled",
+              error,
+              logger,
+            )
           } catch (error: Throwable) {
             rethrowIfFatal(error)
             failure(url, requestedUrl, ResourceErrorReason.OTHER, "failed to load", error, logger)

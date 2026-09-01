@@ -13,6 +13,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.mlnffi.launchTestTask
@@ -101,6 +102,25 @@ class MlnFfiResourceRequestTest {
 
     assertTrue(cancelled.load(), "an abandoned request must cancel provider.load")
     assertEquals(0, request.completions)
+  }
+
+  @Test
+  fun a_provider_timeout_completes_an_active_request() {
+    val provider =
+      MlnFfiResourceProvider(getLogger = { null }, passThroughNetwork = true).also {
+        providers += it
+      }
+    provider.userProvider =
+      MapResourceProvider(
+        accepts = { true },
+        load = { throw CancellationException("timeout") },
+      )
+    val request = RecordedRequest()
+    provider.takeUser(request, MapResourceRequest(URL, MapResourceKind.Style), URL, URL)
+    request.awaitAnswer()
+    assertEquals(ResourceResponseStatus.ERROR, request.response.status)
+    assertContains(request.response.errorMessage.orEmpty(), "cancelled")
+    request.awaitClose()
   }
 
   @Test

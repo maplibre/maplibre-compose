@@ -69,6 +69,49 @@ class MlnFfiRequestHooksTest {
   }
 
   @Test
+  fun colliding_rewrites_keep_both_header_sets() {
+    val transforms =
+      NativeRequestTransforms(
+        MapResourceConfig(
+          interceptor = { request ->
+            MapRequestTransform(
+              url = "https://cdn.example/tile",
+              headers = mapOf("Authorization" to request.url.substringAfterLast('/')),
+            )
+          }
+        )
+      )
+    transforms.rewrittenUrl(MapResourceRequest("https://a.example/one", MapResourceKind.Tile))
+    transforms.rewrittenUrl(MapResourceRequest("https://b.example/two", MapResourceKind.Tile))
+    val first =
+      transforms.headers(MapResourceRequest("https://cdn.example/tile", MapResourceKind.Tile))
+    val second =
+      transforms.headers(MapResourceRequest("https://cdn.example/tile", MapResourceKind.Tile))
+    assertEquals("one", first.single().value)
+    assertEquals("two", second.single().value)
+  }
+
+  @Test
+  fun a_provider_accepted_request_is_not_recorded() {
+    val transforms =
+      NativeRequestTransforms(
+        MapResourceConfig(
+          interceptor = {
+            MapRequestTransform(
+              url = "app://style.json",
+              headers = mapOf("Authorization" to "Bearer a"),
+            )
+          },
+          provider = MapResourceProvider("app") { ByteArray(0) },
+        )
+      )
+    transforms.rewrittenUrl(
+      MapResourceRequest("https://tiles.example.com/style.json", MapResourceKind.Style)
+    )
+    assertEquals(0, transforms.pendingCount())
+  }
+
+  @Test
   fun every_named_kind_maps_to_the_common_kind() {
     assertEquals(MapResourceKind.Style, ResourceKind.STYLE.toCommon())
     assertEquals(MapResourceKind.Source, ResourceKind.SOURCE.toCommon())

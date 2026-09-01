@@ -34,18 +34,23 @@ internal fun RuntimeHandle.installRequestInterceptor(config: MapResourceConfig) 
 /**
  * Remembers the URL-callback interceptor result so the header callback can reuse it.
  *
- * Native asks for the URL and headers in separate callbacks. The pending map is keyed by the URL
- * the client will send. Two in-flight requests that rewrite to the same URL can overwrite the
- * pending result; the displaced header callback calls the interceptor again.
+ * Native asks for the URL and headers in separate callbacks. Pending results are queued by the URL
+ * the client will send. A provider-accepted request never reaches the header callback, so it is not
+ * recorded. Header callbacks consume the queue in URL-callback order.
  */
 internal class NativeRequestTransforms(private val config: MapResourceConfig) {
   private val lock = reentrantLock()
-  private val pending = mutableMapOf<RequestKey, MapRequestTransform>()
+  private val pending = mutableMapOf<RequestKey, ArrayDeque<MapRequestTransform>>()
 
   fun rewrittenUrl(request: MapResourceRequest): String {
     val transform = config.interceptor().transform(request)
     val nextUrl = transform.url ?: request.url
-    lock.withLock { pending[RequestKey(nextUrl, request.kind)] = transform }
+    val nextRequest = MapResourceRequest(nextUrl, request.kind)
+    if (config.provider?.acceptsOrDeclines(nextRequest) != true) {
+      lock.withLock {
+        pending.getOrPut(RequestKey(nextUrl, request.kind), ::ArrayDeque).addLast(transform)
+      }
+    }
     return transform.url.orEmpty()
   }
 
@@ -53,9 +58,17 @@ internal class NativeRequestTransforms(private val config: MapResourceConfig) {
     take(request).headers.map { HttpHeader(it.key, it.value) }
 
   internal fun take(request: MapResourceRequest): MapRequestTransform {
-    val remembered = lock.withLock { pending.remove(RequestKey(request.url, request.kind)) }
+    val remembered = lock.withLock {
+      val key = RequestKey(request.url, request.kind)
+      val queue = pending[key] ?: return@withLock null
+      val transform = queue.removeFirst()
+      if (queue.isEmpty()) pending.remove(key)
+      transform
+    }
     return remembered ?: config.interceptor().transform(request)
   }
+
+  internal fun pendingCount(): Int = lock.withLock { pending.values.sumOf { it.size } }
 
   private data class RequestKey(val url: String, val kind: MapResourceKind)
 }

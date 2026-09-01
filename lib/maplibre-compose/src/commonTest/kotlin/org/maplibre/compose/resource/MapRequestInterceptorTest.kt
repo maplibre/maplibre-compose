@@ -27,6 +27,15 @@ class MapRequestInterceptorTest {
   }
 
   @Test
+  fun a_fatal_interceptor_error_propagates() {
+    val interceptor = MapRequestInterceptor { throw OutOfMemoryError("heap") }
+    try {
+      interceptor.transform(REQUEST)
+      error("expected OutOfMemoryError")
+    } catch (_: OutOfMemoryError) {}
+  }
+
+  @Test
   fun set_request_interceptor_replaces_the_live_callback() {
     val runtime = mapRuntimeForTest()
     val first = MapRequestInterceptor { MapRequestTransform(url = "https://first.example/style") }

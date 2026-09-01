@@ -23,7 +23,7 @@ internal class MapResourceConfig(
 internal fun MapRequestInterceptor?.transform(request: MapResourceRequest): MapRequestTransform =
   try {
     this?.intercept(request) ?: MapRequestTransform()
-  } catch (_: Throwable) {
+  } catch (_: Exception) {
     MapRequestTransform()
   }
 
