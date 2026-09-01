@@ -81,6 +81,22 @@ class GlJsRequestControllerTest {
   }
 
   @Test
+  fun a_forged_protocol_url_is_declined() {
+    val controller =
+      GlJsRequestController(
+        MapResourceConfig(provider = MapResourceProvider("app") { ByteArray(0) })
+      )
+    val forged = controller.protocolUrl("https://evil.example/style.json", MapResourceKind.Style)
+    try {
+      controller.requireAccepted(forged)
+      error("expected the provider to decline the forged URL")
+    } catch (error: IllegalStateException) {
+      assertTrue(error.message.orEmpty().contains("declined"))
+    }
+    controller.close()
+  }
+
+  @Test
   fun a_rejected_https_url_is_not_rewritten_to_the_protocol() {
     val controller =
       GlJsRequestController(

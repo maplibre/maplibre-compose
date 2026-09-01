@@ -59,9 +59,9 @@ class MlnFfiRequestHooksTest {
         )
       )
     transforms.rewrittenUrl(MapResourceRequest("https://origin.example/a", MapResourceKind.Style))
-    transforms.rewrittenUrl(MapResourceRequest("https://cdn.example/a", MapResourceKind.Style))
     val first =
       transforms.headers(MapResourceRequest("https://cdn.example/a", MapResourceKind.Style))
+    transforms.rewrittenUrl(MapResourceRequest("https://cdn.example/a", MapResourceKind.Style))
     val second =
       transforms.headers(MapResourceRequest("https://other.example/a", MapResourceKind.Style))
     assertEquals("Bearer a", first.single().value)
@@ -69,26 +69,23 @@ class MlnFfiRequestHooksTest {
   }
 
   @Test
-  fun colliding_rewrites_keep_both_header_sets() {
+  fun a_later_url_callback_replaces_an_unconsumed_transform() {
+    val calls = AtomicInt(0)
     val transforms =
       NativeRequestTransforms(
         MapResourceConfig(
-          interceptor = { request ->
-            MapRequestTransform(
-              url = "https://cdn.example/tile",
-              headers = mapOf("Authorization" to request.url.substringAfterLast('/')),
-            )
+          interceptor = {
+            calls.incrementAndFetch()
+            MapRequestTransform(headers = mapOf("Authorization" to "Bearer ${calls.load()}"))
           }
         )
       )
-    transforms.rewrittenUrl(MapResourceRequest("https://a.example/one", MapResourceKind.Tile))
-    transforms.rewrittenUrl(MapResourceRequest("https://b.example/two", MapResourceKind.Tile))
-    val first =
-      transforms.headers(MapResourceRequest("https://cdn.example/tile", MapResourceKind.Tile))
-    val second =
-      transforms.headers(MapResourceRequest("https://cdn.example/tile", MapResourceKind.Tile))
-    assertEquals("one", first.single().value)
-    assertEquals("two", second.single().value)
+    transforms.rewrittenUrl(MapResourceRequest("https://tiles.example.com/a", MapResourceKind.Tile))
+    transforms.rewrittenUrl(MapResourceRequest("https://tiles.example.com/a", MapResourceKind.Tile))
+    val headers =
+      transforms.headers(MapResourceRequest("https://tiles.example.com/a", MapResourceKind.Tile))
+    assertEquals("Bearer 2", headers.single().value)
+    assertEquals(0, transforms.pendingCount())
   }
 
   @Test

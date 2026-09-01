@@ -2,6 +2,7 @@ package org.maplibre.compose.resource
 
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
+import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
 import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.nativeffi.resource.HttpHeader
 import org.maplibre.nativeffi.resource.HttpHeaderTransformCallback
@@ -36,22 +37,20 @@ internal fun RuntimeHandle.installRequestInterceptor(config: MapResourceConfig) 
 /**
  * Remembers the URL-callback interceptor result so the header callback can reuse it.
  *
- * Native asks for the URL and headers in separate callbacks. Pending results are queued by the URL
- * the client will send. A request the user provider or the packaged-resource loader will handle
- * never reaches the header callback, so it is not recorded. Header callbacks consume the queue in
- * URL-callback order.
+ * Native asks for the URL and headers in separate callbacks on the same network thread. One slot
+ * per thread is overwritten by the next URL callback, so a cache hit that never reaches HTTP cannot
+ * leak a transform to a later request. A request the user provider or the packaged-resource loader
+ * will handle is not recorded.
  */
 internal class NativeRequestTransforms(private val config: MapResourceConfig) {
   private val lock = reentrantLock()
-  private val pending = mutableMapOf<RequestKey, ArrayDeque<MapRequestTransform>>()
+  private val pending = mutableMapOf<String, MapRequestTransform>()
 
   fun rewrittenUrl(request: MapResourceRequest): String {
     val transform = config.interceptor().transform(request)
     val nextUrl = transform.url ?: request.url
     if (shouldRecord(nextUrl, request.kind)) {
-      lock.withLock {
-        pending.getOrPut(RequestKey(nextUrl, request.kind), ::ArrayDeque).addLast(transform)
-      }
+      lock.withLock { pending[currentMlnFfiThreadName()] = transform }
     }
     return transform.url.orEmpty()
   }
@@ -60,25 +59,17 @@ internal class NativeRequestTransforms(private val config: MapResourceConfig) {
     take(request).headers.map { HttpHeader(it.key, it.value) }
 
   internal fun take(request: MapResourceRequest): MapRequestTransform {
-    val remembered = lock.withLock {
-      val key = RequestKey(request.url, request.kind)
-      val queue = pending[key] ?: return@withLock null
-      val transform = queue.removeFirst()
-      if (queue.isEmpty()) pending.remove(key)
-      transform
-    }
+    val remembered = lock.withLock { pending.remove(currentMlnFfiThreadName()) }
     return remembered ?: config.interceptor().transform(request)
   }
 
-  internal fun pendingCount(): Int = lock.withLock { pending.values.sumOf { it.size } }
+  internal fun pendingCount(): Int = lock.withLock { pending.size }
 
   private fun shouldRecord(nextUrl: String, kind: MapResourceKind): Boolean {
     val nextRequest = MapResourceRequest(nextUrl, kind)
     if (config.provider?.acceptsOrDeclines(nextRequest) == true) return false
     return isMapLibresToFetch(nextUrl)
   }
-
-  private data class RequestKey(val url: String, val kind: MapResourceKind)
 }
 
 internal fun ResourceKind.toCommon(): MapResourceKind =

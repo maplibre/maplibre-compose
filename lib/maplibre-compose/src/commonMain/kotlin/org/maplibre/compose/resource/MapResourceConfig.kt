@@ -27,7 +27,7 @@ internal fun MapRequestInterceptor?.transform(request: MapResourceRequest): MapR
     } catch (_: Exception) {
       MapRequestTransform()
     }
-  return if (result.url != null && result.url.isEmpty()) result.copy(url = null) else result
+  return if (result.url != null && result.url.isBlank()) result.copy(url = null) else result
 }
 
 /**

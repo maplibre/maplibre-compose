@@ -13,7 +13,7 @@ class MapRequestInterceptorTest {
 
   @Test
   fun a_blank_url_rewrite_keeps_the_incoming_url() {
-    val interceptor = MapRequestInterceptor { MapRequestTransform(url = "") }
+    val interceptor = MapRequestInterceptor { MapRequestTransform(url = "   ") }
     val transform = interceptor.transform(REQUEST)
     assertEquals(null, transform.url)
   }
