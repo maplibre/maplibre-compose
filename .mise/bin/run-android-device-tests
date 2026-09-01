@@ -38,7 +38,9 @@ if ! grep -q 'Starting 0 tests' "$log" ||
   exit "$status"
 fi
 
-echo "Android session install hung; rebooting the emulator and retrying once."
+echo "Android session install hung; capturing diagnostics before reboot."
+"$project_root/.mise/bin/capture-android-emulator-diagnostics" attempt-1
+echo "Rebooting the emulator and retrying once."
 "$project_root/.mise/bin/stop-android-emulator"
 "$project_root/.mise/bin/boot-android-emulator" "$api_level" --headless
 
