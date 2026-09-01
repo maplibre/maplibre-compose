@@ -17,7 +17,7 @@ import org.maplibre.compose.gljs.addProtocol
 import org.maplibre.compose.gljs.removeProtocol
 
 internal class GlJsRequestController(private val config: MapResourceConfig) : AutoCloseable {
-  val scheme = newResourceProtocolScheme()
+  val scheme: String by lazy { newResourceProtocolScheme() }
   private val scope =
     CoroutineScope(
       SupervisorJob() + Dispatchers.Default + CoroutineName("maplibre-compose-js-resource")
@@ -96,9 +96,23 @@ internal class GlJsRequestController(private val config: MapResourceConfig) : Au
   }
 }
 
-/** A per-runtime scheme that another map on the page cannot guess. */
+/**
+ * A per-runtime scheme that another map on the page cannot guess.
+ *
+ * Uses `crypto.getRandomValues`, which is present in non-secure HTTP contexts where
+ * `crypto.randomUUID` is not.
+ */
 private fun newResourceProtocolScheme(): String {
-  val token = js("crypto.randomUUID()").unsafeCast<String>().replace("-", "")
+  val bytes = Uint8Array<ArrayBuffer>(16)
+  js("crypto.getRandomValues")(bytes)
+  val token =
+    buildString(32) {
+      for (index in 0 until 16) {
+        val value = bytes.asDynamic()[index].unsafeCast<Int>()
+        append("0123456789abcdef"[value ushr 4])
+        append("0123456789abcdef"[value and 0x0f])
+      }
+    }
   return "mlc-res-$token"
 }
 
