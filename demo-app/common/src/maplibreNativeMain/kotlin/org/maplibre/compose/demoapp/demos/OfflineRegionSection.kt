@@ -13,6 +13,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.maplibre.compose.demoapp.design.SectionHeader
@@ -24,6 +25,7 @@ import org.maplibre.spatialk.geojson.BoundingBox
 @Composable
 actual fun OfflineRegionSection(region: BoundingBox, styleUrl: String, packName: String) {
   val offlineManager = rememberMapRuntime().offlineManager
+  val pixelRatio = LocalDensity.current.density
   val scope = rememberCoroutineScope()
   val metadata = remember(packName) { packName.encodeToByteArray() }
   val pack = offlineManager.packs.firstOrNull { it.metadata?.contentEquals(metadata) == true }
@@ -57,6 +59,7 @@ actual fun OfflineRegionSection(region: BoundingBox, styleUrl: String, packName:
                     OfflinePackDefinition.TilePyramid(
                       styleUrl = styleUrl,
                       bounds = region,
+                      pixelRatio = pixelRatio,
                       minZoom = 12,
                       maxZoom = 15,
                     ),

@@ -50,7 +50,7 @@ class MlnFfiOfflinePackTest {
   fun a_created_pack_is_listed_with_the_definition_and_metadata_it_was_created_with() =
     runBlocking {
       val manager = manager()
-      val definition = tilePyramid(writeStyle("listed.json"))
+      val definition = tilePyramid(writeStyle("listed.json"), pixelRatio = 2f)
       val metadata = "listed by the pack lifecycle test".encodeToByteArray()
 
       val pack = withTimeout(OPERATION_TIMEOUT_MILLIS) { manager.create(definition, metadata) }
@@ -157,6 +157,7 @@ class MlnFfiOfflinePackTest {
               )
             )
           ),
+        pixelRatio = 2f,
         minZoom = 2,
         maxZoom = null,
       )
@@ -348,10 +349,14 @@ class MlnFfiOfflinePackTest {
    */
   private fun unreachableStyleUrl(): String = "http://127.0.0.1:${unusedLoopbackPort()}/style.json"
 
-  private fun tilePyramid(styleUrl: String): OfflinePackDefinition.TilePyramid =
+  private fun tilePyramid(
+    styleUrl: String,
+    pixelRatio: Float = 1f,
+  ): OfflinePackDefinition.TilePyramid =
     OfflinePackDefinition.TilePyramid(
       styleUrl = styleUrl,
       bounds = BoundingBox(southwest = Position(0.0, 0.0), northeast = Position(0.25, 0.25)),
+      pixelRatio = pixelRatio,
       minZoom = 0,
       maxZoom = 1,
     )

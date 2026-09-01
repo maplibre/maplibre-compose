@@ -7,6 +7,12 @@ import org.maplibre.spatialk.geojson.Geometry
 public sealed interface OfflinePackDefinition {
   public val styleUrl: String
 
+  /**
+   * The scale used to resolve `{ratio}` in tile URL templates. MapLibre selects the 2x tile variant
+   * for values greater than 1.
+   */
+  public val pixelRatio: Float
+
   /** The minimum zoom level for which the pack downloads resources. */
   public val minZoom: Int
 
@@ -18,6 +24,7 @@ public sealed interface OfflinePackDefinition {
     override val styleUrl: String,
     /** The geographic bounds of the downloaded region. */
     public val bounds: BoundingBox,
+    override val pixelRatio: Float,
     override val minZoom: Int = 0,
     override val maxZoom: Int? = null,
   ) : OfflinePackDefinition
@@ -27,6 +34,7 @@ public sealed interface OfflinePackDefinition {
     override val styleUrl: String,
     /** The geographic shape of the downloaded region. */
     public val shape: Geometry,
+    override val pixelRatio: Float,
     override val minZoom: Int = 0,
     override val maxZoom: Int? = null,
   ) : OfflinePackDefinition

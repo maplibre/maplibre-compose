@@ -114,15 +114,7 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
   }
 
   override suspend fun create(definition: OfflinePackDefinition, metadata: ByteArray): OfflinePack {
-    return create(definition, metadata, pixelRatio = 1f)
-  }
-
-  internal suspend fun create(
-    definition: OfflinePackDefinition,
-    metadata: ByteArray,
-    pixelRatio: Float,
-  ): OfflinePack {
-    val ffiDefinition = definition.toFfiRegionDefinition(pixelRatio)
+    val ffiDefinition = definition.toFfiRegionDefinition()
     // Copied because the caller still owns the array it passed and native reads it later.
     val ffiMetadata = metadata.copyOf()
     return runOperation(
@@ -191,15 +183,6 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
   internal fun close(timeoutMillis: Long = 30_000): Boolean {
     runtime.shutdown()
     return runtime.awaitStopped(timeoutMillis)
-  }
-
-  override fun setTileCountLimit(limit: Long) {
-    // maplibre-native-ffi does not expose mbgl's setOfflineMapboxTileCountLimit; it applies only to
-    // canonical Mapbox tile URLs. MapLibre's own limit still reports as TileLimitExceeded.
-    logger.i {
-      "Ignoring setTileCountLimit($limit) on this platform; MapLibre's own offline tile count limit " +
-        "applies, and it counts only Mapbox-hosted tiles"
-    }
   }
 
   private fun requireOwned(pack: OfflinePack) {

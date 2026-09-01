@@ -6,6 +6,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.launch
 import org.maplibre.compose.map.rememberMapRuntime
 import org.maplibre.compose.offline.DownloadProgress
@@ -18,6 +19,7 @@ fun Offline() {
   val offlineManager = rememberMapRuntime().offlineManager
   // #endregion manager
   val scope = rememberCoroutineScope()
+  val pixelRatio = LocalDensity.current.density
 
   // #region create
   Button(
@@ -29,6 +31,7 @@ fun Offline() {
               OfflinePackDefinition.TilePyramid(
                 styleUrl = "https://tiles.openfreemap.org/styles/liberty",
                 bounds = BoundingBox(west = -123.0, south = 47.0, east = -122.0, north = 48.0),
+                pixelRatio = pixelRatio,
                 minZoom = 10,
                 maxZoom = 14,
               ),

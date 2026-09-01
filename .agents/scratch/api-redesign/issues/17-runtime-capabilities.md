@@ -17,8 +17,8 @@ unsupported common operations fail explicitly.
       singleton; each owned runtime has an independent manager.
 - [x] Native runtimes report the cache and offline operations that they support;
       Web reports both capabilities false and an empty pack set.
-- [x] Pack create, resume, pause, delete, invalidate, and tile-count-limit
-      operations require supportsOfflinePacks.
+- [x] Pack create, resume, pause, delete, and invalidate operations require
+      supportsOfflinePacks.
 - [x] Ambient-cache invalidate, clear, and maximum-size operations require
       supportsAmbientCacheManagement.
 - [x] Calling an unsupported common operation throws
@@ -53,7 +53,8 @@ longer constructs or stores an offline manager, and `rememberOfflineManager` was
 removed. Documentation, demos, tests, and Material components now receive the
 manager from `MapRuntime`. Native managers reject packs that belong to a
 different manager. This prevents one runtime from targeting another runtime's
-region ID.
+region ID. Pack definitions state their pixel ratio explicitly, and native packs
+preserve it when the database is reopened.
 
 Common tests cover every operation with mixed capability values. Desktop tests
 verify native capability values and independent manager identities. Browser

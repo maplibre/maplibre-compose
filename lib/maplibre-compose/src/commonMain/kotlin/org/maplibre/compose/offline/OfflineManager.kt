@@ -72,13 +72,6 @@ public interface OfflineManager {
    * @throws OfflineManagerException if the operation failed.
    */
   public suspend fun setMaximumAmbientCacheSize(size: Long)
-
-  /**
-   * Sets the maximum number of tiles that offline packs can download and store.
-   *
-   * @throws UnsupportedOperationException if the runtime does not support offline packs.
-   */
-  public fun setTileCountLimit(limit: Long)
 }
 
 internal class CapabilityCheckedOfflineManager(
@@ -133,11 +126,6 @@ internal class CapabilityCheckedOfflineManager(
     delegate.setMaximumAmbientCacheSize(size)
   }
 
-  override fun setTileCountLimit(limit: Long) {
-    requireOfflinePackOperation()
-    delegate.setTileCountLimit(limit)
-  }
-
   private fun bindToRuntime(pack: OfflinePack): OfflinePack = pack.bindToRuntime(requireRuntimeOpen)
 
   private fun requireOfflinePackOperation() {
@@ -178,8 +166,6 @@ internal object EmptyOfflineManager : OfflineManager {
   override suspend fun clearAmbientCache(): Unit = unsupported()
 
   override suspend fun setMaximumAmbientCacheSize(size: Long): Unit = unsupported()
-
-  override fun setTileCountLimit(limit: Long): Unit = unsupported()
 
   private fun unsupported(): Nothing =
     error("The capability wrapper must reject unsupported offline operations")

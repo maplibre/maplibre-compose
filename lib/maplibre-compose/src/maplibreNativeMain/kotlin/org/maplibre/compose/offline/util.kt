@@ -20,7 +20,7 @@ import org.maplibre.spatialk.geojson.toJson
  */
 private const val INCLUDE_IDEOGRAPHS = true
 
-internal fun OfflinePackDefinition.toFfiRegionDefinition(pixelRatio: Float): FfiRegionDefinition =
+internal fun OfflinePackDefinition.toFfiRegionDefinition(): FfiRegionDefinition =
   when (this) {
     is OfflinePackDefinition.TilePyramid ->
       FfiRegionDefinition.TilePyramid(
@@ -53,6 +53,7 @@ internal fun FfiRegionDefinition.toOfflinePackDefinition(logger: Logger): Offlin
       OfflinePackDefinition.TilePyramid(
         styleUrl = styleUrl,
         bounds = bounds.toBoundingBox(),
+        pixelRatio = pixelRatio,
         minZoom = minZoom.toInt(),
         // MapLibre spells "no maximum" as infinity, which does not survive a conversion to Int.
         maxZoom = maxZoom.takeIf { it.isFinite() }?.toInt(),
@@ -61,6 +62,7 @@ internal fun FfiRegionDefinition.toOfflinePackDefinition(logger: Logger): Offlin
       OfflinePackDefinition.Shape(
         styleUrl = styleUrl,
         shape = geometry.toGeoJsonGeometry(logger),
+        pixelRatio = pixelRatio,
         minZoom = minZoom.toInt(),
         maxZoom = maxZoom.takeIf { it.isFinite() }?.toInt(),
       )

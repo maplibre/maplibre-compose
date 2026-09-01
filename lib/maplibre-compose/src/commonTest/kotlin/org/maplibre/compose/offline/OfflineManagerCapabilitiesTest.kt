@@ -26,7 +26,6 @@ class OfflineManagerCapabilitiesTest {
     assertFailsWith<UnsupportedOperationException> { manager.pause(backend.pack) }
     assertFailsWith<UnsupportedOperationException> { manager.delete(backend.pack) }
     assertFailsWith<UnsupportedOperationException> { manager.invalidate(backend.pack) }
-    assertFailsWith<UnsupportedOperationException> { manager.setTileCountLimit(1) }
     assertEquals(emptyList(), backend.calls)
 
     manager.invalidateAmbientCache()
@@ -49,16 +48,15 @@ class OfflineManagerCapabilitiesTest {
     manager.pause(backend.pack)
     manager.delete(backend.pack)
     manager.invalidate(backend.pack)
-    manager.setTileCountLimit(1)
     assertEquals(
-      listOf("create", "resume", "pause", "delete", "invalidate", "set tile limit"),
+      listOf("create", "resume", "pause", "delete", "invalidate"),
       backend.calls,
     )
 
     assertFailsWith<UnsupportedOperationException> { manager.invalidateAmbientCache() }
     assertFailsWith<UnsupportedOperationException> { manager.clearAmbientCache() }
     assertFailsWith<UnsupportedOperationException> { manager.setMaximumAmbientCacheSize(1) }
-    assertEquals(6, backend.calls.size)
+    assertEquals(5, backend.calls.size)
     runtime.close()
   }
 
@@ -88,7 +86,6 @@ class OfflineManagerCapabilitiesTest {
     assertFailsWith<MapRuntimeClosedException> { manager.invalidateAmbientCache() }
     assertFailsWith<MapRuntimeClosedException> { manager.clearAmbientCache() }
     assertFailsWith<MapRuntimeClosedException> { manager.setMaximumAmbientCacheSize(1) }
-    assertFailsWith<MapRuntimeClosedException> { manager.setTileCountLimit(1) }
     assertFailsWith<MapRuntimeClosedException> { retainedPack.setMetadata(byteArrayOf(1)) }
     assertFailsWith<MapRuntimeClosedException> { createdPack.setMetadata(byteArrayOf(1)) }
     assertEquals(emptyList(), backend.calls)
@@ -155,10 +152,6 @@ class OfflineManagerCapabilitiesTest {
       calls += "set ambient size"
     }
 
-    override fun setTileCountLimit(limit: Long) {
-      calls += "set tile limit"
-    }
-
     private fun pack(regionId: Long) =
       OfflinePack(
         OfflinePackOwner { _, _ -> calls += "set metadata" },
@@ -173,6 +166,7 @@ class OfflineManagerCapabilitiesTest {
       OfflinePackDefinition.TilePyramid(
         styleUrl = "https://example.test/style.json",
         bounds = BoundingBox(west = -1.0, south = -1.0, east = 1.0, north = 1.0),
+        pixelRatio = 1f,
       )
   }
 }
