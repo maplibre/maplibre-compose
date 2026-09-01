@@ -956,8 +956,10 @@ internal class RuntimeImplementation(
   }
 
   final override fun setRequestInterceptor(interceptor: MapRequestInterceptor?) {
-    lock.withLock { requireOpenLocked() }
-    resourceConfig.setInterceptor(interceptor)
+    lock.withLock {
+      requireOpenLocked()
+      resourceConfig.setInterceptor(interceptor)
+    }
   }
 
   private fun requireOpen() {

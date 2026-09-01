@@ -8,6 +8,7 @@ import org.maplibre.compose.mlnffi.MlnFfiOwnerLock
 import org.maplibre.compose.mlnffi.MlnFfiOwnerThread
 import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
 import org.maplibre.compose.mlnffi.withLock
+import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.resource.MlnFfiRuntimeOwner
 import org.maplibre.nativeffi.runtime.OfflineOperationHandle
 import org.maplibre.nativeffi.runtime.RuntimeEvent
@@ -39,6 +40,7 @@ internal class MlnFfiOfflineRuntime(
   private val cacheFile: Path,
   private val logger: Logger?,
   private val onEvent: (RuntimeEvent) -> Unit,
+  private val resourceConfig: MapResourceConfig = MapResourceConfig(),
 ) {
 
   /** Work for the owner thread, with the failure path it must take if it never gets to run. */
@@ -156,7 +158,12 @@ internal class MlnFfiOfflineRuntime(
   private fun runLoop() {
     val runtime =
       try {
-        MlnFfiRuntimeOwner.open(cacheFile, { logger }, "MapLibre offline runtime")
+        MlnFfiRuntimeOwner.open(
+            cacheFile,
+            { logger },
+            "MapLibre offline runtime",
+            resourceConfig = resourceConfig,
+          )
           .also { runtimeOwner = it }
           .runtime
       } catch (error: Throwable) {

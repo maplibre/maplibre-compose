@@ -53,6 +53,13 @@ class MapRequestInterceptorTest {
   }
 
   @Test
+  fun an_accepts_exception_declines_the_request() {
+    val provider =
+      MapResourceProvider(accepts = { error("classifier exploded") }, load = { error("unused") })
+    assertFalse(provider.acceptsOrDeclines(REQUEST))
+  }
+
+  @Test
   fun a_scheme_provider_accepts_only_that_scheme() = runTest {
     val provider = MapResourceProvider("app") { "body".encodeToByteArray() }
     assertTrue(provider.accepts(MapResourceRequest("app://style.json", MapResourceKind.Style)))

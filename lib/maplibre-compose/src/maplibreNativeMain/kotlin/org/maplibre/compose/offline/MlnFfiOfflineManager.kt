@@ -10,6 +10,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.maplibre.compose.mlnffi.MlnFfiGate
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
+import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.error.MaplibreStatus
 import org.maplibre.nativeffi.offline.OfflineRegionDownloadState
@@ -22,8 +23,11 @@ import org.maplibre.nativeffi.runtime.RuntimeEventType
 import org.maplibre.nativeffi.runtime.RuntimeHandle
 
 /** The MapLibre Native FFI offline manager that belongs to one map runtime. */
-internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
-  OfflineManager, OfflinePackOwner {
+internal class MlnFfiOfflineManager(
+  private val options: MlnFfiRuntimeOptions,
+  resourceConfig: MapResourceConfig =
+    MapResourceConfig(options.requestInterceptor, options.resourceProvider),
+) : OfflineManager, OfflinePackOwner {
 
   private val logger = options.logger
 
@@ -36,7 +40,8 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
   /** Owner-thread state: the packs this manager has seen, keyed by native region id. */
   private val packsById = mutableMapOf<Long, OfflinePack>()
 
-  private val runtime = MlnFfiOfflineRuntime(options.cacheFile, logger, ::handleEvent)
+  private val runtime =
+    MlnFfiOfflineRuntime(options.cacheFile, logger, ::handleEvent, resourceConfig)
 
   /** One manager applies one cache-budget change at a time. */
   private val cacheBudgetMutex = Mutex()

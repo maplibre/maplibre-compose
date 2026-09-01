@@ -50,6 +50,37 @@ class GlJsRequestControllerTest {
   }
 
   @Test
+  fun a_protocol_url_round_trips_sprite_json() {
+    val controller =
+      GlJsRequestController(
+        MapResourceConfig(provider = MapResourceProvider("app") { ByteArray(0) })
+      )
+    val result = controller.transformRequest("app://sprite.json", "SpriteJSON")
+    val url = result.asDynamic().url as String
+    assertTrue(url.startsWith("${controller.scheme}://SpriteJson/"))
+    val parsed = controller.parseProtocolUrl(url)
+    assertEquals("app://sprite.json", parsed.url)
+    assertEquals(MapResourceKind.SpriteJson, parsed.kind)
+    controller.close()
+  }
+
+  @Test
+  fun an_accepts_exception_leaves_the_https_request_unchanged() {
+    val controller =
+      GlJsRequestController(
+        MapResourceConfig(
+          provider =
+            MapResourceProvider(
+              accepts = { error("classifier exploded") },
+              load = { error("unused") },
+            )
+        )
+      )
+    assertNull(controller.transformRequest("https://tiles.example.com/style.json", "Style"))
+    controller.close()
+  }
+
+  @Test
   fun a_rejected_https_url_is_not_rewritten_to_the_protocol() {
     val controller =
       GlJsRequestController(

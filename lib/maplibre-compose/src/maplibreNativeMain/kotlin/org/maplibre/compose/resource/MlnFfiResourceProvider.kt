@@ -9,6 +9,9 @@ import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.nativeffi.resource.ResourceErrorReason
@@ -24,6 +27,8 @@ import org.maplibre.nativeffi.resource.ResourceResponseStatus
  * non-HTTP URI with `invalid authority`.
  */
 private val NETWORK_SCHEMES = setOf("http", "https")
+
+private const val REQUEST_CANCEL_POLL_MILLIS = 16L
 
 internal typealias MlnFfiResourceProviderFactory =
   (getLogger: () -> Logger?) -> MlnFfiResourceProvider
@@ -66,7 +71,7 @@ internal class MlnFfiResourceProvider(
     val url = request.resolvedUrl
     val mapRequest = MapResourceRequest(url, request.kind.toCommon())
     val user = userProvider
-    if (user != null && user.accepts(mapRequest)) {
+    if (user != null && user.acceptsOrDeclines(mapRequest)) {
       takeUser(FfiResourceRequest(handle), mapRequest, url, request.requestedUrl)
       return ResourceProviderDecision.HANDLE
     }
@@ -80,7 +85,7 @@ internal class MlnFfiResourceProvider(
     return ResourceProviderDecision.HANDLE
   }
 
-  private fun takeUser(
+  internal fun takeUser(
     request: TakenResourceRequest,
     mapRequest: MapResourceRequest,
     url: String,
@@ -112,7 +117,7 @@ internal class MlnFfiResourceProvider(
         if (open.isCancelled()) return
         val response =
           try {
-            provider.load(mapRequest).toResourceResponse()
+            loadWhileRequestOpen(open, provider, mapRequest)
           } catch (error: CancellationException) {
             return
           } catch (error: Throwable) {
@@ -195,9 +200,31 @@ internal class MlnFfiResourceProvider(
     }
   }
 
-  /** Stops taking new reads. Accepted reads own their handles and finish independently. */
+  /**
+   * Stops taking new reads and cancels application [MapResourceProvider] loads. Packaged-resource
+   * reads own their handles and finish independently.
+   */
   override fun close() {
     accepting.store(false)
+    userScope.cancel()
+  }
+
+  private suspend fun loadWhileRequestOpen(
+    request: TakenResourceRequest,
+    provider: MapResourceProvider,
+    mapRequest: MapResourceRequest,
+  ): ResourceResponse = coroutineScope {
+    val watch = launch {
+      while (true) {
+        if (request.isCancelled()) throw CancellationException("The resource request was cancelled")
+        delay(REQUEST_CANCEL_POLL_MILLIS)
+      }
+    }
+    try {
+      provider.load(mapRequest).toResourceResponse()
+    } finally {
+      watch.cancel()
+    }
   }
 }
 

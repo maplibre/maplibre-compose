@@ -36,7 +36,7 @@ internal class GlJsRequestController(private val config: MapResourceConfig) : Au
     val incoming = MapResourceRequest(url, kind)
     val transform = config.interceptor().transform(incoming)
     val nextUrl = transform.url ?: url
-    val accepted = config.provider?.accepts(MapResourceRequest(nextUrl, kind)) == true
+    val accepted = config.provider?.acceptsOrDeclines(MapResourceRequest(nextUrl, kind)) == true
     if (!accepted && transform.url == null && transform.headers.isEmpty()) return undefined
     return requestParameters(
       url = if (accepted) protocolUrl(nextUrl, kind) else nextUrl,
@@ -72,10 +72,7 @@ internal class GlJsRequestController(private val config: MapResourceConfig) : Au
     val remainder = protocolUrl.substringAfter("://")
     val separator = remainder.indexOf('/')
     require(separator > 0) { "Invalid resource protocol URL: $protocolUrl" }
-    val kind =
-      remainder.substring(0, separator).toResourceKind().takeUnless {
-        it == MapResourceKind.Unknown
-      } ?: MapResourceKind.Unknown
+    val kind = remainder.substring(0, separator).toStoredResourceKind()
     return MapResourceRequest(decodeResourceUrl(remainder.substring(separator + 1)), kind)
   }
 
@@ -104,6 +101,10 @@ internal fun String?.toResourceKind(): MapResourceKind =
     "Image" -> MapResourceKind.Image
     else -> MapResourceKind.Unknown
   }
+
+/** Parses a kind that [GlJsRequestController.protocolUrl] stored as [MapResourceKind.name]. */
+internal fun String.toStoredResourceKind(): MapResourceKind =
+  MapResourceKind.entries.firstOrNull { it.name == this } ?: MapResourceKind.Unknown
 
 private fun requestParameters(url: String, headers: Map<String, String>): Any {
   val params = js("{}")

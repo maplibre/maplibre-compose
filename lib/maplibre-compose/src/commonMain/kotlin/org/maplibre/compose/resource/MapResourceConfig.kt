@@ -26,3 +26,13 @@ internal fun MapRequestInterceptor?.transform(request: MapResourceRequest): MapR
   } catch (_: Throwable) {
     MapRequestTransform()
   }
+
+/**
+ * Returns false when [MapResourceProvider.accepts] throws, so an engine callback can still decide.
+ */
+internal fun MapResourceProvider.acceptsOrDeclines(request: MapResourceRequest): Boolean =
+  try {
+    accepts(request)
+  } catch (_: Throwable) {
+    false
+  }
