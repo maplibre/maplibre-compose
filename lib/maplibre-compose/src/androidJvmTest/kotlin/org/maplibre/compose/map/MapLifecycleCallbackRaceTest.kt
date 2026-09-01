@@ -11,10 +11,57 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.sources.Source
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.RecordingStyleBinding
+import org.maplibre.compose.style.StyleBinding
 
 class MapLifecycleCallbackRaceTest {
+  @Test
+  fun an_accepted_owner_callback_completes_while_style_sources_are_read() = runBlocking {
+    val runtime = mapRuntimeForTest()
+    val state = runtime.createMapState()
+    val adapter = PresentationTestAdapter()
+    val token = state.reservePresentation()
+    state.publishPresentation(token, adapter)
+    val style = OwnerThreadSourceReadStyleBinding()
+    assertTrue(state.updateLoadedStyle(adapter, style))
+    val binding = state.lifecycle.bind(CallbackRacePlatformAdapter())
+    val lease = binding.attach()
+    val engine = requireNotNull(binding.engineIdentity)
+    val styleReadyFailure = AtomicReference<Throwable?>()
+    val callbackFailure = AtomicReference<Throwable?>()
+
+    val styleReadyThread = thread {
+      styleReadyFailure.set(runCatching { state.markStyleReady(adapter) }.exceptionOrNull())
+    }
+    assertTrue(style.sourceReadStarted.await(5, TimeUnit.SECONDS))
+    val callbackThread = thread {
+      callbackFailure.set(
+        runCatching {
+          assertTrue(
+            binding.acceptPresentationEvent(engine, lease) {
+              state.synchronizeCamera(adapter)
+            }
+          )
+        }
+          .onSuccess { style.ownerReadCompleted.countDown() }
+          .exceptionOrNull()
+      )
+    }
+
+    styleReadyThread.join()
+    callbackThread.join()
+
+    binding.close()
+    binding.awaitClosed()
+    state.close()
+    state.awaitClosed()
+    runtime.close()
+    assertEquals(null, styleReadyFailure.get())
+    assertEquals(null, callbackFailure.get())
+  }
+
   @Test
   fun accepted_callback_delivery_completes_before_closure_commits() = runBlocking {
     val runtime = mapRuntimeForTest()
@@ -266,4 +313,18 @@ private class CallbackRacePlatformAdapter : MapLifecyclePlatformAdapter {
   override suspend fun destroyEngine(identity: EngineMapIdentity) = Unit
 
   override suspend fun closeResources() = Unit
+}
+
+private class OwnerThreadSourceReadStyleBinding : StyleBinding by RecordingStyleBinding() {
+  val sourceReadStarted = CountDownLatch(1)
+  val ownerReadCompleted = CountDownLatch(1)
+
+  override fun getSources(): List<Source> {
+    sourceReadStarted.countDown()
+    assertTrue(
+      ownerReadCompleted.await(5, TimeUnit.SECONDS),
+      "The accepted owner callback could not run while style sources were being read",
+    )
+    return emptyList()
+  }
 }

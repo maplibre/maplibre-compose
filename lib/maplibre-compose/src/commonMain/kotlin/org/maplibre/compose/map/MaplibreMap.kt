@@ -207,7 +207,7 @@ private fun MaplibreMapPresentation(
         }
 
         override fun onSourceChanged(map: MapAdapter, sourceId: String?) {
-          state.refreshStyleSources(map, sourceId)
+          state.refreshStyleSources(map)
         }
 
         override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {
