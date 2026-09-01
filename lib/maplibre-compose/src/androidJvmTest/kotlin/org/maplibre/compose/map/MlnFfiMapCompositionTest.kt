@@ -537,13 +537,19 @@ class MlnFfiMapCompositionTest {
           requireNotNull(mapState.presentation?.adapter as? MlnFfiMapSession) {
             "no native session"
           }
-        waitUntil { "toggled" in session.currentStyleLayerIds() }
+        waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+          "toggled" in session.currentStyleLayerIds()
+        }
 
         visible = false
-        waitUntil { "toggled" !in session.currentStyleLayerIds() }
+        waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+          "toggled" !in session.currentStyleLayerIds()
+        }
 
         visible = true
-        waitUntil { "toggled" in session.currentStyleLayerIds() }
+        waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+          "toggled" in session.currentStyleLayerIds()
+        }
       }
     ) { errors, onFrame ->
       mapState =
