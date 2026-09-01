@@ -5,16 +5,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.first
 import org.maplibre.compose.map.MapState
+import org.maplibre.compose.map.rememberMapRuntime
 import org.maplibre.compose.offline.DownloadProgress
 import org.maplibre.compose.offline.DownloadStatus
 import org.maplibre.compose.offline.OfflineManager
 import org.maplibre.compose.offline.OfflinePackDefinition
-import org.maplibre.compose.offline.rememberOfflineManager
 import org.maplibre.spatialk.geojson.BoundingBox
 
 @Composable
 actual fun rememberTilePrefetcher(): TilePrefetcher {
-  val manager = rememberOfflineManager()
+  val manager = rememberMapRuntime().offlineManager
   return remember(manager) { OfflinePackPrefetcher(manager) }
 }
 

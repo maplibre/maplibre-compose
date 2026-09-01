@@ -14,7 +14,6 @@ import org.maplibre.compose.style.StyleComposition
 import org.maplibre.spatialk.geojson.Position
 
 class MapRuntimeTest {
-
   @Test
   fun runtime_closes_every_child_before_shared_resources() = runTest {
     lateinit var first: MapState

@@ -1,9 +1,6 @@
 package org.maplibre.compose.offline
 
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalDensity
 import co.touchlab.kermit.Logger
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
@@ -12,8 +9,6 @@ import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import org.maplibre.compose.mlnffi.EnsureMlnFfiConfigured
-import org.maplibre.compose.mlnffi.MlnFfiApplication
 import org.maplibre.compose.mlnffi.MlnFfiGate
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.nativeffi.error.MaplibreException
@@ -27,32 +22,9 @@ import org.maplibre.nativeffi.runtime.RuntimeEventPayload
 import org.maplibre.nativeffi.runtime.RuntimeEventType
 import org.maplibre.nativeffi.runtime.RuntimeHandle
 
-/** Acquire an instance of [OfflineManager]. */
-@Composable
-public fun rememberOfflineManager(): OfflineManager {
-  EnsureMlnFfiConfigured()
-  val density = LocalDensity.current.density
-  val manager = MlnFfiApplication.offlineManager
-  // Packs record the density they were created at; a downloaded raster tile cannot be rescaled.
-  return remember(manager, density) { DensityScopedOfflineManager(manager, density) }
-}
-
-/** Captures the calling window's density while sharing the process-lifetime native runtime. */
-private class DensityScopedOfflineManager(
-  private val manager: MlnFfiOfflineManager,
-  private val pixelRatio: Float,
-) : OfflineManager by manager {
-  override suspend fun create(definition: OfflinePackDefinition, metadata: ByteArray): OfflinePack =
-    manager.create(definition, metadata, pixelRatio)
-}
-
-/**
- * The MapLibre Native FFI [OfflineManager], backed by a MapLibre runtime of its own.
- *
- * The process-wide application instance is never disposed: mbgl holds download state in memory
- * only, so closing the runtime silently destroys in-flight downloads.
- */
-internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) : OfflineManager {
+/** The MapLibre Native FFI offline manager that belongs to one map runtime. */
+internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
+  OfflineManager, OfflinePackOwner {
 
   private val logger = Logger.withTag("maplibre-compose")
 
@@ -67,7 +39,7 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
 
   private val runtime = MlnFfiOfflineRuntime(options.cacheFile, logger, ::handleEvent)
 
-  /** The application has one writer; this prevents concurrent suspending calls from overlapping. */
+  /** One manager applies one cache-budget change at a time. */
   private val cacheBudgetMutex = Mutex()
 
   override val packs: Set<OfflinePack>
@@ -89,7 +61,7 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
     )
   }
 
-  /** Does not let process-wide configuration publish a runtime whose startup or budget failed. */
+  /** Publishes the manager after runtime startup and initial cache-budget configuration succeed. */
   @OptIn(ExperimentalAtomicApi::class)
   private fun awaitConfiguredRuntime() {
     val settled = MlnFfiGate()
@@ -166,14 +138,17 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
   }
 
   override fun resume(pack: OfflinePack) {
+    requireOwned(pack)
     setDownloadState(pack, OfflineRegionDownloadState.ACTIVE)
   }
 
   override fun pause(pack: OfflinePack) {
+    requireOwned(pack)
     setDownloadState(pack, OfflineRegionDownloadState.INACTIVE)
   }
 
   override suspend fun delete(pack: OfflinePack) {
+    requireOwned(pack)
     runOperation(
       description = "delete offline pack ${pack.regionId}",
       start = { it.startDeleteOfflineRegion(pack.regionId) },
@@ -185,6 +160,7 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
   }
 
   override suspend fun invalidate(pack: OfflinePack) {
+    requireOwned(pack)
     runOperation(
       description = "invalidate offline pack ${pack.regionId}",
       start = { it.startInvalidateOfflineRegion(pack.regionId) },
@@ -211,8 +187,8 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
     }
   }
 
-  /** Stops this otherwise process-lifetime owner. Tests only. */
-  internal fun closeForTest(timeoutMillis: Long = 30_000): Boolean {
+  /** Stops this manager's owner thread. */
+  internal fun close(timeoutMillis: Long = 30_000): Boolean {
     runtime.shutdown()
     return runtime.awaitStopped(timeoutMillis)
   }
@@ -226,8 +202,12 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
     }
   }
 
+  private fun requireOwned(pack: OfflinePack) {
+    require(pack.owner === this) { "The offline pack belongs to a different manager" }
+  }
+
   /** Backs [OfflinePack.setMetadata]; the pack itself holds no native state. */
-  internal suspend fun updateMetadata(pack: OfflinePack, metadata: ByteArray) {
+  override suspend fun updateMetadata(pack: OfflinePack, metadata: ByteArray) {
     val ffiMetadata = metadata.copyOf()
     runOperation(
       description = "update the metadata of offline pack ${pack.regionId}",

@@ -4,7 +4,7 @@ import androidx.compose.runtime.Immutable
 import co.touchlab.kermit.Logger
 import kotlin.concurrent.Volatile
 import kotlinx.io.files.Path
-import org.maplibre.compose.offline.MlnFfiOfflineManager
+import org.maplibre.compose.map.ProcessNativeMapRuntime
 import org.maplibre.compose.resource.MlnFfiResourceProvider
 import org.maplibre.compose.resource.MlnFfiResourceProviderFactory
 
@@ -23,60 +23,51 @@ internal fun MlnFfiRuntimeOptions.normalized(): MlnFfiRuntimeOptions {
   return if (normalizedFile == cacheFile) this else copy(cacheFile = normalizedFile)
 }
 
-/** The one process-wide MapLibre Native configuration and the runtime that owns its cache. */
+/** The one process-wide MapLibre Native configuration. */
 internal object MlnFfiApplication {
-  private class State(val options: MlnFfiRuntimeOptions, val offlineManager: MlnFfiOfflineManager)
-
   private val lock = MlnFfiLock()
 
-  @Volatile private var state: State? = null
+  @Volatile private var optionsState: MlnFfiRuntimeOptions? = null
 
   fun configure(rawOptions: MlnFfiRuntimeOptions) {
     val options = rawOptions.normalized()
     lock.withLock {
-      val existing = state
+      val existing = optionsState
       if (existing != null) {
-        check(existing.options == options) {
-          "MapLibre is already configured with ${existing.options.describe()}, not ${options.describe()}"
+        check(existing == options) {
+          "MapLibre is already configured with ${existing.describe()}, not ${options.describe()}"
         }
         return
       }
 
-      state = State(options, MlnFfiOfflineManager(options))
+      optionsState = options
     }
   }
 
   val isConfigured: Boolean
-    get() = state != null
+    get() = optionsState != null
 
   /** Installs [defaultOptions] when no configuration is set. */
   fun ensureConfigured(defaultOptions: () -> MlnFfiRuntimeOptions) {
     if (isConfigured) return
     lock.withLock {
-      if (state != null) return
-      val options = defaultOptions().normalized()
-      state = State(options, MlnFfiOfflineManager(options))
+      if (optionsState != null) return
+      optionsState = defaultOptions().normalized()
     }
   }
 
   val options: MlnFfiRuntimeOptions
-    get() = requireState().options
+    get() = requireOptions()
 
-  val offlineManager: MlnFfiOfflineManager
-    get() = requireState().offlineManager
-
-  private fun requireState(): State =
-    checkNotNull(state) {
-      "MapLibre is not configured. Compose a map, call rememberOfflineManager, or call " +
-        "MapLibre.configure(...) first."
+  private fun requireOptions(): MlnFfiRuntimeOptions =
+    checkNotNull(optionsState) {
+      "MapLibre is not configured. Compose a map or call MapLibre.configure(...) first."
     }
 
-  /**
-   * Stops and forgets the process-wide owner. Tests only; production configuration is permanent.
-   */
+  /** Forgets the process-wide configuration and closes its runtime. Tests only. */
   internal fun resetForTest(): Boolean {
-    val previous = lock.withLock { state.also { state = null } } ?: return true
-    return previous.offlineManager.closeForTest()
+    lock.withLock { optionsState = null }
+    return ProcessNativeMapRuntime.resetForTest()
   }
 }
 

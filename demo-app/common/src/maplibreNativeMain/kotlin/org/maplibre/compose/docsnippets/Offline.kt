@@ -7,15 +7,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
+import org.maplibre.compose.map.rememberMapRuntime
 import org.maplibre.compose.offline.DownloadProgress
 import org.maplibre.compose.offline.OfflinePackDefinition
-import org.maplibre.compose.offline.rememberOfflineManager
 import org.maplibre.spatialk.geojson.BoundingBox
 
 @Composable
 fun Offline() {
   // #region manager
-  val offlineManager = rememberOfflineManager()
+  val offlineManager = rememberMapRuntime().offlineManager
   // #endregion manager
   val scope = rememberCoroutineScope()
 

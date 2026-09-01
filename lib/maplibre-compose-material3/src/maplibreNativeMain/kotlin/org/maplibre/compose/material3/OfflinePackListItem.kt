@@ -61,7 +61,6 @@ import org.maplibre.compose.offline.DownloadProgress
 import org.maplibre.compose.offline.DownloadStatus
 import org.maplibre.compose.offline.OfflineManager
 import org.maplibre.compose.offline.OfflinePack
-import org.maplibre.compose.offline.rememberOfflineManager
 
 /**
  * A [ListItem] to manage an [OfflinePack].
@@ -75,14 +74,16 @@ import org.maplibre.compose.offline.rememberOfflineManager
  * Swipe the item from end to start to request deletion. The default trailing delete button and the
  * swipe gesture both require confirmation before deleting the pack.
  *
+ * Pass the [OfflineManager] from the [org.maplibre.compose.map.MapRuntime] that created [pack].
+ *
  * You can customize each part of the [ListItem] by supplying alternate [leadingContent],
  * [supportingContent], and [trailingContent].
  */
 @Composable
 public fun OfflinePackListItem(
   pack: OfflinePack,
+  offlineManager: OfflineManager,
   modifier: Modifier = Modifier,
-  offlineManager: OfflineManager = rememberOfflineManager(),
   leadingContent: @Composable () -> Unit = {
     OfflinePackListItemDefaults.LeadingContent(pack, offlineManager)
   },
@@ -161,7 +162,7 @@ public object OfflinePackListItemDefaults {
   @Composable
   public fun LeadingContent(
     pack: OfflinePack,
-    offlineManager: OfflineManager = rememberOfflineManager(),
+    offlineManager: OfflineManager,
     completedIcon: @Composable () -> Unit = {
       Icon(
         imageVector = vectorResource(Res.drawable.check_circle_filled),
@@ -217,7 +218,7 @@ public object OfflinePackListItemDefaults {
   @Composable
   public fun TrailingContent(
     pack: OfflinePack,
-    offlineManager: OfflineManager = rememberOfflineManager(),
+    offlineManager: OfflineManager,
     coroutineScope: CoroutineScope = rememberCoroutineScope(),
   ): Unit = Row {
     PauseResumeUpdateButton(pack, offlineManager)

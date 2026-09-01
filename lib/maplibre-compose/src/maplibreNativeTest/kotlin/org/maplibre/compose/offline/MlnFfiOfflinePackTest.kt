@@ -4,6 +4,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotSame
 import kotlin.test.assertTrue
 import kotlin.test.fail
@@ -41,7 +42,7 @@ class MlnFfiOfflinePackTest {
   fun cleanUp() {
     // Must precede the delete, so the database is closed rather than pulled out from under a live
     // runtime.
-    managers.forEach { it.closeForTest() }
+    managers.forEach { it.close() }
     FfiTestPlatform.deleteCacheFile(cacheFile)
   }
 
@@ -60,6 +61,19 @@ class MlnFfiOfflinePackTest {
       assertContentEquals(metadata, pack.metadata)
       assertEquals(setOf(pack), manager.packs, "the created pack should be listed immediately")
     }
+
+  @Test
+  fun a_manager_rejects_a_pack_that_belongs_to_another_manager() = runBlocking {
+    val first = manager()
+    val pack =
+      withTimeout(OPERATION_TIMEOUT_MILLIS) {
+        first.create(tilePyramid(writeStyle("foreign-pack.json")), ByteArray(0))
+      }
+    val second = manager()
+
+    assertFailsWith<IllegalArgumentException> { second.pause(pack) }
+    Unit
+  }
 
   @Test
   fun updating_metadata_replaces_what_the_pack_reports() = runBlocking {
@@ -101,10 +115,7 @@ class MlnFfiOfflinePackTest {
     assertEquals(setOf(kept), manager.packs)
   }
 
-  /**
-   * Production keeps its application manager for the life of the process. This test creates and
-   * closes isolated owners directly so it can exercise database persistence.
-   */
+  /** A runtime can close its manager and a later runtime can reopen the same persistent cache. */
   @Test
   fun a_pack_survives_closing_the_manager_and_reopening_the_same_database() = runBlocking {
     val definition = tilePyramid(writeStyle("restart.json"))
@@ -113,7 +124,7 @@ class MlnFfiOfflinePackTest {
     val first = manager()
     val created = withTimeout(OPERATION_TIMEOUT_MILLIS) { first.create(definition, metadata) }
 
-    assertTrue(first.closeForTest(), "the first manager's runtime thread should have stopped")
+    assertTrue(first.close(), "the first manager's runtime thread should have stopped")
 
     val second = manager()
     assertNotSame(first, second)
@@ -152,7 +163,7 @@ class MlnFfiOfflinePackTest {
 
     val first = manager()
     withTimeout(OPERATION_TIMEOUT_MILLIS) { first.create(definition, ByteArray(0)) }
-    assertTrue(first.closeForTest(), "the first manager should stop")
+    assertTrue(first.close(), "the first manager should stop")
 
     val second = manager()
     await("the reopened manager to list the shape pack") { second.packs.isNotEmpty() }
@@ -172,7 +183,7 @@ class MlnFfiOfflinePackTest {
       }
     withTimeout(OPERATION_TIMEOUT_MILLIS) { first.delete(removed) }
 
-    assertTrue(first.closeForTest(), "the first manager should stop")
+    assertTrue(first.close(), "the first manager should stop")
 
     val second = manager()
     await("the reopened manager to list the pack that was kept") {
@@ -235,7 +246,7 @@ class MlnFfiOfflinePackTest {
       it.status == DownloadStatus.Complete
     }
 
-    assertTrue(first.closeForTest(), "the first manager should stop")
+    assertTrue(first.close(), "the first manager should stop")
 
     val second = manager()
     await("the reopened manager to list the finished pack") { second.packs.isNotEmpty() }

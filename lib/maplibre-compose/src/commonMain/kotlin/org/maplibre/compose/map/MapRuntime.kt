@@ -45,6 +45,9 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.layers.LayerHandle
 import org.maplibre.compose.layers.layerHandle
+import org.maplibre.compose.offline.CapabilityCheckedOfflineManager
+import org.maplibre.compose.offline.EmptyOfflineManager
+import org.maplibre.compose.offline.OfflineManager
 import org.maplibre.compose.sources.SourceHandle
 import org.maplibre.compose.sources.sourceHandle
 import org.maplibre.compose.style.BaseStyle
@@ -67,8 +70,22 @@ public expect fun createMapRuntime(options: MapRuntimeOptions): MapRuntime
 /** Returns the default runtime for this process. */
 @Composable public expect fun rememberMapRuntime(): MapRuntime
 
+/** Reports the optional operations that one [MapRuntime] supports. */
+public data class MapRuntimeCapabilities(
+  /** Whether the runtime supports offline-pack operations. */
+  public val supportsOfflinePacks: Boolean,
+  /** Whether the runtime supports ambient-cache management operations. */
+  public val supportsAmbientCacheManagement: Boolean,
+)
+
 /** Creates logical maps that share one application-level configuration. */
 public interface MapRuntime {
+  /** The optional operations that this runtime supports. */
+  public val capabilities: MapRuntimeCapabilities
+
+  /** The offline packs and ambient cache managed by this runtime. */
+  public val offlineManager: OfflineManager
+
   /** Creates a logical map. The caller must close the result. */
   public fun createMapState(
     initialCameraPosition: CameraPosition = CameraPosition(),
@@ -841,12 +858,24 @@ internal class RuntimeImplementation(
   internal val platformOptions: Any?,
   private val resources: MapRuntimeResources,
   internal val logger: Logger?,
+  override val capabilities: MapRuntimeCapabilities =
+    MapRuntimeCapabilities(
+      supportsOfflinePacks = false,
+      supportsAmbientCacheManagement = false,
+    ),
+  offlineManagerBackend: OfflineManager = EmptyOfflineManager,
   internal val physicalScope: CoroutineScope =
     CoroutineScope(SupervisorJob() + Dispatchers.Default),
   internal val snapshotterAdapterFactory: SnapshotterAdapterFactory =
     UnsupportedSnapshotterAdapterFactory,
   internal val styleEvaluator: StyleCompositionEvaluator = DefaultStyleCompositionEvaluator,
 ) : MapRuntime {
+  override val offlineManager: OfflineManager =
+    CapabilityCheckedOfflineManager(
+      capabilities = capabilities,
+      delegate = offlineManagerBackend,
+      requireRuntimeOpen = ::requireOpen,
+    )
   private val lock = reentrantLock()
   private val children = linkedSetOf<MapState>()
   private val snapshotters = linkedSetOf<MapSnapshotterImplementation>()
@@ -858,7 +887,7 @@ internal class RuntimeImplementation(
     initialCameraPosition: CameraPosition,
     initialBaseStyle: BaseStyle,
   ): MapState = lock.withLock {
-    if (closed) throw MapRuntimeClosedException()
+    requireOpenLocked()
     MapState(this, initialCameraPosition, initialBaseStyle).also(children::add)
   }
 
@@ -866,8 +895,16 @@ internal class RuntimeImplementation(
     baseStyle: BaseStyle,
     styleComposition: StyleComposition,
   ): MapSnapshotter = lock.withLock {
-    if (closed) throw MapRuntimeClosedException()
+    requireOpenLocked()
     MapSnapshotterImplementation(this, baseStyle, styleComposition).also(snapshotters::add)
+  }
+
+  private fun requireOpen() {
+    lock.withLock { requireOpenLocked() }
+  }
+
+  private fun requireOpenLocked() {
+    if (closed) throw MapRuntimeClosedException()
   }
 
   override fun close() {

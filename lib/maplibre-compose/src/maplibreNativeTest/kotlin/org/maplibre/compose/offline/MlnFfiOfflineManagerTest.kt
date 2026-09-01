@@ -29,7 +29,7 @@ class MlnFfiOfflineManagerTest {
 
   @AfterTest
   fun cleanUp() {
-    managers.forEach { it.closeForTest() }
+    managers.forEach { it.close() }
     FfiTestPlatform.deleteCacheFile(cacheFile)
   }
 
@@ -46,7 +46,7 @@ class MlnFfiOfflineManagerTest {
     }
 
   @Test
-  fun concurrent_cache_size_changes_are_serialized_by_the_application_owner() = runBlocking {
+  fun concurrent_cache_size_changes_are_serialized_by_the_manager_owner() = runBlocking {
     val manager = manager(budgetedOptions)
 
     withTimeout(30_000) {

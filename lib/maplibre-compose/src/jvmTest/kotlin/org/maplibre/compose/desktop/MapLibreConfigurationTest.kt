@@ -5,6 +5,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
@@ -49,6 +50,10 @@ class MapLibreConfigurationTest {
       createMapRuntime(DesktopRuntimeOptions("com.example.second", maximumCacheSizeBytes = 2_000))
     val firstState = first.createMapState()
     val secondState = second.createMapState()
+
+    assertTrue(first.capabilities.supportsOfflinePacks)
+    assertTrue(first.capabilities.supportsAmbientCacheManagement)
+    assertNotSame(first.offlineManager, second.offlineManager)
 
     first.close()
     first.awaitClosed()

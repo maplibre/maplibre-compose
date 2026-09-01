@@ -56,7 +56,6 @@ import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
 import org.maplibre.compose.mlnffi.setFfiTestMapContent
-import org.maplibre.compose.offline.rememberOfflineManager
 import org.maplibre.compose.offline.rememberOfflinePacksSource
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.sources.GeoJsonData
@@ -455,7 +454,7 @@ class MlnFfiMapCompositionTest {
       onMapLoadFailed = { errors += "mapLoadFailed: $it" },
       onFrame = { onFrame() },
     ) {
-      val offlineManager = rememberOfflineManager()
+      val offlineManager = rememberMapRuntime().offlineManager
       FillLayer(
         id = "offline-packs",
         source = rememberOfflinePacksSource(offlineManager.packs),
