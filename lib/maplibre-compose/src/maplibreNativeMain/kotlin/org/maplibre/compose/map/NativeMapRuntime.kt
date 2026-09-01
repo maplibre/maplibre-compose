@@ -17,6 +17,7 @@ internal object ProcessNativeMapRuntime {
             platformOptions = options,
             resources = MapRuntimeResources {},
             logger = options.logger,
+            snapshotterAdapterFactory = NativeSnapshotterAdapterFactory(options),
           )
           .also {
             currentOptions = options
@@ -45,6 +46,7 @@ internal fun createNativeMapRuntime(options: MlnFfiRuntimeOptions): MapRuntime =
     platformOptions = options,
     resources = MapRuntimeResources {},
     logger = options.logger,
+    snapshotterAdapterFactory = NativeSnapshotterAdapterFactory(options),
   )
 
 internal val RuntimeImplementation.nativeRuntimeOptions: MlnFfiRuntimeOptions

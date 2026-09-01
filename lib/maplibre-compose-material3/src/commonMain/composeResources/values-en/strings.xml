@@ -1,3 +1,10 @@
 <resources>
   <string name="library_name">MapLibre Compose</string>
+  <string name="offline_pack_delete">Delete</string>
+  <string name="offline_pack_delete_title">Delete offline map?</string>
+  <string name="offline_pack_delete_message">Downloaded map data will be removed from this device.</string>
+  <string name="offline_pack_delete_confirm">Delete</string>
+  <string name="offline_pack_delete_cancel">Cancel</string>
+  <string name="offline_pack_delete_error">Deletion failed: %1$s</string>
+  <string name="offline_pack_delete_unknown_error">Unknown error</string>
 </resources>

@@ -6,30 +6,30 @@ map.
 
 **Blocked by:** 06
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] The changed test area contains no redundant, impossible,
+- [x] The changed test area contains no redundant, impossible,
       compatibility-only, or implementation-shape scenarios.
-- [ ] MapRuntime creates and tracks MapSnapshotter children.
-- [ ] A snapshotter has no UI presentation attachment API.
-- [ ] Each capture receives immutable size, camera, density, layout-direction,
+- [x] MapRuntime creates and tracks MapSnapshotter children.
+- [x] A snapshotter has no UI presentation attachment API.
+- [x] Each capture receives immutable size, camera, density, layout-direction,
       and output options.
-- [ ] Repeated captures reuse the snapshotter engine map without retaining the
+- [x] Repeated captures reuse the snapshotter engine map without retaining the
       prior capture request.
-- [ ] A map and snapshotter evaluate the same StyleComposition independently.
-- [ ] Captures execute FIFO, start an evaluator with the request density and
+- [x] A map and snapshotter evaluate the same StyleComposition independently.
+- [x] Captures execute FIFO, start an evaluator with the request density and
       layout direction, and wait for a complete first revision reflecting
       current external state.
-- [ ] A retained revision may optimize reconciliation but never replaces the
+- [x] A retained revision may optimize reconciliation but never replaces the
       per-capture evaluation.
-- [ ] Queued cancellation removes the request; active cancellation or caller
+- [x] Queued cancellation removes the request; active cancellation or caller
       timeout abandons its result and delays the next capture until terminal
       cleanup.
-- [ ] Native capture selects an offscreen backend from runtime configuration and
+- [x] Native capture selects an offscreen backend from runtime configuration and
       internal platform support without borrowing a presentation host.
-- [ ] Snapshotter closure and runtime closure refuse new work, clear queued
+- [x] Snapshotter closure and runtime closure refuse new work, clear queued
       work, and release native resources after active cleanup.
-- [ ] Android, iOS, and Desktop integration tests render representative composed
+- [x] Android, iOS, and Desktop integration tests render representative composed
       content.
 
 ## Test ledger
@@ -41,3 +41,27 @@ map.
 - Add one shared native live-map contract for representative composed output;
   keep platform-specific cases only for backend or image differences.
 - Run `mise run test:android`, `mise run test:desktop`, and `mise run test:ios`.
+
+## Answer
+
+`MapRuntime` now creates and tracks presentation-free `MapSnapshotter` children.
+Each capture evaluates the snapshotter's `StyleComposition` in a new Compose
+evaluator with the request density and layout direction, reconciles its first
+complete revision, and returns a transparent or white-composited bitmap.
+Requests run in FIFO order and use current external state without retaining the
+previous capture request.
+
+The native adapter owns a private static map, offscreen render target, and
+render session. It selects Android OpenGL/Vulkan, Apple Metal, or Desktop
+Metal/Vulkan from runtime support. Capture dimensions are logical; density
+determines the physical bitmap size through the FFI render-target extent.
+Compatible captures reuse the private engine. A density change replaces that
+fixed-scale engine and replays the base style and newly evaluated revision
+inside the same logical snapshotter.
+
+The common fake-adapter suite covers queueing, style ownership, environment,
+cancellation, timeout, closure, and cleanup failures. Shared native tests render
+representative composed content and exercise consecutive captures at different
+densities. Validation passed with `mise run check`, `mise run test:android`,
+`mise run test:desktop`, `mise run test:ios`, and the full
+`mise run test:android:device` suite.

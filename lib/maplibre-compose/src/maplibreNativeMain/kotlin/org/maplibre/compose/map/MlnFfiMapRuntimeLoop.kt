@@ -11,6 +11,7 @@ import org.maplibre.compose.resource.MlnFfiResourceProvider
 import org.maplibre.compose.resource.MlnFfiResourceProviderFactory
 import org.maplibre.compose.resource.MlnFfiRuntimeOwner
 import org.maplibre.nativeffi.map.MapHandle
+import org.maplibre.nativeffi.map.MapMode
 import org.maplibre.nativeffi.map.MapOptions
 import org.maplibre.nativeffi.runtime.RuntimeEvent
 import org.maplibre.nativeffi.runtime.RuntimeEventMask
@@ -51,6 +52,10 @@ internal class MlnFfiMapRuntimeLoop(
   private val resourceProviderFactory: MlnFfiResourceProviderFactory = ::MlnFfiResourceProvider,
   /** Runs on the owner thread once the map exists, before it is published. */
   private val onMapCreated: (MapHandle) -> Unit,
+  /** Runs on the owner thread after [map] publishes the created map. */
+  private val onMapPublished: (MapHandle) -> Unit = {},
+  /** Runs on the owner thread before the map is unpublished and destroyed. */
+  private val onMapClosing: (MapHandle) -> Unit = {},
   /** Runs on the owner thread for every event this loop's runtime raises. */
   private val onEvent: (RuntimeEvent) -> Unit,
   /** Runs on the owner thread once the event queue is momentarily empty. */
@@ -58,6 +63,8 @@ internal class MlnFfiMapRuntimeLoop(
   /** Asks the host for a frame. Called from the owner thread. */
   private val requestFrame: () -> Unit,
   private val mapEventMask: RuntimeEventMask? = null,
+  private val mapMode: MapMode = MapMode.CONTINUOUS,
+  private val onFailure: (Throwable) -> Unit = {},
 ) : AutoCloseable {
 
   private val logger: Logger?
@@ -100,6 +107,9 @@ internal class MlnFfiMapRuntimeLoop(
   @Volatile
   var failure: Throwable? = null
     private set
+
+  /** A failure from [onMapClosing]. */
+  @Volatile private var closingFailure: Throwable? = null
 
   /** The density this loop's map was created with; a change means a new loop, not a resize. */
   val scaleFactor: Double
@@ -177,8 +187,9 @@ internal class MlnFfiMapRuntimeLoop(
   }
 
   /**
-   * Stops the loop and waits for it to finish. The caller must have closed its render session
-   * first: native refuses to destroy a map that still has one attached.
+   * Stops the loop and waits for it to finish. [onMapClosing] releases registered owner-thread
+   * resources before map destruction. The caller must first close any render session that the
+   * callback does not release.
    */
   override fun close() {
     stopRequested = true
@@ -188,6 +199,7 @@ internal class MlnFfiMapRuntimeLoop(
     if (!thread.join(SHUTDOWN_WAIT_MILLIS)) {
       logger?.e { "The MapLibre map runtime thread did not stop within ${SHUTDOWN_WAIT_MILLIS}ms" }
     }
+    closingFailure?.let { throw it }
   }
 
   private fun runLoop() {
@@ -212,6 +224,7 @@ internal class MlnFfiMapRuntimeLoop(
       created = MapHandle.create(runtime, mapOptions())
       onMapCreated(created)
       map = created
+      onMapPublished(created)
       // The renderer cannot attach until a map exists, and nothing else will tell it one now does.
       requestFrame()
       pump(runtime, created)
@@ -219,10 +232,15 @@ internal class MlnFfiMapRuntimeLoop(
       logger?.e(error) { "The MapLibre map runtime loop failed" }
       fail(error)
     } finally {
-      map = null
       awaitShutdown()
       rejectQueuedTasks()
       try {
+        runCatching { created?.let(onMapClosing) }
+          .onFailure {
+            closingFailure = it
+            logger?.e(it) { "Failed to finalize the MapLibre map on its owner thread" }
+          }
+        map = null
         runCatching { created?.close() }
           .onFailure { logger?.e(it) { "Failed to close the MapLibre map" } }
       } finally {
@@ -255,6 +273,7 @@ internal class MlnFfiMapRuntimeLoop(
       it.width = extent.width.coerceAtLeast(1)
       it.height = extent.height.coerceAtLeast(1)
       it.scaleFactor = extent.scaleFactor
+      it.mapMode = mapMode
       mapEventMask?.let { mask -> it.eventMask = mask }
     }
 
@@ -302,7 +321,9 @@ internal class MlnFfiMapRuntimeLoop(
   }
 
   private fun fail(error: Throwable) {
+    val firstFailure = failure == null
     failure = failure ?: error
+    if (firstFailure) runCatching { onFailure(error) }
     rejectQueuedTasks()
     // The renderer republishes the failure, but only from a frame.
     runCatching { requestFrame() }

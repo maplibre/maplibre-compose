@@ -111,6 +111,7 @@ kotlin {
         // The Compose host needs direct Vulkan/OpenGL access; the natives come from the runtime
         // artifact the application picks.
         implementation(libs.lwjgl.core)
+        implementation(libs.lwjgl.egl)
         implementation(libs.lwjgl.opengl)
         implementation(libs.lwjgl.vulkan)
       }

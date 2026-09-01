@@ -125,7 +125,7 @@ internal class VulkanOpenGlMapHost(private val presentationHost: ComposeMapPrese
   private val rendererThread = MapRendererThread("maplibre-linux-vulkan-renderer")
   private val presenter = OpenGlPresenter.native()
   private val frameCompletion = ComposeFrameCompletion()
-  private var vulkan: LinuxVulkanContext? = null
+  private var vulkan: DesktopVulkanContext? = null
   private var texture: LinuxSharedTexture? = null
   private val retiredTextures = mutableMapOf<Long, LinuxSharedTexture>()
   private var generation = 0L
@@ -234,7 +234,10 @@ internal class VulkanOpenGlMapHost(private val presentationHost: ComposeMapPrese
     }
 
     val context =
-      vulkan ?: LinuxVulkanContext.create(currentOpenGlDeviceUuids()).also { vulkan = it }
+      vulkan
+        ?: DesktopVulkanContext.createForLinuxInterop(currentOpenGlDeviceUuids()).also {
+          vulkan = it
+        }
     val newExported = context.createExportedTexture(extent)
     try {
       val newImported =
@@ -317,9 +320,12 @@ internal fun currentOpenGlDeviceUuids(): Set<String> {
   }
 }
 
-/** The Vulkan instance, device, and queue MapLibre renders with on Linux. */
-internal class LinuxVulkanContext
-private constructor(private val requiredDeviceUuids: Set<String>) : AutoCloseable {
+/** A Vulkan instance, device, and queue for desktop interop or an owned offscreen target. */
+internal class DesktopVulkanContext
+private constructor(
+  private val requiredDeviceUuids: Set<String>,
+  private val requireExternalMemoryFd: Boolean,
+) : AutoCloseable {
   private var instance: VkInstance? = null
   private var physicalDevice: VkPhysicalDevice? = null
   private var device: VkDevice? = null
@@ -399,7 +405,10 @@ private constructor(private val requiredDeviceUuids: Set<String>) : AutoCloseabl
       )
       for (index in 0..<devices.capacity()) {
         val candidate = VkPhysicalDevice(devices[index], instance())
-        if (VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME !in stack.vulkanDeviceExtensions(candidate)) {
+        if (
+          requireExternalMemoryFd &&
+            VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME !in stack.vulkanDeviceExtensions(candidate)
+        ) {
           continue
         }
         if (requiredDeviceUuids.isNotEmpty() && deviceUuid(candidate) !in requiredDeviceUuids) {
@@ -412,11 +421,11 @@ private constructor(private val requiredDeviceUuids: Set<String>) : AutoCloseabl
           return
         }
       }
-      val uuidRequirement =
-        if (requiredDeviceUuids.isEmpty()) "" else " and matches Compose's OpenGL device UUID"
+      val extensionRequirement =
+        if (requireExternalMemoryFd) ", $VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME" else ""
+      val uuidRequirement = if (requiredDeviceUuids.isEmpty()) "" else ", and the OpenGL device"
       throw MlnFfiHostException(
-        "No Vulkan device supports graphics, " +
-          "$VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME$uuidRequirement"
+        "No Vulkan device supports graphics$extensionRequirement$uuidRequirement"
       )
     }
   }
@@ -438,11 +447,13 @@ private constructor(private val requiredDeviceUuids: Set<String>) : AutoCloseabl
   private fun createDevice() {
     MemoryStack.stackPush().use { stack ->
       val deviceExtensions = stack.vulkanDeviceExtensions(physicalDevice())
-      check(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME in deviceExtensions) {
-        "Selected Vulkan device does not support $VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME"
+      if (requireExternalMemoryFd) {
+        check(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME in deviceExtensions) {
+          "Selected Vulkan device does not support $VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME"
+        }
       }
       val extensions = LinkedHashSet<String>()
-      extensions.add(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME)
+      if (requireExternalMemoryFd) extensions.add(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME)
       if (VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME in deviceExtensions) {
         extensions.add(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME)
       }
@@ -479,8 +490,17 @@ private constructor(private val requiredDeviceUuids: Set<String>) : AutoCloseabl
   }
 
   companion object {
-    fun create(requiredDeviceUuids: Set<String> = emptySet()): LinuxVulkanContext {
-      val context = LinuxVulkanContext(requiredDeviceUuids)
+    fun createForLinuxInterop(requiredDeviceUuids: Set<String> = emptySet()): DesktopVulkanContext =
+      create(requiredDeviceUuids, requireExternalMemoryFd = true)
+
+    fun createOffscreen(): DesktopVulkanContext =
+      create(emptySet(), requireExternalMemoryFd = false)
+
+    private fun create(
+      requiredDeviceUuids: Set<String>,
+      requireExternalMemoryFd: Boolean,
+    ): DesktopVulkanContext {
+      val context = DesktopVulkanContext(requiredDeviceUuids, requireExternalMemoryFd)
       try {
         context.createInstance()
         context.pickPhysicalDeviceAndQueue()
@@ -496,7 +516,7 @@ private constructor(private val requiredDeviceUuids: Set<String>) : AutoCloseabl
 
 /** A `VkImage` whose memory is exportable to OpenGL as a file descriptor. */
 internal class LinuxExportedVulkanTexture
-private constructor(private val context: LinuxVulkanContext, private val extent: MapExtent) :
+private constructor(private val context: DesktopVulkanContext, private val extent: MapExtent) :
   AutoCloseable {
   private var image = NULL
   private var memory = NULL
@@ -633,7 +653,7 @@ private constructor(private val context: LinuxVulkanContext, private val extent:
   }
 
   companion object {
-    fun create(context: LinuxVulkanContext, extent: MapExtent): LinuxExportedVulkanTexture {
+    fun create(context: DesktopVulkanContext, extent: MapExtent): LinuxExportedVulkanTexture {
       val texture = LinuxExportedVulkanTexture(context, extent)
       try {
         texture.create()

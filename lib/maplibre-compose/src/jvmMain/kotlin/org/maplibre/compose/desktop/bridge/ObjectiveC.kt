@@ -1,6 +1,8 @@
 package org.maplibre.compose.desktop.bridge
 
 import org.lwjgl.system.JNI
+import org.lwjgl.system.MemoryStack
+import org.lwjgl.system.MemoryUtil
 import org.lwjgl.system.MemoryUtil.NULL
 import org.lwjgl.system.macosx.DynamicLinkLoader.RTLD_LOCAL
 import org.lwjgl.system.macosx.DynamicLinkLoader.RTLD_NOW
@@ -52,6 +54,9 @@ internal object ObjectiveC {
     return JNI.invokePPPP(receiver, selector, argument, implementation(receiver, selector))
   }
 
+  fun sendClassPointer(className: String, selectorName: String): Long =
+    sendPointer(cls(className), selectorName)
+
   /** Sends a message returning `NSUInteger`, which comes back through the pointer register. */
   fun sendLong(receiver: Long, selectorName: String): Long = sendPointer(receiver, selectorName)
 
@@ -63,6 +68,21 @@ internal object ObjectiveC {
   fun sendVoid(receiver: Long, selectorName: String, argument: Long) {
     val selector = selector(selectorName)
     JNI.invokePPPV(receiver, selector, argument, implementation(receiver, selector))
+  }
+
+  fun nsString(value: String): Long =
+    MemoryStack.stackPush().use { stack ->
+      sendPointer(
+        cls("NSString"),
+        "stringWithUTF8String:",
+        MemoryUtil.memAddress(stack.UTF8(value)),
+      )
+    }
+
+  fun utf8String(nsString: Long): String? {
+    if (nsString == NULL) return null
+    val utf8 = sendPointer(nsString, "UTF8String")
+    return if (utf8 == NULL) null else MemoryUtil.memUTF8(utf8)
   }
 
   @Synchronized
