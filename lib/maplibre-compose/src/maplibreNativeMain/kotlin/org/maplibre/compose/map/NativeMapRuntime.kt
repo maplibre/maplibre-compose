@@ -1,8 +1,16 @@
 package org.maplibre.compose.map
 
+import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.mlnffi.MlnFfiLock
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.withLock
+import org.maplibre.compose.offline.MlnFfiOfflineManager
+
+private val nativeMapRuntimeCapabilities =
+  MapRuntimeCapabilities(
+    supportsOfflinePacks = true,
+    supportsAmbientCacheManagement = true,
+  )
 
 internal object ProcessNativeMapRuntime {
   private val lock = MlnFfiLock()
@@ -11,26 +19,44 @@ internal object ProcessNativeMapRuntime {
 
   fun get(options: MlnFfiRuntimeOptions): MapRuntime = lock.withLock {
     current?.takeIf { currentOptions == options }
-      ?: RuntimeImplementation(
-          platformOptions = options,
-          resources = MapRuntimeResources {},
-          logger = options.logger,
-          snapshotterAdapterFactory = NativeSnapshotterAdapterFactory(options),
-        )
-        .also {
-          currentOptions = options
-          current = it
+      ?: createNativeMapRuntimeImplementation(options).also {
+        currentOptions = options
+        current = it
+      }
+  }
+
+  fun resetForTest(): Boolean {
+    val runtime =
+      lock.withLock {
+        current.also {
+          current = null
+          currentOptions = null
         }
+      } ?: return true
+    runtime.close()
+    return runCatching { runBlocking { runtime.awaitClosed() } }.isSuccess
   }
 }
 
 internal fun createNativeMapRuntime(options: MlnFfiRuntimeOptions): MapRuntime =
-  RuntimeImplementation(
+  createNativeMapRuntimeImplementation(options)
+
+private fun createNativeMapRuntimeImplementation(
+  options: MlnFfiRuntimeOptions
+): RuntimeImplementation {
+  val offlineManager = MlnFfiOfflineManager(options)
+  return RuntimeImplementation(
     platformOptions = options,
-    resources = MapRuntimeResources {},
+    resources =
+      MapRuntimeResources {
+        check(offlineManager.close()) { "The offline manager did not stop" }
+      },
     logger = options.logger,
+    capabilities = nativeMapRuntimeCapabilities,
+    offlineManagerBackend = offlineManager,
     snapshotterAdapterFactory = NativeSnapshotterAdapterFactory(options),
   )
+}
 
 internal val RuntimeImplementation.nativeRuntimeOptions: MlnFfiRuntimeOptions
   get() = platformOptions as MlnFfiRuntimeOptions

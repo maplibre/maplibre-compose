@@ -191,11 +191,11 @@ Web implements the same runtime type. `MapRuntimeCapabilities` reports
 features supplied by its runtime. Web reports both as false.
 
 `MapRuntime.offlineManager` owns offline packs and ambient-cache management. Its
-pack create, resume, pause, delete, invalidate, and tile-count-limit operations
-require `supportsOfflinePacks`. Its ambient-cache invalidate, clear, and
-maximum-size operations require `supportsAmbientCacheManagement`. An unsupported
-operation throws `UnsupportedOperationException`; Web exposes an empty pack set.
-Ordinary Web map and snapshotter creation remains available.
+pack create, resume, pause, delete, and invalidate operations require
+`supportsOfflinePacks`. Its ambient-cache invalidate, clear, and maximum-size
+operations require `supportsAmbientCacheManagement`. An unsupported operation
+throws `UnsupportedOperationException`; Web exposes an empty pack set. Ordinary
+Web map and snapshotter creation remains available.
 
 ### Map state
 

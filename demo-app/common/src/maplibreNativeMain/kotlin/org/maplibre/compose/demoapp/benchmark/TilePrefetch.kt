@@ -3,26 +3,31 @@ package org.maplibre.compose.demoapp.benchmark
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.flow.first
 import org.maplibre.compose.map.MapState
+import org.maplibre.compose.map.rememberMapRuntime
 import org.maplibre.compose.offline.DownloadProgress
 import org.maplibre.compose.offline.DownloadStatus
 import org.maplibre.compose.offline.OfflineManager
 import org.maplibre.compose.offline.OfflinePackDefinition
-import org.maplibre.compose.offline.rememberOfflineManager
 import org.maplibre.spatialk.geojson.BoundingBox
 
 @Composable
 actual fun rememberTilePrefetcher(): TilePrefetcher {
-  val manager = rememberOfflineManager()
-  return remember(manager) { OfflinePackPrefetcher(manager) }
+  val manager = rememberMapRuntime().offlineManager
+  val pixelRatio = LocalDensity.current.density
+  return remember(manager, pixelRatio) { OfflinePackPrefetcher(manager, pixelRatio) }
 }
 
 actual val benchmarkPlatformLabel: String = nativeBenchmarkPlatformLabel()
 
 internal expect fun nativeBenchmarkPlatformLabel(): String
 
-private class OfflinePackPrefetcher(private val manager: OfflineManager) : TilePrefetcher {
+private class OfflinePackPrefetcher(
+  private val manager: OfflineManager,
+  private val pixelRatio: Float,
+) : TilePrefetcher {
   override val mode = "offline-pack"
 
   override suspend fun ensurePacked(
@@ -34,7 +39,6 @@ private class OfflinePackPrefetcher(private val manager: OfflineManager) : TileP
     camera: MapState,
     onStatus: (String) -> Unit,
   ) {
-    manager.setTileCountLimit(50_000)
     val metadata = "bench:v1:$scenarioId".encodeToByteArray()
     val existing = manager.packs.firstOrNull { it.metadata?.contentEquals(metadata) == true }
     val pack =
@@ -44,6 +48,7 @@ private class OfflinePackPrefetcher(private val manager: OfflineManager) : TileP
             OfflinePackDefinition.TilePyramid(
               styleUrl = styleUrl,
               bounds = bounds,
+              pixelRatio = pixelRatio,
               minZoom = minZoom,
               maxZoom = maxZoom,
             ),
