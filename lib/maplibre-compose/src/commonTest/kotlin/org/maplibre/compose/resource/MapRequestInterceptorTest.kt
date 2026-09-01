@@ -35,11 +35,11 @@ class MapRequestInterceptorTest {
 
   @Test
   fun a_fatal_interceptor_error_propagates() {
-    val interceptor = MapRequestInterceptor { throw OutOfMemoryError("heap") }
+    val interceptor = MapRequestInterceptor { throw FatalTestError() }
     try {
       interceptor.transform(REQUEST)
-      error("expected OutOfMemoryError")
-    } catch (_: OutOfMemoryError) {}
+      error("expected FatalTestError")
+    } catch (_: FatalTestError) {}
   }
 
   @Test
@@ -78,11 +78,11 @@ class MapRequestInterceptorTest {
   @Test
   fun a_fatal_accepts_error_propagates() {
     val provider =
-      MapResourceProvider(accepts = { throw OutOfMemoryError("heap") }, load = { error("unused") })
+      MapResourceProvider(accepts = { throw FatalTestError() }, load = { error("unused") })
     try {
       provider.acceptsOrDeclines(REQUEST)
-      error("expected OutOfMemoryError")
-    } catch (_: OutOfMemoryError) {}
+      error("expected FatalTestError")
+    } catch (_: FatalTestError) {}
   }
 
   @Test
@@ -108,3 +108,5 @@ class MapRequestInterceptorTest {
     val REQUEST = MapResourceRequest("https://tiles.example.com/style.json", MapResourceKind.Style)
   }
 }
+
+private class FatalTestError : Error("heap")
