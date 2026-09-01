@@ -5,7 +5,12 @@ set -u
 serial=emulator-5554
 project_root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 state_dir="$project_root/build/android-emulator"
-diagnostics_dir="$state_dir/diagnostics"
+# Optional first argument names a subdirectory so a retry can keep the first hang.
+if [[ -n "${1:-}" ]]; then
+  diagnostics_dir="$state_dir/diagnostics/$1"
+else
+  diagnostics_dir="$state_dir/diagnostics"
+fi
 sdk_root="$("$(dirname "${BASH_SOURCE[0]}")/android-sdk-root")"
 adb="$sdk_root/platform-tools/adb"
 

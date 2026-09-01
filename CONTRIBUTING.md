@@ -154,16 +154,14 @@ job ran:
 
 The device suites bring their own device. `test:android:device` boots a headless
 emulator for the API level you name, and installs the emulator and system image
-on first use. It passes `-Pmaplibre.android.abis=` for this host so the test
-APKs carry only that JNI ABI; published AARs still carry every ABI. If a session
-install hangs, the task reboots the emulator and retries once. `test:ios` boots
-an iPhone simulator and runs against it.
+on first use. If a session install hangs, the task reboots the emulator and
+retries once. `test:ios` boots an iPhone simulator and runs against it.
 
 You can drive the emulator on its own:
 
 ```bash
-mise run android-emulator:boot 24
-mise run android-emulator:boot 24 --headless
+mise run android-emulator:boot 26
+mise run android-emulator:boot 26 --headless
 mise run android-emulator:stop
 ```
 
