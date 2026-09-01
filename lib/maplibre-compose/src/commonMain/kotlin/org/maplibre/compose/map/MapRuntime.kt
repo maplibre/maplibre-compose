@@ -196,22 +196,20 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
 
   internal fun currentLoadedStyle(): StyleBinding? = loadedStyle.load()
 
-  internal fun refreshSource(id: String) {
-    val refreshed = source(id)
-    sourcesState = if (refreshed == null) sourcesState - id else sourcesState + (id to refreshed)
-  }
-
   internal fun refreshSources() {
     val current = loadedStyle.load()
     sourcesState =
-      if (loadState != StyleLoadState.Ready || current == null) emptyMap()
-      else
-        current
-          .getSources()
-          .mapNotNull { source ->
-            sourceHandle(current, source.id)?.let { source.id to it }
-          }
-          .toMap()
+      if (loadState != StyleLoadState.Ready || current == null) emptyMap() else readSources(current)
+  }
+
+  internal fun readSources(current: StyleBinding): Map<String, SourceHandle> =
+    current
+      .getSources()
+      .mapNotNull { source -> sourceHandle(current, source.id)?.let { source.id to it } }
+      .toMap()
+
+  internal fun updateSources(sources: Map<String, SourceHandle>) {
+    sourcesState = sources
   }
 
   private fun operationGuard(style: StyleBinding): StyleHandleOperationGuard =
@@ -416,6 +414,7 @@ internal constructor(
   private var baseStyleCommandRevision = 0L
   private var cameraCommandRevision = 0L
   private var styleHandleEpoch = 0L
+  private var styleSourceChangeRevision = 0L
   private var closedState: Boolean by mutableStateOf(false)
   private var cameraPositionState: CameraPosition by
     mutableStateOf(initialCameraPosition, structuralEqualityPolicy())
@@ -482,23 +481,63 @@ internal constructor(
 
   internal fun durableStyleCallbacks(): MapAdapter.Callbacks = DurableStyleCallbacks(this)
 
-  internal fun markStyleReady(adapter: MapAdapter): Boolean = lifecycle.serialized {
-    if (!lifecycle.acceptsAdapter(adapter)) return false
-    if (style.currentLoadedStyle() == null) return false
-    style.loadState = StyleLoadState.Ready
-    style.refreshSources()
-    true
+  internal fun markStyleReady(adapter: MapAdapter): Boolean {
+    while (true) {
+      val read = lifecycle.serialized {
+        if (!lifecycle.acceptsAdapter(adapter)) return false
+        val binding = style.currentLoadedStyle() ?: return false
+        StyleSourceRead(binding, styleHandleEpoch, styleSourceChangeRevision)
+      }
+      val sources = runCatching { style.readSources(read.binding) }
+      if (sources.isFailure) {
+        val stillCurrent = lifecycle.serialized { isCurrentStyleSourceRead(adapter, read) }
+        if (!stillCurrent) return false
+        throw requireNotNull(sources.exceptionOrNull())
+      }
+      val committed = lifecycle.serialized {
+        if (!isCurrentStyleSourceRead(adapter, read)) return false
+        if (style.loadState is StyleLoadState.Failed) return false
+        if (styleSourceChangeRevision != read.sourceChangeRevision) return@serialized false
+        style.updateSources(sources.getOrThrow())
+        style.loadState = StyleLoadState.Ready
+        true
+      }
+      if (committed) return true
+    }
   }
 
   internal fun acceptsPresentationEvent(adapter: MapAdapter): Boolean =
     lifecycle.acceptsPresentation(adapter)
 
-  internal fun refreshStyleSources(adapter: MapAdapter, sourceId: String?): Boolean =
-    lifecycle.serialized {
+  internal fun refreshStyleSources(adapter: MapAdapter): Boolean {
+    val read = lifecycle.serialized {
       if (!lifecycle.acceptsAdapter(adapter)) return false
-      if (sourceId == null) style.refreshSources() else style.refreshSource(sourceId)
+      val sourceChangeRevision = ++styleSourceChangeRevision
+      if (style.loadState != StyleLoadState.Ready) return true
+      val binding = style.currentLoadedStyle() ?: return true
+      StyleSourceRead(binding, styleHandleEpoch, sourceChangeRevision)
+    }
+    val sources = runCatching { style.readSources(read.binding) }
+    if (sources.isFailure) {
+      val stillCurrent = lifecycle.serialized { isCurrentStyleSourceRead(adapter, read) }
+      if (!stillCurrent) return false
+      throw requireNotNull(sources.exceptionOrNull())
+    }
+    return lifecycle.serialized {
+      if (!isCurrentStyleSourceRead(adapter, read)) return false
+      if (style.loadState != StyleLoadState.Ready) return false
+      // A later callback performs its own complete read, preserving source order without allowing
+      // this older result to overwrite it.
+      if (styleSourceChangeRevision != read.sourceChangeRevision) return true
+      style.updateSources(sources.getOrThrow())
       true
     }
+  }
+
+  private fun isCurrentStyleSourceRead(adapter: MapAdapter, read: StyleSourceRead): Boolean =
+    lifecycle.acceptsAdapter(adapter) &&
+      styleHandleEpoch == read.styleHandleEpoch &&
+      style.currentLoadedStyle() === read.binding
 
   internal fun updateLoadedStyle(adapter: MapAdapter, loadedStyle: StyleBinding?): Boolean =
     lifecycle.serialized {
@@ -754,6 +793,12 @@ internal constructor(
     val adapter: MapAdapter,
     val value: BaseStyle,
     val revision: Long,
+  )
+
+  private data class StyleSourceRead(
+    val binding: StyleBinding,
+    val styleHandleEpoch: Long,
+    val sourceChangeRevision: Long,
   )
 }
 
