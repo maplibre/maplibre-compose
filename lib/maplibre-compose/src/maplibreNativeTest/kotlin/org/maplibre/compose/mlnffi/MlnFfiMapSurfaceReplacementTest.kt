@@ -104,12 +104,15 @@ class MlnFfiMapSurfaceReplacementTest {
     val factory = FakeMlnFfiMapHostFactory()
     val renderers = mutableListOf<RecordingMlnFfiMapRenderer>()
     var surfaceActive by mutableStateOf(true)
+    var activation by mutableStateOf(0)
 
     setContent {
       ReusableContentHost(active = surfaceActive) {
-        val renderer = remember { RecordingMlnFfiMapRenderer().also { renderers += it } }
-        val hostResult = remember { factory.create(factory.bridges.single()) }
-        MlnFfiMapSurface(renderer, hostResult, Modifier.size(64.dp))
+        key(activation) {
+          val renderer = remember { RecordingMlnFfiMapRenderer().also { renderers += it } }
+          val hostResult = remember { factory.create(factory.bridges.single()) }
+          MlnFfiMapSurface(renderer, hostResult, Modifier.size(64.dp))
+        }
       }
     }
     waitUntil(timeoutMillis = TIMEOUT_MILLIS) {
@@ -127,6 +130,7 @@ class MlnFfiMapSurfaceReplacementTest {
     assertEquals(listOf("onSurfaceAvailable", "onSurfaceLost"), firstRenderer.lifecycle)
     assertTrue(firstHost.leakedFrames.isEmpty())
 
+    activation += 1
     surfaceActive = true
     waitUntil(timeoutMillis = TIMEOUT_MILLIS) {
       factory.created.size == 2 && factory.created[1].drawRecords.isNotEmpty()

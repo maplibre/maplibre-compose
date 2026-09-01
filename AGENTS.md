@@ -127,8 +127,7 @@ For a machine with no SDK, install the pinned SDK with
   without a GPU render driver.
 
 Put a new test on the cheapest layer that can catch the bug. ADR
-`.agents/docs/adr/0001-test-suite-layers.md` is the rule. The overhaul spec is
-`.agents/scratch/test-suite-overhaul/spec.md`.
+`.agents/docs/adr/0001-test-suite-layers.md` is the rule.
 
 | Layer                      | Host                                                                  | Typical source set                    |
 | -------------------------- | --------------------------------------------------------------------- | ------------------------------------- |

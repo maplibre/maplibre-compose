@@ -23,9 +23,15 @@ internal expect fun pingFfiTestHangWatchdog(timeoutMillis: Long = 50_000L)
 internal fun ComposeUiTest.disposeFfiTestContent() {
   try {
     setContent {}
-  } catch (_: Throwable) {
-    // The runner may already have torn the composition down.
+  } catch (error: IllegalStateException) {
+    if (!isComposeAlreadyFinished(error)) throw error
   }
+}
+
+private fun isComposeAlreadyFinished(error: IllegalStateException): Boolean {
+  val message = error.message.orEmpty()
+  return message.contains("already", ignoreCase = true) ||
+    message.contains("finished", ignoreCase = true)
 }
 
 /**

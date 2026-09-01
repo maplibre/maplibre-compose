@@ -1,5 +1,6 @@
 package org.maplibre.compose.map
 
+import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.mlnffi.MlnFfiLock
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.withLock
@@ -38,6 +39,7 @@ internal object ProcessNativeMapRuntime {
       runtime
     }
     previous?.close()
+    if (previous != null) runBlocking { previous.awaitClosed() }
   }
 }
 

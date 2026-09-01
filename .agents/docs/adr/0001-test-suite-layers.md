@@ -66,8 +66,8 @@ CI topology follows the layers:
 
 - Cheap layers run once per job type that can host them, and fail on their own.
   Android host tests do not share a job with the emulator.
-- Live layers run on one job per engine or backend that can disagree, not on
-  every OS/arch that packages that backend.
+- Live layers run on every architecture that packages a backend. ARM runners
+  have caught defects that x64 missed.
 - A retry retries one failed live job. It does not re-run cheap tests.
 
 ## Consequences

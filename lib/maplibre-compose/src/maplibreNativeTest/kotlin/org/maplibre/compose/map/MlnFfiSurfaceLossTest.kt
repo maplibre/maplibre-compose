@@ -94,6 +94,10 @@ class MlnFfiSurfaceLossTest {
     }
   }
 
+  /**
+   * The reads go through the retained Kotlin store. [MlnFfiFeatureStateStore.replay] writes that
+   * snapshot into the replacement render session. Native paint after restore is `FeatureStateTest`.
+   */
   @Test
   fun feature_state_accepts_mutations_without_a_surface_and_replays_into_its_replacement() {
     val fixture = BridgeMapFixture.create()

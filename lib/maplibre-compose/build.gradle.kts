@@ -310,7 +310,9 @@ val jvmUnitTestClasses =
     "org.maplibre.compose.util.JsonConversionsTest",
     "org.maplibre.compose.util.MlnFfiConversionsTest",
     "org.maplibre.compose.util.NumberFormatterTest",
+    "org.maplibre.compose.desktop.bridge.ComposeMapPresentationHostBridgeLifecycleTest",
     "org.maplibre.compose.desktop.skiko.SkikoReflectionContractTest",
+    "org.maplibre.compose.desktop.skiko.WindowsDirect3DDeviceLayoutTest",
   )
 
 val unitTestsOnly = providers.gradleProperty("maplibre.tests").orNull == "unit"
