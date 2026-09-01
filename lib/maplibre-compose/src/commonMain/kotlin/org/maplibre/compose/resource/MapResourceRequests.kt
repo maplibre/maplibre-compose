@@ -29,8 +29,8 @@ public data class MapResourceRequest(
 /**
  * Changes to apply to a resource request.
  *
- * A null [url] keeps the incoming URL. [headers] are added to the HTTP request that follows a URL
- * rewrite. Header logic should key off the URL the client will send.
+ * A null or blank [url] keeps the incoming URL. [headers] are added to the HTTP request that
+ * follows a URL rewrite. Header logic should key off the URL the client will send.
  */
 public data class MapRequestTransform(
   public val url: String? = null,

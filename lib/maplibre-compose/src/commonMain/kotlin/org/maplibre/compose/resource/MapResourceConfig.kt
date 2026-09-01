@@ -20,12 +20,15 @@ internal class MapResourceConfig(
   }
 }
 
-internal fun MapRequestInterceptor?.transform(request: MapResourceRequest): MapRequestTransform =
-  try {
-    this?.intercept(request) ?: MapRequestTransform()
-  } catch (_: Exception) {
-    MapRequestTransform()
-  }
+internal fun MapRequestInterceptor?.transform(request: MapResourceRequest): MapRequestTransform {
+  val result =
+    try {
+      this?.intercept(request) ?: MapRequestTransform()
+    } catch (_: Exception) {
+      MapRequestTransform()
+    }
+  return if (result.url != null && result.url.isEmpty()) result.copy(url = null) else result
+}
 
 /**
  * Returns false when [MapResourceProvider.accepts] throws, so an engine callback can still decide.

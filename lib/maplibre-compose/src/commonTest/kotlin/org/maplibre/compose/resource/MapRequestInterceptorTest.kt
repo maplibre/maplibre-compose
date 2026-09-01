@@ -12,6 +12,13 @@ import org.maplibre.compose.map.mapRuntimeForTest
 class MapRequestInterceptorTest {
 
   @Test
+  fun a_blank_url_rewrite_keeps_the_incoming_url() {
+    val interceptor = MapRequestInterceptor { MapRequestTransform(url = "") }
+    val transform = interceptor.transform(REQUEST)
+    assertEquals(null, transform.url)
+  }
+
+  @Test
   fun a_null_interceptor_keeps_the_url_and_adds_no_headers() {
     val transform = (null as MapRequestInterceptor?).transform(REQUEST)
     assertEquals(null, transform.url)

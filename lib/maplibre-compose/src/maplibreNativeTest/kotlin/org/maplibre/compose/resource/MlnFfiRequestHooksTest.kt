@@ -92,6 +92,25 @@ class MlnFfiRequestHooksTest {
   }
 
   @Test
+  fun a_packaged_resource_request_is_not_recorded() {
+    val transforms =
+      NativeRequestTransforms(
+        MapResourceConfig(
+          interceptor = {
+            MapRequestTransform(
+              url = "jar:file:/app.jar!/style.json",
+              headers = mapOf("Authorization" to "Bearer a"),
+            )
+          }
+        )
+      )
+    transforms.rewrittenUrl(
+      MapResourceRequest("https://tiles.example.com/style.json", MapResourceKind.Style)
+    )
+    assertEquals(0, transforms.pendingCount())
+  }
+
+  @Test
   fun a_provider_accepted_request_is_not_recorded() {
     val transforms =
       NativeRequestTransforms(

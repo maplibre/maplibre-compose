@@ -2,6 +2,7 @@ package org.maplibre.compose.resource
 
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
+import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.nativeffi.resource.HttpHeader
 import org.maplibre.nativeffi.resource.HttpHeaderTransformCallback
 import org.maplibre.nativeffi.resource.ResourceKind
@@ -19,7 +20,8 @@ internal fun RuntimeHandle.installRequestInterceptor(config: MapResourceConfig) 
       }
     )
     headersInstalled = true
-  } catch (_: Throwable) {
+  } catch (error: Throwable) {
+    rethrowIfFatal(error)
     // OpenHarmony and the browser FFI decline header transforms.
   }
   setResourceTransform(
@@ -35,8 +37,9 @@ internal fun RuntimeHandle.installRequestInterceptor(config: MapResourceConfig) 
  * Remembers the URL-callback interceptor result so the header callback can reuse it.
  *
  * Native asks for the URL and headers in separate callbacks. Pending results are queued by the URL
- * the client will send. A provider-accepted request never reaches the header callback, so it is not
- * recorded. Header callbacks consume the queue in URL-callback order.
+ * the client will send. A request the user provider or the packaged-resource loader will handle
+ * never reaches the header callback, so it is not recorded. Header callbacks consume the queue in
+ * URL-callback order.
  */
 internal class NativeRequestTransforms(private val config: MapResourceConfig) {
   private val lock = reentrantLock()
@@ -45,8 +48,7 @@ internal class NativeRequestTransforms(private val config: MapResourceConfig) {
   fun rewrittenUrl(request: MapResourceRequest): String {
     val transform = config.interceptor().transform(request)
     val nextUrl = transform.url ?: request.url
-    val nextRequest = MapResourceRequest(nextUrl, request.kind)
-    if (config.provider?.acceptsOrDeclines(nextRequest) != true) {
+    if (shouldRecord(nextUrl, request.kind)) {
       lock.withLock {
         pending.getOrPut(RequestKey(nextUrl, request.kind), ::ArrayDeque).addLast(transform)
       }
@@ -69,6 +71,12 @@ internal class NativeRequestTransforms(private val config: MapResourceConfig) {
   }
 
   internal fun pendingCount(): Int = lock.withLock { pending.values.sumOf { it.size } }
+
+  private fun shouldRecord(nextUrl: String, kind: MapResourceKind): Boolean {
+    val nextRequest = MapResourceRequest(nextUrl, kind)
+    if (config.provider?.acceptsOrDeclines(nextRequest) == true) return false
+    return isMapLibresToFetch(nextUrl)
+  }
 
   private data class RequestKey(val url: String, val kind: MapResourceKind)
 }
