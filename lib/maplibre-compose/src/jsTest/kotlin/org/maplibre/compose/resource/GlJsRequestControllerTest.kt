@@ -2,6 +2,8 @@ package org.maplibre.compose.resource
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFails
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -97,6 +99,25 @@ class GlJsRequestControllerTest {
   }
 
   @Test
+  fun each_runtime_registers_an_unguessable_protocol_scheme() {
+    val first =
+      GlJsRequestController(
+        MapResourceConfig(provider = MapResourceProvider("app") { ByteArray(0) })
+      )
+    val second =
+      GlJsRequestController(
+        MapResourceConfig(provider = MapResourceProvider("app") { ByteArray(0) })
+      )
+    assertTrue(SCHEME.matches(first.scheme))
+    assertTrue(SCHEME.matches(second.scheme))
+    assertNotEquals(first.scheme, second.scheme)
+    val foreign = first.protocolUrl("app://style.json", MapResourceKind.Style)
+    assertFails { second.requireAccepted(foreign) }
+    first.close()
+    second.close()
+  }
+
+  @Test
   fun a_rejected_https_url_is_not_rewritten_to_the_protocol() {
     val controller =
       GlJsRequestController(
@@ -104,5 +125,9 @@ class GlJsRequestControllerTest {
       )
     assertNull(controller.transformRequest("https://tiles.example.com/style.json", "Tile"))
     controller.close()
+  }
+
+  private companion object {
+    val SCHEME = Regex("^mlc-res-[0-9a-f]{32}$")
   }
 }

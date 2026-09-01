@@ -17,7 +17,7 @@ import org.maplibre.compose.gljs.addProtocol
 import org.maplibre.compose.gljs.removeProtocol
 
 internal class GlJsRequestController(private val config: MapResourceConfig) : AutoCloseable {
-  val scheme = "mlc-res-${nextId++}"
+  val scheme = newResourceProtocolScheme()
   private val scope =
     CoroutineScope(
       SupervisorJob() + Dispatchers.Default + CoroutineName("maplibre-compose-js-resource")
@@ -79,7 +79,9 @@ internal class GlJsRequestController(private val config: MapResourceConfig) : Au
   }
 
   fun parseProtocolUrl(protocolUrl: String): MapResourceRequest {
-    val remainder = protocolUrl.substringAfter("://")
+    val prefix = "$scheme://"
+    require(protocolUrl.startsWith(prefix)) { "Invalid resource protocol URL: $protocolUrl" }
+    val remainder = protocolUrl.substring(prefix.length)
     val separator = remainder.indexOf('/')
     require(separator > 0) { "Invalid resource protocol URL: $protocolUrl" }
     val kind = remainder.substring(0, separator).toStoredResourceKind()
@@ -92,10 +94,12 @@ internal class GlJsRequestController(private val config: MapResourceConfig) : Au
     scope.cancel()
     if (protocolInstalled) removeProtocol(scheme)
   }
+}
 
-  private companion object {
-    var nextId = 1L
-  }
+/** A per-runtime scheme that another map on the page cannot guess. */
+private fun newResourceProtocolScheme(): String {
+  val token = js("crypto.randomUUID()").unsafeCast<String>().replace("-", "")
+  return "mlc-res-$token"
 }
 
 private val undefined: Any? = js("undefined")
