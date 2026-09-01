@@ -18,16 +18,15 @@ The sequence they belong to is:
 2. ~~Once it surpasses the Android and iOS integrations in quality, rewrite
    those on maplibre-native-ffi too.~~ Done: every non-web platform runs on
    maplibre-native-ffi.
-3. Redesign the public API and internal architecture around that one native
+3. ~~Redesign the public API and internal architecture around that one native
    integration, deciding along the way whether web folds in via Wasm or stays on
-   MapLibre GL JS. In progress; [API_REDESIGN.md](./API_REDESIGN.md) is the
-   plan.
+   MapLibre GL JS.~~ Done. Web stays on MapLibre GL JS. The public map API is
+   `MapRuntime`, `MapState`, and `MapPresentation`.
 4. Implement the missing common APIs once — twice at most, if web stays separate
    — against that shared integration.
 
-Everything below is step 4 work. It waits on step 3 because the redesign decides
-the objects these APIs attach to, such as the runtime that owns HTTP and offline
-work.
+Everything below is step 4 work. The ownership API decides the objects these
+APIs attach to, such as the runtime that owns HTTP and offline work.
 
 The corollary is that **what the FFI can do is the target surface**. Whether the
 Android or iOS SDK exposes a capability today does not decide whether it belongs
@@ -38,11 +37,11 @@ Found by diffing the public surface of `MapHandle`, `RuntimeHandle`, and
 `RenderSessionHandle` against desktop call sites during the desktop rewrite.
 Nothing here is a desktop bug.
 
-## Architecture to fix at step 3
+## Architecture the redesign addressed
 
 Not missing capabilities — shapes in the common layer that the desktop rewrite
-had to work around, and that step 3 is the moment to fix rather than reproduce.
-The desktop rewrite exposed them.
+had to work around, and that the ownership API was the moment to fix rather than
+reproduce. The desktop rewrite exposed them.
 
 **Unloading the outgoing style is a contract no engine states.** Switching a
 style has to mark the previous one unloaded, because `LayerManager` skips anchor

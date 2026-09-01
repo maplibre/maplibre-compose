@@ -9,10 +9,8 @@ callback), and [#952](https://github.com/maplibre/maplibre-compose/issues/952)
 (double-click callback). The shapes below are representative, not locked. A
 prototype will change them.
 
-This ships in the same release as step 4 of
-[API_REDESIGN.md](./API_REDESIGN.md), and it designs against that API:
-`MaplibreMap(state)` with the camera on `MapState`. `GestureOptions` is deleted,
-with no compatibility layer.
+This ships against the ownership API: `MaplibreMap(state)` with the camera on
+`MapState`. `GestureOptions` is deleted, with no compatibility layer.
 
 ## What the current code is
 
@@ -219,9 +217,8 @@ cost.
 The internal `GestureTarget` and `GestureContinuation` become a public
 gesture-camera facet of `MapState` — a narrow handle such as
 `state.gestureCamera`, so the state's main camera API stays `setCamera` and
-`animateCamera`. Per-frame gesture deltas are commands in the execution model of
-[API_REDESIGN.md](./API_REDESIGN.md): async, no result. Discrete eased gestures
-are the awaiting variants.
+`animateCamera`. Per-frame gesture deltas are async camera commands with no
+result. Discrete eased gestures are the awaiting variants.
 
 The gesture-token and continuation lifecycle stays owned by the gesture node in
 the UI, because gestures attach and detach with the render session. The
@@ -296,8 +293,7 @@ that gains emission later lights up with no API change.
 ## Attachment
 
 `MaplibreMap(state)` takes `gestures: MapGestures = MapGestures.Standard` in
-place of the `gestureOptions` parameter sketched in
-[API_REDESIGN.md](./API_REDESIGN.md). The parameter is the only public
+place of a `gestureOptions` parameter. The parameter is the only public
 attachment in 0.16. A public `Modifier.mapGestures(state, gestures)` can be
 extracted later without breaking the parameter form, so it waits for demand.
 
