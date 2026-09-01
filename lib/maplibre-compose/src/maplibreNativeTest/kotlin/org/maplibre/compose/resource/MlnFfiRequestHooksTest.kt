@@ -37,6 +37,38 @@ class MlnFfiRequestHooksTest {
   }
 
   @Test
+  fun a_rewrite_alias_does_not_steal_another_request_headers() {
+    val transforms =
+      NativeRequestTransforms(
+        MapResourceConfig(
+          interceptor = { request ->
+            when (request.url) {
+              "https://origin.example/a" ->
+                MapRequestTransform(
+                  url = "https://cdn.example/a",
+                  headers = mapOf("Authorization" to "Bearer a"),
+                )
+              "https://cdn.example/a" ->
+                MapRequestTransform(
+                  url = "https://other.example/a",
+                  headers = mapOf("Authorization" to "Bearer b"),
+                )
+              else -> MapRequestTransform()
+            }
+          }
+        )
+      )
+    transforms.rewrittenUrl(MapResourceRequest("https://origin.example/a", MapResourceKind.Style))
+    transforms.rewrittenUrl(MapResourceRequest("https://cdn.example/a", MapResourceKind.Style))
+    val first =
+      transforms.headers(MapResourceRequest("https://cdn.example/a", MapResourceKind.Style))
+    val second =
+      transforms.headers(MapResourceRequest("https://other.example/a", MapResourceKind.Style))
+    assertEquals("Bearer a", first.single().value)
+    assertEquals("Bearer b", second.single().value)
+  }
+
+  @Test
   fun every_named_kind_maps_to_the_common_kind() {
     assertEquals(MapResourceKind.Style, ResourceKind.STYLE.toCommon())
     assertEquals(MapResourceKind.Source, ResourceKind.SOURCE.toCommon())

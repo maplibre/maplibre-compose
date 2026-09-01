@@ -33,6 +33,6 @@ internal fun MapRequestInterceptor?.transform(request: MapResourceRequest): MapR
 internal fun MapResourceProvider.acceptsOrDeclines(request: MapResourceRequest): Boolean =
   try {
     accepts(request)
-  } catch (_: Throwable) {
+  } catch (_: Exception) {
     false
   }

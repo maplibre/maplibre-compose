@@ -60,6 +60,16 @@ class MapRequestInterceptorTest {
   }
 
   @Test
+  fun a_fatal_accepts_error_propagates() {
+    val provider =
+      MapResourceProvider(accepts = { throw OutOfMemoryError("heap") }, load = { error("unused") })
+    try {
+      provider.acceptsOrDeclines(REQUEST)
+      error("expected OutOfMemoryError")
+    } catch (_: OutOfMemoryError) {}
+  }
+
+  @Test
   fun a_scheme_provider_accepts_only_that_scheme() = runTest {
     val provider = MapResourceProvider("app") { "body".encodeToByteArray() }
     assertTrue(provider.accepts(MapResourceRequest("app://style.json", MapResourceKind.Style)))
