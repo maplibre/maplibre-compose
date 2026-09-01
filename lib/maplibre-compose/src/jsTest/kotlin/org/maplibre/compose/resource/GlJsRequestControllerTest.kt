@@ -1,0 +1,61 @@
+package org.maplibre.compose.resource
+
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+
+class GlJsRequestControllerTest {
+
+  @Test
+  fun an_empty_config_leaves_the_request_unchanged() {
+    val controller = GlJsRequestController(MapResourceConfig())
+    assertNull(controller.transformRequest("https://tiles.example.com/style.json", "Style"))
+    controller.close()
+  }
+
+  @Test
+  fun an_interceptor_rewrites_the_url_and_adds_headers() {
+    val controller =
+      GlJsRequestController(
+        MapResourceConfig(
+          interceptor = { request ->
+            MapRequestTransform(
+              url = request.url.replace("http://", "https://"),
+              headers = mapOf("Authorization" to "Bearer x"),
+            )
+          }
+        )
+      )
+    val result = controller.transformRequest("http://tiles.example.com/style.json", "Style")
+    val dynamic = result.asDynamic()
+    assertEquals("https://tiles.example.com/style.json", dynamic.url as String)
+    assertEquals("Bearer x", dynamic.headers["Authorization"] as String)
+    controller.close()
+  }
+
+  @Test
+  fun an_accepted_provider_rewrites_to_the_runtime_protocol() {
+    val controller =
+      GlJsRequestController(
+        MapResourceConfig(provider = MapResourceProvider("app") { ByteArray(0) })
+      )
+    val result = controller.transformRequest("app://style.json", "Style")
+    val url = result.asDynamic().url as String
+    assertTrue(url.startsWith("${controller.scheme}://Style/"))
+    val parsed = controller.parseProtocolUrl(url)
+    assertEquals("app://style.json", parsed.url)
+    assertEquals(MapResourceKind.Style, parsed.kind)
+    controller.close()
+  }
+
+  @Test
+  fun a_rejected_https_url_is_not_rewritten_to_the_protocol() {
+    val controller =
+      GlJsRequestController(
+        MapResourceConfig(provider = MapResourceProvider("app") { ByteArray(0) })
+      )
+    assertNull(controller.transformRequest("https://tiles.example.com/style.json", "Tile"))
+    controller.close()
+  }
+}

@@ -1,0 +1,64 @@
+---
+title: Authenticate and serve map requests
+description: Add headers or serve selected map resources from the application.
+---
+
+import { Aside, Code } from "@astrojs/starlight/components";
+import Api from "../../components/Api.astro";
+import { region } from "../../snippets";
+
+import requests from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Requests.kt?raw";
+
+MapLibre fetches styles, tiles, glyphs, and sprites as the camera moves. An
+application that must sign those requests, or serve some of them from its own
+storage, installs a hook on the <Api of="MapRuntime" />.
+
+A <Api of="MapRequestInterceptor" /> rewrites the URL or adds headers. The
+engine still fetches the resource, so its cache and retry stay in use. Use
+this for an `Authorization` header or an API key.
+
+A <Api of="MapResourceProvider" /> supplies the response bytes. The engine
+skips its HTTP client for every request the provider accepts. Use this for a
+custom URL scheme or an application archive.
+
+## Add headers or rewrite a URL
+
+<Api of="MapRuntime.setRequestInterceptor" /> replaces the interceptor on a
+live runtime. The change applies to requests that start after the call
+returns:
+
+<Code code={region(requests, "interceptor")} lang="kotlin" title="App.kt" />
+
+Compare the URL against the origins you control before you attach a
+credential. A style also names glyphs, sprites, and tiles on hosts you do not
+own.
+
+The interceptor may run on a network thread. It must return quickly, must be
+safe to call concurrently, and must not call map APIs.
+
+A URL rewrite runs before headers are applied. Header logic should key off the
+URL the client will send.
+
+Pass the same interceptor to <Api of="createMapRuntime" /> in
+`MapRuntimeOptions` when the runtime should start with it.
+
+## Serve bytes from the application
+
+A provider decides first, then loads. <Api of="MapResourceProvider.accepts" />
+runs on a network thread and must return quickly. Return true only for
+requests this provider will load. <Api of="MapResourceProvider.load" /> may
+suspend; cancellation means the map no longer needs that resource.
+
+The shortest form matches a URL scheme:
+
+<Code code={region(requests, "provider")} lang="kotlin" title="App.kt" />
+
+Pass the provider in `MapRuntimeOptions` when you call
+<Api of="createMapRuntime" />. A provider is fixed for the lifetime of the
+runtime.
+
+<Aside type="note">
+  On the web, a provider can serve any URL that `accepts` returns true for.
+  Accepted `https` URLs are rewritten to a Compose protocol and served on the
+  main thread.
+</Aside>

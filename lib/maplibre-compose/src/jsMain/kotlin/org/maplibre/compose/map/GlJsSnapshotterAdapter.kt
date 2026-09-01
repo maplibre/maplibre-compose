@@ -19,6 +19,7 @@ import org.maplibre.compose.gljs.isTerminalStyleLoadFailure
 import org.maplibre.compose.gljs.styleJson
 import org.maplibre.compose.gljs.styleUrl
 import org.maplibre.compose.gljs.subscribe
+import org.maplibre.compose.resource.GlJsRequestController
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.GlJsStyleBinding
@@ -30,13 +31,18 @@ import web.dom.document
 import web.html.HTMLCanvasElement
 import web.html.HTMLElement
 
-internal class GlJsSnapshotterAdapterFactory(private val logger: Logger?) :
-  SnapshotterAdapterFactory {
-  override fun create(): SnapshotterAdapter = GlJsSnapshotterAdapter(logger)
+internal class GlJsSnapshotterAdapterFactory(
+  private val logger: Logger?,
+  private val requests: GlJsRequestController? = null,
+) : SnapshotterAdapterFactory {
+  override fun create(): SnapshotterAdapter = GlJsSnapshotterAdapter(logger, requests)
 }
 
 /** One private GL JS map and DOM target for a Web snapshotter. */
-private class GlJsSnapshotterAdapter(private val logger: Logger?) : SnapshotterAdapter {
+private class GlJsSnapshotterAdapter(
+  private val logger: Logger?,
+  private val requests: GlJsRequestController?,
+) : SnapshotterAdapter {
   private var open = true
   private var map: MaplibreMap? = null
   private var container: HTMLElement? = null
@@ -191,6 +197,9 @@ private class GlJsSnapshotterAdapter(private val logger: Logger?) : SnapshotterA
         maxCanvasSize = arrayOf(MAX_CANVAS_SIZE.toDouble(), MAX_CANVAS_SIZE.toDouble())
         canvasContextAttributes =
           unsafeJso<CanvasContextAttributes> { preserveDrawingBuffer = true }
+        requests?.let { controller ->
+          transformRequest = { url, resourceType -> controller.transformRequest(url, resourceType) }
+        }
       }
     GlJsRuntime.pointAtWorker(DEFAULT_WORKER_URL)
     return try {

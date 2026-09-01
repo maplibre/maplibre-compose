@@ -40,6 +40,7 @@ internal actual fun ComposableMapView(
         callbacks = callbacks,
         logger = logger,
         layoutDirection = layoutDirection,
+        requests = state.runtime.jsRequests,
       )
     }
 

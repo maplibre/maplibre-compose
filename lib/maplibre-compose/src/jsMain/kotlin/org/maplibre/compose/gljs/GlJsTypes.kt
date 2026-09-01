@@ -32,6 +32,7 @@ internal external interface MapOptions {
   var canvasContextAttributes: CanvasContextAttributes?
   /** `[width, height]` in physical pixels, above which MapLibre lowers its own pixel ratio. */
   var maxCanvasSize: Array<Double>?
+  var transformRequest: ((url: String, resourceType: String?) -> Any?)?
 }
 
 internal external interface CanvasContextAttributes {
@@ -58,6 +59,7 @@ internal external interface SourceSpecification
 
 internal external interface RequestParameters {
   val url: String
+  val headers: Any?
 }
 
 internal external interface ProtocolResponse {

@@ -5,6 +5,8 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import org.maplibre.compose.mlnffi.MlnFfiApplication
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
+import org.maplibre.compose.resource.MapRequestInterceptor
+import org.maplibre.compose.resource.MapResourceProvider
 
 /** Configuration for one desktop map runtime that the caller closes. */
 public data class DesktopRuntimeOptions(
@@ -15,10 +17,22 @@ public data class DesktopRuntimeOptions(
 
   /** Receives diagnostic messages from maps and shared runtime resources. */
   public val logger: Logger? = Logger.withTag("maplibre-compose"),
+
+  /** Rewrites URLs and headers for every resource this runtime fetches. */
+  public val requestInterceptor: MapRequestInterceptor? = null,
+
+  /** Serves bytes for resource URLs this provider accepts. */
+  public val resourceProvider: MapResourceProvider? = null,
 )
 
 internal fun DesktopRuntimeOptions.toMlnFfiRuntimeOptions(): MlnFfiRuntimeOptions =
-  desktopRuntimeOptions(applicationId, maximumCacheSizeBytes, logger)
+  desktopRuntimeOptions(
+    applicationId,
+    maximumCacheSizeBytes,
+    logger,
+    requestInterceptor,
+    resourceProvider,
+  )
 
 /** Desktop configuration for MapLibre Compose. */
 public object MapLibre {
@@ -36,8 +50,18 @@ public object MapLibre {
     applicationId: String = inferredApplicationId(),
     maximumCacheSizeBytes: Long? = null,
     logger: Logger? = Logger.withTag("maplibre-compose"),
+    requestInterceptor: MapRequestInterceptor? = null,
+    resourceProvider: MapResourceProvider? = null,
   ) {
-    MlnFfiApplication.configure(desktopRuntimeOptions(applicationId, maximumCacheSizeBytes, logger))
+    MlnFfiApplication.configure(
+      desktopRuntimeOptions(
+        applicationId,
+        maximumCacheSizeBytes,
+        logger,
+        requestInterceptor,
+        resourceProvider,
+      )
+    )
   }
 }
 
@@ -45,6 +69,8 @@ internal fun desktopRuntimeOptions(
   applicationId: String = inferredApplicationId(),
   maximumCacheSizeBytes: Long? = null,
   logger: Logger? = Logger.withTag("maplibre-compose"),
+  requestInterceptor: MapRequestInterceptor? = null,
+  resourceProvider: MapResourceProvider? = null,
 ): MlnFfiRuntimeOptions {
   require(APPLICATION_ID.matches(applicationId)) {
     "applicationId must contain only nonempty dot-separated letters, digits, underscores, or hyphens"
@@ -54,6 +80,8 @@ internal fun desktopRuntimeOptions(
     kotlinx.io.files.Path(cachePath.toString()),
     maximumCacheSizeBytes,
     logger,
+    requestInterceptor,
+    resourceProvider,
   )
 }
 

@@ -111,6 +111,7 @@ internal fun MlnFfiMapView(
           layoutDirection = layoutDirection,
           cacheFile = applicationOptions.cacheFile,
           resourceProviderFactory = applicationOptions.resourceProviderFactory,
+          resourceConfig = state.runtime.resourceConfig,
         )
       }
   val session = remember(unpreparedSession) { unpreparedSession.apply { preparePresentation() } }

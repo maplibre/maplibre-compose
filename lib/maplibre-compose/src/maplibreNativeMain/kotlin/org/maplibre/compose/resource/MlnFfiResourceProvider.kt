@@ -1,8 +1,15 @@
 package org.maplibre.compose.resource
 
 import co.touchlab.kermit.Logger
+import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.nativeffi.resource.ResourceErrorReason
 import org.maplibre.nativeffi.resource.ResourceProviderCallback
@@ -40,18 +47,29 @@ internal class MlnFfiResourceProvider(
   private val passThroughNetwork: Boolean = true,
   /** Test seam: observes when a native completion call finishes and whether it failed. */
   private val onResponseCompletionFinished: ((url: String, error: Throwable?) -> Unit)? = null,
+  @Volatile var userProvider: MapResourceProvider? = null,
 ) : ResourceProviderCallback, AutoCloseable {
 
   private val logger: Logger?
     get() = getLogger()
 
   private val accepting = AtomicBoolean(true)
+  private val userScope =
+    CoroutineScope(
+      SupervisorJob() + Dispatchers.Default + CoroutineName("maplibre-compose-resource-provider")
+    )
 
   override fun handle(
     request: ResourceRequest,
     handle: ResourceRequestHandle,
   ): ResourceProviderDecision {
     val url = request.resolvedUrl
+    val mapRequest = MapResourceRequest(url, request.kind.toCommon())
+    val user = userProvider
+    if (user != null && user.accepts(mapRequest)) {
+      takeUser(FfiResourceRequest(handle), mapRequest, url, request.requestedUrl)
+      return ResourceProviderDecision.HANDLE
+    }
     if (passThroughNetwork && isMapLibresToFetch(url)) {
       return ResourceProviderDecision.PASS_THROUGH
     }
@@ -60,6 +78,62 @@ internal class MlnFfiResourceProvider(
     // affinity, so the answer need not happen before this returns.
     take(FfiResourceRequest(handle), url, request.requestedUrl)
     return ResourceProviderDecision.HANDLE
+  }
+
+  private fun takeUser(
+    request: TakenResourceRequest,
+    mapRequest: MapResourceRequest,
+    url: String,
+    requestedUrl: String,
+  ) {
+    if (!accepting.load()) {
+      refuse(request, url, requestedUrl)
+      return
+    }
+    val provider = userProvider
+    if (provider == null) {
+      refuse(request, url, requestedUrl)
+      return
+    }
+    userScope.launch {
+      serveUser(request, provider, mapRequest, url, requestedUrl)
+    }
+  }
+
+  private suspend fun serveUser(
+    request: TakenResourceRequest,
+    provider: MapResourceProvider,
+    mapRequest: MapResourceRequest,
+    url: String,
+    requestedUrl: String,
+  ) {
+    try {
+      request.use { open ->
+        if (open.isCancelled()) return
+        val response =
+          try {
+            provider.load(mapRequest).toResourceResponse()
+          } catch (error: CancellationException) {
+            return
+          } catch (error: Throwable) {
+            rethrowIfFatal(error)
+            failure(url, requestedUrl, ResourceErrorReason.OTHER, "failed to load", error, logger)
+          }
+        if (open.isCancelled()) return
+        var completionError: Throwable? = null
+        try {
+          open.complete(response)
+        } catch (error: Throwable) {
+          completionError = error
+          throw error
+        } finally {
+          onResponseCompletionFinished?.invoke(url, completionError)
+        }
+      }
+    } catch (error: Throwable) {
+      rethrowIfFatal(error)
+      logger?.w(error) { "Failed to answer the resource request for $url" }
+    }
   }
 
   /** Queues [request] for the reader, or refuses it if this provider is shutting down. */
@@ -237,3 +311,18 @@ internal fun schemeOf(url: String): String? {
 private fun Char.isAsciiLetter(): Boolean = this in 'a'..'z' || this in 'A'..'Z'
 
 private fun Char.isAsciiDigit(): Boolean = this in '0'..'9'
+
+private fun MapResourceLoad.toResourceResponse(): ResourceResponse =
+  when (this) {
+    is MapResourceLoad.Bytes ->
+      ResourceResponse(ResourceResponseStatus.OK).also {
+        it.bytes = bytes
+        it.etag = etag
+        it.mustRevalidate = mustRevalidate
+      }
+    is MapResourceLoad.Failed ->
+      ResourceResponse(ResourceResponseStatus.ERROR).also {
+        it.errorReason = ResourceErrorReason.OTHER
+        it.errorMessage = message
+      }
+  }

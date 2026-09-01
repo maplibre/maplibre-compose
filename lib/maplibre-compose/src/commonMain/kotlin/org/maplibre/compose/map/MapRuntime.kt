@@ -48,6 +48,8 @@ import org.maplibre.compose.layers.layerHandle
 import org.maplibre.compose.offline.CapabilityCheckedOfflineManager
 import org.maplibre.compose.offline.EmptyOfflineManager
 import org.maplibre.compose.offline.OfflineManager
+import org.maplibre.compose.resource.MapRequestInterceptor
+import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.sources.SourceHandle
 import org.maplibre.compose.sources.sourceHandle
 import org.maplibre.compose.style.BaseStyle
@@ -85,6 +87,14 @@ public interface MapRuntime {
 
   /** The offline packs and ambient cache managed by this runtime. */
   public val offlineManager: OfflineManager
+
+  /**
+   * Replaces the request interceptor for every map and snapshotter on this runtime.
+   *
+   * A null [interceptor] stops rewriting URLs and headers. The change applies to requests that
+   * start after this call returns.
+   */
+  public fun setRequestInterceptor(interceptor: MapRequestInterceptor?)
 
   /** Creates a logical map. The caller must close the result. */
   public fun createMapState(
@@ -914,6 +924,7 @@ internal class RuntimeImplementation(
   internal val snapshotterAdapterFactory: SnapshotterAdapterFactory =
     UnsupportedSnapshotterAdapterFactory,
   internal val styleEvaluator: StyleCompositionEvaluator = DefaultStyleCompositionEvaluator,
+  internal val resourceConfig: MapResourceConfig = MapResourceConfig(),
 ) : MapRuntime {
   override val offlineManager: OfflineManager =
     CapabilityCheckedOfflineManager(
@@ -942,6 +953,11 @@ internal class RuntimeImplementation(
   ): MapSnapshotter = lock.withLock {
     requireOpenLocked()
     MapSnapshotterImplementation(this, baseStyle, styleComposition).also(snapshotters::add)
+  }
+
+  final override fun setRequestInterceptor(interceptor: MapRequestInterceptor?) {
+    lock.withLock { requireOpenLocked() }
+    resourceConfig.setInterceptor(interceptor)
   }
 
   private fun requireOpen() {
