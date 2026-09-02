@@ -22,8 +22,9 @@ public fun CLLocation.asMapLibreLocationMeasurement(): LocationMeasurement =
     altitudeAccuracy = if (verticalAccuracy >= 0.0) verticalAccuracy.meters else null,
     course = if (course >= 0.0) Bearing.North + course.degrees else null,
     courseAccuracy = if (course >= 0.0 && courseAccuracy >= 0.0) courseAccuracy.degrees else null,
-    speed = if (speed >= 0.0) speed.meters else null,
-    speedAccuracy = if (speed >= 0.0 && speedAccuracy >= 0.0) speedAccuracy.meters else null,
+    distancePerSecond = if (speed >= 0.0) speed.meters else null,
+    distancePerSecondAccuracy =
+      if (speed >= 0.0 && speedAccuracy >= 0.0) speedAccuracy.meters else null,
     measuredAt = Instant.fromEpochMilliseconds((timestamp.timeIntervalSince1970 * 1_000).toLong()),
   )
 
