@@ -5,14 +5,14 @@ package org.maplibre.compose.docsnippets
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import org.maplibre.compose.map.MaplibreMap
-import org.maplibre.compose.map.rememberMapRuntime
+import org.maplibre.compose.map.rememberDefaultMapRuntime
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.resource.MapRequestTransform
 import org.maplibre.compose.resource.MapResourceProvider
 
 @Composable
 fun InterceptorMap(token: String) {
-  val runtime = rememberMapRuntime()
+  val runtime = rememberDefaultMapRuntime()
   // #region interceptor
   DisposableEffect(token) {
     runtime.setRequestInterceptor { request ->

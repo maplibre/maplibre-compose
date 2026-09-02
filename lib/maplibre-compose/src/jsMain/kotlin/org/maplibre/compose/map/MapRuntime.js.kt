@@ -45,6 +45,6 @@ public actual fun createMapRuntime(options: MapRuntimeOptions): MapRuntime {
 internal val RuntimeImplementation.jsRequests: GlJsRequestController?
   get() = (platformOptions as? JsRuntimePlatform)?.requests
 
-private val processMapRuntime: MapRuntime = createMapRuntime(MapRuntimeOptions())
+private val defaultMapRuntime: MapRuntime by lazy { createMapRuntime(MapRuntimeOptions()) }
 
-@Composable public actual fun rememberMapRuntime(): MapRuntime = processMapRuntime
+@Composable public actual fun rememberDefaultMapRuntime(): MapRuntime = defaultMapRuntime

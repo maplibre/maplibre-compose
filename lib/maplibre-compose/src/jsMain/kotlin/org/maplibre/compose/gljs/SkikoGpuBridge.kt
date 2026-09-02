@@ -16,7 +16,7 @@ private const val GL_STATES = 0xffff
  * before Compose builds its renderer. A second `DirectContext.makeGL()` corrupts Compose's
  * rendering, so the existing one has to be caught as it is created.
  *
- * TODO: retire this, and [org.maplibre.compose.browser.MapLibre.configure] with it, once
+ * TODO: retire this, and [org.maplibre.compose.browser.installMapLibreCompose] with it, once
  *   [JetBrains/skiko#1219](https://github.com/JetBrains/skiko/pull/1219) or an equivalent lands.
  */
 internal object SkikoGpuBridge {

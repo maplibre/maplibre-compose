@@ -4,7 +4,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeViewport
 import kotlinx.browser.document
 import org.jetbrains.skiko.wasm.onWasmReady
-import org.maplibre.compose.browser.MapLibre
+import org.maplibre.compose.browser.installMapLibreCompose
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
@@ -13,7 +13,7 @@ fun main() {
   onWasmReady {
     // Must run before Compose builds its renderer, which creates the GPU context maps composite
     // into.
-    MapLibre.configure()
+    installMapLibreCompose()
     ComposeViewport(document.body!!) { DemoApp() }
   }
 }

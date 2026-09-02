@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runAndroidComposeUiTest
+import org.maplibre.compose.map.DefaultMapRuntime
 
 @OptIn(ExperimentalTestApi::class)
 internal actual fun runFfiComposeUiTest(block: suspend ComposeUiTest.() -> Unit) {
@@ -17,7 +18,7 @@ internal actual fun runFfiComposeUiTest(block: suspend ComposeUiTest.() -> Unit)
     watchdog.interrupt()
     // Bounded, so a stuck stderr dump cannot hold teardown for the watchdog's sake.
     watchdog.join(1_000)
-    MlnFfiApplication.resetForTest()
+    DefaultMapRuntime.resetForTest()
   }
 }
 
@@ -68,6 +69,6 @@ internal actual fun ComposeUiTest.setFfiTestMapContent(
   content: @Composable () -> Unit,
 ) {
   require(presentationCount > 0) { "A map test must prepare at least one presentation" }
-  MlnFfiApplication.configure(runtimeOptions)
+  DefaultMapRuntime.installForTest(runtimeOptions)
   setContent(content)
 }

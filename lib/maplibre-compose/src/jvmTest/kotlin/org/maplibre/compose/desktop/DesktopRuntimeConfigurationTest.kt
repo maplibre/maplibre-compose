@@ -9,9 +9,10 @@ import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
+import org.maplibre.compose.map.MapRuntimeOptions
 import org.maplibre.compose.map.createMapRuntime
 
-class MapLibreConfigurationTest {
+class DesktopRuntimeConfigurationTest {
 
   @Test
   fun cache_paths_are_scoped_to_the_application() {
@@ -26,10 +27,10 @@ class MapLibreConfigurationTest {
   @Test
   fun application_ids_cannot_escape_the_cache_directory() {
     assertFailsWith<IllegalArgumentException> {
-      createMapRuntime(DesktopRuntimeOptions("../another-app"))
+      createMapRuntime(MapRuntimeOptions("../another-app"))
     }
     assertFailsWith<IllegalArgumentException> {
-      createMapRuntime(DesktopRuntimeOptions("com/example/app"))
+      createMapRuntime(MapRuntimeOptions("com/example/app"))
     }
   }
 
@@ -45,9 +46,9 @@ class MapLibreConfigurationTest {
 
   @Test
   fun independently_configured_runtimes_coexist_and_close_independently() = runTest {
-    val first = createMapRuntime(DesktopRuntimeOptions("com.example.first"))
+    val first = createMapRuntime(MapRuntimeOptions("com.example.first"))
     val second =
-      createMapRuntime(DesktopRuntimeOptions("com.example.second", maximumCacheSizeBytes = 2_000))
+      createMapRuntime(MapRuntimeOptions("com.example.second", maximumCacheSizeBytes = 2_000))
     val firstState = first.createMapState()
     val secondState = second.createMapState()
 

@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runComposeUiTest
+import org.maplibre.compose.map.DefaultMapRuntime
 
 @OptIn(ExperimentalTestApi::class)
 internal actual fun runFfiComposeUiTest(block: suspend ComposeUiTest.() -> Unit) {
@@ -11,7 +12,7 @@ internal actual fun runFfiComposeUiTest(block: suspend ComposeUiTest.() -> Unit)
   try {
     runComposeUiTest { block() }
   } finally {
-    MlnFfiApplication.resetForTest()
+    DefaultMapRuntime.resetForTest()
   }
 }
 
@@ -29,6 +30,6 @@ internal actual fun ComposeUiTest.setFfiTestMapContent(
   // The iOS map view builds its own surface controller, like Android's, so no host factory needs
   // to be prepared off the test thread.
   require(presentationCount > 0) { "A map test must prepare at least one presentation" }
-  MlnFfiApplication.configure(runtimeOptions)
+  DefaultMapRuntime.installForTest(runtimeOptions)
   setContent(content)
 }

@@ -188,9 +188,6 @@ graphics context. For Java AWT windows, use
 <Api of="rememberAwtComposeMapPresentationHost" />. For an alternative Compose
 host, implement `ComposeMapPresentationHost` yourself.
 
-Call `MapLibre.configure` before the window opens. Pass a reverse-domain
-`applicationId`. A packaged `main` can omit that argument.
-
 <Code code={region(desktopGettingStarted, "main")} lang="kotlin" title="Main.kt" />
 
 The native bindings make FFM downcalls. Enable native access when you run the
@@ -247,13 +244,13 @@ Compile the JS target to ES modules. Non-ESM builds are not supported.
   </TabItem>
 </Tabs>
 
-Configure MapLibre inside `onWasmReady`, before Compose starts. This is
-required to capture Compose's graphics context.
+Install the browser graphics integration inside `onWasmReady`, before Compose
+starts. The integration captures Compose's graphics context.
 
 ```kotlin title="main.kt"
 fun main() {
   onWasmReady {
-    MapLibre.configure()
+    installMapLibreCompose()
     ComposeViewport(document.body!!) { App() }
   }
 }

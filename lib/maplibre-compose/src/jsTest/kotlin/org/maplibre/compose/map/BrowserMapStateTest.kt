@@ -27,8 +27,8 @@ class BrowserMapStateTest {
     lateinit var secondRuntime: MapRuntime
     lateinit var state: MapState
     setBrowserMapContent {
-      firstRuntime = rememberMapRuntime()
-      secondRuntime = rememberMapRuntime()
+      firstRuntime = rememberDefaultMapRuntime()
+      secondRuntime = rememberDefaultMapRuntime()
       if (includeState.value) {
         val remembered = rememberMapState(firstRuntime, initialBaseStyle = BaseStyle.Empty)
         SideEffect { state = remembered }

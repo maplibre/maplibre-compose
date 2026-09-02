@@ -69,8 +69,11 @@ public expect class MapRuntimeOptions
 /** Creates a runtime from [options]. The caller must close the result. */
 public expect fun createMapRuntime(options: MapRuntimeOptions): MapRuntime
 
-/** Returns the default runtime for this process. */
-@Composable public expect fun rememberMapRuntime(): MapRuntime
+/**
+ * Returns the default runtime for this process. Closing this runtime permanently closes the process
+ * default; later calls return the same closed runtime.
+ */
+@Composable public expect fun rememberDefaultMapRuntime(): MapRuntime
 
 /** Reports the optional operations that one [MapRuntime] supports. */
 public data class MapRuntimeCapabilities(
@@ -842,7 +845,7 @@ internal class MapPresentationOwnerToken
  */
 @Composable
 public fun rememberMapState(
-  runtime: MapRuntime = rememberMapRuntime(),
+  runtime: MapRuntime = rememberDefaultMapRuntime(),
   initialCameraPosition: CameraPosition = CameraPosition(),
   initialBaseStyle: BaseStyle = BaseStyle.Demo,
 ): MapState {

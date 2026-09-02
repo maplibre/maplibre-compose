@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.first
+import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.map.MapPresentationCallbacks
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
@@ -37,7 +38,7 @@ class AndroidSurfaceReplacementTest {
   @Test
   fun a_surface_map_without_an_overlay_produces_a_frame_after_replacement() {
     val cacheFile = FfiTestPlatform.createCacheFile()
-    MlnFfiApplication.configure(
+    DefaultMapRuntime.installForTest(
       MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
     )
 
@@ -73,7 +74,7 @@ class AndroidSurfaceReplacementTest {
         )
       }
     } finally {
-      MlnFfiApplication.resetForTest()
+      DefaultMapRuntime.resetForTest()
       FfiTestPlatform.deleteCacheFile(cacheFile)
     }
   }
