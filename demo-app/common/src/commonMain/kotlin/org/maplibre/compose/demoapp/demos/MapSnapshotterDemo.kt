@@ -138,6 +138,7 @@ object MapSnapshotterDemo : Demo {
       captureCurrentCamera = requestCapture
       status = CaptureStatus.Ready
       capturedSnapshot = null
+      cleanupFailure = null
       onDispose {
         if (activeSession === session) {
           activeSession = null
@@ -174,7 +175,9 @@ object MapSnapshotterDemo : Demo {
           try {
             snapshotter.awaitClosed()
           } catch (error: Throwable) {
-            cleanupFailure = error.message ?: "The snapshotter cleanup failed"
+            if (activeSession === session) {
+              cleanupFailure = error.message ?: "The snapshotter cleanup failed"
+            }
           }
         }
       }
