@@ -818,18 +818,19 @@ internal class MlnFfiMapSession(
           return
         }
         val acceptedStyle =
-          lifecycleCallbacks.onStyleChanged(engine, producer.request, this, binding)
+          lifecycleCallbacks.onStyleChanged(engine, producer.request, this, binding) { identity ->
+            // Live handles from the previous binding must not write into a style that is gone.
+            styleBinding?.invalidate()
+            styleBinding = binding
+            featureStateReplayPending.store(true)
+            lifecycleStyleIdentity = identity
+            styleLoadUnreported = true
+            reportedUrlAttribution.clear()
+          }
         if (acceptedStyle == null) {
           binding.invalidate()
           return
         }
-        // Live handles from the previous binding must not write into a style that is gone.
-        styleBinding?.invalidate()
-        styleBinding = binding
-        featureStateReplayPending.store(true)
-        lifecycleStyleIdentity = acceptedStyle
-        styleLoadUnreported = true
-        reportedUrlAttribution.clear()
         // A producer frame that started before this callback can still hold the previous style.
         // requestRepaint dirties mbgl so the next renderUpdate draws instead of returning
         // NO_UPDATE; requestRender lets that draw through the session skip gate.

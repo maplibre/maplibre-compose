@@ -128,7 +128,9 @@ expect class MapTestResult
 
 internal expect fun runMapTest(block: suspend () -> Unit): MapTestResult
 
-internal class RecordingMapCallbacks : MapAdapter.Callbacks {
+internal class RecordingMapCallbacks(
+  private val beforeStyleChanged: (MapAdapter, StyleBinding?) -> Unit = { _, _ -> }
+) : MapAdapter.Callbacks {
 
   var attachment: MapAttachment? = null
 
@@ -142,6 +144,7 @@ internal class RecordingMapCallbacks : MapAdapter.Callbacks {
     private set
 
   override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
+    beforeStyleChanged(map, style)
     this.style = style
     attachment?.updateViewport(map.getViewport())
     events += if (style == null) "styleChanged(null)" else MapFixture.STYLE_LOADED
