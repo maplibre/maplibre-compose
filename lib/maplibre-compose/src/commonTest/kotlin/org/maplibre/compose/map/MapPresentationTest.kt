@@ -18,6 +18,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -25,6 +26,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
@@ -52,6 +54,7 @@ import org.maplibre.compose.style.ImageSnapshot
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleImageDefinition
+import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
@@ -825,6 +828,44 @@ class MapPresentationTest {
     assertFalse(fixture.state.style.images.remove("missing"))
     assertTrue(fixture.state.style.images.remove("marker"))
     assertTrue(binding.imageIds.isEmpty())
+    fixture.close()
+  }
+
+  @Test
+  fun transition_and_light_commands_target_only_a_ready_loaded_style() {
+    val fixture = presentationFixture()
+    val binding = RecordingStyleBinding(refusedLightProperties = setOf("blocked"))
+    val transition = fixture.state.style.transition
+    val light = fixture.state.style.light
+    val options = TransitionOptions(duration = 1.seconds, delay = 20.milliseconds)
+
+    assertNull(transition.get())
+    assertNull(transition.placementTransitions())
+    assertNull(light.getProperty("color"))
+    assertFailsWith<IllegalStateException> { transition.set(options) }
+    assertFailsWith<IllegalStateException> { transition.setPlacementTransitions(false) }
+    assertFailsWith<IllegalStateException> { light.setProperty("color", JsonPrimitive("red")) }
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onMapFinishedLoading(fixture.adapter)
+
+    assertEquals(TransitionOptions(), transition.get())
+    transition.set(options)
+    assertEquals(options, transition.get())
+    assertEquals(options, binding.transition)
+    transition.setPlacementTransitions(false)
+    assertEquals(false, transition.placementTransitions())
+
+    light.setProperty("color", JsonPrimitive("red"))
+    assertEquals(JsonPrimitive("red"), light.getProperty("color"))
+    light.setProperty("color", JsonNull)
+    assertNull(light.getProperty("color"))
+    assertFailsWith<StyleHandleException> { light.setProperty("blocked", JsonPrimitive(1)) }
+    assertTrue(binding.lightProperties.isEmpty())
+
+    fixture.state.style.baseStyle = BaseStyle.Json("replacement")
+    assertNull(transition.get())
+    assertNull(light.getProperty("color"))
+    assertFailsWith<IllegalStateException> { transition.set(options) }
     fixture.close()
   }
 

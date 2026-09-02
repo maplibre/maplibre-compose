@@ -50,6 +50,20 @@ internal external interface StyleSource
 internal external interface StyleSpecification {
   val layers: Array<LayerSpecification>
   val sources: JsRecord<SourceSpecification>
+  var transition: TransitionSpecification?
+}
+
+/** Milliseconds; MapLibre fills in the style-spec defaults when it reads the style's own. */
+internal external interface TransitionSpecification {
+  var duration: Double?
+  var delay: Double?
+}
+
+/** A style-spec `light` object; keys index it. */
+internal external interface LightSpecification
+
+internal external interface StyleSetterOptions {
+  var validate: Boolean?
 }
 
 internal external interface LayerSpecification {

@@ -83,23 +83,25 @@ backend need an `expect` and the other platforms' actuals; shared work belongs
 in `commonMain` itself. Either way, the test belongs in `liveMapTest` rather
 than in a browser-only file.
 
-## 5. Re-check the four runtime shims
+## 5. Re-check the runtime shims
 
-This is the part the `.d.ts` diff will **not** reveal. `GlJsRuntime.kt` is
-pinned to MapLibre internals, not its public API. Each shim fails loudly when
-its shape moves, but only at runtime, so read the new sources rather than
-waiting for the test:
+This is the part the `.d.ts` diff will **not** reveal. `GlJsRuntime.kt` and one
+member of `GlJsStyleBinding.kt` are pinned to MapLibre internals, not its public
+API. Each shim fails loudly when its shape moves, but only at runtime, so read
+the new sources rather than waiting for the test:
 
-| Shim                           | Upstream anchor                                                                                                  |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| `lendingContext`               | `src/ui/map.ts` — `Map` must call `canvas.getContext` exactly once, synchronously, in its constructor            |
-| `redirectDefaultFramebuffer`   | `src/gl/value.ts` — `class BindFramebuffer`'s `set(v)`, whose body this replaces (`current`/`dirty`/`gl` fields) |
-| `interceptRepaintRequests`     | `src/ui/map.ts` — `triggerRepaint()` must stay MapLibre's only caller of `browser.frame`                         |
-| `removingWithoutLosingContext` | `src/ui/map.ts` — `remove()` must still reach the context only through `getExtension('WEBGL_lose_context')`      |
+| Shim                           | Upstream anchor                                                                                                                                                                                        |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `lendingContext`               | `src/ui/map.ts` — `Map` must call `canvas.getContext` exactly once, synchronously, in its constructor                                                                                                  |
+| `redirectDefaultFramebuffer`   | `src/gl/value.ts` — `class BindFramebuffer`'s `set(v)`, whose body this replaces (`current`/`dirty`/`gl` fields)                                                                                       |
+| `interceptRepaintRequests`     | `src/ui/map.ts` — `triggerRepaint()` must stay MapLibre's only caller of `browser.frame`                                                                                                               |
+| `removingWithoutLosingContext` | `src/ui/map.ts` — `remove()` must still reach the context only through `getExtension('WEBGL_lose_context')`                                                                                            |
+| `setTransition`                | `src/style/style.ts` — `getTransition()` must still read `this.stylesheet.transition`; if `setTransition` in `_getOperationsToPerform` stops being a no-op, MapLibre has a real setter to call instead |
 
 ```sh
 diff -ru /tmp/maplibre-gl-src.old/gl/value.ts build/js/node_modules/maplibre-gl/src/gl/value.ts
 diff -ru /tmp/maplibre-gl-src.old/ui/map.ts build/js/node_modules/maplibre-gl/src/ui/map.ts
+diff -ru /tmp/maplibre-gl-src.old/style/style.ts build/js/node_modules/maplibre-gl/src/style/style.ts
 ```
 
 ## 6. Verify

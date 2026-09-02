@@ -21,6 +21,8 @@ internal external class MaplibreMap(options: MapOptions) {
 
   val painter: Painter
 
+  val style: Style
+
   var showTileBoundaries: Boolean
   var showCollisionBoxes: Boolean
   var showPadding: Boolean
@@ -43,6 +45,10 @@ internal external class MaplibreMap(options: MapOptions) {
   fun setStyle(style: StyleSource, options: SetStyleOptions)
 
   fun getStyle(): StyleSpecification
+
+  fun setLight(light: LightSpecification, options: StyleSetterOptions = definedExternally)
+
+  fun getLight(): LightSpecification
 
   fun isStyleLoaded(): Boolean
 
@@ -159,4 +165,14 @@ internal external class LngLatBounds(sw: LngLat, ne: LngLat) {
   fun getSouthWest(): LngLat
 
   fun getNorthEast(): LngLat
+}
+
+/**
+ * MapLibre exposes no transition setter, and its style diff treats `setTransition` as a no-op, so
+ * the only runtime lever is [stylesheet], a public field that [getTransition] reads every frame.
+ */
+internal external class Style {
+  var stylesheet: StyleSpecification
+
+  fun getTransition(): TransitionSpecification
 }

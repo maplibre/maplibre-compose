@@ -3,6 +3,9 @@ package org.maplibre.compose.style
 import androidx.compose.ui.graphics.ImageBitmap
 import co.touchlab.kermit.Logger
 import kotlin.concurrent.Volatile
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.DurationUnit
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
@@ -833,6 +836,55 @@ internal open class MlnFfiStyleBinding(
       "maxzoom" -> map.layerMaxZoom(layerId).takeIf(Double::isFinite)?.let(::JsonPrimitive)
       "filter" -> map.layerFilter(layerId)?.toJsonElement()
       else -> map.layerProperty(layerId, name)?.toJsonElement()
+    }
+  }
+
+  /** An unset native duration applies paint changes instantly, so it reads as zero. */
+  override fun transition(): TransitionOptions? = readMap { map ->
+    val options = map.styleTransitionOptions()
+    TransitionOptions(
+      duration = options.durationMs?.milliseconds ?: Duration.ZERO,
+      delay = options.delayMs?.milliseconds ?: Duration.ZERO,
+    )
+  }
+
+  /** Native replaces every field on write, so the placement flag is read back first. */
+  override fun setTransition(options: TransitionOptions) {
+    mutateMap { map ->
+      map.setStyleTransitionOptions(
+        map.styleTransitionOptions().copy {
+          durationMs = options.duration.toDouble(DurationUnit.MILLISECONDS)
+          delayMs = options.delay.toDouble(DurationUnit.MILLISECONDS)
+        }
+      )
+    }
+  }
+
+  override val supportsPlacementTransitions: Boolean = true
+
+  override fun placementTransitions(): Boolean? = readMap { map ->
+    map.styleTransitionOptions().enablePlacementTransitions ?: true
+  }
+
+  override fun setPlacementTransitions(enabled: Boolean) {
+    mutateMap { map ->
+      map.setStyleTransitionOptions(
+        map.styleTransitionOptions().copy { enablePlacementTransitions = enabled }
+      )
+    }
+  }
+
+  override fun lightProperty(name: String): JsonElement? = readMap { map ->
+    map.styleLightProperty(name)?.toJsonElement()
+  }
+
+  override fun setLightProperty(name: String, value: JsonElement) {
+    mutateMap { map ->
+      try {
+        map.setStyleLightProperty(name, value.toJsonBytes())
+      } catch (error: MaplibreException) {
+        throw StyleMutationException(error.message, error)
+      }
     }
   }
 

@@ -3,6 +3,9 @@ package org.maplibre.compose.style
 import androidx.compose.ui.graphics.ImageBitmap
 import co.touchlab.kermit.Logger
 import js.objects.unsafeJso
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.DurationUnit
 import kotlinx.coroutines.await
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -20,11 +23,14 @@ import org.maplibre.compose.gljs.GlJsGeoJsonSource
 import org.maplibre.compose.gljs.GlJsImageSource
 import org.maplibre.compose.gljs.GlJsSubscription
 import org.maplibre.compose.gljs.LayerSpecification
+import org.maplibre.compose.gljs.LightSpecification
 import org.maplibre.compose.gljs.MaplibreMap
 import org.maplibre.compose.gljs.QuerySourceFeatureOptions
 import org.maplibre.compose.gljs.SourceHandle
 import org.maplibre.compose.gljs.SourceSpecification
 import org.maplibre.compose.gljs.StyleImageMetadata
+import org.maplibre.compose.gljs.StyleSetterOptions
+import org.maplibre.compose.gljs.TransitionSpecification
 import org.maplibre.compose.gljs.UpdateImageOptions
 import org.maplibre.compose.gljs.keys
 import org.maplibre.compose.gljs.subscribe
@@ -544,6 +550,64 @@ internal class GlJsStyleBinding(
       runCatching { map.getPaintProperty(layerId, name) }.getOrNull()
         ?: runCatching { map.getLayoutProperty(layerId, name) }.getOrNull()
     return value?.toJsonElement()
+  }
+
+  override fun transition(): TransitionOptions? {
+    requireLoaded()
+    val transition = map.style.getTransition()
+    return TransitionOptions(
+      duration = transition.duration?.milliseconds ?: 300.milliseconds,
+      delay = transition.delay?.milliseconds ?: Duration.ZERO,
+    )
+  }
+
+  override fun setTransition(options: TransitionOptions) {
+    requireLoaded()
+    map.style.stylesheet.transition =
+      unsafeJso<TransitionSpecification> {
+        duration = options.duration.toDouble(DurationUnit.MILLISECONDS)
+        delay = options.delay.toDouble(DurationUnit.MILLISECONDS)
+      }
+  }
+
+  override val supportsPlacementTransitions: Boolean = false
+
+  override fun placementTransitions(): Boolean? {
+    requireLoaded()
+    return true
+  }
+
+  override fun setPlacementTransitions(enabled: Boolean) {
+    requireLoaded()
+    if (!enabled) {
+      logger?.w { "MapLibre GL JS cannot switch the symbol placement cross-fade at runtime" }
+    }
+  }
+
+  override fun lightProperty(name: String): JsonElement? {
+    requireLoaded()
+    return map.getLight().asDynamic()[name].unsafeCast<Any?>()?.toJsonElement()
+  }
+
+  /**
+   * The light validates its input, but it has no evented parent, so a validation error reaches no
+   * `error` listener. A read-back exposes a rejected write. Validation also rejects a null value,
+   * and only an unvalidated null clears a property.
+   */
+  override fun setLightProperty(name: String, value: JsonElement) {
+    requireLoaded()
+    val requested = value.toJsValue<Any?>()
+    val light = unsafeJso<LightSpecification>()
+    light.asDynamic()[name] = requested
+    val options = unsafeJso<StyleSetterOptions> { validate = value !is JsonNull }
+    mutate("set light '$name'") { map.setLight(light, options) }
+    val applied = map.getLight().asDynamic()[name].unsafeCast<Any?>()
+    val matches =
+      if (value is JsonNull) applied == null
+      else JSON.stringify(applied) == JSON.stringify(requested)
+    if (!matches) {
+      throw StyleMutationException("MapLibre could not set light '$name': invalid value", null)
+    }
   }
 
   override fun layerExists(layerId: String): Boolean? {
