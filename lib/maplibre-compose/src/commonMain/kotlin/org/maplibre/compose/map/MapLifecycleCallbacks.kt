@@ -22,8 +22,12 @@ internal class MapLifecycleCallbacks(
     request: StyleRequestIdentity,
     map: MapAdapter,
     style: StyleBinding,
+    beforeDelegate: (StyleIdentity) -> Unit = {},
   ): StyleIdentity? {
-    return lifecycle.claimStyleIdentity(engine, request) { delegate().onStyleChanged(map, style) }
+    return lifecycle.claimStyleIdentity(engine, request) { identity ->
+      beforeDelegate(identity)
+      delegate().onStyleChanged(map, style)
+    }
   }
 
   fun onMapFinishedLoading(engine: EngineMapIdentity, style: StyleIdentity, map: MapAdapter) =

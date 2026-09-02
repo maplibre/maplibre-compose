@@ -720,7 +720,7 @@ class MapPresentationTest {
   @Test
   fun await_viewport_waits_for_the_next_attachment() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val viewport = testViewport()
     val waiting = async { state.awaitViewport() }
     testScheduler.runCurrent()
@@ -760,7 +760,7 @@ class MapPresentationTest {
   @Test
   fun a_bounds_set_waits_for_an_attachment_and_its_viewport() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val operation = async {
       state.setCameraPosition(BoundingBox(Position(-1.0, -1.0), Position(1.0, 1.0)))
     }
@@ -838,7 +838,7 @@ class MapPresentationTest {
   @Test
   fun the_latest_camera_animation_waits_for_attachment_and_restarts_on_replacement() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val superseded = async {
       state.animateCameraPosition(CameraPosition(zoom = 2.0), 1.seconds)
     }
@@ -874,7 +874,7 @@ class MapPresentationTest {
   @Test
   fun closing_a_map_fails_a_camera_animation_waiting_for_attachment() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     supervisorScope {
       val animation = async {
         state.animateCameraPosition(CameraPosition(zoom = 4.0), 1.seconds)

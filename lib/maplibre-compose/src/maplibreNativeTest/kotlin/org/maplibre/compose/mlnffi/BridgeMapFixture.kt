@@ -1,7 +1,11 @@
+@file:OptIn(ExperimentalAtomicApi::class)
+
 package org.maplibre.compose.mlnffi
 
 import androidx.compose.ui.unit.LayoutDirection
 import co.touchlab.kermit.Logger
+import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -32,7 +36,12 @@ private constructor(
   private val initialExtent: MapExtent,
 ) : AutoCloseable {
 
-  private val recorder = RecordingMapCallbacks()
+  private val stylePublishedBeforeSessionReady = AtomicBoolean(false)
+  private val recorder = RecordingMapCallbacks { map, style ->
+    if (style != null && (map as MlnFfiMapSession).loadedStyleIdentity !== style.identity) {
+      stylePublishedBeforeSessionReady.store(true)
+    }
+  }
 
   val events: MutableList<String>
     get() = recorder.events
@@ -247,6 +256,9 @@ private constructor(
         events.count { it == STYLE_LOADED } > styleLoadsBefore && this.style != null
       }
     }
+    check(!stylePublishedBeforeSessionReady.load()) {
+      "The loaded style callback ran before the native session stored its binding"
+    }
   }
 
   /**
@@ -261,6 +273,9 @@ private constructor(
         "Timed out waiting for style $style to load before rendering. Errors: $errors"
       }
       parkForTest(POLL_INTERVAL_MILLIS)
+    }
+    check(!stylePublishedBeforeSessionReady.load()) {
+      "The loaded style callback ran before the native session stored its binding"
     }
   }
 

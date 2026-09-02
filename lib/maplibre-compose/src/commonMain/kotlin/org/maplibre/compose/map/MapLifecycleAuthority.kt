@@ -531,13 +531,13 @@ internal class MapLifecycleBinding(
   fun claimStyleIdentity(
     engine: EngineMapIdentity,
     request: StyleRequestIdentity,
-    event: () -> Unit,
+    event: (StyleIdentity) -> Unit,
   ): StyleIdentity? = serialized {
     if (!acceptEngineIdentity(engine)) return@serialized null
     if (currentStyleRequest.load() != StyleRequestClaim(engine, request)) return@serialized null
     val identity = StyleIdentity(nextIdentity.incrementAndFetch())
     currentStyle.store(StyleClaim(engine, identity))
-    event()
+    event(identity)
     identity
   }
 
