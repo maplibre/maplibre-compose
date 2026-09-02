@@ -15,6 +15,7 @@ internal constructor(
   public val id: String,
   public val type: String,
   private val style: StyleBinding,
+  private val isCurrentResource: () -> Boolean,
   private val operations: StyleHandleOperationGuard,
 ) {
   private val identity: StyleIdentity = style.identity
@@ -55,6 +56,7 @@ internal constructor(
 
   private fun requireCurrent() {
     style.requireCurrent(identity)
+    check(isCurrentResource()) { "Layer '$id' is no longer owned by this handle" }
     val currentType = style.getLayer(id)?.definition()?.type
     check(currentType == type) { "Layer '$id' is no longer the $type layer owned by this handle" }
   }
@@ -78,9 +80,10 @@ internal constructor(
 
 internal fun StyleBinding.layerHandle(
   id: String,
+  isCurrentResource: () -> Boolean,
   operations: StyleHandleOperationGuard,
 ): LayerHandle? {
   requireCurrent()
   val layer = getLayer(id) ?: return null
-  return LayerHandle(id, layer.definition().type, this, operations)
+  return LayerHandle(id, layer.definition().type, this, isCurrentResource, operations)
 }

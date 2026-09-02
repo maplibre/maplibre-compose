@@ -35,6 +35,7 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.StyleHandleException
 
 class MapSnapshotterTest {
 
@@ -167,6 +168,45 @@ class MapSnapshotterTest {
     assertTrue(snapshotter.style.sources.remove("imperative"))
     assertTrue(snapshotter.style.sources.none())
 
+    close(snapshotter, runtime)
+  }
+
+  @Test
+  fun imperative_commands_cannot_cross_an_active_snapshot_style_revision() = runTest {
+    val binding = RecordingStyleBinding()
+    val captureStarted = CompletableDeferred<Unit>()
+    val finishCapture = CompletableDeferred<Unit>()
+    var blockCapture = false
+    val runtime =
+      mapRuntimeForTest(
+        snapshotterAdapterFactory =
+          SnapshotterAdapterFactory {
+            FakeSnapshotterAdapter(
+              prepare = { _, _ -> binding },
+              capture = { _, _ ->
+                if (blockCapture) {
+                  captureStarted.complete(Unit)
+                  finishCapture.await()
+                }
+                FakeImageBitmap(1, 1)
+              },
+            )
+          },
+        styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _ -> DesiredStyleRevision.Empty },
+      )
+    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
+    snapshotter.capture(MapSnapshotRequest(1, 1))
+    blockCapture = true
+    val capture = async { snapshotter.capture(MapSnapshotRequest(1, 1)) }
+    captureStarted.await()
+
+    assertFailsWith<StyleHandleException> {
+      snapshotter.style.images.add("crossing", FakeImageBitmap(1, 1))
+    }
+
+    finishCapture.complete(Unit)
+    capture.await()
+    assertTrue(binding.imageIds.isEmpty())
     close(snapshotter, runtime)
   }
 

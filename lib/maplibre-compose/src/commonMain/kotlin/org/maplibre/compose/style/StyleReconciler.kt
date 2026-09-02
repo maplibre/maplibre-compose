@@ -190,18 +190,6 @@ internal class StyleReconciler {
     return getOrNull(index + 1).orEmpty()
   }
 
-  private fun SourceDefinition.canUpdateTo(next: SourceDefinition): Boolean =
-    when {
-      this is SourceDefinition.GeoJson && next is SourceDefinition.GeoJson ->
-        options == next.options
-      this is SourceDefinition.Image && next is SourceDefinition.Image -> true
-      this is SourceDefinition.CustomGeometry && next is SourceDefinition.CustomGeometry ->
-        options == next.options
-      this is SourceDefinition.CustomVector && next is SourceDefinition.CustomVector ->
-        options == next.options
-      else -> this == next
-    }
-
   private class AppliedSource(
     var definition: SourceDefinition,
     val installation: SourceInstallation,
@@ -213,3 +201,14 @@ internal class StyleReconciler {
     val installation: LayerInstallation,
   )
 }
+
+internal fun SourceDefinition.canUpdateTo(next: SourceDefinition): Boolean =
+  when {
+    this is SourceDefinition.GeoJson && next is SourceDefinition.GeoJson -> options == next.options
+    this is SourceDefinition.Image && next is SourceDefinition.Image -> true
+    this is SourceDefinition.CustomGeometry && next is SourceDefinition.CustomGeometry ->
+      options == next.options
+    this is SourceDefinition.CustomVector && next is SourceDefinition.CustomVector ->
+      options == next.options
+    else -> this == next
+  }

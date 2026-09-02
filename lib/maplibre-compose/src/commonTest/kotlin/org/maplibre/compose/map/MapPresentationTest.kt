@@ -35,6 +35,7 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.LayerHandle
 import org.maplibre.compose.overlay.attributions
@@ -45,6 +46,7 @@ import org.maplibre.compose.sources.GeoJsonSourceHandle
 import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.sources.VectorSource
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.DesiredStyleLayer
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.ImageSnapshot
 import org.maplibre.compose.style.RecordingStyleBinding
@@ -537,7 +539,7 @@ class MapPresentationTest {
   }
 
   @Test
-  fun a_typed_source_handle_rejects_a_same_id_source_type_replacement() {
+  fun a_typed_source_handle_rejects_a_same_id_source_type_replacement() = runTest {
     val fixture = presentationFixture()
     val geoJson =
       GeoJsonSource(
@@ -575,6 +577,48 @@ class MapPresentationTest {
 
     assertFailsWith<IllegalStateException> { handle.getFeatureState("7") }
     assertEquals(JsonObject(emptyMap()), loadedStyle.featureState("shared", null, "7"))
+    fixture.close()
+  }
+
+  @Test
+  fun a_base_source_handle_does_not_revive_after_same_id_replacement() {
+    val fixture = presentationFixture()
+    val original = attributedVectorSource("shared", "original")
+    val binding = RecordingStyleBinding(sources = listOf(original))
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onMapFinishedLoading(fixture.adapter)
+    val stale = checkNotNull(fixture.state.style.sources["shared"])
+
+    assertTrue(fixture.state.style.sources.remove("shared"))
+    val replacement =
+      fixture.state.style.sources.add(attributedVectorSource("shared", "replacement"))
+
+    assertEquals("replacement", replacement.attributionHtml)
+    assertFailsWith<IllegalStateException> { stale.attributionHtml }
+    fixture.close()
+  }
+
+  @Test
+  fun a_declarative_source_handle_does_not_revive_after_same_type_replacement() = runTest {
+    val fixture = presentationFixture()
+    val original = attributedVectorSource("shared", "original")
+    fixture.state.desiredStyleRevision =
+      DesiredStyleRevision(listOf(original.definition()), emptyList(), emptyList())
+    val binding = RecordingStyleBinding(sources = listOf(original))
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onMapFinishedLoading(fixture.adapter)
+    val stale = checkNotNull(fixture.state.style.sources["shared"])
+    val replacement = attributedVectorSource("shared", "replacement")
+
+    fixture.state.beginStyleRevision(
+      fixture.adapter,
+      DesiredStyleRevision(listOf(replacement.definition()), emptyList(), emptyList()),
+    )
+    binding.replaceSource(replacement)
+    fixture.state.markStyleReady(fixture.adapter)
+
+    assertFailsWith<IllegalStateException> { stale.attributionHtml }
+    assertEquals("replacement", fixture.state.style.sources["shared"]?.attributionHtml)
     fixture.close()
   }
 
@@ -658,6 +702,29 @@ class MapPresentationTest {
 
     loadedStyle.invalidate()
     assertFailsWith<IllegalStateException> { handle.getProperty("background-opacity") }
+    fixture.close()
+  }
+
+  @Test
+  fun a_layer_handle_does_not_revive_after_structural_replacement() = runTest {
+    val fixture = presentationFixture()
+    val layer = BackgroundLayer("background")
+    val original = DesiredStyleLayer(layer.definition(), Anchor.Top, null, null)
+    fixture.state.desiredStyleRevision =
+      DesiredStyleRevision(emptyList(), listOf(original), emptyList())
+    val binding = RecordingStyleBinding(layers = listOf(layer))
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onMapFinishedLoading(fixture.adapter)
+    val stale = checkNotNull(fixture.state.style.layers["background"])
+
+    fixture.state.beginStyleRevision(
+      fixture.adapter,
+      DesiredStyleRevision(emptyList(), listOf(original.copy(anchor = Anchor.Bottom)), emptyList()),
+    )
+    fixture.state.markStyleReady(fixture.adapter)
+
+    assertFailsWith<IllegalStateException> { stale.getProperty("background-opacity") }
+    assertTrue(fixture.state.style.layers["background"] != null)
     fixture.close()
   }
 
@@ -792,7 +859,7 @@ class MapPresentationTest {
   }
 
   @Test
-  fun a_declarative_revision_cannot_claim_an_imperative_resource_id() {
+  fun a_declarative_revision_cannot_claim_an_imperative_resource_id() = runTest {
     val fixture = presentationFixture()
     val binding = RecordingStyleBinding()
     val source = attributedVectorSource("shared", "shared attribution")
@@ -834,6 +901,29 @@ class MapPresentationTest {
         ),
       )
     }
+    assertEquals(StyleLoadState.Ready, fixture.state.style.loadState)
+    assertTrue(binding.imageExists("shared") == true)
+    fixture.close()
+  }
+
+  @Test
+  fun a_nested_imperative_command_cannot_cross_a_resource_reservation() {
+    val fixture = presentationFixture()
+    val image = FakeImageBitmap(1, 1)
+    var nestedFailure: Throwable? = null
+    val binding =
+      RecordingStyleBinding(
+        beforeAddImage = {
+          nestedFailure =
+            runCatching { fixture.state.style.images.add("shared", image) }.exceptionOrNull()
+        }
+      )
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onMapFinishedLoading(fixture.adapter)
+
+    fixture.state.style.images.add("shared", image)
+
+    assertIs<StyleHandleException>(nestedFailure)
     assertEquals(StyleLoadState.Ready, fixture.state.style.loadState)
     assertTrue(binding.imageExists("shared") == true)
     fixture.close()
