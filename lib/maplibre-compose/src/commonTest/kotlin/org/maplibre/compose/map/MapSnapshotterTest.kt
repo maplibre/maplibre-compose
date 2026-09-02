@@ -156,7 +156,6 @@ class MapSnapshotterTest {
         styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _ -> DesiredStyleRevision.Empty },
       )
     val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
-    snapshotter.capture(MapSnapshotRequest(1, 1))
     val source =
       GeoJsonSource(
         id = "imperative",
@@ -164,13 +163,16 @@ class MapSnapshotterTest {
         options = GeoJsonOptions(),
       )
 
-    assertTrue(snapshotter.style.sources.add(source) is GeoJsonSourceHandle)
-    assertTrue(snapshotter.style.sources["imperative"] is GeoJsonSourceHandle)
-    snapshotter.style.images.add("imperative", FakeImageBitmap(1, 1))
-    assertEquals(setOf("imperative"), binding.imageIds)
-    assertTrue(snapshotter.style.images.remove("imperative"))
-    assertTrue(snapshotter.style.sources.remove("imperative"))
-    assertTrue(snapshotter.style.sources.none())
+    withContext(Dispatchers.Unconfined) {
+      snapshotter.capture(MapSnapshotRequest(1, 1))
+      assertTrue(snapshotter.style.sources.add(source) is GeoJsonSourceHandle)
+      assertTrue(snapshotter.style.sources["imperative"] is GeoJsonSourceHandle)
+      snapshotter.style.images.add("imperative", FakeImageBitmap(1, 1))
+      assertEquals(setOf("imperative"), binding.imageIds)
+      assertTrue(snapshotter.style.images.remove("imperative"))
+      assertTrue(snapshotter.style.sources.remove("imperative"))
+      assertTrue(snapshotter.style.sources.none())
+    }
 
     close(snapshotter, runtime)
   }

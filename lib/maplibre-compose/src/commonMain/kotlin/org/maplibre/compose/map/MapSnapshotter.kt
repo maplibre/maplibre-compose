@@ -354,36 +354,39 @@ internal class MapSnapshotterImplementation(
       launch(start = CoroutineStart.LAZY) {
         var claim: StyleClaim? = null
         var binding: StyleBinding? = null
-        try {
-          val currentClaim = claimStyle()
-          claim = currentClaim
-          val currentBinding =
-            platform.prepare(currentClaim.baseStyle, currentClaim.revision, capture.request)
-          binding = currentBinding
-          val request = capture.request
-          val evaluationOwnership = styleEvaluationOwnership(currentBinding, currentClaim.ownership)
-          val revision =
-            styleEvaluator.evaluate(
-              styleComposition,
-              currentBinding,
-              Density(request.density, request.fontScale),
-              request.layoutDirection,
-              evaluationOwnership,
-            )
-          requireNoImperativeResourceConflicts(currentBinding, revision)
-          recordStyleOwnership(currentClaim, revision)
-          val image = platform.capture(request, revision)
-          if (!publishStyle(capture, currentClaim, currentBinding, revision)) {
-            currentBinding.invalidate()
+        val result =
+          try {
+            val currentClaim = claimStyle()
+            claim = currentClaim
+            val currentBinding =
+              platform.prepare(currentClaim.baseStyle, currentClaim.revision, capture.request)
+            binding = currentBinding
+            val request = capture.request
+            val evaluationOwnership =
+              styleEvaluationOwnership(currentBinding, currentClaim.ownership)
+            val revision =
+              styleEvaluator.evaluate(
+                styleComposition,
+                currentBinding,
+                Density(request.density, request.fontScale),
+                request.layoutDirection,
+                evaluationOwnership,
+              )
+            requireNoImperativeResourceConflicts(currentBinding, revision)
+            recordStyleOwnership(currentClaim, revision)
+            val image = platform.capture(request, revision)
+            if (!publishStyle(capture, currentClaim, currentBinding, revision)) {
+              currentBinding.invalidate()
+            }
+            Result.success(image)
+          } catch (error: Throwable) {
+            if (error is CancellationException) binding?.invalidate()
+            else claim?.let { publishStyleFailure(it, error) }
+            Result.failure(error)
+          } finally {
+            claim?.let(::completeStyleClaim)
           }
-          capture.resume(image)
-        } catch (error: Throwable) {
-          if (error is CancellationException) binding?.invalidate()
-          else claim?.let { publishStyleFailure(it, error) }
-          capture.resumeFailure(error)
-        } finally {
-          claim?.let(::completeStyleClaim)
-        }
+        result.fold(capture::resume, capture::resumeFailure)
       }
     lock.withLock {
       capture.operation = operation
