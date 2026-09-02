@@ -144,6 +144,7 @@ private fun MaplibreMapPresentation(
     rememberStyleComposition(
       composition = styleComposition,
       maybeStyle = rememberedStyle,
+      mapState = state,
       replaceableSourceIds = state.desiredStyleRevision.sources.mapTo(mutableSetOf()) { it.id },
       replaceableLayerIds =
         state.desiredStyleRevision.layers.mapTo(mutableSetOf()) {

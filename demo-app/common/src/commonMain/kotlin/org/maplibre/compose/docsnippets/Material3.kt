@@ -27,11 +27,9 @@ fun Material3() {
           presentation?.viewport?.metersPerDpAtTarget ?: 0.0,
           modifier = Modifier.align(Alignment.TopStart),
         ) // (1)!
-        CompassButton(mapState, presentation, modifier = Modifier.align(Alignment.TopEnd))
+        CompassButton(modifier = Modifier.align(Alignment.TopEnd))
         MaplibreLogo(Modifier.align(Alignment.BottomStart))
         ExpandingAttributionButton(
-          presentation = presentation,
-          styleState = styleState,
           modifier = Modifier.align(Alignment.BottomEnd),
           contentAlignment = Alignment.BottomEnd,
         )

@@ -52,7 +52,7 @@ public interface MapOverlayScope {
     get() = mapState.presentation
 
   /** The style state of the map that this overlay belongs to. */
-  public val styleState: MapStyleState
+  public val style: MapStyleState
     get() = mapState.style
 
   /**
@@ -155,22 +155,16 @@ public class MapOverlay(
         modifier = Modifier.align(Alignment.TopStart),
       )
 
-      DisappearingCompassButton(
-        mapState = mapState,
-        presentation = presentation,
-        modifier = Modifier.align(Alignment.TopEnd),
-      )
+      DisappearingCompassButton(modifier = Modifier.align(Alignment.TopEnd))
 
-      // Read before entering the Row, whose scope shadows this one.
-      val currentPresentation = presentation
-      val style = styleState
+      val overlayScope = this
       Row(
         Modifier.align(Alignment.BottomStart).fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
       ) {
         MaplibreLogo()
-        ExpandingAttributionButton(presentation = currentPresentation, styleState = style)
+        overlayScope.ExpandingAttributionButton()
       }
     }
 

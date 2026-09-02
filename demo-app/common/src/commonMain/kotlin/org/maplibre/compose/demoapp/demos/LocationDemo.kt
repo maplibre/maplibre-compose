@@ -112,7 +112,6 @@ object LocationDemo : Demo {
     LocationPuck(
       idPrefix = "user",
       locationState = locationState,
-      presentation = presentation,
       colors = LocationPuckDefaults.colors(),
     )
   }
