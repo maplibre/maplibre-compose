@@ -20,7 +20,8 @@ change after construction. The provider is fixed at construction.
 ## Rewrite a request
 
 <Api of="MapRuntime.setRequestInterceptor" /> applies to every map and
-snapshotter on the runtime:
+snapshotter on the runtime. Install it in a `DisposableEffect` so it lasts
+for this composition:
 
 <Code code={region(requests, "interceptor")} lang="kotlin" title="App.kt" />
 
