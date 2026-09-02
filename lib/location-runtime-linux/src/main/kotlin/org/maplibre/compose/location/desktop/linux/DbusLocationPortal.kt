@@ -282,7 +282,7 @@ internal fun Map<String, Variant<*>>.toLocationEvent(): LocationEvent.Update {
           altitude = number("Altitude")?.takeIf { it != -Double.MAX_VALUE },
         ),
       horizontalAccuracy = number("Accuracy")?.meters,
-      speed = number("Speed")?.takeIf { it >= 0.0 }?.meters,
+      distancePerSecond = number("Speed")?.takeIf { it >= 0.0 }?.meters,
       course = number("Heading")?.takeIf { it >= 0.0 }?.let { Bearing.North + it.degrees },
       measuredAt = capturedAt,
     )

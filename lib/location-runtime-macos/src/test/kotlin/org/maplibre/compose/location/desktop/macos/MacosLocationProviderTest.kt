@@ -136,8 +136,8 @@ class MacosLocationProviderTest {
     assertEquals(40.0, location.position.altitude)
     assertEquals(8.0, location.horizontalAccuracy?.inMeters)
     assertEquals(3.0, location.altitudeAccuracy?.inMeters)
-    assertEquals(3.0, location.speed?.inMeters)
-    assertEquals(0.5, location.speedAccuracy?.inMeters)
+    assertEquals(3.0, location.distancePerSecond?.inMeters)
+    assertEquals(0.5, location.distancePerSecondAccuracy?.inMeters)
     assertEquals(Bearing.North + 90.degrees, location.course)
     assertEquals(5.degrees, location.courseAccuracy)
     assertTrue(Clock.System.now() - location.measuredAt >= 2.seconds)
@@ -162,7 +162,7 @@ class MacosLocationProviderTest {
 
     assertNull(location.altitudeAccuracy)
     assertNull(location.course)
-    assertNull(location.speed)
+    assertNull(location.distancePerSecond)
   }
 
   @Test

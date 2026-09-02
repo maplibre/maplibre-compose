@@ -54,7 +54,7 @@ class BrowserLocationProviderTest {
     assertEquals(12.0, first.position.altitude)
     assertEquals(4.0, first.horizontalAccuracy?.inMeters)
     assertEquals(2.0, first.altitudeAccuracy?.inMeters)
-    assertEquals(3.0, first.speed?.inMeters)
+    assertEquals(3.0, first.distancePerSecond?.inMeters)
     assertEquals(Bearing.North + 45.degrees, first.course)
 
     collection.cancel()

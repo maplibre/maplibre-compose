@@ -403,7 +403,7 @@ private fun BrowserPosition.asLocationMeasurement(): LocationMeasurement =
     position = Position(longitude, latitude, altitude),
     horizontalAccuracy = horizontalAccuracyMeters.meters,
     altitudeAccuracy = if (altitude != null) altitudeAccuracyMeters?.meters else null,
-    speed = speedMetersPerSecond?.meters,
+    distancePerSecond = speedMetersPerSecond?.meters,
     course = headingDegrees?.takeIf { it.isFinite() }?.let { Bearing.North + it.degrees },
     measuredAt = capturedAt,
   )

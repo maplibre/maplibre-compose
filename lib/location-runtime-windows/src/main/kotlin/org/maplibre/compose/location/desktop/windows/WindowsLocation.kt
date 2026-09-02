@@ -116,7 +116,7 @@ internal fun WindowsLocationMeasurement.asMapLibreLocationMeasurement(): Locatio
     position = Position(longitude = longitude, latitude = latitude, altitude = altitude),
     horizontalAccuracy = horizontalAccuracyMeters.meters,
     altitudeAccuracy = verticalAccuracy,
-    speed = speed,
+    distancePerSecond = speed,
     course = course,
     measuredAt = Instant.fromEpochMilliseconds(capturedAtMillis),
   )

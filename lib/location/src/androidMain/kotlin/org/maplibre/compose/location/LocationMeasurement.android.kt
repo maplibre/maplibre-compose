@@ -29,8 +29,8 @@ public fun AndroidLocation.asMapLibreLocationMeasurement(): LocationMeasurement 
       } else {
         null
       },
-    speed = if (hasSpeed()) speed.toDouble().meters else null,
-    speedAccuracy =
+    distancePerSecond = if (hasSpeed()) speed.toDouble().meters else null,
+    distancePerSecondAccuracy =
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && hasSpeed() && hasSpeedAccuracy()) {
         speedAccuracyMetersPerSecond.toDouble().meters
       } else {
