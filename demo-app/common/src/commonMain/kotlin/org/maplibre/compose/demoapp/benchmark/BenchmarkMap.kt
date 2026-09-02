@@ -79,9 +79,7 @@ internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets
     }
   }
   val styleUrl = (scenario.style.base as BaseStyle.Uri).uri
-  val viewport = mapState.viewport
-  LaunchedEffect(scenario.id, viewport) {
-    if (viewport == null) return@LaunchedEffect
+  LaunchedEffect(scenario.id, mapState) {
     state.benchmark.abandonRun()
     mapState.setCameraPosition(scenario.camera)
     session.geoJson = null

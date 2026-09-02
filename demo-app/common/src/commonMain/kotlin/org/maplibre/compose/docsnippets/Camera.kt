@@ -28,7 +28,6 @@ fun Camera() {
 
   // #region animate
   LaunchedEffect(mapState) {
-    mapState.awaitViewport()
     mapState.animateCameraPosition(
       position =
         mapState.cameraPosition.copy(target = Position(latitude = 47.607, longitude = -122.342)),
@@ -39,7 +38,6 @@ fun Camera() {
 
   // #region fit-bounds
   LaunchedEffect(mapState) {
-    mapState.awaitViewport()
     mapState.animateCameraPosition(
       boundingBox = BoundingBox(west = -123.0, south = 47.0, east = -122.0, north = 48.0),
       padding = PaddingValues(32.dp),

@@ -20,6 +20,7 @@ import org.maplibre.compose.demoapp.DemoStyle
 import org.maplibre.compose.demoapp.allDemoStyles
 import org.maplibre.compose.demoapp.allDemos
 import org.maplibre.compose.demoapp.flyTo
+import org.maplibre.compose.map.MapNotAttachedException
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -216,7 +217,7 @@ internal class AgentDriver(
   fun jumpCamera(request: CameraUpdateRequest): CameraDto {
     request.validateRanges()
     markDemoMapReload()
-    map().setCameraPosition(state.mapState.cameraPosition.merged(request))
+    state.mapState.setCameraPosition(state.mapState.cameraPosition.merged(request))
     return camera()
   }
 
@@ -225,11 +226,10 @@ internal class AgentDriver(
     val durationMs = request.durationMs ?: DEFAULT_ANIMATION_MS
     if (durationMs < 0) throw AgentException(400, "'durationMs' must be >= 0, got $durationMs")
     markDemoMapReload()
-    map()
-      .animateCameraPosition(
-        position = state.mapState.cameraPosition.merged(request),
-        duration = durationMs.milliseconds,
-      )
+    state.mapState.animateCameraPosition(
+      position = state.mapState.cameraPosition.merged(request),
+      duration = durationMs.milliseconds,
+    )
     return camera()
   }
 
@@ -327,7 +327,12 @@ internal class AgentDriver(
 
   suspend fun featuresJson(xPx: Float, yPx: Float, layerIds: Set<String>?): String {
     val offset = with(density) { DpOffset(xPx.toDp(), yPx.toDp()) }
-    val features = map().queryRenderedFeatures(offset = offset, layerIds = layerIds)
+    val features =
+      try {
+        state.mapState.queryRenderedFeatures(offset = offset, layerIds = layerIds)
+      } catch (_: MapNotAttachedException) {
+        throw AgentException(503, "the map has no viewport")
+      }
     return FeatureCollection(features).toJson()
   }
 
@@ -335,12 +340,12 @@ internal class AgentDriver(
   fun pan(request: PanRequest): CameraDto {
     requireFinite("dxPx", request.dxPx)
     requireFinite("dyPx", request.dyPx)
-    val size = map().viewport?.size ?: throw AgentException(503, "the map has no viewport yet")
+    val map = state.mapState
+    val size = map.viewport?.size ?: throw AgentException(503, "the map has no viewport yet")
     val center = DpOffset(size.width / 2, size.height / 2)
     val moved =
       with(density) { DpOffset(center.x + request.dxPx.toDp(), center.y + request.dyPx.toDp()) }
     // Best effort: a screen point off the map has no position, so report the camera unchanged.
-    val map = map()
     val atCenter = map.positionFromScreenLocation(center) ?: return camera()
     val atMoved = map.positionFromScreenLocation(moved) ?: return camera()
     val current = state.mapState.cameraPosition
@@ -372,7 +377,7 @@ internal class AgentDriver(
     request.x?.let { requireFinite("x", it) }
     request.y?.let { requireFinite("y", it) }
     val current = state.mapState.cameraPosition
-    val map = map()
+    val map = state.mapState
     val anchor =
       if (request.x != null && request.y != null) {
         with(density) { DpOffset(request.x.toDp(), request.y.toDp()) }
@@ -475,10 +480,6 @@ internal class AgentDriver(
       moveReason = cameraMoveReason.name,
     )
   }
-
-  private fun map(): MapState =
-    state.mapState.takeIf { it.viewport != null }
-      ?: throw AgentException(503, "the map has no viewport")
 
   private fun Demo.toDto() =
     DemoDto(name = name, description = description, preferredStyle = preferredStyle?.displayName)

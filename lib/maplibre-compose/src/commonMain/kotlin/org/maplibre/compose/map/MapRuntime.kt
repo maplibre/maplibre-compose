@@ -265,7 +265,6 @@ internal constructor(
   internal val adapter: MapAdapter,
 ) {
   private val invalidated = CompletableDeferred<Unit>()
-  private val cameraMutation = MutatorMutex()
   private var validState: Boolean by mutableStateOf(true)
   private var viewportState: Viewport? by mutableStateOf(null)
   private val firstViewport = CompletableDeferred<Viewport>()
@@ -296,11 +295,7 @@ internal constructor(
   suspend fun animateCameraPosition(
     position: CameraPosition,
     duration: Duration = 300.milliseconds,
-  ) {
-    cameraMutation.mutate {
-      runLeaseBound { adapter.animateCameraPosition(position, duration) }
-    }
-  }
+  ): Unit = runLeaseBound { adapter.animateCameraPosition(position, duration) }
 
   suspend fun animateCameraPosition(
     boundingBox: BoundingBox,
@@ -308,13 +303,9 @@ internal constructor(
     tilt: Double = 0.0,
     padding: PaddingValues = PaddingValues(0.dp),
     duration: Duration = 300.milliseconds,
-  ) {
-    cameraMutation.mutate {
-      runLeaseBound {
-        awaitViewportState()
-        adapter.animateCameraPosition(boundingBox, bearing, tilt, padding, duration)
-      }
-    }
+  ): Unit = runLeaseBound {
+    awaitViewportState()
+    adapter.animateCameraPosition(boundingBox, bearing, tilt, padding, duration)
   }
 
   fun getVisibleRegion(): VisibleRegion? = withViewport { it.getVisibleRegion() }
@@ -457,6 +448,7 @@ internal constructor(
     internal set
 
   private var nextMapAttachment = CompletableDeferred<MapAttachment>()
+  private val cameraMutation = MutatorMutex()
 
   /** Contains the current rendered viewport, or null while no viewport is available. */
   public val viewport: Viewport?
@@ -498,28 +490,38 @@ internal constructor(
     applyAttachmentCameraCommand(command.attachment, command.command)
   }
 
-  /** Fits [boundingBox] in the current viewport without animation. */
+  /** Waits for a viewport, then fits [boundingBox] without animation. */
   public suspend fun setCameraPosition(
     boundingBox: BoundingBox,
     bearing: Double = 0.0,
     tilt: Double = 0.0,
     padding: PaddingValues = PaddingValues(0.dp),
-  ): Unit = requireAttachment().setCameraPosition(boundingBox, bearing, tilt, padding)
+  ): Unit = retryAcrossAttachments {
+    it.setCameraPosition(boundingBox, bearing, tilt, padding)
+  }
 
-  /** Animates the camera to [position]. A new camera animation replaces the previous one. */
+  /** Waits for an attached map, then animates to [position]. A new animation replaces this one. */
   public suspend fun animateCameraPosition(
     position: CameraPosition,
     duration: Duration = 300.milliseconds,
-  ): Unit = requireAttachment().animateCameraPosition(position, duration)
+  ): Unit = cameraMutation.mutate {
+    retryAcrossAttachments { it.animateCameraPosition(position, duration) }
+  }
 
-  /** Animates the camera to fit [boundingBox]. A new camera animation replaces the previous one. */
+  /**
+   * Waits for a viewport, then animates to fit [boundingBox]. A new animation replaces this one.
+   */
   public suspend fun animateCameraPosition(
     boundingBox: BoundingBox,
     bearing: Double = 0.0,
     tilt: Double = 0.0,
     padding: PaddingValues = PaddingValues(0.dp),
     duration: Duration = 300.milliseconds,
-  ): Unit = requireAttachment().animateCameraPosition(boundingBox, bearing, tilt, padding, duration)
+  ): Unit = cameraMutation.mutate {
+    retryAcrossAttachments {
+      it.animateCameraPosition(boundingBox, bearing, tilt, padding, duration)
+    }
+  }
 
   /** Returns the visible region, or null while no viewport is available. */
   public fun getVisibleRegion(): VisibleRegion? =
@@ -561,10 +563,13 @@ internal constructor(
     requireAttachment().queryRenderedFeatures(rect, layerIds, predicate)
 
   /** Waits for the first viewport from the current or a future map attachment. */
-  public suspend fun awaitViewport(): Viewport {
+  public suspend fun awaitViewport(): Viewport =
+    retryAcrossAttachments(MapAttachment::awaitViewport)
+
+  private suspend fun <T> retryAcrossAttachments(operation: suspend (MapAttachment) -> T): T {
     while (true) {
       try {
-        return awaitAttachment().awaitViewport()
+        return operation(awaitAttachment())
       } catch (_: MapNotAttachedException) {
         // A replacement surface can attach after this lease ends.
       }

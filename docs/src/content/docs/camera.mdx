@@ -19,8 +19,8 @@ initial <Api of="CameraPosition" /> to set the camera at startup:
 ## Animate the camera
 
 <Api of="MapState.animateCameraPosition" /> is a suspend function that moves
-the map to a new position over a duration. Call it from a coroutine after
-<Api of="MapState.awaitViewport" /> confirms that the map is attached:
+the map to a new position over a duration. Call it from a coroutine. The
+function waits until the map is attached:
 
 <Code code={region(camera, "animate")} lang="kotlin" title="App.kt" />
 

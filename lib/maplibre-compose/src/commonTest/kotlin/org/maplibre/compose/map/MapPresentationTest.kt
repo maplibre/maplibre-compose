@@ -754,18 +754,27 @@ class MapPresentationTest {
   }
 
   @Test
-  fun a_bounds_set_waits_for_this_presentations_viewport() = runTest {
-    val fixture = presentationFixture()
+  fun a_bounds_set_waits_for_an_attachment_and_its_viewport() = runTest {
+    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
+    val state = runtime.createMapState()
     val operation = async {
-      fixture.state.setCameraPosition(BoundingBox(Position(-1.0, -1.0), Position(1.0, 1.0)))
+      state.setCameraPosition(BoundingBox(Position(-1.0, -1.0), Position(1.0, 1.0)))
     }
     testScheduler.runCurrent()
+    assertFalse(operation.isCompleted)
 
-    assertFalse(fixture.adapter.boundsSet.isCompleted)
-    fixture.attachment.updateViewport(testViewport())
+    val token = state.reservePresentation()
+    val adapter = PresentationTestAdapter()
+    state.publishPresentation(token, adapter)
+    testScheduler.runCurrent()
+    assertFalse(operation.isCompleted)
+
+    requireNotNull(state.currentMapAttachment).updateViewport(testViewport())
     operation.await()
-    assertTrue(fixture.adapter.boundsSet.isCompleted)
-    fixture.close()
+    assertTrue(adapter.boundsSet.isCompleted)
+    state.close()
+    state.awaitClosed()
+    runtime.close()
   }
 
   @Test
@@ -820,6 +829,60 @@ class MapPresentationTest {
     fixture.adapter.finishAnimation.complete(Unit)
     second.await()
     fixture.close()
+  }
+
+  @Test
+  fun the_latest_camera_animation_waits_for_attachment_and_restarts_on_replacement() = runTest {
+    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
+    val state = runtime.createMapState()
+    val superseded = async {
+      state.animateCameraPosition(CameraPosition(zoom = 2.0), 1.seconds)
+    }
+    testScheduler.runCurrent()
+    val animation = async {
+      state.animateCameraPosition(CameraPosition(zoom = 4.0), 1.seconds)
+    }
+    testScheduler.runCurrent()
+    assertTrue(superseded.isCancelled)
+    assertFalse(animation.isCompleted)
+
+    val firstToken = state.reservePresentation()
+    val first = PresentationTestAdapter()
+    state.publishPresentation(firstToken, first)
+    first.animationStarted.await()
+
+    state.releasePresentation(firstToken, first)
+    testScheduler.runCurrent()
+    assertFalse(animation.isCompleted)
+
+    val replacementToken = state.reservePresentation()
+    val replacement = PresentationTestAdapter()
+    state.publishPresentation(replacementToken, replacement)
+    replacement.animationStarted.await()
+    replacement.finishAnimation.complete(Unit)
+
+    animation.await()
+    state.close()
+    state.awaitClosed()
+    runtime.close()
+  }
+
+  @Test
+  fun closing_a_map_fails_a_camera_animation_waiting_for_attachment() = runTest {
+    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
+    val state = runtime.createMapState()
+    supervisorScope {
+      val animation = async {
+        state.animateCameraPosition(CameraPosition(zoom = 4.0), 1.seconds)
+      }
+      testScheduler.runCurrent()
+
+      state.close()
+
+      assertFailsWith<MapStateClosedException> { animation.await() }
+    }
+    state.awaitClosed()
+    runtime.close()
   }
 }
 
