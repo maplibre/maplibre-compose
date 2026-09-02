@@ -516,9 +516,11 @@ class MapPresentationTest {
     )
 
     fixture.state.style.baseStyle = BaseStyle.Json("replacement")
-    assertFailsWith<IllegalStateException> {
-      handle.setFeatureState("7", buildJsonObject { put("stale", true) })
-    }
+    handle.setFeatureState("7", buildJsonObject { put("still-current", true) })
+    assertEquals(
+      true,
+      firstStyle.featureState("points", null, "7")["still-current"]?.jsonPrimitive?.boolean,
+    )
     val replacement =
       RecordingStyleBinding(
         sources =
@@ -828,6 +830,9 @@ class MapPresentationTest {
     assertEquals(listOf("bottom", "top"), styleLayers.map { it.id })
 
     fixture.state.style.baseStyle = BaseStyle.Json("replacement")
+    assertEquals(listOf("bottom", "top"), styleSources.map { it.id })
+    assertEquals(listOf("bottom", "top"), styleLayers.map { it.id })
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, RecordingStyleBinding())
     assertTrue(styleSources.none())
     assertTrue(styleLayers.none())
     fixture.close()
