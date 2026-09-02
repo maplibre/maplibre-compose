@@ -125,14 +125,18 @@ jobs:
           allow-missing-junit-files: "false"
         env:
           TRUNK_API_TOKEN: ${{ secrets.TRUNK_API_TOKEN }}
+      # Job timeout is cancelled, not failure. Logcat's TestRunner lines name a
+      # hung test, so capture after every device-test outcome, including cancel.
       - name: Capture Android emulator diagnostics
-        if: ${{ failure() && steps.android-device-tests.outcome == 'failure' }}
+        if: ${{ always() && steps.android-device-tests.outcome != 'skipped' }}
+        continue-on-error: true
         run: mise run android-emulator:diagnostics
       - name: Upload Android emulator diagnostics
-        if: ${{ failure() && steps.android-device-tests.outcome == 'failure' }}
+        if: ${{ always() && steps.android-device-tests.outcome != 'skipped' }}
+        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          if-no-files-found: error
+          if-no-files-found: warn
           name: android-${{ matrix.api-level }}-diagnostics
           path: |
             build/android-emulator/avd/**/*.ini
