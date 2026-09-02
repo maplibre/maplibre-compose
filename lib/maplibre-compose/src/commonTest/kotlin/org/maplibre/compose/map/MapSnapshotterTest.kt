@@ -9,6 +9,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
@@ -27,10 +28,13 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.GeoJsonSourceHandle
+import org.maplibre.compose.sources.TileSetOptions
+import org.maplibre.compose.sources.VectorSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.RecordingStyleBinding
@@ -168,6 +172,73 @@ class MapSnapshotterTest {
     assertTrue(snapshotter.style.sources.remove("imperative"))
     assertTrue(snapshotter.style.sources.none())
 
+    close(snapshotter, runtime)
+  }
+
+  @Test
+  fun reused_snapshot_style_preserves_existing_resource_handles() = runTest {
+    val source =
+      GeoJsonSource(
+        id = "base-source",
+        data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
+        options = GeoJsonOptions(),
+      )
+    val binding =
+      RecordingStyleBinding(
+        sources = listOf(source),
+        layers = listOf(BackgroundLayer("base-layer")),
+      )
+    val runtime =
+      mapRuntimeForTest(
+        snapshotterAdapterFactory =
+          SnapshotterAdapterFactory { FakeSnapshotterAdapter(prepare = { _, _ -> binding }) },
+        styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _ -> DesiredStyleRevision.Empty },
+      )
+    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
+    val request = MapSnapshotRequest(1, 1)
+    snapshotter.capture(request)
+    val sourceHandle = checkNotNull(snapshotter.style.sources["base-source"])
+    val layerHandle = checkNotNull(snapshotter.style.layers["base-layer"])
+
+    snapshotter.capture(request)
+
+    assertEquals("", sourceHandle.attributionHtml)
+    assertNull(layerHandle.getProperty("background-opacity"))
+    close(snapshotter, runtime)
+  }
+
+  @Test
+  fun reused_snapshot_style_invalidates_a_structurally_replaced_source() = runTest {
+    val original = attributedVectorSource("original")
+    val replacement = attributedVectorSource("replacement")
+    var desired = DesiredStyleRevision(listOf(original.definition()), emptyList(), emptyList())
+    val binding = RecordingStyleBinding(sources = listOf(original))
+    val runtime =
+      mapRuntimeForTest(
+        snapshotterAdapterFactory =
+          SnapshotterAdapterFactory {
+            FakeSnapshotterAdapter(
+              prepare = { _, _ -> binding },
+              capture = { request, _ ->
+                if (desired.sources.single() == replacement.definition()) {
+                  binding.replaceSource(replacement)
+                }
+                FakeImageBitmap(request.width, request.height)
+              },
+            )
+          },
+        styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _ -> desired },
+      )
+    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
+    val request = MapSnapshotRequest(1, 1)
+    snapshotter.capture(request)
+    val stale = checkNotNull(snapshotter.style.sources["shared"])
+
+    desired = DesiredStyleRevision(listOf(replacement.definition()), emptyList(), emptyList())
+    snapshotter.capture(request)
+
+    assertFailsWith<IllegalStateException> { stale.attributionHtml }
+    assertEquals("replacement", snapshotter.style.sources["shared"]?.attributionHtml)
     close(snapshotter, runtime)
   }
 
@@ -535,6 +606,13 @@ class MapSnapshotterTest {
     runtime.close()
     runtime.awaitClosed()
   }
+
+  private fun attributedVectorSource(attribution: String): VectorSource =
+    VectorSource(
+      id = "shared",
+      tiles = listOf("https://example.com/{z}/{x}/{y}.pbf"),
+      options = TileSetOptions(attributionHtml = attribution),
+    )
 
   private class FakeSnapshotterAdapter(
     private val prepare: suspend (BaseStyle, MapSnapshotRequest) -> StyleBinding = { _, _ ->

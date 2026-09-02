@@ -309,6 +309,36 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
     removeResourceIdentities(layerIdentities, ids)
   }
 
+  internal fun invalidateStructurallyReplacedResources(
+    previous: DesiredStyleRevision,
+    next: DesiredStyleRevision,
+  ) {
+    val nextSources = next.sources.associateBy(SourceDefinition::id)
+    val replacedSourceIds =
+      previous.sources
+        .filter { previousSource ->
+          nextSources[previousSource.id]?.let(previousSource::canUpdateTo) != true
+        }
+        .mapTo(mutableSetOf(), SourceDefinition::id)
+    invalidateSourceIdentities(replacedSourceIds)
+
+    val nextLayers = next.layers.associateBy { it.definition.id }
+    val replacedLayerIds =
+      previous.layers
+        .filter { previousLayer ->
+          val nextLayer = nextLayers[previousLayer.definition.id]
+          nextLayer == null ||
+            nextLayer.anchor != previousLayer.anchor ||
+            nextLayer.definition.type != previousLayer.definition.type ||
+            nextLayer.definition.sourceId != previousLayer.definition.sourceId ||
+            nextLayer.definition.value["source-layer"] !=
+              previousLayer.definition.value["source-layer"] ||
+            previousLayer.definition.sourceId in replacedSourceIds
+        }
+        .mapTo(mutableSetOf()) { it.definition.id }
+    invalidateLayerIdentities(replacedLayerIds)
+  }
+
   internal fun updateResources(resources: LoadedStyleResources) {
     sourcesState = resources.sources
     layersState = resources.layers
@@ -832,7 +862,7 @@ internal constructor(
         activeStyleMutation
           ?: run {
             requireNoImperativeResourceConflicts(revision)
-            invalidateStructurallyReplacedResources(desiredStyleRevision, revision)
+            style.invalidateStructurallyReplacedResources(desiredStyleRevision, revision)
             styleHandleEpoch++
             desiredStyleRevision = revision
             style.loadState = StyleLoadState.Loading
@@ -1049,36 +1079,6 @@ internal constructor(
   private fun completeStyleMutation(reservation: StyleMutationReservation) {
     if (activeStyleMutation === reservation) activeStyleMutation = null
     reservation.completion.complete(Unit)
-  }
-
-  private fun invalidateStructurallyReplacedResources(
-    previous: DesiredStyleRevision,
-    next: DesiredStyleRevision,
-  ) {
-    val nextSources = next.sources.associateBy(SourceDefinition::id)
-    val replacedSourceIds =
-      previous.sources
-        .filter { previousSource ->
-          nextSources[previousSource.id]?.let(previousSource::canUpdateTo) != true
-        }
-        .mapTo(mutableSetOf(), SourceDefinition::id)
-    style.invalidateSourceIdentities(replacedSourceIds)
-
-    val nextLayers = next.layers.associateBy { it.definition.id }
-    val replacedLayerIds =
-      previous.layers
-        .filter { previousLayer ->
-          val nextLayer = nextLayers[previousLayer.definition.id]
-          nextLayer == null ||
-            nextLayer.anchor != previousLayer.anchor ||
-            nextLayer.definition.type != previousLayer.definition.type ||
-            nextLayer.definition.sourceId != previousLayer.definition.sourceId ||
-            nextLayer.definition.value["source-layer"] !=
-              previousLayer.definition.value["source-layer"] ||
-            previousLayer.definition.sourceId in replacedSourceIds
-        }
-        .mapTo(mutableSetOf()) { it.definition.id }
-    style.invalidateLayerIdentities(replacedLayerIds)
   }
 
   internal fun <T> runStyleHandleOperation(

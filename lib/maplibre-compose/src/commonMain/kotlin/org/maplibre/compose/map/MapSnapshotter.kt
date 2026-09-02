@@ -748,12 +748,16 @@ internal class MapSnapshotterImplementation(
   ): Boolean = lock.withLock {
     if (closed || capture.abandoned || claim.revision != baseStyleRevision) return@withLock false
     styleHandleEpoch++
+    val reusesLoadedStyle = style.currentLoadedStyle() === binding
+    if (reusesLoadedStyle) {
+      style.invalidateStructurallyReplacedResources(desiredRevision, revision)
+    }
     desiredRevision = revision
-    if (style.currentLoadedStyle() !== binding) {
+    if (!reusesLoadedStyle) {
       imperativeSources.clear()
       imperativeImages.clear()
+      style.updateLoadedStyle(binding)
     }
-    style.updateLoadedStyle(binding)
     style.loadState = StyleLoadState.Ready
     style.refreshResources()
     true
