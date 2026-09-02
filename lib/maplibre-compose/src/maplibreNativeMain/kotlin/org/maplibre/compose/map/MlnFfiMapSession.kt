@@ -20,7 +20,6 @@ import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.math.PI
-import kotlin.math.hypot
 import kotlin.math.round
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
@@ -88,7 +87,6 @@ import org.maplibre.nativeffi.error.InvalidArgumentException
 import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.error.NativeErrorException
 import org.maplibre.nativeffi.error.UnsupportedFeatureException
-import org.maplibre.nativeffi.geo.LatLng
 import org.maplibre.nativeffi.geo.ScreenBox
 import org.maplibre.nativeffi.geo.ScreenPoint
 import org.maplibre.nativeffi.map.DebugOption
@@ -329,8 +327,6 @@ internal class MlnFfiMapSession(
   @Volatile private var maximumFps: Int? = null
   private var cameraConstraints: CameraConstraints? = null
   private var cameraProjection: CameraProjection = CameraProjection.Perspective
-  /** Owner-thread state that records the projection that the current map has applied. */
-  private var appliedCameraProjection: CameraProjection = CameraProjection.Perspective
   private var tileLodOptions: TileLodOptions = TileLodOptions.Standard
   private var lastRenderTime = TimeSource.Monotonic.markNow()
 
@@ -630,7 +626,7 @@ internal class MlnFfiMapSession(
     applyRequestedStyle(map)
     // A camera set before this map existed reaches it as a queued jump, which a loop that stopped
     // before running it has already abandoned.
-    requestedCamera?.let { map.jumpTo(map.cameraForPosition(it)) }
+    requestedCamera?.let { map.jumpTo(it.toCameraOptions(cameraPadding)) }
   }
 
   private fun ensureAttached(map: MapHandle, frame: MlnFfiMapFrame): Boolean {
@@ -1095,8 +1091,9 @@ internal class MlnFfiMapSession(
 
   private fun recordCamera(position: CameraPosition) {
     requestedCamera = position
+    val padding = cameraPadding
     configureMap { map ->
-      map.jumpTo(map.cameraForPosition(position))
+      map.jumpTo(position.toCameraOptions(padding))
       snapshotViewport(map)
     }
   }
@@ -1301,22 +1298,9 @@ internal class MlnFfiMapSession(
     // mbgl wraps unprojected longitudes to ±180, so a viewport astride the antimeridian would hull
     // to a box spanning nearly the whole world. Unwrap the corners around the center first; like
     // GL JS, the box may then extend past ±180.
-    val nativeCamera = map.camera.toCameraPosition()
-    val camera =
-      if (appliedCameraProjection is CameraProjection.Axonometric) {
-        nativeCamera.copy(
-          target =
-            map
-              .cameraTarget(appliedCameraProjection, appliedCameraPadding)
-              .toPosition()
-              .unwrapAround(nativeCamera.target)
-        )
-      } else {
-        nativeCamera
-      }
     publishViewport(
       MirroredViewport(
-        camera = camera,
+        camera = map.camera.toCameraPosition(),
         size = DpSize(size.width.dp, size.height.dp),
         visibleRegion = visibleRegion,
         boundingBox =
@@ -1367,15 +1351,7 @@ internal class MlnFfiMapSession(
     if (cameraPadding == insets) return
     cameraPadding = insets
     configureMap { map ->
-      val target = map.cameraTarget(appliedCameraProjection, appliedCameraPadding)
-      val camera = CameraOptions().also { it.padding = insets }
-      map.jumpTo(
-        if (appliedCameraProjection is CameraProjection.Axonometric) {
-          map.cameraKeeping(target, map.paddedViewportCenter(insets), camera)
-        } else {
-          camera
-        }
-      )
+      map.jumpTo(CameraOptions().also { it.padding = insets })
       appliedCameraPadding = insets
       snapshotViewport(map)
     }
@@ -1446,8 +1422,9 @@ internal class MlnFfiMapSession(
     )
 
   override suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration) {
+    val padding = cameraPadding
     startTransitionAwaitingRelease(duration) { map, animation ->
-      map.flyTo(map.cameraForPosition(finalPosition), animation)
+      map.flyTo(finalPosition.toCameraOptions(padding), animation)
     }
   }
 
@@ -1628,21 +1605,7 @@ internal class MlnFfiMapSession(
         if (value.isTileParseStatusEnabled) add(DebugOption.PARSE_STATUS)
       }
       if (cameraProjectionChanged) {
-        val target = map.cameraTarget(appliedCameraProjection, appliedCameraPadding)
         map.projectionMode = value.cameraProjection.toFfi()
-        appliedCameraProjection = value.cameraProjection
-        val camera = CameraOptions().also { it.padding = appliedCameraPadding }
-        map.jumpTo(
-          if (value.cameraProjection is CameraProjection.Axonometric) {
-            map.cameraKeeping(
-              target,
-              map.paddedViewportCenter(appliedCameraPadding),
-              camera,
-            )
-          } else {
-            camera.also { it.center = target }
-          }
-        )
         snapshotViewportAndNotify(map)
       }
     }
@@ -1840,15 +1803,8 @@ internal class MlnFfiMapSession(
     gestureToken: GestureToken?,
   ) {
     onMap(gestureToken) { map ->
-      if (appliedCameraProjection is CameraProjection.Axonometric) {
-        val camera = map.cameraForAxonometricMoveBy(deltaX, deltaY)
-        if (duration == Duration.ZERO) map.jumpTo(camera)
-        else map.easeTo(camera, duration.toAnimationOptions())
-      } else if (duration == Duration.ZERO) {
-        map.moveBy(deltaX, deltaY)
-      } else {
-        map.moveByAnimated(deltaX, deltaY, duration.toAnimationOptions())
-      }
+      if (duration == Duration.ZERO) map.moveBy(deltaX, deltaY)
+      else map.moveByAnimated(deltaX, deltaY, duration.toAnimationOptions())
     }
   }
 
@@ -1860,26 +1816,8 @@ internal class MlnFfiMapSession(
   ) {
     startTransitionAwaitingRelease(duration) { map, animation ->
       activateGesture(map, gestureToken)
-      if (appliedCameraProjection is CameraProjection.Axonometric) {
-        map.easeTo(map.cameraForAxonometricMoveBy(deltaX, deltaY), animation)
-      } else {
-        map.moveByAnimated(deltaX, deltaY, animation)
-      }
+      map.moveByAnimated(deltaX, deltaY, animation)
     }
-  }
-
-  /** MapLibre Native's moveBy assumes its edge-inset center is the projected camera target. */
-  private fun MapHandle.cameraForAxonometricMoveBy(
-    deltaX: Double,
-    deltaY: Double,
-  ): CameraOptions {
-    val anchor = paddedViewportCenter()
-    val landmark = latLngForPixel(anchor)
-    return cameraKeeping(
-      landmark = landmark,
-      screenPoint = ScreenPoint(anchor.x + deltaX, anchor.y + deltaY),
-      camera = CameraOptions(),
-    )
   }
 
   override fun scaleBy(
@@ -1924,7 +1862,13 @@ internal class MlnFfiMapSession(
     // The read and the write must happen together on the owner thread.
     onMap(gestureToken) { map ->
       val camera = map.camera
-      val target = map.cameraForRotation(camera, bearingDelta, pitchDelta, anchor)
+      val target =
+        CameraOptions().also {
+          it.bearing = (camera.bearing ?: 0.0) + bearingDelta
+          it.pitch =
+            ((camera.pitch ?: 0.0) + pitchDelta).coerceIn(MIN_PITCH_DEGREES, MAX_PITCH_DEGREES)
+          it.anchor = anchor?.toScreenPoint()
+        }
       if (duration == Duration.ZERO) map.jumpTo(target)
       else map.easeTo(target, duration.toAnimationOptions())
     }
@@ -1940,91 +1884,14 @@ internal class MlnFfiMapSession(
       activateGesture(map, gestureToken)
       val camera = map.camera
       map.easeTo(
-        map.cameraForRotation(camera, bearingDelta, pitchDelta, anchor = null),
+        CameraOptions().also {
+          it.bearing = (camera.bearing ?: 0.0) + bearingDelta
+          it.pitch =
+            ((camera.pitch ?: 0.0) + pitchDelta).coerceIn(MIN_PITCH_DEGREES, MAX_PITCH_DEGREES)
+        },
         animation,
       )
     }
-  }
-
-  private fun MapHandle.cameraForRotation(
-    camera: CameraOptions,
-    bearingDelta: Double,
-    pitchDelta: Double,
-    anchor: DpOffset?,
-  ): CameraOptions {
-    val target =
-      CameraOptions().also {
-        it.bearing = (camera.bearing ?: 0.0) + bearingDelta
-        it.pitch =
-          ((camera.pitch ?: 0.0) + pitchDelta).coerceIn(MIN_PITCH_DEGREES, MAX_PITCH_DEGREES)
-      }
-    val screenPoint = anchor?.toScreenPoint() ?: paddedViewportCenter()
-    return if (appliedCameraProjection is CameraProjection.Axonometric) {
-      cameraKeeping(latLngForPixel(screenPoint), screenPoint, target)
-    } else {
-      target.also { it.anchor = anchor?.toScreenPoint() }
-    }
-  }
-
-  private fun MapHandle.cameraForPosition(position: CameraPosition): CameraOptions {
-    val camera = position.toCameraOptions(appliedCameraPadding)
-    return if (appliedCameraProjection is CameraProjection.Axonometric) {
-      cameraKeeping(position.target.toLatLng(), paddedViewportCenter(), camera)
-    } else {
-      camera
-    }
-  }
-
-  private fun MapHandle.cameraTarget(
-    projection: CameraProjection,
-    padding: EdgeInsets,
-  ): LatLng {
-    val center = checkNotNull(camera.center)
-    return if (projection is CameraProjection.Axonometric) {
-      latLngForPixel(paddedViewportCenter(padding)).unwrapAround(center)
-    } else {
-      center
-    }
-  }
-
-  private fun MapHandle.paddedViewportCenter(
-    padding: EdgeInsets = appliedCameraPadding
-  ): ScreenPoint =
-    ScreenPoint(
-      x = (size.width + padding.left - padding.right) / 2.0,
-      y = (size.height + padding.top - padding.bottom) / 2.0,
-    )
-
-  private fun LatLng.unwrapAround(center: LatLng): LatLng =
-    toPosition().unwrapAround(center.toPosition()).toLatLng()
-
-  /**
-   * Solves against Native's projection because axonometric mode does not apply edge insets. The
-   * archived Mapbox GL Native issue #11882 documents this limitation.
-   */
-  private fun MapHandle.cameraKeeping(
-    landmark: LatLng,
-    screenPoint: ScreenPoint,
-    camera: CameraOptions,
-  ): CameraOptions {
-    camera.center = camera.center ?: checkNotNull(this.camera.center)
-    camera.padding = camera.padding ?: this.camera.padding
-    createProjection().use { projection ->
-      repeat(2) {
-        projection.setCamera(camera)
-        val actual = projection.pixelForLatLng(landmark)
-        val errorX = screenPoint.x - actual.x
-        val errorY = screenPoint.y - actual.y
-        if (hypot(errorX, errorY) < 0.01) return camera
-        val previousCenter = checkNotNull(camera.center)
-        val centerScreen = projection.pixelForLatLng(previousCenter)
-        camera.center =
-          projection
-            .latLngForPixel(ScreenPoint(centerScreen.x - errorX, centerScreen.y - errorY))
-            .unwrapAround(previousCenter)
-      }
-    }
-    return camera
   }
 
   override fun onPrimaryClick(offset: DpOffset) {

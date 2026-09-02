@@ -257,9 +257,7 @@ private fun SettingsScreen(
 
     SectionHeader("Options")
     SubmenuRow("Gestures", "Which inputs move the camera") { onOpen("gestures") }
-    SubmenuRow("Rendering", "Camera projection, frame rate, tile detail, and debug views") {
-      onOpen("rendering")
-    }
+    SubmenuRow("Rendering", "Frame rate cap, tile detail, and debug views") { onOpen("rendering") }
     SubmenuRow("Controls", "Map controls and diagnostic overlays") { onOpen("controls") }
   }
 }
