@@ -197,6 +197,34 @@ class MlnFfiOfflinePackTest {
     assertEquals(listOf(kept.regionId), second.packs.map { it.regionId })
   }
 
+  @Test
+  fun merging_a_database_registers_its_packs_and_reuses_an_identical_pack() = runBlocking {
+    val definition = tilePyramid(writeStyle("merge.json"))
+    val sharedMetadata = "same pack".encodeToByteArray()
+    val sourceFile = Path(directory, "merge-source.db")
+
+    val source = manager(options.copy(cacheFile = sourceFile))
+    withTimeout(OPERATION_TIMEOUT_MILLIS) { source.create(definition, sharedMetadata) }
+    withTimeout(OPERATION_TIMEOUT_MILLIS) {
+      source.create(definition, "source-only pack".encodeToByteArray())
+    }
+    assertTrue(source.close(), "the source manager should stop before its database is merged")
+
+    val destination = manager()
+    val existing =
+      withTimeout(OPERATION_TIMEOUT_MILLIS) { destination.create(definition, sharedMetadata) }
+
+    val merged = withTimeout(OPERATION_TIMEOUT_MILLIS) { destination.mergeDatabase(sourceFile) }
+
+    assertEquals(2, merged.size)
+    assertTrue(existing in merged, "an identical source pack should reuse the destination pack")
+    assertEquals(merged, destination.packs)
+    assertEquals(
+      setOf("same pack", "source-only pack"),
+      merged.map { requireNotNull(it.metadata).decodeToString() }.toSet(),
+    )
+  }
+
   /**
    * The style points at a closed loopback port rather than a missing `file:` URL: MapLibre treats a
    * missing style as a permanent failure and deactivates the region, while a refused connection is
@@ -304,7 +332,7 @@ class MlnFfiOfflinePackTest {
 
   // region fixtures
 
-  private fun manager(): MlnFfiOfflineManager =
+  private fun manager(options: MlnFfiRuntimeOptions = this.options): MlnFfiOfflineManager =
     MlnFfiOfflineManager(options).also { managers += it }
 
   /** Creates a pack over a local style and starts it; the caller waits for the part it needs. */

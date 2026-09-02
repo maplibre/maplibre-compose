@@ -8,8 +8,10 @@ import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.io.files.Path
 import org.maplibre.compose.mlnffi.MlnFfiGate
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
+import org.maplibre.compose.mlnffi.normalizeMlnFfiPath
 import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.error.MaplibreStatus
@@ -161,6 +163,23 @@ internal class MlnFfiOfflineManager(
       description = "invalidate offline pack ${pack.regionId}",
       start = { it.startInvalidateOfflineRegion(pack.regionId) },
       finish = { _, _ -> },
+    )
+  }
+
+  override suspend fun mergeDatabase(databaseFile: Path): Set<OfflinePack> {
+    val sourceFile = normalizeMlnFfiPath(databaseFile)
+    require(sourceFile != options.cacheFile) {
+      "The source database must differ from this manager's database"
+    }
+    return runOperation(
+      description = "merge offline database $sourceFile",
+      start = { it.startMergeOfflineRegionsDatabase(sourceFile.toString()) },
+      finish = { nativeRuntime, handle ->
+        nativeRuntime
+          .takeMergeOfflineRegionsDatabaseResult(handle)
+          .mapNotNull(::registerRegion)
+          .toSet()
+      },
     )
   }
 

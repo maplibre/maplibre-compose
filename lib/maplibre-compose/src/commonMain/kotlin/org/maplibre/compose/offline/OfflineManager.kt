@@ -1,5 +1,7 @@
 package org.maplibre.compose.offline
 
+import kotlinx.io.files.Path
+
 /** Manages the offline packs and ambient cache that belong to one map runtime. */
 public interface OfflineManager {
 
@@ -46,6 +48,22 @@ public interface OfflineManager {
    * @throws OfflineManagerException if the operation failed.
    */
   public suspend fun invalidate(pack: OfflinePack)
+
+  /**
+   * Merges the offline packs and their resources from [databaseFile] into this manager's database.
+   *
+   * [databaseFile] must identify a readable MapLibre offline database with the same schema version
+   * as this runtime's database. The merge does not modify the source database. Ambient-cache
+   * resources are not imported.
+   *
+   * The returned set contains the packs represented by the source database. It includes an existing
+   * pack when the source contains the same definition and metadata. Imported packs can be
+   * incomplete when the source database does not contain every required resource.
+   *
+   * @throws UnsupportedOperationException if the runtime does not support offline packs.
+   * @throws OfflineManagerException if the operation failed.
+   */
+  public suspend fun mergeDatabase(databaseFile: Path): Set<OfflinePack>
 
   /**
    * Checks ambient-cache resources against the server and downloads changed resources.
@@ -107,6 +125,11 @@ internal class RuntimeBoundOfflineManager(
     delegate.invalidate(pack)
   }
 
+  override suspend fun mergeDatabase(databaseFile: Path): Set<OfflinePack> {
+    requireRuntimeOpen()
+    return delegate.mergeDatabase(databaseFile).onEach(::bindToRuntime)
+  }
+
   override suspend fun invalidateAmbientCache() {
     requireRuntimeOpen()
     delegate.invalidateAmbientCache()
@@ -140,6 +163,9 @@ internal object UnsupportedOfflineManager : OfflineManager {
   override suspend fun delete(pack: OfflinePack): Unit = unsupportedOfflinePacks()
 
   override suspend fun invalidate(pack: OfflinePack): Unit = unsupportedOfflinePacks()
+
+  override suspend fun mergeDatabase(databaseFile: Path): Set<OfflinePack> =
+    unsupportedOfflinePacks()
 
   override suspend fun invalidateAmbientCache(): Unit = unsupportedAmbientCacheManagement()
 
