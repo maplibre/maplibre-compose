@@ -35,3 +35,13 @@ options when you call <Api of="createMapRuntime" />. The scheme factory
 accepts every URL with that scheme:
 
 <Code code={region(requests, "provider")} lang="kotlin" title="App.kt" />
+
+### Choose an outcome
+
+A load returns a <Api of="MapResourceLoad" />. Each case corresponds to one
+HTTP response. Return `Bytes` with the body. Return `NoContent` for a tile
+outside the data set, and the map renders an empty tile without an error.
+Return `Failed` with a <Api of="MapResourceError" /> for an error. A provider
+that reads tiles from local storage uses all three:
+
+<Code code={region(requests, "outcomes")} lang="kotlin" title="App.kt" />

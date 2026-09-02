@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.time.Instant
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
@@ -17,12 +18,16 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.nativeffi.resource.ResourceErrorReason
+import org.maplibre.nativeffi.resource.ResourceLoadingMethod
+import org.maplibre.nativeffi.resource.ResourcePriority
 import org.maplibre.nativeffi.resource.ResourceProviderCallback
 import org.maplibre.nativeffi.resource.ResourceProviderDecision
 import org.maplibre.nativeffi.resource.ResourceRequest
 import org.maplibre.nativeffi.resource.ResourceRequestHandle
 import org.maplibre.nativeffi.resource.ResourceResponse
 import org.maplibre.nativeffi.resource.ResourceResponseStatus
+import org.maplibre.nativeffi.resource.ResourceStoragePolicy
+import org.maplibre.nativeffi.resource.ResourceUsage
 
 /**
  * URI schemes MapLibre's own loader handles; everything else is ours. Its network stack rejects a
@@ -77,7 +82,7 @@ internal class MlnFfiResourceProvider(
     val mapRequest = MapResourceRequest(url, request.kind.toCommon())
     val user = userProvider
     if (user != null && user.acceptsOrDeclines(mapRequest)) {
-      takeUser(FfiResourceRequest(handle), mapRequest, url, request.requestedUrl)
+      takeUser(FfiResourceRequest(handle), request.toLoadRequest())
       return ResourceProviderDecision.HANDLE
     }
     if (passThroughNetwork && isMapLibresToFetch(url)) {
@@ -90,12 +95,9 @@ internal class MlnFfiResourceProvider(
     return ResourceProviderDecision.HANDLE
   }
 
-  internal fun takeUser(
-    request: TakenResourceRequest,
-    mapRequest: MapResourceRequest,
-    url: String,
-    requestedUrl: String,
-  ) {
+  internal fun takeUser(request: TakenResourceRequest, load: MapResourceLoadRequest) {
+    val url = load.url
+    val requestedUrl = load.requestedUrl
     if (!accepting.load()) {
       refuse(request, url, requestedUrl)
       return
@@ -108,7 +110,7 @@ internal class MlnFfiResourceProvider(
     var started = false
     userScope.launch(start = CoroutineStart.UNDISPATCHED) {
       started = true
-      serveUser(request, provider, mapRequest, url, requestedUrl)
+      serveUser(request, provider, load)
     }
     if (!started) refuse(request, url, requestedUrl)
   }
@@ -116,16 +118,16 @@ internal class MlnFfiResourceProvider(
   private suspend fun serveUser(
     request: TakenResourceRequest,
     provider: MapResourceProvider,
-    mapRequest: MapResourceRequest,
-    url: String,
-    requestedUrl: String,
+    load: MapResourceLoadRequest,
   ) {
+    val url = load.url
+    val requestedUrl = load.requestedUrl
     try {
       request.use { open ->
         if (open.isCancelled()) return
         val response =
           try {
-            loadWhileRequestOpen(open, provider, mapRequest)
+            loadWhileRequestOpen(open, provider, load)
           } catch (error: CancellationException) {
             if (open.isCancelled()) return
             failure(
@@ -228,9 +230,9 @@ internal class MlnFfiResourceProvider(
   private suspend fun loadWhileRequestOpen(
     request: TakenResourceRequest,
     provider: MapResourceProvider,
-    mapRequest: MapResourceRequest,
+    resource: MapResourceLoadRequest,
   ): ResourceResponse = coroutineScope {
-    val load = async { provider.load(mapRequest).toResourceResponse() }
+    val load = async { provider.load(resource).toResourceResponse() }
     val watch = launch {
       while (load.isActive) {
         if (request.isCancelled()) {
@@ -359,17 +361,69 @@ private fun Char.isAsciiLetter(): Boolean = this in 'a'..'z' || this in 'A'..'Z'
 
 private fun Char.isAsciiDigit(): Boolean = this in '0'..'9'
 
-private fun MapResourceLoad.toResourceResponse(): ResourceResponse =
+/** Copies the FFI request into the request a [MapResourceProvider] loads, field for field. */
+internal fun ResourceRequest.toLoadRequest(): MapResourceLoadRequest =
+  MapResourceLoadRequest(
+    url = resolvedUrl,
+    kind = kind.toCommon(),
+    requestedUrl = requestedUrl,
+    loadingMethod =
+      when (loadingMethod) {
+        ResourceLoadingMethod.CACHE_ONLY -> MapResourceLoadRequest.LoadingMethod.CacheOnly
+        ResourceLoadingMethod.NETWORK_ONLY -> MapResourceLoadRequest.LoadingMethod.NetworkOnly
+        else -> MapResourceLoadRequest.LoadingMethod.All
+      },
+    priority =
+      when (priority) {
+        ResourcePriority.LOW -> MapResourceLoadRequest.Priority.Low
+        else -> MapResourceLoadRequest.Priority.Regular
+      },
+    usage =
+      when (usage) {
+        ResourceUsage.OFFLINE -> MapResourceLoadRequest.Usage.Offline
+        else -> MapResourceLoadRequest.Usage.Online
+      },
+    storagePolicy =
+      when (storagePolicy) {
+        ResourceStoragePolicy.VOLATILE -> MapResourceLoadRequest.StoragePolicy.Volatile
+        else -> MapResourceLoadRequest.StoragePolicy.Permanent
+      },
+    range = range?.let { it.start..it.end },
+    priorEtag = priorEtag,
+    priorModified = priorModifiedUnixMs?.let(Instant::fromEpochMilliseconds),
+    priorExpires = priorExpiresUnixMs?.let(Instant::fromEpochMilliseconds),
+    priorData = priorData.takeIf { it.isNotEmpty() },
+  )
+
+/** Copies a load result to the FFI response, field for field. */
+internal fun MapResourceLoad.toResourceResponse(): ResourceResponse {
+  val response =
+    when (this) {
+      is MapResourceLoad.Bytes ->
+        ResourceResponse(ResourceResponseStatus.OK).also {
+          it.bytes = bytes
+          it.etag = etag
+          it.mustRevalidate = mustRevalidate
+        }
+      is MapResourceLoad.NoContent -> ResourceResponse(ResourceResponseStatus.NO_CONTENT)
+      is MapResourceLoad.NotModified -> ResourceResponse(ResourceResponseStatus.NOT_MODIFIED)
+      is MapResourceLoad.Failed ->
+        ResourceResponse(ResourceResponseStatus.ERROR).also {
+          it.errorReason = reason.toFfi()
+          it.errorMessage = message
+          it.retryAfterUnixMs = retryAfter?.toEpochMilliseconds()
+        }
+    }
+  response.modifiedUnixMs = modified?.toEpochMilliseconds()
+  response.expiresUnixMs = expires?.toEpochMilliseconds()
+  return response
+}
+
+private fun MapResourceError.toFfi(): ResourceErrorReason =
   when (this) {
-    is MapResourceLoad.Bytes ->
-      ResourceResponse(ResourceResponseStatus.OK).also {
-        it.bytes = bytes
-        it.etag = etag
-        it.mustRevalidate = mustRevalidate
-      }
-    is MapResourceLoad.Failed ->
-      ResourceResponse(ResourceResponseStatus.ERROR).also {
-        it.errorReason = ResourceErrorReason.OTHER
-        it.errorMessage = message
-      }
+    MapResourceError.NotFound -> ResourceErrorReason.NOT_FOUND
+    MapResourceError.Server -> ResourceErrorReason.SERVER
+    MapResourceError.Connection -> ResourceErrorReason.CONNECTION
+    MapResourceError.RateLimit -> ResourceErrorReason.RATE_LIMIT
+    MapResourceError.Other -> ResourceErrorReason.OTHER
   }
