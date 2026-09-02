@@ -57,7 +57,7 @@ internal suspend fun MapState.flyTo(destination: DemoDestination) {
         duration = DemoFlightDuration,
       )
     is DemoDestination.FitBounds ->
-      animateCameraPosition(
+      animateCameraToBounds(
         boundingBox = destination.bounds,
         padding = DemoBoundsPadding,
         duration = DemoFlightDuration,

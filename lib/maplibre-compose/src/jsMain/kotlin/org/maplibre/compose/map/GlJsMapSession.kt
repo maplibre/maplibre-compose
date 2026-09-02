@@ -852,7 +852,7 @@ internal class GlJsMapSession(
     onMap { map -> map.jumpTo(unsafeJso<JumpToOptions> { this.padding = resolved }) }
   }
 
-  override fun setCameraPosition(
+  override fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,
@@ -880,7 +880,7 @@ internal class GlJsMapSession(
     }
   }
 
-  override suspend fun animateCameraPosition(
+  override suspend fun animateCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,

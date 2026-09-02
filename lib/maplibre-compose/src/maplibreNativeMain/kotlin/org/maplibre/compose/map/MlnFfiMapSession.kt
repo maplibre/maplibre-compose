@@ -1355,7 +1355,7 @@ internal class MlnFfiMapSession(
     }
   }
 
-  override fun setCameraPosition(
+  override fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,
@@ -1426,7 +1426,7 @@ internal class MlnFfiMapSession(
     }
   }
 
-  override suspend fun animateCameraPosition(
+  override suspend fun animateCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,

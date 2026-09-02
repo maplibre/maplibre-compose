@@ -30,13 +30,13 @@ there.
 
 ## Fit a bounding box
 
-An `animateCameraPosition` overload accepts a `BoundingBox` and fits it in the
-current viewport. Padding adds space between the box and the map edges:
+<Api of="MapState.animateCameraToBounds" /> fits a `BoundingBox` in the current
+viewport. Padding adds space between the box and the map edges:
 
 <Code code={region(camera, "fit-bounds")} lang="kotlin" title="App.kt" />
 
-The `setCameraPosition` overload fits the same bounding box without an
-animation.
+Use <Api of="MapState.fitCameraToBounds" /> to fit the same bounding box without
+an animation.
 
 ## Read the visible area
 

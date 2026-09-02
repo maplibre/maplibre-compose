@@ -37,7 +37,7 @@ class MapCameraTransitionTest {
         it.cameraTargetMatches(START, CAMERA_PADDING)
       }
 
-      it.state.setCameraPosition(BOUNDS, 0.0, 0.0, FIT_PADDING)
+      it.state.fitCameraToBounds(BOUNDS, 0.0, 0.0, FIT_PADDING)
       it.pumpUntil("the bounds fit to be applied") {
         abs(it.session.getCameraPosition().zoom - START.zoom) > 0.1
       }
@@ -45,7 +45,7 @@ class MapCameraTransitionTest {
       it.assertCameraTarget(fitAfterPadding, CAMERA_PADDING)
       it.assertBoundsInside(CAMERA_PADDING + FIT_PADDING)
 
-      it.state.setCameraPosition(BOUNDS, 0.0, 0.0, FIT_PADDING)
+      it.state.fitCameraToBounds(BOUNDS, 0.0, 0.0, FIT_PADDING)
       it.pump(frames = 2)
       val repeatedFit = it.session.getCameraPosition()
       assertSameFit(fitAfterPadding, repeatedFit, "repeating the bounds fit changed its camera")
@@ -62,7 +62,7 @@ class MapCameraTransitionTest {
     createMapFixture().use {
       it.startAtOrigin()
 
-      it.state.setCameraPosition(ANTIMERIDIAN_BOUNDS, 0.0, 0.0, PaddingValues(0.dp))
+      it.state.fitCameraToBounds(ANTIMERIDIAN_BOUNDS, 0.0, 0.0, PaddingValues(0.dp))
       it.pumpUntil("the antimeridian bounds fit to be applied") {
         val camera = it.session.getCameraPosition()
         abs(abs(camera.target.longitude) - 180.0) < 1.0 && camera.zoom > START.zoom
@@ -82,7 +82,7 @@ class MapCameraTransitionTest {
       }
 
       it.awaitWhileRendering("the bounds animation to complete") {
-        it.state.animateCameraPosition(BOUNDS, 0.0, 0.0, FIT_PADDING, 200.milliseconds)
+        it.state.animateCameraToBounds(BOUNDS, 0.0, 0.0, FIT_PADDING, 200.milliseconds)
       }
 
       val firstFit = it.session.getCameraPosition()
@@ -90,7 +90,7 @@ class MapCameraTransitionTest {
       it.assertBoundsInside(CAMERA_PADDING + FIT_PADDING)
 
       it.awaitWhileRendering("the repeated bounds animation to complete") {
-        it.state.animateCameraPosition(BOUNDS, 0.0, 0.0, FIT_PADDING, 200.milliseconds)
+        it.state.animateCameraToBounds(BOUNDS, 0.0, 0.0, FIT_PADDING, 200.milliseconds)
       }
 
       assertSameFit(

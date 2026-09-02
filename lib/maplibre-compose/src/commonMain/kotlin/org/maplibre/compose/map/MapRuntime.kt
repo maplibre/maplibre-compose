@@ -282,14 +282,14 @@ internal constructor(
   val cameraMoveReason: CameraMoveReason
     get() = moveReasonState
 
-  suspend fun setCameraPosition(
+  suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double = 0.0,
     tilt: Double = 0.0,
     padding: PaddingValues = PaddingValues(0.dp),
   ): Unit = runLeaseBound {
     awaitViewportState()
-    adapter.setCameraPosition(boundingBox, bearing, tilt, padding)
+    adapter.fitCameraToBounds(boundingBox, bearing, tilt, padding)
   }
 
   suspend fun animateCameraPosition(
@@ -297,7 +297,7 @@ internal constructor(
     duration: Duration = 300.milliseconds,
   ): Unit = runLeaseBound { adapter.animateCameraPosition(position, duration) }
 
-  suspend fun animateCameraPosition(
+  suspend fun animateCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double = 0.0,
     tilt: Double = 0.0,
@@ -305,7 +305,7 @@ internal constructor(
     duration: Duration = 300.milliseconds,
   ): Unit = runLeaseBound {
     awaitViewportState()
-    adapter.animateCameraPosition(boundingBox, bearing, tilt, padding, duration)
+    adapter.animateCameraToBounds(boundingBox, bearing, tilt, padding, duration)
   }
 
   fun getVisibleRegion(): VisibleRegion? = withViewport { it.getVisibleRegion() }
@@ -491,13 +491,13 @@ internal constructor(
   }
 
   /** Waits for a viewport, then fits [boundingBox] without animation. */
-  public suspend fun setCameraPosition(
+  public suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double = 0.0,
     tilt: Double = 0.0,
     padding: PaddingValues = PaddingValues(0.dp),
   ): Unit = retryAcrossAttachments {
-    it.setCameraPosition(boundingBox, bearing, tilt, padding)
+    it.fitCameraToBounds(boundingBox, bearing, tilt, padding)
   }
 
   /** Waits for an attached map, then animates to [position]. A new animation replaces this one. */
@@ -511,7 +511,7 @@ internal constructor(
   /**
    * Waits for a viewport, then animates to fit [boundingBox]. A new animation replaces this one.
    */
-  public suspend fun animateCameraPosition(
+  public suspend fun animateCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double = 0.0,
     tilt: Double = 0.0,
@@ -519,7 +519,7 @@ internal constructor(
     duration: Duration = 300.milliseconds,
   ): Unit = cameraMutation.mutate {
     retryAcrossAttachments {
-      it.animateCameraPosition(boundingBox, bearing, tilt, padding, duration)
+      it.animateCameraToBounds(boundingBox, bearing, tilt, padding, duration)
     }
   }
 

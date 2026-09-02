@@ -758,11 +758,11 @@ class MapPresentationTest {
   }
 
   @Test
-  fun a_bounds_set_waits_for_an_attachment_and_its_viewport() = runTest {
+  fun a_bounds_fit_waits_for_an_attachment_and_its_viewport() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
     val state = runtime.createMapState(BaseStyle.Demo)
     val operation = async {
-      state.setCameraPosition(BoundingBox(Position(-1.0, -1.0), Position(1.0, 1.0)))
+      state.fitCameraToBounds(BoundingBox(Position(-1.0, -1.0), Position(1.0, 1.0)))
     }
     testScheduler.runCurrent()
     assertFalse(operation.isCompleted)
@@ -775,7 +775,7 @@ class MapPresentationTest {
 
     requireNotNull(state.currentMapAttachment).updateViewport(testViewport())
     operation.await()
-    assertTrue(adapter.boundsSet.isCompleted)
+    assertTrue(adapter.boundsFit.isCompleted)
     state.close()
     state.awaitClosed()
     runtime.close()
@@ -1043,7 +1043,7 @@ internal open class PresentationTestAdapter(
   var presentationWasVisibleWhileConfiguring = false
   var viewportReads = 0
   var currentViewport: Viewport? = null
-  val boundsSet = CompletableDeferred<Unit>()
+  val boundsFit = CompletableDeferred<Unit>()
   val queryStarted = CompletableDeferred<Unit>()
   val animationStarted = CompletableDeferred<Unit>()
   val finishAnimation = CompletableDeferred<Unit>()
@@ -1057,7 +1057,7 @@ internal open class PresentationTestAdapter(
     finishAnimation.await()
   }
 
-  override suspend fun animateCameraPosition(
+  override suspend fun animateCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,
@@ -1084,13 +1084,13 @@ internal open class PresentationTestAdapter(
 
   override fun setCameraPadding(padding: PaddingValues) = Unit
 
-  override fun setCameraPosition(
+  override fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,
     padding: PaddingValues,
   ) {
-    boundsSet.complete(Unit)
+    boundsFit.complete(Unit)
   }
 
   override fun setCameraConstraints(value: CameraConstraints) = Unit
