@@ -43,13 +43,12 @@ interface BenchmarkScenario {
 
   @MaplibreComposable @Composable fun MapContent(session: BenchmarkSession) {}
 
-  suspend fun run(session: BenchmarkSession)
+  suspend fun run(mapState: MapState, session: BenchmarkSession)
 }
 
 /** Mutable state one scenario run reads and writes while the isolated map is live. */
 @Stable
 class BenchmarkSession(
-  val mapState: MapState,
   val ui: BenchmarkUiState,
   val prefetcher: TilePrefetcher,
   val density: Density,

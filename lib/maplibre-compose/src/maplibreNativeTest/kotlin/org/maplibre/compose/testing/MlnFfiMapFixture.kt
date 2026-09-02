@@ -21,7 +21,7 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent
   override val state =
     runtime.createMapState(
       initialCameraPosition = CameraPosition(zoom = 0.0),
-      initialBaseStyle = BaseStyle.Empty,
+      baseStyle = BaseStyle.Empty,
     )
   private val token = state.reservePresentation()
 

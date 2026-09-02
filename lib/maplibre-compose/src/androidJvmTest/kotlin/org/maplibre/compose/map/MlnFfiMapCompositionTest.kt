@@ -58,6 +58,7 @@ import org.maplibre.compose.mlnffi.runFfiComposeUiTest
 import org.maplibre.compose.mlnffi.setFfiTestMapContent
 import org.maplibre.compose.offline.rememberOfflinePacksSource
 import org.maplibre.compose.overlay.MapOverlay
+import org.maplibre.compose.overlay.include
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.sources.rememberGeoJsonSource
@@ -101,7 +102,7 @@ class MlnFfiMapCompositionTest {
   @Test
   fun map_state_renders_a_base_style_and_publishes_one_presentation() = runFfiComposeUiTest {
     val runtime = createNativeMapRuntime(runtimeOptions)
-    val state = runtime.createMapState(initialBaseStyle = BaseStyle.Empty)
+    val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
 
     setFfiTestMapContent(runtimeOptions) { MaplibreMap(state) }
     waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
@@ -123,7 +124,7 @@ class MlnFfiMapCompositionTest {
   @Test
   fun presentation_options_update_without_replacing_the_native_map() = runFfiComposeUiTest {
     val runtime = createNativeMapRuntime(runtimeOptions)
-    val state = runtime.createMapState(initialBaseStyle = BaseStyle.Empty)
+    val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
     var options by mutableStateOf(MapPresentationOptions())
 
     setFfiTestMapContent(runtimeOptions) {
@@ -146,8 +147,6 @@ class MlnFfiMapCompositionTest {
   @Test
   fun one_style_composition_is_evaluated_independently_for_two_maps() = runFfiComposeUiTest {
     val runtime = createNativeMapRuntime(runtimeOptions)
-    val first = runtime.createMapState(initialBaseStyle = BaseStyle.Empty)
-    val second = runtime.createMapState(initialBaseStyle = BaseStyle.Empty)
     val evaluatorIdentities = mutableSetOf<Any>()
     var showFirst by mutableStateOf(true)
     val style = StyleComposition {
@@ -166,9 +165,11 @@ class MlnFfiMapCompositionTest {
         onDispose {}
       }
     }
+    val first = runtime.createMapState(baseStyle = BaseStyle.Empty, styleComposition = style)
+    val second = runtime.createMapState(baseStyle = BaseStyle.Empty, styleComposition = style)
 
     setFfiTestMapContent(runtimeOptions, presentationCount = 2) {
-      if (showFirst) MaplibreMap(first, style) else MaplibreMap(second, style)
+      if (showFirst) MaplibreMap(first) else MaplibreMap(second)
     }
     waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
       first.presentation != null &&
@@ -208,7 +209,6 @@ class MlnFfiMapCompositionTest {
   fun one_style_composition_is_evaluated_independently_for_a_map_and_snapshotter() =
     runFfiComposeUiTest {
       val runtime = createNativeMapRuntime(runtimeOptions)
-      val state = runtime.createMapState(initialBaseStyle = BaseStyle.Empty)
       val evaluatorIdentities = mutableSetOf<Any>()
       val composition = StyleComposition {
         val evaluatorIdentity = remember { Any() }
@@ -218,8 +218,10 @@ class MlnFfiMapCompositionTest {
           onDispose {}
         }
       }
+      val state =
+        runtime.createMapState(baseStyle = BaseStyle.Empty, styleComposition = composition)
 
-      setFfiTestMapContent(runtimeOptions) { MaplibreMap(state, composition) }
+      setFfiTestMapContent(runtimeOptions) { MaplibreMap(state) }
       waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
         state.presentation != null &&
           state.style.loadState == StyleLoadState.Ready &&
@@ -241,7 +243,6 @@ class MlnFfiMapCompositionTest {
   fun detached_native_map_keeps_its_applied_revision_until_current_state_is_reattached() =
     runFfiComposeUiTest {
       val runtime = createNativeMapRuntime(runtimeOptions)
-      val state = runtime.createMapState(initialBaseStyle = BaseStyle.Empty)
       var presented by mutableStateOf(true)
       var latest by mutableStateOf(false)
       val composition = StyleComposition {
@@ -250,9 +251,11 @@ class MlnFfiMapCompositionTest {
           color = const(if (latest) Color.Blue else Color.Red),
         )
       }
+      val state =
+        runtime.createMapState(baseStyle = BaseStyle.Empty, styleComposition = composition)
 
       setFfiTestMapContent(runtimeOptions, presentationCount = 2) {
-        if (presented) MaplibreMap(state, composition)
+        if (presented) MaplibreMap(state)
       }
       waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
         state.style.loadState == StyleLoadState.Ready && state.presentation != null
@@ -288,7 +291,6 @@ class MlnFfiMapCompositionTest {
   fun a_later_revision_supersedes_reconciliation_failure_before_the_surface_is_revealed() =
     runFfiComposeUiTest {
       val runtime = createNativeMapRuntime(runtimeOptions)
-      val state = runtime.createMapState(initialBaseStyle = BaseStyle.Empty)
       var invalidAnchor by mutableStateOf(true)
       val composition = StyleComposition {
         if (invalidAnchor) {
@@ -299,8 +301,10 @@ class MlnFfiMapCompositionTest {
           BackgroundLayer(id = "application-background", color = const(Color.Blue))
         }
       }
+      val state =
+        runtime.createMapState(baseStyle = BaseStyle.Empty, styleComposition = composition)
 
-      setFfiTestMapContent(runtimeOptions) { MaplibreMap(state, composition) }
+      setFfiTestMapContent(runtimeOptions) { MaplibreMap(state) }
       waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
         state.style.loadState is StyleLoadState.Failed
       }
@@ -325,8 +329,7 @@ class MlnFfiMapCompositionTest {
   fun a_map_state_retains_its_native_map_between_presentations() = runFfiComposeUiTest {
     val runtime = createNativeMapRuntime(runtimeOptions)
     val camera = CameraPosition(target = Position(longitude = 11.0, latitude = 47.0), zoom = 6.0)
-    val state =
-      runtime.createMapState(initialCameraPosition = camera, initialBaseStyle = BaseStyle.Empty)
+    val state = runtime.createMapState(initialCameraPosition = camera, baseStyle = BaseStyle.Empty)
     var presented by mutableStateOf(true)
 
     setFfiTestMapContent(runtimeOptions, presentationCount = 2) {
@@ -375,7 +378,7 @@ class MlnFfiMapCompositionTest {
       val state =
         runtime.createMapState(
           initialCameraPosition = camera,
-          initialBaseStyle = REPLACEMENT_STYLE,
+          baseStyle = REPLACEMENT_STYLE,
         )
       var presented by mutableStateOf(true)
       var scaleFactor by mutableStateOf(1f)
@@ -753,19 +756,20 @@ private fun TestMap(
   val state =
     rememberMapState(
       initialCameraPosition = initialCameraPosition,
-      initialBaseStyle = baseStyle,
-    )
-  val styleComposition = remember(content) { StyleComposition(content) }
+      baseStyle = baseStyle,
+    ) {
+      content()
+    }
   val loadState = state.style.loadState
   LaunchedEffect(loadState) {
     if (loadState is StyleLoadState.Failed) onMapLoadFailed(loadState.reason)
   }
   MaplibreMap(
     state = state,
-    styleComposition = styleComposition,
     modifier = modifier,
     callbacks = MapPresentationCallbacks(onFrame = onFrame),
-    overlay = overlay,
-  )
+  ) {
+    include(overlay)
+  }
   return state
 }

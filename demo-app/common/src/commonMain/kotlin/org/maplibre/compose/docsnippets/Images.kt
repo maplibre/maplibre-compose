@@ -3,7 +3,6 @@
 package org.maplibre.compose.docsnippets
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.ExperimentalResourceApi
@@ -15,51 +14,46 @@ import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.layers.SymbolLayer
 import org.maplibre.compose.map.MaplibreMap
+import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.sources.rememberImageSource
-import org.maplibre.compose.style.StyleComposition
 import org.maplibre.compose.util.PositionQuad
 import org.maplibre.spatialk.geojson.Position
 
 @Composable
 @OptIn(ExperimentalResourceApi::class)
 fun Images() {
-  val iconComposition = remember {
-    StyleComposition {
-      // #region icon-painter
-      val stations =
-        rememberGeoJsonSource(GeoJsonData.Uri(Res.getUri("files/data/amtrak_stations.geojson")))
+  val iconState = rememberMapState {
+    // #region icon-painter
+    val stations =
+      rememberGeoJsonSource(GeoJsonData.Uri(Res.getUri("files/data/amtrak_stations.geojson")))
 
-      SymbolLayer(
-        id = "station-icons",
-        source = stations,
-        iconImage = image(painterResource(Res.drawable.map_24px), size = DpSize(24.dp, 24.dp)),
+    SymbolLayer(
+      id = "station-icons",
+      source = stations,
+      iconImage = image(painterResource(Res.drawable.map_24px), size = DpSize(24.dp, 24.dp)),
+    )
+    // #endregion icon-painter
+
+    // #region icon-sprite
+    SymbolLayer(id = "station-markers", source = stations, iconImage = image("marker"))
+    // #endregion icon-sprite
+  }
+  MaplibreMap(iconState)
+
+  val imageState = rememberMapState {
+    // #region image-source
+    val corners =
+      PositionQuad(
+        topLeft = Position(longitude = -74.0178, latitude = 40.7040),
+        topRight = Position(longitude = -74.0118, latitude = 40.7100),
+        bottomRight = Position(longitude = -74.0060, latitude = 40.7067),
+        bottomLeft = Position(longitude = -74.0120, latitude = 40.7006),
       )
-      // #endregion icon-painter
-
-      // #region icon-sprite
-      SymbolLayer(id = "station-markers", source = stations, iconImage = image("marker"))
-      // #endregion icon-sprite
-    }
+    val plan = rememberImageSource(position = corners, uri = Res.getUri("files/castello-plan.jpg"))
+    RasterLayer(id = "castello-plan", source = plan, opacity = const(0.8f))
+    // #endregion image-source
   }
-  MaplibreMap(styleComposition = iconComposition)
-
-  val imageComposition = remember {
-    StyleComposition {
-      // #region image-source
-      val corners =
-        PositionQuad(
-          topLeft = Position(longitude = -74.0178, latitude = 40.7040),
-          topRight = Position(longitude = -74.0118, latitude = 40.7100),
-          bottomRight = Position(longitude = -74.0060, latitude = 40.7067),
-          bottomLeft = Position(longitude = -74.0120, latitude = 40.7006),
-        )
-      val plan =
-        rememberImageSource(position = corners, uri = Res.getUri("files/castello-plan.jpg"))
-      RasterLayer(id = "castello-plan", source = plan, opacity = const(0.8f))
-      // #endregion image-source
-    }
-  }
-  MaplibreMap(styleComposition = imageComposition)
+  MaplibreMap(imageState)
 }

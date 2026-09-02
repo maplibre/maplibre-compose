@@ -83,7 +83,7 @@ class MapRuntimeTest {
         zoom = 9.0,
       )
 
-    val state = runtime.createMapState(camera, BaseStyle.Empty)
+    val state = runtime.createMapState(baseStyle = BaseStyle.Empty, initialCameraPosition = camera)
 
     assertTrue(state.cameraPosition == camera)
     assertTrue(state.style.baseStyle == BaseStyle.Empty)

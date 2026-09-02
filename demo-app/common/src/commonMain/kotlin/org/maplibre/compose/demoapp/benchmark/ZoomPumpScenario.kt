@@ -2,6 +2,7 @@ package org.maplibre.compose.demoapp.benchmark
 
 import kotlin.time.Duration.Companion.milliseconds
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.map.MapState
 
 internal object ZoomPumpScenario : BenchmarkScenario {
   override val id = "zoom-pump"
@@ -12,13 +13,13 @@ internal object ZoomPumpScenario : BenchmarkScenario {
   override val maxZoom = 16
   override val camera = CameraPosition(target = BenchmarkCenter, zoom = WideZoom)
 
-  override suspend fun run(session: BenchmarkSession) {
+  override suspend fun run(mapState: MapState, session: BenchmarkSession) {
     val wide = CameraPosition(target = BenchmarkCenter, zoom = WideZoom)
     val tight = CameraPosition(target = BenchmarkCenter, zoom = TightZoom)
-    session.mapState.presentation?.setCameraPosition(wide)
+    mapState.presentation?.setCameraPosition(wide)
     repeat(Cycles) {
-      playCamera(session.mapState, wide, tight, HalfCycle)
-      playCamera(session.mapState, tight, wide, HalfCycle)
+      playCamera(mapState, wide, tight, HalfCycle)
+      playCamera(mapState, tight, wide, HalfCycle)
     }
   }
 

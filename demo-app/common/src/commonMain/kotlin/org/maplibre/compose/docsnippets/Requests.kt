@@ -24,7 +24,7 @@ fun InterceptorMap(token: String) {
     }
     onDispose { runtime.setRequestInterceptor(null) }
   }
-  MaplibreMap(state = rememberMapState(runtime))
+  MaplibreMap(rememberMapState(runtime))
   // #endregion interceptor
 }
 

@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -32,7 +31,6 @@ import org.maplibre.compose.sources.rememberVectorSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.StyleBinding
-import org.maplibre.compose.style.StyleComposition
 import org.maplibre.compose.util.MaplibreComposable
 
 @OptIn(ExperimentalTestApi::class)
@@ -260,12 +258,11 @@ class BrowserStyleConformanceTest {
     onMapLoadFailed: (String?) -> Unit = {},
     content: @Composable @MaplibreComposable () -> Unit = {},
   ) {
-    val state = rememberMapState(initialBaseStyle = baseStyle)
-    val composition = remember(content) { StyleComposition(content) }
+    val state = rememberMapState(baseStyle = baseStyle) { content() }
     val loadState = state.style.loadState
     LaunchedEffect(loadState) {
       if (loadState is StyleLoadState.Failed) onMapLoadFailed(loadState.reason)
     }
-    MaplibreMap(state = state, styleComposition = composition, modifier = modifier)
+    MaplibreMap(state = state, modifier = modifier)
   }
 }

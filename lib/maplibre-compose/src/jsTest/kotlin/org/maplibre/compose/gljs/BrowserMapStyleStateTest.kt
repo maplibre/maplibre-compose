@@ -1,9 +1,7 @@
 package org.maplibre.compose.gljs
 
 import androidx.compose.foundation.layout.size
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.unit.dp
@@ -124,7 +122,6 @@ class BrowserMapStyleStateTest {
   fun a_detached_web_map_keeps_its_desired_style_pending_and_replays_it(): Promise<*> =
     runBrowserMapTest {
       val runtime = createMapRuntime(MapRuntimeOptions())
-      val state = runtime.createMapState(initialBaseStyle = STYLE_A)
       val presented = mutableStateOf(true)
       val useLatestRevision = mutableStateOf(false)
       val composition = StyleComposition {
@@ -135,10 +132,9 @@ class BrowserMapStyleStateTest {
           visible = true,
         )
       }
+      val state = runtime.createMapState(baseStyle = STYLE_A, styleComposition = composition)
 
-      setBrowserMapContent {
-        if (presented.value) MaplibreMap(state, styleComposition = composition)
-      }
+      setBrowserMapContent { if (presented.value) MaplibreMap(state) }
       waitUntilMap("style A to become ready") {
         state.presentation != null && state.style.loadState == StyleLoadState.Ready
       }
@@ -203,7 +199,7 @@ class BrowserMapStyleStateTest {
   fun a_web_presentation_waits_for_a_viewport_and_survives_style_failure(): Promise<*> =
     runBrowserMapTest {
       val runtime = createMapRuntime(MapRuntimeOptions())
-      val state = runtime.createMapState(initialBaseStyle = STYLE_A)
+      val state = runtime.createMapState(baseStyle = STYLE_A)
       val size = mutableStateOf(0.dp)
 
       setBrowserMapContent { MaplibreMap(state, modifier = Modifier.size(size.value)) }
@@ -242,7 +238,7 @@ class BrowserMapStyleStateTest {
       var styleState: MapStyleState? = null
       var mapState: MapState? = null
       setBrowserMapContent {
-        val current = rememberMapState(initialBaseStyle = tileJsonStyle)
+        val current = rememberMapState(baseStyle = tileJsonStyle)
         mapState = current
         styleState = current.style
         MaplibreMap(state = current, modifier = Modifier)
@@ -270,10 +266,9 @@ class BrowserMapStyleStateTest {
       var styleState: MapStyleState? = null
       var mapState: MapState? = null
       setBrowserMapContent {
-        val logicalMap = rememberMapState(initialBaseStyle = current.value)
+        val logicalMap = rememberMapState(baseStyle = current.value)
         mapState = logicalMap
         styleState = logicalMap.style
-        SideEffect { logicalMap.style.baseStyle = current.value }
         MaplibreMap(state = logicalMap, modifier = Modifier)
       }
       waitUntilMap("the first style to load") {
@@ -299,21 +294,15 @@ class BrowserMapStyleStateTest {
         var styleState: MapStyleState? = null
         var mapState: MapState? = null
         setBrowserMapContent {
-          val logicalMap = rememberMapState(initialBaseStyle = BaseStyle.Empty)
-          mapState = logicalMap
-          styleState = logicalMap.style
-          val composition = remember {
-            StyleComposition {
+          val logicalMap =
+            rememberMapState(baseStyle = BaseStyle.Empty) {
               if (showLateSource.value) {
                 RasterLayer(id = "late-layer", source = source, visible = true)
               }
             }
-          }
-          MaplibreMap(
-            state = logicalMap,
-            styleComposition = composition,
-            modifier = Modifier,
-          )
+          mapState = logicalMap
+          styleState = logicalMap.style
+          MaplibreMap(state = logicalMap, modifier = Modifier)
         }
         waitUntilMap("the empty map to finish loading") {
           mapState?.style?.loadState == StyleLoadState.Ready
@@ -348,18 +337,13 @@ class BrowserMapStyleStateTest {
     var identity: StyleIdentity? = null
     var mapState: MapState? = null
     setBrowserMapContent {
-      val logicalMap = rememberMapState(initialBaseStyle = current.value)
+      val logicalMap =
+        rememberMapState(baseStyle = current.value) {
+          identity = LocalStyleNode.current.style.identity
+        }
       mapState = logicalMap
       styleState = logicalMap.style
-      SideEffect { logicalMap.style.baseStyle = current.value }
-      val composition = remember {
-        StyleComposition { identity = LocalStyleNode.current.style.identity }
-      }
-      MaplibreMap(
-        state = logicalMap,
-        styleComposition = composition,
-        modifier = Modifier,
-      )
+      MaplibreMap(state = logicalMap, modifier = Modifier)
     }
     waitUntilMap("the first style to load") {
       mapState?.style?.loadState == StyleLoadState.Ready &&

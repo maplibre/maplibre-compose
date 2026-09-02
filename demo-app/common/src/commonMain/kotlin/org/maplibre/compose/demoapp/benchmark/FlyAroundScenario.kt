@@ -4,6 +4,7 @@ import androidx.compose.runtime.withFrameNanos
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.map.MapState
 
 internal object FlyAroundScenario : BenchmarkScenario {
   override val id = "fly-around"
@@ -14,12 +15,12 @@ internal object FlyAroundScenario : BenchmarkScenario {
   override val maxZoom = 16
   override val camera = CameraPosition(target = BenchmarkCenter, zoom = OrbitZoom, tilt = OrbitTilt)
 
-  override suspend fun run(session: BenchmarkSession) {
+  override suspend fun run(mapState: MapState, session: BenchmarkSession) {
     val start = TimeSource.Monotonic.markNow()
     val durationNs = Duration.inWholeNanoseconds.toDouble()
     while (true) {
       val t = (start.elapsedNow().inWholeNanoseconds.toDouble() / durationNs).coerceIn(0.0, 1.0)
-      session.mapState.presentation?.setCameraPosition(
+      mapState.presentation?.setCameraPosition(
         CameraPosition(
           target = orbitPosition(BenchmarkCenter, RadiusLon, RadiusLat, t),
           zoom = OrbitZoom,

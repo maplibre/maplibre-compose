@@ -24,7 +24,7 @@ class AndroidExplicitRuntimeTest {
           logger = null,
         )
       )
-    val state = runtime.createMapState(initialBaseStyle = BaseStyle.Empty)
+    val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
 
     try {
       assertSame(context.applicationContext, AndroidMlnFfiPlatform.applicationContext)

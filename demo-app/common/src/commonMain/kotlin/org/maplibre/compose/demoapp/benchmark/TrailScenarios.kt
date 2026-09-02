@@ -6,6 +6,7 @@ import androidx.compose.ui.unit.dp
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.CircleLayer
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.spatialk.geojson.Feature
@@ -29,7 +30,7 @@ internal object GestureTrailScenario : BenchmarkScenario {
     PinLayer(session.pin)
   }
 
-  override suspend fun run(session: BenchmarkSession) {
+  override suspend fun run(mapState: MapState, session: BenchmarkSession) {
     session.ui.status = "Drag the map"
     session.gestures.arm()
     session.gestures.awaitQualifyingDrag()

@@ -21,15 +21,14 @@ import org.maplibre.spatialk.geojson.Position
 class MapOverlayTest {
   @Test
   fun overlay_composes_before_the_map_attaches() = runComposeUiTest {
-    val mapState = mapRuntimeForTest().createMapState(initialBaseStyle = BaseStyle.Empty)
+    val mapState = mapRuntimeForTest().createMapState(baseStyle = BaseStyle.Empty)
     setContent {
       MapOverlayHost(
-        overlay =
-          MapOverlay {
-            Box(Modifier.size(8.dp).placedAt(Position(0.0, 0.0)))
-            Box(Modifier.size(8.dp).placedTowards(Position(90.0, 0.0)))
-            Box(Modifier.size(8.dp).align(Alignment.TopStart))
-          },
+        overlay = {
+          Box(Modifier.size(8.dp).placedAt(Position(0.0, 0.0)))
+          Box(Modifier.size(8.dp).placedTowards(Position(90.0, 0.0)))
+          Box(Modifier.size(8.dp).align(Alignment.TopStart))
+        },
         mapState = mapState,
         contentWindowInsets = WindowInsets(0),
       )
@@ -39,17 +38,16 @@ class MapOverlayTest {
 
   @Test
   fun removing_a_placed_towards_child_resets_its_state() = runComposeUiTest {
-    val mapState = mapRuntimeForTest().createMapState(initialBaseStyle = BaseStyle.Empty)
+    val mapState = mapRuntimeForTest().createMapState(baseStyle = BaseStyle.Empty)
     val state = PlacedTowardsState().apply { isPlaced = true }
     var show by mutableStateOf(true)
     setContent {
       MapOverlayHost(
-        overlay =
-          MapOverlay {
-            if (show) {
-              Box(Modifier.size(8.dp).placedTowards(Position(90.0, 0.0), state))
-            }
-          },
+        overlay = {
+          if (show) {
+            Box(Modifier.size(8.dp).placedTowards(Position(90.0, 0.0), state))
+          }
+        },
         mapState = mapState,
         contentWindowInsets = WindowInsets(0),
       )

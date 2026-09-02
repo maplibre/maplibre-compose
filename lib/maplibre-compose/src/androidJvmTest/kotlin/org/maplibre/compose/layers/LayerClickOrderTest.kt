@@ -29,7 +29,6 @@ import org.maplibre.compose.mlnffi.setFfiTestMapContent
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.StyleComposition
 import org.maplibre.compose.util.ClickResult
 import org.maplibre.spatialk.geojson.Position
 
@@ -142,56 +141,51 @@ class LayerClickOrderTest {
       mapState =
         rememberMapState(
           initialCameraPosition = CameraPosition(target = Position(0.0, 0.0), zoom = START_ZOOM),
-          initialBaseStyle = BaseStyle.Empty,
-        )
-      MaplibreMap(
-        state = mapState,
-        modifier = Modifier.fillMaxSize(),
-        styleComposition =
-          StyleComposition {
-            val source = rememberGeoJsonSource(data = GeoJsonData.JsonString(WORLD_POLYGON))
+          baseStyle = BaseStyle.Empty,
+        ) {
+          val source = rememberGeoJsonSource(data = GeoJsonData.JsonString(WORLD_POLYGON))
 
-            val front: @Composable () -> Unit = {
-              FillLayer(
-                id = FRONT,
-                source = source,
-                color = const(Color.Red),
-                onClick = {
-                  clicked += FRONT
-                  frontResult
-                },
-                onLongClick = {
-                  longClicked += FRONT
-                  frontResult
-                },
-              )
-            }
-            val back: @Composable () -> Unit = {
-              FillLayer(
-                id = BACK,
-                source = source,
-                color = const(Color.Blue),
-                onClick = {
-                  clicked += BACK
-                  ClickResult.Consume
-                },
-                onLongClick = {
-                  longClicked += BACK
-                  ClickResult.Consume
-                },
-              )
-            }
+          val front: @Composable () -> Unit = {
+            FillLayer(
+              id = FRONT,
+              source = source,
+              color = const(Color.Red),
+              onClick = {
+                clicked += FRONT
+                frontResult
+              },
+              onLongClick = {
+                longClicked += FRONT
+                frontResult
+              },
+            )
+          }
+          val back: @Composable () -> Unit = {
+            FillLayer(
+              id = BACK,
+              source = source,
+              color = const(Color.Blue),
+              onClick = {
+                clicked += BACK
+                ClickResult.Consume
+              },
+              onLongClick = {
+                longClicked += BACK
+                ClickResult.Consume
+              },
+            )
+          }
 
-            if (composeFrontLayerFirst) {
-              // `back` is composed second, and the anchor is the only reason it ends up behind.
-              front()
-              Anchor.Bottom { back() }
-            } else {
-              back()
-              front()
-            }
-          },
-      )
+          if (composeFrontLayerFirst) {
+            // `back` is composed second, and the anchor is the only reason it ends up behind.
+            front()
+            Anchor.Bottom { back() }
+          } else {
+            back()
+            front()
+          }
+        }
+      MaplibreMap(state = mapState, modifier = Modifier.fillMaxSize())
     }
 
     waitUntil(timeoutMillis = TIMEOUT) { mapState.presentation != null }

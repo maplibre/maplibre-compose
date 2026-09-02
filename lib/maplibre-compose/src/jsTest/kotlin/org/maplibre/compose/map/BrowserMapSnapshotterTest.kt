@@ -92,12 +92,10 @@ class BrowserMapSnapshotterTest {
         POINT_STYLE.content()
       }
       val runtime = createMapRuntime(MapRuntimeOptions())
-      val state = runtime.createMapState(initialBaseStyle = BASE_STYLE)
+      val state = runtime.createMapState(baseStyle = BASE_STYLE, styleComposition = composition)
       val snapshotter = runtime.createSnapshotter(BASE_STYLE, composition)
       try {
-        setBrowserMapContent(size = SIZE) {
-          MaplibreMap(state = state, styleComposition = composition)
-        }
+        setBrowserMapContent(size = SIZE) { MaplibreMap(state) }
         waitUntilMap("the interactive map to become ready") {
           state.presentation != null && state.style.loadState == StyleLoadState.Ready
         }

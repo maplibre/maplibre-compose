@@ -31,6 +31,7 @@ import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.MlnFfiMapSession
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.overlay.MapOverlay
+import org.maplibre.compose.overlay.include
 import org.maplibre.compose.style.BaseStyle
 
 class AndroidSurfaceReplacementTest {
@@ -196,7 +197,7 @@ class SurfaceReplacementActivity : ComponentActivity() {
     setContent {
       if (showingReplacement) {
         TestMap(
-          overlay = MapOverlay.None,
+          overlay = MapOverlay {},
           onState = { replacementState = it },
           onPresentation = { replacementPresentation.countDown() },
           onFrame = {
@@ -247,7 +248,7 @@ private fun TestMap(
   onPresentation: () -> Unit,
   onFrame: () -> Unit,
 ) {
-  val state = rememberMapState(initialBaseStyle = SOLID_STYLE)
+  val state = rememberMapState(baseStyle = SOLID_STYLE)
   LaunchedEffect(state) {
     onState(state)
     snapshotFlow { state.presentation }.first { it != null }
@@ -257,8 +258,9 @@ private fun TestMap(
     state = state,
     modifier = Modifier.fillMaxSize(),
     callbacks = MapPresentationCallbacks(onFrame = { onFrame() }),
-    overlay = overlay,
-  )
+  ) {
+    include(overlay)
+  }
 }
 
 private fun View.descendants(): Sequence<View> = sequence {

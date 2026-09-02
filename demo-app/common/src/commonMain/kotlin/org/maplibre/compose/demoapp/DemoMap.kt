@@ -44,7 +44,6 @@ import org.maplibre.compose.material3.Material3
 import org.maplibre.compose.material3.PointerPinButton
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.include
-import org.maplibre.compose.style.StyleComposition
 import org.maplibre.spatialk.geojson.Position
 
 /** How long the camera takes to fly to a newly selected demo. */
@@ -77,10 +76,7 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
   val scope = rememberCoroutineScope()
   val appliedStyle = state.appliedStyle
   val appliedBase = appliedStyle.base
-  SideEffect {
-    state.appliedStyleSnapshot = appliedStyle
-    state.mapState.style.baseStyle = appliedBase
-  }
+  SideEffect { state.appliedStyleSnapshot = appliedStyle }
   // Composing the map with a base means its load is in flight until noteStyleLoad clears it.
   DisposableEffect(appliedBase) {
     state.pendingStyleLoad = appliedBase
@@ -89,12 +85,6 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
     }
   }
   val selectedDemo = state.selectedDemo
-  val styleComposition =
-    remember(state.mapState, selectedDemo) {
-      StyleComposition {
-        selectedDemo?.let { demo -> key(demo) { demo.MapContent(state.mapState) } }
-      }
-    }
   LaunchedEffect(state.mapState.style.loadState, appliedBase) {
     when (state.mapState.style.loadState) {
       StyleLoadState.Ready,
@@ -114,7 +104,6 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
   Box(Modifier.fillMaxSize()) {
     MaplibreMap(
       state = state.mapState,
-      styleComposition = styleComposition,
       presentationOptions =
         MapPresentationOptions(
           cameraPadding = viewportInsets.asPaddingValues(),
@@ -124,29 +113,25 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
         ),
       callbacks = MapPresentationCallbacks(onFrame = { state.frameRateState.record() }),
       contentWindowInsets = viewportInsets.asWindowInsets(),
-      overlay =
-        MapOverlay {
-          include(
-            if (state.settings.useMaterial3Controls) MapOverlay.Material3 else MapOverlay.Default
-          )
-          selectedDemo?.let { demo ->
-            key(demo) {
-              with(demo) { Overlay(state) }
-              pointerPin?.let {
-                PointerPinButton(
-                  targetPosition = it.target,
-                  onClick = { scope.launch { state.mapState.flyTo(it.destination) } },
-                ) {
-                  Icon(
-                    vectorResource(Res.drawable.filter_center_focus_24px),
-                    contentDescription = "Fly back to ${demo.name}",
-                  )
-                }
-              }
+    ) {
+      include(if (state.settings.useMaterial3Controls) MapOverlay.Material3 else MapOverlay.Default)
+      selectedDemo?.let { demo ->
+        key(demo) {
+          with(demo) { Overlay(state) }
+          pointerPin?.let {
+            PointerPinButton(
+              targetPosition = it.target,
+              onClick = { scope.launch { state.mapState.flyTo(it.destination) } },
+            ) {
+              Icon(
+                vectorResource(Res.drawable.filter_center_focus_24px),
+                contentDescription = "Fly back to ${demo.name}",
+              )
             }
           }
-        },
-    )
+        }
+      }
+    }
 
     if (state.settings.showPointerPinDiagnostics && pointerPin != null) {
       PointerPinDestinationOverlay(
