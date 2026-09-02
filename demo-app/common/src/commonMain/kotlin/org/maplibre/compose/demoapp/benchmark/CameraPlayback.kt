@@ -18,11 +18,11 @@ internal suspend fun playCamera(
 ) {
   val start = TimeSource.Monotonic.markNow()
   val durationNs = duration.inWholeNanoseconds.toDouble().coerceAtLeast(1.0)
-  mapState.presentation?.setCameraPosition(from)
+  mapState.setCameraPosition(from)
   while (true) {
     val elapsedNs = start.elapsedNow().inWholeNanoseconds.toDouble()
     val t = (elapsedNs / durationNs).coerceIn(0.0, 1.0)
-    mapState.presentation?.setCameraPosition(lerp(from, to, t))
+    mapState.setCameraPosition(lerp(from, to, t))
     if (t >= 1.0) break
     withFrameNanos {}
   }

@@ -95,11 +95,11 @@ class BrowserMapSnapshotterTest {
       val state = runtime.createMapState(baseStyle = BASE_STYLE, styleComposition = composition)
       val snapshotter = runtime.createSnapshotter(BASE_STYLE, composition)
       try {
-        setBrowserMapContent(size = SIZE) { MaplibreMap(state) }
+        setBrowserMapContent(size = SIZE) { MaplibreMap(state = state) }
         waitUntilMap("the interactive map to become ready") {
-          state.presentation != null && state.style.loadState == StyleLoadState.Ready
+          state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
         }
-        val presentation = assertNotNull(state.presentation)
+        val presentation = assertNotNull(state.currentMapAttachment)
         val session = presentation.adapter as GlJsMapSession
         val interactiveEngine = assertNotNull(session.engineMapForTest())
 
@@ -115,11 +115,11 @@ class BrowserMapSnapshotterTest {
 
         assertEquals(GREEN, image.readPixel(SIZE / 2, SIZE / 2))
         assertEquals(2, evaluatorIdentities.size)
-        assertSame(presentation, state.presentation)
+        assertSame(presentation, state.currentMapAttachment)
         assertSame(interactiveEngine, session.engineMapForTest())
         snapshotter.close()
         snapshotter.awaitClosed()
-        assertSame(presentation, state.presentation)
+        assertSame(presentation, state.currentMapAttachment)
         assertSame(interactiveEngine, session.engineMapForTest())
         assertEquals(StyleLoadState.Ready, state.style.loadState)
       } finally {

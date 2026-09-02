@@ -134,18 +134,20 @@ class BrowserMapStyleStateTest {
       }
       val state = runtime.createMapState(baseStyle = STYLE_A, styleComposition = composition)
 
-      setBrowserMapContent { if (presented.value) MaplibreMap(state) }
-      waitUntilMap("style A to become ready") {
-        state.presentation != null && state.style.loadState == StyleLoadState.Ready
+      setBrowserMapContent {
+        if (presented.value) MaplibreMap(state = state)
       }
-      val initialSession = requireNotNull(state.presentation).adapter as GlJsMapSession
+      waitUntilMap("style A to become ready") {
+        state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
+      }
+      val initialSession = requireNotNull(state.currentMapAttachment).adapter as GlJsMapSession
       assertTrue(
         initialSession.engineMapForTest()?.getStyle()?.layers?.any { it.id == "initial-overlay" } ==
           true
       )
 
       runOnIdle { presented.value = false }
-      waitUntilMap("the Web map to detach") { state.presentation == null }
+      waitUntilMap("the Web map to detach") { state.currentMapAttachment == null }
       runOnIdle {
         useLatestRevision.value = true
         state.style.baseStyle = STYLE_B
@@ -170,9 +172,9 @@ class BrowserMapStyleStateTest {
       try {
         runOnIdle { presented.value = true }
         waitUntilMap("style B to load on the replacement map") {
-          state.presentation != null && state.style.loadState == StyleLoadState.Ready
+          state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
         }
-        val session = requireNotNull(state.presentation).adapter as GlJsMapSession
+        val session = requireNotNull(state.currentMapAttachment).adapter as GlJsMapSession
 
         assertTrue(layerAdditions.indexOf("initial-overlay") >= 0)
         assertTrue(
@@ -202,18 +204,18 @@ class BrowserMapStyleStateTest {
       val state = runtime.createMapState(baseStyle = STYLE_A)
       val size = mutableStateOf(0.dp)
 
-      setBrowserMapContent { MaplibreMap(state, modifier = Modifier.size(size.value)) }
+      setBrowserMapContent { MaplibreMap(state = state, modifier = Modifier.size(size.value)) }
       waitForIdle()
 
-      assertNull(state.presentation)
+      assertNull(state.currentMapAttachment)
       assertEquals(StyleLoadState.Pending, state.style.loadState)
 
       runOnIdle { size.value = 128.dp }
       waitUntilMap("the attached style to become ready") {
-        state.presentation != null && state.style.loadState == StyleLoadState.Ready
+        state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
       }
-      val presentation = requireNotNull(state.presentation)
-      val session = requireNotNull(state.presentation).adapter as GlJsMapSession
+      val presentation = requireNotNull(state.currentMapAttachment)
+      val session = requireNotNull(state.currentMapAttachment).adapter as GlJsMapSession
 
       assertNotNull(session.engineMapForTest())
       assertTrue(session.canPresentFrames)
@@ -223,7 +225,7 @@ class BrowserMapStyleStateTest {
         state.style.loadState is StyleLoadState.Failed
       }
 
-      assertTrue(state.presentation === presentation)
+      assertTrue(state.currentMapAttachment === presentation)
       assertTrue(presentation.isValid)
       assertFalse(session.canPresentFrames, "the failed map surface must remain hidden")
 

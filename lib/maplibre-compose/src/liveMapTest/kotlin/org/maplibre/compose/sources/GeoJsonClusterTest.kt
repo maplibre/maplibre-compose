@@ -28,9 +28,7 @@ class GeoJsonClusterTest {
   fun a_geojson_handle_answers_cluster_queries(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
-      fixture.presentation.setCameraPosition(
-        CameraPosition(target = Position(0.0, 0.0), zoom = ZOOM)
-      )
+      fixture.state.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = ZOOM))
       val binding = checkNotNull(fixture.style)
       val source =
         GeoJsonSource(
@@ -43,7 +41,7 @@ class GeoJsonClusterTest {
       val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.source("points"))
 
       suspend fun rendered(): List<Feature<Geometry, JsonObject?>> =
-        fixture.presentation.queryRenderedFeatures(
+        fixture.state.queryRenderedFeatures(
           DpRect(0.dp, 0.dp, 512.dp, 512.dp),
           layerIds = null,
         )

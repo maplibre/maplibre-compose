@@ -35,11 +35,9 @@ fun Location() {
     )
 
     LocationTrackingEffect(locationState = locationState) {
-      mapState.presentation?.animateCameraPosition(
-        CameraPosition(target = currentLocation.position, zoom = 15.0)
-      )
+      mapState.animateCameraPosition(CameraPosition(target = currentLocation.position, zoom = 15.0))
     }
   }
-  MaplibreMap(mapState)
+  MaplibreMap(state = mapState)
   // #endregion puck
 }

@@ -100,13 +100,12 @@ public fun MapOverlayScope.ExpandingAttributionButton(
   collapse: (Alignment) -> ExitTransition = AttributionDefaults.collapse,
 ) {
   var expanded by remember { mutableStateOf(true) }
-  val currentPresentation = presentation
+  val currentMapState = mapState
 
   // dismiss on any map gesture
-  LaunchedEffect(currentPresentation?.isCameraMoving, currentPresentation?.cameraMoveReason) {
+  LaunchedEffect(currentMapState.isCameraMoving, currentMapState.cameraMoveReason) {
     if (
-      currentPresentation?.isCameraMoving == true &&
-        currentPresentation.cameraMoveReason == CameraMoveReason.GESTURE
+      currentMapState.isCameraMoving && currentMapState.cameraMoveReason == CameraMoveReason.GESTURE
     ) {
       expanded = false
     }

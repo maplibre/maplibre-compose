@@ -141,14 +141,13 @@ class MapLifecycleCallbackRaceTest {
     val adapter = BlockingCameraAdapter()
     val token = state.reservePresentation()
     state.publishPresentation(token, adapter)
-    val presentation = requireNotNull(state.presentation)
     val first = CameraPosition(zoom = 4.0)
     val second = CameraPosition(zoom = 8.0)
     adapter.blockNextWrite = true
 
-    val firstThread = thread { presentation.setCameraPosition(first) }
+    val firstThread = thread { state.setCameraPosition(first) }
     assertTrue(adapter.blockedWriteEntered.await(5, TimeUnit.SECONDS))
-    val secondThread = thread { presentation.setCameraPosition(second) }
+    val secondThread = thread { state.setCameraPosition(second) }
     secondThread.join()
     assertEquals(second, state.cameraPosition)
 
@@ -208,7 +207,7 @@ class MapLifecycleCallbackRaceTest {
     firstPublicationThread.join()
 
     assertEquals(0, first.styleWrites)
-    assertTrue(state.presentation?.adapter === replacement)
+    assertTrue(state.currentMapAttachment?.adapter === replacement)
     state.close()
     runtime.close()
   }

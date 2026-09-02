@@ -87,7 +87,7 @@ class MapRuntimeTest {
 
     assertTrue(state.cameraPosition == camera)
     assertTrue(state.style.baseStyle == BaseStyle.Empty)
-    assertTrue(state.presentation == null)
+    assertTrue(state.currentMapAttachment == null)
     state.close()
     runtime.close()
   }

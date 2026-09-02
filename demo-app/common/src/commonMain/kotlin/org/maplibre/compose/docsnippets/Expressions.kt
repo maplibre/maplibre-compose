@@ -79,5 +79,5 @@ fun Expressions() {
     )
     // #endregion filter
   }
-  MaplibreMap(state)
+  MaplibreMap(state = state)
 }

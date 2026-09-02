@@ -111,9 +111,8 @@ object LiveTrackingDemo : Demo {
 
   @Composable
   override fun MapContent(mapState: MapState) {
-    val presentation = mapState.presentation
-    LaunchedEffect(presentation?.cameraMoveReason) {
-      if (presentation?.cameraMoveReason == CameraMoveReason.GESTURE) {
+    LaunchedEffect(mapState.cameraMoveReason) {
+      if (mapState.cameraMoveReason == CameraMoveReason.GESTURE) {
         followVehicle = false
       }
     }
@@ -128,7 +127,7 @@ object LiveTrackingDemo : Demo {
           vehiclePosition = positionAt(routeLength - abs(phase - routeLength))
         }
         if (followVehicle) {
-          presentation?.setCameraPosition(mapState.cameraPosition.copy(target = vehiclePosition))
+          mapState.setCameraPosition(mapState.cameraPosition.copy(target = vehiclePosition))
         }
       }
     }

@@ -99,14 +99,14 @@ class MapPresentationTest {
     session.lifecycle.attach()
     val token = state.reservePresentation()
     state.publishPresentation(token, session)
-    assertSame(session, state.presentation?.adapter)
+    assertSame(session, state.currentMapAttachment?.adapter)
     assertTrue(state.updateLoadedStyle(session, RecordingStyleBinding()))
     assertTrue(state.markStyleReady(session))
     assertEquals(StyleLoadState.Ready, state.style.loadState)
 
     session.close()
 
-    assertNull(state.presentation)
+    assertNull(state.currentMapAttachment)
     assertNull(state.retainedAdapter(session.presentationCompatibilityKey))
     assertFalse(state.acceptsPresentationEvent(session))
     assertEquals(StyleLoadState.Pending, state.style.loadState)
@@ -121,7 +121,7 @@ class MapPresentationTest {
     val replacement = PresentationTestAdapter()
     val replacementToken = state.reservePresentation()
     state.publishPresentation(replacementToken, replacement)
-    assertSame(replacement, state.presentation?.adapter)
+    assertSame(replacement, state.currentMapAttachment?.adapter)
 
     state.close()
     val failure = assertFailsWith<MapStateCleanupException> { state.awaitClosed() }
@@ -147,7 +147,7 @@ class MapPresentationTest {
 
     state.releasePresentation(token, session)
     testScheduler.runCurrent()
-    assertNull(state.presentation)
+    assertNull(state.currentMapAttachment)
     assertSame(session, state.retainedAdapter(session.presentationCompatibilityKey))
     assertEquals(StyleLoadState.Ready, state.style.loadState)
 
@@ -173,16 +173,16 @@ class MapPresentationTest {
 
     state.releasePresentation(firstToken, first)
     first.detachStarted.await()
-    assertNull(state.presentation)
+    assertNull(state.currentMapAttachment)
 
     val replacement = PresentationTestAdapter()
     val replacementToken = state.reservePresentation(MapPresentationOwnerToken())
     state.publishPresentation(replacementToken, replacement)
-    assertSame(replacement, state.presentation?.adapter)
+    assertSame(replacement, state.currentMapAttachment?.adapter)
 
     first.finishDetach.complete(Unit)
     testScheduler.runCurrent()
-    assertSame(replacement, state.presentation?.adapter)
+    assertSame(replacement, state.currentMapAttachment?.adapter)
     state.close()
     state.awaitClosed()
     runtime.close()
@@ -275,7 +275,7 @@ class MapPresentationTest {
     state.publishPresentation(token, adapter)
 
     assertTrue(state.isClosed)
-    assertNull(state.presentation)
+    assertNull(state.currentMapAttachment)
     state.awaitClosed()
     runtime.close()
   }
@@ -307,7 +307,7 @@ class MapPresentationTest {
 
     state.publishPresentation(token, adapter)
 
-    assertSame(adapter, state.presentation?.adapter)
+    assertSame(adapter, state.currentMapAttachment?.adapter)
     val failure = assertIs<StyleLoadState.Failed>(state.style.loadState)
     assertEquals("style rejected", failure.reason)
     state.close()
@@ -339,7 +339,7 @@ class MapPresentationTest {
     val fixture = presentationFixture()
     val position = CameraPosition(target = Position(12.0, 34.0), zoom = 8.0)
 
-    fixture.presentation.setCameraPosition(position)
+    fixture.state.setCameraPosition(position)
 
     assertEquals(position, fixture.state.cameraPosition)
     assertEquals(position, fixture.adapter.lastCameraPosition)
@@ -355,43 +355,51 @@ class MapPresentationTest {
       state.releasePresentation(token, map)
     }
     state.publishPresentation(token, adapter)
-    val presentation = requireNotNull(state.presentation)
+    val presentation = requireNotNull(state.currentMapAttachment)
     val position = CameraPosition(target = Position(12.0, 34.0), zoom = 8.0)
     adapter.releaseOnNextCameraSet = true
 
-    presentation.setCameraPosition(position)
+    state.setCameraPosition(position)
 
     assertEquals(position, state.cameraPosition)
     assertFalse(presentation.isValid)
-    assertNull(state.presentation)
+    assertNull(state.currentMapAttachment)
     state.close()
     runtime.close()
   }
 
   @Test
-  fun a_departed_presentation_rejects_cached_operations_and_delayed_camera_events() {
+  fun a_detached_map_keeps_durable_camera_commands_and_rejects_surface_operations() = runTest {
     val fixture = presentationFixture()
     fixture.state.releasePresentation(fixture.token, fixture.adapter)
+    val position = CameraPosition(zoom = 4.0)
 
-    assertFailsWith<MapPresentationDetachedException> {
-      fixture.presentation.setCameraPosition(CameraPosition(zoom = 4.0))
+    fixture.state.setCameraPosition(position)
+    assertEquals(position, fixture.state.cameraPosition)
+    assertEquals(CameraPosition(), fixture.adapter.lastCameraPosition)
+    assertFailsWith<MapNotAttachedException> {
+      fixture.state.queryRenderedFeatures(DpOffset.Zero)
     }
     val viewportReads = fixture.adapter.viewportReads
     fixture.adapter.lastCameraPosition = CameraPosition(zoom = 7.0)
     assertNull(fixture.state.synchronizeCamera(fixture.adapter))
     assertEquals(viewportReads, fixture.adapter.viewportReads)
-    assertEquals(CameraPosition(), fixture.state.cameraPosition)
+    assertEquals(position, fixture.state.cameraPosition)
     fixture.close()
   }
 
   @Test
-  fun presentation_options_update_only_the_current_lease() {
+  fun a_camera_set_while_detached_applies_to_the_next_attachment() {
     val fixture = presentationFixture()
-    val options = MapPresentationOptions(zoomRange = 2f..18f, pitchRange = 3f..45f)
+    fixture.state.releasePresentation(fixture.token, fixture.adapter)
+    val position = CameraPosition(target = Position(12.0, 34.0), zoom = 8.0)
+    fixture.state.setCameraPosition(position)
+    val replacement = PresentationTestAdapter()
+    val token = fixture.state.reservePresentation()
 
-    fixture.state.publishPresentation(fixture.token, fixture.adapter, options)
+    fixture.state.publishPresentation(token, replacement)
 
-    assertEquals(options, fixture.presentation.options)
+    assertEquals(position, replacement.lastCameraPosition)
     fixture.close()
   }
 
@@ -403,7 +411,7 @@ class MapPresentationTest {
     fixture.state.publishPresentation(fixture.token, fixture.adapter)
 
     assertTrue(fixture.state.isClosed)
-    assertNull(fixture.state.presentation)
+    assertNull(fixture.state.currentMapAttachment)
     fixture.runtime.close()
   }
 
@@ -669,13 +677,13 @@ class MapPresentationTest {
     val initialCamera = CameraPosition(target = Position(12.0, 34.0), zoom = 8.0)
     val state = runtime.createMapState(initialCameraPosition = initialCamera)
     val token = state.reservePresentation()
-    val adapter = PresentationTestAdapter { state.presentation }
+    val adapter = PresentationTestAdapter { state.currentMapAttachment }
 
     state.publishPresentation(token, adapter)
 
     assertFalse(adapter.presentationWasVisibleWhileConfiguring)
     assertEquals(initialCamera, adapter.lastCameraPosition)
-    assertTrue(state.presentation != null)
+    assertTrue(state.currentMapAttachment != null)
     state.close()
     runtime.close()
   }
@@ -684,9 +692,9 @@ class MapPresentationTest {
   fun viewport_observations_are_null_before_the_first_viewport() {
     val fixture = presentationFixture()
 
-    assertNull(fixture.presentation.getVisibleRegion())
-    assertNull(fixture.presentation.getVisibleBoundingBox())
-    assertNull(fixture.presentation.metersPerDpAtLatitude(0.0))
+    assertNull(fixture.state.getVisibleRegion())
+    assertNull(fixture.state.getVisibleBoundingBox())
+    assertNull(fixture.state.metersPerDpAtLatitude(0.0))
     fixture.close()
   }
 
@@ -700,8 +708,29 @@ class MapPresentationTest {
 
     state.publishPresentation(token, adapter)
 
-    assertEquals(viewport, state.presentation?.viewport)
+    assertEquals(viewport, state.viewport)
     state.close()
+    runtime.close()
+  }
+
+  @Test
+  fun await_viewport_waits_for_the_next_attachment() = runTest {
+    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
+    val state = runtime.createMapState()
+    val viewport = testViewport()
+    val waiting = async { state.awaitViewport() }
+    testScheduler.runCurrent()
+
+    assertFalse(waiting.isCompleted)
+    val token = state.reservePresentation()
+    state.publishPresentation(
+      token,
+      PresentationTestAdapter().apply { currentViewport = viewport },
+    )
+
+    assertEquals(viewport, waiting.await())
+    state.close()
+    state.awaitClosed()
     runtime.close()
   }
 
@@ -713,13 +742,13 @@ class MapPresentationTest {
     val adapter = PresentationTestAdapter()
 
     state.publishPresentation(token, adapter)
-    assertNull(state.presentation?.viewport)
+    assertNull(state.currentMapAttachment?.viewport)
 
     val viewport = testViewport()
     adapter.currentViewport = viewport
     state.lifecycle.seedCurrentPresentationViewport(adapter)
 
-    assertEquals(viewport, state.presentation?.viewport)
+    assertEquals(viewport, state.viewport)
     state.close()
     runtime.close()
   }
@@ -728,12 +757,12 @@ class MapPresentationTest {
   fun a_bounds_set_waits_for_this_presentations_viewport() = runTest {
     val fixture = presentationFixture()
     val operation = async {
-      fixture.presentation.setCameraPosition(BoundingBox(Position(-1.0, -1.0), Position(1.0, 1.0)))
+      fixture.state.setCameraPosition(BoundingBox(Position(-1.0, -1.0), Position(1.0, 1.0)))
     }
     testScheduler.runCurrent()
 
     assertFalse(fixture.adapter.boundsSet.isCompleted)
-    fixture.presentation.updateViewport(testViewport())
+    fixture.attachment.updateViewport(testViewport())
     operation.await()
     assertTrue(fixture.adapter.boundsSet.isCompleted)
     fixture.close()
@@ -743,16 +772,16 @@ class MapPresentationTest {
   fun a_rendered_query_waits_for_the_first_viewport() = runTest {
     val fixture = presentationFixture()
     supervisorScope {
-      val query = async { fixture.presentation.queryRenderedFeatures(DpOffset.Zero) }
+      val query = async { fixture.state.queryRenderedFeatures(DpOffset.Zero) }
       testScheduler.runCurrent()
 
       assertFalse(fixture.adapter.queryStarted.isCompleted)
 
-      fixture.presentation.updateViewport(testViewport())
+      fixture.attachment.updateViewport(testViewport())
       fixture.adapter.queryStarted.await()
       fixture.state.releasePresentation(fixture.token, fixture.adapter)
 
-      assertFailsWith<MapPresentationDetachedException> { query.await() }
+      assertFailsWith<MapNotAttachedException> { query.await() }
     }
     fixture.close()
   }
@@ -760,14 +789,14 @@ class MapPresentationTest {
   @Test
   fun detachment_fails_an_active_query_instead_of_targeting_another_presentation() = runTest {
     val fixture = presentationFixture()
-    fixture.presentation.updateViewport(testViewport())
+    fixture.attachment.updateViewport(testViewport())
     supervisorScope {
-      val query = async { fixture.presentation.queryRenderedFeatures(DpOffset.Zero) }
+      val query = async { fixture.state.queryRenderedFeatures(DpOffset.Zero) }
       fixture.adapter.queryStarted.await()
 
       fixture.state.releasePresentation(fixture.token, fixture.adapter)
 
-      assertFailsWith<MapPresentationDetachedException> { query.await() }
+      assertFailsWith<MapNotAttachedException> { query.await() }
     }
     fixture.close()
   }
@@ -776,17 +805,17 @@ class MapPresentationTest {
   fun a_replacement_animation_cancels_only_the_previous_camera_mutation() = runTest {
     val fixture = presentationFixture()
     val first = async {
-      fixture.presentation.animateCameraPosition(CameraPosition(zoom = 2.0), 1.seconds)
+      fixture.state.animateCameraPosition(CameraPosition(zoom = 2.0), 1.seconds)
     }
     fixture.adapter.animationStarted.await()
     val second = async {
-      fixture.presentation.animateCameraPosition(CameraPosition(zoom = 3.0), 1.seconds)
+      fixture.state.animateCameraPosition(CameraPosition(zoom = 3.0), 1.seconds)
     }
     testScheduler.runCurrent()
 
     assertTrue(first.isCancelled)
     assertFalse(second.isCompleted)
-    assertTrue(fixture.presentation.isValid)
+    assertTrue(fixture.attachment.isValid)
 
     fixture.adapter.finishAnimation.complete(Unit)
     second.await()
@@ -806,7 +835,7 @@ private data class PresentationFixture(
   val state: MapState,
   val token: MapPresentationToken,
   val adapter: PresentationTestAdapter,
-  val presentation: MapPresentation,
+  val attachment: MapAttachment,
 ) {
   fun close() {
     state.close()
@@ -820,7 +849,13 @@ private fun presentationFixture(): PresentationFixture {
   val token = state.reservePresentation()
   val adapter = PresentationTestAdapter()
   state.publishPresentation(token, adapter)
-  return PresentationFixture(runtime, state, token, adapter, requireNotNull(state.presentation))
+  return PresentationFixture(
+    runtime,
+    state,
+    token,
+    adapter,
+    requireNotNull(state.currentMapAttachment),
+  )
 }
 
 private class RetainedAdapter(private val failOnClose: Boolean) : PresentationTestAdapter() {
@@ -935,7 +970,7 @@ private class ReleasingCameraAdapter(private val release: (MapAdapter) -> Unit) 
 }
 
 internal open class PresentationTestAdapter(
-  private val currentPresentation: () -> MapPresentation? = { null }
+  private val currentAttachment: () -> MapAttachment? = { null }
 ) : MapAdapter {
   var lastCameraPosition = CameraPosition()
   var presentationWasVisibleWhileConfiguring = false
@@ -965,7 +1000,7 @@ internal open class PresentationTestAdapter(
 
   override fun setBaseStyle(style: BaseStyle) {
     presentationWasVisibleWhileConfiguring =
-      presentationWasVisibleWhileConfiguring || currentPresentation() != null
+      presentationWasVisibleWhileConfiguring || currentAttachment() != null
   }
 
   override suspend fun reconcileStyleRevision(revision: DesiredStyleRevision): Boolean = true
@@ -976,7 +1011,7 @@ internal open class PresentationTestAdapter(
 
   override fun setCameraPosition(cameraPosition: CameraPosition) {
     presentationWasVisibleWhileConfiguring =
-      presentationWasVisibleWhileConfiguring || currentPresentation() != null
+      presentationWasVisibleWhileConfiguring || currentAttachment() != null
     lastCameraPosition = cameraPosition
   }
 

@@ -361,11 +361,11 @@ object TransitNetworkDemo : Demo {
   override fun MapContent(mapState: MapState) {
     val network = (feedState as? FeedState.Loaded)?.network ?: return
     val selected = selectedRouteId
-    val presentation = mapState.presentation
 
-    LaunchedEffect(selected, presentation) {
+    LaunchedEffect(selected, mapState.viewport) {
       val route = network.routes.find { it.id == selected } ?: return@LaunchedEffect
-      presentation?.animateCameraPosition(
+      if (mapState.viewport == null) return@LaunchedEffect
+      mapState.animateCameraPosition(
         boundingBox = route.bounds,
         padding = RouteFitPadding,
         duration = 1.seconds,

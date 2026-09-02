@@ -175,7 +175,7 @@ private fun LocationPuckContent(
   onClick: LocationClickHandler?,
   onLongClick: LocationClickHandler?,
 ) {
-  val presentation = LocalMapState.current?.presentation
+  val mapState = LocalMapState.current
   val location = measurement?.location
   val bearing = measurement?.bearing
   val bearingAccuracy = measurement?.bearingAccuracy
@@ -193,7 +193,7 @@ private fun LocationPuckContent(
         condition(test = isOldLocation, output = const(0.dp)),
         fallback =
           (feature["accuracy"].asNumber() /
-              const((presentation?.viewport?.metersPerDpAtTarget ?: 0.0).toFloat()))
+              const((mapState?.viewport?.metersPerDpAtTarget ?: 0.0).toFloat()))
             .dp,
       ),
     color = const(colors.accuracyFillColor),

@@ -41,7 +41,7 @@ class PlatformMapAccessTest {
 
       assertEquals("maplibre-compose-map", callbackThread)
       assertTrue(callbackThread != callerThread)
-      assertNull(state.presentation)
+      assertNull(state.currentMapAttachment)
     }
   }
 

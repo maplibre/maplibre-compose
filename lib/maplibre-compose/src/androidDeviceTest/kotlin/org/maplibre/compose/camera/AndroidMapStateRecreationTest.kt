@@ -37,21 +37,25 @@ class AndroidMapStateRecreationTest {
 
     try {
       runAndroidComposeUiTest<MapStateRecreationActivity> {
-        waitUntil(timeoutMillis = TIMEOUT_MILLIS) { activity?.mapState?.presentation != null }
+        waitUntil(timeoutMillis = TIMEOUT_MILLIS) {
+          activity?.mapState?.currentMapAttachment != null
+        }
         val firstActivity = requireNotNull(activity)
         val firstState = requireNotNull(firstActivity.mapState)
         assertTrue(firstActivity.defaultRuntimeIsShared)
 
-        runOnIdle { requireNotNull(firstState.presentation).setCameraPosition(EXPECTED_CAMERA) }
+        runOnIdle {
+          requireNotNull(firstState.currentMapAttachment).setCameraPosition(EXPECTED_CAMERA)
+        }
         waitUntil(timeoutMillis = TIMEOUT_MILLIS) {
-          firstState.presentation?.adapter?.hasCamera(EXPECTED_CAMERA) == true
+          firstState.currentMapAttachment?.adapter?.hasCamera(EXPECTED_CAMERA) == true
         }
 
         runOnIdle { firstActivity.recreate() }
         waitUntil(timeoutMillis = TIMEOUT_MILLIS) {
           activity != null &&
             activity !== firstActivity &&
-            activity?.mapState?.presentation?.adapter?.hasCamera(EXPECTED_CAMERA) == true
+            activity?.mapState?.currentMapAttachment?.adapter?.hasCamera(EXPECTED_CAMERA) == true
         }
 
         val replacementActivity = requireNotNull(activity)
@@ -61,7 +65,7 @@ class AndroidMapStateRecreationTest {
         assertCamera(EXPECTED_CAMERA, restoredState.cameraPosition, "restored MapState")
         assertCamera(
           EXPECTED_CAMERA,
-          requireNotNull(restoredState.presentation).adapter.getCameraPosition(),
+          requireNotNull(restoredState.currentMapAttachment).adapter.getCameraPosition(),
           "replacement native map",
         )
         assertTrue(restoredState.style.baseStyle == BaseStyle.Empty)

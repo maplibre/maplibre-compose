@@ -1262,13 +1262,13 @@ internal class MlnFfiMapSession(
 
   /**
    * A resize changes the projection without a camera event, so Compose overlays that read
-   * [MapPresentation.viewport] would keep the previous screen locations unless this reports the new
+   * [MapState.viewport] would keep the previous screen locations unless this reports the new
    * snapshot.
    */
   private fun snapshotViewportAndNotify(map: MapHandle) {
     snapshotViewport(map)
     // The first attach snapshot can land before the lease is Attached. Seed from the snapshot
-    // itself so a dropped camera callback cannot leave MapPresentation.viewport null.
+    // itself so a dropped camera callback cannot leave MapState.viewport null.
     lifecycleAuthority.seedCurrentPresentationViewport(this)
     withLifecyclePresentation { engine, lease ->
       lifecycleCallbacks.onCameraMoved(engine, lease, this)
@@ -1364,7 +1364,7 @@ internal class MlnFfiMapSession(
       map.jumpTo(cameraForBounds(map, boundingBox, bearing, tilt, padding))
       snapshotViewport(map)
     }
-    // MapPresentation waits for the current lease's viewport before it calls this adapter.
+    // MapState waits for the current attachment's viewport before it calls this adapter.
     val hasViewport = stateLock.withLock {
       hasAttachedViewport && lifecycle.acceptsWork && loop != null
     }
@@ -1724,7 +1724,7 @@ internal class MlnFfiMapSession(
           session
             .queryRenderedFeatures(geometry, renderedQueryOptions(layerIds, predicate))
             .toGeoJsonFeatures()
-            // Native walks style layers from the bottom. MapPresentation and GL JS put the
+            // Native walks style layers from the bottom. MapState and GL JS put the
             // feature in front first.
             .asReversed()
         }

@@ -8,7 +8,7 @@ import org.maplibre.spatialk.geojson.BoundingBox
 /**
  * What the map shows right now: the size of the map composable and the visible area.
  *
- * Read a current instance from [org.maplibre.compose.map.MapPresentation.viewport]. A new immutable
+ * Read a current instance from [org.maplibre.compose.map.MapState.viewport]. A new immutable
  * instance replaces it when the map has adopted a new camera or size. A composition that reads any
  * property recomposes exactly when the value changes. All properties of one instance describe the
  * same rendered transform and are consistent with each other.

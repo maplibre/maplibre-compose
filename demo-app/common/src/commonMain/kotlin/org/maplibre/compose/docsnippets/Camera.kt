@@ -23,13 +23,13 @@ fun Camera() {
       initialCameraPosition =
         CameraPosition(target = Position(latitude = 45.521, longitude = -122.675), zoom = 13.0)
     )
-  MaplibreMap(mapState)
+  MaplibreMap(state = mapState)
   // #endregion first-position
 
   // #region animate
-  val presentation = mapState.presentation
-  LaunchedEffect(presentation) {
-    presentation?.animateCameraPosition(
+  LaunchedEffect(mapState) {
+    mapState.awaitViewport()
+    mapState.animateCameraPosition(
       position =
         mapState.cameraPosition.copy(target = Position(latitude = 47.607, longitude = -122.342)),
       duration = 3.seconds,
@@ -38,8 +38,9 @@ fun Camera() {
   // #endregion animate
 
   // #region fit-bounds
-  LaunchedEffect(presentation) {
-    presentation?.animateCameraPosition(
+  LaunchedEffect(mapState) {
+    mapState.awaitViewport()
+    mapState.animateCameraPosition(
       boundingBox = BoundingBox(west = -123.0, south = 47.0, east = -122.0, north = 48.0),
       padding = PaddingValues(32.dp),
     )
@@ -47,16 +48,14 @@ fun Camera() {
   // #endregion fit-bounds
 
   // #region viewport
-  val viewport = presentation?.viewport
+  val viewport = mapState.viewport
   if (viewport != null) {
     Text("Visible bounds: ${viewport.visibleBoundingBox}")
   }
   // #endregion viewport
 
   // #region convert
-  presentation?.let {
-    val screenOffset = it.screenLocationFromPosition(mapState.cameraPosition.target)
-    val geoPosition = it.positionFromScreenLocation(DpOffset(x = 100.dp, y = 150.dp))
-  }
+  val screenOffset = mapState.screenLocationFromPosition(mapState.cameraPosition.target)
+  val geoPosition = mapState.positionFromScreenLocation(DpOffset(x = 100.dp, y = 150.dp))
   // #endregion convert
 }

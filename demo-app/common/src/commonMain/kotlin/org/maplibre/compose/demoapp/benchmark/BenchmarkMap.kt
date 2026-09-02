@@ -34,8 +34,6 @@ import kotlinx.coroutines.launch
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.MapViewportInsets
 import org.maplibre.compose.map.GestureOptions
-import org.maplibre.compose.map.MapPresentationCallbacks
-import org.maplibre.compose.map.MapPresentationOptions
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.RenderOptions
@@ -81,11 +79,11 @@ internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets
     }
   }
   val styleUrl = (scenario.style.base as BaseStyle.Uri).uri
-  val presentation = mapState.presentation
-  LaunchedEffect(scenario.id, presentation) {
-    val currentPresentation = presentation ?: return@LaunchedEffect
+  val viewport = mapState.viewport
+  LaunchedEffect(scenario.id, viewport) {
+    if (viewport == null) return@LaunchedEffect
     state.benchmark.abandonRun()
-    currentPresentation.setCameraPosition(scenario.camera)
+    mapState.setCameraPosition(scenario.camera)
     session.geoJson = null
     session.pin = null
     session.pointerPx = null
@@ -103,7 +101,7 @@ internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets
     try {
       ui.status = "Waiting for the map"
       mapLoaded.await()
-      requireNotNull(mapState.presentation).setCameraPosition(running.camera)
+      mapState.setCameraPosition(running.camera)
       ui.status = "Prefetching tiles"
       prefetcher.ensurePacked(
         scenarioId = running.id,
@@ -184,7 +182,7 @@ internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets
             }
             if (change.pressed && session.pin == null && scenario.usesGestures) {
               session.pin =
-                mapState.presentation?.positionFromScreenLocation(
+                mapState.positionFromScreenLocation(
                   with(density) { DpOffset(change.position.x.toDp(), change.position.y.toDp()) }
                 )
             }
@@ -203,14 +201,11 @@ internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets
     key(scenario.id) {
       MaplibreMap(
         state = mapState,
-        presentationOptions =
-          MapPresentationOptions(
-            cameraPadding = viewportInsets.asPaddingValues(),
-            renderOptions = RenderOptions.Standard,
-            gestureOptions =
-              if (scenario.usesGestures) GestureOptions.Standard else GestureOptions.AllDisabled,
-          ),
-        callbacks = MapPresentationCallbacks(onFrame = { fps -> session.frames.recordMapFps(fps) }),
+        cameraPadding = viewportInsets.asPaddingValues(),
+        renderOptions = RenderOptions.Standard,
+        gestureOptions =
+          if (scenario.usesGestures) GestureOptions.Standard else GestureOptions.AllDisabled,
+        onFrame = { fps -> session.frames.recordMapFps(fps) },
         contentWindowInsets = viewportInsets.asWindowInsets(),
       ) {}
     }
@@ -238,7 +233,7 @@ internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets
 
 private fun samplePin(mapState: MapState, session: BenchmarkSession) {
   val pin = session.pin ?: return
-  val projected = mapState.presentation?.screenLocationFromPosition(pin) ?: return
+  val projected = mapState.screenLocationFromPosition(pin) ?: return
   val px = with(session.density) { Offset(projected.x.toPx(), projected.y.toPx()) }
   session.gestures.onMapProjection(px.x.toDouble(), px.y.toDouble())
 }
@@ -249,7 +244,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawTrail(
 ) {
   val composePoint = session.pointerPx
   val pin = session.pin
-  val projected = pin?.let { mapState.presentation?.screenLocationFromPosition(it) }
+  val projected = pin?.let { mapState.screenLocationFromPosition(it) }
   val mapPoint = projected?.let { with(session.density) { Offset(it.x.toPx(), it.y.toPx()) } }
   if (composePoint != null) {
     val arm = 12.dp.toPx()

@@ -18,14 +18,15 @@ initial <Api of="CameraPosition" /> to set the camera at startup:
 
 ## Animate the camera
 
-<Api of="MapPresentation.animateCameraPosition" /> is a suspend function that
-moves the current presentation to a new position over a duration. Call it from
-a coroutine after `MapState.presentation` becomes available:
+<Api of="MapState.animateCameraPosition" /> is a suspend function that moves
+the map to a new position over a duration. Call it from a coroutine after
+<Api of="MapState.awaitViewport" /> confirms that the map is attached:
 
 <Code code={region(camera, "animate")} lang="kotlin" title="App.kt" />
 
-Use <Api of="MapPresentation.setCameraPosition" /> to move without an
-animation.
+Use <Api of="MapState.setCameraPosition" /> to move without an animation. The
+position is durable: if the map is not attached, the next map surface starts
+there.
 
 ## Fit a bounding box
 
@@ -39,7 +40,7 @@ animation.
 
 ## Read the visible area
 
-<Api of="MapPresentation.viewport" /> reports the current rendered size,
+<Api of="MapState.viewport" /> reports the current rendered size,
 visible bounding box, and visible region. It is null until the map renders its
 first viewport. A composition that reads it recomposes when the camera moves or
 the map resizes:
@@ -48,9 +49,9 @@ the map resizes:
 
 ## Convert between screen and geographic coordinates
 
-<Api of="MapPresentation.screenLocationFromPosition" /> converts a geographic
+<Api of="MapState.screenLocationFromPosition" /> converts a geographic
 position to an offset from the top-left corner of the map composable.
-<Api of="MapPresentation.positionFromScreenLocation" /> converts in the other
+<Api of="MapState.positionFromScreenLocation" /> converts in the other
 direction:
 
 <Code code={region(camera, "convert")} lang="kotlin" title="App.kt" />

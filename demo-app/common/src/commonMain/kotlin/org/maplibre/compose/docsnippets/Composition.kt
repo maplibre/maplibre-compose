@@ -19,6 +19,6 @@ fun Composition() {
     ) {
       // Sources and layers declared here are added to the base style.
     }
-  MaplibreMap(state)
+  MaplibreMap(state = state)
   // #endregion base-plus-content
 }

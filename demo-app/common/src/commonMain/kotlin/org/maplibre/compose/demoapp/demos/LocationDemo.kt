@@ -64,7 +64,6 @@ object LocationDemo : Demo {
 
   @Composable
   override fun MapContent(mapState: MapState) {
-    val presentation = mapState.presentation
     val locationProvider = engine.rememberLocationProvider()
     val locationState =
       rememberLocationState(
@@ -83,9 +82,9 @@ object LocationDemo : Demo {
     }
     LaunchedEffect(locationState) { locationState.requestPermission() }
 
-    LaunchedEffect(presentation) {
-      var previous = presentation?.cameraMoveReason ?: CameraMoveReason.NONE
-      snapshotFlow { presentation?.cameraMoveReason ?: CameraMoveReason.NONE }
+    LaunchedEffect(mapState) {
+      var previous = mapState.cameraMoveReason
+      snapshotFlow { mapState.cameraMoveReason }
         .collect { reason ->
           // Follow moves the camera programmatically; a pan is the GESTURE that interrupts it.
           if (previous != CameraMoveReason.GESTURE && reason == CameraMoveReason.GESTURE) {
@@ -100,12 +99,12 @@ object LocationDemo : Demo {
 
     LocationTrackingEffect(locationState = locationState, enabled = follow) {
       if (previousLocation == null) {
-        presentation?.animateCameraPosition(
+        mapState.animateCameraPosition(
           CameraPosition(target = currentLocation.position, zoom = 16.0),
           duration = DemoFlightDuration,
         )
       } else {
-        presentation?.let { updateCamera(mapState, it) }
+        updateCamera(mapState)
       }
     }
 

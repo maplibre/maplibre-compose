@@ -34,11 +34,9 @@ private class HttpWarmupPrefetcher : TilePrefetcher {
       )
     for (zoom in minZoom..maxZoom) {
       onStatus("Warming zoom $zoom")
-      camera.presentation?.setCameraPosition(
-        CameraPosition(target = center, zoom = zoom.toDouble())
-      )
+      camera.setCameraPosition(CameraPosition(target = center, zoom = zoom.toDouble()))
       delay(350.milliseconds)
     }
-    camera.presentation?.setCameraPosition(origin)
+    camera.setCameraPosition(origin)
   }
 }

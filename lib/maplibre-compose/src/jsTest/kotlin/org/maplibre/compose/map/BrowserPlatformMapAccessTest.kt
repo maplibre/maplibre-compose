@@ -23,8 +23,8 @@ class BrowserPlatformMapAccessTest {
 
     val failure = assertFailsWith<IllegalStateException> { state.withPlatformMap { map.getZoom() } }
 
-    assertEquals("Platform map access requires a current Web presentation", failure.message)
-    assertNull(state.presentation)
+    assertEquals("Platform map access requires an attached Web map surface", failure.message)
+    assertNull(state.currentMapAttachment)
     runtime.close()
     runtime.awaitClosed()
   }
@@ -38,7 +38,7 @@ class BrowserPlatformMapAccessTest {
       val zoom = fixture.state.withPlatformMap { map.getZoom() }
 
       assertEquals(0.0, zoom)
-      assertTrue(fixture.state.presentation?.isValid == true)
+      assertTrue(fixture.state.currentMapAttachment?.isValid == true)
     } finally {
       fixture.close()
     }

@@ -16,7 +16,7 @@ fun Styling() {
   // #region simple
   val simple =
     rememberMapState(baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty"))
-  MaplibreMap(simple)
+  MaplibreMap(state = simple)
   // #endregion simple
 
   // #region dynamic
@@ -25,11 +25,11 @@ fun Styling() {
     rememberMapState(
       baseStyle = BaseStyle.Uri("https://api.protomaps.com/styles/v4/$variant/en.json?key=MY_KEY")
     )
-  MaplibreMap(dynamic)
+  MaplibreMap(state = dynamic)
   // #endregion dynamic
 
   // #region local
   val local = rememberMapState(baseStyle = BaseStyle.Uri(Res.getUri("files/style.json")))
-  MaplibreMap(local)
+  MaplibreMap(state = local)
   // #endregion local
 }
