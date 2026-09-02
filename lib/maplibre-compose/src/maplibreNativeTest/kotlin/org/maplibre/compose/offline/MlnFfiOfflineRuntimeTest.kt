@@ -34,7 +34,7 @@ class MlnFfiOfflineRuntimeTest {
   private fun startRuntime(): MlnFfiOfflineRuntime =
     MlnFfiOfflineRuntime(
         cacheFile = cacheFile,
-        logger = MapLog(),
+        logger = MapLog,
         onEvent = {},
       )
       .also {

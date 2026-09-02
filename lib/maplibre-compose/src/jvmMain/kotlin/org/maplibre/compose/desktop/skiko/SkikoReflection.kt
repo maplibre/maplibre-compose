@@ -228,7 +228,7 @@ internal object SkikoDirect3DDeviceLayout {
   const val READ_SIZE: Long = DEVICE_OFFSET + Long.SIZE_BYTES
 
   private val warnedAboutSkikoVersion = AtomicBoolean(false)
-  private val logger = MapLog()
+  private val logger = MapLog
 
   /**
    * Skiko's own version string from `org.jetbrains.skiko.Version`, or null if it is unavailable.

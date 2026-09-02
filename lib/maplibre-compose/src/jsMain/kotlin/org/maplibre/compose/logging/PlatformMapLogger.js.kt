@@ -2,13 +2,11 @@ package org.maplibre.compose.logging
 
 internal actual fun platformMapLogger(): MapLogger = MapLogger { record ->
   val line = record.toPlatformLine()
-  val throwable = record.throwable
+  val args = if (record.throwable == null) arrayOf<Any?>(line) else arrayOf(line, record.throwable)
   when (record.level) {
-    MapLogLevel.Debug -> if (throwable == null) console.log(line) else console.log(line, throwable)
-    MapLogLevel.Info -> if (throwable == null) console.info(line) else console.info(line, throwable)
-    MapLogLevel.Warning ->
-      if (throwable == null) console.warn(line) else console.warn(line, throwable)
-    MapLogLevel.Error ->
-      if (throwable == null) console.error(line) else console.error(line, throwable)
+    MapLogLevel.Debug -> console.log(*args)
+    MapLogLevel.Info -> console.info(*args)
+    MapLogLevel.Warning -> console.warn(*args)
+    MapLogLevel.Error -> console.error(*args)
   }
 }

@@ -1,14 +1,10 @@
 package org.maplibre.compose.logging
 
 /**
- * Library-side log entry point with lazy messages.
- *
- * The default instance reads [MapLogging.logger] at each call, so a logger installed later receives
- * the records. A test passes its own [MapLogger] to record without touching the global.
+ * Library-side log entry point with lazy messages. Reads [MapLogging.logger] at each call, so a
+ * logger installed later receives the records. A null [MapLog] reference disables logging.
  */
-internal class MapLog(private val sink: () -> MapLogger? = { MapLogging.logger }) {
-  constructor(logger: MapLogger) : this({ logger })
-
+internal object MapLog {
   fun d(throwable: Throwable? = null, message: () -> String) =
     log(MapLogLevel.Debug, throwable, message)
 
@@ -28,7 +24,7 @@ internal class MapLog(private val sink: () -> MapLogger? = { MapLogging.logger }
     source: MapLogSource = MapLogSource.Library,
     category: String? = null,
   ) {
-    val logger = sink() ?: return
+    val logger = MapLogging.logger ?: return
     if (level < logger.minLevel) return
     logger.log(MapLogRecord(level, source, category, message(), throwable))
   }

@@ -65,7 +65,7 @@ private constructor(
     MlnFfiMapSession(
       lifecycleAuthority = state.lifecycle,
       callbacks = recorder,
-      logger = MapLog(),
+      logger = MapLog,
       renderBackend = driver.backends.producer,
       scaleFactor = initialExtent.scaleFactor,
       layoutDirection = LayoutDirection.Ltr,

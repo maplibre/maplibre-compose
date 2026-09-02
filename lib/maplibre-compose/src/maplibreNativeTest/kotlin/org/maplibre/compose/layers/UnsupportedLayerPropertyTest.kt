@@ -1,5 +1,6 @@
 package org.maplibre.compose.layers
 
+import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -39,9 +40,20 @@ import org.maplibre.spatialk.geojson.Geometry
  */
 class UnsupportedLayerPropertyTest {
 
+  private val previousLogger = MapLogging.logger
+
   @BeforeTest
-  fun clearLog() {
+  fun captureWarnings() {
     CAPTURED.clear()
+    MapLogging.logger = MapLogger { record ->
+      if (record.level >= MapLogLevel.Warning) CAPTURED += record.message
+      previousLogger?.log(record)
+    }
+  }
+
+  @AfterTest
+  fun restoreLogger() {
+    MapLogging.logger = previousLogger
   }
 
   @Test
@@ -172,18 +184,7 @@ class UnsupportedLayerPropertyTest {
       .also { style.install(it) }
 
   private companion object {
-    /**
-     * Warnings the library logged. The logger is process-global, so this is installed once and left
-     * in place; each platform test process runs without parallel forks.
-     */
+    /** Warnings the library logged. */
     val CAPTURED = RecordingList<String>()
-
-    init {
-      val previous = MapLogging.logger
-      MapLogging.logger = MapLogger { record ->
-        if (record.level >= MapLogLevel.Warning) CAPTURED += record.message
-        previous?.log(record)
-      }
-    }
   }
 }

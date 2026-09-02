@@ -15,7 +15,7 @@ internal data class MlnFfiRuntimeOptions(
   val maximumCacheSizeBytes: Long? = null,
   val requestInterceptor: MapRequestInterceptor? = null,
   val resourceProvider: MapResourceProvider? = null,
-  internal val logger: MapLog? = MapLog(),
+  val logger: MapLog? = MapLog,
   internal val resourceProviderFactory: MlnFfiResourceProviderFactory = ::MlnFfiResourceProvider,
 )
 

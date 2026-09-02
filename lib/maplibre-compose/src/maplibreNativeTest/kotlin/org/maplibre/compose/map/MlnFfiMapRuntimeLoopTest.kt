@@ -27,7 +27,7 @@ class MlnFfiMapRuntimeLoopTest {
       MlnFfiMapRuntimeLoop(
         extent = MapExtent.fromLogical(1, 1, 1.0),
         cacheFile = cacheFile,
-        getLogger = { MapLog() },
+        getLogger = { MapLog },
         onMapCreated = {},
         onMapPublished = { throw expectedFailure },
         onMapClosing = { map ->

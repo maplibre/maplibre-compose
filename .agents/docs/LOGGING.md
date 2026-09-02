@@ -71,12 +71,13 @@ The library installs each engine's log seam once and forwards to the current
 ### MapLibre Native
 
 `Maplibre.setLogCallback` is the one seam. The library installs the callback
-when the first native runtime is created, after the platform initialization that
-loads the native library. The callback reads `MapLogging.logger` at call time.
-It maps `LogSeverity` to `MapLogLevel`, sets the source to `NativeEngine`, and
-puts the `LogEvent` name in `category`. The callback consumes every record. The
-engine's own fall-through sink is stderr on every platform this build targets,
-so leaving records to it loses them on Android
+when the first native runtime is created. `setLogCallback` loads the native
+library itself, so no other initialization has to run first. The callback reads
+`MapLogging.logger` at call time. It maps `LogSeverity` to `MapLogLevel`, sets
+the source to `NativeEngine`, and puts the `LogEvent` name in `category`. The
+callback consumes every record. The engine's own fall-through sink is stderr on
+every platform this build targets, so leaving records to it loses them on
+Android
 ([maplibre-native-ffi#679](https://github.com/maplibre/maplibre-native-ffi/issues/679)).
 
 The library changes no async severity mask. The engine's default delivers info
@@ -99,11 +100,11 @@ web in the same way that logcat is on Android.
 
 ## Inside the library
 
-Library code logs through an internal `MapLog` helper with the same call shape
+Library code logs through an internal `MapLog` object with the same call shape
 as the previous Kermit logger: a level method, an optional throwable, and a lazy
-message. The helper checks `minLevel` before it builds the message. Sessions and
-bindings take an optional `MapLog` so tests inject a recorder without touching
-the global.
+message. It reads `MapLogging.logger` at each call and checks `minLevel` before
+it builds the message. Sessions and bindings take a nullable `MapLog` so a test
+can disable logging. A test that asserts on records installs its own logger.
 
 The library's own records use the source `Library` and no category. The previous
 verbose level collapsed into `Debug`.
@@ -112,6 +113,6 @@ verbose level collapsed into `Debug`.
 
 The default logger writes at the matching level to `android.util.Log` on
 Android, `NSLog` on iOS, standard error on the JVM, and the matching `console`
-method in the browser. The tag is `maplibre-compose`. This reproduces the output
-that the Kermit default produced, so an application that configures nothing sees
-the same log.
+method in the browser. The tag is `maplibre-compose`. Standard error, rather
+than Kermit's standard output, keeps diagnostics apart from program output. An
+application that configures nothing sees its platform log, as before.

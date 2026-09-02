@@ -10,7 +10,7 @@ import org.maplibre.nativeffi.resource.ResourceErrorReason
 /** How a native offline status or error becomes the [DownloadProgress] common code switches on. */
 class OfflineProgressMappingTest {
 
-  private val logger = MapLog()
+  private val logger = MapLog
 
   @Test
   fun an_inactive_incomplete_region_is_paused_and_carries_its_counts_across() {

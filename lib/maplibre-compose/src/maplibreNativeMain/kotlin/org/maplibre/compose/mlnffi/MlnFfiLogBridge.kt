@@ -13,10 +13,10 @@ import org.maplibre.nativeffi.log.LogSeverity
 /**
  * Forwards MapLibre Native's process-global log stream to [MapLogging.logger].
  *
- * Installed once, after the native library is loaded. The callback reads the current logger at each
- * record, so replacing the logger never reinstalls the callback. Every record is consumed: the
- * engine's own fall-through sink is stderr on every platform this build targets
- * (maplibre/maplibre-native-ffi#679).
+ * Installed once, when the first native runtime is created; `setLogCallback` loads the native
+ * library itself. The callback reads the current logger at each record, so replacing the logger
+ * never reinstalls the callback. Every record is consumed: the engine's own fall-through sink is
+ * stderr on every platform this build targets (maplibre/maplibre-native-ffi#679).
  */
 internal object MlnFfiLogBridge {
   private val lock = MlnFfiLock()

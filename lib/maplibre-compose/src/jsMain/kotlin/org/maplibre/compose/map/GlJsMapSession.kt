@@ -531,7 +531,8 @@ internal class GlJsMapSession(
       val reason = event.error?.message ?: "MapLibre failed to load the map"
       if (!styleLoadPending) {
         // Tile and sprite failures land here too, and are not the map failing to load. Listening
-        // is what silences the browser's own console.error fallback, so this is the only outlet.
+        // is what silences the browser's own console.error fallback, so the record reaches the
+        // logger only through this listener.
         logger?.log(
           MapLogLevel.Error,
           throwable = null,

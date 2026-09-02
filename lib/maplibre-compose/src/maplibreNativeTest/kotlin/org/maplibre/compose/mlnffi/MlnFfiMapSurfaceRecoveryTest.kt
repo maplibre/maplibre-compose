@@ -327,7 +327,7 @@ class MlnFfiMapSurfaceRecoveryTest {
         renderer = renderer,
         hostResult = hostResult,
         modifier = Modifier.size(64.dp),
-        logger = MapLog(),
+        logger = MapLog,
       )
     }
   }
