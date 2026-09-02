@@ -174,5 +174,15 @@ internal external class LngLatBounds(sw: LngLat, ne: LngLat) {
 internal external class Style {
   var stylesheet: StyleSpecification
 
+  val light: Light
+
   fun getTransition(): TransitionSpecification
+}
+
+/**
+ * The style's light validates its input and reports a rejected write as an `error` event on itself,
+ * with no evented parent, so a listener on the map never hears it.
+ */
+internal external class Light {
+  fun on(type: String, listener: (event: MapEvent) -> Unit): Subscription
 }

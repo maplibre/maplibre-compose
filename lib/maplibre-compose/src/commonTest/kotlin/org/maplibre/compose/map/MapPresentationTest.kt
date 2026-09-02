@@ -839,6 +839,8 @@ class MapPresentationTest {
     val light = fixture.state.style.light
     val options = TransitionOptions(duration = 1.seconds, delay = 20.milliseconds)
 
+    assertFailsWith<IllegalArgumentException> { TransitionOptions(duration = Duration.INFINITE) }
+    assertFailsWith<IllegalArgumentException> { TransitionOptions(delay = (-1).milliseconds) }
     assertNull(transition.get())
     assertNull(transition.placementTransitions())
     assertNull(light.getProperty("color"))

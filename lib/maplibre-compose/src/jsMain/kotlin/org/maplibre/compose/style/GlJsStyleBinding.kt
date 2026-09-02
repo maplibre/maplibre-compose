@@ -89,6 +89,12 @@ internal class GlJsStyleBinding(
       lastError = event.error?.message
     }
 
+  private val lightErrors: GlJsSubscription =
+    map.style.light.subscribe("error") { event ->
+      errorCount++
+      lastError = event.error?.message
+    }
+
   override val isLoaded: Boolean
     get() = loaded
 
@@ -96,6 +102,7 @@ internal class GlJsStyleBinding(
     if (!loaded) return
     loaded = false
     errors.cancel()
+    lightErrors.cancel()
     val attachments = customVectorAttachments.values.toList()
     customVectorAttachments.clear()
     attachments.forEach { it.close() }
@@ -590,24 +597,15 @@ internal class GlJsStyleBinding(
   }
 
   /**
-   * The light validates its input, but it has no evented parent, so a validation error reaches no
-   * `error` listener. A read-back exposes a rejected write. Validation also rejects a null value,
-   * and only an unvalidated null clears a property.
+   * Validation rejects a null value, and only an unvalidated null clears a property. MapLibre still
+   * throws for an unknown property name on that path.
    */
   override fun setLightProperty(name: String, value: JsonElement) {
     requireLoaded()
-    val requested = value.toJsValue<Any?>()
     val light = unsafeJso<LightSpecification>()
-    light.asDynamic()[name] = requested
+    light.asDynamic()[name] = value.toJsValue<Any?>()
     val options = unsafeJso<StyleSetterOptions> { validate = value !is JsonNull }
     mutate("set light '$name'") { map.setLight(light, options) }
-    val applied = map.getLight().asDynamic()[name].unsafeCast<Any?>()
-    val matches =
-      if (value is JsonNull) applied == null
-      else JSON.stringify(applied) == JSON.stringify(requested)
-    if (!matches) {
-      throw StyleMutationException("MapLibre could not set light '$name': invalid value", null)
-    }
   }
 
   override fun layerExists(layerId: String): Boolean? {

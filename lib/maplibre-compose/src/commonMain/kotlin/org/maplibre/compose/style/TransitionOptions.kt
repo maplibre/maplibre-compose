@@ -15,4 +15,13 @@ import kotlin.time.Duration.Companion.milliseconds
 public data class TransitionOptions(
   val duration: Duration = 300.milliseconds,
   val delay: Duration = Duration.ZERO,
-)
+) {
+  init {
+    require(duration.isFinite() && !duration.isNegative()) {
+      "Transition duration must be finite and not negative: $duration"
+    }
+    require(delay.isFinite() && !delay.isNegative()) {
+      "Transition delay must be finite and not negative: $delay"
+    }
+  }
+}

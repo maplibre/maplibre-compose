@@ -38,6 +38,12 @@ class StyleLightTest {
         assertFailsWith<StyleHandleException> {
           light.setProperty("not-a-light-property", JsonPrimitive(1))
         }
+        assertFailsWith<StyleHandleException> {
+          light.setProperty("not-a-light-property", JsonNull)
+        }
+        assertFailsWith<StyleHandleException> {
+          light.setProperty("intensity", JsonPrimitive("bright"))
+        }
         assertEquals(JsonPrimitive("map"), light.getProperty("anchor"))
       }
     }
