@@ -44,6 +44,23 @@ class GlJsRequestControllerTest {
   }
 
   @Test
+  fun an_interceptor_rewrites_a_custom_scheme_to_https() {
+    val controller =
+      GlJsRequestController(
+        MapResourceConfig(
+          interceptor = { request ->
+            MapRequestTransform(
+              url = request.url.replace("custom://", "https://tiles.example.com/")
+            )
+          }
+        )
+      )
+    val result = controller.transformRequest("custom://style.json", "Style")
+    assertEquals("https://tiles.example.com/style.json", result.asDynamic().url as String)
+    controller.close()
+  }
+
+  @Test
   fun an_accepted_provider_rewrites_to_the_runtime_protocol() {
     val controller =
       GlJsRequestController(

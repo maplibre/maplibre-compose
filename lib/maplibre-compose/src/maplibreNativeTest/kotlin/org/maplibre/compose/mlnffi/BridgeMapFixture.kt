@@ -19,6 +19,7 @@ import org.maplibre.compose.map.MapAttachment
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MlnFfiMapSession
 import org.maplibre.compose.map.mapRuntimeForTest
+import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.testing.MapFixture
@@ -34,6 +35,7 @@ private constructor(
   private val driver: FfiTestRenderDriver,
   private val cacheFile: Path,
   private val initialExtent: MapExtent,
+  resourceConfig: MapResourceConfig,
 ) : AutoCloseable {
 
   private val stylePublishedBeforeSessionReady = AtomicBoolean(false)
@@ -70,6 +72,7 @@ private constructor(
       scaleFactor = initialExtent.scaleFactor,
       layoutDirection = LayoutDirection.Ltr,
       cacheFile = cacheFile,
+      resourceConfig = resourceConfig,
     )
 
   fun bindAttachment(attachment: MapAttachment) {
@@ -300,12 +303,15 @@ private constructor(
     val RETINA_EXTENT: MapExtent = MapFixture.RETINA_EXTENT
 
     /** Creates a fixture for the one native runtime packaged into this test process. */
-    fun create(initialExtent: MapExtent = DEFAULT_EXTENT): BridgeMapFixture {
+    fun create(
+      initialExtent: MapExtent = DEFAULT_EXTENT,
+      resourceConfig: MapResourceConfig = MapResourceConfig(),
+    ): BridgeMapFixture {
       FfiTestPlatform.initialize()
       val driver = FfiTestPlatform.createRenderDriver()
       val cacheFile = FfiTestPlatform.createCacheFile()
       return try {
-        BridgeMapFixture(driver, cacheFile, initialExtent)
+        BridgeMapFixture(driver, cacheFile, initialExtent, resourceConfig)
       } catch (error: Throwable) {
         runCatching { driver.close() }
         FfiTestPlatform.deleteCacheFile(cacheFile)

@@ -42,6 +42,10 @@ public data class MapRequestTransform(
 /**
  * Rewrites the URL or headers of every resource the runtime fetches.
  *
+ * The callback runs for every resource URL, including a custom scheme. A rewrite to an http(s) URL
+ * lets the engine fetch the result. [MapResourceProvider] serves the bytes of a URL the application
+ * accepts.
+ *
  * The engine may invoke this from network threads. The implementation must return quickly, must be
  * safe to call concurrently, and must not call map APIs.
  */

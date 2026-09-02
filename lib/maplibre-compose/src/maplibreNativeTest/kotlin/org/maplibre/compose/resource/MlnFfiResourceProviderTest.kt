@@ -70,4 +70,70 @@ class MlnFfiResourceProviderTest {
   fun schemeof_lowercases_so_callers_can_compare_against_lowercase_names() {
     assertEquals("jar", schemeOf("JAR:file:/app.jar!/style.json"))
   }
+
+  @Test
+  fun a_network_url_passes_through_without_consulting_the_interceptor() {
+    var calls = 0
+    val interceptor = MapRequestInterceptor {
+      calls += 1
+      MapRequestTransform(url = "custom://unused")
+    }
+    assertTrue(
+      shouldPassThroughToEngine(
+        MapResourceRequest("https://demotiles.maplibre.org/style.json", MapResourceKind.Style),
+        interceptor,
+      )
+    )
+    assertEquals(0, calls)
+  }
+
+  @Test
+  fun a_custom_scheme_without_a_rewrite_stays_with_the_provider() {
+    assertFalse(
+      shouldPassThroughToEngine(
+        MapResourceRequest("custom://style.json", MapResourceKind.Style),
+        interceptor = null,
+      )
+    )
+  }
+
+  @Test
+  fun a_custom_scheme_rewritten_to_https_passes_through() {
+    val seen = mutableListOf<String>()
+    val interceptor = MapRequestInterceptor { request ->
+      seen += request.url
+      MapRequestTransform(url = "https://tiles.example.com/style.json")
+    }
+    assertTrue(
+      shouldPassThroughToEngine(
+        MapResourceRequest("custom://style.json", MapResourceKind.Style),
+        interceptor,
+      )
+    )
+    assertEquals(listOf("custom://style.json"), seen)
+  }
+
+  @Test
+  fun a_custom_scheme_rewritten_to_another_custom_scheme_stays_with_the_provider() {
+    val interceptor = MapRequestInterceptor { MapRequestTransform(url = "app://style.json") }
+    assertFalse(
+      shouldPassThroughToEngine(
+        MapResourceRequest("custom://style.json", MapResourceKind.Style),
+        interceptor,
+      )
+    )
+  }
+
+  @Test
+  fun a_packaged_resource_rewritten_to_https_passes_through() {
+    val interceptor = MapRequestInterceptor {
+      MapRequestTransform(url = "https://tiles.example.com/style.json")
+    }
+    assertTrue(
+      shouldPassThroughToEngine(
+        MapResourceRequest("jar:file:/app.jar!/style.json", MapResourceKind.Style),
+        interceptor,
+      )
+    )
+  }
 }

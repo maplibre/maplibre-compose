@@ -62,6 +62,8 @@ internal class MlnFfiResourceProvider(
   /** Test seam: a cancelled scope reproduces a close that races [takeUser]. */
   userCoroutineScope: CoroutineScope? = null,
   @Volatile var userProvider: MapResourceProvider? = null,
+  /** Live interceptor used to decide pass-through for a non-network URL. */
+  @Volatile var resourceConfig: MapResourceConfig? = null,
 ) : ResourceProviderCallback, AutoCloseable {
 
   private val logger: MapLog?
@@ -85,7 +87,9 @@ internal class MlnFfiResourceProvider(
       takeUser(FfiResourceRequest(handle), request.toLoadRequest())
       return ResourceProviderDecision.HANDLE
     }
-    if (passThroughNetwork && isMapLibresToFetch(url)) {
+    if (
+      passThroughNetwork && shouldPassThroughToEngine(mapRequest, resourceConfig?.interceptor())
+    ) {
       return ResourceProviderDecision.PASS_THROUGH
     }
 
@@ -337,6 +341,22 @@ private fun failure(
  */
 internal fun isMapLibresToFetch(resolvedUrl: String): Boolean =
   schemeOf(resolvedUrl).let { it == null || it in NETWORK_SCHEMES }
+
+/**
+ * Whether MapLibre's loader should fetch [request] after the interceptor runs.
+ *
+ * A network URL passes through without consulting the interceptor here; the runtime transform
+ * callback does that once. A custom scheme is rewritten first so a change to http(s) can pass
+ * through instead of reaching the packaged-resource reader.
+ */
+internal fun shouldPassThroughToEngine(
+  request: MapResourceRequest,
+  interceptor: MapRequestInterceptor?,
+): Boolean {
+  if (isMapLibresToFetch(request.url)) return true
+  val nextUrl = interceptor.transform(request).url ?: request.url
+  return isMapLibresToFetch(nextUrl)
+}
 
 /**
  * The scheme of [url] in lowercase, or null when it has none or cannot be parsed.

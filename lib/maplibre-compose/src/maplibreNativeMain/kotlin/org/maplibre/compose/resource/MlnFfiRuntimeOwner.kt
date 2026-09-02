@@ -65,7 +65,10 @@ private constructor(
         }
       val provider =
         try {
-          resourceProviderFactory(getLogger).also { it.userProvider = resourceConfig.provider }
+          resourceProviderFactory(getLogger).also {
+            it.userProvider = resourceConfig.provider
+            it.resourceConfig = resourceConfig
+          }
         } catch (error: Throwable) {
           runCatching { runtime.close() }
           throw error
