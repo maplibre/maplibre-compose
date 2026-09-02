@@ -2,6 +2,7 @@ package org.maplibre.compose.gljs
 
 import js.buffer.ArrayBuffer
 import js.typedarrays.Uint8Array
+import kotlin.js.Date
 import kotlin.js.Promise
 import web.html.HTMLElement
 
@@ -64,6 +65,7 @@ internal external interface RequestParameters {
 
 internal external interface ProtocolResponse {
   var data: ArrayBuffer
+  var expires: Date?
 }
 
 internal external interface FilterSpecification

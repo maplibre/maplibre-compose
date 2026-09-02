@@ -93,7 +93,7 @@ class MapRequestInterceptorTest {
     assertFalse(
       provider.accepts(MapResourceRequest("https://example.test/style.json", MapResourceKind.Style))
     )
-    val load = provider.load(MapResourceRequest("app://style.json", MapResourceKind.Style))
+    val load = provider.load(MapResourceLoadRequest("app://style.json", MapResourceKind.Style))
     val bytes = load as MapResourceLoad.Bytes
     assertEquals("body", bytes.bytes.decodeToString())
   }

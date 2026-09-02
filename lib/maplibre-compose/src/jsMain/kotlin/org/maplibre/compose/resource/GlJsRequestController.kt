@@ -3,6 +3,7 @@ package org.maplibre.compose.resource
 import js.buffer.ArrayBuffer
 import js.objects.unsafeJso
 import js.typedarrays.Uint8Array
+import kotlin.js.Date
 import kotlin.js.Promise
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
@@ -44,7 +45,7 @@ internal class GlJsRequestController(private val config: MapResourceConfig) : Au
     )
   }
 
-  private fun loadProtocol(
+  internal fun loadProtocol(
     request: RequestParameters,
     abortController: Any,
   ): Promise<ProtocolResponse> {
@@ -52,10 +53,9 @@ internal class GlJsRequestController(private val config: MapResourceConfig) : Au
     val work = scope.async {
       val provider =
         config.provider ?: throw IllegalStateException("No resource provider is installed")
-      when (val result = provider.load(MapResourceRequest(parsed.url, parsed.kind))) {
-        is MapResourceLoad.Bytes -> result.bytes.toProtocolResponse()
-        is MapResourceLoad.Failed -> throw IllegalStateException(result.message)
-      }
+      // MapLibre GL JS passes only the URL and the kind, so every other field is the default.
+      val result = provider.load(MapResourceLoadRequest(parsed.url, parsed.kind))
+      result.toProtocolResponse(parsed.url)
     }
     val signal = abortController.asDynamic().signal
     val abort: () -> Unit = { work.cancel() }
@@ -145,8 +145,48 @@ private fun requestParameters(url: String, headers: Map<String, String>): Any {
   return params
 }
 
-private fun ByteArray.toProtocolResponse(): ProtocolResponse {
+/**
+ * The HTTP status that MapLibre GL JS reads from a rejected protocol promise, or null for a reason
+ * with no status. Only 404 changes its behavior: it skips a tile with that status.
+ */
+internal fun MapResourceError.httpStatus(): Int? =
+  when (this) {
+    MapResourceError.NotFound -> 404
+    MapResourceError.Server -> 500
+    MapResourceError.RateLimit -> 429
+    MapResourceError.Connection,
+    MapResourceError.Other -> null
+  }
+
+/**
+ * The rejection of a protocol load. [status] is set on the JS object for MapLibre GL JS to read.
+ */
+internal class ResourceLoadError(message: String, val status: Int?) : Exception(message) {
+  init {
+    if (status != null) asDynamic().status = status
+  }
+}
+
+/** Converts a load result to the protocol promise outcome of the corresponding HTTP response. */
+private fun MapResourceLoad.toProtocolResponse(url: String): ProtocolResponse {
+  val expires = expires?.let { Date(it.toEpochMilliseconds().toDouble()) }
+  return when (this) {
+    is MapResourceLoad.Bytes -> bytes.toProtocolResponse(expires)
+    is MapResourceLoad.NoContent -> ByteArray(0).toProtocolResponse(expires)
+    is MapResourceLoad.NotModified ->
+      throw ResourceLoadError(
+        "Resource provider returned NotModified for $url, but the browser sends no validators",
+        status = null,
+      )
+    is MapResourceLoad.Failed -> throw ResourceLoadError(message, reason.httpStatus())
+  }
+}
+
+private fun ByteArray.toProtocolResponse(expires: Date?): ProtocolResponse {
   val bytes = Uint8Array<ArrayBuffer>(size)
   forEachIndexed { index, byte -> bytes.asDynamic()[index] = byte.toInt() and 0xFF }
-  return unsafeJso { data = bytes.buffer }
+  return unsafeJso {
+    data = bytes.buffer
+    if (expires != null) this.expires = expires
+  }
 }

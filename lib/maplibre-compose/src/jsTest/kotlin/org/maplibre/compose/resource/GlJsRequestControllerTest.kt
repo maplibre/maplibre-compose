@@ -1,11 +1,18 @@
 package org.maplibre.compose.resource
 
+import js.buffer.ArrayBuffer
+import kotlin.js.Promise
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Instant
+import kotlinx.coroutines.await
+import kotlinx.coroutines.test.runTest
+import org.maplibre.compose.gljs.ProtocolResponse
+import org.maplibre.compose.gljs.RequestParameters
 
 class GlJsRequestControllerTest {
 
@@ -126,6 +133,66 @@ class GlJsRequestControllerTest {
     assertNull(controller.transformRequest("https://tiles.example.com/style.json", "Tile"))
     controller.close()
   }
+
+  @Test
+  fun bytes_resolve_with_the_body_and_expiry() = runTest {
+    val expires = Instant.fromEpochMilliseconds(1_000)
+    val response =
+      load(MapResourceLoad.Bytes("body".encodeToByteArray(), expires = expires)).await()
+    assertEquals("body", response.data.decodeToString())
+    assertEquals(1_000.0, response.expires?.getTime())
+  }
+
+  @Test
+  fun no_content_resolves_with_an_empty_body() = runTest {
+    val response = load(MapResourceLoad.NoContent()).await()
+    assertEquals(0, response.data.byteLength)
+    assertNull(response.expires)
+  }
+
+  @Test
+  fun not_found_rejects_with_status_404() = runTest {
+    val error = rejection(MapResourceLoad.Failed(MapResourceError.NotFound, "no tile"))
+    assertEquals(404, error.asDynamic().status as Int)
+    assertEquals("no tile", error.message)
+  }
+
+  @Test
+  fun a_reason_without_a_status_rejects_without_one() = runTest {
+    val error = rejection(MapResourceLoad.Failed(MapResourceError.Connection, "offline"))
+    assertEquals(null, error.asDynamic().status)
+  }
+
+  @Test
+  fun not_modified_rejects_as_a_provider_error() = runTest {
+    val error = rejection(MapResourceLoad.NotModified())
+    assertEquals(null, error.asDynamic().status)
+    assertTrue(error.message.orEmpty().contains("NotModified"))
+  }
+
+  private fun load(result: MapResourceLoad): Promise<ProtocolResponse> {
+    val controller =
+      GlJsRequestController(
+        MapResourceConfig(provider = MapResourceProvider(accepts = { true }, load = { result }))
+      )
+    val protocolUrl = controller.protocolUrl("app://tile", MapResourceKind.Tile)
+    val request = js("({})").unsafeCast<RequestParameters>()
+    request.asDynamic().url = protocolUrl
+    return controller.loadProtocol(request, js("new AbortController()")).also {
+      it.then({ controller.close() }, { controller.close() })
+    }
+  }
+
+  private suspend fun rejection(result: MapResourceLoad): Throwable =
+    try {
+      load(result).await()
+      error("expected the protocol promise to reject")
+    } catch (error: Throwable) {
+      error
+    }
+
+  private fun ArrayBuffer.decodeToString(): String =
+    js("new TextDecoder()").decode(this).unsafeCast<String>()
 
   private companion object {
     val SCHEME = Regex("^mlc-res-[0-9a-f]{32}$")

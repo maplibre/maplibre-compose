@@ -12,6 +12,7 @@ import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -22,8 +23,14 @@ import org.maplibre.compose.mlnffi.launchTestTask
 import org.maplibre.compose.mlnffi.parkForTest
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.nativeffi.resource.ResourceErrorReason
+import org.maplibre.nativeffi.resource.ResourceKind
+import org.maplibre.nativeffi.resource.ResourceLoadingMethod
+import org.maplibre.nativeffi.resource.ResourcePriority
+import org.maplibre.nativeffi.resource.ResourceRequest
 import org.maplibre.nativeffi.resource.ResourceResponse
 import org.maplibre.nativeffi.resource.ResourceResponseStatus
+import org.maplibre.nativeffi.resource.ResourceStoragePolicy
+import org.maplibre.nativeffi.resource.ResourceUsage
 
 /** Long enough that a wait failing here means the thing waited for is not going to happen. */
 private const val WAIT_SECONDS = 10L
@@ -89,7 +96,7 @@ class MlnFfiResourceRequestTest {
     provider.userProvider =
       MapResourceProvider(accepts = { true }, load = { MapResourceLoad.Bytes(ByteArray(0)) })
     val request = RecordedRequest()
-    provider.takeUser(request, MapResourceRequest(URL, MapResourceKind.Style), URL, URL)
+    provider.takeUser(request, MapResourceLoadRequest(URL, MapResourceKind.Style))
     request.awaitClose()
     assertEquals(1, request.closes)
     assertEquals(1, request.completions)
@@ -106,7 +113,7 @@ class MlnFfiResourceRequestTest {
       MapResourceProvider(accepts = { true }, load = { MapResourceLoad.Bytes(ByteArray(0)) })
     provider.close()
     val request = RecordedRequest()
-    provider.takeUser(request, MapResourceRequest(URL, MapResourceKind.Style), URL, URL)
+    provider.takeUser(request, MapResourceLoadRequest(URL, MapResourceKind.Style))
     assertEquals(1, request.completions)
     assertEquals(ResourceResponseStatus.ERROR, request.response.status)
     assertContains(request.response.errorMessage.orEmpty(), "shut down")
@@ -132,7 +139,7 @@ class MlnFfiResourceRequestTest {
         },
       )
     val request = RecordedRequest()
-    provider.takeUser(request, MapResourceRequest(URL, MapResourceKind.Style), URL, URL)
+    provider.takeUser(request, MapResourceLoadRequest(URL, MapResourceKind.Style))
     assertTrue(loading.await(WAIT_SECONDS * 1_000), "the user load never started")
 
     request.cancel()
@@ -154,10 +161,103 @@ class MlnFfiResourceRequestTest {
         load = { throw CancellationException("timeout") },
       )
     val request = RecordedRequest()
-    provider.takeUser(request, MapResourceRequest(URL, MapResourceKind.Style), URL, URL)
+    provider.takeUser(request, MapResourceLoadRequest(URL, MapResourceKind.Style))
     request.awaitAnswer()
     assertEquals(ResourceResponseStatus.ERROR, request.response.status)
     assertContains(request.response.errorMessage.orEmpty(), "cancelled")
+    request.awaitClose()
+  }
+
+  @Test
+  fun bytes_complete_as_ok_with_validators() {
+    val response =
+      MapResourceLoad.Bytes(
+          "body".encodeToByteArray(),
+          etag = "v1",
+          mustRevalidate = true,
+          modified = Instant.fromEpochMilliseconds(10),
+          expires = Instant.fromEpochMilliseconds(20),
+        )
+        .toResourceResponse()
+    assertEquals(ResourceResponseStatus.OK, response.status)
+    assertEquals("body", response.bytes.decodeToString())
+    assertEquals("v1", response.etag)
+    assertTrue(response.mustRevalidate)
+    assertEquals(10, response.modifiedUnixMs)
+    assertEquals(20, response.expiresUnixMs)
+  }
+
+  @Test
+  fun no_content_and_not_modified_complete_with_their_status() {
+    val noContent =
+      MapResourceLoad.NoContent(expires = Instant.fromEpochMilliseconds(20)).toResourceResponse()
+    assertEquals(ResourceResponseStatus.NO_CONTENT, noContent.status)
+    assertEquals(20, noContent.expiresUnixMs)
+    val notModified =
+      MapResourceLoad.NotModified(modified = Instant.fromEpochMilliseconds(10)).toResourceResponse()
+    assertEquals(ResourceResponseStatus.NOT_MODIFIED, notModified.status)
+    assertEquals(10, notModified.modifiedUnixMs)
+  }
+
+  @Test
+  fun a_failure_keeps_its_reason_and_retry_time() {
+    val response =
+      MapResourceLoad.Failed(
+          MapResourceError.RateLimit,
+          "slow down",
+          retryAfter = Instant.fromEpochMilliseconds(30),
+        )
+        .toResourceResponse()
+    assertEquals(ResourceResponseStatus.ERROR, response.status)
+    assertEquals(ResourceErrorReason.RATE_LIMIT, response.errorReason)
+    assertEquals("slow down", response.errorMessage)
+    assertEquals(30, response.retryAfterUnixMs)
+  }
+
+  @Test
+  fun the_ffi_request_copies_into_the_load_request() {
+    val ffi =
+      ResourceRequest(
+        requestedUrl = "maplibre://tiles/1/2/3",
+        resolvedUrl = "https://tiles.example.com/1/2/3.pbf",
+        kind = ResourceKind.TILE,
+        loadingMethod = ResourceLoadingMethod.CACHE_ONLY,
+        priority = ResourcePriority.LOW,
+        usage = ResourceUsage.OFFLINE,
+        storagePolicy = ResourceStoragePolicy.VOLATILE,
+        range = ResourceRequest.ByteRange(0, 9),
+        priorModifiedUnixMs = 10,
+        priorExpiresUnixMs = 20,
+        priorEtag = "v1",
+        priorData = "old".encodeToByteArray(),
+      )
+    val load = ffi.toLoadRequest()
+    assertEquals("https://tiles.example.com/1/2/3.pbf", load.url)
+    assertEquals("maplibre://tiles/1/2/3", load.requestedUrl)
+    assertEquals(MapResourceKind.Tile, load.kind)
+    assertEquals(MapResourceLoadRequest.LoadingMethod.CacheOnly, load.loadingMethod)
+    assertEquals(MapResourceLoadRequest.Priority.Low, load.priority)
+    assertEquals(MapResourceLoadRequest.Usage.Offline, load.usage)
+    assertEquals(MapResourceLoadRequest.StoragePolicy.Volatile, load.storagePolicy)
+    assertEquals(0L..9L, load.range)
+    assertEquals(Instant.fromEpochMilliseconds(10), load.priorModified)
+    assertEquals(Instant.fromEpochMilliseconds(20), load.priorExpires)
+    assertEquals("v1", load.priorEtag)
+    assertEquals("old", load.priorData?.decodeToString())
+  }
+
+  @Test
+  fun a_user_load_reaches_the_request_as_the_ffi_response() {
+    val provider =
+      MlnFfiResourceProvider(getLogger = { null }, passThroughNetwork = true).also {
+        providers += it
+      }
+    provider.userProvider =
+      MapResourceProvider(accepts = { true }, load = { MapResourceLoad.NoContent() })
+    val request = RecordedRequest()
+    provider.takeUser(request, MapResourceLoadRequest(URL, MapResourceKind.Tile))
+    request.awaitAnswer()
+    assertEquals(ResourceResponseStatus.NO_CONTENT, request.response.status)
     request.awaitClose()
   }
 
