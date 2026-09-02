@@ -1,0 +1,31 @@
+---
+title: Capture a map image
+description: Render a map to an ImageBitmap without displaying it.
+---
+
+import { Code } from "@astrojs/starlight/components";
+import Api from "../../components/Api.astro";
+import { region } from "../../snippets";
+
+import snapshotter from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Snapshotter.kt?raw";
+
+An <Api of="MapSnapshotter" /> renders an independent, non-UI map to an
+`ImageBitmap`. Use the same <Api of="MapRuntime" />, <Api of="BaseStyle" />, and
+<Api of="StyleComposition" /> as the displayed map to capture its current
+camera and declared content.
+
+Create and close the snapshotter in a coroutine. <Api of="MapSnapshotter.capture" />
+suspends until the image is ready:
+
+<Code code={region(snapshotter, "capture")} lang="kotlin" title="App.kt" />
+
+The request width and height are logical pixels. Its density scales the output
+bitmap and evaluates `Dp` values in the style composition. Pass
+`LocalDensity.current` and `LocalLayoutDirection.current` from the calling
+composable to match the displayed map. The `640` by `360` request uses a `640`
+by `360` logical-pixel viewport.
+
+For repeated captures, keep one snapshotter and call `capture` again with a new
+request. Calls that overlap execute in submission order. Close the snapshotter
+when its owner leaves the composition, then call
+<Api of="MapSnapshotter.awaitClosed" /> from a non-cancellable cleanup block.
