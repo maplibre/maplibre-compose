@@ -62,6 +62,9 @@ internal interface StyleBinding {
 
   fun removeImage(id: String)
 
+  /** @return whether [id] exists, or null when the loaded style became unavailable. */
+  fun imageExists(id: String): Boolean?
+
   fun getSource(id: String): Source?
 
   fun getSources(): List<Source>

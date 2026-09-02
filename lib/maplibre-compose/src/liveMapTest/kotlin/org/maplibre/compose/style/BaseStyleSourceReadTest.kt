@@ -14,10 +14,10 @@ class BaseStyleSourceReadTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(ATTRIBUTED_STYLE)
 
-      val source = assertIs<GeoJsonSourceHandle>(fixture.state.style.source("attributed"))
+      val source = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources["attributed"])
 
       assertEquals("inline attribution", source.attributionHtml)
-      assertEquals(listOf("attributed"), fixture.state.style.sources.keys.toList())
+      assertEquals(listOf("attributed"), fixture.state.style.sources.map { it.id })
     }
   }
 

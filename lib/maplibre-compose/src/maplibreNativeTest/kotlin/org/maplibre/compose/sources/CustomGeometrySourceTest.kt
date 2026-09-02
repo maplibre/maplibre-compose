@@ -171,11 +171,11 @@ class CustomGeometrySourceTest {
         requests += tile
         cover(tile.bounds, featureName)
       }
-    binding.install(source)
+    val handle = state.style.sources.add(source)
     binding.install(FillLayer(id = "custom-fill", source = source))
     state.desiredStyleRevision =
       DesiredStyleRevision(listOf(source.definition()), emptyList(), emptyList())
-    return assertIs<CustomGeometrySourceHandle>(state.style.source(SOURCE_ID))
+    return assertIs<CustomGeometrySourceHandle>(handle)
   }
 
   private suspend fun BridgeMapFixture.queryCenter() =

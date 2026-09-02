@@ -27,6 +27,10 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import org.maplibre.compose.sources.GeoJsonData
+import org.maplibre.compose.sources.GeoJsonOptions
+import org.maplibre.compose.sources.GeoJsonSource
+import org.maplibre.compose.sources.GeoJsonSourceHandle
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.RecordingStyleBinding
@@ -135,6 +139,35 @@ class MapSnapshotterTest {
     snapshotter.awaitClosed()
     runtime.close()
     runtime.awaitClosed()
+  }
+
+  @Test
+  fun a_published_snapshot_style_accepts_imperative_source_and_image_commands() = runTest {
+    val binding = RecordingStyleBinding()
+    val runtime =
+      mapRuntimeForTest(
+        snapshotterAdapterFactory =
+          SnapshotterAdapterFactory { FakeSnapshotterAdapter(prepare = { _, _ -> binding }) },
+        styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _ -> DesiredStyleRevision.Empty },
+      )
+    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
+    snapshotter.capture(MapSnapshotRequest(1, 1))
+    val source =
+      GeoJsonSource(
+        id = "imperative",
+        data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
+        options = GeoJsonOptions(),
+      )
+
+    assertTrue(snapshotter.style.sources.add(source) is GeoJsonSourceHandle)
+    assertTrue(snapshotter.style.sources["imperative"] is GeoJsonSourceHandle)
+    snapshotter.style.images.add("imperative", FakeImageBitmap(1, 1))
+    assertEquals(setOf("imperative"), binding.imageIds)
+    assertTrue(snapshotter.style.images.remove("imperative"))
+    assertTrue(snapshotter.style.sources.remove("imperative"))
+    assertTrue(snapshotter.style.sources.none())
+
+    close(snapshotter, runtime)
   }
 
   @Test

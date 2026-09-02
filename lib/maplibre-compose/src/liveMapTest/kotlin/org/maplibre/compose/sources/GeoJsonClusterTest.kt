@@ -36,9 +36,9 @@ class GeoJsonClusterTest {
           data = GeoJsonData.Features(nearbyPoints()),
           options = GeoJsonOptions(cluster = true, clusterRadius = 200, clusterMaxZoom = 14),
         )
-      binding.install(source)
+      fixture.state.style.sources.add(source)
       binding.install(CircleLayer("clusters", source))
-      val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.source("points"))
+      val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources["points"])
 
       suspend fun rendered(): List<Feature<Geometry, JsonObject?>> =
         fixture.state.queryRenderedFeatures(

@@ -25,6 +25,8 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.sources.Source
+import org.maplibre.compose.sources.SourceHandle
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.MapNodeApplier
@@ -32,7 +34,10 @@ import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleComposition
 import org.maplibre.compose.style.StyleContent
+import org.maplibre.compose.style.StyleHandleException
+import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.StyleNode
+import org.maplibre.compose.util.ImageStretch
 
 /** Options that affect the pixels returned by a snapshot capture. */
 public data class MapSnapshotOutputOptions(
@@ -221,6 +226,8 @@ internal class MapSnapshotterImplementation(
   private var ownedBaseStyleRevision: Long? = null
   private val ownedSourceIds = mutableSetOf<String>()
   private val ownedLayerIds = mutableSetOf<String>()
+  private val imperativeSources = mutableMapOf<String, ImperativeSourceRecord>()
+  private val imperativeImageIds = mutableSetOf<String>()
   private var styleHandleEpoch = 0L
   private var desiredRevision = DesiredStyleRevision.Empty
 
@@ -233,6 +240,25 @@ internal class MapSnapshotterImplementation(
 
           override fun desiredSourceDefinition(id: String) =
             this@MapSnapshotterImplementation.desiredSourceDefinition(id)
+
+          override fun sourceDefinitionToken(id: String) =
+            this@MapSnapshotterImplementation.sourceDefinitionToken(id)
+
+          override fun addStyleSource(source: Source) =
+            this@MapSnapshotterImplementation.addStyleSource(source)
+
+          override fun removeStyleSource(id: String) =
+            this@MapSnapshotterImplementation.removeStyleSource(id)
+
+          override fun addStyleImage(
+            id: String,
+            image: ImageBitmap,
+            sdf: Boolean,
+            stretch: ImageStretch?,
+          ) = this@MapSnapshotterImplementation.addStyleImage(id, image, sdf, stretch)
+
+          override fun removeStyleImage(id: String) =
+            this@MapSnapshotterImplementation.removeStyleImage(id)
 
           override fun readyLoadedStyle() = this@MapSnapshotterImplementation.readyLoadedStyle()
 
@@ -336,14 +362,16 @@ internal class MapSnapshotterImplementation(
             platform.prepare(currentClaim.baseStyle, currentClaim.revision, capture.request)
           binding = currentBinding
           val request = capture.request
+          val evaluationOwnership = styleEvaluationOwnership(currentBinding, currentClaim.ownership)
           val revision =
             styleEvaluator.evaluate(
               styleComposition,
               currentBinding,
               Density(request.density, request.fontScale),
               request.layoutDirection,
-              currentClaim.ownership,
+              evaluationOwnership,
             )
+          requireNoImperativeResourceConflicts(currentBinding, revision)
           recordStyleOwnership(currentClaim, revision)
           val image = platform.capture(request, revision)
           if (!publishStyle(capture, currentClaim, currentBinding, revision)) {
@@ -401,6 +429,8 @@ internal class MapSnapshotterImplementation(
   private fun settleStyleAfterCancellation() {
     lock.withLock {
       styleHandleEpoch++
+      imperativeSources.clear()
+      imperativeImageIds.clear()
       style.invalidateLoadedStyle()
       if (!closed) style.loadState = StyleLoadState.Pending
     }
@@ -450,13 +480,145 @@ internal class MapSnapshotterImplementation(
       if (style.baseStyle == value) return
       styleHandleEpoch++
       baseStyleRevision++
+      imperativeSources.clear()
+      imperativeImageIds.clear()
       style.setBaseStyleState(value)
       style.loadState = StyleLoadState.Pending
     }
   }
 
   internal fun desiredSourceDefinition(id: String): SourceDefinition? = lock.withLock {
-    desiredRevision.sources.firstOrNull { it.id == id }
+    desiredRevision.sources.firstOrNull { it.id == id } ?: imperativeSources[id]?.definition
+  }
+
+  internal fun sourceDefinitionToken(id: String): Any? = lock.withLock { imperativeSources[id] }
+
+  internal fun addStyleSource(source: Source): SourceHandle {
+    val binding = lock.withLock {
+      requireOpenLocked()
+      requireNoDesiredSource(source.id)
+      checkNotNull(style.currentLoadedStyle()).also(::requireStyleHandleLocked)
+    }
+    val definition = source.definition()
+    if (binding.sourceExists(source.id) == true) {
+      throw StyleHandleException("Source ID '${source.id}' already exists in style")
+    }
+    val added =
+      try {
+        binding.addSource(definition)
+      } catch (error: StyleMutationException) {
+        throw StyleHandleException("Could not add source '${source.id}': ${error.message}", error)
+      }
+    if (!added) throw IllegalStateException("The loaded-style generation changed during add")
+    lock.withLock {
+      requireStyleHandleLocked(binding)
+      imperativeSources[source.id] = ImperativeSourceRecord(definition)
+    }
+    return checkNotNull(refreshSourcesAfterCommand(binding)[source.id])
+  }
+
+  internal fun removeStyleSource(id: String): Boolean {
+    val binding = lock.withLock {
+      requireOpenLocked()
+      requireNoDesiredSource(id)
+      checkNotNull(style.currentLoadedStyle()).also(::requireStyleHandleLocked)
+    }
+    if (binding.sourceExists(id) == false) return false
+    try {
+      binding.removeSource(id)
+    } catch (error: StyleMutationException) {
+      throw StyleHandleException("Could not remove source '$id': ${error.message}", error)
+    }
+    lock.withLock {
+      requireStyleHandleLocked(binding)
+      imperativeSources.remove(id)
+    }
+    refreshSourcesAfterCommand(binding)
+    return true
+  }
+
+  internal fun addStyleImage(
+    id: String,
+    image: ImageBitmap,
+    sdf: Boolean,
+    stretch: ImageStretch?,
+  ) {
+    val binding = lock.withLock {
+      requireOpenLocked()
+      requireNoDesiredImage(id)
+      checkNotNull(style.currentLoadedStyle()).also(::requireStyleHandleLocked)
+    }
+    if (binding.imageExists(id) == true) {
+      throw StyleHandleException("Image ID '$id' already exists in style")
+    }
+    try {
+      binding.addImage(id, image, sdf, stretch)
+    } catch (error: StyleMutationException) {
+      throw StyleHandleException("Could not add image '$id': ${error.message}", error)
+    }
+    lock.withLock {
+      requireStyleHandleLocked(binding)
+      imperativeImageIds += id
+    }
+  }
+
+  internal fun removeStyleImage(id: String): Boolean {
+    val binding = lock.withLock {
+      requireOpenLocked()
+      requireNoDesiredImage(id)
+      checkNotNull(style.currentLoadedStyle()).also(::requireStyleHandleLocked)
+    }
+    if (binding.imageExists(id) == false) return false
+    try {
+      binding.removeImage(id)
+    } catch (error: StyleMutationException) {
+      throw StyleHandleException("Could not remove image '$id': ${error.message}", error)
+    }
+    lock.withLock {
+      requireStyleHandleLocked(binding)
+      imperativeImageIds -= id
+    }
+    return true
+  }
+
+  private fun refreshSourcesAfterCommand(binding: StyleBinding): Map<String, SourceHandle> {
+    val sources = style.readSources(binding)
+    lock.withLock {
+      requireStyleHandleLocked(binding)
+      style.updateSources(sources)
+    }
+    return sources
+  }
+
+  private fun requireNoDesiredSource(id: String) {
+    if (desiredRevision.sources.any { it.id == id }) {
+      throw StyleHandleException("Source ID '$id' is owned by StyleComposition")
+    }
+  }
+
+  private fun requireNoDesiredImage(id: String) {
+    if (desiredRevision.images.any { it.id == id }) {
+      throw StyleHandleException("Image ID '$id' is owned by StyleComposition")
+    }
+  }
+
+  private fun requireNoImperativeResourceConflicts(
+    binding: StyleBinding,
+    revision: DesiredStyleRevision,
+  ) {
+    lock.withLock {
+      if (style.currentLoadedStyle() !== binding) return
+      revision.sources
+        .firstOrNull { it.id in imperativeSources }
+        ?.let {
+          throw StyleHandleException("Source ID '${it.id}' is owned by an imperative addition")
+        }
+      revision.images
+        .firstOrNull { it.id in imperativeImageIds }
+        ?.let {
+          throw StyleHandleException("Image ID '${it.id}' is owned by an imperative addition")
+        }
+    }
   }
 
   internal fun readyLoadedStyle(): StyleBinding? = lock.withLock {
@@ -505,6 +667,14 @@ internal class MapSnapshotterImplementation(
     )
   }
 
+  private fun styleEvaluationOwnership(
+    binding: StyleBinding,
+    ownership: SnapshotStyleOwnership,
+  ): SnapshotStyleOwnership = lock.withLock {
+    if (style.currentLoadedStyle() !== binding) return ownership
+    ownership.copy(sourceIds = ownership.sourceIds + imperativeSources.keys)
+  }
+
   private fun recordStyleOwnership(claim: StyleClaim, revision: DesiredStyleRevision) {
     lock.withLock {
       if (closed || claim.revision != baseStyleRevision) return
@@ -527,9 +697,13 @@ internal class MapSnapshotterImplementation(
     if (closed || capture.abandoned || claim.revision != baseStyleRevision) return@withLock false
     styleHandleEpoch++
     desiredRevision = revision
+    if (style.currentLoadedStyle() !== binding) {
+      imperativeSources.clear()
+      imperativeImageIds.clear()
+    }
     style.updateLoadedStyle(binding)
     style.loadState = StyleLoadState.Ready
-    style.refreshSources()
+    style.refreshResources()
     true
   }
 

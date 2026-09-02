@@ -34,7 +34,7 @@ class CustomVectorSourceNativeTest {
         }
       val layer = CircleLayer("empty-points", source)
       layer.sourceLayer = "points"
-      style.install(source)
+      fixture.state.style.sources.add(source)
       style.install(layer)
 
       fixture.pumpUntil("the empty custom MVT tile to be requested") { requests.isNotEmpty() }
@@ -47,7 +47,7 @@ class CustomVectorSourceNativeTest {
 
       fixture.state.desiredStyleRevision =
         DesiredStyleRevision(listOf(source.definition()), emptyList(), emptyList())
-      val handle = assertIs<CustomVectorSourceHandle>(fixture.state.style.source("empty"))
+      val handle = assertIs<CustomVectorSourceHandle>(fixture.state.style.sources["empty"])
       assertTrue(handle.querySourceFeatures(setOf("points")).isEmpty())
       val answered = requests.size
 

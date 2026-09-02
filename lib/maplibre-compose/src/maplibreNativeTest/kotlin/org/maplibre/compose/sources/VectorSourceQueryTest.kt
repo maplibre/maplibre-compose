@@ -13,7 +13,7 @@ class VectorSourceQueryTest {
   fun a_vector_handle_queries_the_loaded_source(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(VECTOR_STYLE)
-      val handle = assertIs<VectorSourceHandle>(fixture.state.style.source("vector"))
+      val handle = assertIs<VectorSourceHandle>(fixture.state.style.sources["vector"])
 
       assertTrue(handle.querySourceFeatures(setOf("places")).isEmpty())
     }
