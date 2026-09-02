@@ -57,6 +57,17 @@ private class GlJsSnapshotterAdapter(
   private val reconciler = StyleReconciler()
   private val cleanupFailures = mutableListOf<Throwable>()
 
+  override fun validate(request: MapSnapshotRequest) {
+    val extent = request.extent()
+    val pixelRatio = renderPixelRatio(request)
+    val renderedWidth = (extent.width * pixelRatio).toInt()
+    val renderedHeight = (extent.height * pixelRatio).toInt()
+    require(renderedWidth <= MAX_CANVAS_SIZE && renderedHeight <= MAX_CANVAS_SIZE) {
+      "The Web snapshot needs a ${renderedWidth}x$renderedHeight render canvas, " +
+        "which exceeds MapLibre GL JS's ${MAX_CANVAS_SIZE}px canvas limit"
+    }
+  }
+
   override suspend fun prepare(
     baseStyle: BaseStyle,
     baseStyleRevision: Long,
@@ -166,13 +177,8 @@ private class GlJsSnapshotterAdapter(
   override suspend fun close() {
     if (!open) return
     open = false
-    releaseEngine(MapSnapshotterClosedException())
-    if (cleanupFailures.isNotEmpty()) {
-      throw AggregateCleanupException(
-        "Web snapshotter cleanup failed in ${cleanupFailures.size} resource(s)",
-        cleanupFailures.toList(),
-      )
-    }
+    releaseEngine(snapshotterClosedCancellation())
+    cleanupFailures.cleanupResult("Web snapshotter").getOrThrow()
   }
 
   private suspend fun ensureMap(request: MapSnapshotRequest): MaplibreMap {
@@ -229,13 +235,6 @@ private class GlJsSnapshotterAdapter(
 
   private fun size(container: HTMLElement, request: MapSnapshotRequest) {
     val extent = request.extent()
-    val pixelRatio = renderPixelRatio(request)
-    val renderedWidth = (extent.width * pixelRatio).toInt()
-    val renderedHeight = (extent.height * pixelRatio).toInt()
-    require(renderedWidth <= MAX_CANVAS_SIZE && renderedHeight <= MAX_CANVAS_SIZE) {
-      "The Web snapshot needs a ${renderedWidth}x$renderedHeight render canvas, " +
-        "which exceeds MapLibre GL JS's ${MAX_CANVAS_SIZE}px canvas limit"
-    }
     container.style.width = "${extent.width}px"
     container.style.height = "${extent.height}px"
   }

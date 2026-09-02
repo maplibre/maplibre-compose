@@ -428,18 +428,18 @@ internal class MlnFfiOfflineManager(
   private fun Throwable.toOfflineManagerException(description: String): Throwable =
     when (this) {
       is OfflineManagerException,
-      is CancellationException -> this
+      is CancellationException,
+      is Error -> this
       is MaplibreException -> {
-        // OfflineManagerException carries no cause, so the native detail is logged before it is
-        // flattened into the message.
         logger?.d(this) { "Native failure while trying to $description" }
         val detail = diagnostic.ifBlank { message.orEmpty() }
-        OfflineManagerException("Failed to $description: $detail")
+        OfflineManagerException("Failed to $description: $detail", this)
       }
       else -> {
         logger?.d(this) { "Failure while trying to $description" }
         OfflineManagerException(
-          "Failed to $description: ${message ?: this::class.simpleName.orEmpty()}"
+          "Failed to $description: ${message ?: this::class.simpleName.orEmpty()}",
+          this,
         )
       }
     }

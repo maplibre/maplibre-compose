@@ -61,7 +61,7 @@ class BrowserPlatformMapAccessTest {
 
         fixture.detachPresentationForTest()
 
-        val failure = assertFailsWith<IllegalStateException> { access.await() }
+        val failure = assertFailsWith<CancellationException> { access.await() }
         assertEquals("The Web platform map changed before access could begin", failure.message)
       }
       assertFalse(callbackRan)

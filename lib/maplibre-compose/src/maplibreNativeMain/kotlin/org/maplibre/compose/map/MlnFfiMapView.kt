@@ -139,12 +139,12 @@ internal fun MlnFfiMapView(
         if (state.currentMapAttachment?.adapter !== session) return@LaunchedEffect
       }
       session.publishRetainedStyle()
-    } catch (error: CancellationException) {
-      throw error
     } catch (_: MapClosedException) {
       // A still-mounted UI on a closed map is inert.
     } catch (_: MapLeaseInvalidatedException) {
       // Detach or close won before attach finished.
+    } catch (error: CancellationException) {
+      throw error
     } catch (error: Throwable) {
       callbacks.onMapFailLoading(session, error.message)
     }

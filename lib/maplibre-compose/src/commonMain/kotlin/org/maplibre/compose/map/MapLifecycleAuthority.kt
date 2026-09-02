@@ -73,19 +73,9 @@ internal class MapAlreadyAttachedException :
   IllegalStateException("The map already has a presentation")
 
 internal class MapLeaseInvalidatedException :
-  IllegalStateException("The presentation lease ended before attachment completed")
+  CancellationException("The presentation lease ended before attachment completed")
 
 internal class MapClosedException : IllegalStateException("The map is closed")
-
-internal open class AggregateCleanupException(message: String, failures: List<Throwable>) :
-  RuntimeException(message, failures.first()) {
-  init {
-    failures.drop(1).forEach(::addSuppressed)
-  }
-}
-
-internal class MapLifecycleCleanupException internal constructor(val failures: List<Throwable>) :
-  AggregateCleanupException("Map cleanup failed in ${failures.size} resource(s)", failures)
 
 internal data class PendingAttachment(
   val lease: RenderLease,
@@ -139,10 +129,7 @@ internal class MapLifecycleAuthority(
     if (maps.isEmpty() && releases.isEmpty()) {
       val failures = mutableListOf<Throwable>()
       recordedFailures.forEach { addCleanupFailure(failures, it) }
-      completeClosure(
-        if (failures.isEmpty()) Result.success(Unit)
-        else Result.failure(MapStateCleanupException(failures))
-      )
+      completeClosure(failures.cleanupResult("Map state"))
       return
     }
     maps.forEach(MapAdapter::close)
@@ -155,10 +142,7 @@ internal class MapLifecycleAuthority(
       maps.forEach { map ->
         runCatching { map.awaitClosed() }.exceptionOrNull()?.let { addCleanupFailure(failures, it) }
       }
-      completeClosure(
-        if (failures.isEmpty()) Result.success(Unit)
-        else Result.failure(MapStateCleanupException(failures))
-      )
+      completeClosure(failures.cleanupResult("Map state"))
     }
   }
 
@@ -393,7 +377,7 @@ internal class MapLifecycleAuthority(
   inline fun <T> serialized(action: () -> T): T = lock.withLock(action)
 
   private fun requireOpen() {
-    if (closed) throw MapStateClosedException()
+    check(!closed) { "The map state is closed" }
   }
 
   private fun selectAdapterLocked(current: Attachment, adapter: MapAdapter) {
@@ -439,11 +423,7 @@ internal class MapLifecycleAuthority(
   }
 
   private fun addCleanupFailure(failures: MutableList<Throwable>, failure: Throwable) {
-    if (failure is MapLifecycleCleanupException) {
-      failure.failures.forEach { addCleanupFailure(failures, it) }
-    } else if (failures.none { it === failure }) {
-      failures += failure
-    }
+    failures.addCleanupFailure(failure)
   }
 
   private class Attachment(
@@ -680,19 +660,51 @@ internal class MapLifecycleBinding(
               performEngineCreation(observed)
             }
           }
-          observed.result.await().getOrThrow()
+          awaitEngineTransition(observed.result)
         }
-        is InternalState.Attaching -> observed.result.await().getOrThrow()
+        is InternalState.Attaching -> {
+          try {
+            awaitEngineTransition(observed.result)
+          } catch (_: MapLeaseInvalidatedException) {
+            // Engine access survives presentation churn. Re-read the lifecycle to find the
+            // retained engine or wait for its replacement.
+          }
+        }
         is InternalState.Attached -> return observed.engine
-        is InternalState.Detaching -> observed.result.await().getOrThrow()
+        is InternalState.Detaching -> {
+          try {
+            awaitEngineTransition(observed.result)
+          } catch (_: MapLeaseInvalidatedException) {
+            // A replacement presentation may have superseded this lease.
+          }
+        }
         is InternalState.OpenDetached ->
           observed.engine?.let {
             return it
           }
         is InternalState.Closing,
-        InternalState.Closed -> throw MapClosedException()
+        InternalState.Closed ->
+          throw CancellationException("The map closed before engine access could begin")
       }
     }
+  }
+
+  private suspend fun <T> awaitEngineTransition(result: CompletableDeferred<Result<T>>): T {
+    val outcome = result.await()
+    val failure = outcome.exceptionOrNull()
+    val state = current.load()
+    if (
+      failure != null &&
+        failure !is CancellationException &&
+        failure !is Error &&
+        (state is InternalState.Closing || state === InternalState.Closed)
+    ) {
+      throw CancellationException(
+        "The map closed before engine access could begin",
+        failure,
+      )
+    }
+    return outcome.getOrThrow()
   }
 
   private suspend fun performEngineCreation(creating: InternalState.CreatingEngine) {
@@ -988,9 +1000,7 @@ internal class MapLifecycleBinding(
       currentStyle.store(null)
       currentStyleRequest.store(null)
     }
-    val outcome =
-      if (failures.isEmpty()) Result.success(Unit)
-      else Result.failure(MapLifecycleCleanupException(failures))
+    val outcome = failures.cleanupResult("Map")
     val nextEngine =
       detaching.engine.takeIf { adapter.engineRetention == EngineRetention.RETAIN && engineCreated }
     serialized {
@@ -1031,10 +1041,7 @@ internal class MapLifecycleBinding(
     collectFailure(failures) { adapter.closeResources() }
 
     serialized { if (current.load() === closing) current.store(InternalState.Closed) }
-    closure.complete(
-      if (failures.isEmpty()) Result.success(Unit)
-      else Result.failure(MapLifecycleCleanupException(failures))
-    )
+    closure.complete(failures.cleanupResult("Map"))
   }
 
   private suspend fun collectFailure(
@@ -1045,8 +1052,7 @@ internal class MapLifecycleBinding(
   }
 
   private fun addCleanupFailure(failures: MutableList<Throwable>, failure: Throwable) {
-    if (failure is MapLifecycleCleanupException) failures += failure.failures
-    else failures += failure
+    failures.addCleanupFailure(failure)
   }
 
   /** Serializes non-suspending lifecycle commits with callback validation and delivery. */

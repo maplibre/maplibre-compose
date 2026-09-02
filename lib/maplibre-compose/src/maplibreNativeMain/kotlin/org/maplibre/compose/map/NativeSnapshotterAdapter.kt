@@ -40,14 +40,26 @@ private val SNAPSHOT_EVENTS =
 internal class NativeSnapshotterAdapterFactory(
   private val options: MlnFfiRuntimeOptions,
   private val resourceConfig: MapResourceConfig,
+  private val runtimeBackends: () -> Set<MapRenderBackend> = {
+    loadRuntimeBackends(options.logger)
+  },
 ) : SnapshotterAdapterFactory {
-  override fun create(): SnapshotterAdapter = NativeSnapshotterAdapter(options, resourceConfig)
+  override fun create(): SnapshotterAdapter {
+    val backends = runtimeBackends()
+    val targetPlan =
+      NativeSnapshotRenderTarget.select(backends)
+        ?: throw UnsupportedOperationException(
+          "No compatible offscreen snapshot backend is available from ${backends.joinToString()}"
+        )
+    return NativeSnapshotterAdapter(options, resourceConfig, targetPlan)
+  }
 }
 
 /** One private map, offscreen render session, and retained reconciler for a native snapshotter. */
 private class NativeSnapshotterAdapter(
   private val options: MlnFfiRuntimeOptions,
   private val resourceConfig: MapResourceConfig,
+  private val targetPlan: NativeSnapshotRenderTargetPlan,
 ) : SnapshotterAdapter {
   @Volatile private var open = true
   @Volatile private var engine: NativeSnapshotEngine? = null
@@ -143,12 +155,7 @@ private class NativeSnapshotterAdapter(
   }
 
   private fun throwCleanupFailures(failures: List<Throwable>) {
-    if (failures.isNotEmpty()) {
-      throw AggregateCleanupException(
-        "Native snapshotter cleanup failed in ${failures.size} resource(s)",
-        failures,
-      )
-    }
+    failures.cleanupResult("Native snapshotter").getOrThrow()
   }
 
   private suspend fun ensureEngine(request: MapSnapshotRequest) {
@@ -165,7 +172,7 @@ private class NativeSnapshotterAdapter(
       throwCleanupFailures(failures)
     }
     val created = NativeSnapshotOperation(NativeSnapshotOperation.Kind.ENGINE_CREATION)
-    val resources = NativeSnapshotRenderResources(extent, options)
+    val resources = NativeSnapshotRenderResources(extent, targetPlan)
     lateinit var candidate: NativeSnapshotEngine
     val candidateLoop =
       MlnFfiMapRuntimeLoop(
@@ -230,13 +237,13 @@ private class NativeSnapshotterAdapter(
           { resized.completion.complete(Result.success(Unit)) },
           {
             resized.completion.complete(
-              Result.failure(currentLoop.failure ?: MapSnapshotterClosedException())
+              Result.failure(currentLoop.failure ?: snapshotterClosedCancellation())
             )
           },
         )
       ) {
         resized.completion.complete(
-          Result.failure(currentLoop.failure ?: MapSnapshotterClosedException())
+          Result.failure(currentLoop.failure ?: snapshotterClosedCancellation())
         )
       }
     } catch (error: Throwable) {
@@ -372,13 +379,13 @@ private class NativeSnapshotterAdapter(
         },
         abandon = {
           operation.completion.complete(
-            Result.failure(currentLoop.failure ?: MapSnapshotterClosedException())
+            Result.failure(currentLoop.failure ?: snapshotterClosedCancellation())
           )
         },
       )
     ) {
       operation.completion.complete(
-        Result.failure(currentLoop.failure ?: MapSnapshotterClosedException())
+        Result.failure(currentLoop.failure ?: snapshotterClosedCancellation())
       )
     }
   }
@@ -391,7 +398,7 @@ private class NativeSnapshotterAdapter(
         currentEngine.loop.call(
           action = { _ -> currentEngine.resources.withSession { it.renderUpdate() } }
         )
-          ?: throw MapSnapshotterClosedException().also { error ->
+          ?: throw snapshotterClosedCancellation().also { error ->
             operation.complete(Result.failure(error))
           }
       if (update.result == RenderResult.RENDERED) renderedFrame = true
@@ -428,7 +435,7 @@ private class NativeSnapshotEngine(
 /** Offscreen resources that are attached, accessed, and closed only on one map's owner thread. */
 private class NativeSnapshotRenderResources(
   private val extent: MapExtent,
-  private val options: MlnFfiRuntimeOptions,
+  private val targetPlan: NativeSnapshotRenderTargetPlan,
 ) {
   private var target: NativeSnapshotRenderTarget? = null
   private var session: RenderSessionHandle? = null
@@ -436,7 +443,7 @@ private class NativeSnapshotRenderResources(
   fun attach(map: MapHandle) {
     var createdTarget: NativeSnapshotRenderTarget? = null
     try {
-      createdTarget = NativeSnapshotRenderTarget.create(loadRuntimeBackends(options.logger))
+      createdTarget = targetPlan.create()
       val createdSession = createdTarget.attach(map, extent)
       target = createdTarget
       session = createdSession
@@ -483,13 +490,12 @@ private class NativeSnapshotRenderResources(
   }
 
   private fun throwCleanupFailures(failures: List<Throwable>) {
-    if (failures.isNotEmpty()) {
-      throw AggregateCleanupException(
-        "Native snapshotter cleanup failed in ${failures.size} resource(s)",
-        failures,
-      )
-    }
+    failures.cleanupResult("Native snapshotter").getOrThrow()
   }
+}
+
+internal fun interface NativeSnapshotRenderTargetPlan {
+  fun create(): NativeSnapshotRenderTarget
 }
 
 internal expect class NativeSnapshotRenderTarget : AutoCloseable {
@@ -500,6 +506,6 @@ internal expect class NativeSnapshotRenderTarget : AutoCloseable {
   override fun close()
 
   companion object {
-    fun create(backends: Set<MapRenderBackend>): NativeSnapshotRenderTarget
+    fun select(backends: Set<MapRenderBackend>): NativeSnapshotRenderTargetPlan?
   }
 }

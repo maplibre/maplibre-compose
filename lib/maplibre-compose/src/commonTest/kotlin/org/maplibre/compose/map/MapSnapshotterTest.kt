@@ -524,6 +524,78 @@ class MapSnapshotterTest {
   }
 
   @Test
+  fun standard_exceptions_after_validation_are_snapshot_failures() = runTest {
+    val prepareFailure = UnsupportedOperationException("offscreen renderer initialization failed")
+    val styleFailure = IllegalArgumentException("base style layer not found")
+    val cases =
+      listOf(
+        prepareFailure to
+          runtimeWith(FakeSnapshotterAdapter(prepare = { _, _ -> throw prepareFailure })),
+        styleFailure to
+          runtimeWith(
+            FakeSnapshotterAdapter(),
+            StyleCompositionEvaluator { _, _, _, _, _ -> throw styleFailure },
+          ),
+      )
+
+    cases.forEach { (cause, runtime) ->
+      val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
+
+      val failure =
+        assertFailsWith<MapSnapshotException> {
+          snapshotter.capture(MapSnapshotRequest(1, 1))
+        }
+
+      assertTrue(generateSequence(failure as Throwable?) { it.cause }.any { it === cause })
+      close(snapshotter, runtime)
+    }
+  }
+
+  @Test
+  fun capture_preserves_platform_unavailability() = runTest {
+    val runtime = mapRuntimeForTest()
+    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
+
+    assertFailsWith<UnsupportedOperationException> {
+      snapshotter.capture(MapSnapshotRequest(1, 1))
+    }
+
+    close(snapshotter, runtime)
+  }
+
+  @Test
+  fun capture_does_not_wrap_fatal_errors() = runTest {
+    val cause = FatalSnapshotError()
+    val adapter = FakeSnapshotterAdapter(capture = { _, _ -> throw cause })
+    val runtime = runtimeWith(adapter)
+    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
+
+    val failure =
+      assertFailsWith<FatalSnapshotError> {
+        snapshotter.capture(MapSnapshotRequest(1, 1))
+      }
+
+    assertSame(cause, failure)
+    close(snapshotter, runtime)
+  }
+
+  @Test
+  fun style_invalidation_failure_is_reported_without_stalling_close() = runTest {
+    val cause = IllegalStateException("style invalidation failed")
+    val binding = RecordingStyleBinding(onInvalidate = { throw cause })
+    val runtime = runtimeWith(FakeSnapshotterAdapter(prepare = { _, _ -> binding }))
+    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
+    snapshotter.capture(MapSnapshotRequest(1, 1))
+
+    snapshotter.close()
+    val reported = assertFailsWith<MapCleanupException> { snapshotter.awaitClosed() }
+
+    assertEquals(listOf(cause), reported.failures)
+    runtime.close()
+    runtime.awaitClosed()
+  }
+
+  @Test
   fun cleanup_failures_do_not_stall_the_queue_and_are_all_reported_on_close() = runTest {
     val firstStarted = CompletableDeferred<Unit>()
     val cleanupFailure = IllegalStateException("terminal cleanup failed")
@@ -550,7 +622,7 @@ class MapSnapshotterTest {
     active.cancelAndJoin()
     assertSame(nextImage, next.await())
     snapshotter.close()
-    val reported = assertFailsWith<MapSnapshotterCleanupException> { snapshotter.awaitClosed() }
+    val reported = assertFailsWith<MapCleanupException> { snapshotter.awaitClosed() }
     assertEquals(2, reported.failures.size)
     assertSame(cleanupFailure, reported.failures[0])
     assertSame(closeFailure, reported.failures[1])
@@ -559,15 +631,24 @@ class MapSnapshotterTest {
   }
 
   @Test
-  fun closure_refuses_new_work_clears_the_queue_and_waits_for_active_cleanup() = runTest {
+  fun closure_cancels_work_before_style_cleanup_and_waits_for_active_cleanup() = runTest {
     supervisorScope {
       val started = CompletableDeferred<Unit>()
       val releaseCleanup = CompletableDeferred<Unit>()
+      var callerCancelled = false
+      var cancelledBeforeInvalidation = false
+      val binding =
+        RecordingStyleBinding(onInvalidate = { cancelledBeforeInvalidation = callerCancelled })
+      var captureCount = 0
       val adapter =
         FakeSnapshotterAdapter(
-          capture = { _, _ ->
-            started.complete(Unit)
-            awaitCancellation()
+          prepare = { _, _ -> binding },
+          capture = { request, _ ->
+            if (captureCount++ == 0) FakeImageBitmap(request.width, request.height)
+            else {
+              started.complete(Unit)
+              awaitCancellation()
+            }
           },
           cancel = {
             releaseCleanup.await()
@@ -576,30 +657,45 @@ class MapSnapshotterTest {
         )
       val runtime = runtimeWith(adapter)
       val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
-      val active = async { snapshotter.capture(MapSnapshotRequest(1, 1)) }
-      val queued = async { snapshotter.capture(MapSnapshotRequest(2, 2)) }
+      snapshotter.capture(MapSnapshotRequest(1, 1))
+      val active =
+        async(Dispatchers.Unconfined) {
+          try {
+            snapshotter.capture(MapSnapshotRequest(2, 2))
+          } catch (error: CancellationException) {
+            callerCancelled = true
+            throw error
+          }
+        }
+      val queued = async(Dispatchers.Unconfined) { snapshotter.capture(MapSnapshotRequest(3, 3)) }
       started.await()
 
       snapshotter.close()
       val closure = async { snapshotter.awaitClosed() }
 
-      assertFailsWith<MapSnapshotterClosedException> { queued.await() }
-      assertFailsWith<MapSnapshotterClosedException> {
+      assertFailsWith<CancellationException> { queued.await() }
+      assertFailsWith<IllegalStateException> {
         snapshotter.capture(MapSnapshotRequest(3, 3))
       }
       assertFalse(closure.isCompleted)
       releaseCleanup.complete(Unit)
-      assertFailsWith<MapSnapshotterClosedException> { active.await() }
+      assertFailsWith<CancellationException> { active.await() }
       closure.await()
+      assertTrue(cancelledBeforeInvalidation)
       runtime.close()
       runtime.awaitClosed()
     }
   }
 
-  private fun runtimeWith(adapter: SnapshotterAdapter): MapRuntime =
+  private fun runtimeWith(
+    adapter: SnapshotterAdapter,
+    styleEvaluator: StyleCompositionEvaluator = StyleCompositionEvaluator { _, _, _, _, _ ->
+      DesiredStyleRevision.Empty
+    },
+  ): MapRuntime =
     mapRuntimeForTest(
       snapshotterAdapterFactory = SnapshotterAdapterFactory { adapter },
-      styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _ -> DesiredStyleRevision.Empty },
+      styleEvaluator = styleEvaluator,
     )
 
   private suspend fun close(snapshotter: MapSnapshotter, runtime: MapRuntime) {
@@ -615,6 +711,8 @@ class MapSnapshotterTest {
       tiles = listOf("https://example.com/{z}/{x}/{y}.pbf"),
       options = TileSetOptions(attributionHtml = attribution),
     )
+
+  private class FatalSnapshotError : Error("fatal snapshot failure")
 
   private class FakeSnapshotterAdapter(
     private val prepare: suspend (BaseStyle, MapSnapshotRequest) -> StyleBinding = { _, _ ->

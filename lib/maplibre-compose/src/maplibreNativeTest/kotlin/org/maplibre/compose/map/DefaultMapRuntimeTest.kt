@@ -30,7 +30,7 @@ class DefaultMapRuntimeTest {
       assertSame(first, second)
       assertFalse(createdReplacement)
       assertTrue(second.isClosed)
-      assertFailsWith<MapRuntimeClosedException> { second.createMapState(BaseStyle.Demo) }
+      assertFailsWith<IllegalStateException> { second.createMapState(BaseStyle.Demo) }
     } finally {
       DefaultMapRuntime.resetForTest()
       FfiTestPlatform.deleteCacheFile(cacheFile)

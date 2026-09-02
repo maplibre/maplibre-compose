@@ -19,6 +19,7 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -122,7 +123,7 @@ class MapPresentationTest {
     assertEquals(StyleLoadState.Pending, state.style.loadState)
     assertFalse(session.lifecycle.state == MapLifecycleState.Closed)
     finishCleanup.complete(Unit)
-    assertFailsWith<MapLifecycleCleanupException> { session.awaitClosed() }
+    assertFailsWith<MapCleanupException> { session.awaitClosed() }
     testScheduler.runCurrent()
 
     state.durableStyleCallbacks().onMapFailLoading(session, "stale callback")
@@ -134,7 +135,7 @@ class MapPresentationTest {
     assertSame(replacement, state.currentMapAttachment?.adapter)
 
     state.close()
-    val failure = assertFailsWith<MapStateCleanupException> { state.awaitClosed() }
+    val failure = assertFailsWith<MapCleanupException> { state.awaitClosed() }
     assertTrue(
       generateSequence(failure as Throwable) { it.cause }
         .any { it.message.orEmpty().contains("bound session cleanup failed") }
@@ -214,7 +215,7 @@ class MapPresentationTest {
     state.close()
 
     first.finishDetach.complete(Unit)
-    val failure = assertFailsWith<MapStateCleanupException> { state.awaitClosed() }
+    val failure = assertFailsWith<MapCleanupException> { state.awaitClosed() }
     assertTrue(
       generateSequence(failure as Throwable) { it.cause }.any { it.message == "detach failed" }
     )
@@ -243,7 +244,7 @@ class MapPresentationTest {
     state.close()
     finishDetach.complete(Unit)
 
-    val failure = assertFailsWith<MapStateCleanupException> { state.awaitClosed() }
+    val failure = assertFailsWith<MapCleanupException> { state.awaitClosed() }
     assertEquals("Map state cleanup failed in 1 resource(s)", failure.message)
     assertEquals("detach failed", failure.cause?.message)
     runtime.close()
@@ -387,7 +388,7 @@ class MapPresentationTest {
     fixture.state.setCameraPosition(position)
     assertEquals(position, fixture.state.cameraPosition)
     assertEquals(CameraPosition(), fixture.adapter.lastCameraPosition)
-    assertFailsWith<MapNotAttachedException> {
+    assertFailsWith<IllegalStateException> {
       fixture.state.queryRenderedFeatures(DpOffset.Zero)
     }
     val viewportReads = fixture.adapter.viewportReads
@@ -441,7 +442,7 @@ class MapPresentationTest {
     testScheduler.advanceUntilIdle()
 
     state.close()
-    val failure = assertFailsWith<MapStateCleanupException> { state.awaitClosed() }
+    val failure = assertFailsWith<MapCleanupException> { state.awaitClosed() }
     assertTrue(failure.message.orEmpty().contains("cleanup failed"))
     runtime.close()
   }
@@ -1105,7 +1106,7 @@ class MapPresentationTest {
       fixture.adapter.queryStarted.await()
       fixture.state.releasePresentation(fixture.token, fixture.adapter)
 
-      assertFailsWith<MapNotAttachedException> { query.await() }
+      assertFailsWith<CancellationException> { query.await() }
     }
     fixture.close()
   }
@@ -1120,7 +1121,7 @@ class MapPresentationTest {
 
       fixture.state.releasePresentation(fixture.token, fixture.adapter)
 
-      assertFailsWith<MapNotAttachedException> { query.await() }
+      assertFailsWith<CancellationException> { query.await() }
     }
     fixture.close()
   }
@@ -1194,7 +1195,7 @@ class MapPresentationTest {
 
       state.close()
 
-      assertFailsWith<MapStateClosedException> { animation.await() }
+      assertFailsWith<CancellationException> { animation.await() }
     }
     state.awaitClosed()
     runtime.close()

@@ -1642,13 +1642,13 @@ internal class MlnFfiMapSession(
                       result = runCatching { PlatformMapScope(map).block() }
                     }
                   if (!authorityAccepted) {
-                    throw IllegalStateException(
+                    throw CancellationException(
                       "The native platform map changed before access could begin"
                     )
                   }
                 }
               if (!engineAccepted) {
-                throw IllegalStateException(
+                throw CancellationException(
                   "The native platform map changed before access could begin"
                 )
               }
@@ -1657,11 +1657,13 @@ internal class MlnFfiMapSession(
           },
           abandon = {
             invocation.fail(
-              IllegalStateException("The native platform map changed before access could begin")
+              CancellationException("The native platform map changed before access could begin")
             )
           },
         )
-      if (!queued) invocation.fail(MapStateClosedException())
+      if (!queued) {
+        invocation.fail(CancellationException("The map state closed before access could begin"))
+      }
     }
   }
 

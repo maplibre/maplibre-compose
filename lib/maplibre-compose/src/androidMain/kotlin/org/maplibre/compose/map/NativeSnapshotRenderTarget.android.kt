@@ -30,19 +30,18 @@ private constructor(private val delegate: Delegate) : AutoCloseable {
   actual override fun close() = delegate.close()
 
   actual companion object {
-    actual fun create(backends: Set<MapRenderBackend>): NativeSnapshotRenderTarget {
-      val delegate =
-        when {
-          MapRenderBackend.VULKAN in backends ->
-            VulkanDelegate(AndroidVulkanOffscreenContext.create())
-          MapRenderBackend.OPENGL in backends -> OpenGlDelegate.create()
-          else ->
-            throw UnsupportedOperationException(
-              "No offscreen Android snapshot backend is available from ${backends.joinToString()}"
-            )
-        }
-      return NativeSnapshotRenderTarget(delegate)
-    }
+    actual fun select(backends: Set<MapRenderBackend>): NativeSnapshotRenderTargetPlan? =
+      when {
+        MapRenderBackend.VULKAN in backends ->
+          NativeSnapshotRenderTargetPlan {
+            NativeSnapshotRenderTarget(VulkanDelegate(AndroidVulkanOffscreenContext.create()))
+          }
+        MapRenderBackend.OPENGL in backends ->
+          NativeSnapshotRenderTargetPlan {
+            NativeSnapshotRenderTarget(OpenGlDelegate.create())
+          }
+        else -> null
+      }
   }
 
   private interface Delegate : AutoCloseable {
