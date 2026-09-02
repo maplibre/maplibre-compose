@@ -62,7 +62,6 @@ import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.generated.Res
 import org.maplibre.compose.generated.attribution
 import org.maplibre.compose.generated.info
-import org.maplibre.compose.map.MapPresentation
 import org.maplibre.compose.map.MapStyleState
 import org.maplibre.compose.util.horizontal
 import org.maplibre.compose.util.reverse
@@ -76,8 +75,6 @@ import org.maplibre.compose.util.vertical
  * This component draws with Compose Foundation alone. The Material 3 module provides a themed
  * version of it.
  *
- * @param presentation Used to dismiss the attribution when the user interacts with the map.
- * @param styleState Used to get the attribution links to display.
  * @param contentAlignment Will be used to determine layout of the attribution icon and text.
  * @param toggleButton Composable that defines the button used to toggle the attribution display.
  *   Takes an onClick function parameter that should be called to switch states.
@@ -91,9 +88,7 @@ import org.maplibre.compose.util.vertical
  *   the given alignment
  */
 @Composable
-public fun ExpandingAttributionButton(
-  presentation: MapPresentation?,
-  styleState: MapStyleState,
+public fun MapOverlayScope.ExpandingAttributionButton(
   modifier: Modifier = Modifier,
   contentAlignment: Alignment = Alignment.BottomEnd,
   toggleButton: @Composable (onClick: () -> Unit) -> Unit = AttributionDefaults.button,
@@ -105,83 +100,35 @@ public fun ExpandingAttributionButton(
   collapse: (Alignment) -> ExitTransition = AttributionDefaults.collapse,
 ) {
   var expanded by remember { mutableStateOf(true) }
+  val currentPresentation = presentation
 
   // dismiss on any map gesture
-  LaunchedEffect(presentation?.isCameraMoving, presentation?.cameraMoveReason) {
+  LaunchedEffect(currentPresentation?.isCameraMoving, currentPresentation?.cameraMoveReason) {
     if (
-      presentation?.isCameraMoving == true &&
-        presentation.cameraMoveReason == CameraMoveReason.GESTURE
+      currentPresentation?.isCameraMoving == true &&
+        currentPresentation.cameraMoveReason == CameraMoveReason.GESTURE
     ) {
       expanded = false
     }
   }
 
-  ExpandingAttributionButton(
-    expanded = expanded,
-    onClick = { expanded = !expanded },
-    styleState = styleState,
-    modifier = modifier,
-    contentAlignment = contentAlignment,
-    toggleButton = toggleButton,
-    expandedContent = expandedContent,
-    expandedStyle = expandedStyle,
-    collapsedStyle = collapsedStyle,
-    expand = expand,
-    collapse = collapse,
-  )
-}
-
-/**
- * Info button from which an attribution popup text is expanded. This version allows the caller to
- * manage the state.
- *
- * This component draws with Compose Foundation alone. The Material 3 module provides a themed
- * version of it.
- *
- * @param expanded Whether the attribution text is expanded.
- * @param onClick Called when the button is pressed. Should toggle the expanded state.
- * @param styleState Used to get the attribution links to display.
- * @param contentAlignment Will be used to determine layout of the attribution icon and text.
- * @param toggleButton Composable that defines the button used to toggle the attribution display.
- *   Takes an onClick function parameter that should be called to switch states.
- * @param expandedContent Composable that defines how the attribution content is displayed when
- *   expanded. Takes the list of HTML strings to display and the resolved text style.
- * @param expandedStyle Style of the attribution container when it is expanded.
- * @param collapsedStyle Style of the attribution container when it is collapsed.
- * @param expand Function that returns an [EnterTransition] for the expanding animation based on the
- *   given alignment
- * @param collapse Function that returns an [ExitTransition] for the collapsing animation based on
- *   the given alignment
- */
-@Composable
-public fun ExpandingAttributionButton(
-  expanded: Boolean,
-  onClick: () -> Unit,
-  styleState: MapStyleState,
-  modifier: Modifier = Modifier,
-  contentAlignment: Alignment = Alignment.BottomEnd,
-  toggleButton: @Composable (onClick: () -> Unit) -> Unit = AttributionDefaults.button,
-  expandedContent: @Composable (attributions: List<String>, textStyle: TextStyle) -> Unit =
-    AttributionDefaults.content,
-  expandedStyle: AttributionStyle = AttributionDefaults.expandedStyle(),
-  collapsedStyle: AttributionStyle = AttributionDefaults.collapsedStyle(),
-  expand: (Alignment) -> EnterTransition = AttributionDefaults.expand,
-  collapse: (Alignment) -> ExitTransition = AttributionDefaults.collapse,
-) {
-  val attributions by remember(styleState) { derivedStateOf { styleState.attributions() } }
+  val mapStyle = style
+  val attributions by remember(mapStyle) { derivedStateOf { mapStyle.attributions() } }
   if (attributions.isEmpty()) return
 
-  val style = if (expanded) expandedStyle else collapsedStyle
-  val containerColor by animateColorAsState(style.containerColor)
-  val contentColor by animateColorAsState(style.contentColor)
-  val shadowElevation by animateDpAsState(style.shadowElevation)
+  val attributionStyle = if (expanded) expandedStyle else collapsedStyle
+  val containerColor by animateColorAsState(attributionStyle.containerColor)
+  val contentColor by animateColorAsState(attributionStyle.contentColor)
+  val shadowElevation by animateDpAsState(attributionStyle.shadowElevation)
 
   Box(
     modifier
-      .shadow(shadowElevation, style.shape, clip = false)
-      .then(style.border?.let { Modifier.border(it, style.shape) } ?: Modifier)
-      .background(containerColor, style.shape)
-      .clip(style.shape)
+      .shadow(shadowElevation, attributionStyle.shape, clip = false)
+      .then(
+        attributionStyle.border?.let { Modifier.border(it, attributionStyle.shape) } ?: Modifier
+      )
+      .background(containerColor, attributionStyle.shape)
+      .clip(attributionStyle.shape)
       // Without this, a drag across the attribution pans the map underneath it.
       .pointerInput(Unit) {}
       .semantics { isTraversalGroup = true }
@@ -200,7 +147,7 @@ public fun ExpandingAttributionButton(
         if (rowArrangement == Arrangement.End) layoutDir.reverse() else layoutDir
     ) {
       Row(horizontalArrangement = rowArrangement, verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.align(contentAlignment.vertical)) { toggleButton(onClick) }
+        Box(Modifier.align(contentAlignment.vertical)) { toggleButton { expanded = !expanded } }
 
         AnimatedVisibility(
           visible = expanded,
@@ -210,7 +157,7 @@ public fun ExpandingAttributionButton(
         ) {
           Box(Modifier.padding(start = 0.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)) {
             CompositionLocalProvider(LocalLayoutDirection provides layoutDir) {
-              expandedContent(attributions, style.textStyle.copy(color = contentColor))
+              expandedContent(attributions, attributionStyle.textStyle.copy(color = contentColor))
             }
           }
         }

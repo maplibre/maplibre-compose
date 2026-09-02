@@ -38,7 +38,6 @@ fun Location() {
         LocationPuck(
           idPrefix = "user",
           locationState = locationState,
-          presentation = mapState.presentation,
         )
 
         LocationTrackingEffect(locationState = locationState) {

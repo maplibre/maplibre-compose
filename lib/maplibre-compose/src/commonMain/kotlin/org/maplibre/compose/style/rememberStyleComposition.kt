@@ -12,6 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCompositionContext
 import androidx.compose.runtime.staticCompositionLocalOf
 import kotlinx.coroutines.awaitCancellation
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.util.MaplibreComposable
 
 /**
@@ -24,6 +25,7 @@ import org.maplibre.compose.util.MaplibreComposable
 internal fun rememberStyleComposition(
   composition: StyleComposition,
   maybeStyle: StyleBinding?,
+  mapState: MapState? = null,
   replaceableSourceIds: Set<String> = emptySet(),
   replaceableLayerIds: Set<String> = emptySet(),
 ): State<DesiredStyleRevision?> {
@@ -31,7 +33,7 @@ internal fun rememberStyleComposition(
     remember(composition, maybeStyle) { mutableStateOf<DesiredStyleRevision?>(null) }
   val compositionContext = rememberCompositionContext()
 
-  LaunchedEffect(composition, maybeStyle) {
+  LaunchedEffect(composition, maybeStyle, mapState) {
     val style = maybeStyle ?: return@LaunchedEffect
     if (!style.isLoaded) return@LaunchedEffect
     val rootNode =
@@ -46,6 +48,7 @@ internal fun rememberStyleComposition(
     evaluator.setContent {
       StyleContent(
         rootNode = rootNode,
+        mapState = mapState,
         publish = { revisionState.value = it },
         content = composition.content,
       )
@@ -64,10 +67,13 @@ internal fun rememberStyleComposition(
 @Composable
 internal fun StyleContent(
   rootNode: StyleNode,
+  mapState: MapState? = null,
   publish: (DesiredStyleRevision) -> Unit = {},
   content: @Composable @MaplibreComposable () -> Unit,
 ) {
-  CompositionLocalProvider(LocalStyleNode provides rootNode) { content() }
+  CompositionLocalProvider(LocalStyleNode provides rootNode, LocalMapState provides mapState) {
+    content()
+  }
   key(rootNode.currentApplyGeneration) {
     // Side effects run after remember observers, so the evaluator publishes a complete revision.
     SideEffect { publish(rootNode.snapshotRevision()) }
@@ -75,3 +81,5 @@ internal fun StyleContent(
 }
 
 internal val LocalStyleNode = staticCompositionLocalOf<StyleNode> { throw IllegalStateException() }
+
+internal val LocalMapState = staticCompositionLocalOf<MapState?> { null }

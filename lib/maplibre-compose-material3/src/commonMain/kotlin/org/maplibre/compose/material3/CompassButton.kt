@@ -18,12 +18,11 @@ import androidx.compose.ui.unit.dp
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.map.MapPresentation
-import org.maplibre.compose.map.MapState
 import org.maplibre.compose.overlay.CompassButton as BaseCompassButton
 import org.maplibre.compose.overlay.CompassButtonStyle
 import org.maplibre.compose.overlay.CompassDefaults
 import org.maplibre.compose.overlay.DisappearingCompassButton as BaseDisappearingCompassButton
+import org.maplibre.compose.overlay.MapOverlayScope
 
 /**
  * A compass that points north and returns the camera to [getHomePosition] when it is clicked.
@@ -31,8 +30,6 @@ import org.maplibre.compose.overlay.DisappearingCompassButton as BaseDisappearin
  * This is [org.maplibre.compose.overlay.CompassButton] with the colors, shape, and elevation of an
  * [ElevatedButton].
  *
- * @param mapState The logical map whose durable camera position the needle follows.
- * @param presentation The current presentation that a click resets.
  * @param onClick Called after the camera animation starts.
  * @param colors Container and content colors, defaulting to those of an [ElevatedButton].
  * @param contentDescription Accessibility label for the needle.
@@ -43,9 +40,7 @@ import org.maplibre.compose.overlay.DisappearingCompassButton as BaseDisappearin
  * @param getHomePosition The camera position that a click returns to.
  */
 @Composable
-public fun CompassButton(
-  mapState: MapState,
-  presentation: MapPresentation?,
+public fun MapOverlayScope.CompassButton(
   modifier: Modifier = Modifier,
   onClick: () -> Unit = {},
   colors: ButtonColors = ButtonDefaults.elevatedButtonColors(),
@@ -57,8 +52,6 @@ public fun CompassButton(
   getHomePosition: (CameraPosition) -> CameraPosition = { it.copy(bearing = 0.0, tilt = 0.0) },
 ) {
   BaseCompassButton(
-    mapState = mapState,
-    presentation = presentation,
     modifier = modifier,
     onClick = onClick,
     style = elevatedButtonStyle(colors, shape),
@@ -82,9 +75,7 @@ public fun CompassButton(
  *   degrees.
  */
 @Composable
-public fun DisappearingCompassButton(
-  mapState: MapState,
-  presentation: MapPresentation?,
+public fun MapOverlayScope.DisappearingCompassButton(
   modifier: Modifier = Modifier,
   onClick: () -> Unit = {},
   colors: ButtonColors = ButtonDefaults.elevatedButtonColors(),
@@ -100,8 +91,6 @@ public fun DisappearingCompassButton(
   slop: Double = 0.5,
 ) {
   BaseDisappearingCompassButton(
-    mapState = mapState,
-    presentation = presentation,
     modifier = modifier,
     onClick = onClick,
     style = elevatedButtonStyle(colors, shape),

@@ -17,12 +17,11 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import org.maplibre.compose.map.MapPresentation
-import org.maplibre.compose.map.MapStyleState
 import org.maplibre.compose.overlay.AttributionDefaults
 import org.maplibre.compose.overlay.AttributionLinks as BaseAttributionLinks
 import org.maplibre.compose.overlay.AttributionStyle
 import org.maplibre.compose.overlay.ExpandingAttributionButton as BaseExpandingAttributionButton
+import org.maplibre.compose.overlay.MapOverlayScope
 
 /**
  * Info button from which an attribution popup text is expanded. This version retracts when the user
@@ -31,8 +30,6 @@ import org.maplibre.compose.overlay.ExpandingAttributionButton as BaseExpandingA
  * This is [org.maplibre.compose.overlay.ExpandingAttributionButton] with its colors, typography,
  * and widgets taken from the Material 3 theme.
  *
- * @param presentation Used to dismiss the attribution when the user interacts with the map.
- * @param styleState Used to get the attribution links to display.
  * @param contentAlignment Will be used to determine layout of the attribution icon and text.
  * @param toggleButton Composable that defines the button used to toggle the attribution display.
  *   Takes an onClick function parameter that should be called to switch states.
@@ -46,9 +43,7 @@ import org.maplibre.compose.overlay.ExpandingAttributionButton as BaseExpandingA
  *   the given alignment
  */
 @Composable
-public fun ExpandingAttributionButton(
-  presentation: MapPresentation?,
-  styleState: MapStyleState,
+public fun MapOverlayScope.ExpandingAttributionButton(
   modifier: Modifier = Modifier,
   contentAlignment: Alignment = Alignment.BottomEnd,
   toggleButton: @Composable (onClick: () -> Unit) -> Unit = AttributionButtonDefaults.button,
@@ -60,60 +55,6 @@ public fun ExpandingAttributionButton(
   collapse: (Alignment) -> ExitTransition = AttributionDefaults.collapse,
 ) {
   BaseExpandingAttributionButton(
-    presentation = presentation,
-    styleState = styleState,
-    modifier = modifier,
-    contentAlignment = contentAlignment,
-    toggleButton = toggleButton,
-    expandedContent = expandedContent,
-    expandedStyle = expandedStyle,
-    collapsedStyle = collapsedStyle,
-    expand = expand,
-    collapse = collapse,
-  )
-}
-
-/**
- * Info button from which an attribution popup text is expanded. This version allows the caller to
- * manage the state.
- *
- * This is [org.maplibre.compose.overlay.ExpandingAttributionButton] with its colors, typography,
- * and widgets taken from the Material 3 theme.
- *
- * @param expanded Whether the attribution text is expanded.
- * @param onClick Called when the button is pressed. Should toggle the expanded state.
- * @param styleState Used to get the attribution links to display.
- * @param contentAlignment Will be used to determine layout of the attribution icon and text.
- * @param toggleButton Composable that defines the button used to toggle the attribution display.
- *   Takes an onClick function parameter that should be called to switch states.
- * @param expandedContent Composable that defines how the attribution content is displayed when
- *   expanded. Takes the list of HTML strings to display and the resolved text style.
- * @param expandedStyle Style of the attribution container when it is expanded.
- * @param collapsedStyle Style of the attribution container when it is collapsed.
- * @param expand Function that returns an [EnterTransition] for the expanding animation based on the
- *   given alignment
- * @param collapse Function that returns an [ExitTransition] for the collapsing animation based on
- *   the given alignment
- */
-@Composable
-public fun ExpandingAttributionButton(
-  expanded: Boolean,
-  onClick: () -> Unit,
-  styleState: MapStyleState,
-  modifier: Modifier = Modifier,
-  contentAlignment: Alignment = Alignment.BottomEnd,
-  toggleButton: @Composable (onClick: () -> Unit) -> Unit = AttributionButtonDefaults.button,
-  expandedContent: @Composable (attributions: List<String>, textStyle: TextStyle) -> Unit =
-    AttributionButtonDefaults.content,
-  expandedStyle: AttributionStyle = AttributionButtonDefaults.expandedStyle(),
-  collapsedStyle: AttributionStyle = AttributionButtonDefaults.collapsedStyle(),
-  expand: (Alignment) -> EnterTransition = AttributionDefaults.expand,
-  collapse: (Alignment) -> ExitTransition = AttributionDefaults.collapse,
-) {
-  BaseExpandingAttributionButton(
-    expanded = expanded,
-    onClick = onClick,
-    styleState = styleState,
     modifier = modifier,
     contentAlignment = contentAlignment,
     toggleButton = toggleButton,

@@ -47,10 +47,10 @@ import org.maplibre.compose.expressions.value.IconRotationAlignment
 import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.SymbolLayer
-import org.maplibre.compose.map.MapPresentation
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.rememberGeoJsonSource
+import org.maplibre.compose.style.LocalMapState
 import org.maplibre.compose.util.ClickResult
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -72,9 +72,6 @@ import org.maplibre.spatialk.units.extensions.meters
  *
  * @param idPrefix The prefix used for the layers to display the location indicator.
  * @param locationState State providing the location and heading measurements to display.
- * @param presentation The current map presentation, used only for
- *   [Viewport.metersPerDpAtTarget][org.maplibre.compose.camera.Viewport.metersPerDpAtTarget] to
- *   correctly draw the accuracy circle.
  * @param oldLocationThreshold Locations older than this will be styled differently.
  * @param accuracyThreshold A circle showing the accuracy range will be drawn when
  *   [LocationMeasurement.horizontalAccuracy] is larger than this value. Use
@@ -90,7 +87,6 @@ import org.maplibre.spatialk.units.extensions.meters
 public fun LocationPuck(
   idPrefix: String,
   locationState: LocationState,
-  presentation: MapPresentation?,
   oldLocationThreshold: Duration = 30.seconds,
   accuracyThreshold: Length = 50.meters,
   colors: LocationPuckColors = LocationPuckColors(),
@@ -107,7 +103,6 @@ public fun LocationPuck(
         bearing = locationState.mostAccurateBearing(),
         bearingAccuracy = locationState.mostAccurateBearingAccuracy(),
       ),
-    presentation = presentation,
     oldLocationThreshold = oldLocationThreshold,
     accuracyThreshold = accuracyThreshold,
     colors = colors,
@@ -132,10 +127,6 @@ public fun LocationPuck(
  *   `location.course`, the direction of travel.
  * @param bearingAccuracy Estimated bearing error. Defaults to `location.courseAccuracy` when
  *   [bearing] is the location course.
- * @param presentation The current map presentation, used only for
- *   [Viewport.metersPerDpAtTarget][org.maplibre.compose.camera.Viewport.metersPerDpAtTarget] to
- *   correctly draw the accuracy circle. The presentation is not modified by this composable; if you
- *   want the camera to track the current location, use [LocationTrackingEffect].
  * @param oldLocationThreshold Locations older than this will be styled differently.
  * @param accuracyThreshold A circle showing the accuracy range will be drawn when
  *   [LocationMeasurement.horizontalAccuracy] is larger than this value. Use
@@ -151,7 +142,6 @@ public fun LocationPuck(
 public fun LocationPuck(
   idPrefix: String,
   location: LocationMeasurement?,
-  presentation: MapPresentation?,
   measurementMark: TimeMark? = null,
   bearing: Bearing? = location?.course,
   bearingAccuracy: Rotation? = defaultBearingAccuracy(location, bearing),
@@ -165,7 +155,6 @@ public fun LocationPuck(
   LocationPuckContent(
     idPrefix = idPrefix,
     measurement = locationPuckMeasurement(location, measurementMark, bearing, bearingAccuracy),
-    presentation = presentation,
     oldLocationThreshold = oldLocationThreshold,
     accuracyThreshold = accuracyThreshold,
     colors = colors,
@@ -179,7 +168,6 @@ public fun LocationPuck(
 private fun LocationPuckContent(
   idPrefix: String,
   measurement: LocationPuckMeasurement?,
-  presentation: MapPresentation?,
   oldLocationThreshold: Duration,
   accuracyThreshold: Length,
   colors: LocationPuckColors,
@@ -187,6 +175,7 @@ private fun LocationPuckContent(
   onClick: LocationClickHandler?,
   onLongClick: LocationClickHandler?,
 ) {
+  val presentation = LocalMapState.current?.presentation
   val location = measurement?.location
   val bearing = measurement?.bearing
   val bearingAccuracy = measurement?.bearingAccuracy

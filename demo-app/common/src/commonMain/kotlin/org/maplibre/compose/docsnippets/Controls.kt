@@ -38,8 +38,6 @@ fun Controls() {
       MapOverlay {
         MaplibreLogo(Modifier.align(Alignment.BottomStart))
         ExpandingAttributionButton(
-          presentation = presentation, // (1)!
-          styleState = styleState,
           modifier = Modifier.align(Alignment.TopEnd),
           contentAlignment = Alignment.TopEnd,
         )
