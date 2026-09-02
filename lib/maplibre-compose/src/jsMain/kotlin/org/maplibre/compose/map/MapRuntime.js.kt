@@ -2,17 +2,11 @@ package org.maplibre.compose.map
 
 import androidx.compose.runtime.Composable
 import co.touchlab.kermit.Logger
-import org.maplibre.compose.offline.EmptyOfflineManager
+import org.maplibre.compose.offline.UnsupportedOfflineManager
 import org.maplibre.compose.resource.GlJsRequestController
 import org.maplibre.compose.resource.MapRequestInterceptor
 import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.resource.MapResourceProvider
-
-private val webMapRuntimeCapabilities =
-  MapRuntimeCapabilities(
-    supportsOfflinePacks = false,
-    supportsAmbientCacheManagement = false,
-  )
 
 /** Browser runtime configuration. */
 public actual data class MapRuntimeOptions(
@@ -35,8 +29,7 @@ public actual fun createMapRuntime(options: MapRuntimeOptions): MapRuntime {
     platformOptions = JsRuntimePlatform(options, requests),
     resources = MapRuntimeResources { requests.close() },
     logger = options.logger,
-    capabilities = webMapRuntimeCapabilities,
-    offlineManagerBackend = EmptyOfflineManager,
+    offlineManagerBackend = UnsupportedOfflineManager,
     snapshotterAdapterFactory = GlJsSnapshotterAdapterFactory(options.logger, requests),
     resourceConfig = resourceConfig,
   )

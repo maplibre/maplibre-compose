@@ -8,12 +8,6 @@ import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.compose.offline.MlnFfiOfflineManager
 import org.maplibre.compose.resource.MapResourceConfig
 
-private val nativeMapRuntimeCapabilities =
-  MapRuntimeCapabilities(
-    supportsOfflinePacks = true,
-    supportsAmbientCacheManagement = true,
-  )
-
 internal object DefaultMapRuntime {
   private val lock = MlnFfiLock()
   private var current: RuntimeImplementation? = null
@@ -57,7 +51,6 @@ private fun createNativeMapRuntimeImplementation(
         check(offlineManager.close()) { "The offline manager did not stop" }
       },
     logger = options.logger,
-    capabilities = nativeMapRuntimeCapabilities,
     offlineManagerBackend = offlineManager,
     snapshotterAdapterFactory = NativeSnapshotterAdapterFactory(options, resourceConfig),
     resourceConfig = resourceConfig,
