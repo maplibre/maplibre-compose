@@ -1,7 +1,5 @@
 package org.maplibre.compose.offline
 
-import org.maplibre.compose.map.MapRuntimeCapabilities
-
 /** Manages the offline packs and ambient cache that belong to one map runtime. */
 public interface OfflineManager {
 
@@ -74,99 +72,87 @@ public interface OfflineManager {
   public suspend fun setMaximumAmbientCacheSize(size: Long)
 }
 
-internal class CapabilityCheckedOfflineManager(
-  private val capabilities: MapRuntimeCapabilities,
+internal class RuntimeBoundOfflineManager(
   private val delegate: OfflineManager,
   private val requireRuntimeOpen: () -> Unit,
 ) : OfflineManager {
   override val packs: Set<OfflinePack>
-    get() =
-      if (capabilities.supportsOfflinePacks) delegate.packs.onEach(::bindToRuntime) else emptySet()
+    get() = delegate.packs.onEach(::bindToRuntime)
 
   override suspend fun create(
     definition: OfflinePackDefinition,
     metadata: ByteArray,
   ): OfflinePack {
-    requireOfflinePackOperation()
+    requireRuntimeOpen()
     return bindToRuntime(delegate.create(definition, metadata))
   }
 
   override fun resume(pack: OfflinePack) {
-    requireOfflinePackOperation()
+    requireRuntimeOpen()
     delegate.resume(pack)
   }
 
   override fun pause(pack: OfflinePack) {
-    requireOfflinePackOperation()
+    requireRuntimeOpen()
     delegate.pause(pack)
   }
 
   override suspend fun delete(pack: OfflinePack) {
-    requireOfflinePackOperation()
+    requireRuntimeOpen()
     delegate.delete(pack)
   }
 
   override suspend fun invalidate(pack: OfflinePack) {
-    requireOfflinePackOperation()
+    requireRuntimeOpen()
     delegate.invalidate(pack)
   }
 
   override suspend fun invalidateAmbientCache() {
-    requireAmbientCacheOperation()
+    requireRuntimeOpen()
     delegate.invalidateAmbientCache()
   }
 
   override suspend fun clearAmbientCache() {
-    requireAmbientCacheOperation()
+    requireRuntimeOpen()
     delegate.clearAmbientCache()
   }
 
   override suspend fun setMaximumAmbientCacheSize(size: Long) {
-    requireAmbientCacheOperation()
+    requireRuntimeOpen()
     delegate.setMaximumAmbientCacheSize(size)
   }
 
   private fun bindToRuntime(pack: OfflinePack): OfflinePack = pack.bindToRuntime(requireRuntimeOpen)
-
-  private fun requireOfflinePackOperation() {
-    requireRuntimeOpen()
-    if (!capabilities.supportsOfflinePacks) {
-      throw UnsupportedOperationException("This map runtime does not support offline packs")
-    }
-  }
-
-  private fun requireAmbientCacheOperation() {
-    requireRuntimeOpen()
-    if (!capabilities.supportsAmbientCacheManagement) {
-      throw UnsupportedOperationException(
-        "This map runtime does not support ambient-cache management"
-      )
-    }
-  }
 }
 
-internal object EmptyOfflineManager : OfflineManager {
+internal object UnsupportedOfflineManager : OfflineManager {
   override val packs: Set<OfflinePack> = emptySet()
 
   override suspend fun create(
     definition: OfflinePackDefinition,
     metadata: ByteArray,
-  ): OfflinePack = unsupported()
+  ): OfflinePack = unsupportedOfflinePacks()
 
-  override fun resume(pack: OfflinePack): Unit = unsupported()
+  override fun resume(pack: OfflinePack): Unit = unsupportedOfflinePacks()
 
-  override fun pause(pack: OfflinePack): Unit = unsupported()
+  override fun pause(pack: OfflinePack): Unit = unsupportedOfflinePacks()
 
-  override suspend fun delete(pack: OfflinePack): Unit = unsupported()
+  override suspend fun delete(pack: OfflinePack): Unit = unsupportedOfflinePacks()
 
-  override suspend fun invalidate(pack: OfflinePack): Unit = unsupported()
+  override suspend fun invalidate(pack: OfflinePack): Unit = unsupportedOfflinePacks()
 
-  override suspend fun invalidateAmbientCache(): Unit = unsupported()
+  override suspend fun invalidateAmbientCache(): Unit = unsupportedAmbientCacheManagement()
 
-  override suspend fun clearAmbientCache(): Unit = unsupported()
+  override suspend fun clearAmbientCache(): Unit = unsupportedAmbientCacheManagement()
 
-  override suspend fun setMaximumAmbientCacheSize(size: Long): Unit = unsupported()
+  override suspend fun setMaximumAmbientCacheSize(size: Long): Unit =
+    unsupportedAmbientCacheManagement()
 
-  private fun unsupported(): Nothing =
-    error("The capability wrapper must reject unsupported offline operations")
+  private fun unsupportedOfflinePacks(): Nothing =
+    throw UnsupportedOperationException("This map runtime does not support offline packs")
+
+  private fun unsupportedAmbientCacheManagement(): Nothing =
+    throw UnsupportedOperationException(
+      "This map runtime does not support ambient-cache management"
+    )
 }

@@ -49,9 +49,9 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.layers.LayerHandle
 import org.maplibre.compose.layers.layerHandle
-import org.maplibre.compose.offline.CapabilityCheckedOfflineManager
-import org.maplibre.compose.offline.EmptyOfflineManager
 import org.maplibre.compose.offline.OfflineManager
+import org.maplibre.compose.offline.RuntimeBoundOfflineManager
+import org.maplibre.compose.offline.UnsupportedOfflineManager
 import org.maplibre.compose.resource.MapRequestInterceptor
 import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.sources.SourceHandle
@@ -81,19 +81,8 @@ public expect fun createMapRuntime(options: MapRuntimeOptions): MapRuntime
  */
 @Composable public expect fun rememberDefaultMapRuntime(): MapRuntime
 
-/** Reports the optional operations that one [MapRuntime] supports. */
-public data class MapRuntimeCapabilities(
-  /** Whether the runtime supports offline-pack operations. */
-  public val supportsOfflinePacks: Boolean,
-  /** Whether the runtime supports ambient-cache management operations. */
-  public val supportsAmbientCacheManagement: Boolean,
-)
-
 /** Creates logical maps that share one application-level configuration. */
 public interface MapRuntime {
-  /** The optional operations that this runtime supports. */
-  public val capabilities: MapRuntimeCapabilities
-
   /** The offline packs and ambient cache managed by this runtime. */
   public val offlineManager: OfflineManager
 
@@ -965,12 +954,7 @@ internal class RuntimeImplementation(
   internal val platformOptions: Any?,
   private val resources: MapRuntimeResources,
   internal val logger: Logger?,
-  override val capabilities: MapRuntimeCapabilities =
-    MapRuntimeCapabilities(
-      supportsOfflinePacks = false,
-      supportsAmbientCacheManagement = false,
-    ),
-  offlineManagerBackend: OfflineManager = EmptyOfflineManager,
+  offlineManagerBackend: OfflineManager = UnsupportedOfflineManager,
   internal val physicalScope: CoroutineScope =
     CoroutineScope(SupervisorJob() + Dispatchers.Default),
   internal val snapshotterAdapterFactory: SnapshotterAdapterFactory =
@@ -979,8 +963,7 @@ internal class RuntimeImplementation(
   internal val resourceConfig: MapResourceConfig = MapResourceConfig(),
 ) : MapRuntime {
   override val offlineManager: OfflineManager =
-    CapabilityCheckedOfflineManager(
-      capabilities = capabilities,
+    RuntimeBoundOfflineManager(
       delegate = offlineManagerBackend,
       requireRuntimeOpen = ::requireOpen,
     )

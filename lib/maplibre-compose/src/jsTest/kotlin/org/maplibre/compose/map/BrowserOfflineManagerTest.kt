@@ -10,14 +10,12 @@ import org.maplibre.compose.offline.OfflinePackDefinition
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.BoundingBox
 
-class BrowserMapRuntimeCapabilitiesTest {
+class BrowserOfflineManagerTest {
   @Test
-  fun web_reports_unsupported_offline_features_without_disabling_runtime_children() = runTest {
+  fun web_rejects_offline_operations_without_disabling_runtime_children() = runTest {
     val runtime = createMapRuntime(MapRuntimeOptions())
     val manager = runtime.offlineManager
 
-    assertFalse(runtime.capabilities.supportsOfflinePacks)
-    assertFalse(runtime.capabilities.supportsAmbientCacheManagement)
     assertTrue(manager.packs.isEmpty())
     assertFailsWith<UnsupportedOperationException> {
       manager.create(

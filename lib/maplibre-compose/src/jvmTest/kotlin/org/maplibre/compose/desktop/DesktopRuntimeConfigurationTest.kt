@@ -52,8 +52,6 @@ class DesktopRuntimeConfigurationTest {
     val firstState = first.createMapState()
     val secondState = second.createMapState()
 
-    assertTrue(first.capabilities.supportsOfflinePacks)
-    assertTrue(first.capabilities.supportsAmbientCacheManagement)
     assertNotSame(first.offlineManager, second.offlineManager)
 
     first.close()
