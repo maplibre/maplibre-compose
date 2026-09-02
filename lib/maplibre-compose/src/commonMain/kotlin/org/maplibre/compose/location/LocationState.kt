@@ -13,12 +13,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
-import kotlin.coroutines.CoroutineContext
-import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.time.TimeMark
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.withContext
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.Rotation
 import org.maplibre.spatialk.units.extensions.degrees
@@ -134,7 +131,6 @@ public sealed interface LocationTrackingStatus {
  * provider setup, [LocationState.permission] reports foreground authorization, and
  * [LocationState.status] reports only the tracking session.
  *
- * @param enabled Whether location and heading updates should run while lifecycle-active.
  * @param provider The [LocationProvider] to use for obtaining location updates and for observing
  *   and requesting foreground location permission. A custom provider whose
  *   [LocationProvider.permission] keeps the granted default needs no permission handling.
@@ -142,24 +138,22 @@ public sealed interface LocationTrackingStatus {
  * @param headingProvider The optional [HeadingProvider] to use for obtaining device-heading
  *   updates. By default, a provider that emits no headings is used.
  * @param headingRequest Preferences for device-heading updates.
+ * @param enabled Whether location and heading updates should run while lifecycle-active.
  * @param lifecycleOwner The [LifecycleOwner] to scope the collection of updates to. Defaults to the
  *   current [LocalLifecycleOwner].
  * @param minActiveState The minimum [Lifecycle.State] at which to collect updates. Defaults to
  *   [Lifecycle.State.STARTED].
- * @param coroutineContext The [CoroutineContext] to use for collecting updates. Defaults to
- *   [EmptyCoroutineContext].
  * @return A remembered [LocationState] instance.
  */
 @Composable
 public fun rememberLocationState(
-  enabled: Boolean = true,
   provider: LocationProvider = rememberDefaultLocationProvider(),
   request: LocationRequest = LocationRequest(),
   headingProvider: HeadingProvider = NoHeadingProvider,
   headingRequest: HeadingRequest = HeadingRequest(),
+  enabled: Boolean = true,
   lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
   minActiveState: Lifecycle.State = Lifecycle.State.STARTED,
-  coroutineContext: CoroutineContext = EmptyCoroutineContext,
 ): LocationState {
   val state =
     remember(provider) {
@@ -183,7 +177,6 @@ public fun rememberLocationState(
     state.retryKey,
     lifecycleOwner.lifecycle,
     minActiveState,
-    coroutineContext,
   ) {
     if (
       !enabled ||
@@ -198,28 +191,24 @@ public fun rememberLocationState(
     lifecycleOwner.lifecycle.repeatOnLifecycle(minActiveState) {
       try {
         state.status = LocationTrackingStatus.Starting
-        val collectSession: suspend () -> Unit = {
-          provider
-            .updates(request)
-            .catch { error ->
-              if (error is CancellationException) throw error
-              emit(
-                LocationEvent.Unavailable(
-                  LocationUnavailableReason.UnexpectedFailure,
-                  error,
-                )
+        provider
+          .updates(request)
+          .catch { error ->
+            if (error is CancellationException) throw error
+            emit(
+              LocationEvent.Unavailable(
+                LocationUnavailableReason.UnexpectedFailure,
+                error,
               )
+            )
+          }
+          .collect { event ->
+            when (event) {
+              is LocationEvent.Update -> state.accept(event)
+              is LocationEvent.Unavailable ->
+                state.status = LocationTrackingStatus.Unavailable(event.reason, event.cause)
             }
-            .collect { event ->
-              when (event) {
-                is LocationEvent.Update -> state.accept(event)
-                is LocationEvent.Unavailable ->
-                  state.status = LocationTrackingStatus.Unavailable(event.reason, event.cause)
-              }
-            }
-        }
-        if (coroutineContext == EmptyCoroutineContext) collectSession()
-        else withContext(coroutineContext) { collectSession() }
+          }
         if (
           state.status == LocationTrackingStatus.Starting ||
             state.status == LocationTrackingStatus.Tracking
@@ -241,7 +230,6 @@ public fun rememberLocationState(
     state,
     lifecycleOwner.lifecycle,
     minActiveState,
-    coroutineContext,
     state.retryKey,
   ) {
     if (!enabled || permission !is LocationPermission.Granted) {
@@ -250,18 +238,14 @@ public fun rememberLocationState(
     }
     lifecycleOwner.lifecycle.repeatOnLifecycle(minActiveState) {
       try {
-        val collectHeading: suspend () -> Unit = {
-          state.headingStatus = HeadingTrackingStatus.Starting
-          headingProvider
-            .updates(headingRequest)
-            .catch { error -> state.headingStatus = HeadingTrackingStatus.Unavailable(error) }
-            .collect { heading ->
-              state.lastHeading = heading
-              state.headingStatus = HeadingTrackingStatus.Tracking
-            }
-        }
-        if (coroutineContext == EmptyCoroutineContext) collectHeading()
-        else withContext(coroutineContext) { collectHeading() }
+        state.headingStatus = HeadingTrackingStatus.Starting
+        headingProvider
+          .updates(headingRequest)
+          .catch { error -> state.headingStatus = HeadingTrackingStatus.Unavailable(error) }
+          .collect { heading ->
+            state.lastHeading = heading
+            state.headingStatus = HeadingTrackingStatus.Tracking
+          }
         if (
           state.headingStatus == HeadingTrackingStatus.Starting ||
             state.headingStatus == HeadingTrackingStatus.Tracking

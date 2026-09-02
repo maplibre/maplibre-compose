@@ -14,12 +14,9 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.TimeSource
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -172,25 +169,6 @@ class LocationStateTest {
         LocationPermission.Granted(LocationAccuracyAuthorization.Unknown),
         state?.permission,
       )
-    }
-  }
-
-  @Test
-  fun collectionContextAppliesToHeadingUpdates() = withMainDispatcher {
-    runComposeUiTest {
-      val headingProvider = ContextRecordingHeadingProvider()
-
-      setContent {
-        rememberLocationState(
-          provider = FiniteLocationProvider(),
-          headingProvider = headingProvider,
-          lifecycleOwner = ResumedLifecycleOwner(),
-          coroutineContext = CoroutineName("location-updates"),
-        )
-      }
-
-      waitUntil { headingProvider.collectionName.isCompleted }
-      assertEquals("location-updates", headingProvider.collectionName.getCompleted())
     }
   }
 
@@ -483,15 +461,6 @@ private class MutableHeadingProvider : HeadingProvider {
     } finally {
       activeCollectors--
     }
-  }
-}
-
-private class ContextRecordingHeadingProvider : HeadingProvider {
-  val collectionName = CompletableDeferred<String?>()
-
-  override fun updates(request: HeadingRequest): Flow<HeadingMeasurement> = flow {
-    collectionName.complete(currentCoroutineContext()[CoroutineName]?.name)
-    awaitCancellation()
   }
 }
 
