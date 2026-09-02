@@ -3,12 +3,14 @@ package org.maplibre.compose.location
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import platform.CoreLocation.kCLErrorDenied
 import platform.CoreLocation.kCLErrorDomain
 import platform.CoreLocation.kCLErrorLocationUnknown
 import platform.CoreLocation.kCLErrorNetwork
 import platform.Foundation.NSError
+import platform.Foundation.NSThread
 
 class IosLocationProviderTest {
   @Test
@@ -17,6 +19,12 @@ class IosLocationProviderTest {
       IosLocationPermissionRequester().status.value,
       IosLocationProvider().permission.value,
     )
+  }
+
+  @Test
+  fun readsLocationServicesStatusOffMainThread() = runTest {
+    assertTrue(NSThread.isMainThread)
+    assertFalse(readLocationServicesEnabled { NSThread.isMainThread })
   }
 
   @Test
