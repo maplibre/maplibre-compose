@@ -92,6 +92,7 @@ import org.maplibre.nativeffi.geo.ScreenPoint
 import org.maplibre.nativeffi.map.DebugOption
 import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.map.MapProjectionHandle
+import org.maplibre.nativeffi.map.ProjectionModeOptions
 import org.maplibre.nativeffi.map.TileLodMode as FfiTileLodMode
 import org.maplibre.nativeffi.map.TileOptions
 import org.maplibre.nativeffi.query.RenderedQueryGeometry
@@ -325,6 +326,7 @@ internal class MlnFfiMapSession(
 
   @Volatile private var maximumFps: Int? = null
   private var cameraConstraints: CameraConstraints? = null
+  private var cameraProjection: CameraProjection = CameraProjection.Perspective
   private var tileLodOptions: TileLodOptions = TileLodOptions.Standard
   private var lastRenderTime = TimeSource.Monotonic.markNow()
 
@@ -1593,12 +1595,18 @@ internal class MlnFfiMapSession(
 
   override fun setRenderSettings(value: RenderOptions) {
     maximumFps = value.maximumFps
+    val cameraProjectionChanged = cameraProjection != value.cameraProjection
+    cameraProjection = value.cameraProjection
     configureMap { map ->
       map.debugOptions = buildSet {
         if (value.isTileBordersEnabled) add(DebugOption.TILE_BORDERS)
         if (value.isTileTimestampsEnabled) add(DebugOption.TIMESTAMPS)
         if (value.isCollisionBoxesEnabled) add(DebugOption.COLLISION)
         if (value.isTileParseStatusEnabled) add(DebugOption.PARSE_STATUS)
+      }
+      if (cameraProjectionChanged) {
+        map.projectionMode = value.cameraProjection.toFfi()
+        snapshotViewportAndNotify(map)
       }
     }
   }
@@ -1990,4 +1998,16 @@ private fun TileLodMode.toFfi(): FfiTileLodMode =
   when (this) {
     TileLodMode.Default -> FfiTileLodMode.DEFAULT
     TileLodMode.Distance -> FfiTileLodMode.DISTANCE
+  }
+
+private fun CameraProjection.toFfi(): ProjectionModeOptions =
+  ProjectionModeOptions().also { options ->
+    when (this) {
+      CameraProjection.Perspective -> options.axonometric = false
+      is CameraProjection.Axonometric -> {
+        options.axonometric = true
+        options.xSkew = xSkew
+        options.ySkew = ySkew
+      }
+    }
   }
