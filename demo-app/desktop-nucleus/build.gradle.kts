@@ -24,6 +24,7 @@ dependencies {
   implementation(libs.nucleus.decoratedWindowMaterial3)
   implementation(libs.nucleus.decoratedWindowTao)
 
+  runtimeOnly(compose.desktop.currentOs)
   runtimeOnly(project(":lib:${desktopHostPlatform.runtimeArtifactId(desktopRenderBackend)}"))
 }
 
