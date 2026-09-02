@@ -897,7 +897,9 @@ internal constructor(
   }
 
   internal fun desiredSourceDefinition(id: String): org.maplibre.compose.style.SourceDefinition? =
-    desiredStyleRevision.sources.firstOrNull { it.id == id } ?: imperativeSources[id]?.definition
+    lifecycle.serialized {
+      desiredStyleRevision.sources.firstOrNull { it.id == id } ?: imperativeSources[id]?.definition
+    }
 
   internal fun addStyleSource(source: Source): SourceHandle {
     val definition = source.definition()
