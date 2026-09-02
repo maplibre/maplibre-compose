@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.maplibre.spatialk.units.extensions.inMeters
 import platform.CoreLocation.CLLocation
 import platform.CoreLocation.CLLocationManager
@@ -67,14 +69,11 @@ public class IosLocationProvider : LocationProvider {
   override fun requestPermission(): Unit = requester.requestForegroundPermission()
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
-    if (!CLLocationManager.locationServicesEnabled()) {
-      trySend(LocationEvent.Unavailable(LocationUnavailableReason.ServicesDisabled))
-      close()
-      return@callbackFlow
-    }
-
     val manager = CLLocationManager()
-    val delegate = Delegate(channel)
+    val delegate =
+      Delegate(channel) { error ->
+        launch { channel.trySend(LocationEvent.Unavailable(error.asUnavailableReason())) }
+      }
     manager.delegate = delegate
     manager.desiredAccuracy =
       when (request.accuracy) {
@@ -94,14 +93,16 @@ public class IosLocationProvider : LocationProvider {
   }
     .flowOn(Dispatchers.Main)
 
-  private class Delegate(private val channel: SendChannel<LocationEvent>) :
-    NSObject(), CLLocationManagerDelegateProtocol {
+  private class Delegate(
+    private val channel: SendChannel<LocationEvent>,
+    private val reportError: (NSError) -> Unit,
+  ) : NSObject(), CLLocationManagerDelegateProtocol {
     override fun locationManager(manager: CLLocationManager, didUpdateLocations: List<*>) {
       @Suppress("UNCHECKED_CAST") (didUpdateLocations as? List<CLLocation>)?.forEach(::sendLocation)
     }
 
     override fun locationManager(manager: CLLocationManager, didFailWithError: NSError) {
-      channel.trySend(LocationEvent.Unavailable(didFailWithError.asUnavailableReason()))
+      reportError(didFailWithError)
     }
 
     fun sendLocation(location: CLLocation) {
@@ -120,13 +121,16 @@ public class IosLocationProvider : LocationProvider {
   }
 }
 
-internal fun NSError.asUnavailableReason(
-  locationServicesEnabled: Boolean = CLLocationManager.locationServicesEnabled()
+private suspend fun locationServicesEnabled(): Boolean =
+  withContext(Dispatchers.Default) { CLLocationManager.locationServicesEnabled() }
+
+internal suspend fun NSError.asUnavailableReason(
+  locationServicesEnabled: suspend () -> Boolean = ::locationServicesEnabled
 ): LocationUnavailableReason =
   when {
     domain != kCLErrorDomain -> LocationUnavailableReason.UnexpectedFailure
     code == kCLErrorDenied ->
-      if (locationServicesEnabled) {
+      if (locationServicesEnabled()) {
         LocationUnavailableReason.PermissionDenied
       } else {
         LocationUnavailableReason.ServicesDisabled
