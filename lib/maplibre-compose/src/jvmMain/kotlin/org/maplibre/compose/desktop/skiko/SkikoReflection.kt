@@ -1,6 +1,5 @@
 package org.maplibre.compose.desktop.skiko
 
-import co.touchlab.kermit.Logger
 import java.awt.Component
 import java.awt.Container
 import java.awt.Window
@@ -10,6 +9,7 @@ import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.SwingUtilities
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.MlnFfiHostException
 
 /**
@@ -228,7 +228,7 @@ internal object SkikoDirect3DDeviceLayout {
   const val READ_SIZE: Long = DEVICE_OFFSET + Long.SIZE_BYTES
 
   private val warnedAboutSkikoVersion = AtomicBoolean(false)
-  private val logger = Logger.withTag("maplibre-compose")
+  private val logger = MapLog()
 
   /**
    * Skiko's own version string from `org.jetbrains.skiko.Version`, or null if it is unavailable.

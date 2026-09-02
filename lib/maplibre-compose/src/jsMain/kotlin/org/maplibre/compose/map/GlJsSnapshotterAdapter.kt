@@ -1,7 +1,6 @@
 package org.maplibre.compose.map
 
 import androidx.compose.ui.graphics.ImageBitmap
-import co.touchlab.kermit.Logger
 import js.objects.unsafeJso
 import kotlin.coroutines.resume
 import kotlinx.coroutines.CancellationException
@@ -19,6 +18,7 @@ import org.maplibre.compose.gljs.isTerminalStyleLoadFailure
 import org.maplibre.compose.gljs.styleJson
 import org.maplibre.compose.gljs.styleUrl
 import org.maplibre.compose.gljs.subscribe
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.resource.GlJsRequestController
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
@@ -32,7 +32,7 @@ import web.html.HTMLCanvasElement
 import web.html.HTMLElement
 
 internal class GlJsSnapshotterAdapterFactory(
-  private val logger: Logger?,
+  private val logger: MapLog?,
   private val requests: GlJsRequestController? = null,
 ) : SnapshotterAdapterFactory {
   override fun create(): SnapshotterAdapter = GlJsSnapshotterAdapter(logger, requests)
@@ -40,7 +40,7 @@ internal class GlJsSnapshotterAdapterFactory(
 
 /** One private GL JS map and DOM target for a Web snapshotter. */
 private class GlJsSnapshotterAdapter(
-  private val logger: Logger?,
+  private val logger: MapLog?,
   private val requests: GlJsRequestController?,
 ) : SnapshotterAdapter {
   private var open = true

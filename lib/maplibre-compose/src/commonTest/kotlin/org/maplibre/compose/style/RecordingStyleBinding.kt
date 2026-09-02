@@ -1,12 +1,12 @@
 package org.maplibre.compose.style
 
 import androidx.compose.ui.graphics.ImageBitmap
-import co.touchlab.kermit.Logger
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.UnknownLayer
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
 import org.maplibre.compose.sources.CustomVectorSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
@@ -72,7 +72,7 @@ internal class RecordingStyleBinding(
     isLoaded = false
   }
 
-  override val logger: Logger? = null
+  override val logger: MapLog? = null
 
   override fun addImage(definition: StyleImageDefinition) {
     if (!addImageHookInvoked) {

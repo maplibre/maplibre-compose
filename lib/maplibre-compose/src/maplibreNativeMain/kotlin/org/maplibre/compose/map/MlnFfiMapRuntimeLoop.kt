@@ -1,8 +1,8 @@
 package org.maplibre.compose.map
 
-import co.touchlab.kermit.Logger
 import kotlin.concurrent.Volatile
 import kotlinx.io.files.Path
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.MlnFfiGate
 import org.maplibre.compose.mlnffi.MlnFfiOwnerLock
 import org.maplibre.compose.mlnffi.MlnFfiOwnerThread
@@ -49,7 +49,7 @@ internal class MlnFfiMapRuntimeLoop(
   /** The extent the map is created with. Its scale factor is fixed for the map's lifetime. */
   private val extent: MapExtent,
   private val cacheFile: Path,
-  private val getLogger: () -> Logger?,
+  private val getLogger: () -> MapLog?,
   private val resourceProviderFactory: MlnFfiResourceProviderFactory = ::MlnFfiResourceProvider,
   private val resourceConfig: MapResourceConfig = MapResourceConfig(),
   /** Runs on the owner thread once the map exists, before it is published. */
@@ -69,7 +69,7 @@ internal class MlnFfiMapRuntimeLoop(
   private val onFailure: (Throwable) -> Unit = {},
 ) : AutoCloseable {
 
-  private val logger: Logger?
+  private val logger: MapLog?
     get() = getLogger()
 
   /** Work for the owner thread; [OwnerTask.abandon] runs instead if it never gets to run. */

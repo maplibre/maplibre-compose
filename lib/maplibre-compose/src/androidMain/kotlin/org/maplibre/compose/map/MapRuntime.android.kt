@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.platform.LocalContext
-import co.touchlab.kermit.Logger
 import java.io.File
 import kotlinx.io.files.Path
 import org.maplibre.compose.mlnffi.AndroidMlnFfiPlatform
@@ -21,8 +20,6 @@ public actual data class MapRuntimeOptions(
   public val cacheFile: File = context.applicationContext.cacheDir.resolve("maplibre-cache.db"),
   /** Maximum ambient cache size in bytes, or null for MapLibre's own default. */
   public val maximumCacheSizeBytes: Long? = null,
-  /** Receives diagnostic messages from maps and shared runtime resources. */
-  public val logger: Logger? = Logger.withTag("maplibre-compose"),
   /** Rewrites URLs and headers for every resource this runtime fetches. */
   public val requestInterceptor: MapRequestInterceptor? = null,
   /** Serves bytes for resource URLs this provider accepts. */
@@ -31,11 +28,10 @@ public actual data class MapRuntimeOptions(
 
 internal fun MapRuntimeOptions.toMlnFfiRuntimeOptions(): MlnFfiRuntimeOptions =
   MlnFfiRuntimeOptions(
-    Path(cacheFile.absolutePath),
-    maximumCacheSizeBytes,
-    logger,
-    requestInterceptor,
-    resourceProvider,
+    cacheFile = Path(cacheFile.absolutePath),
+    maximumCacheSizeBytes = maximumCacheSizeBytes,
+    requestInterceptor = requestInterceptor,
+    resourceProvider = resourceProvider,
   )
 
 public actual fun createMapRuntime(options: MapRuntimeOptions): MapRuntime {

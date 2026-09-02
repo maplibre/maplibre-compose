@@ -15,7 +15,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import co.touchlab.kermit.Logger
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.map.mlnFfiArchitecture
 import org.maplibre.compose.map.mlnFfiOperatingSystem
 
@@ -28,7 +28,7 @@ internal fun AndroidMlnFfiSurface(
   kind: AndroidMapSurfaceKind,
   maximumFps: Int? = null,
   modifier: Modifier,
-  logger: Logger?,
+  logger: MapLog?,
   presentWindow: Boolean = true,
 ) {
   val density = LocalDensity.current.density.toDouble()

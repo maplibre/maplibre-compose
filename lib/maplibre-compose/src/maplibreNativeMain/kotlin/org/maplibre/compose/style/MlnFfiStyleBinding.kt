@@ -1,7 +1,6 @@
 package org.maplibre.compose.style
 
 import androidx.compose.ui.graphics.ImageBitmap
-import co.touchlab.kermit.Logger
 import kotlin.concurrent.Volatile
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -17,6 +16,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.UnknownLayer
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.MlnFfiLock
 import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
@@ -80,7 +80,7 @@ import org.maplibre.spatialk.geojson.toJson
  */
 internal open class MlnFfiStyleBinding(
   override val identity: StyleIdentity = StyleIdentity.create(),
-  private val loggerProvider: () -> Logger? = { null },
+  private val loggerProvider: () -> MapLog? = { null },
   private val sessionOpen: () -> Boolean = { false },
   private val accessMap: ((MapHandle) -> Unit) -> Boolean = { false },
   private val accessRenderSession: ((RenderSessionHandle) -> Unit) -> Boolean = { false },
@@ -103,7 +103,7 @@ internal open class MlnFfiStyleBinding(
   override val isLoaded: Boolean
     get() = loaded && sessionOpen()
 
-  override val logger: Logger?
+  override val logger: MapLog?
     get() = loggerProvider()
 
   override fun addImage(definition: StyleImageDefinition) {

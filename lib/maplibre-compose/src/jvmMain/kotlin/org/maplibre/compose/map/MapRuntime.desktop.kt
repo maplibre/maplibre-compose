@@ -1,7 +1,6 @@
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.Composable
-import co.touchlab.kermit.Logger
 import org.maplibre.compose.desktop.desktopRuntimeOptions
 import org.maplibre.compose.desktop.inferredApplicationId
 import org.maplibre.compose.resource.MapRequestInterceptor
@@ -13,8 +12,6 @@ public actual data class MapRuntimeOptions(
   public val applicationId: String = inferredApplicationId(),
   /** Ambient cache size in bytes, or null for MapLibre's default. */
   public val maximumCacheSizeBytes: Long? = null,
-  /** Receives diagnostic messages from maps and shared runtime resources. */
-  public val logger: Logger? = Logger.withTag("maplibre-compose"),
   /** Rewrites URLs and headers for every resource this runtime fetches. */
   public val requestInterceptor: MapRequestInterceptor? = null,
   /** Serves bytes for resource URLs this provider accepts. */
@@ -25,7 +22,6 @@ internal fun MapRuntimeOptions.toMlnFfiRuntimeOptions() =
   desktopRuntimeOptions(
     applicationId,
     maximumCacheSizeBytes,
-    logger,
     requestInterceptor,
     resourceProvider,
   )

@@ -6,15 +6,16 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import org.maplibre.compose.logging.MapLogRecord
+import org.maplibre.compose.logging.MapLogSource
+import org.maplibre.compose.logging.MapLogger
+import org.maplibre.compose.logging.MapLogging
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.util.PositionQuad
-import org.maplibre.nativeffi.Maplibre
-import org.maplibre.nativeffi.log.LogCallback
-import org.maplibre.nativeffi.log.LogRecord
 import org.maplibre.spatialk.geojson.Position
 
 /**
@@ -26,22 +27,20 @@ import org.maplibre.spatialk.geojson.Position
  */
 class ImageSourceAttachTest {
 
-  private val records = RecordingList<LogRecord>()
+  private val records = RecordingList<MapLogRecord>()
+  private val previousLogger = MapLogging.logger
 
   init {
     // Process-global; safe because each platform test process runs without parallel forks.
-    // Returning false keeps native logging.
-    Maplibre.setLogCallback(
-      LogCallback { record ->
-        records += record
-        false
-      }
-    )
+    MapLogging.logger = MapLogger { record ->
+      records += record
+      previousLogger?.log(record)
+    }
   }
 
   @AfterTest
-  fun clearLogCallback() {
-    Maplibre.clearLogCallback()
+  fun restoreLogger() {
+    MapLogging.logger = previousLogger
   }
 
   @Test
@@ -77,7 +76,7 @@ class ImageSourceAttachTest {
   }
 
   private fun failedToLoad(sourceId: String): Boolean = records.any {
-    it.message.contains("Failed to load source $sourceId")
+    it.source == MapLogSource.NativeEngine && it.message.contains("Failed to load source $sourceId")
   }
 
   private companion object {

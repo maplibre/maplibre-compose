@@ -1,7 +1,6 @@
 package org.maplibre.compose.style
 
 import androidx.compose.ui.graphics.ImageBitmap
-import co.touchlab.kermit.Logger
 import js.objects.unsafeJso
 import kotlinx.coroutines.await
 import kotlinx.serialization.json.JsonElement
@@ -30,6 +29,7 @@ import org.maplibre.compose.gljs.keys
 import org.maplibre.compose.gljs.subscribe
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.UnknownLayer
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.sources.CLUSTER_ID_PROPERTY
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
 import org.maplibre.compose.sources.CustomVectorSourceOptions
@@ -58,7 +58,7 @@ import org.maplibre.spatialk.geojson.Position
 /** [StyleBinding] for one loaded style in a MapLibre GL JS map. */
 internal class GlJsStyleBinding(
   private val map: MaplibreMap,
-  override val logger: Logger?,
+  override val logger: MapLog?,
   private val getScale: () -> Float,
 ) : StyleBinding {
 

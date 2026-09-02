@@ -9,7 +9,6 @@ import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import co.touchlab.kermit.Logger
 import js.objects.unsafeJso
 import kotlin.coroutines.resume
 import kotlin.math.log2
@@ -51,6 +50,9 @@ import org.maplibre.compose.gljs.queryPoint
 import org.maplibre.compose.gljs.styleJson
 import org.maplibre.compose.gljs.styleUrl
 import org.maplibre.compose.gljs.subscribe
+import org.maplibre.compose.logging.MapLog
+import org.maplibre.compose.logging.MapLogLevel
+import org.maplibre.compose.logging.MapLogSource
 import org.maplibre.compose.resource.GlJsRequestController
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
@@ -90,7 +92,7 @@ private const val FRAME_INTERVAL_SLACK = 0.1
 internal class GlJsMapSession(
   private val lifecycleAuthority: MapLifecycleAuthority,
   callbacks: MapAdapter.Callbacks,
-  internal var logger: Logger?,
+  internal var logger: MapLog?,
   internal var layoutDirection: LayoutDirection,
   private val requests: GlJsRequestController? = null,
 ) : MapLifecycleSession, GlJsMapRenderer, GestureTarget {
@@ -528,8 +530,15 @@ internal class GlJsMapSession(
     map.subscribe("error") { event ->
       val reason = event.error?.message ?: "MapLibre failed to load the map"
       if (!styleLoadPending) {
-        // Tile and sprite failures land here too, and are not the map failing to load.
-        logger?.w { "MapLibre reported an error: $reason" }
+        // Tile and sprite failures land here too, and are not the map failing to load. Listening
+        // is what silences the browser's own console.error fallback, so this is the only outlet.
+        logger?.log(
+          MapLogLevel.Error,
+          throwable = null,
+          message = { reason },
+          source = MapLogSource.WebEngine,
+          category = event.sourceId ?: event.asDynamic().layer?.id as? String,
+        )
       }
     }
 

@@ -2,13 +2,13 @@
 
 package org.maplibre.compose.offline
 
-import co.touchlab.kermit.Logger
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.mlnffi.parkForTest
@@ -34,7 +34,7 @@ class MlnFfiOfflineRuntimeTest {
   private fun startRuntime(): MlnFfiOfflineRuntime =
     MlnFfiOfflineRuntime(
         cacheFile = cacheFile,
-        logger = Logger.withTag("offline-runtime-test"),
+        logger = MapLog(),
         onEvent = {},
       )
       .also {

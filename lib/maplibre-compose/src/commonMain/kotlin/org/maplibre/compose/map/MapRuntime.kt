@@ -21,7 +21,6 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
-import co.touchlab.kermit.Logger
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.jvm.JvmInline
@@ -50,6 +49,7 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.layers.LayerHandle
 import org.maplibre.compose.layers.layerHandle
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.offline.OfflineManager
 import org.maplibre.compose.offline.RuntimeBoundOfflineManager
 import org.maplibre.compose.offline.UnsupportedOfflineManager
@@ -1438,7 +1438,7 @@ internal fun interface MapRuntimeResources {
 internal class RuntimeImplementation(
   internal val platformOptions: Any?,
   private val resources: MapRuntimeResources,
-  internal val logger: Logger?,
+  internal val logger: MapLog?,
   offlineManagerBackend: OfflineManager = UnsupportedOfflineManager,
   internal val physicalScope: CoroutineScope =
     CoroutineScope(SupervisorJob() + Dispatchers.Default),

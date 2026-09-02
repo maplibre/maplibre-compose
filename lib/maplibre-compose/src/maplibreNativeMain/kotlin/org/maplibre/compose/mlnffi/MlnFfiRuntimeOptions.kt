@@ -1,8 +1,8 @@
 package org.maplibre.compose.mlnffi
 
 import androidx.compose.runtime.Immutable
-import co.touchlab.kermit.Logger
 import kotlinx.io.files.Path
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.resource.MapRequestInterceptor
 import org.maplibre.compose.resource.MapResourceProvider
 import org.maplibre.compose.resource.MlnFfiResourceProvider
@@ -13,9 +13,9 @@ import org.maplibre.compose.resource.MlnFfiResourceProviderFactory
 internal data class MlnFfiRuntimeOptions(
   val cacheFile: Path,
   val maximumCacheSizeBytes: Long? = null,
-  val logger: Logger? = Logger.withTag("maplibre-compose"),
   val requestInterceptor: MapRequestInterceptor? = null,
   val resourceProvider: MapResourceProvider? = null,
+  internal val logger: MapLog? = MapLog(),
   internal val resourceProviderFactory: MlnFfiResourceProviderFactory = ::MlnFfiResourceProvider,
 )
 
