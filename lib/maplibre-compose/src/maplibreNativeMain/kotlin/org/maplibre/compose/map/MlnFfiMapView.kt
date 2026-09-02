@@ -99,7 +99,7 @@ internal fun MlnFfiMapView(
     }
   val retainedSession = state.retainedAdapter(compatibility) as? MlnFfiMapSession
 
-  val unpreparedSession =
+  val session =
     retainedSession
       ?: remember(renderBackend, scaleFactor, applicationOptions, state) {
         MlnFfiMapSession(
@@ -114,7 +114,6 @@ internal fun MlnFfiMapView(
           resourceConfig = state.runtime.resourceConfig,
         )
       }
-  val session = remember(unpreparedSession) { unpreparedSession.apply { preparePresentation() } }
 
   session.durableCallbacks = state.durableStyleCallbacks()
   session.callbacks = callbacks

@@ -140,7 +140,11 @@ public sealed interface StyleLoadState {
   /** No map surface can currently load the desired style. */
   public data object Pending : StyleLoadState
 
-  /** Indicates that the current map surface is loading the desired style. */
+  /**
+   * Indicates that the current map surface is loading the desired style.
+   *
+   * A style that is already on screen stays presented until this becomes [Ready].
+   */
   public data object Loading : StyleLoadState
 
   /** Indicates that the current map surface loaded the desired style. */
@@ -237,7 +241,8 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   }
 
   internal fun updateLoadedStyle(style: StyleBinding?) {
-    loadedStyle.store(style)
+    val previous = loadedStyle.exchange(style)
+    if (previous !== style) previous?.invalidate()
     sourceIdentities.store(emptyMap())
     layerIdentities.store(emptyMap())
     sourcesState = emptyMap()
@@ -870,7 +875,9 @@ internal constructor(
             style.invalidateStructurallyReplacedResources(desiredStyleRevision, revision)
             styleHandleEpoch++
             desiredStyleRevision = revision
-            style.loadState = StyleLoadState.Loading
+            if (style.loadState != StyleLoadState.Ready) {
+              style.loadState = StyleLoadState.Loading
+            }
             return
           }
       }
@@ -883,17 +890,17 @@ internal constructor(
       requireOpenLocked()
       if (style.baseStyle == value) return
       requireNoActiveStyleMutation()
-      styleHandleEpoch++
-      imperativeSources.clear()
-      imperativeImages.clear()
       style.setBaseStyleState(value)
-      style.invalidateLoadedStyle()
       val adapter = lifecycle.currentAdapter()
       if (adapter == null) {
+        styleHandleEpoch++
+        imperativeSources.clear()
+        imperativeImages.clear()
+        style.invalidateLoadedStyle()
         style.loadState = StyleLoadState.Pending
         baseStyleCommandRevision++
         return
-      } else {
+      } else if (style.loadState != StyleLoadState.Ready) {
         style.loadState = StyleLoadState.Loading
       }
       BaseStyleCommand(adapter, value, ++baseStyleCommandRevision)

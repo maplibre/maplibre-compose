@@ -448,10 +448,6 @@ internal class MlnFfiMapSession(
     lifecycle.awaitClosed()
   }
 
-  internal fun preparePresentation() {
-    hasLoadedFirstStyle = false
-  }
-
   internal val isPresentationPublished: Boolean
     get() = lifecycleAuthority.acceptsPresentation(this)
 
@@ -501,6 +497,7 @@ internal class MlnFfiMapSession(
       lifecycleStyleRequestIdentity = null
       styleEventProducer = null
       lifecycleStyleIdentity = null
+      hasLoadedFirstStyle = false
     }
     closePlatform()
   }
@@ -1123,7 +1120,6 @@ internal class MlnFfiMapSession(
     if (style == requestedStyle) return
     styleBinding?.invalidate()
     revisionApplied = false
-    hasLoadedFirstStyle = false
     requestedStyle = style
     val engineAvailable = loop != null
     val tracker = styleLoadTracker
@@ -1153,7 +1149,6 @@ internal class MlnFfiMapSession(
     val wasReady = tracker.state is TrackedStyleLoadState.Ready
     val request = tracker.beginReconciliation()
     revisionApplied = false
-    hasLoadedFirstStyle = false
     try {
       styleReconciler.apply(binding, revision)
     } catch (error: CancellationException) {
@@ -1182,7 +1177,6 @@ internal class MlnFfiMapSession(
   override suspend fun replayStyleRevision(revision: DesiredStyleRevision) {
     val binding = styleBinding ?: return
     revisionApplied = false
-    hasLoadedFirstStyle = false
     styleReconciler.apply(binding, revision)
     onMap { it.requestRepaint() }
     requestRender()

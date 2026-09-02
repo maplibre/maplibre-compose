@@ -137,7 +137,10 @@ internal class GlJsMapSession(
   /** Whether the current engine map has loaded its first base style. */
   private var hasLoadedInitialStyle = false
 
-  /** Whether the current engine map has reconciled the latest requested style. */
+  /**
+   * Whether the current engine map has reconciled a style. It stays true so a later style switch
+   * does not hide a live map.
+   */
   private var hasReconciledStyle by mutableStateOf(false)
     private set
 
@@ -634,7 +637,6 @@ internal class GlJsMapSession(
 
   override fun setBaseStyle(style: BaseStyle) {
     if (style == requestedStyle) return
-    hasReconciledStyle = false
     revisionApplied = false
     baseStyleReady = false
     // Must precede the new style: the old style's sources and layers would otherwise recompose
@@ -659,7 +661,6 @@ internal class GlJsMapSession(
     val tracker = styleLoadTracker ?: return false
     val wasReady = tracker.state is TrackedStyleLoadState.Ready
     val request = tracker.beginReconciliation()
-    hasReconciledStyle = false
     revisionApplied = false
     try {
       styleReconciler.apply(binding, revision)
@@ -688,7 +689,6 @@ internal class GlJsMapSession(
 
   override suspend fun replayStyleRevision(revision: DesiredStyleRevision) {
     val binding = styleBinding ?: return
-    hasReconciledStyle = false
     revisionApplied = false
     styleReconciler.apply(binding, revision)
     surface?.requestFrame()
@@ -777,6 +777,7 @@ internal class GlJsMapSession(
         if (accepted) {
           if (lifecycleCallbacks.onMapFailLoading(engine, lifecycleRequest, this, reason)) {
             logger?.e { "Map loading failed: $reason" }
+            hasReconciledStyle = false
             if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
           }
         } else {
@@ -810,6 +811,7 @@ internal class GlJsMapSession(
         ) == true
       ) {
         lifecycleCallbacks.onMapFailLoading(engine, lifecycleRequest, this, reason)
+        hasReconciledStyle = false
       }
       if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
     }

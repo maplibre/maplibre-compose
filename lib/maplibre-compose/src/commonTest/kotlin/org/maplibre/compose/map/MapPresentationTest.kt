@@ -51,6 +51,7 @@ import org.maplibre.compose.style.DesiredStyleLayer
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.ImageSnapshot
 import org.maplibre.compose.style.RecordingStyleBinding
+import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleImageDefinition
 import org.maplibre.compose.util.VisibleRegion
@@ -730,6 +731,54 @@ class MapPresentationTest {
   }
 
   @Test
+  fun a_base_style_write_keeps_the_loaded_style_until_the_adapter_reports_a_replacement() {
+    val runtime = mapRuntimeForTest()
+    val state = runtime.createMapState(BaseStyle.Demo)
+    val token = state.reservePresentation()
+    val adapter = RecordingBaseStyleApplyAdapter(state)
+    state.publishPresentation(token, adapter)
+    val first = RecordingStyleBinding()
+    assertTrue(state.updateLoadedStyle(adapter, first))
+    assertTrue(state.markStyleReady(adapter))
+
+    state.style.baseStyle = BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")
+
+    assertSame(first, adapter.loadedStyleDuringApply)
+    assertTrue(first.isLoaded)
+    assertEquals(StyleLoadState.Ready, adapter.loadStateDuringApply)
+    assertEquals(StyleLoadState.Ready, state.style.loadState)
+    assertSame(first, state.style.currentLoadedStyle())
+
+    val replacement = RecordingStyleBinding()
+    assertTrue(state.updateLoadedStyle(adapter, replacement))
+    assertEquals(StyleLoadState.Loading, state.style.loadState)
+    assertFalse(first.isLoaded)
+    assertTrue(state.markStyleReady(adapter))
+    assertEquals(StyleLoadState.Ready, state.style.loadState)
+    assertSame(replacement, state.style.currentLoadedStyle())
+    state.close()
+    runtime.close()
+  }
+
+  @Test
+  fun a_style_revision_on_a_ready_style_leaves_the_style_ready() = runTest {
+    val fixture = presentationFixture()
+    val binding = RecordingStyleBinding()
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onMapFinishedLoading(fixture.adapter)
+
+    fixture.state.beginStyleRevision(
+      fixture.adapter,
+      DesiredStyleRevision(emptyList(), emptyList(), emptyList()),
+    )
+
+    assertEquals(StyleLoadState.Ready, fixture.state.style.loadState)
+    assertSame(binding, fixture.state.style.currentLoadedStyle())
+    assertTrue(binding.isLoaded)
+    fixture.close()
+  }
+
+  @Test
   fun publishing_a_replacement_style_makes_handles_unavailable_until_it_is_ready() {
     val fixture = presentationFixture()
     val first = RecordingStyleBinding()
@@ -1346,6 +1395,17 @@ private class FailureDuringConfigurationAdapter(private val reportFailure: (MapA
   override fun setBaseStyle(style: BaseStyle) {
     super.setBaseStyle(style)
     reportFailure(this)
+  }
+}
+
+private class RecordingBaseStyleApplyAdapter(private val state: MapState) :
+  PresentationTestAdapter() {
+  var loadedStyleDuringApply: StyleBinding? = null
+  var loadStateDuringApply: StyleLoadState? = null
+
+  override fun setBaseStyle(style: BaseStyle) {
+    loadedStyleDuringApply = state.style.currentLoadedStyle()
+    loadStateDuringApply = state.style.loadState
   }
 }
 
