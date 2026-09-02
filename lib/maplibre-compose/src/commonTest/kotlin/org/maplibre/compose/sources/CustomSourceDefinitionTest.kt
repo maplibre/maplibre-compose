@@ -6,7 +6,7 @@ import kotlin.test.assertSame
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.SourceDefinition
-import org.maplibre.compose.style.SourceHandle
+import org.maplibre.compose.style.SourceInstallation
 
 class CustomSourceDefinitionTest {
   @Test
@@ -16,7 +16,7 @@ class CustomSourceDefinitionTest {
     val source = CustomVectorSource("custom", provider = first)
     val firstDefinition = source.definition() as SourceDefinition.CustomVector
     val binding = RecordingStyleBinding()
-    val handle = SourceHandle(binding, firstDefinition)
+    val handle = SourceInstallation(binding, firstDefinition)
     val installedProvider = requireNotNull(binding.customVectorProvider)
 
     source.setDesiredProvider(second)

@@ -71,7 +71,7 @@ class StyleDefinitionAndIdentityTest {
   fun a_handle_for_an_invalidated_identity_fails_clearly() = runTest {
     val definition = SourceDefinition.Json("stale", buildJsonObject { put("type", "vector") })
     val style = RecordingStyleBinding()
-    val handle = SourceHandle(style, definition)
+    val handle = SourceInstallation(style, definition)
     val identity = style.identity
 
     style.invalidate()

@@ -40,7 +40,7 @@ internal class StyleReconciler {
       when {
         desired == null -> removeSource(applied)
         applied.definition.canUpdateTo(desired) -> {
-          applied.handle.update(desired)
+          applied.installation.update(desired)
           applied.definition = desired
         }
         else -> {
@@ -76,18 +76,18 @@ internal class StyleReconciler {
               AppliedLayer(
                 definition = desired.definition,
                 anchor = anchor,
-                handle = LayerHandle(style, desired.definition, before),
+                installation = LayerInstallation(style, desired.definition, before),
               )
             layers[id] = applied
             if (anchor is Anchor.Replace && group.first() === desired) {
               style.removeLayer(anchor.layerId)
             }
           } else {
-            applied.handle.update(desired.definition)
+            applied.installation.update(desired.definition)
             applied.definition = desired.definition
             if (shouldMoveLayer(style, anchor, previousId, id, nextDesiredId)) {
               val before = beforeLayerId(style, anchor, previousId, id)
-              if (before != id) applied.handle.move(before)
+              if (before != id) applied.installation.move(before)
             }
           }
           previousId = id
@@ -104,11 +104,11 @@ internal class StyleReconciler {
   }
 
   private fun addSource(style: StyleBinding, definition: SourceDefinition) {
-    sources[definition.id] = AppliedSource(definition, SourceHandle(style, definition))
+    sources[definition.id] = AppliedSource(definition, SourceInstallation(style, definition))
   }
 
   private fun removeSource(applied: AppliedSource) {
-    applied.handle.remove()
+    applied.installation.remove()
     sources.remove(applied.definition.id)
   }
 
@@ -120,7 +120,7 @@ internal class StyleReconciler {
       val original = requireNotNull(replacedLayers.remove(anchor))
       style.addLayer(original, beforeLayerId = applied.definition.id)
     }
-    applied.handle.remove()
+    applied.installation.remove()
     layers.remove(applied.definition.id)
   }
 
@@ -204,12 +204,12 @@ internal class StyleReconciler {
 
   private class AppliedSource(
     var definition: SourceDefinition,
-    val handle: SourceHandle,
+    val installation: SourceInstallation,
   )
 
   private class AppliedLayer(
     var definition: LayerDefinition,
     val anchor: Anchor,
-    val handle: LayerHandle,
+    val installation: LayerInstallation,
   )
 }

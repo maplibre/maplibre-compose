@@ -19,7 +19,7 @@ import org.maplibre.compose.sources.GeometryTileProvider
 import org.maplibre.compose.sources.VectorTileProvider
 
 /** A source installed in exactly one loaded-style generation. */
-internal class SourceHandle(
+internal class SourceInstallation(
   private val style: StyleBinding,
   definition: SourceDefinition,
 ) {
@@ -174,7 +174,7 @@ internal class SourceHandle(
 }
 
 /** A layer installed in exactly one loaded-style generation. */
-internal class LayerHandle(
+internal class LayerInstallation(
   private val style: StyleBinding,
   definition: LayerDefinition,
   beforeLayerId: String,
