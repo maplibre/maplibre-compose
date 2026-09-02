@@ -94,20 +94,8 @@ internal constructor(
   override fun requestPermission(): Unit = requester.requestForegroundPermission()
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
-    when (val availability = backendAvailability) {
-      is LocationBackendAvailability.Misconfigured -> {
-        trySend(
-          LocationEvent.Unavailable(LocationUnavailableReason.Misconfigured, availability.cause)
-        )
-        close()
-        return@callbackFlow
-      }
-      LocationBackendAvailability.Unsupported -> {
-        trySend(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
-        close()
-        return@callbackFlow
-      }
-      LocationBackendAvailability.Available -> Unit
+    check(backendAvailability == LocationBackendAvailability.Available) {
+      "Location updates require an available backend: $backendAvailability"
     }
     val locationServicesEnabled = withContext(ioDispatcher) { client.locationServicesEnabled }
     if (!locationServicesEnabled) {

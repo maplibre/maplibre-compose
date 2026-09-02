@@ -68,8 +68,7 @@ internal suspend fun <T> XdgPortalWindow?.withPortalParentWindow(action: suspend
  * position never moves.
  *
  * A missing portal maps [LocationProvider.backendAvailability] to
- * [LocationBackendAvailability.Unsupported], and collection emits
- * [LocationUnavailableReason.Unsupported]. A cancelled
+ * [LocationBackendAvailability.Unsupported]. A cancelled
  * [`Request.Response`](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Request.html#org-freedesktop-portal-request-response)
  * maps to [LocationUnavailableReason.PermissionDenied]. A closed session, a stopped portal service,
  * another non-success response, or a D-Bus transport failure maps to
@@ -98,9 +97,8 @@ internal constructor(
   override fun requestPermission(): Unit = requester.requestForegroundPermission()
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> = flow {
-    if (!portal.available) {
-      emit(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
-      return@flow
+    check(backendAvailability == LocationBackendAvailability.Available) {
+      "Location updates require an available backend: $backendAvailability"
     }
     portal.updates(request).collect { emit(it) }
   }

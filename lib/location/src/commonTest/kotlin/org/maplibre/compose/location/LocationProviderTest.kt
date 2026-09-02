@@ -1,12 +1,14 @@
 package org.maplibre.compose.location
 
 import kotlin.test.Test
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
@@ -17,6 +19,13 @@ class LocationProviderTest {
   @Test
   fun backendIdDefaultsToNull() {
     assertNull(FakeLocationProvider().backendId)
+  }
+
+  @Test
+  fun unsupportedProviderRejectsUpdateCollection() = runTest {
+    assertFailsWith<IllegalStateException> {
+      UnsupportedLocationProvider.updates(LocationRequest()).first()
+    }
   }
 
   @Test
