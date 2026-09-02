@@ -3,7 +3,7 @@
 package org.maplibre.compose.docsnippets
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapRuntime
 import org.maplibre.compose.map.rememberMapState
@@ -14,7 +14,7 @@ import org.maplibre.compose.resource.MapResourceProvider
 fun InterceptorMap(token: String) {
   val runtime = rememberMapRuntime()
   // #region interceptor
-  LaunchedEffect(token) {
+  DisposableEffect(token) {
     runtime.setRequestInterceptor { request ->
       if (request.url.startsWith("https://tiles.example.com/")) {
         MapRequestTransform(headers = mapOf("Authorization" to "Bearer $token"))
@@ -22,6 +22,7 @@ fun InterceptorMap(token: String) {
         MapRequestTransform()
       }
     }
+    onDispose { runtime.setRequestInterceptor(null) }
   }
   MaplibreMap(state = rememberMapState(runtime))
   // #endregion interceptor
