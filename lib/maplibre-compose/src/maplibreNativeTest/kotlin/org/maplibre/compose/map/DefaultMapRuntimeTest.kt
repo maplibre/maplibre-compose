@@ -8,6 +8,7 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
+import org.maplibre.compose.style.BaseStyle
 
 class DefaultMapRuntimeTest {
   @Test
@@ -29,7 +30,7 @@ class DefaultMapRuntimeTest {
       assertSame(first, second)
       assertFalse(createdReplacement)
       assertTrue(second.isClosed)
-      assertFailsWith<MapRuntimeClosedException> { second.createMapState() }
+      assertFailsWith<MapRuntimeClosedException> { second.createMapState(BaseStyle.Demo) }
     } finally {
       DefaultMapRuntime.resetForTest()
       FfiTestPlatform.deleteCacheFile(cacheFile)

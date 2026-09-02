@@ -28,7 +28,7 @@ class BrowserOfflineManagerTest {
     }
     assertFailsWith<UnsupportedOperationException> { manager.clearAmbientCache() }
 
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
     assertFalse(state.isClosed)
     assertEquals(BaseStyle.Empty, snapshotter.style.baseStyle)
