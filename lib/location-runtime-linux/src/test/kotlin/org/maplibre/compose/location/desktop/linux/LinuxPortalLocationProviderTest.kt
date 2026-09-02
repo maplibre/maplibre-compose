@@ -3,6 +3,7 @@ package org.maplibre.compose.location.desktop.linux
 import java.util.ServiceLoader
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
@@ -100,6 +101,7 @@ class LinuxPortalLocationProviderTest {
     val provider = LinuxPortalLocationProvider(portal, backgroundScope)
 
     assertEquals(LocationBackendAvailability.Unsupported, provider.backendAvailability)
+    assertFailsWith<IllegalStateException> { provider.updates(LocationRequest()).first() }
     provider.requestPermission()
     runCurrent()
     assertEquals(0, portal.permissionRequests)

@@ -6,7 +6,7 @@ import kotlin.time.TimeMark
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flow
 import org.maplibre.spatialk.units.Length
 import org.maplibre.spatialk.units.extensions.inMeters
 import org.maplibre.spatialk.units.extensions.meters
@@ -29,7 +29,7 @@ public interface LocationProvider {
   public val backendId: String?
     get() = null
 
-  /** Whether this provider has a usable platform implementation. */
+  /** Whether this provider has a usable platform implementation, stable for its lifetime. */
   public val backendAvailability: LocationBackendAvailability
     get() = LocationBackendAvailability.Available
 
@@ -57,6 +57,10 @@ public interface LocationProvider {
 
   /**
    * Returns a cold stream of foreground location updates.
+   *
+   * Collecting this stream requires [backendAvailability] to be
+   * [LocationBackendAvailability.Available]. An unavailable provider fails collection with an
+   * [IllegalStateException].
    *
    * Each collector starts an independent platform location request. Cancelling collection stops
    * that request and unregisters its callbacks.
@@ -188,20 +192,12 @@ public enum class LocationUnavailableReason {
   TemporarilyUnavailable,
 
   /**
-   * No location implementation is available for the current target or host.
+   * An active request discovered that the target or host cannot provide location.
    *
-   * For example, a browser may omit the Geolocation API, or a desktop application may omit the
-   * location backend for its operating system.
+   * For example, an initialized Windows provider may report that location is not available on the
+   * device.
    */
   Unsupported,
-
-  /**
-   * The application installed or configured its provider incorrectly.
-   *
-   * For example, a desktop runtime may contain multiple location backends when exactly one is
-   * required.
-   */
-  Misconfigured,
 
   /**
    * Foreground location permission has not been granted.
@@ -259,6 +255,9 @@ public object UnsupportedLocationProvider : LocationProvider {
   override val backendAvailability: LocationBackendAvailability =
     LocationBackendAvailability.Unsupported
 
-  override fun updates(request: LocationRequest): Flow<LocationEvent> =
-    flowOf(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
+  override fun updates(request: LocationRequest): Flow<LocationEvent> = flow {
+    check(backendAvailability == LocationBackendAvailability.Available) {
+      "Location updates require an available backend: $backendAvailability"
+    }
+  }
 }

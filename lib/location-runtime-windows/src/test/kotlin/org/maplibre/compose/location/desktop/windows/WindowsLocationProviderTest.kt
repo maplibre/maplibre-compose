@@ -3,6 +3,7 @@ package org.maplibre.compose.location.desktop.windows
 import java.util.ServiceLoader
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
@@ -296,7 +297,7 @@ class WindowsLocationProviderTest {
   }
 
   @Test
-  fun misconfiguredBackendEmitsMisconfiguredWithoutOpeningSession() = runTest {
+  fun misconfiguredBackendRejectsUpdatesWithoutOpeningSession() = runTest {
     val cause = IllegalStateException("activation failed")
     val client =
       FakeWindowsLocationClient(
@@ -304,9 +305,7 @@ class WindowsLocationProviderTest {
       )
     val provider = WindowsLocationProvider(client)
 
-    val event = assertIs<LocationEvent.Unavailable>(provider.updates(LocationRequest()).first())
-    assertEquals(LocationUnavailableReason.Misconfigured, event.reason)
-    assertEquals(cause, event.cause)
+    assertFailsWith<IllegalStateException> { provider.updates(LocationRequest()).first() }
     assertTrue(client.sessions.isEmpty())
   }
 

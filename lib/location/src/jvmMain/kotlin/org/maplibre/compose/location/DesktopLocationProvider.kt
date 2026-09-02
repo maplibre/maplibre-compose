@@ -3,7 +3,7 @@ package org.maplibre.compose.location
 import java.util.ServiceConfigurationError
 import java.util.ServiceLoader
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flow
 
 /**
  * A host-specific desktop location implementation discovered through [ServiceLoader].
@@ -85,20 +85,11 @@ internal object DesktopLocationBackendResolver {
 private class UnavailableDesktopLocationProvider(
   override val backendAvailability: LocationBackendAvailability
 ) : DesktopLocationProvider {
-  override fun updates(request: LocationRequest): Flow<LocationEvent> =
-    flowOf(
-      when (val availability = backendAvailability) {
-        LocationBackendAvailability.Available ->
-          error("An unavailable provider cannot report an available backend")
-        is LocationBackendAvailability.Misconfigured ->
-          LocationEvent.Unavailable(
-            LocationUnavailableReason.Misconfigured,
-            availability.cause,
-          )
-        LocationBackendAvailability.Unsupported ->
-          LocationEvent.Unavailable(LocationUnavailableReason.Unsupported)
-      }
-    )
+  override fun updates(request: LocationRequest): Flow<LocationEvent> = flow {
+    check(backendAvailability == LocationBackendAvailability.Available) {
+      "Location updates require an available backend: $backendAvailability"
+    }
+  }
 
   override fun close() = Unit
 }

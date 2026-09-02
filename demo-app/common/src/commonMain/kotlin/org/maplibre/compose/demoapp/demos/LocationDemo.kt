@@ -190,7 +190,6 @@ private fun LocationState.trackingStatusMessage(): String =
         LocationUnavailableReason.ServicesDisabled -> "Location services are turned off"
         LocationUnavailableReason.TemporarilyUnavailable -> "Location is temporarily unavailable"
         LocationUnavailableReason.Unsupported -> "Location is not available on this device"
-        LocationUnavailableReason.Misconfigured -> "Location is misconfigured on this device"
         LocationUnavailableReason.PermissionDenied -> "Location permission was denied"
         LocationUnavailableReason.UnexpectedFailure -> "Location failed"
       }
