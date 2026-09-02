@@ -229,12 +229,16 @@ internal class MlnFfiOfflineManager(
   // region owner-thread bookkeeping
 
   /**
-   * Adopts a region MapLibre reported, or returns null when its definition cannot be represented.
-   * Runs on the owner thread; there is at most one [OfflinePack] per region.
+   * Adopts or reuses a region that MapLibre reported, or returns null when its definition cannot be
+   * represented. Runs on the owner thread; there is at most one [OfflinePack] per region.
    */
   private fun registerRegion(info: OfflineRegionInfo): OfflinePack? {
     val existing = packsById[info.id]
-    if (existing != null) return existing
+    if (existing != null) {
+      // An operation such as a database merge can change the resources of an existing region.
+      refreshStatus(info.id)
+      return existing
+    }
 
     val definition = info.definition.toOfflinePackDefinition(logger) ?: return null
     val pack = OfflinePack(this, info.id, definition, info.metadata.copyOf())
