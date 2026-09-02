@@ -119,6 +119,7 @@ internal data class SettingsDto(
   val mapStyleMode: String,
   val paletteMode: String,
   val useMaterial3Controls: Boolean,
+  val showZoomButtons: Boolean,
   val showFpsOverlay: Boolean,
   val showCameraOverlay: Boolean,
 )
@@ -295,6 +296,7 @@ internal class AgentDriver(
           mapStyleMode = state.settings.mapStyleMode.name,
           paletteMode = state.settings.paletteMode.name,
           useMaterial3Controls = state.settings.useMaterial3Controls,
+          showZoomButtons = state.settings.showZoomButtons,
           showFpsOverlay = state.settings.showFpsOverlay,
           showCameraOverlay = state.settings.showCameraOverlay,
         ),

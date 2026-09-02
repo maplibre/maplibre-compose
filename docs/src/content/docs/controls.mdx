@@ -24,10 +24,14 @@ only while they are relevant.
   attribution yourself.
 </Aside>
 
+Two variants cover common needs. `MapOverlay.Full` adds zoom in and zoom out
+buttons above the attribution button. `MapOverlay.AttributionOnly` draws only
+the logo and the attribution button.
+
 ## Replace the overlay
 
-An empty block draws no controls. Use it when your app shows the attribution
-somewhere else, such as an about screen.
+An empty block, or `MapOverlay.None`, draws no controls. Use it when your app
+shows the attribution somewhere else, such as an about screen.
 
 <Code code={region(controls, "disabled")} lang="kotlin" title="App.kt" />
 
@@ -59,6 +63,9 @@ commonMain.dependencies {
 as <Api of="MapOverlay.Default" /> in the same places. Include it in the block:
 
 <Code code={region(material3, "overlay")} lang="kotlin" title="App.kt" />
+
+`MapOverlay.Material3AttributionOnly` and `MapOverlay.Material3Full` apply the
+theme to the other presets.
 
 Each Material 3 control is also a composable that you can place in the trailing
 block:

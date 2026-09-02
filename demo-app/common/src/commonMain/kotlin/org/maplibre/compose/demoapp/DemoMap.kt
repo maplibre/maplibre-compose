@@ -38,6 +38,7 @@ import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.StyleLoadState
 import org.maplibre.compose.material3.Material3
+import org.maplibre.compose.material3.Material3Full
 import org.maplibre.compose.material3.PointerPinButton
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.include
@@ -107,7 +108,15 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
       onFrame = { state.frameRateState.record() },
       contentWindowInsets = viewportInsets.asWindowInsets(),
     ) {
-      include(if (state.settings.useMaterial3Controls) MapOverlay.Material3 else MapOverlay.Default)
+      include(
+        when {
+          state.settings.useMaterial3Controls && state.settings.showZoomButtons ->
+            MapOverlay.Material3Full
+          state.settings.useMaterial3Controls -> MapOverlay.Material3
+          state.settings.showZoomButtons -> MapOverlay.Full
+          else -> MapOverlay.Default
+        }
+      )
       selectedDemo?.let { demo ->
         key(demo) {
           with(demo) { Overlay(state) }

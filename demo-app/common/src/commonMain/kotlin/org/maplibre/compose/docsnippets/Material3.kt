@@ -10,6 +10,7 @@ import org.maplibre.compose.material3.CompassButton
 import org.maplibre.compose.material3.ExpandingAttributionButton
 import org.maplibre.compose.material3.Material3
 import org.maplibre.compose.material3.ScaleBar
+import org.maplibre.compose.material3.ZoomButtons
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MaplibreLogo
 import org.maplibre.compose.overlay.include
@@ -27,6 +28,7 @@ fun Material3() {
       modifier = Modifier.align(Alignment.TopStart),
     ) // (1)!
     CompassButton(modifier = Modifier.align(Alignment.TopEnd))
+    ZoomButtons(Modifier.align(Alignment.CenterEnd))
     MaplibreLogo(Modifier.align(Alignment.BottomStart))
     ExpandingAttributionButton(
       modifier = Modifier.align(Alignment.BottomEnd),
