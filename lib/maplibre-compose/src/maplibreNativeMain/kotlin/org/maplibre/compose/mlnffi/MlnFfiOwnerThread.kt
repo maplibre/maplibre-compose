@@ -44,3 +44,6 @@ internal expect class MlnFfiOwnerThread(name: String, body: () -> Unit) {
 
 /** The name of the calling thread, for diagnostics. */
 internal expect fun currentMlnFfiThreadName(): String
+
+/** Identity of the calling thread, unique among live threads. */
+internal expect fun currentMlnFfiThreadKey(): Any

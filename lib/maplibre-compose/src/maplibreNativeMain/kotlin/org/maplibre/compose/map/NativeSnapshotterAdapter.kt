@@ -10,6 +10,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
+import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.MlnFfiStyleBinding
@@ -36,14 +37,18 @@ private val SNAPSHOT_EVENTS =
     RuntimeEventMask.MAP_RENDER_ERROR +
     RuntimeEventMask.MAP_RENDER_UPDATE_AVAILABLE
 
-internal class NativeSnapshotterAdapterFactory(private val options: MlnFfiRuntimeOptions) :
-  SnapshotterAdapterFactory {
-  override fun create(): SnapshotterAdapter = NativeSnapshotterAdapter(options)
+internal class NativeSnapshotterAdapterFactory(
+  private val options: MlnFfiRuntimeOptions,
+  private val resourceConfig: MapResourceConfig,
+) : SnapshotterAdapterFactory {
+  override fun create(): SnapshotterAdapter = NativeSnapshotterAdapter(options, resourceConfig)
 }
 
 /** One private map, offscreen render session, and retained reconciler for a native snapshotter. */
-private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions) :
-  SnapshotterAdapter {
+private class NativeSnapshotterAdapter(
+  private val options: MlnFfiRuntimeOptions,
+  private val resourceConfig: MapResourceConfig,
+) : SnapshotterAdapter {
   @Volatile private var open = true
   @Volatile private var engine: NativeSnapshotEngine? = null
   @Volatile private var styleBinding: MlnFfiStyleBinding? = null
@@ -168,6 +173,7 @@ private class NativeSnapshotterAdapter(private val options: MlnFfiRuntimeOptions
         cacheFile = options.cacheFile,
         getLogger = { options.logger },
         resourceProviderFactory = options.resourceProviderFactory,
+        resourceConfig = resourceConfig,
         onMapCreated = resources::attach,
         onMapPublished = { created.completion.complete(Result.success(Unit)) },
         onMapClosing = { resources.close() },

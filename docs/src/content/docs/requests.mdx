@@ -1,0 +1,36 @@
+---
+title: Rewrite or serve map requests
+description: Rewrite map HTTP requests, or serve tiles and fonts from application code.
+---
+
+import { Code } from "@astrojs/starlight/components";
+import Api from "../../components/Api.astro";
+import { region } from "../../snippets";
+
+import requests from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Requests.kt?raw";
+
+Tiles, sprites, and fonts come from URLs in the style. Rewrite those requests,
+or serve the bytes from application code.
+
+<Api of="MapRequestInterceptor" /> changes the URL or headers and lets the
+engine fetch. <Api of="MapResourceProvider" /> serves the bytes. A provider
+that accepts a request skips the engine HTTP client. The interceptor can
+change after construction. The provider is fixed at construction.
+
+## Rewrite a request
+
+<Api of="MapRuntime.setRequestInterceptor" /> applies to every map and
+snapshotter on the runtime:
+
+<Code code={region(requests, "interceptor")} lang="kotlin" title="App.kt" />
+
+Attach credentials only to hosts you own. A style also names glyphs, sprites,
+and tiles on other hosts.
+
+## Serve the bytes
+
+Pass a <Api of="MapResourceProvider" /> as `resourceProvider` on the runtime
+options when you call <Api of="createMapRuntime" />. The scheme factory
+accepts every URL with that scheme:
+
+<Code code={region(requests, "provider")} lang="kotlin" title="App.kt" />

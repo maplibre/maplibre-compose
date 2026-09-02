@@ -51,6 +51,7 @@ import org.maplibre.compose.gljs.queryPoint
 import org.maplibre.compose.gljs.styleJson
 import org.maplibre.compose.gljs.styleUrl
 import org.maplibre.compose.gljs.subscribe
+import org.maplibre.compose.resource.GlJsRequestController
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.GlJsStyleBinding
@@ -91,6 +92,7 @@ internal class GlJsMapSession(
   callbacks: MapAdapter.Callbacks,
   internal var logger: Logger?,
   internal var layoutDirection: LayoutDirection,
+  private val requests: GlJsRequestController? = null,
 ) : MapLifecycleSession, GlJsMapRenderer, GestureTarget {
 
   init {
@@ -335,6 +337,9 @@ internal class GlJsMapSession(
           // MapLibre otherwise clamps its pixel ratio to the drawing buffer of the canvas it
           // shares, which is Compose's whole viewport at the moment the map was built.
           maxCanvasSize = maxTextureSize(it.gl)
+        }
+        requests?.let { controller ->
+          transformRequest = { url, resourceType -> controller.transformRequest(url, resourceType) }
         }
       }
     GlJsRuntime.pointAtWorker(DEFAULT_WORKER_URL)

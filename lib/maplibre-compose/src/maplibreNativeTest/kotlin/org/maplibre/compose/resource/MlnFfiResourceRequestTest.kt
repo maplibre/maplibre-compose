@@ -1,5 +1,8 @@
+@file:OptIn(ExperimentalAtomicApi::class)
+
 package org.maplibre.compose.resource
 
+import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
@@ -10,6 +13,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.suspendCancellableCoroutine
 import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.mlnffi.launchTestTask
 import org.maplibre.compose.mlnffi.parkForTest
@@ -67,6 +74,90 @@ class MlnFfiResourceRequestTest {
     finishRead.countDown()
     request.awaitAnswer()
     assertEquals("late", request.response.bytes.decodeToString())
+    request.awaitClose()
+  }
+
+  @Test
+  fun a_user_scope_cancelled_before_dispatch_still_closes_the_handle() {
+    val provider =
+      MlnFfiResourceProvider(
+          getLogger = { null },
+          passThroughNetwork = true,
+          userCoroutineScope = CoroutineScope(SupervisorJob().apply { cancel() }),
+        )
+        .also { providers += it }
+    provider.userProvider =
+      MapResourceProvider(accepts = { true }, load = { MapResourceLoad.Bytes(ByteArray(0)) })
+    val request = RecordedRequest()
+    provider.takeUser(request, MapResourceRequest(URL, MapResourceKind.Style), URL, URL)
+    request.awaitClose()
+    assertEquals(1, request.closes)
+    assertEquals(1, request.completions)
+    assertEquals(ResourceResponseStatus.ERROR, request.response.status)
+  }
+
+  @Test
+  fun take_user_after_shutdown_is_refused() {
+    val provider =
+      MlnFfiResourceProvider(getLogger = { null }, passThroughNetwork = true).also {
+        providers += it
+      }
+    provider.userProvider =
+      MapResourceProvider(accepts = { true }, load = { MapResourceLoad.Bytes(ByteArray(0)) })
+    provider.close()
+    val request = RecordedRequest()
+    provider.takeUser(request, MapResourceRequest(URL, MapResourceKind.Style), URL, URL)
+    assertEquals(1, request.completions)
+    assertEquals(ResourceResponseStatus.ERROR, request.response.status)
+    assertContains(request.response.errorMessage.orEmpty(), "shut down")
+    assertEquals(1, request.closes)
+  }
+
+  @Test
+  fun a_cancelled_user_load_is_cancelled_and_closed() {
+    val loading = TestLatch(1)
+    val cancelled = AtomicBoolean(false)
+    val provider =
+      MlnFfiResourceProvider(getLogger = { null }, passThroughNetwork = true).also {
+        providers += it
+      }
+    provider.userProvider =
+      MapResourceProvider(
+        accepts = { true },
+        load = {
+          suspendCancellableCoroutine { continuation ->
+            continuation.invokeOnCancellation { cancelled.store(true) }
+            loading.countDown()
+          }
+        },
+      )
+    val request = RecordedRequest()
+    provider.takeUser(request, MapResourceRequest(URL, MapResourceKind.Style), URL, URL)
+    assertTrue(loading.await(WAIT_SECONDS * 1_000), "the user load never started")
+
+    request.cancel()
+    request.awaitClose()
+
+    assertTrue(cancelled.load(), "an abandoned request must cancel provider.load")
+    assertEquals(0, request.completions)
+  }
+
+  @Test
+  fun a_provider_timeout_completes_an_active_request() {
+    val provider =
+      MlnFfiResourceProvider(getLogger = { null }, passThroughNetwork = true).also {
+        providers += it
+      }
+    provider.userProvider =
+      MapResourceProvider(
+        accepts = { true },
+        load = { throw CancellationException("timeout") },
+      )
+    val request = RecordedRequest()
+    provider.takeUser(request, MapResourceRequest(URL, MapResourceKind.Style), URL, URL)
+    request.awaitAnswer()
+    assertEquals(ResourceResponseStatus.ERROR, request.response.status)
+    assertContains(request.response.errorMessage.orEmpty(), "cancelled")
     request.awaitClose()
   }
 
@@ -168,12 +259,17 @@ class MlnFfiResourceRequestTest {
 
   /** A request the provider can take, recording what it did with it. */
   @OptIn(ExperimentalAtomicApi::class)
-  private class RecordedRequest(private val cancelled: Boolean = false) : TakenResourceRequest {
+  private class RecordedRequest(cancelled: Boolean = false) : TakenResourceRequest {
     private val responses = RecordingList<ResourceResponse>()
     private val answered = TestLatch(1)
     private val closeCount = AtomicInt(0)
+    private val cancelledState = AtomicBoolean(cancelled)
 
-    override fun isCancelled(): Boolean = cancelled
+    override fun isCancelled(): Boolean = cancelledState.load()
+
+    fun cancel() {
+      cancelledState.store(true)
+    }
 
     override fun complete(response: ResourceResponse) {
       responses += response

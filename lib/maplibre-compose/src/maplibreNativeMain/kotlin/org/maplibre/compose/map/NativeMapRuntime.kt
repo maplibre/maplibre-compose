@@ -5,6 +5,7 @@ import org.maplibre.compose.mlnffi.MlnFfiLock
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.compose.offline.MlnFfiOfflineManager
+import org.maplibre.compose.resource.MapResourceConfig
 
 private val nativeMapRuntimeCapabilities =
   MapRuntimeCapabilities(
@@ -44,7 +45,8 @@ internal fun createNativeMapRuntime(options: MlnFfiRuntimeOptions): MapRuntime =
 private fun createNativeMapRuntimeImplementation(
   options: MlnFfiRuntimeOptions
 ): RuntimeImplementation {
-  val offlineManager = MlnFfiOfflineManager(options)
+  val resourceConfig = MapResourceConfig(options.requestInterceptor, options.resourceProvider)
+  val offlineManager = MlnFfiOfflineManager(options, resourceConfig)
   return RuntimeImplementation(
     platformOptions = options,
     resources =
@@ -54,7 +56,8 @@ private fun createNativeMapRuntimeImplementation(
     logger = options.logger,
     capabilities = nativeMapRuntimeCapabilities,
     offlineManagerBackend = offlineManager,
-    snapshotterAdapterFactory = NativeSnapshotterAdapterFactory(options),
+    snapshotterAdapterFactory = NativeSnapshotterAdapterFactory(options, resourceConfig),
+    resourceConfig = resourceConfig,
   )
 }
 

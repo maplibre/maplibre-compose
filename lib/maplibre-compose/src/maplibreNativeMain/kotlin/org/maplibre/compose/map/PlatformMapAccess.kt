@@ -21,6 +21,7 @@ public actual suspend fun <T> MapState.withPlatformMap(block: PlatformMapScope.(
           layoutDirection = LayoutDirection.Ltr,
           cacheFile = options.cacheFile,
           resourceProviderFactory = options.resourceProviderFactory,
+          resourceConfig = runtime.resourceConfig,
         )
         .also { session ->
           session.setCameraPosition(cameraPosition)

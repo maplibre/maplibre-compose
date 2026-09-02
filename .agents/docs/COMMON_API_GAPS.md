@@ -97,18 +97,9 @@ per-map options.
 
 ## HTTP header transforms
 
-A hook to add or rewrite request headers for every resource the map fetches —
-the usual home for an `Authorization` header or an API key that does not belong
-in a URL.
-
-- FFI: `setHttpHeaderTransform`, `clearHttpHeaderTransform`
-  ([#509](https://github.com/maplibre/maplibre-native-ffi/pull/509))
-
-Related to the resource-transform entry below, and worth designing with it: one
-rewrites the URL, the other the headers, and an application adding credentials
-needs whichever the server expects. Note the FFI reports this as unsupported on
-OpenHarmony, whose HTTP client cannot intercept redirects, so a common API has
-to tolerate a platform declining it.
+Done: `MapRequestInterceptor` on `MapRuntime` / `MapRuntimeOptions`. Native
+installs `setHttpHeaderTransform`; web sets `transformRequest` headers. The
+install is skipped when the FFI reports the hook as unsupported.
 
 ## Missing style images
 
@@ -124,14 +115,10 @@ See the `MAP_STYLE_IMAGE_MISSING` branch in `MlnFfiMapSession.handleEvent`.
 
 ## Resource transform
 
-A hook to rewrite every resource URL before it is requested — how applications
-add API keys, route through a proxy, or redirect to a local mirror.
-
-- FFI: `setResourceTransform`, `clearResourceTransform`
-
-The FFI integration already has a broader mechanism in `MlnFfiResourceProvider`,
-which serves resources rather than only rewriting their URLs. The redesign
-should decide which of the two is the public API, rather than shipping both.
+Done: the same `MapRequestInterceptor` rewrites URLs. Native installs
+`setResourceTransform`. `MapResourceProvider` is the public serve-bytes API;
+`MlnFfiResourceProvider` remains the internal packaged-resource adapter and
+composes the user provider in front of `jar:file:` / `file:` reads.
 
 ## Offline database merge
 

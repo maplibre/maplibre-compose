@@ -47,6 +47,7 @@ private constructor(
       getLogger: () -> Logger?,
       what: String,
       resourceProviderFactory: MlnFfiResourceProviderFactory = ::MlnFfiResourceProvider,
+      resourceConfig: MapResourceConfig = MapResourceConfig(),
     ): MlnFfiRuntimeOwner {
       val cacheFile = normalizeMlnFfiPath(rawCacheFile)
       // MapLibre opens the database as the runtime is created, and fails if the directory is
@@ -62,7 +63,7 @@ private constructor(
         }
       val provider =
         try {
-          resourceProviderFactory(getLogger)
+          resourceProviderFactory(getLogger).also { it.userProvider = resourceConfig.provider }
         } catch (error: Throwable) {
           runCatching { runtime.close() }
           throw error
@@ -72,6 +73,7 @@ private constructor(
         // Installed with the runtime rather than with the map, so nothing can request a resource
         // before the provider that serves it exists.
         runtime.setResourceProvider(provider)
+        runtime.installRequestInterceptor(resourceConfig)
         getLogger()?.i { "Created the $what on ${currentMlnFfiThreadName()}" }
         owner
       } catch (error: Throwable) {

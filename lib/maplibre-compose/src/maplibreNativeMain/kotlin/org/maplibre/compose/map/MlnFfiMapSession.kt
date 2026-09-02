@@ -56,6 +56,7 @@ import org.maplibre.compose.mlnffi.VulkanSurfaceTarget
 import org.maplibre.compose.mlnffi.WglContextHandles
 import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
 import org.maplibre.compose.mlnffi.withLock
+import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.resource.MlnFfiResourceProvider
 import org.maplibre.compose.resource.MlnFfiResourceProviderFactory
 import org.maplibre.compose.style.BaseStyle
@@ -158,6 +159,7 @@ internal class MlnFfiMapSession(
   @Volatile internal var layoutDirection: LayoutDirection,
   private val cacheFile: Path,
   private val resourceProviderFactory: MlnFfiResourceProviderFactory = ::MlnFfiResourceProvider,
+  private val resourceConfig: MapResourceConfig = MapResourceConfig(),
 ) : MapLifecycleSession, MlnFfiMapRenderer, GestureTarget {
 
   @Volatile internal var callbacks: MapAdapter.Callbacks = callbacks
@@ -535,6 +537,7 @@ internal class MlnFfiMapSession(
           cacheFile = cacheFile,
           getLogger = { logger },
           resourceProviderFactory = resourceProviderFactory,
+          resourceConfig = resourceConfig,
           onMapCreated = ::onMapCreated,
           onEvent = { handleEvent(identity, it) },
           onEventsDrained = { onEventsDrained(identity, it) },
