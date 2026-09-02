@@ -273,7 +273,7 @@ class LinuxVulkanOpenGlInteropTest {
       }
 
     private val runtime = mapRuntimeForTest()
-    private val state = runtime.createMapState()
+    private val state = runtime.createMapState(BaseStyle.Demo)
     private val renderer =
       MlnFfiMapSession(
         lifecycleAuthority = state.lifecycle,

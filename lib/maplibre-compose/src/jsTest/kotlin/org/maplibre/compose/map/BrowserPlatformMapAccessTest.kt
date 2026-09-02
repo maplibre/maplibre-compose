@@ -12,6 +12,7 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.supervisorScope
 import org.maplibre.compose.gljs.runBrowserMapTest
+import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.GlJsMapFixture
 
 @OptIn(DelicateMapApi::class, ExperimentalTestApi::class)
@@ -19,7 +20,7 @@ class BrowserPlatformMapAccessTest {
   @Test
   fun web_access_requires_a_current_presentation() = runBrowserMapTest {
     val runtime = createMapRuntime(MapRuntimeOptions())
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
 
     val failure = assertFailsWith<IllegalStateException> { state.withPlatformMap { map.getZoom() } }
 

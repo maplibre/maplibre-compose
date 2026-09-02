@@ -57,7 +57,7 @@ class MapPresentationTest {
   @Test
   fun closing_map_state_closes_a_bound_session_before_it_is_published() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val session = BoundLifecycleSession()
     session.lifecycle = state.lifecycle.bind(session)
     session.lifecycle.attach()
@@ -75,7 +75,7 @@ class MapPresentationTest {
   @Test
   fun a_bound_but_unpublished_session_cannot_mutate_durable_style_state() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val session = BoundLifecycleSession()
     session.lifecycle = state.lifecycle.bind(session)
     session.lifecycle.attach()
@@ -92,7 +92,7 @@ class MapPresentationTest {
   @Test
   fun a_session_that_closes_itself_is_retired_and_its_failure_reaches_map_closure() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val finishCleanup = CompletableDeferred<Unit>()
     val session = BoundLifecycleSession(failOnClose = true, finishCleanup = finishCleanup)
     session.lifecycle = state.lifecycle.bind(session)
@@ -135,7 +135,7 @@ class MapPresentationTest {
   @Test
   fun a_detached_retained_session_that_closes_itself_invalidates_its_style() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val finishCleanup = CompletableDeferred<Unit>()
     val session = BoundLifecycleSession(finishCleanup = finishCleanup)
     session.lifecycle = state.lifecycle.bind(session)
@@ -166,7 +166,7 @@ class MapPresentationTest {
   @Test
   fun a_new_presentation_can_reserve_while_the_previous_one_is_still_detaching() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val first = BlockingDetachAdapter()
     val firstToken = state.reservePresentation(MapPresentationOwnerToken())
     state.publishPresentation(firstToken, first)
@@ -191,7 +191,7 @@ class MapPresentationTest {
   @Test
   fun closure_reports_a_superseded_presentations_in_flight_detach_failure() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val first = BlockingDetachAdapter(failOnDetach = true)
     val firstToken = state.reservePresentation(MapPresentationOwnerToken())
     state.publishPresentation(firstToken, first)
@@ -214,7 +214,7 @@ class MapPresentationTest {
   @Test
   fun closure_reports_an_in_flight_session_detach_failure_once() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val finishDetach = CompletableDeferred<Unit>()
     val detachStarted = CompletableDeferred<Unit>()
     val session =
@@ -242,7 +242,7 @@ class MapPresentationTest {
   @Test
   fun retained_engine_access_remains_valid_while_the_presentation_detaches() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val finishDetach = CompletableDeferred<Unit>()
     val detachStarted = CompletableDeferred<Unit>()
     val session = BoundLifecycleSession(finishDetach = finishDetach, detachStarted = detachStarted)
@@ -268,7 +268,7 @@ class MapPresentationTest {
   @Test
   fun closure_during_presentation_configuration_makes_publication_inert() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val token = state.reservePresentation()
     val adapter = ClosingDuringConfigurationAdapter(state::close)
 
@@ -283,7 +283,7 @@ class MapPresentationTest {
   @Test
   fun a_style_failure_before_publication_remains_the_durable_load_state() = runTest {
     val runtime = mapRuntimeForTest()
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val callbacks = state.durableStyleCallbacks()
     val token = state.reservePresentation()
     val adapter = FailureDuringConfigurationAdapter { map ->
@@ -301,7 +301,7 @@ class MapPresentationTest {
   @Test
   fun a_configuration_error_publishes_the_presentation_with_failed_style_state() = runTest {
     val runtime = mapRuntimeForTest()
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val token = state.reservePresentation()
     val adapter = ConfigurationErrorAdapter()
 
@@ -317,7 +317,7 @@ class MapPresentationTest {
   @Test
   fun style_events_before_publication_update_the_durable_style_state() = runTest {
     val runtime = mapRuntimeForTest()
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val token = state.reservePresentation()
     val adapter = PresentationTestAdapter()
     val callbacks = state.durableStyleCallbacks()
@@ -349,7 +349,7 @@ class MapPresentationTest {
   @Test
   fun camera_intent_accepted_before_detachment_remains_durable() {
     val runtime = mapRuntimeForTest()
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val token = state.reservePresentation()
     val adapter = ReleasingCameraAdapter { map ->
       state.releasePresentation(token, map)
@@ -418,7 +418,7 @@ class MapPresentationTest {
   @Test
   fun replacement_cleanup_failures_are_reported_on_close() = runTest {
     val runtime = mapRuntimeForTest()
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val firstToken = state.reservePresentation()
     val first = RetainedAdapter(failOnClose = true)
     state.publishPresentation(firstToken, first)
@@ -439,7 +439,7 @@ class MapPresentationTest {
   @Test
   fun a_durable_callback_updates_style_load_state_after_the_presentation_leaves() = runTest {
     val runtime = mapRuntimeForTest()
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val token = state.reservePresentation()
     val adapter = RetainedAdapter(failOnClose = false)
     state.publishPresentation(token, adapter)
@@ -456,7 +456,7 @@ class MapPresentationTest {
   @Test
   fun a_durable_source_change_refreshes_sources_after_the_presentation_leaves() = runTest {
     val runtime = mapRuntimeForTest()
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val token = state.reservePresentation()
     val adapter = RetainedAdapter(failOnClose = false)
     state.publishPresentation(token, adapter)
@@ -604,7 +604,7 @@ class MapPresentationTest {
   @Test
   fun replacing_a_retained_engine_invalidates_its_style_handles_before_publication() = runTest {
     val runtime = mapRuntimeForTest()
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val firstToken = state.reservePresentation()
     val first = RetainedAdapter(failOnClose = false)
     state.publishPresentation(firstToken, first)
@@ -675,7 +675,11 @@ class MapPresentationTest {
   fun publication_happens_after_the_adapter_accepts_initial_map_state() {
     val runtime = mapRuntimeForTest()
     val initialCamera = CameraPosition(target = Position(12.0, 34.0), zoom = 8.0)
-    val state = runtime.createMapState(initialCameraPosition = initialCamera)
+    val state =
+      runtime.createMapState(
+        baseStyle = BaseStyle.Demo,
+        initialCameraPosition = initialCamera,
+      )
     val token = state.reservePresentation()
     val adapter = PresentationTestAdapter { state.currentMapAttachment }
 
@@ -701,7 +705,7 @@ class MapPresentationTest {
   @Test
   fun publication_uses_the_viewport_the_adapter_has_for_the_current_attachment() {
     val runtime = mapRuntimeForTest()
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val token = state.reservePresentation()
     val viewport = testViewport()
     val adapter = PresentationTestAdapter().apply { currentViewport = viewport }
@@ -737,7 +741,7 @@ class MapPresentationTest {
   @Test
   fun a_viewport_that_arrives_after_publication_still_seeds_the_presentation() {
     val runtime = mapRuntimeForTest()
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val token = state.reservePresentation()
     val adapter = PresentationTestAdapter()
 
@@ -908,7 +912,7 @@ private data class PresentationFixture(
 
 private fun presentationFixture(): PresentationFixture {
   val runtime = mapRuntimeForTest()
-  val state = runtime.createMapState()
+  val state = runtime.createMapState(BaseStyle.Demo)
   val token = state.reservePresentation()
   val adapter = PresentationTestAdapter()
   state.publishPresentation(token, adapter)

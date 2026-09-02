@@ -27,7 +27,7 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
   private var styleLoaded = false
   private val scope = MainScope()
   private val runtime = mapRuntimeForTest()
-  private val state = runtime.createMapState()
+  private val state = runtime.createMapState(BaseStyle.Demo)
 
   var frameRequests: Int = 0
     private set

@@ -99,7 +99,7 @@ public interface MapRuntime {
    * result.
    */
   public fun createMapState(
-    baseStyle: BaseStyle = BaseStyle.Demo,
+    baseStyle: BaseStyle,
     styleComposition: StyleComposition = StyleComposition.Empty,
     initialCameraPosition: CameraPosition = CameraPosition(),
   ): MapState

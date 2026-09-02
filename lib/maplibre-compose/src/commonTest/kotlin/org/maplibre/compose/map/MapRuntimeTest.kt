@@ -24,14 +24,14 @@ class MapRuntimeTest {
       assertTrue(second.isClosed)
       resourcesClosed = true
     }
-    first = runtime.createMapState()
-    second = runtime.createMapState()
+    first = runtime.createMapState(BaseStyle.Demo)
+    second = runtime.createMapState(BaseStyle.Demo)
 
     runtime.close()
 
     assertTrue(first.isClosed)
     assertTrue(second.isClosed)
-    assertFailsWith<MapRuntimeClosedException> { runtime.createMapState() }
+    assertFailsWith<MapRuntimeClosedException> { runtime.createMapState(BaseStyle.Demo) }
     runtime.awaitClosed()
     assertTrue(resourcesClosed)
   }
@@ -39,14 +39,14 @@ class MapRuntimeTest {
   @Test
   fun child_closure_does_not_close_its_runtime() = runTest {
     val runtime = mapRuntimeForTest()
-    val first = runtime.createMapState()
+    val first = runtime.createMapState(BaseStyle.Demo)
 
     first.close()
     first.awaitClosed()
 
     assertTrue(first.isClosed)
     assertFalse(runtime.isClosed)
-    val second = runtime.createMapState()
+    val second = runtime.createMapState(BaseStyle.Demo)
     assertNotSame(first, second)
     runtime.close()
     runtime.awaitClosed()
@@ -58,7 +58,7 @@ class MapRuntimeTest {
     var secondResourcesClosed = false
     val first = mapRuntimeForTest { firstResourcesClosed = true }
     val second = mapRuntimeForTest { secondResourcesClosed = true }
-    val secondState = second.createMapState()
+    val secondState = second.createMapState(BaseStyle.Demo)
 
     first.close()
     first.awaitClosed()
@@ -66,7 +66,7 @@ class MapRuntimeTest {
     assertTrue(firstResourcesClosed)
     assertFalse(secondResourcesClosed)
     assertFalse(secondState.isClosed)
-    second.createMapState().close()
+    second.createMapState(BaseStyle.Demo).close()
     second.close()
     second.awaitClosed()
     assertTrue(secondResourcesClosed)

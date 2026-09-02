@@ -11,6 +11,7 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.map.MapRuntimeOptions
 import org.maplibre.compose.map.createMapRuntime
+import org.maplibre.compose.style.BaseStyle
 
 class DesktopRuntimeConfigurationTest {
 
@@ -49,8 +50,8 @@ class DesktopRuntimeConfigurationTest {
     val first = createMapRuntime(MapRuntimeOptions("com.example.first"))
     val second =
       createMapRuntime(MapRuntimeOptions("com.example.second", maximumCacheSizeBytes = 2_000))
-    val firstState = first.createMapState()
-    val secondState = second.createMapState()
+    val firstState = first.createMapState(BaseStyle.Demo)
+    val secondState = second.createMapState(BaseStyle.Demo)
 
     assertNotSame(first.offlineManager, second.offlineManager)
 
@@ -59,7 +60,7 @@ class DesktopRuntimeConfigurationTest {
 
     assertTrue(firstState.isClosed)
     assertTrue(!secondState.isClosed)
-    second.createMapState().close()
+    second.createMapState(BaseStyle.Demo).close()
     second.close()
     second.awaitClosed()
   }

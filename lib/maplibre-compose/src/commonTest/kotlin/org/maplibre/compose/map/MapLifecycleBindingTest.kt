@@ -12,12 +12,16 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.maplibre.compose.style.BaseStyle
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MapLifecycleBindingTest {
 
   private fun TestScope.bindLifecycle(adapter: MapLifecyclePlatformAdapter): MapLifecycleBinding =
-    mapRuntimeForTest(physicalScope = backgroundScope).createMapState().lifecycle.bind(adapter)
+    mapRuntimeForTest(physicalScope = backgroundScope)
+      .createMapState(BaseStyle.Demo)
+      .lifecycle
+      .bind(adapter)
 
   @Test
   fun a_map_attaches_with_an_engine_identity_and_render_lease() = runTest {

@@ -50,7 +50,7 @@ private constructor(
   private var frameId = 0L
   private var frameRequested = true
   private val runtime = mapRuntimeForTest()
-  private val state = runtime.createMapState()
+  private val state = runtime.createMapState(BaseStyle.Demo)
 
   val session: MlnFfiMapSession =
     MlnFfiMapSession(

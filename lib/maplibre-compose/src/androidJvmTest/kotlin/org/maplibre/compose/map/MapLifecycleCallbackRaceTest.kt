@@ -20,7 +20,7 @@ class MapLifecycleCallbackRaceTest {
   @Test
   fun an_accepted_owner_callback_completes_while_style_sources_are_read() = runBlocking {
     val runtime = mapRuntimeForTest()
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val adapter = PresentationTestAdapter()
     val token = state.reservePresentation()
     state.publishPresentation(token, adapter)
@@ -65,7 +65,7 @@ class MapLifecycleCallbackRaceTest {
   @Test
   fun accepted_callback_delivery_completes_before_closure_commits() = runBlocking {
     val runtime = mapRuntimeForTest()
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val binding = state.lifecycle.bind(CallbackRacePlatformAdapter())
     binding.attach()
     val engine = requireNotNull(binding.engineIdentity)
@@ -104,7 +104,7 @@ class MapLifecycleCallbackRaceTest {
   @Test
   fun a_late_platform_style_write_replays_the_latest_durable_style() {
     val runtime = mapRuntimeForTest()
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val firstStyle = BaseStyle.Json("first")
     val secondStyle = BaseStyle.Json("second")
     val adapter = BlockingStyleAdapter(firstStyle)
@@ -137,7 +137,7 @@ class MapLifecycleCallbackRaceTest {
   @Test
   fun a_late_camera_write_replays_the_latest_durable_camera() {
     val runtime = mapRuntimeForTest()
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val adapter = BlockingCameraAdapter()
     val token = state.reservePresentation()
     state.publishPresentation(token, adapter)
@@ -163,7 +163,7 @@ class MapLifecycleCallbackRaceTest {
   @Test
   fun presentation_configuration_replays_a_newer_style_after_a_late_initial_write() {
     val runtime = mapRuntimeForTest()
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val adapter = BlockingStyleAdapter(BaseStyle.Demo)
     val token = state.reservePresentation()
     val publicationFinished = CountDownLatch(1)
@@ -188,7 +188,7 @@ class MapLifecycleCallbackRaceTest {
   @Test
   fun departed_presentation_configuration_cannot_write_its_style() {
     val runtime = mapRuntimeForTest()
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val owner = MapPresentationOwnerToken()
     val first = BlockingConfigurationAdapter()
     val firstToken = state.reservePresentation(owner)
@@ -215,7 +215,7 @@ class MapLifecycleCallbackRaceTest {
   @Test
   fun a_style_action_cannot_silently_target_the_replacement_style() {
     val runtime = mapRuntimeForTest()
-    val state = runtime.createMapState()
+    val state = runtime.createMapState(BaseStyle.Demo)
     val adapter = PresentationTestAdapter()
     val token = state.reservePresentation()
     state.publishPresentation(token, adapter)
