@@ -38,7 +38,7 @@ class DesktopPresentationHostLifetimeTest {
   fun replacing_a_compatible_presentation_host_keeps_the_runtime_logical_map_and_engine() =
     runFfiComposeUiTest {
       val runtime = createNativeMapRuntime(runtimeOptions)
-      val state = runtime.createMapState(initialBaseStyle = BaseStyle.Empty)
+      val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
       var host by
         mutableStateOf(
           ContextlessPresentationHost("first", equalityKey = "same"),
@@ -73,7 +73,7 @@ class DesktopPresentationHostLifetimeTest {
   @Test
   fun inspection_mode_does_not_require_a_presentation_host() = runFfiComposeUiTest {
     val runtime = createNativeMapRuntime(runtimeOptions)
-    val state = runtime.createMapState(initialBaseStyle = BaseStyle.Empty)
+    val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
 
     setContent {
       CompositionLocalProvider(LocalInspectionMode provides true) { MaplibreMap(state) }

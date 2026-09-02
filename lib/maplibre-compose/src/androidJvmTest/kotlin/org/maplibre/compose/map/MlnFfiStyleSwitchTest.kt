@@ -60,7 +60,6 @@ class MlnFfiStyleSwitchTest {
   @Test
   fun rotating_the_base_style_with_content_composed_over_it() = runFfiComposeUiTest {
     val runtime = createNativeMapRuntime(runtimeOptions)
-    val state = runtime.createMapState(initialBaseStyle = STYLES[0].base)
     var style by mutableStateOf(STYLES[0])
     var extraLayer by mutableStateOf(false)
     val composition = StyleComposition {
@@ -78,8 +77,9 @@ class MlnFfiStyleSwitchTest {
         }
       }
     }
+    val state = runtime.createMapState(baseStyle = STYLES[0].base, styleComposition = composition)
 
-    setFfiTestMapContent(runtimeOptions) { MaplibreMap(state, composition, Modifier) }
+    setFfiTestMapContent(runtimeOptions) { MaplibreMap(state, Modifier) }
 
     // Each style finishes loading before the next is chosen; switching mid-load is a separate race
     // this test deliberately does not cover.
@@ -112,7 +112,6 @@ class MlnFfiStyleSwitchTest {
   @Test
   fun recreating_a_replacement_layer_while_switching_the_base_style() = runFfiComposeUiTest {
     val runtime = createNativeMapRuntime(runtimeOptions)
-    val state = runtime.createMapState(initialBaseStyle = REPLACEMENT_STYLES[0])
     var style by mutableStateOf(REPLACEMENT_STYLES[0])
     var sourceLayer by mutableStateOf("places")
     var showReplacement by mutableStateOf(true)
@@ -129,8 +128,13 @@ class MlnFfiStyleSwitchTest {
         }
       }
     }
+    val state =
+      runtime.createMapState(
+        baseStyle = REPLACEMENT_STYLES[0],
+        styleComposition = composition,
+      )
 
-    setFfiTestMapContent(runtimeOptions) { MaplibreMap(state, composition, Modifier) }
+    setFfiTestMapContent(runtimeOptions) { MaplibreMap(state, Modifier) }
 
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
       state.presentation != null && state.style.loadState == StyleLoadState.Ready
@@ -179,7 +183,6 @@ class MlnFfiStyleSwitchTest {
         },
       )
     val runtime = createNativeMapRuntime(options)
-    val state = runtime.createMapState(initialBaseStyle = INITIAL_STYLE)
     var showLatestLayer by mutableStateOf(false)
     val composition = StyleComposition {
       if (showLatestLayer) {
@@ -188,8 +191,9 @@ class MlnFfiStyleSwitchTest {
         }
       }
     }
+    val state = runtime.createMapState(baseStyle = INITIAL_STYLE, styleComposition = composition)
 
-    setFfiTestMapContent(options) { MaplibreMap(state, composition, Modifier) }
+    setFfiTestMapContent(options) { MaplibreMap(state, Modifier) }
 
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
       state.presentation != null && state.style.loadState == StyleLoadState.Ready

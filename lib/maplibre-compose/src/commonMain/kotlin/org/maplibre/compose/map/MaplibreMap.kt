@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.UiComposable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.DpOffset
@@ -23,10 +24,11 @@ import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MapOverlayHost
+import org.maplibre.compose.overlay.MapOverlayScope
+import org.maplibre.compose.overlay.include
 import org.maplibre.compose.style.DesiredStyleLayer
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
-import org.maplibre.compose.style.StyleComposition
 import org.maplibre.compose.style.rememberStyleComposition
 import org.maplibre.compose.util.FeaturesClickHandler
 import org.maplibre.compose.util.MapClickHandler
@@ -69,17 +71,19 @@ private class MapStateAttachment(
  * Displays [state] through one temporary presentation.
  *
  * The caller controls the lifetime of [state]. This composable creates the current presentation and
- * releases it when the call leaves composition.
+ * releases it when the call leaves composition. [overlay] draws Compose UI over the map. The
+ * default draws [MapOverlay.Default]. A supplied block replaces the default.
  */
 @Composable
 public fun MaplibreMap(
   state: MapState = rememberMapState(),
-  styleComposition: StyleComposition = StyleComposition.Empty,
   modifier: Modifier = Modifier,
   presentationOptions: MapPresentationOptions = MapPresentationOptions(),
   callbacks: MapPresentationCallbacks = MapPresentationCallbacks(),
   contentWindowInsets: WindowInsets = WindowInsets.safeDrawing,
-  overlay: MapOverlay = MapOverlay.Default,
+  overlay: @Composable @UiComposable MapOverlayScope.() -> Unit = {
+    include(MapOverlay.Default)
+  },
 ) {
   if (LocalInspectionMode.current) {
     Box(modifier = modifier.fillMaxSize().background(Color.Gray))
@@ -92,7 +96,6 @@ public fun MaplibreMap(
     PresentedMaplibreMap(
       state = state,
       presentationOwner = presentationOwner,
-      styleComposition = styleComposition,
       modifier = modifier,
       presentationOptions = presentationOptions,
       callbacks = callbacks,
@@ -106,12 +109,11 @@ public fun MaplibreMap(
 private fun PresentedMaplibreMap(
   state: MapState,
   presentationOwner: MapPresentationOwnerToken,
-  styleComposition: StyleComposition,
   modifier: Modifier,
   presentationOptions: MapPresentationOptions,
   callbacks: MapPresentationCallbacks,
   contentWindowInsets: WindowInsets,
-  overlay: MapOverlay,
+  overlay: @Composable @UiComposable MapOverlayScope.() -> Unit,
 ) {
   val token = remember(state, presentationOwner) { state.reservePresentation(presentationOwner) }
   val attachment = remember(state, token) { MapStateAttachment(state, token) }
@@ -119,7 +121,6 @@ private fun PresentedMaplibreMap(
   MaplibreMapPresentation(
     state = state,
     attachment = attachment,
-    styleComposition = styleComposition,
     modifier = modifier,
     presentationOptions = presentationOptions,
     callbacks = callbacks,
@@ -132,17 +133,16 @@ private fun PresentedMaplibreMap(
 private fun MaplibreMapPresentation(
   state: MapState,
   attachment: MapStateAttachment,
-  styleComposition: StyleComposition,
   modifier: Modifier,
   presentationOptions: MapPresentationOptions,
   callbacks: MapPresentationCallbacks,
   contentWindowInsets: WindowInsets,
-  overlay: MapOverlay,
+  overlay: @Composable @UiComposable MapOverlayScope.() -> Unit,
 ) {
   var rememberedStyle by remember { mutableStateOf<StyleBinding?>(null) }
   val desiredRevision by
     rememberStyleComposition(
-      composition = styleComposition,
+      composition = state.styleComposition,
       maybeStyle = rememberedStyle,
       mapState = state,
       replaceableSourceIds = state.desiredStyleRevision.sources.mapTo(mutableSetOf()) { it.id },

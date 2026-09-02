@@ -12,28 +12,26 @@ import org.maplibre.compose.material3.Material3
 import org.maplibre.compose.material3.ScaleBar
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MaplibreLogo
+import org.maplibre.compose.overlay.include
 
 @Composable
 fun Material3() {
   // #region overlay
-  MaplibreMap(overlay = MapOverlay.Material3)
+  MaplibreMap { include(MapOverlay.Material3) }
   // #endregion overlay
 
   // #region controls
-  MaplibreMap(
-    overlay =
-      MapOverlay {
-        ScaleBar(
-          presentation?.viewport?.metersPerDpAtTarget ?: 0.0,
-          modifier = Modifier.align(Alignment.TopStart),
-        ) // (1)!
-        CompassButton(modifier = Modifier.align(Alignment.TopEnd))
-        MaplibreLogo(Modifier.align(Alignment.BottomStart))
-        ExpandingAttributionButton(
-          modifier = Modifier.align(Alignment.BottomEnd),
-          contentAlignment = Alignment.BottomEnd,
-        )
-      }
-  )
+  MaplibreMap {
+    ScaleBar(
+      presentation?.viewport?.metersPerDpAtTarget ?: 0.0,
+      modifier = Modifier.align(Alignment.TopStart),
+    ) // (1)!
+    CompassButton(modifier = Modifier.align(Alignment.TopEnd))
+    MaplibreLogo(Modifier.align(Alignment.BottomStart))
+    ExpandingAttributionButton(
+      modifier = Modifier.align(Alignment.BottomEnd),
+      contentAlignment = Alignment.BottomEnd,
+    )
+  }
   // #endregion controls
 }

@@ -29,20 +29,17 @@ fun Controls() {
   // #endregion default
 
   // #region disabled
-  MaplibreMap(overlay = MapOverlay.None)
+  MaplibreMap {}
   // #endregion disabled
 
   // #region custom
-  MaplibreMap(
-    overlay =
-      MapOverlay {
-        MaplibreLogo(Modifier.align(Alignment.BottomStart))
-        ExpandingAttributionButton(
-          modifier = Modifier.align(Alignment.TopEnd),
-          contentAlignment = Alignment.TopEnd,
-        )
-      }
-  )
+  MaplibreMap {
+    MaplibreLogo(Modifier.align(Alignment.BottomStart))
+    ExpandingAttributionButton(
+      modifier = Modifier.align(Alignment.TopEnd),
+      contentAlignment = Alignment.TopEnd,
+    )
+  }
   // #endregion custom
 
   // #region insets
@@ -57,34 +54,28 @@ fun Controls() {
 @Composable
 fun LocationOverlay(position: Position) {
   // #region placedAt
-  MaplibreMap(
-    overlay =
-      MapOverlay {
-        include(MapOverlay.Default)
-        Text(
-          "Next sailing 12:40",
-          Modifier.placedAt(position, Alignment.BottomCenter).padding(bottom = 8.dp), // (1)!
-        )
-      }
-  )
+  MaplibreMap {
+    include(MapOverlay.Default)
+    Text(
+      "Next sailing 12:40",
+      Modifier.placedAt(position, Alignment.BottomCenter).padding(bottom = 8.dp), // (1)!
+    )
+  }
   // #endregion placedAt
 }
 
 @Composable
 fun OffScreenIndicator(position: Position) {
   // #region placedTowards
-  MaplibreMap(
-    overlay =
-      MapOverlay {
-        include(MapOverlay.Default)
-        val placement = rememberPlacedTowardsState() // (1)!
-        Text(
-          "▲",
-          Modifier.placedTowards(position, placement).graphicsLayer {
-            rotationZ = placement.angleDegrees // (2)!
-          },
-        )
-      }
-  )
+  MaplibreMap {
+    include(MapOverlay.Default)
+    val placement = rememberPlacedTowardsState() // (1)!
+    Text(
+      "▲",
+      Modifier.placedTowards(position, placement).graphicsLayer {
+        rotationZ = placement.angleDegrees // (2)!
+      },
+    )
+  }
   // #endregion placedTowards
 }

@@ -11,6 +11,7 @@ import kotlinx.coroutines.withContext
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.CircleLayer
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.rememberGeoJsonSource
@@ -52,7 +53,7 @@ internal class GeoJsonLoadScenario(private val synchronousUpdate: Boolean) : Ben
     )
   }
 
-  override suspend fun run(session: BenchmarkSession) {
+  override suspend fun run(mapState: MapState, session: BenchmarkSession) {
     session.ui.status = "Building $PointCount points"
     session.geoJson = withContext(Dispatchers.Default) { collection(phase = 0.0) }
     repeat(SettleFrames) { withFrameNanos {} }

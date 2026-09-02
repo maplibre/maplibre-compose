@@ -203,7 +203,7 @@ class PlatformMapAccessTest {
         resources = MapRuntimeResources {},
         logger = null,
       )
-    val state = runtime.createMapState(initialBaseStyle = BaseStyle.Empty)
+    val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
     try {
       block(state, runtime)
     } finally {

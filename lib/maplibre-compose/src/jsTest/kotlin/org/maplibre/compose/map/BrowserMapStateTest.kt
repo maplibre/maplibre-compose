@@ -30,7 +30,7 @@ class BrowserMapStateTest {
       firstRuntime = rememberDefaultMapRuntime()
       secondRuntime = rememberDefaultMapRuntime()
       if (includeState.value) {
-        val remembered = rememberMapState(firstRuntime, initialBaseStyle = BaseStyle.Empty)
+        val remembered = rememberMapState(firstRuntime, baseStyle = BaseStyle.Empty)
         SideEffect { state = remembered }
       }
     }
@@ -50,7 +50,7 @@ class BrowserMapStateTest {
   fun map_state_renders_a_base_style_and_publishes_one_presentation(): Promise<*> =
     runBrowserMapTest {
       val runtime = createMapRuntime(MapRuntimeOptions())
-      val state = runtime.createMapState(initialBaseStyle = BaseStyle.Empty)
+      val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
       val includeRival = mutableStateOf(false)
 
       setBrowserMapContent {

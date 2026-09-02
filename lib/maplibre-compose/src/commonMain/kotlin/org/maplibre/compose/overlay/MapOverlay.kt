@@ -129,10 +129,8 @@ public fun MapOverlayScope.include(overlay: MapOverlay) {
 }
 
 /**
- * The controls that a [MaplibreMap][org.maplibre.compose.map.MaplibreMap] draws on top of itself.
+ * Reusable controls that a [MaplibreMap][org.maplibre.compose.map.MaplibreMap] draws over itself.
  */
-// A holder rather than a parameter of MaplibreMap: a composable lambda parameter that has a
-// receiver breaks the composable target inference of the map's own `content` parameter.
 @Immutable
 public class MapOverlay(
   internal val content: @Composable @UiComposable MapOverlayScope.() -> Unit
@@ -167,15 +165,12 @@ public class MapOverlay(
         overlayScope.ExpandingAttributionButton()
       }
     }
-
-    /** Draws the map alone. Use this when you draw the attribution your style requires yourself. */
-    public val None: MapOverlay = MapOverlay {}
   }
 }
 
 @Composable
 internal fun MapOverlayHost(
-  overlay: MapOverlay,
+  overlay: @Composable @UiComposable MapOverlayScope.() -> Unit,
   mapState: MapState,
   contentWindowInsets: WindowInsets,
   modifier: Modifier = Modifier,
@@ -184,7 +179,10 @@ internal fun MapOverlayHost(
     remember(mapState, contentWindowInsets) {
       MapOverlayScopeImpl(mapState, contentWindowInsets)
     }
-  Layout(modifier = modifier, content = { overlay.content(scope) }) { measurables, constraints ->
+  Layout(
+    modifier = modifier,
+    content = { overlay(scope) },
+  ) { measurables, constraints ->
     val width = if (constraints.hasBoundedWidth) constraints.maxWidth else 0
     val height = if (constraints.hasBoundedHeight) constraints.maxHeight else 0
     val spacing = MapOverlay.Spacing.roundToPx()

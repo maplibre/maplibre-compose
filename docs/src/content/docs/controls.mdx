@@ -11,10 +11,10 @@ import controls from "../../../../demo-app/common/src/commonMain/kotlin/org/mapl
 import material3 from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Material3.kt?raw";
 
 <Api of="MaplibreMap" /> draws controls on top of the map. The `overlay`
-parameter sets which ones. The default is a scale bar and a compass along the
-top edge, and
-the MapLibre logo and an attribution button along the bottom edge. The scale
-bar and the compass appear only while they are relevant.
+block replaces the default controls when you supply it. The default draws a
+scale bar and a compass along the top edge. It draws the MapLibre logo and an
+attribution button along the bottom edge. The scale bar and the compass appear
+only while they are relevant.
 
 <Code code={region(controls, "default")} lang="kotlin" title="App.kt" />
 
@@ -24,19 +24,19 @@ bar and the compass appear only while they are relevant.
   attribution yourself.
 </Aside>
 
-## Choose an overlay
+## Replace the overlay
 
-<Api of="MapOverlay.None" /> draws no controls. Use it when your app shows the
-attribution somewhere else, such as an about screen.
+An empty block draws no controls. Use it when your app shows the attribution
+somewhere else, such as an about screen.
 
 <Code code={region(controls, "disabled")} lang="kotlin" title="App.kt" />
 
-A <Api of="MapOverlay" /> block draws the controls you list in it.
-`Modifier.align` positions a control against an inset edge of the map.
+The trailing block draws the controls that you list. `Modifier.align` positions
+a control against an inset edge of the map.
 
 <Code code={region(controls, "custom")} lang="kotlin" title="App.kt" />
 
-The controls use the map state from the `MapOverlay` block.
+The controls use the map state from the trailing block.
 
 ## Theme the controls with Material 3
 
@@ -56,14 +56,12 @@ commonMain.dependencies {
 ```
 
 <Api of="Material3" display="MapOverlay.Material3" /> draws the same controls
-as
-<Api of="MapOverlay.Default" /> in the same places, so switching to it is one
-parameter:
+as <Api of="MapOverlay.Default" /> in the same places. Include it in the block:
 
 <Code code={region(material3, "overlay")} lang="kotlin" title="App.kt" />
 
-Each Material 3 control is also a composable you can place in a `MapOverlay`
-of your own:
+Each Material 3 control is also a composable that you can place in the trailing
+block:
 
 <Code code={region(material3, "controls")} lang="kotlin" title="App.kt" />
 
@@ -85,9 +83,8 @@ Padding on a bounding-box camera move adds to `cameraPadding` for that fit.
 ## Pin Compose UI to a location
 
 <Api of="MapOverlayScope.placedAt" /> puts a child on a geographic position.
-Keep the default controls with <Api of="include" />, then add the child in the
-same overlay. A pan, a zoom,
-or a window resize moves the child with the map.
+Include <Api of="MapOverlay.Default" /> to keep the default controls. A pan, a
+zoom, or a window resize moves the child with the map.
 
 <Code code={region(controls, "placedAt")} lang="kotlin" title="App.kt" />
 

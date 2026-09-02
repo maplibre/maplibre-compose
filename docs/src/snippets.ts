@@ -27,13 +27,13 @@ export function region(source: string, name: string): string {
   return dedent(trimBlankEdges(body)).join("\n");
 }
 
-/** Wraps a region in the style composition and map call that consume it. */
-export function styleComposition(body: string): string {
+/** Wraps a region in the remembered map state and map call that consume it. */
+export function rememberedMapStyle(body: string): string {
   const indented = body
     .split("\n")
     .map((line) => (line.trim() === "" ? line : `    ${line}`))
     .join("\n");
-  return `val composition = remember {\n  StyleComposition {\n${indented}\n  }\n}\nMaplibreMap(styleComposition = composition)`;
+  return `val state = rememberMapState {\n${indented}\n}\nMaplibreMap(state = state)`;
 }
 
 function isMarker(line: string, kind: string, name?: string): boolean {

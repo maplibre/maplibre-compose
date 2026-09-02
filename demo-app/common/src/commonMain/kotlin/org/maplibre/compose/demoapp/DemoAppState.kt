@@ -4,6 +4,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -32,17 +33,23 @@ enum class DemoShell {
 
 /** The state the shell owns: the shared map, the selection, and the settings. */
 @Stable
-class DemoAppState(
+class DemoAppState
+internal constructor(
   val mapRuntime: MapRuntime,
   val mapState: MapState,
   val settings: DemoSettings,
   val frameRateState: FrameRateState,
+  private val mapConfiguration: DemoMapConfiguration,
 ) {
   /**
    * The demo shown on the map. Select demos through [selectDemo] so the panel can align its
    * destination.
    */
-  var selectedDemo by mutableStateOf<Demo?>(null)
+  var selectedDemo: Demo?
+    get() = mapConfiguration.selectedDemo
+    set(value) {
+      mapConfiguration.selectedDemo = value
+    }
 
   /**
    * Selects [demo] in the Demos shell. The one selection path for both the panel's demo list and
@@ -54,28 +61,25 @@ class DemoAppState(
   }
 
   /** The style applied when [MapStyleMode] resolves to light. */
-  var chosenLightStyle by mutableStateOf<DemoStyle>(Protomaps.Light)
+  var chosenLightStyle: DemoStyle
+    get() = mapConfiguration.chosenLightStyle
+    set(value) {
+      mapConfiguration.chosenLightStyle = value
+    }
 
   /** The style applied when [MapStyleMode] resolves to dark. */
-  var chosenDarkStyle by mutableStateOf<DemoStyle>(Protomaps.Dark)
+  var chosenDarkStyle: DemoStyle
+    get() = mapConfiguration.chosenDarkStyle
+    set(value) {
+      mapConfiguration.chosenDarkStyle = value
+    }
 
   /**
    * The style applied to the map: the selected demo's if it provides one, else the chosen style for
    * the current [MapStyleMode].
    */
   val appliedStyle: DemoStyle
-    @Composable
-    get() {
-      selectedDemo?.preferredStyle?.let {
-        return it
-      }
-      val systemDark = isSystemInDarkTheme()
-      return when (settings.mapStyleMode) {
-        MapStyleMode.System -> if (systemDark) chosenDarkStyle else chosenLightStyle
-        MapStyleMode.Light -> chosenLightStyle
-        MapStyleMode.Dark -> chosenDarkStyle
-      }
-    }
+    @Composable get() = mapConfiguration.appliedStyle(settings)
 
   /**
    * The style the map composition most recently applied. Kept as plain state because [appliedStyle]
@@ -113,13 +117,44 @@ class DemoAppState(
   }
 }
 
+@Stable
+internal class DemoMapConfiguration {
+  var selectedDemo by mutableStateOf<Demo?>(null)
+  var chosenLightStyle by mutableStateOf<DemoStyle>(Protomaps.Light)
+  var chosenDarkStyle by mutableStateOf<DemoStyle>(Protomaps.Dark)
+
+  @Composable
+  fun appliedStyle(settings: DemoSettings): DemoStyle {
+    selectedDemo?.preferredStyle?.let {
+      return it
+    }
+    val systemDark = isSystemInDarkTheme()
+    return when (settings.mapStyleMode) {
+      MapStyleMode.System -> if (systemDark) chosenDarkStyle else chosenLightStyle
+      MapStyleMode.Light -> chosenLightStyle
+      MapStyleMode.Dark -> chosenDarkStyle
+    }
+  }
+}
+
 internal data class StyleLoad(val count: Int, val base: BaseStyle?)
 
 @Composable
 fun rememberDemoAppState(): DemoAppState {
   val mapRuntime = rememberDefaultMapRuntime()
-  val mapState = rememberMapState(runtime = mapRuntime, initialCameraPosition = StartPosition)
   val settings = rememberDemoSettings()
+  val mapConfiguration = remember { DemoMapConfiguration() }
+  val appliedStyle = mapConfiguration.appliedStyle(settings)
+  val mapState =
+    rememberMapState(
+      runtime = mapRuntime,
+      baseStyle = appliedStyle.base,
+      initialCameraPosition = StartPosition,
+    ) {
+      mapConfiguration.selectedDemo?.let { demo -> key(demo) { demo.MapContent(mapState) } }
+    }
   val frameRateState = remember { FrameRateState() }
-  return remember { DemoAppState(mapRuntime, mapState, settings, frameRateState) }
+  return remember {
+    DemoAppState(mapRuntime, mapState, settings, frameRateState, mapConfiguration)
+  }
 }

@@ -16,14 +16,14 @@ import org.maplibre.compose.style.StyleComposition
 suspend fun captureCurrentMap(
   runtime: MapRuntime,
   mapState: MapState,
-  content: StyleComposition,
+  styleComposition: StyleComposition,
   density: Density,
   layoutDirection: LayoutDirection,
 ): ImageBitmap {
   val snapshotter =
     runtime.createSnapshotter(
       baseStyle = mapState.style.baseStyle,
-      styleComposition = content,
+      styleComposition = styleComposition,
     )
   return try {
     snapshotter.capture(

@@ -74,7 +74,7 @@ class BrowserMapLifecycleTest {
       val state =
         runtime.createMapState(
           initialCameraPosition = initialCamera,
-          initialBaseStyle = STYLE_A,
+          baseStyle = STYLE_A,
         )
       val presented = mutableStateOf(true)
 
