@@ -8,7 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.launch
-import org.maplibre.compose.map.rememberMapRuntime
+import org.maplibre.compose.map.rememberDefaultMapRuntime
 import org.maplibre.compose.offline.DownloadProgress
 import org.maplibre.compose.offline.OfflinePackDefinition
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -16,7 +16,7 @@ import org.maplibre.spatialk.geojson.BoundingBox
 @Composable
 fun Offline() {
   // #region manager
-  val offlineManager = rememberMapRuntime().offlineManager
+  val offlineManager = rememberDefaultMapRuntime().offlineManager
   // #endregion manager
   val scope = rememberCoroutineScope()
   val pixelRatio = LocalDensity.current.density

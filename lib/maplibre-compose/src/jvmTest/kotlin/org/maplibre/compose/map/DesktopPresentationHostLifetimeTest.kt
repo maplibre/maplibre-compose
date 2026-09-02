@@ -17,7 +17,6 @@ import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.desktop.ProvideMapPresentationHost
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.FfiTestPlatform
-import org.maplibre.compose.mlnffi.MlnFfiApplication
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
 import org.maplibre.compose.style.BaseStyle
@@ -38,7 +37,6 @@ class DesktopPresentationHostLifetimeTest {
   @Test
   fun replacing_a_compatible_presentation_host_keeps_the_runtime_logical_map_and_engine() =
     runFfiComposeUiTest {
-      MlnFfiApplication.configure(runtimeOptions)
       val runtime = createNativeMapRuntime(runtimeOptions)
       val state = runtime.createMapState(initialBaseStyle = BaseStyle.Empty)
       var host by

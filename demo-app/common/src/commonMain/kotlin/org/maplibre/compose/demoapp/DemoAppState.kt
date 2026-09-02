@@ -15,7 +15,7 @@ import org.maplibre.compose.demoapp.benchmark.BenchmarkUiState
 import org.maplibre.compose.demoapp.benchmark.allBenchmarkScenarios
 import org.maplibre.compose.map.MapRuntime
 import org.maplibre.compose.map.MapState
-import org.maplibre.compose.map.rememberMapRuntime
+import org.maplibre.compose.map.rememberDefaultMapRuntime
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.Position
@@ -117,7 +117,7 @@ internal data class StyleLoad(val count: Int, val base: BaseStyle?)
 
 @Composable
 fun rememberDemoAppState(): DemoAppState {
-  val mapRuntime = rememberMapRuntime()
+  val mapRuntime = rememberDefaultMapRuntime()
   val mapState = rememberMapState(runtime = mapRuntime, initialCameraPosition = StartPosition)
   val settings = rememberDemoSettings()
   val frameRateState = remember { FrameRateState() }

@@ -5,7 +5,7 @@ package org.maplibre.compose.docsnippets
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import org.maplibre.compose.map.MaplibreMap
-import org.maplibre.compose.map.rememberMapRuntime
+import org.maplibre.compose.map.rememberDefaultMapRuntime
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleComposition
@@ -13,7 +13,7 @@ import org.maplibre.compose.style.StyleComposition
 @Composable
 fun Composition() {
   // #region base-plus-content
-  val runtime = rememberMapRuntime()
+  val runtime = rememberDefaultMapRuntime()
   val state =
     rememberMapState(
       runtime = runtime,

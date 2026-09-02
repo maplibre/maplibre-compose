@@ -1,6 +1,6 @@
 package org.maplibre.compose.desktop
 
-/** Package of the process `main` class, used as the default [MapLibre.configure] applicationId. */
+/** Package of the process `main` class, used as the default runtime application ID. */
 internal fun inferredApplicationId(): String {
   val className = mainClassName()
   val id = className?.let(::applicationIdFromClassName)
@@ -8,7 +8,7 @@ internal fun inferredApplicationId(): String {
     ?: throw IllegalStateException(
       "Could not infer applicationId from the process main class" +
         (className?.let { " '$it'" } ?: "") +
-        ". Pass one explicitly: MapLibre.configure(applicationId = \"com.example.myapp\")."
+        ". Create a runtime with MapRuntimeOptions(applicationId = \"com.example.myapp\")."
     )
 }
 

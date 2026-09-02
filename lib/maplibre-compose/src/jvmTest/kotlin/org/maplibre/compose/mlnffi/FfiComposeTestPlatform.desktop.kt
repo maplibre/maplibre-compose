@@ -6,6 +6,7 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runComposeUiTest
 import java.awt.EventQueue
+import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.map.LocalMlnFfiMapHostFactory
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.render.RenderBackend
@@ -20,7 +21,7 @@ internal actual fun runFfiComposeUiTest(block: suspend ComposeUiTest.() -> Unit)
     // Tests share a JVM; a dump left printing here would interleave into the next test's output.
     // Bounded, so a wedged stderr could never hold up teardown for the daemon thread's sake.
     watchdog.join(1_000)
-    MlnFfiApplication.resetForTest()
+    DefaultMapRuntime.resetForTest()
   }
 }
 
@@ -63,7 +64,7 @@ internal actual fun ComposeUiTest.setFfiTestMapContent(
   presentationCount: Int,
   content: @Composable () -> Unit,
 ) {
-  MlnFfiApplication.configure(runtimeOptions)
+  DefaultMapRuntime.installForTest(runtimeOptions)
   val preparedFactory = CurrentRuntimeTestMapHostFactory.prepare(presentationCount)
   try {
     setContent {

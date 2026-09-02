@@ -11,7 +11,6 @@ import dev.sargunv.composeglfw.Window
 import dev.sargunv.composeglfw.glfwApplication
 import dev.sargunv.composeglfw.rememberWindowState
 import org.maplibre.compose.demoapp.DemoApp
-import org.maplibre.compose.desktop.MapLibre
 import org.maplibre.compose.desktop.ProvideMapPresentationHost
 
 /**
@@ -22,7 +21,6 @@ import org.maplibre.compose.desktop.ProvideMapPresentationHost
  * the Gradle task does.
  */
 fun main() {
-  MapLibre.configure(applicationId = "org.maplibre.compose.glfw-fixture")
   glfwApplication {
     Window(
       onCloseRequest = ::exitApplication,

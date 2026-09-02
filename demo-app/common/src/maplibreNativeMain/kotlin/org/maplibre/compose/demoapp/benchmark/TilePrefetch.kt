@@ -6,7 +6,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.flow.first
 import org.maplibre.compose.map.MapState
-import org.maplibre.compose.map.rememberMapRuntime
+import org.maplibre.compose.map.rememberDefaultMapRuntime
 import org.maplibre.compose.offline.DownloadProgress
 import org.maplibre.compose.offline.DownloadStatus
 import org.maplibre.compose.offline.OfflineManager
@@ -15,7 +15,7 @@ import org.maplibre.spatialk.geojson.BoundingBox
 
 @Composable
 actual fun rememberTilePrefetcher(): TilePrefetcher {
-  val manager = rememberMapRuntime().offlineManager
+  val manager = rememberDefaultMapRuntime().offlineManager
   val pixelRatio = LocalDensity.current.density
   return remember(manager, pixelRatio) { OfflinePackPrefetcher(manager, pixelRatio) }
 }

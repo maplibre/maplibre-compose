@@ -20,7 +20,6 @@ import dev.nucleusframework.window.material.rememberMaterialTitleBarStyle
 import org.maplibre.compose.demoapp.DemoApp
 import org.maplibre.compose.demoapp.DemoAppTheme
 import org.maplibre.compose.demoapp.rememberDemoAppState
-import org.maplibre.compose.desktop.MapLibre
 import org.maplibre.compose.desktop.ProvideMapPresentationHost
 
 /**
@@ -28,7 +27,6 @@ import org.maplibre.compose.desktop.ProvideMapPresentationHost
  * the only difference is which `ComposeMapPresentationHost` is in scope.
  */
 fun main() {
-  MapLibre.configure(applicationId = "org.maplibre.compose.nucleus-fixture")
   nucleusApplication(
     backend = NucleusBackend.Tao,
     // A fixture, not a shipped app: allow parallel launches next to other demos.

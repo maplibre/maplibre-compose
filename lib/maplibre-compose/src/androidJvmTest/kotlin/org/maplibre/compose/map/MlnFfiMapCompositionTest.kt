@@ -454,7 +454,7 @@ class MlnFfiMapCompositionTest {
       onMapLoadFailed = { errors += "mapLoadFailed: $it" },
       onFrame = { onFrame() },
     ) {
-      val offlineManager = rememberMapRuntime().offlineManager
+      val offlineManager = rememberDefaultMapRuntime().offlineManager
       FillLayer(
         id = "offline-packs",
         source = rememberOfflinePacksSource(offlineManager.packs),
