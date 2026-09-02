@@ -44,9 +44,7 @@ class AndroidMapStateRecreationTest {
         val firstState = requireNotNull(firstActivity.mapState)
         assertTrue(firstActivity.defaultRuntimeIsShared)
 
-        runOnIdle {
-          requireNotNull(firstState.currentMapAttachment).setCameraPosition(EXPECTED_CAMERA)
-        }
+        runOnIdle { firstState.setCameraPosition(EXPECTED_CAMERA) }
         waitUntil(timeoutMillis = TIMEOUT_MILLIS) {
           firstState.currentMapAttachment?.adapter?.hasCamera(EXPECTED_CAMERA) == true
         }
