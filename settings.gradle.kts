@@ -40,7 +40,6 @@ include(
   ":demo-app:common",
   ":demo-app:android",
   ":demo-app:desktop",
-  ":demo-app:desktop-glfw",
   ":demo-app:desktop-nucleus",
   ":lib",
   ":lib:maplibre-compose",

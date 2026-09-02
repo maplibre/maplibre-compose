@@ -53,26 +53,10 @@ enum class DesktopHostPlatform(
 
   /**
    * Whether the Compose side of the handoff presents through OpenGL, and so needs LWJGL's OpenGL
-   * natives. Follows the platform rather than the map's backend: Skiko and compose-glfw agree.
+   * natives. This follows the platform rather than the map's backend.
    */
   private val presentsThroughOpenGl: Boolean
     get() = os == "linux"
-
-  /**
-   * Dependency notation for the compose-glfw runtime this platform needs. Its backend names the
-   * Compose consumer, a different axis from the map's own; the two only coincide on macOS.
-   */
-  fun composeGlfwRuntimeDependency(version: String): String =
-    "dev.sargunv:compose-glfw-$composeGlfwBackend-$os-$arch:$version"
-
-  private val composeGlfwBackend: String
-    get() =
-      when (os) {
-        "linux" -> "opengl"
-        "macos" -> "metal"
-        "windows" -> "direct3d"
-        else -> error("compose-glfw publishes no runtime for operating system '$os'")
-      }
 
   /** Full dependency notation for [backend]'s native runtime on this platform. */
   fun runtimeDependency(backend: RenderBackend, version: String): String =

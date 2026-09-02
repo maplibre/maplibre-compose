@@ -24,8 +24,8 @@ internal actual val agentPlatformName: String = "desktop"
 
 /**
  * The [AgentScreenshotRecorder] at the root of the app, provided by the desktop entry point so the
- * agent driver can capture the window. Null on desktop hosts that don't provide one (compose-glfw,
- * Nucleus Tao), where screenshots are unsupported.
+ * agent driver can capture the window. Null on the Nucleus Tao host, where screenshots are
+ * unsupported.
  */
 val LocalAgentScreenshotRecorder = compositionLocalOf<AgentScreenshotRecorder?> { null }
 

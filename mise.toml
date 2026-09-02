@@ -368,24 +368,6 @@ arg "[udid]" help="Device or simulator UDID. Prompts when several are ready."
 raw = true
 run = '.mise/bin/run-ios-demo'
 
-[tasks."demo:desktop-glfw"]
-description = "Run the demo app on the compose-glfw desktop host instead of the AWT one."
-usage = '''
-flag "--backend <name>" help="Map render backend to run, e.g. opengl or vulkan. Defaults to the platform's preferred backend."
-'''
-run = '''
-args=""
-if [ -n "$usage_backend" ]; then
-  args="-Pmaplibre.desktop.backend=$usage_backend"
-fi
-if [ "$(uname -s)" = Darwin ]; then
-  # Core Location reads the usage description from a packaged app Info.plist.
-  ./gradlew :demo-app:desktop-glfw:runDistributable $args
-else
-  ./gradlew :demo-app:desktop-glfw:run $args
-fi
-'''
-
 [tasks."demo:desktop-nucleus"]
 description = "Run the demo app on the Nucleus Tao desktop host instead of the AWT one."
 usage = '''

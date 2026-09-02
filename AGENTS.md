@@ -23,7 +23,6 @@ per `./gradlew` invocation. Two together can fail in ways neither does alone.
 - `mise run build:android-app`
 - `mise run build:ios:device`
 - `mise run demo:desktop`
-- `mise run demo:desktop-glfw`
 - `mise run demo:desktop-nucleus`
 - `mise run demo:android` (prompts when several devices are connected;
   `--backend vulkan` packages the Vulkan runtime)
@@ -157,7 +156,6 @@ rendering interactive maps across Android, iOS, Desktop, and Web platforms.
   - `common`: Every line of the app, and the only Kotlin Multiplatform module
   - `android`: An Android application that launches `common`
   - `desktop`: A JVM application that launches `common` on the AWT host
-  - `desktop-glfw`: The same JVM application on the compose-glfw host.
   - `desktop-nucleus`: The same JVM application on the Nucleus Tao host.
   - `ios`: An Xcode project that embeds the framework `common` produces
 
