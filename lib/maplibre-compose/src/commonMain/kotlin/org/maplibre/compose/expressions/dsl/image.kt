@@ -85,6 +85,8 @@ public fun image(
  *   [Signed Distance Field](https://docs.mapbox.com/help/troubleshooting/using-recolorable-images-in-mapbox-maps/).
  *   Ideal for monochrome vector icons.
  * @param stretch Stretch and content box used when a symbol layer sizes the icon to wrap its text.
+ * @throws IllegalArgumentException If the provided size or the painter's intrinsic size has a
+ *   non-positive dimension.
  */
 public fun image(
   value: Painter,
@@ -115,6 +117,8 @@ public fun image(
  * @param stretch Stretch and content box used when a symbol layer sizes the icon to wrap its text.
  * @param alpha passed to [Painter.draw]
  * @param colorFilter passed to [Painter.draw]
+ * @throws IllegalArgumentException If the provided size or the painter's intrinsic size has a
+ *   non-positive dimension.
  * @see Painter.draw
  */
 public fun image(
