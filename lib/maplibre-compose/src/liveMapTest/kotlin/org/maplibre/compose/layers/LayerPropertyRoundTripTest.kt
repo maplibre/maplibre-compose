@@ -61,7 +61,7 @@ import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.LayerHandle
+import org.maplibre.compose.style.LayerInstallation
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MapLibreFlavor
@@ -208,12 +208,12 @@ class LayerPropertyRoundTripTest {
     val path = if (attachFirst) "after attach" else "before attach"
     try {
       if (attachFirst) {
-        val handle = LayerHandle(style, layer.definition(), beforeLayerId = "")
+        val handle = LayerInstallation(style, layer.definition(), beforeLayerId = "")
         case.apply(layer)
         handle.update(layer.definition())
       } else {
         case.apply(layer)
-        LayerHandle(style, layer.definition(), beforeLayerId = "")
+        LayerInstallation(style, layer.definition(), beforeLayerId = "")
       }
     } catch (error: Throwable) {
       return listOf("${case.property} $path: MapLibre refused it: ${error.message}")

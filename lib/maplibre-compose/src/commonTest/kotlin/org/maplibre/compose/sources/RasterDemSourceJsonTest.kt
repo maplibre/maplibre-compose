@@ -9,7 +9,7 @@ import kotlin.test.assertNotNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.style.RecordingStyleBinding
-import org.maplibre.compose.style.SourceHandle
+import org.maplibre.compose.style.SourceInstallation
 
 /** A raster DEM definition resolves against the capabilities of each loaded engine. */
 class RasterDemSourceJsonTest {
@@ -40,7 +40,7 @@ class RasterDemSourceJsonTest {
         demEncoding = RasterDemEncoding.Custom(redFactor = 2f),
       )
 
-    SourceHandle(binding, source.definition())
+    SourceInstallation(binding, source.definition())
 
     val json = assertNotNull(binding.sources["dem"])
     assertEquals("mapbox", json["encoding"]?.jsonPrimitive?.content)
@@ -57,7 +57,7 @@ class RasterDemSourceJsonTest {
         demEncoding = RasterDemEncoding.Custom(redFactor = 2f, baseShift = 3f),
       )
 
-    SourceHandle(binding, source.definition())
+    SourceInstallation(binding, source.definition())
 
     val json = assertNotNull(binding.sources["dem"])
     assertEquals("custom", json["encoding"]?.jsonPrimitive?.content)
@@ -89,7 +89,7 @@ class RasterDemSourceJsonTest {
         options = TileSetOptions(tileCoordinateSystem = TileCoordinateSystem.XYZ),
       )
 
-    SourceHandle(binding, source.definition())
+    SourceInstallation(binding, source.definition())
 
     assertFalse("scheme" in assertNotNull(binding.sources["dem"]))
   }
@@ -105,7 +105,7 @@ class RasterDemSourceJsonTest {
       )
 
     val error =
-      assertFailsWith<IllegalStateException> { SourceHandle(binding, source.definition()) }
+      assertFailsWith<IllegalStateException> { SourceInstallation(binding, source.definition()) }
 
     assertContains(error.message.orEmpty(), "TileCoordinateSystem.XYZ")
     assertFalse("dem" in binding.sources)
@@ -124,7 +124,7 @@ class RasterDemSourceJsonTest {
     val binding = RecordingStyleBinding(supportsRasterDemScheme = false)
     val source = RasterDemSource(id = "dem", uri = "https://example.invalid/tiles.json")
 
-    SourceHandle(binding, source.definition())
+    SourceInstallation(binding, source.definition())
 
     val json = assertNotNull(binding.sources["dem"])
     assertFalse("scheme" in json)

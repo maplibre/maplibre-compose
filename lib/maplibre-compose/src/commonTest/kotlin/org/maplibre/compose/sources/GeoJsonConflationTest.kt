@@ -8,7 +8,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.style.PreparedGeoJson
 import org.maplibre.compose.style.RecordingStyleBinding
-import org.maplibre.compose.style.SourceHandle
+import org.maplibre.compose.style.SourceInstallation
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Position
@@ -41,7 +41,7 @@ class GeoJsonConflationTest {
   fun an_older_install_cannot_overwrite_a_newer_one() = runTest {
     val binding = DeferringBinding()
     val source = GeoJsonSource("s", pointAt(0.0), GeoJsonOptions())
-    val handle = SourceHandle(binding, source.definition())
+    val handle = SourceInstallation(binding, source.definition())
 
     val older = pointAt(1.0)
     val newer = pointAt(2.0)
@@ -65,7 +65,7 @@ class GeoJsonConflationTest {
     source.setDesiredData(replacement)
     assertEquals(replacement.toDataJson(), source.toJson()["data"])
 
-    SourceHandle(binding, source.definition())
+    SourceInstallation(binding, source.definition())
     assertEquals(replacement.toDataJson(), (binding.sources["s"] as JsonObject)["data"])
   }
 }
