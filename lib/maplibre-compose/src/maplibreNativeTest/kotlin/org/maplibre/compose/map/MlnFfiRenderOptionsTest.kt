@@ -15,6 +15,15 @@ class MlnFfiRenderOptionsTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       fixture.session.setRenderSettings(
+        RenderOptions(cameraProjection = CameraProjection.Axonometric())
+      )
+
+      val defaultAxonometric = assertNotNull(fixture.session.readMap { it.projectionMode })
+      assertTrue(assertNotNull(defaultAxonometric.axonometric))
+      assertEquals(0.0, defaultAxonometric.xSkew)
+      assertEquals(1.0, defaultAxonometric.ySkew)
+
+      fixture.session.setRenderSettings(
         RenderOptions(cameraProjection = CameraProjection.Axonometric(xSkew = 0.25, ySkew = 0.5))
       )
 

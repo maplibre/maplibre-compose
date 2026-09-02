@@ -14,6 +14,8 @@ public sealed interface CameraProjection {
    * @param xSkew How much to skew the projection on the x-axis.
    * @param ySkew How much to skew the projection on the y-axis.
    */
-  public data class Axonometric(public val xSkew: Double, public val ySkew: Double) :
-    CameraProjection
+  public data class Axonometric(
+    public val xSkew: Double = 0.0,
+    public val ySkew: Double = 1.0,
+  ) : CameraProjection
 }
