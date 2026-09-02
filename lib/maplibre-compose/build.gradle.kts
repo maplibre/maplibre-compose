@@ -61,6 +61,7 @@ kotlin {
       api(libs.kermit)
       implementation(libs.kotlinx.coroutines.core)
       implementation(libs.kotlinx.atomicfu)
+      api(libs.kotlinx.io.core)
       api(libs.spatialk.geojson)
       api(libs.spatialk.units)
     }
@@ -83,8 +84,6 @@ kotlin {
         dependencies {
           // Backend-independent binding only; the application selects the native runtime.
           api(libs.maplibre.nativeFfi)
-          // Multiplatform filesystem paths, so this source set stays free of java.io.File.
-          implementation(libs.kotlinx.io.core)
         }
       }
 

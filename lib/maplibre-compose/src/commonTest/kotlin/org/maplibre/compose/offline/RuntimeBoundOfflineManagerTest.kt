@@ -6,6 +6,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
+import kotlinx.io.files.Path
 import org.maplibre.compose.map.MapRuntimeClosedException
 import org.maplibre.compose.map.MapRuntimeResources
 import org.maplibre.compose.map.RuntimeImplementation
@@ -24,6 +25,7 @@ class RuntimeBoundOfflineManagerTest {
     assertFailsWith<UnsupportedOperationException> { manager.pause(pack) }
     assertFailsWith<UnsupportedOperationException> { manager.delete(pack) }
     assertFailsWith<UnsupportedOperationException> { manager.invalidate(pack) }
+    assertFailsWith<UnsupportedOperationException> { manager.mergeDatabase(databaseFile) }
     assertFailsWith<UnsupportedOperationException> { manager.invalidateAmbientCache() }
     assertFailsWith<UnsupportedOperationException> { manager.clearAmbientCache() }
     assertFailsWith<UnsupportedOperationException> { manager.setMaximumAmbientCacheSize(1) }
@@ -43,8 +45,9 @@ class RuntimeBoundOfflineManagerTest {
     manager.pause(backend.pack)
     manager.delete(backend.pack)
     manager.invalidate(backend.pack)
+    assertEquals(setOf(backend.mergedPack), manager.mergeDatabase(databaseFile))
     assertEquals(
-      listOf("create", "resume", "pause", "delete", "invalidate"),
+      listOf("create", "resume", "pause", "delete", "invalidate", "merge"),
       backend.calls,
     )
 
@@ -58,6 +61,7 @@ class RuntimeBoundOfflineManagerTest {
         "pause",
         "delete",
         "invalidate",
+        "merge",
         "invalidate ambient",
         "clear ambient",
         "set ambient size",
@@ -89,6 +93,7 @@ class RuntimeBoundOfflineManagerTest {
     assertFailsWith<MapRuntimeClosedException> { manager.pause(backend.pack) }
     assertFailsWith<MapRuntimeClosedException> { manager.delete(backend.pack) }
     assertFailsWith<MapRuntimeClosedException> { manager.invalidate(backend.pack) }
+    assertFailsWith<MapRuntimeClosedException> { manager.mergeDatabase(databaseFile) }
     assertFailsWith<MapRuntimeClosedException> { manager.invalidateAmbientCache() }
     assertFailsWith<MapRuntimeClosedException> { manager.clearAmbientCache() }
     assertFailsWith<MapRuntimeClosedException> { manager.setMaximumAmbientCacheSize(1) }
@@ -115,6 +120,7 @@ class RuntimeBoundOfflineManagerTest {
     val calls = mutableListOf<String>()
     val pack = pack(regionId = 1)
     val createdPack = pack(regionId = 2)
+    val mergedPack = pack(regionId = 3)
 
     override val packs: Set<OfflinePack> = setOf(pack)
 
@@ -138,6 +144,9 @@ class RuntimeBoundOfflineManagerTest {
     override suspend fun invalidate(pack: OfflinePack) {
       calls += "invalidate"
     }
+
+    override suspend fun mergeDatabase(databaseFile: Path): Set<OfflinePack> =
+      setOf(mergedPack).also { calls += "merge" }
 
     override suspend fun invalidateAmbientCache() {
       calls += "invalidate ambient"
@@ -167,5 +176,7 @@ class RuntimeBoundOfflineManagerTest {
         bounds = BoundingBox(west = -1.0, south = -1.0, east = 1.0, north = 1.0),
         pixelRatio = 1f,
       )
+
+    val databaseFile = Path("source-offline.db")
   }
 }
