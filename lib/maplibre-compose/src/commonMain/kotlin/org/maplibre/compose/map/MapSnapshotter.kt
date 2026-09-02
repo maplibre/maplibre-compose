@@ -72,8 +72,14 @@ public data class MapSnapshotRequest(
   }
 }
 
+/** Reports a failed snapshot capture. */
+public class MapSnapshotException internal constructor(message: String, cause: Throwable) :
+  RuntimeException(message, cause)
+
 /** Platform work for one snapshotter engine map. */
 internal interface SnapshotterAdapter {
+  fun validate(request: MapSnapshotRequest) = Unit
+
   suspend fun prepare(
     baseStyle: BaseStyle,
     baseStyleRevision: Long,
@@ -176,9 +182,6 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
   }
 }
 
-/** Thrown when an operation targets a closed snapshotter. */
-public class MapSnapshotterClosedException : IllegalStateException("The map snapshotter is closed")
-
 /** An independent non-UI map that captures images. */
 public interface MapSnapshotter {
   /** Desired and applied style state for this snapshotter's engine map. */
@@ -190,7 +193,11 @@ public interface MapSnapshotter {
    * Cancelling the caller removes a queued request or abandons an active result. After active
    * cancellation, the next request waits until platform rendering and terminal cleanup end.
    *
-   * @throws MapSnapshotterClosedException if this snapshotter closes before returning an image
+   * @throws IllegalStateException if the snapshotter is closed before this call.
+   * @throws IllegalArgumentException if the request cannot be rendered on the current platform.
+   * @throws UnsupportedOperationException if snapshots are unavailable on the current platform.
+   * @throws CancellationException if the snapshotter closes after accepting this capture.
+   * @throws MapSnapshotException if style evaluation or rendering fails.
    */
   public suspend fun capture(request: MapSnapshotRequest): ImageBitmap
 
@@ -202,6 +209,8 @@ public interface MapSnapshotter {
 
   /**
    * Waits until this snapshotter has released its physical resources and reports cleanup errors.
+   *
+   * @throws MapCleanupException if cleanup fails.
    */
   public suspend fun awaitClosed()
 }
@@ -291,7 +300,9 @@ internal class MapSnapshotterImplementation(
         if (worker == null) worker = runtime.physicalScope.launch { runQueue() }
         true
       }
-      if (!accepted) continuation.resumeWithException(MapSnapshotterClosedException())
+      if (!accepted) {
+        continuation.resumeWithException(IllegalStateException("The map snapshotter is closed"))
+      }
     }
 
   override fun close() {
@@ -299,12 +310,13 @@ internal class MapSnapshotterImplementation(
     val finishNow = lock.withLock {
       if (closed) return
       closed = true
+      styleHandleEpoch++
       val queued = queue.toList()
       queue.clear()
-      queued.forEach { it.continuation.resumeWithException(MapSnapshotterClosedException()) }
+      queued.forEach { it.continuation.resumeWithException(snapshotterClosedCancellation()) }
       active?.also {
         cancellation = markCancellationLocked(it)
-        it.abandon(MapSnapshotterClosedException())
+        it.abandon(snapshotterClosedCancellation())
         it.operation?.cancel()
       }
       active == null && worker == null
@@ -347,11 +359,17 @@ internal class MapSnapshotterImplementation(
       try {
         adapter ?: adapterFactory.create().also { adapter = it }
       } catch (error: Throwable) {
-        capture.resumeFailure(error)
+        capture.resumeFailure(error.toSnapshotAvailabilityFailure())
         return@coroutineScope
       }
     val operation =
       launch(start = CoroutineStart.LAZY) {
+        try {
+          platform.validate(capture.request)
+        } catch (error: Throwable) {
+          capture.resumeFailure(error.toSnapshotRequestFailure())
+          return@launch
+        }
         var claim: StyleClaim? = null
         var binding: StyleBinding? = null
         val result =
@@ -386,7 +404,7 @@ internal class MapSnapshotterImplementation(
           } finally {
             claim?.let(::completeStyleClaim)
           }
-        result.fold(capture::resume, capture::resumeFailure)
+        result.fold(capture::resume) { capture.resumeFailure(it.toSnapshotFailure()) }
       }
     lock.withLock {
       capture.operation = operation
@@ -424,7 +442,7 @@ internal class MapSnapshotterImplementation(
         Unit
       }
       result.exceptionOrNull()?.let { error ->
-        lock.withLock { if (cleanupFailures.none { it === error }) cleanupFailures += error }
+        lock.withLock { cleanupFailures.addCleanupFailure(error) }
       }
       cancellation.complete(result)
     }
@@ -462,17 +480,9 @@ internal class MapSnapshotterImplementation(
     }
     val result = lock.withLock {
       val failures = cleanupFailures.toMutableList()
-      closeResult.exceptionOrNull()?.let { error ->
-        if (failures.none { it === error }) failures += error
-      }
-      styleResult.exceptionOrNull()?.let { error ->
-        if (failures.none { it === error }) failures += error
-      }
-      when (failures.size) {
-        0 -> Result.success(Unit)
-        1 -> Result.failure(failures.single())
-        else -> Result.failure(MapSnapshotterCleanupException(failures))
-      }
+      closeResult.exceptionOrNull()?.let(failures::addCleanupFailure)
+      styleResult.exceptionOrNull()?.let(failures::addCleanupFailure)
+      failures.cleanupResult("Map snapshotter")
     }
     runtime.childClosed(this)
     check(closure.complete(result)) { "Snapshotter closure completed more than once" }
@@ -689,10 +699,10 @@ internal class MapSnapshotterImplementation(
     checkpoint: Long,
   ) {
     lock.withLock {
-      requireStyleHandleLocked(binding)
-      check(checkpoint == styleHandleEpoch) {
-        "Style operation crossed a loaded-style resource change"
+      if (checkpoint != styleHandleEpoch) {
+        throw CancellationException("The loaded style changed during the operation")
       }
+      requireStyleHandleLocked(binding)
     }
   }
 
@@ -805,7 +815,7 @@ internal class MapSnapshotterImplementation(
   }
 
   private fun requireOpenLocked() {
-    if (closed) throw MapSnapshotterClosedException()
+    check(!closed) { "The map snapshotter is closed" }
   }
 
   private data class StyleClaim(
@@ -837,8 +847,23 @@ internal class MapSnapshotterImplementation(
   }
 }
 
-internal class MapSnapshotterCleanupException(val failures: List<Throwable>) :
-  AggregateCleanupException(
-    "Map snapshotter cleanup failed in ${failures.size} resource(s)",
-    failures,
-  )
+internal fun snapshotterClosedCancellation(): CancellationException =
+  CancellationException("The map snapshotter closed during capture")
+
+private fun Throwable.toSnapshotAvailabilityFailure(): Throwable =
+  if (this is UnsupportedOperationException) this else toSnapshotFailure()
+
+private fun Throwable.toSnapshotRequestFailure(): Throwable =
+  if (this is IllegalArgumentException) this else toSnapshotFailure()
+
+private fun Throwable.toSnapshotFailure(): Throwable =
+  when (this) {
+    is CancellationException,
+    is Error,
+    is MapSnapshotException -> this
+    else ->
+      MapSnapshotException(
+        message = "Snapshot capture failed: ${message ?: this::class.simpleName.orEmpty()}",
+        cause = this,
+      )
+  }

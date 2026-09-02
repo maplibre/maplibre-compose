@@ -31,7 +31,7 @@ class MapRuntimeTest {
 
     assertTrue(first.isClosed)
     assertTrue(second.isClosed)
-    assertFailsWith<MapRuntimeClosedException> { runtime.createMapState(BaseStyle.Demo) }
+    assertFailsWith<IllegalStateException> { runtime.createMapState(BaseStyle.Demo) }
     runtime.awaitClosed()
     assertTrue(resourcesClosed)
   }
@@ -121,10 +121,10 @@ class MapRuntimeTest {
 
     runtime.close()
 
-    assertFailsWith<MapRuntimeClosedException> {
+    assertFailsWith<IllegalStateException> {
       runtime.createSnapshotter(BaseStyle.Empty, StyleComposition.Empty)
     }
-    assertFailsWith<MapSnapshotterClosedException> {
+    assertFailsWith<IllegalStateException> {
       snapshotter.capture(MapSnapshotRequest(1, 1))
     }
     runtime.awaitClosed()

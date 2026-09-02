@@ -4,13 +4,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
+import kotlinx.io.files.Path
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
+import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
@@ -26,6 +29,18 @@ import org.maplibre.spatialk.geojson.dsl.addFeature
 import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
 
 class NativeMapSnapshotterTest {
+
+  @Test
+  fun factory_rejects_a_runtime_without_an_offscreen_backend() {
+    val factory =
+      NativeSnapshotterAdapterFactory(
+        options = MlnFfiRuntimeOptions(cacheFile = Path("unused"), logger = null),
+        resourceConfig = MapResourceConfig(),
+        runtimeBackends = { emptySet() },
+      )
+
+    assertFailsWith<UnsupportedOperationException> { factory.create() }
+  }
 
   @Test
   fun composed_source_and_layer_render_into_an_offscreen_snapshot(): MapTestResult = runMapTest {

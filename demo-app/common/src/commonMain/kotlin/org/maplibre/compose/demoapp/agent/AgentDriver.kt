@@ -8,7 +8,10 @@ import kotlin.math.log2
 import kotlin.math.pow
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeSource
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.Serializable
@@ -20,7 +23,6 @@ import org.maplibre.compose.demoapp.DemoStyle
 import org.maplibre.compose.demoapp.allDemoStyles
 import org.maplibre.compose.demoapp.allDemos
 import org.maplibre.compose.demoapp.flyTo
-import org.maplibre.compose.map.MapNotAttachedException
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -327,10 +329,15 @@ internal class AgentDriver(
 
   suspend fun featuresJson(xPx: Float, yPx: Float, layerIds: Set<String>?): String {
     val offset = with(density) { DpOffset(xPx.toDp(), yPx.toDp()) }
+    if (state.mapState.viewport == null) throw AgentException(503, "the map has no viewport")
     val features =
       try {
         state.mapState.queryRenderedFeatures(offset = offset, layerIds = layerIds)
-      } catch (_: MapNotAttachedException) {
+      } catch (_: CancellationException) {
+        currentCoroutineContext().ensureActive()
+        throw AgentException(503, "the map has no viewport")
+      } catch (error: IllegalStateException) {
+        if (state.mapState.viewport != null) throw error
         throw AgentException(503, "the map has no viewport")
       }
     return FeatureCollection(features).toJson()

@@ -35,14 +35,16 @@ private constructor(private var device: MTLDeviceProtocol?) : AutoCloseable {
   }
 
   actual companion object {
-    actual fun create(backends: Set<MapRenderBackend>): NativeSnapshotRenderTarget {
-      check(MapRenderBackend.METAL in backends) {
-        "The packaged MapLibre runtime has no Metal snapshot backend"
+    actual fun select(backends: Set<MapRenderBackend>): NativeSnapshotRenderTargetPlan? =
+      if (MapRenderBackend.METAL in backends) {
+        NativeSnapshotRenderTargetPlan {
+          NativeSnapshotRenderTarget(
+            checkNotNull(MTLCreateSystemDefaultDevice()) { "This device has no Metal GPU" }
+          )
+        }
+      } else {
+        null
       }
-      return NativeSnapshotRenderTarget(
-        checkNotNull(MTLCreateSystemDefaultDevice()) { "This device has no Metal GPU" }
-      )
-    }
   }
 
   private fun MTLDeviceProtocol.rawAddress(): Long = (this as ObjCObject).objcPtr().toLong()

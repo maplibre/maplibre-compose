@@ -27,11 +27,14 @@ public annotation class DelicateMapApi
  * prevent retention. A long-running block stops the map from processing other work.
  *
  * Native platforms create the engine map when necessary and permit access without an attached UI
- * surface. Web requires an attached surface. The call fails without running [block] if the map
- * closes or the engine changes before execution. On Web, the call also fails if the current surface
- * detaches before execution. Cancelling while the invocation is queued prevents [block] from
- * running. Once execution starts, cancellation does not interrupt [block], but its result is
- * discarded.
+ * surface. Web requires an attached surface. Cancelling while the invocation is queued prevents
+ * [block] from running. Once execution starts, cancellation does not interrupt [block], but its
+ * result is discarded.
+ *
+ * @throws IllegalStateException if the map is already closed. Web also throws this exception if no
+ *   surface is attached when the call starts.
+ * @throws kotlinx.coroutines.CancellationException if the map, engine, or Web attachment changes
+ *   before [block] starts.
  */
 @DelicateMapApi
 public expect suspend fun <T> MapState.withPlatformMap(block: PlatformMapScope.() -> T): T

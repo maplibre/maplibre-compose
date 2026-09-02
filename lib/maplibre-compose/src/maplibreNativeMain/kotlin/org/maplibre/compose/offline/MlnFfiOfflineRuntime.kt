@@ -171,7 +171,8 @@ internal class MlnFfiOfflineRuntime(
         rejectQueuedTasks(
           OfflineManagerException(
             "The MapLibre offline runtime could not be created: " +
-              (error.message ?: error::class.simpleName)
+              (error.message ?: error::class.simpleName),
+            error,
           )
         )
         return

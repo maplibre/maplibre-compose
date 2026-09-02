@@ -31,22 +31,28 @@ private constructor(private val delegate: Delegate) : AutoCloseable {
   actual override fun close() = delegate.close()
 
   actual companion object {
-    actual fun create(backends: Set<MapRenderBackend>): NativeSnapshotRenderTarget {
-      val os = System.getProperty("os.name").orEmpty().lowercase()
-      val delegate =
-        when {
-          os.contains("mac") && MapRenderBackend.METAL in backends -> MetalDelegate.create()
-          MapRenderBackend.VULKAN in backends ->
-            VulkanDelegate(DesktopVulkanContext.createOffscreen())
-          MapRenderBackend.OPENGL in backends ->
-            OpenGlDelegate(DesktopOpenGlSnapshotContext.create(os))
-          else ->
-            throw UnsupportedOperationException(
-              "No offscreen snapshot backend is available for $os from ${backends.joinToString()}"
-            )
-        }
-      return NativeSnapshotRenderTarget(delegate)
-    }
+    actual fun select(backends: Set<MapRenderBackend>): NativeSnapshotRenderTargetPlan? =
+      select(System.getProperty("os.name").orEmpty().lowercase(), backends)
+
+    internal fun select(
+      os: String,
+      backends: Set<MapRenderBackend>,
+    ): NativeSnapshotRenderTargetPlan? =
+      when {
+        os.contains("mac") && MapRenderBackend.METAL in backends ->
+          NativeSnapshotRenderTargetPlan {
+            NativeSnapshotRenderTarget(MetalDelegate.create())
+          }
+        MapRenderBackend.VULKAN in backends ->
+          NativeSnapshotRenderTargetPlan {
+            NativeSnapshotRenderTarget(VulkanDelegate(DesktopVulkanContext.createOffscreen()))
+          }
+        (os.contains("linux") || os.contains("windows")) && MapRenderBackend.OPENGL in backends ->
+          NativeSnapshotRenderTargetPlan {
+            NativeSnapshotRenderTarget(OpenGlDelegate(DesktopOpenGlSnapshotContext.create(os)))
+          }
+        else -> null
+      }
   }
 
   private interface Delegate : AutoCloseable {

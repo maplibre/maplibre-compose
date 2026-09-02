@@ -29,6 +29,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -126,19 +127,13 @@ public interface MapRuntime {
   /** Marks this runtime as closed and starts child and shared-resource cleanup. */
   public fun close()
 
-  /** Waits until every child and shared resource has finished cleanup. */
+  /**
+   * Waits until every child and shared resource has finished cleanup.
+   *
+   * @throws MapCleanupException if cleanup fails.
+   */
   public suspend fun awaitClosed()
 }
-
-/** Thrown when an operation targets a closed runtime. */
-public class MapRuntimeClosedException : IllegalStateException("The map runtime is closed")
-
-/** Thrown when an operation targets a closed logical map. */
-public class MapStateClosedException : IllegalStateException("The map state is closed")
-
-/** Thrown when an operation requires a map that is attached to a UI surface. */
-public class MapNotAttachedException :
-  IllegalStateException("The map is not attached to a UI surface")
 
 /** Reports the load state for the desired base style of one logical map. */
 public sealed interface StyleLoadState {
@@ -528,6 +523,8 @@ internal constructor(
 
   internal fun invalidate() {
     validState = false
+    viewportState = null
+    cameraMovingState = false
     invalidated.complete(Unit)
   }
 
@@ -537,26 +534,29 @@ internal constructor(
   }
 
   private fun <T> withViewport(block: (MapAdapter) -> T): T? =
-    owner.withCurrent(this) { if (viewportState == null) null else block(adapter) }
+    owner.withCurrentOrNull(this) { if (viewportState == null) null else block(adapter) }
 
   private suspend fun awaitViewportState(): Viewport = firstViewport.await()
 
   private suspend fun <T> runLeaseBound(block: suspend () -> T): T = coroutineScope {
-    owner.requireCurrent(this@MapAttachment)
+    if (!owner.isCurrent(this@MapAttachment)) throw MapAttachmentChangedException()
     val operation =
       async(start = CoroutineStart.UNDISPATCHED) {
-        owner.requireCurrent(this@MapAttachment)
+        if (!owner.isCurrent(this@MapAttachment)) throw MapAttachmentChangedException()
         block()
       }
     select {
       operation.onAwait { it }
       invalidated.onAwait {
         operation.cancelAndJoin()
-        throw MapNotAttachedException()
+        throw MapAttachmentChangedException()
       }
     }
   }
 }
+
+private class MapAttachmentChangedException :
+  CancellationException("The map attachment changed during the operation")
 
 /** Holds the observable style, camera, and map operations for one logical map. */
 @Stable
@@ -650,7 +650,11 @@ internal constructor(
   /** Marks this state as closed and starts cleanup of the current map surface. */
   public fun close(): Unit = lifecycle.close()
 
-  /** Waits until map-surface cleanup has completed. */
+  /**
+   * Waits until map-surface cleanup has completed.
+   *
+   * @throws MapCleanupException if cleanup fails.
+   */
   public suspend fun awaitClosed(): Unit = lifecycle.awaitClosed()
 
   /**
@@ -747,11 +751,12 @@ internal constructor(
     retryAcrossAttachments(MapAttachment::awaitViewport)
 
   private suspend fun <T> retryAcrossAttachments(operation: suspend (MapAttachment) -> T): T {
+    var attachment = awaitAttachment()
     while (true) {
       try {
-        return operation(awaitAttachment())
-      } catch (_: MapNotAttachedException) {
-        // A replacement surface can attach after this lease ends.
+        return operation(attachment)
+      } catch (_: MapAttachmentChangedException) {
+        attachment = awaitReplacementAttachment()
       }
     }
   }
@@ -1127,27 +1132,21 @@ internal constructor(
     }
   }
 
-  internal fun requireCurrent(candidate: MapAttachment) {
-    lifecycle.serialized { requireCurrentLocked(candidate) }
+  internal fun isCurrent(candidate: MapAttachment): Boolean = lifecycle.serialized {
+    isCurrentLocked(candidate)
   }
 
-  internal fun <T> withCurrent(candidate: MapAttachment, block: () -> T): T {
-    lifecycle.serialized { requireCurrentLocked(candidate) }
+  internal fun <T> withCurrentOrNull(candidate: MapAttachment, block: () -> T): T? {
+    if (!isCurrent(candidate)) return null
     val result = block()
-    lifecycle.serialized { requireCurrentLocked(candidate) }
-    return result
+    return result.takeIf { isCurrent(candidate) }
   }
 
-  private fun requireCurrentLocked(candidate: MapAttachment) {
-    if (
-      currentMapAttachment !== candidate || !lifecycle.isCurrent(candidate.token, candidate.adapter)
-    ) {
-      throw MapNotAttachedException()
-    }
-  }
+  private fun isCurrentLocked(candidate: MapAttachment): Boolean =
+    currentMapAttachment === candidate && lifecycle.isCurrent(candidate.token, candidate.adapter)
 
   private fun requireOpenLocked() {
-    if (lifecycle.isClosed) throw MapStateClosedException()
+    check(!lifecycle.isClosed) { "The map state is closed" }
   }
 
   internal fun commitClosed() {
@@ -1157,7 +1156,9 @@ internal constructor(
       closedState = true
       currentMapAttachment?.invalidate()
       currentMapAttachment = null
-      nextMapAttachment.completeExceptionally(MapStateClosedException())
+      nextMapAttachment.completeExceptionally(
+        CancellationException("The map closed while waiting for an attachment")
+      )
     }
   }
 
@@ -1265,11 +1266,24 @@ internal constructor(
   }
 
   private fun requireAttachment(): MapAttachment =
-    currentMapAttachment ?: throw MapNotAttachedException()
+    checkNotNull(currentMapAttachment) { "The map is not attached to a UI surface" }
 
   private suspend fun awaitAttachment(): MapAttachment {
     val pending = lifecycle.serialized {
       requireOpenLocked()
+      currentMapAttachment?.let {
+        return it
+      }
+      nextMapAttachment
+    }
+    return pending.await()
+  }
+
+  private suspend fun awaitReplacementAttachment(): MapAttachment {
+    val pending = lifecycle.serialized {
+      if (lifecycle.isClosed) {
+        throw CancellationException("The map closed during the operation")
+      }
       currentMapAttachment?.let {
         return it
       }
@@ -1286,7 +1300,7 @@ internal constructor(
     val attachment = currentMapAttachment ?: return null
     return try {
       block(attachment)
-    } catch (_: MapNotAttachedException) {
+    } catch (_: MapAttachmentChangedException) {
       null
     }
   }
@@ -1319,9 +1333,6 @@ internal constructor(
     val sourceChangeRevision: Long,
   )
 }
-
-internal class MapStateCleanupException(failures: List<Throwable>) :
-  AggregateCleanupException("Map state cleanup failed in ${failures.size} resource(s)", failures)
 
 @JvmInline internal value class MapPresentationToken(val value: Long)
 
@@ -1488,7 +1499,7 @@ internal class RuntimeImplementation(
   }
 
   private fun requireOpenLocked() {
-    if (closed) throw MapRuntimeClosedException()
+    check(!closed) { "The map runtime is closed" }
   }
 
   override fun close() {
@@ -1504,16 +1515,13 @@ internal class RuntimeImplementation(
     physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
       val failures = mutableListOf<Throwable>()
       closingStates.forEach { child ->
-        runCatching { child.awaitClosed() }.exceptionOrNull()?.let(failures::add)
+        runCatching { child.awaitClosed() }.exceptionOrNull()?.let(failures::addCleanupFailure)
       }
       closingSnapshotters.forEach { child ->
-        runCatching { child.awaitClosed() }.exceptionOrNull()?.let(failures::add)
+        runCatching { child.awaitClosed() }.exceptionOrNull()?.let(failures::addCleanupFailure)
       }
-      runCatching { resources.close() }.exceptionOrNull()?.let(failures::add)
-      closure.complete(
-        if (failures.isEmpty()) Result.success(Unit)
-        else Result.failure(MapRuntimeCleanupException(failures))
-      )
+      runCatching { resources.close() }.exceptionOrNull()?.let(failures::addCleanupFailure)
+      closure.complete(failures.cleanupResult("Map runtime"))
     }
   }
 
@@ -1532,6 +1540,3 @@ internal class RuntimeImplementation(
     lock.withLock { snapshotters.remove(child) }
   }
 }
-
-internal class MapRuntimeCleanupException(failures: List<Throwable>) :
-  AggregateCleanupException("Map runtime cleanup failed in ${failures.size} resource(s)", failures)

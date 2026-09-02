@@ -80,7 +80,7 @@ class PlatformMapAccessTest {
       state.awaitClosed()
 
       var callbackRan = false
-      assertFailsWith<MapStateClosedException> {
+      assertFailsWith<IllegalStateException> {
         state.withPlatformMap {
           callbackRan = true
           map
@@ -147,7 +147,7 @@ class PlatformMapAccessTest {
         state.publishPresentation(token, replacement)
         releaseOwner.open()
 
-        val failure = assertFailsWith<IllegalStateException> { access.await() }
+        val failure = assertFailsWith<CancellationException> { access.await() }
         assertEquals("The native platform map changed before access could begin", failure.message)
       }
       assertFalse(callbackRan)

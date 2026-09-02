@@ -31,6 +31,8 @@ internal class RecordingStyleBinding(
   override val supportsRasterDemScheme: Boolean = true,
   private val refusedSourceRemovals: Set<String> = emptySet(),
   private val beforeAddImage: ((String) -> Unit)? = null,
+  private val beforeClusterExpansionZoomResult: suspend () -> Unit = {},
+  private val onInvalidate: () -> Unit = {},
 ) : StyleBinding {
 
   override val identity: StyleIdentity = StyleIdentity.create()
@@ -69,7 +71,9 @@ internal class RecordingStyleBinding(
   }
 
   override fun invalidate() {
+    if (!isLoaded) return
     isLoaded = false
+    onInvalidate()
   }
 
   override val logger: Logger? = null
@@ -190,7 +194,10 @@ internal class RecordingStyleBinding(
   override suspend fun clusterExpansionZoom(
     sourceId: String,
     feature: Feature<*, JsonObject?>,
-  ): Double? = null
+  ): Double? {
+    beforeClusterExpansionZoomResult()
+    return null
+  }
 
   override suspend fun clusterChildren(
     sourceId: String,

@@ -7,7 +7,6 @@ import kotlin.test.assertSame
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
-import org.maplibre.compose.map.MapRuntimeClosedException
 import org.maplibre.compose.map.MapRuntimeResources
 import org.maplibre.compose.map.RuntimeImplementation
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -88,17 +87,17 @@ class RuntimeBoundOfflineManagerTest {
 
     runtime.close()
 
-    assertFailsWith<MapRuntimeClosedException> { manager.create(definition) }
-    assertFailsWith<MapRuntimeClosedException> { manager.resume(backend.pack) }
-    assertFailsWith<MapRuntimeClosedException> { manager.pause(backend.pack) }
-    assertFailsWith<MapRuntimeClosedException> { manager.delete(backend.pack) }
-    assertFailsWith<MapRuntimeClosedException> { manager.invalidate(backend.pack) }
-    assertFailsWith<MapRuntimeClosedException> { manager.mergeDatabase(databaseFile) }
-    assertFailsWith<MapRuntimeClosedException> { manager.invalidateAmbientCache() }
-    assertFailsWith<MapRuntimeClosedException> { manager.clearAmbientCache() }
-    assertFailsWith<MapRuntimeClosedException> { manager.setMaximumAmbientCacheSize(1) }
-    assertFailsWith<MapRuntimeClosedException> { retainedPack.setMetadata(byteArrayOf(1)) }
-    assertFailsWith<MapRuntimeClosedException> { createdPack.setMetadata(byteArrayOf(1)) }
+    assertFailsWith<IllegalStateException> { manager.create(definition) }
+    assertFailsWith<IllegalStateException> { manager.resume(backend.pack) }
+    assertFailsWith<IllegalStateException> { manager.pause(backend.pack) }
+    assertFailsWith<IllegalStateException> { manager.delete(backend.pack) }
+    assertFailsWith<IllegalStateException> { manager.invalidate(backend.pack) }
+    assertFailsWith<IllegalStateException> { manager.mergeDatabase(databaseFile) }
+    assertFailsWith<IllegalStateException> { manager.invalidateAmbientCache() }
+    assertFailsWith<IllegalStateException> { manager.clearAmbientCache() }
+    assertFailsWith<IllegalStateException> { manager.setMaximumAmbientCacheSize(1) }
+    assertFailsWith<IllegalStateException> { retainedPack.setMetadata(byteArrayOf(1)) }
+    assertFailsWith<IllegalStateException> { createdPack.setMetadata(byteArrayOf(1)) }
     assertEquals(emptyList(), backend.calls)
 
     releaseCleanup.complete(Unit)

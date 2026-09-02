@@ -4,7 +4,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -163,10 +165,21 @@ class MapLifecycleBindingTest {
     lifecycle.attach()
 
     lifecycle.close()
-    val failure = assertFailsWith<MapLifecycleCleanupException> { lifecycle.awaitClosed() }
+    val failure = assertFailsWith<MapCleanupException> { lifecycle.awaitClosed() }
 
     assertEquals(listOf("detach", "engine", "resources"), failure.failures.map { it.message })
     assertIs<MapLifecycleState.Closed>(lifecycle.state)
+  }
+
+  @Test
+  fun cleanup_preserves_a_fatal_error() = runTest {
+    val fatal = FatalLifecycleError()
+    val lifecycle = bindLifecycle(FakeMapLifecycleAdapter().apply { resourcesFailure = fatal })
+
+    lifecycle.close()
+    val reported = assertFailsWith<FatalLifecycleError> { lifecycle.awaitClosed() }
+
+    assertSame(fatal, reported)
   }
 
   @Test
@@ -237,7 +250,7 @@ class MapLifecycleBindingTest {
 
     lifecycle.close()
     adapter.allowDetach.complete(Unit)
-    val failure = assertFailsWith<MapLifecycleCleanupException> { lifecycle.awaitClosed() }
+    val failure = assertFailsWith<MapCleanupException> { lifecycle.awaitClosed() }
 
     assertEquals(listOf("detach"), failure.failures.map { it.message })
     assertTrue(detaching.await().isFailure)
@@ -378,7 +391,62 @@ class MapLifecycleBindingTest {
     assertEquals(MapLifecycleState.OpenDetached(null), lifecycle.state)
     assertEquals(1, adapter.commands.count { it.startsWith("destroy ") })
   }
+
+  @Test
+  fun detached_engine_access_survives_an_interrupted_presentation_attach() = runTest {
+    val adapter = FakeMapLifecycleAdapter().apply { allowAttach = CompletableDeferred() }
+    val lifecycle = bindLifecycle(adapter)
+    val attaching = async { runCatching { lifecycle.attach() } }
+    adapter.attachStarted.await()
+    val attachingState = assertIs<MapLifecycleState.Attaching>(lifecycle.state)
+    val access = async { lifecycle.ensureEngine() }
+    val detaching = async { lifecycle.detach(attachingState.lease) }
+    runCurrent()
+
+    adapter.allowAttach.complete(Unit)
+
+    assertTrue(detaching.await())
+    assertIs<MapLeaseInvalidatedException>(attaching.await().exceptionOrNull())
+    assertEquals(attachingState.engine, access.await())
+    assertEquals(MapLifecycleState.OpenDetached(attachingState.engine), lifecycle.state)
+  }
+
+  @Test
+  fun closing_after_detached_engine_access_starts_cancels_the_access() = runTest {
+    val adapter = FakeMapLifecycleAdapter().apply { allowCreate = CompletableDeferred() }
+    val lifecycle = bindLifecycle(adapter)
+    val access = async { lifecycle.ensureEngine() }
+    adapter.createStarted.await()
+
+    lifecycle.close()
+    adapter.allowCreate.complete(Unit)
+
+    assertFailsWith<CancellationException> { access.await() }
+    lifecycle.awaitClosed()
+  }
+
+  @Test
+  fun closing_during_failed_engine_creation_cancels_with_the_failure_as_cause() = runTest {
+    val failure = TestFailure("create")
+    val adapter =
+      FakeMapLifecycleAdapter().apply {
+        allowCreate = CompletableDeferred()
+        createFailure = failure
+      }
+    val lifecycle = bindLifecycle(adapter)
+    val access = async { lifecycle.ensureEngine() }
+    adapter.createStarted.await()
+
+    lifecycle.close()
+    adapter.allowCreate.complete(Unit)
+
+    val cancellation = assertFailsWith<CancellationException> { access.await() }
+    assertTrue(generateSequence(cancellation as Throwable?) { it.cause }.any { it === failure })
+    lifecycle.awaitClosed()
+  }
 }
+
+private class FatalLifecycleError : Error("fatal lifecycle cleanup failure")
 
 private class FakeMapLifecycleAdapter : MapLifecyclePlatformAdapter {
   val commands = mutableListOf<String>()

@@ -30,7 +30,7 @@ internal constructor(
   /**
    * Replaces the arbitrary metadata that is associated with this offline pack.
    *
-   * @throws org.maplibre.compose.map.MapRuntimeClosedException if the pack's runtime is closed.
+   * @throws IllegalStateException if the pack's runtime is closed.
    * @throws [OfflineManagerException] if the operation failed.
    */
   public suspend fun setMetadata(metadata: ByteArray) {
