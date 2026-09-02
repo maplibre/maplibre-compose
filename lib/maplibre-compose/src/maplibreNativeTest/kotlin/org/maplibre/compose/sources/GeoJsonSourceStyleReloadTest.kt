@@ -5,7 +5,6 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
@@ -23,8 +22,7 @@ class GeoJsonSourceStyleReloadTest {
           data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>(emptyList())),
           options = GeoJsonOptions(),
         )
-      checkNotNull(fixture.style).install(source)
-      val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.source("points"))
+      val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources.add(source))
 
       fixture.loadStyle(REPLACEMENT_STYLE)
 

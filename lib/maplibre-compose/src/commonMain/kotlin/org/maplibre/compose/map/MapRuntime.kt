@@ -17,6 +17,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.runtime.structuralEqualityPolicy
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
@@ -54,14 +55,20 @@ import org.maplibre.compose.offline.RuntimeBoundOfflineManager
 import org.maplibre.compose.offline.UnsupportedOfflineManager
 import org.maplibre.compose.resource.MapRequestInterceptor
 import org.maplibre.compose.resource.MapResourceConfig
+import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceHandle
 import org.maplibre.compose.sources.sourceHandle
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.LocalMapState
+import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleComposition
+import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleHandleOperationGuard
+import org.maplibre.compose.style.StyleMutationException
+import org.maplibre.compose.style.canUpdateTo
+import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -153,6 +160,14 @@ internal interface MapStyleStateOwner {
 
   fun desiredSourceDefinition(id: String): org.maplibre.compose.style.SourceDefinition?
 
+  fun addStyleSource(source: Source): SourceHandle
+
+  fun removeStyleSource(id: String): Boolean
+
+  fun addStyleImage(id: String, image: ImageBitmap, sdf: Boolean, stretch: ImageStretch?)
+
+  fun removeStyleImage(id: String): Boolean
+
   fun readyLoadedStyle(): StyleBinding?
 
   fun <T> runStyleHandleOperation(binding: StyleBinding, action: () -> T): T
@@ -166,7 +181,10 @@ internal interface MapStyleStateOwner {
 public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   private var owner: MapStyleStateOwner? = null
   private val loadedStyle = AtomicReference<StyleBinding?>(null)
+  private val sourceIdentities = AtomicReference<Map<String, StyleResourceIdentity>>(emptyMap())
+  private val layerIdentities = AtomicReference<Map<String, StyleResourceIdentity>>(emptyMap())
   private var sourcesState: Map<String, SourceHandle> by mutableStateOf(emptyMap())
+  private var layersState: Map<String, LayerHandle> by mutableStateOf(emptyMap())
   private var baseStyleState: BaseStyle by
     mutableStateOf(initialBaseStyle, structuralEqualityPolicy())
 
@@ -179,28 +197,35 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   public var loadState: StyleLoadState by mutableStateOf(StyleLoadState.Pending)
     internal set
 
-  /** Contains the sources in the current loaded style, in style order. */
-  public val sources: Map<String, SourceHandle>
-    get() = if (readyLoadedStyle() == null) emptyMap() else sourcesState
+  /** Sources in the current loaded-style generation. */
+  public val sources: StyleSources = StyleSources(this)
 
-  /** Returns a generation-bound handle for [id], or null until the style is ready or if absent. */
-  public fun source(id: String): SourceHandle? {
-    val current = readyLoadedStyle() ?: return null
-    return sourceHandle(current, id)
+  /** Layers in the current loaded-style generation. */
+  public val layers: StyleLayers = StyleLayers(this)
+
+  /** Style-image commands for the current loaded-style generation. */
+  public val images: StyleImages = StyleImages(this)
+
+  internal fun sourceHandle(id: String): SourceHandle? {
+    if (readyLoadedStyle() == null) return null
+    return sourcesState[id]
   }
 
-  private fun sourceHandle(current: StyleBinding, id: String): SourceHandle? =
+  private fun sourceHandle(current: StyleBinding, id: String): SourceHandle? = owner.let { owner ->
+    val definition = owner?.desiredSourceDefinition(id)
+    val identity = sourceIdentity(id)
     current.sourceHandle(
       id = id,
-      definition = owner?.desiredSourceDefinition(id),
+      definition = definition,
       currentDefinition = { owner?.desiredSourceDefinition(id) },
+      isCurrentResource = { sourceIdentities.load()[id] === identity },
       operations = operationGuard(current),
     )
+  }
 
-  /** Returns a generation-bound handle for [id], or null until the style is ready or if absent. */
-  public fun layer(id: String): LayerHandle? {
-    val current = readyLoadedStyle() ?: return null
-    return current.layerHandle(id, operationGuard(current))
+  internal fun layerHandle(id: String): LayerHandle? {
+    if (readyLoadedStyle() == null) return null
+    return layersState[id]
   }
 
   private fun readyLoadedStyle(): StyleBinding? =
@@ -210,39 +235,120 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
     this.owner = owner
   }
 
+  internal fun requireOwner(): MapStyleStateOwner = checkNotNull(owner)
+
   internal fun setBaseStyleState(value: BaseStyle) {
     baseStyleState = value
   }
 
   internal fun updateLoadedStyle(style: StyleBinding?) {
     loadedStyle.store(style)
+    sourceIdentities.store(emptyMap())
+    layerIdentities.store(emptyMap())
     sourcesState = emptyMap()
+    layersState = emptyMap()
   }
 
   internal fun invalidateLoadedStyle() {
     loadedStyle.exchange(null)?.invalidate()
+    sourceIdentities.store(emptyMap())
+    layerIdentities.store(emptyMap())
     sourcesState = emptyMap()
+    layersState = emptyMap()
   }
 
   internal fun isCurrentLoadedStyle(style: StyleBinding): Boolean = loadedStyle.load() === style
 
   internal fun currentLoadedStyle(): StyleBinding? = loadedStyle.load()
 
-  internal fun refreshSources() {
+  internal fun refreshResources() {
     val current = loadedStyle.load()
-    sourcesState =
-      if (loadState != StyleLoadState.Ready || current == null) emptyMap() else readSources(current)
+    if (loadState != StyleLoadState.Ready || current == null) {
+      sourcesState = emptyMap()
+      layersState = emptyMap()
+    } else {
+      updateResources(readResources(current))
+    }
   }
 
-  internal fun readSources(current: StyleBinding): Map<String, SourceHandle> =
-    current
-      .getSources()
-      .mapNotNull { source -> sourceHandle(current, source.id)?.let { source.id to it } }
-      .toMap()
+  internal fun readResources(current: StyleBinding): LoadedStyleResources =
+    LoadedStyleResources(readSources(current), readLayers(current))
+
+  internal fun readSources(current: StyleBinding): Map<String, SourceHandle> {
+    val ids = current.getSources().mapTo(linkedSetOf()) { it.id }
+    retainResourceIdentities(sourceIdentities, ids)
+    return ids.mapNotNull { id -> sourceHandle(current, id)?.let { id to it } }.toMap()
+  }
 
   internal fun updateSources(sources: Map<String, SourceHandle>) {
     sourcesState = sources
   }
+
+  internal fun readLayers(current: StyleBinding): Map<String, LayerHandle> {
+    val ids = current.getLayers().mapTo(linkedSetOf()) { it.id }
+    retainResourceIdentities(layerIdentities, ids)
+    return ids
+      .mapNotNull { id ->
+        val identity = layerIdentity(id)
+        current
+          .layerHandle(
+            id,
+            isCurrentResource = { layerIdentities.load()[id] === identity },
+            operations = operationGuard(current),
+          )
+          ?.let { id to it }
+      }
+      .toMap()
+  }
+
+  internal fun invalidateSourceIdentities(ids: Set<String>) {
+    removeResourceIdentities(sourceIdentities, ids)
+  }
+
+  internal fun invalidateLayerIdentities(ids: Set<String>) {
+    removeResourceIdentities(layerIdentities, ids)
+  }
+
+  internal fun invalidateStructurallyReplacedResources(
+    previous: DesiredStyleRevision,
+    next: DesiredStyleRevision,
+  ) {
+    val nextSources = next.sources.associateBy(SourceDefinition::id)
+    val replacedSourceIds =
+      previous.sources
+        .filter { previousSource ->
+          nextSources[previousSource.id]?.let(previousSource::canUpdateTo) != true
+        }
+        .mapTo(mutableSetOf(), SourceDefinition::id)
+    invalidateSourceIdentities(replacedSourceIds)
+
+    val nextLayers = next.layers.associateBy { it.definition.id }
+    val replacedLayerIds =
+      previous.layers
+        .filter { previousLayer ->
+          val nextLayer = nextLayers[previousLayer.definition.id]
+          nextLayer == null ||
+            nextLayer.anchor != previousLayer.anchor ||
+            nextLayer.definition.type != previousLayer.definition.type ||
+            nextLayer.definition.sourceId != previousLayer.definition.sourceId ||
+            nextLayer.definition.value["source-layer"] !=
+              previousLayer.definition.value["source-layer"] ||
+            previousLayer.definition.sourceId in replacedSourceIds
+        }
+        .mapTo(mutableSetOf()) { it.definition.id }
+    invalidateLayerIdentities(replacedLayerIds)
+  }
+
+  internal fun updateResources(resources: LoadedStyleResources) {
+    sourcesState = resources.sources
+    layersState = resources.layers
+  }
+
+  internal fun sourceHandles(): Map<String, SourceHandle> =
+    if (readyLoadedStyle() == null) emptyMap() else sourcesState
+
+  internal fun layerHandles(): Map<String, LayerHandle> =
+    if (readyLoadedStyle() == null) emptyMap() else layersState
 
   private fun operationGuard(style: StyleBinding): StyleHandleOperationGuard =
     object : StyleHandleOperationGuard {
@@ -255,6 +361,64 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
         owner?.requireStyleHandleUnchanged(style, checkpoint)
       }
     }
+
+  private fun sourceIdentity(id: String): StyleResourceIdentity =
+    resourceIdentity(sourceIdentities, id)
+
+  private fun layerIdentity(id: String): StyleResourceIdentity =
+    resourceIdentity(layerIdentities, id)
+}
+
+private class StyleResourceIdentity
+
+private fun resourceIdentity(
+  identities: AtomicReference<Map<String, StyleResourceIdentity>>,
+  id: String,
+): StyleResourceIdentity {
+  while (true) {
+    val current = identities.load()
+    current[id]?.let {
+      return it
+    }
+    val identity = StyleResourceIdentity()
+    if (identities.compareAndSet(current, current + (id to identity))) return identity
+  }
+}
+
+private fun retainResourceIdentities(
+  identities: AtomicReference<Map<String, StyleResourceIdentity>>,
+  ids: Set<String>,
+) {
+  while (true) {
+    val current = identities.load()
+    val retained = current.filterKeys { it in ids }
+    if (retained.size == current.size || identities.compareAndSet(current, retained)) return
+  }
+}
+
+private fun removeResourceIdentities(
+  identities: AtomicReference<Map<String, StyleResourceIdentity>>,
+  ids: Set<String>,
+) {
+  if (ids.isEmpty()) return
+  while (true) {
+    val current = identities.load()
+    val remaining = current - ids
+    if (remaining.size == current.size || identities.compareAndSet(current, remaining)) return
+  }
+}
+
+internal data class LoadedStyleResources(
+  val sources: Map<String, SourceHandle>,
+  val layers: Map<String, LayerHandle>,
+)
+
+internal class ImperativeSourceRecord(val definition: SourceDefinition)
+
+internal class ImperativeImageRecord
+
+internal class StyleMutationReservation {
+  val completion = CompletableDeferred<Unit>()
 }
 
 /** Connects a [MapState] to one map surface for the lifetime of one render lease. */
@@ -408,6 +572,9 @@ internal constructor(
   private var cameraCommandRevision = 0L
   private var styleHandleEpoch = 0L
   private var styleSourceChangeRevision = 0L
+  private val imperativeSources = mutableMapOf<String, ImperativeSourceRecord>()
+  private val imperativeImages = mutableMapOf<String, ImperativeImageRecord>()
+  private var activeStyleMutation: StyleMutationReservation? = null
   private var closedState: Boolean by mutableStateOf(false)
   private var cameraPositionState: CameraPosition by
     mutableStateOf(initialCameraPosition, structuralEqualityPolicy())
@@ -422,6 +589,19 @@ internal constructor(
 
           override fun desiredSourceDefinition(id: String) =
             this@MapState.desiredSourceDefinition(id)
+
+          override fun addStyleSource(source: Source) = this@MapState.addStyleSource(source)
+
+          override fun removeStyleSource(id: String) = this@MapState.removeStyleSource(id)
+
+          override fun addStyleImage(
+            id: String,
+            image: ImageBitmap,
+            sdf: Boolean,
+            stretch: ImageStretch?,
+          ) = this@MapState.addStyleImage(id, image, sdf, stretch)
+
+          override fun removeStyleImage(id: String) = this@MapState.removeStyleImage(id)
 
           override fun readyLoadedStyle() = this@MapState.readyLoadedStyle()
 
@@ -598,19 +778,19 @@ internal constructor(
       val read = lifecycle.serialized {
         if (!lifecycle.acceptsAdapter(adapter)) return false
         val binding = style.currentLoadedStyle() ?: return false
-        StyleSourceRead(binding, styleHandleEpoch, styleSourceChangeRevision)
+        StyleResourceRead(binding, styleHandleEpoch, styleSourceChangeRevision)
       }
-      val sources = runCatching { style.readSources(read.binding) }
-      if (sources.isFailure) {
-        val stillCurrent = lifecycle.serialized { isCurrentStyleSourceRead(adapter, read) }
+      val resources = runCatching { style.readResources(read.binding) }
+      if (resources.isFailure) {
+        val stillCurrent = lifecycle.serialized { isCurrentStyleResourceRead(adapter, read) }
         if (!stillCurrent) return false
-        throw requireNotNull(sources.exceptionOrNull())
+        throw requireNotNull(resources.exceptionOrNull())
       }
       val committed = lifecycle.serialized {
-        if (!isCurrentStyleSourceRead(adapter, read)) return false
+        if (!isCurrentStyleResourceRead(adapter, read)) return false
         if (style.loadState is StyleLoadState.Failed) return false
         if (styleSourceChangeRevision != read.sourceChangeRevision) return@serialized false
-        style.updateSources(sources.getOrThrow())
+        style.updateResources(resources.getOrThrow())
         style.loadState = StyleLoadState.Ready
         true
       }
@@ -627,16 +807,16 @@ internal constructor(
       val sourceChangeRevision = ++styleSourceChangeRevision
       if (style.loadState != StyleLoadState.Ready) return true
       val binding = style.currentLoadedStyle() ?: return true
-      StyleSourceRead(binding, styleHandleEpoch, sourceChangeRevision)
+      StyleResourceRead(binding, styleHandleEpoch, sourceChangeRevision)
     }
     val sources = runCatching { style.readSources(read.binding) }
     if (sources.isFailure) {
-      val stillCurrent = lifecycle.serialized { isCurrentStyleSourceRead(adapter, read) }
+      val stillCurrent = lifecycle.serialized { isCurrentStyleResourceRead(adapter, read) }
       if (!stillCurrent) return false
       throw requireNotNull(sources.exceptionOrNull())
     }
     return lifecycle.serialized {
-      if (!isCurrentStyleSourceRead(adapter, read)) return false
+      if (!isCurrentStyleResourceRead(adapter, read)) return false
       if (style.loadState != StyleLoadState.Ready) return false
       // A later callback performs its own complete read, preserving source order without allowing
       // this older result to overwrite it.
@@ -646,7 +826,7 @@ internal constructor(
     }
   }
 
-  private fun isCurrentStyleSourceRead(adapter: MapAdapter, read: StyleSourceRead): Boolean =
+  private fun isCurrentStyleResourceRead(adapter: MapAdapter, read: StyleResourceRead): Boolean =
     lifecycle.acceptsAdapter(adapter) &&
       styleHandleEpoch == read.styleHandleEpoch &&
       style.currentLoadedStyle() === read.binding
@@ -656,6 +836,8 @@ internal constructor(
       if (!lifecycle.acceptsAdapter(adapter)) return false
       if (style.currentLoadedStyle() === loadedStyle) return true
       styleHandleEpoch++
+      imperativeSources.clear()
+      imperativeImages.clear()
       style.loadState = StyleLoadState.Loading
       style.updateLoadedStyle(loadedStyle)
       true
@@ -673,13 +855,21 @@ internal constructor(
     }
   }
 
-  internal fun beginStyleRevision(adapter: MapAdapter, revision: DesiredStyleRevision) {
-    lifecycle.serialized {
-      if (lifecycle.acceptsAdapter(adapter)) {
-        styleHandleEpoch++
-        desiredStyleRevision = revision
-        style.loadState = StyleLoadState.Loading
+  internal suspend fun beginStyleRevision(adapter: MapAdapter, revision: DesiredStyleRevision) {
+    while (true) {
+      val mutation = lifecycle.serialized {
+        if (!lifecycle.acceptsAdapter(adapter)) return
+        activeStyleMutation
+          ?: run {
+            requireNoImperativeResourceConflicts(revision)
+            style.invalidateStructurallyReplacedResources(desiredStyleRevision, revision)
+            styleHandleEpoch++
+            desiredStyleRevision = revision
+            style.loadState = StyleLoadState.Loading
+            return
+          }
       }
+      mutation.completion.await()
     }
   }
 
@@ -687,7 +877,10 @@ internal constructor(
     val command = lifecycle.serialized {
       requireOpenLocked()
       if (style.baseStyle == value) return
+      requireNoActiveStyleMutation()
       styleHandleEpoch++
+      imperativeSources.clear()
+      imperativeImages.clear()
       style.setBaseStyleState(value)
       style.invalidateLoadedStyle()
       val adapter = lifecycle.currentAdapter()
@@ -704,7 +897,191 @@ internal constructor(
   }
 
   internal fun desiredSourceDefinition(id: String): org.maplibre.compose.style.SourceDefinition? =
-    desiredStyleRevision.sources.firstOrNull { it.id == id }
+    lifecycle.serialized {
+      desiredStyleRevision.sources.firstOrNull { it.id == id } ?: imperativeSources[id]?.definition
+    }
+
+  internal fun addStyleSource(source: Source): SourceHandle {
+    val definition = source.definition()
+    val record = ImperativeSourceRecord(definition)
+    val reservation = StyleMutationReservation()
+    val binding = lifecycle.serialized {
+      requireOpenLocked()
+      requireNoDesiredSource(source.id)
+      requireNoActiveStyleMutation()
+      if (source.id in imperativeSources) {
+        throw StyleHandleException("Source ID '${source.id}' already exists in style")
+      }
+      checkNotNull(style.currentLoadedStyle()).also(::requireStyleHandleLocked).also {
+        imperativeSources[source.id] = record
+        activeStyleMutation = reservation
+      }
+    }
+    var committed = false
+    try {
+      if (binding.sourceExists(source.id) == true) {
+        throw StyleHandleException("Source ID '${source.id}' already exists in style")
+      }
+      val added = binding.addSource(definition)
+      if (!added) throw IllegalStateException("The loaded-style generation changed during add")
+      lifecycle.serialized { requireStyleHandleLocked(binding) }
+      val handle = checkNotNull(refreshSourcesAfterCommand(binding)[source.id])
+      committed = true
+      return handle
+    } catch (error: StyleMutationException) {
+      throw StyleHandleException("Could not add source '${source.id}': ${error.message}", error)
+    } finally {
+      lifecycle.serialized {
+        if (!committed && imperativeSources[source.id] === record) {
+          imperativeSources.remove(source.id)
+        }
+        completeStyleMutation(reservation)
+      }
+    }
+  }
+
+  internal fun removeStyleSource(id: String): Boolean {
+    val reservation = StyleMutationReservation()
+    val binding = lifecycle.serialized {
+      requireOpenLocked()
+      requireNoDesiredSource(id)
+      requireNoActiveStyleMutation()
+      checkNotNull(style.currentLoadedStyle()).also(::requireStyleHandleLocked).also {
+        activeStyleMutation = reservation
+      }
+    }
+    try {
+      if (binding.sourceExists(id) == false) return false
+      binding.removeSource(id)
+      lifecycle.serialized {
+        requireStyleHandleLocked(binding)
+        imperativeSources.remove(id)
+        style.invalidateSourceIdentities(setOf(id))
+      }
+      refreshSourcesAfterCommand(binding)
+      return true
+    } catch (error: StyleMutationException) {
+      throw StyleHandleException("Could not remove source '$id': ${error.message}", error)
+    } finally {
+      lifecycle.serialized { completeStyleMutation(reservation) }
+    }
+  }
+
+  internal fun addStyleImage(
+    id: String,
+    image: ImageBitmap,
+    sdf: Boolean,
+    stretch: ImageStretch?,
+  ) {
+    val record = ImperativeImageRecord()
+    val reservation = StyleMutationReservation()
+    val binding = lifecycle.serialized {
+      requireOpenLocked()
+      requireNoDesiredImage(id)
+      requireNoActiveStyleMutation()
+      if (id in imperativeImages) {
+        throw StyleHandleException("Image ID '$id' already exists in style")
+      }
+      checkNotNull(style.currentLoadedStyle()).also(::requireStyleHandleLocked).also {
+        imperativeImages[id] = record
+        activeStyleMutation = reservation
+      }
+    }
+    var committed = false
+    try {
+      if (binding.imageExists(id) == true) {
+        throw StyleHandleException("Image ID '$id' already exists in style")
+      }
+      binding.addImage(id, image, sdf, stretch)
+      lifecycle.serialized { requireStyleHandleLocked(binding) }
+      committed = true
+    } catch (error: StyleMutationException) {
+      throw StyleHandleException("Could not add image '$id': ${error.message}", error)
+    } finally {
+      lifecycle.serialized {
+        if (!committed && imperativeImages[id] === record) imperativeImages.remove(id)
+        completeStyleMutation(reservation)
+      }
+    }
+  }
+
+  internal fun removeStyleImage(id: String): Boolean {
+    val reservation = StyleMutationReservation()
+    val binding = lifecycle.serialized {
+      requireOpenLocked()
+      requireNoDesiredImage(id)
+      requireNoActiveStyleMutation()
+      checkNotNull(style.currentLoadedStyle()).also(::requireStyleHandleLocked).also {
+        activeStyleMutation = reservation
+      }
+    }
+    try {
+      if (binding.imageExists(id) == false) return false
+      binding.removeImage(id)
+      lifecycle.serialized {
+        requireStyleHandleLocked(binding)
+        imperativeImages.remove(id)
+      }
+      return true
+    } catch (error: StyleMutationException) {
+      throw StyleHandleException("Could not remove image '$id': ${error.message}", error)
+    } finally {
+      lifecycle.serialized { completeStyleMutation(reservation) }
+    }
+  }
+
+  private fun refreshSourcesAfterCommand(binding: StyleBinding): Map<String, SourceHandle> {
+    while (true) {
+      val read = lifecycle.serialized {
+        requireStyleHandleLocked(binding)
+        StyleResourceRead(binding, styleHandleEpoch, ++styleSourceChangeRevision)
+      }
+      val sources = style.readSources(binding)
+      val committed = lifecycle.serialized {
+        requireStyleHandleLocked(binding)
+        if (styleSourceChangeRevision != read.sourceChangeRevision) return@serialized false
+        style.updateSources(sources)
+        true
+      }
+      if (committed) return sources
+    }
+  }
+
+  private fun requireNoDesiredSource(id: String) {
+    if (desiredStyleRevision.sources.any { it.id == id }) {
+      throw StyleHandleException("Source ID '$id' is owned by StyleComposition")
+    }
+  }
+
+  private fun requireNoDesiredImage(id: String) {
+    if (desiredStyleRevision.images.any { it.id == id }) {
+      throw StyleHandleException("Image ID '$id' is owned by StyleComposition")
+    }
+  }
+
+  private fun requireNoImperativeResourceConflicts(revision: DesiredStyleRevision) {
+    revision.sources
+      .firstOrNull { it.id in imperativeSources }
+      ?.let {
+        throw StyleHandleException("Source ID '${it.id}' is owned by an imperative addition")
+      }
+    revision.images
+      .firstOrNull { it.id in imperativeImages }
+      ?.let {
+        throw StyleHandleException("Image ID '${it.id}' is owned by an imperative addition")
+      }
+  }
+
+  private fun requireNoActiveStyleMutation() {
+    if (activeStyleMutation != null) {
+      throw StyleHandleException("Another imperative style resource command is in progress")
+    }
+  }
+
+  private fun completeStyleMutation(reservation: StyleMutationReservation) {
+    if (activeStyleMutation === reservation) activeStyleMutation = null
+    reservation.completion.complete(Unit)
+  }
 
   internal fun <T> runStyleHandleOperation(
     binding: StyleBinding,
@@ -936,7 +1313,7 @@ internal constructor(
     val revision: Long,
   )
 
-  private data class StyleSourceRead(
+  private data class StyleResourceRead(
     val binding: StyleBinding,
     val styleHandleEpoch: Long,
     val sourceChangeRevision: Long,

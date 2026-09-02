@@ -16,7 +16,7 @@ class LayerHandlePropertyTest {
   fun a_layer_handle_updates_and_reads_a_paint_property(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(STYLE)
-      val handle = assertNotNull(fixture.state.style.layer("background"))
+      val handle = assertNotNull(fixture.state.style.layers["background"])
 
       handle.setPaintProperty("background-opacity", JsonPrimitive(0.25))
 
@@ -28,7 +28,7 @@ class LayerHandlePropertyTest {
   fun a_rejected_layer_property_has_a_public_handle_error(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(STYLE)
-      val handle = assertNotNull(fixture.state.style.layer("background"))
+      val handle = assertNotNull(fixture.state.style.layers["background"])
 
       assertFailsWith<StyleHandleException> {
         handle.setPaintProperty("not-a-style-property", JsonPrimitive(0.25))
@@ -40,8 +40,8 @@ class LayerHandlePropertyTest {
   fun root_properties_are_readable_and_rejected_writes_throw(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(STYLE)
-      val handle = assertNotNull(fixture.state.style.layer("background"))
-      val circle = assertNotNull(fixture.state.style.layer("points"))
+      val handle = assertNotNull(fixture.state.style.layers["background"])
+      val circle = assertNotNull(fixture.state.style.layers["points"])
 
       assertEquals(JsonPrimitive("background"), handle.getProperty("id"))
       assertEquals(JsonPrimitive("background"), handle.getProperty("type"))

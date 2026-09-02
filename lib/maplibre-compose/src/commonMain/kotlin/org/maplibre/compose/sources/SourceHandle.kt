@@ -333,13 +333,15 @@ internal fun StyleBinding.sourceHandle(
   id: String,
   definition: SourceDefinition?,
   currentDefinition: () -> SourceDefinition?,
+  isCurrentResource: () -> Boolean,
   operations: StyleHandleOperationGuard,
 ): SourceHandle? {
   requireCurrent()
   val source = getSource(id) ?: return null
   val kind = sourceKind(definition, source)
   val composed = definition != null
-  val currentKind = {
+  val currentKind = currentKind@{
+    if (!isCurrentResource()) return@currentKind null
     val current = currentDefinition()
     if (composed && current == null) null else sourceKind(current, getSource(id))
   }

@@ -113,26 +113,30 @@ internal open class MlnFfiStyleBinding(
     val pixels = image.toPremultipliedRgba8()
     val stretchPx = stretch?.resolve(image.width, image.height, scale)
     mutateMap { map ->
-      map.setStyleImage(
-        imageId = id,
-        image = pixels,
-        options =
-          StyleImageOptions().also { options ->
-            options.sdf = sdf
-            options.pixelRatio = scale
-            stretchPx?.let { px ->
-              if (px.stretchX.isNotEmpty()) {
-                options.stretchX = px.stretchX.map { (start, end) -> FfiImageStretch(start, end) }
+      try {
+        map.setStyleImage(
+          imageId = id,
+          image = pixels,
+          options =
+            StyleImageOptions().also { options ->
+              options.sdf = sdf
+              options.pixelRatio = scale
+              stretchPx?.let { px ->
+                if (px.stretchX.isNotEmpty()) {
+                  options.stretchX = px.stretchX.map { (start, end) -> FfiImageStretch(start, end) }
+                }
+                if (px.stretchY.isNotEmpty()) {
+                  options.stretchY = px.stretchY.map { (start, end) -> FfiImageStretch(start, end) }
+                }
+                px.content?.let { box ->
+                  options.content = ImageContent(box.left, box.top, box.right, box.bottom)
+                }
               }
-              if (px.stretchY.isNotEmpty()) {
-                options.stretchY = px.stretchY.map { (start, end) -> FfiImageStretch(start, end) }
-              }
-              px.content?.let { box ->
-                options.content = ImageContent(box.left, box.top, box.right, box.bottom)
-              }
-            }
-          },
-      )
+            },
+        )
+      } catch (error: MaplibreException) {
+        throw StyleMutationException(error.message, error)
+      }
     }
   }
 
@@ -142,8 +146,16 @@ internal open class MlnFfiStyleBinding(
     }
 
   override fun removeImage(id: String) {
-    mutateMap { it.removeStyleImage(id) }
+    mutateMap {
+      try {
+        it.removeStyleImage(id)
+      } catch (error: MaplibreException) {
+        throw StyleMutationException(error.message, error)
+      }
+    }
   }
+
+  override fun imageExists(id: String): Boolean? = readMap { it.styleImageInfo(id) != null }
 
   override fun getSource(id: String): Source? = readMap { map ->
     if (!isStyleSource(map, id)) null else reconstructSource(map, id)
@@ -335,7 +347,11 @@ internal open class MlnFfiStyleBinding(
 
   override fun removeSource(sourceId: String) {
     mutateMap { map ->
-      map.removeStyleSource(sourceId)
+      try {
+        map.removeStyleSource(sourceId)
+      } catch (error: MaplibreException) {
+        throw StyleMutationException(error.message, error)
+      }
       forgetFeatureStates(sourceId)
       reportSourceChanged(sourceId)
     }

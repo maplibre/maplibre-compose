@@ -50,7 +50,7 @@ class FeatureStateTest {
             ),
           options = GeoJsonOptions(),
         )
-      binding.install(source)
+      fixture.state.style.sources.add(source)
       val layer = CircleLayer("circles", source)
       layer.setCircleRadius(const(48.dp).compile(ExpressionContext.None))
       layer.setCircleColor(
@@ -64,7 +64,7 @@ class FeatureStateTest {
           .compile(ExpressionContext.None)
       )
       binding.install(layer)
-      val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.source("points"))
+      val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources["points"])
 
       fixture.pumpUntilPixel("the default circle", CENTER, CENTER, BLUE)
       handle.setFeatureState(

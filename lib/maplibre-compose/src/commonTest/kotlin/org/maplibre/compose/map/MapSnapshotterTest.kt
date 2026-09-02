@@ -9,6 +9,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
@@ -27,10 +28,18 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import org.maplibre.compose.layers.BackgroundLayer
+import org.maplibre.compose.sources.GeoJsonData
+import org.maplibre.compose.sources.GeoJsonOptions
+import org.maplibre.compose.sources.GeoJsonSource
+import org.maplibre.compose.sources.GeoJsonSourceHandle
+import org.maplibre.compose.sources.TileSetOptions
+import org.maplibre.compose.sources.VectorSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.StyleHandleException
 
 class MapSnapshotterTest {
 
@@ -135,6 +144,143 @@ class MapSnapshotterTest {
     snapshotter.awaitClosed()
     runtime.close()
     runtime.awaitClosed()
+  }
+
+  @Test
+  fun a_published_snapshot_style_accepts_imperative_source_and_image_commands() = runTest {
+    val binding = RecordingStyleBinding()
+    val runtime =
+      mapRuntimeForTest(
+        snapshotterAdapterFactory =
+          SnapshotterAdapterFactory { FakeSnapshotterAdapter(prepare = { _, _ -> binding }) },
+        styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _ -> DesiredStyleRevision.Empty },
+      )
+    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
+    val source =
+      GeoJsonSource(
+        id = "imperative",
+        data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
+        options = GeoJsonOptions(),
+      )
+
+    withContext(Dispatchers.Unconfined) {
+      snapshotter.capture(MapSnapshotRequest(1, 1))
+      assertTrue(snapshotter.style.sources.add(source) is GeoJsonSourceHandle)
+      assertTrue(snapshotter.style.sources["imperative"] is GeoJsonSourceHandle)
+      snapshotter.style.images.add("imperative", FakeImageBitmap(1, 1))
+      assertEquals(setOf("imperative"), binding.imageIds)
+      assertTrue(snapshotter.style.images.remove("imperative"))
+      assertTrue(snapshotter.style.sources.remove("imperative"))
+      assertTrue(snapshotter.style.sources.none())
+    }
+
+    close(snapshotter, runtime)
+  }
+
+  @Test
+  fun reused_snapshot_style_preserves_existing_resource_handles() = runTest {
+    val source =
+      GeoJsonSource(
+        id = "base-source",
+        data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
+        options = GeoJsonOptions(),
+      )
+    val binding =
+      RecordingStyleBinding(
+        sources = listOf(source),
+        layers = listOf(BackgroundLayer("base-layer")),
+      )
+    val runtime =
+      mapRuntimeForTest(
+        snapshotterAdapterFactory =
+          SnapshotterAdapterFactory { FakeSnapshotterAdapter(prepare = { _, _ -> binding }) },
+        styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _ -> DesiredStyleRevision.Empty },
+      )
+    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
+    val request = MapSnapshotRequest(1, 1)
+    snapshotter.capture(request)
+    val sourceHandle = checkNotNull(snapshotter.style.sources["base-source"])
+    val layerHandle = checkNotNull(snapshotter.style.layers["base-layer"])
+
+    snapshotter.capture(request)
+
+    assertEquals("", sourceHandle.attributionHtml)
+    assertNull(layerHandle.getProperty("background-opacity"))
+    close(snapshotter, runtime)
+  }
+
+  @Test
+  fun reused_snapshot_style_invalidates_a_structurally_replaced_source() = runTest {
+    val original = attributedVectorSource("original")
+    val replacement = attributedVectorSource("replacement")
+    var desired = DesiredStyleRevision(listOf(original.definition()), emptyList(), emptyList())
+    val binding = RecordingStyleBinding(sources = listOf(original))
+    val runtime =
+      mapRuntimeForTest(
+        snapshotterAdapterFactory =
+          SnapshotterAdapterFactory {
+            FakeSnapshotterAdapter(
+              prepare = { _, _ -> binding },
+              capture = { request, _ ->
+                if (desired.sources.single() == replacement.definition()) {
+                  binding.replaceSource(replacement)
+                }
+                FakeImageBitmap(request.width, request.height)
+              },
+            )
+          },
+        styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _ -> desired },
+      )
+    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
+    val request = MapSnapshotRequest(1, 1)
+    snapshotter.capture(request)
+    val stale = checkNotNull(snapshotter.style.sources["shared"])
+
+    desired = DesiredStyleRevision(listOf(replacement.definition()), emptyList(), emptyList())
+    snapshotter.capture(request)
+
+    assertFailsWith<IllegalStateException> { stale.attributionHtml }
+    assertEquals("replacement", snapshotter.style.sources["shared"]?.attributionHtml)
+    close(snapshotter, runtime)
+  }
+
+  @Test
+  fun imperative_commands_cannot_cross_an_active_snapshot_style_revision() = runTest {
+    val binding = RecordingStyleBinding()
+    val captureStarted = CompletableDeferred<Unit>()
+    val finishCapture = CompletableDeferred<Unit>()
+    var blockCapture = false
+    val runtime =
+      mapRuntimeForTest(
+        snapshotterAdapterFactory =
+          SnapshotterAdapterFactory {
+            FakeSnapshotterAdapter(
+              prepare = { _, _ -> binding },
+              capture = { _, _ ->
+                if (blockCapture) {
+                  captureStarted.complete(Unit)
+                  finishCapture.await()
+                }
+                FakeImageBitmap(1, 1)
+              },
+            )
+          },
+        styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _ -> DesiredStyleRevision.Empty },
+      )
+    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
+    snapshotter.capture(MapSnapshotRequest(1, 1))
+    blockCapture = true
+    val capture = async { snapshotter.capture(MapSnapshotRequest(1, 1)) }
+    captureStarted.await()
+
+    assertFailsWith<StyleHandleException> {
+      snapshotter.style.images.add("crossing", FakeImageBitmap(1, 1))
+    }
+
+    finishCapture.complete(Unit)
+    capture.await()
+    assertTrue(binding.imageIds.isEmpty())
+    close(snapshotter, runtime)
   }
 
   @Test
@@ -462,6 +608,13 @@ class MapSnapshotterTest {
     runtime.close()
     runtime.awaitClosed()
   }
+
+  private fun attributedVectorSource(attribution: String): VectorSource =
+    VectorSource(
+      id = "shared",
+      tiles = listOf("https://example.com/{z}/{x}/{y}.pbf"),
+      options = TileSetOptions(attributionHtml = attribution),
+    )
 
   private class FakeSnapshotterAdapter(
     private val prepare: suspend (BaseStyle, MapSnapshotRequest) -> StyleBinding = { _, _ ->

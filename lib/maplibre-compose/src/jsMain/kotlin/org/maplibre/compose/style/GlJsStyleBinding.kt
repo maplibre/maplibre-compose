@@ -129,13 +129,22 @@ internal class GlJsStyleBinding(
           }
         }
       }
-    if (map.hasImage(id)) map.removeImage(id)
-    map.addImage(id, pixels, metadata)
+    mutate("add image '$id'") {
+      if (map.hasImage(id)) map.removeImage(id)
+      map.addImage(id, pixels, metadata)
+    }
   }
 
   override fun removeImage(id: String) {
     requireLoaded()
-    if (map.hasImage(id)) map.removeImage(id)
+    mutate("remove image '$id'") {
+      if (map.hasImage(id)) map.removeImage(id)
+    }
+  }
+
+  override fun imageExists(id: String): Boolean {
+    requireLoaded()
+    return map.hasImage(id)
   }
 
   override fun getSource(id: String): Source? {
@@ -191,7 +200,7 @@ internal class GlJsStyleBinding(
 
   override fun removeSource(sourceId: String) {
     requireLoaded()
-    map.removeSource(sourceId)
+    mutate("remove source '$sourceId'") { map.removeSource(sourceId) }
     customVectorAttachments.remove(sourceId)?.close()
   }
 

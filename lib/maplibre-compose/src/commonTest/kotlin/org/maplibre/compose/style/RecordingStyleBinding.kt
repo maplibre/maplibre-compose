@@ -29,6 +29,8 @@ internal class RecordingStyleBinding(
   layers: List<Layer> = emptyList(),
   override val supportsCustomDemEncoding: Boolean = false,
   override val supportsRasterDemScheme: Boolean = true,
+  private val refusedSourceRemovals: Set<String> = emptySet(),
+  private val beforeAddImage: ((String) -> Unit)? = null,
 ) : StyleBinding {
 
   override val identity: StyleIdentity = StyleIdentity.create()
@@ -41,6 +43,7 @@ internal class RecordingStyleBinding(
   private val baseLayers = layers.associateBy { it.id }.toMutableMap()
   private val orderedLayerIds = mutableListOf<String>()
   private val featureStates = mutableMapOf<Triple<String, String?, String>, JsonObject>()
+  private var addImageHookInvoked = false
 
   override var isLoaded: Boolean = true
     private set
@@ -50,6 +53,9 @@ internal class RecordingStyleBinding(
 
   val installedLayerIds: Set<String>
     get() = this.layers.keys - baseLayers.keys
+
+  val imageIds: Set<String>
+    get() = images.keys
 
   var customGeometryProvider: GeometryTileProvider? = null
     private set
@@ -69,6 +75,10 @@ internal class RecordingStyleBinding(
   override val logger: Logger? = null
 
   override fun addImage(definition: StyleImageDefinition) {
+    if (!addImageHookInvoked) {
+      addImageHookInvoked = true
+      beforeAddImage?.invoke(definition.id)
+    }
     check(definition.id !in images) { "Image ID '${definition.id}' already exists in style" }
     images[definition.id] = definition.image
   }
@@ -76,6 +86,8 @@ internal class RecordingStyleBinding(
   override fun removeImage(id: String) {
     check(images.remove(id) != null) { "Image ID '$id' not found in style" }
   }
+
+  override fun imageExists(id: String): Boolean = id in images
 
   override fun getSource(id: String): Source? =
     baseSources[id] ?: sources[id]?.let { UnknownSource(id, it) }
@@ -96,6 +108,9 @@ internal class RecordingStyleBinding(
   }
 
   override fun removeSource(sourceId: String) {
+    if (sourceId in refusedSourceRemovals) {
+      throw StyleMutationException("Source '$sourceId' is still in use", null)
+    }
     sources.remove(sourceId)
     baseSources.remove(sourceId)
   }
