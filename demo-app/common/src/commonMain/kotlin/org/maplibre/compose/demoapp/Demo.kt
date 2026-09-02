@@ -10,6 +10,7 @@ import org.maplibre.compose.demoapp.demos.LiveTrackingDemo
 import org.maplibre.compose.demoapp.demos.LocationDemo
 import org.maplibre.compose.demoapp.demos.MagnifyingLensDemo
 import org.maplibre.compose.demoapp.demos.Manhattan3dDemo
+import org.maplibre.compose.demoapp.demos.MapSnapshotterDemo
 import org.maplibre.compose.demoapp.demos.MaterialStyleDemo
 import org.maplibre.compose.demoapp.demos.TransitNetworkDemo
 import org.maplibre.compose.map.MapState
@@ -92,6 +93,7 @@ val allDemos: List<Demo> =
     LiveTrackingDemo,
     DragDropDemo,
     MagnifyingLensDemo,
+    MapSnapshotterDemo,
     TransitNetworkDemo,
     LocationDemo,
     MaterialStyleDemo,
