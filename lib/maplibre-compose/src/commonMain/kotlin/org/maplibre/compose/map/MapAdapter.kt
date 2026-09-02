@@ -43,7 +43,7 @@ internal interface MapAdapter {
 
   suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration)
 
-  suspend fun animateCameraPosition(
+  suspend fun animateCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,
@@ -65,7 +65,7 @@ internal interface MapAdapter {
 
   fun setCameraPadding(padding: PaddingValues)
 
-  fun setCameraPosition(
+  fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,

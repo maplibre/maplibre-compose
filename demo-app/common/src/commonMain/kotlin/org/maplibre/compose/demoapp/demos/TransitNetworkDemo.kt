@@ -364,7 +364,7 @@ object TransitNetworkDemo : Demo {
 
     LaunchedEffect(selected, mapState) {
       val route = network.routes.find { it.id == selected } ?: return@LaunchedEffect
-      mapState.animateCameraPosition(
+      mapState.animateCameraToBounds(
         boundingBox = route.bounds,
         padding = RouteFitPadding,
         duration = 1.seconds,
