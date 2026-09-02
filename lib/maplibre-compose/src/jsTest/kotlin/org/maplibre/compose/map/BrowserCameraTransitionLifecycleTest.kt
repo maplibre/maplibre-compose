@@ -5,7 +5,6 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import js.objects.unsafeJso
 import kotlin.js.Promise
 import kotlin.test.Test
-import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
@@ -78,22 +77,19 @@ class BrowserCameraTransitionLifecycleTest {
       val state = runtime.createMapState(initialCameraPosition = CURRENT_CAMERA, baseStyle = STYLE)
       val presented = mutableStateOf(true)
 
-      setBrowserMapContent { if (presented.value) MaplibreMap(state) }
+      setBrowserMapContent { if (presented.value) MaplibreMap(state = state) }
       waitUntilMap("the Web presentation to become ready") {
-        state.presentation != null && state.style.loadState == StyleLoadState.Ready
+        state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
       }
-      val departedPresentation = requireNotNull(state.presentation)
+      val departedPresentation = requireNotNull(state.currentMapAttachment)
       val departedSession = departedPresentation.adapter as GlJsMapSession
       val departedEngine = requireNotNull(departedSession.engineMapForTest())
 
       runOnIdle { presented.value = false }
       waitUntilMap("the GL JS map to be destroyed") {
-        state.presentation == null && departedSession.engineMapForTest() == null
+        state.currentMapAttachment == null && departedSession.engineMapForTest() == null
       }
 
-      assertFailsWith<IllegalStateException> {
-        departedPresentation.setCameraPosition(STALE_CAMERA)
-      }
       departedSession.setCameraPosition(STALE_CAMERA)
       departedEngine.fire("move", unsafeJso<MapEvent>())
       waitForIdle()

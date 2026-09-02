@@ -25,15 +25,15 @@ class CameraMoveReportingTest {
       repeat(DRAG_SAMPLES) { sample ->
         it.gestures.moveBy(DRAG_STEP_DP, DRAG_STEP_DP, gestureToken = token)
         it.pump(FRAMES_PER_SAMPLE)
-        assertTrue(it.presentation.isCameraMoving, "the drag ended at sample $sample")
-        assertEquals(CameraMoveReason.GESTURE, it.presentation.cameraMoveReason)
+        assertTrue(it.state.isCameraMoving, "the drag ended at sample $sample")
+        assertEquals(CameraMoveReason.GESTURE, it.state.cameraMoveReason)
       }
       it.settle()
       it.gestures.onGestureEnded(token)
       it.pump(FRAMES_PER_SAMPLE)
 
-      assertFalse(it.presentation.isCameraMoving)
-      assertEquals(CameraMoveReason.GESTURE, it.presentation.cameraMoveReason)
+      assertFalse(it.state.isCameraMoving)
+      assertEquals(CameraMoveReason.GESTURE, it.state.cameraMoveReason)
     }
   }
 
@@ -45,8 +45,8 @@ class CameraMoveReportingTest {
       it.gestures.moveBy(DRAG_STEP_DP, DRAG_STEP_DP)
       it.pump(FRAMES_PER_SAMPLE)
 
-      assertFalse(it.presentation.isCameraMoving)
-      assertEquals(CameraMoveReason.PROGRAMMATIC, it.presentation.cameraMoveReason)
+      assertFalse(it.state.isCameraMoving)
+      assertEquals(CameraMoveReason.PROGRAMMATIC, it.state.cameraMoveReason)
     }
   }
 
@@ -54,7 +54,7 @@ class CameraMoveReportingTest {
   fun a_scale_changes_the_native_zoom(): MapTestResult = runMapTest {
     createMapFixture().use {
       it.startAtRest()
-      it.presentation.setCameraPosition(START)
+      it.state.setCameraPosition(START)
       it.pumpUntil("the camera to adopt the start zoom") {
         abs(it.session.getCameraPosition().zoom - START.zoom) < ZOOM_TOLERANCE
       }
@@ -70,7 +70,7 @@ class CameraMoveReportingTest {
   fun a_rotate_and_pitch_changes_the_native_camera(): MapTestResult = runMapTest {
     createMapFixture().use {
       it.startAtRest()
-      it.presentation.setCameraPosition(START)
+      it.state.setCameraPosition(START)
       it.pumpUntil("the camera to adopt the start pose") {
         abs(it.session.getCameraPosition().zoom - START.zoom) < ZOOM_TOLERANCE
       }

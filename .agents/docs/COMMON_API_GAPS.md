@@ -21,7 +21,7 @@ The sequence they belong to is:
 3. ~~Redesign the public API and internal architecture around that one native
    integration, deciding along the way whether web folds in via Wasm or stays on
    MapLibre GL JS.~~ Done. Web stays on MapLibre GL JS. The public map API is
-   `MapRuntime`, `MapState`, and `MapPresentation`.
+   `MapRuntime` and `MapState`.
 4. Implement the missing common APIs once — twice at most, if web stays separate
    — against that shared integration.
 

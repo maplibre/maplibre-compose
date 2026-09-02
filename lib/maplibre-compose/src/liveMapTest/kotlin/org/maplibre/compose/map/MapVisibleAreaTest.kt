@@ -24,10 +24,10 @@ class MapVisibleAreaTest {
     createMapFixture().use {
       it.loadStyle(BaseStyle.Empty)
       it.awaitMapReady()
-      it.presentation.setCameraPosition(CAMERA)
+      it.state.setCameraPosition(CAMERA)
       it.pumpUntil("the camera to apply") { it.session.hasNativeCamera(CAMERA) }
 
-      val box = assertNotNull(it.presentation.getVisibleBoundingBox())
+      val box = assertNotNull(it.state.getVisibleBoundingBox())
       assertContains(box, CAMERA.target, "the camera target")
       assertTrue(box.northeast.latitude > box.southwest.latitude, "the box should span latitude")
       assertTrue(box.northeast.longitude > box.southwest.longitude, "the box should span longitude")
@@ -40,11 +40,11 @@ class MapVisibleAreaTest {
       createMapFixture().use {
         it.loadStyle(BaseStyle.Empty)
         it.awaitMapReady()
-        it.presentation.setCameraPosition(ROTATED_CAMERA)
+        it.state.setCameraPosition(ROTATED_CAMERA)
         it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(ROTATED_CAMERA) }
 
-        val region = assertNotNull(it.presentation.getVisibleRegion())
-        val box = assertNotNull(it.presentation.getVisibleBoundingBox())
+        val region = assertNotNull(it.state.getVisibleRegion())
+        val box = assertNotNull(it.state.getVisibleBoundingBox())
         assertContains(box, region.farLeft, "the far left corner")
         assertContains(box, region.farRight, "the far right corner")
         assertContains(box, region.nearLeft, "the near left corner")
@@ -58,10 +58,10 @@ class MapVisibleAreaTest {
       createMapFixture().use {
         it.loadStyle(BaseStyle.Empty)
         it.awaitMapReady()
-        it.presentation.setCameraPosition(ROTATED_CAMERA)
+        it.state.setCameraPosition(ROTATED_CAMERA)
         it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(ROTATED_CAMERA) }
 
-        val region = assertNotNull(it.presentation.getVisibleRegion())
+        val region = assertNotNull(it.state.getVisibleRegion())
         val corners = region.corners()
         assertTrue(
           corners.distinct().size == 4,
@@ -80,10 +80,10 @@ class MapVisibleAreaTest {
     createMapFixture().use {
       it.loadStyle(BaseStyle.Empty)
       it.awaitMapReady()
-      it.presentation.setCameraPosition(ANTIMERIDIAN_CAMERA)
+      it.state.setCameraPosition(ANTIMERIDIAN_CAMERA)
       it.pumpUntil("the camera to apply") { it.session.hasNativeCamera(ANTIMERIDIAN_CAMERA) }
 
-      val box = assertNotNull(it.presentation.getVisibleBoundingBox())
+      val box = assertNotNull(it.state.getVisibleBoundingBox())
       // A wrapped hull would span nearly the whole world instead of the short interval, which may
       // extend past ±180.
       assertTrue(

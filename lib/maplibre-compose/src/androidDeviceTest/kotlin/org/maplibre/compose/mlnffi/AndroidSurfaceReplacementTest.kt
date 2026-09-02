@@ -25,7 +25,6 @@ import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.first
 import org.maplibre.compose.map.DefaultMapRuntime
-import org.maplibre.compose.map.MapPresentationCallbacks
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.MlnFfiMapSession
@@ -225,7 +224,7 @@ class SurfaceReplacementActivity : ComponentActivity() {
 
   fun diagnostic(): String {
     val state = if (showingReplacement) replacementState else initialState
-    val session = state?.presentation?.adapter as? MlnFfiMapSession
+    val session = state?.currentMapAttachment?.adapter as? MlnFfiMapSession
     val surfaces =
       window.decorView.descendants().filterIsInstance<SurfaceView>().joinToString(
         prefix = "[",
@@ -235,7 +234,7 @@ class SurfaceReplacementActivity : ComponentActivity() {
           "size=${surface.width}x${surface.height}"
       }
     return "showingReplacement=$showingReplacement, " +
-      "presentation=${state?.presentation != null}, style=${state?.style?.loadState}, " +
+      "presentation=${state?.currentMapAttachment != null}, style=${state?.style?.loadState}, " +
       "frames=${initialFrameCount.get()}/${replacementFrameCount.get()}, " +
       "nativeTargets=${session?.attachCount}/${session?.retargetCount}, surfaces=$surfaces"
   }
@@ -251,13 +250,13 @@ private fun TestMap(
   val state = rememberMapState(baseStyle = SOLID_STYLE)
   LaunchedEffect(state) {
     onState(state)
-    snapshotFlow { state.presentation }.first { it != null }
+    snapshotFlow { state.currentMapAttachment }.first { it != null }
     onPresentation()
   }
   MaplibreMap(
     state = state,
     modifier = Modifier.fillMaxSize(),
-    callbacks = MapPresentationCallbacks(onFrame = { onFrame() }),
+    onFrame = { onFrame() },
   ) {
     include(overlay)
   }

@@ -54,27 +54,27 @@ class BrowserMapStateTest {
       val includeRival = mutableStateOf(false)
 
       setBrowserMapContent {
-        MaplibreMap(state)
-        if (includeRival.value) MaplibreMap(state)
+        MaplibreMap(state = state)
+        if (includeRival.value) MaplibreMap(state = state)
       }
       waitUntilMap("the logical map presentation to load") {
-        state.presentation != null && state.style.loadState == StyleLoadState.Ready
+        state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
       }
 
-      assertNotNull(state.presentation)
-      val presentation = state.presentation!!
+      assertNotNull(state.currentMapAttachment)
+      val presentation = state.currentMapAttachment!!
       assertTrue(presentation.isValid)
       val createdSessions = GlJsMapSession.createdCount
 
       runOnIdle { includeRival.value = true }
       assertFailsWith<IllegalStateException> { waitForIdle() }
       assertEquals(createdSessions, GlJsMapSession.createdCount)
-      assertSame(presentation, state.presentation)
+      assertSame(presentation, state.currentMapAttachment)
       assertTrue(presentation.isValid)
 
       setContent {}
-      waitUntilMap("the presentation to detach") { state.presentation == null }
-      assertNull(state.presentation)
+      waitUntilMap("the presentation to detach") { state.currentMapAttachment == null }
+      assertNull(state.currentMapAttachment)
       assertFalse(state.isClosed)
 
       runtime.close()

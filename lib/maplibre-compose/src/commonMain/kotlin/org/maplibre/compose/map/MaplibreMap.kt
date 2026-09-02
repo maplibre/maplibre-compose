@@ -2,6 +2,7 @@ package org.maplibre.compose.map
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawing
@@ -19,6 +20,7 @@ import androidx.compose.ui.UiComposable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraMoveReason
@@ -30,6 +32,7 @@ import org.maplibre.compose.style.DesiredStyleLayer
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.rememberStyleComposition
+import org.maplibre.compose.util.ClickResult
 import org.maplibre.compose.util.FeaturesClickHandler
 import org.maplibre.compose.util.MapClickHandler
 import org.maplibre.spatialk.geojson.Position
@@ -38,12 +41,12 @@ private class MapStateAttachment(
   val state: MapState,
   private val token: MapPresentationToken,
 ) {
-  fun publish(map: MapAdapter, options: MapPresentationOptions) {
-    state.publishPresentation(token, map, options)
+  fun publish(map: MapAdapter) {
+    state.publishPresentation(token, map)
   }
 
-  fun currentPresentation(map: MapAdapter): MapPresentation? =
-    state.presentation?.takeIf { it.adapter === map }
+  fun currentAttachment(map: MapAdapter): MapAttachment? =
+    state.currentMapAttachment?.takeIf { it.adapter === map }
 
   fun release(map: MapAdapter? = null) {
     state.releasePresentation(token, map)
@@ -68,18 +71,24 @@ private class MapStateAttachment(
 }
 
 /**
- * Displays [state] through one temporary presentation.
+ * Displays [state] on a map surface.
  *
- * The caller controls the lifetime of [state]. This composable creates the current presentation and
- * releases it when the call leaves composition. [overlay] draws Compose UI over the map. The
- * default draws [MapOverlay.Default]. A supplied block replaces the default.
+ * The caller controls the lifetime of [state]. This composable attaches the map surface while the
+ * call remains in composition. [overlay] draws Compose UI over the map. The default draws
+ * [MapOverlay.Default]. A supplied block replaces the default.
  */
 @Composable
 public fun MaplibreMap(
-  state: MapState = rememberMapState(),
   modifier: Modifier = Modifier,
-  presentationOptions: MapPresentationOptions = MapPresentationOptions(),
-  callbacks: MapPresentationCallbacks = MapPresentationCallbacks(),
+  state: MapState = rememberMapState(),
+  cameraPadding: PaddingValues = PaddingValues(0.dp),
+  cameraConstraints: CameraConstraints = CameraConstraints(),
+  renderOptions: RenderOptions = RenderOptions.Standard,
+  gestureOptions: GestureOptions = GestureOptions.Standard,
+  tileLodOptions: TileLodOptions = TileLodOptions.Standard,
+  onClick: MapClickHandler = { _, _ -> ClickResult.Pass },
+  onLongClick: MapClickHandler = { _, _ -> ClickResult.Pass },
+  onFrame: (framesPerSecond: Double) -> Unit = {},
   contentWindowInsets: WindowInsets = WindowInsets.safeDrawing,
   overlay: @Composable @UiComposable MapOverlayScope.() -> Unit = {
     include(MapOverlay.Default)
@@ -92,13 +101,23 @@ public fun MaplibreMap(
 
   val presentationHostIdentity = mapPresentationHostIdentity()
   val presentationOwner = remember(state) { MapPresentationOwnerToken() }
+  val mapViewOptions =
+    MapViewOptions(
+      cameraPadding = cameraPadding,
+      cameraConstraints = cameraConstraints,
+      renderOptions = renderOptions,
+      gestureOptions = gestureOptions,
+      tileLodOptions = tileLodOptions,
+    )
   key(state, presentationHostIdentity) {
     PresentedMaplibreMap(
       state = state,
       presentationOwner = presentationOwner,
       modifier = modifier,
-      presentationOptions = presentationOptions,
-      callbacks = callbacks,
+      mapViewOptions = mapViewOptions,
+      onClick = onClick,
+      onLongClick = onLongClick,
+      onFrame = onFrame,
       contentWindowInsets = contentWindowInsets,
       overlay = overlay,
     )
@@ -110,8 +129,10 @@ private fun PresentedMaplibreMap(
   state: MapState,
   presentationOwner: MapPresentationOwnerToken,
   modifier: Modifier,
-  presentationOptions: MapPresentationOptions,
-  callbacks: MapPresentationCallbacks,
+  mapViewOptions: MapViewOptions,
+  onClick: MapClickHandler,
+  onLongClick: MapClickHandler,
+  onFrame: (Double) -> Unit,
   contentWindowInsets: WindowInsets,
   overlay: @Composable @UiComposable MapOverlayScope.() -> Unit,
 ) {
@@ -122,8 +143,10 @@ private fun PresentedMaplibreMap(
     state = state,
     attachment = attachment,
     modifier = modifier,
-    presentationOptions = presentationOptions,
-    callbacks = callbacks,
+    mapViewOptions = mapViewOptions,
+    onClick = onClick,
+    onLongClick = onLongClick,
+    onFrame = onFrame,
     contentWindowInsets = contentWindowInsets,
     overlay = overlay,
   )
@@ -134,8 +157,10 @@ private fun MaplibreMapPresentation(
   state: MapState,
   attachment: MapStateAttachment,
   modifier: Modifier,
-  presentationOptions: MapPresentationOptions,
-  callbacks: MapPresentationCallbacks,
+  mapViewOptions: MapViewOptions,
+  onClick: MapClickHandler,
+  onLongClick: MapClickHandler,
+  onFrame: (Double) -> Unit,
   contentWindowInsets: WindowInsets,
   overlay: @Composable @UiComposable MapOverlayScope.() -> Unit,
 ) {
@@ -152,11 +177,11 @@ private fun MaplibreMapPresentation(
         },
     )
   val mapClickScope = rememberCoroutineScope()
-  val presentation = state.presentation
-  var retainedRevisionReplayed by remember(rememberedStyle, presentation) { mutableStateOf(false) }
+  val mapAttachment = state.currentMapAttachment
+  var retainedRevisionReplayed by remember(rememberedStyle, mapAttachment) { mutableStateOf(false) }
 
-  LaunchedEffect(rememberedStyle, presentation, attachment) {
-    val map = presentation?.adapter ?: return@LaunchedEffect
+  LaunchedEffect(rememberedStyle, mapAttachment, attachment) {
+    val map = mapAttachment?.adapter ?: return@LaunchedEffect
     if (rememberedStyle == null) return@LaunchedEffect
     try {
       map.replayStyleRevision(state.desiredStyleRevision)
@@ -169,9 +194,9 @@ private fun MaplibreMapPresentation(
     }
   }
 
-  LaunchedEffect(rememberedStyle, desiredRevision, presentation, retainedRevisionReplayed) {
+  LaunchedEffect(rememberedStyle, desiredRevision, mapAttachment, retainedRevisionReplayed) {
     if (!retainedRevisionReplayed) return@LaunchedEffect
-    val map = presentation?.adapter ?: return@LaunchedEffect
+    val map = mapAttachment?.adapter ?: return@LaunchedEffect
     val revision = desiredRevision ?: return@LaunchedEffect
     attachment.reconcileStyleRevision(map, revision)
   }
@@ -181,15 +206,16 @@ private fun MaplibreMapPresentation(
       desiredRevision,
       mapClickScope,
       attachment,
-      presentation,
-      presentationOptions,
-      callbacks,
+      mapAttachment,
+      onClick,
+      onLongClick,
+      onFrame,
     ) {
       object : MapAdapter.Callbacks {
-        private fun currentPresentation(map: MapAdapter): MapPresentation? =
-          attachment.currentPresentation(map)
+        private fun currentAttachment(map: MapAdapter): MapAttachment? =
+          attachment.currentAttachment(map)
 
-        private fun synchronizeCamera(map: MapAdapter): MapPresentation? {
+        private fun synchronizeCamera(map: MapAdapter): MapAttachment? {
           return state.synchronizeCamera(map)
         }
 
@@ -212,7 +238,7 @@ private fun MaplibreMapPresentation(
         }
 
         override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {
-          currentPresentation(map)?.cameraMoveStarted(reason)
+          currentAttachment(map)?.cameraMoveStarted(reason)
         }
 
         override fun onCameraMoved(map: MapAdapter) {
@@ -236,7 +262,7 @@ private fun MaplibreMapPresentation(
           mapHandler: MapClickHandler,
           layerHandler: (DesiredStyleLayer) -> FeaturesClickHandler?,
         ) {
-          if (currentPresentation(map) == null) return
+          if (currentAttachment(map) == null) return
           if (mapHandler(latLng, offset).consumed) return
           mapClickScope.launch {
             for (node in layerNodesInOrder()) {
@@ -260,21 +286,21 @@ private fun MaplibreMapPresentation(
         }
 
         override fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset) =
-          dispatchPointerEvent(map, latLng, offset, callbacks.onClick, DesiredStyleLayer::onClick)
+          dispatchPointerEvent(map, latLng, offset, onClick, DesiredStyleLayer::onClick)
 
         override fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset) =
           dispatchPointerEvent(
             map,
             latLng,
             offset,
-            callbacks.onLongClick,
+            onLongClick,
             DesiredStyleLayer::onLongClick,
           )
 
         override fun onFrame(fps: Double) {
-          val map = state.presentation?.adapter ?: return
+          val map = state.currentMapAttachment?.adapter ?: return
           synchronizeCamera(map)
-          callbacks.onFrame(fps)
+          onFrame(fps)
         }
       }
     }
@@ -286,20 +312,12 @@ private fun MaplibreMapPresentation(
       style = state.style.baseStyle,
       update = update@{ map ->
           if (state.isClosed) return@update
-          map.setCameraPadding(presentationOptions.cameraPadding)
-          map.setCameraConstraints(
-            CameraConstraints(
-              minZoom = presentationOptions.zoomRange.start.toDouble(),
-              maxZoom = presentationOptions.zoomRange.endInclusive.toDouble(),
-              minPitch = presentationOptions.pitchRange.start.toDouble(),
-              maxPitch = presentationOptions.pitchRange.endInclusive.toDouble(),
-              boundingBox = presentationOptions.boundingBox,
-            )
-          )
-          map.setRenderSettings(presentationOptions.renderOptions)
-          map.setGestureSettings(presentationOptions.gestureOptions)
-          map.setTileLodSettings(presentationOptions.tileLodOptions)
-          attachment.publish(map, presentationOptions)
+          map.setCameraPadding(mapViewOptions.cameraPadding)
+          map.setCameraConstraints(mapViewOptions.cameraConstraints)
+          map.setRenderSettings(mapViewOptions.renderOptions)
+          map.setGestureSettings(mapViewOptions.gestureOptions)
+          map.setTileLodSettings(mapViewOptions.tileLodOptions)
+          attachment.publish(map)
         },
       onReset = {
         attachment.release()
@@ -307,7 +325,7 @@ private fun MaplibreMapPresentation(
       },
       logger = state.runtime.logger,
       callbacks = adapterCallbacks,
-      options = presentationOptions,
+      options = mapViewOptions,
     )
 
     MapOverlayHost(

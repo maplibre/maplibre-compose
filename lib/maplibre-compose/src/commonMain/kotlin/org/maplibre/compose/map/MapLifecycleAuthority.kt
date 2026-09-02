@@ -191,7 +191,6 @@ internal class MapLifecycleAuthority(
   fun publishPresentation(
     token: MapPresentationToken,
     adapter: MapAdapter,
-    options: MapPresentationOptions,
   ) {
     val retainedToReplace = serialized {
       if (closed) return
@@ -200,10 +199,7 @@ internal class MapLifecycleAuthority(
       check(current?.token == token && !current.releasing) {
         "The map presentation reservation is no longer current"
       }
-      if (current.adapter === adapter && owner.presentation?.adapter === adapter) {
-        owner.presentation?.updateOptions(options)
-        return
-      }
+      if (current.adapter === adapter && owner.currentMapAttachment?.adapter === adapter) return
       selectAdapterLocked(current, adapter)
       retainedAdapter?.takeUnless { retained ->
         retained === adapter || !adapter.retainsEngineBetweenPresentations
@@ -228,7 +224,6 @@ internal class MapLifecycleAuthority(
       owner.commitPresentation(
         token = token,
         adapter = adapter,
-        options = options,
       )
       retainedToReplace
     }
@@ -334,7 +329,7 @@ internal class MapLifecycleAuthority(
     requireOpen()
     val adapter = attachment?.adapter
     check(adapter != null && acceptsPresentationLocked(adapter)) {
-      "Platform map access requires a current Web presentation"
+      "Platform map access requires an attached Web map surface"
     }
     adapter
   }
@@ -351,7 +346,7 @@ internal class MapLifecycleAuthority(
     !closed &&
       attachment?.token == token &&
       attachment?.adapter === adapter &&
-      owner.presentation?.let { it.token == token && it.adapter === adapter } == true
+      owner.currentMapAttachment?.let { it.token == token && it.adapter === adapter } == true
   }
 
   fun bind(adapter: MapLifecyclePlatformAdapter): MapLifecycleBinding {
@@ -415,7 +410,7 @@ internal class MapLifecycleAuthority(
   }
 
   private fun acceptsPresentationLocked(adapter: MapAdapter): Boolean =
-    !closed && attachment?.adapter === adapter && owner.presentation?.adapter === adapter
+    !closed && attachment?.adapter === adapter && owner.currentMapAttachment?.adapter === adapter
 
   private fun acceptPlatformAccess(accepts: () -> Boolean, event: () -> Unit): Boolean {
     var commitDeferredClose = false

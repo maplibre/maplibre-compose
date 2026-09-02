@@ -31,13 +31,13 @@ class MapCameraTransitionTest {
     createMapFixture().use {
       it.loadStyle(BaseStyle.Empty)
       it.session.setCameraPadding(CAMERA_PADDING)
-      it.presentation.setCameraPosition(START)
+      it.state.setCameraPosition(START)
       it.awaitMapReady()
       it.pumpUntil("the camera padding to be applied") {
         it.cameraTargetMatches(START, CAMERA_PADDING)
       }
 
-      it.presentation.setCameraPosition(BOUNDS, 0.0, 0.0, FIT_PADDING)
+      it.state.setCameraPosition(BOUNDS, 0.0, 0.0, FIT_PADDING)
       it.pumpUntil("the bounds fit to be applied") {
         abs(it.session.getCameraPosition().zoom - START.zoom) > 0.1
       }
@@ -45,7 +45,7 @@ class MapCameraTransitionTest {
       it.assertCameraTarget(fitAfterPadding, CAMERA_PADDING)
       it.assertBoundsInside(CAMERA_PADDING + FIT_PADDING)
 
-      it.presentation.setCameraPosition(BOUNDS, 0.0, 0.0, FIT_PADDING)
+      it.state.setCameraPosition(BOUNDS, 0.0, 0.0, FIT_PADDING)
       it.pump(frames = 2)
       val repeatedFit = it.session.getCameraPosition()
       assertSameFit(fitAfterPadding, repeatedFit, "repeating the bounds fit changed its camera")
@@ -62,7 +62,7 @@ class MapCameraTransitionTest {
     createMapFixture().use {
       it.startAtOrigin()
 
-      it.presentation.setCameraPosition(ANTIMERIDIAN_BOUNDS, 0.0, 0.0, PaddingValues(0.dp))
+      it.state.setCameraPosition(ANTIMERIDIAN_BOUNDS, 0.0, 0.0, PaddingValues(0.dp))
       it.pumpUntil("the antimeridian bounds fit to be applied") {
         val camera = it.session.getCameraPosition()
         abs(abs(camera.target.longitude) - 180.0) < 1.0 && camera.zoom > START.zoom
@@ -75,14 +75,14 @@ class MapCameraTransitionTest {
     createMapFixture().use {
       it.loadStyle(BaseStyle.Empty)
       it.session.setCameraPadding(CAMERA_PADDING)
-      it.presentation.setCameraPosition(START)
+      it.state.setCameraPosition(START)
       it.awaitMapReady()
       it.pumpUntil("the camera padding to be applied") {
         it.cameraTargetMatches(START, CAMERA_PADDING)
       }
 
       it.awaitWhileRendering("the bounds animation to complete") {
-        it.presentation.animateCameraPosition(BOUNDS, 0.0, 0.0, FIT_PADDING, 200.milliseconds)
+        it.state.animateCameraPosition(BOUNDS, 0.0, 0.0, FIT_PADDING, 200.milliseconds)
       }
 
       val firstFit = it.session.getCameraPosition()
@@ -90,7 +90,7 @@ class MapCameraTransitionTest {
       it.assertBoundsInside(CAMERA_PADDING + FIT_PADDING)
 
       it.awaitWhileRendering("the repeated bounds animation to complete") {
-        it.presentation.animateCameraPosition(BOUNDS, 0.0, 0.0, FIT_PADDING, 200.milliseconds)
+        it.state.animateCameraPosition(BOUNDS, 0.0, 0.0, FIT_PADDING, 200.milliseconds)
       }
 
       assertSameFit(
@@ -107,7 +107,7 @@ class MapCameraTransitionTest {
       it.startAtOrigin()
 
       it.awaitWhileRendering("the animation to complete") {
-        it.presentation.animateCameraPosition(TARGET, 200.milliseconds)
+        it.state.animateCameraPosition(TARGET, 200.milliseconds)
       }
 
       assertNear(
@@ -128,7 +128,7 @@ class MapCameraTransitionTest {
 
         val animation =
           CoroutineScope(Dispatchers.Default).launch {
-            it.presentation.animateCameraPosition(TARGET, 2.seconds)
+            it.state.animateCameraPosition(TARGET, 2.seconds)
           }
         it.awaitCameraMoving()
         it.session.applyTestConstraints()
@@ -166,7 +166,7 @@ class MapCameraTransitionTest {
       it.startAtOrigin()
 
       it.awaitWhileRendering("the instant animation to complete") {
-        it.presentation.animateCameraPosition(TARGET, 0.milliseconds)
+        it.state.animateCameraPosition(TARGET, 0.milliseconds)
       }
     }
   }
@@ -181,13 +181,13 @@ class MapCameraTransitionTest {
 
       val superseded =
         CoroutineScope(Dispatchers.Default).launch {
-          it.presentation.animateCameraPosition(TARGET, 10.seconds)
+          it.state.animateCameraPosition(TARGET, 10.seconds)
         }
       it.awaitCameraMoving()
 
       val replacement =
         CoroutineScope(Dispatchers.Default).launch {
-          it.presentation.animateCameraPosition(MIDPOINT, 2.seconds)
+          it.state.animateCameraPosition(MIDPOINT, 2.seconds)
         }
       it.pumpUntil("the superseded animation to cancel") { superseded.isCompleted }
 
@@ -216,7 +216,7 @@ class MapCameraTransitionTest {
 
         val animation =
           CoroutineScope(Dispatchers.Default).launch {
-            it.presentation.animateCameraPosition(TARGET, 30.seconds)
+            it.state.animateCameraPosition(TARGET, 30.seconds)
           }
         it.awaitCameraMoving()
         animation.cancel()
@@ -229,7 +229,7 @@ class MapCameraTransitionTest {
         )
 
         it.awaitWhileRendering("a later animation to complete") {
-          it.presentation.animateCameraPosition(TARGET, 200.milliseconds)
+          it.state.animateCameraPosition(TARGET, 200.milliseconds)
         }
         assertNear(
           TARGET.zoom,
@@ -242,7 +242,7 @@ class MapCameraTransitionTest {
   private suspend fun MapFixture.startAtOrigin() {
     // GL JS renders nothing without a style.
     loadStyle(BaseStyle.Empty)
-    presentation.setCameraPosition(START)
+    state.setCameraPosition(START)
     // Render first: before the map exists, a camera read echoes back whatever was last set.
     awaitMapReady()
     pumpUntil("the map to reach its starting camera") {

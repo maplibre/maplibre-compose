@@ -11,8 +11,8 @@ import composition from "../../../../demo-app/common/src/commonMain/kotlin/org/m
 
 MapLibre Compose has no public map view object. <Api of="MapState" /> defines a
 logical map, including its base style and declarative style content.
-<Api of="MaplibreMap" /> presents that state and provides viewport-bound
-operations through <Api of="MapPresentation" />.
+<Api of="MaplibreMap" /> presents that state. `MapState` provides camera,
+viewport, projection, and feature-query operations while the map is attached.
 
 ## The style is base plus content
 

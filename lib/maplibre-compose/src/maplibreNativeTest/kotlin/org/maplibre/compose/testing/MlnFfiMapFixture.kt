@@ -6,7 +6,6 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.map.GestureTarget
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapExtent
-import org.maplibre.compose.map.MapPresentation
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
@@ -27,14 +26,11 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent
 
   init {
     state.publishPresentation(token, bridge.session)
-    bridge.bindPresentation(requireNotNull(state.presentation))
+    bridge.bindAttachment(requireNotNull(state.currentMapAttachment))
   }
 
   override val session: MapAdapter
     get() = bridge.session
-
-  override val presentation: MapPresentation
-    get() = requireNotNull(state.presentation)
 
   override val gestures: GestureTarget
     get() = bridge.session

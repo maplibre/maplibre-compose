@@ -2,7 +2,6 @@ package org.maplibre.compose.location
 
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
-import org.maplibre.compose.map.MapPresentation
 import org.maplibre.compose.map.MapState
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.inDegrees
@@ -11,13 +10,12 @@ import org.maplibre.spatialk.units.extensions.inDegrees
  * Convenience method for keeping [mapState] in sync with the location change that triggered this
  * [LocationTrackingEffect] callback.
  *
- * @param animationDuration if `null`, updates the presentation directly without animation;
- *   otherwise, specifies the duration of the camera animation.
+ * @param animationDuration if `null`, updates the camera directly without animation; otherwise,
+ *   specifies the duration of the camera animation.
  * @param updateBearing determines how the bearing affects the camera state.
  */
 public suspend fun LocationChangeScope.updateCamera(
   mapState: MapState,
-  presentation: MapPresentation,
   animationDuration: Duration? = 300.milliseconds,
   updateBearing: BearingUpdate = BearingUpdate.TRACK_AUTOMATIC,
 ) {
@@ -42,8 +40,8 @@ public suspend fun LocationChangeScope.updateCamera(
         },
     )
 
-  if (animationDuration == null) presentation.setCameraPosition(newPosition)
-  else presentation.animateCameraPosition(newPosition, animationDuration)
+  if (animationDuration == null) mapState.setCameraPosition(newPosition)
+  else mapState.animateCameraPosition(newPosition, animationDuration)
 }
 
 /** How [updateCamera] updates camera bearing. */

@@ -35,7 +35,7 @@ fun Layers() {
         CircleLayer(id = "example", source = tiles, sourceLayer = "poi")
       }
     }
-  MaplibreMap(baseState)
+  MaplibreMap(state = baseState)
   // #endregion simple
 
   val amtrakState = rememberMapState {
@@ -101,5 +101,5 @@ fun Layers() {
     )
     // #endregion interaction
   }
-  MaplibreMap(amtrakState)
+  MaplibreMap(state = amtrakState)
 }

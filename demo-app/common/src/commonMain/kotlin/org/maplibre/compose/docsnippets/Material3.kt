@@ -23,7 +23,7 @@ fun Material3() {
   // #region controls
   MaplibreMap {
     ScaleBar(
-      presentation?.viewport?.metersPerDpAtTarget ?: 0.0,
+      mapState.viewport?.metersPerDpAtTarget ?: 0.0,
       modifier = Modifier.align(Alignment.TopStart),
     ) // (1)!
     CompassButton(modifier = Modifier.align(Alignment.TopEnd))

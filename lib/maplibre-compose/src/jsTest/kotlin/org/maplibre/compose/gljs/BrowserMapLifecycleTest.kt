@@ -78,22 +78,22 @@ class BrowserMapLifecycleTest {
         )
       val presented = mutableStateOf(true)
 
-      setBrowserMapContent { if (presented.value) MaplibreMap(state) }
+      setBrowserMapContent { if (presented.value) MaplibreMap(state = state) }
       waitUntilMap("the first Web presentation to become ready") {
-        state.presentation != null && state.style.loadState == StyleLoadState.Ready
+        state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
       }
-      val firstPresentation = requireNotNull(state.presentation)
+      val firstPresentation = requireNotNull(state.currentMapAttachment)
       val firstSession = firstPresentation.adapter as GlJsMapSession
       val firstEngine = requireNotNull(firstSession.engineMapForTest())
 
-      firstPresentation.setCameraPosition(replayedCamera)
+      state.setCameraPosition(replayedCamera)
       waitUntilMap("the logical map to accept the camera") {
         state.cameraPosition.isNear(replayedCamera)
       }
 
       runOnIdle { presented.value = false }
       waitUntilMap("the departed GL JS map to be destroyed") {
-        state.presentation == null && firstSession.engineMapForTest() == null
+        state.currentMapAttachment == null && firstSession.engineMapForTest() == null
       }
 
       assertTrue(!firstPresentation.isValid)
@@ -105,9 +105,10 @@ class BrowserMapLifecycleTest {
         state.style.baseStyle = REPLAY_STYLE
         runOnIdle { presented.value = true }
         waitUntilMap("the replacement Web map to request its retained style") {
-          state.presentation != null && deferredStyle.isStyleRequested()
+          state.currentMapAttachment != null && deferredStyle.isStyleRequested()
         }
-        val replacementSession = requireNotNull(state.presentation).adapter as GlJsMapSession
+        val replacementSession =
+          requireNotNull(state.currentMapAttachment).adapter as GlJsMapSession
 
         assertNotSame(firstSession, replacementSession)
         assertNotSame(firstEngine, replacementSession.engineMapForTest())
@@ -125,7 +126,7 @@ class BrowserMapLifecycleTest {
 
         deferredStyle.resolveSource()
         waitUntilMap("the replacement Web presentation to replay the logical map") {
-          state.presentation != null &&
+          state.currentMapAttachment != null &&
             state.style.loadState == StyleLoadState.Ready &&
             state.cameraPosition.isNear(replayedCamera)
         }

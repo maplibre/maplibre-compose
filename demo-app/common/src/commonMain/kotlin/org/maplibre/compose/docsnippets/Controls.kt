@@ -13,7 +13,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
-import org.maplibre.compose.map.MapPresentationOptions
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.overlay.ExpandingAttributionButton
 import org.maplibre.compose.overlay.MapOverlay
@@ -46,7 +45,7 @@ fun Controls() {
   val mapInsets = WindowInsets.safeDrawing.union(WindowInsets(bottom = 128.dp))
   MaplibreMap(
     contentWindowInsets = mapInsets, // (1)!
-    presentationOptions = MapPresentationOptions(cameraPadding = mapInsets.asPaddingValues()),
+    cameraPadding = mapInsets.asPaddingValues(),
   )
   // #endregion insets
 }

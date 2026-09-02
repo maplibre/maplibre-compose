@@ -48,7 +48,6 @@ import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.demoapp.design.SliderRow
 import org.maplibre.compose.demoapp.design.SwitchRow
 import org.maplibre.compose.map.GestureOptions
-import org.maplibre.compose.map.MapPresentationOptions
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.map.rememberMapState
@@ -127,13 +126,13 @@ object MagnifyingLensDemo : Demo {
         val position = mapState.cameraPosition
         val target =
           currentLensCenter?.let {
-            presentation?.positionFromScreenLocation(
+            mapState.positionFromScreenLocation(
               with(density) { DpOffset(it.x.toDp(), it.y.toDp()) }
             )
           } ?: position.target
         position.copy(target = target, zoom = position.zoom + magnification)
       }
-        .collect { lensState.presentation?.setCameraPosition(it) }
+        .collect { lensState.setCameraPosition(it) }
     }
 
     Box(
@@ -163,11 +162,8 @@ object MagnifyingLensDemo : Demo {
             Modifier.fillMaxSize()
           },
         state = lensState,
-        presentationOptions =
-          MapPresentationOptions(
-            renderOptions = lensRenderOptions,
-            gestureOptions = GestureOptions.AllDisabled,
-          ),
+        renderOptions = lensRenderOptions,
+        gestureOptions = GestureOptions.AllDisabled,
         contentWindowInsets = WindowInsets(0),
       ) {}
       Box(

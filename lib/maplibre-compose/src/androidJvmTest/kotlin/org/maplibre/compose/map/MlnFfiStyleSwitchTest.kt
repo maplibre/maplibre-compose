@@ -79,14 +79,16 @@ class MlnFfiStyleSwitchTest {
     }
     val state = runtime.createMapState(baseStyle = STYLES[0].base, styleComposition = composition)
 
-    setFfiTestMapContent(runtimeOptions) { MaplibreMap(state, Modifier) }
+    setFfiTestMapContent(runtimeOptions) {
+      MaplibreMap(modifier = Modifier, state = state)
+    }
 
     // Each style finishes loading before the next is chosen; switching mid-load is a separate race
     // this test deliberately does not cover.
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-      state.presentation != null && state.style.loadState == StyleLoadState.Ready
+      state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
     }
-    val session = requireNotNull(state.presentation).adapter as MlnFfiMapSession
+    val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
     var identity = assertNotNull(session.loadedStyleIdentity)
     assertStyleLayers(session, style, extraLayer)
 
@@ -134,12 +136,14 @@ class MlnFfiStyleSwitchTest {
         styleComposition = composition,
       )
 
-    setFfiTestMapContent(runtimeOptions) { MaplibreMap(state, Modifier) }
+    setFfiTestMapContent(runtimeOptions) {
+      MaplibreMap(modifier = Modifier, state = state)
+    }
 
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-      state.presentation != null && state.style.loadState == StyleLoadState.Ready
+      state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
     }
-    val session = requireNotNull(state.presentation).adapter as MlnFfiMapSession
+    val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
     fun replacementLayers(): List<String> =
       session.currentStyleLayerIds().filter { it in REPLACEMENT_LAYER_IDS }
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
@@ -193,12 +197,14 @@ class MlnFfiStyleSwitchTest {
     }
     val state = runtime.createMapState(baseStyle = INITIAL_STYLE, styleComposition = composition)
 
-    setFfiTestMapContent(options) { MaplibreMap(state, Modifier) }
+    setFfiTestMapContent(options) {
+      MaplibreMap(modifier = Modifier, state = state)
+    }
 
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-      state.presentation != null && state.style.loadState == StyleLoadState.Ready
+      state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
     }
-    val session = requireNotNull(state.presentation).adapter as MlnFfiMapSession
+    val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
 
     runOnUiThread {
       state.style.baseStyle = BaseStyle.Uri(B_STYLE_URL)

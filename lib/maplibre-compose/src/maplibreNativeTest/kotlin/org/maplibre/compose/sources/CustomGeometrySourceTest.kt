@@ -181,8 +181,7 @@ class CustomGeometrySourceTest {
   private suspend fun BridgeMapFixture.queryCenter() =
     session.queryRenderedFeatures(offset = CENTER, layerIds = null, predicate = null)
 
-  private suspend fun MlnFfiMapFixture.queryCenter() =
-    presentation.queryRenderedFeatures(offset = CENTER)
+  private suspend fun MlnFfiMapFixture.queryCenter() = state.queryRenderedFeatures(offset = CENTER)
 
   private fun BridgeMapFixture.awaitCustomFeatures() {
     pumpUntil("the custom geometry source to request a tile") { requests.isNotEmpty() }

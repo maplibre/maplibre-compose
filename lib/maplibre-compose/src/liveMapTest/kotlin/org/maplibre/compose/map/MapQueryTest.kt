@@ -40,7 +40,7 @@ class MapQueryTest {
       // Rendering, not loading, is what populates the queryable set.
       it.pump(frames = 30)
 
-      val features = it.presentation.queryRenderedFeatures(offset = CENTER)
+      val features = it.state.queryRenderedFeatures(offset = CENTER)
 
       assertTrue(features.isNotEmpty(), "Expected a hit at the map center. Errors: ${it.errors}")
       val feature = features.first()
@@ -54,7 +54,7 @@ class MapQueryTest {
       it.loadStyle(BaseStyle.Json(COLLIDING_PROPERTIES_STYLE))
       it.pump(frames = 30)
 
-      val feature = it.presentation.queryRenderedFeatures(offset = CENTER).first()
+      val feature = it.state.queryRenderedFeatures(offset = CENTER).first()
 
       assertEquals("original-source", feature.properties?.get("\$source")?.jsonPrimitive?.content)
       assertEquals(
@@ -72,7 +72,7 @@ class MapQueryTest {
       it.pump(frames = 30)
 
       val features =
-        it.presentation.queryRenderedFeatures(
+        it.state.queryRenderedFeatures(
           offset = CENTER,
           layerIds = setOf("no-such-layer"),
         )
@@ -89,7 +89,7 @@ class MapQueryTest {
 
       // Not awaited: the query below must land inside the loading window.
       it.session.setBaseStyle(BaseStyle.Json(EMPTY_STYLE))
-      it.presentation.queryRenderedFeatures(
+      it.state.queryRenderedFeatures(
         offset = CENTER,
         layerIds = setOf("no-such-layer"),
       )
@@ -110,7 +110,7 @@ class MapQueryTest {
       it.pump(frames = 30)
 
       val features =
-        it.presentation.queryRenderedFeatures(
+        it.state.queryRenderedFeatures(
           rect = DpRect(left = 0.dp, top = 0.dp, right = 512.dp, bottom = 512.dp)
         )
 
@@ -124,7 +124,7 @@ class MapQueryTest {
       coroutineScope {
         val query =
           async(start = CoroutineStart.UNDISPATCHED) {
-            fixture.presentation.queryRenderedFeatures(offset = CENTER)
+            fixture.state.queryRenderedFeatures(offset = CENTER)
           }
 
         assertFalse(query.isCompleted)
@@ -144,11 +144,11 @@ class MapQueryTest {
       val matching = Feature["name"].cast<StringValue>() eq const("world")
       val misses = Feature["name"].cast<StringValue>() eq const("other")
 
-      val kept = it.presentation.queryRenderedFeatures(offset = CENTER, predicate = matching)
+      val kept = it.state.queryRenderedFeatures(offset = CENTER, predicate = matching)
       assertTrue(kept.isNotEmpty(), "Expected the matching predicate to keep the feature")
       assertEquals("world", kept.first().properties?.get("name")?.jsonPrimitive?.content)
 
-      val dropped = it.presentation.queryRenderedFeatures(offset = CENTER, predicate = misses)
+      val dropped = it.state.queryRenderedFeatures(offset = CENTER, predicate = misses)
       assertTrue(dropped.isEmpty(), "Expected the non-matching predicate to drop the feature")
     }
   }
@@ -159,7 +159,7 @@ class MapQueryTest {
       it.loadStyle(BaseStyle.Json(OVERLAPPING_FILL_STYLE))
       it.pump(frames = 30)
 
-      val features = it.presentation.queryRenderedFeatures(offset = CENTER)
+      val features = it.state.queryRenderedFeatures(offset = CENTER)
       val names = features.map { feature ->
         feature.properties?.get("name")?.jsonPrimitive?.content
       }
@@ -181,13 +181,13 @@ class MapQueryTest {
     createMapFixture().use {
       it.loadStyle(BaseStyle.Json(TWO_HALVES_STYLE))
       // Zoom 0 keeps ±90 inside the 512 px viewport.
-      it.presentation.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = 0.0))
+      it.state.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = 0.0))
       it.pump(frames = 30)
 
-      val westAt = assertNotNull(it.presentation.screenLocationFromPosition(WEST_POINT))
-      val eastAt = assertNotNull(it.presentation.screenLocationFromPosition(EAST_POINT))
-      val westHits = it.presentation.queryRenderedFeatures(offset = westAt)
-      val eastHits = it.presentation.queryRenderedFeatures(offset = eastAt)
+      val westAt = assertNotNull(it.state.screenLocationFromPosition(WEST_POINT))
+      val eastAt = assertNotNull(it.state.screenLocationFromPosition(EAST_POINT))
+      val westHits = it.state.queryRenderedFeatures(offset = westAt)
+      val eastHits = it.state.queryRenderedFeatures(offset = eastAt)
 
       assertEquals(
         setOf("west"),
@@ -208,7 +208,7 @@ class MapQueryTest {
       it.loadStyle(BaseStyle.Json(WORLD_POLYGON_STYLE))
       it.pump(frames = 30)
 
-      val feature = it.presentation.queryRenderedFeatures(offset = CENTER).first()
+      val feature = it.state.queryRenderedFeatures(offset = CENTER).first()
       val id = assertIs<JsonPrimitive>(feature.id)
       assertFalse(id.isString, "Expected the GeoJSON id to stay a number, not a string")
       assertEquals("42", id.content)

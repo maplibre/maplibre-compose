@@ -78,7 +78,6 @@ public fun MapOverlayScope.CompassButton(
   getHomePosition: (CameraPosition) -> CameraPosition = { it.copy(bearing = 0.0, tilt = 0.0) },
 ) {
   val currentMapState = mapState
-  val currentPresentation = presentation
   val coroutineScope = rememberCoroutineScope()
   val interactionSource = remember { MutableInteractionSource() }
   val hovered by interactionSource.collectIsHoveredAsState()
@@ -97,10 +96,8 @@ public fun MapOverlayScope.CompassButton(
         indication = LocalIndication.current,
         role = Role.Button,
       ) {
-        currentPresentation?.let { current ->
-          coroutineScope.launch {
-            current.animateCameraPosition(getHomePosition(currentMapState.cameraPosition))
-          }
+        coroutineScope.launch {
+          currentMapState.animateCameraPosition(getHomePosition(currentMapState.cameraPosition))
         }
         onClick()
       }

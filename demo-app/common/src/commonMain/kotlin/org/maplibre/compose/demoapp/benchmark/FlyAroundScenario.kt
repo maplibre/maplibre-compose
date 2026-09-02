@@ -20,7 +20,7 @@ internal object FlyAroundScenario : BenchmarkScenario {
     val durationNs = Duration.inWholeNanoseconds.toDouble()
     while (true) {
       val t = (start.elapsedNow().inWholeNanoseconds.toDouble() / durationNs).coerceIn(0.0, 1.0)
-      mapState.presentation?.setCameraPosition(
+      mapState.setCameraPosition(
         CameraPosition(
           target = orbitPosition(BenchmarkCenter, RadiusLon, RadiusLat, t),
           zoom = OrbitZoom,

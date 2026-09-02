@@ -188,8 +188,8 @@ class LayerClickOrderTest {
       MaplibreMap(state = mapState, modifier = Modifier.fillMaxSize())
     }
 
-    waitUntil(timeoutMillis = TIMEOUT) { mapState.presentation != null }
-    val presentation = assertNotNull(mapState.presentation, "the map never published a lease")
+    waitUntil(timeoutMillis = TIMEOUT) { mapState.currentMapAttachment != null }
+    assertNotNull(mapState.currentMapAttachment, "the map never published a lease")
     val size = onRoot().fetchSemanticsNode().size
     val centerDp = with(density) { DpOffset((size.width / 2).toDp(), (size.height / 2).toDp()) }
 
@@ -197,7 +197,7 @@ class LayerClickOrderTest {
     // parsed source populates that. Both layers must be hittable, or the assertions prove nothing.
     waitUntil(timeoutMillis = TIMEOUT) {
       listOf(FRONT, BACK).all { id ->
-        runBlocking { presentation.queryRenderedFeatures(offset = centerDp, layerIds = setOf(id)) }
+        runBlocking { mapState.queryRenderedFeatures(offset = centerDp, layerIds = setOf(id)) }
           .isNotEmpty()
       }
     }

@@ -11,8 +11,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.files.Path
+import org.maplibre.compose.map.MapAttachment
 import org.maplibre.compose.map.MapExtent
-import org.maplibre.compose.map.MapPresentation
 import org.maplibre.compose.map.MlnFfiMapSession
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.style.BaseStyle
@@ -63,8 +63,8 @@ private constructor(
       cacheFile = cacheFile,
     )
 
-  fun bindPresentation(presentation: MapPresentation) {
-    recorder.presentation = presentation
+  fun bindAttachment(attachment: MapAttachment) {
+    recorder.attachment = attachment
   }
 
   private val hostSession =

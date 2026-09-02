@@ -32,7 +32,6 @@ import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.layers.LineLayer
-import org.maplibre.compose.map.MapPresentation
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.sources.GeoJsonData
@@ -73,21 +72,21 @@ object DragDropDemo : Demo {
    * Moves the overlay child with the pointer. The screen offset of [position] is captured on drag
    * start and pointer deltas are accumulated onto it, so the child never has to be read back while
    * it moves under the pointer. Pointer events report pixels, so the anchor captured from
-   * [MapPresentation.screenLocationFromPosition] is scaled up before the px-based projection
-   * receives the sum.
+   * [MapState.screenLocationFromPosition] is scaled up before the px-based projection receives the
+   * sum.
    */
   private fun Modifier.draggablePosition(
-    presentation: MapPresentation?,
+    mapState: MapState,
     position: () -> Position,
     onDrag: (Position) -> Unit,
   ): Modifier =
-    pointerInput(presentation) {
+    pointerInput(mapState) {
       var start: Offset? = null
       var accumulated = Offset.Zero
       detectDragGestures(
         onDragStart = {
           start =
-            presentation?.screenLocationFromPosition(position())?.let {
+            mapState.screenLocationFromPosition(position())?.let {
               Offset(it.x.toPx(), it.y.toPx())
             }
           accumulated = Offset.Zero
@@ -97,8 +96,8 @@ object DragDropDemo : Demo {
             val startOffset = start ?: return@onDrag
             accumulated += dragAmount
             val screen = startOffset + accumulated
-            presentation
-              ?.positionFromScreenLocation(DpOffset(screen.x.toDp(), screen.y.toDp()))
+            mapState
+              .positionFromScreenLocation(DpOffset(screen.x.toDp(), screen.y.toDp()))
               ?.let(onDrag)
           },
       )
@@ -153,7 +152,7 @@ object DragDropDemo : Demo {
       Mode.Pin ->
         Pin(
           Modifier.placedAt(pinPosition, Alignment.BottomCenter).draggablePosition(
-            presentation,
+            mapState,
             { pinPosition },
           ) {
             pinPosition = it
@@ -161,12 +160,12 @@ object DragDropDemo : Demo {
         )
       Mode.BoundingBox -> {
         Handle(
-          Modifier.placedAt(northwest).draggablePosition(presentation, { northwest }) {
+          Modifier.placedAt(northwest).draggablePosition(mapState, { northwest }) {
             northwest = it
           }
         )
         Handle(
-          Modifier.placedAt(southeast).draggablePosition(presentation, { southeast }) {
+          Modifier.placedAt(southeast).draggablePosition(mapState, { southeast }) {
             southeast = it
           }
         )

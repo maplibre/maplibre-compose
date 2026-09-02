@@ -129,22 +129,22 @@ public class MapRuntimeClosedException : IllegalStateException("The map runtime 
 /** Thrown when an operation targets a closed logical map. */
 public class MapStateClosedException : IllegalStateException("The map state is closed")
 
-/** Thrown when an operation targets a presentation whose render lease has ended. */
-public class MapPresentationDetachedException :
-  IllegalStateException("The map presentation lease has ended")
+/** Thrown when an operation requires a map that is attached to a UI surface. */
+public class MapNotAttachedException :
+  IllegalStateException("The map is not attached to a UI surface")
 
 /** Reports the load state for the desired base style of one logical map. */
 public sealed interface StyleLoadState {
-  /** No presentation can currently load the desired style. */
+  /** No map surface can currently load the desired style. */
   public data object Pending : StyleLoadState
 
-  /** Indicates that the current presentation is loading the desired style. */
+  /** Indicates that the current map surface is loading the desired style. */
   public data object Loading : StyleLoadState
 
-  /** Indicates that the current presentation loaded the desired style. */
+  /** Indicates that the current map surface loaded the desired style. */
   public data object Ready : StyleLoadState
 
-  /** Indicates that the current presentation failed to load the desired style. */
+  /** Indicates that the current map surface failed to load the desired style. */
   public data class Failed(public val reason: String?) : StyleLoadState
 }
 
@@ -257,51 +257,32 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
     }
 }
 
-/** Represents a temporary connection between a [MapState] and a map surface. */
-public class MapPresentation
+/** Connects a [MapState] to one map surface for the lifetime of one render lease. */
+internal class MapAttachment
 internal constructor(
   private val owner: MapState,
   internal val token: MapPresentationToken,
   internal val adapter: MapAdapter,
-  initialOptions: MapPresentationOptions = MapPresentationOptions(),
 ) {
   private val invalidated = CompletableDeferred<Unit>()
-  private val cameraMutation = MutatorMutex()
   private var validState: Boolean by mutableStateOf(true)
   private var viewportState: Viewport? by mutableStateOf(null)
   private val firstViewport = CompletableDeferred<Viewport>()
   private var cameraMovingState: Boolean by mutableStateOf(false)
   private var moveReasonState: CameraMoveReason by mutableStateOf(CameraMoveReason.NONE)
-  private var optionsState: MapPresentationOptions by
-    mutableStateOf(initialOptions, structuralEqualityPolicy())
-
-  /** Returns true while this presentation is the current connection. */
-  public val isValid: Boolean
+  val isValid: Boolean
     get() = validState
 
-  /** Contains the current viewport, or null before the first rendered viewport. */
-  public val viewport: Viewport?
+  val viewport: Viewport?
     get() = viewportState
 
-  /** Returns true while a camera mutation is in progress. */
-  public val isCameraMoving: Boolean
+  val isCameraMoving: Boolean
     get() = cameraMovingState
 
-  /** Contains the reason for the current or most recent camera mutation. */
-  public val cameraMoveReason: CameraMoveReason
+  val cameraMoveReason: CameraMoveReason
     get() = moveReasonState
 
-  /** Contains the settings that the current [MaplibreMap] call applies to this render lease. */
-  public val options: MapPresentationOptions
-    get() = optionsState
-
-  /** Sets the camera for this presentation, or fails if its render lease has ended. */
-  public fun setCameraPosition(position: CameraPosition) {
-    owner.setCameraPosition(this, position)
-  }
-
-  /** Fits [boundingBox] in the current viewport and keeps the presentation camera padding. */
-  public suspend fun setCameraPosition(
+  suspend fun setCameraPosition(
     boundingBox: BoundingBox,
     bearing: Double = 0.0,
     tilt: Double = 0.0,
@@ -311,55 +292,39 @@ internal constructor(
     adapter.setCameraPosition(boundingBox, bearing, tilt, padding)
   }
 
-  /** Animates the camera to [position]. A new camera animation replaces the previous one. */
-  public suspend fun animateCameraPosition(
+  suspend fun animateCameraPosition(
     position: CameraPosition,
     duration: Duration = 300.milliseconds,
-  ) {
-    cameraMutation.mutate {
-      runLeaseBound { adapter.animateCameraPosition(position, duration) }
-    }
-  }
+  ): Unit = runLeaseBound { adapter.animateCameraPosition(position, duration) }
 
-  /** Animates the camera to fit [boundingBox]. A new camera animation replaces the previous one. */
-  public suspend fun animateCameraPosition(
+  suspend fun animateCameraPosition(
     boundingBox: BoundingBox,
     bearing: Double = 0.0,
     tilt: Double = 0.0,
     padding: PaddingValues = PaddingValues(0.dp),
     duration: Duration = 300.milliseconds,
-  ) {
-    cameraMutation.mutate {
-      runLeaseBound {
-        awaitViewportState()
-        adapter.animateCameraPosition(boundingBox, bearing, tilt, padding, duration)
-      }
-    }
+  ): Unit = runLeaseBound {
+    awaitViewportState()
+    adapter.animateCameraPosition(boundingBox, bearing, tilt, padding, duration)
   }
 
-  /** Returns the visible region, or null before this presentation has a viewport. */
-  public fun getVisibleRegion(): VisibleRegion? = withViewport { it.getVisibleRegion() }
+  fun getVisibleRegion(): VisibleRegion? = withViewport { it.getVisibleRegion() }
 
-  /** Returns the visible axis-aligned bounds, or null before this presentation has a viewport. */
-  public fun getVisibleBoundingBox(): BoundingBox? = withViewport { it.getVisibleBoundingBox() }
+  fun getVisibleBoundingBox(): BoundingBox? = withViewport { it.getVisibleBoundingBox() }
 
-  /** Projects [position] into a logical-pixel offset in this presentation. */
-  public fun screenLocationFromPosition(position: Position): DpOffset? = withViewport {
+  fun screenLocationFromPosition(position: Position): DpOffset? = withViewport {
     it.screenLocationFromPosition(position)
   }
 
-  /** Unprojects a logical-pixel [offset] into a geographic position. */
-  public fun positionFromScreenLocation(offset: DpOffset): Position? = withViewport {
+  fun positionFromScreenLocation(offset: DpOffset): Position? = withViewport {
     it.positionFromScreenLocation(offset)
   }
 
-  /** Returns the ground distance per dp, or null before this presentation has a viewport. */
-  public fun metersPerDpAtLatitude(latitude: Double): Double? = withViewport {
+  fun metersPerDpAtLatitude(latitude: Double): Double? = withViewport {
     it.metersPerDpAtLatitude(latitude)
   }
 
-  /** Queries rendered features at [offset] in front-to-back render order. */
-  public suspend fun queryRenderedFeatures(
+  suspend fun queryRenderedFeatures(
     offset: DpOffset,
     layerIds: Set<String>? = null,
     predicate: Expression<BooleanValue> = const(true),
@@ -368,8 +333,7 @@ internal constructor(
     adapter.queryRenderedFeatures(offset, layerIds, predicate.compileOrNull())
   }
 
-  /** Queries rendered features that intersect [rect] in front-to-back render order. */
-  public suspend fun queryRenderedFeatures(
+  suspend fun queryRenderedFeatures(
     rect: DpRect,
     layerIds: Set<String>? = null,
     predicate: Expression<BooleanValue> = const(true),
@@ -378,8 +342,7 @@ internal constructor(
     adapter.queryRenderedFeatures(rect, layerIds, predicate.compileOrNull())
   }
 
-  /** Suspends until this presentation has rendered its first viewport. */
-  public suspend fun awaitViewport(): Viewport = runLeaseBound { awaitViewportState() }
+  suspend fun awaitViewport(): Viewport = runLeaseBound { awaitViewportState() }
 
   internal fun updateViewport(value: Viewport?) {
     viewportState = value
@@ -399,10 +362,6 @@ internal constructor(
     cameraMovingState = false
   }
 
-  internal fun updateOptions(value: MapPresentationOptions) {
-    optionsState = value
-  }
-
   internal fun invalidate() {
     validState = false
     invalidated.complete(Unit)
@@ -419,23 +378,24 @@ internal constructor(
   private suspend fun awaitViewportState(): Viewport = firstViewport.await()
 
   private suspend fun <T> runLeaseBound(block: suspend () -> T): T = coroutineScope {
-    owner.requireCurrent(this@MapPresentation)
+    owner.requireCurrent(this@MapAttachment)
     val operation =
       async(start = CoroutineStart.UNDISPATCHED) {
-        owner.requireCurrent(this@MapPresentation)
+        owner.requireCurrent(this@MapAttachment)
         block()
       }
     select {
       operation.onAwait { it }
       invalidated.onAwait {
         operation.cancelAndJoin()
-        throw MapPresentationDetachedException()
+        throw MapNotAttachedException()
       }
     }
   }
 }
 
-/** Represents a logical map and its style independently from a temporary UI presentation. */
+/** Holds the observable style, camera, and map operations for one logical map. */
+@Stable
 public class MapState
 internal constructor(
   internal val runtime: RuntimeImplementation,
@@ -484,17 +444,137 @@ internal constructor(
   public val cameraPosition: CameraPosition
     get() = cameraPositionState
 
-  public var presentation: MapPresentation? by mutableStateOf(null)
+  internal var currentMapAttachment: MapAttachment? by mutableStateOf(null)
     internal set
+
+  private var nextMapAttachment = CompletableDeferred<MapAttachment>()
+  private val cameraMutation = MutatorMutex()
+
+  /** Contains the current rendered viewport, or null while no viewport is available. */
+  public val viewport: Viewport?
+    get() = currentMapAttachment?.viewport
+
+  /** Returns true while the current map surface is moving its camera. */
+  public val isCameraMoving: Boolean
+    get() = currentMapAttachment?.isCameraMoving == true
+
+  /**
+   * Contains the reason for the current camera movement, or [CameraMoveReason.NONE] while detached.
+   */
+  public val cameraMoveReason: CameraMoveReason
+    get() = currentMapAttachment?.cameraMoveReason ?: CameraMoveReason.NONE
 
   public val isClosed: Boolean
     get() = closedState
 
-  /** Marks this state as closed and starts cleanup of the current presentation. */
+  /** Marks this state as closed and starts cleanup of the current map surface. */
   public fun close(): Unit = lifecycle.close()
 
-  /** Waits until presentation cleanup has completed. */
+  /** Waits until map-surface cleanup has completed. */
   public suspend fun awaitClosed(): Unit = lifecycle.awaitClosed()
+
+  /**
+   * Sets the durable camera position and applies it to the current surface when one is attached.
+   */
+  public fun setCameraPosition(position: CameraPosition) {
+    val command = lifecycle.serialized {
+      requireOpenLocked()
+      cameraPositionState = position
+      cameraCommandRevision++
+      val attachment = currentMapAttachment ?: return
+      AttachmentCameraCommand(
+        attachment = attachment,
+        command = CameraCommand(attachment.adapter, position, cameraCommandRevision),
+      )
+    }
+    applyAttachmentCameraCommand(command.attachment, command.command)
+  }
+
+  /** Waits for a viewport, then fits [boundingBox] without animation. */
+  public suspend fun setCameraPosition(
+    boundingBox: BoundingBox,
+    bearing: Double = 0.0,
+    tilt: Double = 0.0,
+    padding: PaddingValues = PaddingValues(0.dp),
+  ): Unit = retryAcrossAttachments {
+    it.setCameraPosition(boundingBox, bearing, tilt, padding)
+  }
+
+  /** Waits for an attached map, then animates to [position]. A new animation replaces this one. */
+  public suspend fun animateCameraPosition(
+    position: CameraPosition,
+    duration: Duration = 300.milliseconds,
+  ): Unit = cameraMutation.mutate {
+    retryAcrossAttachments { it.animateCameraPosition(position, duration) }
+  }
+
+  /**
+   * Waits for a viewport, then animates to fit [boundingBox]. A new animation replaces this one.
+   */
+  public suspend fun animateCameraPosition(
+    boundingBox: BoundingBox,
+    bearing: Double = 0.0,
+    tilt: Double = 0.0,
+    padding: PaddingValues = PaddingValues(0.dp),
+    duration: Duration = 300.milliseconds,
+  ): Unit = cameraMutation.mutate {
+    retryAcrossAttachments {
+      it.animateCameraPosition(boundingBox, bearing, tilt, padding, duration)
+    }
+  }
+
+  /** Returns the visible region, or null while no viewport is available. */
+  public fun getVisibleRegion(): VisibleRegion? =
+    withAttachmentRead(MapAttachment::getVisibleRegion)
+
+  /** Returns the visible axis-aligned bounds, or null while no viewport is available. */
+  public fun getVisibleBoundingBox(): BoundingBox? =
+    withAttachmentRead(MapAttachment::getVisibleBoundingBox)
+
+  /** Projects [position] into a logical-pixel offset, or returns null without a viewport. */
+  public fun screenLocationFromPosition(position: Position): DpOffset? = withAttachmentRead {
+    it.screenLocationFromPosition(position)
+  }
+
+  /** Unprojects [offset] into a geographic position, or returns null without a viewport. */
+  public fun positionFromScreenLocation(offset: DpOffset): Position? = withAttachmentRead {
+    it.positionFromScreenLocation(offset)
+  }
+
+  /** Returns the ground distance per dp, or null while no viewport is available. */
+  public fun metersPerDpAtLatitude(latitude: Double): Double? = withAttachmentRead {
+    it.metersPerDpAtLatitude(latitude)
+  }
+
+  /** Queries rendered features at [offset] in front-to-back render order. */
+  public suspend fun queryRenderedFeatures(
+    offset: DpOffset,
+    layerIds: Set<String>? = null,
+    predicate: Expression<BooleanValue> = const(true),
+  ): List<Feature<Geometry, JsonObject?>> =
+    requireAttachment().queryRenderedFeatures(offset, layerIds, predicate)
+
+  /** Queries rendered features that intersect [rect] in front-to-back render order. */
+  public suspend fun queryRenderedFeatures(
+    rect: DpRect,
+    layerIds: Set<String>? = null,
+    predicate: Expression<BooleanValue> = const(true),
+  ): List<Feature<Geometry, JsonObject?>> =
+    requireAttachment().queryRenderedFeatures(rect, layerIds, predicate)
+
+  /** Waits for the first viewport from the current or a future map attachment. */
+  public suspend fun awaitViewport(): Viewport =
+    retryAcrossAttachments(MapAttachment::awaitViewport)
+
+  private suspend fun <T> retryAcrossAttachments(operation: suspend (MapAttachment) -> T): T {
+    while (true) {
+      try {
+        return operation(awaitAttachment())
+      } catch (_: MapNotAttachedException) {
+        // A replacement surface can attach after this lease ends.
+      }
+    }
+  }
 
   internal fun reservePresentation(
     owner: MapPresentationOwnerToken = MapPresentationOwnerToken()
@@ -503,8 +583,7 @@ internal constructor(
   internal fun publishPresentation(
     token: MapPresentationToken,
     adapter: MapAdapter,
-    options: MapPresentationOptions = MapPresentationOptions(),
-  ) = lifecycle.publishPresentation(token, adapter, options)
+  ) = lifecycle.publishPresentation(token, adapter)
 
   internal fun releasePresentation(token: MapPresentationToken, adapter: MapAdapter? = null) =
     lifecycle.releasePresentation(token, adapter)
@@ -658,42 +737,35 @@ internal constructor(
     }
   }
 
-  internal fun setCameraPosition(candidate: MapPresentation, position: CameraPosition) {
-    val command = lifecycle.serialized {
-      requireCurrentLocked(candidate)
-      cameraPositionState = position
-      CameraCommand(candidate.adapter, position, ++cameraCommandRevision)
-    }
-    applyPresentationCameraCommand(candidate, command)
-  }
-
-  internal fun synchronizeCamera(adapter: MapAdapter): MapPresentation? {
+  internal fun synchronizeCamera(adapter: MapAdapter): MapAttachment? {
     if (!lifecycle.acceptsPresentation(adapter)) return null
     val cameraPosition = adapter.getCameraPosition()
     val viewport = adapter.getViewport() ?: return null
     return lifecycle.serialized {
       if (!lifecycle.acceptsPresentation(adapter)) return@serialized null
       cameraPositionState = cameraPosition
-      val current = presentation ?: return@serialized null
+      val current = currentMapAttachment ?: return@serialized null
       current.cameraMoved(viewport)
       current
     }
   }
 
-  internal fun requireCurrent(candidate: MapPresentation) {
+  internal fun requireCurrent(candidate: MapAttachment) {
     lifecycle.serialized { requireCurrentLocked(candidate) }
   }
 
-  internal fun <T> withCurrent(candidate: MapPresentation, block: () -> T): T {
+  internal fun <T> withCurrent(candidate: MapAttachment, block: () -> T): T {
     lifecycle.serialized { requireCurrentLocked(candidate) }
     val result = block()
     lifecycle.serialized { requireCurrentLocked(candidate) }
     return result
   }
 
-  private fun requireCurrentLocked(candidate: MapPresentation) {
-    if (presentation !== candidate || !lifecycle.isCurrent(candidate.token, candidate.adapter)) {
-      throw MapPresentationDetachedException()
+  private fun requireCurrentLocked(candidate: MapAttachment) {
+    if (
+      currentMapAttachment !== candidate || !lifecycle.isCurrent(candidate.token, candidate.adapter)
+    ) {
+      throw MapNotAttachedException()
     }
   }
 
@@ -706,15 +778,17 @@ internal constructor(
     style.invalidateLoadedStyle()
     Snapshot.withMutableSnapshot {
       closedState = true
-      presentation?.invalidate()
-      presentation = null
+      currentMapAttachment?.invalidate()
+      currentMapAttachment = null
+      nextMapAttachment.completeExceptionally(MapStateClosedException())
     }
   }
 
   internal fun invalidatePresentation(adapter: MapAdapter?) {
     Snapshot.withMutableSnapshot {
-      presentation?.invalidate()
-      presentation = null
+      currentMapAttachment?.invalidate()
+      currentMapAttachment = null
+      prepareForNextAttachment()
       if (adapter?.retainsEngineBetweenPresentations != true) {
         style.loadState = StyleLoadState.Pending
       }
@@ -726,9 +800,10 @@ internal constructor(
       styleHandleEpoch++
       style.invalidateLoadedStyle()
       style.loadState = StyleLoadState.Pending
-      if (presentation?.adapter === adapter) {
-        presentation?.invalidate()
-        presentation = null
+      if (currentMapAttachment?.adapter === adapter) {
+        currentMapAttachment?.invalidate()
+        currentMapAttachment = null
+        prepareForNextAttachment()
       }
     }
   }
@@ -755,7 +830,7 @@ internal constructor(
   internal fun seedPresentationViewport(token: MapPresentationToken, adapter: MapAdapter) {
     val viewport = adapter.getViewport() ?: return
     lifecycle.serialized {
-      val current = presentation ?: return@serialized
+      val current = currentMapAttachment ?: return@serialized
       if (current.token != token || current.adapter !== adapter || current.viewport != null) return
       current.updateViewport(viewport)
     }
@@ -787,16 +862,16 @@ internal constructor(
     }
   }
 
-  private fun applyPresentationCameraCommand(
-    presentation: MapPresentation,
+  private fun applyAttachmentCameraCommand(
+    attachment: MapAttachment,
     initial: CameraCommand,
   ) {
     var command = initial
     while (true) {
-      if (!lifecycle.isCurrent(presentation.token, command.adapter)) return
+      if (!lifecycle.isCurrent(attachment.token, command.adapter)) return
       command.adapter.setCameraPosition(command.value)
       command = lifecycle.serialized {
-        if (!lifecycle.isCurrent(presentation.token, command.adapter)) return
+        if (!lifecycle.isCurrent(attachment.token, command.adapter)) return
         if (cameraCommandRevision == command.revision) return
         CameraCommand(command.adapter, cameraPositionState, cameraCommandRevision)
       }
@@ -806,9 +881,37 @@ internal constructor(
   internal fun commitPresentation(
     token: MapPresentationToken,
     adapter: MapAdapter,
-    options: MapPresentationOptions,
   ) {
-    presentation = MapPresentation(this, token, adapter, options)
+    val attachment = MapAttachment(this, token, adapter)
+    currentMapAttachment = attachment
+    nextMapAttachment.complete(attachment)
+  }
+
+  private fun requireAttachment(): MapAttachment =
+    currentMapAttachment ?: throw MapNotAttachedException()
+
+  private suspend fun awaitAttachment(): MapAttachment {
+    val pending = lifecycle.serialized {
+      requireOpenLocked()
+      currentMapAttachment?.let {
+        return it
+      }
+      nextMapAttachment
+    }
+    return pending.await()
+  }
+
+  private fun prepareForNextAttachment() {
+    if (nextMapAttachment.isCompleted) nextMapAttachment = CompletableDeferred()
+  }
+
+  private inline fun <T> withAttachmentRead(block: (MapAttachment) -> T?): T? {
+    val attachment = currentMapAttachment ?: return null
+    return try {
+      block(attachment)
+    } catch (_: MapNotAttachedException) {
+      null
+    }
   }
 
   private data class PresentationConfiguration(
@@ -820,6 +923,11 @@ internal constructor(
     val adapter: MapAdapter,
     val value: CameraPosition,
     val revision: Long,
+  )
+
+  private data class AttachmentCameraCommand(
+    val attachment: MapAttachment,
+    val command: CameraCommand,
   )
 
   private data class BaseStyleCommand(

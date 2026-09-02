@@ -24,12 +24,11 @@ individual fields:
 
 ## Map clicks
 
-<Api of="MapPresentationCallbacks" /> groups the map click and long-click
-callbacks. Each receives the clicked position and its screen offset. To
-identify the clicked feature, query the current
-<Api of="MapPresentation.queryRenderedFeatures" />. The query suspends, so
-launch it in a coroutine. Return <Api of="ClickResult.Pass" /> to send the
-click on to the layer listeners:
+The `onClick` and `onLongClick` parameters receive the clicked position and its
+screen offset. To identify the clicked feature, call
+<Api of="MapState.queryRenderedFeatures" />. The query suspends, so launch it
+in a coroutine. Return <Api of="ClickResult.Pass" /> to send the click on to
+the layer listeners:
 
 <Code code={region(interaction, "click-listeners")} lang="kotlin" title="App.kt" />
 

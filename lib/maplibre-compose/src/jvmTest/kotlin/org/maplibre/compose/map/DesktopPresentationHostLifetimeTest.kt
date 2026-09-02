@@ -47,21 +47,21 @@ class DesktopPresentationHostLifetimeTest {
 
       setContent {
         ProvideMapPresentationHost(host) {
-          MaplibreMap(state)
+          MaplibreMap(state = state)
         }
       }
-      waitUntil(timeoutMillis = 10_000) { state.presentation != null }
-      val firstPresentation = requireNotNull(state.presentation)
+      waitUntil(timeoutMillis = 10_000) { state.currentMapAttachment != null }
+      val firstPresentation = requireNotNull(state.currentMapAttachment)
       val engine = firstPresentation.adapter
 
       runOnIdle { host = ContextlessPresentationHost("second", equalityKey = "same") }
       waitUntil(timeoutMillis = 10_000) {
-        state.presentation != null && state.presentation !== firstPresentation
+        state.currentMapAttachment != null && state.currentMapAttachment !== firstPresentation
       }
 
       assertTrue(!firstPresentation.isValid)
-      assertNotSame(firstPresentation, state.presentation)
-      assertSame(engine, requireNotNull(state.presentation).adapter)
+      assertNotSame(firstPresentation, state.currentMapAttachment)
+      assertSame(engine, requireNotNull(state.currentMapAttachment).adapter)
       assertSame(runtime, state.runtime)
       assertTrue(!runtime.isClosed)
       assertTrue(!state.isClosed)
@@ -76,11 +76,11 @@ class DesktopPresentationHostLifetimeTest {
     val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
 
     setContent {
-      CompositionLocalProvider(LocalInspectionMode provides true) { MaplibreMap(state) }
+      CompositionLocalProvider(LocalInspectionMode provides true) { MaplibreMap(state = state) }
     }
 
     waitForIdle()
-    assertTrue(state.presentation == null)
+    assertTrue(state.currentMapAttachment == null)
     runtime.close()
     runtime.awaitClosed()
   }
