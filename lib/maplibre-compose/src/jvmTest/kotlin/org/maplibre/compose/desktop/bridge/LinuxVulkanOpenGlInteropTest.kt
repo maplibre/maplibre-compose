@@ -67,6 +67,7 @@ import org.maplibre.compose.desktop.ComposeGpuContext
 import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
 import org.maplibre.compose.map.MapAdapter
+import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MlnFfiMapSession
 import org.maplibre.compose.map.mapRuntimeForTest
@@ -264,6 +265,8 @@ class LinuxVulkanOpenGlInteropTest {
         override fun onCameraMoveEnded(map: MapAdapter) {}
 
         override fun onFrame(fps: Double) {}
+
+        override fun onEvent(map: MapAdapter, event: MapEvent) {}
       }
 
     private val runtime = mapRuntimeForTest()

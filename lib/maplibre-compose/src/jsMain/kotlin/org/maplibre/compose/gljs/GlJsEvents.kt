@@ -4,23 +4,26 @@ internal fun interface GlJsSubscription {
   fun cancel()
 }
 
-internal fun MaplibreMap.subscribe(event: String, listener: (MapEvent) -> Unit): GlJsSubscription {
+internal fun MaplibreMap.subscribe(
+  event: String,
+  listener: (GlJsMapEvent) -> Unit,
+): GlJsSubscription {
   val subscription = on(event, listener)
   return GlJsSubscription { subscription.unsubscribe() }
 }
 
-internal fun Light.subscribe(event: String, listener: (MapEvent) -> Unit): GlJsSubscription {
+internal fun Light.subscribe(event: String, listener: (GlJsMapEvent) -> Unit): GlJsSubscription {
   val subscription = on(event, listener)
   return GlJsSubscription { subscription.unsubscribe() }
 }
 
-internal fun Sky.subscribe(event: String, listener: (MapEvent) -> Unit): GlJsSubscription {
+internal fun Sky.subscribe(event: String, listener: (GlJsMapEvent) -> Unit): GlJsSubscription {
   val subscription = on(event, listener)
   return GlJsSubscription { subscription.unsubscribe() }
 }
 
 /** Whether an error event ended a base-style request rather than one source or tile request. */
-internal fun MapEvent.isTerminalStyleLoadFailure(): Boolean {
+internal fun GlJsMapEvent.isTerminalStyleLoadFailure(): Boolean {
   val style = asDynamic().style ?: return false
   return style._loaded != true && style._loadStyleRequest == null && style._frameRequest == null
 }

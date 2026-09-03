@@ -136,6 +136,7 @@ private val HANDLED_MAP_EVENTS: RuntimeEventMask =
     RuntimeEventMask.MAP_CAMERA_DID_CHANGE +
     RuntimeEventMask.MAP_CAMERA_TRANSITION_FINISHED +
     RuntimeEventMask.MAP_RENDER_ERROR +
+    RuntimeEventMask.MAP_RENDER_FRAME_FINISHED +
     RuntimeEventMask.MAP_STYLE_IMAGE_MISSING
 
 /** The fraction of a capped frame interval a frame may arrive early and still be drawn. */
@@ -806,6 +807,7 @@ internal class MlnFfiMapSession(
   /** Runs on the map's owner thread, as do the callbacks it makes. */
   private fun handleEvent(engine: EngineMapIdentity, event: RuntimeEvent) {
     val lease = ownerThreadRenderLease
+    val mapEvent = event.toMapEvent()
     when (event.type) {
       RuntimeEventType.MAP_RENDER_UPDATE_AVAILABLE -> requestRender()
 
@@ -833,6 +835,7 @@ internal class MlnFfiMapSession(
           binding.invalidate()
           return
         }
+        postStyleEvent(engine, acceptedStyle, mapEvent)
         // A producer frame that started before this callback can still hold the previous style.
         // requestRepaint dirties mbgl so the next renderUpdate draws instead of returning
         // NO_UPDATE; requestRender lets that draw through the session skip gate.
@@ -853,13 +856,14 @@ internal class MlnFfiMapSession(
         } else {
           reportNewlyArrivedAttribution()
         }
+        postEngineEvent(engine, mapEvent)
       }
 
       RuntimeEventType.MAP_LOADING_FAILED -> {
         styleLoadPending = false
         // The only channel for a URL style's failure; a malformed inline style also throws from the
         // setter.
-        val reason = event.message.ifBlank { "MapLibre failed to load the map" }
+        val reason = event.styleLoadFailureReason()
         val request = appliedStyleRequest
         val accepted =
           request != null &&
@@ -878,6 +882,7 @@ internal class MlnFfiMapSession(
                 }
               ) {
                 logger?.e { "Map loading failed (code ${event.code}): $reason" }
+                postStyleRequestEvent(engine, it.request, mapEvent)
               }
             }
         } else {
@@ -885,7 +890,10 @@ internal class MlnFfiMapSession(
         }
       }
 
-      RuntimeEventType.MAP_CAMERA_WILL_CHANGE -> beginCameraMove(engine, lease)
+      RuntimeEventType.MAP_CAMERA_WILL_CHANGE -> {
+        beginCameraMove(engine, lease)
+        postPresentationEvent(engine, lease, mapEvent)
+      }
 
       RuntimeEventType.MAP_CAMERA_IS_CHANGING -> {
         lease?.let {
@@ -893,6 +901,7 @@ internal class MlnFfiMapSession(
             loop?.map?.let(::snapshotViewport)
           }
         }
+        postPresentationEvent(engine, lease, mapEvent)
       }
 
       RuntimeEventType.MAP_CAMERA_DID_CHANGE -> {
@@ -906,6 +915,7 @@ internal class MlnFfiMapSession(
             if (!isGestureInProgress) endCameraMove(engine, lease)
           }
         }
+        postPresentationEvent(engine, lease, mapEvent)
       }
 
       RuntimeEventType.MAP_CAMERA_TRANSITION_FINISHED -> {
@@ -927,17 +937,47 @@ internal class MlnFfiMapSession(
         }
       }
 
+      RuntimeEventType.MAP_RENDER_FRAME_FINISHED -> postPresentationEvent(engine, lease, mapEvent)
+
       RuntimeEventType.MAP_RENDER_ERROR ->
         logger?.e { "MapLibre render error: ${event.message.ifBlank { "unknown" }}" }
 
       RuntimeEventType.MAP_STYLE_IMAGE_MISSING ->
-        // Supplying the image would need a callback the common API does not have.
-        logger?.d { "Style image missing: ${event.message}" }
+        withLifecycleStyle { e, style -> postStyleEvent(e, style, mapEvent) }
 
       // Event types are value classes over Int, so an FFI upgrade can add one this build has never
       // seen. Types this session does not select are never queued.
       else -> logger?.d { "Unrecognized MapLibre event type ${event.type}" }
     }
+  }
+
+  /** These four post nothing for a null [event]: a type outside the common catalog. */
+  private fun postEngineEvent(engine: EngineMapIdentity, event: MapEvent?) {
+    if (event == null) return
+    lifecycleCallbacks.onEvent(engine, this, event)
+  }
+
+  private fun postPresentationEvent(
+    engine: EngineMapIdentity,
+    lease: RenderLease?,
+    event: MapEvent?,
+  ) {
+    if (lease == null || event == null) return
+    lifecycleCallbacks.onEvent(engine, lease, this, event)
+  }
+
+  private fun postStyleEvent(engine: EngineMapIdentity, style: StyleIdentity, event: MapEvent?) {
+    if (event == null) return
+    lifecycleCallbacks.onEvent(engine, style, this, event)
+  }
+
+  private fun postStyleRequestEvent(
+    engine: EngineMapIdentity,
+    request: StyleRequestIdentity,
+    event: MapEvent?,
+  ) {
+    if (event == null) return
+    lifecycleCallbacks.onEvent(engine, request, this, event)
   }
 
   /**

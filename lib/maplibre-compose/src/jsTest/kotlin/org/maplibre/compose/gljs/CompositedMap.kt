@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.map.GlJsMapSession
 import org.maplibre.compose.map.MapAdapter
+import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.map.mapRuntimeForTest
@@ -111,5 +112,7 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
     override fun onCameraMoveEnded(map: MapAdapter) = Unit
 
     override fun onFrame(fps: Double) = Unit
+
+    override fun onEvent(map: MapAdapter, event: MapEvent) = Unit
   }
 }

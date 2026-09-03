@@ -552,6 +552,26 @@ internal class GlJsMapSession(
         resumeTransitions()
       }
     }
+
+    subscribeTranslated(map, ENGINE_GL_JS_EVENTS) { lifecycleCallbacks.onEvent(engine, this, it) }
+    subscribeTranslated(map, STYLE_GL_JS_EVENTS) { event ->
+      // The style is whichever one is loaded when the event arrives, so the identity is read here
+      // rather than captured with the subscription.
+      lifecycleStyleIdentity?.let { lifecycleCallbacks.onEvent(engine, it, this, event) }
+    }
+    subscribeTranslated(map, PRESENTATION_GL_JS_EVENTS) {
+      lifecycleCallbacks.onEvent(engine, lease, this, it)
+    }
+  }
+
+  private fun subscribeTranslated(
+    map: MaplibreMap,
+    translations: Map<String, GlJsEventTranslation>,
+    deliver: (MapEvent) -> Unit,
+  ) {
+    for ((type, translate) in translations) {
+      map.subscribe(type) { event -> translate(event)?.let(deliver) }
+    }
   }
 
   private fun reportLoadedOnceStyleIsReady(
@@ -751,6 +771,7 @@ internal class GlJsMapSession(
           styleBinding?.invalidate()
           styleBinding = binding
           lifecycleStyleIdentity = acceptedStyle
+          lifecycleCallbacks.onEvent(engine, acceptedStyle, this, MapEvent.StyleLoaded)
           styleDataSubscription =
             map.subscribe("styledata") {
               if (!baseStyleReady && map.isStyleLoaded()) baseStyleReady = true
@@ -798,6 +819,12 @@ internal class GlJsMapSession(
             logger?.e { "Map loading failed: $reason" }
             hasPresentableStyle = false
             if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
+            lifecycleCallbacks.onEvent(
+              engine,
+              lifecycleRequest,
+              this,
+              MapEvent.StyleLoadFailed(reason),
+            )
           }
         } else {
           applyRequestedStyle(map)
@@ -831,6 +858,12 @@ internal class GlJsMapSession(
       ) {
         lifecycleCallbacks.onMapFailLoading(engine, lifecycleRequest, this, reason)
         hasPresentableStyle = false
+        lifecycleCallbacks.onEvent(
+          engine,
+          lifecycleRequest,
+          this,
+          MapEvent.StyleLoadFailed(reason),
+        )
       }
       if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
     }

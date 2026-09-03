@@ -28,7 +28,7 @@ internal external class MaplibreMap(options: MapOptions) {
   var showPadding: Boolean
   var showOverdrawInspector: Boolean
 
-  fun on(type: String, listener: (event: MapEvent) -> Unit): Subscription
+  fun on(type: String, listener: (event: GlJsMapEvent) -> Unit): Subscription
 
   fun fire(type: String, properties: Any)
 
@@ -194,10 +194,10 @@ internal external class Style {
  * with no evented parent, so a listener on the map never hears it.
  */
 internal external class Light {
-  fun on(type: String, listener: (event: MapEvent) -> Unit): Subscription
+  fun on(type: String, listener: (event: GlJsMapEvent) -> Unit): Subscription
 }
 
 /** The style's sky reports a rejected write the same way as [Light]. */
 internal external class Sky {
-  fun on(type: String, listener: (event: MapEvent) -> Unit): Subscription
+  fun on(type: String, listener: (event: GlJsMapEvent) -> Unit): Subscription
 }

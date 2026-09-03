@@ -16,6 +16,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.io.files.Path
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.map.MapAttachment
+import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MlnFfiMapSession
 import org.maplibre.compose.map.mapRuntimeForTest
@@ -47,6 +48,9 @@ private constructor(
 
   val events: MutableList<String>
     get() = recorder.events
+
+  val engineEvents: MutableList<MapEvent>
+    get() = recorder.engineEvents
 
   val sourceChanges: MutableList<String?>
     get() = recorder.sourceChanges

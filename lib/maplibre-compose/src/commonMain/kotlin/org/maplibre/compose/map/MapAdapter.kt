@@ -128,6 +128,9 @@ internal interface MapAdapter {
     fun onCameraMoveEnded(map: MapAdapter)
 
     fun onFrame(fps: Double)
+
+    /** Reports one engine event whose producing identity is still current. */
+    fun onEvent(map: MapAdapter, event: MapEvent)
   }
 }
 
@@ -147,6 +150,8 @@ internal object EmptyMapAdapterCallbacks : MapAdapter.Callbacks {
   override fun onCameraMoveEnded(map: MapAdapter) = Unit
 
   override fun onFrame(fps: Double) = Unit
+
+  override fun onEvent(map: MapAdapter, event: MapEvent) = Unit
 }
 
 internal class DurableStyleCallbacks(private val owner: MapState) : MapAdapter.Callbacks {
@@ -173,4 +178,6 @@ internal class DurableStyleCallbacks(private val owner: MapState) : MapAdapter.C
   override fun onCameraMoveEnded(map: MapAdapter) = Unit
 
   override fun onFrame(fps: Double) = Unit
+
+  override fun onEvent(map: MapAdapter, event: MapEvent) = Unit
 }

@@ -20,6 +20,7 @@ import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.map.GestureTarget
 import org.maplibre.compose.map.GlJsMapSession
 import org.maplibre.compose.map.MapAdapter
+import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.style.BaseStyle
@@ -50,6 +51,9 @@ internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
 
   override val events: MutableList<String>
     get() = recorder.events
+
+  override val engineEvents: MutableList<MapEvent>
+    get() = recorder.engineEvents
 
   override val sourceChanges: MutableList<String?>
     get() = recorder.sourceChanges

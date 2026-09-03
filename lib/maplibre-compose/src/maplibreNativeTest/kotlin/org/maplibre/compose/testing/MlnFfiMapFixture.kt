@@ -5,6 +5,7 @@ import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.map.GestureTarget
 import org.maplibre.compose.map.MapAdapter
+import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.mlnffi.BridgeMapFixture
@@ -40,6 +41,9 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent
 
   override val events: MutableList<String>
     get() = bridge.events
+
+  override val engineEvents: MutableList<MapEvent>
+    get() = bridge.engineEvents
 
   override val sourceChanges: MutableList<String?>
     get() = bridge.sourceChanges

@@ -9,6 +9,7 @@ import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.map.GestureTarget
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapAttachment
+import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.style.BaseStyle
@@ -30,6 +31,9 @@ internal interface MapFixture : AutoCloseable {
   val style: StyleBinding?
 
   val events: MutableList<String>
+
+  /** Every [MapEvent] the session posted through the adapter callbacks. */
+  val engineEvents: MutableList<MapEvent>
 
   val sourceChanges: MutableList<String?>
 
@@ -134,6 +138,8 @@ internal class RecordingMapCallbacks(
 
   val events: MutableList<String> = RecordingList()
 
+  val engineEvents: MutableList<MapEvent> = RecordingList()
+
   val sourceChanges: MutableList<String?> = RecordingList()
 
   val errors: MutableList<String> = RecordingList()
@@ -180,5 +186,9 @@ internal class RecordingMapCallbacks(
 
   override fun onFrame(fps: Double) {
     attachment?.let { it.cameraMoved(it.adapter.getViewport()) }
+  }
+
+  override fun onEvent(map: MapAdapter, event: MapEvent) {
+    engineEvents += event
   }
 }

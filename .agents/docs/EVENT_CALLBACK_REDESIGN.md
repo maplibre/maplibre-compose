@@ -106,7 +106,9 @@ engine event  →  identity filter  →  MapState reactions  →  public Flow
 ```
 
 Identity filtering stays. An event from a departed render lease or a superseded
-style request is dropped. That is ownership, not reshape, and
+style request is dropped. `Idle` reports the engine's own progress rather than a
+style's or a lease's, so it filters on the engine identity and arrives after a
+failed style load too. That is ownership, not reshape, and
 `MapLifecycleCallbacks` already does it.
 
 ### Events
@@ -314,7 +316,9 @@ Each step lands on its own. The first two conflict with nothing in flight.
    type produces one `MapEvent` with the right payload.
 3. **Reactions move.** Viewport snapshots, `isCameraMoving`, and attribution
    refresh read `MapEvent`. The camera trio and `onSourceChanged` leave the
-   adapter. Existing presentation tests pin the token ordering.
+   adapter. A resize changes the projection without a camera event, so both
+   sessions keep a viewport snapshot of their own beside the event path.
+   Existing presentation tests pin the token ordering.
 4. **Public flow.** `MapState.events` publishes. `onFrame` leaves `MaplibreMap`,
    and the demo frame counter and benchmark move to `FrameRendered`.
 5. **Handshake rename.** The three style methods take their protocol names.

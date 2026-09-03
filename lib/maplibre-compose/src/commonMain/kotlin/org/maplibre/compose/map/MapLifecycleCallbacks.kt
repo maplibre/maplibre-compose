@@ -93,6 +93,22 @@ internal class MapLifecycleCallbacks(
   fun onFrame(engine: EngineMapIdentity, lease: RenderLease, fps: Double) =
     withPresentation(engine, lease) { delegate().onFrame(fps) }
 
+  fun onEvent(engine: EngineMapIdentity, map: MapAdapter, event: MapEvent) =
+    lifecycle.acceptEngineEvent(engine) { delegate().onEvent(map, event) }
+
+  fun onEvent(engine: EngineMapIdentity, lease: RenderLease, map: MapAdapter, event: MapEvent) =
+    withPresentation(engine, lease) { delegate().onEvent(map, event) }
+
+  fun onEvent(engine: EngineMapIdentity, style: StyleIdentity, map: MapAdapter, event: MapEvent) =
+    withStyle(engine, style) { delegate().onEvent(map, event) }
+
+  fun onEvent(
+    engine: EngineMapIdentity,
+    request: StyleRequestIdentity,
+    map: MapAdapter,
+    event: MapEvent,
+  ) = lifecycle.acceptStyleRequestEvent(engine, request) { delegate().onEvent(map, event) }
+
   fun onPresentationEvent(engine: EngineMapIdentity, lease: RenderLease, event: () -> Unit) =
     withPresentation(engine, lease, event)
 

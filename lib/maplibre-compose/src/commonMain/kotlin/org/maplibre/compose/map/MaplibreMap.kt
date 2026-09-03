@@ -268,6 +268,8 @@ private fun MaplibreMapPresentation(
           synchronizeCamera(map)
           onFrame(fps)
         }
+
+        override fun onEvent(map: MapAdapter, event: MapEvent) = Unit
       }
     }
 
