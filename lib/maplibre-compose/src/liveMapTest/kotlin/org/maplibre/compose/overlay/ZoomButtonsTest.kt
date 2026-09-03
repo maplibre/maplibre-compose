@@ -3,7 +3,11 @@ package org.maplibre.compose.overlay
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
@@ -13,6 +17,8 @@ import kotlin.test.assertEquals
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.style.BaseStyle
 
+// The browser loads string resources asynchronously, and the UI test harness there does not wait
+// for them, so these tests pass literal labels or match by role instead of by the default labels.
 @OptIn(ExperimentalTestApi::class)
 class ZoomButtonsTest {
   @Test
@@ -27,6 +33,8 @@ class ZoomButtonsTest {
             modifier = Modifier.align(Alignment.BottomEnd),
             onZoomIn = { zoomInClicks++ },
             onZoomOut = { zoomOutClicks++ },
+            contentDescriptionZoomIn = "Zoom in",
+            contentDescriptionZoomOut = "Zoom out",
           )
         },
         mapState = mapState,
@@ -55,7 +63,8 @@ class ZoomButtonsTest {
     }
     waitForIdle()
 
-    onNodeWithContentDescription("Zoom in").assertIsDisplayed()
-    onNodeWithContentDescription("Zoom out").assertIsDisplayed()
+    onAllNodes(isButton()).assertCountEquals(2)
   }
 }
+
+private fun isButton() = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button)
