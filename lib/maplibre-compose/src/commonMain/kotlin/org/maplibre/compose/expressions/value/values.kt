@@ -100,6 +100,14 @@ public sealed interface EnumValue<out T> : StringValue {
 public sealed interface ColorValue : ExpressionValue, InterpolatableValue<ColorValue>
 
 /**
+ * Represents an [ExpressionValue] that resolves to a map projection: a [ProjectionType] or a
+ * [ProjectionTransition][org.maplibre.compose.style.ProjectionTransition] between two of them. See
+ * [const][org.maplibre.compose.expressions.dsl.const] and
+ * [interpolate][org.maplibre.compose.expressions.dsl.interpolate].
+ */
+public sealed interface ProjectionValue : ExpressionValue, InterpolatableValue<ProjectionValue>
+
+/**
  * Represents an [ExpressionValue] that resolves to a map value (corresponds to a JSON object). See
  * [const][org.maplibre.compose.expressions.dsl.const].
  */

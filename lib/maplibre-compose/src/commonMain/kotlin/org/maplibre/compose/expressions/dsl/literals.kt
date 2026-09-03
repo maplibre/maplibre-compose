@@ -22,6 +22,7 @@ import org.maplibre.compose.expressions.ast.Literal
 import org.maplibre.compose.expressions.ast.MillisecondsLiteral
 import org.maplibre.compose.expressions.ast.NullLiteral
 import org.maplibre.compose.expressions.ast.OffsetLiteral
+import org.maplibre.compose.expressions.ast.ProjectionTransitionLiteral
 import org.maplibre.compose.expressions.ast.StringLiteral
 import org.maplibre.compose.expressions.ast.TextUnitCalculation
 import org.maplibre.compose.expressions.ast.TextUnitOffsetCalculation
@@ -33,6 +34,7 @@ import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.expressions.value.TextUnitOffsetValue
 import org.maplibre.compose.expressions.value.TextVariableAnchorOffsetValue
 import org.maplibre.compose.expressions.value.VectorValue
+import org.maplibre.compose.style.ProjectionTransition
 import org.maplibre.compose.util.DpPadding
 
 /** Creates a literal expression for a [String] value. */
@@ -77,6 +79,10 @@ public fun const(dpOffset: DpOffset): DpOffsetLiteral = DpOffsetLiteral.of(dpOff
 
 /** Creates a literal expression for a [DpPadding] value. */
 public fun const(padding: DpPadding): DpPaddingLiteral = DpPaddingLiteral.of(padding)
+
+/** Creates a literal expression for a [ProjectionTransition] value. */
+public fun const(transition: ProjectionTransition): ProjectionTransitionLiteral =
+  ProjectionTransitionLiteral.of(transition)
 
 /** Creates a literal expression for a list. */
 public fun <T : ExpressionValue> const(list: List<Literal<T, *>>): ListLiteral<T> =

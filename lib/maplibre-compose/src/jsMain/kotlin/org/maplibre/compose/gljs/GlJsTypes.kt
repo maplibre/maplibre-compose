@@ -62,6 +62,12 @@ internal external interface TransitionSpecification {
 /** A style-spec `light` object; keys index it. */
 internal external interface LightSpecification
 
+/** A style-spec `sky` object; keys index it. */
+internal external interface SkySpecification
+
+/** A style-spec `projection` object; keys index it. */
+internal external interface ProjectionSpecification
+
 internal external interface StyleSetterOptions {
   var validate: Boolean?
 }

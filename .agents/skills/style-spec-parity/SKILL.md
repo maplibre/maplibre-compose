@@ -53,6 +53,16 @@ on engines that implement it, and an issue URL on engines that do not.
 - **native implements it, js does not.** Write the layer type or property only
   in `maplibreNativeMain`, the way `LocationIndicatorLayer` does.
 
+## Style-root objects
+
+The `light`, `sky`, and `projection` objects at the style root are typed classes
+in `lib/maplibre-compose/src/commonMain/kotlin/org/maplibre/compose/style/`, one
+file per object, each writing its properties with `putExpression`. The catalog
+checks every spec property of those objects against the writes in that file. An
+engine that lacks a whole object reports it through the `supportsSky`-style flag
+on `StyleBinding` rather than the native table. `terrain` is in the omitted set
+until the API exposes it.
+
 ## Add a property both engines implement
 
 1. Add the composable parameter and a setter that calls `setLayoutProperty` or

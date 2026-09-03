@@ -72,6 +72,14 @@ EXTRA_SOURCE_TYPES = frozenset({"custom-geometry"})
 # Spec source types this API does not construct.
 OMITTED_SOURCE_TYPES = frozenset({"video"})
 
+# Style-root objects the imperative style API writes as typed Kotlin classes in
+# `style/<Name>.kt`. `transition` is typed by `TransitionOptions` and audited by
+# hand; `terrain` is not yet exposed.
+ROOT_OBJECTS = ("light", "sky", "projection", "terrain")
+OMITTED_ROOT_OBJECTS = frozenset({"terrain"})
+STYLE_DIR = MODULE / "commonMain/kotlin/org/maplibre/compose/style"
+ROOT_OBJECT_WRITE = re.compile(r'putExpression\(\s*"(?P<name>[^"]+)"')
+
 
 class Version:
     """A dotted release number from sdk-support or a pin."""
@@ -372,6 +380,20 @@ def scan_sources(root: pathlib.Path) -> dict[str, set[Engine]]:
     return found
 
 
+def scan_root_objects(root: pathlib.Path) -> dict[str, set[str]]:
+    """Map each style-root object to the spec property names its class writes."""
+    found: dict[str, set[str]] = {}
+    for name in ROOT_OBJECTS:
+        path = root / STYLE_DIR / f"{name.capitalize()}.kt"
+        if not path.is_file():
+            continue
+        found[name] = {
+            match.group("name")
+            for match in ROOT_OBJECT_WRITE.finditer(path.read_text())
+        }
+    return found
+
+
 def dead_setters(root: pathlib.Path) -> list[str]:
     """Property-writing functions that no other layers code calls.
 
@@ -462,6 +484,7 @@ def audit(
     _audit_properties(report, properties, api, pins)
     _audit_native_table(report, properties, api, unsupported, pins)
     _audit_sources(report, spec, api)
+    _audit_root_objects(report, spec, scan_root_objects(root), pins)
     _audit_setters(report, root)
     return report
 
@@ -623,6 +646,43 @@ def _audit_native_table(
         )
     if not missing_rows and not stale and not extra_rows:
         report.note("  table matches pinned support")
+
+
+def _audit_root_objects(
+    report: Audit,
+    spec: dict[str, Any],
+    written: dict[str, set[str]],
+    pins: Pins,
+) -> None:
+    report.note("Style-root objects")
+    for name in ROOT_OBJECTS:
+        table = spec.get(name)
+        if not isinstance(table, dict):
+            continue
+        if name in OMITTED_ROOT_OBJECTS:
+            report.note(f"  {name}: omitted")
+            continue
+        properties = {
+            prop: SpecProperty(name, "paint", prop, entry)
+            for prop, entry in table.items()
+            if isinstance(entry, dict)
+        }
+        writes = written.get(name)
+        if writes is None:
+            report.error(f"{name}: no {name.capitalize()}.kt in {STYLE_DIR}")
+            continue
+        missing = sorted(
+            f"{prop} ({_format_engines(spec_prop.engines(pins))})"
+            for prop, spec_prop in properties.items()
+            if prop not in writes and spec_prop.engines(pins)
+        )
+        extra = sorted(writes - properties.keys())
+        if missing:
+            report.error(f"{name}: missing " + ", ".join(missing))
+        if extra:
+            report.error(f"{name}: unexpected extra " + ", ".join(extra))
+        if not missing and not extra:
+            report.note(f"  {name}: all present")
 
 
 def _audit_setters(report: Audit, root: pathlib.Path) -> None:

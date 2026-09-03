@@ -139,12 +139,48 @@ internal interface StyleBinding {
   fun lightProperty(name: String): JsonElement?
 
   /**
-   * Sets one style light property; a null value clears it.
+   * Replaces the style light. A property absent from [light] returns to its spec default.
    *
    * @throws StyleMutationException if the engine returns an error. An error does not change the
    *   previous value.
    */
-  fun setLightProperty(name: String, value: JsonElement)
+  fun setLight(light: JsonObject)
+
+  /** Returns true if this engine supports the style sky. */
+  val supportsSky: Boolean
+
+  /**
+   * @return null if the style has unloaded or the style sky sets no value for [name]. An engine
+   *   without [supportsSky] reports null.
+   */
+  fun skyProperty(name: String): JsonElement?
+
+  /**
+   * Replaces the style sky. A property absent from [sky] returns to its spec default; a null [sky]
+   * removes the sky. An engine without [supportsSky] logs a warning.
+   *
+   * @throws StyleMutationException if the engine returns an error. An error does not change the
+   *   previous value.
+   */
+  fun setSky(sky: JsonObject?)
+
+  /** Returns true if this engine supports projections other than Mercator. */
+  val supportsProjection: Boolean
+
+  /**
+   * @return null if the style has unloaded or the style projection sets no value for [name]. An
+   *   engine without [supportsProjection] reports null.
+   */
+  fun projectionProperty(name: String): JsonElement?
+
+  /**
+   * Replaces the style projection. A property absent from [projection] returns to its spec default.
+   * An engine without [supportsProjection] logs a warning and keeps Mercator.
+   *
+   * @throws StyleMutationException if the engine returns an error. An error does not change the
+   *   previous value.
+   */
+  fun setProjection(projection: JsonObject)
 
   /**
    * Returns the reason that this engine does not support a layer property.
