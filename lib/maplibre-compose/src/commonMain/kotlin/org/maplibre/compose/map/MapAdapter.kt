@@ -120,8 +120,6 @@ internal interface MapAdapter {
 
     fun onMapFailLoading(map: MapAdapter, reason: String?)
 
-    fun onFrame(fps: Double)
-
     /** Reports one engine event whose producing identity is still current. */
     fun onEvent(map: MapAdapter, event: MapEvent)
 
@@ -144,8 +142,6 @@ internal object EmptyMapAdapterCallbacks : MapAdapter.Callbacks {
   override fun onSourceChanged(map: MapAdapter, sourceId: String?) = Unit
 
   override fun onMapFailLoading(map: MapAdapter, reason: String?) = Unit
-
-  override fun onFrame(fps: Double) = Unit
 
   override fun onEvent(map: MapAdapter, event: MapEvent) = Unit
 
@@ -170,8 +166,6 @@ internal class DurableStyleCallbacks(private val owner: MapState) : MapAdapter.C
   override fun onMapFailLoading(map: MapAdapter, reason: String?) {
     owner.markStyleFailed(map, reason)
   }
-
-  override fun onFrame(fps: Double) = Unit
 
   override fun onEvent(map: MapAdapter, event: MapEvent) {
     owner.onEvent(map, event)

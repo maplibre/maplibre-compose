@@ -235,7 +235,10 @@ internal class MlnFfiMapSession(
 
   private val renderRequested = AtomicBoolean(true)
 
-  private var hasRenderedAFrame = false
+  /** Renderer-thread state, read by tests. */
+  @Volatile
+  internal var hasRenderedAFrame: Boolean = false
+    private set
 
   private var failureReported = false
 
@@ -327,9 +330,6 @@ internal class MlnFfiMapSession(
   private var tileLodOptions: TileLodOptions = TileLodOptions.Standard
   private var lastRenderTime = TimeSource.Monotonic.markNow()
 
-  private val frameTimer = TimeSource.Monotonic
-  private var lastFrameTime = frameTimer.markNow()
-
   // region host surface lifecycle
 
   override fun onSurfaceAvailable(session: MlnFfiMapHostSession) {
@@ -417,7 +417,6 @@ internal class MlnFfiMapSession(
       }
     }
     lastRenderTime = renderStart
-    reportFrameRate()
     return MlnFfiFrameResult.RENDERED
   }
 
@@ -977,17 +976,6 @@ internal class MlnFfiMapSession(
     val minimumInterval = 1.0 / fps
     val elapsed = (now - lastRenderTime).toDouble(DurationUnit.SECONDS)
     return elapsed >= minimumInterval * (1.0 - FRAME_INTERVAL_SLACK)
-  }
-
-  private fun reportFrameRate() {
-    val now = frameTimer.markNow()
-    val elapsed = (now - lastFrameTime).toDouble(DurationUnit.SECONDS)
-    lastFrameTime = now
-    if (elapsed > 0.0) {
-      withLifecyclePresentation { engine, lease ->
-        lifecycleCallbacks.onFrame(engine, lease, 1.0 / elapsed)
-      }
-    }
   }
 
   // endregion

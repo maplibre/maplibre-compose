@@ -69,9 +69,6 @@ internal class MapLifecycleCallbacks(
       delegate().onViewportChanged(map)
     }
 
-  fun onFrame(engine: EngineMapIdentity, lease: RenderLease, fps: Double) =
-    withPresentation(engine, lease) { delegate().onFrame(fps) }
-
   fun onEvent(engine: EngineMapIdentity, map: MapAdapter, event: MapEvent) =
     lifecycle.acceptEngineEvent(engine) { delegate().onEvent(map, event) }
 

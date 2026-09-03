@@ -7,6 +7,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.Viewport
@@ -16,7 +18,8 @@ import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
 /**
- * [MapState] derives the camera viewport, flag, and reason from [MapEvent] and the gesture fact.
+ * [MapState] derives the camera viewport, flag, and reason from [MapEvent] and the gesture fact,
+ * then publishes the event it accepted.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class MapStateEventReactionTest {
@@ -121,6 +124,36 @@ class MapStateEventReactionTest {
     state.invalidatePresentation(adapter)
 
     assertFalse(state.isCameraMoving)
+
+    state.close()
+    state.awaitClosed()
+    runtime.close()
+  }
+
+  @Test
+  fun an_accepted_event_reaches_the_public_flow_after_its_reaction() = runTest {
+    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
+    val state = runtime.createMapState(BaseStyle.Demo)
+    val adapter = presentedAdapter(state)
+    val other = PresentationTestAdapter()
+    val published = mutableListOf<Pair<MapEvent, Boolean>>()
+    // An unconfined collector runs at the emission, so it reads the state that the event produced
+    // rather than the state after every call returned.
+    backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+      state.events.collect { published += it to state.isCameraMoving }
+    }
+
+    state.onEvent(adapter, MapEvent.StyleImageMissing("x"))
+    state.onEvent(other, MapEvent.StyleImageMissing("y"))
+    state.onEvent(adapter, MapEvent.CameraMoveStarted(animated = false))
+
+    assertEquals(
+      listOf(
+        MapEvent.StyleImageMissing("x") to false,
+        MapEvent.CameraMoveStarted(animated = false) to true,
+      ),
+      published,
+    )
 
     state.close()
     state.awaitClosed()

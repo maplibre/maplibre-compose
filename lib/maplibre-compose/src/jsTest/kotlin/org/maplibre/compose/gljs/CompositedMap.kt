@@ -104,8 +104,6 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
       loadFailure = reason ?: "unknown"
     }
 
-    override fun onFrame(fps: Double) = Unit
-
     override fun onEvent(map: MapAdapter, event: MapEvent) = Unit
 
     override fun onGestureActive(map: MapAdapter, active: Boolean) = Unit

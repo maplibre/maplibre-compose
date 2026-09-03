@@ -16,10 +16,12 @@ private const val SAMPLE_MILLIS = 500L
 /**
  * How many frames the map has actually drawn, sampled over time.
  *
- * Counts frames rather than using the rate `onFrame` reports, which is instantaneous and so stays
- * high once an idle map stops drawing. The counter is deliberately not snapshot state: [record]
- * runs once per frame on the presenting thread, and writing state there would recompose at frame
- * rate.
+ * [record] counts one [org.maplibre.compose.map.MapEvent.FrameRendered] event. The counter is
+ * deliberately not snapshot state: it advances once per frame, and writing state there would
+ * recompose at frame rate.
+ *
+ * On the browser MapLibre GL JS also draws frames that it schedules itself, so the count can exceed
+ * the frames that the map session drives.
  */
 @Stable
 class FrameRateState {
@@ -34,9 +36,10 @@ class FrameRateState {
   var totalFrames by mutableLongStateOf(0L)
     private set
 
-  /** Called once per rendered frame, from the presenting thread. */
+  /**
+   * Called once per rendered frame. One collector calls this, so a plain increment loses nothing.
+   */
   fun record() {
-    // One writer, so a plain increment loses nothing.
     frames++
   }
 

@@ -8,6 +8,8 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.testing.MISSING_ICON_ID
+import org.maplibre.compose.testing.MISSING_ICON_STYLE
 import org.maplibre.compose.testing.MapLibreFlavor
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
@@ -105,35 +107,6 @@ class EngineEventTest {
         MapLibreFlavor.GL_JS -> "/missing-maplibre-compose-style.json"
         MapLibreFlavor.NATIVE -> "https://example.invalid/style.json"
       }
-
-    const val MISSING_ICON_ID = "missing-icon"
-
-    val MISSING_ICON_STYLE =
-      """
-      {
-        "version": 8,
-        "name": "missing icon",
-        "sources": {
-          "points": {
-            "type": "geojson",
-            "data": {
-              "type": "Feature",
-              "geometry": { "type": "Point", "coordinates": [0, 0] },
-              "properties": {}
-            }
-          }
-        },
-        "layers": [
-          {
-            "id": "icons",
-            "type": "symbol",
-            "source": "points",
-            "layout": { "icon-image": "$MISSING_ICON_ID", "icon-allow-overlap": true }
-          }
-        ]
-      }
-      """
-        .trimIndent()
 
     val DESTINATION = CameraPosition(target = Position(10.0, 10.0), zoom = 4.0)
 

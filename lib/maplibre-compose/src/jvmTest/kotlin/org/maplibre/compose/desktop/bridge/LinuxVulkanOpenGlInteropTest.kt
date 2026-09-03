@@ -257,8 +257,6 @@ class LinuxVulkanOpenGlInteropTest {
 
         override fun onSourceChanged(map: MapAdapter, sourceId: String?) {}
 
-        override fun onFrame(fps: Double) {}
-
         override fun onEvent(map: MapAdapter, event: MapEvent) {}
 
         override fun onGestureActive(map: MapAdapter, active: Boolean) {}

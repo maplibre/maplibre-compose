@@ -177,7 +177,6 @@ internal class GlJsMapSession(
   private var cameraConstraints: CameraConstraints? = null
   private var tileLodOptions: TileLodOptions = TileLodOptions.Standard
   private var lastRenderTime = TimeSource.Monotonic.markNow()
-  private var lastFrameTime = TimeSource.Monotonic.markNow()
   private var hasRenderedAFrame = false
 
   // region surface lifecycle
@@ -255,7 +254,6 @@ internal class GlJsMapSession(
       }
     }
     lastRenderTime = now
-    reportFrameRate()
     return true
   }
 
@@ -506,17 +504,6 @@ internal class GlJsMapSession(
     if (fps <= 0) return true
     val elapsed = (now - lastRenderTime).toDouble(DurationUnit.SECONDS)
     return elapsed >= (1.0 / fps) * (1.0 - FRAME_INTERVAL_SLACK)
-  }
-
-  private fun reportFrameRate() {
-    val now = TimeSource.Monotonic.markNow()
-    val elapsed = (now - lastFrameTime).toDouble(DurationUnit.SECONDS)
-    lastFrameTime = now
-    if (elapsed > 0.0) {
-      withLifecyclePresentation { engine, lease ->
-        lifecycleCallbacks.onFrame(engine, lease, 1.0 / elapsed)
-      }
-    }
   }
 
   // endregion

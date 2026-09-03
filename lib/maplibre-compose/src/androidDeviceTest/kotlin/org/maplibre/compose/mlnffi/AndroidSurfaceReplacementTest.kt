@@ -25,6 +25,7 @@ import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.first
 import org.maplibre.compose.map.DefaultMapRuntime
+import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.MlnFfiMapSession
@@ -253,10 +254,12 @@ private fun TestMap(
     snapshotFlow { state.currentMapAttachment }.first { it != null }
     onPresentation()
   }
+  LaunchedEffect(state) {
+    state.events.collect { if (it is MapEvent.FrameRendered) onFrame() }
+  }
   MaplibreMap(
     state = state,
     modifier = Modifier.fillMaxSize(),
-    onFrame = { onFrame() },
   ) {
     include(overlay)
   }

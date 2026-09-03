@@ -86,7 +86,6 @@ public fun MaplibreMap(
   tileLodOptions: TileLodOptions = TileLodOptions.Standard,
   onClick: MapClickHandler = { _, _ -> ClickResult.Pass },
   onLongClick: MapClickHandler = { _, _ -> ClickResult.Pass },
-  onFrame: (framesPerSecond: Double) -> Unit = {},
   contentWindowInsets: WindowInsets = WindowInsets.safeDrawing,
   overlay: @Composable @UiComposable MapOverlayScope.() -> Unit = {
     include(MapOverlay.Default)
@@ -115,7 +114,6 @@ public fun MaplibreMap(
       mapViewOptions = mapViewOptions,
       onClick = onClick,
       onLongClick = onLongClick,
-      onFrame = onFrame,
       contentWindowInsets = contentWindowInsets,
       overlay = overlay,
     )
@@ -130,7 +128,6 @@ private fun PresentedMaplibreMap(
   mapViewOptions: MapViewOptions,
   onClick: MapClickHandler,
   onLongClick: MapClickHandler,
-  onFrame: (Double) -> Unit,
   contentWindowInsets: WindowInsets,
   overlay: @Composable @UiComposable MapOverlayScope.() -> Unit,
 ) {
@@ -144,7 +141,6 @@ private fun PresentedMaplibreMap(
     mapViewOptions = mapViewOptions,
     onClick = onClick,
     onLongClick = onLongClick,
-    onFrame = onFrame,
     contentWindowInsets = contentWindowInsets,
     overlay = overlay,
   )
@@ -158,7 +154,6 @@ private fun MaplibreMapPresentation(
   mapViewOptions: MapViewOptions,
   onClick: MapClickHandler,
   onLongClick: MapClickHandler,
-  onFrame: (Double) -> Unit,
   contentWindowInsets: WindowInsets,
   overlay: @Composable @UiComposable MapOverlayScope.() -> Unit,
 ) {
@@ -220,7 +215,7 @@ private fun MaplibreMapPresentation(
   }
 
   val adapterCallbacks =
-    remember(attachment, mapAttachment, onFrame) {
+    remember(attachment, mapAttachment) {
       object : MapAdapter.Callbacks {
         private fun synchronizeCamera(map: MapAdapter): MapAttachment? {
           return state.synchronizeCamera(map)
@@ -242,12 +237,6 @@ private fun MaplibreMapPresentation(
 
         override fun onSourceChanged(map: MapAdapter, sourceId: String?) {
           state.refreshStyleSources(map)
-        }
-
-        override fun onFrame(fps: Double) {
-          val map = state.currentMapAttachment?.adapter ?: return
-          synchronizeCamera(map)
-          onFrame(fps)
         }
 
         override fun onEvent(map: MapAdapter, event: MapEvent) {

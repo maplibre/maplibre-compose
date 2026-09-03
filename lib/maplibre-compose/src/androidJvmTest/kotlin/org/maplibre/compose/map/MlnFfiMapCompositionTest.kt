@@ -35,6 +35,7 @@ import kotlin.math.abs
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertSame
@@ -501,18 +502,23 @@ class MlnFfiMapCompositionTest {
   @Test
   fun an_unloaded_style_keeps_the_transparent_load_placeholder() = runFfiComposeUiTest {
     val errors = RecordingList<String>()
-    val frames = AtomicInt(0)
+    lateinit var mapState: MapState
     setFfiTestMapContent(runtimeOptions) {
-      TestMap(
-        modifier = Modifier,
-        baseStyle = BaseStyle.Uri("https://example.invalid/style.json"),
-        onMapLoadFailed = { errors += "mapLoadFailed: $it" },
-        onFrame = { frames.incrementAndFetch() },
-      )
+      mapState =
+        TestMap(
+          modifier = Modifier,
+          baseStyle = BaseStyle.Uri("https://example.invalid/style.json"),
+          onMapLoadFailed = { errors += "mapLoadFailed: $it" },
+        )
     }
     waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { errors.isNotEmpty() }
     onNodeWithTag(MAP_LOAD_PLACEHOLDER_TAG).assertExists()
-    assertEquals(0, frames.load(), "A frame was rendered before the style loaded: $errors")
+    // The session, because an event collector misses a frame that renders before it subscribes.
+    val session = mapState.currentMapAttachment?.adapter as? MlnFfiMapSession
+    assertFalse(
+      session?.hasRenderedAFrame == true,
+      "A frame was rendered before the style loaded: $errors",
+    )
     assertTrue(errors.any { it.startsWith("mapLoadFailed") }, "The load was not reported: $errors")
   }
 
@@ -818,7 +824,7 @@ private fun TestMap(
   modifier: Modifier = Modifier,
   initialCameraPosition: CameraPosition = CameraPosition(),
   onMapLoadFailed: (String?) -> Unit = {},
-  onFrame: (Double) -> Unit = {},
+  onFrame: () -> Unit = {},
   overlay: MapOverlay = MapOverlay.Default,
   content: @Composable () -> Unit = {},
 ): MapState {
@@ -833,10 +839,12 @@ private fun TestMap(
   LaunchedEffect(loadState) {
     if (loadState is StyleLoadState.Failed) onMapLoadFailed(loadState.reason)
   }
+  LaunchedEffect(state) {
+    state.events.collect { if (it is MapEvent.FrameRendered) onFrame() }
+  }
   MaplibreMap(
     state = state,
     modifier = modifier,
-    onFrame = onFrame,
   ) {
     include(overlay)
   }

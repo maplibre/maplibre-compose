@@ -36,7 +36,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import kotlinx.serialization.json.JsonElement
@@ -660,6 +664,11 @@ internal constructor(
   private val imperativeSources = mutableMapOf<String, ImperativeSourceRecord>()
   private val imperativeImages = mutableMapOf<String, ImperativeImageRecord>()
   private var activeStyleMutation: StyleMutationReservation? = null
+  private val eventsFlow =
+    MutableSharedFlow<MapEvent>(
+      extraBufferCapacity = 64,
+      onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
   private var closedState: Boolean by mutableStateOf(false)
   private var cameraPositionState: CameraPosition by
     mutableStateOf(initialCameraPosition, structuralEqualityPolicy())
@@ -733,6 +742,21 @@ internal constructor(
    */
   public val cameraMoveReason: CameraMoveReason
     get() = currentMapAttachment?.cameraMoveReason ?: CameraMoveReason.NONE
+
+  /**
+   * Emits each [MapEvent] that the engine behind this map reports.
+   *
+   * A collector receives the events that the map reports after it subscribes. The flow replays
+   * nothing, and a bounded buffer drops the oldest event that a collector has not taken. Style and
+   * idle events continue while a retained native engine stays alive between presentations, and
+   * camera and frame events stop while no map surface is attached.
+   *
+   * A collector on an undispatched context runs on the thread that reported the event, which is the
+   * map's own thread on native platforms and the MapLibre GL JS event listener on the browser, and
+   * it runs while the map holds the lock that serializes its lifecycle. Read state and record
+   * values there. Collect on a dispatcher to call a map command such as [StyleImages.add].
+   */
+  public val events: Flow<MapEvent> = eventsFlow.asSharedFlow()
 
   public val isClosed: Boolean
     get() = closedState
@@ -1230,16 +1254,25 @@ internal constructor(
   }
 
   /**
-   * Reacts to one engine event that the lifecycle already accepted. Ignores an [adapter] that is
-   * not the current presentation.
+   * Reacts to one engine event that the lifecycle already accepted, then publishes it to [events].
+   * Ignores an [adapter] that this state no longer accepts. Publication follows the reaction, so a
+   * collector reads the values that the event produced.
    */
   internal fun onEvent(adapter: MapAdapter, event: MapEvent) {
-    when (event) {
-      is MapEvent.CameraMoveStarted -> synchronizeCamera(adapter)?.cameraChangeStarted()
-      MapEvent.CameraMoved -> synchronizeCamera(adapter)
-      is MapEvent.CameraMoveEnded -> synchronizeCamera(adapter)?.cameraChangeEnded()
-      else -> Unit
-    }
+    val accepted =
+      when (event) {
+        is MapEvent.CameraMoveStarted ->
+          synchronizeCamera(adapter)?.also { it.cameraChangeStarted() } != null
+        MapEvent.CameraMoved -> synchronizeCamera(adapter) != null
+        is MapEvent.CameraMoveEnded ->
+          synchronizeCamera(adapter)?.also { it.cameraChangeEnded() } != null
+        is MapEvent.FrameRendered -> lifecycle.acceptsPresentation(adapter)
+        MapEvent.StyleLoaded,
+        is MapEvent.StyleLoadFailed,
+        MapEvent.Idle,
+        is MapEvent.StyleImageMissing -> lifecycle.acceptsAdapter(adapter)
+      }
+    if (accepted) eventsFlow.tryEmit(event)
   }
 
   /** Reports whether a gesture holds the camera of [adapter]. */

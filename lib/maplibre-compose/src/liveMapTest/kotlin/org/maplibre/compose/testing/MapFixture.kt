@@ -168,10 +168,6 @@ internal class RecordingMapCallbacks(
     errors += "mapFailLoading: $reason"
   }
 
-  override fun onFrame(fps: Double) {
-    attachment?.let { it.updateViewport(it.adapter.getViewport()) }
-  }
-
   override fun onEvent(map: MapAdapter, event: MapEvent) {
     engineEvents += event
     state?.onEvent(map, event)
