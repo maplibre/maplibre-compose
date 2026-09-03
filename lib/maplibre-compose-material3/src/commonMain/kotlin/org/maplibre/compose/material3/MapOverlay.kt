@@ -1,7 +1,6 @@
 package org.maplibre.compose.material3
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.Alignment
@@ -35,25 +34,8 @@ private val Material3DefaultOverlay = MapOverlay {
 }
 
 private val Material3FullOverlay = MapOverlay {
-  DisappearingScaleBar(
-    metersPerDp = mapState.viewport?.metersPerDpAtTarget ?: 0.0,
-    zoom = mapState.cameraPosition.zoom,
-    modifier = Modifier.align(Alignment.TopStart),
-  )
-
-  DisappearingCompassButton(modifier = Modifier.align(Alignment.TopEnd))
-
-  MaplibreLogo(Modifier.align(Alignment.BottomStart))
-
-  val overlayScope = this
-  Column(
-    Modifier.align(Alignment.BottomEnd),
-    horizontalAlignment = Alignment.CenterHorizontally,
-    verticalArrangement = Arrangement.spacedBy(MapOverlay.Spacing),
-  ) {
-    overlayScope.ZoomButtons()
-    overlayScope.ExpandingAttributionButton()
-  }
+  include(Material3DefaultOverlay)
+  ZoomButtons(Modifier.align(Alignment.CenterEnd))
 }
 
 /**

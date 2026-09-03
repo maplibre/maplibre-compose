@@ -1,7 +1,6 @@
 package org.maplibre.compose.overlay
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.LayoutScopeMarker
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -176,30 +175,14 @@ public class MapOverlay(
     }
 
     /**
-     * The controls from [Default], plus zoom buttons above the attribution button.
+     * The controls from [Default], plus zoom buttons at the middle of the end edge, clear of the
+     * compass above and the attribution below.
      *
      * The zoom buttons complement the zoom gestures; they serve pointer devices and accessibility.
      */
     public val Full: MapOverlay = MapOverlay {
-      DisappearingScaleBar(
-        metersPerDp = mapState.viewport?.metersPerDpAtTarget ?: 0.0,
-        zoom = mapState.cameraPosition.zoom,
-        modifier = Modifier.align(Alignment.TopStart),
-      )
-
-      DisappearingCompassButton(modifier = Modifier.align(Alignment.TopEnd))
-
-      MaplibreLogo(Modifier.align(Alignment.BottomStart))
-
-      val overlayScope = this
-      Column(
-        Modifier.align(Alignment.BottomEnd),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(Spacing),
-      ) {
-        overlayScope.ZoomButtons()
-        overlayScope.ExpandingAttributionButton()
-      }
+      include(Default)
+      ZoomButtons(Modifier.align(Alignment.CenterEnd))
     }
   }
 }
