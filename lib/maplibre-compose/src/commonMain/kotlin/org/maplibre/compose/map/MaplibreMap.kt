@@ -9,11 +9,13 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.UiComposable
@@ -22,6 +24,7 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.overlay.MapOverlay
@@ -35,7 +38,6 @@ import org.maplibre.compose.style.rememberStyleComposition
 import org.maplibre.compose.util.ClickResult
 import org.maplibre.compose.util.FeaturesClickHandler
 import org.maplibre.compose.util.MapClickHandler
-import org.maplibre.spatialk.geojson.Position
 
 private class MapStateAttachment(
   val state: MapState,
@@ -164,8 +166,11 @@ private fun MaplibreMapPresentation(
   contentWindowInsets: WindowInsets,
   overlay: @Composable @UiComposable MapOverlayScope.() -> Unit,
 ) {
-  var rememberedStyle by remember { mutableStateOf<StyleBinding?>(null) }
-  val desiredRevision by
+  // The dispatcher reads this state directly: a click can arrive between the style binding's
+  // invalidation and the recomposition that clears it.
+  val rememberedStyleState = remember { mutableStateOf<StyleBinding?>(null) }
+  var rememberedStyle by rememberedStyleState
+  val desiredRevisionState =
     rememberStyleComposition(
       composition = state.styleComposition,
       maybeStyle = rememberedStyle,
@@ -176,8 +181,25 @@ private fun MaplibreMapPresentation(
           it.definition.id
         },
     )
+  val desiredRevision by desiredRevisionState
   val mapClickScope = rememberCoroutineScope()
   val mapAttachment = state.currentMapAttachment
+  val currentOnClick = rememberUpdatedState(onClick)
+  val currentOnLongClick = rememberUpdatedState(onLongClick)
+  // The style subcomposition publishes into a revision state it re-creates per loaded style, and
+  // the dispatcher must keep its identity because the pointer input holding it does not restart.
+  val currentDesiredRevision = rememberUpdatedState(desiredRevisionState)
+  val clickDispatcher =
+    remember(state, mapClickScope) {
+      MapClickDispatcher(
+        state = state,
+        scope = mapClickScope,
+        onClick = currentOnClick,
+        onLongClick = currentOnLongClick,
+        desiredRevision = currentDesiredRevision,
+        loadedStyle = rememberedStyleState,
+      )
+    }
   var retainedRevisionReplayed by remember(rememberedStyle, mapAttachment) { mutableStateOf(false) }
 
   LaunchedEffect(rememberedStyle, mapAttachment, attachment) {
@@ -202,15 +224,7 @@ private fun MaplibreMapPresentation(
   }
 
   val adapterCallbacks =
-    remember(
-      desiredRevision,
-      mapClickScope,
-      attachment,
-      mapAttachment,
-      onClick,
-      onLongClick,
-      onFrame,
-    ) {
+    remember(attachment, mapAttachment, onFrame) {
       object : MapAdapter.Callbacks {
         private fun currentAttachment(map: MapAdapter): MapAttachment? =
           attachment.currentAttachment(map)
@@ -249,54 +263,6 @@ private fun MaplibreMapPresentation(
           synchronizeCamera(map)?.cameraMoveEnded()
         }
 
-        private fun layerNodesInOrder(): List<DesiredStyleLayer> {
-          val layerNodes = desiredRevision?.layers?.associateBy { it.definition.id }.orEmpty()
-          val layers = rememberedStyle?.getLayers().orEmpty()
-          return layers.asReversed().mapNotNull { layer -> layerNodes[layer.id] }
-        }
-
-        private fun dispatchPointerEvent(
-          map: MapAdapter,
-          latLng: Position,
-          offset: DpOffset,
-          mapHandler: MapClickHandler,
-          layerHandler: (DesiredStyleLayer) -> FeaturesClickHandler?,
-        ) {
-          if (currentAttachment(map) == null) return
-          if (mapHandler(latLng, offset).consumed) return
-          mapClickScope.launch {
-            for (node in layerNodesInOrder()) {
-              if (layerHandler(node) == null) continue
-              val features =
-                map.queryRenderedFeatures(
-                  offset = offset,
-                  layerIds = setOf(node.definition.id),
-                  predicate = null,
-                )
-              // Recomposition may replace or remove the node while the query is suspended. A
-              // removed node never receives the click; a replaced one answers with the handler
-              // it has now.
-              val currentHandle =
-                layerNodesInOrder()
-                  .firstOrNull { it.definition.id == node.definition.id }
-                  ?.let(layerHandler) ?: continue
-              if (features.isNotEmpty() && currentHandle(features).consumed) break
-            }
-          }
-        }
-
-        override fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset) =
-          dispatchPointerEvent(map, latLng, offset, onClick, DesiredStyleLayer::onClick)
-
-        override fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset) =
-          dispatchPointerEvent(
-            map,
-            latLng,
-            offset,
-            onLongClick,
-            DesiredStyleLayer::onLongClick,
-          )
-
         override fun onFrame(fps: Double) {
           val map = state.currentMapAttachment?.adapter ?: return
           synchronizeCamera(map)
@@ -325,6 +291,7 @@ private fun MaplibreMapPresentation(
       },
       logger = state.runtime.logger,
       callbacks = adapterCallbacks,
+      clicks = clickDispatcher,
       options = mapViewOptions,
     )
 
@@ -334,5 +301,54 @@ private fun MaplibreMapPresentation(
       contentWindowInsets = contentWindowInsets,
       modifier = Modifier.matchParentSize(),
     )
+  }
+}
+
+/**
+ * Sends a recognized tap or long press to the map handler, then to each composed layer from front
+ * to back until a handler consumes it.
+ */
+private class MapClickDispatcher(
+  private val state: MapState,
+  private val scope: CoroutineScope,
+  private val onClick: State<MapClickHandler>,
+  private val onLongClick: State<MapClickHandler>,
+  private val desiredRevision: State<State<DesiredStyleRevision?>>,
+  private val loadedStyle: State<StyleBinding?>,
+) : MapClickTarget {
+  override fun onPrimaryClick(offset: DpOffset) =
+    dispatch(offset, onClick.value, DesiredStyleLayer::onClick)
+
+  override fun onSecondaryClick(offset: DpOffset) =
+    dispatch(offset, onLongClick.value, DesiredStyleLayer::onLongClick)
+
+  private fun layerNodesInOrder(): List<DesiredStyleLayer> {
+    val layerNodes = desiredRevision.value.value?.layers?.associateBy { it.definition.id }.orEmpty()
+    val layers = loadedStyle.value?.takeIf { it.isLoaded }?.getLayers().orEmpty()
+    return layers.asReversed().mapNotNull { layer -> layerNodes[layer.id] }
+  }
+
+  private fun dispatch(
+    offset: DpOffset,
+    mapHandler: MapClickHandler,
+    layerHandler: (DesiredStyleLayer) -> FeaturesClickHandler?,
+  ) {
+    val attachment = state.currentMapAttachment ?: return
+    val position = attachment.positionFromScreenLocation(offset) ?: return
+    if (mapHandler(position, offset).consumed) return
+    scope.launch {
+      for (node in layerNodesInOrder()) {
+        if (layerHandler(node) == null) continue
+        val features =
+          attachment.queryRenderedFeatures(offset = offset, layerIds = setOf(node.definition.id))
+        // Recomposition may replace or remove the node while the query is suspended. A removed
+        // node never receives the click; a replaced one answers with the handler it has now.
+        val currentHandle =
+          layerNodesInOrder()
+            .firstOrNull { it.definition.id == node.definition.id }
+            ?.let(layerHandler) ?: continue
+        if (features.isNotEmpty() && currentHandle(features).consumed) break
+      }
+    }
   }
 }

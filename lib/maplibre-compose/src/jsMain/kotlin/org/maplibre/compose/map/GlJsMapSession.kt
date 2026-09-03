@@ -1269,21 +1269,6 @@ internal class GlJsMapSession(
     this.duration = duration.inWholeMilliseconds.toDouble()
   }
 
-  override fun onPrimaryClick(offset: DpOffset) {
-    val position = map?.unprojectAt(offset.x.value.toDouble(), offset.y.value.toDouble()) ?: return
-    withLifecyclePresentation { engine, lease ->
-      lifecycleCallbacks.onClick(engine, lease, this, position, offset)
-    }
-  }
-
-  /** A mouse has no press-and-hold convention, so the secondary button is the long press. */
-  override fun onSecondaryClick(offset: DpOffset) {
-    val position = map?.unprojectAt(offset.x.value.toDouble(), offset.y.value.toDouble()) ?: return
-    withLifecyclePresentation { engine, lease ->
-      lifecycleCallbacks.onLongClick(engine, lease, this, position, offset)
-    }
-  }
-
   private inline fun withLifecyclePresentation(action: (EngineMapIdentity, RenderLease) -> Unit) {
     val engine = lifecycleEngineIdentity ?: return
     val lease = lifecycleRenderLease ?: return

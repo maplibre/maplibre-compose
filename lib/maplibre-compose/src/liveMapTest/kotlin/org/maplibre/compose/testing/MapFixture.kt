@@ -1,6 +1,5 @@
 package org.maplibre.compose.testing
 
-import androidx.compose.ui.unit.DpOffset
 import kotlin.math.abs
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -14,7 +13,6 @@ import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
-import org.maplibre.spatialk.geojson.Position
 
 /**
  * A real map session on whichever MapLibre this platform uses, driven frame by frame by the test.
@@ -178,14 +176,6 @@ internal class RecordingMapCallbacks(
       it.cameraMoveEnded()
     }
     events += "cameraMoveEnded"
-  }
-
-  override fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset) {
-    events += "click"
-  }
-
-  override fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset) {
-    events += "longClick"
   }
 
   override fun onFrame(fps: Double) {

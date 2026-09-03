@@ -127,10 +127,6 @@ internal interface MapAdapter {
 
     fun onCameraMoveEnded(map: MapAdapter)
 
-    fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset)
-
-    fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset)
-
     fun onFrame(fps: Double)
   }
 }
@@ -149,10 +145,6 @@ internal object EmptyMapAdapterCallbacks : MapAdapter.Callbacks {
   override fun onCameraMoved(map: MapAdapter) = Unit
 
   override fun onCameraMoveEnded(map: MapAdapter) = Unit
-
-  override fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset) = Unit
-
-  override fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset) = Unit
 
   override fun onFrame(fps: Double) = Unit
 }
@@ -179,10 +171,6 @@ internal class DurableStyleCallbacks(private val owner: MapState) : MapAdapter.C
   override fun onCameraMoved(map: MapAdapter) = Unit
 
   override fun onCameraMoveEnded(map: MapAdapter) = Unit
-
-  override fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset) = Unit
-
-  override fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset) = Unit
 
   override fun onFrame(fps: Double) = Unit
 }

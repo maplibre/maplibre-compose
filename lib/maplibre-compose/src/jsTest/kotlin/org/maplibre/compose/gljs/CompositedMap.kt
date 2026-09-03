@@ -16,7 +16,6 @@ import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
-import org.maplibre.spatialk.geojson.Position
 
 private const val RENDER_TIMEOUT_MS = 30_000
 
@@ -110,10 +109,6 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
     override fun onCameraMoved(map: MapAdapter) = Unit
 
     override fun onCameraMoveEnded(map: MapAdapter) = Unit
-
-    override fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset) = Unit
-
-    override fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset) = Unit
 
     override fun onFrame(fps: Double) = Unit
   }

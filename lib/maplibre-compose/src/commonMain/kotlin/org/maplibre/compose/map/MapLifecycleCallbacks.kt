@@ -1,9 +1,7 @@
 package org.maplibre.compose.map
 
-import androidx.compose.ui.unit.DpOffset
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.style.StyleBinding
-import org.maplibre.spatialk.geojson.Position
 
 /** Filters platform callbacks through identities captured by their platform producer. */
 internal class MapLifecycleCallbacks(
@@ -90,28 +88,6 @@ internal class MapLifecycleCallbacks(
       } finally {
         afterDelegate()
       }
-    }
-
-  fun onClick(
-    engine: EngineMapIdentity,
-    lease: RenderLease,
-    map: MapAdapter,
-    latLng: Position,
-    offset: DpOffset,
-  ) =
-    withPresentation(engine, lease) {
-      delegate().onClick(map, latLng, offset)
-    }
-
-  fun onLongClick(
-    engine: EngineMapIdentity,
-    lease: RenderLease,
-    map: MapAdapter,
-    latLng: Position,
-    offset: DpOffset,
-  ) =
-    withPresentation(engine, lease) {
-      delegate().onLongClick(map, latLng, offset)
     }
 
   fun onFrame(engine: EngineMapIdentity, lease: RenderLease, fps: Double) =

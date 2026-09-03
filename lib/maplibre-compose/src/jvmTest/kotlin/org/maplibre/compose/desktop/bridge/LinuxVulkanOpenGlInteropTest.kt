@@ -4,7 +4,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.asComposeCanvas
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.LayoutDirection
 import java.lang.invoke.MethodHandles
 import java.nio.file.Files
@@ -82,7 +81,6 @@ import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.render.RenderBackend
-import org.maplibre.spatialk.geojson.Position
 
 class LinuxVulkanOpenGlInteropTest {
 
@@ -264,10 +262,6 @@ class LinuxVulkanOpenGlInteropTest {
         override fun onCameraMoved(map: MapAdapter) {}
 
         override fun onCameraMoveEnded(map: MapAdapter) {}
-
-        override fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset) {}
-
-        override fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset) {}
 
         override fun onFrame(fps: Double) {}
       }

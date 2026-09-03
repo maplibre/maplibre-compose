@@ -1909,31 +1909,6 @@ internal class MlnFfiMapSession(
     }
   }
 
-  override fun onPrimaryClick(offset: DpOffset) {
-    if (!lifecycle.acceptsWork) return
-    val position = withSnapshotProjection { it.latLngForPixel(offset.toScreenPoint()).toPosition() }
-    if (position == null) {
-      logger?.w { "Dropped a map click at $offset: the map has no viewport" }
-      return
-    }
-    withLifecyclePresentation { engine, lease ->
-      lifecycleCallbacks.onClick(engine, lease, this, position, offset)
-    }
-  }
-
-  /** A mouse has no press-and-hold convention, so the secondary button is the long press. */
-  override fun onSecondaryClick(offset: DpOffset) {
-    if (!lifecycle.acceptsWork) return
-    val position = withSnapshotProjection { it.latLngForPixel(offset.toScreenPoint()).toPosition() }
-    if (position == null) {
-      logger?.w { "Dropped a map long click at $offset: the map has no viewport" }
-      return
-    }
-    withLifecyclePresentation { engine, lease ->
-      lifecycleCallbacks.onLongClick(engine, lease, this, position, offset)
-    }
-  }
-
   private inline fun withLifecycleStyle(action: (EngineMapIdentity, StyleIdentity) -> Unit) {
     val engine = lifecycleEngineIdentity ?: return
     val style = lifecycleStyleIdentity ?: return
