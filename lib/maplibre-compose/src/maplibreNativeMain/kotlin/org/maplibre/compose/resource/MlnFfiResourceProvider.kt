@@ -62,7 +62,7 @@ internal class MlnFfiResourceProvider(
   /** Test seam: a cancelled scope reproduces a close that races [takeUser]. */
   userCoroutineScope: CoroutineScope? = null,
   @Volatile var userProvider: MapResourceProvider? = null,
-  /** Live interceptor used to decide pass-through for a non-network URL. */
+  /** The current request configuration for routing non-network URLs. */
   @Volatile var resourceConfig: MapResourceConfig? = null,
 ) : ResourceProviderCallback, AutoCloseable {
 
@@ -343,11 +343,11 @@ internal fun isMapLibresToFetch(resolvedUrl: String): Boolean =
   schemeOf(resolvedUrl).let { it == null || it in NETWORK_SCHEMES }
 
 /**
- * Whether MapLibre's loader should fetch [request] after the interceptor runs.
+ * Returns whether MapLibre's loader can fetch [request].
  *
- * A network URL passes through without consulting the interceptor here; the runtime transform
- * callback does that once. A custom scheme is rewritten first so a change to http(s) can pass
- * through instead of reaching the packaged-resource reader.
+ * Network URLs pass through without calling [interceptor] here because the runtime calls it during
+ * request transformation. A URL with another scheme passes through only when [interceptor] rewrites
+ * it to HTTP or HTTPS.
  */
 internal fun shouldPassThroughToEngine(
   request: MapResourceRequest,
