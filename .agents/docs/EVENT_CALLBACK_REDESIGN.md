@@ -1,8 +1,8 @@
 # Engine event redesign
 
-Staging notes for replacing the map event callbacks with a stream of the events
-that the engines emit. The shapes below are representative, not locked. A
-prototype will change them.
+Design notes for the stream of engine events that `MapState.events` publishes,
+and for the internal sink that feeds it. The shapes below are the ones in the
+tree.
 
 This is a sibling of [GESTURE_REDESIGN.md](./GESTURE_REDESIGN.md). That document
 owns pointer recognition, bindings, and click dispatch. This document owns the
@@ -10,9 +10,6 @@ events that MapLibre Native FFI and MapLibre GL JS emit. The two meet at one
 point: the gesture token decides whether a camera change is user-driven.
 
 ## What the code was
-
-The redesign replaced this shape. Every step in the [Sequence](#sequence) has
-landed.
 
 `MapAdapter.Callbacks` had ten methods that both engine sessions implemented,
 and `MapLifecycleCallbacks` filtered each call through the engine identity,
@@ -22,30 +19,23 @@ unrelated things.
 **A two-way style handshake.** `onStyleChanged`, `onMapFinishedLoading`,
 `onMapFailLoading`, and `onSourceChanged` were a protocol, not events. The
 session offered a style binding, `MapState` accepted or rejected it, and the
-session branched on the answer: it kept or invalidated the binding, and it
-cleared or kept its own "load unreported" flag.
+session branched on the answer. The handshake survives under protocol names.
 
 **Camera state feeding.** `onCameraMoveStarted`, `onCameraMoved`, and
 `onCameraMoveEnded` existed to set `viewport`, `isCameraMoving`, and
 `cameraMoveReason` on the current attachment. Both sessions ran the same
-coalescing. Native emits `MAP_CAMERA_WILL_CHANGE`, `MAP_CAMERA_IS_CHANGING`, and
-`MAP_CAMERA_DID_CHANGE`; the browser emits `movestart`, `move`, and `moveend`.
-Compose drives a drag as a series of jumps, so each pointer move produced its
-own did-change or moveend. The session read its gesture flag and withheld the
-end callback until the gesture ended, so that a drag reported as one move. The
-session also set `CameraMoveReason` from that same flag.
+coalescing. Compose drives a drag as a series of jumps, so each pointer move
+produced its own did-change or moveend, and the session withheld the end
+callback until its gesture flag cleared so that a drag reported as one move. The
+session also set `CameraMoveReason` from that flag. The three callbacks are
+gone, the sessions post the engine's own camera events, and `MapState` derives
+the state.
 
 **Values that neither engine emits.** `onClick` and `onLongClick` originated in
-Compose input. `MapInput` recognized a tap or long press and called
-`GestureTarget.onPrimaryClick` or `onSecondaryClick`. The session unprojected
-the offset and called back into `MaplibreMap`, which walked the layers.
-`onFrame(fps)` was an inter-frame interval that the session measured in its own
-render loop. The FFI reports `MAP_RENDER_FRAME_FINISHED` with a payload, and GL
-JS reports `render`, and neither reports a rate.
-
-The public surface was `onClick`, `onLongClick`, and `onFrame` on `MaplibreMap`,
-plus `onClick` and `onLongClick` on each layer composable. Load state, viewport,
-and camera motion already surfaced as state on `MapState`.
+Compose input, took a session round trip to unproject the offset, and came back
+into `MaplibreMap`, which walked the layers. `onFrame(fps)` was an inter-frame
+interval that the session measured in its own render loop. Clicks now dispatch
+from Compose input, and the frame signal is the engine's own frame event.
 
 That shape dated from a period when Android `MapView`, iOS `MLNMapView`, and GL
 JS each had a different observer API, clicks arrived from the engine, and there
@@ -94,8 +84,7 @@ GL JS `MapEventType` in maplibre-gl 6.6.0, grouped:
 - Pointer: `click`, `dblclick`, `contextmenu`, `mousemove` and the other mouse
   events, the touch events, `wheel`, `cooperativegestureprevented`
 
-GL JS selects types with `on(type)`. The session subscribes to `style.load`,
-`styledata`, `sourcedata`, `error`, `movestart`, `move`, and `moveend`.
+GL JS selects types with `on(type)`.
 
 ## The shape
 
@@ -104,20 +93,29 @@ publishes the same values. Sessions translate; they do not reshape.
 
 ```text
 engine event  →  identity filter  →  MapState reactions  →  public Flow
-(FFI drain,      (lease or style     (load state,           (MapState.events)
- GL JS on)        identity)           viewport, camera)
+(FFI drain,      (lease, style, or   (viewport, camera     (MapState.events)
+ GL JS on)        engine identity)    change)
 ```
 
-Identity filtering stays. An event from a departed render lease or a superseded
-style request is dropped. `Idle` reports the engine's own progress rather than a
-style's or a lease's, so it filters on the engine identity and arrives after a
-failed style load too. That is ownership, not reshape, and
-`MapLifecycleCallbacks` already does it.
+Identity filtering stays, and `MapLifecycleCallbacks` does it. Each event
+filters on the identity that produced it:
+
+| Identity      | Events                                                                 |
+| ------------- | ---------------------------------------------------------------------- |
+| Render lease  | `CameraMoveStarted`, `CameraMoved`, `CameraMoveEnded`, `FrameRendered` |
+| Style         | `StyleLoaded`, `StyleImageMissing`                                     |
+| Style request | `StyleLoadFailed`                                                      |
+| Engine        | `Idle`                                                                 |
+
+An event from a departed render lease or a superseded style request is dropped.
+`Idle` reports the engine's own progress rather than a style's or a lease's, so
+it filters on the engine identity and arrives after a failed style load too.
+That is ownership, not reshape.
 
 ### Events
 
 Immutable values in `commonMain`. Each one is an event that both engines emit in
-the same terms. Each translation is a rename plus a payload copy.
+the same terms, and each translation is a rename plus a payload copy.
 
 ```kotlin
 public sealed interface MapEvent {
@@ -136,43 +134,45 @@ public sealed interface MapEvent {
   public data class FrameRendered(val stats: RenderStats?) : MapEvent
 
   public data class StyleImageMissing(val imageId: String) : MapEvent
-
-  public data class EngineError(val message: String, val sourceId: String?) : MapEvent
 }
 ```
 
-| Event               | maplibre-native-ffi         | maplibre-gl-js        |
-| ------------------- | --------------------------- | --------------------- |
-| `StyleLoaded`       | `MAP_STYLE_LOADED`          | `style.load`          |
-| `StyleLoadFailed`   | `MAP_LOADING_FAILED`        | `error`, terminal     |
-| `Idle`              | `MAP_IDLE`                  | `idle`                |
-| `CameraMoveStarted` | `MAP_CAMERA_WILL_CHANGE`    | `movestart`           |
-| `CameraMoved`       | `MAP_CAMERA_IS_CHANGING`    | `move`                |
-| `CameraMoveEnded`   | `MAP_CAMERA_DID_CHANGE`     | `moveend`             |
-| `FrameRendered`     | `MAP_RENDER_FRAME_FINISHED` | `render`              |
-| `StyleImageMissing` | `MAP_STYLE_IMAGE_MISSING`   | `styleimagemissing`   |
-| `EngineError`       | `MAP_RENDER_ERROR`          | `error`, non-terminal |
+| Event               | maplibre-native-ffi         | maplibre-gl-js      |
+| ------------------- | --------------------------- | ------------------- |
+| `StyleLoaded`       | `MAP_STYLE_LOADED`          | `style.load`        |
+| `StyleLoadFailed`   | `MAP_LOADING_FAILED`        | `error`, terminal   |
+| `Idle`              | `MAP_IDLE`                  | `idle`              |
+| `CameraMoveStarted` | `MAP_CAMERA_WILL_CHANGE`    | `movestart`         |
+| `CameraMoved`       | `MAP_CAMERA_IS_CHANGING`    | `move`              |
+| `CameraMoveEnded`   | `MAP_CAMERA_DID_CHANGE`     | `moveend`           |
+| `FrameRendered`     | `MAP_RENDER_FRAME_FINISHED` | `render`            |
+| `StyleImageMissing` | `MAP_STYLE_IMAGE_MISSING`   | `styleimagemissing` |
 
-`animated` is the FFI `CameraChangeMode`. GL JS has no such field, so the
-browser session passes null.
+`MlnFfiMapEvents.kt` holds the native translation as
+`RuntimeEvent.toMapEvent()`, and `GlJsMapEvents.kt` holds the browser
+translation as three maps from GL JS type name to translation, one per identity.
 
-`RenderStats` is the FFI frame payload: render mode, needs-repaint,
-placement-changed, encoding time, rendering time, frame count, and draw call
-counts. GL JS `render` has no payload, so the browser session passes null.
+`animated` is true when the FFI `CameraChangeMode` is `ANIMATED`. GL JS has no
+such field, so the browser session passes null.
+
+`RenderStats` is the FFI frame payload: `mode`, `needsRepaint`,
+`placementChanged`, `encodingTime`, `renderingTime`, `frameCount`,
+`drawCallCount`, and `totalDrawCallCount`. The times are `Duration` values
+converted from the FFI's seconds. `mode` is a nested `RenderStats.Mode` of
+`Partial` or `Full`, and it is null for a `RenderMode` that this build does not
+name, because `RenderMode` is an open domain like `RuntimeEventType`. GL JS
+`render` has no payload, so the browser session passes null.
 
 The camera triple is per engine change, not per gesture. A Compose-driven drag
 emits one started and ended pair per pointer move on both engines, because that
-is what the engines emit. `isCameraMoving` stays a derived state, true while a
-gesture token is held or a camera transition is in flight. `CameraMoveReason`
-leaves the event path and stays a presentation fact that the gesture token sets.
+is what the engines emit.
 
 `StyleLoaded` reports that the engine parsed the base style. The composition
 applies after that, so `loadState` reaches `Ready` later. A caller that wants
 the composed style ready reads `loadState`.
 
 A terminal browser `error` is one that ends the base style request. The session
-already separates that from a tile or sprite error with
-`isTerminalStyleLoadFailure`.
+separates that from a tile or sprite error with `isTerminalStyleLoadFailure`.
 
 ### Publication
 
@@ -188,10 +188,17 @@ public class MapState {
 engine flow while the map is detached, and camera and frame events stop while no
 lease is current. This matches `viewport`, which is null while detached.
 
-The backing flow is a `SharedFlow` with a bounded buffer and drop-oldest. The
-owner thread emits and must never block on a slow collector. Frames are the only
-high-rate type, and the library already handles every frame through `onFrame`,
-so a fixed engine mask covering the catalog above costs nothing new.
+The backing flow is a `MutableSharedFlow` with no replay, an extra buffer of 64
+events, and drop-oldest overflow. `MapState.onEvent` calls `tryEmit` after its
+reactions, so a collector reads the values that the event produced. The owner
+thread emits and never blocks on a slow collector; 64 is about half a second of
+frames at 120 Hz. A collector on an undispatched context runs on the thread that
+reported the event, under the lock that serializes the map lifecycle, so the
+KDoc on `events` tells callers to collect on a dispatcher before calling a map
+command.
+
+Frames are the only high-rate type, and the library handled every frame before
+the redesign, so a fixed engine mask covering the catalog costs nothing new.
 Subscription-counted masks, which both engines can express, wait until a
 high-rate optional type such as tile actions joins the catalog.
 
@@ -219,10 +226,15 @@ LaunchedEffect(state) {
 }
 ```
 
+The images page of the documentation site shows the missing-image recipe from
+the `missing-image` region of `docsnippets/Images.kt`. It waits for a ready
+style before the add and supplies each id once. `MapStateEventsTest` runs that
+recipe on both engines.
+
 A completed-frame signal is `FrameRendered`. [#1043] asks for exactly that: a
 caller arms a token after a state change and consumes it on the next frame. The
-demo frame counter already counts frames itself, and the benchmark timestamps
-`FrameRendered` to recover intervals.
+demo frame counter counts `FrameRendered`, and the benchmark timestamps each one
+to recover intervals.
 
 [#1043]: https://github.com/maplibre/maplibre-compose/issues/1043
 
@@ -246,53 +258,80 @@ internal interface MapAdapter.Callbacks {
 }
 ```
 
-`onEvent` returns `Unit`. `MapLifecycleCallbacks` already answers whether the
-identity that produced a call is still current, and the session branches on that
-answer, so the sink does not carry a second one.
+`onEvent` returns `Unit`. `MapLifecycleCallbacks` answers whether the identity
+that produced a call is still current, and the session branches on that answer,
+so the sink does not carry a second one. `MapState` re-checks the adapter before
+it reacts, as `synchronizeCamera` does.
 
 `onStyleSourcesChanged` survives the redesign. The native session finds newly
-arrived TileJSON attribution by polling `styleSourceInfo` on its owner thread,
-and its style binding reports its own adds and removes; neither is an engine
-event. Refreshing sources on every `Idle` instead would rewrite the
-`style.sources` snapshot on each idle and recompose every reader.
+arrived TileJSON attribution by polling `styleSourceInfo` on its owner thread
+and reports each source once, and its style binding reports its own adds and
+removes; neither is an engine event. Refreshing sources on every `Idle` instead
+would rewrite the `style.sources` snapshot on each idle and recompose every
+reader.
 
 `onGestureActive` and `onViewportChanged` are presentation facts that no engine
 emits. The gesture token lives in the session, and on native the gesture ends on
 the owner thread only after the queued camera commands and their events have
-drained, so the session reports it in the right order. A native resize adopts a
-new viewport without emitting a camera event, and publishing a synthetic
-`CameraMoved` for it would reshape rather than translate.
+drained (`finishPendingGesture`), so the session reports it in the right order.
+A native resize adopts a new viewport without emitting a camera event, and
+publishing a synthetic `CameraMoved` for it would reshape rather than translate.
 
 Each session translates one FFI `RuntimeEvent` or one GL JS listener call into
 one `MapEvent` and posts it. The translation does not coalesce a drag, compute a
-rate, or unproject a click. `MapState` reacts inside `onEvent`: it snapshots the
-viewport on the camera triple, starts and ends the camera change that
-`isCameraMoving` reports, and then publishes to `events`.
+rate, or unproject a click. The native session refreshes its viewport mirror
+inside the same acceptance as each camera event, through the `beforeDelegate`
+parameter of the presentation-scoped `MapLifecycleCallbacks.onEvent`, so
+`MapState` reads a fresh viewport during a drag.
+
+`MapState.onEvent` reacts, then publishes. On each of the camera triple it calls
+`synchronizeCamera`, which reads the adapter's camera position and viewport and
+publishes both. `CameraMoveStarted` also marks a camera change in flight on the
+attachment, and `CameraMoveEnded` clears it. `FrameRendered` and the rest carry
+no reaction.
+
+`isCameraMoving` is derived on `MapAttachment`: a gesture holds the camera, or
+an engine camera change is in flight. `cameraMoveReason` becomes `GESTURE` when
+`onGestureActive(true)` arrives, and `PROGRAMMATIC` when a `CameraMoveStarted`
+arrives with no gesture active. A gesture sets the reason even while an engine
+change is in flight, because the token decides whether a change belongs to the
+user. `MapStateEventReactionTest` pins these rules in `commonTest`, and
+`CameraMoveReportingTest` and `MlnFfiGestureTokenOrderingTest` pin them against
+live maps.
 
 A session may consume engine-only events for library reactions without those
-events being common. The browser session keeps its `sourcedata` metadata
-subscription for attribution refresh, and the native session keeps
-`MAP_RENDER_UPDATE_AVAILABLE` for render scheduling and
-`MAP_CAMERA_TRANSITION_FINISHED` for transition waiters.
+events being common. The browser session keeps its `styledata` and `sourcedata`
+subscriptions for load reporting and attribution refresh, and resumes eased
+transitions on an accepted `CameraMoveEnded`. The native session keeps
+`MAP_RENDER_UPDATE_AVAILABLE` for render scheduling, `MAP_LOADING_FINISHED` as a
+second route to reporting a loaded style, and `MAP_CAMERA_TRANSITION_FINISHED`
+for transition waiters. Both engines log their non-terminal errors: native
+`MAP_RENDER_ERROR`, and browser `error` outside a style load.
 
 ### Clicks
 
-Clicks leave the adapter now, ahead of the gesture redesign.
-`MapState.positionFromScreenLocation` is already public, so `MapInput` can
-unproject and dispatch to the map and layer handlers without the session round
-trip. The gesture redesign later replaces the handlers with its tap-family
-chain.
+Clicks left the adapter ahead of the gesture redesign. `MapInput` reports a tap
+or long press to a `MapClickTarget`, and `MapClickDispatcher` in `MaplibreMap`
+unprojects through `MapState.positionFromScreenLocation` and dispatches to the
+map and layer handlers. A click that arrives while the map has no viewport is
+dropped without a log line. The gesture redesign replaces the handlers with its
+tap-family chain.
 
 ### Deleted APIs
 
 - `onFrame` on `MaplibreMap`.
 - `MapAdapter.Callbacks.onCameraMoveStarted`, `onCameraMoved`,
   `onCameraMoveEnded`, `onClick`, `onLongClick`, and `onFrame`.
+- `GestureTarget.onPrimaryClick` and `onSecondaryClick`, moved to
+  `MapClickTarget`.
+- `EngineError`, which appeared in the first draft of the catalog. Native
+  `MAP_RENDER_ERROR` is a render failure, and browser `error` is a tile, sprite,
+  glyph, or source failure with a source id. Both engines log those, and nothing
+  in the tree consumed one event that meant two different things.
 - `CameraMoveReason` as a value that a session computes. It stays on `MapState`
-  as a value that the gesture token sets.
-- `CameraMoveReason.UNKNOWN`. The token leaves three states: not moved yet, a
-  gesture holds the camera, and a programmatic change. Nothing reports
-  `UNKNOWN`, so it becomes a deprecation.
+  as a value that the gesture token and the camera events set.
+- `CameraMoveReason.UNKNOWN` as a reported value. The enum keeps the constant,
+  and its KDoc states that the library never reports it.
 
 ### Deferred from the common catalog
 
@@ -322,52 +361,37 @@ the common type does not gain one.
 | Frame completed             | `onFrame(fps)`                          | `FrameRendered`                          |
 | Frame rate                  | `onFrame(fps)`                          | Timestamps of `FrameRendered`            |
 | Missing sprite              | Logged and dropped                      | `StyleImageMissing`                      |
-| Engine error                | Logged                                  | `EngineError`                            |
+| Engine error                | Logged                                  | Logged                                   |
 | Map or layer click          | Session round trip and layer parameters | Compose dispatch, then the gesture chain |
 | Tile progress, GL JS extras | Unavailable in common                   | `withPlatformMap`                        |
 
-## Sequence
+## What landed
 
-Each step lands on its own. The first two conflict with nothing in flight.
+The redesign landed as five commits, each on its own: clicks out of the adapter,
+the value model and translation, reactions moved to `MapState`, the public flow
+with `onFrame` removed, and the handshake rename. `EngineEventTest` asserts each
+event on a live map on both engines, and `MlnFfiMapEventsTest` and
+`GlJsMapEventsTest` assert the translations.
 
-1. **Clicks out of the adapter.** `MapInput` unprojects through `MapState` and
-   dispatches directly. `onClick` and `onLongClick` leave
-   `MapAdapter.Callbacks`. Behavior is identical.
-2. **Value model and translation.** `MapEvent` and `RenderStats` in
-   `commonMain`. Both sessions post events through `onEvent` beside the existing
-   callbacks. Tests assert that each handled FFI type and each subscribed GL JS
-   type produces one `MapEvent` with the right payload.
-3. **Reactions move.** Viewport snapshots and `isCameraMoving` read `MapEvent`.
-   The camera trio leaves the adapter. A resize changes the projection without a
-   camera event, so both sessions keep a viewport snapshot of their own beside
-   the event path. Existing presentation tests pin the token ordering.
-4. **Public flow.** `MapState.events` publishes. `onFrame` leaves `MaplibreMap`,
-   and the demo frame counter and benchmark move to `FrameRendered`.
-5. **Handshake rename.** The style methods take their protocol names:
-   `onStyleReady`, `onStyleFailed`, and `onStyleSourcesChanged`.
-
-## Open questions
+## Resolved questions
 
 **Missing images on the browser.** GL JS 6.6 fires `styleimagemissing` only
 after its `setMissingStyleImageResolver` callback has had a chance to supply the
-image, and a listener cannot resolve the current request. On native the event
-drains asynchronously, and mbgl re-checks the image set after a later
-`setStyleImage`. The event is enough to stop dropping the FFI event. Whether an
-add from a collector satisfies the pending request on both engines needs a live
-test. If the browser needs the resolver, that is a separate command-style API,
-tracked in [COMMON_API_GAPS.md](./COMMON_API_GAPS.md).
+image, and a listener cannot resolve the current request. Both engines publish
+`StyleImageMissing`, and the KDoc states the difference: on native an image
+added in response satisfies the request at the next placement, and on the
+browser it applies to later requests of that id. `MapStateEventsTest` shows that
+an add from a collector reaches the style on both engines. Whether that add also
+resolves the pending request on the browser is untested. A resolver is a
+separate command-style API, and this catalog does not carry one.
 
-**Frame source on native.** The session's own render loop knows when
-`renderUpdate` drew a frame, and the FFI queues `MAP_RENDER_FRAME_FINISHED` from
-the mbgl observer inside that same render. The event is the engine's contract,
-so `FrameRendered` comes from the drain. A prototype confirms that the drain
-cadence keeps the event close to the frame it describes.
+**Frame source on native.** `FrameRendered` comes from the drain, because the
+event is the engine's contract. The runtime loop parks in `pump` and a queued
+event wakes it, so the event follows the frame it describes without waiting for
+the next pump. The session's own `reportFrameRate` measurement is gone.
 
-**Browser camera mode.** Null is honest. Mapping `isEasing()` is a guess. The
-first version passes null.
+**Browser camera mode.** The browser passes null. Mapping `isEasing()` would be
+a guess.
 
-**Error on the browser.** GL JS `error` carries tile, sprite, glyph, and source
-failures with a `sourceId`. FFI `MAP_RENDER_ERROR` is a render failure, and tile
-errors arrive as `MAP_TILE_ACTION` with the error operation. `EngineError` is
-the lowest-value row in the catalog, and a prototype may drop it rather than
-publish two different things under one name.
+**Error on the browser.** Dropped from the catalog, as the
+[Deleted APIs](#deleted-apis) entry states.

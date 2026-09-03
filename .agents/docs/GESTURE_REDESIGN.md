@@ -14,8 +14,8 @@ This ships against the ownership API: `MaplibreMap(state)` with the camera on
 
 Engine events such as style load, idle, frames, and missing images are a
 separate surface, in [EVENT_CALLBACK_REDESIGN.md](./EVENT_CALLBACK_REDESIGN.md).
-That work moves click dispatch out of `MapAdapter.Callbacks` and into Compose
-first; this gesture chain then replaces the click handlers.
+That work moved click dispatch out of `MapAdapter.Callbacks` and into Compose;
+this gesture chain replaces the click handlers.
 
 ## What the current code is
 
