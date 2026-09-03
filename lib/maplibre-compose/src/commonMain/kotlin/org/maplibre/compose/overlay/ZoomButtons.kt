@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -90,21 +91,27 @@ public fun MapOverlayScope.ZoomButtons(
       if (zoomInHovered || zoomOutHovered) style.hoveredShadowElevation else style.shadowElevation
     )
 
-  // Successive presses step from the target of the animation in flight, so three quick presses zoom
-  // three levels instead of restarting each step from the camera's mid-flight position. A gesture
-  // takes the camera elsewhere, so a press after one steps from the camera again.
-  var inFlightTarget by remember { mutableStateOf<CameraPosition?>(null) }
-  fun animateZoom(getPosition: (CameraPosition) -> CameraPosition) {
-    val from =
-      inFlightTarget?.takeIf { currentMapState.cameraMoveReason != CameraMoveReason.GESTURE }
-        ?: currentMapState.cameraPosition
-    val target = getPosition(from)
-    inFlightTarget = target
+  // Successive presses in one direction step from the target of the animation in flight, so three
+  // quick presses zoom three levels instead of restarting each step from the camera mid-flight. A
+  // press in the other direction, or after a gesture, steps from the camera instead: the engine may
+  // have clamped the previous target to a constraint, and a gesture moves the camera elsewhere.
+  var inFlight by remember { mutableStateOf<InFlightZoom?>(null) }
+  LaunchedEffect(currentMapState.isCameraMoving, currentMapState.cameraMoveReason) {
+    if (
+      currentMapState.isCameraMoving && currentMapState.cameraMoveReason == CameraMoveReason.GESTURE
+    ) {
+      inFlight = null
+    }
+  }
+  fun animateZoom(zoomIn: Boolean, getPosition: (CameraPosition) -> CameraPosition) {
+    val from = inFlight?.takeIf { it.zoomIn == zoomIn }?.target ?: currentMapState.cameraPosition
+    val request = InFlightZoom(zoomIn, getPosition(from))
+    inFlight = request
     coroutineScope.launch {
       try {
-        currentMapState.animateCameraPosition(target)
+        currentMapState.animateCameraPosition(request.target)
       } finally {
-        if (inFlightTarget == target) inFlightTarget = null
+        if (inFlight === request) inFlight = null
       }
     }
   }
@@ -118,7 +125,7 @@ public fun MapOverlayScope.ZoomButtons(
   ) {
     ZoomButton(
       onClick = {
-        animateZoom(getZoomInPosition)
+        animateZoom(zoomIn = true, getZoomInPosition)
         onZoomIn()
       },
       interactionSource = zoomInInteractionSource,
@@ -131,7 +138,7 @@ public fun MapOverlayScope.ZoomButtons(
     Box(Modifier.fillMaxWidth().height(style.dividerThickness).background(style.dividerColor))
     ZoomButton(
       onClick = {
-        animateZoom(getZoomOutPosition)
+        animateZoom(zoomIn = false, getZoomOutPosition)
         onZoomOut()
       },
       interactionSource = zoomOutInteractionSource,
@@ -143,6 +150,8 @@ public fun MapOverlayScope.ZoomButtons(
     )
   }
 }
+
+private class InFlightZoom(val zoomIn: Boolean, val target: CameraPosition)
 
 @Composable
 private fun ZoomButton(
@@ -189,7 +198,7 @@ public object ZoomButtonsDefaults {
 
   public val HoveredShadowElevation: Dp = 0.dp
 
-  /** Fully rounded ends, so the container reads as a vertical pill. */
+  /** Fully rounded ends, which make the container a vertical pill. */
   public val Shape: Shape = RoundedCornerShape(percent = 50)
 
   /** Accessibility label for the zoom-in button. */
