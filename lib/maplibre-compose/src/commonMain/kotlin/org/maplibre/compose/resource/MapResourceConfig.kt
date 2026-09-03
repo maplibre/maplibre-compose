@@ -20,15 +20,54 @@ internal class MapResourceConfig(
   }
 }
 
-internal fun MapRequestInterceptor?.transform(request: MapResourceRequest): MapRequestTransform {
-  val result =
-    try {
-      this?.intercept(request) ?: MapRequestTransform()
-    } catch (_: Exception) {
-      MapRequestTransform()
-    }
-  return if (result.url != null && result.url.isBlank()) result.copy(url = null) else result
+internal sealed interface MapResourceRoute {
+  /** The request after [MapRequestInterceptor.rewriteUrl]. */
+  val request: MapResourceRequest
+
+  /** The engine fetches [request]. */
+  data class Fetch(override val request: MapResourceRequest) : MapResourceRoute
+
+  /** [provider] loads [request]. */
+  data class Load(override val request: MapResourceRequest, val provider: MapResourceProvider) :
+    MapResourceRoute
 }
+
+internal fun MapResourceConfig.route(
+  request: MapResourceRequest,
+  interceptor: MapRequestInterceptor? = interceptor(),
+): MapResourceRoute {
+  val rewritten = request.copy(url = interceptor.rewrittenUrl(request))
+  val provider = provider
+  return if (provider != null && provider.acceptsOrDeclines(rewritten)) {
+    MapResourceRoute.Load(rewritten, provider)
+  } else {
+    MapResourceRoute.Fetch(rewritten)
+  }
+}
+
+/**
+ * The URL to fetch for [request]. A null interceptor, a null or blank rewrite, and a non-fatal
+ * exception all keep the incoming URL.
+ */
+internal fun MapRequestInterceptor?.rewrittenUrl(request: MapResourceRequest): String {
+  val rewrite =
+    try {
+      this?.rewriteUrl(request)
+    } catch (_: Exception) {
+      null
+    }
+  return if (rewrite.isNullOrBlank()) request.url else rewrite
+}
+
+/** The headers for [request]. A null interceptor and a non-fatal exception add no headers. */
+internal fun MapRequestInterceptor?.headersOrNone(
+  request: MapResourceRequest
+): Map<String, String> =
+  try {
+    this?.headers(request) ?: emptyMap()
+  } catch (_: Exception) {
+    emptyMap()
+  }
 
 /**
  * Returns false when [MapResourceProvider.accepts] throws, so an engine callback can still decide.

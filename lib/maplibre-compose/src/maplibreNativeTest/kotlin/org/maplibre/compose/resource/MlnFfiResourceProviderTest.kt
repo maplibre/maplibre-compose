@@ -5,6 +5,12 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import org.maplibre.nativeffi.resource.ResourceKind
+import org.maplibre.nativeffi.resource.ResourceLoadingMethod
+import org.maplibre.nativeffi.resource.ResourcePriority
+import org.maplibre.nativeffi.resource.ResourceRequest
+import org.maplibre.nativeffi.resource.ResourceStoragePolicy
+import org.maplibre.nativeffi.resource.ResourceUsage
 
 /** Which side of the resource boundary a URL falls on. */
 class MlnFfiResourceProviderTest {
@@ -70,4 +76,71 @@ class MlnFfiResourceProviderTest {
   fun schemeof_lowercases_so_callers_can_compare_against_lowercase_names() {
     assertEquals("jar", schemeOf("JAR:file:/app.jar!/style.json"))
   }
+
+  @Test
+  fun a_rewrite_to_a_network_url_selects_the_native_loader() {
+    val config =
+      MapResourceConfig(
+        interceptor = MapRequestInterceptor(rewriteUrl = { "https://tiles.example.com/style.json" })
+      )
+    assertEquals(
+      NativeResourceRoute.Fetch,
+      config.nativeRoute(request("custom://style.json"), true),
+    )
+  }
+
+  @Test
+  fun a_provider_load_keeps_the_style_url_as_the_requested_url() {
+    val provider = MapResourceProvider("app") { ByteArray(0) }
+    val config =
+      MapResourceConfig(
+        interceptor = MapRequestInterceptor(rewriteUrl = { "app://style.json" }),
+        provider = provider,
+      )
+
+    val route = config.nativeRoute(request("custom://style.json"), true)
+    assertTrue(route is NativeResourceRoute.Load)
+    assertEquals("app://style.json", route.request.url)
+    assertEquals("custom://style.json", route.request.requestedUrl)
+  }
+
+  @Test
+  fun the_packaged_reader_receives_the_rewritten_url() {
+    val config =
+      MapResourceConfig(
+        interceptor = MapRequestInterceptor(rewriteUrl = { "file:/styles/rewritten.json" })
+      )
+    assertEquals(
+      NativeResourceRoute.Read("file:/styles/rewritten.json"),
+      config.nativeRoute(request("custom://style.json"), true),
+    )
+  }
+
+  @Test
+  fun a_test_can_keep_a_network_url_with_the_packaged_reader() {
+    val config =
+      MapResourceConfig(
+        interceptor = MapRequestInterceptor(rewriteUrl = { "https://tiles.example.com/style.json" })
+      )
+    assertEquals(
+      NativeResourceRoute.Read("https://tiles.example.com/style.json"),
+      config.nativeRoute(request("custom://style.json"), passThroughNetwork = false),
+    )
+  }
+
+  private fun request(url: String): ResourceRequest =
+    ResourceRequest(
+      requestedUrl = url,
+      resolvedUrl = url,
+      kind = ResourceKind.STYLE,
+      loadingMethod = ResourceLoadingMethod.ALL,
+      priority = ResourcePriority.REGULAR,
+      usage = ResourceUsage.ONLINE,
+      storagePolicy = ResourceStoragePolicy.PERMANENT,
+      range = null,
+      priorModifiedUnixMs = null,
+      priorExpiresUnixMs = null,
+      priorEtag = null,
+      priorData = ByteArray(0),
+    )
 }

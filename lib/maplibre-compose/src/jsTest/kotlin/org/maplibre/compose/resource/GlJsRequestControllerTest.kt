@@ -28,18 +28,67 @@ class GlJsRequestControllerTest {
     val controller =
       GlJsRequestController(
         MapResourceConfig(
-          interceptor = { request ->
-            MapRequestTransform(
-              url = request.url.replace("http://", "https://"),
-              headers = mapOf("Authorization" to "Bearer x"),
+          interceptor =
+            MapRequestInterceptor(
+              rewriteUrl = { request -> request.url.replace("http://", "https://") },
+              headers = { mapOf("Authorization" to "Bearer x") },
             )
-          }
         )
       )
     val result = controller.transformRequest("http://tiles.example.com/style.json", "Style")
     val dynamic = result.asDynamic()
     assertEquals("https://tiles.example.com/style.json", dynamic.url as String)
     assertEquals("Bearer x", dynamic.headers["Authorization"] as String)
+    controller.close()
+  }
+
+  @Test
+  fun headers_derive_from_the_rewritten_url() {
+    val controller =
+      GlJsRequestController(
+        MapResourceConfig(
+          interceptor =
+            MapRequestInterceptor(
+              rewriteUrl = { request -> request.url.replace("custom://", "https://cdn.example/") },
+              headers = { request ->
+                if (request.url.startsWith("https://cdn.example/")) {
+                  mapOf("Authorization" to "Bearer cdn")
+                } else {
+                  emptyMap()
+                }
+              },
+            )
+        )
+      )
+    val result = controller.transformRequest("custom://style.json", "Style")
+    val dynamic = result.asDynamic()
+    assertEquals("https://cdn.example/style.json", dynamic.url as String)
+    assertEquals("Bearer cdn", dynamic.headers["Authorization"] as String)
+    controller.close()
+  }
+
+  @Test
+  fun an_interceptor_rewrite_can_select_the_provider() {
+    var acceptedUrl: String? = null
+    val controller =
+      GlJsRequestController(
+        MapResourceConfig(
+          interceptor = MapRequestInterceptor(rewriteUrl = { "app://style.json" }),
+          provider =
+            MapResourceProvider(
+              accepts = {
+                acceptedUrl = it.url
+                it.url.startsWith("app:")
+              },
+              load = { MapResourceLoad.Bytes(ByteArray(0)) },
+            ),
+        )
+      )
+
+    val result = controller.transformRequest("custom://style.json", "Style")
+    val parsed = controller.parseProtocolUrl(result.asDynamic().url as String)
+    assertEquals("app://style.json", acceptedUrl)
+    assertEquals("app://style.json", parsed.url)
     controller.close()
   }
 
@@ -90,22 +139,6 @@ class GlJsRequestControllerTest {
   }
 
   @Test
-  fun a_forged_protocol_url_is_declined() {
-    val controller =
-      GlJsRequestController(
-        MapResourceConfig(provider = MapResourceProvider("app") { ByteArray(0) })
-      )
-    val forged = controller.protocolUrl("https://evil.example/style.json", MapResourceKind.Style)
-    try {
-      controller.requireAccepted(forged)
-      error("expected the provider to decline the forged URL")
-    } catch (error: IllegalStateException) {
-      assertTrue(error.message.orEmpty().contains("declined"))
-    }
-    controller.close()
-  }
-
-  @Test
   fun each_runtime_registers_an_unguessable_protocol_scheme() {
     val first =
       GlJsRequestController(
@@ -119,7 +152,7 @@ class GlJsRequestControllerTest {
     assertTrue(SCHEME.matches(second.scheme))
     assertNotEquals(first.scheme, second.scheme)
     val foreign = first.protocolUrl("app://style.json", MapResourceKind.Style)
-    assertFails { second.requireAccepted(foreign) }
+    assertFails { second.parseProtocolUrl(foreign) }
     first.close()
     second.close()
   }

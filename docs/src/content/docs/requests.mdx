@@ -12,10 +12,12 @@ import requests from "../../../../demo-app/common/src/commonMain/kotlin/org/mapl
 Tiles, sprites, and fonts come from URLs in the style. Rewrite those requests,
 or serve the bytes from application code.
 
-<Api of="MapRequestInterceptor" /> changes the URL or headers and lets the
-engine fetch. <Api of="MapResourceProvider" /> serves the bytes. A provider
-that accepts a request skips the engine HTTP client. The interceptor can
-change after construction. The provider is fixed at construction.
+<Api of="MapRequestInterceptor" /> rewrites a resource URL or adds HTTP
+headers before the engine fetches it. It can rewrite a custom-scheme URL to
+HTTP or HTTPS, and the headers apply to the rewritten URL.
+<Api of="MapResourceProvider" /> supplies resource data without the engine HTTP
+client and receives the rewritten URL. The interceptor can change after
+construction. The provider is fixed at construction.
 
 ## Rewrite a request
 
@@ -26,7 +28,8 @@ for this composition:
 <Code code={region(requests, "interceptor")} lang="kotlin" title="App.kt" />
 
 Attach credentials only to hosts you own. A style also names glyphs, sprites,
-and tiles on other hosts.
+and tiles on other hosts. Return the same result for the same request, because
+the engine may call the interceptor more than once for one request.
 
 ## Serve the bytes
 

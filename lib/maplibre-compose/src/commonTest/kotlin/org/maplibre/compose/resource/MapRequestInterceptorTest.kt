@@ -12,46 +12,70 @@ import org.maplibre.compose.map.mapRuntimeForTest
 class MapRequestInterceptorTest {
 
   @Test
-  fun a_blank_url_rewrite_keeps_the_incoming_url() {
-    val interceptor = MapRequestInterceptor { MapRequestTransform(url = "   ") }
-    val transform = interceptor.transform(REQUEST)
-    assertEquals(null, transform.url)
+  fun a_blank_rewrite_keeps_the_incoming_url() {
+    val interceptor = MapRequestInterceptor(rewriteUrl = { "   " })
+    assertEquals(REQUEST.url, interceptor.rewrittenUrl(REQUEST))
   }
 
   @Test
   fun a_null_interceptor_keeps_the_url_and_adds_no_headers() {
-    val transform = (null as MapRequestInterceptor?).transform(REQUEST)
-    assertEquals(null, transform.url)
-    assertEquals(emptyMap(), transform.headers)
+    val interceptor: MapRequestInterceptor? = null
+    assertEquals(REQUEST.url, interceptor.rewrittenUrl(REQUEST))
+    assertEquals(emptyMap(), interceptor.headersOrNone(REQUEST))
   }
 
   @Test
   fun an_interceptor_exception_keeps_the_original_request() {
-    val interceptor = MapRequestInterceptor { error("token store exploded") }
-    val transform = interceptor.transform(REQUEST)
-    assertEquals(null, transform.url)
-    assertEquals(emptyMap(), transform.headers)
+    val interceptor =
+      MapRequestInterceptor(
+        rewriteUrl = { error("token store exploded") },
+        headers = { error("token store exploded") },
+      )
+    assertEquals(REQUEST.url, interceptor.rewrittenUrl(REQUEST))
+    assertEquals(emptyMap(), interceptor.headersOrNone(REQUEST))
   }
 
   @Test
   fun a_fatal_interceptor_error_propagates() {
-    val interceptor = MapRequestInterceptor { throw FatalTestError() }
+    val interceptor = MapRequestInterceptor(rewriteUrl = { throw FatalTestError() })
     try {
-      interceptor.transform(REQUEST)
+      interceptor.rewrittenUrl(REQUEST)
       error("expected FatalTestError")
     } catch (_: FatalTestError) {}
   }
 
   @Test
+  fun the_provider_receives_the_rewritten_url() {
+    var acceptedUrl: String? = null
+    val provider =
+      MapResourceProvider(
+        accepts = {
+          acceptedUrl = it.url
+          it.url.startsWith("app:")
+        },
+        load = { MapResourceLoad.Bytes(ByteArray(0)) },
+      )
+    val config =
+      MapResourceConfig(
+        interceptor = MapRequestInterceptor(rewriteUrl = { "app://style.json" }),
+        provider = provider,
+      )
+    val route = config.route(MapResourceRequest("custom://style.json", MapResourceKind.Style))
+    val expected = MapResourceRequest("app://style.json", MapResourceKind.Style)
+    assertEquals(MapResourceRoute.Load(expected, provider), route)
+    assertEquals("app://style.json", acceptedUrl)
+  }
+
+  @Test
   fun set_request_interceptor_replaces_the_live_callback() {
     val runtime = mapRuntimeForTest()
-    val first = MapRequestInterceptor { MapRequestTransform(url = "https://first.example/style") }
-    val second = MapRequestInterceptor { MapRequestTransform(url = "https://second.example/style") }
+    val first = MapRequestInterceptor(rewriteUrl = { "https://first.example/style" })
+    val second = MapRequestInterceptor(rewriteUrl = { "https://second.example/style" })
     runtime.setRequestInterceptor(first)
     val config = (runtime as RuntimeImplementation).resourceConfig
-    assertEquals("https://first.example/style", config.interceptor().transform(REQUEST).url)
+    assertEquals("https://first.example/style", config.interceptor().rewrittenUrl(REQUEST))
     runtime.setRequestInterceptor(second)
-    assertEquals("https://second.example/style", config.interceptor().transform(REQUEST).url)
+    assertEquals("https://second.example/style", config.interceptor().rewrittenUrl(REQUEST))
     runtime.setRequestInterceptor(null)
     assertEquals(null, config.interceptor())
     runtime.close()
@@ -63,7 +87,7 @@ class MapRequestInterceptorTest {
     runtime.close()
     runtime.awaitClosed()
     assertFailsWith<IllegalStateException> {
-      runtime.setRequestInterceptor(MapRequestInterceptor { MapRequestTransform() })
+      runtime.setRequestInterceptor(MapRequestInterceptor())
     }
   }
 
