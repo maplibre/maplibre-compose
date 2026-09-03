@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.UiComposable
 import kotlinx.coroutines.flow.first
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.demoapp.benchmark.BenchmarkScenario
@@ -139,6 +140,10 @@ internal class DemoMapConfiguration {
 
 internal data class StyleLoad(val count: Int, val base: BaseStyle?)
 
+// Pin the composition target to UI. Without it, the @MaplibreComposable content lambda below lets
+// the compiler's target inference mark this function as map content, which leaks into callers whose
+// composition scope is target-inferred (the Nucleus window host) and fails their UI composables.
+@UiComposable
 @Composable
 fun rememberDemoAppState(): DemoAppState {
   val mapRuntime = rememberDefaultMapRuntime()
