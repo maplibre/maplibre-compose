@@ -214,10 +214,10 @@ internal class MlnFfiMapSession(
   @Volatile private var hostSession: MlnFfiMapHostSession? = null
 
   /**
-   * True once this session has loaded a style. It stays true so a later style switch does not put
-   * the load placeholder back over a live map.
+   * Whether the current presentation has a style to render. This stays true while a replacement
+   * loads and becomes false when the replacement fails.
    */
-  internal var hasLoadedFirstStyle by mutableStateOf(false)
+  internal var hasPresentableStyle by mutableStateOf(false)
     private set
 
   private data class TargetKey(val generation: Long, val extent: MapExtent)
@@ -449,7 +449,7 @@ internal class MlnFfiMapSession(
   }
 
   internal fun preparePresentation() {
-    hasLoadedFirstStyle = false
+    hasPresentableStyle = false
   }
 
   internal val isPresentationPublished: Boolean
@@ -797,7 +797,7 @@ internal class MlnFfiMapSession(
       lifecycleStyleIdentity?.let {
         if (lifecycleCallbacks.onMapFinishedLoading(engine, it, this)) {
           styleLoadUnreported = false
-          hasLoadedFirstStyle = true
+          hasPresentableStyle = true
         }
       }
     }
@@ -873,6 +873,7 @@ internal class MlnFfiMapSession(
             ?.takeIf { it.engine == engine }
             ?.let {
               if (lifecycleCallbacks.onMapFailLoading(engine, it.request, this, reason)) {
+                hasPresentableStyle = false
                 logger?.e { "Map loading failed (code ${event.code}): $reason" }
               }
             }
@@ -1123,7 +1124,6 @@ internal class MlnFfiMapSession(
     if (style == requestedStyle) return
     styleBinding?.invalidate()
     revisionApplied = false
-    hasLoadedFirstStyle = false
     requestedStyle = style
     val engineAvailable = loop != null
     val tracker = styleLoadTracker
@@ -1153,37 +1153,47 @@ internal class MlnFfiMapSession(
     val wasReady = tracker.state is TrackedStyleLoadState.Ready
     val request = tracker.beginReconciliation()
     revisionApplied = false
-    hasLoadedFirstStyle = false
     try {
       styleReconciler.apply(binding, revision)
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
-      tracker.failed(
-        request,
-        TrackedStyleLoadState.Failed.Stage.RECONCILIATION,
-        error.message ?: "Style reconciliation failed",
-      )
+      if (
+        tracker.failed(
+          request,
+          TrackedStyleLoadState.Failed.Stage.RECONCILIATION,
+          error.message ?: "Style reconciliation failed",
+        )
+      ) {
+        hasPresentableStyle = false
+      }
       throw error
     }
     revisionApplied = true
-    if (wasReady && tracker.reconciled(request, binding.identity)) {
-      hasLoadedFirstStyle = true
+    val reconciledImmediately = wasReady && tracker.reconciled(request, binding.identity)
+    if (reconciledImmediately) {
+      hasPresentableStyle = true
     }
     val engine = lifecycleEngineIdentity
     runOnMap {
       it.requestRepaint()
-      if (!hasLoadedFirstStyle && engine != null) reportLoadedStyle(engine)
+      if (engine != null) reportLoadedStyle(engine)
     }
     requestRender()
-    return hasLoadedFirstStyle
+    return reconciledImmediately
   }
 
   override suspend fun replayStyleRevision(revision: DesiredStyleRevision) {
     val binding = styleBinding ?: return
     revisionApplied = false
-    hasLoadedFirstStyle = false
-    styleReconciler.apply(binding, revision)
+    try {
+      styleReconciler.apply(binding, revision)
+    } catch (error: CancellationException) {
+      throw error
+    } catch (error: Throwable) {
+      hasPresentableStyle = false
+      throw error
+    }
     onMap { it.requestRepaint() }
     requestRender()
   }

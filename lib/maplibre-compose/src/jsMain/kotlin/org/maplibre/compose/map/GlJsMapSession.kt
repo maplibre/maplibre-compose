@@ -139,8 +139,8 @@ internal class GlJsMapSession(
   /** Whether the current engine map has loaded its first base style. */
   private var hasLoadedInitialStyle = false
 
-  /** Whether the current engine map has reconciled the latest requested style. */
-  private var hasReconciledStyle by mutableStateOf(false)
+  /** Whether the current engine map has a style that can remain visible during replacement. */
+  private var hasPresentableStyle by mutableStateOf(false)
     private set
 
   /** True after the current engine map has applied a non-empty presentation viewport. */
@@ -151,7 +151,7 @@ internal class GlJsMapSession(
 
   /** Whether the current engine map may be copied onto the visible Compose surface. */
   internal val canPresentFrames: Boolean
-    get() = hasReconciledStyle && hasReplayedPresentationState
+    get() = hasPresentableStyle && hasReplayedPresentationState
 
   private var requestedStyle: BaseStyle? = null
   private var appliedStyle: BaseStyle? = null
@@ -377,7 +377,7 @@ internal class GlJsMapSession(
     hasLoadedInitialStyle = false
     val current = map ?: return
     map = null
-    hasReconciledStyle = false
+    hasPresentableStyle = false
     hasUsableViewport = false
     hasReplayedPresentationState = false
     invalidateStyleBinding()
@@ -565,7 +565,7 @@ internal class GlJsMapSession(
     if (styleLoadTracker?.reconciled(trackerRequest, identity) == true) {
       if (lifecycleCallbacks.onMapFinishedLoading(engine, style, this)) {
         reportStyleLoaded = false
-        hasReconciledStyle = true
+        hasPresentableStyle = true
       }
     }
   }
@@ -644,7 +644,6 @@ internal class GlJsMapSession(
 
   override fun setBaseStyle(style: BaseStyle) {
     if (style == requestedStyle) return
-    hasReconciledStyle = false
     revisionApplied = false
     baseStyleReady = false
     // Must precede the new style: the old style's sources and layers would otherwise recompose
@@ -669,23 +668,27 @@ internal class GlJsMapSession(
     val tracker = styleLoadTracker ?: return false
     val wasReady = tracker.state is TrackedStyleLoadState.Ready
     val request = tracker.beginReconciliation()
-    hasReconciledStyle = false
     revisionApplied = false
     try {
       styleReconciler.apply(binding, revision)
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
-      tracker.failed(
-        request,
-        TrackedStyleLoadState.Failed.Stage.RECONCILIATION,
-        error.message ?: "Style reconciliation failed",
-      )
+      if (
+        tracker.failed(
+          request,
+          TrackedStyleLoadState.Failed.Stage.RECONCILIATION,
+          error.message ?: "Style reconciliation failed",
+        )
+      ) {
+        hasPresentableStyle = false
+      }
       throw error
     }
     revisionApplied = true
-    if (wasReady && tracker.reconciled(request, binding.identity)) {
-      hasReconciledStyle = true
+    val reconciledImmediately = wasReady && tracker.reconciled(request, binding.identity)
+    if (reconciledImmediately) {
+      hasPresentableStyle = true
       surface?.requestFrame()
     } else {
       val engine = lifecycleEngineIdentity
@@ -693,14 +696,20 @@ internal class GlJsMapSession(
         reportLoadedOnceStyleIsReady(engine, lifecycleStyleIdentity)
       }
     }
-    return hasReconciledStyle
+    return reconciledImmediately
   }
 
   override suspend fun replayStyleRevision(revision: DesiredStyleRevision) {
     val binding = styleBinding ?: return
-    hasReconciledStyle = false
     revisionApplied = false
-    styleReconciler.apply(binding, revision)
+    try {
+      styleReconciler.apply(binding, revision)
+    } catch (error: CancellationException) {
+      throw error
+    } catch (error: Throwable) {
+      hasPresentableStyle = false
+      throw error
+    }
     surface?.requestFrame()
   }
 
@@ -787,6 +796,7 @@ internal class GlJsMapSession(
         if (accepted) {
           if (lifecycleCallbacks.onMapFailLoading(engine, lifecycleRequest, this, reason)) {
             logger?.e { "Map loading failed: $reason" }
+            hasPresentableStyle = false
             if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
           }
         } else {
@@ -820,6 +830,7 @@ internal class GlJsMapSession(
         ) == true
       ) {
         lifecycleCallbacks.onMapFailLoading(engine, lifecycleRequest, this, reason)
+        hasPresentableStyle = false
       }
       if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
     }

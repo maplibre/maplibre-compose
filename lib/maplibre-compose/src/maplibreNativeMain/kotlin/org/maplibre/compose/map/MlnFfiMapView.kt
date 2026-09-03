@@ -161,7 +161,7 @@ internal fun MlnFfiMapView(
   val continuation = remember(session, inputScope) { GestureContinuation(inputScope) }
 
   // MapLibre renders black until a style loads.
-  val revealSurface = session.hasLoadedFirstStyle
+  val revealSurface = session.hasPresentableStyle
 
   // Before the first render target attaches, gestures would project through the bootstrap 1x1
   // viewport and jump the camera.
