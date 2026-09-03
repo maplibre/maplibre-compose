@@ -20,8 +20,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.generated.Res
 import org.maplibre.compose.generated.add
@@ -49,8 +52,8 @@ import org.maplibre.compose.generated.zoom_out
  * This component draws with Compose Foundation alone. The Material 3 module provides a themed
  * version of it.
  *
- * @param onZoomIn Called after the zoom-in animation starts.
- * @param onZoomOut Called after the zoom-out animation starts.
+ * @param onZoomIn Called when the zoom-in button is clicked, once its animation is requested.
+ * @param onZoomOut Called when the zoom-out button is clicked, once its animation is requested.
  * @param style Colors, shape, and elevation of the container behind the buttons.
  * @param contentDescriptionZoomIn Accessibility label for the zoom-in button.
  * @param contentDescriptionZoomOut Accessibility label for the zoom-out button.
@@ -87,6 +90,25 @@ public fun MapOverlayScope.ZoomButtons(
       if (zoomInHovered || zoomOutHovered) style.hoveredShadowElevation else style.shadowElevation
     )
 
+  // Successive presses step from the target of the animation in flight, so three quick presses zoom
+  // three levels instead of restarting each step from the camera's mid-flight position. A gesture
+  // takes the camera elsewhere, so a press after one steps from the camera again.
+  var inFlightTarget by remember { mutableStateOf<CameraPosition?>(null) }
+  fun animateZoom(getPosition: (CameraPosition) -> CameraPosition) {
+    val from =
+      inFlightTarget?.takeIf { currentMapState.cameraMoveReason != CameraMoveReason.GESTURE }
+        ?: currentMapState.cameraPosition
+    val target = getPosition(from)
+    inFlightTarget = target
+    coroutineScope.launch {
+      try {
+        currentMapState.animateCameraPosition(target)
+      } finally {
+        if (inFlightTarget == target) inFlightTarget = null
+      }
+    }
+  }
+
   Column(
     modifier
       .requiredWidth(width)
@@ -96,9 +118,7 @@ public fun MapOverlayScope.ZoomButtons(
   ) {
     ZoomButton(
       onClick = {
-        coroutineScope.launch {
-          currentMapState.animateCameraPosition(getZoomInPosition(currentMapState.cameraPosition))
-        }
+        animateZoom(getZoomInPosition)
         onZoomIn()
       },
       interactionSource = zoomInInteractionSource,
@@ -111,9 +131,7 @@ public fun MapOverlayScope.ZoomButtons(
     Box(Modifier.fillMaxWidth().height(style.dividerThickness).background(style.dividerColor))
     ZoomButton(
       onClick = {
-        coroutineScope.launch {
-          currentMapState.animateCameraPosition(getZoomOutPosition(currentMapState.cameraPosition))
-        }
+        animateZoom(getZoomOutPosition)
         onZoomOut()
       },
       interactionSource = zoomOutInteractionSource,
@@ -157,10 +175,10 @@ private fun ZoomButton(
 }
 
 public object ZoomButtonsDefaults {
-  /** Reads over both light and dark basemaps, in the absence of a theme to draw colors from. */
+  /** Contrasts with both light and dark basemaps, in the absence of a theme to draw colors from. */
   public val ContainerColor: Color = Color.White.copy(alpha = 0.9f)
 
-  /** Reads on [ContainerColor], in the absence of a theme to draw colors from. */
+  /** Contrasts with [ContainerColor], in the absence of a theme to draw colors from. */
   public val ContentColor: Color = Color.Black.copy(alpha = 0.75f)
 
   public val DividerColor: Color = ContentColor.copy(alpha = 0.2f)

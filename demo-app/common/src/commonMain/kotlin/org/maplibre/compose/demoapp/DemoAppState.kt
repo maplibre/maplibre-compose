@@ -141,8 +141,9 @@ internal class DemoMapConfiguration {
 internal data class StyleLoad(val count: Int, val base: BaseStyle?)
 
 // Pin the composition target to UI. Without it, the @MaplibreComposable content lambda below lets
-// the compiler's target inference mark this function as map content, which leaks into callers whose
-// composition scope is target-inferred (the Nucleus window host) and fails their UI composables.
+// the compiler's target inference mark this function as map content. The compiler then propagates
+// that target to target-inferred calling scopes (the Nucleus window host) and rejects their UI
+// composables.
 @UiComposable
 @Composable
 fun rememberDemoAppState(): DemoAppState {

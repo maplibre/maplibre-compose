@@ -25,8 +25,8 @@ import org.maplibre.compose.overlay.ZoomButtonsStyle
  * This is [org.maplibre.compose.overlay.ZoomButtons] with the colors, shape, and elevation of an
  * [ElevatedButton].
  *
- * @param onZoomIn Called after the zoom-in animation starts.
- * @param onZoomOut Called after the zoom-out animation starts.
+ * @param onZoomIn Called when the zoom-in button is clicked, once its animation is requested.
+ * @param onZoomOut Called when the zoom-out button is clicked, once its animation is requested.
  * @param colors Container and content colors, defaulting to those of an [ElevatedButton].
  * @param dividerColor Color of the divider between the buttons.
  * @param contentDescriptionZoomIn Accessibility label for the zoom-in button.
