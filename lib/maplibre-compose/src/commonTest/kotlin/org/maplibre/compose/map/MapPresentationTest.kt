@@ -1,6 +1,7 @@
 package org.maplibre.compose.map
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.ImageBitmapConfig
 import androidx.compose.ui.graphics.colorspace.ColorSpace
@@ -994,6 +995,21 @@ class MapPresentationTest {
       listOf("base attribution", "declarative attribution", "imperative attribution"),
       fixture.state.style.attributions(),
     )
+    fixture.close()
+  }
+
+  @Test
+  fun attributions_observed_before_the_style_is_ready_update_once_it_loads() {
+    val fixture = presentationFixture()
+    val attributions = derivedStateOf { fixture.state.style.attributions() }
+    assertEquals(emptyList(), attributions.value)
+
+    val binding =
+      RecordingStyleBinding(sources = listOf(attributedVectorSource("base", "base attribution")))
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onMapFinishedLoading(fixture.adapter)
+
+    assertEquals(listOf("base attribution"), attributions.value)
     fixture.close()
   }
 
