@@ -124,6 +124,3 @@ internal actual fun currentMlnFfiThreadName(): String = memScoped {
   }
   name.toKString()
 }
-
-internal actual fun currentMlnFfiThreadKey(): Any =
-  checkNotNull(pthread_self()) { "pthread_self returned null" }

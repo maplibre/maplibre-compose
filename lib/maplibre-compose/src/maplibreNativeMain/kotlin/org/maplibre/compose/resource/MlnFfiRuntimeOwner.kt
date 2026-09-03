@@ -58,15 +58,10 @@ private constructor(
 
       MlnFfiLogBridge.ensureInstalled()
       val runtime =
-        try {
-          RuntimeHandle.create(RuntimeOptions().also { it.cachePath = cacheFile.toString() })
-        } catch (error: Throwable) {
-          throw error
-        }
-      val requests = NativeRequestCoordinator(resourceConfig)
+        RuntimeHandle.create(RuntimeOptions().also { it.cachePath = cacheFile.toString() })
       val provider =
         try {
-          resourceProviderFactory(getLogger, requests)
+          resourceProviderFactory(getLogger, resourceConfig)
         } catch (error: Throwable) {
           runCatching { runtime.close() }
           throw error
@@ -76,7 +71,7 @@ private constructor(
         // Installed with the runtime rather than with the map, so nothing can request a resource
         // before the provider that serves it exists.
         runtime.setResourceProvider(provider)
-        runtime.installRequestInterceptor(requests)
+        runtime.installRequestInterceptor(resourceConfig)
         getLogger()?.i { "Created the $what on ${currentMlnFfiThreadName()}" }
         owner
       } catch (error: Throwable) {

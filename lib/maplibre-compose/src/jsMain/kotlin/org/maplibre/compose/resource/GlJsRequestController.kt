@@ -34,12 +34,15 @@ internal class GlJsRequestController(private val config: MapResourceConfig) : Au
 
   fun transformRequest(url: String, resourceType: String?): Any? {
     val kind = resourceType.toResourceKind()
-    return when (val route = config.route(MapResourceRequest(url, kind))) {
+    // One read, so a request that starts after setRequestInterceptor uses one interceptor.
+    val interceptor = config.interceptor()
+    return when (val route = config.route(MapResourceRequest(url, kind), interceptor)) {
       is MapResourceRoute.Load ->
         requestParameters(protocolUrl(route.request.url, kind), emptyMap())
       is MapResourceRoute.Fetch -> {
-        if (route.transform.url == null && route.transform.headers.isEmpty()) return undefined
-        requestParameters(route.request.url, route.transform.headers)
+        val headers = interceptor.headersOrNone(route.request)
+        if (route.request.url == url && headers.isEmpty()) return undefined
+        requestParameters(route.request.url, headers)
       }
     }
   }

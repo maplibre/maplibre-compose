@@ -37,10 +37,10 @@ private val NETWORK_SCHEMES = setOf("http", "https")
 private const val REQUEST_CANCEL_POLL_MILLIS = 16L
 
 internal typealias MlnFfiResourceProviderFactory =
-  (getLogger: () -> MapLog?, requests: NativeRequestCoordinator) -> MlnFfiResourceProvider
+  (getLogger: () -> MapLog?, config: MapResourceConfig) -> MlnFfiResourceProvider
 
 /**
- * Runs each request through [NativeRequestCoordinator]. Accepted requests use the application
+ * Routes each request by its rewritten URL. Requests that the application provider accepts use that
  * provider. HTTP and HTTPS requests use MapLibre's loader. Remaining URLs use the packaged-resource
  * reader.
  *
@@ -50,7 +50,7 @@ internal typealias MlnFfiResourceProviderFactory =
 @OptIn(ExperimentalAtomicApi::class)
 internal class MlnFfiResourceProvider(
   private val getLogger: () -> MapLog?,
-  private val requests: NativeRequestCoordinator = NativeRequestCoordinator(MapResourceConfig()),
+  private val config: MapResourceConfig = MapResourceConfig(),
   /** Turns a URL into a response. Test seam: a fake can hold a read open mid-shutdown. */
   private val read: (url: String, requestedUrl: String) -> ResourceResponse = { url, requestedUrl ->
     readResource(url, requestedUrl, getLogger())
@@ -77,7 +77,7 @@ internal class MlnFfiResourceProvider(
     request: ResourceRequest,
     handle: ResourceRequestHandle,
   ): ResourceProviderDecision {
-    return when (val route = requests.route(request, passThroughNetwork)) {
+    return when (val route = config.nativeRoute(request, passThroughNetwork)) {
       is NativeResourceRoute.Load -> {
         takeUser(FfiResourceRequest(handle), route.request, route.provider)
         ResourceProviderDecision.HANDLE
@@ -322,15 +322,40 @@ private fun failure(
   }
 }
 
+/** The loader for one native request. */
+internal sealed interface NativeResourceRoute {
+  data class Load(val provider: MapResourceProvider, val request: MapResourceLoadRequest) :
+    NativeResourceRoute
+
+  data object Fetch : NativeResourceRoute
+
+  data class Read(val url: String) : NativeResourceRoute
+}
+
+/** Chooses the loader for [request]. */
+internal fun MapResourceConfig.nativeRoute(
+  request: ResourceRequest,
+  passThroughNetwork: Boolean,
+): NativeResourceRoute {
+  val incoming = MapResourceRequest(request.resolvedUrl, request.kind.toCommon())
+  return when (val route = route(incoming)) {
+    is MapResourceRoute.Load ->
+      NativeResourceRoute.Load(route.provider, request.toLoadRequest(url = route.request.url))
+    is MapResourceRoute.Fetch ->
+      if (passThroughNetwork && isMapLibresToFetch(route.request.url)) NativeResourceRoute.Fetch
+      else NativeResourceRoute.Read(route.request.url)
+  }
+}
+
 /**
- * Whether MapLibre's own loader should fetch [resolvedUrl] rather than this provider.
+ * Whether MapLibre's own loader should fetch [url] rather than this provider.
  *
- * Must be decided on the *resolved* URL: only that one has been through MapLibre's tile-server
- * normalization, which turns a `maplibre://` alias into an https URL. A scheme-less URL is
- * MapLibre's too.
+ * [url] is the URL after MapLibre's tile-server normalization, which turns a `maplibre://` alias
+ * into an https URL, and after [MapRequestInterceptor.rewriteUrl]. A scheme-less URL is MapLibre's
+ * too.
  */
-internal fun isMapLibresToFetch(resolvedUrl: String): Boolean =
-  schemeOf(resolvedUrl).let { it == null || it in NETWORK_SCHEMES }
+internal fun isMapLibresToFetch(url: String): Boolean =
+  schemeOf(url).let { it == null || it in NETWORK_SCHEMES }
 
 /**
  * The scheme of [url] in lowercase, or null when it has none or cannot be parsed.

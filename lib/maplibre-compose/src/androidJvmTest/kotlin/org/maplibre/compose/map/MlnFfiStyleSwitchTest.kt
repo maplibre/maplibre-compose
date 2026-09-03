@@ -178,10 +178,10 @@ class MlnFfiStyleSwitchTest {
       MlnFfiRuntimeOptions(
         cacheFile = cacheFile,
         maximumCacheSizeBytes = null,
-        resourceProviderFactory = { getLogger, requests ->
+        resourceProviderFactory = { getLogger, config ->
           MlnFfiResourceProvider(
             getLogger = getLogger,
-            requests = requests,
+            config = config,
             read = resources::read,
             passThroughNetwork = false,
           )

@@ -28,12 +28,11 @@ class GlJsRequestControllerTest {
     val controller =
       GlJsRequestController(
         MapResourceConfig(
-          interceptor = { request ->
-            MapRequestTransform(
-              url = request.url.replace("http://", "https://"),
-              headers = mapOf("Authorization" to "Bearer x"),
+          interceptor =
+            MapRequestInterceptor(
+              rewriteUrl = { request -> request.url.replace("http://", "https://") },
+              headers = { mapOf("Authorization" to "Bearer x") },
             )
-          }
         )
       )
     val result = controller.transformRequest("http://tiles.example.com/style.json", "Style")
@@ -44,19 +43,27 @@ class GlJsRequestControllerTest {
   }
 
   @Test
-  fun an_interceptor_rewrites_a_custom_scheme_to_https() {
+  fun headers_derive_from_the_rewritten_url() {
     val controller =
       GlJsRequestController(
         MapResourceConfig(
-          interceptor = { request ->
-            MapRequestTransform(
-              url = request.url.replace("custom://", "https://tiles.example.com/")
+          interceptor =
+            MapRequestInterceptor(
+              rewriteUrl = { request -> request.url.replace("custom://", "https://cdn.example/") },
+              headers = { request ->
+                if (request.url.startsWith("https://cdn.example/")) {
+                  mapOf("Authorization" to "Bearer cdn")
+                } else {
+                  emptyMap()
+                }
+              },
             )
-          }
         )
       )
     val result = controller.transformRequest("custom://style.json", "Style")
-    assertEquals("https://tiles.example.com/style.json", result.asDynamic().url as String)
+    val dynamic = result.asDynamic()
+    assertEquals("https://cdn.example/style.json", dynamic.url as String)
+    assertEquals("Bearer cdn", dynamic.headers["Authorization"] as String)
     controller.close()
   }
 
@@ -66,7 +73,7 @@ class GlJsRequestControllerTest {
     val controller =
       GlJsRequestController(
         MapResourceConfig(
-          interceptor = { MapRequestTransform(url = "app://style.json") },
+          interceptor = MapRequestInterceptor(rewriteUrl = { "app://style.json" }),
           provider =
             MapResourceProvider(
               accepts = {
@@ -82,32 +89,6 @@ class GlJsRequestControllerTest {
     val parsed = controller.parseProtocolUrl(result.asDynamic().url as String)
     assertEquals("app://style.json", acceptedUrl)
     assertEquals("app://style.json", parsed.url)
-    controller.close()
-  }
-
-  @Test
-  fun an_accepted_request_calls_accepts_once() = runTest {
-    var acceptsCalls = 0
-    val controller =
-      GlJsRequestController(
-        MapResourceConfig(
-          provider =
-            MapResourceProvider(
-              accepts = {
-                acceptsCalls += 1
-                true
-              },
-              load = { MapResourceLoad.Bytes(ByteArray(0)) },
-            )
-        )
-      )
-    val transformed = controller.transformRequest("app://style.json", "Style")
-    val request = js("({})").unsafeCast<RequestParameters>()
-    request.asDynamic().url = transformed.asDynamic().url
-
-    controller.loadProtocol(request, js("new AbortController()")).await()
-
-    assertEquals(1, acceptsCalls)
     controller.close()
   }
 

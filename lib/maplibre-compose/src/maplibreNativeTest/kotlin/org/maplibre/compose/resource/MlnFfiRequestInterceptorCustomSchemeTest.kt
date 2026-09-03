@@ -1,35 +1,34 @@
 package org.maplibre.compose.resource
 
-import kotlin.concurrent.atomics.AtomicInt
-import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.test.Test
-import kotlin.test.assertEquals
+import kotlin.test.assertContains
 import kotlin.test.assertTrue
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.RecordingList
 
-@OptIn(ExperimentalAtomicApi::class)
 class MlnFfiRequestInterceptorCustomSchemeTest {
 
   @Test
-  fun an_interceptor_rewrites_a_custom_scheme_style_url() {
-    val seen = RecordingList<String>()
-    val customSchemeCalls = AtomicInt(0)
+  fun the_engine_fetches_the_rewritten_url_and_asks_it_for_headers() {
+    val rewritten = RecordingList<String>()
+    val headerUrls = RecordingList<String>()
     val fixture =
       BridgeMapFixture.create(
         resourceConfig =
           MapResourceConfig(
-            interceptor = { request ->
-              seen += request.url
-              if (request.url.startsWith("custom://")) {
-                customSchemeCalls.incrementAndFetch()
-                MapRequestTransform(url = "https://example.invalid/style.json")
-              } else {
-                MapRequestTransform()
-              }
-            }
+            interceptor =
+              MapRequestInterceptor(
+                rewriteUrl = { request ->
+                  rewritten += request.url
+                  // A second application would append the marker to the rewritten URL.
+                  if (request.url.startsWith("custom://")) REWRITTEN_URL else "${request.url}?again"
+                },
+                headers = { request ->
+                  headerUrls += request.url
+                  emptyMap()
+                },
+              )
           )
       )
     fixture.use {
@@ -38,10 +37,18 @@ class MlnFfiRequestInterceptorCustomSchemeTest {
         it.errors.any { error -> error.startsWith("mapFailLoading") }
       }
     }
-    assertEquals(1, customSchemeCalls.load(), "the interceptor must run once for the style request")
     assertTrue(
-      seen.toList().any { it.startsWith("custom://") },
-      "the interceptor never saw the custom scheme: $seen",
+      rewritten.toList().any { it.startsWith("custom://") },
+      "the interceptor never saw the custom scheme: $rewritten",
     )
+    assertContains(headerUrls.toList(), REWRITTEN_URL)
+    assertTrue(
+      headerUrls.none { it.endsWith("?again") },
+      "the rewrite was applied twice: $headerUrls",
+    )
+  }
+
+  private companion object {
+    const val REWRITTEN_URL = "https://example.invalid/style.json"
   }
 }

@@ -78,95 +78,65 @@ class MlnFfiResourceProviderTest {
   }
 
   @Test
-  fun the_interceptor_result_selects_the_native_loader() {
-    var calls = 0
-    val requests =
-      NativeRequestCoordinator(
-        MapResourceConfig(
-          interceptor = {
-            calls += 1
-            MapRequestTransform(url = "https://tiles.example.com/style.json")
-          }
-        )
+  fun a_rewrite_to_a_network_url_selects_the_native_loader() {
+    val config =
+      MapResourceConfig(
+        interceptor = MapRequestInterceptor(rewriteUrl = { "https://tiles.example.com/style.json" })
       )
-
-    assertEquals(NativeResourceRoute.Fetch, requests.route(request("custom://style.json"), true))
-    assertEquals(1, calls)
-    assertEquals(1, requests.pendingEngineCount())
+    assertEquals(
+      NativeResourceRoute.Fetch,
+      config.nativeRoute(request("custom://style.json"), true),
+    )
   }
 
   @Test
-  fun the_provider_receives_the_interceptor_s_url() {
-    var acceptedUrl: String? = null
-    val provider =
-      MapResourceProvider(
-        accepts = {
-          acceptedUrl = it.url
-          it.url.startsWith("app:")
-        },
-        load = { MapResourceLoad.Bytes(ByteArray(0)) },
-      )
-    val requests =
-      NativeRequestCoordinator(
-        MapResourceConfig(
-          interceptor = { MapRequestTransform(url = "app://style.json") },
-          provider = provider,
-        )
+  fun a_provider_load_keeps_the_style_url_as_the_requested_url() {
+    val provider = MapResourceProvider("app") { ByteArray(0) }
+    val config =
+      MapResourceConfig(
+        interceptor = MapRequestInterceptor(rewriteUrl = { "app://style.json" }),
+        provider = provider,
       )
 
-    val route = requests.route(request("custom://style.json"), true)
+    val route = config.nativeRoute(request("custom://style.json"), true)
     assertTrue(route is NativeResourceRoute.Load)
-    assertEquals("app://style.json", acceptedUrl)
     assertEquals("app://style.json", route.request.url)
-    assertEquals(provider, route.provider)
-    assertEquals(0, requests.pendingEngineCount())
+    assertEquals("custom://style.json", route.request.requestedUrl)
   }
 
   @Test
-  fun the_packaged_reader_receives_the_interceptor_s_url() {
-    val requests =
-      NativeRequestCoordinator(
-        MapResourceConfig(
-          interceptor = { MapRequestTransform(url = "file:/styles/rewritten.json") }
-        )
+  fun the_packaged_reader_receives_the_rewritten_url() {
+    val config =
+      MapResourceConfig(
+        interceptor = MapRequestInterceptor(rewriteUrl = { "file:/styles/rewritten.json" })
       )
-
     assertEquals(
       NativeResourceRoute.Read("file:/styles/rewritten.json"),
-      requests.route(request("custom://style.json"), true),
+      config.nativeRoute(request("custom://style.json"), true),
     )
-    assertEquals(0, requests.pendingEngineCount())
   }
 
   @Test
   fun a_test_can_keep_a_network_url_with_the_packaged_reader() {
-    val requests =
-      NativeRequestCoordinator(
-        MapResourceConfig(
-          interceptor = { MapRequestTransform(url = "https://tiles.example.com/style.json") }
-        )
+    val config =
+      MapResourceConfig(
+        interceptor = MapRequestInterceptor(rewriteUrl = { "https://tiles.example.com/style.json" })
       )
-
     assertEquals(
       NativeResourceRoute.Read("https://tiles.example.com/style.json"),
-      requests.route(request("custom://style.json"), passThroughNetwork = false),
+      config.nativeRoute(request("custom://style.json"), passThroughNetwork = false),
     )
   }
 
   @Test
   fun a_network_url_can_be_rewritten_to_the_packaged_reader() {
-    val requests =
-      NativeRequestCoordinator(
-        MapResourceConfig(
-          interceptor = {
-            MapRequestTransform(url = "file:/styles/offline.json")
-          }
-        )
+    val config =
+      MapResourceConfig(
+        interceptor = MapRequestInterceptor(rewriteUrl = { "file:/styles/offline.json" })
       )
-
     assertEquals(
       NativeResourceRoute.Read("file:/styles/offline.json"),
-      requests.route(request("https://tiles.example.com/style.json"), true),
+      config.nativeRoute(request("https://tiles.example.com/style.json"), true),
     )
   }
 

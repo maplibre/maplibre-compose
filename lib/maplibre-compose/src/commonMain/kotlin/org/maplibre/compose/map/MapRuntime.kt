@@ -99,8 +99,8 @@ public interface MapRuntime {
   /**
    * Replaces the request interceptor for every map and snapshotter on this runtime.
    *
-   * A null [interceptor] stops rewriting URLs and headers. The change applies to requests that
-   * start after this call returns.
+   * A null [interceptor] stops rewriting URLs and adding headers. A request that starts after this
+   * call returns uses the new interceptor. A request in flight may use either interceptor.
    */
   public fun setRequestInterceptor(interceptor: MapRequestInterceptor?)
 
