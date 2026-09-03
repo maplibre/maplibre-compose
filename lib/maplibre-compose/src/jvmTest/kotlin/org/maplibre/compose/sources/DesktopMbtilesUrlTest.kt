@@ -87,9 +87,22 @@ class DesktopMbtilesUrlTest {
   }
 
   @Test
-  fun `a string that is not a URI is rejected as an argument`() = runTest {
+  fun `anything but a file or a jar entry on disk is rejected as an argument`() = runTest {
     assertFailsWith<IllegalArgumentException> { desktopMbtilesPath("not a uri", directory) }
     assertFailsWith<IllegalArgumentException> { desktopMbtilesPath("nope:tiles", directory) }
+    assertFailsWith<IllegalArgumentException> {
+      desktopMbtilesPath("https://example.com/city.mbtiles", directory)
+    }
+    assertFailsWith<IllegalArgumentException> {
+      desktopMbtilesPath("jar:https://example.com/app.jar!/city.mbtiles", directory)
+    }
+    assertFailsWith<IllegalArgumentException> {
+      desktopMbtilesPath(
+        fixture.jarUri(fixture.root.resolve("missing.jar"), "city.mbtiles"),
+        directory,
+      )
+    }
+    assertEquals(emptyList(), directory.list()?.toList().orEmpty(), "nothing was copied")
   }
 
   @Test
