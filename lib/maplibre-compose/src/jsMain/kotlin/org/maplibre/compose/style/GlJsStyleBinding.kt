@@ -608,14 +608,14 @@ internal class GlJsStyleBinding(
 
   /**
    * MapLibre merges the given properties into the light, so every property it holds and [light]
-   * omits is written as null, which clears it. Validation rejects a null value, and only an
-   * unvalidated null clears a property.
+   * omits is cleared with a null in a second, unvalidated write, after the first write has
+   * validated the values.
    */
   override fun setLight(light: JsonObject) {
     requireLoaded()
-    val (js, validate) = replacement<LightSpecification>(map.getLight(), light)
-    val options = unsafeJso<StyleSetterOptions> { this.validate = validate }
-    mutate("set the light") { map.setLight(js, options) }
+    replace<LightSpecification>("set the light", map.getLight(), light) { value, options ->
+      map.setLight(value, options)
+    }
   }
 
   override val supportsSky: Boolean = true
@@ -626,10 +626,7 @@ internal class GlJsStyleBinding(
     return sky.asDynamic()[name].unsafeCast<Any?>()?.toJsonElement()
   }
 
-  /**
-   * Merges like the light. An absent sky is what MapLibre draws as no sky, and only an unvalidated
-   * null removes it.
-   */
+  /** Merges like the light. An absent sky is what MapLibre draws as no sky. */
   override fun setSky(sky: JsonObject?) {
     requireLoaded()
     if (sky == null) {
@@ -637,9 +634,9 @@ internal class GlJsStyleBinding(
       mutate("remove the sky") { map.setSky(null, options) }
       return
     }
-    val (js, validate) = replacement<SkySpecification>(map.getSky(), sky)
-    val options = unsafeJso<StyleSetterOptions> { this.validate = validate }
-    mutate("set the sky") { map.setSky(js, options) }
+    replace<SkySpecification>("set the sky", map.getSky(), sky) { value, options ->
+      map.setSky(value, options)
+    }
   }
 
   override val supportsProjection: Boolean = true
@@ -659,20 +656,22 @@ internal class GlJsStyleBinding(
   }
 
   /**
-   * Returns [next] as a JS object that also nulls every property of [current] that [next] omits,
-   * and whether MapLibre may validate it: it may only when nothing was nulled.
+   * Writes [next] validated, so a rejected value changes nothing, then writes it again unvalidated
+   * with a null for every property of [current] that [next] omits. Validation rejects a null, and
+   * only an unvalidated null clears a property.
    */
-  private fun <T : Any> replacement(current: Any?, next: JsonObject): Pair<T, Boolean> {
-    val js = next.toJsValue<T>()
-    var cleared = false
-    val currentKeys = current?.unsafeCast<JsRecord<*>>()?.keys() ?: emptyArray()
-    for (key in currentKeys) {
-      if (key !in next) {
-        js.asDynamic()[key] = null
-        cleared = true
-      }
-    }
-    return js to !cleared
+  private inline fun <T : Any> replace(
+    what: String,
+    current: Any?,
+    next: JsonObject,
+    set: (T, StyleSetterOptions) -> Unit,
+  ) {
+    mutate(what) { set(next.toJsValue(), unsafeJso { validate = true }) }
+    val stale = current?.unsafeCast<JsRecord<*>>()?.keys()?.filter { it !in next }.orEmpty()
+    if (stale.isEmpty()) return
+    val cleared = next.toJsValue<T>()
+    for (key in stale) cleared.asDynamic()[key] = null
+    mutate(what) { set(cleared, unsafeJso { validate = false }) }
   }
 
   override fun layerExists(layerId: String): Boolean? {

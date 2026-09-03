@@ -59,6 +59,9 @@ class StyleLightTest {
             )
           )
         }
+        assertFailsWith<StyleHandleException> {
+          light.set(Light(anchor = nil(), intensity = const("bright").cast<FloatValue>()))
+        }
         assertEquals(JsonPrimitive("map"), light.getProperty("anchor"))
         assertNull(light.getProperty("intensity"))
       }
