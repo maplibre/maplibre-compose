@@ -15,8 +15,8 @@ or serve the bytes from application code.
 <Api of="MapRequestInterceptor" /> changes a resource URL or its headers before
 the engine fetches it. It can rewrite a custom-scheme URL to HTTP or HTTPS.
 <Api of="MapResourceProvider" /> supplies resource data without the engine HTTP
-client. You can replace the interceptor after construction, but the provider is
-fixed at construction.
+client and receives the rewritten URL. You can replace the interceptor after
+construction, but the provider is fixed at construction.
 
 ## Rewrite a request
 

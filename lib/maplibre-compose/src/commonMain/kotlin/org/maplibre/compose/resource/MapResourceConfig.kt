@@ -20,6 +20,31 @@ internal class MapResourceConfig(
   }
 }
 
+internal sealed interface MapResourceRoute {
+  val request: MapResourceRequest
+
+  data class Fetch(
+    override val request: MapResourceRequest,
+    val transform: MapRequestTransform,
+  ) : MapResourceRoute
+
+  data class Load(
+    override val request: MapResourceRequest,
+    val provider: MapResourceProvider,
+  ) : MapResourceRoute
+}
+
+internal fun MapResourceConfig.route(request: MapResourceRequest): MapResourceRoute {
+  val transform = interceptor().transform(request)
+  val transformed = request.copy(url = transform.url ?: request.url)
+  val provider = provider
+  return if (provider != null && provider.acceptsOrDeclines(transformed)) {
+    MapResourceRoute.Load(transformed, provider)
+  } else {
+    MapResourceRoute.Fetch(transformed, transform)
+  }
+}
+
 internal fun MapRequestInterceptor?.transform(request: MapResourceRequest): MapRequestTransform {
   val result =
     try {

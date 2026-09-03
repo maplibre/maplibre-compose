@@ -63,12 +63,10 @@ private constructor(
         } catch (error: Throwable) {
           throw error
         }
+      val requests = NativeRequestCoordinator(resourceConfig)
       val provider =
         try {
-          resourceProviderFactory(getLogger).also {
-            it.userProvider = resourceConfig.provider
-            it.resourceConfig = resourceConfig
-          }
+          resourceProviderFactory(getLogger, requests)
         } catch (error: Throwable) {
           runCatching { runtime.close() }
           throw error
@@ -78,7 +76,7 @@ private constructor(
         // Installed with the runtime rather than with the map, so nothing can request a resource
         // before the provider that serves it exists.
         runtime.setResourceProvider(provider)
-        runtime.installRequestInterceptor(resourceConfig)
+        runtime.installRequestInterceptor(requests)
         getLogger()?.i { "Created the $what on ${currentMlnFfiThreadName()}" }
         owner
       } catch (error: Throwable) {

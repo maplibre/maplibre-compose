@@ -34,22 +34,21 @@ internal class GlJsRequestController(private val config: MapResourceConfig) : Au
 
   fun transformRequest(url: String, resourceType: String?): Any? {
     val kind = resourceType.toResourceKind()
-    val incoming = MapResourceRequest(url, kind)
-    val transform = config.interceptor().transform(incoming)
-    val nextUrl = transform.url ?: url
-    val accepted = config.provider?.acceptsOrDeclines(MapResourceRequest(nextUrl, kind)) == true
-    if (!accepted && transform.url == null && transform.headers.isEmpty()) return undefined
-    return requestParameters(
-      url = if (accepted) protocolUrl(nextUrl, kind) else nextUrl,
-      headers = transform.headers,
-    )
+    return when (val route = config.route(MapResourceRequest(url, kind))) {
+      is MapResourceRoute.Load ->
+        requestParameters(protocolUrl(route.request.url, kind), emptyMap())
+      is MapResourceRoute.Fetch -> {
+        if (route.transform.url == null && route.transform.headers.isEmpty()) return undefined
+        requestParameters(route.request.url, route.transform.headers)
+      }
+    }
   }
 
   internal fun loadProtocol(
     request: RequestParameters,
     abortController: Any,
   ): Promise<ProtocolResponse> {
-    val parsed = requireAccepted(request.url)
+    val parsed = parseProtocolUrl(request.url)
     val work = scope.async {
       val provider =
         config.provider ?: throw IllegalStateException("No resource provider is installed")
@@ -67,16 +66,6 @@ internal class GlJsRequestController(private val config: MapResourceConfig) : Au
 
   fun protocolUrl(url: String, kind: MapResourceKind): String =
     "$scheme://${kind.name}/${encodeResourceUrl(url)}"
-
-  internal fun requireAccepted(protocolUrl: String): MapResourceRequest {
-    val parsed = parseProtocolUrl(protocolUrl)
-    val provider =
-      config.provider ?: throw IllegalStateException("No resource provider is installed")
-    if (!provider.acceptsOrDeclines(parsed)) {
-      throw IllegalStateException("Resource provider declined ${parsed.url}")
-    }
-    return parsed
-  }
 
   fun parseProtocolUrl(protocolUrl: String): MapResourceRequest {
     val prefix = "$scheme://"

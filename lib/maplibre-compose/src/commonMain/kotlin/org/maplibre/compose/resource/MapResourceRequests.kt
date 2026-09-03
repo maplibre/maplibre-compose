@@ -31,8 +31,8 @@ public data class MapResourceRequest(
 /**
  * Changes to apply to a resource request.
  *
- * A null or blank [url] keeps the incoming URL. [headers] are added to the HTTP request that
- * follows a URL rewrite. Header logic should key off the URL the client will send.
+ * A null or blank [url] keeps the incoming URL. [headers] apply to the HTTP request after the URL
+ * rewrite. Derive the URL and any destination-specific headers in the same call.
  */
 public data class MapRequestTransform(
   public val url: String? = null,
@@ -185,10 +185,10 @@ public sealed interface MapResourceLoad {
 /**
  * Loads resources for the requests that the application accepts.
  *
- * [accepts] runs on a network thread and must return quickly. Return true only for requests that
- * this provider loads. [load] may suspend; cancellation means that the engine no longer needs the
- * resource. An exception from [load] becomes a [MapResourceLoad.Failed] with reason
- * [MapResourceError.Other].
+ * [accepts] receives the URL after [MapRequestInterceptor] rewrites it. It runs on a network thread
+ * and must return quickly. Return true only for requests that this provider loads. [load] may
+ * suspend; cancellation means that the engine no longer needs the resource. An exception from
+ * [load] becomes a [MapResourceLoad.Failed] with reason [MapResourceError.Other].
  *
  * A true [accepts] result replaces the engine HTTP client for that request. MapLibre Native stores
  * the result in its ambient cache. After the cached entry expires, the engine requests the resource

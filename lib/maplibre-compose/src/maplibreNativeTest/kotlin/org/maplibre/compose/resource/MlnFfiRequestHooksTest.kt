@@ -9,6 +9,11 @@ import kotlin.test.assertTrue
 import org.maplibre.compose.mlnffi.MlnFfiOwnerThread
 import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.nativeffi.resource.ResourceKind
+import org.maplibre.nativeffi.resource.ResourceLoadingMethod
+import org.maplibre.nativeffi.resource.ResourcePriority
+import org.maplibre.nativeffi.resource.ResourceRequest
+import org.maplibre.nativeffi.resource.ResourceStoragePolicy
+import org.maplibre.nativeffi.resource.ResourceUsage
 
 @OptIn(ExperimentalAtomicApi::class)
 class MlnFfiRequestHooksTest {
@@ -17,7 +22,7 @@ class MlnFfiRequestHooksTest {
   fun url_and_header_callbacks_share_one_interceptor_result() {
     val calls = AtomicInt(0)
     val transforms =
-      NativeRequestTransforms(
+      NativeRequestCoordinator(
         MapResourceConfig(
           interceptor = { request ->
             calls.incrementAndFetch()
@@ -28,7 +33,9 @@ class MlnFfiRequestHooksTest {
           }
         )
       )
-    val incoming = MapResourceRequest("http://tiles.example.com/style.json", MapResourceKind.Style)
+    val url = "http://tiles.example.com/style.json"
+    val incoming = MapResourceRequest(url, MapResourceKind.Style)
+    assertEquals(NativeResourceRoute.Fetch, transforms.route(request(url), true))
     assertEquals("https://tiles.example.com/style.json", transforms.rewrittenUrl(incoming))
     val headers =
       transforms.headers(
@@ -42,7 +49,7 @@ class MlnFfiRequestHooksTest {
   @Test
   fun a_rewrite_alias_does_not_steal_another_request_headers() {
     val transforms =
-      NativeRequestTransforms(
+      NativeRequestCoordinator(
         MapResourceConfig(
           interceptor = { request ->
             when (request.url) {
@@ -61,9 +68,11 @@ class MlnFfiRequestHooksTest {
           }
         )
       )
+    routeForFetch(transforms, "https://origin.example/a")
     transforms.rewrittenUrl(MapResourceRequest("https://origin.example/a", MapResourceKind.Style))
     val first =
       transforms.headers(MapResourceRequest("https://cdn.example/a", MapResourceKind.Style))
+    routeForFetch(transforms, "https://cdn.example/a")
     transforms.rewrittenUrl(MapResourceRequest("https://cdn.example/a", MapResourceKind.Style))
     val second =
       transforms.headers(MapResourceRequest("https://other.example/a", MapResourceKind.Style))
@@ -72,10 +81,10 @@ class MlnFfiRequestHooksTest {
   }
 
   @Test
-  fun a_later_url_callback_replaces_an_unconsumed_transform() {
+  fun interleaved_url_callbacks_keep_their_header_transforms() {
     val calls = AtomicInt(0)
     val transforms =
-      NativeRequestTransforms(
+      NativeRequestCoordinator(
         MapResourceConfig(
           interceptor = {
             calls.incrementAndFetch()
@@ -83,18 +92,23 @@ class MlnFfiRequestHooksTest {
           }
         )
       )
+    routeForFetch(transforms, "https://tiles.example.com/a", ResourceKind.TILE)
     transforms.rewrittenUrl(MapResourceRequest("https://tiles.example.com/a", MapResourceKind.Tile))
-    transforms.rewrittenUrl(MapResourceRequest("https://tiles.example.com/a", MapResourceKind.Tile))
-    val headers =
+    routeForFetch(transforms, "https://tiles.example.com/b", ResourceKind.TILE)
+    transforms.rewrittenUrl(MapResourceRequest("https://tiles.example.com/b", MapResourceKind.Tile))
+    val first =
       transforms.headers(MapResourceRequest("https://tiles.example.com/a", MapResourceKind.Tile))
-    assertEquals("Bearer 2", headers.single().value)
-    assertEquals(0, transforms.pendingCount())
+    val second =
+      transforms.headers(MapResourceRequest("https://tiles.example.com/b", MapResourceKind.Tile))
+    assertEquals("Bearer 1", first.single().value)
+    assertEquals("Bearer 2", second.single().value)
+    assertEquals(0, transforms.pendingHeaderCount())
   }
 
   @Test
   fun two_threads_with_the_same_name_keep_separate_transforms() {
     val transforms =
-      NativeRequestTransforms(
+      NativeRequestCoordinator(
         MapResourceConfig(
           interceptor = {
             MapRequestTransform(headers = mapOf("Authorization" to "Bearer ${it.url}"))
@@ -107,6 +121,7 @@ class MlnFfiRequestHooksTest {
     var secondHeader: String? = null
     val first =
       MlnFfiOwnerThread("http-worker") {
+        routeForFetch(transforms, "https://a.example/style.json")
         transforms.rewrittenUrl(
           MapResourceRequest("https://a.example/style.json", MapResourceKind.Style)
         )
@@ -121,6 +136,7 @@ class MlnFfiRequestHooksTest {
     val second =
       MlnFfiOwnerThread("http-worker") {
         check(firstStored.await(10_000)) { "the first thread never stored a transform" }
+        routeForFetch(transforms, "https://b.example/style.json")
         transforms.rewrittenUrl(
           MapResourceRequest("https://b.example/style.json", MapResourceKind.Style)
         )
@@ -137,46 +153,7 @@ class MlnFfiRequestHooksTest {
     assertTrue(second.join(10_000), "the second worker never finished")
     assertEquals("Bearer https://a.example/style.json", firstHeader)
     assertEquals("Bearer https://b.example/style.json", secondHeader)
-    assertEquals(0, transforms.pendingCount())
-  }
-
-  @Test
-  fun a_packaged_resource_request_is_not_recorded() {
-    val transforms =
-      NativeRequestTransforms(
-        MapResourceConfig(
-          interceptor = {
-            MapRequestTransform(
-              url = "jar:file:/app.jar!/style.json",
-              headers = mapOf("Authorization" to "Bearer a"),
-            )
-          }
-        )
-      )
-    transforms.rewrittenUrl(
-      MapResourceRequest("https://tiles.example.com/style.json", MapResourceKind.Style)
-    )
-    assertEquals(0, transforms.pendingCount())
-  }
-
-  @Test
-  fun a_provider_accepted_request_is_not_recorded() {
-    val transforms =
-      NativeRequestTransforms(
-        MapResourceConfig(
-          interceptor = {
-            MapRequestTransform(
-              url = "app://style.json",
-              headers = mapOf("Authorization" to "Bearer a"),
-            )
-          },
-          provider = MapResourceProvider("app") { ByteArray(0) },
-        )
-      )
-    transforms.rewrittenUrl(
-      MapResourceRequest("https://tiles.example.com/style.json", MapResourceKind.Style)
-    )
-    assertEquals(0, transforms.pendingCount())
+    assertEquals(0, transforms.pendingHeaderCount())
   }
 
   @Test
@@ -191,4 +168,28 @@ class MlnFfiRequestHooksTest {
     assertEquals(MapResourceKind.Unknown, ResourceKind.UNKNOWN.toCommon())
     assertEquals(MapResourceKind.Unknown, ResourceKind(nativeValue = 99).toCommon())
   }
+
+  private fun routeForFetch(
+    requests: NativeRequestCoordinator,
+    url: String,
+    kind: ResourceKind = ResourceKind.STYLE,
+  ) {
+    assertEquals(NativeResourceRoute.Fetch, requests.route(request(url, kind), true))
+  }
+
+  private fun request(url: String, kind: ResourceKind = ResourceKind.STYLE): ResourceRequest =
+    ResourceRequest(
+      requestedUrl = url,
+      resolvedUrl = url,
+      kind = kind,
+      loadingMethod = ResourceLoadingMethod.ALL,
+      priority = ResourcePriority.REGULAR,
+      usage = ResourceUsage.ONLINE,
+      storagePolicy = ResourceStoragePolicy.PERMANENT,
+      range = null,
+      priorModifiedUnixMs = null,
+      priorExpiresUnixMs = null,
+      priorEtag = null,
+      priorData = ByteArray(0),
+    )
 }

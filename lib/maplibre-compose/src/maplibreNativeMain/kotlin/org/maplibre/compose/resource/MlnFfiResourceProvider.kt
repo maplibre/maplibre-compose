@@ -1,6 +1,5 @@
 package org.maplibre.compose.resource
 
-import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.time.Instant
@@ -38,12 +37,12 @@ private val NETWORK_SCHEMES = setOf("http", "https")
 private const val REQUEST_CANCEL_POLL_MILLIS = 16L
 
 internal typealias MlnFfiResourceProviderFactory =
-  (getLogger: () -> MapLog?) -> MlnFfiResourceProvider
+  (getLogger: () -> MapLog?, requests: NativeRequestCoordinator) -> MlnFfiResourceProvider
 
 /**
- * Resolves the `jar:file:` and `file:` resource URIs Compose hands out for packaged resources,
- * which MapLibre Native cannot fetch itself; everything else passes through so HTTP keeps
- * MapLibre's caching, retry, and revalidation behavior.
+ * Runs each request through [NativeRequestCoordinator]. Accepted requests use the application
+ * provider. HTTP and HTTPS requests use MapLibre's loader. Remaining URLs use the packaged-resource
+ * reader.
  *
  * Installed with the runtime. Provider-owned [ResourceRequestHandle] instances remain valid
  * independently of runtime teardown, so accepted reads can safely finish after [close].
@@ -51,6 +50,7 @@ internal typealias MlnFfiResourceProviderFactory =
 @OptIn(ExperimentalAtomicApi::class)
 internal class MlnFfiResourceProvider(
   private val getLogger: () -> MapLog?,
+  private val requests: NativeRequestCoordinator = NativeRequestCoordinator(MapResourceConfig()),
   /** Turns a URL into a response. Test seam: a fake can hold a read open mid-shutdown. */
   private val read: (url: String, requestedUrl: String) -> ResourceResponse = { url, requestedUrl ->
     readResource(url, requestedUrl, getLogger())
@@ -61,9 +61,6 @@ internal class MlnFfiResourceProvider(
   private val onResponseCompletionFinished: ((url: String, error: Throwable?) -> Unit)? = null,
   /** Test seam: a cancelled scope reproduces a close that races [takeUser]. */
   userCoroutineScope: CoroutineScope? = null,
-  @Volatile var userProvider: MapResourceProvider? = null,
-  /** The current request configuration for routing non-network URLs. */
-  @Volatile var resourceConfig: MapResourceConfig? = null,
 ) : ResourceProviderCallback, AutoCloseable {
 
   private val logger: MapLog?
@@ -80,34 +77,27 @@ internal class MlnFfiResourceProvider(
     request: ResourceRequest,
     handle: ResourceRequestHandle,
   ): ResourceProviderDecision {
-    val url = request.resolvedUrl
-    val mapRequest = MapResourceRequest(url, request.kind.toCommon())
-    val user = userProvider
-    if (user != null && user.acceptsOrDeclines(mapRequest)) {
-      takeUser(FfiResourceRequest(handle), request.toLoadRequest())
-      return ResourceProviderDecision.HANDLE
+    return when (val route = requests.route(request, passThroughNetwork)) {
+      is NativeResourceRoute.Load -> {
+        takeUser(FfiResourceRequest(handle), route.request, route.provider)
+        ResourceProviderDecision.HANDLE
+      }
+      NativeResourceRoute.Fetch -> ResourceProviderDecision.PASS_THROUGH
+      is NativeResourceRoute.Read -> {
+        take(FfiResourceRequest(handle), route.url, request.requestedUrl)
+        ResourceProviderDecision.HANDLE
+      }
     }
-    if (
-      passThroughNetwork && shouldPassThroughToEngine(mapRequest, resourceConfig?.interceptor())
-    ) {
-      return ResourceProviderDecision.PASS_THROUGH
-    }
-
-    // Taking the request means owning the handle's completion and close; handles carry no thread
-    // affinity, so the answer need not happen before this returns.
-    take(FfiResourceRequest(handle), url, request.requestedUrl)
-    return ResourceProviderDecision.HANDLE
   }
 
-  internal fun takeUser(request: TakenResourceRequest, load: MapResourceLoadRequest) {
+  internal fun takeUser(
+    request: TakenResourceRequest,
+    load: MapResourceLoadRequest,
+    provider: MapResourceProvider,
+  ) {
     val url = load.url
     val requestedUrl = load.requestedUrl
     if (!accepting.load()) {
-      refuse(request, url, requestedUrl)
-      return
-    }
-    val provider = userProvider
-    if (provider == null) {
       refuse(request, url, requestedUrl)
       return
     }
@@ -343,22 +333,6 @@ internal fun isMapLibresToFetch(resolvedUrl: String): Boolean =
   schemeOf(resolvedUrl).let { it == null || it in NETWORK_SCHEMES }
 
 /**
- * Returns whether MapLibre's loader can fetch [request].
- *
- * Network URLs pass through without calling [interceptor] here because the runtime calls it during
- * request transformation. A URL with another scheme passes through only when [interceptor] rewrites
- * it to HTTP or HTTPS.
- */
-internal fun shouldPassThroughToEngine(
-  request: MapResourceRequest,
-  interceptor: MapRequestInterceptor?,
-): Boolean {
-  if (isMapLibresToFetch(request.url)) return true
-  val nextUrl = interceptor.transform(request).url ?: request.url
-  return isMapLibresToFetch(nextUrl)
-}
-
-/**
  * The scheme of [url] in lowercase, or null when it has none or cannot be parsed.
  *
  * A scheme is a letter followed by letters, digits, `+`, `-`, or `.`, and then `:`, as RFC 3986
@@ -382,9 +356,9 @@ private fun Char.isAsciiLetter(): Boolean = this in 'a'..'z' || this in 'A'..'Z'
 private fun Char.isAsciiDigit(): Boolean = this in '0'..'9'
 
 /** Copies the FFI request into the request a [MapResourceProvider] loads, field for field. */
-internal fun ResourceRequest.toLoadRequest(): MapResourceLoadRequest =
+internal fun ResourceRequest.toLoadRequest(url: String = resolvedUrl): MapResourceLoadRequest =
   MapResourceLoadRequest(
-    url = resolvedUrl,
+    url = url,
     kind = kind.toCommon(),
     requestedUrl = requestedUrl,
     loadingMethod =

@@ -2,22 +2,21 @@ package org.maplibre.compose.resource
 
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
-import org.maplibre.compose.mlnffi.currentMlnFfiThreadKey
 import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.nativeffi.resource.HttpHeader
 import org.maplibre.nativeffi.resource.HttpHeaderTransformCallback
 import org.maplibre.nativeffi.resource.ResourceKind
+import org.maplibre.nativeffi.resource.ResourceRequest
 import org.maplibre.nativeffi.resource.ResourceTransformCallback
 import org.maplibre.nativeffi.runtime.RuntimeHandle
 
-/** Installs live URL and header transforms that read [config] on every request. */
-internal fun RuntimeHandle.installRequestInterceptor(config: MapResourceConfig) {
-  val transforms = NativeRequestTransforms(config)
+/** Installs the URL and header callbacks for [requests]. */
+internal fun RuntimeHandle.installRequestInterceptor(requests: NativeRequestCoordinator) {
   var headersInstalled = false
   try {
     setHttpHeaderTransform(
       HttpHeaderTransformCallback { request ->
-        transforms.headers(MapResourceRequest(request.url, request.kind.toCommon()))
+        requests.headers(MapResourceRequest(request.url, request.kind.toCommon()))
       }
     )
     headersInstalled = true
@@ -28,48 +27,86 @@ internal fun RuntimeHandle.installRequestInterceptor(config: MapResourceConfig) 
   setResourceTransform(
     ResourceTransformCallback { request ->
       val mapRequest = MapResourceRequest(request.url, request.kind.toCommon())
-      if (headersInstalled) transforms.rewrittenUrl(mapRequest)
-      else config.interceptor().transform(mapRequest).url.orEmpty()
+      requests.rewrittenUrl(mapRequest, rememberHeaders = headersInstalled)
     }
   )
 }
 
 /**
- * Remembers the URL-callback interceptor result so the header callback can reuse it.
+ * Routes native requests and carries one interceptor result through native's separate callbacks.
  *
- * Native asks for the URL and headers in separate callbacks on the same network thread. One slot
- * per thread identity is overwritten by the next URL callback, so a cache hit that never reaches
- * HTTP cannot leak a transform to a later request. A request the user provider or the
- * packaged-resource loader will handle is not recorded.
+ * The provider callback runs before native's URL callback. Native then asks for the URL and headers
+ * in separate callbacks. Each callback takes the oldest transform for its request.
  */
-internal class NativeRequestTransforms(private val config: MapResourceConfig) {
+internal class NativeRequestCoordinator(private val config: MapResourceConfig) {
   private val lock = reentrantLock()
-  private val pending = mutableMapOf<Any, MapRequestTransform>()
+  private val pendingEngine = mutableMapOf<MapResourceRequest, ArrayDeque<MapRequestTransform>>()
+  private val pendingHeaders = mutableMapOf<MapResourceRequest, ArrayDeque<MapRequestTransform>>()
 
-  fun rewrittenUrl(request: MapResourceRequest): String {
-    val transform = config.interceptor().transform(request)
+  fun route(request: ResourceRequest, passThroughNetwork: Boolean): NativeResourceRoute {
+    val incoming = MapResourceRequest(request.resolvedUrl, request.kind.toCommon())
+    return when (val route = config.route(incoming)) {
+      is MapResourceRoute.Load ->
+        NativeResourceRoute.Load(
+          provider = route.provider,
+          request = request.toLoadRequest(url = route.request.url),
+        )
+      is MapResourceRoute.Fetch -> {
+        if (passThroughNetwork && isMapLibresToFetch(route.request.url)) {
+          lock.withLock {
+            pendingEngine.getOrPut(incoming, ::ArrayDeque).addLast(route.transform)
+          }
+          NativeResourceRoute.Fetch
+        } else {
+          NativeResourceRoute.Read(route.request.url)
+        }
+      }
+    }
+  }
+
+  fun rewrittenUrl(request: MapResourceRequest, rememberHeaders: Boolean = true): String {
+    val transform = checkNotNull(takeEngineTransform(request)) { "No route for $request" }
     val nextUrl = transform.url ?: request.url
-    if (shouldRecord(nextUrl, request.kind)) {
-      lock.withLock { pending[currentMlnFfiThreadKey()] = transform }
+    if (rememberHeaders && isMapLibresToFetch(nextUrl)) {
+      val transformed = request.copy(url = nextUrl)
+      lock.withLock { pendingHeaders.getOrPut(transformed, ::ArrayDeque).addLast(transform) }
     }
     return transform.url.orEmpty()
   }
 
   fun headers(request: MapResourceRequest): List<HttpHeader> =
-    take(request).headers.map { HttpHeader(it.key, it.value) }
+    takeHeaderTransform(request).headers.map { HttpHeader(it.key, it.value) }
 
-  internal fun take(request: MapResourceRequest): MapRequestTransform {
-    val remembered = lock.withLock { pending.remove(currentMlnFfiThreadKey()) }
+  private fun takeEngineTransform(request: MapResourceRequest): MapRequestTransform? =
+    lock.withLock {
+      val queued = pendingEngine[request] ?: return@withLock null
+      val transform = queued.removeFirst()
+      if (queued.isEmpty()) pendingEngine.remove(request)
+      transform
+    }
+
+  private fun takeHeaderTransform(request: MapResourceRequest): MapRequestTransform {
+    val remembered = lock.withLock {
+      val queued = pendingHeaders[request] ?: return@withLock null
+      val transform = queued.removeFirst()
+      if (queued.isEmpty()) pendingHeaders.remove(request)
+      transform
+    }
     return remembered ?: config.interceptor().transform(request)
   }
 
-  internal fun pendingCount(): Int = lock.withLock { pending.size }
+  internal fun pendingEngineCount(): Int = lock.withLock { pendingEngine.values.sumOf { it.size } }
 
-  private fun shouldRecord(nextUrl: String, kind: MapResourceKind): Boolean {
-    val nextRequest = MapResourceRequest(nextUrl, kind)
-    if (config.provider?.acceptsOrDeclines(nextRequest) == true) return false
-    return isMapLibresToFetch(nextUrl)
-  }
+  internal fun pendingHeaderCount(): Int = lock.withLock { pendingHeaders.values.sumOf { it.size } }
+}
+
+internal sealed interface NativeResourceRoute {
+  data class Load(val provider: MapResourceProvider, val request: MapResourceLoadRequest) :
+    NativeResourceRoute
+
+  data object Fetch : NativeResourceRoute
+
+  data class Read(val url: String) : NativeResourceRoute
 }
 
 internal fun ResourceKind.toCommon(): MapResourceKind =
