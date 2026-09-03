@@ -17,11 +17,11 @@ import androidx.compose.ui.graphics.skiaCanvas
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
-import co.touchlab.kermit.Logger
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.map.MapExtent
 
 /** Hosts [renderer] on a Compose drawing surface. Compose owns the frame loop. */
@@ -29,7 +29,7 @@ import org.maplibre.compose.map.MapExtent
 internal fun GlJsMapSurface(
   renderer: GlJsMapRenderer,
   modifier: Modifier,
-  logger: Logger?,
+  logger: MapLog?,
   presentFrames: Boolean,
 ) {
   val density = LocalDensity.current.density.toDouble()

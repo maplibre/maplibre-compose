@@ -1,9 +1,9 @@
 package org.maplibre.compose.offline
 
-import co.touchlab.kermit.Logger
 import kotlin.concurrent.Volatile
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.io.files.Path
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.MlnFfiOwnerLock
 import org.maplibre.compose.mlnffi.MlnFfiOwnerThread
 import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
@@ -38,7 +38,7 @@ private const val OWNER_THREAD_NAME = "maplibre-compose-offline"
  */
 internal class MlnFfiOfflineRuntime(
   private val cacheFile: Path,
-  private val logger: Logger?,
+  private val logger: MapLog?,
   private val onEvent: (RuntimeEvent) -> Unit,
   private val resourceConfig: MapResourceConfig = MapResourceConfig(),
 ) {
@@ -151,7 +151,7 @@ internal class MlnFfiOfflineRuntime(
         reject = {},
       )
     if (!posted) {
-      logger?.v { "Offline operation ${handle.id} was cancelled after its runtime closed" }
+      logger?.d { "Offline operation ${handle.id} was cancelled after its runtime closed" }
     }
   }
 
@@ -237,7 +237,7 @@ internal class MlnFfiOfflineRuntime(
     val operation = pending.remove(payload.operationId)
     if (operation == null) {
       // Expected after a cancellation: the caller discarded the operation before native finished.
-      logger?.v { "Ignoring the completion of unknown offline operation ${payload.operationId}" }
+      logger?.d { "Ignoring the completion of unknown offline operation ${payload.operationId}" }
       return
     }
 

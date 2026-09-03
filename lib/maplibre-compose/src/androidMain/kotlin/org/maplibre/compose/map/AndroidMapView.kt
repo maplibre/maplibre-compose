@@ -5,7 +5,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import co.touchlab.kermit.Logger
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.AndroidMapSurfaceKind
 import org.maplibre.compose.mlnffi.AndroidMlnFfiPlatform
 import org.maplibre.compose.mlnffi.AndroidMlnFfiSurface
@@ -21,7 +21,7 @@ internal actual fun ComposableMapView(
   style: BaseStyle,
   update: (map: MapAdapter) -> Unit,
   onReset: () -> Unit,
-  logger: Logger?,
+  logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
   options: MapViewOptions,
 ) {

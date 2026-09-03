@@ -1,6 +1,5 @@
 package org.maplibre.compose.resource
 
-import co.touchlab.kermit.Logger
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
@@ -16,6 +15,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.nativeffi.resource.ResourceErrorReason
 import org.maplibre.nativeffi.resource.ResourceLoadingMethod
@@ -38,7 +38,7 @@ private val NETWORK_SCHEMES = setOf("http", "https")
 private const val REQUEST_CANCEL_POLL_MILLIS = 16L
 
 internal typealias MlnFfiResourceProviderFactory =
-  (getLogger: () -> Logger?) -> MlnFfiResourceProvider
+  (getLogger: () -> MapLog?) -> MlnFfiResourceProvider
 
 /**
  * Resolves the `jar:file:` and `file:` resource URIs Compose hands out for packaged resources,
@@ -50,7 +50,7 @@ internal typealias MlnFfiResourceProviderFactory =
  */
 @OptIn(ExperimentalAtomicApi::class)
 internal class MlnFfiResourceProvider(
-  private val getLogger: () -> Logger?,
+  private val getLogger: () -> MapLog?,
   /** Turns a URL into a response. Test seam: a fake can hold a read open mid-shutdown. */
   private val read: (url: String, requestedUrl: String) -> ResourceResponse = { url, requestedUrl ->
     readResource(url, requestedUrl, getLogger())
@@ -64,7 +64,7 @@ internal class MlnFfiResourceProvider(
   @Volatile var userProvider: MapResourceProvider? = null,
 ) : ResourceProviderCallback, AutoCloseable {
 
-  private val logger: Logger?
+  private val logger: MapLog?
     get() = getLogger()
 
   private val accepting = AtomicBoolean(true)
@@ -272,7 +272,7 @@ private class FfiResourceRequest(private val handle: ResourceRequestHandle) : Ta
  * Reads [url] into a response, reporting every failure as one rather than throwing. Blocks, so it
  * must run away from MapLibre's callback thread.
  */
-internal fun readResource(url: String, requestedUrl: String, logger: Logger?): ResourceResponse =
+internal fun readResource(url: String, requestedUrl: String, logger: MapLog?): ResourceResponse =
   try {
     val bytes = readPlatformResourceBytes(url)
     ResourceResponse(ResourceResponseStatus.OK).also {
@@ -314,7 +314,7 @@ private fun failure(
   reason: ResourceErrorReason,
   what: String,
   error: Throwable?,
-  logger: Logger?,
+  logger: MapLog?,
 ): ResourceResponse {
   // The style names one URL and the loader may resolve another; report both so the style is
   // greppable.

@@ -6,12 +6,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.unit.dp
-import co.touchlab.kermit.Logger
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.map.MapExtent
 
 @OptIn(ExperimentalTestApi::class)
@@ -327,7 +327,7 @@ class MlnFfiMapSurfaceRecoveryTest {
         renderer = renderer,
         hostResult = hostResult,
         modifier = Modifier.size(64.dp),
-        logger = Logger.withTag("surface-recovery-test"),
+        logger = MapLog,
       )
     }
   }

@@ -3,7 +3,6 @@
 package org.maplibre.compose.mlnffi
 
 import androidx.compose.ui.unit.LayoutDirection
-import co.touchlab.kermit.Logger
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.time.Duration
@@ -15,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.files.Path
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.map.MapAttachment
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MlnFfiMapSession
@@ -65,7 +65,7 @@ private constructor(
     MlnFfiMapSession(
       lifecycleAuthority = state.lifecycle,
       callbacks = recorder,
-      logger = Logger.withTag("bridge-map"),
+      logger = MapLog,
       renderBackend = driver.backends.producer,
       scaleFactor = initialExtent.scaleFactor,
       layoutDirection = LayoutDirection.Ltr,

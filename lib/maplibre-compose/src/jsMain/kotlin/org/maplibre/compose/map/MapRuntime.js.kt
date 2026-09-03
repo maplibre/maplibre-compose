@@ -1,7 +1,7 @@
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.Composable
-import co.touchlab.kermit.Logger
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.offline.UnsupportedOfflineManager
 import org.maplibre.compose.resource.GlJsRequestController
 import org.maplibre.compose.resource.MapRequestInterceptor
@@ -10,7 +10,6 @@ import org.maplibre.compose.resource.MapResourceProvider
 
 /** Browser runtime configuration. */
 public actual data class MapRuntimeOptions(
-  public val logger: Logger? = Logger.withTag("maplibre-compose"),
   /** Rewrites URLs and headers for every resource this runtime fetches. */
   public val requestInterceptor: MapRequestInterceptor? = null,
   /** Serves bytes for resource URLs this provider accepts. */
@@ -25,12 +24,13 @@ internal class JsRuntimePlatform(
 public actual fun createMapRuntime(options: MapRuntimeOptions): MapRuntime {
   val resourceConfig = MapResourceConfig(options.requestInterceptor, options.resourceProvider)
   val requests = GlJsRequestController(resourceConfig)
+  val logger = MapLog
   return RuntimeImplementation(
     platformOptions = JsRuntimePlatform(options, requests),
     resources = MapRuntimeResources { requests.close() },
-    logger = options.logger,
+    logger = logger,
     offlineManagerBackend = UnsupportedOfflineManager,
-    snapshotterAdapterFactory = GlJsSnapshotterAdapterFactory(options.logger, requests),
+    snapshotterAdapterFactory = GlJsSnapshotterAdapterFactory(logger, requests),
     resourceConfig = resourceConfig,
   )
 }

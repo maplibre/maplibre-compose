@@ -3,7 +3,7 @@ package org.maplibre.compose.map
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import co.touchlab.kermit.Logger
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.IosMlnFfiSurface
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.style.BaseStyle
@@ -17,7 +17,7 @@ internal actual fun ComposableMapView(
   style: BaseStyle,
   update: (map: MapAdapter) -> Unit,
   onReset: () -> Unit,
-  logger: Logger?,
+  logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
   options: MapViewOptions,
 ) {

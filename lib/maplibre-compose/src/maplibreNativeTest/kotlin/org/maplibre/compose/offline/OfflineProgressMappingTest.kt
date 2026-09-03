@@ -1,8 +1,8 @@
 package org.maplibre.compose.offline
 
-import co.touchlab.kermit.Logger
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.nativeffi.offline.OfflineRegionDownloadState
 import org.maplibre.nativeffi.offline.OfflineRegionStatus
 import org.maplibre.nativeffi.resource.ResourceErrorReason
@@ -10,7 +10,7 @@ import org.maplibre.nativeffi.resource.ResourceErrorReason
 /** How a native offline status or error becomes the [DownloadProgress] common code switches on. */
 class OfflineProgressMappingTest {
 
-  private val logger = Logger.withTag("offline-progress-mapping-test")
+  private val logger = MapLog
 
   @Test
   fun an_inactive_incomplete_region_is_paused_and_carries_its_counts_across() {

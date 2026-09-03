@@ -5,8 +5,8 @@ import android.os.HandlerThread
 import android.os.Looper
 import android.os.SystemClock
 import android.view.Surface
-import co.touchlab.kermit.Logger
 import java.util.concurrent.FutureTask
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.map.MapExtent
 
 /**
@@ -25,7 +25,7 @@ import org.maplibre.compose.map.MapExtent
 internal class AndroidMlnFfiSurfaceController(
   private val renderer: MlnFfiMapRenderer,
   private val backend: MapRenderBackend,
-  private val logger: Logger?,
+  private val logger: MapLog?,
   maximumFps: Int? = null,
 ) : MlnFfiMapHostSession, AutoCloseable {
   override val backends = RenderBackendPair(backend, ComposeRenderBackend.OPENGL)

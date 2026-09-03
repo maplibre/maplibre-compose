@@ -75,6 +75,7 @@ kotlin {
       implementation(libs.androidx.navigation.compose)
       implementation(libs.kotlin.dsv)
       implementation(libs.kotlinx.serialization.json)
+      implementation(libs.kermit)
       implementation(libs.ktor.client.core)
       implementation(libs.mobilityData.gtfsSchedule)
       implementation(libs.spatialk.geojson)

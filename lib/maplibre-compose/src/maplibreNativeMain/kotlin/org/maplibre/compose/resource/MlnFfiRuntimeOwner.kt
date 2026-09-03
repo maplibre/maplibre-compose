@@ -1,8 +1,9 @@
 package org.maplibre.compose.resource
 
-import co.touchlab.kermit.Logger
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
+import org.maplibre.compose.logging.MapLog
+import org.maplibre.compose.mlnffi.MlnFfiLogBridge
 import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
 import org.maplibre.compose.mlnffi.normalizeMlnFfiPath
 import org.maplibre.nativeffi.runtime.RuntimeHandle
@@ -19,9 +20,9 @@ internal class MlnFfiRuntimeOwner
 private constructor(
   val runtime: RuntimeHandle,
   private val provider: MlnFfiResourceProvider,
-  private val getLogger: () -> Logger?,
+  private val getLogger: () -> MapLog?,
 ) : AutoCloseable {
-  private val logger: Logger?
+  private val logger: MapLog?
     get() = getLogger()
 
   /**
@@ -44,7 +45,7 @@ private constructor(
      */
     fun open(
       rawCacheFile: Path,
-      getLogger: () -> Logger?,
+      getLogger: () -> MapLog?,
       what: String,
       resourceProviderFactory: MlnFfiResourceProviderFactory = ::MlnFfiResourceProvider,
       resourceConfig: MapResourceConfig = MapResourceConfig(),
@@ -55,6 +56,7 @@ private constructor(
       runCatching { cacheFile.parent?.let { SystemFileSystem.createDirectories(it) } }
         .onFailure { getLogger()?.w(it) { "Could not create the MapLibre cache directory" } }
 
+      MlnFfiLogBridge.ensureInstalled()
       val runtime =
         try {
           RuntimeHandle.create(RuntimeOptions().also { it.cachePath = cacheFile.toString() })

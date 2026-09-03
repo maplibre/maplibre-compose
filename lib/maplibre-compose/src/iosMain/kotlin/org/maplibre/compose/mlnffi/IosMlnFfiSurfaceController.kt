@@ -1,9 +1,9 @@
 package org.maplibre.compose.mlnffi
 
-import co.touchlab.kermit.Logger
 import kotlin.concurrent.Volatile
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.autoreleasepool
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.util.rethrowIfFatal
 import platform.Foundation.NSCondition
@@ -24,7 +24,7 @@ import platform.Foundation.dateWithTimeIntervalSinceNow
  */
 internal class IosMlnFfiSurfaceController(
   private val renderer: MlnFfiMapRenderer,
-  private val logger: Logger?,
+  private val logger: MapLog?,
   maximumFps: Int? = null,
 ) : MlnFfiMapHostSession, AutoCloseable {
   override val backends = RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL)
