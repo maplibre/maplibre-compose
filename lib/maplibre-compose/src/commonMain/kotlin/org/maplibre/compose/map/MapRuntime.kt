@@ -265,8 +265,13 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
     return layersState[id]
   }
 
-  private fun readyLoadedStyle(): StyleBinding? =
-    owner?.readyLoadedStyle() ?: loadedStyle.load()?.takeIf { loadState == StyleLoadState.Ready }
+  private fun readyLoadedStyle(): StyleBinding? {
+    // Read the snapshot-backed load state on every path. The loaded style reference is not snapshot
+    // state, so a composition that asks before the style is ready would otherwise record no
+    // dependency and never see the resources arrive.
+    if (loadState != StyleLoadState.Ready) return null
+    return owner?.readyLoadedStyle() ?: loadedStyle.load()
+  }
 
   internal fun attach(owner: MapStyleStateOwner) {
     this.owner = owner
