@@ -4,10 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.AndroidMapSurfaceKind
-import org.maplibre.compose.mlnffi.AndroidMlnFfiPlatform
 import org.maplibre.compose.mlnffi.AndroidMlnFfiSurface
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.style.BaseStyle
@@ -25,7 +23,6 @@ internal actual fun ComposableMapView(
   callbacks: MapAdapter.Callbacks,
   options: MapViewOptions,
 ) {
-  AndroidMlnFfiPlatform.initialize(LocalContext.current)
   val runtimeBackends = remember { loadRuntimeBackends(logger) }
   val renderBackend =
     remember(runtimeBackends) { runtimeBackends.firstOrNull() ?: MapRenderBackend.OPENGL }
