@@ -41,6 +41,10 @@ class MlnFfiRequestInterceptorCustomSchemeTest {
       rewritten.toList().any { it.startsWith("custom://") },
       "the interceptor never saw the custom scheme: $rewritten",
     )
+    assertTrue(
+      rewritten.all { it.startsWith("custom://") },
+      "a hook received an already-rewritten URL: $rewritten",
+    )
     assertContains(headerUrls.toList(), REWRITTEN_URL)
     assertTrue(
       headerUrls.none { it.endsWith("?again") },

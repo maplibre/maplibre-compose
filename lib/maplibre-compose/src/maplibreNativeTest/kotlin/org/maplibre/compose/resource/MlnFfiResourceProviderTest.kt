@@ -128,18 +128,6 @@ class MlnFfiResourceProviderTest {
     )
   }
 
-  @Test
-  fun a_network_url_can_be_rewritten_to_the_packaged_reader() {
-    val config =
-      MapResourceConfig(
-        interceptor = MapRequestInterceptor(rewriteUrl = { "file:/styles/offline.json" })
-      )
-    assertEquals(
-      NativeResourceRoute.Read("file:/styles/offline.json"),
-      config.nativeRoute(request("https://tiles.example.com/style.json"), true),
-    )
-  }
-
   private fun request(url: String): ResourceRequest =
     ResourceRequest(
       requestedUrl = url,

@@ -61,7 +61,8 @@ class MapRequestInterceptorTest {
         provider = provider,
       )
     val route = config.route(MapResourceRequest("custom://style.json", MapResourceKind.Style))
-    assertEquals(MapResourceRoute.Load(REQUEST.copy(url = "app://style.json"), provider), route)
+    val expected = MapResourceRequest("app://style.json", MapResourceKind.Style)
+    assertEquals(MapResourceRoute.Load(expected, provider), route)
     assertEquals("app://style.json", acceptedUrl)
   }
 
