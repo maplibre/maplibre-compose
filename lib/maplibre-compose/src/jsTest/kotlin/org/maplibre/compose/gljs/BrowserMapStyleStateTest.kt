@@ -115,6 +115,34 @@ class BrowserMapStyleStateTest {
     val resolve: () -> Unit,
   )
 
+  private fun installDeferredStyle(): DeferredStyle {
+    val global = js("window")
+    val original = global.fetch
+    var resolveStyle: ((dynamic) -> Unit)? = null
+    global.fetch = { input: dynamic, init: dynamic ->
+      val url = if (jsTypeOf(input) == "string") input as String else input.url as String
+      if (url == DEFERRED_STYLE_URL) {
+        Promise<dynamic> { resolve, _ -> resolveStyle = resolve }
+      } else {
+        original.call(global, input, init)
+      }
+    }
+    return DeferredStyle(
+      restore = { global.fetch = original },
+      isRequested = { resolveStyle != null },
+      resolve = {
+        checkNotNull(resolveStyle) { "MapLibre has not requested the style" }
+          .invoke(makeJsonResponse(STYLE_B_JSON))
+      },
+    )
+  }
+
+  private class DeferredStyle(
+    val restore: () -> Unit,
+    val isRequested: () -> Boolean,
+    val resolve: () -> Unit,
+  )
+
   private fun makeJsonResponse(body: String): dynamic =
     js("new Response(body, { status: 200, headers: { 'content-type': 'application/json' } })")
 
@@ -228,6 +256,44 @@ class BrowserMapStyleStateTest {
       assertTrue(state.currentMapAttachment === presentation)
       assertTrue(presentation.isValid)
       assertFalse(session.canPresentFrames, "the failed map surface must remain hidden")
+
+      runtime.close()
+      runtime.awaitClosed()
+    }
+
+  @Test
+  fun a_web_style_switch_keeps_presenting_frames_while_the_replacement_loads(): Promise<*> =
+    runBrowserMapTest {
+      val runtime = createMapRuntime(MapRuntimeOptions())
+      val state = runtime.createMapState(baseStyle = STYLE_A)
+
+      setBrowserMapContent { MaplibreMap(state = state) }
+      waitUntilMap("the first style to become ready") {
+        state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
+      }
+      val session = requireNotNull(state.currentMapAttachment).adapter as GlJsMapSession
+      assertTrue(session.canPresentFrames)
+
+      val deferredStyle = installDeferredStyle()
+      try {
+        runOnIdle { state.style.baseStyle = BaseStyle.Uri(DEFERRED_STYLE_URL) }
+        waitUntilMap("MapLibre to request the replacement style") { deferredStyle.isRequested() }
+
+        assertEquals(StyleLoadState.Loading, state.style.loadState)
+        assertTrue(
+          session.canPresentFrames,
+          "the loaded style must remain visible while its replacement loads",
+        )
+
+        deferredStyle.resolve()
+        waitUntilMap("the replacement style to become ready") {
+          state.style.loadState == StyleLoadState.Ready &&
+            session.engineMapForTest()?.getStyle()?.layers?.any { it.id == "b" } == true
+        }
+        assertTrue(session.canPresentFrames)
+      } finally {
+        deferredStyle.restore()
+      }
 
       runtime.close()
       runtime.awaitClosed()
@@ -385,6 +451,9 @@ class BrowserMapStyleStateTest {
         """{"version":8,"name":"b","sources":{},"layers":[{"id":"b","type":"background"}]}"""
       )
     val INVALID_STYLE = BaseStyle.Json("""{"version":7,"sources":{},"layers":[]}""")
+    const val DEFERRED_STYLE_URL = "https://deferred-style.test/style.json"
+    const val STYLE_B_JSON =
+      """{"version":8,"name":"b","sources":{},"layers":[{"id":"b","type":"background"}]}"""
     const val TILE_JSON =
       """{"tilejson":"2.2.0","tiles":["https://example.invalid/{z}/{x}/{y}.pbf"],""" +
         """"attribution":"fetched attribution"}"""
