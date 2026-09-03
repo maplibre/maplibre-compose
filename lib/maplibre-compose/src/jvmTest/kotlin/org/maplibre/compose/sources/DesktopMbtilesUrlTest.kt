@@ -71,6 +71,19 @@ class DesktopMbtilesUrlTest {
   }
 
   @Test
+  fun `entries whose URIs share a name and a hash code keep their own copies`() = runTest {
+    // "Aa" and "BB" have the same String.hashCode, so these two URIs collide.
+    val entries = mapOf("Aa/city.mbtiles" to "from Aa", "BB/city.mbtiles" to "from BB")
+    val first = fixture.jarEntry("app.jar", "Aa/city.mbtiles", entries)
+    val second = fixture.jarEntry("app.jar", "BB/city.mbtiles", entries)
+    assertEquals(first.hashCode(), second.hashCode(), "the URIs must collide for this to be a test")
+
+    assertEquals("from Aa", File(desktopMbtilesPath(first, directory)).readText())
+    assertEquals("from BB", File(desktopMbtilesPath(second, directory)).readText())
+    assertEquals("from Aa", File(desktopMbtilesPath(first, directory)).readText())
+  }
+
+  @Test
   fun `the URL decodes back to the path`() {
     val path = "/tmp/ké 地図/city.mbtiles"
 

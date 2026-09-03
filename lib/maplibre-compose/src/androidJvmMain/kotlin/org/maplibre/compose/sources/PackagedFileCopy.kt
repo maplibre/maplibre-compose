@@ -12,22 +12,26 @@ import kotlinx.coroutines.withContext
 private val copyLocks = ConcurrentHashMap<String, Mutex>()
 
 /**
- * Copies a packaged resource to [destination] unless a copy with the same [stamp] is already there,
- * and returns [destination].
+ * Copies the packaged resource at [uri] into [directory] unless a copy of the same [uri] with the
+ * same [stamp] is already there, and returns the copy.
  *
  * [stamp] identifies the package version that the resource came from. The copy is written to a
  * temporary file and moved into place, so a reader sees either the old copy or the new one.
  */
 internal suspend fun copyPackagedFile(
-  destination: File,
+  uri: String,
+  directory: File,
   stamp: String,
   open: () -> InputStream,
 ): File {
+  val destination = File(directory, packagedCopyName(uri))
+  // The file name is a lossy key, so the stamp records the source URI as well.
+  val expected = "$uri\n$stamp"
   val lock = copyLocks.getOrPut(destination.absolutePath) { Mutex() }
   lock.withLock {
     withContext(Dispatchers.IO) {
       val stampFile = File(destination.path + ".stamp")
-      val current = destination.isFile && stampFile.isFile && stampFile.readText() == stamp
+      val current = destination.isFile && stampFile.isFile && stampFile.readText() == expected
       if (!current) {
         destination.parentFile?.mkdirs()
         stampFile.delete()
@@ -40,7 +44,7 @@ internal suspend fun copyPackagedFile(
         } finally {
           temporary.delete()
         }
-        stampFile.writeText(stamp)
+        stampFile.writeText(expected)
       }
     }
   }
@@ -48,7 +52,7 @@ internal suspend fun copyPackagedFile(
 }
 
 /** The file name for the copy of [uri]: its last path segment, made unique by the whole URI. */
-internal fun packagedCopyName(uri: String): String {
+private fun packagedCopyName(uri: String): String {
   val name = uri.substringAfterLast('/').substringBefore('?').ifEmpty { "tiles.mbtiles" }
   return Integer.toHexString(uri.hashCode()) + "-" + name
 }

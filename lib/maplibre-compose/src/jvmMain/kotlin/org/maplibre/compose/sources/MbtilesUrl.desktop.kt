@@ -43,7 +43,8 @@ internal suspend fun desktopMbtilesPath(uri: String, directory: File): String {
       .joinToString("-")
   val copy =
     copyPackagedFile(
-      destination = File(directory, packagedCopyName(uri)),
+      uri = uri,
+      directory = directory,
       stamp = stamp,
       open = { url.openConnection().apply { useCaches = false }.getInputStream() },
     )

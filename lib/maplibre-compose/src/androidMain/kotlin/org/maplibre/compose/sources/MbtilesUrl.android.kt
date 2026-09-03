@@ -17,7 +17,8 @@ internal actual suspend fun localMbtilesPath(uri: String): String {
   val apk = File(context.applicationInfo.sourceDir)
   val copy =
     copyPackagedFile(
-      destination = File(context.cacheDir, "maplibre-compose/mbtiles/" + packagedCopyName(uri)),
+      uri = uri,
+      directory = File(context.cacheDir, "maplibre-compose/mbtiles"),
       stamp = "${apk.length()}-${apk.lastModified()}",
       open = { context.assets.open(assetPath) },
     )
