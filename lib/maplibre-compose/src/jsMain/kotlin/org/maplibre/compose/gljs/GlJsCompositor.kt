@@ -1,7 +1,7 @@
 package org.maplibre.compose.gljs
 
 import androidx.compose.runtime.staticCompositionLocalOf
-import co.touchlab.kermit.Logger
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.map.MapExtent
 
 /** What a map should render into for one frame. */
@@ -22,12 +22,12 @@ internal interface GlJsCompositor : AutoCloseable {
 
 /** A seam for tests that run against a raster surface with no WebGL context. */
 internal val LocalGlJsCompositor =
-  staticCompositionLocalOf<(Logger?) -> GlJsCompositor> {
+  staticCompositionLocalOf<(MapLog?) -> GlJsCompositor> {
     { logger -> ComposeGlJsCompositor(logger) }
   }
 
 /** A target is never resized in place: WebGL cannot resize a texture. */
-internal class ComposeGlJsCompositor(private val logger: Logger?) : GlJsCompositor {
+internal class ComposeGlJsCompositor(private val logger: MapLog?) : GlJsCompositor {
 
   private var target: GlJsRenderTarget? = null
   private var generation = 0L

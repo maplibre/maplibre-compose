@@ -2,12 +2,12 @@
 
 package org.maplibre.compose.map
 
-import co.touchlab.kermit.Logger
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.test.Test
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.TestLatch
 
@@ -27,7 +27,7 @@ class MlnFfiMapRuntimeLoopTest {
       MlnFfiMapRuntimeLoop(
         extent = MapExtent.fromLogical(1, 1, 1.0),
         cacheFile = cacheFile,
-        getLogger = { Logger.withTag("map-runtime-loop-test") },
+        getLogger = { MapLog },
         onMapCreated = {},
         onMapPublished = { throw expectedFailure },
         onMapClosing = { map ->

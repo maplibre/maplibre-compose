@@ -1,8 +1,6 @@
 package org.maplibre.compose.layers
 
-import co.touchlab.kermit.LogWriter
-import co.touchlab.kermit.Logger
-import co.touchlab.kermit.Severity
+import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -17,6 +15,9 @@ import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.expressions.value.StringValue
 import org.maplibre.compose.expressions.value.SymbolOverlap
 import org.maplibre.compose.expressions.value.TextRotationAlignment
+import org.maplibre.compose.logging.MapLogLevel
+import org.maplibre.compose.logging.MapLogger
+import org.maplibre.compose.logging.MapLogging
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
@@ -39,9 +40,20 @@ import org.maplibre.spatialk.geojson.Geometry
  */
 class UnsupportedLayerPropertyTest {
 
+  private val previousLogger = MapLogging.logger
+
   @BeforeTest
-  fun clearLog() {
+  fun captureWarnings() {
     CAPTURED.clear()
+    MapLogging.logger = MapLogger { record ->
+      if (record.level >= MapLogLevel.Warning) CAPTURED += record.message
+      previousLogger?.log(record)
+    }
+  }
+
+  @AfterTest
+  fun restoreLogger() {
+    MapLogging.logger = previousLogger
   }
 
   @Test
@@ -172,25 +184,7 @@ class UnsupportedLayerPropertyTest {
       .also { style.install(it) }
 
   private companion object {
-    /**
-     * Warnings the library logged. Kermit's writers are global and cannot be removed, so this is
-     * installed once; each platform test process runs without parallel forks.
-     */
+    /** Warnings the library logged. */
     val CAPTURED = RecordingList<String>()
-
-    init {
-      Logger.addLogWriter(
-        object : LogWriter() {
-          override fun log(
-            severity: Severity,
-            message: String,
-            tag: String,
-            throwable: Throwable?,
-          ) {
-            if (severity >= Severity.Warn) CAPTURED += message
-          }
-        }
-      )
-    }
   }
 }

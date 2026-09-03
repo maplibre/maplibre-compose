@@ -11,13 +11,13 @@ import androidx.compose.ui.viewinterop.UIKitView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import co.touchlab.kermit.Logger
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.CValue
 import kotlinx.cinterop.ObjCClass
 import kotlinx.cinterop.objcPtr
 import kotlinx.cinterop.toLong
 import kotlinx.cinterop.useContents
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.map.MapExtent
 import platform.CoreGraphics.CGRect
 import platform.CoreGraphics.CGRectMake
@@ -34,7 +34,7 @@ internal fun IosMlnFfiSurface(
   runtimeBackends: Set<MapRenderBackend>,
   maximumFps: Int? = null,
   modifier: Modifier,
-  logger: Logger?,
+  logger: MapLog?,
   presentWindow: Boolean = true,
 ) {
   val lifecycleOwner = LocalLifecycleOwner.current

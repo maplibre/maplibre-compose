@@ -1,6 +1,6 @@
 package org.maplibre.compose.offline
 
-import co.touchlab.kermit.Logger
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.util.toBoundingBox
 import org.maplibre.compose.util.toLatLngBounds
 import org.maplibre.nativeffi.offline.OfflineRegionDefinition as FfiRegionDefinition
@@ -47,7 +47,7 @@ internal fun OfflinePackDefinition.toFfiRegionDefinition(): FfiRegionDefinition 
  * reports it as `Unknown`, which carries no style URL and so cannot become an
  * [OfflinePackDefinition].
  */
-internal fun FfiRegionDefinition.toOfflinePackDefinition(logger: Logger?): OfflinePackDefinition? =
+internal fun FfiRegionDefinition.toOfflinePackDefinition(logger: MapLog?): OfflinePackDefinition? =
   when (this) {
     is FfiRegionDefinition.TilePyramid ->
       OfflinePackDefinition.TilePyramid(
@@ -72,7 +72,7 @@ internal fun FfiRegionDefinition.toOfflinePackDefinition(logger: Logger?): Offli
     }
   }
 
-internal fun OfflineRegionStatus.toDownloadProgress(logger: Logger?): DownloadProgress =
+internal fun OfflineRegionStatus.toDownloadProgress(logger: MapLog?): DownloadProgress =
   DownloadProgress.Healthy(
     completedResourceCount = completedResourceCount,
     completedResourceBytes = completedResourceSize,
@@ -108,7 +108,7 @@ internal fun ResourceErrorReason.toDownloadErrorReason(): String =
     else -> "REASON_OTHER"
   }
 
-private fun ByteArray.toGeoJsonGeometry(logger: Logger?): Geometry = runCatching {
+private fun ByteArray.toGeoJsonGeometry(logger: MapLog?): Geometry = runCatching {
   Geometry.fromJson(decodeToString())
 }
   .getOrElse {

@@ -21,7 +21,6 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
-import co.touchlab.kermit.Logger
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.jvm.JvmInline
@@ -40,6 +39,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
@@ -51,6 +51,7 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.layers.LayerHandle
 import org.maplibre.compose.layers.layerHandle
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.offline.OfflineManager
 import org.maplibre.compose.offline.RuntimeBoundOfflineManager
 import org.maplibre.compose.offline.UnsupportedOfflineManager
@@ -68,6 +69,7 @@ import org.maplibre.compose.style.StyleComposition
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.style.StyleMutationException
+import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.canUpdateTo
 import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.MaplibreComposable
@@ -204,6 +206,46 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
 
   /** Style-image commands for the current loaded-style generation. */
   public val images: StyleImages = StyleImages(this)
+
+  /** Global transition of the current loaded-style generation. */
+  public val transition: StyleTransition = StyleTransition(this)
+
+  /** Light of the current loaded-style generation. */
+  public val light: StyleLight = StyleLight(this)
+
+  internal fun transitionOptions(): TransitionOptions? = readStyle { it.transition() }
+
+  internal fun setTransitionOptions(options: TransitionOptions) {
+    mutateStyle("the transition") { it.setTransition(options) }
+  }
+
+  internal fun placementTransitions(): Boolean? = readStyle { it.placementTransitions() }
+
+  internal fun setPlacementTransitions(enabled: Boolean) {
+    mutateStyle("placement transitions") { it.setPlacementTransitions(enabled) }
+  }
+
+  internal fun lightProperty(name: String): JsonElement? = readStyle { it.lightProperty(name) }
+
+  internal fun setLightProperty(name: String, value: JsonElement) {
+    mutateStyle("light '$name'") { it.setLightProperty(name, value) }
+  }
+
+  private fun <T> readStyle(read: (StyleBinding) -> T?): T? {
+    val current = readyLoadedStyle() ?: return null
+    return operationGuard(current).run { read(current) }
+  }
+
+  private fun mutateStyle(what: String, mutate: (StyleBinding) -> Unit) {
+    val current = checkNotNull(readyLoadedStyle()) { "No ready loaded style" }
+    operationGuard(current).run {
+      try {
+        mutate(current)
+      } catch (error: StyleMutationException) {
+        throw StyleHandleException("Could not set $what: ${error.message}", error)
+      }
+    }
+  }
 
   internal fun sourceHandle(id: String): SourceHandle? {
     if (readyLoadedStyle() == null) return null
@@ -1456,7 +1498,7 @@ internal fun interface MapRuntimeResources {
 internal class RuntimeImplementation(
   internal val platformOptions: Any?,
   private val resources: MapRuntimeResources,
-  internal val logger: Logger?,
+  internal val logger: MapLog?,
   offlineManagerBackend: OfflineManager = UnsupportedOfflineManager,
   internal val physicalScope: CoroutineScope =
     CoroutineScope(SupervisorJob() + Dispatchers.Default),

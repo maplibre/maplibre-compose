@@ -11,9 +11,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import co.touchlab.kermit.Logger
 import kotlin.math.roundToInt
 import kotlin.time.TimeSource
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.util.rethrowIfFatal
 
@@ -26,7 +26,7 @@ internal fun MlnFfiMapSurface(
   renderer: MlnFfiMapRenderer,
   hostResult: MlnFfiMapHostResult,
   modifier: Modifier = Modifier,
-  logger: Logger? = null,
+  logger: MapLog? = null,
   presentFrames: Boolean = true,
 ) {
   var frameRequest by remember { mutableLongStateOf(0L) }
@@ -156,7 +156,7 @@ private fun recoverFromFrameFailure(
   drawState: MlnFfiMapDrawState,
   frameId: Long,
   error: Throwable,
-  logger: Logger?,
+  logger: MapLog?,
 ): Boolean {
   if (error !is MlnFfiRecoverableFrameException) {
     logger?.e(error) { "Map frame $frameId failed with an unrecoverable error" }
@@ -215,7 +215,7 @@ private class MlnFfiMapDrawState {
     frameFailures = 0
   }
 
-  fun closeRenderer(renderer: MlnFfiMapRenderer, logger: Logger?) {
+  fun closeRenderer(renderer: MlnFfiMapRenderer, logger: MapLog?) {
     if (rendererClosed) return
     rendererClosed = true
     runCatching { renderer.close() }.onFailure { logger?.e(it) { "Map renderer failed to close" } }

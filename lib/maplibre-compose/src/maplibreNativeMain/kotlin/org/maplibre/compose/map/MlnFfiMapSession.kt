@@ -11,7 +11,6 @@ import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import co.touchlab.kermit.Logger
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicLong
@@ -35,6 +34,7 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.EglContextHandles
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MetalSurfaceTarget
@@ -154,7 +154,7 @@ internal data class NativeEngineCompatibility(
 internal class MlnFfiMapSession(
   private val lifecycleAuthority: MapLifecycleAuthority,
   callbacks: MapAdapter.Callbacks,
-  @Volatile internal var logger: Logger?,
+  @Volatile internal var logger: MapLog?,
   renderBackend: MapRenderBackend,
   scaleFactor: Double = 1.0,
   @Volatile internal var layoutDirection: LayoutDirection,
@@ -911,7 +911,7 @@ internal class MlnFfiMapSession(
           val waiter = transitionWaiters.remove(id)
           if (waiter == null) {
             // Expected after a cancellation: the caller withdrew before native finished.
-            logger?.v { "Ignoring the end of unknown camera transition $id" }
+            logger?.d { "Ignoring the end of unknown camera transition $id" }
           } else {
             // Resumed after the drain: this event is queued immediately before the transition's
             // MAP_CAMERA_DID_CHANGE, so resuming now would read the camera too early.
@@ -929,7 +929,7 @@ internal class MlnFfiMapSession(
 
       // Event types are value classes over Int, so an FFI upgrade can add one this build has never
       // seen. Types this session does not select are never queued.
-      else -> logger?.v { "Unrecognized MapLibre event type ${event.type}" }
+      else -> logger?.d { "Unrecognized MapLibre event type ${event.type}" }
     }
   }
 

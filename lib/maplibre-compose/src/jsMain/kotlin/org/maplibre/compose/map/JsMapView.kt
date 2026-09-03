@@ -12,8 +12,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
-import co.touchlab.kermit.Logger
 import org.maplibre.compose.gljs.GlJsMapSurface
+import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.style.BaseStyle
 
 @Composable internal actual fun mapPresentationHostIdentity(): Any = Unit
@@ -25,7 +25,7 @@ internal actual fun ComposableMapView(
   style: BaseStyle,
   update: (map: MapAdapter) -> Unit,
   onReset: () -> Unit,
-  logger: Logger?,
+  logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
   options: MapViewOptions,
 ) {

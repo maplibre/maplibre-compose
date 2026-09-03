@@ -6,33 +6,11 @@ no cross-platform API for.
 The FFI capability set defines the target for native platforms. Web support may
 require a separate MapLibre GL JS implementation.
 
-## Style light
-
-Position, color, intensity, and anchor of the style's light source, which fill
-extrusions shade against.
-
-- FFI: `setStyleLightJson`, `setStyleLightProperty`, `styleLightProperty`
-
-Naturally a Compose API: a `Light` composable inside `MaplibreMap`'s content,
-set the same way layers are.
-
 ## Projection mode
 
 Switching between Mercator and globe projections.
 
 - FFI: `projectionMode`
-
-## Style transition options
-
-The style's global transition duration and delay, and whether symbol placement
-cross-fades. What every paint property's animation takes its default from, so
-this is the one setting that changes how the whole map feels when data updates.
-
-- FFI: `setStyleTransitionOptions`, `styleTransitionOptions`
-  ([#465](https://github.com/maplibre/maplibre-native-ffi/pull/465))
-
-Naturally a parameter on `MaplibreMap` or its style content, alongside the other
-per-map options.
 
 ## Missing style images
 

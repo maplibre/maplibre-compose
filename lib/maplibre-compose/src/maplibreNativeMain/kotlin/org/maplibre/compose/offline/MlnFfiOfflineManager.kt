@@ -326,14 +326,14 @@ internal class MlnFfiOfflineManager(
       else ->
         // Event types are value classes over Int, so an FFI upgrade can deliver a type this build
         // has never seen.
-        logger?.v { "Ignoring MapLibre event ${event.type} on the offline runtime" }
+        logger?.d { "Ignoring MapLibre event ${event.type} on the offline runtime" }
     }
   }
 
   private fun publishProgress(regionId: Long, progress: DownloadProgress) {
     val pack = packsById[regionId]
     if (pack == null) {
-      logger?.v { "Ignoring progress for offline region $regionId, which has no pack" }
+      logger?.d { "Ignoring progress for offline region $regionId, which has no pack" }
       return
     }
     pack.progressState.value = progress

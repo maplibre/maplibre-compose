@@ -1,6 +1,5 @@
 package org.maplibre.compose.desktop
 
-import co.touchlab.kermit.Logger
 import java.nio.file.Path
 import java.nio.file.Paths
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
@@ -10,7 +9,6 @@ import org.maplibre.compose.resource.MapResourceProvider
 internal fun desktopRuntimeOptions(
   applicationId: String = inferredApplicationId(),
   maximumCacheSizeBytes: Long? = null,
-  logger: Logger? = Logger.withTag("maplibre-compose"),
   requestInterceptor: MapRequestInterceptor? = null,
   resourceProvider: MapResourceProvider? = null,
 ): MlnFfiRuntimeOptions {
@@ -19,11 +17,10 @@ internal fun desktopRuntimeOptions(
   }
   val cachePath = desktopCachePath(applicationId)
   return MlnFfiRuntimeOptions(
-    kotlinx.io.files.Path(cachePath.toString()),
-    maximumCacheSizeBytes,
-    logger,
-    requestInterceptor,
-    resourceProvider,
+    cacheFile = kotlinx.io.files.Path(cachePath.toString()),
+    maximumCacheSizeBytes = maximumCacheSizeBytes,
+    requestInterceptor = requestInterceptor,
+    resourceProvider = resourceProvider,
   )
 }
 
