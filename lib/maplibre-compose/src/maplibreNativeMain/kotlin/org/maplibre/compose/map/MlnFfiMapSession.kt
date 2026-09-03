@@ -29,7 +29,6 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.io.files.Path
 import kotlinx.serialization.json.JsonObject
-import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.expressions.ast.CompiledExpression
@@ -247,12 +246,9 @@ internal class MlnFfiMapSession(
   private var appliedStyleRequest: StyleRequestId? = null
 
   /** Gesture attribution is owner-thread state; input threads communicate only through tokens. */
-  private var isGestureInProgress = false
   private val nextGestureToken = AtomicLong(0L)
   private var activeGestureToken: GestureToken? = null
   private var pendingGestureEndToken: GestureToken? = null
-
-  private var reportedMoveReason: CameraMoveReason? = null
 
   @Volatile private var styleBinding: MlnFfiStyleBinding? = null
   private val styleReconciler = StyleReconciler()
@@ -438,11 +434,7 @@ internal class MlnFfiMapSession(
   }
 
   override fun close() {
-    try {
-      endCameraMove()
-    } finally {
-      lifecycle.close()
-    }
+    lifecycle.close()
   }
 
   override suspend fun awaitClosed() {
@@ -582,7 +574,6 @@ internal class MlnFfiMapSession(
       stopping?.close()
     } finally {
       // After the join, so the owner thread is gone and this is the only reader of that state.
-      isGestureInProgress = false
       activeGestureToken = null
       pendingGestureEndToken = null
       resumeStrandedTransitions()
@@ -890,33 +881,12 @@ internal class MlnFfiMapSession(
         }
       }
 
-      RuntimeEventType.MAP_CAMERA_WILL_CHANGE -> {
-        beginCameraMove(engine, lease)
-        postPresentationEvent(engine, lease, mapEvent)
-      }
-
-      RuntimeEventType.MAP_CAMERA_IS_CHANGING -> {
-        lease?.let {
-          lifecycleCallbacks.onCameraMoved(engine, it, this) {
-            loop?.map?.let(::snapshotViewport)
-          }
-        }
-        postPresentationEvent(engine, lease, mapEvent)
-      }
-
-      RuntimeEventType.MAP_CAMERA_DID_CHANGE -> {
-        lease?.let {
-          if (
-            lifecycleCallbacks.onCameraMoved(engine, it, this) {
-              loop?.map?.let(::snapshotViewport)
-            }
-          ) {
-            // A drag is a stream of jumps, each with its own did-change.
-            if (!isGestureInProgress) endCameraMove(engine, lease)
-          }
-        }
-        postPresentationEvent(engine, lease, mapEvent)
-      }
+      // MapState reads the camera and viewport on each of the three, so the mirror the getters
+      // read is refreshed before the event is delivered.
+      RuntimeEventType.MAP_CAMERA_WILL_CHANGE,
+      RuntimeEventType.MAP_CAMERA_IS_CHANGING,
+      RuntimeEventType.MAP_CAMERA_DID_CHANGE ->
+        postPresentationEvent(engine, lease, mapEvent) { loop?.map?.let(::snapshotViewport) }
 
       RuntimeEventType.MAP_CAMERA_TRANSITION_FINISHED -> {
         val payload = event.payload
@@ -961,9 +931,10 @@ internal class MlnFfiMapSession(
     engine: EngineMapIdentity,
     lease: RenderLease?,
     event: MapEvent?,
+    beforeDelegate: () -> Unit = {},
   ) {
     if (lease == null || event == null) return
-    lifecycleCallbacks.onEvent(engine, lease, this, event)
+    lifecycleCallbacks.onEvent(engine, lease, this, event, beforeDelegate)
   }
 
   private fun postStyleEvent(engine: EngineMapIdentity, style: StyleIdentity, event: MapEvent?) {
@@ -978,34 +949,6 @@ internal class MlnFfiMapSession(
   ) {
     if (event == null) return
     lifecycleCallbacks.onEvent(engine, request, this, event)
-  }
-
-  /**
-   * The reason is re-reported when it changes: the gesture flag is set from the UI thread and can
-   * arrive after a drag's first camera change.
-   */
-  private fun beginCameraMove(
-    engine: EngineMapIdentity? = lifecycleEngineIdentity,
-    lease: RenderLease? = lifecycleRenderLease,
-  ) {
-    val reason =
-      if (isGestureInProgress) CameraMoveReason.GESTURE else CameraMoveReason.PROGRAMMATIC
-    if (reportedMoveReason == reason) return
-    if (engine != null && lease != null) {
-      if (lifecycleCallbacks.onCameraMoveStarted(engine, lease, this, reason)) {
-        reportedMoveReason = reason
-      }
-    }
-  }
-
-  private fun endCameraMove(
-    engine: EngineMapIdentity? = lifecycleEngineIdentity,
-    lease: RenderLease? = lifecycleRenderLease,
-  ) {
-    if (reportedMoveReason == null) return
-    if (engine != null && lease != null) {
-      lifecycleCallbacks.onCameraMoveEnded(engine, lease, this) { reportedMoveReason = null }
-    }
   }
 
   /** Exists for tests. */
@@ -1327,7 +1270,7 @@ internal class MlnFfiMapSession(
     // itself so a dropped camera callback cannot leave MapState.viewport null.
     lifecycleAuthority.seedCurrentPresentationViewport(this)
     withLifecyclePresentation { engine, lease ->
-      lifecycleCallbacks.onCameraMoved(engine, lease, this)
+      lifecycleCallbacks.onViewportChanged(engine, lease, this)
     }
   }
 
@@ -1812,15 +1755,19 @@ internal class MlnFfiMapSession(
     loop?.post(action = { if (activeGestureToken == token) pendingGestureEndToken = token })
   }
 
-  /** Owner thread only. */
+  /**
+   * Owner thread only. Reports on every camera command, because a report made before the lease
+   * attaches is dropped.
+   */
   private fun activateGesture(map: MapHandle, token: GestureToken) {
     val active = activeGestureToken
     if (active != null && token.value < active.value) return
-    if (active == token) return
-    activeGestureToken = token
-    pendingGestureEndToken = null
-    isGestureInProgress = true
-    map.isGestureInProgress = true
+    if (active != token) {
+      activeGestureToken = token
+      pendingGestureEndToken = null
+      map.isGestureInProgress = true
+    }
+    reportGestureActive(true)
   }
 
   /** Runs once the runtime event queue is momentarily empty. Owner thread only. */
@@ -1829,9 +1776,18 @@ internal class MlnFfiMapSession(
     pendingGestureEndToken = null
     if (activeGestureToken != token) return
     activeGestureToken = null
-    isGestureInProgress = false
     map.isGestureInProgress = false
-    endCameraMove()
+    reportGestureActive(false)
+  }
+
+  /**
+   * Owner thread only, so the fact keeps program order with the camera events this thread drains.
+   * Reported from the UI thread instead, a gesture end would land before the queued move it ends.
+   */
+  private fun reportGestureActive(active: Boolean) {
+    val engine = lifecycleEngineIdentity ?: return
+    val lease = ownerThreadRenderLease ?: return
+    lifecycleCallbacks.onGestureActive(engine, lease, this, active)
   }
 
   private fun onEventsDrained(engine: EngineMapIdentity, map: MapHandle) {

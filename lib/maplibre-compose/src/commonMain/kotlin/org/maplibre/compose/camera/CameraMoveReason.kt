@@ -2,20 +2,21 @@ package org.maplibre.compose.camera
 
 import androidx.compose.runtime.Immutable
 
+/** What started the most recent camera movement. */
 @Immutable
 public enum class CameraMoveReason {
-  /** The camera hasn't moved yet. */
+  /** The camera has not moved yet. */
   NONE,
 
-  /** The camera moved for a reason we don't understand. File a bug report! */
+  /**
+   * The movement has no attributed cause. The library reports every movement as [GESTURE] or
+   * [PROGRAMMATIC], so it never reports this value.
+   */
   UNKNOWN,
 
-  /**
-   * Camera movement was initiated by the user manipulating the map by panning, zooming, rotating,
-   * or tilting.
-   */
+  /** A gesture on the map moved the camera: a pan, a zoom, a rotation, or a tilt. */
   GESTURE,
 
-  /** Camera movement was initiated by a call to the public API, such as by a compass control. */
+  /** A call to the map's API moved the camera, such as one an overlay control made. */
   PROGRAMMATIC,
 }

@@ -19,7 +19,6 @@ import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.JsonObject
-import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.expressions.ast.CompiledExpression
@@ -194,13 +193,15 @@ internal class GlJsMapSession(
     val engine = lifecycleEngineIdentity
     val lease = lifecycleRenderLease
     if (engine != null && lease != null) {
-      try {
-        endCameraMove(engine, lease)
-      } finally {
-        surface = null
-        invalidateStyleBinding()
-        lifecycle.beginEngineReplacement(engine, lease)
-      }
+      // The replacement keeps the presentation, and the destroyed map emits no `moveend`. A
+      // gesture that ends while the replacement is attaching cannot report, so its fact is
+      // withdrawn here; a gesture that continues re-reports on its next camera command.
+      activeGestureToken = null
+      reportGestureActive(false)
+      lifecycleAuthority.endCurrentPresentationCameraChange(this)
+      surface = null
+      invalidateStyleBinding()
+      lifecycle.beginEngineReplacement(engine, lease)
     } else {
       surface = null
     }
@@ -262,11 +263,7 @@ internal class GlJsMapSession(
     if (lentContext != null) null else map?.getCanvas()
 
   override fun close() {
-    try {
-      endCameraMove()
-    } finally {
-      lifecycle.close()
-    }
+    lifecycle.close()
   }
 
   override suspend fun awaitClosed() {
@@ -301,7 +298,7 @@ internal class GlJsMapSession(
   }
 
   override suspend fun closeResources() {
-    isGestureInProgress = false
+    activeGestureToken = null
     abandonPending(pendingMapActions)
     abandonPending(pendingInitialStyleActions)
     abandonPending(pendingPlatformMapAccess)
@@ -424,12 +421,12 @@ internal class GlJsMapSession(
     map.setPixelRatio(extent.scaleFactor)
     map.resize()
     hasUsableViewport = true
-    // resize() may also fire `move`; a second onCameraMoved is how overlays learn the viewport
-    // changed when the camera position did not. Seed here too: the first resize can land before
-    // the lease is Attached, and acceptPresentationEvent then drops that callback.
+    // resize() may also fire `move`; this report is how overlays learn the viewport changed when
+    // the camera position did not. Seed here too: the first resize can land before the lease is
+    // Attached, and acceptPresentationEvent then drops that callback.
     lifecycleAuthority.seedCurrentPresentationViewport(this)
     withLifecyclePresentation { engine, lease ->
-      lifecycleCallbacks.onCameraMoved(engine, lease, this)
+      lifecycleCallbacks.onViewportChanged(engine, lease, this)
     }
   }
 
@@ -543,24 +540,16 @@ internal class GlJsMapSession(
       }
     }
 
-    map.subscribe("movestart") { beginCameraMove(engine, lease) }
-    map.subscribe("move") { lifecycleCallbacks.onCameraMoved(engine, lease, this) }
-    map.subscribe("moveend") {
-      if (lifecycleCallbacks.onCameraMoved(engine, lease, this)) {
-        // A drag is a stream of jumps, each with its own moveend.
-        if (!isGestureInProgress) endCameraMove(engine, lease)
-        resumeTransitions()
-      }
-    }
-
     subscribeTranslated(map, ENGINE_GL_JS_EVENTS) { lifecycleCallbacks.onEvent(engine, this, it) }
     subscribeTranslated(map, STYLE_GL_JS_EVENTS) { event ->
       // The style is whichever one is loaded when the event arrives, so the identity is read here
       // rather than captured with the subscription.
       lifecycleStyleIdentity?.let { lifecycleCallbacks.onEvent(engine, it, this, event) }
     }
-    subscribeTranslated(map, PRESENTATION_GL_JS_EVENTS) {
-      lifecycleCallbacks.onEvent(engine, lease, this, it)
+    subscribeTranslated(map, PRESENTATION_GL_JS_EVENTS) { event ->
+      val accepted = lifecycleCallbacks.onEvent(engine, lease, this, event)
+      // A `moveend` is how GL JS reports that an eased transition finished.
+      if (accepted && event is MapEvent.CameraMoveEnded) resumeTransitions()
     }
   }
 
@@ -589,33 +578,6 @@ internal class GlJsMapSession(
       }
     }
   }
-
-  /** A move spans the gesture rather than the jump, as every other platform reports it. */
-  private fun beginCameraMove(
-    engine: EngineMapIdentity? = lifecycleEngineIdentity,
-    lease: RenderLease? = lifecycleRenderLease,
-  ) {
-    val reason =
-      if (isGestureInProgress) CameraMoveReason.GESTURE else CameraMoveReason.PROGRAMMATIC
-    if (reportedMoveReason == reason) return
-    if (engine != null && lease != null) {
-      if (lifecycleCallbacks.onCameraMoveStarted(engine, lease, this, reason)) {
-        reportedMoveReason = reason
-      }
-    }
-  }
-
-  private fun endCameraMove(
-    engine: EngineMapIdentity? = lifecycleEngineIdentity,
-    lease: RenderLease? = lifecycleRenderLease,
-  ) {
-    if (reportedMoveReason == null) return
-    if (engine != null && lease != null) {
-      lifecycleCallbacks.onCameraMoveEnded(engine, lease, this) { reportedMoveReason = null }
-    }
-  }
-
-  private var reportedMoveReason: CameraMoveReason? = null
 
   // endregion
 
@@ -1176,7 +1138,6 @@ internal class GlJsMapSession(
 
   // region input, called from Compose
 
-  private var isGestureInProgress = false
   private var nextGestureToken = 0L
   private var activeGestureToken: GestureToken? = null
 
@@ -1185,16 +1146,22 @@ internal class GlJsMapSession(
   override fun onGestureEnded(token: GestureToken) {
     if (activeGestureToken != token) return
     activeGestureToken = null
-    isGestureInProgress = false
-    endCameraMove()
+    reportGestureActive(false)
   }
 
+  /** Reports on every camera command: a report made before the lease attaches is dropped. */
   private fun activateGesture(token: GestureToken?) {
     if (token == null) return
     val active = activeGestureToken
     if (active != null && token.value < active.value) return
     activeGestureToken = token
-    isGestureInProgress = true
+    reportGestureActive(true)
+  }
+
+  private fun reportGestureActive(active: Boolean) {
+    withLifecyclePresentation { engine, lease ->
+      lifecycleCallbacks.onGestureActive(engine, lease, this, active)
+    }
   }
 
   override fun moveBy(

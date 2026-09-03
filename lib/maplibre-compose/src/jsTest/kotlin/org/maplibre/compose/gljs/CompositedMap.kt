@@ -7,7 +7,6 @@ import kotlin.js.Date
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.map.GlJsMapSession
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapEvent
@@ -105,14 +104,12 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
       loadFailure = reason ?: "unknown"
     }
 
-    override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) = Unit
-
-    override fun onCameraMoved(map: MapAdapter) = Unit
-
-    override fun onCameraMoveEnded(map: MapAdapter) = Unit
-
     override fun onFrame(fps: Double) = Unit
 
     override fun onEvent(map: MapAdapter, event: MapEvent) = Unit
+
+    override fun onGestureActive(map: MapAdapter, active: Boolean) = Unit
+
+    override fun onViewportChanged(map: MapAdapter) = Unit
   }
 }

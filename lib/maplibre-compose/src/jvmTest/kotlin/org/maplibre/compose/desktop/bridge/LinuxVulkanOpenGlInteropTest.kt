@@ -62,7 +62,6 @@ import org.lwjgl.system.MemoryUtil.memGetAddress
 import org.lwjgl.system.MemoryUtil.memPutAddress
 import org.lwjgl.system.Pointer.POINTER_SIZE
 import org.lwjgl.system.libffi.LibFFI.ffi_type_pointer
-import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.desktop.ComposeGpuContext
 import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
@@ -258,15 +257,13 @@ class LinuxVulkanOpenGlInteropTest {
 
         override fun onSourceChanged(map: MapAdapter, sourceId: String?) {}
 
-        override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {}
-
-        override fun onCameraMoved(map: MapAdapter) {}
-
-        override fun onCameraMoveEnded(map: MapAdapter) {}
-
         override fun onFrame(fps: Double) {}
 
         override fun onEvent(map: MapAdapter, event: MapEvent) {}
+
+        override fun onGestureActive(map: MapAdapter, active: Boolean) {}
+
+        override fun onViewportChanged(map: MapAdapter) {}
       }
 
     private val runtime = mapRuntimeForTest()

@@ -270,6 +270,9 @@ chain.
   `onSourceChanged`.
 - `CameraMoveReason` as a value that a session computes. It stays on `MapState`
   as a value that the gesture token sets.
+- `CameraMoveReason.UNKNOWN`. The token leaves three states: not moved yet, a
+  gesture holds the camera, and a programmatic change. Nothing reports
+  `UNKNOWN`, so it becomes a deprecation.
 
 ### Deferred from the common catalog
 

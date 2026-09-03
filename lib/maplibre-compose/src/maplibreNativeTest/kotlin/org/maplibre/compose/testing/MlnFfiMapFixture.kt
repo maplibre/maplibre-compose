@@ -27,7 +27,7 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent
 
   init {
     state.publishPresentation(token, bridge.session)
-    bridge.bindAttachment(requireNotNull(state.currentMapAttachment))
+    bridge.bindState(state)
   }
 
   override val session: MapAdapter

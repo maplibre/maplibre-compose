@@ -5,7 +5,6 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
-import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.map.GestureTarget
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapAttachment
@@ -136,6 +135,9 @@ internal class RecordingMapCallbacks(
 
   var attachment: MapAttachment? = null
 
+  /** Set so the recorder exercises the real reactions rather than a copy of them. */
+  var state: MapState? = null
+
   val events: MutableList<String> = RecordingList()
 
   val engineEvents: MutableList<MapEvent> = RecordingList()
@@ -166,29 +168,22 @@ internal class RecordingMapCallbacks(
     errors += "mapFailLoading: $reason"
   }
 
-  override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {
-    attachment?.cameraMoveStarted(reason)
-    events += "cameraMoveStarted($reason)"
-  }
-
-  override fun onCameraMoved(map: MapAdapter) {
-    attachment?.cameraMoved(map.getViewport())
-    events += "cameraMoved"
-  }
-
-  override fun onCameraMoveEnded(map: MapAdapter) {
-    attachment?.let {
-      it.cameraMoved(map.getViewport())
-      it.cameraMoveEnded()
-    }
-    events += "cameraMoveEnded"
-  }
-
   override fun onFrame(fps: Double) {
-    attachment?.let { it.cameraMoved(it.adapter.getViewport()) }
+    attachment?.let { it.updateViewport(it.adapter.getViewport()) }
   }
 
   override fun onEvent(map: MapAdapter, event: MapEvent) {
     engineEvents += event
+    state?.onEvent(map, event)
+  }
+
+  override fun onGestureActive(map: MapAdapter, active: Boolean) {
+    events += "gesture($active)"
+    state?.setGestureActive(map, active)
+  }
+
+  override fun onViewportChanged(map: MapAdapter) {
+    events += "viewportChanged"
+    state?.synchronizeCamera(map)
   }
 }

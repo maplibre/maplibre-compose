@@ -5,7 +5,6 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import kotlin.time.Duration
 import kotlinx.serialization.json.JsonObject
-import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.expressions.ast.CompiledExpression
@@ -81,7 +80,7 @@ internal interface MapAdapter {
   /**
    * The viewport the map last adopted, with every property read from the same transform, or null
    * before the map has one. Implementations answer from where the map's size actually lands, so a
-   * read made from [Callbacks.onCameraMoved] already describes a finished resize.
+   * read made from [Callbacks.onViewportChanged] already describes a finished resize.
    */
   fun getViewport(): Viewport?
 
@@ -121,16 +120,19 @@ internal interface MapAdapter {
 
     fun onMapFailLoading(map: MapAdapter, reason: String?)
 
-    fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason)
-
-    fun onCameraMoved(map: MapAdapter)
-
-    fun onCameraMoveEnded(map: MapAdapter)
-
     fun onFrame(fps: Double)
 
     /** Reports one engine event whose producing identity is still current. */
     fun onEvent(map: MapAdapter, event: MapEvent)
+
+    /**
+     * Reports whether a gesture holds the camera. Neither engine emits this; the session's gesture
+     * token decides it.
+     */
+    fun onGestureActive(map: MapAdapter, active: Boolean)
+
+    /** Reports a viewport the map adopted without a camera event, such as after a resize. */
+    fun onViewportChanged(map: MapAdapter)
   }
 }
 
@@ -143,15 +145,13 @@ internal object EmptyMapAdapterCallbacks : MapAdapter.Callbacks {
 
   override fun onMapFailLoading(map: MapAdapter, reason: String?) = Unit
 
-  override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) = Unit
-
-  override fun onCameraMoved(map: MapAdapter) = Unit
-
-  override fun onCameraMoveEnded(map: MapAdapter) = Unit
-
   override fun onFrame(fps: Double) = Unit
 
   override fun onEvent(map: MapAdapter, event: MapEvent) = Unit
+
+  override fun onGestureActive(map: MapAdapter, active: Boolean) = Unit
+
+  override fun onViewportChanged(map: MapAdapter) = Unit
 }
 
 internal class DurableStyleCallbacks(private val owner: MapState) : MapAdapter.Callbacks {
@@ -171,13 +171,17 @@ internal class DurableStyleCallbacks(private val owner: MapState) : MapAdapter.C
     owner.markStyleFailed(map, reason)
   }
 
-  override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) = Unit
-
-  override fun onCameraMoved(map: MapAdapter) = Unit
-
-  override fun onCameraMoveEnded(map: MapAdapter) = Unit
-
   override fun onFrame(fps: Double) = Unit
 
-  override fun onEvent(map: MapAdapter, event: MapEvent) = Unit
+  override fun onEvent(map: MapAdapter, event: MapEvent) {
+    owner.onEvent(map, event)
+  }
+
+  override fun onGestureActive(map: MapAdapter, active: Boolean) {
+    owner.setGestureActive(map, active)
+  }
+
+  override fun onViewportChanged(map: MapAdapter) {
+    owner.synchronizeCamera(map)
+  }
 }

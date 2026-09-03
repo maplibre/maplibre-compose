@@ -75,6 +75,7 @@ internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
     )
     state.publishPresentation(token, glJsSession)
     recorder.attachment = requireNotNull(state.currentMapAttachment)
+    recorder.state = state
   }
 
   private fun frame(): Boolean {

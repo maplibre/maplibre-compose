@@ -497,7 +497,8 @@ internal constructor(
   private var validState: Boolean by mutableStateOf(true)
   private var viewportState: Viewport? by mutableStateOf(null)
   private val firstViewport = CompletableDeferred<Viewport>()
-  private var cameraMovingState: Boolean by mutableStateOf(false)
+  private var gestureActiveState: Boolean by mutableStateOf(false)
+  private var cameraChangingState: Boolean by mutableStateOf(false)
   private var moveReasonState: CameraMoveReason by mutableStateOf(CameraMoveReason.NONE)
   val isValid: Boolean
     get() = validState
@@ -506,7 +507,7 @@ internal constructor(
     get() = viewportState
 
   val isCameraMoving: Boolean
-    get() = cameraMovingState
+    get() = gestureActiveState || cameraChangingState
 
   val cameraMoveReason: CameraMoveReason
     get() = moveReasonState
@@ -580,26 +581,34 @@ internal constructor(
     }
   }
 
-  internal fun cameraMoveStarted(reason: CameraMoveReason) {
+  /**
+   * A gesture sets the reason even while an engine camera change is in flight, because the gesture
+   * token decides whether a change belongs to the user.
+   */
+  internal fun setGestureActive(active: Boolean) {
     owner.lifecycle.serialized {
-      moveReasonState = reason
-      cameraMovingState = true
+      gestureActiveState = active
+      if (active) moveReasonState = CameraMoveReason.GESTURE
     }
   }
 
-  internal fun cameraMoved(viewport: Viewport?) {
-    updateViewport(viewport)
+  internal fun cameraChangeStarted() {
+    owner.lifecycle.serialized {
+      cameraChangingState = true
+      if (!gestureActiveState) moveReasonState = CameraMoveReason.PROGRAMMATIC
+    }
   }
 
-  internal fun cameraMoveEnded() {
-    owner.lifecycle.serialized { cameraMovingState = false }
+  internal fun cameraChangeEnded() {
+    owner.lifecycle.serialized { cameraChangingState = false }
   }
 
   internal fun invalidate() {
     owner.lifecycle.serialized {
       validState = false
       viewportState = null
-      cameraMovingState = false
+      gestureActiveState = false
+      cameraChangingState = false
       invalidated.complete(Unit)
     }
   }
@@ -710,12 +719,17 @@ internal constructor(
   public val viewport: Viewport?
     get() = currentMapAttachment?.viewport
 
-  /** Returns true while the current map surface is moving its camera. */
+  /**
+   * Returns true while a gesture holds the camera or an engine camera change is in flight. During a
+   * drag the gesture stays active across every camera change the engine reports, so the value stays
+   * true for the whole drag.
+   */
   public val isCameraMoving: Boolean
     get() = currentMapAttachment?.isCameraMoving == true
 
   /**
-   * Contains the reason for the current camera movement, or [CameraMoveReason.NONE] while detached.
+   * Contains what started the most recent camera movement, or [CameraMoveReason.NONE] while
+   * detached and before the first movement. The value stays after the movement ends.
    */
   public val cameraMoveReason: CameraMoveReason
     get() = currentMapAttachment?.cameraMoveReason ?: CameraMoveReason.NONE
@@ -1195,17 +1209,52 @@ internal constructor(
     }
   }
 
+  /**
+   * Publishes the camera and viewport of [adapter] and returns the presentation that holds them. A
+   * map with no readable viewport keeps the values it has, so a caller that reacts to a camera
+   * event still reaches its presentation.
+   */
   internal fun synchronizeCamera(adapter: MapAdapter): MapAttachment? {
     if (!lifecycle.acceptsPresentation(adapter)) return null
     val cameraPosition = adapter.getCameraPosition()
-    val viewport = adapter.getViewport() ?: return null
+    val viewport = adapter.getViewport()
     return lifecycle.serialized {
       if (!lifecycle.acceptsPresentation(adapter)) return@serialized null
-      cameraPositionState = cameraPosition
       val current = currentMapAttachment ?: return@serialized null
-      current.cameraMoved(viewport)
+      if (viewport != null) {
+        cameraPositionState = cameraPosition
+        current.updateViewport(viewport)
+      }
       current
     }
+  }
+
+  /**
+   * Reacts to one engine event that the lifecycle already accepted. Ignores an [adapter] that is
+   * not the current presentation.
+   */
+  internal fun onEvent(adapter: MapAdapter, event: MapEvent) {
+    when (event) {
+      is MapEvent.CameraMoveStarted -> synchronizeCamera(adapter)?.cameraChangeStarted()
+      MapEvent.CameraMoved -> synchronizeCamera(adapter)
+      is MapEvent.CameraMoveEnded -> synchronizeCamera(adapter)?.cameraChangeEnded()
+      else -> Unit
+    }
+  }
+
+  /** Reports whether a gesture holds the camera of [adapter]. */
+  internal fun setGestureActive(adapter: MapAdapter, active: Boolean) {
+    presentedAttachment(adapter)?.setGestureActive(active)
+  }
+
+  /** Ends a camera change that the engine behind [adapter] will never finish. */
+  internal fun endCameraChange(adapter: MapAdapter) {
+    presentedAttachment(adapter)?.cameraChangeEnded()
+  }
+
+  private fun presentedAttachment(adapter: MapAdapter): MapAttachment? = lifecycle.serialized {
+    if (!lifecycle.acceptsPresentation(adapter)) return@serialized null
+    currentMapAttachment
   }
 
   internal fun isCurrent(candidate: MapAttachment): Boolean = lifecycle.serialized {

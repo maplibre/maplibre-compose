@@ -1,6 +1,5 @@
 package org.maplibre.compose.map
 
-import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.style.StyleBinding
 
 /** Filters platform callbacks through identities captured by their platform producer. */
@@ -55,39 +54,19 @@ internal class MapLifecycleCallbacks(
       delegate().onMapFailLoading(map, reason)
     }
 
-  fun onCameraMoveStarted(
+  fun onGestureActive(
     engine: EngineMapIdentity,
     lease: RenderLease,
     map: MapAdapter,
-    reason: CameraMoveReason,
+    active: Boolean,
   ) =
     withPresentation(engine, lease) {
-      delegate().onCameraMoveStarted(map, reason)
+      delegate().onGestureActive(map, active)
     }
 
-  fun onCameraMoved(
-    engine: EngineMapIdentity,
-    lease: RenderLease,
-    map: MapAdapter,
-    beforeDelegate: () -> Unit = {},
-  ) =
+  fun onViewportChanged(engine: EngineMapIdentity, lease: RenderLease, map: MapAdapter) =
     withPresentation(engine, lease) {
-      beforeDelegate()
-      delegate().onCameraMoved(map)
-    }
-
-  fun onCameraMoveEnded(
-    engine: EngineMapIdentity,
-    lease: RenderLease,
-    map: MapAdapter,
-    afterDelegate: () -> Unit = {},
-  ) =
-    withPresentation(engine, lease) {
-      try {
-        delegate().onCameraMoveEnded(map)
-      } finally {
-        afterDelegate()
-      }
+      delegate().onViewportChanged(map)
     }
 
   fun onFrame(engine: EngineMapIdentity, lease: RenderLease, fps: Double) =
@@ -96,8 +75,21 @@ internal class MapLifecycleCallbacks(
   fun onEvent(engine: EngineMapIdentity, map: MapAdapter, event: MapEvent) =
     lifecycle.acceptEngineEvent(engine) { delegate().onEvent(map, event) }
 
-  fun onEvent(engine: EngineMapIdentity, lease: RenderLease, map: MapAdapter, event: MapEvent) =
-    withPresentation(engine, lease) { delegate().onEvent(map, event) }
+  /**
+   * [beforeDelegate] runs inside the same acceptance, so a session can publish the viewport the
+   * event describes before the delegate reads it.
+   */
+  fun onEvent(
+    engine: EngineMapIdentity,
+    lease: RenderLease,
+    map: MapAdapter,
+    event: MapEvent,
+    beforeDelegate: () -> Unit = {},
+  ) =
+    withPresentation(engine, lease) {
+      beforeDelegate()
+      delegate().onEvent(map, event)
+    }
 
   fun onEvent(engine: EngineMapIdentity, style: StyleIdentity, map: MapAdapter, event: MapEvent) =
     withStyle(engine, style) { delegate().onEvent(map, event) }

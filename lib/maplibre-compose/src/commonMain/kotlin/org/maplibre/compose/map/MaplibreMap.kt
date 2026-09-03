@@ -26,7 +26,6 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MapOverlayHost
 import org.maplibre.compose.overlay.MapOverlayScope
@@ -46,9 +45,6 @@ private class MapStateAttachment(
   fun publish(map: MapAdapter) {
     state.publishPresentation(token, map)
   }
-
-  fun currentAttachment(map: MapAdapter): MapAttachment? =
-    state.currentMapAttachment?.takeIf { it.adapter === map }
 
   fun release(map: MapAdapter? = null) {
     state.releasePresentation(token, map)
@@ -226,9 +222,6 @@ private fun MaplibreMapPresentation(
   val adapterCallbacks =
     remember(attachment, mapAttachment, onFrame) {
       object : MapAdapter.Callbacks {
-        private fun currentAttachment(map: MapAdapter): MapAttachment? =
-          attachment.currentAttachment(map)
-
         private fun synchronizeCamera(map: MapAdapter): MapAttachment? {
           return state.synchronizeCamera(map)
         }
@@ -251,25 +244,23 @@ private fun MaplibreMapPresentation(
           state.refreshStyleSources(map)
         }
 
-        override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {
-          currentAttachment(map)?.cameraMoveStarted(reason)
-        }
-
-        override fun onCameraMoved(map: MapAdapter) {
-          synchronizeCamera(map)
-        }
-
-        override fun onCameraMoveEnded(map: MapAdapter) {
-          synchronizeCamera(map)?.cameraMoveEnded()
-        }
-
         override fun onFrame(fps: Double) {
           val map = state.currentMapAttachment?.adapter ?: return
           synchronizeCamera(map)
           onFrame(fps)
         }
 
-        override fun onEvent(map: MapAdapter, event: MapEvent) = Unit
+        override fun onEvent(map: MapAdapter, event: MapEvent) {
+          state.onEvent(map, event)
+        }
+
+        override fun onGestureActive(map: MapAdapter, active: Boolean) {
+          state.setGestureActive(map, active)
+        }
+
+        override fun onViewportChanged(map: MapAdapter) {
+          synchronizeCamera(map)
+        }
       }
     }
 
