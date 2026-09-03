@@ -50,8 +50,10 @@ internal class MapLifecycleCallbacks(
     request: StyleRequestIdentity,
     map: MapAdapter,
     reason: String?,
+    beforeDelegate: () -> Unit = {},
   ) =
     lifecycle.acceptStyleRequestEvent(engine, request) {
+      beforeDelegate()
       delegate().onMapFailLoading(map, reason)
     }
 

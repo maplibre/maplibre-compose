@@ -872,8 +872,11 @@ internal class MlnFfiMapSession(
           styleEventProducer
             ?.takeIf { it.engine == engine }
             ?.let {
-              if (lifecycleCallbacks.onMapFailLoading(engine, it.request, this, reason)) {
-                hasPresentableStyle = false
+              if (
+                lifecycleCallbacks.onMapFailLoading(engine, it.request, this, reason) {
+                  hasPresentableStyle = false
+                }
+              ) {
                 logger?.e { "Map loading failed (code ${event.code}): $reason" }
               }
             }

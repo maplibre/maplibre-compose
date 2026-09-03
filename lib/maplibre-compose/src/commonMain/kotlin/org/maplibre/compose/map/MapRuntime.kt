@@ -574,13 +574,17 @@ internal constructor(
   suspend fun awaitViewport(): Viewport = runLeaseBound { awaitViewportState() }
 
   internal fun updateViewport(value: Viewport?) {
-    viewportState = value
-    value?.let(firstViewport::complete)
+    owner.lifecycle.serialized {
+      viewportState = value
+      value?.let(firstViewport::complete)
+    }
   }
 
   internal fun cameraMoveStarted(reason: CameraMoveReason) {
-    moveReasonState = reason
-    cameraMovingState = true
+    owner.lifecycle.serialized {
+      moveReasonState = reason
+      cameraMovingState = true
+    }
   }
 
   internal fun cameraMoved(viewport: Viewport?) {
@@ -588,14 +592,16 @@ internal constructor(
   }
 
   internal fun cameraMoveEnded() {
-    cameraMovingState = false
+    owner.lifecycle.serialized { cameraMovingState = false }
   }
 
   internal fun invalidate() {
-    validState = false
-    viewportState = null
-    cameraMovingState = false
-    invalidated.complete(Unit)
+    owner.lifecycle.serialized {
+      validState = false
+      viewportState = null
+      cameraMovingState = false
+      invalidated.complete(Unit)
+    }
   }
 
   private fun Expression<BooleanValue>.compileOrNull(): CompiledExpression<BooleanValue>? {
