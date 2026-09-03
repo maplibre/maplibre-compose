@@ -2,8 +2,6 @@ package org.maplibre.compose.sources
 
 import java.io.File
 import java.io.InputStream
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -36,14 +34,9 @@ internal suspend fun copyPackagedFile(
         val temporary = File.createTempFile(destination.name, ".part", destination.parentFile)
         try {
           open().use { input -> temporary.outputStream().use { output -> input.copyTo(output) } }
-          // An atomic move onto an existing file is platform-specific, so remove the old copy
-          // first.
+          // A rename onto an existing file is platform-specific, so remove the old copy first.
           destination.delete()
-          Files.move(
-            temporary.toPath(),
-            destination.toPath(),
-            StandardCopyOption.ATOMIC_MOVE,
-          )
+          check(temporary.renameTo(destination)) { "Could not move $temporary to $destination" }
         } finally {
           temporary.delete()
         }
