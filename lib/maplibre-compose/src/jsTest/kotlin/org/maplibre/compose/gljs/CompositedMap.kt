@@ -4,6 +4,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.js.Date
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -105,6 +106,8 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
     override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) = Unit
 
     override fun onEvent(map: MapAdapter, event: MapEvent) = Unit
+
+    override fun resolveMissingImage(map: MapAdapter, imageId: String): Deferred<Unit>? = null
 
     override fun onGestureActive(map: MapAdapter, active: Boolean) = Unit
 

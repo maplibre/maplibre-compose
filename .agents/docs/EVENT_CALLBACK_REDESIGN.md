@@ -103,7 +103,7 @@ filters on the identity that produced it:
 | Identity      | Events                                                                 |
 | ------------- | ---------------------------------------------------------------------- |
 | Render lease  | `CameraMoveStarted`, `CameraMoved`, `CameraMoveEnded`, `FrameRendered` |
-| Style         | `StyleLoaded`, `StyleImageMissing`                                     |
+| Style         | `StyleLoaded`                                                          |
 | Style request | `StyleLoadFailed`                                                      |
 | Engine        | `Idle`                                                                 |
 
@@ -132,25 +132,25 @@ public sealed interface MapEvent {
   public data class CameraMoveEnded(val animated: Boolean?) : MapEvent
 
   public data class FrameRendered(val stats: RenderStats?) : MapEvent
-
-  public data class StyleImageMissing(val imageId: String) : MapEvent
 }
 ```
 
-| Event               | maplibre-native-ffi         | maplibre-gl-js      |
-| ------------------- | --------------------------- | ------------------- |
-| `StyleLoaded`       | `MAP_STYLE_LOADED`          | `style.load`        |
-| `StyleLoadFailed`   | `MAP_LOADING_FAILED`        | `error`, terminal   |
-| `Idle`              | `MAP_IDLE`                  | `idle`              |
-| `CameraMoveStarted` | `MAP_CAMERA_WILL_CHANGE`    | `movestart`         |
-| `CameraMoved`       | `MAP_CAMERA_IS_CHANGING`    | `move`              |
-| `CameraMoveEnded`   | `MAP_CAMERA_DID_CHANGE`     | `moveend`           |
-| `FrameRendered`     | `MAP_RENDER_FRAME_FINISHED` | `render`            |
-| `StyleImageMissing` | `MAP_STYLE_IMAGE_MISSING`   | `styleimagemissing` |
+| Event               | maplibre-native-ffi         | maplibre-gl-js    |
+| ------------------- | --------------------------- | ----------------- |
+| `StyleLoaded`       | `MAP_STYLE_LOADED`          | `style.load`      |
+| `StyleLoadFailed`   | `MAP_LOADING_FAILED`        | `error`, terminal |
+| `Idle`              | `MAP_IDLE`                  | `idle`            |
+| `CameraMoveStarted` | `MAP_CAMERA_WILL_CHANGE`    | `movestart`       |
+| `CameraMoved`       | `MAP_CAMERA_IS_CHANGING`    | `move`            |
+| `CameraMoveEnded`   | `MAP_CAMERA_DID_CHANGE`     | `moveend`         |
+| `FrameRendered`     | `MAP_RENDER_FRAME_FINISHED` | `render`          |
 
 `MlnFfiMapEvents.kt` holds the native translation as
 `RuntimeEvent.toMapEvent()`, and `GlJsMapEvents.kt` holds the browser
-translation as three maps from GL JS type name to translation, one per identity.
+translation as two maps from GL JS type name to translation, one for the engine
+identity and one for the presentation identity. The browser reports the one
+style-identity event, `StyleLoaded`, from its style load tracking rather than
+from a translation map.
 
 `animated` is true when the FFI `CameraChangeMode` is `ANIMATED`. GL JS has no
 such field, so the browser session passes null.
@@ -218,7 +218,6 @@ Transient engine facts become a collection:
 LaunchedEffect(state) {
   state.events.collect { event ->
     when (event) {
-      is MapEvent.StyleImageMissing -> state.style.images.add(event.imageId, fallback)
       is MapEvent.StyleLoadFailed -> logger.e { event.reason }
       else -> Unit
     }
@@ -226,10 +225,9 @@ LaunchedEffect(state) {
 }
 ```
 
-The images page of the documentation site shows the missing-image recipe from
-the `missing-image` region of `docsnippets/Images.kt`. It waits for a ready
-style before the add and supplies each id once. `MapStateEventsTest` runs that
-recipe on both engines.
+A missing style image is a request rather than a fact, so it is a resolver on
+`MapState` rather than an event, under
+[Resolved questions](#resolved-questions).
 
 A completed-frame signal is `FrameRendered`. [#1043] asks for exactly that: a
 caller arms a token after a state change and consumes it on the next frame. The
@@ -243,7 +241,7 @@ to recover intervals.
 The style handshake stays a protocol, because a one-way stream cannot answer
 "did you accept this binding". The sink names it: offer a loaded binding, report
 the composition ready, report the load failed, report a source change. The rest
-are one-way facts:
+are one-way facts, plus one more question:
 
 ```kotlin
 internal interface MapAdapter.Callbacks {
@@ -253,10 +251,14 @@ internal interface MapAdapter.Callbacks {
   fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?)
 
   fun onEvent(map: MapAdapter, event: MapEvent)
+  fun resolveMissingImage(map: MapAdapter, imageId: String): Deferred<Unit>?
   fun onGestureActive(map: MapAdapter, active: Boolean)
   fun onViewportChanged(map: MapAdapter)
 }
 ```
+
+`resolveMissingImage` is the second question in the sink, and the only one that
+returns a value to the session: the browser returns that promise to MapLibre.
 
 `onEvent` returns `Unit`. `MapLifecycleCallbacks` answers whether the identity
 that produced a call is still current, and the session branches on that answer,
@@ -332,6 +334,9 @@ tap-family chain.
   as a value that the gesture token and the camera events set.
 - `CameraMoveReason.UNKNOWN` as a reported value. The enum keeps the constant,
   and its KDoc states that the library never reports it.
+- `MapEvent.StyleImageMissing`, and the `styleimagemissing` subscription and the
+  `GlJsMapEvent.id` field that fed it. `MapState.missingImageResolver` replaces
+  it, under [Resolved questions](#resolved-questions).
 
 ### Deferred from the common catalog
 
@@ -360,7 +365,7 @@ the common type does not gain one.
 | Gesture versus programmatic | `CameraMoveReason` from a session flag  | `cameraMoveReason` from the token        |
 | Frame completed             | `onFrame(fps)`                          | `FrameRendered`                          |
 | Frame rate                  | `onFrame(fps)`                          | Timestamps of `FrameRendered`            |
-| Missing sprite              | Logged and dropped                      | `StyleImageMissing`                      |
+| Missing sprite              | Logged and dropped                      | `MapState.missingImageResolver`          |
 | Engine error                | Logged                                  | Logged                                   |
 | Map or layer click          | Session round trip and layer parameters | Compose dispatch, then the gesture chain |
 | Tile progress, GL JS extras | Unavailable in common                   | `withPlatformMap`                        |
@@ -375,15 +380,47 @@ event on a live map on both engines, and `MlnFfiMapEventsTest` and
 
 ## Resolved questions
 
-**Missing images on the browser.** GL JS 6.6 fires `styleimagemissing` only
-after its `setMissingStyleImageResolver` callback has had a chance to supply the
-image, and a listener cannot resolve the current request. Both engines publish
-`StyleImageMissing`, and the KDoc states the difference: on native an image
-added in response satisfies the request at the next placement, and on the
-browser it applies to later requests of that id. `MapStateEventsTest` shows that
-an add from a collector reaches the style on both engines. Whether that add also
-resolves the pending request on the browser is untested. A resolver is a
-separate command-style API, and this catalog does not carry one.
+**Missing images are a resolver, not an event.** The catalog carried
+`StyleImageMissing`, and it was removed. GL JS 6.6 fires `styleimagemissing`
+only after its `setMissingStyleImageResolver` callback has declined, so a
+listener on the browser can never satisfy the request that reported the event;
+it can only supply the id for later requests. The event also made every caller
+write the same bookkeeping: a set of ids already supplied, a wait for
+`StyleLoadState.Ready`, and a clear on each style load, all from a collector
+that suspends inside a drop-oldest buffer and so can lose the event it is
+waiting on.
+
+`MapState.missingImageResolver` replaces it: a suspending function from image id
+to `ResolvedStyleImage?`, null for unresolved. The options that the resolved
+image needs, `sdf` and `stretch`, belong to the result rather than to the call,
+because they describe the image that the resolver chose rather than the request.
+`MapState` owns the bookkeeping: it resolves each id at most once per loaded
+style and adds the image to the style that asked for it. A new base style, or a
+different resolver, lets the next engine request for that id reach the resolver
+again.
+
+The add cannot wait for `StyleLoadState.Ready`, and cannot assert it afterward
+either. On the browser a style counts as loaded only once every in-view tile has
+parsed, and a tile does not finish parsing until the resolver's promise settles,
+so a wait for ready is a cycle that leaves the map blank. The add waits for the
+style command in progress instead, and afterward checks only that the style it
+added to is still the loaded one.
+
+The reservation the add holds is its own, separate from the one an imperative
+style command takes. An app cannot anticipate a resolution, so a command it
+issues must not fail on one: `requireNoActiveStyleMutation` reads only the
+command's reservation, while a new style revision waits for either.
+
+The browser session registers `setMissingStyleImageResolver` and returns the
+resolution as a promise, which MapLibre awaits before it treats the image as
+missing, so the resolved image satisfies the request that asked for it. The
+native session keeps `MAP_STYLE_IMAGE_MISSING` in its event mask and calls the
+resolver from the drain; mbgl re-checks its image set at the next placement
+after `setStyleImage`, so an asynchronous answer reaches a later frame, not the
+one that raised the miss. `MissingImageResolverTest` asserts on both engines
+that a resolved image reaches the style, that the resolver runs once per loaded
+style, that a reload asks again, and that a replacement resolver answers an id
+the first declined.
 
 **Frame source on native.** `FrameRendered` comes from the drain, because the
 event is the engine's contract. The runtime loop parks in `pump` and a queued

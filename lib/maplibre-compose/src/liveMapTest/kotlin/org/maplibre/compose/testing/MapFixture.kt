@@ -5,6 +5,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
+import kotlinx.coroutines.Deferred
 import org.maplibre.compose.map.GestureTarget
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapAttachment
@@ -152,6 +153,9 @@ internal class RecordingMapCallbacks(
   override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
     beforeStyleChanged(map, style)
     this.style = style
+    // The state learns of the binding here, as it does in composition, so that work the engine
+    // starts on a freshly loaded style reaches it.
+    state?.updateLoadedStyle(map, style)
     attachment?.updateViewport(map.getViewport())
     events += if (style == null) "styleChanged(null)" else MapFixture.STYLE_LOADED
   }
@@ -172,6 +176,9 @@ internal class RecordingMapCallbacks(
     engineEvents += event
     state?.onEvent(map, event)
   }
+
+  override fun resolveMissingImage(map: MapAdapter, imageId: String): Deferred<Unit>? =
+    state?.resolveMissingImage(map, imageId)
 
   override fun onGestureActive(map: MapAdapter, active: Boolean) {
     events += "gesture($active)"

@@ -96,7 +96,6 @@ internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
       }
     }
     glJsSession.reconcileStyleRevision(DesiredStyleRevision.Empty)
-    state.updateLoadedStyle(glJsSession, recorder.style)
     state.markStyleReady(glJsSession)
   }
 

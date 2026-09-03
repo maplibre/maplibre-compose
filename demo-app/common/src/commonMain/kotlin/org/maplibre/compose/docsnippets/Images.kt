@@ -3,12 +3,10 @@
 package org.maplibre.compose.docsnippets
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.flow.first
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.jetbrains.compose.resources.painterResource
 import org.maplibre.compose.demoapp.generated.Res
@@ -17,9 +15,8 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.layers.SymbolLayer
-import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MaplibreMap
-import org.maplibre.compose.map.StyleLoadState
+import org.maplibre.compose.map.ResolvedStyleImage
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
@@ -68,20 +65,9 @@ fun Images() {
 fun MissingImages(fallback: ImageBitmap) {
   // #region missing-image
   val mapState = rememberMapState()
-  LaunchedEffect(mapState) {
-    val supplied = mutableSetOf<String>()
-    mapState.events.collect { event ->
-      when (event) {
-        // A loaded style keeps none of the images added to the style before it.
-        MapEvent.StyleLoaded -> supplied.clear()
-        is MapEvent.StyleImageMissing ->
-          if (supplied.add(event.imageId)) {
-            snapshotFlow { mapState.style.loadState }.first { it == StyleLoadState.Ready }
-            mapState.style.images.add(event.imageId, fallback)
-          }
-        else -> Unit
-      }
-    }
+  DisposableEffect(mapState, fallback) {
+    mapState.missingImageResolver = { ResolvedStyleImage(fallback) }
+    onDispose { mapState.missingImageResolver = null }
   }
   MaplibreMap(state = mapState)
   // #endregion missing-image

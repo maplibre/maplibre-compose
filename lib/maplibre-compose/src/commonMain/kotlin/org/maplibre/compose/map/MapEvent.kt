@@ -48,14 +48,6 @@ public sealed interface MapEvent {
    * MapLibre GL JS reports no measurements with its render event.
    */
   public data class FrameRendered(val stats: RenderStats?) : MapEvent
-
-  /**
-   * The style references an image named [imageId] that is not in the style's image set.
-   *
-   * On the browser, an image added in response applies to later requests of the same id, not to the
-   * request that reported this event.
-   */
-  public data class StyleImageMissing(val imageId: String) : MapEvent
 }
 
 /** The engine's measurements of one rendered frame. */

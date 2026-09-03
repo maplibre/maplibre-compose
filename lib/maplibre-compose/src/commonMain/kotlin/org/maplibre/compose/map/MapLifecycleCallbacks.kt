@@ -1,5 +1,6 @@
 package org.maplibre.compose.map
 
+import kotlinx.coroutines.Deferred
 import org.maplibre.compose.style.StyleBinding
 
 /** Filters platform callbacks through identities captured by their platform producer. */
@@ -97,6 +98,18 @@ internal class MapLifecycleCallbacks(
     map: MapAdapter,
     event: MapEvent,
   ) = lifecycle.acceptStyleRequestEvent(engine, request) { delegate().onEvent(map, event) }
+
+  /** Asks the loaded style's owner to supply a missing image. */
+  fun resolveMissingImage(
+    engine: EngineMapIdentity,
+    style: StyleIdentity,
+    map: MapAdapter,
+    imageId: String,
+  ): Deferred<Unit>? {
+    var resolution: Deferred<Unit>? = null
+    withStyle(engine, style) { resolution = delegate().resolveMissingImage(map, imageId) }
+    return resolution
+  }
 
   fun onPresentationEvent(engine: EngineMapIdentity, lease: RenderLease, event: () -> Unit) =
     withPresentation(engine, lease, event)

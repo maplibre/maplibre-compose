@@ -162,6 +162,12 @@ internal external class MaplibreMap(options: MapOptions) {
   fun hasImage(id: String): Boolean
 
   fun removeImage(id: String)
+
+  /**
+   * MapLibre awaits the promise that the resolver returns before it treats the image as missing. A
+   * null [resolver] removes the one in place; MapLibre exposes no separate remover.
+   */
+  fun setMissingStyleImageResolver(resolver: ((id: String) -> Promise<*>?)?)
 }
 
 internal external class LngLat(lng: Double, lat: Double) {

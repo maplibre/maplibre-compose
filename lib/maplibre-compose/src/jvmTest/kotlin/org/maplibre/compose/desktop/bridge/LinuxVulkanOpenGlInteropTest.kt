@@ -13,6 +13,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
+import kotlinx.coroutines.Deferred
 import kotlinx.io.files.Path
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.ColorAlphaType
@@ -258,6 +259,8 @@ class LinuxVulkanOpenGlInteropTest {
         override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) {}
 
         override fun onEvent(map: MapAdapter, event: MapEvent) {}
+
+        override fun resolveMissingImage(map: MapAdapter, imageId: String): Deferred<Unit>? = null
 
         override fun onGestureActive(map: MapAdapter, active: Boolean) {}
 

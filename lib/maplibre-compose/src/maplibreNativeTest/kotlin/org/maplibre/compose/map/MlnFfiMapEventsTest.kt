@@ -110,16 +110,9 @@ class MlnFfiMapEventsTest {
   }
 
   @Test
-  fun a_missing_image_carries_its_id() {
-    assertEquals(
-      MapEvent.StyleImageMissing("missing-icon"),
-      runtimeEvent(RuntimeEventType.MAP_STYLE_IMAGE_MISSING, message = "missing-icon").toMapEvent(),
-    )
-  }
-
-  @Test
   fun an_event_outside_the_catalog_translates_to_nothing() {
     assertNull(runtimeEvent(RuntimeEventType.MAP_RENDER_ERROR).toMapEvent())
+    assertNull(runtimeEvent(RuntimeEventType.MAP_STYLE_IMAGE_MISSING).toMapEvent())
     assertNull(runtimeEvent(RuntimeEventType(9999)).toMapEvent())
   }
 

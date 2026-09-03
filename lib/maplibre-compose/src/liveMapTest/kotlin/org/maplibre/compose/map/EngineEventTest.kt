@@ -8,8 +8,6 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.testing.MISSING_ICON_ID
-import org.maplibre.compose.testing.MISSING_ICON_STYLE
 import org.maplibre.compose.testing.MapLibreFlavor
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
@@ -85,17 +83,6 @@ class EngineEventTest {
       when (mapLibreFlavor) {
         MapLibreFlavor.NATIVE -> assertEquals(true, animated)
         MapLibreFlavor.GL_JS -> assertNull(animated)
-      }
-    }
-  }
-
-  @Test
-  fun a_missing_icon_is_reported_with_its_id(): MapTestResult = runMapTest {
-    createMapFixture().use { fixture ->
-      fixture.loadStyle(BaseStyle.Json(MISSING_ICON_STYLE))
-
-      fixture.pumpUntil("the missing icon to be reported", timeout = 20.seconds) {
-        MapEvent.StyleImageMissing(MISSING_ICON_ID) in fixture.engineEvents
       }
     }
   }

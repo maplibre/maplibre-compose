@@ -17,6 +17,7 @@ import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.asPromise
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
@@ -376,6 +377,7 @@ internal class GlJsMapSession(
     hasUsableViewport = false
     hasReplayedPresentationState = false
     invalidateStyleBinding()
+    current.setMissingStyleImageResolver(null)
     styleLoadSubscription?.cancel()
     styleLoadSubscription = null
     styleErrorSubscription?.cancel()
@@ -527,12 +529,19 @@ internal class GlJsMapSession(
       }
     }
 
-    subscribeTranslated(map, ENGINE_GL_JS_EVENTS) { lifecycleCallbacks.onEvent(engine, this, it) }
-    subscribeTranslated(map, STYLE_GL_JS_EVENTS) { event ->
-      // The style is whichever one is loaded when the event arrives, so the identity is read here
-      // rather than captured with the subscription.
-      lifecycleStyleIdentity?.let { lifecycleCallbacks.onEvent(engine, it, this, event) }
+    // MapLibre awaits this before it treats the image as missing, so a resolved image satisfies
+    // the request that asked for it rather than only later ones.
+    map.setMissingStyleImageResolver { imageId ->
+      // The style is whichever one is loaded when MapLibre asks, so the identity is read here
+      // rather than captured with the resolver.
+      val style = lifecycleStyleIdentity
+      val resolution =
+        if (style == null) null
+        else lifecycleCallbacks.resolveMissingImage(engine, style, this, imageId)
+      resolution?.asPromise()
     }
+
+    subscribeTranslated(map, ENGINE_GL_JS_EVENTS) { lifecycleCallbacks.onEvent(engine, this, it) }
     subscribeTranslated(map, PRESENTATION_GL_JS_EVENTS) { event ->
       val accepted = lifecycleCallbacks.onEvent(engine, lease, this, event)
       // A `moveend` is how GL JS reports that an eased transition finished.
@@ -546,7 +555,7 @@ internal class GlJsMapSession(
     deliver: (MapEvent) -> Unit,
   ) {
     for ((type, translate) in translations) {
-      map.subscribe(type) { event -> translate(event)?.let(deliver) }
+      map.subscribe(type) { event -> deliver(translate(event)) }
     }
   }
 

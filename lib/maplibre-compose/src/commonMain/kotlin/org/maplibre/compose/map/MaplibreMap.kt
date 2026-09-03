@@ -243,6 +243,9 @@ private fun MaplibreMapPresentation(
           state.onEvent(map, event)
         }
 
+        override fun resolveMissingImage(map: MapAdapter, imageId: String) =
+          state.resolveMissingImage(map, imageId)
+
         override fun onGestureActive(map: MapAdapter, active: Boolean) {
           state.setGestureActive(map, active)
         }

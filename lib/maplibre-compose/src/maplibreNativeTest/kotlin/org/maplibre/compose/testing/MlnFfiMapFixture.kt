@@ -60,7 +60,6 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent
     bridge.pumpUntil("style $style to finish reconciliation", timeout, extent) {
       events.count { it == MapFixture.STYLE_READY } > styleReadyCountBefore
     }
-    state.updateLoadedStyle(bridge.session, bridge.style)
     state.markStyleReady(bridge.session)
   }
 

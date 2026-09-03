@@ -32,6 +32,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
@@ -486,6 +487,11 @@ internal class ImperativeSourceRecord(val definition: SourceDefinition)
 
 internal class ImperativeImageRecord
 
+/**
+ * One missing-image resolution, identified by [token] so a stale one cannot evict its successor.
+ */
+internal class MissingImageResolution(val token: Any, val work: Deferred<Unit>)
+
 internal class StyleMutationReservation {
   val completion = CompletableDeferred<Unit>()
 }
@@ -663,7 +669,16 @@ internal constructor(
   private var styleSourceChangeRevision = 0L
   private val imperativeSources = mutableMapOf<String, ImperativeSourceRecord>()
   private val imperativeImages = mutableMapOf<String, ImperativeImageRecord>()
+  private var missingImageResolverState: MissingImageResolver? by mutableStateOf(null)
+  /** Resolutions started for the loaded style, by image id. */
+  private val missingImageResolutions = mutableMapOf<String, MissingImageResolution>()
   private var activeStyleMutation: StyleMutationReservation? = null
+  /**
+   * Held while a resolved missing image reaches the style. A style command the app issues cannot
+   * anticipate this one, so the command waits it out through [beginStyleRevision] or runs beside it
+   * rather than failing on it.
+   */
+  private var backgroundStyleMutation: StyleMutationReservation? = null
   private val eventsFlow =
     MutableSharedFlow<MapEvent>(
       extraBufferCapacity = 64,
@@ -757,6 +772,37 @@ internal constructor(
    * values there. Collect on a dispatcher to call a map command such as [StyleImages.add].
    */
   public val events: Flow<MapEvent> = eventsFlow.asSharedFlow()
+
+  /**
+   * Supplies images that the style draws and the loaded style does not hold, such as an icon that
+   * its sprite does not contain.
+   *
+   * The map calls the resolver with the image id and adds the [ResolvedStyleImage] that it returns
+   * to the loaded style. A resolver that returns null leaves the image unresolved, as does one that
+   * throws, which the map logs. The map calls the resolver at most once per image id per loaded
+   * style. A new base style, or a different resolver set here, lets the next engine request for
+   * that id reach the resolver again.
+   *
+   * The map never calls the resolver inline from the engine's callback, and the resolver may
+   * suspend. MapLibre GL JS waits for it before it draws without the image; MapLibre Native draws
+   * the image at the next symbol placement after the resolver answers. Setting a resolver here does
+   * not stop a resolution that is already in flight, which still supplies the image that it
+   * resolves.
+   *
+   * Set it before or after the style loads. Null, the default, leaves every missing image
+   * unresolved.
+   */
+  public var missingImageResolver: MissingImageResolver?
+    get() = missingImageResolverState
+    set(value) {
+      lifecycle.serialized {
+        if (missingImageResolverState === value) return
+        missingImageResolverState = value
+        // Forgotten rather than cancelled: the request that started a resolution in flight is still
+        // outstanding, and the engine waits on that resolution rather than asking the new resolver.
+        missingImageResolutions.clear()
+      }
+    }
 
   public val isClosed: Boolean
     get() = closedState
@@ -957,6 +1003,7 @@ internal constructor(
       styleHandleEpoch++
       imperativeSources.clear()
       imperativeImages.clear()
+      cancelMissingImageResolutions()
       style.loadState = StyleLoadState.Loading
       style.updateLoadedStyle(loadedStyle)
       true
@@ -979,6 +1026,7 @@ internal constructor(
       val mutation = lifecycle.serialized {
         if (!lifecycle.acceptsAdapter(adapter)) return
         activeStyleMutation
+          ?: backgroundStyleMutation
           ?: run {
             requireNoImperativeResourceConflicts(revision)
             style.invalidateStructurallyReplacedResources(desiredStyleRevision, revision)
@@ -1000,6 +1048,7 @@ internal constructor(
       styleHandleEpoch++
       imperativeSources.clear()
       imperativeImages.clear()
+      cancelMissingImageResolutions()
       style.setBaseStyleState(value)
       style.invalidateLoadedStyle()
       val adapter = lifecycle.currentAdapter()
@@ -1124,6 +1173,123 @@ internal constructor(
     }
   }
 
+  /**
+   * Starts resolution of a missing style image and returns the resolution, or null when no resolver
+   * is set, no style is loaded, or this state no longer accepts [adapter].
+   *
+   * A repeated request for an id already resolving returns that resolution, which the browser needs
+   * to keep the request pending while the first call runs.
+   *
+   * The engine reports the miss from its own thread, so the resolution runs on this state's scope
+   * rather than there.
+   */
+  internal fun resolveMissingImage(adapter: MapAdapter, imageId: String): Deferred<Unit>? =
+    lifecycle.serialized {
+      if (lifecycle.isClosed || !lifecycle.acceptsAdapter(adapter)) return@serialized null
+      val resolver = missingImageResolverState ?: return@serialized null
+      val binding = style.currentLoadedStyle() ?: return@serialized null
+      missingImageResolutions[imageId]?.let {
+        return@serialized it.work
+      }
+      val token = Any()
+      runtime.physicalScope
+        .async { supplyMissingImage(resolver, binding, imageId, token) }
+        .also { missingImageResolutions[imageId] = MissingImageResolution(token, it) }
+    }
+
+  private suspend fun supplyMissingImage(
+    resolver: MissingImageResolver,
+    binding: StyleBinding,
+    imageId: String,
+    token: Any,
+  ) {
+    val resolved =
+      try {
+        resolver(imageId)
+      } catch (error: CancellationException) {
+        throw error
+      } catch (error: Throwable) {
+        runtime.logger?.w(error) { "The missing-image resolver failed for image '$imageId'" }
+        null
+      }
+    if (resolved == null) return
+    try {
+      addResolvedStyleImage(binding, imageId, resolved)
+    } catch (error: CancellationException) {
+      throw error
+    } catch (error: Throwable) {
+      // A composition can claim the id while the resolver runs. Dropping the record lets a repeated
+      // request try again, unless a later resolution already holds the id.
+      lifecycle.serialized {
+        if (missingImageResolutions[imageId]?.token === token)
+          missingImageResolutions.remove(imageId)
+      }
+      runtime.logger?.w(error) { "Could not add the resolved image '$imageId'" }
+    }
+  }
+
+  /**
+   * Adds a resolved image to [binding].
+   *
+   * The engine asks as soon as it lays out a tile, so this waits out a style command in progress
+   * rather than failing on it, and abandons the add once [binding] is no longer the loaded style.
+   * The style that it adds to is not ready yet: the browser counts a style as loaded only once
+   * every in-view tile has parsed, and a tile does not finish parsing until this add answers it.
+   */
+  private suspend fun addResolvedStyleImage(
+    binding: StyleBinding,
+    imageId: String,
+    resolved: ResolvedStyleImage,
+  ) {
+    val record = ImperativeImageRecord()
+    val reservation = StyleMutationReservation()
+    while (true) {
+      val inProgress = lifecycle.serialized {
+        if (lifecycle.isClosed) return
+        if (style.currentLoadedStyle() !== binding) return
+        (activeStyleMutation ?: backgroundStyleMutation)?.let {
+          return@serialized it
+        }
+        if (hasDesiredImage(imageId) || imageId in imperativeImages) return
+        imperativeImages[imageId] = record
+        backgroundStyleMutation = reservation
+        null
+      }
+      if (inProgress == null) break
+      inProgress.completion.await()
+    }
+    var committed = false
+    try {
+      if (binding.imageExists(imageId) == true) return
+      binding.addImage(imageId, resolved.image, resolved.sdf, resolved.stretch)
+      committed = lifecycle.serialized {
+        !lifecycle.isClosed && style.isCurrentLoadedStyle(binding)
+      }
+    } catch (error: CancellationException) {
+      throw error
+    } catch (error: Throwable) {
+      // A style load can invalidate [binding] between the check above and these calls, which fails
+      // the add for a style that nothing waits on any more.
+      if (lifecycle.serialized { !lifecycle.isClosed && style.isCurrentLoadedStyle(binding) }) {
+        if (error is StyleMutationException) {
+          throw StyleHandleException("Could not add image '$imageId': ${error.message}", error)
+        }
+        throw error
+      }
+    } finally {
+      lifecycle.serialized {
+        if (!committed && imperativeImages[imageId] === record) imperativeImages.remove(imageId)
+        completeStyleMutation(reservation)
+      }
+    }
+  }
+
+  /** Ends every resolution in flight: none of them can still reach the style that asked. */
+  private fun cancelMissingImageResolutions() {
+    missingImageResolutions.values.forEach { it.work.cancel() }
+    missingImageResolutions.clear()
+  }
+
   internal fun removeStyleImage(id: String): Boolean {
     val reservation = StyleMutationReservation()
     val binding = lifecycle.serialized {
@@ -1172,8 +1338,10 @@ internal constructor(
     }
   }
 
+  private fun hasDesiredImage(id: String): Boolean = desiredStyleRevision.images.any { it.id == id }
+
   private fun requireNoDesiredImage(id: String) {
-    if (desiredStyleRevision.images.any { it.id == id }) {
+    if (hasDesiredImage(id)) {
       throw StyleHandleException("Image ID '$id' is owned by StyleComposition")
     }
   }
@@ -1199,6 +1367,7 @@ internal constructor(
 
   private fun completeStyleMutation(reservation: StyleMutationReservation) {
     if (activeStyleMutation === reservation) activeStyleMutation = null
+    if (backgroundStyleMutation === reservation) backgroundStyleMutation = null
     reservation.completion.complete(Unit)
   }
 
@@ -1269,8 +1438,7 @@ internal constructor(
         is MapEvent.FrameRendered -> lifecycle.acceptsPresentation(adapter)
         MapEvent.StyleLoaded,
         is MapEvent.StyleLoadFailed,
-        MapEvent.Idle,
-        is MapEvent.StyleImageMissing -> lifecycle.acceptsAdapter(adapter)
+        MapEvent.Idle -> lifecycle.acceptsAdapter(adapter)
       }
     if (accepted) eventsFlow.tryEmit(event)
   }
@@ -1309,6 +1477,7 @@ internal constructor(
 
   internal fun commitClosed() {
     styleHandleEpoch++
+    cancelMissingImageResolutions()
     style.invalidateLoadedStyle()
     Snapshot.withMutableSnapshot {
       closedState = true

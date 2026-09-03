@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import kotlin.time.Duration
+import kotlinx.coroutines.Deferred
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
@@ -139,6 +140,13 @@ internal interface MapAdapter {
     fun onEvent(map: MapAdapter, event: MapEvent)
 
     /**
+     * Starts resolution of the style image [imageId] that the loaded style does not hold, and
+     * returns the resolution for an engine that awaits it before it treats the image as missing.
+     * Null means that nothing will supply the image.
+     */
+    fun resolveMissingImage(map: MapAdapter, imageId: String): Deferred<Unit>?
+
+    /**
      * Reports whether a gesture holds the camera. Neither engine emits this; the session's gesture
      * token decides it.
      */
@@ -159,6 +167,8 @@ internal object EmptyMapAdapterCallbacks : MapAdapter.Callbacks {
   override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) = Unit
 
   override fun onEvent(map: MapAdapter, event: MapEvent) = Unit
+
+  override fun resolveMissingImage(map: MapAdapter, imageId: String): Deferred<Unit>? = null
 
   override fun onGestureActive(map: MapAdapter, active: Boolean) = Unit
 
@@ -185,6 +195,9 @@ internal class DurableStyleCallbacks(private val owner: MapState) : MapAdapter.C
   override fun onEvent(map: MapAdapter, event: MapEvent) {
     owner.onEvent(map, event)
   }
+
+  override fun resolveMissingImage(map: MapAdapter, imageId: String): Deferred<Unit>? =
+    owner.resolveMissingImage(map, imageId)
 
   override fun onGestureActive(map: MapAdapter, active: Boolean) {
     owner.setGestureActive(map, active)

@@ -911,8 +911,12 @@ internal class MlnFfiMapSession(
       RuntimeEventType.MAP_RENDER_ERROR ->
         logger?.e { "MapLibre render error: ${event.message.ifBlank { "unknown" }}" }
 
+      // mbgl re-checks its image set at the next placement after setStyleImage, so a resolution
+      // that finishes after this drain still reaches a later frame.
       RuntimeEventType.MAP_STYLE_IMAGE_MISSING ->
-        withLifecycleStyle { e, style -> postStyleEvent(e, style, mapEvent) }
+        withLifecycleStyle { e, style ->
+          lifecycleCallbacks.resolveMissingImage(e, style, this, event.message)
+        }
 
       // Event types are value classes over Int, so an FFI upgrade can add one this build has never
       // seen. Types this session does not select are never queued.

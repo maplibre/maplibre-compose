@@ -15,6 +15,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -912,6 +913,51 @@ class MapPresentationTest {
     assertNull(sky.getProperty("sky-color"))
     assertNull(projection.getProperty("type"))
     assertFailsWith<IllegalStateException> { transition.set(options) }
+    fixture.close()
+  }
+
+  @Test
+  fun a_resolved_missing_image_reaches_a_style_that_has_not_gone_ready() = runTest {
+    val fixture = presentationFixture()
+    val binding = RecordingStyleBinding()
+    var calls = 0
+    fixture.state.missingImageResolver = {
+      calls++
+      ResolvedStyleImage(FakeImageBitmap(1, 1))
+    }
+    // The style is loading, not ready: the browser asks while it parses the tiles that decide
+    // whether the style has loaded.
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    assertEquals(StyleLoadState.Loading, fixture.state.style.loadState)
+
+    assertNotNull(fixture.state.resolveMissingImage(fixture.adapter, "icon")).await()
+    assertNotNull(fixture.state.resolveMissingImage(fixture.adapter, "icon")).await()
+
+    assertTrue(binding.imageExists("icon") == true)
+    assertEquals(1, calls, "the map asked the resolver twice for one image ID")
+    fixture.close()
+  }
+
+  @Test
+  fun a_replaced_resolver_leaves_the_resolution_in_flight_to_finish() = runTest {
+    val fixture = presentationFixture()
+    val binding = RecordingStyleBinding()
+    val release = CompletableDeferred<Unit>()
+    fixture.state.missingImageResolver = {
+      release.await()
+      ResolvedStyleImage(FakeImageBitmap(1, 1))
+    }
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    val resolution = assertNotNull(fixture.state.resolveMissingImage(fixture.adapter, "icon"))
+
+    fixture.state.missingImageResolver = { null }
+    release.complete(Unit)
+    resolution.await()
+
+    assertTrue(
+      binding.imageExists("icon") == true,
+      "replacing the resolver abandoned the request that the engine made",
+    )
     fixture.close()
   }
 

@@ -13,12 +13,11 @@ internal external interface Subscription {
   fun unsubscribe()
 }
 
-/** Only the `error` event carries an [error], and only `styleimagemissing` carries an [id]. */
+/** Only the `error` event carries an [error]. */
 internal external interface GlJsMapEvent {
   val error: JsError?
   val sourceId: String?
   val sourceDataType: String?
-  val id: String?
 }
 
 internal external interface JsError {

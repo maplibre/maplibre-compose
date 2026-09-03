@@ -143,13 +143,13 @@ class MapStateEventReactionTest {
       state.events.collect { published += it to state.isCameraMoving }
     }
 
-    state.onEvent(adapter, MapEvent.StyleImageMissing("x"))
-    state.onEvent(other, MapEvent.StyleImageMissing("y"))
+    state.onEvent(adapter, MapEvent.StyleLoaded)
+    state.onEvent(other, MapEvent.StyleLoaded)
     state.onEvent(adapter, MapEvent.CameraMoveStarted(animated = false))
 
     assertEquals(
       listOf(
-        MapEvent.StyleImageMissing("x") to false,
+        MapEvent.StyleLoaded to false,
         MapEvent.CameraMoveStarted(animated = false) to true,
       ),
       published,

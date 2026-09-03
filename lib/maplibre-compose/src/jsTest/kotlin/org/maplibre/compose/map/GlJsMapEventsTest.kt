@@ -24,17 +24,6 @@ class GlJsMapEventsTest {
     assertEquals(MapEvent.Idle, translate("idle"))
   }
 
-  @Test
-  fun a_missing_image_carries_its_id() {
-    assertEquals(
-      MapEvent.StyleImageMissing("missing-icon"),
-      translate("styleimagemissing", eventWithId("missing-icon")),
-    )
-  }
-
   private fun translate(type: String, event: GlJsMapEvent = unsafeJso()) =
-    (ENGINE_GL_JS_EVENTS + STYLE_GL_JS_EVENTS + PRESENTATION_GL_JS_EVENTS).getValue(type)(event)
-
-  private fun eventWithId(id: String): GlJsMapEvent =
-    unsafeJso<GlJsMapEvent>().also { it.asDynamic().id = id }
+    (ENGINE_GL_JS_EVENTS + PRESENTATION_GL_JS_EVENTS).getValue(type)(event)
 }

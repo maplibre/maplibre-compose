@@ -18,7 +18,6 @@ internal fun RuntimeEvent.toMapEvent(): MapEvent? =
     RuntimeEventType.MAP_CAMERA_DID_CHANGE -> MapEvent.CameraMoveEnded(isAnimatedChange())
     RuntimeEventType.MAP_RENDER_FRAME_FINISHED ->
       MapEvent.FrameRendered((payload as? RuntimeEventPayload.RenderFrame)?.toRenderStats())
-    RuntimeEventType.MAP_STYLE_IMAGE_MISSING -> MapEvent.StyleImageMissing(message)
     else -> null
   }
 
