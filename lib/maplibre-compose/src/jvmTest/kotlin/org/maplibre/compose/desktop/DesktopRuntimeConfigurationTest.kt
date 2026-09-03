@@ -1,14 +1,15 @@
 package org.maplibre.compose.desktop
 
+import java.nio.file.Files
 import java.nio.file.Paths
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
+import kotlinx.io.files.Path
 import org.maplibre.compose.map.MapRuntimeOptions
 import org.maplibre.compose.map.createMapRuntime
 import org.maplibre.compose.style.BaseStyle
@@ -26,16 +27,6 @@ class DesktopRuntimeConfigurationTest {
   }
 
   @Test
-  fun application_ids_cannot_escape_the_cache_directory() {
-    assertFailsWith<IllegalArgumentException> {
-      createMapRuntime(MapRuntimeOptions("../another-app"))
-    }
-    assertFailsWith<IllegalArgumentException> {
-      createMapRuntime(MapRuntimeOptions("com/example/app"))
-    }
-  }
-
-  @Test
   fun cache_environment_paths_must_be_absolute() {
     val absolute = Paths.get(System.getProperty("user.home")).toAbsolutePath()
 
@@ -47,9 +38,18 @@ class DesktopRuntimeConfigurationTest {
 
   @Test
   fun independently_configured_runtimes_coexist_and_close_independently() = runTest {
-    val first = createMapRuntime(MapRuntimeOptions("com.example.first"))
+    val root = Files.createTempDirectory("runtime caches")
+    val first =
+      createMapRuntime(
+        MapRuntimeOptions(cacheFile = Path(root.resolve("first/cache.db").toString()))
+      )
     val second =
-      createMapRuntime(MapRuntimeOptions("com.example.second", maximumCacheSizeBytes = 2_000))
+      createMapRuntime(
+        MapRuntimeOptions(
+          cacheFile = Path(root.resolve("second/cache.db").toString()),
+          maximumCacheSizeBytes = 2_000,
+        )
+      )
     val firstState = first.createMapState(BaseStyle.Demo)
     val secondState = second.createMapState(BaseStyle.Demo)
 
@@ -63,6 +63,7 @@ class DesktopRuntimeConfigurationTest {
     second.createMapState(BaseStyle.Demo).close()
     second.close()
     second.awaitClosed()
+    root.toFile().deleteRecursively()
   }
 
   @Test
@@ -73,7 +74,6 @@ class DesktopRuntimeConfigurationTest {
     )
     assertEquals("com.example.app", applicationIdFromClassName("com.example.app.DesktopApp"))
     assertNull(applicationIdFromClassName("MainKt"))
-    assertNull(applicationIdFromClassName("com/example/app.MainKt"))
   }
 
   @Test

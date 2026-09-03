@@ -79,7 +79,12 @@ import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
-/** Platform configuration for one [MapRuntime]. */
+/**
+ * Configuration for one [MapRuntime].
+ *
+ * Every platform accepts a request interceptor and a resource provider. The MapLibre Native
+ * platforms also accept a cache file and a cache size limit.
+ */
 public expect class MapRuntimeOptions
 
 /** Creates a runtime from [options]. The caller must close the result. */

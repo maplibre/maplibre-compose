@@ -1,21 +1,19 @@
 package org.maplibre.compose.desktop
 
-/** Package of the process `main` class, used as the default runtime application ID. */
+/** The default cache directory name: the package of the process `main` class. */
 internal fun inferredApplicationId(): String {
   val className = mainClassName()
   val id = className?.let(::applicationIdFromClassName)
   return id
     ?: throw IllegalStateException(
-      "Could not infer applicationId from the process main class" +
+      "Could not infer an application id from the process main class" +
         (className?.let { " '$it'" } ?: "") +
-        ". Create a runtime with MapRuntimeOptions(applicationId = \"com.example.myapp\")."
+        ". Create a runtime with MapRuntimeOptions(cacheFile = ...)."
     )
 }
 
-internal fun applicationIdFromClassName(className: String): String? {
-  val pkg = className.substringBeforeLast('.', missingDelimiterValue = "")
-  return pkg.takeIf { it.isNotEmpty() && APPLICATION_ID.matches(it) }
-}
+internal fun applicationIdFromClassName(className: String): String? =
+  className.substringBeforeLast('.', missingDelimiterValue = "").takeIf { it.isNotEmpty() }
 
 internal fun mainClassName(): String? = mainClassNameFromStackTraces(Thread.getAllStackTraces())
 
@@ -44,8 +42,6 @@ internal fun mainClassNameFromFrames(frames: List<StackTraceElement>): String? =
 internal fun isApplicationClass(className: String): Boolean = LAUNCHER_PREFIXES.none {
   className.startsWith(it)
 }
-
-internal val APPLICATION_ID = Regex("[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*")
 
 private val LAUNCHER_PREFIXES =
   arrayOf(
