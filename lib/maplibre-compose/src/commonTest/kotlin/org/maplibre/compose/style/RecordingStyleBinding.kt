@@ -31,6 +31,8 @@ internal class RecordingStyleBinding(
   override val supportsRasterDemScheme: Boolean = true,
   private val refusedSourceRemovals: Set<String> = emptySet(),
   private val refusedLightProperties: Set<String> = emptySet(),
+  override val supportsSky: Boolean = true,
+  override val supportsProjection: Boolean = true,
   private val beforeAddImage: ((String) -> Unit)? = null,
   private val beforeClusterExpansionZoomResult: suspend () -> Unit = {},
   private val onInvalidate: () -> Unit = {},
@@ -308,12 +310,34 @@ internal class RecordingStyleBinding(
   override fun lightProperty(name: String): JsonElement? =
     if (isLoaded) lightProperties[name] else null
 
-  override fun setLightProperty(name: String, value: JsonElement) {
-    if (name in refusedLightProperties) {
-      throw StyleMutationException("Light property '$name' is not supported", null)
-    }
-    if (value is kotlinx.serialization.json.JsonNull) lightProperties.remove(name)
-    else lightProperties[name] = value
+  override fun setLight(light: JsonObject) {
+    light.keys
+      .firstOrNull { it in refusedLightProperties }
+      ?.let { name ->
+        throw StyleMutationException("Light property '$name' is not supported", null)
+      }
+    lightProperties.clear()
+    lightProperties.putAll(light)
+  }
+
+  var sky: JsonObject? = null
+    private set
+
+  override fun skyProperty(name: String): JsonElement? =
+    if (isLoaded && supportsSky) sky?.get(name) else null
+
+  override fun setSky(sky: JsonObject?) {
+    if (supportsSky) this.sky = sky
+  }
+
+  var projection: JsonObject = JsonObject(emptyMap())
+    private set
+
+  override fun projectionProperty(name: String): JsonElement? =
+    if (isLoaded && supportsProjection) projection[name] else null
+
+  override fun setProjection(projection: JsonObject) {
+    if (supportsProjection) this.projection = projection
   }
 
   override fun setFeatureState(

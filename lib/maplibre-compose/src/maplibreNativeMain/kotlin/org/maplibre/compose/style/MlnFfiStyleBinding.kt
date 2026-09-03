@@ -878,13 +878,39 @@ internal open class MlnFfiStyleBinding(
     map.styleLightProperty(name)?.toJsonElement()
   }
 
-  override fun setLightProperty(name: String, value: JsonElement) {
+  override fun setLight(light: JsonObject) {
     mutateMap { map ->
       try {
-        map.setStyleLightProperty(name, value.toJsonBytes())
+        map.setStyleLightJson(light.toJsonBytes())
       } catch (error: MaplibreException) {
         throw StyleMutationException(error.message, error)
       }
+    }
+  }
+
+  override val supportsSky: Boolean = false
+
+  override fun skyProperty(name: String): JsonElement? {
+    requireLoadedStyle()
+    return null
+  }
+
+  override fun setSky(sky: JsonObject?) {
+    requireLoadedStyle()
+    if (sky != null) logger?.w { "MapLibre Native does not draw the sky" }
+  }
+
+  override val supportsProjection: Boolean = false
+
+  override fun projectionProperty(name: String): JsonElement? {
+    requireLoadedStyle()
+    return null
+  }
+
+  override fun setProjection(projection: JsonObject) {
+    requireLoadedStyle()
+    if (projection["type"] != JsonPrimitive("mercator")) {
+      logger?.w { "MapLibre Native draws only the Mercator projection" }
     }
   }
 

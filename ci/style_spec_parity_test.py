@@ -13,6 +13,7 @@ from ci.style_spec_parity import (
     audit,
     dead_setters,
     scan_layers,
+    scan_root_objects,
     scan_sources,
 )
 
@@ -113,6 +114,47 @@ class SupportTest(unittest.TestCase):
             {"sdk-support": {"basic functionality": {"js": "6.2.0"}}},
         )
         self.assertEqual(prop.engines(Pins(js=Version.parse("6.2.0"))), {"js"})
+
+
+class RootObjectTest(unittest.TestCase):
+    def test_a_missing_root_property_is_an_error(self) -> None:
+        spec = _spec(js="1.0.0", android=None, ios=None)
+        spec["sky"] = {
+            "sky-color": {"sdk-support": {"basic functionality": {"js": "1.0.0"}}},
+            "fog-color": {"sdk-support": {"basic functionality": {"js": "1.0.0"}}},
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            _layer_file(root, "commonMain", "FillLayer.kt", "fill", "")
+            _write(
+                root,
+                "lib/maplibre-compose/src/commonMain/kotlin/org/maplibre/compose/style/Sky.kt",
+                'putExpression("sky-color", skyColor)\nputExpression("haze", haze)\n',
+            )
+            self.assertEqual(scan_root_objects(root), {"sky": {"sky-color", "haze"}})
+            report = audit(spec, root, Pins(js=Version.parse("6.2.0")))
+        self.assertTrue(
+            any("sky: missing fog-color (js)" in line for line in report.errors)
+        )
+        self.assertTrue(
+            any("sky: unexpected extra haze" in line for line in report.errors)
+        )
+
+    def test_a_root_property_beyond_every_pin_is_not_required(self) -> None:
+        spec = _spec(js="1.0.0", android=None, ios=None)
+        spec["sky"] = {
+            "sky-color": {"sdk-support": {"basic functionality": {"js": "9.0.0"}}},
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            _layer_file(root, "commonMain", "FillLayer.kt", "fill", "")
+            _write(
+                root,
+                "lib/maplibre-compose/src/commonMain/kotlin/org/maplibre/compose/style/Sky.kt",
+                "",
+            )
+            report = audit(spec, root, Pins(js=Version.parse("6.2.0")))
+        self.assertFalse(any(line.startswith("error: sky") for line in report.errors))
 
 
 class AuditTest(unittest.TestCase):

@@ -6,6 +6,9 @@ import kotlinx.serialization.json.JsonElement
 import org.maplibre.compose.layers.LayerHandle
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceHandle
+import org.maplibre.compose.style.Light
+import org.maplibre.compose.style.Projection
+import org.maplibre.compose.style.Sky
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.ImageStretch
 
@@ -90,19 +93,63 @@ public class StyleTransition internal constructor(private val style: MapStyleSta
 }
 
 /**
- * Provides property access to the light of the current loaded-style generation.
+ * Provides the light of the current loaded-style generation.
  *
- * Property names and values follow the style spec's `light` object, such as `anchor`, `position`,
- * `color`, `intensity`, and `color-transition`. A base-style reload replaces the light with the one
- * that the new style declares.
+ * A base-style reload replaces the light with the one that the new style declares.
  */
 @Stable
 public class StyleLight internal constructor(private val style: MapStyleState) {
-  /** Returns the value of [name], or null when the style sets no value or no style is ready. */
+  /**
+   * Returns the value of the style spec's light property [name], such as `anchor` or `color`, or
+   * null when the style sets no value or no style is ready.
+   */
   public fun getProperty(name: String): JsonElement? = style.lightProperty(name)
 
-  /** Sets [name]; a `JsonNull` value clears it. The command fails while no style is ready. */
-  public fun setProperty(name: String, value: JsonElement) {
-    style.setLightProperty(name, value)
+  /** Replaces the loaded style's light. The command fails while no style is ready. */
+  public fun set(light: Light) {
+    style.setLight(light)
+  }
+}
+
+/**
+ * Provides the sky of the current loaded-style generation.
+ *
+ * A base-style reload replaces the sky with the one that the new style declares. MapLibre Native
+ * draws no sky: it reports no values and logs a warning on write.
+ */
+@Stable
+public class StyleSky internal constructor(private val style: MapStyleState) {
+  /**
+   * Returns the value of the style spec's sky property [name], such as `sky-color`, or null when
+   * the style sets no value or no style is ready.
+   */
+  public fun getProperty(name: String): JsonElement? = style.skyProperty(name)
+
+  /**
+   * Replaces the loaded style's sky, or removes it when [sky] is null. The command fails while no
+   * style is ready.
+   */
+  public fun set(sky: Sky?) {
+    style.setSky(sky)
+  }
+}
+
+/**
+ * Provides the projection of the current loaded-style generation.
+ *
+ * A base-style reload replaces the projection with the one that the new style declares. MapLibre
+ * Native draws only Mercator: it reports no values and logs a warning on write.
+ */
+@Stable
+public class StyleProjection internal constructor(private val style: MapStyleState) {
+  /**
+   * Returns the value of the style spec's projection property [name], which is `type`, or null when
+   * the style sets no value or no style is ready.
+   */
+  public fun getProperty(name: String): JsonElement? = style.projectionProperty(name)
+
+  /** Replaces the loaded style's projection. The command fails while no style is ready. */
+  public fun set(projection: Projection) {
+    style.setProjection(projection)
   }
 }

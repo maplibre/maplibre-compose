@@ -62,7 +62,10 @@ import org.maplibre.compose.sources.SourceHandle
 import org.maplibre.compose.sources.sourceHandle
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
+import org.maplibre.compose.style.Light
 import org.maplibre.compose.style.LocalMapState
+import org.maplibre.compose.style.Projection
+import org.maplibre.compose.style.Sky
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleComposition
@@ -209,6 +212,12 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   /** Light of the current loaded-style generation. */
   public val light: StyleLight = StyleLight(this)
 
+  /** Sky of the current loaded-style generation. */
+  public val sky: StyleSky = StyleSky(this)
+
+  /** Projection of the current loaded-style generation. */
+  public val projection: StyleProjection = StyleProjection(this)
+
   internal fun transitionOptions(): TransitionOptions? = readStyle { it.transition() }
 
   internal fun setTransitionOptions(options: TransitionOptions) {
@@ -223,8 +232,22 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
 
   internal fun lightProperty(name: String): JsonElement? = readStyle { it.lightProperty(name) }
 
-  internal fun setLightProperty(name: String, value: JsonElement) {
-    mutateStyle("light '$name'") { it.setLightProperty(name, value) }
+  internal fun setLight(light: Light) {
+    mutateStyle("the light") { it.setLight(light.toJson()) }
+  }
+
+  internal fun skyProperty(name: String): JsonElement? = readStyle { it.skyProperty(name) }
+
+  internal fun setSky(sky: Sky?) {
+    mutateStyle("the sky") { it.setSky(sky?.toJson()) }
+  }
+
+  internal fun projectionProperty(name: String): JsonElement? = readStyle {
+    it.projectionProperty(name)
+  }
+
+  internal fun setProjection(projection: Projection) {
+    mutateStyle("the projection") { it.setProjection(projection.toJson()) }
   }
 
   private fun <T> readStyle(read: (StyleBinding) -> T?): T? {

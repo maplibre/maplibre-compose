@@ -16,6 +16,7 @@ import org.maplibre.compose.expressions.ast.DpPaddingLiteral
 import org.maplibre.compose.expressions.ast.FloatLiteral
 import org.maplibre.compose.expressions.ast.NullLiteral
 import org.maplibre.compose.expressions.ast.OffsetLiteral
+import org.maplibre.compose.expressions.ast.ProjectionTransitionLiteral
 import org.maplibre.compose.expressions.ast.StringLiteral
 
 /**
@@ -44,6 +45,17 @@ private fun CompiledExpression<*>.normalizeJsonLike(inLiteral: Boolean): JsonEle
         value.toArgb().let {
           "rgba(${(it shr 16) and 0xFF}, ${(it shr 8) and 0xFF}, ${it and 0xFF}, ${value.alpha})"
         }
+      )
+
+    // Never wrapped: the spec reads a bare `[from, to, progress]` as a projection transition
+    // state, while a `literal` array is typed as an array and fails projection validation.
+    is ProjectionTransitionLiteral ->
+      JsonArray(
+        listOf(
+          value.from.literal.normalizeJsonLike(inLiteral),
+          value.to.literal.normalizeJsonLike(inLiteral),
+          JsonPrimitive(value.progress),
+        )
       )
 
     is DpPaddingLiteral ->

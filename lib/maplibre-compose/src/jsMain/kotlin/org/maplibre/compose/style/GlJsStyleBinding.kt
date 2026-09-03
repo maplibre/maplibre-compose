@@ -21,10 +21,13 @@ import org.maplibre.compose.gljs.GeoJsonSourceData
 import org.maplibre.compose.gljs.GlJsGeoJsonSource
 import org.maplibre.compose.gljs.GlJsImageSource
 import org.maplibre.compose.gljs.GlJsSubscription
+import org.maplibre.compose.gljs.JsRecord
 import org.maplibre.compose.gljs.LayerSpecification
 import org.maplibre.compose.gljs.LightSpecification
 import org.maplibre.compose.gljs.MaplibreMap
+import org.maplibre.compose.gljs.ProjectionSpecification
 import org.maplibre.compose.gljs.QuerySourceFeatureOptions
+import org.maplibre.compose.gljs.SkySpecification
 import org.maplibre.compose.gljs.SourceHandle
 import org.maplibre.compose.gljs.SourceSpecification
 import org.maplibre.compose.gljs.StyleImageMetadata
@@ -95,6 +98,12 @@ internal class GlJsStyleBinding(
       lastError = event.error?.message
     }
 
+  private val skyErrors: GlJsSubscription =
+    map.style.sky.subscribe("error") { event ->
+      errorCount++
+      lastError = event.error?.message
+    }
+
   override val isLoaded: Boolean
     get() = loaded
 
@@ -103,6 +112,7 @@ internal class GlJsStyleBinding(
     loaded = false
     errors.cancel()
     lightErrors.cancel()
+    skyErrors.cancel()
     val attachments = customVectorAttachments.values.toList()
     customVectorAttachments.clear()
     attachments.forEach { it.close() }
@@ -597,15 +607,72 @@ internal class GlJsStyleBinding(
   }
 
   /**
-   * Validation rejects a null value, and only an unvalidated null clears a property. MapLibre still
-   * throws for an unknown property name on that path.
+   * MapLibre merges the given properties into the light, so every property it holds and [light]
+   * omits is written as null, which clears it. Validation rejects a null value, and only an
+   * unvalidated null clears a property.
    */
-  override fun setLightProperty(name: String, value: JsonElement) {
+  override fun setLight(light: JsonObject) {
     requireLoaded()
-    val light = unsafeJso<LightSpecification>()
-    light.asDynamic()[name] = value.toJsValue<Any?>()
-    val options = unsafeJso<StyleSetterOptions> { validate = value !is JsonNull }
-    mutate("set light '$name'") { map.setLight(light, options) }
+    val (js, validate) = replacement<LightSpecification>(map.getLight(), light)
+    val options = unsafeJso<StyleSetterOptions> { this.validate = validate }
+    mutate("set the light") { map.setLight(js, options) }
+  }
+
+  override val supportsSky: Boolean = true
+
+  override fun skyProperty(name: String): JsonElement? {
+    requireLoaded()
+    val sky = map.getSky() ?: return null
+    return sky.asDynamic()[name].unsafeCast<Any?>()?.toJsonElement()
+  }
+
+  /**
+   * Merges like the light. An absent sky is what MapLibre draws as no sky, and only an unvalidated
+   * null removes it.
+   */
+  override fun setSky(sky: JsonObject?) {
+    requireLoaded()
+    if (sky == null) {
+      val options = unsafeJso<StyleSetterOptions> { validate = false }
+      mutate("remove the sky") { map.setSky(null, options) }
+      return
+    }
+    val (js, validate) = replacement<SkySpecification>(map.getSky(), sky)
+    val options = unsafeJso<StyleSetterOptions> { this.validate = validate }
+    mutate("set the sky") { map.setSky(js, options) }
+  }
+
+  override val supportsProjection: Boolean = true
+
+  override fun projectionProperty(name: String): JsonElement? {
+    requireLoaded()
+    val projection = map.getProjection() ?: return null
+    return projection.asDynamic()[name].unsafeCast<Any?>()?.toJsonElement()
+  }
+
+  /** MapLibre falls back to Mercator for an unknown name with a console warning, not an error. */
+  override fun setProjection(projection: JsonObject) {
+    requireLoaded()
+    mutate("set the projection") {
+      map.setProjection(projection.toJsValue<ProjectionSpecification>())
+    }
+  }
+
+  /**
+   * Returns [next] as a JS object that also nulls every property of [current] that [next] omits,
+   * and whether MapLibre may validate it: it may only when nothing was nulled.
+   */
+  private fun <T : Any> replacement(current: Any?, next: JsonObject): Pair<T, Boolean> {
+    val js = next.toJsValue<T>()
+    var cleared = false
+    val currentKeys = current?.unsafeCast<JsRecord<*>>()?.keys() ?: emptyArray()
+    for (key in currentKeys) {
+      if (key !in next) {
+        js.asDynamic()[key] = null
+        cleared = true
+      }
+    }
+    return js to !cleared
   }
 
   override fun layerExists(layerId: String): Boolean? {

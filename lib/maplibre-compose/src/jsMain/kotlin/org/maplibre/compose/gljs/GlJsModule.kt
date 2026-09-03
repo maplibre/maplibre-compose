@@ -50,6 +50,14 @@ internal external class MaplibreMap(options: MapOptions) {
 
   fun getLight(): LightSpecification
 
+  fun setSky(sky: SkySpecification?, options: StyleSetterOptions = definedExternally)
+
+  fun getSky(): SkySpecification?
+
+  fun setProjection(projection: ProjectionSpecification?)
+
+  fun getProjection(): ProjectionSpecification?
+
   fun isStyleLoaded(): Boolean
 
   fun isSourceLoaded(id: String): Boolean
@@ -176,6 +184,8 @@ internal external class Style {
 
   val light: Light
 
+  val sky: Sky
+
   fun getTransition(): TransitionSpecification
 }
 
@@ -184,5 +194,10 @@ internal external class Style {
  * with no evented parent, so a listener on the map never hears it.
  */
 internal external class Light {
+  fun on(type: String, listener: (event: MapEvent) -> Unit): Subscription
+}
+
+/** The style's sky reports a rejected write the same way as [Light]. */
+internal external class Sky {
   fun on(type: String, listener: (event: MapEvent) -> Unit): Subscription
 }

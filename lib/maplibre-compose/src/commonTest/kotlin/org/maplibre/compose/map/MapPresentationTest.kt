@@ -28,7 +28,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
@@ -38,7 +38,10 @@ import kotlinx.serialization.json.put
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.expressions.ast.CompiledExpression
+import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.compose.expressions.value.ProjectionType
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.LayerHandle
@@ -53,7 +56,11 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleLayer
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.ImageSnapshot
+import org.maplibre.compose.style.Light
+import org.maplibre.compose.style.Projection
+import org.maplibre.compose.style.ProjectionTransition
 import org.maplibre.compose.style.RecordingStyleBinding
+import org.maplibre.compose.style.Sky
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleImageDefinition
 import org.maplibre.compose.style.TransitionOptions
@@ -834,11 +841,13 @@ class MapPresentationTest {
   }
 
   @Test
-  fun transition_and_light_commands_target_only_a_ready_loaded_style() {
+  fun transition_light_sky_and_projection_commands_target_only_a_ready_loaded_style() {
     val fixture = presentationFixture()
-    val binding = RecordingStyleBinding(refusedLightProperties = setOf("blocked"))
+    val binding = RecordingStyleBinding(refusedLightProperties = setOf("position"))
     val transition = fixture.state.style.transition
     val light = fixture.state.style.light
+    val sky = fixture.state.style.sky
+    val projection = fixture.state.style.projection
     val options = TransitionOptions(duration = 1.seconds, delay = 20.milliseconds)
 
     assertFailsWith<IllegalArgumentException> { TransitionOptions(duration = Duration.INFINITE) }
@@ -846,9 +855,13 @@ class MapPresentationTest {
     assertNull(transition.get())
     assertNull(transition.placementTransitions())
     assertNull(light.getProperty("color"))
+    assertNull(sky.getProperty("sky-color"))
+    assertNull(projection.getProperty("type"))
     assertFailsWith<IllegalStateException> { transition.set(options) }
     assertFailsWith<IllegalStateException> { transition.setPlacementTransitions(false) }
-    assertFailsWith<IllegalStateException> { light.setProperty("color", JsonPrimitive("red")) }
+    assertFailsWith<IllegalStateException> { light.set(Light()) }
+    assertFailsWith<IllegalStateException> { sky.set(Sky()) }
+    assertFailsWith<IllegalStateException> { projection.set(Projection()) }
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
     fixture.state.durableStyleCallbacks().onMapFinishedLoading(fixture.adapter)
 
@@ -859,16 +872,45 @@ class MapPresentationTest {
     transition.setPlacementTransitions(false)
     assertEquals(false, transition.placementTransitions())
 
-    light.setProperty("color", JsonPrimitive("red"))
-    assertEquals(JsonPrimitive("red"), light.getProperty("color"))
-    light.setProperty("color", JsonNull)
-    assertNull(light.getProperty("color"))
-    assertFailsWith<StyleHandleException> { light.setProperty("blocked", JsonPrimitive(1)) }
-    assertTrue(binding.lightProperties.isEmpty())
+    light.set(Light(position = nil(), intensity = const(0.25f)))
+    assertEquals(JsonPrimitive(0.25f), light.getProperty("intensity"))
+    light.set(Light(position = nil(), intensity = nil()))
+    assertNull(light.getProperty("intensity"))
+    assertEquals(JsonPrimitive("viewport"), light.getProperty("anchor"))
+    assertFailsWith<StyleHandleException> { light.set(Light()) }
+    assertNull(light.getProperty("intensity"))
+
+    sky.set(Sky(atmosphereBlend = const(0f)))
+    assertEquals(JsonPrimitive(0f), sky.getProperty("atmosphere-blend"))
+    sky.set(null)
+    assertNull(sky.getProperty("atmosphere-blend"))
+
+    projection.set(Projection(type = const(ProjectionType.Globe)))
+    assertEquals(JsonPrimitive("globe"), projection.getProperty("type"))
+    projection.set(
+      Projection(
+        type =
+          const(
+            ProjectionTransition(ProjectionType.VerticalPerspective, ProjectionType.Mercator, 0.5f)
+          )
+      )
+    )
+    assertEquals(
+      JsonArray(
+        listOf(
+          JsonPrimitive("vertical-perspective"),
+          JsonPrimitive("mercator"),
+          JsonPrimitive(0.5f),
+        )
+      ),
+      projection.getProperty("type"),
+    )
 
     fixture.state.style.baseStyle = BaseStyle.Json("replacement")
     assertNull(transition.get())
     assertNull(light.getProperty("color"))
+    assertNull(sky.getProperty("sky-color"))
+    assertNull(projection.getProperty("type"))
     assertFailsWith<IllegalStateException> { transition.set(options) }
     fixture.close()
   }
