@@ -227,15 +227,15 @@ private fun MaplibreMapPresentation(
           synchronizeCamera(map)
         }
 
-        override fun onMapFailLoading(map: MapAdapter, reason: String?) {
-          attachment.markStyleFailed(map, reason)
-        }
-
-        override fun onMapFinishedLoading(map: MapAdapter) {
+        override fun onStyleReady(map: MapAdapter) {
           attachment.markStyleReady(map)
         }
 
-        override fun onSourceChanged(map: MapAdapter, sourceId: String?) {
+        override fun onStyleFailed(map: MapAdapter, reason: String?) {
+          attachment.markStyleFailed(map, reason)
+        }
+
+        override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) {
           state.refreshStyleSources(map)
         }
 

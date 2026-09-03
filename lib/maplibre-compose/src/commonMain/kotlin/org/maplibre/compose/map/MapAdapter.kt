@@ -110,15 +110,30 @@ internal interface MapAdapter {
 
   fun metersPerDpAtLatitude(latitude: Double): Double
 
+  /**
+   * The sink that a session reports to. [onStyleChanged], [onStyleReady], [onStyleFailed], and
+   * [onStyleSourcesChanged] are the style handshake: the session offers a binding, reports the
+   * composition ready or a source changed for the binding it holds, and reports that a style
+   * request failed. [onEvent], [onGestureActive], and [onViewportChanged] refer to no binding.
+   */
   interface Callbacks {
+    /** Offers the binding for a loaded style, or null when no binding is current. */
     fun onStyleChanged(map: MapAdapter, style: StyleBinding?)
 
-    fun onMapFinishedLoading(map: MapAdapter)
+    /** Reports that the style composition applied and is ready to present. */
+    fun onStyleReady(map: MapAdapter)
 
-    /** A null [sourceId] means that the adapter cannot identify the changed source. */
-    fun onSourceChanged(map: MapAdapter, sourceId: String?)
+    /**
+     * Reports that the style cannot load, either because the base style request failed or because
+     * attaching the presentation threw. [reason] is the failure text when the failure carried one.
+     */
+    fun onStyleFailed(map: MapAdapter, reason: String?)
 
-    fun onMapFailLoading(map: MapAdapter, reason: String?)
+    /**
+     * Reports that the style's sources changed. A null [sourceId] means that the adapter cannot
+     * identify the changed source.
+     */
+    fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?)
 
     /** Reports one engine event whose producing identity is still current. */
     fun onEvent(map: MapAdapter, event: MapEvent)
@@ -137,11 +152,11 @@ internal interface MapAdapter {
 internal object EmptyMapAdapterCallbacks : MapAdapter.Callbacks {
   override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) = Unit
 
-  override fun onMapFinishedLoading(map: MapAdapter) = Unit
+  override fun onStyleReady(map: MapAdapter) = Unit
 
-  override fun onSourceChanged(map: MapAdapter, sourceId: String?) = Unit
+  override fun onStyleFailed(map: MapAdapter, reason: String?) = Unit
 
-  override fun onMapFailLoading(map: MapAdapter, reason: String?) = Unit
+  override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) = Unit
 
   override fun onEvent(map: MapAdapter, event: MapEvent) = Unit
 
@@ -155,16 +170,16 @@ internal class DurableStyleCallbacks(private val owner: MapState) : MapAdapter.C
     owner.updateLoadedStyle(map, style)
   }
 
-  override fun onMapFinishedLoading(map: MapAdapter) {
+  override fun onStyleReady(map: MapAdapter) {
     owner.markStyleReady(map)
   }
 
-  override fun onSourceChanged(map: MapAdapter, sourceId: String?) {
-    owner.refreshStyleSources(map)
+  override fun onStyleFailed(map: MapAdapter, reason: String?) {
+    owner.markStyleFailed(map, reason)
   }
 
-  override fun onMapFailLoading(map: MapAdapter, reason: String?) {
-    owner.markStyleFailed(map, reason)
+  override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) {
+    owner.refreshStyleSources(map)
   }
 
   override fun onEvent(map: MapAdapter, event: MapEvent) {

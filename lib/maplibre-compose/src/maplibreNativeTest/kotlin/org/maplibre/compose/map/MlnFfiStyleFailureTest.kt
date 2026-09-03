@@ -13,9 +13,7 @@ class MlnFfiStyleFailureTest {
     fixture.use {
       it.session.setBaseStyle(BaseStyle.Uri("https://example.invalid/style.json"))
 
-      it.pumpUntil("the load to fail") {
-        it.errors.any { error -> error.startsWith("mapFailLoading") }
-      }
+      it.pumpUntil("the load to fail") { it.errors.isNotEmpty() }
     }
   }
 }

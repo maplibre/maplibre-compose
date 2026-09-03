@@ -149,7 +149,7 @@ internal fun MlnFfiMapView(
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
-      callbacks.onMapFailLoading(session, error.message)
+      callbacks.onStyleFailed(session, error.message)
     }
   }
 

@@ -285,7 +285,7 @@ internal class MlnFfiMapSession(
           reportedUrlAttribution.add(id)
       ) {
         withLifecycleStyle { engine, style ->
-          lifecycleCallbacks.onSourceChanged(engine, style, this, id)
+          lifecycleCallbacks.onStyleSourcesChanged(engine, style, this, id)
         }
       }
     }
@@ -318,7 +318,7 @@ internal class MlnFfiMapSession(
         featureStateReplayPending.store(true)
         reportedUrlAttribution.remove(sourceId)
         withLifecycleStyle { engine, style ->
-          lifecycleCallbacks.onSourceChanged(engine, style, this, sourceId)
+          lifecycleCallbacks.onStyleSourcesChanged(engine, style, this, sourceId)
         }
       },
       getScale = ::imageScale,
@@ -786,7 +786,7 @@ internal class MlnFfiMapSession(
     val identity = styleBinding?.identity ?: return
     if (styleLoadTracker?.reconciled(request, identity) == true) {
       lifecycleStyleIdentity?.let {
-        if (lifecycleCallbacks.onMapFinishedLoading(engine, it, this)) {
+        if (lifecycleCallbacks.onStyleReady(engine, it, this)) {
           styleLoadUnreported = false
           hasPresentableStyle = true
         }
@@ -867,7 +867,7 @@ internal class MlnFfiMapSession(
             ?.takeIf { it.engine == engine }
             ?.let {
               if (
-                lifecycleCallbacks.onMapFailLoading(engine, it.request, this, reason) {
+                lifecycleCallbacks.onStyleFailed(engine, it.request, this, reason) {
                   hasPresentableStyle = false
                 }
               ) {

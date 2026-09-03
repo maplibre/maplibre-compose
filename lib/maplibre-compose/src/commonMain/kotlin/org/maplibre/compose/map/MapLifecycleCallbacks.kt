@@ -27,22 +27,12 @@ internal class MapLifecycleCallbacks(
     }
   }
 
-  fun onMapFinishedLoading(engine: EngineMapIdentity, style: StyleIdentity, map: MapAdapter) =
+  fun onStyleReady(engine: EngineMapIdentity, style: StyleIdentity, map: MapAdapter) =
     withStyle(engine, style) {
-      delegate().onMapFinishedLoading(map)
+      delegate().onStyleReady(map)
     }
 
-  fun onSourceChanged(
-    engine: EngineMapIdentity,
-    style: StyleIdentity,
-    map: MapAdapter,
-    sourceId: String?,
-  ) =
-    withStyle(engine, style) {
-      delegate().onSourceChanged(map, sourceId)
-    }
-
-  fun onMapFailLoading(
+  fun onStyleFailed(
     engine: EngineMapIdentity,
     request: StyleRequestIdentity,
     map: MapAdapter,
@@ -51,7 +41,17 @@ internal class MapLifecycleCallbacks(
   ) =
     lifecycle.acceptStyleRequestEvent(engine, request) {
       beforeDelegate()
-      delegate().onMapFailLoading(map, reason)
+      delegate().onStyleFailed(map, reason)
+    }
+
+  fun onStyleSourcesChanged(
+    engine: EngineMapIdentity,
+    style: StyleIdentity,
+    map: MapAdapter,
+    sourceId: String?,
+  ) =
+    withStyle(engine, style) {
+      delegate().onStyleSourcesChanged(map, sourceId)
     }
 
   fun onGestureActive(

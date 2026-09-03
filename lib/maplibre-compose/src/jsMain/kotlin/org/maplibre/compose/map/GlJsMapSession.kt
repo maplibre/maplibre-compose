@@ -559,7 +559,7 @@ internal class GlJsMapSession(
     val trackerRequest = appliedStyleRequest ?: return
     val identity = styleBinding?.identity ?: return
     if (styleLoadTracker?.reconciled(trackerRequest, identity) == true) {
-      if (lifecycleCallbacks.onMapFinishedLoading(engine, style, this)) {
+      if (lifecycleCallbacks.onStyleReady(engine, style, this)) {
         reportStyleLoaded = false
         hasPresentableStyle = true
       }
@@ -733,7 +733,7 @@ internal class GlJsMapSession(
               if (event.sourceDataType == "metadata") {
                 applyTileLod(map)
                 event.sourceId?.let {
-                  lifecycleCallbacks.onSourceChanged(engine, acceptedStyle, this, it)
+                  lifecycleCallbacks.onStyleSourcesChanged(engine, acceptedStyle, this, it)
                 }
               }
             }
@@ -764,7 +764,7 @@ internal class GlJsMapSession(
             reason,
           ) == true
         if (accepted) {
-          if (lifecycleCallbacks.onMapFailLoading(engine, lifecycleRequest, this, reason)) {
+          if (lifecycleCallbacks.onStyleFailed(engine, lifecycleRequest, this, reason)) {
             logger?.e { "Map loading failed: $reason" }
             hasPresentableStyle = false
             if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
@@ -805,7 +805,7 @@ internal class GlJsMapSession(
           reason,
         ) == true
       ) {
-        lifecycleCallbacks.onMapFailLoading(engine, lifecycleRequest, this, reason)
+        lifecycleCallbacks.onStyleFailed(engine, lifecycleRequest, this, reason)
         hasPresentableStyle = false
         lifecycleCallbacks.onEvent(
           engine,

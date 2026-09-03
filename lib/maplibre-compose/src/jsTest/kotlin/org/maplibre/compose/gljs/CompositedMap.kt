@@ -94,15 +94,15 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
       }
     }
 
-    override fun onMapFinishedLoading(map: MapAdapter) {
+    override fun onStyleReady(map: MapAdapter) {
       styleLoaded = true
     }
 
-    override fun onSourceChanged(map: MapAdapter, sourceId: String?) = Unit
-
-    override fun onMapFailLoading(map: MapAdapter, reason: String?) {
+    override fun onStyleFailed(map: MapAdapter, reason: String?) {
       loadFailure = reason ?: "unknown"
     }
+
+    override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) = Unit
 
     override fun onEvent(map: MapAdapter, event: MapEvent) = Unit
 

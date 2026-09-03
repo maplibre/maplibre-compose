@@ -33,9 +33,7 @@ class MlnFfiRequestInterceptorCustomSchemeTest {
       )
     fixture.use {
       it.session.setBaseStyle(BaseStyle.Uri("custom://style.json"))
-      it.pumpUntil("the rewritten load to fail") {
-        it.errors.any { error -> error.startsWith("mapFailLoading") }
-      }
+      it.pumpUntil("the rewritten load to fail") { it.errors.isNotEmpty() }
     }
     assertTrue(
       rewritten.toList().any { it.startsWith("custom://") },

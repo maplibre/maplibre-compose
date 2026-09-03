@@ -77,7 +77,7 @@ internal interface MapFixture : AutoCloseable {
   companion object {
     const val STYLE_LOADED: String = "styleLoaded"
 
-    const val LOAD_FINISHED: String = "mapFinishedLoading"
+    const val STYLE_READY: String = "styleReady"
 
     /** Big enough for tiles to be selected at zoom 0 and for a query to have something to hit. */
     val DEFAULT_EXTENT: MapExtent =
@@ -156,16 +156,16 @@ internal class RecordingMapCallbacks(
     events += if (style == null) "styleChanged(null)" else MapFixture.STYLE_LOADED
   }
 
-  override fun onMapFinishedLoading(map: MapAdapter) {
-    events += MapFixture.LOAD_FINISHED
+  override fun onStyleReady(map: MapAdapter) {
+    events += MapFixture.STYLE_READY
   }
 
-  override fun onSourceChanged(map: MapAdapter, sourceId: String?) {
+  override fun onStyleFailed(map: MapAdapter, reason: String?) {
+    errors += "styleFailed: $reason"
+  }
+
+  override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) {
     sourceChanges += sourceId
-  }
-
-  override fun onMapFailLoading(map: MapAdapter, reason: String?) {
-    errors += "mapFailLoading: $reason"
   }
 
   override fun onEvent(map: MapAdapter, event: MapEvent) {

@@ -249,13 +249,13 @@ class LinuxVulkanOpenGlInteropTest {
           if (style != null) styleLoads++
         }
 
-        override fun onMapFailLoading(map: MapAdapter, reason: String?) {
+        override fun onStyleReady(map: MapAdapter) {}
+
+        override fun onStyleFailed(map: MapAdapter, reason: String?) {
           failure = reason ?: "unknown map load failure"
         }
 
-        override fun onMapFinishedLoading(map: MapAdapter) {}
-
-        override fun onSourceChanged(map: MapAdapter, sourceId: String?) {}
+        override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) {}
 
         override fun onEvent(map: MapAdapter, event: MapEvent) {}
 

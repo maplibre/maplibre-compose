@@ -9,42 +9,45 @@ owns pointer recognition, bindings, and click dispatch. This document owns the
 events that MapLibre Native FFI and MapLibre GL JS emit. The two meet at one
 point: the gesture token decides whether a camera change is user-driven.
 
-## What the current code is
+## What the code was
 
-`MapAdapter.Callbacks` has ten methods that both engine sessions implement, and
-`MapLifecycleCallbacks` filters each call through the engine identity, style
-identity, or render lease that produced it. The ten methods are three unrelated
-things.
+The redesign replaced this shape. Every step in the [Sequence](#sequence) has
+landed.
+
+`MapAdapter.Callbacks` had ten methods that both engine sessions implemented,
+and `MapLifecycleCallbacks` filtered each call through the engine identity,
+style identity, or render lease that produced it. The ten methods were three
+unrelated things.
 
 **A two-way style handshake.** `onStyleChanged`, `onMapFinishedLoading`,
-`onMapFailLoading`, and `onSourceChanged` are a protocol, not events. The
-session offers a style binding, `MapState` accepts or rejects it, and the
-session branches on the answer: it keeps or invalidates the binding, and it
-clears or keeps its own "load unreported" flag.
+`onMapFailLoading`, and `onSourceChanged` were a protocol, not events. The
+session offered a style binding, `MapState` accepted or rejected it, and the
+session branched on the answer: it kept or invalidated the binding, and it
+cleared or kept its own "load unreported" flag.
 
 **Camera state feeding.** `onCameraMoveStarted`, `onCameraMoved`, and
-`onCameraMoveEnded` exist to set `viewport`, `isCameraMoving`, and
-`cameraMoveReason` on the current attachment. Both sessions run the same
+`onCameraMoveEnded` existed to set `viewport`, `isCameraMoving`, and
+`cameraMoveReason` on the current attachment. Both sessions ran the same
 coalescing. Native emits `MAP_CAMERA_WILL_CHANGE`, `MAP_CAMERA_IS_CHANGING`, and
 `MAP_CAMERA_DID_CHANGE`; the browser emits `movestart`, `move`, and `moveend`.
-Compose drives a drag as a series of jumps, so each pointer move produces its
-own did-change or moveend. The session reads its gesture flag and withholds the
-end callback until the gesture ends, so that a drag reports as one move. The
-session also sets `CameraMoveReason` from that same flag.
+Compose drives a drag as a series of jumps, so each pointer move produced its
+own did-change or moveend. The session read its gesture flag and withheld the
+end callback until the gesture ended, so that a drag reported as one move. The
+session also set `CameraMoveReason` from that same flag.
 
-**Values that neither engine emits.** `onClick` and `onLongClick` originate in
-Compose input. `MapInput` recognizes a tap or long press and calls
-`GestureTarget.onPrimaryClick` or `onSecondaryClick`. The session unprojects the
-offset and calls back into `MaplibreMap`, which walks the layers. `onFrame(fps)`
-is an inter-frame interval that the session measures in its own render loop. The
-FFI reports `MAP_RENDER_FRAME_FINISHED` with a payload, and GL JS reports
-`render`, and neither reports a rate.
+**Values that neither engine emits.** `onClick` and `onLongClick` originated in
+Compose input. `MapInput` recognized a tap or long press and called
+`GestureTarget.onPrimaryClick` or `onSecondaryClick`. The session unprojected
+the offset and called back into `MaplibreMap`, which walked the layers.
+`onFrame(fps)` was an inter-frame interval that the session measured in its own
+render loop. The FFI reports `MAP_RENDER_FRAME_FINISHED` with a payload, and GL
+JS reports `render`, and neither reports a rate.
 
-The public surface is `onClick`, `onLongClick`, and `onFrame` on `MaplibreMap`,
+The public surface was `onClick`, `onLongClick`, and `onFrame` on `MaplibreMap`,
 plus `onClick` and `onLongClick` on each layer composable. Load state, viewport,
-and camera motion already surface as state on `MapState`.
+and camera motion already surfaced as state on `MapState`.
 
-This shape dates from a period when Android `MapView`, iOS `MLNMapView`, and GL
+That shape dated from a period when Android `MapView`, iOS `MLNMapView`, and GL
 JS each had a different observer API, clicks arrived from the engine, and there
 was no durable `MapState` to hold load or camera state. The portable surface was
 the subset every SDK could fake.
@@ -226,27 +229,45 @@ demo frame counter already counts frames itself, and the benchmark timestamps
 ### Internal sink
 
 The style handshake stays a protocol, because a one-way stream cannot answer
-"did you accept this binding". It shrinks to what it is: offer a loaded binding,
-report the composition ready, report the load failed. Everything else is a
-one-way fact:
+"did you accept this binding". The sink names it: offer a loaded binding, report
+the composition ready, report the load failed, report a source change. The rest
+are one-way facts:
 
 ```kotlin
 internal interface MapAdapter.Callbacks {
   fun onStyleChanged(map: MapAdapter, style: StyleBinding?)
   fun onStyleReady(map: MapAdapter)
   fun onStyleFailed(map: MapAdapter, reason: String?)
+  fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?)
 
-  /** Returns false when the lifecycle rejected the event. */
-  fun onEvent(map: MapAdapter, event: MapEvent): Boolean
+  fun onEvent(map: MapAdapter, event: MapEvent)
+  fun onGestureActive(map: MapAdapter, active: Boolean)
+  fun onViewportChanged(map: MapAdapter)
 }
 ```
+
+`onEvent` returns `Unit`. `MapLifecycleCallbacks` already answers whether the
+identity that produced a call is still current, and the session branches on that
+answer, so the sink does not carry a second one.
+
+`onStyleSourcesChanged` survives the redesign. The native session finds newly
+arrived TileJSON attribution by polling `styleSourceInfo` on its owner thread,
+and its style binding reports its own adds and removes; neither is an engine
+event. Refreshing sources on every `Idle` instead would rewrite the
+`style.sources` snapshot on each idle and recompose every reader.
+
+`onGestureActive` and `onViewportChanged` are presentation facts that no engine
+emits. The gesture token lives in the session, and on native the gesture ends on
+the owner thread only after the queued camera commands and their events have
+drained, so the session reports it in the right order. A native resize adopts a
+new viewport without emitting a camera event, and publishing a synthetic
+`CameraMoved` for it would reshape rather than translate.
 
 Each session translates one FFI `RuntimeEvent` or one GL JS listener call into
 one `MapEvent` and posts it. The translation does not coalesce a drag, compute a
 rate, or unproject a click. `MapState` reacts inside `onEvent`: it snapshots the
-viewport on the camera triple, sets `isCameraMoving` from the gesture token and
-transition state, refreshes attribution on native `Idle`, and then publishes to
-`events`.
+viewport on the camera triple, starts and ends the camera change that
+`isCameraMoving` reports, and then publishes to `events`.
 
 A session may consume engine-only events for library reactions without those
 events being common. The browser session keeps its `sourcedata` metadata
@@ -266,8 +287,7 @@ chain.
 
 - `onFrame` on `MaplibreMap`.
 - `MapAdapter.Callbacks.onCameraMoveStarted`, `onCameraMoved`,
-  `onCameraMoveEnded`, `onClick`, `onLongClick`, `onFrame`, and
-  `onSourceChanged`.
+  `onCameraMoveEnded`, `onClick`, `onLongClick`, and `onFrame`.
 - `CameraMoveReason` as a value that a session computes. It stays on `MapState`
   as a value that the gesture token sets.
 - `CameraMoveReason.UNKNOWN`. The token leaves three states: not moved yet, a
@@ -293,7 +313,7 @@ the common type does not gain one.
 
 ## Mapping
 
-| Caller need                 | Today                                   | After                                    |
+| Caller need                 | Before                                  | After                                    |
 | --------------------------- | --------------------------------------- | ---------------------------------------- |
 | Style ready or failed       | `loadState` plus hidden callbacks       | `loadState`                              |
 | Viewport                    | `viewport` plus `onCameraMoved`         | `viewport`                               |
@@ -317,14 +337,14 @@ Each step lands on its own. The first two conflict with nothing in flight.
    `commonMain`. Both sessions post events through `onEvent` beside the existing
    callbacks. Tests assert that each handled FFI type and each subscribed GL JS
    type produces one `MapEvent` with the right payload.
-3. **Reactions move.** Viewport snapshots, `isCameraMoving`, and attribution
-   refresh read `MapEvent`. The camera trio and `onSourceChanged` leave the
-   adapter. A resize changes the projection without a camera event, so both
-   sessions keep a viewport snapshot of their own beside the event path.
-   Existing presentation tests pin the token ordering.
+3. **Reactions move.** Viewport snapshots and `isCameraMoving` read `MapEvent`.
+   The camera trio leaves the adapter. A resize changes the projection without a
+   camera event, so both sessions keep a viewport snapshot of their own beside
+   the event path. Existing presentation tests pin the token ordering.
 4. **Public flow.** `MapState.events` publishes. `onFrame` leaves `MaplibreMap`,
    and the demo frame counter and benchmark move to `FrameRendered`.
-5. **Handshake rename.** The three style methods take their protocol names.
+5. **Handshake rename.** The style methods take their protocol names:
+   `onStyleReady`, `onStyleFailed`, and `onStyleSourcesChanged`.
 
 ## Open questions
 
