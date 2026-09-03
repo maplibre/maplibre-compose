@@ -15,6 +15,7 @@ import org.maplibre.compose.expressions.value.ImageValue
 import org.maplibre.compose.expressions.value.TranslateAnchor
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceReferenceEffect
+import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.FeaturesClickHandler
 import org.maplibre.compose.util.MaplibreComposable
 
@@ -41,27 +42,36 @@ import org.maplibre.compose.util.MaplibreComposable
  *   `[0..infinity)`. A value of `0` leaves corners sharp.
  * @param translate The geometry's offset relative to the [translateAnchor]. Negative numbers
  *   indicate left and up (on the flat plane), respectively.
+ * @param translateTransition Timing for changes to [translate]. Null uses the style's global
+ *   transition.
  * @param translateAnchor Frame of reference for offsetting geometry.
  *
  *   Ignored if [translate] is not set.
  *
  * @param opacity The opacity of the entire fill extrusion layer. This is rendered on a per-layer,
  *   not per-feature, basis, and data-driven styling is not available. A value in range `[0..1]`.
+ * @param opacityTransition Timing for changes to [opacity]. Null uses the style's global
+ *   transition.
  * @param color The base color of the extruded fill. The extrusion's surfaces will be shaded
  *   differently based on this color in combination with the style light, which
  *   [org.maplibre.compose.map.MapStyleState.light] reads and writes. The alpha component of the
  *   specified color is ignored. The expression may use feature properties and feature state.
  *   Ignored if [pattern] is specified.
+ * @param colorTransition Timing for changes to [color]. Null uses the style's global transition.
  * @param pattern Name of image in sprite to use for drawing images on extruded fills. For seamless
  *   patterns, image width and height must be a factor of two (2, 4, 8, ..., 512). Note that
  *   zoom-dependent expressions will be evaluated only at integer zoom levels. The expression may
  *   use feature properties.
+ * @param patternTransition Timing for changes to [pattern]. Null uses the style's global
+ *   transition.
  * @param height The height in meters with which to extrude the geometries, i.e. the upper end of
  *   the 3D polygon. A value in the range of `[0..infinity)`. The expression may use feature
  *   properties and feature state.
+ * @param heightTransition Timing for changes to [height]. Null uses the style's global transition.
  * @param base The height in meters with which to extrude the base of the geometries, i.e. the lower
  *   end of the 3D polygon. A value in the range of `[0..infinity)`. Must be less than or equal to
  *   [height]. The expression may use feature properties and feature state.
+ * @param baseTransition Timing for changes to [base]. Null uses the style's global transition.
  * @param verticalGradient Whether to apply a vertical gradient to the sides of this layer. If
  *   `true`, sides will be shaded slightly darker farther down.
  * @param onClick Function to call when any feature in this layer has been clicked.
@@ -79,12 +89,18 @@ public fun FillExtrusionLayer(
   visible: Boolean = true,
   roundedCornerDistance: Expression<FloatValue> = nil(),
   translate: Expression<DpOffsetValue> = const(DpOffset.Zero),
+  translateTransition: TransitionOptions? = null,
   translateAnchor: Expression<TranslateAnchor> = const(TranslateAnchor.Map),
   opacity: Expression<FloatValue> = const(1f),
+  opacityTransition: TransitionOptions? = null,
   color: Expression<ColorValue> = const(Color.Black),
+  colorTransition: TransitionOptions? = null,
   pattern: Expression<ImageValue> = nil(),
+  patternTransition: TransitionOptions? = null,
   height: Expression<FloatValue> = const(0f),
+  heightTransition: TransitionOptions? = null,
   base: Expression<FloatValue> = const(0f),
+  baseTransition: TransitionOptions? = null,
   verticalGradient: Expression<BooleanValue> = const(true),
   onClick: FeaturesClickHandler? = null,
   onLongClick: FeaturesClickHandler? = null,
@@ -114,12 +130,18 @@ public fun FillExtrusionLayer(
       set(visible) { layer.visible = it }
       set(compiledRoundedCornerDistance) { layer.setFillExtrusionRoundedCornerDistance(it) }
       set(compiledTranslate) { layer.setFillExtrusionTranslate(it) }
+      set(translateTransition) { layer.setFillExtrusionTranslateTransition(it) }
       set(compiledTranslateAnchor) { layer.setFillExtrusionTranslateAnchor(it) }
       set(compiledOpacity) { layer.setFillExtrusionOpacity(it) }
+      set(opacityTransition) { layer.setFillExtrusionOpacityTransition(it) }
       set(compiledColor) { layer.setFillExtrusionColor(it) }
+      set(colorTransition) { layer.setFillExtrusionColorTransition(it) }
       set(compiledPattern) { layer.setFillExtrusionPattern(it) }
+      set(patternTransition) { layer.setFillExtrusionPatternTransition(it) }
       set(compiledHeight) { layer.setFillExtrusionHeight(it) }
+      set(heightTransition) { layer.setFillExtrusionHeightTransition(it) }
       set(compiledBase) { layer.setFillExtrusionBase(it) }
+      set(baseTransition) { layer.setFillExtrusionBaseTransition(it) }
       set(compiledVerticalGradient) { layer.setFillExtrusionVerticalGradient(it) }
     },
     onClick = onClick,
@@ -145,12 +167,24 @@ internal class FillExtrusionLayer(id: String, source: Source) : FeatureLayer(id,
     setPaintProperty("fill-extrusion-opacity", opacity)
   }
 
+  fun setFillExtrusionOpacityTransition(options: TransitionOptions?) {
+    setPaintTransition("fill-extrusion-opacity", options)
+  }
+
   fun setFillExtrusionColor(color: CompiledExpression<ColorValue>) {
     setPaintProperty("fill-extrusion-color", color)
   }
 
+  fun setFillExtrusionColorTransition(options: TransitionOptions?) {
+    setPaintTransition("fill-extrusion-color", options)
+  }
+
   fun setFillExtrusionTranslate(translate: CompiledExpression<DpOffsetValue>) {
     setPaintProperty("fill-extrusion-translate", translate)
+  }
+
+  fun setFillExtrusionTranslateTransition(options: TransitionOptions?) {
+    setPaintTransition("fill-extrusion-translate", options)
   }
 
   fun setFillExtrusionTranslateAnchor(anchor: CompiledExpression<TranslateAnchor>) {
@@ -161,12 +195,24 @@ internal class FillExtrusionLayer(id: String, source: Source) : FeatureLayer(id,
     setPaintProperty("fill-extrusion-pattern", pattern)
   }
 
+  fun setFillExtrusionPatternTransition(options: TransitionOptions?) {
+    setPaintTransition("fill-extrusion-pattern", options)
+  }
+
   fun setFillExtrusionHeight(height: CompiledExpression<FloatValue>) {
     setPaintProperty("fill-extrusion-height", height)
   }
 
+  fun setFillExtrusionHeightTransition(options: TransitionOptions?) {
+    setPaintTransition("fill-extrusion-height", options)
+  }
+
   fun setFillExtrusionBase(base: CompiledExpression<FloatValue>) {
     setPaintProperty("fill-extrusion-base", base)
+  }
+
+  fun setFillExtrusionBaseTransition(options: TransitionOptions?) {
+    setPaintTransition("fill-extrusion-base", options)
   }
 
   fun setFillExtrusionRoundedCornerDistance(distance: CompiledExpression<FloatValue>) {

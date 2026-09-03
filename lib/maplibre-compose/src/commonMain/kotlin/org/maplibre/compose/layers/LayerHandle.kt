@@ -2,12 +2,17 @@ package org.maplibre.compose.layers
 
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
+import org.maplibre.compose.style.CLEARED_TRANSITION
 import org.maplibre.compose.style.LayerPropertyKind
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.style.StyleIdentity
 import org.maplibre.compose.style.StyleMutationException
+import org.maplibre.compose.style.TRANSITION_SUFFIX
+import org.maplibre.compose.style.TransitionOptions
+import org.maplibre.compose.style.toTransitionJson
+import org.maplibre.compose.style.toTransitionOptions
 
 /** Provides imperative property access to a layer for one loaded base-style generation. */
 public class LayerHandle
@@ -34,6 +39,31 @@ internal constructor(
   public fun setPaintProperty(name: String, value: JsonElement) {
     setProperty(name, value, LayerPropertyKind.PAINT)
   }
+
+  /**
+   * Sets the transition of the paint property [property], named without the `-transition` suffix. A
+   * null [options] returns the property to the style's global transition. The reset is written at
+   * once, as the spec's empty transition object; a layer composable drops the key from its layer
+   * definition instead, with the same result.
+   */
+  public fun setPaintTransition(property: String, options: TransitionOptions?) {
+    setPaintProperty(
+      property + TRANSITION_SUFFIX,
+      options?.toTransitionJson() ?: CLEARED_TRANSITION,
+    )
+  }
+
+  /**
+   * Returns the transition of the paint property [property], named without the `-transition`
+   * suffix.
+   *
+   * Returns null when the layer states no transition for that property, and when it states one
+   * without both a duration and a delay: an engine times the omitted field with the style's global
+   * transition, which [TransitionOptions] states no value for. MapLibre GL JS reports an empty
+   * object for a transition that was cleared, and this returns null for it.
+   */
+  public fun getPaintTransition(property: String): TransitionOptions? =
+    getProperty(property + TRANSITION_SUFFIX)?.toTransitionOptions()
 
   /** Sets the top-level property [name], such as `minzoom`, for this loaded style. */
   public fun setRootProperty(name: String, value: JsonElement) {

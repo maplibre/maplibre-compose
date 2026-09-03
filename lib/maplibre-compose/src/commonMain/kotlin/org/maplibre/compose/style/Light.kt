@@ -47,8 +47,8 @@ public data class Light(
     putExpression("position", position)
     putExpression("color", color)
     putExpression("intensity", intensity)
-    putTransition("position-transition", positionTransition)
-    putTransition("color-transition", colorTransition)
-    putTransition("intensity-transition", intensityTransition)
+    putTransition("position", positionTransition)
+    putTransition("color", colorTransition)
+    putTransition("intensity", intensityTransition)
   }
 }

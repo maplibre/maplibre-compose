@@ -7,6 +7,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.ExpressionContext
@@ -25,6 +26,7 @@ import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
+import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.util.onMap
@@ -168,6 +170,44 @@ class UnsupportedLayerPropertyTest {
             "MapLibre rejected \"viewport-glyph\"."
         ),
         warnings(),
+      )
+      assertEquals(emptyList(), it.errors, "the map should report nothing")
+    }
+  }
+
+  @Test
+  fun the_transition_of_an_unsupported_property_is_dropped_with_it() {
+    val fixture = BridgeMapFixture.create()
+    fixture.use {
+      it.loadStyle(BaseStyle.Empty)
+      val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
+      val source = addSource(style)
+
+      val layer = FillLayer("fills", source)
+      layer.setFillLayerOpacity(const(0.5f).compile(ExpressionContext.None))
+      layer.setFillLayerOpacityTransition(TransitionOptions(500.milliseconds))
+      // The assertion is that this returns at all: a layer object carrying either key is refused
+      // wholesale, and installation turns that into a throw.
+      style.install(layer)
+
+      style.onMap { map ->
+        assertTrue(map.styleLayerExists("fills"), "the layer should have been added")
+        assertNull(
+          map.layerProperty("fills", "fill-layer-opacity"),
+          "fill-layer-opacity should not be written",
+        )
+        assertNull(
+          map.layerProperty("fills", "fill-layer-opacity-transition"),
+          "fill-layer-opacity-transition should not be written",
+        )
+      }
+
+      assertEquals(
+        listOf(
+          "Layer 'fills' of type 'fill' cannot set 'fill-layer-opacity'",
+          "Layer 'fills' of type 'fill' cannot set 'fill-layer-opacity-transition'",
+        ),
+        warnings().map { warning -> warning.substringBefore(": MapLibre") },
       )
       assertEquals(emptyList(), it.errors, "the map should report nothing")
     }
