@@ -53,7 +53,6 @@ import org.maplibre.compose.style.DesiredStyleLayer
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.ImageSnapshot
 import org.maplibre.compose.style.RecordingStyleBinding
-import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleImageDefinition
 import org.maplibre.compose.style.TransitionOptions
@@ -519,11 +518,9 @@ class MapPresentationTest {
     )
 
     fixture.state.style.baseStyle = BaseStyle.Json("replacement")
-    handle.setFeatureState("7", buildJsonObject { put("still-current", true) })
-    assertEquals(
-      true,
-      firstStyle.featureState("points", null, "7")["still-current"]?.jsonPrimitive?.boolean,
-    )
+    assertFailsWith<IllegalStateException> {
+      handle.setFeatureState("7", buildJsonObject { put("stale", true) })
+    }
     val replacement =
       RecordingStyleBinding(
         sources =
@@ -736,33 +733,21 @@ class MapPresentationTest {
   }
 
   @Test
-  fun a_base_style_write_keeps_the_loaded_style_until_the_adapter_reports_a_replacement() {
-    val runtime = mapRuntimeForTest()
-    val state = runtime.createMapState(BaseStyle.Demo)
-    val token = state.reservePresentation()
-    val adapter = RecordingBaseStyleApplyAdapter(state)
-    state.publishPresentation(token, adapter)
+  fun a_base_style_write_marks_the_desired_style_loading_and_drops_handles() {
+    val fixture = presentationFixture()
     val first = RecordingStyleBinding()
-    assertTrue(state.updateLoadedStyle(adapter, first))
-    assertTrue(state.markStyleReady(adapter))
-
-    state.style.baseStyle = BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")
-
-    assertSame(first, adapter.loadedStyleDuringApply)
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, first)
+    fixture.state.durableStyleCallbacks().onMapFinishedLoading(fixture.adapter)
+    assertEquals(StyleLoadState.Ready, fixture.state.style.loadState)
     assertTrue(first.isLoaded)
-    assertEquals(StyleLoadState.Ready, adapter.loadStateDuringApply)
-    assertEquals(StyleLoadState.Ready, state.style.loadState)
-    assertSame(first, state.style.currentLoadedStyle())
 
-    val replacement = RecordingStyleBinding()
-    assertTrue(state.updateLoadedStyle(adapter, replacement))
-    assertEquals(StyleLoadState.Loading, state.style.loadState)
+    fixture.state.style.baseStyle = BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")
+
+    assertEquals(StyleLoadState.Loading, fixture.state.style.loadState)
     assertFalse(first.isLoaded)
-    assertTrue(state.markStyleReady(adapter))
-    assertEquals(StyleLoadState.Ready, state.style.loadState)
-    assertSame(replacement, state.style.currentLoadedStyle())
-    state.close()
-    runtime.close()
+    assertNull(fixture.state.style.currentLoadedStyle())
+    assertNull(fixture.state.style.transition.get())
+    fixture.close()
   }
 
   @Test
@@ -833,9 +818,6 @@ class MapPresentationTest {
     assertEquals(listOf("bottom", "top"), styleLayers.map { it.id })
 
     fixture.state.style.baseStyle = BaseStyle.Json("replacement")
-    assertEquals(listOf("bottom", "top"), styleSources.map { it.id })
-    assertEquals(listOf("bottom", "top"), styleLayers.map { it.id })
-    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, RecordingStyleBinding())
     assertTrue(styleSources.none())
     assertTrue(styleLayers.none())
     fixture.close()
@@ -920,15 +902,6 @@ class MapPresentationTest {
     assertTrue(binding.lightProperties.isEmpty())
 
     fixture.state.style.baseStyle = BaseStyle.Json("replacement")
-    assertEquals(options, transition.get())
-    assertEquals(false, transition.placementTransitions())
-    assertNull(light.getProperty("color"))
-    transition.set(options)
-    light.setProperty("color", JsonPrimitive("blue"))
-    assertEquals(JsonPrimitive("blue"), light.getProperty("color"))
-    assertEquals(options, binding.transition)
-
-    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, RecordingStyleBinding())
     assertNull(transition.get())
     assertNull(light.getProperty("color"))
     assertFailsWith<IllegalStateException> { transition.set(options) }
@@ -1452,17 +1425,6 @@ private class FailureDuringConfigurationAdapter(private val reportFailure: (MapA
   override fun setBaseStyle(style: BaseStyle) {
     super.setBaseStyle(style)
     reportFailure(this)
-  }
-}
-
-private class RecordingBaseStyleApplyAdapter(private val state: MapState) :
-  PresentationTestAdapter() {
-  var loadedStyleDuringApply: StyleBinding? = null
-  var loadStateDuringApply: StyleLoadState? = null
-
-  override fun setBaseStyle(style: BaseStyle) {
-    loadedStyleDuringApply = state.style.currentLoadedStyle()
-    loadStateDuringApply = state.style.loadState
   }
 }
 

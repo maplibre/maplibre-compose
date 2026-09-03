@@ -932,17 +932,17 @@ internal constructor(
       requireOpenLocked()
       if (style.baseStyle == value) return
       requireNoActiveStyleMutation()
+      styleHandleEpoch++
+      imperativeSources.clear()
+      imperativeImages.clear()
       style.setBaseStyleState(value)
+      style.invalidateLoadedStyle()
       val adapter = lifecycle.currentAdapter()
       if (adapter == null) {
-        styleHandleEpoch++
-        imperativeSources.clear()
-        imperativeImages.clear()
-        style.invalidateLoadedStyle()
         style.loadState = StyleLoadState.Pending
         baseStyleCommandRevision++
         return
-      } else if (style.loadState != StyleLoadState.Ready) {
+      } else {
         style.loadState = StyleLoadState.Loading
       }
       BaseStyleCommand(adapter, value, ++baseStyleCommandRevision)
