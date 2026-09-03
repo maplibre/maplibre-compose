@@ -3,8 +3,13 @@ package org.maplibre.compose.style
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.double
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.expressions.value.FloatValue
@@ -28,6 +33,13 @@ class StyleLightTest {
       light.set(Light(intensity = nil()))
       assertNull(light.getProperty("intensity"))
       assertEquals(JsonPrimitive("viewport"), light.getProperty("anchor"))
+
+      light.set(Light(colorTransition = TransitionOptions(duration = 1.seconds)))
+      val transition = assertNotNull(light.getProperty("color-transition")).jsonObject
+      assertEquals(1000.0, transition.getValue("duration").jsonPrimitive.double)
+      assertEquals(0.0, transition.getValue("delay").jsonPrimitive.double)
+      light.set(Light())
+      assertNull(light.getProperty("color-transition"))
     }
   }
 

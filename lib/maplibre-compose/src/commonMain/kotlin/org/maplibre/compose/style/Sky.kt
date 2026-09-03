@@ -30,6 +30,20 @@ import org.maplibre.compose.expressions.value.FloatValue
  * @param atmosphereBlend How visible the atmosphere around a globe is. A value in the range of
  *   `[0..1]`, where 1 shows the atmosphere and 0 hides it. Interpolate it by zoom when using a
  *   globe projection, so that it fades out as the globe becomes a flat map.
+ * @param skyColorTransition Timing for changes to [skyColor]. Null uses the style's global
+ *   transition.
+ * @param horizonColorTransition Timing for changes to [horizonColor]. Null uses the style's global
+ *   transition.
+ * @param fogColorTransition Timing for changes to [fogColor]. Null uses the style's global
+ *   transition.
+ * @param fogGroundBlendTransition Timing for changes to [fogGroundBlend]. Null uses the style's
+ *   global transition.
+ * @param horizonFogBlendTransition Timing for changes to [horizonFogBlend]. Null uses the style's
+ *   global transition.
+ * @param skyHorizonBlendTransition Timing for changes to [skyHorizonBlend]. Null uses the style's
+ *   global transition.
+ * @param atmosphereBlendTransition Timing for changes to [atmosphereBlend]. Null uses the style's
+ *   global transition.
  */
 @Immutable
 public data class Sky(
@@ -40,6 +54,13 @@ public data class Sky(
   val horizonFogBlend: Expression<FloatValue> = const(0.8f),
   val skyHorizonBlend: Expression<FloatValue> = const(0.8f),
   val atmosphereBlend: Expression<FloatValue> = const(0.8f),
+  val skyColorTransition: TransitionOptions? = null,
+  val horizonColorTransition: TransitionOptions? = null,
+  val fogColorTransition: TransitionOptions? = null,
+  val fogGroundBlendTransition: TransitionOptions? = null,
+  val horizonFogBlendTransition: TransitionOptions? = null,
+  val skyHorizonBlendTransition: TransitionOptions? = null,
+  val atmosphereBlendTransition: TransitionOptions? = null,
 ) {
   internal fun toJson(): JsonObject = buildJsonObject {
     putExpression("sky-color", skyColor)
@@ -49,5 +70,12 @@ public data class Sky(
     putExpression("horizon-fog-blend", horizonFogBlend)
     putExpression("sky-horizon-blend", skyHorizonBlend)
     putExpression("atmosphere-blend", atmosphereBlend)
+    putTransition("sky-color-transition", skyColorTransition)
+    putTransition("horizon-color-transition", horizonColorTransition)
+    putTransition("fog-color-transition", fogColorTransition)
+    putTransition("fog-ground-blend-transition", fogGroundBlendTransition)
+    putTransition("horizon-fog-blend-transition", horizonFogBlendTransition)
+    putTransition("sky-horizon-blend-transition", skyHorizonBlendTransition)
+    putTransition("atmosphere-blend-transition", atmosphereBlendTransition)
   }
 }

@@ -26,6 +26,11 @@ import org.maplibre.compose.expressions.value.VectorValue
  * @param color Color tint for lighting extruded geometries.
  * @param intensity Intensity of lighting. A value in the range of `[0..1]`; higher numbers present
  *   as more extreme contrast.
+ * @param positionTransition Timing for changes to [position]. Null uses the style's global
+ *   transition.
+ * @param colorTransition Timing for changes to [color]. Null uses the style's global transition.
+ * @param intensityTransition Timing for changes to [intensity]. Null uses the style's global
+ *   transition.
  */
 @Immutable
 public data class Light(
@@ -33,11 +38,17 @@ public data class Light(
   val position: Expression<VectorValue<Number>> = const(listOf(1.15f, 210f, 30f)),
   val color: Expression<ColorValue> = const(Color.White),
   val intensity: Expression<FloatValue> = const(0.5f),
+  val positionTransition: TransitionOptions? = null,
+  val colorTransition: TransitionOptions? = null,
+  val intensityTransition: TransitionOptions? = null,
 ) {
   internal fun toJson(): JsonObject = buildJsonObject {
     putExpression("anchor", anchor)
     putExpression("position", position)
     putExpression("color", color)
     putExpression("intensity", intensity)
+    putTransition("position-transition", positionTransition)
+    putTransition("color-transition", colorTransition)
+    putTransition("intensity-transition", intensityTransition)
   }
 }
