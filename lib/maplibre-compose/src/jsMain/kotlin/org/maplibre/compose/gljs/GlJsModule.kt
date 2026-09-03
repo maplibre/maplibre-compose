@@ -21,6 +21,8 @@ internal external class MaplibreMap(options: MapOptions) {
 
   val painter: Painter
 
+  val style: Style
+
   var showTileBoundaries: Boolean
   var showCollisionBoxes: Boolean
   var showPadding: Boolean
@@ -43,6 +45,10 @@ internal external class MaplibreMap(options: MapOptions) {
   fun setStyle(style: StyleSource, options: SetStyleOptions)
 
   fun getStyle(): StyleSpecification
+
+  fun setLight(light: LightSpecification, options: StyleSetterOptions = definedExternally)
+
+  fun getLight(): LightSpecification
 
   fun isStyleLoaded(): Boolean
 
@@ -159,4 +165,24 @@ internal external class LngLatBounds(sw: LngLat, ne: LngLat) {
   fun getSouthWest(): LngLat
 
   fun getNorthEast(): LngLat
+}
+
+/**
+ * MapLibre exposes no transition setter, and its style diff treats `setTransition` as a no-op, so
+ * the only runtime lever is [stylesheet], a public field that [getTransition] reads every frame.
+ */
+internal external class Style {
+  var stylesheet: StyleSpecification
+
+  val light: Light
+
+  fun getTransition(): TransitionSpecification
+}
+
+/**
+ * The style's light validates its input and reports a rejected write as an `error` event on itself,
+ * with no evented parent, so a listener on the map never hears it.
+ */
+internal external class Light {
+  fun on(type: String, listener: (event: MapEvent) -> Unit): Subscription
 }

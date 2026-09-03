@@ -48,9 +48,10 @@ import org.maplibre.compose.util.MaplibreComposable
  * @param opacity The opacity of the entire fill extrusion layer. This is rendered on a per-layer,
  *   not per-feature, basis, and data-driven styling is not available. A value in range `[0..1]`.
  * @param color The base color of the extruded fill. The extrusion's surfaces will be shaded
- *   differently based on this color in combination with the root light settings. The alpha
- *   component of the specified color is ignored. The expression may use feature properties and
- *   feature state. Ignored if [pattern] is specified.
+ *   differently based on this color in combination with the style light, which
+ *   [org.maplibre.compose.map.MapStyleState.light] reads and writes. The alpha component of the
+ *   specified color is ignored. The expression may use feature properties and feature state.
+ *   Ignored if [pattern] is specified.
  * @param pattern Name of image in sprite to use for drawing images on extruded fills. For seamless
  *   patterns, image width and height must be a factor of two (2, 4, 8, ..., 512). Note that
  *   zoom-dependent expressions will be evaluated only at integer zoom levels. The expression may

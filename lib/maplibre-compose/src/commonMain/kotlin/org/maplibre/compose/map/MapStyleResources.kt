@@ -2,9 +2,11 @@ package org.maplibre.compose.map
 
 import androidx.compose.runtime.Stable
 import androidx.compose.ui.graphics.ImageBitmap
+import kotlinx.serialization.json.JsonElement
 import org.maplibre.compose.layers.LayerHandle
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceHandle
+import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.ImageStretch
 
 /** Provides lookup, iteration, and structural commands for the current loaded sources. */
@@ -50,4 +52,57 @@ public class StyleImages internal constructor(private val style: MapStyleState) 
 
   /** Removes [id] and reports whether it existed. */
   public fun remove(id: String): Boolean = style.requireOwner().removeStyleImage(id)
+}
+
+/**
+ * Provides the global transition of the current loaded-style generation.
+ *
+ * A base-style reload replaces the transition with the one that the new style declares. A still
+ * snapshot ignores the duration and delay.
+ */
+@Stable
+public class StyleTransition internal constructor(private val style: MapStyleState) {
+  /** Returns the loaded style's transition, or null while no style is ready. */
+  public fun get(): TransitionOptions? = style.transitionOptions()
+
+  /** Replaces the loaded style's transition. The command fails while no style is ready. */
+  public fun set(options: TransitionOptions) {
+    style.setTransitionOptions(options)
+  }
+
+  /**
+   * Returns whether symbol placement changes cross-fade, or null while no style is ready.
+   *
+   * The cross-fade is engine behavior outside the style spec. MapLibre GL JS always reports true.
+   */
+  public fun placementTransitions(): Boolean? = style.placementTransitions()
+
+  /**
+   * Sets whether symbol placement changes cross-fade. A cleared cross-fade applies placement
+   * changes to the next rendered frame, which suits features that move at pointer frequency.
+   *
+   * MapLibre GL JS logs a warning and keeps the cross-fade. The command fails while no style is
+   * ready.
+   */
+  public fun setPlacementTransitions(enabled: Boolean) {
+    style.setPlacementTransitions(enabled)
+  }
+}
+
+/**
+ * Provides property access to the light of the current loaded-style generation.
+ *
+ * Property names and values follow the style spec's `light` object, such as `anchor`, `position`,
+ * `color`, `intensity`, and `color-transition`. A base-style reload replaces the light with the one
+ * that the new style declares.
+ */
+@Stable
+public class StyleLight internal constructor(private val style: MapStyleState) {
+  /** Returns the value of [name], or null when the style sets no value or no style is ready. */
+  public fun getProperty(name: String): JsonElement? = style.lightProperty(name)
+
+  /** Sets [name]; a `JsonNull` value clears it. The command fails while no style is ready. */
+  public fun setProperty(name: String, value: JsonElement) {
+    style.setLightProperty(name, value)
+  }
 }

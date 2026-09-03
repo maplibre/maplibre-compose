@@ -30,6 +30,7 @@ internal class RecordingStyleBinding(
   override val supportsCustomDemEncoding: Boolean = false,
   override val supportsRasterDemScheme: Boolean = true,
   private val refusedSourceRemovals: Set<String> = emptySet(),
+  private val refusedLightProperties: Set<String> = emptySet(),
   private val beforeAddImage: ((String) -> Unit)? = null,
   private val beforeClusterExpansionZoomResult: suspend () -> Unit = {},
   private val onInvalidate: () -> Unit = {},
@@ -281,6 +282,39 @@ internal class RecordingStyleBinding(
   }
 
   override fun layerExists(layerId: String): Boolean = layerId in layers
+
+  var transition: TransitionOptions = TransitionOptions()
+    private set
+
+  var placementTransitionsEnabled: Boolean = true
+    private set
+
+  val lightProperties: MutableMap<String, JsonElement> = mutableMapOf()
+
+  override fun transition(): TransitionOptions? = transition.takeIf { isLoaded }
+
+  override fun setTransition(options: TransitionOptions) {
+    transition = options
+  }
+
+  override val supportsPlacementTransitions: Boolean = true
+
+  override fun placementTransitions(): Boolean? = placementTransitionsEnabled.takeIf { isLoaded }
+
+  override fun setPlacementTransitions(enabled: Boolean) {
+    placementTransitionsEnabled = enabled
+  }
+
+  override fun lightProperty(name: String): JsonElement? =
+    if (isLoaded) lightProperties[name] else null
+
+  override fun setLightProperty(name: String, value: JsonElement) {
+    if (name in refusedLightProperties) {
+      throw StyleMutationException("Light property '$name' is not supported", null)
+    }
+    if (value is kotlinx.serialization.json.JsonNull) lightProperties.remove(name)
+    else lightProperties[name] = value
+  }
 
   override fun setFeatureState(
     sourceId: String,

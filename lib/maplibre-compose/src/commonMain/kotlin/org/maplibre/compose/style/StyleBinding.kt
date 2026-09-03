@@ -117,6 +117,35 @@ internal interface StyleBinding {
    */
   fun layerExists(layerId: String): Boolean?
 
+  /** @return the loaded style's global transition, or null if the style has unloaded. */
+  fun transition(): TransitionOptions?
+
+  /** Replaces the loaded style's global transition. */
+  fun setTransition(options: TransitionOptions)
+
+  /** Returns true if this engine can switch the symbol placement cross-fade at runtime. */
+  val supportsPlacementTransitions: Boolean
+
+  /**
+   * @return whether symbol placement changes cross-fade, or null if the style has unloaded. An
+   *   engine without [supportsPlacementTransitions] reports true.
+   */
+  fun placementTransitions(): Boolean?
+
+  /** An engine without [supportsPlacementTransitions] logs a warning and keeps the cross-fade. */
+  fun setPlacementTransitions(enabled: Boolean)
+
+  /** @return null if the style has unloaded or the style light sets no value for [name]. */
+  fun lightProperty(name: String): JsonElement?
+
+  /**
+   * Sets one style light property; a null value clears it.
+   *
+   * @throws StyleMutationException if the engine returns an error. An error does not change the
+   *   previous value.
+   */
+  fun setLightProperty(name: String, value: JsonElement)
+
   /**
    * Returns the reason that this engine does not support a layer property.
    *
