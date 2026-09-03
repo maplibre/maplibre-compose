@@ -27,12 +27,15 @@ public suspend fun mbtilesUrl(uri: String): String = mbtilesUrlForPath(localMbti
  * Returns the `mbtiles:` URL of the MBTiles file at [uri] once [mbtilesUrl] has produced it, and
  * null before that.
  *
- * The state stays null while the first call copies a packaged resource out of the application
- * package. Declare the source once the value is available.
+ * The state is null while the first call copies a packaged resource out of the application package,
+ * and returns to null when [uri] changes. Declare the source once the value is available.
  */
 @Composable
 public fun rememberMbtilesUrl(uri: String): State<String?> =
-  produceState<String?>(initialValue = null, uri) { value = mbtilesUrl(uri) }
+  produceState<String?>(initialValue = null, uri) {
+    value = null
+    value = mbtilesUrl(uri)
+  }
 
 /**
  * The absolute file system path of the MBTiles file at [uri], copied out of the package if needed.

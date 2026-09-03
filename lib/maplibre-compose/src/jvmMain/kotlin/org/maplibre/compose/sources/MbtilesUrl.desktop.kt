@@ -4,49 +4,62 @@ import java.io.File
 import java.net.JarURLConnection
 import java.net.URI
 import java.nio.file.Paths
-import org.maplibre.compose.desktop.desktopCachePath
-import org.maplibre.compose.desktop.inferredApplicationId
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.maplibre.compose.desktop.desktopUserCacheDirectory
 
-/** Copies land beside the application's cache database, in the per-user cache directory. */
-internal actual suspend fun localMbtilesPath(uri: String): String {
-  val parsed = URI(uri)
-  if (parsed.scheme.equals("file", ignoreCase = true)) {
-    return Paths.get(parsed).toAbsolutePath().toString()
-  }
-  val directory = desktopCachePath(inferredApplicationId()).resolveSibling("mbtiles").toFile()
-  return desktopMbtilesPath(uri, directory)
-}
+/** Copies are stored under `maplibre-compose/mbtiles` in the per-user cache directory. */
+internal actual suspend fun localMbtilesPath(uri: String): String =
+  desktopMbtilesPath(
+    uri,
+    desktopUserCacheDirectory().resolve("maplibre-compose").resolve("mbtiles").toFile(),
+  )
 
 /**
  * Resolves [uri] to a file on disk, copying a `jar:` entry or any other non-file URL that the JDK
  * can open into [directory].
+ *
+ * @throws IllegalArgumentException when [uri] is not a URI or names a protocol the JDK cannot open.
  */
-internal suspend fun desktopMbtilesPath(uri: String, directory: File): String {
-  val parsed = URI(uri)
-  if (parsed.scheme.equals("file", ignoreCase = true)) {
-    return Paths.get(parsed).toAbsolutePath().toString()
+internal suspend fun desktopMbtilesPath(uri: String, directory: File): String =
+  withContext(Dispatchers.IO) {
+    val parsed =
+      try {
+        URI(uri)
+      } catch (error: java.net.URISyntaxException) {
+        throw IllegalArgumentException("'$uri' is not a URI", error)
+      }
+    if (parsed.scheme.equals("file", ignoreCase = true)) {
+      return@withContext Paths.get(parsed).toAbsolutePath().toString()
+    }
+    val url =
+      try {
+        parsed.toURL()
+      } catch (error: Exception) {
+        throw IllegalArgumentException("'$uri' names a protocol this platform cannot open", error)
+      }
+    val copy =
+      copyPackagedFile(
+        uri = uri,
+        directory = directory,
+        stamp = packagedStamp(url),
+        open = { url.openConnection().apply { useCaches = false }.getInputStream() },
+      )
+    copy.absolutePath
   }
-  val url = parsed.toURL()
+
+/**
+ * Identifies the package version behind [url]. A jar entry changes only with its jar, so the jar's
+ * size and modification time serve without opening the archive. Any other URL is opened for its
+ * headers, and the stream is closed at once.
+ */
+private fun packagedStamp(url: java.net.URL): String {
   val connection = url.openConnection().apply { useCaches = false }
-  // The entry's own size and time, plus the enclosing jar's when there is one, identify the copy.
   val jar =
     (connection as? JarURLConnection)?.jarFileURL?.toURI()?.let {
       runCatching { File(it) }.getOrNull()
     }
-  val stamp =
-    listOfNotNull(
-        connection.contentLengthLong,
-        connection.lastModified,
-        jar?.length(),
-        jar?.lastModified(),
-      )
-      .joinToString("-")
-  val copy =
-    copyPackagedFile(
-      uri = uri,
-      directory = directory,
-      stamp = stamp,
-      open = { url.openConnection().apply { useCaches = false }.getInputStream() },
-    )
-  return copy.absolutePath
+  if (jar != null) return "${jar.length()}-${jar.lastModified()}"
+  connection.getInputStream().close()
+  return "${connection.contentLengthLong}-${connection.lastModified}"
 }

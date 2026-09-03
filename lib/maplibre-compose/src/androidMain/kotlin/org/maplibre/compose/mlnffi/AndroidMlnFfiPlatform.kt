@@ -11,7 +11,7 @@ internal object AndroidMlnFfiPlatform {
   val applicationContext: Context
     get() = AndroidContextProvider.context
 
-  /** Hands the application context to MapLibre Native once per process. */
+  /** Initializes MapLibre Native with the application context once per process. */
   fun initialize() {
     if (initialized) return
     synchronized(this) {

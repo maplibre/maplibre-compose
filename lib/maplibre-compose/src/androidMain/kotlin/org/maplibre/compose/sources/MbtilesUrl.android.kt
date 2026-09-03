@@ -2,6 +2,8 @@ package org.maplibre.compose.sources
 
 import android.net.Uri
 import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.maplibre.compose.mlnffi.AndroidMlnFfiPlatform
 
 private const val ASSET_PREFIX = "/android_asset/"
@@ -13,14 +15,15 @@ internal actual suspend fun localMbtilesPath(uri: String): String {
   if (!path.startsWith(ASSET_PREFIX)) return File(path).absolutePath
   val context = AndroidMlnFfiPlatform.applicationContext
   val assetPath = path.removePrefix(ASSET_PREFIX)
-  // Assets change only with the package, so the installed APK identifies the copy.
-  val apk = File(context.applicationInfo.sourceDir)
-  val copy =
+  return withContext(Dispatchers.IO) {
+    // Assets change only with the package, so the installed APK identifies the copy.
+    val apk = File(context.applicationInfo.sourceDir)
     copyPackagedFile(
-      uri = uri,
-      directory = File(context.cacheDir, "maplibre-compose/mbtiles"),
-      stamp = "${apk.length()}-${apk.lastModified()}",
-      open = { context.assets.open(assetPath) },
-    )
-  return copy.absolutePath
+        uri = uri,
+        directory = File(context.cacheDir, "maplibre-compose/mbtiles"),
+        stamp = "${apk.length()}-${apk.lastModified()}",
+        open = { context.assets.open(assetPath) },
+      )
+      .absolutePath
+  }
 }

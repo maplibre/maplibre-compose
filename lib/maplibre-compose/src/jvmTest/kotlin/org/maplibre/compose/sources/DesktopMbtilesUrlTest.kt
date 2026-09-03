@@ -1,10 +1,12 @@
 package org.maplibre.compose.sources
 
 import java.io.File
+import java.net.URI
 import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
@@ -28,8 +30,9 @@ class DesktopMbtilesUrlTest {
 
     val url = mbtilesUrlForPath(desktopMbtilesPath(uri, directory))
 
-    assertTrue(url.startsWith("mbtiles:///"), url)
+    assertTrue(url.startsWith("mbtiles://"), url)
     val path = decodeResourceUrl(url.removePrefix("mbtiles://"))
+    assertEquals(File(URI(uri)).absolutePath, path)
     assertEquals("sqlite", File(path).readText())
     assertEquals(emptyList(), directory.list()?.toList().orEmpty(), "nothing was copied")
   }
@@ -81,6 +84,12 @@ class DesktopMbtilesUrlTest {
     assertEquals("from Aa", File(desktopMbtilesPath(first, directory)).readText())
     assertEquals("from BB", File(desktopMbtilesPath(second, directory)).readText())
     assertEquals("from Aa", File(desktopMbtilesPath(first, directory)).readText())
+  }
+
+  @Test
+  fun `a string that is not a URI is rejected as an argument`() = runTest {
+    assertFailsWith<IllegalArgumentException> { desktopMbtilesPath("not a uri", directory) }
+    assertFailsWith<IllegalArgumentException> { desktopMbtilesPath("nope:tiles", directory) }
   }
 
   @Test

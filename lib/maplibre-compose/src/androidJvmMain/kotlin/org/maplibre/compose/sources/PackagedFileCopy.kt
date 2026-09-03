@@ -2,6 +2,7 @@ package org.maplibre.compose.sources
 
 import java.io.File
 import java.io.InputStream
+import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -25,7 +26,8 @@ internal suspend fun copyPackagedFile(
   open: () -> InputStream,
 ): File {
   val destination = File(directory, packagedCopyName(uri))
-  // The file name is a lossy key, so the stamp records the source URI as well.
+  // The stamp records the source URI as well as the package version, so a copy is never reused for
+  // a different resource.
   val expected = "$uri\n$stamp"
   val lock = copyLocks.getOrPut(destination.absolutePath) { Mutex() }
   lock.withLock {
@@ -51,8 +53,9 @@ internal suspend fun copyPackagedFile(
   return destination
 }
 
-/** The file name for the copy of [uri]: its last path segment, made unique by the whole URI. */
+/** The file name for the copy of [uri]: a digest of the whole URI, then its last path segment. */
 private fun packagedCopyName(uri: String): String {
   val name = uri.substringAfterLast('/').substringBefore('?').ifEmpty { "tiles.mbtiles" }
-  return Integer.toHexString(uri.hashCode()) + "-" + name
+  val digest = MessageDigest.getInstance("SHA-256").digest(uri.encodeToByteArray())
+  return digest.take(8).joinToString("") { "%02x".format(it) } + "-" + name
 }
