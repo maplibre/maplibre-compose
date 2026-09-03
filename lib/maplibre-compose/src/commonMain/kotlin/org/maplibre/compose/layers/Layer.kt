@@ -9,6 +9,9 @@ import kotlinx.serialization.json.put
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.NullLiteral
 import org.maplibre.compose.style.LayerDefinition
+import org.maplibre.compose.style.TRANSITION_SUFFIX
+import org.maplibre.compose.style.TransitionOptions
+import org.maplibre.compose.style.toTransitionJson
 import org.maplibre.compose.util.toStyleJson
 
 /** Style JSON keys that live at the top level of a layer rather than in layout or paint. */
@@ -60,6 +63,15 @@ internal sealed class Layer(val id: String) {
 
   protected fun setPaintProperty(name: String, value: CompiledExpression<*>) {
     setPaintProperty(name, value.toStyleJson())
+  }
+
+  /**
+   * Sets the transition of the paint property [property], named without the `-transition` suffix. A
+   * null [options] removes the key, which returns the property to the style's global transition.
+   */
+  protected fun setPaintTransition(property: String, options: TransitionOptions?) {
+    val key = property + TRANSITION_SUFFIX
+    if (options == null) paint.remove(key) else paint[key] = options.toTransitionJson()
   }
 
   /**

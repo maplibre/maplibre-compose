@@ -18,6 +18,7 @@ import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.TranslateAnchor
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceReferenceEffect
+import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.FeaturesClickHandler
 import org.maplibre.compose.util.MaplibreComposable
 
@@ -43,22 +44,35 @@ import org.maplibre.compose.util.MaplibreComposable
  *   feature properties.
  * @param translate The geometry's offset relative to the [translateAnchor]. Negative numbers
  *   indicate left and up, respectively.
+ * @param translateTransition Timing for changes to [translate]. Null uses the style's global
+ *   transition.
  * @param translateAnchor Frame of reference for offsetting geometry.
  *
  *   Ignored if [translate] is not set.
  *
  * @param opacity Circles opacity. A value in range `[0..1]`. The expression may use feature
  *   properties and feature state.
+ * @param opacityTransition Timing for changes to [opacity]. Null uses the style's global
+ *   transition.
  * @param color Circles fill color. The expression may use feature properties and feature state.
+ * @param colorTransition Timing for changes to [color]. Null uses the style's global transition.
  * @param blur Amount to blur the circle. A value of `1` blurs the circle such that only the
  *   centerpoint has full opacity. The expression may use feature properties and feature state.
+ * @param blurTransition Timing for changes to [blur]. Null uses the style's global transition.
  * @param radius Circles radius. The expression may use feature properties and feature state.
+ * @param radiusTransition Timing for changes to [radius]. Null uses the style's global transition.
  * @param strokeOpacity Opacity of the circles' stroke. The expression may use feature properties
  *   and feature state.
+ * @param strokeOpacityTransition Timing for changes to [strokeOpacity]. Null uses the style's
+ *   global transition.
  * @param strokeColor Circles' stroke color. The expression may use feature properties and feature
  *   state.
+ * @param strokeColorTransition Timing for changes to [strokeColor]. Null uses the style's global
+ *   transition.
  * @param strokeWidth Thickness of the circles' stroke. Strokes are placed outside of the [radius].
  *   The expression may use feature properties and feature state.
+ * @param strokeWidthTransition Timing for changes to [strokeWidth]. Null uses the style's global
+ *   transition.
  * @param pitchScale Scaling behavior of circles when the map is pitched.
  * @param pitchAlignment Orientation of circles when the map is pitched.
  * @param onClick Function to call when any feature in this layer has been clicked.
@@ -76,14 +90,22 @@ public fun CircleLayer(
   visible: Boolean = true,
   sortKey: Expression<FloatValue> = nil(),
   translate: Expression<DpOffsetValue> = const(DpOffset.Zero),
+  translateTransition: TransitionOptions? = null,
   translateAnchor: Expression<TranslateAnchor> = const(TranslateAnchor.Map),
   opacity: Expression<FloatValue> = const(1f),
+  opacityTransition: TransitionOptions? = null,
   color: Expression<ColorValue> = const(Color.Black),
+  colorTransition: TransitionOptions? = null,
   blur: Expression<FloatValue> = const(0f),
+  blurTransition: TransitionOptions? = null,
   radius: Expression<DpValue> = const(5.dp),
+  radiusTransition: TransitionOptions? = null,
   strokeOpacity: Expression<FloatValue> = const(1f),
+  strokeOpacityTransition: TransitionOptions? = null,
   strokeColor: Expression<ColorValue> = const(Color.Black),
+  strokeColorTransition: TransitionOptions? = null,
   strokeWidth: Expression<DpValue> = const(0.dp),
+  strokeWidthTransition: TransitionOptions? = null,
   pitchScale: Expression<CirclePitchScale> = const(CirclePitchScale.Map),
   pitchAlignment: Expression<CirclePitchAlignment> = const(CirclePitchAlignment.Viewport),
   onClick: FeaturesClickHandler? = null,
@@ -117,16 +139,24 @@ public fun CircleLayer(
       set(visible) { layer.visible = it }
       set(compiledSortKey) { layer.setCircleSortKey(it) }
       set(compiledRadius) { layer.setCircleRadius(it) }
+      set(radiusTransition) { layer.setCircleRadiusTransition(it) }
       set(compiledColor) { layer.setCircleColor(it) }
+      set(colorTransition) { layer.setCircleColorTransition(it) }
       set(compiledBlur) { layer.setCircleBlur(it) }
+      set(blurTransition) { layer.setCircleBlurTransition(it) }
       set(compiledOpacity) { layer.setCircleOpacity(it) }
+      set(opacityTransition) { layer.setCircleOpacityTransition(it) }
       set(compiledTranslate) { layer.setCircleTranslate(it) }
+      set(translateTransition) { layer.setCircleTranslateTransition(it) }
       set(compiledTranslateAnchor) { layer.setCircleTranslateAnchor(it) }
       set(compiledPitchScale) { layer.setCirclePitchScale(it) }
       set(compiledPitchAlignment) { layer.setCirclePitchAlignment(it) }
       set(compiledStrokeWidth) { layer.setCircleStrokeWidth(it) }
+      set(strokeWidthTransition) { layer.setCircleStrokeWidthTransition(it) }
       set(compiledStrokeColor) { layer.setCircleStrokeColor(it) }
+      set(strokeColorTransition) { layer.setCircleStrokeColorTransition(it) }
       set(compiledStrokeOpacity) { layer.setCircleStrokeOpacity(it) }
+      set(strokeOpacityTransition) { layer.setCircleStrokeOpacityTransition(it) }
     },
     onClick = onClick,
     onLongClick = onLongClick,
@@ -155,20 +185,40 @@ internal class CircleLayer(id: String, source: Source) : FeatureLayer(id, source
     setPaintProperty("circle-radius", radius)
   }
 
+  fun setCircleRadiusTransition(options: TransitionOptions?) {
+    setPaintTransition("circle-radius", options)
+  }
+
   fun setCircleColor(color: CompiledExpression<ColorValue>) {
     setPaintProperty("circle-color", color)
+  }
+
+  fun setCircleColorTransition(options: TransitionOptions?) {
+    setPaintTransition("circle-color", options)
   }
 
   fun setCircleBlur(blur: CompiledExpression<FloatValue>) {
     setPaintProperty("circle-blur", blur)
   }
 
+  fun setCircleBlurTransition(options: TransitionOptions?) {
+    setPaintTransition("circle-blur", options)
+  }
+
   fun setCircleOpacity(opacity: CompiledExpression<FloatValue>) {
     setPaintProperty("circle-opacity", opacity)
   }
 
+  fun setCircleOpacityTransition(options: TransitionOptions?) {
+    setPaintTransition("circle-opacity", options)
+  }
+
   fun setCircleTranslate(translate: CompiledExpression<DpOffsetValue>) {
     setPaintProperty("circle-translate", translate)
+  }
+
+  fun setCircleTranslateTransition(options: TransitionOptions?) {
+    setPaintTransition("circle-translate", options)
   }
 
   fun setCircleTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>) {
@@ -187,11 +237,23 @@ internal class CircleLayer(id: String, source: Source) : FeatureLayer(id, source
     setPaintProperty("circle-stroke-width", strokeWidth)
   }
 
+  fun setCircleStrokeWidthTransition(options: TransitionOptions?) {
+    setPaintTransition("circle-stroke-width", options)
+  }
+
   fun setCircleStrokeColor(strokeColor: CompiledExpression<ColorValue>) {
     setPaintProperty("circle-stroke-color", strokeColor)
   }
 
+  fun setCircleStrokeColorTransition(options: TransitionOptions?) {
+    setPaintTransition("circle-stroke-color", options)
+  }
+
   fun setCircleStrokeOpacity(strokeOpacity: CompiledExpression<FloatValue>) {
     setPaintProperty("circle-stroke-opacity", strokeOpacity)
+  }
+
+  fun setCircleStrokeOpacityTransition(options: TransitionOptions?) {
+    setPaintTransition("circle-stroke-opacity", options)
   }
 }

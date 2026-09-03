@@ -15,6 +15,7 @@ import org.maplibre.compose.expressions.value.ImageValue
 import org.maplibre.compose.expressions.value.TranslateAnchor
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceReferenceEffect
+import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.FeaturesClickHandler
 import org.maplibre.compose.util.MaplibreComposable
 
@@ -40,15 +41,25 @@ import org.maplibre.compose.util.MaplibreComposable
  *   feature properties.
  * @param translate The geometry's offset relative to the [translateAnchor]. Negative numbers
  *   indicate left and up, respectively.
+ * @param translateTransition Timing for changes to [translate]. Null uses the style's global
+ *   transition.
  * @param translateAnchor Frame of reference for offsetting geometry.
  *
  *   Ignored if [translate] is not set.
  *
  * @param opacity Fill opacity. A value in range `[0..1]`. The expression may use feature properties
  *   and feature state.
+ * @param opacityTransition Timing for changes to [opacity]. Null uses the style's global
+ *   transition.
  * @param layerOpacity Opacity applied to the layer as a whole. Unlike [opacity] and the alpha of
  *   [color], which apply per feature and accumulate where fills overlap, this value is applied once
  *   so overlapping fills appear as a single surface. A value in range `[0..1]`.
+ *
+ *   Not yet supported on native
+ *   ([maplibre-native#4298](https://github.com/maplibre/maplibre-native/issues/4298)).
+ *
+ * @param layerOpacityTransition Timing for changes to [layerOpacity]. Null uses the style's global
+ *   transition.
  *
  *   Not yet supported on native
  *   ([maplibre-native#4298](https://github.com/maplibre/maplibre-native/issues/4298)).
@@ -57,15 +68,21 @@ import org.maplibre.compose.util.MaplibreComposable
  *
  *   Ignored if [pattern] is specified.
  *
+ * @param colorTransition Timing for changes to [color]. Null uses the style's global transition.
  * @param pattern Image to use for drawing image fills. For seamless patterns, image width and
  *   height must be a factor of two (2, 4, 8, ..., 512). Note that zoom-dependent expressions will
  *   be evaluated only at integer zoom levels. The expression may use feature properties.
+ * @param patternTransition Timing for changes to [pattern]. Null uses the style's global
+ *   transition.
  * @param antialias Whether or not the fill should be antialiased.
  * @param outlineColor The outline color of the fill. The outline is drawn at a hairline width. The
  *   expression may use feature properties and feature state.
  *
  *   Ignored if [antialias] is `false`.
  *
+ * @param outlineColorTransition Timing for changes to [outlineColor]. Defaults to
+ *   [colorTransition], whether or not [outlineColor] is set. Null uses the style's global
+ *   transition.
  * @param onClick Function to call when any feature in this layer has been clicked.
  * @param onLongClick Function to call when any feature in this layer has been long-clicked.
  */
@@ -81,13 +98,19 @@ public fun FillLayer(
   visible: Boolean = true,
   sortKey: Expression<FloatValue> = nil(),
   translate: Expression<DpOffsetValue> = const(DpOffset.Zero),
+  translateTransition: TransitionOptions? = null,
   translateAnchor: Expression<TranslateAnchor> = const(TranslateAnchor.Map),
   opacity: Expression<FloatValue> = const(1f),
+  opacityTransition: TransitionOptions? = null,
   layerOpacity: Expression<FloatValue> = nil(),
+  layerOpacityTransition: TransitionOptions? = null,
   color: Expression<ColorValue> = const(Color.Black),
+  colorTransition: TransitionOptions? = null,
   pattern: Expression<ImageValue> = nil(),
+  patternTransition: TransitionOptions? = null,
   antialias: Expression<BooleanValue> = const(true),
   outlineColor: Expression<ColorValue> = color,
+  outlineColorTransition: TransitionOptions? = colorTransition,
   onClick: FeaturesClickHandler? = null,
   onLongClick: FeaturesClickHandler? = null,
 ) {
@@ -117,12 +140,18 @@ public fun FillLayer(
       set(compiledSortKey) { layer.setFillSortKey(it) }
       set(compiledAntialias) { layer.setFillAntialias(it) }
       set(compiledOpacity) { layer.setFillOpacity(it) }
+      set(opacityTransition) { layer.setFillOpacityTransition(it) }
       set(compiledLayerOpacity) { layer.setFillLayerOpacity(it) }
+      set(layerOpacityTransition) { layer.setFillLayerOpacityTransition(it) }
       set(compiledColor) { layer.setFillColor(it) }
+      set(colorTransition) { layer.setFillColorTransition(it) }
       set(compiledOutlineColor) { layer.setFillOutlineColor(it) }
+      set(outlineColorTransition) { layer.setFillOutlineColorTransition(it) }
       set(compiledTranslate) { layer.setFillTranslate(it) }
+      set(translateTransition) { layer.setFillTranslateTransition(it) }
       set(compiledTranslateAnchor) { layer.setFillTranslateAnchor(it) }
       set(compiledPattern) { layer.setFillPattern(it) }
+      set(patternTransition) { layer.setFillPatternTransition(it) }
     },
     onClick = onClick,
     onLongClick = onLongClick,
@@ -155,20 +184,40 @@ internal class FillLayer(id: String, source: Source) : FeatureLayer(id, source) 
     setPaintProperty("fill-opacity", opacity)
   }
 
+  fun setFillOpacityTransition(options: TransitionOptions?) {
+    setPaintTransition("fill-opacity", options)
+  }
+
   fun setFillLayerOpacity(layerOpacity: CompiledExpression<FloatValue>) {
     setPaintProperty("fill-layer-opacity", layerOpacity)
+  }
+
+  fun setFillLayerOpacityTransition(options: TransitionOptions?) {
+    setPaintTransition("fill-layer-opacity", options)
   }
 
   fun setFillColor(color: CompiledExpression<ColorValue>) {
     setPaintProperty("fill-color", color)
   }
 
+  fun setFillColorTransition(options: TransitionOptions?) {
+    setPaintTransition("fill-color", options)
+  }
+
   fun setFillOutlineColor(outlineColor: CompiledExpression<ColorValue>) {
     setPaintProperty("fill-outline-color", outlineColor)
   }
 
+  fun setFillOutlineColorTransition(options: TransitionOptions?) {
+    setPaintTransition("fill-outline-color", options)
+  }
+
   fun setFillTranslate(translate: CompiledExpression<DpOffsetValue>) {
     setPaintProperty("fill-translate", translate)
+  }
+
+  fun setFillTranslateTransition(options: TransitionOptions?) {
+    setPaintTransition("fill-translate", options)
   }
 
   fun setFillTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>) {
@@ -177,5 +226,9 @@ internal class FillLayer(id: String, source: Source) : FeatureLayer(id, source) 
 
   fun setFillPattern(pattern: CompiledExpression<ImageValue>) {
     setPaintProperty("fill-pattern", pattern)
+  }
+
+  fun setFillPatternTransition(options: TransitionOptions?) {
+    setPaintTransition("fill-pattern", options)
   }
 }

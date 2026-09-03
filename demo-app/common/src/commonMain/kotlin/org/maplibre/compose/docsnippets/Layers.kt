@@ -2,9 +2,11 @@
 
 package org.maplibre.compose.docsnippets
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import kotlin.time.Duration.Companion.milliseconds
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.expressions.dsl.const
@@ -22,6 +24,7 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.getBaseSource
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.ClickResult
 import org.maplibre.spatialk.geojson.toJson
 
@@ -79,6 +82,17 @@ fun Layers() {
         ),
     )
     // #endregion amtrak-2
+
+    // #region transitions
+    val timedAmtrakStations =
+      rememberGeoJsonSource(GeoJsonData.Uri(Res.getUri("files/data/amtrak_stations.geojson")))
+    CircleLayer(
+      id = "amtrak-stations-timed",
+      source = timedAmtrakStations,
+      color = const(if (isSystemInDarkTheme()) Color.Cyan else Color.Blue),
+      colorTransition = TransitionOptions(duration = 500.milliseconds),
+    )
+    // #endregion transitions
 
     // #region anchors
     val anchoredAmtrakRoutes =

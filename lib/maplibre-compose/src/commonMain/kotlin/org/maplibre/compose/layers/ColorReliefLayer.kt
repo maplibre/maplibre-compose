@@ -10,6 +10,7 @@ import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.RasterResampling
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceReferenceEffect
+import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.MaplibreComposable
 
 /**
@@ -27,6 +28,8 @@ import org.maplibre.compose.util.MaplibreComposable
  * @param color Defines the color of each pixel based on its elevation. Should be an expression that
  *   uses [elevation][org.maplibre.compose.expressions.dsl.elevation] as input.
  * @param opacity The global opacity at which the color relief layer will be drawn.
+ * @param opacityTransition Timing for changes to [opacity]. Null uses the style's global
+ *   transition.
  * @param resampling The resampling/interpolation method to use for overscaling, also known as
  *   texture magnification filter.
  *
@@ -42,6 +45,7 @@ public fun ColorReliefLayer(
   visible: Boolean = true,
   color: Expression<ColorValue> = LayerDefaults.ColorReliefColors,
   opacity: Expression<FloatValue> = const(1f),
+  opacityTransition: TransitionOptions? = null,
   resampling: Expression<RasterResampling> = nil(),
 ) {
   val compile = rememberPropertyCompiler()
@@ -59,6 +63,7 @@ public fun ColorReliefLayer(
       set(visible) { layer.visible = it }
       set(compiledColor) { layer.setColorReliefColor(it) }
       set(compiledOpacity) { layer.setColorReliefOpacity(it) }
+      set(opacityTransition) { layer.setColorReliefOpacityTransition(it) }
       set(compiledResampling) { layer.setResampling(it) }
     },
     onClick = null,
@@ -78,6 +83,10 @@ internal class ColorReliefLayer(id: String, val source: Source) : Layer(id) {
 
   fun setColorReliefOpacity(opacity: CompiledExpression<FloatValue>) {
     setPaintProperty("color-relief-opacity", opacity)
+  }
+
+  fun setColorReliefOpacityTransition(options: TransitionOptions?) {
+    setPaintTransition("color-relief-opacity", options)
   }
 
   fun setResampling(resampling: CompiledExpression<RasterResampling>) {

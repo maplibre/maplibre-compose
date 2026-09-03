@@ -8,6 +8,8 @@ import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -63,6 +65,7 @@ import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LayerInstallation
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MapLibreFlavor
 import org.maplibre.compose.testing.MapTestResult
@@ -176,6 +179,37 @@ class LayerPropertyRoundTripTest {
   }
 
   /**
+   * A transition that goes away is pushed as the spec's empty object, because MapLibre Native
+   * rejects a null one and keeps the previous timing. Neither engine still reports the written
+   * timing afterwards: native reports nothing at all and MapLibre GL JS reports an empty object.
+   */
+  @Test
+  fun a_cleared_transition_returns_a_layer_to_the_global_transition(): MapTestResult = runMapTest {
+    createMapFixture().use {
+      it.loadStyle(BaseStyle.Empty)
+      val style = assertNotNull(it.style, "Errors: ${it.errors}")
+
+      val layer = BackgroundLayer("timed")
+      layer.setBackgroundColor(const(Color.Blue).c())
+      layer.setBackgroundColorTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
+      val installation = LayerInstallation(style, layer.definition(), beforeLayerId = "")
+
+      val written = assertNotNull(style.layerProperty("timed", "background-color-transition"))
+      assertTrue(
+        written.equivalentTo(Json.parseToJsonElement("""{"duration":700.0,"delay":50.0}""")),
+        "the engine should report the written timing, but reports $written",
+      )
+
+      layer.setBackgroundColorTransition(null)
+      installation.update(layer.definition())
+
+      val cleared = style.layerProperty("timed", "background-color-transition")
+      assertNull((cleared as? JsonObject)?.get("duration"), "clearing must drop the timing")
+      assertEquals(emptyList(), it.errors, "the map should report nothing")
+    }
+  }
+
+  /**
    * @param prepare adds whatever sources the layer type needs and returns a factory for the layer.
    */
   private suspend fun <L : Layer> assertPropertiesRoundTrip(
@@ -283,6 +317,10 @@ class LayerPropertyRoundTripTest {
           it.setBackgroundPattern(image("tile").c())
         },
         Case("background-opacity", "0.5") { it.setBackgroundOpacity(const(0.5f).c()) },
+        Case("background-color-transition", """{"duration":700.0,"delay":50.0}""") {
+          it.setBackgroundColor(const(Color.Blue).c())
+          it.setBackgroundColorTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
+        },
       )
 
     val CIRCLE_CASES =
@@ -311,6 +349,10 @@ class LayerPropertyRoundTripTest {
           it.setCircleStrokeColor(const(Color.Black).c())
         },
         Case("circle-stroke-opacity", "0.75") { it.setCircleStrokeOpacity(const(0.75f).c()) },
+        Case("circle-color-transition", """{"duration":700.0,"delay":50.0}""") {
+          it.setCircleColor(const(Color.Red).c())
+          it.setCircleColorTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
+        },
       )
 
     val FILL_CASES =
@@ -331,6 +373,14 @@ class LayerPropertyRoundTripTest {
           it.setFillTranslateAnchor(const(TranslateAnchor.Viewport).c())
         },
         Case("fill-pattern", """["image","brick"]""") { it.setFillPattern(image("brick").c()) },
+        Case("fill-color-transition", """{"duration":700.0,"delay":50.0}""") {
+          it.setFillColor(const(Color.Red).c())
+          it.setFillColorTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
+        },
+        Case("fill-pattern-transition", """{"duration":700.0,"delay":50.0}""") {
+          it.setFillPattern(image("brick").c())
+          it.setFillPatternTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
+        },
       ) + glJsOnlyFillCases()
 
     /** Properties MapLibre GL JS implements and MapLibre Native does not, yet. */
@@ -365,6 +415,10 @@ class LayerPropertyRoundTripTest {
         Case("fill-extrusion-vertical-gradient", "false") {
           it.setFillExtrusionVerticalGradient(const(false).c())
         },
+        Case("fill-extrusion-height-transition", """{"duration":700.0,"delay":50.0}""") {
+          it.setFillExtrusionHeight(const(30f).c())
+          it.setFillExtrusionHeightTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
+        },
       )
 
     val HEATMAP_CASES =
@@ -386,6 +440,10 @@ class LayerPropertyRoundTripTest {
           )
         },
         Case("heatmap-opacity", "0.75") { it.setHeatmapOpacity(const(0.75f).c()) },
+        Case("heatmap-radius-transition", """{"duration":700.0,"delay":50.0}""") {
+          it.setHeatmapRadius(const(12.dp).c())
+          it.setHeatmapRadiusTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
+        },
       )
 
     val LINE_CASES =
@@ -430,6 +488,13 @@ class LayerPropertyRoundTripTest {
               .c()
           )
         },
+        Case("line-width-transition", """{"duration":700.0,"delay":50.0}""") {
+          it.setLineWidth(const(3.dp).c())
+          it.setLineWidthTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
+        },
+        Case("line-dasharray-transition", """{"duration":700.0,"delay":50.0}""") {
+          it.setLineDasharrayTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
+        },
       ) + glJsOnlyLineCases()
 
     /** Properties MapLibre GL JS implements and MapLibre Native does not, yet. */
@@ -451,6 +516,10 @@ class LayerPropertyRoundTripTest {
         // Milliseconds.
         Case("raster-fade-duration", "250.0") {
           it.setRasterFadeDuration(const(250.milliseconds).c())
+        },
+        Case("raster-opacity-transition", """{"duration":700.0,"delay":50.0}""") {
+          it.setRasterOpacity(const(0.5f).c())
+          it.setRasterOpacityTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
         },
       )
 
@@ -497,6 +566,12 @@ class LayerPropertyRoundTripTest {
         ) {
           it.setHillshadeAccentColor(const(Color.Cyan).c())
         },
+        Case("hillshade-exaggeration-transition", """{"duration":700.0,"delay":50.0}""") {
+          it.setHillshadeExaggeration(const(0.5f).c())
+          it.setHillshadeExaggerationTransition(
+            TransitionOptions(700.milliseconds, 50.milliseconds)
+          )
+        },
       ) + glJsOnlyHillshadeCases()
 
     /** Properties MapLibre GL JS implements and MapLibre Native does not, yet. */
@@ -524,6 +599,10 @@ class LayerPropertyRoundTripTest {
           )
         },
         Case("color-relief-opacity", "0.75") { it.setColorReliefOpacity(const(0.75f).c()) },
+        Case("color-relief-opacity-transition", """{"duration":700.0,"delay":50.0}""") {
+          it.setColorReliefOpacity(const(0.75f).c())
+          it.setColorReliefOpacityTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
+        },
       ) + glJsOnlyColorReliefCases()
 
     /** Properties MapLibre GL JS implements and MapLibre Native does not, yet. */
@@ -693,6 +772,10 @@ class LayerPropertyRoundTripTest {
         },
         Case("text-translate-anchor", "\"viewport\"") {
           it.setTextTranslateAnchor(const(TranslateAnchor.Viewport).c())
+        },
+        Case("text-opacity-transition", """{"duration":700.0,"delay":50.0}""") {
+          it.setTextOpacity(const(1f).c())
+          it.setTextOpacityTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
         },
       ) + glJsOnlySymbolCases()
 

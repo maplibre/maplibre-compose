@@ -11,6 +11,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -252,7 +253,7 @@ internal class LayerInstallation(
       val newValue = next?.get(name)
       if (oldValue == newValue) return@forEach
       try {
-        style.setLayerProperty(id, name, newValue ?: JsonNull, kind)
+        style.setLayerProperty(id, name, newValue ?: clearingValue(kind, name), kind)
       } catch (error: StyleMutationException) {
         style.logger?.w(error) {
           "Layer '$id' of type '${current.type}' kept its previous '$name': MapLibre rejected " +
@@ -284,6 +285,14 @@ internal class LayerInstallation(
     val ROOT_PROPERTY_NAMES = setOf("source-layer", "minzoom", "maxzoom", "filter")
   }
 }
+
+/**
+ * The value that removes [name]. MapLibre Native rejects a null transition and keeps the previous
+ * one, so a transition that goes away is cleared with an empty object.
+ */
+private fun clearingValue(kind: LayerPropertyKind, name: String): JsonElement =
+  if (kind == LayerPropertyKind.PAINT && name.endsWith(TRANSITION_SUFFIX)) CLEARED_TRANSITION
+  else JsonNull
 
 private fun LayerDefinition.resolveFor(style: StyleBinding): LayerDefinition {
   fun JsonObject.withoutUnsupported(): JsonObject =

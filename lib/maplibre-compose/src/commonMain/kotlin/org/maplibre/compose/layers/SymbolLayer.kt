@@ -44,6 +44,7 @@ import org.maplibre.compose.expressions.value.TextWritingMode
 import org.maplibre.compose.expressions.value.TranslateAnchor
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceReferenceEffect
+import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.FeaturesClickHandler
 import org.maplibre.compose.util.MaplibreComposable
@@ -118,16 +119,22 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *
  *   Ignored if [iconImage] is not specified.
  *
+ * @param iconOpacityTransition Timing for changes to [iconOpacity]. Null uses the style's global
+ *   transition.
  * @param iconColor The color of the icon. This can only be used with SDF icons. The expression may
  *   use feature properties and feature state.
  *
  *   Ignored if [iconImage] is not specified.
  *
+ * @param iconColorTransition Timing for changes to [iconColor]. Null uses the style's global
+ *   transition.
  * @param iconHaloColor The color of the icon's halo. Icon halos can only be used with SDF icons.
  *   The expression may use feature properties and feature state.
  *
  *   Ignored if [iconImage] is not specified.
  *
+ * @param iconHaloColorTransition Timing for changes to [iconHaloColor]. Null uses the style's
+ *   global transition.
  * @param iconHaloWidth Distance of halo to the icon outline. The unit is in dp only for SDF sprites
  *   that were created with a blur radius of 8, multiplied by the display density. I.e., the radius
  *   needs to be 16 for @2x sprites, etc. The expression may use feature properties and feature
@@ -135,11 +142,15 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *
  *   Ignored if [iconImage] is not specified.
  *
+ * @param iconHaloWidthTransition Timing for changes to [iconHaloWidth]. Null uses the style's
+ *   global transition.
  * @param iconHaloBlur Fade out the halo towards the outside. The expression may use feature
  *   properties and feature state.
  *
  *   Ignored if [iconImage] is not specified.
  *
+ * @param iconHaloBlurTransition Timing for changes to [iconHaloBlur]. Null uses the style's global
+ *   transition.
  * @param iconSize Scales the original size of the icon by the provided factor. The new pixel size
  *   of the image will be the original pixel size multiplied by [iconSize]. 1 is the original size;
  *   3 triples the size of the image. The expression may use feature properties.
@@ -222,6 +233,8 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *
  *   Ignored if [iconImage] is not specified.
  *
+ * @param iconTranslateTransition Timing for changes to [iconTranslate]. Null uses the style's
+ *   global transition.
  * @param iconTranslateAnchor Frame of reference for offsetting geometry.
  *
  *   Ignored if [iconTranslate] is not set.
@@ -237,26 +250,36 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *
  *   Ignored if [textField] is not specified.
  *
+ * @param textOpacityTransition Timing for changes to [textOpacity]. Null uses the style's global
+ *   transition.
  * @param textColor The color with which the text will be drawn. The expression may use feature
  *   properties and feature state.
  *
  *   Ignored if [textField] is not specified.
  *
+ * @param textColorTransition Timing for changes to [textColor]. Null uses the style's global
+ *   transition.
  * @param textHaloColor The color of the text's halo, which helps it stand out from backgrounds. The
  *   expression may use feature properties and feature state.
  *
  *   Ignored if [textField] is not specified.
  *
+ * @param textHaloColorTransition Timing for changes to [textHaloColor]. Null uses the style's
+ *   global transition.
  * @param textHaloWidth Distance of halo to the font outline. Max text halo width is 1/4 of the
  *   font-size. The expression may use feature properties and feature state.
  *
  *   Ignored if [textField] is not specified.
  *
+ * @param textHaloWidthTransition Timing for changes to [textHaloWidth]. Null uses the style's
+ *   global transition.
  * @param textHaloBlur The halo's fadeout distance towards the outside. The expression may use
  *   feature properties and feature state.
  *
  *   Ignored if [textField] is not specified.
  *
+ * @param textHaloBlurTransition Timing for changes to [textHaloBlur]. Null uses the style's global
+ *   transition.
  * @param textFont Font stack to use for displaying text. The expression may use feature properties.
  *
  *   Ignored if [textField] is not specified.
@@ -421,6 +444,8 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *
  *   Ignored if [textField] is not specified.
  *
+ * @param textTranslateTransition Timing for changes to [textTranslate]. Null uses the style's
+ *   global transition.
  * @param textTranslateAnchor Controls the frame of reference for [textTranslate].
  *
  *   Ignored if [textField] is not specified.
@@ -451,10 +476,15 @@ public fun SymbolLayer(
 
   // icon colors
   iconOpacity: Expression<FloatValue> = const(1f),
+  iconOpacityTransition: TransitionOptions? = null,
   iconColor: Expression<ColorValue> = const(Color.Black),
+  iconColorTransition: TransitionOptions? = null,
   iconHaloColor: Expression<ColorValue> = const(Color.Transparent),
+  iconHaloColorTransition: TransitionOptions? = null,
   iconHaloWidth: Expression<DpValue> = const(0.dp),
+  iconHaloWidthTransition: TransitionOptions? = null,
   iconHaloBlur: Expression<DpValue> = const(0.dp),
+  iconHaloBlurTransition: TransitionOptions? = null,
 
   // icon layout
   iconSize: Expression<FloatValue> = const(1f),
@@ -478,6 +508,7 @@ public fun SymbolLayer(
 
   // icon translate
   iconTranslate: Expression<DpOffsetValue> = const(DpOffset.Zero),
+  iconTranslateTransition: TransitionOptions? = null,
   iconTranslateAnchor: Expression<TranslateAnchor> = const(TranslateAnchor.Map),
 
   // text content
@@ -485,10 +516,15 @@ public fun SymbolLayer(
 
   // text glyph colors
   textOpacity: Expression<FloatValue> = const(1f),
+  textOpacityTransition: TransitionOptions? = null,
   textColor: Expression<ColorValue> = const(Color.Black),
+  textColorTransition: TransitionOptions? = null,
   textHaloColor: Expression<ColorValue> = const(Color.Transparent),
+  textHaloColorTransition: TransitionOptions? = null,
   textHaloWidth: Expression<DpValue> = const(0.dp),
+  textHaloWidthTransition: TransitionOptions? = null,
   textHaloBlur: Expression<DpValue> = const(0.dp),
+  textHaloBlurTransition: TransitionOptions? = null,
 
   // text glyph properties
   textFont: Expression<ListValue<StringValue>> = LayerDefaults.FontNames,
@@ -523,6 +559,7 @@ public fun SymbolLayer(
 
   // text translate
   textTranslate: Expression<DpOffsetValue> = const(DpOffset.Zero),
+  textTranslateTransition: TransitionOptions? = null,
   textTranslateAnchor: Expression<TranslateAnchor> = const(TranslateAnchor.Map),
   onClick: FeaturesClickHandler? = null,
   onLongClick: FeaturesClickHandler? = null,
@@ -630,11 +667,17 @@ public fun SymbolLayer(
       set(compiledIconAnchor) { layer.setIconAnchor(it) }
       set(compiledIconPitchAlignment) { layer.setIconPitchAlignment(it) }
       set(compiledIconOpacity) { layer.setIconOpacity(it) }
+      set(iconOpacityTransition) { layer.setIconOpacityTransition(it) }
       set(compiledIconColor) { layer.setIconColor(it) }
+      set(iconColorTransition) { layer.setIconColorTransition(it) }
       set(compiledIconHaloColor) { layer.setIconHaloColor(it) }
+      set(iconHaloColorTransition) { layer.setIconHaloColorTransition(it) }
       set(compiledIconHaloWidth) { layer.setIconHaloWidth(it) }
+      set(iconHaloWidthTransition) { layer.setIconHaloWidthTransition(it) }
       set(compiledIconHaloBlur) { layer.setIconHaloBlur(it) }
+      set(iconHaloBlurTransition) { layer.setIconHaloBlurTransition(it) }
       set(compiledIconTranslate) { layer.setIconTranslate(it) }
+      set(iconTranslateTransition) { layer.setIconTranslateTransition(it) }
       set(compiledIconTranslateAnchor) { layer.setIconTranslateAnchor(it) }
 
       set(compiledTextPitchAlignment) { layer.setTextPitchAlignment(it) }
@@ -662,11 +705,17 @@ public fun SymbolLayer(
       set(compiledTextIgnorePlacement) { layer.setTextIgnorePlacement(it) }
       set(compiledTextOptional) { layer.setTextOptional(it) }
       set(compiledTextOpacity) { layer.setTextOpacity(it) }
+      set(textOpacityTransition) { layer.setTextOpacityTransition(it) }
       set(compiledTextColor) { layer.setTextColor(it) }
+      set(textColorTransition) { layer.setTextColorTransition(it) }
       set(compiledTextHaloColor) { layer.setTextHaloColor(it) }
+      set(textHaloColorTransition) { layer.setTextHaloColorTransition(it) }
       set(compiledTextHaloWidth) { layer.setTextHaloWidth(it) }
+      set(textHaloWidthTransition) { layer.setTextHaloWidthTransition(it) }
       set(compiledTextHaloBlur) { layer.setTextHaloBlur(it) }
+      set(textHaloBlurTransition) { layer.setTextHaloBlurTransition(it) }
       set(compiledTextTranslate) { layer.setTextTranslate(it) }
+      set(textTranslateTransition) { layer.setTextTranslateTransition(it) }
       set(compiledTextTranslateAnchor) { layer.setTextTranslateAnchor(it) }
     },
     onClick = onClick,
@@ -782,24 +831,48 @@ internal class SymbolLayer(id: String, source: Source) : FeatureLayer(id, source
     setPaintProperty("icon-opacity", opacity)
   }
 
+  fun setIconOpacityTransition(options: TransitionOptions?) {
+    setPaintTransition("icon-opacity", options)
+  }
+
   fun setIconColor(color: CompiledExpression<ColorValue>) {
     setPaintProperty("icon-color", color)
+  }
+
+  fun setIconColorTransition(options: TransitionOptions?) {
+    setPaintTransition("icon-color", options)
   }
 
   fun setIconHaloColor(haloColor: CompiledExpression<ColorValue>) {
     setPaintProperty("icon-halo-color", haloColor)
   }
 
+  fun setIconHaloColorTransition(options: TransitionOptions?) {
+    setPaintTransition("icon-halo-color", options)
+  }
+
   fun setIconHaloWidth(haloWidth: CompiledExpression<DpValue>) {
     setPaintProperty("icon-halo-width", haloWidth)
+  }
+
+  fun setIconHaloWidthTransition(options: TransitionOptions?) {
+    setPaintTransition("icon-halo-width", options)
   }
 
   fun setIconHaloBlur(haloBlur: CompiledExpression<DpValue>) {
     setPaintProperty("icon-halo-blur", haloBlur)
   }
 
+  fun setIconHaloBlurTransition(options: TransitionOptions?) {
+    setPaintTransition("icon-halo-blur", options)
+  }
+
   fun setIconTranslate(translate: CompiledExpression<DpOffsetValue>) {
     setPaintProperty("icon-translate", translate)
+  }
+
+  fun setIconTranslateTransition(options: TransitionOptions?) {
+    setPaintTransition("icon-translate", options)
   }
 
   fun setIconTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>) {
@@ -908,24 +981,48 @@ internal class SymbolLayer(id: String, source: Source) : FeatureLayer(id, source
     setPaintProperty("text-opacity", opacity)
   }
 
+  fun setTextOpacityTransition(options: TransitionOptions?) {
+    setPaintTransition("text-opacity", options)
+  }
+
   fun setTextColor(color: CompiledExpression<ColorValue>) {
     setPaintProperty("text-color", color)
+  }
+
+  fun setTextColorTransition(options: TransitionOptions?) {
+    setPaintTransition("text-color", options)
   }
 
   fun setTextHaloColor(haloColor: CompiledExpression<ColorValue>) {
     setPaintProperty("text-halo-color", haloColor)
   }
 
+  fun setTextHaloColorTransition(options: TransitionOptions?) {
+    setPaintTransition("text-halo-color", options)
+  }
+
   fun setTextHaloWidth(haloWidth: CompiledExpression<DpValue>) {
     setPaintProperty("text-halo-width", haloWidth)
+  }
+
+  fun setTextHaloWidthTransition(options: TransitionOptions?) {
+    setPaintTransition("text-halo-width", options)
   }
 
   fun setTextHaloBlur(haloBlur: CompiledExpression<DpValue>) {
     setPaintProperty("text-halo-blur", haloBlur)
   }
 
+  fun setTextHaloBlurTransition(options: TransitionOptions?) {
+    setPaintTransition("text-halo-blur", options)
+  }
+
   fun setTextTranslate(translate: CompiledExpression<DpOffsetValue>) {
     setPaintProperty("text-translate", translate)
+  }
+
+  fun setTextTranslateTransition(options: TransitionOptions?) {
+    setPaintTransition("text-translate", options)
   }
 
   fun setTextTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>) {

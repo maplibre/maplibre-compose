@@ -918,8 +918,10 @@ internal open class MlnFfiStyleBinding(
     map.styleLayerIds().contains(layerId)
   }
 
+  // A property's transition travels the same write path, and native refuses it as hard as the
+  // property itself.
   override fun unsupportedLayerPropertyReason(layerType: String, name: String): String? =
-    UNSUPPORTED_LAYER_PROPERTIES[layerType to name]
+    UNSUPPORTED_LAYER_PROPERTIES[layerType to name.removeSuffix(TRANSITION_SUFFIX)]
 
   companion object {
     /** The only extension MapLibre answers for a GeoJSON source; anything else returns nothing. */

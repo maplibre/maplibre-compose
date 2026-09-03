@@ -1,17 +1,21 @@
 package org.maplibre.compose.style
 
+import androidx.compose.runtime.Immutable
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * The style's global transition, which times every paint property change that declares no
- * transition of its own.
+ * Timing for a property change.
+ *
+ * A layer paint property, a [Light] property, and a [Sky] property each take a transition of their
+ * own. A property with no transition of its own uses the style's global transition.
  *
  * The defaults match the style spec's `transition` object.
  *
  * @param duration Time allotted for a transition to complete.
  * @param delay Time before a transition begins.
  */
+@Immutable
 public data class TransitionOptions(
   val duration: Duration = 300.milliseconds,
   val delay: Duration = Duration.ZERO,

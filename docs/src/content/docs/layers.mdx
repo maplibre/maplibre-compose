@@ -43,6 +43,17 @@ time. Wrap a constant value in <Api of="const" />. Functions such as
 system. The [MapLibre Style Specification][spec-layers] documents every layer
 type and property.
 
+## Time a property change
+
+When a paint property changes, the map animates it over the style's global
+transition. Pass a <Api of="TransitionOptions" /> to time one property instead:
+
+<Code code={rememberedMapStyle(region(layers, "transitions"))} lang="kotlin" title="App.kt" />
+
+Every transitionable paint property has a matching transition parameter, named
+after the property. The default, null, uses the global transition that
+<Api of="StyleTransition" /> reads and sets.
+
 ## Anchor a layer in the stack
 
 By default, your layers draw above the base style layers. <Api of="Anchor" />

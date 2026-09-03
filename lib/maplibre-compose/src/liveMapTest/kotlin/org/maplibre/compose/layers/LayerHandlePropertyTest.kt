@@ -4,9 +4,12 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleHandleException
+import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
@@ -21,6 +24,27 @@ class LayerHandlePropertyTest {
       handle.setPaintProperty("background-opacity", JsonPrimitive(0.25))
 
       assertEquals(JsonPrimitive(0.25), handle.getProperty("background-opacity"))
+    }
+  }
+
+  /**
+   * The typed pair folds the engines' two cleared shapes into one answer: MapLibre Native reports
+   * nothing for a cleared transition and MapLibre GL JS reports an empty object.
+   */
+  @Test
+  fun a_layer_handle_writes_and_reads_a_typed_paint_transition(): MapTestResult = runMapTest {
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(STYLE)
+      val handle = assertNotNull(fixture.state.style.layers["background"])
+      val timing = TransitionOptions(700.milliseconds, 50.milliseconds)
+
+      handle.setPaintTransition("background-color", timing)
+
+      assertEquals(timing, handle.getPaintTransition("background-color"))
+
+      handle.setPaintTransition("background-color", null)
+
+      assertNull(handle.getPaintTransition("background-color"))
     }
   }
 

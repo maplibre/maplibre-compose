@@ -33,7 +33,12 @@ LAYER_TYPE = re.compile(r'override val type: String = "([^"]+)"')
 PROPERTY_WRITE = re.compile(
     r'set(?P<kind>Layout|Paint|Root)Property\(\s*"(?P<name>[^"]+)"'
 )
+TRANSITION_WRITE = re.compile(r'setPaintTransition\(\s*"(?P<name>[^"]+)"')
+ANY_WRITE = re.compile(
+    r'set(?:Layout|Paint|Root)Property\(\s*"[^"]+"|setPaintTransition\(\s*"[^"]+"'
+)
 UNSUPPORTED_PAIR = re.compile(r'\("([^"]+)"\s+to\s+"([^"]+)"\)')
+TRANSITION_SUFFIX = "-transition"
 SOURCE_TYPE_WRITE = re.compile(r'put\("type",\s*"([^"]+)"\)')
 FUN_DECLARATION = re.compile(r"\bfun\s+(\w+)\s*\(")
 CLASS_DECLARATION = re.compile(r"\bclass\s+(\w+)")
@@ -44,6 +49,7 @@ Kind = Literal["layout", "paint", "root"]
 PaintOrLayout = Literal["layout", "paint"]
 Engine = Literal["js", "native"]
 PropKey = tuple[str, PaintOrLayout, str]
+LayerWrites = tuple[list[tuple[Kind, str]], list[str]]
 
 ROOT_KEYS = frozenset(
     {
@@ -188,6 +194,7 @@ class KotlinApi:
     def __init__(self) -> None:
         self.types: dict[str, set[Engine]] = {}
         self.writes: dict[tuple[str, Kind, str], set[Engine]] = {}
+        self.transitions: dict[tuple[str, str], set[Engine]] = {}
         self.source_types: dict[str, set[Engine]] = {}
 
     def add_type(self, name: str, engines: set[Engine]) -> None:
@@ -198,8 +205,14 @@ class KotlinApi:
     ) -> None:
         self.writes.setdefault((layer, kind, name), set()).update(engines)
 
+    def add_transition(self, layer: str, name: str, engines: set[Engine]) -> None:
+        self.transitions.setdefault((layer, name), set()).update(engines)
+
     def writers(self, layer: str, kind: Kind, name: str) -> set[Engine]:
         return set(self.writes.get((layer, kind, name), ()))
+
+    def transition_writers(self, layer: str, name: str) -> set[Engine]:
+        return set(self.transitions.get((layer, name), ()))
 
     def kinds_written(self, layer: str, name: str) -> dict[Kind, set[Engine]]:
         return {
@@ -337,16 +350,20 @@ def _writes_in(text: str) -> list[tuple[Kind, str]]:
     ]
 
 
+def _transitions_in(text: str) -> list[str]:
+    return [match["name"] for match in TRANSITION_WRITE.finditer(text)]
+
+
 def scan_layers(root: pathlib.Path) -> KotlinApi:
-    """Collect layer types and property writes from every Main source set."""
+    """Collect layer types, property writes, and transition writes."""
     api = KotlinApi()
-    shared: list[tuple[set[Engine], list[tuple[Kind, str]]]] = []
-    typed: list[tuple[set[Engine], list[str], list[tuple[Kind, str]]]] = []
+    shared: list[tuple[set[Engine], LayerWrites]] = []
+    typed: list[tuple[set[Engine], list[str], LayerWrites]] = []
 
     for engines, path in _kotlin_files(root, "layers"):
         text = path.read_text()
         types = LAYER_TYPE.findall(text)
-        writes = _writes_in(text)
+        writes = (_writes_in(text), _transitions_in(text))
         if types:
             typed.append((engines, types, writes))
         else:
@@ -356,16 +373,21 @@ def scan_layers(root: pathlib.Path) -> KotlinApi:
         for layer_type in types:
             api.add_type(layer_type, engines)
 
+    def record(layer_type: str, engines: set[Engine], writes: LayerWrites) -> None:
+        properties, transitions = writes
+        for kind, name in properties:
+            api.add_write(layer_type, kind, name, engines)
+        for name in transitions:
+            api.add_transition(layer_type, name, engines)
+
     for engines, writes in shared:
         for layer_type, type_engines in api.types.items():
             if engines <= type_engines:
-                for kind, name in writes:
-                    api.add_write(layer_type, kind, name, engines)
+                record(layer_type, engines, writes)
 
     for engines, types, writes in typed:
         for layer_type in types:
-            for kind, name in writes:
-                api.add_write(layer_type, kind, name, engines)
+            record(layer_type, engines, writes)
     return api
 
 
@@ -411,7 +433,7 @@ def dead_setters(root: pathlib.Path) -> list[str]:
         declarations = [
             (match.start(), match[1]) for match in FUN_DECLARATION.finditer(text)
         ]
-        for write in PROPERTY_WRITE.finditer(text):
+        for write in ANY_WRITE.finditer(text):
             enclosing = None
             for start, name in declarations:
                 if start >= write.start():
@@ -482,6 +504,7 @@ def audit(
 
     _audit_layer_types(report, types, api, pins)
     _audit_properties(report, properties, api, pins)
+    _audit_transitions(report, properties, api, unsupported, pins)
     _audit_native_table(report, properties, api, unsupported, pins)
     _audit_sources(report, spec, api)
     _audit_root_objects(report, spec, scan_root_objects(root), pins)
@@ -578,6 +601,73 @@ def _audit_properties(
         report.note("  beyond the JS pin (not required): " + ", ".join(beyond_pin))
     if property_errors == 0:
         report.note("  spec properties: complete at the pinned engines")
+
+
+def _audit_transitions(
+    report: Audit,
+    properties: dict[PropKey, SpecProperty],
+    api: KotlinApi,
+    unsupported: set[tuple[str, str]],
+    pins: Pins,
+) -> None:
+    report.note("Layer transitions")
+    beyond_pin: list[str] = []
+    filtered: list[str] = []
+    transition_errors = 0
+
+    for prop in sorted(properties.values(), key=lambda item: item.key):
+        if prop.kind != "paint" or not prop.entry.get("transition"):
+            continue
+        required = prop.engines(pins)
+        if not required:
+            beyond_pin.append(f"{_label(*prop.key)}{TRANSITION_SUFFIX}")
+            continue
+        layer, _, name = _resolved_key(prop)
+        if (layer, name) in unsupported:
+            required = required - {"native"}
+            filtered.append(f"{layer}.{name}{TRANSITION_SUFFIX}")
+        missing = required - api.transition_writers(layer, name)
+        if missing:
+            report.error(
+                f"{layer} paint {name}{TRANSITION_SUFFIX} "
+                f"missing on {_format_engines(missing)}"
+            )
+            transition_errors += 1
+
+    extras = _extra_transitions(properties, api)
+    if extras:
+        report.error("unexpected extra transitions: " + ", ".join(extras))
+        transition_errors += 1
+    if filtered:
+        report.note("  filtered on native: " + ", ".join(filtered))
+    if beyond_pin:
+        report.note("  beyond the JS pin (not required): " + ", ".join(beyond_pin))
+    if transition_errors == 0:
+        report.note("  spec transitions: complete at the pinned engines")
+
+
+def _extra_transitions(
+    properties: dict[PropKey, SpecProperty], api: KotlinApi
+) -> list[str]:
+    spec_layers = {layer for layer, _, _ in properties}
+    # Resolved the same way as the required pass, so a transition this API writes
+    # under an alias is not required under one name and flagged under the other.
+    expected = {
+        (resolved[0], resolved[2])
+        for prop in properties.values()
+        if prop.kind == "paint" and prop.entry.get("transition")
+        for resolved in [_resolved_key(prop)]
+    }
+    extras: list[str] = []
+    for (layer, name), engines in sorted(api.transitions.items()):
+        if layer not in spec_layers:
+            continue
+        if (layer, name) in expected:
+            continue
+        extras.append(
+            f"{layer} paint {name}{TRANSITION_SUFFIX} ({_format_engines(engines)})"
+        )
+    return extras
 
 
 def _extra_properties(

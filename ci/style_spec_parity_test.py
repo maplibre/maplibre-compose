@@ -26,6 +26,7 @@ def _spec(
     js: str | None = "1.0.0",
     android: str | None = "1.0.0",
     ios: str | None = "1.0.0",
+    transition: bool = False,
 ) -> dict:
     basic = {}
     if js is not None:
@@ -34,14 +35,15 @@ def _spec(
         basic["android"] = android
     if ios is not None:
         basic["ios"] = ios
+    entry: dict = {"sdk-support": {"basic functionality": dict(basic)}}
+    if transition:
+        entry["transition"] = True
     return {
         "layer": {
             "type": {"values": {layer: {"sdk-support": {"basic functionality": basic}}}}
         },
         "source": [],
-        f"{kind}_{layer}": {
-            name: {"sdk-support": {"basic functionality": dict(basic)}},
-        },
+        f"{kind}_{layer}": {name: entry},
     }
 
 
@@ -429,6 +431,126 @@ class AuditTest(unittest.TestCase):
         self.assertEqual(api.writers("fill", "paint", "a"), {"js"})
         self.assertEqual(
             api.writers("location-indicator", "paint", "bearing"), {"native"}
+        )
+
+
+class TransitionTest(unittest.TestCase):
+    def test_a_transitionable_property_needs_a_transition_write(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            _layer_file(
+                root,
+                "commonMain",
+                "FillLayer.kt",
+                "fill",
+                'setPaintProperty("fill-opacity", value)',
+            )
+            report = audit(
+                _spec(transition=True),
+                root,
+                Pins(js=Version.parse("6.2.0")),
+            )
+        self.assertTrue(
+            any(
+                "fill-opacity-transition missing on js+native" in line
+                for line in report.errors
+            )
+        )
+
+    def test_a_transition_write_satisfies_the_audit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            _layer_file(
+                root,
+                "commonMain",
+                "FillLayer.kt",
+                "fill",
+                'setPaintProperty("fill-opacity", value)\n'
+                '  setPaintTransition("fill-opacity", options)',
+            )
+            report = audit(
+                _spec(transition=True),
+                root,
+                Pins(js=Version.parse("6.2.0")),
+            )
+        self.assertEqual(report.errors, [])
+
+    def test_a_transition_the_spec_does_not_allow_is_extra(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            _layer_file(
+                root,
+                "commonMain",
+                "FillLayer.kt",
+                "fill",
+                'setPaintProperty("fill-opacity", value)\n'
+                '  setPaintTransition("fill-opacity", options)',
+            )
+            report = audit(
+                _spec(),
+                root,
+                Pins(js=Version.parse("6.2.0")),
+            )
+        self.assertTrue(
+            any("unexpected extra transitions" in line for line in report.errors)
+        )
+
+    def test_a_js_only_transition_is_required_on_js_alone(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            _layer_file(
+                root,
+                "jsMain",
+                "FillLayer.kt",
+                "fill",
+                'setPaintProperty("fill-opacity", value)\n'
+                '  setPaintTransition("fill-opacity", options)',
+            )
+            report = audit(
+                _spec(js="1.0.0", android=None, ios=None, transition=True),
+                root,
+                Pins(js=Version.parse("6.2.0")),
+            )
+        self.assertEqual(report.errors, [])
+
+    def test_an_aliased_transition_is_audited_under_the_written_name(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            _layer_file(
+                root,
+                "commonMain",
+                "RasterLayer.kt",
+                "raster",
+                'setPaintProperty("raster-resampling", value)\n'
+                '  setPaintTransition("raster-resampling", options)',
+            )
+            report = audit(
+                _spec(layer="raster", name="resampling", transition=True),
+                root,
+                Pins(js=Version.parse("6.2.0")),
+            )
+        self.assertEqual(report.errors, [])
+
+    def test_a_transition_write_is_not_the_property_write(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            _layer_file(
+                root,
+                "commonMain",
+                "FillLayer.kt",
+                "fill",
+                'setPaintTransition("fill-opacity", options)',
+            )
+            report = audit(
+                _spec(transition=True),
+                root,
+                Pins(js=Version.parse("6.2.0")),
+            )
+        self.assertTrue(
+            any(
+                "fill paint fill-opacity missing on js+native" in line
+                for line in report.errors
+            )
         )
 
 
