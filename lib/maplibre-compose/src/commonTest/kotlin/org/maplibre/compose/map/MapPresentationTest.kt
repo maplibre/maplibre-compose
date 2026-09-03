@@ -920,6 +920,15 @@ class MapPresentationTest {
     assertTrue(binding.lightProperties.isEmpty())
 
     fixture.state.style.baseStyle = BaseStyle.Json("replacement")
+    assertEquals(options, transition.get())
+    assertEquals(false, transition.placementTransitions())
+    assertNull(light.getProperty("color"))
+    transition.set(options)
+    light.setProperty("color", JsonPrimitive("blue"))
+    assertEquals(JsonPrimitive("blue"), light.getProperty("color"))
+    assertEquals(options, binding.transition)
+
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, RecordingStyleBinding())
     assertNull(transition.get())
     assertNull(light.getProperty("color"))
     assertFailsWith<IllegalStateException> { transition.set(options) }
