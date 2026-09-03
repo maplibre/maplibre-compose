@@ -278,6 +278,7 @@ private fun ControlSettingsItems(settings: DemoSettings) {
   SwitchRow("Material 3 controls", settings.useMaterial3Controls) {
     settings.useMaterial3Controls = it
   }
+  SwitchRow("Zoom buttons", settings.showZoomButtons) { settings.showZoomButtons = it }
 
   SectionHeader("Overlays")
   SwitchRow("Frame rate", settings.showFpsOverlay) { settings.showFpsOverlay = it }

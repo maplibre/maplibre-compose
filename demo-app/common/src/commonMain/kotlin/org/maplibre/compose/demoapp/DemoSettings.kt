@@ -53,6 +53,7 @@ class DemoSettings {
   var showCameraOverlay by mutableStateOf(false)
   var showPointerPinDiagnostics by mutableStateOf(false)
   var useMaterial3Controls by mutableStateOf(true)
+  var showZoomButtons by mutableStateOf(true)
 }
 
 @Composable fun rememberDemoSettings() = remember { DemoSettings() }
