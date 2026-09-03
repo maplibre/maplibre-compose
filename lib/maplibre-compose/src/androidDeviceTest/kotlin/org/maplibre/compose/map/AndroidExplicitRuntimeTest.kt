@@ -21,7 +21,6 @@ class AndroidExplicitRuntimeTest {
         MapRuntimeOptions(
           context = context,
           cacheFile = cacheDirectory.resolve("cache.db"),
-          logger = null,
         )
       )
     val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
