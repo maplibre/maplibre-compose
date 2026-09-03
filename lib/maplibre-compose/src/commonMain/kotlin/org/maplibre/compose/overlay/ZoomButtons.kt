@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -89,7 +89,7 @@ public fun MapOverlayScope.ZoomButtons(
 
   Column(
     modifier
-      .width(width)
+      .requiredWidth(width)
       .shadow(shadowElevation, style.shape, clip = false)
       .background(style.containerColor, style.shape)
       .clip(style.shape)
