@@ -267,7 +267,10 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
 
   private fun readyLoadedStyle(): StyleBinding? {
     if (loadState != StyleLoadState.Ready) return null
-    return owner?.readyLoadedStyle() ?: loadedStyle.load()
+    // With an owner attached, its serialized check is the only authority: a plain fallback to the
+    // stored reference could return a binding the owner has already moved to Loading.
+    val owner = owner ?: return loadedStyle.load()
+    return owner.readyLoadedStyle()
   }
 
   internal fun attach(owner: MapStyleStateOwner) {
