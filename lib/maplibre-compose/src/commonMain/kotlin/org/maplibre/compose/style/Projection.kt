@@ -12,7 +12,7 @@ import org.maplibre.compose.expressions.value.ProjectionValue
  * The style's map projection.
  *
  * The default matches the style spec's `projection` object. The expression may use the zoom level,
- * so a map can be a globe when zoomed out and a flat map when zoomed in:
+ * so the projection can change with zoom:
  * ```kt
  * Projection(
  *   type =
@@ -25,10 +25,10 @@ import org.maplibre.compose.expressions.value.ProjectionValue
  * )
  * ```
  *
- * MapLibre Native draws only the Mercator projection.
+ * MapLibre Native supports only the Mercator projection.
  *
- * @param type The projection to draw the map with: a [ProjectionType], a [ProjectionTransition], or
- *   an expression that resolves to one of them.
+ * @param type The projection: a [ProjectionType], a [ProjectionTransition], or an expression that
+ *   resolves to one of them.
  */
 @Immutable
 public data class Projection(
@@ -38,7 +38,7 @@ public data class Projection(
 }
 
 /**
- * A projection part way between two others, such as the state of a globe as it flattens into a map.
+ * A projection interpolated between two others.
  *
  * @param from The projection at a [progress] of 0.
  * @param to The projection at a [progress] of 1.

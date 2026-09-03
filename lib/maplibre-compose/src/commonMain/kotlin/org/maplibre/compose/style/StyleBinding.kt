@@ -146,7 +146,7 @@ internal interface StyleBinding {
    */
   fun setLight(light: JsonObject)
 
-  /** Returns true if this engine draws the style sky. */
+  /** Returns true if this engine supports the style sky. */
   val supportsSky: Boolean
 
   /**
@@ -157,15 +157,14 @@ internal interface StyleBinding {
 
   /**
    * Replaces the style sky. A property absent from [sky] returns to its spec default; a null [sky]
-   * removes the sky, which draws none. An engine without [supportsSky] logs a warning and draws
-   * none.
+   * removes the sky. An engine without [supportsSky] logs a warning.
    *
    * @throws StyleMutationException if the engine returns an error. An error does not change the
    *   previous value.
    */
   fun setSky(sky: JsonObject?)
 
-  /** Returns true if this engine draws projections other than Mercator. */
+  /** Returns true if this engine supports projections other than Mercator. */
   val supportsProjection: Boolean
 
   /**

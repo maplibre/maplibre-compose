@@ -115,7 +115,7 @@ public class StyleLight internal constructor(private val style: MapStyleState) {
  * Provides the sky of the current loaded-style generation.
  *
  * A base-style reload replaces the sky with the one that the new style declares. MapLibre Native
- * draws no sky: it reports no values and logs a warning on write.
+ * does not support the sky: every property reads null, and a write logs a warning.
  */
 @Stable
 public class StyleSky internal constructor(private val style: MapStyleState) {
@@ -138,7 +138,8 @@ public class StyleSky internal constructor(private val style: MapStyleState) {
  * Provides the projection of the current loaded-style generation.
  *
  * A base-style reload replaces the projection with the one that the new style declares. MapLibre
- * Native draws only Mercator: it reports no values and logs a warning on write.
+ * Native supports only the Mercator projection: every property reads null, and a write logs a
+ * warning.
  */
 @Stable
 public class StyleProjection internal constructor(private val style: MapStyleState) {

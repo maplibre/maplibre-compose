@@ -6,15 +6,12 @@ import org.maplibre.compose.expressions.ast.StringLiteral
 public enum class ProjectionType(override val literal: StringLiteral) :
   EnumValue<ProjectionType>, ProjectionValue {
 
-  /** The Web Mercator projection, which draws the map as a flat plane. */
+  /** The Web Mercator projection. */
   Mercator(StringLiteral.of("mercator")),
 
-  /** A globe seen from a camera at a finite distance, at every zoom level. */
+  /** A globe projection at every zoom level. */
   VerticalPerspective(StringLiteral.of("vertical-perspective")),
 
-  /**
-   * A globe that becomes a flat map when zoomed in: [VerticalPerspective] up to zoom 11, blending
-   * into [Mercator] by zoom 12.
-   */
+  /** [VerticalPerspective] below zoom 11, interpolating to [Mercator] by zoom 12. */
   Globe(StringLiteral.of("globe")),
 }

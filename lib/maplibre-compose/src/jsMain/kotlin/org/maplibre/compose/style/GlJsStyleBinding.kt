@@ -626,7 +626,7 @@ internal class GlJsStyleBinding(
     return sky.asDynamic()[name].unsafeCast<Any?>()?.toJsonElement()
   }
 
-  /** Merges like the light. An absent sky is what MapLibre draws as no sky. */
+  /** Merges like the light. MapLibre treats an absent sky as no sky. */
   override fun setSky(sky: JsonObject?) {
     requireLoaded()
     if (sky == null) {

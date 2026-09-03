@@ -897,7 +897,7 @@ internal open class MlnFfiStyleBinding(
 
   override fun setSky(sky: JsonObject?) {
     requireLoadedStyle()
-    if (sky != null) logger?.w { "MapLibre Native does not draw the sky" }
+    if (sky != null) logger?.w { "MapLibre Native does not support the sky" }
   }
 
   override val supportsProjection: Boolean = false
@@ -910,7 +910,7 @@ internal open class MlnFfiStyleBinding(
   override fun setProjection(projection: JsonObject) {
     requireLoadedStyle()
     if (projection["type"] != JsonPrimitive("mercator")) {
-      logger?.w { "MapLibre Native draws only the Mercator projection" }
+      logger?.w { "MapLibre Native supports only the Mercator projection" }
     }
   }
 

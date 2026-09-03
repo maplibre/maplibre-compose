@@ -10,10 +10,10 @@ import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.FloatValue
 
 /**
- * The style's sky: the color above the horizon of a pitched map, and the atmosphere around a globe.
+ * The style's sky: the area above the horizon, and the atmosphere around a globe.
  *
  * The defaults match the style spec's `sky` object. Each expression may use the zoom level. The fog
- * properties act only with 3D terrain, which this library does not yet expose.
+ * properties apply only with 3D terrain, which this library does not yet expose.
  *
  * MapLibre Native does not implement the sky; see
  * [maplibre-native#4414](https://github.com/maplibre/maplibre-native/issues/4414).
@@ -29,7 +29,7 @@ import org.maplibre.compose.expressions.value.FloatValue
  *   `[0..1]`, where 1 blends the color at the middle of the sky and 0 uses the sky color only.
  * @param atmosphereBlend How visible the atmosphere around a globe is. A value in the range of
  *   `[0..1]`, where 1 shows the atmosphere and 0 hides it. Interpolate it by zoom when using a
- *   globe projection, so that it fades out as the globe becomes a flat map.
+ *   globe projection, so that it is hidden once the projection is Mercator.
  * @param skyColorTransition Timing for changes to [skyColor]. Null uses the style's global
  *   transition.
  * @param horizonColorTransition Timing for changes to [horizonColor]. Null uses the style's global
