@@ -29,33 +29,51 @@ public data class MapResourceRequest(
 )
 
 /**
- * Changes to apply to a resource request.
+ * Rewrites the URL of a resource request, or adds HTTP headers to it. Override either function.
  *
- * A null or blank [url] keeps the incoming URL. [headers] are added to the HTTP request that
- * follows a URL rewrite. Header logic should key off the URL the client will send.
+ * The engine calls [rewriteUrl] and [headers] separately, from network threads. Both functions
+ * return quickly, are safe to call concurrently, and call no map API. Return the same result for
+ * the same request, because the engine may call each function more than once for one request.
+ *
+ * Use [MapResourceProvider] to supply resource data directly.
  */
-public data class MapRequestTransform(
-  public val url: String? = null,
-  public val headers: Map<String, String> = emptyMap(),
-)
+public interface MapRequestInterceptor {
+  /**
+   * Returns the URL to fetch instead of [MapResourceRequest.url]. A null or blank result keeps
+   * [MapResourceRequest.url].
+   *
+   * The [MapResourceProvider] loads a rewrite that it accepts. Otherwise the engine HTTP client
+   * fetches an HTTP or HTTPS URL, including a rewrite of a custom-scheme URL, and MapLibre Native
+   * reads a `file:` URL as a packaged resource.
+   */
+  public fun rewriteUrl(request: MapResourceRequest): String? = null
 
-/**
- * Rewrites the URL or headers of every resource the runtime fetches.
- *
- * The engine may invoke this from network threads. The implementation must return quickly, must be
- * safe to call concurrently, and must not call map APIs.
- */
-public fun interface MapRequestInterceptor {
-  public fun intercept(request: MapResourceRequest): MapRequestTransform
+  /**
+   * Returns the HTTP headers for a request that the engine HTTP client fetches.
+   *
+   * [MapResourceRequest.url] is the URL after [rewriteUrl].
+   */
+  public fun headers(request: MapResourceRequest): Map<String, String> = emptyMap()
 }
+
+/** Returns an interceptor that calls [rewriteUrl] and [headers]. */
+public fun MapRequestInterceptor(
+  rewriteUrl: (MapResourceRequest) -> String? = { null },
+  headers: (MapResourceRequest) -> Map<String, String> = { emptyMap() },
+): MapRequestInterceptor =
+  object : MapRequestInterceptor {
+    override fun rewriteUrl(request: MapResourceRequest): String? = rewriteUrl(request)
+
+    override fun headers(request: MapResourceRequest): Map<String, String> = headers(request)
+  }
 
 /**
  * One resource that a [MapResourceProvider] loads.
  *
- * [url] is the URL after the engine resolves tile-server aliases. [requestedUrl] is the URL in the
- * style. The prior fields are the validators and the body of the cached copy. A provider uses them
- * to revalidate. The browser has no ambient cache, so it passes the default for every field after
- * [kind].
+ * [url] is the URL after the engine resolves tile-server aliases and [MapRequestInterceptor]
+ * rewrites it. [requestedUrl] is the URL in the style; on the browser it equals [url]. The prior
+ * fields are the validators and the body of the cached copy. A provider uses them to revalidate.
+ * The browser has no ambient cache, so it passes the default for every field after [kind].
  */
 public class MapResourceLoadRequest(
   public val url: String,
@@ -182,10 +200,10 @@ public sealed interface MapResourceLoad {
 /**
  * Loads resources for the requests that the application accepts.
  *
- * [accepts] runs on a network thread and must return quickly. Return true only for requests that
- * this provider loads. [load] may suspend; cancellation means that the engine no longer needs the
- * resource. An exception from [load] becomes a [MapResourceLoad.Failed] with reason
- * [MapResourceError.Other].
+ * [accepts] receives the URL after [MapRequestInterceptor.rewriteUrl]. It runs on a network thread
+ * and must return quickly. Return true only for requests that this provider loads. [load] may
+ * suspend; cancellation means that the engine no longer needs the resource. An exception from
+ * [load] becomes a [MapResourceLoad.Failed] with reason [MapResourceError.Other].
  *
  * A true [accepts] result replaces the engine HTTP client for that request. MapLibre Native stores
  * the result in its ambient cache. After the cached entry expires, the engine requests the resource

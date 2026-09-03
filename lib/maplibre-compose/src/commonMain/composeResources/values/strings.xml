@@ -2,6 +2,8 @@
   <string name="attribution">Map Attribution</string>
   <string name="maplibre_logo_description">MapLibre</string>
   <string name="compass">Compass</string>
+  <string name="zoom_in">Zoom in</string>
+  <string name="zoom_out">Zoom out</string>
   <string name="meters_symbol">m</string>
   <string name="kilometers_symbol">km</string>
   <string name="feet_symbol">ft</string>

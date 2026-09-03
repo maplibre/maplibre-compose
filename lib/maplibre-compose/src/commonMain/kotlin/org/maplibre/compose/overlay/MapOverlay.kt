@@ -134,12 +134,33 @@ public class MapOverlay(
     /** Gap between aligned overlay controls and the edge of the unobstructed map region. */
     public val Spacing: Dp = 8.dp
 
+    /** No controls. Use this when the app shows the attribution somewhere else. */
+    public val None: MapOverlay = MapOverlay {}
+
     /**
-     * A scale bar and a compass along the top edge, and the MapLibre logo and an attribution button
-     * along the bottom edge. The scale bar and the compass appear only while they are relevant.
+     * The MapLibre logo and an attribution button along the bottom edge.
      *
-     * Most maps serve tiles under a license that requires attribution, so a map draws these unless
-     * the caller replaces them.
+     * Most maps serve tiles under a license that requires attribution, so a map keeps these unless
+     * the app shows the attribution somewhere else.
+     */
+    public val AttributionOnly: MapOverlay = MapOverlay {
+      val overlayScope = this
+      Row(
+        Modifier.align(Alignment.BottomStart).fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        MaplibreLogo()
+        overlayScope.ExpandingAttributionButton()
+      }
+    }
+
+    /**
+     * A scale bar and a compass along the top edge, and the controls from [AttributionOnly] along
+     * the bottom edge. The scale bar and the compass appear only while they are relevant.
+     *
+     * A [MaplibreMap][org.maplibre.compose.map.MaplibreMap] draws these unless the caller replaces
+     * them.
      */
     public val Default: MapOverlay = MapOverlay {
       DisappearingScaleBar(
@@ -150,15 +171,18 @@ public class MapOverlay(
 
       DisappearingCompassButton(modifier = Modifier.align(Alignment.TopEnd))
 
-      val overlayScope = this
-      Row(
-        Modifier.align(Alignment.BottomStart).fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-      ) {
-        MaplibreLogo()
-        overlayScope.ExpandingAttributionButton()
-      }
+      include(AttributionOnly)
+    }
+
+    /**
+     * The controls from [Default], plus zoom buttons at the middle of the end edge, clear of the
+     * compass above and the attribution below.
+     *
+     * The zoom buttons complement the zoom gestures; they serve pointer devices and accessibility.
+     */
+    public val Full: MapOverlay = MapOverlay {
+      include(Default)
+      ZoomButtons(Modifier.align(Alignment.CenterEnd))
     }
   }
 }

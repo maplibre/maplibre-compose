@@ -58,14 +58,10 @@ private constructor(
 
       MlnFfiLogBridge.ensureInstalled()
       val runtime =
-        try {
-          RuntimeHandle.create(RuntimeOptions().also { it.cachePath = cacheFile.toString() })
-        } catch (error: Throwable) {
-          throw error
-        }
+        RuntimeHandle.create(RuntimeOptions().also { it.cachePath = cacheFile.toString() })
       val provider =
         try {
-          resourceProviderFactory(getLogger).also { it.userProvider = resourceConfig.provider }
+          resourceProviderFactory(getLogger, resourceConfig)
         } catch (error: Throwable) {
           runCatching { runtime.close() }
           throw error

@@ -11,7 +11,9 @@ require a separate MapLibre GL JS implementation.
 The event MapLibre raises when a style references a sprite that is not in the
 loaded image set, so an application can supply it on demand instead of shipping
 every icon up front. The FFI session logs it today and can do nothing else,
-because there is no common callback to route it to.
+because there is no common callback to route it to. The target public surface is
+the `StyleImageMissing` event in
+[EVENT_CALLBACK_REDESIGN.md](./EVENT_CALLBACK_REDESIGN.md).
 
 - FFI: the `MAP_STYLE_IMAGE_MISSING` runtime event, paired with the existing
   `setStyleImage`

@@ -93,10 +93,10 @@ class MlnFfiResourceRequestTest {
           userCoroutineScope = CoroutineScope(SupervisorJob().apply { cancel() }),
         )
         .also { providers += it }
-    provider.userProvider =
+    val userProvider =
       MapResourceProvider(accepts = { true }, load = { MapResourceLoad.Bytes(ByteArray(0)) })
     val request = RecordedRequest()
-    provider.takeUser(request, MapResourceLoadRequest(URL, MapResourceKind.Style))
+    provider.takeUser(request, MapResourceLoadRequest(URL, MapResourceKind.Style), userProvider)
     request.awaitClose()
     assertEquals(1, request.closes)
     assertEquals(1, request.completions)
@@ -109,11 +109,11 @@ class MlnFfiResourceRequestTest {
       MlnFfiResourceProvider(getLogger = { null }, passThroughNetwork = true).also {
         providers += it
       }
-    provider.userProvider =
+    val userProvider =
       MapResourceProvider(accepts = { true }, load = { MapResourceLoad.Bytes(ByteArray(0)) })
     provider.close()
     val request = RecordedRequest()
-    provider.takeUser(request, MapResourceLoadRequest(URL, MapResourceKind.Style))
+    provider.takeUser(request, MapResourceLoadRequest(URL, MapResourceKind.Style), userProvider)
     assertEquals(1, request.completions)
     assertEquals(ResourceResponseStatus.ERROR, request.response.status)
     assertContains(request.response.errorMessage.orEmpty(), "shut down")
@@ -128,7 +128,7 @@ class MlnFfiResourceRequestTest {
       MlnFfiResourceProvider(getLogger = { null }, passThroughNetwork = true).also {
         providers += it
       }
-    provider.userProvider =
+    val userProvider =
       MapResourceProvider(
         accepts = { true },
         load = {
@@ -139,7 +139,7 @@ class MlnFfiResourceRequestTest {
         },
       )
     val request = RecordedRequest()
-    provider.takeUser(request, MapResourceLoadRequest(URL, MapResourceKind.Style))
+    provider.takeUser(request, MapResourceLoadRequest(URL, MapResourceKind.Style), userProvider)
     assertTrue(loading.await(WAIT_SECONDS * 1_000), "the user load never started")
 
     request.cancel()
@@ -155,13 +155,13 @@ class MlnFfiResourceRequestTest {
       MlnFfiResourceProvider(getLogger = { null }, passThroughNetwork = true).also {
         providers += it
       }
-    provider.userProvider =
+    val userProvider =
       MapResourceProvider(
         accepts = { true },
         load = { throw CancellationException("timeout") },
       )
     val request = RecordedRequest()
-    provider.takeUser(request, MapResourceLoadRequest(URL, MapResourceKind.Style))
+    provider.takeUser(request, MapResourceLoadRequest(URL, MapResourceKind.Style), userProvider)
     request.awaitAnswer()
     assertEquals(ResourceResponseStatus.ERROR, request.response.status)
     assertContains(request.response.errorMessage.orEmpty(), "cancelled")
@@ -252,10 +252,10 @@ class MlnFfiResourceRequestTest {
       MlnFfiResourceProvider(getLogger = { null }, passThroughNetwork = true).also {
         providers += it
       }
-    provider.userProvider =
+    val userProvider =
       MapResourceProvider(accepts = { true }, load = { MapResourceLoad.NoContent() })
     val request = RecordedRequest()
-    provider.takeUser(request, MapResourceLoadRequest(URL, MapResourceKind.Tile))
+    provider.takeUser(request, MapResourceLoadRequest(URL, MapResourceKind.Tile), userProvider)
     request.awaitAnswer()
     assertEquals(ResourceResponseStatus.NO_CONTENT, request.response.status)
     request.awaitClose()

@@ -7,7 +7,7 @@ import androidx.compose.runtime.DisposableEffect
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberDefaultMapRuntime
 import org.maplibre.compose.map.rememberMapState
-import org.maplibre.compose.resource.MapRequestTransform
+import org.maplibre.compose.resource.MapRequestInterceptor
 import org.maplibre.compose.resource.MapResourceError
 import org.maplibre.compose.resource.MapResourceKind
 import org.maplibre.compose.resource.MapResourceLoad
@@ -18,13 +18,17 @@ fun InterceptorMap(token: String) {
   val runtime = rememberDefaultMapRuntime()
   // #region interceptor
   DisposableEffect(token) {
-    runtime.setRequestInterceptor { request ->
-      if (request.url.startsWith("https://tiles.example.com/")) {
-        MapRequestTransform(headers = mapOf("Authorization" to "Bearer $token"))
-      } else {
-        MapRequestTransform()
-      }
-    }
+    runtime.setRequestInterceptor(
+      MapRequestInterceptor(
+        headers = { request ->
+          if (request.url.startsWith("https://tiles.example.com/")) {
+            mapOf("Authorization" to "Bearer $token")
+          } else {
+            emptyMap()
+          }
+        }
+      )
+    )
     onDispose { runtime.setRequestInterceptor(null) }
   }
   MaplibreMap(state = rememberMapState(runtime))
