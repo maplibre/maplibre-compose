@@ -5,7 +5,7 @@ package org.maplibre.compose.style
  * Assertions that read raw style JSON compare against this.
  */
 internal fun TransitionOptions.scaledForEngine(): TransitionOptions =
-  scaledBy(animatorDurationScale())
+  scaledBy(systemAnimatorDurationScale())
 
 /**
  * The timing a typed getter reports for [this]. The getter divides the animator duration scale back
@@ -13,4 +13,4 @@ internal fun TransitionOptions.scaledForEngine(): TransitionOptions =
  * recovery.
  */
 internal fun TransitionOptions.readBackFromEngine(): TransitionOptions =
-  if (animatorDurationScale() > 0f) this else scaledForEngine()
+  if (systemAnimatorDurationScale() > 0f) this else scaledForEngine()

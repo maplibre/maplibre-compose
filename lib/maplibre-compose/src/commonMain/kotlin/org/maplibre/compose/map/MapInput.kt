@@ -41,8 +41,8 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
-import org.maplibre.compose.style.animatorDurationScale
 import org.maplibre.compose.style.scaledBy
+import org.maplibre.compose.style.systemAnimatorDurationScale
 
 /**
  * Neither backend owns platform gestures: MapLibre Native declines to, and GL JS is composited
@@ -1372,7 +1372,7 @@ private fun GestureOptions.zoomAnchor(pointer: DpOffset): DpOffset? =
  * turns the ease into a jump. Velocity-derived fling durations are not scaled.
  */
 private fun GestureOptions.scaledAnimationDuration(): Duration =
-  animationDuration.scaledBy(animatorDurationScale())
+  animationDuration.scaledBy(systemAnimatorDurationScale())
 
 /** Compose reports physical pixels; MapLibre projects in logical ones. */
 private fun Offset.toLogicalDpOffset(density: Density): DpOffset =

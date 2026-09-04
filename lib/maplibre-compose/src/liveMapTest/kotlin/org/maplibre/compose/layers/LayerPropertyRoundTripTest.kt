@@ -66,8 +66,8 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LayerInstallation
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.TransitionOptions
-import org.maplibre.compose.style.animatorDurationScale
 import org.maplibre.compose.style.install
+import org.maplibre.compose.style.systemAnimatorDurationScale
 import org.maplibre.compose.testing.MapLibreFlavor
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
@@ -802,6 +802,6 @@ class LayerPropertyRoundTripTest {
  * scale.
  */
 private fun scaledTransitionJson(durationMs: Double, delayMs: Double): String {
-  val scale = animatorDurationScale().toDouble()
+  val scale = systemAnimatorDurationScale().toDouble()
   return """{"duration":${durationMs * scale},"delay":${delayMs * scale}}"""
 }

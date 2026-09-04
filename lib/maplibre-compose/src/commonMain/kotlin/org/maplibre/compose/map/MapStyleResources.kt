@@ -64,16 +64,18 @@ public class StyleImages internal constructor(private val style: MapStyleState) 
  * snapshot ignores the duration and delay.
  *
  * On Android, the system animator duration scale scales the transition, including the one that a
- * base style declares.
+ * base style declares. The scale is read when the style loads; a change to the setting applies to
+ * the next style load. A transition that a base style declares on a single property keeps its
+ * declared timing.
  */
 @Stable
 public class StyleTransition internal constructor(private val style: MapStyleState) {
   /**
    * Returns the loaded style's transition, or null while no style is ready.
    *
-   * The reported timing is the declared one: the animator duration scale that Android applies at
-   * write time is divided back out. A scale of zero zeroes the timing in the engine, and the getter
-   * then reports zero.
+   * The reported timing is the declared one: the animator duration scale that [set] applied is
+   * divided back out. A scale of zero zeroes the timing in the engine, and the getter then reports
+   * zero.
    */
   public fun get(): TransitionOptions? = style.transitionOptions()
 

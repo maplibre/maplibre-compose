@@ -13,7 +13,8 @@ import kotlin.time.Duration.Companion.milliseconds
  * The defaults match the style spec's `transition` object.
  *
  * On Android, the system animator duration scale multiplies [duration] and [delay] when the library
- * writes the transition to the engine. A scale of zero applies the change instantly.
+ * writes the transition to the engine. A scale of zero applies the change instantly. A loaded style
+ * reads the scale once, when it loads; a change to the setting applies to the next style load.
  *
  * @param duration Time allotted for a transition to complete.
  * @param delay Time before a transition begins.

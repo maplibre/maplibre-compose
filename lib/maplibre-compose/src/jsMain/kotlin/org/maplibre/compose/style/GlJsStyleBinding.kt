@@ -73,6 +73,8 @@ internal class GlJsStyleBinding(
 
   override val identity: StyleIdentity = StyleIdentity.create()
 
+  override val animatorDurationScale: Float = systemAnimatorDurationScale()
+
   private var loaded = true
   private val customVectorAttachments = mutableMapOf<String, GlJsCustomVectorAttachment>()
 

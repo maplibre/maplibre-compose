@@ -11,8 +11,10 @@ import org.maplibre.compose.style.StyleIdentity
 import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.TRANSITION_SUFFIX
 import org.maplibre.compose.style.TransitionOptions
+import org.maplibre.compose.style.scaledBy
 import org.maplibre.compose.style.toTransitionJson
 import org.maplibre.compose.style.toTransitionOptions
+import org.maplibre.compose.style.unscaledBy
 
 /** Provides imperative property access to a layer for one loaded base-style generation. */
 public class LayerHandle
@@ -45,11 +47,14 @@ internal constructor(
    * null [options] returns the property to the style's global transition. The reset is written at
    * once, as the spec's empty transition object; a layer composable drops the key from its layer
    * definition instead, with the same result.
+   *
+   * On Android, the animator duration scale read when the style loaded multiplies the timing that
+   * reaches the engine. A scale of zero applies the property change instantly.
    */
   public fun setPaintTransition(property: String, options: TransitionOptions?) {
     setPaintProperty(
       property + TRANSITION_SUFFIX,
-      options?.toTransitionJson() ?: CLEARED_TRANSITION,
+      options?.scaledBy(style.animatorDurationScale)?.toTransitionJson() ?: CLEARED_TRANSITION,
     )
   }
 
@@ -62,12 +67,14 @@ internal constructor(
    * transition, which [TransitionOptions] states no value for. MapLibre GL JS reports an empty
    * object for a transition that was cleared, and this returns null for it.
    *
-   * The reported timing is the declared one: the animator duration scale that Android applies at
-   * write time is divided back out. A scale of zero zeroes the timing in the engine, and the getter
-   * then reports zero.
+   * The reported timing is the declared one: the animator duration scale that [setPaintTransition]
+   * applied is divided back out. A scale of zero zeroes the timing in the engine, and the getter
+   * then reports zero. [getProperty] reports the engine's timing.
    */
   public fun getPaintTransition(property: String): TransitionOptions? =
-    getProperty(property + TRANSITION_SUFFIX)?.toTransitionOptions()
+    getProperty(property + TRANSITION_SUFFIX)
+      ?.toTransitionOptions()
+      ?.unscaledBy(style.animatorDurationScale)
 
   /** Sets the top-level property [name], such as `minzoom`, for this loaded style. */
   public fun setRootProperty(name: String, value: JsonElement) {

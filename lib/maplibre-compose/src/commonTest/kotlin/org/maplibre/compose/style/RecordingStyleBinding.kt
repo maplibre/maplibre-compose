@@ -36,6 +36,7 @@ internal class RecordingStyleBinding(
   private val beforeAddImage: ((String) -> Unit)? = null,
   private val beforeClusterExpansionZoomResult: suspend () -> Unit = {},
   private val onInvalidate: () -> Unit = {},
+  override val animatorDurationScale: Float = 1f,
 ) : StyleBinding {
 
   override val identity: StyleIdentity = StyleIdentity.create()

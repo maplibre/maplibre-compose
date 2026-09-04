@@ -78,10 +78,11 @@ import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.TransitionOptions
-import org.maplibre.compose.style.animatorDurationScale
 import org.maplibre.compose.style.canUpdateTo
 import org.maplibre.compose.style.scaledBy
+import org.maplibre.compose.style.systemAnimatorDurationScale
 import org.maplibre.compose.style.unscaledBy
+import org.maplibre.compose.style.withScaledTransitions
 import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.compose.util.VisibleRegion
@@ -229,11 +230,11 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   public val projection: StyleProjection = StyleProjection(this)
 
   internal fun transitionOptions(): TransitionOptions? = readStyle {
-    it.transition()?.unscaledBy(animatorDurationScale())
+    it.transition()?.unscaledBy(it.animatorDurationScale)
   }
 
   internal fun setTransitionOptions(options: TransitionOptions) {
-    mutateStyle("the transition") { it.setTransition(options.scaledBy(animatorDurationScale())) }
+    mutateStyle("the transition") { it.setTransition(options.scaledBy(it.animatorDurationScale)) }
   }
 
   internal fun placementTransitions(): Boolean? = readStyle { it.placementTransitions() }
@@ -245,13 +246,17 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   internal fun lightProperty(name: String): JsonElement? = readStyle { it.lightProperty(name) }
 
   internal fun setLight(light: Light) {
-    mutateStyle("the light") { it.setLight(light.toJson()) }
+    mutateStyle("the light") {
+      it.setLight(light.toJson().withScaledTransitions(it.animatorDurationScale))
+    }
   }
 
   internal fun skyProperty(name: String): JsonElement? = readStyle { it.skyProperty(name) }
 
   internal fun setSky(sky: Sky?) {
-    mutateStyle("the sky") { it.setSky(sky?.toJson()) }
+    mutateStyle("the sky") {
+      it.setSky(sky?.toJson()?.withScaledTransitions(it.animatorDurationScale))
+    }
   }
 
   internal fun projectionProperty(name: String): JsonElement? = readStyle {
@@ -326,11 +331,11 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
     sourcesState = emptyMap()
     layersState = emptyMap()
     // A new base style carries the transition its JSON declares, or the engine's default. Scale it
-    // by the platform's animator duration scale so the global transition honors the system
-    // setting. The direct binding call must not route through setTransitionOptions, which scales.
+    // by the style's animator duration scale so the global transition honors the system setting.
+    // The direct binding call must not route through setTransitionOptions, which scales.
     if (style != null && style !== previous) {
       runCatching {
-        style.transition()?.let { style.setTransition(it.scaledBy(animatorDurationScale())) }
+        style.transition()?.let { style.setTransition(it.scaledBy(style.animatorDurationScale)) }
       }
     }
   }
@@ -871,7 +876,7 @@ internal constructor(
     duration: Duration = 300.milliseconds,
   ): Unit = cameraMutation.mutate {
     retryAcrossAttachments {
-      it.animateCameraPosition(position, duration.scaledBy(animatorDurationScale()))
+      it.animateCameraPosition(position, duration.scaledBy(systemAnimatorDurationScale()))
     }
   }
 
@@ -894,7 +899,7 @@ internal constructor(
         bearing,
         tilt,
         padding,
-        duration.scaledBy(animatorDurationScale()),
+        duration.scaledBy(systemAnimatorDurationScale()),
       )
     }
   }

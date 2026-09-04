@@ -294,6 +294,10 @@ private fun clearingValue(kind: LayerPropertyKind, name: String): JsonElement =
   if (kind == LayerPropertyKind.PAINT && name.endsWith(TRANSITION_SUFFIX)) CLEARED_TRANSITION
   else JsonNull
 
+/**
+ * The layer JSON that [style] receives: without the properties its engine does not support, and
+ * with every paint transition scaled by the style's animator duration scale.
+ */
 private fun LayerDefinition.resolveFor(style: StyleBinding): LayerDefinition {
   fun JsonObject.withoutUnsupported(): JsonObject =
     JsonObject(filterKeys { style.unsupportedLayerPropertyReason(type, it) == null })
@@ -302,8 +306,9 @@ private fun LayerDefinition.resolveFor(style: StyleBinding): LayerDefinition {
   (resolved["layout"] as? JsonObject)?.withoutUnsupported()?.let {
     if (it.isEmpty()) resolved.remove("layout") else resolved["layout"] = it
   }
-  (resolved["paint"] as? JsonObject)?.withoutUnsupported()?.let {
-    if (it.isEmpty()) resolved.remove("paint") else resolved["paint"] = it
-  }
+  (resolved["paint"] as? JsonObject)
+    ?.withoutUnsupported()
+    ?.withScaledTransitions(style.animatorDurationScale)
+    ?.let { if (it.isEmpty()) resolved.remove("paint") else resolved["paint"] = it }
   return copy(value = JsonObject(resolved))
 }

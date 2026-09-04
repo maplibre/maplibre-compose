@@ -16,7 +16,6 @@ import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.TransitionOptions
-import org.maplibre.compose.style.animatorDurationScale
 import org.maplibre.compose.style.install
 import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
 
@@ -30,11 +29,9 @@ class LayerTransitionJsonTest {
 
     val transition =
       assertNotNull(paintOf(layer)["circle-color-transition"] as? JsonObject, "no transition key")
-    // Compared as numbers because Kotlin/JS prints the double 1500.0 as 1500. The values are the
-    // written timing under the platform's animator duration scale.
-    val scale = animatorDurationScale().toDouble()
+    // Compared as numbers because Kotlin/JS prints the double 1500.0 as 1500.
     assertEquals(
-      mapOf("duration" to 1500.0 * scale, "delay" to 250.0 * scale),
+      mapOf("duration" to 1500.0, "delay" to 250.0),
       transition.mapValues { (_, value) -> value.jsonPrimitive.double },
     )
   }

@@ -34,6 +34,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.double
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.maplibre.compose.camera.CameraPosition
@@ -65,8 +67,6 @@ import org.maplibre.compose.style.Sky
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleImageDefinition
 import org.maplibre.compose.style.TransitionOptions
-import org.maplibre.compose.style.readBackFromEngine
-import org.maplibre.compose.style.scaledForEngine
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
@@ -841,6 +841,69 @@ class MapPresentationTest {
     fixture.close()
   }
 
+  /**
+   * The engine holds the transition under the style's animator duration scale, and the getter
+   * reports the declared timing, so a read-modify-write does not compound the scale.
+   */
+  @Test
+  fun the_global_transition_is_scaled_for_the_engine_and_reported_as_declared() {
+    val fixture = presentationFixture()
+    val binding = RecordingStyleBinding(animatorDurationScale = 0.5f)
+    val transition = fixture.state.style.transition
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+
+    assertEquals(TransitionOptions(duration = 150.milliseconds), binding.transition)
+    assertEquals(TransitionOptions(), transition.get())
+
+    val options = TransitionOptions(duration = 1.seconds, delay = 20.milliseconds)
+    transition.set(options)
+    assertEquals(
+      TransitionOptions(duration = 500.milliseconds, delay = 10.milliseconds),
+      binding.transition,
+    )
+    assertEquals(options, transition.get())
+
+    transition.set(assertNotNull(transition.get()).copy(delay = 40.milliseconds))
+    assertEquals(
+      TransitionOptions(duration = 500.milliseconds, delay = 20.milliseconds),
+      binding.transition,
+    )
+    assertEquals(options.copy(delay = 40.milliseconds), transition.get())
+
+    fixture.state.style.light.set(Light(colorTransition = options))
+    // Compared as numbers because Kotlin/JS prints the double 500.0 as 500.
+    assertEquals(
+      mapOf("duration" to 500.0, "delay" to 10.0),
+      assertNotNull(fixture.state.style.light.getProperty("color-transition"))
+        .jsonObject
+        .mapValues { (_, value) -> value.jsonPrimitive.double },
+    )
+    fixture.close()
+  }
+
+  /** A scale of zero is Android's "remove animations": the engine gets no timing at all. */
+  @Test
+  fun a_zero_animator_duration_scale_zeroes_the_global_transition() {
+    val fixture = presentationFixture()
+    val binding = RecordingStyleBinding(animatorDurationScale = 0f)
+    val transition = fixture.state.style.transition
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+
+    assertEquals(TransitionOptions(duration = Duration.ZERO), binding.transition)
+    transition.set(TransitionOptions(duration = 1.seconds, delay = 20.milliseconds))
+    assertEquals(
+      TransitionOptions(duration = Duration.ZERO, delay = Duration.ZERO),
+      binding.transition,
+    )
+    assertEquals(
+      TransitionOptions(duration = Duration.ZERO, delay = Duration.ZERO),
+      transition.get(),
+    )
+    fixture.close()
+  }
+
   @Test
   fun transition_light_sky_and_projection_commands_target_only_a_ready_loaded_style() {
     val fixture = presentationFixture()
@@ -866,10 +929,10 @@ class MapPresentationTest {
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
     fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
 
-    assertEquals(TransitionOptions().readBackFromEngine(), transition.get())
+    assertEquals(TransitionOptions(), transition.get())
     transition.set(options)
-    assertEquals(options.readBackFromEngine(), transition.get())
-    assertEquals(options.scaledForEngine(), binding.transition)
+    assertEquals(options, transition.get())
+    assertEquals(options, binding.transition)
     transition.setPlacementTransitions(false)
     assertEquals(false, transition.placementTransitions())
 
