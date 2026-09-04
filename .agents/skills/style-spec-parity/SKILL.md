@@ -5,9 +5,10 @@ description: Align the MapLibre Compose style API with the published style spec.
 
 # Style spec parity
 
-The style spec is one document. MapLibre GL JS and MapLibre Native implement it
-at their own pace. The public API stays common: a property one engine lacks is
-still declared, and that engine's `StyleBinding` keeps it out of every write.
+MapLibre GL JS and MapLibre Native implement the style spec at different paces.
+Properties on shared layer types stay in the common API, with unsupported writes
+filtered by `StyleBinding`. A whole layer type that only one engine accepts has
+its composable in that engine's source set.
 
 `mise run style-spec:parity` reads `v8.json` at the pinned
 [maplibre-style-spec](https://github.com/maplibre/maplibre-style-spec) release
@@ -50,8 +51,9 @@ on engines that implement it, and an issue URL on engines that do not.
   `commonMain` with the matching `setPaintProperty` or `setLayoutProperty`.
 - **js implements it, native does not.** Write it in `commonMain` and list it on
   the native binding so a write cannot refuse the whole layer.
-- **native implements it, js does not.** Write the layer type or property only
-  in `maplibreNativeMain`, the way `LocationIndicatorLayer` does.
+- **Native renders a property that JS only stores.** Keep the property in
+  `commonMain` and document the rendering difference. A whole layer type that JS
+  cannot accept follows the separate layer-type guidance below.
 
 ## Style-root objects
 
@@ -75,14 +77,14 @@ until the API exposes it.
    and GL JS sometimes report the same value in different JSON shapes; the
    `Case` helper takes a GL JS form for that.
 
-## Add a property one engine lacks
+## Add a property native lacks
 
 Keep the setter in `commonMain`. The binding decides what reaches the engine.
 
 1. Default the composable parameter to `nil()`. A spec default that is always
    written would log an unsupported warning on every layer of that type.
-2. Note on the parameter that it is not yet supported on native or JS, with the
-   issue link from `sdk-support`.
+2. Note on the parameter that it is not yet supported on native, with the issue
+   link from `sdk-support`.
 3. Add a row to `MlnFfiStyleBinding.UNSUPPORTED_LAYER_PROPERTIES`. The reason
    string is what the layer logs once.
 4. Add the round-trip case to the `glJsOnly*` list in
@@ -96,8 +98,8 @@ A value one engine rejects, on a property it otherwise implements, stays out of
 that table. `skipUnsupportedProperty` or the live `StyleMutationException`
 handler covers a rejected value.
 
-When a later native or GL JS release implements the property, delete the table
-row and move the test from the `glJsOnly*` list into the shared cases.
+When a later native release implements the property, delete the table row and
+move the test from the `glJsOnly*` list into the shared cases.
 
 ## Add a layer type one engine lacks
 
@@ -117,11 +119,12 @@ browser.
 
 ```sh
 mise run style-spec:parity -- --check
-mise run ci:test-scripts
 mise run test:desktop
 mise run test:js
 mise run check
 ```
 
-Never pass `--tests` to the Gradle browser suite: it silently runs nothing and
-reports success.
+Run `mise run ci:test-scripts` when changing the catalog checker. For catalog or
+documentation-only changes, select the relevant checks without running map
+suites whose behavior is unchanged. Browser setup and test constraints are in
+`AGENTS.md`.

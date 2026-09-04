@@ -62,11 +62,6 @@ fun DemoPanel(
   val appliedStyle = state.appliedStyle
   var flightJob by remember { mutableStateOf<Job?>(null) }
   val route = navController.currentBackStackEntryAsState().value?.destination?.route
-  // Align the panel destination with the selection: the agent driver selects demos through
-  // DemoAppState, without touching this NavController.
-  LaunchedEffect(state.selectedDemo) {
-    if (state.selectedDemo != null && route != "demo") navController.navigate("demo")
-  }
   // selectedDemo drives the map overlay. Keep it aligned with this destination so
   // system and predictive back clear the overlay too.
   LaunchedEffect(route) {
@@ -97,7 +92,9 @@ fun DemoPanel(
           flightJob = scope.launch {
             val newBase = demo.preferredStyle?.base?.takeIf { it != appliedStyle.base }
             val styleLoadsSeen = state.lastStyleLoad.count
-            state.selectDemo(demo)
+            state.selectedDemo = demo
+            state.shell = DemoShell.Demos
+            navController.navigate("demo")
             if (collapseOnSelection) {
               collapsePanel()
               // One frame so the settled viewport insets reach the camera before the flight.
