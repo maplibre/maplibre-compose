@@ -20,7 +20,7 @@ import org.maplibre.compose.demoapp.center
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.RasterLayer
-import org.maplibre.compose.map.MapStyleScope
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.sources.rememberImageSource
 import org.maplibre.compose.util.PositionQuad
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -51,7 +51,7 @@ object CastelloPlanDemo : Demo {
     )
 
   @Composable
-  override fun MapStyleScope.MapContent() {
+  override fun MapContent(mapState: MapState) {
     val source =
       rememberImageSource(position = corners, uri = Res.getUri("files/castello-plan.jpg"))
     RasterLayer(id = "castello-plan", source = source, opacity = const(opacity))

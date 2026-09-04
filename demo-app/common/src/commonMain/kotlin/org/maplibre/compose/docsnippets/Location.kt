@@ -10,6 +10,7 @@ import org.maplibre.compose.location.LocationTrackingEffect
 import org.maplibre.compose.location.rememberDefaultHeadingProvider
 import org.maplibre.compose.location.rememberDefaultLocationProvider
 import org.maplibre.compose.location.rememberLocationState
+import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
 
@@ -29,6 +30,8 @@ fun Location() {
     )
 
   val mapState = rememberMapState {
+    val mapState = LocalMapState.current
+
     LocationPuck(
       idPrefix = "user",
       locationState = locationState,

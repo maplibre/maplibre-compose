@@ -6,6 +6,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import kotlin.js.Promise
 import kotlin.js.js
@@ -93,7 +94,7 @@ class BrowserMapSnapshotterTest {
         POINT_STYLE()
       }
       val runtime = createMapRuntime(MapRuntimeOptions())
-      val state = runtime.createMapState(baseStyle = BASE_STYLE) { content() }
+      val state = runtime.createMapState(baseStyle = BASE_STYLE, content = content)
       val snapshotter = runtime.createSnapshotter(BASE_STYLE, content)
       try {
         setBrowserMapContent(size = SIZE) { MaplibreMap(state = state) }
@@ -128,6 +129,25 @@ class BrowserMapSnapshotterTest {
         snapshotter.awaitClosed()
         state.close()
         state.awaitClosed()
+        runtime.close()
+        runtime.awaitClosed()
+      }
+    }
+
+  @Test
+  fun content_sees_the_viewport_of_the_capture_it_is_evaluated_for(): Promise<*> =
+    runBrowserMapTest {
+      val sizes = mutableListOf<DpSize?>()
+      val runtime = createMapRuntime(MapRuntimeOptions())
+      val snapshotter =
+        runtime.createSnapshotter(BASE_STYLE) { sizes += LocalViewport.current?.size }
+      try {
+        snapshotter.capture(MapSnapshotRequest(width = 31, height = 23))
+
+        assertEquals(setOf(DpSize(31.dp, 23.dp)), sizes.toSet())
+      } finally {
+        snapshotter.close()
+        snapshotter.awaitClosed()
         runtime.close()
         runtime.awaitClosed()
       }

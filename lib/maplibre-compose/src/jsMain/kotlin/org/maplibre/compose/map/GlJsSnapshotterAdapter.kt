@@ -23,7 +23,6 @@ import org.maplibre.compose.resource.GlJsRequestController
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.GlJsStyleBinding
-import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.util.toImageBitmap
 import org.maplibre.compose.util.toLngLat
@@ -72,17 +71,20 @@ private class GlJsSnapshotterAdapter(
     baseStyle: BaseStyle,
     baseStyleRevision: Long,
     request: MapSnapshotRequest,
-  ): StyleBinding {
+  ): SnapshotPreparation {
     check(open) { "The Web snapshotter is closed" }
     val currentMap = ensureMap(request)
     configure(currentMap, request)
+    // GL JS adopts the resize and camera of configure synchronously, so the map now holds the
+    // transform this capture renders.
+    val viewport = currentMap.readViewport(request.width.toDouble(), request.height.toDouble())
     val current = styleBinding
     if (
       loadedBaseStyleRevision == baseStyleRevision &&
         loadedDensity == request.density &&
         current?.isLoaded == true
     ) {
-      return current
+      return SnapshotPreparation(current, viewport)
     }
 
     current?.invalidate()
@@ -134,7 +136,9 @@ private class GlJsSnapshotterAdapter(
     } finally {
       if (terminalOperation === loading) terminalOperation = null
     }
-    return checkNotNull(styleBinding) { "MapLibre loaded a snapshot style without a binding" }
+    val binding =
+      checkNotNull(styleBinding) { "MapLibre loaded a snapshot style without a binding" }
+    return SnapshotPreparation(binding, viewport)
   }
 
   override suspend fun capture(

@@ -26,6 +26,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceHandle
 import org.maplibre.compose.style.BaseStyle
@@ -81,11 +82,15 @@ public class MapSnapshotException internal constructor(message: String, cause: T
 internal interface SnapshotterAdapter {
   fun validate(request: MapSnapshotRequest) = Unit
 
+  /**
+   * Loads [baseStyle] if needed and applies the size and camera of [request] to the engine map, so
+   * the returned viewport describes the transform the capture will render.
+   */
   suspend fun prepare(
     baseStyle: BaseStyle,
     baseStyleRevision: Long,
     request: MapSnapshotRequest,
-  ): StyleBinding
+  ): SnapshotPreparation
 
   suspend fun capture(
     request: MapSnapshotRequest,
@@ -97,6 +102,9 @@ internal interface SnapshotterAdapter {
 
   suspend fun close()
 }
+
+/** The loaded style and the viewport of the request that [SnapshotterAdapter.prepare] applied. */
+internal class SnapshotPreparation(val binding: StyleBinding, val viewport: Viewport)
 
 /** Whether cancellation left the snapshotter engine and its loaded style available for reuse. */
 internal enum class SnapshotterEngineDisposition {
@@ -126,6 +134,7 @@ internal fun interface StyleCompositionEvaluator {
   suspend fun evaluate(
     content: @Composable @MaplibreComposable () -> Unit,
     style: StyleBinding,
+    viewport: Viewport,
     density: Density,
     layoutDirection: LayoutDirection,
     ownership: SnapshotStyleOwnership,
@@ -136,6 +145,7 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
   override suspend fun evaluate(
     content: @Composable @MaplibreComposable () -> Unit,
     style: StyleBinding,
+    viewport: Viewport,
     density: Density,
     layoutDirection: LayoutDirection,
     ownership: SnapshotStyleOwnership,
@@ -161,6 +171,7 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
             CompositionLocalProvider(
               LocalDensity provides density,
               LocalLayoutDirection provides layoutDirection,
+              LocalViewport provides viewport,
             ) {
               StyleContent(rootNode = root, publish = revision::complete, content = content)
             }
@@ -373,8 +384,9 @@ internal class MapSnapshotterImplementation(
           try {
             val currentClaim = claimStyle()
             claim = currentClaim
-            val currentBinding =
+            val prepared =
               platform.prepare(currentClaim.baseStyle, currentClaim.revision, capture.request)
+            val currentBinding = prepared.binding
             binding = currentBinding
             val request = capture.request
             val evaluationOwnership =
@@ -383,6 +395,7 @@ internal class MapSnapshotterImplementation(
               styleEvaluator.evaluate(
                 styleContent,
                 currentBinding,
+                prepared.viewport,
                 Density(request.density, request.fontScale),
                 request.layoutDirection,
                 evaluationOwnership,

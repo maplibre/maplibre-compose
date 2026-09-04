@@ -6,7 +6,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import js.objects.unsafeJso
@@ -965,14 +964,7 @@ internal class GlJsMapSession(
     withMap(
       VisibleRegion(Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0))
     ) { map ->
-      val width = appliedExtent.width.toDouble()
-      val height = appliedExtent.height.toDouble()
-      VisibleRegion(
-        farLeft = map.unprojectAt(0.0, 0.0),
-        farRight = map.unprojectAt(width, 0.0),
-        nearLeft = map.unprojectAt(0.0, height),
-        nearRight = map.unprojectAt(width, height),
-      )
+      map.readVisibleRegion(appliedExtent.width.toDouble(), appliedExtent.height.toDouble())
     }
 
   override fun getViewport(): Viewport? =
@@ -981,13 +973,7 @@ internal class GlJsMapSession(
       // the transform the conversions read all describe the same viewport here.
       val extent = appliedExtent
       if (extent.isEmpty) return@withMap null
-      val camera = getCameraPosition()
-      Viewport(
-        size = DpSize(extent.width.dp, extent.height.dp),
-        visibleBoundingBox = getVisibleBoundingBox(),
-        visibleRegion = getVisibleRegion(),
-        metersPerDpAtTarget = metersPerDpAtLatitude(camera.zoom, camera.target.latitude),
-      )
+      map.readViewport(extent.width.toDouble(), extent.height.toDouble())
     }
 
   override fun setRenderSettings(value: RenderOptions) {
@@ -1292,15 +1278,6 @@ internal class GlJsMapSession(
 
   private fun PaddingOptions.sameAs(other: PaddingOptions): Boolean =
     top == other.top && left == other.left && bottom == other.bottom && right == other.right
-
-  private fun MaplibreMap.unprojectAt(x: Double, y: Double): Position =
-    unproject(
-        unsafeJso<Point> {
-          this.x = x
-          this.y = y
-        }
-      )
-      .toPosition()
 
   internal companion object {
     const val OFFSCREEN_CONTAINER_STYLE =

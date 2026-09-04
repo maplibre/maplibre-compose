@@ -47,7 +47,7 @@ import org.maplibre.compose.expressions.value.IconRotationAlignment
 import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.SymbolLayer
-import org.maplibre.compose.map.MapStyleScope
+import org.maplibre.compose.map.LocalViewport
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.rememberGeoJsonSource
@@ -84,7 +84,7 @@ import org.maplibre.spatialk.units.extensions.meters
  *   long-clicked.
  */
 @Composable
-public fun MapStyleScope.LocationPuck(
+public fun LocationPuck(
   idPrefix: String,
   locationState: LocationState,
   oldLocationThreshold: Duration = 30.seconds,
@@ -139,7 +139,7 @@ public fun MapStyleScope.LocationPuck(
  *   long-clicked.
  */
 @Composable
-public fun MapStyleScope.LocationPuck(
+public fun LocationPuck(
   idPrefix: String,
   location: LocationMeasurement?,
   measurementMark: TimeMark? = null,
@@ -165,7 +165,7 @@ public fun MapStyleScope.LocationPuck(
 }
 
 @Composable
-private fun MapStyleScope.LocationPuckContent(
+private fun LocationPuckContent(
   idPrefix: String,
   measurement: LocationPuckMeasurement?,
   oldLocationThreshold: Duration,
@@ -175,6 +175,7 @@ private fun MapStyleScope.LocationPuckContent(
   onClick: LocationClickHandler?,
   onLongClick: LocationClickHandler?,
 ) {
+  val viewport = LocalViewport.current
   val location = measurement?.location
   val bearing = measurement?.bearing
   val bearingAccuracy = measurement?.bearingAccuracy
@@ -191,8 +192,7 @@ private fun MapStyleScope.LocationPuckContent(
       switch(
         condition(test = isOldLocation, output = const(0.dp)),
         fallback =
-          (feature["accuracy"].asNumber() /
-              const((mapState.viewport?.metersPerDpAtTarget ?: 0.0).toFloat()))
+          (feature["accuracy"].asNumber() / const((viewport?.metersPerDpAtTarget ?: 0.0).toFloat()))
             .dp,
       ),
     color = const(colors.accuracyFillColor),

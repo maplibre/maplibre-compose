@@ -17,9 +17,6 @@ in sync with location changes:
 
 <Code code={region(location, "puck")} lang="kotlin" title="App.kt" />
 
-`LocationPuck` requires the map's viewport, so it applies only to the style
-block of an interactive map. A snapshotter has no viewport.
-
 All platforms provide default location providers. Android and iOS also provide
 default heading providers. <Api of="LocationState.availability" /> reports an
 unsupported or misconfigured provider before the application requests permission.

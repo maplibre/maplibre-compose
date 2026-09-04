@@ -10,7 +10,6 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.unit.dp
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicLong
@@ -19,7 +18,6 @@ import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.math.PI
-import kotlin.math.round
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
@@ -69,7 +67,6 @@ import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.metersPerDpAtLatitude
 import org.maplibre.compose.util.renderedQueryOptions
 import org.maplibre.compose.util.toCameraOptions
-import org.maplibre.compose.util.toCameraPosition
 import org.maplibre.compose.util.toDpOffset
 import org.maplibre.compose.util.toEdgeInsets
 import org.maplibre.compose.util.toGeoJsonFeatures
@@ -1268,42 +1265,13 @@ internal class MlnFfiMapSession(
 
   /** Owner thread only. Publishes the applied camera and viewport for any-thread getters. */
   private fun snapshotViewport(map: MapHandle) {
-    val size = map.size
-    val corners = map.unprojectedCorners()
-    val visibleRegion =
-      VisibleRegion(
-        farLeft = corners[0],
-        farRight = corners[1],
-        nearLeft = corners[2],
-        nearRight = corners[3],
-      )
-    val center =
-      map
-        .latLngsForPixels(listOf(ScreenPoint(size.width / 2.0, size.height / 2.0)))
-        .first()
-        .toPosition()
-    val unwrapped = corners.map { it.unwrapAround(center) }
-    // mbgl wraps unprojected longitudes to ±180, so a viewport astride the antimeridian would hull
-    // to a box spanning nearly the whole world. Unwrap the corners around the center first; like
-    // GL JS, the box may then extend past ±180.
+    val geometry = map.readViewportGeometry()
     publishViewport(
       MirroredViewport(
-        camera = map.camera.toCameraPosition(),
-        size = DpSize(size.width.dp, size.height.dp),
-        visibleRegion = visibleRegion,
-        boundingBox =
-          BoundingBox(
-            southwest =
-              Position(
-                longitude = unwrapped.minOf { it.longitude },
-                latitude = unwrapped.minOf { it.latitude },
-              ),
-            northeast =
-              Position(
-                longitude = unwrapped.maxOf { it.longitude },
-                latitude = unwrapped.maxOf { it.latitude },
-              ),
-          ),
+        camera = geometry.camera,
+        size = geometry.size,
+        visibleRegion = geometry.visibleRegion,
+        boundingBox = geometry.boundingBox,
         // A fresh handle per snapshot: createProjection freezes the transform at creation.
         projection = map.createProjection(),
       )
@@ -1554,31 +1522,6 @@ internal class MlnFfiMapSession(
       metersPerDpAtTarget =
         metersPerDpAtLatitude(mirror.camera.zoom, mirror.camera.target.latitude),
     )
-  }
-
-  /**
-   * The map's corners as positions, ordered top-left, top-right, bottom-left, bottom-right.
-   *
-   * `latLngBoundsForCamera` hulls only the top-left and bottom-right corners, so it misses parts of
-   * the viewport whenever the camera is rotated or pitched. Unproject all four corners instead.
-   */
-  private fun MapHandle.unprojectedCorners(): List<Position> {
-    val width = size.width.toDouble()
-    val height = size.height.toDouble()
-    return latLngsForPixels(
-        listOf(
-          ScreenPoint(0.0, 0.0),
-          ScreenPoint(width, 0.0),
-          ScreenPoint(0.0, height),
-          ScreenPoint(width, height),
-        )
-      )
-      .map { it.toPosition() }
-  }
-
-  private fun Position.unwrapAround(center: Position): Position {
-    val delta = round((center.longitude - longitude) / 360.0) * 360.0
-    return if (delta == 0.0) this else Position(longitude = longitude + delta, latitude = latitude)
   }
 
   override fun setRenderSettings(value: RenderOptions) {

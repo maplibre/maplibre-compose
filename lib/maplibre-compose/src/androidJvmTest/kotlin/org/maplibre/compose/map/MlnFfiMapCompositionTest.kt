@@ -169,8 +169,8 @@ class MlnFfiMapCompositionTest {
         onDispose {}
       }
     }
-    val first = runtime.createMapState(baseStyle = BaseStyle.Empty) { content() }
-    val second = runtime.createMapState(baseStyle = BaseStyle.Empty) { content() }
+    val first = runtime.createMapState(baseStyle = BaseStyle.Empty, content = content)
+    val second = runtime.createMapState(baseStyle = BaseStyle.Empty, content = content)
 
     setFfiTestMapContent(runtimeOptions, presentationCount = 2) {
       if (showFirst) {
@@ -228,7 +228,7 @@ class MlnFfiMapCompositionTest {
           onDispose {}
         }
       }
-      val state = runtime.createMapState(baseStyle = BaseStyle.Empty) { content() }
+      val state = runtime.createMapState(baseStyle = BaseStyle.Empty, content = content)
 
       setFfiTestMapContent(runtimeOptions) { MaplibreMap(state = state) }
       waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {

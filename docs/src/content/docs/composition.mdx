@@ -47,11 +47,16 @@ without extra code. An `Anchor` that names a base layer applies only when that
 layer exists in the new style.
 
 To share one definition between several maps, write the style content as a
-composable function and call that function from each style block. A function
-with no receiver works in `rememberMapState`, `MapRuntime.createMapState`, and
-`MapRuntime.createSnapshotter`. A function with a <Api of="MapStyleScope" />
-receiver takes the `mapState` value from the scope, so it applies only to an
-interactive map.
+composable function and call that function from each style block. The same
+function applies to `rememberMapState`, `MapRuntime.createMapState`, and
+`MapRuntime.createSnapshotter`.
+
+Style content reads its host through two composition locals.
+<Api of="LocalViewport" /> contains the viewport that the content is evaluated
+for. An interactive map provides its rendered viewport, which is null until the
+map has drawn a frame, and a snapshotter provides the viewport of the capture
+request. <Api of="LocalMapState" /> contains the interactive map, and a read of
+it inside a snapshotter fails with `IllegalStateException`.
 
 ## Layer and source IDs
 

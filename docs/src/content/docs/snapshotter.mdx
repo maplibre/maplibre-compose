@@ -24,7 +24,8 @@ The request width and height are logical pixels. Its density scales the output
 bitmap and evaluates `Dp` values in the content block. Pass
 `LocalDensity.current` and `LocalLayoutDirection.current` from the calling
 composable to match the displayed map. The `640` by `360` request uses a `640`
-by `360` logical-pixel viewport.
+by `360` logical-pixel viewport. The content block reads the viewport of the
+request through <Api of="LocalViewport" />.
 
 For repeated captures, keep one snapshotter and call `capture` again with a new
 request. Calls that overlap execute in submission order. Close the snapshotter
