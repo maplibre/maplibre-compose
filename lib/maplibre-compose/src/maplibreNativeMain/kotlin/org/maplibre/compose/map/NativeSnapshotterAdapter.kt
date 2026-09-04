@@ -79,10 +79,10 @@ private class NativeSnapshotterAdapter(
   ): SnapshotPreparation = runNativeRequest {
     ensureEngine(request)
     currentDensity = request.density
-    val viewport = configureRequest(request)
+    configureRequest(request)
     val current = styleBinding
     if (baseStyleRevision == loadedBaseStyleRevision && current?.isLoaded == true) {
-      return@runNativeRequest SnapshotPreparation(current, viewport)
+      return@runNativeRequest SnapshotPreparation(current, readViewport(request))
     }
 
     current?.invalidate()
@@ -97,7 +97,7 @@ private class NativeSnapshotterAdapter(
     loadedBaseStyleRevision = baseStyleRevision
     SnapshotPreparation(
       binding = checkNotNull(styleBinding) { "MapLibre reported a loaded style without a binding" },
-      viewport = viewport,
+      viewport = readViewport(request),
     )
   }
 
@@ -214,33 +214,28 @@ private class NativeSnapshotterAdapter(
     }
   }
 
-  private suspend fun configureRequest(request: MapSnapshotRequest): Viewport {
+  private suspend fun configureRequest(request: MapSnapshotRequest) {
     val currentEngine = checkNotNull(engine)
     val currentLoop = currentEngine.loop
     val extent = request.extent()
     val resized = NativeSnapshotOperation(NativeSnapshotOperation.Kind.RESIZE)
     terminalOperation = resized
-    var geometry: MapViewportGeometry? = null
     try {
-      geometry =
-        checkNotNull(
-          currentLoop.call(
-            action = { map ->
-              currentEngine.resources.withSession { session ->
-                check(currentEngine.scaleFactor == extent.scaleFactor) {
-                  "The snapshot engine scale does not match the capture request"
-                }
-                session.resize(extent.width, extent.height, extent.scaleFactor)
+      checkNotNull(
+        currentLoop.call(
+          action = { map ->
+            currentEngine.resources.withSession { session ->
+              check(currentEngine.scaleFactor == extent.scaleFactor) {
+                "The snapshot engine scale does not match the capture request"
               }
-              map.jumpTo(request.cameraPosition.toCameraOptions(EdgeInsets.ZERO))
-              // Read on the same loop call that applied the size and camera, so the viewport
-              // describes the transform this capture renders.
-              map.readViewportGeometry()
+              session.resize(extent.width, extent.height, extent.scaleFactor)
             }
-          )
-        ) {
-          "The snapshotter engine map stopped during request configuration"
-        }
+            map.jumpTo(request.cameraPosition.toCameraOptions(EdgeInsets.ZERO))
+          }
+        )
+      ) {
+        "The snapshotter engine map stopped during request configuration"
+      }
       if (
         !currentLoop.postEventDrainBarrier(
           { resized.completion.complete(Result.success(Unit)) },
@@ -261,7 +256,19 @@ private class NativeSnapshotterAdapter(
     val resizeResult = resized.completion.await()
     if (terminalOperation === resized) terminalOperation = null
     resizeResult.getOrThrow()
-    val applied = checkNotNull(geometry)
+  }
+
+  /**
+   * Reads the viewport the next capture renders. Runs after the base style has loaded, because the
+   * style's projection shapes the visible region and bounds.
+   */
+  private suspend fun readViewport(request: MapSnapshotRequest): Viewport {
+    val currentEngine = checkNotNull(engine)
+    val extent = request.extent()
+    val applied =
+      checkNotNull(currentEngine.loop.call(action = { map -> map.readViewportGeometry() })) {
+        "The snapshotter engine map stopped before its viewport could be read"
+      }
     check(
       applied.size.width.value.toInt() == extent.width &&
         applied.size.height.value.toInt() == extent.height

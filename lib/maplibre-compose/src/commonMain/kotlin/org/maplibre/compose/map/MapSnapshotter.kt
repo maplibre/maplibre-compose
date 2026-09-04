@@ -83,8 +83,9 @@ internal interface SnapshotterAdapter {
   fun validate(request: MapSnapshotRequest) = Unit
 
   /**
-   * Loads [baseStyle] if needed and applies the size and camera of [request] to the engine map, so
-   * the returned viewport describes the transform the capture will render.
+   * Applies the size and camera of [request] to the engine map and loads [baseStyle] if needed. The
+   * returned viewport is read after both, so it describes the transform the capture renders,
+   * including the loaded style's projection.
    */
   suspend fun prepare(
     baseStyle: BaseStyle,
