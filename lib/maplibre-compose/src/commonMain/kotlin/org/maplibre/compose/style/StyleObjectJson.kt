@@ -37,10 +37,15 @@ internal fun JsonObjectBuilder.putExpression(name: String, expression: Expressio
   if (json !is JsonNull) put(name, json)
 }
 
-/** Encodes [this] as the spec's transition object, in milliseconds. */
+/**
+ * Encodes [this] as the spec's transition object, in milliseconds. Duration and delay are
+ * multiplied by the platform's animator duration scale, so Android's system setting slows or
+ * silences every transition the library writes.
+ */
 internal fun TransitionOptions.toTransitionJson(): JsonObject = buildJsonObject {
-  put("duration", duration.toDouble(DurationUnit.MILLISECONDS))
-  put("delay", delay.toDouble(DurationUnit.MILLISECONDS))
+  val scaled = scaledBy(animatorDurationScale())
+  put("duration", scaled.duration.toDouble(DurationUnit.MILLISECONDS))
+  put("delay", scaled.delay.toDouble(DurationUnit.MILLISECONDS))
 }
 
 /**

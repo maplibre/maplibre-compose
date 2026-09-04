@@ -62,6 +62,9 @@ public class StyleImages internal constructor(private val style: MapStyleState) 
  *
  * A base-style reload replaces the transition with the one that the new style declares. A still
  * snapshot ignores the duration and delay.
+ *
+ * On Android, the system animator duration scale scales the transition, including the one that a
+ * base style declares.
  */
 @Stable
 public class StyleTransition internal constructor(private val style: MapStyleState) {

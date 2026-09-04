@@ -78,7 +78,9 @@ import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.TransitionOptions
+import org.maplibre.compose.style.animatorDurationScale
 import org.maplibre.compose.style.canUpdateTo
+import org.maplibre.compose.style.scaledBy
 import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.compose.util.VisibleRegion
@@ -228,7 +230,7 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   internal fun transitionOptions(): TransitionOptions? = readStyle { it.transition() }
 
   internal fun setTransitionOptions(options: TransitionOptions) {
-    mutateStyle("the transition") { it.setTransition(options) }
+    mutateStyle("the transition") { it.setTransition(options.scaledBy(animatorDurationScale())) }
   }
 
   internal fun placementTransitions(): Boolean? = readStyle { it.placementTransitions() }
@@ -314,11 +316,20 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   }
 
   internal fun updateLoadedStyle(style: StyleBinding?) {
+    val previous = loadedStyle.load()
     loadedStyle.store(style)
     sourceIdentities.store(emptyMap())
     layerIdentities.store(emptyMap())
     sourcesState = emptyMap()
     layersState = emptyMap()
+    // A new base style carries the transition its JSON declares, or the engine's default. Scale it
+    // by the platform's animator duration scale so the global transition honors the system
+    // setting. The direct binding call must not route through setTransitionOptions, which scales.
+    if (style != null && style !== previous) {
+      runCatching {
+        style.transition()?.let { style.setTransition(it.scaledBy(animatorDurationScale())) }
+      }
+    }
   }
 
   internal fun invalidateLoadedStyle() {
@@ -846,16 +857,26 @@ internal constructor(
     it.fitCameraToBounds(boundingBox, bearing, tilt, padding)
   }
 
-  /** Waits for an attached map, then animates to [position]. A new animation replaces this one. */
+  /**
+   * Waits for an attached map, then animates to [position]. A new animation replaces this one.
+   *
+   * On Android, the system animator duration scale multiplies [duration]. A scale of zero jumps to
+   * [position].
+   */
   public suspend fun animateCameraPosition(
     position: CameraPosition,
     duration: Duration = 300.milliseconds,
   ): Unit = cameraMutation.mutate {
-    retryAcrossAttachments { it.animateCameraPosition(position, duration) }
+    retryAcrossAttachments {
+      it.animateCameraPosition(position, duration.scaledBy(animatorDurationScale()))
+    }
   }
 
   /**
    * Waits for a viewport, then animates to fit [boundingBox]. A new animation replaces this one.
+   *
+   * On Android, the system animator duration scale multiplies [duration]. A scale of zero jumps to
+   * fit [boundingBox].
    */
   public suspend fun animateCameraToBounds(
     boundingBox: BoundingBox,
@@ -865,7 +886,13 @@ internal constructor(
     duration: Duration = 300.milliseconds,
   ): Unit = cameraMutation.mutate {
     retryAcrossAttachments {
-      it.animateCameraToBounds(boundingBox, bearing, tilt, padding, duration)
+      it.animateCameraToBounds(
+        boundingBox,
+        bearing,
+        tilt,
+        padding,
+        duration.scaledBy(animatorDurationScale()),
+      )
     }
   }
 
