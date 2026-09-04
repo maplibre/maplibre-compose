@@ -96,12 +96,24 @@ out of scope here and stay on #1248.
 
 ### Observable state
 
-`MapState` exposes the engaged state as an observable property. The map draws no
-indicator itself, because the overlay controls also draw their own chrome, and
-an app that renders a hint needs the state rather than a fixed drawing.
+`MapState` exposes the focused state and the engaged state as observable
+properties. The overlay is a sibling of the input node, so it cannot attach an
+`onFocusChanged` modifier to it and reads the state instead.
 
-The property is a read. Engagement is an input-node lifecycle, like the gesture
-token, so the node owns the writes.
+The properties are reads. Focus and engagement are an input-node lifecycle, like
+the gesture token, so the node owns the writes.
+
+### Focus ring
+
+The ring is an overlay composable in `MapOverlay.Default`, so `Full` and the
+Material 3 presets inherit it. It fills the overlay with a border-only drawing,
+appears while the map is focused and `LocalInputModeManager` reports keyboard
+mode, and draws a stronger stroke while the map is engaged. Touch users never
+see it, the same rule that Material applies to its own focus indication. The
+Material 3 module draws it in the theme's primary color.
+
+The ring is a drawing only. A focusable or a pointer handler on it would take
+presses from the map.
 
 ## Demo app
 
@@ -118,10 +130,8 @@ cannot reach any of them from the map, so the demo wires the route explicitly.
 - On the compact layout with the panel open, the map is under the panel. Its
   `focusProperties` set `canFocus = false`, matching the accessibility hide that
   is already there.
-- A focus ring and a one-line hint at the map edge render from the two states:
-  "Select to navigate the map" while focused, "Back to leave" while engaged.
-  They show only while `LocalInputModeManager` reports keyboard mode, so touch
-  users never see them.
+- The demo uses the `Full` and Material 3 presets, so it inherits the focus ring
+  and draws no indicator of its own.
 - The settings dropdowns use `ExposedDropdownMenuBox` over a read-only text
   field. Check them on a D-pad. If Select does not open them, a list dialog
   replaces them in keyboard mode.
@@ -151,9 +161,10 @@ UI test host covers Tab and arrow traversal through the shell.
    before step 2.
 2. **Engagement.** The engaged state, the transitions, conditional focusability,
    and the semantics, in `MapInput.kt`, with the test cases above.
-3. **Observable state.** The engaged property on `MapState`.
-4. **Demo wiring.** The focus route, the hint, and the dropdown check, then the
-   TV emulator pass.
+3. **Observable state and ring.** The focused and engaged properties on
+   `MapState`, then the ring in the overlay presets and its Material 3 version.
+4. **Demo wiring.** The focus route and the dropdown check, then the TV emulator
+   pass.
 
 ## Alignment with the gesture redesign
 
