@@ -33,20 +33,18 @@ internal suspend fun desktopMbtilesPath(uri: String, directory: File): String =
     if (parsed.scheme.equals("file", ignoreCase = true)) {
       return@withContext Paths.get(parsed).toAbsolutePath().toString()
     }
-    val jar = jarFileOf(parsed)
+    requireJarOnDisk(parsed)
     val copy =
       copyPackagedFile(
         uri = uri,
         directory = directory,
-        // A jar entry changes only with its jar, so the jar identifies the copy.
-        stamp = "${jar.length()}-${jar.lastModified()}",
         open = { parsed.toURL().openConnection().apply { useCaches = false }.getInputStream() },
       )
     copy.absolutePath
   }
 
-/** The jar on disk that holds the entry at [uri], which is a `jar:file:` URI. */
-private fun jarFileOf(uri: URI): File {
+/** Requires [uri] to be a `jar:file:` URI whose jar exists. */
+private fun requireJarOnDisk(uri: URI) {
   val rejection = "mbtilesUrl reads a file: URI or a jar: entry in a jar on disk, not '$uri'"
   require(uri.scheme.equals("jar", ignoreCase = true)) { rejection }
   val connection =
@@ -56,5 +54,4 @@ private fun jarFileOf(uri: URI): File {
   }
     .getOrElse { throw IllegalArgumentException(rejection, it) }
   require(jar.isFile) { "'$uri' names a jar that does not exist: $jar" }
-  return jar
 }

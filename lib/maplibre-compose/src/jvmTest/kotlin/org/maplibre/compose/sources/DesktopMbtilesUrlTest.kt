@@ -7,6 +7,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
@@ -47,14 +48,11 @@ class DesktopMbtilesUrlTest {
       )
 
     val first = desktopMbtilesPath(uri, directory)
-    val copiedAt = File(first).lastModified()
-    Thread.sleep(20)
     val second = desktopMbtilesPath(uri, directory)
 
     assertEquals(first, second)
     assertEquals("first", File(first).readText())
-    assertEquals(copiedAt, File(second).lastModified(), "the second call reused the copy")
-    assertTrue(File(first).name.endsWith("city.mbtiles"), first)
+    assertEquals(listOf(File(first).name), directory.list()?.toList(), "one copy, no leftovers")
   }
 
   @Test
@@ -64,22 +62,35 @@ class DesktopMbtilesUrlTest {
     val first = desktopMbtilesPath(uri, directory)
     assertEquals("first", File(first).readText())
 
-    Thread.sleep(20)
     fixture.jarEntry("app.jar", "files/city.mbtiles", mapOf("files/city.mbtiles" to "second!"))
     val second = desktopMbtilesPath(uri, directory)
 
-    assertEquals(first, second)
+    assertNotEquals(first, second, "a changed resource gets a new copy")
     assertEquals("second!", File(second).readText())
-    assertNotEquals("first", File(second).readText())
+    assertEquals("first", File(first).readText(), "the old copy stays until it is unused")
   }
 
   @Test
-  fun `entries whose URIs share a name and a hash code keep their own copies`() = runTest {
-    // "Aa" and "BB" have the same String.hashCode, so these two URIs collide.
+  fun `a copy that no call has used for a month is deleted`() = runTest {
+    val old =
+      File(directory, "0000.mbtiles").apply {
+        parentFile.mkdirs()
+        writeText("old")
+      }
+    old.setLastModified(System.currentTimeMillis() - 31L * 24 * 60 * 60 * 1000)
+    val uri = fixture.jarEntry("app.jar", "city.mbtiles", mapOf("city.mbtiles" to "new"))
+
+    val copy = desktopMbtilesPath(uri, directory)
+
+    assertFalse(old.exists(), "the unused copy was deleted")
+    assertTrue(File(copy).isFile)
+  }
+
+  @Test
+  fun `entries with the same name keep their own copies`() = runTest {
     val entries = mapOf("Aa/city.mbtiles" to "from Aa", "BB/city.mbtiles" to "from BB")
     val first = fixture.jarEntry("app.jar", "Aa/city.mbtiles", entries)
     val second = fixture.jarEntry("app.jar", "BB/city.mbtiles", entries)
-    assertEquals(first.hashCode(), second.hashCode(), "the URIs must collide for this to be a test")
 
     assertEquals("from Aa", File(desktopMbtilesPath(first, directory)).readText())
     assertEquals("from BB", File(desktopMbtilesPath(second, directory)).readText())

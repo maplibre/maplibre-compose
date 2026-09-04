@@ -11,8 +11,9 @@ import androidx.compose.runtime.produceState
  * MapLibre Native opens an MBTiles file through SQLite, so the file must be on the file system. A
  * `file:` URI that names a file on the file system converts directly. A URI that names a packaged
  * resource, such as an Android asset or a jar entry in a packaged desktop application, is copied
- * into the application's cache directory on the first call. A later call reuses the copy until the
- * application package changes.
+ * into the application's cache directory. The copy is named by a digest of its content, so every
+ * call reads the resource to identify it, and a later call reuses the copy while the content is
+ * unchanged.
  *
  * `Res.getUri` from Compose Resources returns one of these URIs on every platform except the
  * browser.
