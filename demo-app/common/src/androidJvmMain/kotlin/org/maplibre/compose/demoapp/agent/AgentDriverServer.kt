@@ -39,7 +39,7 @@ internal expect val agentPlatformName: String
 @Composable internal expect fun rememberAgentScreenshotCapture(): (suspend () -> ByteArray)?
 
 @Composable
-internal actual fun StartAgentDriver(state: DemoAppState) {
+actual fun StartAgentDriver(state: DemoAppState) {
   val density = LocalDensity.current
   val screenshotCapture = rememberAgentScreenshotCapture()
   val driver =

@@ -3,15 +3,17 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: boot-android-emulator <api-level> [--headless]" >&2
+  echo "Usage: boot-android-emulator <api-level> [--headless] [--wear]" >&2
   exit 2
 }
 
 api_level=
 headless=false
+wear=false
 for arg in "$@"; do
   case "$arg" in
     --headless) headless=true ;;
+    --wear) wear=true ;;
     -*) usage ;;
     *)
       [[ -z "$api_level" ]] || usage
@@ -26,10 +28,19 @@ case "$(uname -m)" in
   arm64 | aarch64) abi=arm64-v8a ;;
   *) abi=x86_64 ;;
 esac
-image="system-images;android-${api_level};default;${abi}"
+# Wear OS 6 and later images carry the "signed" tag; the earlier ones are plain android-wear.
+if [[ "$wear" == true ]]; then
+  tag=android-wear-signed
+  device_profile=wearos_small_round
+  avd_name="maplibre-compose-wear-${api_level}-${abi}"
+else
+  tag=default
+  device_profile=
+  # The ABI is in the name so a device built for another host is never reused.
+  avd_name="maplibre-compose-${api_level}-${abi}"
+fi
+image="system-images;android-${api_level};${tag};${abi}"
 serial=emulator-5554
-# The ABI is in the name so a device built for another host is never reused.
-avd_name="maplibre-compose-${api_level}-${abi}"
 sdk_root="$("$(dirname "${BASH_SOURCE[0]}")/android-sdk-root")"
 project_root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 state_dir="$project_root/build/android-emulator"
@@ -141,7 +152,11 @@ if [[ ! -d "$ANDROID_AVD_HOME/$avd_name.avd" ]]; then
   # Leave the device profile to avdmanager: a modern handset profile hangs the
   # older API levels, which never reach their shell service. `no` declines the
   # custom hardware prompt.
-  "$avdmanager" create avd --name "$avd_name" --package "$image" <<<"no"
+  create=("$avdmanager" create avd --name "$avd_name" --package "$image")
+  if [[ -n "$device_profile" ]]; then
+    create+=(--device "$device_profile")
+  fi
+  "${create[@]}" <<<"no"
 fi
 
 if [[ -f "$pid_file" ]]; then
@@ -226,7 +241,7 @@ while ((SECONDS < deadline)); do
     exit 1
   fi
   if boot_completed; then
-    echo "Android emulator for API $api_level ($abi) is ready at $serial."
+    echo "Android emulator for API $api_level ($abi${device_profile:+, $device_profile}) is ready at $serial."
     adb_probe 20 shell input keyevent 82 >/dev/null || true
     exit 0
   fi

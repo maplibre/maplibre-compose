@@ -35,7 +35,7 @@ import org.maplibre.spatialk.geojson.toJson
  * [DemoAppState] over a JSON API so AI agents can drive the demo app. A no-op on platforms that
  * cannot host a server (iOS, web). For local development only; there is no authentication.
  */
-@Composable internal expect fun StartAgentDriver(state: DemoAppState)
+@Composable expect fun StartAgentDriver(state: DemoAppState)
 
 /** An error the driver reports to the HTTP client with [statusCode]. */
 internal class AgentException(val statusCode: Int, message: String) : Exception(message)
