@@ -208,6 +208,9 @@ internal class GlJsMapSession(
 
   override fun render(target: GlJsFrameTarget, extent: MapExtent): Boolean {
     if (!lifecycle.acceptsWork || extent.isEmpty) return false
+    // A replacement base style has no application resources until its complete desired revision
+    // has been reconciled. Leave the shared target unchanged so Compose retains the previous frame.
+    if (hasPresentableStyle && !revisionApplied) return false
     // A detached map cannot later adopt a context: everything it uploaded belongs to the one it
     // has.
     val composited = target as? GlJsFrameTarget.Composited
