@@ -51,9 +51,8 @@ import org.maplibre.compose.overlay.attributions
 @Composable
 fun WearDemoApp(state: DemoAppState = rememberDemoAppState()) {
   StartAgentDriver(state)
-  // Watches run dark.
   LaunchedEffect(state.settings) { state.settings.mapStyleMode = MapStyleMode.Dark }
-  // The demo panels compose against the phone Material theme; the shell uses Wear Material.
+  // The demo panels compose against the phone Material theme.
   DemoAppTheme(state) { MaterialTheme { WearShell(state) } }
 }
 
@@ -64,15 +63,13 @@ private val EdgeButtonInset = 56.dp
 private const val ZoomLevelsPerDetent = 0.5f
 
 /**
- * The demo list slides over the map rather than replacing it in a navigation graph. The map keeps
- * its surface, so returning to it costs no style reload, and the surface never goes away with a
- * frame in flight.
+ * The demo list slides over the map rather than replacing it in a navigation graph, so the map
+ * keeps its surface and its loaded style.
  */
 @Composable
 private fun WearShell(state: DemoAppState) {
   var listOpen by rememberSaveable { mutableStateOf(false) }
   val scope = rememberCoroutineScope()
-  // The map is immersive; the list screen brings the time back.
   AppScaffold(timeText = {}) {
     Box(Modifier.fillMaxSize().hierarchicalFocusGroup(active = !listOpen)) {
       MapScreen(state, onOpenDemos = { listOpen = true })
@@ -103,8 +100,7 @@ private fun MapScreen(state: DemoAppState, onOpenDemos: () -> Unit) {
   ScreenScaffold {
     Box(
       Modifier.fillMaxSize()
-        // Rotary events reach the focused node and bubble up. This node takes focus while the map
-        // is the active screen, and the map keeps its own focus after a touch.
+        // Rotary events need a focused node; the map takes focus itself once touched.
         .onRotaryScrollEvent { event ->
           val detents = with(density) { -event.verticalScrollPixels.toDp().value / 64f }
           val camera = state.mapState.cameraPosition
@@ -119,8 +115,6 @@ private fun MapScreen(state: DemoAppState, onOpenDemos: () -> Unit) {
       DemoMap(
         state,
         viewportInsets = MapViewportInsets(bottom = EdgeButtonInset),
-        // The attribution sits in the demo list, where it fits; the crown replaces the zoom
-        // buttons, and the rest would cover most of a watch map.
         overlay = MapOverlay.None,
       )
       EdgeButton(

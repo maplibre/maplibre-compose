@@ -25,7 +25,6 @@
       android:name="com.google.android.wearable.standalone"
       android:value="true"
     />
-    <!-- Its own affinity keeps the activity in the watch's recents list. -->
     <activity
       android:exported="true"
       android:taskAffinity=""
