@@ -392,7 +392,7 @@ class MapPresentationTest {
   }
 
   @Test
-  fun a_detached_map_keeps_durable_camera_commands_and_rejects_surface_operations() = runTest {
+  fun a_detached_map_keeps_durable_camera_commands_and_skips_surface_reads() = runTest {
     val fixture = presentationFixture()
     fixture.state.releasePresentation(fixture.token, fixture.adapter)
     val position = CameraPosition(zoom = 4.0)
@@ -400,9 +400,7 @@ class MapPresentationTest {
     fixture.state.setCameraPosition(position)
     assertEquals(position, fixture.state.cameraPosition)
     assertEquals(CameraPosition(), fixture.adapter.lastCameraPosition)
-    assertFailsWith<IllegalStateException> {
-      fixture.state.queryRenderedFeatures(DpOffset.Zero)
-    }
+    assertNull(fixture.state.positionFromScreenLocation(DpOffset.Zero))
     val viewportReads = fixture.adapter.viewportReads
     fixture.adapter.lastCameraPosition = CameraPosition(zoom = 7.0)
     assertNull(fixture.state.synchronizeCamera(fixture.adapter))
@@ -1238,6 +1236,26 @@ class MapPresentationTest {
     state.close()
     state.awaitClosed()
     runtime.close()
+  }
+
+  @Test
+  fun a_rendered_query_issued_while_detached_waits_for_the_next_attachment() = runTest {
+    val fixture = presentationFixture()
+    fixture.state.releasePresentation(fixture.token, fixture.adapter)
+    val replacement = PresentationTestAdapter()
+    supervisorScope {
+      val query = async { fixture.state.queryRenderedFeatures(DpOffset.Zero) }
+      testScheduler.runCurrent()
+      assertFalse(replacement.queryStarted.isCompleted)
+
+      val token = fixture.state.reservePresentation()
+      fixture.state.publishPresentation(token, replacement)
+      requireNotNull(fixture.state.currentMapAttachment).updateViewport(testViewport())
+      replacement.queryStarted.await()
+      assertFalse(fixture.adapter.queryStarted.isCompleted)
+      query.cancel()
+    }
+    fixture.close()
   }
 
   @Test
