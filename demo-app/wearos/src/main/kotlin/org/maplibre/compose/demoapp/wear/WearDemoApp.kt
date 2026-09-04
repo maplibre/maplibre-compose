@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -47,7 +48,10 @@ import org.maplibre.compose.overlay.AttributionLinks
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.attributions
 
-/** The watch shell: a full-screen map, a demo list one tap away, and the crown to zoom. */
+/**
+ * The watch shell: a full-screen map, the crown to zoom, and one tap away a list of demos with the
+ * selected demo's controls above it.
+ */
 @Composable
 fun WearDemoApp(state: DemoAppState = rememberDemoAppState()) {
   StartAgentDriver(state)
@@ -137,6 +141,10 @@ private fun DemosScreen(state: DemoAppState, onOpenDemo: (Demo) -> Unit) {
     timeText = { TimeText() },
   ) { contentPadding ->
     TransformingLazyColumn(state = listState, contentPadding = contentPadding) {
+      state.selectedDemo?.let { demo ->
+        item { ListHeader { Text(demo.name) } }
+        item { Column { with(demo) { Panel(state) } } }
+      }
       item { ListHeader { Text("Demos") } }
       items(allDemos) { demo ->
         Button(onClick = { onOpenDemo(demo) }, label = { Text(demo.name) })
