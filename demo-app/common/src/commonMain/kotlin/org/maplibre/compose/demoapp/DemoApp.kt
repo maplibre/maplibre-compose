@@ -44,7 +44,6 @@ import androidx.compose.ui.unit.lerp
 import androidx.window.core.layout.WindowSizeClass
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.vectorResource
-import org.maplibre.compose.demoapp.agent.StartAgentDriver
 import org.maplibre.compose.demoapp.benchmark.BenchmarkMap
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.chevron_left_24px
@@ -55,7 +54,6 @@ fun DemoApp(
   state: DemoAppState = rememberDemoAppState(),
   contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
-  StartAgentDriver(state)
   DemoAppTheme(state) { DemoShell(state, contentPadding) }
 }
 

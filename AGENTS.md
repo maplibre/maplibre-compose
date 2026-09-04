@@ -1,191 +1,78 @@
+# Repository guidance
+
+MapLibre Compose wraps MapLibre for Kotlin Multiplatform. Native platforms use
+`maplibre-native-ffi`; the browser uses hand-written MapLibre GL JS bindings.
+
+## Development
+
+Use mise tasks. `mise tasks --all` lists commands and `CONTRIBUTING.md` covers
+setup, demo launch, packaging, and documentation builds. `mise.toml` defines the
+tasks and tool versions; `mise.lock` locks the tools per platform.
+
+Avoid `./gradlew build`: it builds all targets, including iOS release
+frameworks, and can exhaust memory. For a task that mise does not provide, run
+one named Gradle task per invocation.
+
+- Static checks: `mise run check`; automatic fixes: `mise run fix`.
+- Android Lint: `mise run lint:android`.
+- Tests: `mise run test:android`, `test:android:device`, `test:ios`, `test:js`,
+  or `test:desktop`. Select the platforms affected by the change.
+- Documentation: `mise run build:docs` or `mise run //docs:dev`. These tasks
+  supply versions derived from Git tags; direct Gradle builds use placeholders.
+
+Keep verification proportional to the change. Extend existing tests for changed
+behavior; add coverage where it catches a regression. Report what ran, its
+result, and any untested platform or behavior that matters to the change.
+
+### Test and environment constraints
+
+`liveMapTest` needs a MapLibre runtime and Compose UI test host. Keep these
+tests out of `commonTest`, which Android host tests inherit. Android host and
+device tests live in `androidHostTest` and `androidDeviceTest` respectively.
+
+Browser tests run real maps in Chrome. Set `CHROME_BIN` if Karma cannot find it.
+Do not pass `--tests` to the browser suite; it silently runs no tests and
+reports success.
+
+Android SDK lookup is `local.properties`, then `ANDROID_HOME`, then
+`ANDROID_SDK_ROOT`. `mise run android-sdk-packages` installs required packages.
+Without an existing SDK, use `mise -E android install` and run Android tasks in
+that environment, for example `mise -E android run test:android`.
+
+### Build conventions
+
+Dependency, plugin, Android SDK, and JVM versions belong in
+`gradle/libs.versions.toml`. `gradle.properties` holds build switches and
+placeholder release versions. `.mise/bin/version-args` derives published
+versions from `vMAJOR.MINOR.PATCH` tags; keep Git access outside Gradle
+configuration.
+
+CI jobs call mise tasks. Change a job's build or test command in the task.
+Third-party action SHAs are declared in `.github/workflows/action-pins.yml`;
+`mise run ci:check-action-pins` verifies their consumers. `hk.pkl` defines the
+static checks and `dprint.jsonc` configures formatting.
+
+## Architecture and task guidance
+
+`demo-app/common` is the demo's only Kotlin Multiplatform module and contains
+the shared app. Android (phone and TV), AWT desktop, Nucleus desktop, and iOS
+modules launch it, and `demo-app/wearos` wraps its map in a Wear Compose shell.
+The browser entry point is in `common/src/jsMain`.
+
+- For repository prose and KDoc, use
+  [docs-writing](.agents/skills/docs-writing/SKILL.md).
+- For a MapLibre GL JS upgrade, use
+  [bump-maplibre-gl-js](.agents/skills/bump-maplibre-gl-js/SKILL.md).
+- For style properties, layer or source types, and engine support changes, use
+  [style-spec-parity](.agents/skills/style-spec-parity/SKILL.md).
+- For Material Symbols, use the Android vector XML in Google's
+  [symbols/android](https://github.com/google/material-design-icons/tree/master/symbols/android).
+
 ## Pull requests
 
-When you open a pull request, adhere to the
-[PULL_REQUEST_TEMPLATE.md](./.github/PULL_REQUEST_TEMPLATE.md) and open it in
-draft mode. The user is responsible for additional details and marking ready for
-review.
+Follow [PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md) and
+[AI_POLICY.md](AI_POLICY.md). Explain what reviewers need to understand the
+change, with detail proportional to its complexity.
 
-## Development commands
-
-Mise defines the tasks you run locally, pins every tool in `mise.toml`, and
-locks them per platform in `mise.lock`. `mise tasks` lists them all.
-
-List all tasks with `mise tasks --all`.
-
-Run a mise task rather than `./gradlew build`. The aggregate Gradle task builds
-every target at once, including the iOS release frameworks, and runs out of
-memory before it finishes. If you must run a Gradle task directly, name one task
-per `./gradlew` invocation. Two together can fail in ways neither does alone.
-
-### Building and running
-
-- `mise run build:desktop-app`
-- `mise run build:android-app`
-- `mise run build:ios:device`
-- `mise run demo:desktop`
-- `mise run demo:desktop-nucleus`
-- `mise run demo:android` (prompts when several devices are connected;
-  `--backend vulkan` packages the Vulkan runtime)
-- `mise run demo:android-tv` (the same Android app, for a TV or an emulator from
-  `android-emulator:boot --tv`)
-- `mise run demo:wearos` (the same, for a watch or a Wear emulator from
-  `android-emulator:boot --wear 36.1`)
-- `mise run demo:ios` (pass `--device` for a connected iPhone; prompts when
-  several are ready; `--release` builds the optimized framework)
-- `mise run demo:js`
-
-### Formatting and linting
-
-- **Report problems:** `mise run check`
-- **Fix what can be fixed:** `mise run fix`
-- **Android Lint:** `mise run lint:android`
-
-dprint formats every language in the repository, configured in `dprint.jsonc`.
-hk runs it, and runs actionlint, ruff, shellcheck, the Actions pins check, JSON
-schema validation, and the documentation site's type check. `hk.pkl` lists the
-steps.
-
-### Style spec
-
-`mise run style-spec:parity` compares the layer API with the pinned MapLibre
-style spec release at the pinned engines. `--check` fails when an in-scope layer
-type, source type, paint or layout property, or native unsupported-table row is
-missing. Follow the `style-spec-parity` skill in `.agents/skills/` to add one.
-
-### Documentation
-
-- **Generate docs:** `mise run build:docs` (Starlight site and Dokka API
-  reference, into `docs/dist`)
-- **Serve docs:** `mise run //docs:dev`
-
-The site is a pnpm workspace and its own mise config root, so its tasks run as
-`//docs:<task>`. Build the docs through a task. It passes the versions derived
-from the Git tags, which the site prints as the coordinates to depend on; Gradle
-on its own uses the `0.0.0` placeholders from `gradle.properties`.
-
-### Material Symbols
-
-Find Android vector XML under
-[`symbols/android/<icon-name>/`](https://github.com/google/material-design-icons/tree/master/symbols/android)
-in Google's official Material Design Icons repository.
-
-### Versions
-
-Every version the build pins lives in `gradle/libs.versions.toml`, including the
-Android SDK levels and JVM targets. `gradle.properties` is for build switches
-and the version placeholders below; do not add versions to it.
-
-Releases are tagged `vMAJOR.MINOR.PATCH`. `gradle.properties` holds placeholder
-versions. `.mise/bin/version-args` derives the real ones from the tags, and the
-tasks that publish or document a version pass them to Gradle. Run
-`mise run version [build|snapshot|release]` to see what a mode produces.
-
-The build itself never reads Git. Do not reintroduce a Gradle plugin that reads
-it at configuration time.
-
-### Android SDK
-
-The build reads `local.properties`, then `ANDROID_HOME`, then
-`ANDROID_SDK_ROOT`, so an SDK from Android Studio or a CI runner image works as
-it is. `mise run android-sdk-packages` adds the packages the build needs to that
-SDK.
-
-For a machine with no SDK, install the pinned SDK with
-`mise -E android install`. Run Android tasks in the same environment, such as
-`mise -E android run test:android`. The `android` environment sets
-`ANDROID_HOME` for each command.
-
-### Testing
-
-- **Android host:** `mise run test:android`
-- **Android device:** `mise run test:android:device [api-level]` (boots its own
-  headless emulator; `android-emulator:boot` opens a window by default)
-- **iOS:** `mise run test:ios` (boots its own simulator)
-- **Web:** `mise run test:js`
-- **Desktop:** `mise run test:desktop` (add `--backend <name>` to package a
-  non-default render backend, e.g. `opengl` on Linux)
-
-Tests live in platform-specific source sets:
-
-- Android device tests: `src/androidDeviceTest`
-- Android host tests: `src/androidHostTest`
-- iOS tests: `src/iosTest`
-- Common tests: `src/commonTest`
-- Live-map tests: `src/liveMapTest`
-- Browser tests: `src/jsTest`
-
-`liveMapTest` runs on every platform that hosts a MapLibre runtime. Those tests
-stay out of `commonTest` because `androidHostTest` inherits that source set and
-has no MapLibre runtime and no Compose UI test host.
-
-The browser tests drive a real map in headless Chrome. They need `CHROME_BIN` if
-Karma cannot find one, and they fail as timeouts rather than assertion
-mismatches if the machine idles, because that stalls `requestAnimationFrame` —
-so run them under `caffeinate -dimsu` on macOS. `--tests` silently runs nothing
-and still reports success.
-
-### CI
-
-Workflows live in `.github/workflows`. Each job covers one platform, and
-`hygiene` covers all static analysis. Every job installs its toolchain through
-`.github/actions/setup-ci-deps` and then runs a mise task. Change what a job
-does by changing the task rather than the YAML.
-
-Third-party actions are pinned to commit SHAs.
-`.github/workflows/action-pins.yml` declares every pin once, and
-`mise run ci:check-action-pins` fails when a reference disagrees with it.
-
-## Writing
-
-Follow the `docs-writing` skill in `.agents/skills/` for all prose: the
-documentation site, KDoc, and this file. It covers sentence style and page
-structure.
-
-## Architecture overview
-
-MapLibre Compose is a Kotlin Multiplatform wrapper around MapLibre SDKs for
-rendering interactive maps across Android, iOS, Desktop, and Web platforms.
-
-### Project structure
-
-- **`lib/`**: Core library modules
-  - `maplibre-compose`: Main map composables and core functionality
-  - `maplibre-compose-material3`: Material 3 themed UI components
-  - `location`: Location and heading providers, usable without a map
-  - `location-runtime-gms|hms|linux|macos|windows`: Location backends that
-    `ServiceLoader` discovers; gms upgrades Android location and heading through
-    Google Play services, hms upgrades Android location through HMS Core, and
-    the desktop backends supply the only desktop implementations
-- **`demo-app/`**: Multiplatform demo application
-  - `common`: Every line of the app, and the only Kotlin Multiplatform module
-  - `android`: An Android and Android TV application that launches `common`
-  - `wearos`: A Wear OS application with a watch shell around the map from
-    `common`; the only module that uses Wear Compose
-  - `desktop`: A JVM application that launches `common` on the AWT host
-  - `desktop-nucleus`: The same JVM application on the Nucleus Tao host.
-  - `ios`: An Xcode project that embeds the framework `common` produces
-
-  The browser app has no module of its own. Its entry point and page live in
-  `common/src/jsMain`, because a Kotlin/JS module would have to be a second
-  Kotlin Multiplatform module.
-- **`buildSrc/`**: Custom Gradle build conventions
-
-### Key packages
-
-- `org.maplibre.compose.map`: Core map composable and components
-- `org.maplibre.compose.camera`: Camera controls and positioning
-- `org.maplibre.compose.layers`: Layer composables for map visualization
-- `org.maplibre.compose.sources`: Data source composables
-- `org.maplibre.compose.expressions`: DSL for MapLibre expressions
-- `org.maplibre.compose.offline`: Offline map data management
-- `org.maplibre.compose.location`: Location engine
-
-### Platform implementation
-
-The library uses platform-specific implementations:
-
-- **Android/Desktop/iOS**: MapLibre Native Core via
-  [`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi)
-- **Web**: MapLibre GL JS, declared in `org.maplibre.compose.gljs`; the upstream
-  types it mirrors are at
-  `build/js/node_modules/maplibre-gl/dist/maplibre-gl.d.ts`
+Use draft status for unfinished work, unresolved decisions, or pending human
+review of generated code.
