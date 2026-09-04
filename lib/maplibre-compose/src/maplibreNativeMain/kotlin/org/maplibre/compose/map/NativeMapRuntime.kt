@@ -42,7 +42,8 @@ internal fun createNativeMapRuntime(options: MlnFfiRuntimeOptions): MapRuntime =
 private fun createNativeMapRuntimeImplementation(
   options: MlnFfiRuntimeOptions
 ): RuntimeImplementation {
-  val resourceConfig = MapResourceConfig(options.requestInterceptor, options.resourceProvider)
+  val resourceConfig =
+    MapResourceConfig(options.requestInterceptor, options.resourceProvider, options.logger)
   val offlineManager = MlnFfiOfflineManager(options, resourceConfig)
   return RuntimeImplementation(
     platformOptions = options,
