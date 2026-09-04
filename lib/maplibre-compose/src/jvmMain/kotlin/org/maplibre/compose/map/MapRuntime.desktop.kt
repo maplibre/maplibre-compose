@@ -1,35 +1,11 @@
 package org.maplibre.compose.map
 
-import androidx.compose.runtime.Composable
-import org.maplibre.compose.desktop.desktopRuntimeOptions
+import kotlinx.io.files.Path
+import org.maplibre.compose.desktop.desktopCachePath
 import org.maplibre.compose.desktop.inferredApplicationId
-import org.maplibre.compose.resource.MapRequestInterceptor
-import org.maplibre.compose.resource.MapResourceProvider
 
-/** Configuration for one desktop map runtime. */
-public actual data class MapRuntimeOptions(
-  /** Reverse-domain name for the runtime's cache directory. */
-  public val applicationId: String = inferredApplicationId(),
-  /** Ambient cache size in bytes, or null for MapLibre's default. */
-  public val maximumCacheSizeBytes: Long? = null,
-  /** Rewrites URLs and headers for every resource this runtime fetches. */
-  public val requestInterceptor: MapRequestInterceptor? = null,
-  /** Serves bytes for resource URLs this provider accepts. */
-  public val resourceProvider: MapResourceProvider? = null,
-)
+/** `maplibre-cache.db` in a per-user cache directory named after the process main class package. */
+internal actual fun defaultCacheFile(): Path =
+  Path(desktopCachePath(inferredApplicationId()).toString())
 
-internal fun MapRuntimeOptions.toMlnFfiRuntimeOptions() =
-  desktopRuntimeOptions(
-    applicationId,
-    maximumCacheSizeBytes,
-    requestInterceptor,
-    resourceProvider,
-  )
-
-public actual fun createMapRuntime(options: MapRuntimeOptions): MapRuntime =
-  createNativeMapRuntime(options.toMlnFfiRuntimeOptions())
-
-@Composable
-public actual fun rememberDefaultMapRuntime(): MapRuntime = DefaultMapRuntime.getOrCreate {
-  MapRuntimeOptions().toMlnFfiRuntimeOptions()
-}
+internal actual fun initializeNativePlatform() {}
