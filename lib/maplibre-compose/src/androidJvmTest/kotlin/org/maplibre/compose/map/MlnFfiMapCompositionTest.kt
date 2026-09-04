@@ -145,8 +145,8 @@ class MlnFfiMapCompositionTest {
 
     runOnUiThread { focusRequester.requestFocus() }
 
-    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { hasFocus.load() && state.isFocused }
-    assertEquals(MapEngagement.None, state.engagement, "a focus request engaged the map")
+    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { hasFocus.load() }
+    assertFalse(state.isEngaged, "a focus request engaged the map")
 
     runtime.close()
     runtime.awaitClosed()

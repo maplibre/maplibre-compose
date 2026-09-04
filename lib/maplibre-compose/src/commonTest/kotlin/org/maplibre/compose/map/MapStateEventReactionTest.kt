@@ -113,26 +113,20 @@ class MapStateEventReactionTest {
   }
 
   @Test
-  fun input_focus_follows_the_presented_map_and_ends_on_detach() = runTest {
+  fun engagement_follows_the_presented_map_and_ends_on_detach() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
     val state = runtime.createMapState(BaseStyle.Demo)
     val adapter = presentedAdapter(state)
     val other = PresentationTestAdapter()
 
-    state.setInputFocus(other, focused = true, engagement = MapEngagement.Keyboard)
-    assertFalse(state.isFocused)
-    assertEquals(MapEngagement.None, state.engagement)
+    state.setEngaged(other, engaged = true)
+    assertFalse(state.isEngaged)
 
-    state.setInputFocus(adapter, focused = true, engagement = MapEngagement.None)
-    assertTrue(state.isFocused)
-    assertEquals(MapEngagement.None, state.engagement)
-
-    state.setInputFocus(adapter, focused = true, engagement = MapEngagement.Pointer)
-    assertEquals(MapEngagement.Pointer, state.engagement)
+    state.setEngaged(adapter, engaged = true)
+    assertTrue(state.isEngaged)
 
     state.invalidatePresentation(adapter)
-    assertFalse(state.isFocused)
-    assertEquals(MapEngagement.None, state.engagement)
+    assertFalse(state.isEngaged)
 
     state.close()
     state.awaitClosed()

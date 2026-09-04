@@ -13,6 +13,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.InputMode
+import androidx.compose.ui.input.InputModeManager
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -443,17 +445,18 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun a_click_engages_the_map_without_consuming_back() = runFocusTest { target, unconsumed ->
-    val map = mapNode()
-    map.performMouseInput { click(Offset(10f, 10f)) }
-    map.performKeyInput { pressKey(Key.DirectionRight) }
-    waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.isNotEmpty() }
+  fun a_click_engages_the_map_without_consuming_back_in_touch_mode() =
+    runFocusTest(inputMode = InputMode.Touch) { target, unconsumed ->
+      val map = mapNode()
+      map.performMouseInput { click(Offset(10f, 10f)) }
+      map.performKeyInput { pressKey(Key.DirectionRight) }
+      waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.isNotEmpty() }
 
-    map.performKeyInput { pressKey(Key.Back) }
-    waitForIdle()
+      map.performKeyInput { pressKey(Key.Back) }
+      waitForIdle()
 
-    assertTrue(Key.Back in unconsumed, "the pointer-engaged map consumed Back")
-  }
+      assertTrue(Key.Back in unconsumed, "the engaged map consumed Back in touch mode")
+    }
 
   @Test
   fun a_map_with_every_keyboard_gesture_disabled_takes_no_tab_stop() =
@@ -476,6 +479,7 @@ class MapInputRecognitionTest {
    */
   private fun runFocusTest(
     options: GestureOptions = GestureOptions.Standard,
+    inputMode: InputMode = InputMode.Keyboard,
     body: ComposeUiTest.(RecordingGestureTarget, List<Key>) -> Unit,
   ) = runPlainComposeUiTest {
     val target = RecordingGestureTarget()
@@ -488,7 +492,7 @@ class MapInputRecognitionTest {
         }
       ) {
         Box(Modifier.size(40.dp).testTag(BEFORE_MAP_TAG).focusable())
-        Box(Modifier.size(200.dp)) { GestureHost(target, options) }
+        Box(Modifier.size(200.dp)) { GestureHost(target, options, inputMode) }
         Box(Modifier.size(40.dp).testTag(AFTER_MAP_TAG).focusable())
       }
     }
@@ -538,18 +542,36 @@ class MapInputRecognitionTest {
 }
 
 @Composable
-private fun GestureHost(target: RecordingGestureTarget, options: GestureOptions) {
+private fun GestureHost(
+  target: RecordingGestureTarget,
+  options: GestureOptions,
+  inputMode: InputMode = InputMode.Keyboard,
+) {
   val density = LocalDensity.current
   val focusRequester = remember { FocusRequester() }
-  val focus = remember { MapInputFocus { _, _ -> } }
-  val strings = remember { MapInputStrings("map", "engaged", "not engaged") }
+  val focus = remember { MapInputFocus {} }
+  val environment =
+    remember(inputMode) {
+      MapInputEnvironment(
+        contentDescription = "map",
+        engaged = "engaged",
+        notEngaged = "not engaged",
+        indication = null,
+        inputModeManager = FixedInputMode(inputMode),
+      )
+    }
   val inputScope = rememberCoroutineScope()
   val continuation = remember(inputScope) { GestureContinuation(inputScope) }
   Box(
     Modifier.fillMaxSize()
       .testTag(RECOGNITION_MAP_TAG)
-      .mapInput(target, target, options, density, focusRequester, focus, strings, continuation)
+      .mapInput(target, target, options, density, focusRequester, focus, environment, continuation)
   )
+}
+
+/** The host's input mode never changes in these tests, so the map reads a fixed one. */
+private class FixedInputMode(override val inputMode: InputMode) : InputModeManager {
+  override fun requestInputMode(inputMode: InputMode) = false
 }
 
 /**

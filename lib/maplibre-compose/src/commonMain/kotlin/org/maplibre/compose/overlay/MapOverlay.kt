@@ -156,16 +156,13 @@ public class MapOverlay(
     }
 
     /**
-     * A focus ring around the map, a scale bar and a compass along the top edge, and the controls
-     * from [AttributionOnly] along the bottom edge. The focus ring, the scale bar, and the compass
-     * appear only while they are relevant.
+     * A scale bar and a compass along the top edge, and the controls from [AttributionOnly] along
+     * the bottom edge. The scale bar and the compass appear only while they are relevant.
      *
      * A [MaplibreMap][org.maplibre.compose.map.MaplibreMap] draws these unless the caller replaces
      * them.
      */
     public val Default: MapOverlay = MapOverlay {
-      FocusRing()
-
       DisappearingScaleBar(
         metersPerDp = mapState.viewport?.metersPerDpAtTarget ?: 0.0,
         zoom = mapState.cameraPosition.zoom,
@@ -221,7 +218,6 @@ internal fun MapOverlayHost(
         when (child) {
           is OverlayChildData.PlacedAt,
           is OverlayChildData.PlacedTowards -> Constraints()
-          is OverlayChildData.Fill -> Constraints(maxWidth = width, maxHeight = height)
           else -> alignedConstraints
         }
       measurable.measure(childConstraints)
@@ -257,7 +253,6 @@ internal fun MapOverlayHost(
             // edge.
             placeable.place(x, y)
           }
-          is OverlayChildData.Fill -> placeable.place(0, 0)
           is OverlayChildData.PlacedTowards -> {
             val intersection =
               if (viewport == null || innerWidth == 0 || innerHeight == 0) null
@@ -317,9 +312,6 @@ internal class MapOverlayScopeImpl(
     this.then(PlacedTowardsElement(position, state))
 }
 
-/** Measures this child against the full overlay, insets included, and places it at the origin. */
-internal fun Modifier.fillOverlay(): Modifier = this.then(FillElement)
-
 @Immutable
 private sealed class OverlayChildData {
   class Aligned(val alignment: Alignment) : OverlayChildData()
@@ -327,12 +319,6 @@ private sealed class OverlayChildData {
   class PlacedAt(val position: Position, val alignment: Alignment) : OverlayChildData()
 
   class PlacedTowards(val position: Position, val state: PlacedTowardsState?) : OverlayChildData()
-
-  object Fill : OverlayChildData()
-}
-
-private object FillElement : ParentDataModifier {
-  override fun Density.modifyParentData(parentData: Any?): Any = OverlayChildData.Fill
 }
 
 private data class AlignElement(val alignment: Alignment) : ParentDataModifier {
