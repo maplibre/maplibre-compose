@@ -162,6 +162,7 @@ internal fun MlnFfiMapView(
   val focusRequester = remember { FocusRequester() }
   val inputScope = rememberCoroutineScope()
   val continuation = remember(session, inputScope) { GestureContinuation(inputScope) }
+  val rotaryNotchPixels = rotaryNotchPixels()
 
   // MapLibre renders black until a style loads.
   val revealSurface = session.hasPresentableStyle
@@ -177,6 +178,7 @@ internal fun MlnFfiMapView(
         density,
         focusRequester,
         continuation,
+        rotaryNotchPixels,
       )
     } else {
       modifier

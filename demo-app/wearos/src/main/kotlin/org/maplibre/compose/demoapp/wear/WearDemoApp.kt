@@ -2,7 +2,6 @@ package org.maplibre.compose.demoapp.wear
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,8 +15,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.rotary.onRotaryScrollEvent
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.hierarchicalFocusGroup
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
@@ -49,8 +46,8 @@ import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.attributions
 
 /**
- * The watch shell: a full-screen map, the crown to zoom, and one tap away a list of demos with the
- * selected demo's controls above it.
+ * The watch shell: a full-screen map, and one tap away a list of demos with the selected demo's
+ * controls above it. The map itself handles the crown.
  */
 @Composable
 fun WearDemoApp(state: DemoAppState = rememberDemoAppState()) {
@@ -62,9 +59,6 @@ fun WearDemoApp(state: DemoAppState = rememberDemoAppState()) {
 
 /** How far the edge button reaches into the map, kept clear of the camera's target. */
 private val EdgeButtonInset = 56.dp
-
-/** Zoom levels per crown detent. A detent scrolls by the platform's scroll factor. */
-private const val ZoomLevelsPerDetent = 0.5f
 
 /**
  * The demo list slides over the map rather than replacing it in a navigation graph, so the map
@@ -100,26 +94,14 @@ private fun WearShell(state: DemoAppState) {
 
 @Composable
 private fun MapScreen(state: DemoAppState, onOpenDemos: () -> Unit) {
-  val density = LocalDensity.current
   ScreenScaffold {
-    Box(
-      Modifier.fillMaxSize()
-        // Rotary events need a focused node; the map takes focus itself once touched.
-        .onRotaryScrollEvent { event ->
-          val detents = with(density) { -event.verticalScrollPixels.toDp().value / 64f }
-          val camera = state.mapState.cameraPosition
-          state.mapState.setCameraPosition(
-            camera.copy(zoom = camera.zoom + detents * ZoomLevelsPerDetent)
-          )
-          true
-        }
-        .requestFocusOnHierarchyActive()
-        .focusable()
-    ) {
+    Box(Modifier.fillMaxSize()) {
       DemoMap(
         state,
         viewportInsets = MapViewportInsets(bottom = EdgeButtonInset),
         overlay = MapOverlay.None,
+        // The crown zooms the focused map.
+        modifier = Modifier.requestFocusOnHierarchyActive(),
       )
       EdgeButton(
         onClick = onOpenDemos,

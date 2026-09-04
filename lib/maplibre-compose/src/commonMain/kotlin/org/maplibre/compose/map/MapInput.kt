@@ -24,6 +24,7 @@ import androidx.compose.ui.input.pointer.isShiftPressed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.input.pointer.util.addPointerInputChange
+import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntSize
@@ -45,6 +46,9 @@ import kotlinx.coroutines.launch
 /**
  * Neither backend owns platform gestures: MapLibre Native declines to, and GL JS is composited
  * under Compose where its own DOM handlers never fire.
+ *
+ * [rotaryNotchPixels] is the scroll distance of one rotary detent, from [rotaryNotchPixels]; zero
+ * disables rotary zoom.
  */
 internal fun Modifier.mapInput(
   target: GestureTarget,
@@ -53,8 +57,10 @@ internal fun Modifier.mapInput(
   density: Density,
   focusRequester: FocusRequester,
   continuation: GestureContinuation,
+  rotaryNotchPixels: Float,
 ): Modifier =
   this.keyboardInput(target, options, continuation)
+    .rotaryZoom(target, options, rotaryNotchPixels, continuation)
     .focusRequester(focusRequester)
     .focusable()
     .pointerGestures(target, clicks, options, density, focusRequester, continuation)
@@ -134,6 +140,35 @@ private fun Modifier.pointerGestures(
       gesture.cancel()
     }
   }
+
+/**
+ * A watch crown zooms like a mouse wheel: a detent is a notch of [GestureOptions.scrollZoomStep],
+ * anchored at the center, and a burst of detents is one gesture. Rotary events reach the focused
+ * node only, as key events do.
+ */
+private fun Modifier.rotaryZoom(
+  target: GestureTarget,
+  options: GestureOptions,
+  notchPixels: Float,
+  continuation: GestureContinuation,
+): Modifier =
+  if (notchPixels <= 0f) this
+  else
+    onRotaryScrollEvent { event ->
+      if (!options.isScrollZoomEnabled) return@onRotaryScrollEvent false
+      if (event.verticalScrollPixels == 0f) return@onRotaryScrollEvent false
+      val notches = event.verticalScrollPixels.toDouble() / notchPixels
+      continuation.interrupt()
+      val token = continuation.resume() ?: target.onGestureStarted()
+      target.cancelTransitions()
+      target.scaleBy(
+        scale = zoomLevelsToScale(-notches * options.scrollZoomStep),
+        anchor = null,
+        gestureToken = token,
+      )
+      continuation.finishAfter(options.scrollZoomHold, token, target::onGestureEnded)
+      true
+    }
 
 private fun Modifier.scrollZoom(
   target: GestureTarget,
@@ -1234,6 +1269,9 @@ internal class GestureContinuation(private val scope: CoroutineScope) {
     openToken = null
     return token
   }
+
+  fun finishAfter(duration: Duration, token: GestureToken, onFinished: (GestureToken) -> Unit) =
+    finishAfter(scope, duration, token, onFinished)
 
   fun finishAfter(
     scope: CoroutineScope,

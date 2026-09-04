@@ -90,6 +90,7 @@ fun DemoMap(
   state: DemoAppState,
   viewportInsets: MapViewportInsets,
   overlay: MapOverlay = demoMapOverlay(state.settings),
+  modifier: Modifier = Modifier,
 ) {
   val scope = rememberCoroutineScope()
   val appliedStyle = state.appliedStyle
@@ -129,6 +130,7 @@ fun DemoMap(
   Box(Modifier.fillMaxSize()) {
     MaplibreMap(
       state = state.mapState,
+      modifier = modifier,
       cameraPadding = viewportInsets.asPaddingValues(),
       renderOptions = state.settings.renderOptions,
       gestureOptions = state.settings.gestureOptions,
