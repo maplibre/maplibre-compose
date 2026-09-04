@@ -3,6 +3,7 @@ package org.maplibre.compose.gljs
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.unit.dp
 import kotlin.js.Promise
@@ -15,6 +16,8 @@ import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.browser.window
+import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.map.GlJsMapSession
 import org.maplibre.compose.map.MapRuntimeOptions
@@ -293,6 +296,68 @@ class BrowserMapStyleStateTest {
       } finally {
         deferredStyle.restore()
       }
+
+      runtime.close()
+      runtime.awaitClosed()
+    }
+
+  @Test
+  fun a_web_replacement_style_is_not_rendered_without_application_content(): Promise<*> =
+    runBrowserMapTest {
+      val runtime = createMapRuntime(MapRuntimeOptions())
+      val state =
+        runtime.createMapState(baseStyle = STYLE_A) {
+          BackgroundLayer(id = "application", color = const(Color.Red))
+        }
+
+      setBrowserMapContent { MaplibreMap(state = state) }
+      waitUntilMap("the first style with application content to become ready") {
+        state.style.loadState == StyleLoadState.Ready &&
+          state.currentMapAttachment != null &&
+          (state.currentMapAttachment?.adapter as? GlJsMapSession)
+            ?.engineMapForTest()
+            ?.getStyle()
+            ?.layers
+            ?.any { it.id == "application" } == true
+      }
+
+      val renderedLayerSets = mutableListOf<Set<String>>()
+      val mapPrototype = org.maplibre.compose.gljs.MaplibreMap::class.js.asDynamic().prototype
+      val originalRedraw = mapPrototype.redraw
+      val wrapRedraw =
+        js(
+          """(function(original, record) {
+            return function() {
+              record(this.getStyle().layers.map(function(layer) { return layer.id; }).join(','));
+              return original.call(this);
+            };
+          })"""
+        )
+      mapPrototype.redraw =
+        wrapRedraw(originalRedraw) { ids: String ->
+          renderedLayerSets += ids.split(',').filter(String::isNotEmpty).toSet()
+        }
+      try {
+        runOnIdle { state.style.baseStyle = STYLE_B }
+        waitUntilMap("the replacement style with application content to become ready") {
+          state.style.loadState == StyleLoadState.Ready &&
+            (state.currentMapAttachment?.adapter as? GlJsMapSession)
+              ?.engineMapForTest()
+              ?.getStyle()
+              ?.layers
+              ?.any { it.id == "application" } == true
+        }
+        waitUntilMap("the replacement style to render") { renderedLayerSets.any { "b" in it } }
+      } finally {
+        mapPrototype.redraw = originalRedraw
+      }
+
+      val replacementFrames = renderedLayerSets.filter { "b" in it }
+      assertTrue(replacementFrames.isNotEmpty(), "the replacement style must render")
+      assertTrue(
+        replacementFrames.all { "application" in it },
+        "the replacement base style rendered before application content: $replacementFrames",
+      )
 
       runtime.close()
       runtime.awaitClosed()

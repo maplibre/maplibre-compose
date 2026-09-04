@@ -368,6 +368,9 @@ internal class MlnFfiMapSession(
     }
 
     val map = loop.map ?: return MlnFfiFrameResult.SKIPPED
+    // A replacement base style has no application resources until its complete desired revision
+    // has been reconciled. Keep the last completed frame instead of presenting that partial style.
+    if (hasPresentableStyle && !revisionApplied) return MlnFfiFrameResult.SKIPPED
     renderedCameraPadding = appliedCameraPadding
 
     if (!ensureAttached(map, frame)) return MlnFfiFrameResult.SKIPPED
