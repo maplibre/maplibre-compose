@@ -1,6 +1,5 @@
 package org.maplibre.compose.mlnffi
 
-import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import kotlinx.io.files.Path
 import org.junit.Assume.assumeTrue
@@ -9,7 +8,7 @@ internal actual object FfiTestPlatform {
   actual val runtimeCapabilities = FfiTestRuntimeCapabilities(customGeometrySourceCallbacks = true)
 
   actual fun initialize() {
-    AndroidMlnFfiPlatform.initialize(InstrumentationRegistry.getInstrumentation().targetContext)
+    AndroidMlnFfiPlatform.initialize()
   }
 
   actual fun createCacheFile(): Path {

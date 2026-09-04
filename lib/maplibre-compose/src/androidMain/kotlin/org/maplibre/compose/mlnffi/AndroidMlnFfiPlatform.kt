@@ -1,31 +1,23 @@
 package org.maplibre.compose.mlnffi
 
-import android.app.Application
 import android.content.Context
 import org.maplibre.nativeffi.MaplibreAndroid
 
 /** Process-wide Android services required by the FFI runtime and packaged resource reader. */
 internal object AndroidMlnFfiPlatform {
-  @Volatile private var application: Application? = null
+  @Volatile private var initialized = false
 
+  /** The application context that [AndroidContextProvider] captured at process start. */
   val applicationContext: Context
-    get() = checkNotNull(application) { "MapLibre Compose has not initialized its Android context" }
+    get() = AndroidContextProvider.context
 
-  fun initialize(context: Context) {
-    if (application != null) return
+  /** Initializes MapLibre Native with the application context once per process. */
+  fun initialize() {
+    if (initialized) return
     synchronized(this) {
-      if (application != null) return
-      val application =
-        context.applicationContext as? Application
-          ?: context as? Application
-          ?: error("Android application context is unavailable")
-      MaplibreAndroid.initialize(application)
-      this.application = application
+      if (initialized) return
+      MaplibreAndroid.initialize(applicationContext)
+      initialized = true
     }
-  }
-
-  /** Clears the Compose-side initialization guard. Tests only. */
-  internal fun resetForTest() {
-    synchronized(this) { application = null }
   }
 }
