@@ -40,7 +40,7 @@ internal class GlJsRequestController(private val config: MapResourceConfig) : Au
       is MapResourceRoute.Load ->
         requestParameters(protocolUrl(route.request.url, kind), emptyMap())
       is MapResourceRoute.Fetch -> {
-        val headers = interceptor.headersOrNone(route.request)
+        val headers = interceptor.headersOrNone(route.request, config.logger)
         if (route.request.url == url && headers.isEmpty()) return undefined
         requestParameters(route.request.url, headers)
       }

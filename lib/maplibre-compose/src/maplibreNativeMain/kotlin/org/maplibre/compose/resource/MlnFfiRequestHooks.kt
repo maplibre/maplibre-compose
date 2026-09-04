@@ -18,17 +18,22 @@ internal fun RuntimeHandle.installRequestInterceptor(config: MapResourceConfig) 
     setHttpHeaderTransform(
       HttpHeaderTransformCallback { request ->
         val mapRequest = MapResourceRequest(request.url, request.kind.toCommon())
-        config.interceptor().headersOrNone(mapRequest).map { HttpHeader(it.key, it.value) }
+        config.interceptor().headersOrNone(mapRequest, config.logger).map {
+          HttpHeader(it.key, it.value)
+        }
       }
     )
   } catch (error: Throwable) {
     rethrowIfFatal(error)
     // OpenHarmony and the browser FFI decline header transforms.
+    config.logger?.w(error) {
+      "This platform declined the header transform; request interceptor headers are ignored"
+    }
   }
   setResourceTransform(
     ResourceTransformCallback { request ->
       val mapRequest = MapResourceRequest(request.url, request.kind.toCommon())
-      val url = config.interceptor().rewrittenUrl(mapRequest)
+      val url = config.interceptor().rewrittenUrl(mapRequest, config.logger)
       if (url == request.url) null else url
     }
   )

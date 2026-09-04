@@ -22,9 +22,10 @@ internal class JsRuntimePlatform(
 )
 
 public actual fun createMapRuntime(options: MapRuntimeOptions): MapRuntime {
-  val resourceConfig = MapResourceConfig(options.requestInterceptor, options.resourceProvider)
-  val requests = GlJsRequestController(resourceConfig)
   val logger = MapLog
+  val resourceConfig =
+    MapResourceConfig(options.requestInterceptor, options.resourceProvider, logger)
+  val requests = GlJsRequestController(resourceConfig)
   return RuntimeImplementation(
     platformOptions = JsRuntimePlatform(options, requests),
     resources = MapRuntimeResources { requests.close() },

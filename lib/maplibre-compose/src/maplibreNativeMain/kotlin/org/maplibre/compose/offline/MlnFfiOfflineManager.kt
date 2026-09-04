@@ -28,7 +28,7 @@ import org.maplibre.nativeffi.runtime.RuntimeHandle
 internal class MlnFfiOfflineManager(
   private val options: MlnFfiRuntimeOptions,
   resourceConfig: MapResourceConfig =
-    MapResourceConfig(options.requestInterceptor, options.resourceProvider),
+    MapResourceConfig(options.requestInterceptor, options.resourceProvider, options.logger),
 ) : OfflineManager, OfflinePackOwner {
 
   private val logger = options.logger
