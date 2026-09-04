@@ -3,7 +3,6 @@ package org.maplibre.compose.demoapp
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.setValue
 import kotlin.concurrent.Volatile
 import kotlin.time.DurationUnit
@@ -32,10 +31,6 @@ class FrameRateState {
   var framesPerSecond by mutableDoubleStateOf(0.0)
     private set
 
-  /** Every frame drawn since this state was created. */
-  var totalFrames by mutableLongStateOf(0L)
-    private set
-
   /**
    * Called once per rendered frame. One collector calls this, so a plain increment loses nothing.
    */
@@ -53,7 +48,6 @@ class FrameRateState {
       val nowMark = TimeSource.Monotonic.markNow()
       val elapsed = (nowMark - lastMark).toDouble(DurationUnit.SECONDS)
       framesPerSecond = if (elapsed > 0.0) (nowFrames - lastFrames) / elapsed else 0.0
-      totalFrames = nowFrames
       lastFrames = nowFrames
       lastMark = nowMark
     }

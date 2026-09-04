@@ -150,8 +150,8 @@ and assert that Back is not consumed.
 
 For the real hosts, the Android TV emulator image from the #26 test runs the
 demo, `adb shell input keyevent` sends `DPAD_*`, `DPAD_CENTER`, and `BACK`, and
-the demo driver captures a screenshot between presses. On desktop, the Compose
-UI test host covers Tab and arrow traversal through the shell.
+`adb exec-out screencap -p` captures a screenshot between presses. On desktop,
+the Compose UI test host covers Tab and arrow traversal through the shell.
 
 ## Sequence
 

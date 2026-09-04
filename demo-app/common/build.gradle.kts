@@ -2,7 +2,6 @@ plugins {
   id("module-conventions")
   id("android-library-conventions")
   id(libs.plugins.kotlin.multiplatform.get().pluginId)
-  id(libs.plugins.kotlin.serialization.get().pluginId)
   id(libs.plugins.android.library.get().pluginId)
   id(libs.plugins.kotlin.composeCompiler.get().pluginId)
   id(libs.plugins.compose.get().pluginId)
@@ -82,13 +81,6 @@ kotlin {
 
       api(project(":lib:maplibre-compose"))
       implementation(project(":lib:maplibre-compose-material3"))
-    }
-
-    // ktor-server only ships JVM and Android artifacts, so the agent driver server lives in this
-    // source set; iOS and the browser get no-op actuals.
-    androidJvmMain.dependencies {
-      implementation(libs.ktor.server.cio)
-      implementation(libs.ktor.server.statusPages)
     }
 
     androidMain {

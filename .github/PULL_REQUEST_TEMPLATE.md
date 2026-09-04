@@ -1,16 +1,16 @@
 <!--
 Thanks for the PR! Please fill out the template below.
-AI agents may write at most one plain sentence per section.
-Additional details, if needed, should be provided by the human driving the agent.
+Keep the description proportional to the change and useful to a reviewer.
+The contributor reviews and takes responsibility for AI-assisted text.
 -->
 
 ## Description
 
-<!-- Please include a summary of the change. -->
+<!-- Explain the problem and resulting behavior; include important tradeoffs or open questions. -->
 
 ## Validation
 
-<!-- Have you tested the changes? How? On which platforms? -->
+<!-- Summarize checks and their results, platforms tested, and material gaps. -->
 
 ## AI assistance
 

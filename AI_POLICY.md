@@ -11,17 +11,17 @@ Before you mark a pull request ready for review:
 - Read every line you are asking maintainers to merge.
 - Be able to explain the change, how it fits the codebase, and how you validated
   it—without leaning on the tool to answer review questions.
-- Write the PR description yourself: motivation, approach, impact, and anything
-  you are unsure about. Spell-checking or translation help is fine; the ideas
-  and structure should be yours.
+- Review the PR description for accuracy: motivation, approach, impact,
+  validation, and open questions. You may use AI to draft it; you are
+  responsible for every claim.
 
 Design the change. Use AI to draft, explore, or speed up typing—not to replace
 understanding the problem or the existing code.
 
 ## Talk to maintainers in your own voice
 
-Issues, PR bodies, and review replies are a conversation between humans. Write
-them yourself.
+Issues and review replies are a conversation between humans. Write them from
+your own understanding.
 
 - State problems and proposals in your own words.
 - When a maintainer asks a question, answer from your understanding. Do not
@@ -31,6 +31,12 @@ them yourself.
 If you used AI to polish English, read the result once and adjust it so it
 sounds like you. For translation, writing in your native language and adding an
 English version in a quote block works well.
+
+AI-assisted PR descriptions may use the space needed to explain the change. Keep
+them concise and specific; a sentence limit is not required. Use draft status
+while implementation, decisions, or your review of generated code are pending.
+An agent may open or mark the PR ready after you confirm that you have reviewed
+the completed contribution.
 
 ## When AI context belongs in a thread
 
