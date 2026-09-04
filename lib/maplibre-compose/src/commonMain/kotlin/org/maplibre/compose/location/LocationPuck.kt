@@ -47,10 +47,10 @@ import org.maplibre.compose.expressions.value.IconRotationAlignment
 import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.SymbolLayer
+import org.maplibre.compose.map.MapStyleScope
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.rememberGeoJsonSource
-import org.maplibre.compose.style.LocalMapState
 import org.maplibre.compose.util.ClickResult
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -84,7 +84,7 @@ import org.maplibre.spatialk.units.extensions.meters
  *   long-clicked.
  */
 @Composable
-public fun LocationPuck(
+public fun MapStyleScope.LocationPuck(
   idPrefix: String,
   locationState: LocationState,
   oldLocationThreshold: Duration = 30.seconds,
@@ -139,7 +139,7 @@ public fun LocationPuck(
  *   long-clicked.
  */
 @Composable
-public fun LocationPuck(
+public fun MapStyleScope.LocationPuck(
   idPrefix: String,
   location: LocationMeasurement?,
   measurementMark: TimeMark? = null,
@@ -165,7 +165,7 @@ public fun LocationPuck(
 }
 
 @Composable
-private fun LocationPuckContent(
+private fun MapStyleScope.LocationPuckContent(
   idPrefix: String,
   measurement: LocationPuckMeasurement?,
   oldLocationThreshold: Duration,
@@ -175,7 +175,6 @@ private fun LocationPuckContent(
   onClick: LocationClickHandler?,
   onLongClick: LocationClickHandler?,
 ) {
-  val mapState = LocalMapState.current
   val location = measurement?.location
   val bearing = measurement?.bearing
   val bearingAccuracy = measurement?.bearingAccuracy
@@ -193,7 +192,7 @@ private fun LocationPuckContent(
         condition(test = isOldLocation, output = const(0.dp)),
         fallback =
           (feature["accuracy"].asNumber() /
-              const((mapState?.viewport?.metersPerDpAtTarget ?: 0.0).toFloat()))
+              const((mapState.viewport?.metersPerDpAtTarget ?: 0.0).toFloat()))
             .dp,
       ),
     color = const(colors.accuracyFillColor),

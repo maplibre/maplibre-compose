@@ -68,12 +68,10 @@ import org.maplibre.compose.sources.sourceHandle
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.Light
-import org.maplibre.compose.style.LocalMapState
 import org.maplibre.compose.style.Projection
 import org.maplibre.compose.style.Sky
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
-import org.maplibre.compose.style.StyleComposition
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.style.StyleMutationException
@@ -118,22 +116,28 @@ public interface MapRuntime {
   public fun setRequestInterceptor(interceptor: MapRequestInterceptor?)
 
   /**
-   * Creates a logical map with [baseStyle] and [styleComposition]. The caller must close the
-   * result.
+   * Creates a logical map with [baseStyle] and the sources, layers, and images that [content]
+   * declares. The caller must close the result.
+   *
+   * [MapStyleScope.mapState] in [content] refers to the returned state when the library evaluates
+   * the block.
    */
   public fun createMapState(
     baseStyle: BaseStyle,
-    styleComposition: StyleComposition = StyleComposition.Empty,
     initialCameraPosition: CameraPosition = CameraPosition(),
+    content: @Composable @MaplibreComposable MapStyleScope.() -> Unit = {},
   ): MapState
 
   /**
-   * Creates an independent non-UI map with [baseStyle] and [styleComposition] for image capture.
-   * The caller must close the result.
+   * Creates an independent non-UI map with [baseStyle] and the sources, layers, and images that
+   * [content] declares, for image capture. The caller must close the result.
+   *
+   * [content] has no map to read. A composable with a [MapStyleScope] receiver cannot be called
+   * from it.
    */
   public fun createSnapshotter(
     baseStyle: BaseStyle,
-    styleComposition: StyleComposition = StyleComposition.Empty,
+    content: @Composable @MaplibreComposable () -> Unit = {},
   ): MapSnapshotter
 
   /** Returns true after [close] marks this runtime as closed. */
@@ -665,8 +669,11 @@ internal constructor(
   internal val runtime: RuntimeImplementation,
   initialCameraPosition: CameraPosition,
   initialBaseStyle: BaseStyle,
-  internal val styleComposition: StyleComposition,
+  content: @Composable @MaplibreComposable MapStyleScope.() -> Unit,
 ) {
+  internal val styleContent: @Composable @MaplibreComposable () -> Unit = {
+    with(MapStyleScopeImpl(this)) { content() }
+  }
   internal val lifecycle = MapLifecycleAuthority(this, runtime.physicalScope)
   private var baseStyleCommandRevision = 0L
   private var cameraCommandRevision = 0L
@@ -1345,7 +1352,7 @@ internal constructor(
 
   private fun requireNoDesiredSource(id: String) {
     if (desiredStyleRevision.sources.any { it.id == id }) {
-      throw StyleHandleException("Source ID '$id' is owned by StyleComposition")
+      throw StyleHandleException("Source ID '$id' is declared by the style content")
     }
   }
 
@@ -1353,7 +1360,7 @@ internal constructor(
 
   private fun requireNoDesiredImage(id: String) {
     if (hasDesiredImage(id)) {
-      throw StyleHandleException("Image ID '$id' is owned by StyleComposition")
+      throw StyleHandleException("Image ID '$id' is declared by the style content")
     }
   }
 
@@ -1673,7 +1680,7 @@ internal constructor(
 
 internal class MapPresentationOwnerToken
 
-/** Receiver for the trailing style block of [rememberMapState]. */
+/** Receiver for the style content of an interactive map. */
 @Stable
 public interface MapStyleScope {
   /** The logical map whose style this composition defines. */
@@ -1685,39 +1692,28 @@ private class MapStyleScopeImpl(override val mapState: MapState) : MapStyleScope
 /**
  * Remembers a logical map and closes it when this call leaves composition.
  *
- * [baseStyle], [styleComposition], and [content] define the desired style. Changes to these inputs
- * update the remembered map. Restoration creates a new map with the saved camera position and the
- * current style inputs.
+ * [baseStyle] and [content] define the desired style. Changes to these inputs update the remembered
+ * map. Restoration creates a new map with the saved camera position and the current style inputs.
  *
- * [content] adds sources and layers after [styleComposition]. Its [MapStyleScope.mapState] value
+ * [content] declares the map's sources, layers, and images. Its [MapStyleScope.mapState] value
  * refers to the returned state when the library evaluates the block.
  */
 @Composable
 public fun rememberMapState(
   runtime: MapRuntime = rememberDefaultMapRuntime(),
   baseStyle: BaseStyle = BaseStyle.Demo,
-  styleComposition: StyleComposition = StyleComposition.Empty,
   initialCameraPosition: CameraPosition = CameraPosition(),
   content: @Composable @MaplibreComposable MapStyleScope.() -> Unit = {},
 ): MapState {
-  val currentStyleComposition by rememberUpdatedState(styleComposition)
   val currentContent by rememberUpdatedState(content)
-  val combinedStyleComposition = remember {
-    StyleComposition {
-      currentStyleComposition.content()
-      val mapState = checkNotNull(LocalMapState.current)
-      with(MapStyleScopeImpl(mapState)) { currentContent() }
-    }
-  }
+  val stableContent =
+    remember<@Composable @MaplibreComposable MapStyleScope.() -> Unit> { { currentContent() } }
   val state =
-    rememberSaveable(
-      runtime,
-      saver = mapStateSaver(runtime, baseStyle, combinedStyleComposition),
-    ) {
+    rememberSaveable(runtime, saver = mapStateSaver(runtime, baseStyle, stableContent)) {
       runtime.createMapState(
         baseStyle = baseStyle,
-        styleComposition = combinedStyleComposition,
         initialCameraPosition = initialCameraPosition,
+        content = stableContent,
       )
     }
   SideEffect {
@@ -1738,7 +1734,7 @@ private data class SavedCameraPosition(
 private fun mapStateSaver(
   runtime: MapRuntime,
   baseStyle: BaseStyle,
-  styleComposition: StyleComposition,
+  content: @Composable @MaplibreComposable MapStyleScope.() -> Unit,
 ): Saver<MapState, List<Double>> =
   Saver(
     save = { state ->
@@ -1748,7 +1744,6 @@ private fun mapStateSaver(
       val saved = values.toSavedCameraPosition()
       runtime.createMapState(
         baseStyle = baseStyle,
-        styleComposition = styleComposition,
         initialCameraPosition =
           CameraPosition(
             bearing = saved.bearing,
@@ -1756,6 +1751,7 @@ private fun mapStateSaver(
             tilt = saved.tilt,
             zoom = saved.zoom,
           ),
+        content = content,
       )
     },
   )
@@ -1807,19 +1803,19 @@ internal class RuntimeImplementation(
 
   final override fun createMapState(
     baseStyle: BaseStyle,
-    styleComposition: StyleComposition,
     initialCameraPosition: CameraPosition,
+    content: @Composable @MaplibreComposable MapStyleScope.() -> Unit,
   ): MapState = lock.withLock {
     requireOpenLocked()
-    MapState(this, initialCameraPosition, baseStyle, styleComposition).also(children::add)
+    MapState(this, initialCameraPosition, baseStyle, content).also(children::add)
   }
 
   final override fun createSnapshotter(
     baseStyle: BaseStyle,
-    styleComposition: StyleComposition,
+    content: @Composable @MaplibreComposable () -> Unit,
   ): MapSnapshotter = lock.withLock {
     requireOpenLocked()
-    MapSnapshotterImplementation(this, baseStyle, styleComposition).also(snapshotters::add)
+    MapSnapshotterImplementation(this, baseStyle, content).also(snapshotters::add)
   }
 
   final override fun setRequestInterceptor(interceptor: MapRequestInterceptor?) {

@@ -1,5 +1,6 @@
 package org.maplibre.compose.map
 
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
@@ -18,10 +19,10 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.StyleComposition
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.compose.testing.runMapTest
+import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Position
@@ -157,7 +158,7 @@ class NativeMapSnapshotterTest {
     }
   }
 
-  private fun pointComposition(): StyleComposition {
+  private fun pointComposition(): @Composable @MaplibreComposable () -> Unit {
     val points =
       GeoJsonSource(
         id = "points",
@@ -169,7 +170,7 @@ class NativeMapSnapshotterTest {
           ),
         options = GeoJsonOptions(),
       )
-    return StyleComposition {
+    return {
       CircleLayer(
         id = "composed-circle",
         source = points,

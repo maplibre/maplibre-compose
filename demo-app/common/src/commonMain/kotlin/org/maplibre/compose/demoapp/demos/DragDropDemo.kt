@@ -33,6 +33,7 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.map.MapState
+import org.maplibre.compose.map.MapStyleScope
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
@@ -126,7 +127,7 @@ object DragDropDemo : Demo {
     )
 
   @Composable
-  override fun MapContent(mapState: MapState) {
+  override fun MapStyleScope.MapContent() {
     if (mode != Mode.BoundingBox) return
     val source =
       rememberGeoJsonSource(

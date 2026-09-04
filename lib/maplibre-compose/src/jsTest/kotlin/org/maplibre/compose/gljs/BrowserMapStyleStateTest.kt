@@ -27,7 +27,6 @@ import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LocalStyleNode
-import org.maplibre.compose.style.StyleComposition
 import org.maplibre.compose.style.StyleIdentity
 
 @OptIn(ExperimentalTestApi::class)
@@ -152,15 +151,15 @@ class BrowserMapStyleStateTest {
       val runtime = createMapRuntime(MapRuntimeOptions())
       val presented = mutableStateOf(true)
       val useLatestRevision = mutableStateOf(false)
-      val composition = StyleComposition {
-        val suffix = if (useLatestRevision.value) "latest" else "initial"
-        RasterLayer(
-          id = "$suffix-overlay",
-          source = RasterSource("$suffix-source", "https://example.invalid/$suffix.json"),
-          visible = true,
-        )
-      }
-      val state = runtime.createMapState(baseStyle = STYLE_A, styleComposition = composition)
+      val state =
+        runtime.createMapState(baseStyle = STYLE_A) {
+          val suffix = if (useLatestRevision.value) "latest" else "initial"
+          RasterLayer(
+            id = "$suffix-overlay",
+            source = RasterSource("$suffix-source", "https://example.invalid/$suffix.json"),
+            visible = true,
+          )
+        }
 
       setBrowserMapContent {
         if (presented.value) MaplibreMap(state = state)

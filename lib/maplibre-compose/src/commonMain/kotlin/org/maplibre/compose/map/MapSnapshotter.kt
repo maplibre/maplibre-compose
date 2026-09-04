@@ -1,6 +1,7 @@
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.BroadcastFrameClock
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Composition
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Recomposer
@@ -32,12 +33,12 @@ import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.MapNodeApplier
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
-import org.maplibre.compose.style.StyleComposition
 import org.maplibre.compose.style.StyleContent
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.StyleNode
 import org.maplibre.compose.util.ImageStretch
+import org.maplibre.compose.util.MaplibreComposable
 
 /** Options that affect the pixels returned by a snapshot capture. */
 public data class MapSnapshotOutputOptions(
@@ -123,7 +124,7 @@ internal data class SnapshotStyleOwnership(
 
 internal fun interface StyleCompositionEvaluator {
   suspend fun evaluate(
-    composition: StyleComposition,
+    content: @Composable @MaplibreComposable () -> Unit,
     style: StyleBinding,
     density: Density,
     layoutDirection: LayoutDirection,
@@ -133,7 +134,7 @@ internal fun interface StyleCompositionEvaluator {
 
 internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
   override suspend fun evaluate(
-    composition: StyleComposition,
+    content: @Composable @MaplibreComposable () -> Unit,
     style: StyleBinding,
     density: Density,
     layoutDirection: LayoutDirection,
@@ -161,11 +162,7 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
               LocalDensity provides density,
               LocalLayoutDirection provides layoutDirection,
             ) {
-              StyleContent(
-                rootNode = root,
-                publish = revision::complete,
-                content = composition.content,
-              )
+              StyleContent(rootNode = root, publish = revision::complete, content = content)
             }
           }
           while (!revision.isCompleted) {
@@ -218,7 +215,7 @@ public interface MapSnapshotter {
 internal class MapSnapshotterImplementation(
   private val runtime: RuntimeImplementation,
   initialBaseStyle: BaseStyle,
-  private val styleComposition: StyleComposition,
+  private val styleContent: @Composable @MaplibreComposable () -> Unit,
   private val adapterFactory: SnapshotterAdapterFactory = runtime.snapshotterAdapterFactory,
   private val styleEvaluator: StyleCompositionEvaluator = runtime.styleEvaluator,
 ) : MapSnapshotter {
@@ -384,7 +381,7 @@ internal class MapSnapshotterImplementation(
               styleEvaluationOwnership(currentBinding, currentClaim.ownership)
             val revision =
               styleEvaluator.evaluate(
-                styleComposition,
+                styleContent,
                 currentBinding,
                 Density(request.density, request.fontScale),
                 request.layoutDirection,
@@ -646,13 +643,13 @@ internal class MapSnapshotterImplementation(
 
   private fun requireNoDesiredSource(id: String) {
     if (desiredRevision.sources.any { it.id == id }) {
-      throw StyleHandleException("Source ID '$id' is owned by StyleComposition")
+      throw StyleHandleException("Source ID '$id' is declared by the style content")
     }
   }
 
   private fun requireNoDesiredImage(id: String) {
     if (desiredRevision.images.any { it.id == id }) {
-      throw StyleHandleException("Image ID '$id' is owned by StyleComposition")
+      throw StyleHandleException("Image ID '$id' is declared by the style content")
     }
   }
 

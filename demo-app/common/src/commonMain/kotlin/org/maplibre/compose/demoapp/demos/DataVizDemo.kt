@@ -22,7 +22,7 @@ import org.maplibre.compose.expressions.dsl.step
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.HeatmapLayer
 import org.maplibre.compose.layers.SymbolLayer
-import org.maplibre.compose.map.MapState
+import org.maplibre.compose.map.MapStyleScope
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.rememberGeoJsonSource
@@ -52,7 +52,7 @@ object DataVizDemo : Demo {
   private val magnitude = feature["mag"].asNumber()
 
   @Composable
-  override fun MapContent(mapState: MapState) {
+  override fun MapStyleScope.MapContent() {
     when (mode) {
       Mode.Points -> Points()
       Mode.Heatmap -> Heatmap()

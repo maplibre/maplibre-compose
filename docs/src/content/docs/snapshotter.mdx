@@ -11,9 +11,9 @@ import snapshotter from "../../../../demo-app/common/src/commonMain/kotlin/org/m
 
 An <Api of="MapSnapshotter" /> renders an independent, non-UI map to an
 `ImageBitmap`. `createMapState` and `createSnapshotter` both accept a
-<Api of="BaseStyle" /> and <Api of="StyleComposition" />. Pass the same pair to
-capture the displayed map's declared content. Copy its current camera position
-into the capture request.
+<Api of="BaseStyle" /> and a content block. Pass the same base style and the
+same content function to capture the displayed map's declared content. Copy its
+current camera position into the capture request.
 
 Create and close the snapshotter in a coroutine. <Api of="MapSnapshotter.capture" />
 suspends until the image is ready:
@@ -21,7 +21,7 @@ suspends until the image is ready:
 <Code code={region(snapshotter, "capture")} lang="kotlin" title="App.kt" />
 
 The request width and height are logical pixels. Its density scales the output
-bitmap and evaluates `Dp` values in the style composition. Pass
+bitmap and evaluates `Dp` values in the content block. Pass
 `LocalDensity.current` and `LocalLayoutDirection.current` from the calling
 composable to match the displayed map. The `640` by `360` request uses a `640`
 by `360` logical-pixel viewport.
