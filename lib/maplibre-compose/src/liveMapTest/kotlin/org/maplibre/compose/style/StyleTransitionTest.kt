@@ -14,7 +14,7 @@ class StyleTransitionTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(EMPTY_STYLE)
 
-      assertEquals(TransitionOptions(), fixture.state.style.transition.get())
+      assertEquals(TransitionOptions().readBackFromEngine(), fixture.state.style.transition.get())
     }
   }
 
@@ -23,14 +23,14 @@ class StyleTransitionTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(TIMED_STYLE)
       val declared = TransitionOptions(duration = 500.milliseconds, delay = 100.milliseconds)
-      assertEquals(declared, fixture.state.style.transition.get())
+      assertEquals(declared.readBackFromEngine(), fixture.state.style.transition.get())
 
       val written = TransitionOptions(duration = 1.seconds, delay = 50.milliseconds)
       fixture.state.style.transition.set(written)
-      assertEquals(written, fixture.state.style.transition.get())
+      assertEquals(written.readBackFromEngine(), fixture.state.style.transition.get())
 
       fixture.loadStyle(EMPTY_STYLE)
-      assertEquals(TransitionOptions(), fixture.state.style.transition.get())
+      assertEquals(TransitionOptions().readBackFromEngine(), fixture.state.style.transition.get())
     }
   }
 

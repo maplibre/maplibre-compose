@@ -29,6 +29,17 @@ internal fun TransitionOptions.scaledBy(scale: Float): TransitionOptions {
   return TransitionOptions(duration = duration * scale.toDouble(), delay = delay * scale.toDouble())
 }
 
+/**
+ * The inverse of [scaledBy], for reporting engine-held timing through the logical API: a typed
+ * getter returns the timing the caller declared, not the timing the engine runs. A scale of zero
+ * zeroed the engine's timing past recovery, so the engine's value is reported unchanged.
+ */
+internal fun TransitionOptions.unscaledBy(scale: Float): TransitionOptions {
+  requireScale(scale)
+  if (scale == 1f || scale == 0f) return this
+  return TransitionOptions(duration = duration / scale.toDouble(), delay = delay / scale.toDouble())
+}
+
 private fun requireScale(scale: Float) {
   require(scale.isFinite() && scale >= 0f) {
     "Animator duration scale must be finite and not negative: $scale"

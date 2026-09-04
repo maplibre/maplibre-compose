@@ -68,7 +68,13 @@ public class StyleImages internal constructor(private val style: MapStyleState) 
  */
 @Stable
 public class StyleTransition internal constructor(private val style: MapStyleState) {
-  /** Returns the loaded style's transition, or null while no style is ready. */
+  /**
+   * Returns the loaded style's transition, or null while no style is ready.
+   *
+   * The reported timing is the declared one: the animator duration scale that Android applies at
+   * write time is divided back out. A scale of zero zeroes the timing in the engine, and the getter
+   * then reports zero.
+   */
   public fun get(): TransitionOptions? = style.transitionOptions()
 
   /** Replaces the loaded style's transition. The command fails while no style is ready. */

@@ -20,7 +20,10 @@ class MlnFfiPlacementTransitionsTest {
 
       transition.set(TransitionOptions(duration = 10.milliseconds))
       assertEquals(false, transition.placementTransitions())
-      assertEquals(TransitionOptions(duration = 10.milliseconds), transition.get())
+      assertEquals(
+        TransitionOptions(duration = 10.milliseconds).readBackFromEngine(),
+        transition.get(),
+      )
     }
   }
 }

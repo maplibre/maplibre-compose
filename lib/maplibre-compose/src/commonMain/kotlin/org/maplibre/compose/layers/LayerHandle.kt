@@ -61,6 +61,10 @@ internal constructor(
    * without both a duration and a delay: an engine times the omitted field with the style's global
    * transition, which [TransitionOptions] states no value for. MapLibre GL JS reports an empty
    * object for a transition that was cleared, and this returns null for it.
+   *
+   * The reported timing is the declared one: the animator duration scale that Android applies at
+   * write time is divided back out. A scale of zero zeroes the timing in the engine, and the getter
+   * then reports zero.
    */
   public fun getPaintTransition(property: String): TransitionOptions? =
     getProperty(property + TRANSITION_SUFFIX)?.toTransitionOptions()

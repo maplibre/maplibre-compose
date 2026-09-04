@@ -55,12 +55,15 @@ internal fun TransitionOptions.toTransitionJson(): JsonObject = buildJsonObject 
  * An engine times a field that a transition object omits with the style's global transition, and
  * [TransitionOptions] states no such partial timing. The empty object that MapLibre GL JS reports
  * for a cleared transition is one such object.
+ *
+ * The animator duration scale that [toTransitionJson] applied at write time is divided back out, so
+ * the result states the declared timing.
  */
 internal fun JsonElement.toTransitionOptions(): TransitionOptions? {
   val json = this as? JsonObject ?: return null
   val duration = json.transitionMillis("duration") ?: return null
   val delay = json.transitionMillis("delay") ?: return null
-  return TransitionOptions(duration, delay)
+  return TransitionOptions(duration, delay).unscaledBy(animatorDurationScale())
 }
 
 private fun JsonObject.transitionMillis(name: String): Duration? =

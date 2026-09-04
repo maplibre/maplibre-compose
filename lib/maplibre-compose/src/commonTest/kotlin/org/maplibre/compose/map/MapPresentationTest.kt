@@ -65,6 +65,8 @@ import org.maplibre.compose.style.Sky
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleImageDefinition
 import org.maplibre.compose.style.TransitionOptions
+import org.maplibre.compose.style.readBackFromEngine
+import org.maplibre.compose.style.scaledForEngine
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
@@ -864,10 +866,10 @@ class MapPresentationTest {
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
     fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
 
-    assertEquals(TransitionOptions(), transition.get())
+    assertEquals(TransitionOptions().readBackFromEngine(), transition.get())
     transition.set(options)
-    assertEquals(options, transition.get())
-    assertEquals(options, binding.transition)
+    assertEquals(options.readBackFromEngine(), transition.get())
+    assertEquals(options.scaledForEngine(), binding.transition)
     transition.setPlacementTransitions(false)
     assertEquals(false, transition.placementTransitions())
 

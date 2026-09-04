@@ -10,6 +10,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.TransitionOptions
+import org.maplibre.compose.style.readBackFromEngine
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
@@ -40,7 +41,7 @@ class LayerHandlePropertyTest {
 
       handle.setPaintTransition("background-color", timing)
 
-      assertEquals(timing, handle.getPaintTransition("background-color"))
+      assertEquals(timing.readBackFromEngine(), handle.getPaintTransition("background-color"))
 
       handle.setPaintTransition("background-color", null)
 

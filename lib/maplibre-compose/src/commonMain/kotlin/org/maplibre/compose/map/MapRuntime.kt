@@ -81,6 +81,7 @@ import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.animatorDurationScale
 import org.maplibre.compose.style.canUpdateTo
 import org.maplibre.compose.style.scaledBy
+import org.maplibre.compose.style.unscaledBy
 import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.compose.util.VisibleRegion
@@ -227,7 +228,9 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   /** Projection of the current loaded-style generation. */
   public val projection: StyleProjection = StyleProjection(this)
 
-  internal fun transitionOptions(): TransitionOptions? = readStyle { it.transition() }
+  internal fun transitionOptions(): TransitionOptions? = readStyle {
+    it.transition()?.unscaledBy(animatorDurationScale())
+  }
 
   internal fun setTransitionOptions(options: TransitionOptions) {
     mutateStyle("the transition") { it.setTransition(options.scaledBy(animatorDurationScale())) }

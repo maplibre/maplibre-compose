@@ -17,6 +17,7 @@ import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.TransitionOptions
+import org.maplibre.compose.style.animatorDurationScale
 import org.maplibre.compose.testing.composeStyle
 import org.maplibre.compose.testing.supportsComposeRuntimeTests
 import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
@@ -134,7 +135,8 @@ class LayerTransitionWiringTest {
       CircleLayer(id = "circles-untimed", source = features, visible = true)
     }
 
-    assertEquals(
+    val scale = animatorDurationScale().toDouble()
+    val expected =
       mapOf(
         "labels" to
           mapOf(
@@ -223,7 +225,14 @@ class LayerTransitionWiringTest {
             "hillshade-accent-color-transition" to 59.0,
           ),
         "circles-untimed" to emptyMap(),
-      ),
+      )
+
+    // The recorded durations are the written timings under the platform's animator duration scale.
+    // A zero scale collapses every value to zero; the key wiring is still what is asserted.
+    assertEquals(
+      expected.mapValues { (_, durations) ->
+        durations.mapValues { (_, duration) -> duration * scale }
+      },
       LAYER_IDS.associateWith { style.transitionDurations(it) },
     )
   }
@@ -236,8 +245,12 @@ class LayerTransitionWiringTest {
       FillLayer(id = "fills", source = features, colorTransition = timing(400))
     }
 
+    val scale = animatorDurationScale().toDouble()
     assertEquals(
-      mapOf("fill-color-transition" to 400.0, "fill-outline-color-transition" to 400.0),
+      mapOf(
+        "fill-color-transition" to 400.0 * scale,
+        "fill-outline-color-transition" to 400.0 * scale,
+      ),
       style.transitionDurations("fills"),
     )
   }

@@ -66,6 +66,7 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LayerInstallation
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.TransitionOptions
+import org.maplibre.compose.style.animatorDurationScale
 import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MapLibreFlavor
 import org.maplibre.compose.testing.MapTestResult
@@ -196,7 +197,7 @@ class LayerPropertyRoundTripTest {
 
       val written = assertNotNull(style.layerProperty("timed", "background-color-transition"))
       assertTrue(
-        written.equivalentTo(Json.parseToJsonElement("""{"duration":700.0,"delay":50.0}""")),
+        written.equivalentTo(Json.parseToJsonElement(scaledTransitionJson(700.0, 50.0))),
         "the engine should report the written timing, but reports $written",
       )
 
@@ -317,7 +318,7 @@ class LayerPropertyRoundTripTest {
           it.setBackgroundPattern(image("tile").c())
         },
         Case("background-opacity", "0.5") { it.setBackgroundOpacity(const(0.5f).c()) },
-        Case("background-color-transition", """{"duration":700.0,"delay":50.0}""") {
+        Case("background-color-transition", scaledTransitionJson(700.0, 50.0)) {
           it.setBackgroundColor(const(Color.Blue).c())
           it.setBackgroundColorTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
         },
@@ -349,7 +350,7 @@ class LayerPropertyRoundTripTest {
           it.setCircleStrokeColor(const(Color.Black).c())
         },
         Case("circle-stroke-opacity", "0.75") { it.setCircleStrokeOpacity(const(0.75f).c()) },
-        Case("circle-color-transition", """{"duration":700.0,"delay":50.0}""") {
+        Case("circle-color-transition", scaledTransitionJson(700.0, 50.0)) {
           it.setCircleColor(const(Color.Red).c())
           it.setCircleColorTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
         },
@@ -373,11 +374,11 @@ class LayerPropertyRoundTripTest {
           it.setFillTranslateAnchor(const(TranslateAnchor.Viewport).c())
         },
         Case("fill-pattern", """["image","brick"]""") { it.setFillPattern(image("brick").c()) },
-        Case("fill-color-transition", """{"duration":700.0,"delay":50.0}""") {
+        Case("fill-color-transition", scaledTransitionJson(700.0, 50.0)) {
           it.setFillColor(const(Color.Red).c())
           it.setFillColorTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
         },
-        Case("fill-pattern-transition", """{"duration":700.0,"delay":50.0}""") {
+        Case("fill-pattern-transition", scaledTransitionJson(700.0, 50.0)) {
           it.setFillPattern(image("brick").c())
           it.setFillPatternTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
         },
@@ -415,7 +416,7 @@ class LayerPropertyRoundTripTest {
         Case("fill-extrusion-vertical-gradient", "false") {
           it.setFillExtrusionVerticalGradient(const(false).c())
         },
-        Case("fill-extrusion-height-transition", """{"duration":700.0,"delay":50.0}""") {
+        Case("fill-extrusion-height-transition", scaledTransitionJson(700.0, 50.0)) {
           it.setFillExtrusionHeight(const(30f).c())
           it.setFillExtrusionHeightTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
         },
@@ -440,7 +441,7 @@ class LayerPropertyRoundTripTest {
           )
         },
         Case("heatmap-opacity", "0.75") { it.setHeatmapOpacity(const(0.75f).c()) },
-        Case("heatmap-radius-transition", """{"duration":700.0,"delay":50.0}""") {
+        Case("heatmap-radius-transition", scaledTransitionJson(700.0, 50.0)) {
           it.setHeatmapRadius(const(12.dp).c())
           it.setHeatmapRadiusTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
         },
@@ -488,11 +489,11 @@ class LayerPropertyRoundTripTest {
               .c()
           )
         },
-        Case("line-width-transition", """{"duration":700.0,"delay":50.0}""") {
+        Case("line-width-transition", scaledTransitionJson(700.0, 50.0)) {
           it.setLineWidth(const(3.dp).c())
           it.setLineWidthTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
         },
-        Case("line-dasharray-transition", """{"duration":700.0,"delay":50.0}""") {
+        Case("line-dasharray-transition", scaledTransitionJson(700.0, 50.0)) {
           it.setLineDasharrayTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
         },
       ) + glJsOnlyLineCases()
@@ -517,7 +518,7 @@ class LayerPropertyRoundTripTest {
         Case("raster-fade-duration", "250.0") {
           it.setRasterFadeDuration(const(250.milliseconds).c())
         },
-        Case("raster-opacity-transition", """{"duration":700.0,"delay":50.0}""") {
+        Case("raster-opacity-transition", scaledTransitionJson(700.0, 50.0)) {
           it.setRasterOpacity(const(0.5f).c())
           it.setRasterOpacityTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
         },
@@ -566,7 +567,7 @@ class LayerPropertyRoundTripTest {
         ) {
           it.setHillshadeAccentColor(const(Color.Cyan).c())
         },
-        Case("hillshade-exaggeration-transition", """{"duration":700.0,"delay":50.0}""") {
+        Case("hillshade-exaggeration-transition", scaledTransitionJson(700.0, 50.0)) {
           it.setHillshadeExaggeration(const(0.5f).c())
           it.setHillshadeExaggerationTransition(
             TransitionOptions(700.milliseconds, 50.milliseconds)
@@ -599,7 +600,7 @@ class LayerPropertyRoundTripTest {
           )
         },
         Case("color-relief-opacity", "0.75") { it.setColorReliefOpacity(const(0.75f).c()) },
-        Case("color-relief-opacity-transition", """{"duration":700.0,"delay":50.0}""") {
+        Case("color-relief-opacity-transition", scaledTransitionJson(700.0, 50.0)) {
           it.setColorReliefOpacity(const(0.75f).c())
           it.setColorReliefOpacityTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
         },
@@ -773,7 +774,7 @@ class LayerPropertyRoundTripTest {
         Case("text-translate-anchor", "\"viewport\"") {
           it.setTextTranslateAnchor(const(TranslateAnchor.Viewport).c())
         },
-        Case("text-opacity-transition", """{"duration":700.0,"delay":50.0}""") {
+        Case("text-opacity-transition", scaledTransitionJson(700.0, 50.0)) {
           it.setTextOpacity(const(1f).c())
           it.setTextOpacityTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
         },
@@ -794,4 +795,13 @@ class LayerPropertyRoundTripTest {
           },
         )
   }
+}
+
+/**
+ * The engine JSON for a written transition: the timing under the platform's animator duration
+ * scale.
+ */
+private fun scaledTransitionJson(durationMs: Double, delayMs: Double): String {
+  val scale = animatorDurationScale().toDouble()
+  return """{"duration":${durationMs * scale},"delay":${delayMs * scale}}"""
 }
