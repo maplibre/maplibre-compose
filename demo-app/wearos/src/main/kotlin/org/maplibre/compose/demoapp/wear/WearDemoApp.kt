@@ -33,6 +33,7 @@ import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.SwipeToDismissBox
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.TimeText
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
@@ -70,6 +71,7 @@ private fun WearShell(state: DemoAppState) {
   var listOpen by rememberSaveable { mutableStateOf(false) }
   val scope = rememberCoroutineScope()
   val appliedStyle = state.appliedStyle
+  var flightJob by remember { mutableStateOf<Job?>(null) }
   AppScaffold(timeText = {}) {
     MapScreen(state, active = !listOpen, onOpenDemos = { listOpen = true })
     if (listOpen) {
@@ -83,7 +85,8 @@ private fun WearShell(state: DemoAppState) {
           DemosScreen(
             state,
             onOpenDemo = { demo ->
-              scope.launch { state.openDemo(demo, appliedStyle) { listOpen = false } }
+              flightJob?.cancel()
+              flightJob = scope.launch { state.openDemo(demo, appliedStyle) { listOpen = false } }
             },
           )
         }
