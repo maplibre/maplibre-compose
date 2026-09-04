@@ -12,9 +12,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -83,16 +81,7 @@ fun DemoMap(
   zoomButtonsFocusRequester: FocusRequester,
 ) {
   val scope = rememberCoroutineScope()
-  val appliedStyle = state.appliedStyle
-  val appliedBase = appliedStyle.base
-  SideEffect { state.appliedStyleSnapshot = appliedStyle }
-  // Composing the map with a base means its load is in flight until noteStyleLoad clears it.
-  DisposableEffect(appliedBase) {
-    state.pendingStyleLoad = appliedBase
-    onDispose {
-      if (state.pendingStyleLoad == appliedBase) state.pendingStyleLoad = null
-    }
-  }
+  val appliedBase = state.appliedStyle.base
   val selectedDemo = state.selectedDemo
   LaunchedEffect(state.mapState.style.loadState, appliedBase) {
     when (state.mapState.style.loadState) {
@@ -331,8 +320,6 @@ private fun findEllipseIntersection(area: Rect, target: Offset): Offset? {
 
 @Composable
 private fun DiagnosticOverlays(state: DemoAppState, modifier: Modifier = Modifier) {
-  // Track frames whether or not the overlay shows; the agent driver reports fps in /state.
-  LaunchedEffect(state.frameRateState) { state.frameRateState.track() }
   Column(
     modifier =
       modifier
@@ -351,6 +338,7 @@ private fun DiagnosticOverlays(state: DemoAppState, modifier: Modifier = Modifie
       )
     }
     if (state.settings.showFpsOverlay) {
+      LaunchedEffect(state.frameRateState) { state.frameRateState.track() }
       Text(
         text = "${state.frameRateState.framesPerSecond.roundToInt()} fps",
         style = MaterialTheme.typography.labelMedium,
