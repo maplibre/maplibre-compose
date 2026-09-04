@@ -1,6 +1,5 @@
 package org.maplibre.compose.map
 
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import kotlinx.io.files.Path
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
@@ -23,6 +22,8 @@ public actual data class MapRuntimeOptions(
   public val resourceProvider: MapResourceProvider? = null,
 )
 
+internal actual fun defaultMapRuntimeOptions(): MapRuntimeOptions = MapRuntimeOptions()
+
 /** The cache file that a null [MapRuntimeOptions.cacheFile] selects. */
 internal expect fun defaultCacheFile(): Path
 
@@ -40,10 +41,4 @@ internal fun MapRuntimeOptions.toMlnFfiRuntimeOptions(): MlnFfiRuntimeOptions =
 public actual fun createMapRuntime(options: MapRuntimeOptions): MapRuntime {
   initializeNativePlatform()
   return createNativeMapRuntime(options.toMlnFfiRuntimeOptions())
-}
-
-@Composable
-public actual fun rememberDefaultMapRuntime(): MapRuntime {
-  initializeNativePlatform()
-  return DefaultMapRuntime.getOrCreate { MapRuntimeOptions().toMlnFfiRuntimeOptions() }
 }

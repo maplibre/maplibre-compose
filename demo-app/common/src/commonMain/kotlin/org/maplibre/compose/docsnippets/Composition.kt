@@ -3,15 +3,15 @@
 package org.maplibre.compose.docsnippets
 
 import androidx.compose.runtime.Composable
+import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.map.MaplibreMap
-import org.maplibre.compose.map.rememberDefaultMapRuntime
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.style.BaseStyle
 
 @Composable
 fun Composition() {
   // #region base-plus-content
-  val runtime = rememberDefaultMapRuntime()
+  val runtime = DefaultMapRuntime.instance
   val state =
     rememberMapState(
       runtime = runtime,

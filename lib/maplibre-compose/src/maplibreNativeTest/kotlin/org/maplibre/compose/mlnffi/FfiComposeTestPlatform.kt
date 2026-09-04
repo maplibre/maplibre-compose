@@ -3,6 +3,7 @@ package org.maplibre.compose.mlnffi
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import org.maplibre.compose.map.MapRuntimeOptions
 
 /** Runs a Compose UI test using the platform runner that can host a real FFI map. */
 @ExperimentalTestApi
@@ -23,7 +24,7 @@ internal expect fun runPlainComposeUiTest(block: suspend ComposeUiTest.() -> Uni
  */
 @ExperimentalTestApi
 internal expect fun ComposeUiTest.setFfiTestMapContent(
-  runtimeOptions: MlnFfiRuntimeOptions,
+  runtimeOptions: MapRuntimeOptions,
   presentationCount: Int = 1,
   content: @Composable () -> Unit,
 )

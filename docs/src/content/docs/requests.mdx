@@ -33,9 +33,12 @@ the engine may call the interceptor more than once for one request.
 
 ## Serve the bytes
 
-Pass a <Api of="MapResourceProvider" /> as `resourceProvider` on the runtime
-options when you call <Api of="createMapRuntime" />. The scheme factory
-accepts every URL with that scheme:
+Pass a <Api of="MapResourceProvider" /> as `resourceProvider` in
+<Api of="MapRuntimeOptions" />. <Api of="DefaultMapRuntime.configure" /> sets
+the options for the process-default runtime, and must run before the first
+map, snapshotter, or offline manager. <Api of="createMapRuntime" /> creates a
+separate runtime from the same options. The scheme factory accepts every URL
+with that scheme:
 
 <Code code={region(requests, "provider")} lang="kotlin" title="App.kt" />
 

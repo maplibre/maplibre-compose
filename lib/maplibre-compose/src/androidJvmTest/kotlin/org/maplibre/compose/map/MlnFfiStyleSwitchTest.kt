@@ -49,8 +49,7 @@ class MlnFfiStyleSwitchTest {
 
   private val cacheFile = FfiTestPlatform.createCacheFile()
 
-  private val runtimeOptions =
-    MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+  private val runtimeOptions = MapRuntimeOptions(cacheFile = cacheFile)
 
   @AfterTest
   fun cleanUp() {
@@ -59,7 +58,7 @@ class MlnFfiStyleSwitchTest {
 
   @Test
   fun rotating_the_base_style_with_content_composed_over_it() = runFfiComposeUiTest {
-    val runtime = createNativeMapRuntime(runtimeOptions)
+    val runtime = createMapRuntime(runtimeOptions)
     var style by mutableStateOf(STYLES[0])
     var extraLayer by mutableStateOf(false)
     val composition = StyleComposition {
@@ -113,7 +112,7 @@ class MlnFfiStyleSwitchTest {
 
   @Test
   fun recreating_a_replacement_layer_while_switching_the_base_style() = runFfiComposeUiTest {
-    val runtime = createNativeMapRuntime(runtimeOptions)
+    val runtime = createMapRuntime(runtimeOptions)
     var style by mutableStateOf(REPLACEMENT_STYLES[0])
     var sourceLayer by mutableStateOf("places")
     var showReplacement by mutableStateOf(true)
@@ -198,7 +197,7 @@ class MlnFfiStyleSwitchTest {
     }
     val state = runtime.createMapState(baseStyle = INITIAL_STYLE, styleComposition = composition)
 
-    setFfiTestMapContent(options) {
+    setFfiTestMapContent(runtimeOptions) {
       MaplibreMap(modifier = Modifier, state = state)
     }
 

@@ -7,6 +7,8 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runAndroidComposeUiTest
 import org.maplibre.compose.map.DefaultMapRuntime
+import org.maplibre.compose.map.MapRuntimeOptions
+import org.maplibre.compose.map.resetForTest
 
 @OptIn(ExperimentalTestApi::class)
 internal actual fun runFfiComposeUiTest(block: suspend ComposeUiTest.() -> Unit) {
@@ -64,11 +66,11 @@ private fun startHangWatchdog(): Thread {
 
 @OptIn(ExperimentalTestApi::class)
 internal actual fun ComposeUiTest.setFfiTestMapContent(
-  runtimeOptions: MlnFfiRuntimeOptions,
+  runtimeOptions: MapRuntimeOptions,
   presentationCount: Int,
   content: @Composable () -> Unit,
 ) {
   require(presentationCount > 0) { "A map test must prepare at least one presentation" }
-  DefaultMapRuntime.installForTest(runtimeOptions)
+  DefaultMapRuntime.configure(runtimeOptions)
   setContent(content)
 }
