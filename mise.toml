@@ -142,6 +142,7 @@ description = "Boot an Android emulator and wait until it is ready."
 usage = '''
 flag "--headless" help="Run the emulator without a window."
 flag "--wear" help="Boot a Wear OS image on a small round watch profile. Wear API levels differ from handset ones, e.g. 36.1 for Wear OS 6.1."
+flag "--tv" help="Boot an Android TV image on a 1080p television profile."
 arg "[api_level]" default="{{vars.android_api_level}}"
 '''
 tools = { "core:java" = "{{vars.java_version}}" }
@@ -152,6 +153,9 @@ if [[ "$usage_headless" == "true" ]]; then
 fi
 if [[ "$usage_wear" == "true" ]]; then
   args+=(--wear)
+fi
+if [[ "$usage_tv" == "true" ]]; then
+  args+=(--tv)
 fi
 .mise/bin/boot-android-emulator "${args[@]}"
 '''
@@ -350,6 +354,16 @@ arg "[serial]" help="adb serial. Prompts when several devices are connected."
 flag "--backend <backend>" help="Render backend to package: opengl (default) or vulkan."
 '''
 env = { MAPLIBRE_DEMO_MODULE = "wearos" }
+# The device prompt needs the real terminal; mise otherwise pipes stdio.
+raw = true
+run = ".mise/bin/run-android-demo"
+
+[tasks."demo:android-tv"]
+description = "Run the Android demo app on a connected TV or Android TV emulator."
+usage = '''
+arg "[serial]" help="adb serial. Prompts when several devices are connected."
+flag "--backend <backend>" help="Render backend to package: opengl (default) or vulkan."
+'''
 # The device prompt needs the real terminal; mise otherwise pipes stdio.
 raw = true
 run = ".mise/bin/run-android-demo"

@@ -3,17 +3,19 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: boot-android-emulator <api-level> [--headless] [--wear]" >&2
+  echo "Usage: boot-android-emulator <api-level> [--headless] [--wear | --tv]" >&2
   exit 2
 }
 
 api_level=
 headless=false
 wear=false
+tv=false
 for arg in "$@"; do
   case "$arg" in
     --headless) headless=true ;;
     --wear) wear=true ;;
+    --tv) tv=true ;;
     -*) usage ;;
     *)
       [[ -z "$api_level" ]] || usage
@@ -22,6 +24,10 @@ for arg in "$@"; do
   esac
 done
 [[ -n "$api_level" ]] || usage
+if [[ "$wear" == true && "$tv" == true ]]; then
+  echo "--wear and --tv are mutually exclusive." >&2
+  usage
+fi
 
 # An arm64 host needs an arm64 image to use its native accelerator.
 case "$(uname -m)" in
@@ -37,6 +43,10 @@ if [[ "$wear" == true ]]; then
   fi
   device_profile=wearos_small_round
   avd_name="maplibre-compose-wear-${api_level}-${abi}"
+elif [[ "$tv" == true ]]; then
+  tag=android-tv
+  device_profile=tv_1080p
+  avd_name="maplibre-compose-tv-${api_level}-${abi}"
 else
   tag=default
   device_profile=
@@ -94,8 +104,20 @@ booted_avd() {
   adb_probe 20 emu avd name | head -n1
 }
 
+desired_mode=visible
+if [[ "$headless" == true ]]; then
+  desired_mode=headless
+fi
+gpu_mode=swiftshader_indirect
+if [[ "$headless" == false ]]; then
+  # Interactive emulators use the host GPU. Headless CI keeps the portable
+  # software renderer that this script originally used.
+  gpu_mode=host
+fi
+
 running_avd="$(booted_avd || true)"
 running_mode=
+running_gpu_mode=
 if [[ -f "$pid_file" ]]; then
   running_pid=$(<"$pid_file")
   if [[ "$running_pid" =~ ^[0-9]+$ ]] &&
@@ -106,20 +128,20 @@ if [[ -f "$pid_file" ]]; then
     else
       running_mode=visible
     fi
+    if ps -p "$running_pid" -o args= | grep -q -- " -gpu $gpu_mode"; then
+      running_gpu_mode=$gpu_mode
+    fi
   fi
 fi
-desired_mode=visible
-if [[ "$headless" == true ]]; then
-  desired_mode=headless
-fi
 
-if [[ "$running_avd" == "$avd_name" && "$running_mode" == "$desired_mode" ]]; then
+if [[ "$running_avd" == "$avd_name" && "$running_mode" == "$desired_mode" &&
+  "$running_gpu_mode" == "$gpu_mode" ]]; then
   echo "Android emulator for API $api_level ($abi) is ready at $serial."
   exit 0
 fi
 if [[ -n "$running_avd" ]] ||
   { [[ -x "$adb" ]] && adb_probe 20 devices | grep -q "^$serial"; }; then
-  echo "Replacing the emulator on $serial with $avd_name in $desired_mode mode."
+  echo "Replacing the emulator on $serial with $avd_name in $desired_mode mode using $gpu_mode graphics."
   "$project_root/.mise/bin/stop-android-emulator"
 fi
 
@@ -186,7 +208,7 @@ if [[ ! -f "$pid_file" ]]; then
     -no-boot-anim
     -no-snapshot
     -no-metrics
-    -gpu swiftshader_indirect
+    -gpu "$gpu_mode"
     -camera-back none
     -camera-front none
   )
