@@ -26,6 +26,8 @@ per `./gradlew` invocation. Two together can fail in ways neither does alone.
 - `mise run demo:desktop-nucleus`
 - `mise run demo:android` (prompts when several devices are connected;
   `--backend vulkan` packages the Vulkan runtime)
+- `mise run demo:android-tv` (the same Android app, for a TV or an emulator from
+  `android-emulator:boot --tv`)
 - `mise run demo:wearos` (the same, for a watch or a Wear emulator from
   `android-emulator:boot --wear 36.1`)
 - `mise run demo:ios` (pass `--device` for a connected iPhone; prompts when
@@ -156,7 +158,7 @@ rendering interactive maps across Android, iOS, Desktop, and Web platforms.
     the desktop backends supply the only desktop implementations
 - **`demo-app/`**: Multiplatform demo application
   - `common`: Every line of the app, and the only Kotlin Multiplatform module
-  - `android`: An Android application that launches `common`
+  - `android`: An Android and Android TV application that launches `common`
   - `wearos`: A Wear OS application with a watch shell around the map from
     `common`; the only module that uses Wear Compose
   - `desktop`: A JVM application that launches `common` on the AWT host
