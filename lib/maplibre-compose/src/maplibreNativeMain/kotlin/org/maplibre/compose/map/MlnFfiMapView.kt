@@ -162,8 +162,11 @@ internal fun MlnFfiMapView(
   val focusRequester = remember { FocusRequester() }
   val inputFocus =
     remember(session, state) {
-      MapInputFocus { focused, engaged -> state.setInputFocus(session, focused, engaged) }
+      MapInputFocus { focused, engagement -> state.setInputFocus(session, focused, engagement) }
     }
+  // Focus can arrive before the attachment publishes, and a write before that is dropped.
+  val attached = state.currentMapAttachment?.adapter === session
+  LaunchedEffect(inputFocus, attached) { if (attached) inputFocus.replay() }
   val inputStrings = mapInputStrings()
   val inputScope = rememberCoroutineScope()
   val continuation = remember(session, inputScope) { GestureContinuation(inputScope) }

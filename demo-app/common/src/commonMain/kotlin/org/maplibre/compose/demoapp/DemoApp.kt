@@ -165,15 +165,16 @@ private fun DemoShell(state: DemoAppState, contentPadding: PaddingValues) {
           .focusRequester(mapFocusRequester)
           .focusProperties {
             canFocus = !mapCovered
-            left = handleFocusRequester
+            start = handleFocusRequester
             // A requester with no node throws on use, so the route exists only with the buttons.
-            if (zoomButtonsShown) right = zoomButtonsFocusRequester
+            if (zoomButtonsShown) end = zoomButtonsFocusRequester
           }
           .semantics { if (mapCovered) hideFromAccessibility() }
       ) {
         ShellMap(
           state = state,
           viewportInsets = viewportInsets,
+          mapFocusRequester = mapFocusRequester,
           zoomButtonsFocusRequester = zoomButtonsFocusRequester,
         )
       }
@@ -185,7 +186,7 @@ private fun DemoShell(state: DemoAppState, contentPadding: PaddingValues) {
           Modifier.align(Alignment.CenterStart)
             .graphicsLayer { translationX = handleTranslation }
             .focusRequester(handleFocusRequester)
-            .focusProperties { right = mapFocusRequester },
+            .focusProperties { end = mapFocusRequester },
       )
       Box(
         modifier =
@@ -283,11 +284,12 @@ private fun MapViewportInsets.withLeadingPanel(
 private fun ShellMap(
   state: DemoAppState,
   viewportInsets: MapViewportInsets,
+  mapFocusRequester: FocusRequester,
   zoomButtonsFocusRequester: FocusRequester,
 ) {
   if (state.shell == DemoShell.Benchmarks) {
     BenchmarkMap(state, viewportInsets)
   } else {
-    DemoMap(state, viewportInsets, zoomButtonsFocusRequester)
+    DemoMap(state, viewportInsets, mapFocusRequester, zoomButtonsFocusRequester)
   }
 }

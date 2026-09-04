@@ -13,15 +13,17 @@ import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import org.maplibre.compose.map.MapEngagement
 
 /**
  * A border around the map that shows while the map holds keyboard focus. It covers the full map,
  * including the region that [MapOverlayScope.contentWindowInsets] obstructs.
  *
- * The ring appears while [MapState.isFocused][org.maplibre.compose.map.MapState.isFocused] is true
- * and [LocalInputModeManager] reports [InputMode.Keyboard]. It draws a thicker stroke while
- * [MapState.isEngaged][org.maplibre.compose.map.MapState.isEngaged] is true. A touch or pointer
- * user never sees it.
+ * The ring appears while [MapState.isFocused][org.maplibre.compose.map.MapState.isFocused] is true,
+ * [LocalInputModeManager] reports [InputMode.Keyboard], and
+ * [MapState.engagement][org.maplibre.compose.map.MapState.engagement] is not
+ * [MapEngagement.Pointer]. It draws a thicker stroke while the keyboard engaged the map. A touch or
+ * pointer user never sees it, because a pointer press engages the map from the pointer.
  *
  * The ring is a drawing only. It takes no focus and handles no pointer input, so a press on it
  * reaches the map.
@@ -37,8 +39,10 @@ public fun MapOverlayScope.FocusRing(
   style: FocusRingStyle = FocusRingDefaults.style(),
 ) {
   val keyboardMode = LocalInputModeManager.current.inputMode == InputMode.Keyboard
-  if (!keyboardMode || !mapState.isFocused) return
-  val strokeWidth = if (mapState.isEngaged) style.engagedStrokeWidth else style.strokeWidth
+  val engagement = mapState.engagement
+  if (!keyboardMode || !mapState.isFocused || engagement == MapEngagement.Pointer) return
+  val strokeWidth =
+    if (engagement == MapEngagement.Keyboard) style.engagedStrokeWidth else style.strokeWidth
   Box(modifier.fillOverlay().fillMaxSize().border(strokeWidth, style.color, style.shape))
 }
 

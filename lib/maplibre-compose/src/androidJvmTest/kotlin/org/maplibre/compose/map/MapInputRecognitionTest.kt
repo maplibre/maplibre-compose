@@ -426,7 +426,6 @@ class MapInputRecognitionTest {
       assertFalse(Key.Escape in unconsumed, "the engaged map passed Escape through")
       assertEquals(0, target.moveCalls.size, "a direction key panned after Escape")
       assertTrue(Key.DirectionRight in unconsumed, "the map consumed the direction key")
-      mapNode().assertIsFocused()
     }
 
   @Test

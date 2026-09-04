@@ -21,6 +21,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -78,6 +79,7 @@ internal suspend fun MapState.flyTo(destination: DemoDestination) {
 fun DemoMap(
   state: DemoAppState,
   viewportInsets: MapViewportInsets,
+  mapFocusRequester: FocusRequester,
   zoomButtonsFocusRequester: FocusRequester,
 ) {
   val scope = rememberCoroutineScope()
@@ -130,7 +132,9 @@ fun DemoMap(
       include(if (material3) MapOverlay.Material3 else MapOverlay.Default)
       if (state.settings.showZoomButtons) {
         val zoomModifier =
-          Modifier.align(Alignment.CenterEnd).focusRequester(zoomButtonsFocusRequester)
+          Modifier.align(Alignment.CenterEnd)
+            .focusRequester(zoomButtonsFocusRequester)
+            .focusProperties { start = mapFocusRequester }
         if (material3) Material3ZoomButtons(zoomModifier) else ZoomButtons(zoomModifier)
       }
       selectedDemo?.let { demo ->

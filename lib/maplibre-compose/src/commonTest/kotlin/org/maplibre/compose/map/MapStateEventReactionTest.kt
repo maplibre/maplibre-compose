@@ -119,20 +119,20 @@ class MapStateEventReactionTest {
     val adapter = presentedAdapter(state)
     val other = PresentationTestAdapter()
 
-    state.setInputFocus(other, focused = true, engaged = true)
+    state.setInputFocus(other, focused = true, engagement = MapEngagement.Keyboard)
     assertFalse(state.isFocused)
-    assertFalse(state.isEngaged)
+    assertEquals(MapEngagement.None, state.engagement)
 
-    state.setInputFocus(adapter, focused = true, engaged = false)
+    state.setInputFocus(adapter, focused = true, engagement = MapEngagement.None)
     assertTrue(state.isFocused)
-    assertFalse(state.isEngaged)
+    assertEquals(MapEngagement.None, state.engagement)
 
-    state.setInputFocus(adapter, focused = true, engaged = true)
-    assertTrue(state.isEngaged)
+    state.setInputFocus(adapter, focused = true, engagement = MapEngagement.Pointer)
+    assertEquals(MapEngagement.Pointer, state.engagement)
 
     state.invalidatePresentation(adapter)
     assertFalse(state.isFocused)
-    assertFalse(state.isEngaged)
+    assertEquals(MapEngagement.None, state.engagement)
 
     state.close()
     state.awaitClosed()

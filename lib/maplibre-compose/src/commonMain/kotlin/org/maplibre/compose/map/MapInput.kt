@@ -71,7 +71,7 @@ internal fun Modifier.mapInput(
   continuation: GestureContinuation,
 ): Modifier {
   // The semantics block observes no snapshot state, so engagement is read here.
-  val engaged = focus.isEngaged
+  val engaged = focus.engagement != MapEngagement.None
   return this.semantics {
       contentDescription = strings.contentDescription
       stateDescription = if (engaged) strings.engaged else strings.notEngaged
@@ -111,48 +111,42 @@ internal fun mapInputStrings(): MapInputStrings =
  * tilt. A node that is focused and not engaged passes those keys through, so focus traversal
  * continues from the map.
  */
-internal class MapInputFocus(private val onChanged: (focused: Boolean, engaged: Boolean) -> Unit) {
-  private enum class Engagement {
-    NONE,
-    KEY,
-    POINTER,
-  }
-
+internal class MapInputFocus(
+  private val onChanged: (focused: Boolean, engagement: MapEngagement) -> Unit
+) {
   var isFocused: Boolean by mutableStateOf(false)
     private set
 
-  private var engagement: Engagement by mutableStateOf(Engagement.NONE)
-
-  val isEngaged: Boolean
-    get() = engagement != Engagement.NONE
-
-  val isEngagedByKey: Boolean
-    get() = engagement == Engagement.KEY
+  var engagement: MapEngagement by mutableStateOf(MapEngagement.None)
+    private set
 
   fun onFocusChanged(focused: Boolean) {
     isFocused = focused
-    if (!focused) engagement = Engagement.NONE
+    if (!focused) engagement = MapEngagement.None
     report()
   }
 
   /** Returns false when the node is not focused, because only a focused node engages. */
-  fun engageByKey(): Boolean = engage(Engagement.KEY)
+  fun engageByKey(): Boolean = engage(MapEngagement.Keyboard)
 
-  fun engageByPointer(): Boolean = engage(Engagement.POINTER)
+  fun engageByPointer(): Boolean = engage(MapEngagement.Pointer)
 
   fun disengage() {
-    engagement = Engagement.NONE
+    engagement = MapEngagement.None
     report()
   }
 
-  private fun engage(by: Engagement): Boolean {
+  /** Reports the current state again, for a listener that missed earlier writes. */
+  fun replay() = report()
+
+  private fun engage(by: MapEngagement): Boolean {
     if (!isFocused) return false
     engagement = by
     report()
     return true
   }
 
-  private fun report() = onChanged(isFocused, isEngaged)
+  private fun report() = onChanged(isFocused, engagement)
 }
 
 private fun Modifier.keyboardInput(
@@ -166,11 +160,11 @@ private fun Modifier.keyboardInput(
     Key.Enter,
     Key.NumPadEnter,
     Key.DirectionCenter -> focus.engageByKey()
-    Key.Escape -> focus.isEngaged.also { if (it) focus.disengage() }
+    Key.Escape -> (focus.engagement != MapEngagement.None).also { if (it) focus.disengage() }
     // Compose delivers Back to the focused node before the activity, so a map that consumed Back
     // after a touch would break back navigation on every Android phone.
-    Key.Back -> focus.isEngagedByKey.also { if (it) focus.disengage() }
-    else -> focus.isEngaged && target.bindKey(event, options, continuation)
+    Key.Back -> (focus.engagement == MapEngagement.Keyboard).also { if (it) focus.disengage() }
+    else -> focus.engagement != MapEngagement.None && target.bindKey(event, options, continuation)
   }
 }
 

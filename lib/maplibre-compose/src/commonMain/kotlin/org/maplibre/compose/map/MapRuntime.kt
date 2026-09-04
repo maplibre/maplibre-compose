@@ -518,15 +518,15 @@ internal constructor(
   private var cameraChangingState: Boolean by mutableStateOf(false)
   private var moveReasonState: CameraMoveReason by mutableStateOf(CameraMoveReason.NONE)
   private var focusedState: Boolean by mutableStateOf(false)
-  private var engagedState: Boolean by mutableStateOf(false)
+  private var engagementState: MapEngagement by mutableStateOf(MapEngagement.None)
   val isValid: Boolean
     get() = validState
 
   val isFocused: Boolean
     get() = focusedState
 
-  val isEngaged: Boolean
-    get() = engagedState
+  val engagement: MapEngagement
+    get() = engagementState
 
   val viewport: Viewport?
     get() = viewportState
@@ -617,10 +617,10 @@ internal constructor(
     }
   }
 
-  internal fun setInputFocus(focused: Boolean, engaged: Boolean) {
+  internal fun setInputFocus(focused: Boolean, engagement: MapEngagement) {
     owner.lifecycle.serialized {
       focusedState = focused
-      engagedState = engaged
+      engagementState = engagement
     }
   }
 
@@ -642,7 +642,7 @@ internal constructor(
       gestureActiveState = false
       cameraChangingState = false
       focusedState = false
-      engagedState = false
+      engagementState = MapEngagement.None
       invalidated.complete(Unit)
     }
   }
@@ -796,13 +796,14 @@ internal constructor(
     get() = currentMapAttachment?.isFocused == true
 
   /**
-   * Returns true while the focused map consumes the keys that pan, zoom, rotate, and tilt. Enter,
-   * numpad Enter, D-pad center, and a pointer press engage the map. Escape disengages it, and Back
-   * disengages it when a key engaged it. Focus loss disengages it. A focused map that is not
-   * engaged passes direction keys to focus traversal.
+   * Whether the focused map consumes the keys that pan, zoom, rotate, and tilt, and what engaged
+   * it. Enter, numpad Enter, and D-pad center engage the map from the keyboard. A pointer press
+   * engages it from the pointer. Escape disengages it, and Back disengages it when the keyboard
+   * engaged it. Focus loss disengages it. A focused map that is not engaged passes direction keys
+   * to focus traversal.
    */
-  public val isEngaged: Boolean
-    get() = currentMapAttachment?.isEngaged == true
+  public val engagement: MapEngagement
+    get() = currentMapAttachment?.engagement ?: MapEngagement.None
 
   /**
    * Emits each [MapEvent] that the engine behind this map reports.
@@ -1501,8 +1502,8 @@ internal constructor(
   }
 
   /** Reports the focus and engagement of the input node over [adapter]. */
-  internal fun setInputFocus(adapter: MapAdapter, focused: Boolean, engaged: Boolean) {
-    presentedAttachment(adapter)?.setInputFocus(focused, engaged)
+  internal fun setInputFocus(adapter: MapAdapter, focused: Boolean, engagement: MapEngagement) {
+    presentedAttachment(adapter)?.setInputFocus(focused, engagement)
   }
 
   /** Ends a camera change that the engine behind [adapter] will never finish. */
