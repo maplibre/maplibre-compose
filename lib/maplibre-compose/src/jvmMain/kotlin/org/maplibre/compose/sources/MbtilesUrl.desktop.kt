@@ -1,7 +1,6 @@
 package org.maplibre.compose.sources
 
 import java.io.File
-import java.net.JarURLConnection
 import java.net.URI
 import java.net.URISyntaxException
 import java.nio.file.Paths
@@ -47,10 +46,8 @@ internal suspend fun desktopMbtilesPath(uri: String, directory: File): String =
 private fun requireJarOnDisk(uri: URI) {
   val rejection = "mbtilesUrl reads a file: URI or a jar: entry in a jar on disk, not '$uri'"
   require(uri.scheme.equals("jar", ignoreCase = true)) { rejection }
-  val connection =
-    uri.toURL().openConnection() as? JarURLConnection ?: throw IllegalArgumentException(rejection)
   val jar = runCatching {
-    File(connection.jarFileURL.toURI())
+    File(URI(uri.rawSchemeSpecificPart.substringBefore("!/")))
   }
     .getOrElse { throw IllegalArgumentException(rejection, it) }
   require(jar.isFile) { "'$uri' names a jar that does not exist: $jar" }

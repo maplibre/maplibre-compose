@@ -3,6 +3,7 @@ package org.maplibre.compose.sources
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.produceState
+import org.maplibre.compose.resource.encodeResourceUrl
 
 /**
  * Returns the `mbtiles:` URL of the MBTiles file at [uri], for the `tiles` list of a [VectorSource]
@@ -47,25 +48,5 @@ internal expect suspend fun localMbtilesPath(uri: String): String
  * Percent-encodes [path] after the `mbtiles://` prefix. MapLibre Native percent-decodes the rest of
  * the URL to a path, so `/` stays as is and every other reserved character is encoded.
  */
-internal fun mbtilesUrlForPath(path: String): String {
-  val out = StringBuilder("mbtiles://")
-  for (byte in path.encodeToByteArray()) {
-    val value = byte.toInt() and 0xFF
-    val char = value.toChar()
-    if (char == '/' || char.isUnreservedUrlChar()) out.append(char)
-    else {
-      out.append('%')
-      out.append(value.toString(16).padStart(2, '0').uppercase())
-    }
-  }
-  return out.toString()
-}
-
-private fun Char.isUnreservedUrlChar(): Boolean =
-  this in 'a'..'z' ||
-    this in 'A'..'Z' ||
-    this in '0'..'9' ||
-    this == '-' ||
-    this == '_' ||
-    this == '.' ||
-    this == '~'
+internal fun mbtilesUrlForPath(path: String): String =
+  "mbtiles://" + path.split('/').joinToString("/", transform = ::encodeResourceUrl)
