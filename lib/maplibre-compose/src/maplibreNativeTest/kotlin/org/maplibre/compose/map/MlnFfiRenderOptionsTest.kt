@@ -14,7 +14,7 @@ class MlnFfiRenderOptionsTest {
   fun camera_projection_reaches_the_map_and_returns_to_perspective() {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
-      val movedBefore = fixture.events.count { it == "cameraMoved" }
+      val movedBefore = fixture.events.count { it == "viewportChanged" }
       fixture.session.setRenderSettings(
         RenderOptions(cameraProjection = CameraProjection.Axonometric())
       )
@@ -24,8 +24,8 @@ class MlnFfiRenderOptionsTest {
       assertEquals(0.0, defaultAxonometric.xSkew)
       assertEquals(1.0, defaultAxonometric.ySkew)
       assertTrue(
-        fixture.events.count { it == "cameraMoved" } > movedBefore,
-        "a projection change should report cameraMoved so overlays re-read the projection",
+        fixture.events.count { it == "viewportChanged" } > movedBefore,
+        "a projection change should report viewportChanged so overlays re-read the projection",
       )
 
       fixture.session.setRenderSettings(

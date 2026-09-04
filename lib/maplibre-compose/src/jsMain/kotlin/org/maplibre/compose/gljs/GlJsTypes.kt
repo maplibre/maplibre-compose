@@ -14,7 +14,7 @@ internal external interface Subscription {
 }
 
 /** Only the `error` event carries an [error]. */
-internal external interface MapEvent {
+internal external interface GlJsMapEvent {
   val error: JsError?
   val sourceId: String?
   val sourceDataType: String?

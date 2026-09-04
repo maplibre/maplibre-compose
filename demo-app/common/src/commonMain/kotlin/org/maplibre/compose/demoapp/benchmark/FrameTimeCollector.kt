@@ -1,11 +1,15 @@
 package org.maplibre.compose.demoapp.benchmark
 
 import kotlin.concurrent.Volatile
+import kotlin.time.DurationUnit
+import kotlin.time.TimeSource
 
 /**
- * Inter-frame intervals from the map's [org.maplibre.compose.map.MaplibreMap] `onFrame` callback
- * and from Compose vsync. [recordMapFps] runs on the presenting thread; [stop] is called from the
- * scenario coroutine after recording ends.
+ * Inter-frame intervals from the map's [org.maplibre.compose.map.MapEvent.FrameRendered] events and
+ * from Compose vsync. One collector calls [recordMapFrame], and [stop] is called from the scenario
+ * coroutine after recording ends.
+ *
+ * A map interval is the difference between two marks that the caller supplies.
  */
 class FrameTimeCollector(private val capacity: Int = 16_384) {
   private val mapMs = DoubleArray(capacity)
@@ -15,6 +19,8 @@ class FrameTimeCollector(private val capacity: Int = 16_384) {
 
   @Volatile private var composeCount = 0
 
+  @Volatile private var lastMapMark: TimeSource.Monotonic.ValueTimeMark? = null
+
   @Volatile
   var recording: Boolean = false
     private set
@@ -22,14 +28,19 @@ class FrameTimeCollector(private val capacity: Int = 16_384) {
   fun start() {
     mapCount = 0
     composeCount = 0
+    lastMapMark = null
     recording = true
   }
 
-  fun recordMapFps(framesPerSecond: Double) {
-    if (!recording || framesPerSecond <= 0.0) return
+  /** Records the interval since the previous frame. The first frame after [start] sets the mark. */
+  fun recordMapFrame(now: TimeSource.Monotonic.ValueTimeMark) {
+    if (!recording) return
+    val previous = lastMapMark
+    lastMapMark = now
+    if (previous == null) return
     val index = mapCount
     if (index >= mapMs.size) return
-    mapMs[index] = 1000.0 / framesPerSecond
+    mapMs[index] = (now - previous).toDouble(DurationUnit.MILLISECONDS)
     mapCount = index + 1
   }
 

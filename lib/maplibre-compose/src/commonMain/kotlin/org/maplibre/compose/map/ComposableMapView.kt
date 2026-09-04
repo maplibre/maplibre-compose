@@ -17,5 +17,6 @@ internal expect fun ComposableMapView(
   onReset: () -> Unit,
   logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
+  clicks: MapClickTarget,
   options: MapViewOptions,
 )

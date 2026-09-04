@@ -275,6 +275,14 @@ internal class MapLifecycleAuthority(
     owner.seedPresentationViewport(token, adapter)
   }
 
+  /**
+   * Ends a camera change that the engine behind [adapter] started and will never finish, such as
+   * one interrupted by the loss of the rendering context.
+   */
+  fun endCurrentPresentationCameraChange(adapter: MapAdapter) {
+    owner.endCameraChange(adapter)
+  }
+
   fun selectAdapterForPresentation(adapter: MapAdapter): Boolean = serialized {
     if (closed) return@serialized false
     val current = attachment ?: return@serialized false

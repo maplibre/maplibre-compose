@@ -18,11 +18,6 @@ internal interface GestureTarget {
 
   fun onGestureEnded(token: GestureToken)
 
-  fun onPrimaryClick(offset: DpOffset)
-
-  /** Stands in for the mobile SDKs' long press. */
-  fun onSecondaryClick(offset: DpOffset)
-
   /** A zero [duration] is a jump. */
   fun moveBy(
     deltaX: Double,
@@ -67,4 +62,12 @@ internal interface GestureTarget {
     duration: Duration,
     gestureToken: GestureToken,
   )
+}
+
+/** The receiver of the taps and long presses that [mapInput] recognizes. */
+internal interface MapClickTarget {
+  fun onPrimaryClick(offset: DpOffset)
+
+  /** Stands in for the mobile SDKs' long press. */
+  fun onSecondaryClick(offset: DpOffset)
 }

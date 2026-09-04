@@ -411,7 +411,7 @@ class MapInputRecognitionTest {
 }
 
 @Composable
-private fun GestureHost(target: GestureTarget, options: GestureOptions) {
+private fun GestureHost(target: RecordingGestureTarget, options: GestureOptions) {
   val density = LocalDensity.current
   val focusRequester = remember { FocusRequester() }
   val inputScope = rememberCoroutineScope()
@@ -419,12 +419,15 @@ private fun GestureHost(target: GestureTarget, options: GestureOptions) {
   Box(
     Modifier.fillMaxSize()
       .testTag(RECOGNITION_MAP_TAG)
-      .mapInput(target, options, density, focusRequester, continuation)
+      .mapInput(target, target, options, density, focusRequester, continuation)
   )
 }
 
-/** Records every [GestureTarget] call so recognition tests can assert without a map. */
-private class RecordingGestureTarget : GestureTarget {
+/**
+ * Records every [GestureTarget] and [MapClickTarget] call so recognition tests can assert without a
+ * map.
+ */
+private class RecordingGestureTarget : GestureTarget, MapClickTarget {
   var clicks = 0
   var longClicks = 0
   var startedCount = 0

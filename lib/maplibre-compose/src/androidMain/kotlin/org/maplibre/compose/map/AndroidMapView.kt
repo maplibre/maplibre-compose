@@ -23,6 +23,7 @@ internal actual fun ComposableMapView(
   onReset: () -> Unit,
   logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
+  clicks: MapClickTarget,
   options: MapViewOptions,
 ) {
   AndroidMlnFfiPlatform.initialize(LocalContext.current)
@@ -56,6 +57,7 @@ internal actual fun ComposableMapView(
       onReset = onReset,
       logger = logger,
       callbacks = callbacks,
+      clicks = clicks,
       options = options,
     )
   }

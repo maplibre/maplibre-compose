@@ -1,9 +1,7 @@
 package org.maplibre.compose.map
 
-import androidx.compose.ui.unit.DpOffset
-import org.maplibre.compose.camera.CameraMoveReason
+import kotlinx.coroutines.Deferred
 import org.maplibre.compose.style.StyleBinding
-import org.maplibre.spatialk.geojson.Position
 
 /** Filters platform callbacks through identities captured by their platform producer. */
 internal class MapLifecycleCallbacks(
@@ -30,22 +28,12 @@ internal class MapLifecycleCallbacks(
     }
   }
 
-  fun onMapFinishedLoading(engine: EngineMapIdentity, style: StyleIdentity, map: MapAdapter) =
+  fun onStyleReady(engine: EngineMapIdentity, style: StyleIdentity, map: MapAdapter) =
     withStyle(engine, style) {
-      delegate().onMapFinishedLoading(map)
+      delegate().onStyleReady(map)
     }
 
-  fun onSourceChanged(
-    engine: EngineMapIdentity,
-    style: StyleIdentity,
-    map: MapAdapter,
-    sourceId: String?,
-  ) =
-    withStyle(engine, style) {
-      delegate().onSourceChanged(map, sourceId)
-    }
-
-  fun onMapFailLoading(
+  fun onStyleFailed(
     engine: EngineMapIdentity,
     request: StyleRequestIdentity,
     map: MapAdapter,
@@ -54,68 +42,74 @@ internal class MapLifecycleCallbacks(
   ) =
     lifecycle.acceptStyleRequestEvent(engine, request) {
       beforeDelegate()
-      delegate().onMapFailLoading(map, reason)
+      delegate().onStyleFailed(map, reason)
     }
 
-  fun onCameraMoveStarted(
+  fun onStyleSourcesChanged(
+    engine: EngineMapIdentity,
+    style: StyleIdentity,
+    map: MapAdapter,
+    sourceId: String?,
+  ) =
+    withStyle(engine, style) {
+      delegate().onStyleSourcesChanged(map, sourceId)
+    }
+
+  fun onGestureActive(
     engine: EngineMapIdentity,
     lease: RenderLease,
     map: MapAdapter,
-    reason: CameraMoveReason,
+    active: Boolean,
   ) =
     withPresentation(engine, lease) {
-      delegate().onCameraMoveStarted(map, reason)
+      delegate().onGestureActive(map, active)
     }
 
-  fun onCameraMoved(
+  fun onViewportChanged(engine: EngineMapIdentity, lease: RenderLease, map: MapAdapter) =
+    withPresentation(engine, lease) {
+      delegate().onViewportChanged(map)
+    }
+
+  fun onEvent(engine: EngineMapIdentity, map: MapAdapter, event: MapEvent) =
+    lifecycle.acceptEngineEvent(engine) { delegate().onEvent(map, event) }
+
+  /**
+   * [beforeDelegate] runs inside the same acceptance, so a session can publish the viewport the
+   * event describes before the delegate reads it.
+   */
+  fun onEvent(
     engine: EngineMapIdentity,
     lease: RenderLease,
     map: MapAdapter,
+    event: MapEvent,
     beforeDelegate: () -> Unit = {},
   ) =
     withPresentation(engine, lease) {
       beforeDelegate()
-      delegate().onCameraMoved(map)
+      delegate().onEvent(map, event)
     }
 
-  fun onCameraMoveEnded(
+  fun onEvent(engine: EngineMapIdentity, style: StyleIdentity, map: MapAdapter, event: MapEvent) =
+    withStyle(engine, style) { delegate().onEvent(map, event) }
+
+  fun onEvent(
     engine: EngineMapIdentity,
-    lease: RenderLease,
+    request: StyleRequestIdentity,
     map: MapAdapter,
-    afterDelegate: () -> Unit = {},
-  ) =
-    withPresentation(engine, lease) {
-      try {
-        delegate().onCameraMoveEnded(map)
-      } finally {
-        afterDelegate()
-      }
-    }
+    event: MapEvent,
+  ) = lifecycle.acceptStyleRequestEvent(engine, request) { delegate().onEvent(map, event) }
 
-  fun onClick(
+  /** Asks the loaded style's owner to supply a missing image. */
+  fun resolveMissingImage(
     engine: EngineMapIdentity,
-    lease: RenderLease,
+    style: StyleIdentity,
     map: MapAdapter,
-    latLng: Position,
-    offset: DpOffset,
-  ) =
-    withPresentation(engine, lease) {
-      delegate().onClick(map, latLng, offset)
-    }
-
-  fun onLongClick(
-    engine: EngineMapIdentity,
-    lease: RenderLease,
-    map: MapAdapter,
-    latLng: Position,
-    offset: DpOffset,
-  ) =
-    withPresentation(engine, lease) {
-      delegate().onLongClick(map, latLng, offset)
-    }
-
-  fun onFrame(engine: EngineMapIdentity, lease: RenderLease, fps: Double) =
-    withPresentation(engine, lease) { delegate().onFrame(fps) }
+    imageId: String,
+  ): Deferred<Unit>? {
+    var resolution: Deferred<Unit>? = null
+    withStyle(engine, style) { resolution = delegate().resolveMissingImage(map, imageId) }
+    return resolution
+  }
 
   fun onPresentationEvent(engine: EngineMapIdentity, lease: RenderLease, event: () -> Unit) =
     withPresentation(engine, lease, event)

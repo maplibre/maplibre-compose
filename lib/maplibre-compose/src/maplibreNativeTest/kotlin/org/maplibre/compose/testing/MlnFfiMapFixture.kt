@@ -5,6 +5,7 @@ import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.map.GestureTarget
 import org.maplibre.compose.map.MapAdapter
+import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.mlnffi.BridgeMapFixture
@@ -26,7 +27,7 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent
 
   init {
     state.publishPresentation(token, bridge.session)
-    bridge.bindAttachment(requireNotNull(state.currentMapAttachment))
+    bridge.bindState(state)
   }
 
   override val session: MapAdapter
@@ -41,6 +42,9 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent
   override val events: MutableList<String>
     get() = bridge.events
 
+  override val engineEvents: MutableList<MapEvent>
+    get() = bridge.engineEvents
+
   override val sourceChanges: MutableList<String?>
     get() = bridge.sourceChanges
 
@@ -50,13 +54,12 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent
   override suspend fun loadStyle(style: BaseStyle, timeout: Duration) {
     state.style.loadState = org.maplibre.compose.map.StyleLoadState.Loading
     state.updateLoadedStyle(bridge.session, null)
-    val finishedLoadsBefore = events.count { it == MapFixture.LOAD_FINISHED }
+    val styleReadyCountBefore = events.count { it == MapFixture.STYLE_READY }
     bridge.loadStyle(style, timeout, extent)
     bridge.session.reconcileStyleRevision(DesiredStyleRevision.Empty)
     bridge.pumpUntil("style $style to finish reconciliation", timeout, extent) {
-      events.count { it == MapFixture.LOAD_FINISHED } > finishedLoadsBefore
+      events.count { it == MapFixture.STYLE_READY } > styleReadyCountBefore
     }
-    state.updateLoadedStyle(bridge.session, bridge.style)
     state.markStyleReady(bridge.session)
   }
 

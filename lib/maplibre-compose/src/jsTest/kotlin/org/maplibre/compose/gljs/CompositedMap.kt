@@ -4,19 +4,19 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.js.Date
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.map.GlJsMapSession
 import org.maplibre.compose.map.MapAdapter
+import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
-import org.maplibre.spatialk.geojson.Position
 
 private const val RENDER_TIMEOUT_MS = 30_000
 
@@ -95,26 +95,22 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
       }
     }
 
-    override fun onMapFinishedLoading(map: MapAdapter) {
+    override fun onStyleReady(map: MapAdapter) {
       styleLoaded = true
     }
 
-    override fun onSourceChanged(map: MapAdapter, sourceId: String?) = Unit
-
-    override fun onMapFailLoading(map: MapAdapter, reason: String?) {
+    override fun onStyleFailed(map: MapAdapter, reason: String?) {
       loadFailure = reason ?: "unknown"
     }
 
-    override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) = Unit
+    override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) = Unit
 
-    override fun onCameraMoved(map: MapAdapter) = Unit
+    override fun onEvent(map: MapAdapter, event: MapEvent) = Unit
 
-    override fun onCameraMoveEnded(map: MapAdapter) = Unit
+    override fun resolveMissingImage(map: MapAdapter, imageId: String): Deferred<Unit>? = null
 
-    override fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset) = Unit
+    override fun onGestureActive(map: MapAdapter, active: Boolean) = Unit
 
-    override fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset) = Unit
-
-    override fun onFrame(fps: Double) = Unit
+    override fun onViewportChanged(map: MapAdapter) = Unit
   }
 }

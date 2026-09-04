@@ -4,8 +4,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import kotlin.time.Duration
+import kotlinx.coroutines.Deferred
 import kotlinx.serialization.json.JsonObject
-import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.expressions.ast.CompiledExpression
@@ -81,7 +81,7 @@ internal interface MapAdapter {
   /**
    * The viewport the map last adopted, with every property read from the same transform, or null
    * before the map has one. Implementations answer from where the map's size actually lands, so a
-   * read made from [Callbacks.onCameraMoved] already describes a finished resize.
+   * read made from [Callbacks.onViewportChanged] already describes a finished resize.
    */
   fun getViewport(): Viewport?
 
@@ -111,50 +111,68 @@ internal interface MapAdapter {
 
   fun metersPerDpAtLatitude(latitude: Double): Double
 
+  /**
+   * The sink that a session reports to. [onStyleChanged], [onStyleReady], [onStyleFailed], and
+   * [onStyleSourcesChanged] are the style handshake: the session offers a binding, reports the
+   * composition ready or a source changed for the binding it holds, and reports that a style
+   * request failed. [onEvent], [onGestureActive], and [onViewportChanged] refer to no binding.
+   */
   interface Callbacks {
+    /** Offers the binding for a loaded style, or null when no binding is current. */
     fun onStyleChanged(map: MapAdapter, style: StyleBinding?)
 
-    fun onMapFinishedLoading(map: MapAdapter)
+    /** Reports that the style composition applied and is ready to present. */
+    fun onStyleReady(map: MapAdapter)
 
-    /** A null [sourceId] means that the adapter cannot identify the changed source. */
-    fun onSourceChanged(map: MapAdapter, sourceId: String?)
+    /**
+     * Reports that the style cannot load, either because the base style request failed or because
+     * attaching the presentation threw. [reason] is the failure text when the failure carried one.
+     */
+    fun onStyleFailed(map: MapAdapter, reason: String?)
 
-    fun onMapFailLoading(map: MapAdapter, reason: String?)
+    /**
+     * Reports that the style's sources changed. A null [sourceId] means that the adapter cannot
+     * identify the changed source.
+     */
+    fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?)
 
-    fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason)
+    /** Reports one engine event whose producing identity is still current. */
+    fun onEvent(map: MapAdapter, event: MapEvent)
 
-    fun onCameraMoved(map: MapAdapter)
+    /**
+     * Starts resolution of the style image [imageId] that the loaded style does not hold, and
+     * returns the resolution for an engine that awaits it before it treats the image as missing.
+     * Null means that nothing will supply the image.
+     */
+    fun resolveMissingImage(map: MapAdapter, imageId: String): Deferred<Unit>?
 
-    fun onCameraMoveEnded(map: MapAdapter)
+    /**
+     * Reports whether a gesture holds the camera. Neither engine emits this; the session's gesture
+     * token decides it.
+     */
+    fun onGestureActive(map: MapAdapter, active: Boolean)
 
-    fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset)
-
-    fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset)
-
-    fun onFrame(fps: Double)
+    /** Reports a viewport the map adopted without a camera event, such as after a resize. */
+    fun onViewportChanged(map: MapAdapter)
   }
 }
 
 internal object EmptyMapAdapterCallbacks : MapAdapter.Callbacks {
   override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) = Unit
 
-  override fun onMapFinishedLoading(map: MapAdapter) = Unit
+  override fun onStyleReady(map: MapAdapter) = Unit
 
-  override fun onSourceChanged(map: MapAdapter, sourceId: String?) = Unit
+  override fun onStyleFailed(map: MapAdapter, reason: String?) = Unit
 
-  override fun onMapFailLoading(map: MapAdapter, reason: String?) = Unit
+  override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) = Unit
 
-  override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) = Unit
+  override fun onEvent(map: MapAdapter, event: MapEvent) = Unit
 
-  override fun onCameraMoved(map: MapAdapter) = Unit
+  override fun resolveMissingImage(map: MapAdapter, imageId: String): Deferred<Unit>? = null
 
-  override fun onCameraMoveEnded(map: MapAdapter) = Unit
+  override fun onGestureActive(map: MapAdapter, active: Boolean) = Unit
 
-  override fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset) = Unit
-
-  override fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset) = Unit
-
-  override fun onFrame(fps: Double) = Unit
+  override fun onViewportChanged(map: MapAdapter) = Unit
 }
 
 internal class DurableStyleCallbacks(private val owner: MapState) : MapAdapter.Callbacks {
@@ -162,27 +180,30 @@ internal class DurableStyleCallbacks(private val owner: MapState) : MapAdapter.C
     owner.updateLoadedStyle(map, style)
   }
 
-  override fun onMapFinishedLoading(map: MapAdapter) {
+  override fun onStyleReady(map: MapAdapter) {
     owner.markStyleReady(map)
   }
 
-  override fun onSourceChanged(map: MapAdapter, sourceId: String?) {
-    owner.refreshStyleSources(map)
-  }
-
-  override fun onMapFailLoading(map: MapAdapter, reason: String?) {
+  override fun onStyleFailed(map: MapAdapter, reason: String?) {
     owner.markStyleFailed(map, reason)
   }
 
-  override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) = Unit
+  override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) {
+    owner.refreshStyleSources(map)
+  }
 
-  override fun onCameraMoved(map: MapAdapter) = Unit
+  override fun onEvent(map: MapAdapter, event: MapEvent) {
+    owner.onEvent(map, event)
+  }
 
-  override fun onCameraMoveEnded(map: MapAdapter) = Unit
+  override fun resolveMissingImage(map: MapAdapter, imageId: String): Deferred<Unit>? =
+    owner.resolveMissingImage(map, imageId)
 
-  override fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset) = Unit
+  override fun onGestureActive(map: MapAdapter, active: Boolean) {
+    owner.setGestureActive(map, active)
+  }
 
-  override fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset) = Unit
-
-  override fun onFrame(fps: Double) = Unit
+  override fun onViewportChanged(map: MapAdapter) {
+    owner.synchronizeCamera(map)
+  }
 }

@@ -30,10 +30,13 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.vectorResource
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.filter_center_focus_24px
+import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.StyleLoadState
@@ -90,6 +93,13 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
       StyleLoadState.Pending -> Unit
     }
   }
+  LaunchedEffect(state.mapState) {
+    withContext(Dispatchers.Default) {
+      state.mapState.events.collect {
+        if (it is MapEvent.FrameRendered) state.frameRateState.record()
+      }
+    }
+  }
   val pointerPin = selectedDemo?.pointerPin
   val placementPadding =
     PaddingValues.Absolute(
@@ -105,7 +115,6 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
       renderOptions = state.settings.renderOptions,
       gestureOptions = state.settings.gestureOptions,
       tileLodOptions = state.settings.tileLodOptions,
-      onFrame = { state.frameRateState.record() },
       contentWindowInsets = viewportInsets.asWindowInsets(),
     ) {
       include(

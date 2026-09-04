@@ -101,7 +101,7 @@ class MlnFfiProjectionTest {
           projected.isNear(SCREEN_CENTER)
       }
 
-      val movedBefore = fixture.events.count { it == "cameraMoved" }
+      val movedBefore = fixture.events.count { it == "viewportChanged" }
       fixture.hasRendered = false
       fixture.pumpUntil("the resized map to render", extent = WIDE_EXTENT) { fixture.hasRendered }
       fixture.pumpUntil("the camera target to land on the resized screen center") {
@@ -109,8 +109,8 @@ class MlnFfiProjectionTest {
       }
 
       assertTrue(
-        fixture.events.count { it == "cameraMoved" } > movedBefore,
-        "a resize should report cameraMoved so Compose overlays re-read the projection",
+        fixture.events.count { it == "viewportChanged" } > movedBefore,
+        "a resize should report viewportChanged so Compose overlays re-read the projection",
       )
     }
   }

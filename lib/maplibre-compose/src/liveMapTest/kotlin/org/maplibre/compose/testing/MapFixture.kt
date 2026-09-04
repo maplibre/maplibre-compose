@@ -1,20 +1,19 @@
 package org.maplibre.compose.testing
 
-import androidx.compose.ui.unit.DpOffset
 import kotlin.math.abs
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
-import org.maplibre.compose.camera.CameraMoveReason
+import kotlinx.coroutines.Deferred
 import org.maplibre.compose.map.GestureTarget
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapAttachment
+import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
-import org.maplibre.spatialk.geojson.Position
 
 /**
  * A real map session on whichever MapLibre this platform uses, driven frame by frame by the test.
@@ -32,6 +31,9 @@ internal interface MapFixture : AutoCloseable {
   val style: StyleBinding?
 
   val events: MutableList<String>
+
+  /** Every [MapEvent] the session posted through the adapter callbacks. */
+  val engineEvents: MutableList<MapEvent>
 
   val sourceChanges: MutableList<String?>
 
@@ -76,7 +78,7 @@ internal interface MapFixture : AutoCloseable {
   companion object {
     const val STYLE_LOADED: String = "styleLoaded"
 
-    const val LOAD_FINISHED: String = "mapFinishedLoading"
+    const val STYLE_READY: String = "styleReady"
 
     /** Big enough for tiles to be selected at zoom 0 and for a query to have something to hit. */
     val DEFAULT_EXTENT: MapExtent =
@@ -134,7 +136,12 @@ internal class RecordingMapCallbacks(
 
   var attachment: MapAttachment? = null
 
+  /** Set so the recorder exercises the real reactions rather than a copy of them. */
+  var state: MapState? = null
+
   val events: MutableList<String> = RecordingList()
+
+  val engineEvents: MutableList<MapEvent> = RecordingList()
 
   val sourceChanges: MutableList<String?> = RecordingList()
 
@@ -146,49 +153,40 @@ internal class RecordingMapCallbacks(
   override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
     beforeStyleChanged(map, style)
     this.style = style
+    // The state learns of the binding here, as it does in composition, so that work the engine
+    // starts on a freshly loaded style reaches it.
+    state?.updateLoadedStyle(map, style)
     attachment?.updateViewport(map.getViewport())
     events += if (style == null) "styleChanged(null)" else MapFixture.STYLE_LOADED
   }
 
-  override fun onMapFinishedLoading(map: MapAdapter) {
-    events += MapFixture.LOAD_FINISHED
+  override fun onStyleReady(map: MapAdapter) {
+    events += MapFixture.STYLE_READY
   }
 
-  override fun onSourceChanged(map: MapAdapter, sourceId: String?) {
+  override fun onStyleFailed(map: MapAdapter, reason: String?) {
+    errors += "styleFailed: $reason"
+  }
+
+  override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) {
     sourceChanges += sourceId
   }
 
-  override fun onMapFailLoading(map: MapAdapter, reason: String?) {
-    errors += "mapFailLoading: $reason"
+  override fun onEvent(map: MapAdapter, event: MapEvent) {
+    engineEvents += event
+    state?.onEvent(map, event)
   }
 
-  override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {
-    attachment?.cameraMoveStarted(reason)
-    events += "cameraMoveStarted($reason)"
+  override fun resolveMissingImage(map: MapAdapter, imageId: String): Deferred<Unit>? =
+    state?.resolveMissingImage(map, imageId)
+
+  override fun onGestureActive(map: MapAdapter, active: Boolean) {
+    events += "gesture($active)"
+    state?.setGestureActive(map, active)
   }
 
-  override fun onCameraMoved(map: MapAdapter) {
-    attachment?.cameraMoved(map.getViewport())
-    events += "cameraMoved"
-  }
-
-  override fun onCameraMoveEnded(map: MapAdapter) {
-    attachment?.let {
-      it.cameraMoved(map.getViewport())
-      it.cameraMoveEnded()
-    }
-    events += "cameraMoveEnded"
-  }
-
-  override fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset) {
-    events += "click"
-  }
-
-  override fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset) {
-    events += "longClick"
-  }
-
-  override fun onFrame(fps: Double) {
-    attachment?.let { it.cameraMoved(it.adapter.getViewport()) }
+  override fun onViewportChanged(map: MapAdapter) {
+    events += "viewportChanged"
+    state?.synchronizeCamera(map)
   }
 }

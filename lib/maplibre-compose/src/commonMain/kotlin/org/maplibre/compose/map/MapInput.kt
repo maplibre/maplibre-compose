@@ -48,6 +48,7 @@ import kotlinx.coroutines.launch
  */
 internal fun Modifier.mapInput(
   target: GestureTarget,
+  clicks: MapClickTarget,
   options: GestureOptions,
   density: Density,
   focusRequester: FocusRequester,
@@ -56,7 +57,7 @@ internal fun Modifier.mapInput(
   this.keyboardInput(target, options, continuation)
     .focusRequester(focusRequester)
     .focusable()
-    .pointerGestures(target, options, density, focusRequester, continuation)
+    .pointerGestures(target, clicks, options, density, focusRequester, continuation)
     .scrollZoom(target, options, density, continuation)
 
 private fun Modifier.keyboardInput(
@@ -96,6 +97,7 @@ private fun Modifier.keyboardInput(
 
 private fun Modifier.pointerGestures(
   target: GestureTarget,
+  clicks: MapClickTarget,
   options: GestureOptions,
   density: Density,
   focusRequester: FocusRequester,
@@ -106,6 +108,7 @@ private fun Modifier.pointerGestures(
     val gesture =
       MapPointerGesture(
         target = target,
+        clicks = clicks,
         options = options,
         density = density,
         focusRequester = focusRequester,
@@ -169,6 +172,7 @@ private fun Modifier.scrollZoom(
 
 private class MapPointerGesture(
   private val target: GestureTarget,
+  private val clicks: MapClickTarget,
   private val options: GestureOptions,
   private val density: Density,
   private val focusRequester: FocusRequester,
@@ -318,7 +322,7 @@ private class MapPointerGesture(
           // This press is a long click, including a paired second tap that was held.
           discardTapWait(emitClick = false)
           continuation.finish(target::onGestureEnded)
-          target.onSecondaryClick(origin.toLogicalDpOffset(density))
+          clicks.onSecondaryClick(origin.toLogicalDpOffset(density))
         }
       }
     }
@@ -698,7 +702,7 @@ private class MapPointerGesture(
   private fun onClick(origin: Offset, timeMillis: Long, pairedSecondTap: Boolean) {
     val where = origin.toLogicalDpOffset(density)
     if (pressedSecondary) {
-      target.onSecondaryClick(where)
+      clicks.onSecondaryClick(where)
       tapWait = TapWait.None
       return
     }
@@ -719,7 +723,7 @@ private class MapPointerGesture(
 
     if (pressedType == PointerType.Mouse || !awaitsSecondTap()) {
       // Mouse clicks are immediate; touch taps wait only when a second tap still has a gesture.
-      target.onPrimaryClick(where)
+      clicks.onPrimaryClick(where)
     }
     rememberFirstTap(where, origin, pressedType, timeMillis)
   }
@@ -792,7 +796,7 @@ private class MapPointerGesture(
           val open = tapWait as? TapWait.Open
           if (open?.tap?.job == launched) {
             tapWait = TapWait.None
-            target.onPrimaryClick(where)
+            clicks.onPrimaryClick(where)
           }
         }
         launched
@@ -807,10 +811,10 @@ private class MapPointerGesture(
     when (val wait = tapWait) {
       is TapWait.Open -> {
         wait.tap.job?.cancel()
-        if (emitClick && wait.tap.clickOnExpiry) target.onPrimaryClick(wait.tap.where)
+        if (emitClick && wait.tap.clickOnExpiry) clicks.onPrimaryClick(wait.tap.where)
       }
       is TapWait.Claimed -> {
-        if (emitClick && wait.tap.clickOnExpiry) target.onPrimaryClick(wait.tap.where)
+        if (emitClick && wait.tap.clickOnExpiry) clicks.onPrimaryClick(wait.tap.where)
       }
       TapWait.None -> Unit
     }

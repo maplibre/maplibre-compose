@@ -15,8 +15,9 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.files.Path
 import org.maplibre.compose.logging.MapLog
-import org.maplibre.compose.map.MapAttachment
+import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MlnFfiMapSession
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.resource.MapResourceConfig
@@ -48,6 +49,9 @@ private constructor(
   val events: MutableList<String>
     get() = recorder.events
 
+  val engineEvents: MutableList<MapEvent>
+    get() = recorder.engineEvents
+
   val sourceChanges: MutableList<String?>
     get() = recorder.sourceChanges
 
@@ -75,8 +79,9 @@ private constructor(
       resourceConfig = resourceConfig,
     )
 
-  fun bindAttachment(attachment: MapAttachment) {
-    recorder.attachment = attachment
+  fun bindState(state: MapState) {
+    recorder.attachment = requireNotNull(state.currentMapAttachment)
+    recorder.state = state
   }
 
   private val hostSession =

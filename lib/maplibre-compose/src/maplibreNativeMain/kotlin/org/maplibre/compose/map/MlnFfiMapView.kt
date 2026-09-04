@@ -43,6 +43,7 @@ internal fun MlnFfiMapView(
   onReset: () -> Unit,
   logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
+  clicks: MapClickTarget,
   options: MapViewOptions,
 ) {
   val density = LocalDensity.current
@@ -71,6 +72,7 @@ internal fun MlnFfiMapView(
     onReset = onReset,
     logger = logger,
     callbacks = callbacks,
+    clicks = clicks,
     options = options,
   )
 }
@@ -87,6 +89,7 @@ internal fun MlnFfiMapView(
   onReset: () -> Unit,
   logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
+  clicks: MapClickTarget,
   options: MapViewOptions,
 ) {
   val applicationOptions = state.runtime.nativeRuntimeOptions
@@ -146,7 +149,7 @@ internal fun MlnFfiMapView(
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
-      callbacks.onMapFailLoading(session, error.message)
+      callbacks.onStyleFailed(session, error.message)
     }
   }
 
@@ -167,7 +170,14 @@ internal fun MlnFfiMapView(
   // viewport and jump the camera.
   val inputModifier =
     if (revealSurface) {
-      modifier.mapInput(session, options.gestureOptions, density, focusRequester, continuation)
+      modifier.mapInput(
+        session,
+        clicks,
+        options.gestureOptions,
+        density,
+        focusRequester,
+        continuation,
+      )
     } else {
       modifier
     }

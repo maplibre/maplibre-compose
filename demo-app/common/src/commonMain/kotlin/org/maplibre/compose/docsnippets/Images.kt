@@ -3,6 +3,8 @@
 package org.maplibre.compose.docsnippets
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.ExperimentalResourceApi
@@ -14,6 +16,7 @@ import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.layers.SymbolLayer
 import org.maplibre.compose.map.MaplibreMap
+import org.maplibre.compose.map.ResolvedStyleImage
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
@@ -56,4 +59,16 @@ fun Images() {
     // #endregion image-source
   }
   MaplibreMap(state = imageState)
+}
+
+@Composable
+fun MissingImages(fallback: ImageBitmap) {
+  // #region missing-image
+  val mapState = rememberMapState()
+  DisposableEffect(mapState, fallback) {
+    mapState.missingImageResolver = { ResolvedStyleImage(fallback) }
+    onDispose { mapState.missingImageResolver = null }
+  }
+  MaplibreMap(state = mapState)
+  // #endregion missing-image
 }

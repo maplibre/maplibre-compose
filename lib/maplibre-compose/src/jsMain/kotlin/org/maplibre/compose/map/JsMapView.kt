@@ -27,6 +27,7 @@ internal actual fun ComposableMapView(
   onReset: () -> Unit,
   logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
+  clicks: MapClickTarget,
   options: MapViewOptions,
 ) {
   val density = LocalDensity.current
@@ -77,7 +78,14 @@ internal actual fun ComposableMapView(
     GlJsMapSurface(
       renderer = session,
       modifier =
-        modifier.mapInput(session, options.gestureOptions, density, focusRequester, continuation),
+        modifier.mapInput(
+          session,
+          clicks,
+          options.gestureOptions,
+          density,
+          focusRequester,
+          continuation,
+        ),
       logger = logger,
       presentFrames = session.canPresentFrames,
     )

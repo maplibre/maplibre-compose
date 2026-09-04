@@ -34,3 +34,12 @@ An <Api of="ImageSource" /> positions one image on the map by its four corner
 coordinates. A <Api of="RasterLayer" /> draws it:
 
 <Code code={rememberedMapStyle(region(images, "image-source"))} lang="kotlin" title="App.kt" />
+
+## Supply a missing image
+
+A style can reference an icon that its sprite does not contain. Set
+<Api of="MapState.missingImageResolver" /> to supply one. The map calls the
+resolver with the icon's ID and adds the <Api of="ResolvedStyleImage" /> that
+it returns:
+
+<Code code={region(images, "missing-image")} lang="kotlin" title="App.kt" />

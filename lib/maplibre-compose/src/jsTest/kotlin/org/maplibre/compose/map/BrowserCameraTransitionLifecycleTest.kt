@@ -13,7 +13,7 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.gljs.MapEvent
+import org.maplibre.compose.gljs.GlJsMapEvent
 import org.maplibre.compose.gljs.isNear
 import org.maplibre.compose.gljs.runBrowserMapTest
 import org.maplibre.compose.gljs.setBrowserMapContent
@@ -91,7 +91,7 @@ class BrowserCameraTransitionLifecycleTest {
       }
 
       departedSession.setCameraPosition(STALE_CAMERA)
-      departedEngine.fire("move", unsafeJso<MapEvent>())
+      departedEngine.fire("move", unsafeJso<GlJsMapEvent>())
       waitForIdle()
 
       assertTrue(state.cameraPosition.isNear(CURRENT_CAMERA))

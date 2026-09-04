@@ -4,7 +4,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.asComposeCanvas
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.LayoutDirection
 import java.lang.invoke.MethodHandles
 import java.nio.file.Files
@@ -14,6 +13,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
+import kotlinx.coroutines.Deferred
 import kotlinx.io.files.Path
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.ColorAlphaType
@@ -63,11 +63,11 @@ import org.lwjgl.system.MemoryUtil.memGetAddress
 import org.lwjgl.system.MemoryUtil.memPutAddress
 import org.lwjgl.system.Pointer.POINTER_SIZE
 import org.lwjgl.system.libffi.LibFFI.ffi_type_pointer
-import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.desktop.ComposeGpuContext
 import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
 import org.maplibre.compose.map.MapAdapter
+import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MlnFfiMapSession
 import org.maplibre.compose.map.mapRuntimeForTest
@@ -82,7 +82,6 @@ import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.render.RenderBackend
-import org.maplibre.spatialk.geojson.Position
 
 class LinuxVulkanOpenGlInteropTest {
 
@@ -251,25 +250,21 @@ class LinuxVulkanOpenGlInteropTest {
           if (style != null) styleLoads++
         }
 
-        override fun onMapFailLoading(map: MapAdapter, reason: String?) {
+        override fun onStyleReady(map: MapAdapter) {}
+
+        override fun onStyleFailed(map: MapAdapter, reason: String?) {
           failure = reason ?: "unknown map load failure"
         }
 
-        override fun onMapFinishedLoading(map: MapAdapter) {}
+        override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) {}
 
-        override fun onSourceChanged(map: MapAdapter, sourceId: String?) {}
+        override fun onEvent(map: MapAdapter, event: MapEvent) {}
 
-        override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {}
+        override fun resolveMissingImage(map: MapAdapter, imageId: String): Deferred<Unit>? = null
 
-        override fun onCameraMoved(map: MapAdapter) {}
+        override fun onGestureActive(map: MapAdapter, active: Boolean) {}
 
-        override fun onCameraMoveEnded(map: MapAdapter) {}
-
-        override fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset) {}
-
-        override fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset) {}
-
-        override fun onFrame(fps: Double) {}
+        override fun onViewportChanged(map: MapAdapter) {}
       }
 
     private val runtime = mapRuntimeForTest()

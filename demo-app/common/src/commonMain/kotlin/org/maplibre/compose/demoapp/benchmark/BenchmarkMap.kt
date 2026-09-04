@@ -29,11 +29,14 @@ import co.touchlab.kermit.Logger
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.MapViewportInsets
 import org.maplibre.compose.map.GestureOptions
+import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.RenderOptions
@@ -126,10 +129,20 @@ internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets
             }
           }
         }
+        // Unconfined, so the mark carries no dispatch delay and a loaded run drops no event. The
+        // collector only writes to the sample arrays, which is all that MapState.events allows on
+        // an undispatched context.
+        val frameJob =
+          launch(Dispatchers.Unconfined) {
+            mapState.events.filterIsInstance<MapEvent.FrameRendered>().collect {
+              session.frames.recordMapFrame(TimeSource.Monotonic.markNow())
+            }
+          }
         try {
           running.run(mapState, session)
         } finally {
           composeJob.cancel()
+          frameJob.cancel()
         }
       }
       val durationMs = started.elapsedNow().inWholeMilliseconds.toDouble()
@@ -203,7 +216,6 @@ internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets
         renderOptions = RenderOptions.Standard,
         gestureOptions =
           if (scenario.usesGestures) GestureOptions.Standard else GestureOptions.AllDisabled,
-        onFrame = { fps -> session.frames.recordMapFps(fps) },
         contentWindowInsets = viewportInsets.asWindowInsets(),
       ) {}
     }
