@@ -158,7 +158,7 @@ fun rememberDemoAppState(): DemoAppState {
       baseStyle = appliedStyle.base,
       initialCameraPosition = StartPosition,
     ) {
-      val state = LocalMapState.current
+      val state = checkNotNull(LocalMapState.current)
       mapConfiguration.selectedDemo?.let { demo -> key(demo) { demo.MapContent(state) } }
     }
   val frameRateState = remember { FrameRateState() }

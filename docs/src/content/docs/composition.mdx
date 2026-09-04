@@ -55,8 +55,9 @@ Style content reads its host through two composition locals.
 <Api of="LocalViewport" /> contains the viewport that the content is evaluated
 for. An interactive map provides its rendered viewport, which is null until the
 map has drawn a frame, and a snapshotter provides the viewport of the capture
-request. <Api of="LocalMapState" /> contains the interactive map, and a read of
-it inside a snapshotter fails with `IllegalStateException`.
+request. <Api of="LocalMapState" /> contains the interactive map, and is null
+inside a snapshotter. Content that requires the map checks for null at the
+read. Content that runs on both hosts branches on it.
 
 ## Layer and source IDs
 

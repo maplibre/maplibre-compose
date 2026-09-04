@@ -168,20 +168,18 @@ class MapSnapshotterTest {
   }
 
   @Test
-  fun snapshot_content_that_reads_the_map_state_fails_the_capture() = runTest {
+  fun snapshot_content_has_no_map_state() = runTest {
     if (!supportsComposeRuntimeTests) return@runTest
+    val states = mutableListOf<MapState?>()
     val runtime =
       mapRuntimeForTest(
         snapshotterAdapterFactory = SnapshotterAdapterFactory { FakeSnapshotterAdapter() }
       )
-    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty) { LocalMapState.current.isClosed }
+    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty) { states += LocalMapState.current }
 
-    val failure =
-      assertFailsWith<MapSnapshotException> { snapshotter.capture(MapSnapshotRequest(1, 1)) }
+    snapshotter.capture(MapSnapshotRequest(1, 1))
 
-    val cause =
-      generateSequence(failure as Throwable?) { it.cause }.first { it is IllegalStateException }
-    assertTrue(cause.message.orEmpty().contains("A snapshotter has no MapState"))
+    assertEquals(listOf<MapState?>(null), states)
     close(snapshotter, runtime)
   }
 

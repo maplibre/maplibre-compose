@@ -15,14 +15,10 @@ import org.maplibre.compose.camera.Viewport
 public val LocalViewport: ProvidableCompositionLocal<Viewport?> = compositionLocalOf { null }
 
 /**
- * The interactive map whose style content is being evaluated.
+ * The interactive map whose style content is being evaluated, or null in the content of a
+ * [MapSnapshotter].
  *
- * Only an interactive map provides this value. Reading it from the content of a [MapSnapshotter]
- * throws [IllegalStateException].
+ * Content that requires the map checks for null at the read. Content that runs on both hosts
+ * branches on it.
  */
-public val LocalMapState: ProvidableCompositionLocal<MapState> = staticCompositionLocalOf {
-  throw IllegalStateException(
-    "LocalMapState is available only in the style content of an interactive map. " +
-      "A snapshotter has no MapState."
-  )
-}
+public val LocalMapState: ProvidableCompositionLocal<MapState?> = staticCompositionLocalOf { null }

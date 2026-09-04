@@ -131,7 +131,7 @@ public interface MapRuntime {
    * [content] declares, for image capture. The caller must close the result.
    *
    * [content] reads the viewport of each capture request through [LocalViewport]. It has no
-   * [MapState], so reading [LocalMapState] throws.
+   * [MapState], so [LocalMapState] is null.
    */
   public fun createSnapshotter(
     baseStyle: BaseStyle,

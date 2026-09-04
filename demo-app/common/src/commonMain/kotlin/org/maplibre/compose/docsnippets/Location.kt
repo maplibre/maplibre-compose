@@ -30,7 +30,7 @@ fun Location() {
     )
 
   val mapState = rememberMapState {
-    val mapState = LocalMapState.current
+    val mapState = checkNotNull(LocalMapState.current)
 
     LocationPuck(
       idPrefix = "user",
