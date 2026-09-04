@@ -178,20 +178,17 @@ internal fun MlnFfiMapView(
   // Before the first render target attaches, gestures would project through the bootstrap 1x1
   // viewport and jump the camera.
   val inputModifier =
-    if (revealSurface) {
-      modifier.mapInput(
-        session,
-        clicks,
-        options.gestureOptions,
-        density,
-        focusRequester,
-        inputFocus,
-        inputEnvironment,
-        continuation,
-      )
-    } else {
-      modifier
-    }
+    modifier.mapInput(
+      session,
+      clicks,
+      options.gestureOptions,
+      density,
+      focusRequester,
+      inputFocus,
+      inputEnvironment,
+      continuation,
+      gesturesEnabled = revealSurface,
+    )
 
   Box {
     surface(session, inputModifier, logger, revealSurface)

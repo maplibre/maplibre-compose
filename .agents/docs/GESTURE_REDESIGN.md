@@ -315,13 +315,6 @@ place of a `gestureOptions` parameter. The parameter is the only public
 attachment in 0.16. A public `Modifier.mapGestures(state, gestures)` can be
 extracted later without breaking the parameter form, so it waits for demand.
 
-The first demand is already known. The focus target lives on the internal input
-node, and a caller's focus modifiers on `MaplibreMap` reach it only through the
-outer `Box`, which also contains the overlay controls. Focus properties set
-there, such as the demo shell's route from the map to its panel handle, apply to
-the compass, attribution, and zoom buttons too. The public modifier carries the
-focus target, so a caller scopes those properties to the map alone.
-
 ## How the milestone issues land
 
 - **#230**: bindings cover the configurability list — key assignments, mouse

@@ -27,6 +27,7 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
@@ -350,6 +351,7 @@ class MlnFfiMapCompositionTest {
         onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isNotEmpty(),
         "the failed revision must leave the map surface hidden",
       )
+      onNodeWithContentDescription("Map").assertExists("a map without a style has no semantics")
 
       invalidAnchor = false
       waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {

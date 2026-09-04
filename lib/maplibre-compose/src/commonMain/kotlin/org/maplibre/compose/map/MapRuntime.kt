@@ -782,9 +782,9 @@ internal constructor(
   /**
    * Returns true while the focused map consumes the keys that pan, zoom, rotate, and tilt. Enter,
    * numpad Enter, D-pad center, and a pointer press engage the map. Escape disengages it, and Back
-   * disengages it while the input mode is keyboard. Focus loss disengages it. A focused map that is
-   * not engaged passes direction keys to focus traversal. The value is false while no map surface
-   * is attached.
+   * disengages it when a key engaged it. Focus loss disengages it. A focused map that is not
+   * engaged passes direction keys to focus traversal. The value is false while no map surface is
+   * attached.
    */
   public val isEngaged: Boolean
     get() = currentMapAttachment?.isEngaged == true

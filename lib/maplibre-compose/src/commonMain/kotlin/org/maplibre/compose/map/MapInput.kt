@@ -1,7 +1,5 @@
 package org.maplibre.compose.map
 
-import androidx.compose.foundation.Indication
-import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.indication
@@ -16,8 +14,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.InputMode
-import androidx.compose.ui.input.InputModeManager
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
@@ -36,7 +32,6 @@ import androidx.compose.ui.input.pointer.isShiftPressed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.input.pointer.util.addPointerInputChange
-import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -66,6 +61,9 @@ import org.maplibre.compose.generated.map_not_engaged
 /**
  * Neither backend owns platform gestures: MapLibre Native declines to, and GL JS is composited
  * under Compose where its own DOM handlers never fire.
+ *
+ * The semantics and the focus target stay installed while [gesturesEnabled] is false, so a map that
+ * is still loading its style is reachable and identified.
  */
 internal fun Modifier.mapInput(
   target: GestureTarget,
@@ -76,18 +74,22 @@ internal fun Modifier.mapInput(
   focus: MapInputFocus,
   environment: MapInputEnvironment,
   continuation: GestureContinuation,
+  gesturesEnabled: Boolean = true,
 ): Modifier {
   // The semantics block observes no snapshot state, so engagement is read here.
   val engaged = focus.isEngaged
-  return this.semantics {
-      contentDescription = environment.contentDescription
-      stateDescription = if (engaged) environment.engaged else environment.notEngaged
-    }
-    .keyboardInput(target, options, focus, environment.inputModeManager, continuation)
-    .onFocusChanged { focus.onFocusChanged(it.isFocused) }
-    .focusRequester(focusRequester)
-    .indication(focus.interactions, environment.indication)
-    .focusable(enabled = options.hasKeyboardGesture, interactionSource = focus.interactions)
+  val focused =
+    this.semantics {
+        contentDescription = environment.contentDescription
+        stateDescription = if (engaged) environment.engaged else environment.notEngaged
+      }
+      .keyboardInput(target, options, focus, continuation)
+      .onFocusChanged { focus.onFocusChanged(it.isFocused) }
+      .focusRequester(focusRequester)
+      .indication(focus.interactions, MapFocusIndication)
+      .focusable(enabled = options.hasKeyboardGesture, interactionSource = focus.interactions)
+  if (!gesturesEnabled) return focused
+  return focused
     .pointerGestures(target, clicks, options, density, focusRequester, focus, continuation)
     .scrollZoom(target, options, density, continuation)
 }
@@ -100,8 +102,6 @@ internal class MapInputEnvironment(
   val contentDescription: String,
   val engaged: String,
   val notEngaged: String,
-  val indication: Indication?,
-  val inputModeManager: InputModeManager,
 )
 
 @Composable
@@ -110,8 +110,6 @@ internal fun mapInputEnvironment(): MapInputEnvironment =
     contentDescription = stringResource(Res.string.map),
     engaged = stringResource(Res.string.map_engaged),
     notEngaged = stringResource(Res.string.map_not_engaged),
-    indication = LocalIndication.current,
-    inputModeManager = LocalInputModeManager.current,
   )
 
 /**
@@ -123,13 +121,18 @@ internal fun mapInputEnvironment(): MapInputEnvironment =
  * continues from the map.
  */
 internal class MapInputFocus(private val onChanged: (engaged: Boolean) -> Unit) {
-  /** The focus interactions the node emits, for the indication it draws. */
+  /** The focus and engagement interactions the node emits, for the indication it draws. */
   val interactions = MutableInteractionSource()
 
   private var isFocused = false
+  private var engagedByKey = false
 
   var isEngaged: Boolean by mutableStateOf(false)
     private set
+
+  /** Whether Back releases the map. A pointer press engages without claiming Back. */
+  val consumesBack: Boolean
+    get() = isEngaged && engagedByKey
 
   fun onFocusChanged(focused: Boolean) {
     isFocused = focused
@@ -137,15 +140,19 @@ internal class MapInputFocus(private val onChanged: (engaged: Boolean) -> Unit) 
   }
 
   /** Returns false when the node is not focused, because only a focused node engages. */
-  fun engage(): Boolean {
+  fun engage(byKey: Boolean): Boolean {
     if (!isFocused) return false
     isEngaged = true
+    engagedByKey = byKey
+    interactions.tryEmit(EngagedInteraction.Engage)
     onChanged(true)
     return true
   }
 
   fun disengage() {
+    if (!isEngaged) return
     isEngaged = false
+    interactions.tryEmit(EngagedInteraction.Disengage)
     onChanged(false)
   }
 
@@ -157,22 +164,17 @@ private fun Modifier.keyboardInput(
   target: GestureTarget,
   options: GestureOptions,
   focus: MapInputFocus,
-  inputModeManager: InputModeManager,
   continuation: GestureContinuation,
 ): Modifier = onKeyEvent { event ->
   if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
   when (event.key) {
     Key.Enter,
     Key.NumPadEnter,
-    Key.DirectionCenter -> focus.engage()
+    Key.DirectionCenter -> focus.engage(byKey = true)
     Key.Escape -> focus.isEngaged.also { if (it) focus.disengage() }
     // Compose delivers Back to the focused node before the activity, so a map that consumed Back
-    // after a touch would break back navigation on every Android phone. A touch leaves the input
-    // mode in Touch, and a D-pad or keyboard puts it in Keyboard.
-    Key.Back ->
-      (focus.isEngaged && inputModeManager.inputMode == InputMode.Keyboard).also {
-        if (it) focus.disengage()
-      }
+    // after a touch would break back navigation on every Android phone.
+    Key.Back -> focus.consumesBack.also { if (it) focus.disengage() }
     else -> focus.isEngaged && target.bindKey(event, options, continuation)
   }
 }
@@ -420,7 +422,7 @@ private class MapPointerGesture(
     deferredTwoFingerVelocity = null
     continuation.interrupt()
     runCatching { focusRequester.requestFocus() }
-    focus.engage()
+    focus.engage(byKey = false)
     target.cancelTransitions()
 
     if (change.type != PointerType.Mouse && !quickZoomCandidate) {
