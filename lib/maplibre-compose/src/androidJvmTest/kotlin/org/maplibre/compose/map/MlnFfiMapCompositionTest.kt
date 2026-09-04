@@ -16,6 +16,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -28,6 +31,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
@@ -117,6 +121,35 @@ class MlnFfiMapCompositionTest {
     runtime.awaitClosed()
     assertTrue(state.isClosed)
     assertNull(state.currentMapAttachment)
+  }
+
+  @Test
+  fun focus_modifiers_on_the_map_modifier_reach_the_input_node() = runFfiComposeUiTest {
+    val runtime = createMapRuntime(runtimeOptions)
+    val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
+    val focusRequester = FocusRequester()
+    val hasFocus = AtomicBoolean(false)
+
+    setFfiTestMapContent(runtimeOptions) {
+      MaplibreMap(
+        modifier =
+          Modifier.focusRequester(focusRequester).onFocusChanged { hasFocus.store(it.hasFocus) },
+        state = state,
+      )
+    }
+    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      state.currentMapAttachment != null &&
+        state.style.loadState == StyleLoadState.Ready &&
+        onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty()
+    }
+
+    runOnUiThread { focusRequester.requestFocus() }
+
+    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { hasFocus.load() && state.isFocused }
+    assertFalse(state.isEngaged, "a focus request engaged the map")
+
+    runtime.close()
+    runtime.awaitClosed()
   }
 
   @Test

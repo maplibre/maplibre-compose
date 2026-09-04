@@ -70,6 +70,11 @@ internal actual fun ComposableMapView(
   }
 
   val focusRequester = remember { FocusRequester() }
+  val inputFocus =
+    remember(session, state) {
+      MapInputFocus { focused, engaged -> state.setInputFocus(session, focused, engaged) }
+    }
+  val inputStrings = mapInputStrings()
   val inputScope = rememberCoroutineScope()
   val continuation = remember(session, inputScope) { GestureContinuation(inputScope) }
 
@@ -84,6 +89,8 @@ internal actual fun ComposableMapView(
           options.gestureOptions,
           density,
           focusRequester,
+          inputFocus,
+          inputStrings,
           continuation,
         ),
       logger = logger,

@@ -22,6 +22,8 @@ private val Material3AttributionOnlyOverlay = MapOverlay {
 }
 
 private val Material3DefaultOverlay = MapOverlay {
+  FocusRing()
+
   DisappearingScaleBar(
     metersPerDp = mapState.viewport?.metersPerDpAtTarget ?: 0.0,
     zoom = mapState.cameraPosition.zoom,

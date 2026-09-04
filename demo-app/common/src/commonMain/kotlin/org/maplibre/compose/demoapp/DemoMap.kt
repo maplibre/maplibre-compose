@@ -20,6 +20,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
@@ -41,9 +43,10 @@ import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.StyleLoadState
 import org.maplibre.compose.material3.Material3
-import org.maplibre.compose.material3.Material3Full
 import org.maplibre.compose.material3.PointerPinButton
+import org.maplibre.compose.material3.ZoomButtons as Material3ZoomButtons
 import org.maplibre.compose.overlay.MapOverlay
+import org.maplibre.compose.overlay.ZoomButtons
 import org.maplibre.compose.overlay.include
 import org.maplibre.spatialk.geojson.Position
 
@@ -72,7 +75,11 @@ internal suspend fun MapState.flyTo(destination: DemoDestination) {
 
 /** The shared map, the selected demo's overlay, the pointer pin, and the diagnostic overlays. */
 @Composable
-fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
+fun DemoMap(
+  state: DemoAppState,
+  viewportInsets: MapViewportInsets,
+  zoomButtonsFocusRequester: FocusRequester,
+) {
   val scope = rememberCoroutineScope()
   val appliedStyle = state.appliedStyle
   val appliedBase = appliedStyle.base
@@ -117,15 +124,15 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
       tileLodOptions = state.settings.tileLodOptions,
       contentWindowInsets = viewportInsets.asWindowInsets(),
     ) {
-      include(
-        when {
-          state.settings.useMaterial3Controls && state.settings.showZoomButtons ->
-            MapOverlay.Material3Full
-          state.settings.useMaterial3Controls -> MapOverlay.Material3
-          state.settings.showZoomButtons -> MapOverlay.Full
-          else -> MapOverlay.Default
-        }
-      )
+      // The Full presets take no focus requester, so the zoom buttons are composed here to carry
+      // the one the shell routes to.
+      val material3 = state.settings.useMaterial3Controls
+      include(if (material3) MapOverlay.Material3 else MapOverlay.Default)
+      if (state.settings.showZoomButtons) {
+        val zoomModifier =
+          Modifier.align(Alignment.CenterEnd).focusRequester(zoomButtonsFocusRequester)
+        if (material3) Material3ZoomButtons(zoomModifier) else ZoomButtons(zoomModifier)
+      }
       selectedDemo?.let { demo ->
         key(demo) {
           with(demo) { Overlay(state) }

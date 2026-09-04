@@ -517,8 +517,16 @@ internal constructor(
   private var gestureActiveState: Boolean by mutableStateOf(false)
   private var cameraChangingState: Boolean by mutableStateOf(false)
   private var moveReasonState: CameraMoveReason by mutableStateOf(CameraMoveReason.NONE)
+  private var focusedState: Boolean by mutableStateOf(false)
+  private var engagedState: Boolean by mutableStateOf(false)
   val isValid: Boolean
     get() = validState
+
+  val isFocused: Boolean
+    get() = focusedState
+
+  val isEngaged: Boolean
+    get() = engagedState
 
   val viewport: Viewport?
     get() = viewportState
@@ -609,6 +617,13 @@ internal constructor(
     }
   }
 
+  internal fun setInputFocus(focused: Boolean, engaged: Boolean) {
+    owner.lifecycle.serialized {
+      focusedState = focused
+      engagedState = engaged
+    }
+  }
+
   internal fun cameraChangeStarted() {
     owner.lifecycle.serialized {
       cameraChangingState = true
@@ -626,6 +641,8 @@ internal constructor(
       viewportState = null
       gestureActiveState = false
       cameraChangingState = false
+      focusedState = false
+      engagedState = false
       invalidated.complete(Unit)
     }
   }
@@ -769,6 +786,23 @@ internal constructor(
    */
   public val cameraMoveReason: CameraMoveReason
     get() = currentMapAttachment?.cameraMoveReason ?: CameraMoveReason.NONE
+
+  /**
+   * Returns true while the map holds Compose focus. Focus arrives by traversal, by a focus
+   * requester on the [MaplibreMap] modifier, or by a pointer press on the map. The value is false
+   * while no map surface is attached.
+   */
+  public val isFocused: Boolean
+    get() = currentMapAttachment?.isFocused == true
+
+  /**
+   * Returns true while the focused map consumes the keys that pan, zoom, rotate, and tilt. Enter,
+   * numpad Enter, D-pad center, and a pointer press engage the map. Escape disengages it, and Back
+   * disengages it when a key engaged it. Focus loss disengages it. A focused map that is not
+   * engaged passes direction keys to focus traversal.
+   */
+  public val isEngaged: Boolean
+    get() = currentMapAttachment?.isEngaged == true
 
   /**
    * Emits each [MapEvent] that the engine behind this map reports.
@@ -1464,6 +1498,11 @@ internal constructor(
   /** Reports whether a gesture holds the camera of [adapter]. */
   internal fun setGestureActive(adapter: MapAdapter, active: Boolean) {
     presentedAttachment(adapter)?.setGestureActive(active)
+  }
+
+  /** Reports the focus and engagement of the input node over [adapter]. */
+  internal fun setInputFocus(adapter: MapAdapter, focused: Boolean, engaged: Boolean) {
+    presentedAttachment(adapter)?.setInputFocus(focused, engaged)
   }
 
   /** Ends a camera change that the engine behind [adapter] will never finish. */

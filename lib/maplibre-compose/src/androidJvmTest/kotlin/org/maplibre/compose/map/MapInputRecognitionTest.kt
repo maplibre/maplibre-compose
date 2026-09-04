@@ -2,8 +2,11 @@ package org.maplibre.compose.map
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -11,12 +14,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.MouseButton
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.moveBy
@@ -27,14 +35,17 @@ import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.pinch
 import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.withKeyDown
 import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.dp
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -42,6 +53,8 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.mlnffi.runPlainComposeUiTest
 
 private const val RECOGNITION_MAP_TAG = "recognition-map"
+private const val BEFORE_MAP_TAG = "before-map"
+private const val AFTER_MAP_TAG = "after-map"
 
 /**
  * Gesture recognition and binding for [mapInput], hosted on a recording [GestureTarget].
@@ -369,6 +382,121 @@ class MapInputRecognitionTest {
     assertEquals(0, target.moveCalls.size, "the disqualifying move panned")
   }
 
+  @Test
+  fun tab_focuses_the_map_without_engaging_it() = runFocusTest { target, unconsumed ->
+    onNodeWithTag(BEFORE_MAP_TAG).requestFocus()
+    mapNode().performKeyInput { pressKey(Key.Tab) }
+    mapNode().assertIsFocused()
+
+    mapNode().performKeyInput { pressKey(Key.DirectionRight) }
+    waitForIdle()
+
+    assertEquals(0, target.moveCalls.size, "a direction key panned a map that no key engaged")
+    assertTrue(Key.DirectionRight in unconsumed, "the map consumed the direction key")
+  }
+
+  @Test
+  fun enter_engages_the_map_so_a_direction_key_pans() = runFocusTest { target, unconsumed ->
+    onNodeWithTag(BEFORE_MAP_TAG).requestFocus()
+    mapNode().performKeyInput { pressKey(Key.Tab) }
+
+    mapNode().performKeyInput { pressKey(Key.Enter) }
+    mapNode().performKeyInput { pressKey(Key.DirectionRight) }
+
+    waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.isNotEmpty() }
+    assertFalse(Key.Enter in unconsumed, "the map passed Enter through")
+    assertFalse(
+      Key.DirectionRight in unconsumed,
+      "the engaged map passed the direction key through",
+    )
+    mapNode().assertIsFocused()
+  }
+
+  @Test
+  fun escape_disengages_the_map_and_the_next_direction_key_passes_through() =
+    runFocusTest { target, unconsumed ->
+      onNodeWithTag(BEFORE_MAP_TAG).requestFocus()
+      mapNode().performKeyInput { pressKey(Key.Tab) }
+      mapNode().performKeyInput { pressKey(Key.Enter) }
+
+      mapNode().performKeyInput { pressKey(Key.Escape) }
+      mapNode().performKeyInput { pressKey(Key.DirectionRight) }
+      waitForIdle()
+
+      assertFalse(Key.Escape in unconsumed, "the engaged map passed Escape through")
+      assertEquals(0, target.moveCalls.size, "a direction key panned after Escape")
+      assertTrue(Key.DirectionRight in unconsumed, "the map consumed the direction key")
+      mapNode().assertIsFocused()
+    }
+
+  @Test
+  fun back_disengages_a_map_that_a_key_engaged() = runFocusTest { target, unconsumed ->
+    onNodeWithTag(BEFORE_MAP_TAG).requestFocus()
+    mapNode().performKeyInput { pressKey(Key.Tab) }
+    mapNode().performKeyInput { pressKey(Key.Enter) }
+
+    mapNode().performKeyInput { pressKey(Key.Back) }
+    mapNode().performKeyInput { pressKey(Key.DirectionRight) }
+    waitForIdle()
+
+    assertFalse(Key.Back in unconsumed, "the key-engaged map passed Back through")
+    assertEquals(0, target.moveCalls.size, "a direction key panned after Back")
+  }
+
+  @Test
+  fun a_click_engages_the_map_without_consuming_back() = runFocusTest { target, unconsumed ->
+    val map = mapNode()
+    map.performMouseInput { click(Offset(10f, 10f)) }
+    map.performKeyInput { pressKey(Key.DirectionRight) }
+    waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.isNotEmpty() }
+
+    map.performKeyInput { pressKey(Key.Back) }
+    waitForIdle()
+
+    assertTrue(Key.Back in unconsumed, "the pointer-engaged map consumed Back")
+  }
+
+  @Test
+  fun a_map_with_every_keyboard_gesture_disabled_takes_no_tab_stop() =
+    runFocusTest(
+      options =
+        GestureOptions(
+          isKeyboardPanEnabled = false,
+          isKeyboardZoomEnabled = false,
+          isKeyboardRotateTiltEnabled = false,
+        )
+    ) { _, _ ->
+      onNodeWithTag(BEFORE_MAP_TAG).requestFocus()
+      mapNode().performKeyInput { pressKey(Key.Tab) }
+      onNodeWithTag(AFTER_MAP_TAG).assertIsFocused()
+    }
+
+  /**
+   * Places the map between two focusables and records every key that reaches the parent, which is
+   * every key the map does not consume.
+   */
+  private fun runFocusTest(
+    options: GestureOptions = GestureOptions.Standard,
+    body: ComposeUiTest.(RecordingGestureTarget, List<Key>) -> Unit,
+  ) = runPlainComposeUiTest {
+    val target = RecordingGestureTarget()
+    val unconsumed = mutableListOf<Key>()
+    setContent {
+      Row(
+        Modifier.fillMaxSize().onKeyEvent {
+          if (it.type == KeyEventType.KeyDown) unconsumed += it.key
+          false
+        }
+      ) {
+        Box(Modifier.size(40.dp).testTag(BEFORE_MAP_TAG).focusable())
+        Box(Modifier.size(200.dp)) { GestureHost(target, options) }
+        Box(Modifier.size(40.dp).testTag(AFTER_MAP_TAG).focusable())
+      }
+    }
+    waitForIdle()
+    body(target, unconsumed)
+  }
+
   private fun runRecognitionTest(
     options: GestureOptions = GestureOptions.Standard,
     parentOnClick: (() -> Unit)? = null,
@@ -414,12 +542,14 @@ class MapInputRecognitionTest {
 private fun GestureHost(target: RecordingGestureTarget, options: GestureOptions) {
   val density = LocalDensity.current
   val focusRequester = remember { FocusRequester() }
+  val focus = remember { MapInputFocus { _, _ -> } }
+  val strings = remember { MapInputStrings("map", "engaged", "not engaged") }
   val inputScope = rememberCoroutineScope()
   val continuation = remember(inputScope) { GestureContinuation(inputScope) }
   Box(
     Modifier.fillMaxSize()
       .testTag(RECOGNITION_MAP_TAG)
-      .mapInput(target, target, options, density, focusRequester, continuation)
+      .mapInput(target, target, options, density, focusRequester, focus, strings, continuation)
   )
 }
 
