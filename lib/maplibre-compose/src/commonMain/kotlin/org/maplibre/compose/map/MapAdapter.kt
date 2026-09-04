@@ -53,8 +53,10 @@ internal interface MapAdapter {
 
   fun setBaseStyle(style: BaseStyle)
 
-  /** Applies one complete style-composition revision and reports whether it is ready to present. */
-  suspend fun reconcileStyleRevision(revision: DesiredStyleRevision): Boolean
+  /**
+   * Applies one complete style-composition revision; [Callbacks.onStyleReady] reports readiness.
+   */
+  suspend fun reconcileStyleRevision(revision: DesiredStyleRevision)
 
   /** Restores a retained revision before the current composition is evaluated. */
   suspend fun replayStyleRevision(revision: DesiredStyleRevision)

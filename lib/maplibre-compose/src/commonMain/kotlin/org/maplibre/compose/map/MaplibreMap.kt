@@ -59,7 +59,7 @@ private class MapStateAttachment(
   suspend fun reconcileStyleRevision(map: MapAdapter, revision: DesiredStyleRevision) {
     state.beginStyleRevision(map, revision)
     try {
-      if (map.reconcileStyleRevision(revision)) state.markStyleReady(map)
+      map.reconcileStyleRevision(revision)
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
