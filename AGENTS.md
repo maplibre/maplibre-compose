@@ -31,9 +31,8 @@ tests out of `commonTest`, which Android host tests inherit. Android host and
 device tests live in `androidHostTest` and `androidDeviceTest` respectively.
 
 Browser tests run real maps in Chrome. Set `CHROME_BIN` if Karma cannot find it.
-On macOS, use `caffeinate -dimsu mise run test:js`: idle machines stall
-`requestAnimationFrame` and cause timeouts. Do not pass `--tests` to the browser
-suite; it silently runs no tests and reports success.
+Do not pass `--tests` to the browser suite; it silently runs no tests and
+reports success.
 
 Android SDK lookup is `local.properties`, then `ANDROID_HOME`, then
 `ANDROID_SDK_ROOT`. `mise run android-sdk-packages` installs required packages.

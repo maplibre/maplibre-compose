@@ -113,7 +113,7 @@ mise run test:js
 mise run check
 ```
 
-Follow `AGENTS.md` for Chrome setup and the macOS awake requirement. Browser
-test reports are in `lib/maplibre-compose/build/reports/tests/jsBrowserTest/`.
-Verify adopted style capabilities through `style-spec-parity`, and run tests on
-other platforms when shared behavior changes.
+Follow `AGENTS.md` for Chrome setup and browser test constraints. Browser test
+reports are in `lib/maplibre-compose/build/reports/tests/jsBrowserTest/`. Verify
+adopted style capabilities through `style-spec-parity`, and run tests on other
+platforms when shared behavior changes.
