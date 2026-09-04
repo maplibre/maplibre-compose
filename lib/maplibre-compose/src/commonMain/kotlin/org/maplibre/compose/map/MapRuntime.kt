@@ -895,21 +895,27 @@ internal constructor(
     it.metersPerDpAtLatitude(latitude)
   }
 
-  /** Queries rendered features at [offset] in front-to-back render order. */
+  /**
+   * Waits for a viewport, then queries rendered features at [offset] in front-to-back render order.
+   * Detaching the map surface during the query cancels it.
+   */
   public suspend fun queryRenderedFeatures(
     offset: DpOffset,
     layerIds: Set<String>? = null,
     predicate: Expression<BooleanValue> = const(true),
   ): List<Feature<Geometry, JsonObject?>> =
-    requireAttachment().queryRenderedFeatures(offset, layerIds, predicate)
+    awaitAttachment().queryRenderedFeatures(offset, layerIds, predicate)
 
-  /** Queries rendered features that intersect [rect] in front-to-back render order. */
+  /**
+   * Waits for a viewport, then queries rendered features that intersect [rect] in front-to-back
+   * render order. Detaching the map surface during the query cancels it.
+   */
   public suspend fun queryRenderedFeatures(
     rect: DpRect,
     layerIds: Set<String>? = null,
     predicate: Expression<BooleanValue> = const(true),
   ): List<Feature<Geometry, JsonObject?>> =
-    requireAttachment().queryRenderedFeatures(rect, layerIds, predicate)
+    awaitAttachment().queryRenderedFeatures(rect, layerIds, predicate)
 
   /** Waits for the first viewport from the current or a future map attachment. */
   public suspend fun awaitViewport(): Viewport =
@@ -1596,9 +1602,6 @@ internal constructor(
     currentMapAttachment = attachment
     nextMapAttachment.complete(attachment)
   }
-
-  private fun requireAttachment(): MapAttachment =
-    checkNotNull(currentMapAttachment) { "The map is not attached to a UI surface" }
 
   private suspend fun awaitAttachment(): MapAttachment {
     val pending = lifecycle.serialized {
