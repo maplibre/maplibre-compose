@@ -19,7 +19,7 @@ class MapStateEventsTest {
     createMapFixture().use { fixture ->
       fixture.awaitWhileRendering("the style load and a frame to be published") {
         coroutineScope {
-          // Both subscribe before the style is set, because the flow replays nothing and the map
+          // Both subscribe before the style changes, because the flow replays nothing and the map
           // stops asking for frames once it has drawn the loaded style.
           val styleLoaded =
             async(start = CoroutineStart.UNDISPATCHED) {
@@ -29,7 +29,7 @@ class MapStateEventsTest {
             async(start = CoroutineStart.UNDISPATCHED) {
               fixture.state.events.first { it is MapEvent.FrameRendered }
             }
-          fixture.session.setBaseStyle(BaseStyle.Empty)
+          fixture.state.style.baseStyle = EVENT_TEST_STYLE
 
           assertEquals(MapEvent.StyleLoaded, styleLoaded.await())
           frameRendered.await()
@@ -38,3 +38,6 @@ class MapStateEventsTest {
     }
   }
 }
+
+private val EVENT_TEST_STYLE =
+  BaseStyle.Json("""{"version":8,"name":"MapState events","sources":{},"layers":[]}""")
