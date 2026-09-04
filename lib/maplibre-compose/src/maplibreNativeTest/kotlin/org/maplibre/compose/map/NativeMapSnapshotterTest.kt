@@ -1,6 +1,8 @@
 package org.maplibre.compose.map
 
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -18,10 +20,10 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.StyleComposition
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.compose.testing.runMapTest
+import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Position
@@ -129,6 +131,33 @@ class NativeMapSnapshotterTest {
     }
 
   @Test
+  fun content_sees_the_viewport_of_the_capture_it_is_evaluated_for(): MapTestResult = runMapTest {
+    FfiTestPlatform.initialize()
+    val cacheFile = FfiTestPlatform.createCacheFile()
+    val runtime =
+      createNativeMapRuntime(
+        MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+      )
+    val sizes = mutableListOf<DpSize?>()
+    try {
+      val snapshotter =
+        runtime.createSnapshotter(BASE_STYLE) { sizes += LocalViewport.current?.size }
+      try {
+        snapshotter.capture(MapSnapshotRequest(width = 31, height = 23))
+
+        assertEquals(setOf(DpSize(31.dp, 23.dp)), sizes.toSet())
+      } finally {
+        snapshotter.close()
+        snapshotter.awaitClosed()
+      }
+    } finally {
+      runtime.close()
+      runtime.awaitClosed()
+      FfiTestPlatform.deleteCacheFile(cacheFile)
+    }
+  }
+
+  @Test
   fun a_rejected_inline_style_cannot_fail_the_next_capture(): MapTestResult = runMapTest {
     FfiTestPlatform.initialize()
     val cacheFile = FfiTestPlatform.createCacheFile()
@@ -157,7 +186,7 @@ class NativeMapSnapshotterTest {
     }
   }
 
-  private fun pointComposition(): StyleComposition {
+  private fun pointComposition(): @Composable @MaplibreComposable () -> Unit {
     val points =
       GeoJsonSource(
         id = "points",
@@ -169,7 +198,7 @@ class NativeMapSnapshotterTest {
           ),
         options = GeoJsonOptions(),
       )
-    return StyleComposition {
+    return {
       CircleLayer(
         id = "composed-circle",
         source = points,

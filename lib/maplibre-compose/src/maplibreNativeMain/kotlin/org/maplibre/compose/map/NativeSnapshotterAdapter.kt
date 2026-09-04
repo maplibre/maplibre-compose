@@ -8,14 +8,15 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
+import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.MlnFfiStyleBinding
-import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleReconciler
+import org.maplibre.compose.util.metersPerDpAtLatitude
 import org.maplibre.compose.util.toCameraOptions
 import org.maplibre.compose.util.toImageBitmap
 import org.maplibre.nativeffi.camera.EdgeInsets
@@ -75,13 +76,13 @@ private class NativeSnapshotterAdapter(
     baseStyle: BaseStyle,
     baseStyleRevision: Long,
     request: MapSnapshotRequest,
-  ): StyleBinding = runNativeRequest {
+  ): SnapshotPreparation = runNativeRequest {
     ensureEngine(request)
     currentDensity = request.density
-    configureRequest(request)
+    val viewport = configureRequest(request)
     val current = styleBinding
     if (baseStyleRevision == loadedBaseStyleRevision && current?.isLoaded == true) {
-      return@runNativeRequest current
+      return@runNativeRequest SnapshotPreparation(current, viewport)
     }
 
     current?.invalidate()
@@ -94,7 +95,10 @@ private class NativeSnapshotterAdapter(
     if (terminalOperation === loading) terminalOperation = null
     loadResult.getOrThrow()
     loadedBaseStyleRevision = baseStyleRevision
-    checkNotNull(styleBinding) { "MapLibre reported a loaded style without a binding" }
+    SnapshotPreparation(
+      binding = checkNotNull(styleBinding) { "MapLibre reported a loaded style without a binding" },
+      viewport = viewport,
+    )
   }
 
   override suspend fun capture(
@@ -210,28 +214,33 @@ private class NativeSnapshotterAdapter(
     }
   }
 
-  private suspend fun configureRequest(request: MapSnapshotRequest) {
+  private suspend fun configureRequest(request: MapSnapshotRequest): Viewport {
     val currentEngine = checkNotNull(engine)
     val currentLoop = currentEngine.loop
     val extent = request.extent()
     val resized = NativeSnapshotOperation(NativeSnapshotOperation.Kind.RESIZE)
     terminalOperation = resized
+    var geometry: MapViewportGeometry? = null
     try {
-      checkNotNull(
-        currentLoop.call(
-          action = { map ->
-            currentEngine.resources.withSession { session ->
-              check(currentEngine.scaleFactor == extent.scaleFactor) {
-                "The snapshot engine scale does not match the capture request"
+      geometry =
+        checkNotNull(
+          currentLoop.call(
+            action = { map ->
+              currentEngine.resources.withSession { session ->
+                check(currentEngine.scaleFactor == extent.scaleFactor) {
+                  "The snapshot engine scale does not match the capture request"
+                }
+                session.resize(extent.width, extent.height, extent.scaleFactor)
               }
-              session.resize(extent.width, extent.height, extent.scaleFactor)
+              map.jumpTo(request.cameraPosition.toCameraOptions(EdgeInsets.ZERO))
+              // Read on the same loop call that applied the size and camera, so the viewport
+              // describes the transform this capture renders.
+              map.readViewportGeometry()
             }
-            map.jumpTo(request.cameraPosition.toCameraOptions(EdgeInsets.ZERO))
-          }
-        )
-      ) {
-        "The snapshotter engine map stopped during request configuration"
-      }
+          )
+        ) {
+          "The snapshotter engine map stopped during request configuration"
+        }
       if (
         !currentLoop.postEventDrainBarrier(
           { resized.completion.complete(Result.success(Unit)) },
@@ -252,6 +261,21 @@ private class NativeSnapshotterAdapter(
     val resizeResult = resized.completion.await()
     if (terminalOperation === resized) terminalOperation = null
     resizeResult.getOrThrow()
+    val applied = checkNotNull(geometry)
+    check(
+      applied.size.width.value.toInt() == extent.width &&
+        applied.size.height.value.toInt() == extent.height
+    ) {
+      "The snapshot map reported a ${applied.size} viewport, expected " +
+        "${extent.width}x${extent.height} logical pixels"
+    }
+    return Viewport(
+      size = applied.size,
+      visibleBoundingBox = applied.boundingBox,
+      visibleRegion = applied.visibleRegion,
+      metersPerDpAtTarget =
+        metersPerDpAtLatitude(applied.camera.zoom, applied.camera.target.latitude),
+    )
   }
 
   private suspend fun <T> runNativeRequest(action: suspend () -> T): T =

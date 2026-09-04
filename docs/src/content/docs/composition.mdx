@@ -46,10 +46,17 @@ sources and layers against the new style. They persist across the switch
 without extra code. An `Anchor` that names a base layer applies only when that
 layer exists in the new style.
 
-Use a <Api of="StyleComposition" /> value when several map states or a
-snapshotter share one definition. Pass the value to `rememberMapState` or
-`MapRuntime.createMapState` with the same `baseStyle` pair that
-`MapRuntime.createSnapshotter` accepts.
+To share one definition between several maps, write the style content as a
+composable function and call that function from each style block. The same
+function applies to `rememberMapState`, `MapRuntime.createMapState`, and
+`MapRuntime.createSnapshotter`.
+
+Style content reads its host through two composition locals.
+<Api of="LocalViewport" /> contains the viewport that the content is evaluated
+for. An interactive map provides its rendered viewport, which is null until the
+map has drawn a frame, and a snapshotter provides the viewport of the capture
+request. <Api of="LocalMapState" /> contains the interactive map, and a read of
+it inside a snapshotter fails with `IllegalStateException`.
 
 ## Layer and source IDs
 

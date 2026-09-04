@@ -51,7 +51,6 @@ import org.maplibre.compose.map.MapState
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
-import org.maplibre.compose.style.StyleComposition
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Position
@@ -105,7 +104,7 @@ object MapSnapshotterDemo : Demo {
       remember(state.mapRuntime, appliedBaseStyle) {
         state.mapRuntime.createSnapshotter(
           baseStyle = appliedBaseStyle,
-          styleComposition = StyleComposition { SnapshotMarker() },
+          content = { SnapshotMarker() },
         )
       }
     val captureRequests = remember(snapshotter) { Channel<Unit>(capacity = 1) }

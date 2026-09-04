@@ -16,6 +16,7 @@ import org.maplibre.compose.demoapp.benchmark.BenchmarkScenario
 import org.maplibre.compose.demoapp.benchmark.BenchmarkUiState
 import org.maplibre.compose.demoapp.benchmark.allBenchmarkScenarios
 import org.maplibre.compose.map.DefaultMapRuntime
+import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.map.MapRuntime
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.rememberMapState
@@ -157,7 +158,8 @@ fun rememberDemoAppState(): DemoAppState {
       baseStyle = appliedStyle.base,
       initialCameraPosition = StartPosition,
     ) {
-      mapConfiguration.selectedDemo?.let { demo -> key(demo) { demo.MapContent(mapState) } }
+      val state = LocalMapState.current
+      mapConfiguration.selectedDemo?.let { demo -> key(demo) { demo.MapContent(state) } }
     }
   val frameRateState = remember { FrameRateState() }
   return remember {

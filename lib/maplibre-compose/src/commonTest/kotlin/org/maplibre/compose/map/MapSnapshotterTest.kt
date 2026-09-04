@@ -4,7 +4,9 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.ImageBitmapConfig
 import androidx.compose.ui.graphics.colorspace.ColorSpace
 import androidx.compose.ui.graphics.colorspace.ColorSpaces
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -40,6 +42,7 @@ import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleException
+import org.maplibre.compose.testing.supportsComposeRuntimeTests
 
 class MapSnapshotterTest {
 
@@ -61,7 +64,8 @@ class MapSnapshotterTest {
     val runtime =
       mapRuntimeForTest(
         snapshotterAdapterFactory = SnapshotterAdapterFactory { adapter },
-        styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _ -> DesiredStyleRevision.Empty },
+        styleEvaluator =
+          StyleCompositionEvaluator { _, _, _, _, _, _ -> DesiredStyleRevision.Empty },
       )
     val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
     val firstRequest = MapSnapshotRequest(width = 20, height = 10)
@@ -106,7 +110,7 @@ class MapSnapshotterTest {
             adapter
           },
         styleEvaluator =
-          StyleCompositionEvaluator { _, _, density, layoutDirection, _ ->
+          StyleCompositionEvaluator { _, _, _, density, layoutDirection, _ ->
             evaluations += Triple(externalState, density.density, layoutDirection)
             DesiredStyleRevision.Empty
           },
@@ -147,13 +151,49 @@ class MapSnapshotterTest {
   }
 
   @Test
+  fun snapshot_content_reads_the_viewport_of_its_own_request() = runTest {
+    if (!supportsComposeRuntimeTests) return@runTest
+    val sizes = mutableListOf<DpSize?>()
+    val runtime =
+      mapRuntimeForTest(
+        snapshotterAdapterFactory = SnapshotterAdapterFactory { FakeSnapshotterAdapter() }
+      )
+    val snapshotter =
+      runtime.createSnapshotter(BaseStyle.Empty) { sizes += LocalViewport.current?.size }
+
+    snapshotter.capture(MapSnapshotRequest(width = 30, height = 20))
+
+    assertEquals(setOf(DpSize(30.dp, 20.dp)), sizes.toSet())
+    close(snapshotter, runtime)
+  }
+
+  @Test
+  fun snapshot_content_that_reads_the_map_state_fails_the_capture() = runTest {
+    if (!supportsComposeRuntimeTests) return@runTest
+    val runtime =
+      mapRuntimeForTest(
+        snapshotterAdapterFactory = SnapshotterAdapterFactory { FakeSnapshotterAdapter() }
+      )
+    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty) { LocalMapState.current.isClosed }
+
+    val failure =
+      assertFailsWith<MapSnapshotException> { snapshotter.capture(MapSnapshotRequest(1, 1)) }
+
+    val cause =
+      generateSequence(failure as Throwable?) { it.cause }.first { it is IllegalStateException }
+    assertTrue(cause.message.orEmpty().contains("A snapshotter has no MapState"))
+    close(snapshotter, runtime)
+  }
+
+  @Test
   fun a_published_snapshot_style_accepts_imperative_source_and_image_commands() = runTest {
     val binding = RecordingStyleBinding()
     val runtime =
       mapRuntimeForTest(
         snapshotterAdapterFactory =
           SnapshotterAdapterFactory { FakeSnapshotterAdapter(prepare = { _, _ -> binding }) },
-        styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _ -> DesiredStyleRevision.Empty },
+        styleEvaluator =
+          StyleCompositionEvaluator { _, _, _, _, _, _ -> DesiredStyleRevision.Empty },
       )
     val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
     val source =
@@ -194,7 +234,8 @@ class MapSnapshotterTest {
       mapRuntimeForTest(
         snapshotterAdapterFactory =
           SnapshotterAdapterFactory { FakeSnapshotterAdapter(prepare = { _, _ -> binding }) },
-        styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _ -> DesiredStyleRevision.Empty },
+        styleEvaluator =
+          StyleCompositionEvaluator { _, _, _, _, _, _ -> DesiredStyleRevision.Empty },
       )
     val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
     val request = MapSnapshotRequest(1, 1)
@@ -229,7 +270,7 @@ class MapSnapshotterTest {
               },
             )
           },
-        styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _ -> desired },
+        styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _, _ -> desired },
       )
     val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
     val request = MapSnapshotRequest(1, 1)
@@ -265,7 +306,8 @@ class MapSnapshotterTest {
               },
             )
           },
-        styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _ -> DesiredStyleRevision.Empty },
+        styleEvaluator =
+          StyleCompositionEvaluator { _, _, _, _, _, _ -> DesiredStyleRevision.Empty },
       )
     val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
     snapshotter.capture(MapSnapshotRequest(1, 1))
@@ -426,7 +468,8 @@ class MapSnapshotterTest {
       mapRuntimeForTest(
         physicalScope = this,
         snapshotterAdapterFactory = SnapshotterAdapterFactory { adapter },
-        styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _ -> DesiredStyleRevision.Empty },
+        styleEvaluator =
+          StyleCompositionEvaluator { _, _, _, _, _, _ -> DesiredStyleRevision.Empty },
       )
     val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
 
@@ -473,7 +516,8 @@ class MapSnapshotterTest {
       mapRuntimeForTest(
         physicalScope = this,
         snapshotterAdapterFactory = SnapshotterAdapterFactory { adapter },
-        styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _ -> DesiredStyleRevision.Empty },
+        styleEvaluator =
+          StyleCompositionEvaluator { _, _, _, _, _, _ -> DesiredStyleRevision.Empty },
       )
     val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
     val active = async { snapshotter.capture(MapSnapshotRequest(1, 1)) }
@@ -534,7 +578,7 @@ class MapSnapshotterTest {
         styleFailure to
           runtimeWith(
             FakeSnapshotterAdapter(),
-            StyleCompositionEvaluator { _, _, _, _, _ -> throw styleFailure },
+            StyleCompositionEvaluator { _, _, _, _, _, _ -> throw styleFailure },
           ),
       )
 
@@ -689,7 +733,7 @@ class MapSnapshotterTest {
 
   private fun runtimeWith(
     adapter: SnapshotterAdapter,
-    styleEvaluator: StyleCompositionEvaluator = StyleCompositionEvaluator { _, _, _, _, _ ->
+    styleEvaluator: StyleCompositionEvaluator = StyleCompositionEvaluator { _, _, _, _, _, _ ->
       DesiredStyleRevision.Empty
     },
   ): MapRuntime =
@@ -731,7 +775,8 @@ class MapSnapshotterTest {
       baseStyle: BaseStyle,
       baseStyleRevision: Long,
       request: MapSnapshotRequest,
-    ): StyleBinding = prepare.invoke(baseStyle, request)
+    ): SnapshotPreparation =
+      SnapshotPreparation(prepare.invoke(baseStyle, request), viewportFor(request))
 
     override suspend fun capture(
       request: MapSnapshotRequest,
