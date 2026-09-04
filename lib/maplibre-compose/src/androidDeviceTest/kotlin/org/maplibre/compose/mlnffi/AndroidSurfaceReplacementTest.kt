@@ -26,10 +26,12 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.first
 import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.map.MapEvent
+import org.maplibre.compose.map.MapRuntimeOptions
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.MlnFfiMapSession
 import org.maplibre.compose.map.rememberMapState
+import org.maplibre.compose.map.resetForTest
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.include
 import org.maplibre.compose.style.BaseStyle
@@ -39,9 +41,7 @@ class AndroidSurfaceReplacementTest {
   @Test
   fun a_surface_map_without_an_overlay_produces_a_frame_after_replacement() {
     val cacheFile = FfiTestPlatform.createCacheFile()
-    DefaultMapRuntime.installForTest(
-      MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
-    )
+    DefaultMapRuntime.configure(MapRuntimeOptions(cacheFile = cacheFile))
 
     try {
       // Screen capture and Compose test synchronization invalidate the window and mask this

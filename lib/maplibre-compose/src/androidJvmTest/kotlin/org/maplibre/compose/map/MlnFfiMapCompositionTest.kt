@@ -53,7 +53,6 @@ import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.mlnffi.FfiTestPlatform
-import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
 import org.maplibre.compose.mlnffi.setFfiTestMapContent
 import org.maplibre.compose.offline.rememberOfflinePacksSource
@@ -78,8 +77,7 @@ class MlnFfiMapCompositionTest {
 
   private val cacheFile = FfiTestPlatform.createCacheFile()
 
-  private val runtimeOptions =
-    MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+  private val runtimeOptions = MapRuntimeOptions(cacheFile = cacheFile)
 
   /** Camera round trips lose a little precision through the projection. */
   private val POSITION_TOLERANCE = 1e-4
@@ -101,7 +99,7 @@ class MlnFfiMapCompositionTest {
 
   @Test
   fun map_state_renders_a_base_style_and_publishes_one_presentation() = runFfiComposeUiTest {
-    val runtime = createNativeMapRuntime(runtimeOptions)
+    val runtime = createMapRuntime(runtimeOptions)
     val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
 
     setFfiTestMapContent(runtimeOptions) { MaplibreMap(state = state) }
@@ -123,7 +121,7 @@ class MlnFfiMapCompositionTest {
 
   @Test
   fun camera_constraints_update_without_replacing_the_native_map() = runFfiComposeUiTest {
-    val runtime = createNativeMapRuntime(runtimeOptions)
+    val runtime = createMapRuntime(runtimeOptions)
     val state =
       runtime.createMapState(
         initialCameraPosition = CameraPosition(zoom = 1.0),
@@ -150,7 +148,7 @@ class MlnFfiMapCompositionTest {
 
   @Test
   fun one_style_composition_is_evaluated_independently_for_two_maps() = runFfiComposeUiTest {
-    val runtime = createNativeMapRuntime(runtimeOptions)
+    val runtime = createMapRuntime(runtimeOptions)
     val evaluatorIdentities = mutableSetOf<Any>()
     var showFirst by mutableStateOf(true)
     val style = StyleComposition {
@@ -218,7 +216,7 @@ class MlnFfiMapCompositionTest {
   @Test
   fun one_style_composition_is_evaluated_independently_for_a_map_and_snapshotter() =
     runFfiComposeUiTest {
-      val runtime = createNativeMapRuntime(runtimeOptions)
+      val runtime = createMapRuntime(runtimeOptions)
       val evaluatorIdentities = mutableSetOf<Any>()
       val composition = StyleComposition {
         val evaluatorIdentity = remember { Any() }
@@ -252,7 +250,7 @@ class MlnFfiMapCompositionTest {
   @Test
   fun detached_native_map_keeps_its_applied_revision_until_current_state_is_reattached() =
     runFfiComposeUiTest {
-      val runtime = createNativeMapRuntime(runtimeOptions)
+      val runtime = createMapRuntime(runtimeOptions)
       var presented by mutableStateOf(true)
       var latest by mutableStateOf(false)
       val composition = StyleComposition {
@@ -300,7 +298,7 @@ class MlnFfiMapCompositionTest {
   @Test
   fun a_later_revision_supersedes_reconciliation_failure_before_the_surface_is_revealed() =
     runFfiComposeUiTest {
-      val runtime = createNativeMapRuntime(runtimeOptions)
+      val runtime = createMapRuntime(runtimeOptions)
       var invalidAnchor by mutableStateOf(true)
       val composition = StyleComposition {
         if (invalidAnchor) {
@@ -337,7 +335,7 @@ class MlnFfiMapCompositionTest {
 
   @Test
   fun a_map_state_retains_its_native_map_between_presentations() = runFfiComposeUiTest {
-    val runtime = createNativeMapRuntime(runtimeOptions)
+    val runtime = createMapRuntime(runtimeOptions)
     val camera = CameraPosition(target = Position(longitude = 11.0, latitude = 47.0), zoom = 6.0)
     val state = runtime.createMapState(initialCameraPosition = camera, baseStyle = BaseStyle.Empty)
     var presented by mutableStateOf(true)
@@ -381,7 +379,7 @@ class MlnFfiMapCompositionTest {
   @Test
   fun an_incompatible_presentation_scale_replaces_the_native_map_and_replays_logical_state() =
     runFfiComposeUiTest {
-      val runtime = createNativeMapRuntime(runtimeOptions)
+      val runtime = createMapRuntime(runtimeOptions)
       val camera =
         CameraPosition(target = Position(longitude = -122.4, latitude = 37.8), zoom = 10.0)
       val state =
@@ -440,7 +438,7 @@ class MlnFfiMapCompositionTest {
 
   @Test
   fun a_base_style_switch_does_not_cover_the_map_with_the_load_placeholder() = runFfiComposeUiTest {
-    val runtime = createNativeMapRuntime(runtimeOptions)
+    val runtime = createMapRuntime(runtimeOptions)
     val first =
       BaseStyle.Json("""{"version":8,"sources":{},"layers":[{"id":"bg-a","type":"background"}]}""")
     val second =
@@ -476,7 +474,7 @@ class MlnFfiMapCompositionTest {
 
   @Test
   fun a_failed_replacement_style_hides_the_native_map() = runFfiComposeUiTest {
-    val runtime = createNativeMapRuntime(runtimeOptions)
+    val runtime = createMapRuntime(runtimeOptions)
     val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
 
     setFfiTestMapContent(runtimeOptions) { MaplibreMap(state = state) }
@@ -531,7 +529,7 @@ class MlnFfiMapCompositionTest {
       onMapLoadFailed = { errors += "mapLoadFailed: $it" },
       onFrame = { onFrame() },
     ) {
-      val offlineManager = rememberDefaultMapRuntime().offlineManager
+      val offlineManager = DefaultMapRuntime.instance.offlineManager
       FillLayer(
         id = "offline-packs",
         source = rememberOfflinePacksSource(offlineManager.packs),

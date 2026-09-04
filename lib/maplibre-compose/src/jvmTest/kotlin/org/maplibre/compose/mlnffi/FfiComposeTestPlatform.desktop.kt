@@ -8,6 +8,8 @@ import androidx.compose.ui.test.v2.runComposeUiTest
 import java.awt.EventQueue
 import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.map.LocalMlnFfiMapHostFactory
+import org.maplibre.compose.map.MapRuntimeOptions
+import org.maplibre.compose.map.resetForTest
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.render.RenderBackend
 
@@ -60,11 +62,11 @@ internal actual fun runPlainComposeUiTest(block: suspend ComposeUiTest.() -> Uni
 
 @OptIn(ExperimentalTestApi::class)
 internal actual fun ComposeUiTest.setFfiTestMapContent(
-  runtimeOptions: MlnFfiRuntimeOptions,
+  runtimeOptions: MapRuntimeOptions,
   presentationCount: Int,
   content: @Composable () -> Unit,
 ) {
-  DefaultMapRuntime.installForTest(runtimeOptions)
+  DefaultMapRuntime.configure(runtimeOptions)
   val preparedFactory = CurrentRuntimeTestMapHostFactory.prepare(presentationCount)
   try {
     setContent {

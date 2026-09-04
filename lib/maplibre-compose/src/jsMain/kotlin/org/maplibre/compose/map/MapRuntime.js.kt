@@ -1,6 +1,5 @@
 package org.maplibre.compose.map
 
-import androidx.compose.runtime.Composable
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.offline.UnsupportedOfflineManager
 import org.maplibre.compose.resource.GlJsRequestController
@@ -15,6 +14,8 @@ public actual data class MapRuntimeOptions(
   /** Serves bytes for resource URLs this provider accepts. */
   public val resourceProvider: MapResourceProvider? = null,
 )
+
+internal actual fun defaultMapRuntimeOptions(): MapRuntimeOptions = MapRuntimeOptions()
 
 internal class JsRuntimePlatform(
   val options: MapRuntimeOptions,
@@ -37,7 +38,3 @@ public actual fun createMapRuntime(options: MapRuntimeOptions): MapRuntime {
 
 internal val RuntimeImplementation.jsRequests: GlJsRequestController?
   get() = (platformOptions as? JsRuntimePlatform)?.requests
-
-private val defaultMapRuntime: MapRuntime by lazy { createMapRuntime(MapRuntimeOptions()) }
-
-@Composable public actual fun rememberDefaultMapRuntime(): MapRuntime = defaultMapRuntime

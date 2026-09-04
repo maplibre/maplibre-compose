@@ -21,14 +21,14 @@ import org.maplibre.compose.style.BaseStyle
 class BrowserMapStateTest {
 
   @Test
-  fun remembered_runtime_is_shared_and_survives_state_disposal(): Promise<*> = runBrowserMapTest {
+  fun default_runtime_is_shared_and_survives_state_disposal(): Promise<*> = runBrowserMapTest {
     val includeState = mutableStateOf(true)
     lateinit var firstRuntime: MapRuntime
     lateinit var secondRuntime: MapRuntime
     lateinit var state: MapState
     setBrowserMapContent {
-      firstRuntime = rememberDefaultMapRuntime()
-      secondRuntime = rememberDefaultMapRuntime()
+      firstRuntime = DefaultMapRuntime.instance
+      secondRuntime = DefaultMapRuntime.instance
       if (includeState.value) {
         val remembered = rememberMapState(firstRuntime, baseStyle = BaseStyle.Empty)
         SideEffect { state = remembered }

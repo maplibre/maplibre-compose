@@ -95,14 +95,11 @@ import org.maplibre.spatialk.geojson.Position
  */
 public expect class MapRuntimeOptions
 
+/** The options a runtime uses when nothing configures it. */
+internal expect fun defaultMapRuntimeOptions(): MapRuntimeOptions
+
 /** Creates a runtime from [options]. The caller must close the result. */
 public expect fun createMapRuntime(options: MapRuntimeOptions): MapRuntime
-
-/**
- * Returns the default runtime for this process. Closing this runtime permanently closes the process
- * default; later calls return the same closed runtime.
- */
-@Composable public expect fun rememberDefaultMapRuntime(): MapRuntime
 
 /** Creates logical maps that share one application-level configuration. */
 public interface MapRuntime {
@@ -1694,7 +1691,7 @@ private class MapStyleScopeImpl(override val mapState: MapState) : MapStyleScope
  */
 @Composable
 public fun rememberMapState(
-  runtime: MapRuntime = rememberDefaultMapRuntime(),
+  runtime: MapRuntime = DefaultMapRuntime.instance,
   baseStyle: BaseStyle = BaseStyle.Demo,
   styleComposition: StyleComposition = StyleComposition.Empty,
   initialCameraPosition: CameraPosition = CameraPosition(),

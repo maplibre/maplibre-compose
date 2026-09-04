@@ -15,13 +15,13 @@ import kotlin.test.assertTrue
 import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapRuntime
+import org.maplibre.compose.map.MapRuntimeOptions
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.StyleLoadState
-import org.maplibre.compose.map.rememberDefaultMapRuntime
 import org.maplibre.compose.map.rememberMapState
+import org.maplibre.compose.map.resetForTest
 import org.maplibre.compose.mlnffi.FfiTestPlatform
-import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.Position
 
@@ -31,9 +31,7 @@ class AndroidMapStateRecreationTest {
   @Test
   fun camera_position_survives_activity_recreation() {
     val cacheFile = FfiTestPlatform.createCacheFile()
-    DefaultMapRuntime.installForTest(
-      MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
-    )
+    DefaultMapRuntime.configure(MapRuntimeOptions(cacheFile = cacheFile))
 
     try {
       runAndroidComposeUiTest<MapStateRecreationActivity> {
@@ -122,8 +120,8 @@ class MapStateRecreationActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     setContent {
-      val firstRuntime: MapRuntime = rememberDefaultMapRuntime()
-      val secondRuntime: MapRuntime = rememberDefaultMapRuntime()
+      val firstRuntime: MapRuntime = DefaultMapRuntime.instance
+      val secondRuntime: MapRuntime = DefaultMapRuntime.instance
       val state = rememberMapState(firstRuntime, baseStyle = BaseStyle.Empty)
       SideEffect {
         mapState = state

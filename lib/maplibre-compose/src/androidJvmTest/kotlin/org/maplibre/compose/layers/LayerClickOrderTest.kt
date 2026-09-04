@@ -19,11 +19,11 @@ import kotlin.test.assertNotNull
 import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.map.MapRuntimeOptions
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.mlnffi.FfiTestPlatform
-import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
 import org.maplibre.compose.mlnffi.setFfiTestMapContent
 import org.maplibre.compose.sources.GeoJsonData
@@ -47,8 +47,7 @@ class LayerClickOrderTest {
 
   private val cacheFile = FfiTestPlatform.createCacheFile()
 
-  private val runtimeOptions =
-    MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+  private val runtimeOptions = MapRuntimeOptions(cacheFile = cacheFile)
 
   /** Which layers were offered the event, in the order the map offered them. */
   private val clicked = mutableListOf<String>()

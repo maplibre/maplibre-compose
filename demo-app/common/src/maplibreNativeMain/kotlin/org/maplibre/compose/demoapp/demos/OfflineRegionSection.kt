@@ -17,14 +17,14 @@ import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.maplibre.compose.demoapp.design.SectionHeader
-import org.maplibre.compose.map.rememberDefaultMapRuntime
+import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.material3.OfflinePackListItem
 import org.maplibre.compose.offline.OfflinePackDefinition
 import org.maplibre.spatialk.geojson.BoundingBox
 
 @Composable
 actual fun OfflineRegionSection(region: BoundingBox, styleUrl: String, packName: String) {
-  val offlineManager = rememberDefaultMapRuntime().offlineManager
+  val offlineManager = DefaultMapRuntime.instance.offlineManager
   val pixelRatio = LocalDensity.current.density
   val scope = rememberCoroutineScope()
   val metadata = remember(packName) { packName.encodeToByteArray() }
