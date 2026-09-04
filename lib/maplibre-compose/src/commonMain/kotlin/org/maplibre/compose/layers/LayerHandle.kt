@@ -2,7 +2,9 @@ package org.maplibre.compose.layers
 
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.style.CLEARED_TRANSITION
+import org.maplibre.compose.style.LayerDefinition
 import org.maplibre.compose.style.LayerPropertyKind
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleException
@@ -14,9 +16,14 @@ import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.scaledBy
 import org.maplibre.compose.style.toTransitionJson
 import org.maplibre.compose.style.toTransitionOptions
-import org.maplibre.compose.style.unscaledBy
 
-/** Provides imperative property access to a layer for one loaded base-style generation. */
+/**
+ * Provides imperative property access to a layer for one loaded base-style generation.
+ *
+ * [declaredTransitions] remembers the transitions set through this handle for the generation, and
+ * [desiredTransition] reads the ones a layer composable declares, so [getPaintTransition] reports
+ * declared timing rather than the scaled timing the engine holds.
+ */
 public class LayerHandle
 internal constructor(
   public val id: String,
@@ -24,6 +31,8 @@ internal constructor(
   private val style: StyleBinding,
   private val isCurrentResource: () -> Boolean,
   private val operations: StyleHandleOperationGuard,
+  private val declaredTransitions: MutableMap<String, TransitionOptions?>,
+  private val desiredTransition: (property: String) -> TransitionOptions?,
 ) {
   private val identity: StyleIdentity = style.identity
 
@@ -48,14 +57,15 @@ internal constructor(
    * once, as the spec's empty transition object; a layer composable drops the key from its layer
    * definition instead, with the same result.
    *
-   * On Android, the animator duration scale read when the style loaded multiplies the timing that
-   * reaches the engine. A scale of zero applies the property change instantly.
+   * On Android, the system animator duration scale multiplies the timing that reaches the engine. A
+   * scale of zero applies the property change instantly.
    */
   public fun setPaintTransition(property: String, options: TransitionOptions?) {
     setPaintProperty(
       property + TRANSITION_SUFFIX,
       options?.scaledBy(style.animatorDurationScale)?.toTransitionJson() ?: CLEARED_TRANSITION,
     )
+    declaredTransitions[property] = options
   }
 
   /**
@@ -67,14 +77,15 @@ internal constructor(
    * transition, which [TransitionOptions] states no value for. MapLibre GL JS reports an empty
    * object for a transition that was cleared, and this returns null for it.
    *
-   * The reported timing is the declared one: the animator duration scale that [setPaintTransition]
-   * applied is divided back out. A scale of zero zeroes the timing in the engine, and the getter
-   * then reports zero. [getProperty] reports the engine's timing.
+   * The reported timing is the declared one: what [setPaintTransition] last set, else what the
+   * layer composable declares, else what the style holds. The engine holds that timing under the
+   * animator duration scale, which [getProperty] reports.
    */
-  public fun getPaintTransition(property: String): TransitionOptions? =
-    getProperty(property + TRANSITION_SUFFIX)
-      ?.toTransitionOptions()
-      ?.unscaledBy(style.animatorDurationScale)
+  public fun getPaintTransition(property: String): TransitionOptions? = operation {
+    if (property in declaredTransitions) return@operation declaredTransitions[property]
+    desiredTransition(property)
+      ?: style.layerProperty(id, property + TRANSITION_SUFFIX)?.toTransitionOptions()
+  }
 
   /** Sets the top-level property [name], such as `minzoom`, for this loaded style. */
   public fun setRootProperty(name: String, value: JsonElement) {
@@ -123,8 +134,22 @@ internal fun StyleBinding.layerHandle(
   id: String,
   isCurrentResource: () -> Boolean,
   operations: StyleHandleOperationGuard,
+  declaredTransitions: MutableMap<String, TransitionOptions?>,
+  desiredTransition: (property: String) -> TransitionOptions?,
 ): LayerHandle? {
   requireCurrent()
   val layer = getLayer(id) ?: return null
-  return LayerHandle(id, layer.definition().type, this, isCurrentResource, operations)
+  return LayerHandle(
+    id,
+    layer.definition().type,
+    this,
+    isCurrentResource,
+    operations,
+    declaredTransitions,
+    desiredTransition,
+  )
 }
+
+/** The transition this definition declares for the paint property [property], if any. */
+internal fun LayerDefinition.paintTransition(property: String): TransitionOptions? =
+  (value["paint"] as? JsonObject)?.get(property + TRANSITION_SUFFIX)?.toTransitionOptions()

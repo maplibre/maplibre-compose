@@ -1,20 +1,21 @@
 package org.maplibre.compose.style
 
+import androidx.compose.runtime.State
 import kotlin.time.Duration
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.doubleOrNull
 
 /**
- * Returns the platform's animator duration scale: the value of Android's
+ * The platform's animator duration scale: the value of Android's
  * `Settings.Global.ANIMATOR_DURATION_SCALE`, or 1f where the platform has no such setting. A scale
- * of zero means the user asked for no animations.
- *
- * A camera animation reads the scale when it starts. A style binding reads it once, when the style
- * loads, and applies that value to every transition it writes and reads: see
- * [StyleBinding.animatorDurationScale].
+ * of zero means the user asked for no animations. The state follows the setting, so a composition
+ * that reads it recomposes when the setting changes.
  */
-internal expect fun systemAnimatorDurationScale(): Float
+internal expect val systemAnimatorDurationScaleState: State<Float>
+
+/** The current value of [systemAnimatorDurationScaleState]. */
+internal fun systemAnimatorDurationScale(): Float = systemAnimatorDurationScaleState.value
 
 /**
  * Returns [this] multiplied by [scale], or [this] unchanged when the scale is 1f. A scale of zero
@@ -34,17 +35,6 @@ internal fun TransitionOptions.scaledBy(scale: Float): TransitionOptions {
   requireScale(scale)
   if (scale == 1f) return this
   return TransitionOptions(duration = duration * scale.toDouble(), delay = delay * scale.toDouble())
-}
-
-/**
- * The inverse of [scaledBy], for reporting engine-held timing through the logical API: a typed
- * getter returns the timing the caller declared, not the timing the engine runs. A scale of zero
- * zeroed the engine's timing past recovery, so the engine's value is reported unchanged.
- */
-internal fun TransitionOptions.unscaledBy(scale: Float): TransitionOptions {
-  requireScale(scale)
-  if (scale == 1f || scale == 0f) return this
-  return TransitionOptions(duration = duration / scale.toDouble(), delay = delay / scale.toDouble())
 }
 
 /**

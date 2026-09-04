@@ -1,5 +1,7 @@
 package org.maplibre.compose.style
 
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.ImageBitmap
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -36,8 +38,12 @@ internal class RecordingStyleBinding(
   private val beforeAddImage: ((String) -> Unit)? = null,
   private val beforeClusterExpansionZoomResult: suspend () -> Unit = {},
   private val onInvalidate: () -> Unit = {},
-  override val animatorDurationScale: Float = 1f,
+  /** The fake platform's animator duration scale; a test changes it to simulate the setting. */
+  val animatorDurationScaleState: MutableState<Float> = mutableStateOf(1f),
 ) : StyleBinding {
+
+  override val animatorDurationScale: Float
+    get() = animatorDurationScaleState.value
 
   override val identity: StyleIdentity = StyleIdentity.create()
 

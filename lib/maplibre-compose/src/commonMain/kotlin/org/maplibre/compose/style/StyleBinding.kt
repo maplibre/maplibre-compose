@@ -118,10 +118,9 @@ internal interface StyleBinding {
   fun layerExists(layerId: String): Boolean?
 
   /**
-   * The platform's animator duration scale, read once when this style loaded. Every transition
-   * timing written to the engine for this style is multiplied by it, and every timing a typed
-   * getter reports is divided by it, so a write and a later read agree even after the system
-   * setting changes. A change to the setting applies to the next style load.
+   * The platform's current animator duration scale. Every transition the library writes to this
+   * style is multiplied by it at the time of the write. A composition reads it as snapshot state,
+   * so a change republishes the composed layers under the new scale.
    */
   val animatorDurationScale: Float
 

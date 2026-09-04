@@ -1,5 +1,6 @@
 package org.maplibre.compose.layers
 
+import androidx.compose.runtime.mutableStateOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -250,12 +251,32 @@ class LayerTransitionWiringTest {
     if (!supportsComposeRuntimeTests) return@runTest
     val features = featureSource()
     val style =
-      composeStyle(RecordingStyleBinding(animatorDurationScale = 0.5f)) {
+      composeStyle(RecordingStyleBinding(animatorDurationScaleState = mutableStateOf(0.5f))) {
         FillLayer(id = "fills", source = features, colorTransition = timing(400))
       }
 
     assertEquals(
       mapOf("fill-color-transition" to 200.0, "fill-outline-color-transition" to 200.0),
+      style.transitionDurations("fills"),
+    )
+  }
+
+  /** A changed scale republishes the composed layers, and only their transitions are rewritten. */
+  @Test
+  fun a_changed_scale_rewrites_a_composed_transition() = runTest {
+    if (!supportsComposeRuntimeTests) return@runTest
+    val features = featureSource()
+    val scale = mutableStateOf(1f)
+    val style =
+      composeStyle(
+        RecordingStyleBinding(animatorDurationScaleState = scale),
+        thenChange = { scale.value = 0f },
+      ) {
+        FillLayer(id = "fills", source = features, colorTransition = timing(400))
+      }
+
+    assertEquals(
+      mapOf("fill-color-transition" to 0.0, "fill-outline-color-transition" to 0.0),
       style.transitionDurations("fills"),
     )
   }

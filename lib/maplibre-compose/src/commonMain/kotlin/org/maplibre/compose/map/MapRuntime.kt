@@ -56,6 +56,7 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.layers.LayerHandle
 import org.maplibre.compose.layers.layerHandle
+import org.maplibre.compose.layers.paintTransition
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.offline.OfflineManager
 import org.maplibre.compose.offline.RuntimeBoundOfflineManager
@@ -81,7 +82,6 @@ import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.canUpdateTo
 import org.maplibre.compose.style.scaledBy
 import org.maplibre.compose.style.systemAnimatorDurationScale
-import org.maplibre.compose.style.unscaledBy
 import org.maplibre.compose.style.withScaledTransitions
 import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.MaplibreComposable
@@ -171,6 +171,8 @@ internal interface MapStyleStateOwner {
 
   fun desiredSourceDefinition(id: String): org.maplibre.compose.style.SourceDefinition?
 
+  fun desiredLayerDefinition(id: String): org.maplibre.compose.style.LayerDefinition?
+
   fun addStyleSource(source: Source): SourceHandle
 
   fun removeStyleSource(id: String): Boolean
@@ -196,6 +198,12 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   private val layerIdentities = AtomicReference<Map<String, StyleResourceIdentity>>(emptyMap())
   private var sourcesState: Map<String, SourceHandle> by mutableStateOf(emptyMap())
   private var layersState: Map<String, LayerHandle> by mutableStateOf(emptyMap())
+
+  // The transitions set through the typed API this generation, in declared timing. The engine
+  // holds them under the animator duration scale, so the getters read these instead.
+  private var declaredTransition: TransitionOptions? = null
+  private val declaredLayerTransitions =
+    mutableMapOf<String, MutableMap<String, TransitionOptions?>>()
   private var baseStyleState: BaseStyle by
     mutableStateOf(initialBaseStyle, structuralEqualityPolicy())
 
@@ -230,11 +238,14 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   public val projection: StyleProjection = StyleProjection(this)
 
   internal fun transitionOptions(): TransitionOptions? = readStyle {
-    it.transition()?.unscaledBy(it.animatorDurationScale)
+    declaredTransition ?: it.transition()
   }
 
   internal fun setTransitionOptions(options: TransitionOptions) {
-    mutateStyle("the transition") { it.setTransition(options.scaledBy(it.animatorDurationScale)) }
+    mutateStyle("the transition") {
+      it.setTransition(options.scaledBy(it.animatorDurationScale))
+      declaredTransition = options
+    }
   }
 
   internal fun placementTransitions(): Boolean? = readStyle { it.placementTransitions() }
@@ -324,28 +335,22 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   }
 
   internal fun updateLoadedStyle(style: StyleBinding?) {
-    val previous = loadedStyle.load()
     loadedStyle.store(style)
-    sourceIdentities.store(emptyMap())
-    layerIdentities.store(emptyMap())
-    sourcesState = emptyMap()
-    layersState = emptyMap()
-    // A new base style carries the transition its JSON declares, or the engine's default. Scale it
-    // by the style's animator duration scale so the global transition honors the system setting.
-    // The direct binding call must not route through setTransitionOptions, which scales.
-    if (style != null && style !== previous) {
-      runCatching {
-        style.transition()?.let { style.setTransition(it.scaledBy(style.animatorDurationScale)) }
-      }
-    }
+    resetResources()
   }
 
   internal fun invalidateLoadedStyle() {
     loadedStyle.exchange(null)?.invalidate()
+    resetResources()
+  }
+
+  private fun resetResources() {
     sourceIdentities.store(emptyMap())
     layerIdentities.store(emptyMap())
     sourcesState = emptyMap()
     layersState = emptyMap()
+    declaredTransition = null
+    declaredLayerTransitions.clear()
   }
 
   internal fun isCurrentLoadedStyle(style: StyleBinding): Boolean = loadedStyle.load() === style
@@ -378,6 +383,7 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   internal fun readLayers(current: StyleBinding): Map<String, LayerHandle> {
     val ids = current.getLayers().mapTo(linkedSetOf()) { it.id }
     retainResourceIdentities(layerIdentities, ids)
+    declaredLayerTransitions.keys.retainAll(ids)
     return ids
       .mapNotNull { id ->
         val identity = layerIdentity(id)
@@ -386,6 +392,10 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
             id,
             isCurrentResource = { layerIdentities.load()[id] === identity },
             operations = operationGuard(current),
+            declaredTransitions = declaredLayerTransitions.getOrPut(id) { mutableMapOf() },
+            desiredTransition = { property ->
+              owner?.desiredLayerDefinition(id)?.paintTransition(property)
+            },
           )
           ?.let { id to it }
       }
@@ -398,6 +408,7 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
 
   internal fun invalidateLayerIdentities(ids: Set<String>) {
     removeResourceIdentities(layerIdentities, ids)
+    declaredLayerTransitions.keys.removeAll(ids)
   }
 
   internal fun invalidateStructurallyReplacedResources(
@@ -719,6 +730,8 @@ internal constructor(
 
           override fun desiredSourceDefinition(id: String) =
             this@MapState.desiredSourceDefinition(id)
+
+          override fun desiredLayerDefinition(id: String) = this@MapState.desiredLayerDefinition(id)
 
           override fun addStyleSource(source: Source) = this@MapState.addStyleSource(source)
 
@@ -1110,6 +1123,11 @@ internal constructor(
   internal fun desiredSourceDefinition(id: String): org.maplibre.compose.style.SourceDefinition? =
     lifecycle.serialized {
       desiredStyleRevision.sources.firstOrNull { it.id == id } ?: imperativeSources[id]?.definition
+    }
+
+  internal fun desiredLayerDefinition(id: String): org.maplibre.compose.style.LayerDefinition? =
+    lifecycle.serialized {
+      desiredStyleRevision.layers.firstOrNull { it.definition.id == id }?.definition
     }
 
   internal fun addStyleSource(source: Source): SourceHandle {

@@ -29,6 +29,7 @@ import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceHandle
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
+import org.maplibre.compose.style.LayerDefinition
 import org.maplibre.compose.style.MapNodeApplier
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
@@ -251,6 +252,9 @@ internal class MapSnapshotterImplementation(
 
           override fun desiredSourceDefinition(id: String) =
             this@MapSnapshotterImplementation.desiredSourceDefinition(id)
+
+          override fun desiredLayerDefinition(id: String) =
+            this@MapSnapshotterImplementation.desiredLayerDefinition(id)
 
           override fun addStyleSource(source: Source) =
             this@MapSnapshotterImplementation.addStyleSource(source)
@@ -504,6 +508,10 @@ internal class MapSnapshotterImplementation(
 
   internal fun desiredSourceDefinition(id: String): SourceDefinition? = lock.withLock {
     desiredRevision.sources.firstOrNull { it.id == id } ?: imperativeSources[id]?.definition
+  }
+
+  internal fun desiredLayerDefinition(id: String): LayerDefinition? = lock.withLock {
+    desiredRevision.layers.firstOrNull { it.definition.id == id }?.definition
   }
 
   internal fun addStyleSource(source: Source): SourceHandle {

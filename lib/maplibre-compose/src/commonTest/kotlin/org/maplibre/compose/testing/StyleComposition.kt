@@ -4,6 +4,7 @@ import androidx.compose.runtime.BroadcastFrameClock
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Composition
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.runtime.withRunningRecomposer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -21,11 +22,12 @@ import org.maplibre.compose.util.MaplibreComposable
 
 /**
  * Composes [content] once against [style] and applies the revision it publishes, then returns
- * [style] with everything the composition installed. Guard a call with
- * [supportsComposeRuntimeTests].
+ * [style] with everything the composition installed. With [thenChange], runs it, recomposes, and
+ * applies the revision that follows. Guard a call with [supportsComposeRuntimeTests].
  */
 internal suspend fun composeStyle(
   style: RecordingStyleBinding = RecordingStyleBinding(),
+  thenChange: (() -> Unit)? = null,
   content: @Composable @MaplibreComposable () -> Unit,
 ): RecordingStyleBinding {
   val frameClock = BroadcastFrameClock()
@@ -43,11 +45,21 @@ internal suspend fun composeStyle(
             StyleContent(rootNode, publish = { revision = it }, content = content)
           }
         }
+        val reconciler = StyleReconciler()
         while (!frameClock.hasAwaiters) yield()
         frameClock.sendFrame(0)
         yield()
         recomposer.awaitIdle()
-        StyleReconciler().apply(style, requireNotNull(revision))
+        reconciler.apply(style, requireNotNull(revision))
+        if (thenChange != null) {
+          thenChange()
+          Snapshot.sendApplyNotifications()
+          while (!frameClock.hasAwaiters) yield()
+          frameClock.sendFrame(1)
+          yield()
+          recomposer.awaitIdle()
+          reconciler.apply(style, requireNotNull(revision))
+        }
       } finally {
         composition.dispose()
       }
