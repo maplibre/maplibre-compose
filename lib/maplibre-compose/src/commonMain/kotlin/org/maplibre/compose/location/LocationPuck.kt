@@ -47,10 +47,10 @@ import org.maplibre.compose.expressions.value.IconRotationAlignment
 import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.SymbolLayer
+import org.maplibre.compose.map.LocalViewport
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.rememberGeoJsonSource
-import org.maplibre.compose.style.LocalMapState
 import org.maplibre.compose.util.ClickResult
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -175,7 +175,7 @@ private fun LocationPuckContent(
   onClick: LocationClickHandler?,
   onLongClick: LocationClickHandler?,
 ) {
-  val mapState = LocalMapState.current
+  val viewport = LocalViewport.current
   val location = measurement?.location
   val bearing = measurement?.bearing
   val bearingAccuracy = measurement?.bearingAccuracy
@@ -192,8 +192,7 @@ private fun LocationPuckContent(
       switch(
         condition(test = isOldLocation, output = const(0.dp)),
         fallback =
-          (feature["accuracy"].asNumber() /
-              const((mapState?.viewport?.metersPerDpAtTarget ?: 0.0).toFloat()))
+          (feature["accuracy"].asNumber() / const((viewport?.metersPerDpAtTarget ?: 0.0).toFloat()))
             .dp,
       ),
     color = const(colors.accuracyFillColor),

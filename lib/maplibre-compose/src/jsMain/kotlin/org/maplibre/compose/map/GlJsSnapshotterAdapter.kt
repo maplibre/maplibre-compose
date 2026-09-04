@@ -6,6 +6,7 @@ import kotlin.coroutines.resume
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.suspendCancellableCoroutine
+import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.gljs.CanvasContextAttributes
 import org.maplibre.compose.gljs.DEFAULT_WORKER_URL
 import org.maplibre.compose.gljs.GlJsRuntime
@@ -23,7 +24,6 @@ import org.maplibre.compose.resource.GlJsRequestController
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.GlJsStyleBinding
-import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.util.toImageBitmap
 import org.maplibre.compose.util.toLngLat
@@ -72,7 +72,7 @@ private class GlJsSnapshotterAdapter(
     baseStyle: BaseStyle,
     baseStyleRevision: Long,
     request: MapSnapshotRequest,
-  ): StyleBinding {
+  ): SnapshotPreparation {
     check(open) { "The Web snapshotter is closed" }
     val currentMap = ensureMap(request)
     configure(currentMap, request)
@@ -82,7 +82,7 @@ private class GlJsSnapshotterAdapter(
         loadedDensity == request.density &&
         current?.isLoaded == true
     ) {
-      return current
+      return SnapshotPreparation(current, readViewport(currentMap, request))
     }
 
     current?.invalidate()
@@ -134,8 +134,17 @@ private class GlJsSnapshotterAdapter(
     } finally {
       if (terminalOperation === loading) terminalOperation = null
     }
-    return checkNotNull(styleBinding) { "MapLibre loaded a snapshot style without a binding" }
+    val binding =
+      checkNotNull(styleBinding) { "MapLibre loaded a snapshot style without a binding" }
+    return SnapshotPreparation(binding, readViewport(currentMap, request))
   }
+
+  /**
+   * Reads the viewport the next capture renders. GL JS adopts the resize and camera of [configure]
+   * synchronously, and the loaded style's projection shapes the bounds, so this runs after both.
+   */
+  private fun readViewport(map: MaplibreMap, request: MapSnapshotRequest): Viewport =
+    map.readViewport(request.width.toDouble(), request.height.toDouble())
 
   override suspend fun capture(
     request: MapSnapshotRequest,

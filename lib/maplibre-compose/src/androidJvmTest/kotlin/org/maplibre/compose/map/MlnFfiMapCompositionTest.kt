@@ -62,8 +62,8 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.StyleComposition
 import org.maplibre.compose.testing.RecordingList
+import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Point
@@ -151,7 +151,7 @@ class MlnFfiMapCompositionTest {
     val runtime = createMapRuntime(runtimeOptions)
     val evaluatorIdentities = mutableSetOf<Any>()
     var showFirst by mutableStateOf(true)
-    val style = StyleComposition {
+    val content: @Composable @MaplibreComposable () -> Unit = {
       val evaluatorIdentity = remember { Any() }
       RasterLayer(
         id = "shared-layer",
@@ -167,8 +167,8 @@ class MlnFfiMapCompositionTest {
         onDispose {}
       }
     }
-    val first = runtime.createMapState(baseStyle = BaseStyle.Empty, styleComposition = style)
-    val second = runtime.createMapState(baseStyle = BaseStyle.Empty, styleComposition = style)
+    val first = runtime.createMapState(baseStyle = BaseStyle.Empty, content = content)
+    val second = runtime.createMapState(baseStyle = BaseStyle.Empty, content = content)
 
     setFfiTestMapContent(runtimeOptions, presentationCount = 2) {
       if (showFirst) {
@@ -218,7 +218,7 @@ class MlnFfiMapCompositionTest {
     runFfiComposeUiTest {
       val runtime = createMapRuntime(runtimeOptions)
       val evaluatorIdentities = mutableSetOf<Any>()
-      val composition = StyleComposition {
+      val content: @Composable @MaplibreComposable () -> Unit = {
         val evaluatorIdentity = remember { Any() }
         BackgroundLayer(id = "shared-background", color = const(Color.Green))
         DisposableEffect(Unit) {
@@ -226,8 +226,7 @@ class MlnFfiMapCompositionTest {
           onDispose {}
         }
       }
-      val state =
-        runtime.createMapState(baseStyle = BaseStyle.Empty, styleComposition = composition)
+      val state = runtime.createMapState(baseStyle = BaseStyle.Empty, content = content)
 
       setFfiTestMapContent(runtimeOptions) { MaplibreMap(state = state) }
       waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
@@ -235,7 +234,7 @@ class MlnFfiMapCompositionTest {
           state.style.loadState == StyleLoadState.Ready &&
           evaluatorIdentities.size == 1
       }
-      val snapshotter = runtime.createSnapshotter(BaseStyle.Empty, composition)
+      val snapshotter = runtime.createSnapshotter(BaseStyle.Empty, content)
       val image = snapshotter.capture(MapSnapshotRequest(width = 16, height = 16))
 
       assertEquals(16, image.width)
@@ -253,14 +252,13 @@ class MlnFfiMapCompositionTest {
       val runtime = createMapRuntime(runtimeOptions)
       var presented by mutableStateOf(true)
       var latest by mutableStateOf(false)
-      val composition = StyleComposition {
-        BackgroundLayer(
-          id = if (latest) "latest-background" else "initial-background",
-          color = const(if (latest) Color.Blue else Color.Red),
-        )
-      }
       val state =
-        runtime.createMapState(baseStyle = BaseStyle.Empty, styleComposition = composition)
+        runtime.createMapState(baseStyle = BaseStyle.Empty) {
+          BackgroundLayer(
+            id = if (latest) "latest-background" else "initial-background",
+            color = const(if (latest) Color.Blue else Color.Red),
+          )
+        }
 
       setFfiTestMapContent(runtimeOptions, presentationCount = 2) {
         if (presented) MaplibreMap(state = state)
@@ -300,17 +298,16 @@ class MlnFfiMapCompositionTest {
     runFfiComposeUiTest {
       val runtime = createMapRuntime(runtimeOptions)
       var invalidAnchor by mutableStateOf(true)
-      val composition = StyleComposition {
-        if (invalidAnchor) {
-          Anchor.Below("missing-base-layer") {
-            BackgroundLayer(id = "application-background", color = const(Color.Red))
-          }
-        } else {
-          BackgroundLayer(id = "application-background", color = const(Color.Blue))
-        }
-      }
       val state =
-        runtime.createMapState(baseStyle = BaseStyle.Empty, styleComposition = composition)
+        runtime.createMapState(baseStyle = BaseStyle.Empty) {
+          if (invalidAnchor) {
+            Anchor.Below("missing-base-layer") {
+              BackgroundLayer(id = "application-background", color = const(Color.Red))
+            }
+          } else {
+            BackgroundLayer(id = "application-background", color = const(Color.Blue))
+          }
+        }
 
       setFfiTestMapContent(runtimeOptions) { MaplibreMap(state = state) }
       waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {

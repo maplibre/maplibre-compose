@@ -1,6 +1,7 @@
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.BroadcastFrameClock
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Composition
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Recomposer
@@ -25,6 +26,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceHandle
 import org.maplibre.compose.style.BaseStyle
@@ -32,12 +34,12 @@ import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.MapNodeApplier
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
-import org.maplibre.compose.style.StyleComposition
 import org.maplibre.compose.style.StyleContent
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.StyleNode
 import org.maplibre.compose.util.ImageStretch
+import org.maplibre.compose.util.MaplibreComposable
 
 /** Options that affect the pixels returned by a snapshot capture. */
 public data class MapSnapshotOutputOptions(
@@ -80,11 +82,16 @@ public class MapSnapshotException internal constructor(message: String, cause: T
 internal interface SnapshotterAdapter {
   fun validate(request: MapSnapshotRequest) = Unit
 
+  /**
+   * Applies the size and camera of [request] to the engine map and loads [baseStyle] if needed. The
+   * returned viewport is read after both, so it describes the transform the capture renders,
+   * including the loaded style's projection.
+   */
   suspend fun prepare(
     baseStyle: BaseStyle,
     baseStyleRevision: Long,
     request: MapSnapshotRequest,
-  ): StyleBinding
+  ): SnapshotPreparation
 
   suspend fun capture(
     request: MapSnapshotRequest,
@@ -96,6 +103,9 @@ internal interface SnapshotterAdapter {
 
   suspend fun close()
 }
+
+/** The loaded style and the viewport of the request that [SnapshotterAdapter.prepare] applied. */
+internal class SnapshotPreparation(val binding: StyleBinding, val viewport: Viewport)
 
 /** Whether cancellation left the snapshotter engine and its loaded style available for reuse. */
 internal enum class SnapshotterEngineDisposition {
@@ -123,8 +133,9 @@ internal data class SnapshotStyleOwnership(
 
 internal fun interface StyleCompositionEvaluator {
   suspend fun evaluate(
-    composition: StyleComposition,
+    content: @Composable @MaplibreComposable () -> Unit,
     style: StyleBinding,
+    viewport: Viewport,
     density: Density,
     layoutDirection: LayoutDirection,
     ownership: SnapshotStyleOwnership,
@@ -133,8 +144,9 @@ internal fun interface StyleCompositionEvaluator {
 
 internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
   override suspend fun evaluate(
-    composition: StyleComposition,
+    content: @Composable @MaplibreComposable () -> Unit,
     style: StyleBinding,
+    viewport: Viewport,
     density: Density,
     layoutDirection: LayoutDirection,
     ownership: SnapshotStyleOwnership,
@@ -160,12 +172,9 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
             CompositionLocalProvider(
               LocalDensity provides density,
               LocalLayoutDirection provides layoutDirection,
+              LocalViewport provides viewport,
             ) {
-              StyleContent(
-                rootNode = root,
-                publish = revision::complete,
-                content = composition.content,
-              )
+              StyleContent(rootNode = root, publish = revision::complete, content = content)
             }
           }
           while (!revision.isCompleted) {
@@ -218,7 +227,7 @@ public interface MapSnapshotter {
 internal class MapSnapshotterImplementation(
   private val runtime: RuntimeImplementation,
   initialBaseStyle: BaseStyle,
-  private val styleComposition: StyleComposition,
+  private val styleContent: @Composable @MaplibreComposable () -> Unit,
   private val adapterFactory: SnapshotterAdapterFactory = runtime.snapshotterAdapterFactory,
   private val styleEvaluator: StyleCompositionEvaluator = runtime.styleEvaluator,
 ) : MapSnapshotter {
@@ -376,16 +385,18 @@ internal class MapSnapshotterImplementation(
           try {
             val currentClaim = claimStyle()
             claim = currentClaim
-            val currentBinding =
+            val prepared =
               platform.prepare(currentClaim.baseStyle, currentClaim.revision, capture.request)
+            val currentBinding = prepared.binding
             binding = currentBinding
             val request = capture.request
             val evaluationOwnership =
               styleEvaluationOwnership(currentBinding, currentClaim.ownership)
             val revision =
               styleEvaluator.evaluate(
-                styleComposition,
+                styleContent,
                 currentBinding,
+                prepared.viewport,
                 Density(request.density, request.fontScale),
                 request.layoutDirection,
                 evaluationOwnership,
@@ -646,13 +657,13 @@ internal class MapSnapshotterImplementation(
 
   private fun requireNoDesiredSource(id: String) {
     if (desiredRevision.sources.any { it.id == id }) {
-      throw StyleHandleException("Source ID '$id' is owned by StyleComposition")
+      throw StyleHandleException("Source ID '$id' is declared by the style content")
     }
   }
 
   private fun requireNoDesiredImage(id: String) {
     if (desiredRevision.images.any { it.id == id }) {
-      throw StyleHandleException("Image ID '$id' is owned by StyleComposition")
+      throw StyleHandleException("Image ID '$id' is declared by the style content")
     }
   }
 

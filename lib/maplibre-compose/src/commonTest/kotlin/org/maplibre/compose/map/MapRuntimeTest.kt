@@ -10,7 +10,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.StyleComposition
 import org.maplibre.spatialk.geojson.Position
 
 class MapRuntimeTest {
@@ -117,12 +116,12 @@ class MapRuntimeTest {
     val runtime = mapRuntimeForTest {
       resourcesClosed = true
     }
-    snapshotter = runtime.createSnapshotter(BaseStyle.Empty, StyleComposition.Empty)
+    snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
 
     runtime.close()
 
     assertFailsWith<IllegalStateException> {
-      runtime.createSnapshotter(BaseStyle.Empty, StyleComposition.Empty)
+      runtime.createSnapshotter(BaseStyle.Empty)
     }
     assertFailsWith<IllegalStateException> {
       snapshotter.capture(MapSnapshotRequest(1, 1))

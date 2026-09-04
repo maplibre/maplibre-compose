@@ -30,7 +30,6 @@ import org.maplibre.compose.resource.MlnFfiResourceProvider
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.StyleComposition
 import org.maplibre.nativeffi.resource.ResourceResponse
 import org.maplibre.nativeffi.resource.ResourceResponseStatus
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -61,22 +60,22 @@ class MlnFfiStyleSwitchTest {
     val runtime = createMapRuntime(runtimeOptions)
     var style by mutableStateOf(STYLES[0])
     var extraLayer by mutableStateOf(false)
-    val composition = StyleComposition {
-      val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
-      // Two layers on one source at different anchors, so the re-add order matters.
-      CircleLayer(id = "user-circles", source = points, color = const(Color.Red))
-      // A different base-style anchor per style, so the anchor changes in the same
-      // recomposition as the style itself.
-      Anchor.At(style.anchor) {
-        FillLayer(id = "user-fill", source = points, color = const(Color.Blue))
-        // Comes and goes across the rotation, covering removal of a layer that was added while
-        // its anchor was unresolvable.
-        if (extraLayer) {
-          FillLayer(id = "user-extra", source = points, color = const(Color.Green))
+    val state =
+      runtime.createMapState(baseStyle = STYLES[0].base) {
+        val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
+        // Two layers on one source at different anchors, so the re-add order matters.
+        CircleLayer(id = "user-circles", source = points, color = const(Color.Red))
+        // A different base-style anchor per style, so the anchor changes in the same
+        // recomposition as the style itself.
+        Anchor.At(style.anchor) {
+          FillLayer(id = "user-fill", source = points, color = const(Color.Blue))
+          // Comes and goes across the rotation, covering removal of a layer that was added while
+          // its anchor was unresolvable.
+          if (extraLayer) {
+            FillLayer(id = "user-extra", source = points, color = const(Color.Green))
+          }
         }
       }
-    }
-    val state = runtime.createMapState(baseStyle = STYLES[0].base, styleComposition = composition)
 
     setFfiTestMapContent(runtimeOptions) {
       MaplibreMap(modifier = Modifier, state = state)
@@ -116,24 +115,20 @@ class MlnFfiStyleSwitchTest {
     var style by mutableStateOf(REPLACEMENT_STYLES[0])
     var sourceLayer by mutableStateOf("places")
     var showReplacement by mutableStateOf(true)
-    val composition = StyleComposition {
-      val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
-      if (showReplacement) {
-        Anchor.Replace("base-slot") {
-          FillLayer(
-            id = "user-replacement",
-            source = points,
-            sourceLayer = sourceLayer,
-            color = const(Color.Blue),
-          )
+    val state =
+      runtime.createMapState(baseStyle = REPLACEMENT_STYLES[0]) {
+        val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
+        if (showReplacement) {
+          Anchor.Replace("base-slot") {
+            FillLayer(
+              id = "user-replacement",
+              source = points,
+              sourceLayer = sourceLayer,
+              color = const(Color.Blue),
+            )
+          }
         }
       }
-    }
-    val state =
-      runtime.createMapState(
-        baseStyle = REPLACEMENT_STYLES[0],
-        styleComposition = composition,
-      )
 
     setFfiTestMapContent(runtimeOptions) {
       MaplibreMap(modifier = Modifier, state = state)
@@ -188,14 +183,14 @@ class MlnFfiStyleSwitchTest {
       )
     val runtime = createNativeMapRuntime(options)
     var showLatestLayer by mutableStateOf(false)
-    val composition = StyleComposition {
-      if (showLatestLayer) {
-        Anchor.Below("base-c") {
-          BackgroundLayer(id = "user-latest", color = const(Color.Blue))
+    val state =
+      runtime.createMapState(baseStyle = INITIAL_STYLE) {
+        if (showLatestLayer) {
+          Anchor.Below("base-c") {
+            BackgroundLayer(id = "user-latest", color = const(Color.Blue))
+          }
         }
       }
-    }
-    val state = runtime.createMapState(baseStyle = INITIAL_STYLE, styleComposition = composition)
 
     setFfiTestMapContent(runtimeOptions) {
       MaplibreMap(modifier = Modifier, state = state)

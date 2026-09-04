@@ -2,6 +2,7 @@
 
 package org.maplibre.compose.docsnippets
 
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
@@ -10,20 +11,20 @@ import kotlinx.coroutines.withContext
 import org.maplibre.compose.map.MapRuntime
 import org.maplibre.compose.map.MapSnapshotRequest
 import org.maplibre.compose.map.MapState
-import org.maplibre.compose.style.StyleComposition
+import org.maplibre.compose.util.MaplibreComposable
 
 // #region capture
 suspend fun captureCurrentMap(
   runtime: MapRuntime,
   mapState: MapState,
-  styleComposition: StyleComposition,
+  content: @Composable @MaplibreComposable () -> Unit,
   density: Density,
   layoutDirection: LayoutDirection,
 ): ImageBitmap {
   val snapshotter =
     runtime.createSnapshotter(
       baseStyle = mapState.style.baseStyle,
-      styleComposition = styleComposition,
+      content = content,
     )
   return try {
     snapshotter.capture(

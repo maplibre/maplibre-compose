@@ -3,7 +3,7 @@ package org.maplibre.compose.style
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.util.FeaturesClickHandler
 
-/** One complete immutable evaluation of a [StyleComposition]. */
+/** One complete immutable evaluation of a map's style content. */
 internal class DesiredStyleRevision(
   sources: List<SourceDefinition>,
   layers: List<DesiredStyleLayer>,
