@@ -11,8 +11,7 @@ Before you mark a pull request ready for review:
 - Read every line you are asking maintainers to merge.
 - Be able to explain the change, how it fits the codebase, and how you validated
   it—without leaning on the tool to answer review questions.
-- Review the PR description for accuracy: motivation, approach, impact,
-  validation, and open questions. You may use AI to draft it; you are
+- Review the PR description for accuracy. You may use AI to draft it; you are
   responsible for every claim.
 
 Design the change. Use AI to draft, explore, or speed up typing—not to replace

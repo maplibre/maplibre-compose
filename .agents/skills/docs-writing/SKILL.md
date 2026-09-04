@@ -12,8 +12,8 @@ project-specific decisions.
 
 Lead with the fact, action, or decision the reader needs. Prefer concrete nouns,
 direct verbs, and explicit conditions. Avoid promotional language, stock
-transitions, and metaphors that obscure API behavior. Keep enough detail to
-explain limitations and tradeoffs; brevity should not hide them.
+transitions, and metaphors that obscure API behavior. Include the detail the
+reader needs to understand the subject.
 
 Use paragraphs for explanations, lists for steps or parallel items, and tables
 for comparisons. Headings use sentence case and identify sections that readers
@@ -46,6 +46,5 @@ limitations that callers need. Keep those contracts precise even when they
 require more explanation than a site guide.
 
 PR descriptions follow `.github/PULL_REQUEST_TEMPLATE.md` and `AI_POLICY.md`.
-Lead with the problem and resulting behavior, then summarize validation and
-material limitations. Scale the detail to the change. Omit session history,
-file-by-file recaps, and claims that exceed the evidence.
+Explain what reviewers need to understand the change, with detail proportional
+to its complexity. Report validation accurately.

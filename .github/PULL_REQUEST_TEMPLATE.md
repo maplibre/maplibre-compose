@@ -6,11 +6,11 @@ The contributor reviews and takes responsibility for AI-assisted text.
 
 ## Description
 
-<!-- Explain the problem and resulting behavior; include important tradeoffs or open questions. -->
+<!-- Explain what changed and why. -->
 
 ## Validation
 
-<!-- Summarize checks and their results, platforms tested, and material gaps. -->
+<!-- Describe how you checked the change. -->
 
 ## AI assistance
 

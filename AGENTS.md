@@ -70,8 +70,8 @@ it. The browser entry point is in `common/src/jsMain`.
 ## Pull requests
 
 Follow [PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md) and
-[AI_POLICY.md](AI_POLICY.md). Describe the problem, resulting behavior, and
-validation concisely; include detail that a reviewer needs to assess the change.
+[AI_POLICY.md](AI_POLICY.md). Explain what reviewers need to understand the
+change, with detail proportional to its complexity.
 
 Use draft status for unfinished work, unresolved decisions, or pending human
 review of generated code. An agent may open or mark a PR ready when the work is
