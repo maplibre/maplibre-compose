@@ -33,21 +33,25 @@ internal suspend fun copyPackagedFile(
   lock.withLock {
     withContext(Dispatchers.IO) {
       val stampFile = File(destination.path + ".stamp")
-      val current = destination.isFile && stampFile.isFile && stampFile.readText() == expected
-      if (!current) {
-        destination.parentFile?.mkdirs()
+      // Another process may complete the same copy at any point, so the check repeats after the
+      // slow steps rather than trusting the first answer.
+      fun isCurrent() = destination.isFile && stampFile.isFile && stampFile.readText() == expected
+      if (isCurrent()) return@withContext
+      destination.parentFile?.mkdirs()
+      val temporary = File.createTempFile(destination.name, ".part", destination.parentFile)
+      try {
+        open().use { input -> temporary.outputStream().use { output -> input.copyTo(output) } }
+        if (isCurrent()) return@withContext
         stampFile.delete()
-        val temporary = File.createTempFile(destination.name, ".part", destination.parentFile)
-        try {
-          open().use { input -> temporary.outputStream().use { output -> input.copyTo(output) } }
-          // A rename onto an existing file is platform-specific, so remove the old copy first.
-          destination.delete()
-          check(temporary.renameTo(destination)) { "Could not move $temporary to $destination" }
-        } finally {
-          temporary.delete()
+        // A rename onto an existing file is platform-specific, so remove the old copy first.
+        destination.delete()
+        if (!temporary.renameTo(destination) && !isCurrent()) {
+          error("Could not move $temporary to $destination")
         }
-        stampFile.writeText(expected)
+      } finally {
+        temporary.delete()
       }
+      if (!stampFile.isFile) stampFile.writeText(expected)
     }
   }
   return destination
