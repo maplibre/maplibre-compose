@@ -13,7 +13,6 @@ import org.maplibre.compose.demoapp.demos.Manhattan3dDemo
 import org.maplibre.compose.demoapp.demos.MapSnapshotterDemo
 import org.maplibre.compose.demoapp.demos.MaterialStyleDemo
 import org.maplibre.compose.demoapp.demos.TransitNetworkDemo
-import org.maplibre.compose.map.MapState
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -43,7 +42,7 @@ interface Demo {
   val pointerPin: DemoPointerPin?
     get() = null
 
-  @MaplibreComposable @Composable fun MapContent(mapState: MapState) {}
+  @MaplibreComposable @Composable fun MapContent() {}
 
   /**
    * Compose UI drawn over the map while this demo is selected. [state] exposes the shell's
