@@ -11,7 +11,7 @@ tasks and tool versions; `mise.lock` locks the tools per platform.
 
 Avoid `./gradlew build`: it builds all targets, including iOS release
 frameworks, and can exhaust memory. For a task that mise does not provide, run
-one named Gradle task per invocation; combined tasks have caused failures.
+one named Gradle task per invocation.
 
 - Static checks: `mise run check`; automatic fixes: `mise run fix`.
 - Android Lint: `mise run lint:android`.
@@ -74,5 +74,4 @@ Follow [PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md) and
 change, with detail proportional to its complexity.
 
 Use draft status for unfinished work, unresolved decisions, or pending human
-review of generated code. An agent may open or mark a PR ready when the work is
-complete and the contributor confirms that they have reviewed it.
+review of generated code.

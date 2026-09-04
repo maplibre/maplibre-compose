@@ -31,12 +31,6 @@ If you used AI to polish English, read the result once and adjust it so it
 sounds like you. For translation, writing in your native language and adding an
 English version in a quote block works well.
 
-AI-assisted PR descriptions may use the space needed to explain the change. Keep
-them concise and specific; a sentence limit is not required. Use draft status
-while implementation, decisions, or your review of generated code are pending.
-An agent may open or mark the PR ready after you confirm that you have reviewed
-the completed contribution.
-
 ## When AI context belongs in a thread
 
 Sometimes a snippet from an AI session helps reviewers (for example, a design

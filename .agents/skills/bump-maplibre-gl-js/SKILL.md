@@ -7,9 +7,7 @@ description: Update the hand-written MapLibre GL JS bindings after bumping the p
 
 The bindings in
 `lib/maplibre-compose/src/jsMain/kotlin/org/maplibre/compose/gljs/` are written
-by hand, are `internal`, and cover only the members this platform actually
-calls. Most of an upstream diff is therefore irrelevant; the job is to find the
-parts that touch that subset.
+by hand, are `internal`, and cover the members this platform calls.
 
 ## 1. Keep the old declarations
 
@@ -59,10 +57,9 @@ cover only the members they exercise.
 
 ## 4. Look for new capability worth binding
 
-Step 3 asks whether what the platform already declares still works. This step
-asks what the release adds. Read the
+Read the
 [changelog](https://github.com/maplibre/maplibre-gl-js/blob/main/CHANGELOG.md)
-between the two versions, against three lists:
+between the two versions for:
 
 - **Gaps against the other platforms.** Anything `commonMain` declares that the
   browser answers with `NotImplementedError` or `UnsupportedOperationException`.
@@ -86,10 +83,8 @@ Browser-only implementation tests belong in `jsTest`.
 
 ## 5. Re-check the runtime shims
 
-This is the part the `.d.ts` diff will **not** reveal. `GlJsRuntime.kt` and one
-member of `GlJsStyleBinding.kt` are pinned to MapLibre internals, not its public
-API. Each shim fails loudly when its shape moves, but only at runtime, so read
-the new sources rather than waiting for the test:
+`GlJsRuntime.kt` and `GlJsStyleBinding.setTransition` depend on MapLibre
+internals. Compare the upstream sources to verify these assumptions:
 
 | Shim                           | Upstream anchor                                                                                                                                                                                        |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

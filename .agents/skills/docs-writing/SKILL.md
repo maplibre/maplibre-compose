@@ -42,8 +42,7 @@ destination filename, such as `build.gradle.kts` or `App.kt`.
 ## KDoc and pull requests
 
 KDoc defines behavior, parameter semantics, lifecycle requirements, and platform
-limitations that callers need. Keep those contracts precise even when they
-require more explanation than a site guide.
+limitations that callers need.
 
 PR descriptions follow `.github/PULL_REQUEST_TEMPLATE.md` and `AI_POLICY.md`.
 Explain what reviewers need to understand the change, with detail proportional
