@@ -22,7 +22,7 @@ public data class TextUnitOffsetCalculation private constructor(val x: TextUnit,
         else -> error("Unrecognized TextUnitType: ${x.type}")
       }
 
-    // some reasonably large number to bound the interpolation
+    // Interpolation clamps above this scale.
     val maxScale = 1000f
 
     return interpolate(

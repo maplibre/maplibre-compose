@@ -110,12 +110,10 @@ public interface ComposeMapPresentationHost {
     get() = OpenGlInterop.NATIVE
 
   /**
-   * The context Compose is currently drawing with, or null when it does not exist yet — Skia
-   * contexts are commonly created while producing the first frame, which the map reports as a
-   * skipped frame.
+   * The context Compose is drawing with, or null before it is available. The map skips frames while
+   * the context is unavailable, including during first-frame initialization.
    *
-   * Always called on the thread [runOnGpuThread] runs on, so this may read state confined to it and
-   * need not hop there itself.
+   * Called on the [runOnGpuThread] thread and may read state confined to that thread.
    */
   public fun gpuContext(): ComposeGpuContext?
 

@@ -31,8 +31,8 @@ class DesktopPackagedStyleTest {
   }
 
   /**
-   * A `file:` style never reaches the provider — mbgl routes it to its own local file source — so
-   * this covers that source's handling of a percent-encoded non-ASCII path, not the provider's.
+   * mbgl routes `file:` styles to its local file source. This tests that source's handling of
+   * percent-encoded non-ASCII paths.
    */
   @Test
   fun `a style beside the application loads from a path with spaces and no ASCII`() {

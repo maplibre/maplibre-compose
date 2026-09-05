@@ -1,6 +1,6 @@
 package org.maplibre.compose.style
 
-internal class IncrementingIdMap<in T>(private val name: String) {
+internal class IncrementingIdMap<in T>(name: String) {
   private val ids = IncrementingId(name)
   private val map = mutableMapOf<T, String>()
 

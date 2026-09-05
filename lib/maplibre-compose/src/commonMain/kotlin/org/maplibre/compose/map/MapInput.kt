@@ -69,7 +69,7 @@ import org.maplibre.compose.style.systemAnimatorDurationScale
  *
  * The map is a focus target while a key or rotary binding needs one, and the key handler exists
  * only while a keyboard gesture is enabled. [rotaryNotchPixels] is the scroll distance of one
- * rotary detent, from [rotaryNotchPixels]; zero disables rotary zoom.
+ * rotary detent; zero disables rotary zoom.
  */
 internal fun Modifier.mapInput(
   target: GestureTarget,
@@ -427,8 +427,8 @@ private class MapPointerGesture(
   private var pressRole = PressRole.First
 
   fun onPointerEvent(event: PointerEvent) {
-    // A wheel notch arrives here too, with nothing pressed, and would read as a release — closing
-    // the gesture scrollZoom is holding open for the rest of the burst.
+    // Wheel events have no pressed pointers. Treating one as a release would close the
+    // gesture scrollZoom keeps open for the rest of the burst.
     if (event.type == PointerEventType.Scroll) return
     val pressed = event.changes.filter { it.pressed }
     updateTwoFingerTap(event, pressed.size)

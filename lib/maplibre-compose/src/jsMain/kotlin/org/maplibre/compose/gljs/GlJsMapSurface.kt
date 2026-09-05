@@ -70,7 +70,7 @@ internal fun GlJsMapSurface(
   }
 
   Canvas(modifier = modifier.onSizeChanged { physicalSize = it }) {
-    // Load-bearing read: it is what makes requestFrame() reschedule this Canvas.
+    // Observe frame requests so requestFrame() schedules another Canvas draw.
     frameRequest
 
     // The draw pass can run with an extent captured before the latest layout pass, e.g. when a

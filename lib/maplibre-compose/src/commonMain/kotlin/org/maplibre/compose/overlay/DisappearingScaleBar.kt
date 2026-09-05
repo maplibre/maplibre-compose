@@ -20,10 +20,9 @@ import kotlinx.coroutines.delay
 
 /**
  * An animated scale bar that appears when the [zoom] level of the map changes, and then disappears
- * after [visibilityDuration]. This composable wraps [ScaleBar] with visibility animations.
+ * after [visibilityDuration].
  *
- * This component draws with Compose Foundation alone. The Material 3 module provides a themed
- * version of it.
+ * The Material 3 module provides a themed version.
  *
  * @param metersPerDp how many meters are displayed in one device independent pixel (dp), i.e. the
  *   scale. See
@@ -36,8 +35,7 @@ import kotlinx.coroutines.delay
  * @param haloColor halo for better visibility when displayed on top of the map
  * @param haloWidth scale bar and text halo width
  * @param barWidth scale bar width
- * @param textStyle the text style. The text size is the deciding factor how large the scale bar is
- *   is displayed.
+ * @param textStyle Text style. The font size determines the scale bar height.
  * @param alignment horizontal alignment of the scale bar and text
  * @param visibilityDuration how long it should be visible after the zoom changed
  * @param enterTransition EnterTransition(s) used for the appearing animation
@@ -62,10 +60,8 @@ public fun DisappearingScaleBar(
   val visible = remember { MutableTransitionState(true) }
 
   LaunchedEffect(zoom) {
-    // Show ScaleBar
     visible.targetState = true
     delay(visibilityDuration)
-    // Hide ScaleBar after timeout period
     visible.targetState = false
   }
 

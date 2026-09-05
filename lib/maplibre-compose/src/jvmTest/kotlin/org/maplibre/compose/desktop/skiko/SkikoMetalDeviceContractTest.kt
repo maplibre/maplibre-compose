@@ -7,12 +7,10 @@ import org.lwjgl.system.MemoryUtil.NULL
 import org.lwjgl.system.macosx.ObjCRuntime
 
 /**
- * Pins the Objective-C members of Skiko's Metal device wrapper that the macOS host messages. That
- * class is private to Skiko's `MetalRedrawer.mm`, appears in no header, and would be renamed
- * silently by a Skiko upgrade — so a failure here means update [AwtComposeMapPresentationHost], not
- * a bug.
+ * Checks the Objective-C members used by [AwtComposeMapPresentationHost]. Skiko's private
+ * `MetalRedrawer.mm` wrapper has no header; an upgrade may require updating the host.
  *
- * The Objective-C runtime answers this without a GPU, a window, or a Skia context.
+ * The Objective-C runtime can check these members without a GPU, window, or Skia context.
  */
 class SkikoMetalDeviceContractTest {
 

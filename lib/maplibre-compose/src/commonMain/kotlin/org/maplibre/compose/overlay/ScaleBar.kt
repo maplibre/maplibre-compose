@@ -33,8 +33,7 @@ import org.maplibre.spatialk.units.extensions.meters
  * A scale bar composable that shows the current scale of the map in feet, meters or feet and meters
  * when zoomed in to the map, changing to miles and kilometers, respectively, when zooming out.
  *
- * This component draws with Compose Foundation alone. The Material 3 module provides a themed
- * version of it.
+ * The Material 3 module provides a themed version.
  *
  * @param metersPerDp how many meters are displayed in one device independent pixel (dp), i.e. the
  *   scale. See
@@ -46,8 +45,7 @@ import org.maplibre.spatialk.units.extensions.meters
  * @param haloColor halo for better visibility when displayed on top of the map
  * @param haloWidth scale bar and text halo width
  * @param barWidth scale bar width
- * @param textStyle the text style. The text size is the deciding factor how large the scale bar is
- *   is displayed.
+ * @param textStyle Text style. The font size determines the scale bar height.
  * @param alignment horizontal alignment of the scale bar and text
  */
 @Composable
@@ -75,13 +73,11 @@ public fun ScaleBar(
     }
   val maxTextSize = with(LocalDensity.current) { maxTextSizePx.toSize().toDpSize() }
 
-  // padding of text to bar stroke
   val textHorizontalPadding = 4.dp
   val textVerticalPadding = 0.dp
 
-  // multiplied by 2.5 because the next stop can be the x2.5 of a previous stop (e.g. 2km -> 5km),
-  // so the bar can end at approx 1/2.5th of the total width. We want to avoid that the bar
-  // intersects with the text, i.e. is drawn behind the text
+  // Adjacent stops can differ by a factor of 2.5, such as 2 km and 5 km. Reserve enough
+  // width to keep the text inside the bar at the shorter stop.
   val totalMaxWidth = maxTextSize.width * 2.5f + (textHorizontalPadding + barWidth) * 2f
 
   val fullStrokeWidth = haloWidth * 2 + barWidth
@@ -103,15 +99,14 @@ public fun ScaleBar(
       val textVerticalPaddingPx = textVerticalPadding.toPx()
 
       // bar ends should go to the vertical center of the text
-      val barEndsHeightPx = textHeightPx / 2f + textVerticalPadding.toPx() + fullStrokeWidthPx / 2f
+      val barEndsHeightPx = textHeightPx / 2f + textVerticalPaddingPx + fullStrokeWidthPx / 2f
 
-      var y = 0f
       val paths = ArrayList<List<Offset>>(2)
       val texts = ArrayList<Pair<Offset, TextLayoutResult>>(2)
 
       val alignmentSpacePx = ceil(size.width - fullStrokeWidthPx).toInt()
 
-      if (true) { // just want a scope here
+      run {
         val barLengthPx = params1.barWidth.toPx().roundToInt()
         val offsetX =
           alignment.align(
@@ -121,7 +116,7 @@ public fun ScaleBar(
           )
         paths.add(
           listOf(
-            Offset(offsetX + fullStrokeWidthPx / 2f, 0f + textHeightPx / 2f),
+            Offset(offsetX + fullStrokeWidthPx / 2f, textHeightPx / 2f),
             Offset(0f, barEndsHeightPx),
             Offset(barLengthPx.toFloat(), 0f),
             Offset(0f, -barEndsHeightPx),
@@ -133,11 +128,10 @@ public fun ScaleBar(
             textMeasurer.measure(params1.text, textStyle),
           )
         )
-
-        y += textHeightPx + textVerticalPaddingPx
       }
 
       if (params2 != null) {
+        val y = textHeightPx + textVerticalPaddingPx
         val barLengthPx = params2.barWidth.toPx().roundToInt()
         val offsetX =
           alignment.align(
@@ -150,7 +144,7 @@ public fun ScaleBar(
             Offset(offsetX + fullStrokeWidthPx / 2f, y + fullStrokeWidthPx / 2f + barEndsHeightPx),
             Offset(0f, -barEndsHeightPx),
             Offset(barLengthPx.toFloat(), 0f),
-            Offset(0f, +barEndsHeightPx),
+            Offset(0f, barEndsHeightPx),
           )
         )
         texts.add(
@@ -193,10 +187,10 @@ public fun ScaleBar(
 }
 
 public object ScaleBarDefaults {
-  /** Reads over both light and dark basemaps, in the absence of a theme to draw colors from. */
+  /** Default content color for light and dark basemaps. */
   public val ContentColor: Color = Color.Black.copy(alpha = 0.75f)
 
-  /** The halo stands in for a background, so it contrasts with [ContentColor]. */
+  /** Halo color that contrasts with [ContentColor]. */
   public val HaloColor: Color = Color.White.copy(alpha = 0.75f)
 
   public val ContentTextStyle: TextStyle = TextStyle(fontSize = 11.sp, color = ContentColor)
@@ -205,7 +199,7 @@ public object ScaleBarDefaults {
 
   public val BarWidth: Dp = 2.dp
 
-  /** The measures that the system settings ask for, or that the user's locale implies. */
+  /** Uses the system measurement settings, with the user's locale as a fallback. */
   @Composable
   public fun measures(): ScaleBarMeasures {
     val region = Locale.current.region
@@ -228,13 +222,9 @@ private fun scaleBarParameters(
   return ScaleBarParams(barWidth = (stopMeters / metersPerDp).dp, text = measure.getText(stop))
 }
 
-/**
- * find the largest stop in the list of stops (sorted in ascending order) that is below or equal
- * [max].
- */
+/** Finds the largest stop at or below [max], or the first stop if all are larger. */
 private fun findStop(max: Length, stops: List<Length>): Length {
   val i = stops.binarySearch { it.compareTo(max) }
-  // i is the inverted insertion point if the value is not found
-  // -i - 2 inverts it back
+  // A negative result encodes the insertion point; select the preceding stop.
   return if (i >= 0) stops[i] else stops[(-i - 2).coerceAtLeast(0)]
 }

@@ -2,7 +2,7 @@ package org.maplibre.compose.expressions.ast
 
 import org.maplibre.compose.expressions.value.ExpressionValue
 
-/** A [Literal] representing an function call with args all of [CompiledExpression] */
+/** A function call with compiled arguments. */
 public data class CompiledFunctionCall
 private constructor(
   val name: String,

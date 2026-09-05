@@ -183,7 +183,7 @@ internal external class LngLatBounds(sw: LngLat, ne: LngLat) {
 
 /**
  * MapLibre exposes no transition setter, and its style diff treats `setTransition` as a no-op, so
- * the only runtime lever is [stylesheet], a public field that [getTransition] reads every frame.
+ * update [stylesheet], the public field that [getTransition] reads every frame.
  */
 internal external class Style {
   var stylesheet: StyleSpecification

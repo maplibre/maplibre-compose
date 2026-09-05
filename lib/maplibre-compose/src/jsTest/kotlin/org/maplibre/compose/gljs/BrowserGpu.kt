@@ -97,7 +97,7 @@ internal inline fun <T> BrowserGpu.withRecreatedSkiaContext(block: (DirectContex
   }
 }
 
-/** Reads [framebuffer] — null meaning the canvas itself — as tightly packed RGBA bytes. */
+/** Reads tightly packed RGBA bytes from [framebuffer], or the canvas when null. */
 internal fun readFramebuffer(gl: dynamic, framebuffer: Any?, width: Int, height: Int): ByteArray {
   val pixels = Uint8Array(width * height * 4)
   gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)

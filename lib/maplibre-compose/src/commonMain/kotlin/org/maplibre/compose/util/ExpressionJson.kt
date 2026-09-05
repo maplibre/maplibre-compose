@@ -19,16 +19,12 @@ import org.maplibre.compose.expressions.ast.OffsetLiteral
 import org.maplibre.compose.expressions.ast.ProjectionTransitionLiteral
 import org.maplibre.compose.expressions.ast.StringLiteral
 
-/**
- * Encodes a compiled expression as MapLibre style JSON. Must stay identical to the Android encoder,
- * including `literal` wrapping and colour format.
- */
+/** Encodes a compiled expression as MapLibre style JSON. */
 internal fun CompiledExpression<*>.toStyleJson(): JsonElement = normalizeJsonLike(inLiteral = false)
 
 /**
  * @param inLiteral whether this node is already inside a `["literal", ...]` wrapper. Arrays and
- *   objects are ambiguous in the style spec — `[1, 2]` reads as a function call — so they are
- *   wrapped unless something above already did it.
+ *   objects need literal context because the style spec reads `[1, 2]` as a function call.
  */
 private fun CompiledExpression<*>.normalizeJsonLike(inLiteral: Boolean): JsonElement =
   when (this) {
@@ -59,7 +55,7 @@ private fun CompiledExpression<*>.normalizeJsonLike(inLiteral: Boolean): JsonEle
       )
 
     is DpPaddingLiteral ->
-      // Style order is top, right, bottom, left — not the order DpPadding stores.
+      // Style order is top, right, bottom, left.
       literalArray(
         inLiteral,
         listOf(
