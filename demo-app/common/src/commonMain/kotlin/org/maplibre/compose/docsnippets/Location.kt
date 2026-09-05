@@ -3,7 +3,6 @@
 package org.maplibre.compose.docsnippets
 
 import androidx.compose.runtime.Composable
-import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.location.LocationPuck
 import org.maplibre.compose.location.LocationTrackingEffect
@@ -15,9 +14,7 @@ import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
 
 @Composable
-@OptIn(ExperimentalResourceApi::class)
-// The snippet below shows the calls alone. Requesting the permission belongs to the surrounding
-// app, which the documentation covers in prose.
+// The application requests location permission separately.
 fun Location() {
   // #region puck
   val locationProvider = rememberDefaultLocationProvider()

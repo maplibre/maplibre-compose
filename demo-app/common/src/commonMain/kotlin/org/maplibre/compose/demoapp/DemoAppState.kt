@@ -21,7 +21,7 @@ import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.Position
 
-/** New York City at a metro-area zoom, so every demo's fly-in has somewhere to go. */
+/** New York City, zoomed out before selecting a demo. */
 private val StartPosition =
   CameraPosition(target = Position(longitude = -74.006, latitude = 40.7128), zoom = 9.5)
 
@@ -121,10 +121,8 @@ internal class DemoMapConfiguration {
 
 internal data class StyleLoad(val count: Int, val base: BaseStyle?)
 
-// Pin the composition target to UI. Without it, the @MaplibreComposable content lambda below lets
-// the compiler's target inference mark this function as map content. The compiler then propagates
-// that target to target-inferred calling scopes (the Nucleus window host) and rejects their UI
-// composables.
+// Prevent the map-content lambda from making callers infer a map composition target.
+// The Nucleus window host needs a UI target.
 @UiComposable
 @Composable
 fun rememberDemoAppState(): DemoAppState {

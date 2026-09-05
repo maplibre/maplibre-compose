@@ -13,7 +13,7 @@ import org.maplibre.spatialk.geojson.Position
 
 object Manhattan3dDemo : Demo {
   override val name = "3D Manhattan"
-  override val description = "Liberty's building extrusions pitched over the financial district."
+  override val description = "View 3D buildings in Manhattan's financial district."
   override val preferredLightStyle = OpenFreeMap.Liberty
 
   private val offlineRegion =

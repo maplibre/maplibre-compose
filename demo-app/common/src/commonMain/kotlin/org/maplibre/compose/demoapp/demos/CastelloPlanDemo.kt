@@ -27,7 +27,7 @@ import org.maplibre.spatialk.geojson.Position
 
 object CastelloPlanDemo : Demo {
   override val name = "Castello Plan"
-  override val description = "The 1660 map of New Amsterdam draped over lower Manhattan."
+  override val description = "The 1660 map of New Amsterdam overlaid on lower Manhattan."
 
   private val imageRegion =
     BoundingBox(west = -74.018, south = 40.7005, east = -74.006, north = 40.710)

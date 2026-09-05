@@ -57,10 +57,9 @@ import org.maplibre.spatialk.geojson.Position
 private val SnapshotTarget = Position(longitude = -122.3358, latitude = 47.6086)
 private val SnapshotMarkerColor = Color(0xFF00897B)
 
-/** Captures the current map camera into an image through an independent non-UI map. */
 object MapSnapshotterDemo : Demo {
   override val name = "Map snapshotter"
-  override val description = "Capture the current camera and style with an independent non-UI map."
+  override val description = "Capture an image of the current map view."
   override val destination =
     DemoDestination.ExactCamera(CameraPosition(target = SnapshotTarget, zoom = 13.5))
   override val pointerPin = DemoPointerPin(SnapshotTarget, destination)

@@ -49,7 +49,6 @@ import org.maplibre.compose.demoapp.generated.arrow_back_24px
 import org.maplibre.compose.demoapp.generated.settings_24px
 import org.maplibre.compose.demoapp.generated.speed_24px
 
-/** The demo list, the style knob, and the selected demo's controls — or the settings page. */
 @Composable
 fun DemoPanel(
   state: DemoAppState,
@@ -85,7 +84,6 @@ fun DemoPanel(
   ) {
     composable("demos") {
       DemosScreen(
-        state,
         onOpenSettings = { navController.navigate("settings") },
         onOpenDemo = { demo ->
           flightJob?.cancel()
@@ -184,7 +182,6 @@ private fun sharedAxisExit(slideDistance: Int): ExitTransition =
 
 @Composable
 private fun DemosScreen(
-  state: DemoAppState,
   onOpenSettings: () -> Unit,
   onOpenDemo: (Demo) -> Unit,
   onOpenBenchmarks: () -> Unit,

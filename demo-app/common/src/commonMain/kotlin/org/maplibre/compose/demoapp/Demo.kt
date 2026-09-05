@@ -30,10 +30,8 @@ interface Demo {
   /**
    * Replaces the user's chosen light style while this demo is selected. See [DemoStyle].
    *
-   * Declare this only when the demo genuinely depends on its base style: it reads the style's own
-   * data or glyph endpoint, or its data visualization only reads against a deliberately muted
-   * canvas. Demos whose content is self-contained should stay agnostic and honor the user's chosen
-   * style and theme.
+   * Override only when the demo requires the style's data, fonts, or colors. Otherwise, use the
+   * user's chosen style.
    */
   val preferredLightStyle: DemoStyle?
     get() = null

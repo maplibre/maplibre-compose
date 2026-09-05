@@ -23,8 +23,7 @@ kotlin {
   jvm { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
 
   js {
-    // maplibre-compose's MapLibre GL JS declarations are @file:JsModule with no global to fall
-    // back to, which UMD output rejects; every consumer down the chain has to match.
+    // MapLibre GL JS bindings require ES modules in every consumer.
     useEsModules()
     browser { commonWebpackConfig { outputFileName = "app.js" } }
     binaries.executable()

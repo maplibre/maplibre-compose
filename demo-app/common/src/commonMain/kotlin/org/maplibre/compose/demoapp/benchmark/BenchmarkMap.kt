@@ -147,7 +147,7 @@ internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets
       }
       val durationMs = started.elapsedNow().inWholeMilliseconds.toDouble()
       val frames = session.frames.stop()
-      val gesture = if (session.gestures.stats().samples > 0) session.gestures.stats() else null
+      val gesture = session.gestures.stats().takeIf { it.samples > 0 }
       val report =
         BenchmarkReport(
           scenario = running.id,
