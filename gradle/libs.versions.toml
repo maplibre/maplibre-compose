@@ -44,7 +44,7 @@ kotlinx-serialization = "1.11.0"
 ktor = "3.5.2"
 lifecycleRuntimeCompose = "2.11.0"
 lwjgl = "3.4.2"
-materialKolor = "5.0.0"
+materialKolor = "5.0.1"
 maplibre-js = "6.6.0"
 maplibre-nativeFfi = "0.202608.3"
 # The style-spec release the parity catalog reads; ci/style_spec_parity.py
