@@ -120,8 +120,12 @@ internal class SourceInstallation(
     storePendingIfNewer(PendingGeoJson(generation, definition))
     geoJsonMutex.withLock {
       val pending = pendingGeoJson.exchange(null) ?: return
-      withContext(NonCancellable + Dispatchers.Default) {
-        style.prepareGeoJson(pending.definition.data, pending.definition.options).use { prepared ->
+      val prepared =
+        withContext(Dispatchers.Default) {
+          style.prepareGeoJson(pending.definition.data, pending.definition.options)
+        }
+      prepared.use {
+        withContext(NonCancellable) {
           style.setGeoJsonSourceData(id, prepared) {
             claimGeoJson(pending.generation, pending.definition)
           }
