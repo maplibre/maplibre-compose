@@ -4,8 +4,8 @@ import { visit } from "unist-util-visit";
 /**
  * Substitutes `{{name}}` in code blocks with a version from `generate-versions`.
  *
- * A code block is literal text that no MDX expression reaches. Prose has no
- * such problem and imports `generated/versions.json` directly.
+ * MDX expressions do not run inside code blocks. Prose imports
+ * `generated/versions.json` directly.
  */
 export function remarkVersions() {
   const versions = JSON.parse(

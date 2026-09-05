@@ -9,8 +9,7 @@ import { region } from "../../snippets";
 
 import composition from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Composition.kt?raw";
 
-MapLibre Compose has no public map view object. <Api of="MapState" /> defines a
-logical map, including its base style and declarative style content.
+<Api of="MapState" /> holds the map's base style and declared sources and layers.
 <Api of="MaplibreMap" /> presents that state. `MapState` provides camera,
 viewport, projection, and feature-query operations while the map is attached.
 
@@ -29,21 +28,14 @@ replace it with <Api of="Anchor.Replace" /> and declare its replacement yourself
 
 ## Recomposition updates the style
 
-The style block is evaluated as a Compose composition. When the state that it
-reads changes, it recomposes, and the library applies the difference to the style: a
-layer that is no longer in the composition is removed from the style, a new
-layer is added, and a changed property is updated in place. You do not call
-add or remove functions yourself.
-
-This is the same contract as Compose UI: describe the map content for the
-current state, and let the runtime reconcile it.
+When state read by the style block changes, the block recomposes. Layers that
+leave the composition are removed, new layers are added, and changed properties
+are updated in place.
 
 ## Style switches re-apply your content
 
-When the `baseStyle` input changes, the map loads the new style and evaluates
-the style block against it. Each evaluation declares your
-sources and layers against the new style. They persist across the switch
-without extra code. An `Anchor` that names a base layer applies only when that
+When `baseStyle` changes, the map loads the new style and reapplies your
+declared sources and layers. An `Anchor` that names a base layer applies only when that
 layer exists in the new style.
 
 To share one definition between several maps, write the style content as a
@@ -61,7 +53,6 @@ read. Content that runs on both hosts branches on it.
 
 ## Layer and source IDs
 
-Layers and sources have string IDs because the underlying MapLibre style
-identifies them by ID. Within one map, each layer ID must be unique, including
-against the base style's layers. A feature query takes layer IDs to limit its
+Within one map, each layer ID must be unique, including against the base
+style's layers. A feature query takes layer IDs to limit its
 scope, and an `Anchor` names a base style layer by its ID.

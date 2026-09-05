@@ -1,9 +1,7 @@
 /**
  * Extracts a `// #region <name>` block from a snippet file imported with `?raw`.
  *
- * The sources live in `demo-app` and compile with it, so a page cannot show
- * Kotlin that no longer builds. Regions are named rather than numbered so
- * reformatting a snippet cannot silently point a page at the wrong lines.
+ * Named regions keep documentation references valid when source lines move.
  */
 export function region(source: string, name: string): string {
   const lines = source.split("\n");

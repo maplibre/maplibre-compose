@@ -4,18 +4,18 @@ Follow
 [MapLibre's AI Policy](https://github.com/maplibre/maplibre/blob/main/AI_POLICY.md)
 and the guidance below for this repository.
 
-## Stay in the loop
+## Review generated work
 
 Before you mark a pull request ready for review:
 
 - Read every line you are asking maintainers to merge.
 - Be able to explain the change, how it fits the codebase, and how you validated
-  it—without leaning on the tool to answer review questions.
+  it, without asking the tool to answer review questions.
 - Review the PR description for accuracy. You may use AI to draft it; you are
   responsible for every claim.
 
-Design the change. Use AI to draft, explore, or speed up typing—not to replace
-understanding the problem or the existing code.
+Design the change. Use AI to draft or explore after understanding the problem
+and the existing code.
 
 ## Talk to maintainers in your own voice
 

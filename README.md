@@ -46,9 +46,6 @@ changes.
 | Desktop  | [![Alpha](https://kotl.in/badges/alpha.svg)][stability] |
 | Web      | [![Alpha](https://kotl.in/badges/alpha.svg)][stability] |
 
-Desktop and Web are Alpha because their platform integrations depend on
-implementation details in Compose and Skia.
-
 [compose]: https://www.jetbrains.com/compose-multiplatform/
 [maplibre]: https://maplibre.org/
 [stability]: https://kotlinlang.org/docs/components-stability.html

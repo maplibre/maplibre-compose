@@ -8,10 +8,9 @@ git clone https://github.com/maplibre/maplibre-compose.git
 
 ## Find or file an issue to work on
 
-If you're looking to add a feature or fix a bug and there's no issue filed yet,
-it's good to
-[file an issue](https://github.com/maplibre/maplibre-compose/issues/new/choose)
-first to have a discussion about the change before you start working on it.
+Consider
+[finding or filing an issue](https://github.com/maplibre/maplibre-compose/issues/new/choose)
+to discuss a feature or bug fix before starting work.
 
 If you're new and looking for things to contribute, see our
 [good first issue](https://github.com/maplibre/maplibre-compose/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22)
@@ -40,13 +39,12 @@ environment.
 1. Install mise if you haven't already:
    https://mise.jdx.dev/getting-started.html.
 2. Run `mise install` in the project root to install all required tools.
-3. Still read the rest of the guide, because not all tools are managed by mise.
+3. Follow the platform setup below for tools that mise does not install.
 
 `mise install` gives you the versions CI uses. `mise.toml` pins every tool and
 `mise.lock` records a checksum per platform.
 
-`mise tasks` lists every task. CI runs these same tasks, so a green
-`mise run check` locally means the same thing as a green CI job.
+`mise tasks --all` lists available tasks. CI uses these tasks too.
 
 #### Option 2: manual setup
 
@@ -124,9 +122,10 @@ DMG on macOS, and an MSI on Windows. Linux packaging uses the mise-pinned
 
 ## Run the demo
 
-Use IntelliJ or Android Studio to launch the demo app on Android and XCode to
-launch on iOS. Every other host has a task:
+Launch a demo with its mise task:
 
+- iOS: `mise run demo:ios`, or `mise run demo:ios --device` for a connected
+  iPhone
 - Android: `mise run demo:android`
 - Android TV: `mise run demo:android-tv`, on a TV or on the emulator that
   `mise run android-emulator:boot --tv` starts
@@ -148,8 +147,8 @@ Map render backend than the platform default, as in
 CI runs these same tasks, so you can reproduce a failure with the command the
 job ran:
 
-- `mise run test:android` — Android host (JVM) suite
-- `mise run test:android:device [api-level]` — instrumented suite
+- `mise run test:android` runs the Android host JVM suite.
+- `mise run test:android:device [api-level]` runs the instrumented suite.
 - `mise run test:ios`
 - `mise run test:js`
 - `mise run test:desktop`
@@ -187,7 +186,7 @@ Use the tasks rather than Astro or Gradle directly. They pass the versions
 derived from the Git tags, which the site prints as the coordinates to depend
 on; Gradle on its own uses the `0.0.0` placeholders from `gradle.properties`.
 
-## Make CI happy
+## Run static checks
 
 `mise run check` reports problems and `mise run fix` rewrites what it can.
 Between them they cover dprint, actionlint, ruff, shellcheck, the GitHub Actions
@@ -203,9 +202,9 @@ hk uninstall
 
 ## Versions
 
-Every version the build pins — dependencies, plugins, Android SDK levels, and
-JVM targets — lives in [`gradle/libs.versions.toml`](gradle/libs.versions.toml).
-`gradle.properties` holds build switches only.
+Dependency, plugin, Android SDK, and JVM versions live in
+[`gradle/libs.versions.toml`](gradle/libs.versions.toml). `gradle.properties`
+holds build switches and placeholder release versions.
 
 Releases are tagged `vMAJOR.MINOR.PATCH`. `gradle.properties` carries
 placeholder versions, and `.mise/bin/version-args` derives the real ones from
