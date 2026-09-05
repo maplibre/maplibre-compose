@@ -17,6 +17,7 @@ import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.mlnffi.launchTestTask
@@ -101,6 +102,19 @@ class MlnFfiResourceRequestTest {
     assertEquals(1, request.closes)
     assertEquals(1, request.completions)
     assertEquals(ResourceResponseStatus.ERROR, request.response.status)
+  }
+
+  @Test
+  fun close_does_not_cancel_caller_user_scope() {
+    val callerScope = CoroutineScope(SupervisorJob())
+    val provider =
+      MlnFfiResourceProvider(
+        getLogger = { null },
+        passThroughNetwork = true,
+        userCoroutineScope = callerScope,
+      )
+    provider.close()
+    assertTrue(callerScope.isActive)
   }
 
   @Test
