@@ -6,6 +6,7 @@ import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.asString
+import org.maplibre.compose.expressions.dsl.case
 import org.maplibre.compose.expressions.dsl.condition
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.eq
@@ -42,6 +43,21 @@ class ExpressionSwitchTest {
         """["image","fallback"]]""",
       json(compiled(iconSwitch())),
     )
+  }
+
+  @Test
+  fun changing_caller_cases_does_not_change_literal_wrapping() {
+    val cases = mutableListOf(case(listOf("park", "forest"), const(listOf("green"))))
+    val expression = switch(feature["kind"].asString(), cases, fallback = const(listOf("gray")))
+    val expected =
+      """["match",["string",["get","kind"]],["park","forest"],["literal",["green"]],["literal",["gray"]]]"""
+    assertEquals(expected, json(compiled(expression)))
+
+    cases.add(case("water", const(listOf("blue"))))
+    assertEquals(expected, json(compiled(expression)))
+
+    cases.clear()
+    assertEquals(expected, json(compiled(expression)))
   }
 
   private fun iconSwitch() =

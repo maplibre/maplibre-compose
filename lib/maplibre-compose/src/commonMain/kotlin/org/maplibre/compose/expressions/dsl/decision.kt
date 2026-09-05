@@ -61,13 +61,26 @@ public fun <T : ExpressionValue> switch(
   }
 
 /**
- * Selects the first output whose corresponding condition evaluates to `true`.
+ * Selects the first output from the given [conditions] whose corresponding test condition evaluates
+ * to `true`, or the [fallback] value otherwise.
  *
- * ```
+ * Example:
+ * ```kt
  * switch(
- *   condition(has("color1") and has("color2"), interpolate(linear(), zoom(), 13 to get("color1"), 17 to get("color2"))),
- *   condition(has("color"), get("color")),
- *   fallback = rgb(255, 0, 0),
+ *   condition(
+ *     test = feature.has("color1") and feature.has("color2"),
+ *     output = interpolate(
+ *       linear(),
+ *       zoom(),
+ *       1 to feature["color1"].convertToColor(),
+ *       20 to feature["color2"].convertToColor()
+ *     ),
+ *   ),
+ *   condition(
+ *     test = feature.has("color"),
+ *     output = feature["color"].convertToColor(),
+ *   ),
+ *   fallback = const(Color.Red),
  * )
  * ```
  *
@@ -137,12 +150,13 @@ public fun <I : MatchableValue, O : ExpressionValue> switch(
           }
           add(fallback)
         }
+      val caseCount = cases.size
       FunctionCall.of(
           "match",
           args,
           isLiteralArg = { i ->
             // label positions are odd, starting from 1 and not including the fallback
-            i in 1..(cases.size * 2) && i % 2 == 1
+            i in 1..(caseCount * 2) && i % 2 == 1
           },
         )
         .cast()
@@ -150,14 +164,25 @@ public fun <I : MatchableValue, O : ExpressionValue> switch(
   }
 
 /**
- * Selects the first output whose corresponding case matches [input].
+ * Selects the output from the given [cases] whose label value matches the [input], or the
+ * [fallback] value if no match is found.
  *
- * ```
+ * Each label must be unique. If the input type does not match the type of the labels, the result
+ * will be the [fallback] value.
+ *
+ * Example:
+ * ```kt
  * switch(
- *   get("building_type").asString(),
- *   case("residential", cyan),
- *   case(setOf("commercial", "industrial"), yellow),
- *   fallback = red,
+ *   input = feature["building_type"].asString(),
+ *   case(
+ *     label = "residential",
+ *     output = const(Color.Cyan),
+ *   ),
+ *   case(
+ *     label = listOf("commercial", "industrial"),
+ *     output = const(Color.Yellow),
+ *   ),
+ *   fallback = const(Color.Red),
  * )
  * ```
  *
