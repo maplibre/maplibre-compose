@@ -6,6 +6,10 @@ incidental API details.
 
 ## Configuration
 
+The [input separation](GESTURE_EXTRACTION.md) records the shared recognizer
+boundary and the decision to keep it internal until a standalone attachment API
+has a demonstrated consumer.
+
 - A key chord has one action. `bind` replaces its previous assignment, including
   Standard engagement actions. Requiring `remove` first would add a failure mode
   without strengthening the no-overlap invariant.
@@ -64,13 +68,12 @@ Drag-only demand waits for slop. An unmatched press leaves an unrelated scroll
 burst running. Consumption and structural restarts suppress existing contacts or
 platform component streams until their terminal events arrive.
 
-Observer and custom-response lifetimes are tracked separately. If an End
-observer throws or takes camera ownership, a started custom response receives
-Cancel instead of committing. If a Start observer takes ownership, the custom
-response receives neither Start nor an orphan Cancel. Each started recipient
-gets one terminal; cleanup attempts every recipient and preserves the original
-exception. This refines the design's statement that both receive the same
-lifecycle while retaining observer-before-response ordering.
+Custom drag bindings expose one `onEvent` lifecycle callback. It runs before the
+selected camera action; `DragAction.Custom` leaves the response to the
+application. There is no separate custom-response callback. An application
+commits on End and rolls back on Cancel; cleanup cannot deliver a second
+terminal after the action has already received End. Built-in bindings retain
+synchronous observers before their camera responses.
 
 ## Dispatch and hover
 
@@ -84,11 +87,11 @@ camera fallthrough while recognized application delivery may still finish.
 A cancelled lease-bound query drops that click without becoming Pass or stopping
 later valid clicks. Callback failures on a valid path propagate. When projection
 is unavailable, typed binding callbacks and layer queries still receive screen
-input; the existing non-null geographic map callback is skipped.
+input with a null geographic position.
 
 Hit padding uses a square dp rectangle; zero uses a point query. Hover always
-uses exact points. Map/binding hover observation needs no feature query. Layer
-hover has one worker and one latest pending sample; a valid in-flight result may
+uses exact points. Binding hover observation needs no feature query. Layer hover
+has one worker and one latest pending sample; a valid in-flight result may
 publish before the newer sample. Cancellation retains the worker slot until the
 query returns, preventing overlap even when cancellation is delayed.
 
@@ -162,10 +165,12 @@ delivery through the pointer node. The separate platform live-map replay is
 removed: shared camera integration tests already cover backend pan/scale and
 fencing. Removed duration-timer tests belonged to the deleted continuation path.
 
-The consolidated suites pass: 372 Android-host tests, 872 desktop tests (seven
-explicit skips), 543 browser tests, 671 iOS simulator tests, and 806 Android API
-36 emulator tests. Static checks and Android Lint pass. Physical touch/trackpad
-calibration and documented host exclusions remain release checks. Direct desktop
-automation did not establish demo handle dragging. An earlier Android-host
-snapshotter cleanup test failed intermittently and passed on rerun without a
-source fix; this work makes no claim to fix it.
+Before input separation, the consolidated suites passed: 372 Android-host tests,
+872 desktop tests (seven explicit skips), 543 browser tests, 671 iOS simulator
+tests, and 806 Android API 36 emulator tests. See
+[the separation audit](GESTURE_EXTRACTION.md) for current validation. Static
+checks and Android Lint passed. Physical touch/trackpad calibration and
+documented host exclusions remain release checks. Direct desktop automation did
+not establish demo handle dragging. An earlier Android-host snapshotter cleanup
+test failed intermittently and passed on rerun without a source fix; this work
+makes no claim to fix it.

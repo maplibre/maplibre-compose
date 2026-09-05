@@ -6,6 +6,7 @@ import androidx.compose.ui.unit.DpOffset
 import kotlin.math.log2
 import kotlin.math.pow
 import kotlinx.coroutines.CoroutineScope
+import org.maplibre.compose.input.GestureVelocityTracker
 import org.maplibre.compose.map.PlatformTransformRouting.Kind
 
 /** Host-recognized components share one camera session and append no library momentum. */
