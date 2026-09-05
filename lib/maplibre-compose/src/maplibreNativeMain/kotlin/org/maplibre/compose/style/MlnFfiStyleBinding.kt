@@ -106,6 +106,9 @@ internal open class MlnFfiStyleBinding(
   override val isLoaded: Boolean
     get() = loaded && sessionOpen()
 
+  override val animatorDurationScale: Float
+    get() = systemAnimatorDurationScale()
+
   override val logger: MapLog?
     get() = loggerProvider()
 

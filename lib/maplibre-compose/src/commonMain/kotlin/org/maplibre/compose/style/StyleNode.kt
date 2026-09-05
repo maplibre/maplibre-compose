@@ -37,8 +37,9 @@ internal class StyleNode(
     }
   }
 
-  internal fun snapshotRevision(): DesiredStyleRevision =
+  internal fun snapshotRevision(animatorDurationScale: Float): DesiredStyleRevision =
     DesiredStyleRevision(
+      animatorDurationScale = animatorDurationScale,
       sources = sourceManager.desiredSources.map { it.definition() },
       layers =
         children.filterIsInstance<LayerNode<*>>().map { node ->

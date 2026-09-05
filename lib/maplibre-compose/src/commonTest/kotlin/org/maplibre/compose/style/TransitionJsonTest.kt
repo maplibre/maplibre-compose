@@ -31,4 +31,27 @@ class TransitionJsonTest {
 
   private fun transitionOf(json: String): TransitionOptions? =
     Json.parseToJsonElement(json).toTransitionOptions()
+
+  @Test
+  fun a_scale_of_one_returns_the_same_timing() {
+    val options = TransitionOptions(700.milliseconds, 50.milliseconds)
+    assertEquals(options, options.scaledBy(1f))
+  }
+
+  @Test
+  fun scaling_multiplies_duration_and_delay() {
+    assertEquals(
+      TransitionOptions(350.milliseconds, 25.milliseconds),
+      TransitionOptions(700.milliseconds, 50.milliseconds).scaledBy(0.5f),
+    )
+  }
+
+  /** A zero scale is Android's "remove animations": property changes apply instantly. */
+  @Test
+  fun a_scale_of_zero_zeroes_duration_and_delay() {
+    assertEquals(
+      TransitionOptions(0.milliseconds, 0.milliseconds),
+      TransitionOptions(700.milliseconds, 50.milliseconds).scaledBy(0f),
+    )
+  }
 }

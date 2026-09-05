@@ -63,9 +63,11 @@ internal fun StyleContent(
   content: @Composable @MaplibreComposable () -> Unit,
 ) {
   CompositionLocalProvider(LocalStyleNode provides rootNode) { content() }
+  // Read in composition, not in the side effect, so a scale change republishes the revision.
+  val animatorDurationScale = rootNode.style.animatorDurationScale
   key(rootNode.currentApplyGeneration) {
     // Side effects run after remember observers, so the evaluator publishes a complete revision.
-    SideEffect { publish(rootNode.snapshotRevision()) }
+    SideEffect { publish(rootNode.snapshotRevision(animatorDurationScale)) }
   }
 }
 

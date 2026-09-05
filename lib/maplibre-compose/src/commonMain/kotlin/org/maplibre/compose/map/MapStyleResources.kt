@@ -62,10 +62,18 @@ public class StyleImages internal constructor(private val style: MapStyleState) 
  *
  * A base-style reload replaces the transition with the one that the new style declares. A still
  * snapshot ignores the duration and delay.
+ *
+ * On Android, the system animator duration scale multiplies the transition that [set] writes. A
+ * transition that the style JSON declares keeps its timing.
  */
 @Stable
 public class StyleTransition internal constructor(private val style: MapStyleState) {
-  /** Returns the loaded style's transition, or null while no style is ready. */
+  /**
+   * Returns the loaded style's transition, or null while no style is ready.
+   *
+   * The reported timing is the engine's: a transition that [set] wrote is under the animator
+   * duration scale of the time it was written.
+   */
   public fun get(): TransitionOptions? = style.transitionOptions()
 
   /** Replaces the loaded style's transition. The command fails while no style is ready. */

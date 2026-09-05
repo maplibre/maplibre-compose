@@ -37,7 +37,10 @@ internal fun JsonObjectBuilder.putExpression(name: String, expression: Expressio
   if (json !is JsonNull) put(name, json)
 }
 
-/** Encodes [this] as the spec's transition object, in milliseconds. */
+/**
+ * Encodes [this] as the spec's transition object, in milliseconds. The timing is the declared one;
+ * the binding scales it by the platform's animator duration scale when it reaches the engine.
+ */
 internal fun TransitionOptions.toTransitionJson(): JsonObject = buildJsonObject {
   put("duration", duration.toDouble(DurationUnit.MILLISECONDS))
   put("delay", delay.toDouble(DurationUnit.MILLISECONDS))

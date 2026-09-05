@@ -61,6 +61,8 @@ import org.maplibre.compose.generated.Res
 import org.maplibre.compose.generated.map
 import org.maplibre.compose.generated.map_engaged
 import org.maplibre.compose.generated.map_not_engaged
+import org.maplibre.compose.style.scaledBy
+import org.maplibre.compose.style.systemAnimatorDurationScale
 
 /**
  * Neither backend owns platform gestures: MapLibre Native declines to, and GL JS is composited
@@ -875,7 +877,7 @@ private class MapPointerGesture(
         scaleByAwaitingTransition(
           scale = zoomLevelsToScale(-options.zoomStep),
           anchor = options.zoomAnchor(completedTwoFingerTap.centroid.toLogicalDpOffset(density)),
-          duration = options.animationDuration,
+          duration = options.scaledAnimationDuration(),
           gestureToken = token,
         )
       }
@@ -900,7 +902,7 @@ private class MapPointerGesture(
         scaleByAwaitingTransition(
           scale = zoomLevelsToScale(if (pressedShifted) -options.zoomStep else options.zoomStep),
           anchor = options.zoomAnchor(where),
-          duration = options.animationDuration,
+          duration = options.scaledAnimationDuration(),
           gestureToken = token,
         )
       }
@@ -1462,7 +1464,7 @@ private fun GestureTarget.pan(
   if (!options.isKeyboardPanEnabled) return false
   continuation.finish(::onGestureEnded)
   discreteGesture(continuation) { token ->
-    moveByAwaitingTransition(deltaX, deltaY, options.animationDuration, token)
+    moveByAwaitingTransition(deltaX, deltaY, options.scaledAnimationDuration(), token)
   }
   return true
 }
@@ -1478,7 +1480,7 @@ private fun GestureTarget.zoom(
     scaleByAwaitingTransition(
       zoomLevelsToScale(levelDelta),
       anchor = null,
-      duration = options.animationDuration,
+      duration = options.scaledAnimationDuration(),
       gestureToken = token,
     )
   }
@@ -1497,7 +1499,7 @@ private fun GestureTarget.rotateAndTilt(
     rotateAndPitchByAwaitingTransition(
       bearingDelta,
       pitchDelta,
-      options.animationDuration,
+      options.scaledAnimationDuration(),
       gestureToken = token,
     )
   }
@@ -1554,6 +1556,13 @@ private fun zoomLevelsToScale(levelDelta: Double): Double = 2.0.pow(levelDelta)
  */
 private fun GestureOptions.zoomAnchor(pointer: DpOffset): DpOffset? =
   if (isDragPanEnabled) pointer else null
+
+/**
+ * The [GestureOptions.animationDuration] under the platform's animator duration scale. A zero scale
+ * turns the ease into a jump. Velocity-derived fling durations are not scaled.
+ */
+private fun GestureOptions.scaledAnimationDuration(): Duration =
+  animationDuration.scaledBy(systemAnimatorDurationScale())
 
 /** Compose reports physical pixels; MapLibre projects in logical ones. */
 private fun Offset.toLogicalDpOffset(density: Density): DpOffset =

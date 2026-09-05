@@ -36,7 +36,8 @@ class StyleLightTest {
 
       light.set(Light(colorTransition = TransitionOptions(duration = 1.seconds)))
       val transition = assertNotNull(light.getProperty("color-transition")).jsonObject
-      assertEquals(1000.0, transition.getValue("duration").jsonPrimitive.double)
+      val scale = systemAnimatorDurationScale().toDouble()
+      assertEquals(1000.0 * scale, transition.getValue("duration").jsonPrimitive.double)
       assertEquals(0.0, transition.getValue("delay").jsonPrimitive.double)
       light.set(Light())
       assertNull(light.getProperty("color-transition"))
