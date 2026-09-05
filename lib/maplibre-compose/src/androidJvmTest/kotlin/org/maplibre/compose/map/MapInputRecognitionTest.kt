@@ -18,10 +18,13 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.MouseButton
+import androidx.compose.ui.test.SemanticsMatcher.Companion.expectValue
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.doubleClick
@@ -485,10 +488,12 @@ class MapInputRecognitionTest {
 
       mapNode().performKeyInput { pressKey(Key.Enter) }
       mapNode().performKeyInput { pressKey(Key.Back) }
+      mapNode().performMouseInput { click(Offset(10f, 10f)) }
       waitForIdle()
 
       assertTrue(Key.Enter in unconsumed, "a map with no key binding engaged on Enter")
       assertTrue(Key.Back in unconsumed, "a map with no key binding consumed Back")
+      mapNode().assert(expectValue(SemanticsProperties.StateDescription, "not engaged"))
     }
 
   /**

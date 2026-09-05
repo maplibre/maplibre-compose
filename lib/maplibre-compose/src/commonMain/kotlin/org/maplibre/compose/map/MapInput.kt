@@ -87,6 +87,7 @@ internal fun Modifier.mapInput(
   val engaged = focus.isEngaged
   val keys = options.hasKeyboardGesture
   val rotary = options.isScrollZoomEnabled && rotaryNotchPixels > 0f
+  focus.hasKeyBindings = keys
   return this.semantics {
       contentDescription = environment.contentDescription
       stateDescription = if (engaged) environment.engaged else environment.notEngaged
@@ -141,6 +142,9 @@ internal class MapInputFocus(private val onChanged: (engaged: Boolean) -> Unit) 
   /** Keys whose press the node consumed and whose release it still owes. */
   val claimedKeys = mutableSetOf<Key>()
 
+  /** Engagement belongs to the key handler, so a map without one never engages. */
+  var hasKeyBindings = false
+
   private var isFocused = false
   private var engagedByKey = false
   private var shownFocus: FocusInteraction.Focus? = null
@@ -163,7 +167,7 @@ internal class MapInputFocus(private val onChanged: (engaged: Boolean) -> Unit) 
 
   /** Returns false when the node is not focused, because only a focused node engages. */
   fun engage(byKey: Boolean): Boolean {
-    if (!isFocused) return false
+    if (!isFocused || !hasKeyBindings) return false
     isEngaged = true
     engagedByKey = byKey
     showFocus()

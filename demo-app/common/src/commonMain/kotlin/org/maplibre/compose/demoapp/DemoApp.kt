@@ -48,6 +48,7 @@ import androidx.window.core.layout.WindowSizeClass
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.vectorResource
 import org.maplibre.compose.demoapp.benchmark.BenchmarkMap
+import org.maplibre.compose.demoapp.benchmark.gestureOptions
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.chevron_left_24px
 import org.maplibre.compose.demoapp.generated.chevron_right_24px
@@ -147,7 +148,12 @@ private fun DemoShell(state: DemoAppState, contentPadding: PaddingValues) {
     val zoomButtonsFocusRequester = remember { FocusRequester() }
     val zoomButtonsShown = state.shell != DemoShell.Benchmarks && state.settings.showZoomButtons
     // A route to a map that cannot take focus strands the D-pad on the handle.
-    val mapFocusable = state.settings.gestureOptions.hasKeyboardGesture
+    val mapGestures =
+      when (state.shell) {
+        DemoShell.Demos -> state.settings.gestureOptions
+        DemoShell.Benchmarks -> state.selectedScenario.gestureOptions
+      }
+    val mapFocusable = mapGestures.hasKeyboardGesture
 
     val handleTranslation =
       with(density) {
