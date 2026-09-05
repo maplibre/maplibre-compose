@@ -9,50 +9,31 @@ import { region } from "../../snippets";
 
 import requests from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Requests.kt?raw";
 
-Tiles, sprites, and fonts come from URLs in the style. Rewrite those requests,
-or serve the bytes from application code.
-
-<Api of="MapRequestInterceptor" /> rewrites a resource URL or adds HTTP
-headers before the engine fetches it. It can rewrite a custom-scheme URL to
-HTTP or HTTPS, and the headers apply to the rewritten URL.
-<Api of="MapResourceProvider" /> supplies resource data without the engine HTTP
-client and receives the rewritten URL. Both hooks are fixed when the runtime
-is created and apply to its maps, snapshotters, and supported offline operations.
+Tiles, sprites, and fonts come from URLs in the style.
+<Api of="MapRequestInterceptor" /> rewrites those URLs or adds HTTP headers.
+<Api of="MapResourceProvider" /> supplies bytes for rewritten URLs it accepts.
 
 ## Configure requests
 
-Pass either or both hooks in <Api of="MapRuntimeOptions" />. Call
-<Api of="DefaultMapRuntime.configure" /> once during application startup, before
-the first map, snapshotter, or offline manager. This example adds credentials
-for an owned HTTPS host and serves `app:` URLs from application assets:
+Pass either or both hooks in <Api of="MapRuntimeOptions" />. They are fixed for
+the runtime's lifetime and apply to its maps, snapshotters, and supported offline
+operations.
+Call <Api of="DefaultMapRuntime.configure" /> during application startup, before
+the first map, snapshotter, or offline manager:
 
 <Code code={region(requests, "configuration")} lang="kotlin" title="App.kt" />
 
-Attach credentials only to hosts you own. A style also names glyphs, sprites,
-and tiles on other hosts. The provider's scheme factory accepts every URL with
-that scheme.
+Attach credentials only to hosts you own. Update the token state to refresh
+credentials for later callbacks.
 
-The application owns the token state. Updating its value lets subsequent header
-callbacks read refreshed credentials without replacing the interceptor or
-recreating the runtime. Callbacks must return quickly and be safe to call
-concurrently. The engine may call them more than once for one request; return
-the same result while the request and application state are unchanged. Updates
-do not restart requests in flight, and separate callbacks may observe different
-credential values.
-
-For screen-specific configuration, use <Api of="createMapRuntime" /> with its own
-options and pass the runtime to <Api of="rememberMapState" />. Keep that runtime
-for the lifetime of its owner, which must call <Api of="MapRuntime.close" /> when
-finished. Use <Api of="MapRuntime.awaitClosed" /> when cleanup must finish before
-proceeding. Configure the process default at startup rather than from a screen's
-composition.
+For separate configuration, use <Api of="createMapRuntime" /> and pass the result
+to <Api of="rememberMapState" />. Its owner must call <Api of="MapRuntime.close" />
+when finished.
 
 ## Serve the bytes
 
-A load returns a <Api of="MapResourceLoad" />. Each case corresponds to one
-HTTP response. Return `Bytes` with the body. Return `NoContent` for a tile
-outside the data set, and the map renders an empty tile without an error.
-Return `Failed` with a <Api of="MapResourceError" /> for an error. A provider
-that reads tiles from local storage uses all three:
+For local tiles, return a <Api of="MapResourceLoad" />: `Bytes` for resource data,
+`NoContent` for an empty tile, or `Failed` with a <Api of="MapResourceError" />
+for an error:
 
 <Code code={region(requests, "outcomes")} lang="kotlin" title="App.kt" />
