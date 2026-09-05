@@ -88,7 +88,7 @@ internal class MlnFfiMapRuntimeLoop(
    */
   private val acceptLock = MlnFfiOwnerLock(thread)
   private val tasks = ArrayDeque<OwnerTask>()
-  /** Test callbacks that run after the next native pump and event drain. Owner thread only. */
+  /** Callbacks that run after the next native pump and event drain. Owner thread only. */
   private val eventDrainBarriers = mutableListOf<DrainBarrier>()
   private var accepting = true
   private var wake: WakeSource? = null

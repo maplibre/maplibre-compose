@@ -50,6 +50,19 @@ ordering and native request retirement, not on matching URLs, inspecting current
 style JSON, or guessing which event is newest. Changing styles directly through
 a borrowed raw native handle bypasses Compose's style ownership contract.
 
+## Alternatives rejected
+
+- Removing the pending guard alone lets old queued events acquire the new
+  request identity. Both stale-event regressions fail with that mutation.
+- Recreating the map would require transferring camera, renderer, and lifecycle
+  ownership for every stalled document. Native already cancels replaced
+  requests.
+- Fetching URI documents in Compose would duplicate native resource resolution,
+  caching, and URL semantics.
+- Waiting for generation IDs in FFI #407 is unnecessary for this serialized
+  path. Keep the drain boundary and recheck the native retirement contract on
+  upgrades.
+
 ## Lifecycle and snapshots
 
 The lifecycle authority still decides whether to accept every style callback.
@@ -70,11 +83,18 @@ Against the parent implementation, the replacement timed out after five seconds
 and 504 frames with no load or failure event.
 
 The 12 cases also cover URI A/B/C replacement, skipped queued requests, queued
-old native success and failure events, late provider responses, inline and
-provider failures, rejection before native accepts a setter, callback
+old native success and failure events, inline and provider failures, late
+completion after a setter is rejected before reaching native, callback
 reentrancy, close, and detached operation. Temporarily moving the setter before
 the drain makes both queued-old-event cases fail: an old success publishes the
 new request and an old failure fails it. Restoring the boundary passes all 12.
+
+`MlnFfiStyleSwitchTest` also checks real Compose content: style B never answers,
+style C loads with its anchored user layer, and B's provider is cancelled. The
+separate source/tile cancellation regression remains necessary: retiring a
+loaded style's resources exercises a different native path from cancelling its
+pending document. The deterministic provider failure cases and the shared
+`EngineEventTest` replace the weaker native-only unreachable-URL smoke test.
 
 The existing snapshot suites cover FIFO captures, cancelled preparation and
 cleanup, stale failures, and recovery after invalid JSON. The existing style
@@ -84,6 +104,5 @@ application content is reconciled.
 Raw local logs are under `build/reports/style-supersession/`. The PR reports
 platform suite results separately. Host tests alone are not runtime evidence.
 
-No upstream prerequisite or public API change is needed. The implementation fits
-the initial 1–2 engineering day estimate; human review remains required. Device
-availability can add calendar time. musl Linux is out of scope.
+No upstream prerequisite or public API change is needed. musl Linux is out of
+scope.

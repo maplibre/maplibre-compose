@@ -802,8 +802,7 @@ internal class MlnFfiMapSession(
       }
 
       RuntimeEventType.MAP_LOADING_FAILED -> {
-        // The only channel for a URL style's failure; a malformed inline style also throws from the
-        // setter.
+        // Asynchronous document failures arrive here. Setter exceptions are reported at submission.
         val reason = event.styleLoadFailureReason()
         val request = appliedStyleRequest
         val accepted = request != null && styleLoadTracker.failed(request)
@@ -1047,8 +1046,7 @@ internal class MlnFfiMapSession(
     if (styleLoadTracker.requestId !== trackerRequest || !lifecycle.acceptsWork) return
     if (lifecycleRequest != null) lifecycleStyleRequestIdentity = lifecycleRequest
     lifecycleStyleIdentity = null
-    val load = RequestedStyleLoad(style, trackerRequest, lifecycleRequest)
-    requestedStyleLoad = load
+    requestedStyleLoad = RequestedStyleLoad(style, trackerRequest, lifecycleRequest)
     // Wake the owner loop, but do not replace native until its preceding events are handled.
     onMap {}
   }
@@ -1092,12 +1090,7 @@ internal class MlnFfiMapSession(
 
   /** Owner thread only. */
   private fun applyRequestedStyle(map: MapHandle) {
-    requestedStyleLoad?.let { applyRequestedStyle(map, it) }
-  }
-
-  /** Owner thread only. */
-  private fun applyRequestedStyle(map: MapHandle, load: RequestedStyleLoad) {
-    if (load !== requestedStyleLoad) return
+    val load = requestedStyleLoad ?: return
     val style = load.style
     if (!lifecycle.acceptsWork) return
     val engine = lifecycleEngineIdentity ?: return

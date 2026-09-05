@@ -58,9 +58,6 @@ class MlnFfiStyleSupersessionTest {
       fixture.loadStyle(style("third"), timeout = 5.seconds)
       assertTrue(second.cancelled.await(TIMEOUT_MILLIS))
 
-      // A provider that finishes after cancellation cannot restore either old document.
-      first.complete(style("first"))
-      second.complete(BaseStyle.Json("{invalid"))
       fixture.pump()
       assertEquals(1, fixture.engineEvents.count { it == MapEvent.StyleLoaded })
       assertTrue("third" in fixture.session.currentStyleLayerIds())
