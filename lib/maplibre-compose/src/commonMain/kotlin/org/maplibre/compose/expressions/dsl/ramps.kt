@@ -25,38 +25,40 @@ public fun <T : ExpressionValue> step(
   input: Expression<FloatValue>,
   fallback: Expression<T>,
   vararg stops: Pair<Number, Expression<T>>,
-): Expression<T> =
-  FunctionCall.of(
-      "step",
-      input,
-      fallback,
-      *stops
+): Expression<T> {
+  val args =
+    buildList(stops.size * 2 + 2) {
+      add(input)
+      add(fallback)
+      stops
         .sortedBy { it.first.toFloat() }
-        .foldToArgs {
+        .forEach {
           add(const(it.first.toFloat()))
           add(it.second)
-        },
-    )
-    .cast()
+        }
+    }
+  return FunctionCall.of("step", args).cast()
+}
 
 private fun <T, V : InterpolatableValue<T>> interpolateImpl(
   name: String,
   type: Expression<InterpolationValue>,
   input: Expression<FloatValue>,
   vararg stops: Pair<Number, Expression<V>>,
-): Expression<V> =
-  FunctionCall.of(
-      name,
-      type,
-      input,
-      *stops
+): Expression<V> {
+  val args =
+    buildList(stops.size * 2 + 2) {
+      add(type)
+      add(input)
+      stops
         .sortedBy { it.first.toDouble() }
-        .foldToArgs {
+        .forEach {
           add(const(it.first.toFloat()))
           add(it.second)
-        },
-    )
-    .cast()
+        }
+    }
+  return FunctionCall.of(name, args).cast()
+}
 
 /**
  * Produces continuous, smooth results by interpolating between pairs of input and output values

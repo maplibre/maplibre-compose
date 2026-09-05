@@ -20,6 +20,12 @@ private constructor(
   public companion object {
     public fun of(
       name: String,
+      args: List<Expression<*>>,
+      isLiteralArg: (Int) -> Boolean = { false },
+    ): FunctionCall = FunctionCall(name, args, isLiteralArg)
+
+    public fun of(
+      name: String,
       vararg args: Expression<*>,
       isLiteralArg: (Int) -> Boolean = { false },
     ): FunctionCall = FunctionCall(name, args.asList(), isLiteralArg)
