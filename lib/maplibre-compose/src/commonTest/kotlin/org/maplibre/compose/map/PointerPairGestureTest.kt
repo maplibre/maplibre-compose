@@ -9,15 +9,18 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import kotlin.math.pow
+import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import kotlin.time.Duration
-import org.maplibre.compose.camera.CameraPosition
 
 class PointerPairGestureTest {
+  private val map = GestureTestFixture()
+
+  @AfterTest fun closeMap() = map.close()
+
   @Test
   fun zero_slop_still_requires_actual_motion_in_that_component() {
     var starts = 0
@@ -82,11 +85,11 @@ class PointerPairGestureTest {
         }
       )
     input.move(20, Offset(-50f, 0f), Offset(110f, 0f))
-    assertEquals(listOf(Offset(20f, 0f)), input.target.moves)
+    assertEquals(listOf(Offset(20f, 0f)), input.target.moveCalls)
     input.move(10, Offset(-20f, 0f), Offset(140f, 0f))
-    assertEquals(1, input.target.moves.size)
+    assertEquals(1, input.target.moveCalls.size)
     input.move(30, Offset(-15f, 0f), Offset(145f, 0f))
-    assertEquals(Offset(5f, 0f), input.target.moves.last())
+    assertEquals(Offset(5f, 0f), input.target.moveCalls.last())
   }
 
   @Test
@@ -107,8 +110,8 @@ class PointerPairGestureTest {
       )
     input.move(20, Offset(0f, -80f), Offset(0f, 80f))
     assertEquals(45.0, (events[1] as RotateEvent.Delta).degrees, 1e-9)
-    assertEquals(-90.0, input.target.bearings.single(), 1e-9)
-    assertEquals(null, input.target.rotationAnchors.single())
+    assertEquals(-90.0, input.target.rotateCalls.single().bearingDelta, 1e-9)
+    assertEquals(null, input.target.rotateCalls.single().anchor)
   }
 
   @Test
@@ -128,27 +131,37 @@ class PointerPairGestureTest {
         }
       )
     input.move(20, Offset(-100f, 0f), Offset(100f, 0f))
-    assertEquals(GestureMath.pinchScale(200.0 / 163.5).pow(2), input.target.scales.single(), 1e-9)
-    assertEquals(null, input.target.scaleAnchors.single())
+    assertEquals(
+      GestureMath.pinchScale(200.0 / 163.5).pow(2),
+      input.target.scaleCalls.single().scale,
+      1e-9,
+    )
+    assertEquals(null, input.target.scaleCalls.single().anchor)
     input.move(40, Offset(10f, -100f), Offset(10f, 100f))
-    assertEquals(DpOffset(10.dp, 0.dp), input.target.rotationAnchors.single())
+    assertEquals(DpOffset(10.dp, 0.dp), input.target.rotateCalls.single().anchor)
   }
 
   @Test
-  fun all_reported_contact_types_must_match_the_pair_filter() {
-    val input =
-      PairInput(
-        MapGestures(MapGestures.None) {
-          pinchZoom {
-            enabled = true
-            filter = PointerFilter(pointerTypes = setOf(PointerType.Touch))
-          }
-        },
-        secondType = PointerType.Stylus,
-      )
-    assertFalse(input.pair.hasDemand)
-    input.move(20, Offset(-120f, 0f), Offset(120f, 0f))
-    assertTrue(input.target.scales.isEmpty())
+  fun contact_types_and_modifiers_must_match_the_pair_filter() {
+    for (filter in
+      listOf(
+        PointerFilter(pointerTypes = setOf(PointerType.Touch)),
+        PointerFilter(modifiers = ModifierFilter.Containing(KeyModifier.Ctrl)),
+      )) {
+      val input =
+        PairInput(
+          MapGestures(MapGestures.None) {
+            pinchZoom {
+              enabled = true
+              this.filter = filter
+            }
+          },
+          secondType = PointerType.Stylus,
+        )
+      assertFalse(input.pair.hasDemand)
+      input.move(20, Offset(-120f, 0f), Offset(120f, 0f))
+      assertTrue(input.target.scaleCalls.isEmpty())
+    }
   }
 
   @Test
@@ -206,14 +219,14 @@ class PointerPairGestureTest {
     assertEquals(starts, second)
   }
 
-  private class PairInput(
+  private inner class PairInput(
     var options: MapGestures,
     private val secondType: PointerType = PointerType.Touch,
   ) {
-    val target = PairTarget()
+    val target = map.target
     private var time = 0L
     private var positions = listOf(Offset(-80f, 0f), Offset(80f, 0f))
-    private val token = GestureToken(1)
+    private val token = target.onGestureStarted()
     val pair: PointerPairGesture
 
     init {
@@ -258,73 +271,5 @@ class PointerPairGestureTest {
           )
         }
       )
-  }
-
-  private class PairTarget : GestureTarget {
-    val moves = mutableListOf<Offset>()
-    val scales = mutableListOf<Double>()
-    val bearings = mutableListOf<Double>()
-    val scaleAnchors = mutableListOf<DpOffset?>()
-    val rotationAnchors = mutableListOf<DpOffset?>()
-
-    override fun cancelTransitions() = Unit
-
-    override fun getCameraPosition(): CameraPosition = CameraPosition()
-
-    override fun onGestureStarted(): GestureToken = error("the contact group supplies its token")
-
-    override fun onGestureEnded(token: GestureToken) = Unit
-
-    override fun moveBy(
-      deltaX: Double,
-      deltaY: Double,
-      duration: Duration,
-      gestureToken: GestureToken?,
-    ) {
-      moves += Offset(deltaX.toFloat(), deltaY.toFloat())
-    }
-
-    override fun scaleBy(
-      scale: Double,
-      anchor: DpOffset?,
-      duration: Duration,
-      gestureToken: GestureToken?,
-    ) {
-      scales += scale
-      scaleAnchors += anchor
-    }
-
-    override fun rotateAndPitchBy(
-      bearingDelta: Double,
-      pitchDelta: Double,
-      duration: Duration,
-      anchor: DpOffset?,
-      gestureToken: GestureToken?,
-    ) {
-      bearings += bearingDelta
-      rotationAnchors += anchor
-    }
-
-    override suspend fun moveByAwaitingTransition(
-      deltaX: Double,
-      deltaY: Double,
-      duration: Duration,
-      gestureToken: GestureToken,
-    ) = error("pair input does not ease")
-
-    override suspend fun scaleByAwaitingTransition(
-      scale: Double,
-      anchor: DpOffset?,
-      duration: Duration,
-      gestureToken: GestureToken,
-    ) = error("pair input does not ease")
-
-    override suspend fun rotateAndPitchByAwaitingTransition(
-      bearingDelta: Double,
-      pitchDelta: Double,
-      duration: Duration,
-      gestureToken: GestureToken,
-      anchor: DpOffset?,
-    ) = error("pair input does not ease")
   }
 }

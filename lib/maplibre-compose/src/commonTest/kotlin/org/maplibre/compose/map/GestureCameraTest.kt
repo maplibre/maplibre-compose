@@ -1,14 +1,11 @@
 package org.maplibre.compose.map
 
 import androidx.compose.ui.unit.DpOffset
-import androidx.compose.ui.unit.DpSize
-import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import kotlin.time.Duration
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
@@ -17,12 +14,8 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.util.ClickResult
-import org.maplibre.compose.util.VisibleRegion
-import org.maplibre.spatialk.geojson.BoundingBox
-import org.maplibre.spatialk.geojson.Position
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class GestureCameraTest {
@@ -62,12 +55,12 @@ class GestureCameraTest {
       runCurrent()
       target.drain()
       assertEquals(1, layers)
-      assertTrue(target.moves.isEmpty())
+      assertTrue(target.moveCalls.isEmpty())
       dispatch(2, latest)
       runCurrent()
       target.drain()
       runCurrent()
-      assertEquals(listOf(10.0), target.moves)
+      assertEquals(listOf(10.0), target.moveCalls.map { it.x.toDouble() })
       assertEquals(2, layers)
     }
 
@@ -107,7 +100,7 @@ class GestureCameraTest {
       assertTrue(session.scope.coroutineContext[kotlinx.coroutines.Job]!!.isActive)
       target.drain()
       runCurrent()
-      assertEquals(listOf(10.0), target.moves)
+      assertEquals(listOf(10.0), target.moveCalls.map { it.x.toDouble() })
       assertTrue(session.scope.coroutineContext[kotlinx.coroutines.Job]!!.isCompleted)
     }
 
@@ -133,7 +126,7 @@ class GestureCameraTest {
       runCurrent()
       assertEquals(1, cancelled)
       target.drain()
-      assertTrue(target.moves.isEmpty())
+      assertTrue(target.moveCalls.isEmpty())
     }
 
   @Test
@@ -150,7 +143,7 @@ class GestureCameraTest {
     second.end()
     target.drain()
     runCurrent()
-    assertEquals(listOf(20.0), target.moves)
+    assertEquals(listOf(20.0), target.moveCalls.map { it.x.toDouble() })
   }
 
   @Test
@@ -177,12 +170,12 @@ class GestureCameraTest {
       }
       runCurrent()
       assertFalse(work.isCompleted)
-      assertTrue(target.moves.isEmpty())
+      assertTrue(target.moveCalls.isEmpty())
       assertFailsWith<IllegalStateException> { retained.moveBy(30.0, 0.0) }
       target.drain()
       runCurrent()
       assertTrue(work.isCompleted)
-      assertEquals(listOf(10.0, 20.0), target.moves)
+      assertEquals(listOf(10.0, 20.0), target.moveCalls.map { it.x.toDouble() })
       assertFailsWith<IllegalStateException> { retained.moveBy(30.0, 0.0) }
     }
 
@@ -215,10 +208,10 @@ class GestureCameraTest {
       assertTrue(returned)
       assertFalse(first.isCancelled)
       assertFalse(second.isCompleted)
-      assertEquals(listOf(20.0), target.moves)
+      assertEquals(listOf(20.0), target.moveCalls.map { it.x.toDouble() })
       secondScope.moveBy(40.0, 0.0)
       target.drain()
-      assertEquals(listOf(20.0, 40.0), target.moves)
+      assertEquals(listOf(20.0, 40.0), target.moveCalls.map { it.x.toDouble() })
       second.cancel()
       runCurrent()
       target.drain()
@@ -242,7 +235,7 @@ class GestureCameraTest {
       runCurrent()
       assertTrue(work.isCancelled)
       assertTrue(work.isCompleted)
-      assertTrue(target.moves.isEmpty())
+      assertTrue(target.moveCalls.isEmpty())
     }
 
   @Test
@@ -259,7 +252,7 @@ class GestureCameraTest {
       runCurrent()
       assertTrue(work.isCompleted)
       assertTrue(work.isCancelled)
-      assertTrue(target.moves.isEmpty())
+      assertTrue(target.moveCalls.isEmpty())
     }
 
   @Test
@@ -281,7 +274,7 @@ class GestureCameraTest {
       target.drain()
       runCurrent()
       assertEquals("tool failed", failure?.message)
-      assertTrue(target.moves.isEmpty())
+      assertTrue(target.moveCalls.isEmpty())
     }
 
   @Test
@@ -301,7 +294,7 @@ class GestureCameraTest {
       runCurrent()
       assertTrue(rejected)
       assertTrue(work.isCompleted)
-      assertTrue(target.moves.isEmpty())
+      assertTrue(target.moveCalls.isEmpty())
     }
 
   @Test
@@ -317,7 +310,7 @@ class GestureCameraTest {
     target.drain()
     runCurrent()
     assertTrue(work.isCompleted)
-    assertTrue(target.moves.isEmpty())
+    assertTrue(target.moveCalls.isEmpty())
   }
 
   @Test
@@ -334,13 +327,13 @@ class GestureCameraTest {
       runCurrent()
       assertTrue(work.isCompleted)
       assertFalse(work.isCancelled)
-      assertEquals(listOf(10.0), target.moves)
+      assertEquals(listOf(10.0), target.moveCalls.map { it.x.toDouble() })
     }
 
   @Test
   fun different_states_can_nest_but_a_to_b_to_a_cannot() = cameraTest { state, target ->
     val other = state.runtime.createMapState(BaseStyle.Empty)
-    val otherTarget = present(other)
+    val otherTarget = RecordingGestureTarget(other, deferred = true)
     val work = launch {
       state.gestureCamera.withGesture {
         moveBy(10.0, 0.0)
@@ -357,8 +350,8 @@ class GestureCameraTest {
     target.drain()
     runCurrent()
     assertTrue(work.isCompleted)
-    assertEquals(listOf(10.0, 30.0), target.moves)
-    assertEquals(listOf(20.0), otherTarget.moves)
+    assertEquals(listOf(10.0, 30.0), target.moveCalls.map { it.x.toDouble() })
+    assertEquals(listOf(20.0), otherTarget.moveCalls.map { it.x.toDouble() })
     other.close()
     other.awaitClosed()
   }
@@ -377,11 +370,11 @@ class GestureCameraTest {
       target.drain()
     }
 
-  private fun cameraTest(body: suspend TestScope.(MapState, QueuedGestureTarget) -> Unit) =
+  private fun cameraTest(body: suspend TestScope.(MapState, RecordingGestureTarget) -> Unit) =
     runTest {
       val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
       val state = runtime.createMapState(BaseStyle.Empty)
-      val target = present(state)
+      val target = RecordingGestureTarget(state, deferred = true)
       try {
         body(state, target)
       } finally {
@@ -393,110 +386,4 @@ class GestureCameraTest {
         runtime.close()
       }
     }
-
-  private fun present(state: MapState): QueuedGestureTarget {
-    val target = QueuedGestureTarget(state)
-    state.publishPresentation(state.reservePresentation(), target)
-    state.synchronizeCamera(target)
-    return target
-  }
-}
-
-/** A paused owner queue. Native/JS tests separately verify the actual command paths. */
-private class QueuedGestureTarget(private val state: MapState) :
-  PresentationTestAdapter(), GestureTarget {
-  override fun positionFromScreenLocation(offset: DpOffset): Position? = null
-
-  val moves = mutableListOf<Double>()
-  private val pending = ArrayDeque<() -> Unit>()
-
-  init {
-    val a = Position(-1.0, -1.0)
-    val b = Position(1.0, 1.0)
-    currentViewport =
-      Viewport(
-        size = DpSize(100.dp, 100.dp),
-        visibleBoundingBox = BoundingBox(a, b),
-        visibleRegion = VisibleRegion(a, b, a, b),
-        metersPerDpAtTarget = 1.0,
-      )
-  }
-
-  override fun getCameraPosition(): CameraPosition = lastCameraPosition
-
-  override fun cancelTransitions() = Unit
-
-  override fun observeInput(): Long = state.gestureAuthority.observeInput()
-
-  override val inputGeneration: Long
-    get() = state.gestureAuthority.generation
-
-  override fun onGestureStartedIfCurrent(generation: Long): GestureToken? =
-    state.gestureAuthority.acquireIfCurrent(this, generation)
-
-  override fun onGestureStarted(): GestureToken = state.gestureAuthority.acquire(this)
-
-  override fun onGestureEnded(token: GestureToken) {
-    token.finish(false) { pending.add { token.complete() } }
-  }
-
-  override fun cancelGesture(token: GestureToken) {
-    token.finish(true) { pending.add { token.complete() } }
-  }
-
-  override suspend fun awaitGestureEnded(token: GestureToken) {
-    token.completion.await()
-  }
-
-  override fun moveBy(
-    deltaX: Double,
-    deltaY: Double,
-    duration: Duration,
-    gestureToken: GestureToken?,
-  ) {
-    checkNotNull(gestureToken).enqueue {
-      pending.add { if (gestureToken.canExecute) moves += deltaX }
-    }
-  }
-
-  override fun scaleBy(
-    scale: Double,
-    anchor: DpOffset?,
-    duration: Duration,
-    gestureToken: GestureToken?,
-  ) = Unit
-
-  override fun rotateAndPitchBy(
-    bearingDelta: Double,
-    pitchDelta: Double,
-    duration: Duration,
-    anchor: DpOffset?,
-    gestureToken: GestureToken?,
-  ) = Unit
-
-  override suspend fun moveByAwaitingTransition(
-    deltaX: Double,
-    deltaY: Double,
-    duration: Duration,
-    gestureToken: GestureToken,
-  ) = Unit
-
-  override suspend fun scaleByAwaitingTransition(
-    scale: Double,
-    anchor: DpOffset?,
-    duration: Duration,
-    gestureToken: GestureToken,
-  ) = Unit
-
-  override suspend fun rotateAndPitchByAwaitingTransition(
-    bearingDelta: Double,
-    pitchDelta: Double,
-    duration: Duration,
-    gestureToken: GestureToken,
-    anchor: DpOffset?,
-  ) = Unit
-
-  fun drain() {
-    while (pending.isNotEmpty()) pending.removeFirst().invoke()
-  }
 }

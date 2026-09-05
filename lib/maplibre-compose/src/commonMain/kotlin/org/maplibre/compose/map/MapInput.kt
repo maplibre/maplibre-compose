@@ -1227,8 +1227,8 @@ private class MapPointerGesture(
       retainCameraAuthority()
       return
     }
-    val continuationDuration =
-      listOfNotNull(finishSingleVelocity(), pairContinuation?.let(::finishPairVelocity)).maxOrNull()
+    finishSingleVelocity()
+    pairContinuation?.let(::finishPairVelocity)
     deferredTwoFingerVelocity = null
     lastSingle = null
     singleDragOrigin = null
@@ -1250,7 +1250,7 @@ private class MapPointerGesture(
     }
 
     if (gestureInProgress) {
-      endDrag(continuationDuration ?: Duration.ZERO)
+      endDrag()
       return
     }
     continuation.finish(target::onGestureEnded)
@@ -1429,24 +1429,23 @@ private class MapPointerGesture(
     if (pressedCount > 2 || !candidate.update(event, twoFingerTapSlopPx)) twoFingerTap = null
   }
 
-  private fun finishSingleVelocity(): Duration? {
-    val binding = selectedDrag ?: return null
+  private fun finishSingleVelocity() {
+    val binding = selectedDrag ?: return
     val velocity = singleVelocity.calculateVelocity()
-    if (!gestureInProgress) return null
-    return when (singleMotion) {
+    if (!gestureInProgress) return
+    when (singleMotion) {
       SingleMotion.PAN -> {
-        val tuning = binding.settings.fling ?: return null
+        val tuning = binding.settings.fling ?: return
         val fling =
           GestureMath.fling(
             (velocity.x / density.density).toDouble(),
             (velocity.y / density.density).toDouble(),
             tuning,
-          ) ?: return null
+          ) ?: return
         animateFling(fling)
-        fling.duration
       }
       SingleMotion.QUICK_ZOOM -> {
-        val tuning = binding.settings.velocityContinuation ?: return null
+        val tuning = binding.settings.velocityContinuation ?: return
         val direction = if (binding.settings.direction == QuickZoomDirection.DownZoomsIn) 1 else -1
         val velocityResponse =
           GestureMath.scaleVelocity(
@@ -1456,36 +1455,27 @@ private class MapPointerGesture(
             density.density.toDouble(),
             scalingOut = velocity.y * direction < 0f,
             continuation = tuning,
-          ) ?: return null
+          ) ?: return
         animateScaleVelocity(velocityResponse, dragSample?.let(binding::anchor))
-        velocityResponse.duration
       }
       SingleMotion.ROTATE_TILT -> {
-        val tuning = binding.settings.tiltContinuation ?: return null
+        val tuning = binding.settings.tiltContinuation ?: return
         val response =
           GestureMath.tiltVelocity(
             velocity.y / density.density * binding.settings.pitchDegreesPerDp,
             tuning,
-          ) ?: return null
+          ) ?: return
         animateTiltVelocity(response)
-        response.duration
       }
-      else -> null
+      else -> Unit
     }
   }
 
-  private fun finishPairVelocity(velocity: PairContinuation): Duration? {
+  private fun finishPairVelocity(velocity: PairContinuation) {
     velocity.pan?.let(::animateFling)
     velocity.scale?.let { animateScaleVelocity(it, velocity.scaleAnchor) }
     velocity.rotation?.let { animateRotationVelocity(it, velocity.rotationAnchor) }
     velocity.tilt?.let(::animateTiltVelocity)
-    return listOfNotNull(
-        velocity.pan?.duration,
-        velocity.scale?.duration,
-        velocity.rotation?.duration,
-        velocity.tilt?.duration,
-      )
-      .maxOrNull()
   }
 
   /** Interpolates absolute zoom with a decelerate curve. */
@@ -1564,7 +1554,7 @@ private class MapPointerGesture(
     }
   }
 
-  private fun endDrag(followUpDuration: Duration) {
+  private fun endDrag() {
     cancelLongClick()
     if (!gestureInProgress) return
     gestureInProgress = false
@@ -1573,8 +1563,6 @@ private class MapPointerGesture(
     if (continuation.hasMotionJobs()) {
       // Camera continuations finish when their frame work or awaited engine transition ends.
       continuation.finishWhenMotionJobsComplete(scope, token, ::completeCameraSession)
-    } else if (followUpDuration > Duration.ZERO) {
-      continuation.finishAfter(scope, followUpDuration, token, ::completeCameraSession)
     } else {
       completeCameraSession(token)
     }
@@ -1851,22 +1839,6 @@ internal class GestureContinuation(private val scope: CoroutineScope) {
     finishJob = null
     openToken = null
     return token?.takeIf { it.acceptsCommands }
-  }
-
-  fun finishAfter(
-    scope: CoroutineScope,
-    duration: Duration,
-    token: GestureToken,
-    onFinished: (GestureToken) -> Unit,
-  ) {
-    finishJob?.cancel()
-    openToken = token
-    finishJob = scope.launch {
-      delay(duration.inWholeMilliseconds)
-      finishJob = null
-      openToken = null
-      onFinished(token)
-    }
   }
 
   fun finish(onFinished: (GestureToken) -> Unit) {
