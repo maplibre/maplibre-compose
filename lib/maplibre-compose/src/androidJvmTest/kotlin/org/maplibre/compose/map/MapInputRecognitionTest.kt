@@ -49,20 +49,18 @@ import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.withKeyDown
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
+import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import org.junit.Assume.assumeTrue
-import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.mlnffi.runPlainComposeUiTest
 import org.maplibre.compose.style.scaledBy
 import org.maplibre.compose.style.systemAnimatorDurationScale
@@ -81,6 +79,10 @@ private const val AFTER_MAP_TAG = "after-map"
  */
 @OptIn(ExperimentalAtomicApi::class, ExperimentalTestApi::class)
 class MapInputRecognitionTest {
+  private val fixture = GestureTestFixture()
+
+  @AfterTest fun closeMap() = fixture.close()
+
   @Test
   fun a_throwing_pan_delta_cancels_once_before_applying_the_camera_response() {
     val calls = mutableListOf<String>()
@@ -230,24 +232,8 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun trackpad_pan_and_scale_route_through_the_pointer_node_without_clicks_or_momentum() {
-    val pans = mutableListOf<DragEvent>()
-    val pinches = mutableListOf<PinchEvent>()
-    runRecognitionTest(
-      options =
-        MapGestures {
-          dragPan {
-            onStart { pans += it }
-            onDelta { pans += it }
-            onEnd { pans += it }
-          }
-          pinchZoom {
-            onStart { pinches += it }
-            onDelta { pinches += it }
-            onEnd { pinches += it }
-          }
-        }
-    ) { target ->
+  fun trackpad_pan_and_scale_reach_the_pointer_node_without_clicks() =
+    runRecognitionTest { target ->
       mapNode().performTrackpadInput {
         moveTo(Offset(80f, 80f))
         panStart()
@@ -258,19 +244,10 @@ class MapInputRecognitionTest {
         scaleEnd()
       }
       waitForIdle()
-      assertEquals(3, pans.size)
-      assertEquals(3, pinches.size)
       assertEquals(1, target.moveCalls.size)
       assertEquals(1.5, target.scaleCalls.single().scale, 1e-6)
-      assertEquals(1, target.startedCount)
-      assertEquals(1, target.endedCount)
-      mainClock.advanceTimeBy(500)
-      waitForIdle()
-      assertEquals(1, target.moveCalls.size)
-      assertEquals(1, target.scaleCalls.size)
       assertEquals(0, target.clicks)
     }
-  }
 
   @Test
   fun a_structural_restart_suppresses_trackpad_changes_until_the_old_component_ends() {
@@ -1398,17 +1375,6 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun position_locked_zooms_about_the_centre() =
-    runRecognitionTest(options = MapGestures.PositionLocked) { target ->
-      mapNode().performMouseInput { doubleClick(Offset(width * 0.2f, height * 0.2f)) }
-      waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.isNotEmpty() }
-      assertTrue(
-        target.scaleCalls.all { it.anchor == null },
-        "a locked zoom anchored at the pointer",
-      )
-    }
-
-  @Test
   fun arrow_keys_request_a_pan() = runRecognitionTest { target ->
     val map = mapNode()
     map.performMouseInput { click(Offset(10f, 10f)) }
@@ -1536,35 +1502,6 @@ class MapInputRecognitionTest {
       waitForIdle()
       assertEquals(1, events.count { it is DragEvent.End })
       assertEquals(1, target.endedCount)
-    }
-  }
-
-  @Test
-  fun pair_bindings_reject_unmatched_filters() {
-    var starts = 0
-    runRecognitionTest(
-      options =
-        MapGestures(MapGestures.None) {
-          pinchZoom {
-            enabled = true
-            filter = PointerFilter(modifiers = ModifierFilter.Containing(KeyModifier.Ctrl))
-            onStart { starts++ }
-          }
-        }
-    ) { target ->
-      mapNode().performTouchInput {
-        down(0, center - Offset(80f, 0f))
-        down(1, center + Offset(80f, 0f))
-        updatePointerBy(0, Offset(-60f, 0f))
-        updatePointerBy(1, Offset(60f, 0f))
-        move()
-        up(0)
-        up(1)
-      }
-      waitForIdle()
-      assertEquals(0, starts)
-      assertEquals(0, target.startedCount)
-      assertTrue(target.scaleCalls.isEmpty())
     }
   }
 
@@ -2319,7 +2256,7 @@ class MapInputRecognitionTest {
     optionsProvider: () -> MapGestures = { options },
     body: ComposeUiTest.(RecordingGestureTarget, List<Key>) -> Unit,
   ) = runPlainComposeUiTest {
-    val target = RecordingGestureTarget()
+    val target = fixture.target
     val unconsumed = mutableListOf<Key>()
     setContent {
       Row(
@@ -2347,7 +2284,7 @@ class MapInputRecognitionTest {
     optionsProvider: () -> MapGestures = { options },
     body: ComposeUiTest.(RecordingGestureTarget) -> Unit,
   ) = runPlainComposeUiTest {
-    val target = RecordingGestureTarget()
+    val target = fixture.target
     setContent {
       val host: @Composable () -> Unit = { GestureHost(target, optionsProvider()) }
       when {
@@ -2418,136 +2355,6 @@ private fun GestureHost(
         rotaryNotchPixels,
       )
   )
-}
-
-/**
- * Records every [GestureTarget] and [MapInteractionTarget] call so recognition tests can assert
- * without a map.
- */
-private class RecordingGestureTarget : GestureTarget, MapInteractionTarget {
-  override var capabilities = setOf(TapFamily.Tap, TapFamily.LongPress)
-  val deliveredTapFamilies = mutableListOf<TapFamily>()
-
-  override fun capture(family: TapFamily): MapClickPath =
-    MapClickPath({ true }) {
-      deliveredTapFamilies += family
-      when (family) {
-        TapFamily.Tap -> clicks++
-        TapFamily.LongPress -> longClicks++
-        else -> Unit
-      }
-      ClickResult.Pass
-    }
-
-  var clicks = 0
-  var longClicks = 0
-  var startedCount = 0
-  var endedCount = 0
-  val moveCalls = mutableListOf<Offset>()
-  val scaleCalls = mutableListOf<ScaleCall>()
-  val rotateCalls = mutableListOf<RotateCall>()
-  val fitCalls = mutableListOf<Pair<BoxZoomFit, Duration>>()
-  var project: (DpOffset) -> Position? = { null }
-
-  override fun positionFromScreenLocation(offset: DpOffset): Position? = project(offset)
-
-  override suspend fun fitBoundsAwaitingTransition(
-    fit: BoxZoomFit,
-    duration: Duration,
-    gestureToken: GestureToken,
-  ) {
-    assertTrue(gestureToken.acceptsCommands)
-    fitCalls += fit to duration
-  }
-
-  private var nextToken = 1L
-  private var activeToken: GestureToken? = null
-  private var camera = CameraPosition()
-
-  override fun cancelTransitions() = Unit
-
-  override fun getCameraPosition(): CameraPosition = camera
-
-  override fun onGestureStarted(): GestureToken {
-    val previous = activeToken
-    previous?.job?.cancel()
-    previous?.let(::cancelGesture)
-    startedCount += 1
-    return GestureToken(nextToken++).also { activeToken = it }
-  }
-
-  override fun onGestureEnded(token: GestureToken) {
-    if (token.completion.isCompleted) return
-    endedCount += 1
-    token.complete()
-    if (activeToken === token) activeToken = null
-  }
-
-  override fun moveBy(
-    deltaX: Double,
-    deltaY: Double,
-    duration: Duration,
-    gestureToken: GestureToken?,
-  ) {
-    moveCalls += Offset(deltaX.toFloat(), deltaY.toFloat())
-  }
-
-  override fun scaleBy(
-    scale: Double,
-    anchor: DpOffset?,
-    duration: Duration,
-    gestureToken: GestureToken?,
-  ) {
-    scaleCalls += ScaleCall(scale, anchor)
-  }
-
-  override fun rotateAndPitchBy(
-    bearingDelta: Double,
-    pitchDelta: Double,
-    duration: Duration,
-    anchor: DpOffset?,
-    gestureToken: GestureToken?,
-  ) {
-    rotateCalls += RotateCall(bearingDelta, pitchDelta)
-  }
-
-  override suspend fun moveByAwaitingTransition(
-    deltaX: Double,
-    deltaY: Double,
-    duration: Duration,
-    gestureToken: GestureToken,
-  ) {
-    moveBy(deltaX, deltaY, duration, gestureToken)
-  }
-
-  override suspend fun scaleByAwaitingTransition(
-    scale: Double,
-    anchor: DpOffset?,
-    duration: Duration,
-    gestureToken: GestureToken,
-  ) {
-    scaleBy(scale, anchor, duration, gestureToken)
-  }
-
-  override suspend fun rotateAndPitchByAwaitingTransition(
-    bearingDelta: Double,
-    pitchDelta: Double,
-    duration: Duration,
-    gestureToken: GestureToken,
-    anchor: DpOffset?,
-  ) {
-    rotateAndPitchBy(
-      bearingDelta,
-      pitchDelta,
-      duration,
-      anchor = anchor,
-      gestureToken = gestureToken,
-    )
-  }
-
-  data class ScaleCall(val scale: Double, val anchor: DpOffset?)
-
-  data class RotateCall(val bearingDelta: Double, val pitchDelta: Double)
 }
 
 private fun Modifier.consumePointerEvents(

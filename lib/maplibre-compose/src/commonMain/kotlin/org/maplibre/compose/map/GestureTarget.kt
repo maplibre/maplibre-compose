@@ -10,7 +10,7 @@ import org.maplibre.spatialk.geojson.Position
 
 internal class GestureToken(
   val value: Long,
-  private val authority: GestureCameraAuthority? = null,
+  private val authority: GestureCameraAuthority,
   val attachment: MapAttachment? = null,
   val target: GestureTarget? = null,
 ) {
@@ -26,60 +26,23 @@ internal class GestureToken(
   internal var finishQueued = false
   internal val completion = CompletableDeferred<Unit>()
   val acceptsCommands: Boolean
-    get() =
-      authority?.accepts(this, enqueue = true) ?: (status == Status.Open && job?.isActive != false)
+    get() = authority.accepts(this, enqueue = true)
 
   val canExecute: Boolean
-    get() =
-      authority?.accepts(this, enqueue = false)
-        ?: ((status == Status.Open || status == Status.Sealed) && job?.isActive != false)
+    get() = authority.accepts(this, enqueue = false)
 
   val isCancelled: Boolean
-    get() = authority?.isCancelled(this) ?: (status == Status.Cancelled)
+    get() = authority.isCancelled(this)
 
-  fun registerJob(value: Job) {
-    if (authority != null) authority.registerJob(this, value)
-    else {
-      job = value
-      if (status == Status.Cancelled) value.cancel()
-    }
-  }
+  fun registerJob(value: Job) = authority.registerJob(this, value)
 
-  fun enqueue(action: () -> Unit): Boolean =
-    authority?.enqueue(this, action)
-      ?: run {
-        if (!acceptsCommands) return false
-        action()
-        true
-      }
+  fun enqueue(action: () -> Unit): Boolean = authority.enqueue(this, action)
 
-  fun finish(cancelled: Boolean, enqueue: () -> Unit) {
-    if (authority != null) authority.finish(this, cancelled, enqueue)
-    else {
-      if (status == Status.Completed) return
-      status =
-        if (cancelled) Status.Cancelled else if (status == Status.Open) Status.Sealed else status
-      if (!finishQueued) {
-        finishQueued = true
-        enqueue()
-      }
-    }
-  }
+  fun finish(cancelled: Boolean, enqueue: () -> Unit) = authority.finish(this, cancelled, enqueue)
 
-  fun cancel(): Boolean =
-    authority?.cancel(this)
-      ?: run {
-        status = Status.Cancelled
-        true
-      }
+  fun cancel(): Boolean = authority.cancel(this)
 
-  fun complete() {
-    if (authority != null) authority.complete(this)
-    else {
-      status = Status.Completed
-      completion.complete(Unit)
-    }
-  }
+  fun complete() = authority.complete(this)
 }
 
 /** What [mapInput] needs of a map. Distances are in logical pixels. */

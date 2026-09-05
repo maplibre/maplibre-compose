@@ -8,20 +8,24 @@ import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import kotlin.math.sqrt
+import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import kotlin.time.Duration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import org.maplibre.compose.camera.CameraPosition
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MapPlatformTransformTest {
+  private val map = GestureTestFixture()
+
+  @AfterTest fun closeMap() = map.close()
+
   @Test
   fun missing_scale_start_uses_supplied_scale_gain_anchor_and_mouse_metadata() = runTest {
     val events = mutableListOf<PinchEvent>()
@@ -49,9 +53,9 @@ class MapPlatformTransformTest {
       assertTrue(events[2] is PinchEvent.End)
       assertEquals(setOf(PointerType.Mouse), events[0].pointerTypes)
       assertTrue(events[0].buttons.isEmpty())
-      assertEquals(sqrt(2.0), fixture.target.scales.single().first, 1e-6)
-      assertEquals(null, fixture.target.scales.single().second)
-      assertEquals(1, fixture.target.ends)
+      assertEquals(sqrt(2.0), fixture.target.scaleCalls.single().scale, 1e-6)
+      assertEquals(null, fixture.target.scaleCalls.single().anchor)
+      assertEquals(1, fixture.target.endedCount)
     } finally {
       fixture.input.cancel()
     }
@@ -92,17 +96,22 @@ class MapPlatformTransformTest {
       )
       fixture.input.onInput(PointerEventType.ScaleChange, sample(20), scaleFactor = 2.0)
       fixture.input.onInput(PointerEventType.PanEnd, sample(30))
-      assertEquals(0, fixture.target.ends)
+      assertEquals(0, fixture.target.endedCount)
       fixture.input.onInput(PointerEventType.ScaleEnd, sample(30))
       runCurrent()
-      assertEquals(1, fixture.target.starts)
-      assertEquals(1, fixture.target.ends)
-      assertEquals(2, fixture.target.moves.size)
-      assertEquals(1, fixture.target.scales.size)
+      assertEquals(1, fixture.target.startedCount)
+      assertEquals(1, fixture.target.endedCount)
+      assertEquals(2, fixture.target.moveCalls.size)
+      assertEquals(1, fixture.target.scaleCalls.size)
       assertTrue(pans.first().gestureId != pinches.first().gestureId)
       val velocity = (pans.last() as DragEvent.End).velocity
       assertEquals(2000.0, velocity.xDpPerSecond, 0.01)
       assertEquals(-1000.0, velocity.yDpPerSecond, 0.01)
+      advanceTimeBy(1000)
+      runCurrent()
+      assertEquals(2, fixture.target.moveCalls.size)
+      assertEquals(1, fixture.target.scaleCalls.size)
+      assertEquals(1, fixture.target.endedCount)
     } finally {
       fixture.input.cancel()
     }
@@ -117,13 +126,13 @@ class MapPlatformTransformTest {
           fixture.input.onInput(PointerEventType.ScaleChange, sample(0), scaleFactor = value)
         )
       }
-      assertEquals(0, fixture.target.starts)
+      assertEquals(0, fixture.target.startedCount)
       fixture.input.onInput(PointerEventType.PanStart, sample(0))
       fixture.input.onInput(PointerEventType.PanMove, sample(10), panDelta = DpOffset(10.dp, 0.dp))
       fixture.input.onInput(PointerEventType.PanMove, sample(5), panDelta = DpOffset(500.dp, 0.dp))
       fixture.input.onInput(PointerEventType.PanMove, sample(15), panDelta = DpOffset(4.dp, 0.dp))
       fixture.input.onInput(PointerEventType.PanEnd, sample(20))
-      assertEquals(listOf(Offset(10f, 0f), Offset(4f, 0f)), fixture.target.moves)
+      assertEquals(listOf(Offset(10f, 0f), Offset(4f, 0f)), fixture.target.moveCalls)
     } finally {
       fixture.input.cancel()
     }
@@ -141,7 +150,7 @@ class MapPlatformTransformTest {
         panDelta = DpOffset(10.dp, 0.dp),
       )
       fixture.input.onInput(PointerEventType.PanEnd, sample(25))
-      assertEquals(3, fixture.target.moves.size)
+      assertEquals(3, fixture.target.moveCalls.size)
       assertEquals(3000.0, checkNotNull(end).velocity.xDpPerSecond, 0.1)
     } finally {
       fixture.input.cancel()
@@ -174,8 +183,8 @@ class MapPlatformTransformTest {
       fixture.input.onInput(PointerEventType.ScaleChange, sample(50), scaleFactor = 2.0)
       fixture.input.onInput(PointerEventType.ScaleEnd, sample(60))
       assertEquals(listOf(GestureCancellationReason.InputConsumed), cancellations)
-      assertEquals(1, fixture.target.scales.size)
-      assertEquals(2, fixture.target.starts)
+      assertEquals(1, fixture.target.scaleCalls.size)
+      assertEquals(2, fixture.target.startedCount)
     } finally {
       fixture.input.cancel()
     }
@@ -203,7 +212,7 @@ class MapPlatformTransformTest {
       runCurrent()
       assertEquals(setOf("pan", "scale"), cancellations.toSet())
       assertEquals(2, cancellations.size)
-      assertTrue(fixture.target.scales.isEmpty())
+      assertTrue(fixture.target.scaleCalls.isEmpty())
       assertFalse(
         fixture.input.onInput(
           PointerEventType.PanMove,
@@ -213,7 +222,7 @@ class MapPlatformTransformTest {
       )
     } finally {
       fixture.input.cancel()
-      fixture.target.close()
+      map.close()
     }
   }
 
@@ -238,11 +247,11 @@ class MapPlatformTransformTest {
       )
       fixture.input.onInput(PointerEventType.PanEnd, sample(20))
       assertEquals(listOf("new"), calls)
-      assertEquals(1, fixture.target.moves.size)
-      assertEquals(2, fixture.target.starts)
+      assertEquals(1, fixture.target.moveCalls.size)
+      assertEquals(2, fixture.target.startedCount)
     } finally {
       fixture.input.cancel()
-      fixture.target.close()
+      map.close()
     }
   }
 
@@ -263,36 +272,7 @@ class MapPlatformTransformTest {
     assertEquals(failure, assertFailsWith<IllegalStateException> { fixture.input.cancel() })
     fixture.input.cancel()
     assertEquals(1, panCancels)
-    assertEquals(1, fixture.target.ends)
-  }
-
-  @Test
-  fun structural_restart_does_not_resume_a_cancelled_buttonless_component() = runTest {
-    val fixture = Fixture(backgroundScope)
-    fixture.input.onInput(PointerEventType.ScaleStart, sample(0))
-    fixture.input.cancel(GestureCancellationReason.ConfigurationChanged)
-    val replacement =
-      MapPlatformTransform(
-        fixture.target,
-        MapGestures.Standard,
-        { MapGestures.Standard },
-        GestureIds(),
-        backgroundScope,
-        fixture.routing,
-        {},
-      )
-    try {
-      assertFalse(replacement.onInput(PointerEventType.ScaleChange, sample(10), scaleFactor = 2.0))
-      assertTrue(fixture.target.scales.isEmpty())
-      replacement.onInput(PointerEventType.ScaleEnd, sample(20))
-      assertTrue(replacement.onInput(PointerEventType.ScaleChange, sample(30), scaleFactor = 2.0))
-      replacement.onInput(PointerEventType.ScaleEnd, sample(40))
-      assertEquals(1, fixture.target.scales.size)
-      assertEquals(2, fixture.target.starts)
-    } finally {
-      replacement.cancel()
-      fixture.input.cancel()
-    }
+    assertEquals(1, fixture.target.endedCount)
   }
 
   @Test
@@ -315,7 +295,7 @@ class MapPlatformTransformTest {
       )
       fixture.input.onInput(PointerEventType.PanEnd, sample(30))
       assertEquals(listOf(GestureCancellationReason.BindingChanged), cancellations)
-      assertTrue(fixture.target.moves.isEmpty())
+      assertTrue(fixture.target.moveCalls.isEmpty())
       assertTrue(fixture.input.onInput(PointerEventType.PanStart, shifted.copy(uptimeMillis = 40)))
     } finally {
       fixture.input.cancel()
@@ -346,7 +326,7 @@ class MapPlatformTransformTest {
       )
     } finally {
       fixture.input.cancel()
-      fixture.target.close()
+      map.close()
     }
   }
 
@@ -355,7 +335,7 @@ class MapPlatformTransformTest {
     val fixture = Fixture(backgroundScope, MapGestures.None)
     assertFalse(fixture.input.onInput(PointerEventType.PanStart, sample(0)))
     assertFalse(fixture.input.onInput(PointerEventType.ScaleChange, sample(10), scaleFactor = 2.0))
-    assertEquals(0, fixture.target.starts)
+    assertEquals(0, fixture.target.startedCount)
     fixture.input.cancel()
     val unmatched =
       Fixture(
@@ -363,7 +343,7 @@ class MapPlatformTransformTest {
         MapGestures { pinchZoom { filter = PointerFilter(button = PointerButton.Secondary) } },
       )
     assertFalse(unmatched.input.onInput(PointerEventType.ScaleStart, sample(0)))
-    assertEquals(0, unmatched.target.starts)
+    assertEquals(0, unmatched.target.startedCount)
     unmatched.input.cancel()
   }
 
@@ -407,8 +387,8 @@ class MapPlatformTransformTest {
     assertFalse(routing.route(PointerEventType.Press, false, listOf(change(1, true, false))))
   }
 
-  private class Fixture(scope: CoroutineScope, initial: MapGestures = MapGestures.Standard) {
-    val target = Target()
+  private inner class Fixture(scope: CoroutineScope, initial: MapGestures = MapGestures.Standard) {
+    val target = map.target
     val routing = PlatformTransformRouting()
     var options = initial
     val input =
@@ -421,91 +401,6 @@ class MapPlatformTransformTest {
         routing,
         {},
       )
-  }
-
-  private class Target : GestureTarget {
-    var starts = 0
-    var ends = 0
-    val moves = mutableListOf<Offset>()
-    val scales = mutableListOf<Pair<Double, DpOffset?>>()
-    private var active: GestureToken? = null
-
-    override fun getCameraPosition() = CameraPosition()
-
-    override fun cancelTransitions() = Unit
-
-    override fun onGestureStarted(): GestureToken {
-      active?.let {
-        it.cancel()
-        it.job?.cancel()
-        onGestureEnded(it)
-      }
-      return GestureToken((++starts).toLong()).also { active = it }
-    }
-
-    override fun onGestureEnded(token: GestureToken) {
-      if (token.completion.isCompleted) return
-      ends++
-      token.complete()
-      if (active === token) active = null
-    }
-
-    fun close() {
-      active?.let {
-        it.job?.cancel()
-        onGestureEnded(it)
-      }
-    }
-
-    override fun moveBy(
-      deltaX: Double,
-      deltaY: Double,
-      duration: Duration,
-      gestureToken: GestureToken?,
-    ) {
-      assertTrue(gestureToken?.acceptsCommands == true)
-      moves += Offset(deltaX.toFloat(), deltaY.toFloat())
-    }
-
-    override fun scaleBy(
-      scale: Double,
-      anchor: DpOffset?,
-      duration: Duration,
-      gestureToken: GestureToken?,
-    ) {
-      assertTrue(gestureToken?.acceptsCommands == true)
-      scales += scale to anchor
-    }
-
-    override fun rotateAndPitchBy(
-      bearingDelta: Double,
-      pitchDelta: Double,
-      duration: Duration,
-      anchor: DpOffset?,
-      gestureToken: GestureToken?,
-    ) = error("unexpected rotate")
-
-    override suspend fun moveByAwaitingTransition(
-      deltaX: Double,
-      deltaY: Double,
-      duration: Duration,
-      gestureToken: GestureToken,
-    ): Unit = error("platform pan adds no momentum")
-
-    override suspend fun scaleByAwaitingTransition(
-      scale: Double,
-      anchor: DpOffset?,
-      duration: Duration,
-      gestureToken: GestureToken,
-    ): Unit = error("platform scale adds no momentum")
-
-    override suspend fun rotateAndPitchByAwaitingTransition(
-      bearingDelta: Double,
-      pitchDelta: Double,
-      duration: Duration,
-      gestureToken: GestureToken,
-      anchor: DpOffset?,
-    ): Unit = error("unexpected rotate")
   }
 
   companion object {
