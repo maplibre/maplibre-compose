@@ -4,6 +4,14 @@ on:
   push:
     branches: [main]
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+      - converted_to_draft
+      - labeled
+      - unlabeled
   workflow_dispatch:
     inputs:
       secrets:
@@ -21,7 +29,23 @@ env:
   CI_SECRETS: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository) || (github.event_name == 'workflow_dispatch' && github.event.inputs.secrets != 'false') }}
 
 jobs:
+  plan:
+    timeout-minutes: 5
+    runs-on: ubuntu-slim
+    outputs:
+      tier: ${{ steps.plan.outputs.tier }}
+      desktop: ${{ steps.plan.outputs.desktop }}
+      expected: ${{ steps.plan.outputs.expected }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: plan
+        # Planning needs only the runner Python standard library.
+        run: python3 .mise/tasks/ci/plan
+
   hygiene:
+    needs: plan
     timeout-minutes: 25
     runs-on: ubuntu-24.04
     permissions:
@@ -67,6 +91,7 @@ jobs:
         if: steps.apply-fix.outputs.committed != 'true'
 
   android:
+    needs: plan
     strategy:
       fail-fast: false
       matrix:
@@ -162,6 +187,8 @@ jobs:
             demo-app/wearos/build/outputs/apk/release/wearos-release.apk
 
   ios:
+    needs: plan
+    if: needs.plan.outputs.tier != 'draft'
     timeout-minutes: 45
     runs-on: macos-26
     steps:
@@ -198,6 +225,7 @@ jobs:
             **/build/test-results
 
   ios-device:
+    needs: plan
     timeout-minutes: 45
     runs-on: macos-26
     steps:
@@ -210,6 +238,7 @@ jobs:
       - run: mise run build:ios:device
 
   js:
+    needs: plan
     timeout-minutes: 20
     runs-on: ubuntu-24.04
     steps:
@@ -244,40 +273,10 @@ jobs:
             **/build/test-results
 
   desktop:
+    needs: plan
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - runner: macos-26
-            save_toolchains: "false"
-            artifact_type: dmg
-            artifact_glob: "*"
-            artifact_name: demo-app-desktop-macos-arm64
-            test_variant: desktop-macos-arm64
-          - runner: ubuntu-24.04
-            save_toolchains: "false"
-            artifact_type: appimage
-            artifact_glob: "*.tar"
-            artifact_name: demo-app-desktop-linux-x64
-            test_variant: desktop-linux-x64
-          - runner: ubuntu-24.04-arm
-            save_toolchains: "true"
-            artifact_type: appimage
-            artifact_glob: "*.tar"
-            artifact_name: demo-app-desktop-linux-arm64
-            test_variant: desktop-linux-arm64
-          - runner: windows-2022
-            save_toolchains: "true"
-            artifact_type: msi
-            artifact_glob: "*"
-            artifact_name: demo-app-desktop-windows-x64
-            test_variant: desktop-windows-x64
-          - runner: windows-11-arm
-            save_toolchains: "true"
-            artifact_type: msi
-            artifact_glob: "*"
-            artifact_name: demo-app-desktop-windows-arm64
-            test_variant: desktop-windows-arm64
+      matrix: ${{ fromJSON(needs.plan.outputs.desktop) }}
     timeout-minutes: 45
     runs-on: ${{ matrix.runner }}
     steps:
@@ -323,6 +322,7 @@ jobs:
             "demo-app/desktop/build/compose/binaries/main/${{ matrix.artifact_type }}/${{ matrix.artifact_glob }}"
 
   docs:
+    needs: plan
     timeout-minutes: 30
     runs-on: ubuntu-24.04
     environment:
@@ -389,6 +389,7 @@ jobs:
   all-good:
     if: ${{ always() }}
     needs:
+      - plan
       - hygiene
       - android
       - ios
@@ -399,14 +400,18 @@ jobs:
     timeout-minutes: 5
     runs-on: ubuntu-24.04
     steps:
-      - name: Check that every needed job succeeded
+      - name: Check that every selected job succeeded
         env:
-          RESULTS: ${{ join(needs.*.result, ', ') }}
-          ANY_BAD: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+          EXPECTED: ${{ needs.plan.outputs.expected }}
+          RESULTS: ${{ toJSON(needs) }}
         run: |
           echo "needed job results: ${RESULTS}"
-          if [ "${ANY_BAD}" = true ]; then
-            echo "a needed job did not succeed"
-            exit 1
-          fi
-          echo 'All checks passed!'
+          jq --exit-status --null-input \
+            --argjson expected "$EXPECTED" \
+            --argjson results "$RESULTS" '
+              ($expected | length > 0)
+              and all($results[]; .result == "success" or .result == "skipped")
+              and (($expected | keys) == ($results | keys))
+              and all($expected | keys[]; $results[.].result == $expected[.])
+            '
+          echo 'All selected checks passed!'
