@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
@@ -67,11 +68,15 @@ internal class MlnFfiResourceProvider(
     get() = getLogger()
 
   private val accepting = AtomicBoolean(true)
+  private val userJob = SupervisorJob(userCoroutineScope?.coroutineContext?.get(Job))
   private val userScope =
-    userCoroutineScope
-      ?: CoroutineScope(
-        SupervisorJob() + Dispatchers.Default + CoroutineName("maplibre-compose-resource-provider")
+    if (userCoroutineScope != null) {
+      CoroutineScope(userCoroutineScope.coroutineContext + userJob)
+    } else {
+      CoroutineScope(
+        userJob + Dispatchers.Default + CoroutineName("maplibre-compose-resource-provider")
       )
+    }
 
   override fun handle(
     request: ResourceRequest,
@@ -218,7 +223,7 @@ internal class MlnFfiResourceProvider(
    */
   override fun close() {
     accepting.store(false)
-    userScope.cancel()
+    userJob.cancel()
   }
 
   private suspend fun loadWhileRequestOpen(

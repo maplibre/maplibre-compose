@@ -4,6 +4,7 @@ import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
@@ -138,6 +139,9 @@ internal constructor(
     } else {
       LocationBackendAvailability.Unsupported
     }
+
+  private val job = SupervisorJob(coroutineScope.coroutineContext[Job])
+  private val scope = CoroutineScope(coroutineScope.coroutineContext + job)
   private val mutableStatus =
     MutableStateFlow<LocationPermission>(LocationPermission.NotGranted(canRequest = null))
 
@@ -157,7 +161,7 @@ internal constructor(
     ) {
       return
     }
-    coroutineScope.launch {
+    scope.launch {
       try {
         mutableStatus.value =
           when (portal.requestPermission()) {
@@ -175,7 +179,7 @@ internal constructor(
 
   /** Cancels pending requests and closes the portal. */
   override fun close() {
-    coroutineScope.cancel()
+    job.cancel()
     portal.close()
   }
 }
