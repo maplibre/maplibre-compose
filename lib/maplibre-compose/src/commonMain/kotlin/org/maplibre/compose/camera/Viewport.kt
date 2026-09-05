@@ -14,7 +14,7 @@ import org.maplibre.spatialk.geojson.BoundingBox
  * same rendered transform and are consistent with each other.
  */
 @Immutable
-public class Viewport
+public data class Viewport
 internal constructor(
   /** The size of the map composable this viewport was computed for. */
   public val size: DpSize,
