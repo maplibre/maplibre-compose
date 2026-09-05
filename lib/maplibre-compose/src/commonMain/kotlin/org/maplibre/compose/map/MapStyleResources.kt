@@ -71,8 +71,8 @@ public class StyleTransition internal constructor(private val style: MapStyleSta
   /**
    * Returns the loaded style's transition, or null while no style is ready.
    *
-   * Reports the timing that [set] last declared for this loaded style, else the timing the style
-   * holds. The engine holds a set transition under the animator duration scale.
+   * The reported timing is the engine's: a transition that [set] wrote is under the animator
+   * duration scale of the time it was written.
    */
   public fun get(): TransitionOptions? = style.transitionOptions()
 

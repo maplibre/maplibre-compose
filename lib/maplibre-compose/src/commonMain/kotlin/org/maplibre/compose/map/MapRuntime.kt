@@ -56,7 +56,6 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.layers.LayerHandle
 import org.maplibre.compose.layers.layerHandle
-import org.maplibre.compose.layers.paintTransition
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.offline.OfflineManager
 import org.maplibre.compose.offline.RuntimeBoundOfflineManager
@@ -171,8 +170,6 @@ internal interface MapStyleStateOwner {
 
   fun desiredSourceDefinition(id: String): org.maplibre.compose.style.SourceDefinition?
 
-  fun desiredLayerDefinition(id: String): org.maplibre.compose.style.LayerDefinition?
-
   fun addStyleSource(source: Source): SourceHandle
 
   fun removeStyleSource(id: String): Boolean
@@ -198,12 +195,6 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   private val layerIdentities = AtomicReference<Map<String, StyleResourceIdentity>>(emptyMap())
   private var sourcesState: Map<String, SourceHandle> by mutableStateOf(emptyMap())
   private var layersState: Map<String, LayerHandle> by mutableStateOf(emptyMap())
-
-  // The transitions set through the typed API this generation, in declared timing. The engine
-  // holds them under the animator duration scale, so the getters read these instead.
-  private var declaredTransition: TransitionOptions? = null
-  private val declaredLayerTransitions =
-    mutableMapOf<String, MutableMap<String, TransitionOptions?>>()
   private var baseStyleState: BaseStyle by
     mutableStateOf(initialBaseStyle, structuralEqualityPolicy())
 
@@ -237,15 +228,10 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   /** Projection of the current loaded-style generation. */
   public val projection: StyleProjection = StyleProjection(this)
 
-  internal fun transitionOptions(): TransitionOptions? = readStyle {
-    declaredTransition ?: it.transition()
-  }
+  internal fun transitionOptions(): TransitionOptions? = readStyle { it.transition() }
 
   internal fun setTransitionOptions(options: TransitionOptions) {
-    mutateStyle("the transition") {
-      it.setTransition(options.scaledBy(it.animatorDurationScale))
-      declaredTransition = options
-    }
+    mutateStyle("the transition") { it.setTransition(options.scaledBy(it.animatorDurationScale)) }
   }
 
   internal fun placementTransitions(): Boolean? = readStyle { it.placementTransitions() }
@@ -336,21 +322,18 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
 
   internal fun updateLoadedStyle(style: StyleBinding?) {
     loadedStyle.store(style)
-    resetResources()
-  }
-
-  internal fun invalidateLoadedStyle() {
-    loadedStyle.exchange(null)?.invalidate()
-    resetResources()
-  }
-
-  private fun resetResources() {
     sourceIdentities.store(emptyMap())
     layerIdentities.store(emptyMap())
     sourcesState = emptyMap()
     layersState = emptyMap()
-    declaredTransition = null
-    declaredLayerTransitions.clear()
+  }
+
+  internal fun invalidateLoadedStyle() {
+    loadedStyle.exchange(null)?.invalidate()
+    sourceIdentities.store(emptyMap())
+    layerIdentities.store(emptyMap())
+    sourcesState = emptyMap()
+    layersState = emptyMap()
   }
 
   internal fun isCurrentLoadedStyle(style: StyleBinding): Boolean = loadedStyle.load() === style
@@ -383,7 +366,6 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   internal fun readLayers(current: StyleBinding): Map<String, LayerHandle> {
     val ids = current.getLayers().mapTo(linkedSetOf()) { it.id }
     retainResourceIdentities(layerIdentities, ids)
-    declaredLayerTransitions.keys.retainAll(ids)
     return ids
       .mapNotNull { id ->
         val identity = layerIdentity(id)
@@ -392,10 +374,6 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
             id,
             isCurrentResource = { layerIdentities.load()[id] === identity },
             operations = operationGuard(current),
-            declaredTransitions = declaredLayerTransitions.getOrPut(id) { mutableMapOf() },
-            desiredTransition = { property ->
-              owner?.desiredLayerDefinition(id)?.paintTransition(property)
-            },
           )
           ?.let { id to it }
       }
@@ -408,7 +386,6 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
 
   internal fun invalidateLayerIdentities(ids: Set<String>) {
     removeResourceIdentities(layerIdentities, ids)
-    declaredLayerTransitions.keys.removeAll(ids)
   }
 
   internal fun invalidateStructurallyReplacedResources(
@@ -730,8 +707,6 @@ internal constructor(
 
           override fun desiredSourceDefinition(id: String) =
             this@MapState.desiredSourceDefinition(id)
-
-          override fun desiredLayerDefinition(id: String) = this@MapState.desiredLayerDefinition(id)
 
           override fun addStyleSource(source: Source) = this@MapState.addStyleSource(source)
 
@@ -1123,11 +1098,6 @@ internal constructor(
   internal fun desiredSourceDefinition(id: String): org.maplibre.compose.style.SourceDefinition? =
     lifecycle.serialized {
       desiredStyleRevision.sources.firstOrNull { it.id == id } ?: imperativeSources[id]?.definition
-    }
-
-  internal fun desiredLayerDefinition(id: String): org.maplibre.compose.style.LayerDefinition? =
-    lifecycle.serialized {
-      desiredStyleRevision.layers.firstOrNull { it.definition.id == id }?.definition
     }
 
   internal fun addStyleSource(source: Source): SourceHandle {

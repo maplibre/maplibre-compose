@@ -68,8 +68,6 @@ import org.maplibre.compose.style.Sky
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleImageDefinition
 import org.maplibre.compose.style.TransitionOptions
-import org.maplibre.compose.style.scaledBy
-import org.maplibre.compose.style.toTransitionOptions
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
@@ -845,34 +843,28 @@ class MapPresentationTest {
   }
 
   /**
-   * The engine holds a set transition under the animator duration scale, the getter reports the
-   * declared timing, and a transition the style JSON holds is left alone.
+   * A set transition reaches the engine under the animator duration scale, the getter reports what
+   * the engine holds, and a transition the style JSON holds is left alone.
    */
   @Test
-  fun a_set_transition_is_scaled_for_the_engine_and_reported_as_declared() {
+  fun a_set_transition_is_scaled_for_the_engine() {
     val fixture = presentationFixture()
-    val binding = RecordingStyleBinding(animatorDurationScaleState = mutableStateOf(0.5f))
+    val binding =
+      RecordingStyleBinding(
+        layers = listOf(BackgroundLayer("background")),
+        animatorDurationScaleState = mutableStateOf(0.5f),
+      )
     val transition = fixture.state.style.transition
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
     fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
 
-    assertEquals(TransitionOptions(), binding.transition)
     assertEquals(TransitionOptions(), transition.get())
 
     val options = TransitionOptions(duration = 1.seconds, delay = 20.milliseconds)
+    val scaled = TransitionOptions(duration = 500.milliseconds, delay = 10.milliseconds)
     transition.set(options)
-    assertEquals(
-      TransitionOptions(duration = 500.milliseconds, delay = 10.milliseconds),
-      binding.transition,
-    )
-    assertEquals(options, transition.get())
-
-    transition.set(assertNotNull(transition.get()).copy(delay = 40.milliseconds))
-    assertEquals(
-      TransitionOptions(duration = 500.milliseconds, delay = 20.milliseconds),
-      binding.transition,
-    )
-    assertEquals(options.copy(delay = 40.milliseconds), transition.get())
+    assertEquals(scaled, binding.transition)
+    assertEquals(scaled, transition.get())
 
     fixture.state.style.light.set(Light(colorTransition = options))
     // Compared as numbers because Kotlin/JS prints the double 500.0 as 500.
@@ -882,6 +874,10 @@ class MapPresentationTest {
         .jsonObject
         .mapValues { (_, value) -> value.jsonPrimitive.double },
     )
+
+    val handle = assertNotNull(fixture.state.style.layers["background"])
+    handle.setPaintTransition("background-color", options)
+    assertEquals(scaled, handle.getPaintTransition("background-color"))
     fixture.close()
   }
 
@@ -894,72 +890,10 @@ class MapPresentationTest {
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
     fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
 
-    val options = TransitionOptions(duration = 1.seconds, delay = 20.milliseconds)
-    transition.set(options)
+    transition.set(TransitionOptions(duration = 1.seconds, delay = 20.milliseconds))
     assertEquals(
       TransitionOptions(duration = Duration.ZERO, delay = Duration.ZERO),
       binding.transition,
-    )
-    assertEquals(options, transition.get())
-    fixture.close()
-  }
-
-  /**
-   * A layer handle reports the timing that was declared, whether through the handle or through a
-   * layer composable, and falls back to what the style holds.
-   */
-  @Test
-  fun a_layer_handle_reports_declared_transition_timing() {
-    val fixture = presentationFixture()
-    val declared = TransitionOptions(duration = 700.milliseconds, delay = 50.milliseconds)
-    val composed = BackgroundLayer("composed").apply { setBackgroundColorTransition(declared) }
-    fixture.state.desiredStyleRevision =
-      DesiredStyleRevision(
-        sources = emptyList(),
-        layers = listOf(DesiredStyleLayer(composed.definition(), Anchor.Top, null, null)),
-        images = emptyList(),
-        animatorDurationScale = 0.5f,
-      )
-    // The fake engine holds the composed layer as a reconciler under the scale would have written
-    // it.
-    val engineHeld =
-      BackgroundLayer("composed").apply {
-        setBackgroundColorTransition(declared.scaledBy(0.5f))
-      }
-    val base = BackgroundLayer("base").apply { setBackgroundColorTransition(declared) }
-    val binding =
-      RecordingStyleBinding(
-        layers = listOf(engineHeld, base),
-        animatorDurationScaleState = mutableStateOf(0.5f),
-      )
-    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
-    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
-
-    val composedHandle = assertNotNull(fixture.state.style.layers["composed"])
-    assertEquals(declared, composedHandle.getPaintTransition("background-color"))
-    assertEquals(
-      declared.scaledBy(0.5f),
-      assertNotNull(composedHandle.getProperty("background-color-transition"))
-        .toTransitionOptions(),
-    )
-
-    val baseHandle = assertNotNull(fixture.state.style.layers["base"])
-    assertEquals(declared, baseHandle.getPaintTransition("background-color"))
-
-    val set = TransitionOptions(duration = 300.milliseconds)
-    baseHandle.setPaintTransition("background-color", set)
-    assertEquals(set, baseHandle.getPaintTransition("background-color"))
-    assertEquals(
-      set.scaledBy(0.5f),
-      assertNotNull(baseHandle.getProperty("background-color-transition")).toTransitionOptions(),
-    )
-    baseHandle.setPaintTransition("background-color", null)
-    assertNull(baseHandle.getPaintTransition("background-color"))
-
-    // A fresh handle for the same generation remembers what was set.
-    fixture.state.style.refreshResources()
-    assertNull(
-      assertNotNull(fixture.state.style.layers["base"]).getPaintTransition("background-color")
     )
     fixture.close()
   }
