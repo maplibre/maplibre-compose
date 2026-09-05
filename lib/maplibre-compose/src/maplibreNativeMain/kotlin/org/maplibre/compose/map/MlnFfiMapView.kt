@@ -177,8 +177,6 @@ internal fun MlnFfiMapView(
   // MapLibre renders black until a style loads.
   val revealSurface = session.canPresentFrames
 
-  // Before the first render target attaches, gestures would project through the bootstrap 1x1
-  // viewport and jump the camera.
   val inputModifier =
     modifier.mapInput(
       session,
@@ -190,7 +188,6 @@ internal fun MlnFfiMapView(
       inputEnvironment,
       continuation,
       rotaryNotchPixels,
-      gesturesEnabled = revealSurface,
     )
 
   Box {

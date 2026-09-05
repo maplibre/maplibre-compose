@@ -454,21 +454,6 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun keys_reach_no_camera_while_gestures_are_disabled() =
-    runFocusTest(gesturesEnabled = false) { target, unconsumed ->
-      onNodeWithTag(BEFORE_MAP_TAG).requestFocus()
-      mapNode().performKeyInput { pressKey(Key.Tab) }
-      mapNode().performKeyInput { pressKey(Key.Enter) }
-      mapNode().performKeyInput { pressKey(Key.DirectionRight) }
-      mapNode().performKeyInput { pressKey(Key.Plus) }
-      waitForIdle()
-
-      mapNode().assertIsFocused()
-      assertEquals(0, target.moveCalls.size, "a direction key panned a map with no viewport")
-      assertEquals(0, target.scaleCalls.size, "a zoom key scaled a map with no viewport")
-    }
-
-  @Test
   fun a_map_with_every_keyboard_gesture_disabled_takes_no_tab_stop() =
     runFocusTest(
       options =
@@ -512,7 +497,6 @@ class MapInputRecognitionTest {
    */
   private fun runFocusTest(
     options: GestureOptions = GestureOptions.Standard,
-    gesturesEnabled: Boolean = true,
     rotaryNotchPixels: Float = 0f,
     body: ComposeUiTest.(RecordingGestureTarget, List<Key>) -> Unit,
   ) = runPlainComposeUiTest {
@@ -527,7 +511,7 @@ class MapInputRecognitionTest {
       ) {
         Box(Modifier.size(40.dp).testTag(BEFORE_MAP_TAG).focusable())
         Box(Modifier.size(200.dp)) {
-          GestureHost(target, options, gesturesEnabled, rotaryNotchPixels)
+          GestureHost(target, options, rotaryNotchPixels)
         }
         Box(Modifier.size(40.dp).testTag(AFTER_MAP_TAG).focusable())
       }
@@ -581,7 +565,6 @@ class MapInputRecognitionTest {
 private fun GestureHost(
   target: RecordingGestureTarget,
   options: GestureOptions,
-  gesturesEnabled: Boolean = true,
   rotaryNotchPixels: Float = 0f,
 ) {
   val density = LocalDensity.current
@@ -610,7 +593,6 @@ private fun GestureHost(
         environment,
         continuation,
         rotaryNotchPixels,
-        gesturesEnabled,
       )
   )
 }

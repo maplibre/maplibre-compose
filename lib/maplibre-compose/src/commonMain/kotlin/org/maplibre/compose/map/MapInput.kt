@@ -68,10 +68,9 @@ import org.maplibre.compose.style.systemAnimatorDurationScale
  * Neither backend owns platform gestures: MapLibre Native declines to, and GL JS is composited
  * under Compose where its own DOM handlers never fire.
  *
- * The semantics and the focus target stay installed while [gesturesEnabled] is false, so a map that
- * is still loading its style is reachable and identified. No gesture reaches the camera until it is
- * true. [rotaryNotchPixels] is the scroll distance of one rotary detent, from [rotaryNotchPixels];
- * zero disables rotary zoom.
+ * The map is a focus target while a key or rotary binding needs one, and the key handler exists
+ * only while a keyboard gesture is enabled. [rotaryNotchPixels] is the scroll distance of one
+ * rotary detent, from [rotaryNotchPixels]; zero disables rotary zoom.
  */
 internal fun Modifier.mapInput(
   target: GestureTarget,
@@ -83,36 +82,28 @@ internal fun Modifier.mapInput(
   environment: MapInputEnvironment,
   continuation: GestureContinuation,
   rotaryNotchPixels: Float,
-  gesturesEnabled: Boolean = true,
 ): Modifier {
   // The semantics block observes no snapshot state, so engagement is read here.
   val engaged = focus.isEngaged
-  val focused =
-    this.semantics {
-        contentDescription = environment.contentDescription
-        stateDescription = if (engaged) environment.engaged else environment.notEngaged
-      }
-      .keyboardInput(target, options, focus, continuation, gesturesEnabled)
-      // Rotary events reach the focused node, so this precedes the focus target in the chain.
-      .rotaryZoom(target, options, if (gesturesEnabled) rotaryNotchPixels else 0f, continuation)
-      .onFocusChanged { focus.onFocusChanged(it.isFocused) }
-      .focusRequester(focusRequester)
-      .indication(focus.indicationInteractions, environment.indication)
-      .focusable(
-        enabled = options.hasKeyboardGesture || options.hasRotaryGesture(rotaryNotchPixels)
-      )
-  if (!gesturesEnabled) return focused
-  return focused
+  val keys = options.hasKeyboardGesture
+  val rotary = options.isScrollZoomEnabled && rotaryNotchPixels > 0f
+  return this.semantics {
+      contentDescription = environment.contentDescription
+      stateDescription = if (engaged) environment.engaged else environment.notEngaged
+    }
+    // Key and rotary events reach the focused node, so these precede the focus target in the chain.
+    .then(if (keys) Modifier.keyboardInput(target, options, focus, continuation) else Modifier)
+    .rotaryZoom(target, options, rotaryNotchPixels, continuation)
+    .onFocusChanged { focus.onFocusChanged(it.isFocused) }
+    .focusRequester(focusRequester)
+    .indication(focus.indicationInteractions, environment.indication)
+    .focusable(enabled = keys || rotary)
     .pointerGestures(target, clicks, options, density, focusRequester, focus, continuation)
     .scrollZoom(target, options, density, continuation)
 }
 
 private val GestureOptions.hasKeyboardGesture: Boolean
   get() = isKeyboardPanEnabled || isKeyboardZoomEnabled || isKeyboardRotateTiltEnabled
-
-/** Rotary events reach only a focused node, so a rotary gesture keeps the map in traversal. */
-private fun GestureOptions.hasRotaryGesture(notchPixels: Float): Boolean =
-  isScrollZoomEnabled && notchPixels > 0f
 
 /** The composition locals that one [mapInput] node reads, resolved where the node is composed. */
 internal class MapInputEnvironment(
@@ -209,7 +200,6 @@ private fun Modifier.keyboardInput(
   options: GestureOptions,
   focus: MapInputFocus,
   continuation: GestureContinuation,
-  gesturesEnabled: Boolean,
 ): Modifier = onKeyEvent { event ->
   // A host that acts on the release of a key the map claimed, such as a dialog closing on Escape,
   // must not see that release.
@@ -217,15 +207,14 @@ private fun Modifier.keyboardInput(
   if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
   val consumed =
     when (event.key) {
-      // A map with no key binding has nothing to engage, and must not claim Enter or Back.
       Key.Enter,
       Key.NumPadEnter,
-      Key.DirectionCenter -> options.hasKeyboardGesture && focus.engage(byKey = true)
+      Key.DirectionCenter -> focus.engage(byKey = true)
       Key.Escape -> focus.disengage()
       // Compose delivers Back to the focused node before the activity, so a map that consumed
       // Back after a touch would break back navigation on every Android phone.
       Key.Back -> focus.consumesBack && focus.disengage()
-      else -> gesturesEnabled && focus.isEngaged && target.bindKey(event, options, continuation)
+      else -> focus.isEngaged && target.bindKey(event, options, continuation)
     }
   if (consumed) focus.claimedKeys.add(event.key)
   consumed
