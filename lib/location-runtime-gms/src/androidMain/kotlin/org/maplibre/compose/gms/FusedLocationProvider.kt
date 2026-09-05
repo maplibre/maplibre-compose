@@ -32,29 +32,17 @@ import org.maplibre.compose.location.asMapLibreLocationUpdate
 import org.maplibre.spatialk.units.extensions.inMeters
 
 /**
- * A location provider backed by Google Play Services fused location.
+ * Foreground fused location from Google Play Services.
  *
- * Each collection requests fused updates, emits the last location when one exists, and removes its
- * callback when collection ends.
+ * Delivers the last known location when available, then applies the requested accuracy, interval,
+ * and minimum distance. [LocationAccuracy.Lowest] receives passive updates.
  *
- * [LocationAccuracy.BestForNavigation] and [LocationAccuracy.High] map to
- * [`Priority.PRIORITY_HIGH_ACCURACY`](https://developers.google.com/android/reference/com/google/android/gms/location/Priority#PRIORITY_HIGH_ACCURACY),
- * [LocationAccuracy.Balanced] maps to
- * [`Priority.PRIORITY_BALANCED_POWER_ACCURACY`](https://developers.google.com/android/reference/com/google/android/gms/location/Priority#PRIORITY_BALANCED_POWER_ACCURACY),
- * [LocationAccuracy.Low] maps to
- * [`Priority.PRIORITY_LOW_POWER`](https://developers.google.com/android/reference/com/google/android/gms/location/Priority#PRIORITY_LOW_POWER),
- * and [LocationAccuracy.Lowest] maps to
- * [`Priority.PRIORITY_PASSIVE`](https://developers.google.com/android/reference/com/google/android/gms/location/Priority#PRIORITY_PASSIVE).
+ * Unavailable locations report [LocationUnavailableReason.TemporarilyUnavailable]. Missing
+ * permission reports [LocationUnavailableReason.PermissionDenied]. Other exceptions propagate to
+ * the collector.
  *
- * [`LocationAvailability.isLocationAvailable`](https://developers.google.com/android/reference/com/google/android/gms/location/LocationAvailability#isLocationAvailable())
- * equal to `false` maps to [LocationUnavailableReason.TemporarilyUnavailable]. A
- * `SecurityException` maps to [LocationUnavailableReason.PermissionDenied]. Other exceptions escape
- * the flow, and the collector classifies them as [LocationUnavailableReason.UnexpectedFailure].
- *
- * The [Context] constructor delegates [permission] and [requestPermission] to an
- * [AndroidLocationProvider]. The [FusedLocationProviderClient] constructor keeps the default
- * [LocationProvider.permission], which is always granted, and its [updates] still surface a
- * `SecurityException` as [LocationUnavailableReason.PermissionDenied].
+ * The [Context] constructor handles permission requests. The [FusedLocationProviderClient]
+ * constructor reports permission as granted and requires the caller to manage authorization.
  */
 public class FusedLocationProvider
 internal constructor(

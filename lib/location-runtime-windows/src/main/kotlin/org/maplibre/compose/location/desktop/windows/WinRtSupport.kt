@@ -29,18 +29,7 @@ internal class ComPtr(private var segment: MemorySegment) : AutoCloseable {
       return segment
     }
 
-  fun queryInterface(iid: String): ComPtr =
-    Arena.ofConfined().use { arena ->
-      val output = arena.allocate(ADDRESS)
-      WinRt.callHresult(
-        value,
-        0,
-        FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS, ADDRESS),
-        WinRt.guid(iid, arena),
-        output,
-      )
-      ComPtr(output.get(ADDRESS, 0))
-    }
+  fun queryInterface(iid: String): ComPtr = WinRt.queryInterface(value, iid)
 
   override fun close() {
     if (!closed.compareAndSet(false, true)) return

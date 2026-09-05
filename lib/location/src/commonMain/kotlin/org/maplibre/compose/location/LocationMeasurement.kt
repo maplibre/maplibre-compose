@@ -10,9 +10,6 @@ import org.maplibre.spatialk.units.Rotation
 /**
  * One measured geographic location.
  *
- * [Position.altitude] is expressed in meters. [distancePerSecond] and [distancePerSecondAccuracy]
- * store the distance that corresponds to one second at the reported rate.
- *
  * @property position Geographic position, with an optional altitude in meters.
  * @property horizontalAccuracy Estimated horizontal error radius, or `null` when unknown.
  * @property altitudeAccuracy Estimated altitude error, or `null` when unknown or when [position]

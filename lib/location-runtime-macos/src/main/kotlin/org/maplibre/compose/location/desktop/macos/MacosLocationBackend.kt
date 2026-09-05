@@ -17,7 +17,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.location.DesktopLocationBackend
 import org.maplibre.compose.location.DesktopLocationProvider
-import org.maplibre.compose.location.LocationAccuracy
 import org.maplibre.compose.location.LocationAccuracyAuthorization
 import org.maplibre.compose.location.LocationBackendAvailability
 import org.maplibre.compose.location.LocationEvent
@@ -40,41 +39,16 @@ public class MacosLocationBackend : DesktopLocationBackend {
 }
 
 /**
- * A [LocationProvider] built on
- * [`CLLocationManager`](https://developer.apple.com/documentation/corelocation/cllocationmanager).
+ * Foreground location from macOS Core Location.
  *
- * [LocationProvider.permission] and [LocationProvider.requestPermission] delegate to a
- * [MacosLocationPermissionRequester] that shares the provider's Core Location client.
+ * The application's Info.plist must declare `NSLocationWhenInUseUsageDescription`. Applies the
+ * requested accuracy and minimum distance. [LocationRequest.minimumInterval] is ignored. See
+ * [MacosLocationPermissionRequester] for permission behavior.
  *
- * Each collection creates a
- * [`CLLocationManager`](https://developer.apple.com/documentation/corelocation/cllocationmanager)
- * on the AppKit main run loop, applies the request's accuracy and distance preferences, and stops
- * the manager when collection ends. Compose Desktop's `Dispatchers.Main` is the Swing
- * event-dispatch thread on the AWT host and does not pump that run loop, so Core Location work is
- * marshaled there explicitly. The process's app Info.plist must declare
- * `NSLocationWhenInUseUsageDescription`. [LocationRequest.minimumInterval] is ignored because Core
- * Location filters only by distance.
- *
- * [LocationAccuracy.BestForNavigation] maps to
- * [`kCLLocationAccuracyBestForNavigation`](https://developer.apple.com/documentation/corelocation/kcllocationaccuracybestfornavigation),
- * [LocationAccuracy.High] maps to
- * [`kCLLocationAccuracyBest`](https://developer.apple.com/documentation/corelocation/kcllocationaccuracybest),
- * [LocationAccuracy.Balanced] maps to
- * [`kCLLocationAccuracyHundredMeters`](https://developer.apple.com/documentation/corelocation/kcllocationaccuracyhundredmeters),
- * [LocationAccuracy.Low] maps to
- * [`kCLLocationAccuracyKilometer`](https://developer.apple.com/documentation/corelocation/kcllocationaccuracykilometer),
- * and [LocationAccuracy.Lowest] maps to
- * [`kCLLocationAccuracyReduced`](https://developer.apple.com/documentation/corelocation/kcllocationaccuracyreduced).
- *
- * [`kCLErrorDenied`](https://developer.apple.com/documentation/corelocation/clerror/denied) maps to
- * [LocationUnavailableReason.ServicesDisabled] when location services are disabled and to
- * [LocationUnavailableReason.PermissionDenied] otherwise.
- * [`kCLErrorPromptDeclined`](https://developer.apple.com/documentation/corelocation/clerror/promptdeclined)
- * also maps to [LocationUnavailableReason.PermissionDenied].
- * [`kCLErrorLocationUnknown`](https://developer.apple.com/documentation/corelocation/clerror/locationunknown)
- * and [`kCLErrorNetwork`](https://developer.apple.com/documentation/corelocation/clerror/network)
- * map to [LocationUnavailableReason.TemporarilyUnavailable]. Other Core Location errors map to
- * [LocationUnavailableReason.UnexpectedFailure].
+ * Disabled location services report [LocationUnavailableReason.ServicesDisabled]. Denied or
+ * declined permission reports [LocationUnavailableReason.PermissionDenied]. Network failures and
+ * unknown locations report [LocationUnavailableReason.TemporarilyUnavailable]. Other failures
+ * report [LocationUnavailableReason.UnexpectedFailure].
  */
 public class MacosLocationProvider
 internal constructor(
@@ -127,7 +101,6 @@ internal constructor(
       return@callbackFlow
     }
 
-    // Retaining the delegate in this closure is required because CLLocationManager does not.
     awaitClose { manager.close() }
   }
     .flowOn(dispatcher)
