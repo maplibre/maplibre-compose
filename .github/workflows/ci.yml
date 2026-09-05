@@ -403,6 +403,7 @@ jobs:
             --argjson expected "$EXPECTED" \
             --argjson results "$RESULTS" '
               ($expected | length > 0)
+              and all($results[]; .result == "success" or .result == "skipped")
               and (($expected | keys) == ($results | keys))
               and all($expected | keys[]; $results[.].result == $expected[.])
             '

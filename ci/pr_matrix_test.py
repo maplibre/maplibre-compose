@@ -195,6 +195,13 @@ class RequiredCheckTest(unittest.TestCase):
                             self.check(expected, {**results, job: {"result": outcome}})
                         )
 
+    def test_planner_cannot_allow_failure_or_cancellation(self) -> None:
+        for outcome in ["failure", "cancelled"]:
+            expected = {**plan("push", {})["expected"], "ios": outcome}
+            results = {job: {"result": value} for job, value in expected.items()}
+            with self.subTest(outcome=outcome):
+                self.assertFalse(self.check(expected, results))
+
     def test_missing_plan_or_missing_or_unexpected_job_fails(self) -> None:
         expected = plan("push", {})["expected"]
         results = {job: {"result": "success"} for job in expected}
