@@ -43,11 +43,20 @@ class MlnFfiStylePresentationTest {
             },
           )
           assertFalse(session.canPresentFrames)
+          val hidden = session.getCameraPosition()
+          session.moveBy(deltaX = 100.0, deltaY = 0.0)
+          fixture.pump()
+          assertEquals(hidden, session.getCameraPosition(), "a hidden map accepted a gesture")
         } finally {
           session.callbacks = callbacks
         }
         session.reconcileStyleRevision(APPLICATION_REVISION)
         assertTrue(session.canPresentFrames)
+        val shown = session.getCameraPosition()
+        session.moveBy(deltaX = 100.0, deltaY = 0.0)
+        fixture.pumpUntil("the shown map to accept a gesture") {
+          session.getCameraPosition() != shown
+        }
       }
     }
 

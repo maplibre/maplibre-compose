@@ -79,44 +79,48 @@ internal suspend fun MapState.flyTo(destination: DemoDestination) {
   }
 }
 
-/** The map controls the settings ask for. */
-fun demoMapOverlay(settings: DemoSettings): MapOverlay = MapOverlay {
-  val overlayScope = this
-  include(if (settings.useMaterial3Controls) MapOverlay.Material3 else MapOverlay.Default)
-  Column(
-    modifier = Modifier.align(Alignment.CenterEnd),
-    verticalArrangement = Arrangement.spacedBy(8.dp),
-    horizontalAlignment = Alignment.CenterHorizontally,
-  ) {
-    if (settings.showZoomButtons) {
-      if (settings.useMaterial3Controls) overlayScope.MaterialZoomButtons()
-      else overlayScope.ZoomButtons()
-    }
-    val mode = settings.mapStyleMode
-    ElevatedButton(
-      onClick = { settings.mapStyleMode = mode.next },
-      modifier =
-        Modifier.size(48.dp).semantics {
-          contentDescription = "Map style: ${mode.displayName}"
-          onClick(label = "Switch to ${mode.next.displayName}", action = null)
-        },
-      shape = CircleShape,
-      contentPadding = PaddingValues(12.dp),
+/**
+ * The map controls the settings ask for. [controlsModifier] applies to the column of controls at
+ * the trailing edge, so a shell can route D-pad focus through them.
+ */
+fun demoMapOverlay(settings: DemoSettings, controlsModifier: Modifier = Modifier): MapOverlay =
+  MapOverlay {
+    val overlayScope = this
+    include(if (settings.useMaterial3Controls) MapOverlay.Material3 else MapOverlay.Default)
+    Column(
+      modifier = Modifier.align(Alignment.CenterEnd).then(controlsModifier),
+      verticalArrangement = Arrangement.spacedBy(8.dp),
+      horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-      Icon(
-        imageVector =
-          vectorResource(
-            when (mode) {
-              MapStyleMode.System -> Res.drawable.brightness_auto_24px
-              MapStyleMode.Light -> Res.drawable.light_mode_24px
-              MapStyleMode.Dark -> Res.drawable.dark_mode_24px
-            }
-          ),
-        contentDescription = null,
-      )
+      if (settings.showZoomButtons) {
+        if (settings.useMaterial3Controls) overlayScope.MaterialZoomButtons()
+        else overlayScope.ZoomButtons()
+      }
+      val mode = settings.mapStyleMode
+      ElevatedButton(
+        onClick = { settings.mapStyleMode = mode.next },
+        modifier =
+          Modifier.size(48.dp).semantics {
+            contentDescription = "Map style: ${mode.displayName}"
+            onClick(label = "Switch to ${mode.next.displayName}", action = null)
+          },
+        shape = CircleShape,
+        contentPadding = PaddingValues(12.dp),
+      ) {
+        Icon(
+          imageVector =
+            vectorResource(
+              when (mode) {
+                MapStyleMode.System -> Res.drawable.brightness_auto_24px
+                MapStyleMode.Light -> Res.drawable.light_mode_24px
+                MapStyleMode.Dark -> Res.drawable.dark_mode_24px
+              }
+            ),
+          contentDescription = null,
+        )
+      }
     }
   }
-}
 
 /**
  * The shared map, the selected demo's overlay, the pointer pin, and the diagnostic overlays.

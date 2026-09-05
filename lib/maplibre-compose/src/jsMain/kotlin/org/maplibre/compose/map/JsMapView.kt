@@ -1,5 +1,6 @@
 package org.maplibre.compose.map
 
+import androidx.compose.foundation.indication
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -70,6 +71,15 @@ internal actual fun ComposableMapView(
   }
 
   val focusRequester = remember { FocusRequester() }
+  val inputFocus =
+    remember(session, state) {
+      MapInputFocus { engaged -> state.setEngaged(session, engaged) }
+    }
+  // A press can engage the map before the attachment publishes, and a write before that is
+  // dropped.
+  val attached = state.currentMapAttachment?.adapter === session
+  LaunchedEffect(inputFocus, attached) { if (attached) inputFocus.replay() }
+  val inputEnvironment = mapInputEnvironment()
   val inputScope = rememberCoroutineScope()
   val continuation = remember(session, inputScope) { GestureContinuation(inputScope) }
   val rotaryNotchPixels = rotaryNotchPixels()
@@ -79,15 +89,19 @@ internal actual fun ComposableMapView(
     GlJsMapSurface(
       renderer = session,
       modifier =
-        modifier.mapInput(
-          session,
-          clicks,
-          options.gestureOptions,
-          density,
-          focusRequester,
-          continuation,
-          rotaryNotchPixels,
-        ),
+        modifier
+          .indication(inputFocus.indicationInteractions, inputEnvironment.indication)
+          .mapInput(
+            session,
+            clicks,
+            options.gestureOptions,
+            density,
+            focusRequester,
+            inputFocus,
+            inputEnvironment,
+            continuation,
+            rotaryNotchPixels,
+          ),
       logger = logger,
       presentFrames = session.canPresentFrames,
     )

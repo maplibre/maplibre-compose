@@ -214,8 +214,7 @@ internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets
         state = mapState,
         cameraPadding = viewportInsets.asPaddingValues(),
         renderOptions = RenderOptions.Standard,
-        gestureOptions =
-          if (scenario.usesGestures) GestureOptions.Standard else GestureOptions.AllDisabled,
+        gestureOptions = scenario.gestureOptions,
         contentWindowInsets = viewportInsets.asWindowInsets(),
       ) {}
     }
@@ -290,3 +289,7 @@ private fun logReport(report: BenchmarkReport) {
   benchLog.i { line }
   println(line)
 }
+
+/** A scenario that drives the camera itself takes no gesture. */
+internal val BenchmarkScenario.gestureOptions: GestureOptions
+  get() = if (usesGestures) GestureOptions.Standard else GestureOptions.AllDisabled

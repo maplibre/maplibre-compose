@@ -17,10 +17,18 @@ Engine events such as style load, idle, and frames are a separate surface, in
 click dispatch out of `MapAdapter.Callbacks` and into Compose; this gesture
 chain replaces the click handlers.
 
-Focus and key engagement are in [KEYBOARD_FOCUS.md](./KEYBOARD_FOCUS.md). That
-work lands first and constrains the `keys` block here: the bindings derive
-focusability, engagement gates whether they fire, and the engage and disengage
-keys become builder members. Its closing section lists the three points.
+Focus and key engagement are already in the tree, in the key handler in
+`MapInput.kt` and the `isEngaged` property on `MapState`. A focused map consumes
+direction keys only while engaged: Enter, D-pad center, or a pointer press
+engages it, Escape releases it, and Back releases it when a key engaged it. That
+work constrains the `keys` block here in three ways:
+
+- The bindings derive focusability, the way they arm the recognizers. No key and
+  no rotary binding means the map stays out of focus traversal.
+- Engagement is a layer above the bindings and gates whether they fire. The
+  engage and disengage keys, fixed today, become members of the `keys` builder.
+- The `keys` block broadens to focused input, so rotary bindings for Wear join
+  it. Rotary events reach the focused node the same way keys do.
 
 ## What the current code is
 

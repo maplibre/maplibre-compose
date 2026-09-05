@@ -1660,7 +1660,15 @@ internal class MlnFfiMapSession(
     }
   }
 
+  /**
+   * Before the presentation is visible the map has only its bootstrap viewport, and a camera
+   * command projected through it jumps the camera. Gestures are dropped until then.
+   */
+  private val acceptsGestures: Boolean
+    get() = canPresentFrames
+
   private fun onMap(gestureToken: GestureToken?, action: (MapHandle) -> Unit) {
+    if (!acceptsGestures) return
     onMap { map ->
       gestureToken?.let { activateGesture(map, it) }
       action(map)
@@ -1686,6 +1694,7 @@ internal class MlnFfiMapSession(
     duration: Duration,
     gestureToken: GestureToken,
   ) {
+    if (!acceptsGestures) return
     startTransitionAwaitingRelease(duration) { map, animation ->
       activateGesture(map, gestureToken)
       map.moveByAnimated(deltaX, deltaY, animation)
@@ -1711,6 +1720,7 @@ internal class MlnFfiMapSession(
     duration: Duration,
     gestureToken: GestureToken,
   ) {
+    if (!acceptsGestures) return
     startTransitionAwaitingRelease(duration) { map, animation ->
       activateGesture(map, gestureToken)
       map.scaleByAnimated(scale, anchor?.toScreenPoint(), animation)
@@ -1752,6 +1762,7 @@ internal class MlnFfiMapSession(
     duration: Duration,
     gestureToken: GestureToken,
   ) {
+    if (!acceptsGestures) return
     startTransitionAwaitingRelease(duration) { map, animation ->
       activateGesture(map, gestureToken)
       val camera = map.camera
