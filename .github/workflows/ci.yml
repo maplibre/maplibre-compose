@@ -106,6 +106,7 @@ jobs:
         if: ${{ failure() && steps.android-host-tests.outcome == 'failure' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
+          retention-days: 14
           if-no-files-found: warn
           name: android-${{ matrix.api-level }}-host-test-reports
           path: |
@@ -137,6 +138,7 @@ jobs:
         continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
+          retention-days: 14
           if-no-files-found: warn
           name: android-${{ matrix.api-level }}-diagnostics
           path: |
@@ -152,6 +154,7 @@ jobs:
       - if: ${{ matrix.artifact_name != '' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
+          retention-days: 7
           if-no-files-found: error
           name: ${{ matrix.artifact_name }}
           path: |
@@ -187,6 +190,7 @@ jobs:
         if: ${{ failure() && steps.ios-tests.outcome == 'failure' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
+          retention-days: 14
           if-no-files-found: warn
           name: ios-test-reports
           path: |
@@ -232,6 +236,7 @@ jobs:
         if: ${{ failure() && steps.js-tests.outcome == 'failure' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
+          retention-days: 14
           if-no-files-found: warn
           name: js-test-reports
           path: |
@@ -302,6 +307,7 @@ jobs:
         if: ${{ failure() && steps.desktop-tests.outcome == 'failure' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
+          retention-days: 14
           if-no-files-found: warn
           name: ${{ matrix.artifact_name }}-test-reports
           path: |
@@ -310,6 +316,7 @@ jobs:
       - run: mise run build:desktop-app
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
+          retention-days: 7
           if-no-files-found: error
           name: ${{ matrix.artifact_name }}
           path:
