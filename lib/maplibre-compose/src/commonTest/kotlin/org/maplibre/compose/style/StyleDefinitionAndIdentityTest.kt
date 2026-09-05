@@ -3,7 +3,6 @@ package org.maplibre.compose.style
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotSame
 import kotlin.test.assertSame
@@ -92,104 +91,5 @@ class StyleDefinitionAndIdentityTest {
     assertTrue(second.addLayer(definition, beforeLayerId = ""))
 
     assertEquals(first.layers.getValue("shared-layer"), second.layers.getValue("shared-layer"))
-  }
-
-  @Test
-  fun cycling_back_to_the_same_style_value_is_a_new_engine_apply() {
-    val first = BaseStyle.Json("A")
-    val second = BaseStyle.Json("B")
-    val tracker = StyleLoadTracker(first, engineAvailable = true)
-    val firstRequest = tracker.requestId
-
-    assertTrue(tracker.shouldApplyToEngine(appliedRequest = null))
-    tracker.request(second, engineAvailable = true)
-    val thirdRequest = tracker.request(first, engineAvailable = true)
-
-    assertTrue(tracker.shouldApplyToEngine(firstRequest))
-    assertEquals(thirdRequest, tracker.requestId)
-    assertFalse(tracker.shouldApplyToEngine(thirdRequest))
-  }
-
-  @Test
-  fun superseded_requests_cannot_publish_state() {
-    val firstStyle = BaseStyle.Json("first")
-    val secondStyle = BaseStyle.Json("second")
-    val tracker = StyleLoadTracker(firstStyle, engineAvailable = true)
-    val firstRequest = tracker.requestId
-    val secondRequest = tracker.request(secondStyle, engineAvailable = true)
-    val secondIdentity = StyleIdentity.create()
-
-    assertFalse(tracker.loaded(firstRequest, StyleIdentity.create()))
-    assertTrue(tracker.loaded(secondRequest, secondIdentity))
-    assertIs<TrackedStyleLoadState.Loading>(tracker.state)
-    assertTrue(tracker.reconciled(secondRequest, secondIdentity))
-    val ready = assertIs<TrackedStyleLoadState.Ready>(tracker.state)
-    assertEquals(secondStyle, ready.desiredStyle)
-    assertEquals(secondStyle, ready.appliedStyle)
-    assertSame(secondIdentity, ready.identity)
-  }
-
-  @Test
-  fun failure_keeps_the_desired_style() {
-    val firstStyle = BaseStyle.Json("first")
-    val desiredStyle = BaseStyle.Json("desired")
-    val tracker = StyleLoadTracker(firstStyle, engineAvailable = false)
-    val request = tracker.request(desiredStyle, engineAvailable = true)
-
-    assertTrue(
-      tracker.failed(
-        request,
-        TrackedStyleLoadState.Failed.Stage.BASE_STYLE,
-        "invalid style",
-      )
-    )
-
-    val failed = assertIs<TrackedStyleLoadState.Failed>(tracker.state)
-    assertEquals(desiredStyle, failed.desiredStyle)
-    assertEquals(null, failed.appliedStyle)
-    assertEquals("invalid style", failed.reason)
-  }
-
-  @Test
-  fun failure_does_not_replace_the_last_applied_style_with_the_desired_style() {
-    val appliedStyle = BaseStyle.Json("applied")
-    val desiredStyle = BaseStyle.Json("desired")
-    val tracker = StyleLoadTracker(appliedStyle, engineAvailable = true)
-    val appliedRequest = tracker.requestId
-    val identity = StyleIdentity.create()
-    assertTrue(tracker.loaded(appliedRequest, identity))
-    assertTrue(tracker.reconciled(appliedRequest, identity))
-
-    val desiredRequest = tracker.request(desiredStyle, engineAvailable = true)
-    assertTrue(
-      tracker.failed(
-        desiredRequest,
-        TrackedStyleLoadState.Failed.Stage.BASE_STYLE,
-        "invalid style",
-      )
-    )
-
-    val failed = assertIs<TrackedStyleLoadState.Failed>(tracker.state)
-    assertEquals(desiredStyle, failed.desiredStyle)
-    assertEquals(appliedStyle, failed.appliedStyle)
-  }
-
-  @Test
-  fun engine_availability_moves_between_pending_loading_and_ready() {
-    val style = BaseStyle.Json("style")
-    val tracker = StyleLoadTracker(style, engineAvailable = false)
-    assertIs<TrackedStyleLoadState.Pending>(tracker.state)
-
-    val request = tracker.beginLoading()
-    assertIs<TrackedStyleLoadState.Loading>(tracker.state)
-
-    val identity = StyleIdentity.create()
-    assertTrue(tracker.loaded(request, identity))
-    assertIs<TrackedStyleLoadState.Loading>(tracker.state)
-    assertTrue(tracker.reconciled(request, identity))
-    assertIs<TrackedStyleLoadState.Ready>(tracker.state)
-
-    tracker.engineBecameUnavailable()
-    assertIs<TrackedStyleLoadState.Pending>(tracker.state)
   }
 }

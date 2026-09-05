@@ -3,6 +3,9 @@ package org.maplibre.compose.map
 import androidx.compose.ui.graphics.Color
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.expressions.ast.ExpressionContext
@@ -17,6 +20,36 @@ import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.testing.RgbaPixel
 
 class MlnFfiStylePresentationTest {
+
+  @Test
+  fun a_failed_readiness_callback_hides_the_presentation_until_reconciliation_recovers() =
+    runBlocking {
+      BridgeMapFixture.create().use { fixture ->
+        fixture.loadStyle(INITIAL_STYLE)
+        val session = fixture.session
+        val callbacks = session.callbacks
+        val failure = IllegalStateException("readiness publication failed")
+        session.callbacks =
+          object : MapAdapter.Callbacks by callbacks {
+            override fun onStyleReady(map: MapAdapter) {
+              throw failure
+            }
+          }
+        try {
+          assertSame(
+            failure,
+            assertFailsWith<IllegalStateException> {
+              session.reconcileStyleRevision(APPLICATION_REVISION)
+            },
+          )
+          assertFalse(session.canPresentFrames)
+        } finally {
+          session.callbacks = callbacks
+        }
+        session.reconcileStyleRevision(APPLICATION_REVISION)
+        assertTrue(session.canPresentFrames)
+      }
+    }
 
   @Test
   fun a_replacement_base_style_waits_for_application_content_before_presentation() = runBlocking {
