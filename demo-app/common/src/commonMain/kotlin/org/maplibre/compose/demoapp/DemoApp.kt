@@ -145,8 +145,8 @@ private fun DemoShell(state: DemoAppState, contentPadding: PaddingValues) {
     // map from the handle or the handle from the map.
     val handleFocusRequester = remember { FocusRequester() }
     val mapFocusRequester = remember { FocusRequester() }
-    val zoomButtonsFocusRequester = remember { FocusRequester() }
-    val zoomButtonsShown = state.shell != DemoShell.Benchmarks && state.settings.showZoomButtons
+    val controlsFocusRequester = remember { FocusRequester() }
+    val controlsShown = state.shell == DemoShell.Demos
     // A route to a map that cannot take focus strands the D-pad on the handle.
     val mapGestures =
       when (state.shell) {
@@ -174,16 +174,16 @@ private fun DemoShell(state: DemoAppState, contentPadding: PaddingValues) {
           .focusProperties {
             canFocus = !mapCovered
             start = handleFocusRequester
-            // A requester with no node throws on use, so the route exists only with the buttons.
-            if (zoomButtonsShown) end = zoomButtonsFocusRequester
+            // A requester with no node throws on use, so the route exists only with the controls.
+            if (controlsShown) end = controlsFocusRequester
           }
           .semantics { if (mapCovered) hideFromAccessibility() }
       ) {
         ShellMap(
           state = state,
           viewportInsets = viewportInsets,
-          zoomButtonsModifier =
-            Modifier.focusRequester(zoomButtonsFocusRequester).focusProperties {
+          controlsModifier =
+            Modifier.focusRequester(controlsFocusRequester).focusProperties {
               if (mapRouted) start = mapFocusRequester
             },
         )
@@ -294,12 +294,12 @@ private fun MapViewportInsets.withLeadingPanel(
 private fun ShellMap(
   state: DemoAppState,
   viewportInsets: MapViewportInsets,
-  zoomButtonsModifier: Modifier,
+  controlsModifier: Modifier,
 ) {
   if (state.shell == DemoShell.Benchmarks) {
     BenchmarkMap(state, viewportInsets)
   } else {
-    DemoMap(state, viewportInsets, overlay = demoMapOverlay(state.settings, zoomButtonsModifier))
+    DemoMap(state, viewportInsets, overlay = demoMapOverlay(state.settings, controlsModifier))
   }
 }
 

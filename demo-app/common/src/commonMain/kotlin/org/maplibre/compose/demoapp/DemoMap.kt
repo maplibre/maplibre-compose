@@ -80,21 +80,21 @@ internal suspend fun MapState.flyTo(destination: DemoDestination) {
 }
 
 /**
- * The map controls the settings ask for. [zoomButtonsModifier] applies to the zoom buttons, so a
- * shell can route D-pad focus through them.
+ * The map controls the settings ask for. [controlsModifier] applies to the column of controls at
+ * the trailing edge, so a shell can route D-pad focus through them.
  */
-fun demoMapOverlay(settings: DemoSettings, zoomButtonsModifier: Modifier = Modifier): MapOverlay =
+fun demoMapOverlay(settings: DemoSettings, controlsModifier: Modifier = Modifier): MapOverlay =
   MapOverlay {
     val overlayScope = this
     include(if (settings.useMaterial3Controls) MapOverlay.Material3 else MapOverlay.Default)
     Column(
-      modifier = Modifier.align(Alignment.CenterEnd),
+      modifier = Modifier.align(Alignment.CenterEnd).then(controlsModifier),
       verticalArrangement = Arrangement.spacedBy(8.dp),
       horizontalAlignment = Alignment.CenterHorizontally,
     ) {
       if (settings.showZoomButtons) {
-        if (settings.useMaterial3Controls) overlayScope.MaterialZoomButtons(zoomButtonsModifier)
-        else overlayScope.ZoomButtons(zoomButtonsModifier)
+        if (settings.useMaterial3Controls) overlayScope.MaterialZoomButtons()
+        else overlayScope.ZoomButtons()
       }
       val mode = settings.mapStyleMode
       ElevatedButton(

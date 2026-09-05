@@ -20,8 +20,8 @@ chain replaces the click handlers.
 Focus and key engagement are already in the tree, in the key handler in
 `MapInput.kt` and the `isEngaged` property on `MapState`. A focused map consumes
 direction keys only while engaged: Enter, D-pad center, or a pointer press
-engages it, and Escape or Back releases it. That work constrains the `keys`
-block here in three ways:
+engages it, Escape releases it, and Back releases it when a key engaged it. That
+work constrains the `keys` block here in three ways:
 
 - The bindings derive focusability, the way they arm the recognizers. No key and
   no rotary binding means the map stays out of focus traversal.
