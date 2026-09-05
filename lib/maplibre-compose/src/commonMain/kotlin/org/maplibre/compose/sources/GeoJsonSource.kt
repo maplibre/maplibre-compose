@@ -21,8 +21,8 @@ internal const val CLUSTER_ID_PROPERTY = "cluster_id"
  * Defines a map data source that contains GeoJSON data.
  *
  * Native engines add an empty source before preparing inline data in the background. Preparation or
- * installation failures emit [org.maplibre.compose.map.MapEvent.SourceDataFailed] and leave the
- * source empty.
+ * installation failures emit [org.maplibre.compose.map.MapEvent.SourceDataFailed]. Failed updates
+ * retain the previously installed data; the source remains empty if its initial data fails.
  */
 public class GeoJsonSource : Source {
 
