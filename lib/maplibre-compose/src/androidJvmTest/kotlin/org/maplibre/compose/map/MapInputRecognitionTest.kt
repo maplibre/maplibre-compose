@@ -547,6 +547,7 @@ private fun GestureHost(target: RecordingGestureTarget, options: GestureOptions)
       contentDescription = "map",
       engaged = "engaged",
       notEngaged = "not engaged",
+      indication = null,
     )
   }
   val inputScope = rememberCoroutineScope()

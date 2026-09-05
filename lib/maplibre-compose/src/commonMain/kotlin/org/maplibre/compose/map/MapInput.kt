@@ -1,8 +1,11 @@
 package org.maplibre.compose.map
 
+import androidx.compose.foundation.Indication
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.FocusInteraction
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -86,8 +89,8 @@ internal fun Modifier.mapInput(
       .keyboardInput(target, options, focus, continuation)
       .onFocusChanged { focus.onFocusChanged(it.isFocused) }
       .focusRequester(focusRequester)
-      .indication(focus.interactions, MapFocusIndication)
-      .focusable(enabled = options.hasKeyboardGesture, interactionSource = focus.interactions)
+      .indication(focus.indicationInteractions, environment.indication)
+      .focusable(enabled = options.hasKeyboardGesture)
   if (!gesturesEnabled) return focused
   return focused
     .pointerGestures(target, clicks, options, density, focusRequester, focus, continuation)
@@ -102,6 +105,7 @@ internal class MapInputEnvironment(
   val contentDescription: String,
   val engaged: String,
   val notEngaged: String,
+  val indication: Indication?,
 )
 
 @Composable
@@ -110,6 +114,7 @@ internal fun mapInputEnvironment(): MapInputEnvironment =
     contentDescription = stringResource(Res.string.map),
     engaged = stringResource(Res.string.map_engaged),
     notEngaged = stringResource(Res.string.map_not_engaged),
+    indication = LocalIndication.current,
   )
 
 /**
@@ -121,11 +126,16 @@ internal fun mapInputEnvironment(): MapInputEnvironment =
  * continues from the map.
  */
 internal class MapInputFocus(private val onChanged: (engaged: Boolean) -> Unit) {
-  /** The focus and engagement interactions the node emits, for the indication it draws. */
-  val interactions = MutableInteractionSource()
+  /**
+   * Focus interactions for the indication the node draws. The map reports focus only while it is a
+   * traversal candidate: an engaged map is a mode, and the camera moving under the keys is its
+   * indication.
+   */
+  val indicationInteractions = MutableInteractionSource()
 
   private var isFocused = false
   private var engagedByKey = false
+  private var shownFocus: FocusInteraction.Focus? = null
 
   var isEngaged: Boolean by mutableStateOf(false)
     private set
@@ -137,6 +147,7 @@ internal class MapInputFocus(private val onChanged: (engaged: Boolean) -> Unit) 
   fun onFocusChanged(focused: Boolean) {
     isFocused = focused
     if (!focused) disengage()
+    showFocus()
   }
 
   /** Returns false when the node is not focused, because only a focused node engages. */
@@ -144,16 +155,29 @@ internal class MapInputFocus(private val onChanged: (engaged: Boolean) -> Unit) 
     if (!isFocused) return false
     isEngaged = true
     engagedByKey = byKey
-    interactions.tryEmit(EngagedInteraction.Engage)
+    showFocus()
     onChanged(true)
     return true
   }
 
-  fun disengage() {
-    if (!isEngaged) return
+  /** Returns false when the node was not engaged. */
+  fun disengage(): Boolean {
+    if (!isEngaged) return false
     isEngaged = false
-    interactions.tryEmit(EngagedInteraction.Disengage)
+    showFocus()
     onChanged(false)
+    return true
+  }
+
+  private fun showFocus() {
+    val show = isFocused && !isEngaged
+    val shown = shownFocus
+    if (show && shown == null) {
+      shownFocus = FocusInteraction.Focus().also { indicationInteractions.tryEmit(it) }
+    } else if (!show && shown != null) {
+      shownFocus = null
+      indicationInteractions.tryEmit(FocusInteraction.Unfocus(shown))
+    }
   }
 
   /** Reports the current state again, for a listener that missed earlier writes. */
@@ -171,10 +195,10 @@ private fun Modifier.keyboardInput(
     Key.Enter,
     Key.NumPadEnter,
     Key.DirectionCenter -> focus.engage(byKey = true)
-    Key.Escape -> focus.isEngaged.also { if (it) focus.disengage() }
+    Key.Escape -> focus.disengage()
     // Compose delivers Back to the focused node before the activity, so a map that consumed Back
     // after a touch would break back navigation on every Android phone.
-    Key.Back -> focus.consumesBack.also { if (it) focus.disengage() }
+    Key.Back -> focus.consumesBack && focus.disengage()
     else -> focus.isEngaged && target.bindKey(event, options, continuation)
   }
 }
