@@ -7,4 +7,16 @@
   <string name="offline_pack_delete_cancel">Cancel</string>
   <string name="offline_pack_delete_error">Deletion failed: %1$s</string>
   <string name="offline_pack_delete_unknown_error">Unknown error</string>
+  <string name="offline_pack_complete">Complete</string>
+  <string name="offline_pack_paused">Paused</string>
+  <string name="offline_pack_error">Error</string>
+  <string name="offline_pack_warning">Warning</string>
+  <string name="offline_pack_downloading_status">Downloading: %1$s</string>
+  <string name="offline_pack_paused_status">Paused: %1$s</string>
+  <string name="offline_pack_error_status">Error: %1$s</string>
+  <string name="offline_pack_tile_limit_exceeded">Tile limit exceeded: %1$s tiles</string>
+  <string name="offline_pack_unknown_status">Unknown status</string>
+  <string name="offline_pack_resume">Resume</string>
+  <string name="offline_pack_pause">Pause</string>
+  <string name="offline_pack_update">Update</string>
 </resources>

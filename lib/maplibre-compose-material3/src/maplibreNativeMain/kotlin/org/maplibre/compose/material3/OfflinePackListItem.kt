@@ -36,7 +36,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import me.saket.bytesize.binaryBytes
 import org.jetbrains.compose.resources.stringResource
@@ -45,6 +44,7 @@ import org.maplibre.compose.material3.generated.Res
 import org.maplibre.compose.material3.generated.check_circle_filled
 import org.maplibre.compose.material3.generated.delete
 import org.maplibre.compose.material3.generated.error_filled
+import org.maplibre.compose.material3.generated.offline_pack_complete
 import org.maplibre.compose.material3.generated.offline_pack_delete
 import org.maplibre.compose.material3.generated.offline_pack_delete_cancel
 import org.maplibre.compose.material3.generated.offline_pack_delete_confirm
@@ -52,6 +52,17 @@ import org.maplibre.compose.material3.generated.offline_pack_delete_error
 import org.maplibre.compose.material3.generated.offline_pack_delete_message
 import org.maplibre.compose.material3.generated.offline_pack_delete_title
 import org.maplibre.compose.material3.generated.offline_pack_delete_unknown_error
+import org.maplibre.compose.material3.generated.offline_pack_downloading_status
+import org.maplibre.compose.material3.generated.offline_pack_error
+import org.maplibre.compose.material3.generated.offline_pack_error_status
+import org.maplibre.compose.material3.generated.offline_pack_pause
+import org.maplibre.compose.material3.generated.offline_pack_paused
+import org.maplibre.compose.material3.generated.offline_pack_paused_status
+import org.maplibre.compose.material3.generated.offline_pack_resume
+import org.maplibre.compose.material3.generated.offline_pack_tile_limit_exceeded
+import org.maplibre.compose.material3.generated.offline_pack_unknown_status
+import org.maplibre.compose.material3.generated.offline_pack_update
+import org.maplibre.compose.material3.generated.offline_pack_warning
 import org.maplibre.compose.material3.generated.pause
 import org.maplibre.compose.material3.generated.pause_circle_filled
 import org.maplibre.compose.material3.generated.resume
@@ -84,7 +95,7 @@ public fun OfflinePackListItem(
   offlineManager: OfflineManager,
   modifier: Modifier = Modifier,
   leadingContent: @Composable () -> Unit = {
-    OfflinePackListItemDefaults.LeadingContent(pack, offlineManager)
+    OfflinePackListItemDefaults.LeadingContent(pack)
   },
   supportingContent: @Composable () -> Unit = {
     OfflinePackListItemDefaults.SupportingContent(pack.downloadProgress)
@@ -161,31 +172,30 @@ public object OfflinePackListItemDefaults {
   @Composable
   public fun LeadingContent(
     pack: OfflinePack,
-    offlineManager: OfflineManager,
     completedIcon: @Composable () -> Unit = {
       Icon(
         imageVector = vectorResource(Res.drawable.check_circle_filled),
-        contentDescription = "Complete",
+        contentDescription = stringResource(Res.string.offline_pack_complete),
       )
     },
     pausedIcon: @Composable () -> Unit = {
       Icon(
         imageVector = vectorResource(Res.drawable.pause_circle_filled),
-        contentDescription = "Paused",
+        contentDescription = stringResource(Res.string.offline_pack_paused),
       )
     },
     downloadingIcon: @Composable () -> Unit = { DownloadProgressCircle(pack) },
     errorIcon: @Composable () -> Unit = {
       Icon(
         imageVector = vectorResource(Res.drawable.error_filled),
-        contentDescription = "Error",
+        contentDescription = stringResource(Res.string.offline_pack_error),
         tint = MaterialTheme.colorScheme.error,
       )
     },
     warningIcon: @Composable () -> Unit = {
       Icon(
         imageVector = vectorResource(Res.drawable.warning_filled),
-        contentDescription = "Warning",
+        contentDescription = stringResource(Res.string.offline_pack_warning),
       )
     },
   ) {
@@ -218,7 +228,6 @@ public object OfflinePackListItemDefaults {
   public fun TrailingContent(
     pack: OfflinePack,
     offlineManager: OfflineManager,
-    coroutineScope: CoroutineScope = rememberCoroutineScope(),
   ): Unit = Row {
     PauseResumeUpdateButton(pack, offlineManager)
     DeleteButton(pack, offlineManager)
@@ -232,16 +241,20 @@ public object OfflinePackListItemDefaults {
       Text(it.completedBytesString())
     },
     downloadingContent: @Composable (DownloadProgress.Healthy) -> Unit = {
-      Text("Downloading: ${it.completedBytesString()}")
+      Text(stringResource(Res.string.offline_pack_downloading_status, it.completedBytesString()))
     },
     pausedContent: @Composable (DownloadProgress.Healthy) -> Unit = {
-      Text("Paused: ${it.completedBytesString()}")
+      Text(stringResource(Res.string.offline_pack_paused_status, it.completedBytesString()))
     },
-    errorContent: @Composable (DownloadProgress.Error) -> Unit = { Text("Error: ${it.message}") },
+    errorContent: @Composable (DownloadProgress.Error) -> Unit = {
+      Text(stringResource(Res.string.offline_pack_error_status, it.message))
+    },
     tileLimitExceededContent: @Composable (DownloadProgress.TileLimitExceeded) -> Unit = {
-      Text("Tile limit exceeded: ${it.limit} tiles")
+      Text(stringResource(Res.string.offline_pack_tile_limit_exceeded, it.limit))
     },
-    unknownContent: @Composable (DownloadProgress.Unknown) -> Unit = { Text("Unknown status") },
+    unknownContent: @Composable (DownloadProgress.Unknown) -> Unit = {
+      Text(stringResource(Res.string.offline_pack_unknown_status))
+    },
   ) {
     when (progress) {
       is DownloadProgress.Healthy ->
@@ -417,9 +430,12 @@ private fun PauseResumeUpdateButton(pack: OfflinePack, offlineManager: OfflineMa
   IconButton(::onClick) {
     AnimatedContent(status) { status ->
       when (status) {
-        DownloadStatus.Paused -> Icon(vectorResource(Res.drawable.resume), "Resume")
-        DownloadStatus.Downloading -> Icon(vectorResource(Res.drawable.pause), "Pause")
-        DownloadStatus.Complete -> Icon(vectorResource(Res.drawable.sync), "Update")
+        DownloadStatus.Paused ->
+          Icon(vectorResource(Res.drawable.resume), stringResource(Res.string.offline_pack_resume))
+        DownloadStatus.Downloading ->
+          Icon(vectorResource(Res.drawable.pause), stringResource(Res.string.offline_pack_pause))
+        DownloadStatus.Complete ->
+          Icon(vectorResource(Res.drawable.sync), stringResource(Res.string.offline_pack_update))
       }
     }
   }
