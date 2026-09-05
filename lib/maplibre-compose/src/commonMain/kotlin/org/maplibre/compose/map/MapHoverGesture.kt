@@ -21,7 +21,6 @@ internal data class HoverLayer(val id: String, val identity: Any, val handler: (
 internal class HoverScene(
   val mapIdentity: Any,
   val identity: Any,
-  val mapHandler: ((HoverEvent) -> Unit)?,
   val layers: List<HoverLayer>,
   val isValid: () -> Boolean,
   val query: suspend (HoverLayer, DpOffset) -> Boolean,
@@ -44,7 +43,6 @@ internal class MapHoverGesture(
   private var sceneIdentity: Any? = null
   private var mapIdentity: Any? = null
   private var bindingEntry: Entered? = null
-  private var mapEntry: Entered? = null
   private val layers = mutableMapOf<Any, Entered>()
   private var registrations = emptySet<Any>()
   private var pending: GesturePointerSample? = null
@@ -87,7 +85,7 @@ internal class MapHoverGesture(
       scene == null ||
         !scene.isValid() ||
         !binding.matches(raw, contact = false) ||
-        (binding.handlers.hover == null && scene.mapHandler == null && scene.layers.isEmpty())
+        (binding.handlers.hover == null && scene.layers.isEmpty())
     ) {
       clear()
       return
@@ -105,8 +103,8 @@ internal class MapHoverGesture(
     val generation = epoch
     fun valid() = generation == epoch && location === raw && scene.isValid()
     if (mapIdentity != scene.mapIdentity) {
-      val old = mapEntry
-      mapEntry = null
+      val old = bindingEntry
+      bindingEntry = null
       old?.handler?.invoke(HoverEvent.Exit(old.sample))
       if (!valid()) return
       mapIdentity = scene.mapIdentity
@@ -124,8 +122,6 @@ internal class MapHoverGesture(
         position = target.positionFromScreenLocation(raw.screenOffset),
       )
     observe(bindingEntry, sample, options().binding("hover").handlers.hover) { bindingEntry = it }
-    if (!valid()) return
-    observe(mapEntry, sample, scene.mapHandler) { mapEntry = it }
     if (!valid()) return
     if (scene.layers.isEmpty()) {
       pending = null
@@ -225,9 +221,8 @@ internal class MapHoverGesture(
 
   private fun clear() {
     invalidateWorker()
-    val exits = listOfNotNull(bindingEntry, mapEntry) + layers.values
+    val exits = listOfNotNull(bindingEntry) + layers.values
     bindingEntry = null
-    mapEntry = null
     layers.clear()
     registrations = emptySet()
     gestureId = null

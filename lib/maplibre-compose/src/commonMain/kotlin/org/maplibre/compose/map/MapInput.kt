@@ -561,13 +561,13 @@ private class MapScrollGesture(
       return
     }
     when (selected.settings.dragAction) {
-      DragActionKind.Pan ->
+      DragAction.Pan ->
         target.moveBy(
           normalized.panDelta.x.value.toDouble(),
           normalized.panDelta.y.value.toDouble(),
           gestureToken = current.token,
         )
-      DragActionKind.Zoom -> {
+      DragAction.Zoom -> {
         val scale = zoomLevelsToScale(-normalized.zoomComponent * selected.settings.zoomStep)
         if (scale.isFinite() && scale > 0.0)
           target.scaleBy(scale, selected.anchor(current.sample), gestureToken = current.token)
@@ -863,45 +863,31 @@ private class MapPointerGesture(
     val binding = selectedDrag ?: return
     val handlers =
       currentOptions().bindings.firstOrNull { it.id == binding.id }?.handlers ?: binding.handlers
-    var failure: Throwable? = null
-    try {
+    if (binding.settings.dragAction != DragAction.Custom) {
       handlers.observe(event)
-    } catch (cause: Throwable) {
-      failure = cause
+      return
     }
-    if (binding.settings.dragAction == DragActionKind.Custom) {
-      val active = failure == null && gestureToken?.acceptsCommands == true
-      val response =
-        when (event) {
-          is DragEvent.Start -> event.takeIf { active }?.also { customDragStarted = true }
-          is DragEvent.Delta -> event.takeIf { active && customDragStarted }
-          is DragEvent.End ->
-            if (!customDragStarted) null
-            else {
-              customDragStarted = false
-              if (active) event
-              else
-                DragEvent.Cancel(
-                  checkNotNull(dragSample),
-                  when {
-                    failure != null -> GestureCancellationReason.InputCancelled
-                    !target.isGestureReady -> GestureCancellationReason.Detached
-                    else -> GestureCancellationReason.CameraTakeover
-                  },
-                )
-            }
-          is DragEvent.Cancel ->
-            event.takeIf { customDragStarted }?.also { customDragStarted = false }
-        }
-      if (response != null) {
-        try {
-          handlers.customDrag?.invoke(response)
-        } catch (cause: Throwable) {
-          if (failure == null) failure = cause else failure.addSuppressed(cause)
-        }
+    val active = gestureToken?.acceptsCommands == true
+    val response =
+      when (event) {
+        is DragEvent.Start -> event.takeIf { active }?.also { customDragStarted = true }
+        is DragEvent.Delta -> event.takeIf { active && customDragStarted }
+        is DragEvent.End ->
+          if (!customDragStarted) null
+          else {
+            customDragStarted = false
+            if (active) event
+            else
+              DragEvent.Cancel(
+                checkNotNull(dragSample),
+                if (!target.isGestureReady) GestureCancellationReason.Detached
+                else GestureCancellationReason.CameraTakeover,
+              )
+          }
+        is DragEvent.Cancel ->
+          event.takeIf { customDragStarted }?.also { customDragStarted = false }
       }
-    }
-    failure?.let { throw it }
+    if (response != null) handlers.dragEvent?.invoke(response)
   }
 
   private fun cancelDrag(reason: GestureCancellationReason) {
@@ -1006,15 +992,15 @@ private class MapPointerGesture(
       dragStarted = true
       singleMotion =
         when (binding.settings.dragAction) {
-          DragActionKind.Pan -> SingleMotion.PAN
-          DragActionKind.RotateTilt -> SingleMotion.ROTATE_TILT
-          DragActionKind.Zoom -> SingleMotion.QUICK_ZOOM
+          DragAction.Pan -> SingleMotion.PAN
+          DragAction.RotateTilt -> SingleMotion.ROTATE_TILT
+          DragAction.Zoom -> SingleMotion.QUICK_ZOOM
           else -> SingleMotion.NONE
         }
       discardTapWait(emitClick = !quickZoomCandidate)
       deliverDrag(DragEvent.Start(sample, origin.toLogicalDpOffset(density)))
       if (!retainCameraAuthority()) return
-      if (binding.settings.dragAction == DragActionKind.BoxZoom)
+      if (binding.settings.dragAction == DragAction.BoxZoom)
         boxZoom.start(origin.toLogicalDpOffset(density), sample.screenOffset)
     }
     singleVelocity.addPointerInputChange(change)
@@ -1023,15 +1009,15 @@ private class MapPointerGesture(
     val deltaX = delta.x.toDouble() / density.density
     val deltaY = delta.y.toDouble() / density.density
     when (binding.settings.dragAction) {
-      DragActionKind.Pan -> target.moveBy(deltaX, deltaY, gestureToken = gestureToken)
-      DragActionKind.RotateTilt ->
+      DragAction.Pan -> target.moveBy(deltaX, deltaY, gestureToken = gestureToken)
+      DragAction.RotateTilt ->
         target.rotateAndPitchBy(
           deltaX * binding.settings.bearingDegreesPerDp,
           deltaY * binding.settings.pitchDegreesPerDp,
           anchor = binding.anchor(sample),
           gestureToken = gestureToken,
         )
-      DragActionKind.Zoom -> {
+      DragAction.Zoom -> {
         mode = Mode.QUICK_ZOOM
         val direction =
           if (binding.settings.direction == QuickZoomDirection.DownZoomsIn) 1.0 else -1.0
@@ -1049,8 +1035,8 @@ private class MapPointerGesture(
         quickZoomAppliedDelta = targetDelta
         lastQuickZoomSpanDeltaPixels = abs(delta.y) * 2.0
       }
-      DragActionKind.Custom -> Unit
-      DragActionKind.BoxZoom -> boxZoom.move(sample.screenOffset)
+      DragAction.Custom -> Unit
+      DragAction.BoxZoom -> boxZoom.move(sample.screenOffset)
     }
     change.consume()
   }

@@ -30,7 +30,7 @@ class MapHoverGestureTest {
   @Test
   fun map_observation_needs_no_query_and_exit_does_not_need_projection() = hoverTest { fixture ->
     val events = mutableListOf<HoverEvent>()
-    fixture.source.map = { events += it }
+    fixture.onHover = { events += it }
     fixture.hover.move(sample(10))
     fixture.hover.move(sample(20))
     fixture.hover.exit()
@@ -91,7 +91,7 @@ class MapHoverGestureTest {
   @Test
   fun resubscribing_a_layer_cannot_publish_its_cancelled_pre_subscription_query() =
     hoverTest { fixture ->
-      fixture.source.map = {}
+      fixture.onHover = {}
       val events = fixture.layer()
       val registration = fixture.source.layers
       val query = CompletableDeferred<Unit>()
@@ -177,7 +177,7 @@ class MapHoverGestureTest {
   }
 
   @Test
-  fun exiting_from_a_binding_callback_cannot_reenter_map_or_layers() = hoverTest { fixture ->
+  fun exiting_from_a_map_callback_cannot_enter_layers() = hoverTest { fixture ->
     val events = mutableListOf<HoverEvent>()
     fixture.options = MapGestures {
       hover {
@@ -187,13 +187,10 @@ class MapHoverGestureTest {
         }
       }
     }
-    val mapEvents = mutableListOf<HoverEvent>()
-    fixture.source.map = { mapEvents += it }
     val layerEvents = fixture.layer()
     fixture.hover.move(sample(10))
     applyChanges()
     assertEquals(listOf("enter", "exit"), events.map(::kind))
-    assertTrue(mapEvents.isEmpty())
     assertTrue(layerEvents.isEmpty())
     assertTrue(fixture.source.queries.isEmpty())
   }
@@ -203,8 +200,10 @@ class MapHoverGestureTest {
     var mapExits = 0
     val failure = IllegalStateException("exit")
     fixture.options = MapGestures { hover { onEvent { if (it is HoverEvent.Exit) throw failure } } }
-    fixture.source.map = { if (it is HoverEvent.Exit) mapExits++ }
+    fixture.source.layers =
+      listOf(HoverLayer("layer", Any()) { if (it is HoverEvent.Exit) mapExits++ })
     fixture.hover.move(sample(10))
+    frame(fixture)
     assertEquals(failure, assertFailsWith<IllegalStateException> { fixture.hover.exit() })
     fixture.hover.exit()
     assertEquals(1, mapExits)
@@ -235,6 +234,12 @@ class MapHoverGestureTest {
     val source = Source()
     val frames = Channel<Unit>(Channel.RENDEZVOUS)
     var options by mutableStateOf(MapGestures.Standard)
+    var onHover: ((HoverEvent) -> Unit)?
+      get() = options.binding("hover").handlers.hover
+      set(value) {
+        options = MapGestures(from = options) { hover { onEvent(value) } }
+      }
+
     val hover =
       MapHoverGesture(
         scope,
@@ -256,19 +261,18 @@ class MapHoverGestureTest {
   private class Source : MapInteractionTarget {
     var revision by mutableIntStateOf(0)
     var layers by mutableStateOf(emptyList<HoverLayer>())
-    var map by mutableStateOf<((HoverEvent) -> Unit)?>(null)
     var hit = true
     var beforeQuery: suspend (DpOffset) -> Unit = {}
     val queries = mutableListOf<Float>()
     var activeQueries = 0
     var maximumQueries = 0
     override val hoverRevision: Any
-      get() = listOf(revision, layers, map)
+      get() = listOf(revision, layers)
 
     override fun capture(family: TapFamily): MapClickPath? = error("hover does not dispatch clicks")
 
     override fun captureHover() =
-      HoverScene(Unit, Unit, map, layers, { true }) { _, offset ->
+      HoverScene(Unit, Unit, layers, { true }) { _, offset ->
         queries += offset.x.value
         activeQueries++
         maximumQueries = maxOf(maximumQueries, activeQueries)

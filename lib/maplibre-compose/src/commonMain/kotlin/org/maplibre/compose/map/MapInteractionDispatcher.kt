@@ -11,29 +11,10 @@ import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.util.ClickResult
 import org.maplibre.compose.util.FeaturesClickHandler
-import org.maplibre.compose.util.MapClickHandler
-
-internal data class MapClickHandlers(
-  val onClick: MapClickHandler?,
-  val onLongClick: MapClickHandler?,
-  val onDoubleClick: MapClickHandler?,
-  val onTwoFingerClick: MapClickHandler?,
-  val onUnhandledClick: MapClickHandler?,
-  val onPointerMove: ((HoverEvent) -> Unit)? = null,
-) {
-  fun handler(family: TapFamily): MapClickHandler? =
-    when (family) {
-      TapFamily.Tap -> onClick
-      TapFamily.DoubleTap -> onDoubleClick
-      TapFamily.LongPress -> onLongClick
-      TapFamily.TwoFingerTap -> onTwoFingerClick
-    }
-}
 
 /** Layer knowledge stays outside input recognition; each queued click captures one loaded order. */
 internal class MapInteractionDispatcher(
   private val state: MapState,
-  private val handlers: State<MapClickHandlers>,
   private val desiredRevision: State<State<DesiredStyleRevision?>>,
   private val loadedStyle: State<StyleBinding?>,
   private val gestures: State<MapGestures>,
@@ -55,7 +36,6 @@ internal class MapInteractionDispatcher(
         loadedStyle.value,
         loadedStyle.value?.isLoaded,
         desiredRevision.value.value,
-        handlers.value.onPointerMove,
       )
 
   override fun captureHover(): HoverScene? {
@@ -74,7 +54,6 @@ internal class MapInteractionDispatcher(
     return HoverScene(
       attachment,
       listOf(attachment, style, loaded),
-      handlers.value.onPointerMove,
       layers,
       {
         !state.isClosed &&
@@ -91,8 +70,7 @@ internal class MapInteractionDispatcher(
   override val capabilities: Set<TapFamily>
     get() =
       TapFamily.entries.filterTo(mutableSetOf()) { family ->
-        handlers.value.handler(family) != null ||
-          family == TapFamily.Tap && handlers.value.onUnhandledClick != null ||
+        family == TapFamily.Tap && gestures.value.binding("tap").handlers.unhandledTap != null ||
           desiredRevision.value.value?.layers?.any { it.handler(family) != null } == true
       }
 
@@ -121,13 +99,6 @@ internal class MapInteractionDispatcher(
       }
     return MapClickPath(::valid) { event ->
       if (!valid()) return@MapClickPath ClickResult.Consume
-      val position = event.position
-      if (
-        position != null &&
-          handlers.value.handler(family)?.invoke(position, event.screenOffset)?.consumed == true
-      )
-        return@MapClickPath ClickResult.Consume
-      if (!valid()) return@MapClickPath ClickResult.Consume
       for (node in candidates) {
         if (current(node)?.handler(family) == null) continue
         val offset = event.screenOffset
@@ -150,8 +121,9 @@ internal class MapInteractionDispatcher(
           return@MapClickPath ClickResult.Consume
         if (!valid()) return@MapClickPath ClickResult.Consume
       }
-      if (family == TapFamily.Tap && position != null)
-        handlers.value.onUnhandledClick?.invoke(position, event.screenOffset) ?: ClickResult.Pass
+      if (family == TapFamily.Tap)
+        gestures.value.binding("tap").handlers.unhandledTap?.invoke(event as TapEvent)
+          ?: ClickResult.Pass
       else ClickResult.Pass
     }
   }

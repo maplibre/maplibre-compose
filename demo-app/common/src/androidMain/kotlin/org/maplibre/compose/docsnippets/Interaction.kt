@@ -45,19 +45,24 @@ fun Interaction() {
   val scope = rememberCoroutineScope()
   MaplibreMap(
     state = mapState,
-    onClick = { pos, offset ->
-      scope.launch {
-        val features = mapState.queryRenderedFeatures(offset)
-        if (features.isNotEmpty()) {
-          println("Clicked on ${features[0].toJson()}")
+    gestures =
+      MapGestures {
+        tap {
+          onEvent { event ->
+            scope.launch {
+              val features = mapState.queryRenderedFeatures(event.screenOffset)
+              if (features.isNotEmpty()) println("Clicked on ${features[0].toJson()}")
+            }
+            ClickResult.Consume
+          }
         }
-      }
-      ClickResult.Consume
-    },
-    onLongClick = { pos, offset ->
-      println("Long click at $pos")
-      ClickResult.Pass
-    },
+        longPress {
+          onEvent { event ->
+            println("Long click at ${event.position}")
+            ClickResult.Pass
+          }
+        }
+      },
   )
   // #endregion click-listeners
 }

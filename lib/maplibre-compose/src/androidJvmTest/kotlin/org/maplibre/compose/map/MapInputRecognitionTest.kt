@@ -119,8 +119,7 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun a_throwing_end_observer_cancels_the_custom_preview_without_a_second_observer_terminal() {
-    val observed = mutableListOf<String>()
+  fun a_throwing_custom_end_still_releases_camera_ownership() {
     val response = mutableListOf<DragEvent>()
     lateinit var recorded: RecordingGestureTarget
     val failure =
@@ -129,12 +128,11 @@ class MapInputRecognitionTest {
           options =
             MapGestures {
               drag("edit") {
-                onEnd {
-                  observed += "end"
-                  error("end observer failed")
+                action = DragAction.Custom
+                onEvent {
+                  response += it
+                  if (it is DragEvent.End) error("end response failed")
                 }
-                onCancel { observed += "cancel" }
-                action = DragAction.Custom { response += it }
               }
             }
         ) { target ->
@@ -147,11 +145,10 @@ class MapInputRecognitionTest {
           waitForIdle()
         }
       }
-    assertEquals("end observer failed", failure.message)
-    assertEquals(listOf("end"), observed)
+    assertEquals("end response failed", failure.message)
     assertTrue(response.first() is DragEvent.Start)
-    assertEquals(1, response.count { it is DragEvent.Cancel })
-    assertFalse(response.any { it is DragEvent.End })
+    assertEquals(0, response.count { it is DragEvent.Cancel })
+    assertEquals(1, response.count { it is DragEvent.End })
     assertEquals(1, recorded.endedCount)
   }
 
@@ -749,7 +746,7 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun a_custom_reservation_waits_for_its_own_slop_and_observes_before_response() {
+  fun a_custom_reservation_waits_for_its_own_slop() {
     val delivered = mutableListOf<DragEvent>()
     var claims = 0
     val options = MapGestures {
@@ -759,7 +756,8 @@ class MapInputRecognitionTest {
           claims++
           true
         }
-        action = DragAction.Custom { delivered += it }
+        action = DragAction.Custom
+        onEvent { delivered += it }
       }
     }
     runRecognitionTest(options = options) { target ->
@@ -786,21 +784,19 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun takeover_in_an_end_observer_cancels_the_started_custom_response_once() {
+  fun takeover_in_custom_end_does_not_cancel_an_already_completed_action() {
     var recorded: RecordingGestureTarget? = null
     var newer: GestureToken? = null
-    val observed = mutableListOf<DragEvent>()
     val delivered = mutableListOf<DragEvent>()
     runRecognitionTest(
       options =
         MapGestures {
           drag(id = "handle") {
-            onEnd {
-              observed += it
-              newer = checkNotNull(recorded).onGestureStarted()
+            action = DragAction.Custom
+            onEvent {
+              delivered += it
+              if (it is DragEvent.End) newer = checkNotNull(recorded).onGestureStarted()
             }
-            onCancel { observed += it }
-            action = DragAction.Custom { delivered += it }
           }
         }
     ) { target ->
@@ -811,22 +807,16 @@ class MapInputRecognitionTest {
         up()
       }
       waitForIdle()
-      assertEquals(1, observed.count { it is DragEvent.End })
-      assertEquals(0, observed.count { it is DragEvent.Cancel })
       assertEquals(1, delivered.count { it is DragEvent.Start })
-      assertEquals(0, delivered.count { it is DragEvent.End })
-      assertEquals(1, delivered.count { it is DragEvent.Cancel })
-      assertEquals(
-        GestureCancellationReason.CameraTakeover,
-        (delivered.last() as DragEvent.Cancel).reason,
-      )
+      assertEquals(1, delivered.count { it is DragEvent.End })
+      assertEquals(0, delivered.count { it is DragEvent.Cancel })
       assertTrue(checkNotNull(newer).acceptsCommands)
       target.onGestureEnded(checkNotNull(newer))
     }
   }
 
   @Test
-  fun takeover_before_the_custom_response_starts_does_not_deliver_an_orphan_cancel() {
+  fun takeover_in_custom_start_balances_the_started_action() {
     var recorded: RecordingGestureTarget? = null
     var newer: GestureToken? = null
     val delivered = mutableListOf<DragEvent>()
@@ -834,8 +824,11 @@ class MapInputRecognitionTest {
       options =
         MapGestures {
           drag(id = "handle") {
-            onStart { newer = checkNotNull(recorded).onGestureStarted() }
-            action = DragAction.Custom { delivered += it }
+            action = DragAction.Custom
+            onEvent {
+              delivered += it
+              if (it is DragEvent.Start) newer = checkNotNull(recorded).onGestureStarted()
+            }
           }
         }
     ) { target ->
@@ -846,24 +839,37 @@ class MapInputRecognitionTest {
         up()
       }
       waitForIdle()
-      assertTrue(delivered.isEmpty())
+      assertEquals(1, delivered.count { it is DragEvent.Start })
+      assertEquals(1, delivered.count { it is DragEvent.Cancel })
+      assertFalse(delivered.any { it is DragEvent.Delta || it is DragEvent.End })
       assertTrue(checkNotNull(newer).acceptsCommands)
       target.onGestureEnded(checkNotNull(newer))
     }
   }
 
   @Test
-  fun a_rejected_custom_claim_allows_the_next_drag() {
+  fun a_rejected_custom_claim_allows_an_observed_camera_binding() {
     var customEvents = 0
+    val observed = mutableListOf<DragEvent>()
+    lateinit var recorded: RecordingGestureTarget
     runRecognitionTest(
       options =
         MapGestures {
+          drag(id = "alternate-pan") {
+            action = DragAction.Pan
+            onEvent {
+              if (it is DragEvent.Start) assertTrue(recorded.moveCalls.isEmpty())
+              observed += it
+            }
+          }
           drag(id = "handle") {
             canStart { false }
-            action = DragAction.Custom { customEvents++ }
+            action = DragAction.Custom
+            onEvent { customEvents++ }
           }
         }
     ) { target ->
+      recorded = target
       mapNode().performTouchInput {
         down(center)
         moveBy(Offset(60f, 0f))
@@ -872,6 +878,9 @@ class MapInputRecognitionTest {
       waitForIdle()
       assertTrue(target.moveCalls.isNotEmpty())
       assertEquals(0, customEvents)
+      assertTrue(observed.first() is DragEvent.Start)
+      assertTrue(observed.any { it is DragEvent.Delta })
+      assertTrue(observed.last() is DragEvent.End)
     }
   }
 
@@ -881,7 +890,10 @@ class MapInputRecognitionTest {
     runRecognitionTest(
       options =
         MapGestures {
-          drag(id = "handle") { action = DragAction.Custom { delivered += it } }
+          drag(id = "handle") {
+            action = DragAction.Custom
+            onEvent { delivered += it }
+          }
         }
     ) { target ->
       mapNode().performTouchInput {
@@ -931,7 +943,8 @@ class MapInputRecognitionTest {
     fun configuration(name: String, slop: Int) = MapGestures {
       drag(id = "handle") {
         startSlop = slop.dp
-        action = DragAction.Custom { callbacks += name to it }
+        action = DragAction.Custom
+        onEvent { callbacks += name to it }
       }
     }
     var options by mutableStateOf(configuration("initial", 4))
