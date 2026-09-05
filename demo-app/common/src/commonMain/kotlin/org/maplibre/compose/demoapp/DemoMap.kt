@@ -77,7 +77,7 @@ internal suspend fun MapState.flyTo(destination: DemoDestination) {
 fun DemoMap(
   state: DemoAppState,
   viewportInsets: MapViewportInsets,
-  mapFocusRequester: FocusRequester,
+  mapFocusRequester: FocusRequester?,
   zoomButtonsFocusRequester: FocusRequester,
 ) {
   val scope = rememberCoroutineScope()
@@ -123,7 +123,7 @@ fun DemoMap(
         val zoomModifier =
           Modifier.align(Alignment.CenterEnd)
             .focusRequester(zoomButtonsFocusRequester)
-            .focusProperties { start = mapFocusRequester }
+            .focusProperties { if (mapFocusRequester != null) start = mapFocusRequester }
         if (material3) Material3ZoomButtons(zoomModifier) else ZoomButtons(zoomModifier)
       }
       selectedDemo?.let { demo ->

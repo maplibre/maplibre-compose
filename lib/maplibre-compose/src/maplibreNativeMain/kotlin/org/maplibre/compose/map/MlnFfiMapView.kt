@@ -1,6 +1,7 @@
 package org.maplibre.compose.map
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.indication
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -193,9 +194,11 @@ internal fun MlnFfiMapView(
   Box {
     surface(session, inputModifier, logger, revealSurface)
     if (!revealSurface) {
+      // The placeholder covers the surface and the focus indication drawn on it.
       Box(
         Modifier.matchParentSize()
           .background(options.renderOptions.foregroundLoadColor)
+          .indication(inputFocus.indicationInteractions, inputEnvironment.indication)
           .testTag(MAP_LOAD_PLACEHOLDER_TAG)
       )
     }

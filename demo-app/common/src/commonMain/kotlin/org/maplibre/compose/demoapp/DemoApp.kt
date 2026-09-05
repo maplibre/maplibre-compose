@@ -51,6 +51,7 @@ import org.maplibre.compose.demoapp.benchmark.BenchmarkMap
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.chevron_left_24px
 import org.maplibre.compose.demoapp.generated.chevron_right_24px
+import org.maplibre.compose.map.GestureOptions
 
 @Composable
 fun DemoApp(
@@ -145,6 +146,8 @@ private fun DemoShell(state: DemoAppState, contentPadding: PaddingValues) {
     val mapFocusRequester = remember { FocusRequester() }
     val zoomButtonsFocusRequester = remember { FocusRequester() }
     val zoomButtonsShown = state.shell != DemoShell.Benchmarks && state.settings.showZoomButtons
+    // A route to a map that cannot take focus strands the D-pad on the handle.
+    val mapFocusable = state.settings.gestureOptions.hasKeyboardGesture
 
     val handleTranslation =
       with(density) {
@@ -158,6 +161,7 @@ private fun DemoShell(state: DemoAppState, contentPadding: PaddingValues) {
 
     Box(Modifier.fillMaxSize()) {
       val mapCovered = layout == DemoShellLayout.Compact && panelOpen
+      val mapRouted = mapFocusable && !mapCovered
       Box(
         Modifier.fillMaxSize()
           .focusRequester(mapFocusRequester)
@@ -172,7 +176,7 @@ private fun DemoShell(state: DemoAppState, contentPadding: PaddingValues) {
         ShellMap(
           state = state,
           viewportInsets = viewportInsets,
-          mapFocusRequester = mapFocusRequester,
+          mapFocusRequester = mapFocusRequester.takeIf { mapRouted },
           zoomButtonsFocusRequester = zoomButtonsFocusRequester,
         )
       }
@@ -184,7 +188,7 @@ private fun DemoShell(state: DemoAppState, contentPadding: PaddingValues) {
           Modifier.align(Alignment.CenterStart)
             .graphicsLayer { translationX = handleTranslation }
             .focusRequester(handleFocusRequester)
-            .focusProperties { end = mapFocusRequester },
+            .focusProperties { if (mapRouted) end = mapFocusRequester },
       )
       Box(
         modifier =
@@ -282,7 +286,7 @@ private fun MapViewportInsets.withLeadingPanel(
 private fun ShellMap(
   state: DemoAppState,
   viewportInsets: MapViewportInsets,
-  mapFocusRequester: FocusRequester,
+  mapFocusRequester: FocusRequester?,
   zoomButtonsFocusRequester: FocusRequester,
 ) {
   if (state.shell == DemoShell.Benchmarks) {
@@ -291,3 +295,6 @@ private fun ShellMap(
     DemoMap(state, viewportInsets, mapFocusRequester, zoomButtonsFocusRequester)
   }
 }
+
+private val GestureOptions.hasKeyboardGesture: Boolean
+  get() = isKeyboardPanEnabled || isKeyboardZoomEnabled || isKeyboardRotateTiltEnabled
