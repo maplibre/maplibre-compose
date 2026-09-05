@@ -33,9 +33,7 @@ compose.desktop {
     jvmArgs += NATIVE_ACCESS_JVM_ARGS
 
     nativeDistributions {
-      // jpackage runs jlink against this JDK, so it decides the Java version inside the installed
-      // application; without it the packaged app takes whatever JDK Gradle runs on, which can be
-      // older than the 24 the MapLibre Native FFI binding requires.
+      // Package the configured toolchain, even when Gradle runs on an older JDK.
       javaHome =
         javaToolchains
           .launcherFor {
@@ -54,7 +52,6 @@ compose.desktop {
       targetFormats(TargetFormat.Dmg, TargetFormat.Msi)
       packageName = "org.maplibre.compose.demoapp"
       // https://youtrack.jetbrains.com/issue/CMP-2360
-      // packageVersion = providers.gradleProperty("maplibreReleaseVersion").get()
       packageVersion = "1.0.0"
 
       macOS {
@@ -66,9 +63,9 @@ compose.desktop {
           extraKeysRawXml =
             """
             <key>NSLocationWhenInUseUsageDescription</key>
-            <string>Example</string>
+            <string>The My location demo draws your position on the map.</string>
             <key>NSLocationUsageDescription</key>
-            <string>Example</string>
+            <string>The My location demo draws your position on the map.</string>
             """
               .trimIndent()
         }

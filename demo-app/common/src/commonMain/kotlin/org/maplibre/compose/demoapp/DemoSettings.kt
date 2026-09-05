@@ -40,10 +40,7 @@ enum class MapStyleMode(val displayName: String) {
       }
 }
 
-/**
- * How the Material 3 chrome colors are generated: Android Material You, or a MapLibre brand palette
- * style.
- */
+/** Material You on Android or a palette based on the MapLibre brand color. */
 enum class PaletteMode {
   System,
   Tonal,
@@ -76,13 +73,9 @@ class DemoSettings {
 
 @Composable fun rememberDemoSettings() = remember { DemoSettings() }
 
-/**
- * The rendering toggles this platform's [RenderOptions] offers — debug flags, the frame rate cap,
- * and on Android the texture-versus-surface choice — as settings list items.
- */
+/** Settings for the platform's debug flags, frame rate cap, and render mode. */
 @Composable expect fun RenderSettingsItems(settings: DemoSettings)
 
-/** Presets for [TileLodOptions], shared because every platform exposes the same three. */
 @Composable
 fun TileLodSettingsItems(settings: DemoSettings) {
   SectionHeader("Tile level of detail")

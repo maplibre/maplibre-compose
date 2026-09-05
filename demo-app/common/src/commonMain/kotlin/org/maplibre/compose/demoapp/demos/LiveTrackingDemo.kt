@@ -123,7 +123,7 @@ object LiveTrackingDemo : Demo {
       while (true) {
         withFrameMillis { frameMillis ->
           val traveled = (frameMillis - startMillis) / 1000.0 * SPEED_METERS_PER_SECOND
-          // Ping-pong between the terminals, like the ferry itself.
+          // Reverse direction at each terminal.
           val phase = traveled % (2 * routeLength)
           vehiclePosition = positionAt(routeLength - abs(phase - routeLength))
         }

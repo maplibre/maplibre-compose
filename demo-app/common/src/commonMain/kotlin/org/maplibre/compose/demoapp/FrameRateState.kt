@@ -9,11 +9,10 @@ import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
 import kotlinx.coroutines.delay
 
-/** How often the rate is recomputed. Short enough to react, long enough to read. */
 private const val SAMPLE_MILLIS = 500L
 
 /**
- * How many frames the map has actually drawn, sampled over time.
+ * Samples the rendered frame count to calculate frames per second.
  *
  * [record] counts one [org.maplibre.compose.map.MapEvent.FrameRendered] event. The counter is
  * deliberately not snapshot state: it advances once per frame, and writing state there would
@@ -31,9 +30,7 @@ class FrameRateState {
   var framesPerSecond by mutableDoubleStateOf(0.0)
     private set
 
-  /**
-   * Called once per rendered frame. One collector calls this, so a plain increment loses nothing.
-   */
+  /** Called once per rendered frame by a single collector. */
   fun record() {
     frames++
   }

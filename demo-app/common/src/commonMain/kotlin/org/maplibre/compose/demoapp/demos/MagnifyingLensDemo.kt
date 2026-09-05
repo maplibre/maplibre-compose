@@ -66,7 +66,8 @@ import org.maplibre.spatialk.geojson.BoundingBox
  */
 object MagnifyingLensDemo : Demo {
   override val name = "Magnifying lens"
-  override val description = "A second map composited into a draggable lens with Compose modifiers."
+  override val description =
+    "Drag a magnifying lens over the map. Change its size, shape, and magnification."
 
   private val lensRegion =
     BoundingBox(west = -74.002, south = 40.748, east = -73.968, north = 40.768)

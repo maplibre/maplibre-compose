@@ -91,10 +91,9 @@ private enum class Material(override val isDark: Boolean = false) : DemoStyle {
 }
 
 /**
- * A complete basemap — land, water, roads, buildings, and labels — composed in Kotlin from
- * MaterialTheme color tokens. The layer structure follows Protomaps Light; the street and building
- * shading follows Protomaps White and Black. The only style JSON is an empty base style, so the
- * whole map re-tints by recomposition when the theme changes.
+ * A basemap using MaterialTheme colors. The layers follow Protomaps Light, and street and building
+ * shading follows Protomaps White and Black. Theme changes update the layers without reloading the
+ * base style.
  */
 object MaterialStyleDemo : Demo {
   override val name = "Material 3 style"

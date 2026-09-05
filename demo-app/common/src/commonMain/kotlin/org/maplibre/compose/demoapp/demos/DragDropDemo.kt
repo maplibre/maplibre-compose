@@ -52,7 +52,6 @@ object DragDropDemo : Demo {
   override val name = "Drag & drop"
   override val description = "Drag a location-picker pin or the corner handles of a bounding box."
 
-  // A neighborhood view gives both modes room to drag in without a detour through the camera.
   override val destination =
     DemoDestination.FitBounds(
       BoundingBox(west = -122.3452, south = 47.6155, east = -122.3252, north = 47.6255)
@@ -69,11 +68,8 @@ object DragDropDemo : Demo {
   private var southeast by mutableStateOf(Position(longitude = -122.3327, latitude = 47.6185))
 
   /**
-   * Moves the overlay child with the pointer. The screen offset of [position] is captured on drag
-   * start and pointer deltas are accumulated onto it, so the child never has to be read back while
-   * it moves under the pointer. Pointer events report pixels, so the anchor captured from
-   * [MapState.screenLocationFromPosition] is scaled up before the px-based projection receives the
-   * sum.
+   * Accumulates pointer deltas from the initial screen position to avoid feedback from the moving
+   * child. Converts between pointer pixels and the map's Dp coordinates.
    */
   private fun Modifier.draggablePosition(
     mapState: MapState,
