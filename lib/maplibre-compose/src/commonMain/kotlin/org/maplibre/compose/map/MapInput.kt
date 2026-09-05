@@ -98,7 +98,9 @@ internal fun Modifier.mapInput(
       .onFocusChanged { focus.onFocusChanged(it.isFocused) }
       .focusRequester(focusRequester)
       .indication(focus.indicationInteractions, environment.indication)
-      .focusable(enabled = options.hasKeyboardGesture)
+      .focusable(
+        enabled = options.hasKeyboardGesture || options.hasRotaryGesture(rotaryNotchPixels)
+      )
   if (!gesturesEnabled) return focused
   return focused
     .pointerGestures(target, clicks, options, density, focusRequester, focus, continuation)
@@ -107,6 +109,10 @@ internal fun Modifier.mapInput(
 
 private val GestureOptions.hasKeyboardGesture: Boolean
   get() = isKeyboardPanEnabled || isKeyboardZoomEnabled || isKeyboardRotateTiltEnabled
+
+/** Rotary events reach only a focused node, so a rotary gesture keeps the map in traversal. */
+private fun GestureOptions.hasRotaryGesture(notchPixels: Float): Boolean =
+  isScrollZoomEnabled && notchPixels > 0f
 
 /** The composition locals that one [mapInput] node reads, resolved where the node is composed. */
 internal class MapInputEnvironment(

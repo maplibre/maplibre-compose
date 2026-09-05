@@ -483,6 +483,22 @@ class MapInputRecognitionTest {
       onNodeWithTag(AFTER_MAP_TAG).assertIsFocused()
     }
 
+  @Test
+  fun a_rotary_only_map_takes_a_tab_stop() =
+    runFocusTest(
+      options =
+        GestureOptions(
+          isKeyboardPanEnabled = false,
+          isKeyboardZoomEnabled = false,
+          isKeyboardRotateTiltEnabled = false,
+        ),
+      rotaryNotchPixels = 24f,
+    ) { _, _ ->
+      onNodeWithTag(BEFORE_MAP_TAG).requestFocus()
+      mapNode().performKeyInput { pressKey(Key.Tab) }
+      mapNode().assertIsFocused()
+    }
+
   /**
    * Places the map between two focusables and records every key press or release that reaches the
    * parent, which is every one the map does not consume.
@@ -490,6 +506,7 @@ class MapInputRecognitionTest {
   private fun runFocusTest(
     options: GestureOptions = GestureOptions.Standard,
     gesturesEnabled: Boolean = true,
+    rotaryNotchPixels: Float = 0f,
     body: ComposeUiTest.(RecordingGestureTarget, List<Key>) -> Unit,
   ) = runPlainComposeUiTest {
     val target = RecordingGestureTarget()
@@ -502,7 +519,9 @@ class MapInputRecognitionTest {
         }
       ) {
         Box(Modifier.size(40.dp).testTag(BEFORE_MAP_TAG).focusable())
-        Box(Modifier.size(200.dp)) { GestureHost(target, options, gesturesEnabled) }
+        Box(Modifier.size(200.dp)) {
+          GestureHost(target, options, gesturesEnabled, rotaryNotchPixels)
+        }
         Box(Modifier.size(40.dp).testTag(AFTER_MAP_TAG).focusable())
       }
     }
@@ -556,6 +575,7 @@ private fun GestureHost(
   target: RecordingGestureTarget,
   options: GestureOptions,
   gesturesEnabled: Boolean = true,
+  rotaryNotchPixels: Float = 0f,
 ) {
   val density = LocalDensity.current
   val focusRequester = remember { FocusRequester() }
@@ -582,7 +602,7 @@ private fun GestureHost(
         focus,
         environment,
         continuation,
-        rotaryNotchPixels = 0f,
+        rotaryNotchPixels,
         gesturesEnabled,
       )
   )
