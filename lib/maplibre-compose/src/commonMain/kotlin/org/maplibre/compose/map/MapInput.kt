@@ -134,6 +134,9 @@ internal class MapInputFocus(private val onChanged: (engaged: Boolean) -> Unit) 
    */
   val indicationInteractions = MutableInteractionSource()
 
+  /** Keys whose press the node consumed and whose release it still owes. */
+  val claimedKeys = mutableSetOf<Key>()
+
   private var isFocused = false
   private var engagedByKey = false
   private var shownFocus: FocusInteraction.Focus? = null
@@ -192,17 +195,23 @@ private fun Modifier.keyboardInput(
   continuation: GestureContinuation,
   gesturesEnabled: Boolean,
 ): Modifier = onKeyEvent { event ->
+  // A host that acts on the release of a key the map claimed, such as a dialog closing on Escape,
+  // must not see that release.
+  if (event.type == KeyEventType.KeyUp) return@onKeyEvent focus.claimedKeys.remove(event.key)
   if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
-  when (event.key) {
-    Key.Enter,
-    Key.NumPadEnter,
-    Key.DirectionCenter -> focus.engage(byKey = true)
-    Key.Escape -> focus.disengage()
-    // Compose delivers Back to the focused node before the activity, so a map that consumed Back
-    // after a touch would break back navigation on every Android phone.
-    Key.Back -> focus.consumesBack && focus.disengage()
-    else -> gesturesEnabled && focus.isEngaged && target.bindKey(event, options, continuation)
-  }
+  val consumed =
+    when (event.key) {
+      Key.Enter,
+      Key.NumPadEnter,
+      Key.DirectionCenter -> focus.engage(byKey = true)
+      Key.Escape -> focus.disengage()
+      // Compose delivers Back to the focused node before the activity, so a map that consumed
+      // Back after a touch would break back navigation on every Android phone.
+      Key.Back -> focus.consumesBack && focus.disengage()
+      else -> gesturesEnabled && focus.isEngaged && target.bindKey(event, options, continuation)
+    }
+  if (consumed) focus.claimedKeys.add(event.key)
+  consumed
 }
 
 private fun GestureTarget.bindKey(

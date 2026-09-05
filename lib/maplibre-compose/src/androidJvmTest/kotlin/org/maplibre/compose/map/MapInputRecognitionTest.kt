@@ -14,10 +14,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ComposeUiTest
@@ -486,8 +484,8 @@ class MapInputRecognitionTest {
     }
 
   /**
-   * Places the map between two focusables and records every key that reaches the parent, which is
-   * every key the map does not consume.
+   * Places the map between two focusables and records every key press or release that reaches the
+   * parent, which is every one the map does not consume.
    */
   private fun runFocusTest(
     options: GestureOptions = GestureOptions.Standard,
@@ -499,7 +497,7 @@ class MapInputRecognitionTest {
     setContent {
       Row(
         Modifier.fillMaxSize().onKeyEvent {
-          if (it.type == KeyEventType.KeyDown) unconsumed += it.key
+          unconsumed += it.key
           false
         }
       ) {
