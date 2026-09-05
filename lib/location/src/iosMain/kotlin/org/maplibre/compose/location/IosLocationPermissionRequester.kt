@@ -10,6 +10,7 @@ import platform.CoreLocation.kCLAuthorizationStatusAuthorizedWhenInUse
 import platform.CoreLocation.kCLAuthorizationStatusDenied
 import platform.CoreLocation.kCLAuthorizationStatusNotDetermined
 import platform.CoreLocation.kCLAuthorizationStatusRestricted
+import platform.Foundation.NSThread
 import platform.darwin.NSObject
 
 /**
@@ -19,6 +20,9 @@ import platform.darwin.NSObject
  * [LocationProvider.requestPermission] to an instance of this class. Use it directly when a custom
  * provider needs the same Core Location permission behavior.
  *
+ * Construct, request permission, and [close] on the main thread. Closing detaches the permission
+ * observer and releases the manager.
+ *
  * [`CLAuthorizationStatus`](https://developer.apple.com/documentation/corelocation/clauthorizationstatus)
  * maps an authorized status to [LocationPermission.Granted], `notDetermined` to
  * [LocationPermission.NotGranted] with `canRequest = true`, `denied` or `restricted` to `canRequest
@@ -26,7 +30,12 @@ import platform.darwin.NSObject
  * [`CLLocationManager.accuracyAuthorization`](https://developer.apple.com/documentation/corelocation/cllocationmanager/accuracyauthorization)
  * distinguishes precise from approximate grants.
  */
-public class IosLocationPermissionRequester {
+public class IosLocationPermissionRequester internal constructor(manager: CLLocationManager) :
+  AutoCloseable {
+  /** Creates a requester with its own Core Location manager. */
+  public constructor() : this(CLLocationManager())
+
+  private var manager: CLLocationManager? = manager
   private val mutableStatus =
     MutableStateFlow<LocationPermission>(LocationPermission.NotGranted(canRequest = null))
 
@@ -37,23 +46,37 @@ public class IosLocationPermissionRequester {
   private val delegate =
     object : NSObject(), CLLocationManagerDelegateProtocol {
       override fun locationManagerDidChangeAuthorization(manager: CLLocationManager) {
+        if (manager !== this@IosLocationPermissionRequester.manager) return
         val value = readStatus(manager)
         mutableStatus.value = value
         requestPending = false
       }
     }
 
-  private val manager = CLLocationManager().also { it.delegate = delegate }
-
   init {
+    check(NSThread.isMainThread) { "Location permission requester requires the main thread" }
+    manager.delegate = delegate
     mutableStatus.value = readStatus(manager)
+  }
+
+  /** Detaches the permission observer and releases the manager. Repeated calls have no effect. */
+  override fun close() {
+    check(NSThread.isMainThread) { "Location permission requester requires the main thread" }
+    val manager = manager ?: return
+    this.manager = null
+    manager.delegate = null
+    requestPending = false
   }
 
   /**
    * Starts a foreground permission request and returns immediately. The result is published to
    * [status].
+   *
+   * @throws IllegalStateException if the requester is closed or called off the main thread.
    */
   public fun requestForegroundPermission() {
+    check(NSThread.isMainThread) { "Location permission requester requires the main thread" }
+    val manager = checkNotNull(manager) { "Location permission requester is closed" }
     val current = readStatus(manager)
     if (current !is LocationPermission.NotGranted || current.canRequest != true || requestPending)
       return

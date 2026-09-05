@@ -1,11 +1,14 @@
 package org.maplibre.compose.location
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 
 @Composable
-public actual fun rememberDefaultLocationProvider(): LocationProvider = remember {
-  IosLocationProvider()
+public actual fun rememberDefaultLocationProvider(): LocationProvider {
+  val provider = remember { IosLocationProvider() }
+  DisposableEffect(provider) { onDispose { provider.close() } }
+  return provider
 }
 
 @Composable

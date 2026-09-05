@@ -2,9 +2,15 @@ package org.maplibre.compose.location
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import platform.CoreLocation.CLLocationManager
 import platform.CoreLocation.kCLErrorDenied
 import platform.CoreLocation.kCLErrorDomain
 import platform.CoreLocation.kCLErrorLocationUnknown
@@ -15,10 +21,41 @@ import platform.Foundation.NSThread
 class IosLocationProviderTest {
   @Test
   fun exposesPermissionFromItsRequester() {
-    assertEquals(
-      IosLocationPermissionRequester().status.value,
-      IosLocationProvider().permission.value,
-    )
+    IosLocationPermissionRequester().use { requester ->
+      IosLocationProvider().use { provider ->
+        assertEquals(requester.status.value, provider.permission.value)
+      }
+    }
+  }
+
+  @Test
+  fun closeDetachesPermissionObserverAndRejectsRequests() {
+    val manager = CLLocationManager()
+    val requester = IosLocationPermissionRequester(manager)
+    val provider = IosLocationProvider(requester)
+    assertNotNull(manager.delegate)
+
+    provider.close()
+    provider.close()
+
+    assertNull(manager.delegate)
+    assertFailsWith<IllegalStateException> { provider.requestPermission() }
+    assertFailsWith<IllegalStateException> { requester.requestForegroundPermission() }
+  }
+
+  @Test
+  fun failedOffMainCloseCanStillDisposeOnMain() = runTest {
+    val manager = CLLocationManager()
+    val requester = IosLocationPermissionRequester(manager)
+    try {
+      withContext(Dispatchers.Default) {
+        assertFailsWith<IllegalStateException> { requester.close() }
+      }
+      assertNotNull(manager.delegate)
+    } finally {
+      requester.close()
+    }
+    assertNull(manager.delegate)
   }
 
   @Test
