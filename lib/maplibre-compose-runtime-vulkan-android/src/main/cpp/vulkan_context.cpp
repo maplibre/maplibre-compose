@@ -1,3 +1,5 @@
+#include "jni_handles.h"
+
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -34,7 +36,7 @@ auto require_vk(VkResult result, const char* operation) -> void {
 
 auto context_from_handle(jlong handle) -> VulkanContext* {
   auto* context =
-    reinterpret_cast<VulkanContext*>(static_cast<intptr_t>(handle));
+    reinterpret_cast<VulkanContext*>(static_cast<uintptr_t>(handle));
   if (context == nullptr) {
     throw std::invalid_argument("Vulkan context handle is null");
   }
@@ -262,7 +264,7 @@ Java_org_maplibre_compose_mlnffi_AndroidVulkanNativeBridge_create(
       context->device, context->graphics_queue_family_index, 0,
       &context->graphics_queue
     );
-    return static_cast<jlong>(reinterpret_cast<intptr_t>(context));
+    return handle_to_jlong(context);
   } catch (const std::exception& error) {
     __android_log_print(
       ANDROID_LOG_ERROR, kLogTag, "Vulkan setup failed: %s", error.what()
@@ -291,7 +293,7 @@ Java_org_maplibre_compose_mlnffi_AndroidVulkanNativeBridge_createOffscreen(
       context->device, context->graphics_queue_family_index, 0,
       &context->graphics_queue
     );
-    return static_cast<jlong>(reinterpret_cast<intptr_t>(context));
+    return handle_to_jlong(context);
   } catch (const std::exception& error) {
     __android_log_print(
       ANDROID_LOG_ERROR, kLogTag, "Offscreen Vulkan setup failed: %s",
@@ -319,7 +321,7 @@ Java_org_maplibre_compose_mlnffi_AndroidVulkanNativeBridge_instance(
   JNIEnv* env, jobject, jlong handle
 ) {
   try {
-    return reinterpret_cast<intptr_t>(context_from_handle(handle)->instance);
+    return handle_to_jlong(context_from_handle(handle)->instance);
   } catch (const std::exception& error) {
     throw_java_exception(env, error.what());
     return 0;
@@ -331,7 +333,7 @@ Java_org_maplibre_compose_mlnffi_AndroidVulkanNativeBridge_surface(
   JNIEnv* env, jobject, jlong handle
 ) {
   try {
-    return reinterpret_cast<intptr_t>(context_from_handle(handle)->surface);
+    return handle_to_jlong(context_from_handle(handle)->surface);
   } catch (const std::exception& error) {
     throw_java_exception(env, error.what());
     return 0;
@@ -343,9 +345,7 @@ Java_org_maplibre_compose_mlnffi_AndroidVulkanNativeBridge_physicalDevice(
   JNIEnv* env, jobject, jlong handle
 ) {
   try {
-    return reinterpret_cast<intptr_t>(
-      context_from_handle(handle)->physical_device
-    );
+    return handle_to_jlong(context_from_handle(handle)->physical_device);
   } catch (const std::exception& error) {
     throw_java_exception(env, error.what());
     return 0;
@@ -357,7 +357,7 @@ Java_org_maplibre_compose_mlnffi_AndroidVulkanNativeBridge_device(
   JNIEnv* env, jobject, jlong handle
 ) {
   try {
-    return reinterpret_cast<intptr_t>(context_from_handle(handle)->device);
+    return handle_to_jlong(context_from_handle(handle)->device);
   } catch (const std::exception& error) {
     throw_java_exception(env, error.what());
     return 0;
@@ -369,9 +369,7 @@ Java_org_maplibre_compose_mlnffi_AndroidVulkanNativeBridge_graphicsQueue(
   JNIEnv* env, jobject, jlong handle
 ) {
   try {
-    return reinterpret_cast<intptr_t>(
-      context_from_handle(handle)->graphics_queue
-    );
+    return handle_to_jlong(context_from_handle(handle)->graphics_queue);
   } catch (const std::exception& error) {
     throw_java_exception(env, error.what());
     return 0;
@@ -396,12 +394,12 @@ extern "C" JNIEXPORT jlong JNICALL
 Java_org_maplibre_compose_mlnffi_AndroidVulkanNativeBridge_getInstanceProcAddr(
   JNIEnv*, jobject
 ) {
-  return reinterpret_cast<intptr_t>(&vkGetInstanceProcAddr);
+  return handle_to_jlong(&vkGetInstanceProcAddr);
 }
 
 extern "C" JNIEXPORT jlong JNICALL
 Java_org_maplibre_compose_mlnffi_AndroidVulkanNativeBridge_getDeviceProcAddr(
   JNIEnv*, jobject
 ) {
-  return reinterpret_cast<intptr_t>(&vkGetDeviceProcAddr);
+  return handle_to_jlong(&vkGetDeviceProcAddr);
 }

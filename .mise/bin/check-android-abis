@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Build both Android backends and check every packaged native library.
+set -euo pipefail
+
+sdk_root="$(.mise/bin/android-sdk-root)"
+ndk_version="$(python -c 'import tomllib; print(tomllib.load(open("gradle/libs.versions.toml", "rb"))["versions"]["android-ndk"])')"
+min_sdk="$(python -c 'import tomllib; print(tomllib.load(open("gradle/libs.versions.toml", "rb"))["versions"]["android-minSdk"])')"
+report_dir=build/reports/android-abis
+mkdir -p "$report_dir"
+
+for backend in opengl vulkan; do
+  for module in android wearos; do
+    # Serialize Gradle invocations and bound workers on shared development hosts.
+    ./gradlew ":demo-app:$module:assembleDebug" \
+      -Pmaplibre.android.backend="$backend" --max-workers=2
+    apk="$report_dir/$module-$backend.apk"
+    cp "demo-app/$module/build/outputs/apk/debug/$module-debug.apk" "$apk"
+    python ci/android_native_coverage.py "$apk" \
+      --ndk "$sdk_root/ndk/$ndk_version" --min-sdk "$min_sdk" --backend "$backend" \
+      | tee "$report_dir/$module-$backend.txt"
+  done
+done

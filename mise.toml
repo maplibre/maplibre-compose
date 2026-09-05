@@ -119,6 +119,11 @@ run = "./gradlew clean"
 description = "Install the pinned Android SDK packages into $ANDROID_HOME."
 run = 'bash .mise/bin/sync-android-packages "{{vars.java_version}}"'
 
+[tasks."check:android-abis"]
+description = "Build both Android runtimes and verify native ABI and link dependency coverage in the demo APKs."
+depends = ["android-sdk-packages"]
+run = ".mise/bin/check-android-abis"
+
 [tasks."lint:android"]
 description = "Run Android Lint across the modules that declare an Android target."
 run = "./gradlew lint"
