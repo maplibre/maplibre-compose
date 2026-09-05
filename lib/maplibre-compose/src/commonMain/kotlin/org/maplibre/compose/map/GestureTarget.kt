@@ -145,6 +145,5 @@ internal interface MapInteractionTarget {
   val hoverRevision: Any
     get() = Unit
 
-  fun captureHover(): HoverScene? =
-    HoverScene(Unit, Unit, null, emptyList(), { true }) { _, _ -> false }
+  fun captureHover(): HoverScene? = HoverScene(Unit, Unit, emptyList(), { true }) { _, _ -> false }
 }

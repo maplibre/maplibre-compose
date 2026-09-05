@@ -54,7 +54,7 @@ class MapClickDispatcherTest {
   }
 
   @Test
-  fun map_layers_and_unhandled_follow_loaded_order_and_padding() = runTest {
+  fun layers_and_unhandled_follow_loaded_order_and_padding() = runTest {
     val fixture = Fixture()
     try {
       val order = mutableListOf<String>()
@@ -71,22 +71,19 @@ class MapClickDispatcherTest {
           }
           .copy(hitPadding = 5.dp)
       fixture.revision.value = DesiredStyleRevision(emptyList(), listOf(front, back), emptyList())
-      fixture.handlers.value =
-        fixture.handlers.value.copy(
-          onClick = { _, _ ->
-            order += "map"
-            ClickResult.Pass
-          },
-          onUnhandledClick = { _, _ ->
+      fixture.gestures.value = MapGestures {
+        tap {
+          onUnhandled {
             order += "unhandled"
             ClickResult.Pass
-          },
-        )
+          }
+        }
+      }
       assertEquals(
         ClickResult.Pass,
         fixture.dispatcher.capture(TapFamily.Tap)!!.deliver(fixture.event),
       )
-      assertEquals(listOf("map", "front", "back", "unhandled"), order)
+      assertEquals(listOf("front", "back", "unhandled"), order)
       assertEquals(listOf("front", "back"), fixture.adapter.queries)
       assertEquals(listOf(DpRect(5.dp, 15.dp, 15.dp, 25.dp), null), fixture.adapter.rectangles)
     } finally {
@@ -171,21 +168,24 @@ class MapClickDispatcherTest {
   }
 
   @Test
-  fun no_layer_subscribers_means_no_query_and_map_consumption_skips_layers() = runTest {
+  fun no_layer_subscribers_means_no_query() = runTest {
     val fixture = Fixture()
     try {
       assertEquals(emptySet(), fixture.dispatcher.capabilities)
       fixture.dispatcher.capture(TapFamily.DoubleTap)!!.deliver(fixture.event)
       assertTrue(fixture.adapter.queries.isEmpty())
-      fixture.handlers.value =
-        fixture.handlers.value.copy(onDoubleClick = { _, _ -> ClickResult.Consume })
-      val node =
-        fixture
-          .node("front") { ClickResult.Pass }
-          .copy(onDoubleClick = { error("consumed click reached layer") })
-      fixture.revision.value = DesiredStyleRevision(emptyList(), listOf(node), emptyList())
-      assertTrue(TapFamily.DoubleTap in fixture.dispatcher.capabilities)
-      assertTrue(fixture.dispatcher.capture(TapFamily.DoubleTap)!!.deliver(fixture.event).consumed)
+      var unhandled = 0
+      fixture.gestures.value = MapGestures {
+        tap {
+          onUnhandled {
+            unhandled++
+            ClickResult.Consume
+          }
+        }
+      }
+      assertEquals(setOf(TapFamily.Tap), fixture.dispatcher.capabilities)
+      assertTrue(fixture.dispatcher.capture(TapFamily.Tap)!!.deliver(fixture.event).consumed)
+      assertEquals(1, unhandled)
       assertTrue(fixture.adapter.queries.isEmpty())
     } finally {
       fixture.close()
@@ -196,7 +196,7 @@ class MapClickDispatcherTest {
     val runtime = mapRuntimeForTest()
     val state = runtime.createMapState(BaseStyle.Empty)
     val adapter = QueryAdapter()
-    val handlers = mutableStateOf(MapClickHandlers(null, null, null, null, null))
+    val gestures = mutableStateOf(MapGestures.Standard)
     val revision = mutableStateOf<DesiredStyleRevision?>(null)
     val style =
       mutableStateOf<StyleBinding?>(
@@ -221,10 +221,9 @@ class MapClickDispatcherTest {
       dispatcher =
         MapInteractionDispatcher(
           state,
-          handlers,
           mutableStateOf<State<DesiredStyleRevision?>>(revision),
           style,
-          mutableStateOf(MapGestures.Standard),
+          gestures,
         )
     }
 

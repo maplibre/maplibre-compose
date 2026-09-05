@@ -22,21 +22,15 @@ public enum class TapCameraAction {
   ZoomOut,
 }
 
-/** The response owned by a selected drag. Custom receives the complete input lifecycle. */
-public sealed interface DragAction {
-  public data object Pan : DragAction
-
-  public data object RotateTilt : DragAction
-
-  public data object Zoom : DragAction
-
-  public data object BoxZoom : DragAction
-
-  public class Custom(public val onEvent: (DragEvent) -> Unit) : DragAction {
-    override fun equals(other: Any?): Boolean = other is Custom && onEvent === other.onEvent
-
-    override fun hashCode(): Int = onEvent.hashCode()
-  }
+/**
+ * The camera response of a custom binding. [Custom] leaves the response to its onEvent callback.
+ */
+public enum class DragAction {
+  Pan,
+  RotateTilt,
+  Zoom,
+  BoxZoom,
+  Custom,
 }
 
 /** Screen-space pan continuation. Speeds are dp/second and [baseTime] contributes to duration. */

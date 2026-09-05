@@ -29,7 +29,6 @@ import org.maplibre.compose.overlay.include
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.rememberStyleComposition
-import org.maplibre.compose.util.MapClickHandler
 
 private class MapStateAttachment(
   val state: MapState,
@@ -71,9 +70,8 @@ private class MapStateAttachment(
  * The map is a focus target, and the overlay is a focus group. Focus modifiers on [modifier] apply
  * to the map, and a control in the overlay keeps its own focus properties.
  *
- * Tap handlers run after binding callbacks and before interactive layers. A consuming handler stops
- * delivery and camera fallthrough. [onUnhandledClick] runs after unconsumed ordinary taps. Null
- * handlers do not contribute recognition demand.
+ * Configure input handlers through [gestures]. Tap handlers run before interactive layers;
+ * unhandled tap callbacks run after layers pass the event.
  */
 @Composable
 public fun MaplibreMap(
@@ -84,12 +82,6 @@ public fun MaplibreMap(
   renderOptions: RenderOptions = RenderOptions.Standard,
   gestures: MapGestures = MapGestures.Standard,
   tileLodOptions: TileLodOptions = TileLodOptions.Standard,
-  onClick: MapClickHandler? = null,
-  onLongClick: MapClickHandler? = null,
-  onDoubleClick: MapClickHandler? = null,
-  onTwoFingerClick: MapClickHandler? = null,
-  onUnhandledClick: MapClickHandler? = null,
-  onPointerMove: ((HoverEvent) -> Unit)? = null,
   contentWindowInsets: WindowInsets = WindowInsets.safeDrawing,
   overlay: @Composable @UiComposable MapOverlayScope.() -> Unit = {
     include(MapOverlay.Default)
@@ -116,15 +108,6 @@ public fun MaplibreMap(
       presentationOwner = presentationOwner,
       modifier = modifier,
       mapViewOptions = mapViewOptions,
-      handlers =
-        MapClickHandlers(
-          onClick,
-          onLongClick,
-          onDoubleClick,
-          onTwoFingerClick,
-          onUnhandledClick,
-          onPointerMove,
-        ),
       contentWindowInsets = contentWindowInsets,
       overlay = overlay,
     )
@@ -137,7 +120,6 @@ private fun PresentedMaplibreMap(
   presentationOwner: MapPresentationOwnerToken,
   modifier: Modifier,
   mapViewOptions: MapViewOptions,
-  handlers: MapClickHandlers,
   contentWindowInsets: WindowInsets,
   overlay: @Composable @UiComposable MapOverlayScope.() -> Unit,
 ) {
@@ -149,7 +131,6 @@ private fun PresentedMaplibreMap(
     attachment = attachment,
     modifier = modifier,
     mapViewOptions = mapViewOptions,
-    handlers = handlers,
     contentWindowInsets = contentWindowInsets,
     overlay = overlay,
   )
@@ -161,7 +142,6 @@ private fun MaplibreMapPresentation(
   attachment: MapStateAttachment,
   modifier: Modifier,
   mapViewOptions: MapViewOptions,
-  handlers: MapClickHandlers,
   contentWindowInsets: WindowInsets,
   overlay: @Composable @UiComposable MapOverlayScope.() -> Unit,
 ) {
@@ -181,7 +161,6 @@ private fun MaplibreMapPresentation(
     )
   val desiredRevision by desiredRevisionState
   val mapAttachment = state.currentMapAttachment
-  val currentHandlers = rememberUpdatedState(handlers)
   val currentGestures = rememberUpdatedState(mapViewOptions.gestures)
   // The style subcomposition publishes into a revision state it re-creates per loaded style, and
   // the dispatcher must keep its identity because the pointer input holding it does not restart.
@@ -190,7 +169,6 @@ private fun MaplibreMapPresentation(
     remember(state) {
       MapInteractionDispatcher(
         state = state,
-        handlers = currentHandlers,
         desiredRevision = currentDesiredRevision,
         loadedStyle = rememberedStyleState,
         gestures = currentGestures,

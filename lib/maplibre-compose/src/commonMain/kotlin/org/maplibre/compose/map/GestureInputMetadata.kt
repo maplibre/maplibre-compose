@@ -70,6 +70,7 @@ internal fun GestureBindingHandlers.observe(event: ScrollEvent) {
 }
 
 internal fun GestureBindingHandlers.observe(event: DragEvent) {
+  dragEvent?.invoke(event)
   when (event) {
     is DragEvent.Start -> dragStart?.invoke(event)
     is DragEvent.Delta -> dragDelta?.invoke(event)

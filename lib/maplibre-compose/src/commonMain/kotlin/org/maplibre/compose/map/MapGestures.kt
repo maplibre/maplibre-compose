@@ -330,29 +330,38 @@ public class QuickZoomGestureBuilder internal constructor(draft: GestureBindingD
 public class BoxZoomGestureBuilder internal constructor(draft: GestureBindingDraft) :
   DragGestureBuilder(draft) {}
 
+/** A custom binding has one lifecycle callback, delivered before its selected camera response. */
 public class CustomDragGestureBuilder internal constructor(draft: GestureBindingDraft) :
-  DragGestureBuilder(draft) {
-  public var action: DragAction
-    get() =
-      when (draft.settings.dragAction) {
-        DragActionKind.Pan -> DragAction.Pan
-        DragActionKind.RotateTilt -> DragAction.RotateTilt
-        DragActionKind.Zoom -> DragAction.Zoom
-        DragActionKind.BoxZoom -> DragAction.BoxZoom
-        DragActionKind.Custom -> DragAction.Custom(checkNotNull(draft.handlers.customDrag))
-      }
+  PointerGestureBuilder(draft) {
+  /**
+   * Recognition slop in dp. Assigning it also sets [mouseStartSlop]; assign the latter separately
+   * afterward to give mouse input a different threshold.
+   */
+  public var startSlop: Dp
+    get() = draft.settings.startSlop
     set(value) {
-      val kind =
-        when (value) {
-          DragAction.Pan -> DragActionKind.Pan
-          DragAction.RotateTilt -> DragActionKind.RotateTilt
-          DragAction.Zoom -> DragActionKind.Zoom
-          DragAction.BoxZoom -> DragActionKind.BoxZoom
-          is DragAction.Custom -> DragActionKind.Custom
-        }
-      draft.settings = draft.settings.copy(dragAction = kind)
-      draft.handlers = draft.handlers.copy(customDrag = (value as? DragAction.Custom)?.onEvent)
+      draft.settings = draft.settings.copy(startSlop = value, mouseStartSlop = value)
     }
+
+  public var mouseStartSlop: Dp
+    get() = draft.settings.mouseStartSlop
+    set(value) {
+      draft.settings = draft.settings.copy(mouseStartSlop = value)
+    }
+
+  public var action: DragAction
+    get() = draft.settings.dragAction
+    set(value) {
+      draft.settings = draft.settings.copy(dragAction = value)
+    }
+
+  /**
+   * Observes this binding; with [DragAction.Custom], this callback also owns the application
+   * response.
+   */
+  public fun onEvent(block: ((DragEvent) -> Unit)?) {
+    draft.handlers = draft.handlers.copy(dragEvent = block)
+  }
 
   public var anchor: GestureAnchor
     get() = draft.settings.anchor
@@ -549,6 +558,11 @@ public class TapGestureBuilder internal constructor(draft: GestureBindingDraft) 
   public fun onEvent(block: ((TapEvent) -> ClickResult)?) {
     draft.handlers = draft.handlers.copy(tap = block)
   }
+
+  /** Called only after the map handler and every interactive layer pass this tap. */
+  public fun onUnhandled(block: ((TapEvent) -> ClickResult)?) {
+    draft.handlers = draft.handlers.copy(unhandledTap = block)
+  }
 }
 
 public class DoubleTapGestureBuilder internal constructor(draft: GestureBindingDraft) :
@@ -679,16 +693,8 @@ internal class GestureBindingDraft(binding: GestureBinding) {
   }
 }
 
-internal enum class DragActionKind {
-  Pan,
-  RotateTilt,
-  Zoom,
-  BoxZoom,
-  Custom,
-}
-
 internal data class GestureBindingSettings(
-  val dragAction: DragActionKind = DragActionKind.Pan,
+  val dragAction: DragAction = DragAction.Pan,
   val startSlop: Dp = 4.dp,
   val mouseStartSlop: Dp = 3.dp,
   val startSpanSlop: Dp = 7.dp,
@@ -727,7 +733,7 @@ internal data class GestureBindingSettings(
 }
 
 internal data class GestureBindingHandlers(
-  val customDrag: ((DragEvent) -> Unit)? = null,
+  val dragEvent: ((DragEvent) -> Unit)? = null,
   val dragStart: ((DragEvent.Start) -> Unit)? = null,
   val dragDelta: ((DragEvent.Delta) -> Unit)? = null,
   val dragEnd: ((DragEvent.End) -> Unit)? = null,
@@ -749,6 +755,7 @@ internal data class GestureBindingHandlers(
   val scrollEnd: ((ScrollEvent.End) -> Unit)? = null,
   val scrollCancel: ((ScrollEvent.Cancel) -> Unit)? = null,
   val tap: ((TapEvent) -> ClickResult)? = null,
+  val unhandledTap: ((TapEvent) -> ClickResult)? = null,
   val doubleTap: ((DoubleTapEvent) -> ClickResult)? = null,
   val longPress: ((LongPressEvent) -> ClickResult)? = null,
   val twoFingerTap: ((TwoFingerTapEvent) -> ClickResult)? = null,
@@ -758,7 +765,7 @@ internal data class GestureBindingHandlers(
   val presence: List<Boolean>
     get() =
       listOf(
-          customDrag,
+          dragEvent,
           dragStart,
           dragDelta,
           dragEnd,
@@ -780,6 +787,7 @@ internal data class GestureBindingHandlers(
           scrollEnd,
           scrollCancel,
           tap,
+          unhandledTap,
           doubleTap,
           longPress,
           twoFingerTap,
@@ -805,7 +813,7 @@ private fun standardGestureBindings(): List<GestureBinding> {
       GestureFamily.Drag,
       listOf(PointerFilter(touch)),
       GestureBindingSettings(
-        dragAction = DragActionKind.Zoom,
+        dragAction = DragAction.Zoom,
         startSlop = 7.dp,
         anchor = GestureAnchor.CameraCenter,
       ),
@@ -817,13 +825,13 @@ private fun standardGestureBindings(): List<GestureBinding> {
         PointerFilter(mouse, PointerButton.Secondary),
         PointerFilter(mouse, modifiers = ModifierFilter.Containing(KeyModifier.Ctrl)),
       ),
-      GestureBindingSettings(dragAction = DragActionKind.RotateTilt, startSlop = 3.dp),
+      GestureBindingSettings(dragAction = DragAction.RotateTilt, startSlop = 3.dp),
     ),
     binding(
       "boxZoom",
       GestureFamily.Drag,
       listOf(PointerFilter(mouse, modifiers = ModifierFilter.Containing(KeyModifier.Shift))),
-      GestureBindingSettings(dragAction = DragActionKind.BoxZoom, startSlop = 3.dp),
+      GestureBindingSettings(dragAction = DragAction.BoxZoom, startSlop = 3.dp),
     ),
     binding("dragPan", GestureFamily.Drag),
     binding("pinchZoom", GestureFamily.Pinch),
@@ -837,7 +845,7 @@ private fun standardGestureBindings(): List<GestureBinding> {
       "ctrlScrollZoom",
       GestureFamily.Scroll,
       listOf(PointerFilter(button = null, modifiers = ModifierFilter.Containing(KeyModifier.Ctrl))),
-      GestureBindingSettings(dragAction = DragActionKind.Zoom, zoomStep = 0.15),
+      GestureBindingSettings(dragAction = DragAction.Zoom, zoomStep = 0.15),
     ),
     binding(
       "scrollPan",
@@ -849,7 +857,7 @@ private fun standardGestureBindings(): List<GestureBinding> {
       "scrollZoom",
       GestureFamily.Scroll,
       listOf(PointerFilter(button = null)),
-      GestureBindingSettings(dragAction = DragActionKind.Zoom, zoomStep = 0.15),
+      GestureBindingSettings(dragAction = DragAction.Zoom, zoomStep = 0.15),
     ),
     binding("tap", GestureFamily.Tap),
     binding(

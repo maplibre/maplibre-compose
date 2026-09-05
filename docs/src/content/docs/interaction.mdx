@@ -33,7 +33,7 @@ Tab focuses the map; Enter engages keyboard navigation, and Escape leaves it.
 
 ## Observe input
 
-Continuous bindings have `onStart`, `onDelta`, `onEnd`, and `onCancel` observers.
+Built-in continuous bindings have `onStart`, `onDelta`, `onEnd`, and `onCancel` observers.
 An observer runs synchronously before the camera response. A pan observer reports
 recognized panning, so it can turn off follow without reacting to target changes
 caused by anchored zoom:
@@ -43,9 +43,11 @@ caused by anchored zoom:
 Use `scrollPan.onStart` as well when following should stop on trackpad scrolling.
 End completes input; momentum may continue afterward. Cancel means the action
 was interrupted and should discard any preview. Custom `drag` bindings accept a
-synchronous `canStart` predicate and a `DragAction.Custom` response. Reserve a
-selected edit target in the predicate, update its preview on Delta, and commit
-only on End.
+synchronous `canStart` predicate and one `onEvent` callback. With
+`action = DragAction.Custom`, that callback owns the application response.
+Reserve a selected edit target in the predicate, update its preview on Delta,
+and commit only on End. With a built-in action, the callback runs before its
+camera response.
 
 Callback-only recomposition updates delivery without restarting recognition.
 Changing filters, thresholds, or other structural settings cancels active input.
@@ -54,8 +56,9 @@ with parent scroll containers.
 
 ## Handle clicks
 
-The map's `onClick`, `onLongClick`, `onDoubleClick`, and `onTwoFingerClick`
-parameters receive geographic positions and map-local screen offsets in dp.
+Configure `onEvent` in the `tap`, `longPress`, `doubleTap`, and `twoFingerTap`
+bindings. Their typed events include geographic positions and map-local screen
+offsets in dp.
 Return <Api of="ClickResult.Pass" /> to continue to interactive layers.
 Return <Api of="ClickResult.Consume" /> to stop delivery.
 
@@ -70,16 +73,16 @@ queries a square around it. It applies to all four click families.
 
 <Code code={rememberedMapStyle(region(layers, "interaction"))} lang="kotlin" title="App.kt" />
 
-Delivery runs through the binding observer, map handler, and interactive layers
-in loaded front-to-back order. An ordinary tap can then reach `onUnhandledClick`.
+Delivery runs through the binding handler and interactive layers in loaded
+front-to-back order. An ordinary tap can then reach `tap.onUnhandled`.
 An unconsumed double tap or two-finger tap can perform its configured zoom.
 Consuming a click also prevents that camera response. Feature dispatch does not
 reverse Compose pointer consumption or forward a click to a parent composable.
 
 ## Observe hover
 
-The `hover` binding and map `onPointerMove` report pointer entry, movement, and
-exit without feature queries. Layer `onHover` handlers additionally receive
+The `hover.onEvent` handler reports pointer entry, movement, and exit without
+feature queries. Layer `onHover` handlers additionally receive
 exact-point feature hits. Hover updates when the camera or style changes beneath
 a stationary pointer, and sends Exit when a subscribed layer disappears. Hover
 does not consume input and does not use click hit padding.

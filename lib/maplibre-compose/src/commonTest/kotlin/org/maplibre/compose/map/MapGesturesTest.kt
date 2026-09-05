@@ -30,8 +30,14 @@ class MapGesturesTest {
   @Test
   fun custom_ids_are_unique_and_last_declared_has_highest_priority() {
     val gestures = MapGestures {
-      drag("first") { action = DragAction.Custom {} }
-      drag("second") { action = DragAction.Custom {} }
+      drag("first") {
+        action = DragAction.Custom
+        onEvent {}
+      }
+      drag("second") {
+        action = DragAction.Custom
+        onEvent {}
+      }
     }
     assertEquals(listOf("second", "first", "quickZoom"), gestures.bindings.take(3).map { it.id })
     assertFailsWith<IllegalArgumentException> { MapGestures(from = gestures) { drag("first") {} } }
@@ -126,14 +132,16 @@ class MapGesturesTest {
     val a = MapGestures {
       drag("handle") {
         canStart { true }
-        action = DragAction.Custom {}
+        action = DragAction.Custom
+        onEvent {}
       }
       tap { onEvent { ClickResult.Pass } }
     }
     val b = MapGestures {
       drag("handle") {
         canStart { false }
-        action = DragAction.Custom {}
+        action = DragAction.Custom
+        onEvent {}
       }
       tap { onEvent { ClickResult.Consume } }
     }

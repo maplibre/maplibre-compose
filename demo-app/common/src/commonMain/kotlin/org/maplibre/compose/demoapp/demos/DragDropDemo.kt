@@ -102,7 +102,8 @@ object DragDropDemo : Demo {
               (press.screenOffset.y - screen.y).value,
             ) <= 10f + hitPadding
         }
-        action = DragAction.Custom { event ->
+        action = DragAction.Custom
+        onEvent { event ->
           when (event) {
             is DragEvent.Start -> {
               val handle = selectedHandle

@@ -70,7 +70,6 @@ class MapHoverIntegrationTest {
           val dispatcher =
             MapInteractionDispatcher(
               fixture.state,
-              mutableStateOf(MapClickHandlers(null, null, null, null, null)),
               mutableStateOf<State<DesiredStyleRevision?>>(revision),
               mutableStateOf(style),
               mutableStateOf(MapGestures.Standard),

@@ -1,6 +1,8 @@
 package org.maplibre.compose.util
 
-/** The result of a click event handler. See [MapClickHandler] and [FeaturesClickHandler]. */
+/**
+ * The result of a click event handler. Returned by map gesture handlers and [FeaturesClickHandler].
+ */
 public enum class ClickResult(internal val consumed: Boolean) {
   /** Consume the click event, preventing it from being passed down to layers below. */
   Consume(true),
