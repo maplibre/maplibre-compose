@@ -101,6 +101,7 @@ import org.maplibre.nativeffi.render.RenderResult
 import org.maplibre.nativeffi.render.RenderSessionHandle
 import org.maplibre.nativeffi.render.RenderTargetExtent
 import org.maplibre.nativeffi.render.VulkanBorrowedTextureDescriptor
+import org.maplibre.nativeffi.render.VulkanHandle
 import org.maplibre.nativeffi.render.VulkanSurfaceDescriptor
 import org.maplibre.nativeffi.runtime.RuntimeEvent
 import org.maplibre.nativeffi.runtime.RuntimeEventMask
@@ -201,9 +202,6 @@ internal class MlnFfiMapSession(
   /** Renderer-thread state; the FFI creates its renderer during the first successful render. */
   private var renderSessionReady = false
 
-  /** Any thread may publish style or source state that the next rendered update must receive. */
-  private val featureStateReplayPending = AtomicBoolean(false)
-
   @Volatile private var hostSession: MlnFfiMapHostSession? = null
 
   internal val canPresentFrames: Boolean
@@ -300,7 +298,6 @@ internal class MlnFfiMapSession(
         }
       },
       sourceChanged = { sourceId ->
-        featureStateReplayPending.store(true)
         reportedUrlAttribution.remove(sourceId)
         withLifecycleStyle { engine, style ->
           lifecycleCallbacks.onStyleSourcesChanged(engine, style, this, sourceId)
@@ -387,9 +384,6 @@ internal class MlnFfiMapSession(
       }
     if (update.result == RenderResult.RENDERED) {
       renderSessionReady = true
-      if (featureStateReplayPending.compareAndSet(true, false)) {
-        if (styleBinding?.featureStateStore?.replay(session) == true) requestRender()
-      }
     }
     when (update.result) {
       RenderResult.NO_UPDATE,
@@ -645,7 +639,6 @@ internal class MlnFfiMapSession(
         throw error
       }
     renderSessionReady = false
-    featureStateReplayPending.store(true)
     attachedTarget = key
     attachCount++
     publishAttachedViewport()
@@ -721,8 +714,8 @@ internal class MlnFfiMapSession(
         physicalWidth = extent.physicalWidth.coerceAtLeast(1),
         physicalHeight = extent.physicalHeight.coerceAtLeast(1),
         context = context.toFfi(),
-        image = NativePointer.ofAddress(image.address),
-        imageView = NativePointer.ofAddress(imageView.address),
+        image = VulkanHandle.ofBits(image.address),
+        imageView = VulkanHandle.ofBits(imageView.address),
         format = format,
         initialLayout = initialLayout,
       )
@@ -732,7 +725,7 @@ internal class MlnFfiMapSession(
     VulkanSurfaceDescriptor(
       extent = extent.toFfiExtent(),
       context = context.toFfi(),
-      surface = NativePointer.ofAddress(surface.address),
+      surface = VulkanHandle.ofBits(surface.address),
     )
 
   private fun MetalTextureTarget.toDescriptor(extent: MapExtent) =
@@ -793,7 +786,6 @@ internal class MlnFfiMapSession(
             // Live handles from the previous binding must not write into a style that is gone.
             styleBinding?.invalidate()
             styleBinding = binding
-            featureStateReplayPending.store(true)
             lifecycleStyleIdentity = identity
             reportedUrlAttribution.clear()
           }
@@ -1526,7 +1518,7 @@ internal class MlnFfiMapSession(
   }
 
   override fun positionFromScreenLocation(offset: DpOffset): Position? = withSnapshotProjection {
-    it.latLngForPixel(offset.toScreenPoint()).toPosition()
+    it.latLngForPixelUnwrapped(offset.toScreenPoint()).toPosition()
   }
 
   override fun screenLocationFromPosition(position: Position): DpOffset? = withSnapshotProjection {

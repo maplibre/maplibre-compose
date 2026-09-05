@@ -105,7 +105,7 @@ class MlnFfiSurfaceLossTest {
   }
 
   @Test
-  fun feature_state_accepts_mutations_without_a_surface_and_replays_into_its_replacement() {
+  fun feature_state_accepts_mutations_without_a_surface_and_survives_its_replacement() {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BLACK_STYLE)
@@ -155,7 +155,7 @@ class MlnFfiSurfaceLossTest {
       )
       it.restoreSurface()
       assertEquals(null, it.tryReadPixel(CENTER, CENTER))
-      it.pumpUntil("feature state to replay into the replacement renderer") {
+      it.pumpUntil("feature state to render on the replacement surface") {
         it.tryReadPixel(CENTER, CENTER)?.isNear(RED) == true
       }
 
@@ -168,7 +168,7 @@ class MlnFfiSurfaceLossTest {
       )
       it.restoreSurface()
       assertEquals(null, it.tryReadPixel(CENTER, CENTER))
-      it.pumpUntil("the reset feature state to replay") {
+      it.pumpUntil("the reset feature state to render") {
         it.tryReadPixel(CENTER, CENTER)?.isNear(BLUE) == true
       }
     }

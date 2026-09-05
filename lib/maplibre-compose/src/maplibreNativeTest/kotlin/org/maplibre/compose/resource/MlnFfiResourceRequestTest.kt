@@ -4,6 +4,7 @@ package org.maplibre.compose.resource
 
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicInt
+import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.test.AfterTest
@@ -19,9 +20,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.suspendCancellableCoroutine
+import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.mlnffi.launchTestTask
 import org.maplibre.compose.mlnffi.parkForTest
+import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.nativeffi.resource.ResourceErrorReason
 import org.maplibre.nativeffi.resource.ResourceKind
@@ -160,6 +163,55 @@ class MlnFfiResourceRequestTest {
     request.awaitClose()
 
     assertTrue(cancelled.load(), "an abandoned request must cancel provider.load")
+    assertEquals(0, request.completions)
+  }
+
+  @Test
+  fun replacing_a_style_cancels_the_native_request_and_its_user_load() {
+    val loading = AtomicBoolean(false)
+    val cancelled = AtomicBoolean(false)
+    val userProvider =
+      MapResourceProvider(
+        accepts = { it.url.startsWith("app://pending-tile/") },
+        load = {
+          suspendCancellableCoroutine { continuation ->
+            continuation.invokeOnCancellation { cancelled.store(true) }
+            loading.store(true)
+          }
+        },
+      )
+    BridgeMapFixture.create(resourceConfig = MapResourceConfig(provider = userProvider)).use {
+      it.loadStyle(
+        BaseStyle.Json(
+          """{"version":8,"sources":{"tiles":{"type":"raster",
+          "tiles":["app://pending-tile/{z}/{x}/{y}"],"tileSize":256}},
+          "layers":[{"id":"raster","type":"raster","source":"tiles"}]}"""
+        )
+      )
+      it.pumpUntil("the native request to start provider.load") { loading.load() }
+      it.session.setBaseStyle(BaseStyle.Empty)
+      it.pumpUntil("style replacement to cancel provider.load") { cancelled.load() }
+    }
+  }
+
+  @Test
+  fun cancellation_during_registration_does_not_start_the_user_load() {
+    val provider = MlnFfiResourceProvider(getLogger = { null }).also { providers += it }
+    val loaded = AtomicBoolean(false)
+    val userProvider =
+      MapResourceProvider(
+        accepts = { true },
+        load = {
+          loaded.store(true)
+          MapResourceLoad.NoContent()
+        },
+      )
+    val request = RecordedRequest(cancelOnRegistration = true)
+
+    provider.takeUser(request, MapResourceLoadRequest(URL, MapResourceKind.Style), userProvider)
+    request.awaitClose()
+
+    assertEquals(false, loaded.load(), "a request cancelled before loading must not start work")
     assertEquals(0, request.completions)
   }
 
@@ -373,16 +425,27 @@ class MlnFfiResourceRequestTest {
 
   /** A request the provider can take, recording what it did with it. */
   @OptIn(ExperimentalAtomicApi::class)
-  private class RecordedRequest(cancelled: Boolean = false) : TakenResourceRequest {
+  private class RecordedRequest(
+    cancelled: Boolean = false,
+    private val cancelOnRegistration: Boolean = false,
+  ) : TakenResourceRequest {
     private val responses = RecordingList<ResourceResponse>()
     private val answered = TestLatch(1)
     private val closeCount = AtomicInt(0)
     private val cancelledState = AtomicBoolean(cancelled)
+    private val cancelCallback = AtomicReference<(() -> Unit)?>(null)
 
     override fun isCancelled(): Boolean = cancelledState.load()
 
+    override fun setCancelCallback(callback: () -> Unit) {
+      cancelCallback.store(callback)
+      if (cancelOnRegistration) cancelledState.store(true)
+      if (cancelledState.load()) cancelCallback.exchange(null)?.invoke()
+    }
+
     fun cancel() {
       cancelledState.store(true)
+      cancelCallback.exchange(null)?.invoke()
     }
 
     override fun complete(response: ResourceResponse) {
@@ -391,6 +454,7 @@ class MlnFfiResourceRequestTest {
     }
 
     override fun close() {
+      cancelCallback.store(null)
       closeCount.incrementAndFetch()
     }
 

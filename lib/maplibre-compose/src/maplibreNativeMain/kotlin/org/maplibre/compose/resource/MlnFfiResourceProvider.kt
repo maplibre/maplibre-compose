@@ -4,6 +4,7 @@ import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.time.Instant
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -12,8 +13,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.selects.select
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.nativeffi.resource.ResourceErrorReason
@@ -33,8 +34,6 @@ import org.maplibre.nativeffi.resource.ResourceUsage
  * non-HTTP URI with `invalid authority`.
  */
 private val NETWORK_SCHEMES = setOf("http", "https")
-
-private const val REQUEST_CANCEL_POLL_MILLIS = 16L
 
 internal typealias MlnFfiResourceProviderFactory =
   (getLogger: () -> MapLog?, config: MapResourceConfig) -> MlnFfiResourceProvider
@@ -230,20 +229,17 @@ internal class MlnFfiResourceProvider(
     provider: MapResourceProvider,
     resource: MapResourceLoadRequest,
   ): ResourceResponse = coroutineScope {
-    val load = async { provider.load(resource).toResourceResponse() }
-    val watch = launch {
-      while (load.isActive) {
-        if (request.isCancelled()) {
-          load.cancel()
-          return@launch
-        }
-        delay(REQUEST_CANCEL_POLL_MILLIS)
-      }
-    }
+    val load = async(start = CoroutineStart.LAZY) { provider.load(resource).toResourceResponse() }
+    val cancelled = CompletableDeferred<Unit>()
     try {
-      load.await()
+      // Native callbacks only signal. Provider cancellation handlers run in our coroutine context.
+      request.setCancelCallback { cancelled.complete(Unit) }
+      select {
+        cancelled.onAwait { throw CancellationException("MapLibre cancelled the resource request") }
+        load.onAwait { it }
+      }
     } finally {
-      watch.cancel()
+      load.cancel()
     }
   }
 }
@@ -255,11 +251,15 @@ internal class MlnFfiResourceProvider(
 internal interface TakenResourceRequest : AutoCloseable {
   fun isCancelled(): Boolean
 
+  fun setCancelCallback(callback: () -> Unit)
+
   fun complete(response: ResourceResponse)
 }
 
 private class FfiResourceRequest(private val handle: ResourceRequestHandle) : TakenResourceRequest {
   override fun isCancelled(): Boolean = handle.isCancelled()
+
+  override fun setCancelCallback(callback: () -> Unit) = handle.setCancelCallback(callback)
 
   override fun complete(response: ResourceResponse) = handle.complete(response)
 

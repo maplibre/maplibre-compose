@@ -23,7 +23,8 @@ internal constructor(
    * The smallest bounding box that contains the currently visible area.
    *
    * This north-aligned rectangle can include areas outside [visibleRegion] when the map is rotated
-   * or tilted.
+   * or tilted. Longitudes preserve world copies, so the box may extend past ±180° or span more than
+   * 360°.
    */
   public val visibleBoundingBox: BoundingBox,
 
