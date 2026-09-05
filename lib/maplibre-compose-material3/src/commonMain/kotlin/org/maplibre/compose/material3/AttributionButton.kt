@@ -24,8 +24,7 @@ import org.maplibre.compose.overlay.ExpandingAttributionButton as BaseExpandingA
 import org.maplibre.compose.overlay.MapOverlayScope
 
 /**
- * Info button from which an attribution popup text is expanded. This version retracts when the user
- * interacts with the map.
+ * An attribution popup that collapses when the user interacts with the map.
  *
  * This is [org.maplibre.compose.overlay.ExpandingAttributionButton] with its colors, typography,
  * and widgets taken from the Material 3 theme.
@@ -67,11 +66,10 @@ public fun MapOverlayScope.ExpandingAttributionButton(
 }
 
 /**
- * A composable function that displays a collection of attribution links as a flow layout, styled
- * from the Material 3 theme.
+ * Attribution links in a flow layout using the Material 3 theme.
  *
- * @param attributions A list of HTML strings representing the attributions that need to be
- *   displayed as links. See: [org.maplibre.compose.sources.Source.attributionHtml].
+ * @param attributions HTML attribution strings. See
+ *   [org.maplibre.compose.sources.Source.attributionHtml].
  * @param textStyle Style of the attribution text.
  * @param linkStyles Optional style for hyperlinks. Default is primary color and underlined.
  * @param spacing The horizontal spacing between items in the flow layout.
@@ -118,10 +116,7 @@ public object AttributionButtonDefaults {
       AttributionLinks(attributions, textStyle = textStyle)
     }
 
-  /**
-   * @param tonalElevation Resolved into the container color, because the base component draws no
-   *   Material surface of its own.
-   */
+  /** @param tonalElevation Tonal elevation applied to the container color. */
   @Composable
   public fun expandedStyle(
     tonalElevation: Dp = 0.dp,

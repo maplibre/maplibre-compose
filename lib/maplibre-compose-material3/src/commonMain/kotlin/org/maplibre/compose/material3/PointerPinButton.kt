@@ -91,9 +91,7 @@ public fun MapOverlayScope.PointerPinButton(
         Modifier
           // Counter-rotation keeps the content upright inside the rotated pin.
           .graphicsLayer { rotationZ = -placement.angleDegrees }
-          // padding to place the content within the pin correctly, taking into account that the
-          // center of the pointer shape is not the center of to-be-placed icon (due to the
-          // pointy side)
+          // Offset the content from the pin tip to center it in the rounded part.
           .proportionalPadding(PointerPinShape.POINTY_SIZE)
           .padding(contentPadding)
     ) {
