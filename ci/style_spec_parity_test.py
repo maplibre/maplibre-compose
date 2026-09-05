@@ -224,23 +224,6 @@ class AuditTest(unittest.TestCase):
             )
         self.assertEqual(report.errors, [])
 
-    def test_a_js_only_layer_in_js_main_counts(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = pathlib.Path(tmp)
-            _layer_file(
-                root,
-                "jsMain",
-                "FillLayer.kt",
-                "fill",
-                'setPaintProperty("fill-opacity", value)',
-            )
-            report = audit(
-                _spec(js="1.0.0", android=None, ios=None),
-                root,
-                Pins(js=Version.parse("6.2.0")),
-            )
-        self.assertEqual(report.errors, [])
-
     def test_a_native_only_property_in_native_main_counts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)

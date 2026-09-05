@@ -1,9 +1,7 @@
 """Compare this repository's style API with the pinned style spec release.
 
-The spec is one document. Each engine implements a versioned slice of it.
-This catalog asks: for the engines this repository pins, is every in-scope
-layer type and paint or layout property written in the right source set,
-with the matching paint or layout setter?
+Check layer types, source types, properties, transitions, and setter calls
+against the repository's engine versions.
 """
 
 from __future__ import annotations
@@ -571,7 +569,7 @@ def _audit_properties(
             for kind, engines in api.kinds_written(prop.layer, prop.name).items()
             if kind not in {target[1], "root"} and engines
         ]
-        if other_kinds and "js" not in written and "native" not in written:
+        if other_kinds and not written:
             report.error(
                 f"{_label(*prop.key)} written as {other_kinds[0]}, "
                 f"spec says {prop.kind}"

@@ -2,9 +2,7 @@
 # [MISE] description="Install and select the Xcode version this repository pins."
 # [MISE] shell="bash"
 
-# Xcode is a multi-gigabyte download, so this is a task rather than a postinstall
-# hook: a contributor who never builds for Apple platforms never pays for it, and
-# a machine that cannot install it can still run every other task.
+# Keep the multi-gigabyte Xcode download optional for non-Apple development.
 
 set -euo pipefail
 

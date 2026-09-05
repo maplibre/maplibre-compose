@@ -1,9 +1,4 @@
 body:
-  - type: markdown
-    attributes:
-      value: |
-        Thanks for asking a question! Please provide as much detail as possible to help us understand your issue.
-
   - type: textarea
     id: question
     attributes:
@@ -18,7 +13,7 @@ body:
   - type: checkboxes
     id: platform
     attributes:
-      label: Affected Platform(s)
+      label: Affected platforms
       description: Which platform(s) are you working with?
       options:
         - label: Android
@@ -34,7 +29,7 @@ body:
   - type: input
     id: library-version
     attributes:
-      label: Library Version
+      label: Library version
       description: What version of MapLibre Compose are you using?
       placeholder: e.g. 0.12.0
     validations:
@@ -45,8 +40,7 @@ body:
     attributes:
       label: What have you tried?
       description: |
-        Please describe what approaches you've already attempted and what happened.
-        Include code samples if possible. This helps us understand where you're stuck.
+        Describe what you tried and what happened. Include code samples.
       placeholder: |
         Example:
         I tried using a SymbolLayer but I'm not sure how to update the marker position.

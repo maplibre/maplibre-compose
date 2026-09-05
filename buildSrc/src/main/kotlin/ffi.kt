@@ -1,9 +1,6 @@
 /**
- * The desktop platforms MapLibre Native FFI publishes a native runtime for.
- *
- * The FFI ships one artifact per render backend, each carrying per-platform natives under a
- * classifier; an application picks exactly one. Which backends a platform can run is a property of
- * the platform; which one runs is the application's choice of runtime artifact.
+ * Desktop platforms with published MapLibre Native FFI runtimes. Applications select one supported
+ * render backend.
  */
 enum class DesktopHostPlatform(
   private val os: String,
@@ -51,10 +48,7 @@ enum class DesktopHostPlatform(
   fun runtimeModule(backend: RenderBackend): String =
     "org.maplibre.nativeffi:maplibre-native-ffi-runtime-${backend.artifactInfix}-jvm"
 
-  /**
-   * Whether the Compose side of the handoff presents through OpenGL, and so needs LWJGL's OpenGL
-   * natives. This follows the platform rather than the map's backend.
-   */
+  /** Whether Compose presentation needs LWJGL OpenGL natives, regardless of the map backend. */
   private val presentsThroughOpenGl: Boolean
     get() = os == "linux"
 
