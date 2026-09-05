@@ -32,7 +32,7 @@ import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.compose.location.rememberLocationState
 import org.maplibre.compose.location.rememberSystemSettingsLauncher
 import org.maplibre.compose.location.updateCamera
-import org.maplibre.compose.map.MapState
+import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.material3.LocationPuckDefaults
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
@@ -63,7 +63,8 @@ object LocationDemo : Demo {
   private var panelLocationBackendId by mutableStateOf<String?>(null)
 
   @Composable
-  override fun MapContent(mapState: MapState) {
+  override fun MapContent() {
+    val mapState = checkNotNull(LocalMapState.current)
     val locationProvider = engine.rememberLocationProvider()
     val locationState =
       rememberLocationState(

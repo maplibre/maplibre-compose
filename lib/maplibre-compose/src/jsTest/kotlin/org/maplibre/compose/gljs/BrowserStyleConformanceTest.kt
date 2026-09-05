@@ -258,7 +258,7 @@ class BrowserStyleConformanceTest {
     onMapLoadFailed: (String?) -> Unit = {},
     content: @Composable @MaplibreComposable () -> Unit = {},
   ) {
-    val state = rememberMapState(baseStyle = baseStyle) { content() }
+    val state = rememberMapState(baseStyle = baseStyle, content = content)
     val loadState = state.style.loadState
     LaunchedEffect(loadState) {
       if (loadState is StyleLoadState.Failed) onMapLoadFailed(loadState.reason)

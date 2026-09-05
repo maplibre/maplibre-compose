@@ -1,10 +1,12 @@
 package org.maplibre.compose.map
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import kotlin.js.Promise
 import kotlin.js.js
@@ -31,8 +33,8 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.StyleComposition
 import org.maplibre.compose.testing.RgbaPixel
+import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.compose.util.toImageBitmap
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Point
@@ -83,17 +85,17 @@ class BrowserMapSnapshotterTest {
   fun capture_keeps_an_interactive_map_attached_and_evaluates_style_independently(): Promise<*> =
     runBrowserMapTest {
       val evaluatorIdentities = mutableSetOf<Any>()
-      val composition = StyleComposition {
+      val content: @Composable @MaplibreComposable () -> Unit = {
         val identity = remember { Any() }
         DisposableEffect(identity) {
           evaluatorIdentities += identity
           onDispose {}
         }
-        POINT_STYLE.content()
+        POINT_STYLE()
       }
       val runtime = createMapRuntime(MapRuntimeOptions())
-      val state = runtime.createMapState(baseStyle = BASE_STYLE, styleComposition = composition)
-      val snapshotter = runtime.createSnapshotter(BASE_STYLE, composition)
+      val state = runtime.createMapState(baseStyle = BASE_STYLE, content = content)
+      val snapshotter = runtime.createSnapshotter(BASE_STYLE, content)
       try {
         setBrowserMapContent(size = SIZE) { MaplibreMap(state = state) }
         waitUntilMap("the interactive map to become ready") {
@@ -127,6 +129,25 @@ class BrowserMapSnapshotterTest {
         snapshotter.awaitClosed()
         state.close()
         state.awaitClosed()
+        runtime.close()
+        runtime.awaitClosed()
+      }
+    }
+
+  @Test
+  fun content_sees_the_viewport_of_the_capture_it_is_evaluated_for(): Promise<*> =
+    runBrowserMapTest {
+      val sizes = mutableListOf<DpSize?>()
+      val runtime = createMapRuntime(MapRuntimeOptions())
+      val snapshotter =
+        runtime.createSnapshotter(BASE_STYLE) { sizes += LocalViewport.current?.size }
+      try {
+        snapshotter.capture(MapSnapshotRequest(width = 31, height = 23))
+
+        assertEquals(setOf(DpSize(31.dp, 23.dp)), sizes.toSet())
+      } finally {
+        snapshotter.close()
+        snapshotter.awaitClosed()
         runtime.close()
         runtime.awaitClosed()
       }
@@ -202,7 +223,7 @@ class BrowserMapSnapshotterTest {
   fun density_scales_the_bitmap_without_changing_the_logical_viewport(): Promise<*> =
     runBrowserMapTest {
       val runtime = createMapRuntime(MapRuntimeOptions())
-      val snapshotter = runtime.createSnapshotter(BASE_STYLE, StyleComposition {})
+      val snapshotter = runtime.createSnapshotter(BASE_STYLE)
       try {
         val captured = snapshotter.capture(MapSnapshotRequest(width = 1, height = 1, density = 3f))
         val target = assertNotNull(snapshotTargets().singleOrNull())
@@ -226,7 +247,7 @@ class BrowserMapSnapshotterTest {
   fun fractional_density_rounds_the_output_up_from_the_gl_js_canvas(): Promise<*> =
     runBrowserMapTest {
       val runtime = createMapRuntime(MapRuntimeOptions())
-      val snapshotter = runtime.createSnapshotter(BASE_STYLE, StyleComposition {})
+      val snapshotter = runtime.createSnapshotter(BASE_STYLE)
       try {
         val captured =
           snapshotter.capture(MapSnapshotRequest(width = 31, height = 23, density = 1.25f))
@@ -251,7 +272,7 @@ class BrowserMapSnapshotterTest {
   @Test
   fun subpixel_density_keeps_the_gl_js_canvas_nonzero(): Promise<*> = runBrowserMapTest {
     val runtime = createMapRuntime(MapRuntimeOptions())
-    val snapshotter = runtime.createSnapshotter(BASE_STYLE, StyleComposition {})
+    val snapshotter = runtime.createSnapshotter(BASE_STYLE)
     try {
       val captured = snapshotter.capture(MapSnapshotRequest(width = 1, height = 1, density = 0.5f))
       val target = assertNotNull(snapshotTargets().singleOrNull())
@@ -279,7 +300,7 @@ class BrowserMapSnapshotterTest {
         "box-sizing: border-box; border: 7px solid; padding: 11px; }"
     document.body?.appendChild(pageStyle.asDynamic())
     val runtime = createMapRuntime(MapRuntimeOptions())
-    val snapshotter = runtime.createSnapshotter(BASE_STYLE, StyleComposition {})
+    val snapshotter = runtime.createSnapshotter(BASE_STYLE)
     try {
       val captured = snapshotter.capture(MapSnapshotRequest(width = 31, height = 23))
       val target = assertNotNull(snapshotTargets().singleOrNull())
@@ -301,7 +322,7 @@ class BrowserMapSnapshotterTest {
   fun a_request_above_the_web_canvas_limit_fails_before_map_creation(): Promise<*> =
     runBrowserMapTest {
       val runtime = createMapRuntime(MapRuntimeOptions())
-      val snapshotter = runtime.createSnapshotter(BASE_STYLE, StyleComposition {})
+      val snapshotter = runtime.createSnapshotter(BASE_STYLE)
       try {
         val error =
           assertFailsWith<IllegalArgumentException> {
@@ -352,7 +373,7 @@ class BrowserMapSnapshotterTest {
   @Test
   fun output_transparency_is_a_per_capture_value(): Promise<*> = runBrowserMapTest {
     val runtime = createMapRuntime(MapRuntimeOptions())
-    val snapshotter = runtime.createSnapshotter(EMPTY_STYLE, StyleComposition {})
+    val snapshotter = runtime.createSnapshotter(EMPTY_STYLE)
     try {
       val opaque = snapshotter.capture(MapSnapshotRequest(width = 8, height = 8))
       val transparent =
@@ -429,7 +450,7 @@ class BrowserMapSnapshotterTest {
     return List(targets.length) { index -> targets.item(index).unsafeCast<HTMLElement>() }
   }
 
-  private fun pointIconStyle(icon: ImageBitmap) = StyleComposition {
+  private fun pointIconStyle(icon: ImageBitmap): @Composable @MaplibreComposable () -> Unit = {
     val points =
       GeoJsonSource(
         id = "icon-points",
@@ -481,7 +502,7 @@ class BrowserMapSnapshotterTest {
         """
           .trimIndent()
       )
-    val POINT_STYLE = StyleComposition {
+    val POINT_STYLE: @Composable @MaplibreComposable () -> Unit = {
       val points =
         GeoJsonSource(
           id = "points",

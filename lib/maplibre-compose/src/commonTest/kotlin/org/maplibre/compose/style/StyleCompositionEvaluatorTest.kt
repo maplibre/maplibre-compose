@@ -2,6 +2,7 @@ package org.maplibre.compose.style
 
 import androidx.compose.runtime.AbstractApplier
 import androidx.compose.runtime.BroadcastFrameClock
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Composition
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -21,6 +22,7 @@ import kotlinx.coroutines.yield
 import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.testing.supportsComposeRuntimeTests
+import org.maplibre.compose.util.MaplibreComposable
 
 class StyleCompositionEvaluatorTest {
 
@@ -29,7 +31,7 @@ class StyleCompositionEvaluatorTest {
     if (!supportsComposeRuntimeTests) return@runTest
     val started = mutableListOf<Any>()
     val disposed = mutableListOf<Any>()
-    val definition = StyleComposition {
+    val content: @Composable @MaplibreComposable () -> Unit = {
       val evaluatorIdentity = remember { Any() }
       RasterLayer(
         id = "composed-layer",
@@ -56,8 +58,8 @@ class StyleCompositionEvaluatorTest {
               LocalDensity provides Density(1f),
               LocalLayoutDirection provides LayoutDirection.Ltr,
             ) {
-              firstRevision = rememberStyleComposition(definition, firstBinding)
-              secondRevision = rememberStyleComposition(definition, secondBinding)
+              firstRevision = rememberStyleComposition(content, firstBinding)
+              secondRevision = rememberStyleComposition(content, secondBinding)
             }
           }
           while (!frameClock.hasAwaiters) yield()

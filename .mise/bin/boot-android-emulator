@@ -3,15 +3,19 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: boot-android-emulator <api-level> [--headless]" >&2
+  echo "Usage: boot-android-emulator <api-level> [--headless] [--wear | --tv]" >&2
   exit 2
 }
 
 api_level=
 headless=false
+wear=false
+tv=false
 for arg in "$@"; do
   case "$arg" in
     --headless) headless=true ;;
+    --wear) wear=true ;;
+    --tv) tv=true ;;
     -*) usage ;;
     *)
       [[ -z "$api_level" ]] || usage
@@ -20,16 +24,37 @@ for arg in "$@"; do
   esac
 done
 [[ -n "$api_level" ]] || usage
+if [[ "$wear" == true && "$tv" == true ]]; then
+  echo "--wear and --tv are mutually exclusive." >&2
+  usage
+fi
 
 # An arm64 host needs an arm64 image to use its native accelerator.
 case "$(uname -m)" in
   arm64 | aarch64) abi=arm64-v8a ;;
   *) abi=x86_64 ;;
 esac
-image="system-images;android-${api_level};default;${abi}"
+if [[ "$wear" == true ]]; then
+  # Wear OS 6 (API 36) and later images carry the "signed" tag.
+  if ((${api_level%%[.-]*} >= 36)); then
+    tag=android-wear-signed
+  else
+    tag=android-wear
+  fi
+  device_profile=wearos_small_round
+  avd_name="maplibre-compose-wear-${api_level}-${abi}"
+elif [[ "$tv" == true ]]; then
+  tag=android-tv
+  device_profile=tv_1080p
+  avd_name="maplibre-compose-tv-${api_level}-${abi}"
+else
+  tag=default
+  device_profile=
+  # The ABI is in the name so a device built for another host is never reused.
+  avd_name="maplibre-compose-${api_level}-${abi}"
+fi
+image="system-images;android-${api_level};${tag};${abi}"
 serial=emulator-5554
-# The ABI is in the name so a device built for another host is never reused.
-avd_name="maplibre-compose-${api_level}-${abi}"
 sdk_root="$("$(dirname "${BASH_SOURCE[0]}")/android-sdk-root")"
 project_root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 state_dir="$project_root/build/android-emulator"
@@ -79,8 +104,20 @@ booted_avd() {
   adb_probe 20 emu avd name | head -n1
 }
 
+desired_mode=visible
+if [[ "$headless" == true ]]; then
+  desired_mode=headless
+fi
+gpu_mode=swiftshader_indirect
+if [[ "$headless" == false ]]; then
+  # Interactive emulators use the host GPU. Headless CI keeps the portable
+  # software renderer that this script originally used.
+  gpu_mode=host
+fi
+
 running_avd="$(booted_avd || true)"
 running_mode=
+running_gpu_mode=
 if [[ -f "$pid_file" ]]; then
   running_pid=$(<"$pid_file")
   if [[ "$running_pid" =~ ^[0-9]+$ ]] &&
@@ -91,20 +128,20 @@ if [[ -f "$pid_file" ]]; then
     else
       running_mode=visible
     fi
+    if ps -p "$running_pid" -o args= | grep -q -- " -gpu $gpu_mode"; then
+      running_gpu_mode=$gpu_mode
+    fi
   fi
 fi
-desired_mode=visible
-if [[ "$headless" == true ]]; then
-  desired_mode=headless
-fi
 
-if [[ "$running_avd" == "$avd_name" && "$running_mode" == "$desired_mode" ]]; then
+if [[ "$running_avd" == "$avd_name" && "$running_mode" == "$desired_mode" &&
+  "$running_gpu_mode" == "$gpu_mode" ]]; then
   echo "Android emulator for API $api_level ($abi) is ready at $serial."
   exit 0
 fi
 if [[ -n "$running_avd" ]] ||
   { [[ -x "$adb" ]] && adb_probe 20 devices | grep -q "^$serial"; }; then
-  echo "Replacing the emulator on $serial with $avd_name in $desired_mode mode."
+  echo "Replacing the emulator on $serial with $avd_name in $desired_mode mode using $gpu_mode graphics."
   "$project_root/.mise/bin/stop-android-emulator"
 fi
 
@@ -141,7 +178,11 @@ if [[ ! -d "$ANDROID_AVD_HOME/$avd_name.avd" ]]; then
   # Leave the device profile to avdmanager: a modern handset profile hangs the
   # older API levels, which never reach their shell service. `no` declines the
   # custom hardware prompt.
-  "$avdmanager" create avd --name "$avd_name" --package "$image" <<<"no"
+  create=("$avdmanager" create avd --name "$avd_name" --package "$image")
+  if [[ -n "$device_profile" ]]; then
+    create+=(--device "$device_profile")
+  fi
+  "${create[@]}" <<<"no"
 fi
 
 if [[ -f "$pid_file" ]]; then
@@ -167,7 +208,7 @@ if [[ ! -f "$pid_file" ]]; then
     -no-boot-anim
     -no-snapshot
     -no-metrics
-    -gpu swiftshader_indirect
+    -gpu "$gpu_mode"
     -camera-back none
     -camera-front none
   )
@@ -226,7 +267,7 @@ while ((SECONDS < deadline)); do
     exit 1
   fi
   if boot_completed; then
-    echo "Android emulator for API $api_level ($abi) is ready at $serial."
+    echo "Android emulator for API $api_level ($abi${device_profile:+, $device_profile}) is ready at $serial."
     adb_probe 20 shell input keyevent 82 >/dev/null || true
     exit 0
   fi

@@ -419,7 +419,15 @@ private fun GestureHost(target: RecordingGestureTarget, options: GestureOptions)
   Box(
     Modifier.fillMaxSize()
       .testTag(RECOGNITION_MAP_TAG)
-      .mapInput(target, target, options, density, focusRequester, continuation)
+      .mapInput(
+        target,
+        target,
+        options,
+        density,
+        focusRequester,
+        continuation,
+        rotaryNotchPixels = 0f,
+      )
   )
 }
 

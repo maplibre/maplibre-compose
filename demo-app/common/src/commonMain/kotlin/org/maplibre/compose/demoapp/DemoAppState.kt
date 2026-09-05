@@ -42,10 +42,7 @@ internal constructor(
   val frameRateState: FrameRateState,
   private val mapConfiguration: DemoMapConfiguration,
 ) {
-  /**
-   * The demo shown on the map. Select demos through [selectDemo] so the panel can align its
-   * destination.
-   */
+  /** The demo shown on the map. */
   var selectedDemo: Demo?
     get() = mapConfiguration.selectedDemo
     set(value) {
@@ -53,12 +50,19 @@ internal constructor(
     }
 
   /**
-   * Selects [demo] in the Demos shell. The one selection path for both the panel's demo list and
-   * the agent driver; the panel observes [selectedDemo] and navigates to the demo's controls.
+   * Selects [demo] and flies the camera to its destination. [appliedStyle] is the style on the map
+   * before the selection, so the flight can wait for the demo's own base style to load. [reveal]
+   * runs after the selection and before the flight, so a shell can uncover the map and let the
+   * settled viewport insets reach the camera first.
    */
-  fun selectDemo(demo: Demo) {
+  suspend fun openDemo(demo: Demo, appliedStyle: DemoStyle, reveal: suspend () -> Unit = {}) {
+    val newBase = demo.preferredStyle?.base?.takeIf { it != appliedStyle.base }
+    val styleLoadsSeen = lastStyleLoad.count
     selectedDemo = demo
     shell = DemoShell.Demos
+    reveal()
+    if (newBase != null) awaitStyleLoad(seen = styleLoadsSeen, base = newBase)
+    mapState.flyTo(demo.destination)
   }
 
   /** The style applied when [MapStyleMode] resolves to light. */
@@ -82,13 +86,6 @@ internal constructor(
   val appliedStyle: DemoStyle
     @Composable get() = mapConfiguration.appliedStyle(settings)
 
-  /**
-   * The style the map composition most recently applied. Kept as plain state because [appliedStyle]
-   * is composable, so non-composition readers like the agent driver cannot call it. Goes stale
-   * while the Benchmarks shell is showing, where the demo map is not composed.
-   */
-  internal var appliedStyleSnapshot by mutableStateOf<DemoStyle?>(null)
-
   var shell by mutableStateOf(DemoShell.Demos)
 
   var selectedScenario by mutableStateOf<BenchmarkScenario>(allBenchmarkScenarios.first())
@@ -98,15 +95,8 @@ internal constructor(
   internal var lastStyleLoad by mutableStateOf(StyleLoad(count = 0, base = null))
     private set
 
-  /**
-   * The base style the map has applied but not yet finished or failed loading, if any. Set by the
-   * map composition and cleared by [noteStyleLoad].
-   */
-  internal var pendingStyleLoad by mutableStateOf<BaseStyle?>(null)
-
   internal fun noteStyleLoad(base: BaseStyle) {
     lastStyleLoad = StyleLoad(lastStyleLoad.count + 1, base)
-    if (pendingStyleLoad == base) pendingStyleLoad = null
   }
 
   /**
@@ -157,7 +147,7 @@ fun rememberDemoAppState(): DemoAppState {
       baseStyle = appliedStyle.base,
       initialCameraPosition = StartPosition,
     ) {
-      mapConfiguration.selectedDemo?.let { demo -> key(demo) { demo.MapContent(mapState) } }
+      mapConfiguration.selectedDemo?.let { demo -> key(demo) { demo.MapContent() } }
     }
   val frameRateState = remember { FrameRateState() }
   return remember {

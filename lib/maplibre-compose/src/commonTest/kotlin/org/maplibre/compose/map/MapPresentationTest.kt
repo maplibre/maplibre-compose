@@ -1626,7 +1626,7 @@ internal open class PresentationTestAdapter(
       presentationWasVisibleWhileConfiguring || currentAttachment() != null
   }
 
-  override suspend fun reconcileStyleRevision(revision: DesiredStyleRevision): Boolean = true
+  override suspend fun reconcileStyleRevision(revision: DesiredStyleRevision) = Unit
 
   override suspend fun replayStyleRevision(revision: DesiredStyleRevision) = Unit
 

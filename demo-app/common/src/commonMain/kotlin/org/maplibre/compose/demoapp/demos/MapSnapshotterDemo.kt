@@ -47,11 +47,9 @@ import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.map.MapSnapshotRequest
-import org.maplibre.compose.map.MapState
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
-import org.maplibre.compose.style.StyleComposition
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Position
@@ -94,7 +92,7 @@ object MapSnapshotterDemo : Demo {
   private var activeSession: Any? = null
 
   @Composable
-  override fun MapContent(mapState: MapState) {
+  override fun MapContent() {
     SnapshotMarker()
   }
 
@@ -105,7 +103,7 @@ object MapSnapshotterDemo : Demo {
       remember(state.mapRuntime, appliedBaseStyle) {
         state.mapRuntime.createSnapshotter(
           baseStyle = appliedBaseStyle,
-          styleComposition = StyleComposition { SnapshotMarker() },
+          content = { SnapshotMarker() },
         )
       }
     val captureRequests = remember(snapshotter) { Channel<Unit>(capacity = 1) }

@@ -12,7 +12,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCompositionContext
 import androidx.compose.runtime.staticCompositionLocalOf
 import kotlinx.coroutines.awaitCancellation
-import org.maplibre.compose.map.MapState
 import org.maplibre.compose.util.MaplibreComposable
 
 /**
@@ -23,17 +22,15 @@ import org.maplibre.compose.util.MaplibreComposable
  */
 @Composable
 internal fun rememberStyleComposition(
-  composition: StyleComposition,
+  content: @Composable @MaplibreComposable () -> Unit,
   maybeStyle: StyleBinding?,
-  mapState: MapState? = null,
   replaceableSourceIds: Set<String> = emptySet(),
   replaceableLayerIds: Set<String> = emptySet(),
 ): State<DesiredStyleRevision?> {
-  val revisionState =
-    remember(composition, maybeStyle) { mutableStateOf<DesiredStyleRevision?>(null) }
+  val revisionState = remember(content, maybeStyle) { mutableStateOf<DesiredStyleRevision?>(null) }
   val compositionContext = rememberCompositionContext()
 
-  LaunchedEffect(composition, maybeStyle, mapState) {
+  LaunchedEffect(content, maybeStyle) {
     val style = maybeStyle ?: return@LaunchedEffect
     if (!style.isLoaded) return@LaunchedEffect
     val rootNode =
@@ -46,12 +43,7 @@ internal fun rememberStyleComposition(
     val evaluator = Composition(MapNodeApplier(rootNode), compositionContext)
 
     evaluator.setContent {
-      StyleContent(
-        rootNode = rootNode,
-        mapState = mapState,
-        publish = { revisionState.value = it },
-        content = composition.content,
-      )
+      StyleContent(rootNode = rootNode, publish = { revisionState.value = it }, content = content)
     }
 
     try {
@@ -67,13 +59,10 @@ internal fun rememberStyleComposition(
 @Composable
 internal fun StyleContent(
   rootNode: StyleNode,
-  mapState: MapState? = null,
   publish: (DesiredStyleRevision) -> Unit = {},
   content: @Composable @MaplibreComposable () -> Unit,
 ) {
-  CompositionLocalProvider(LocalStyleNode provides rootNode, LocalMapState provides mapState) {
-    content()
-  }
+  CompositionLocalProvider(LocalStyleNode provides rootNode) { content() }
   // Read in composition, not in the side effect, so a scale change republishes the revision.
   val animatorDurationScale = rootNode.style.animatorDurationScale
   key(rootNode.currentApplyGeneration) {
@@ -83,5 +72,3 @@ internal fun StyleContent(
 }
 
 internal val LocalStyleNode = staticCompositionLocalOf<StyleNode> { throw IllegalStateException() }
-
-internal val LocalMapState = staticCompositionLocalOf<MapState?> { null }

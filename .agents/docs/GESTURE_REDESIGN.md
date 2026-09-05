@@ -17,6 +17,11 @@ Engine events such as style load, idle, and frames are a separate surface, in
 click dispatch out of `MapAdapter.Callbacks` and into Compose; this gesture
 chain replaces the click handlers.
 
+Focus and key engagement are in [KEYBOARD_FOCUS.md](./KEYBOARD_FOCUS.md). That
+work lands first and constrains the `keys` block here: the bindings derive
+focusability, engagement gates whether they fire, and the engage and disengage
+keys become builder members. Its closing section lists the three points.
+
 ## What the current code is
 
 `MapInput.kt` fuses three separable concerns into one state machine:

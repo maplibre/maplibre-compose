@@ -12,9 +12,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -70,20 +68,30 @@ internal suspend fun MapState.flyTo(destination: DemoDestination) {
   }
 }
 
-/** The shared map, the selected demo's overlay, the pointer pin, and the diagnostic overlays. */
-@Composable
-fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
-  val scope = rememberCoroutineScope()
-  val appliedStyle = state.appliedStyle
-  val appliedBase = appliedStyle.base
-  SideEffect { state.appliedStyleSnapshot = appliedStyle }
-  // Composing the map with a base means its load is in flight until noteStyleLoad clears it.
-  DisposableEffect(appliedBase) {
-    state.pendingStyleLoad = appliedBase
-    onDispose {
-      if (state.pendingStyleLoad == appliedBase) state.pendingStyleLoad = null
-    }
+/** The map controls the settings ask for. */
+fun demoMapOverlay(settings: DemoSettings): MapOverlay =
+  when {
+    settings.useMaterial3Controls && settings.showZoomButtons -> MapOverlay.Material3Full
+    settings.useMaterial3Controls -> MapOverlay.Material3
+    settings.showZoomButtons -> MapOverlay.Full
+    else -> MapOverlay.Default
   }
+
+/**
+ * The shared map, the selected demo's overlay, the pointer pin, and the diagnostic overlays.
+ *
+ * [overlay] holds the map controls; a shell with little room, such as a watch, passes a smaller set
+ * than the settings ask for.
+ */
+@Composable
+fun DemoMap(
+  state: DemoAppState,
+  viewportInsets: MapViewportInsets,
+  overlay: MapOverlay = demoMapOverlay(state.settings),
+  modifier: Modifier = Modifier,
+) {
+  val scope = rememberCoroutineScope()
+  val appliedBase = state.appliedStyle.base
   val selectedDemo = state.selectedDemo
   LaunchedEffect(state.mapState.style.loadState, appliedBase) {
     when (state.mapState.style.loadState) {
@@ -111,21 +119,14 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
   Box(Modifier.fillMaxSize()) {
     MaplibreMap(
       state = state.mapState,
+      modifier = modifier,
       cameraPadding = viewportInsets.asPaddingValues(),
       renderOptions = state.settings.renderOptions,
       gestureOptions = state.settings.gestureOptions,
       tileLodOptions = state.settings.tileLodOptions,
       contentWindowInsets = viewportInsets.asWindowInsets(),
     ) {
-      include(
-        when {
-          state.settings.useMaterial3Controls && state.settings.showZoomButtons ->
-            MapOverlay.Material3Full
-          state.settings.useMaterial3Controls -> MapOverlay.Material3
-          state.settings.showZoomButtons -> MapOverlay.Full
-          else -> MapOverlay.Default
-        }
-      )
+      include(overlay)
       selectedDemo?.let { demo ->
         key(demo) {
           with(demo) { Overlay(state) }
@@ -320,8 +321,6 @@ private fun findEllipseIntersection(area: Rect, target: Offset): Offset? {
 
 @Composable
 private fun DiagnosticOverlays(state: DemoAppState, modifier: Modifier = Modifier) {
-  // Track frames whether or not the overlay shows; the agent driver reports fps in /state.
-  LaunchedEffect(state.frameRateState) { state.frameRateState.track() }
   Column(
     modifier =
       modifier
@@ -340,6 +339,7 @@ private fun DiagnosticOverlays(state: DemoAppState, modifier: Modifier = Modifie
       )
     }
     if (state.settings.showFpsOverlay) {
+      LaunchedEffect(state.frameRateState) { state.frameRateState.track() }
       Text(
         text = "${state.frameRateState.framesPerSecond.roundToInt()} fps",
         style = MaterialTheme.typography.labelMedium,

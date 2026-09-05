@@ -2,18 +2,18 @@ package org.maplibre.compose.demoapp.design
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -22,14 +22,24 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
+import org.jetbrains.compose.resources.vectorResource
+import org.maplibre.compose.demoapp.generated.Res
+import org.maplibre.compose.demoapp.generated.arrow_drop_down_24px
+import org.maplibre.compose.demoapp.generated.check_24px
 
 @Composable
 fun SectionHeader(text: String) {
@@ -60,7 +70,7 @@ fun ButtonRow(label: String, onClick: () -> Unit) {
   )
 }
 
-/** A single-choice dropdown of named options, as a settings list item. */
+/** A settings list item that opens a single-choice menu. */
 @Composable
 fun <T> DropdownRow(
   label: String,
@@ -70,21 +80,32 @@ fun <T> DropdownRow(
   onSelect: (T) -> Unit,
 ) {
   var expanded by remember { mutableStateOf(false) }
-  ExposedDropdownMenuBox(
-    expanded = expanded,
-    onExpandedChange = { expanded = it },
-    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-  ) {
-    OutlinedTextField(
-      value = optionLabel(selected),
-      onValueChange = {},
-      readOnly = true,
-      label = { Text(label) },
-      trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+  var anchorWidth by remember { mutableIntStateOf(0) }
+  val menuWidth = with(LocalDensity.current) { anchorWidth.toDp() }
+  Box(Modifier.fillMaxWidth()) {
+    ListItem(
+      headlineContent = { Text(label) },
+      supportingContent = { Text(optionLabel(selected)) },
+      trailingContent = {
+        Icon(
+          imageVector = vectorResource(Res.drawable.arrow_drop_down_24px),
+          contentDescription = null,
+          modifier = Modifier.rotate(if (expanded) 180f else 0f),
+        )
+      },
+      colors = ListItemDefaults.colors(containerColor = Color.Transparent),
       modifier =
-        Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+        Modifier.fillMaxWidth()
+          .onSizeChanged { anchorWidth = it.width }
+          .clickable(role = Role.Button) {
+            expanded = !expanded
+          },
     )
-    ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+    DropdownMenu(
+      expanded = expanded,
+      onDismissRequest = { expanded = false },
+      modifier = Modifier.width(menuWidth),
+    ) {
       options.forEach { option ->
         DropdownMenuItem(
           text = { Text(optionLabel(option)) },
@@ -92,6 +113,18 @@ fun <T> DropdownRow(
             onSelect(option)
             expanded = false
           },
+          trailingIcon =
+            if (option == selected) {
+              {
+                Icon(
+                  imageVector = vectorResource(Res.drawable.check_24px),
+                  contentDescription = null,
+                )
+              }
+            } else {
+              null
+            },
+          modifier = Modifier.semantics { this.selected = option == selected },
         )
       }
     }

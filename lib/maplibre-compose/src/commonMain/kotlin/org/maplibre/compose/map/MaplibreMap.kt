@@ -59,7 +59,7 @@ private class MapStateAttachment(
   suspend fun reconcileStyleRevision(map: MapAdapter, revision: DesiredStyleRevision) {
     state.beginStyleRevision(map, revision)
     try {
-      if (map.reconcileStyleRevision(revision)) state.markStyleReady(map)
+      map.reconcileStyleRevision(revision)
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
@@ -163,9 +163,8 @@ private fun MaplibreMapPresentation(
   var rememberedStyle by rememberedStyleState
   val desiredRevisionState =
     rememberStyleComposition(
-      composition = state.styleComposition,
+      content = state.styleContent,
       maybeStyle = rememberedStyle,
-      mapState = state,
       replaceableSourceIds = state.desiredStyleRevision.sources.mapTo(mutableSetOf()) { it.id },
       replaceableLayerIds =
         state.desiredStyleRevision.layers.mapTo(mutableSetOf()) {

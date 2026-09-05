@@ -11,6 +11,8 @@ android-buildTools = "36.0.0"
 android-ndk = "28.2.13676358"
 android-cmake = "4.1.2"
 android-minSdk = "24"
+# Wear Compose requires API 25.
+android-wearMinSdk = "25"
 android-targetSdk = "36"
 # Compiler JDK for every JVM compilation. Must be >= java-desktopTarget.
 java-toolchain = "25"
@@ -31,7 +33,7 @@ fflate = "0.8.3"
 jsJodaTimezone = "2.22.0"
 htmlConverterCompose = "1.1.1"
 hms-location = "6.12.0.300"
-nucleus = "2.5.4"
+nucleus = "2.5.12"
 kermit = "2.1.0"
 kotlin-dsv = "0.4.0"
 kotlin-wrappers = "2026.8.4"
@@ -65,6 +67,8 @@ jetbrains-compose-material3 = "1.12.0-alpha03"
 # 1.3.x is still beta.
 jetbrains-compose-material3-adaptive = "1.3.0-beta02"
 jetbrains-navigation = "2.10.0-alpha02"
+# Wear OS Compose. Android-only; the wearos demo module is its only consumer.
+androidx-wear-compose = "1.6.2"
 
 # Android and Kotlin: Keep Kotlin up to date and set Android accordingly.
 # Also note the Gradle and XCode versions in the matrix!
@@ -82,6 +86,8 @@ androidx-activity-compose = { module = "androidx.activity:activity-compose", ver
 androidx-composeUi-testManifest = { module = "androidx.compose.ui:ui-test-manifest", version.ref = "androidx-compose" }
 androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidx-testRunner" }
 androidx-navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-compose", version.ref = "jetbrains-navigation" }
+androidx-wear-compose-foundation = { module = "androidx.wear.compose:compose-foundation", version.ref = "androidx-wear-compose" }
+androidx-wear-compose-material3 = { module = "androidx.wear.compose:compose-material3", version.ref = "androidx-wear-compose" }
 bytesize = { module = "me.saket.bytesize:bytesize", version.ref = "bytesize" }
 dbus-java-core = { module = "com.github.hypfvieh:dbus-java-core", version.ref = "dbusJava" }
 dbus-java-transport-native-unixsocket = { module = "com.github.hypfvieh:dbus-java-transport-native-unixsocket", version.ref = "dbusJava" }
@@ -107,8 +113,6 @@ ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "kto
 ktor-client-js = { module = "io.ktor:ktor-client-js", version.ref = "ktor" }
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
 ktor-client-contentNegotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
-ktor-server-cio = { module = "io.ktor:ktor-server-cio", version.ref = "ktor" }
-ktor-server-statusPages = { module = "io.ktor:ktor-server-status-pages", version.ref = "ktor" }
 ktor-serialization-kotlinxJson = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
 lifecycle-runtime = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime", version.ref = "lifecycleRuntimeCompose" }
 lifecycle-runtime-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycleRuntimeCompose" }
