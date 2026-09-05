@@ -284,7 +284,112 @@ class MlnFfiGeoJsonCoordinatorTest {
     }
   }
 
-  private class Fixture(dispatcher: CoroutineDispatcher) : AutoCloseable {
+  @Test
+  fun synchronous_submission_prepares_installs_and_closes_before_returning() = runTest {
+    Fixture(StandardTestDispatcher(testScheduler), synchronousUpdate = true).use { fixture ->
+      fixture.submit("first")
+
+      assertEquals(listOf("prepare first", "install first", "close first"), fixture.events)
+      fixture.coordinator.awaitLatest()
+      fixture.submit("second")
+
+      assertEquals("second", fixture.installed)
+      assertEquals(
+        listOf(
+          "prepare first",
+          "install first",
+          "close first",
+          "prepare second",
+          "install second",
+          "close second",
+        ),
+        fixture.events,
+      )
+    }
+  }
+
+  @Test
+  fun synchronous_preparation_failure_throws_keeps_installed_data_and_allows_recovery() = runTest {
+    Fixture(StandardTestDispatcher(testScheduler), synchronousUpdate = true).use { fixture ->
+      fixture.submit("initial")
+      val failure = IllegalArgumentException("invalid GeoJSON")
+      fixture.onPrepare = { if (it == "invalid") throw failure }
+
+      assertSame(failure, assertFailsWith<IllegalArgumentException> { fixture.submit("invalid") })
+      assertEquals("initial", fixture.installed)
+      assertEquals(emptyList(), fixture.failures)
+      fixture.coordinator.awaitLatest()
+
+      fixture.submit("recovered")
+      fixture.coordinator.awaitLatest()
+
+      assertEquals("recovered", fixture.installed)
+      assertEquals("close recovered", fixture.events.last())
+    }
+  }
+
+  @Test
+  fun synchronous_installation_failure_closes_data_throws_and_allows_recovery() = runTest {
+    Fixture(StandardTestDispatcher(testScheduler), synchronousUpdate = true).use { fixture ->
+      fixture.submit("initial")
+      val failure = IllegalStateException("native installation failed")
+      fixture.onInstall = { if (it == "invalid") throw failure }
+
+      assertSame(failure, assertFailsWith<IllegalStateException> { fixture.submit("invalid") })
+      assertEquals("initial", fixture.installed)
+      assertEquals("close invalid", fixture.events.last())
+      assertEquals(emptyList(), fixture.failures)
+      fixture.coordinator.awaitLatest()
+
+      fixture.submit("recovered")
+      fixture.coordinator.awaitLatest()
+
+      assertEquals("recovered", fixture.installed)
+      assertEquals("close recovered", fixture.events.last())
+    }
+  }
+
+  @Test
+  fun closing_during_synchronous_preparation_releases_the_result_without_installation() = runTest {
+    Fixture(StandardTestDispatcher(testScheduler), synchronousUpdate = true).use { fixture ->
+      fixture.onPrepare = { fixture.coordinator.close() }
+
+      fixture.submit("first")
+
+      assertEquals(listOf("prepare first", "close first"), fixture.events)
+      assertEquals(emptyList(), fixture.failures)
+      fixture.coordinator.awaitLatest()
+      assertFailsWith<IllegalStateException> { fixture.submit("after removal") }
+    }
+  }
+
+  @Test
+  fun a_reentrant_synchronous_update_supersedes_the_outer_installation_and_closes_both_results() =
+    runTest {
+      Fixture(StandardTestDispatcher(testScheduler), synchronousUpdate = true).use { fixture ->
+        fixture.onInstall = { if (it == "first") fixture.submit("latest") }
+
+        fixture.submit("first")
+
+        assertEquals("latest", fixture.installed)
+        assertEquals(
+          listOf(
+            "prepare first",
+            "prepare latest",
+            "install latest",
+            "close latest",
+            "close first",
+          ),
+          fixture.events,
+        )
+        fixture.coordinator.awaitLatest()
+      }
+    }
+
+  private class Fixture(
+    dispatcher: CoroutineDispatcher,
+    synchronousUpdate: Boolean = false,
+  ) : AutoCloseable {
     val events = mutableListOf<String>()
     val failures = mutableListOf<Throwable>()
     var installed: String? = null
@@ -306,6 +411,7 @@ class MlnFfiGeoJsonCoordinatorTest {
           }
         },
         reportFailure = { error, isCurrent -> if (isCurrent()) failures += error },
+        synchronousUpdate = synchronousUpdate,
         dispatcher = dispatcher,
       )
 

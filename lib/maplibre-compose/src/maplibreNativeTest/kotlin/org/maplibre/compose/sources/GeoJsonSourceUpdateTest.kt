@@ -4,7 +4,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
@@ -20,6 +22,7 @@ import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
+import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RgbaPixel
@@ -132,10 +135,18 @@ class GeoJsonSourceUpdateTest {
           GeoJsonSource(
             SOURCE_ID,
             GeoJsonData.Features(pointAt(ORIGIN)),
-            GeoJsonOptions(cluster = true, clusterRadius = 123, clusterMaxZoom = 10),
+            GeoJsonOptions(
+              cluster = true,
+              clusterRadius = 123,
+              clusterMaxZoom = 10,
+              synchronousUpdate = true,
+            ),
           )
         )
 
+        assertFailsWith<StyleHandleException> {
+          handle.setData(GeoJsonData.JsonString("{invalid GeoJSON}"))
+        }
         handle.setData(GeoJsonData.Features(pointAt(FAR_AWAY)))
         (fixture.style as MlnFfiStyleBinding).awaitGeoJsonUpdates()
 
@@ -182,6 +193,70 @@ class GeoJsonSourceUpdateTest {
       binding.awaitGeoJsonUpdates()
       fixture.settle()
       assertTrue(fixture.readPixel(256, 256).isNear(BACKGROUND))
+    }
+  }
+
+  @Test
+  fun rejected_synchronous_initial_data_throws_without_adding_a_source(): MapTestResult =
+    runMapTest {
+      createMapFixture().use { fixture ->
+        fixture.loadStyle(STYLE)
+        val binding = fixture.style as MlnFfiStyleBinding
+
+        assertFailsWith<StyleHandleException> {
+          fixture.state.style.sources.add(
+            GeoJsonSource(
+              SOURCE_ID,
+              GeoJsonData.JsonString("{invalid GeoJSON}"),
+              GeoJsonOptions(synchronousUpdate = true),
+            )
+          )
+        }
+
+        assertNull(fixture.state.style.sources[SOURCE_ID])
+        assertEquals(false, binding.sourceExists(SOURCE_ID))
+        binding.awaitGeoJsonUpdates()
+        fixture.settle()
+        assertEquals(
+          emptyList(),
+          fixture.engineEvents.filterIsInstance<MapEvent.SourceDataFailed>(),
+        )
+      }
+    }
+
+  @Test
+  fun rejected_synchronous_update_throws_keeps_the_previous_point_and_allows_recovery():
+    MapTestResult = runMapTest {
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(STYLE)
+      fixture.state.setCameraPosition(CameraPosition(target = ORIGIN, zoom = 14.0))
+      val binding = fixture.style as MlnFfiStyleBinding
+      val source =
+        GeoJsonSource(
+          SOURCE_ID,
+          GeoJsonData.Features(pointAt(ORIGIN)),
+          GeoJsonOptions(synchronousUpdate = true),
+        )
+      val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources.add(source))
+      val layer = CircleLayer(LAYER_ID, source)
+      layer.setCircleRadius(const(16.dp).compile(ExpressionContext.None))
+      layer.setCircleColor(const(Color.Black))
+      binding.install(layer)
+      fixture.pumpUntil("the initial point to render") {
+        fixture.readPixel(256, 256).isNear(CIRCLE)
+      }
+
+      assertFailsWith<StyleHandleException> {
+        handle.setData(GeoJsonData.JsonString("{invalid GeoJSON}"))
+      }
+      fixture.settle()
+      assertTrue(fixture.readPixel(256, 256).isNear(CIRCLE))
+      assertEquals(emptyList(), fixture.engineEvents.filterIsInstance<MapEvent.SourceDataFailed>())
+
+      handle.setData(GeoJsonData.Features(pointAt(FAR_AWAY)))
+      fixture.settle()
+      assertTrue(fixture.readPixel(256, 256).isNear(BACKGROUND))
+      assertEquals(emptyList(), fixture.engineEvents.filterIsInstance<MapEvent.SourceDataFailed>())
     }
   }
 

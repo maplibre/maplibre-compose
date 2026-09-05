@@ -305,8 +305,8 @@ internal interface StyleBinding {
    * Submits immutable [data] to the current installation of [sourceId].
    *
    * The binding owns preparation and ordering. A newer submission supersedes older pending data.
-   * Native preparation runs asynchronously and uses the source's applied options, or
-   * [fallbackOptions] if those options are unavailable.
+   * Native preparation uses the source's applied options, or [fallbackOptions] if those options are
+   * unavailable, and runs synchronously when [GeoJsonOptions.synchronousUpdate] is enabled.
    */
   fun submitGeoJsonData(sourceId: String, data: GeoJsonData, fallbackOptions: GeoJsonOptions)
 

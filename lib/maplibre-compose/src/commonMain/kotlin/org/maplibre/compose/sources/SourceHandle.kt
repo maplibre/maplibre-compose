@@ -95,18 +95,21 @@ internal constructor(
   /**
    * Submits [data] to replace the source data for this loaded style.
    *
-   * A successful return means only that the update was submitted to the current source generation.
-   * The function does not define when parsing, indexing, tiling, URL loading, or rendering
-   * completes. An implementation can perform part of this work before returning and continue it
-   * afterward. A newer call supersedes an older pending update. Loading a new base style discards
-   * the submitted data.
+   * By default, a successful return means that the update was submitted to the current source
+   * generation. A newer call supersedes an older pending update. Loading a new base style discards
+   * the submitted data. This function does not wait for URL loading or rendering.
    *
    * Submitted [GeoJsonData.Features] and all nested collections and properties must remain
-   * immutable. Native engines serialize and prepare the data on a background thread. Preparation or
-   * installation failures after submission emit
+   * immutable. By default, native engines serialize and prepare the data on a background thread.
+   * Preparation or installation failures after submission emit
    * [org.maplibre.compose.map.MapEvent.SourceDataFailed] and retain the previous source data.
    *
-   * @throws StyleHandleException if submission fails before this function returns.
+   * With [GeoJsonOptions.synchronousUpdate], native engines serialize, parse, index, and install
+   * inline data on the map's owner thread before returning. Failures throw and retain the previous
+   * data. The source's currently applied options determine this behavior, including after source
+   * replacement. The browser ignores this option.
+   *
+   * @throws StyleHandleException if submission or synchronous preparation or installation fails.
    */
   public fun setData(data: GeoJsonData) {
     operation {

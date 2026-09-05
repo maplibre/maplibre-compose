@@ -19,6 +19,7 @@ internal class MlnFfiGeoJsonCoordinator<P : AutoCloseable>(
   private val prepare: (GeoJsonData) -> P,
   private val install: (P, isCurrent: () -> Boolean) -> Unit,
   private val reportFailure: (Throwable, isCurrent: () -> Boolean) -> Unit,
+  private val synchronousUpdate: Boolean = false,
   dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : AutoCloseable {
   private class Request {
@@ -28,32 +29,14 @@ internal class MlnFfiGeoJsonCoordinator<P : AutoCloseable>(
   private data class Work(val request: Request, val data: GeoJsonData)
 
   private val lock = MlnFfiLock()
-  private val scope = CoroutineScope(SupervisorJob() + dispatcher)
+  private val scope = if (synchronousUpdate) null else CoroutineScope(SupervisorJob() + dispatcher)
   private val pending = Channel<Work>(Channel.CONFLATED)
   private var latest: Request? = null
   private var closed = false
 
   init {
-    val worker = scope.launch {
-      for ((request, data) in pending) {
-        var result = Result.success(Unit)
-        try {
-          if (isCurrent(request)) {
-            prepare(data).use { prepared ->
-              if (isCurrent(request)) install(prepared) { isCurrent(request) }
-            }
-          }
-        } catch (error: Throwable) {
-          result = Result.failure(error)
-          if (error is CancellationException) throw error
-          rethrowIfFatal(error)
-          reportFailure(error) { isCurrent(request) }
-        } finally {
-          request.completion.complete(result)
-        }
-      }
-    }
-    worker.invokeOnCompletion { error ->
+    val worker = scope?.launch { for (work in pending) prepareAndInstall(work) }
+    worker?.invokeOnCompletion { error ->
       if (error != null) {
         val request = lock.withLock {
           closed = true
@@ -66,6 +49,25 @@ internal class MlnFfiGeoJsonCoordinator<P : AutoCloseable>(
     }
   }
 
+  private fun prepareAndInstall(work: Work) {
+    val (request, data) = work
+    var result = Result.success(Unit)
+    try {
+      if (isCurrent(request)) {
+        prepare(data).use { prepared ->
+          if (isCurrent(request)) install(prepared) { isCurrent(request) }
+        }
+      }
+    } catch (error: Throwable) {
+      result = Result.failure(error)
+      if (synchronousUpdate || error is CancellationException) throw error
+      rethrowIfFatal(error)
+      reportFailure(error) { isCurrent(request) }
+    } finally {
+      request.completion.complete(result)
+    }
+  }
+
   /** Called in owner-thread submission order. [installUrl] also runs on that thread. */
   fun submit(data: GeoJsonData, installUrl: (String) -> Unit) {
     val request = Request()
@@ -74,7 +76,7 @@ internal class MlnFfiGeoJsonCoordinator<P : AutoCloseable>(
       val previous = latest
       latest = request
       if (data is GeoJsonData.Uri) pending.tryReceive()
-      else pending.trySend(Work(request, data)).getOrThrow()
+      else if (!synchronousUpdate) pending.trySend(Work(request, data)).getOrThrow()
       previous
     }
     try {
@@ -86,14 +88,16 @@ internal class MlnFfiGeoJsonCoordinator<P : AutoCloseable>(
           request.completion.complete(Result.failure(error))
           throw error
         }
-      }
+      } else if (synchronousUpdate) prepareAndInstall(Work(request, data))
     } finally {
       previous?.completion?.complete(Result.success(Unit))
     }
   }
 
-  /** Snapshot capture waits for installation, and receives the latest preparation failure. */
+  /** Snapshot capture waits for asynchronous work and receives its latest preparation failure. */
   suspend fun awaitLatest() {
+    // Synchronous work finishes on the owner thread and delivers failures to the submitter.
+    if (synchronousUpdate) return
     while (true) {
       val request = lock.withLock { latest } ?: return
       val result = request.completion.await()
@@ -112,7 +116,7 @@ internal class MlnFfiGeoJsonCoordinator<P : AutoCloseable>(
       latest.also { latest = null }
     }
     pending.cancel()
-    scope.cancel()
+    scope?.cancel()
     request?.completion?.complete(Result.success(Unit))
   }
 }

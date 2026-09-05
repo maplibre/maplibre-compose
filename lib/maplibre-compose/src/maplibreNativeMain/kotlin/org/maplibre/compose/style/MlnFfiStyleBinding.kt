@@ -5,6 +5,7 @@ import kotlin.concurrent.Volatile
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.DurationUnit
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
@@ -44,6 +45,7 @@ import org.maplibre.compose.sources.toMlnFfiTileId
 import org.maplibre.compose.sources.toStyleSpecEncoding
 import org.maplibre.compose.sources.toStyleSpecType
 import org.maplibre.compose.sources.toTileCoordinate
+import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.compose.util.toBoundingBox
 import org.maplibre.compose.util.toFfiClusterFeature
 import org.maplibre.compose.util.toGeoJsonFeatures
@@ -520,7 +522,6 @@ internal open class MlnFfiStyleBinding(
     map.imageSourceCoordinates(sourceId)?.map { it.toPosition() }
   }
 
-  /** Adds an empty inline source immediately so layers can reference it while data prepares. */
   override fun addGeoJsonSource(
     sourceId: String,
     data: GeoJsonData,
@@ -530,6 +531,10 @@ internal open class MlnFfiStyleBinding(
     return addSourceWith(sourceId) { map ->
       if (data is GeoJsonData.Uri) {
         map.addGeoJsonSourceUrl(sourceId, data.uri, ffiOptions)
+      } else if (options.synchronousUpdate) {
+        prepareGeoJson(data, ffiOptions).use { prepared ->
+          map.addGeoJsonSourceData(sourceId, prepared)
+        }
       } else {
         GeoJsonSourceDataHandle.create(EMPTY_FEATURE_COLLECTION, ffiOptions).use { empty ->
           map.addGeoJsonSourceData(sourceId, empty)
@@ -537,7 +542,9 @@ internal open class MlnFfiStyleBinding(
       }
       val coordinator = geoJsonCoordinator(sourceId, ffiOptions)
       // Register initial data before notifying source observers, which can submit newer data.
-      if (data !is GeoJsonData.Uri) coordinator.submit(data) { error("Expected inline data") }
+      if (data !is GeoJsonData.Uri && !options.synchronousUpdate) {
+        coordinator.submit(data) { error("Expected inline data") }
+      }
     }
   }
 
@@ -562,6 +569,18 @@ internal open class MlnFfiStyleBinding(
     }
   }
 
+  private fun prepareGeoJson(
+    data: GeoJsonData,
+    options: GeoJsonSourceOptions,
+  ): GeoJsonSourceDataHandle =
+    try {
+      GeoJsonSourceDataHandle.create(checkNotNull(data.toInlineUtf8()), options)
+    } catch (error: Throwable) {
+      if (error is CancellationException) throw error
+      rethrowIfFatal(error)
+      throw StyleMutationException(error.message, error)
+    }
+
   /** Called on the owner thread. Each replacement gets a new coordinator and fixed options. */
   private fun geoJsonCoordinator(
     sourceId: String,
@@ -569,9 +588,8 @@ internal open class MlnFfiStyleBinding(
   ): MlnFfiGeoJsonCoordinator<GeoJsonSourceDataHandle> {
     val coordinator =
       MlnFfiGeoJsonCoordinator(
-        prepare = { data ->
-          GeoJsonSourceDataHandle.create(checkNotNull(data.toInlineUtf8()), options)
-        },
+        synchronousUpdate = options.synchronousTiling == true,
+        prepare = { data -> prepareGeoJson(data, options) },
         install = { prepared, isCurrent ->
           accessMap { map ->
             if (isLoaded && isCurrent()) {
