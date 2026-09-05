@@ -190,14 +190,13 @@ internal fun MlnFfiMapView(
       rotaryNotchPixels,
     )
 
-  Box {
+  // The indication draws over the surface and the load placeholder alike.
+  Box(Modifier.indication(inputFocus.indicationInteractions, inputEnvironment.indication)) {
     surface(session, inputModifier, logger, revealSurface)
     if (!revealSurface) {
-      // The placeholder covers the surface and the focus indication drawn on it.
       Box(
         Modifier.matchParentSize()
           .background(options.renderOptions.foregroundLoadColor)
-          .indication(inputFocus.indicationInteractions, inputEnvironment.indication)
           .testTag(MAP_LOAD_PLACEHOLDER_TAG)
       )
     }

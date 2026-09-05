@@ -1,5 +1,6 @@
 package org.maplibre.compose.map
 
+import androidx.compose.foundation.indication
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -88,17 +89,19 @@ internal actual fun ComposableMapView(
     GlJsMapSurface(
       renderer = session,
       modifier =
-        modifier.mapInput(
-          session,
-          clicks,
-          options.gestureOptions,
-          density,
-          focusRequester,
-          inputFocus,
-          inputEnvironment,
-          continuation,
-          rotaryNotchPixels,
-        ),
+        modifier
+          .indication(inputFocus.indicationInteractions, inputEnvironment.indication)
+          .mapInput(
+            session,
+            clicks,
+            options.gestureOptions,
+            density,
+            focusRequester,
+            inputFocus,
+            inputEnvironment,
+            continuation,
+            rotaryNotchPixels,
+          ),
       logger = logger,
       presentFrames = session.canPresentFrames,
     )

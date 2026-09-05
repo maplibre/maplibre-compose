@@ -4,7 +4,6 @@ import androidx.compose.foundation.Indication
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.FocusInteraction
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.Composable
@@ -97,7 +96,6 @@ internal fun Modifier.mapInput(
     .rotaryZoom(target, options, rotaryNotchPixels, continuation)
     .onFocusChanged { focus.onFocusChanged(it.isFocused) }
     .focusRequester(focusRequester)
-    .indication(focus.indicationInteractions, environment.indication)
     .focusable(enabled = keys || rotary)
     .pointerGestures(target, clicks, options, density, focusRequester, focus, continuation)
     .scrollZoom(target, options, density, continuation)
@@ -209,6 +207,8 @@ private fun Modifier.keyboardInput(
   // must not see that release.
   if (event.type == KeyEventType.KeyUp) return@onKeyEvent focus.claimedKeys.remove(event.key)
   if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+  // A held key repeats its press.
+  if (event.key in focus.claimedKeys) return@onKeyEvent true
   val consumed =
     when (event.key) {
       Key.Enter,
