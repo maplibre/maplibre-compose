@@ -252,19 +252,24 @@ internal class LayerInstallation(
     next: JsonObject?,
     kind: LayerPropertyKind,
   ) {
-    (previous.orEmpty().keys + next.orEmpty().keys).forEach { name ->
-      val oldValue = previous?.get(name)
-      val newValue = next?.get(name)
-      if (oldValue == newValue) return@forEach
-      try {
-        style.setLayerProperty(id, name, newValue ?: clearingValue(kind, name), kind)
-      } catch (error: StyleMutationException) {
-        style.logger?.w(error) {
-          "Layer '$id' of type '${current.type}' kept its previous '$name': MapLibre rejected " +
-            "$newValue."
+    // A transition goes before the value it times, so an engine that updates between the two
+    // writes animates the new value with the new timing.
+    val names = previous.orEmpty().keys + next.orEmpty().keys
+    names
+      .sortedByDescending { it.endsWith(TRANSITION_SUFFIX) }
+      .forEach { name ->
+        val oldValue = previous?.get(name)
+        val newValue = next?.get(name)
+        if (oldValue == newValue) return@forEach
+        try {
+          style.setLayerProperty(id, name, newValue ?: clearingValue(kind, name), kind)
+        } catch (error: StyleMutationException) {
+          style.logger?.w(error) {
+            "Layer '$id' of type '${current.type}' kept its previous '$name': MapLibre rejected " +
+              "$newValue."
+          }
         }
       }
-    }
   }
 
   private fun reportUnsupported(definition: LayerDefinition) {

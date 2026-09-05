@@ -49,6 +49,9 @@ internal class RecordingStyleBinding(
 
   val sources: MutableMap<String, JsonObject> = mutableMapOf()
   val layers: MutableMap<String, JsonObject> = mutableMapOf()
+
+  /** Every layer property write after installation, as layer ID to property name, in order. */
+  val layerPropertyWrites: MutableList<Pair<String, String>> = mutableListOf()
   private val images =
     images.associate { (id, bitmap) -> id to ImageSnapshot.capture(bitmap) }.toMutableMap()
   private val baseSources = sources.associateBy { it.id }.toMutableMap()
@@ -262,6 +265,7 @@ internal class RecordingStyleBinding(
     kind: LayerPropertyKind,
   ) {
     val layer = checkNotNull(layers[layerId]) { "Layer ID '$layerId' not found in style" }
+    layerPropertyWrites += layerId to name
     val section =
       when (kind) {
         LayerPropertyKind.LAYOUT -> "layout"
