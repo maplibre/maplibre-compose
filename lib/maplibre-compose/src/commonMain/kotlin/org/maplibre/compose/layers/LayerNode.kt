@@ -24,7 +24,7 @@ internal fun <T : Layer> LayerNode(
   val anchor = LocalAnchor.current
   val node = LocalStyleNode.current
 
-  key(anchor, recreateKey) {
+  key(factory, anchor, recreateKey) {
     ComposeNode<LayerNode<T>, MapNodeApplier>(
       factory = { LayerNode(layer = factory(), anchor = anchor) },
       update = {
