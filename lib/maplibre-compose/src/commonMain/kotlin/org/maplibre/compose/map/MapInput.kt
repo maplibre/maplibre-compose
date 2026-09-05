@@ -140,8 +140,12 @@ internal class MapInputFocus(private val onChanged: (engaged: Boolean) -> Unit) 
   /** Keys whose press the node consumed and whose release it still owes. */
   val claimedKeys = mutableSetOf<Key>()
 
-  /** Engagement belongs to the key handler, so a map without one never engages. */
+  /** Engagement belongs to the key handler, so a map without one never engages or stays engaged. */
   var hasKeyBindings = false
+    set(value) {
+      field = value
+      if (!value) disengage()
+    }
 
   private var isFocused = false
   private var engagedByKey = false

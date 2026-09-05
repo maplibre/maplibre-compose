@@ -12,6 +12,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
@@ -194,9 +195,12 @@ internal fun MlnFfiMapView(
   Box(Modifier.indication(inputFocus.indicationInteractions, inputEnvironment.indication)) {
     surface(session, inputModifier, logger, revealSurface)
     if (!revealSurface) {
+      // A pointer handler makes the placeholder the hit target, so a press reaches no recognizer
+      // on the hidden surface. It consumes nothing, so a parent scroller still scrolls.
       Box(
         Modifier.matchParentSize()
           .background(options.renderOptions.foregroundLoadColor)
+          .pointerInput(Unit) {}
           .testTag(MAP_LOAD_PLACEHOLDER_TAG)
       )
     }
