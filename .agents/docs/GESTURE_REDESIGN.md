@@ -6,16 +6,15 @@ Staging notes for the
 camera gestures with full configurability),
 [#951](https://github.com/maplibre/maplibre-compose/issues/951) (pointer-move
 callback), and [#952](https://github.com/maplibre/maplibre-compose/issues/952)
-(double-click callback). The shapes below are representative, not locked. A
-prototype will change them.
+(double-click callback). The API examples are provisional and will be tested
+with prototypes.
 
 This ships against the ownership API: `MaplibreMap(state)` with the camera on
 `MapState`. `GestureOptions` is deleted, with no compatibility layer.
 
-Engine events such as style load, idle, and frames are a separate surface, in
-[EVENT_CALLBACK_REDESIGN.md](./EVENT_CALLBACK_REDESIGN.md). That work moved
-click dispatch out of `MapAdapter.Callbacks` and into Compose; this gesture
-chain replaces the click handlers.
+Engine events such as style load, idle, and frames are available through
+`MapState.events`. Click dispatch runs in Compose; this gesture chain replaces
+the click handlers.
 
 Focus and key engagement are already in the tree, in the key handler in
 `MapInput.kt` and the `isEngaged` property on `MapState`. A focused map consumes
@@ -23,21 +22,21 @@ direction keys only while engaged: Enter, D-pad center, or a pointer press
 engages it, Escape releases it, and Back releases it when a key engaged it. That
 work constrains the `keys` block here in three ways:
 
-- The bindings derive focusability, the way they arm the recognizers. No key and
-  no rotary binding means the map stays out of focus traversal.
+- The bindings determine focusability as well as which recognizers run. No key
+  and no rotary binding means the map stays out of focus traversal.
 - Engagement is a layer above the bindings and gates whether they fire. The
   engage and disengage keys, fixed today, become members of the `keys` builder.
 - The `keys` block broadens to focused input, so rotary bindings for Wear join
   it. Rotary events reach the focused node the same way keys do.
 
-## What the current code is
+## Current limitations
 
-`MapInput.kt` fuses three separable concerns into one state machine:
+`MapInput.kt` combines three concerns in one state machine:
 
 - **Recognition** turns raw pointer and key events into decisions: this motion
   is a pan, this pointer pair is a pinch, this pair of taps is a double tap. The
   slops, the two-finger classification, the tap pairing with bounce rejection,
-  and the pressure filtering all live here, and they are the hard-won part.
+  and pressure filtering belong to recognition.
 - **Binding** maps input conditions to gestures. These decisions are inline
   conditionals: secondary button or Ctrl means rotate and tilt, quick zoom
   requires a touch pointer, Shift plus arrows means rotate.
@@ -45,14 +44,14 @@ work constrains the `keys` block here in three ways:
   `GestureTarget` with gesture tokens, fling continuations through
   `GestureContinuation`, or a click callback.
 
-`GestureOptions` is a flat bag of enable flags and scalars that reaches into all
-three concerns at once. It cannot express a binding change ("Alt-drag rotates,
-right-drag does nothing") or a response change ("deliver the double click to me
-instead of zooming"), which is most of what the milestone asks for.
+`GestureOptions` mixes enable flags and scalars for all three concerns. It
+cannot express a binding change ("Alt-drag rotates, right-drag does nothing") or
+a response change ("deliver the double click to me instead of zooming"), which
+is most of what the milestone asks for.
 
-## The shape
+## Proposed design
 
-Three layers. The user writes bindings; the arena and the recognizers stay
+Callers configure bindings. Recognition and competition between gestures stay
 internal.
 
 ```
@@ -64,21 +63,20 @@ raw input  →  arena + recognizers  →  gesture events  →  bindings  →  ac
 
 ### Arena and recognizers
 
-One event loop per map — one `pointerInput` plus one key handler, as today —
-runs the recognizers and resolves competition between them. Recognition is
-kinetic only: a down and up within slop and time is a `Tap`, two paired taps are
-a `DoubleTap`, sustained single-pointer motion is a drag, diverging pointers are
-a pinch. Buttons, modifier keys, and pointer type are not separate gestures;
-they are facts carried on the event.
+One event loop per map, using one `pointerInput` and one key handler, runs
+recognizers and resolves competition between them. Recognition identifies
+motion: a down and up within slop and time is a `Tap`, two paired taps are a
+`DoubleTap`, sustained single-pointer motion is a drag, diverging pointers are a
+pinch. Buttons, modifier keys, and pointer type are not separate gestures; they
+are facts carried on the event.
 
-The set of bindings arms the recognizers. `awaitsSecondTap()` in the current
+The bindings determine which recognizers run. `awaitsSecondTap()` in the current
 code shows why this feedback exists: a touch tap is delayed for the double-tap
 window only when something binds a second tap, because otherwise the delay is
-pure latency. The user only writes bindings; the arena derives which recognizers
-run and with what filters.
+unnecessary. The recognizers and their filters derive from the bindings.
 
 Recognition math stays pure and unit-tested, as `GestureMath` and
-`TapPairingTest` already are. The disambiguation contract stays internal — see
+`TapPairingTest` already are. Gesture competition stays internal. See
 [No recognizer SPI](#no-recognizer-spi).
 
 ### Events
@@ -114,8 +112,8 @@ time, so these types reference no map state type and the release order inside
 
 ### Bindings
 
-A binding is a filter plus an action. The filter is the promoted form of today's
-inline conditionals:
+A binding combines a filter and an action. Filters replace the current inline
+conditions:
 
 ```kotlin
 class PointerFilter(
@@ -127,14 +125,14 @@ class PointerFilter(
 
 `MapGestures` is the ordered collection of bindings, built with a builder DSL
 and immutable once built. It is not a data class: a public constructor, `copy`,
-and `componentN` make every added option a source and binary break, and this
-surface grows with every new binding and scalar. A DSL addition is a new
-optional builder member, which breaks nothing.
+and `componentN` make every added option a source and binary break, and this API
+grows with each binding and scalar. New optional builder members preserve
+existing call sites.
 
 `MapGestures { }` yields the standard defaults; the lambda edits a builder
 pre-populated with them, the way `Json { }` edits a default configuration.
 `MapGestures.None` is the empty value, and `MapGestures(from = other) { }`
-rebases on another value.
+starts from another value.
 
 ```kotlin
 val gestures = MapGestures {
@@ -165,11 +163,10 @@ Scalars move onto the binding they configure. `isRotateVelocityEnabled` becomes
 
 The built value has content-based equality, because it keys the arena's
 `pointerInput`: a recomposition that rebuilds an equal configuration must not
-restart an in-flight gesture. User handlers are the exception — a lambda
-recreated on each recomposition compares unequal by reference — so the arena
-diffs on the configuration data only and reads handlers through latest-value
-indirection, the `rememberUpdatedState` pattern `Modifier.clickable` uses. A
-fresh lambda updates in place; only a data change restarts the arena.
+restart an in-flight gesture. Handler lambdas may change identity during
+recomposition, so the arena compares configuration data separately and reads the
+latest handlers through `rememberUpdatedState`. A fresh lambda updates in place;
+only a data change restarts the arena.
 
 ### Actions
 
@@ -216,9 +213,9 @@ the fallthrough disables the camera response without a flag. This is the answer
 to #952.
 
 The chain is suspend-aware: the layer walk queries rendered features, so the
-camera fallthrough waits for the consumption decision. A double-tap zoom
-inherits one hit-test of latency, which an eased discrete gesture absorbs.
-Continuous gestures never enter a chain; they go straight to the camera.
+camera fallthrough waits for the consumption decision. This adds a feature query
+to double-tap zoom latency. Continuous gestures never enter a chain; they go
+straight to the camera.
 
 Layer handlers stay declared as parameters on the layer composables in style
 content. The chain discovers them at delivery time by walking the composition's
@@ -233,27 +230,27 @@ cost.
 ### Camera path
 
 The internal `GestureTarget` and `GestureContinuation` become a public
-gesture-camera facet of `MapState` — a narrow handle such as
-`state.gestureCamera`, so the state's main camera API stays `setCamera` and
-`animateCamera`. Per-frame gesture deltas are async camera commands with no
-result. Discrete eased gestures are the awaiting variants.
+gesture-camera API on `MapState`, provisionally named `state.gestureCamera`. The
+state's main camera API remains separate. Per-frame gesture deltas are async
+camera commands with no result. Discrete eased gestures are the awaiting
+variants.
 
 The gesture-token and continuation lifecycle stays owned by the gesture node in
 the UI, because gestures attach and detach with the render session. The
 operations that lifecycle drives live on the state.
 
-This handle is the full escape hatch: `MapGestures.None` plus the user's own
-input handling against `state.gestureCamera` replaces every default.
+Callers can replace default input handling with `MapGestures.None` and their own
+input handling through `state.gestureCamera`.
 
 ### No recognizer SPI
 
-0.16 ships built-in recognizers only. The plausible custom gestures — box zoom,
-lasso, measuring, drawing, feature drag — are all taps and drags with custom
-responses, which filters, `Custom` actions, and the drag start predicate cover.
-A public recognizer interface would freeze the arena's internals (event passes,
-claim resolution, token handoff) exactly when the trackpad work will force arena
-changes, because trackpad pinch and rotate arrive as different raw event types
-than pointer pairs.
+0.16 ships built-in recognizers only. Box zoom, lasso, measuring, drawing, and
+feature dragging use taps and drags with custom responses. Filters, `Custom`
+actions, and the drag start predicate cover these cases. A public recognizer
+interface would freeze the arena's internals (event passes, claim resolution,
+token handoff) exactly when the trackpad work will force arena changes, because
+trackpad pinch and rotate arrive as different raw event types from pointer
+pairs.
 
 A gesture that cooperates with the map only through Compose's ordinary
 consumption rules needs no support from this design: the map's gestures attach
@@ -272,8 +269,8 @@ bursts, and a wheel reports whole detents on one axis. `ScrollNotches.kt`
 already normalizes each host's delta to notch units. Classifying a scroll as
 continuous (trackpad) or discrete (wheel) is a heuristic on those values. The
 prior art is `ScrollZoomHandler.wheel()` in MapLibre GL JS, inherited from
-Mapbox GL JS: a nonzero `deltaY` that is an exact multiple of 4.000244140625 — a
-Chromium wheel quantum — is a wheel, a magnitude under 4 is a trackpad, and an
+Mapbox GL JS: a nonzero `deltaY` that is an exact multiple of Chromium's wheel
+increment, 4.000244140625, is a wheel. A magnitude under 4 is a trackpad, and an
 ambiguous delta classifies by inter-event timing, with a 40 ms deferral for a
 lone event. Compose's own web target added a similar Chrome heuristic in 1.12.
 `ScrollEvent` carries the classification, and scroll bindings filter on it:
@@ -306,7 +303,7 @@ falls back to zoom for both.
 The arena maps `Scale` and `Pan` events into the same pinch and drag event
 streams as two-pointer recognition, so a binding never distinguishes a pinch of
 two touch pointers from a platform-recognized trackpad pinch, and a platform
-that gains emission later lights up with no API change.
+that adds these events later needs no public API change.
 
 ## Attachment
 
@@ -315,21 +312,20 @@ place of a `gestureOptions` parameter. The parameter is the only public
 attachment in 0.16. A public `Modifier.mapGestures(state, gestures)` can be
 extracted later without breaking the parameter form, so it waits for demand.
 
-## How the milestone issues land
+## Milestone coverage
 
-- **#230**: bindings cover the configurability list — key assignments, mouse
-  conventions (Mapbox, Google, and Apple styles are each one builder edit),
-  per-gesture pointer-type filters, quick-zoom direction, decay. The device gaps
-  (trackpad scroll-pan, trackpad pinch, tilt velocity, Shift-drag box zoom)
-  become new recognizers and built-in bindings in the new model, within the
-  platform limits in
+- **#230**: bindings cover key assignments, mouse conventions (Mapbox, Google,
+  and Apple styles are each one builder edit), per-gesture pointer-type filters,
+  quick-zoom direction, decay. The device gaps (trackpad scroll-pan, trackpad
+  pinch, tilt velocity, Shift-drag box zoom) become new recognizers and built-in
+  bindings in the new model, within the platform limits in
   [Trackpad primitives in Compose](#trackpad-primitives-in-compose).
 - **#951**: the hover event on the map, plus opt-in per-layer hover.
 - **#952**: the double-tap chain, with the camera zoom as its fallthrough.
 
-## Sequence
+## Implementation sequence
 
-All in 0.16. These phases land on the ownership API.
+These phases target 0.16 and use the ownership API.
 
 1. **Value model.** Events, filters, bindings, actions, `MapGestures`, in
    `commonMain`, referencing no map state type.
@@ -337,9 +333,9 @@ All in 0.16. These phases land on the ownership API.
    `GestureOptions` and inline conditionals. Behavior-identical at `Standard`,
    verified against the existing `commonTest` and `liveMapTest` suites,
    including the token-ordering tests. `GestureOptions` is deleted. Still
-   against the internal `GestureTarget` seam.
+   against the internal `GestureTarget` interface.
 3. **New events.** Hover, double tap, long press as events with user actions
-   (#951, #952), minus the layer walk.
+   (#951, #952), before layer dispatch is added.
 4. **Wiring.** The dispatch chain moves the layer walk out of `MaplibreMap.kt`
    into delivery against the state-owned composition host; `state.gestureCamera`
    becomes public; `MaplibreMap` takes `gestures`.
@@ -352,16 +348,20 @@ All in 0.16. These phases land on the ownership API.
 
 ## Open questions
 
-**The drag start predicate and async hit tests.** A press-time hit test
-suspends, and the slop window is time-sensitive. The predicate may need to be
-synchronous against pre-queried state, or the arena may hold the contended drag
-until the query answers. A prototype decides.
+### Drag start predicates and asynchronous hit tests
 
-**Naming.** `MapGestures`, binding and action class names, and
-`state.gestureCamera` are placeholders. The final names follow the `MapState`
-naming in the ownership API.
+A press-time hit test suspends, and the slop window is time-sensitive. The
+predicate may need to be synchronous against pre-queried state, or the arena may
+hold the contended drag until the query answers. A prototype decides.
 
-**Chain latency bounds.** The double-tap fallthrough waits on one
-`queryRenderedFeatures`. If a style makes that query slow, the zoom lags. A
-timeout that fires the fallthrough and delivers a late consume as a no-op is the
-likely answer; a prototype measures whether it is needed.
+### Naming
+
+`MapGestures`, binding and action class names, and `state.gestureCamera` are
+placeholders. The final names follow the `MapState` naming in the ownership API.
+
+### Dispatch latency bounds
+
+The double-tap fallthrough waits on one `queryRenderedFeatures`. If a style
+makes that query slow, the zoom lags. A timeout that fires the fallthrough and
+delivers a late consume as a no-op is the likely answer; a prototype measures
+whether it is needed.

@@ -11,7 +11,7 @@ import camera from "../../../../demo-app/common/src/commonMain/kotlin/org/maplib
 
 The camera defines the visible part of the map: a target position, a zoom
 level, a bearing, and a tilt. <Api of="rememberMapState" /> creates a
-<Api of="MapState" /> with a durable, read-only camera position. Pass an
+<Api of="MapState" /> with a read-only camera position. Pass an
 initial <Api of="CameraPosition" /> to set the camera at startup:
 
 <Code code={region(camera, "first-position")} lang="kotlin" title="App.kt" />
@@ -25,8 +25,8 @@ function waits until the map is attached:
 <Code code={region(camera, "animate")} lang="kotlin" title="App.kt" />
 
 Use <Api of="MapState.setCameraPosition" /> to move without an animation. The
-position is durable: if the map is not attached, the next map surface starts
-there.
+position is retained when the map is detached and restored when it is displayed
+again.
 
 ## Fit a bounding box
 
