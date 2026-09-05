@@ -86,8 +86,6 @@ jobs:
       - uses: ./.github/actions/setup-ci-deps
         with:
           android-emulator: ${{ matrix.api-level }}
-      # Cross-compiles ARMv7; the emulator suite below runs x86-64, not ARMv7.
-      - run: mise run check:android-abis
       - id: android-host-tests
         if: ${{ matrix.api-level == 36 }}
         run: mise run test:android

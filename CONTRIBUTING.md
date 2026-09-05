@@ -148,10 +148,6 @@ Map render backend than the platform default, as in
 CI runs these same tasks, so you can reproduce a failure with the command the
 job ran:
 
-- `mise run check:android-abis` — build the Android and Wear OS demo APKs for
-  both backends, compile the Vulkan shim for ARMv7/ARM64/x86-64, and check
-  packaged ELF architectures and native link dependencies. Reports and APKs are
-  in `build/reports/android-abis/`. This does not execute a 32-bit process.
 - `mise run test:android` — Android host (JVM) suite
 - `mise run test:android:device [api-level]` — instrumented suite
 - `mise run test:ios`

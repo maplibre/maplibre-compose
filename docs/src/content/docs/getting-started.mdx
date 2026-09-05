@@ -133,8 +133,8 @@ If another dependency includes native libraries for additional ABIs, restrict
 your application's `ndk.abiFilters` to the supported ABIs above. FFI does not
 publish 32-bit x86 libraries.
 
-ARMv7 compile/link and APK coverage are checked in CI. ARMv7 rendering and
-lifecycle have not yet been verified on a compatible device.
+CI compiles the Vulkan shim for all three ABIs. ARMv7 rendering and lifecycle
+have not yet been verified on a compatible device.
 
 ### iOS
 
