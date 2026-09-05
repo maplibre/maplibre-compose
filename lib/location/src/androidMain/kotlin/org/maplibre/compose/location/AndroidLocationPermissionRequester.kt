@@ -91,8 +91,8 @@ internal constructor(
   /** Removes the activity observer and unregisters any pending permission callback. */
   override fun close() {
     if (closed) return
-    closed = true
     lifecycle?.removeObserver(observer)
+    closed = true
     pendingLauncher?.unregister()
     pendingLauncher = null
   }
@@ -116,7 +116,7 @@ internal constructor(
    */
   public fun requestForegroundPermission() {
     val current = refresh()
-    if (current is LocationPermission.Granted || pendingLauncher != null) return
+    if (closed || current is LocationPermission.Granted || pendingLauncher != null) return
     val registry = registry ?: return
     val launcher =
       registry.register(

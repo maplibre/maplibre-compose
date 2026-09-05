@@ -232,6 +232,8 @@ internal constructor(private val client: CoreLocationClient) : AutoCloseable {
   private var closed = false
   private var activeOperations = 0
   private var disposed = false
+  private var permissionRevision = 0L
+  private var permissionFailure: Throwable? = null
 
   private fun withClient(ifClosed: () -> Unit = {}, action: () -> Unit) {
     val accepted =
@@ -300,13 +302,17 @@ internal constructor(private val client: CoreLocationClient) : AutoCloseable {
       }
 
       override fun didChangeAuthorization() = withClient {
-        if (synchronized(lock) { manager !== source }) return@withClient
-        val permission = readPermission(source.authorizationStatus, source.accuracyAuthorization)
-        mutableStatus.value = permission
-        if (permission != LocationPermission.NotGranted(canRequest = true)) {
-          source.stopUpdatingLocation()
+        client.onLocationThread {
+          if (synchronized(lock) { manager !== source }) return@onLocationThread
+          val permission = runCatching {
+            readAndPublishPermission(source)
+          }
+            .getOrDefault(LocationPermission.Unknown)
+          if (permission != LocationPermission.NotGranted(canRequest = true)) {
+            source.stopUpdatingLocation()
+          }
+          requestPending.set(false)
         }
-        requestPending.set(false)
       }
     }
 
@@ -317,16 +323,42 @@ internal constructor(private val client: CoreLocationClient) : AutoCloseable {
   internal fun refreshPermission(): LocationPermission {
     var permission: LocationPermission = LocationPermission.Unknown
     withClient(ifClosed = { error("The macOS permission requester is closed") }) {
-      try {
-        val manager = manager()
-        permission = readPermission(manager.authorizationStatus, manager.accuracyAuthorization)
-        mutableStatus.value = permission
-      } catch (error: Throwable) {
-        mutableStatus.value = LocationPermission.Unknown
-        throw error
-      }
+      val revisionBeforeAllocation = synchronized(lock) { permissionRevision }
+      val manager =
+        try {
+          manager()
+        } catch (error: Throwable) {
+          permission = client.onLocationThread {
+            synchronized(lock) {
+              if (permissionRevision == revisionBeforeAllocation) {
+                permissionRevision += 1
+                permissionFailure = error
+                mutableStatus.value = LocationPermission.Unknown
+              }
+              permissionFailure?.let { throw it }
+              mutableStatus.value
+            }
+          }
+          return@withClient
+        }
+      permission = client.onLocationThread { readAndPublishPermission(manager) }
     }
     return permission
+  }
+
+  private fun readAndPublishPermission(source: CoreLocationManager): LocationPermission {
+    val revision = synchronized(lock) { ++permissionRevision }
+    val result = runCatching {
+      readPermission(source.authorizationStatus, source.accuracyAuthorization)
+    }
+    return synchronized(lock) {
+      if (revision == permissionRevision) {
+        permissionFailure = result.exceptionOrNull()
+        mutableStatus.value = result.getOrDefault(LocationPermission.Unknown)
+      }
+      permissionFailure?.let { throw it }
+      mutableStatus.value
+    }
   }
 
   /**

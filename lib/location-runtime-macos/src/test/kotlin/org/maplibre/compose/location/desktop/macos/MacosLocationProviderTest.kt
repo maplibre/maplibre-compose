@@ -502,6 +502,101 @@ class MacosLocationProviderTest {
   }
 
   @Test
+  fun denialCallbackDuringRefreshPreventsDelivery() = runTest {
+    val client = FakeCoreLocationClient()
+    val provider = MacosLocationProvider(client, Dispatchers.Unconfined, Dispatchers.Unconfined)
+    val manager = client.managers.single()
+    manager.onAuthorizationRead = {
+      manager.onAuthorizationRead = {}
+      manager.authorizationStatus = CL_AUTHORIZATION_DENIED
+      manager.boundDelegate?.didChangeAuthorization()
+    }
+
+    val event = assertIs<LocationEvent.Unavailable>(provider.updates().first())
+
+    assertEquals(LocationUnavailableReason.PermissionDenied, event.reason)
+    assertEquals(LocationPermission.NotGranted(canRequest = false), provider.permission.value)
+    assertEquals(1, client.managers.size)
+    assertEquals(0, manager.startCount)
+    provider.close()
+  }
+
+  @Test
+  fun grantCallbackDuringRefreshAllowsDelivery() = runTest {
+    val client = FakeCoreLocationClient()
+    val provider = MacosLocationProvider(client, Dispatchers.Unconfined, Dispatchers.Unconfined)
+    val manager = client.managers.single()
+    manager.authorizationStatus = CL_AUTHORIZATION_DENIED
+    manager.onAuthorizationRead = {
+      manager.onAuthorizationRead = {}
+      manager.authorizationStatus = CL_AUTHORIZATION_AUTHORIZED_WHEN_IN_USE
+      manager.boundDelegate?.didChangeAuthorization()
+    }
+    client.nextLocation = sampleMeasurement()
+
+    assertIs<LocationEvent.Update>(provider.updates().first())
+
+    assertIs<LocationPermission.Granted>(provider.permission.value)
+    assertEquals(2, client.managers.size)
+    provider.close()
+  }
+
+  @Test
+  fun newerAuthorizationReadFailureDuringRefreshReportsItsCause() = runTest {
+    val client = FakeCoreLocationClient()
+    val provider = MacosLocationProvider(client, Dispatchers.Unconfined, Dispatchers.Unconfined)
+    val manager = client.managers.single()
+    val failure = IllegalStateException("new permission read failed")
+    manager.onAuthorizationRead = {
+      manager.onAuthorizationRead = { throw failure }
+      manager.boundDelegate?.didChangeAuthorization()
+      manager.onAuthorizationRead = {}
+    }
+
+    val event = assertIs<LocationEvent.Unavailable>(provider.updates().first())
+
+    assertEquals(LocationUnavailableReason.UnexpectedFailure, event.reason)
+    assertEquals(failure, event.cause)
+    assertEquals(LocationPermission.Unknown, provider.permission.value)
+    assertEquals(1, client.managers.size)
+    provider.close()
+  }
+
+  @Test
+  fun staleRefreshFailurePreservesNewerAuthorization() {
+    val client = FakeCoreLocationClient()
+    val requester = MacosLocationPermissionRequester(client)
+    val manager = client.managers.single()
+    manager.onAuthorizationRead = {
+      manager.onAuthorizationRead = {}
+      manager.authorizationStatus = CL_AUTHORIZATION_DENIED
+      manager.boundDelegate?.didChangeAuthorization()
+      error("old permission read failed")
+    }
+
+    assertEquals(LocationPermission.NotGranted(canRequest = false), requester.refreshPermission())
+    assertEquals(LocationPermission.NotGranted(canRequest = false), requester.status.value)
+    requester.close()
+  }
+
+  @Test
+  fun staleAuthorizationCallbackPreservesNewerRefreshFailure() {
+    val client = FakeCoreLocationClient()
+    val requester = MacosLocationPermissionRequester(client)
+    val manager = client.managers.single()
+    manager.onAuthorizationRead = {
+      manager.onAuthorizationRead = { error("new permission read failed") }
+      assertFailsWith<IllegalStateException> { requester.refreshPermission() }
+      manager.onAuthorizationRead = {}
+    }
+
+    manager.boundDelegate?.didChangeAuthorization()
+
+    assertEquals(LocationPermission.Unknown, requester.status.value)
+    requester.close()
+  }
+
+  @Test
   fun overlappingPermissionRequestsStartOneAuthorizationRequest() {
     val client = FakeCoreLocationClient(authorizationStatus = CL_AUTHORIZATION_NOT_DETERMINED)
     val provider = MacosLocationProvider(client, Dispatchers.Unconfined)
@@ -643,6 +738,9 @@ private class FakeCoreLocationClient(
   var createFailure: Throwable? = null
   var delegateFailure: Throwable? = null
   var onCreate: () -> Unit = {}
+  private val locationThread = Any()
+
+  override fun <T> onLocationThread(action: () -> T): T = synchronized(locationThread, action)
 
   override fun createManager(): CoreLocationManager {
     createFailure?.let { throw it }
@@ -665,6 +763,13 @@ private class FakeCoreLocationManager(override var location: CoreLocationMeasure
   override var desiredAccuracy: Double = 0.0
   override var distanceFilter: Double = 0.0
   override var authorizationStatus: Long = CL_AUTHORIZATION_NOT_DETERMINED
+    get() {
+      val value = field
+      onAuthorizationRead()
+      return value
+    }
+
+  var onAuthorizationRead: () -> Unit = {}
   override var accuracyAuthorization: Long = CL_ACCURACY_AUTHORIZATION_FULL
   var boundDelegate: CoreLocationDelegate? = null
   var updating = false

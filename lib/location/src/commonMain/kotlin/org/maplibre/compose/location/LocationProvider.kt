@@ -64,7 +64,8 @@ public interface LocationProvider : AutoCloseable {
    * Releases resources owned by this provider. Repeated calls have no effect.
    *
    * Cancel update collectors when disposing the provider. Implementations that own permission
-   * observers or platform clients release them here. The default does nothing.
+   * observers or platform clients release them here. Android providers require the main thread. The
+   * default does nothing.
    */
   override fun close(): Unit = Unit
 }

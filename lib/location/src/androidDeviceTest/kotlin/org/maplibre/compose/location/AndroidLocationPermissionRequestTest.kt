@@ -3,11 +3,59 @@ package org.maplibre.compose.location
 import androidx.activity.result.ActivityResultRegistry
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.core.app.ActivityOptionsCompat
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
+import androidx.test.platform.app.InstrumentationRegistry
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.launch
 
 class AndroidLocationPermissionRequestTest {
+  @Test
+  fun reentrantCloseDuringPermissionRefreshPreventsLaunch() {
+    val registry = TestResultRegistry()
+    var rationale = false
+    val requester = AndroidLocationPermissionRequester(null, registry, { null }, { rationale })
+    val observer =
+      CoroutineScope(Dispatchers.Unconfined).launch {
+        requester.status.drop(1).collect { requester.close() }
+      }
+    try {
+      rationale = true
+      requester.requestForegroundPermission()
+      assertEquals(0, registry.launches)
+      assertFailsWith<IllegalStateException> { requester.refresh() }
+    } finally {
+      observer.cancel()
+      requester.close()
+    }
+  }
+
+  @Test
+  fun failedOffMainCloseCanStillDisposeOnMain() {
+    val instrumentation = InstrumentationRegistry.getInstrumentation()
+    val owner =
+      object : LifecycleOwner {
+        override val lifecycle = LifecycleRegistry(this)
+      }
+    lateinit var requester: AndroidLocationPermissionRequester
+    instrumentation.runOnMainSync {
+      requester = AndroidLocationPermissionRequester(owner.lifecycle, null, { null }, { false })
+      assertEquals(1, owner.lifecycle.observerCount)
+    }
+
+    assertFailsWith<IllegalStateException> { requester.close() }
+
+    instrumentation.runOnMainSync {
+      requester.close()
+      assertEquals(0, owner.lifecycle.observerCount)
+    }
+  }
+
   @Test
   fun closeUnregistersPendingRequestBeforeResultArrives() {
     val registry = TestResultRegistry()

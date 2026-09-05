@@ -2,6 +2,7 @@ package org.maplibre.compose.gms
 
 import android.Manifest
 import android.content.Context
+import androidx.annotation.MainThread
 import androidx.annotation.RequiresPermission
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.Granularity
@@ -43,6 +44,8 @@ import org.maplibre.spatialk.units.extensions.inMeters
  *
  * The [Context] constructor handles permission requests. The [FusedLocationProviderClient]
  * constructor reports permission as granted and requires the caller to manage authorization.
+ *
+ * Create the provider, request permission, and close it on the main thread.
  */
 public class FusedLocationProvider
 internal constructor(
@@ -58,12 +61,14 @@ internal constructor(
    *
    * Permission keeps the [LocationProvider.permission] default, which is always granted.
    */
+  @MainThread
   public constructor(locationClient: FusedLocationProviderClient) : this(locationClient, null)
 
   /**
    * Creates a provider with its own fused client and an [AndroidLocationProvider] as its permission
    * delegate.
    */
+  @MainThread
   public constructor(
     context: Context
   ) : this(
@@ -74,6 +79,7 @@ internal constructor(
   override val permission: StateFlow<LocationPermission>
     get() = permissionDelegate?.permission ?: super.permission
 
+  @MainThread
   override fun requestPermission() {
     if (permissionDelegate != null) {
       permissionDelegate.requestPermission()
@@ -82,6 +88,7 @@ internal constructor(
     }
   }
 
+  @MainThread
   override fun close() {
     permissionDelegate?.close()
   }
