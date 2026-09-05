@@ -2,48 +2,37 @@
 
 package org.maplibre.compose.docsnippets
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
+import kotlinx.coroutines.flow.StateFlow
 import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.map.MapRuntimeOptions
-import org.maplibre.compose.map.MaplibreMap
-import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.resource.MapRequestInterceptor
 import org.maplibre.compose.resource.MapResourceError
 import org.maplibre.compose.resource.MapResourceKind
 import org.maplibre.compose.resource.MapResourceLoad
 import org.maplibre.compose.resource.MapResourceProvider
 
-@Composable
-fun InterceptorMap(token: String) {
-  val runtime = DefaultMapRuntime.instance
-  // #region interceptor
-  DisposableEffect(token) {
-    runtime.setRequestInterceptor(
-      MapRequestInterceptor(
-        headers = { request ->
-          if (request.url.startsWith("https://tiles.example.com/")) {
-            mapOf("Authorization" to "Bearer $token")
-          } else {
-            emptyMap()
-          }
+// #region configuration
+fun configureMapRequests(token: StateFlow<String?>) {
+  val interceptor =
+    MapRequestInterceptor(
+      headers = { request ->
+        val currentToken = token.value
+        if (request.url.startsWith("https://tiles.example.com/") && currentToken != null) {
+          mapOf("Authorization" to "Bearer $currentToken")
+        } else {
+          emptyMap()
         }
-      )
+      }
     )
-    onDispose { runtime.setRequestInterceptor(null) }
-  }
-  MaplibreMap(state = rememberMapState(runtime))
-  // #endregion interceptor
+  val provider = MapResourceProvider(scheme = "app") { request -> readAsset(request.url) }
+  DefaultMapRuntime.configure(
+    MapRuntimeOptions(requestInterceptor = interceptor, resourceProvider = provider)
+  )
 }
+
+// #endregion configuration
 
 @Suppress("UNUSED_PARAMETER") suspend fun readAsset(url: String): ByteArray = ByteArray(0)
-
-fun configureAssetProvider() {
-  // #region provider
-  val provider = MapResourceProvider(scheme = "app") { request -> readAsset(request.url) }
-  DefaultMapRuntime.configure(MapRuntimeOptions(resourceProvider = provider))
-  // #endregion provider
-}
 
 @Suppress("UNUSED_PARAMETER") suspend fun readTile(url: String): ByteArray? = null
 

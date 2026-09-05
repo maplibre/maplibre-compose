@@ -61,7 +61,6 @@ import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.offline.OfflineManager
 import org.maplibre.compose.offline.RuntimeBoundOfflineManager
 import org.maplibre.compose.offline.UnsupportedOfflineManager
-import org.maplibre.compose.resource.MapRequestInterceptor
 import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceHandle
@@ -92,8 +91,9 @@ import org.maplibre.spatialk.geojson.Position
 /**
  * Configuration for one [MapRuntime].
  *
- * Every platform accepts a request interceptor and a resource provider. The MapLibre Native
- * platforms also accept a cache file and a cache size limit.
+ * Every platform accepts a request interceptor and a resource provider, fixed for the lifetime of
+ * the runtime. They apply to its maps, snapshotters, and supported offline operations. The MapLibre
+ * Native platforms also accept a cache file and a cache size limit.
  */
 public expect class MapRuntimeOptions
 
@@ -107,14 +107,6 @@ public expect fun createMapRuntime(options: MapRuntimeOptions): MapRuntime
 public interface MapRuntime {
   /** The offline packs and ambient cache managed by this runtime. */
   public val offlineManager: OfflineManager
-
-  /**
-   * Replaces the request interceptor for every map and snapshotter on this runtime.
-   *
-   * A null [interceptor] stops rewriting URLs and adding headers. A request that starts after this
-   * call returns uses the new interceptor. A request in flight may use either interceptor.
-   */
-  public fun setRequestInterceptor(interceptor: MapRequestInterceptor?)
 
   /**
    * Creates a logical map with [baseStyle] and the sources, layers, and images that [content]
@@ -1854,13 +1846,6 @@ internal class RuntimeImplementation(
   ): MapSnapshotter = lock.withLock {
     requireOpenLocked()
     MapSnapshotterImplementation(this, baseStyle, content).also(snapshotters::add)
-  }
-
-  final override fun setRequestInterceptor(interceptor: MapRequestInterceptor?) {
-    lock.withLock {
-      requireOpenLocked()
-      resourceConfig.setInterceptor(interceptor)
-    }
   }
 
   private fun requireOpen() {

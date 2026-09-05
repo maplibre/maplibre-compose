@@ -16,9 +16,9 @@ public actual data class MapRuntimeOptions(
   public val cacheFile: Path? = null,
   /** Maximum ambient cache size in bytes, or null for MapLibre's own default. */
   public val maximumCacheSizeBytes: Long? = null,
-  /** Rewrites URLs and headers for every resource this runtime fetches. */
+  /** Rewrites URLs and headers for this runtime. Fixed at construction. */
   public val requestInterceptor: MapRequestInterceptor? = null,
-  /** Serves bytes for resource URLs this provider accepts. */
+  /** Serves bytes for resource URLs this provider accepts. Fixed at construction. */
   public val resourceProvider: MapResourceProvider? = null,
 )
 

@@ -9,45 +9,31 @@ import { region } from "../../snippets";
 
 import requests from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Requests.kt?raw";
 
-Tiles, sprites, and fonts come from URLs in the style. Rewrite those requests,
-or serve the bytes from application code.
+Tiles, sprites, and fonts come from URLs in the style.
+<Api of="MapRequestInterceptor" /> rewrites those URLs or adds HTTP headers.
+<Api of="MapResourceProvider" /> supplies bytes for rewritten URLs it accepts.
 
-<Api of="MapRequestInterceptor" /> rewrites a resource URL or adds HTTP
-headers before the engine fetches it. It can rewrite a custom-scheme URL to
-HTTP or HTTPS, and the headers apply to the rewritten URL.
-<Api of="MapResourceProvider" /> supplies resource data without the engine HTTP
-client and receives the rewritten URL. The interceptor can change after
-construction. The provider is fixed at construction.
+## Configure requests
 
-## Rewrite a request
+Pass either or both hooks in <Api of="MapRuntimeOptions" />. They are fixed for
+the runtime's lifetime and apply to its maps, snapshotters, and supported offline
+operations.
+Call <Api of="DefaultMapRuntime.configure" /> during application startup, before
+the first map, snapshotter, or offline manager:
 
-<Api of="MapRuntime.setRequestInterceptor" /> applies to every map and
-snapshotter on the runtime. Install it in a `DisposableEffect` so it lasts
-for this composition:
+<Code code={region(requests, "configuration")} lang="kotlin" title="App.kt" />
 
-<Code code={region(requests, "interceptor")} lang="kotlin" title="App.kt" />
+Attach credentials only to hosts you own. Update the token state to refresh
+credentials for later callbacks.
 
-Attach credentials only to hosts you own. A style also names glyphs, sprites,
-and tiles on other hosts. Return the same result for the same request, because
-the engine may call the interceptor more than once for one request.
+For separate configuration, use <Api of="createMapRuntime" /> and pass the result
+to <Api of="rememberMapState" />. Its owner must call <Api of="MapRuntime.close" />
+when finished.
 
 ## Serve the bytes
 
-Pass a <Api of="MapResourceProvider" /> as `resourceProvider` in
-<Api of="MapRuntimeOptions" />. <Api of="DefaultMapRuntime.configure" /> sets
-the options for the process-default runtime, and must run before the first
-map, snapshotter, or offline manager. <Api of="createMapRuntime" /> creates a
-separate runtime from the same options. The scheme factory accepts every URL
-with that scheme:
-
-<Code code={region(requests, "provider")} lang="kotlin" title="App.kt" />
-
-### Choose an outcome
-
-A load returns a <Api of="MapResourceLoad" />. Each case corresponds to one
-HTTP response. Return `Bytes` with the body. Return `NoContent` for a tile
-outside the data set, and the map renders an empty tile without an error.
-Return `Failed` with a <Api of="MapResourceError" /> for an error. A provider
-that reads tiles from local storage uses all three:
+For local tiles, return a <Api of="MapResourceLoad" />: `Bytes` for resource data,
+`NoContent` for an empty tile, or `Failed` with a <Api of="MapResourceError" />
+for an error:
 
 <Code code={region(requests, "outcomes")} lang="kotlin" title="App.kt" />

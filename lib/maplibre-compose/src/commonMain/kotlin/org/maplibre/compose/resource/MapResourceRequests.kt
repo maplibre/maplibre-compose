@@ -31,9 +31,9 @@ public data class MapResourceRequest(
 /**
  * Rewrites the URL of a resource request, or adds HTTP headers to it. Override either function.
  *
- * The engine calls [rewriteUrl] and [headers] separately, from network threads. Both functions
- * return quickly, are safe to call concurrently, and call no map API. Return the same result for
- * the same request, because the engine may call each function more than once for one request.
+ * Callbacks must return quickly, be safe to call concurrently, and call no map API. They may be
+ * called repeatedly; return the same result while the request and application state are unchanged.
+ * Read changing credentials from a thread-safe store.
  *
  * Use [MapResourceProvider] to supply resource data directly.
  */
