@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# dprint's exec plugin runs a formatter once per file, so this resolves ktfmt
-# straight off PATH and hands it to the JVM. Routing through `mise run` instead
-# would pay mise's startup cost on every Kotlin file in the repository.
+# Resolve ktfmt from PATH to avoid starting mise for every file.
 
 set -euo pipefail
 
@@ -10,9 +8,7 @@ if ! ktfmt_path="$(command -v ktfmt)"; then
   exit 1
 fi
 
-# One JVM per file means startup dominates the run, so ask for the settings that
-# suit a short-lived process: no tiered compilation past C1, and a collector that
-# does not size a heap it will never fill.
+# Reduce JVM startup and heap overhead for these short-lived processes.
 jvm_options=(-XX:+UseSerialGC -XX:TieredStopAtLevel=1)
 
 # The aqua package installs the distribution jar under the name `ktfmt`.

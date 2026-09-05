@@ -49,11 +49,11 @@ cover only the members they exercise.
   here and fails at runtime with `undefined is not a function`.
 - **Did a type widen or narrow?** A field that became optional, a return that
   gained `| undefined`, an argument that stopped accepting the shape passed. The
-  declarations deliberately state narrower types than MapLibre's `*Like` unions
-  — `LngLat` for `LngLatLike`, `Point` for `PointLike` — so check the narrowing
-  still holds rather than that the signature matches.
+  declarations deliberately state narrower types than MapLibre's `*Like` unions.
+  For example, they use `LngLat` for `LngLatLike` and `Point` for `PointLike`.
+  Check that these narrower types remain valid.
 - **Is anything declared that upstream never had?** Left over from an earlier
-  version, or mistyped. Grep the `.d.ts` for it.
+  version, or mistyped. Search the `.d.ts` for it.
 
 ## 4. Look for new capability worth binding
 
@@ -67,8 +67,8 @@ between the two versions for:
 - **TODOs waiting on upstream.**
   `git grep -n TODO lib/maplibre-compose/src/jsMain` finds the ones parked
   against a MapLibre GL JS limitation.
-- **New API surface.** New `Map` methods, style-spec properties, and source or
-  layer types that the common API could expose. Style-spec gaps go through the
+- **New APIs.** New `Map` methods, style-spec properties, and source or layer
+  types that the common API could expose. Style-spec gaps go through the
   `style-spec-parity` skill.
 
 An upgrade includes adopting useful new capabilities from these categories,
@@ -86,13 +86,13 @@ Browser-only implementation tests belong in `jsTest`.
 `GlJsRuntime.kt` and `GlJsStyleBinding.setTransition` depend on MapLibre
 internals. Compare the upstream sources to verify these assumptions:
 
-| Shim                           | Upstream anchor                                                                                                                                                                                        |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `lendingContext`               | `src/ui/map.ts` — `Map` must call `canvas.getContext` exactly once, synchronously, in its constructor                                                                                                  |
-| `redirectDefaultFramebuffer`   | `src/gl/value.ts` — `class BindFramebuffer`'s `set(v)`, whose body this replaces (`current`/`dirty`/`gl` fields)                                                                                       |
-| `interceptRepaintRequests`     | `src/ui/map.ts` — `triggerRepaint()` must stay MapLibre's only caller of `browser.frame`                                                                                                               |
-| `removingWithoutLosingContext` | `src/ui/map.ts` — `remove()` must still reach the context only through `getExtension('WEBGL_lose_context')`                                                                                            |
-| `setTransition`                | `src/style/style.ts` — `getTransition()` must still read `this.stylesheet.transition`; if `setTransition` in `_getOperationsToPerform` stops being a no-op, MapLibre has a real setter to call instead |
+| Shim                           | Upstream anchor                                                                                                                                                                                       |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lendingContext`               | `src/ui/map.ts`. `Map` must call `canvas.getContext` exactly once, synchronously, in its constructor                                                                                                  |
+| `redirectDefaultFramebuffer`   | `src/gl/value.ts`. `class BindFramebuffer`'s `set(v)`, whose body this replaces (`current`/`dirty`/`gl` fields)                                                                                       |
+| `interceptRepaintRequests`     | `src/ui/map.ts`. `triggerRepaint()` must stay MapLibre's only caller of `browser.frame`                                                                                                               |
+| `removingWithoutLosingContext` | `src/ui/map.ts`. `remove()` must still reach the context only through `getExtension('WEBGL_lose_context')`                                                                                            |
+| `setTransition`                | `src/style/style.ts`. `getTransition()` must still read `this.stylesheet.transition`; if `setTransition` in `_getOperationsToPerform` stops being a no-op, MapLibre has a real setter to call instead |
 
 ```sh
 diff -u "$upgrade_dir/src/gl/value.ts" build/js/node_modules/maplibre-gl/src/gl/value.ts

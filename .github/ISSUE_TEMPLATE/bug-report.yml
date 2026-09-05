@@ -2,10 +2,6 @@ name: Bug Report
 description: File a bug report
 type: bug
 body:
-  - type: markdown
-    attributes:
-      value: |
-        Thanks for taking the time to fill out this bug report!
   - type: textarea
     id: what-happened
     attributes:
@@ -17,7 +13,7 @@ body:
   - type: checkboxes
     id: platform
     attributes:
-      label: Affected Platforms
+      label: Affected platforms
       description: On which platforms have you seen this bug?
       options:
         - label: Android
@@ -32,7 +28,7 @@ body:
   - type: input
     id: platform-version
     attributes:
-      label: Platform Version
+      label: Platform version
       description: What version of the platform(s) are you using?
       placeholder: e.g. Android 14, iOS 17.2, macOS 14.2
     validations:
@@ -40,7 +36,7 @@ body:
   - type: input
     id: library-version
     attributes:
-      label: Library Version
+      label: Library version
       description: What version of MapLibre Compose are you using?
       placeholder: e.g. 1.0.0
     validations:
@@ -48,9 +44,9 @@ body:
   - type: textarea
     id: sample-code
     attributes:
-      label: Sample Code
+      label: Sample code
       description:
-        Please provide a minimal code sample that demonstrates the issue
+        Provide a minimal code sample that demonstrates the issue
       placeholder: |
         @Composable
         fun MyMap() {

@@ -22,7 +22,6 @@ reviews:
       enabled: false
 
 chat:
-  # free OSS plan, should be fine
   allow_non_org_members: true
 
   # reduce noisy defaults
