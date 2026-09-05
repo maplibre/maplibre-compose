@@ -1,6 +1,6 @@
 # Gesture redesign for 0.16
 
-Implementation specification for the
+Implementation plan for the
 [gestures milestone](https://github.com/maplibre/maplibre-compose/milestone/16):
 [#230](https://github.com/maplibre/maplibre-compose/issues/230),
 [#951](https://github.com/maplibre/maplibre-compose/issues/951),
@@ -9,15 +9,21 @@ Implementation specification for the
 
 This design uses the ownership API: `MaplibreMap(state)` and the camera
 operations on `MapState`. `MapGestures` replaces `GestureOptions` without a
-compatibility layer. Names and contracts below are implementation decisions, not
-alternatives awaiting a spike. The code fragments show the target API; they do
-not describe APIs already shipped.
+compatibility layer. Code examples show the target API. Preserve current focus,
+engagement, Wear crown input, and system motion scaling. The source baseline is
+main 9fa43a43, Compose Multiplatform 1.12.0, and Nucleus 2.5.12.
+
+This also covers pan observation/tuning, padded feature hits, and post-layer
+click fallback from the pinned
+[StreetComplete findings](https://github.com/sargunv/StreetComplete/blob/94617dcb7ea53f72cb134532081c168d80e8a244/docs/multiplatform/03-maplibre-compose-upstream.md).
 
 ## Scope and architecture
 
 Callers configure bindings, responses, observation, and supported thresholds.
-Recognizers and competition remain internal. There is no recognizer SPI, public
-arena, host-input SPI, or public middleware system in 0.16.
+Recognizers and competition remain internal. Out of scope for 0.16: public
+recognizer/arena/host or middleware APIs, modifier attachment, arbitrary gesture
+interlocks, asynchronous drag claims, circular/nearest hit testing, per-feature
+hover, and reconstruction of physical input that a host does not deliver.
 
 ```text
 configuration -----------------------> candidates and competition
@@ -40,9 +46,9 @@ engine events or forwarding camera commands from application code.
 ## Public configuration and attachment
 
 `MaplibreMap` takes `gestures: MapGestures = MapGestures.Standard`. This is the
-only public built-in attachment in 0.16. A public `Modifier.mapGestures` is
-deferred. The public modifier on `MaplibreMap` remains an ancestor of the
-internal input node and can cooperate using normal Compose input passes.
+only public built-in attachment in 0.16. The public modifier on `MaplibreMap`
+remains an ancestor of the internal input node and can cooperate using normal
+Compose input passes.
 
 `MapGestures` is an immutable builder-created class, not a data class.
 `MapGestures { }` edits Standard. `MapGestures.None` has no pointer, click,
@@ -52,21 +58,45 @@ family. The existing PositionLocked, RotationLocked, and ZoomOnly presets return
 as named values; AllDisabled becomes None. Presets lock camera responses, while
 None turns off all input handling.
 
-The builder has named slots: `dragPan`, `dragRotateTilt`, `pinchZoom`,
-`twoFingerRotate`, `twoFingerTilt`, `quickZoom`, `scrollPan`, `scrollZoom`,
-`ctrlScrollZoom`, `tap`, `doubleTap`, `longPress`, `twoFingerTap`, `hover`,
-`boxZoom`, and `keys`. A slot exposes its filter, action, observers, and
-applicable recognition/response scalars. Set `enabled = false` to remove its
-participation. Setting a tap-family `cameraAction = null` removes only its
-camera fallthrough. The `dragPan` slot handles both one-pointer pan and the pan
-component of two-pointer input, including platform Pan events. Scroll pan has
-its own slot. Each slot has `filters: List<PointerFilter>` with OR semantics.
-The `filter` convenience setter replaces the entire list with one filter; it
-does not append to Standard's alternatives. An empty filter list disables the
-slot. Standard rotate/tilt uses two filters, not a recognizer exception.
-Map-level handler parameters default to null, so capabilities distinguish no
-handler from a handler that deliberately returns Pass. An enabled family with no
-handler, observer, or camera response has no recognizer demand.
+### Binding surface
+
+Pointer bindings expose `enabled`, `filters: List<PointerFilter>` with OR
+semantics, and the response/tuning applicable to that family. The `filter`
+setter replaces the entire list; an empty list disables the binding. Continuous
+bindings have lifecycle observers; tap-family bindings have a consumable
+`onEvent` and nullable `cameraAction`. Hover is observation only. The `keys`
+builder uses exact key chords and rotary configuration, not PointerFilter.
+
+Standard's named slots are authoritative below. "Primary" means any reported
+pointer type with logical primary contact; "touch" includes stylus unless noted.
+All filters accept any modifiers unless specified. Thresholds, continuation, and
+focus rules follow in their respective sections.
+
+| Slot            | Standard input filter                                | Event               | Default response                                              |
+| --------------- | ---------------------------------------------------- | ------------------- | ------------------------------------------------------------- |
+| dragPan         | Primary                                              | DragEvent           | Pan; also the pan component of a pointer pair or platform Pan |
+| dragRotateTilt  | Mouse secondary OR mouse primary + Containing(Ctrl)  | DragEvent           | RotateTilt                                                    |
+| quickZoom       | Paired touch primary press                           | DragEvent           | Zoom from vertical displacement                               |
+| boxZoom         | Mouse primary + Containing(Shift)                    | DragEvent           | BoxZoom                                                       |
+| pinchZoom       | Primary pair or platform Scale                       | PinchEvent          | Zoom                                                          |
+| twoFingerRotate | Primary pair                                         | RotateEvent         | Rotate                                                        |
+| twoFingerTilt   | Primary pair                                         | ShoveEvent          | Tilt                                                          |
+| scrollPan       | No button restriction; Continuous kind               | ScrollEvent         | Pan                                                           |
+| scrollZoom      | No button restriction; either kind                   | ScrollEvent         | Zoom                                                          |
+| ctrlScrollZoom  | No button restriction; Containing(Ctrl); either kind | ScrollEvent         | Zoom                                                          |
+| tap             | Primary                                              | TapEvent            | Dispatch only                                                 |
+| doubleTap       | Primary                                              | DoubleTapEvent      | Dispatch, then ZoomIn                                         |
+| longPress       | Touch primary OR mouse secondary                     | LongPressEvent      | Dispatch only; secondary click fires on release               |
+| twoFingerTap    | Primary pair                                         | TwoFingerTapEvent   | Dispatch, then ZoomOut                                        |
+| hover           | Mouse/stylus with no pressed contacts or buttons     | HoverEvent          | Map/layer observation                                         |
+| keys            | Exact camera/engagement chords; focused rotary       | Key/rotary metadata | Camera steps or engagement change                             |
+
+Set `enabled = false` to remove participation. Tap-family `cameraAction = null`
+removes only camera fallthrough. Map handler parameters default to null, so
+capabilities distinguish an absent handler from one that deliberately returns
+Pass. An enabled family without a handler, observer, or response has no
+recognizer demand. Layer subscribers contribute demand as specified under tap
+and hover delivery.
 
 Examples of the chosen builder surface:
 
@@ -143,28 +173,6 @@ Ctrl-release-to-pan with an intentional fresh slop rather than transferring a
 rotate delta into pan. Custom tools receive Cancel, not End, when this happens.
 Touch pointer-count changes follow the component rules below.
 
-### Recomposition and identity
-
-A structural configuration key contains binding IDs/order, enabled families,
-filters, scalar values, action kinds, and explicitly configured handler
-presence. It excludes callback and predicate instances and dynamic layer
-subscriber capabilities. Snapshot dynamic capabilities at the first press for
-that contact sequence; subscriber changes never restart an in-progress arena.
-Changing that key cancels the current arena and its sessions, then starts a new
-one. A new arena waits for contacts already down to lift; it does not interpret
-a mid-drag Move as a fresh press.
-
-Callbacks and predicates are held separately in updated state and addressed by
-binding ID. Callback-only recomposition updates subsequent delivery without
-restarting input. A predicate update affects the next selection, not an already
-reserved drag. Public MapGestures equality includes callback identity; it is
-never the handler-blind pointerInput key. Do not place an object whose equality
-ignores handlers inside rememberUpdatedState and expect handler replacement.
-
-Each event uses one captured callback set for that delivery. Later events use
-the latest callbacks, including terminal events. Applications retain any gesture
-resource across recomposition in remembered state keyed by the event's ID.
-
 ## Events and action observation
 
 Public events are immutable values in commonMain with internal constructors.
@@ -219,8 +227,7 @@ slop, not when anchored zoom changes the camera target. For two-pointer pan,
 measure centroid displacement, not individual finger displacement. A pure
 symmetric pinch therefore never starts pan. If pan starts and input later
 becomes a shove, the earlier pan was real; it is cancelled on the transition to
-tilt. Observers are binding-local; a map-wide input event bus is outside this
-release.
+tilt. Observers are binding-local.
 
 ## Recognition and Compose consumption
 
@@ -261,9 +268,8 @@ ancestors otherwise compete using normal Main/Final ordering.
 
 Retain the existing two-finger scale/rotate/shove classification and pressure
 filtering equations in GestureMath, except for centroid-based pan onset above.
-The built-in competition policy stays private; there is no scale/rotation
-interlock option. Recognition tuning is per selected binding, not taken from an
-arbitrary first binding sharing a recognizer.
+Recognition tuning is per selected binding, not taken from an arbitrary first
+binding sharing a recognizer.
 
 Expose `startSlop` for pan (4 dp), `startSpanSlop` for pinch (7 dp),
 `startAngle` for rotation (3 degrees), and `startSlop` for shove (16 dp). Mouse
@@ -334,13 +340,14 @@ ease/continuation before its own first command. Never continue after Cancel.
 ### Anchors, presets, and box zoom
 
 Zoom and rotation bindings expose `anchor: GestureAnchor`, with Input or
-ViewportCenter. Input uses the event's contact/centroid; no supplied input
-anchor uses the viewport center. Quick zoom and keyboard actions default to the
-viewport center; pinch, two-finger rotation/tap, and double tap default to
-Input.
+CameraCenter. Input uses the event's contact/centroid and falls back to
+CameraCenter when absent. CameraCenter passes a null engine anchor, preserving
+the camera target even with asymmetric padding; it is not the geometric center
+of the viewport. Quick zoom, keyboard, and rotary default to CameraCenter;
+pinch, two-finger rotation/tap, and double tap default to Input.
 
 PositionLocked disables dragPan, scrollPan, boxZoom, and keyboard pan, and sets
-all zoom/rotation anchors to ViewportCenter. RotationLocked disables mouse
+all zoom/rotation anchors to CameraCenter. RotationLocked disables mouse
 rotate/tilt, two-finger rotate/tilt, and corresponding keys. ZoomOnly combines
 those restrictions. Disabling dragPan alone is not a position lock; named
 presets provide the complete policy across new bindings.
@@ -358,10 +365,15 @@ clear the preview and require width and height at least 8 dp. Project all four
 corners against the current viewport snapshot; if any cannot be projected, end
 without a camera command. Otherwise unwrap longitudes around the current camera
 target, form the enclosing bounding box, and use the attached bounds-fit helper
-with current bearing, pitch, and padding and standard 300 ms easing. The camera
-operation stays in its gesture session; it must not call a public bounds-fit API
-that retries across attachments or takes over its own session. Cancel only
-clears the preview. There is no fit or commit on cancellation.
+with current bearing/pitch, zero additional fit padding, and standard 300 ms
+easing. Preserve persistent camera padding; passing it as additional fit padding
+would apply it twice on native. Reuse existing bounds-fit semantics: JS fits the
+bounds at the requested bearing and reapplies tilt, so exact rectangle enclosure
+at nonzero tilt is not promised. This feature does not add a new pitched-fit
+algorithm. The camera operation stays in its gesture session; it must not call a
+public bounds-fit API that retries across attachments or takes over its own
+session. Cancel only clears the preview. There is no fit or commit on
+cancellation.
 
 ## Tap-family delivery
 
@@ -431,10 +443,10 @@ in the dispatcher implementation rather than requiring another API redesign.
 
 ## Hover
 
-Hover is observation, not a consumable tap chain. `onPointerMove` on the map and
-`onHover` on layers receive HoverEvent.Enter/Move/Exit and return Unit. Map
-hover requires no feature query. It observes mouse/stylus hover only while no
-contacts are pressed; entering drag clears layer membership. Touch has no hover.
+Hover is observation. `onPointerMove` on the map and `onHover` on layers receive
+HoverEvent.Enter/Move/Exit and return Unit. Map hover requires no feature query.
+It observes mouse/stylus hover only while no contacts are pressed; entering drag
+clears layer membership. Touch has no hover.
 
 Membership is per layer, not per feature. One hover sampling pass queries
 subscribed layers sequentially in loaded front-to-back order, using one layer ID
@@ -455,68 +467,6 @@ removal, disabling hover, and detach clear membership and invalidate results.
 Send Exit once to each previously entered registration, using its last known
 sample and callback if that registration was removed. A replacement registration
 starts outside. Map exit does not require a successful geographic projection.
-
-## Gesture-camera lifetime
-
-Keep GestureTarget and GestureContinuation internal. `MapState.gestureCamera`
-exposes `withGesture`, a suspending scoped operation, and `GestureCameraScope`
-provides moveBy, scaleBy, rotateAndPitchBy plus their awaiting eased variants.
-The scope's deltas use dp, multiplicative scale, and degrees, with optional
-DpOffset anchors. Camera padding/constraints are applied by the existing camera
-implementation. The scope exposes no raw token or independent begin/end methods.
-
-`withGesture` requires a currently attached, presentable viewport and throws
-IllegalStateException otherwise. It does not wait for a future attachment or
-replay old input on a new surface. Scope acquisition cancels the previous camera
-owner and invokes the block in the caller's coroutine context. Non-suspending
-commands enqueue without waiting for rendering; eased variants await completion.
-withGesture returns Unit. Its block runs in a session child job registered
-before it starts. The outer caller awaits the child and completion fence;
-session takeover cancels only that child and returns normally after cleanup, so
-an application's outer input loop can await another gesture. Caller cancellation
-propagates into the child and still propagates to the caller. Block exceptions
-propagate after cleanup. Same-state nested withGesture calls are rejected before
-acquiring authority, preventing self-cancellation, including A-to-B-to-A
-nesting. Nested sessions on different states are allowed. The block can
-encompass the application's own pointer loop when using None. No public method
-accepts a caller-created gesture ID as camera authority.
-
-A per-state coordinator issues monotonically increasing private session IDs,
-bound to one attachment generation. Built-in concurrent transform components use
-one session; an independent key, scroll, or custom session takes over rather
-than mixing authority. A new accepted pointer down interrupts existing camera
-continuation immediately; camera gesture state begins only upon recognition.
-No-op press does not report a camera movement. When key, scroll, custom input,
-or a programmatic camera mutation takes over, Cancel old pointer-camera
-components and suppress their still-down contacts until all lift. A later Move
-cannot steal authority back. Ordinary public MapState camera mutations revoke
-active gesture authority and participate in the same command ordering; a new
-gesture cancels preceding programmatic easing. Internal gesture helpers use the
-attached adapter, bypassing public takeover entry points. A public mutation is
-not confused with the gesture's own commands.
-
-Check scope activity and attachment on enqueue AND on execution at the map
-owner. Existing native tokens protect completion bookkeeping but do not reject
-stale commands; the implementation must add that rejection to both native and JS
-command paths. Takeover or cancellation revokes the session immediately, cancels
-its coroutine/continuations and waiting eases, and drops its queued commands.
-Older cleanup cannot close a newer session.
-
-Normal completion differs from cancellation. Seal the scope against further
-enqueues, drain commands already accepted in order, then close its camera token
-with an ordered fence. withGesture awaits that fence before returning. Built-in
-End can launch its configured continuation under the same session; seal only
-when that continuation finishes. Commands accepted before a normal End must not
-be dropped by an immediate validity flag change. Retained scopes reject new
-calls after sealing, cancellation, or detachment. A command already executing
-when cancellation occurs may complete; subsequent queued commands cannot
-execute.
-
-Observers/custom handlers run outside the map-owner command loop. After a
-callback returns, check authority again before the response. If it
-closed/detached the map or acquired another camera session, no old command is
-issued. Use try/finally for balanced cleanup when callbacks throw or their
-coroutine is cancelled.
 
 ## Keyboard, rotary, and focus
 
@@ -559,8 +509,8 @@ host-supplied positive, finite rotary pixels-per-notch is required for rotary
 focusability. A focused rotary binding consumes nonzero finite
 verticalScrollPixels and applies
 `zoomDelta = -verticalScrollPixels / rotaryNotchPixels * zoomStep`, anchored at
-the viewport center. Zero or invalid samples pass through. Reuse one camera
-session through the configured idle hold; a new sample interrupts a previous
+CameraCenter. Zero or invalid samples pass through. Reuse one camera session
+through the configured idle hold; a new sample interrupts a previous
 continuation, and idle completion adds no momentum. Focus loss cancels the
 rotary session and idle job. A rotary-only map retains a focus stop but never
 intercepts Enter, Escape, or Back.
@@ -574,6 +524,96 @@ request when its map is active and its style is ready. No enabled keyboard
 camera or usable rotary bindings means no focus stop, even when pointer bindings
 exist. None neither focuses nor engages; it only finishes already claimed key
 releases as specified above.
+
+## Camera access and input-node state
+
+### Public camera scope
+
+Keep GestureTarget and GestureContinuation internal. `MapState.gestureCamera`
+exposes `withGesture`, a suspending scoped operation, and `GestureCameraScope`
+provides moveBy, scaleBy, rotateAndPitchBy plus their awaiting eased variants.
+The scope's deltas use dp, multiplicative scale, and degrees, with optional
+DpOffset anchors. Camera padding/constraints are applied by the existing camera
+implementation. The scope exposes no raw token or independent begin/end methods.
+
+`withGesture` requires a currently attached, presentable viewport and throws
+IllegalStateException otherwise. It does not wait for a future attachment or
+replay old input on a new surface. Scope acquisition cancels the previous camera
+owner and invokes the block in the caller's coroutine context. Non-suspending
+commands enqueue without waiting for rendering; eased variants await completion.
+withGesture returns Unit. Its block runs in a session child job registered
+before it starts. The outer caller awaits the child and completion fence;
+session takeover cancels only that child and returns normally after cleanup, so
+an application's outer input loop can await another gesture. Caller cancellation
+propagates into the child and still propagates to the caller. Block exceptions
+propagate after cleanup. Same-state nested withGesture calls are rejected before
+acquiring authority, preventing self-cancellation, including A-to-B-to-A
+nesting. Nested sessions on different states are allowed. The block can
+encompass the application's own pointer loop when using None. No public method
+accepts a caller-created gesture ID as camera authority.
+
+### Recomposition and identity
+
+A structural configuration key contains binding IDs/order, enabled families,
+filters, scalar values, action kinds, and explicitly configured handler
+presence. It excludes callback and predicate instances and dynamic layer
+subscriber capabilities. Snapshot dynamic capabilities at the first press for
+that contact sequence; subscriber changes never restart an in-progress arena.
+Changing that key cancels the current arena and its sessions, then starts a new
+one. A new arena waits for contacts already down to lift; it does not interpret
+a mid-drag Move as a fresh press.
+
+Callbacks and predicates are held separately in updated state and addressed by
+binding ID. Callback-only recomposition updates subsequent delivery without
+restarting input. A predicate update affects the next selection, not an already
+reserved drag. Public MapGestures equality includes callback identity; it is
+never the handler-blind pointerInput key. Do not place an object whose equality
+ignores handlers inside rememberUpdatedState and expect handler replacement.
+
+Each synchronous observer/response delivery captures one callback set. Later
+deliveries use the latest callbacks, including terminal events. Tap dispatch
+looks handlers up again between asynchronous stages, as specified in its chain.
+Applications retain any gesture resource across recomposition in remembered
+state keyed by the event's ID.
+
+### Session authority and completion
+
+A per-state coordinator issues monotonically increasing private session IDs,
+bound to one attachment generation. Built-in concurrent transform components use
+one session; an independent key, scroll, or custom session takes over rather
+than mixing authority. A new accepted pointer down interrupts existing camera
+continuation immediately; camera gesture state begins only upon recognition.
+No-op press does not report a camera movement. When key, scroll, custom input,
+or a programmatic camera mutation takes over, Cancel old pointer-camera
+components and suppress their still-down contacts until all lift. A later Move
+cannot steal authority back. Ordinary public MapState camera mutations revoke
+active gesture authority and participate in the same command ordering; a new
+gesture cancels preceding programmatic easing. Internal gesture helpers use the
+attached adapter, bypassing public takeover entry points. A public mutation is
+not confused with the gesture's own commands.
+
+Check scope activity and attachment on enqueue AND on execution at the map
+owner. Existing native tokens protect completion bookkeeping but do not reject
+stale commands; the implementation must add that rejection to both native and JS
+command paths. Takeover or cancellation revokes the session immediately, cancels
+its coroutine/continuations and waiting eases, and drops its queued commands.
+Older cleanup cannot close a newer session.
+
+Normal completion differs from cancellation. Seal the scope against further
+enqueues, drain commands already accepted in order, then close its camera token
+with an ordered fence. withGesture awaits that fence before returning. Built-in
+End can launch its configured continuation under the same session; seal only
+when that continuation finishes. Commands accepted before a normal End must not
+be dropped by an immediate validity flag change. Retained scopes reject new
+calls after sealing, cancellation, or detachment. A command already executing
+when cancellation occurs may complete; subsequent queued commands cannot
+execute.
+
+Observers/custom handlers run outside the map-owner command loop. After a
+callback returns, check authority again before the response. If it
+closed/detached the map or acquired another camera session, no old command is
+issued. Use try/finally for balanced cleanup when callbacks throw or their
+coroutine is cancelled.
 
 ## Host input and scroll normalization
 
@@ -711,65 +751,38 @@ below.
 
 ## Implementation sequence and acceptance
 
-1. Add public value/builders and internal structural keys according to this
-   specification. Compile common usage examples for all targets. Include
-   duplicate-ID, scalar validation, priority, and callback freshness tests.
-2. Implement the arena's Main/Final consumption and selected-action delivery,
-   initially on internal GestureTarget. Run the direct recognition suite in
-   androidJvmTest as well as commonTest. Preserve parent click/long-click, tap
-   pairing, quick zoom, focus, and token completion behavior, except the
-   explicit corrections in this document. Include focus traversal, pointer
-   engagement with Back pass-through, key engagement with Back/Escape release
-   pairing, callback replay, rotary-only focusability, focus loss, disabling
-   bindings during a held key, shifted plus, and Wear crown burst/sign tests.
-3. Implement camera-session authority at enqueue/execution and normal-completion
-   fences on native and JS. Test takeover with queued commands, delayed
-   dispatch, callback-driven detach, and retained scopes. Expose gestureCamera
-   only after those tests pass.
-4. Wire authoritative tap dispatch, layer capabilities, hitPadding, unhandled
-   click, and hover. Delete GestureOptions and old dispatch paths. Test style
-   ordering/replacement, slow queries, stationary-pointer updates, and cleanup.
-5. Add host normalization, platform Scale/Pan handling, scroll pan, box zoom,
-   configurable continuation, and tilt momentum. Treat these as specified
-   implementation work, not a later redesign of the value model.
-6. Extend the demo with binding/threshold settings, observer-driven pan follow
-   cancellation, synchronous selected-handle dragging, and hit-padding examples.
-   Run affected target suites with mise; never count a filtered browser run as
-   evidence. Validate physical touch/trackpad behavior separately before
-   claiming device coverage. The plan is implementation-ready; release
-   validation still has to exercise the implemented feature.
+1. Add public builders/events and separate structural configuration from updated
+   handlers. Compile target API examples across common targets.
+2. Implement Main/Final consumption, selection, and lifecycle delivery against
+   internal GestureTarget, preserving existing recognition behavior except the
+   corrections specified here.
+3. Add native/JS camera authority and ordered completion. Expose gestureCamera
+   after enqueue/execution and cancellation tests pass.
+4. Wire tap/layer dispatch, hitPadding, unhandled click, and hover. Remove
+   GestureOptions and old dispatch paths.
+5. Add host normalization, scroll pan, box zoom, configurable continuation, and
+   tilt momentum. Integrate keys/rotary with the same ownership rules.
+6. Extend the demo with binding/threshold controls, pan-based follow
+   cancellation, selected-handle dragging, and hit-padding examples.
 
-Use `mise run test:android` for pure Android-host coverage,
-`mise run test:desktop` for JVM recognition and live-map coverage,
-`mise run test:js` without --tests, and affected Android-device/iOS tasks. Keep
-runtime/UI tests out of commonTest. Existing
-androidJvmTest/MapInputRecognitionTest and LayerClickOrderTest are part of the
-required suite, not just commonTest and liveMapTest. Run `mise run check` for
-implementation changes. Documentation-only edits use the scoped formatter.
+| Area             | Required acceptance coverage                                                                                                                                                                                               |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Configuration    | Duplicate IDs, scalar validation, filter OR/priority, handler-only recomposition, structural restart, and layer-subscriber changes during a press                                                                          |
+| Recognition      | Initial/Main/Final consumption, own consumption, parent click/long-click, pair replacement, cancellation, tap pairing/bounce, quick zoom, pitched fling, and synthetic equal-time samples                                  |
+| Camera ownership | Queued stale commands, callback detach/takeover, cancelled caller, retained/nested scopes, normal completion fence, independent key/scroll takeover, and old cleanup after newer acquisition                               |
+| Dispatch/hover   | Loaded style order/replacement, slow queries, pending camera fallthrough invalidation, absent subscribers, hitPadding, stationary hover, and balanced removal/detach cleanup                                               |
+| Camera responses | Asymmetric-padding target invariance in PositionLocked/ZoomOnly, box fit without duplicated padding, flat rectangle enclosure, preserved bearing/tilt, and zero-duration motion scaling                                    |
+| Focus/rotary     | Traversal versus engagement, pointer Back pass-through, key Back/Escape release pairing, handler replay, disabling bindings with held keys, shifted plus, rotary-only focusability, crown direction/bursts, and focus loss |
+| Hosts            | Platform Scale/Pan wrappers, scroll units/density/axis/sign, immediate browser consumption, modifier transitions, and no duplicate OS momentum                                                                             |
 
-Deferred scope is fixed: recognizer/host SPI, public modifier attachment,
-arbitrary interlocks, asynchronous drag claims, circular/nearest hit testing,
-per-feature hover, and hosts' missing physical gesture primitives. There are no
-open API choices in this plan; failures in acceptance are defects to fix against
-these contracts, with platform exclusions above kept explicit.
+Extend existing MapInputRecognitionTest and LayerClickOrderTest as well as pure
+math and live-map tests. Runtime/UI tests stay out of commonTest. Run
+`mise run test:android`, `mise run test:desktop`, `mise run test:js` (without
+--tests), affected Android-device/iOS tasks, and `mise run check`. Keep physical
+touch/trackpad calibration separate from synthetic or model coverage, and test
+both supported routes and the documented host exclusions before release.
 
-## Evidence and review
-
-Reviewed on 2026-09-05 against checkout e794eaa0 and freshly fetched main
-9fa43a43. Main's intervening changes do not alter input behavior. The plan
-includes current focus/engagement (#1260), Wear crown support (#1259), and
-system motion scale (#1255).
-
-Design verification passed 18 JVM tests covering actual Compose consumption and
-callback updates, scene event ordering, real coroutine cancellation, and
-isolated camera-authority/queue models; 13 scroll-policy fixtures; and a probe
-against actual compiled GestureMath for synthetic-pair timing. Independent
-adversarial review converged after correcting the resulting contract gaps.
-Temporary prototypes and review scaffolding were removed before the plan PR.
-These results establish design feasibility, not production camera or physical-
-device coverage; the implementation acceptance tests above remain required.
-
-Primary source references for the pinned host paths:
+## Host source references
 
 - [Compose UI desktop 1.12.0 sources](https://repo.maven.apache.org/maven2/org/jetbrains/compose/ui/ui-desktop/1.12.0/ui-desktop-1.12.0-sources.jar)
 - [Compose UI iOS 1.12.0 sources](https://repo.maven.apache.org/maven2/org/jetbrains/compose/ui/ui-iosarm64/1.12.0/ui-iosarm64-1.12.0-sources.jar)
