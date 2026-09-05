@@ -8,6 +8,8 @@ internal class DesiredStyleRevision(
   sources: List<SourceDefinition>,
   layers: List<DesiredStyleLayer>,
   images: List<StyleImageDefinition>,
+  /** The animator duration scale the composition read; layer transitions are scaled by it. */
+  val animatorDurationScale: Float = 1f,
 ) {
   val sources: List<SourceDefinition> = sources.toList()
   val layers: List<DesiredStyleLayer> = layers.toList()
@@ -28,13 +30,16 @@ internal class DesiredStyleRevision(
     other is DesiredStyleRevision &&
       sources == other.sources &&
       layers == other.layers &&
-      images == other.images
+      images == other.images &&
+      animatorDurationScale == other.animatorDurationScale
 
   override fun hashCode(): Int =
-    31 * (31 * sources.hashCode() + layers.hashCode()) + images.hashCode()
+    31 * (31 * (31 * sources.hashCode() + layers.hashCode()) + images.hashCode()) +
+      animatorDurationScale.hashCode()
 
   override fun toString(): String =
-    "DesiredStyleRevision(sources=$sources, layers=$layers, images=$images)"
+    "DesiredStyleRevision(sources=$sources, layers=$layers, images=$images, " +
+      "animatorDurationScale=$animatorDurationScale)"
 
   companion object {
     val Empty = DesiredStyleRevision(emptyList(), emptyList(), emptyList())

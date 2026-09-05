@@ -76,14 +76,20 @@ internal class StyleReconciler {
               AppliedLayer(
                 definition = desired.definition,
                 anchor = anchor,
-                installation = LayerInstallation(style, desired.definition, before),
+                installation =
+                  LayerInstallation(
+                    style,
+                    desired.definition,
+                    before,
+                    revision.animatorDurationScale,
+                  ),
               )
             layers[id] = applied
             if (anchor is Anchor.Replace && group.first() === desired) {
               style.removeLayer(anchor.layerId)
             }
           } else {
-            applied.installation.update(desired.definition)
+            applied.installation.update(desired.definition, revision.animatorDurationScale)
             applied.definition = desired.definition
             if (shouldMoveLayer(style, anchor, previousId, id, nextDesiredId)) {
               val before = beforeLayerId(style, anchor, previousId, id)

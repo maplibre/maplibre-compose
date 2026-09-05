@@ -174,14 +174,18 @@ internal class SourceInstallation(
   )
 }
 
-/** A layer installed in exactly one loaded-style generation. */
+/**
+ * A layer installed in exactly one loaded-style generation. The animator duration scale scales the
+ * layer's paint transitions for the engine; a changed scale rewrites them on the next update.
+ */
 internal class LayerInstallation(
   private val style: StyleBinding,
   definition: LayerDefinition,
   beforeLayerId: String,
+  animatorDurationScale: Float = 1f,
 ) {
   val id: String = definition.id
-  private var current = definition.resolveFor(style)
+  private var current = definition.resolveFor(style, animatorDurationScale)
   private val reportedUnsupported = mutableSetOf<String>()
 
   init {
@@ -190,10 +194,10 @@ internal class LayerInstallation(
     reportUnsupported(definition)
   }
 
-  fun update(definition: LayerDefinition) {
+  fun update(definition: LayerDefinition, animatorDurationScale: Float = 1f) {
     style.requireCurrent()
     require(definition.id == id) { "A layer handle cannot change resource identity" }
-    val next = definition.resolveFor(style)
+    val next = definition.resolveFor(style, animatorDurationScale)
     if (next == current) return
     val previousValue = current.value
     val nextValue = next.value
@@ -248,19 +252,24 @@ internal class LayerInstallation(
     next: JsonObject?,
     kind: LayerPropertyKind,
   ) {
-    (previous.orEmpty().keys + next.orEmpty().keys).forEach { name ->
-      val oldValue = previous?.get(name)
-      val newValue = next?.get(name)
-      if (oldValue == newValue) return@forEach
-      try {
-        style.setLayerProperty(id, name, newValue ?: clearingValue(kind, name), kind)
-      } catch (error: StyleMutationException) {
-        style.logger?.w(error) {
-          "Layer '$id' of type '${current.type}' kept its previous '$name': MapLibre rejected " +
-            "$newValue."
+    // A transition goes before the value it times, so an engine that updates between the two
+    // writes animates the new value with the new timing.
+    val names = previous.orEmpty().keys + next.orEmpty().keys
+    names
+      .sortedByDescending { it.endsWith(TRANSITION_SUFFIX) }
+      .forEach { name ->
+        val oldValue = previous?.get(name)
+        val newValue = next?.get(name)
+        if (oldValue == newValue) return@forEach
+        try {
+          style.setLayerProperty(id, name, newValue ?: clearingValue(kind, name), kind)
+        } catch (error: StyleMutationException) {
+          style.logger?.w(error) {
+            "Layer '$id' of type '${current.type}' kept its previous '$name': MapLibre rejected " +
+              "$newValue."
+          }
         }
       }
-    }
   }
 
   private fun reportUnsupported(definition: LayerDefinition) {
@@ -294,7 +303,14 @@ private fun clearingValue(kind: LayerPropertyKind, name: String): JsonElement =
   if (kind == LayerPropertyKind.PAINT && name.endsWith(TRANSITION_SUFFIX)) CLEARED_TRANSITION
   else JsonNull
 
-private fun LayerDefinition.resolveFor(style: StyleBinding): LayerDefinition {
+/**
+ * The layer JSON that [style] receives: without the properties its engine does not support, and
+ * with every paint transition scaled by [animatorDurationScale].
+ */
+private fun LayerDefinition.resolveFor(
+  style: StyleBinding,
+  animatorDurationScale: Float,
+): LayerDefinition {
   fun JsonObject.withoutUnsupported(): JsonObject =
     JsonObject(filterKeys { style.unsupportedLayerPropertyReason(type, it) == null })
 
@@ -302,8 +318,9 @@ private fun LayerDefinition.resolveFor(style: StyleBinding): LayerDefinition {
   (resolved["layout"] as? JsonObject)?.withoutUnsupported()?.let {
     if (it.isEmpty()) resolved.remove("layout") else resolved["layout"] = it
   }
-  (resolved["paint"] as? JsonObject)?.withoutUnsupported()?.let {
-    if (it.isEmpty()) resolved.remove("paint") else resolved["paint"] = it
-  }
+  (resolved["paint"] as? JsonObject)
+    ?.withoutUnsupported()
+    ?.withScaledTransitions(animatorDurationScale)
+    ?.let { if (it.isEmpty()) resolved.remove("paint") else resolved["paint"] = it }
   return copy(value = JsonObject(resolved))
 }

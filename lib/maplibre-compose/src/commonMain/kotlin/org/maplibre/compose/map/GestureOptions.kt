@@ -78,7 +78,10 @@ public data class GestureOptions(
   /** Degrees of pitch per shift and up or down. */
   val keyboardPitchStep: Double = 10.0,
 
-  /** How long a discrete input (arrow key, double click) takes to ease the camera. */
+  /**
+   * How long a discrete input (arrow key, double click) takes to ease the camera. On Android, the
+   * system animator duration scale multiplies the duration. A scale of zero jumps.
+   */
   val animationDuration: Duration = 300.milliseconds,
 ) {
   public companion object Companion {

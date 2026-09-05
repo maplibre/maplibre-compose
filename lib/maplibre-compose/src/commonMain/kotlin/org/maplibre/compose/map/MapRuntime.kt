@@ -78,6 +78,9 @@ import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.canUpdateTo
+import org.maplibre.compose.style.scaledBy
+import org.maplibre.compose.style.systemAnimatorDurationScale
+import org.maplibre.compose.style.withScaledTransitions
 import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.compose.util.VisibleRegion
@@ -233,7 +236,7 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   internal fun transitionOptions(): TransitionOptions? = readStyle { it.transition() }
 
   internal fun setTransitionOptions(options: TransitionOptions) {
-    mutateStyle("the transition") { it.setTransition(options) }
+    mutateStyle("the transition") { it.setTransition(options.scaledBy(it.animatorDurationScale)) }
   }
 
   internal fun placementTransitions(): Boolean? = readStyle { it.placementTransitions() }
@@ -245,13 +248,17 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   internal fun lightProperty(name: String): JsonElement? = readStyle { it.lightProperty(name) }
 
   internal fun setLight(light: Light) {
-    mutateStyle("the light") { it.setLight(light.toJson()) }
+    mutateStyle("the light") {
+      it.setLight(light.toJson().withScaledTransitions(it.animatorDurationScale))
+    }
   }
 
   internal fun skyProperty(name: String): JsonElement? = readStyle { it.skyProperty(name) }
 
   internal fun setSky(sky: Sky?) {
-    mutateStyle("the sky") { it.setSky(sky?.toJson()) }
+    mutateStyle("the sky") {
+      it.setSky(sky?.toJson()?.withScaledTransitions(it.animatorDurationScale))
+    }
   }
 
   internal fun projectionProperty(name: String): JsonElement? = readStyle {
@@ -856,16 +863,26 @@ internal constructor(
     it.fitCameraToBounds(boundingBox, bearing, tilt, padding)
   }
 
-  /** Waits for an attached map, then animates to [position]. A new animation replaces this one. */
+  /**
+   * Waits for an attached map, then animates to [position]. A new animation replaces this one.
+   *
+   * On Android, the system animator duration scale multiplies [duration]. A scale of zero jumps to
+   * [position].
+   */
   public suspend fun animateCameraPosition(
     position: CameraPosition,
     duration: Duration = 300.milliseconds,
   ): Unit = cameraMutation.mutate {
-    retryAcrossAttachments { it.animateCameraPosition(position, duration) }
+    retryAcrossAttachments {
+      it.animateCameraPosition(position, duration.scaledBy(systemAnimatorDurationScale()))
+    }
   }
 
   /**
    * Waits for a viewport, then animates to fit [boundingBox]. A new animation replaces this one.
+   *
+   * On Android, the system animator duration scale multiplies [duration]. A scale of zero jumps to
+   * fit [boundingBox].
    */
   public suspend fun animateCameraToBounds(
     boundingBox: BoundingBox,
@@ -875,7 +892,13 @@ internal constructor(
     duration: Duration = 300.milliseconds,
   ): Unit = cameraMutation.mutate {
     retryAcrossAttachments {
-      it.animateCameraToBounds(boundingBox, bearing, tilt, padding, duration)
+      it.animateCameraToBounds(
+        boundingBox,
+        bearing,
+        tilt,
+        padding,
+        duration.scaledBy(systemAnimatorDurationScale()),
+      )
     }
   }
 

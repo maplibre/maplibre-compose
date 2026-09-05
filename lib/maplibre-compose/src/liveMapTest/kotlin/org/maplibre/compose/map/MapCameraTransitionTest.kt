@@ -14,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.systemAnimatorDurationScale
 import org.maplibre.compose.testing.MapFixture
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
@@ -176,6 +177,9 @@ class MapCameraTransitionTest {
    */
   @Test
   fun a_replacement_animation_waits_for_its_own_end(): MapTestResult = runMapTest {
+    // A zero animator duration scale makes every animation a jump, so nothing is in flight to
+    // cancel or to keep running.
+    if (systemAnimatorDurationScale() == 0f) return@runMapTest
     createMapFixture().use {
       it.startAtOrigin()
 
@@ -210,6 +214,8 @@ class MapCameraTransitionTest {
   @Test
   fun cancelling_an_animation_stops_the_camera_and_leaves_nothing_registered(): MapTestResult =
     runMapTest {
+      // A zero animator duration scale lands the camera on its target before a cancel can arrive.
+      if (systemAnimatorDurationScale() == 0f) return@runMapTest
       createMapFixture().use {
         it.startAtOrigin()
         it.events.clear()
