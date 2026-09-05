@@ -2,12 +2,16 @@ package org.maplibre.compose.demoapp
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,6 +28,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
@@ -33,15 +40,19 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.vectorResource
 import org.maplibre.compose.demoapp.generated.Res
+import org.maplibre.compose.demoapp.generated.brightness_auto_24px
+import org.maplibre.compose.demoapp.generated.dark_mode_24px
 import org.maplibre.compose.demoapp.generated.filter_center_focus_24px
+import org.maplibre.compose.demoapp.generated.light_mode_24px
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.StyleLoadState
 import org.maplibre.compose.material3.Material3
-import org.maplibre.compose.material3.Material3Full
 import org.maplibre.compose.material3.PointerPinButton
+import org.maplibre.compose.material3.ZoomButtons as MaterialZoomButtons
 import org.maplibre.compose.overlay.MapOverlay
+import org.maplibre.compose.overlay.ZoomButtons
 import org.maplibre.compose.overlay.include
 import org.maplibre.spatialk.geojson.Position
 
@@ -69,13 +80,43 @@ internal suspend fun MapState.flyTo(destination: DemoDestination) {
 }
 
 /** The map controls the settings ask for. */
-fun demoMapOverlay(settings: DemoSettings): MapOverlay =
-  when {
-    settings.useMaterial3Controls && settings.showZoomButtons -> MapOverlay.Material3Full
-    settings.useMaterial3Controls -> MapOverlay.Material3
-    settings.showZoomButtons -> MapOverlay.Full
-    else -> MapOverlay.Default
+fun demoMapOverlay(settings: DemoSettings): MapOverlay = MapOverlay {
+  val overlayScope = this
+  include(if (settings.useMaterial3Controls) MapOverlay.Material3 else MapOverlay.Default)
+  Column(
+    modifier = Modifier.align(Alignment.CenterEnd),
+    verticalArrangement = Arrangement.spacedBy(8.dp),
+    horizontalAlignment = Alignment.CenterHorizontally,
+  ) {
+    if (settings.showZoomButtons) {
+      if (settings.useMaterial3Controls) overlayScope.MaterialZoomButtons()
+      else overlayScope.ZoomButtons()
+    }
+    val mode = settings.mapStyleMode
+    ElevatedButton(
+      onClick = { settings.mapStyleMode = mode.next },
+      modifier =
+        Modifier.size(48.dp).semantics {
+          contentDescription = "Map style: ${mode.displayName}"
+          onClick(label = "Switch to ${mode.next.displayName}", action = null)
+        },
+      shape = CircleShape,
+      contentPadding = PaddingValues(12.dp),
+    ) {
+      Icon(
+        imageVector =
+          vectorResource(
+            when (mode) {
+              MapStyleMode.System -> Res.drawable.brightness_auto_24px
+              MapStyleMode.Light -> Res.drawable.light_mode_24px
+              MapStyleMode.Dark -> Res.drawable.dark_mode_24px
+            }
+          ),
+        contentDescription = null,
+      )
+    }
   }
+}
 
 /**
  * The shared map, the selected demo's overlay, the pointer pin, and the diagnostic overlays.
