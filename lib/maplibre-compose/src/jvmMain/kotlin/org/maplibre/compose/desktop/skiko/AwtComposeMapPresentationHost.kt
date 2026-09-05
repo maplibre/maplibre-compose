@@ -68,8 +68,8 @@ internal class AwtComposeMapPresentationHost(private val window: Window) :
     }
 
   /**
-   * Which backend Compose Desktop picks is decided by the operating system, so this is answerable
-   * before Skiko has built anything — unlike [gpuContext].
+   * The operating system determines the Compose Desktop backend, so it is available before Skiko
+   * initializes [gpuContext].
    */
   override val backend: ComposeRenderBackend
     get() =

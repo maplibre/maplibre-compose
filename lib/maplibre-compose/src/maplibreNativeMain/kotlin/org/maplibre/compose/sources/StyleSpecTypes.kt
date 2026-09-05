@@ -5,9 +5,9 @@ import org.maplibre.nativeffi.style.SourceType
 import org.maplibre.nativeffi.style.VectorTileEncoding
 
 /**
- * The style spec's name for a source type, or null for one the spec cannot spell (annotation,
- * custom-vector, unknown). [SourceType.toString] is the FFI's generated default —
- * `SourceType(nativeValue=1)`, not `vector` — so it cannot be used here.
+ * The style spec name, or null for annotation, custom-vector, or unknown source types.
+ * [SourceType.toString] returns the generated FFI representation, such as
+ * `SourceType(nativeValue=1)`, instead of the style spec name.
  */
 internal fun SourceType.toStyleSpecType(): String? =
   when (this) {

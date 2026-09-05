@@ -8,8 +8,7 @@ import web.gl.WebGL2RenderingContext
  * bundler setup is needed for a map to render. Pass a different URL to [GlJsRuntime.pointAtWorker]
  * only to self-host the worker or pin a version other than the bundled one.
  *
- * The version is read from the bundled library rather than the version catalog so it can never
- * drift from the maplibre-gl the page actually links.
+ * Reads the version from the bundled MapLibre GL JS library.
  */
 internal val DEFAULT_WORKER_URL: String by lazy {
   "https://cdn.jsdelivr.net/npm/maplibre-gl@${getVersion()}/dist/maplibre-gl-worker.mjs"
@@ -20,7 +19,7 @@ internal val DEFAULT_WORKER_URL: String by lazy {
  * absolute form of that URL, which is what MapLibre GL JS 6 does for a CDN worker. Same-origin URLs
  * are returned as they are.
  *
- * MapLibre's own laundering uses `new URL(url, import.meta.url)`. Webpack rewrites that into a
+ * MapLibre wraps worker URLs with `new URL(url, import.meta.url)`. Webpack rewrites that into a
  * module lookup, which fails for an `https` URL with "Cannot find module". This path avoids
  * `import.meta.url` so the CDN default works when the library is bundled.
  */
@@ -49,8 +48,8 @@ internal fun sameOriginWorkerUrl(workerUrl: String): String =
     .unsafeCast<String>()
 
 /**
- * The places MapLibre GL JS is bent at runtime to be driven as a headless renderer. Each is pinned
- * to internals of one MapLibre version and fails loudly when a version bump moves them.
+ * Adapts MapLibre GL JS internals for rendering into Compose. Compatibility checks detect changes
+ * to the internals used here.
  */
 internal object GlJsRuntime {
 

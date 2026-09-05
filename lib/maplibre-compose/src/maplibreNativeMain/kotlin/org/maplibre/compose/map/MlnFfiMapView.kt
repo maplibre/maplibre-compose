@@ -257,8 +257,8 @@ internal fun loadRuntimeBackends(logger: MapLog?): Set<MapRenderBackend> =
   }
 
 /**
- * The MapLibre Compose producer backend this FFI backend corresponds to, or null when no host
- * bridge exists for it — WebGPU today, which the FFI builds only for the browser.
+ * The corresponding Compose producer backend, or null if no host supports it. WebGPU is currently
+ * supported only by the browser FFI runtime.
  */
 private fun RenderBackend.toComposeBackend(): MapRenderBackend? =
   when (this) {

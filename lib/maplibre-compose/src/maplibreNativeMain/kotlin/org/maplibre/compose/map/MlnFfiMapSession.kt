@@ -256,10 +256,9 @@ internal class MlnFfiMapSession(
   private val reportedUrlAttribution = mutableSetOf<String>()
 
   /**
-   * Owner thread only. A URL source's TileJSON — and with it the server's attribution — arrives
-   * after its add returns, and the C API has no event for the arrival, so the only moment it can be
-   * observed is an idle. Add and remove report themselves from the binding; this reports the
-   * sources whose attribution newly appeared.
+   * Owner thread only. Checks for attribution received through a URL source's TileJSON after
+   * addSource returns. The C API has no TileJSON arrival event, so check on idle. The binding
+   * reports source addition and removal separately.
    */
   private fun reportNewlyArrivedAttribution() {
     val map = loop?.map ?: return
@@ -941,13 +940,9 @@ internal class MlnFfiMapSession(
     loop?.post(action)
   }
 
-  /** Test seam for intentionally backlogging owner-thread work without touching the native map. */
+  /** Queues test work on the owner thread without accessing the native map. */
   internal fun postOwnerTaskForTest(action: () -> Unit): Boolean =
     loop?.post(action = { action() }) ?: false
-
-  /** Test seam that runs [action] after the next native pump and event drain. */
-  internal fun postEventDrainBarrierForTest(action: () -> Unit): Boolean =
-    loop?.postEventDrainBarrier(action) ?: false
 
   private suspend fun updateOwnerThreadPresentation(action: () -> Unit) {
     val completion = CompletableDeferred<Result<Unit>>()

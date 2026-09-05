@@ -35,11 +35,10 @@ internal sealed interface MlnFfiRenderTarget {
   val extent: MapExtent
 
   /**
-   * Identifies the underlying target object.
+   * Identifies the underlying target allocation.
    *
-   * A host must bump this any time the handles it reports stop referring to the same allocation —
-   * after a reallocating resize, after surface loss, or when rotating through a pool — and must
-   * keep the retired allocation readable until it has been asked to draw a different one.
+   * Increment this when handles change allocation, including after resize, surface loss, or pool
+   * rotation. Keep the retired allocation readable until asked to draw a different one.
    */
   val generation: Long
 }

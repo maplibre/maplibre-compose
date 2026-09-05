@@ -35,8 +35,7 @@ class ExpressionJsonTest {
       .split(", ")
       .map { it.toDouble() }
 
-  private fun compiled(literal: org.maplibre.compose.expressions.ast.Expression<*>) =
-    literal.compile(ExpressionContext.None)
+  private fun compiled(literal: Expression<*>) = literal.compile(ExpressionContext.None)
 
   @Test
   fun encodes_scalars_as_bare_json_values() {

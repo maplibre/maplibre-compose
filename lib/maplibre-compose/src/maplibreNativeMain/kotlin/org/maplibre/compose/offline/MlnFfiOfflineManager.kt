@@ -34,8 +34,8 @@ internal class MlnFfiOfflineManager(
   private val logger = options.logger
 
   /**
-   * Compose state, written inline on the owner thread — never hopped to a dispatcher, which would
-   * both assume an AWT host and lose the production order of status updates.
+   * Compose state updated on the owner thread to preserve status update order and avoid depending
+   * on an AWT dispatcher.
    */
   private val packsState = mutableStateOf(emptySet<OfflinePack>())
 

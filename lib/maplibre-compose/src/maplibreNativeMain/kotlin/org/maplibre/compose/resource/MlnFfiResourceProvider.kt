@@ -192,8 +192,8 @@ internal class MlnFfiResourceProvider(
   }
 
   /**
-   * Answers a request that arrived after [close], inline — safe on MapLibre's thread only because
-   * producing the failure blocks on nothing.
+   * Answers a request received after [close] on MapLibre's thread. Producing this failure does not
+   * block.
    */
   private fun refuse(request: TakenResourceRequest, url: String, requestedUrl: String) {
     try {

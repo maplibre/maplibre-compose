@@ -211,10 +211,7 @@ internal class FakeMlnFfiMapHostFactory(
     RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL),
   override val description: String = "fake test host",
   private val result: ((MapRenderBackend) -> MlnFfiMapHostResult)? = null,
-  /**
-   * Applied to each host before it is handed out — the only chance to arm a failure, since the
-   * first frame is acquired in the draw pass right after the host is created.
-   */
+  /** Configures failures before the draw pass acquires the new host's first frame. */
   private val configureHost: (FakeMlnFfiMapHost) -> Unit = {},
 ) : MlnFfiMapHostFactory {
 

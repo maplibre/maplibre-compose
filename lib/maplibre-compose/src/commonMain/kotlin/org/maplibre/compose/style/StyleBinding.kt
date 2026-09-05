@@ -439,11 +439,6 @@ internal interface StyleBinding {
 /** Stores one GeoJSON payload in an engine-specific installation form. [close] releases it. */
 internal interface PreparedGeoJson : AutoCloseable
 
-/** Represents a GeoJSON payload that requires no preparation. */
-internal object NoPreparedGeoJson : PreparedGeoJson {
-  override fun close() = Unit
-}
-
 /** Identifies the section of a layer object that contains a property. */
 internal enum class LayerPropertyKind {
   LAYOUT,

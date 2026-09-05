@@ -20,7 +20,7 @@ import org.maplibre.compose.style.uninstall
 import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
 
 /**
- * Proves that a style change actually redraws, not just that it reaches MapLibre.
+ * Verifies that style changes request a rendered frame.
  *
  * `addSource`, `removeSource`, and `removeImage` publish no render update on their own, so the
  * style binding requests a repaint for them. A base style load can finish during a frame that

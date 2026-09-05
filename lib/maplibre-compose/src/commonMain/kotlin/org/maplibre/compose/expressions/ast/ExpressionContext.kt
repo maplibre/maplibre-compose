@@ -3,11 +3,9 @@ package org.maplibre.compose.expressions.ast
 import org.maplibre.compose.expressions.value.FloatValue
 
 /**
- * The context used while converting a high-level [Expression] to a low-level [CompiledExpression].
+ * Resolves text units and images when compiling an [Expression].
  *
- * It defines how to resolve certain expressions (TextUnit, bitmaps) to their MapLibre counterparts.
- * MapLibre Compose users should not need to implement this interface; it is used internally by the
- * MapLibre Compose library.
+ * The library supplies this context; applications do not need to implement it.
  */
 public interface ExpressionContext {
   /** The scale factor to convert EMs to the desired unit */

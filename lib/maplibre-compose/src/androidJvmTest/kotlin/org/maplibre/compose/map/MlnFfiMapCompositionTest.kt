@@ -530,7 +530,7 @@ class MlnFfiMapCompositionTest {
     runtime.awaitClosed()
   }
 
-  /** Style loading needs no rendering, so no frame runs — and none is drawn — before a style. */
+  /** Style loading must not run or draw a frame before a style is available. */
   @Test
   fun an_unloaded_style_keeps_the_transparent_load_placeholder() = runFfiComposeUiTest {
     val errors = RecordingList<String>()

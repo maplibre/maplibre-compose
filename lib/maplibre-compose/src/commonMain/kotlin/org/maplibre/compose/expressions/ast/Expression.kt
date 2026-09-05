@@ -52,9 +52,9 @@ import org.maplibre.compose.expressions.value.ExpressionValue
  *   [atan][org.maplibre.compose.expressions.dsl.atan] - trigonometric functions
  * - [floor][org.maplibre.compose.expressions.dsl.floor], [ceil][org.maplibre.compose.expressions.dsl.ceil],
  *   [round][org.maplibre.compose.expressions.dsl.round],
- *   [abs][org.maplibre.compose.expressions.dsl.round] - coercing numbers
- * - [min][org.maplibre.compose.expressions.dsl.min], [max][org.maplibre.compose.expressions.dsl.max],
- *   [round][org.maplibre.compose.expressions.dsl.round] - rounding integers
+ *   [abs][org.maplibre.compose.expressions.dsl.abs] - rounding and absolute value
+ * - [min][org.maplibre.compose.expressions.dsl.min], [max][org.maplibre.compose.expressions.dsl.max] -
+ *   minimum and maximum
  * - [LN_2][org.maplibre.compose.expressions.dsl.LN_2], [PI][org.maplibre.compose.expressions.dsl.PI],
  *   [E][org.maplibre.compose.expressions.dsl.E] - constants
  *

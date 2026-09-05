@@ -74,8 +74,8 @@ internal object SkikoReflection {
       ?: throw MlnFfiHostException("$redrawerClass.drawLock was null")
 
   /**
-   * The Direct3D device Compose renders with on Windows. Skiko keeps it on the redrawer, and only
-   * after the first frame has initialized the swap chain — until then this is null.
+   * The Direct3D device Compose renders with on Windows. Skiko stores it on the redrawer after the
+   * first frame initializes the swap chain. Returns null until then.
    */
   fun findDirect3DDevice(redrawer: Any): SkikoDirect3DDevice? {
     val ptr = redrawer.getField("device") as? Long ?: return null

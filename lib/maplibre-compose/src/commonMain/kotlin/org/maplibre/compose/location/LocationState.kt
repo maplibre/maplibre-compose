@@ -266,13 +266,9 @@ public fun rememberLocationState(
 /**
  * Returns the most accurate bearing measurement available.
  *
- * This function considers bearings from two potential sources:
- * 1. The [LocationMeasurement] course indicates the direction of travel.
- * 2. The device [HeadingMeasurement] indicates the direction that the top of the device faces.
- *
- * It compares the accuracy of these two measurements and returns the one with the smallest accuracy
- * value (i.e., the most precise). If a measurement has no accuracy specified (`null`), it is
- * treated as having infinite (the worst possible) accuracy.
+ * Compares the travel course from [LocationMeasurement] with the device heading from
+ * [HeadingMeasurement]. Returns the measurement with the smallest estimated error, treating an
+ * unknown error as infinite.
  *
  * @return The bearing with the highest accuracy, or `null` when neither source provides a bearing.
  */

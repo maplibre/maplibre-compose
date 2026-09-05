@@ -1,10 +1,10 @@
 # Module maplibre-compose
 
-The primary entry point for MapLibre Compose.
+Compose maps, camera controls, styles, and offline data.
 
 # Package org.maplibre.compose.map
 
-Core package containing the primary map composable and related components.
+Map composables and runtime configuration.
 
 # Package org.maplibre.compose.overlay
 
@@ -17,7 +17,7 @@ Camera controls and positioning utilities for the map view.
 
 # Package org.maplibre.compose.offline
 
-Functionality for managing offline map data and caching.
+Offline packs and ambient cache management.
 
 # Package org.maplibre.compose.layers
 
@@ -33,8 +33,7 @@ The abstract syntax tree (AST) for the expression language.
 
 # Package org.maplibre.compose.expressions.dsl
 
-The Kotlin DSL for creating MapLibre expressions. This is the primary API you'll
-be using to create expressions.
+The Kotlin DSL for creating MapLibre expressions.
 
 # Package org.maplibre.compose.expressions.value
 
