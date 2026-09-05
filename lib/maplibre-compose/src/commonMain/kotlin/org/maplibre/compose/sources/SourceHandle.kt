@@ -1,11 +1,6 @@
-@file:OptIn(ExperimentalAtomicApi::class)
-
 package org.maplibre.compose.sources
 
 import androidx.compose.ui.graphics.ImageBitmap
-import kotlin.concurrent.atomics.AtomicLong
-import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.concurrent.atomics.incrementAndFetch
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.Expression
@@ -97,9 +92,6 @@ internal constructor(
     currentKind = currentKind,
     operations = operations,
   ) {
-  private val requestedData = AtomicLong(0L)
-  private val installedData = AtomicLong(0L)
-
   /**
    * Submits [data] to replace the source data for this loaded style.
    *
@@ -109,20 +101,16 @@ internal constructor(
    * afterward. A newer call supersedes an older pending update. Loading a new base style discards
    * the submitted data.
    *
+   * Submitted [GeoJsonData.Features] and all nested collections and properties must remain
+   * immutable. Native engines serialize and prepare the data on a background thread. Preparation or
+   * installation failures after submission emit
+   * [org.maplibre.compose.map.MapEvent.SourceDataFailed] and retain the previous source data.
+   *
    * @throws StyleHandleException if submission fails before this function returns.
    */
   public fun setData(data: GeoJsonData) {
     operation {
-      val generation = requestedData.incrementAndFetch()
-      if (data is GeoJsonData.Uri) {
-        mutate("set data") { style.setGeoJsonSourceUrl(id, data.uri) { claimData(generation) } }
-      } else {
-        mutate("set data") {
-          style.prepareGeoJsonUpdate(id, data, options).use { prepared ->
-            style.setGeoJsonSourceData(id, prepared) { claimData(generation) }
-          }
-        }
-      }
+      mutate("set data") { style.submitGeoJsonData(id, data, options) }
     }
   }
 
@@ -169,15 +157,6 @@ internal constructor(
   /** Removes runtime state from every feature in this source. */
   public fun resetFeatureStates() {
     clearFeatureStates(sourceLayerId = null)
-  }
-
-  private fun claimData(generation: Long): Boolean {
-    if (!style.isLoaded || generation != requestedData.load()) return false
-    while (true) {
-      val installed = installedData.load()
-      if (generation <= installed) return false
-      if (installedData.compareAndSet(installed, generation)) return true
-    }
   }
 
   private inline fun mutate(operation: String, action: () -> Unit) {

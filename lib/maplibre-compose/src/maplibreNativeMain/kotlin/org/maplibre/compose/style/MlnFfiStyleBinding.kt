@@ -88,14 +88,16 @@ internal open class MlnFfiStyleBinding(
   private val accessMap: ((MapHandle) -> Unit) -> Boolean = { false },
   private val accessRenderSession: ((RenderSessionHandle) -> Unit) -> Boolean = { false },
   private val sourceChanged: (String) -> Unit = {},
+  private val sourceDataFailed: (StyleIdentity, String, Throwable) -> Unit = { _, _, _ -> },
   private val getScale: () -> Float = { 1f },
   private val requestRepaint: (MapHandle) -> Unit = MapHandle::requestRepaint,
 ) : StyleBinding {
   @Volatile private var loaded = true
   private val unloadActions = mutableSetOf<() -> Unit>()
   private val unloadActionsLock = MlnFfiLock()
-  private val geoJsonOptions = mutableMapOf<String, GeoJsonOptions>()
-  private val geoJsonOptionsLock = MlnFfiLock()
+  private val geoJsonCoordinators =
+    mutableMapOf<String, MlnFfiGeoJsonCoordinator<GeoJsonSourceDataHandle>>()
+  private val geoJsonLock = MlnFfiLock()
 
   /** Feature state retained for this loaded style. */
   open val featureStateStore: MlnFfiFeatureStateStore? = MlnFfiFeatureStateStore()
@@ -250,6 +252,10 @@ internal open class MlnFfiStyleBinding(
   override fun invalidate() {
     if (!loaded) return
     loaded = false
+    val coordinators = geoJsonLock.withLock {
+      geoJsonCoordinators.values.toList().also { geoJsonCoordinators.clear() }
+    }
+    coordinators.forEach { it.close() }
     val actions = unloadActionsLock.withLock {
       unloadActions.toList().also { unloadActions.clear() }
     }
@@ -358,11 +364,11 @@ internal open class MlnFfiStyleBinding(
       } catch (error: MaplibreException) {
         throw StyleMutationException(error.message, error)
       }
+      geoJsonLock.withLock { geoJsonCoordinators.remove(sourceId) }?.close()
       forgetFeatureStates(sourceId)
       reportSourceChanged(sourceId)
     }
     tileCoordinators?.remove(sourceId)
-    geoJsonOptionsLock.withLock { geoJsonOptions.remove(sourceId) }
   }
 
   override fun addCustomGeometrySource(
@@ -514,76 +520,92 @@ internal open class MlnFfiStyleBinding(
     map.imageSourceCoordinates(sourceId)?.map { it.toPosition() }
   }
 
-  /**
-   * The parse and index run here on the caller thread. They must not run on the map's owner thread.
-   * `addSourceWith` returns after its owner-thread operation has run or been dropped. The handle
-   * remains valid until that operation completes.
-   */
+  /** Adds an empty inline source immediately so layers can reference it while data prepares. */
   override fun addGeoJsonSource(
     sourceId: String,
     data: GeoJsonData,
     options: GeoJsonOptions,
   ): Boolean {
     val ffiOptions = options.toFfiOptions()
-    if (data is GeoJsonData.Uri) {
-      val added =
-        addSourceWith(sourceId) { map ->
-          map.addGeoJsonSourceUrl(sourceId, data.uri, ffiOptions)
+    return addSourceWith(sourceId) { map ->
+      if (data is GeoJsonData.Uri) {
+        map.addGeoJsonSourceUrl(sourceId, data.uri, ffiOptions)
+      } else {
+        GeoJsonSourceDataHandle.create(EMPTY_FEATURE_COLLECTION, ffiOptions).use { empty ->
+          map.addGeoJsonSourceData(sourceId, empty)
         }
-      if (added) rememberGeoJsonOptions(sourceId, options)
-      return added
-    }
-    // The parse reports a bad document the same way the add reports a bad source.
-    val inlineData =
-      checkNotNull(data.toInlineUtf8()) { "Expected inline GeoJSON data but received URI" }
-    val prepared =
-      try {
-        GeoJsonSourceDataHandle.create(inlineData, ffiOptions)
-      } catch (error: MaplibreException) {
-        throw StyleMutationException(error.message, error)
       }
-    val added = prepared.use { handle ->
-      addSourceWith(sourceId) { map -> map.addGeoJsonSourceData(sourceId, handle) }
+      val coordinator = geoJsonCoordinator(sourceId, ffiOptions)
+      // Register initial data before notifying source observers, which can submit newer data.
+      if (data !is GeoJsonData.Uri) coordinator.submit(data) { error("Expected inline data") }
     }
-    if (added) rememberGeoJsonOptions(sourceId, options)
-    return added
   }
 
-  /** Prepared with the options the source was added with; a mismatch is rejected at install. */
-  override fun prepareGeoJson(data: GeoJsonData, options: GeoJsonOptions): PreparedGeoJson =
-    prepareGeoJson(data, options.toFfiOptions())
-
-  override fun prepareGeoJsonUpdate(
+  override fun submitGeoJsonData(
     sourceId: String,
     data: GeoJsonData,
     fallbackOptions: GeoJsonOptions,
-  ): PreparedGeoJson {
-    val applied = geoJsonOptionsLock.withLock { geoJsonOptions[sourceId]?.toFfiOptions() }
-    val baseStyle = applied ?: readMap { loadedGeoJsonOptions(it, sourceId) }
-    return prepareGeoJson(data, baseStyle ?: fallbackOptions.toFfiOptions())
-  }
-
-  private fun prepareGeoJson(
-    data: GeoJsonData,
-    options: GeoJsonSourceOptions,
-  ): PreparedGeoJson {
-    val inlineData =
-      requireNotNull(data.toInlineUtf8()) {
-        "GeoJsonData.Uri cannot be prepared as inline GeoJSON; use URL-based source updates instead"
+  ) {
+    mutateMap { map ->
+      requireLoadedStyle()
+      val coordinator =
+        geoJsonLock.withLock { geoJsonCoordinators[sourceId] }
+          ?: geoJsonCoordinator(
+            sourceId,
+            loadedGeoJsonOptions(map, sourceId) ?: fallbackOptions.toFfiOptions(),
+          )
+      try {
+        coordinator.submit(data) { url -> map.setGeoJsonSourceUrl(sourceId, url) }
+      } catch (error: MaplibreException) {
+        throw StyleMutationException(error.message, error)
       }
-    // TODO: Run native GeoJSON preparation asynchronously by default and report failures that occur
-    // after submission through an asynchronous source-error API.
-    return try {
-      MlnFfiPreparedGeoJson(GeoJsonSourceDataHandle.create(inlineData, options))
-    } catch (error: MaplibreException) {
-      throw StyleMutationException(error.message, error)
     }
   }
 
-  private fun rememberGeoJsonOptions(sourceId: String, options: GeoJsonOptions) {
-    geoJsonOptionsLock.withLock {
-      geoJsonOptions[sourceId] = options.copy(clusterProperties = options.clusterProperties.toMap())
-    }
+  /** Called on the owner thread. Each replacement gets a new coordinator and fixed options. */
+  private fun geoJsonCoordinator(
+    sourceId: String,
+    options: GeoJsonSourceOptions,
+  ): MlnFfiGeoJsonCoordinator<GeoJsonSourceDataHandle> {
+    val coordinator =
+      MlnFfiGeoJsonCoordinator(
+        prepare = { data ->
+          GeoJsonSourceDataHandle.create(checkNotNull(data.toInlineUtf8()), options)
+        },
+        install = { prepared, isCurrent ->
+          accessMap { map ->
+            if (isLoaded && isCurrent()) {
+              map.setGeoJsonSourceData(sourceId, prepared)
+              requestRepaint(map)
+            }
+          }
+        },
+        reportFailure = { error, isCurrent ->
+          accessMap {
+            if (isLoaded && isCurrent()) {
+              logger?.w(error) { "Could not update GeoJSON source '$sourceId'" }
+              sourceDataFailed(identity, sourceId, error)
+            }
+          }
+        },
+      )
+    geoJsonLock
+      .withLock {
+        if (!isLoaded) {
+          coordinator.close()
+          error("Style operation belongs to a stale loaded-style identity")
+        }
+        geoJsonCoordinators.put(sourceId, coordinator)
+      }
+      ?.close()
+    return coordinator
+  }
+
+  /** Native still-image requests must include data submitted by the desired revision. */
+  internal suspend fun awaitGeoJsonUpdates() {
+    val coordinators = geoJsonLock.withLock { geoJsonCoordinators.values.toList() }
+    coordinators.forEach { it.awaitLatest() }
+    requireLoadedStyle()
   }
 
   private fun loadedGeoJsonOptions(map: MapHandle, sourceId: String): GeoJsonSourceOptions? {
@@ -611,39 +633,6 @@ internal open class MlnFfiStyleBinding(
         (source["lineMetrics"] as? JsonPrimitive)?.booleanOrNull ?: defaults.lineMetrics
       options.synchronousTiling = defaults.synchronousUpdate
       options.clusterProperties = (source["clusterProperties"] as? JsonObject)?.toJsonBytes()
-    }
-  }
-
-  /**
-   * [claim] runs on the owner thread, which serializes installs. mutateMap waits until the owner
-   * thread has used the handle, so the caller may close it afterward.
-   */
-  override fun setGeoJsonSourceData(
-    sourceId: String,
-    prepared: PreparedGeoJson,
-    claim: () -> Boolean,
-  ) {
-    val handle = (prepared as MlnFfiPreparedGeoJson).handle
-    mutateMap(abandon = { claim() }) { map ->
-      if (claim()) {
-        try {
-          map.setGeoJsonSourceData(sourceId, handle)
-        } catch (error: MaplibreException) {
-          throw StyleMutationException(error.message, error)
-        }
-      }
-    }
-  }
-
-  override fun setGeoJsonSourceUrl(sourceId: String, url: String, claim: () -> Boolean) {
-    mutateMap(abandon = { claim() }) { map ->
-      if (claim()) {
-        try {
-          map.setGeoJsonSourceUrl(sourceId, url)
-        } catch (error: MaplibreException) {
-          throw StyleMutationException(error.message, error)
-        }
-      }
     }
   }
 
@@ -974,13 +963,6 @@ private fun JsonElement.requireRootString(layerId: String, name: String): String
 private fun JsonElement.requireRootNumber(layerId: String, name: String): Double =
   (this as? JsonPrimitive)?.takeUnless { it.isString }?.doubleOrNull
     ?: throw StyleMutationException("Layer '$layerId' property '$name' requires a number", null)
-
-/** A parsed and indexed GeoJSON document, ready to install on the owner thread. */
-private class MlnFfiPreparedGeoJson(val handle: GeoJsonSourceDataHandle) : PreparedGeoJson {
-  override fun close() {
-    handle.close()
-  }
-}
 
 /** The same options that the definition writes into source JSON, as the typed adder takes them. */
 private fun GeoJsonOptions.toFfiOptions(): GeoJsonSourceOptions =

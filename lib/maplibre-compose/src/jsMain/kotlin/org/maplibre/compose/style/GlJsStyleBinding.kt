@@ -335,26 +335,17 @@ internal class GlJsStyleBinding(
     }
   }
 
-  override fun prepareGeoJson(data: GeoJsonData, options: GeoJsonOptions): PreparedGeoJson =
-    GlJsPreparedGeoJson(data.toDataJson().toJsValue())
-
-  override fun setGeoJsonSourceData(
+  override fun submitGeoJsonData(
     sourceId: String,
-    prepared: PreparedGeoJson,
-    claim: () -> Boolean,
+    data: GeoJsonData,
+    fallbackOptions: GeoJsonOptions,
   ) {
-    if (!claim()) return
     requireLoaded()
     mutate("set data on source '$sourceId'") {
-      map.getSource<GlJsGeoJsonSource>(sourceId)?.setData((prepared as GlJsPreparedGeoJson).data)
-    }
-  }
-
-  override fun setGeoJsonSourceUrl(sourceId: String, url: String, claim: () -> Boolean) {
-    if (!claim()) return
-    requireLoaded()
-    mutate("set data on source '$sourceId'") {
-      map.getSource<GlJsGeoJsonSource>(sourceId)?.setData(url.unsafeCast<GeoJsonSourceData>())
+      val value =
+        if (data is GeoJsonData.Uri) data.uri.unsafeCast<GeoJsonSourceData>()
+        else data.toDataJson().toJsValue<GeoJsonSourceData>()
+      map.getSource<GlJsGeoJsonSource>(sourceId)?.setData(value)
     }
   }
 
@@ -677,11 +668,6 @@ internal class GlJsStyleBinding(
   override fun layerExists(layerId: String): Boolean? {
     requireLoaded()
     return map.getLayer(layerId) != null
-  }
-
-  /** The engine parses in a web worker of its own, so there is nothing to prepare here. */
-  private class GlJsPreparedGeoJson(val data: GeoJsonSourceData) : PreparedGeoJson {
-    override fun close() = Unit
   }
 
   private inline fun mutate(what: String, action: () -> Unit) {

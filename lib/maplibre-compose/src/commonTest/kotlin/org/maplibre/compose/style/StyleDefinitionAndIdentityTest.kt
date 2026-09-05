@@ -8,8 +8,6 @@ import kotlin.test.assertNotSame
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.maplibre.compose.layers.BackgroundLayer
@@ -17,11 +15,6 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.toDataJson
-import org.maplibre.spatialk.geojson.Feature
-import org.maplibre.spatialk.geojson.FeatureCollection
-import org.maplibre.spatialk.geojson.Geometry
-import org.maplibre.spatialk.geojson.Point
-import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
 
 class StyleDefinitionAndIdentityTest {
@@ -41,29 +34,40 @@ class StyleDefinitionAndIdentityTest {
   }
 
   @Test
-  fun a_geojson_definition_owns_a_snapshot_of_mutable_input() {
-    val features =
-      mutableListOf(Feature<Geometry, JsonObject?>(Point(Position(0.0, 0.0)), properties = null))
-    val source =
-      GeoJsonSource(
-        "snapshot",
-        GeoJsonData.Features(FeatureCollection(features)),
-        GeoJsonOptions(),
-      )
+  fun a_geojson_definition_retains_immutable_input_without_serializing_it() {
+    val data = GeoJsonData.Features(featureCollectionOf())
+    val source = GeoJsonSource("immutable", data, GeoJsonOptions())
+
     val definition = assertIs<SourceDefinition.GeoJson>(source.definition())
 
-    features.clear()
+    assertSame(data, definition.data)
+  }
 
-    val snapshotFeatures = definition.data.toDataJson().let { it as JsonObject }["features"]
-    val changedFeatures =
-      source
-        .definition()
-        .let { it as SourceDefinition.GeoJson }
-        .data
-        .toDataJson()
-        .let { it as JsonObject }["features"]
-    assertEquals(1, (snapshotFeatures as JsonArray).size)
-    assertEquals(0, (changedFeatures as JsonArray).size)
+  @Test
+  fun a_definition_changed_before_install_reaches_the_loaded_style() {
+    val binding = RecordingStyleBinding()
+    val source = GeoJsonSource("updated", GeoJsonData.JsonString("{}"), GeoJsonOptions())
+    val replacement = GeoJsonData.Features(featureCollectionOf())
+    source.setDesiredData(replacement)
+
+    SourceInstallation(binding, source.definition())
+
+    assertEquals(replacement.toDataJson(), binding.sources.getValue("updated")["data"])
+  }
+
+  @Test
+  fun a_geojson_update_submits_immutable_data_once_per_changed_definition() = runTest {
+    val binding = RecordingStyleBinding()
+    val source =
+      GeoJsonSource("updated", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+    val installation = SourceInstallation(binding, source.definition())
+    val replacement = GeoJsonData.Uri("https://example.com/data.geojson")
+    source.setDesiredData(replacement)
+
+    installation.update(source.definition())
+    installation.update(source.definition())
+
+    assertEquals<List<GeoJsonData>?>(listOf(replacement), binding.installedGeoJson["updated"])
   }
 
   @Test

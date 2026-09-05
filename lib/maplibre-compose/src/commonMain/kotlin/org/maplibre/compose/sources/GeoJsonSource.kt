@@ -13,12 +13,17 @@ import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.GeoJsonObject
-import org.maplibre.spatialk.geojson.toJson
 
 /** Names the style-spec property that identifies a cluster feature. */
 internal const val CLUSTER_ID_PROPERTY = "cluster_id"
 
-/** Defines a map data source that contains GeoJSON data. */
+/**
+ * Defines a map data source that contains GeoJSON data.
+ *
+ * Native engines add an empty source before preparing inline data in the background. Preparation or
+ * installation failures emit [org.maplibre.compose.map.MapEvent.SourceDataFailed] and leave the
+ * source empty.
+ */
 public class GeoJsonSource : Source {
 
   private val options: GeoJsonOptions
@@ -44,7 +49,7 @@ public class GeoJsonSource : Source {
   override fun definition(): SourceDefinition =
     SourceDefinition.GeoJson(
       id,
-      data.snapshot(),
+      data,
       options.copy(clusterProperties = options.clusterProperties.toMap()),
     )
 
@@ -56,6 +61,13 @@ public class GeoJsonSource : Source {
     CLUSTER_ID_PROPERTY in feature.properties.orEmpty()
 }
 
+/**
+ * Supplies a URL, JSON document, or immutable GeoJSON object to a source.
+ *
+ * [Features] retains the supplied object without copying it. Treat the object and every nested
+ * collection and property as immutable after submission. Create a new value for each update. Native
+ * engines serialize and prepare inline data on a background thread.
+ */
 public sealed interface GeoJsonData {
   public data class Uri(val uri: String) : GeoJsonData
 
@@ -63,13 +75,6 @@ public sealed interface GeoJsonData {
 
   public data class Features(val geoJson: GeoJsonObject) : GeoJsonData
 }
-
-private fun GeoJsonData.snapshot(): GeoJsonData =
-  when (this) {
-    is GeoJsonData.Uri,
-    is GeoJsonData.JsonString -> this
-    is GeoJsonData.Features -> GeoJsonData.JsonString(geoJson.toJson())
-  }
 
 /**
  * @param minZoom Minimum zoom level at which to create vector tiles (lower means more field of view

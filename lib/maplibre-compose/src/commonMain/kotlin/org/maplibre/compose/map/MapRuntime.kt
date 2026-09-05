@@ -1498,6 +1498,7 @@ internal constructor(
         is MapEvent.FrameRendered -> lifecycle.acceptsPresentation(adapter)
         MapEvent.StyleLoaded,
         is MapEvent.StyleLoadFailed,
+        is MapEvent.SourceDataFailed,
         MapEvent.Idle -> lifecycle.acceptsAdapter(adapter)
       }
     if (accepted) eventsFlow.tryEmit(event)

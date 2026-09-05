@@ -2,20 +2,12 @@
 
 package org.maplibre.compose.style
 
-import kotlin.concurrent.atomics.AtomicLong
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.concurrent.atomics.incrementAndFetch
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeometryTileProvider
 import org.maplibre.compose.sources.VectorTileProvider
 
@@ -24,7 +16,7 @@ internal class SourceInstallation(
   private val style: StyleBinding,
   definition: SourceDefinition,
 ) {
-  private val current = AtomicReference(InstalledDefinition(0L, definition))
+  private val current = AtomicReference(definition)
   private val geometryProvider =
     AtomicReference((definition as? SourceDefinition.CustomGeometry)?.provider)
   private val vectorProvider =
@@ -37,9 +29,6 @@ internal class SourceInstallation(
     checkNotNull(vectorProvider.load()) { "Custom vector source '$id' has no provider" }
       .loadTile(tile)
   }
-  private val dataGeneration = AtomicLong(0L)
-  private val pendingGeoJson = AtomicReference<PendingGeoJson?>(null)
-  private val geoJsonMutex = Mutex()
 
   val id: String = definition.id
 
@@ -57,14 +46,15 @@ internal class SourceInstallation(
   suspend fun update(definition: SourceDefinition) {
     style.requireCurrent()
     require(definition.id == id) { "A source handle cannot change resource identity" }
-    val previousDefinition = current.load().definition
+    val previousDefinition = current.load()
     if (definition == previousDefinition) return
     when {
       previousDefinition is SourceDefinition.GeoJson && definition is SourceDefinition.GeoJson -> {
         require(previousDefinition.options == definition.options) {
           "GeoJSON source options cannot change without replacing source '$id'"
         }
-        publishGeoJson(definition)
+        style.submitGeoJsonData(id, definition.data, definition.options)
+        current.store(definition)
       }
       previousDefinition is SourceDefinition.Image && definition is SourceDefinition.Image -> {
         val previous = previousDefinition
@@ -80,7 +70,7 @@ internal class SourceInstallation(
               (definition.value["url"] as? JsonPrimitive)?.content.orEmpty(),
             )
         }
-        storeDefinition(definition)
+        current.store(definition)
       }
       previousDefinition is SourceDefinition.CustomGeometry &&
         definition is SourceDefinition.CustomGeometry -> {
@@ -88,7 +78,7 @@ internal class SourceInstallation(
           "Custom geometry source options cannot change without replacing source '$id'"
         }
         geometryProvider.store(definition.provider)
-        storeDefinition(definition)
+        current.store(definition)
       }
       previousDefinition is SourceDefinition.CustomVector &&
         definition is SourceDefinition.CustomVector -> {
@@ -96,7 +86,7 @@ internal class SourceInstallation(
           "Custom vector source options cannot change without replacing source '$id'"
         }
         vectorProvider.store(definition.provider)
-        storeDefinition(definition)
+        current.store(definition)
       }
       else -> error("Source '$id' changed type or immutable options while it was installed")
     }
@@ -107,71 +97,12 @@ internal class SourceInstallation(
     style.removeSource(id)
   }
 
-  private suspend fun publishGeoJson(definition: SourceDefinition.GeoJson) {
-    val generation = dataGeneration.incrementAndFetch()
-    val data = definition.data
-    if (data is GeoJsonData.Uri) {
-      pendingGeoJson.store(null)
-      withContext(NonCancellable) {
-        style.setGeoJsonSourceUrl(id, data.uri) { claimGeoJson(generation, definition) }
-      }
-      return
-    }
-    storePendingIfNewer(PendingGeoJson(generation, definition))
-    geoJsonMutex.withLock {
-      val pending = pendingGeoJson.exchange(null) ?: return
-      withContext(NonCancellable + Dispatchers.Default) {
-        style.prepareGeoJson(pending.definition.data, pending.definition.options).use { prepared ->
-          style.setGeoJsonSourceData(id, prepared) {
-            claimGeoJson(pending.generation, pending.definition)
-          }
-        }
-      }
-    }
-  }
-
-  private fun claimGeoJson(
-    generation: Long,
-    definition: SourceDefinition.GeoJson,
-  ): Boolean {
-    while (true) {
-      val installed = current.load()
-      if (generation <= installed.generation) return false
-      if (current.compareAndSet(installed, InstalledDefinition(generation, definition))) return true
-    }
-  }
-
-  private fun storeDefinition(definition: SourceDefinition) {
-    while (true) {
-      val installed = current.load()
-      if (current.compareAndSet(installed, installed.copy(definition = definition))) return
-    }
-  }
-
-  private fun storePendingIfNewer(next: PendingGeoJson) {
-    while (true) {
-      val current = pendingGeoJson.load()
-      if (current != null && current.generation >= next.generation) return
-      if (pendingGeoJson.compareAndSet(current, next)) return
-    }
-  }
-
   private fun SourceDefinition.forInstallation(): SourceDefinition =
     when (this) {
       is SourceDefinition.CustomGeometry -> copy(provider = forwardingGeometryProvider)
       is SourceDefinition.CustomVector -> copy(provider = forwardingVectorProvider)
       else -> this
     }
-
-  private data class PendingGeoJson(
-    val generation: Long,
-    val definition: SourceDefinition.GeoJson,
-  )
-
-  private data class InstalledDefinition(
-    val generation: Long,
-    val definition: SourceDefinition,
-  )
 }
 
 /**

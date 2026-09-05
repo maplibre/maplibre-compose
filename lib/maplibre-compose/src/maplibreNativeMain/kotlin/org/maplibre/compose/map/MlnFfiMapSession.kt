@@ -276,7 +276,7 @@ internal class MlnFfiMapSession(
     }
   }
 
-  private fun createStyleBinding(): MlnFfiStyleBinding =
+  private fun createStyleBinding(engine: EngineMapIdentity): MlnFfiStyleBinding =
     MlnFfiStyleBinding(
       loggerProvider = { logger },
       sessionOpen = { lifecycle.acceptsWork },
@@ -304,6 +304,12 @@ internal class MlnFfiMapSession(
         reportedUrlAttribution.remove(sourceId)
         withLifecycleStyle { engine, style ->
           lifecycleCallbacks.onStyleSourcesChanged(engine, style, this, sourceId)
+        }
+      },
+      sourceDataFailed = { bindingIdentity, sourceId, error ->
+        val style = lifecycleStyleIdentity
+        if (style != null && styleBinding?.identity === bindingIdentity) {
+          postStyleEvent(engine, style, MapEvent.SourceDataFailed(sourceId, error))
         }
       },
       getScale = ::imageScale,
@@ -775,7 +781,7 @@ internal class MlnFfiMapSession(
       RuntimeEventType.MAP_STYLE_LOADED -> {
         styleLoadPending = false
         val producer = styleEventProducer?.takeIf { it.engine == engine } ?: return
-        val binding = createStyleBinding()
+        val binding = createStyleBinding(engine)
         val trackerRequest = appliedStyleRequest ?: return binding.invalidate()
         if (!styleLoadTracker.loaded(trackerRequest, binding.identity)) {
           binding.invalidate()
