@@ -798,15 +798,15 @@ class LayerPropertyRoundTripTest {
 }
 
 /**
- * The engine JSON for a written transition: the timing under the platform's animator duration
- * scale.
- */
-/**
  * The scale a reconciler passes to an installation; the direct installations here pass the same.
  */
 private val scale: Float
   get() = systemAnimatorDurationScale()
 
+/**
+ * The engine JSON for a written transition: the timing under the platform's animator duration
+ * scale.
+ */
 private fun scaledTransitionJson(durationMs: Double, delayMs: Double): String {
   val scale = scale.toDouble()
   return """{"duration":${durationMs * scale},"delay":${delayMs * scale}}"""
