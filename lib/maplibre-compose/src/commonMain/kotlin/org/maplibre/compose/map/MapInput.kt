@@ -66,7 +66,8 @@ import org.maplibre.compose.generated.map_not_engaged
  * under Compose where its own DOM handlers never fire.
  *
  * The semantics and the focus target stay installed while [gesturesEnabled] is false, so a map that
- * is still loading its style is reachable and identified.
+ * is still loading its style is reachable and identified. No gesture reaches the camera until it is
+ * true.
  */
 internal fun Modifier.mapInput(
   target: GestureTarget,
@@ -86,7 +87,7 @@ internal fun Modifier.mapInput(
         contentDescription = environment.contentDescription
         stateDescription = if (engaged) environment.engaged else environment.notEngaged
       }
-      .keyboardInput(target, options, focus, continuation)
+      .keyboardInput(target, options, focus, continuation, gesturesEnabled)
       .onFocusChanged { focus.onFocusChanged(it.isFocused) }
       .focusRequester(focusRequester)
       .indication(focus.indicationInteractions, environment.indication)
@@ -189,6 +190,7 @@ private fun Modifier.keyboardInput(
   options: GestureOptions,
   focus: MapInputFocus,
   continuation: GestureContinuation,
+  gesturesEnabled: Boolean,
 ): Modifier = onKeyEvent { event ->
   if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
   when (event.key) {
@@ -199,7 +201,7 @@ private fun Modifier.keyboardInput(
     // Compose delivers Back to the focused node before the activity, so a map that consumed Back
     // after a touch would break back navigation on every Android phone.
     Key.Back -> focus.consumesBack && focus.disengage()
-    else -> focus.isEngaged && target.bindKey(event, options, continuation)
+    else -> gesturesEnabled && focus.isEngaged && target.bindKey(event, options, continuation)
   }
 }
 

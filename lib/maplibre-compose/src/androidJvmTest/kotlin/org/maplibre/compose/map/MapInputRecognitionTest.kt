@@ -456,6 +456,21 @@ class MapInputRecognitionTest {
   }
 
   @Test
+  fun keys_reach_no_camera_while_gestures_are_disabled() =
+    runFocusTest(gesturesEnabled = false) { target, unconsumed ->
+      onNodeWithTag(BEFORE_MAP_TAG).requestFocus()
+      mapNode().performKeyInput { pressKey(Key.Tab) }
+      mapNode().performKeyInput { pressKey(Key.Enter) }
+      mapNode().performKeyInput { pressKey(Key.DirectionRight) }
+      mapNode().performKeyInput { pressKey(Key.Plus) }
+      waitForIdle()
+
+      mapNode().assertIsFocused()
+      assertEquals(0, target.moveCalls.size, "a direction key panned a map with no viewport")
+      assertEquals(0, target.scaleCalls.size, "a zoom key scaled a map with no viewport")
+    }
+
+  @Test
   fun a_map_with_every_keyboard_gesture_disabled_takes_no_tab_stop() =
     runFocusTest(
       options =
@@ -476,6 +491,7 @@ class MapInputRecognitionTest {
    */
   private fun runFocusTest(
     options: GestureOptions = GestureOptions.Standard,
+    gesturesEnabled: Boolean = true,
     body: ComposeUiTest.(RecordingGestureTarget, List<Key>) -> Unit,
   ) = runPlainComposeUiTest {
     val target = RecordingGestureTarget()
@@ -488,7 +504,7 @@ class MapInputRecognitionTest {
         }
       ) {
         Box(Modifier.size(40.dp).testTag(BEFORE_MAP_TAG).focusable())
-        Box(Modifier.size(200.dp)) { GestureHost(target, options) }
+        Box(Modifier.size(200.dp)) { GestureHost(target, options, gesturesEnabled) }
         Box(Modifier.size(40.dp).testTag(AFTER_MAP_TAG).focusable())
       }
     }
@@ -538,7 +554,11 @@ class MapInputRecognitionTest {
 }
 
 @Composable
-private fun GestureHost(target: RecordingGestureTarget, options: GestureOptions) {
+private fun GestureHost(
+  target: RecordingGestureTarget,
+  options: GestureOptions,
+  gesturesEnabled: Boolean = true,
+) {
   val density = LocalDensity.current
   val focusRequester = remember { FocusRequester() }
   val focus = remember { MapInputFocus {} }
@@ -555,7 +575,17 @@ private fun GestureHost(target: RecordingGestureTarget, options: GestureOptions)
   Box(
     Modifier.fillMaxSize()
       .testTag(RECOGNITION_MAP_TAG)
-      .mapInput(target, target, options, density, focusRequester, focus, environment, continuation)
+      .mapInput(
+        target,
+        target,
+        options,
+        density,
+        focusRequester,
+        focus,
+        environment,
+        continuation,
+        gesturesEnabled,
+      )
   )
 }
 

@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -147,6 +148,7 @@ class MlnFfiMapCompositionTest {
     runOnUiThread { focusRequester.requestFocus() }
 
     waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { hasFocus.load() }
+    onNodeWithContentDescription("Map").assertIsFocused()
     assertFalse(state.isEngaged, "a focus request engaged the map")
 
     runtime.close()
