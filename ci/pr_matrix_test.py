@@ -21,9 +21,19 @@ ALL_RUNNERS = {
 }
 
 
-def pr_event(draft: bool = False, labels: tuple[str, ...] = (), **extra) -> dict:
+def pr_event(
+    draft: bool = False,
+    labels: tuple[str, ...] = (),
+    *,
+    author: str = "contributor",
+    **extra,
+) -> dict:
     return {
-        "pull_request": {"draft": draft, "labels": [{"name": name} for name in labels]},
+        "pull_request": {
+            "draft": draft,
+            "labels": [{"name": name} for name in labels],
+            "user": {"login": author},
+        },
         **extra,
     }
 
@@ -77,6 +87,33 @@ class PlanTest(unittest.TestCase):
             )
             self.assertEqual(selection["tier"], tier)
 
+    def test_dependabot_prs_always_run_full_even_after_maintainer_events(self) -> None:
+        for draft in [True, False]:
+            for action, sender in [
+                ("opened", "dependabot[bot]"),
+                ("synchronize", "maintainer"),
+                ("unlabeled", "maintainer"),
+            ]:
+                with self.subTest(draft=draft, action=action, sender=sender):
+                    selection = plan(
+                        "pull_request",
+                        pr_event(
+                            draft,
+                            author="dependabot[bot]",
+                            action=action,
+                            sender={"login": sender},
+                        ),
+                    )
+                    self.assertEqual(selection["tier"], "full")
+                    self.assert_runners(selection, ALL_RUNNERS)
+                    self.assertEqual(set(selection["expected"].values()), {"success"})
+
+    def test_dependabot_sender_does_not_expand_another_authors_pr(self) -> None:
+        selection = plan(
+            "pull_request", pr_event(draft=True, sender={"login": "dependabot[bot]"})
+        )
+        self.assertEqual(selection["tier"], "draft")
+
     def test_push_and_dispatch_always_run_full(self) -> None:
         for event in ["push", "workflow_dispatch"]:
             selection = plan(event, pr_event(draft=True))
@@ -84,7 +121,12 @@ class PlanTest(unittest.TestCase):
             self.assert_runners(selection, ALL_RUNNERS)
 
     def test_missing_pr_metadata_fails_closed(self) -> None:
-        for event in [{}, {"pull_request": {}}, {"pull_request": {"labels": []}}]:
+        for event in [
+            {},
+            {"pull_request": {}},
+            {"pull_request": {"labels": []}},
+            {"pull_request": {"labels": [], "draft": False}},
+        ]:
             with self.assertRaises(KeyError):
                 plan("pull_request", event)
 

@@ -1,4 +1,4 @@
-"""Select PR coverage while keeping main and manual CI runs complete."""
+"""Select PR coverage while keeping dependency, main, and manual runs complete."""
 
 from __future__ import annotations
 
@@ -15,7 +15,9 @@ def plan(event_name: str, event: dict) -> dict:
         # Missing PR metadata is an error, not permission to run fewer tests.
         pr = event["pull_request"]
         labels = {label["name"] for label in pr["labels"]}
-        if FULL_LABEL not in labels:
+        # The PR author stays the same when a maintainer labels or reruns it.
+        dependabot = pr["user"]["login"] == "dependabot[bot]"
+        if not dependabot and FULL_LABEL not in labels:
             tier = "draft" if pr["draft"] else "ready"
 
     runners = {
