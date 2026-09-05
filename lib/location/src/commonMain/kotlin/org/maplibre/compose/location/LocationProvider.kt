@@ -230,6 +230,13 @@ public enum class LocationAccuracyAuthorization {
 
 /** Current foreground location authorization. */
 public sealed interface LocationPermission {
+  /**
+   * Authorization has not been determined. Collecting [LocationProvider.updates] retries the
+   * permission check without prompting. The provider must determine authorization before delivering
+   * measurements and report check failures through [LocationEvent.Unavailable].
+   */
+  public data object Unknown : LocationPermission
+
   /** Foreground authorization is granted at [accuracy]. */
   public data class Granted(val accuracy: LocationAccuracyAuthorization) : LocationPermission
 
