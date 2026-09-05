@@ -33,18 +33,24 @@ import platform.darwin.NSObject
  * Applies the requested accuracy and minimum distance. [LocationRequest.minimumInterval] is
  * ignored. See [IosLocationPermissionRequester] for permission behavior.
  *
+ * Create the provider, request permission, and close it on the main thread.
+ *
  * Disabled location services report [LocationUnavailableReason.ServicesDisabled]. Denied or
  * declined permission reports [LocationUnavailableReason.PermissionDenied]. Network failures and
  * unknown locations report [LocationUnavailableReason.TemporarilyUnavailable]. Other failures
  * report [LocationUnavailableReason.UnexpectedFailure].
  */
-public class IosLocationProvider : LocationProvider {
-  private val requester = IosLocationPermissionRequester()
+public class IosLocationProvider
+internal constructor(private val requester: IosLocationPermissionRequester) : LocationProvider {
+  /** Creates a provider with its own permission requester. */
+  public constructor() : this(IosLocationPermissionRequester())
 
   override val permission: StateFlow<LocationPermission>
     get() = requester.status
 
   override fun requestPermission(): Unit = requester.requestForegroundPermission()
+
+  override fun close(): Unit = requester.close()
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> =
     callbackFlow<IosLocationCallback> {

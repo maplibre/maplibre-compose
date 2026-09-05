@@ -1,6 +1,8 @@
 package org.maplibre.compose.location.desktop.windows
 
 import java.util.ServiceLoader
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -291,9 +293,106 @@ class WindowsLocationProviderTest {
     assertEquals(1, client.observationCloses)
     assertEquals(1, client.closeCount)
 
-    first.cancelAndJoin()
-    second.cancelAndJoin()
+    first.join()
+    second.join()
+    assertTrue(first.isCompleted)
+    assertTrue(second.isCompleted)
     assertTrue(client.sessions.all { it.closeCount == 1 })
+  }
+
+  @Test
+  fun closeDuringSessionCreationDefersClientRelease() = runTest {
+    val creationStarted = CountDownLatch(1)
+    val finishCreation = CountDownLatch(1)
+    val client = FakeWindowsLocationClient(access = WindowsAccessStatus.Allowed)
+    client.onCreateSession = {
+      creationStarted.countDown()
+      check(finishCreation.await(5, TimeUnit.SECONDS))
+      assertEquals(0, client.closeCount)
+    }
+    val provider = WindowsLocationProvider(client)
+    val collector =
+      backgroundScope.launch(Dispatchers.Default) {
+        provider.updates(LocationRequest()).collect {}
+      }
+
+    try {
+      assertTrue(creationStarted.await(5, TimeUnit.SECONDS))
+      provider.close()
+      provider.close()
+      assertEquals(0, client.closeCount)
+      assertEquals(0, client.observationCloses)
+    } finally {
+      finishCreation.countDown()
+    }
+    collector.join()
+
+    assertFalse(collector.isCancelled)
+    assertEquals(1, client.sessions.single().closeCount)
+    assertEquals(1, client.observationCloses)
+    assertEquals(1, client.closeCount)
+  }
+
+  @Test
+  fun cancellationDuringSessionCreationClosesTheReturnedSession() = runTest {
+    val creationStarted = CountDownLatch(1)
+    val finishCreation = CountDownLatch(1)
+    val client = FakeWindowsLocationClient(access = WindowsAccessStatus.Allowed)
+    client.onCreateSession = {
+      creationStarted.countDown()
+      check(finishCreation.await(5, TimeUnit.SECONDS))
+    }
+    val provider = WindowsLocationProvider(client)
+    val collector =
+      backgroundScope.launch(Dispatchers.Default) {
+        provider.updates(LocationRequest()).collect {}
+      }
+
+    try {
+      assertTrue(creationStarted.await(5, TimeUnit.SECONDS))
+      collector.cancel()
+    } finally {
+      finishCreation.countDown()
+    }
+    collector.join()
+
+    assertEquals(1, client.sessions.single().closeCount)
+    assertEquals(0, client.closeCount)
+    provider.close()
+    assertEquals(1, client.sessions.single().closeCount)
+    assertEquals(1, client.closeCount)
+  }
+
+  @Test
+  fun sessionCreationCanCloseProviderReentrantly() = runTest {
+    val client = FakeWindowsLocationClient(access = WindowsAccessStatus.Allowed)
+    val provider = WindowsLocationProvider(client)
+    client.onCreateSession = {
+      provider.close()
+      assertEquals(0, client.closeCount)
+    }
+    val collector =
+      backgroundScope.launch(Dispatchers.Unconfined) {
+        provider.updates(LocationRequest()).collect {}
+      }
+    collector.join()
+
+    assertFalse(collector.isCancelled)
+    assertEquals(1, client.sessions.single().closeCount)
+    assertEquals(1, client.closeCount)
+  }
+
+  @Test
+  fun closedProviderRejectsNewWork() = runTest {
+    val client = FakeWindowsLocationClient()
+    val provider = WindowsLocationProvider(client)
+    provider.close()
+
+    assertFailsWith<IllegalStateException> { provider.requestPermission() }
+    assertFailsWith<IllegalStateException> { provider.updates(LocationRequest()).first() }
+    assertEquals(0, client.accessRequests)
+    assertTrue(client.sessions.isEmpty())
+    assertEquals(1, client.closeCount)
   }
 
   @Test
@@ -332,6 +431,7 @@ private class FakeWindowsLocationClient(
   var closeCount = 0
   var checkFailure: Throwable? = null
   var sessionFailure: Throwable? = null
+  var onCreateSession: (() -> Unit)? = null
   private var accessObserver: ((WindowsAccessStatus) -> Unit)? = null
   private var accessCompletion: ((WindowsAccessStatus) -> Unit)? = null
 
@@ -361,6 +461,7 @@ private class FakeWindowsLocationClient(
     configuration: WindowsLocationConfiguration,
     listener: WindowsLocationListener,
   ): WindowsCloseable {
+    onCreateSession?.invoke()
     sessionFailure?.let { throw it }
     val session = FakeWindowsSession(configuration, listener)
     sessions += session

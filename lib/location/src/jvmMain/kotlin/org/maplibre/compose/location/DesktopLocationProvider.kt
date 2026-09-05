@@ -27,7 +27,7 @@ public interface DesktopLocationBackend {
 }
 
 /** A desktop provider whose process resources can be released with [close]. */
-public interface DesktopLocationProvider : LocationProvider, AutoCloseable
+public interface DesktopLocationProvider : LocationProvider
 
 /**
  * Creates the default desktop location provider from the installed backend. The provider's system
@@ -90,6 +90,4 @@ private class UnavailableDesktopLocationProvider(
       "Location updates require an available backend: $backendAvailability"
     }
   }
-
-  override fun close() = Unit
 }

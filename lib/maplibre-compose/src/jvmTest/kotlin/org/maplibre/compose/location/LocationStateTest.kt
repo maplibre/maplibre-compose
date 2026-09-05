@@ -11,6 +11,8 @@ import androidx.lifecycle.LifecycleRegistry
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.TimeSource
@@ -52,6 +54,100 @@ class LocationStateTest {
       waitUntil { state?.availability == LocationBackendAvailability.Misconfigured(cause) }
       assertEquals(LocationTrackingStatus.Stopped, state?.status)
       assertFalse(provider.active)
+    }
+  }
+
+  @Test
+  fun unknownPermissionRetriesFailureWithoutRestartingOnGrant() = withMainDispatcher {
+    runComposeUiTest {
+      val failure = IllegalStateException("permission initialization failed")
+      val permissionState = MutableStateFlow<LocationPermission>(LocationPermission.Unknown)
+      val locationProvider = ActiveLocationProvider(location(13.0))
+      var attempts = 0
+      var permissionRequests = 0
+      val provider =
+        object : LocationProvider {
+          override val permission = permissionState
+
+          override fun requestPermission() {
+            permissionRequests++
+          }
+
+          override fun updates(request: LocationRequest): Flow<LocationEvent> = flow {
+            attempts++
+            if (attempts == 1) {
+              emit(LocationEvent.Unavailable(LocationUnavailableReason.UnexpectedFailure, failure))
+            } else {
+              permission.value = LocationPermission.Granted(LocationAccuracyAuthorization.Precise)
+              emitAll(locationProvider.updates(request))
+            }
+          }
+        }
+      val headingProvider = MutableHeadingProvider()
+      val lifecycleOwner = ResumedLifecycleOwner()
+      var state: LocationState? = null
+      setContent {
+        state =
+          rememberLocationState(
+            provider = provider,
+            headingProvider = headingProvider,
+            lifecycleOwner = lifecycleOwner,
+          )
+      }
+
+      waitUntil { state?.status is LocationTrackingStatus.Unavailable }
+      assertEquals(LocationPermission.Unknown, state?.permission)
+      assertSame(failure, assertIs<LocationTrackingStatus.Unavailable>(state?.status).cause)
+      assertEquals(0, headingProvider.activeCollectors)
+      runOnIdle { state?.retry() }
+      waitUntil {
+        state?.lastLocation == locationProvider.location && headingProvider.activeCollectors == 1
+      }
+      waitForIdle()
+      assertEquals(2, attempts)
+      assertEquals(0, locationProvider.stopCount)
+      assertEquals(0, permissionRequests)
+
+      runOnIdle { permissionState.value = LocationPermission.NotGranted(canRequest = false) }
+      waitUntil { !locationProvider.active && headingProvider.activeCollectors == 0 }
+      assertEquals(LocationTrackingStatus.Stopped, state?.status)
+    }
+  }
+
+  @Test
+  fun unknownPermissionStopsWhenAuthorizationIsDeniedWithoutRequestingIt() = withMainDispatcher {
+    runComposeUiTest {
+      val permissionState = MutableStateFlow<LocationPermission>(LocationPermission.Unknown)
+      var attempts = 0
+      var permissionRequests = 0
+      var stopped = false
+      val provider =
+        object : LocationProvider {
+          override val permission = permissionState
+
+          override fun requestPermission() {
+            permissionRequests++
+          }
+
+          override fun updates(request: LocationRequest): Flow<LocationEvent> = flow {
+            attempts++
+            permission.value = LocationPermission.NotGranted(canRequest = true)
+            try {
+              awaitCancellation()
+            } finally {
+              stopped = true
+            }
+          }
+        }
+      val lifecycleOwner = ResumedLifecycleOwner()
+      var state: LocationState? = null
+      setContent {
+        state = rememberLocationState(provider = provider, lifecycleOwner = lifecycleOwner)
+      }
+      waitUntil { stopped && state?.permission is LocationPermission.NotGranted }
+      assertEquals(LocationTrackingStatus.Stopped, state?.status)
+      assertEquals(1, attempts)
+      assertEquals(0, permissionRequests)
     }
   }
 

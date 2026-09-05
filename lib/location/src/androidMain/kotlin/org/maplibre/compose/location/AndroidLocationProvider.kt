@@ -14,6 +14,7 @@ import android.location.LocationRequest as AndroidLocationRequest
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
+import androidx.annotation.MainThread
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import kotlinx.coroutines.channels.awaitClose
@@ -34,6 +35,8 @@ import org.maplibre.spatialk.units.extensions.inMeters
  *
  * See [AndroidLocationPermissionRequester] for permission request requirements.
  *
+ * Create the provider, request permission, and close it on the main thread.
+ *
  * @param context Context used to access location services.
  * @param requester Handles [permission] and [requestPermission].
  */
@@ -45,12 +48,15 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
   override val backendId: String = "android-framework"
 
   /** Creates a provider with its own [AndroidLocationPermissionRequester]. */
+  @MainThread
   public constructor(context: Context) : this(context, AndroidLocationPermissionRequester(context))
 
   override val permission: StateFlow<LocationPermission>
     get() = requester.status
 
-  override fun requestPermission(): Unit = requester.requestForegroundPermission()
+  @MainThread override fun requestPermission(): Unit = requester.requestForegroundPermission()
+
+  @MainThread override fun close(): Unit = requester.close()
 
   @RequiresPermission(
     anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
@@ -213,6 +219,7 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
  * available, a provider that reports the failure when discovery is misconfigured, and the framework
  * [AndroidLocationProvider] otherwise.
  */
+@MainThread
 public fun createDefaultLocationProvider(context: Context): LocationProvider =
   when (val resolution = AndroidLocationBackendResolver.discover(context)) {
     is AndroidBackendResolution.Discovered ->

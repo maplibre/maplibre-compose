@@ -3,14 +3,21 @@ package org.maplibre.compose.location.desktop.linux
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.maplibre.compose.location.DesktopLocationBackend
 import org.maplibre.compose.location.DesktopLocationProvider
 import org.maplibre.compose.location.LocationAccuracy
@@ -82,7 +89,13 @@ internal constructor(
 ) : DesktopLocationProvider {
   public constructor(window: XdgPortalWindow? = null) : this(DbusLocationPortal(window))
 
-  private val requester = LinuxPortalLocationPermissionRequester(portal, coroutineScope)
+  private val job = SupervisorJob(coroutineScope.coroutineContext[Job])
+  private val scope = CoroutineScope(coroutineScope.coroutineContext + job)
+  private val requester = LinuxPortalLocationPermissionRequester(portal, scope, ownsPortal = false)
+
+  init {
+    job.invokeOnCompletion { portal.close() }
+  }
 
   override val backendAvailability: LocationBackendAvailability =
     if (portal.available) {
@@ -94,18 +107,35 @@ internal constructor(
   override val permission: StateFlow<LocationPermission>
     get() = requester.status
 
-  override fun requestPermission(): Unit = requester.requestForegroundPermission()
+  override fun requestPermission() {
+    check(job.isActive) { "The Linux location provider is closed" }
+    requester.requestForegroundPermission()
+  }
 
-  override fun updates(request: LocationRequest): Flow<LocationEvent> = flow {
+  override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
     check(backendAvailability == LocationBackendAvailability.Available) {
       "Location updates require an available backend: $backendAvailability"
     }
-    portal.updates(request).collect { emit(it) }
+    check(job.isActive) { "The Linux location provider is closed" }
+    val collection =
+      scope.launch(start = CoroutineStart.UNDISPATCHED) {
+        try {
+          currentCoroutineContext().ensureActive()
+          portal.updates(request).collect { send(it) }
+        } catch (error: Throwable) {
+          if (job.isActive) channel.close(error)
+        }
+      }
+    collection.invokeOnCompletion { channel.close() }
+    try {
+      awaitClose()
+    } finally {
+      withContext(NonCancellable) { collection.cancelAndJoin() }
+    }
   }
 
   override fun close() {
-    requester.close()
-    portal.close()
+    job.cancel()
   }
 }
 
@@ -128,6 +158,7 @@ internal constructor(
   private val portal: LinuxLocationPortal,
   private val coroutineScope: CoroutineScope =
     CoroutineScope(SupervisorJob() + Dispatchers.Default),
+  private val ownsPortal: Boolean = true,
 ) : AutoCloseable {
   public constructor(window: XdgPortalWindow? = null) : this(DbusLocationPortal(window))
 
@@ -148,11 +179,16 @@ internal constructor(
   public val status: StateFlow<LocationPermission> = mutableStatus
   private val requestPending = AtomicBoolean()
 
+  init {
+    job.invokeOnCompletion { if (ownsPortal) portal.close() }
+  }
+
   /**
    * Starts a foreground permission request and returns immediately. The result is published to
    * [status].
    */
   public fun requestForegroundPermission() {
+    check(job.isActive) { "The Linux permission requester is closed" }
     if (
       backendAvailability != LocationBackendAvailability.Available ||
         status.value is LocationPermission.Granted ||
@@ -179,7 +215,6 @@ internal constructor(
   /** Cancels pending requests and closes the portal. */
   override fun close() {
     job.cancel()
-    portal.close()
   }
 }
 

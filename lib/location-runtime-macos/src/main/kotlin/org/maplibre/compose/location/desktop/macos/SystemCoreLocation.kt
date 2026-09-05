@@ -31,6 +31,8 @@ internal class SystemCoreLocationClient : CoreLocationClient {
 
   override fun createManager(): CoreLocationManager = SystemCoreLocationManager()
 
+  override fun <T> onLocationThread(action: () -> T): T = onMain(action)
+
   override fun close() = Unit
 }
 

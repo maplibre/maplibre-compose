@@ -8,8 +8,6 @@ import kotlin.time.Instant
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -53,13 +51,6 @@ internal constructor(
   private val boundary: BrowserGeolocationBoundary,
   coroutineScope: CoroutineScope,
 ) : LocationProvider {
-  /**
-   * Creates a provider with independent permission observation. Use the [CoroutineScope]
-   * constructor to control the observation lifetime.
-   */
-  public constructor() :
-    this(BrowserGeolocation, CoroutineScope(SupervisorJob() + Dispatchers.Default))
-
   /** Creates a provider that observes permission in [coroutineScope]. */
   public constructor(coroutineScope: CoroutineScope) : this(BrowserGeolocation, coroutineScope)
 

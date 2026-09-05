@@ -32,7 +32,7 @@ import org.maplibre.spatialk.units.extensions.degrees
 public class LocationState
 internal constructor(
   initialAvailability: LocationBackendAvailability = LocationBackendAvailability.Available,
-  initialPermission: LocationPermission = LocationPermission.NotGranted(null),
+  initialPermission: LocationPermission = LocationPermission.Unknown,
 ) {
   /** The user's last known location measurement. */
   public var lastLocation: LocationMeasurement? by mutableStateOf(null)
@@ -132,6 +132,9 @@ public sealed interface LocationTrackingStatus {
  * provider setup, [LocationState.permission] reports foreground authorization, and
  * [LocationState.status] reports only the tracking session.
  *
+ * Unknown permission allows collection to retry a non-prompting permission check. A known denial
+ * stops location collection. Heading collection requires granted permission.
+ *
  * @param provider The [LocationProvider] to use for obtaining location updates and for observing
  *   and requesting foreground location permission. A custom provider whose
  *   [LocationProvider.permission] keeps the granted default needs no permission handling.
@@ -164,6 +167,12 @@ public fun rememberLocationState(
       )
     }
   val permission by provider.permission.collectAsState()
+  val canCollectLocation =
+    when (permission) {
+      LocationPermission.Unknown,
+      is LocationPermission.Granted -> true
+      is LocationPermission.NotGranted -> false
+    }
   SideEffect {
     state.permission = permission
     state.requestPermissionAction = provider::requestPermission
@@ -173,16 +182,14 @@ public fun rememberLocationState(
     enabled,
     provider,
     request,
-    permission,
+    canCollectLocation,
     state,
     state.retryKey,
     lifecycleOwner.lifecycle,
     minActiveState,
   ) {
     if (
-      !enabled ||
-        state.availability != LocationBackendAvailability.Available ||
-        permission !is LocationPermission.Granted
+      !enabled || state.availability != LocationBackendAvailability.Available || !canCollectLocation
     ) {
       state.status = LocationTrackingStatus.Stopped
       return@LaunchedEffect

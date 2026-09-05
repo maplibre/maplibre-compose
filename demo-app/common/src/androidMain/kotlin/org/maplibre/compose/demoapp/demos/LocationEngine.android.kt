@@ -1,6 +1,7 @@
 package org.maplibre.compose.demoapp.demos
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import org.maplibre.compose.gms.GmsLocationBackend
@@ -17,7 +18,9 @@ private object GmsLocationEngine : DemoLocationEngine {
   @Composable
   override fun rememberLocationProvider(): LocationProvider {
     val context = LocalContext.current
-    return remember(context) { GmsLocationBackend().createLocationProvider(context) }
+    val provider = remember(context) { GmsLocationBackend().createLocationProvider(context) }
+    DisposableEffect(provider) { onDispose { provider.close() } }
+    return provider
   }
 
   @Composable
@@ -34,7 +37,9 @@ private object HmsLocationEngine : DemoLocationEngine {
   @Composable
   override fun rememberLocationProvider(): LocationProvider {
     val context = LocalContext.current
-    return remember(context) { HmsLocationBackend().createLocationProvider(context) }
+    val provider = remember(context) { HmsLocationBackend().createLocationProvider(context) }
+    DisposableEffect(provider) { onDispose { provider.close() } }
+    return provider
   }
 
   @Composable
@@ -51,7 +56,9 @@ private object FrameworkLocationEngine : DemoLocationEngine {
   @Composable
   override fun rememberLocationProvider(): LocationProvider {
     val context = LocalContext.current
-    return remember(context) { AndroidLocationProvider(context) }
+    val provider = remember(context) { AndroidLocationProvider(context) }
+    DisposableEffect(provider) { onDispose { provider.close() } }
+    return provider
   }
 
   @Composable

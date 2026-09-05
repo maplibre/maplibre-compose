@@ -87,6 +87,9 @@ internal interface CoreLocationClient : AutoCloseable {
     get() = LocationBackendAvailability.Available
 
   fun createManager(): CoreLocationManager
+
+  /** Runs on Core Location's owning thread, executing inline when already there. */
+  fun <T> onLocationThread(action: () -> T): T
 }
 
 internal fun LocationAccuracy.toDesiredAccuracy(): Double =

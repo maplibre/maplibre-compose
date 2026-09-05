@@ -44,7 +44,7 @@ if (locationState.permission !is LocationPermission.Granted) {
 }
 ```
 
-When permission is not granted, <Api of="LocationPermission.NotGranted" />
+When authorization is absent, <Api of="LocationPermission.NotGranted" />
 reports the next step: explain first when `shouldShowRationale` is set
 (Android only), request when `canRequest` is not `false`, and send the user to
 the system settings otherwise. <Api of="rememberSystemSettingsLauncher" />
@@ -64,6 +64,12 @@ if (permission is LocationPermission.NotGranted) {
   }
 }
 ```
+
+<Api of="LocationPermission.Unknown" /> means the permission check has not
+completed. Location collection retries the check without prompting. If the
+check fails, <Api of="LocationState.status" /> reports
+<Api of="LocationTrackingStatus.Unavailable" /> with the cause. Call
+<Api of="LocationState.retry" /> to try again.
 
 ## Platform requirements
 

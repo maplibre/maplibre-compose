@@ -11,15 +11,21 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.freedesktop.dbus.types.UInt64
 import org.freedesktop.dbus.types.Variant
@@ -185,10 +191,75 @@ class LinuxPortalLocationProviderTest {
   }
 
   @Test
+  fun cancellingCollectorWaitsForPortalSessionCleanup() = runTest {
+    val portal = FakeLinuxLocationPortal()
+    var cleanedUp = false
+    portal.events = flow {
+      try {
+        awaitCancellation()
+      } finally {
+        withContext(NonCancellable) { delay(1) }
+        cleanedUp = true
+      }
+    }
+    val provider = LinuxPortalLocationProvider(portal, backgroundScope)
+    val collection = launch { provider.updates().collect {} }
+    runCurrent()
+
+    collection.cancelAndJoin()
+
+    assertTrue(cleanedUp)
+    assertEquals(0, portal.closeCount)
+    provider.close()
+    assertEquals(1, portal.closeCount)
+  }
+
+  @Test
+  fun providerCloseStopsUpdatesAndPermissionBeforeClosingPortal() = runTest {
+    val events = mutableListOf<String>()
+    val portal = FakeLinuxLocationPortal()
+    portal.events = flow {
+      try {
+        awaitCancellation()
+      } finally {
+        events += "updates stopped"
+      }
+    }
+    portal.permissionResult = {
+      try {
+        awaitCancellation()
+      } finally {
+        events += "permission stopped"
+      }
+    }
+    portal.onClose = { events += "portal closed" }
+    val provider = LinuxPortalLocationProvider(portal, backgroundScope)
+    val collection = launch { provider.updates().collect {} }
+    provider.requestPermission()
+    runCurrent()
+    assertEquals(1, portal.updateCollections)
+    assertEquals(1, portal.permissionRequests)
+
+    provider.close()
+    provider.close()
+    collection.join()
+    runCurrent()
+
+    assertEquals(1, portal.closeCount)
+    assertEquals("portal closed", events.last())
+    assertEquals(setOf("updates stopped", "permission stopped", "portal closed"), events.toSet())
+    assertTrue(backgroundScope.isActive)
+    assertFailsWith<IllegalStateException> { provider.updates().first() }
+    assertFailsWith<IllegalStateException> { provider.requestPermission() }
+  }
+
+  @Test
   fun closeDoesNotCancelCallerScope() {
     val callerScope = CoroutineScope(SupervisorJob())
     val requester = LinuxPortalLocationPermissionRequester(FakeLinuxLocationPortal(), callerScope)
     requester.close()
+    requester.close()
+    assertFailsWith<IllegalStateException> { requester.requestForegroundPermission() }
     assertTrue(callerScope.isActive)
   }
 }
@@ -208,6 +279,8 @@ private class FakeWaylandWindow(private val handle: String?) : XdgPortalWindow.W
 
 private class FakeLinuxLocationPortal(override val available: Boolean = true) :
   LinuxLocationPortal {
+  var closeCount = 0
+  var onClose: () -> Unit = {}
   var closed = false
   var updateCollections = 0
   var permissionRequests = 0
@@ -233,6 +306,8 @@ private class FakeLinuxLocationPortal(override val available: Boolean = true) :
   }
 
   override fun close() {
+    closeCount += 1
+    onClose()
     closed = true
   }
 }
