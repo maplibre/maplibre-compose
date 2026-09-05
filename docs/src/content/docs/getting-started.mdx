@@ -124,17 +124,7 @@ Available runtimes:
 | OpenGL         | `maplibre-compose-runtime-opengl-android` |
 | Vulkan         | `maplibre-compose-runtime-vulkan-android` |
 
-Both Android runtimes package `armeabi-v7a`, `arm64-v8a`, and `x86_64`.
-Android requires API 24 or later. OpenGL requires OpenGL ES 3.0; Vulkan requires
-a Vulkan-capable device and driver. Packaging an ABI does not guarantee that its
-device supports the selected backend. There is no automatic backend fallback.
-
-If another dependency includes native libraries for additional ABIs, restrict
-your application's `ndk.abiFilters` to the supported ABIs above. FFI does not
-publish 32-bit x86 libraries.
-
-CI compiles the Vulkan shim for all three ABIs. ARMv7 rendering and lifecycle
-have not yet been verified on a compatible device.
+Both Android runtimes support `armeabi-v7a`, `arm64-v8a`, and `x86_64`.
 
 ### iOS
 

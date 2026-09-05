@@ -3,8 +3,6 @@
 #include <limits>
 #include <vulkan/vulkan.h>
 
-// Compile these against the NDK for every packaged ABI. In particular, a
-// pointer-sized intermediate must not lose the upper half of an ARMv7 surface.
 static_assert(handle_to_jlong(uint64_t{0x123456789abcdef0}) == 0x123456789abcdef0LL);
 static_assert(
   handle_to_jlong(uint64_t{0x8000000000000000}) ==
