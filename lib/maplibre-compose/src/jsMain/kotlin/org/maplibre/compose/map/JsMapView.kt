@@ -81,6 +81,7 @@ internal actual fun ComposableMapView(
   val inputEnvironment = mapInputEnvironment()
   val inputScope = rememberCoroutineScope()
   val continuation = remember(session, inputScope) { GestureContinuation(inputScope) }
+  val rotaryNotchPixels = rotaryNotchPixels()
 
   // A new Canvas delays the first frame until the update path attaches the camera to the session.
   key(session) {
@@ -96,6 +97,7 @@ internal actual fun ComposableMapView(
           inputFocus,
           inputEnvironment,
           continuation,
+          rotaryNotchPixels,
         ),
       logger = logger,
       presentFrames = session.canPresentFrames,

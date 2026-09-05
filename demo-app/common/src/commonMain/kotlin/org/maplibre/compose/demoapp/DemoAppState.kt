@@ -49,6 +49,22 @@ internal constructor(
       mapConfiguration.selectedDemo = value
     }
 
+  /**
+   * Selects [demo] and flies the camera to its destination. [appliedStyle] is the style on the map
+   * before the selection, so the flight can wait for the demo's own base style to load. [reveal]
+   * runs after the selection and before the flight, so a shell can uncover the map and let the
+   * settled viewport insets reach the camera first.
+   */
+  suspend fun openDemo(demo: Demo, appliedStyle: DemoStyle, reveal: suspend () -> Unit = {}) {
+    val newBase = demo.preferredStyle?.base?.takeIf { it != appliedStyle.base }
+    val styleLoadsSeen = lastStyleLoad.count
+    selectedDemo = demo
+    shell = DemoShell.Demos
+    reveal()
+    if (newBase != null) awaitStyleLoad(seen = styleLoadsSeen, base = newBase)
+    mapState.flyTo(demo.destination)
+  }
+
   /** The style applied when [MapStyleMode] resolves to light. */
   var chosenLightStyle: DemoStyle
     get() = mapConfiguration.chosenLightStyle

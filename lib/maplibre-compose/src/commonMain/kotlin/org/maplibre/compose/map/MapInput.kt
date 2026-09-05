@@ -35,6 +35,7 @@ import androidx.compose.ui.input.pointer.isShiftPressed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.input.pointer.util.addPointerInputChange
+import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -67,7 +68,8 @@ import org.maplibre.compose.generated.map_not_engaged
  *
  * The semantics and the focus target stay installed while [gesturesEnabled] is false, so a map that
  * is still loading its style is reachable and identified. No gesture reaches the camera until it is
- * true.
+ * true. [rotaryNotchPixels] is the scroll distance of one rotary detent, from [rotaryNotchPixels];
+ * zero disables rotary zoom.
  */
 internal fun Modifier.mapInput(
   target: GestureTarget,
@@ -78,6 +80,7 @@ internal fun Modifier.mapInput(
   focus: MapInputFocus,
   environment: MapInputEnvironment,
   continuation: GestureContinuation,
+  rotaryNotchPixels: Float,
   gesturesEnabled: Boolean = true,
 ): Modifier {
   // The semantics block observes no snapshot state, so engagement is read here.
@@ -88,6 +91,8 @@ internal fun Modifier.mapInput(
         stateDescription = if (engaged) environment.engaged else environment.notEngaged
       }
       .keyboardInput(target, options, focus, continuation, gesturesEnabled)
+      // Rotary events reach the focused node, so this precedes the focus target in the chain.
+      .rotaryZoom(target, options, if (gesturesEnabled) rotaryNotchPixels else 0f, continuation)
       .onFocusChanged { focus.onFocusChanged(it.isFocused) }
       .focusRequester(focusRequester)
       .indication(focus.indicationInteractions, environment.indication)
@@ -285,6 +290,35 @@ private fun Modifier.pointerGestures(
       gesture.cancel()
     }
   }
+
+/**
+ * A watch crown zooms like a mouse wheel: a detent is a notch of [GestureOptions.scrollZoomStep],
+ * anchored at the center, and a burst of detents is one gesture. Rotary events reach the focused
+ * node only, as key events do.
+ */
+private fun Modifier.rotaryZoom(
+  target: GestureTarget,
+  options: GestureOptions,
+  notchPixels: Float,
+  continuation: GestureContinuation,
+): Modifier =
+  if (notchPixels <= 0f) this
+  else
+    onRotaryScrollEvent { event ->
+      if (!options.isScrollZoomEnabled) return@onRotaryScrollEvent false
+      if (event.verticalScrollPixels == 0f) return@onRotaryScrollEvent false
+      val notches = event.verticalScrollPixels.toDouble() / notchPixels
+      continuation.interrupt()
+      val token = continuation.resume() ?: target.onGestureStarted()
+      target.cancelTransitions()
+      target.scaleBy(
+        scale = zoomLevelsToScale(-notches * options.scrollZoomStep),
+        anchor = null,
+        gestureToken = token,
+      )
+      continuation.finishAfter(options.scrollZoomHold, token, target::onGestureEnded)
+      true
+    }
 
 private fun Modifier.scrollZoom(
   target: GestureTarget,
@@ -1387,6 +1421,9 @@ internal class GestureContinuation(private val scope: CoroutineScope) {
     openToken = null
     return token
   }
+
+  fun finishAfter(duration: Duration, token: GestureToken, onFinished: (GestureToken) -> Unit) =
+    finishAfter(scope, duration, token, onFinished)
 
   fun finishAfter(
     scope: CoroutineScope,

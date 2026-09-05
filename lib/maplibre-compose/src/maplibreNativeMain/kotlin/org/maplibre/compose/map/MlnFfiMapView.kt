@@ -172,9 +172,10 @@ internal fun MlnFfiMapView(
   val inputEnvironment = mapInputEnvironment()
   val inputScope = rememberCoroutineScope()
   val continuation = remember(session, inputScope) { GestureContinuation(inputScope) }
+  val rotaryNotchPixels = rotaryNotchPixels()
 
   // MapLibre renders black until a style loads.
-  val revealSurface = session.hasPresentableStyle
+  val revealSurface = session.canPresentFrames
 
   // Before the first render target attaches, gestures would project through the bootstrap 1x1
   // viewport and jump the camera.
@@ -188,6 +189,7 @@ internal fun MlnFfiMapView(
       inputFocus,
       inputEnvironment,
       continuation,
+      rotaryNotchPixels,
       gesturesEnabled = revealSurface,
     )
 

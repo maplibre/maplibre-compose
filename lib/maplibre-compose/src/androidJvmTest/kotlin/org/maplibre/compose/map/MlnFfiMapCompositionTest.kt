@@ -484,13 +484,13 @@ class MlnFfiMapCompositionTest {
       state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
     }
     val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
-    assertTrue(session.hasPresentableStyle)
+    assertTrue(session.canPresentFrames)
     assertTrue(onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty())
 
     runOnUiThread { state.style.baseStyle = second }
     waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { state.style.baseStyle == second }
     assertTrue(
-      session.hasPresentableStyle,
+      session.canPresentFrames,
       "a later style switch must keep the first loaded style on screen",
     )
     assertTrue(
@@ -516,14 +516,14 @@ class MlnFfiMapCompositionTest {
       state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
     }
     val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
-    assertTrue(session.hasPresentableStyle)
+    assertTrue(session.canPresentFrames)
 
     runOnUiThread { state.style.baseStyle = BaseStyle.Json("{") }
     waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
       state.style.loadState is StyleLoadState.Failed
     }
 
-    assertTrue(!session.hasPresentableStyle)
+    assertTrue(!session.canPresentFrames)
     onNodeWithTag(MAP_LOAD_PLACEHOLDER_TAG).assertExists()
 
     runtime.close()

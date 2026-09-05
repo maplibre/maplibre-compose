@@ -176,8 +176,10 @@ private fun DemoShell(state: DemoAppState, contentPadding: PaddingValues) {
         ShellMap(
           state = state,
           viewportInsets = viewportInsets,
-          mapFocusRequester = mapFocusRequester.takeIf { mapRouted },
-          zoomButtonsFocusRequester = zoomButtonsFocusRequester,
+          zoomButtonsModifier =
+            Modifier.focusRequester(zoomButtonsFocusRequester).focusProperties {
+              if (mapRouted) start = mapFocusRequester
+            },
         )
       }
       // Behind the panel, so the panel hides the tucked-under part and its shadow.
@@ -286,13 +288,12 @@ private fun MapViewportInsets.withLeadingPanel(
 private fun ShellMap(
   state: DemoAppState,
   viewportInsets: MapViewportInsets,
-  mapFocusRequester: FocusRequester?,
-  zoomButtonsFocusRequester: FocusRequester,
+  zoomButtonsModifier: Modifier,
 ) {
   if (state.shell == DemoShell.Benchmarks) {
     BenchmarkMap(state, viewportInsets)
   } else {
-    DemoMap(state, viewportInsets, mapFocusRequester, zoomButtonsFocusRequester)
+    DemoMap(state, viewportInsets, overlay = demoMapOverlay(state.settings, zoomButtonsModifier))
   }
 }
 

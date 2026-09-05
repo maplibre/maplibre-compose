@@ -141,6 +141,8 @@ rm -rf -- "$repository"
 description = "Boot an Android emulator and wait until it is ready."
 usage = '''
 flag "--headless" help="Run the emulator without a window."
+flag "--wear" help="Boot a Wear OS image on a small round watch profile. Wear API levels differ from handset ones, e.g. 36.1 for Wear OS 6.1."
+flag "--tv" help="Boot an Android TV image on a 1080p television profile."
 arg "[api_level]" default="{{vars.android_api_level}}"
 '''
 tools = { "core:java" = "{{vars.java_version}}" }
@@ -148,6 +150,12 @@ run = '''
 args=("$usage_api_level")
 if [[ "$usage_headless" == "true" ]]; then
   args+=(--headless)
+fi
+if [[ "$usage_wear" == "true" ]]; then
+  args+=(--wear)
+fi
+if [[ "$usage_tv" == "true" ]]; then
+  args+=(--tv)
 fi
 .mise/bin/boot-android-emulator "${args[@]}"
 '''
@@ -311,8 +319,12 @@ NODE
 '''
 
 [tasks."build:android-app"]
-description = "Package the demo app as a release APK."
-run = "./gradlew :demo-app:android:packageRelease"
+description = "Package the Android and Wear OS demo apps as release APKs."
+# One Gradle task per invocation; see the note on the aggregate build.
+run = '''
+./gradlew :demo-app:android:packageRelease
+./gradlew :demo-app:wearos:packageRelease
+'''
 
 [tasks."build:desktop-app"]
 description = "Package the demo app as an AppImage, DMG, or MSI for this host."
@@ -327,6 +339,27 @@ fi
 
 [tasks."demo:android"]
 description = "Run the demo app on a connected Android device or emulator."
+usage = '''
+arg "[serial]" help="adb serial. Prompts when several devices are connected."
+flag "--backend <backend>" help="Render backend to package: opengl (default) or vulkan."
+'''
+# The device prompt needs the real terminal; mise otherwise pipes stdio.
+raw = true
+run = ".mise/bin/run-android-demo"
+
+[tasks."demo:wearos"]
+description = "Run the Wear OS demo app on a connected watch or Wear emulator."
+usage = '''
+arg "[serial]" help="adb serial. Prompts when several devices are connected."
+flag "--backend <backend>" help="Render backend to package: opengl (default) or vulkan."
+'''
+env = { MAPLIBRE_DEMO_MODULE = "wearos" }
+# The device prompt needs the real terminal; mise otherwise pipes stdio.
+raw = true
+run = ".mise/bin/run-android-demo"
+
+[tasks."demo:android-tv"]
+description = "Run the Android demo app on a connected TV or Android TV emulator."
 usage = '''
 arg "[serial]" help="adb serial. Prompts when several devices are connected."
 flag "--backend <backend>" help="Render backend to package: opengl (default) or vulkan."

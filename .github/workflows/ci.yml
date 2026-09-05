@@ -151,7 +151,9 @@ jobs:
         with:
           if-no-files-found: error
           name: ${{ matrix.artifact_name }}
-          path: demo-app/android/build/outputs/apk/release/android-release.apk
+          path: |
+            demo-app/android/build/outputs/apk/release/android-release.apk
+            demo-app/wearos/build/outputs/apk/release/wearos-release.apk
 
   ios:
     timeout-minutes: 45

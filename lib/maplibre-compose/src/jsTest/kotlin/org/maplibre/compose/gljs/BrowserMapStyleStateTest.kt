@@ -3,6 +3,7 @@ package org.maplibre.compose.gljs
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.unit.dp
 import kotlin.js.Promise
@@ -15,6 +16,8 @@ import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.browser.window
+import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.map.GlJsMapSession
 import org.maplibre.compose.map.MapRuntimeOptions
@@ -261,42 +264,75 @@ class BrowserMapStyleStateTest {
     }
 
   @Test
-  fun a_web_style_switch_keeps_presenting_frames_while_the_replacement_loads(): Promise<*> =
-    runBrowserMapTest {
-      val runtime = createMapRuntime(MapRuntimeOptions())
-      val state = runtime.createMapState(baseStyle = STYLE_A)
-
-      setBrowserMapContent { MaplibreMap(state = state) }
-      waitUntilMap("the first style to become ready") {
-        state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
-      }
-      val session = requireNotNull(state.currentMapAttachment).adapter as GlJsMapSession
-      assertTrue(session.canPresentFrames)
-
-      val deferredStyle = installDeferredStyle()
-      try {
-        runOnIdle { state.style.baseStyle = BaseStyle.Uri(DEFERRED_STYLE_URL) }
-        waitUntilMap("MapLibre to request the replacement style") { deferredStyle.isRequested() }
-
-        assertEquals(StyleLoadState.Loading, state.style.loadState)
-        assertTrue(
-          session.canPresentFrames,
-          "the loaded style must remain visible while its replacement loads",
-        )
-
-        deferredStyle.resolve()
-        waitUntilMap("the replacement style to become ready") {
-          state.style.loadState == StyleLoadState.Ready &&
-            session.engineMapForTest()?.getStyle()?.layers?.any { it.id == "b" } == true
-        }
-        assertTrue(session.canPresentFrames)
-      } finally {
-        deferredStyle.restore()
+  fun a_web_style_switch_retains_the_complete_frame_until_replacement_content_is_ready():
+    Promise<*> = runBrowserMapTest {
+    val runtime = createMapRuntime(MapRuntimeOptions())
+    val state =
+      runtime.createMapState(baseStyle = STYLE_A) {
+        BackgroundLayer(id = "application", color = const(Color.Red))
       }
 
-      runtime.close()
-      runtime.awaitClosed()
+    setBrowserMapContent { MaplibreMap(state = state) }
+    waitUntilMap("the first style with application content to become ready") {
+      state.style.loadState == StyleLoadState.Ready &&
+        state.currentMapAttachment != null &&
+        (state.currentMapAttachment?.adapter as? GlJsMapSession)
+          ?.engineMapForTest()
+          ?.getStyle()
+          ?.layers
+          ?.any { it.id == "application" } == true
     }
+
+    val session = requireNotNull(state.currentMapAttachment).adapter as GlJsMapSession
+    assertTrue(session.canPresentFrames)
+    val deferredStyle = installDeferredStyle()
+    val renderedLayerSets = mutableListOf<Set<String>>()
+    val mapPrototype = org.maplibre.compose.gljs.MaplibreMap::class.js.asDynamic().prototype
+    val originalRedraw = mapPrototype.redraw
+    val wrapRedraw =
+      js(
+        """(function(original, record) {
+            return function() {
+              record(this.getStyle().layers.map(function(layer) { return layer.id; }).join(','));
+              return original.call(this);
+            };
+          })"""
+      )
+    mapPrototype.redraw =
+      wrapRedraw(originalRedraw) { ids: String ->
+        renderedLayerSets += ids.split(',').filter(String::isNotEmpty).toSet()
+      }
+    try {
+      runOnIdle { state.style.baseStyle = BaseStyle.Uri(DEFERRED_STYLE_URL) }
+      waitUntilMap("MapLibre to request the replacement style") { deferredStyle.isRequested() }
+      assertEquals(StyleLoadState.Loading, state.style.loadState)
+      assertTrue(session.canPresentFrames, "the previous frame must remain visible during loading")
+      deferredStyle.resolve()
+      waitUntilMap("the replacement style with application content to become ready") {
+        state.style.loadState == StyleLoadState.Ready &&
+          (state.currentMapAttachment?.adapter as? GlJsMapSession)
+            ?.engineMapForTest()
+            ?.getStyle()
+            ?.layers
+            ?.any { it.id == "application" } == true
+      }
+      waitUntilMap("the replacement style to render") { renderedLayerSets.any { "b" in it } }
+      assertTrue(session.canPresentFrames)
+    } finally {
+      mapPrototype.redraw = originalRedraw
+      deferredStyle.restore()
+    }
+
+    val replacementFrames = renderedLayerSets.filter { "b" in it }
+    assertTrue(replacementFrames.isNotEmpty(), "the replacement style must render")
+    assertTrue(
+      replacementFrames.all { "application" in it },
+      "the replacement base style rendered before application content: $replacementFrames",
+    )
+
+    runtime.close()
+    runtime.awaitClosed()
+  }
 
   @Test
   fun a_source_reports_the_attribution_its_tilejson_carries(): Promise<*> = runBrowserMapTest {

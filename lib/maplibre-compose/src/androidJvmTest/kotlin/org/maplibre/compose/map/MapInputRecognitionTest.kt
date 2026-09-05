@@ -582,6 +582,7 @@ private fun GestureHost(
         focus,
         environment,
         continuation,
+        rotaryNotchPixels = 0f,
         gesturesEnabled,
       )
   )
