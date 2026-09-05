@@ -17,9 +17,10 @@ size alone is not a reason to remove them.
 3. Compare the advanced camera scope with Compose 1.12.0 `TransformableState`.
    Reuse Compose contracts where their semantics fit; keep necessary map-owner
    command validation and completion fences.
-4. Exercise shared recognition in a non-map canvas with pan, zoom, rotation, and
-   a draggable selection. The consumer must not supply dummy map objects,
-   geographic types, or camera-specific action enums.
+4. Temporarily exercise shared recognition in a non-map canvas with pan, zoom,
+   rotation, and a draggable selection. The experiment must not supply dummy map
+   objects, geographic types, or camera-specific action enums. Do not retain the
+   probe in the repository.
 5. Extract a Compose-dependent, map-independent module if that consumer proves a
    cohesive boundary. Keep map policy in MapLibre Compose. Do not introduce a
    public arbitrary recognizer registry or a second input implementation merely
@@ -35,8 +36,8 @@ size alone is not a reason to remove them.
   operations.
 - Reusable input contains no map, geographic projection, style, or native-engine
   dependency.
-- The non-map consumer exercises production recognition and custom interaction
-  arbitration, rather than implementing a parallel detector.
+- The temporary non-map experiment exercises production recognition and custom
+  interaction arbitration, rather than implementing a parallel detector.
 - Requirements and existing regression coverage survive the separation.
 - Rotation suppression during scaling remains an explicit deferred requirement
   unless separately implemented and validated.
@@ -56,8 +57,7 @@ Main/Final consumption. It depends on Compose geometry, input, and units; it has
 no map, geographic, style, or native-engine dependency. MapTransformPolicy
 selects map components using the retained pressure, velocity, span, angle, and
 shove rules. PointerPairGesture translates recognized deltas to geographic
-events and camera responses. Single-pointer map drags use the same PointerDrag
-recognizer as the canvas proof.
+events and camera responses. Single-pointer map drags use PointerDrag.
 
 MapGestures owns the single map-wide callback for each tap family and hover.
 `tap.onUnhandled` remains a distinct post-layer stage. Custom bindings have one
@@ -85,16 +85,14 @@ input continue to share the existing authority and backend operations.
 
 ## Extraction decision
 
-The non-map Canvas test consumer uses the production drag, pair, and consumption
-code. It pans, scales, and rotates with its own policy, reserves a selected
-handle, commits a completed edit, and rolls back when another contact joins. Its
-small two-contact span deliberately differs from the map's minimum-span policy.
-A pixel assertion verifies that the edited selection is drawn at its new
-location.
+A temporary non-map canvas experiment exercised the production drag, pair, and
+consumption code with transforms and selected-handle commit/rollback. It used
+its own recognition policy and no map objects. The probe is not retained in the
+repository.
 
-Keep these primitives internal for now. The proof establishes reusable
-recognition, but it still assembles a raw event loop and policy callbacks. It
-does not establish a cohesive standalone binding/attachment API covering contact
+Keep these primitives internal for now. The experiment demonstrated reusable
+recognition, but required a raw event loop and policy callbacks. It did not
+establish a cohesive standalone binding/attachment API covering contact
 transitions, taps, scroll, keyboard, and application actions. Publishing the
 current primitives would commit callers to manual event feeding and competition
 bookkeeping. That is not yet the cohesive application API this extraction is
@@ -111,9 +109,9 @@ The final callback consolidation and recognition separation passed:
 - Android API 36 emulator: 806 tests.
 - Browser: 543 tests.
 - iOS simulator: 671 tests.
-- Focused desktop: 152 tests covering recognition, dispatch, hover, camera
-  ownership/integration, and the canvas proof. Three rotary-injection cases are
-  documented skips; all other selected cases passed.
+- Focused desktop: 149 tests covering recognition, dispatch, hover, and camera
+  ownership/integration. Three rotary-injection cases are documented skips; all
+  other selected cases passed.
 - `mise run check` and `mise run lint:android`.
 - `mise run build:docs`, including API reference and internal link validation.
   Updated Kotlin documentation snippets also compiled with the Android demo.

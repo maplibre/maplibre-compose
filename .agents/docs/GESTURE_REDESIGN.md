@@ -10,10 +10,10 @@ Implementation plan for the
 This design uses the ownership API: `MaplibreMap(state)` and the camera
 operations on `MapState`. `MapGestures` replaces `GestureOptions` without a
 compatibility layer. The [input separation](GESTURE_EXTRACTION.md) records the
-subsequent API consolidation and non-map proof. Code examples show the target
-API. Preserve current focus, engagement, Wear crown input, and system motion
-scaling. The source baseline is main 9fa43a43, Compose Multiplatform 1.12.0, and
-Nucleus 2.5.12.
+subsequent API consolidation and recognition separation. Code examples show the
+target API. Preserve current focus, engagement, Wear crown input, and system
+motion scaling. The source baseline is main 9fa43a43, Compose Multiplatform
+1.12.0, and Nucleus 2.5.12.
 
 This also covers pan observation/tuning, padded feature hits, and post-layer
 click fallback from the pinned
