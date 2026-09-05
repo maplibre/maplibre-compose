@@ -128,6 +128,10 @@ Use IntelliJ or Android Studio to launch the demo app on Android and XCode to
 launch on iOS. Every other host has a task:
 
 - Android: `mise run demo:android`
+- Android TV: `mise run demo:android-tv`, on a TV or on the emulator that
+  `mise run android-emulator:boot --tv` starts
+- Wear OS: `mise run demo:wearos`, on a watch or on the emulator that
+  `mise run android-emulator:boot --wear 36.1` starts
 - Desktop: `mise run demo:desktop`
 - Web: `mise run demo:js`
 - Desktop on the Nucleus Tao host instead of the AWT one:
@@ -160,6 +164,7 @@ You can drive the emulator on its own:
 ```bash
 mise run android-emulator:boot 26
 mise run android-emulator:boot 26 --headless
+mise run android-emulator:boot --tv
 mise run android-emulator:stop
 ```
 

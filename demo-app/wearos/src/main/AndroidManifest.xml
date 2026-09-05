@@ -6,37 +6,34 @@
   tools:targetApi="33"
 >
   <!-- The location permissions come from the common module, next to the code that needs them. -->
-  <uses-feature
-    android:name="android.hardware.touchscreen"
-    android:required="false"
-  />
-  <uses-feature
-    android:name="android.software.leanback"
-    android:required="false"
-  />
+  <uses-feature android:name="android.hardware.type.watch" />
 
   <application
     android:allowBackup="true"
-    android:banner="@drawable/banner"
     android:icon="@mipmap/ic_launcher"
     android:label="@string/app_name"
     android:roundIcon="@mipmap/ic_launcher_round"
     android:supportsRtl="true"
-    android:theme="@android:style/Theme.Material.Light.NoActionBar"
+    android:theme="@android:style/Theme.DeviceDefault"
   >
+    <uses-library
+      android:name="com.google.android.wearable"
+      android:required="true"
+    />
+    <!-- Runs without a companion phone app. -->
+    <meta-data
+      android:name="com.google.android.wearable.standalone"
+      android:value="true"
+    />
     <activity
       android:exported="true"
+      android:taskAffinity=""
       android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|mnc|colorMode|density|fontScale|fontWeightAdjustment|keyboard|layoutDirection|locale|mcc|navigation|smallestScreenSize|touchscreen|uiMode"
       android:name=".MainActivity"
-      android:windowSoftInputMode="adjustResize"
     >
       <intent-filter>
         <action android:name="android.intent.action.MAIN" />
         <category android:name="android.intent.category.LAUNCHER" />
-      </intent-filter>
-      <intent-filter>
-        <action android:name="android.intent.action.MAIN" />
-        <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
       </intent-filter>
     </activity>
   </application>

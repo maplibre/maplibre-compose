@@ -68,9 +68,28 @@ internal suspend fun MapState.flyTo(destination: DemoDestination) {
   }
 }
 
-/** The shared map, the selected demo's overlay, the pointer pin, and the diagnostic overlays. */
+/** The map controls the settings ask for. */
+fun demoMapOverlay(settings: DemoSettings): MapOverlay =
+  when {
+    settings.useMaterial3Controls && settings.showZoomButtons -> MapOverlay.Material3Full
+    settings.useMaterial3Controls -> MapOverlay.Material3
+    settings.showZoomButtons -> MapOverlay.Full
+    else -> MapOverlay.Default
+  }
+
+/**
+ * The shared map, the selected demo's overlay, the pointer pin, and the diagnostic overlays.
+ *
+ * [overlay] holds the map controls; a shell with little room, such as a watch, passes a smaller set
+ * than the settings ask for.
+ */
 @Composable
-fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
+fun DemoMap(
+  state: DemoAppState,
+  viewportInsets: MapViewportInsets,
+  overlay: MapOverlay = demoMapOverlay(state.settings),
+  modifier: Modifier = Modifier,
+) {
   val scope = rememberCoroutineScope()
   val appliedBase = state.appliedStyle.base
   val selectedDemo = state.selectedDemo
@@ -100,21 +119,14 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
   Box(Modifier.fillMaxSize()) {
     MaplibreMap(
       state = state.mapState,
+      modifier = modifier,
       cameraPadding = viewportInsets.asPaddingValues(),
       renderOptions = state.settings.renderOptions,
       gestureOptions = state.settings.gestureOptions,
       tileLodOptions = state.settings.tileLodOptions,
       contentWindowInsets = viewportInsets.asWindowInsets(),
     ) {
-      include(
-        when {
-          state.settings.useMaterial3Controls && state.settings.showZoomButtons ->
-            MapOverlay.Material3Full
-          state.settings.useMaterial3Controls -> MapOverlay.Material3
-          state.settings.showZoomButtons -> MapOverlay.Full
-          else -> MapOverlay.Default
-        }
-      )
+      include(overlay)
       selectedDemo?.let { demo ->
         key(demo) {
           with(demo) { Overlay(state) }

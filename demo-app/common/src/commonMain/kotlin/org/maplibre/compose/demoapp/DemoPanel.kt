@@ -90,18 +90,14 @@ fun DemoPanel(
         onOpenDemo = { demo ->
           flightJob?.cancel()
           flightJob = scope.launch {
-            val newBase = demo.preferredStyle?.base?.takeIf { it != appliedStyle.base }
-            val styleLoadsSeen = state.lastStyleLoad.count
-            state.selectedDemo = demo
-            state.shell = DemoShell.Demos
-            navController.navigate("demo")
-            if (collapseOnSelection) {
-              collapsePanel()
-              // One frame so the settled viewport insets reach the camera before the flight.
-              withFrameNanos {}
+            state.openDemo(demo, appliedStyle) {
+              navController.navigate("demo")
+              if (collapseOnSelection) {
+                collapsePanel()
+                // One frame so the settled viewport insets reach the camera before the flight.
+                withFrameNanos {}
+              }
             }
-            if (newBase != null) state.awaitStyleLoad(seen = styleLoadsSeen, base = newBase)
-            state.mapState.flyTo(demo.destination)
           }
         },
         onOpenBenchmarks = {
