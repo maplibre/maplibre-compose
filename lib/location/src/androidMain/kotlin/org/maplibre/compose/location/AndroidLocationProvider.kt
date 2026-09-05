@@ -52,6 +52,8 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
 
   override fun requestPermission(): Unit = requester.requestForegroundPermission()
 
+  override fun close(): Unit = requester.close()
+
   @RequiresPermission(
     anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
   )

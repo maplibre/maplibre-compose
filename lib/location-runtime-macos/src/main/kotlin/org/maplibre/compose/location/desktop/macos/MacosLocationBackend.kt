@@ -5,9 +5,15 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.CoroutineContext
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -58,16 +64,44 @@ internal constructor(
 ) : DesktopLocationProvider {
   public constructor() : this(SystemCoreLocationClient())
 
+  private val job = SupervisorJob()
+  private val scope = CoroutineScope(dispatcher + job)
   private val requester = MacosLocationPermissionRequester(client)
+
+  init {
+    job.invokeOnCompletion { requester.close() }
+  }
 
   override val backendAvailability: LocationBackendAvailability = client.backendAvailability
 
   override val permission: StateFlow<LocationPermission>
     get() = requester.status
 
-  override fun requestPermission(): Unit = requester.requestForegroundPermission()
+  override fun requestPermission() {
+    check(job.isActive) { "The macOS location provider is closed" }
+    requester.requestForegroundPermission()
+  }
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
+    check(job.isActive) { "The macOS location provider is closed" }
+    val collection =
+      scope.launch(start = CoroutineStart.UNDISPATCHED) {
+        try {
+          currentCoroutineContext().ensureActive()
+          collectUpdates(request).collect { send(it) }
+        } catch (error: Throwable) {
+          if (job.isActive) channel.close(error)
+        }
+      }
+    collection.invokeOnCompletion { channel.close() }
+    try {
+      awaitClose()
+    } finally {
+      withContext(NonCancellable) { collection.cancelAndJoin() }
+    }
+  }
+
+  private fun collectUpdates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
     check(backendAvailability == LocationBackendAvailability.Available) {
       "Location updates require an available backend: $backendAvailability"
     }
@@ -106,8 +140,7 @@ internal constructor(
     .flowOn(dispatcher)
 
   override fun close() {
-    requester.close()
-    client.close()
+    job.cancel()
   }
 
   private class UpdateDelegate(
@@ -179,6 +212,47 @@ internal constructor(private val client: CoreLocationClient) : AutoCloseable {
   /** Current foreground location permission, updated when Core Location reports a change. */
   public val status: StateFlow<LocationPermission> = mutableStatus
   private val requestPending = AtomicBoolean()
+  private val lock = Any()
+  private var closed = false
+  private var activeOperations = 0
+  private var disposed = false
+
+  private fun withClient(ifClosed: () -> Unit = {}, action: () -> Unit) {
+    val accepted =
+      synchronized(lock) {
+        if (closed) false
+        else {
+          activeOperations += 1
+          true
+        }
+      }
+    if (!accepted) return ifClosed()
+    try {
+      action()
+    } finally {
+      val dispose =
+        synchronized(lock) {
+          activeOperations -= 1
+          claimDisposal()
+        }
+      if (dispose) disposeClient()
+    }
+  }
+
+  private fun claimDisposal(): Boolean =
+    if (closed && activeOperations == 0 && !disposed) {
+      disposed = true
+      true
+    } else false
+
+  private fun disposeClient() {
+    try {
+      manager?.close()
+    } finally {
+      manager = null
+      client.close()
+    }
+  }
 
   // Allocation is fallible and must not throw from construction, so the manager is created through
   // manager() and retried on each access until an attempt succeeds. A failed attempt reports
@@ -202,12 +276,12 @@ internal constructor(private val client: CoreLocationClient) : AutoCloseable {
     object : CoreLocationDelegate {
       override fun didUpdateLocations(locations: List<CoreLocationMeasurement>) = Unit
 
-      override fun didFailWithError(error: CoreLocationError) {
+      override fun didFailWithError(error: CoreLocationError) = withClient {
         manager?.stopUpdatingLocation()
         requestPending.set(false)
       }
 
-      override fun didChangeAuthorization() {
+      override fun didChangeAuthorization() = withClient {
         val permission = currentPermission()
         mutableStatus.value = permission
         if (permission != LocationPermission.NotGranted(canRequest = true)) {
@@ -227,22 +301,35 @@ internal constructor(private val client: CoreLocationClient) : AutoCloseable {
    * Starts a foreground permission request and returns immediately. The result is published to
    * [status].
    */
-  public fun requestForegroundPermission() {
-    if (backendAvailability != LocationBackendAvailability.Available) return
-    val manager = manager() ?: return
-    val current = currentPermission()
-    if (current != LocationPermission.NotGranted(canRequest = true)) return
-    if (!requestPending.compareAndSet(false, true)) return
-    manager.requestWhenInUseAuthorization()
-    // macOS presents the system prompt when a location service starts, not from the
-    // authorization request alone.
-    manager.startUpdatingLocation()
-  }
+  public fun requestForegroundPermission(): Unit =
+    withClient(ifClosed = { error("The macOS permission requester is closed") }) {
+      if (backendAvailability != LocationBackendAvailability.Available) return@withClient
+      if (!requestPending.compareAndSet(false, true)) return@withClient
+      val manager = manager()
+      if (
+        manager == null || currentPermission() != LocationPermission.NotGranted(canRequest = true)
+      ) {
+        requestPending.set(false)
+        return@withClient
+      }
+      try {
+        manager.requestWhenInUseAuthorization()
+        // macOS presents the prompt when location updates start.
+        manager.startUpdatingLocation()
+      } catch (error: Throwable) {
+        requestPending.set(false)
+        throw error
+      }
+    }
 
-  /** Releases the Core Location manager and client. */
+  /** Releases the Core Location manager and client after active calls finish. */
   override fun close() {
-    manager?.close()
-    client.close()
+    val dispose =
+      synchronized(lock) {
+        closed = true
+        claimDisposal()
+      }
+    if (dispose) disposeClient()
   }
 
   private fun currentPermission(): LocationPermission =

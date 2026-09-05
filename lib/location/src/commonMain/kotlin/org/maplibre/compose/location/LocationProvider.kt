@@ -17,7 +17,7 @@ import org.maplibre.spatialk.units.extensions.meters
  * Implement this interface for custom location sources. Sources without permission handling can use
  * the default [permission] and [requestPermission] implementations.
  */
-public interface LocationProvider {
+public interface LocationProvider : AutoCloseable {
   /** A stable implementation name for diagnostics, when the provider declares one. */
   public val backendId: String?
     get() = null
@@ -59,6 +59,14 @@ public interface LocationProvider {
    * that request and unregisters its callbacks.
    */
   public fun updates(request: LocationRequest = LocationRequest()): Flow<LocationEvent>
+
+  /**
+   * Releases resources owned by this provider. Repeated calls have no effect.
+   *
+   * Cancel update collectors when disposing the provider. Implementations that own permission
+   * observers or platform clients release them here. The default does nothing.
+   */
+  override fun close(): Unit = Unit
 }
 
 private val AlwaysGrantedLocationPermission: StateFlow<LocationPermission> =

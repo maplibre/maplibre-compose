@@ -11,9 +11,12 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.location.DesktopLocationBackend
 import org.maplibre.compose.location.LocationAccuracy
@@ -28,6 +31,7 @@ import org.maplibre.spatialk.units.extensions.degrees
 import org.maplibre.spatialk.units.extensions.inMeters
 import org.maplibre.spatialk.units.extensions.meters
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class MacosLocationProviderTest {
   @Test
   fun serviceLoaderFindsMacosBackend() {
@@ -163,6 +167,55 @@ class MacosLocationProviderTest {
     assertNull(location.altitudeAccuracy)
     assertNull(location.course)
     assertNull(location.distancePerSecond)
+  }
+
+  @Test
+  fun closeStopsCollectorsAndClosesResourcesOnce() = runTest {
+    val client = FakeCoreLocationClient()
+    val provider = MacosLocationProvider(client, Dispatchers.Unconfined, Dispatchers.Unconfined)
+    val first = launch(start = CoroutineStart.UNDISPATCHED) { provider.updates().collect {} }
+    val second = launch(start = CoroutineStart.UNDISPATCHED) { provider.updates().collect {} }
+    runCurrent()
+    assertEquals(3, client.managers.size)
+
+    provider.close()
+    provider.close()
+    first.join()
+    second.join()
+
+    assertTrue(client.managers.all { it.closeCount == 1 })
+    assertEquals(1, client.closeCount)
+    assertFailsWith<IllegalStateException> { provider.updates().first() }
+    assertFailsWith<IllegalStateException> { provider.requestPermission() }
+    assertEquals(3, client.managers.size)
+  }
+
+  @Test
+  fun reentrantCloseWaitsForPermissionCallToFinish() {
+    val client = FakeCoreLocationClient()
+    val requester = MacosLocationPermissionRequester(client)
+    client.managers.single().onRequest = {
+      requester.close()
+      assertFalse(client.closed)
+      assertFalse(client.managers.single().closed)
+    }
+
+    requester.requestForegroundPermission()
+
+    assertEquals(1, client.closeCount)
+    assertEquals(1, client.managers.single().closeCount)
+    assertFalse(client.managers.single().updating)
+  }
+
+  @Test
+  fun standaloneRequesterOwnsClientAndClosesOnce() {
+    val client = FakeCoreLocationClient()
+    val requester = MacosLocationPermissionRequester(client)
+    requester.close()
+    requester.close()
+    assertEquals(1, client.closeCount)
+    assertEquals(1, client.managers.single().closeCount)
+    assertFailsWith<IllegalStateException> { requester.requestForegroundPermission() }
   }
 
   @Test
@@ -439,6 +492,7 @@ private class FakeCoreLocationClient(
       LocationBackendAvailability.Misconfigured(IllegalStateException("missing usage description"))
     }
   val managers = mutableListOf<FakeCoreLocationManager>()
+  var closeCount = 0
   var closed = false
   var nextLocation: CoreLocationMeasurement? = null
   var createFailure: Throwable? = null
@@ -449,6 +503,7 @@ private class FakeCoreLocationClient(
   }
 
   override fun close() {
+    closeCount += 1
     closed = true
   }
 }
@@ -462,6 +517,8 @@ private class FakeCoreLocationManager(override var location: CoreLocationMeasure
   var boundDelegate: CoreLocationDelegate? = null
   var updating = false
   var whenInUseRequests = 0
+  var onRequest: () -> Unit = {}
+  var closeCount = 0
   var closed = false
 
   override fun setDelegate(delegate: CoreLocationDelegate?) {
@@ -478,9 +535,11 @@ private class FakeCoreLocationManager(override var location: CoreLocationMeasure
 
   override fun requestWhenInUseAuthorization() {
     whenInUseRequests += 1
+    onRequest()
   }
 
   override fun close() {
+    closeCount += 1
     closed = true
     stopUpdatingLocation()
     boundDelegate = null

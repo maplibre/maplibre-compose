@@ -82,6 +82,10 @@ internal constructor(
     }
   }
 
+  override fun close() {
+    permissionDelegate?.close()
+  }
+
   @RequiresPermission(
     anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
   )
