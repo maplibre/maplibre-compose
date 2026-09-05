@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -101,7 +102,7 @@ public class PlacedTowardsState {
    * The direction that the child points, in degrees clockwise from screen-up. Zero until the child
    * is first placed.
    */
-  public var angleDegrees: Float by mutableStateOf(0f)
+  public var angleDegrees: Float by mutableFloatStateOf(0f)
     internal set
 
   /** Whether the child is currently placed, i.e. its target lies outside the ellipse. */
