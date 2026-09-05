@@ -129,14 +129,16 @@ Logger worker: UpcallContext::~UpcallContext → jni_DetachCurrentThread
   → VM_Exit::wait_if_vm_exited
 ```
 
-`NativeProcessExitTest` adds two regression cases, with three child JVMs per
-case. Each child creates and closes three Compose runtimes, takes six snapshots,
-and verifies the asynchronous logging path before exiting with the callback
-installed or cleared. All six children exited normally on the new release: 18
-Compose runtime lifecycles and 36 captures. The child has a 30-second deadline
-and is forcibly reaped on failure, so a recurrence fails the test instead of
-hanging the build. This is local macOS/JDK 25 evidence; no claim is made about a
-separate Windows/Linux process-exit run.
+The initial stress verification also passed six child JVMs, covering 18 Compose
+runtime lifecycles and 36 captures. The permanent `NativeProcessExitTest` keeps
+one child, one runtime, and one capture. It observes an asynchronous parser
+warning through Compose's own logging bridge, closes the snapshotter and
+runtime, and asserts actual process exit within 30 seconds. A hung child is
+forcibly reaped. The installed/cleared raw callback matrix remains covered in
+native-ffi's `LogProcessExitTest`; Compose does not repeat it.
+
+These shutdown comparisons are local macOS/JDK 25 evidence; they do not
+establish a separate Windows/Linux process-exit result.
 
 Raw comparison results and the two old-version stack samples are in
 `build/reports/native-shutdown/`.
@@ -169,6 +171,8 @@ they do not correlate provider, URL-transform, and HTTP-header hooks.
 
 ## Validation
 
+Initial upgrade validation:
+
 - `mise run style-spec-parity -- --check`: passed.
 - `mise run check`: passed.
 - `mise run test:desktop`: passed on macOS ARM64/Metal; 712 passed and four
@@ -191,3 +195,10 @@ Linux/Windows Vulkan execution, Android Vulkan, Android x64 Goldfish, physical
 Android/iOS devices, and ARMv7 targets were not validated locally. The Vulkan
 adapter changes compile in the shared native source set. These are local
 results; the pull request reports remote CI separately.
+
+The coverage cleanup passed the five focused desktop tests in
+`NativeProcessExitTest` and `MapVisibleAreaTest`. The two rotated/tilted
+viewport tests now share one fixture and retain every assertion. The
+repeated-world test, native request cancellation, cancellation during
+registration, source volatility, and existing feature-state surface-loss
+coverage remain distinct regression checks.

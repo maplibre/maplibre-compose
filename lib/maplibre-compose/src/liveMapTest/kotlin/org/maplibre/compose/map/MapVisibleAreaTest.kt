@@ -38,45 +38,31 @@ class MapVisibleAreaTest {
   }
 
   @Test
-  fun the_bounding_box_covers_the_region_of_a_rotated_and_tilted_camera(): MapTestResult =
-    runMapTest {
-      createMapFixture().use {
-        it.loadStyle(BaseStyle.Empty)
-        it.awaitMapReady()
-        it.state.setCameraPosition(ROTATED_CAMERA)
-        it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(ROTATED_CAMERA) }
+  fun the_bounding_box_covers_a_proper_rotated_and_tilted_region(): MapTestResult = runMapTest {
+    createMapFixture().use {
+      it.loadStyle(BaseStyle.Empty)
+      it.awaitMapReady()
+      it.state.setCameraPosition(ROTATED_CAMERA)
+      it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(ROTATED_CAMERA) }
 
-        val region = assertNotNull(it.state.getVisibleRegion())
-        val box = assertNotNull(it.state.getVisibleBoundingBox())
-        assertContains(box, region.farLeft, "the far left corner")
-        assertContains(box, region.farRight, "the far right corner")
-        assertContains(box, region.nearLeft, "the near left corner")
-        assertContains(box, region.nearRight, "the near right corner")
-      }
+      val region = assertNotNull(it.state.getVisibleRegion())
+      val box = assertNotNull(it.state.getVisibleBoundingBox())
+      assertContains(box, region.farLeft, "the far left corner")
+      assertContains(box, region.farRight, "the far right corner")
+      assertContains(box, region.nearLeft, "the near left corner")
+      assertContains(box, region.nearRight, "the near right corner")
+      val corners = region.corners()
+      assertTrue(
+        corners.distinct().size == 4,
+        "the corners should be distinct, was $region",
+      )
+      // Tilt widens the far edge relative to the near edge.
+      assertTrue(
+        span(region.farLeft, region.farRight) > span(region.nearLeft, region.nearRight),
+        "the far edge should be wider than the near edge, was $region",
+      )
     }
-
-  @Test
-  fun the_region_of_a_rotated_and_tilted_camera_is_a_proper_quadrilateral(): MapTestResult =
-    runMapTest {
-      createMapFixture().use {
-        it.loadStyle(BaseStyle.Empty)
-        it.awaitMapReady()
-        it.state.setCameraPosition(ROTATED_CAMERA)
-        it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(ROTATED_CAMERA) }
-
-        val region = assertNotNull(it.state.getVisibleRegion())
-        val corners = region.corners()
-        assertTrue(
-          corners.distinct().size == 4,
-          "the corners should be distinct, was $region",
-        )
-        // Tilt widens the far edge relative to the near edge.
-        assertTrue(
-          span(region.farLeft, region.farRight) > span(region.nearLeft, region.nearRight),
-          "the far edge should be wider than the near edge, was $region",
-        )
-      }
-    }
+  }
 
   @Test
   fun the_bounding_box_stays_narrow_across_the_antimeridian(): MapTestResult = runMapTest {
