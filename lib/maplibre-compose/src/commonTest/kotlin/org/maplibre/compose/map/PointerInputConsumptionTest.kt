@@ -6,6 +6,7 @@ import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.PointerInputChange
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import org.maplibre.compose.input.PointerInputConsumption
 
 class PointerInputConsumptionTest {
   @Test

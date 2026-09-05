@@ -1,9 +1,9 @@
-package org.maplibre.compose.map
+package org.maplibre.compose.input
 
 import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerId
 
-/** Main/Final cooperation for the contact group owned by one map input arena. */
+/** Main/Final cooperation for the contact group owned by one input handler. */
 internal class PointerInputConsumption(private val cancel: () -> Unit) {
   private val contacts = mutableSetOf<PointerId>()
   private var suppressed = false
@@ -42,7 +42,7 @@ internal class PointerInputConsumption(private val cancel: () -> Unit) {
     consumedHere = emptySet()
   }
 
-  /** Independent input can take over camera ownership without letting a held contact restart. */
+  /** Independent input can take over input ownership without letting a held contact restart. */
   fun suppress() {
     cancel()
     suppressed = contacts.isNotEmpty()

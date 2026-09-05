@@ -4,6 +4,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.Velocity
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import org.maplibre.compose.input.GestureVelocityTracker
 
 class GestureVelocityTrackerTest {
   @Test

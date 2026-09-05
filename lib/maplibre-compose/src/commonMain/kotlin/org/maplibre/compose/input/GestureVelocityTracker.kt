@@ -1,4 +1,4 @@
-package org.maplibre.compose.map
+package org.maplibre.compose.input
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerInputChange

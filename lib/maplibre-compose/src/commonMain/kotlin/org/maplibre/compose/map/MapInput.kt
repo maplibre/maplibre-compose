@@ -64,6 +64,9 @@ import org.maplibre.compose.generated.Res
 import org.maplibre.compose.generated.map
 import org.maplibre.compose.generated.map_engaged
 import org.maplibre.compose.generated.map_not_engaged
+import org.maplibre.compose.input.GestureVelocityTracker
+import org.maplibre.compose.input.PointerDrag
+import org.maplibre.compose.input.PointerInputConsumption
 import org.maplibre.compose.style.scaledBy
 import org.maplibre.compose.style.systemAnimatorDurationScale
 
@@ -649,6 +652,7 @@ private class MapPointerGesture(
   private var suppressedUntilRelease = false
   private var lastSingle: PointerInputChange? = null
   private var singleDragOrigin: Offset? = null
+  private var dragRecognition: PointerDrag? = null
   private var singleMotion = SingleMotion.NONE
   private val singleVelocity = GestureVelocityTracker()
 
@@ -749,6 +753,7 @@ private class MapPointerGesture(
       selectedDrag =
         options.binding("dragPan").takeIf { it.matches(checkNotNull(dragSample), contact = true) }
       dragStarted = false
+      dragRecognition = selectedDrag?.let { dragRecognizer(change, it) }
       singleMotion = SingleMotion.NONE
       singleVelocity.resetTracking()
       singleVelocity.addPointerInputChange(change)
@@ -779,6 +784,7 @@ private class MapPointerGesture(
     selectedDrag = selectDrag(sample, paired = pressRole == PressRole.Paired)
     dragStarted = false
     quickZoomCandidate = selectedDrag?.id == "quickZoom"
+    dragRecognition = selectedDrag?.let { dragRecognizer(change, it) }
     if (pressRole == PressRole.First) capabilitySnapshot = clicks.capabilities.toSet()
     tapDemand =
       TapFamily.entries.filterTo(mutableSetOf()) { family ->
@@ -893,6 +899,7 @@ private class MapPointerGesture(
   private fun cancelDrag(reason: GestureCancellationReason) {
     if (!dragStarted) return
     dragStarted = false
+    dragRecognition?.finish()
     try {
       dragSample?.let { deliverDrag(DragEvent.Cancel(it, reason)) }
     } finally {
@@ -908,6 +915,15 @@ private class MapPointerGesture(
     )
     suppressedUntilRelease = true
     return false
+  }
+
+  private fun dragRecognizer(change: PointerInputChange, binding: GestureBinding): PointerDrag {
+    val slop =
+      (if (change.type == PointerType.Mouse) binding.settings.mouseStartSlop
+        else binding.settings.startSlop)
+        .value * density.density
+    val vertical = binding.id == "quickZoom"
+    return PointerDrag(change, if (vertical) slop / 2f else slop, vertical)
   }
 
   private fun onSingleDrag(event: PointerEvent, change: PointerInputChange) {
@@ -936,6 +952,7 @@ private class MapPointerGesture(
         gestureToken = null
         gestureInProgress = false
         selectedDrag = next
+        dragRecognition = next?.let { dragRecognizer(change, it) }
         dragSample = sample.copy(gestureId = ids.next())
         singleDragOrigin = change.position
         singleVelocity.resetTracking()
@@ -959,32 +976,26 @@ private class MapPointerGesture(
     if (delta == Offset.Zero) return
     if (change.uptimeMillis < previous.uptimeMillis) {
       singleDragOrigin = change.position
+      dragRecognition?.rebase(change)
       singleVelocity.resetTracking()
       return
     }
+    val motion = dragRecognition?.move(change)
+    if (motion == null) {
+      if (
+        quickZoomCandidate &&
+          abs(change.position.x - checkNotNull(singleDragOrigin).x) >
+            binding.settings.startSlop.value * density.density
+      ) {
+        clickOrigin = null
+        cancelLongClick()
+      }
+      return
+    }
+    delta = motion.delta
     if (!dragStarted) {
       val origin = singleDragOrigin ?: change.position
-      val displacement = change.position - origin
-      val slop =
-        (if (change.type == PointerType.Mouse) binding.settings.mouseStartSlop
-          else binding.settings.startSlop)
-          .value * density.density
-      if (quickZoomCandidate) {
-        if (abs(displacement.y) * 2f < slop) {
-          if (abs(displacement.x) > slop) {
-            clickOrigin = null
-            cancelLongClick()
-          }
-          return
-        }
-        val consumedSlop = kotlin.math.sign(displacement.y) * slop / 2f
-        quickZoomOriginY += consumedSlop
-        delta = Offset(0f, displacement.y - consumedSlop)
-      } else {
-        val distance = displacement.getDistance()
-        if (distance < slop || distance == 0f) return
-        delta = displacement * ((distance - slop) / distance)
-      }
+      if (quickZoomCandidate) quickZoomOriginY += motion.thresholdOffset.y
       clickOrigin = null
       twoFingerTap = null
       deferredTwoFingerVelocity = null
@@ -1167,6 +1178,7 @@ private class MapPointerGesture(
   private fun onRelease(event: PointerEvent) {
     if (dragStarted) {
       dragStarted = false
+      dragRecognition?.finish()
       val sample = event.gestureSample(checkNotNull(dragSample).gestureId, target, density)
       dragSample = sample
       boxZoom.move(sample.screenOffset)
@@ -1218,6 +1230,7 @@ private class MapPointerGesture(
     deferredTwoFingerVelocity = null
     lastSingle = null
     singleDragOrigin = null
+    dragRecognition = null
     singleMotion = SingleMotion.NONE
     clickOrigin = null
     longClickHandled = false
@@ -1605,6 +1618,7 @@ private class MapPointerGesture(
       mode = Mode.NONE
       lastSingle = null
       singleDragOrigin = null
+      dragRecognition = null
       singleMotion = SingleMotion.NONE
       singleVelocity.resetTracking()
       twoFingerTap = null
