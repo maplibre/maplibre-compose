@@ -76,3 +76,12 @@ change, with detail proportional to its complexity.
 
 Use draft status for unfinished work, unresolved decisions, or pending human
 review of generated code.
+
+Draft PRs run Android, JS, Linux x64 desktop, docs, hygiene, and iOS device
+compilation; ready PRs also run iOS simulator, macOS desktop, and Windows x64
+tests. Main and manual runs always include every platform.
+
+For CI, FFI, toolchain, native loading, packaging, or architecture-sensitive
+changes, request every platform (including Linux/Windows ARM64) with
+`gh pr edit <number> --add-label 'ci:full'`. The label also works on drafts and
+persists across pushes; removing it restores the default tier.

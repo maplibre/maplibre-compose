@@ -1,0 +1,42 @@
+[
+  {
+    "runner": "macos-26",
+    "save_toolchains": "false",
+    "artifact_type": "dmg",
+    "artifact_glob": "*",
+    "artifact_name": "demo-app-desktop-macos-arm64",
+    "test_variant": "desktop-macos-arm64"
+  },
+  {
+    "runner": "ubuntu-24.04",
+    "save_toolchains": "false",
+    "artifact_type": "appimage",
+    "artifact_glob": "*.tar",
+    "artifact_name": "demo-app-desktop-linux-x64",
+    "test_variant": "desktop-linux-x64"
+  },
+  {
+    "runner": "ubuntu-24.04-arm",
+    "save_toolchains": "true",
+    "artifact_type": "appimage",
+    "artifact_glob": "*.tar",
+    "artifact_name": "demo-app-desktop-linux-arm64",
+    "test_variant": "desktop-linux-arm64"
+  },
+  {
+    "runner": "windows-2022",
+    "save_toolchains": "true",
+    "artifact_type": "msi",
+    "artifact_glob": "*",
+    "artifact_name": "demo-app-desktop-windows-x64",
+    "test_variant": "desktop-windows-x64"
+  },
+  {
+    "runner": "windows-11-arm",
+    "save_toolchains": "true",
+    "artifact_type": "msi",
+    "artifact_glob": "*",
+    "artifact_name": "demo-app-desktop-windows-arm64",
+    "test_variant": "desktop-windows-arm64"
+  }
+]
