@@ -245,8 +245,6 @@ internal class MlnFfiMapSession(
   internal val loadedStyleIdentity
     get() = styleBinding?.identity
 
-  private var styleLoadPending = false
-
   /**
    * Owner thread only. URL sources whose TileJSON attribution has already been reported, so each is
    * reported exactly once rather than on every idle.
@@ -551,7 +549,6 @@ internal class MlnFfiMapSession(
     styleBinding?.invalidate()
     styleBinding = null
     appliedStyleRequest = null
-    styleLoadPending = false
     styleLoadTracker.engineBecameUnavailable()
     closeRenderSession()
     try {
@@ -772,13 +769,11 @@ internal class MlnFfiMapSession(
       RuntimeEventType.MAP_RENDER_UPDATE_AVAILABLE -> requestRender()
 
       RuntimeEventType.MAP_STYLE_LOADED -> {
-        styleLoadPending = false
         val producer = styleEventProducer?.takeIf { it.engine == engine } ?: return
         val binding = createStyleBinding(engine)
         val trackerRequest = appliedStyleRequest ?: return binding.invalidate()
         if (!styleLoadTracker.loaded(trackerRequest, binding.identity)) {
           binding.invalidate()
-          loop?.map?.let(::applyRequestedStyle)
           return
         }
         val acceptedStyle =
@@ -807,7 +802,6 @@ internal class MlnFfiMapSession(
       }
 
       RuntimeEventType.MAP_LOADING_FAILED -> {
-        styleLoadPending = false
         // The only channel for a URL style's failure; a malformed inline style also throws from the
         // setter.
         val reason = event.styleLoadFailureReason()
@@ -822,8 +816,6 @@ internal class MlnFfiMapSession(
                 postStyleRequestEvent(engine, it.request, mapEvent)
               }
             }
-        } else {
-          loop?.map?.let(::applyRequestedStyle)
         }
       }
 
@@ -938,9 +930,9 @@ internal class MlnFfiMapSession(
     loop?.post(action)
   }
 
-  /** Queues test work on the owner thread without accessing the native map. */
-  internal fun postOwnerTaskForTest(action: () -> Unit): Boolean =
-    loop?.post(action = { action() }) ?: false
+  /** Queues test work on the native map's owner thread. */
+  internal fun postOwnerTaskForTest(action: (MapHandle) -> Unit): Boolean =
+    loop?.post(action = action) ?: false
 
   private suspend fun updateOwnerThreadPresentation(action: () -> Unit) {
     val completion = CompletableDeferred<Result<Unit>>()
@@ -1049,14 +1041,16 @@ internal class MlnFfiMapSession(
     // Disposes the composition holding the old style's sources and layers, which would otherwise
     // fail anchor validation against the base layers being replaced.
     val lifecycleRequest = lifecycleEngineIdentity?.let {
-      lifecycleCallbacks.beginStyleRequest(it, this).also { request ->
-        lifecycleStyleRequestIdentity = request
-      }
+      lifecycleCallbacks.beginStyleRequest(it, this)
     }
+    // Invalidation calls application code. A nested assignment owns the newer request.
+    if (styleLoadTracker.requestId !== trackerRequest || !lifecycle.acceptsWork) return
+    if (lifecycleRequest != null) lifecycleStyleRequestIdentity = lifecycleRequest
     lifecycleStyleIdentity = null
     val load = RequestedStyleLoad(style, trackerRequest, lifecycleRequest)
     requestedStyleLoad = load
-    onMap { applyRequestedStyle(it, load) }
+    // Wake the owner loop, but do not replace native until its preceding events are handled.
+    onMap {}
   }
 
   override suspend fun reconcileStyleRevision(revision: DesiredStyleRevision) {
@@ -1105,7 +1099,7 @@ internal class MlnFfiMapSession(
   private fun applyRequestedStyle(map: MapHandle, load: RequestedStyleLoad) {
     if (load !== requestedStyleLoad) return
     val style = load.style
-    if (styleLoadPending) return
+    if (!lifecycle.acceptsWork) return
     val engine = lifecycleEngineIdentity ?: return
     val lifecycleRequest = load.lifecycleRequest ?: lifecycleStyleRequestIdentity ?: return
     if (load.lifecycleRequest != null && load.lifecycleRequest != lifecycleStyleRequestIdentity) {
@@ -1114,19 +1108,27 @@ internal class MlnFfiMapSession(
     val request = styleLoadTracker.requestId
     if (load.trackerRequest != request || appliedStyleRequest == request) return
     appliedStyleRequest = request
-    styleLoadPending = true
-    // Replacing the native style disconnects the preceding style event producer. The runtime loop
-    // serializes this command with its event callback, so later events belong to this producer.
+    // Only bootstrap and the end of an event drain may replace this producer. Native retires the
+    // old document request in the setter; its queued response cannot run after that retirement.
     styleEventProducer = StyleEventProducer(engine, lifecycleRequest)
-    // setStyleJson parses inline, so a malformed style throws as well as queueing
-    // MAP_LOADING_FAILED; the queued event is what reports it.
+    // A malformed JSON document queues a failure and throws. Argument rejection can throw before
+    // native retires the old document, with no event. Report either once and disconnect its
+    // producer.
     try {
       when (style) {
         is BaseStyle.Uri -> map.setStyleUrl(style.uri)
         is BaseStyle.Json -> map.setStyleJson(style.json.encodeToByteArray())
       }
     } catch (error: MaplibreException) {
-      logger?.e(error) { "Failed to apply style $style" }
+      styleEventProducer = null
+      val reason = error.message ?: "Failed to apply the base style"
+      if (
+        styleLoadTracker.failed(request) &&
+          lifecycleCallbacks.onStyleFailed(engine, lifecycleRequest, this, reason)
+      ) {
+        logger?.e(error) { "Failed to apply style $style" }
+        postStyleRequestEvent(engine, lifecycleRequest, MapEvent.StyleLoadFailed(reason))
+      }
     }
   }
 
@@ -1645,12 +1647,16 @@ internal class MlnFfiMapSession(
   }
 
   private fun onEventsDrained(engine: EngineMapIdentity, map: MapHandle) {
-    val lease = ownerThreadRenderLease ?: return
-    lifecycleCallbacks.onPresentationEvent(engine, lease) {
-      snapshotViewport(map)
-      finishPendingGesture(map)
-      flushTransitionResumes()
+    ownerThreadRenderLease?.let { lease ->
+      lifecycleCallbacks.onPresentationEvent(engine, lease) {
+        snapshotViewport(map)
+        finishPendingGesture(map)
+        flushTransitionResumes()
+      }
     }
+    // Apply once per drain, including while detached. Events already in this batch belong to the
+    // preceding producer; setters requested by callbacks cannot change their attribution midway.
+    applyRequestedStyle(map)
   }
 
   /**

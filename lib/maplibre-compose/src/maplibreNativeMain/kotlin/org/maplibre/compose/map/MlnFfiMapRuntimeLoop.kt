@@ -281,15 +281,9 @@ internal class MlnFfiMapRuntimeLoop(
     }
 
   private fun drainEvents(runtime: RuntimeHandle, map: MapHandle) {
-    val events =
-      try {
-        runtime.drainEvents().events
-      } catch (error: Throwable) {
-        // drainEvents is not a pure read; on MAP_STYLE_LOADED it calls into the map, so it can
-        // throw from the map rather than the runtime.
-        logger?.e(error) { "Failed to drain MapLibre runtime events" }
-        emptyList()
-      }
+    // A failed drain must stop the loop: continuing could hand an undelivered style event to the
+    // producer installed by onEventsDrained. The outer failure path owns shutdown and cleanup.
+    val events = runtime.drainEvents().events
     for (event in events) {
       if (event.mapSource != null && event.mapSource !== map) continue
       runCatching { onEvent(event) }
