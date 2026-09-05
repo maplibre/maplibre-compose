@@ -12,6 +12,7 @@ android {
     minSdk = libs.versions.android.minSdk.get().toInt()
     compileSdk = libs.versions.android.compileSdk.get().toInt()
     targetSdk = libs.versions.android.targetSdk.get().toInt()
+    ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64") }
     versionCode = 1
     versionName = project.version.toString()
   }
