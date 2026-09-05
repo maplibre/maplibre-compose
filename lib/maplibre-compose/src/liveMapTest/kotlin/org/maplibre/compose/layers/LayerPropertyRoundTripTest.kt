@@ -193,7 +193,7 @@ class LayerPropertyRoundTripTest {
       val layer = BackgroundLayer("timed")
       layer.setBackgroundColor(const(Color.Blue).c())
       layer.setBackgroundColorTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
-      val installation = LayerInstallation(style, layer.definition(), beforeLayerId = "")
+      val installation = LayerInstallation(style, layer.definition(), beforeLayerId = "", scale)
 
       val written = assertNotNull(style.layerProperty("timed", "background-color-transition"))
       assertTrue(
@@ -202,7 +202,7 @@ class LayerPropertyRoundTripTest {
       )
 
       layer.setBackgroundColorTransition(null)
-      installation.update(layer.definition())
+      installation.update(layer.definition(), scale)
 
       val cleared = style.layerProperty("timed", "background-color-transition")
       assertNull((cleared as? JsonObject)?.get("duration"), "clearing must drop the timing")
@@ -243,12 +243,12 @@ class LayerPropertyRoundTripTest {
     val path = if (attachFirst) "after attach" else "before attach"
     try {
       if (attachFirst) {
-        val handle = LayerInstallation(style, layer.definition(), beforeLayerId = "")
+        val handle = LayerInstallation(style, layer.definition(), beforeLayerId = "", scale)
         case.apply(layer)
-        handle.update(layer.definition())
+        handle.update(layer.definition(), scale)
       } else {
         case.apply(layer)
-        LayerInstallation(style, layer.definition(), beforeLayerId = "")
+        LayerInstallation(style, layer.definition(), beforeLayerId = "", scale)
       }
     } catch (error: Throwable) {
       return listOf("${case.property} $path: MapLibre refused it: ${error.message}")
@@ -801,7 +801,13 @@ class LayerPropertyRoundTripTest {
  * The engine JSON for a written transition: the timing under the platform's animator duration
  * scale.
  */
+/**
+ * The scale a reconciler passes to an installation; the direct installations here pass the same.
+ */
+private val scale: Float
+  get() = systemAnimatorDurationScale()
+
 private fun scaledTransitionJson(durationMs: Double, delayMs: Double): String {
-  val scale = systemAnimatorDurationScale().toDouble()
+  val scale = scale.toDouble()
   return """{"duration":${durationMs * scale},"delay":${delayMs * scale}}"""
 }
