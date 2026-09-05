@@ -214,9 +214,7 @@ internal class DbusLocationPortal(private val window: XdgPortalWindow? = null) :
     }
   }
 
-  // No distance-threshold: GeoClue emits nothing, not even the first measurement, when the position
-  // has
-  // not moved that far, and a GeoIP-located desktop never moves.
+  // A distance threshold suppresses even the first update for stationary GeoIP locations.
   private fun sessionOptions(request: LocationRequest): Map<String, Variant<*>> =
     mapOf(
       "session_handle_token" to Variant(newToken()),

@@ -33,24 +33,18 @@ public class WindowsLocationBackend : DesktopLocationBackend {
 }
 
 /**
- * A [LocationProvider] backed by `Windows.Devices.Geolocation.Geolocator`.
+ * Foreground location from Windows geolocation.
  *
- * Each [updates] collector owns an independent `Geolocator`. The provider configures its scalar
- * desired accuracy to 1, 10, 100, 1,000, or 5,000 meters from [LocationAccuracy.BestForNavigation]
- * through [LocationAccuracy.Lowest], configures `ReportInterval`, and also enforces
- * [LocationRequest.minimumInterval] and [LocationRequest.minimumDistance] before delivery. The
- * first valid measurement is always delivered. Cancelling collection removes both native event
- * handlers and releases the geolocator.
+ * Requests accuracy of 1, 10, 100, 1,000, or 5,000 meters for [LocationAccuracy.BestForNavigation]
+ * through [LocationAccuracy.Lowest]. Applies [LocationRequest.minimumInterval] and
+ * [LocationRequest.minimumDistance] after the first valid measurement.
  *
- * `Initializing`, `NoData`, and `NotInitialized` report
- * [LocationUnavailableReason.TemporarilyUnavailable]. `Disabled` reports
- * [LocationUnavailableReason.PermissionDenied] when access is denied and
- * [LocationUnavailableReason.ServicesDisabled] when access remains granted. `NotAvailable` reports
- * [LocationUnavailableReason.Unsupported]. Unexpected native failures report
+ * An initializing service or missing data reports
+ * [LocationUnavailableReason.TemporarilyUnavailable]. A disabled service reports
+ * [LocationUnavailableReason.PermissionDenied] when access is denied, and
+ * [LocationUnavailableReason.ServicesDisabled] otherwise. Unavailable hardware reports
+ * [LocationUnavailableReason.Unsupported]. Other failures report
  * [LocationUnavailableReason.UnexpectedFailure].
- *
- * Ordinary Windows Runtime calls run in a dedicated multithreaded apartment. Permission requests
- * start on the AWT event-dispatch thread because Windows requires a foreground UI-thread request.
  */
 public class WindowsLocationProvider
 internal constructor(private val client: WindowsLocationClient) : DesktopLocationProvider {
