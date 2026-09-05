@@ -14,7 +14,7 @@ import org.maplibre.spatialk.geojson.Position
 object Manhattan3dDemo : Demo {
   override val name = "3D Manhattan"
   override val description = "Liberty's building extrusions pitched over the financial district."
-  override val preferredStyle = OpenFreeMap.Liberty
+  override val preferredLightStyle = OpenFreeMap.Liberty
 
   private val offlineRegion =
     BoundingBox(west = -74.020, south = 40.700, east = -73.993, north = 40.722)
@@ -34,7 +34,7 @@ object Manhattan3dDemo : Demo {
   override fun Panel(state: DemoAppState) {
     OfflineRegionSection(
       region = offlineRegion,
-      styleUrl = preferredStyle.base.uri,
+      styleUrl = preferredLightStyle.base.uri,
       packName = name,
     )
   }

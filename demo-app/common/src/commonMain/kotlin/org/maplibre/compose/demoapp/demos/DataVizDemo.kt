@@ -9,7 +9,7 @@ import androidx.compose.ui.unit.dp
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
-import org.maplibre.compose.demoapp.OpenFreeMap
+import org.maplibre.compose.demoapp.Protomaps
 import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.expressions.dsl.asNumber
 import org.maplibre.compose.expressions.dsl.const
@@ -30,7 +30,8 @@ import org.maplibre.spatialk.geojson.BoundingBox
 object DataVizDemo : Demo {
   override val name = "Data visualization"
   override val description = "A month of earthquakes as points, a heatmap, or clusters."
-  override val preferredStyle = OpenFreeMap.Positron
+  override val preferredLightStyle = Protomaps.Light
+  override val preferredDarkStyle = Protomaps.Dark
 
   // These bounds cross the antimeridian and frame the Pacific Ring of Fire.
   override val destination =
@@ -121,7 +122,7 @@ object DataVizDemo : Demo {
       source = source,
       filter = feature.has("point_count"),
       textField = feature["point_count_abbreviated"].convertToString(),
-      textFont = const(preferredStyle.textFont),
+      textFont = const(preferredLightStyle.textFont),
       textColor = const(Color.Black),
     )
 
