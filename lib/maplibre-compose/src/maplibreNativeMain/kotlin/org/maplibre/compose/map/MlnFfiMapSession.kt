@@ -9,9 +9,7 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
-import kotlin.concurrent.atomics.AtomicLong
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.math.PI
@@ -237,7 +235,7 @@ internal class MlnFfiMapSession(
   private var appliedStyleRequest: StyleRequestId? = null
 
   /** Gesture attribution is owner-thread state; input threads communicate only through tokens. */
-  private val nextGestureToken = AtomicLong(0L)
+  private val gestureFences = mutableListOf<GestureToken>()
   private var activeGestureToken: GestureToken? = null
   private var pendingGestureEndToken: GestureToken? = null
 
@@ -496,6 +494,7 @@ internal class MlnFfiMapSession(
     }
     abandoned.forEach { it.abandon() }
     resumeStrandedTransitions()
+    gestureFences.toList().also { gestureFences.clear() }.forEach { it.complete() }
   }
 
   private fun closePlatform() {
@@ -564,8 +563,10 @@ internal class MlnFfiMapSession(
       stopping?.close()
     } finally {
       // After the join, so the owner thread is gone and this is the only reader of that state.
+      activeGestureToken?.complete()
       activeGestureToken = null
       pendingGestureEndToken = null
+      gestureFences.toList().also { gestureFences.clear() }.forEach { it.complete() }
       resumeStrandedTransitions()
     }
   }
@@ -1019,10 +1020,12 @@ internal class MlnFfiMapSession(
     }
   }
 
-  private fun recordCamera(position: CameraPosition) {
+  private fun recordCamera(position: CameraPosition, guard: CameraCommandGuard?) {
+    if (guard?.isValid() == false) return
     requestedCamera = position
     val padding = cameraPadding
     configureMap { map ->
+      if (guard?.isValid() == false) return@configureMap
       map.jumpTo(position.toCameraOptions(padding))
       snapshotViewport(map)
     }
@@ -1225,8 +1228,8 @@ internal class MlnFfiMapSession(
 
   override fun getCameraPosition(): CameraPosition = mirroredViewport.camera
 
-  override fun setCameraPosition(cameraPosition: CameraPosition) {
-    recordCamera(cameraPosition)
+  override fun setCameraPosition(cameraPosition: CameraPosition, guard: CameraCommandGuard?) {
+    recordCamera(cameraPosition, guard)
   }
 
   override fun setCameraPadding(padding: PaddingValues) {
@@ -1245,8 +1248,11 @@ internal class MlnFfiMapSession(
     bearing: Double,
     tilt: Double,
     padding: PaddingValues,
+    guard: CameraCommandGuard?,
   ) {
-    val fit: (MapHandle) -> Unit = { map ->
+    if (guard?.isValid() == false) return
+    val fit: (MapHandle) -> Unit = fit@{ map ->
+      if (guard?.isValid() == false) return@fit
       map.jumpTo(cameraForBounds(map, boundingBox, bearing, tilt, padding))
       snapshotViewport(map)
     }
@@ -1304,9 +1310,13 @@ internal class MlnFfiMapSession(
       right = right + other.right,
     )
 
-  override suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration) {
+  override suspend fun animateCameraPosition(
+    finalPosition: CameraPosition,
+    duration: Duration,
+    guard: CameraCommandGuard?,
+  ) {
     val padding = cameraPadding
-    startTransitionAwaitingRelease(duration) { map, animation ->
+    startTransitionAwaitingRelease(duration, guard = guard) { map, animation ->
       map.flyTo(finalPosition.toCameraOptions(padding), animation)
     }
   }
@@ -1317,11 +1327,12 @@ internal class MlnFfiMapSession(
     tilt: Double,
     padding: PaddingValues,
     duration: Duration,
+    guard: CameraCommandGuard?,
   ) {
     check(stateLock.withLock { hasAttachedViewport }) {
       "A bounds animation requires the current presentation viewport"
     }
-    startTransitionAwaitingRelease(duration) { map, animation ->
+    startTransitionAwaitingRelease(duration, guard = guard) { map, animation ->
       map.flyTo(cameraForBounds(map, boundingBox, bearing, tilt, padding), animation)
     }
   }
@@ -1329,14 +1340,32 @@ internal class MlnFfiMapSession(
   /** Resumes normally however the transition ended. */
   private suspend fun startTransitionAwaitingRelease(
     duration: Duration,
+    gestureToken: GestureToken? = null,
+    guard: CameraCommandGuard? = null,
     start: (MapHandle, AnimationOptions) -> Unit,
   ): Unit = suspendCancellableCoroutine { continuation ->
-    val queued =
-      postWhenMapExists(
-        { map -> startTransitionOnMap(map, duration, start, continuation) },
-        { if (continuation.isActive) continuation.resume(Unit) },
-      )
-    if (!queued && continuation.isActive) continuation.resume(Unit)
+    val enqueue = {
+      val queued =
+        postWhenMapExists(
+          { map ->
+            if (
+              gestureToken?.canExecute != false &&
+                guard?.isValid() != false &&
+                continuation.isActive
+            ) {
+              gestureToken?.let { activateGesture(map, it) }
+              if (gestureToken?.canExecute != false && guard?.isValid() != false)
+                startTransitionOnMap(map, duration, start, continuation)
+              else if (continuation.isActive) continuation.resume(Unit)
+            } else if (continuation.isActive) continuation.resume(Unit)
+          },
+          { if (continuation.isActive) continuation.resume(Unit) },
+        )
+      if (!queued && continuation.isActive) continuation.resume(Unit)
+    }
+    if (guard?.isValid() == false || gestureToken != null && !gestureToken.enqueue(enqueue)) {
+      if (continuation.isActive) continuation.resume(Unit)
+    } else if (gestureToken == null) enqueue()
   }
 
   /** Owner thread only. */
@@ -1469,11 +1498,6 @@ internal class MlnFfiMapSession(
     }
   }
 
-  override fun setGestureSettings(value: GestureOptions) {
-    // Gestures are implemented in Compose, so these options are read by the host's input
-    // handling rather than pushed into the map.
-  }
-
   override fun setTileLodSettings(value: TileLodOptions) {
     if (value == tileLodOptions) return
     tileLodOptions = value
@@ -1527,6 +1551,24 @@ internal class MlnFfiMapSession(
 
   override fun positionFromScreenLocation(offset: DpOffset): Position? = withSnapshotProjection {
     it.latLngForPixel(offset.toScreenPoint()).toPosition()
+  }
+
+  override fun boxZoomFit(rect: DpRect): BoxZoomFit? = withSnapshotProjection { projection ->
+    boxZoomFit(rect, mirroredViewport.camera) {
+      projection.latLngForPixel(it.toScreenPoint()).toPosition()
+    }
+  }
+
+  override suspend fun fitBoundsAwaitingTransition(
+    fit: BoxZoomFit,
+    duration: Duration,
+    gestureToken: GestureToken,
+  ) {
+    if (!acceptsGestures) return
+    startTransitionAwaitingRelease(duration, gestureToken = gestureToken) { map, animation ->
+      val camera = cameraForBounds(map, fit.bounds, fit.bearing, fit.tilt, PaddingValues())
+      map.easeTo(camera, animation)
+    }
   }
 
   override fun screenLocationFromPosition(position: Position): DpOffset? = withSnapshotProjection {
@@ -1610,11 +1652,48 @@ internal class MlnFfiMapSession(
   // region input, called from Compose
 
   /** The begin is queued with the gesture's first camera command. */
-  override fun onGestureStarted(): GestureToken = GestureToken(nextGestureToken.incrementAndFetch())
+  override val isGestureReady: Boolean
+    get() =
+      canPresentFrames &&
+        loop != null &&
+        loop?.failure == null &&
+        stateLock.withLock { hasAttachedViewport }
 
-  /** Applied only once the events produced by all preceding camera work have been drained. */
-  override fun onGestureEnded(token: GestureToken) {
-    loop?.post(action = { if (activeGestureToken == token) pendingGestureEndToken = token })
+  override fun observeInput(): Long = lifecycleAuthority.gestureCamera.observeInput()
+
+  override val inputGeneration: Long
+    get() = lifecycleAuthority.gestureCamera.generation
+
+  override fun onGestureStartedIfCurrent(generation: Long): GestureToken? =
+    lifecycleAuthority.gestureCamera.acquireIfCurrent(this, generation)
+
+  override fun onGestureStarted(): GestureToken = lifecycleAuthority.gestureCamera.acquire(this)
+
+  override fun onGestureEnded(token: GestureToken) = finishGesture(token, cancelled = false)
+
+  override fun cancelGesture(token: GestureToken) = finishGesture(token, cancelled = true)
+
+  override suspend fun awaitGestureEnded(token: GestureToken) {
+    token.completion.await()
+  }
+
+  private fun finishGesture(token: GestureToken, cancelled: Boolean) {
+    token.finish(cancelled) {
+      val accepted =
+        loop?.postAndDrainEvents(
+          action = { map ->
+            if (activeGestureToken === token) {
+              if (token.isCancelled) map.cancelTransitions()
+              pendingGestureEndToken = token
+            }
+            gestureFences += token
+            // Without a lease, onEventsDrained does not publish camera observations.
+            if (ownerThreadRenderLease == null) finishPendingGesture(map)
+          },
+          abandon = { token.complete() },
+        ) ?: false
+      if (!accepted) token.complete()
+    }
   }
 
   /**
@@ -1623,8 +1702,9 @@ internal class MlnFfiMapSession(
    */
   private fun activateGesture(map: MapHandle, token: GestureToken) {
     val active = activeGestureToken
-    if (active != null && token.value < active.value) return
+    if (!token.canExecute) return
     if (active != token) {
+      map.cancelTransitions()
       activeGestureToken = token
       pendingGestureEndToken = null
       map.isGestureInProgress = true
@@ -1634,12 +1714,16 @@ internal class MlnFfiMapSession(
 
   /** Runs once the runtime event queue is momentarily empty. Owner thread only. */
   private fun finishPendingGesture(map: MapHandle) {
-    val token = pendingGestureEndToken ?: return
+    val token = pendingGestureEndToken
     pendingGestureEndToken = null
-    if (activeGestureToken != token) return
-    activeGestureToken = null
-    map.isGestureInProgress = false
-    reportGestureActive(false)
+    if (token != null && activeGestureToken === token) {
+      activeGestureToken = null
+      map.isGestureInProgress = false
+      reportGestureActive(false)
+    }
+    val completing = gestureFences.toList()
+    gestureFences.clear()
+    completing.forEach { it.complete() }
   }
 
   /**
@@ -1653,12 +1737,12 @@ internal class MlnFfiMapSession(
   }
 
   private fun onEventsDrained(engine: EngineMapIdentity, map: MapHandle) {
-    val lease = ownerThreadRenderLease ?: return
-    lifecycleCallbacks.onPresentationEvent(engine, lease) {
-      snapshotViewport(map)
-      finishPendingGesture(map)
-      flushTransitionResumes()
+    ownerThreadRenderLease?.let { lease ->
+      lifecycleCallbacks.onPresentationEvent(engine, lease) { snapshotViewport(map) }
     }
+    // A detached presentation cannot publish events, but accepted command fences still finish.
+    finishPendingGesture(map)
+    flushTransitionResumes()
   }
 
   /**
@@ -1670,10 +1754,15 @@ internal class MlnFfiMapSession(
 
   private fun onMap(gestureToken: GestureToken?, action: (MapHandle) -> Unit) {
     if (!acceptsGestures) return
-    onMap { map ->
-      gestureToken?.let { activateGesture(map, it) }
-      action(map)
+    val enqueue = {
+      onMap { map ->
+        if (acceptsGestures && gestureToken?.canExecute != false) {
+          gestureToken?.let { activateGesture(map, it) }
+          if (gestureToken?.canExecute != false) action(map)
+        }
+      }
     }
+    if (gestureToken == null) enqueue() else gestureToken.enqueue(enqueue)
   }
 
   /** A zero [duration] is a jump, which is what a drag wants; a key press eases instead. */
@@ -1696,8 +1785,7 @@ internal class MlnFfiMapSession(
     gestureToken: GestureToken,
   ) {
     if (!acceptsGestures) return
-    startTransitionAwaitingRelease(duration) { map, animation ->
-      activateGesture(map, gestureToken)
+    startTransitionAwaitingRelease(duration, gestureToken = gestureToken) { map, animation ->
       map.moveByAnimated(deltaX, deltaY, animation)
     }
   }
@@ -1722,8 +1810,7 @@ internal class MlnFfiMapSession(
     gestureToken: GestureToken,
   ) {
     if (!acceptsGestures) return
-    startTransitionAwaitingRelease(duration) { map, animation ->
-      activateGesture(map, gestureToken)
+    startTransitionAwaitingRelease(duration, gestureToken = gestureToken) { map, animation ->
       map.scaleByAnimated(scale, anchor?.toScreenPoint(), animation)
     }
   }
@@ -1762,13 +1849,14 @@ internal class MlnFfiMapSession(
     pitchDelta: Double,
     duration: Duration,
     gestureToken: GestureToken,
+    anchor: DpOffset?,
   ) {
     if (!acceptsGestures) return
-    startTransitionAwaitingRelease(duration) { map, animation ->
-      activateGesture(map, gestureToken)
+    startTransitionAwaitingRelease(duration, gestureToken = gestureToken) { map, animation ->
       val camera = map.camera
       map.easeTo(
         CameraOptions().also {
+          it.anchor = anchor?.toScreenPoint()
           it.bearing = (camera.bearing ?: 0.0) + bearingDelta
           it.pitch =
             ((camera.pitch ?: 0.0) + pitchDelta).coerceIn(MIN_PITCH_DEGREES, MAX_PITCH_DEGREES)

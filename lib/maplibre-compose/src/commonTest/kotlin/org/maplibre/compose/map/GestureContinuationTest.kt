@@ -2,7 +2,6 @@ package org.maplibre.compose.map
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
@@ -24,20 +23,21 @@ class GestureContinuationTest {
   }
 
   @Test
-  fun resume_cancels_the_hold_and_returns_the_open_token() = runTest {
+  fun finish_cancels_the_hold_and_closes_the_token_once() = runTest {
     val continuation = GestureContinuation(backgroundScope)
     val ended = mutableListOf<Long>()
     val token = GestureToken(1)
     continuation.finishAfter(this, 200.milliseconds, token) { ended += it.value }
-    assertEquals(1L, continuation.resume()?.value)
+    continuation.finish { ended += it.value }
+    assertEquals(listOf(1L), ended)
     testScheduler.advanceTimeBy(500)
     testScheduler.runCurrent()
-    assertEquals(emptyList(), ended)
+    assertEquals(listOf(1L), ended)
   }
 
   @Test
-  fun resume_returns_null_when_no_hold_is_open() = runTest {
+  fun finish_without_pending_work_does_not_close_a_token() = runTest {
     val continuation = GestureContinuation(backgroundScope)
-    assertNull(continuation.resume())
+    continuation.finish { error("there is no token to close") }
   }
 }

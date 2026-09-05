@@ -73,7 +73,11 @@ internal class MlnFfiMapRuntimeLoop(
     get() = getLogger()
 
   /** Work for the owner thread; [OwnerTask.abandon] runs instead if it never gets to run. */
-  private class OwnerTask(val run: (MapHandle) -> Unit, val abandon: () -> Unit)
+  private class OwnerTask(
+    val run: (MapHandle) -> Unit,
+    val abandon: () -> Unit,
+    val drainAfter: Boolean,
+  )
 
   private class DrainBarrier(val run: () -> Unit, val abandon: () -> Unit)
 
@@ -176,13 +180,21 @@ internal class MlnFfiMapRuntimeLoop(
   fun post(action: (MapHandle) -> Unit, abandon: () -> Unit = {}): Boolean =
     submit(run = action, abandon = abandon)
 
+  /** Drains this action's events before executing later queued work. */
+  fun postAndDrainEvents(action: (MapHandle) -> Unit, abandon: () -> Unit = {}): Boolean =
+    submit(run = action, abandon = abandon, drainAfter = true)
+
   /** Queues a callback that runs after the next native pump and event drain. */
   fun postEventDrainBarrier(action: () -> Unit, abandon: () -> Unit = {}): Boolean =
     post(action = { eventDrainBarriers += DrainBarrier(action, abandon) }, abandon = abandon)
 
-  private fun submit(run: (MapHandle) -> Unit, abandon: () -> Unit): Boolean = acceptLock.withLock {
+  private fun submit(
+    run: (MapHandle) -> Unit,
+    abandon: () -> Unit,
+    drainAfter: Boolean = false,
+  ): Boolean = acceptLock.withLock {
     if (!accepting) return false
-    tasks.add(OwnerTask(run, abandon))
+    tasks.add(OwnerTask(run, abandon, drainAfter))
     // Signalled under the lock so it cannot race the source's close, which would throw.
     wake?.signal()
     true
@@ -314,6 +326,7 @@ internal class MlnFfiMapRuntimeLoop(
       } catch (error: Throwable) {
         logger?.e(error) { "A map owner-thread task failed" }
       }
+      if (task.drainAfter) break
     }
     return ran
   }

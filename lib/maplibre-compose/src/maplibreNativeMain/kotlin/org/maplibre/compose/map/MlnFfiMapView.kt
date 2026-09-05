@@ -45,7 +45,7 @@ internal fun MlnFfiMapView(
   onReset: () -> Unit,
   logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
-  clicks: MapClickTarget,
+  clicks: MapInteractionTarget,
   options: MapViewOptions,
 ) {
   val density = LocalDensity.current
@@ -91,7 +91,7 @@ internal fun MlnFfiMapView(
   onReset: () -> Unit,
   logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
-  clicks: MapClickTarget,
+  clicks: MapInteractionTarget,
   options: MapViewOptions,
 ) {
   val applicationOptions = state.runtime.nativeRuntimeOptions
@@ -182,7 +182,7 @@ internal fun MlnFfiMapView(
     modifier.mapInput(
       session,
       clicks,
-      options.gestureOptions,
+      options.gestures,
       density,
       focusRequester,
       inputFocus,

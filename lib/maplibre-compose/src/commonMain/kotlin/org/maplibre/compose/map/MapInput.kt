@@ -3,12 +3,18 @@ package org.maplibre.compose.map
 import androidx.compose.foundation.Indication
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.interaction.FocusInteraction
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
@@ -17,23 +23,23 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEvent
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.isCtrlPressed
 import androidx.compose.ui.input.pointer.isSecondaryPressed
-import androidx.compose.ui.input.pointer.isShiftPressed
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.util.VelocityTracker
-import androidx.compose.ui.input.pointer.util.addPointerInputChange
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -42,10 +48,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import kotlin.math.PI
 import kotlin.math.abs
-import kotlin.math.atan2
-import kotlin.math.hypot
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.time.Duration
@@ -53,6 +56,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
@@ -67,14 +71,15 @@ import org.maplibre.compose.style.systemAnimatorDurationScale
  * Neither backend owns platform gestures: MapLibre Native declines to, and GL JS is composited
  * under Compose where its own DOM handlers never fire.
  *
- * The map is a focus target while a key or rotary binding needs one, and the key handler exists
- * only while a keyboard gesture is enabled. [rotaryNotchPixels] is the scroll distance of one
- * rotary detent; zero disables rotary zoom.
+ * The map is a focus target while key or rotary bindings need one. Releases of previously claimed
+ * keys remain handled when their bindings are disabled. [rotaryNotchPixels] is the scroll distance
+ * of one rotary detent; zero disables rotary zoom.
  */
+@Composable
 internal fun Modifier.mapInput(
   target: GestureTarget,
-  clicks: MapClickTarget,
-  options: GestureOptions,
+  clicks: MapInteractionTarget,
+  options: MapGestures,
   density: Density,
   focusRequester: FocusRequester,
   focus: MapInputFocus,
@@ -84,25 +89,62 @@ internal fun Modifier.mapInput(
 ): Modifier {
   // The semantics block observes no snapshot state, so engagement is read here.
   val engaged = focus.isEngaged
+  val currentOptions = rememberUpdatedState(options)
+  val pointerOptions = key(options.structuralKey) { rememberUpdatedState(options) }
+  val ids = remember(target) { GestureIds() }
+  val boxZoom = remember(target) { BoxZoomPreview() }
+  val platformRouting = remember(target) { PlatformTransformRouting() }
+  val inputScope = rememberCoroutineScope()
+  val rotaryInput =
+    remember(target, options.structuralKey, rotaryNotchPixels, continuation) {
+      MapRotaryGesture(
+        target,
+        { currentOptions.value.keyBindings.rotary },
+        ids,
+        rotaryNotchPixels,
+        inputScope,
+        continuation,
+      )
+    }
+  DisposableEffect(rotaryInput) { onDispose { rotaryInput.cancel() } }
+  SideEffect { continuation.configure(options.structuralKey, target) }
   val keys = options.hasKeyboardGesture
-  val rotary = options.isScrollZoomEnabled && rotaryNotchPixels > 0f
+  val rotary =
+    options.keyBindings.rotary.enabled && rotaryNotchPixels > 0f && rotaryNotchPixels.isFinite()
+  focus.configure(options.structuralKey)
   focus.hasKeyBindings = keys
   return this.semantics {
       contentDescription = environment.contentDescription
       stateDescription = if (engaged) environment.engaged else environment.notEngaged
     }
     // Key and rotary events reach the focused node, so these precede the focus target in the chain.
-    .then(if (keys) Modifier.keyboardInput(target, options, focus, continuation) else Modifier)
-    .rotaryZoom(target, options, rotaryNotchPixels, continuation)
-    .onFocusChanged { focus.onFocusChanged(it.isFocused) }
+    .keyboardInput(target, options, focus, continuation, ids)
+    .onRotaryScrollEvent(rotaryInput::onEvent)
+    .onFocusChanged {
+      focus.onFocusChanged(it.isFocused)
+      if (!it.isFocused) rotaryInput.cancel()
+    }
     .focusRequester(focusRequester)
-    .focusable(enabled = keys || rotary)
-    .pointerGestures(target, clicks, options, density, focusRequester, focus, continuation)
-    .scrollZoom(target, options, density, continuation)
+    .focusable(enabled = keys || rotary || focus.claimedKeys.isNotEmpty())
+    .drawBoxZoom(boxZoom)
+    .pointerGestures(
+      target,
+      clicks,
+      options,
+      { pointerOptions.value },
+      { currentOptions.value.structuralKey },
+      density,
+      focusRequester,
+      focus,
+      continuation,
+      ids,
+      boxZoom,
+      platformRouting,
+    )
 }
 
-private val GestureOptions.hasKeyboardGesture: Boolean
-  get() = isKeyboardPanEnabled || isKeyboardZoomEnabled || isKeyboardRotateTiltEnabled
+private val MapGestures.hasKeyboardGesture: Boolean
+  get() = keyBindings.hasCameraBindings
 
 /** The composition locals that one [mapInput] node reads, resolved where the node is composed. */
 internal class MapInputEnvironment(
@@ -137,8 +179,15 @@ internal class MapInputFocus(private val onChanged: (engaged: Boolean) -> Unit) 
    */
   val indicationInteractions = MutableInteractionSource()
 
-  /** Keys whose press the node consumed and whose release it still owes. */
-  val claimedKeys = mutableSetOf<Key>()
+  /** Claimed keys; false retains only consumption until release after configuration changes. */
+  val claimedKeys = mutableStateMapOf<Key, Boolean>()
+  private var structuralKey: Any? = null
+
+  fun configure(key: Any) {
+    if (structuralKey == key) return
+    structuralKey = key
+    claimedKeys.keys.toList().forEach { claimedKeys[it] = false }
+  }
 
   /** Engagement belongs to the key handler, so a map without one never engages or stays engaged. */
   var hasKeyBindings = false
@@ -203,212 +252,414 @@ internal class MapInputFocus(private val onChanged: (engaged: Boolean) -> Unit) 
 
 private fun Modifier.keyboardInput(
   target: GestureTarget,
-  options: GestureOptions,
+  options: MapGestures,
   focus: MapInputFocus,
   continuation: GestureContinuation,
+  ids: GestureIds,
 ): Modifier = onKeyEvent { event ->
-  // A host that acts on the release of a key the map claimed, such as a dialog closing on Escape,
-  // must not see that release.
-  if (event.type == KeyEventType.KeyUp) return@onKeyEvent focus.claimedKeys.remove(event.key)
+  if (event.type == KeyEventType.KeyUp)
+    return@onKeyEvent focus.claimedKeys.remove(event.key) != null
   if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
-  // A held key repeats its press. A repeated camera key moves the camera again; a repeated
-  // engagement key stays claimed until its release.
+  if (focus.claimedKeys[event.key] == false) return@onKeyEvent true
+  if (!options.keyBindings.hasCameraBindings) return@onKeyEvent false
+  val modifiers = buildSet {
+    if (event.isShiftPressed) add(KeyModifier.Shift)
+    if (event.isCtrlPressed) add(KeyModifier.Ctrl)
+    if (event.isAltPressed) add(KeyModifier.Alt)
+    if (event.isMetaPressed) add(KeyModifier.Meta)
+  }
+  val action =
+    options.keyBindings.chords[KeyChord(event.key, *modifiers.toTypedArray())]
+      ?: return@onKeyEvent false
   val repeated = event.key in focus.claimedKeys
   val consumed =
-    when (event.key) {
-      Key.Enter,
-      Key.NumPadEnter,
-      Key.DirectionCenter -> focus.engage(byKey = true) || repeated
-      Key.Escape -> focus.disengage() || repeated
-      // Compose delivers Back to the focused node before the activity, so a map that consumed
-      // Back after a touch would break back navigation on every Android phone.
-      Key.Back -> (focus.consumesBack && focus.disengage()) || repeated
-      else -> focus.isEngaged && target.bindKey(event, options, continuation)
+    when (action) {
+      GestureKeyAction.Engage -> focus.engage(byKey = true) || repeated
+      GestureKeyAction.Disengage -> focus.disengage() || repeated
+      GestureKeyAction.Back -> (focus.consumesBack && focus.disengage()) || repeated
+      else -> focus.isEngaged
     }
-  if (consumed) focus.claimedKeys.add(event.key)
-  consumed
-}
-
-private fun GestureTarget.bindKey(
-  event: KeyEvent,
-  options: GestureOptions,
-  continuation: GestureContinuation,
-): Boolean {
-  val shifted = event.isShiftPressed
-  val panStep = options.keyboardPanStep.value.toDouble()
-  return when (event.key) {
-    Key.DirectionLeft ->
-      if (shifted) rotateAndTilt(options, continuation, bearingDelta = -options.keyboardRotateStep)
-      else pan(options, continuation, panStep, 0.0)
-    Key.DirectionRight ->
-      if (shifted) rotateAndTilt(options, continuation, bearingDelta = options.keyboardRotateStep)
-      else pan(options, continuation, -panStep, 0.0)
-    Key.DirectionUp ->
-      if (shifted) rotateAndTilt(options, continuation, pitchDelta = options.keyboardPitchStep)
-      else pan(options, continuation, 0.0, panStep)
-    Key.DirectionDown ->
-      if (shifted) rotateAndTilt(options, continuation, pitchDelta = -options.keyboardPitchStep)
-      else pan(options, continuation, 0.0, -panStep)
-    Key.Plus,
-    Key.Equals -> zoom(options, continuation, options.zoomStep)
-    Key.Minus -> zoom(options, continuation, -options.zoomStep)
-    else -> false
+  if (!consumed) return@onKeyEvent false
+  if (!repeated) focus.claimedKeys[event.key] = true
+  target.observeInput()
+  val metadata = KeyGestureEvent(ids.next(), inputUptimeMillis(), event.key, modifiers, repeated)
+  val keys = options.keyBindings
+  if (!action.isCamera) keys.onEvent?.invoke(metadata)
+  else {
+    continuation.finish(target::cancelGesture)
+    target.discreteGesture(continuation, beforeCommand = { keys.onEvent?.invoke(metadata) }) { token
+      ->
+      val duration = options.scaledAnimationDuration()
+      val pan = keys.panStep.value.toDouble()
+      when (action) {
+        GestureKeyAction.PanLeft -> moveByAwaitingTransition(pan, 0.0, duration, token)
+        GestureKeyAction.PanRight -> moveByAwaitingTransition(-pan, 0.0, duration, token)
+        GestureKeyAction.PanUp -> moveByAwaitingTransition(0.0, pan, duration, token)
+        GestureKeyAction.PanDown -> moveByAwaitingTransition(0.0, -pan, duration, token)
+        GestureKeyAction.ZoomIn ->
+          scaleByAwaitingTransition(zoomLevelsToScale(keys.zoomStep), null, duration, token)
+        GestureKeyAction.ZoomOut ->
+          scaleByAwaitingTransition(zoomLevelsToScale(-keys.zoomStep), null, duration, token)
+        GestureKeyAction.RotateLeft ->
+          rotateAndPitchByAwaitingTransition(-keys.rotateStep, 0.0, duration, token)
+        GestureKeyAction.RotateRight ->
+          rotateAndPitchByAwaitingTransition(keys.rotateStep, 0.0, duration, token)
+        GestureKeyAction.TiltUp ->
+          rotateAndPitchByAwaitingTransition(0.0, keys.pitchStep, duration, token)
+        GestureKeyAction.TiltDown ->
+          rotateAndPitchByAwaitingTransition(0.0, -keys.pitchStep, duration, token)
+        else -> Unit
+      }
+    }
   }
+  true
 }
 
 private fun Modifier.pointerGestures(
   target: GestureTarget,
-  clicks: MapClickTarget,
-  options: GestureOptions,
+  clicks: MapInteractionTarget,
+  options: MapGestures,
+  currentOptions: () -> MapGestures,
+  currentStructuralKey: () -> Any,
   density: Density,
   focusRequester: FocusRequester,
   focus: MapInputFocus,
   continuation: GestureContinuation,
+  ids: GestureIds,
+  boxZoom: BoxZoomPreview,
+  platformRouting: PlatformTransformRouting,
 ): Modifier =
-  pointerInput(target, options, density, continuation) {
+  pointerInput(target, options.structuralKey, density, continuation) {
     val scope = CoroutineScope(currentCoroutineContext())
+    val hover = MapHoverGesture(scope, target, clicks, currentOptions, ids, density)
+    val scroll =
+      MapScrollGesture(target, options, currentOptions, ids, density, { size }, scope, continuation)
+    lateinit var platform: MapPlatformTransform
+    var platformRouteActive = false
     val gesture =
       MapPointerGesture(
         target = target,
         clicks = clicks,
+        taps = MapTapDispatcher(scope, clicks, currentOptions),
         options = options,
+        currentOptions = currentOptions,
+        ids = ids,
+        boxZoom = boxZoom,
         density = density,
         focusRequester = focusRequester,
         focus = focus,
         viewportSize = { size },
-        clickSlopPx = options.clickSlop.toPx(),
+        clickSlopPx = 3.dp.toPx(),
         panSlopPx = GestureMath.PAN_START_DP.dp.toPx(),
-        scaleSlopPx = GestureMath.SCALE_START_SPAN_DP.dp.toPx(),
-        shoveSlopPx = GestureMath.SHOVE_START_DP.dp.toPx(),
         twoFingerTapSlopPx = GestureMath.TWO_FINGER_TAP_SLOP_DP.dp.toPx(),
-        minimumTwoFingerSpanPx = GestureMath.MINIMUM_TWO_FINGER_SPAN_DP.dp.toPx(),
         doubleTapSlopPx = GestureMath.DOUBLE_TAP_SLOP_DP.dp.toPx(),
         doubleClickMinTimeMillis = viewConfiguration.doubleTapMinTimeMillis,
         doubleClickTimeoutMillis = viewConfiguration.doubleTapTimeoutMillis,
         longClickTimeoutMillis = viewConfiguration.longPressTimeoutMillis,
         scope = scope,
         continuation = continuation,
+        onAcceptedPress = {
+          scroll.cancel(GestureCancellationReason.CameraTakeover)
+          platform.cancel(GestureCancellationReason.CameraTakeover)
+          platformRouteActive = false
+        },
       )
-    try {
-      awaitPointerEventScope { while (true) gesture.onPointerEvent(awaitPointerEvent()) }
-    } finally {
-      // MapLibre keeps the gesture flag until it is cleared, so a drag ended by coroutine
-      // cancellation rather than by a pointer-up has to clear it here.
-      gesture.cancel()
+    val consumption = PointerInputConsumption {
+      gesture.cancel(GestureCancellationReason.InputConsumed)
     }
-  }
-
-/**
- * A watch crown zooms like a mouse wheel: a detent is a notch of [GestureOptions.scrollZoomStep],
- * anchored at the center, and a burst of detents is one gesture. Rotary events reach the focused
- * node only, as key events do.
- */
-private fun Modifier.rotaryZoom(
-  target: GestureTarget,
-  options: GestureOptions,
-  notchPixels: Float,
-  continuation: GestureContinuation,
-): Modifier =
-  if (notchPixels <= 0f) this
-  else
-    onRotaryScrollEvent { event ->
-      if (!options.isScrollZoomEnabled) return@onRotaryScrollEvent false
-      if (event.verticalScrollPixels == 0f) return@onRotaryScrollEvent false
-      val notches = event.verticalScrollPixels.toDouble() / notchPixels
-      continuation.interrupt()
-      val token = continuation.resume() ?: target.onGestureStarted()
-      target.cancelTransitions()
-      target.scaleBy(
-        scale = zoomLevelsToScale(-notches * options.scrollZoomStep),
-        anchor = null,
-        gestureToken = token,
-      )
-      continuation.finishAfter(options.scrollZoomHold, token, target::onGestureEnded)
-      true
-    }
-
-private fun Modifier.scrollZoom(
-  target: GestureTarget,
-  options: GestureOptions,
-  density: Density,
-  continuation: GestureContinuation,
-): Modifier =
-  pointerInput(target, options, density, continuation) {
-    val scope = CoroutineScope(currentCoroutineContext())
+    platform =
+      MapPlatformTransform(
+        target,
+        options,
+        currentOptions,
+        ids,
+        scope,
+        platformRouting,
+      ) {
+        scroll.cancel(GestureCancellationReason.CameraTakeover)
+        continuation.finish(target::cancelGesture)
+        runCatching { focusRequester.requestFocus() }
+        focus.engage(byKey = false)
+      }
     try {
-      awaitEachGesture {
+      awaitPointerEventScope {
         while (true) {
-          val event = awaitPointerEvent()
-          if (event.type != PointerEventType.Scroll) continue
-          if (!options.isScrollZoomEnabled) continue
-          val change = event.changes.firstOrNull() ?: continue
-          if (change.scrollDelta.y == 0f) continue
-          val scroll = scrollNotches(change.scrollDelta.y, density)
-          continuation.interrupt()
-          val token = continuation.resume() ?: target.onGestureStarted()
-          target.cancelTransitions()
-          target.scaleBy(
-            scale = zoomLevelsToScale(-scroll * options.scrollZoomStep),
-            anchor = options.zoomAnchor(change.position.toLogicalDpOffset(density)),
-            gestureToken = token,
-          )
-          // A burst holds the gesture open so the next notch resumes the same token.
-          continuation.finishAfter(scope, options.scrollZoomHold, token, target::onGestureEnded)
-          change.consume()
+          val event = awaitPointerEvent(PointerEventPass.Main)
+          val routed =
+            platformRouting.route(event.type, isClassifiedPlatformTransform(event), event.changes)
+          var claimedPlatform = false
+          if (routed) {
+            hover.exit()
+            if (!platformRouteActive) {
+              gesture.cancel(GestureCancellationReason.BindingChanged)
+              consumption.suppress()
+              platformRouteActive = true
+            }
+            consumption.main(event) {}
+            if (event.changes.any { it.isConsumed }) platformRouting.intercept()
+            val change =
+              event.changes.firstOrNull { it.scaleFactor != 1f || it.panOffset != Offset.Zero }
+                ?: event.changes.firstOrNull()
+            if (change != null) {
+              claimedPlatform =
+                platform.onInput(
+                  event.type,
+                  event.gestureSample(0, target, density, change.position),
+                  change.scaleFactor.toDouble(),
+                  change.panOffset.toLogicalDpOffset(density),
+                  platformRouting.blocked || event.changes.any { it.isConsumed },
+                )
+              if (claimedPlatform) event.changes.forEach(PointerInputChange::consume)
+            }
+            if (
+              !platform.isActive &&
+                !platformRouting.hasContacts &&
+                (event.type == PointerEventType.ScaleEnd ||
+                  event.type == PointerEventType.PanEnd ||
+                  event.type == PointerEventType.Release)
+            )
+              platformRouteActive = false
+          } else if (event.type == PointerEventType.Scroll) {
+            hover.onPointerEvent(event)
+            scroll.onPointerEvent(event) {
+              platform.cancel(GestureCancellationReason.CameraTakeover)
+              platformRouteActive = false
+              gesture.cancel(GestureCancellationReason.CameraTakeover)
+              consumption.suppress()
+            }
+          } else {
+            if (platform.isActive) hover.exit() else hover.onPointerEvent(event)
+            consumption.main(event, gesture::onPointerEvent)
+          }
+          val final = awaitPointerEvent(PointerEventPass.Final)
+          if (routed) {
+            if (!claimedPlatform && final.changes.any { it.isConsumed }) {
+              platformRouting.intercept()
+              platform.cancel(GestureCancellationReason.InputConsumed)
+            }
+          } else if (event.type != PointerEventType.Scroll) consumption.final(final)
         }
       }
     } finally {
-      continuation.finish(target::onGestureEnded)
+      // MapLibre keeps the gesture flag until it is cleared, so a drag ended by coroutine
+      // cancellation rather than by a pointer-up has to clear it here.
+      val reason =
+        when {
+          currentStructuralKey() != options.structuralKey ->
+            GestureCancellationReason.ConfigurationChanged
+          !target.isGestureReady -> GestureCancellationReason.Detached
+          else -> GestureCancellationReason.InputCancelled
+        }
+      try {
+        gesture.cancel(reason)
+      } finally {
+        try {
+          scroll.cancel(reason)
+        } finally {
+          try {
+            platform.cancel(reason)
+          } finally {
+            hover.exit()
+          }
+        }
+      }
     }
   }
 
+/** Scroll shares the pointer arena so it sees consumption before claiming an event. */
+private class MapScrollGesture(
+  private val target: GestureTarget,
+  private val options: MapGestures,
+  private val currentOptions: () -> MapGestures,
+  private val ids: GestureIds,
+  private val density: Density,
+  private val viewportSize: () -> IntSize,
+  private val scope: CoroutineScope,
+  private val continuation: GestureContinuation,
+) {
+  private class Burst(
+    val binding: GestureBinding,
+    val session: GestureInputSession,
+    val kind: ScrollKind,
+    var sample: GesturePointerSample,
+  ) {
+    val token
+      get() = session.token
+
+    val velocity = GestureVelocityTracker()
+    var displacement = Offset.Zero
+  }
+
+  private var burst: Burst? = null
+  private var finishJob: Job? = null
+
+  fun onPointerEvent(event: PointerEvent, takeOverContacts: () -> Unit) {
+    if (event.changes.any { it.isConsumed }) {
+      cancel(GestureCancellationReason.InputConsumed)
+      return
+    }
+    val change = event.changes.firstOrNull() ?: return
+    val normalized =
+      normalizeScroll(change.scrollDelta, scrollUnits(event), density, viewportSize()) ?: return
+    val sample = event.gestureSample(burst?.sample?.gestureId ?: ids.next(), target, density)
+    val previous = burst
+    if (previous != null && sample.uptimeMillis < previous.sample.uptimeMillis) {
+      previous.velocity.resetTracking()
+      return
+    }
+    if (
+      previous != null &&
+        (!previous.token.acceptsCommands ||
+          previous.sample.modifierKeys != sample.modifierKeys ||
+          previous.sample.buttons != sample.buttons)
+    ) {
+      cancel(
+        if (previous.token.acceptsCommands) GestureCancellationReason.BindingChanged
+        else GestureCancellationReason.CameraTakeover
+      )
+    }
+    val kind = burst?.kind ?: normalized.kind
+    val selected =
+      options.bindings.firstOrNull {
+        it.family == GestureFamily.Scroll &&
+          kind in it.settings.scrollKinds &&
+          it.matches(sample, contact = false)
+      } ?: return
+    if (burst?.binding?.id != null && burst?.binding?.id != selected.id)
+      cancel(GestureCancellationReason.BindingChanged)
+    target.observeInput()
+    val current =
+      burst
+        ?: run {
+          takeOverContacts()
+          continuation.finish(target::cancelGesture)
+          lateinit var session: GestureInputSession
+          session =
+            GestureInputSession(scope, target) {
+              if (burst?.session === session)
+                cancel(
+                  if (target.isGestureReady) GestureCancellationReason.CameraTakeover
+                  else GestureCancellationReason.Detached
+                )
+            }
+          Burst(selected, session, kind, sample.copy(gestureId = ids.next())).also {
+            burst = it
+            handlers(it).observe(ScrollEvent.Start(it.sample, it.sample.screenOffset, kind))
+          }
+        }
+    if (!current.token.acceptsCommands) {
+      cancel(GestureCancellationReason.CameraTakeover)
+      return
+    }
+    current.sample = sample.copy(gestureId = current.sample.gestureId)
+    current.displacement += Offset(normalized.panDelta.x.value, normalized.panDelta.y.value)
+    current.velocity.addPosition(sample.uptimeMillis, current.displacement)
+    handlers(current)
+      .observe(ScrollEvent.Delta(current.sample, normalized.panDelta, normalized.zoomNotches, kind))
+    if (!current.token.acceptsCommands) {
+      cancel(GestureCancellationReason.CameraTakeover)
+      return
+    }
+    when (selected.settings.dragAction) {
+      DragActionKind.Pan ->
+        target.moveBy(
+          normalized.panDelta.x.value.toDouble(),
+          normalized.panDelta.y.value.toDouble(),
+          gestureToken = current.token,
+        )
+      DragActionKind.Zoom -> {
+        val scale = zoomLevelsToScale(-normalized.zoomComponent * selected.settings.zoomStep)
+        if (scale.isFinite() && scale > 0.0)
+          target.scaleBy(scale, selected.anchor(current.sample), gestureToken = current.token)
+      }
+      else -> Unit
+    }
+    change.consume()
+    finishJob?.cancel()
+    finishJob =
+      current.session.scope.launch {
+        delay(options.scrollIdleDuration.inWholeMilliseconds)
+        burst = null
+        finishJob = null
+        val velocity = current.velocity.calculateVelocity(pointerInput = false)
+        try {
+          handlers(current)
+            .observe(
+              ScrollEvent.End(
+                current.sample,
+                ScreenVelocity(velocity.x.toDouble(), velocity.y.toDouble()),
+                kind,
+              )
+            )
+        } finally {
+          current.session.end()
+        }
+      }
+  }
+
+  private fun handlers(burst: Burst): GestureBindingHandlers =
+    currentOptions().bindings.firstOrNull { it.id == burst.binding.id }?.handlers
+      ?: burst.binding.handlers
+
+  fun cancel(reason: GestureCancellationReason = GestureCancellationReason.InputCancelled) {
+    finishJob?.cancel()
+    finishJob = null
+    val previous = burst ?: return
+    burst = null
+    try {
+      handlers(previous).observe(ScrollEvent.Cancel(previous.sample, reason, previous.kind))
+    } finally {
+      previous.session.cancel()
+    }
+  }
+}
+
 private class MapPointerGesture(
   private val target: GestureTarget,
-  private val clicks: MapClickTarget,
-  private val options: GestureOptions,
+  private val clicks: MapInteractionTarget,
+  private val taps: MapTapDispatcher,
+  private val options: MapGestures,
+  private val currentOptions: () -> MapGestures,
+  private val ids: GestureIds,
+  private val boxZoom: BoxZoomPreview,
   private val density: Density,
   private val focusRequester: FocusRequester,
   private val focus: MapInputFocus,
   private val viewportSize: () -> IntSize,
   private val clickSlopPx: Float,
   private val panSlopPx: Float,
-  private val scaleSlopPx: Float,
-  private val shoveSlopPx: Float,
   private val twoFingerTapSlopPx: Float,
-  private val minimumTwoFingerSpanPx: Float,
   private val doubleTapSlopPx: Float,
   private val doubleClickMinTimeMillis: Long,
   private val doubleClickTimeoutMillis: Long,
   private val longClickTimeoutMillis: Long,
   private val scope: CoroutineScope,
   private val continuation: GestureContinuation,
+  private val onAcceptedPress: () -> Unit,
 ) {
   private var gestureInProgress = false
   private var gestureToken: GestureToken? = null
+  private var cameraSession: GestureInputSession? = null
   private var mode = Mode.NONE
 
+  private var selectedDrag: GestureBinding? = null
+  private var dragStarted = false
+  private var customDragStarted = false
+  private var dragSample: GesturePointerSample? = null
+  private var suppressedUntilRelease = false
   private var lastSingle: PointerInputChange? = null
   private var singleDragOrigin: Offset? = null
   private var singleMotion = SingleMotion.NONE
-  private val singleVelocity = VelocityTracker()
+  private val singleVelocity = GestureVelocityTracker()
 
-  private var twoFingerStart: TwoFingerSample? = null
-  private var twoFingerPrevious: TwoFingerSample? = null
-  private var twoFingerPanning = false
-  private var scaleAlongsideRotation = false
-  private val twoFingerVelocity = VelocityTracker()
-  private var lastSpanDeltaPixels = 0.0
-  private var lastScaleWasOut = false
-  private var lastTwoFingerAnchor: DpOffset? = null
-  private var lastTwoFingerCentroidPixels = Offset.Zero
-  private var lastClassicRotationDegrees = 0.0
+  private var pair: PointerPairGesture? = null
+  private val contactOrder = mutableListOf<PointerId>()
   private var twoFingerTap: TwoFingerTapCandidate? = null
-  private var deferredTwoFingerVelocity: (() -> Duration?)? = null
+  private var deferredTwoFingerVelocity: PairContinuation? = null
 
   /** Null once the press is no longer a candidate click. Physical pixels, as Compose reports. */
   private var clickOrigin: Offset? = null
   private var pressedSecondary = false
-  private var pressedShifted = false
   private var pressedType = PointerType.Mouse
   private var pressStartedAtMillis = 0L
   private var quickZoomCandidate = false
@@ -417,6 +668,10 @@ private class MapPointerGesture(
   private var lastQuickZoomSpanDeltaPixels = 0.0
   private var longClickJob: Job? = null
   private var longClickHandled = false
+  private var tapDemand = emptySet<TapFamily>()
+  private var capabilitySnapshot = emptySet<TapFamily>()
+  private var secondTapUseful = false
+  private var pressInputGeneration = 0L
 
   /**
    * Pairing state after a first tap. The delayed-click job exists only in [TapWait.Open]; a valid
@@ -430,10 +685,35 @@ private class MapPointerGesture(
     // Wheel events have no pressed pointers. Treating one as a release would close the
     // gesture scrollZoom keeps open for the rest of the burst.
     if (event.type == PointerEventType.Scroll) return
-    val pressed = event.changes.filter { it.pressed }
+    val oldContacts = contactOrder.toList()
+    val pressedIds = event.changes.filter { it.pressed }.map { it.id }
+    contactOrder.retainAll(pressedIds)
+    pressedIds.forEach { if (it !in contactOrder) contactOrder.add(it) }
+    val pressed = contactOrder.mapNotNull { id -> event.changes.firstOrNull { it.id == id } }
+    if (suppressedUntilRelease) {
+      if (pressed.isEmpty()) suppressedUntilRelease = false
+      return
+    }
+    if (gestureToken?.acceptsCommands == false) {
+      cancel(GestureCancellationReason.CameraTakeover)
+      suppressedUntilRelease = pressed.isNotEmpty()
+      return
+    }
+    if (
+      pressed.size >= 2 &&
+        (mode == Mode.SINGLE || mode == Mode.QUICK_ZOOM) &&
+        selectedDrag?.id?.let { it !in builtInDrags } == true
+    ) {
+      cancel(GestureCancellationReason.BindingChanged)
+      suppressedUntilRelease = true
+      return
+    }
     updateTwoFingerTap(event, pressed.size)
     when {
-      pressed.size >= 2 -> onTwoFinger(event, pressed[0], pressed[1])
+      pressed.size >= 2 -> {
+        val (first, second) = selectPair(event, pressed)
+        onTwoFinger(event, first, second, oldContacts != contactOrder)
+      }
       pressed.size == 1 -> onSingle(event, pressed.single())
       // A hover, enter, or exit also has nothing pressed. Treating those as a lift would
       // cancel a fling or a keyboard ease the moment the cursor moved.
@@ -446,23 +726,29 @@ private class MapPointerGesture(
     mode != Mode.NONE ||
       gestureInProgress ||
       lastSingle != null ||
-      twoFingerStart != null ||
+      pair != null ||
       twoFingerTap != null ||
       clickOrigin != null ||
       deferredTwoFingerVelocity != null
 
   private fun onSingle(event: PointerEvent, change: PointerInputChange) {
-    if (mode.isTwoFinger) {
-      // Velocity is sampled when the first pointer lifts. The animator starts only after the
-      // last pointer lifts, so the remaining finger can still cancel it.
-      deferredTwoFingerVelocity = prepareTwoFingerVelocity()
+    if (pair != null) {
+      val completed = pair
+      deferredTwoFingerVelocity =
+        completed?.end(event.changes.maxOf { it.uptimeMillis }) ?: deferredTwoFingerVelocity
+      pair = null
+      if (gestureToken?.acceptsCommands == false) {
+        retainCameraAuthority()
+        return
+      }
       mode = Mode.SINGLE
-      twoFingerStart = null
-      twoFingerPrevious = null
-      twoFingerPanning = false
-      scaleAlongsideRotation = false
       lastSingle = change
       singleDragOrigin = change.position
+      dragSample =
+        event.gestureSample(ids.next(), target, density, change.position, setOf(change.type))
+      selectedDrag =
+        options.binding("dragPan").takeIf { it.matches(checkNotNull(dragSample), contact = true) }
+      dragStarted = false
       singleMotion = SingleMotion.NONE
       singleVelocity.resetTracking()
       singleVelocity.addPointerInputChange(change)
@@ -477,8 +763,7 @@ private class MapPointerGesture(
     lastSingle = change
     singleDragOrigin = change.position
     clickOrigin = change.position
-    pressedSecondary = event.buttons.isSecondaryPressed
-    pressedShifted = event.keyboardModifiers.isShiftPressed
+    pressedSecondary = change.type == PointerType.Mouse && event.buttons.isSecondaryPressed
     pressedType = change.type
     pressStartedAtMillis = change.uptimeMillis
     longClickHandled = false
@@ -488,10 +773,37 @@ private class MapPointerGesture(
       PressRole.Paired -> claimOpenTap()
       PressRole.Bounce -> Unit
     }
-    quickZoomCandidate =
-      change.type != PointerType.Mouse &&
-        options.isQuickZoomEnabled &&
-        pressRole == PressRole.Paired
+    val sample =
+      event.gestureSample(ids.next(), target, density, change.position, setOf(change.type))
+    dragSample = sample
+    selectedDrag = selectDrag(sample, paired = pressRole == PressRole.Paired)
+    dragStarted = false
+    quickZoomCandidate = selectedDrag?.id == "quickZoom"
+    if (pressRole == PressRole.First) capabilitySnapshot = clicks.capabilities.toSet()
+    tapDemand =
+      TapFamily.entries.filterTo(mutableSetOf()) { family ->
+        val binding = options.binding(family.bindingId)
+        binding.matches(sample, contact = true) &&
+          (family in capabilitySnapshot ||
+            family.hasHandler(binding.handlers) ||
+            binding.settings.tapAction != null)
+      }
+    secondTapUseful =
+      TapFamily.DoubleTap in tapDemand ||
+        change.type != PointerType.Mouse &&
+          options.binding("quickZoom").matches(sample, contact = true)
+    val longPress = TapFamily.LongPress in tapDemand
+    val clickDemand = secondTapUseful || tapDemand.any { it != TapFamily.TwoFingerTap }
+    if (!clickDemand) clickOrigin = null
+    if (
+      selectedDrag == null &&
+        !clickDemand &&
+        listOf("pinchZoom", "twoFingerRotate", "twoFingerTilt", "twoFingerTap").none {
+          options.binding(it).matches(sample, contact = true) &&
+            (it != "twoFingerTap" || TapFamily.TwoFingerTap in tapDemand)
+        }
+    )
+      return
     quickZoomOriginY = change.position.y
     quickZoomAppliedDelta = 0.0
     lastQuickZoomSpanDeltaPixels = 0.0
@@ -499,14 +811,18 @@ private class MapPointerGesture(
     singleVelocity.resetTracking()
     singleVelocity.addPointerInputChange(change)
     deferredTwoFingerVelocity = null
-    continuation.interrupt()
+    onAcceptedPress()
+    target.observeInput()
+    cancelCameraSession()
+    continuation.finish(target::cancelGesture)
     runCatching { focusRequester.requestFocus() }
     focus.engage(byKey = false)
     target.cancelTransitions()
+    pressInputGeneration = target.inputGeneration
 
-    if (change.type != PointerType.Mouse && !quickZoomCandidate) {
-      // Claim the touch press before parent recognizers reach their long-click timeout.
-      change.consume()
+    // Click candidates claim their press, including mouse clicks competing with a parent click.
+    if (clickDemand || TapFamily.TwoFingerTap in tapDemand) change.consume()
+    if (longPress && change.type != PointerType.Mouse && !quickZoomCandidate) {
       val origin = change.position
       longClickJob = scope.launch {
         delay(longClickTimeoutMillis)
@@ -516,356 +832,417 @@ private class MapPointerGesture(
           // This press is a long click, including a paired second tap that was held.
           discardTapWait(emitClick = false)
           continuation.finish(target::onGestureEnded)
-          clicks.onSecondaryClick(origin.toLogicalDpOffset(density))
+          val last = checkNotNull(dragSample)
+          emitTap(
+            TapFamily.LongPress,
+            last.copy(
+              gestureId = ids.next(),
+              uptimeMillis = pressStartedAtMillis + longClickTimeoutMillis,
+              position = target.positionFromScreenLocation(last.screenOffset),
+            ),
+          )
         }
       }
     }
   }
 
+  private fun selectDrag(sample: GesturePointerSample, paired: Boolean): GestureBinding? =
+    options.bindings.firstOrNull { binding ->
+      binding.family == GestureFamily.Drag &&
+        (binding.id != "quickZoom" || paired && PointerType.Mouse !in sample.pointerTypes) &&
+        binding.matches(sample, contact = true) &&
+        (currentOptions()
+          .bindings
+          .firstOrNull { it.id == binding.id }
+          ?.handlers
+          ?.canStart
+          ?.invoke(PointerPressEvent(sample)) != false)
+    }
+
+  private fun deliverDrag(event: DragEvent) {
+    val binding = selectedDrag ?: return
+    val handlers =
+      currentOptions().bindings.firstOrNull { it.id == binding.id }?.handlers ?: binding.handlers
+    var failure: Throwable? = null
+    try {
+      handlers.observe(event)
+    } catch (cause: Throwable) {
+      failure = cause
+    }
+    if (binding.settings.dragAction == DragActionKind.Custom) {
+      val active = failure == null && gestureToken?.acceptsCommands == true
+      val response =
+        when (event) {
+          is DragEvent.Start -> event.takeIf { active }?.also { customDragStarted = true }
+          is DragEvent.Delta -> event.takeIf { active && customDragStarted }
+          is DragEvent.End ->
+            if (!customDragStarted) null
+            else {
+              customDragStarted = false
+              if (active) event
+              else
+                DragEvent.Cancel(
+                  checkNotNull(dragSample),
+                  when {
+                    failure != null -> GestureCancellationReason.InputCancelled
+                    !target.isGestureReady -> GestureCancellationReason.Detached
+                    else -> GestureCancellationReason.CameraTakeover
+                  },
+                )
+            }
+          is DragEvent.Cancel ->
+            event.takeIf { customDragStarted }?.also { customDragStarted = false }
+        }
+      if (response != null) {
+        try {
+          handlers.customDrag?.invoke(response)
+        } catch (cause: Throwable) {
+          if (failure == null) failure = cause else failure.addSuppressed(cause)
+        }
+      }
+    }
+    failure?.let { throw it }
+  }
+
+  private fun cancelDrag(reason: GestureCancellationReason) {
+    if (!dragStarted) return
+    dragStarted = false
+    try {
+      dragSample?.let { deliverDrag(DragEvent.Cancel(it, reason)) }
+    } finally {
+      boxZoom.clear()
+    }
+  }
+
+  private fun retainCameraAuthority(): Boolean {
+    if (gestureToken?.acceptsCommands == true) return true
+    cancel(
+      if (target.isGestureReady) GestureCancellationReason.CameraTakeover
+      else GestureCancellationReason.Detached
+    )
+    suppressedUntilRelease = true
+    return false
+  }
+
   private fun onSingleDrag(event: PointerEvent, change: PointerInputChange) {
     val previous = lastSingle ?: return
-    val delta = change.position - previous.position
+    var delta = change.position - previous.position
     lastSingle = change
-    if (delta == Offset.Zero) return
-    val rotating = event.buttons.isSecondaryPressed || event.keyboardModifiers.isCtrlPressed
-    val canTransform =
-      when {
-        quickZoomCandidate -> options.isQuickZoomEnabled
-        rotating -> options.isDragRotateTiltEnabled
-        else -> options.isDragPanEnabled
+    val sample =
+      event.gestureSample(
+        dragSample?.gestureId ?: ids.next(),
+        target,
+        density,
+        change.position,
+        setOf(change.type),
+      )
+    val oldSample = dragSample
+    dragSample = sample
+    if (
+      change.type == PointerType.Mouse &&
+        oldSample != null &&
+        (oldSample.buttons != sample.buttons || oldSample.modifierKeys != sample.modifierKeys)
+    ) {
+      val next = selectDrag(sample, paired = false)
+      if (next?.id != selectedDrag?.id) {
+        cancelDrag(GestureCancellationReason.BindingChanged)
+        cancelCameraSession()
+        gestureToken = null
+        gestureInProgress = false
+        selectedDrag = next
+        dragSample = sample.copy(gestureId = ids.next())
+        singleDragOrigin = change.position
+        singleVelocity.resetTracking()
+        singleVelocity.addPointerInputChange(change)
+        singleMotion = SingleMotion.NONE
+        clickOrigin = null
+        quickZoomCandidate = false
+        cancelLongClick()
+        return
       }
-
-    if (!gestureInProgress) {
-      val origin = singleDragOrigin
-      val displacement = if (origin == null) Offset.Zero else change.position - origin
-      if (quickZoomCandidate) {
-        // Quick zoom doubles vertical displacement into its span. Horizontal travel only
-        // disqualifies the double tap; it must never turn into a pan.
-        if (abs(displacement.y) * 2f < scaleSlopPx) {
-          if (abs(displacement.x) <= scaleSlopPx) return
-          clickOrigin = null
-          quickZoomCandidate = false
-          discardTapWait(emitClick = true)
+    }
+    val binding =
+      selectedDrag
+        ?: run {
+          if ((change.position - checkNotNull(singleDragOrigin)).getDistance() > dragSlopPx()) {
+            clickOrigin = null
+            cancelLongClick()
+          }
           return
         }
-      } else if (abs(displacement.x) < dragSlopPx() && abs(displacement.y) < dragSlopPx()) {
-        return
+    if (delta == Offset.Zero) return
+    if (change.uptimeMillis < previous.uptimeMillis) {
+      singleDragOrigin = change.position
+      singleVelocity.resetTracking()
+      return
+    }
+    if (!dragStarted) {
+      val origin = singleDragOrigin ?: change.position
+      val displacement = change.position - origin
+      val slop =
+        (if (change.type == PointerType.Mouse) binding.settings.mouseStartSlop
+          else binding.settings.startSlop)
+          .value * density.density
+      if (quickZoomCandidate) {
+        if (abs(displacement.y) * 2f < slop) {
+          if (abs(displacement.x) > slop) {
+            clickOrigin = null
+            cancelLongClick()
+          }
+          return
+        }
+        val consumedSlop = kotlin.math.sign(displacement.y) * slop / 2f
+        quickZoomOriginY += consumedSlop
+        delta = Offset(0f, displacement.y - consumedSlop)
+      } else {
+        val distance = displacement.getDistance()
+        if (distance < slop || distance == 0f) return
+        delta = displacement * ((distance - slop) / distance)
       }
       clickOrigin = null
-      if (!canTransform) {
-        discardTapWait(emitClick = true)
-        return
-      }
       twoFingerTap = null
-      beginGesture()
-      // Quick zoom consumes the first tap. A pan or rotate reports it instead.
-      discardTapWait(emitClick = !quickZoomCandidate)
-    }
-
-    val deltaX = (delta.x / density.density).toDouble()
-    val deltaY = (delta.y / density.density).toDouble()
-    var changed = false
-
-    if (quickZoomCandidate && options.isQuickZoomEnabled) {
       deferredTwoFingerVelocity = null
-      mode = Mode.QUICK_ZOOM
-      singleMotion = SingleMotion.QUICK_ZOOM
-      val currentViewportSize = viewportSize()
-      val targetDelta =
-        GestureMath.quickZoomDelta(
-          displacementPixels = (change.position.y - quickZoomOriginY).toDouble(),
-          viewportHeightPixels = currentViewportSize.height.toDouble(),
-          maximumZoomChange = options.quickZoomMaxZoomChange,
-        )
-      target.scaleBy(
-        scale = zoomLevelsToScale(targetDelta - quickZoomAppliedDelta),
-        // Quick zoom is centred rather than finger-anchored.
-        anchor = viewportCenter(currentViewportSize),
-        gestureToken = gestureToken,
-      )
-      lastQuickZoomSpanDeltaPixels = abs(delta.y) * 2.0
-      quickZoomAppliedDelta = targetDelta
-      changed = true
-    } else {
-      // Read every mouse event rather than only the press, so releasing ctrl switches to panning.
-      if (rotating && options.isDragRotateTiltEnabled) {
-        // Moving the remaining finger takes over from deferred pinch/rotation velocity; if it
-        // merely lifts, onRelease still starts that two-finger continuation instead.
-        deferredTwoFingerVelocity = null
-        if (singleMotion != SingleMotion.ROTATE_TILT) singleVelocity.resetTracking()
-        singleMotion = SingleMotion.ROTATE_TILT
+      beginGesture()
+      dragStarted = true
+      singleMotion =
+        when (binding.settings.dragAction) {
+          DragActionKind.Pan -> SingleMotion.PAN
+          DragActionKind.RotateTilt -> SingleMotion.ROTATE_TILT
+          DragActionKind.Zoom -> SingleMotion.QUICK_ZOOM
+          else -> SingleMotion.NONE
+        }
+      discardTapWait(emitClick = !quickZoomCandidate)
+      deliverDrag(DragEvent.Start(sample, origin.toLogicalDpOffset(density)))
+      if (!retainCameraAuthority()) return
+      if (binding.settings.dragAction == DragActionKind.BoxZoom)
+        boxZoom.start(origin.toLogicalDpOffset(density), sample.screenOffset)
+    }
+    singleVelocity.addPointerInputChange(change)
+    deliverDrag(DragEvent.Delta(sample, delta.toLogicalDpOffset(density)))
+    if (!retainCameraAuthority()) return
+    val deltaX = delta.x.toDouble() / density.density
+    val deltaY = delta.y.toDouble() / density.density
+    when (binding.settings.dragAction) {
+      DragActionKind.Pan -> target.moveBy(deltaX, deltaY, gestureToken = gestureToken)
+      DragActionKind.RotateTilt ->
         target.rotateAndPitchBy(
-          bearingDelta = deltaX * options.dragRotateDegreesPerDp,
-          pitchDelta = deltaY * options.dragPitchDegreesPerDp,
+          deltaX * binding.settings.bearingDegreesPerDp,
+          deltaY * binding.settings.pitchDegreesPerDp,
+          anchor = binding.anchor(sample),
           gestureToken = gestureToken,
         )
-        changed = true
-      } else if (!rotating && options.isDragPanEnabled) {
-        deferredTwoFingerVelocity = null
-        if (singleMotion != SingleMotion.PAN) singleVelocity.resetTracking()
-        singleMotion = SingleMotion.PAN
-        target.moveBy(deltaX, deltaY, gestureToken = gestureToken)
-        changed = true
+      DragActionKind.Zoom -> {
+        mode = Mode.QUICK_ZOOM
+        val direction =
+          if (binding.settings.direction == QuickZoomDirection.DownZoomsIn) 1.0 else -1.0
+        val targetDelta =
+          GestureMath.quickZoomDelta(
+            (change.position.y - quickZoomOriginY).toDouble(),
+            viewportSize().height.toDouble(),
+            binding.settings.maximumZoomChange * direction,
+          )
+        target.scaleBy(
+          zoomLevelsToScale(targetDelta - quickZoomAppliedDelta),
+          binding.anchor(sample),
+          gestureToken = gestureToken,
+        )
+        quickZoomAppliedDelta = targetDelta
+        lastQuickZoomSpanDeltaPixels = abs(delta.y) * 2.0
+      }
+      DragActionKind.Custom -> Unit
+      DragActionKind.BoxZoom -> boxZoom.move(sample.screenOffset)
+    }
+    change.consume()
+  }
+
+  private fun selectPair(
+    event: PointerEvent,
+    pressed: List<PointerInputChange>,
+  ): Pair<PointerInputChange, PointerInputChange> {
+    val selected = pair
+    val first = pressed.firstOrNull { it.id == selected?.firstId }
+    val second = pressed.firstOrNull { it.id == selected?.secondId }
+    if (selected?.hasDemand == true && first != null && second != null) return first to second
+    for (i in 0 until pressed.lastIndex) {
+      for (j in i + 1 until pressed.size) {
+        val a = pressed[i]
+        val b = pressed[j]
+        val sample =
+          event.gestureSample(
+            0,
+            target,
+            density,
+            (a.position + b.position) / 2f,
+            setOf(a.type, b.type),
+          )
+        if (pairBindingIds.any { options.binding(it).matches(sample, contact = true) })
+          return a to b
       }
     }
-    if (changed) {
-      singleVelocity.addPointerInputChange(change)
-      change.consume()
-    }
+    return pressed[0] to pressed[1]
   }
 
   private fun onTwoFinger(
     event: PointerEvent,
     first: PointerInputChange,
     second: PointerInputChange,
+    contactsChanged: Boolean,
   ) {
-    val current = TwoFingerSample(first, second)
-    if (!mode.isTwoFinger) {
+    val previous = pair
+    if (previous != null && previous.matches(first, second)) {
+      if (contactsChanged) {
+        if (previous.hasDemand && event.changes.any { it.pressed && !it.previousPressed }) {
+          onAcceptedPress()
+          target.observeInput()
+        }
+        previous.rebase(event, first, second)
+      } else previous.move(event, first, second)
+      return
+    }
+    if (previous != null) {
+      deferredTwoFingerVelocity =
+        previous.end(event.changes.maxOf { it.uptimeMillis }) ?: deferredTwoFingerVelocity
+      pair = null
+      twoFingerTap = null
+      if (gestureToken?.acceptsCommands == false) {
+        retainCameraAuthority()
+        return
+      }
+    } else {
+      cancelDrag(GestureCancellationReason.BindingChanged)
+      if (gestureToken?.acceptsCommands == false) {
+        retainCameraAuthority()
+        return
+      }
+      selectedDrag = null
+      singleMotion = SingleMotion.NONE
       cancelLongClick()
-      // A gesture from another pointer family closes the mouse/touch click sequence.
       discardTapWait(emitClick = true)
       clickOrigin = null
       quickZoomCandidate = false
       pressRole = PressRole.First
       lastSingle = null
-      mode = Mode.TWO_FINGER_UNDECIDED
-      twoFingerStart = current
-      twoFingerPrevious = current
-      twoFingerPanning = false
-      scaleAlongsideRotation = false
-      twoFingerVelocity.resetTracking()
-      twoFingerVelocity.addPointerInputChange(first)
-      continuation.interrupt()
-      deferredTwoFingerVelocity = null
       if (first.type != PointerType.Mouse && second.type != PointerType.Mouse) {
-        twoFingerTap =
-          TwoFingerTapCandidate(
-            startedAtMillis = min(pressStartedAtMillis, current.uptimeMillis),
-            firstId = first.id,
-            secondId = second.id,
-            firstOrigin = first.position,
-            secondOrigin = second.position,
+        val sample =
+          event.gestureSample(
+            0,
+            target,
+            density,
+            (first.position + second.position) / 2f,
+            setOf(first.type, second.type),
           )
-      }
-      target.cancelTransitions()
-      return
-    }
-
-    val start =
-      twoFingerStart
-        ?: run {
-          twoFingerStart = current
-          twoFingerPrevious = current
-          return
+        if (
+          TapFamily.TwoFingerTap in tapDemand &&
+            options.binding("twoFingerTap").matches(sample, contact = true)
+        ) {
+          twoFingerTap =
+            TwoFingerTapCandidate(
+              min(pressStartedAtMillis, sample.uptimeMillis),
+              first.id,
+              second.id,
+              first.position,
+              second.position,
+              sample.pointerTypes,
+            )
         }
-    val previous = twoFingerPrevious ?: start
-    if (!current.hasSamePointers(previous)) {
-      // Reset the distance baselines when the pointers change. A third finger replacing one
-      // of the pair must not jump the camera.
-      twoFingerStart = current
-      twoFingerPrevious = current
-      twoFingerPanning = false
-      scaleAlongsideRotation = false
-      twoFingerTap = null
-      deferredTwoFingerVelocity = null
-      twoFingerVelocity.resetTracking()
-      twoFingerVelocity.addPointerInputChange(first)
-      return
-    }
-    if (!GestureMath.hasStablePressure(current.pressure, previous.pressure)) {
-      twoFingerPrevious = current
-      return
-    }
-    if (current.distance < minimumTwoFingerSpanPx || previous.distance <= 0.0) {
-      twoFingerStart = current
-      twoFingerPrevious = current
-      twoFingerVelocity.resetTracking()
-      twoFingerVelocity.addPointerInputChange(first)
-      return
-    }
-
-    val centroidDelta = current.centroid - previous.centroid
-    val centroidFromStart = current.centroid - start.centroid
-    val scale = current.distance / previous.distance
-    // Span is twice the pointer distance around the focal point. The scale factor is the
-    // current/previous distance ratio.
-    val spanFromStartDp = (current.distance - start.distance) * 2.0 / density.density
-    val spanFromPreviousDp = (current.distance - previous.distance) * 2.0 / density.density
-    val rotation = normalizedAngle(current.angle - previous.angle).toDegrees()
-    val rotationFromStart = normalizedAngle(current.angle - start.angle).toDegrees()
-    val elapsedMillis = (current.uptimeMillis - previous.uptimeMillis).coerceAtLeast(0L)
-
-    if (mode == Mode.TWO_FINGER_UNDECIDED) {
-      mode =
-        classifyTwoFinger(
-          current = current,
-          spanFromStartDp = spanFromStartDp,
-          spanFromPreviousDp = spanFromPreviousDp,
-          rotationFromStart = rotationFromStart,
-          rotationFromPrevious = rotation,
-          elapsedMillis = elapsedMillis,
-          centroidFromStart = centroidFromStart,
-        )
-      if (mode != Mode.TWO_FINGER_UNDECIDED) {
-        twoFingerTap = null
-        beginGesture()
-        twoFingerVelocity.resetTracking()
       }
     }
-
-    if (
-      mode == Mode.TWO_FINGER_ROTATE &&
-        !scaleAlongsideRotation &&
-        options.isPinchZoomEnabled &&
-        abs(spanFromStartDp) >= GestureMath.SCALE_START_WHILE_ROTATING_DP &&
-        GestureMath.shouldStartScale(
-          spanFromStartDp,
-          spanFromPreviousDp,
-          elapsedMillis,
-          rotation,
-        )
-    ) {
-      // Rotation interrupts scale; scale may resume after 75 dp of additional span.
-      scaleAlongsideRotation = true
-    }
-
-    if (
-      mode != Mode.TWO_FINGER_TILT &&
-        options.isDragPanEnabled &&
-        !twoFingerPanning &&
-        current.anyPointerOutsideAxisAlignedSlop(start, panSlopPx)
-    ) {
-      twoFingerPanning = true
-      twoFingerTap = null
-      beginGesture()
-    }
-
-    var changed = false
-    if (mode == Mode.TWO_FINGER_TILT) {
-      if (options.isTwoFingerTiltEnabled && centroidDelta.y != 0f) {
-        target.rotateAndPitchBy(
-          bearingDelta = 0.0,
-          pitchDelta = centroidDelta.y.toDouble() * options.twoFingerTiltDegreesPerPixel,
-          gestureToken = gestureToken,
-        )
-        changed = true
-      }
-    } else {
-      val anchor = current.centroid.toLogicalDpOffset(density)
-      if (twoFingerPanning && centroidDelta != Offset.Zero) {
-        target.moveBy(
-          centroidDelta.x.toDouble() / density.density,
-          centroidDelta.y.toDouble() / density.density,
-          gestureToken = gestureToken,
-        )
-        changed = true
-      }
-      if (
-        (mode == Mode.TWO_FINGER_SCALE || scaleAlongsideRotation) &&
-          options.isPinchZoomEnabled &&
-          scale.isFinite() &&
-          abs(scale - 1.0) >= SCALE_EPSILON
-      ) {
-        target.scaleBy(
-          GestureMath.pinchScale(scale),
-          options.zoomAnchor(anchor),
-          gestureToken = gestureToken,
-        )
-        lastSpanDeltaPixels = abs(current.distance - previous.distance) * 2.0
-        lastScaleWasOut = scale < 1.0
-        lastTwoFingerAnchor = options.zoomAnchor(anchor)
-        changed = true
-      }
-      if (
-        mode == Mode.TWO_FINGER_ROTATE &&
-          options.isTwoFingerRotateEnabled &&
-          abs(rotation) >= ROTATION_EPSILON_DEGREES
-      ) {
-        // Turning the fingers clockwise rotates the map clockwise, which decreases map bearing.
-        val rotationAnchor = options.zoomAnchor(anchor)
-        target.rotateAndPitchBy(
-          bearingDelta = -rotation,
-          pitchDelta = 0.0,
-          anchor = rotationAnchor,
-          gestureToken = gestureToken,
-        )
-        lastTwoFingerAnchor = rotationAnchor
-        lastTwoFingerCentroidPixels = current.centroid
-        lastClassicRotationDegrees = -rotation
-        changed = true
-      }
-    }
-
-    twoFingerPrevious = current
-    twoFingerVelocity.addPointerInputChange(first)
-    if (changed) event.changes.forEach(PointerInputChange::consume)
-  }
-
-  private fun classifyTwoFinger(
-    current: TwoFingerSample,
-    spanFromStartDp: Double,
-    spanFromPreviousDp: Double,
-    rotationFromStart: Double,
-    rotationFromPrevious: Double,
-    elapsedMillis: Long,
-    centroidFromStart: Offset,
-  ): Mode {
-    return when {
-      options.isTwoFingerRotateEnabled &&
-        GestureMath.shouldStartRotation(
-          rotationFromStart,
-          rotationFromPrevious,
-          elapsedMillis,
-        ) -> Mode.TWO_FINGER_ROTATE
-      options.isPinchZoomEnabled &&
-        abs(current.distance - (twoFingerStart?.distance ?: current.distance)) * 2.0 >=
-          scaleSlopPx &&
-        GestureMath.shouldStartScale(
-          spanFromStartDp,
-          spanFromPreviousDp,
-          elapsedMillis,
-          rotationFromPrevious,
-        ) -> Mode.TWO_FINGER_SCALE
-      options.isTwoFingerTiltEnabled &&
-        abs(centroidFromStart.y) >= shoveSlopPx &&
-        GestureMath.shouldStartShove(
-          (centroidFromStart.y / density.density).toDouble(),
-          current.fingerAngleFromHorizontalDegrees,
-        ) -> Mode.TWO_FINGER_TILT
-      else -> Mode.TWO_FINGER_UNDECIDED
+    mode = Mode.TWO_FINGER
+    val candidate =
+      PointerPairGesture(
+        target,
+        options,
+        currentOptions,
+        ids,
+        density,
+        event,
+        first,
+        second,
+        begin = {
+          beginGesture()
+          gestureToken
+        },
+        onRecognized = {
+          twoFingerTap = null
+          deferredTwoFingerVelocity = null
+        },
+        retainAuthority = ::retainCameraAuthority,
+      )
+    pair = candidate
+    if (candidate.hasDemand || twoFingerTap != null) {
+      if (event.changes.any { it.pressed && !it.previousPressed }) onAcceptedPress()
+      target.observeInput()
+      pressInputGeneration = target.inputGeneration
+      runCatching { focusRequester.requestFocus() }
+      focus.engage(byKey = false)
     }
   }
 
   private fun onRelease(event: PointerEvent) {
+    if (dragStarted) {
+      dragStarted = false
+      val sample = event.gestureSample(checkNotNull(dragSample).gestureId, target, density)
+      dragSample = sample
+      boxZoom.move(sample.screenOffset)
+      val selection = boxZoom.clear()
+      val velocity = singleVelocity.calculateVelocity()
+      deliverDrag(
+        DragEvent.End(
+          sample,
+          ScreenVelocity(
+            (velocity.x / density.density).toDouble(),
+            (velocity.y / density.density).toDouble(),
+          ),
+        )
+      )
+      if (gestureToken?.acceptsCommands != true) {
+        cancel(GestureCancellationReason.CameraTakeover)
+        return
+      }
+      if (selection != null) {
+        val fit = target.boxZoomFit(selection)
+        val session = checkNotNull(cameraSession)
+        if (fit != null && session.token.acceptsCommands) {
+          continuation.launchBoundsFit(session.scope) {
+            target.fitBoundsAwaitingTransition(
+              fit,
+              options.scaledAnimationDuration(),
+              session.token,
+            )
+          }
+        }
+      }
+    }
     val origin = clickOrigin
     val pairedSecondTap = pressRole == PressRole.Paired
     val ignoreReleaseAsTap = pressRole == PressRole.Bounce
     val handledLongClick = longClickHandled
     val completedTwoFingerTap = twoFingerTap?.takeIf { it.isComplete(event) }
     cancelLongClick()
+    val completed = pair
+    val pairContinuation =
+      completed?.end(event.changes.maxOf { it.uptimeMillis }) ?: deferredTwoFingerVelocity
+    pair = null
+    if (gestureToken?.acceptsCommands == false) {
+      retainCameraAuthority()
+      return
+    }
     val continuationDuration =
-      listOfNotNull(
-          finishSingleVelocity(),
-          deferredTwoFingerVelocity?.invoke() ?: finishTwoFingerVelocity(),
-        )
-        .maxOrNull()
+      listOfNotNull(finishSingleVelocity(), pairContinuation?.let(::finishPairVelocity)).maxOrNull()
     deferredTwoFingerVelocity = null
     lastSingle = null
     singleDragOrigin = null
     singleMotion = SingleMotion.NONE
-    twoFingerStart = null
-    twoFingerPrevious = null
-    twoFingerPanning = false
-    scaleAlongsideRotation = false
     clickOrigin = null
     longClickHandled = false
     quickZoomCandidate = false
     pressRole = PressRole.First
     twoFingerTap = null
     mode = Mode.NONE
+    selectedDrag = null
 
     if (
-      (!gestureInProgress && completedTwoFingerTap != null && options.isTwoFingerTapZoomEnabled) ||
+      (!gestureInProgress && completedTwoFingerTap != null && options.enabled("twoFingerTap")) ||
         origin != null ||
         handledLongClick
     ) {
@@ -877,54 +1254,76 @@ private class MapPointerGesture(
       return
     }
     continuation.finish(target::onGestureEnded)
-    if (completedTwoFingerTap != null && options.isTwoFingerTapZoomEnabled) {
-      target.discreteGesture(continuation) { token ->
-        scaleByAwaitingTransition(
-          scale = zoomLevelsToScale(-options.zoomStep),
-          anchor = options.zoomAnchor(completedTwoFingerTap.centroid.toLogicalDpOffset(density)),
-          duration = options.scaledAnimationDuration(),
-          gestureToken = token,
-        )
-      }
+    if (completedTwoFingerTap != null) {
+      emitTap(
+        TapFamily.TwoFingerTap,
+        event.gestureSample(
+          ids.next(),
+          target,
+          density,
+          completedTwoFingerTap.centroid,
+          completedTwoFingerTap.pointerTypes,
+        ),
+      )
     } else if (origin != null && !ignoreReleaseAsTap) {
-      onClick(origin, event.changes.firstOrNull()?.uptimeMillis ?: 0L, pairedSecondTap)
+      onClick(event, origin, pairedSecondTap)
     } else if (handledLongClick) {
       discardTapWait(emitClick = false)
     }
   }
 
-  private fun onClick(origin: Offset, timeMillis: Long, pairedSecondTap: Boolean) {
-    val where = origin.toLogicalDpOffset(density)
-    if (pressedSecondary) {
-      clicks.onSecondaryClick(where)
-      tapWait = TapWait.None
-      return
+  private fun emitTap(
+    family: TapFamily,
+    sample: GesturePointerSample,
+    generation: Long = pressInputGeneration,
+  ) {
+    val binding = options.binding(family.bindingId)
+    taps.dispatch(family, sample) camera@{
+      val action = binding.settings.tapAction ?: return@camera
+      var direction = if (action == TapCameraAction.ZoomIn) 1.0 else -1.0
+      if (
+        family == TapFamily.DoubleTap &&
+          PointerType.Mouse in sample.pointerTypes &&
+          KeyModifier.Shift in sample.modifierKeys
+      )
+        direction = -direction
+      continuation.launchDiscreteTransition(
+        target,
+        beforeCommand = {},
+        expectedGeneration = generation,
+        command = { token ->
+          scaleByAwaitingTransition(
+            zoomLevelsToScale(direction * binding.settings.zoomStep),
+            binding.anchor(sample),
+            options.scaledAnimationDuration(),
+            token,
+          )
+        },
+      )
     }
-
-    if (pairedSecondTap && options.isDoubleClickZoomEnabled) {
-      // Anchored at the pointer so the point under it stays put; shift inverts the direction.
-      target.discreteGesture(continuation) { token ->
-        scaleByAwaitingTransition(
-          scale = zoomLevelsToScale(if (pressedShifted) -options.zoomStep else options.zoomStep),
-          anchor = options.zoomAnchor(where),
-          duration = options.scaledAnimationDuration(),
-          gestureToken = token,
-        )
-      }
-      tapWait = TapWait.None
-      return
-    }
-
-    if (pressedType == PointerType.Mouse || !awaitsSecondTap()) {
-      // Mouse clicks are immediate; touch taps wait only when a second tap still has a gesture.
-      clicks.onPrimaryClick(where)
-    }
-    rememberFirstTap(where, origin, pressedType, timeMillis)
   }
 
-  /** Whether a second tap still has a gesture to become. */
-  private fun awaitsSecondTap(): Boolean =
-    options.isDoubleClickZoomEnabled || options.isQuickZoomEnabled
+  private fun onClick(event: PointerEvent, origin: Offset, pairedSecondTap: Boolean) {
+    val sample = event.gestureSample(ids.next(), target, density, origin, setOf(pressedType))
+    // Release no longer reports the button, but a secondary click must retain its press metadata.
+    val clickSample = sample.copy(buttons = dragSample?.buttons ?: sample.buttons)
+    if (pressedSecondary) {
+      if (TapFamily.LongPress in tapDemand) emitTap(TapFamily.LongPress, clickSample)
+      tapWait = TapWait.None
+      return
+    }
+    if (pairedSecondTap && TapFamily.DoubleTap in tapDemand) {
+      emitTap(TapFamily.DoubleTap, clickSample)
+      tapWait = TapWait.None
+      return
+    }
+    if (TapFamily.Tap in tapDemand && (pressedType == PointerType.Mouse || !awaitsSecondTap()))
+      emitTap(TapFamily.Tap, clickSample)
+    rememberFirstTap(clickSample, origin, pressedType, sample.uptimeMillis)
+  }
+
+  /** Eligibility is fixed at the first press, including subscriber demand. */
+  private fun awaitsSecondTap(): Boolean = secondTapUseful
 
   /** What this down is relative to a [TapWait.Open] first tap. */
   private fun classifyPress(origin: Offset, timeMillis: Long, type: PointerType): PressRole {
@@ -972,7 +1371,7 @@ private class MapPointerGesture(
    * mouse already reported it on the up.
    */
   private fun rememberFirstTap(
-    where: DpOffset,
+    sample: GesturePointerSample,
     origin: Offset,
     type: PointerType,
     timeMillis: Long,
@@ -981,7 +1380,7 @@ private class MapPointerGesture(
       tapWait = TapWait.None
       return
     }
-    val clickOnExpiry = type != PointerType.Mouse
+    val clickOnExpiry = type != PointerType.Mouse && TapFamily.Tap in tapDemand
     val job =
       if (clickOnExpiry) {
         lateinit var launched: Job
@@ -990,14 +1389,17 @@ private class MapPointerGesture(
           val open = tapWait as? TapWait.Open
           if (open?.tap?.job == launched) {
             tapWait = TapWait.None
-            clicks.onPrimaryClick(where)
+            emitTap(TapFamily.Tap, open.tap.sample, open.tap.generation)
           }
         }
         launched
       } else {
         null
       }
-    tapWait = TapWait.Open(OpenTap(where, origin, type, timeMillis, clickOnExpiry, job))
+    tapWait =
+      TapWait.Open(
+        OpenTap(sample, pressInputGeneration, origin, type, timeMillis, clickOnExpiry, job)
+      )
   }
 
   /** Closes [tapWait]. [emitClick] reports a touch first tap that was still waiting. */
@@ -1005,10 +1407,12 @@ private class MapPointerGesture(
     when (val wait = tapWait) {
       is TapWait.Open -> {
         wait.tap.job?.cancel()
-        if (emitClick && wait.tap.clickOnExpiry) clicks.onPrimaryClick(wait.tap.where)
+        if (emitClick && wait.tap.clickOnExpiry)
+          emitTap(TapFamily.Tap, wait.tap.sample, wait.tap.generation)
       }
       is TapWait.Claimed -> {
-        if (emitClick && wait.tap.clickOnExpiry) clicks.onPrimaryClick(wait.tap.where)
+        if (emitClick && wait.tap.clickOnExpiry)
+          emitTap(TapFamily.Tap, wait.tap.sample, wait.tap.generation)
       }
       TapWait.None -> Unit
     }
@@ -1020,91 +1424,68 @@ private class MapPointerGesture(
 
   private fun dragSlopPx(): Float = if (pressedType == PointerType.Mouse) clickSlopPx else panSlopPx
 
-  private fun viewportCenter(viewportSize: IntSize = this.viewportSize()): DpOffset? =
-    if (options.isDragPanEnabled) {
-      Offset(viewportSize.width / 2f, viewportSize.height / 2f).toLogicalDpOffset(density)
-    } else {
-      null
-    }
-
   private fun updateTwoFingerTap(event: PointerEvent, pressedCount: Int) {
     val candidate = twoFingerTap ?: return
     if (pressedCount > 2 || !candidate.update(event, twoFingerTapSlopPx)) twoFingerTap = null
   }
 
   private fun finishSingleVelocity(): Duration? {
+    val binding = selectedDrag ?: return null
+    val velocity = singleVelocity.calculateVelocity()
     if (!gestureInProgress) return null
-    val velocity = runCatching { singleVelocity.calculateVelocity() }.getOrNull() ?: return null
     return when (singleMotion) {
       SingleMotion.PAN -> {
-        if (!options.isFlingEnabled) return null
+        val tuning = binding.settings.fling ?: return null
         val fling =
           GestureMath.fling(
             (velocity.x / density.density).toDouble(),
             (velocity.y / density.density).toDouble(),
+            tuning,
           ) ?: return null
-        // The drag applies each pointer delta with moveBy. The fling continues that path,
-        // decelerating, in the same small steps.
         animateFling(fling)
         fling.duration
       }
       SingleMotion.QUICK_ZOOM -> {
-        if (!options.isPinchZoomVelocityEnabled) return null
-        val continuation =
+        val tuning = binding.settings.velocityContinuation ?: return null
+        val direction = if (binding.settings.direction == QuickZoomDirection.DownZoomsIn) 1 else -1
+        val velocityResponse =
           GestureMath.scaleVelocity(
             velocity.x.toDouble(),
             velocity.y.toDouble(),
             lastQuickZoomSpanDeltaPixels,
             density.density.toDouble(),
-            scalingOut = velocity.y < 0f,
+            scalingOut = velocity.y * direction < 0f,
+            continuation = tuning,
           ) ?: return null
-        animateScaleVelocity(continuation, viewportCenter())
-        continuation.duration
+        animateScaleVelocity(velocityResponse, dragSample?.let(binding::anchor))
+        velocityResponse.duration
+      }
+      SingleMotion.ROTATE_TILT -> {
+        val tuning = binding.settings.tiltContinuation ?: return null
+        val response =
+          GestureMath.tiltVelocity(
+            velocity.y / density.density * binding.settings.pitchDegreesPerDp,
+            tuning,
+          ) ?: return null
+        animateTiltVelocity(response)
+        response.duration
       }
       else -> null
     }
   }
 
-  private fun finishTwoFingerVelocity(): Duration? = prepareTwoFingerVelocity()?.invoke()
-
-  private fun prepareTwoFingerVelocity(): (() -> Duration?)? {
-    val velocity = runCatching { twoFingerVelocity.calculateVelocity() }.getOrNull() ?: return null
-    val scaleContinuation =
-      if (
-        (mode == Mode.TWO_FINGER_SCALE || scaleAlongsideRotation) &&
-          options.isPinchZoomVelocityEnabled
-      ) {
-        GestureMath.scaleVelocity(
-          velocity.x.toDouble(),
-          velocity.y.toDouble(),
-          lastSpanDeltaPixels,
-          density.density.toDouble(),
-          lastScaleWasOut,
-        )
-      } else {
-        null
-      }
-    val rotationContinuation =
-      if (mode == Mode.TWO_FINGER_ROTATE && options.isRotateVelocityEnabled) {
-        GestureMath.rotationVelocity(
-          velocity.x.toDouble(),
-          velocity.y.toDouble(),
-          lastTwoFingerCentroidPixels.x.toDouble(),
-          lastTwoFingerCentroidPixels.y.toDouble(),
-          lastClassicRotationDegrees,
-          density.density.toDouble(),
-          scaling = scaleAlongsideRotation,
-        )
-      } else {
-        null
-      }
-    if (scaleContinuation == null && rotationContinuation == null) return null
-    val anchor = lastTwoFingerAnchor
-    return {
-      scaleContinuation?.let { animateScaleVelocity(it, anchor) }
-      rotationContinuation?.let { animateRotationVelocity(it, anchor) }
-      listOfNotNull(scaleContinuation?.duration, rotationContinuation?.duration).maxOrNull()
-    }
+  private fun finishPairVelocity(velocity: PairContinuation): Duration? {
+    velocity.pan?.let(::animateFling)
+    velocity.scale?.let { animateScaleVelocity(it, velocity.scaleAnchor) }
+    velocity.rotation?.let { animateRotationVelocity(it, velocity.rotationAnchor) }
+    velocity.tilt?.let(::animateTiltVelocity)
+    return listOfNotNull(
+        velocity.pan?.duration,
+        velocity.scale?.duration,
+        velocity.rotation?.duration,
+        velocity.tilt?.duration,
+      )
+      .maxOrNull()
   }
 
   /** Interpolates absolute zoom with a decelerate curve. */
@@ -1113,7 +1494,7 @@ private class MapPointerGesture(
     anchor: DpOffset?,
   ) {
     val token = gestureToken
-    continuation.launchScale(scope) {
+    continuation.launchScale(cameraSession?.scope ?: scope) {
       animateDecelerating(velocity.duration) { frameFraction ->
         val frameZoomDelta = velocity.zoomDelta * frameFraction
         if (frameZoomDelta != 0.0) {
@@ -1125,13 +1506,22 @@ private class MapPointerGesture(
 
   private fun animateFling(fling: GestureMath.Fling) {
     val token = gestureToken
-    continuation.launchFling(scope) {
+    continuation.launchFling(cameraSession?.scope ?: scope) {
       animateDecelerating(fling.duration) { frameFraction ->
         val deltaX = fling.offsetXDp * frameFraction
         val deltaY = fling.offsetYDp * frameFraction
         GestureMath.forEachScreenSpaceStep(deltaX, deltaY) { stepX, stepY ->
           target.moveBy(stepX, stepY, gestureToken = token)
         }
+      }
+    }
+  }
+
+  private fun animateTiltVelocity(velocity: GestureMath.TiltVelocity) {
+    val token = gestureToken
+    continuation.launchRotation(cameraSession?.scope ?: scope) {
+      animateDecelerating(velocity.duration) { fraction ->
+        target.rotateAndPitchBy(0.0, velocity.pitchDelta * fraction, gestureToken = token)
       }
     }
   }
@@ -1159,7 +1549,7 @@ private class MapPointerGesture(
     anchor: DpOffset?,
   ) {
     val token = gestureToken
-    continuation.launchRotation(scope) {
+    continuation.launchRotation(cameraSession?.scope ?: scope) {
       val durationNanos = velocity.duration.inWholeNanoseconds.coerceAtLeast(1L)
       val startedAt = withFrameNanos { it }
       do {
@@ -1180,37 +1570,76 @@ private class MapPointerGesture(
     gestureInProgress = false
     val token = gestureToken ?: return
     gestureToken = null
-    if (continuation.hasVelocityJobs()) {
-      // The animator waits a frame before it starts, so the last moveBy is after the
-      // nominal duration. End the gesture when those frames finish.
-      continuation.finishWhenVelocityJobsComplete(scope, token, target::onGestureEnded)
+    if (continuation.hasMotionJobs()) {
+      // Camera continuations finish when their frame work or awaited engine transition ends.
+      continuation.finishWhenMotionJobsComplete(scope, token, ::completeCameraSession)
     } else if (followUpDuration > Duration.ZERO) {
-      continuation.finishAfter(scope, followUpDuration, token, target::onGestureEnded)
+      continuation.finishAfter(scope, followUpDuration, token, ::completeCameraSession)
     } else {
-      target.onGestureEnded(token)
+      completeCameraSession(token)
     }
+  }
+
+  private fun completeCameraSession(token: GestureToken) {
+    val session = cameraSession
+    if (session?.token === token) session.end() else target.onGestureEnded(token)
+  }
+
+  private fun cancelCameraSession() {
+    val previous = cameraSession
+    cameraSession = null
+    previous?.cancel()
   }
 
   private fun beginGesture() {
     cancelLongClick()
     if (gestureInProgress) return
     gestureInProgress = true
-    gestureToken = continuation.resume() ?: target.onGestureStarted()
+    lateinit var session: GestureInputSession
+    session =
+      GestureInputSession(scope, target) {
+        if (cameraSession === session) {
+          val contactsRemain = lastSingle != null || pair != null
+          cancel(
+            if (target.isGestureReady) GestureCancellationReason.CameraTakeover
+            else GestureCancellationReason.Detached
+          )
+          suppressedUntilRelease = contactsRemain
+        }
+      }
+    cameraSession = session
+    gestureToken = session.token
   }
 
-  fun cancel() {
-    cancelLongClick()
-    longClickHandled = false
-    deferredTwoFingerVelocity = null
-    discardTapWait(emitClick = false)
-    pressRole = PressRole.First
-    if (gestureInProgress) {
+  fun cancel(reason: GestureCancellationReason = GestureCancellationReason.InputCancelled) {
+    try {
+      try {
+        cancelDrag(reason)
+      } finally {
+        pair?.cancel(reason)
+      }
+    } finally {
+      boxZoom.clear()
+      cancelLongClick()
+      longClickHandled = false
+      deferredTwoFingerVelocity = null
+      discardTapWait(emitClick = false)
+      pressRole = PressRole.First
+      cancelCameraSession()
       gestureInProgress = false
-      continuation.cancel()
-      gestureToken?.let(target::onGestureEnded)
       gestureToken = null
-    } else {
-      continuation.finish(target::onGestureEnded)
+      mode = Mode.NONE
+      lastSingle = null
+      singleDragOrigin = null
+      singleMotion = SingleMotion.NONE
+      singleVelocity.resetTracking()
+      twoFingerTap = null
+      pair = null
+      contactOrder.clear()
+      clickOrigin = null
+      quickZoomCandidate = false
+      selectedDrag = null
+      dragSample = null
     }
   }
 
@@ -1223,17 +1652,7 @@ private class MapPointerGesture(
     NONE,
     SINGLE,
     QUICK_ZOOM,
-    TWO_FINGER_UNDECIDED,
-    TWO_FINGER_SCALE,
-    TWO_FINGER_ROTATE,
-    TWO_FINGER_TILT;
-
-    val isTwoFinger: Boolean
-      get() =
-        this == TWO_FINGER_UNDECIDED ||
-          this == TWO_FINGER_SCALE ||
-          this == TWO_FINGER_ROTATE ||
-          this == TWO_FINGER_TILT
+    TWO_FINGER,
   }
 
   private enum class SingleMotion {
@@ -1241,42 +1660,6 @@ private class MapPointerGesture(
     PAN,
     ROTATE_TILT,
     QUICK_ZOOM,
-  }
-
-  private data class TwoFingerSample(
-    val first: Offset,
-    val second: Offset,
-    val firstId: PointerId? = null,
-    val secondId: PointerId? = null,
-    val uptimeMillis: Long = 0L,
-    val pressure: Float = 1f,
-  ) {
-    constructor(
-      first: PointerInputChange,
-      second: PointerInputChange,
-    ) : this(
-      first.position,
-      second.position,
-      first.id,
-      second.id,
-      first.uptimeMillis,
-      first.pressure,
-    )
-
-    val centroid: Offset = (first + second) / 2f
-    val distance: Double = hypot((second.x - first.x).toDouble(), (second.y - first.y).toDouble())
-    val angle: Double = atan2((second.y - first.y).toDouble(), (second.x - first.x).toDouble())
-    val fingerAngleFromHorizontalDegrees: Double =
-      abs(angle.toDegrees()).let { min(it, 180.0 - it) }
-
-    fun hasSamePointers(other: TwoFingerSample): Boolean =
-      firstId == other.firstId && secondId == other.secondId
-
-    fun anyPointerOutsideAxisAlignedSlop(other: TwoFingerSample, slopPixels: Float): Boolean =
-      abs(first.x - other.first.x) >= slopPixels ||
-        abs(first.y - other.first.y) >= slopPixels ||
-        abs(second.x - other.second.x) >= slopPixels ||
-        abs(second.y - other.second.y) >= slopPixels
   }
 
   /**
@@ -1298,7 +1681,8 @@ private class MapPointerGesture(
    * the first up, so expiry only closes the window.
    */
   private data class OpenTap(
-    val where: DpOffset,
+    val sample: GesturePointerSample,
+    val generation: Long,
     val origin: Offset,
     val type: PointerType,
     val upAt: Long,
@@ -1318,6 +1702,7 @@ private class MapPointerGesture(
     val secondId: PointerId,
     val firstOrigin: Offset,
     val secondOrigin: Offset,
+    val pointerTypes: Set<PointerType>,
     var firstCurrent: Offset = firstOrigin,
     var secondCurrent: Offset = secondOrigin,
   ) {
@@ -1345,20 +1730,26 @@ private class MapPointerGesture(
           GestureMath.TWO_FINGER_TAP_TIMEOUT_MILLIS
   }
 
-  private fun normalizedAngle(radians: Double): Double =
-    atan2(kotlin.math.sin(radians), kotlin.math.cos(radians))
-
   private companion object {
-    const val SCALE_EPSILON = 0.001
-    const val ROTATION_EPSILON_DEGREES = 0.1
+    val builtInDrags = setOf("dragPan", "dragRotateTilt", "quickZoom", "boxZoom")
+    val pairBindingIds =
+      listOf("dragPan", "pinchZoom", "twoFingerRotate", "twoFingerTilt", "twoFingerTap")
   }
 }
 
 internal class GestureContinuation(private val scope: CoroutineScope) {
+  private var configuration: Any? = null
+
+  fun configure(key: Any, target: GestureTarget) {
+    if (configuration != null && configuration != key) finish(target::cancelGesture)
+    configuration = key
+  }
+
   private var scaleVelocityJob: Job? = null
   private var rotationVelocityJob: Job? = null
   private var flingJob: Job? = null
-  private var discreteTransitionJob: Job? = null
+  private var boundsFitJob: Job? = null
+  private var discreteSession: GestureInputSession? = null
   private var finishJob: Job? = null
   private var openToken: GestureToken? = null
 
@@ -1377,16 +1768,22 @@ internal class GestureContinuation(private val scope: CoroutineScope) {
     flingJob = scope.launch(block = block)
   }
 
-  fun hasVelocityJobs(): Boolean =
-    flingJob?.isActive == true ||
+  fun launchBoundsFit(scope: CoroutineScope, block: suspend CoroutineScope.() -> Unit) {
+    boundsFitJob?.cancel()
+    boundsFitJob = scope.launch(block = block)
+  }
+
+  fun hasMotionJobs(): Boolean =
+    boundsFitJob?.isActive == true ||
+      flingJob?.isActive == true ||
       scaleVelocityJob?.isActive == true ||
       rotationVelocityJob?.isActive == true
 
   /**
-   * Ends [token] when every velocity job finishes on its own. A cancelled job means a newer pointer
-   * took over, and [resume] or [finish] will close the token instead.
+   * Ends [token] when every motion job finishes on its own. Cancelled work belongs to a revoked
+   * session, whose cancellation path closes the token.
    */
-  fun finishWhenVelocityJobsComplete(
+  fun finishWhenMotionJobsComplete(
     scope: CoroutineScope,
     token: GestureToken,
     onFinished: (GestureToken) -> Unit,
@@ -1394,7 +1791,7 @@ internal class GestureContinuation(private val scope: CoroutineScope) {
     finishJob?.cancel()
     openToken = token
     finishJob = scope.launch {
-      val jobs = listOfNotNull(flingJob, scaleVelocityJob, rotationVelocityJob)
+      val jobs = listOfNotNull(flingJob, scaleVelocityJob, rotationVelocityJob, boundsFitJob)
       jobs.joinAll()
       if (jobs.any { it.isCancelled }) return@launch
       finishJob = null
@@ -1403,12 +1800,38 @@ internal class GestureContinuation(private val scope: CoroutineScope) {
     }
   }
 
-  fun launchDiscreteTransition(block: suspend CoroutineScope.() -> Unit) {
-    discreteTransitionJob?.cancel()
-    discreteTransitionJob = scope.launch(block = block)
+  fun launchDiscreteTransition(
+    target: GestureTarget,
+    beforeCommand: () -> Unit,
+    command: suspend GestureTarget.(GestureToken) -> Unit,
+    expectedGeneration: Long? = null,
+  ) {
+    val token =
+      if (expectedGeneration == null) target.onGestureStarted()
+      else target.onGestureStartedIfCurrent(expectedGeneration) ?: return
+    discreteSession?.cancel()
+    val session = GestureInputSession(scope, target, token)
+    discreteSession = session
+    try {
+      beforeCommand()
+      if (!session.token.acceptsCommands) {
+        session.cancel()
+        return
+      }
+      session.scope.launch {
+        try {
+          command(target, session.token)
+        } finally {
+          if (currentCoroutineContext().isActive) session.end() else session.cancel()
+        }
+      }
+    } catch (error: Throwable) {
+      session.cancel()
+      throw error
+    }
   }
 
-  /** Stops camera motion while leaving its gesture open for a possible pointer takeover. */
+  /** Stops this node's earlier continuation and discrete response jobs. */
   fun interrupt() {
     scaleVelocityJob?.cancel()
     scaleVelocityJob = null
@@ -1416,21 +1839,19 @@ internal class GestureContinuation(private val scope: CoroutineScope) {
     rotationVelocityJob = null
     flingJob?.cancel()
     flingJob = null
-    discreteTransitionJob?.cancel()
-    discreteTransitionJob = null
+    boundsFitJob?.cancel()
+    boundsFitJob = null
+    discreteSession?.cancel()
+    discreteSession = null
   }
 
-  /** Takes over a gesture whose velocity continuation has not ended yet. */
-  fun resume(): GestureToken? {
+  private fun takePendingToken(): GestureToken? {
     val token = openToken
     finishJob?.cancel()
     finishJob = null
     openToken = null
-    return token
+    return token?.takeIf { it.acceptsCommands }
   }
-
-  fun finishAfter(duration: Duration, token: GestureToken, onFinished: (GestureToken) -> Unit) =
-    finishAfter(scope, duration, token, onFinished)
 
   fun finishAfter(
     scope: CoroutineScope,
@@ -1450,80 +1871,15 @@ internal class GestureContinuation(private val scope: CoroutineScope) {
 
   fun finish(onFinished: (GestureToken) -> Unit) {
     interrupt()
-    resume()?.let(onFinished)
+    takePendingToken()?.let(onFinished)
   }
-
-  /** Stops all continuation work without emitting an end event. */
-  fun cancel() {
-    interrupt()
-    resume()
-  }
-}
-
-private fun GestureTarget.pan(
-  options: GestureOptions,
-  continuation: GestureContinuation,
-  deltaX: Double,
-  deltaY: Double,
-): Boolean {
-  if (!options.isKeyboardPanEnabled) return false
-  continuation.finish(::onGestureEnded)
-  discreteGesture(continuation) { token ->
-    moveByAwaitingTransition(deltaX, deltaY, options.scaledAnimationDuration(), token)
-  }
-  return true
-}
-
-private fun GestureTarget.zoom(
-  options: GestureOptions,
-  continuation: GestureContinuation,
-  levelDelta: Double,
-): Boolean {
-  if (!options.isKeyboardZoomEnabled) return false
-  continuation.finish(::onGestureEnded)
-  discreteGesture(continuation) { token ->
-    scaleByAwaitingTransition(
-      zoomLevelsToScale(levelDelta),
-      anchor = null,
-      duration = options.scaledAnimationDuration(),
-      gestureToken = token,
-    )
-  }
-  return true
-}
-
-private fun GestureTarget.rotateAndTilt(
-  options: GestureOptions,
-  continuation: GestureContinuation,
-  bearingDelta: Double = 0.0,
-  pitchDelta: Double = 0.0,
-): Boolean {
-  if (!options.isKeyboardRotateTiltEnabled) return false
-  continuation.finish(::onGestureEnded)
-  discreteGesture(continuation) { token ->
-    rotateAndPitchByAwaitingTransition(
-      bearingDelta,
-      pitchDelta,
-      options.scaledAnimationDuration(),
-      gestureToken = token,
-    )
-  }
-  return true
 }
 
 private fun GestureTarget.discreteGesture(
   continuation: GestureContinuation,
+  beforeCommand: () -> Unit = {},
   command: suspend GestureTarget.(GestureToken) -> Unit,
-) {
-  val token = onGestureStarted()
-  continuation.launchDiscreteTransition {
-    try {
-      this@discreteGesture.command(token)
-    } finally {
-      onGestureEnded(token)
-    }
-  }
-}
+) = continuation.launchDiscreteTransition(this, beforeCommand, command)
 
 /** A second down that is too soon and still on the first tap is a bounce. */
 internal fun isBounceSecondTap(
@@ -1555,22 +1911,9 @@ internal fun isPairedSecondTap(
 /** A zoom level is a doubling. */
 private fun zoomLevelsToScale(levelDelta: Double): Double = 2.0.pow(levelDelta)
 
-/**
- * Where a pointer-driven zoom should pivot: the pointer, or the viewport centre. Anchoring at the
- * pointer moves the camera target, so when panning is disabled zoom pivots on the centre instead.
- */
-private fun GestureOptions.zoomAnchor(pointer: DpOffset): DpOffset? =
-  if (isDragPanEnabled) pointer else null
-
-/**
- * The [GestureOptions.animationDuration] under the platform's animator duration scale. A zero scale
- * turns the ease into a jump. Velocity-derived fling durations are not scaled.
- */
-private fun GestureOptions.scaledAnimationDuration(): Duration =
+private fun MapGestures.scaledAnimationDuration(): Duration =
   animationDuration.scaledBy(systemAnimatorDurationScale())
 
 /** Compose reports physical pixels; MapLibre projects in logical ones. */
 private fun Offset.toLogicalDpOffset(density: Density): DpOffset =
   DpOffset((x / density.density).dp, (y / density.density).dp)
-
-private fun Double.toDegrees(): Double = this * 180.0 / PI

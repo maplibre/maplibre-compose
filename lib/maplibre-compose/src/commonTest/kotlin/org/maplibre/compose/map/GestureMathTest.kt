@@ -10,6 +10,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
 /** Pins the thresholds and camera equations that [mapInput] uses. */
 class GestureMathTest {
@@ -151,5 +153,79 @@ class GestureMathTest {
         scaling = true,
       )
     )
+  }
+
+  @Test
+  fun equal_time_samples_use_spatial_slop_without_artificial_speed_rejection() {
+    assertFalse(GestureMath.shouldStartScale(6.9, 6.9, 0, 0.0))
+    assertTrue(GestureMath.shouldStartScale(7.0, 7.0, 0, 2.0))
+    assertFalse(GestureMath.shouldStartRotation(2.9, 2.9, 0))
+    assertTrue(GestureMath.shouldStartRotation(3.0, 3.0, 0))
+    assertFalse(GestureMath.shouldStartRotation(3.0, 3.0, 1))
+    assertFalse(GestureMath.shouldStartScale(100.0, 100.0, -1, 0.0))
+    assertFalse(GestureMath.shouldStartRotation(100.0, 100.0, -1))
+  }
+
+  @Test
+  fun selected_thresholds_replace_the_family_defaults() {
+    assertTrue(GestureMath.shouldStartScale(5.0, 5.0, 0, 0.0, startSpanSlopDp = 5.0))
+    assertFalse(GestureMath.shouldStartScale(8.0, 8.0, 0, 0.0, startSpanSlopDp = 9.0))
+    assertTrue(GestureMath.shouldStartRotation(2.0, 2.0, 0, startAngleDegrees = 2.0))
+    assertFalse(GestureMath.shouldStartRotation(9.0, 9.0, 0, startAngleDegrees = 10.0))
+    assertTrue(GestureMath.shouldStartShove(8.0, 15.0, startSlopDp = 8.0))
+    assertFalse(GestureMath.shouldStartShove(8.0, 21.0, startSlopDp = 8.0))
+  }
+
+  @Test
+  fun fling_tuning_preserves_screen_space_travel_and_zero_disables_it() {
+    assertNull(GestureMath.fling(1400.0, 0.0, Fling(minimumSpeed = 1500.0)))
+    val fling =
+      assertNotNull(
+        GestureMath.fling(1050.0, 0.0, Fling(baseTime = 100.milliseconds, durationScale = 2.0))
+      )
+    assertEquals(400.milliseconds, fling.duration)
+    assertEquals(117.6, fling.offsetXDp, 1e-10)
+    assertNull(GestureMath.fling(1050.0, 0.0, Fling(durationScale = 0.0)))
+    assertNull(GestureMath.fling(0.0, 0.0, Fling(minimumSpeed = 0.0)))
+    assertNull(GestureMath.fling(Double.NaN, 0.0))
+  }
+
+  @Test
+  fun zoom_and_rotation_continuation_durations_are_scaled_and_capped() {
+    fun scale(continuation: GestureVelocityContinuation) =
+      GestureMath.scaleVelocity(6000.0, 6000.0, 20.0, 1.0, false, continuation)
+    fun rotate(continuation: GestureVelocityContinuation) =
+      GestureMath.rotationVelocity(0.0, 1000.0, 100.0, 0.0, -1.0, 1.0, continuation = continuation)
+    for (calculate in
+      listOf<(GestureVelocityContinuation) -> Duration?>(
+        { scale(it)?.duration },
+        { rotate(it)?.duration },
+      )) {
+      assertEquals(300.milliseconds, calculate(GestureVelocityContinuation()))
+      assertEquals(
+        120.milliseconds,
+        calculate(GestureVelocityContinuation(maximumDuration = 120.milliseconds)),
+      )
+      val full =
+        assertNotNull(calculate(GestureVelocityContinuation(maximumDuration = 1000.milliseconds)))
+      val half =
+        assertNotNull(
+          calculate(
+            GestureVelocityContinuation(durationScale = 0.5, maximumDuration = 1000.milliseconds)
+          )
+        )
+      assertEquals(full / 2.0, half)
+      assertNull(calculate(GestureVelocityContinuation(durationScale = 0.0)))
+      assertNull(calculate(GestureVelocityContinuation(maximumDuration = Duration.ZERO)))
+    }
+  }
+
+  @Test
+  fun tilt_integrates_linear_velocity_decay_with_signed_direction_and_threshold() {
+    assertNull(GestureMath.tiltVelocity(4.99))
+    assertEquals(0.75, assertNotNull(GestureMath.tiltVelocity(10.0)).pitchDelta, 1e-12)
+    assertEquals(-0.75, assertNotNull(GestureMath.tiltVelocity(-10.0)).pitchDelta, 1e-12)
+    assertNull(GestureMath.tiltVelocity(10.0, TiltContinuation(duration = Duration.ZERO)))
+    assertNull(GestureMath.tiltVelocity(0.0, TiltContinuation(minimumSpeed = 0.0)))
   }
 }

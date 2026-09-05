@@ -48,6 +48,11 @@ internal class StyleNode(
             anchor = node.anchor,
             onClick = node.onClick,
             onLongClick = node.onLongClick,
+            onDoubleClick = node.onDoubleClick,
+            onTwoFingerClick = node.onTwoFingerClick,
+            hitPadding = node.hitPadding,
+            registration = node,
+            onHover = node.onHover,
           )
         },
       images = imageManager.desiredImages,

@@ -87,6 +87,9 @@ internal class MapLifecycleAuthority(
   private val owner: MapState,
   private val physicalScope: CoroutineScope,
 ) {
+  internal val gestureCamera: GestureCameraAuthority
+    get() = owner.gestureAuthority
+
   private val lock = reentrantLock()
   private val platforms = mutableMapOf<MapLifecycleSession, MapLifecycleBinding>()
   private val closure = CompletableDeferred<Result<Unit>>()
