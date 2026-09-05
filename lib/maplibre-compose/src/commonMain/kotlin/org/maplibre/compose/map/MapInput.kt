@@ -207,17 +207,18 @@ private fun Modifier.keyboardInput(
   // must not see that release.
   if (event.type == KeyEventType.KeyUp) return@onKeyEvent focus.claimedKeys.remove(event.key)
   if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
-  // A held key repeats its press.
-  if (event.key in focus.claimedKeys) return@onKeyEvent true
+  // A held key repeats its press. A repeated camera key moves the camera again; a repeated
+  // engagement key stays claimed until its release.
+  val repeated = event.key in focus.claimedKeys
   val consumed =
     when (event.key) {
       Key.Enter,
       Key.NumPadEnter,
-      Key.DirectionCenter -> focus.engage(byKey = true)
-      Key.Escape -> focus.disengage()
+      Key.DirectionCenter -> focus.engage(byKey = true) || repeated
+      Key.Escape -> focus.disengage() || repeated
       // Compose delivers Back to the focused node before the activity, so a map that consumed
       // Back after a touch would break back navigation on every Android phone.
-      Key.Back -> focus.consumesBack && focus.disengage()
+      Key.Back -> (focus.consumesBack && focus.disengage()) || repeated
       else -> focus.isEngaged && target.bindKey(event, options, continuation)
     }
   if (consumed) focus.claimedKeys.add(event.key)
