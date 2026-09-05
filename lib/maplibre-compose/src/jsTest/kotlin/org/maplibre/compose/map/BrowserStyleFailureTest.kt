@@ -2,9 +2,13 @@ package org.maplibre.compose.map
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.testing.GlJsMapFixture
 import org.maplibre.compose.testing.MapFixture
 import org.maplibre.compose.testing.MapTestResult
@@ -12,6 +16,47 @@ import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
 
 class BrowserStyleFailureTest {
+  @Test
+  fun a_failed_readiness_callback_hides_the_presentation_until_reconciliation_recovers():
+    MapTestResult = runMapTest {
+    for (engineReadyLast in listOf(false, true)) {
+      createMapFixture().use { fixture ->
+        fixture.loadStyle(BaseStyle.Json(STYLE_A))
+        val session = fixture.session as GlJsMapSession
+        val map = requireNotNull(session.engineMapForTest())
+        val originalIsStyleLoaded = map.asDynamic().isStyleLoaded
+        val callbacks = session.callbacks
+        val failure = IllegalStateException("readiness publication failed")
+        try {
+          if (engineReadyLast) {
+            map.asDynamic().isStyleLoaded = { false }
+            fixture.loadStyle(BaseStyle.Json(STYLE_B))
+            map.asDynamic().isStyleLoaded = originalIsStyleLoaded
+          }
+          session.callbacks =
+            object : MapAdapter.Callbacks by callbacks {
+              override fun onStyleReady(map: MapAdapter) {
+                throw failure
+              }
+            }
+          assertSame(
+            failure,
+            assertFailsWith<IllegalStateException> {
+              if (engineReadyLast) map.asDynamic().fire("styledata")
+              else session.reconcileStyleRevision(DesiredStyleRevision.Empty)
+            },
+          )
+          assertFalse(session.canPresentFrames)
+        } finally {
+          map.asDynamic().isStyleLoaded = originalIsStyleLoaded
+          session.callbacks = callbacks
+        }
+        session.reconcileStyleRevision(DesiredStyleRevision.Empty)
+        assertTrue(session.canPresentFrames)
+      }
+    }
+  }
+
   @Test
   fun a_source_error_does_not_cancel_a_pending_style(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->

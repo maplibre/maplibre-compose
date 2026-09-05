@@ -1073,17 +1073,17 @@ internal class MlnFfiMapSession(
     if (!styleLoadTracker.beginReconciliation(binding.identity)) return
     try {
       styleReconciler.apply(binding, revision)
+      runOnMap {
+        it.requestRepaint()
+        if (styleLoadTracker.reconciled(binding.identity)) {
+          lifecycleCallbacks.onStyleReady(engine, style, this)
+        }
+      }
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
       styleLoadTracker.failed(binding.identity)
       throw error
-    }
-    runOnMap {
-      it.requestRepaint()
-      if (styleLoadTracker.reconciled(binding.identity)) {
-        lifecycleCallbacks.onStyleReady(engine, style, this)
-      }
     }
     requestRender()
   }

@@ -552,7 +552,12 @@ internal class GlJsMapSession(
     binding: GlJsStyleBinding,
   ) {
     if (map?.isStyleLoaded() == true && styleLoadTracker.baseStyleReady(binding.identity)) {
-      lifecycleCallbacks.onStyleReady(engine, style, this)
+      try {
+        lifecycleCallbacks.onStyleReady(engine, style, this)
+      } catch (error: Throwable) {
+        styleLoadTracker.failed(binding.identity)
+        throw error
+      }
     }
   }
 
@@ -622,14 +627,14 @@ internal class GlJsMapSession(
     if (!styleLoadTracker.beginReconciliation(binding.identity)) return
     try {
       styleReconciler.apply(binding, revision)
+      if (styleLoadTracker.reconciled(binding.identity)) {
+        lifecycleCallbacks.onStyleReady(engine, style, this)
+      }
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
       styleLoadTracker.failed(binding.identity)
       throw error
-    }
-    if (styleLoadTracker.reconciled(binding.identity)) {
-      lifecycleCallbacks.onStyleReady(engine, style, this)
     }
     surface?.requestFrame()
   }
