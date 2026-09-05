@@ -16,8 +16,8 @@ internal const val PROTOMAPS_API_KEY = "73c45a97eddd43fb"
  *
  * The enums in this file are the styles the user can pick from the settings, independent of the
  * selected demo. A demo can instead define its own private implementation and apply it with
- * [Demo.preferredStyle]; it then stays out of the pickers, which is the right call when the style
- * is meaningless without the demo's layers. See MaterialStyleDemo for an example.
+ * [Demo.preferredLightStyle]; it then stays out of the pickers, which is the right call when the
+ * style is meaningless without the demo's layers. See MaterialStyleDemo for an example.
  */
 interface DemoStyle {
   val displayName: String

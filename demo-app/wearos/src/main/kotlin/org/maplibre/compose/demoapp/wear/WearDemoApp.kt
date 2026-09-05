@@ -70,7 +70,7 @@ private val EdgeButtonInset = 56.dp
 private fun WearShell(state: DemoAppState) {
   var listOpen by rememberSaveable { mutableStateOf(false) }
   val scope = rememberCoroutineScope()
-  val appliedStyle = state.appliedStyle
+  val dark = state.settings.mapStyleMode.isDark
   var flightJob by remember { mutableStateOf<Job?>(null) }
   AppScaffold(timeText = {}) {
     MapScreen(state, active = !listOpen, onOpenDemos = { listOpen = true })
@@ -86,7 +86,7 @@ private fun WearShell(state: DemoAppState) {
             state,
             onOpenDemo = { demo ->
               flightJob?.cancel()
-              flightJob = scope.launch { state.openDemo(demo, appliedStyle) { listOpen = false } }
+              flightJob = scope.launch { state.openDemo(demo, dark) { listOpen = false } }
             },
           )
         }

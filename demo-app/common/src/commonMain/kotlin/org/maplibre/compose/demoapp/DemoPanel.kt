@@ -59,7 +59,7 @@ fun DemoPanel(
 ) {
   val navController = rememberNavController()
   val scope = rememberCoroutineScope()
-  val appliedStyle = state.appliedStyle
+  val dark = state.settings.mapStyleMode.isDark
   var flightJob by remember { mutableStateOf<Job?>(null) }
   val route = navController.currentBackStackEntryAsState().value?.destination?.route
   // selectedDemo drives the map overlay. Keep it aligned with this destination so
@@ -90,7 +90,7 @@ fun DemoPanel(
         onOpenDemo = { demo ->
           flightJob?.cancel()
           flightJob = scope.launch {
-            state.openDemo(demo, appliedStyle) {
+            state.openDemo(demo, dark) {
               navController.navigate("demo")
               if (collapseOnSelection) {
                 collapsePanel()
@@ -221,7 +221,7 @@ private fun SettingsScreen(
     SegmentedRow(
       options = MapStyleMode.entries,
       selected = state.settings.mapStyleMode,
-      optionLabel = { it.name },
+      optionLabel = { it.displayName },
       onSelect = { state.settings.mapStyleMode = it },
     )
     DropdownRow(

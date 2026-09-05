@@ -1,5 +1,6 @@
 package org.maplibre.compose.demoapp
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -16,10 +17,27 @@ import org.maplibre.compose.map.TileLodOptions
  * Which of the two chosen map styles applies: the system's light or dark choice, or a forced light
  * or dark style.
  */
-enum class MapStyleMode {
-  System,
-  Light,
-  Dark,
+enum class MapStyleMode(val displayName: String) {
+  System("Auto"),
+  Light("Light"),
+  Dark("Dark");
+
+  val isDark: Boolean
+    @Composable
+    get() =
+      when (this) {
+        System -> isSystemInDarkTheme()
+        Light -> false
+        Dark -> true
+      }
+
+  val next: MapStyleMode
+    get() =
+      when (this) {
+        System -> Light
+        Light -> Dark
+        Dark -> System
+      }
 }
 
 /**
