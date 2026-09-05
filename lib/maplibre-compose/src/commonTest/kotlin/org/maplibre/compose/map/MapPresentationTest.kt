@@ -2,6 +2,7 @@ package org.maplibre.compose.map
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.ImageBitmapConfig
 import androidx.compose.ui.graphics.colorspace.ColorSpace
@@ -34,6 +35,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.double
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.maplibre.compose.camera.CameraPosition
@@ -839,6 +842,62 @@ class MapPresentationTest {
     fixture.close()
   }
 
+  /**
+   * A set transition reaches the engine under the animator duration scale, the getter reports what
+   * the engine holds, and a transition the style JSON holds is left alone.
+   */
+  @Test
+  fun a_set_transition_is_scaled_for_the_engine() {
+    val fixture = presentationFixture()
+    val binding =
+      RecordingStyleBinding(
+        layers = listOf(BackgroundLayer("background")),
+        animatorDurationScaleState = mutableStateOf(0.5f),
+      )
+    val transition = fixture.state.style.transition
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+
+    assertEquals(TransitionOptions(), transition.get())
+
+    val options = TransitionOptions(duration = 1.seconds, delay = 20.milliseconds)
+    val scaled = TransitionOptions(duration = 500.milliseconds, delay = 10.milliseconds)
+    transition.set(options)
+    assertEquals(scaled, binding.transition)
+    assertEquals(scaled, transition.get())
+
+    fixture.state.style.light.set(Light(colorTransition = options))
+    // Compared as numbers because Kotlin/JS prints the double 500.0 as 500.
+    assertEquals(
+      mapOf("duration" to 500.0, "delay" to 10.0),
+      assertNotNull(fixture.state.style.light.getProperty("color-transition"))
+        .jsonObject
+        .mapValues { (_, value) -> value.jsonPrimitive.double },
+    )
+
+    val handle = assertNotNull(fixture.state.style.layers["background"])
+    handle.setPaintTransition("background-color", options)
+    assertEquals(scaled, handle.getPaintTransition("background-color"))
+    fixture.close()
+  }
+
+  /** A scale of zero is Android's "remove animations": the engine gets no timing at all. */
+  @Test
+  fun a_zero_animator_duration_scale_zeroes_a_set_transition() {
+    val fixture = presentationFixture()
+    val binding = RecordingStyleBinding(animatorDurationScaleState = mutableStateOf(0f))
+    val transition = fixture.state.style.transition
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+
+    transition.set(TransitionOptions(duration = 1.seconds, delay = 20.milliseconds))
+    assertEquals(
+      TransitionOptions(duration = Duration.ZERO, delay = Duration.ZERO),
+      binding.transition,
+    )
+    fixture.close()
+  }
+
   @Test
   fun transition_light_sky_and_projection_commands_target_only_a_ready_loaded_style() {
     val fixture = presentationFixture()
@@ -1567,7 +1626,7 @@ internal open class PresentationTestAdapter(
       presentationWasVisibleWhileConfiguring || currentAttachment() != null
   }
 
-  override suspend fun reconcileStyleRevision(revision: DesiredStyleRevision): Boolean = true
+  override suspend fun reconcileStyleRevision(revision: DesiredStyleRevision) = Unit
 
   override suspend fun replayStyleRevision(revision: DesiredStyleRevision) = Unit
 

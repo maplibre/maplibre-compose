@@ -11,6 +11,7 @@ import org.maplibre.compose.style.StyleIdentity
 import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.TRANSITION_SUFFIX
 import org.maplibre.compose.style.TransitionOptions
+import org.maplibre.compose.style.scaledBy
 import org.maplibre.compose.style.toTransitionJson
 import org.maplibre.compose.style.toTransitionOptions
 
@@ -45,11 +46,14 @@ internal constructor(
    * null [options] returns the property to the style's global transition. The reset is written at
    * once, as the spec's empty transition object; a layer composable drops the key from its layer
    * definition instead, with the same result.
+   *
+   * On Android, the system animator duration scale multiplies the timing that reaches the engine. A
+   * scale of zero applies the property change instantly.
    */
   public fun setPaintTransition(property: String, options: TransitionOptions?) {
     setPaintProperty(
       property + TRANSITION_SUFFIX,
-      options?.toTransitionJson() ?: CLEARED_TRANSITION,
+      options?.scaledBy(style.animatorDurationScale)?.toTransitionJson() ?: CLEARED_TRANSITION,
     )
   }
 
@@ -61,6 +65,9 @@ internal constructor(
    * without both a duration and a delay: an engine times the omitted field with the style's global
    * transition, which [TransitionOptions] states no value for. MapLibre GL JS reports an empty
    * object for a transition that was cleared, and this returns null for it.
+   *
+   * The reported timing is the engine's: a transition that the library wrote is under the animator
+   * duration scale of the time it was written.
    */
   public fun getPaintTransition(property: String): TransitionOptions? =
     getProperty(property + TRANSITION_SUFFIX)?.toTransitionOptions()

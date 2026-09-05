@@ -24,6 +24,7 @@ public data class GestureOptions(
   val isTwoFingerTiltEnabled: Boolean = true,
   /** Whether tapping with two fingers zooms out by one level. */
   val isTwoFingerTapZoomEnabled: Boolean = true,
+  /** Whether a mouse wheel, a trackpad scroll, or a watch crown changes zoom. */
   val isScrollZoomEnabled: Boolean = true,
   val isDoubleClickZoomEnabled: Boolean = true,
   /** Whether double-tapping, holding, and dragging vertically changes zoom. */
@@ -47,7 +48,10 @@ public data class GestureOptions(
   /** Zoom levels per keyboard step and per double click. */
   val zoomStep: Double = 1.0,
 
-  /** Zoom levels per unit of scroll. One wheel notch is a unit; trackpads report fractions. */
+  /**
+   * Zoom levels per unit of scroll. One wheel notch or crown detent is a unit; trackpads report
+   * fractions.
+   */
   val scrollZoomStep: Double = 0.15,
 
   /** How long after the last scroll event the zoom keeps counting as one continuous gesture. */
@@ -74,7 +78,10 @@ public data class GestureOptions(
   /** Degrees of pitch per shift and up or down. */
   val keyboardPitchStep: Double = 10.0,
 
-  /** How long a discrete input (arrow key, double click) takes to ease the camera. */
+  /**
+   * How long a discrete input (arrow key, double click) takes to ease the camera. On Android, the
+   * system animator duration scale multiplies the duration. A scale of zero jumps.
+   */
   val animationDuration: Duration = 300.milliseconds,
 ) {
   public companion object Companion {

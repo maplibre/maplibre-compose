@@ -28,28 +28,17 @@ import org.maplibre.compose.location.asMapLibreLocationUpdate
 import org.maplibre.spatialk.units.extensions.inMeters
 
 /**
- * A location provider backed by Huawei Mobile Services fused location.
+ * Foreground fused location from Huawei Mobile Services.
  *
- * Each collection requests fused updates, emits the last location when one exists, and removes its
- * callback when collection ends. Every update request explicitly selects
- * [`LocationRequest.COORDINATE_TYPE_WGS84`](https://developer.huawei.com/consumer/en/doc/HMSCore-References/locationrequest-0000001050986193),
- * which is the coordinate system that MapLibre expects.
+ * Delivers the last known location when available, then applies the requested accuracy, interval,
+ * and minimum distance. [LocationAccuracy.Lowest] receives passive updates.
  *
- * [LocationAccuracy.BestForNavigation] and [LocationAccuracy.High] map to
- * `LocationRequest.PRIORITY_HIGH_ACCURACY`, [LocationAccuracy.Balanced] maps to
- * `LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY`, [LocationAccuracy.Low] maps to
- * `LocationRequest.PRIORITY_LOW_POWER`, and [LocationAccuracy.Lowest] maps to
- * `LocationRequest.PRIORITY_NO_POWER`.
+ * Unavailable locations report [LocationUnavailableReason.TemporarilyUnavailable]. Missing
+ * permission reports [LocationUnavailableReason.PermissionDenied]. Other exceptions propagate to
+ * the collector.
  *
- * [LocationAvailability.isLocationAvailable] equal to `false` maps to
- * [LocationUnavailableReason.TemporarilyUnavailable]. A `SecurityException` maps to
- * [LocationUnavailableReason.PermissionDenied]. Other exceptions escape the flow, and the collector
- * classifies them as [LocationUnavailableReason.UnexpectedFailure].
- *
- * The [Context] constructor delegates [permission] and [requestPermission] to an
- * [AndroidLocationProvider]. The [FusedLocationProviderClient] constructor keeps the default
- * [LocationProvider.permission], which is always granted, and its [updates] still surface a
- * `SecurityException` as [LocationUnavailableReason.PermissionDenied].
+ * The [Context] constructor handles permission requests. The [FusedLocationProviderClient]
+ * constructor reports permission as granted and requires the caller to manage authorization.
  */
 public class FusedLocationProvider
 internal constructor(

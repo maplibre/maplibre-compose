@@ -78,6 +78,9 @@ import org.maplibre.compose.style.StyleHandleOperationGuard
 import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.canUpdateTo
+import org.maplibre.compose.style.scaledBy
+import org.maplibre.compose.style.systemAnimatorDurationScale
+import org.maplibre.compose.style.withScaledTransitions
 import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.compose.util.VisibleRegion
@@ -233,7 +236,7 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   internal fun transitionOptions(): TransitionOptions? = readStyle { it.transition() }
 
   internal fun setTransitionOptions(options: TransitionOptions) {
-    mutateStyle("the transition") { it.setTransition(options) }
+    mutateStyle("the transition") { it.setTransition(options.scaledBy(it.animatorDurationScale)) }
   }
 
   internal fun placementTransitions(): Boolean? = readStyle { it.placementTransitions() }
@@ -245,13 +248,17 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   internal fun lightProperty(name: String): JsonElement? = readStyle { it.lightProperty(name) }
 
   internal fun setLight(light: Light) {
-    mutateStyle("the light") { it.setLight(light.toJson()) }
+    mutateStyle("the light") {
+      it.setLight(light.toJson().withScaledTransitions(it.animatorDurationScale))
+    }
   }
 
   internal fun skyProperty(name: String): JsonElement? = readStyle { it.skyProperty(name) }
 
   internal fun setSky(sky: Sky?) {
-    mutateStyle("the sky") { it.setSky(sky?.toJson()) }
+    mutateStyle("the sky") {
+      it.setSky(sky?.toJson()?.withScaledTransitions(it.animatorDurationScale))
+    }
   }
 
   internal fun projectionProperty(name: String): JsonElement? = readStyle {
@@ -517,8 +524,12 @@ internal constructor(
   private var gestureActiveState: Boolean by mutableStateOf(false)
   private var cameraChangingState: Boolean by mutableStateOf(false)
   private var moveReasonState: CameraMoveReason by mutableStateOf(CameraMoveReason.NONE)
+  private var engagedState: Boolean by mutableStateOf(false)
   val isValid: Boolean
     get() = validState
+
+  val isEngaged: Boolean
+    get() = engagedState
 
   val viewport: Viewport?
     get() = viewportState
@@ -609,6 +620,10 @@ internal constructor(
     }
   }
 
+  internal fun setEngaged(engaged: Boolean) {
+    owner.lifecycle.serialized { engagedState = engaged }
+  }
+
   internal fun cameraChangeStarted() {
     owner.lifecycle.serialized {
       cameraChangingState = true
@@ -626,6 +641,7 @@ internal constructor(
       viewportState = null
       gestureActiveState = false
       cameraChangingState = false
+      engagedState = false
       invalidated.complete(Unit)
     }
   }
@@ -771,6 +787,16 @@ internal constructor(
     get() = currentMapAttachment?.cameraMoveReason ?: CameraMoveReason.NONE
 
   /**
+   * Returns true while the focused map consumes the keys that pan, zoom, rotate, and tilt. Enter,
+   * numpad Enter, D-pad center, and a pointer press engage the map. Escape disengages it, and Back
+   * disengages it when a key engaged it. Focus loss disengages it. A focused map that is not
+   * engaged passes direction keys to focus traversal. The value is false while no map surface is
+   * attached.
+   */
+  public val isEngaged: Boolean
+    get() = currentMapAttachment?.isEngaged == true
+
+  /**
    * Emits each [MapEvent] that the engine behind this map reports.
    *
    * A collector receives the events that the map reports after it subscribes. The flow replays
@@ -856,16 +882,26 @@ internal constructor(
     it.fitCameraToBounds(boundingBox, bearing, tilt, padding)
   }
 
-  /** Waits for an attached map, then animates to [position]. A new animation replaces this one. */
+  /**
+   * Waits for an attached map, then animates to [position]. A new animation replaces this one.
+   *
+   * On Android, the system animator duration scale multiplies [duration]. A scale of zero jumps to
+   * [position].
+   */
   public suspend fun animateCameraPosition(
     position: CameraPosition,
     duration: Duration = 300.milliseconds,
   ): Unit = cameraMutation.mutate {
-    retryAcrossAttachments { it.animateCameraPosition(position, duration) }
+    retryAcrossAttachments {
+      it.animateCameraPosition(position, duration.scaledBy(systemAnimatorDurationScale()))
+    }
   }
 
   /**
    * Waits for a viewport, then animates to fit [boundingBox]. A new animation replaces this one.
+   *
+   * On Android, the system animator duration scale multiplies [duration]. A scale of zero jumps to
+   * fit [boundingBox].
    */
   public suspend fun animateCameraToBounds(
     boundingBox: BoundingBox,
@@ -875,7 +911,13 @@ internal constructor(
     duration: Duration = 300.milliseconds,
   ): Unit = cameraMutation.mutate {
     retryAcrossAttachments {
-      it.animateCameraToBounds(boundingBox, bearing, tilt, padding, duration)
+      it.animateCameraToBounds(
+        boundingBox,
+        bearing,
+        tilt,
+        padding,
+        duration.scaledBy(systemAnimatorDurationScale()),
+      )
     }
   }
 
@@ -1464,6 +1506,11 @@ internal constructor(
   /** Reports whether a gesture holds the camera of [adapter]. */
   internal fun setGestureActive(adapter: MapAdapter, active: Boolean) {
     presentedAttachment(adapter)?.setGestureActive(active)
+  }
+
+  /** Reports the engagement of the input node over [adapter]. */
+  internal fun setEngaged(adapter: MapAdapter, engaged: Boolean) {
+    presentedAttachment(adapter)?.setEngaged(engaged)
   }
 
   /** Ends a camera change that the engine behind [adapter] will never finish. */

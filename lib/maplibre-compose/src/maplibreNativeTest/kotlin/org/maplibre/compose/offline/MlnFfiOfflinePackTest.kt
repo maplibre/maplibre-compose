@@ -40,8 +40,7 @@ class MlnFfiOfflinePackTest {
 
   @AfterTest
   fun cleanUp() {
-    // Must precede the delete, so the database is closed rather than pulled out from under a live
-    // runtime.
+    // Close the runtime before deleting its database.
     managers.forEach { it.close() }
     FfiTestPlatform.deleteCacheFile(cacheFile)
   }
@@ -263,10 +262,7 @@ class MlnFfiOfflinePackTest {
     assertEquals(DownloadStatus.Paused, paused.status)
   }
 
-  /**
-   * The status a reopened manager publishes comes from the database rather than from the download
-   * that did the work — a different MapLibre code path, and the one every restart takes.
-   */
+  /** Reopening must restore status from the database through the same code path used on restart. */
   @Test
   fun a_finished_pack_still_reads_as_complete_after_a_reopen() = runBlocking {
     val first = manager()

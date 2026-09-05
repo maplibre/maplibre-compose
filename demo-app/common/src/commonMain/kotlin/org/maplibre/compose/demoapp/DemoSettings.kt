@@ -1,5 +1,6 @@
 package org.maplibre.compose.demoapp
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -16,16 +17,30 @@ import org.maplibre.compose.map.TileLodOptions
  * Which of the two chosen map styles applies: the system's light or dark choice, or a forced light
  * or dark style.
  */
-enum class MapStyleMode {
-  System,
-  Light,
-  Dark,
+enum class MapStyleMode(val displayName: String) {
+  System("Auto"),
+  Light("Light"),
+  Dark("Dark");
+
+  val isDark: Boolean
+    @Composable
+    get() =
+      when (this) {
+        System -> isSystemInDarkTheme()
+        Light -> false
+        Dark -> true
+      }
+
+  val next: MapStyleMode
+    get() =
+      when (this) {
+        System -> Light
+        Light -> Dark
+        Dark -> System
+      }
 }
 
-/**
- * How the Material 3 chrome colors are generated: Android Material You, or a MapLibre brand palette
- * style.
- */
+/** Material You on Android or a palette based on the MapLibre brand color. */
 enum class PaletteMode {
   System,
   Tonal,
@@ -58,13 +73,9 @@ class DemoSettings {
 
 @Composable fun rememberDemoSettings() = remember { DemoSettings() }
 
-/**
- * The rendering toggles this platform's [RenderOptions] offers — debug flags, the frame rate cap,
- * and on Android the texture-versus-surface choice — as settings list items.
- */
+/** Settings for the platform's debug flags, frame rate cap, and render mode. */
 @Composable expect fun RenderSettingsItems(settings: DemoSettings)
 
-/** Presets for [TileLodOptions], shared because every platform exposes the same three. */
 @Composable
 fun TileLodSettingsItems(settings: DemoSettings) {
   SectionHeader("Tile level of detail")

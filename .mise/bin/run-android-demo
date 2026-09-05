@@ -13,7 +13,17 @@ requested="${1:-${usage_serial:-}}"
 export ANDROID_SERIAL
 ANDROID_SERIAL="$("$repository_root/.mise/bin/pick-android-device" "$requested")"
 
-"$repository_root/gradlew" :demo-app:android:installDebug \
+# MAPLIBRE_DEMO_MODULE names the application module: android (default) or wearos.
+case "${MAPLIBRE_DEMO_MODULE:-android}" in
+  android) module=android application_id=org.maplibre.compose.demoapp ;;
+  wearos) module=wearos application_id=org.maplibre.compose.demoapp.wear ;;
+  *)
+    echo "Unknown demo module: $MAPLIBRE_DEMO_MODULE" >&2
+    exit 2
+    ;;
+esac
+
+"$repository_root/gradlew" ":demo-app:$module:installDebug" \
   -Pmaplibre.android.backend="${usage_backend:-opengl}"
 "$adb" -s "$ANDROID_SERIAL" shell am start \
-  -n org.maplibre.compose.demoapp/.MainActivity
+  -n "$application_id/.MainActivity"

@@ -27,7 +27,10 @@ class StyleTransitionTest {
 
       val written = TransitionOptions(duration = 1.seconds, delay = 50.milliseconds)
       fixture.state.style.transition.set(written)
-      assertEquals(written, fixture.state.style.transition.get())
+      assertEquals(
+        written.scaledBy(systemAnimatorDurationScale()),
+        fixture.state.style.transition.get(),
+      )
 
       fixture.loadStyle(EMPTY_STYLE)
       assertEquals(TransitionOptions(), fixture.state.style.transition.get())

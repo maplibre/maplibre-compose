@@ -30,15 +30,16 @@ import org.maplibre.compose.expressions.value.TextUnitValue
  * Capitalizes the first letter of the features' property "name" and formats it to be extra-large,
  * the rest of the name is written normally.
  */
-public fun format(vararg spans: FormatSpan): Expression<FormattedValue> =
-  FunctionCall.of(
-      "format",
-      *spans.foldToArgs { span ->
+public fun format(vararg spans: FormatSpan): Expression<FormattedValue> {
+  val args =
+    buildList(spans.size * 2) {
+      for (span in spans) {
         add(span.value)
         add(span.options)
-      },
-    )
-    .cast()
+      }
+    }
+  return FunctionCall.of("format", args).cast()
+}
 
 /** Configures a span of text in a [format] expression. */
 public fun span(

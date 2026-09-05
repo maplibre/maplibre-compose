@@ -19,9 +19,8 @@ only while they are relevant.
 <Code code={region(controls, "default")} lang="kotlin" title="App.kt" />
 
 <Aside type="caution">
-  Most tile sources require attribution. `MapOverlay.Default` reads it from
-  `MapStyleState.attributions()`. If you replace the overlay, show that
-  attribution yourself.
+  Most tile sources require attribution. If you replace `MapOverlay.Default`,
+  show the source attribution yourself.
 </Aside>
 
 Two variants cover common needs. `MapOverlay.Full` adds zoom in and zoom out
@@ -39,8 +38,6 @@ The trailing block draws the controls that you list. `Modifier.align` positions
 a control against an inset edge of the map.
 
 <Code code={region(controls, "custom")} lang="kotlin" title="App.kt" />
-
-The controls use the map state from the trailing block.
 
 ## Theme the controls with Material 3
 
@@ -112,6 +109,5 @@ the ellipse.
 1. The state stores the placement that the overlay computed.
 2. `angleDegrees` is the direction of the target, clockwise from screen-up.
 
-<Api of="PointerPinButton" /> from the Material 3 module is a styled consumer
-of this modifier: an elevated button in the shape of a pin that points at the
-target.
+<Api of="PointerPinButton" /> from the Material 3 module uses this modifier
+to display a pin-shaped button that points at the target.

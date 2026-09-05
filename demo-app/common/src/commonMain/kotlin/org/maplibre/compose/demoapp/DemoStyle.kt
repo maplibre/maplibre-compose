@@ -5,9 +5,8 @@ import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.style.BaseStyle
 
 /**
- * The demo key for api.protomaps.com, shared by the Protomaps styles and MaterialStyleDemo.
- * Protomaps tiles are free for light use — if you copy any of this code, please get your own key at
- * https://app.protomaps.com/ rather than reusing this one.
+ * The demo key for api.protomaps.com, shared by the Protomaps styles and MaterialStyleDemo. Get
+ * your own key at https://app.protomaps.com/ when copying this code.
  */
 internal const val PROTOMAPS_API_KEY = "73c45a97eddd43fb"
 
@@ -15,9 +14,8 @@ internal const val PROTOMAPS_API_KEY = "73c45a97eddd43fb"
  * A base map style plus the metadata a demo needs to draw on it.
  *
  * The enums in this file are the styles the user can pick from the settings, independent of the
- * selected demo. A demo can instead define its own private implementation and apply it with
- * [Demo.preferredStyle]; it then stays out of the pickers, which is the right call when the style
- * is meaningless without the demo's layers. See MaterialStyleDemo for an example.
+ * selected demo. Define a private style with [Demo.preferredLightStyle] when it requires the demo's
+ * layers and should not appear in settings. See MaterialStyleDemo for an example.
  */
 interface DemoStyle {
   val displayName: String

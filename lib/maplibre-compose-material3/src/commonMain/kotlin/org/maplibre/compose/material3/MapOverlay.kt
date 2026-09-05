@@ -40,8 +40,7 @@ private val Material3FullOverlay = MapOverlay {
 
 /**
  * Applies the Material 3 color scheme and typography to the controls from
- * [MapOverlay.AttributionOnly]. The empty overlay has no colors to theme, so it stays
- * [MapOverlay.None].
+ * [MapOverlay.AttributionOnly].
  *
  * The Material 3 theme does not change the MapLibre logo colors.
  */

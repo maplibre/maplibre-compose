@@ -10,11 +10,14 @@ import org.maplibre.compose.expressions.ast.ColorLiteral
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.CompiledFunctionCall
 import org.maplibre.compose.expressions.ast.DpPaddingLiteral
+import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.ast.FloatLiteral
+import org.maplibre.compose.expressions.ast.FunctionCall
 import org.maplibre.compose.expressions.ast.NullLiteral
 import org.maplibre.compose.expressions.ast.OffsetLiteral
 import org.maplibre.compose.expressions.ast.StringLiteral
+import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.padding
 
 /**
@@ -32,8 +35,7 @@ class ExpressionJsonTest {
       .split(", ")
       .map { it.toDouble() }
 
-  private fun compiled(literal: org.maplibre.compose.expressions.ast.Expression<*>) =
-    literal.compile(ExpressionContext.None)
+  private fun compiled(literal: Expression<*>) = literal.compile(ExpressionContext.None)
 
   @Test
   fun encodes_scalars_as_bare_json_values() {
@@ -66,6 +68,21 @@ class ExpressionJsonTest {
         ),
       )
     assertEquals("""["==",["get","class"],"park"]""", json(expression))
+  }
+
+  @Test
+  fun a_function_call_snapshots_caller_arguments() {
+    val args = mutableListOf<Expression<*>>(const("park"))
+    val expression = FunctionCall.of("concat", args)
+    val initialHash = expression.hashCode()
+    args[0] = const("forest")
+    args.add(const("trail"))
+
+    assertEquals("""["concat","park"]""", json(compiled(expression)))
+    assertEquals(initialHash, expression.hashCode())
+    val visited = mutableListOf<Expression<*>>()
+    expression.visit { visited.add(it) }
+    assertEquals(listOf(expression, const("park")), visited)
   }
 
   @Test

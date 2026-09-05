@@ -9,12 +9,15 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
@@ -179,6 +182,14 @@ class LinuxPortalLocationProviderTest {
     val result = withTimeout(30.seconds) { portal.requestPermission() }
     assertNotEquals(PortalPermissionResult.Unavailable::class, result::class)
     portal.close()
+  }
+
+  @Test
+  fun closeDoesNotCancelCallerScope() {
+    val callerScope = CoroutineScope(SupervisorJob())
+    val requester = LinuxPortalLocationPermissionRequester(FakeLinuxLocationPortal(), callerScope)
+    requester.close()
+    assertTrue(callerScope.isActive)
   }
 }
 

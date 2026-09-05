@@ -42,22 +42,56 @@ import org.maplibre.compose.expressions.value.StringValue
  * color is returned. If the feature has none of the three, the color red is returned.
  */
 public fun <T : ExpressionValue> switch(
-  vararg conditions: Condition<T>,
+  conditions: List<Condition<T>>,
   fallback: Expression<T>,
 ): Expression<T> =
   when (conditions.size) {
     0 -> fallback
-    else ->
-      FunctionCall.of(
-          "case",
-          *conditions.foldToArgs { (test, output) ->
+    else -> {
+      val args =
+        buildList(conditions.size * 2 + 1) {
+          for ((test, output) in conditions) {
             add(test)
             add(output)
-          },
-          fallback,
-        )
-        .cast()
+          }
+          add(fallback)
+        }
+      FunctionCall.of("case", args).cast()
+    }
   }
+
+/**
+ * Selects the first output from the given [conditions] whose corresponding test condition evaluates
+ * to `true`, or the [fallback] value otherwise.
+ *
+ * Example:
+ * ```kt
+ * switch(
+ *   condition(
+ *     test = feature.has("color1") and feature.has("color2"),
+ *     output = interpolate(
+ *       linear(),
+ *       zoom(),
+ *       1 to feature["color1"].convertToColor(),
+ *       20 to feature["color2"].convertToColor()
+ *     ),
+ *   ),
+ *   condition(
+ *     test = feature.has("color"),
+ *     output = feature["color"].convertToColor(),
+ *   ),
+ *   fallback = const(Color.Red),
+ * )
+ * ```
+ *
+ * If the feature has both a "color1" and "color2" property, the result is an interpolation between
+ * these two colors based on the zoom level. Otherwise, if the feature has a "color" property, that
+ * color is returned. If the feature has none of the three, the color red is returned.
+ */
+public fun <T : ExpressionValue> switch(
+  vararg conditions: Condition<T>,
+  fallback: Expression<T>,
+): Expression<T> = switch(conditions.asList(), fallback)
 
 /** See [case] */
 public data class Condition<T : ExpressionValue>
@@ -101,27 +135,66 @@ public fun <T : ExpressionValue> condition(
  */
 public fun <I : MatchableValue, O : ExpressionValue> switch(
   input: Expression<I>,
-  vararg cases: Case<I, O>,
+  cases: List<Case<I, O>>,
   fallback: Expression<O>,
 ): Expression<O> =
   when (cases.size) {
     0 -> fallback
-    else ->
-      FunctionCall.of(
-          "match",
-          input,
-          *cases.foldToArgs { (label, output) ->
+    else -> {
+      val args =
+        buildList(cases.size * 2 + 2) {
+          add(input)
+          for ((label, output) in cases) {
             add(label)
             add(output)
-          },
-          fallback,
+          }
+          add(fallback)
+        }
+      val caseCount = cases.size
+      FunctionCall.of(
+          "match",
+          args,
           isLiteralArg = { i ->
             // label positions are odd, starting from 1 and not including the fallback
-            i in 1..(cases.size * 2) && i % 2 == 1
+            i in 1..(caseCount * 2) && i % 2 == 1
           },
         )
         .cast()
+    }
   }
+
+/**
+ * Selects the output from the given [cases] whose label value matches the [input], or the
+ * [fallback] value if no match is found.
+ *
+ * Each label must be unique. If the input type does not match the type of the labels, the result
+ * will be the [fallback] value.
+ *
+ * Example:
+ * ```kt
+ * switch(
+ *   input = feature["building_type"].asString(),
+ *   case(
+ *     label = "residential",
+ *     output = const(Color.Cyan),
+ *   ),
+ *   case(
+ *     label = listOf("commercial", "industrial"),
+ *     output = const(Color.Yellow),
+ *   ),
+ *   fallback = const(Color.Red),
+ * )
+ * ```
+ *
+ * If the feature has a property "building_type" with the value "residential", cyan is returned.
+ * Otherwise, if the value of that property is either "commercial" or "industrial", yellow is
+ * returned. If none of that is true, the fallback is returned, i.e. red.
+ */
+public fun <I : MatchableValue, O : ExpressionValue> switch(
+  input: Expression<I>,
+  vararg cases: Case<I, O>,
+  fallback: Expression<O>,
+): Expression<O> = switch(input, cases.asList(), fallback)
 
 /** See [switch] */
 public data class Case<@Suppress("unused") I : MatchableValue, O : ExpressionValue>
@@ -167,7 +240,7 @@ public fun <O : ExpressionValue> case(
  * returns that value.
  */
 public fun <T : ExpressionValue> coalesce(vararg values: Expression<T>): Expression<T> =
-  FunctionCall.of("coalesce", *values).cast()
+  FunctionCall.of("coalesce", values.asList()).cast()
 
 /** Returns whether this expression is equal to [other]. */
 public infix fun Expression<EquatableValue>.eq(
@@ -291,7 +364,7 @@ public fun lte(
 
 /** Returns whether all [expressions] are `true`. */
 public fun all(vararg expressions: Expression<BooleanValue>): Expression<BooleanValue> =
-  FunctionCall.of("all", *expressions).cast()
+  FunctionCall.of("all", expressions.asList()).cast()
 
 /** Returns whether both this and [other] expressions are `true`. */
 public infix fun Expression<BooleanValue>.and(
@@ -300,7 +373,7 @@ public infix fun Expression<BooleanValue>.and(
 
 /** Returns whether any [expressions] are `true`. */
 public fun any(vararg expressions: Expression<BooleanValue>): Expression<BooleanValue> =
-  FunctionCall.of("any", *expressions).cast()
+  FunctionCall.of("any", expressions.asList()).cast()
 
 /** Returns whether any of this or the [other] expressions are `true`. */
 public infix fun Expression<BooleanValue>.or(

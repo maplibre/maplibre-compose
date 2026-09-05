@@ -127,27 +127,21 @@ internal class WindowsLocationFilter(
   private val minimumDistanceMeters: Double,
 ) {
   private var previousLocation: WindowsLocationMeasurement? = null
-  private var previousTimestampTicks: Long = 0
 
   fun shouldDeliver(measurement: WindowsLocationMeasurement): Boolean {
     val previous = previousLocation
     if (previous == null) {
-      remember(measurement)
+      previousLocation = measurement
       return true
     }
     val elapsed =
-      ((measurement.windowsTimestampTicks - previousTimestampTicks).coerceAtLeast(0) /
+      ((measurement.windowsTimestampTicks - previous.windowsTimestampTicks).coerceAtLeast(0) /
           TICKS_PER_MILLISECOND)
         .milliseconds
     if (elapsed < minimumInterval) return false
     if (haversineMeters(previous, measurement) < minimumDistanceMeters) return false
-    remember(measurement)
-    return true
-  }
-
-  private fun remember(measurement: WindowsLocationMeasurement) {
     previousLocation = measurement
-    previousTimestampTicks = measurement.windowsTimestampTicks
+    return true
   }
 }
 

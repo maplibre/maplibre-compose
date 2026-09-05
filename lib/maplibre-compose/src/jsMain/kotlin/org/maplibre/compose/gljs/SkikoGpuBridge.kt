@@ -51,10 +51,9 @@ internal object SkikoGpuBridge {
   }
 
   /**
-   * A stand-in for Compose's [DirectContext], carrying its native pointer. Built on a real managed
-   * object's prototype because an optimized build reads that pointer field directly where a
-   * development build goes through its accessor. It frees nothing — the pointer belongs to Compose
-   * — and no instance method may dispatch on it.
+   * Wraps Compose's [DirectContext] pointer using a managed object's prototype. Optimized builds
+   * read the pointer field directly; development builds use its accessor. Compose owns the pointer.
+   * Do not call instance methods or free the pointer through this wrapper.
    */
   fun directContext(context: EmscriptenGlContext): DirectContext? {
     val pointer = contextPointers[context.handle] ?: return null

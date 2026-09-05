@@ -17,10 +17,6 @@ import org.maplibre.spatialk.geojson.Position
 // MapLibre Native works in logical pixels, the same units as Compose's dp, so these conversions are
 // unit-preserving; scaling by density here would double-apply it on a HiDPI display.
 
-// TODO: once maplibre-native-ffi covers every target this library does, the common public geometry
-// types should be typealiases for its own, and this file should go away rather than grow an
-// equivalent on each platform.
-
 internal fun LatLng.toPosition(): Position = Position(longitude = longitude, latitude = latitude)
 
 internal fun Position.toLatLng(): LatLng = LatLng(latitude = latitude, longitude = longitude)

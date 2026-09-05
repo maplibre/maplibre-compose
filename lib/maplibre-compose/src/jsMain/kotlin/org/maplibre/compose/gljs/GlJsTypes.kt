@@ -7,7 +7,7 @@ import kotlin.js.Promise
 import web.html.HTMLElement
 
 // The hand-written subset of MapLibre GL JS this platform binds against; GlJsDeclarationsTest
-// checks it against the MapLibre actually on the page.
+// checks it against the loaded MapLibre version.
 
 internal external interface Subscription {
   fun unsubscribe()
@@ -119,7 +119,7 @@ internal external interface GlJsGeoJsonSource : SourceHandle {
   ): Promise<Array<GeoJsonFeature>>
 }
 
-/** GeoJSON to read, or a URL to fetch it from — the style spec's own rule for `data`. */
+/** GeoJSON data or its URL, as defined by the style spec's `data` property. */
 internal external interface GeoJsonSourceData
 
 internal external interface GlJsImageSource : SourceHandle {

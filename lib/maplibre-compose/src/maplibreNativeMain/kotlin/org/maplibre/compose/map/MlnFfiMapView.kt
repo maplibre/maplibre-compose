@@ -1,6 +1,7 @@
 package org.maplibre.compose.map
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.indication
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -11,6 +12,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
@@ -160,34 +162,45 @@ internal fun MlnFfiMapView(
   }
 
   val focusRequester = remember { FocusRequester() }
+  val inputFocus =
+    remember(session, state) {
+      MapInputFocus { engaged -> state.setEngaged(session, engaged) }
+    }
+  // A press can engage the map before the attachment publishes, and a write before that is
+  // dropped.
+  val attached = state.currentMapAttachment?.adapter === session
+  LaunchedEffect(inputFocus, attached) { if (attached) inputFocus.replay() }
+  val inputEnvironment = mapInputEnvironment()
   val inputScope = rememberCoroutineScope()
   val continuation = remember(session, inputScope) { GestureContinuation(inputScope) }
+  val rotaryNotchPixels = rotaryNotchPixels()
 
   // MapLibre renders black until a style loads.
-  val revealSurface = session.hasPresentableStyle
+  val revealSurface = session.canPresentFrames
 
-  // Before the first render target attaches, gestures would project through the bootstrap 1x1
-  // viewport and jump the camera.
   val inputModifier =
-    if (revealSurface) {
-      modifier.mapInput(
-        session,
-        clicks,
-        options.gestureOptions,
-        density,
-        focusRequester,
-        continuation,
-      )
-    } else {
-      modifier
-    }
+    modifier.mapInput(
+      session,
+      clicks,
+      options.gestureOptions,
+      density,
+      focusRequester,
+      inputFocus,
+      inputEnvironment,
+      continuation,
+      rotaryNotchPixels,
+    )
 
-  Box {
+  // The indication draws over the surface and the load placeholder alike.
+  Box(Modifier.indication(inputFocus.indicationInteractions, inputEnvironment.indication)) {
     surface(session, inputModifier, logger, revealSurface)
     if (!revealSurface) {
+      // A pointer handler makes the placeholder the hit target, so a press reaches no recognizer
+      // on the hidden surface. It consumes nothing, so a parent scroller still scrolls.
       Box(
         Modifier.matchParentSize()
           .background(options.renderOptions.foregroundLoadColor)
+          .pointerInput(Unit) {}
           .testTag(MAP_LOAD_PLACEHOLDER_TAG)
       )
     }
@@ -244,8 +257,8 @@ internal fun loadRuntimeBackends(logger: MapLog?): Set<MapRenderBackend> =
   }
 
 /**
- * The MapLibre Compose producer backend this FFI backend corresponds to, or null when no host
- * bridge exists for it — WebGPU today, which the FFI builds only for the browser.
+ * The corresponding Compose producer backend, or null if no host supports it. WebGPU is currently
+ * supported only by the browser FFI runtime.
  */
 private fun RenderBackend.toComposeBackend(): MapRenderBackend? =
   when (this) {

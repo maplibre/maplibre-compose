@@ -68,8 +68,7 @@ import org.maplibre.compose.offline.OfflinePack
  * By default, it includes controls to pause, resume, invalidate, and delete the pack, and a
  * [CircularProgressIndicator] for download progress.
  *
- * You must supply a [headlineContent] for the list item. Typically, this will be a suitable name
- * for the pack, parsed from [OfflinePack.metadata].
+ * Supply [headlineContent] with a pack name, for example from [OfflinePack.metadata].
  *
  * Swipe the item from end to start to request deletion. The default trailing delete button and the
  * swipe gesture both require confirmation before deleting the pack.
@@ -191,7 +190,7 @@ public object OfflinePackListItemDefaults {
     },
   ) {
     val icon by
-      remember(pack) {
+      remember(pack, completedIcon, pausedIcon, downloadingIcon, errorIcon, warningIcon) {
         derivedStateOf {
           val progress = pack.downloadProgress
           when (progress) {
@@ -225,11 +224,7 @@ public object OfflinePackListItemDefaults {
     DeleteButton(pack, offlineManager)
   }
 
-  /**
-   * The default supporting content for an [OfflinePackListItem]. It includes a [Text] describing
-   * the status of the pack; typically the download status and size. If the pack is in an error or
-   * other unhealthy state, it'll be indicated here.
-   */
+  /** Displays the pack's download status and size, or its error or tile limit status. */
   @Composable
   public fun SupportingContent(
     progress: DownloadProgress,

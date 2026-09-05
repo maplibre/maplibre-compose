@@ -93,9 +93,13 @@ public fun Expression<*>.asString(vararg fallbacks: Expression<*>): Expression<S
 public inline fun <reified T> Expression<*>.asEnum(vararg fallbacks: Expression<*>): Expression<T>
   where T : Enum<T>, T : EnumValue<T> {
   val entries = const(enumEntries<T>().map { it.name })
+  val conditions =
+    buildList(fallbacks.size + 1) {
+      add(condition(entries.contains(this@asEnum), this@asEnum))
+      fallbacks.forEach { add(condition(entries.contains(it), it)) }
+    }
   return switch(
-      condition(entries.contains(this), this),
-      *fallbacks.map { condition(entries.contains(it), it) }.toTypedArray(),
+      conditions,
       fallback = nil(), // should always error .asString(), which is what we want as per kdoc
     )
     .asString()

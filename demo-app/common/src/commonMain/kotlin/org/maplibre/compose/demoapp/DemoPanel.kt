@@ -49,7 +49,6 @@ import org.maplibre.compose.demoapp.generated.arrow_back_24px
 import org.maplibre.compose.demoapp.generated.settings_24px
 import org.maplibre.compose.demoapp.generated.speed_24px
 
-/** The demo list, the style knob, and the selected demo's controls — or the settings page. */
 @Composable
 fun DemoPanel(
   state: DemoAppState,
@@ -59,14 +58,9 @@ fun DemoPanel(
 ) {
   val navController = rememberNavController()
   val scope = rememberCoroutineScope()
-  val appliedStyle = state.appliedStyle
+  val dark = state.settings.mapStyleMode.isDark
   var flightJob by remember { mutableStateOf<Job?>(null) }
   val route = navController.currentBackStackEntryAsState().value?.destination?.route
-  // Align the panel destination with the selection: the agent driver selects demos through
-  // DemoAppState, without touching this NavController.
-  LaunchedEffect(state.selectedDemo) {
-    if (state.selectedDemo != null && route != "demo") navController.navigate("demo")
-  }
   // selectedDemo drives the map overlay. Keep it aligned with this destination so
   // system and predictive back clear the overlay too.
   LaunchedEffect(route) {
@@ -90,21 +84,18 @@ fun DemoPanel(
   ) {
     composable("demos") {
       DemosScreen(
-        state,
         onOpenSettings = { navController.navigate("settings") },
         onOpenDemo = { demo ->
           flightJob?.cancel()
           flightJob = scope.launch {
-            val newBase = demo.preferredStyle?.base?.takeIf { it != appliedStyle.base }
-            val styleLoadsSeen = state.lastStyleLoad.count
-            state.selectDemo(demo)
-            if (collapseOnSelection) {
-              collapsePanel()
-              // One frame so the settled viewport insets reach the camera before the flight.
-              withFrameNanos {}
+            state.openDemo(demo, dark) {
+              navController.navigate("demo")
+              if (collapseOnSelection) {
+                collapsePanel()
+                // One frame so the settled viewport insets reach the camera before the flight.
+                withFrameNanos {}
+              }
             }
-            if (newBase != null) state.awaitStyleLoad(seen = styleLoadsSeen, base = newBase)
-            state.mapState.flyTo(demo.destination)
           }
         },
         onOpenBenchmarks = {
@@ -191,7 +182,6 @@ private fun sharedAxisExit(slideDistance: Int): ExitTransition =
 
 @Composable
 private fun DemosScreen(
-  state: DemoAppState,
   onOpenSettings: () -> Unit,
   onOpenDemo: (Demo) -> Unit,
   onOpenBenchmarks: () -> Unit,
@@ -228,7 +218,7 @@ private fun SettingsScreen(
     SegmentedRow(
       options = MapStyleMode.entries,
       selected = state.settings.mapStyleMode,
-      optionLabel = { it.name },
+      optionLabel = { it.displayName },
       onSelect = { state.settings.mapStyleMode = it },
     )
     DropdownRow(

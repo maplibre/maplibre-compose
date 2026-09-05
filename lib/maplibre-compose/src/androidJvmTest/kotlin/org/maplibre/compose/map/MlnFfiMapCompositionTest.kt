@@ -16,18 +16,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
@@ -117,6 +123,36 @@ class MlnFfiMapCompositionTest {
     runtime.awaitClosed()
     assertTrue(state.isClosed)
     assertNull(state.currentMapAttachment)
+  }
+
+  @Test
+  fun focus_modifiers_on_the_map_modifier_reach_the_input_node() = runFfiComposeUiTest {
+    val runtime = createMapRuntime(runtimeOptions)
+    val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
+    val focusRequester = FocusRequester()
+    val hasFocus = AtomicBoolean(false)
+
+    setFfiTestMapContent(runtimeOptions) {
+      MaplibreMap(
+        modifier =
+          Modifier.focusRequester(focusRequester).onFocusChanged { hasFocus.store(it.hasFocus) },
+        state = state,
+      )
+    }
+    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      state.currentMapAttachment != null &&
+        state.style.loadState == StyleLoadState.Ready &&
+        onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty()
+    }
+
+    runOnUiThread { focusRequester.requestFocus() }
+
+    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { hasFocus.load() }
+    onNodeWithContentDescription("Map").assertIsFocused()
+    assertFalse(state.isEngaged, "a focus request engaged the map")
+
+    runtime.close()
+    runtime.awaitClosed()
   }
 
   @Test
@@ -317,6 +353,7 @@ class MlnFfiMapCompositionTest {
         onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isNotEmpty(),
         "the failed revision must leave the map surface hidden",
       )
+      onNodeWithContentDescription("Map").assertExists("a map without a style has no semantics")
 
       invalidAnchor = false
       waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
@@ -447,13 +484,13 @@ class MlnFfiMapCompositionTest {
       state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
     }
     val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
-    assertTrue(session.hasPresentableStyle)
+    assertTrue(session.canPresentFrames)
     assertTrue(onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty())
 
     runOnUiThread { state.style.baseStyle = second }
     waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { state.style.baseStyle == second }
     assertTrue(
-      session.hasPresentableStyle,
+      session.canPresentFrames,
       "a later style switch must keep the first loaded style on screen",
     )
     assertTrue(
@@ -479,21 +516,21 @@ class MlnFfiMapCompositionTest {
       state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
     }
     val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
-    assertTrue(session.hasPresentableStyle)
+    assertTrue(session.canPresentFrames)
 
     runOnUiThread { state.style.baseStyle = BaseStyle.Json("{") }
     waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
       state.style.loadState is StyleLoadState.Failed
     }
 
-    assertTrue(!session.hasPresentableStyle)
+    assertTrue(!session.canPresentFrames)
     onNodeWithTag(MAP_LOAD_PLACEHOLDER_TAG).assertExists()
 
     runtime.close()
     runtime.awaitClosed()
   }
 
-  /** Style loading needs no rendering, so no frame runs — and none is drawn — before a style. */
+  /** Style loading must not run or draw a frame before a style is available. */
   @Test
   fun an_unloaded_style_keeps_the_transparent_load_placeholder() = runFfiComposeUiTest {
     val errors = RecordingList<String>()

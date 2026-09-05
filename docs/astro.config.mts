@@ -1,5 +1,3 @@
-// @ts-check
-
 import { publicDirectoryIndex } from "./src/integrations/public-directory-index";
 import { remarkVersions } from "./src/plugins/remark-versions.mjs";
 import { unified } from "@astrojs/markdown-remark";
@@ -10,7 +8,6 @@ import starlightLinksValidator from "starlight-links-validator";
 
 const base = "/maplibre-compose";
 
-// https://astro.build/config
 export default defineConfig({
   site: "https://maplibre.org",
   base,

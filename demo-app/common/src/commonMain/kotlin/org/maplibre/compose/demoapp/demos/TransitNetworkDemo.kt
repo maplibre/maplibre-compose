@@ -62,7 +62,7 @@ import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
 import org.maplibre.compose.demoapp.DemoPointerPin
-import org.maplibre.compose.demoapp.OpenFreeMap
+import org.maplibre.compose.demoapp.Protomaps
 import org.maplibre.compose.demoapp.center
 import org.maplibre.compose.demoapp.design.SectionHeader
 import org.maplibre.compose.demoapp.util.unzip
@@ -94,7 +94,8 @@ object TransitNetworkDemo : Demo {
   private val networkRegion = BoundingBox(west = -123.2, south = 47.0, east = -122.2, north = 48.8)
   override val destination = DemoDestination.FitBounds(networkRegion)
   override val pointerPin = DemoPointerPin(networkRegion.center, destination)
-  override val preferredStyle = OpenFreeMap.Positron
+  override val preferredLightStyle = Protomaps.Light
+  override val preferredDarkStyle = Protomaps.Dark
 
   /** Mobility Database refreshes this browser-accessible mirror from WSDOT each day. */
   private const val FEED_URI = "https://files.mobilitydatabase.org/mdb-283/latest.zip"
@@ -404,7 +405,7 @@ object TransitNetworkDemo : Demo {
       id = "transit-terminal-names",
       source = terminalSource,
       textField = feature["name"].asString(),
-      textFont = const(preferredStyle.textFont),
+      textFont = const(preferredLightStyle.textFont),
       textColor = const(Color(0xFF37474F)),
       textHaloColor = const(Color.White),
       textHaloWidth = const(1.dp),

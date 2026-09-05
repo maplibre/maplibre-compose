@@ -39,7 +39,7 @@ public fun Expression<StringValue>.indexOf(
     add(this@indexOf)
     startIndex?.let { add(it) }
   }
-  return FunctionCall.of("index-of", *args.toTypedArray<Expression<*>>()).cast()
+  return FunctionCall.of("index-of", args).cast()
 }
 
 /**
@@ -78,7 +78,7 @@ public fun Expression<StringValue>.substring(
     add(startIndex)
     endIndex?.let { add(it) }
   }
-  return FunctionCall.of("slice", *args.toTypedArray<Expression<*>>()).cast()
+  return FunctionCall.of("slice", args).cast()
 }
 
 /**

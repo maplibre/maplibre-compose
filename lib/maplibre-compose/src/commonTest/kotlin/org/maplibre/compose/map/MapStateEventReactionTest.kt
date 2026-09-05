@@ -113,6 +113,27 @@ class MapStateEventReactionTest {
   }
 
   @Test
+  fun engagement_follows_the_presented_map_and_ends_on_detach() = runTest {
+    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
+    val state = runtime.createMapState(BaseStyle.Demo)
+    val adapter = presentedAdapter(state)
+    val other = PresentationTestAdapter()
+
+    state.setEngaged(other, engaged = true)
+    assertFalse(state.isEngaged)
+
+    state.setEngaged(adapter, engaged = true)
+    assertTrue(state.isEngaged)
+
+    state.invalidatePresentation(adapter)
+    assertFalse(state.isEngaged)
+
+    state.close()
+    state.awaitClosed()
+    runtime.close()
+  }
+
+  @Test
   fun a_detached_map_stops_reporting_a_move() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
     val state = runtime.createMapState(BaseStyle.Demo)

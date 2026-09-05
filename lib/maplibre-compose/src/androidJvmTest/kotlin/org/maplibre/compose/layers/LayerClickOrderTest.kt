@@ -33,14 +33,10 @@ import org.maplibre.compose.util.ClickResult
 import org.maplibre.spatialk.geojson.Position
 
 /**
- * Two overlapping fill layers cover the whole viewport, so a click at the centre hits both. Only
- * the order they sit in decides which handler runs first, and that order is the native style's, not
- * the composition's.
+ * Two overlapping fill layers cover the viewport. Click dispatch must follow native style order,
+ * not composition order. Anchors let the tests vary these orders independently.
  *
- * An anchor is what lets the two disagree: a layer composed first can be drawn in front of one
- * composed later. Dispatching in composition order was #69, fixed by #93, and nothing but a
- * rendered map can catch it coming back — the dispatch reads the live style's layer list and asks
- * the renderer what each layer actually covers.
+ * Regression coverage for #69, fixed by #93. A rendered map is required to query layer coverage.
  */
 @OptIn(ExperimentalTestApi::class)
 class LayerClickOrderTest {

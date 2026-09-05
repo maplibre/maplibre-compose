@@ -17,6 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -90,23 +91,19 @@ private enum class Material(override val isDark: Boolean = false) : DemoStyle {
 }
 
 /**
- * A complete basemap — land, water, roads, buildings, and labels — composed in Kotlin from
- * MaterialTheme color tokens. The layer structure follows Protomaps Light; the street and building
- * shading follows Protomaps White and Black. The only style JSON is an empty base style, so the
- * whole map re-tints by recomposition when the theme changes.
+ * A basemap using MaterialTheme colors. The layers follow Protomaps Light, and street and building
+ * shading follows Protomaps White and Black. Theme changes update the layers without reloading the
+ * base style.
  */
 object MaterialStyleDemo : Demo {
   override val name = "Material 3 style"
   override val description =
     "An entire basemap drawn from MaterialTheme colors. Toggle dark theme to re-tint it live."
 
-  /** Backed by demo state, so the panel's dark toggle re-tints the map and the shell together. */
-  private var dark by mutableStateOf(false)
-
   private var extrudeBuildings by mutableStateOf(false)
 
-  override val preferredStyle: DemoStyle
-    get() = if (dark) Material.Dark else Material.Light
+  override val preferredLightStyle: DemoStyle = Material.Light
+  override val preferredDarkStyle: DemoStyle = Material.Dark
 
   // A worldwide basemap, so keep the camera wherever it is.
   override val destination = DemoDestination.None
@@ -432,9 +429,11 @@ object MaterialStyleDemo : Demo {
 
   @Composable
   private fun Built(tiles: Source, colors: ColorScheme) {
-    // surfaceDim is darker than surface only in light schemes; in dark schemes the darkest tone is
-    // surfaceContainerLowest.
-    val buildingsColor = if (dark) colors.surfaceContainerLowest else colors.surfaceDim
+    // Use the darker surface token in either color scheme.
+    val buildingsColor =
+      if (colors.surfaceDim.luminance() < colors.surfaceContainerLowest.luminance())
+        colors.surfaceDim
+      else colors.surfaceContainerLowest
 
     // With 3D buildings enabled, the flat layer covers the zooms below the extrusion's minimum.
     FillLayer(
@@ -690,7 +689,7 @@ object MaterialStyleDemo : Demo {
 
   @Composable
   override fun Panel(state: DemoAppState) {
-    SwitchRow(label = "Dark theme", checked = dark, onCheckedChange = { dark = it })
+    val dark = state.appliedStyle.isDark
     SwitchRow(
       label = "3D buildings",
       checked = extrudeBuildings,

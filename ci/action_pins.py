@@ -29,7 +29,7 @@ class Pin(NamedTuple):
 
 
 def _parse(path: pathlib.Path) -> list[tuple[int, Pin | str]]:
-    """Yield (line number, Pin) for pinned uses and (line number, raw) otherwise."""
+    """Return line numbers paired with pins or unpinned references."""
     found: list[tuple[int, Pin | str]] = []
     for number, line in enumerate(path.read_text().splitlines(), 1):
         pinned = PINNED.match(line)

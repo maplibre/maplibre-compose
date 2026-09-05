@@ -1,6 +1,7 @@
 package org.maplibre.compose.map
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
@@ -59,7 +60,7 @@ private class MapStateAttachment(
   suspend fun reconcileStyleRevision(map: MapAdapter, revision: DesiredStyleRevision) {
     state.beginStyleRevision(map, revision)
     try {
-      if (map.reconcileStyleRevision(revision)) state.markStyleReady(map)
+      map.reconcileStyleRevision(revision)
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
@@ -74,6 +75,9 @@ private class MapStateAttachment(
  * The caller controls the lifetime of [state]. This composable attaches the map surface while the
  * call remains in composition. [overlay] draws Compose UI over the map. The default draws
  * [MapOverlay.Default]. A supplied block replaces the default.
+ *
+ * The map is a focus target, and the overlay is a focus group. Focus modifiers on [modifier] apply
+ * to the map, and a control in the overlay keeps its own focus properties.
  */
 @Composable
 public fun MaplibreMap(
@@ -283,7 +287,7 @@ private fun MaplibreMapPresentation(
       overlay = overlay,
       mapState = state,
       contentWindowInsets = contentWindowInsets,
-      modifier = Modifier.matchParentSize(),
+      modifier = Modifier.matchParentSize().focusGroup(),
     )
   }
 }

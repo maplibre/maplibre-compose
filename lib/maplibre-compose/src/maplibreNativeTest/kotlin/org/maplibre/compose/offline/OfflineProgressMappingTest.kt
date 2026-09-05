@@ -40,8 +40,8 @@ class OfflineProgressMappingTest {
   }
 
   /**
-   * MapLibre leaves a finished region marked active — it stops fetching without changing its
-   * download state — so completion has to win over the state.
+   * MapLibre stops fetching completed regions without changing their active download state.
+   * Completion must take precedence over that state.
    */
   @Test
   fun a_complete_region_is_complete_even_while_it_is_still_marked_active() {
@@ -53,7 +53,7 @@ class OfflineProgressMappingTest {
 
   /**
    * Download states are value classes over Int, so a newer native runtime can report one this build
-   * has never heard of. Paused is the honest answer; claiming a download is running is not.
+   * does not recognize. Treat unknown values as paused.
    */
   @Test
   fun an_unrecognized_download_state_is_reported_as_paused() {

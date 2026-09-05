@@ -1,13 +1,23 @@
 package org.maplibre.compose.map
 
+import androidx.compose.foundation.Indication
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.interaction.FocusInteraction
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
@@ -24,6 +34,10 @@ import androidx.compose.ui.input.pointer.isShiftPressed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.input.pointer.util.addPointerInputChange
+import androidx.compose.ui.input.rotary.onRotaryScrollEvent
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntSize
@@ -41,10 +55,21 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.stringResource
+import org.maplibre.compose.generated.Res
+import org.maplibre.compose.generated.map
+import org.maplibre.compose.generated.map_engaged
+import org.maplibre.compose.generated.map_not_engaged
+import org.maplibre.compose.style.scaledBy
+import org.maplibre.compose.style.systemAnimatorDurationScale
 
 /**
  * Neither backend owns platform gestures: MapLibre Native declines to, and GL JS is composited
  * under Compose where its own DOM handlers never fire.
+ *
+ * The map is a focus target while a key or rotary binding needs one, and the key handler exists
+ * only while a keyboard gesture is enabled. [rotaryNotchPixels] is the scroll distance of one
+ * rotary detent; zero disables rotary zoom.
  */
 internal fun Modifier.mapInput(
   target: GestureTarget,
@@ -52,48 +77,184 @@ internal fun Modifier.mapInput(
   options: GestureOptions,
   density: Density,
   focusRequester: FocusRequester,
+  focus: MapInputFocus,
+  environment: MapInputEnvironment,
   continuation: GestureContinuation,
-): Modifier =
-  this.keyboardInput(target, options, continuation)
+  rotaryNotchPixels: Float,
+): Modifier {
+  // The semantics block observes no snapshot state, so engagement is read here.
+  val engaged = focus.isEngaged
+  val keys = options.hasKeyboardGesture
+  val rotary = options.isScrollZoomEnabled && rotaryNotchPixels > 0f
+  focus.hasKeyBindings = keys
+  return this.semantics {
+      contentDescription = environment.contentDescription
+      stateDescription = if (engaged) environment.engaged else environment.notEngaged
+    }
+    // Key and rotary events reach the focused node, so these precede the focus target in the chain.
+    .then(if (keys) Modifier.keyboardInput(target, options, focus, continuation) else Modifier)
+    .rotaryZoom(target, options, rotaryNotchPixels, continuation)
+    .onFocusChanged { focus.onFocusChanged(it.isFocused) }
     .focusRequester(focusRequester)
-    .focusable()
-    .pointerGestures(target, clicks, options, density, focusRequester, continuation)
+    .focusable(enabled = keys || rotary)
+    .pointerGestures(target, clicks, options, density, focusRequester, focus, continuation)
     .scrollZoom(target, options, density, continuation)
+}
+
+private val GestureOptions.hasKeyboardGesture: Boolean
+  get() = isKeyboardPanEnabled || isKeyboardZoomEnabled || isKeyboardRotateTiltEnabled
+
+/** The composition locals that one [mapInput] node reads, resolved where the node is composed. */
+internal class MapInputEnvironment(
+  val contentDescription: String,
+  val engaged: String,
+  val notEngaged: String,
+  val indication: Indication?,
+)
+
+@Composable
+internal fun mapInputEnvironment(): MapInputEnvironment =
+  MapInputEnvironment(
+    contentDescription = stringResource(Res.string.map),
+    engaged = stringResource(Res.string.map_engaged),
+    notEngaged = stringResource(Res.string.map_not_engaged),
+    indication = LocalIndication.current,
+  )
+
+/**
+ * The focus and engagement of one [mapInput] node. The node writes both states, and [onChanged]
+ * reports each engagement write.
+ *
+ * A focused node holds Compose focus. An engaged node consumes the keys that pan, zoom, rotate, and
+ * tilt. A node that is focused and not engaged passes those keys through, so focus traversal
+ * continues from the map.
+ */
+internal class MapInputFocus(private val onChanged: (engaged: Boolean) -> Unit) {
+  /**
+   * Focus interactions for the indication the node draws. The map reports focus only while it is a
+   * traversal candidate: an engaged map is a mode, and the camera moving under the keys is its
+   * indication.
+   */
+  val indicationInteractions = MutableInteractionSource()
+
+  /** Keys whose press the node consumed and whose release it still owes. */
+  val claimedKeys = mutableSetOf<Key>()
+
+  /** Engagement belongs to the key handler, so a map without one never engages or stays engaged. */
+  var hasKeyBindings = false
+    set(value) {
+      field = value
+      if (!value) disengage()
+    }
+
+  private var isFocused = false
+  private var engagedByKey = false
+  private var shownFocus: FocusInteraction.Focus? = null
+
+  var isEngaged: Boolean by mutableStateOf(false)
+    private set
+
+  /** Whether Back releases the map. A pointer press engages without claiming Back. */
+  val consumesBack: Boolean
+    get() = isEngaged && engagedByKey
+
+  fun onFocusChanged(focused: Boolean) {
+    isFocused = focused
+    if (!focused) {
+      disengage()
+      claimedKeys.clear()
+    }
+    showFocus()
+  }
+
+  /** Returns false when the node is not focused, because only a focused node engages. */
+  fun engage(byKey: Boolean): Boolean {
+    if (!isFocused || !hasKeyBindings) return false
+    isEngaged = true
+    engagedByKey = byKey
+    showFocus()
+    onChanged(true)
+    return true
+  }
+
+  /** Returns false when the node was not engaged. */
+  fun disengage(): Boolean {
+    if (!isEngaged) return false
+    isEngaged = false
+    showFocus()
+    onChanged(false)
+    return true
+  }
+
+  private fun showFocus() {
+    val show = isFocused && !isEngaged
+    val shown = shownFocus
+    if (show && shown == null) {
+      shownFocus = FocusInteraction.Focus().also { indicationInteractions.tryEmit(it) }
+    } else if (!show && shown != null) {
+      shownFocus = null
+      indicationInteractions.tryEmit(FocusInteraction.Unfocus(shown))
+    }
+  }
+
+  /** Reports the current state again, for a listener that missed earlier writes. */
+  fun replay() = onChanged(isEngaged)
+}
 
 private fun Modifier.keyboardInput(
   target: GestureTarget,
   options: GestureOptions,
+  focus: MapInputFocus,
   continuation: GestureContinuation,
-): Modifier =
-  // Key events only reach a focused node, and the map takes focus on press, so the keyboard works
-  // only after the user has interacted with the map.
-  onKeyEvent { event ->
-    if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
-    val shifted = event.isShiftPressed
-    val panStep = options.keyboardPanStep.value.toDouble()
+): Modifier = onKeyEvent { event ->
+  // A host that acts on the release of a key the map claimed, such as a dialog closing on Escape,
+  // must not see that release.
+  if (event.type == KeyEventType.KeyUp) return@onKeyEvent focus.claimedKeys.remove(event.key)
+  if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+  // A held key repeats its press. A repeated camera key moves the camera again; a repeated
+  // engagement key stays claimed until its release.
+  val repeated = event.key in focus.claimedKeys
+  val consumed =
     when (event.key) {
-      Key.DirectionLeft ->
-        if (shifted)
-          target.rotateAndTilt(options, continuation, bearingDelta = -options.keyboardRotateStep)
-        else target.pan(options, continuation, panStep, 0.0)
-      Key.DirectionRight ->
-        if (shifted)
-          target.rotateAndTilt(options, continuation, bearingDelta = options.keyboardRotateStep)
-        else target.pan(options, continuation, -panStep, 0.0)
-      Key.DirectionUp ->
-        if (shifted)
-          target.rotateAndTilt(options, continuation, pitchDelta = options.keyboardPitchStep)
-        else target.pan(options, continuation, 0.0, panStep)
-      Key.DirectionDown ->
-        if (shifted)
-          target.rotateAndTilt(options, continuation, pitchDelta = -options.keyboardPitchStep)
-        else target.pan(options, continuation, 0.0, -panStep)
-      Key.Plus,
-      Key.Equals -> target.zoom(options, continuation, options.zoomStep)
-      Key.Minus -> target.zoom(options, continuation, -options.zoomStep)
-      else -> false
+      Key.Enter,
+      Key.NumPadEnter,
+      Key.DirectionCenter -> focus.engage(byKey = true) || repeated
+      Key.Escape -> focus.disengage() || repeated
+      // Compose delivers Back to the focused node before the activity, so a map that consumed
+      // Back after a touch would break back navigation on every Android phone.
+      Key.Back -> (focus.consumesBack && focus.disengage()) || repeated
+      else -> focus.isEngaged && target.bindKey(event, options, continuation)
     }
+  if (consumed) focus.claimedKeys.add(event.key)
+  consumed
+}
+
+private fun GestureTarget.bindKey(
+  event: KeyEvent,
+  options: GestureOptions,
+  continuation: GestureContinuation,
+): Boolean {
+  val shifted = event.isShiftPressed
+  val panStep = options.keyboardPanStep.value.toDouble()
+  return when (event.key) {
+    Key.DirectionLeft ->
+      if (shifted) rotateAndTilt(options, continuation, bearingDelta = -options.keyboardRotateStep)
+      else pan(options, continuation, panStep, 0.0)
+    Key.DirectionRight ->
+      if (shifted) rotateAndTilt(options, continuation, bearingDelta = options.keyboardRotateStep)
+      else pan(options, continuation, -panStep, 0.0)
+    Key.DirectionUp ->
+      if (shifted) rotateAndTilt(options, continuation, pitchDelta = options.keyboardPitchStep)
+      else pan(options, continuation, 0.0, panStep)
+    Key.DirectionDown ->
+      if (shifted) rotateAndTilt(options, continuation, pitchDelta = -options.keyboardPitchStep)
+      else pan(options, continuation, 0.0, -panStep)
+    Key.Plus,
+    Key.Equals -> zoom(options, continuation, options.zoomStep)
+    Key.Minus -> zoom(options, continuation, -options.zoomStep)
+    else -> false
   }
+}
 
 private fun Modifier.pointerGestures(
   target: GestureTarget,
@@ -101,6 +262,7 @@ private fun Modifier.pointerGestures(
   options: GestureOptions,
   density: Density,
   focusRequester: FocusRequester,
+  focus: MapInputFocus,
   continuation: GestureContinuation,
 ): Modifier =
   pointerInput(target, options, density, continuation) {
@@ -112,6 +274,7 @@ private fun Modifier.pointerGestures(
         options = options,
         density = density,
         focusRequester = focusRequester,
+        focus = focus,
         viewportSize = { size },
         clickSlopPx = options.clickSlop.toPx(),
         panSlopPx = GestureMath.PAN_START_DP.dp.toPx(),
@@ -134,6 +297,35 @@ private fun Modifier.pointerGestures(
       gesture.cancel()
     }
   }
+
+/**
+ * A watch crown zooms like a mouse wheel: a detent is a notch of [GestureOptions.scrollZoomStep],
+ * anchored at the center, and a burst of detents is one gesture. Rotary events reach the focused
+ * node only, as key events do.
+ */
+private fun Modifier.rotaryZoom(
+  target: GestureTarget,
+  options: GestureOptions,
+  notchPixels: Float,
+  continuation: GestureContinuation,
+): Modifier =
+  if (notchPixels <= 0f) this
+  else
+    onRotaryScrollEvent { event ->
+      if (!options.isScrollZoomEnabled) return@onRotaryScrollEvent false
+      if (event.verticalScrollPixels == 0f) return@onRotaryScrollEvent false
+      val notches = event.verticalScrollPixels.toDouble() / notchPixels
+      continuation.interrupt()
+      val token = continuation.resume() ?: target.onGestureStarted()
+      target.cancelTransitions()
+      target.scaleBy(
+        scale = zoomLevelsToScale(-notches * options.scrollZoomStep),
+        anchor = null,
+        gestureToken = token,
+      )
+      continuation.finishAfter(options.scrollZoomHold, token, target::onGestureEnded)
+      true
+    }
 
 private fun Modifier.scrollZoom(
   target: GestureTarget,
@@ -176,6 +368,7 @@ private class MapPointerGesture(
   private val options: GestureOptions,
   private val density: Density,
   private val focusRequester: FocusRequester,
+  private val focus: MapInputFocus,
   private val viewportSize: () -> IntSize,
   private val clickSlopPx: Float,
   private val panSlopPx: Float,
@@ -234,8 +427,8 @@ private class MapPointerGesture(
   private var pressRole = PressRole.First
 
   fun onPointerEvent(event: PointerEvent) {
-    // A wheel notch arrives here too, with nothing pressed, and would read as a release — closing
-    // the gesture scrollZoom is holding open for the rest of the burst.
+    // Wheel events have no pressed pointers. Treating one as a release would close the
+    // gesture scrollZoom keeps open for the rest of the burst.
     if (event.type == PointerEventType.Scroll) return
     val pressed = event.changes.filter { it.pressed }
     updateTwoFingerTap(event, pressed.size)
@@ -308,6 +501,7 @@ private class MapPointerGesture(
     deferredTwoFingerVelocity = null
     continuation.interrupt()
     runCatching { focusRequester.requestFocus() }
+    focus.engage(byKey = false)
     target.cancelTransitions()
 
     if (change.type != PointerType.Mouse && !quickZoomCandidate) {
@@ -688,7 +882,7 @@ private class MapPointerGesture(
         scaleByAwaitingTransition(
           scale = zoomLevelsToScale(-options.zoomStep),
           anchor = options.zoomAnchor(completedTwoFingerTap.centroid.toLogicalDpOffset(density)),
-          duration = options.animationDuration,
+          duration = options.scaledAnimationDuration(),
           gestureToken = token,
         )
       }
@@ -713,7 +907,7 @@ private class MapPointerGesture(
         scaleByAwaitingTransition(
           scale = zoomLevelsToScale(if (pressedShifted) -options.zoomStep else options.zoomStep),
           anchor = options.zoomAnchor(where),
-          duration = options.animationDuration,
+          duration = options.scaledAnimationDuration(),
           gestureToken = token,
         )
       }
@@ -1235,6 +1429,9 @@ internal class GestureContinuation(private val scope: CoroutineScope) {
     return token
   }
 
+  fun finishAfter(duration: Duration, token: GestureToken, onFinished: (GestureToken) -> Unit) =
+    finishAfter(scope, duration, token, onFinished)
+
   fun finishAfter(
     scope: CoroutineScope,
     duration: Duration,
@@ -1272,7 +1469,7 @@ private fun GestureTarget.pan(
   if (!options.isKeyboardPanEnabled) return false
   continuation.finish(::onGestureEnded)
   discreteGesture(continuation) { token ->
-    moveByAwaitingTransition(deltaX, deltaY, options.animationDuration, token)
+    moveByAwaitingTransition(deltaX, deltaY, options.scaledAnimationDuration(), token)
   }
   return true
 }
@@ -1288,7 +1485,7 @@ private fun GestureTarget.zoom(
     scaleByAwaitingTransition(
       zoomLevelsToScale(levelDelta),
       anchor = null,
-      duration = options.animationDuration,
+      duration = options.scaledAnimationDuration(),
       gestureToken = token,
     )
   }
@@ -1307,7 +1504,7 @@ private fun GestureTarget.rotateAndTilt(
     rotateAndPitchByAwaitingTransition(
       bearingDelta,
       pitchDelta,
-      options.animationDuration,
+      options.scaledAnimationDuration(),
       gestureToken = token,
     )
   }
@@ -1364,6 +1561,13 @@ private fun zoomLevelsToScale(levelDelta: Double): Double = 2.0.pow(levelDelta)
  */
 private fun GestureOptions.zoomAnchor(pointer: DpOffset): DpOffset? =
   if (isDragPanEnabled) pointer else null
+
+/**
+ * The [GestureOptions.animationDuration] under the platform's animator duration scale. A zero scale
+ * turns the ease into a jump. Velocity-derived fling durations are not scaled.
+ */
+private fun GestureOptions.scaledAnimationDuration(): Duration =
+  animationDuration.scaledBy(systemAnimatorDurationScale())
 
 /** Compose reports physical pixels; MapLibre projects in logical ones. */
 private fun Offset.toLogicalDpOffset(density: Density): DpOffset =

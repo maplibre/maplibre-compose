@@ -81,7 +81,7 @@ internal object AndroidLocationBackendResolver {
   }
 }
 
-internal class MisconfiguredLocationProvider(private val cause: Throwable) : LocationProvider {
+internal class MisconfiguredLocationProvider(cause: Throwable) : LocationProvider {
   override val backendAvailability: LocationBackendAvailability =
     LocationBackendAvailability.Misconfigured(cause)
 

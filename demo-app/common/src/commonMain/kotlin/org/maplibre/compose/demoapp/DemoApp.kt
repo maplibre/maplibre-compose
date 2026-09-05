@@ -32,6 +32,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -44,18 +47,18 @@ import androidx.compose.ui.unit.lerp
 import androidx.window.core.layout.WindowSizeClass
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.vectorResource
-import org.maplibre.compose.demoapp.agent.StartAgentDriver
 import org.maplibre.compose.demoapp.benchmark.BenchmarkMap
+import org.maplibre.compose.demoapp.benchmark.gestureOptions
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.chevron_left_24px
 import org.maplibre.compose.demoapp.generated.chevron_right_24px
+import org.maplibre.compose.map.GestureOptions
 
 @Composable
 fun DemoApp(
   state: DemoAppState = rememberDemoAppState(),
   contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
-  StartAgentDriver(state)
   DemoAppTheme(state) { DemoShell(state, contentPadding) }
 }
 
@@ -138,8 +141,20 @@ private fun DemoShell(state: DemoAppState, contentPadding: PaddingValues) {
       }
     val panelTranslation = hiddenTranslation * (1f - panelProgress.value)
 
-    // The handle rides tucked under the panel's trailing edge, and rests against the safe area's
-    // leading edge when the panel is collapsed.
+    // Every control sits inside the map's rectangle, so directional focus search never reaches the
+    // map from the handle or the handle from the map.
+    val handleFocusRequester = remember { FocusRequester() }
+    val mapFocusRequester = remember { FocusRequester() }
+    val controlsFocusRequester = remember { FocusRequester() }
+    val controlsShown = state.shell == DemoShell.Demos
+    // A route to a map that cannot take focus strands the D-pad on the handle.
+    val mapGestures =
+      when (state.shell) {
+        DemoShell.Demos -> state.settings.gestureOptions
+        DemoShell.Benchmarks -> state.selectedScenario.gestureOptions
+      }
+    val mapFocusable = mapGestures.hasKeyboardGesture
+
     val handleTranslation =
       with(density) {
         val trailingEdge =
@@ -151,19 +166,37 @@ private fun DemoShell(state: DemoAppState, contentPadding: PaddingValues) {
       }
 
     Box(Modifier.fillMaxSize()) {
+      val mapCovered = layout == DemoShellLayout.Compact && panelOpen
+      val mapRouted = mapFocusable && !mapCovered
       Box(
-        Modifier.fillMaxSize().semantics {
-          if (layout == DemoShellLayout.Compact && panelOpen) hideFromAccessibility()
-        }
+        Modifier.fillMaxSize()
+          .focusRequester(mapFocusRequester)
+          .focusProperties {
+            canFocus = !mapCovered
+            start = handleFocusRequester
+            // A requester with no node throws on use, so the route exists only with the controls.
+            if (controlsShown) end = controlsFocusRequester
+          }
+          .semantics { if (mapCovered) hideFromAccessibility() }
       ) {
-        ShellMap(state = state, viewportInsets = viewportInsets)
+        ShellMap(
+          state = state,
+          viewportInsets = viewportInsets,
+          controlsModifier =
+            Modifier.focusRequester(controlsFocusRequester).focusProperties {
+              if (mapRouted) start = mapFocusRequester
+            },
+        )
       }
       // Behind the panel, so the panel hides the tucked-under part and its shadow.
       PanelToggleHandle(
         panelOpen = panelOpen,
         onClick = { scope.launch { setPanelOpen(!panelOpen) } },
         modifier =
-          Modifier.align(Alignment.CenterStart).graphicsLayer { translationX = handleTranslation },
+          Modifier.align(Alignment.CenterStart)
+            .graphicsLayer { translationX = handleTranslation }
+            .focusRequester(handleFocusRequester)
+            .focusProperties { if (mapRouted) end = mapFocusRequester },
       )
       Box(
         modifier =
@@ -206,7 +239,6 @@ private fun PanelToggleHandle(
     tonalElevation = 2.dp,
     shadowElevation = 8.dp,
   ) {
-    // Center the icon in the part that protrudes past the panel.
     Box(
       Modifier.fillMaxSize().padding(start = HandleOverlap),
       contentAlignment = Alignment.Center,
@@ -259,10 +291,17 @@ private fun MapViewportInsets.withLeadingPanel(
 }
 
 @Composable
-private fun ShellMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
+private fun ShellMap(
+  state: DemoAppState,
+  viewportInsets: MapViewportInsets,
+  controlsModifier: Modifier,
+) {
   if (state.shell == DemoShell.Benchmarks) {
     BenchmarkMap(state, viewportInsets)
   } else {
-    DemoMap(state, viewportInsets)
+    DemoMap(state, viewportInsets, overlay = demoMapOverlay(state.settings, controlsModifier))
   }
 }
+
+private val GestureOptions.hasKeyboardGesture: Boolean
+  get() = isKeyboardPanEnabled || isKeyboardZoomEnabled || isKeyboardRotateTiltEnabled

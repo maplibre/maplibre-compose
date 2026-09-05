@@ -41,7 +41,7 @@ public fun <T : ExpressionValue> Expression<ListValue<T>>.indexOf(
     add(this@indexOf)
     startIndex?.let { add(it) }
   }
-  return FunctionCall.of("index-of", *args.toTypedArray()).cast()
+  return FunctionCall.of("index-of", args).cast()
 }
 
 /**
@@ -67,7 +67,7 @@ public fun <T : ExpressionValue> Expression<ListValue<T>>.slice(
     add(startIndex)
     endIndex?.let { add(it) }
   }
-  return FunctionCall.of("slice", *args.toTypedArray()).cast()
+  return FunctionCall.of("slice", args).cast()
 }
 
 /**

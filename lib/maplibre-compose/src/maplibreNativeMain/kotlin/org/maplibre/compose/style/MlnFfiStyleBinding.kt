@@ -106,6 +106,9 @@ internal open class MlnFfiStyleBinding(
   override val isLoaded: Boolean
     get() = loaded && sessionOpen()
 
+  override val animatorDurationScale: Float
+    get() = systemAnimatorDurationScale()
+
   override val logger: MapLog?
     get() = loggerProvider()
 
@@ -531,9 +534,11 @@ internal open class MlnFfiStyleBinding(
       return added
     }
     // The parse reports a bad document the same way the add reports a bad source.
+    val inlineData =
+      checkNotNull(data.toInlineUtf8()) { "Expected inline GeoJSON data but received URI" }
     val prepared =
       try {
-        GeoJsonSourceDataHandle.create(data.toInlineUtf8()!!, ffiOptions)
+        GeoJsonSourceDataHandle.create(inlineData, ffiOptions)
       } catch (error: MaplibreException) {
         throw StyleMutationException(error.message, error)
       }
@@ -561,14 +566,19 @@ internal open class MlnFfiStyleBinding(
   private fun prepareGeoJson(
     data: GeoJsonData,
     options: GeoJsonSourceOptions,
-  ): PreparedGeoJson =
+  ): PreparedGeoJson {
+    val inlineData =
+      requireNotNull(data.toInlineUtf8()) {
+        "GeoJsonData.Uri cannot be prepared as inline GeoJSON; use URL-based source updates instead"
+      }
     // TODO: Run native GeoJSON preparation asynchronously by default and report failures that occur
     // after submission through an asynchronous source-error API.
-    try {
-      MlnFfiPreparedGeoJson(GeoJsonSourceDataHandle.create(data.toInlineUtf8()!!, options))
+    return try {
+      MlnFfiPreparedGeoJson(GeoJsonSourceDataHandle.create(inlineData, options))
     } catch (error: MaplibreException) {
       throw StyleMutationException(error.message, error)
     }
+  }
 
   private fun rememberGeoJsonOptions(sourceId: String, options: GeoJsonOptions) {
     geoJsonOptionsLock.withLock {

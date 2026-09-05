@@ -73,6 +73,9 @@ internal class GlJsStyleBinding(
 
   override val identity: StyleIdentity = StyleIdentity.create()
 
+  override val animatorDurationScale: Float
+    get() = systemAnimatorDurationScale()
+
   private var loaded = true
   private val customVectorAttachments = mutableMapOf<String, GlJsCustomVectorAttachment>()
 
@@ -519,10 +522,7 @@ internal class GlJsStyleBinding(
     }
   }
 
-  /**
-   * GL JS fixes a layer's own keys at construction, except the zoom range, which moves as a pair —
-   * so the half that was not asked for is read back off the live layer.
-   */
+  /** GL JS sets both zoom bounds together, so preserve the bound that the caller did not change. */
   private fun setRootProperty(layerId: String, name: String, value: JsonElement) {
     val number = (value as? JsonPrimitive)?.takeUnless { it.isString }?.doubleOrNull
     val layer = map.getLayer(layerId)

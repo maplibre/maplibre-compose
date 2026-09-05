@@ -18,6 +18,15 @@ private constructor(
   }
 
   public companion object {
+    /**
+     * Creates a call with a snapshot of [args]. Later changes to the list do not affect the call.
+     */
+    public fun of(
+      name: String,
+      args: List<Expression<*>>,
+      isLiteralArg: (Int) -> Boolean = { false },
+    ): FunctionCall = FunctionCall(name, args.toList(), isLiteralArg)
+
     public fun of(
       name: String,
       vararg args: Expression<*>,

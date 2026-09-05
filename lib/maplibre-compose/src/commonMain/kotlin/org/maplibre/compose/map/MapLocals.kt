@@ -17,8 +17,5 @@ public val LocalViewport: ProvidableCompositionLocal<Viewport?> = compositionLoc
 /**
  * The interactive map whose style content is being evaluated, or null in the content of a
  * [MapSnapshotter].
- *
- * Content that requires the map checks for null at the read. Content that runs on both hosts
- * branches on it.
  */
 public val LocalMapState: ProvidableCompositionLocal<MapState?> = staticCompositionLocalOf { null }

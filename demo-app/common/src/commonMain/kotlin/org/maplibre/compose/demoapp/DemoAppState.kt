@@ -1,6 +1,5 @@
 package org.maplibre.compose.demoapp
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -22,7 +21,7 @@ import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.Position
 
-/** New York City at a metro-area zoom, so every demo's fly-in has somewhere to go. */
+/** New York City, zoomed out before selecting a demo. */
 private val StartPosition =
   CameraPosition(target = Position(longitude = -74.006, latitude = 40.7128), zoom = 9.5)
 
@@ -42,10 +41,7 @@ internal constructor(
   val frameRateState: FrameRateState,
   private val mapConfiguration: DemoMapConfiguration,
 ) {
-  /**
-   * The demo shown on the map. Select demos through [selectDemo] so the panel can align its
-   * destination.
-   */
+  /** The demo shown on the map. */
   var selectedDemo: Demo?
     get() = mapConfiguration.selectedDemo
     set(value) {
@@ -53,12 +49,20 @@ internal constructor(
     }
 
   /**
-   * Selects [demo] in the Demos shell. The one selection path for both the panel's demo list and
-   * the agent driver; the panel observes [selectedDemo] and navigates to the demo's controls.
+   * Selects [demo] and flies the camera to its destination. [dark] is the resolved map style mode,
+   * so the flight can wait for the demo's matching base style to load. [reveal] runs after the
+   * selection and before the flight, so a shell can uncover the map and let the settled viewport
+   * insets reach the camera first.
    */
-  fun selectDemo(demo: Demo) {
+  suspend fun openDemo(demo: Demo, dark: Boolean, reveal: suspend () -> Unit = {}) {
+    val newBase =
+      mapConfiguration.appliedStyle(dark, demo).base.takeIf { it != mapState.style.baseStyle }
+    val styleLoadsSeen = lastStyleLoad.count
     selectedDemo = demo
     shell = DemoShell.Demos
+    reveal()
+    if (newBase != null) awaitStyleLoad(seen = styleLoadsSeen, base = newBase)
+    mapState.flyTo(demo.destination)
   }
 
   /** The style applied when [MapStyleMode] resolves to light. */
@@ -80,14 +84,7 @@ internal constructor(
    * the current [MapStyleMode].
    */
   val appliedStyle: DemoStyle
-    @Composable get() = mapConfiguration.appliedStyle(settings)
-
-  /**
-   * The style the map composition most recently applied. Kept as plain state because [appliedStyle]
-   * is composable, so non-composition readers like the agent driver cannot call it. Goes stale
-   * while the Benchmarks shell is showing, where the demo map is not composed.
-   */
-  internal var appliedStyleSnapshot by mutableStateOf<DemoStyle?>(null)
+    @Composable get() = mapConfiguration.appliedStyle(settings.mapStyleMode.isDark)
 
   var shell by mutableStateOf(DemoShell.Demos)
 
@@ -98,15 +95,8 @@ internal constructor(
   internal var lastStyleLoad by mutableStateOf(StyleLoad(count = 0, base = null))
     private set
 
-  /**
-   * The base style the map has applied but not yet finished or failed loading, if any. Set by the
-   * map composition and cleared by [noteStyleLoad].
-   */
-  internal var pendingStyleLoad by mutableStateOf<BaseStyle?>(null)
-
   internal fun noteStyleLoad(base: BaseStyle) {
     lastStyleLoad = StyleLoad(lastStyleLoad.count + 1, base)
-    if (pendingStyleLoad == base) pendingStyleLoad = null
   }
 
   /**
@@ -124,33 +114,22 @@ internal class DemoMapConfiguration {
   var chosenLightStyle by mutableStateOf<DemoStyle>(Protomaps.Light)
   var chosenDarkStyle by mutableStateOf<DemoStyle>(Protomaps.Dark)
 
-  @Composable
-  fun appliedStyle(settings: DemoSettings): DemoStyle {
-    selectedDemo?.preferredStyle?.let {
-      return it
-    }
-    val systemDark = isSystemInDarkTheme()
-    return when (settings.mapStyleMode) {
-      MapStyleMode.System -> if (systemDark) chosenDarkStyle else chosenLightStyle
-      MapStyleMode.Light -> chosenLightStyle
-      MapStyleMode.Dark -> chosenDarkStyle
-    }
-  }
+  fun appliedStyle(dark: Boolean, demo: Demo? = selectedDemo): DemoStyle =
+    if (dark) demo?.preferredDarkStyle ?: chosenDarkStyle
+    else demo?.preferredLightStyle ?: chosenLightStyle
 }
 
 internal data class StyleLoad(val count: Int, val base: BaseStyle?)
 
-// Pin the composition target to UI. Without it, the @MaplibreComposable content lambda below lets
-// the compiler's target inference mark this function as map content. The compiler then propagates
-// that target to target-inferred calling scopes (the Nucleus window host) and rejects their UI
-// composables.
+// Prevent the map-content lambda from making callers infer a map composition target.
+// The Nucleus window host needs a UI target.
 @UiComposable
 @Composable
 fun rememberDemoAppState(): DemoAppState {
   val mapRuntime = DefaultMapRuntime.instance
   val settings = rememberDemoSettings()
   val mapConfiguration = remember { DemoMapConfiguration() }
-  val appliedStyle = mapConfiguration.appliedStyle(settings)
+  val appliedStyle = mapConfiguration.appliedStyle(settings.mapStyleMode.isDark)
   val mapState =
     rememberMapState(
       runtime = mapRuntime,

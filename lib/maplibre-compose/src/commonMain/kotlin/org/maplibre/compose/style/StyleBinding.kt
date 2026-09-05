@@ -117,6 +117,13 @@ internal interface StyleBinding {
    */
   fun layerExists(layerId: String): Boolean?
 
+  /**
+   * The platform's current animator duration scale. Every transition the library writes to this
+   * style is multiplied by it at the time of the write. A composition reads it as snapshot state,
+   * so a change republishes the composed layers under the new scale.
+   */
+  val animatorDurationScale: Float
+
   /** @return the loaded style's global transition, or null if the style has unloaded. */
   fun transition(): TransitionOptions?
 
@@ -431,11 +438,6 @@ internal interface StyleBinding {
 
 /** Stores one GeoJSON payload in an engine-specific installation form. [close] releases it. */
 internal interface PreparedGeoJson : AutoCloseable
-
-/** Represents a GeoJSON payload that requires no preparation. */
-internal object NoPreparedGeoJson : PreparedGeoJson {
-  override fun close() = Unit
-}
 
 /** Identifies the section of a layer object that contains a property. */
 internal enum class LayerPropertyKind {

@@ -17,6 +17,6 @@ private constructor(val value: Map<String, Expression<T>>) : Expression<MapValue
 
   public companion object {
     internal fun build(block: MutableMap<String, Expression<*>>.() -> Unit) =
-      Options(mutableMapOf<String, Expression<*>>().apply(block).mapValues { it.value })
+      Options(buildMap(block))
   }
 }

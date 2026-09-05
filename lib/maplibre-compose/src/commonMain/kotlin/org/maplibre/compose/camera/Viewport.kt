@@ -6,7 +6,7 @@ import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
 
 /**
- * What the map shows right now: the size of the map composable and the visible area.
+ * The map composable's size and visible area.
  *
  * Read a current instance from [org.maplibre.compose.map.MapState.viewport]. A new immutable
  * instance replaces it when the map has adopted a new camera or size. A composition that reads any
@@ -14,7 +14,7 @@ import org.maplibre.spatialk.geojson.BoundingBox
  * same rendered transform and are consistent with each other.
  */
 @Immutable
-public class Viewport
+public data class Viewport
 internal constructor(
   /** The size of the map composable this viewport was computed for. */
   public val size: DpSize,
@@ -22,15 +22,13 @@ internal constructor(
   /**
    * The smallest bounding box that contains the currently visible area.
    *
-   * Note that the bounding box is always a north-aligned rectangle. I.e. if the map is rotated or
-   * tilted, the returned bounding box will always be larger than the actually visible area. See
-   * [visibleRegion].
+   * This north-aligned rectangle can include areas outside [visibleRegion] when the map is rotated
+   * or tilted.
    */
   public val visibleBoundingBox: BoundingBox,
 
   /**
-   * The currently visible area, which is a four-sided polygon spanned by the four points each at
-   * one corner of the map composable. If the camera has tilt (pitch), this polygon is a trapezoid
+   * The polygon formed by the map composable's four corners. Camera tilt makes it a trapezoid
    * instead of a rectangle.
    */
   public val visibleRegion: VisibleRegion,
