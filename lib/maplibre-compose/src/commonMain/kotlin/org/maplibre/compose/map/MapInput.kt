@@ -217,9 +217,10 @@ private fun Modifier.keyboardInput(
   if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
   val consumed =
     when (event.key) {
+      // A map with no key binding has nothing to engage, and must not claim Enter or Back.
       Key.Enter,
       Key.NumPadEnter,
-      Key.DirectionCenter -> focus.engage(byKey = true)
+      Key.DirectionCenter -> options.hasKeyboardGesture && focus.engage(byKey = true)
       Key.Escape -> focus.disengage()
       // Compose delivers Back to the focused node before the activity, so a map that consumed
       // Back after a touch would break back navigation on every Android phone.

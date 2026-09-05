@@ -493,10 +493,17 @@ class MapInputRecognitionTest {
           isKeyboardRotateTiltEnabled = false,
         ),
       rotaryNotchPixels = 24f,
-    ) { _, _ ->
+    ) { _, unconsumed ->
       onNodeWithTag(BEFORE_MAP_TAG).requestFocus()
       mapNode().performKeyInput { pressKey(Key.Tab) }
       mapNode().assertIsFocused()
+
+      mapNode().performKeyInput { pressKey(Key.Enter) }
+      mapNode().performKeyInput { pressKey(Key.Back) }
+      waitForIdle()
+
+      assertTrue(Key.Enter in unconsumed, "a map with no key binding engaged on Enter")
+      assertTrue(Key.Back in unconsumed, "a map with no key binding consumed Back")
     }
 
   /**
