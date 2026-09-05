@@ -150,7 +150,10 @@ internal class MapInputFocus(private val onChanged: (engaged: Boolean) -> Unit) 
 
   fun onFocusChanged(focused: Boolean) {
     isFocused = focused
-    if (!focused) disengage()
+    if (!focused) {
+      disengage()
+      claimedKeys.clear()
+    }
     showFocus()
   }
 
