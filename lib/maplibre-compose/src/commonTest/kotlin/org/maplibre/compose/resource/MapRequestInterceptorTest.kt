@@ -2,7 +2,6 @@ package org.maplibre.compose.resource
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
@@ -11,8 +10,6 @@ import org.maplibre.compose.logging.MapLogLevel
 import org.maplibre.compose.logging.MapLogRecord
 import org.maplibre.compose.logging.MapLogger
 import org.maplibre.compose.logging.MapLogging
-import org.maplibre.compose.map.RuntimeImplementation
-import org.maplibre.compose.map.mapRuntimeForTest
 
 class MapRequestInterceptorTest {
 
@@ -86,31 +83,6 @@ class MapRequestInterceptorTest {
     val expected = MapResourceRequest("app://style.json", MapResourceKind.Style)
     assertEquals(MapResourceRoute.Load(expected, provider), route)
     assertEquals("app://style.json", acceptedUrl)
-  }
-
-  @Test
-  fun set_request_interceptor_replaces_the_live_callback() {
-    val runtime = mapRuntimeForTest()
-    val first = MapRequestInterceptor(rewriteUrl = { "https://first.example/style" })
-    val second = MapRequestInterceptor(rewriteUrl = { "https://second.example/style" })
-    runtime.setRequestInterceptor(first)
-    val config = (runtime as RuntimeImplementation).resourceConfig
-    assertEquals("https://first.example/style", config.interceptor().rewrittenUrl(REQUEST, null))
-    runtime.setRequestInterceptor(second)
-    assertEquals("https://second.example/style", config.interceptor().rewrittenUrl(REQUEST, null))
-    runtime.setRequestInterceptor(null)
-    assertEquals(null, config.interceptor())
-    runtime.close()
-  }
-
-  @Test
-  fun set_request_interceptor_fails_after_the_runtime_closes() = runTest {
-    val runtime = mapRuntimeForTest()
-    runtime.close()
-    runtime.awaitClosed()
-    assertFailsWith<IllegalStateException> {
-      runtime.setRequestInterceptor(MapRequestInterceptor())
-    }
   }
 
   @Test

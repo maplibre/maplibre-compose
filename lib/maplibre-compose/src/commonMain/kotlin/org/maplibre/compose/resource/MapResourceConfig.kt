@@ -1,26 +1,13 @@
 package org.maplibre.compose.resource
 
-import kotlin.concurrent.atomics.AtomicReference
-import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import org.maplibre.compose.logging.MapLog
 
-/**
- * Live interceptor and construction-time provider for one [org.maplibre.compose.map.MapRuntime].
- */
-@OptIn(ExperimentalAtomicApi::class)
+/** Construction-time interceptor and provider for one [org.maplibre.compose.map.MapRuntime]. */
 internal class MapResourceConfig(
-  interceptor: MapRequestInterceptor? = null,
+  val interceptor: MapRequestInterceptor? = null,
   val provider: MapResourceProvider? = null,
   val logger: MapLog? = null,
-) {
-  private val interceptorRef = AtomicReference(interceptor)
-
-  fun interceptor(): MapRequestInterceptor? = interceptorRef.load()
-
-  fun setInterceptor(interceptor: MapRequestInterceptor?) {
-    interceptorRef.store(interceptor)
-  }
-}
+)
 
 internal sealed interface MapResourceRoute {
   /** The request after [MapRequestInterceptor.rewriteUrl]. */
@@ -34,10 +21,7 @@ internal sealed interface MapResourceRoute {
     MapResourceRoute
 }
 
-internal fun MapResourceConfig.route(
-  request: MapResourceRequest,
-  interceptor: MapRequestInterceptor? = interceptor(),
-): MapResourceRoute {
+internal fun MapResourceConfig.route(request: MapResourceRequest): MapResourceRoute {
   val rewritten = request.copy(url = interceptor.rewrittenUrl(request, logger))
   val provider = provider
   return if (provider != null && provider.acceptsOrDeclines(rewritten, logger)) {

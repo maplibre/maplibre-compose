@@ -9,9 +9,9 @@ import org.maplibre.compose.resource.MapResourceProvider
 
 /** Browser runtime configuration. */
 public actual data class MapRuntimeOptions(
-  /** Rewrites URLs and headers for every resource this runtime fetches. */
+  /** Rewrites URLs and headers for this runtime. Fixed at construction. */
   public val requestInterceptor: MapRequestInterceptor? = null,
-  /** Serves bytes for resource URLs this provider accepts. */
+  /** Serves bytes for resource URLs this provider accepts. Fixed at construction. */
   public val resourceProvider: MapResourceProvider? = null,
 )
 

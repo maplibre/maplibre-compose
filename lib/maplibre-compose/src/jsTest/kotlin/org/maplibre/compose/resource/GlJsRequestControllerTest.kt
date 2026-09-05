@@ -10,11 +10,71 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Instant
 import kotlinx.coroutines.await
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.gljs.ProtocolResponse
 import org.maplibre.compose.gljs.RequestParameters
+import org.maplibre.compose.map.MapRuntimeOptions
+import org.maplibre.compose.map.RuntimeImplementation
+import org.maplibre.compose.map.createMapRuntime
+import org.maplibre.compose.map.jsRequests
 
 class GlJsRequestControllerTest {
+
+  @Test
+  fun runtimes_keep_their_hooks_while_credentials_refresh() = runTest {
+    val token = MutableStateFlow("first")
+    val runtimes = mutableListOf<RuntimeImplementation>()
+    try {
+      repeat(2) { index ->
+        runtimes +=
+          createMapRuntime(
+            MapRuntimeOptions(
+              requestInterceptor =
+                MapRequestInterceptor(
+                  rewriteUrl = { request ->
+                    request.url.replace("custom://", "app://runtime-$index/")
+                  },
+                  headers = { mapOf("Authorization" to if (index == 0) token.value else "other") },
+                ),
+              resourceProvider = MapResourceProvider("app") { ByteArray(0) },
+            )
+          )
+            as RuntimeImplementation
+      }
+      val controllers = runtimes.map { requireNotNull(it.jsRequests) }
+      fun route(index: Int): MapResourceRequest {
+        val controller = controllers[index]
+        val result = controller.transformRequest("custom://style.json", "Style")
+        return controller.parseProtocolUrl(result.asDynamic().url as String)
+      }
+      fun header(index: Int): String {
+        val result =
+          controllers[index].transformRequest("https://tiles.example.com/style.json", "Style")
+        return result.asDynamic().headers["Authorization"] as String
+      }
+      controllers.indices.forEach { index ->
+        assertEquals(
+          MapResourceRequest("app://runtime-$index/style.json", MapResourceKind.Style),
+          route(index),
+        )
+      }
+      assertEquals("first", header(0))
+      assertEquals("other", header(1))
+      token.value = "refreshed"
+      assertEquals("refreshed", header(0))
+      runtimes[0].close()
+      runtimes[0].awaitClosed()
+      assertEquals("other", header(1))
+      assertEquals(
+        MapResourceRequest("app://runtime-1/style.json", MapResourceKind.Style),
+        route(1),
+      )
+    } finally {
+      runtimes.forEach { it.close() }
+      runtimes.forEach { it.awaitClosed() }
+    }
+  }
 
   @Test
   fun an_empty_config_leaves_the_request_unchanged() {

@@ -16,33 +16,38 @@ or serve the bytes from application code.
 headers before the engine fetches it. It can rewrite a custom-scheme URL to
 HTTP or HTTPS, and the headers apply to the rewritten URL.
 <Api of="MapResourceProvider" /> supplies resource data without the engine HTTP
-client and receives the rewritten URL. The interceptor can change after
-construction. The provider is fixed at construction.
+client and receives the rewritten URL. Both hooks are fixed when the runtime
+is created and apply to its maps, snapshotters, and supported offline operations.
 
-## Rewrite a request
+## Configure requests
 
-<Api of="MapRuntime.setRequestInterceptor" /> applies to every map and
-snapshotter on the runtime. Install it in a `DisposableEffect` so it lasts
-for this composition:
+Pass either or both hooks in <Api of="MapRuntimeOptions" />. Call
+<Api of="DefaultMapRuntime.configure" /> once during application startup, before
+the first map, snapshotter, or offline manager. This example adds credentials
+for an owned HTTPS host and serves `app:` URLs from application assets:
 
-<Code code={region(requests, "interceptor")} lang="kotlin" title="App.kt" />
+<Code code={region(requests, "configuration")} lang="kotlin" title="App.kt" />
 
 Attach credentials only to hosts you own. A style also names glyphs, sprites,
-and tiles on other hosts. Return the same result for the same request, because
-the engine may call the interceptor more than once for one request.
+and tiles on other hosts. The provider's scheme factory accepts every URL with
+that scheme.
+
+The application owns the token state. Updating its value lets subsequent header
+callbacks read refreshed credentials without replacing the interceptor or
+recreating the runtime. Callbacks must return quickly and be safe to call
+concurrently. The engine may call them more than once for one request; return
+the same result while the request and application state are unchanged. Updates
+do not restart requests in flight, and separate callbacks may observe different
+credential values.
+
+For screen-specific configuration, use <Api of="createMapRuntime" /> with its own
+options and pass the runtime to <Api of="rememberMapState" />. Keep that runtime
+for the lifetime of its owner, which must call <Api of="MapRuntime.close" /> when
+finished. Use <Api of="MapRuntime.awaitClosed" /> when cleanup must finish before
+proceeding. Configure the process default at startup rather than from a screen's
+composition.
 
 ## Serve the bytes
-
-Pass a <Api of="MapResourceProvider" /> as `resourceProvider` in
-<Api of="MapRuntimeOptions" />. <Api of="DefaultMapRuntime.configure" /> sets
-the options for the process-default runtime, and must run before the first
-map, snapshotter, or offline manager. <Api of="createMapRuntime" /> creates a
-separate runtime from the same options. The scheme factory accepts every URL
-with that scheme:
-
-<Code code={region(requests, "provider")} lang="kotlin" title="App.kt" />
-
-### Choose an outcome
 
 A load returns a <Api of="MapResourceLoad" />. Each case corresponds to one
 HTTP response. Return `Bytes` with the body. Return `NoContent` for a tile

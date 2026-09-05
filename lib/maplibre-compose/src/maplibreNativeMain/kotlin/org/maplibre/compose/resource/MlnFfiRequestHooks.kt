@@ -8,7 +8,7 @@ import org.maplibre.nativeffi.resource.ResourceTransformCallback
 import org.maplibre.nativeffi.runtime.RuntimeHandle
 
 /**
- * Installs the URL and header callbacks, each of which reads the live interceptor in [config].
+ * Installs the URL and header callbacks, each of which uses the interceptor in [config].
  *
  * Native invokes the two callbacks independently, on its network threads, and passes the header
  * callback the URL that the URL callback returned.
@@ -18,7 +18,7 @@ internal fun RuntimeHandle.installRequestInterceptor(config: MapResourceConfig) 
     setHttpHeaderTransform(
       HttpHeaderTransformCallback { request ->
         val mapRequest = MapResourceRequest(request.url, request.kind.toCommon())
-        config.interceptor().headersOrNone(mapRequest, config.logger).map {
+        config.interceptor.headersOrNone(mapRequest, config.logger).map {
           HttpHeader(it.key, it.value)
         }
       }
@@ -33,7 +33,7 @@ internal fun RuntimeHandle.installRequestInterceptor(config: MapResourceConfig) 
   setResourceTransform(
     ResourceTransformCallback { request ->
       val mapRequest = MapResourceRequest(request.url, request.kind.toCommon())
-      val url = config.interceptor().rewrittenUrl(mapRequest, config.logger)
+      val url = config.interceptor.rewrittenUrl(mapRequest, config.logger)
       if (url == request.url) null else url
     }
   )
