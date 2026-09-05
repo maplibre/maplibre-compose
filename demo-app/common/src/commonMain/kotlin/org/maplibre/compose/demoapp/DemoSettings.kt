@@ -9,7 +9,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import org.maplibre.compose.demoapp.design.DropdownRow
 import org.maplibre.compose.demoapp.design.SectionHeader
-import org.maplibre.compose.map.GestureOptions
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.map.TileLodOptions
 
@@ -61,7 +60,10 @@ val defaultPaletteMode: PaletteMode
 class DemoSettings {
   var mapStyleMode by mutableStateOf(MapStyleMode.System)
   var paletteMode by mutableStateOf(defaultPaletteMode)
-  var gestureOptions by mutableStateOf(GestureOptions.Standard)
+  val gestureSettings = DemoGestureSettings()
+  val gestures
+    get() = gestureSettings.gestures
+
   var renderOptions by mutableStateOf(RenderOptions.Standard)
   var tileLodOptions by mutableStateOf(TileLodOptions.Standard)
   var showFpsOverlay by mutableStateOf(false)

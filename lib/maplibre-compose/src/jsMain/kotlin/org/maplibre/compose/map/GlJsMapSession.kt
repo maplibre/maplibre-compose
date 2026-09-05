@@ -793,9 +793,10 @@ internal class GlJsMapSession(
       zoom = getZoom(),
     )
 
-  override fun setCameraPosition(cameraPosition: CameraPosition) {
+  override fun setCameraPosition(cameraPosition: CameraPosition, guard: CameraCommandGuard?) {
+    if (guard?.isValid() == false) return
     requestedCamera = cameraPosition
-    onMap { map -> map.jumpTo(cameraPosition.toJumpToOptions()) }
+    onMap { map -> if (guard?.isValid() != false) map.jumpTo(cameraPosition.toJumpToOptions()) }
   }
 
   override fun setCameraPadding(padding: PaddingValues) {
@@ -810,16 +811,23 @@ internal class GlJsMapSession(
     bearing: Double,
     tilt: Double,
     padding: PaddingValues,
+    guard: CameraCommandGuard?,
   ) {
+    if (guard?.isValid() == false) return
     onMap { map ->
+      if (guard?.isValid() == false) return@onMap
       map.cameraPositionForBounds(boundingBox, bearing, tilt, padding)?.let {
         map.jumpTo(it.toJumpToOptions())
       }
     }
   }
 
-  override suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration) {
-    awaitCameraRelease { map ->
+  override suspend fun animateCameraPosition(
+    finalPosition: CameraPosition,
+    duration: Duration,
+    guard: CameraCommandGuard?,
+  ) {
+    awaitCameraRelease(guard = guard) { map ->
       map.flyTo(
         unsafeJso<FlyToOptions> {
           center = finalPosition.target.toLngLat()
@@ -839,8 +847,9 @@ internal class GlJsMapSession(
     tilt: Double,
     padding: PaddingValues,
     duration: Duration,
+    guard: CameraCommandGuard?,
   ) {
-    awaitCameraRelease { map ->
+    awaitCameraRelease(guard = guard) { map ->
       map.cameraPositionForBounds(boundingBox, bearing, tilt, padding)?.let {
         map.easeTo(it.toEaseToOptions(duration))
       }
@@ -928,10 +937,6 @@ internal class GlJsMapSession(
     }
   }
 
-  override fun setGestureSettings(value: GestureOptions) {
-    // Gestures are implemented in Compose, so the host's input handling reads these.
-  }
-
   override fun setTileLodSettings(value: TileLodOptions) {
     if (value == tileLodOptions) return
     tileLodOptions = value
@@ -1007,19 +1012,36 @@ internal class GlJsMapSession(
    * Resumes normally however the transition ended: a `moveend` does not say whether this transition
    * finished it or a later command took it over.
    */
-  private suspend fun awaitCameraRelease(start: (MaplibreMap) -> Unit) =
-    suspendCancellableCoroutine { continuation ->
-      val pending =
-        PendingMapAction(
-          run = { current -> startTransitionOnMap(current, start, continuation) },
-          abandon = { if (continuation.isActive) continuation.resume(Unit) },
-        )
-      continuation.invokeOnCancellation {
-        if (pendingInitialStyleActions.remove(pending)) return@invokeOnCancellation
-        if (transitionWaiters.remove(continuation)) map?.stop()
-      }
-      postWhenInitialStyleLoaded(pending)
+  private suspend fun awaitCameraRelease(
+    gestureToken: GestureToken? = null,
+    guard: CameraCommandGuard? = null,
+    start: (MaplibreMap) -> Unit,
+  ) = suspendCancellableCoroutine { continuation ->
+    val pending =
+      PendingMapAction(
+        run = { current ->
+          if (
+            gestureToken?.canExecute != false && guard?.isValid() != false && continuation.isActive
+          ) {
+            activateGesture(gestureToken)
+            if (gestureToken?.canExecute != false && guard?.isValid() != false)
+              startTransitionOnMap(current, start, continuation)
+            else if (continuation.isActive) continuation.resume(Unit)
+          } else if (continuation.isActive) continuation.resume(Unit)
+        },
+        abandon = { if (continuation.isActive) continuation.resume(Unit) },
+      )
+    continuation.invokeOnCancellation {
+      if (pendingInitialStyleActions.remove(pending)) return@invokeOnCancellation
+      if (transitionWaiters.remove(continuation)) map?.stop()
     }
+    if (
+      guard?.isValid() == false ||
+        gestureToken != null && !gestureToken.enqueue { postWhenInitialStyleLoaded(pending) }
+    ) {
+      if (continuation.isActive) continuation.resume(Unit)
+    } else if (gestureToken == null) postWhenInitialStyleLoaded(pending)
+  }
 
   private fun startTransitionOnMap(
     map: MaplibreMap,
@@ -1062,24 +1084,64 @@ internal class GlJsMapSession(
 
   // region input, called from Compose
 
-  private var nextGestureToken = 0L
   private var activeGestureToken: GestureToken? = null
 
-  override fun onGestureStarted(): GestureToken = GestureToken(++nextGestureToken)
+  override val isGestureReady: Boolean
+    get() = canPresentFrames && hasUsableViewport && lifecycle.acceptsWork && map != null
 
-  override fun onGestureEnded(token: GestureToken) {
-    if (activeGestureToken != token) return
-    activeGestureToken = null
-    reportGestureActive(false)
+  override fun observeInput(): Long = lifecycleAuthority.gestureCamera.observeInput()
+
+  override val inputGeneration: Long
+    get() = lifecycleAuthority.gestureCamera.generation
+
+  override fun onGestureStartedIfCurrent(generation: Long): GestureToken? =
+    lifecycleAuthority.gestureCamera.acquireIfCurrent(this, generation)
+
+  override fun onGestureStarted(): GestureToken = lifecycleAuthority.gestureCamera.acquire(this)
+
+  override fun onGestureEnded(token: GestureToken) = finishGesture(token, cancelled = false)
+
+  override fun cancelGesture(token: GestureToken) = finishGesture(token, cancelled = true)
+
+  override suspend fun awaitGestureEnded(token: GestureToken) {
+    token.completion.await()
   }
 
-  /** Reports on every camera command: a report made before the lease attaches is dropped. */
+  private fun finishGesture(token: GestureToken, cancelled: Boolean) {
+    token.finish(cancelled) {
+      if (activeGestureToken === token) {
+        if (token.isCancelled) map?.stop()
+        if (activeGestureToken === token) {
+          activeGestureToken = null
+          reportGestureActive(false)
+        }
+      }
+      token.complete()
+    }
+  }
+
+  /** Reports on each command, after checking authority at execution. */
   private fun activateGesture(token: GestureToken?) {
-    if (token == null) return
-    val active = activeGestureToken
-    if (active != null && token.value < active.value) return
-    activeGestureToken = token
+    if (token == null || !token.canExecute) return
+    if (activeGestureToken !== token) {
+      map?.stop()
+      if (!token.canExecute) return
+      activeGestureToken = token
+    }
     reportGestureActive(true)
+  }
+
+  private fun onGestureMap(token: GestureToken?, action: (MaplibreMap) -> Unit) {
+    if (!isGestureReady) return
+    val enqueue = {
+      onMap { map ->
+        if (isGestureReady && token?.canExecute != false) {
+          activateGesture(token)
+          if (token?.canExecute != false) action(map)
+        }
+      }
+    }
+    if (token == null) enqueue() else token.enqueue(enqueue)
   }
 
   private fun reportGestureActive(active: Boolean) {
@@ -1094,8 +1156,7 @@ internal class GlJsMapSession(
     duration: Duration,
     gestureToken: GestureToken?,
   ) {
-    activateGesture(gestureToken)
-    onMap { map -> map.panBy(panOffset(deltaX, deltaY), animation(duration)) }
+    onGestureMap(gestureToken) { map -> map.panBy(panOffset(deltaX, deltaY), animation(duration)) }
   }
 
   override suspend fun moveByAwaitingTransition(
@@ -1104,8 +1165,9 @@ internal class GlJsMapSession(
     duration: Duration,
     gestureToken: GestureToken,
   ) {
-    activateGesture(gestureToken)
-    awaitCameraRelease { map -> map.panBy(panOffset(deltaX, deltaY), animation(duration)) }
+    awaitCameraRelease(gestureToken = gestureToken) { map ->
+      map.panBy(panOffset(deltaX, deltaY), animation(duration))
+    }
   }
 
   /** `panBy` moves the viewport by the offset, where a drag moves the content by it. */
@@ -1120,8 +1182,7 @@ internal class GlJsMapSession(
     duration: Duration,
     gestureToken: GestureToken?,
   ) {
-    activateGesture(gestureToken)
-    onMap { map -> map.easeTo(zoomOptions(map, scale, anchor, duration)) }
+    onGestureMap(gestureToken) { map -> map.easeTo(zoomOptions(map, scale, anchor, duration)) }
   }
 
   override suspend fun scaleByAwaitingTransition(
@@ -1130,8 +1191,21 @@ internal class GlJsMapSession(
     duration: Duration,
     gestureToken: GestureToken,
   ) {
-    activateGesture(gestureToken)
-    awaitCameraRelease { map -> map.easeTo(zoomOptions(map, scale, anchor, duration)) }
+    awaitCameraRelease(gestureToken = gestureToken) { map ->
+      map.easeTo(zoomOptions(map, scale, anchor, duration))
+    }
+  }
+
+  override suspend fun fitBoundsAwaitingTransition(
+    fit: BoxZoomFit,
+    duration: Duration,
+    gestureToken: GestureToken,
+  ) {
+    awaitCameraRelease(gestureToken = gestureToken) { map ->
+      map.cameraPositionForBounds(fit.bounds, fit.bearing, fit.tilt, PaddingValues())?.let {
+        map.easeTo(it.toEaseToOptions(duration))
+      }
+    }
   }
 
   private fun zoomOptions(
@@ -1155,8 +1229,9 @@ internal class GlJsMapSession(
     anchor: DpOffset?,
     gestureToken: GestureToken?,
   ) {
-    activateGesture(gestureToken)
-    onMap { map -> map.easeTo(rotateOptions(map, bearingDelta, pitchDelta, anchor, duration)) }
+    onGestureMap(gestureToken) { map ->
+      map.easeTo(rotateOptions(map, bearingDelta, pitchDelta, anchor, duration))
+    }
   }
 
   override suspend fun rotateAndPitchByAwaitingTransition(
@@ -1164,10 +1239,10 @@ internal class GlJsMapSession(
     pitchDelta: Double,
     duration: Duration,
     gestureToken: GestureToken,
+    anchor: DpOffset?,
   ) {
-    activateGesture(gestureToken)
-    awaitCameraRelease { map ->
-      map.easeTo(rotateOptions(map, bearingDelta, pitchDelta, null, duration))
+    awaitCameraRelease(gestureToken = gestureToken) { map ->
+      map.easeTo(rotateOptions(map, bearingDelta, pitchDelta, anchor, duration))
     }
   }
 

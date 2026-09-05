@@ -23,14 +23,15 @@ class GestureContinuationTest {
   }
 
   @Test
-  fun resume_cancels_the_hold_and_returns_the_open_token() = runTest {
+  fun finish_cancels_the_hold_and_closes_the_token_once() = runTest {
     val continuation = GestureContinuation(backgroundScope)
     val ended = mutableListOf<Long>()
     val token = GestureToken(1)
     continuation.finishAfter(this, 200.milliseconds, token) { ended += it.value }
-    assertEquals(1L, continuation.resume()?.value)
+    continuation.finish { ended += it.value }
+    assertEquals(listOf(1L), ended)
     testScheduler.advanceTimeBy(500)
     testScheduler.runCurrent()
-    assertEquals(emptyList(), ended)
+    assertEquals(listOf(1L), ended)
   }
 }

@@ -1,6 +1,6 @@
 ---
 title: Handle gestures and clicks
-description: Configure gestures, and respond to clicks on the map and on layers.
+description: Configure gesture bindings, observe input, and handle map and layer interactions.
 ---
 
 import { Code } from "@astrojs/starlight/components";
@@ -10,35 +10,115 @@ import { region, rememberedMapStyle } from "../../snippets";
 import interaction from "../../../../demo-app/common/src/androidMain/kotlin/org/maplibre/compose/docsnippets/Interaction.kt?raw";
 import layers from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Layers.kt?raw";
 
-## Gestures
+## Configure gestures
 
-The map supports pan, zoom, rotate, and tilt gestures.
-<Api of="GestureOptions" /> presets cover the common cases:
+<Api of="MapGestures" /> configures pointer, keyboard, and rotary input.
+`Standard` enables the usual map interactions. `None` disables all input,
+including layer clicks and hover. `PositionLocked` preserves the camera target
+while zooming and rotating; `RotationLocked` preserves bearing and tilt;
+`ZoomOnly` permits zoom around the camera center.
 
 <Code code={region(interaction, "common-gestures")} lang="kotlin" title="App.kt" />
 
-To enable or disable gestures individually, construct `GestureOptions` with
-individual fields:
+The builder starts from `Standard`. Use named bindings to disable an interaction,
+change its recognition threshold, or configure its response. Setting a
+continuation to `null` disables that binding's momentum:
 
 <Code code={region(interaction, "gesture-settings")} lang="kotlin" title="App.kt" />
 
-## Map clicks
+Use `MapGestures(from = existing)` to extend a configuration. Pointer filters
+select reported pointer types, buttons, and modifiers. The `keys` builder assigns
+exact key chords and configures rotary zoom independently of pointer scroll.
+Tab focuses the map; Enter engages keyboard navigation, and Escape leaves it.
 
-The `onClick` and `onLongClick` parameters receive the clicked position and its
-screen offset. To identify the clicked feature, call
-<Api of="MapState.queryRenderedFeatures" />. The query suspends, so launch it
-in a coroutine. Return <Api of="ClickResult.Pass" /> to send the click on to
-the layer listeners:
+## Observe input
+
+Continuous bindings have `onStart`, `onDelta`, `onEnd`, and `onCancel` observers.
+An observer runs synchronously before the camera response. A pan observer reports
+recognized panning, so it can turn off follow without reacting to target changes
+caused by anchored zoom:
+
+<Code code={region(interaction, "pan-observer")} lang="kotlin" title="App.kt" />
+
+Use `scrollPan.onStart` as well when following should stop on trackpad scrolling.
+End completes input; momentum may continue afterward. Cancel means the action
+was interrupted and should discard any preview. Custom `drag` bindings accept a
+synchronous `canStart` predicate and a `DragAction.Custom` response. Reserve a
+selected edit target in the predicate, update its preview on Delta, and commit
+only on End.
+
+Callback-only recomposition updates delivery without restarting recognition.
+Changing filters, thresholds, or other structural settings cancels active input.
+Compose consumption also cancels affected input, allowing maps to cooperate
+with parent scroll containers.
+
+## Handle clicks
+
+The map's `onClick`, `onLongClick`, `onDoubleClick`, and `onTwoFingerClick`
+parameters receive geographic positions and map-local screen offsets in dp.
+Return <Api of="ClickResult.Pass" /> to continue to interactive layers.
+Return <Api of="ClickResult.Consume" /> to stop delivery.
+
+To query features yourself, consume synchronously and launch the query in your
+own coroutine. Its eventual result cannot change the returned click decision:
 
 <Code code={region(interaction, "click-listeners")} lang="kotlin" title="App.kt" />
 
-## Layer clicks
-
-Layer composables in the style block have click listeners that receive the
-features that were clicked in that layer:
+Layer handlers receive the features found in that layer. `hitPadding` makes small
+targets easier to select: zero queries an exact point, while positive padding
+queries a square around it. It applies to all four click families.
 
 <Code code={rememberedMapStyle(region(layers, "interaction"))} lang="kotlin" title="App.kt" />
 
-Click listeners run on the map first, then on layers from the top to the bottom
-of the map. The first listener that returns <Api of="ClickResult.Consume" />
-stops the event from reaching later listeners.
+Delivery runs through the binding observer, map handler, and interactive layers
+in loaded front-to-back order. An ordinary tap can then reach `onUnhandledClick`.
+An unconsumed double tap or two-finger tap can perform its configured zoom.
+Consuming a click also prevents that camera response. Feature dispatch does not
+reverse Compose pointer consumption or forward a click to a parent composable.
+
+## Observe hover
+
+The `hover` binding and map `onPointerMove` report pointer entry, movement, and
+exit without feature queries. Layer `onHover` handlers additionally receive
+exact-point feature hits. Hover updates when the camera or style changes beneath
+a stationary pointer, and sends Exit when a subscribed layer disappears. Hover
+does not consume input and does not use click hit padding.
+
+## Control a gesture camera session
+
+Use `MapState.gestureCamera.withGesture` for camera work that belongs to a custom
+interaction. Screen deltas are in dp; angular deltas are in degrees. A null scale
+or rotation anchor preserves the padded camera target.
+
+<Code code={region(interaction, "gesture-camera")} lang="kotlin" title="App.kt" />
+
+The map must have a presentable viewport. The scope returns after accepted
+commands have drained. New gesture input or an ordinary public camera mutation
+can take over and cancel it. Do not retain the scope after its block returns or
+launch nested gesture scopes for the same map.
+
+## Platform input
+
+Gesture bindings use the events delivered by the Compose host. Trackpad support
+therefore differs by host:
+
+| Host            | Trackpad route                                                                      |
+| --------------- | ----------------------------------------------------------------------------------- |
+| Android 34+     | Classified Scale/Pan events; touchscreen pairs use touch recognition.               |
+| iOS             | Indirect scrolling; dedicated indirect pinch is not provided by the current bridge. |
+| AWT desktop     | Scrolling; no native pinch or rotation bridge.                                      |
+| Nucleus macOS   | Magnify, rotate, and smart magnify become synthetic touch pairs.                    |
+| Nucleus Wayland | Pinch and rotation become synthetic touch pairs; X11 has no equivalent route.       |
+| Nucleus Windows | Ctrl-wheel pinch becomes a synthetic touch pair; no rotation route.                 |
+| Browser         | Ctrl-wheel zoom and classified wheel scrolling.                                     |
+
+Nucleus places synthetic contacts on either side of the cursor. Near a map edge
+or inside a narrow map, both contacts may not reach the same map. Those contacts
+report Touch, so a pointer-type filter cannot distinguish them from a
+touchscreen. The current Nucleus macOS/Linux bridge also reports release before
+native cancellation; the map cannot recover a Cancel event from that release.
+Ordinary Compose cancellation remains supported.
+
+Scroll and platform Scale/Pan streams add no library momentum. Their remaining
+movement comes from the operating system. Touch pairs, including Nucleus
+synthetic pairs, use their configured gesture continuations.

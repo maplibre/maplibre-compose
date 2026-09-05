@@ -42,6 +42,7 @@ import org.maplibre.compose.expressions.value.TextUnitValue
 import org.maplibre.compose.expressions.value.TextVariableAnchorOffsetValue
 import org.maplibre.compose.expressions.value.TextWritingMode
 import org.maplibre.compose.expressions.value.TranslateAnchor
+import org.maplibre.compose.map.HoverEvent
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceReferenceEffect
 import org.maplibre.compose.style.TransitionOptions
@@ -452,6 +453,10 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *
  * @param onClick Function to call when any feature in this layer has been clicked.
  * @param onLongClick Function to call when any feature in this layer has been long-clicked.
+ * @param onDoubleClick Called for a double tap or double click on this layer.
+ * @param onTwoFingerClick Called for a two-contact tap on this layer.
+ * @param hitPadding Expands tap queries to a square of this radius in dp; zero uses a point.
+ * @param onHover Observes entry, movement, and exit for this layer using exact point queries.
  */
 @Composable
 @MaplibreComposable
@@ -563,6 +568,10 @@ public fun SymbolLayer(
   textTranslateAnchor: Expression<TranslateAnchor> = const(TranslateAnchor.Map),
   onClick: FeaturesClickHandler? = null,
   onLongClick: FeaturesClickHandler? = null,
+  onDoubleClick: FeaturesClickHandler? = null,
+  onTwoFingerClick: FeaturesClickHandler? = null,
+  hitPadding: Dp = 0.dp,
+  onHover: ((HoverEvent) -> Unit)? = null,
 ) {
   // Scaling code will need changes after https://github.com/maplibre/maplibre-native/issues/3057.
   val compileWithDpTextSize = rememberDpCompiler(LocalDensity.current.fontScale.dp)
@@ -720,6 +729,10 @@ public fun SymbolLayer(
     },
     onClick = onClick,
     onLongClick = onLongClick,
+    onDoubleClick = onDoubleClick,
+    onTwoFingerClick = onTwoFingerClick,
+    hitPadding = hitPadding,
+    onHover = onHover,
   )
 }
 

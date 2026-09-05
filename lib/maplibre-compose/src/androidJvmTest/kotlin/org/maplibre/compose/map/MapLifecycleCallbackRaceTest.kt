@@ -275,7 +275,7 @@ private class BlockingCameraAdapter : PresentationTestAdapter() {
   @Volatile var blockNextWrite = false
   @Volatile var lastCamera = CameraPosition()
 
-  override fun setCameraPosition(cameraPosition: CameraPosition) {
+  override fun setCameraPosition(cameraPosition: CameraPosition, guard: CameraCommandGuard?) {
     if (blockNextWrite) {
       blockNextWrite = false
       blockedWriteEntered.countDown()
@@ -290,7 +290,10 @@ private class BlockingConfigurationAdapter : PresentationTestAdapter() {
   val releaseCameraWrite = CountDownLatch(1)
   var styleWrites = 0
 
-  override fun setCameraPosition(cameraPosition: org.maplibre.compose.camera.CameraPosition) {
+  override fun setCameraPosition(
+    cameraPosition: org.maplibre.compose.camera.CameraPosition,
+    guard: CameraCommandGuard?,
+  ) {
     cameraWriteEntered.countDown()
     assertTrue(releaseCameraWrite.await(5, TimeUnit.SECONDS))
   }

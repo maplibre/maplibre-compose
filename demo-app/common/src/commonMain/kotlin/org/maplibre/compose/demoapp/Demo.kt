@@ -13,6 +13,8 @@ import org.maplibre.compose.demoapp.demos.Manhattan3dDemo
 import org.maplibre.compose.demoapp.demos.MapSnapshotterDemo
 import org.maplibre.compose.demoapp.demos.MaterialStyleDemo
 import org.maplibre.compose.demoapp.demos.TransitNetworkDemo
+import org.maplibre.compose.map.MapGestures
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -43,6 +45,9 @@ interface Demo {
   /** An optional map pin that restores a useful view of the demo. */
   val pointerPin: DemoPointerPin?
     get() = null
+
+  /** Adds demo interactions to the user's gesture settings. */
+  fun gestures(base: MapGestures, mapState: MapState): MapGestures = base
 
   @MaplibreComposable @Composable fun MapContent() {}
 

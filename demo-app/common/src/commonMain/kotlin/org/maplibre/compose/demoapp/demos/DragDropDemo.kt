@@ -1,56 +1,52 @@
 package org.maplibre.compose.demoapp.demos
 
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import kotlin.math.hypot
 import kotlin.math.roundToInt
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
 import org.maplibre.compose.demoapp.design.SegmentedRow
+import org.maplibre.compose.demoapp.design.SliderRow
 import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.layers.LineLayer
+import org.maplibre.compose.map.DragAction
+import org.maplibre.compose.map.DragEvent
+import org.maplibre.compose.map.MapGestures
 import org.maplibre.compose.map.MapState
-import org.maplibre.compose.overlay.MapOverlayScope
+import org.maplibre.compose.map.ModifierFilter
+import org.maplibre.compose.map.PointerFilter
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
+import org.maplibre.compose.util.ClickResult
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Polygon
 import org.maplibre.spatialk.geojson.Position
 
 private val DragColor = Color(0xFF00695C)
 
-/**
- * Drags overlay children placed on the map: a location-picker pin, or the two corner handles of a
- * bounding box. The drag accumulates pointer deltas on the screen offset captured when the drag
- * started, which keeps the child from jittering under the pointer as it follows the position.
- */
+/** Selects rendered handles and previews a custom drag until release commits its position. */
 object DragDropDemo : Demo {
   override val name = "Drag & drop"
-  override val description = "Drag a location-picker pin or the corner handles of a bounding box."
+  override val description =
+    "Select and drag a map handle. Adjust the padding around small click targets."
 
   override val destination =
     DemoDestination.FitBounds(
@@ -67,46 +63,92 @@ object DragDropDemo : Demo {
   private var northwest by mutableStateOf(Position(longitude = -122.3377, latitude = 47.6225))
   private var southeast by mutableStateOf(Position(longitude = -122.3327, latitude = 47.6185))
 
-  /**
-   * Accumulates pointer deltas from the initial screen position to avoid feedback from the moving
-   * child. Converts between pointer pixels and the map's Dp coordinates.
-   */
-  private fun Modifier.draggablePosition(
-    mapState: MapState,
-    position: () -> Position,
-    onDrag: (Position) -> Unit,
-  ): Modifier =
-    pointerInput(mapState) {
-      var start: Offset? = null
-      var accumulated = Offset.Zero
-      detectDragGestures(
-        onDragStart = {
-          start =
-            mapState.screenLocationFromPosition(position())?.let {
-              Offset(it.x.toPx(), it.y.toPx())
+  private enum class Handle {
+    Pin,
+    Northwest,
+    Southeast,
+  }
+
+  private var selectedHandle by mutableStateOf(Handle.Pin)
+  private var hitPadding by mutableStateOf(12f)
+  private var dragPreview by mutableStateOf<DragPreview?>(null)
+
+  private data class DragPreview(
+    val handle: Handle,
+    val origin: DpOffset,
+    val displacement: DpOffset,
+    val position: Position,
+  )
+
+  private fun position(handle: Handle): Position =
+    dragPreview?.takeIf { it.handle == handle }?.position
+      ?: when (handle) {
+        Handle.Pin -> pinPosition
+        Handle.Northwest -> northwest
+        Handle.Southeast -> southeast
+      }
+
+  override fun gestures(base: MapGestures, mapState: MapState): MapGestures =
+    MapGestures(from = base) {
+      drag(
+        id = "selected-handle-${mode.name}",
+        filter = PointerFilter(modifiers = ModifierFilter.Exactly()),
+      ) {
+        canStart { press ->
+          val screen = mapState.screenLocationFromPosition(position(selectedHandle))
+          screen != null &&
+            hypot(
+              (press.screenOffset.x - screen.x).value,
+              (press.screenOffset.y - screen.y).value,
+            ) <= 10f + hitPadding
+        }
+        action = DragAction.Custom { event ->
+          when (event) {
+            is DragEvent.Start -> {
+              val handle = selectedHandle
+              val position = position(handle)
+              dragPreview =
+                mapState.screenLocationFromPosition(position)?.let {
+                  DragPreview(handle, it, DpOffset.Zero, position)
+                }
             }
-          accumulated = Offset.Zero
-        },
-        onDrag = onDrag@{ change, dragAmount ->
-            change.consume()
-            val startOffset = start ?: return@onDrag
-            accumulated += dragAmount
-            val screen = startOffset + accumulated
-            mapState
-              .positionFromScreenLocation(DpOffset(screen.x.toDp(), screen.y.toDp()))
-              ?.let(onDrag)
-          },
-      )
+            is DragEvent.Delta ->
+              dragPreview?.let { preview ->
+                val displacement = preview.displacement + event.delta
+                val position = mapState.positionFromScreenLocation(preview.origin + displacement)
+                dragPreview =
+                  preview.copy(
+                    displacement = displacement,
+                    position = position ?: preview.position,
+                  )
+              }
+            is DragEvent.End -> {
+              dragPreview?.let { preview ->
+                when (preview.handle) {
+                  Handle.Pin -> pinPosition = preview.position
+                  Handle.Northwest -> northwest = preview.position
+                  Handle.Southeast -> southeast = preview.position
+                }
+              }
+              dragPreview = null
+            }
+            is DragEvent.Cancel -> dragPreview = null
+          }
+        }
+      }
     }
 
-  /** The box the two handles span, normalized so it stays valid when a handle crosses the other. */
-  private fun boundingBox() =
-    BoundingBox(
-      west = minOf(northwest.longitude, southeast.longitude),
-      south = minOf(northwest.latitude, southeast.latitude),
-      east = maxOf(northwest.longitude, southeast.longitude),
-      north = maxOf(northwest.latitude, southeast.latitude),
+  /** Keeps the box valid when one handle crosses the other. */
+  private fun boundingBox(): BoundingBox {
+    val first = position(Handle.Northwest)
+    val second = position(Handle.Southeast)
+    return BoundingBox(
+      west = minOf(first.longitude, second.longitude),
+      south = minOf(first.latitude, second.latitude),
+      east = maxOf(first.longitude, second.longitude),
+      north = maxOf(first.latitude, second.latitude),
     )
+  }
 
   private fun BoundingBox.toPolygon() =
     Polygon(
@@ -123,49 +165,47 @@ object DragDropDemo : Demo {
 
   @Composable
   override fun MapContent() {
-    if (mode != Mode.BoundingBox) return
-    val source =
-      rememberGeoJsonSource(
-        GeoJsonData.Features(Feature(geometry = boundingBox().toPolygon(), properties = null))
+    if (mode == Mode.BoundingBox) {
+      val source =
+        rememberGeoJsonSource(
+          GeoJsonData.Features(Feature(geometry = boundingBox().toPolygon(), properties = null))
+        )
+      FillLayer(
+        id = "drag-drop-box",
+        source = source,
+        color = const(DragColor),
+        opacity = const(0.2f),
       )
-    FillLayer(
-      id = "drag-drop-box",
-      source = source,
-      color = const(DragColor),
-      opacity = const(0.2f),
-    )
-    LineLayer(
-      id = "drag-drop-box-outline",
-      source = source,
-      color = const(DragColor),
-      width = const(2.dp),
-    )
-  }
-
-  @Composable
-  override fun MapOverlayScope.Overlay(state: DemoAppState) {
-    when (mode) {
-      Mode.Pin ->
-        Pin(
-          Modifier.placedAt(pinPosition, Alignment.BottomCenter).draggablePosition(
-            mapState,
-            { pinPosition },
-          ) {
-            pinPosition = it
-          }
-        )
-      Mode.BoundingBox -> {
-        Handle(
-          Modifier.placedAt(northwest).draggablePosition(mapState, { northwest }) {
-            northwest = it
-          }
-        )
-        Handle(
-          Modifier.placedAt(southeast).draggablePosition(mapState, { southeast }) {
-            southeast = it
-          }
-        )
+      LineLayer(
+        id = "drag-drop-box-outline",
+        source = source,
+        color = const(DragColor),
+        width = const(2.dp),
+      )
+    }
+    val handles =
+      when (mode) {
+        Mode.Pin -> listOf(Handle.Pin)
+        Mode.BoundingBox -> listOf(Handle.Northwest, Handle.Southeast)
       }
+    for (handle in handles) key(handle) {
+      val source =
+        rememberGeoJsonSource(
+          GeoJsonData.Features(Feature(geometry = Point(position(handle)), properties = null))
+        )
+      CircleLayer(
+        id = "drag-drop-${handle.name}",
+        source = source,
+        radius = const(if (selectedHandle == handle) 8.dp else 6.dp),
+        color = const(if (selectedHandle == handle) DragColor else Color(0xFFF9A825)),
+        strokeWidth = const(2.dp),
+        strokeColor = const(Color.White),
+        hitPadding = hitPadding.dp,
+        onClick = {
+          selectedHandle = handle
+          ClickResult.Consume
+        },
+      )
     }
   }
 
@@ -176,11 +216,22 @@ object DragDropDemo : Demo {
       options = Mode.entries,
       selected = mode,
       optionLabel = { it.label },
-      onSelect = { mode = it },
+      onSelect = {
+        mode = it
+        selectedHandle = if (it == Mode.Pin) Handle.Pin else Handle.Northwest
+      },
     )
+    SliderRow("Hit padding", hitPadding, 0f..24f, { "${it.roundToInt()} dp" }) {
+      hitPadding = it
+    }
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+      Text(
+        "Tap a handle to select it, then drag the green handle. Release to save; adding a second finger cancels the edit.",
+        style = MaterialTheme.typography.bodyMedium,
+      )
       when (mode) {
         Mode.Pin -> {
+          val pinPosition = position(Handle.Pin)
           Text("Pin location", style = MaterialTheme.typography.bodyLarge)
           Text(
             "lat ${pinPosition.latitude.format(5)}, lng ${pinPosition.longitude.format(5)}",
@@ -202,34 +253,6 @@ object DragDropDemo : Demo {
       }
     }
   }
-}
-
-/**
- * A teardrop pin: a round head over a tip. Placed at [Alignment.BottomCenter], the tip is the
- * point.
- */
-@Composable
-private fun Pin(modifier: Modifier = Modifier) {
-  Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-    Box(
-      Modifier.size(24.dp).background(DragColor, CircleShape).border(2.dp, Color.White, CircleShape)
-    )
-    Canvas(Modifier.size(width = 12.dp, height = 7.dp)) {
-      val tip = Path()
-      tip.moveTo(0f, 0f)
-      tip.lineTo(size.width, 0f)
-      tip.lineTo(size.width / 2, size.height)
-      tip.close()
-      drawPath(tip, DragColor)
-    }
-  }
-}
-
-@Composable
-private fun Handle(modifier: Modifier = Modifier) {
-  Box(
-    modifier.size(20.dp).background(DragColor, CircleShape).border(2.dp, Color.White, CircleShape)
-  )
 }
 
 private fun Double.format(decimals: Int): String {

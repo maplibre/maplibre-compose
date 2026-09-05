@@ -108,6 +108,7 @@ fun Layers() {
     CircleLayer(
       id = "amtrak-stations",
       source = interactiveAmtrakStations,
+      hitPadding = 12.dp,
       onClick = { features ->
         println("Clicked on ${features[0].toJson()}")
         ClickResult.Consume

@@ -47,7 +47,7 @@ import org.maplibre.compose.demoapp.design.SectionHeader
 import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.demoapp.design.SliderRow
 import org.maplibre.compose.demoapp.design.SwitchRow
-import org.maplibre.compose.map.GestureOptions
+import org.maplibre.compose.map.MapGestures
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.map.rememberMapState
@@ -164,7 +164,7 @@ object MagnifyingLensDemo : Demo {
           },
         state = lensState,
         renderOptions = lensRenderOptions,
-        gestureOptions = GestureOptions.AllDisabled,
+        gestures = MapGestures.None,
         contentWindowInsets = WindowInsets(0),
       ) {}
       Box(

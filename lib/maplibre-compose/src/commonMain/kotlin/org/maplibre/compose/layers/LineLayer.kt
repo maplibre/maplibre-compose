@@ -2,6 +2,7 @@ package org.maplibre.compose.layers
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.expressions.ast.CompiledExpression
@@ -18,6 +19,7 @@ import org.maplibre.compose.expressions.value.LineCap
 import org.maplibre.compose.expressions.value.LineJoin
 import org.maplibre.compose.expressions.value.TranslateAnchor
 import org.maplibre.compose.expressions.value.VectorValue
+import org.maplibre.compose.map.HoverEvent
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceReferenceEffect
 import org.maplibre.compose.style.TransitionOptions
@@ -117,6 +119,10 @@ import org.maplibre.compose.util.MaplibreComposable
  *   [join] is [LineJoin.Round]. The expression may use feature properties.
  * @param onClick Function to call when any feature in this layer has been clicked.
  * @param onLongClick Function to call when any feature in this layer has been long-clicked.
+ * @param onDoubleClick Called for a double tap or double click on this layer.
+ * @param onTwoFingerClick Called for a two-contact tap on this layer.
+ * @param hitPadding Expands tap queries to a square of this radius in dp; zero uses a point.
+ * @param onHover Observes entry, movement, and exit for this layer using exact point queries.
  */
 @Composable
 @MaplibreComposable
@@ -157,6 +163,10 @@ public fun LineLayer(
   roundLimit: Expression<FloatValue> = const(1.05f),
   onClick: FeaturesClickHandler? = null,
   onLongClick: FeaturesClickHandler? = null,
+  onDoubleClick: FeaturesClickHandler? = null,
+  onTwoFingerClick: FeaturesClickHandler? = null,
+  hitPadding: Dp = 0.dp,
+  onHover: ((HoverEvent) -> Unit)? = null,
 ) {
   val compile = rememberPropertyCompiler()
 
@@ -219,6 +229,10 @@ public fun LineLayer(
     },
     onClick = onClick,
     onLongClick = onLongClick,
+    onDoubleClick = onDoubleClick,
+    onTwoFingerClick = onTwoFingerClick,
+    hitPadding = hitPadding,
+    onHover = onHover,
   )
 }
 

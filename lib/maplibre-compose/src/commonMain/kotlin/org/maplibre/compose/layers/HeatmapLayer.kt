@@ -1,6 +1,7 @@
 package org.maplibre.compose.layers
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
@@ -10,6 +11,7 @@ import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.DpValue
 import org.maplibre.compose.expressions.value.FloatValue
+import org.maplibre.compose.map.HoverEvent
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceReferenceEffect
 import org.maplibre.compose.style.TransitionOptions
@@ -51,6 +53,10 @@ import org.maplibre.compose.util.MaplibreComposable
  *   transition.
  * @param onClick Function to call when any feature in this layer has been clicked.
  * @param onLongClick Function to call when any feature in this layer has been long-clicked.
+ * @param onDoubleClick Called for a double tap or double click on this layer.
+ * @param onTwoFingerClick Called for a two-contact tap on this layer.
+ * @param hitPadding Expands tap queries to a square of this radius in dp; zero uses a point.
+ * @param onHover Observes entry, movement, and exit for this layer using exact point queries.
  */
 @Composable
 @MaplibreComposable
@@ -72,6 +78,10 @@ public fun HeatmapLayer(
   intensityTransition: TransitionOptions? = null,
   onClick: FeaturesClickHandler? = null,
   onLongClick: FeaturesClickHandler? = null,
+  onDoubleClick: FeaturesClickHandler? = null,
+  onTwoFingerClick: FeaturesClickHandler? = null,
+  hitPadding: Dp = 0.dp,
+  onHover: ((HoverEvent) -> Unit)? = null,
 ) {
   val compile = rememberPropertyCompiler()
 
@@ -103,6 +113,10 @@ public fun HeatmapLayer(
     },
     onClick = onClick,
     onLongClick = onLongClick,
+    onDoubleClick = onDoubleClick,
+    onTwoFingerClick = onTwoFingerClick,
+    hitPadding = hitPadding,
+    onHover = onHover,
   )
 }
 
