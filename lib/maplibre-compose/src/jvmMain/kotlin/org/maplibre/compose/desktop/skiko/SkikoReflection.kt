@@ -115,7 +115,7 @@ internal object SkikoReflection {
     if (SwingUtilities.isEventDispatchThread()) return block()
     var result: Result<T>? = null
     SwingUtilities.invokeAndWait { result = runCatching(block) }
-    return result!!.getOrThrow()
+    return checkNotNull(result) { "EDT action did not execute" }.getOrThrow()
   }
 
   private fun findSkiaLayerComponent(window: Window): Any? =

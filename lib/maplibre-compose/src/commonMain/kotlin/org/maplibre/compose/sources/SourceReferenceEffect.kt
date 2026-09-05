@@ -7,7 +7,7 @@ import org.maplibre.compose.style.LocalStyleNode
 @Composable
 internal fun SourceReferenceEffect(source: Source) {
   val node = LocalStyleNode.current
-  DisposableEffect(source) {
+  DisposableEffect(node, source) {
     when (node.sourceManager.getBaseSource(source.id)) {
       null -> {
         // free to reference a new source

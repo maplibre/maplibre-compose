@@ -178,7 +178,7 @@ private fun MaplibreMapPresentation(
   val currentOnLongClick = rememberUpdatedState(onLongClick)
   // The style subcomposition publishes into a revision state it re-creates per loaded style, and
   // the dispatcher must keep its identity because the pointer input holding it does not restart.
-  val currentDesiredRevision = rememberUpdatedState(desiredRevisionState)
+  val currentDesiredRevision = rememberUpdatedState(desiredRevision)
   val clickDispatcher =
     remember(state, mapClickScope) {
       MapClickDispatcher(
@@ -297,7 +297,7 @@ private class MapClickDispatcher(
   private val scope: CoroutineScope,
   private val onClick: State<MapClickHandler>,
   private val onLongClick: State<MapClickHandler>,
-  private val desiredRevision: State<State<DesiredStyleRevision?>>,
+  private val desiredRevision: State<DesiredStyleRevision?>,
   private val loadedStyle: State<StyleBinding?>,
 ) : MapClickTarget {
   override fun onPrimaryClick(offset: DpOffset) =
@@ -307,7 +307,7 @@ private class MapClickDispatcher(
     dispatch(offset, onLongClick.value, DesiredStyleLayer::onLongClick)
 
   private fun layerNodesInOrder(): List<DesiredStyleLayer> {
-    val layerNodes = desiredRevision.value.value?.layers?.associateBy { it.definition.id }.orEmpty()
+    val layerNodes = desiredRevision.value?.layers?.associateBy { it.definition.id }.orEmpty()
     val layers = loadedStyle.value?.takeIf { it.isLoaded }?.getLayers().orEmpty()
     return layers.asReversed().mapNotNull { layer -> layerNodes[layer.id] }
   }

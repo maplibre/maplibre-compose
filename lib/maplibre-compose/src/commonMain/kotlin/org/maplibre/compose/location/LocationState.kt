@@ -6,6 +6,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -62,7 +63,7 @@ internal constructor(
 
   internal var requestPermissionAction: () -> Unit = {}
 
-  internal var retryKey: Int by mutableStateOf(0)
+  internal var retryKey: Int by mutableIntStateOf(0)
     private set
 
   /** Requests foreground permission; the result is published to [permission]. */
