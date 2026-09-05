@@ -129,14 +129,7 @@ public fun MapOverlayScope.ExpandingAttributionButton(
       .background(containerColor, attributionStyle.shape)
       .clip(attributionStyle.shape)
       // Without this, a drag across the attribution pans the map underneath it.
-      .pointerInput(Unit) {
-        awaitPointerEventScope {
-          while (true) {
-            val event = awaitPointerEvent()
-            event.changes.forEach { it.consume() }
-          }
-        }
-      }
+      .pointerInput(Unit) {}
       .semantics { isTraversalGroup = true }
   ) {
     val layoutDir = LocalLayoutDirection.current
