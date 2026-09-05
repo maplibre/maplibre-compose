@@ -15,8 +15,9 @@ A <Api of="SymbolLayer" /> draws an icon at each feature in its source. The
 
 ## Draw icons from a Compose painter
 
-Pass a painter to `image()`. Use `painterResource`, a vector drawable, or any
-other painter:
+Pass a painter to `image()`. The library rasterizes it and registers it with
+the style. This works with `painterResource`, vector drawables, and any other
+painter:
 
 <Code code={rememberedMapStyle(region(images, "icon-painter"))} lang="kotlin" title="App.kt" />
 

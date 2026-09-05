@@ -143,7 +143,8 @@ your iOS app target's **Other Linker Flags** build setting:
 
 ### Desktop (JVM)
 
-Desktop requires Java 25 or later.
+**Desktop requires Java 25.** The native bindings use the FFM API, so the
+desktop target cannot run on an older JVM.
 
 Alongside the library, add a runtime for your platform and one render backend.
 
@@ -189,7 +190,8 @@ host, implement `ComposeMapPresentationHost` yourself.
 
 <Code code={region(desktopGettingStarted, "main")} lang="kotlin" title="Main.kt" />
 
-Enable native access when you run the app:
+The native bindings make FFM downcalls. Enable native access when you run the
+app:
 
 <Tabs syncKey="build-system">
   <TabItem label="Gradle" icon="seti:gradle">
@@ -242,7 +244,8 @@ Compile the JS target to ES modules. Non-ESM builds are not supported.
   </TabItem>
 </Tabs>
 
-Call `installMapLibreCompose` inside `onWasmReady`, before Compose starts.
+Install the browser graphics integration inside `onWasmReady`, before Compose
+starts. The integration captures Compose's graphics context.
 
 ```kotlin title="main.kt"
 fun main() {
