@@ -9,6 +9,7 @@ import kotlin.math.ln
 import kotlin.math.pow
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import org.maplibre.compose.map.Fling as PanContinuation
 
 /** Thresholds and camera equations for [mapInput] pointer gestures. Distances are in dp. */
 internal object GestureMath {
@@ -37,8 +38,6 @@ internal object GestureMath {
   private const val ANGULAR_VELOCITY_MULTIPLIER_DP = 1.3
   private const val MINIMUM_ANGULAR_VELOCITY_DP = 0.1
   private const val MAXIMUM_ANGULAR_VELOCITY = 30.0
-  private const val FLING_THRESHOLD_DP_PER_SECOND = 1000.0
-  private const val FLING_BASE_TIME_MILLIS = 150.0
   private const val VELOCITY_ANIMATION_DURATION_MULTIPLIER = 150.0
 
   /** Returns a multiplicative scale, not a zoom delta. */
@@ -62,8 +61,11 @@ internal object GestureMath {
     spanDeltaFromPreviousDp: Double,
     elapsedMillis: Long,
     rotationDeltaFromPreviousDegrees: Double,
+    startSpanSlopDp: Double = SCALE_START_SPAN_DP,
   ): Boolean {
-    if (abs(spanDeltaFromStartDp) < SCALE_START_SPAN_DP || elapsedMillis <= 0L) return false
+    if (abs(spanDeltaFromStartDp) < startSpanSlopDp || elapsedMillis < 0L) return false
+    // Quantized synthetic samples can move at one timestamp. Their rate is unknown.
+    if (elapsedMillis == 0L) return true
     val speed = abs(spanDeltaFromPreviousDp) / elapsedMillis
     if (speed < MINIMUM_SCALE_SPEED_DP_PER_MILLISECOND) return false
     return abs(rotationDeltaFromPreviousDegrees) <= 0.4 ||
@@ -74,9 +76,11 @@ internal object GestureMath {
     rotationFromStartDegrees: Double,
     rotationFromPreviousDegrees: Double,
     elapsedMillis: Long,
+    startAngleDegrees: Double = ROTATE_START_DEGREES,
   ): Boolean {
     val cumulative = abs(rotationFromStartDegrees)
-    if (cumulative < ROTATE_START_DEGREES || elapsedMillis <= 0L) return false
+    if (cumulative < startAngleDegrees || elapsedMillis < 0L) return false
+    if (elapsedMillis == 0L) return true
     val speed = abs(rotationFromPreviousDegrees) / elapsedMillis
     return speed >= 0.04 &&
       !(speed > 0.07 && cumulative < 5.0) &&
@@ -87,8 +91,9 @@ internal object GestureMath {
   fun shouldStartShove(
     verticalDisplacementDp: Double,
     fingerAngleFromHorizontalDegrees: Double,
+    startSlopDp: Double = SHOVE_START_DP,
   ): Boolean =
-    abs(verticalDisplacementDp) >= SHOVE_START_DP &&
+    abs(verticalDisplacementDp) >= startSlopDp &&
       abs(fingerAngleFromHorizontalDegrees) <= SHOVE_MAX_FINGER_ANGLE_DEGREES
 
   /** Rejects a sudden pressure drop, which is usually a finger lift. */
@@ -101,10 +106,17 @@ internal object GestureMath {
    * Screen-space travel for a flick of this speed. Equal speeds produce equal offsets, whether or
    * not the camera is pitched. [mapInput] applies the offset in small `moveBy` steps.
    */
-  fun fling(velocityXDpPerSecond: Double, velocityYDpPerSecond: Double): Fling? {
+  fun fling(
+    velocityXDpPerSecond: Double,
+    velocityYDpPerSecond: Double,
+    continuation: PanContinuation = PanContinuation(),
+  ): Fling? {
     val velocity = hypot(velocityXDpPerSecond, velocityYDpPerSecond)
-    if (velocity < FLING_THRESHOLD_DP_PER_SECOND) return null
-    val durationMillis = (velocity / 7.0 / 1.5 + FLING_BASE_TIME_MILLIS).toLong()
+    if (!velocity.isFinite() || velocity == 0.0 || velocity < continuation.minimumSpeed) return null
+    val durationMillis =
+      ((velocity / 10.5 + continuation.baseTime.inWholeMilliseconds) * continuation.durationScale)
+        .toLong()
+    if (durationMillis <= 0L || !durationMillis.milliseconds.isFinite()) return null
     return Fling(
       offsetXDp = velocityXDpPerSecond * durationMillis * 0.28 / 1000.0,
       offsetYDp = velocityYDpPerSecond * durationMillis * 0.28 / 1000.0,
@@ -141,6 +153,7 @@ internal object GestureMath {
     spanSinceLastPixels: Double,
     density: Double,
     scalingOut: Boolean,
+    continuation: GestureVelocityContinuation = GestureVelocityContinuation(),
   ): ScaleVelocity? {
     val velocity = abs(velocityXPixelsPerSecond) + abs(velocityYPixelsPerSecond)
     if (velocity < MINIMUM_SCALE_VELOCITY_DP_PER_SECOND * density) return null
@@ -154,7 +167,8 @@ internal object GestureMath {
     if (scalingOut) zoomDelta = -zoomDelta
     val durationMillis =
       (ln(abs(zoomDelta) + 1.0 / E.pow(2.0)) + 2.0) * VELOCITY_ANIMATION_DURATION_MULTIPLIER
-    return ScaleVelocity(zoomDelta, durationMillis.toLong().milliseconds)
+    val duration = continuation.duration(durationMillis) ?: return null
+    return ScaleVelocity(zoomDelta, duration)
   }
 
   data class RotationVelocity(val initialDegreesPerFrame: Double, val duration: Duration)
@@ -167,6 +181,7 @@ internal object GestureMath {
     lastRotationDegrees: Double,
     density: Double,
     scaling: Boolean = false,
+    continuation: GestureVelocityContinuation = GestureVelocityContinuation(),
   ): RotationVelocity? {
     val denominator = focalXPixel * focalXPixel + focalYPixel * focalYPixel
     if (denominator <= 0.0) return null
@@ -192,6 +207,34 @@ internal object GestureMath {
     }
     val durationMillis =
       (ln(abs(angularVelocity) + 1.0 / E.pow(2.0)) + 2.0) * VELOCITY_ANIMATION_DURATION_MULTIPLIER
-    return RotationVelocity(angularVelocity, durationMillis.toLong().milliseconds)
+    val duration = continuation.duration(durationMillis) ?: return null
+    return RotationVelocity(angularVelocity, duration)
+  }
+
+  data class TiltVelocity(val pitchDelta: Double, val duration: Duration)
+
+  /** Integrates a pitch speed that decays linearly to zero over the configured duration. */
+  fun tiltVelocity(
+    degreesPerSecond: Double,
+    continuation: TiltContinuation = TiltContinuation(),
+  ): TiltVelocity? {
+    if (
+      !degreesPerSecond.isFinite() ||
+        degreesPerSecond == 0.0 ||
+        abs(degreesPerSecond) < continuation.minimumSpeed ||
+        continuation.duration == Duration.ZERO
+    )
+      return null
+    return TiltVelocity(
+      degreesPerSecond * (continuation.duration.inWholeNanoseconds / 1e9 / 2.0),
+      continuation.duration,
+    )
+  }
+
+  private fun GestureVelocityContinuation.duration(unscaledMillis: Double): Duration? {
+    if (!unscaledMillis.isFinite() || durationScale == 0.0) return null
+    val duration =
+      (unscaledMillis.toLong().milliseconds * durationScale).coerceAtMost(maximumDuration)
+    return duration.takeIf { it > Duration.ZERO }
   }
 }

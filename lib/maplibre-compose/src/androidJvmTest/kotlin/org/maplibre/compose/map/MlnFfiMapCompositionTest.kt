@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -27,14 +28,17 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.moveBy
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicInt
+import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.math.abs
@@ -47,6 +51,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonObject
+import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.asString
 import org.maplibre.compose.expressions.dsl.case
@@ -92,6 +97,88 @@ class MlnFfiMapCompositionTest {
   fun cleanUp() {
     FfiTestPlatform.deleteCacheFile(cacheFile)
   }
+
+  @Test
+  fun a_pitched_pan_continues_in_its_release_direction_without_changing_the_camera_pose() =
+    runFfiComposeUiTest {
+      val runtime = createMapRuntime(runtimeOptions)
+      val start = CameraPosition(target = Position(0.0, 0.0), zoom = 12.0, tilt = 60.0)
+      val state = runtime.createMapState(baseStyle = BaseStyle.Empty, initialCameraPosition = start)
+      var configuration by mutableStateOf(MapGestures.None)
+      var density = 1f
+      val release = AtomicReference<DragEvent.End?>(null)
+      try {
+        setFfiTestMapContent(runtimeOptions) {
+          density = LocalDensity.current.density
+          MaplibreMap(
+            modifier = Modifier.size(300.dp).testTag("pitched-fling-map"),
+            state = state,
+            gestures = configuration,
+          )
+        }
+        waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+          state.style.loadState == StyleLoadState.Ready &&
+            state.currentMapAttachment?.viewport != null
+        }
+        val map = onNodeWithTag("pitched-fling-map")
+
+        fun pan(direction: Float, withFling: Boolean): Float {
+          runOnUiThread {
+            release.store(null)
+            configuration =
+              MapGestures(from = MapGestures.None) {
+                dragPan {
+                  enabled = true
+                  continuation = if (withFling) Fling(durationScale = 0.25) else null
+                  onEnd { release.store(it) }
+                }
+              }
+            state.setCameraPosition(start)
+          }
+          waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+            val camera = state.cameraPosition
+            abs(camera.target.latitude) < 1e-8 &&
+              abs(camera.target.longitude) < 1e-8 &&
+              !state.isCameraMoving &&
+              state.cameraMoveReason == CameraMoveReason.PROGRAMMATIC
+          }
+          map.performTouchInput {
+            down(center)
+            repeat(4) { moveBy(Offset(0f, direction * 16f * density), delayMillis = 8) }
+            up()
+          }
+          waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+            release.load() != null &&
+              state.cameraMoveReason == CameraMoveReason.GESTURE &&
+              !state.isCameraMoving
+          }
+          val ended = checkNotNull(release.load())
+          assertTrue(
+            direction * ended.velocity.yDpPerSecond > 1000.0,
+            "the stroke did not qualify for fling",
+          )
+          val camera = state.cameraPosition
+          assertEquals(start.zoom, camera.zoom, 1e-6)
+          assertEquals(start.bearing, camera.bearing, 1e-6)
+          assertEquals(start.tilt, camera.tilt, 1e-6)
+          return checkNotNull(state.screenLocationFromPosition(start.target)).y.value
+        }
+
+        for (direction in listOf(-1f, 1f)) {
+          val withoutMomentum = pan(direction, withFling = false)
+          val withMomentum = pan(direction, withFling = true)
+          val extraTravel = direction * (withMomentum - withoutMomentum)
+          assertTrue(
+            extraTravel > 5f,
+            "release added no travel in direction $direction: $extraTravel dp",
+          )
+          assertTrue(extraTravel < 150f, "pitched continuation jumped by $extraTravel dp")
+        }
+      } finally {
+        runtime.close()
+        runtime.awaitClosed()
+      }
+    }
 
   @Test
   fun an_empty_style_composes_without_error() = runBridgeMapTest { errors, onFrame ->

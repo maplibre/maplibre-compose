@@ -10,34 +10,25 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.UiComposable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalInspectionMode
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MapOverlayHost
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.overlay.include
-import org.maplibre.compose.style.DesiredStyleLayer
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.rememberStyleComposition
-import org.maplibre.compose.util.ClickResult
-import org.maplibre.compose.util.FeaturesClickHandler
-import org.maplibre.compose.util.MapClickHandler
 
 private class MapStateAttachment(
   val state: MapState,
@@ -78,6 +69,9 @@ private class MapStateAttachment(
  *
  * The map is a focus target, and the overlay is a focus group. Focus modifiers on [modifier] apply
  * to the map, and a control in the overlay keeps its own focus properties.
+ *
+ * Configure input handlers through [gestures]. Tap handlers run before interactive layers;
+ * unhandled tap callbacks run after layers pass the event.
  */
 @Composable
 public fun MaplibreMap(
@@ -86,10 +80,8 @@ public fun MaplibreMap(
   cameraPadding: PaddingValues = PaddingValues(0.dp),
   cameraConstraints: CameraConstraints = CameraConstraints(),
   renderOptions: RenderOptions = RenderOptions.Standard,
-  gestureOptions: GestureOptions = GestureOptions.Standard,
+  gestures: MapGestures = MapGestures.Standard,
   tileLodOptions: TileLodOptions = TileLodOptions.Standard,
-  onClick: MapClickHandler = { _, _ -> ClickResult.Pass },
-  onLongClick: MapClickHandler = { _, _ -> ClickResult.Pass },
   contentWindowInsets: WindowInsets = WindowInsets.safeDrawing,
   overlay: @Composable @UiComposable MapOverlayScope.() -> Unit = {
     include(MapOverlay.Default)
@@ -107,7 +99,7 @@ public fun MaplibreMap(
       cameraPadding = cameraPadding,
       cameraConstraints = cameraConstraints,
       renderOptions = renderOptions,
-      gestureOptions = gestureOptions,
+      gestures = gestures,
       tileLodOptions = tileLodOptions,
     )
   key(state, presentationHostIdentity) {
@@ -116,8 +108,6 @@ public fun MaplibreMap(
       presentationOwner = presentationOwner,
       modifier = modifier,
       mapViewOptions = mapViewOptions,
-      onClick = onClick,
-      onLongClick = onLongClick,
       contentWindowInsets = contentWindowInsets,
       overlay = overlay,
     )
@@ -130,8 +120,6 @@ private fun PresentedMaplibreMap(
   presentationOwner: MapPresentationOwnerToken,
   modifier: Modifier,
   mapViewOptions: MapViewOptions,
-  onClick: MapClickHandler,
-  onLongClick: MapClickHandler,
   contentWindowInsets: WindowInsets,
   overlay: @Composable @UiComposable MapOverlayScope.() -> Unit,
 ) {
@@ -143,8 +131,6 @@ private fun PresentedMaplibreMap(
     attachment = attachment,
     modifier = modifier,
     mapViewOptions = mapViewOptions,
-    onClick = onClick,
-    onLongClick = onLongClick,
     contentWindowInsets = contentWindowInsets,
     overlay = overlay,
   )
@@ -156,8 +142,6 @@ private fun MaplibreMapPresentation(
   attachment: MapStateAttachment,
   modifier: Modifier,
   mapViewOptions: MapViewOptions,
-  onClick: MapClickHandler,
-  onLongClick: MapClickHandler,
   contentWindowInsets: WindowInsets,
   overlay: @Composable @UiComposable MapOverlayScope.() -> Unit,
 ) {
@@ -176,22 +160,18 @@ private fun MaplibreMapPresentation(
         },
     )
   val desiredRevision by desiredRevisionState
-  val mapClickScope = rememberCoroutineScope()
   val mapAttachment = state.currentMapAttachment
-  val currentOnClick = rememberUpdatedState(onClick)
-  val currentOnLongClick = rememberUpdatedState(onLongClick)
+  val currentGestures = rememberUpdatedState(mapViewOptions.gestures)
   // The style subcomposition publishes into a revision state it re-creates per loaded style, and
   // the dispatcher must keep its identity because the pointer input holding it does not restart.
   val currentDesiredRevision = rememberUpdatedState(desiredRevisionState)
   val clickDispatcher =
-    remember(state, mapClickScope) {
-      MapClickDispatcher(
+    remember(state) {
+      MapInteractionDispatcher(
         state = state,
-        scope = mapClickScope,
-        onClick = currentOnClick,
-        onLongClick = currentOnLongClick,
         desiredRevision = currentDesiredRevision,
         loadedStyle = rememberedStyleState,
+        gestures = currentGestures,
       )
     }
   var retainedRevisionReplayed by remember(rememberedStyle, mapAttachment) { mutableStateOf(false) }
@@ -240,10 +220,13 @@ private fun MaplibreMapPresentation(
 
         override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) {
           state.refreshStyleSources(map)
+          clickDispatcher.presentationChanged(map)
         }
 
         override fun onEvent(map: MapAdapter, event: MapEvent) {
           state.onEvent(map, event)
+          if (event is MapEvent.FrameRendered || event == MapEvent.Idle)
+            clickDispatcher.presentationChanged(map)
         }
 
         override fun resolveMissingImage(map: MapAdapter, imageId: String) =
@@ -269,7 +252,6 @@ private fun MaplibreMapPresentation(
           map.setCameraPadding(mapViewOptions.cameraPadding)
           map.setCameraConstraints(mapViewOptions.cameraConstraints)
           map.setRenderSettings(mapViewOptions.renderOptions)
-          map.setGestureSettings(mapViewOptions.gestureOptions)
           map.setTileLodSettings(mapViewOptions.tileLodOptions)
           attachment.publish(map)
         },
@@ -289,54 +271,5 @@ private fun MaplibreMapPresentation(
       contentWindowInsets = contentWindowInsets,
       modifier = Modifier.matchParentSize().focusGroup(),
     )
-  }
-}
-
-/**
- * Sends a recognized tap or long press to the map handler, then to each composed layer from front
- * to back until a handler consumes it.
- */
-private class MapClickDispatcher(
-  private val state: MapState,
-  private val scope: CoroutineScope,
-  private val onClick: State<MapClickHandler>,
-  private val onLongClick: State<MapClickHandler>,
-  private val desiredRevision: State<State<DesiredStyleRevision?>>,
-  private val loadedStyle: State<StyleBinding?>,
-) : MapClickTarget {
-  override fun onPrimaryClick(offset: DpOffset) =
-    dispatch(offset, onClick.value, DesiredStyleLayer::onClick)
-
-  override fun onSecondaryClick(offset: DpOffset) =
-    dispatch(offset, onLongClick.value, DesiredStyleLayer::onLongClick)
-
-  private fun layerNodesInOrder(): List<DesiredStyleLayer> {
-    val layerNodes = desiredRevision.value.value?.layers?.associateBy { it.definition.id }.orEmpty()
-    val layers = loadedStyle.value?.takeIf { it.isLoaded }?.getLayers().orEmpty()
-    return layers.asReversed().mapNotNull { layer -> layerNodes[layer.id] }
-  }
-
-  private fun dispatch(
-    offset: DpOffset,
-    mapHandler: MapClickHandler,
-    layerHandler: (DesiredStyleLayer) -> FeaturesClickHandler?,
-  ) {
-    val attachment = state.currentMapAttachment ?: return
-    val position = attachment.positionFromScreenLocation(offset) ?: return
-    if (mapHandler(position, offset).consumed) return
-    scope.launch {
-      for (node in layerNodesInOrder()) {
-        if (layerHandler(node) == null) continue
-        val features =
-          attachment.queryRenderedFeatures(offset = offset, layerIds = setOf(node.definition.id))
-        // Recomposition may replace or remove the node while the query is suspended. A removed
-        // node never receives the click; a replaced one answers with the handler it has now.
-        val currentHandle =
-          layerNodesInOrder()
-            .firstOrNull { it.definition.id == node.definition.id }
-            ?.let(layerHandler) ?: continue
-        if (features.isNotEmpty() && currentHandle(features).consumed) break
-      }
-    }
   }
 }

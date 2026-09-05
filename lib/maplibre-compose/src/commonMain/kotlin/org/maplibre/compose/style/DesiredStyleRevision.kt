@@ -1,6 +1,9 @@
 package org.maplibre.compose.style
 
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import org.maplibre.compose.layers.Anchor
+import org.maplibre.compose.map.HoverEvent
 import org.maplibre.compose.util.FeaturesClickHandler
 
 /** One complete immutable evaluation of a map's style content. */
@@ -52,4 +55,9 @@ internal data class DesiredStyleLayer(
   val anchor: Anchor,
   val onClick: FeaturesClickHandler?,
   val onLongClick: FeaturesClickHandler?,
+  val onDoubleClick: FeaturesClickHandler? = null,
+  val onTwoFingerClick: FeaturesClickHandler? = null,
+  val hitPadding: Dp = 0.dp,
+  val registration: Any? = null,
+  val onHover: ((HoverEvent) -> Unit)? = null,
 )

@@ -9,9 +9,11 @@ Implementation plan for the
 
 This design uses the ownership API: `MaplibreMap(state)` and the camera
 operations on `MapState`. `MapGestures` replaces `GestureOptions` without a
-compatibility layer. Code examples show the target API. Preserve current focus,
-engagement, Wear crown input, and system motion scaling. The source baseline is
-main 9fa43a43, Compose Multiplatform 1.12.0, and Nucleus 2.5.12.
+compatibility layer. The [input separation](GESTURE_EXTRACTION.md) records the
+subsequent API consolidation and recognition separation. Code examples show the
+target API. Preserve current focus, engagement, Wear crown input, and system
+motion scaling. The source baseline is main 9fa43a43, Compose Multiplatform
+1.12.0, and Nucleus 2.5.12.
 
 This also covers pan observation/tuning, padded feature hits, and post-layer
 click fallback from the pinned
@@ -92,7 +94,7 @@ focus rules follow in their respective sections.
 | keys            | Exact camera/engagement chords; focused rotary       | Key/rotary metadata | Camera steps or engagement change                             |
 
 Set `enabled = false` to remove participation. Tap-family `cameraAction = null`
-removes only camera fallthrough. Map handler parameters default to null, so
+removes only camera fallthrough. Binding handlers default to null, so
 capabilities distinguish an absent handler from one that deliberately returns
 Pass. An enabled family without a handler, observer, or response has no
 recognizer demand. Layer subscribers contribute demand as specified under tap
@@ -120,7 +122,8 @@ val gestures = MapGestures {
   keys { clearZoom() }
   drag(id = "selected-handle", filter = PointerFilter()) {
     canStart { press -> selectedHandleContains(press.screenOffset) }
-    action = DragAction.Custom { event -> editSelectedHandle(event) }
+    action = DragAction.Custom
+    onEvent { event -> editSelectedHandle(event) }
   }
 }
 ```
@@ -215,11 +218,12 @@ normal release of a transform component ends it. Callback failures clean up the
 session and propagate through the existing coroutine error handling; they do not
 convert failure to Pass or trigger a second terminal callback.
 
-A continuous binding has `onStart`, `onDelta`, `onEnd`, and `onCancel`
+A built-in continuous binding has `onStart`, `onDelta`, `onEnd`, and `onCancel`
 observers, all non-suspending Unit callbacks. Delivery invokes the observer
 before its response, then rechecks session validity. Observers cannot consume or
-replace the response. `DragAction.Custom` replaces camera behavior and receives
-the same lifecycle. Built-in actions are Pan, RotateTilt, Zoom, and BoxZoom;
+replace the response. A custom drag exposes one `onEvent` callback before its
+selected action. With `DragAction.Custom`, that callback owns the application
+response as well. Built-in actions are Pan, RotateTilt, Zoom, and BoxZoom;
 transform bindings use their corresponding camera action.
 
 A pan observer fires only when a selected pan component actually crosses pan
@@ -380,17 +384,17 @@ cancellation.
 The order for a recognized event is:
 
 ```text
-binding onEvent -> map handler -> interactive layers, front to back
-                -> unhandled map handler -> optional camera action
+binding onEvent -> interactive layers, front to back
+                -> tap.onUnhandled -> optional camera action
 ```
 
-Binding, map, and layer handlers return ClickResult. Consume stops the chain.
-Handlers remain non-suspending; only feature queries suspend internally. The map
-parameters are onClick, onDoubleClick, onLongClick, onTwoFingerClick, and
-onUnhandledClick. The latter is the ordinary-tap fallback and also returns
-ClickResult. Other event families have no unhandled-map convenience in 0.16. A
-map handler that must query asynchronously consumes synchronously and owns its
-own result; it cannot retrospectively Pass back into the built-in chain.
+Binding and layer handlers return ClickResult. Consume stops the chain. Handlers
+remain non-suspending; only feature queries suspend internally. Each tap family
+has one typed `onEvent` handler in MapGestures. `tap.onUnhandled` is the
+ordinary-tap fallback and also returns ClickResult. Other event families have no
+unhandled-map convenience in 0.16. A handler that must query asynchronously
+consumes synchronously and owns its own result; it cannot retrospectively Pass
+back into the built-in chain.
 
 Layer composables retain onClick/onLongClick and gain onDoubleClick and
 onTwoFingerClick. Each tap-family query uses the actual loaded style order, not
@@ -438,15 +442,15 @@ Add `hitPadding: Dp = 0.dp` to interactive layer registration for all tap-family
 queries. Zero uses a point; positive padding uses its enclosing square DpRect.
 Keep front-to-back priority, including features within a layer as returned by
 the engine. There is no circular hit test or nearest-feature sorting promise.
-Hover uses exact points, not hitPadding. This and onUnhandledClick are included
+Hover uses exact points, not hitPadding. This and tap.onUnhandled are included
 in the dispatcher implementation rather than requiring another API redesign.
 
 ## Hover
 
-Hover is observation. `onPointerMove` on the map and `onHover` on layers receive
-HoverEvent.Enter/Move/Exit and return Unit. Map hover requires no feature query.
-It observes mouse/stylus hover only while no contacts are pressed; entering drag
-clears layer membership. Touch has no hover.
+Hover is observation. `hover.onEvent` in MapGestures and `onHover` on layers
+receive HoverEvent.Enter/Move/Exit and return Unit. Map hover requires no
+feature query. It observes mouse/stylus hover only while no contacts are
+pressed; entering drag clears layer membership. Touch has no hover.
 
 Membership is per layer, not per feature. One hover sampling pass queries
 subscribed layers sequentially in loaded front-to-back order, using one layer ID

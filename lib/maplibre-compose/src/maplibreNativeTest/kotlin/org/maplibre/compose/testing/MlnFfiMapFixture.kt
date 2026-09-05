@@ -7,7 +7,6 @@ import org.maplibre.compose.map.GestureTarget
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
-import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
@@ -17,15 +16,12 @@ import org.maplibre.compose.style.StyleBinding
 internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent: MapExtent) :
   MapFixture {
 
-  private val runtime = mapRuntimeForTest()
-  override val state =
-    runtime.createMapState(
-      initialCameraPosition = CameraPosition(zoom = 0.0),
-      baseStyle = BaseStyle.Empty,
-    )
+  override val state = bridge.state
   private val token = state.reservePresentation()
 
   init {
+    state.setBaseStyle(BaseStyle.Empty)
+    state.setCameraPosition(CameraPosition(zoom = 0.0))
     state.publishPresentation(token, bridge.session)
     bridge.bindState(state)
   }
@@ -104,7 +100,6 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent
   }
 
   override fun close() {
-    runtime.close()
     bridge.close()
   }
 }

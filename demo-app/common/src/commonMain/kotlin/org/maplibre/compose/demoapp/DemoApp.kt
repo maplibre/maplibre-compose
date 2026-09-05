@@ -48,11 +48,9 @@ import androidx.window.core.layout.WindowSizeClass
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.vectorResource
 import org.maplibre.compose.demoapp.benchmark.BenchmarkMap
-import org.maplibre.compose.demoapp.benchmark.gestureOptions
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.chevron_left_24px
 import org.maplibre.compose.demoapp.generated.chevron_right_24px
-import org.maplibre.compose.map.GestureOptions
 
 @Composable
 fun DemoApp(
@@ -148,12 +146,11 @@ private fun DemoShell(state: DemoAppState, contentPadding: PaddingValues) {
     val controlsFocusRequester = remember { FocusRequester() }
     val controlsShown = state.shell == DemoShell.Demos
     // A route to a map that cannot take focus strands the D-pad on the handle.
-    val mapGestures =
+    val mapFocusable =
       when (state.shell) {
-        DemoShell.Demos -> state.settings.gestureOptions
-        DemoShell.Benchmarks -> state.selectedScenario.gestureOptions
+        DemoShell.Demos -> state.settings.gestureSettings.hasKeyboardGesture
+        DemoShell.Benchmarks -> state.selectedScenario.usesGestures
       }
-    val mapFocusable = mapGestures.hasKeyboardGesture
 
     val handleTranslation =
       with(density) {
@@ -302,6 +299,3 @@ private fun ShellMap(
     DemoMap(state, viewportInsets, overlay = demoMapOverlay(state.settings, controlsModifier))
   }
 }
-
-private val GestureOptions.hasKeyboardGesture: Boolean
-  get() = isKeyboardPanEnabled || isKeyboardZoomEnabled || isKeyboardRotateTiltEnabled

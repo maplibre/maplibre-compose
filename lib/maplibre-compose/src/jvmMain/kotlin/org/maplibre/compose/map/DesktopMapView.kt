@@ -28,7 +28,7 @@ internal actual fun ComposableMapView(
   onReset: () -> Unit,
   logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
-  clicks: MapClickTarget,
+  clicks: MapInteractionTarget,
   options: MapViewOptions,
 ) {
   val hostFactory =
