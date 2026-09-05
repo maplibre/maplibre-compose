@@ -61,7 +61,7 @@ protected constructor(
     operation { style.resetFeatureStates(id, sourceLayerId) }
   }
 
-  protected fun <T> operation(action: () -> T): T = operations.run {
+  internal fun <T> operation(action: () -> T): T = operations.run {
     requireCurrent()
     action()
   }

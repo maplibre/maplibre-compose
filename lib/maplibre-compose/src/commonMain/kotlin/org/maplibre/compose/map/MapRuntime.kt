@@ -926,7 +926,11 @@ internal constructor(
     it.screenLocationFromPosition(position)
   }
 
-  /** Unprojects [offset] into a geographic position, or returns null without a viewport. */
+  /**
+   * Unprojects [offset] into a geographic position, or returns null without a viewport.
+   *
+   * Longitude preserves the visible world copy and may extend past ±180°.
+   */
   public fun positionFromScreenLocation(offset: DpOffset): Position? = withAttachmentRead {
     it.positionFromScreenLocation(offset)
   }

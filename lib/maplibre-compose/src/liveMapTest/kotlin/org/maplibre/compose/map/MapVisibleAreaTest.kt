@@ -1,7 +1,10 @@
 package org.maplibre.compose.map
 
+import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import org.maplibre.compose.camera.CameraPosition
@@ -35,45 +38,31 @@ class MapVisibleAreaTest {
   }
 
   @Test
-  fun the_bounding_box_covers_the_region_of_a_rotated_and_tilted_camera(): MapTestResult =
-    runMapTest {
-      createMapFixture().use {
-        it.loadStyle(BaseStyle.Empty)
-        it.awaitMapReady()
-        it.state.setCameraPosition(ROTATED_CAMERA)
-        it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(ROTATED_CAMERA) }
+  fun the_bounding_box_covers_a_proper_rotated_and_tilted_region(): MapTestResult = runMapTest {
+    createMapFixture().use {
+      it.loadStyle(BaseStyle.Empty)
+      it.awaitMapReady()
+      it.state.setCameraPosition(ROTATED_CAMERA)
+      it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(ROTATED_CAMERA) }
 
-        val region = assertNotNull(it.state.getVisibleRegion())
-        val box = assertNotNull(it.state.getVisibleBoundingBox())
-        assertContains(box, region.farLeft, "the far left corner")
-        assertContains(box, region.farRight, "the far right corner")
-        assertContains(box, region.nearLeft, "the near left corner")
-        assertContains(box, region.nearRight, "the near right corner")
-      }
+      val region = assertNotNull(it.state.getVisibleRegion())
+      val box = assertNotNull(it.state.getVisibleBoundingBox())
+      assertContains(box, region.farLeft, "the far left corner")
+      assertContains(box, region.farRight, "the far right corner")
+      assertContains(box, region.nearLeft, "the near left corner")
+      assertContains(box, region.nearRight, "the near right corner")
+      val corners = region.corners()
+      assertTrue(
+        corners.distinct().size == 4,
+        "the corners should be distinct, was $region",
+      )
+      // Tilt widens the far edge relative to the near edge.
+      assertTrue(
+        span(region.farLeft, region.farRight) > span(region.nearLeft, region.nearRight),
+        "the far edge should be wider than the near edge, was $region",
+      )
     }
-
-  @Test
-  fun the_region_of_a_rotated_and_tilted_camera_is_a_proper_quadrilateral(): MapTestResult =
-    runMapTest {
-      createMapFixture().use {
-        it.loadStyle(BaseStyle.Empty)
-        it.awaitMapReady()
-        it.state.setCameraPosition(ROTATED_CAMERA)
-        it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(ROTATED_CAMERA) }
-
-        val region = assertNotNull(it.state.getVisibleRegion())
-        val corners = region.corners()
-        assertTrue(
-          corners.distinct().size == 4,
-          "the corners should be distinct, was $region",
-        )
-        // Tilt widens the far edge relative to the near edge.
-        assertTrue(
-          span(region.farLeft, region.farRight) > span(region.nearLeft, region.nearRight),
-          "the far edge should be wider than the near edge, was $region",
-        )
-      }
-    }
+  }
 
   @Test
   fun the_bounding_box_stays_narrow_across_the_antimeridian(): MapTestResult = runMapTest {
@@ -91,6 +80,37 @@ class MapVisibleAreaTest {
         "the box should span the short way around the antimeridian, was $box",
       )
       assertContains(box, Position(ANTIMERIDIAN_CAMERA.target.longitude, 47.0), "the target")
+      val region = assertNotNull(it.state.getVisibleRegion())
+      for (corner in region.corners()) assertContains(box, corner, "an antimeridian corner")
+      assertTrue(region.farRight.longitude > 180.0, "the right corner should keep its world copy")
+    }
+  }
+
+  @Test
+  fun visible_corners_and_screen_positions_preserve_repeated_worlds(): MapTestResult = runMapTest {
+    val extent = MapExtent.fromLogical(width = 1600, height = 512, scaleFactor = 1.0)
+    createMapFixture(extent).use {
+      it.loadStyle(BaseStyle.Empty)
+      it.awaitMapReady()
+      val camera = CameraPosition(target = Position(179.0, 0.0), zoom = 1.0)
+      it.state.setCameraPosition(camera)
+      it.pumpUntil("the repeated-world camera to apply") {
+        abs(it.session.getCameraPosition().zoom - camera.zoom) < 0.01 &&
+          abs(it.session.getCameraPosition().target.longitude - camera.target.longitude) < 0.01
+      }
+
+      val region = assertNotNull(it.state.getVisibleRegion())
+      val box = assertNotNull(it.state.getVisibleBoundingBox())
+      // At zoom 1 a world is 1024 dp wide. A 1600 dp viewport spans 562.5 degrees.
+      val expectedSpan = 360.0 * 1600.0 / 1024.0
+      assertEquals(expectedSpan, region.farRight.longitude - region.farLeft.longitude, 1e-5)
+      assertEquals(expectedSpan, box.northeast.longitude - box.southwest.longitude, 1e-5)
+      assertEquals(camera.target.longitude - expectedSpan / 2, region.farLeft.longitude, 1e-5)
+      assertEquals(camera.target.longitude + expectedSpan / 2, region.farRight.longitude, 1e-5)
+      for (corner in region.corners()) assertContains(box, corner, "a repeated-world corner")
+
+      val right = assertNotNull(it.state.positionFromScreenLocation(DpOffset(1600.dp, 0.dp)))
+      assertEquals(region.farRight.longitude, right.longitude, 1e-5)
     }
   }
 

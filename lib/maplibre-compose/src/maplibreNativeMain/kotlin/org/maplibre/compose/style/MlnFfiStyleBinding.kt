@@ -6,6 +6,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.DurationUnit
 import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
@@ -16,6 +17,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import org.maplibre.compose.layers.Layer
@@ -28,7 +30,6 @@ import org.maplibre.compose.sources.CustomVectorSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeometryTileProvider
-import org.maplibre.compose.sources.MlnFfiFeatureStateStore
 import org.maplibre.compose.sources.MlnFfiTileCoordinatorStore
 import org.maplibre.compose.sources.MlnFfiTileRequestCoordinator
 import org.maplibre.compose.sources.Source
@@ -36,9 +37,6 @@ import org.maplibre.compose.sources.TileCoordinate
 import org.maplibre.compose.sources.UnknownSource
 import org.maplibre.compose.sources.VectorTileProvider
 import org.maplibre.compose.sources.featureStateSelector
-import org.maplibre.compose.sources.forgetFeatureStates
-import org.maplibre.compose.sources.liveFeatureStateStore
-import org.maplibre.compose.sources.mutateLiveFeatureState
 import org.maplibre.compose.sources.putClusterProperties
 import org.maplibre.compose.sources.toInlineUtf8
 import org.maplibre.compose.sources.toMlnFfiTileId
@@ -100,9 +98,6 @@ internal open class MlnFfiStyleBinding(
   private val geoJsonCoordinators =
     mutableMapOf<String, MlnFfiGeoJsonCoordinator<GeoJsonSourceDataHandle>>()
   private val geoJsonLock = MlnFfiLock()
-
-  /** Feature state retained for this loaded style. */
-  open val featureStateStore: MlnFfiFeatureStateStore? = MlnFfiFeatureStateStore()
 
   /** The tile coordinators serving this loaded style's custom sources; null when unloaded. */
   open val tileCoordinators: MlnFfiTileCoordinatorStore? = MlnFfiTileCoordinatorStore()
@@ -367,7 +362,6 @@ internal open class MlnFfiStyleBinding(
         throw StyleMutationException(error.message, error)
       }
       geoJsonLock.withLock { geoJsonCoordinators.remove(sourceId) }?.close()
-      forgetFeatureStates(sourceId)
       reportSourceChanged(sourceId)
     }
     tileCoordinators?.remove(sourceId)
@@ -737,10 +731,8 @@ internal open class MlnFfiStyleBinding(
     featureId: String,
     state: JsonObject,
   ) {
-    val store = liveFeatureStateStore() ?: return
-    store.set(sourceId, sourceLayerId, featureId, state)
-    mutateLiveFeatureState { session ->
-      session.setFeatureState(
+    mutateMap { map ->
+      map.setFeatureState(
         featureStateSelector(sourceId, sourceLayerId, featureId),
         state.toJsonBytes(),
       )
@@ -752,7 +744,14 @@ internal open class MlnFfiStyleBinding(
     sourceLayerId: String?,
     featureId: String,
   ): JsonObject =
-    liveFeatureStateStore()?.get(sourceId, sourceLayerId, featureId) ?: JsonObject(emptyMap())
+    readMap { map ->
+      Json.parseToJsonElement(
+          map
+            .getFeatureState(featureStateSelector(sourceId, sourceLayerId, featureId))
+            .decodeToString()
+        )
+        .jsonObject
+    } ?: JsonObject(emptyMap())
 
   override fun removeFeatureState(
     sourceId: String,
@@ -760,18 +759,14 @@ internal open class MlnFfiStyleBinding(
     featureId: String,
     stateKey: String?,
   ) {
-    val store = liveFeatureStateStore() ?: return
-    store.remove(sourceId, sourceLayerId, featureId, stateKey)
-    mutateLiveFeatureState { session ->
-      session.removeFeatureState(featureStateSelector(sourceId, sourceLayerId, featureId, stateKey))
+    mutateMap { map ->
+      map.removeFeatureState(featureStateSelector(sourceId, sourceLayerId, featureId, stateKey))
     }
   }
 
   override fun resetFeatureStates(sourceId: String, sourceLayerId: String?) {
-    val store = liveFeatureStateStore() ?: return
-    store.reset(sourceId, sourceLayerId)
-    mutateLiveFeatureState { session ->
-      session.removeFeatureState(featureStateSelector(sourceId, sourceLayerId))
+    mutateMap { map ->
+      map.removeFeatureState(featureStateSelector(sourceId, sourceLayerId))
     }
   }
 

@@ -2,7 +2,6 @@ package org.maplibre.compose.map
 
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
-import kotlin.math.round
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.toCameraPosition
@@ -24,12 +23,6 @@ internal data class MapViewportGeometry(
 internal fun MapHandle.readViewportGeometry(): MapViewportGeometry {
   val size = size
   val corners = unprojectedCorners()
-  val center =
-    latLngsForPixels(listOf(ScreenPoint(size.width / 2.0, size.height / 2.0))).first().toPosition()
-  // mbgl wraps unprojected longitudes to ±180, so a viewport astride the antimeridian would hull
-  // to a box spanning nearly the whole world. Unwrap the corners around the center first; like
-  // GL JS, the box may then extend past ±180.
-  val unwrapped = corners.map { it.unwrapAround(center) }
   return MapViewportGeometry(
     camera = camera.toCameraPosition(),
     size = DpSize(size.width.dp, size.height.dp),
@@ -44,13 +37,13 @@ internal fun MapHandle.readViewportGeometry(): MapViewportGeometry {
       BoundingBox(
         southwest =
           Position(
-            longitude = unwrapped.minOf { it.longitude },
-            latitude = unwrapped.minOf { it.latitude },
+            longitude = corners.minOf { it.longitude },
+            latitude = corners.minOf { it.latitude },
           ),
         northeast =
           Position(
-            longitude = unwrapped.maxOf { it.longitude },
-            latitude = unwrapped.maxOf { it.latitude },
+            longitude = corners.maxOf { it.longitude },
+            latitude = corners.maxOf { it.latitude },
           ),
       ),
   )
@@ -65,7 +58,7 @@ internal fun MapHandle.readViewportGeometry(): MapViewportGeometry {
 private fun MapHandle.unprojectedCorners(): List<Position> {
   val width = size.width.toDouble()
   val height = size.height.toDouble()
-  return latLngsForPixels(
+  return latLngsForPixelsUnwrapped(
       listOf(
         ScreenPoint(0.0, 0.0),
         ScreenPoint(width, 0.0),
@@ -74,9 +67,4 @@ private fun MapHandle.unprojectedCorners(): List<Position> {
       )
     )
     .map { it.toPosition() }
-}
-
-private fun Position.unwrapAround(center: Position): Position {
-  val delta = round((center.longitude - longitude) / 360.0) * 360.0
-  return if (delta == 0.0) this else Position(longitude = longitude + delta, latitude = latitude)
 }

@@ -15,8 +15,8 @@ import org.maplibre.nativeffi.log.LogSeverity
  *
  * Installed once, when the first native runtime is created; `setLogCallback` loads the native
  * library itself. The callback reads the current logger at each record, so replacing the logger
- * never reinstalls the callback. Every record is consumed: the engine's own fall-through sink is
- * stderr on every platform this build targets (maplibre/maplibre-native-ffi#679).
+ * never reinstalls the callback. Every record is consumed, so a null logger or a filtered severity
+ * does not fall through to the engine's platform logger.
  */
 internal object MlnFfiLogBridge {
   private val lock = MlnFfiLock()

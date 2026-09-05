@@ -210,3 +210,12 @@ compose.resources { packageOfResClass = "org.maplibre.compose.generated" }
 tasks.withType<org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeSimulatorTest> {
   standalone.set(false)
 }
+
+class ShutdownTestClasspathArguments(@get:Classpath val classpath: FileCollection) :
+  CommandLineArgumentProvider {
+  override fun asArguments() = listOf("-Dorg.maplibre.compose.test.classpath=${classpath.asPath}")
+}
+
+tasks.named<Test>("jvmTest") {
+  jvmArgumentProviders.add(ShutdownTestClasspathArguments(classpath))
+}

@@ -46,7 +46,7 @@ android {
     minSdk = libs.versions.android.minSdk.get().toInt()
 
     ndk {
-      // The FFI runtime packages these ABIs only.
+      // The Compose Vulkan loader shim currently supports these 64-bit ABIs.
       abiFilters += listOf("arm64-v8a", "x86_64")
     }
   }
