@@ -107,6 +107,7 @@ private class NativeSnapshotterAdapter(
   ): ImageBitmap = runNativeRequest {
     val binding = checkNotNull(styleBinding) { "A snapshot style has not loaded" }
     reconciler.apply(binding, revision)
+    binding.awaitGeoJsonUpdates()
     configureRequest(request)
     val rendering = NativeSnapshotOperation(NativeSnapshotOperation.Kind.STILL_IMAGE)
     stillImageOperation = rendering

@@ -1,16 +1,19 @@
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlinx.io.files.Path
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.mlnffi.FfiTestPlatform
@@ -19,7 +22,10 @@ import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
+import org.maplibre.compose.sources.GeoJsonSourceHandle
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.StyleHandleException
+import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.compose.testing.runMapTest
@@ -186,19 +192,91 @@ class NativeMapSnapshotterTest {
     }
   }
 
-  private fun pointComposition(): @Composable @MaplibreComposable () -> Unit {
-    val points =
-      GeoJsonSource(
-        id = "points",
-        data =
-          GeoJsonData.Features(
-            buildFeatureCollection<Geometry, JsonObject?> {
-              addFeature(geometry = Point(Position(longitude = 0.0, latitude = 0.0)))
-            }
-          ),
-        options = GeoJsonOptions(),
+  @Test
+  fun invalid_initial_geojson_fails_capture_and_corrected_data_renders(): MapTestResult =
+    runMapTest {
+      FfiTestPlatform.initialize()
+      val cacheFile = FfiTestPlatform.createCacheFile()
+      val runtime =
+        createNativeMapRuntime(
+          MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+        )
+      val data = mutableStateOf<GeoJsonData>(GeoJsonData.JsonString("{not json}"))
+      try {
+        val snapshotter = runtime.createSnapshotter(BASE_STYLE, pointComposition { data.value })
+        try {
+          val request =
+            MapSnapshotRequest(
+              width = SIZE,
+              height = SIZE,
+              cameraPosition = CameraPosition(zoom = 2.0),
+            )
+          assertFailsWith<MapSnapshotException> { snapshotter.capture(request) }
+          assertFailsWith<MapSnapshotException> { snapshotter.capture(request) }
+
+          data.value = POINT_DATA
+          val captured = snapshotter.capture(request)
+
+          assertEquals(GREEN, captured.readPixel(SIZE / 2, SIZE / 2))
+        } finally {
+          snapshotter.close()
+          snapshotter.awaitClosed()
+        }
+      } finally {
+        runtime.close()
+        runtime.awaitClosed()
+        FfiTestPlatform.deleteCacheFile(cacheFile)
+      }
+    }
+
+  @Test
+  fun rejected_synchronous_data_does_not_fail_a_later_capture(): MapTestResult = runMapTest {
+    FfiTestPlatform.initialize()
+    val cacheFile = FfiTestPlatform.createCacheFile()
+    val runtime =
+      createNativeMapRuntime(
+        MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
       )
+    try {
+      val snapshotter = runtime.createSnapshotter(BASE_STYLE)
+      try {
+        val request =
+          MapSnapshotRequest(
+            width = SIZE,
+            height = SIZE,
+            cameraPosition = CameraPosition(zoom = 2.0),
+          )
+        snapshotter.capture(request)
+        val source = GeoJsonSource("points", POINT_DATA, GeoJsonOptions(synchronousUpdate = true))
+        val handle = assertIs<GeoJsonSourceHandle>(snapshotter.style.sources.add(source))
+        val layer = CircleLayer("imperative-circle", source)
+        layer.setCircleColor(const(Color.Green))
+        layer.setCircleRadius(const(20.dp).compile(ExpressionContext.None))
+        checkNotNull(snapshotter.style.currentLoadedStyle()).install(layer)
+        assertEquals(GREEN, snapshotter.capture(request).readPixel(SIZE / 2, SIZE / 2))
+
+        assertFailsWith<StyleHandleException> {
+          handle.setData(GeoJsonData.JsonString("{not json}"))
+        }
+        val captured = snapshotter.capture(request)
+
+        assertEquals(GREEN, captured.readPixel(SIZE / 2, SIZE / 2))
+      } finally {
+        snapshotter.close()
+        snapshotter.awaitClosed()
+      }
+    } finally {
+      runtime.close()
+      runtime.awaitClosed()
+      FfiTestPlatform.deleteCacheFile(cacheFile)
+    }
+  }
+
+  private fun pointComposition(
+    data: () -> GeoJsonData = { POINT_DATA }
+  ): @Composable @MaplibreComposable () -> Unit {
     return {
+      val points = GeoJsonSource(id = "points", data = data(), options = GeoJsonOptions())
       CircleLayer(
         id = "composed-circle",
         source = points,
@@ -232,6 +310,12 @@ class NativeMapSnapshotterTest {
     const val SIZE = 64
     val BACKGROUND = RgbaPixel(red = 51, green = 102, blue = 153, alpha = 255)
     val GREEN = RgbaPixel(red = 0, green = 255, blue = 0, alpha = 255)
+    val POINT_DATA =
+      GeoJsonData.Features(
+        buildFeatureCollection<Geometry, JsonObject?> {
+          addFeature(geometry = Point(Position(longitude = 0.0, latitude = 0.0)))
+        }
+      )
     val BASE_STYLE =
       BaseStyle.Json(
         """

@@ -19,6 +19,15 @@ public sealed interface MapEvent {
    */
   public data class StyleLoadFailed(val reason: String) : MapEvent
 
+  /**
+   * Native could not asynchronously serialize, prepare, or install GeoJSON data on [sourceId].
+   *
+   * The source retains its previously installed data, or remains empty if its initial data failed.
+   * Superseded submissions and removed sources do not report failures. This event belongs to the
+   * loaded base style that accepted the submission. URL loading errors are not reported here.
+   */
+  public data class SourceDataFailed(val sourceId: String, val cause: Throwable) : MapEvent
+
   /** The engine finished every pending load and render, and has nothing more to draw. */
   public data object Idle : MapEvent
 

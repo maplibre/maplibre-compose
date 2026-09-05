@@ -158,24 +158,15 @@ internal class RecordingStyleBinding(
   override fun imageSourceCoordinates(sourceId: String): List<Position>? = null
 
   /** The GeoJSON data each install applied, in order, keyed by source. */
-  val installedGeoJson: MutableMap<String, MutableList<Any>> = mutableMapOf()
+  val installedGeoJson: MutableMap<String, MutableList<GeoJsonData>> = mutableMapOf()
 
-  override fun prepareGeoJson(data: GeoJsonData, options: GeoJsonOptions): PreparedGeoJson =
-    RecordedPreparedGeoJson(data)
-
-  override fun setGeoJsonSourceData(
+  override fun submitGeoJsonData(
     sourceId: String,
-    prepared: PreparedGeoJson,
-    claim: () -> Boolean,
+    data: GeoJsonData,
+    fallbackOptions: GeoJsonOptions,
   ) {
-    if (!claim()) return
-    installedGeoJson.getOrPut(sourceId) { mutableListOf() } +=
-      (prepared as RecordedPreparedGeoJson).data
-  }
-
-  override fun setGeoJsonSourceUrl(sourceId: String, url: String, claim: () -> Boolean) {
-    if (!claim()) return
-    installedGeoJson.getOrPut(sourceId) { mutableListOf() } += url
+    requireCurrent()
+    installedGeoJson.getOrPut(sourceId) { mutableListOf() } += data
   }
 
   override fun addCustomGeometrySource(
@@ -223,15 +214,6 @@ internal class RecordingStyleBinding(
     limit: Long,
     offset: Long,
   ): FeatureCollection<Geometry, JsonObject?>? = null
-
-  class RecordedPreparedGeoJson(val data: GeoJsonData) : PreparedGeoJson {
-    var closed: Boolean = false
-      private set
-
-    override fun close() {
-      closed = true
-    }
-  }
 
   override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean {
     val id = (layer["id"] as JsonPrimitive).content

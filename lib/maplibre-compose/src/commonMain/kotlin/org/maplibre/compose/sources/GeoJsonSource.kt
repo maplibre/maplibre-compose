@@ -13,12 +13,19 @@ import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.GeoJsonObject
-import org.maplibre.spatialk.geojson.toJson
 
 /** Names the style-spec property that identifies a cluster feature. */
 internal const val CLUSTER_ID_PROPERTY = "cluster_id"
 
-/** Defines a map data source that contains GeoJSON data. */
+/**
+ * Defines a map data source that contains GeoJSON data.
+ *
+ * By default, native engines add an empty source before preparing inline data in the background.
+ * Preparation or installation failures emit [org.maplibre.compose.map.MapEvent.SourceDataFailed].
+ * Failed updates retain the previously installed data; the source remains empty if its initial data
+ * fails. With [GeoJsonOptions.synchronousUpdate], initial inline data is prepared before the source
+ * is added, and failures throw without adding the source.
+ */
 public class GeoJsonSource : Source {
 
   private val options: GeoJsonOptions
@@ -44,7 +51,7 @@ public class GeoJsonSource : Source {
   override fun definition(): SourceDefinition =
     SourceDefinition.GeoJson(
       id,
-      data.snapshot(),
+      data,
       options.copy(clusterProperties = options.clusterProperties.toMap()),
     )
 
@@ -56,6 +63,14 @@ public class GeoJsonSource : Source {
     CLUSTER_ID_PROPERTY in feature.properties.orEmpty()
 }
 
+/**
+ * Supplies a URL, JSON document, or immutable GeoJSON object to a source.
+ *
+ * [Features] retains the supplied object without copying it. Treat the object and every nested
+ * collection and property as immutable after submission. Create a new value for each update. Native
+ * engines serialize and prepare inline data on a background thread unless
+ * [GeoJsonOptions.synchronousUpdate] is enabled.
+ */
 public sealed interface GeoJsonData {
   public data class Uri(val uri: String) : GeoJsonData
 
@@ -63,13 +78,6 @@ public sealed interface GeoJsonData {
 
   public data class Features(val geoJson: GeoJsonObject) : GeoJsonData
 }
-
-private fun GeoJsonData.snapshot(): GeoJsonData =
-  when (this) {
-    is GeoJsonData.Uri,
-    is GeoJsonData.JsonString -> this
-    is GeoJsonData.Features -> GeoJsonData.JsonString(geoJson.toJson())
-  }
 
 /**
  * @param minZoom Minimum zoom level at which to create vector tiles (lower means more field of view
@@ -103,10 +111,11 @@ private fun GeoJsonData.snapshot(): GeoJsonData =
  *
  * @param lineMetrics Whether to calculate line distance metrics. This is required for
  *   [LineLayer][org.maplibre.compose.layers.LineLayer]s that specify a `gradient`.
- * @param synchronousUpdate Whether native engines generate requested tiles during the update pass.
- *   This can make submitted data available to the next rendered frame, but it can reduce frame
- *   rate. This option does not change when [GeoJsonSourceHandle.setData] returns. Android, iOS, and
- *   desktop honor this option. The browser ignores it.
+ * @param synchronousUpdate Whether native engines serialize, parse, index, and install inline data
+ *   on the map's owner thread before source creation or [GeoJsonSourceHandle.setData] returns.
+ *   Requested tiles are also generated during the update pass. This blocks the caller and can
+ *   reduce frame rate; it does not wait for rendering. URL loading remains asynchronous. Android,
+ *   iOS, and desktop honor this option. The browser ignores it.
  */
 @Immutable
 public data class GeoJsonOptions(

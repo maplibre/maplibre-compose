@@ -302,31 +302,13 @@ internal interface StyleBinding {
     )
 
   /**
-   * Converts inline [data] to the engine-specific installation form on the calling thread.
+   * Submits immutable [data] to the current installation of [sourceId].
    *
-   * Callers can run this function outside the map owner thread. Use [setGeoJsonSourceUrl] for a
-   * URL.
+   * The binding owns preparation and ordering. A newer submission supersedes older pending data.
+   * Native preparation uses the source's applied options, or [fallbackOptions] if those options are
+   * unavailable, and runs synchronously when [GeoJsonOptions.synchronousUpdate] is enabled.
    */
-  fun prepareGeoJson(data: GeoJsonData, options: GeoJsonOptions): PreparedGeoJson
-
-  /** Prepares an update with the options currently applied to [sourceId]. */
-  fun prepareGeoJsonUpdate(
-    sourceId: String,
-    data: GeoJsonData,
-    fallbackOptions: GeoJsonOptions,
-  ): PreparedGeoJson = prepareGeoJson(data, fallbackOptions)
-
-  /**
-   * Installs [prepared] on a live GeoJSON source if [claim] returns true.
-   *
-   * The implementation invokes [claim] in the serialized installation context. It invokes [claim]
-   * even if the style has unloaded or the implementation discards the installation. This function
-   * returns after installation or disposal. The caller can then close [prepared].
-   */
-  fun setGeoJsonSourceData(sourceId: String, prepared: PreparedGeoJson, claim: () -> Boolean)
-
-  /** Sets [url] on a live GeoJSON source. [claim] follows [setGeoJsonSourceData]. */
-  fun setGeoJsonSourceUrl(sourceId: String, url: String, claim: () -> Boolean)
+  fun submitGeoJsonData(sourceId: String, data: GeoJsonData, fallbackOptions: GeoJsonOptions)
 
   /**
    * Adds a custom geometry source that obtains feature tiles from [provider]. Removal or style
@@ -435,9 +417,6 @@ internal interface StyleBinding {
     filter: JsonElement?,
   ): List<Feature<Geometry, JsonObject?>>
 }
-
-/** Stores one GeoJSON payload in an engine-specific installation form. [close] releases it. */
-internal interface PreparedGeoJson : AutoCloseable
 
 /** Identifies the section of a layer object that contains a property. */
 internal enum class LayerPropertyKind {
