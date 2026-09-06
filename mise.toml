@@ -88,13 +88,16 @@ CHROME_BIN = { value = '''{{ exec(command="node -e \"console.log(require(process
 postinstall = ["hk install --mise --quiet"]
 
 [deps.pnpm]
-auto = true
+auto = false
 
 [deps.chromium]
-auto = true
+auto = false
 sources = ["mise.lock"]
 outputs = [".cache/playwright/chromium-*"]
 run = "playwright install chromium --no-shell"
+
+[tasks."deps:chromium"]
+run = "mise deps install chromium"
 
 [tasks.check]
 description = "Run every formatter and linter in report-only mode."
@@ -193,6 +196,7 @@ udid="$(.mise/bin/boot-ios-simulator)"
 '''
 
 [tasks."test:js"]
+depends = ["deps:chromium"]
 description = "Run the Kotlin/JS browser test suite."
 run = "./gradlew jsBrowserTest"
 
@@ -242,7 +246,7 @@ cp docs/cloudflare-pages/_redirects build/cloudflare-pages/_redirects
 
 [tasks."test:pages"]
 description = "Load the embedded browser demo from the packaged Cloudflare Pages site."
-depends = ["build:pages"]
+depends = ["build:pages", "deps:chromium"]
 run = '''
 pages_test_dir="$(mktemp -d)"
 pages_preview_pid=""
