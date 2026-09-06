@@ -15,7 +15,11 @@ internal class GestureVelocityTracker {
   fun resetTracking() = samples.clear()
 
   fun addPointerInputChange(change: PointerInputChange) {
-    change.historical.forEach { addPosition(it.uptimeMillis, it.position) }
+    // A newly selected contact may carry history from its previous gesture.
+    val lastTime = samples.lastOrNull()?.time
+    change.historical.forEach {
+      if (lastTime == null || it.uptimeMillis >= lastTime) addPosition(it.uptimeMillis, it.position)
+    }
     addPosition(change.uptimeMillis, change.position)
   }
 

@@ -25,6 +25,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ComposeUiTest
@@ -1894,6 +1895,66 @@ class MapInputRecognitionTest {
       assertTrue(events.none { it is DragEvent.Cancel })
       assertEquals(2, events.map { it.gestureId }.distinct().size)
       assertEquals(1, target.startedCount)
+      assertEquals(1, target.endedCount)
+    }
+  }
+
+  @Test
+  fun lifting_a_pinch_does_not_turn_sub_slop_motion_into_a_pan() = runPlainComposeUiTest {
+    val target = fixture.target
+    var touchSlop = 0f
+    setContent {
+      touchSlop = LocalViewConfiguration.current.touchSlop
+      GestureHost(target, MapInteractions.Standard)
+    }
+    waitForIdle()
+    val map = mapNode()
+    map.performTouchInput {
+      down(0, center - Offset(80f, 0f))
+      down(1, center + Offset(80f, 0f))
+      repeat(6) {
+        updatePointerBy(0, Offset(-24f, 0f))
+        updatePointerBy(1, Offset(24f, 0f))
+        move(delayMillis = 16)
+      }
+      up(0)
+    }
+    waitForIdle()
+    val scales = target.scaleCalls.size
+    assertTrue(scales > 0)
+    map.performTouchInput {
+      updatePointerBy(1, Offset(touchSlop / 2, 0f))
+      move(delayMillis = 16)
+      up(1)
+    }
+    waitForIdle()
+    assertTrue(target.moveCalls.isEmpty(), "lifting the pinch started a pan")
+    assertTrue(target.scaleCalls.size > scales, "pinch momentum was lost during release")
+  }
+
+  @Test
+  fun a_new_pan_preserves_the_previous_pinchs_zoom_momentum() {
+    runRecognitionTest { target ->
+      val map = mapNode()
+      map.performTouchInput {
+        down(0, center - Offset(80f, 0f))
+        down(1, center + Offset(80f, 0f))
+        repeat(6) {
+          updatePointerBy(0, Offset(-24f, 0f))
+          updatePointerBy(1, Offset(24f, 0f))
+          move(delayMillis = 16)
+        }
+        up(0)
+        updatePointerBy(1, Offset(80f, 0f))
+        move(delayMillis = 16)
+      }
+      waitForIdle()
+      assertTrue(target.moveCalls.isNotEmpty(), "remaining contact did not start a pan")
+      val scales = target.scaleCalls.size
+      assertTrue(scales > 0)
+      map.performTouchInput { up(1) }
+      waitForIdle()
+      assertTrue(target.scaleCalls.size > scales, "new pan discarded zoom momentum")
       assertEquals(1, target.endedCount)
     }
   }

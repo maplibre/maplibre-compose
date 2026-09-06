@@ -8,11 +8,16 @@ import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.maplibre.compose.interaction.GestureAnchor
 import org.maplibre.compose.interaction.GestureCancellationReason
@@ -340,9 +345,60 @@ class PointerPairGestureTest {
     assertEquals(listOf("original", "readded"), seen)
   }
 
+  @Test
+  fun pinch_momentum_does_not_depend_on_which_finger_moves() {
+    val options =
+      MapInteractions(MapInteractions.None) {
+        bindings { transform { zoom { enabled = true } } }
+      }
+    fun release(movingFirst: Boolean): GestureMath.ScaleVelocity {
+      val input = PairInput(options)
+      repeat(6) { index ->
+        val distance = (index + 1) * 24f
+        input.move(
+          (index + 1) * 16L,
+          Offset(-80f - if (movingFirst) distance else 0f, 0f),
+          Offset(80f + if (movingFirst) 0f else distance, 0f),
+        )
+      }
+      val motion = assertNotNull(input.pair.end())
+      assertNull(motion.pan)
+      return assertNotNull(motion.scale)
+    }
+    val first = release(true)
+    val second = release(false)
+    assertTrue(first.zoomDelta > 0.0)
+    assertEquals(first.zoomDelta, second.zoomDelta, 1e-6)
+    assertEquals(first.duration, second.duration)
+  }
+
+  @Test
+  fun rotation_momentum_does_not_depend_on_position_on_the_screen() {
+    val options =
+      MapInteractions(MapInteractions.None) {
+        bindings { transform { rotate { enabled = true } } }
+      }
+    fun release(center: Offset): GestureMath.RotationVelocity {
+      val input = PairInput(options, center = center)
+      repeat(6) { index ->
+        val angle = (index + 1) * 16.0 * PI / 180.0
+        val radius = Offset(80f * cos(angle).toFloat(), 80f * sin(angle).toFloat())
+        input.move((index + 1) * 16L, center - radius, center + radius)
+      }
+      val motion = assertNotNull(input.pair.end())
+      assertNull(motion.pan)
+      return assertNotNull(motion.rotation)
+    }
+    val origin = release(Offset.Zero)
+    val translated = release(Offset(300f, 600f))
+    assertEquals(origin.bearingDelta, translated.bearingDelta, 1e-3)
+    assertEquals(origin.duration, translated.duration)
+  }
+
   private inner class PairInput(
     initial: MapInteractions,
     private val secondType: PointerType = PointerType.Touch,
+    center: Offset = Offset.Zero,
   ) {
     val subscriptions = InteractionSubscriptions(initial)
     var options = initial
@@ -353,7 +409,7 @@ class PointerPairGestureTest {
 
     val target = map.target
     private var time = 0L
-    private var positions = listOf(Offset(-80f, 0f), Offset(80f, 0f))
+    private var positions = listOf(center + Offset(-80f, 0f), center + Offset(80f, 0f))
     private val token = run {
       map.state.gestureAuthority.updateConfiguration(options.camera)
       target.onGestureStarted()

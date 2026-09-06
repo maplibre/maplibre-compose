@@ -25,6 +25,7 @@ internal class GestureContinuation(private val scope: CoroutineScope) {
 
   private var scaleVelocityJob: Job? = null
   private var rotationVelocityJob: Job? = null
+  private var tiltVelocityJob: Job? = null
   private var flingJob: Job? = null
   private var boundsFitJob: Job? = null
   private var discreteSession: GestureInputSession? = null
@@ -41,6 +42,11 @@ internal class GestureContinuation(private val scope: CoroutineScope) {
     rotationVelocityJob = scope.launch(block = block)
   }
 
+  fun launchTilt(scope: CoroutineScope, block: suspend CoroutineScope.() -> Unit) {
+    tiltVelocityJob?.cancel()
+    tiltVelocityJob = scope.launch(block = block)
+  }
+
   fun launchFling(scope: CoroutineScope, block: suspend CoroutineScope.() -> Unit) {
     flingJob?.cancel()
     flingJob = scope.launch(block = block)
@@ -55,7 +61,8 @@ internal class GestureContinuation(private val scope: CoroutineScope) {
     boundsFitJob?.isActive == true ||
       flingJob?.isActive == true ||
       scaleVelocityJob?.isActive == true ||
-      rotationVelocityJob?.isActive == true
+      rotationVelocityJob?.isActive == true ||
+      tiltVelocityJob?.isActive == true
 
   /**
    * Ends [token] when every motion job finishes on its own. Cancelled work belongs to a revoked
@@ -69,7 +76,14 @@ internal class GestureContinuation(private val scope: CoroutineScope) {
     finishJob?.cancel()
     openToken = token
     finishJob = scope.launch {
-      val jobs = listOfNotNull(flingJob, scaleVelocityJob, rotationVelocityJob, boundsFitJob)
+      val jobs =
+        listOfNotNull(
+          flingJob,
+          scaleVelocityJob,
+          rotationVelocityJob,
+          tiltVelocityJob,
+          boundsFitJob,
+        )
       jobs.joinAll()
       if (jobs.any { it.isCancelled }) return@launch
       finishJob = null
@@ -103,6 +117,8 @@ internal class GestureContinuation(private val scope: CoroutineScope) {
     scaleVelocityJob = null
     rotationVelocityJob?.cancel()
     rotationVelocityJob = null
+    tiltVelocityJob?.cancel()
+    tiltVelocityJob = null
     flingJob?.cancel()
     flingJob = null
     boundsFitJob?.cancel()

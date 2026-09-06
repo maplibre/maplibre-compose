@@ -79,13 +79,9 @@ internal interface PointerTransformPolicy {
 }
 
 internal data class TransformVelocity(
-  val pointer: Velocity,
   val centroid: Velocity,
   val logarithmicScale: Double,
   val rotation: Double,
-  val lastSpanDelta: Double,
-  val scalingOut: Boolean,
-  val lastRotation: Double,
 )
 
 /** One selected pair; callbacks return false when the consumer has lost the right to act. */
@@ -110,31 +106,24 @@ internal class PointerTransform(
   val active: Set<TransformComponent>
     get() = components.toSet()
 
-  private val fingerVelocity = GestureVelocityTracker()
   private val centroidVelocity = GestureVelocityTracker()
   private val transformVelocity = GestureVelocityTracker()
   private var totalRotation = 0.0
-  private var lastSpanDelta = 0.0
-  private var lastScaleWasOut = false
-  private var lastRotation = 0.0
   private var closed = false
 
   init {
     policy.reset(origin)
-    record(first, origin)
+    record(origin)
   }
 
   fun rebase(first: PointerInputChange, second: PointerInputChange) {
     origin = PairSample(first, second)
     current = origin
     totalRotation = 0.0
-    lastSpanDelta = 0.0
-    lastRotation = 0.0
-    fingerVelocity.resetTracking()
     centroidVelocity.resetTracking()
     transformVelocity.resetTracking()
     policy.reset(origin)
-    record(first, origin)
+    record(origin)
   }
 
   fun move(first: PointerInputChange, second: PointerInputChange): Boolean {
@@ -158,7 +147,7 @@ internal class PointerTransform(
 
     val motion = PairMotion(origin, current, next)
     totalRotation += motion.rotation
-    record(first, next)
+    record(next)
     current = next
 
     // Cancel losing components before admitting their replacements. Start callbacks can cancel the
@@ -181,33 +170,18 @@ internal class PointerTransform(
           TransformComponent.VerticalDrag -> decision.verticalDrag != 0f
         }
 
-      if (moved) {
-        if (!onDelta(component, decision)) return false
-
-        when (component) {
-          TransformComponent.Scale -> {
-            lastSpanDelta = abs(next.distance - motion.previous.distance) * 2
-            lastScaleWasOut = decision.scale < 1
-          }
-          TransformComponent.Rotation -> lastRotation = decision.rotation
-          else -> Unit
-        }
-      }
+      if (moved && !onDelta(component, decision)) return false
     }
 
     return components.isNotEmpty()
   }
 
   fun velocity(): TransformVelocity {
-    val transform = transformVelocity.calculateVelocity()
+    val transform = transformVelocity.calculateVelocity(pointerInput = false)
     return TransformVelocity(
-      fingerVelocity.calculateVelocity(),
       centroidVelocity.calculateVelocity(),
       transform.x.toDouble(),
       transform.y.toDouble(),
-      lastSpanDelta,
-      lastScaleWasOut,
-      lastRotation,
     )
   }
 
@@ -242,8 +216,7 @@ internal class PointerTransform(
     if (components.remove(component)) onCancel(component)
   }
 
-  private fun record(first: PointerInputChange, sample: PairSample) {
-    fingerVelocity.addPointerInputChange(first)
+  private fun record(sample: PairSample) {
     centroidVelocity.addPosition(sample.time, sample.centroid)
     val scale =
       if (sample.distance > 0 && origin.distance > 0) ln(sample.distance / origin.distance) else 0.0

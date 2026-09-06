@@ -35,7 +35,7 @@ internal class PointerPairGesture(
   first: PointerInputChange,
   second: PointerInputChange,
   private val begin: () -> CameraInputToken?,
-  private val onRecognized: () -> Unit,
+  private val onRecognized: (TransformComponent) -> Unit,
   private val retainAuthority: () -> Boolean,
 ) {
   private class Component {
@@ -132,7 +132,7 @@ internal class PointerPairGesture(
       return false
     }
 
-    onRecognized()
+    onRecognized(kind)
     val component = checkNotNull(components[kind])
     token?.origin = CameraInputOrigin.Transform
     token?.rearm(kind.cameraComponent)
@@ -302,7 +302,6 @@ internal class PointerPairGesture(
 
   private fun continuation(): PairContinuation? {
     val velocity = recognition.velocity()
-    val finger = velocity.pointer
     val centroid = velocity.centroid
 
     val panFling =
@@ -323,16 +322,10 @@ internal class PointerPairGesture(
         ?.let { settings.zoom.momentum.takeIf { it.enabled } }
         ?.let {
           GestureMath.scaleVelocity(
-              finger.x.toDouble(),
-              finger.y.toDouble(),
-              velocity.lastSpanDelta,
-              density.density.toDouble(),
-              velocity.scalingOut,
-              it,
-            )
-            ?.let { response ->
-              response.copy(zoomDelta = response.zoomDelta * settings.zoom.zoomScale)
-            }
+            velocity.logarithmicScale * ln(GestureMath.pinchScale(kotlin.math.E)) / ln(2.0) *
+              settings.zoom.zoomScale,
+            it,
+          )
         }
 
     val rotation =
@@ -341,21 +334,9 @@ internal class PointerPairGesture(
         ?.let { settings.rotate.momentum.takeIf { it.enabled } }
         ?.let {
           GestureMath.rotationVelocity(
-              finger.x.toDouble(),
-              finger.y.toDouble(),
-              recognition.current.centroid.x.toDouble(),
-              recognition.current.centroid.y.toDouble(),
-              -velocity.lastRotation,
-              density.density.toDouble(),
-              pinch?.active == true,
-              it,
-            )
-            ?.let { response ->
-              response.copy(
-                initialDegreesPerFrame =
-                  response.initialDegreesPerFrame * settings.rotate.rotationScale
-              )
-            }
+            -velocity.rotation * settings.rotate.rotationScale,
+            it,
+          )
         }
 
     val tilt =
@@ -388,7 +369,25 @@ internal data class PairContinuation(
   val tilt: GestureMath.TiltVelocity?,
   val scaleAnchor: DpOffset?,
   val rotationAnchor: DpOffset?,
-)
+) {
+  fun without(component: TransformComponent): PairContinuation =
+    when (component) {
+      TransformComponent.Pan -> copy(pan = null)
+      TransformComponent.Scale -> copy(scale = null)
+      TransformComponent.Rotation -> copy(rotation = null)
+      TransformComponent.VerticalDrag -> copy(tilt = null)
+    }
+
+  fun withPrevious(previous: PairContinuation?): PairContinuation =
+    copy(
+      pan = pan ?: previous?.pan,
+      scale = scale ?: previous?.scale,
+      rotation = rotation ?: previous?.rotation,
+      tilt = tilt ?: previous?.tilt,
+      scaleAnchor = if (scale != null) scaleAnchor else previous?.scaleAnchor,
+      rotationAnchor = if (rotation != null) rotationAnchor else previous?.rotationAnchor,
+    )
+}
 
 internal val TransformComponent.cameraComponent: CameraComponent
   get() =

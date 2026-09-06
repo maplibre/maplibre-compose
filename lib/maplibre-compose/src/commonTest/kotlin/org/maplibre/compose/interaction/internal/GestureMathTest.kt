@@ -68,49 +68,19 @@ class GestureMathTest {
 
   @Test
   fun pinch_velocity_continuation_follows_zoom_direction() {
-    val zoomIn =
-      assertNotNull(
-        GestureMath.scaleVelocity(
-          velocityXPixelsPerSecond = 6000.0,
-          velocityYPixelsPerSecond = 6000.0,
-          spanSinceLastPixels = 20.0,
-          density = 1.0,
-          scalingOut = false,
-        )
-      )
+    val zoomIn = assertNotNull(GestureMath.scaleVelocity(4.0))
+    val zoomOut = assertNotNull(GestureMath.scaleVelocity(-4.0))
     assertTrue(zoomIn.zoomDelta > 0.0)
-
-    val zoomOut =
-      assertNotNull(
-        GestureMath.scaleVelocity(
-          velocityXPixelsPerSecond = 6000.0,
-          velocityYPixelsPerSecond = 6000.0,
-          spanSinceLastPixels = 20.0,
-          density = 1.0,
-          scalingOut = true,
-        )
-      )
     assertEquals(-zoomIn.zoomDelta, zoomOut.zoomDelta)
     assertEquals(zoomIn.duration, zoomOut.duration)
   }
 
   @Test
-  fun rotation_continuation_follows_the_last_rotation_direction() {
-    fun rotation(lastRotation: Double) =
-      assertNotNull(
-        GestureMath.rotationVelocity(
-          velocityXPixelsPerSecond = 0.0,
-          velocityYPixelsPerSecond = 1000.0,
-          focalXPixel = 100.0,
-          focalYPixel = 0.0,
-          lastRotationDegrees = lastRotation,
-          density = 1.0,
-        )
-      )
-    val clockwise = rotation(1.0)
-    val counterclockwise = rotation(-1.0)
-    assertTrue(clockwise.initialDegreesPerFrame > 0.0)
-    assertEquals(-clockwise.initialDegreesPerFrame, counterclockwise.initialDegreesPerFrame)
+  fun rotation_continuation_follows_angular_velocity_direction() {
+    val clockwise = assertNotNull(GestureMath.rotationVelocity(90.0))
+    val counterclockwise = assertNotNull(GestureMath.rotationVelocity(-90.0))
+    assertTrue(clockwise.bearingDelta > 0.0)
+    assertEquals(-clockwise.bearingDelta, counterclockwise.bearingDelta)
     assertEquals(clockwise.duration, counterclockwise.duration)
   }
 
@@ -157,10 +127,8 @@ class GestureMathTest {
 
   @Test
   fun zoom_and_rotation_continuation_durations_are_scaled_and_capped() {
-    fun scale(continuation: VelocityMomentum) =
-      GestureMath.scaleVelocity(6000.0, 6000.0, 20.0, 1.0, false, continuation)
-    fun rotate(continuation: VelocityMomentum) =
-      GestureMath.rotationVelocity(0.0, 1000.0, 100.0, 0.0, -1.0, 1.0, continuation = continuation)
+    fun scale(continuation: VelocityMomentum) = GestureMath.scaleVelocity(4.0, continuation)
+    fun rotate(continuation: VelocityMomentum) = GestureMath.rotationVelocity(90.0, continuation)
     for (calculate in
       listOf<(VelocityMomentum) -> Duration?>(
         { scale(it)?.duration },

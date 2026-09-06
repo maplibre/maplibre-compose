@@ -1,6 +1,5 @@
 package org.maplibre.compose.interaction.internal
 
-import kotlin.math.E
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -30,14 +29,9 @@ internal object GestureMath {
   private const val ZOOM_RATE = 0.65
   private const val MINIMUM_SCALE_SPEED_DP_PER_MILLISECOND = 0.6
   private const val MINIMUM_ANGLED_SCALE_SPEED_DP_PER_MILLISECOND = 0.9
-  private const val MINIMUM_SCALE_VELOCITY_DP_PER_SECOND = 225.0
-  private const val SCALE_VELOCITY_RATIO_THRESHOLD_DP = 4e-3 * 0.29
-  private const val ROTATE_VELOCITY_RATIO_THRESHOLD_DP = 2.2e-4 * 0.29
   private const val MAXIMUM_SCALE_VELOCITY_ZOOM_CHANGE = 2.5
-  private const val ANGULAR_VELOCITY_MULTIPLIER_DP = 1.3
-  private const val MINIMUM_ANGULAR_VELOCITY_DP = 0.1
-  private const val MAXIMUM_ANGULAR_VELOCITY = 30.0
-  private const val VELOCITY_ANIMATION_DURATION_MULTIPLIER = 150.0
+  // Decay the measured camera speed over the default momentum duration.
+  private const val TRANSFORM_DECAY_MILLIS = 300.0
 
   /** Returns a multiplicative scale, not a zoom delta. */
   fun pinchScale(rawScale: Double): Double {
@@ -148,69 +142,29 @@ internal object GestureMath {
   data class ScaleVelocity(val zoomDelta: Double, val duration: Duration)
 
   fun scaleVelocity(
-    velocityXPixelsPerSecond: Double,
-    velocityYPixelsPerSecond: Double,
-    spanSinceLastPixels: Double,
-    density: Double,
-    scalingOut: Boolean,
+    zoomLevelsPerSecond: Double,
     continuation: VelocityMomentum = VelocityMomentum(),
   ): ScaleVelocity? {
-    if (!continuation.enabled) return null
-    val velocity = abs(velocityXPixelsPerSecond) + abs(velocityYPixelsPerSecond)
-    if (velocity < MINIMUM_SCALE_VELOCITY_DP_PER_SECOND * density) return null
-    if (spanSinceLastPixels / velocity < SCALE_VELOCITY_RATIO_THRESHOLD_DP * density) return null
-
-    var zoomDelta =
-      (velocity * MAXIMUM_SCALE_VELOCITY_ZOOM_CHANGE * 1e-4).coerceIn(
-        0.0,
-        MAXIMUM_SCALE_VELOCITY_ZOOM_CHANGE,
-      )
-    if (scalingOut) zoomDelta = -zoomDelta
-    val durationMillis =
-      (ln(abs(zoomDelta) + 1.0 / E.pow(2.0)) + 2.0) * VELOCITY_ANIMATION_DURATION_MULTIPLIER
-    val duration = continuation.duration(durationMillis) ?: return null
-    return ScaleVelocity(zoomDelta, duration)
+    if (!continuation.enabled || !zoomLevelsPerSecond.isFinite() || zoomLevelsPerSecond == 0.0)
+      return null
+    val duration = continuation.duration(TRANSFORM_DECAY_MILLIS) ?: return null
+    val zoomDelta = zoomLevelsPerSecond * duration.inWholeNanoseconds / 1e9 / 2.0
+    return ScaleVelocity(
+      zoomDelta.coerceIn(-MAXIMUM_SCALE_VELOCITY_ZOOM_CHANGE, MAXIMUM_SCALE_VELOCITY_ZOOM_CHANGE),
+      duration,
+    )
   }
 
-  data class RotationVelocity(val initialDegreesPerFrame: Double, val duration: Duration)
+  data class RotationVelocity(val bearingDelta: Double, val duration: Duration)
 
   fun rotationVelocity(
-    velocityXPixelsPerSecond: Double,
-    velocityYPixelsPerSecond: Double,
-    focalXPixel: Double,
-    focalYPixel: Double,
-    lastRotationDegrees: Double,
-    density: Double,
-    scaling: Boolean = false,
+    degreesPerSecond: Double,
     continuation: VelocityMomentum = VelocityMomentum(),
   ): RotationVelocity? {
-    if (!continuation.enabled) return null
-    val denominator = focalXPixel * focalXPixel + focalYPixel * focalYPixel
-    if (denominator <= 0.0) return null
-    var angularVelocity =
-      abs(
-        (focalXPixel * velocityYPixelsPerSecond + focalYPixel * velocityXPixelsPerSecond) /
-          denominator
-      )
-    if (lastRotationDegrees < 0.0) angularVelocity = -angularVelocity
-    angularVelocity =
-      (angularVelocity * ANGULAR_VELOCITY_MULTIPLIER_DP * density).coerceIn(
-        -MAXIMUM_ANGULAR_VELOCITY,
-        MAXIMUM_ANGULAR_VELOCITY,
-      )
-    if (abs(angularVelocity) < MINIMUM_ANGULAR_VELOCITY_DP * density) return null
-    val velocity = abs(velocityXPixelsPerSecond) + abs(velocityYPixelsPerSecond)
-    if (
-      scaling &&
-        velocity > 0.0 &&
-        abs(lastRotationDegrees) / velocity < ROTATE_VELOCITY_RATIO_THRESHOLD_DP * density
-    ) {
+    if (!continuation.enabled || !degreesPerSecond.isFinite() || degreesPerSecond == 0.0)
       return null
-    }
-    val durationMillis =
-      (ln(abs(angularVelocity) + 1.0 / E.pow(2.0)) + 2.0) * VELOCITY_ANIMATION_DURATION_MULTIPLIER
-    val duration = continuation.duration(durationMillis) ?: return null
-    return RotationVelocity(angularVelocity, duration)
+    val duration = continuation.duration(TRANSFORM_DECAY_MILLIS) ?: return null
+    return RotationVelocity(degreesPerSecond * duration.inWholeNanoseconds / 1e9 / 2.0, duration)
   }
 
   data class TiltVelocity(val pitchDelta: Double, val duration: Duration)

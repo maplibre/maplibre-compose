@@ -50,6 +50,7 @@ internal class PointerGesture(
   private val viewportSize: () -> IntSize,
   private val clickSlopPx: Float,
   private val panSlopPx: Float,
+  private val touchSlopPx: Float,
   private val twoFingerTapSlopPx: Float,
   private val doubleTapSlopPx: Float,
   private val doubleClickMinTimeMillis: Long,
@@ -97,7 +98,6 @@ internal class PointerGesture(
   private var quickZoomCandidate = false
   private var quickZoomOriginY = 0f
   private var quickZoomAppliedDelta = 0.0
-  private var lastQuickZoomSpanDeltaPixels = 0.0
   private var longClickJob: Job? = null
   private var longClickHandled = false
   private var tapDemand = emptySet<TapFamily>()
@@ -167,7 +167,9 @@ internal class PointerGesture(
       // Reusing the pair origin would make the map jump when either finger lifts.
       val completed = pair
       deferredTwoFingerVelocity =
-        completed?.end(event.changes.maxOf { it.uptimeMillis }) ?: deferredTwoFingerVelocity
+        completed
+          ?.end(event.changes.maxOf { it.uptimeMillis })
+          ?.withPrevious(deferredTwoFingerVelocity) ?: deferredTwoFingerVelocity
       pair = null
       if (gestureToken?.acceptsCommands == false) {
         retainCameraAuthority()
@@ -180,9 +182,13 @@ internal class PointerGesture(
         event.gestureSample(ids.next(), target, density, change.position, setOf(change.type))
       selectedDrag = selectCameraDrag(checkNotNull(dragSample))
       dragStarted = false
-      dragRecognition = selectedDrag?.let { dragRecognizer(change, it) }
+      // Lifting one contact often shifts the other. Require the host's normal touch slop
+      // before treating that remaining contact as a new drag.
+      dragRecognition = selectedDrag?.let {
+        PointerDrag(change, maxOf(touchSlopPx, dragSlop(it, mouse = false)))
+      }
       singleVelocity.resetTracking()
-      singleVelocity.addPointerInputChange(change)
+      singleVelocity.addPosition(change.uptimeMillis, change.position)
       return
     }
 
@@ -249,7 +255,6 @@ internal class PointerGesture(
 
     quickZoomOriginY = change.position.y
     quickZoomAppliedDelta = 0.0
-    lastQuickZoomSpanDeltaPixels = 0.0
     singleVelocity.resetTracking()
     singleVelocity.addPointerInputChange(change)
     deferredTwoFingerVelocity = null
@@ -488,7 +493,20 @@ internal class PointerGesture(
       if (quickZoomCandidate) quickZoomOriginY += motion.thresholdOffset.y
       clickOrigin = null
       twoFingerTap = null
-      deferredTwoFingerVelocity = null
+      // A replacement only takes over the camera components it controls.
+      deferredTwoFingerVelocity = deferredTwoFingerVelocity?.let {
+        when (binding) {
+          SelectedDrag.TapDrag -> it.copy(scale = null)
+          is SelectedDrag.Camera ->
+            when (binding.response) {
+              DragResponse.Pan -> it.copy(pan = null)
+              DragResponse.RotateTilt -> it.copy(rotation = null, tilt = null)
+              DragResponse.FitBounds -> null
+              DragResponse.None -> it
+            }
+          is SelectedDrag.Custom -> it
+        }
+      }
       beginGesture()
       dragStarted = true
       when (binding) {
@@ -558,7 +576,6 @@ internal class PointerGesture(
           gestureToken = gestureToken,
         )
         quickZoomAppliedDelta = targetDelta
-        lastQuickZoomSpanDeltaPixels = abs(delta.y) * 2.0
       }
       is SelectedDrag.Custom -> Unit
     }
@@ -617,7 +634,9 @@ internal class PointerGesture(
 
     if (previous != null) {
       deferredTwoFingerVelocity =
-        previous.end(event.changes.maxOf { it.uptimeMillis }) ?: deferredTwoFingerVelocity
+        previous
+          .end(event.changes.maxOf { it.uptimeMillis })
+          ?.withPrevious(deferredTwoFingerVelocity) ?: deferredTwoFingerVelocity
       pair = null
       twoFingerTap = null
       if (gestureToken?.acceptsCommands == false) {
@@ -677,9 +696,9 @@ internal class PointerGesture(
           beginGesture(CameraInputOrigin.Transform)
           gestureToken
         },
-        onRecognized = {
+        onRecognized = { component ->
           twoFingerTap = null
-          deferredTwoFingerVelocity = null
+          deferredTwoFingerVelocity = deferredTwoFingerVelocity?.without(component)
         },
         retainAuthority = ::retainCameraAuthority,
       )
@@ -739,7 +758,9 @@ internal class PointerGesture(
     cancelLongClick()
     val completed = pair
     val pairContinuation =
-      completed?.end(event.changes.maxOf { it.uptimeMillis }) ?: deferredTwoFingerVelocity
+      completed
+        ?.end(event.changes.maxOf { it.uptimeMillis })
+        ?.withPrevious(deferredTwoFingerVelocity) ?: deferredTwoFingerVelocity
     pair = null
     if (gestureToken?.acceptsCommands == false) {
       retainCameraAuthority()
@@ -987,12 +1008,12 @@ internal class PointerGesture(
           if (options.bindings.tapDrag.direction == QuickZoomDirection.DownZoomsIn) 1 else -1
         val velocityResponse =
           GestureMath.scaleVelocity(
-            velocity.x.toDouble(),
-            velocity.y.toDouble(),
-            lastQuickZoomSpanDeltaPixels,
-            density.density.toDouble(),
-            scalingOut = velocity.y * direction < 0f,
-            continuation = tuning,
+            GestureMath.quickZoomDelta(
+              velocity.y.toDouble(),
+              viewportSize().height.toDouble(),
+              options.bindings.tapDrag.zoomLevelsPerViewport * direction,
+            ),
+            tuning,
           ) ?: return
         animateScaleVelocity(velocityResponse, dragSample?.let(::dragAnchor))
       }
@@ -1038,7 +1059,7 @@ internal class PointerGesture(
 
   private fun animateTiltVelocity(velocity: GestureMath.TiltVelocity) {
     val token = gestureToken
-    continuation.launchRotation(cameraSession?.scope ?: scope) {
+    continuation.launchTilt(cameraSession?.scope ?: scope) {
       animateDecelerating(velocity.duration) { fraction ->
         target.inputRotateAndPitchBy(0.0, velocity.pitchDelta * fraction, gestureToken = token)
       }
@@ -1069,17 +1090,14 @@ internal class PointerGesture(
   ) {
     val token = gestureToken
     continuation.launchRotation(cameraSession?.scope ?: scope) {
-      val durationNanos = velocity.duration.inWholeNanoseconds.coerceAtLeast(1L)
-      val startedAt = withFrameNanos { it }
-      do {
-        val now = withFrameNanos { it }
-        val progress = ((now - startedAt).toDouble() / durationNanos).coerceIn(0.0, 1.0)
-        // Remaining motion falls as (1 - t)^2.
-        val frameDelta = velocity.initialDegreesPerFrame * (1.0 - progress).pow(2.0)
-        if (frameDelta != 0.0) {
-          target.inputRotateAndPitchBy(frameDelta, 0.0, anchor = anchor, gestureToken = token)
-        }
-      } while (progress < 1.0)
+      animateDecelerating(velocity.duration) { fraction ->
+        target.inputRotateAndPitchBy(
+          velocity.bearingDelta * fraction,
+          0.0,
+          anchor = anchor,
+          gestureToken = token,
+        )
+      }
     }
   }
 
