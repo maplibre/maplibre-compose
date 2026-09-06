@@ -54,21 +54,6 @@ internal interface MapLifecyclePlatformAdapter {
 /** Defines a platform map session with a physical lifecycle controlled by [MapState]. */
 internal interface MapLifecycleSession : MapAdapter, MapLifecyclePlatformAdapter
 
-/** Defines the externally observable states of one logical map lifecycle. */
-internal sealed interface MapLifecycleState {
-  data class OpenDetached(val engine: EngineMapIdentity?) : MapLifecycleState
-
-  data class Attaching(val engine: EngineMapIdentity, val lease: RenderLease) : MapLifecycleState
-
-  data class Attached(val engine: EngineMapIdentity, val lease: RenderLease) : MapLifecycleState
-
-  data class Detaching(val engine: EngineMapIdentity, val lease: RenderLease) : MapLifecycleState
-
-  data object Closing : MapLifecycleState
-
-  data object Closed : MapLifecycleState
-}
-
 internal class MapAlreadyAttachedException :
   IllegalStateException("The map already has a presentation")
 
@@ -464,17 +449,11 @@ internal class MapLifecycleBinding(
   private val lifecycleLock = reentrantLock()
   private val closure = CompletableDeferred<Result<Unit>>()
 
-  val state: MapLifecycleState
-    get() = current.load().publicState
-
   val engineIdentity: EngineMapIdentity?
     get() = current.load().engine
 
   val renderLease: RenderLease?
     get() = (current.load() as? InternalState.Attached)?.lease
-
-  val styleIdentity: StyleIdentity?
-    get() = currentStyle.load()?.style
 
   fun claimStyleRequestIdentity(engine: EngineMapIdentity): StyleRequestIdentity? = serialized {
     if (!acceptEngineIdentity(engine)) return@serialized null
@@ -500,20 +479,6 @@ internal class MapLifecycleBinding(
       val observed = current.load()
       return observed !is InternalState.Closing && observed !== InternalState.Closed
     }
-
-  /** Claims the next loaded-style generation for [engine], invalidating the preceding one. */
-  fun claimStyleIdentity(
-    engine: EngineMapIdentity,
-    request: StyleRequestIdentity,
-  ): StyleIdentity? {
-    return serialized {
-      if (!acceptEngineIdentity(engine)) return@serialized null
-      if (currentStyleRequest.load() != StyleRequestClaim(engine, request)) return@serialized null
-      val identity = StyleIdentity(nextIdentity.incrementAndFetch())
-      currentStyle.store(StyleClaim(engine, identity))
-      identity
-    }
-  }
 
   /** Claims and delivers a loaded style as one serialized operation. */
   fun claimStyleIdentity(
@@ -1033,7 +998,7 @@ internal class MapLifecycleBinding(
         previous.result.await().exceptionOrNull()?.let { addCleanupFailure(failures, it) }
       is InternalState.OpenDetached -> Unit
       is InternalState.Closing,
-      InternalState.Closed -> error("Closure cannot start from ${previous.publicState}")
+      InternalState.Closed -> error("Closure cannot start from ${previous::class.simpleName}")
     }
 
     val engine =
@@ -1081,35 +1046,26 @@ internal class MapLifecycleBinding(
 
   private sealed interface InternalState {
     val engine: EngineMapIdentity?
-    val publicState: MapLifecycleState
 
-    data class OpenDetached(override val engine: EngineMapIdentity?) : InternalState {
-      override val publicState = MapLifecycleState.OpenDetached(engine)
-    }
+    data class OpenDetached(override val engine: EngineMapIdentity?) : InternalState
 
     data class CreatingEngine(
       override val engine: EngineMapIdentity,
       val result: CompletableDeferred<Result<EngineMapIdentity>>,
       val engineCreated: AtomicBoolean,
-    ) : InternalState {
-      override val publicState = MapLifecycleState.OpenDetached(null)
-    }
+    ) : InternalState
 
     data class Attaching(
       override val engine: EngineMapIdentity,
       val lease: RenderLease,
       val result: CompletableDeferred<Result<RenderLease>>,
       val engineCreated: AtomicBoolean,
-    ) : InternalState {
-      override val publicState = MapLifecycleState.Attaching(engine, lease)
-    }
+    ) : InternalState
 
     data class Attached(
       override val engine: EngineMapIdentity,
       val lease: RenderLease,
-    ) : InternalState {
-      override val publicState = MapLifecycleState.Attached(engine, lease)
-    }
+    ) : InternalState
 
     data class Detaching(
       override val engine: EngineMapIdentity,
@@ -1117,18 +1073,14 @@ internal class MapLifecycleBinding(
       val result: CompletableDeferred<Result<Unit>>,
       val attachResult: CompletableDeferred<Result<RenderLease>>?,
       val engineCreated: AtomicBoolean?,
-    ) : InternalState {
-      override val publicState = MapLifecycleState.Detaching(engine, lease)
-    }
+    ) : InternalState
 
     data class Closing(val previous: InternalState) : InternalState {
       override val engine: EngineMapIdentity? = previous.engine
-      override val publicState = MapLifecycleState.Closing
     }
 
     data object Closed : InternalState {
       override val engine: EngineMapIdentity? = null
-      override val publicState = MapLifecycleState.Closed
     }
   }
 }

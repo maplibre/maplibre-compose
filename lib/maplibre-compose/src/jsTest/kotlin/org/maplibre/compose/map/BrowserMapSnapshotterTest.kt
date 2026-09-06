@@ -381,7 +381,7 @@ class BrowserMapSnapshotterTest {
           MapSnapshotRequest(
             width = 8,
             height = 8,
-            outputOptions = MapSnapshotOutputOptions(transparent = true),
+            transparent = true,
           )
         )
 

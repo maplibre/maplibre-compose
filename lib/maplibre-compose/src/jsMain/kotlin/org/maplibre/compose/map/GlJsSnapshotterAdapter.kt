@@ -31,15 +31,8 @@ import web.dom.document
 import web.html.HTMLCanvasElement
 import web.html.HTMLElement
 
-internal class GlJsSnapshotterAdapterFactory(
-  private val logger: MapLog?,
-  private val requests: GlJsRequestController? = null,
-) : SnapshotterAdapterFactory {
-  override fun create(): SnapshotterAdapter = GlJsSnapshotterAdapter(logger, requests)
-}
-
 /** One private GL JS map and DOM target for a Web snapshotter. */
-private class GlJsSnapshotterAdapter(
+internal class GlJsSnapshotterAdapter(
   private val logger: MapLog?,
   private val requests: GlJsRequestController?,
 ) : SnapshotterAdapter {
@@ -267,7 +260,7 @@ private class GlJsSnapshotterAdapter(
     check(context != null && context != undefined) {
       "The browser would not give a 2D context for a ${width}x$height snapshot"
     }
-    if (!request.outputOptions.transparent) {
+    if (!request.transparent) {
       context.fillStyle = "#ffffff"
       context.fillRect(0, 0, width, height)
     }

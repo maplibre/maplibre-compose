@@ -2,10 +2,6 @@ package org.maplibre.compose.location.desktop.windows
 
 import org.maplibre.compose.location.LocationBackendAvailability
 
-internal fun interface WindowsCloseable : AutoCloseable {
-  override fun close()
-}
-
 internal interface WindowsLocationListener {
   fun onPosition(measurement: WindowsLocationMeasurement)
 
@@ -19,12 +15,12 @@ internal interface WindowsLocationClient : AutoCloseable {
 
   fun checkAccess(): WindowsAccessStatus
 
-  fun observeAccess(onChanged: (WindowsAccessStatus) -> Unit): WindowsCloseable
+  fun observeAccess(onChanged: (WindowsAccessStatus) -> Unit): AutoCloseable
 
   fun requestAccess(onCompleted: (WindowsAccessStatus) -> Unit)
 
   fun createSession(
     configuration: WindowsLocationConfiguration,
     listener: WindowsLocationListener,
-  ): WindowsCloseable
+  ): AutoCloseable
 }

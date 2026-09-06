@@ -8,7 +8,8 @@ internal class StyleNode(
   var style: StyleBinding,
   internal val replaceableSourceIds: Set<String> = emptySet(),
   replaceableLayerIds: Set<String> = emptySet(),
-) : MapNode() {
+) : MapNode {
+  val children = mutableListOf<MapNode>()
 
   private val baseLayerIds =
     style.getLayers().mapNotNullTo(mutableSetOf()) {
@@ -28,13 +29,11 @@ internal class StyleNode(
     applyGeneration++
   }
 
-  override fun allowsChild(node: MapNode) = node is LayerNode<*>
-
-  override fun onChildInserted(index: Int, node: MapNode) {
-    node as LayerNode<*>
+  fun insertLayer(index: Int, node: LayerNode<*>) {
     require(node.layer.id !in baseLayerIds) {
       "Layer ID '${node.layer.id}' already exists in base style"
     }
+    children.add(index, node)
   }
 
   internal fun snapshotRevision(animatorDurationScale: Float): DesiredStyleRevision =
@@ -42,7 +41,8 @@ internal class StyleNode(
       animatorDurationScale = animatorDurationScale,
       sources = sourceManager.desiredSources.map { it.definition() },
       layers =
-        children.filterIsInstance<LayerNode<*>>().map { node ->
+        children.map { node ->
+          node as LayerNode<*>
           DesiredStyleLayer(
             definition = node.layer.definition(),
             anchor = node.anchor,

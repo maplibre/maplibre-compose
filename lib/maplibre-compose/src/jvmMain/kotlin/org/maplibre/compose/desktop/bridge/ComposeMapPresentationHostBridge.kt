@@ -90,15 +90,6 @@ internal fun ComposeMapPresentationHost.currentContext(): ComposeGpuContext? = o
   gpuContext()
 }
 
-/** This host's context as [T], or a failure naming what it reported instead. */
-internal inline fun <reified T : ComposeGpuContext> ComposeMapPresentationHost.requireContext(): T {
-  val context = currentContext() ?: throw MlnFfiHostException("$description reports no GPU context")
-  return context as? T
-    ?: throw MlnFfiHostException(
-      "$description switched from ${T::class.simpleName} to ${context::class.simpleName}"
-    )
-}
-
 /**
  * Runs [action] on the GPU thread with Compose's OpenGL context current, which is what every GL
  * call touching the shared texture needs.

@@ -39,15 +39,14 @@ import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
 class NativeMapSnapshotterTest {
 
   @Test
-  fun factory_rejects_a_runtime_without_an_offscreen_backend() {
-    val factory =
-      NativeSnapshotterAdapterFactory(
+  fun snapshotter_rejects_a_runtime_without_an_offscreen_backend() {
+    assertFailsWith<UnsupportedOperationException> {
+      createNativeSnapshotterAdapter(
         options = MlnFfiRuntimeOptions(cacheFile = Path("unused"), logger = null),
         resourceConfig = MapResourceConfig(),
-        runtimeBackends = { emptySet() },
+        backends = emptySet(),
       )
-
-    assertFailsWith<UnsupportedOperationException> { factory.create() }
+    }
   }
 
   @Test

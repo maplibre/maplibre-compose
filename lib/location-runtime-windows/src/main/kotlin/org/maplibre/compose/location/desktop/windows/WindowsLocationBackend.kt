@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import org.maplibre.compose.location.DesktopLocationBackend
-import org.maplibre.compose.location.DesktopLocationProvider
 import org.maplibre.compose.location.LocationAccuracy
 import org.maplibre.compose.location.LocationAccuracyAuthorization
 import org.maplibre.compose.location.LocationBackendAvailability
@@ -27,7 +26,7 @@ public class WindowsLocationBackend : DesktopLocationBackend {
 
   override fun isAvailable(): Boolean = isWindows(System.getProperty("os.name"))
 
-  override fun createProvider(window: XdgPortalWindow?): DesktopLocationProvider =
+  override fun createProvider(window: XdgPortalWindow?): LocationProvider =
     WindowsLocationProvider()
 }
 
@@ -46,7 +45,7 @@ public class WindowsLocationBackend : DesktopLocationBackend {
  * [LocationUnavailableReason.UnexpectedFailure].
  */
 public class WindowsLocationProvider
-internal constructor(private val client: WindowsLocationClient) : DesktopLocationProvider {
+internal constructor(private val client: WindowsLocationClient) : LocationProvider {
   public constructor() : this(SystemWindowsLocationClient())
 
   private val requester = WindowsLocationPermissionRequester(client, ownsClient = false)
@@ -188,7 +187,7 @@ internal constructor(private val client: WindowsLocationClient) : DesktopLocatio
   }
 
   private class Session(val closeFlow: () -> Unit) {
-    var nativeSession: WindowsCloseable? = null
+    var nativeSession: AutoCloseable? = null
   }
 }
 
@@ -222,7 +221,7 @@ internal constructor(
   public val status: StateFlow<LocationPermission> = mutableStatus
   private val requestPending = AtomicBoolean()
   private val closed = AtomicBoolean()
-  private var accessObservation: WindowsCloseable? = null
+  private var accessObservation: AutoCloseable? = null
 
   init {
     if (backendAvailability == LocationBackendAvailability.Available) {

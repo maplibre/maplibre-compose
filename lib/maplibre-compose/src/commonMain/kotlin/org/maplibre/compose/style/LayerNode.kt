@@ -4,9 +4,7 @@ import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.util.FeaturesClickHandler
 
-internal class LayerNode<T : Layer>(val layer: T, val anchor: Anchor) : MapNode() {
-  override fun allowsChild(node: MapNode) = false
-
+internal class LayerNode<T : Layer>(val layer: T, val anchor: Anchor) : MapNode {
   internal var onClick: FeaturesClickHandler? = null
   internal var onLongClick: FeaturesClickHandler? = null
 

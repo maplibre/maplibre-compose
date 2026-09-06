@@ -21,7 +21,6 @@ import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.testing.composeStyle
-import org.maplibre.compose.testing.supportsComposeRuntimeTests
 import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
 
 /**
@@ -33,7 +32,6 @@ class LayerTransitionWiringTest {
 
   @Test
   fun every_transition_parameter_reaches_its_own_paint_key() = runTest {
-    if (!supportsComposeRuntimeTests) return@runTest
     val features = featureSource()
     val raster = rasterSource()
     val dem = demSource()
@@ -233,7 +231,6 @@ class LayerTransitionWiringTest {
 
   @Test
   fun a_fill_outline_color_transition_defaults_to_the_fill_color_transition() = runTest {
-    if (!supportsComposeRuntimeTests) return@runTest
     val features = featureSource()
     val style = composeStyle {
       FillLayer(id = "fills", source = features, colorTransition = timing(400))
@@ -250,7 +247,6 @@ class LayerTransitionWiringTest {
    */
   @Test
   fun a_composed_transition_reaches_the_engine_scaled() = runTest {
-    if (!supportsComposeRuntimeTests) return@runTest
     val features = featureSource()
     val style =
       composeStyle(RecordingStyleBinding(animatorDurationScaleState = mutableStateOf(0.5f))) {
@@ -269,7 +265,6 @@ class LayerTransitionWiringTest {
    */
   @Test
   fun a_changed_transition_is_written_before_the_value_it_times() = runTest {
-    if (!supportsComposeRuntimeTests) return@runTest
     val features = featureSource()
     val scale = mutableStateOf(1f)
     val color = mutableStateOf(Color.Red)
@@ -304,7 +299,6 @@ class LayerTransitionWiringTest {
   /** A changed scale republishes the composed layers, and only their transitions are rewritten. */
   @Test
   fun a_changed_scale_rewrites_a_composed_transition() = runTest {
-    if (!supportsComposeRuntimeTests) return@runTest
     val features = featureSource()
     val scale = mutableStateOf(1f)
     val style =

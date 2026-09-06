@@ -79,21 +79,21 @@ class DesktopLocationBackendResolverTest {
 private class FakeBackend(
   override val id: String,
   private val available: Boolean = true,
-  private val provider: DesktopLocationProvider = FakeProvider(),
+  private val provider: LocationProvider = FakeProvider(),
   private val failure: Throwable? = null,
 ) : DesktopLocationBackend {
   var createCalls = 0
 
   override fun isAvailable(): Boolean = available
 
-  override fun createProvider(window: XdgPortalWindow?): DesktopLocationProvider {
+  override fun createProvider(window: XdgPortalWindow?): LocationProvider {
     createCalls += 1
     failure?.let { throw it }
     return provider
   }
 }
 
-private class FakeProvider : DesktopLocationProvider {
+private class FakeProvider : LocationProvider {
   override fun updates(request: LocationRequest) = emptyFlow<LocationEvent>()
 
   override fun close() = Unit

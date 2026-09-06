@@ -10,27 +10,20 @@ internal class MapNodeApplier(private val styleRoot: StyleNode) :
 
   override fun insertTopDown(index: Int, instance: MapNode) {
     hasStructuralChanges = true
-    current.allowsChild(instance)
-    current.children.add(index, instance)
-    current.onChildInserted(index, instance)
+    check(current === styleRoot) { "Layers cannot contain child nodes" }
+    styleRoot.insertLayer(index, instance as LayerNode<*>)
   }
 
   override fun move(from: Int, to: Int, count: Int) {
     hasStructuralChanges = true
-    val moved = current.children.slice(from until (from + count))
-    current.children.move(from, to, count)
-    (if (from < to) (0 until count) else (count - 1 downTo 0)).forEach { i ->
-      current.onChildMoved(from, to, moved[i])
-    }
+    styleRoot.children.move(from, to, count)
   }
 
-  override fun onClear() = remove(0, current.children.size)
+  override fun onClear() = remove(0, styleRoot.children.size)
 
   override fun remove(index: Int, count: Int) {
     hasStructuralChanges = true
-    val removed = current.children.slice(index until (index + count))
-    current.children.remove(index, count)
-    removed.forEach { instance -> current.onChildRemoved(index, instance) }
+    styleRoot.children.remove(index, count)
   }
 
   override fun onEndChanges() {

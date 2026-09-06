@@ -3,7 +3,9 @@ package org.maplibre.compose.map
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CancellationException
@@ -30,12 +32,11 @@ class MapLifecycleBindingTest {
     val adapter = FakeMapLifecycleAdapter()
     val lifecycle = bindLifecycle(adapter)
 
-    assertEquals(MapLifecycleState.OpenDetached(null), lifecycle.state)
-
+    assertNull(lifecycle.engineIdentity)
     val lease = lifecycle.attach()
 
     val engine = lifecycle.engineIdentity
-    assertEquals(MapLifecycleState.Attached(checkNotNull(engine), lease), lifecycle.state)
+    assertEquals(lease, lifecycle.renderLease)
     assertEquals(listOf("create $engine", "attach $engine $lease"), adapter.commands)
   }
 
@@ -47,7 +48,6 @@ class MapLifecycleBindingTest {
     adapter.attachStarted.await()
 
     assertFailsWith<MapAlreadyAttachedException> { lifecycle.attach() }
-    assertTrue(lifecycle.state is MapLifecycleState.Attaching)
     assertEquals(2, adapter.commands.size)
 
     adapter.allowAttach.complete(Unit)
@@ -65,13 +65,11 @@ class MapLifecycleBindingTest {
     val detach = async { lifecycle.detach(lease) }
     adapter.detachStarted.await()
 
-    assertEquals(MapLifecycleState.Detaching(engine, lease), lifecycle.state)
     assertTrue(!lifecycle.acceptPresentationEvent(engine, lease) { error("stale event ran") })
     assertFailsWith<MapAlreadyAttachedException> { lifecycle.attach() }
 
     adapter.allowDetach.complete(Unit)
     assertTrue(detach.await())
-    assertEquals(MapLifecycleState.OpenDetached(engine), lifecycle.state)
   }
 
   @Test
@@ -82,7 +80,6 @@ class MapLifecycleBindingTest {
     assertFailsWith<TestFailure> { lifecycle.attach() }
 
     val engine = checkNotNull(lifecycle.engineIdentity)
-    assertEquals(MapLifecycleState.OpenDetached(engine), lifecycle.state)
     assertEquals(
       listOf(
         "create $engine",
@@ -104,7 +101,6 @@ class MapLifecycleBindingTest {
 
     assertFailsWith<TestFailure> { lifecycle.attach() }
 
-    assertEquals(MapLifecycleState.OpenDetached(null), lifecycle.state)
     assertEquals(1, adapter.commands.count { it.startsWith("destroy ") })
   }
 
@@ -114,16 +110,14 @@ class MapLifecycleBindingTest {
     val lifecycle = bindLifecycle(adapter)
     val attaching = async { runCatching { lifecycle.attach() } }
     adapter.attachStarted.await()
-    val state = lifecycle.state as MapLifecycleState.Attaching
+    val lease = checkNotNull(adapter.lastLease)
 
-    val detaching = async { lifecycle.detach(state.lease) }
+    val detaching = async { lifecycle.detach(lease) }
     runCurrent()
 
-    assertEquals(MapLifecycleState.Detaching(state.engine, state.lease), lifecycle.state)
     adapter.allowAttach.complete(Unit)
     assertTrue(detaching.await())
     assertTrue(attaching.await().exceptionOrNull() is MapLeaseInvalidatedException)
-    assertEquals(MapLifecycleState.OpenDetached(state.engine), lifecycle.state)
     assertEquals(1, adapter.commands.count { it.startsWith("detach ") })
   }
 
@@ -138,7 +132,6 @@ class MapLifecycleBindingTest {
     lifecycle.close()
     lifecycle.close()
 
-    assertEquals(MapLifecycleState.Closing, lifecycle.state)
     assertFailsWith<MapClosedException> { lifecycle.attach() }
     assertTrue(!lifecycle.acceptEngineEvent(engine) { error("closed engine event ran") })
     assertTrue(!lifecycle.acceptStyleEvent(engine, style) { error("closed style event ran") })
@@ -147,7 +140,6 @@ class MapLifecycleBindingTest {
     adapter.allowDetach.complete(Unit)
     lifecycle.awaitClosed()
 
-    assertEquals(MapLifecycleState.Closed, lifecycle.state)
     assertEquals(1, adapter.commands.count { it.startsWith("detach ") })
     assertEquals(1, adapter.commands.count { it.startsWith("destroy ") })
     assertEquals(1, adapter.commands.count { it == "close resources" })
@@ -168,7 +160,6 @@ class MapLifecycleBindingTest {
     val failure = assertFailsWith<MapCleanupException> { lifecycle.awaitClosed() }
 
     assertEquals(listOf("detach", "engine", "resources"), failure.failures.map { it.message })
-    assertIs<MapLifecycleState.Closed>(lifecycle.state)
   }
 
   @Test
@@ -188,13 +179,11 @@ class MapLifecycleBindingTest {
     val lifecycle = bindLifecycle(adapter)
     val caller = async { lifecycle.attach() }
     adapter.attachStarted.await()
-    val attaching = lifecycle.state as MapLifecycleState.Attaching
 
     caller.cancelAndJoin()
     adapter.allowAttach.complete(Unit)
     runCurrent()
 
-    assertEquals(MapLifecycleState.OpenDetached(attaching.engine), lifecycle.state)
     assertEquals(1, adapter.commands.count { it.startsWith("detach ") })
   }
 
@@ -209,18 +198,16 @@ class MapLifecycleBindingTest {
     lifecycle.detach(lease)
     val accepted = mutableListOf<String>()
 
-    assertTrue(adapter.emitEngineEvent(lifecycle, engine) { accepted += "engine" })
-    assertTrue(!adapter.emitStyleEvent(lifecycle, engine, firstStyle) { accepted += "stale style" })
-    assertTrue(adapter.emitStyleEvent(lifecycle, engine, currentStyle) { accepted += "style" })
-    assertTrue(
-      !adapter.emitPresentationEvent(lifecycle, engine, lease) { accepted += "presentation" }
-    )
+    assertTrue(lifecycle.acceptEngineEvent(engine) { accepted += "engine" })
+    assertTrue(!lifecycle.acceptStyleEvent(engine, firstStyle) { accepted += "stale style" })
+    assertTrue(lifecycle.acceptStyleEvent(engine, currentStyle) { accepted += "style" })
+    assertTrue(!lifecycle.acceptPresentationEvent(engine, lease) { accepted += "presentation" })
 
     assertEquals(listOf("engine", "style"), accepted)
   }
 
   @Test
-  fun the_fake_rejects_a_superseded_style_request_identity() = runTest {
+  fun superseded_style_request_events_are_rejected() = runTest {
     val adapter = FakeMapLifecycleAdapter()
     val lifecycle = bindLifecycle(adapter)
     lifecycle.attach()
@@ -229,10 +216,8 @@ class MapLifecycleBindingTest {
     val current = checkNotNull(lifecycle.claimStyleRequestIdentity(engine))
     val accepted = mutableListOf<String>()
 
-    assertTrue(
-      !adapter.emitStyleRequestEvent(lifecycle, engine, superseded) { accepted += "superseded" }
-    )
-    assertTrue(adapter.emitStyleRequestEvent(lifecycle, engine, current) { accepted += "current" })
+    assertTrue(!lifecycle.acceptStyleRequestEvent(engine, superseded) { accepted += "superseded" })
+    assertTrue(lifecycle.acceptStyleRequestEvent(engine, current) { accepted += "current" })
     assertEquals(listOf("current"), accepted)
   }
 
@@ -268,7 +253,6 @@ class MapLifecycleBindingTest {
 
     lifecycle.detach(firstLease)
 
-    assertEquals(MapLifecycleState.OpenDetached(null), lifecycle.state)
     assertTrue(!lifecycle.acceptEngineEvent(firstEngine) { error("destroyed engine event ran") })
     assertTrue(
       !lifecycle.acceptStyleEvent(firstEngine, firstStyle) { error("destroyed style event ran") }
@@ -288,9 +272,8 @@ class MapLifecycleBindingTest {
 
     assertTrue(lifecycle.beginEngineReplacement(departedEngine, lease))
 
-    val replacement = assertIs<MapLifecycleState.Attached>(lifecycle.state)
-    assertEquals(lease, replacement.lease)
-    assertTrue(replacement.engine != departedEngine)
+    assertEquals(lease, lifecycle.renderLease)
+    assertTrue(lifecycle.engineIdentity != departedEngine)
     assertTrue(!lifecycle.acceptEngineEvent(departedEngine) { error("departed engine event ran") })
     assertTrue(
       !lifecycle.acceptStyleEvent(departedEngine, departedStyle) {
@@ -310,8 +293,7 @@ class MapLifecycleBindingTest {
 
     assertTrue(!lifecycle.detach(departed))
 
-    val state = assertIs<MapLifecycleState.Attached>(lifecycle.state)
-    assertEquals(current, state.lease)
+    assertEquals(current, lifecycle.renderLease)
     assertEquals(commandsBeforeStaleDetach, adapter.commands)
   }
 
@@ -327,22 +309,22 @@ class MapLifecycleBindingTest {
     lifecycle.awaitClosed()
 
     assertTrue(attaching.await().exceptionOrNull() is MapLeaseInvalidatedException)
-    assertEquals(MapLifecycleState.Closed, lifecycle.state)
     assertEquals(1, adapter.commands.count { it.startsWith("detach ") })
     assertEquals(1, adapter.commands.count { it.startsWith("destroy ") })
   }
 
   @Test
-  fun closing_a_never_attached_map_still_exposes_closing_until_shared_cleanup_finishes() = runTest {
+  fun closing_a_never_attached_map_waits_for_shared_cleanup() = runTest {
     val adapter = FakeMapLifecycleAdapter().apply { allowResources = CompletableDeferred() }
     val lifecycle = bindLifecycle(adapter)
 
     lifecycle.close()
+    val closed = async { lifecycle.awaitClosed() }
+    runCurrent()
+    assertFalse(closed.isCompleted)
 
-    assertEquals(MapLifecycleState.Closing, lifecycle.state)
     adapter.allowResources.complete(Unit)
-    lifecycle.awaitClosed()
-    assertEquals(MapLifecycleState.Closed, lifecycle.state)
+    closed.await()
     assertEquals(listOf("close resources"), adapter.commands)
   }
 
@@ -367,17 +349,15 @@ class MapLifecycleBindingTest {
         createFailure = TestFailure("create")
       }
     val lifecycle = bindLifecycle(adapter)
-    val attaching = async { runCatching { lifecycle.attach() } }
+    val attaching = lifecycle.beginAttach()
     adapter.createStarted.await()
-    val lease = (lifecycle.state as MapLifecycleState.Attaching).lease
-    val detaching = async { lifecycle.detach(lease) }
+    val detaching = async { lifecycle.detach(attaching.lease) }
     runCurrent()
 
     adapter.allowCreate.complete(Unit)
 
     assertTrue(detaching.await())
-    assertTrue(attaching.await().exceptionOrNull() is MapLeaseInvalidatedException)
-    assertEquals(MapLifecycleState.OpenDetached(null), lifecycle.state)
+    assertTrue(attaching.completion.await().exceptionOrNull() is MapLeaseInvalidatedException)
     assertEquals(1, adapter.commands.count { it.startsWith("destroy ") })
   }
 
@@ -388,7 +368,6 @@ class MapLifecycleBindingTest {
 
     assertFailsWith<TestFailure> { lifecycle.ensureEngine() }
 
-    assertEquals(MapLifecycleState.OpenDetached(null), lifecycle.state)
     assertEquals(1, adapter.commands.count { it.startsWith("destroy ") })
   }
 
@@ -398,17 +377,17 @@ class MapLifecycleBindingTest {
     val lifecycle = bindLifecycle(adapter)
     val attaching = async { runCatching { lifecycle.attach() } }
     adapter.attachStarted.await()
-    val attachingState = assertIs<MapLifecycleState.Attaching>(lifecycle.state)
+    val lease = checkNotNull(adapter.lastLease)
+    val engine = checkNotNull(lifecycle.engineIdentity)
     val access = async { lifecycle.ensureEngine() }
-    val detaching = async { lifecycle.detach(attachingState.lease) }
+    val detaching = async { lifecycle.detach(lease) }
     runCurrent()
 
     adapter.allowAttach.complete(Unit)
 
     assertTrue(detaching.await())
     assertIs<MapLeaseInvalidatedException>(attaching.await().exceptionOrNull())
-    assertEquals(attachingState.engine, access.await())
-    assertEquals(MapLifecycleState.OpenDetached(attachingState.engine), lifecycle.state)
+    assertEquals(engine, access.await())
   }
 
   @Test
@@ -501,38 +480,11 @@ private class FakeMapLifecycleAdapter : MapLifecyclePlatformAdapter {
     allowResources.await()
     resourcesFailure?.let { throw it }
   }
-
-  fun emitEngineEvent(
-    lifecycle: MapLifecycleBinding,
-    engine: EngineMapIdentity,
-    event: () -> Unit,
-  ): Boolean = lifecycle.acceptEngineEvent(engine, event)
-
-  fun emitStyleEvent(
-    lifecycle: MapLifecycleBinding,
-    engine: EngineMapIdentity,
-    style: StyleIdentity,
-    event: () -> Unit,
-  ): Boolean = lifecycle.acceptStyleEvent(engine, style, event)
-
-  fun emitStyleRequestEvent(
-    lifecycle: MapLifecycleBinding,
-    engine: EngineMapIdentity,
-    request: StyleRequestIdentity,
-    event: () -> Unit,
-  ): Boolean = lifecycle.acceptStyleRequestEvent(engine, request, event)
-
-  fun emitPresentationEvent(
-    lifecycle: MapLifecycleBinding,
-    engine: EngineMapIdentity,
-    lease: RenderLease,
-    event: () -> Unit,
-  ): Boolean = lifecycle.acceptPresentationEvent(engine, lease, event)
 }
 
 private class TestFailure(message: String) : RuntimeException(message)
 
 private fun MapLifecycleBinding.claimStyle(engine: EngineMapIdentity): StyleIdentity {
   val request = checkNotNull(claimStyleRequestIdentity(engine))
-  return checkNotNull(claimStyleIdentity(engine, request))
+  return checkNotNull(claimStyleIdentity(engine, request) {})
 }

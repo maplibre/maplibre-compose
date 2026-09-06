@@ -12,16 +12,16 @@ import org.maplibre.spatialk.geojson.Position
 
 internal fun mapRuntimeForTest(
   physicalScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
-  snapshotterAdapterFactory: SnapshotterAdapterFactory = UnsupportedSnapshotterAdapterFactory,
+  createSnapshotterAdapter: () -> SnapshotterAdapter = ::unsupportedSnapshots,
   styleEvaluator: StyleCompositionEvaluator = DefaultStyleCompositionEvaluator,
   closeResources: suspend () -> Unit = {},
 ): MapRuntime =
   RuntimeImplementation(
-    platformOptions = null,
-    resources = MapRuntimeResources(closeResources),
+    platformContext = null,
+    closeResources = closeResources,
     logger = null,
     physicalScope = physicalScope,
-    snapshotterAdapterFactory = snapshotterAdapterFactory,
+    createSnapshotterAdapter = createSnapshotterAdapter,
     styleEvaluator = styleEvaluator,
   )
 

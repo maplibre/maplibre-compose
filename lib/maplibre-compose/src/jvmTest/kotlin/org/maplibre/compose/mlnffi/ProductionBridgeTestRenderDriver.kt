@@ -75,7 +75,6 @@ import org.maplibre.compose.desktop.bridge.ComposeMapPresentationHostFactory
 import org.maplibre.compose.desktop.bridge.MapRendererThread
 import org.maplibre.compose.desktop.bridge.ObjectiveC
 import org.maplibre.compose.desktop.bridge.currentContext
-import org.maplibre.compose.desktop.bridge.requireContext
 import org.maplibre.compose.desktop.bridge.withOpenGlContext
 import org.maplibre.compose.desktop.onGpuThread
 import org.maplibre.compose.desktop.skiko.AwtComposeMapPresentationHost
@@ -398,7 +397,7 @@ private class Direct3D12TestGpuEnvironment private constructor(private val windo
   override val presentationHost: ComposeMapPresentationHost = AwtComposeMapPresentationHost(window)
 
   override fun <T> withContext(action: (ComposeGpuContext) -> T): T = presentationHost.onGpuThread {
-    action(presentationHost.requireContext<Direct3D12ComposeGpuContext>())
+    action(checkNotNull(presentationHost.currentContext() as? Direct3D12ComposeGpuContext))
   }
 
   override fun discardPresentedFrame() {}

@@ -199,8 +199,8 @@ class PlatformMapAccessTest {
     val cacheFile = FfiTestPlatform.createCacheFile()
     val runtime =
       RuntimeImplementation(
-        platformOptions = MlnFfiRuntimeOptions(cacheFile),
-        resources = MapRuntimeResources {},
+        platformContext = MlnFfiRuntimeOptions(cacheFile),
+        closeResources = {},
         logger = null,
       )
     val state = runtime.createMapState(baseStyle = BaseStyle.Empty)

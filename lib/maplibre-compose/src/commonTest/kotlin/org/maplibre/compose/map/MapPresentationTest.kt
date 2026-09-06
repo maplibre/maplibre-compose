@@ -3,10 +3,6 @@ package org.maplibre.compose.map
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.ImageBitmapConfig
-import androidx.compose.ui.graphics.colorspace.ColorSpace
-import androidx.compose.ui.graphics.colorspace.ColorSpaces
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.DpSize
@@ -134,9 +130,7 @@ class MapPresentationTest {
 
     assertNull(state.currentMapAttachment)
     assertNull(state.retainedAdapter(session.presentationCompatibilityKey))
-    assertFalse(state.acceptsPresentationEvent(session))
     assertEquals(StyleLoadState.Pending, state.style.loadState)
-    assertFalse(session.lifecycle.state == MapLifecycleState.Closed)
     finishCleanup.complete(Unit)
     assertFailsWith<MapCleanupException> { session.awaitClosed() }
     testScheduler.runCurrent()
@@ -181,7 +175,6 @@ class MapPresentationTest {
 
     assertNull(state.retainedAdapter(session.presentationCompatibilityKey))
     assertEquals(StyleLoadState.Pending, state.style.loadState)
-    assertFalse(session.lifecycle.state == MapLifecycleState.Closed)
     finishCleanup.complete(Unit)
     session.awaitClosed()
     state.close()
@@ -1446,24 +1439,6 @@ private data class PresentationFixture(
     state.close()
     runtime.close()
   }
-}
-
-private class FakeImageBitmap(override val width: Int, override val height: Int) : ImageBitmap {
-  override val colorSpace: ColorSpace = ColorSpaces.Srgb
-  override val hasAlpha: Boolean = true
-  override val config: ImageBitmapConfig = ImageBitmapConfig.Argb8888
-
-  override fun readPixels(
-    buffer: IntArray,
-    startX: Int,
-    startY: Int,
-    width: Int,
-    height: Int,
-    bufferOffset: Int,
-    stride: Int,
-  ) = Unit
-
-  override fun prepareToDraw() = Unit
 }
 
 private fun presentationFixture(): PresentationFixture {

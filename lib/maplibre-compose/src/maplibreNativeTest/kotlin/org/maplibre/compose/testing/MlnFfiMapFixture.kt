@@ -39,16 +39,16 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent
   override val style: StyleBinding?
     get() = bridge.style
 
-  override val events: MutableList<String>
+  override val events: RecordingList<String>
     get() = bridge.events
 
-  override val engineEvents: MutableList<MapEvent>
+  override val engineEvents: RecordingList<MapEvent>
     get() = bridge.engineEvents
 
-  override val sourceChanges: MutableList<String?>
+  override val sourceChanges: RecordingList<String?>
     get() = bridge.sourceChanges
 
-  override val errors: MutableList<String>
+  override val errors: RecordingList<String>
     get() = bridge.errors
 
   override suspend fun loadStyle(style: BaseStyle, timeout: Duration) {

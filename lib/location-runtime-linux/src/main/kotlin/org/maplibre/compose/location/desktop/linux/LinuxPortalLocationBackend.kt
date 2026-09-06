@@ -19,7 +19,6 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.location.DesktopLocationBackend
-import org.maplibre.compose.location.DesktopLocationProvider
 import org.maplibre.compose.location.LocationAccuracy
 import org.maplibre.compose.location.LocationAccuracyAuthorization
 import org.maplibre.compose.location.LocationBackendAvailability
@@ -37,7 +36,7 @@ public class LinuxPortalLocationBackend : DesktopLocationBackend {
   override fun isAvailable(): Boolean =
     System.getProperty("os.name").lowercase(Locale.ROOT).startsWith("linux")
 
-  override fun createProvider(window: XdgPortalWindow?): DesktopLocationProvider =
+  override fun createProvider(window: XdgPortalWindow?): LocationProvider =
     LinuxPortalLocationProvider(window)
 }
 
@@ -86,7 +85,7 @@ public class LinuxPortalLocationProvider
 internal constructor(
   private val portal: LinuxLocationPortal,
   coroutineScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
-) : DesktopLocationProvider {
+) : LocationProvider {
   public constructor(window: XdgPortalWindow? = null) : this(DbusLocationPortal(window))
 
   private val job = SupervisorJob(coroutineScope.coroutineContext[Job])

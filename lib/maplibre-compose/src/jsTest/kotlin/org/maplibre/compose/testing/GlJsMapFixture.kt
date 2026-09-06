@@ -49,16 +49,16 @@ internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
   override val style: StyleBinding?
     get() = recorder.style
 
-  override val events: MutableList<String>
+  override val events: RecordingList<String>
     get() = recorder.events
 
-  override val engineEvents: MutableList<MapEvent>
+  override val engineEvents: RecordingList<MapEvent>
     get() = recorder.engineEvents
 
-  override val sourceChanges: MutableList<String?>
+  override val sourceChanges: RecordingList<String?>
     get() = recorder.sourceChanges
 
-  override val errors: MutableList<String>
+  override val errors: RecordingList<String>
     get() = recorder.errors
 
   private var hasRendered = false

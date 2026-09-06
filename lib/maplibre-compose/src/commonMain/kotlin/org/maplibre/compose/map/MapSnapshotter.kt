@@ -41,12 +41,6 @@ import org.maplibre.compose.style.StyleNode
 import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.MaplibreComposable
 
-/** Options that affect the pixels returned by a snapshot capture. */
-public data class MapSnapshotOutputOptions(
-  /** Whether to preserve framebuffer alpha. When false, transparent pixels composite onto white. */
-  public val transparent: Boolean = false
-)
-
 /** Immutable inputs for one snapshot capture. */
 public data class MapSnapshotRequest(
   /** Viewport width in logical pixels. */
@@ -61,8 +55,8 @@ public data class MapSnapshotRequest(
   public val fontScale: Float = 1f,
   /** Layout direction used while evaluating the style composition. */
   public val layoutDirection: LayoutDirection = LayoutDirection.Ltr,
-  /** Options that determine how captured pixels are returned. */
-  public val outputOptions: MapSnapshotOutputOptions = MapSnapshotOutputOptions(),
+  /** Whether to preserve framebuffer alpha. When false, transparent pixels composite onto white. */
+  public val transparent: Boolean = false,
 ) {
   init {
     require(width > 0) { "Snapshot width must be positive" }
@@ -113,14 +107,8 @@ internal enum class SnapshotterEngineDisposition {
   RELEASED,
 }
 
-internal fun interface SnapshotterAdapterFactory {
-  fun create(): SnapshotterAdapter
-}
-
-internal object UnsupportedSnapshotterAdapterFactory : SnapshotterAdapterFactory {
-  override fun create(): SnapshotterAdapter =
-    throw UnsupportedOperationException("Snapshot capture is not available on this platform")
-}
+internal fun unsupportedSnapshots(): Nothing =
+  throw UnsupportedOperationException("Snapshot capture is not available on this platform")
 
 internal data class SnapshotStyleOwnership(
   val sourceIds: Set<String>,
@@ -228,8 +216,6 @@ internal class MapSnapshotterImplementation(
   private val runtime: RuntimeImplementation,
   initialBaseStyle: BaseStyle,
   private val styleContent: @Composable @MaplibreComposable () -> Unit,
-  private val adapterFactory: SnapshotterAdapterFactory = runtime.snapshotterAdapterFactory,
-  private val styleEvaluator: StyleCompositionEvaluator = runtime.styleEvaluator,
 ) : MapSnapshotter {
   private val lock = reentrantLock()
   private val queue = ArrayDeque<Capture>()
@@ -366,7 +352,7 @@ internal class MapSnapshotterImplementation(
   private suspend fun runCapture(capture: Capture) = coroutineScope {
     val platform =
       try {
-        adapter ?: adapterFactory.create().also { adapter = it }
+        adapter ?: runtime.createSnapshotterAdapter().also { adapter = it }
       } catch (error: Throwable) {
         capture.resumeFailure(error.toSnapshotAvailabilityFailure())
         return@coroutineScope
@@ -393,7 +379,7 @@ internal class MapSnapshotterImplementation(
             val evaluationOwnership =
               styleEvaluationOwnership(currentBinding, currentClaim.ownership)
             val revision =
-              styleEvaluator.evaluate(
+              runtime.styleEvaluator.evaluate(
                 styleContent,
                 currentBinding,
                 prepared.viewport,
