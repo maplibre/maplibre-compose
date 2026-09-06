@@ -70,6 +70,8 @@ public fun MapOverlayScope.CompassButton(
  * This is [org.maplibre.compose.overlay.DisappearingCompassButton] with the colors, shape, and
  * elevation of an [ElevatedButton].
  *
+ * @param contentModifier Applied to the button inside the visibility animation. Padding here
+ *   expands and shrinks with the button, unlike [modifier], which sits on the visibility wrapper.
  * @param visibilityDuration How long the button stays visible after the camera returns home.
  * @param slop How far the camera may turn from [getHomePosition] before the button appears, in
  *   degrees.
@@ -89,9 +91,11 @@ public fun MapOverlayScope.DisappearingCompassButton(
   exitTransition: ExitTransition = fadeOut(),
   getHomePosition: (CameraPosition) -> CameraPosition = { it.copy(bearing = 0.0, tilt = 0.0) },
   slop: Double = 0.5,
+  contentModifier: Modifier = Modifier,
 ) {
   BaseDisappearingCompassButton(
     modifier = modifier,
+    contentModifier = contentModifier,
     onClick = onClick,
     style = elevatedButtonStyle(colors, shape),
     contentDescription = contentDescription,
