@@ -192,47 +192,30 @@ public sealed class ShoveEvent private constructor(sample: GesturePointerSample)
 
 /** A normalized scroll burst. No library momentum follows its End. */
 @Immutable
-public sealed class ScrollEvent
-private constructor(sample: GesturePointerSample, public val kind: ScrollKind) :
+public sealed class ScrollEvent private constructor(sample: GesturePointerSample) :
   PointerGestureEvent(sample) {
-  /** Recognition begins at [screenOffset]; [startOffset] is the original press or anchor. */
+  /** Scrolling begins at [startOffset]. */
   public class Start
-  internal constructor(
-    sample: GesturePointerSample,
-    public val startOffset: DpOffset,
-    kind: ScrollKind,
-  ) : ScrollEvent(sample, kind)
+  internal constructor(sample: GesturePointerSample, public val startOffset: DpOffset) :
+    ScrollEvent(sample)
 
-  /** Incremental displacement; the first delta contains only travel beyond recognition slop. */
+  /** The scroll amount expressed as pan distance and zoom notches. */
   public class Delta
   internal constructor(
     sample: GesturePointerSample,
     public val panDelta: DpOffset,
     public val zoomNotches: DpOffset,
-    kind: ScrollKind,
-  ) : ScrollEvent(sample, kind)
+  ) : ScrollEvent(sample)
 
-  /** Input completed. Any configured momentum belongs to the same camera session. */
+  /** Scrolling ended after the configured idle duration. */
   public class End
-  internal constructor(
-    sample: GesturePointerSample,
-    public val velocity: ScreenVelocity,
-    kind: ScrollKind,
-  ) : ScrollEvent(sample, kind)
+  internal constructor(sample: GesturePointerSample, public val velocity: ScreenVelocity) :
+    ScrollEvent(sample)
 
   /** Cancellation carries the last sample and never starts momentum. */
   public class Cancel
-  internal constructor(
-    sample: GesturePointerSample,
-    public val reason: GestureCancellationReason,
-    kind: ScrollKind,
-  ) : ScrollEvent(sample, kind)
-}
-
-/** A host-input estimate, not a physical device identity. */
-public enum class ScrollKind {
-  Discrete,
-  Continuous,
+  internal constructor(sample: GesturePointerSample, public val reason: GestureCancellationReason) :
+    ScrollEvent(sample)
 }
 
 /**

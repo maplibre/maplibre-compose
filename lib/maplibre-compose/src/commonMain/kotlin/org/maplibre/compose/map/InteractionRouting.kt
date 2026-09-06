@@ -82,16 +82,13 @@ internal fun DragBinding.select(
 
 internal fun ScrollBinding.select(
   sample: GesturePointerSample,
-  kind: ScrollKind,
   camera: CameraConfiguration,
 ): ScrollResponse? =
   if (!matches(sample)) null
   else
     mappings
       .firstOrNull {
-        (it.kind == null || it.kind == kind) &&
-          it.pattern.matches(sample, contact = false) &&
-          camera.permits(it.response)
+        it.pattern.matches(sample, contact = false) && camera.permits(it.response)
       }
       ?.response
 

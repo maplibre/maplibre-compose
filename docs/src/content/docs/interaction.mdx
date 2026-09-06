@@ -33,8 +33,8 @@ camera methods remain independent.
 ## Choose scroll behavior
 
 A `mappings` block replaces a family's camera responses. The first matching row
-with a permitted response wins. Here Ctrl-scroll zooms, continuous scrolling
-pans, and other scrolling zooms:
+with a permitted response wins. Scrolling zooms by default. This example changes
+ordinary scrolling to pan, while Ctrl-scroll zooms:
 
 <Code code={region(interaction, "scroll-mappings")} lang="kotlin" title="App.kt" />
 
@@ -44,7 +44,10 @@ without a camera response. An empty table removes camera responses but preserves
 eligible app click delivery; `enabled = false` disables that input family.
 
 Drag, tap families, and keys have the same table structure with responses suited
-to their input. Single-pointer drag and two-finger transform pan are independent.
+to their input. Single-pointer drag and transform pan are independent.
+`bindings.transform.pan` handles touch-pair panning and explicit pan gestures
+reported by the Compose host. `bindings.scroll` handles ordinary scroll events;
+it does not infer whether they came from a wheel or a trackpad.
 Tab focuses the map; Enter engages keyboard navigation, and Escape leaves it.
 
 ## Stop following when the user pans
@@ -132,7 +135,10 @@ therefore differs by host:
 | Nucleus macOS   | Magnify, rotate, and smart magnify become synthetic touch pairs.                    |
 | Nucleus Wayland | Pinch and rotation become synthetic touch pairs; X11 has no equivalent route.       |
 | Nucleus Windows | Ctrl-wheel pinch becomes a synthetic touch pair; no rotation route.                 |
-| Browser         | Ctrl-wheel zoom and classified wheel scrolling.                                     |
+| Browser         | Wheel events, including Ctrl-wheel pinch; no explicit Pan events.                   |
+
+Trackpad panning reported as ordinary scrolling uses the scroll mapping, which
+zooms by default.
 
 Nucleus places synthetic contacts on either side of the cursor. Near a map edge
 or inside a narrow map, both contacts may not reach the same map. Those contacts

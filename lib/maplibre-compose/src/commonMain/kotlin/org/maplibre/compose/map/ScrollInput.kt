@@ -7,7 +7,6 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
-import kotlin.math.round
 
 /** Only the host adapter interprets native metadata. Axis values always come from Compose. */
 internal expect fun scrollUnits(event: PointerEvent): ScrollUnits
@@ -24,7 +23,6 @@ internal enum class ScrollUnits {
 internal data class NormalizedScroll(
   val panDelta: DpOffset,
   val zoomNotches: DpOffset,
-  val kind: ScrollKind,
 ) {
   /** Horizontal-only wheels work; opposite-sign diagonal axes never cancel one another. */
   val zoomComponent: Double
@@ -33,7 +31,7 @@ internal data class NormalizedScroll(
       else zoomNotches.y.value.toDouble()
 }
 
-/** Pure unit conversion and first-event classification, before any binding claims the sample. */
+/** Converts host scroll units before any binding claims the sample. */
 internal fun normalizeScroll(
   raw: Offset,
   units: ScrollUnits,
@@ -49,7 +47,7 @@ internal fun normalizeScroll(
         ScrollUnits.BrowserPixel -> 1.0
         ScrollUnits.BrowserLine -> 100.0 / 3.0
         ScrollUnits.BrowserPage -> size / pixelsPerDp
-        ScrollUnits.MacRotation -> 10.0 / pixelsPerDp
+        ScrollUnits.MacRotation -> 10.0
         ScrollUnits.Rotation -> 40.0
         ScrollUnits.IosIndirect -> 100.0 / pixelsPerDp
       }
@@ -73,27 +71,5 @@ internal fun normalizeScroll(
   return NormalizedScroll(
     DpOffset(x.dp, y.dp),
     DpOffset(notchX.dp, notchY.dp),
-    classifyScroll(raw, units),
   )
-}
-
-private fun classifyScroll(raw: Offset, units: ScrollUnits): ScrollKind {
-  if (units == ScrollUnits.IosIndirect) return ScrollKind.Continuous
-  if (units == ScrollUnits.BrowserLine || units == ScrollUnits.BrowserPage)
-    return ScrollKind.Discrete
-  if (raw.x != 0f && raw.y != 0f) return ScrollKind.Continuous
-  val component = if (raw.y != 0f) raw.y.toDouble() else raw.x.toDouble()
-  val discrete =
-    if (units == ScrollUnits.BrowserPixel) {
-      component.isMultipleOf(100.0) || component.isMultipleOf(4.000244140625)
-    } else {
-      abs(component - round(component)) <= 0.001
-    }
-  return if (discrete) ScrollKind.Discrete else ScrollKind.Continuous
-}
-
-private fun Double.isMultipleOf(increment: Double): Boolean {
-  val quotient = this / increment
-  val nearest = round(quotient)
-  return nearest != 0.0 && abs(quotient - nearest) <= 0.000001
 }

@@ -264,7 +264,6 @@ internal data class DragMapping(val pattern: PointerPattern, val response: DragR
 
 internal data class ScrollMapping(
   val pattern: PointerPattern,
-  val kind: ScrollKind?,
   val response: ScrollResponse,
 )
 
@@ -463,14 +462,12 @@ public class ScrollMappingsBuilder internal constructor() {
   public fun on(
     pointerTypes: Set<PointerType>? = null,
     modifiers: ModifierMatch = ModifierMatch.Any,
-    kind: ScrollKind? = null,
     block: ScrollResponseBuilder.() -> Unit,
   ) {
     require(!hasOtherwise) { "otherwise must be the final row" }
     rows +=
       ScrollMapping(
         PointerPattern(pointerTypes?.toSet(), modifiers = modifiers),
-        kind,
         ScrollResponseBuilder().apply(block).build(),
       )
   }
@@ -478,7 +475,7 @@ public class ScrollMappingsBuilder internal constructor() {
   public fun otherwise(block: ScrollResponseBuilder.() -> Unit) {
     require(!hasOtherwise) { "otherwise must be the final row" }
     hasOtherwise = true
-    rows += ScrollMapping(PointerPattern(), null, ScrollResponseBuilder().apply(block).build())
+    rows += ScrollMapping(PointerPattern(), ScrollResponseBuilder().apply(block).build())
   }
 
   internal fun build(): List<ScrollMapping> = rows.toList()

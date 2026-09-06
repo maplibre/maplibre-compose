@@ -239,15 +239,18 @@ internal data class TransformPanBinding(
     get() = listOf(enabled, pointerTypes, modifiers, startSlop, momentum)
 }
 
+/** Touch-pair panning and pan gestures recognized by the Compose host. */
 @MapInteractionDsl
 public class TransformPanBuilder internal constructor(from: TransformPanBinding) {
   public var enabled: Boolean = from.enabled
   public var pointerTypes: Set<PointerType>? = from.pointerTypes
   public var modifiers: ModifierMatch = from.modifiers
+  /** Recognition distance for touch pairs. Host-recognized pans have already passed host slop. */
   public var startSlop: Dp = from.startSlop
   private val momentumBuilder = PanMomentumBuilder(from.momentum, from.momentumOverride)
   private var handlers = from.handlers
 
+  /** Momentum for touch pairs. Host-recognized pans retain only momentum supplied by the host. */
   public fun momentum(block: PanMomentumBuilder.() -> Unit) {
     momentumBuilder.apply(block)
   }
@@ -844,8 +847,6 @@ internal data class InteractionBindings(
             mappings =
               ScrollMappingsBuilder()
                 .apply {
-                  on(modifiers = ModifierMatch.Containing(KeyModifier.Ctrl)) { zoom() }
-                  on(kind = ScrollKind.Continuous) { pan() }
                   otherwise { zoom() }
                 }
                 .build()

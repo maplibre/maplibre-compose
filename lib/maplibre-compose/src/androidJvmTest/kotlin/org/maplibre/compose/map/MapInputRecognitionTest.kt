@@ -248,9 +248,10 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun trackpad_pan_and_scale_reach_the_pointer_node_without_clicks() {
+  fun trackpad_pan_and_scale_work_independently_of_scroll_bindings() {
     assumeClassifiedTrackpadInputSupported()
-    runRecognitionTest { target ->
+    runRecognitionTest(options = MapInteractions { bindings { scroll { enabled = false } } }) {
+      target ->
       mapNode().performTrackpadInput {
         moveTo(Offset(80f, 80f))
         panStart()
@@ -724,24 +725,14 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun standard_scroll_pans_continuous_input_and_holds_that_estimate_for_the_burst() =
+  fun standard_scroll_zooms_for_fractional_whole_and_two_axis_deltas() =
     runRecognitionTest { target ->
-      mainClock.autoAdvance = false
-      try {
-        val map = mapNode()
-        map.performMouseInput {
-          scroll(0.25f)
-          scroll(1f)
-        }
+      for (delta in listOf(Offset(0f, 0.25f), Offset(0f, 1f), Offset(1f, 2f))) {
+        mapNode().performMouseInput { scroll(delta) }
         waitForIdle()
-        assertEquals(2, target.moveCalls.size)
-        assertTrue(target.scaleCalls.isEmpty())
-        mainClock.advanceTimeBy(SCROLL_HOLD_MILLIS + FRAME_MILLIS)
-        map.performMouseInput { scroll(1f) }
-        waitForIdle()
-        assertEquals(1, target.scaleCalls.size)
-      } finally {
-        mainClock.autoAdvance = true
+        assertTrue(target.scaleCalls.isNotEmpty())
+        assertTrue(target.moveCalls.isEmpty())
+        target.scaleCalls.clear()
       }
     }
 
@@ -768,9 +759,8 @@ class MapInputRecognitionTest {
       assertTrue(events[1] is ScrollEvent.Delta)
       assertTrue(events[2] is ScrollEvent.End)
       assertEquals(1, events.map { it.gestureId }.distinct().size)
-      assertTrue(events.all { it.kind == ScrollKind.Continuous })
-      assertTrue(target.scaleCalls.isEmpty())
-      assertEquals(1, target.moveCalls.size)
+      assertTrue(target.moveCalls.isEmpty())
+      assertTrue(target.scaleCalls.isNotEmpty())
     }
   }
 
@@ -1131,21 +1121,81 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun changing_scroll_modifiers_cancels_the_old_burst_before_starting_another() =
-    runRecognitionTest { target ->
+  fun split_axis_scroll_keeps_panning_when_horizontal_events_add_shift() {
+    val events = mutableListOf<ScrollEvent>()
+    runRecognitionTest(
+      options =
+        MapInteractions {
+          bindings {
+            scroll {
+              mappings { otherwise { pan() } }
+              onStart { events += it }
+              onCancel { events += it }
+              onEnd { events += it }
+            }
+          }
+        }
+    ) { target ->
       mainClock.autoAdvance = false
       val map = mapNode()
       try {
         map.requestFocus()
+        map.performMouseInput { scroll(-0.25f) }
+        map.performKeyInput { keyDown(Key.ShiftLeft) }
+        map.performMouseInput { scroll(Offset(-1f, 0f)) }
+        map.performKeyInput { keyUp(Key.ShiftLeft) }
         map.performMouseInput { scroll(-1f) }
+        waitForIdle()
+        assertTrue(target.moveCalls.any { it.x != 0f })
+        assertTrue(target.moveCalls.any { it.y != 0f })
+        assertTrue(target.scaleCalls.isEmpty())
+        assertTrue(events.single() is ScrollEvent.Start)
+        mainClock.advanceTimeBy(SCROLL_HOLD_MILLIS + FRAME_MILLIS)
+        waitForIdle()
+        assertTrue(events.last() is ScrollEvent.End)
+        assertTrue(events.all { it.gestureId == events.first().gestureId })
+      } finally {
+        mainClock.autoAdvance = true
+      }
+    }
+  }
+
+  @Test
+  fun explicit_scroll_mappings_switch_between_pan_and_zoom_with_ctrl() =
+    runRecognitionTest(
+      options =
+        MapInteractions {
+          bindings {
+            scroll {
+              mappings {
+                on(modifiers = ModifierMatch.Containing(KeyModifier.Ctrl)) { zoom() }
+                otherwise { pan() }
+              }
+            }
+          }
+        }
+    ) { target ->
+      mainClock.autoAdvance = false
+      val map = mapNode()
+      try {
+        map.requestFocus()
+        map.performMouseInput { scroll(-0.25f) }
+        waitForIdle()
+        assertTrue(target.moveCalls.isNotEmpty())
+        assertTrue(target.scaleCalls.isEmpty())
+        target.moveCalls.clear()
         map.performKeyInput { keyDown(Key.CtrlLeft) }
         map.performMouseInput { scroll(-1f) }
         waitForIdle()
-        assertEquals(2, target.startedCount)
-        assertEquals(1, target.endedCount)
-        assertEquals(2, target.scaleCalls.size)
-      } finally {
+        assertTrue(target.moveCalls.isEmpty())
+        assertTrue(target.scaleCalls.isNotEmpty())
+        target.scaleCalls.clear()
         map.performKeyInput { keyUp(Key.CtrlLeft) }
+        map.performMouseInput { scroll(-1f) }
+        waitForIdle()
+        assertTrue(target.moveCalls.isNotEmpty())
+        assertTrue(target.scaleCalls.isEmpty())
+      } finally {
         mainClock.autoAdvance = true
       }
     }

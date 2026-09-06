@@ -24,10 +24,20 @@ class MapInteractionsTest {
     val standard = MapInteractions.Standard
     val ctrlShift = sample(modifiers = setOf(KeyModifier.Ctrl, KeyModifier.Shift))
     assertEquals(DragResponse.RotateTilt, standard.bindings.drag.select(ctrlShift, standard.camera))
-    val panLocked = MapInteractions { camera { pan { enabled = false } } }
+    val panLocked = MapInteractions {
+      camera { pan { enabled = false } }
+      bindings {
+        scroll {
+          mappings {
+            on { pan() }
+            otherwise { zoom() }
+          }
+        }
+      }
+    }
     assertEquals(
       ScrollResponse.Zoom,
-      panLocked.bindings.scroll.select(sample(), ScrollKind.Continuous, panLocked.camera),
+      panLocked.bindings.scroll.select(sample(), panLocked.camera),
     )
     val excluded = MapInteractions {
       bindings {
@@ -41,7 +51,7 @@ class MapInteractionsTest {
     }
     assertEquals(
       ScrollResponse.None,
-      excluded.bindings.scroll.select(ctrlShift, ScrollKind.Continuous, excluded.camera),
+      excluded.bindings.scroll.select(ctrlShift, excluded.camera),
     )
     for (lockPan in listOf(false, true)) {
       val locked = MapInteractions {

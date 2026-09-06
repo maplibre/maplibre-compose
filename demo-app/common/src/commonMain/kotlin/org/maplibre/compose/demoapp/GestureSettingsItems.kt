@@ -16,7 +16,6 @@ import org.maplibre.compose.map.MapInteractions
 import org.maplibre.compose.map.ModifierMatch.Containing
 import org.maplibre.compose.map.ModifierMatch.Exactly
 import org.maplibre.compose.map.PointerButton
-import org.maplibre.compose.map.ScrollKind
 
 @Stable
 class DemoGestureSettings {
@@ -27,7 +26,6 @@ class DemoGestureSettings {
   var twoFingerRotate by mutableStateOf(true)
   var twoFingerTilt by mutableStateOf(true)
   var twoFingerTap by mutableStateOf(true)
-  var scrollPan by mutableStateOf(true)
   var scrollZoom by mutableStateOf(true)
   var rotaryZoom by mutableStateOf(true)
   var doubleTap by mutableStateOf(true)
@@ -106,13 +104,7 @@ class DemoGestureSettings {
           }
         }
         twoFingerTap { enabled = this@DemoGestureSettings.twoFingerTap }
-        scroll {
-          mappings {
-            if (scrollZoom) on(modifiers = Containing(KeyModifier.Ctrl)) { zoom() }
-            if (scrollPan) on(kind = ScrollKind.Continuous) { pan() }
-            if (scrollZoom) otherwise { zoom() }
-          }
-        }
+        scroll { enabled = scrollZoom }
         doubleTap { enabled = this@DemoGestureSettings.doubleTap }
         tapDrag { enabled = quickZoom }
         rotary { enabled = rotaryZoom }
@@ -161,7 +153,6 @@ fun GestureSettingsItems(settings: DemoSettings) {
   SwitchRow("Two-finger rotate", interactions.twoFingerRotate) { interactions.twoFingerRotate = it }
   SwitchRow("Two-finger tilt", interactions.twoFingerTilt) { interactions.twoFingerTilt = it }
   SwitchRow("Two-finger tap", interactions.twoFingerTap) { interactions.twoFingerTap = it }
-  SwitchRow("Scroll pan", interactions.scrollPan) { interactions.scrollPan = it }
   SwitchRow("Scroll zoom", interactions.scrollZoom) { interactions.scrollZoom = it }
   SwitchRow("Rotary zoom", interactions.rotaryZoom) { interactions.rotaryZoom = it }
   SwitchRow("Double tap", interactions.doubleTap) { interactions.doubleTap = it }

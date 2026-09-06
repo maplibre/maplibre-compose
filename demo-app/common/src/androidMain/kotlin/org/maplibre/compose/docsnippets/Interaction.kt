@@ -16,7 +16,6 @@ import org.maplibre.compose.map.MapInteractions
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.ModifierMatch.Containing
-import org.maplibre.compose.map.ScrollKind
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.map.withCameraInput
 import org.maplibre.compose.util.ClickResult
@@ -50,8 +49,7 @@ fun Interaction() {
           scroll {
             mappings {
               on(modifiers = Containing(KeyModifier.Ctrl)) { zoom() }
-              on(kind = ScrollKind.Continuous) { pan() }
-              otherwise { zoom() }
+              otherwise { pan() }
             }
           }
         }

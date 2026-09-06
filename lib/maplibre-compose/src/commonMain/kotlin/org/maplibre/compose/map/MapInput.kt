@@ -367,7 +367,6 @@ private class MapScrollGesture(
     val response: ScrollResponse,
     val membership: LifecycleMembership,
     val session: GestureInputSession,
-    val kind: ScrollKind,
     var sample: GesturePointerSample,
   ) {
     val token
@@ -396,22 +395,20 @@ private class MapScrollGesture(
     }
     if (
       previous != null &&
-        (!previous.token.acceptsCommands ||
-          previous.sample.modifierKeys != sample.modifierKeys ||
-          previous.sample.buttons != sample.buttons)
+        (!previous.token.acceptsCommands || previous.sample.buttons != sample.buttons)
     ) {
       cancel(
         if (previous.token.acceptsCommands) GestureCancellationReason.BindingChanged
         else GestureCancellationReason.CameraTakeover
       )
     }
-    val kind = burst?.kind ?: normalized.kind
     val selected =
-      options.bindings.scroll.select(sample, kind, options.camera)?.takeUnless {
+      options.bindings.scroll.select(sample, options.camera)?.takeUnless {
         it == ScrollResponse.None
-      } ?: return
+      }
     if (burst != null && burst?.response != selected)
       cancel(GestureCancellationReason.BindingChanged)
+    if (selected == null) return
     target.observeInput()
     val current =
       burst
@@ -431,13 +428,12 @@ private class MapScrollGesture(
               selected,
               subscriptions.scroll.capture(),
               session,
-              kind,
               sample.copy(gestureId = ids.next()),
             )
             .also {
               burst = it
               it.membership.observe(
-                ScrollEvent.Start(it.sample, it.sample.screenOffset, kind),
+                ScrollEvent.Start(it.sample, it.sample.screenOffset),
                 currentOptions().bindings.scroll.handlers,
               )
             }
@@ -450,7 +446,7 @@ private class MapScrollGesture(
     current.displacement += Offset(normalized.panDelta.x.value, normalized.panDelta.y.value)
     current.velocity.addPosition(sample.uptimeMillis, current.displacement)
     current.membership.observe(
-      ScrollEvent.Delta(current.sample, normalized.panDelta, normalized.zoomNotches, kind),
+      ScrollEvent.Delta(current.sample, normalized.panDelta, normalized.zoomNotches),
       currentOptions().bindings.scroll.handlers,
     )
     if (!current.token.acceptsCommands) {
@@ -488,7 +484,6 @@ private class MapScrollGesture(
             ScrollEvent.End(
               current.sample,
               ScreenVelocity(velocity.x.toDouble(), velocity.y.toDouble()),
-              kind,
             ),
             currentOptions().bindings.scroll.handlers,
           )
@@ -505,7 +500,7 @@ private class MapScrollGesture(
     burst = null
     try {
       previous.membership.observe(
-        ScrollEvent.Cancel(previous.sample, reason, previous.kind),
+        ScrollEvent.Cancel(previous.sample, reason),
         currentOptions().bindings.scroll.handlers,
       )
     } finally {

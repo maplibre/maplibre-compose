@@ -16,7 +16,7 @@ class ScrollInputTest {
         Case(ScrollUnits.BrowserPixel, -3.0, 6.0, -0.06),
         Case(ScrollUnits.BrowserLine, -100.0, 200.0, -2.0),
         Case(ScrollUnits.BrowserPage, -900.0, 1200.0, -6.0),
-        Case(ScrollUnits.MacRotation, -15.0, 30.0, -6.0),
+        Case(ScrollUnits.MacRotation, -30.0, 60.0, -6.0),
         Case(ScrollUnits.Rotation, -120.0, 240.0, -6.0),
         Case(ScrollUnits.IosIndirect, -150.0, 300.0, -3.0),
       )
@@ -30,8 +30,9 @@ class ScrollInputTest {
   }
 
   @Test
-  fun browser_pixel_and_line_units_are_independent_of_display_density() {
-    for (units in listOf(ScrollUnits.BrowserPixel, ScrollUnits.BrowserLine)) {
+  fun logical_scroll_units_are_independent_of_display_density() {
+    for (units in
+      listOf(ScrollUnits.BrowserPixel, ScrollUnits.BrowserLine, ScrollUnits.MacRotation)) {
       val normal = normalizeScroll(Offset(0f, 100f), units, Density(1f), IntSize(600, 400))
       val highDensity = normalizeScroll(Offset(0f, 100f), units, Density(2.5f), IntSize(600, 400))
       assertEquals(normal, highDensity)
@@ -44,42 +45,6 @@ class ScrollInputTest {
     assertEquals(3.0, normalize(Offset(3f, -2f)).zoomComponent)
     assertEquals(-3.0, normalize(Offset(3f, -3f)).zoomComponent)
     assertEquals(-4.0, normalize(Offset(3f, -4f)).zoomComponent)
-  }
-
-  @Test
-  fun browser_pixel_classification_uses_raw_chromium_increments() {
-    for (value in listOf(100f, -200f, 4.000244140625f, -12.000732421875f)) {
-      assertEquals(ScrollKind.Discrete, normalize(Offset(0f, value), ScrollUnits.BrowserPixel).kind)
-    }
-    for (value in listOf(1f, 12f, 99f, 0.000001f)) {
-      assertEquals(
-        ScrollKind.Continuous,
-        normalize(Offset(0f, value), ScrollUnits.BrowserPixel).kind,
-      )
-    }
-    assertEquals(
-      ScrollKind.Continuous,
-      normalize(Offset(100f, 100f), ScrollUnits.BrowserPixel).kind,
-    )
-  }
-
-  @Test
-  fun line_and_page_events_are_discrete_even_with_two_axes() {
-    for (units in listOf(ScrollUnits.BrowserLine, ScrollUnits.BrowserPage)) {
-      assertEquals(ScrollKind.Discrete, normalize(Offset(0.5f, 0.5f), units).kind)
-    }
-  }
-
-  @Test
-  fun native_rotation_units_use_fractional_and_two_axis_heuristics() {
-    for (units in listOf(ScrollUnits.Rotation, ScrollUnits.MacRotation)) {
-      assertEquals(ScrollKind.Discrete, normalize(Offset(0f, -2f), units).kind)
-      assertEquals(ScrollKind.Discrete, normalize(Offset(0f, 2.0005f), units).kind)
-      assertEquals(ScrollKind.Continuous, normalize(Offset(0f, 2.002f), units).kind)
-      assertEquals(ScrollKind.Continuous, normalize(Offset(0.5f, 0f), units).kind)
-      assertEquals(ScrollKind.Continuous, normalize(Offset(1f, 1f), units).kind)
-    }
-    assertEquals(ScrollKind.Continuous, normalize(Offset(0f, 1f), ScrollUnits.IosIndirect).kind)
   }
 
   @Test
