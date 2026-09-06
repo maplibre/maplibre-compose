@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 
 FULL_LABEL = "ci:full"
@@ -36,3 +37,33 @@ def plan(event_name: str, event: dict) -> dict:
     if tier == "draft":
         expected["ios"] = "skipped"
     return {"tier": tier, "desktop": {"include": desktop}, "expected": expected}
+
+
+def main() -> None:
+    selection = plan(
+        os.environ["GITHUB_EVENT_NAME"],
+        json.loads(pathlib.Path(os.environ["GITHUB_EVENT_PATH"]).read_text()),
+    )
+    with pathlib.Path(os.environ["GITHUB_OUTPUT"]).open("a") as output:
+        for key, value in selection.items():
+            encoded = (
+                value
+                if isinstance(value, str)
+                else json.dumps(value, separators=(",", ":"))
+            )
+            print(f"{key}={encoded}", file=output)
+    with pathlib.Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as summary:
+        print(f"CI tier: **{selection['tier']}**", file=summary)
+        print(
+            "\nDesktop runners: "
+            + ", ".join(row["runner"] for row in selection["desktop"]["include"]),
+            file=summary,
+        )
+        print(
+            "\nAdd `ci:full` to a pull request to run every platform, including on drafts.",
+            file=summary,
+        )
+
+
+if __name__ == "__main__":
+    main()

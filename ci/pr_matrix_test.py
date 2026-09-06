@@ -6,6 +6,7 @@ import json
 import os
 import pathlib
 import subprocess
+import tempfile
 import textwrap
 import unittest
 
@@ -129,6 +130,38 @@ class PlanTest(unittest.TestCase):
         ]:
             with self.assertRaises(KeyError):
                 plan("pull_request", event)
+
+
+class PlanCommandTest(unittest.TestCase):
+    def test_task_runs_outside_checkout_without_mise_environment(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            event = root / "event.json"
+            output = root / "output"
+            summary = root / "summary"
+            event.write_text(json.dumps(pr_event(draft=True)))
+            subprocess.run(
+                ["bash", str(ROOT / ".mise/tasks/ci/plan")],
+                cwd=root,
+                env={
+                    "PATH": os.environ["PATH"],
+                    "GITHUB_EVENT_NAME": "pull_request",
+                    "GITHUB_EVENT_PATH": str(event),
+                    "GITHUB_OUTPUT": str(output),
+                    "GITHUB_STEP_SUMMARY": str(summary),
+                },
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            values = dict(
+                line.split("=", 1) for line in output.read_text().splitlines()
+            )
+            self.assertEqual(values["tier"], "draft")
+            desktop = json.loads(values["desktop"])["include"]
+            self.assertEqual([row["runner"] for row in desktop], ["ubuntu-24.04"])
+            self.assertEqual(json.loads(values["expected"])["ios"], "skipped")
+            self.assertIn("CI tier: **draft**", summary.read_text())
 
 
 class WorkflowEventsTest(unittest.TestCase):

@@ -42,10 +42,9 @@ jobs:
           persist-credentials: false
       - id: plan
         # Planning needs only the runner Python standard library.
-        run: python3 .mise/tasks/ci/plan
+        run: bash .mise/tasks/ci/plan
 
   hygiene:
-    needs: plan
     timeout-minutes: 25
     runs-on: ubuntu-24.04
     permissions:
@@ -91,7 +90,6 @@ jobs:
         if: steps.apply-fix.outputs.committed != 'true'
 
   android:
-    needs: plan
     strategy:
       fail-fast: false
       matrix:
@@ -221,7 +219,6 @@ jobs:
             **/build/test-results
 
   ios-device:
-    needs: plan
     timeout-minutes: 45
     runs-on: macos-26
     steps:
@@ -234,7 +231,6 @@ jobs:
       - run: mise run build:ios:device
 
   js:
-    needs: plan
     timeout-minutes: 20
     runs-on: ubuntu-24.04
     steps:
@@ -315,7 +311,6 @@ jobs:
             "demo-app/desktop/build/compose/binaries/main/${{ matrix.artifact_type }}/${{ matrix.artifact_glob }}"
 
   docs:
-    needs: plan
     timeout-minutes: 30
     runs-on: ubuntu-24.04
     environment:
