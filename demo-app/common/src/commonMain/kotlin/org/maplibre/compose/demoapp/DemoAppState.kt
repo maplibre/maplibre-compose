@@ -1,6 +1,7 @@
 package org.maplibre.compose.demoapp
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -14,6 +15,7 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.demoapp.benchmark.BenchmarkScenario
 import org.maplibre.compose.demoapp.benchmark.BenchmarkUiState
 import org.maplibre.compose.demoapp.benchmark.allBenchmarkScenarios
+import org.maplibre.compose.location.rememberLocationState
 import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.map.MapRuntime
 import org.maplibre.compose.map.MapState
@@ -131,6 +133,24 @@ fun rememberDemoAppState(): DemoAppState {
   val mapRuntime = DefaultMapRuntime.instance
   val settings = rememberDemoSettings()
   val location = remember { DemoLocationUi() }
+  val engine = location.engine
+  val locationProvider = engine.rememberLocationProvider()
+  val locationState =
+    rememberLocationState(
+      provider = locationProvider,
+      headingProvider = engine.rememberHeadingProvider(),
+      enabled = location.isFollowing,
+    )
+  DisposableEffect(locationState, locationProvider) {
+    location.locationState = locationState
+    location.backendId = locationProvider.backendId
+    onDispose {
+      if (location.locationState === locationState) {
+        location.locationState = null
+        location.backendId = null
+      }
+    }
+  }
   val mapConfiguration = remember { DemoMapConfiguration() }
   val appliedStyle = mapConfiguration.appliedStyle(settings.mapStyleMode.isDark)
   val mapState =
@@ -139,7 +159,7 @@ fun rememberDemoAppState(): DemoAppState {
       baseStyle = appliedStyle.base,
       initialCameraPosition = StartPosition,
     ) {
-      DemoLocationMapContent(location)
+      DemoLocationMapContent(location, locationState)
       mapConfiguration.selectedDemo?.let { demo -> key(demo) { demo.MapContent() } }
     }
   val frameRateState = remember { FrameRateState() }

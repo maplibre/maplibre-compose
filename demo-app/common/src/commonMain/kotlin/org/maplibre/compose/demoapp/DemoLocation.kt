@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -16,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.demoapp.demos.DefaultLocationEngine
+import org.maplibre.compose.demoapp.demos.LiveTrackingDemo
 import org.maplibre.compose.demoapp.demos.demoLocationEngines
 import org.maplibre.compose.demoapp.design.ButtonRow
 import org.maplibre.compose.demoapp.design.SectionHeader
@@ -28,12 +28,13 @@ import org.maplibre.compose.location.LocationState
 import org.maplibre.compose.location.LocationTrackingEffect
 import org.maplibre.compose.location.LocationTrackingStatus
 import org.maplibre.compose.location.LocationUnavailableReason
-import org.maplibre.compose.location.rememberLocationState
 import org.maplibre.compose.location.rememberSystemSettingsLauncher
 import org.maplibre.compose.location.updateCamera
 import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.material3.LocationPuckDefaults
 import org.maplibre.compose.util.MaplibreComposable
+import org.maplibre.spatialk.units.Bearing
+import org.maplibre.spatialk.units.extensions.inDegrees
 
 /** Camera follow on the location button: off, lock to the puck, or lock bearing as well. */
 internal enum class DemoFollowMode {
@@ -63,36 +64,22 @@ internal class DemoLocationUi {
         DemoFollowMode.Location -> DemoFollowMode.Heading
         DemoFollowMode.Heading -> DemoFollowMode.Off
       }
-    if (isFollowing) locationState?.requestPermission()
+    if (isFollowing) {
+      locationState?.requestPermission()
+      LiveTrackingDemo.followVehicle = false
+    }
   }
 }
 
 /**
- * The location puck and camera follow on the shared map. Permission is requested when the user
- * turns follow on, not when the map first composes.
+ * The location puck and camera follow on the shared map. [locationState] is remembered outside the
+ * style-tied map content so a style reload keeps the last fix. Permission is requested when the
+ * user turns follow on, not when the map first composes.
  */
 @MaplibreComposable
 @Composable
-internal fun DemoLocationMapContent(location: DemoLocationUi) {
+internal fun DemoLocationMapContent(location: DemoLocationUi, locationState: LocationState) {
   val mapState = checkNotNull(LocalMapState.current)
-  val engine = location.engine
-  val locationProvider = engine.rememberLocationProvider()
-  val locationState =
-    rememberLocationState(
-      provider = locationProvider,
-      headingProvider = engine.rememberHeadingProvider(),
-      enabled = location.isFollowing,
-    )
-  DisposableEffect(locationState, locationProvider) {
-    location.locationState = locationState
-    location.backendId = locationProvider.backendId
-    onDispose {
-      if (location.locationState === locationState) {
-        location.locationState = null
-        location.backendId = null
-      }
-    }
-  }
 
   LaunchedEffect(mapState) {
     var previous = mapState.cameraMoveReason
@@ -113,8 +100,18 @@ internal fun DemoLocationMapContent(location: DemoLocationUi) {
         DemoFollowMode.Heading -> BearingUpdate.TRACK_AUTOMATIC
       }
     if (previousLocation == null) {
+      val followBearing =
+        if (bearingUpdate == BearingUpdate.IGNORE) mapState.cameraPosition.bearing
+        else
+          currentHeading?.bearing?.let { (it - Bearing.North).inDegrees }
+            ?: currentLocation.course?.let { (it - Bearing.North).inDegrees }
+            ?: mapState.cameraPosition.bearing
       mapState.animateCameraPosition(
-        CameraPosition(target = currentLocation.position, zoom = 16.0),
+        CameraPosition(
+          target = currentLocation.position,
+          zoom = 16.0,
+          bearing = followBearing,
+        ),
         duration = DemoFlightDuration,
       )
     } else {
