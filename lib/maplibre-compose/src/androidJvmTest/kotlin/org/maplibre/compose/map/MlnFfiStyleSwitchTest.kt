@@ -14,7 +14,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNotSame
-import kotlin.test.assertTrue
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.Anchor
@@ -22,16 +22,13 @@ import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.mlnffi.FfiTestPlatform
-import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
 import org.maplibre.compose.mlnffi.setFfiTestMapContent
-import org.maplibre.compose.resource.MlnFfiResourceProvider
+import org.maplibre.compose.resource.MapResourceProvider
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.nativeffi.resource.ResourceResponse
-import org.maplibre.nativeffi.resource.ResourceResponseStatus
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Point
@@ -164,24 +161,29 @@ class MlnFfiStyleSwitchTest {
   }
 
   @Test
-  fun a_late_style_load_cannot_receive_content_for_the_latest_style() = runFfiComposeUiTest {
-    // Common tests own request identity and reconciliation order. This test keeps only the native
-    // boundary where a late load can expose an obsolete style to a composed write.
-    val resources = BlockingStyleResources()
-    val options =
-      MlnFfiRuntimeOptions(
-        cacheFile = cacheFile,
-        maximumCacheSizeBytes = null,
-        resourceProviderFactory = { getLogger, config ->
-          MlnFfiResourceProvider(
-            getLogger = getLogger,
-            config = config,
-            read = resources::read,
-            passThroughNetwork = false,
-          )
-        },
+  fun a_stalled_style_is_superseded_before_composing_the_latest_content() = runFfiComposeUiTest {
+    val styleBStarted = TestLatch(1)
+    val styleBCancelled = TestLatch(1)
+    val runtime =
+      createMapRuntime(
+        runtimeOptions.copy(
+          resourceProvider =
+            MapResourceProvider("held") { request ->
+              when (request.url) {
+                B_STYLE_URL -> {
+                  styleBStarted.countDown()
+                  try {
+                    awaitCancellation()
+                  } finally {
+                    styleBCancelled.countDown()
+                  }
+                }
+                C_STYLE_URL -> STYLE_C_JSON.encodeToByteArray()
+                else -> error("Unexpected resource request for ${request.url}")
+              }
+            }
+        )
       )
-    val runtime = createNativeMapRuntime(options)
     var showLatestLayer by mutableStateOf(false)
     val state =
       runtime.createMapState(baseStyle = INITIAL_STYLE) {
@@ -205,24 +207,23 @@ class MlnFfiStyleSwitchTest {
       state.style.baseStyle = BaseStyle.Uri(B_STYLE_URL)
     }
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-      resources.styleBStarted.count == 0L
+      styleBStarted.count == 0L
     }
 
     runOnUiThread {
       showLatestLayer = true
       state.style.baseStyle = BaseStyle.Uri(C_STYLE_URL)
     }
-    resources.releaseStyleB.countDown()
 
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-      state.style.loadState == StyleLoadState.Ready &&
+      styleBCancelled.count == 0L &&
+        state.style.loadState == StyleLoadState.Ready &&
         "user-latest" in session.currentStyleLayerIds()
     }
 
-    val layers = session.currentStyleLayerIds()
-    assertTrue("base-c" in layers, "the latest base style must be loaded")
-    assertTrue("base-b" !in layers, "the superseded base style must not remain loaded")
-    assertTrue("user-latest" in layers, "content for the latest style must be installed")
+    val layers =
+      session.currentStyleLayerIds().filter { it == "user-latest" || it.startsWith("base-") }
+    assertEquals(listOf("user-latest", "base-c"), layers)
     runtime.close()
     runtime.awaitClosed()
   }
@@ -258,38 +259,11 @@ class MlnFfiStyleSwitchTest {
       addFeature(geometry = Point(Position(longitude = longitude, latitude = 0.0)))
     }
 
-  private class BlockingStyleResources {
-    val styleBStarted = TestLatch(1)
-    val releaseStyleB = TestLatch(1)
-
-    fun read(url: String, requestedUrl: String): ResourceResponse {
-      val body =
-        when (url) {
-          B_STYLE_URL -> {
-            styleBStarted.countDown()
-            check(releaseStyleB.await(WAIT_SECONDS * 1_000)) {
-              "style B was not released"
-            }
-            STYLE_B_JSON
-          }
-          C_STYLE_URL -> STYLE_C_JSON
-          else -> error("Unexpected resource request for $url (requested as $requestedUrl)")
-        }
-      return ResourceResponse(ResourceResponseStatus.OK).also {
-        it.bytes = body.encodeToByteArray()
-        it.mustRevalidate = false
-      }
-    }
-  }
-
   private companion object {
     const val SETTLE_TIMEOUT_MILLIS = 30_000L
-    const val WAIT_SECONDS = 10L
-    const val B_STYLE_URL = "https://style-b.test/style.json"
-    const val C_STYLE_URL = "https://style-c.test/style.json"
+    const val B_STYLE_URL = "held://style-b"
+    const val C_STYLE_URL = "held://style-c"
 
-    const val STYLE_B_JSON =
-      """{"version":8,"sources":{},"layers":[{"id":"base-b","type":"background"}]}"""
     const val STYLE_C_JSON =
       """{"version":8,"sources":{},"layers":[{"id":"base-c","type":"background"}]}"""
 
@@ -303,9 +277,6 @@ class MlnFfiStyleSwitchTest {
 
     val RELEVANT_LAYER_IDS =
       setOf(
-        "base-initial",
-        "base-b",
-        "base-c",
         "bg-a",
         "labels-a",
         "bg-b",
