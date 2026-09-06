@@ -67,7 +67,7 @@ public fun ColorReliefLayer(
       set(compiledResampling) { layer.setResampling(it) }
     },
     onClick = null,
-    onLongClick = null,
+    onContextClick = null,
   )
 }
 

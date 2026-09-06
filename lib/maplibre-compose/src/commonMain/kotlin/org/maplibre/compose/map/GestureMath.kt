@@ -9,7 +9,6 @@ import kotlin.math.ln
 import kotlin.math.pow
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
-import org.maplibre.compose.map.Fling as PanContinuation
 
 /** Thresholds and camera equations for [mapInput] pointer gestures. Distances are in dp. */
 internal object GestureMath {
@@ -109,8 +108,9 @@ internal object GestureMath {
   fun fling(
     velocityXDpPerSecond: Double,
     velocityYDpPerSecond: Double,
-    continuation: PanContinuation = PanContinuation(),
+    continuation: PanMomentum = PanMomentum(),
   ): Fling? {
+    if (!continuation.enabled) return null
     val velocity = hypot(velocityXDpPerSecond, velocityYDpPerSecond)
     if (!velocity.isFinite() || velocity == 0.0 || velocity < continuation.minimumSpeed) return null
     val durationMillis =
@@ -153,8 +153,9 @@ internal object GestureMath {
     spanSinceLastPixels: Double,
     density: Double,
     scalingOut: Boolean,
-    continuation: GestureVelocityContinuation = GestureVelocityContinuation(),
+    continuation: VelocityMomentum = VelocityMomentum(),
   ): ScaleVelocity? {
+    if (!continuation.enabled) return null
     val velocity = abs(velocityXPixelsPerSecond) + abs(velocityYPixelsPerSecond)
     if (velocity < MINIMUM_SCALE_VELOCITY_DP_PER_SECOND * density) return null
     if (spanSinceLastPixels / velocity < SCALE_VELOCITY_RATIO_THRESHOLD_DP * density) return null
@@ -181,8 +182,9 @@ internal object GestureMath {
     lastRotationDegrees: Double,
     density: Double,
     scaling: Boolean = false,
-    continuation: GestureVelocityContinuation = GestureVelocityContinuation(),
+    continuation: VelocityMomentum = VelocityMomentum(),
   ): RotationVelocity? {
+    if (!continuation.enabled) return null
     val denominator = focalXPixel * focalXPixel + focalYPixel * focalYPixel
     if (denominator <= 0.0) return null
     var angularVelocity =
@@ -197,6 +199,7 @@ internal object GestureMath {
         MAXIMUM_ANGULAR_VELOCITY,
       )
     if (abs(angularVelocity) < MINIMUM_ANGULAR_VELOCITY_DP * density) return null
+    if (!continuation.enabled) return null
     val velocity = abs(velocityXPixelsPerSecond) + abs(velocityYPixelsPerSecond)
     if (
       scaling &&
@@ -216,10 +219,11 @@ internal object GestureMath {
   /** Integrates a pitch speed that decays linearly to zero over the configured duration. */
   fun tiltVelocity(
     degreesPerSecond: Double,
-    continuation: TiltContinuation = TiltContinuation(),
+    continuation: TiltMomentum = TiltMomentum(),
   ): TiltVelocity? {
     if (
-      !degreesPerSecond.isFinite() ||
+      !continuation.enabled ||
+        !degreesPerSecond.isFinite() ||
         degreesPerSecond == 0.0 ||
         abs(degreesPerSecond) < continuation.minimumSpeed ||
         continuation.duration == Duration.ZERO
@@ -231,7 +235,7 @@ internal object GestureMath {
     )
   }
 
-  private fun GestureVelocityContinuation.duration(unscaledMillis: Double): Duration? {
+  private fun VelocityMomentum.duration(unscaledMillis: Double): Duration? {
     if (!unscaledMillis.isFinite() || durationScale == 0.0) return null
     val duration =
       (unscaledMillis.toLong().milliseconds * durationScale).coerceAtMost(maximumDuration)

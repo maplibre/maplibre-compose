@@ -29,6 +29,7 @@ internal actual fun ComposableMapView(
   logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
   clicks: MapInteractionTarget,
+  subscriptions: InteractionSubscriptions,
   options: MapViewOptions,
 ) {
   val density = LocalDensity.current
@@ -94,13 +95,14 @@ internal actual fun ComposableMapView(
           .mapInput(
             session,
             clicks,
-            options.gestures,
+            options.interactions,
             density,
             focusRequester,
             inputFocus,
             inputEnvironment,
             continuation,
             rotaryNotchPixels,
+            subscriptions = subscriptions,
           ),
       logger = logger,
       presentFrames = session.canPresentFrames,

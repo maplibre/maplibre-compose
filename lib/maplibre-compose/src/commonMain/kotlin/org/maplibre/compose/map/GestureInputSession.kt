@@ -16,6 +16,7 @@ internal class GestureInputSession(
   private val parent: CoroutineScope,
   private val target: GestureTarget,
   val token: GestureToken = target.onGestureStarted(),
+  origin: CameraInputOrigin = CameraInputOrigin.Drag,
   private val onCancelled: () -> Unit = {},
 ) {
   private val work = Job(parent.coroutineContext[Job])
@@ -23,6 +24,7 @@ internal class GestureInputSession(
   private var ending = false
 
   init {
+    token.origin = origin
     token.registerJob(work)
     work.invokeOnCompletion {
       if (work.isCancelled) {

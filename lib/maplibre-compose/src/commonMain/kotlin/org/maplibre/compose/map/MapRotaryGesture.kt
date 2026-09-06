@@ -10,14 +10,16 @@ import kotlinx.coroutines.launch
 /** Focused rotary input has its own burst; it does not resume a pointer's continuation. */
 internal class MapRotaryGesture(
   private val target: GestureTarget,
-  private val binding: () -> RotaryZoomBinding,
+  private val binding: () -> RotaryBinding,
   private val ids: GestureIds,
   private val notchPixels: Float,
   private val scope: CoroutineScope,
   private val continuation: GestureContinuation,
+  private val subscription: SubscriptionSlot,
 ) {
   private var session: GestureInputSession? = null
   private var gestureId = 0L
+  private var admittedCallback: Any? = null
   private var finishJob: Job? = null
 
   fun onEvent(event: RotaryScrollEvent): Boolean =
@@ -47,24 +49,29 @@ internal class MapRotaryGesture(
           cancel()
           continuation.finish(target::cancelGesture)
           gestureId = ids.next()
+          admittedCallback = subscription.capture()
           lateinit var created: GestureInputSession
-          created = GestureInputSession(scope, target) { if (session === created) cancel() }
+          created =
+            GestureInputSession(scope, target, origin = CameraInputOrigin.Rotary) {
+              if (session === created) cancel()
+            }
           created.also { session = it }
         }
     try {
-      selected.onEvent?.invoke(
-        RotaryGestureEvent(
-          gestureId,
-          uptimeMillis,
-          verticalScrollPixels,
-          horizontalScrollPixels,
+      if (subscription.contains(admittedCallback))
+        selected.onEvent?.invoke(
+          RotaryGestureEvent(
+            gestureId,
+            uptimeMillis,
+            verticalScrollPixels,
+            horizontalScrollPixels,
+          )
         )
-      )
       if (!current.token.acceptsCommands) {
         cancel()
         return true
       }
-      target.scaleBy(scale, null, gestureToken = current.token)
+      target.inputScaleBy(scale, null, gestureToken = current.token)
       finishJob?.cancel()
       finishJob =
         current.scope.launch {

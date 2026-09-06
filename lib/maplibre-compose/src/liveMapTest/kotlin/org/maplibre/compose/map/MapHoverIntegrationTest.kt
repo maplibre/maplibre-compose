@@ -67,12 +67,14 @@ class MapHoverIntegrationTest {
             mutableStateOf<DesiredStyleRevision?>(
               DesiredStyleRevision(emptyList(), listOf(node), emptyList())
             )
+          val subscriptions = InteractionSubscriptions(MapInteractions.Standard)
           val dispatcher =
             MapInteractionDispatcher(
               fixture.state,
               mutableStateOf<State<DesiredStyleRevision?>>(revision),
               mutableStateOf(style),
-              mutableStateOf(MapGestures.Standard),
+              mutableStateOf(MapInteractions.Standard),
+              subscriptions,
             )
           val work = Job(coroutineContext[Job])
           val scope = CoroutineScope(coroutineContext + work)
@@ -81,9 +83,10 @@ class MapHoverIntegrationTest {
               scope,
               fixture.gestures,
               dispatcher,
-              { MapGestures.Standard },
+              { MapInteractions.Standard },
               GestureIds(),
               Density(1f),
+              subscriptions,
               { delay(16) },
             )
           try {

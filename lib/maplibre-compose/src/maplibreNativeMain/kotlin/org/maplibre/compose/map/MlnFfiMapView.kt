@@ -46,6 +46,7 @@ internal fun MlnFfiMapView(
   logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
   clicks: MapInteractionTarget,
+  subscriptions: InteractionSubscriptions,
   options: MapViewOptions,
 ) {
   val density = LocalDensity.current
@@ -75,6 +76,7 @@ internal fun MlnFfiMapView(
     logger = logger,
     callbacks = callbacks,
     clicks = clicks,
+    subscriptions = subscriptions,
     options = options,
   )
 }
@@ -92,6 +94,7 @@ internal fun MlnFfiMapView(
   logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
   clicks: MapInteractionTarget,
+  subscriptions: InteractionSubscriptions,
   options: MapViewOptions,
 ) {
   val applicationOptions = state.runtime.nativeRuntimeOptions
@@ -182,13 +185,14 @@ internal fun MlnFfiMapView(
     modifier.mapInput(
       session,
       clicks,
-      options.gestures,
+      options.interactions,
       density,
       focusRequester,
       inputFocus,
       inputEnvironment,
       continuation,
       rotaryNotchPixels,
+      subscriptions = subscriptions,
     )
 
   // The indication draws over the surface and the load placeholder alike.

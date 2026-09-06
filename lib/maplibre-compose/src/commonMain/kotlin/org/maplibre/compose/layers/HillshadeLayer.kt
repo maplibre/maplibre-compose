@@ -113,7 +113,7 @@ public fun HillshadeLayer(
       set(accentColorTransition) { layer.setHillshadeAccentColorTransition(it) }
     },
     onClick = null,
-    onLongClick = null,
+    onContextClick = null,
   )
 }
 

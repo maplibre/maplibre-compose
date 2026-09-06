@@ -168,7 +168,7 @@ class MapHoverGestureTest {
     val events = fixture.layer()
     fixture.hover.move(sample(10))
     frame(fixture)
-    fixture.options = MapGestures { hover { enabled = false } }
+    fixture.options = MapInteractions { bindings { hover { enabled = false } } }
     applyChanges()
     fixture.hover.move(sample(20))
     runCurrent()
@@ -179,11 +179,13 @@ class MapHoverGestureTest {
   @Test
   fun exiting_from_a_map_callback_cannot_enter_layers() = hoverTest { fixture ->
     val events = mutableListOf<HoverEvent>()
-    fixture.options = MapGestures {
-      hover {
-        onEvent {
-          events += it
-          if (it is HoverEvent.Enter) fixture.hover.exit()
+    fixture.options = MapInteractions {
+      callbacks {
+        hover {
+          onEvent {
+            events += it
+            if (it is HoverEvent.Enter) fixture.hover.exit()
+          }
         }
       }
     }
@@ -199,7 +201,9 @@ class MapHoverGestureTest {
   fun one_throwing_exit_still_balances_the_other_observers() = hoverTest { fixture ->
     var mapExits = 0
     val failure = IllegalStateException("exit")
-    fixture.options = MapGestures { hover { onEvent { if (it is HoverEvent.Exit) throw failure } } }
+    fixture.options = MapInteractions {
+      callbacks { hover { onEvent { if (it is HoverEvent.Exit) throw failure } } }
+    }
     fixture.source.layers =
       listOf(HoverLayer("layer", Any()) { if (it is HoverEvent.Exit) mapExits++ })
     fixture.hover.move(sample(10))
@@ -207,6 +211,42 @@ class MapHoverGestureTest {
     assertEquals(failure, assertFailsWith<IllegalStateException> { fixture.hover.exit() })
     fixture.hover.exit()
     assertEquals(1, mapExits)
+  }
+
+  @Test
+  fun map_callback_replacement_and_resubscription_balance_the_stationary_hover() =
+    hoverTest { fixture ->
+      val old = mutableListOf<HoverEvent>()
+      val replacement = mutableListOf<HoverEvent>()
+      val added = mutableListOf<HoverEvent>()
+      fixture.onHover = { old += it }
+      fixture.hover.move(sample(10))
+      applyChanges()
+      fixture.onHover = { replacement += it }
+      applyChanges()
+      fixture.onHover = null
+      applyChanges()
+      fixture.onHover = { added += it }
+      applyChanges()
+      assertTrue(old.first() is HoverEvent.Enter)
+      assertTrue(old.none { it is HoverEvent.Exit })
+      assertTrue(replacement.none { it is HoverEvent.Enter })
+      assertEquals(1, replacement.count { it is HoverEvent.Exit })
+      assertTrue(added.single() is HoverEvent.Enter)
+    }
+
+  @Test
+  fun map_hover_remove_and_readd_between_samples_exits_and_reenters() = hoverTest { fixture ->
+    val events = mutableListOf<HoverEvent>()
+    val handler: (HoverEvent) -> Unit = { events += it }
+    fixture.onHover = handler
+    fixture.hover.move(sample(10))
+    applyChanges()
+    events.clear()
+    fixture.onHover = null
+    fixture.onHover = handler
+    applyChanges()
+    assertEquals(listOf("exit", "enter"), events.map(::kind))
   }
 
   private fun hoverTest(body: suspend TestScope.(Fixture) -> Unit) = runTest {
@@ -233,11 +273,19 @@ class MapHoverGestureTest {
   private class Fixture(scope: CoroutineScope) {
     val source = Source()
     val frames = Channel<Unit>(Channel.RENDEZVOUS)
-    var options by mutableStateOf(MapGestures.Standard)
-    var onHover: ((HoverEvent) -> Unit)?
-      get() = options.binding("hover").handlers.hover
+    private var configuredOptions by mutableStateOf(MapInteractions.Standard)
+    val subscriptions = InteractionSubscriptions(MapInteractions.Standard)
+    var options: MapInteractions
+      get() = configuredOptions
       set(value) {
-        options = MapGestures(from = options) { hover { onEvent(value) } }
+        subscriptions.update(value)
+        configuredOptions = value
+      }
+
+    var onHover: ((HoverEvent) -> Unit)?
+      get() = options.callbacks.hover
+      set(value) {
+        options = MapInteractions(from = options) { callbacks { hover { onEvent(value) } } }
       }
 
     val hover =
@@ -248,6 +296,7 @@ class MapHoverGestureTest {
         { options },
         GestureIds(),
         Density(1f),
+        subscriptions,
         { frames.receive() },
       )
 

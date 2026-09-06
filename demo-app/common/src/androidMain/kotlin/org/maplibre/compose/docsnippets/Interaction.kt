@@ -10,33 +10,56 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-import org.maplibre.compose.map.MapGestures
+import org.maplibre.compose.map.KeyModifier
+import org.maplibre.compose.map.MapInteractions
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
+import org.maplibre.compose.map.ModifierMatch.Containing
+import org.maplibre.compose.map.ScrollKind
 import org.maplibre.compose.map.rememberMapState
+import org.maplibre.compose.map.withCameraInput
 import org.maplibre.compose.util.ClickResult
 import org.maplibre.spatialk.geojson.toJson
 
 @Composable
 fun Interaction() {
-  // #region common-gestures
-  MaplibreMap(gestures = MapGestures.Standard)
-  // #endregion common-gestures
+  // #region common-interactions
+  MaplibreMap(interactions = MapInteractions.Standard)
+  // #endregion common-interactions
 
-  // #region gesture-settings
+  // #region interaction-settings
   MaplibreMap(
-    gestures =
-      MapGestures {
-        twoFingerTilt { enabled = false }
-        pinchZoom { startSpanSlop = 10.dp }
-        dragPan { continuation = null }
+    interactions =
+      MapInteractions {
+        camera {
+          tilt { enabled = false }
+          pan { momentum { enabled = false } }
+        }
+        bindings { transform { zoom { startSpanSlop = 10.dp } } }
       }
   )
-  // #endregion gesture-settings
+  // #endregion interaction-settings
+
+  // #region scroll-mappings
+  MaplibreMap(
+    interactions =
+      MapInteractions {
+        bindings {
+          scroll {
+            mappings {
+              on(modifiers = Containing(KeyModifier.Ctrl)) { zoom() }
+              on(kind = ScrollKind.Continuous) { pan() }
+              otherwise { zoom() }
+            }
+          }
+        }
+      }
+  )
+  // #endregion scroll-mappings
 
   // #region pan-observer
   var following by remember { mutableStateOf(true) }
-  MaplibreMap(gestures = MapGestures { dragPan { onStart { following = false } } })
+  MaplibreMap(interactions = MapInteractions { camera { pan { onStart { following = false } } } })
   // #endregion pan-observer
 
   val mapState = rememberMapState()
@@ -45,21 +68,23 @@ fun Interaction() {
   val scope = rememberCoroutineScope()
   MaplibreMap(
     state = mapState,
-    gestures =
-      MapGestures {
-        tap {
-          onEvent { event ->
-            scope.launch {
-              val features = mapState.queryRenderedFeatures(event.screenOffset)
-              if (features.isNotEmpty()) println("Clicked on ${features[0].toJson()}")
+    interactions =
+      MapInteractions {
+        callbacks {
+          click {
+            onEvent { event ->
+              scope.launch {
+                val features = mapState.queryRenderedFeatures(event.screenOffset)
+                if (features.isNotEmpty()) println("Clicked on ${features[0].toJson()}")
+              }
+              ClickResult.Consume
             }
-            ClickResult.Consume
           }
-        }
-        longPress {
-          onEvent { event ->
-            println("Long click at ${event.position}")
-            ClickResult.Pass
+          contextClick {
+            onEvent { event ->
+              println("Context action at ${event.position}")
+              ClickResult.Pass
+            }
           }
         }
       },
@@ -67,11 +92,11 @@ fun Interaction() {
   // #endregion click-listeners
 }
 
-// #region gesture-camera
-suspend fun moveWithGesture(mapState: MapState) {
-  mapState.gestureCamera.withGesture {
-    moveBy(deltaX = 40.0, deltaY = 0.0)
+// #region camera-input
+suspend fun moveWithController(mapState: MapState) {
+  mapState.withCameraInput {
+    panBy(deltaX = 40.0, deltaY = 0.0)
     scaleBy(scale = 1.5)
   }
 }
-// #endregion gesture-camera
+// #endregion camera-input

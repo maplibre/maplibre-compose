@@ -18,5 +18,6 @@ internal expect fun ComposableMapView(
   logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
   clicks: MapInteractionTarget,
+  subscriptions: InteractionSubscriptions,
   options: MapViewOptions,
 )

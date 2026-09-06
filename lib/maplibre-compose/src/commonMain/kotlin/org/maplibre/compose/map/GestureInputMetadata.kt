@@ -51,57 +51,55 @@ internal fun PointerEvent.gestureSample(
   )
 }
 
-internal fun GestureBinding.matches(sample: GesturePointerSample, contact: Boolean): Boolean =
-  enabled &&
-    filters.any {
-      it.matches(sample.pointerTypes, sample.buttons, sample.modifierKeys, contact)
-    }
+internal fun GestureAnchor.location(sample: GesturePointerSample): DpOffset? =
+  sample.screenOffset.takeIf { this == GestureAnchor.Input }
 
-internal fun GestureBinding.anchor(sample: GesturePointerSample): DpOffset? =
-  sample.screenOffset.takeIf { settings.anchor == GestureAnchor.Input }
-
-internal fun GestureBindingHandlers.observe(event: ScrollEvent) {
+/** Delivers only to the subscriptions admitted when this lifecycle began. */
+internal fun LifecycleMembership.observe(event: DragEvent, current: DragHandlers) {
   when (event) {
-    is ScrollEvent.Start -> scrollStart?.invoke(event)
-    is ScrollEvent.Delta -> scrollDelta?.invoke(event)
-    is ScrollEvent.End -> scrollEnd?.invoke(event)
-    is ScrollEvent.Cancel -> scrollCancel?.invoke(event)
+    is DragEvent.Start -> if (hasStart) current.onStart?.invoke(event)
+    is DragEvent.Delta -> if (hasDelta) current.onDelta?.invoke(event)
+    is DragEvent.End -> if (hasEnd) current.onEnd?.invoke(event)
+    is DragEvent.Cancel -> if (hasCancel) current.onCancel?.invoke(event)
   }
 }
 
-internal fun GestureBindingHandlers.observe(event: DragEvent) {
-  dragEvent?.invoke(event)
+/** Delivers only to the subscriptions admitted when this lifecycle began. */
+internal fun LifecycleMembership.observe(event: PinchEvent, current: ZoomHandlers) {
   when (event) {
-    is DragEvent.Start -> dragStart?.invoke(event)
-    is DragEvent.Delta -> dragDelta?.invoke(event)
-    is DragEvent.End -> dragEnd?.invoke(event)
-    is DragEvent.Cancel -> dragCancel?.invoke(event)
+    is PinchEvent.Start -> if (hasStart) current.onStart?.invoke(event)
+    is PinchEvent.Delta -> if (hasDelta) current.onDelta?.invoke(event)
+    is PinchEvent.End -> if (hasEnd) current.onEnd?.invoke(event)
+    is PinchEvent.Cancel -> if (hasCancel) current.onCancel?.invoke(event)
   }
 }
 
-internal fun GestureBindingHandlers.observe(event: PinchEvent) {
+/** Delivers only to the subscriptions admitted when this lifecycle began. */
+internal fun LifecycleMembership.observe(event: RotateEvent, current: RotateHandlers) {
   when (event) {
-    is PinchEvent.Start -> pinchStart?.invoke(event)
-    is PinchEvent.Delta -> pinchDelta?.invoke(event)
-    is PinchEvent.End -> pinchEnd?.invoke(event)
-    is PinchEvent.Cancel -> pinchCancel?.invoke(event)
+    is RotateEvent.Start -> if (hasStart) current.onStart?.invoke(event)
+    is RotateEvent.Delta -> if (hasDelta) current.onDelta?.invoke(event)
+    is RotateEvent.End -> if (hasEnd) current.onEnd?.invoke(event)
+    is RotateEvent.Cancel -> if (hasCancel) current.onCancel?.invoke(event)
   }
 }
 
-internal fun GestureBindingHandlers.observe(event: RotateEvent) {
+/** Delivers only to the subscriptions admitted when this lifecycle began. */
+internal fun LifecycleMembership.observe(event: ShoveEvent, current: TiltHandlers) {
   when (event) {
-    is RotateEvent.Start -> rotateStart?.invoke(event)
-    is RotateEvent.Delta -> rotateDelta?.invoke(event)
-    is RotateEvent.End -> rotateEnd?.invoke(event)
-    is RotateEvent.Cancel -> rotateCancel?.invoke(event)
+    is ShoveEvent.Start -> if (hasStart) current.onStart?.invoke(event)
+    is ShoveEvent.Delta -> if (hasDelta) current.onDelta?.invoke(event)
+    is ShoveEvent.End -> if (hasEnd) current.onEnd?.invoke(event)
+    is ShoveEvent.Cancel -> if (hasCancel) current.onCancel?.invoke(event)
   }
 }
 
-internal fun GestureBindingHandlers.observe(event: ShoveEvent) {
+/** Delivers only to the subscriptions admitted when this lifecycle began. */
+internal fun LifecycleMembership.observe(event: ScrollEvent, current: ScrollHandlers) {
   when (event) {
-    is ShoveEvent.Start -> shoveStart?.invoke(event)
-    is ShoveEvent.Delta -> shoveDelta?.invoke(event)
-    is ShoveEvent.End -> shoveEnd?.invoke(event)
-    is ShoveEvent.Cancel -> shoveCancel?.invoke(event)
+    is ScrollEvent.Start -> if (hasStart) current.onStart?.invoke(event)
+    is ScrollEvent.Delta -> if (hasDelta) current.onDelta?.invoke(event)
+    is ScrollEvent.End -> if (hasEnd) current.onEnd?.invoke(event)
+    is ScrollEvent.Cancel -> if (hasCancel) current.onCancel?.invoke(event)
   }
 }

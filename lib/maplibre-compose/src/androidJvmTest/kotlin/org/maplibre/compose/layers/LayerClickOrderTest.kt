@@ -101,7 +101,7 @@ class LayerClickOrderTest {
       waitForIdle()
 
       assertEquals(listOf(FRONT), longClicked)
-      assertEquals(emptyList<String>(), clicked, "the long click also reported a click")
+      assertEquals(emptyList<String>(), clicked, "the context click also reported a click")
     }
 
   @Test
@@ -149,7 +149,7 @@ class LayerClickOrderTest {
                 clicked += FRONT
                 frontResult
               },
-              onLongClick = {
+              onContextClick = {
                 longClicked += FRONT
                 frontResult
               },
@@ -164,7 +164,7 @@ class LayerClickOrderTest {
                 clicked += BACK
                 ClickResult.Consume
               },
-              onLongClick = {
+              onContextClick = {
                 longClicked += BACK
                 ClickResult.Consume
               },

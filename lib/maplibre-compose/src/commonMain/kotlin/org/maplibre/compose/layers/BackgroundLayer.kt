@@ -69,7 +69,7 @@ public fun BackgroundLayer(
       set(opacityTransition) { layer.setBackgroundOpacityTransition(it) }
     },
     onClick = null,
-    onLongClick = null,
+    onContextClick = null,
   )
 }
 

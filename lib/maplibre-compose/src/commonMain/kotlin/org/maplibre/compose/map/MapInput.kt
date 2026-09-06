@@ -3,41 +3,26 @@ package org.maplibre.compose.map
 import androidx.compose.foundation.Indication
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.interaction.FocusInteraction
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.isAltPressed
-import androidx.compose.ui.input.key.isCtrlPressed
-import androidx.compose.ui.input.key.isMetaPressed
-import androidx.compose.ui.input.key.isShiftPressed
-import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.PointerType
-import androidx.compose.ui.input.pointer.isCtrlPressed
 import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
@@ -82,13 +67,14 @@ import org.maplibre.compose.style.systemAnimatorDurationScale
 internal fun Modifier.mapInput(
   target: GestureTarget,
   clicks: MapInteractionTarget,
-  options: MapGestures,
+  options: MapInteractions,
   density: Density,
   focusRequester: FocusRequester,
   focus: MapInputFocus,
   environment: MapInputEnvironment,
   continuation: GestureContinuation,
   rotaryNotchPixels: Float,
+  subscriptions: InteractionSubscriptions,
 ): Modifier {
   // The semantics block observes no snapshot state, so engagement is read here.
   val engaged = focus.isEngaged
@@ -102,30 +88,60 @@ internal fun Modifier.mapInput(
     remember(target, options.structuralKey, rotaryNotchPixels, continuation) {
       MapRotaryGesture(
         target,
-        { currentOptions.value.keyBindings.rotary },
+        {
+          currentOptions.value.let { latest ->
+            latest.bindings.rotary.copy(
+              enabled = latest.bindings.rotary.enabled && latest.camera.zoom.enabled
+            )
+          }
+        },
         ids,
         rotaryNotchPixels,
         inputScope,
         continuation,
+        subscriptions.rotary,
       )
     }
   DisposableEffect(rotaryInput) { onDispose { rotaryInput.cancel() } }
+  val keyInput =
+    remember(target, focus, continuation) {
+      MapKeyInput(
+        target,
+        { currentOptions.value },
+        focus,
+        continuation,
+        ids,
+        inputScope,
+        subscriptions.keys,
+      )
+    }
+  DisposableEffect(keyInput) { onDispose { keyInput.cancel() } }
+  SideEffect {
+    subscriptions.update(options)
+    keyInput.configure(options.structuralKey)
+  }
+
   SideEffect { continuation.configure(options.structuralKey, target) }
   val keys = options.hasKeyboardGesture
   val rotary =
-    options.keyBindings.rotary.enabled && rotaryNotchPixels > 0f && rotaryNotchPixels.isFinite()
-  focus.configure(options.structuralKey)
+    options.bindings.rotary.enabled &&
+      options.camera.zoom.enabled &&
+      rotaryNotchPixels > 0f &&
+      rotaryNotchPixels.isFinite()
   focus.hasKeyBindings = keys
   return this.semantics {
       contentDescription = environment.contentDescription
       stateDescription = if (engaged) environment.engaged else environment.notEngaged
     }
     // Key and rotary events reach the focused node, so these precede the focus target in the chain.
-    .keyboardInput(target, options, focus, continuation, ids)
+    .onKeyEvent(keyInput::onEvent)
     .onRotaryScrollEvent(rotaryInput::onEvent)
     .onFocusChanged {
       focus.onFocusChanged(it.isFocused)
-      if (!it.isFocused) rotaryInput.cancel()
+      if (!it.isFocused) {
+        rotaryInput.cancel()
+        keyInput.cancel()
+      }
     }
     .focusRequester(focusRequester)
     .focusable(enabled = keys || rotary || focus.claimedKeys.isNotEmpty())
@@ -143,11 +159,12 @@ internal fun Modifier.mapInput(
       ids,
       boxZoom,
       platformRouting,
+      subscriptions,
     )
 }
 
-private val MapGestures.hasKeyboardGesture: Boolean
-  get() = keyBindings.hasCameraBindings
+private val MapInteractions.hasKeyboardGesture: Boolean
+  get() = bindings.keys.hasCameraBindings(camera)
 
 /** The composition locals that one [mapInput] node reads, resolved where the node is composed. */
 internal class MapInputEnvironment(
@@ -166,163 +183,11 @@ internal fun mapInputEnvironment(): MapInputEnvironment =
     indication = LocalIndication.current,
   )
 
-/**
- * The focus and engagement of one [mapInput] node. The node writes both states, and [onChanged]
- * reports each engagement write.
- *
- * A focused node holds Compose focus. An engaged node consumes the keys that pan, zoom, rotate, and
- * tilt. A node that is focused and not engaged passes those keys through, so focus traversal
- * continues from the map.
- */
-internal class MapInputFocus(private val onChanged: (engaged: Boolean) -> Unit) {
-  /**
-   * Focus interactions for the indication the node draws. The map reports focus only while it is a
-   * traversal candidate: an engaged map is a mode, and the camera moving under the keys is its
-   * indication.
-   */
-  val indicationInteractions = MutableInteractionSource()
-
-  /** Claimed keys; false retains only consumption until release after configuration changes. */
-  val claimedKeys = mutableStateMapOf<Key, Boolean>()
-  private var structuralKey: Any? = null
-
-  fun configure(key: Any) {
-    if (structuralKey == key) return
-    structuralKey = key
-    claimedKeys.keys.toList().forEach { claimedKeys[it] = false }
-  }
-
-  /** Engagement belongs to the key handler, so a map without one never engages or stays engaged. */
-  var hasKeyBindings = false
-    set(value) {
-      field = value
-      if (!value) disengage()
-    }
-
-  private var isFocused = false
-  private var engagedByKey = false
-  private var shownFocus: FocusInteraction.Focus? = null
-
-  var isEngaged: Boolean by mutableStateOf(false)
-    private set
-
-  /** Whether Back releases the map. A pointer press engages without claiming Back. */
-  val consumesBack: Boolean
-    get() = isEngaged && engagedByKey
-
-  fun onFocusChanged(focused: Boolean) {
-    isFocused = focused
-    if (!focused) {
-      disengage()
-      claimedKeys.clear()
-    }
-    showFocus()
-  }
-
-  /** Returns false when the node is not focused, because only a focused node engages. */
-  fun engage(byKey: Boolean): Boolean {
-    if (!isFocused || !hasKeyBindings) return false
-    isEngaged = true
-    engagedByKey = byKey
-    showFocus()
-    onChanged(true)
-    return true
-  }
-
-  /** Returns false when the node was not engaged. */
-  fun disengage(): Boolean {
-    if (!isEngaged) return false
-    isEngaged = false
-    showFocus()
-    onChanged(false)
-    return true
-  }
-
-  private fun showFocus() {
-    val show = isFocused && !isEngaged
-    val shown = shownFocus
-    if (show && shown == null) {
-      shownFocus = FocusInteraction.Focus().also { indicationInteractions.tryEmit(it) }
-    } else if (!show && shown != null) {
-      shownFocus = null
-      indicationInteractions.tryEmit(FocusInteraction.Unfocus(shown))
-    }
-  }
-
-  /** Reports the current state again, for a listener that missed earlier writes. */
-  fun replay() = onChanged(isEngaged)
-}
-
-private fun Modifier.keyboardInput(
-  target: GestureTarget,
-  options: MapGestures,
-  focus: MapInputFocus,
-  continuation: GestureContinuation,
-  ids: GestureIds,
-): Modifier = onKeyEvent { event ->
-  if (event.type == KeyEventType.KeyUp)
-    return@onKeyEvent focus.claimedKeys.remove(event.key) != null
-  if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
-  if (focus.claimedKeys[event.key] == false) return@onKeyEvent true
-  if (!options.keyBindings.hasCameraBindings) return@onKeyEvent false
-  val modifiers = buildSet {
-    if (event.isShiftPressed) add(KeyModifier.Shift)
-    if (event.isCtrlPressed) add(KeyModifier.Ctrl)
-    if (event.isAltPressed) add(KeyModifier.Alt)
-    if (event.isMetaPressed) add(KeyModifier.Meta)
-  }
-  val action =
-    options.keyBindings.chords[KeyChord(event.key, *modifiers.toTypedArray())]
-      ?: return@onKeyEvent false
-  val repeated = event.key in focus.claimedKeys
-  val consumed =
-    when (action) {
-      GestureKeyAction.Engage -> focus.engage(byKey = true) || repeated
-      GestureKeyAction.Disengage -> focus.disengage() || repeated
-      GestureKeyAction.Back -> (focus.consumesBack && focus.disengage()) || repeated
-      else -> focus.isEngaged
-    }
-  if (!consumed) return@onKeyEvent false
-  if (!repeated) focus.claimedKeys[event.key] = true
-  target.observeInput()
-  val metadata = KeyGestureEvent(ids.next(), inputUptimeMillis(), event.key, modifiers, repeated)
-  val keys = options.keyBindings
-  if (!action.isCamera) keys.onEvent?.invoke(metadata)
-  else {
-    continuation.finish(target::cancelGesture)
-    target.discreteGesture(continuation, beforeCommand = { keys.onEvent?.invoke(metadata) }) { token
-      ->
-      val duration = options.scaledAnimationDuration()
-      val pan = keys.panStep.value.toDouble()
-      when (action) {
-        GestureKeyAction.PanLeft -> moveByAwaitingTransition(pan, 0.0, duration, token)
-        GestureKeyAction.PanRight -> moveByAwaitingTransition(-pan, 0.0, duration, token)
-        GestureKeyAction.PanUp -> moveByAwaitingTransition(0.0, pan, duration, token)
-        GestureKeyAction.PanDown -> moveByAwaitingTransition(0.0, -pan, duration, token)
-        GestureKeyAction.ZoomIn ->
-          scaleByAwaitingTransition(zoomLevelsToScale(keys.zoomStep), null, duration, token)
-        GestureKeyAction.ZoomOut ->
-          scaleByAwaitingTransition(zoomLevelsToScale(-keys.zoomStep), null, duration, token)
-        GestureKeyAction.RotateLeft ->
-          rotateAndPitchByAwaitingTransition(-keys.rotateStep, 0.0, duration, token)
-        GestureKeyAction.RotateRight ->
-          rotateAndPitchByAwaitingTransition(keys.rotateStep, 0.0, duration, token)
-        GestureKeyAction.TiltUp ->
-          rotateAndPitchByAwaitingTransition(0.0, keys.pitchStep, duration, token)
-        GestureKeyAction.TiltDown ->
-          rotateAndPitchByAwaitingTransition(0.0, -keys.pitchStep, duration, token)
-        else -> Unit
-      }
-    }
-  }
-  true
-}
-
 private fun Modifier.pointerGestures(
   target: GestureTarget,
   clicks: MapInteractionTarget,
-  options: MapGestures,
-  currentOptions: () -> MapGestures,
+  options: MapInteractions,
+  currentOptions: () -> MapInteractions,
   currentStructuralKey: () -> Any,
   density: Density,
   focusRequester: FocusRequester,
@@ -331,21 +196,32 @@ private fun Modifier.pointerGestures(
   ids: GestureIds,
   boxZoom: BoxZoomPreview,
   platformRouting: PlatformTransformRouting,
+  subscriptions: InteractionSubscriptions,
 ): Modifier =
   pointerInput(target, options.structuralKey, density, continuation) {
     val scope = CoroutineScope(currentCoroutineContext())
-    val hover = MapHoverGesture(scope, target, clicks, currentOptions, ids, density)
+    val hover = MapHoverGesture(scope, target, clicks, currentOptions, ids, density, subscriptions)
     val scroll =
-      MapScrollGesture(target, options, currentOptions, ids, density, { size }, scope, continuation)
+      MapScrollGesture(
+        target,
+        options,
+        currentOptions,
+        subscriptions,
+        ids,
+        density,
+        { size },
+        scope,
+        continuation,
+      )
     lateinit var platform: MapPlatformTransform
     var platformRouteActive = false
     val gesture =
       MapPointerGesture(
         target = target,
-        clicks = clicks,
-        taps = MapTapDispatcher(scope, clicks, currentOptions),
+        taps = MapTapDispatcher(scope, clicks, subscriptions, currentOptions),
         options = options,
         currentOptions = currentOptions,
+        subscriptions = subscriptions,
         ids = ids,
         boxZoom = boxZoom,
         density = density,
@@ -375,6 +251,7 @@ private fun Modifier.pointerGestures(
         target,
         options,
         currentOptions,
+        subscriptions,
         ids,
         scope,
         platformRouting,
@@ -472,8 +349,9 @@ private fun Modifier.pointerGestures(
 /** Scroll shares the pointer arena so it sees consumption before claiming an event. */
 private class MapScrollGesture(
   private val target: GestureTarget,
-  private val options: MapGestures,
-  private val currentOptions: () -> MapGestures,
+  private val options: MapInteractions,
+  private val currentOptions: () -> MapInteractions,
+  private val subscriptions: InteractionSubscriptions,
   private val ids: GestureIds,
   private val density: Density,
   private val viewportSize: () -> IntSize,
@@ -481,7 +359,8 @@ private class MapScrollGesture(
   private val continuation: GestureContinuation,
 ) {
   private class Burst(
-    val binding: GestureBinding,
+    val response: ScrollResponse,
+    val membership: LifecycleMembership,
     val session: GestureInputSession,
     val kind: ScrollKind,
     var sample: GesturePointerSample,
@@ -523,12 +402,10 @@ private class MapScrollGesture(
     }
     val kind = burst?.kind ?: normalized.kind
     val selected =
-      options.bindings.firstOrNull {
-        it.family == GestureFamily.Scroll &&
-          kind in it.settings.scrollKinds &&
-          it.matches(sample, contact = false)
+      options.bindings.scroll.select(sample, kind, options.camera)?.takeUnless {
+        it == ScrollResponse.None
       } ?: return
-    if (burst?.binding?.id != null && burst?.binding?.id != selected.id)
+    if (burst != null && burst?.response != selected)
       cancel(GestureCancellationReason.BindingChanged)
     target.observeInput()
     val current =
@@ -538,17 +415,27 @@ private class MapScrollGesture(
           continuation.finish(target::cancelGesture)
           lateinit var session: GestureInputSession
           session =
-            GestureInputSession(scope, target) {
+            GestureInputSession(scope, target, origin = CameraInputOrigin.Scroll) {
               if (burst?.session === session)
                 cancel(
                   if (target.isGestureReady) GestureCancellationReason.CameraTakeover
                   else GestureCancellationReason.Detached
                 )
             }
-          Burst(selected, session, kind, sample.copy(gestureId = ids.next())).also {
-            burst = it
-            handlers(it).observe(ScrollEvent.Start(it.sample, it.sample.screenOffset, kind))
-          }
+          Burst(
+              selected,
+              subscriptions.scroll.capture(),
+              session,
+              kind,
+              sample.copy(gestureId = ids.next()),
+            )
+            .also {
+              burst = it
+              it.membership.observe(
+                ScrollEvent.Start(it.sample, it.sample.screenOffset, kind),
+                currentOptions().bindings.scroll.handlers,
+              )
+            }
         }
     if (!current.token.acceptsCommands) {
       cancel(GestureCancellationReason.CameraTakeover)
@@ -557,23 +444,29 @@ private class MapScrollGesture(
     current.sample = sample.copy(gestureId = current.sample.gestureId)
     current.displacement += Offset(normalized.panDelta.x.value, normalized.panDelta.y.value)
     current.velocity.addPosition(sample.uptimeMillis, current.displacement)
-    handlers(current)
-      .observe(ScrollEvent.Delta(current.sample, normalized.panDelta, normalized.zoomNotches, kind))
+    current.membership.observe(
+      ScrollEvent.Delta(current.sample, normalized.panDelta, normalized.zoomNotches, kind),
+      currentOptions().bindings.scroll.handlers,
+    )
     if (!current.token.acceptsCommands) {
       cancel(GestureCancellationReason.CameraTakeover)
       return
     }
-    when (selected.settings.dragAction) {
-      DragAction.Pan ->
-        target.moveBy(
+    when (selected) {
+      ScrollResponse.Pan ->
+        target.inputPanBy(
           normalized.panDelta.x.value.toDouble(),
           normalized.panDelta.y.value.toDouble(),
           gestureToken = current.token,
         )
-      DragAction.Zoom -> {
-        val scale = zoomLevelsToScale(-normalized.zoomComponent * selected.settings.zoomStep)
+      ScrollResponse.Zoom -> {
+        val scale = zoomLevelsToScale(-normalized.zoomComponent * options.bindings.scroll.zoomStep)
         if (scale.isFinite() && scale > 0.0)
-          target.scaleBy(scale, selected.anchor(current.sample), gestureToken = current.token)
+          target.inputScaleBy(
+            scale,
+            options.bindings.scroll.anchor.location(current.sample),
+            gestureToken = current.token,
+          )
       }
       else -> Unit
     }
@@ -581,28 +474,24 @@ private class MapScrollGesture(
     finishJob?.cancel()
     finishJob =
       current.session.scope.launch {
-        delay(options.scrollIdleDuration.inWholeMilliseconds)
+        delay(options.bindings.scroll.idleDuration.inWholeMilliseconds)
         burst = null
         finishJob = null
         val velocity = current.velocity.calculateVelocity(pointerInput = false)
         try {
-          handlers(current)
-            .observe(
-              ScrollEvent.End(
-                current.sample,
-                ScreenVelocity(velocity.x.toDouble(), velocity.y.toDouble()),
-                kind,
-              )
-            )
+          current.membership.observe(
+            ScrollEvent.End(
+              current.sample,
+              ScreenVelocity(velocity.x.toDouble(), velocity.y.toDouble()),
+              kind,
+            ),
+            currentOptions().bindings.scroll.handlers,
+          )
         } finally {
           current.session.end()
         }
       }
   }
-
-  private fun handlers(burst: Burst): GestureBindingHandlers =
-    currentOptions().bindings.firstOrNull { it.id == burst.binding.id }?.handlers
-      ?: burst.binding.handlers
 
   fun cancel(reason: GestureCancellationReason = GestureCancellationReason.InputCancelled) {
     finishJob?.cancel()
@@ -610,7 +499,10 @@ private class MapScrollGesture(
     val previous = burst ?: return
     burst = null
     try {
-      handlers(previous).observe(ScrollEvent.Cancel(previous.sample, reason, previous.kind))
+      previous.membership.observe(
+        ScrollEvent.Cancel(previous.sample, reason, previous.kind),
+        currentOptions().bindings.scroll.handlers,
+      )
     } finally {
       previous.session.cancel()
     }
@@ -619,10 +511,10 @@ private class MapScrollGesture(
 
 private class MapPointerGesture(
   private val target: GestureTarget,
-  private val clicks: MapInteractionTarget,
   private val taps: MapTapDispatcher,
-  private val options: MapGestures,
-  private val currentOptions: () -> MapGestures,
+  private val options: MapInteractions,
+  private val currentOptions: () -> MapInteractions,
+  private val subscriptions: InteractionSubscriptions,
   private val ids: GestureIds,
   private val boxZoom: BoxZoomPreview,
   private val density: Density,
@@ -645,7 +537,16 @@ private class MapPointerGesture(
   private var cameraSession: GestureInputSession? = null
   private var mode = Mode.NONE
 
-  private var selectedDrag: GestureBinding? = null
+  private sealed interface SelectedDrag {
+    data class Camera(val response: DragResponse) : SelectedDrag
+
+    data object TapDrag : SelectedDrag
+
+    data class Custom(val binding: CustomDragBinding) : SelectedDrag
+  }
+
+  private var selectedDrag: SelectedDrag? = null
+  private var dragSubscription: LifecycleMembership? = null
   private var dragStarted = false
   private var customDragStarted = false
   private var dragSample: GesturePointerSample? = null
@@ -673,7 +574,7 @@ private class MapPointerGesture(
   private var longClickJob: Job? = null
   private var longClickHandled = false
   private var tapDemand = emptySet<TapFamily>()
-  private var capabilitySnapshot = emptySet<TapFamily>()
+  private var tapAdmissions = emptyMap<TapFamily, MapTapAdmission>()
   private var secondTapUseful = false
   private var pressInputGeneration = 0L
 
@@ -706,7 +607,7 @@ private class MapPointerGesture(
     if (
       pressed.size >= 2 &&
         (mode == Mode.SINGLE || mode == Mode.QUICK_ZOOM) &&
-        selectedDrag?.id?.let { it !in builtInDrags } == true
+        selectedDrag is SelectedDrag.Custom
     ) {
       cancel(GestureCancellationReason.BindingChanged)
       suppressedUntilRelease = true
@@ -750,8 +651,7 @@ private class MapPointerGesture(
       singleDragOrigin = change.position
       dragSample =
         event.gestureSample(ids.next(), target, density, change.position, setOf(change.type))
-      selectedDrag =
-        options.binding("dragPan").takeIf { it.matches(checkNotNull(dragSample), contact = true) }
+      selectedDrag = selectCameraDrag(checkNotNull(dragSample))
       dragStarted = false
       dragRecognition = selectedDrag?.let { dragRecognizer(change, it) }
       singleMotion = SingleMotion.NONE
@@ -783,31 +683,35 @@ private class MapPointerGesture(
     dragSample = sample
     selectedDrag = selectDrag(sample, paired = pressRole == PressRole.Paired)
     dragStarted = false
-    quickZoomCandidate = selectedDrag?.id == "quickZoom"
+    quickZoomCandidate = selectedDrag == SelectedDrag.TapDrag
     dragRecognition = selectedDrag?.let { dragRecognizer(change, it) }
-    if (pressRole == PressRole.First) capabilitySnapshot = clicks.capabilities.toSet()
+    if (pressRole == PressRole.First) {
+      tapAdmissions =
+        TapFamily.entries
+          .mapNotNull { family ->
+            taps.capture(family)?.let { family to it }
+          }
+          .toMap()
+    }
     tapDemand =
       TapFamily.entries.filterTo(mutableSetOf()) { family ->
-        val binding = options.binding(family.bindingId)
-        binding.matches(sample, contact = true) &&
-          (family in capabilitySnapshot ||
-            family.hasHandler(binding.handlers) ||
-            binding.settings.tapAction != null)
+        family.matches(options, sample) &&
+          (tapAdmissions[family]?.hasSubscribers == true ||
+            family.binding(options).select(sample, options.camera)?.let {
+              it != TapResponse.None
+            } == true)
       }
     secondTapUseful =
       TapFamily.DoubleTap in tapDemand ||
-        change.type != PointerType.Mouse &&
-          options.binding("quickZoom").matches(sample, contact = true)
+        (options.camera.zoom.enabled && options.bindings.tapDrag.matches(sample))
     val longPress = TapFamily.LongPress in tapDemand
     val clickDemand = secondTapUseful || tapDemand.any { it != TapFamily.TwoFingerTap }
     if (!clickDemand) clickOrigin = null
     if (
       selectedDrag == null &&
         !clickDemand &&
-        listOf("pinchZoom", "twoFingerRotate", "twoFingerTilt", "twoFingerTap").none {
-          options.binding(it).matches(sample, contact = true) &&
-            (it != "twoFingerTap" || TapFamily.TwoFingerTap in tapDemand)
-        }
+        !options.bindings.transform.hasDemand(sample, options.camera) &&
+        TapFamily.TwoFingerTap !in tapDemand
     )
       return
     quickZoomOriginY = change.position.y
@@ -852,25 +756,43 @@ private class MapPointerGesture(
     }
   }
 
-  private fun selectDrag(sample: GesturePointerSample, paired: Boolean): GestureBinding? =
-    options.bindings.firstOrNull { binding ->
-      binding.family == GestureFamily.Drag &&
-        (binding.id != "quickZoom" || paired && PointerType.Mouse !in sample.pointerTypes) &&
-        binding.matches(sample, contact = true) &&
-        (currentOptions()
-          .bindings
-          .firstOrNull { it.id == binding.id }
-          ?.handlers
-          ?.canStart
-          ?.invoke(PointerPressEvent(sample)) != false)
+  private fun selectCameraDrag(sample: GesturePointerSample): SelectedDrag.Camera? =
+    options.bindings.drag
+      .select(sample, options.camera)
+      ?.takeUnless { it == DragResponse.None }
+      ?.let(SelectedDrag::Camera)
+
+  private fun selectDrag(sample: GesturePointerSample, paired: Boolean): SelectedDrag? {
+    val drag = options.bindings.drag
+    if (drag.matches(sample) && PointerPattern(button = PointerButton.Primary).matches(sample)) {
+      for (binding in currentOptions().bindings.drag.custom) {
+        if (binding.canStart(PointerPressEvent(sample, paired))) return SelectedDrag.Custom(binding)
+      }
+    }
+    if (paired && options.camera.zoom.enabled && options.bindings.tapDrag.matches(sample))
+      return SelectedDrag.TapDrag
+    return selectCameraDrag(sample)
+  }
+
+  private fun currentDragHandlers(): DragHandlers =
+    if (selectedDrag == SelectedDrag.TapDrag) currentOptions().bindings.tapDrag.handlers
+    else currentOptions().bindings.drag.handlers
+
+  private fun dragAnchor(sample: GesturePointerSample): DpOffset? =
+    when (selectedDrag) {
+      SelectedDrag.TapDrag -> options.bindings.tapDrag.anchor.location(sample)
+      is SelectedDrag.Camera -> options.bindings.drag.rotateTilt.anchor.location(sample)
+      else -> null
     }
 
   private fun deliverDrag(event: DragEvent) {
-    val binding = selectedDrag ?: return
-    val handlers =
-      currentOptions().bindings.firstOrNull { it.id == binding.id }?.handlers ?: binding.handlers
-    if (binding.settings.dragAction != DragAction.Custom) {
-      handlers.observe(event)
+    val selected = selectedDrag ?: return
+    if (selected !is SelectedDrag.Custom) {
+      if (event is DragEvent.Start)
+        dragSubscription =
+          (if (selectedDrag == SelectedDrag.TapDrag) subscriptions.tapDrag else subscriptions.drag)
+            .capture()
+      dragSubscription?.observe(event, currentDragHandlers())
       return
     }
     val active = gestureToken?.acceptsCommands == true
@@ -893,7 +815,11 @@ private class MapPointerGesture(
         is DragEvent.Cancel ->
           event.takeIf { customDragStarted }?.also { customDragStarted = false }
       }
-    if (response != null) handlers.dragEvent?.invoke(response)
+    if (response != null) {
+      val current =
+        currentOptions().bindings.drag.custom.firstOrNull { it.key == selected.binding.key }
+      (current?.onEvent ?: selected.binding.onEvent).invoke(response)
+    }
   }
 
   private fun cancelDrag(reason: GestureCancellationReason) {
@@ -917,12 +843,31 @@ private class MapPointerGesture(
     return false
   }
 
-  private fun dragRecognizer(change: PointerInputChange, binding: GestureBinding): PointerDrag {
+  private fun dragSlop(binding: SelectedDrag, mouse: Boolean): Float {
     val slop =
-      (if (change.type == PointerType.Mouse) binding.settings.mouseStartSlop
-        else binding.settings.startSlop)
-        .value * density.density
-    val vertical = binding.id == "quickZoom"
+      when (binding) {
+        is SelectedDrag.Custom ->
+          if (mouse) binding.binding.mouseStartSlop else binding.binding.startSlop
+        SelectedDrag.TapDrag -> options.bindings.tapDrag.startSlop
+        is SelectedDrag.Camera ->
+          when (binding.response) {
+            DragResponse.Pan ->
+              options.bindings.drag.pan.let { if (mouse) it.mouseStartSlop else it.startSlop }
+            DragResponse.RotateTilt ->
+              options.bindings.drag.rotateTilt.let {
+                if (mouse) it.mouseStartSlop else it.startSlop
+              }
+            DragResponse.FitBounds ->
+              options.bindings.drag.fitBounds.let { if (mouse) it.mouseStartSlop else it.startSlop }
+            DragResponse.None -> error("An empty mapping cannot become a drag")
+          }
+      }
+    return slop.value * density.density
+  }
+
+  private fun dragRecognizer(change: PointerInputChange, binding: SelectedDrag): PointerDrag {
+    val slop = dragSlop(binding, change.type == PointerType.Mouse)
+    val vertical = binding == SelectedDrag.TapDrag
     return PointerDrag(change, if (vertical) slop / 2f else slop, vertical)
   }
 
@@ -942,11 +887,12 @@ private class MapPointerGesture(
     dragSample = sample
     if (
       change.type == PointerType.Mouse &&
+        selectedDrag !is SelectedDrag.Custom &&
         oldSample != null &&
         (oldSample.buttons != sample.buttons || oldSample.modifierKeys != sample.modifierKeys)
     ) {
-      val next = selectDrag(sample, paired = false)
-      if (next?.id != selectedDrag?.id) {
+      val next = selectCameraDrag(sample)
+      if (next != selectedDrag) {
         cancelDrag(GestureCancellationReason.BindingChanged)
         cancelCameraSession()
         gestureToken = null
@@ -985,7 +931,7 @@ private class MapPointerGesture(
       if (
         quickZoomCandidate &&
           abs(change.position.x - checkNotNull(singleDragOrigin).x) >
-            binding.settings.startSlop.value * density.density
+            dragSlop(binding, change.type == PointerType.Mouse)
       ) {
         clickOrigin = null
         cancelLongClick()
@@ -1001,17 +947,34 @@ private class MapPointerGesture(
       deferredTwoFingerVelocity = null
       beginGesture()
       dragStarted = true
+      when (binding) {
+        SelectedDrag.TapDrag -> gestureToken?.rearm(CameraComponent.Zoom)
+        is SelectedDrag.Camera ->
+          when (binding.response) {
+            DragResponse.Pan -> gestureToken?.rearm(CameraComponent.Pan)
+            DragResponse.RotateTilt -> {
+              gestureToken?.rearm(CameraComponent.Rotate)
+              gestureToken?.rearm(CameraComponent.Tilt)
+            }
+            else -> Unit
+          }
+        is SelectedDrag.Custom -> Unit
+      }
       singleMotion =
-        when (binding.settings.dragAction) {
-          DragAction.Pan -> SingleMotion.PAN
-          DragAction.RotateTilt -> SingleMotion.ROTATE_TILT
-          DragAction.Zoom -> SingleMotion.QUICK_ZOOM
-          else -> SingleMotion.NONE
+        when (binding) {
+          SelectedDrag.TapDrag -> SingleMotion.QUICK_ZOOM
+          is SelectedDrag.Camera ->
+            when (binding.response) {
+              DragResponse.Pan -> SingleMotion.PAN
+              DragResponse.RotateTilt -> SingleMotion.ROTATE_TILT
+              else -> SingleMotion.NONE
+            }
+          is SelectedDrag.Custom -> SingleMotion.NONE
         }
       discardTapWait(emitClick = !quickZoomCandidate)
       deliverDrag(DragEvent.Start(sample, origin.toLogicalDpOffset(density)))
       if (!retainCameraAuthority()) return
-      if (binding.settings.dragAction == DragAction.BoxZoom)
+      if (binding == SelectedDrag.Camera(DragResponse.FitBounds))
         boxZoom.start(origin.toLogicalDpOffset(density), sample.screenOffset)
     }
     singleVelocity.addPointerInputChange(change)
@@ -1019,35 +982,41 @@ private class MapPointerGesture(
     if (!retainCameraAuthority()) return
     val deltaX = delta.x.toDouble() / density.density
     val deltaY = delta.y.toDouble() / density.density
-    when (binding.settings.dragAction) {
-      DragAction.Pan -> target.moveBy(deltaX, deltaY, gestureToken = gestureToken)
-      DragAction.RotateTilt ->
-        target.rotateAndPitchBy(
-          deltaX * binding.settings.bearingDegreesPerDp,
-          deltaY * binding.settings.pitchDegreesPerDp,
-          anchor = binding.anchor(sample),
-          gestureToken = gestureToken,
-        )
-      DragAction.Zoom -> {
+    when (binding) {
+      is SelectedDrag.Camera ->
+        when (binding.response) {
+          DragResponse.Pan -> target.inputPanBy(deltaX, deltaY, gestureToken = gestureToken)
+          DragResponse.RotateTilt ->
+            options.bindings.drag.rotateTilt.let { settings ->
+              target.inputRotateAndPitchBy(
+                deltaX * settings.bearingDegreesPerDp,
+                deltaY * settings.pitchDegreesPerDp,
+                anchor = settings.anchor.location(sample),
+                gestureToken = gestureToken,
+              )
+            }
+          DragResponse.FitBounds -> boxZoom.move(sample.screenOffset)
+          DragResponse.None -> Unit
+        }
+      SelectedDrag.TapDrag -> {
         mode = Mode.QUICK_ZOOM
-        val direction =
-          if (binding.settings.direction == QuickZoomDirection.DownZoomsIn) 1.0 else -1.0
+        val settings = options.bindings.tapDrag
+        val direction = if (settings.direction == QuickZoomDirection.DownZoomsIn) 1.0 else -1.0
         val targetDelta =
           GestureMath.quickZoomDelta(
             (change.position.y - quickZoomOriginY).toDouble(),
             viewportSize().height.toDouble(),
-            binding.settings.maximumZoomChange * direction,
+            settings.zoomLevelsPerViewport * direction,
           )
-        target.scaleBy(
+        target.inputScaleBy(
           zoomLevelsToScale(targetDelta - quickZoomAppliedDelta),
-          binding.anchor(sample),
+          settings.anchor.location(sample),
           gestureToken = gestureToken,
         )
         quickZoomAppliedDelta = targetDelta
         lastQuickZoomSpanDeltaPixels = abs(delta.y) * 2.0
       }
-      DragAction.Custom -> Unit
-      DragAction.BoxZoom -> boxZoom.move(sample.screenOffset)
+      is SelectedDrag.Custom -> Unit
     }
     change.consume()
   }
@@ -1072,7 +1041,10 @@ private class MapPointerGesture(
             (a.position + b.position) / 2f,
             setOf(a.type, b.type),
           )
-        if (pairBindingIds.any { options.binding(it).matches(sample, contact = true) })
+        if (
+          options.bindings.transform.hasDemand(sample, options.camera) ||
+            TapFamily.TwoFingerTap in tapDemand && TapFamily.TwoFingerTap.matches(options, sample)
+        )
           return a to b
       }
     }
@@ -1129,8 +1101,7 @@ private class MapPointerGesture(
             setOf(first.type, second.type),
           )
         if (
-          TapFamily.TwoFingerTap in tapDemand &&
-            options.binding("twoFingerTap").matches(sample, contact = true)
+          TapFamily.TwoFingerTap in tapDemand && TapFamily.TwoFingerTap.matches(options, sample)
         ) {
           twoFingerTap =
             TwoFingerTapCandidate(
@@ -1150,13 +1121,14 @@ private class MapPointerGesture(
         target,
         options,
         currentOptions,
+        subscriptions,
         ids,
         density,
         event,
         first,
         second,
         begin = {
-          beginGesture()
+          beginGesture(CameraInputOrigin.Transform)
           gestureToken
         },
         onRecognized = {
@@ -1202,7 +1174,7 @@ private class MapPointerGesture(
         val session = checkNotNull(cameraSession)
         if (fit != null && session.token.acceptsCommands) {
           continuation.launchBoundsFit(session.scope) {
-            target.fitBoundsAwaitingTransition(
+            target.inputFitBoundsAwaitingTransition(
               fit,
               options.scaledAnimationDuration(),
               session.token,
@@ -1241,9 +1213,9 @@ private class MapPointerGesture(
     selectedDrag = null
 
     if (
-      (!gestureInProgress && completedTwoFingerTap != null && options.enabled("twoFingerTap")) ||
-        origin != null ||
-        handledLongClick
+      (!gestureInProgress &&
+        completedTwoFingerTap != null &&
+        options.bindings.twoFingerTap.enabled) || origin != null || handledLongClick
     ) {
       event.changes.forEach(PointerInputChange::consume)
     }
@@ -1275,25 +1247,23 @@ private class MapPointerGesture(
     family: TapFamily,
     sample: GesturePointerSample,
     generation: Long = pressInputGeneration,
+    admission: MapTapAdmission? = tapAdmissions[family],
   ) {
-    val binding = options.binding(family.bindingId)
-    taps.dispatch(family, sample) camera@{
-      val action = binding.settings.tapAction ?: return@camera
-      var direction = if (action == TapCameraAction.ZoomIn) 1.0 else -1.0
-      if (
-        family == TapFamily.DoubleTap &&
-          PointerType.Mouse in sample.pointerTypes &&
-          KeyModifier.Shift in sample.modifierKeys
-      )
-        direction = -direction
+    val captured = admission ?: return
+    val binding = family.binding(options)
+    val action = binding.select(sample, options.camera)
+    taps.dispatch(captured, sample) camera@{
+      if (action == null || action == TapResponse.None) return@camera
+      val direction = if (action == TapResponse.ZoomIn) 1.0 else -1.0
       continuation.launchDiscreteTransition(
         target,
         beforeCommand = {},
         expectedGeneration = generation,
+        origin = CameraInputOrigin.Tap,
         command = { token ->
-          scaleByAwaitingTransition(
-            zoomLevelsToScale(direction * binding.settings.zoomStep),
-            binding.anchor(sample),
+          inputScaleByAwaitingTransition(
+            zoomLevelsToScale(direction * binding.zoomStep),
+            binding.anchor.location(sample),
             options.scaledAnimationDuration(),
             token,
           )
@@ -1307,7 +1277,7 @@ private class MapPointerGesture(
     // Release no longer reports the button, but a secondary click must retain its press metadata.
     val clickSample = sample.copy(buttons = dragSample?.buttons ?: sample.buttons)
     if (pressedSecondary) {
-      if (TapFamily.LongPress in tapDemand) emitTap(TapFamily.LongPress, clickSample)
+      if (TapFamily.SecondaryClick in tapDemand) emitTap(TapFamily.SecondaryClick, clickSample)
       tapWait = TapWait.None
       return
     }
@@ -1388,7 +1358,7 @@ private class MapPointerGesture(
           val open = tapWait as? TapWait.Open
           if (open?.tap?.job == launched) {
             tapWait = TapWait.None
-            emitTap(TapFamily.Tap, open.tap.sample, open.tap.generation)
+            emitTap(TapFamily.Tap, open.tap.sample, open.tap.generation, open.tap.admission)
           }
         }
         launched
@@ -1397,7 +1367,16 @@ private class MapPointerGesture(
       }
     tapWait =
       TapWait.Open(
-        OpenTap(sample, pressInputGeneration, origin, type, timeMillis, clickOnExpiry, job)
+        OpenTap(
+          sample,
+          pressInputGeneration,
+          origin,
+          type,
+          timeMillis,
+          clickOnExpiry,
+          job,
+          tapAdmissions[TapFamily.Tap],
+        )
       )
   }
 
@@ -1407,11 +1386,11 @@ private class MapPointerGesture(
       is TapWait.Open -> {
         wait.tap.job?.cancel()
         if (emitClick && wait.tap.clickOnExpiry)
-          emitTap(TapFamily.Tap, wait.tap.sample, wait.tap.generation)
+          emitTap(TapFamily.Tap, wait.tap.sample, wait.tap.generation, wait.tap.admission)
       }
       is TapWait.Claimed -> {
         if (emitClick && wait.tap.clickOnExpiry)
-          emitTap(TapFamily.Tap, wait.tap.sample, wait.tap.generation)
+          emitTap(TapFamily.Tap, wait.tap.sample, wait.tap.generation, wait.tap.admission)
       }
       TapWait.None -> Unit
     }
@@ -1429,12 +1408,12 @@ private class MapPointerGesture(
   }
 
   private fun finishSingleVelocity() {
-    val binding = selectedDrag ?: return
+    if (selectedDrag == null) return
     val velocity = singleVelocity.calculateVelocity()
     if (!gestureInProgress) return
     when (singleMotion) {
       SingleMotion.PAN -> {
-        val tuning = binding.settings.fling ?: return
+        val tuning = options.camera.pan.momentum.takeIf { it.enabled } ?: return
         val fling =
           GestureMath.fling(
             (velocity.x / density.density).toDouble(),
@@ -1444,8 +1423,9 @@ private class MapPointerGesture(
         animateFling(fling)
       }
       SingleMotion.QUICK_ZOOM -> {
-        val tuning = binding.settings.velocityContinuation ?: return
-        val direction = if (binding.settings.direction == QuickZoomDirection.DownZoomsIn) 1 else -1
+        val tuning = options.bindings.tapDrag.momentum.takeIf { it.enabled } ?: return
+        val direction =
+          if (options.bindings.tapDrag.direction == QuickZoomDirection.DownZoomsIn) 1 else -1
         val velocityResponse =
           GestureMath.scaleVelocity(
             velocity.x.toDouble(),
@@ -1455,13 +1435,14 @@ private class MapPointerGesture(
             scalingOut = velocity.y * direction < 0f,
             continuation = tuning,
           ) ?: return
-        animateScaleVelocity(velocityResponse, dragSample?.let(binding::anchor))
+        animateScaleVelocity(velocityResponse, dragSample?.let(::dragAnchor))
       }
       SingleMotion.ROTATE_TILT -> {
-        val tuning = binding.settings.tiltContinuation ?: return
+        if (!options.camera.tilt.enabled) return
+        val tuning = options.camera.tilt.momentum.takeIf { it.enabled } ?: return
         val response =
           GestureMath.tiltVelocity(
-            velocity.y / density.density * binding.settings.pitchDegreesPerDp,
+            velocity.y / density.density * options.bindings.drag.rotateTilt.pitchDegreesPerDp,
             tuning,
           ) ?: return
         animateTiltVelocity(response)
@@ -1487,7 +1468,7 @@ private class MapPointerGesture(
       animateDecelerating(velocity.duration) { frameFraction ->
         val frameZoomDelta = velocity.zoomDelta * frameFraction
         if (frameZoomDelta != 0.0) {
-          target.scaleBy(zoomLevelsToScale(frameZoomDelta), anchor, gestureToken = token)
+          target.inputScaleBy(zoomLevelsToScale(frameZoomDelta), anchor, gestureToken = token)
         }
       }
     }
@@ -1500,7 +1481,7 @@ private class MapPointerGesture(
         val deltaX = fling.offsetXDp * frameFraction
         val deltaY = fling.offsetYDp * frameFraction
         GestureMath.forEachScreenSpaceStep(deltaX, deltaY) { stepX, stepY ->
-          target.moveBy(stepX, stepY, gestureToken = token)
+          target.inputPanBy(stepX, stepY, gestureToken = token)
         }
       }
     }
@@ -1510,7 +1491,7 @@ private class MapPointerGesture(
     val token = gestureToken
     continuation.launchRotation(cameraSession?.scope ?: scope) {
       animateDecelerating(velocity.duration) { fraction ->
-        target.rotateAndPitchBy(0.0, velocity.pitchDelta * fraction, gestureToken = token)
+        target.inputRotateAndPitchBy(0.0, velocity.pitchDelta * fraction, gestureToken = token)
       }
     }
   }
@@ -1547,7 +1528,7 @@ private class MapPointerGesture(
         // Remaining motion falls as (1 - t)^2.
         val frameDelta = velocity.initialDegreesPerFrame * (1.0 - progress).pow(2.0)
         if (frameDelta != 0.0) {
-          target.rotateAndPitchBy(frameDelta, 0.0, anchor = anchor, gestureToken = token)
+          target.inputRotateAndPitchBy(frameDelta, 0.0, anchor = anchor, gestureToken = token)
         }
       } while (progress < 1.0)
     }
@@ -1578,13 +1559,20 @@ private class MapPointerGesture(
     previous?.cancel()
   }
 
-  private fun beginGesture() {
+  private fun beginGesture(
+    origin: CameraInputOrigin =
+      if (selectedDrag == SelectedDrag.TapDrag) CameraInputOrigin.TapDrag
+      else CameraInputOrigin.Drag
+  ) {
     cancelLongClick()
-    if (gestureInProgress) return
+    if (gestureInProgress) {
+      gestureToken?.origin = origin
+      return
+    }
     gestureInProgress = true
     lateinit var session: GestureInputSession
     session =
-      GestureInputSession(scope, target) {
+      GestureInputSession(scope, target, origin = origin) {
         if (cameraSession === session) {
           val contactsRemain = lastSingle != null || pair != null
           cancel(
@@ -1676,6 +1664,7 @@ private class MapPointerGesture(
     val upAt: Long,
     val clickOnExpiry: Boolean,
     val job: Job?,
+    val admission: MapTapAdmission?,
   )
 
   private enum class PressRole {
@@ -1716,12 +1705,6 @@ private class MapPointerGesture(
       event.changes.none { it.pressed } &&
         (event.changes.maxOfOrNull { it.uptimeMillis } ?: startedAtMillis) - startedAtMillis <=
           GestureMath.TWO_FINGER_TAP_TIMEOUT_MILLIS
-  }
-
-  private companion object {
-    val builtInDrags = setOf("dragPan", "dragRotateTilt", "quickZoom", "boxZoom")
-    val pairBindingIds =
-      listOf("dragPan", "pinchZoom", "twoFingerRotate", "twoFingerTilt", "twoFingerTap")
   }
 }
 
@@ -1793,12 +1776,13 @@ internal class GestureContinuation(private val scope: CoroutineScope) {
     beforeCommand: () -> Unit,
     command: suspend GestureTarget.(GestureToken) -> Unit,
     expectedGeneration: Long? = null,
+    origin: CameraInputOrigin = CameraInputOrigin.Tap,
   ) {
     val token =
       if (expectedGeneration == null) target.onGestureStarted()
       else target.onGestureStartedIfCurrent(expectedGeneration) ?: return
     discreteSession?.cancel()
-    val session = GestureInputSession(scope, target, token)
+    val session = GestureInputSession(scope, target, token, origin = origin)
     discreteSession = session
     try {
       beforeCommand()
@@ -1847,12 +1831,6 @@ internal class GestureContinuation(private val scope: CoroutineScope) {
   }
 }
 
-private fun GestureTarget.discreteGesture(
-  continuation: GestureContinuation,
-  beforeCommand: () -> Unit = {},
-  command: suspend GestureTarget.(GestureToken) -> Unit,
-) = continuation.launchDiscreteTransition(this, beforeCommand, command)
-
 /** A second down that is too soon and still on the first tap is a bounce. */
 internal fun isBounceSecondTap(
   elapsedMillis: Long,
@@ -1881,9 +1859,9 @@ internal fun isPairedSecondTap(
     distancePx <= slopPx
 
 /** A zoom level is a doubling. */
-private fun zoomLevelsToScale(levelDelta: Double): Double = 2.0.pow(levelDelta)
+internal fun zoomLevelsToScale(levelDelta: Double): Double = 2.0.pow(levelDelta)
 
-private fun MapGestures.scaledAnimationDuration(): Duration =
+internal fun MapInteractions.scaledAnimationDuration(): Duration =
   animationDuration.scaledBy(systemAnimatorDurationScale())
 
 /** Compose reports physical pixels; MapLibre projects in logical ones. */

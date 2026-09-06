@@ -26,22 +26,26 @@ class PointerPairGestureTest {
     var starts = 0
     val input =
       PairInput(
-        MapGestures {
-          dragPan {
-            startSlop = 0.dp
-            onStart { starts++ }
-          }
-          pinchZoom {
-            startSpanSlop = 0.dp
-            onStart { starts++ }
-          }
-          twoFingerRotate {
-            startAngle = 0.0
-            onStart { starts++ }
-          }
-          twoFingerTilt {
-            startSlop = 0.dp
-            onStart { starts++ }
+        MapInteractions {
+          bindings {
+            transform {
+              pan {
+                startSlop = 0.dp
+                onStart { starts++ }
+              }
+              zoom {
+                startSpanSlop = 0.dp
+                onStart { starts++ }
+              }
+              rotate {
+                startAngle = 0.0
+                onStart { starts++ }
+              }
+              tilt {
+                startSlop = 0.dp
+                onStart { starts++ }
+              }
+            }
           }
         }
       )
@@ -54,13 +58,17 @@ class PointerPairGestureTest {
     val events = mutableListOf<PinchEvent>()
     val input =
       PairInput(
-        MapGestures(MapGestures.None) {
-          pinchZoom {
-            enabled = true
-            startSpanSlop = 20.dp
-            onStart { events += it }
-            onDelta { events += it }
-            onEnd { events += it }
+        MapInteractions(MapInteractions.None) {
+          bindings {
+            transform {
+              zoom {
+                enabled = true
+                startSpanSlop = 20.dp
+                onStart { events += it }
+                onDelta { events += it }
+                onEnd { events += it }
+              }
+            }
           }
         }
       )
@@ -76,11 +84,15 @@ class PointerPairGestureTest {
   fun backwards_time_rebases_motion_without_a_camera_jump() {
     val input =
       PairInput(
-        MapGestures(MapGestures.None) {
-          dragPan {
-            enabled = true
-            startSlop = 10.dp
-            continuation = null
+        MapInteractions(MapInteractions.None) {
+          bindings {
+            transform {
+              pan {
+                enabled = true
+                startSlop = 10.dp
+                momentum { enabled = false }
+              }
+            }
           }
         }
       )
@@ -97,14 +109,18 @@ class PointerPairGestureTest {
     val events = mutableListOf<RotateEvent>()
     val input =
       PairInput(
-        MapGestures(MapGestures.None) {
-          twoFingerRotate {
-            enabled = true
-            startAngle = 45.0
-            rotationScale = 2.0
-            anchor = GestureAnchor.CameraCenter
-            onStart { events += it }
-            onDelta { events += it }
+        MapInteractions(MapInteractions.None) {
+          bindings {
+            transform {
+              rotate {
+                enabled = true
+                startAngle = 45.0
+                rotationScale = 2.0
+                anchor = GestureAnchor.CameraCenter
+                onStart { events += it }
+                onDelta { events += it }
+              }
+            }
           }
         }
       )
@@ -118,15 +134,19 @@ class PointerPairGestureTest {
   fun pinch_and_rotation_keep_independent_anchors_and_gains() {
     val input =
       PairInput(
-        MapGestures(MapGestures.None) {
-          pinchZoom {
-            enabled = true
-            zoomScale = 2.0
-            anchor = GestureAnchor.CameraCenter
-          }
-          twoFingerRotate {
-            enabled = true
-            anchor = GestureAnchor.Input
+        MapInteractions(MapInteractions.None) {
+          bindings {
+            transform {
+              zoom {
+                enabled = true
+                zoomScale = 2.0
+                anchor = GestureAnchor.CameraCenter
+              }
+              rotate {
+                enabled = true
+                anchor = GestureAnchor.Input
+              }
+            }
           }
         }
       )
@@ -145,15 +165,20 @@ class PointerPairGestureTest {
   fun contact_types_and_modifiers_must_match_the_pair_filter() {
     for (filter in
       listOf(
-        PointerFilter(pointerTypes = setOf(PointerType.Touch)),
-        PointerFilter(modifiers = ModifierFilter.Containing(KeyModifier.Ctrl)),
+        PointerPattern(pointerTypes = setOf(PointerType.Touch)),
+        PointerPattern(modifiers = ModifierMatch.Containing(KeyModifier.Ctrl)),
       )) {
       val input =
         PairInput(
-          MapGestures(MapGestures.None) {
-            pinchZoom {
-              enabled = true
-              this.filter = filter
+          MapInteractions(MapInteractions.None) {
+            bindings {
+              transform {
+                zoom {
+                  enabled = true
+                  pointerTypes = filter.pointerTypes
+                  modifiers = filter.modifiers
+                }
+              }
             }
           },
           secondType = PointerType.Stylus,
@@ -171,17 +196,21 @@ class PointerPairGestureTest {
     var panCancels = 0
     val input =
       PairInput(
-        MapGestures(MapGestures.None) {
-          dragPan {
-            enabled = true
-            onCancel {
-              panCancels++
-              throw failure
+        MapInteractions(MapInteractions.None) {
+          bindings {
+            transform {
+              pan {
+                enabled = true
+                onCancel {
+                  panCancels++
+                  throw failure
+                }
+              }
+              zoom {
+                enabled = true
+                onCancel { pinchCancels++ }
+              }
             }
-          }
-          pinchZoom {
-            enabled = true
-            onCancel { pinchCancels++ }
           }
         }
       )
@@ -204,29 +233,125 @@ class PointerPairGestureTest {
     val second = mutableListOf<Long>()
     val input =
       PairInput(
-        MapGestures(MapGestures.None) {
-          dragPan {
-            enabled = true
-            onStart { starts += it.gestureId }
-            onDelta { first += it.gestureId }
+        MapInteractions(MapInteractions.None) {
+          bindings {
+            transform {
+              pan {
+                enabled = true
+                onStart { starts += it.gestureId }
+                onDelta { first += it.gestureId }
+              }
+            }
           }
         }
       )
     input.move(20, Offset(-50f, 0f), Offset(110f, 0f))
-    input.options = MapGestures(input.options) { dragPan { onDelta { second += it.gestureId } } }
+    input.options =
+      MapInteractions(input.options) {
+        bindings { transform { pan { onDelta { second += it.gestureId } } } }
+      }
     input.move(40, Offset(-40f, 0f), Offset(120f, 0f))
     assertEquals(starts, first)
     assertEquals(starts, second)
   }
 
+  @Test
+  fun zoom_priority_suppresses_simultaneous_rotation_and_cancels_a_previous_rotation_once() {
+    val rotations = mutableListOf<RotateEvent>()
+    fun configuration() =
+      MapInteractions(MapInteractions.None) {
+        bindings {
+          transform {
+            zoom { enabled = true }
+            rotate {
+              enabled = true
+              allowDuringZoom = false
+              onStart { rotations += it }
+              onCancel { rotations += it }
+              onEnd { rotations += it }
+            }
+          }
+        }
+      }
+    val simultaneous = PairInput(configuration())
+    simultaneous.move(20, Offset(-100f, -50f), Offset(100f, 50f))
+    assertTrue(rotations.isEmpty())
+    assertEquals(1, simultaneous.target.scaleCalls.size)
+    simultaneous.pair.end()
+    val successive = PairInput(configuration())
+    successive.move(20, Offset(0f, -80f), Offset(0f, 80f))
+    assertTrue(rotations.single() is RotateEvent.Start)
+    successive.move(40, Offset(0f, -140f), Offset(0f, 140f))
+    successive.move(60, Offset(20f, -160f), Offset(-20f, 160f))
+    successive.pair.end()
+    assertEquals(2, rotations.size)
+    assertTrue(rotations.last() is RotateEvent.Cancel)
+  }
+
+  @Test
+  fun mouse_only_single_drag_leaves_touch_pair_pan_and_late_observers_do_not_join() {
+    var lateDeltas = 0
+    val input =
+      PairInput(
+        MapInteractions {
+          bindings { drag { pointerTypes = setOf(PointerType.Mouse) } }
+        }
+      )
+    input.move(20, Offset(-50f, 0f), Offset(110f, 0f))
+    input.options =
+      MapInteractions(input.options) {
+        bindings { transform { pan { onDelta { lateDeltas++ } } } }
+      }
+    input.move(40, Offset(-40f, 0f), Offset(120f, 0f))
+    assertEquals(2, input.target.moveCalls.size)
+    assertEquals(0, lateDeltas)
+  }
+
+  @Test
+  fun removed_and_readded_observer_cannot_join_the_existing_pan_between_input_events() {
+    val seen = mutableListOf<String>()
+    val input =
+      PairInput(
+        MapInteractions {
+          bindings { transform { pan { onDelta { seen += "original" } } } }
+        }
+      )
+    input.move(20, Offset(-50f, 0f), Offset(110f, 0f))
+    input.options =
+      MapInteractions(input.options) {
+        bindings { transform { pan { onDelta(null) } } }
+      }
+    input.options =
+      MapInteractions(input.options) {
+        bindings { transform { pan { onDelta { seen += "readded" } } } }
+      }
+    input.move(40, Offset(-40f, 0f), Offset(120f, 0f))
+    input.pair.end()
+    assertEquals(listOf("original"), seen)
+    assertEquals(2, input.target.moveCalls.size)
+    val next = PairInput(input.options)
+    next.move(20, Offset(-50f, 0f), Offset(110f, 0f))
+    assertEquals(listOf("original", "readded"), seen)
+  }
+
   private inner class PairInput(
-    var options: MapGestures,
+    initial: MapInteractions,
     private val secondType: PointerType = PointerType.Touch,
   ) {
+    val subscriptions = InteractionSubscriptions(initial)
+    var options = initial
+      set(value) {
+        field = value
+        subscriptions.update(value)
+      }
+
     val target = map.target
     private var time = 0L
     private var positions = listOf(Offset(-80f, 0f), Offset(80f, 0f))
-    private val token = target.onGestureStarted()
+    private val token = run {
+      map.state.gestureAuthority.updateConfiguration(options.camera)
+      target.onGestureStarted()
+    }
     val pair: PointerPairGesture
 
     init {
@@ -236,6 +361,7 @@ class PointerPairGestureTest {
           target,
           options,
           { options },
+          subscriptions,
           GestureIds(),
           Density(1f),
           event,

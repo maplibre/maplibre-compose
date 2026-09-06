@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -70,7 +71,7 @@ private class MapStateAttachment(
  * The map is a focus target, and the overlay is a focus group. Focus modifiers on [modifier] apply
  * to the map, and a control in the overlay keeps its own focus properties.
  *
- * Configure input handlers through [gestures]. Tap handlers run before interactive layers;
+ * Configure input handlers through [interactions]. Tap handlers run before interactive layers;
  * unhandled tap callbacks run after layers pass the event.
  */
 @Composable
@@ -80,7 +81,7 @@ public fun MaplibreMap(
   cameraPadding: PaddingValues = PaddingValues(0.dp),
   cameraConstraints: CameraConstraints = CameraConstraints(),
   renderOptions: RenderOptions = RenderOptions.Standard,
-  gestures: MapGestures = MapGestures.Standard,
+  interactions: MapInteractions = MapInteractions.Standard,
   tileLodOptions: TileLodOptions = TileLodOptions.Standard,
   contentWindowInsets: WindowInsets = WindowInsets.safeDrawing,
   overlay: @Composable @UiComposable MapOverlayScope.() -> Unit = {
@@ -99,7 +100,7 @@ public fun MaplibreMap(
       cameraPadding = cameraPadding,
       cameraConstraints = cameraConstraints,
       renderOptions = renderOptions,
-      gestures = gestures,
+      interactions = interactions,
       tileLodOptions = tileLodOptions,
     )
   key(state, presentationHostIdentity) {
@@ -161,7 +162,9 @@ private fun MaplibreMapPresentation(
     )
   val desiredRevision by desiredRevisionState
   val mapAttachment = state.currentMapAttachment
-  val currentGestures = rememberUpdatedState(mapViewOptions.gestures)
+  val subscriptions = remember(state) { InteractionSubscriptions(mapViewOptions.interactions) }
+  val currentInteractions = rememberUpdatedState(mapViewOptions.interactions)
+  SideEffect { state.gestureAuthority.updateConfiguration(mapViewOptions.interactions.camera) }
   // The style subcomposition publishes into a revision state it re-creates per loaded style, and
   // the dispatcher must keep its identity because the pointer input holding it does not restart.
   val currentDesiredRevision = rememberUpdatedState(desiredRevisionState)
@@ -171,7 +174,8 @@ private fun MaplibreMapPresentation(
         state = state,
         desiredRevision = currentDesiredRevision,
         loadedStyle = rememberedStyleState,
-        gestures = currentGestures,
+        interactions = currentInteractions,
+        subscriptions = subscriptions,
       )
     }
   var retainedRevisionReplayed by remember(rememberedStyle, mapAttachment) { mutableStateOf(false) }
@@ -262,6 +266,7 @@ private fun MaplibreMapPresentation(
       logger = state.runtime.logger,
       callbacks = adapterCallbacks,
       clicks = clickDispatcher,
+      subscriptions = subscriptions,
       options = mapViewOptions,
     )
 

@@ -1,16 +1,10 @@
-# Map interaction API plan
+# Map interactions
 
-Replace the branch's flat `MapGestures` surface with one immutable
-`MapInteractions` configuration. Separate allowed camera behavior, input
+`MapInteractions` separates camera permissions and response tuning, input
 recognition and routing, application event delivery, and camera-session
-ownership. This is a plan, not an implementation or a claim of runtime
-validation.
-
-This document supersedes the public configuration and binding surface in
-[the original redesign](GESTURE_REDESIGN.md) and the retained public names in
-[the consolidation](GESTURE_EXTRACTION.md). Keep their input fidelity, Compose
-consumption, host support limits, projection, click-query validity, and camera
-ownership contracts unless a change below explicitly replaces one.
+ownership. This document defines the public contract and implementation
+boundaries. [Input fidelity](INPUT_FIDELITY.md) records the recognition,
+Compose, host, projection, and ownership constraints beneath the API.
 
 ## Goals and limits
 
@@ -54,12 +48,11 @@ MaplibreMap(
 )
 ```
 
-Names and snippets define the target surface; they will become compiled
-repository examples during implementation. Builders have internal constructors;
-public configuration values are immutable snapshots. Nested blocks edit
-settings, assignments set values, and callback blocks supply runtime logic.
-Settings such as momentum use builders throughout; immutable settings records
-stay internal.
+The documentation site imports compiled examples from the demo module. Builders
+have internal constructors; public configuration values are immutable snapshots.
+Nested blocks edit settings, assignments set values, and callback blocks supply
+runtime logic. Settings such as momentum use builders throughout; immutable
+settings records stay internal.
 
 `MapInteractions { ... }` extends Standard.
 `MapInteractions(from = value) { ... }` edits another configuration. An omitted
@@ -85,7 +78,7 @@ instead of maintaining duplicate whole-configuration preset machinery.
 | `camera.pan/zoom/rotate/tilt`                                  | Global permission, default momentum, semantic start observation                      |
 | `bindings.drag`                                                | Single-pointer admission, selected response, movement thresholds, app drag extension |
 | `bindings.transform.pan/zoom/rotate/tilt`                      | Coordinated pair/host components, component eligibility and thresholds               |
-| `bindings.scroll`                                              | One ordered scroll table, burst timing, pan/zoom response gains                      |
+| `bindings.scroll`                                              | One ordered scroll table, burst timing, zoom response gain                           |
 | `bindings.tap/doubleTap/secondaryClick/longPress/twoFingerTap` | Tap-family eligibility and fallback camera response                                  |
 | `bindings.tapDrag`                                             | Paired tap-and-vertical-drag zoom, direction, gain and anchoring                     |
 | `bindings.hover`                                               | Hover eligibility                                                                    |
@@ -146,15 +139,17 @@ it with `momentum { enabled = false }` or model-specific fields:
 
 Defaults live on the camera component. Only `transform.pan/zoom/rotate/tilt` and
 `tapDrag` accept local momentum overrides. Single-pointer drag inherits the
-selected camera component's momentum; it has no ambiguous family-level momentum
-block for both Pan and RotateTilt. Every omitted override field, including
-`enabled`, inherits. Setting a speed does not implicitly enable disabled
-momentum. There is one resolved configuration, not multiplied chains of gains.
-Transform overrides apply only to library-recognized pairs, not host-recognized
-components. Changing resolved momentum settings cancels input or momentum using
-those settings. Cancellation never starts momentum. Scroll and host-recognized
-transform streams add no library momentum; they may already include host
-inertia. External camera commands do not acquire automatic release physics.
+camera pan or tilt momentum where the response supports it; mouse bearing
+rotation does not add release momentum. It has no ambiguous family-level
+momentum block for both Pan and RotateTilt. Every omitted override field,
+including `enabled`, inherits. Setting a speed does not implicitly enable
+disabled momentum. There is one resolved configuration, not multiplied chains of
+gains. Transform overrides apply only to library-recognized pairs, not
+host-recognized components. Changing resolved momentum settings cancels input or
+momentum using those settings. Cancellation never starts momentum. Scroll and
+host-recognized transform streams add no library momentum; they may already
+include host inertia. External camera commands do not acquire automatic release
+physics.
 
 Input-specific response conversions stay near the input: scroll/key/rotary zoom
 steps, tap zoom amounts, drag angular gain, and tap-drag zoom levels per
@@ -191,12 +186,15 @@ There is no parallel runtime `action { input -> ... }` selector API.
 
 Patterns expose only fields meaningful to their input family: reported pointer
 types, logical button, modifier matching, ScrollKind, or Compose Key. Omitted
-fields match any supported value. Pointer-type sets match the admitted pointer's
-reported type; they do not promise trackpad/touchscreen distinction. Modifier
-values are Any, Exactly, and Containing; there is no public Boolean filter
-algebra, arbitrary predicate, specificity ranking, or generic recognizer
-registry. Small typed matching values are arguments; settings such as momentum
-remain nested builders, without a second public settings-constructor API.
+fields match any supported value, except key-row modifiers: omitted key
+modifiers mean `Exactly()` (no modifiers), so an ordinary key binding does not
+claim unrelated shortcuts. Specify `Any` explicitly to accept every chord.
+Pointer-type sets match the admitted pointer's reported type; they do not
+promise trackpad/touchscreen distinction. Modifier values are Any, Exactly, and
+Containing; there is no public Boolean filter algebra, arbitrary predicate,
+specificity ranking, or generic recognizer registry. Small typed matching values
+are arguments; settings such as momentum remain nested builders, without a
+second public settings-constructor API.
 
 Rows are considered in declaration order. The first matching row with an
 available response wins: `none()` is always available; a camera action needs its
@@ -392,23 +390,21 @@ click-click-hold support. Retain direction, anchor, and momentum tuning.
 
 ## Application handling
 
-Keep one map-wide handler for each click kind and hover, existing feature-layer
-handlers, and one ordinary-click unhandled stage. Move their configuration into
-a single `callbacks` block on MapInteractions: `click`, `doubleClick`,
-`contextClick`, `twoFingerClick`, and `hover`. Click blocks provide `onEvent`,
-ordinary click also provides `onUnhandled`. Feature handlers remain on layers;
-do not reintroduce callbacks on MaplibreMap itself. `MapState.events` remains
-the engine event flow; `callbacks` describes application interaction delivery.
+Map-wide delivery has one handler for each click kind and hover, feature-layer
+handlers, and one ordinary-click unhandled stage. A single `callbacks` block on
+MapInteractions configures: `click`, `doubleClick`, `contextClick`,
+`twoFingerClick`, and `hover`. Click blocks provide `onEvent`, ordinary click
+also provides `onUnhandled`. Feature handlers remain on layers; do not
+reintroduce callbacks on MaplibreMap itself. `MapState.events` remains the
+engine event flow; `callbacks` describes application interaction delivery.
 
 Single click, double click, context request, and two-finger click are delivery
 intents. Standard secondary click and literal long press produce the same
-context intent. Add `bindings.secondaryClick` with its own `enabled`, static
-eligibility, and fallback `mappings`, independent of `bindings.longPress`.
-Rename `LongPressEvent` delivery to `ContextClickEvent` and every public layer
-`onLongClick` parameter to `onContextClick` in the same public migration; do not
-deliver a secondary button release as a fabricated long-press recognition event.
-Preserve screen and nullable geographic positions, hitPadding, layer order, and
-stale-query guards.
+context intent. `bindings.secondaryClick` has its own `enabled`, static
+eligibility, and fallback `mappings`, independent of `bindings.longPress`. Both
+deliver `ContextClickEvent`; layers expose `onContextClick`. A secondary button
+release is not fabricated long-press recognition. Preserve screen and nullable
+geographic positions, hitPadding, layer order, and stale-query guards.
 
 Tap-family mappings choose only the fallback camera response. They do not
 replace application click delivery. Dispatch remains map handler, layers front
@@ -459,7 +455,7 @@ edits.
 
 ## External camera input
 
-Replace the one-method GestureCamera wrapper with:
+App input uses a scoped camera lifetime:
 
 ```kotlin
 mapState.withCameraInput {
@@ -483,7 +479,7 @@ cleanup; caller cancellation still propagates. MapInteractions.None remains
 compatible with this external-input path. It is not a TransformableState adapter
 or a second engine implementation.
 
-## Internal restructuring
+## Internal boundaries
 
 ```text
 Compose/host delivery -> normalization -> candidate admission and recognition
@@ -491,10 +487,9 @@ Compose/host delivery -> normalization -> candidate admission and recognition
                       -> application click/custom-drag dispatch
 ```
 
-- Replace the broad GestureBindingSettings/Handlers records with typed immutable
-  family records and small ordered mapping tables. Remove fields meaningless for
-  a response, composable public filter lists, reserved built-in string IDs, and
-  behavior selected by string comparisons.
+- Use typed immutable family records and small ordered mapping tables. Keep
+  fields meaningful to their response; do not introduce public filter algebra,
+  reserved built-in string IDs, or behavior selected by string comparisons.
 - Keep camera permissions and default response tuning in one record. Resolve
   inherited input overrides once. Check permissions/authority on application
   input too; ordinary programmatic methods keep their independent path.
@@ -515,49 +510,25 @@ Compose/host delivery -> normalization -> candidate admission and recognition
   internal. Do not replace fidelity behavior with stock transformable solely for
   API symmetry.
 
-## Implementation work
-
-1. Replace MapGestures and its broad internal settings bag with MapInteractions,
-   typed family records, mapping tables, and current callback slots. Update
-   input processors to use the same matcher for demand and admission. Separate
-   drag and transform pan settings.
-2. Add camera policy and semantic response-start observation through the
-   existing camera authority. Implement rotation suppression during zoom,
-   independent secondary-click admission, and subscription updates described
-   above.
-3. Migrate demo, layer context-click names, external-input scope, and compiled
-   documentation examples. Remove old public contracts, redundant adapters,
-   obsolete tests, and superseded API documentation. Update the short cookbook.
-4. Validate the complete migration against the acceptance matrix. Preserve tests
-   for numeric fidelity, Compose consumption, click validity, and ownership;
-   replace tests tied only to removed API structure.
-
-Intermediate edits do not need to compile. Do not create temporary compatibility
-translators, aliases, or abstractions just to keep migration commits buildable.
-The finished branch must compile and satisfy the behavioral checks. Stacking is
-optional only if it helps review the final concerns. This planning task does not
-implement or publish these changes.
-
 ## Acceptance and validation
 
-| Scenario                            | Required evidence                                                                                                                                                                                   |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Default controls                    | Existing gesture-fidelity tests retain numeric behavior                                                                                                                                             |
-| Apple/Google/Mapbox-like schemes    | Mapping decision matrix plus representative Compose drag/click tests                                                                                                                                |
-| Scroll fallback and modifier gating | Continuous/discrete classification, permitted-action fallback, unclaimed input, modifier transition                                                                                                 |
-| Dynamic configuration               | Callback updates do not restart input; table changes cancel; held keys retain action; mouse chord changes rebase                                                                                    |
-| Picker/rotation locks               | Every input source obeys policy; live tests preserve padded target and prohibit FitBounds with either pan or zoom locked                                                                            |
-| StreetComplete following            | Semantic pan starts before the command; zoom/rotation/tilt/custom drag do not trigger it                                                                                                            |
-| Transform independence              | Mouse-only drag leaves touch-pair pan possible; suppression during zoom has deterministic terminals                                                                                                 |
-| App drag                            | Admission fallback, stable-key updates, one terminal, preview cleanup through the production path                                                                                                   |
-| Click and context intents           | No default single-tap demand without subscribers; unused double-tap mappings add no delay; layer priority, hit padding, ordinary unhandled delivery, stale async queries, right-click vs long press |
-| External input                      | Same authority/guards/fences; policy gating; None; takeover, nesting, cancellation and detach                                                                                                       |
-| Host limits                         | No fake pointer identity, duplicate host listeners, or added host-stream inertia                                                                                                                    |
+| Scenario                            | Required evidence                                                                                                                                                                                                                                   |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Default controls                    | Existing gesture-fidelity tests retain numeric behavior                                                                                                                                                                                             |
+| Apple/Google/Mapbox-like schemes    | Mapping decision matrix plus representative Compose drag/click tests                                                                                                                                                                                |
+| Scroll fallback and modifier gating | Continuous/discrete classification, permitted-action fallback, unclaimed input, modifier transition                                                                                                                                                 |
+| Dynamic configuration               | Callback updates do not restart input; table changes cancel; held keys retain action; mouse chord changes rebase                                                                                                                                    |
+| Picker/rotation locks               | Every input source obeys policy; live tests preserve padded target and prohibit FitBounds with either pan or zoom locked                                                                                                                            |
+| StreetComplete following            | Semantic pan starts before the command; zoom/rotation/tilt/custom drag do not trigger it                                                                                                                                                            |
+| Transform independence              | Mouse-only drag leaves touch-pair pan possible; suppression during zoom has deterministic terminals                                                                                                                                                 |
+| App drag                            | Admission fallback, stable-key updates, one terminal, preview cleanup through the production path                                                                                                                                                   |
+| Click and context intents           | No default single-tap demand without subscribers (double-tap/tap-drag may still reserve a press); unused double-tap mappings add no delay; layer priority, hit padding, ordinary unhandled delivery, stale async queries, right-click vs long press |
+| External input                      | Same authority/guards/fences; policy gating; None; takeover, nesting, cancellation and detach                                                                                                                                                       |
+| Host limits                         | No fake pointer identity, duplicate host listeners, or added host-stream inertia                                                                                                                                                                    |
 
 Keep production regression tests for recognition, Compose routing, and live
 engine ownership. Replace repeated old-slot tests with focused routing and
 policy tests; avoid a Cartesian product of every scheme, device, and tuning
-value. Run affected mise platform tasks and static/documentation checks during
-implementation. Snippets in this plan are not claimed to compile against the
-current branch; no runtime tests are required to validate this plan-only change.
-Physical touch/trackpad calibration remains a separate validation requirement.
+value. Run affected mise platform tasks and static/documentation checks.
+Synthetic input and live-engine tests do not establish physical touch/trackpad
+calibration; that remains a separate release validation requirement.

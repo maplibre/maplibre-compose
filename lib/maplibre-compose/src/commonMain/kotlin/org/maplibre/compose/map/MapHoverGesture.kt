@@ -31,9 +31,10 @@ internal class MapHoverGesture(
   private val scope: CoroutineScope,
   private val target: GestureTarget,
   private val interactions: MapInteractionTarget,
-  private val options: () -> MapGestures,
+  private val options: () -> MapInteractions,
   private val ids: GestureIds,
   private val density: Density,
+  private val subscriptions: InteractionSubscriptions,
   private val awaitFrame: suspend () -> Unit = { withFrameNanos {} },
 ) {
   private data class Entered(val sample: GesturePointerSample, val handler: (HoverEvent) -> Unit)
@@ -43,6 +44,7 @@ internal class MapHoverGesture(
   private var sceneIdentity: Any? = null
   private var mapIdentity: Any? = null
   private var bindingEntry: Entered? = null
+  private var bindingSubscription: Any? = null
   private val layers = mutableMapOf<Any, Entered>()
   private var registrations = emptySet<Any>()
   private var pending: GesturePointerSample? = null
@@ -51,7 +53,14 @@ internal class MapHoverGesture(
 
   init {
     scope.launch {
-      snapshotFlow { listOf(interactions.hoverRevision, options().binding("hover")) }
+      snapshotFlow {
+        listOf(
+          interactions.hoverRevision,
+          options().bindings.hover,
+          options().callbacks.hover,
+          subscriptions.hover.capture(),
+        )
+      }
         .collect { refresh() }
     }
   }
@@ -80,12 +89,19 @@ internal class MapHoverGesture(
   private fun refresh() {
     val raw = location ?: return
     val scene = interactions.captureHover()
-    val binding = options().binding("hover")
+    val binding = options().bindings.hover
     if (
       scene == null ||
         !scene.isValid() ||
-        !binding.matches(raw, contact = false) ||
-        (binding.handlers.hover == null && scene.layers.isEmpty())
+        !binding.enabled ||
+        !PointerPattern(binding.pointerTypes, modifiers = binding.modifiers)
+          .matches(
+            raw.pointerTypes,
+            raw.buttons,
+            raw.modifierKeys,
+            contact = false,
+          ) ||
+        (options().callbacks.hover == null && scene.layers.isEmpty())
     ) {
       clear()
       return
@@ -102,7 +118,10 @@ internal class MapHoverGesture(
     registrations = currentIds
     val generation = epoch
     fun valid() = generation == epoch && location === raw && scene.isValid()
-    if (mapIdentity != scene.mapIdentity) {
+    if (
+      mapIdentity != scene.mapIdentity ||
+        (bindingEntry != null && !subscriptions.hover.contains(bindingSubscription))
+    ) {
       val old = bindingEntry
       bindingEntry = null
       old?.handler?.invoke(HoverEvent.Exit(old.sample))
@@ -121,7 +140,8 @@ internal class MapHoverGesture(
         gestureId = gestureId ?: ids.next().also { gestureId = it },
         position = target.positionFromScreenLocation(raw.screenOffset),
       )
-    observe(bindingEntry, sample, options().binding("hover").handlers.hover) { bindingEntry = it }
+    bindingSubscription = subscriptions.hover.capture()
+    observe(bindingEntry, sample, options().callbacks.hover) { bindingEntry = it }
     if (!valid()) return
     if (scene.layers.isEmpty()) {
       pending = null
@@ -223,6 +243,7 @@ internal class MapHoverGesture(
     invalidateWorker()
     val exits = listOfNotNull(bindingEntry) + layers.values
     bindingEntry = null
+    bindingSubscription = null
     layers.clear()
     registrations = emptySet()
     gestureId = null

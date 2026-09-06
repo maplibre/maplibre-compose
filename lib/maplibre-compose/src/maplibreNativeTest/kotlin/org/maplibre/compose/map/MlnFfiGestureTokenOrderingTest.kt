@@ -102,9 +102,9 @@ class MlnFfiGestureTokenOrderingTest {
           val queued = CompletableDeferred<Unit>()
           val work =
             async(start = CoroutineStart.UNDISPATCHED) {
-              fixture.state.gestureCamera.withGesture {
-                moveBy(DRAG_STEP_DP, 0.0)
-                moveBy(DRAG_STEP_DP, 0.0)
+              fixture.state.withCameraInput {
+                panBy(DRAG_STEP_DP, 0.0)
+                panBy(DRAG_STEP_DP, 0.0)
                 queued.complete(Unit)
               }
             }
@@ -147,8 +147,8 @@ class MlnFfiGestureTokenOrderingTest {
           val queued = CompletableDeferred<Unit>()
           val work =
             launch(start = CoroutineStart.UNDISPATCHED) {
-              fixture.state.gestureCamera.withGesture {
-                moveBy(DRAG_STEP_DP, 0.0)
+              fixture.state.withCameraInput {
+                panBy(DRAG_STEP_DP, 0.0)
                 queued.complete(Unit)
                 awaitCancellation()
               }

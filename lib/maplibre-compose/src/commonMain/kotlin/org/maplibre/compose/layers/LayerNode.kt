@@ -21,7 +21,7 @@ internal fun <T : Layer> LayerNode(
   factory: () -> T,
   update: Updater<LayerNode<T>>.() -> Unit,
   onClick: FeaturesClickHandler?,
-  onLongClick: FeaturesClickHandler?,
+  onContextClick: FeaturesClickHandler?,
   recreateKey: Any? = Unit,
   onDoubleClick: FeaturesClickHandler? = null,
   onTwoFingerClick: FeaturesClickHandler? = null,
@@ -40,7 +40,7 @@ internal fun <T : Layer> LayerNode(
       update = {
         update()
         set(onClick) { this.onClick = it }
-        set(onLongClick) { this.onLongClick = it }
+        set(onContextClick) { this.onContextClick = it }
         set(onDoubleClick) { this.onDoubleClick = it }
         set(onTwoFingerClick) { this.onTwoFingerClick = it }
         set(hitPadding) { this.hitPadding = it }

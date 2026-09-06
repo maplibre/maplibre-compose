@@ -87,7 +87,7 @@ import org.maplibre.compose.util.MaplibreComposable
  *   [colorTransition], whether or not [outlineColor] is set. Null uses the style's global
  *   transition.
  * @param onClick Function to call when any feature in this layer has been clicked.
- * @param onLongClick Function to call when any feature in this layer has been long-clicked.
+ * @param onContextClick Function to call when any feature in this layer has been context-clicked.
  * @param onDoubleClick Called for a double tap or double click on this layer.
  * @param onTwoFingerClick Called for a two-contact tap on this layer.
  * @param hitPadding Expands tap queries to a square of this radius in dp; zero uses a point.
@@ -119,7 +119,7 @@ public fun FillLayer(
   outlineColor: Expression<ColorValue> = color,
   outlineColorTransition: TransitionOptions? = colorTransition,
   onClick: FeaturesClickHandler? = null,
-  onLongClick: FeaturesClickHandler? = null,
+  onContextClick: FeaturesClickHandler? = null,
   onDoubleClick: FeaturesClickHandler? = null,
   onTwoFingerClick: FeaturesClickHandler? = null,
   hitPadding: Dp = 0.dp,
@@ -165,7 +165,7 @@ public fun FillLayer(
       set(patternTransition) { layer.setFillPatternTransition(it) }
     },
     onClick = onClick,
-    onLongClick = onLongClick,
+    onContextClick = onContextClick,
     onDoubleClick = onDoubleClick,
     onTwoFingerClick = onTwoFingerClick,
     hitPadding = hitPadding,

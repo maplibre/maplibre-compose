@@ -11,15 +11,19 @@ import org.maplibre.compose.input.TransformDecision
 /** Map fidelity rules: velocity-gated rotation/scale and exclusive two-contact vertical drag. */
 internal class MapTransformPolicy(
   private val density: Density,
-  private val pan: GestureBindingSettings?,
-  private val pinch: GestureBindingSettings?,
-  private val rotate: GestureBindingSettings?,
-  private val shove: GestureBindingSettings?,
+  private val pan: TransformPanBinding?,
+  private val pinch: TransformZoomBinding?,
+  private val rotate: TransformRotateBinding?,
+  private val shove: TransformTiltBinding?,
 ) : PointerTransformPolicy {
   private var rotationSpan = 0.0
+  private var rotationOrigin: PairSample? = null
+  private var zoomWasActive = false
 
   override fun reset(sample: PairSample) {
     rotationSpan = sample.distance
+    rotationOrigin = sample
+    zoomWasActive = false
   }
 
   override fun accepts(previous: PairSample, current: PairSample): Boolean =
@@ -30,6 +34,12 @@ internal class MapTransformPolicy(
       previous.distance <= 0
 
   override fun recognize(motion: PairMotion, active: Set<TransformComponent>): TransformDecision {
+    val zooming = TransformComponent.Scale in active
+    if (zoomWasActive && !zooming && rotate?.allowDuringZoom == false)
+      rotationOrigin = motion.previous
+    zoomWasActive = zooming
+    val rotationFromStart =
+      PairMotion(rotationOrigin ?: motion.origin, motion.previous, motion.current).rotationFromStart
     val rotating = TransformComponent.Rotation in active
     val shoving = TransformComponent.VerticalDrag in active
     val starts = linkedSetOf<TransformComponent>()
@@ -37,13 +47,13 @@ internal class MapTransformPolicy(
     val current = motion.current
     val span = (current.distance - motion.origin.distance) * 2 / density.density
     val spanDelta = (current.distance - motion.previous.distance) * 2 / density.density
-    val startRotate =
-      motion.rotationFromStart != 0.0 &&
+    var startRotate =
+      rotationFromStart != 0.0 &&
         rotate != null &&
         !rotating &&
         !shoving &&
         GestureMath.shouldStartRotation(
-          motion.rotationFromStart,
+          rotationFromStart,
           motion.rotation,
           motion.elapsed,
           rotate.startAngle,
@@ -62,6 +72,7 @@ internal class MapTransformPolicy(
           motion.rotation,
           if (rotating) maxOf(scaleSlop, GestureMath.SCALE_START_WHILE_ROTATING_DP) else scaleSlop,
         )
+    if (rotate?.allowDuringZoom == false && (zooming || startPinch)) startRotate = false
     val startShove =
       motion.displacement.y != 0f &&
         shove != null &&
@@ -75,11 +86,14 @@ internal class MapTransformPolicy(
     var scale = motion.scale
     var rotation = motion.rotation
     var vertical = motion.pan.y
+    if (rotate?.allowDuringZoom == false && (zooming || startPinch)) {
+      if (rotating) cancels += TransformComponent.Rotation
+      rotationOrigin = current
+    }
     if (startRotate) {
       cancels += TransformComponent.Scale
       rotationSpan = current.distance
-      rotation =
-        motion.rotationFromStart - sign(motion.rotationFromStart) * checkNotNull(rotate).startAngle
+      rotation = rotationFromStart - sign(rotationFromStart) * checkNotNull(rotate).startAngle
       starts += TransformComponent.Rotation
     } else if (startPinch) {
       val threshold =

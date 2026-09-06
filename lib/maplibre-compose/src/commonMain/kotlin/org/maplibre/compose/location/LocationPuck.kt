@@ -80,8 +80,8 @@ import org.maplibre.spatialk.units.extensions.meters
  * @param sizes The sizes to use for the location puck.
  * @param onClick A [LocationClickHandler] to invoke when the main location indicator dot is
  *   clicked.
- * @param onLongClick A [LocationClickHandler] to invoke when the main location indicator dot is
- *   long-clicked.
+ * @param onContextClick A [LocationClickHandler] to invoke when the main location indicator dot is
+ *   context-clicked.
  */
 @Composable
 public fun LocationPuck(
@@ -92,7 +92,7 @@ public fun LocationPuck(
   colors: LocationPuckColors = LocationPuckColors(),
   sizes: LocationPuckSizes = LocationPuckSizes(),
   onClick: LocationClickHandler? = null,
-  onLongClick: LocationClickHandler? = null,
+  onContextClick: LocationClickHandler? = null,
 ) {
   LocationPuckContent(
     idPrefix = idPrefix,
@@ -108,7 +108,7 @@ public fun LocationPuck(
     colors = colors,
     sizes = sizes,
     onClick = onClick,
-    onLongClick = onLongClick,
+    onContextClick = onContextClick,
   )
 }
 
@@ -135,8 +135,8 @@ public fun LocationPuck(
  * @param sizes The sizes to use for the location puck.
  * @param onClick A [LocationClickHandler] to invoke when the main location indicator dot is
  *   clicked.
- * @param onLongClick A [LocationClickHandler] to invoke when the main location indicator dot is
- *   long-clicked.
+ * @param onContextClick A [LocationClickHandler] to invoke when the main location indicator dot is
+ *   context-clicked.
  */
 @Composable
 public fun LocationPuck(
@@ -150,7 +150,7 @@ public fun LocationPuck(
   colors: LocationPuckColors = LocationPuckColors(),
   sizes: LocationPuckSizes = LocationPuckSizes(),
   onClick: LocationClickHandler? = null,
-  onLongClick: LocationClickHandler? = null,
+  onContextClick: LocationClickHandler? = null,
 ) {
   LocationPuckContent(
     idPrefix = idPrefix,
@@ -160,7 +160,7 @@ public fun LocationPuck(
     colors = colors,
     sizes = sizes,
     onClick = onClick,
-    onLongClick = onLongClick,
+    onContextClick = onContextClick,
   )
 }
 
@@ -173,7 +173,7 @@ private fun LocationPuckContent(
   colors: LocationPuckColors,
   sizes: LocationPuckSizes,
   onClick: LocationClickHandler?,
-  onLongClick: LocationClickHandler?,
+  onContextClick: LocationClickHandler?,
 ) {
   val viewport = LocalViewport.current
   val location = measurement?.location
@@ -228,8 +228,8 @@ private fun LocationPuckContent(
       location?.let { onClick?.invoke(it) }
       ClickResult.Consume
     },
-    onLongClick = {
-      location?.let { onLongClick?.invoke(it) }
+    onContextClick = {
+      location?.let { onContextClick?.invoke(it) }
       ClickResult.Consume
     },
     pitchAlignment = const(CirclePitchAlignment.Map),

@@ -22,10 +22,10 @@ public enum class KeyModifier {
 
 /** Matches the complete modifier set, a subset, or any modifiers. */
 @Immutable
-public sealed class ModifierFilter private constructor() {
-  public data object Any : ModifierFilter()
+public sealed class ModifierMatch private constructor() {
+  public data object Any : ModifierMatch()
 
-  public class Exactly(vararg modifiers: KeyModifier) : ModifierFilter() {
+  public class Exactly(vararg modifiers: KeyModifier) : ModifierMatch() {
     public val modifiers: Set<KeyModifier> = modifiers.toSet()
 
     override fun equals(other: kotlin.Any?): Boolean =
@@ -34,7 +34,7 @@ public sealed class ModifierFilter private constructor() {
     override fun hashCode(): Int = modifiers.hashCode()
   }
 
-  public class Containing(vararg modifiers: KeyModifier) : ModifierFilter() {
+  public class Containing(vararg modifiers: KeyModifier) : ModifierMatch() {
     public val modifiers: Set<KeyModifier> = modifiers.toSet()
 
     override fun equals(other: kotlin.Any?): Boolean =
@@ -51,23 +51,13 @@ public sealed class ModifierFilter private constructor() {
     }
 }
 
-/**
- * Selects reported pointer types, a button, and modifiers. Null types or button impose no
- * restriction. Every participating contact must match [pointerTypes].
- *
- * A touch or stylus contact counts as primary for contact gestures. Scroll requires a physical
- * button when [button] is non-null; use `PointerFilter(button = null)` for buttonless wheels.
- * Pointer types describe the host's report, not physical touchscreen or trackpad identity.
- */
-@Immutable
-public class PointerFilter(
-  pointerTypes: Set<PointerType>? = null,
-  public val button: PointerButton? = PointerButton.Primary,
-  public val modifiers: ModifierFilter = ModifierFilter.Any,
+/** Internal metadata pattern shared by admission, demand, and routing. */
+internal data class PointerPattern(
+  val pointerTypes: Set<PointerType>? = null,
+  val button: PointerButton? = null,
+  val modifiers: ModifierMatch = ModifierMatch.Any,
 ) {
-  public val pointerTypes: Set<PointerType>? = pointerTypes?.toSet()
-
-  internal fun matches(
+  fun matches(
     types: Set<PointerType>,
     buttons: Set<PointerButton>,
     modifierKeys: Set<KeyModifier>,
@@ -79,19 +69,10 @@ public class PointerFilter(
         button in buttons ||
         (button == PointerButton.Primary &&
           contact &&
-          (platformTransform && buttons.isEmpty() ||
-            types.isNotEmpty() &&
+          ((platformTransform && buttons.isEmpty()) ||
+            (types.isNotEmpty() &&
               types.all {
                 it == PointerType.Touch || it == PointerType.Stylus || it == PointerType.Eraser
-              }))) &&
+              })))) &&
       modifiers.matches(modifierKeys)
-
-  override fun equals(other: Any?): Boolean =
-    other is PointerFilter &&
-      pointerTypes == other.pointerTypes &&
-      button == other.button &&
-      modifiers == other.modifiers
-
-  override fun hashCode(): Int =
-    31 * (31 * (pointerTypes?.hashCode() ?: 0) + (button?.hashCode() ?: 0)) + modifiers.hashCode()
 }

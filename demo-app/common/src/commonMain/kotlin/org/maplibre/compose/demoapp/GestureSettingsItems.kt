@@ -5,16 +5,24 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import org.maplibre.compose.demoapp.design.SliderRow
 import org.maplibre.compose.demoapp.design.SwitchRow
-import org.maplibre.compose.map.MapGestures
+import org.maplibre.compose.map.KeyModifier
+import org.maplibre.compose.map.MapInteractions
+import org.maplibre.compose.map.ModifierMatch.Containing
+import org.maplibre.compose.map.ModifierMatch.Exactly
+import org.maplibre.compose.map.PointerButton
+import org.maplibre.compose.map.ScrollKind
 
 @Stable
 class DemoGestureSettings {
   var dragPan by mutableStateOf(true)
   var dragRotateTilt by mutableStateOf(true)
+  var transformPan by mutableStateOf(true)
   var pinchZoom by mutableStateOf(true)
   var twoFingerRotate by mutableStateOf(true)
   var twoFingerTilt by mutableStateOf(true)
@@ -41,43 +49,100 @@ class DemoGestureSettings {
   val hasKeyboardGesture
     get() = keyboardPan || keyboardZoom || keyboardRotateTilt
 
-  val gestures: MapGestures
-    get() = MapGestures {
-      dragPan {
-        enabled = this@DemoGestureSettings.dragPan
-        startSlop = panSlop.dp
-        mouseStartSlop = mousePanSlop.dp
+  val interactions: MapInteractions
+    get() = MapInteractions {
+      camera {
+        pan { momentum { enabled = fling } }
+        zoom { momentum { enabled = pinchVelocity } }
+        rotate { momentum { enabled = rotateVelocity } }
       }
-      dragRotateTilt { enabled = this@DemoGestureSettings.dragRotateTilt }
-      pinchZoom {
-        enabled = this@DemoGestureSettings.pinchZoom
-        startSpanSlop = pinchSlop.dp
-      }
-      twoFingerRotate {
-        enabled = this@DemoGestureSettings.twoFingerRotate
-        startAngle = rotateAngle.toDouble()
-      }
-      twoFingerTilt {
-        enabled = this@DemoGestureSettings.twoFingerTilt
-        startSlop = tiltSlop.dp
-      }
-      twoFingerTap { enabled = this@DemoGestureSettings.twoFingerTap }
-      scrollPan { enabled = this@DemoGestureSettings.scrollPan }
-      scrollZoom { enabled = this@DemoGestureSettings.scrollZoom }
-      doubleTap { enabled = this@DemoGestureSettings.doubleTap }
-      quickZoom { enabled = this@DemoGestureSettings.quickZoom }
-      boxZoom { enabled = this@DemoGestureSettings.boxZoom }
-      ctrlScrollZoom { enabled = this@DemoGestureSettings.scrollZoom }
-      dragPan { if (!fling) continuation = null }
-      pinchZoom { if (!pinchVelocity) continuation = null }
-      twoFingerRotate { if (!rotateVelocity) continuation = null }
-      keys {
-        rotaryZoom { enabled = this@DemoGestureSettings.rotaryZoom }
-        if (!keyboardPan) clearPan()
-        if (!keyboardZoom) clearZoom()
-        if (!keyboardRotateTilt) {
-          clearRotate()
-          clearTilt()
+      bindings {
+        drag {
+          pan {
+            startSlop = panSlop.dp
+            mouseStartSlop = mousePanSlop.dp
+          }
+          mappings {
+            if (dragRotateTilt) {
+              on(pointerTypes = setOf(PointerType.Mouse), button = PointerButton.Secondary) {
+                rotateTilt()
+              }
+              on(
+                pointerTypes = setOf(PointerType.Mouse),
+                button = PointerButton.Primary,
+                modifiers = Containing(KeyModifier.Ctrl),
+              ) {
+                rotateTilt()
+              }
+            }
+            if (boxZoom) {
+              on(
+                pointerTypes = setOf(PointerType.Mouse),
+                button = PointerButton.Primary,
+                modifiers = Containing(KeyModifier.Shift),
+              ) {
+                fitBounds()
+              }
+            }
+            if (dragPan) on(button = PointerButton.Primary) { pan() }
+          }
+        }
+        transform {
+          pan {
+            enabled = transformPan
+            startSlop = panSlop.dp
+          }
+          zoom {
+            enabled = pinchZoom
+            startSpanSlop = pinchSlop.dp
+          }
+          rotate {
+            enabled = twoFingerRotate
+            startAngle = rotateAngle.toDouble()
+          }
+          tilt {
+            enabled = twoFingerTilt
+            startSlop = tiltSlop.dp
+          }
+        }
+        twoFingerTap { enabled = this@DemoGestureSettings.twoFingerTap }
+        scroll {
+          mappings {
+            if (scrollZoom) on(modifiers = Containing(KeyModifier.Ctrl)) { zoom() }
+            if (scrollPan) on(kind = ScrollKind.Continuous) { pan() }
+            if (scrollZoom) otherwise { zoom() }
+          }
+        }
+        doubleTap { enabled = this@DemoGestureSettings.doubleTap }
+        tapDrag { enabled = quickZoom }
+        rotary { enabled = rotaryZoom }
+        keys {
+          mappings {
+            if (keyboardPan) {
+              on(Key.DirectionLeft) { panLeft() }
+              on(Key.DirectionRight) { panRight() }
+              on(Key.DirectionUp) { panUp() }
+              on(Key.DirectionDown) { panDown() }
+            }
+            if (keyboardRotateTilt) {
+              on(Key.DirectionLeft, Exactly(KeyModifier.Shift)) { rotateLeft() }
+              on(Key.DirectionRight, Exactly(KeyModifier.Shift)) { rotateRight() }
+              on(Key.DirectionUp, Exactly(KeyModifier.Shift)) { tiltUp() }
+              on(Key.DirectionDown, Exactly(KeyModifier.Shift)) { tiltDown() }
+            }
+            if (keyboardZoom) {
+              on(Key.Plus) { zoomIn() }
+              on(Key.Equals) { zoomIn() }
+              on(Key.Plus, Exactly(KeyModifier.Shift)) { zoomIn() }
+              on(Key.Equals, Exactly(KeyModifier.Shift)) { zoomIn() }
+              on(Key.Minus) { zoomOut() }
+            }
+            on(Key.Enter) { engage() }
+            on(Key.NumPadEnter) { engage() }
+            on(Key.DirectionCenter) { engage() }
+            on(Key.Escape) { disengage() }
+            on(Key.Back) { back() }
+          }
         }
       }
     }
@@ -86,40 +151,48 @@ class DemoGestureSettings {
 /** Input controls shared by the demo screens. */
 @Composable
 fun GestureSettingsItems(settings: DemoSettings) {
-  val gestures = settings.gestureSettings
-  SwitchRow("Drag pan", gestures.dragPan) { gestures.dragPan = it }
-  SwitchRow("Drag rotate and tilt", gestures.dragRotateTilt) { gestures.dragRotateTilt = it }
-  SwitchRow("Pinch zoom", gestures.pinchZoom) { gestures.pinchZoom = it }
-  SwitchRow("Two-finger rotate", gestures.twoFingerRotate) { gestures.twoFingerRotate = it }
-  SwitchRow("Two-finger tilt", gestures.twoFingerTilt) { gestures.twoFingerTilt = it }
-  SwitchRow("Two-finger tap", gestures.twoFingerTap) { gestures.twoFingerTap = it }
-  SwitchRow("Scroll pan", gestures.scrollPan) { gestures.scrollPan = it }
-  SwitchRow("Scroll zoom", gestures.scrollZoom) { gestures.scrollZoom = it }
-  SwitchRow("Rotary zoom", gestures.rotaryZoom) { gestures.rotaryZoom = it }
-  SwitchRow("Double tap", gestures.doubleTap) { gestures.doubleTap = it }
-  SwitchRow("Quick zoom", gestures.quickZoom) { gestures.quickZoom = it }
-  SwitchRow("Box zoom", gestures.boxZoom) { gestures.boxZoom = it }
-  SwitchRow("Fling", gestures.fling) { gestures.fling = it }
-  SwitchRow("Pinch zoom velocity", gestures.pinchVelocity) { gestures.pinchVelocity = it }
-  SwitchRow("Rotate velocity", gestures.rotateVelocity) { gestures.rotateVelocity = it }
-  SwitchRow("Keyboard pan", gestures.keyboardPan) { gestures.keyboardPan = it }
-  SwitchRow("Keyboard zoom", gestures.keyboardZoom) { gestures.keyboardZoom = it }
-  SwitchRow("Keyboard rotate and tilt", gestures.keyboardRotateTilt) {
-    gestures.keyboardRotateTilt = it
+  val interactions = settings.gestureSettings
+  SwitchRow("Drag pan", interactions.dragPan) { interactions.dragPan = it }
+  SwitchRow("Drag rotate and tilt", interactions.dragRotateTilt) {
+    interactions.dragRotateTilt = it
   }
-  SliderRow("Pan threshold", gestures.panSlop, 0f..24f, { "${it.roundToInt()} dp" }) {
-    gestures.panSlop = it
+  SwitchRow("Two-finger pan", interactions.transformPan) { interactions.transformPan = it }
+  SwitchRow("Pinch zoom", interactions.pinchZoom) { interactions.pinchZoom = it }
+  SwitchRow("Two-finger rotate", interactions.twoFingerRotate) { interactions.twoFingerRotate = it }
+  SwitchRow("Two-finger tilt", interactions.twoFingerTilt) { interactions.twoFingerTilt = it }
+  SwitchRow("Two-finger tap", interactions.twoFingerTap) { interactions.twoFingerTap = it }
+  SwitchRow("Scroll pan", interactions.scrollPan) { interactions.scrollPan = it }
+  SwitchRow("Scroll zoom", interactions.scrollZoom) { interactions.scrollZoom = it }
+  SwitchRow("Rotary zoom", interactions.rotaryZoom) { interactions.rotaryZoom = it }
+  SwitchRow("Double tap", interactions.doubleTap) { interactions.doubleTap = it }
+  SwitchRow("Quick zoom", interactions.quickZoom) { interactions.quickZoom = it }
+  SwitchRow("Box zoom", interactions.boxZoom) { interactions.boxZoom = it }
+  SwitchRow("Fling", interactions.fling) { interactions.fling = it }
+  SwitchRow("Pinch zoom velocity", interactions.pinchVelocity) { interactions.pinchVelocity = it }
+  SwitchRow("Rotate velocity", interactions.rotateVelocity) { interactions.rotateVelocity = it }
+  SwitchRow("Keyboard pan", interactions.keyboardPan) { interactions.keyboardPan = it }
+  SwitchRow("Keyboard zoom", interactions.keyboardZoom) { interactions.keyboardZoom = it }
+  SwitchRow("Keyboard rotate and tilt", interactions.keyboardRotateTilt) {
+    interactions.keyboardRotateTilt = it
   }
-  SliderRow("Mouse pan threshold", gestures.mousePanSlop, 0f..16f, { "${it.roundToInt()} dp" }) {
-    gestures.mousePanSlop = it
+  SliderRow("Pan threshold", interactions.panSlop, 0f..24f, { "${it.roundToInt()} dp" }) {
+    interactions.panSlop = it
   }
-  SliderRow("Pinch span threshold", gestures.pinchSlop, 0f..32f, { "${it.roundToInt()} dp" }) {
-    gestures.pinchSlop = it
+  SliderRow(
+    "Mouse pan threshold",
+    interactions.mousePanSlop,
+    0f..16f,
+    { "${it.roundToInt()} dp" },
+  ) {
+    interactions.mousePanSlop = it
   }
-  SliderRow("Rotation threshold", gestures.rotateAngle, 0f..15f, { "${it.roundToInt()}°" }) {
-    gestures.rotateAngle = it
+  SliderRow("Pinch span threshold", interactions.pinchSlop, 0f..32f, { "${it.roundToInt()} dp" }) {
+    interactions.pinchSlop = it
   }
-  SliderRow("Tilt threshold", gestures.tiltSlop, 0f..40f, { "${it.roundToInt()} dp" }) {
-    gestures.tiltSlop = it
+  SliderRow("Rotation threshold", interactions.rotateAngle, 0f..15f, { "${it.roundToInt()}°" }) {
+    interactions.rotateAngle = it
+  }
+  SliderRow("Tilt threshold", interactions.tiltSlop, 0f..40f, { "${it.roundToInt()} dp" }) {
+    interactions.tiltSlop = it
   }
 }

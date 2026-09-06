@@ -12,8 +12,9 @@ import org.maplibre.compose.map.PlatformTransformRouting.Kind
 /** Host-recognized components share one camera session and append no library momentum. */
 internal class MapPlatformTransform(
   private val target: GestureTarget,
-  private val options: MapGestures,
-  private val currentOptions: () -> MapGestures,
+  private val options: MapInteractions,
+  private val currentOptions: () -> MapInteractions,
+  private val subscriptions: InteractionSubscriptions,
   private val ids: GestureIds,
   private val scope: CoroutineScope,
   private val routing: PlatformTransformRouting,
@@ -21,7 +22,7 @@ internal class MapPlatformTransform(
 ) {
   private class Component(
     val kind: Kind,
-    val binding: GestureBinding,
+    val observer: (PointerGestureEvent) -> Unit,
     var sample: GesturePointerSample,
   ) {
     val velocity = GestureVelocityTracker()
@@ -87,18 +88,27 @@ internal class MapPlatformTransform(
         else !panDelta.x.value.isFinite() || !panDelta.y.value.isFinite())
     )
       return false
-    val selected = options.binding(if (kind == Kind.Scale) "pinchZoom" else "dragPan")
+    val settings = options.bindings.transform
+    val enabled =
+      when (kind) {
+        Kind.Scale -> settings.zoom.enabled && options.camera.zoom.enabled
+        Kind.Pan -> settings.pan.enabled && options.camera.pan.enabled
+      }
+    val pattern =
+      when (kind) {
+        Kind.Scale ->
+          PointerPattern(settings.zoom.pointerTypes, modifiers = settings.zoom.modifiers)
+        Kind.Pan -> PointerPattern(settings.pan.pointerTypes, modifiers = settings.pan.modifiers)
+      }
     if (
-      !selected.enabled ||
-        selected.filters.none {
-          it.matches(
-            sample.pointerTypes,
-            sample.buttons,
-            sample.modifierKeys,
-            contact = true,
-            platformTransform = true,
-          )
-        }
+      !enabled ||
+        !pattern.matches(
+          sample.pointerTypes,
+          sample.buttons,
+          sample.modifierKeys,
+          contact = true,
+          platformTransform = true,
+        )
     ) {
       if (components.containsKey(kind)) {
         suppressed += kind
@@ -123,7 +133,7 @@ internal class MapPlatformTransform(
         target.observeInput()
         lateinit var input: GestureInputSession
         input =
-          GestureInputSession(scope, target) {
+          GestureInputSession(scope, target, origin = CameraInputOrigin.Transform) {
             if (session === input)
               cancel(
                 if (target.isGestureReady) GestureCancellationReason.CameraTakeover
@@ -132,7 +142,23 @@ internal class MapPlatformTransform(
           }
         session = input
       }
-      current = Component(kind, selected, sample.copy(gestureId = ids.next()))
+      val membership =
+        if (kind == Kind.Scale) subscriptions.transformZoom.capture()
+        else subscriptions.transformPan.capture()
+      val observer: (PointerGestureEvent) -> Unit =
+        when (kind) {
+          Kind.Scale -> { event ->
+            membership.observe(
+              event as PinchEvent,
+              currentOptions().bindings.transform.zoom.handlers,
+            )
+          }
+          Kind.Pan -> { event ->
+            membership.observe(event as DragEvent, currentOptions().bindings.transform.pan.handlers)
+          }
+        }
+      session?.token?.rearm(if (kind == Kind.Scale) CameraComponent.Zoom else CameraComponent.Pan)
+      current = Component(kind, observer, sample.copy(gestureId = ids.next()))
       components[kind] = current
       current.velocity.addPosition(sample.uptimeMillis, Offset.Zero)
       deliverStart(current)
@@ -151,26 +177,30 @@ internal class MapPlatformTransform(
       if (kind == Kind.Scale) Offset(log2(scaleFactor).toFloat(), 0f)
       else Offset(panDelta.x.value, panDelta.y.value)
     current.velocity.addPosition(sample.uptimeMillis, current.displacement)
-    val handlers = handlers(current)
     when (kind) {
-      Kind.Scale -> handlers.observe(PinchEvent.Delta(current.sample, scaleFactor))
-      Kind.Pan -> handlers.observe(DragEvent.Delta(current.sample, panDelta))
+      Kind.Scale -> current.observer(PinchEvent.Delta(current.sample, scaleFactor))
+      Kind.Pan -> current.observer(DragEvent.Delta(current.sample, panDelta))
     }
     if (!retainAuthority()) return true
     val token = checkNotNull(session).token
     when (kind) {
       Kind.Scale -> {
-        val scale = scaleFactor.pow(selected.settings.zoomScale)
+        val scale = scaleFactor.pow(settings.zoom.zoomScale)
         if (scale.isFinite() && scale > 0.0)
-          target.scaleBy(scale, selected.anchor(current.sample), gestureToken = token)
+          target.inputScaleBy(
+            scale,
+            settings.zoom.anchor.location(current.sample),
+            gestureToken = token,
+          )
       }
       Kind.Pan ->
-        target.moveBy(
+        target.inputPanBy(
           panDelta.x.value.toDouble(),
           panDelta.y.value.toDouble(),
           gestureToken = token,
         )
     }
+    retainAuthority()
     return true
   }
 
@@ -183,31 +213,25 @@ internal class MapPlatformTransform(
     return false
   }
 
-  private fun handlers(component: Component): GestureBindingHandlers =
-    currentOptions().bindings.firstOrNull { it.id == component.binding.id }?.handlers
-      ?: component.binding.handlers
-
   private fun deliverStart(component: Component) {
     val sample = component.sample
     when (component.kind) {
-      Kind.Scale -> handlers(component).observe(PinchEvent.Start(sample, sample.screenOffset))
-      Kind.Pan -> handlers(component).observe(DragEvent.Start(sample, sample.screenOffset))
+      Kind.Scale -> component.observer(PinchEvent.Start(sample, sample.screenOffset))
+      Kind.Pan -> component.observer(DragEvent.Start(sample, sample.screenOffset))
     }
   }
 
   private fun deliverEnd(component: Component) {
     val velocity = component.velocity.calculateVelocity(pointerInput = false)
     when (component.kind) {
-      Kind.Scale ->
-        handlers(component).observe(PinchEvent.End(component.sample, velocity.x.toDouble()))
+      Kind.Scale -> component.observer(PinchEvent.End(component.sample, velocity.x.toDouble()))
       Kind.Pan ->
-        handlers(component)
-          .observe(
-            DragEvent.End(
-              component.sample,
-              ScreenVelocity(velocity.x.toDouble(), velocity.y.toDouble()),
-            )
+        component.observer(
+          DragEvent.End(
+            component.sample,
+            ScreenVelocity(velocity.x.toDouble(), velocity.y.toDouble()),
           )
+        )
     }
   }
 
@@ -229,8 +253,8 @@ internal class MapPlatformTransform(
       for (component in previous) {
         try {
           when (component.kind) {
-            Kind.Scale -> handlers(component).observe(PinchEvent.Cancel(component.sample, reason))
-            Kind.Pan -> handlers(component).observe(DragEvent.Cancel(component.sample, reason))
+            Kind.Scale -> component.observer(PinchEvent.Cancel(component.sample, reason))
+            Kind.Pan -> component.observer(DragEvent.Cancel(component.sample, reason))
           }
         } catch (cause: Throwable) {
           if (failure == null) failure = cause else failure.addSuppressed(cause)

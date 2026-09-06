@@ -25,12 +25,9 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.layers.LineLayer
-import org.maplibre.compose.map.DragAction
 import org.maplibre.compose.map.DragEvent
-import org.maplibre.compose.map.MapGestures
+import org.maplibre.compose.map.MapInteractions
 import org.maplibre.compose.map.MapState
-import org.maplibre.compose.map.ModifierFilter
-import org.maplibre.compose.map.PointerFilter
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.util.ClickResult
@@ -88,52 +85,55 @@ object DragDropDemo : Demo {
         Handle.Southeast -> southeast
       }
 
-  override fun gestures(base: MapGestures, mapState: MapState): MapGestures =
-    MapGestures(from = base) {
-      drag(
-        id = "selected-handle-${mode.name}",
-        filter = PointerFilter(modifiers = ModifierFilter.Exactly()),
-      ) {
-        canStart { press ->
-          val screen = mapState.screenLocationFromPosition(position(selectedHandle))
-          screen != null &&
-            hypot(
-              (press.screenOffset.x - screen.x).value,
-              (press.screenOffset.y - screen.y).value,
-            ) <= 10f + hitPadding
-        }
-        action = DragAction.Custom
-        onEvent { event ->
-          when (event) {
-            is DragEvent.Start -> {
-              val handle = selectedHandle
-              val position = position(handle)
-              dragPreview =
-                mapState.screenLocationFromPosition(position)?.let {
-                  DragPreview(handle, it, DpOffset.Zero, position)
-                }
+  override fun interactions(base: MapInteractions, mapState: MapState): MapInteractions =
+    MapInteractions(from = base) {
+      bindings {
+        drag {
+          custom("selected-handle-${mode.name}") {
+            canStart { press ->
+              val screen = mapState.screenLocationFromPosition(position(selectedHandle))
+              press.modifierKeys.isEmpty() &&
+                !press.pairedSecondPress &&
+                screen != null &&
+                hypot(
+                  (press.screenOffset.x - screen.x).value,
+                  (press.screenOffset.y - screen.y).value,
+                ) <= 10f + hitPadding
             }
-            is DragEvent.Delta ->
-              dragPreview?.let { preview ->
-                val displacement = preview.displacement + event.delta
-                val position = mapState.positionFromScreenLocation(preview.origin + displacement)
-                dragPreview =
-                  preview.copy(
-                    displacement = displacement,
-                    position = position ?: preview.position,
-                  )
-              }
-            is DragEvent.End -> {
-              dragPreview?.let { preview ->
-                when (preview.handle) {
-                  Handle.Pin -> pinPosition = preview.position
-                  Handle.Northwest -> northwest = preview.position
-                  Handle.Southeast -> southeast = preview.position
+            onEvent { event ->
+              when (event) {
+                is DragEvent.Start -> {
+                  val handle = selectedHandle
+                  val position = position(handle)
+                  dragPreview =
+                    mapState.screenLocationFromPosition(position)?.let {
+                      DragPreview(handle, it, DpOffset.Zero, position)
+                    }
                 }
+                is DragEvent.Delta ->
+                  dragPreview?.let { preview ->
+                    val displacement = preview.displacement + event.delta
+                    val position =
+                      mapState.positionFromScreenLocation(preview.origin + displacement)
+                    dragPreview =
+                      preview.copy(
+                        displacement = displacement,
+                        position = position ?: preview.position,
+                      )
+                  }
+                is DragEvent.End -> {
+                  dragPreview?.let { preview ->
+                    when (preview.handle) {
+                      Handle.Pin -> pinPosition = preview.position
+                      Handle.Northwest -> northwest = preview.position
+                      Handle.Southeast -> southeast = preview.position
+                    }
+                  }
+                  dragPreview = null
+                }
+                is DragEvent.Cancel -> dragPreview = null
               }
-              dragPreview = null
             }
-            is DragEvent.Cancel -> dragPreview = null
           }
         }
       }

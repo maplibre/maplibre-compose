@@ -44,6 +44,10 @@ internal class RecordingGestureTarget(
     state.synchronizeCamera(this)
   }
 
+  fun updateConfiguration(options: MapInteractions) {
+    state.gestureAuthority.updateConfiguration(options.camera)
+  }
+
   override fun cancelTransitions() = Unit
 
   override fun positionFromScreenLocation(offset: DpOffset): Position? = project(offset)
@@ -136,7 +140,7 @@ internal class RecordingGestureTarget(
     anchor: DpOffset?,
   ) = rotateAndPitchBy(bearingDelta, pitchDelta, duration, anchor, gestureToken)
 
-  override var capabilities = setOf(TapFamily.Tap, TapFamily.LongPress)
+  override var capabilities = setOf(TapFamily.Tap, TapFamily.LongPress, TapFamily.SecondaryClick)
   val deliveredTapFamilies = mutableListOf<TapFamily>()
   var clicks = 0
   var longClicks = 0
@@ -146,7 +150,8 @@ internal class RecordingGestureTarget(
       deliveredTapFamilies += family
       when (family) {
         TapFamily.Tap -> clicks++
-        TapFamily.LongPress -> longClicks++
+        TapFamily.LongPress,
+        TapFamily.SecondaryClick -> longClicks++
         else -> Unit
       }
       ClickResult.Pass

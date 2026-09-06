@@ -167,8 +167,9 @@ fun DemoMap(
       modifier = modifier,
       cameraPadding = viewportInsets.asPaddingValues(),
       renderOptions = state.settings.renderOptions,
-      gestures =
-        selectedDemo?.gestures(state.settings.gestures, state.mapState) ?: state.settings.gestures,
+      interactions =
+        selectedDemo?.interactions(state.settings.interactions, state.mapState)
+          ?: state.settings.interactions,
       tileLodOptions = state.settings.tileLodOptions,
       contentWindowInsets = viewportInsets.asWindowInsets(),
     ) {

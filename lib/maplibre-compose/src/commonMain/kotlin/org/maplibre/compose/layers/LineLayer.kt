@@ -118,7 +118,7 @@ import org.maplibre.compose.util.MaplibreComposable
  * @param roundLimit Limit at which to automatically convert to miter join for sharp angles when
  *   [join] is [LineJoin.Round]. The expression may use feature properties.
  * @param onClick Function to call when any feature in this layer has been clicked.
- * @param onLongClick Function to call when any feature in this layer has been long-clicked.
+ * @param onContextClick Function to call when any feature in this layer has been context-clicked.
  * @param onDoubleClick Called for a double tap or double click on this layer.
  * @param onTwoFingerClick Called for a two-contact tap on this layer.
  * @param hitPadding Expands tap queries to a square of this radius in dp; zero uses a point.
@@ -162,7 +162,7 @@ public fun LineLayer(
   miterLimit: Expression<FloatValue> = const(2f),
   roundLimit: Expression<FloatValue> = const(1.05f),
   onClick: FeaturesClickHandler? = null,
-  onLongClick: FeaturesClickHandler? = null,
+  onContextClick: FeaturesClickHandler? = null,
   onDoubleClick: FeaturesClickHandler? = null,
   onTwoFingerClick: FeaturesClickHandler? = null,
   hitPadding: Dp = 0.dp,
@@ -228,7 +228,7 @@ public fun LineLayer(
       set(compiledGradient) { layer.setLineGradient(it) }
     },
     onClick = onClick,
-    onLongClick = onLongClick,
+    onContextClick = onContextClick,
     onDoubleClick = onDoubleClick,
     onTwoFingerClick = onTwoFingerClick,
     hitPadding = hitPadding,

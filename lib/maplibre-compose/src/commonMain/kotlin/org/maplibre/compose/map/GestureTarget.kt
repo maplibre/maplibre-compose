@@ -21,6 +21,21 @@ internal class GestureToken(
     Completed,
   }
 
+  internal var inputOrigin = CameraInputOrigin.Drag
+  internal var origin: CameraInputOrigin
+    get() = authority.origin(this)
+    set(value) {
+      authority.setOrigin(this, value)
+    }
+
+  internal val startedComponents = mutableSetOf<CameraComponent>()
+
+  internal fun permitted(component: CameraComponent): Boolean = authority.permitted(this, component)
+
+  internal fun prepare(component: CameraComponent): Boolean = authority.prepare(this, component)
+
+  internal fun rearm(component: CameraComponent) = authority.rearm(this, component)
+
   internal var status = Status.Open
   internal var job: Job? = null
   internal var finishQueued = false
@@ -135,7 +150,7 @@ internal interface GestureTarget {
   )
 }
 
-/** Supplies current subscriber demand and captures a recognized tap's application dispatch path. */
+/** Supplies subscriber demand and captures eligible application slots at press admission. */
 internal interface MapInteractionTarget {
   val capabilities: Set<TapFamily>
     get() = emptySet()

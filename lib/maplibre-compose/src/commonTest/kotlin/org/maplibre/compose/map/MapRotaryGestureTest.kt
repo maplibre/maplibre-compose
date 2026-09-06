@@ -21,7 +21,7 @@ class MapRotaryGestureTest {
   @Test
   fun direction_anchor_burst_identity_and_idle_completion() = runTest {
     val events = mutableListOf<RotaryGestureEvent>()
-    val fixture = Fixture(backgroundScope, RotaryZoomBinding(onEvent = { events += it }))
+    val fixture = Fixture(backgroundScope, RotaryBinding(onEvent = { events += it }))
     assertTrue(fixture.input.onSample(24f, 0f, 0))
     runCurrent()
     advanceTimeBy(100)
@@ -64,7 +64,7 @@ class MapRotaryGestureTest {
   @Test
   fun callback_updates_apply_within_the_burst_and_takeover_stops_the_old_response() = runTest {
     val observed = mutableListOf<String>()
-    val fixture = Fixture(backgroundScope, RotaryZoomBinding(onEvent = { observed += "initial" }))
+    val fixture = Fixture(backgroundScope, RotaryBinding(onEvent = { observed += "initial" }))
     fixture.input.onSample(24f, 0f, 0)
     fixture.binding = fixture.binding.copy(onEvent = { observed += "updated" })
     fixture.input.onSample(24f, 0f, 0)
@@ -84,12 +84,11 @@ class MapRotaryGestureTest {
 
   @Test
   fun throwing_observer_cancels_the_burst_before_response_and_a_later_sample_recovers() = runTest {
-    val fixture =
-      Fixture(backgroundScope, RotaryZoomBinding(onEvent = { error("observer failed") }))
+    val fixture = Fixture(backgroundScope, RotaryBinding(onEvent = { error("observer failed") }))
     assertFailsWith<IllegalStateException> { fixture.input.onSample(24f, 0f, 0) }
     assertEquals(1, fixture.target.endedCount)
     assertTrue(fixture.target.scaleCalls.isEmpty())
-    fixture.binding = RotaryZoomBinding()
+    fixture.binding = RotaryBinding()
     assertTrue(fixture.input.onSample(24f, 0f, 0))
     assertEquals(2, fixture.target.startedCount)
     assertEquals(1, fixture.target.scaleCalls.size)
@@ -116,11 +115,26 @@ class MapRotaryGestureTest {
 
   private inner class Fixture(
     scope: CoroutineScope,
-    var binding: RotaryZoomBinding = RotaryZoomBinding(),
+    initial: RotaryBinding = RotaryBinding(),
     notch: Float = 24f,
   ) {
+    private val subscription = SubscriptionSlot().apply { update(initial.onEvent != null) }
+    var binding = initial
+      set(value) {
+        field = value
+        subscription.update(value.onEvent != null)
+      }
+
     val target = map.target
     val input =
-      MapRotaryGesture(target, { binding }, GestureIds(), notch, scope, GestureContinuation(scope))
+      MapRotaryGesture(
+        target,
+        { binding },
+        GestureIds(),
+        notch,
+        scope,
+        GestureContinuation(scope),
+        subscription,
+      )
   }
 }

@@ -1,6 +1,5 @@
 package org.maplibre.compose.map
 
-import androidx.compose.runtime.Stable
 import androidx.compose.ui.unit.DpOffset
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
@@ -17,57 +16,59 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withContext
 
-/** Camera access for application-owned input, including maps configured with [MapGestures.None]. */
-@Stable
-public class GestureCamera internal constructor(private val authority: GestureCameraAuthority) {
-  /**
-   * Takes camera authority on the currently attached viewport. The block runs in a child of the
-   * caller's coroutine, with the caller's context. A newer camera owner cancels that child and this
-   * call returns normally after cleanup. Caller cancellation and block failures propagate.
-   *
-   * Normal completion drains accepted commands before returning. The scope cannot be reused after
-   * completion, cancellation, or detachment. Same-state nesting, including A-to-B-to-A, throws
-   * before taking authority. Different-state nesting is supported.
-   *
-   * @throws IllegalStateException if no presentable viewport is attached or this state is nested.
-   */
-  public suspend fun withGesture(block: suspend GestureCameraScope.() -> Unit) {
-    val context = currentCoroutineContext()
-    context.ensureActive()
-    val parents = context[GestureCameraNesting]?.authorities.orEmpty()
-    check(authority !in parents) { "withGesture cannot nest on the same MapState" }
-    supervisorScope {
-      val token = authority.acquire(requireReady = true)
-      val target = checkNotNull(token.target)
-      val child =
-        async(GestureCameraNesting(parents + authority), start = CoroutineStart.LAZY) {
-          var completedNormally = false
-          try {
-            if (token.acceptsCommands) GestureCameraScope(target, token).block()
-            completedNormally = currentCoroutineContext().isActive
-          } finally {
-            withContext(NonCancellable) {
-              if (!completedNormally || token.isCancelled) target.cancelGesture(token)
-              else target.onGestureEnded(token)
-              target.awaitGestureEnded(token)
-            }
-          }
-        }
-      authority.registerJob(token, child)
-      child.start()
-      try {
-        child.await()
-      } catch (_: GestureCameraTakenOver) {
-        currentCoroutineContext().ensureActive()
-      } finally {
-        // A lazy child cancelled before start does not execute its finally block.
-        if (!token.completion.isCompleted) {
+/**
+ * Takes camera authority on the currently attached viewport. The block runs in a child of the
+ * caller's coroutine, with the caller's context. A newer camera owner cancels that child and this
+ * call returns normally after cleanup. Caller cancellation and block failures propagate.
+ *
+ * Uses the viewport's current [MapInteractions] camera policy. Disabled components do nothing;
+ * arguments still require valid finite values. [MapInteractions.None] supports this scope. Commands
+ * add no automatic release momentum. Ordinary programmatic camera methods are separate.
+ *
+ * Normal completion drains accepted commands before returning. The scope cannot be reused after
+ * completion, cancellation, or detachment. Same-state nesting, including A-to-B-to-A, throws before
+ * taking authority. Different-state nesting is supported.
+ *
+ * @throws IllegalStateException if no presentable viewport is attached or this state is nested.
+ */
+public suspend fun MapState.withCameraInput(block: suspend CameraInputScope.() -> Unit) {
+  val authority = gestureAuthority
+  val context = currentCoroutineContext()
+  context.ensureActive()
+  val parents = context[CameraInputNesting]?.authorities.orEmpty()
+  check(authority !in parents) { "withCameraInput cannot nest on the same MapState" }
+  supervisorScope {
+    val token =
+      authority.acquire(requireReady = true).also { it.origin = CameraInputOrigin.External }
+    val target = checkNotNull(token.target)
+    val child =
+      async(CameraInputNesting(parents + authority), start = CoroutineStart.LAZY) {
+        var completedNormally = false
+        try {
+          if (token.acceptsCommands) CameraInputScope(target, token).block()
+          completedNormally = currentCoroutineContext().isActive
+        } finally {
           withContext(NonCancellable) {
-            if (token.isCancelled || !child.isCompleted || child.isCancelled)
-              target.cancelGesture(token)
+            if (!completedNormally || token.isCancelled) target.cancelGesture(token)
             else target.onGestureEnded(token)
             target.awaitGestureEnded(token)
           }
+        }
+      }
+    authority.registerJob(token, child)
+    child.start()
+    try {
+      child.await()
+    } catch (_: GestureCameraTakenOver) {
+      currentCoroutineContext().ensureActive()
+    } finally {
+      // A lazy child cancelled before start does not execute its finally block.
+      if (!token.completion.isCompleted) {
+        withContext(NonCancellable) {
+          if (token.isCancelled || !child.isCompleted || child.isCancelled)
+            target.cancelGesture(token)
+          else target.onGestureEnded(token)
+          target.awaitGestureEnded(token)
         }
       }
     }
@@ -75,33 +76,35 @@ public class GestureCamera internal constructor(private val authority: GestureCa
 }
 
 /** A camera scope whose screen deltas are dp and angular deltas are degrees. */
-public class GestureCameraScope
+public class CameraInputScope
 internal constructor(
   private val target: GestureTarget,
   private val token: GestureToken,
 ) {
   /** Enqueues a screen-space pan. A positive X/Y moves map content right/down. */
-  public fun moveBy(deltaX: Double, deltaY: Double) {
+  public fun panBy(deltaX: Double, deltaY: Double) {
     validate(deltaX, deltaY)
-    target.moveBy(deltaX, deltaY, gestureToken = token)
+    target.inputPanBy(deltaX, deltaY, gestureToken = token)
   }
 
   /** Enqueues a positive multiplicative scale. Null anchor preserves the padded camera target. */
   public fun scaleBy(scale: Double, anchor: DpOffset? = null) {
     validateScale(scale)
-    target.scaleBy(scale, anchor, gestureToken = token)
+    validateAnchor(anchor)
+    target.inputScaleBy(scale, anchor, gestureToken = token)
   }
 
   public fun rotateAndPitchBy(bearingDelta: Double, pitchDelta: Double, anchor: DpOffset? = null) {
     validate(bearingDelta, pitchDelta)
-    target.rotateAndPitchBy(bearingDelta, pitchDelta, anchor = anchor, gestureToken = token)
+    validateAnchor(anchor)
+    target.inputRotateAndPitchBy(bearingDelta, pitchDelta, anchor = anchor, gestureToken = token)
   }
 
   /** Enqueues an eased pan and waits until its transition releases the camera. */
-  public suspend fun moveByAwaitingTransition(deltaX: Double, deltaY: Double, duration: Duration) {
+  public suspend fun panByAwaitingTransition(deltaX: Double, deltaY: Double, duration: Duration) {
     validate(deltaX, deltaY)
     requireNonnegativeFinite(duration, "duration")
-    target.moveByAwaitingTransition(deltaX, deltaY, duration, token)
+    target.inputPanByAwaitingTransition(deltaX, deltaY, duration, token)
   }
 
   public suspend fun scaleByAwaitingTransition(
@@ -110,8 +113,9 @@ internal constructor(
     duration: Duration,
   ) {
     validateScale(scale)
+    validateAnchor(anchor)
     requireNonnegativeFinite(duration, "duration")
-    target.scaleByAwaitingTransition(scale, anchor, duration, token)
+    target.inputScaleByAwaitingTransition(scale, anchor, duration, token)
   }
 
   public suspend fun rotateAndPitchByAwaitingTransition(
@@ -121,13 +125,26 @@ internal constructor(
     anchor: DpOffset? = null,
   ) {
     validate(bearingDelta, pitchDelta)
+    validateAnchor(anchor)
     requireNonnegativeFinite(duration, "duration")
-    target.rotateAndPitchByAwaitingTransition(bearingDelta, pitchDelta, duration, token, anchor)
+    target.inputRotateAndPitchByAwaitingTransition(
+      bearingDelta,
+      pitchDelta,
+      duration,
+      token,
+      anchor,
+    )
   }
 
   private fun validate(first: Double, second: Double) {
-    check(token.acceptsCommands) { "The gesture camera scope is no longer active" }
+    check(token.acceptsCommands) { "The camera input scope is no longer active" }
     require(first.isFinite() && second.isFinite()) { "Camera deltas must be finite" }
+  }
+
+  private fun validateAnchor(anchor: DpOffset?) {
+    require(anchor == null || (anchor.x.value.isFinite() && anchor.y.value.isFinite())) {
+      "Camera anchors must be finite"
+    }
   }
 
   private fun validateScale(scale: Double) {
@@ -136,9 +153,9 @@ internal constructor(
   }
 }
 
-private class GestureCameraNesting(val authorities: Set<GestureCameraAuthority>) :
+private class CameraInputNesting(val authorities: Set<GestureCameraAuthority>) :
   AbstractCoroutineContextElement(Key) {
-  companion object Key : CoroutineContext.Key<GestureCameraNesting>
+  companion object Key : CoroutineContext.Key<CameraInputNesting>
 }
 
 internal class GestureCameraTakenOver : CancellationException("A newer input owns the camera")
@@ -153,6 +170,48 @@ internal class GestureCameraAuthority(private val owner: MapState) {
   private var cameraGeneration = 0L
   private var inputGeneration = 0L
   private var active: GestureToken? = null
+  private var configuration = CameraConfiguration()
+
+  /** Callback replacements do not revoke input. Resolved policy and momentum changes do. */
+  fun updateConfiguration(value: CameraConfiguration) {
+    val previous =
+      owner.lifecycle.serialized {
+        val changed = configuration.structuralKey != value.structuralKey
+        configuration = value
+        if (changed) {
+          inputGeneration++
+          revokeLocked()
+        } else null
+      }
+    previous?.let(::cancelOutsideLock)
+  }
+
+  fun origin(token: GestureToken): CameraInputOrigin =
+    owner.lifecycle.serialized { token.inputOrigin }
+
+  fun setOrigin(token: GestureToken, value: CameraInputOrigin) =
+    owner.lifecycle.serialized { token.inputOrigin = value }
+
+  fun permitted(token: GestureToken, component: CameraComponent): Boolean =
+    owner.lifecycle.serialized {
+      acceptsLocked(token, enqueue = true) && configuration.enabled(component)
+    }
+
+  /** Observe outside the lifecycle lock; observers may take camera authority themselves. */
+  fun prepare(token: GestureToken, component: CameraComponent): Boolean {
+    val callback =
+      owner.lifecycle.serialized {
+        if (!acceptsLocked(token, enqueue = true) || !configuration.enabled(component)) return false
+        if (token.startedComponents.add(component)) configuration.onStart(component) else null
+      }
+    callback?.invoke(CameraInputStart(token.value, token.origin))
+    return permitted(token, component)
+  }
+
+  fun rearm(token: GestureToken, component: CameraComponent) =
+    owner.lifecycle.serialized {
+      token.startedComponents.remove(component)
+    }
 
   val generation: Long
     get() = owner.lifecycle.serialized { inputGeneration }
@@ -174,7 +233,9 @@ internal class GestureCameraAuthority(private val owner: MapState) {
             target?.isGestureReady == true &&
             (adapter == null || adapter === attachment.adapter) &&
             (expectedInputGeneration == null || expectedInputGeneration == inputGeneration)
-        check(!requireReady || ready) { "withGesture requires an attached, presentable viewport" }
+        check(!requireReady || ready) {
+          "withCameraInput requires an attached, presentable viewport"
+        }
         val token = GestureToken(++nextId, this, attachment, target)
         if (!ready) {
           token.status = GestureToken.Status.Cancelled

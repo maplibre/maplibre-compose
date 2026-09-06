@@ -10,7 +10,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.unit.dp
 import kotlin.math.PI
 import kotlin.math.abs
@@ -26,7 +25,7 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.map.LocalMapState
-import org.maplibre.compose.map.MapGestures
+import org.maplibre.compose.map.MapInteractions
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
@@ -79,59 +78,9 @@ object LiveTrackingDemo : Demo {
   private var followVehicle by mutableStateOf(false)
   private var vehiclePosition by mutableStateOf(route.first())
 
-  private val activeGestures = mutableSetOf<Long>()
-
-  override fun gestures(base: MapGestures, mapState: MapState): MapGestures =
-    MapGestures(from = base) {
-      dragPan { onStart { followVehicle = false } }
-      scrollPan { onStart { followVehicle = false } }
-      boxZoom { onStart { followVehicle = false } }
-      pinchZoom {
-        onStart { activeGestures.add(it.gestureId) }
-        onEnd { activeGestures.remove(it.gestureId) }
-        onCancel { activeGestures.remove(it.gestureId) }
-      }
-      twoFingerRotate {
-        onStart { activeGestures.add(it.gestureId) }
-        onEnd { activeGestures.remove(it.gestureId) }
-        onCancel { activeGestures.remove(it.gestureId) }
-      }
-      twoFingerTilt {
-        onStart { activeGestures.add(it.gestureId) }
-        onEnd { activeGestures.remove(it.gestureId) }
-        onCancel { activeGestures.remove(it.gestureId) }
-      }
-      dragRotateTilt {
-        onStart { activeGestures.add(it.gestureId) }
-        onEnd { activeGestures.remove(it.gestureId) }
-        onCancel { activeGestures.remove(it.gestureId) }
-      }
-      quickZoom {
-        onStart { activeGestures.add(it.gestureId) }
-        onEnd { activeGestures.remove(it.gestureId) }
-        onCancel { activeGestures.remove(it.gestureId) }
-      }
-      scrollZoom {
-        onStart { activeGestures.add(it.gestureId) }
-        onEnd { activeGestures.remove(it.gestureId) }
-        onCancel { activeGestures.remove(it.gestureId) }
-      }
-      ctrlScrollZoom {
-        onStart { activeGestures.add(it.gestureId) }
-        onEnd { activeGestures.remove(it.gestureId) }
-        onCancel { activeGestures.remove(it.gestureId) }
-      }
-      keys {
-        onEvent {
-          if (
-            it.modifierKeys.isEmpty() &&
-              it.key in
-                setOf(Key.DirectionLeft, Key.DirectionRight, Key.DirectionUp, Key.DirectionDown)
-          ) {
-            followVehicle = false
-          }
-        }
-      }
+  override fun interactions(base: MapInteractions, mapState: MapState): MapInteractions =
+    MapInteractions(from = base) {
+      camera { pan { onStart { followVehicle = false } } }
     }
 
   private val segmentLengths = route.zipWithNext { a, b -> approximateDistanceMeters(a, b) }
@@ -181,7 +130,7 @@ object LiveTrackingDemo : Demo {
           val phase = traveled % (2 * routeLength)
           vehiclePosition = positionAt(routeLength - abs(phase - routeLength))
         }
-        if (followVehicle && activeGestures.isEmpty() && !mapState.isCameraMoving) {
+        if (followVehicle && !mapState.isCameraMoving) {
           mapState.setCameraPosition(mapState.cameraPosition.copy(target = vehiclePosition))
         }
       }

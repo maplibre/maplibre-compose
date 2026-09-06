@@ -32,13 +32,17 @@ class MapPlatformTransformTest {
     val fixture =
       Fixture(
         backgroundScope,
-        MapGestures {
-          pinchZoom {
-            zoomScale = 0.5
-            anchor = GestureAnchor.CameraCenter
-            onStart { events += it }
-            onDelta { events += it }
-            onEnd { events += it }
+        MapInteractions {
+          bindings {
+            transform {
+              zoom {
+                zoomScale = 0.5
+                anchor = GestureAnchor.CameraCenter
+                onStart { events += it }
+                onDelta { events += it }
+                onEnd { events += it }
+              }
+            }
           }
         },
       )
@@ -68,16 +72,20 @@ class MapPlatformTransformTest {
     val fixture =
       Fixture(
         backgroundScope,
-        MapGestures {
-          dragPan {
-            onStart { pans += it }
-            onDelta { pans += it }
-            onEnd { pans += it }
-          }
-          pinchZoom {
-            onStart { pinches += it }
-            onDelta { pinches += it }
-            onEnd { pinches += it }
+        MapInteractions {
+          bindings {
+            transform {
+              pan {
+                onStart { pans += it }
+                onDelta { pans += it }
+                onEnd { pans += it }
+              }
+              zoom {
+                onStart { pinches += it }
+                onDelta { pinches += it }
+                onEnd { pinches += it }
+              }
+            }
           }
         },
       )
@@ -141,7 +149,11 @@ class MapPlatformTransformTest {
   @Test
   fun equal_time_deltas_all_apply_and_velocity_uses_coalesced_samples() = runTest {
     var end: DragEvent.End? = null
-    val fixture = Fixture(backgroundScope, MapGestures { dragPan { onEnd { end = it } } })
+    val fixture =
+      Fixture(
+        backgroundScope,
+        MapInteractions { bindings { transform { pan { onEnd { end = it } } } } },
+      )
     try {
       fixture.input.onInput(PointerEventType.PanStart, sample(0))
       for (time in listOf(10L, 10L, 10L)) fixture.input.onInput(
@@ -163,7 +175,9 @@ class MapPlatformTransformTest {
     val fixture =
       Fixture(
         backgroundScope,
-        MapGestures { pinchZoom { onCancel { cancellations += it.reason } } },
+        MapInteractions {
+          bindings { transform { zoom { onCancel { cancellations += it.reason } } } }
+        },
       )
     try {
       fixture.input.onInput(PointerEventType.ScaleStart, sample(0))
@@ -197,11 +211,15 @@ class MapPlatformTransformTest {
     fixture =
       Fixture(
         backgroundScope,
-        MapGestures {
-          dragPan { onCancel { cancellations += "pan" } }
-          pinchZoom {
-            onDelta { fixture.target.onGestureStarted() }
-            onCancel { cancellations += "scale" }
+        MapInteractions {
+          bindings {
+            transform {
+              pan { onCancel { cancellations += "pan" } }
+              zoom {
+                onDelta { fixture.target.onGestureStarted() }
+                onCancel { cancellations += "scale" }
+              }
+            }
           }
         },
       )
@@ -230,10 +248,14 @@ class MapPlatformTransformTest {
   fun callback_replacement_keeps_the_component_without_restarting() = runTest {
     val calls = mutableListOf<String>()
     lateinit var fixture: Fixture
-    fun configuration(name: String) = MapGestures {
-      dragPan {
-        onDelta { calls += name }
-        onEnd { fixture.target.onGestureStarted() }
+    fun configuration(name: String) = MapInteractions {
+      bindings {
+        transform {
+          pan {
+            onDelta { calls += name }
+            onEnd { fixture.target.onGestureStarted() }
+          }
+        }
       }
     }
     fixture = Fixture(backgroundScope, configuration("old"))
@@ -262,9 +284,13 @@ class MapPlatformTransformTest {
     val fixture =
       Fixture(
         backgroundScope,
-        MapGestures {
-          pinchZoom { onCancel { throw failure } }
-          dragPan { onCancel { panCancels++ } }
+        MapInteractions {
+          bindings {
+            transform {
+              zoom { onCancel { throw failure } }
+              pan { onCancel { panCancels++ } }
+            }
+          }
         },
       )
     fixture.input.onInput(PointerEventType.ScaleStart, sample(0))
@@ -279,7 +305,12 @@ class MapPlatformTransformTest {
   fun modifier_changes_cancel_a_stream_without_restarting_until_end() = runTest {
     val cancellations = mutableListOf<GestureCancellationReason>()
     val fixture =
-      Fixture(backgroundScope, MapGestures { dragPan { onCancel { cancellations += it.reason } } })
+      Fixture(
+        backgroundScope,
+        MapInteractions {
+          bindings { transform { pan { onCancel { cancellations += it.reason } } } }
+        },
+      )
     try {
       fixture.input.onInput(PointerEventType.PanStart, sample(0))
       val shifted = sample(10).copy(modifierKeys = setOf(KeyModifier.Shift))
@@ -308,10 +339,14 @@ class MapPlatformTransformTest {
     val fixture =
       Fixture(
         backgroundScope,
-        MapGestures {
-          pinchZoom {
-            onEnd { events += it }
-            onCancel { events += it }
+        MapInteractions {
+          bindings {
+            transform {
+              zoom {
+                onEnd { events += it }
+                onCancel { events += it }
+              }
+            }
           }
         },
       )
@@ -332,7 +367,7 @@ class MapPlatformTransformTest {
 
   @Test
   fun disabled_and_nonmatching_bindings_leave_platform_streams_unclaimed() = runTest {
-    val fixture = Fixture(backgroundScope, MapGestures.None)
+    val fixture = Fixture(backgroundScope, MapInteractions.None)
     assertFalse(fixture.input.onInput(PointerEventType.PanStart, sample(0)))
     assertFalse(fixture.input.onInput(PointerEventType.ScaleChange, sample(10), scaleFactor = 2.0))
     assertEquals(0, fixture.target.startedCount)
@@ -340,7 +375,9 @@ class MapPlatformTransformTest {
     val unmatched =
       Fixture(
         backgroundScope,
-        MapGestures { pinchZoom { filter = PointerFilter(button = PointerButton.Secondary) } },
+        MapInteractions {
+          bindings { transform { zoom { modifiers = ModifierMatch.Containing(KeyModifier.Ctrl) } } }
+        },
       )
     assertFalse(unmatched.input.onInput(PointerEventType.ScaleStart, sample(0)))
     assertEquals(0, unmatched.target.startedCount)
@@ -387,15 +424,29 @@ class MapPlatformTransformTest {
     assertFalse(routing.route(PointerEventType.Press, false, listOf(change(1, true, false))))
   }
 
-  private inner class Fixture(scope: CoroutineScope, initial: MapGestures = MapGestures.Standard) {
+  private inner class Fixture(
+    scope: CoroutineScope,
+    initial: MapInteractions = MapInteractions.Standard,
+  ) {
+    init {
+      map.state.gestureAuthority.updateConfiguration(initial.camera)
+    }
+
     val target = map.target
     val routing = PlatformTransformRouting()
+    val subscriptions = InteractionSubscriptions(initial)
     var options = initial
+      set(value) {
+        field = value
+        subscriptions.update(value)
+      }
+
     val input =
       MapPlatformTransform(
         target,
         initial,
         { options },
+        subscriptions,
         GestureIds(),
         scope,
         routing,

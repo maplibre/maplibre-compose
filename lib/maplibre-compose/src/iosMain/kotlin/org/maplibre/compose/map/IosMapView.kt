@@ -20,6 +20,7 @@ internal actual fun ComposableMapView(
   logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
   clicks: MapInteractionTarget,
+  subscriptions: InteractionSubscriptions,
   options: MapViewOptions,
 ) {
   val runtimeBackends = remember { loadRuntimeBackends(logger) }
@@ -43,6 +44,7 @@ internal actual fun ComposableMapView(
     logger = logger,
     callbacks = callbacks,
     clicks = clicks,
+    subscriptions = subscriptions,
     options = options,
   )
 }

@@ -17,7 +17,8 @@ internal class MapInteractionDispatcher(
   private val state: MapState,
   private val desiredRevision: State<State<DesiredStyleRevision?>>,
   private val loadedStyle: State<StyleBinding?>,
-  private val gestures: State<MapGestures>,
+  private val interactions: State<MapInteractions>,
+  private val subscriptions: InteractionSubscriptions,
 ) : MapInteractionTarget {
   private var renderedRevision by mutableIntStateOf(0)
 
@@ -48,7 +49,9 @@ internal class MapInteractionDispatcher(
       if (loaded)
         checkNotNull(style).getLayers().asReversed().mapNotNull { layer ->
           val node = nodes[layer.id] ?: return@mapNotNull null
-          node.onHover?.let { HoverLayer(layer.id, node.registration ?: node, it) }
+          node.onHover?.let {
+            HoverLayer(layer.id, node.hoverSubscription ?: node.registration ?: node, it)
+          }
         }
       else emptyList()
     return HoverScene(
@@ -70,14 +73,15 @@ internal class MapInteractionDispatcher(
   override val capabilities: Set<TapFamily>
     get() =
       TapFamily.entries.filterTo(mutableSetOf()) { family ->
-        family == TapFamily.Tap && gestures.value.binding("tap").handlers.unhandledTap != null ||
+        family == TapFamily.Tap && interactions.value.callbacks.unhandledClick != null ||
           desiredRevision.value.value?.layers?.any { it.handler(family) != null } == true
       }
 
   override fun capture(family: TapFamily): MapClickPath? {
     val attachment = state.currentMapAttachment ?: return null
     val style = loadedStyle.value
-    val structure = gestures.value.structuralKey
+    val structure = interactions.value.structuralKey
+    val unhandledSlot = subscriptions.unhandledClick.capture().takeIf { family == TapFamily.Tap }
     val nodes = desiredRevision.value.value?.layers?.associateBy { it.definition.id }.orEmpty()
     val candidates =
       style
@@ -87,7 +91,7 @@ internal class MapInteractionDispatcher(
         .asReversed()
         .mapNotNull { nodes[it.id]?.takeIf { node -> node.handler(family) != null } }
     fun valid(): Boolean =
-      gestures.value.structuralKey == structure &&
+      interactions.value.structuralKey == structure &&
         !state.isClosed &&
         attachment.isValid &&
         state.currentMapAttachment === attachment &&
@@ -95,7 +99,9 @@ internal class MapInteractionDispatcher(
         (style == null || style.isLoaded)
     fun current(node: DesiredStyleLayer): DesiredStyleLayer? =
       desiredRevision.value.value?.layers?.firstOrNull {
-        it.definition.id == node.definition.id && it.registration === node.registration
+        it.definition.id == node.definition.id &&
+          it.registration === node.registration &&
+          it.subscription(family) === node.subscription(family)
       }
     return MapClickPath(::valid) { event ->
       if (!valid()) return@MapClickPath ClickResult.Consume
@@ -121,9 +127,8 @@ internal class MapInteractionDispatcher(
           return@MapClickPath ClickResult.Consume
         if (!valid()) return@MapClickPath ClickResult.Consume
       }
-      if (family == TapFamily.Tap)
-        gestures.value.binding("tap").handlers.unhandledTap?.invoke(event as TapEvent)
-          ?: ClickResult.Pass
+      if (subscriptions.unhandledClick.contains(unhandledSlot))
+        interactions.value.callbacks.unhandledClick?.invoke(event as TapEvent) ?: ClickResult.Pass
       else ClickResult.Pass
     }
   }
@@ -133,6 +138,16 @@ private fun DesiredStyleLayer.handler(family: TapFamily): FeaturesClickHandler? 
   when (family) {
     TapFamily.Tap -> onClick
     TapFamily.DoubleTap -> onDoubleClick
-    TapFamily.LongPress -> onLongClick
+    TapFamily.SecondaryClick,
+    TapFamily.LongPress -> onContextClick
     TapFamily.TwoFingerTap -> onTwoFingerClick
+  }
+
+private fun DesiredStyleLayer.subscription(family: TapFamily): Any? =
+  when (family) {
+    TapFamily.Tap -> clickSubscription
+    TapFamily.DoubleTap -> doubleClickSubscription
+    TapFamily.SecondaryClick,
+    TapFamily.LongPress -> contextClickSubscription
+    TapFamily.TwoFingerTap -> twoFingerClickSubscription
   }

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -91,14 +92,16 @@ class MapInputRecognitionTest {
       assertFailsWith<IllegalStateException> {
         runRecognitionTest(
           options =
-            MapGestures {
-              dragPan {
-                onStart { calls += "start" }
-                onDelta {
-                  calls += "delta"
-                  error("pan observer failed")
+            MapInteractions {
+              bindings {
+                drag {
+                  onStart { calls += "start" }
+                  onDelta {
+                    calls += "delta"
+                    error("pan observer failed")
+                  }
+                  onCancel { calls += "cancel" }
                 }
-                onCancel { calls += "cancel" }
               }
             }
         ) { target ->
@@ -126,12 +129,16 @@ class MapInputRecognitionTest {
       assertFailsWith<IllegalStateException> {
         runRecognitionTest(
           options =
-            MapGestures {
-              drag("edit") {
-                action = DragAction.Custom
-                onEvent {
-                  response += it
-                  if (it is DragEvent.End) error("end response failed")
+            MapInteractions {
+              bindings {
+                drag {
+                  custom("edit") {
+                    canStart { true }
+                    onEvent {
+                      response += it
+                      if (it is DragEvent.End) error("end response failed")
+                    }
+                  }
                 }
               }
             }
@@ -160,18 +167,26 @@ class MapInputRecognitionTest {
       assertFailsWith<IllegalStateException> {
         runRecognitionTest(
           options =
-            MapGestures {
-              dragPan {
-                onEnd {
-                  observed += "pan end"
-                  error("pair end failed")
+            MapInteractions {
+              bindings {
+                transform {
+                  pan {
+                    onEnd {
+                      observed += "pan end"
+                      error("pair end failed")
+                    }
+                    onCancel { observed += "pan cancel" }
+                  }
                 }
-                onCancel { observed += "pan cancel" }
               }
-              pinchZoom {
-                onStart { observed += "pinch start" }
-                onEnd { observed += "pinch end" }
-                onCancel { observed += "pinch cancel" }
+              bindings {
+                transform {
+                  zoom {
+                    onStart { observed += "pinch start" }
+                    onEnd { observed += "pinch end" }
+                    onCancel { observed += "pinch cancel" }
+                  }
+                }
               }
             }
         ) { target ->
@@ -202,13 +217,15 @@ class MapInputRecognitionTest {
       assertFailsWith<IllegalStateException> {
         runRecognitionTest(
           options =
-            MapGestures {
-              scrollZoom {
-                onEnd {
-                  observed += "end"
-                  error("scroll end failed")
+            MapInteractions {
+              bindings {
+                scroll {
+                  onEnd {
+                    observed += "end"
+                    error("scroll end failed")
+                  }
+                  onCancel { observed += "cancel" }
                 }
-                onCancel { observed += "cancel" }
               }
             }
         ) { target ->
@@ -249,7 +266,10 @@ class MapInputRecognitionTest {
   @Test
   fun a_structural_restart_suppresses_trackpad_changes_until_the_old_component_ends() {
     val terminals = mutableListOf<GestureCancellationReason>()
-    var options by mutableStateOf(MapGestures { pinchZoom { onCancel { terminals += it.reason } } })
+    var options by
+      mutableStateOf(
+        MapInteractions { bindings { transform { zoom { onCancel { terminals += it.reason } } } } }
+      )
     runRecognitionTest(optionsProvider = { options }) { target ->
       val map = mapNode()
       map.performTrackpadInput {
@@ -257,7 +277,9 @@ class MapInputRecognitionTest {
         scaleStart()
         scaleChangeBy(1.5f)
       }
-      runOnIdle { options = MapGestures { pinchZoom { zoomScale = 2.0 } } }
+      runOnIdle {
+        options = MapInteractions { bindings { transform { zoom { zoomScale = 2.0 } } } }
+      }
       waitForIdle()
       map.performTrackpadInput {
         scaleChangeBy(1.5f)
@@ -298,7 +320,7 @@ class MapInputRecognitionTest {
       assertEquals(before, map.captureToImage().toPixelMap()[50, 50])
       assertEquals(1, target.fitCalls.size)
       assertEquals(
-        MapGestures.Standard.animationDuration.scaledBy(systemAnimatorDurationScale()),
+        MapInteractions.Standard.animationDuration.scaledBy(systemAnimatorDurationScale()),
         target.fitCalls.single().second,
       )
       assertEquals(1, target.startedCount)
@@ -309,7 +331,7 @@ class MapInputRecognitionTest {
 
   @Test
   fun cancelling_box_zoom_clears_the_preview_without_fitting() {
-    var configuration by mutableStateOf(MapGestures.Standard)
+    var configuration by mutableStateOf(MapInteractions.Standard)
     runRecognitionTest(optionsProvider = { configuration }) { target ->
       target.project = { Position(it.x.value.toDouble(), -it.y.value.toDouble()) }
       val map = mapNode()
@@ -322,7 +344,7 @@ class MapInputRecognitionTest {
       }
       waitForIdle()
       assertTrue(before != map.captureToImage().toPixelMap()[50, 50])
-      runOnIdle { configuration = MapGestures.None }
+      runOnIdle { configuration = MapInteractions.None }
       waitForIdle()
       assertEquals(before, map.captureToImage().toPixelMap()[50, 50])
       map.performMouseInput { release() }
@@ -354,7 +376,9 @@ class MapInputRecognitionTest {
   @Test
   fun a_mouse_press_exits_hover_before_drag_slop_and_release_can_reenter() {
     val events = mutableListOf<HoverEvent>()
-    runRecognitionTest(options = MapGestures { hover { onEvent { events += it } } }) { target ->
+    runRecognitionTest(
+      options = MapInteractions { callbacks { hover { onEvent { events += it } } } }
+    ) { target ->
       val map = mapNode()
       map.performMouseInput {
         moveTo(center)
@@ -379,7 +403,9 @@ class MapInputRecognitionTest {
   @Test
   fun touchscreen_input_never_reports_hover() {
     val events = mutableListOf<HoverEvent>()
-    runRecognitionTest(options = MapGestures { hover { onEvent { events += it } } }) { _ ->
+    runRecognitionTest(
+      options = MapInteractions { callbacks { hover { onEvent { events += it } } } }
+    ) { _ ->
       mapNode().performTouchInput {
         down(center)
         moveBy(Offset(5f, 0f))
@@ -396,12 +422,18 @@ class MapInputRecognitionTest {
     var parentClicks = 0
     runRecognitionTest(
       options =
-        MapGestures(MapGestures.None) {
-          twoFingerTap {
-            enabled = true
-            onEvent {
-              taps++
-              ClickResult.Consume
+        MapInteractions(MapInteractions.None) {
+          bindings {
+            twoFingerTap {
+              enabled = true
+            }
+          }
+          callbacks {
+            twoFingerClick {
+              onEvent {
+                taps++
+                ClickResult.Consume
+              }
             }
           }
         },
@@ -425,11 +457,13 @@ class MapInputRecognitionTest {
     val doubles = mutableListOf<DoubleTapEvent>()
     runRecognitionTest(
       options =
-        MapGestures {
-          doubleTap {
-            onEvent {
-              doubles += it
-              ClickResult.Consume
+        MapInteractions {
+          callbacks {
+            doubleClick {
+              onEvent {
+                doubles += it
+                ClickResult.Consume
+              }
             }
           }
         }
@@ -448,15 +482,17 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun a_secondary_mouse_click_retains_its_button_in_long_press_metadata() {
-    val events = mutableListOf<LongPressEvent>()
+  fun a_secondary_mouse_click_retains_its_button_in_context_metadata() {
+    val events = mutableListOf<ContextClickEvent>()
     runRecognitionTest(
       options =
-        MapGestures {
-          longPress {
-            onEvent {
-              events += it
-              ClickResult.Pass
+        MapInteractions {
+          callbacks {
+            contextClick {
+              onEvent {
+                events += it
+                ClickResult.Pass
+              }
             }
           }
         }
@@ -465,7 +501,7 @@ class MapInputRecognitionTest {
       waitForIdle()
       assertEquals(setOf(PointerButton.Secondary), events.single().buttons)
       assertEquals(1, target.longClicks)
-      assertEquals(listOf(TapFamily.LongPress), target.deliveredTapFamilies)
+      assertEquals(listOf(TapFamily.SecondaryClick), target.deliveredTapFamilies)
     }
   }
 
@@ -473,9 +509,9 @@ class MapInputRecognitionTest {
   fun a_double_tap_slot_without_a_dispatch_path_does_not_delay_touch_clicks() {
     runRecognitionTest(
       options =
-        MapGestures {
-          doubleTap { cameraAction = null }
-          quickZoom { enabled = false }
+        MapInteractions {
+          bindings { doubleTap { mappings {} } }
+          bindings { tapDrag { enabled = false } }
         }
     ) { target ->
       mainClock.autoAdvance = false
@@ -493,9 +529,9 @@ class MapInputRecognitionTest {
   fun layer_double_tap_demand_is_snapshotted_for_the_contact_sequence() {
     runRecognitionTest(
       options =
-        MapGestures {
-          doubleTap { cameraAction = null }
-          quickZoom { enabled = false }
+        MapInteractions {
+          bindings { doubleTap { mappings {} } }
+          bindings { tapDrag { enabled = false } }
         }
     ) { target ->
       target.capabilities = setOf(TapFamily.Tap, TapFamily.DoubleTap)
@@ -517,8 +553,8 @@ class MapInputRecognitionTest {
   fun consuming_the_first_mouse_click_does_not_consume_the_later_double_click() {
     runRecognitionTest(
       options =
-        MapGestures {
-          tap { onEvent { ClickResult.Consume } }
+        MapInteractions {
+          callbacks { click { onEvent { ClickResult.Consume } } }
         }
     ) { target ->
       mapNode().performMouseInput { doubleClick(center) }
@@ -533,10 +569,12 @@ class MapInputRecognitionTest {
   fun a_quick_zoom_only_configuration_can_pair_its_initial_press() {
     runRecognitionTest(
       options =
-        MapGestures(MapGestures.None) {
-          quickZoom {
-            enabled = true
-            continuation = null
+        MapInteractions(MapInteractions.None) {
+          bindings {
+            tapDrag {
+              enabled = true
+              momentum { enabled = false }
+            }
           }
         }
     ) { target ->
@@ -558,11 +596,13 @@ class MapInputRecognitionTest {
     var taps = 0
     runRecognitionTest(
       options =
-        MapGestures {
-          twoFingerTap {
-            onEvent {
-              taps++
-              ClickResult.Consume
+        MapInteractions {
+          callbacks {
+            twoFingerClick {
+              onEvent {
+                taps++
+                ClickResult.Consume
+              }
             }
           }
         }
@@ -584,10 +624,13 @@ class MapInputRecognitionTest {
     val cancelled = mutableListOf<GestureCancellationReason>()
     runRecognitionTest(
       options =
-        MapGestures(MapGestures.None) {
-          scrollZoom {
-            enabled = true
-            onCancel { cancelled += it.reason }
+        MapInteractions(MapInteractions.None) {
+          bindings {
+            scroll {
+              enabled = true
+              onCancel { cancelled += it.reason }
+              mappings { otherwise { zoom() } }
+            }
           }
         }
     ) { target ->
@@ -620,10 +663,12 @@ class MapInputRecognitionTest {
     val cancelled = mutableListOf<GestureCancellationReason>()
     runRecognitionTest(
       options =
-        MapGestures {
-          dragPan {
-            onStart { newer = checkNotNull(recorded).onGestureStarted() }
-            onCancel { cancelled += it.reason }
+        MapInteractions {
+          bindings {
+            drag {
+              onStart { newer = checkNotNull(recorded).onGestureStarted() }
+              onCancel { cancelled += it.reason }
+            }
           }
         },
       parentModifier = Modifier.consumePointerEvents(PointerEventPass.Main, PointerEventType.Move),
@@ -645,8 +690,14 @@ class MapInputRecognitionTest {
   @Test
   fun key_takeover_cancels_a_held_drag_without_waiting_for_another_pointer_event() {
     val cancelled = mutableListOf<GestureCancellationReason>()
-    runRecognitionTest(options = MapGestures { dragPan { onCancel { cancelled += it.reason } } }) {
-      target ->
+    runRecognitionTest(
+      options =
+        MapInteractions {
+          bindings {
+            drag { onCancel { cancelled += it.reason } }
+          }
+        }
+    ) { target ->
       val map = mapNode()
       map.performTouchInput {
         down(center)
@@ -693,11 +744,13 @@ class MapInputRecognitionTest {
     val events = mutableListOf<ScrollEvent>()
     runRecognitionTest(
       options =
-        MapGestures {
-          scrollPan {
-            onStart { events += it }
-            onDelta { events += it }
-            onEnd { events += it }
+        MapInteractions {
+          bindings {
+            scroll {
+              onStart { events += it }
+              onDelta { events += it }
+              onEnd { events += it }
+            }
           }
         }
     ) { target ->
@@ -716,26 +769,10 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun a_buttonless_scroll_does_not_match_an_explicit_primary_button_filter() =
-    runRecognitionTest(
-      options =
-        MapGestures(from = MapGestures.None) {
-          scrollZoom {
-            enabled = true
-            filter = PointerFilter()
-          }
-        }
-    ) { target ->
-      mapNode().performMouseInput { scroll(-1f) }
-      waitForIdle()
-      assertTrue(target.scaleCalls.isEmpty())
-      assertEquals(0, target.startedCount)
-    }
-
-  @Test
   fun none_leaves_clicks_and_focus_to_the_parent() {
     var parentClicks = 0
-    runRecognitionTest(options = MapGestures.None, parentOnClick = { parentClicks++ }) { target ->
+    runRecognitionTest(options = MapInteractions.None, parentOnClick = { parentClicks++ }) { target
+      ->
       mapNode().performMouseInput { click(center) }
       waitForIdle()
       assertEquals(1, parentClicks)
@@ -749,15 +786,18 @@ class MapInputRecognitionTest {
   fun a_custom_reservation_waits_for_its_own_slop() {
     val delivered = mutableListOf<DragEvent>()
     var claims = 0
-    val options = MapGestures {
-      drag(id = "handle") {
-        startSlop = 40.dp
-        canStart {
-          claims++
-          true
+    val options = MapInteractions {
+      bindings {
+        drag {
+          custom("handle") {
+            startSlop = 40.dp
+            canStart {
+              claims++
+              true
+            }
+            onEvent { delivered += it }
+          }
         }
-        action = DragAction.Custom
-        onEvent { delivered += it }
       }
     }
     runRecognitionTest(options = options) { target ->
@@ -790,12 +830,16 @@ class MapInputRecognitionTest {
     val delivered = mutableListOf<DragEvent>()
     runRecognitionTest(
       options =
-        MapGestures {
-          drag(id = "handle") {
-            action = DragAction.Custom
-            onEvent {
-              delivered += it
-              if (it is DragEvent.End) newer = checkNotNull(recorded).onGestureStarted()
+        MapInteractions {
+          bindings {
+            drag {
+              custom("handle") {
+                canStart { true }
+                onEvent {
+                  delivered += it
+                  if (it is DragEvent.End) newer = checkNotNull(recorded).onGestureStarted()
+                }
+              }
             }
           }
         }
@@ -822,12 +866,16 @@ class MapInputRecognitionTest {
     val delivered = mutableListOf<DragEvent>()
     runRecognitionTest(
       options =
-        MapGestures {
-          drag(id = "handle") {
-            action = DragAction.Custom
-            onEvent {
-              delivered += it
-              if (it is DragEvent.Start) newer = checkNotNull(recorded).onGestureStarted()
+        MapInteractions {
+          bindings {
+            drag {
+              custom("handle") {
+                canStart { true }
+                onEvent {
+                  delivered += it
+                  if (it is DragEvent.Start) newer = checkNotNull(recorded).onGestureStarted()
+                }
+              }
             }
           }
         }
@@ -854,18 +902,24 @@ class MapInputRecognitionTest {
     lateinit var recorded: RecordingGestureTarget
     runRecognitionTest(
       options =
-        MapGestures {
-          drag(id = "alternate-pan") {
-            action = DragAction.Pan
-            onEvent {
-              if (it is DragEvent.Start) assertTrue(recorded.moveCalls.isEmpty())
-              observed += it
+        MapInteractions {
+          bindings {
+            drag {
+              onStart {
+                assertTrue(recorded.moveCalls.isEmpty())
+                observed += it
+              }
+              onDelta { observed += it }
+              onEnd { observed += it }
             }
           }
-          drag(id = "handle") {
-            canStart { false }
-            action = DragAction.Custom
-            onEvent { customEvents++ }
+          bindings {
+            drag {
+              custom("handle") {
+                canStart { false }
+                onEvent { customEvents++ }
+              }
+            }
           }
         }
     ) { target ->
@@ -889,10 +943,14 @@ class MapInputRecognitionTest {
     val delivered = mutableListOf<DragEvent>()
     runRecognitionTest(
       options =
-        MapGestures {
-          drag(id = "handle") {
-            action = DragAction.Custom
-            onEvent { delivered += it }
+        MapInteractions {
+          bindings {
+            drag {
+              custom("handle") {
+                canStart { true }
+                onEvent { delivered += it }
+              }
+            }
           }
         }
     ) { target ->
@@ -918,7 +976,14 @@ class MapInputRecognitionTest {
   @Test
   fun changing_only_a_callback_updates_delivery_without_restarting_the_drag() {
     val callbacks = mutableListOf<String>()
-    var configuration by mutableStateOf(MapGestures { dragPan { onDelta { callbacks += "old" } } })
+    var configuration by
+      mutableStateOf(
+        MapInteractions {
+          bindings {
+            drag { onDelta { callbacks += "old" } }
+          }
+        }
+      )
     runRecognitionTest(optionsProvider = { configuration }) { target ->
       val map = mapNode()
       map.performTouchInput {
@@ -926,7 +991,13 @@ class MapInputRecognitionTest {
         moveBy(Offset(30f, 0f))
       }
       waitForIdle()
-      runOnIdle { configuration = MapGestures { dragPan { onDelta { callbacks += "new" } } } }
+      runOnIdle {
+        configuration = MapInteractions {
+          bindings {
+            drag { onDelta { callbacks += "new" } }
+          }
+        }
+      }
       map.performTouchInput {
         moveBy(Offset(30f, 0f))
         up()
@@ -940,11 +1011,16 @@ class MapInputRecognitionTest {
   @Test
   fun structural_replacement_cancels_the_previous_custom_response_with_its_latest_callback() {
     val callbacks = mutableListOf<Pair<String, DragEvent>>()
-    fun configuration(name: String, slop: Int) = MapGestures {
-      drag(id = "handle") {
-        startSlop = slop.dp
-        action = DragAction.Custom
-        onEvent { callbacks += name to it }
+    fun configuration(name: String, slop: Int) = MapInteractions {
+      bindings {
+        drag {
+          custom("handle") {
+            canStart { true }
+
+            startSlop = slop.dp
+            onEvent { callbacks += name to it }
+          }
+        }
       }
     }
     var options by mutableStateOf(configuration("initial", 4))
@@ -981,7 +1057,13 @@ class MapInputRecognitionTest {
   fun a_structural_change_cancels_the_drag_and_waits_for_existing_contacts_to_lift() {
     val cancellations = mutableListOf<GestureCancellationReason>()
     var configuration by
-      mutableStateOf(MapGestures { dragPan { onCancel { cancellations += it.reason } } })
+      mutableStateOf(
+        MapInteractions {
+          bindings {
+            drag { onCancel { cancellations += it.reason } }
+          }
+        }
+      )
     runRecognitionTest(optionsProvider = { configuration }) { target ->
       val map = mapNode()
       map.performTouchInput {
@@ -991,7 +1073,12 @@ class MapInputRecognitionTest {
       waitForIdle()
       val moves = target.moveCalls.size
       runOnIdle {
-        configuration = MapGestures(from = configuration) { dragPan { startSlop = 8.dp } }
+        configuration =
+          MapInteractions(from = configuration) {
+            bindings {
+              drag { pan { startSlop = 8.dp } }
+            }
+          }
       }
       map.performTouchInput {
         moveBy(Offset(30f, 0f))
@@ -1016,10 +1103,12 @@ class MapInputRecognitionTest {
     val counts = mutableListOf<Int>()
     runRecognitionTest(
       options =
-        MapGestures {
-          dragPan {
-            onStart { counts += checkNotNull(recorded).moveCalls.size }
-            onDelta { counts += checkNotNull(recorded).moveCalls.size }
+        MapInteractions {
+          bindings {
+            drag {
+              onStart { counts += checkNotNull(recorded).moveCalls.size }
+              onDelta { counts += checkNotNull(recorded).moveCalls.size }
+            }
           }
         }
     ) { target ->
@@ -1059,7 +1148,7 @@ class MapInputRecognitionTest {
   fun scroll_is_claimed_during_main_before_the_parent_observes_it() {
     var parentSawConsumed = false
     runRecognitionTest(
-      options = MapGestures { scrollPan { enabled = false } },
+      options = MapInteractions { bindings { scroll { mappings { otherwise { zoom() } } } } },
       parentModifier =
         Modifier.pointerInput(Unit) {
           awaitPointerEventScope {
@@ -1320,9 +1409,9 @@ class MapInputRecognitionTest {
   fun a_tap_reports_at_once_when_no_gesture_would_use_a_second_one() =
     runRecognitionTest(
       options =
-        MapGestures {
-          doubleTap { enabled = false }
-          quickZoom { enabled = false }
+        MapInteractions {
+          bindings { doubleTap { enabled = false } }
+          bindings { tapDrag { enabled = false } }
         }
     ) { target ->
       mainClock.autoAdvance = false
@@ -1354,9 +1443,9 @@ class MapInputRecognitionTest {
   fun a_second_tap_inside_the_bounce_window_still_clicks_when_no_gesture_awaits_it() =
     runRecognitionTest(
       options =
-        MapGestures {
-          doubleTap { enabled = false }
-          quickZoom { enabled = false }
+        MapInteractions {
+          bindings { doubleTap { enabled = false } }
+          bindings { tapDrag { enabled = false } }
         }
     ) { target ->
       mapNode().performTouchInput {
@@ -1441,7 +1530,9 @@ class MapInputRecognitionTest {
 
   @Test
   fun the_scroll_hold_is_as_long_as_its_option_says() =
-    runRecognitionTest(options = MapGestures { scrollIdleDuration = 600.milliseconds }) { target ->
+    runRecognitionTest(
+      options = MapInteractions { bindings { scroll { idleDuration = 600.milliseconds } } }
+    ) { target ->
       mainClock.autoAdvance = false
       try {
         mapNode().performMouseInput { scroll(-1f) }
@@ -1479,15 +1570,21 @@ class MapInputRecognitionTest {
     val events = mutableListOf<DragEvent>()
     runRecognitionTest(
       options =
-        MapGestures(MapGestures.None) {
-          dragPan {
-            enabled = true
-            startSlop = 20.dp
-            continuation = null
-            onStart { events += it }
-            onDelta { events += it }
-            onEnd { events += it }
-            onCancel { events += it }
+        MapInteractions(MapInteractions.None) {
+          camera { pan { momentum { enabled = false } } }
+          bindings {
+            transform {
+              pan {
+                enabled = true
+
+                onStart { events += it }
+                onDelta { events += it }
+                onEnd { events += it }
+                onCancel { events += it }
+
+                startSlop = 20.dp
+              }
+            }
           }
         }
     ) { target ->
@@ -1524,15 +1621,19 @@ class MapInputRecognitionTest {
     var centerX = 0f
     runRecognitionTest(
       options =
-        MapGestures(MapGestures.None) {
-          pinchZoom {
-            enabled = true
-            startSpanSlop = 40.dp
-            anchor = GestureAnchor.CameraCenter
-            continuation = null
-            onStart { events += it }
-            onDelta { events += it }
-            onEnd { events += it }
+        MapInteractions(MapInteractions.None) {
+          bindings {
+            transform {
+              zoom {
+                enabled = true
+                startSpanSlop = 40.dp
+                anchor = GestureAnchor.CameraCenter
+                momentum { enabled = false }
+                onStart { events += it }
+                onDelta { events += it }
+                onEnd { events += it }
+              }
+            }
           }
         }
     ) { target ->
@@ -1563,17 +1664,25 @@ class MapInputRecognitionTest {
     val order = mutableListOf<String>()
     runRecognitionTest(
       options =
-        MapGestures {
-          dragPan {
-            continuation = null
-            onStart { order += "pan start" }
-            onEnd { order += "pan end" }
-            onCancel { order += "pan cancel ${it.reason}" }
+        MapInteractions {
+          camera { pan { momentum { enabled = false } } }
+          bindings {
+            transform {
+              pan {
+                onStart { order += "pan start" }
+                onEnd { order += "pan end" }
+                onCancel { order += "pan cancel ${it.reason}" }
+              }
+            }
           }
-          twoFingerTilt {
-            continuation = null
-            onStart { order += "tilt start" }
-            onEnd { order += "tilt end" }
+          bindings {
+            transform {
+              tilt {
+                momentum { enabled = false }
+                onStart { order += "tilt start" }
+                onEnd { order += "tilt end" }
+              }
+            }
           }
         }
     ) { target ->
@@ -1604,19 +1713,33 @@ class MapInputRecognitionTest {
     val rotations = mutableListOf<RotateEvent>()
     runRecognitionTest(
       options =
-        MapGestures {
-          dragPan { enabled = false }
-          twoFingerTilt { enabled = false }
-          pinchZoom {
-            continuation = null
-            onStart { pinches += it }
-            onCancel { pinches += it }
-            onEnd { pinches += it }
+        MapInteractions {
+          bindings {
+            transform {
+              pan {
+                enabled = false
+              }
+            }
           }
-          twoFingerRotate {
-            continuation = null
-            onStart { rotations += it }
-            onEnd { rotations += it }
+          bindings { transform { tilt { enabled = false } } }
+          bindings {
+            transform {
+              zoom {
+                momentum { enabled = false }
+                onStart { pinches += it }
+                onCancel { pinches += it }
+                onEnd { pinches += it }
+              }
+            }
+          }
+          bindings {
+            transform {
+              rotate {
+                momentum { enabled = false }
+                onStart { rotations += it }
+                onEnd { rotations += it }
+              }
+            }
           }
         }
     ) { target ->
@@ -1652,13 +1775,18 @@ class MapInputRecognitionTest {
     val events = mutableListOf<DragEvent>()
     runRecognitionTest(
       options =
-        MapGestures(MapGestures.None) {
-          dragPan {
-            enabled = true
-            continuation = null
-            onStart { events += it }
-            onEnd { events += it }
-            onCancel { events += it }
+        MapInteractions(MapInteractions.None) {
+          camera { pan { momentum { enabled = false } } }
+          bindings {
+            transform {
+              pan {
+                enabled = true
+
+                onStart { events += it }
+                onEnd { events += it }
+                onCancel { events += it }
+              }
+            }
           }
         }
     ) { target ->
@@ -1706,10 +1834,19 @@ class MapInputRecognitionTest {
   fun newly_recognized_single_pan_discards_the_previous_pairs_staged_momentum() {
     runRecognitionTest(
       options =
-        MapGestures(MapGestures.None) {
-          dragPan {
-            enabled = true
-            continuation = Fling(minimumSpeed = 1.0)
+        MapInteractions(MapInteractions.None) {
+          camera { pan { momentum { minimumSpeed = 1.0 } } }
+          bindings {
+            drag {
+              enabled = true
+
+              mappings { on(button = PointerButton.Primary) { pan() } }
+            }
+            transform {
+              pan {
+                enabled = true
+              }
+            }
           }
         }
     ) { target ->
@@ -1741,10 +1878,14 @@ class MapInputRecognitionTest {
   fun pair_pan_stages_momentum_until_the_group_lifts() {
     runRecognitionTest(
       options =
-        MapGestures(MapGestures.None) {
-          dragPan {
-            enabled = true
-            continuation = Fling(minimumSpeed = 1.0)
+        MapInteractions(MapInteractions.None) {
+          camera { pan { momentum { minimumSpeed = 1.0 } } }
+          bindings {
+            transform {
+              pan {
+                enabled = true
+              }
+            }
           }
         }
     ) { target ->
@@ -1778,15 +1919,19 @@ class MapInputRecognitionTest {
     val events = mutableListOf<PinchEvent>()
     runRecognitionTest(
       options =
-        MapGestures(MapGestures.None) {
-          pinchZoom {
-            enabled = true
-            onStart {
-              events += it
-              newer = checkNotNull(recorded).onGestureStarted()
+        MapInteractions(MapInteractions.None) {
+          bindings {
+            transform {
+              zoom {
+                enabled = true
+                onStart {
+                  events += it
+                  newer = checkNotNull(recorded).onGestureStarted()
+                }
+                onDelta { events += it }
+                onCancel { events += it }
+              }
             }
-            onDelta { events += it }
-            onCancel { events += it }
           }
         }
     ) { target ->
@@ -1831,11 +1976,11 @@ class MapInputRecognitionTest {
   fun symmetric_pinch_does_not_recognize_pan_from_individual_finger_displacement() =
     runRecognitionTest(
       options =
-        MapGestures {
-          pinchZoom { enabled = false }
-          twoFingerRotate { enabled = false }
-          twoFingerTilt { enabled = false }
-          twoFingerTap { enabled = false }
+        MapInteractions {
+          bindings { transform { zoom { enabled = false } } }
+          bindings { transform { rotate { enabled = false } } }
+          bindings { transform { tilt { enabled = false } } }
+          bindings { twoFingerTap { enabled = false } }
         }
     ) { target ->
       mapNode().performTouchInput {
@@ -2011,12 +2156,11 @@ class MapInputRecognitionTest {
   fun a_map_with_every_keyboard_gesture_disabled_takes_no_tab_stop() =
     runFocusTest(
       options =
-        MapGestures {
-          keys {
-            clearPan()
-            clearZoom()
-            clearRotate()
-            clearTilt()
+        MapInteractions {
+          bindings {
+            keys {
+              mappings {}
+            }
           }
         }
     ) { _, _ ->
@@ -2029,12 +2173,11 @@ class MapInputRecognitionTest {
   fun a_rotary_only_map_takes_a_tab_stop() =
     runFocusTest(
       options =
-        MapGestures {
-          keys {
-            clearPan()
-            clearZoom()
-            clearRotate()
-            clearTilt()
+        MapInteractions {
+          bindings {
+            keys {
+              mappings {}
+            }
           }
         },
       rotaryNotchPixels = 24f,
@@ -2055,7 +2198,7 @@ class MapInputRecognitionTest {
 
   @Test
   fun disabling_all_bindings_while_a_key_is_held_still_consumes_its_release() {
-    var options by mutableStateOf(MapGestures.Standard)
+    var options by mutableStateOf(MapInteractions.Standard)
     runFocusTest(optionsProvider = { options }) { target, unconsumed ->
       val map = mapNode()
       map.requestFocus()
@@ -2064,7 +2207,7 @@ class MapInputRecognitionTest {
         keyDown(Key.DirectionRight)
       }
       waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.size == 1 }
-      runOnIdle { options = MapGestures.None }
+      runOnIdle { options = MapInteractions.None }
       waitForIdle()
       map.assertIsFocused()
       map.assert(expectValue(SemanticsProperties.StateDescription, "not engaged"))
@@ -2082,7 +2225,7 @@ class MapInputRecognitionTest {
 
   @Test
   fun replacing_a_held_chord_does_not_reinterpret_its_release() {
-    var options by mutableStateOf(MapGestures.Standard)
+    var options by mutableStateOf(MapInteractions.Standard)
     runFocusTest(optionsProvider = { options }) { target, unconsumed ->
       val map = mapNode()
       map.requestFocus()
@@ -2092,8 +2235,8 @@ class MapInputRecognitionTest {
       }
       waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.size == 1 }
       runOnIdle {
-        options = MapGestures {
-          keys { bind(KeyChord(Key.DirectionRight), GestureKeyAction.ZoomIn) }
+        options = MapInteractions {
+          bindings { keys { mappings { on(Key.DirectionRight) { zoomIn() } } } }
         }
       }
       waitForIdle()
@@ -2133,12 +2276,15 @@ class MapInputRecognitionTest {
   @Test
   fun key_observer_replacement_is_used_without_losing_engagement() {
     val observed = mutableListOf<String>()
-    var options by mutableStateOf(MapGestures { keys { onEvent { observed += "initial" } } })
+    var options by
+      mutableStateOf(MapInteractions { bindings { keys { onEvent { observed += "initial" } } } })
     runFocusTest(optionsProvider = { options }) { target, _ ->
       val map = mapNode()
       map.requestFocus()
       map.performKeyInput { pressKey(Key.Enter) }
-      runOnIdle { options = MapGestures { keys { onEvent { observed += "updated" } } } }
+      runOnIdle {
+        options = MapInteractions { bindings { keys { onEvent { observed += "updated" } } } }
+      }
       waitForIdle()
       map.performKeyInput { pressKey(Key.DirectionRight) }
       waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.size == 1 }
@@ -2165,13 +2311,186 @@ class MapInputRecognitionTest {
   @Test
   fun an_invalid_rotary_notch_does_not_create_a_focus_stop() =
     runFocusTest(
-      options = MapGestures(from = MapGestures.None) { keys { rotaryZoom { enabled = true } } },
+      options =
+        MapInteractions(from = MapInteractions.None) { bindings { rotary { enabled = true } } },
       rotaryNotchPixels = Float.POSITIVE_INFINITY,
     ) { _, _ ->
       onNodeWithTag(BEFORE_MAP_TAG).requestFocus()
       mapNode().performKeyInput { pressKey(Key.Tab) }
       onNodeWithTag(AFTER_MAP_TAG).assertIsFocused()
     }
+
+  @Test
+  fun held_key_repeats_share_one_semantic_start_and_callback_updates_keep_the_session() {
+    val starts = mutableListOf<Pair<String, CameraInputStart>>()
+    fun configuration(label: String) = MapInteractions {
+      camera { pan { onStart { starts += label to it } } }
+    }
+    var options by mutableStateOf(configuration("initial"))
+    runFocusTest(optionsProvider = { options }) { target, _ ->
+      val map = mapNode()
+      map.requestFocus()
+      map.performKeyInput {
+        pressKey(Key.Enter)
+        keyDown(Key.DirectionRight)
+        advanceEventTime(600)
+      }
+      waitForIdle()
+      assertTrue(target.moveCalls.size > 1)
+      assertEquals(listOf("initial"), starts.map { it.first })
+      val moves = target.moveCalls.size
+      runOnIdle { options = configuration("updated") }
+      map.performKeyInput { advanceEventTime(100) }
+      waitForIdle()
+      assertTrue(target.moveCalls.size > moves)
+      assertEquals(1, starts.size)
+      assertEquals(1, target.startedCount)
+      map.performKeyInput {
+        keyUp(Key.DirectionRight)
+        keyDown(Key.DirectionRight)
+        keyUp(Key.DirectionRight)
+      }
+      waitForIdle()
+      assertEquals(listOf("initial", "updated"), starts.map { it.first })
+      assertTrue(starts.first().second.sessionId != starts.last().second.sessionId)
+    }
+  }
+
+  @Test
+  fun camera_takeover_during_a_held_key_suppresses_repeats_until_release() {
+    runFocusTest { target, unconsumed ->
+      val map = mapNode()
+      map.requestFocus()
+      map.performKeyInput {
+        pressKey(Key.Enter)
+        keyDown(Key.DirectionRight)
+      }
+      waitForIdle()
+      val moves = target.moveCalls.size
+      lateinit var newer: GestureToken
+      runOnIdle { newer = target.onGestureStarted() }
+      map.performKeyInput {
+        advanceEventTime(600)
+        keyUp(Key.DirectionRight)
+      }
+      waitForIdle()
+      assertEquals(moves, target.moveCalls.size)
+      assertFalse(Key.DirectionRight in unconsumed)
+      runOnIdle { target.onGestureEnded(newer) }
+      map.performKeyInput { pressKey(Key.DirectionRight) }
+      waitForIdle()
+      assertEquals(moves + 1, target.moveCalls.size)
+    }
+  }
+
+  @Test
+  fun pair_to_single_pan_restarts_the_semantic_component_under_the_retained_session() {
+    val starts = mutableListOf<CameraInputStart>()
+    runRecognitionTest(
+      options =
+        MapInteractions {
+          camera {
+            pan {
+              onStart { starts += it }
+              momentum { enabled = false }
+            }
+          }
+          bindings {
+            transform {
+              zoom { enabled = false }
+              rotate { enabled = false }
+              tilt { enabled = false }
+            }
+          }
+        }
+    ) { target ->
+      val map = mapNode()
+      map.performTouchInput {
+        down(0, center - Offset(80f, 0f))
+        down(1, center + Offset(80f, 0f))
+        updatePointerBy(0, Offset(40f, 0f))
+        updatePointerBy(1, Offset(40f, 0f))
+        move()
+        up(0)
+        updatePointerBy(1, Offset(40f, 0f))
+        move()
+        up(1)
+      }
+      waitForIdle()
+      assertEquals(2, starts.size)
+      assertEquals(starts.first().sessionId, starts.last().sessionId)
+      assertEquals(1, target.startedCount)
+      assertEquals(1, target.endedCount)
+    }
+  }
+
+  @Test
+  fun no_click_subscribers_or_pairing_demand_leaves_an_ordinary_tap_to_the_parent() {
+    var parentClicks = 0
+    runRecognitionTest(
+      options =
+        MapInteractions {
+          bindings {
+            doubleTap { mappings {} }
+            tapDrag { enabled = false }
+            twoFingerTap { mappings {} }
+          }
+        },
+      parentOnClick = { parentClicks++ },
+    ) { target ->
+      target.capabilities = emptySet()
+      mapNode().performTouchInput { click(center) }
+      waitForIdle()
+      assertEquals(1, parentClicks)
+      assertEquals(0, target.clicks)
+      assertEquals(0, target.startedCount)
+    }
+  }
+
+  @Test
+  fun custom_drag_requires_primary_contact_and_stays_latched_when_mouse_modifiers_change() {
+    var admissions = 0
+    val events = mutableListOf<DragEvent>()
+    runRecognitionTest(
+      options =
+        MapInteractions {
+          bindings {
+            drag {
+              custom("handle") {
+                canStart {
+                  admissions++
+                  true
+                }
+                onEvent { events += it }
+              }
+            }
+          }
+        }
+    ) { target ->
+      val map = mapNode()
+      map.performMouseInput { click(center, MouseButton.Secondary) }
+      waitForIdle()
+      assertEquals(0, admissions)
+      map.performMouseInput {
+        moveTo(center)
+        press()
+        moveBy(Offset(30f, 0f))
+      }
+      map.performKeyInput { keyDown(Key.CtrlLeft) }
+      map.performMouseInput {
+        moveBy(Offset(30f, 0f))
+        release()
+      }
+      map.performKeyInput { keyUp(Key.CtrlLeft) }
+      waitForIdle()
+      assertEquals(1, admissions)
+      assertEquals(1, events.count { it is DragEvent.Start })
+      assertEquals(1, events.count { it is DragEvent.End })
+      assertTrue(events.none { it is DragEvent.Cancel })
+      assertTrue(target.moveCalls.isEmpty())
+      assertTrue(target.rotateCalls.isEmpty())
+    }
+  }
 
   private fun assumeRotaryInjectionSupported() {
     assumeTrue(
@@ -2186,9 +2505,9 @@ class MapInputRecognitionTest {
     val observed = mutableListOf<RotaryGestureEvent>()
     runFocusTest(
       options =
-        MapGestures(from = MapGestures.None) {
-          keys {
-            rotaryZoom {
+        MapInteractions(from = MapInteractions.None) {
+          bindings {
+            rotary {
               enabled = true
               onEvent { observed += it }
             }
@@ -2264,9 +2583,9 @@ class MapInputRecognitionTest {
    * parent, which is every one the map does not consume.
    */
   private fun runFocusTest(
-    options: MapGestures = MapGestures.Standard,
+    options: MapInteractions = MapInteractions.Standard,
     rotaryNotchPixels: Float = 0f,
-    optionsProvider: () -> MapGestures = { options },
+    optionsProvider: () -> MapInteractions = { options },
     body: ComposeUiTest.(RecordingGestureTarget, List<Key>) -> Unit,
   ) = runPlainComposeUiTest {
     val target = fixture.target
@@ -2290,11 +2609,11 @@ class MapInputRecognitionTest {
   }
 
   private fun runRecognitionTest(
-    options: MapGestures = MapGestures.Standard,
+    options: MapInteractions = MapInteractions.Standard,
     parentOnClick: (() -> Unit)? = null,
     parentOnLongClick: (() -> Unit)? = null,
     parentModifier: Modifier = Modifier,
-    optionsProvider: () -> MapGestures = { options },
+    optionsProvider: () -> MapInteractions = { options },
     body: ComposeUiTest.(RecordingGestureTarget) -> Unit,
   ) = runPlainComposeUiTest {
     val target = fixture.target
@@ -2330,17 +2649,20 @@ class MapInputRecognitionTest {
     const val TIMEOUT = 5_000L
     const val FRAME_MILLIS = 16L
     const val SECOND_TAP_GAP_MILLIS = 80L
-    val SCROLL_HOLD_MILLIS = MapGestures.Standard.scrollIdleDuration.inWholeMilliseconds
+    val SCROLL_HOLD_MILLIS =
+      MapInteractions.Standard.bindings.scroll.idleDuration.inWholeMilliseconds
   }
 }
 
 @Composable
 private fun GestureHost(
   target: RecordingGestureTarget,
-  options: MapGestures,
+  options: MapInteractions,
   rotaryNotchPixels: Float = 0f,
 ) {
+  SideEffect { target.updateConfiguration(options) }
   val density = LocalDensity.current
+  val subscriptions = remember { InteractionSubscriptions(options) }
   val focusRequester = remember { FocusRequester() }
   val focus = remember { MapInputFocus {} }
   val environment = remember {
@@ -2366,6 +2688,7 @@ private fun GestureHost(
         environment,
         continuation,
         rotaryNotchPixels,
+        subscriptions,
       )
   )
 }

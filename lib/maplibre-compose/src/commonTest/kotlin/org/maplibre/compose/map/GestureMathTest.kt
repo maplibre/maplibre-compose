@@ -136,45 +136,46 @@ class GestureMathTest {
 
   @Test
   fun fling_tuning_preserves_screen_space_travel_and_zero_disables_it() {
-    assertNull(GestureMath.fling(1400.0, 0.0, Fling(minimumSpeed = 1500.0)))
+    assertNull(GestureMath.fling(1400.0, 0.0, PanMomentum(minimumSpeed = 1500.0)))
     val fling =
       assertNotNull(
-        GestureMath.fling(1050.0, 0.0, Fling(baseTime = 100.milliseconds, durationScale = 2.0))
+        GestureMath.fling(
+          1050.0,
+          0.0,
+          PanMomentum(baseTime = 100.milliseconds, durationScale = 2.0),
+        )
       )
     assertEquals(400.milliseconds, fling.duration)
     assertEquals(117.6, fling.offsetXDp, 1e-10)
-    assertNull(GestureMath.fling(1050.0, 0.0, Fling(durationScale = 0.0)))
-    assertNull(GestureMath.fling(0.0, 0.0, Fling(minimumSpeed = 0.0)))
+    assertNull(GestureMath.fling(1050.0, 0.0, PanMomentum(durationScale = 0.0)))
+    assertNull(GestureMath.fling(0.0, 0.0, PanMomentum(minimumSpeed = 0.0)))
     assertNull(GestureMath.fling(Double.NaN, 0.0))
   }
 
   @Test
   fun zoom_and_rotation_continuation_durations_are_scaled_and_capped() {
-    fun scale(continuation: GestureVelocityContinuation) =
+    fun scale(continuation: VelocityMomentum) =
       GestureMath.scaleVelocity(6000.0, 6000.0, 20.0, 1.0, false, continuation)
-    fun rotate(continuation: GestureVelocityContinuation) =
+    fun rotate(continuation: VelocityMomentum) =
       GestureMath.rotationVelocity(0.0, 1000.0, 100.0, 0.0, -1.0, 1.0, continuation = continuation)
     for (calculate in
-      listOf<(GestureVelocityContinuation) -> Duration?>(
+      listOf<(VelocityMomentum) -> Duration?>(
         { scale(it)?.duration },
         { rotate(it)?.duration },
       )) {
-      assertEquals(300.milliseconds, calculate(GestureVelocityContinuation()))
+      assertEquals(300.milliseconds, calculate(VelocityMomentum()))
       assertEquals(
         120.milliseconds,
-        calculate(GestureVelocityContinuation(maximumDuration = 120.milliseconds)),
+        calculate(VelocityMomentum(maximumDuration = 120.milliseconds)),
       )
-      val full =
-        assertNotNull(calculate(GestureVelocityContinuation(maximumDuration = 1000.milliseconds)))
+      val full = assertNotNull(calculate(VelocityMomentum(maximumDuration = 1000.milliseconds)))
       val half =
         assertNotNull(
-          calculate(
-            GestureVelocityContinuation(durationScale = 0.5, maximumDuration = 1000.milliseconds)
-          )
+          calculate(VelocityMomentum(durationScale = 0.5, maximumDuration = 1000.milliseconds))
         )
       assertEquals(full / 2.0, half)
-      assertNull(calculate(GestureVelocityContinuation(durationScale = 0.0)))
-      assertNull(calculate(GestureVelocityContinuation(maximumDuration = Duration.ZERO)))
+      assertNull(calculate(VelocityMomentum(durationScale = 0.0)))
+      assertNull(calculate(VelocityMomentum(maximumDuration = Duration.ZERO)))
     }
   }
 
@@ -183,7 +184,7 @@ class GestureMathTest {
     assertNull(GestureMath.tiltVelocity(4.99))
     assertEquals(0.75, assertNotNull(GestureMath.tiltVelocity(10.0)).pitchDelta, 1e-12)
     assertEquals(-0.75, assertNotNull(GestureMath.tiltVelocity(-10.0)).pitchDelta, 1e-12)
-    assertNull(GestureMath.tiltVelocity(10.0, TiltContinuation(duration = Duration.ZERO)))
-    assertNull(GestureMath.tiltVelocity(0.0, TiltContinuation(minimumSpeed = 0.0)))
+    assertNull(GestureMath.tiltVelocity(10.0, TiltMomentum(duration = Duration.ZERO)))
+    assertNull(GestureMath.tiltVelocity(0.0, TiltMomentum(minimumSpeed = 0.0)))
   }
 }

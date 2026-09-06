@@ -110,7 +110,7 @@ class MlnFfiStylePresentationTest {
                   .definition(),
               anchor = Anchor.Top,
               onClick = null,
-              onLongClick = null,
+              onContextClick = null,
             )
           ),
         images = emptyList(),

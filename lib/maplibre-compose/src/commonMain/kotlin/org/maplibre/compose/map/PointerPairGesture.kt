@@ -16,8 +16,9 @@ import org.maplibre.compose.input.TransformVelocity
 /** Adapts shared screen-space recognition to map events, response gains, and camera ownership. */
 internal class PointerPairGesture(
   private val target: GestureTarget,
-  private val options: MapGestures,
-  private val currentOptions: () -> MapGestures,
+  private val options: MapInteractions,
+  private val currentOptions: () -> MapInteractions,
+  private val subscriptions: InteractionSubscriptions,
   private val ids: GestureIds,
   private val density: Density,
   event: PointerEvent,
@@ -27,8 +28,9 @@ internal class PointerPairGesture(
   private val onRecognized: () -> Unit,
   private val retainAuthority: () -> Boolean,
 ) {
-  private class Component(val binding: GestureBinding) {
+  private class Component(val kind: TransformComponent) {
     var sample: GesturePointerSample? = null
+    var observer: (PointerGestureEvent) -> Unit = {}
     val active: Boolean
       get() = sample != null
   }
@@ -41,10 +43,31 @@ internal class PointerPairGesture(
       (first.position + second.position) / 2f,
       setOf(first.type, second.type),
     )
-  private val pan = component("dragPan")
-  private val pinch = component("pinchZoom")
-  private val rotate = component("twoFingerRotate")
-  private val shove = component("twoFingerTilt")
+  private val settings = options.bindings.transform
+  private val pan =
+    component(
+      TransformComponent.Pan,
+      settings.pan.enabled && options.camera.pan.enabled,
+      PointerPattern(settings.pan.pointerTypes, modifiers = settings.pan.modifiers),
+    )
+  private val pinch =
+    component(
+      TransformComponent.Scale,
+      settings.zoom.enabled && options.camera.zoom.enabled,
+      PointerPattern(settings.zoom.pointerTypes, modifiers = settings.zoom.modifiers),
+    )
+  private val rotate =
+    component(
+      TransformComponent.Rotation,
+      settings.rotate.enabled && options.camera.rotate.enabled,
+      PointerPattern(settings.rotate.pointerTypes, modifiers = settings.rotate.modifiers),
+    )
+  private val shove =
+    component(
+      TransformComponent.VerticalDrag,
+      settings.tilt.enabled && options.camera.tilt.enabled,
+      PointerPattern(settings.tilt.pointerTypes, modifiers = settings.tilt.modifiers),
+    )
   private val components =
     mapOf(
       TransformComponent.Pan to pan,
@@ -64,10 +87,10 @@ internal class PointerPairGesture(
       second,
       MapTransformPolicy(
         density,
-        pan?.binding?.settings,
-        pinch?.binding?.settings,
-        rotate?.binding?.settings,
-        shove?.binding?.settings,
+        settings.pan.takeIf { pan != null },
+        settings.zoom.takeIf { pinch != null },
+        settings.rotate.takeIf { rotate != null },
+        settings.tilt.takeIf { shove != null },
       ),
       ::start,
       ::delta,
@@ -80,8 +103,22 @@ internal class PointerPairGesture(
   val secondId
     get() = recognition.secondId
 
-  private fun component(id: String): Component? =
-    options.binding(id).takeIf { it.matches(metadata, contact = true) }?.let(::Component)
+  private fun component(
+    kind: TransformComponent,
+    enabled: Boolean,
+    pattern: PointerPattern,
+  ): Component? =
+    if (
+      enabled &&
+        pattern.matches(
+          metadata.pointerTypes,
+          metadata.buttons,
+          metadata.modifierKeys,
+          contact = true,
+        )
+    )
+      Component(kind)
+    else null
 
   fun matches(first: PointerInputChange, second: PointerInputChange): Boolean =
     first.id == firstId && second.id == secondId
@@ -119,6 +156,33 @@ internal class PointerPairGesture(
     }
     onRecognized()
     val component = checkNotNull(components[kind])
+    token?.origin = CameraInputOrigin.Transform
+    token?.rearm(kind.cameraComponent)
+    val membership =
+      when (kind) {
+        TransformComponent.Pan -> subscriptions.transformPan.capture()
+        TransformComponent.Scale -> subscriptions.transformZoom.capture()
+        TransformComponent.Rotation -> subscriptions.transformRotate.capture()
+        TransformComponent.VerticalDrag -> subscriptions.transformTilt.capture()
+      }
+    component.observer =
+      when (kind) {
+        TransformComponent.Pan -> { event ->
+          membership.observe(event as DragEvent, currentOptions().bindings.transform.pan.handlers)
+        }
+        TransformComponent.Scale -> { event ->
+          membership.observe(event as PinchEvent, currentOptions().bindings.transform.zoom.handlers)
+        }
+        TransformComponent.Rotation -> { event ->
+          membership.observe(
+            event as RotateEvent,
+            currentOptions().bindings.transform.rotate.handlers,
+          )
+        }
+        TransformComponent.VerticalDrag -> { event ->
+          membership.observe(event as ShoveEvent, currentOptions().bindings.transform.tilt.handlers)
+        }
+      }
     val sample = metadata.copy(gestureId = ids.next())
     component.sample = sample
     val position = DpOffset((origin.x / density.density).dp, (origin.y / density.density).dp)
@@ -137,57 +201,51 @@ internal class PointerPairGesture(
   private fun delta(kind: TransformComponent, delta: TransformDecision): Boolean {
     val component = checkNotNull(components[kind])
     val sample = checkNotNull(component.sample)
-    val settings = component.binding.settings
     when (kind) {
       TransformComponent.Pan -> {
         val offset =
           DpOffset((delta.pan.x / density.density).dp, (delta.pan.y / density.density).dp)
         observe(component, DragEvent.Delta(sample, offset))
         if (!retainAuthority()) return false
-        target.moveBy(offset.x.value.toDouble(), offset.y.value.toDouble(), gestureToken = token)
+        target.inputPanBy(
+          offset.x.value.toDouble(),
+          offset.y.value.toDouble(),
+          gestureToken = token,
+        )
       }
       TransformComponent.Scale -> {
         observe(component, PinchEvent.Delta(sample, delta.scale))
         if (!retainAuthority()) return false
-        target.scaleBy(
-          GestureMath.pinchScale(delta.scale).pow(settings.zoomScale),
-          component.binding.anchor(metadata),
+        target.inputScaleBy(
+          GestureMath.pinchScale(delta.scale).pow(settings.zoom.zoomScale),
+          settings.zoom.anchor.location(metadata),
           gestureToken = token,
         )
       }
       TransformComponent.Rotation -> {
         observe(component, RotateEvent.Delta(sample, delta.rotation))
         if (!retainAuthority()) return false
-        target.rotateAndPitchBy(
-          -delta.rotation * settings.rotationScale,
+        target.inputRotateAndPitchBy(
+          -delta.rotation * settings.rotate.rotationScale,
           0.0,
-          anchor = component.binding.anchor(metadata),
+          anchor = settings.rotate.anchor.location(metadata),
           gestureToken = token,
         )
       }
       TransformComponent.VerticalDrag -> {
         observe(component, ShoveEvent.Delta(sample, (delta.verticalDrag / density.density).dp))
         if (!retainAuthority()) return false
-        target.rotateAndPitchBy(
+        target.inputRotateAndPitchBy(
           0.0,
-          delta.verticalDrag / density.density * settings.pitchDegreesPerDp,
+          delta.verticalDrag / density.density * settings.tilt.pitchDegreesPerDp,
           gestureToken = token,
         )
       }
     }
-    return true
+    return retainAuthority()
   }
 
-  private fun observe(component: Component, event: PointerGestureEvent) {
-    val handlers = currentOptions().binding(component.binding.id).handlers
-    when (event) {
-      is DragEvent -> handlers.observe(event)
-      is PinchEvent -> handlers.observe(event)
-      is RotateEvent -> handlers.observe(event)
-      is ShoveEvent -> handlers.observe(event)
-      else -> error("Unexpected pair event")
-    }
-  }
+  private fun observe(component: Component, event: PointerGestureEvent) = component.observer(event)
 
   private fun cancelComponent(kind: TransformComponent) {
     val component = checkNotNull(components[kind])
@@ -256,9 +314,7 @@ internal class PointerPairGesture(
     val panFling =
       pan
         ?.takeIf { it.active }
-        ?.binding
-        ?.settings
-        ?.fling
+        ?.let { settings.pan.momentum.takeIf { it.enabled } }
         ?.let {
           GestureMath.fling(
             (centroid.x / density.density).toDouble(),
@@ -269,9 +325,7 @@ internal class PointerPairGesture(
     val scale =
       pinch
         ?.takeIf { it.active }
-        ?.binding
-        ?.settings
-        ?.velocityContinuation
+        ?.let { settings.zoom.momentum.takeIf { it.enabled } }
         ?.let {
           GestureMath.scaleVelocity(
               finger.x.toDouble(),
@@ -282,15 +336,13 @@ internal class PointerPairGesture(
               it,
             )
             ?.let { response ->
-              response.copy(zoomDelta = response.zoomDelta * pinch.binding.settings.zoomScale)
+              response.copy(zoomDelta = response.zoomDelta * settings.zoom.zoomScale)
             }
         }
     val rotation =
       rotate
         ?.takeIf { it.active }
-        ?.binding
-        ?.settings
-        ?.velocityContinuation
+        ?.let { settings.rotate.momentum.takeIf { it.enabled } }
         ?.let {
           GestureMath.rotationVelocity(
               finger.x.toDouble(),
@@ -305,19 +357,17 @@ internal class PointerPairGesture(
             ?.let { response ->
               response.copy(
                 initialDegreesPerFrame =
-                  response.initialDegreesPerFrame * rotate.binding.settings.rotationScale
+                  response.initialDegreesPerFrame * settings.rotate.rotationScale
               )
             }
         }
     val tilt =
       shove
         ?.takeIf { it.active }
-        ?.binding
-        ?.settings
-        ?.tiltContinuation
+        ?.let { settings.tilt.momentum.takeIf { it.enabled } }
         ?.let {
           GestureMath.tiltVelocity(
-            centroid.y / density.density * shove.binding.settings.pitchDegreesPerDp,
+            centroid.y / density.density * settings.tilt.pitchDegreesPerDp,
             it,
           )
         }
@@ -327,8 +377,8 @@ internal class PointerPairGesture(
       scale,
       rotation,
       tilt,
-      pinch?.binding?.anchor(metadata),
-      rotate?.binding?.anchor(metadata),
+      settings.zoom.anchor.location(metadata),
+      settings.rotate.anchor.location(metadata),
     )
   }
 }
@@ -341,3 +391,12 @@ internal data class PairContinuation(
   val scaleAnchor: DpOffset?,
   val rotationAnchor: DpOffset?,
 )
+
+internal val TransformComponent.cameraComponent: CameraComponent
+  get() =
+    when (this) {
+      TransformComponent.Pan -> CameraComponent.Pan
+      TransformComponent.Scale -> CameraComponent.Zoom
+      TransformComponent.Rotation -> CameraComponent.Rotate
+      TransformComponent.VerticalDrag -> CameraComponent.Tilt
+    }

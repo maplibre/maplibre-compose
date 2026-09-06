@@ -61,8 +61,8 @@ class DemoSettings {
   var mapStyleMode by mutableStateOf(MapStyleMode.System)
   var paletteMode by mutableStateOf(defaultPaletteMode)
   val gestureSettings = DemoGestureSettings()
-  val gestures
-    get() = gestureSettings.gestures
+  val interactions
+    get() = gestureSettings.interactions
 
   var renderOptions by mutableStateOf(RenderOptions.Standard)
   var tileLodOptions by mutableStateOf(TileLodOptions.Standard)

@@ -10,6 +10,6 @@ internal data class MapViewOptions(
   val cameraPadding: PaddingValues = PaddingValues(0.dp),
   val cameraConstraints: CameraConstraints = CameraConstraints(),
   val renderOptions: RenderOptions = RenderOptions.Standard,
-  val gestures: MapGestures = MapGestures.Standard,
+  val interactions: MapInteractions = MapInteractions.Standard,
   val tileLodOptions: TileLodOptions = TileLodOptions.Standard,
 )

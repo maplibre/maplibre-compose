@@ -694,7 +694,6 @@ internal constructor(
   }
   internal val lifecycle = MapLifecycleAuthority(this, runtime.physicalScope)
   internal val gestureAuthority = GestureCameraAuthority(this)
-  public val gestureCamera: GestureCamera = GestureCamera(gestureAuthority)
   private var baseStyleCommandRevision = 0L
   private var cameraCommandRevision = 0L
   private var styleHandleEpoch = 0L

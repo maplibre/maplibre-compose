@@ -95,7 +95,7 @@ class MlnFfiMapCompositionTest {
       val runtime = createMapRuntime(runtimeOptions)
       val start = CameraPosition(target = Position(0.0, 0.0), zoom = 12.0, tilt = 60.0)
       val state = runtime.createMapState(baseStyle = BaseStyle.Empty, initialCameraPosition = start)
-      var configuration by mutableStateOf(MapGestures.None)
+      var configuration by mutableStateOf(MapInteractions.None)
       var density = 1f
       val release = AtomicReference<DragEvent.End?>(null)
       try {
@@ -104,7 +104,7 @@ class MlnFfiMapCompositionTest {
           MaplibreMap(
             modifier = Modifier.size(300.dp).testTag("pitched-fling-map"),
             state = state,
-            gestures = configuration,
+            interactions = configuration,
           )
         }
         waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
@@ -117,11 +117,21 @@ class MlnFfiMapCompositionTest {
           runOnUiThread {
             release.store(null)
             configuration =
-              MapGestures(from = MapGestures.None) {
-                dragPan {
-                  enabled = true
-                  continuation = if (withFling) Fling(durationScale = 0.25) else null
-                  onEnd { release.store(it) }
+              MapInteractions(from = MapInteractions.None) {
+                camera {
+                  pan {
+                    momentum {
+                      enabled = withFling
+                      durationScale = 0.25
+                    }
+                  }
+                }
+                bindings {
+                  drag {
+                    enabled = true
+                    mappings { on(button = PointerButton.Primary) { pan() } }
+                    onEnd { release.store(it) }
+                  }
                 }
               }
             state.setCameraPosition(start)

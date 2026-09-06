@@ -57,10 +57,17 @@ internal data class GesturePointerSample(
   val modifierKeys: Set<KeyModifier>,
 )
 
-/** The sample supplied to a synchronous custom drag predicate before reserving that binding. */
+/**
+ * The press supplied to a custom drag predicate before reserving its input lifetime.
+ * [pairedSecondPress] identifies a paired second press. Declining an eligible non-mouse press
+ * leaves tap-drag zoom available.
+ */
 @Immutable
-public class PointerPressEvent internal constructor(sample: GesturePointerSample) :
-  PointerGestureEvent(sample)
+public class PointerPressEvent
+internal constructor(
+  sample: GesturePointerSample,
+  public val pairedSecondPress: Boolean = false,
+) : PointerGestureEvent(sample)
 
 /** An ordinary tap or primary click. */
 @Immutable
@@ -74,7 +81,7 @@ public class DoubleTapEvent internal constructor(sample: GesturePointerSample) :
 
 /** A touch long press or a secondary mouse click on release. */
 @Immutable
-public class LongPressEvent internal constructor(sample: GesturePointerSample) :
+public class ContextClickEvent internal constructor(sample: GesturePointerSample) :
   PointerGestureEvent(sample)
 
 /** A tap with two primary contacts. */
@@ -95,12 +102,12 @@ public sealed class DragEvent private constructor(sample: GesturePointerSample) 
   public class Delta
   internal constructor(sample: GesturePointerSample, public val delta: DpOffset) : DragEvent(sample)
 
-  /** Input completed. Any configured continuation belongs to the same camera session. */
+  /** Input completed. Any configured momentum belongs to the same camera session. */
   public class End
   internal constructor(sample: GesturePointerSample, public val velocity: ScreenVelocity) :
     DragEvent(sample)
 
-  /** Cancellation carries the last sample and never launches continuation. */
+  /** Cancellation carries the last sample and never starts momentum. */
   public class Cancel
   internal constructor(sample: GesturePointerSample, public val reason: GestureCancellationReason) :
     DragEvent(sample)
@@ -120,12 +127,12 @@ public sealed class PinchEvent private constructor(sample: GesturePointerSample)
   internal constructor(sample: GesturePointerSample, public val scaleFactor: Double) :
     PinchEvent(sample)
 
-  /** Input completed. Any configured continuation belongs to the same camera session. */
+  /** Input completed. Any configured momentum belongs to the same camera session. */
   public class End
   internal constructor(sample: GesturePointerSample, public val zoomVelocity: Double) :
     PinchEvent(sample)
 
-  /** Cancellation carries the last sample and never launches continuation. */
+  /** Cancellation carries the last sample and never starts momentum. */
   public class Cancel
   internal constructor(sample: GesturePointerSample, public val reason: GestureCancellationReason) :
     PinchEvent(sample)
@@ -145,12 +152,12 @@ public sealed class RotateEvent private constructor(sample: GesturePointerSample
   internal constructor(sample: GesturePointerSample, public val degrees: Double) :
     RotateEvent(sample)
 
-  /** Input completed. Any configured continuation belongs to the same camera session. */
+  /** Input completed. Any configured momentum belongs to the same camera session. */
   public class End
   internal constructor(sample: GesturePointerSample, public val angularVelocity: Double) :
     RotateEvent(sample)
 
-  /** Cancellation carries the last sample and never launches continuation. */
+  /** Cancellation carries the last sample and never starts momentum. */
   public class Cancel
   internal constructor(sample: GesturePointerSample, public val reason: GestureCancellationReason) :
     RotateEvent(sample)
@@ -172,12 +179,12 @@ public sealed class ShoveEvent private constructor(sample: GesturePointerSample)
     public val deltaY: androidx.compose.ui.unit.Dp,
   ) : ShoveEvent(sample)
 
-  /** Input completed. Any configured continuation belongs to the same camera session. */
+  /** Input completed. Any configured momentum belongs to the same camera session. */
   public class End
   internal constructor(sample: GesturePointerSample, public val velocity: ScreenVelocity) :
     ShoveEvent(sample)
 
-  /** Cancellation carries the last sample and never launches continuation. */
+  /** Cancellation carries the last sample and never starts momentum. */
   public class Cancel
   internal constructor(sample: GesturePointerSample, public val reason: GestureCancellationReason) :
     ShoveEvent(sample)
@@ -205,7 +212,7 @@ private constructor(sample: GesturePointerSample, public val kind: ScrollKind) :
     kind: ScrollKind,
   ) : ScrollEvent(sample, kind)
 
-  /** Input completed. Any configured continuation belongs to the same camera session. */
+  /** Input completed. Any configured momentum belongs to the same camera session. */
   public class End
   internal constructor(
     sample: GesturePointerSample,
@@ -213,7 +220,7 @@ private constructor(sample: GesturePointerSample, public val kind: ScrollKind) :
     kind: ScrollKind,
   ) : ScrollEvent(sample, kind)
 
-  /** Cancellation carries the last sample and never launches continuation. */
+  /** Cancellation carries the last sample and never starts momentum. */
   public class Cancel
   internal constructor(
     sample: GesturePointerSample,

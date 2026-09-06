@@ -8,22 +8,22 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-class PointerFilterTest {
+class InputMatchingTest {
   @Test
   fun modifier_matching_distinguishes_any_exact_and_containing() {
     val ctrlShift = setOf(KeyModifier.Ctrl, KeyModifier.Shift)
-    assertTrue(ModifierFilter.Any.matches(ctrlShift))
-    assertFalse(ModifierFilter.Exactly(KeyModifier.Ctrl).matches(ctrlShift))
-    assertTrue(ModifierFilter.Containing(KeyModifier.Ctrl).matches(ctrlShift))
-    assertFalse(ModifierFilter.Exactly().matches(ctrlShift))
-    assertTrue(ModifierFilter.Exactly().matches(emptySet()))
-    assertTrue(ModifierFilter.Containing().matches(ctrlShift))
-    assertFalse(ModifierFilter.Containing(KeyModifier.Alt).matches(ctrlShift))
+    assertTrue(ModifierMatch.Any.matches(ctrlShift))
+    assertFalse(ModifierMatch.Exactly(KeyModifier.Ctrl).matches(ctrlShift))
+    assertTrue(ModifierMatch.Containing(KeyModifier.Ctrl).matches(ctrlShift))
+    assertFalse(ModifierMatch.Exactly().matches(ctrlShift))
+    assertTrue(ModifierMatch.Exactly().matches(emptySet()))
+    assertTrue(ModifierMatch.Containing().matches(ctrlShift))
+    assertFalse(ModifierMatch.Containing(KeyModifier.Alt).matches(ctrlShift))
   }
 
   @Test
   fun every_contact_must_match_the_reported_type_filter() {
-    val filter = PointerFilter(setOf(PointerType.Touch), button = null)
+    val filter = PointerPattern(setOf(PointerType.Touch), button = null)
     assertTrue(filter.matches(setOf(PointerType.Touch), emptySet(), emptySet(), contact = true))
     assertFalse(
       filter.matches(
@@ -35,7 +35,7 @@ class PointerFilterTest {
     )
     assertFalse(filter.matches(setOf(PointerType.Mouse), emptySet(), emptySet(), contact = true))
     assertTrue(
-      PointerFilter(button = null)
+      PointerPattern(button = null)
         .matches(setOf(PointerType.Unknown), emptySet(), emptySet(), contact = true)
     )
   }
@@ -43,22 +43,29 @@ class PointerFilterTest {
   @Test
   fun touch_and_stylus_match_logical_primary_but_scroll_requires_physical_buttons() {
     for (type in listOf(PointerType.Touch, PointerType.Stylus, PointerType.Eraser)) {
-      assertTrue(PointerFilter().matches(setOf(type), emptySet(), emptySet(), contact = true))
-      assertFalse(PointerFilter().matches(setOf(type), emptySet(), emptySet(), contact = false))
+      assertTrue(
+        PointerPattern(button = PointerButton.Primary)
+          .matches(setOf(type), emptySet(), emptySet(), contact = true)
+      )
       assertFalse(
-        PointerFilter(button = PointerButton.Secondary)
+        PointerPattern(button = PointerButton.Primary)
+          .matches(setOf(type), emptySet(), emptySet(), contact = false)
+      )
+      assertFalse(
+        PointerPattern(button = PointerButton.Secondary)
           .matches(setOf(type), emptySet(), emptySet(), contact = true)
       )
     }
     assertFalse(
-      PointerFilter().matches(setOf(PointerType.Mouse), emptySet(), emptySet(), contact = false)
-    )
-    assertTrue(
-      PointerFilter(button = null)
+      PointerPattern(button = PointerButton.Primary)
         .matches(setOf(PointerType.Mouse), emptySet(), emptySet(), contact = false)
     )
     assertTrue(
-      PointerFilter()
+      PointerPattern(button = null)
+        .matches(setOf(PointerType.Mouse), emptySet(), emptySet(), contact = false)
+    )
+    assertTrue(
+      PointerPattern(button = PointerButton.Primary)
         .matches(
           setOf(PointerType.Mouse),
           setOf(PointerButton.Primary),
@@ -71,7 +78,7 @@ class PointerFilterTest {
   @Test
   fun classified_buttonless_mouse_transform_is_logical_primary_only_for_contacts() {
     assertFalse(
-      PointerFilter()
+      PointerPattern(button = PointerButton.Primary)
         .matches(
           setOf(PointerType.Mouse),
           setOf(PointerButton.Secondary),
@@ -81,7 +88,7 @@ class PointerFilterTest {
         )
     )
     assertTrue(
-      PointerFilter()
+      PointerPattern(button = PointerButton.Primary)
         .matches(
           setOf(PointerType.Mouse),
           emptySet(),
@@ -91,10 +98,11 @@ class PointerFilterTest {
         )
     )
     assertFalse(
-      PointerFilter().matches(setOf(PointerType.Mouse), emptySet(), emptySet(), contact = true)
+      PointerPattern(button = PointerButton.Primary)
+        .matches(setOf(PointerType.Mouse), emptySet(), emptySet(), contact = true)
     )
     assertFalse(
-      PointerFilter()
+      PointerPattern(button = PointerButton.Primary)
         .matches(
           setOf(PointerType.Mouse),
           emptySet(),
@@ -104,7 +112,7 @@ class PointerFilterTest {
         )
     )
     assertFalse(
-      PointerFilter(setOf(PointerType.Touch))
+      PointerPattern(setOf(PointerType.Touch), button = PointerButton.Primary)
         .matches(
           setOf(PointerType.Mouse),
           emptySet(),
@@ -113,32 +121,6 @@ class PointerFilterTest {
           platformTransform = true,
         )
     )
-  }
-
-  @Test
-  fun default_or_filters_preserve_ctrl_shift_and_secondary_rotate_priority() {
-    val defaults =
-      MapGestures.Standard.bindings.filter {
-        it.id in setOf("dragRotateTilt", "boxZoom", "dragPan")
-      }
-    fun candidates(button: PointerButton, modifiers: Set<KeyModifier>) =
-      defaults
-        .filter { binding ->
-          binding.filters.any {
-            it.matches(setOf(PointerType.Mouse), setOf(button), modifiers, contact = true)
-          }
-        }
-        .map { it.id }
-    assertEquals(
-      listOf("dragRotateTilt", "boxZoom", "dragPan"),
-      candidates(PointerButton.Primary, setOf(KeyModifier.Ctrl, KeyModifier.Shift)),
-    )
-    assertEquals(
-      listOf("boxZoom", "dragPan"),
-      candidates(PointerButton.Primary, setOf(KeyModifier.Shift)),
-    )
-    assertEquals(listOf("dragPan"), candidates(PointerButton.Primary, setOf(KeyModifier.Alt)))
-    assertEquals(listOf("dragRotateTilt"), candidates(PointerButton.Secondary, emptySet()))
   }
 
   @Test

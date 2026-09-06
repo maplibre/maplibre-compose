@@ -30,12 +30,14 @@ class MapTapDispatcherTest {
               CoroutineExceptionHandler { _, error -> errors += error }
           )
         try {
-          val options = MapGestures {
-            doubleTap {
-              onEvent {
-                order += "binding"
-                if (failInBinding) error("binding failed")
-                ClickResult.Pass
+          val options = MapInteractions {
+            callbacks {
+              doubleClick {
+                onEvent {
+                  order += "binding"
+                  if (failInBinding) error("binding failed")
+                  ClickResult.Pass
+                }
               }
             }
           }
@@ -47,9 +49,14 @@ class MapTapDispatcherTest {
                   error("map failed")
                 }
             }
-          val dispatcher = MapTapDispatcher(scope, target) { options }
-          dispatcher.dispatch(TapFamily.DoubleTap, sample(1)) { order += "camera" }
-          dispatcher.dispatch(TapFamily.DoubleTap, sample(2)) { order += "next camera" }
+          val dispatcher =
+            MapTapDispatcher(scope, target, InteractionSubscriptions(options)) { options }
+          dispatcher.dispatch(checkNotNull(dispatcher.capture(TapFamily.DoubleTap)), sample(1)) {
+            order += "camera"
+          }
+          dispatcher.dispatch(checkNotNull(dispatcher.capture(TapFamily.DoubleTap)), sample(2)) {
+            order += "next camera"
+          }
           testScheduler.runCurrent()
           assertEquals(1, errors.size)
           assertEquals(
@@ -67,11 +74,13 @@ class MapTapDispatcherTest {
   fun recognition_order_is_preserved_across_a_suspended_query() = runTest {
     val order = mutableListOf<String>()
     val query = CompletableDeferred<Unit>()
-    val options = MapGestures {
-      tap {
-        onEvent {
-          order += "binding ${it.gestureId}"
-          ClickResult.Pass
+    val options = MapInteractions {
+      callbacks {
+        click {
+          onEvent {
+            order += "binding ${it.gestureId}"
+            ClickResult.Pass
+          }
         }
       }
     }
@@ -85,9 +94,14 @@ class MapTapDispatcherTest {
             ClickResult.Pass
           }
       }
-    val dispatcher = MapTapDispatcher(backgroundScope, target) { options }
-    dispatcher.dispatch(TapFamily.Tap, sample(1)) { order += "camera 1" }
-    dispatcher.dispatch(TapFamily.Tap, sample(2)) { order += "camera 2" }
+    val dispatcher =
+      MapTapDispatcher(backgroundScope, target, InteractionSubscriptions(options)) { options }
+    dispatcher.dispatch(checkNotNull(dispatcher.capture(TapFamily.Tap)), sample(1)) {
+      order += "camera 1"
+    }
+    dispatcher.dispatch(checkNotNull(dispatcher.capture(TapFamily.Tap)), sample(2)) {
+      order += "camera 2"
+    }
     testScheduler.runCurrent()
     assertEquals(listOf("binding 1", "map 1"), order)
     query.complete(Unit)
@@ -119,11 +133,12 @@ class MapTapDispatcherTest {
             ClickResult.Pass
           }
       }
+    val options = MapInteractions { callbacks { doubleClick { onEvent { ClickResult.Consume } } } }
     val dispatcher =
-      MapTapDispatcher(backgroundScope, target) {
-        MapGestures { doubleTap { onEvent { ClickResult.Consume } } }
-      }
-    dispatcher.dispatch(TapFamily.DoubleTap, sample(1)) { cameras++ }
+      MapTapDispatcher(backgroundScope, target, InteractionSubscriptions(options)) { options }
+    dispatcher.dispatch(checkNotNull(dispatcher.capture(TapFamily.DoubleTap)), sample(1)) {
+      cameras++
+    }
     testScheduler.runCurrent()
     assertEquals(0, delivery)
     assertEquals(0, cameras)
@@ -131,7 +146,7 @@ class MapTapDispatcherTest {
 
   @Test
   fun a_structural_change_during_a_query_cancels_camera_fallthrough() = runTest {
-    var options = MapGestures.Standard
+    var options = MapInteractions.Standard
     val query = CompletableDeferred<Unit>()
     var cameras = 0
     val target =
@@ -142,10 +157,13 @@ class MapTapDispatcherTest {
             ClickResult.Pass
           }
       }
-    val dispatcher = MapTapDispatcher(backgroundScope, target) { options }
-    dispatcher.dispatch(TapFamily.DoubleTap, sample(1)) { cameras++ }
+    val dispatcher =
+      MapTapDispatcher(backgroundScope, target, InteractionSubscriptions(options)) { options }
+    dispatcher.dispatch(checkNotNull(dispatcher.capture(TapFamily.DoubleTap)), sample(1)) {
+      cameras++
+    }
     testScheduler.runCurrent()
-    options = MapGestures.None
+    options = MapInteractions.None
     query.complete(Unit)
     testScheduler.runCurrent()
     assertEquals(0, cameras)
@@ -167,9 +185,20 @@ class MapTapDispatcherTest {
           }
         }
       }
-    val dispatcher = MapTapDispatcher(backgroundScope, target) { MapGestures.Standard }
-    dispatcher.dispatch(TapFamily.DoubleTap, sample(1)) { cameras += 1 }
-    dispatcher.dispatch(TapFamily.DoubleTap, sample(2)) { cameras += 2 }
+    val dispatcher =
+      MapTapDispatcher(
+        backgroundScope,
+        target,
+        InteractionSubscriptions(MapInteractions.Standard),
+      ) {
+        MapInteractions.Standard
+      }
+    dispatcher.dispatch(checkNotNull(dispatcher.capture(TapFamily.DoubleTap)), sample(1)) {
+      cameras += 1
+    }
+    dispatcher.dispatch(checkNotNull(dispatcher.capture(TapFamily.DoubleTap)), sample(2)) {
+      cameras += 2
+    }
     testScheduler.runCurrent()
     assertEquals(listOf(2L), cameras)
   }
@@ -186,18 +215,130 @@ class MapTapDispatcherTest {
             ClickResult.Pass
           }
       }
-    val options = MapGestures {
-      tap {
-        onEvent {
-          valid = false
-          ClickResult.Pass
+    val options = MapInteractions {
+      callbacks {
+        click {
+          onEvent {
+            valid = false
+            ClickResult.Pass
+          }
         }
       }
     }
-    val dispatcher = MapTapDispatcher(backgroundScope, target) { options }
-    dispatcher.dispatch(TapFamily.Tap, sample(1)) { error("invalid camera fallthrough") }
+    val dispatcher =
+      MapTapDispatcher(backgroundScope, target, InteractionSubscriptions(options)) { options }
+    dispatcher.dispatch(checkNotNull(dispatcher.capture(TapFamily.Tap)), sample(1)) {
+      error("invalid camera fallthrough")
+    }
     testScheduler.runCurrent()
     assertEquals(0, delivery)
+  }
+
+  @Test
+  fun press_admission_keeps_slots_but_uses_current_bodies_and_allows_self_removal() = runTest {
+    val order = mutableListOf<String>()
+    var options = MapInteractions.Standard
+    val target =
+      object : MapInteractionTarget {
+        override fun capture(family: TapFamily) =
+          MapClickPath({ true }) {
+            order += "layers"
+            ClickResult.Pass
+          }
+      }
+    val subscriptions = InteractionSubscriptions(options)
+    val dispatcher = MapTapDispatcher(backgroundScope, target, subscriptions) { options }
+    val beforeSubscription = checkNotNull(dispatcher.capture(TapFamily.Tap))
+    options = MapInteractions {
+      callbacks { click { onEvent { error("replaced body") } } }
+    }
+    subscriptions.update(options)
+    val admitted = checkNotNull(dispatcher.capture(TapFamily.Tap))
+    options = MapInteractions {
+      callbacks {
+        click {
+          onEvent {
+            order += "current map"
+            options = MapInteractions { callbacks { click { onEvent(null) } } }
+            subscriptions.update(options)
+            ClickResult.Pass
+          }
+        }
+      }
+    }
+    subscriptions.update(options)
+    dispatcher.dispatch(beforeSubscription, sample(1)) { order += "first camera" }
+    dispatcher.dispatch(admitted, sample(2)) { order += "second camera" }
+    testScheduler.runCurrent()
+    assertEquals(listOf("layers", "first camera", "current map", "layers", "second camera"), order)
+  }
+
+  @Test
+  fun secondary_click_and_long_press_have_independent_admission_but_share_context_delivery() {
+    val seen = mutableListOf<PointerGestureEvent>()
+    val options = MapInteractions {
+      bindings { longPress { enabled = false } }
+      callbacks {
+        contextClick {
+          onEvent {
+            seen += it
+            ClickResult.Pass
+          }
+        }
+      }
+    }
+    val mouse =
+      sample(1)
+        .copy(pointerTypes = setOf(PointerType.Mouse), buttons = setOf(PointerButton.Secondary))
+    kotlin.test.assertTrue(TapFamily.SecondaryClick.matches(options, mouse))
+    kotlin.test.assertFalse(TapFamily.Tap.matches(options, mouse))
+    kotlin.test.assertFalse(TapFamily.LongPress.matches(options, sample(2)))
+    val event = TapFamily.SecondaryClick.event(mouse)
+    TapFamily.SecondaryClick.observe(options.callbacks, event)
+    kotlin.test.assertTrue(seen.single() is ContextClickEvent)
+    assertEquals(setOf(PointerButton.Secondary), seen.single().buttons)
+  }
+
+  @Test
+  fun removing_and_readding_a_map_callback_does_not_rejoin_an_admitted_click() = runTest {
+    var calls = 0
+    var options = MapInteractions {
+      callbacks {
+        click {
+          onEvent {
+            calls++
+            ClickResult.Pass
+          }
+        }
+      }
+    }
+    val subscriptions = InteractionSubscriptions(options)
+    val target =
+      object : MapInteractionTarget {
+        override fun capture(family: TapFamily) = MapClickPath({ true }) { ClickResult.Pass }
+      }
+    val dispatcher = MapTapDispatcher(backgroundScope, target, subscriptions) { options }
+    val admitted = checkNotNull(dispatcher.capture(TapFamily.Tap))
+    subscriptions.update(MapInteractions.Standard)
+    options = MapInteractions {
+      callbacks {
+        click {
+          onEvent {
+            calls++
+            ClickResult.Pass
+          }
+        }
+      }
+    }
+    subscriptions.update(options)
+    var camera = 0
+    dispatcher.dispatch(admitted, sample(1)) { camera++ }
+    testScheduler.runCurrent()
+    assertEquals(0, calls)
+    assertEquals(1, camera)
+    dispatcher.dispatch(checkNotNull(dispatcher.capture(TapFamily.Tap)), sample(2)) { camera++ }
+    testScheduler.runCurrent()
+    assertEquals(1, calls)
   }
 
   private fun sample(id: Long) =

@@ -71,14 +71,18 @@ class MapClickDispatcherTest {
           }
           .copy(hitPadding = 5.dp)
       fixture.revision.value = DesiredStyleRevision(emptyList(), listOf(front, back), emptyList())
-      fixture.gestures.value = MapGestures {
-        tap {
-          onUnhandled {
-            order += "unhandled"
-            ClickResult.Pass
+      fixture.configure(
+        MapInteractions {
+          callbacks {
+            click {
+              onUnhandled {
+                order += "unhandled"
+                ClickResult.Pass
+              }
+            }
           }
         }
-      }
+      )
       assertEquals(
         ClickResult.Pass,
         fixture.dispatcher.capture(TapFamily.Tap)!!.deliver(fixture.event),
@@ -175,14 +179,18 @@ class MapClickDispatcherTest {
       fixture.dispatcher.capture(TapFamily.DoubleTap)!!.deliver(fixture.event)
       assertTrue(fixture.adapter.queries.isEmpty())
       var unhandled = 0
-      fixture.gestures.value = MapGestures {
-        tap {
-          onUnhandled {
-            unhandled++
-            ClickResult.Consume
+      fixture.configure(
+        MapInteractions {
+          callbacks {
+            click {
+              onUnhandled {
+                unhandled++
+                ClickResult.Consume
+              }
+            }
           }
         }
-      }
+      )
       assertEquals(setOf(TapFamily.Tap), fixture.dispatcher.capabilities)
       assertTrue(fixture.dispatcher.capture(TapFamily.Tap)!!.deliver(fixture.event).consumed)
       assertEquals(1, unhandled)
@@ -192,11 +200,168 @@ class MapClickDispatcherTest {
     }
   }
 
+  @Test
+  fun newly_added_layer_and_unhandled_slots_do_not_join_an_admitted_click() = runTest {
+    val fixture = Fixture()
+    try {
+      val calls = mutableListOf<String>()
+      val path = checkNotNull(fixture.dispatcher.capture(TapFamily.Tap))
+      fixture.revision.value =
+        DesiredStyleRevision(
+          emptyList(),
+          listOf(
+            fixture.node("front") {
+              calls += "new layer"
+              ClickResult.Pass
+            }
+          ),
+          emptyList(),
+        )
+      fixture.configure(
+        MapInteractions {
+          callbacks {
+            click {
+              onUnhandled {
+                calls += "new unhandled"
+                ClickResult.Pass
+              }
+            }
+          }
+        }
+      )
+      assertEquals(ClickResult.Pass, path.deliver(fixture.event))
+      assertTrue(calls.isEmpty())
+      assertTrue(fixture.adapter.queries.isEmpty())
+    } finally {
+      fixture.close()
+    }
+  }
+
+  @Test
+  fun admitted_unhandled_slot_reads_replacement_body_after_layer_removes_itself() = runTest {
+    val fixture = Fixture()
+    try {
+      val calls = mutableListOf<String>()
+      fixture.configure(
+        MapInteractions {
+          callbacks { click { onUnhandled { error("old unhandled") } } }
+        }
+      )
+      fixture.revision.value =
+        DesiredStyleRevision(
+          emptyList(),
+          listOf(
+            fixture.node("front") {
+              calls += "layer"
+              fixture.revision.value = DesiredStyleRevision(emptyList(), emptyList(), emptyList())
+              fixture.configure(
+                MapInteractions {
+                  callbacks {
+                    click {
+                      onUnhandled {
+                        calls += "current unhandled"
+                        ClickResult.Pass
+                      }
+                    }
+                  }
+                }
+              )
+              ClickResult.Pass
+            }
+          ),
+          emptyList(),
+        )
+      val path = checkNotNull(fixture.dispatcher.capture(TapFamily.Tap))
+      assertEquals(ClickResult.Pass, path.deliver(fixture.event))
+      assertEquals(listOf("layer", "current unhandled"), calls)
+    } finally {
+      fixture.close()
+    }
+  }
+
+  @Test
+  fun layer_and_unhandled_resubscriptions_cannot_join_a_suspended_click_query() = runTest {
+    val fixture = Fixture()
+    try {
+      var calls = 0
+      val registered = org.maplibre.compose.style.LayerNode(layer("front"), Anchor.Top)
+      registered.onClick = {
+        calls++
+        ClickResult.Pass
+      }
+      fun revision() =
+        DesiredStyleRevision(
+          emptyList(),
+          listOf(
+            DesiredStyleLayer(
+              registered.layer.definition(),
+              Anchor.Top,
+              registered.onClick,
+              null,
+              registration = registered,
+              clickSubscription = registered.clickSubscription.capture(),
+            )
+          ),
+          emptyList(),
+        )
+      fixture.revision.value = revision()
+      fixture.configure(
+        MapInteractions {
+          callbacks {
+            click {
+              onUnhandled {
+                calls++
+                ClickResult.Pass
+              }
+            }
+          }
+        }
+      )
+      val path = checkNotNull(fixture.dispatcher.capture(TapFamily.Tap))
+      fixture.adapter.gate = CompletableDeferred()
+      val delivery = async { path.deliver(fixture.event) }
+      fixture.adapter.entered.await()
+      registered.onClick = null
+      fixture.revision.value = revision()
+      registered.onClick = {
+        calls++
+        ClickResult.Pass
+      }
+      fixture.revision.value = revision()
+      fixture.configure(MapInteractions.Standard)
+      fixture.configure(
+        MapInteractions {
+          callbacks {
+            click {
+              onUnhandled {
+                calls++
+                ClickResult.Pass
+              }
+            }
+          }
+        }
+      )
+      fixture.adapter.gate!!.complete(Unit)
+      assertEquals(ClickResult.Pass, delivery.await())
+      assertEquals(0, calls)
+      assertEquals(listOf("front"), fixture.adapter.queries)
+    } finally {
+      fixture.close()
+    }
+  }
+
   private class Fixture {
     val runtime = mapRuntimeForTest()
     val state = runtime.createMapState(BaseStyle.Empty)
     val adapter = QueryAdapter()
-    val gestures = mutableStateOf(MapGestures.Standard)
+    val gestures = mutableStateOf(MapInteractions.Standard)
+    val subscriptions = InteractionSubscriptions(MapInteractions.Standard)
+
+    fun configure(options: MapInteractions) {
+      gestures.value = options
+      subscriptions.update(options)
+    }
+
     val revision = mutableStateOf<DesiredStyleRevision?>(null)
     val style =
       mutableStateOf<StyleBinding?>(
@@ -224,6 +389,7 @@ class MapClickDispatcherTest {
           mutableStateOf<State<DesiredStyleRevision?>>(revision),
           style,
           gestures,
+          subscriptions,
         )
     }
 

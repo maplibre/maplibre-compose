@@ -1,11 +1,13 @@
 package org.maplibre.compose.map
 
 import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.time.Duration
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
@@ -16,9 +18,11 @@ import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.util.ClickResult
+import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Position
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class GestureCameraTest {
+class CameraInputTest {
   @Test
   fun newer_input_preserves_queued_click_delivery_but_rejects_its_camera_fallthrough() =
     cameraTest { _, target ->
@@ -34,16 +38,23 @@ class GestureCameraTest {
             }
         }
       val continuation = GestureContinuation(backgroundScope)
-      val dispatcher = MapTapDispatcher(backgroundScope, clicks) { MapGestures.Standard }
+      val dispatcher =
+        MapTapDispatcher(
+          backgroundScope,
+          clicks,
+          InteractionSubscriptions(MapInteractions.Standard),
+        ) {
+          MapInteractions.Standard
+        }
       fun dispatch(id: Long, generation: Long) {
         dispatcher.dispatch(
-          TapFamily.DoubleTap,
+          checkNotNull(dispatcher.capture(TapFamily.DoubleTap)),
           GesturePointerSample(id, 10, DpOffset.Zero, null, emptySet(), emptySet(), emptySet()),
         ) {
           continuation.launchDiscreteTransition(
             target,
             {},
-            { token -> moveBy(10.0, 0.0, gestureToken = token) },
+            { token -> inputPanBy(10.0, 0.0, gestureToken = token) },
             generation,
           )
         }
@@ -93,7 +104,7 @@ class GestureCameraTest {
   fun input_session_keeps_accepted_commands_alive_through_normal_completion() =
     cameraTest { _, target ->
       val session = GestureInputSession(this, target)
-      target.moveBy(10.0, 0.0, gestureToken = session.token)
+      target.inputPanBy(10.0, 0.0, gestureToken = session.token)
       session.end()
       assertFalse(session.token.acceptsCommands)
       assertTrue(session.token.canExecute)
@@ -116,7 +127,7 @@ class GestureCameraTest {
         }
       val continuation = session.scope.launch { awaitCancellation() }
       runCurrent()
-      target.moveBy(10.0, 0.0, gestureToken = session.token)
+      target.inputPanBy(10.0, 0.0, gestureToken = session.token)
       insideOwnerCall = true
       state.setCameraPosition(CameraPosition(zoom = 5.0))
       assertFalse(session.token.acceptsCommands)
@@ -133,13 +144,13 @@ class GestureCameraTest {
   fun old_input_cleanup_cannot_close_the_new_session() = cameraTest { _, target ->
     var cancelled = 0
     val first = GestureInputSession(this, target) { cancelled++ }
-    target.moveBy(10.0, 0.0, gestureToken = first.token)
+    target.inputPanBy(10.0, 0.0, gestureToken = first.token)
     val second = GestureInputSession(this, target)
     runCurrent()
     first.cancel()
     assertEquals(1, cancelled)
     assertTrue(second.token.acceptsCommands)
-    target.moveBy(20.0, 0.0, gestureToken = second.token)
+    target.inputPanBy(20.0, 0.0, gestureToken = second.token)
     second.end()
     target.drain()
     runCurrent()
@@ -150,9 +161,9 @@ class GestureCameraTest {
   fun acquisition_requires_a_current_presentable_viewport() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
     val state = runtime.createMapState(BaseStyle.Empty)
-    assertFailsWith<IllegalStateException> { state.gestureCamera.withGesture {} }
+    assertFailsWith<IllegalStateException> { state.withCameraInput {} }
     state.close()
-    assertFailsWith<IllegalStateException> { state.gestureCamera.withGesture {} }
+    assertFailsWith<IllegalStateException> { state.withCameraInput {} }
     state.awaitClosed()
     runtime.close()
   }
@@ -160,56 +171,56 @@ class GestureCameraTest {
   @Test
   fun normal_completion_seals_enqueues_and_waits_for_the_ordered_fence() =
     cameraTest { state, target ->
-      lateinit var retained: GestureCameraScope
+      lateinit var retained: CameraInputScope
       val work = launch {
-        state.gestureCamera.withGesture {
+        state.withCameraInput {
           retained = this
-          moveBy(10.0, 0.0)
-          moveBy(20.0, 0.0)
+          panBy(10.0, 0.0)
+          panBy(20.0, 0.0)
         }
       }
       runCurrent()
       assertFalse(work.isCompleted)
       assertTrue(target.moveCalls.isEmpty())
-      assertFailsWith<IllegalStateException> { retained.moveBy(30.0, 0.0) }
+      assertFailsWith<IllegalStateException> { retained.panBy(30.0, 0.0) }
       target.drain()
       runCurrent()
       assertTrue(work.isCompleted)
       assertEquals(listOf(10.0, 20.0), target.moveCalls.map { it.x.toDouble() })
-      assertFailsWith<IllegalStateException> { retained.moveBy(30.0, 0.0) }
+      assertFailsWith<IllegalStateException> { retained.panBy(30.0, 0.0) }
     }
 
   @Test
   fun takeover_drops_queued_work_and_returns_to_the_outer_input_loop() =
     cameraTest { state, target ->
-      lateinit var firstScope: GestureCameraScope
+      lateinit var firstScope: CameraInputScope
       var returned = false
       val first = launch {
-        state.gestureCamera.withGesture {
+        state.withCameraInput {
           firstScope = this
-          moveBy(10.0, 0.0)
+          panBy(10.0, 0.0)
           awaitCancellation()
         }
         returned = true
       }
       runCurrent()
-      lateinit var secondScope: GestureCameraScope
+      lateinit var secondScope: CameraInputScope
       val second = launch {
-        state.gestureCamera.withGesture {
+        state.withCameraInput {
           secondScope = this
-          moveBy(20.0, 0.0)
+          panBy(20.0, 0.0)
           awaitCancellation()
         }
       }
       runCurrent()
-      assertFailsWith<IllegalStateException> { firstScope.moveBy(30.0, 0.0) }
+      assertFailsWith<IllegalStateException> { firstScope.panBy(30.0, 0.0) }
       target.drain()
       runCurrent()
       assertTrue(returned)
       assertFalse(first.isCancelled)
       assertFalse(second.isCompleted)
       assertEquals(listOf(20.0), target.moveCalls.map { it.x.toDouble() })
-      secondScope.moveBy(40.0, 0.0)
+      secondScope.panBy(40.0, 0.0)
       target.drain()
       assertEquals(listOf(20.0, 40.0), target.moveCalls.map { it.x.toDouble() })
       second.cancel()
@@ -223,8 +234,8 @@ class GestureCameraTest {
   fun caller_cancellation_revokes_accepted_commands_and_still_cancels_the_caller() =
     cameraTest { state, target ->
       val work = launch {
-        state.gestureCamera.withGesture {
-          moveBy(10.0, 0.0)
+        state.withCameraInput {
+          panBy(10.0, 0.0)
           awaitCancellation()
         }
       }
@@ -241,7 +252,7 @@ class GestureCameraTest {
   @Test
   fun cancelling_a_caller_waiting_on_a_normal_fence_revokes_its_queued_commands() =
     cameraTest { state, target ->
-      val work = launch { state.gestureCamera.withGesture { moveBy(10.0, 0.0) } }
+      val work = launch { state.withCameraInput { panBy(10.0, 0.0) } }
       runCurrent()
       assertFalse(work.isCompleted)
       work.cancel()
@@ -262,8 +273,8 @@ class GestureCameraTest {
       val work = launch {
         failure =
           runCatching {
-            state.gestureCamera.withGesture {
-              moveBy(10.0, 0.0)
+            state.withCameraInput {
+              panBy(10.0, 0.0)
               error("tool failed")
             }
           }
@@ -282,10 +293,10 @@ class GestureCameraTest {
     cameraTest { state, target ->
       var rejected = false
       val work = launch {
-        state.gestureCamera.withGesture {
-          moveBy(10.0, 0.0)
+        state.withCameraInput {
+          panBy(10.0, 0.0)
           state.setCameraPosition(CameraPosition(zoom = 6.0))
-          assertFailsWith<IllegalStateException> { moveBy(20.0, 0.0) }
+          assertFailsWith<IllegalStateException> { panBy(20.0, 0.0) }
           rejected = true
         }
       }
@@ -300,10 +311,10 @@ class GestureCameraTest {
   @Test
   fun detach_rejects_the_scope_before_asynchronous_cleanup() = cameraTest { state, target ->
     val work = launch {
-      state.gestureCamera.withGesture {
-        moveBy(10.0, 0.0)
+      state.withCameraInput {
+        panBy(10.0, 0.0)
         state.invalidatePresentation(target)
-        assertFailsWith<IllegalStateException> { moveBy(20.0, 0.0) }
+        assertFailsWith<IllegalStateException> { panBy(20.0, 0.0) }
       }
     }
     runCurrent()
@@ -317,9 +328,9 @@ class GestureCameraTest {
   fun same_state_nesting_is_rejected_before_it_can_cancel_the_parent() =
     cameraTest { state, target ->
       val work = launch {
-        state.gestureCamera.withGesture {
-          assertFailsWith<IllegalStateException> { state.gestureCamera.withGesture {} }
-          moveBy(10.0, 0.0)
+        state.withCameraInput {
+          assertFailsWith<IllegalStateException> { state.withCameraInput {} }
+          panBy(10.0, 0.0)
         }
       }
       runCurrent()
@@ -335,13 +346,13 @@ class GestureCameraTest {
     val other = state.runtime.createMapState(BaseStyle.Empty)
     val otherTarget = RecordingGestureTarget(other, deferred = true)
     val work = launch {
-      state.gestureCamera.withGesture {
-        moveBy(10.0, 0.0)
-        other.gestureCamera.withGesture {
-          assertFailsWith<IllegalStateException> { state.gestureCamera.withGesture {} }
-          moveBy(20.0, 0.0)
+      state.withCameraInput {
+        panBy(10.0, 0.0)
+        other.withCameraInput {
+          assertFailsWith<IllegalStateException> { state.withCameraInput {} }
+          panBy(20.0, 0.0)
         }
-        moveBy(30.0, 0.0)
+        panBy(30.0, 0.0)
       }
     }
     runCurrent()
@@ -368,6 +379,164 @@ class GestureCameraTest {
       assertFalse(second.isValid())
       target.onGestureEnded(token)
       target.drain()
+    }
+
+  @Test
+  fun shared_policy_gates_axes_and_preserves_center_anchors_without_synthetic_pan_starts() =
+    cameraTest { state, target ->
+      val starts = mutableListOf<String>()
+      state.gestureAuthority.updateConfiguration(
+        CameraBuilder(CameraConfiguration())
+          .apply {
+            pan {
+              enabled = false
+              onStart { starts += "pan" }
+            }
+            zoom { onStart { starts += "zoom" } }
+            rotate {
+              enabled = false
+              onStart { starts += "rotate" }
+            }
+            tilt { onStart { starts += "tilt" } }
+          }
+          .build()
+      )
+      val input = GestureInputSession(this, target, origin = CameraInputOrigin.Transform)
+      target.inputPanBy(10.0, 20.0, gestureToken = input.token)
+      target.inputScaleBy(2.0, DpOffset(10.dp, 20.dp), gestureToken = input.token)
+      target.inputRotateAndPitchBy(
+        10.0,
+        5.0,
+        anchor = DpOffset(10.dp, 20.dp),
+        gestureToken = input.token,
+      )
+      target.inputScaleByAwaitingTransition(2.0, DpOffset(10.dp, 20.dp), Duration.ZERO, input.token)
+      input.end()
+      target.drain()
+      runCurrent()
+      assertTrue(target.moveCalls.isEmpty())
+      assertEquals(listOf("zoom", "tilt"), starts)
+      assertTrue(target.scaleCalls.all { it.anchor == null })
+      assertEquals(RecordingGestureTarget.RotateCall(0.0, 5.0, null), target.rotateCalls.single())
+    }
+
+  @Test
+  fun component_restarts_share_session_and_use_current_observer_without_cancelling_input() =
+    cameraTest { state, target ->
+      val starts = mutableListOf<CameraInputStart>()
+      val initial =
+        CameraBuilder(CameraConfiguration()).apply { pan { onStart { starts += it } } }.build()
+      state.gestureAuthority.updateConfiguration(initial)
+      val input = GestureInputSession(this, target, origin = CameraInputOrigin.Transform)
+      target.inputPanBy(1.0, 0.0, gestureToken = input.token)
+      target.inputPanBy(2.0, 0.0, gestureToken = input.token)
+      var replacement = 0
+      state.gestureAuthority.updateConfiguration(
+        initial.copy(
+          pan =
+            initial.pan.copy(
+              onStart = {
+                starts += it
+                replacement++
+              }
+            )
+        )
+      )
+      assertTrue(input.token.acceptsCommands)
+      input.token.rearm(CameraComponent.Pan)
+      target.inputPanBy(3.0, 0.0, gestureToken = input.token)
+      assertEquals(1, replacement)
+      assertEquals(
+        listOf(
+          CameraInputStart(input.token.value, CameraInputOrigin.Transform),
+          CameraInputStart(input.token.value, CameraInputOrigin.Transform),
+        ),
+        starts,
+      )
+      input.end()
+      target.drain()
+      runCurrent()
+    }
+
+  @Test
+  fun semantic_observer_can_take_camera_authority_before_any_command_is_queued() =
+    cameraTest { state, target ->
+      state.gestureAuthority.updateConfiguration(
+        CameraBuilder(CameraConfiguration())
+          .apply {
+            pan { onStart { state.setCameraPosition(CameraPosition(zoom = 8.0)) } }
+          }
+          .build()
+      )
+      val input = GestureInputSession(this, target)
+      target.inputPanBy(10.0, 0.0, gestureToken = input.token)
+      target.drain()
+      runCurrent()
+      assertTrue(target.moveCalls.isEmpty())
+      assertFalse(input.token.acceptsCommands)
+    }
+
+  @Test
+  fun external_disabled_commands_still_validate_and_policy_changes_revoke_queued_work() =
+    cameraTest { state, target ->
+      state.gestureAuthority.updateConfiguration(
+        CameraBuilder(CameraConfiguration())
+          .apply {
+            pan { enabled = false }
+          }
+          .build()
+      )
+      val input = launch {
+        state.withCameraInput {
+          assertFailsWith<IllegalArgumentException> { panBy(Double.NaN, 0.0) }
+          panBy(10.0, 0.0)
+          scaleBy(2.0)
+          state.gestureAuthority.updateConfiguration(
+            CameraBuilder(CameraConfiguration())
+              .apply {
+                zoom { enabled = false }
+              }
+              .build()
+          )
+          assertFailsWith<IllegalStateException> { panBy(0.0, 0.0) }
+        }
+      }
+      runCurrent()
+      target.drain()
+      runCurrent()
+      assertTrue(input.isCompleted)
+      assertTrue(target.moveCalls.isEmpty())
+      assertTrue(target.scaleCalls.isEmpty())
+    }
+
+  @Test
+  fun fit_bounds_requires_pan_and_zoom_and_does_not_emit_component_starts() =
+    cameraTest { state, target ->
+      var starts = 0
+      val fit = BoxZoomFit(BoundingBox(Position(0.0, 0.0), Position(1.0, 1.0)), 0.0, 0.0)
+      for ((pan, zoom) in listOf(false to true, true to false, true to true)) {
+        state.gestureAuthority.updateConfiguration(
+          CameraBuilder(CameraConfiguration())
+            .apply {
+              pan {
+                enabled = pan
+                onStart { starts++ }
+              }
+              zoom {
+                enabled = zoom
+                onStart { starts++ }
+              }
+            }
+            .build()
+        )
+        val input = GestureInputSession(this, target)
+        target.inputFitBoundsAwaitingTransition(fit, Duration.ZERO, input.token)
+        input.end()
+        target.drain()
+        runCurrent()
+      }
+      assertEquals(1, target.fitCalls.size)
+      assertEquals(0, starts)
     }
 
   private fun cameraTest(body: suspend TestScope.(MapState, RecordingGestureTarget) -> Unit) =
