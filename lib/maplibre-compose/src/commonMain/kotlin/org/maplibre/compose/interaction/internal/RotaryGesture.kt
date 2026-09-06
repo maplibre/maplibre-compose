@@ -18,7 +18,6 @@ internal class RotaryGesture(
   private val ids: GestureIds,
   private val notchPixels: Float,
   private val scope: CoroutineScope,
-  private val continuation: GestureContinuation,
   private val subscription: SubscriptionSlot,
 ) {
   private var session: GestureInputSession? = null
@@ -51,7 +50,6 @@ internal class RotaryGesture(
       session?.takeIf { it.token.acceptsCommands }
         ?: run {
           cancel()
-          continuation.finish(target::cancelGesture)
           gestureId = ids.next()
           admittedCallback = subscription.capture()
           lateinit var created: GestureInputSession

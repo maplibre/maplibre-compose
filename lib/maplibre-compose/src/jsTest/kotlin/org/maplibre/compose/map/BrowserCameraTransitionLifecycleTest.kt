@@ -37,7 +37,7 @@ class BrowserCameraTransitionLifecycleTest {
           }
 
         assertFalse(animation.isCompleted, "the animation should be queued before cancellation")
-        it.gestures.cancelTransitions()
+        it.gestures.interruptCamera()
         it.pumpUntil("transition cancellation to release the queued animation") {
           animation.isCompleted
         }

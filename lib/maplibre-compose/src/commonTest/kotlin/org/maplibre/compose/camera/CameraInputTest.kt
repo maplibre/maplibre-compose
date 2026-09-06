@@ -34,12 +34,12 @@ import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.internal.CameraComponent
 import org.maplibre.compose.interaction.internal.CameraConfiguration
 import org.maplibre.compose.interaction.internal.ClickPath
-import org.maplibre.compose.interaction.internal.GestureContinuation
 import org.maplibre.compose.interaction.internal.GestureInputSession
 import org.maplibre.compose.interaction.internal.GesturePointerSample
 import org.maplibre.compose.interaction.internal.InteractionSubscriptions
 import org.maplibre.compose.interaction.internal.TapDispatcher
 import org.maplibre.compose.interaction.internal.TapFamily
+import org.maplibre.compose.interaction.internal.launchTapTransition
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.RecordingGestureTarget
 import org.maplibre.compose.map.mapRuntimeForTest
@@ -61,7 +61,6 @@ class CameraInputTest {
           ClickResult.Pass
         }
       }
-      val continuation = GestureContinuation(backgroundScope)
       val dispatcher =
         TapDispatcher(
           backgroundScope,
@@ -75,7 +74,7 @@ class CameraInputTest {
           checkNotNull(dispatcher.capture(TapFamily.DoubleTap)),
           GesturePointerSample(id, 10, DpOffset.Zero, null, emptySet(), emptySet(), emptySet()),
         ) {
-          continuation.launchTapTransition(target, generation) { token ->
+          launchTapTransition(backgroundScope, target, generation) { token ->
             inputPanBy(10.0, 0.0, gestureToken = token)
           }
         }
@@ -134,6 +133,34 @@ class CameraInputTest {
       runCurrent()
       assertEquals(listOf(10.0), target.moveCalls.map { it.x.toDouble() })
       assertTrue(session.scope.coroutineContext[kotlinx.coroutines.Job]!!.isCompleted)
+    }
+
+  @Test
+  fun released_input_finishes_response_work_unless_new_input_interrupts_it() =
+    cameraTest { _, target ->
+      for (interrupt in listOf(false, true)) {
+        val releaseResponse = CompletableDeferred<Unit>()
+        val session = GestureInputSession(this, target)
+        session.scope.launch {
+          releaseResponse.await()
+          target.inputPanBy(10.0, 0.0, gestureToken = session.token)
+        }
+        session.end()
+        runCurrent()
+        target.drain()
+        assertTrue(target.moveCalls.isEmpty())
+
+        if (interrupt) target.interruptCamera()
+        releaseResponse.complete(Unit)
+        runCurrent()
+        target.drain()
+        runCurrent()
+        assertEquals(
+          if (interrupt) emptyList() else listOf(10.0),
+          target.moveCalls.map { it.x.toDouble() },
+        )
+        target.moveCalls.clear()
+      }
     }
 
   @Test
@@ -557,21 +584,33 @@ class CameraInputTest {
     }
 
   @Test
-  fun fit_bounds_requires_pan_and_zoom_and_does_not_emit_component_starts() =
+  fun fit_bounds_requires_pan_and_zoom_and_observers_can_prevent_the_fit() =
     cameraTest { state, target ->
-      var starts = 0
+      val starts = mutableListOf<CameraComponent>()
       val fit = BoxZoomFit(BoundingBox(Position(0.0, 0.0), Position(1.0, 1.0)), 0.0, 0.0)
-      for ((pan, zoom) in listOf(false to true, true to false, true to true)) {
+      for ((pan, zoom, takeover) in
+        listOf(
+          Triple(false, true, null),
+          Triple(true, false, null),
+          Triple(true, true, null),
+          Triple(true, true, CameraComponent.Pan),
+          Triple(true, true, CameraComponent.Zoom),
+        )) {
+        starts.clear()
+        fun started(component: CameraComponent) {
+          starts += component
+          if (takeover == component) state.setCameraPosition(CameraPosition(zoom = 8.0))
+        }
         state.gestureAuthority.updateConfiguration(
           CameraBuilder(CameraConfiguration())
             .apply {
               pan {
                 enabled = pan
-                onStart { starts++ }
+                onStart { started(CameraComponent.Pan) }
               }
               zoom {
                 enabled = zoom
-                onStart { starts++ }
+                onStart { started(CameraComponent.Zoom) }
               }
             }
             .build()
@@ -583,11 +622,18 @@ class CameraInputTest {
         target.drain()
         runCurrent()
         assertEquals(
-          if (pan && zoom) listOf(fit) else emptyList(),
+          if (pan && zoom && takeover == null) listOf(fit) else emptyList(),
           target.fitCalls.map { it.first },
         )
+        assertEquals(
+          when {
+            !pan || !zoom -> emptyList()
+            takeover == CameraComponent.Pan -> listOf(CameraComponent.Pan)
+            else -> listOf(CameraComponent.Pan, CameraComponent.Zoom)
+          },
+          starts,
+        )
       }
-      assertEquals(0, starts)
     }
 
   private fun cameraTest(body: suspend TestScope.(MapState, RecordingGestureTarget) -> Unit) =

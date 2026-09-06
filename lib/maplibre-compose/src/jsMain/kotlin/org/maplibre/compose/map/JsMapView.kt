@@ -7,7 +7,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -15,7 +14,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import org.maplibre.compose.gljs.GlJsMapSurface
 import org.maplibre.compose.interaction.internal.ClickPath
-import org.maplibre.compose.interaction.internal.GestureContinuation
 import org.maplibre.compose.interaction.internal.InputFocus
 import org.maplibre.compose.interaction.internal.InteractionSubscriptions
 import org.maplibre.compose.interaction.internal.TapFamily
@@ -89,8 +87,6 @@ internal actual fun ComposableMapView(
   val attached = state.currentMapAttachment?.adapter === session
   LaunchedEffect(inputFocus, attached) { if (attached) inputFocus.replay() }
   val inputEnvironment = inputEnvironment()
-  val inputScope = rememberCoroutineScope()
-  val continuation = remember(session, inputScope) { GestureContinuation(inputScope) }
   val rotaryNotchPixels = rotaryNotchPixels()
 
   // A new Canvas delays the first frame until the update path attaches the camera to the session.
@@ -108,7 +104,6 @@ internal actual fun ComposableMapView(
             focusRequester,
             inputFocus,
             inputEnvironment,
-            continuation,
             rotaryNotchPixels,
             subscriptions = subscriptions,
           ),

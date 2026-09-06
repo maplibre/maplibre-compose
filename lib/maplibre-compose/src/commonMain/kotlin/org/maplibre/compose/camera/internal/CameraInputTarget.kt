@@ -88,7 +88,8 @@ internal interface CameraInputTarget {
 
   suspend fun awaitGestureEnded(token: CameraInputToken)
 
-  fun cancelTransitions()
+  /** Accepted presses revoke camera work before the drag crosses slop. */
+  fun interruptCamera()
 
   fun getCameraPosition(): CameraPosition
 

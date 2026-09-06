@@ -28,7 +28,6 @@ internal class ScrollGesture(
   private val viewportSize: () -> IntSize,
   private val scrollConverter: ScrollConverter,
   private val scope: CoroutineScope,
-  private val continuation: GestureContinuation,
 ) {
   private class Burst(
     val response: ScrollResponse,
@@ -85,7 +84,6 @@ internal class ScrollGesture(
       burst
         ?: run {
           takeOverContacts()
-          continuation.finish(target::cancelGesture)
           lateinit var session: GestureInputSession
           session =
             GestureInputSession(scope, target, origin = CameraInputOrigin.Scroll) {

@@ -8,7 +8,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -18,7 +17,6 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import kotlinx.coroutines.CancellationException
 import org.maplibre.compose.interaction.internal.ClickPath
-import org.maplibre.compose.interaction.internal.GestureContinuation
 import org.maplibre.compose.interaction.internal.InputFocus
 import org.maplibre.compose.interaction.internal.InteractionSubscriptions
 import org.maplibre.compose.interaction.internal.TapFamily
@@ -182,8 +180,6 @@ internal fun MlnFfiMapView(
   val attached = state.currentMapAttachment?.adapter === session
   LaunchedEffect(inputFocus, attached) { if (attached) inputFocus.replay() }
   val inputEnvironment = inputEnvironment()
-  val inputScope = rememberCoroutineScope()
-  val continuation = remember(session, inputScope) { GestureContinuation(inputScope) }
   val rotaryNotchPixels = rotaryNotchPixels()
 
   // MapLibre renders black until a style loads.
@@ -198,7 +194,6 @@ internal fun MlnFfiMapView(
       focusRequester,
       inputFocus,
       inputEnvironment,
-      continuation,
       rotaryNotchPixels,
       subscriptions = subscriptions,
     )

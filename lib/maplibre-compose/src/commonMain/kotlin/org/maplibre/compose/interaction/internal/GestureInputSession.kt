@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.camera.internal.CameraInputTarget
@@ -25,6 +26,13 @@ internal class GestureInputSession(
   private val work = Job(parent.coroutineContext[Job])
   val scope = CoroutineScope(parent.coroutineContext + work)
   private var ending = false
+  private val momentum = mutableMapOf<CameraComponent, Job>()
+
+  fun launchMomentum(component: CameraComponent, block: suspend CoroutineScope.() -> Unit) {
+    check(!ending)
+    momentum.remove(component)?.cancel()
+    momentum[component] = scope.launch(block = block)
+  }
 
   init {
     token.origin = origin
@@ -44,13 +52,15 @@ internal class GestureInputSession(
     }
   }
 
-  /** Seal synchronously, keeping the registered job alive until accepted commands have drained. */
+  /** Finish response work, then seal camera commands and wait for the backend to drain them. */
   fun end() {
     if (ending || work.isCancelled) return
     ending = true
-    target.onGestureEnded(token)
     parent.launch(start = CoroutineStart.UNDISPATCHED) {
       try {
+        work.children.toList().joinAll()
+        if (work.isCancelled) return@launch
+        target.onGestureEnded(token)
         withContext(NonCancellable) { target.awaitGestureEnded(token) }
       } finally {
         work.complete()
@@ -63,5 +73,23 @@ internal class GestureInputSession(
     if (work.isCompleted) return
     target.cancelGesture(token)
     work.cancel()
+  }
+}
+
+/** A delayed tap starts a response only while its captured input generation is current. */
+internal fun launchTapTransition(
+  scope: CoroutineScope,
+  target: CameraInputTarget,
+  generation: Long,
+  command: suspend CameraInputTarget.(CameraInputToken) -> Unit,
+) {
+  val token = target.onGestureStartedIfCurrent(generation) ?: return
+  val session = GestureInputSession(scope, target, token, origin = CameraInputOrigin.Tap)
+  session.scope.launch {
+    try {
+      command(target, token)
+    } finally {
+      if (isActive) session.end() else session.cancel()
+    }
   }
 }

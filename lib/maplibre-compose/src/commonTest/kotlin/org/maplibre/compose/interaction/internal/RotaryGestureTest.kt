@@ -108,7 +108,6 @@ class MapRotaryGestureTest {
         GestureIds(),
         notch,
         scope,
-        GestureContinuation(scope),
         subscription,
       )
   }

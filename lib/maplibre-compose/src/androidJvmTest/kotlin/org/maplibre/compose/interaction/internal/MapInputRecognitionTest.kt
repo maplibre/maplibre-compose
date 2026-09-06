@@ -12,7 +12,6 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -828,9 +827,9 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun an_unbound_mouse_click_leaves_touch_momentum_running() =
-    runRecognitionTest(
-      options =
+  fun an_unbound_click_preserves_touch_momentum_until_bindings_change() {
+    var configuration by
+      mutableStateOf(
         MapInteractions(from = MapInteractions.None) {
           bindings {
             drag {
@@ -840,7 +839,8 @@ class MapInputRecognitionTest {
             }
           }
         }
-    ) { target ->
+      )
+    runRecognitionTest(optionsProvider = { configuration }) { target ->
       mainClock.autoAdvance = false
       val map = mapNode()
       map.performTouchInput {
@@ -860,8 +860,19 @@ class MapInputRecognitionTest {
         target.moveCalls.size > movesAfterClick,
         "an unbound mouse click stopped the fling",
       )
+      runOnIdle {
+        configuration =
+          MapInteractions(from = configuration) { bindings { drag { enabled = false } } }
+      }
+      mainClock.advanceTimeByFrame()
+      waitForIdle()
+      val movesAfterReconfiguration = target.moveCalls.size
+      mainClock.advanceTimeBy(64)
+      waitForIdle()
+      assertEquals(movesAfterReconfiguration, target.moveCalls.size)
       mainClock.autoAdvance = true
     }
+  }
 
   @Test
   fun a_custom_reservation_waits_for_its_own_slop() {
@@ -1640,6 +1651,42 @@ class MapInputRecognitionTest {
     waitForIdle()
     assertEquals(0, target.clicks, "a double tap leaked its first tap as a click")
   }
+
+  @Test
+  fun a_drag_enabled_mid_press_engages_keyboard_controls() =
+    runRecognitionTest(
+      options =
+        MapInteractions(from = MapInteractions.None) {
+          bindings {
+            drag {
+              enabled = true
+              mappings { on(modifiers = ModifierMatch.Containing(KeyModifier.Ctrl)) { pan() } }
+            }
+            keys {
+              enabled = true
+              mappings { on(Key.DirectionRight) { panRight() } }
+            }
+          }
+          camera { pan { momentum { enabled = false } } }
+        }
+    ) { target ->
+      val map = mapNode()
+      map.performMouseInput { press() }
+      map.performKeyInput { keyDown(Key.CtrlLeft) }
+      map.performMouseInput {
+        moveBy(Offset(20f, 0f))
+        moveBy(Offset(20f, 0f))
+        release()
+      }
+      map.performKeyInput { keyUp(Key.CtrlLeft) }
+      waitForIdle()
+      assertTrue(target.moveCalls.isNotEmpty())
+      map.assertIsFocused()
+      val moves = target.moveCalls.size
+      map.performKeyInput { pressKey(Key.DirectionRight) }
+      waitForIdle()
+      assertTrue(target.moveCalls.size > moves)
+    }
 
   @Test
   fun arrow_keys_request_a_pan() = runRecognitionTest { target ->
@@ -2905,8 +2952,6 @@ private fun GestureHost(
       indication = null,
     )
   }
-  val inputScope = rememberCoroutineScope()
-  val continuation = remember(inputScope) { GestureContinuation(inputScope) }
   Box(
     Modifier.fillMaxSize()
       .testTag(RECOGNITION_MAP_TAG)
@@ -2918,7 +2963,6 @@ private fun GestureHost(
         focusRequester,
         focus,
         environment,
-        continuation,
         rotaryNotchPixels,
         subscriptions,
       )

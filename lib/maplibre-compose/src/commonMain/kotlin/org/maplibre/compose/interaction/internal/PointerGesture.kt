@@ -58,10 +58,11 @@ internal class PointerGesture(
   private val doubleClickTimeoutMillis: Long,
   private val longClickTimeoutMillis: Long,
   private val scope: CoroutineScope,
-  private val continuation: GestureContinuation,
   private val onAcceptedPress: () -> Unit,
 ) {
-  private var gestureToken: CameraInputToken? = null
+  private val gestureToken: CameraInputToken?
+    get() = cameraSession?.token
+
   private val gestureInProgress: Boolean
     get() = gestureToken != null
 
@@ -260,20 +261,22 @@ internal class PointerGesture(
     singleVelocity.addPointerInputChange(change)
     deferredTwoFingerVelocity = null
 
-    onAcceptedPress()
-    target.observeInput()
-    cancelCameraSession()
-    continuation.finish(target::cancelGesture)
-    runCatching { focusRequester.requestFocus() }
-    focus.engage(byKey = false)
-    target.cancelTransitions()
-    pressInputGeneration = target.inputGeneration
+    acceptPress()
 
     // Click candidates claim their press, including mouse clicks competing with a parent click.
     if (clickDemand || TapFamily.TwoFingerTap in tapDemand) change.consume()
     if (longPress && change.type != PointerType.Mouse && !quickZoomCandidate) {
       scheduleLongClick(change.position)
     }
+  }
+
+  private fun acceptPress() {
+    onAcceptedPress()
+    cancelCameraSession()
+    runCatching { focusRequester.requestFocus() }
+    focus.engage(byKey = false)
+    target.interruptCamera()
+    pressInputGeneration = target.inputGeneration
   }
 
   private fun scheduleLongClick(origin: Offset) {
@@ -284,7 +287,6 @@ internal class PointerGesture(
         clickOrigin = null
         // This press is a long click, including a paired second tap that was held.
         discardTapWait(emitClick = false)
-        continuation.finish(target::onGestureEnded)
         val last = checkNotNull(dragSample)
         emitTap(
           TapFamily.LongPress,
@@ -442,7 +444,7 @@ internal class PointerGesture(
       if (next != selectedDrag) {
         cancelDrag(GestureCancellationReason.BindingChanged)
         cancelCameraSession()
-        gestureToken = null
+        if (next != null) acceptPress()
         selectedDrag = next
         dragRecognition = next?.let { dragRecognizer(change, it) }
         dragSample = sample.copy(gestureId = ids.next())
@@ -747,7 +749,7 @@ internal class PointerGesture(
         val fit = target.boxZoomFit(selection)
         val session = checkNotNull(cameraSession)
         if (fit != null && session.token.acceptsCommands) {
-          continuation.launchBoundsFit(session.scope) {
+          session.scope.launch {
             target.inputFitBoundsAwaitingTransition(
               fit,
               options.scaledAnimationDuration(),
@@ -834,7 +836,8 @@ internal class PointerGesture(
     taps.dispatch(captured, sample) camera@{
       if (action == null || action == TapResponse.None) return@camera
       val direction = if (action == TapResponse.ZoomIn) 1.0 else -1.0
-      continuation.launchTapTransition(
+      launchTapTransition(
+        scope,
         target,
         generation,
         command = { token ->
@@ -1042,7 +1045,7 @@ internal class PointerGesture(
     anchor: DpOffset?,
   ) {
     val token = gestureToken
-    continuation.launchScale(cameraSession?.scope ?: scope) {
+    checkNotNull(cameraSession).launchMomentum(CameraComponent.Zoom) {
       animateDecelerating(velocity.duration) { frameFraction ->
         val frameZoomDelta = velocity.zoomDelta * frameFraction
         if (frameZoomDelta != 0.0) {
@@ -1054,7 +1057,7 @@ internal class PointerGesture(
 
   private fun animateFling(fling: GestureMath.Fling) {
     val token = gestureToken
-    continuation.launchFling(cameraSession?.scope ?: scope) {
+    checkNotNull(cameraSession).launchMomentum(CameraComponent.Pan) {
       animateDecelerating(fling.duration, power = 2) { frameFraction ->
         val deltaX = fling.offsetXDp * frameFraction
         val deltaY = fling.offsetYDp * frameFraction
@@ -1067,7 +1070,7 @@ internal class PointerGesture(
 
   private fun animateTiltVelocity(velocity: GestureMath.TiltVelocity) {
     val token = gestureToken
-    continuation.launchTilt(cameraSession?.scope ?: scope) {
+    checkNotNull(cameraSession).launchMomentum(CameraComponent.Tilt) {
       animateDecelerating(velocity.duration) { fraction ->
         target.inputRotateAndPitchBy(0.0, velocity.pitchDelta * fraction, gestureToken = token)
       }
@@ -1098,7 +1101,7 @@ internal class PointerGesture(
     anchor: DpOffset?,
   ) {
     val token = gestureToken
-    continuation.launchRotation(cameraSession?.scope ?: scope) {
+    checkNotNull(cameraSession).launchMomentum(CameraComponent.Rotate) {
       animateDecelerating(velocity.duration) { fraction ->
         target.inputRotateAndPitchBy(
           velocity.bearingDelta * fraction,
@@ -1112,19 +1115,9 @@ internal class PointerGesture(
 
   private fun endDrag() {
     cancelLongClick()
-    val token = gestureToken ?: return
-    gestureToken = null
-    if (continuation.hasMotionJobs()) {
-      // Camera continuations finish when their frame work or awaited engine transition ends.
-      continuation.finishWhenMotionJobsComplete(scope, token, ::completeCameraSession)
-    } else {
-      completeCameraSession(token)
-    }
-  }
-
-  private fun completeCameraSession(token: CameraInputToken) {
-    val session = cameraSession
-    if (session?.token === token) session.end() else target.onGestureEnded(token)
+    val session = cameraSession ?: return
+    cameraSession = null
+    session.end()
   }
 
   private fun cancelCameraSession() {
@@ -1157,7 +1150,6 @@ internal class PointerGesture(
         }
       }
     cameraSession = session
-    gestureToken = session.token
   }
 
   fun cancel(reason: GestureCancellationReason = GestureCancellationReason.InputCancelled) {
@@ -1175,7 +1167,6 @@ internal class PointerGesture(
       discardTapWait(emitClick = false)
       pressRole = PressRole.First
       cancelCameraSession()
-      gestureToken = null
       lastSingle = null
       singleDragOrigin = null
       dragRecognition = null

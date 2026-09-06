@@ -56,7 +56,9 @@ internal class RecordingGestureTarget(
 
   override val isGestureReady: Boolean = true
 
-  override fun cancelTransitions() = Unit
+  override fun interruptCamera() {
+    state.gestureAuthority.beginProgrammatic()
+  }
 
   override fun positionFromScreenLocation(offset: DpOffset): Position? = project(offset)
 

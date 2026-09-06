@@ -1079,9 +1079,10 @@ internal class GlJsMapSession(
     resumeTransitions()
   }
 
-  override fun cancelTransitions() {
+  override fun interruptCamera() {
+    val guard = lifecycleAuthority.gestureCamera.beginProgrammatic()
     abandonPending(pendingInitialStyleActions)
-    onMap { it.stop() }
+    onMap { if (guard.isValid()) it.stop() }
   }
 
   // endregion

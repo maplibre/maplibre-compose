@@ -95,6 +95,8 @@ internal suspend fun CameraInputTarget.inputFitBoundsAwaitingTransition(
   duration: Duration,
   gestureToken: CameraInputToken,
 ) {
-  if (gestureToken.permitted(CameraComponent.Pan) && gestureToken.permitted(CameraComponent.Zoom))
+  if (!gestureToken.permitted(CameraComponent.Pan) || !gestureToken.permitted(CameraComponent.Zoom))
+    return
+  if (gestureToken.prepare(CameraComponent.Pan) && gestureToken.prepare(CameraComponent.Zoom))
     fitBoundsAwaitingTransition(fit, duration, gestureToken)
 }

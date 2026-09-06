@@ -1873,8 +1873,10 @@ internal class MlnFfiMapSession(
     action(engine, lease)
   }
 
-  override fun cancelTransitions() {
+  override fun interruptCamera() {
+    val guard = lifecycleAuthority.gestureCamera.beginProgrammatic()
     onMap { map ->
+      if (!guard.isValid()) return@onMap
       // Cleared first, so a later cancellation cannot stop a newer transition.
       currentTransitionId = null
       map.cancelTransitions()

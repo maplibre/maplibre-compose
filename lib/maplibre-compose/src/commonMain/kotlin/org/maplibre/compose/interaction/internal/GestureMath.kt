@@ -8,6 +8,9 @@ import kotlin.math.ln
 import kotlin.math.pow
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import org.maplibre.compose.interaction.MapInteractions
+import org.maplibre.compose.style.scaledBy
+import org.maplibre.compose.style.systemAnimatorDurationScale
 
 /** Thresholds and camera equations for [mapInput] pointer gestures. Distances are in dp. */
 internal object GestureMath {
@@ -203,3 +206,9 @@ internal object GestureMath {
     return duration.takeIf { it > Duration.ZERO }
   }
 }
+
+/** A zoom level is a doubling. */
+internal fun zoomLevelsToScale(levelDelta: Double): Double = 2.0.pow(levelDelta)
+
+internal fun MapInteractions.scaledAnimationDuration(): Duration =
+  animationDuration.scaledBy(systemAnimatorDurationScale())

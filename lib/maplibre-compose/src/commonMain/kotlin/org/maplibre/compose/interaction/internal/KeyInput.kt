@@ -124,14 +124,12 @@ internal class KeyInput(
   private val target: CameraInputTarget,
   private val options: () -> MapInteractions,
   private val focus: InputFocus,
-  private val continuation: GestureContinuation,
   private val ids: GestureIds,
   private val scope: CoroutineScope,
   private val subscription: SubscriptionSlot,
 ) {
   private var session: GestureInputSession? = null
   private var step: Job? = null
-  private var stepGeneration = 0L
   private var structuralKey: Any? = null
 
   fun configure(key: Any) {
@@ -211,7 +209,6 @@ internal class KeyInput(
     val current =
       session
         ?: run {
-          continuation.finish(target::cancelGesture)
           lateinit var created: GestureInputSession
           created =
             GestureInputSession(scope, target, origin = CameraInputOrigin.Key) {
@@ -228,7 +225,6 @@ internal class KeyInput(
         return true
       }
 
-      val generation = ++stepGeneration
       step?.cancel()
       step =
         current.scope.launch(start = CoroutineStart.UNDISPATCHED) {
@@ -244,12 +240,6 @@ internal class KeyInput(
           } catch (error: Throwable) {
             cancel()
             throw error
-          } finally {
-            // A replacement command may already be queued. Release seals only after the newest job.
-            if (session === current && generation == stepGeneration && !hasHeldCameraKeys()) {
-              session = null
-              current.end()
-            }
           }
         }
     } catch (error: Throwable) {
@@ -264,11 +254,10 @@ internal class KeyInput(
     focus.claimedKeys.values.any { it.response?.isCamera == true }
 
   private fun finishIfReleased() {
-    if (hasHeldCameraKeys() || step?.isActive == true) return
-    val previous = session
-    session = null
+    if (hasHeldCameraKeys()) return
     step = null
-    previous?.end()
+    // Retain the response so focus loss or a binding change can still cancel its easing.
+    session?.end()
   }
 
   fun cancel() {

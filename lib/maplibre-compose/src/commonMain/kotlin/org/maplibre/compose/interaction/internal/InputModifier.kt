@@ -55,7 +55,6 @@ internal fun Modifier.mapInput(
   focusRequester: FocusRequester,
   focus: InputFocus,
   environment: InputEnvironment,
-  continuation: GestureContinuation,
   rotaryNotchPixels: Float,
   subscriptions: InteractionSubscriptions,
 ): Modifier {
@@ -68,7 +67,7 @@ internal fun Modifier.mapInput(
   val platformRouting = remember(target) { PlatformTransformRouting() }
   val inputScope = rememberCoroutineScope()
   val rotaryInput =
-    remember(target, options.structuralKey, rotaryNotchPixels, continuation) {
+    remember(target, options.structuralKey, rotaryNotchPixels) {
       RotaryGesture(
         target,
         {
@@ -81,19 +80,17 @@ internal fun Modifier.mapInput(
         ids,
         rotaryNotchPixels,
         inputScope,
-        continuation,
         subscriptions.rotary,
       )
     }
   DisposableEffect(rotaryInput) { onDispose { rotaryInput.cancel() } }
 
   val keyInput =
-    remember(target, focus, continuation) {
+    remember(target, focus) {
       KeyInput(
         target,
         { currentOptions.value },
         focus,
-        continuation,
         ids,
         inputScope,
         subscriptions.keys,
@@ -105,8 +102,6 @@ internal fun Modifier.mapInput(
     subscriptions.update(options)
     keyInput.configure(options.structuralKey)
   }
-
-  SideEffect { continuation.configure(options.structuralKey, target) }
 
   val keys = options.bindings.keys.hasCameraBindings(options.camera)
   val rotary =
@@ -142,7 +137,6 @@ internal fun Modifier.mapInput(
       density,
       focusRequester,
       focus,
-      continuation,
       ids,
       boxZoom,
       platformRouting,
@@ -177,14 +171,13 @@ private fun Modifier.pointerGestures(
   density: Density,
   focusRequester: FocusRequester,
   focus: InputFocus,
-  continuation: GestureContinuation,
   ids: GestureIds,
   boxZoom: BoxZoomPreview,
   platformRouting: PlatformTransformRouting,
   subscriptions: InteractionSubscriptions,
   scrollConverter: ScrollConverter,
 ): Modifier =
-  pointerInput(target, options.structuralKey, density, continuation, scrollConverter) {
+  pointerInput(target, options.structuralKey, density, scrollConverter) {
     val scope = CoroutineScope(currentCoroutineContext())
     val hover =
       HoverGesture(
@@ -206,7 +199,6 @@ private fun Modifier.pointerGestures(
         { size },
         scrollConverter,
         scope,
-        continuation,
       )
 
     lateinit var platform: PlatformTransformSession
@@ -234,7 +226,6 @@ private fun Modifier.pointerGestures(
         doubleClickTimeoutMillis = viewConfiguration.doubleTapTimeoutMillis,
         longClickTimeoutMillis = viewConfiguration.longPressTimeoutMillis,
         scope = scope,
-        continuation = continuation,
         onAcceptedPress = {
           scroll.cancel(GestureCancellationReason.CameraTakeover)
           platform.cancel(GestureCancellationReason.CameraTakeover)
@@ -256,7 +247,6 @@ private fun Modifier.pointerGestures(
         platformRouting,
       ) {
         scroll.cancel(GestureCancellationReason.CameraTakeover)
-        continuation.finish(target::cancelGesture)
         runCatching { focusRequester.requestFocus() }
         focus.engage(byKey = false)
       }
