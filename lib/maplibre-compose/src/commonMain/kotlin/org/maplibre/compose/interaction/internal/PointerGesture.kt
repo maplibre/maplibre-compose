@@ -872,6 +872,7 @@ internal class PointerGesture(
 
   /** What this down is relative to a [TapWait.Open] first tap. */
   private fun classifyPress(origin: Offset, timeMillis: Long, type: PointerType): PressRole {
+    if (pressedSecondary) return PressRole.First
     val open = tapWait as? TapWait.Open ?: return PressRole.First
     if (!secondTapUseful) return PressRole.First
 

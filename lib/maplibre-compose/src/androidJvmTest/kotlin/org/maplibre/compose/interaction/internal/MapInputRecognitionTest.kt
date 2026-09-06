@@ -502,7 +502,7 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun secondary_click_delivers_long_click_when_long_press_is_disabled() {
+  fun a_primary_click_does_not_suppress_secondary_click_when_long_press_is_disabled() {
     val events = mutableListOf<LongClickEvent>()
     runRecognitionTest(
       options =
@@ -518,11 +518,15 @@ class MapInputRecognitionTest {
           }
         }
     ) { target ->
-      mapNode().performMouseInput { click(center, MouseButton.Secondary) }
+      mapNode().performMouseInput {
+        click(center)
+        advanceEventTime(SECOND_TAP_GAP_MILLIS)
+        click(center, MouseButton.Secondary)
+      }
       waitForIdle()
       assertEquals(setOf(PointerButton.Secondary), events.single().buttons)
       assertEquals(1, target.longClicks)
-      assertEquals(listOf(TapFamily.SecondaryClick), target.deliveredTapFamilies)
+      assertEquals(listOf(TapFamily.Tap, TapFamily.SecondaryClick), target.deliveredTapFamilies)
     }
   }
 
