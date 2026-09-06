@@ -59,6 +59,10 @@ internal constructor(internal var event: ((LongClickEvent) -> ClickResult)?) {
   }
 }
 
+/**
+ * Receives [HoverEvent] while no contacts or physical buttons are pressed, including an exit on
+ * press.
+ */
 @MapInteractionDsl
 public class HoverCallbackBuilder
 internal constructor(internal var event: ((HoverEvent) -> Unit)?) {

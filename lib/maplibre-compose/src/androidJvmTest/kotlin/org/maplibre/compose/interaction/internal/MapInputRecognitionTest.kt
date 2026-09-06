@@ -786,14 +786,15 @@ class MapInputRecognitionTest {
   fun a_custom_reservation_waits_for_its_own_slop() {
     val delivered = mutableListOf<DragEvent>()
     var claims = 0
+    var claimHandle = false
     val options = MapInteractions {
       bindings {
         drag {
           custom("handle") {
             startSlop = 40.dp
             canStart {
-              claims++
-              true
+              if (claimHandle) claims++
+              claimHandle
             }
             onEvent { delivered += it }
           }
@@ -802,13 +803,30 @@ class MapInputRecognitionTest {
     }
     runRecognitionTest(options = options) { target ->
       val map = mapNode()
+      mainClock.autoAdvance = false
+      map.performTouchInput {
+        down(center)
+        repeat(6) { moveBy(Offset(20f, 0f), delayMillis = 16) }
+        up()
+      }
+      val releasedMoves = target.moveCalls.size
+      mainClock.advanceTimeBy(64)
+      waitForIdle()
+      assertTrue(target.moveCalls.size > releasedMoves, "the preceding pan did not fling")
+      runOnIdle { claimHandle = true }
       map.performTouchInput {
         down(center)
         moveBy(Offset(10f, 0f))
       }
+      val claimedMoves = target.moveCalls.size
+      mainClock.advanceTimeBy(1_000)
       waitForIdle()
       assertTrue(delivered.isEmpty())
-      assertTrue(target.moveCalls.isEmpty())
+      assertEquals(
+        claimedMoves,
+        target.moveCalls.size,
+        "momentum continued under the reserved handle",
+      )
       map.performTouchInput {
         moveBy(Offset(90f, 0f))
         up()
@@ -819,7 +837,8 @@ class MapInputRecognitionTest {
       assertTrue(delivered[1] is DragEvent.Delta)
       assertTrue(delivered.last() is DragEvent.End)
       assertEquals(1, delivered.map { it.gestureId }.distinct().size)
-      assertTrue(target.moveCalls.isEmpty())
+      assertEquals(claimedMoves, target.moveCalls.size)
+      mainClock.autoAdvance = true
     }
   }
 

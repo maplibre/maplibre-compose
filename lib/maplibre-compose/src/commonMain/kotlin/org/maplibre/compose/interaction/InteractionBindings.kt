@@ -85,7 +85,17 @@ public class DragFitBoundsBuilder internal constructor(from: DragFitBoundsSettin
   }
 }
 
-/** An app-owned drag. The stable key identifies its lifecycle across configuration updates. */
+/**
+ * An app-owned single-contact drag. The stable key identifies its lifecycle across configuration
+ * updates.
+ *
+ * For precise handle positioning, use [DragEvent.screenOffset] and preserve the offset from the
+ * press to the handle. Summing [DragEvent.Delta.delta] omits the initial recognition slop. Set
+ * [startSlop] and [mouseStartSlop] to zero to recognize on the first movement.
+ *
+ * For app-owned pinch or scroll handling, use Compose pointer input on an overlay and consume the
+ * changes it handles so they do not also move the map.
+ */
 @MapInteractionDsl
 public class CustomDragBuilder
 internal constructor(private val key: String, from: CustomDragBinding?) {
@@ -97,6 +107,10 @@ internal constructor(private val key: String, from: CustomDragBinding?) {
   private var admission = from?.canStart
   private var observer = from?.onEvent
 
+  /**
+   * Accepts or declines the press. Accepting reserves the drag and stops map momentum immediately;
+   * [DragEvent.Start] waits until movement crosses the configured slop.
+   */
   public fun canStart(block: (PointerPressEvent) -> Boolean) {
     admission = block
   }
