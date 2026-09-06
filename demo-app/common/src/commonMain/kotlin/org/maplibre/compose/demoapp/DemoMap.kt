@@ -44,8 +44,8 @@ import org.maplibre.compose.demoapp.generated.brightness_auto_24px
 import org.maplibre.compose.demoapp.generated.dark_mode_24px
 import org.maplibre.compose.demoapp.generated.filter_center_focus_24px
 import org.maplibre.compose.demoapp.generated.light_mode_24px
+import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.map.MapEvent
-import org.maplibre.compose.map.MapInteractions
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.StyleLoadState

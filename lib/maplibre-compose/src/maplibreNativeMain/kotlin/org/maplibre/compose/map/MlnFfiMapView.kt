@@ -17,6 +17,14 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import kotlinx.coroutines.CancellationException
+import org.maplibre.compose.interaction.internal.ClickPath
+import org.maplibre.compose.interaction.internal.GestureContinuation
+import org.maplibre.compose.interaction.internal.InputFocus
+import org.maplibre.compose.interaction.internal.InteractionSubscriptions
+import org.maplibre.compose.interaction.internal.TapFamily
+import org.maplibre.compose.interaction.internal.inputEnvironment
+import org.maplibre.compose.interaction.internal.mapInput
+import org.maplibre.compose.interaction.internal.rotaryNotchPixels
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiMapHostFactory
@@ -45,7 +53,7 @@ internal fun MlnFfiMapView(
   onReset: () -> Unit,
   logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
-  captureClickPath: (TapFamily) -> MapClickPath?,
+  captureClickPath: (TapFamily) -> ClickPath?,
   subscriptions: InteractionSubscriptions,
   options: MapViewOptions,
 ) {
@@ -93,7 +101,7 @@ internal fun MlnFfiMapView(
   onReset: () -> Unit,
   logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
-  captureClickPath: (TapFamily) -> MapClickPath?,
+  captureClickPath: (TapFamily) -> ClickPath?,
   subscriptions: InteractionSubscriptions,
   options: MapViewOptions,
 ) {
@@ -167,13 +175,13 @@ internal fun MlnFfiMapView(
   val focusRequester = remember { FocusRequester() }
   val inputFocus =
     remember(session, state) {
-      MapInputFocus { engaged -> state.setEngaged(session, engaged) }
+      InputFocus { engaged -> state.setEngaged(session, engaged) }
     }
   // A press can engage the map before the attachment publishes, and a write before that is
   // dropped.
   val attached = state.currentMapAttachment?.adapter === session
   LaunchedEffect(inputFocus, attached) { if (attached) inputFocus.replay() }
-  val inputEnvironment = mapInputEnvironment()
+  val inputEnvironment = inputEnvironment()
   val inputScope = rememberCoroutineScope()
   val continuation = remember(session, inputScope) { GestureContinuation(inputScope) }
   val rotaryNotchPixels = rotaryNotchPixels()

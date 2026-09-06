@@ -11,6 +11,7 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.internal.CameraCommandGuard
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.RecordingStyleBinding

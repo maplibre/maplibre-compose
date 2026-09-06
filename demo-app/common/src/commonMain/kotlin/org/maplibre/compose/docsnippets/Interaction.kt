@@ -3,11 +3,11 @@
 package org.maplibre.compose.docsnippets
 
 import androidx.compose.runtime.Composable
-import org.maplibre.compose.map.KeyModifier
-import org.maplibre.compose.map.MapInteractions
+import org.maplibre.compose.interaction.ClickResult
+import org.maplibre.compose.interaction.KeyModifier
+import org.maplibre.compose.interaction.MapInteractions
+import org.maplibre.compose.interaction.ModifierMatch.Containing
 import org.maplibre.compose.map.MaplibreMap
-import org.maplibre.compose.map.ModifierMatch.Containing
-import org.maplibre.compose.util.ClickResult
 import org.maplibre.spatialk.geojson.Position
 
 @Composable

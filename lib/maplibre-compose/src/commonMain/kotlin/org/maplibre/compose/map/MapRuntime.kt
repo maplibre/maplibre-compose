@@ -52,11 +52,14 @@ import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
+import org.maplibre.compose.camera.internal.CameraCommandGuard
+import org.maplibre.compose.camera.internal.CameraInputAuthority
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.compose.interaction.internal.select
 import org.maplibre.compose.layers.LayerHandle
 import org.maplibre.compose.layers.layerHandle
 import org.maplibre.compose.logging.MapLog
@@ -693,7 +696,7 @@ internal constructor(
     }
   }
   internal val lifecycle = MapLifecycleAuthority(this, runtime.physicalScope)
-  internal val gestureAuthority = GestureCameraAuthority(this)
+  internal val gestureAuthority = CameraInputAuthority(this)
   private var baseStyleCommandRevision = 0L
   private var cameraCommandRevision = 0L
   private var styleHandleEpoch = 0L

@@ -54,6 +54,9 @@ import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.interaction.DragEvent
+import org.maplibre.compose.interaction.MapInteractions
+import org.maplibre.compose.interaction.PointerButton
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.FillLayer

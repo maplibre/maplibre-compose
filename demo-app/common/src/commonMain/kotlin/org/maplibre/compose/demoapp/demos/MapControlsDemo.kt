@@ -14,10 +14,10 @@ import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
 import org.maplibre.compose.demoapp.design.DropdownRow
-import org.maplibre.compose.map.KeyModifier
-import org.maplibre.compose.map.MapInteractions
+import org.maplibre.compose.interaction.KeyModifier
+import org.maplibre.compose.interaction.MapInteractions
+import org.maplibre.compose.interaction.ModifierMatch.Containing
 import org.maplibre.compose.map.MapState
-import org.maplibre.compose.map.ModifierMatch.Containing
 import org.maplibre.spatialk.geojson.Position
 
 object MapControlsDemo : Demo {

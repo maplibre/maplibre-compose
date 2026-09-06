@@ -19,6 +19,7 @@ import kotlin.test.assertNotNull
 import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.map.MapRuntimeOptions
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
@@ -29,7 +30,6 @@ import org.maplibre.compose.mlnffi.setFfiTestMapContent
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.util.ClickResult
 import org.maplibre.spatialk.geojson.Position
 
 /**
@@ -101,7 +101,7 @@ class LayerClickOrderTest {
       waitForIdle()
 
       assertEquals(listOf(FRONT), longClicked)
-      assertEquals(emptyList<String>(), clicked, "the context click also reported a click")
+      assertEquals(emptyList<String>(), clicked, "the long click also reported a click")
     }
 
   @Test
@@ -149,7 +149,7 @@ class LayerClickOrderTest {
                 clicked += FRONT
                 frontResult
               },
-              onContextClick = {
+              onLongClick = {
                 longClicked += FRONT
                 frontResult
               },
@@ -164,7 +164,7 @@ class LayerClickOrderTest {
                 clicked += BACK
                 ClickResult.Consume
               },
-              onContextClick = {
+              onLongClick = {
                 longClicked += BACK
                 ClickResult.Consume
               },

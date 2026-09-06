@@ -108,7 +108,7 @@ public fun RasterLayer(
       set(compiledFadeDuration) { layer.setRasterFadeDuration(it) }
     },
     onClick = null,
-    onContextClick = null,
+    onLongClick = null,
   )
 }
 

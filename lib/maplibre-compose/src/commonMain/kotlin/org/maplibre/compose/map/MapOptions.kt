@@ -3,6 +3,7 @@ package org.maplibre.compose.map
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.unit.dp
+import org.maplibre.compose.interaction.MapInteractions
 
 /** Collects the map configuration that the platform view receives as one internal value. */
 @Immutable

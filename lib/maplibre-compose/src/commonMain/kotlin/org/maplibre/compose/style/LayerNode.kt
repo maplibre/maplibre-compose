@@ -2,10 +2,10 @@ package org.maplibre.compose.style
 
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import org.maplibre.compose.interaction.internal.SubscriptionSlot
 import org.maplibre.compose.layers.Anchor
+import org.maplibre.compose.layers.FeaturesClickHandler
 import org.maplibre.compose.layers.Layer
-import org.maplibre.compose.map.SubscriptionSlot
-import org.maplibre.compose.util.FeaturesClickHandler
 
 internal class LayerNode<T : Layer>(val layer: T, val anchor: Anchor) : MapNode {
   internal val clickSubscription = SubscriptionSlot()
@@ -15,10 +15,10 @@ internal class LayerNode<T : Layer>(val layer: T, val anchor: Anchor) : MapNode 
       field = value
     }
 
-  internal val contextClickSubscription = SubscriptionSlot()
-  internal var onContextClick: FeaturesClickHandler? = null
+  internal val longClickSubscription = SubscriptionSlot()
+  internal var onLongClick: FeaturesClickHandler? = null
     set(value) {
-      contextClickSubscription.update(value != null)
+      longClickSubscription.update(value != null)
       field = value
     }
 
@@ -26,13 +26,6 @@ internal class LayerNode<T : Layer>(val layer: T, val anchor: Anchor) : MapNode 
   internal var onDoubleClick: FeaturesClickHandler? = null
     set(value) {
       doubleClickSubscription.update(value != null)
-      field = value
-    }
-
-  internal val twoFingerClickSubscription = SubscriptionSlot()
-  internal var onTwoFingerClick: FeaturesClickHandler? = null
-    set(value) {
-      twoFingerClickSubscription.update(value != null)
       field = value
     }
 

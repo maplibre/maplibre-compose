@@ -23,6 +23,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
+import org.maplibre.compose.interaction.MapInteractions
+import org.maplibre.compose.interaction.internal.FeatureClickDispatcher
+import org.maplibre.compose.interaction.internal.InteractionSubscriptions
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MapOverlayHost
 import org.maplibre.compose.overlay.MapOverlayScope
@@ -170,7 +173,7 @@ private fun MaplibreMapPresentation(
   val currentDesiredRevision = rememberUpdatedState(desiredRevisionState)
   val clickDispatcher =
     remember(state) {
-      MapInteractionDispatcher(
+      FeatureClickDispatcher(
         state = state,
         desiredRevision = currentDesiredRevision,
         loadedStyle = rememberedStyleState,

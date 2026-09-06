@@ -108,6 +108,6 @@ public fun LocationIndicatorLayer(
       set(compiledPerspectiveCompensation) { layer.setPerspectiveCompensation(it) }
     },
     onClick = null,
-    onContextClick = null,
+    onLongClick = null,
   )
 }

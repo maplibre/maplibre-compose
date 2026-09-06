@@ -1,0 +1,1266 @@
+package org.maplibre.compose.interaction.internal
+
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerEvent
+import androidx.compose.ui.input.pointer.PointerId
+import androidx.compose.ui.input.pointer.PointerInputChange
+import androidx.compose.ui.input.pointer.PointerType
+import androidx.compose.ui.input.pointer.isSecondaryPressed
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.IntSize
+import kotlin.math.abs
+import kotlin.math.min
+import kotlin.math.pow
+import kotlin.time.Duration
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import org.maplibre.compose.camera.internal.CameraInputTarget
+import org.maplibre.compose.camera.internal.CameraInputToken
+import org.maplibre.compose.camera.internal.boxZoomFit
+import org.maplibre.compose.camera.internal.inputFitBoundsAwaitingTransition
+import org.maplibre.compose.camera.internal.inputPanBy
+import org.maplibre.compose.camera.internal.inputRotateAndPitchBy
+import org.maplibre.compose.camera.internal.inputScaleBy
+import org.maplibre.compose.camera.internal.inputScaleByAwaitingTransition
+import org.maplibre.compose.interaction.CameraInputOrigin
+import org.maplibre.compose.interaction.DragEvent
+import org.maplibre.compose.interaction.GestureCancellationReason
+import org.maplibre.compose.interaction.MapInteractions
+import org.maplibre.compose.interaction.PointerButton
+import org.maplibre.compose.interaction.PointerPressEvent
+import org.maplibre.compose.interaction.QuickZoomDirection
+import org.maplibre.compose.interaction.ScreenVelocity
+
+internal class PointerGesture(
+  private val target: CameraInputTarget,
+  private val taps: TapDispatcher,
+  private val options: MapInteractions,
+  private val currentOptions: () -> MapInteractions,
+  private val subscriptions: InteractionSubscriptions,
+  private val ids: GestureIds,
+  private val boxZoom: BoxZoomPreview,
+  private val density: Density,
+  private val focusRequester: FocusRequester,
+  private val focus: InputFocus,
+  private val viewportSize: () -> IntSize,
+  private val clickSlopPx: Float,
+  private val panSlopPx: Float,
+  private val twoFingerTapSlopPx: Float,
+  private val doubleTapSlopPx: Float,
+  private val doubleClickMinTimeMillis: Long,
+  private val doubleClickTimeoutMillis: Long,
+  private val longClickTimeoutMillis: Long,
+  private val scope: CoroutineScope,
+  private val continuation: GestureContinuation,
+  private val onAcceptedPress: () -> Unit,
+) {
+  private var gestureToken: CameraInputToken? = null
+  private val gestureInProgress: Boolean
+    get() = gestureToken != null
+
+  private var cameraSession: GestureInputSession? = null
+
+  private sealed interface SelectedDrag {
+    data class Camera(val response: DragResponse) : SelectedDrag
+
+    data object TapDrag : SelectedDrag
+
+    data class Custom(val binding: CustomDragBinding) : SelectedDrag
+  }
+
+  private var selectedDrag: SelectedDrag? = null
+  private var dragSubscription: LifecycleMembership? = null
+  private var dragStarted = false
+  private var customDragStarted = false
+  private var dragSample: GesturePointerSample? = null
+  private var suppressedUntilRelease = false
+  private var lastSingle: PointerInputChange? = null
+  private var singleDragOrigin: Offset? = null
+  private var dragRecognition: PointerDrag? = null
+  private val singleVelocity = GestureVelocityTracker()
+
+  private var pair: PointerPairGesture? = null
+  private val contactOrder = mutableListOf<PointerId>()
+  private var twoFingerTap: TwoFingerTapCandidate? = null
+  private var deferredTwoFingerVelocity: PairContinuation? = null
+
+  /** Null once the press is no longer a candidate click. Physical pixels, as Compose reports. */
+  private var clickOrigin: Offset? = null
+  private var pressedSecondary = false
+  private var pressedType = PointerType.Mouse
+  private var pressStartedAtMillis = 0L
+  private var quickZoomCandidate = false
+  private var quickZoomOriginY = 0f
+  private var quickZoomAppliedDelta = 0.0
+  private var lastQuickZoomSpanDeltaPixels = 0.0
+  private var longClickJob: Job? = null
+  private var longClickHandled = false
+  private var tapDemand = emptySet<TapFamily>()
+  private var tapAdmissions = emptyMap<TapFamily, TapAdmission>()
+  /** Eligibility is fixed at the first press, including subscriber demand. */
+  private var secondTapUseful = false
+  private var pressInputGeneration = 0L
+
+  /**
+   * Pairing state after a first tap. The delayed-click job exists only in [TapWait.Open]; a valid
+   * second down moves to [TapWait.Claimed] and cancels that job.
+   */
+  private var tapWait: TapWait = TapWait.None
+  /** What this press is relative to [tapWait]. */
+  private var pressRole = PressRole.First
+
+  fun onPointerEvent(event: PointerEvent) {
+    val oldContacts = contactOrder.toList()
+    val pressedIds = event.changes.filter { it.pressed }.map { it.id }
+    contactOrder.retainAll(pressedIds)
+    pressedIds.forEach { if (it !in contactOrder) contactOrder.add(it) }
+    val pressed = contactOrder.mapNotNull { id -> event.changes.firstOrNull { it.id == id } }
+
+    if (suppressedUntilRelease) {
+      if (pressed.isEmpty()) suppressedUntilRelease = false
+      return
+    }
+    if (gestureToken?.acceptsCommands == false) {
+      cancel(GestureCancellationReason.CameraTakeover)
+      suppressedUntilRelease = pressed.isNotEmpty()
+      return
+    }
+    if (pressed.size >= 2 && lastSingle != null && selectedDrag is SelectedDrag.Custom) {
+      cancel(GestureCancellationReason.BindingChanged)
+      suppressedUntilRelease = true
+      return
+    }
+
+    val candidate = twoFingerTap
+    if (pressed.size > 2 || candidate?.update(event, twoFingerTapSlopPx) == false)
+      twoFingerTap = null
+
+    when {
+      pressed.size >= 2 -> {
+        val (first, second) = selectPair(event, pressed)
+        onTwoFinger(event, first, second, oldContacts != contactOrder)
+      }
+      pressed.size == 1 -> onSingle(event, pressed.single())
+      // A hover, enter, or exit also has nothing pressed. Treating those as a lift would
+      // cancel a fling or a keyboard ease the moment the cursor moved.
+      isAwaitingPointerRelease() -> onRelease(event)
+    }
+  }
+
+  /** A lift closes the pointer we are tracking. A hover does not. */
+  private fun isAwaitingPointerRelease(): Boolean =
+    gestureInProgress ||
+      lastSingle != null ||
+      pair != null ||
+      twoFingerTap != null ||
+      clickOrigin != null ||
+      deferredTwoFingerVelocity != null
+
+  private fun onSingle(event: PointerEvent, change: PointerInputChange) {
+    if (pair != null) {
+      // Keep the remaining finger usable, but start its drag from the current position.
+      // Reusing the pair origin would make the map jump when either finger lifts.
+      val completed = pair
+      deferredTwoFingerVelocity =
+        completed?.end(event.changes.maxOf { it.uptimeMillis }) ?: deferredTwoFingerVelocity
+      pair = null
+      if (gestureToken?.acceptsCommands == false) {
+        retainCameraAuthority()
+        return
+      }
+
+      lastSingle = change
+      singleDragOrigin = change.position
+      dragSample =
+        event.gestureSample(ids.next(), target, density, change.position, setOf(change.type))
+      selectedDrag = selectCameraDrag(checkNotNull(dragSample))
+      dragStarted = false
+      dragRecognition = selectedDrag?.let { dragRecognizer(change, it) }
+      singleVelocity.resetTracking()
+      singleVelocity.addPointerInputChange(change)
+      return
+    }
+
+    if (lastSingle == null) onPress(event, change) else onSingleDrag(event, change)
+  }
+
+  private fun onPress(event: PointerEvent, change: PointerInputChange) {
+    lastSingle = change
+    singleDragOrigin = change.position
+    clickOrigin = change.position
+    pressedSecondary = change.type == PointerType.Mouse && event.buttons.isSecondaryPressed
+    pressedType = change.type
+    pressStartedAtMillis = change.uptimeMillis
+    longClickHandled = false
+
+    pressRole = classifyPress(change.position, change.uptimeMillis, change.type)
+    when (pressRole) {
+      PressRole.First -> discardTapWait(emitClick = true)
+      PressRole.Paired -> claimOpenTap()
+      PressRole.Bounce -> Unit
+    }
+
+    val sample =
+      event.gestureSample(ids.next(), target, density, change.position, setOf(change.type))
+    dragSample = sample
+    selectedDrag = selectDrag(sample, paired = pressRole == PressRole.Paired)
+    dragStarted = false
+    quickZoomCandidate = selectedDrag == SelectedDrag.TapDrag
+    dragRecognition = selectedDrag?.let { dragRecognizer(change, it) }
+
+    // Capture click-path membership at press time. Recomposition may replace handlers while
+    // the press is held, but cannot admit a new subscriber into this click.
+    if (pressRole == PressRole.First) {
+      tapAdmissions =
+        TapFamily.entries
+          .filter { it.matches(options, sample) }
+          .mapNotNull { family ->
+            taps.capture(family)?.let { family to it }
+          }
+          .toMap()
+    }
+    tapDemand =
+      TapFamily.entries.filterTo(mutableSetOf()) { family ->
+        family.matches(options, sample) &&
+          (tapAdmissions[family]?.hasSubscribers == true ||
+            family.binding(options).select(sample, options.camera)?.let {
+              it != TapResponse.None
+            } == true)
+      }
+
+    secondTapUseful =
+      TapFamily.DoubleTap in tapDemand ||
+        (options.camera.zoom.enabled && options.bindings.tapDrag.matches(sample))
+    val longPress = TapFamily.LongPress in tapDemand
+    val clickDemand = secondTapUseful || tapDemand.any { it != TapFamily.TwoFingerTap }
+    if (!clickDemand) clickOrigin = null
+    if (
+      selectedDrag == null &&
+        !clickDemand &&
+        !options.bindings.transform.hasDemand(sample, options.camera) &&
+        TapFamily.TwoFingerTap !in tapDemand
+    )
+      return
+
+    quickZoomOriginY = change.position.y
+    quickZoomAppliedDelta = 0.0
+    lastQuickZoomSpanDeltaPixels = 0.0
+    singleVelocity.resetTracking()
+    singleVelocity.addPointerInputChange(change)
+    deferredTwoFingerVelocity = null
+
+    onAcceptedPress()
+    target.observeInput()
+    cancelCameraSession()
+    continuation.finish(target::cancelGesture)
+    runCatching { focusRequester.requestFocus() }
+    focus.engage(byKey = false)
+    target.cancelTransitions()
+    pressInputGeneration = target.inputGeneration
+
+    // Click candidates claim their press, including mouse clicks competing with a parent click.
+    if (clickDemand || TapFamily.TwoFingerTap in tapDemand) change.consume()
+    if (longPress && change.type != PointerType.Mouse && !quickZoomCandidate) {
+      scheduleLongClick(change.position)
+    }
+  }
+
+  private fun scheduleLongClick(origin: Offset) {
+    longClickJob = scope.launch {
+      delay(longClickTimeoutMillis)
+      if (clickOrigin == origin && !gestureInProgress && lastSingle != null) {
+        longClickHandled = true
+        clickOrigin = null
+        // This press is a long click, including a paired second tap that was held.
+        discardTapWait(emitClick = false)
+        continuation.finish(target::onGestureEnded)
+        val last = checkNotNull(dragSample)
+        emitTap(
+          TapFamily.LongPress,
+          last.copy(
+            gestureId = ids.next(),
+            uptimeMillis = pressStartedAtMillis + longClickTimeoutMillis,
+            position = target.positionFromScreenLocation(last.screenOffset),
+          ),
+        )
+      }
+    }
+  }
+
+  private fun selectCameraDrag(sample: GesturePointerSample): SelectedDrag.Camera? =
+    options.bindings.drag
+      .select(sample, options.camera)
+      ?.takeUnless { it == DragResponse.None }
+      ?.let(SelectedDrag::Camera)
+
+  private fun selectDrag(sample: GesturePointerSample, paired: Boolean): SelectedDrag? {
+    val drag = options.bindings.drag
+    if (drag.matches(sample) && PointerPattern(button = PointerButton.Primary).matches(sample)) {
+      for (binding in currentOptions().bindings.drag.custom) {
+        if (binding.canStart(PointerPressEvent(sample, paired))) return SelectedDrag.Custom(binding)
+      }
+    }
+    if (paired && options.camera.zoom.enabled && options.bindings.tapDrag.matches(sample))
+      return SelectedDrag.TapDrag
+    return selectCameraDrag(sample)
+  }
+
+  private fun currentDragHandlers(): DragHandlers =
+    if (selectedDrag == SelectedDrag.TapDrag) currentOptions().bindings.tapDrag.handlers
+    else currentOptions().bindings.drag.handlers
+
+  private fun dragAnchor(sample: GesturePointerSample): DpOffset? =
+    when (selectedDrag) {
+      SelectedDrag.TapDrag -> options.bindings.tapDrag.anchor.location(sample)
+      is SelectedDrag.Camera -> options.bindings.drag.rotateTilt.anchor.location(sample)
+      else -> null
+    }
+
+  private fun deliverDrag(event: DragEvent) {
+    val selected = selectedDrag ?: return
+    if (selected !is SelectedDrag.Custom) {
+      if (event is DragEvent.Start)
+        dragSubscription =
+          (if (selectedDrag == SelectedDrag.TapDrag) subscriptions.tapDrag else subscriptions.drag)
+            .capture()
+      dragSubscription?.observe(event, currentDragHandlers())
+      return
+    }
+
+    val active = gestureToken?.acceptsCommands == true
+    val response =
+      when (event) {
+        is DragEvent.Start -> event.takeIf { active }?.also { customDragStarted = true }
+        is DragEvent.Delta -> event.takeIf { active && customDragStarted }
+        is DragEvent.End ->
+          if (!customDragStarted) null
+          else {
+            customDragStarted = false
+            if (active) event
+            else
+              DragEvent.Cancel(
+                checkNotNull(dragSample),
+                if (!target.isGestureReady) GestureCancellationReason.Detached
+                else GestureCancellationReason.CameraTakeover,
+              )
+          }
+        is DragEvent.Cancel ->
+          event.takeIf { customDragStarted }?.also { customDragStarted = false }
+      }
+
+    if (response != null) {
+      val current =
+        currentOptions().bindings.drag.custom.firstOrNull { it.key == selected.binding.key }
+      (current?.onEvent ?: selected.binding.onEvent).invoke(response)
+    }
+  }
+
+  private fun cancelDrag(reason: GestureCancellationReason) {
+    if (!dragStarted) return
+    dragStarted = false
+    dragRecognition?.finish()
+    try {
+      dragSample?.let { deliverDrag(DragEvent.Cancel(it, reason)) }
+    } finally {
+      boxZoom.clear()
+    }
+  }
+
+  private fun retainCameraAuthority(): Boolean {
+    if (gestureToken?.acceptsCommands == true) return true
+    cancel(
+      if (target.isGestureReady) GestureCancellationReason.CameraTakeover
+      else GestureCancellationReason.Detached
+    )
+    suppressedUntilRelease = true
+    return false
+  }
+
+  private fun dragSlop(binding: SelectedDrag, mouse: Boolean): Float {
+    val slop =
+      when (binding) {
+        is SelectedDrag.Custom ->
+          if (mouse) binding.binding.mouseStartSlop else binding.binding.startSlop
+        SelectedDrag.TapDrag -> options.bindings.tapDrag.startSlop
+        is SelectedDrag.Camera ->
+          when (binding.response) {
+            DragResponse.Pan ->
+              options.bindings.drag.pan.let { if (mouse) it.mouseStartSlop else it.startSlop }
+            DragResponse.RotateTilt ->
+              options.bindings.drag.rotateTilt.let {
+                if (mouse) it.mouseStartSlop else it.startSlop
+              }
+            DragResponse.FitBounds ->
+              options.bindings.drag.fitBounds.let { if (mouse) it.mouseStartSlop else it.startSlop }
+            DragResponse.None -> error("An empty mapping cannot become a drag")
+          }
+      }
+    return slop.value * density.density
+  }
+
+  private fun dragRecognizer(change: PointerInputChange, binding: SelectedDrag): PointerDrag {
+    val slop = dragSlop(binding, change.type == PointerType.Mouse)
+    val vertical = binding == SelectedDrag.TapDrag
+    return PointerDrag(change, if (vertical) slop / 2f else slop, vertical)
+  }
+
+  private fun onSingleDrag(event: PointerEvent, change: PointerInputChange) {
+    val previous = lastSingle ?: return
+    var delta = change.position - previous.position
+    lastSingle = change
+    val sample =
+      event.gestureSample(
+        dragSample?.gestureId ?: ids.next(),
+        target,
+        density,
+        change.position,
+        setOf(change.type),
+      )
+
+    val oldSample = dragSample
+    dragSample = sample
+    // Modifier/button changes can select a different camera drag. Rebase at this event so
+    // the replacement gesture cannot apply movement measured for the previous response.
+    if (
+      change.type == PointerType.Mouse &&
+        selectedDrag !is SelectedDrag.Custom &&
+        oldSample != null &&
+        (oldSample.buttons != sample.buttons || oldSample.modifierKeys != sample.modifierKeys)
+    ) {
+      val next = selectCameraDrag(sample)
+      if (next != selectedDrag) {
+        cancelDrag(GestureCancellationReason.BindingChanged)
+        cancelCameraSession()
+        gestureToken = null
+        selectedDrag = next
+        dragRecognition = next?.let { dragRecognizer(change, it) }
+        dragSample = sample.copy(gestureId = ids.next())
+        singleDragOrigin = change.position
+        singleVelocity.resetTracking()
+        singleVelocity.addPointerInputChange(change)
+        clickOrigin = null
+        quickZoomCandidate = false
+        cancelLongClick()
+        return
+      }
+    }
+
+    val binding =
+      selectedDrag
+        ?: run {
+          if ((change.position - checkNotNull(singleDragOrigin)).getDistance() > dragSlopPx()) {
+            clickOrigin = null
+            cancelLongClick()
+          }
+          return
+        }
+    if (delta == Offset.Zero) return
+
+    if (change.uptimeMillis < previous.uptimeMillis) {
+      singleDragOrigin = change.position
+      dragRecognition?.rebase(change)
+      singleVelocity.resetTracking()
+      return
+    }
+
+    val motion = dragRecognition?.move(change)
+    if (motion == null) {
+      if (
+        quickZoomCandidate &&
+          abs(change.position.x - checkNotNull(singleDragOrigin).x) >
+            dragSlop(binding, change.type == PointerType.Mouse)
+      ) {
+        clickOrigin = null
+        cancelLongClick()
+      }
+      return
+    }
+
+    // The recognizer removes slop from the first delta; quick zoom must use that same origin.
+    delta = motion.delta
+    if (!dragStarted) {
+      val origin = singleDragOrigin ?: change.position
+      if (quickZoomCandidate) quickZoomOriginY += motion.thresholdOffset.y
+      clickOrigin = null
+      twoFingerTap = null
+      deferredTwoFingerVelocity = null
+      beginGesture()
+      dragStarted = true
+      when (binding) {
+        SelectedDrag.TapDrag -> gestureToken?.rearm(CameraComponent.Zoom)
+        is SelectedDrag.Camera ->
+          when (binding.response) {
+            DragResponse.Pan -> gestureToken?.rearm(CameraComponent.Pan)
+            DragResponse.RotateTilt -> {
+              gestureToken?.rearm(CameraComponent.Rotate)
+              gestureToken?.rearm(CameraComponent.Tilt)
+            }
+            else -> Unit
+          }
+        is SelectedDrag.Custom -> Unit
+      }
+      discardTapWait(emitClick = !quickZoomCandidate)
+      deliverDrag(DragEvent.Start(sample, origin.toLogicalDpOffset(density)))
+      if (!retainCameraAuthority()) return
+      if (binding == SelectedDrag.Camera(DragResponse.FitBounds))
+        boxZoom.start(origin.toLogicalDpOffset(density), sample.screenOffset)
+    }
+
+    singleVelocity.addPointerInputChange(change)
+    deliverDrag(DragEvent.Delta(sample, delta.toLogicalDpOffset(density)))
+    if (!retainCameraAuthority()) return
+
+    applyDragResponse(binding, sample, change.position, delta)
+    change.consume()
+  }
+
+  private fun applyDragResponse(
+    binding: SelectedDrag,
+    sample: GesturePointerSample,
+    position: Offset,
+    delta: Offset,
+  ) {
+    val deltaX = delta.x.toDouble() / density.density
+    val deltaY = delta.y.toDouble() / density.density
+    when (binding) {
+      is SelectedDrag.Camera ->
+        when (binding.response) {
+          DragResponse.Pan -> target.inputPanBy(deltaX, deltaY, gestureToken = gestureToken)
+          DragResponse.RotateTilt ->
+            options.bindings.drag.rotateTilt.let { settings ->
+              target.inputRotateAndPitchBy(
+                deltaX * settings.bearingDegreesPerDp,
+                deltaY * settings.pitchDegreesPerDp,
+                anchor = settings.anchor.location(sample),
+                gestureToken = gestureToken,
+              )
+            }
+          DragResponse.FitBounds -> boxZoom.move(sample.screenOffset)
+          DragResponse.None -> Unit
+        }
+      SelectedDrag.TapDrag -> {
+        val settings = options.bindings.tapDrag
+        val direction = if (settings.direction == QuickZoomDirection.DownZoomsIn) 1.0 else -1.0
+        val targetDelta =
+          GestureMath.quickZoomDelta(
+            (position.y - quickZoomOriginY).toDouble(),
+            viewportSize().height.toDouble(),
+            settings.zoomLevelsPerViewport * direction,
+          )
+        target.inputScaleBy(
+          zoomLevelsToScale(targetDelta - quickZoomAppliedDelta),
+          settings.anchor.location(sample),
+          gestureToken = gestureToken,
+        )
+        quickZoomAppliedDelta = targetDelta
+        lastQuickZoomSpanDeltaPixels = abs(delta.y) * 2.0
+      }
+      is SelectedDrag.Custom -> Unit
+    }
+  }
+
+  private fun selectPair(
+    event: PointerEvent,
+    pressed: List<PointerInputChange>,
+  ): Pair<PointerInputChange, PointerInputChange> {
+    val selected = pair
+    val first = pressed.firstOrNull { it.id == selected?.firstId }
+    val second = pressed.firstOrNull { it.id == selected?.secondId }
+    if (selected?.hasDemand == true && first != null && second != null) return first to second
+
+    // Keep an admitted pair stable. Search again only if it loses a finger or has no binding.
+    for (i in 0 until pressed.lastIndex) {
+      for (j in i + 1 until pressed.size) {
+        val a = pressed[i]
+        val b = pressed[j]
+        val sample =
+          event.gestureSample(
+            0,
+            target,
+            density,
+            (a.position + b.position) / 2f,
+            setOf(a.type, b.type),
+          )
+        if (
+          options.bindings.transform.hasDemand(sample, options.camera) ||
+            TapFamily.TwoFingerTap in tapDemand && TapFamily.TwoFingerTap.matches(options, sample)
+        )
+          return a to b
+      }
+    }
+    return pressed[0] to pressed[1]
+  }
+
+  private fun onTwoFinger(
+    event: PointerEvent,
+    first: PointerInputChange,
+    second: PointerInputChange,
+    contactsChanged: Boolean,
+  ) {
+    val previous = pair
+    if (previous != null && previous.matches(first, second)) {
+      if (contactsChanged) {
+        if (previous.hasDemand && event.changes.any { it.pressed && !it.previousPressed }) {
+          onAcceptedPress()
+          target.observeInput()
+        }
+        // Do not interpret a contact-set change as movement of the already selected pair.
+        previous.rebase(event, first, second)
+      } else previous.move(event, first, second)
+      return
+    }
+
+    if (previous != null) {
+      deferredTwoFingerVelocity =
+        previous.end(event.changes.maxOf { it.uptimeMillis }) ?: deferredTwoFingerVelocity
+      pair = null
+      twoFingerTap = null
+      if (gestureToken?.acceptsCommands == false) {
+        retainCameraAuthority()
+        return
+      }
+    } else {
+      cancelDrag(GestureCancellationReason.BindingChanged)
+      if (gestureToken?.acceptsCommands == false) {
+        retainCameraAuthority()
+        return
+      }
+      selectedDrag = null
+      cancelLongClick()
+      discardTapWait(emitClick = true)
+      clickOrigin = null
+      quickZoomCandidate = false
+      pressRole = PressRole.First
+      lastSingle = null
+      if (first.type != PointerType.Mouse && second.type != PointerType.Mouse) {
+        val sample =
+          event.gestureSample(
+            0,
+            target,
+            density,
+            (first.position + second.position) / 2f,
+            setOf(first.type, second.type),
+          )
+        if (
+          TapFamily.TwoFingerTap in tapDemand && TapFamily.TwoFingerTap.matches(options, sample)
+        ) {
+          twoFingerTap =
+            TwoFingerTapCandidate(
+              min(pressStartedAtMillis, sample.uptimeMillis),
+              first.id,
+              second.id,
+              first.position,
+              second.position,
+              sample.pointerTypes,
+            )
+        }
+      }
+    }
+
+    val candidate =
+      PointerPairGesture(
+        target,
+        options,
+        currentOptions,
+        subscriptions,
+        ids,
+        density,
+        event,
+        first,
+        second,
+        begin = {
+          beginGesture(CameraInputOrigin.Transform)
+          gestureToken
+        },
+        onRecognized = {
+          twoFingerTap = null
+          deferredTwoFingerVelocity = null
+        },
+        retainAuthority = ::retainCameraAuthority,
+      )
+    pair = candidate
+    if (candidate.hasDemand || twoFingerTap != null) {
+      if (event.changes.any { it.pressed && !it.previousPressed }) onAcceptedPress()
+      target.observeInput()
+      pressInputGeneration = target.inputGeneration
+      runCatching { focusRequester.requestFocus() }
+      focus.engage(byKey = false)
+    }
+  }
+
+  private fun onRelease(event: PointerEvent) {
+    val completedDrag = selectedDrag.takeIf { dragStarted }
+    if (dragStarted) {
+      dragStarted = false
+      dragRecognition?.finish()
+      val sample = event.gestureSample(checkNotNull(dragSample).gestureId, target, density)
+      dragSample = sample
+      boxZoom.move(sample.screenOffset)
+      val selection = boxZoom.clear()
+      val velocity = singleVelocity.calculateVelocity()
+      deliverDrag(
+        DragEvent.End(
+          sample,
+          ScreenVelocity(
+            (velocity.x / density.density).toDouble(),
+            (velocity.y / density.density).toDouble(),
+          ),
+        )
+      )
+      if (gestureToken?.acceptsCommands != true) {
+        cancel(GestureCancellationReason.CameraTakeover)
+        return
+      }
+      if (selection != null) {
+        val fit = target.boxZoomFit(selection)
+        val session = checkNotNull(cameraSession)
+        if (fit != null && session.token.acceptsCommands) {
+          continuation.launchBoundsFit(session.scope) {
+            target.inputFitBoundsAwaitingTransition(
+              fit,
+              options.scaledAnimationDuration(),
+              session.token,
+            )
+          }
+        }
+      }
+    }
+
+    val origin = clickOrigin
+    val pairedSecondTap = pressRole == PressRole.Paired
+    val ignoreReleaseAsTap = pressRole == PressRole.Bounce
+    val handledLongClick = longClickHandled
+    val completedTwoFingerTap = twoFingerTap?.takeIf { it.isComplete(event) }
+    cancelLongClick()
+    val completed = pair
+    val pairContinuation =
+      completed?.end(event.changes.maxOf { it.uptimeMillis }) ?: deferredTwoFingerVelocity
+    pair = null
+    if (gestureToken?.acceptsCommands == false) {
+      retainCameraAuthority()
+      return
+    }
+
+    // Release callbacks run before momentum; an app may take the camera during a callback.
+    finishSingleVelocity(completedDrag)
+    pairContinuation?.let(::finishPairVelocity)
+
+    deferredTwoFingerVelocity = null
+    lastSingle = null
+    singleDragOrigin = null
+    dragRecognition = null
+    clickOrigin = null
+    longClickHandled = false
+    quickZoomCandidate = false
+    pressRole = PressRole.First
+    twoFingerTap = null
+    selectedDrag = null
+
+    if (
+      (!gestureInProgress &&
+        completedTwoFingerTap != null &&
+        options.bindings.twoFingerTap.enabled) || origin != null || handledLongClick
+    ) {
+      event.changes.forEach(PointerInputChange::consume)
+    }
+
+    if (gestureInProgress) {
+      endDrag()
+      return
+    }
+
+    continuation.finish(target::onGestureEnded)
+    if (completedTwoFingerTap != null) {
+      emitTap(
+        TapFamily.TwoFingerTap,
+        event.gestureSample(
+          ids.next(),
+          target,
+          density,
+          completedTwoFingerTap.centroid,
+          completedTwoFingerTap.pointerTypes,
+        ),
+      )
+    } else if (origin != null && !ignoreReleaseAsTap) {
+      onClick(event, origin, pairedSecondTap)
+    } else if (handledLongClick) {
+      discardTapWait(emitClick = false)
+    }
+  }
+
+  private fun emitTap(
+    family: TapFamily,
+    sample: GesturePointerSample,
+    generation: Long = pressInputGeneration,
+    admission: TapAdmission? = tapAdmissions[family],
+  ) {
+    val captured = admission ?: return
+    val binding = family.binding(options)
+    val action = binding.select(sample, options.camera)
+
+    taps.dispatch(captured, sample) camera@{
+      if (action == null || action == TapResponse.None) return@camera
+      val direction = if (action == TapResponse.ZoomIn) 1.0 else -1.0
+      continuation.launchTapTransition(
+        target,
+        generation,
+        command = { token ->
+          inputScaleByAwaitingTransition(
+            zoomLevelsToScale(direction * binding.zoomStep),
+            binding.anchor.location(sample),
+            options.scaledAnimationDuration(),
+            token,
+          )
+        },
+      )
+    }
+  }
+
+  private fun onClick(event: PointerEvent, origin: Offset, pairedSecondTap: Boolean) {
+    val sample = event.gestureSample(ids.next(), target, density, origin, setOf(pressedType))
+    // Release no longer reports the button, but a secondary click must retain its press metadata.
+    val clickSample = sample.copy(buttons = dragSample?.buttons ?: sample.buttons)
+    if (pressedSecondary) {
+      if (TapFamily.SecondaryClick in tapDemand) emitTap(TapFamily.SecondaryClick, clickSample)
+      tapWait = TapWait.None
+      return
+    }
+
+    if (pairedSecondTap && TapFamily.DoubleTap in tapDemand) {
+      emitTap(TapFamily.DoubleTap, clickSample)
+      tapWait = TapWait.None
+      return
+    }
+
+    if (TapFamily.Tap in tapDemand && (pressedType == PointerType.Mouse || !secondTapUseful))
+      emitTap(TapFamily.Tap, clickSample)
+    rememberFirstTap(clickSample, origin, pressedType, sample.uptimeMillis)
+  }
+
+  /** What this down is relative to a [TapWait.Open] first tap. */
+  private fun classifyPress(origin: Offset, timeMillis: Long, type: PointerType): PressRole {
+    val open = tapWait as? TapWait.Open ?: return PressRole.First
+    if (!secondTapUseful) return PressRole.First
+
+    val elapsedMillis = timeMillis - open.tap.upAt
+    val samePointerType = type == open.tap.type
+    val distancePx = (origin - open.tap.origin).getDistance()
+    if (
+      isBounceSecondTap(
+        elapsedMillis = elapsedMillis,
+        distancePx = distancePx,
+        samePointerType = samePointerType,
+        minTimeMillis = doubleClickMinTimeMillis,
+        slopPx = slopPx(),
+      )
+    ) {
+      return PressRole.Bounce
+    }
+    return if (
+      isPairedSecondTap(
+        elapsedMillis = elapsedMillis,
+        distancePx = distancePx,
+        samePointerType = samePointerType,
+        minTimeMillis = doubleClickMinTimeMillis,
+        timeoutMillis = doubleClickTimeoutMillis,
+        slopPx = slopPx(),
+      )
+    ) {
+      PressRole.Paired
+    } else {
+      PressRole.First
+    }
+  }
+
+  /** A valid second down claims the first tap and stops the delayed click. */
+  private fun claimOpenTap() {
+    val open = tapWait as? TapWait.Open ?: return
+    open.tap.job?.cancel()
+    tapWait = TapWait.Claimed(open.tap.copy(job = null))
+  }
+
+  /**
+   * Opens the pairing window after a first tap. Touch reports the click when the window expires;
+   * mouse already reported it on the up.
+   */
+  private fun rememberFirstTap(
+    sample: GesturePointerSample,
+    origin: Offset,
+    type: PointerType,
+    timeMillis: Long,
+  ) {
+    if (!secondTapUseful) {
+      tapWait = TapWait.None
+      return
+    }
+
+    val clickOnExpiry = type != PointerType.Mouse && TapFamily.Tap in tapDemand
+    val job =
+      if (clickOnExpiry) {
+        lateinit var launched: Job
+        launched = scope.launch {
+          delay(doubleClickTimeoutMillis)
+          val open = tapWait as? TapWait.Open
+          if (open?.tap?.job == launched) {
+            tapWait = TapWait.None
+            emitTap(TapFamily.Tap, open.tap.sample, open.tap.generation, open.tap.admission)
+          }
+        }
+        launched
+      } else {
+        null
+      }
+
+    tapWait =
+      TapWait.Open(
+        OpenTap(
+          sample,
+          pressInputGeneration,
+          origin,
+          type,
+          timeMillis,
+          clickOnExpiry,
+          job,
+          tapAdmissions[TapFamily.Tap],
+        )
+      )
+  }
+
+  /** Closes [tapWait]. [emitClick] reports a touch first tap that was still waiting. */
+  private fun discardTapWait(emitClick: Boolean) {
+    when (val wait = tapWait) {
+      is TapWait.Open -> {
+        wait.tap.job?.cancel()
+        if (emitClick && wait.tap.clickOnExpiry)
+          emitTap(TapFamily.Tap, wait.tap.sample, wait.tap.generation, wait.tap.admission)
+      }
+      is TapWait.Claimed -> {
+        if (emitClick && wait.tap.clickOnExpiry)
+          emitTap(TapFamily.Tap, wait.tap.sample, wait.tap.generation, wait.tap.admission)
+      }
+      TapWait.None -> Unit
+    }
+    tapWait = TapWait.None
+  }
+
+  private fun slopPx(): Float =
+    if (pressedType == PointerType.Mouse) clickSlopPx else doubleTapSlopPx
+
+  private fun dragSlopPx(): Float = if (pressedType == PointerType.Mouse) clickSlopPx else panSlopPx
+
+  private fun finishSingleVelocity(binding: SelectedDrag?) {
+    if (binding == null || !gestureInProgress) return
+    val velocity = singleVelocity.calculateVelocity()
+    when (binding) {
+      is SelectedDrag.Camera ->
+        when (binding.response) {
+          DragResponse.Pan -> {
+            val tuning = options.camera.pan.momentum.takeIf { it.enabled } ?: return
+            val fling =
+              GestureMath.fling(
+                (velocity.x / density.density).toDouble(),
+                (velocity.y / density.density).toDouble(),
+                tuning,
+              ) ?: return
+            animateFling(fling)
+          }
+          DragResponse.RotateTilt -> {
+            if (!options.camera.tilt.enabled) return
+            val tuning = options.camera.tilt.momentum.takeIf { it.enabled } ?: return
+            val response =
+              GestureMath.tiltVelocity(
+                velocity.y / density.density * options.bindings.drag.rotateTilt.pitchDegreesPerDp,
+                tuning,
+              ) ?: return
+            animateTiltVelocity(response)
+          }
+          else -> Unit
+        }
+      SelectedDrag.TapDrag -> {
+        val tuning = options.bindings.tapDrag.momentum.takeIf { it.enabled } ?: return
+        val direction =
+          if (options.bindings.tapDrag.direction == QuickZoomDirection.DownZoomsIn) 1 else -1
+        val velocityResponse =
+          GestureMath.scaleVelocity(
+            velocity.x.toDouble(),
+            velocity.y.toDouble(),
+            lastQuickZoomSpanDeltaPixels,
+            density.density.toDouble(),
+            scalingOut = velocity.y * direction < 0f,
+            continuation = tuning,
+          ) ?: return
+        animateScaleVelocity(velocityResponse, dragSample?.let(::dragAnchor))
+      }
+      is SelectedDrag.Custom -> Unit
+    }
+  }
+
+  private fun finishPairVelocity(velocity: PairContinuation) {
+    velocity.pan?.let(::animateFling)
+    velocity.scale?.let { animateScaleVelocity(it, velocity.scaleAnchor) }
+    velocity.rotation?.let { animateRotationVelocity(it, velocity.rotationAnchor) }
+    velocity.tilt?.let(::animateTiltVelocity)
+  }
+
+  /** Interpolates absolute zoom with a decelerate curve. */
+  private fun animateScaleVelocity(
+    velocity: GestureMath.ScaleVelocity,
+    anchor: DpOffset?,
+  ) {
+    val token = gestureToken
+    continuation.launchScale(cameraSession?.scope ?: scope) {
+      animateDecelerating(velocity.duration) { frameFraction ->
+        val frameZoomDelta = velocity.zoomDelta * frameFraction
+        if (frameZoomDelta != 0.0) {
+          target.inputScaleBy(zoomLevelsToScale(frameZoomDelta), anchor, gestureToken = token)
+        }
+      }
+    }
+  }
+
+  private fun animateFling(fling: GestureMath.Fling) {
+    val token = gestureToken
+    continuation.launchFling(cameraSession?.scope ?: scope) {
+      animateDecelerating(fling.duration) { frameFraction ->
+        val deltaX = fling.offsetXDp * frameFraction
+        val deltaY = fling.offsetYDp * frameFraction
+        GestureMath.forEachScreenSpaceStep(deltaX, deltaY) { stepX, stepY ->
+          target.inputPanBy(stepX, stepY, gestureToken = token)
+        }
+      }
+    }
+  }
+
+  private fun animateTiltVelocity(velocity: GestureMath.TiltVelocity) {
+    val token = gestureToken
+    continuation.launchRotation(cameraSession?.scope ?: scope) {
+      animateDecelerating(velocity.duration) { fraction ->
+        target.inputRotateAndPitchBy(0.0, velocity.pitchDelta * fraction, gestureToken = token)
+      }
+    }
+  }
+
+  /** Remaining motion falls as `(1 - t)^2`. */
+  private suspend fun animateDecelerating(
+    duration: Duration,
+    apply: (frameFraction: Double) -> Unit,
+  ) {
+    val durationNanos = duration.inWholeNanoseconds.coerceAtLeast(1L)
+    val startedAt = withFrameNanos { it }
+    var previousEasedProgress = 0.0
+    do {
+      val now = withFrameNanos { it }
+      val progress = ((now - startedAt).toDouble() / durationNanos).coerceIn(0.0, 1.0)
+      val easedProgress = 1.0 - (1.0 - progress).pow(2.0)
+      val frameFraction = easedProgress - previousEasedProgress
+      if (frameFraction != 0.0) apply(frameFraction)
+      previousEasedProgress = easedProgress
+    } while (progress < 1.0)
+  }
+
+  private fun animateRotationVelocity(
+    velocity: GestureMath.RotationVelocity,
+    anchor: DpOffset?,
+  ) {
+    val token = gestureToken
+    continuation.launchRotation(cameraSession?.scope ?: scope) {
+      val durationNanos = velocity.duration.inWholeNanoseconds.coerceAtLeast(1L)
+      val startedAt = withFrameNanos { it }
+      do {
+        val now = withFrameNanos { it }
+        val progress = ((now - startedAt).toDouble() / durationNanos).coerceIn(0.0, 1.0)
+        // Remaining motion falls as (1 - t)^2.
+        val frameDelta = velocity.initialDegreesPerFrame * (1.0 - progress).pow(2.0)
+        if (frameDelta != 0.0) {
+          target.inputRotateAndPitchBy(frameDelta, 0.0, anchor = anchor, gestureToken = token)
+        }
+      } while (progress < 1.0)
+    }
+  }
+
+  private fun endDrag() {
+    cancelLongClick()
+    val token = gestureToken ?: return
+    gestureToken = null
+    if (continuation.hasMotionJobs()) {
+      // Camera continuations finish when their frame work or awaited engine transition ends.
+      continuation.finishWhenMotionJobsComplete(scope, token, ::completeCameraSession)
+    } else {
+      completeCameraSession(token)
+    }
+  }
+
+  private fun completeCameraSession(token: CameraInputToken) {
+    val session = cameraSession
+    if (session?.token === token) session.end() else target.onGestureEnded(token)
+  }
+
+  private fun cancelCameraSession() {
+    val previous = cameraSession
+    cameraSession = null
+    previous?.cancel()
+  }
+
+  private fun beginGesture(
+    origin: CameraInputOrigin =
+      if (selectedDrag == SelectedDrag.TapDrag) CameraInputOrigin.TapDrag
+      else CameraInputOrigin.Drag
+  ) {
+    cancelLongClick()
+    if (gestureInProgress) {
+      gestureToken?.origin = origin
+      return
+    }
+
+    lateinit var session: GestureInputSession
+    session =
+      GestureInputSession(scope, target, origin = origin) {
+        if (cameraSession === session) {
+          val contactsRemain = lastSingle != null || pair != null
+          cancel(
+            if (target.isGestureReady) GestureCancellationReason.CameraTakeover
+            else GestureCancellationReason.Detached
+          )
+          suppressedUntilRelease = contactsRemain
+        }
+      }
+    cameraSession = session
+    gestureToken = session.token
+  }
+
+  fun cancel(reason: GestureCancellationReason = GestureCancellationReason.InputCancelled) {
+    try {
+      try {
+        cancelDrag(reason)
+      } finally {
+        pair?.cancel(reason)
+      }
+    } finally {
+      boxZoom.clear()
+      cancelLongClick()
+      longClickHandled = false
+      deferredTwoFingerVelocity = null
+      discardTapWait(emitClick = false)
+      pressRole = PressRole.First
+      cancelCameraSession()
+      gestureToken = null
+      lastSingle = null
+      singleDragOrigin = null
+      dragRecognition = null
+      singleVelocity.resetTracking()
+      twoFingerTap = null
+      pair = null
+      contactOrder.clear()
+      clickOrigin = null
+      quickZoomCandidate = false
+      selectedDrag = null
+      dragSample = null
+    }
+  }
+
+  private fun cancelLongClick() {
+    longClickJob?.cancel()
+    longClickJob = null
+  }
+
+  /**
+   * Pairing window after a first tap. The delayed-click job lives only in [Open]. [Claimed] is a
+   * valid second down; that job is already gone.
+   */
+  private sealed class TapWait {
+    data object None : TapWait()
+
+    data class Open(val tap: OpenTap) : TapWait()
+
+    data class Claimed(val tap: OpenTap) : TapWait()
+  }
+
+  /**
+   * The first tap [TapWait] is pairing.
+   *
+   * [clickOnExpiry] is a touch tap that waited for a second tap. A mouse click already reported on
+   * the first up, so expiry only closes the window.
+   */
+  private data class OpenTap(
+    val sample: GesturePointerSample,
+    val generation: Long,
+    val origin: Offset,
+    val type: PointerType,
+    val upAt: Long,
+    val clickOnExpiry: Boolean,
+    val job: Job?,
+    val admission: TapAdmission?,
+  )
+
+  private enum class PressRole {
+    First,
+    Bounce,
+    Paired,
+  }
+
+  private data class TwoFingerTapCandidate(
+    val startedAtMillis: Long,
+    val firstId: PointerId,
+    val secondId: PointerId,
+    val firstOrigin: Offset,
+    val secondOrigin: Offset,
+    val pointerTypes: Set<PointerType>,
+    var firstCurrent: Offset = firstOrigin,
+    var secondCurrent: Offset = secondOrigin,
+  ) {
+    val centroid: Offset
+      get() = (firstCurrent + secondCurrent) / 2f
+
+    fun update(event: PointerEvent, slopPixels: Float): Boolean {
+      val now = event.changes.maxOfOrNull { it.uptimeMillis } ?: startedAtMillis
+      if (now - startedAtMillis > GestureMath.TWO_FINGER_TAP_TIMEOUT_MILLIS) {
+        return false
+      }
+      event.changes.forEach { change ->
+        when (change.id) {
+          firstId -> firstCurrent = change.position
+          secondId -> secondCurrent = change.position
+        }
+      }
+      return (firstCurrent - firstOrigin).getDistance() <= slopPixels &&
+        (secondCurrent - secondOrigin).getDistance() <= slopPixels
+    }
+
+    fun isComplete(event: PointerEvent): Boolean =
+      event.changes.none { it.pressed } &&
+        (event.changes.maxOfOrNull { it.uptimeMillis } ?: startedAtMillis) - startedAtMillis <=
+          GestureMath.TWO_FINGER_TAP_TIMEOUT_MILLIS
+  }
+}
+
+/** A second down that is too soon and still on the first tap is a bounce. */
+internal fun isBounceSecondTap(
+  elapsedMillis: Long,
+  distancePx: Float,
+  samePointerType: Boolean,
+  minTimeMillis: Long,
+  slopPx: Float,
+): Boolean = samePointerType && elapsedMillis < minTimeMillis && distancePx <= slopPx
+
+/**
+ * Compose's tap detector pairs a second down to the previous up when the elapsed time is at least
+ * [minTimeMillis] and at most [timeoutMillis]. Touch pairing also keeps the two downs within
+ * Android's double-tap slop.
+ */
+internal fun isPairedSecondTap(
+  elapsedMillis: Long,
+  distancePx: Float,
+  samePointerType: Boolean,
+  minTimeMillis: Long,
+  timeoutMillis: Long,
+  slopPx: Float,
+): Boolean =
+  samePointerType &&
+    elapsedMillis >= minTimeMillis &&
+    elapsedMillis <= timeoutMillis &&
+    distancePx <= slopPx

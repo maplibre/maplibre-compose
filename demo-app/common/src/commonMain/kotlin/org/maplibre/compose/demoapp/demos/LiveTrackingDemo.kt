@@ -22,10 +22,10 @@ import org.maplibre.compose.demoapp.DemoPointerPin
 import org.maplibre.compose.demoapp.center
 import org.maplibre.compose.demoapp.design.SwitchRow
 import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.map.LocalMapState
-import org.maplibre.compose.map.MapInteractions
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource

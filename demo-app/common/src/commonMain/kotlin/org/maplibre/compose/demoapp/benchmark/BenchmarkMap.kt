@@ -35,8 +35,8 @@ import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.MapViewportInsets
+import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.map.MapEvent
-import org.maplibre.compose.map.MapInteractions
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.RenderOptions

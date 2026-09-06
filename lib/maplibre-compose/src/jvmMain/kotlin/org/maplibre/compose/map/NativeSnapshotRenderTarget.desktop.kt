@@ -9,6 +9,7 @@ import org.lwjgl.system.macosx.DynamicLinkLoader.dlopen
 import org.lwjgl.system.macosx.DynamicLinkLoader.dlsym
 import org.maplibre.compose.desktop.bridge.DesktopVulkanContext
 import org.maplibre.compose.desktop.bridge.ObjectiveC
+import org.maplibre.compose.interaction.internal.select
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.VulkanContextHandles
 import org.maplibre.nativeffi.map.MapHandle

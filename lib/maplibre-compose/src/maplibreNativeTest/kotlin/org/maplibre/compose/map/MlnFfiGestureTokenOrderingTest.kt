@@ -13,6 +13,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.withCameraInput
 import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.MapTestResult

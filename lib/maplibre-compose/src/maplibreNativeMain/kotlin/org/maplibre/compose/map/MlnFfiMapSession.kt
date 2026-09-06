@@ -24,6 +24,11 @@ import kotlinx.io.files.Path
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
+import org.maplibre.compose.camera.internal.BoxZoomFit
+import org.maplibre.compose.camera.internal.CameraCommandGuard
+import org.maplibre.compose.camera.internal.CameraInputTarget
+import org.maplibre.compose.camera.internal.CameraInputToken
+import org.maplibre.compose.camera.internal.boxZoomFit
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.logging.MapLog
@@ -153,7 +158,7 @@ internal class MlnFfiMapSession(
   private val cacheFile: Path,
   private val resourceProviderFactory: MlnFfiResourceProviderFactory = ::MlnFfiResourceProvider,
   private val resourceConfig: MapResourceConfig = MapResourceConfig(),
-) : MapLifecycleSession, MlnFfiMapRenderer, GestureTarget {
+) : MapLifecycleSession, MlnFfiMapRenderer, CameraInputTarget {
 
   @Volatile internal var callbacks: MapAdapter.Callbacks = callbacks
   @Volatile internal var durableCallbacks: MapAdapter.Callbacks = EmptyMapAdapterCallbacks
@@ -233,9 +238,9 @@ internal class MlnFfiMapSession(
   private var appliedStyleRequest: StyleRequestId? = null
 
   /** Gesture attribution is owner-thread state; input threads communicate only through tokens. */
-  private val gestureFences = mutableListOf<GestureToken>()
-  private var activeGestureToken: GestureToken? = null
-  private var pendingGestureEndToken: GestureToken? = null
+  private val gestureFences = mutableListOf<CameraInputToken>()
+  private var activeGestureToken: CameraInputToken? = null
+  private var pendingGestureEndToken: CameraInputToken? = null
 
   @Volatile private var styleBinding: MlnFfiStyleBinding? = null
   private val styleReconciler = StyleReconciler()
@@ -1327,7 +1332,7 @@ internal class MlnFfiMapSession(
   /** Resumes normally however the transition ended. */
   private suspend fun startTransitionAwaitingRelease(
     duration: Duration,
-    gestureToken: GestureToken? = null,
+    gestureToken: CameraInputToken? = null,
     guard: CameraCommandGuard? = null,
     start: (MapHandle, AnimationOptions) -> Unit,
   ): Unit = suspendCancellableCoroutine { continuation ->
@@ -1549,7 +1554,7 @@ internal class MlnFfiMapSession(
   override suspend fun fitBoundsAwaitingTransition(
     fit: BoxZoomFit,
     duration: Duration,
-    gestureToken: GestureToken,
+    gestureToken: CameraInputToken,
   ) {
     if (!acceptsGestures) return
     startTransitionAwaitingRelease(duration, gestureToken = gestureToken) { map, animation ->
@@ -1651,20 +1656,20 @@ internal class MlnFfiMapSession(
   override val inputGeneration: Long
     get() = lifecycleAuthority.gestureCamera.generation
 
-  override fun onGestureStartedIfCurrent(generation: Long): GestureToken? =
+  override fun onGestureStartedIfCurrent(generation: Long): CameraInputToken? =
     lifecycleAuthority.gestureCamera.acquireIfCurrent(this, generation)
 
-  override fun onGestureStarted(): GestureToken = lifecycleAuthority.gestureCamera.acquire(this)
+  override fun onGestureStarted(): CameraInputToken = lifecycleAuthority.gestureCamera.acquire(this)
 
-  override fun onGestureEnded(token: GestureToken) = finishGesture(token, cancelled = false)
+  override fun onGestureEnded(token: CameraInputToken) = finishGesture(token, cancelled = false)
 
-  override fun cancelGesture(token: GestureToken) = finishGesture(token, cancelled = true)
+  override fun cancelGesture(token: CameraInputToken) = finishGesture(token, cancelled = true)
 
-  override suspend fun awaitGestureEnded(token: GestureToken) {
+  override suspend fun awaitGestureEnded(token: CameraInputToken) {
     token.completion.await()
   }
 
-  private fun finishGesture(token: GestureToken, cancelled: Boolean) {
+  private fun finishGesture(token: CameraInputToken, cancelled: Boolean) {
     token.finish(cancelled) {
       val accepted =
         loop?.postAndDrainEvents(
@@ -1687,7 +1692,7 @@ internal class MlnFfiMapSession(
    * Owner thread only. Reports on every camera command, because a report made before the lease
    * attaches is dropped.
    */
-  private fun activateGesture(map: MapHandle, token: GestureToken) {
+  private fun activateGesture(map: MapHandle, token: CameraInputToken) {
     val active = activeGestureToken
     if (!token.canExecute) return
     if (active != token) {
@@ -1742,7 +1747,7 @@ internal class MlnFfiMapSession(
   private val acceptsGestures: Boolean
     get() = canPresentFrames
 
-  private fun onMap(gestureToken: GestureToken?, action: (MapHandle) -> Unit) {
+  private fun onMap(gestureToken: CameraInputToken?, action: (MapHandle) -> Unit) {
     if (!acceptsGestures) return
     val enqueue = {
       onMap { map ->
@@ -1760,7 +1765,7 @@ internal class MlnFfiMapSession(
     deltaX: Double,
     deltaY: Double,
     duration: Duration,
-    gestureToken: GestureToken?,
+    gestureToken: CameraInputToken?,
   ) {
     onMap(gestureToken) { map ->
       if (duration == Duration.ZERO) map.moveBy(deltaX, deltaY)
@@ -1772,7 +1777,7 @@ internal class MlnFfiMapSession(
     deltaX: Double,
     deltaY: Double,
     duration: Duration,
-    gestureToken: GestureToken,
+    gestureToken: CameraInputToken,
   ) {
     if (!acceptsGestures) return
     startTransitionAwaitingRelease(duration, gestureToken = gestureToken) { map, animation ->
@@ -1784,7 +1789,7 @@ internal class MlnFfiMapSession(
     scale: Double,
     anchor: DpOffset?,
     duration: Duration,
-    gestureToken: GestureToken?,
+    gestureToken: CameraInputToken?,
   ) {
     onMap(gestureToken) { map ->
       val point = anchor?.toScreenPoint()
@@ -1797,7 +1802,7 @@ internal class MlnFfiMapSession(
     scale: Double,
     anchor: DpOffset?,
     duration: Duration,
-    gestureToken: GestureToken,
+    gestureToken: CameraInputToken,
   ) {
     if (!acceptsGestures) return
     startTransitionAwaitingRelease(duration, gestureToken = gestureToken) { map, animation ->
@@ -1817,7 +1822,7 @@ internal class MlnFfiMapSession(
     pitchDelta: Double,
     duration: Duration,
     anchor: DpOffset?,
-    gestureToken: GestureToken?,
+    gestureToken: CameraInputToken?,
   ) {
     // The read and the write must happen together on the owner thread.
     onMap(gestureToken) { map ->
@@ -1838,7 +1843,7 @@ internal class MlnFfiMapSession(
     bearingDelta: Double,
     pitchDelta: Double,
     duration: Duration,
-    gestureToken: GestureToken,
+    gestureToken: CameraInputToken,
     anchor: DpOffset?,
   ) {
     if (!acceptsGestures) return

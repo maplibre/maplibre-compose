@@ -20,7 +20,6 @@ import org.maplibre.compose.expressions.value.TranslateAnchor
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceReferenceEffect
 import org.maplibre.compose.style.TransitionOptions
-import org.maplibre.compose.util.FeaturesClickHandler
 import org.maplibre.compose.util.MaplibreComposable
 
 /**
@@ -77,9 +76,8 @@ import org.maplibre.compose.util.MaplibreComposable
  * @param pitchScale Scaling behavior of circles when the map is pitched.
  * @param pitchAlignment Orientation of circles when the map is pitched.
  * @param onClick Function to call when any feature in this layer has been clicked.
- * @param onContextClick Function to call when any feature in this layer has been context-clicked.
+ * @param onLongClick Called for a touch long press or secondary mouse click on this layer.
  * @param onDoubleClick Called for a double tap or double click on this layer.
- * @param onTwoFingerClick Called for a two-contact tap on this layer.
  * @param hitPadding Expands tap queries to a square of this radius in dp; zero uses a point.
  */
 @Composable
@@ -113,9 +111,8 @@ public fun CircleLayer(
   pitchScale: Expression<CirclePitchScale> = const(CirclePitchScale.Map),
   pitchAlignment: Expression<CirclePitchAlignment> = const(CirclePitchAlignment.Viewport),
   onClick: FeaturesClickHandler? = null,
-  onContextClick: FeaturesClickHandler? = null,
+  onLongClick: FeaturesClickHandler? = null,
   onDoubleClick: FeaturesClickHandler? = null,
-  onTwoFingerClick: FeaturesClickHandler? = null,
   hitPadding: Dp = 0.dp,
 ) {
   val compile = rememberPropertyCompiler()
@@ -166,9 +163,8 @@ public fun CircleLayer(
       set(strokeOpacityTransition) { layer.setCircleStrokeOpacityTransition(it) }
     },
     onClick = onClick,
-    onContextClick = onContextClick,
+    onLongClick = onLongClick,
     onDoubleClick = onDoubleClick,
-    onTwoFingerClick = onTwoFingerClick,
     hitPadding = hitPadding,
   )
 }

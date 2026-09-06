@@ -21,6 +21,10 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
+import org.maplibre.compose.camera.internal.BoxZoomFit
+import org.maplibre.compose.camera.internal.CameraCommandGuard
+import org.maplibre.compose.camera.internal.CameraInputTarget
+import org.maplibre.compose.camera.internal.CameraInputToken
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.gljs.CameraForBoundsOptions
@@ -94,7 +98,7 @@ internal class GlJsMapSession(
   internal var logger: MapLog?,
   internal var layoutDirection: LayoutDirection,
   private val requests: GlJsRequestController? = null,
-) : MapLifecycleSession, GlJsMapRenderer, GestureTarget {
+) : MapLifecycleSession, GlJsMapRenderer, CameraInputTarget {
 
   init {
     createdCount += 1
@@ -317,7 +321,7 @@ internal class GlJsMapSession(
     val options =
       unsafeJso<MapOptions> {
         this.container = host
-        // Gestures arrive through GestureTarget below.
+        // Gestures arrive through CameraInputTarget below.
         interactive = false
         attributionControl = false
         maplibreLogo = false
@@ -1013,7 +1017,7 @@ internal class GlJsMapSession(
    * finished it or a later command took it over.
    */
   private suspend fun awaitCameraRelease(
-    gestureToken: GestureToken? = null,
+    gestureToken: CameraInputToken? = null,
     guard: CameraCommandGuard? = null,
     start: (MaplibreMap) -> Unit,
   ) = suspendCancellableCoroutine { continuation ->
@@ -1084,7 +1088,7 @@ internal class GlJsMapSession(
 
   // region input, called from Compose
 
-  private var activeGestureToken: GestureToken? = null
+  private var activeGestureToken: CameraInputToken? = null
 
   override val isGestureReady: Boolean
     get() = canPresentFrames && hasUsableViewport && lifecycle.acceptsWork && map != null
@@ -1094,20 +1098,20 @@ internal class GlJsMapSession(
   override val inputGeneration: Long
     get() = lifecycleAuthority.gestureCamera.generation
 
-  override fun onGestureStartedIfCurrent(generation: Long): GestureToken? =
+  override fun onGestureStartedIfCurrent(generation: Long): CameraInputToken? =
     lifecycleAuthority.gestureCamera.acquireIfCurrent(this, generation)
 
-  override fun onGestureStarted(): GestureToken = lifecycleAuthority.gestureCamera.acquire(this)
+  override fun onGestureStarted(): CameraInputToken = lifecycleAuthority.gestureCamera.acquire(this)
 
-  override fun onGestureEnded(token: GestureToken) = finishGesture(token, cancelled = false)
+  override fun onGestureEnded(token: CameraInputToken) = finishGesture(token, cancelled = false)
 
-  override fun cancelGesture(token: GestureToken) = finishGesture(token, cancelled = true)
+  override fun cancelGesture(token: CameraInputToken) = finishGesture(token, cancelled = true)
 
-  override suspend fun awaitGestureEnded(token: GestureToken) {
+  override suspend fun awaitGestureEnded(token: CameraInputToken) {
     token.completion.await()
   }
 
-  private fun finishGesture(token: GestureToken, cancelled: Boolean) {
+  private fun finishGesture(token: CameraInputToken, cancelled: Boolean) {
     token.finish(cancelled) {
       if (activeGestureToken === token) {
         if (token.isCancelled) map?.stop()
@@ -1121,7 +1125,7 @@ internal class GlJsMapSession(
   }
 
   /** Reports on each command, after checking authority at execution. */
-  private fun activateGesture(token: GestureToken?) {
+  private fun activateGesture(token: CameraInputToken?) {
     if (token == null || !token.canExecute) return
     if (activeGestureToken !== token) {
       map?.stop()
@@ -1131,7 +1135,7 @@ internal class GlJsMapSession(
     reportGestureActive(true)
   }
 
-  private fun onGestureMap(token: GestureToken?, action: (MaplibreMap) -> Unit) {
+  private fun onGestureMap(token: CameraInputToken?, action: (MaplibreMap) -> Unit) {
     if (!isGestureReady) return
     val enqueue = {
       onMap { map ->
@@ -1154,7 +1158,7 @@ internal class GlJsMapSession(
     deltaX: Double,
     deltaY: Double,
     duration: Duration,
-    gestureToken: GestureToken?,
+    gestureToken: CameraInputToken?,
   ) {
     onGestureMap(gestureToken) { map -> map.panBy(panOffset(deltaX, deltaY), animation(duration)) }
   }
@@ -1163,7 +1167,7 @@ internal class GlJsMapSession(
     deltaX: Double,
     deltaY: Double,
     duration: Duration,
-    gestureToken: GestureToken,
+    gestureToken: CameraInputToken,
   ) {
     awaitCameraRelease(gestureToken = gestureToken) { map ->
       map.panBy(panOffset(deltaX, deltaY), animation(duration))
@@ -1180,7 +1184,7 @@ internal class GlJsMapSession(
     scale: Double,
     anchor: DpOffset?,
     duration: Duration,
-    gestureToken: GestureToken?,
+    gestureToken: CameraInputToken?,
   ) {
     onGestureMap(gestureToken) { map -> map.easeTo(zoomOptions(map, scale, anchor, duration)) }
   }
@@ -1189,7 +1193,7 @@ internal class GlJsMapSession(
     scale: Double,
     anchor: DpOffset?,
     duration: Duration,
-    gestureToken: GestureToken,
+    gestureToken: CameraInputToken,
   ) {
     awaitCameraRelease(gestureToken = gestureToken) { map ->
       map.easeTo(zoomOptions(map, scale, anchor, duration))
@@ -1199,7 +1203,7 @@ internal class GlJsMapSession(
   override suspend fun fitBoundsAwaitingTransition(
     fit: BoxZoomFit,
     duration: Duration,
-    gestureToken: GestureToken,
+    gestureToken: CameraInputToken,
   ) {
     awaitCameraRelease(gestureToken = gestureToken) { map ->
       map.cameraPositionForBounds(fit.bounds, fit.bearing, fit.tilt, PaddingValues())?.let {
@@ -1227,7 +1231,7 @@ internal class GlJsMapSession(
     pitchDelta: Double,
     duration: Duration,
     anchor: DpOffset?,
-    gestureToken: GestureToken?,
+    gestureToken: CameraInputToken?,
   ) {
     onGestureMap(gestureToken) { map ->
       map.easeTo(rotateOptions(map, bearingDelta, pitchDelta, anchor, duration))
@@ -1238,7 +1242,7 @@ internal class GlJsMapSession(
     bearingDelta: Double,
     pitchDelta: Double,
     duration: Duration,
-    gestureToken: GestureToken,
+    gestureToken: CameraInputToken,
     anchor: DpOffset?,
   ) {
     awaitCameraRelease(gestureToken = gestureToken) { map ->

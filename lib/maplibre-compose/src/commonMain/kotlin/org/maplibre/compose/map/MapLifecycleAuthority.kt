@@ -17,6 +17,7 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import org.maplibre.compose.camera.internal.CameraInputAuthority
 
 /** Identifies one platform engine-map instance until its destruction. */
 @JvmInline internal value class EngineMapIdentity(private val value: Long)
@@ -72,7 +73,7 @@ internal class MapLifecycleAuthority(
   private val owner: MapState,
   private val physicalScope: CoroutineScope,
 ) {
-  internal val gestureCamera: GestureCameraAuthority
+  internal val gestureCamera: CameraInputAuthority
     get() = owner.gestureAuthority
 
   private val lock = reentrantLock()

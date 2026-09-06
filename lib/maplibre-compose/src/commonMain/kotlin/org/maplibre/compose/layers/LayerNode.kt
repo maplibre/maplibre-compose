@@ -10,7 +10,6 @@ import androidx.compose.ui.unit.dp
 import org.maplibre.compose.style.LayerNode
 import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.MapNodeApplier
-import org.maplibre.compose.util.FeaturesClickHandler
 import org.maplibre.compose.util.MaplibreComposable
 
 /** [recreateKey] replaces the desired layer node when a construction key changes. */
@@ -20,10 +19,9 @@ internal fun <T : Layer> LayerNode(
   factory: () -> T,
   update: Updater<LayerNode<T>>.() -> Unit,
   onClick: FeaturesClickHandler?,
-  onContextClick: FeaturesClickHandler?,
+  onLongClick: FeaturesClickHandler?,
   recreateKey: Any? = Unit,
   onDoubleClick: FeaturesClickHandler? = null,
-  onTwoFingerClick: FeaturesClickHandler? = null,
   hitPadding: Dp = 0.dp,
 ) {
   require(hitPadding.value.isFinite() && hitPadding.value >= 0f) {
@@ -38,9 +36,8 @@ internal fun <T : Layer> LayerNode(
       update = {
         update()
         set(onClick) { this.onClick = it }
-        set(onContextClick) { this.onContextClick = it }
+        set(onLongClick) { this.onLongClick = it }
         set(onDoubleClick) { this.onDoubleClick = it }
-        set(onTwoFingerClick) { this.onTwoFingerClick = it }
         set(hitPadding) { this.hitPadding = it }
       },
     )

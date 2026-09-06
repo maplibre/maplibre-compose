@@ -47,7 +47,7 @@ import org.maplibre.compose.demoapp.design.SectionHeader
 import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.demoapp.design.SliderRow
 import org.maplibre.compose.demoapp.design.SwitchRow
-import org.maplibre.compose.map.MapInteractions
+import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.map.rememberMapState

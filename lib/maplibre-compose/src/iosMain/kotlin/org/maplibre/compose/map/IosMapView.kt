@@ -3,6 +3,9 @@ package org.maplibre.compose.map
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import org.maplibre.compose.interaction.internal.ClickPath
+import org.maplibre.compose.interaction.internal.InteractionSubscriptions
+import org.maplibre.compose.interaction.internal.TapFamily
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.IosMlnFfiSurface
 import org.maplibre.compose.mlnffi.MapRenderBackend
@@ -19,7 +22,7 @@ internal actual fun ComposableMapView(
   onReset: () -> Unit,
   logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
-  captureClickPath: (TapFamily) -> MapClickPath?,
+  captureClickPath: (TapFamily) -> ClickPath?,
   subscriptions: InteractionSubscriptions,
   options: MapViewOptions,
 ) {

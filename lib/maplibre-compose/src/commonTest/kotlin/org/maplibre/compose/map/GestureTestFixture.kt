@@ -3,8 +3,14 @@ package org.maplibre.compose.map
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.DpOffset
 import kotlin.time.Duration
+import org.maplibre.compose.camera.internal.BoxZoomFit
+import org.maplibre.compose.camera.internal.CameraInputTarget
+import org.maplibre.compose.camera.internal.CameraInputToken
+import org.maplibre.compose.interaction.ClickResult
+import org.maplibre.compose.interaction.MapInteractions
+import org.maplibre.compose.interaction.internal.ClickPath
+import org.maplibre.compose.interaction.internal.TapFamily
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.util.ClickResult
 import org.maplibre.spatialk.geojson.Position
 
 /** Records input responses while using the production attachment and camera authority. */
@@ -24,7 +30,7 @@ internal class GestureTestFixture : AutoCloseable {
 internal class RecordingGestureTarget(
   private val state: MapState,
   private val deferred: Boolean = false,
-) : PresentationTestAdapter(), GestureTarget {
+) : PresentationTestAdapter(), CameraInputTarget {
   var startedCount = 0
     private set
 
@@ -59,17 +65,17 @@ internal class RecordingGestureTarget(
   override val inputGeneration: Long
     get() = state.gestureAuthority.generation
 
-  override fun onGestureStartedIfCurrent(generation: Long): GestureToken? =
+  override fun onGestureStartedIfCurrent(generation: Long): CameraInputToken? =
     state.gestureAuthority.acquireIfCurrent(this, generation)?.also { startedCount++ }
 
-  override fun onGestureStarted(): GestureToken =
+  override fun onGestureStarted(): CameraInputToken =
     state.gestureAuthority.acquire(this).also { startedCount++ }
 
-  override fun onGestureEnded(token: GestureToken) = finish(token, cancelled = false)
+  override fun onGestureEnded(token: CameraInputToken) = finish(token, cancelled = false)
 
-  override fun cancelGesture(token: GestureToken) = finish(token, cancelled = true)
+  override fun cancelGesture(token: CameraInputToken) = finish(token, cancelled = true)
 
-  private fun finish(token: GestureToken, cancelled: Boolean) {
+  private fun finish(token: CameraInputToken, cancelled: Boolean) {
     token.finish(cancelled) {
       execute {
         endedCount++
@@ -78,13 +84,13 @@ internal class RecordingGestureTarget(
     }
   }
 
-  override suspend fun awaitGestureEnded(token: GestureToken) = token.completion.await()
+  override suspend fun awaitGestureEnded(token: CameraInputToken) = token.completion.await()
 
   private fun execute(action: () -> Unit) {
     if (deferred) pending.add(action) else action()
   }
 
-  private fun command(token: GestureToken?, action: () -> Unit) {
+  private fun command(token: CameraInputToken?, action: () -> Unit) {
     checkNotNull(token).enqueue { execute { if (token.canExecute) action() } }
   }
 
@@ -96,14 +102,14 @@ internal class RecordingGestureTarget(
     deltaX: Double,
     deltaY: Double,
     duration: Duration,
-    gestureToken: GestureToken?,
+    gestureToken: CameraInputToken?,
   ) = command(gestureToken) { moveCalls += Offset(deltaX.toFloat(), deltaY.toFloat()) }
 
   override fun scaleBy(
     scale: Double,
     anchor: DpOffset?,
     duration: Duration,
-    gestureToken: GestureToken?,
+    gestureToken: CameraInputToken?,
   ) = command(gestureToken) { scaleCalls += ScaleCall(scale, anchor) }
 
   override fun rotateAndPitchBy(
@@ -111,34 +117,34 @@ internal class RecordingGestureTarget(
     pitchDelta: Double,
     duration: Duration,
     anchor: DpOffset?,
-    gestureToken: GestureToken?,
+    gestureToken: CameraInputToken?,
   ) = command(gestureToken) { rotateCalls += RotateCall(bearingDelta, pitchDelta, anchor) }
 
   override suspend fun fitBoundsAwaitingTransition(
     fit: BoxZoomFit,
     duration: Duration,
-    gestureToken: GestureToken,
+    gestureToken: CameraInputToken,
   ) = command(gestureToken) { fitCalls += fit to duration }
 
   override suspend fun moveByAwaitingTransition(
     deltaX: Double,
     deltaY: Double,
     duration: Duration,
-    gestureToken: GestureToken,
+    gestureToken: CameraInputToken,
   ) = moveBy(deltaX, deltaY, duration, gestureToken)
 
   override suspend fun scaleByAwaitingTransition(
     scale: Double,
     anchor: DpOffset?,
     duration: Duration,
-    gestureToken: GestureToken,
+    gestureToken: CameraInputToken,
   ) = scaleBy(scale, anchor, duration, gestureToken)
 
   override suspend fun rotateAndPitchByAwaitingTransition(
     bearingDelta: Double,
     pitchDelta: Double,
     duration: Duration,
-    gestureToken: GestureToken,
+    gestureToken: CameraInputToken,
     anchor: DpOffset?,
   ) = rotateAndPitchBy(bearingDelta, pitchDelta, duration, anchor, gestureToken)
 
@@ -147,8 +153,8 @@ internal class RecordingGestureTarget(
   var clicks = 0
   var longClicks = 0
 
-  fun capture(family: TapFamily): MapClickPath =
-    MapClickPath({ !state.isClosed }, family in clickFamilies) {
+  fun capture(family: TapFamily): ClickPath =
+    ClickPath({ !state.isClosed }, family in clickFamilies) {
       deliveredTapFamilies += family
       when (family) {
         TapFamily.Tap -> clicks++

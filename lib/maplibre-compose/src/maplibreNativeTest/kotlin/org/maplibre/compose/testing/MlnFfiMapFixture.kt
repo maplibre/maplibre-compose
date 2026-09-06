@@ -4,7 +4,7 @@ import kotlin.time.Duration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.map.GestureTarget
+import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
@@ -30,7 +30,7 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent
   override val session: MapAdapter
     get() = bridge.session
 
-  override val gestures: GestureTarget
+  override val gestures: CameraInputTarget
     get() = bridge.session
 
   override val style: StyleBinding?
