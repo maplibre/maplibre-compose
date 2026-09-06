@@ -76,8 +76,7 @@ object DragDropDemo : Demo {
 
   private data class DragPreview(
     val handle: Handle,
-    val origin: DpOffset,
-    val displacement: DpOffset,
+    val grabOffset: DpOffset,
     val position: Position,
   )
 
@@ -110,19 +109,14 @@ object DragDropDemo : Demo {
                   val position = position(handle)
                   dragPreview =
                     mapState.screenLocationFromPosition(position)?.let {
-                      DragPreview(handle, it, DpOffset.Zero, position)
+                      DragPreview(handle, it - event.startOffset, position)
                     }
                 }
                 is DragEvent.Delta ->
                   dragPreview?.let { preview ->
-                    val displacement = preview.displacement + event.delta
                     val position =
-                      mapState.positionFromScreenLocation(preview.origin + displacement)
-                    dragPreview =
-                      preview.copy(
-                        displacement = displacement,
-                        position = position ?: preview.position,
-                      )
+                      mapState.positionFromScreenLocation(event.screenOffset + preview.grabOffset)
+                    dragPreview = preview.copy(position = position ?: preview.position)
                   }
                 is DragEvent.End -> {
                   dragPreview?.let { preview ->
