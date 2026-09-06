@@ -1945,17 +1945,52 @@ class MapInputRecognitionTest {
           move(delayMillis = 16)
         }
         up(0)
-        updatePointerBy(1, Offset(80f, 0f))
-        move(delayMillis = 16)
+        repeat(5) {
+          updatePointerBy(1, Offset(80f, 0f))
+          move(delayMillis = 16)
+        }
       }
       waitForIdle()
       assertTrue(target.moveCalls.isNotEmpty(), "remaining contact did not start a pan")
+      val moves = target.moveCalls.size
       val scales = target.scaleCalls.size
       assertTrue(scales > 0)
       map.performTouchInput { up(1) }
       waitForIdle()
       assertTrue(target.scaleCalls.size > scales, "new pan discarded zoom momentum")
+      assertTrue(target.moveCalls.size > moves, "continued pan lost its own momentum")
       assertEquals(1, target.endedCount)
+    }
+  }
+
+  @Test
+  fun a_finger_departing_a_pinch_does_not_become_a_pan_fling() {
+    runRecognitionTest { target ->
+      val map = mapNode()
+      map.performTouchInput {
+        down(0, center - Offset(80f, 0f))
+        down(1, center + Offset(80f, 0f))
+        repeat(6) {
+          updatePointerBy(0, Offset(-24f, 0f))
+          updatePointerBy(1, Offset(24f, 0f))
+          move(delayMillis = 16)
+        }
+        up(0)
+        // A fast departing finger crosses slop during the interval between lifts.
+        updatePointerBy(1, Offset(160f, 0f))
+        move(delayMillis = 8)
+      }
+      waitForIdle()
+      val moves = target.moveCalls.size
+      val scales = target.scaleCalls.size
+      assertTrue(moves > 0, "the remaining contact should still allow direct dragging")
+      map.performTouchInput {
+        advanceEventTime(7)
+        up(1)
+      }
+      waitForIdle()
+      assertEquals(moves, target.moveCalls.size, "departing finger became a pan fling")
+      assertTrue(target.scaleCalls.size > scales, "pinch momentum was discarded")
     }
   }
 

@@ -373,6 +373,39 @@ class PointerPairGestureTest {
   }
 
   @Test
+  fun a_small_sideways_shift_at_the_end_of_a_pinch_does_not_start_rotation() {
+    val input = PairInput(MapInteractions.Standard)
+    for ((index, span) in listOf(150f, 120f, 90f, 60f).withIndex()) {
+      input.move((index + 1) * 16L, Offset(-span, 0f), Offset(span, 0f))
+    }
+    val angle = 20.0 * PI / 180.0
+    val radius = Offset(25f * cos(angle).toFloat(), 25f * sin(angle).toFloat())
+    input.move(80, -radius, radius)
+    assertTrue(input.target.scaleCalls.isNotEmpty())
+    assertTrue(input.target.rotateCalls.isEmpty(), "closing the pinch started rotation")
+    val momentum = assertNotNull(input.pair.end())
+    assertNotNull(momentum.scale)
+    assertNull(momentum.rotation)
+  }
+
+  @Test
+  fun newly_recognized_rotation_does_not_inherit_pre_recognition_velocity() {
+    val input =
+      PairInput(
+        MapInteractions(MapInteractions.None) {
+          bindings { transform { rotate { enabled = true } } }
+        }
+      )
+    for ((index, degrees) in listOf(1.0, 2.0, 20.0).withIndex()) {
+      val angle = degrees * PI / 180.0
+      val radius = Offset(80f * cos(angle).toFloat(), 80f * sin(angle).toFloat())
+      input.move((index + 1) * 16L, -radius, radius)
+    }
+    assertTrue(input.target.rotateCalls.isNotEmpty(), "rotation did not recognize")
+    assertNull(input.pair.end()?.rotation, "recognition alone fabricated a rotational flick")
+  }
+
+  @Test
   fun rotation_momentum_does_not_depend_on_position_on_the_screen() {
     val options =
       MapInteractions(MapInteractions.None) {

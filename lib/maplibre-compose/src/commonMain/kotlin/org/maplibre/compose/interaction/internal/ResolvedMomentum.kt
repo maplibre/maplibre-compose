@@ -28,7 +28,7 @@ internal data class PanMomentumOverride(
 internal data class VelocityMomentum(
   val enabled: Boolean = true,
   val durationScale: Double = 1.0,
-  val maximumDuration: Duration = 300.milliseconds,
+  val maximumDuration: Duration = 600.milliseconds,
 )
 
 internal data class VelocityMomentumOverride(
@@ -47,7 +47,7 @@ internal data class VelocityMomentumOverride(
 internal data class TiltMomentum(
   val enabled: Boolean = true,
   val minimumSpeed: Double = 5.0,
-  val duration: Duration = 150.milliseconds,
+  val duration: Duration = 300.milliseconds,
 )
 
 internal data class TiltMomentumOverride(

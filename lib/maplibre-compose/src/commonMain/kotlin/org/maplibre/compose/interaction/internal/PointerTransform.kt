@@ -93,6 +93,7 @@ internal class PointerTransform(
   private val onDelta: (TransformComponent, TransformDecision) -> Boolean,
   private val onEnd: (TransformComponent, TransformVelocity) -> Boolean,
   private val onCancel: (TransformComponent) -> Unit,
+  maximumFlingVelocity: Float = Float.MAX_VALUE,
 ) {
   val firstId = first.id
   val secondId = second.id
@@ -106,8 +107,9 @@ internal class PointerTransform(
   val active: Set<TransformComponent>
     get() = components.toSet()
 
-  private val centroidVelocity = GestureVelocityTracker()
-  private val transformVelocity = GestureVelocityTracker()
+  private val centroidVelocity = GestureVelocityTracker(maximumFlingVelocity)
+  private val scaleVelocity = GestureVelocityTracker()
+  private val rotationVelocity = GestureVelocityTracker()
   private var totalRotation = 0.0
   private var closed = false
 
@@ -121,7 +123,8 @@ internal class PointerTransform(
     current = origin
     totalRotation = 0.0
     centroidVelocity.resetTracking()
-    transformVelocity.resetTracking()
+    scaleVelocity.resetTracking()
+    rotationVelocity.resetTracking()
     policy.reset(origin)
     record(origin)
   }
@@ -156,7 +159,18 @@ internal class PointerTransform(
     decision.cancel.forEach { cancel(it) }
     for (component in decision.start) {
       if (closed) return false
-      if (components.add(component) && !onStart(component, origin.centroid)) return false
+      if (components.add(component)) {
+        // Recognition is the start of this component's motion history. A late twist at the
+        // end of a pinch must not inherit a flick from movement before rotation was accepted.
+        when (component) {
+          TransformComponent.Scale -> scaleVelocity.resetTracking()
+          TransformComponent.Rotation -> rotationVelocity.resetTracking()
+          TransformComponent.Pan,
+          TransformComponent.VerticalDrag -> centroidVelocity.resetTracking()
+        }
+        record(current)
+        if (!onStart(component, origin.centroid)) return false
+      }
     }
 
     for (component in components.sortedBy { it.ordinal }) {
@@ -177,11 +191,10 @@ internal class PointerTransform(
   }
 
   fun velocity(): TransformVelocity {
-    val transform = transformVelocity.calculateVelocity(pointerInput = false)
     return TransformVelocity(
       centroidVelocity.calculateVelocity(),
-      transform.x.toDouble(),
-      transform.y.toDouble(),
+      scaleVelocity.calculateVelocity(pointerInput = false).x.toDouble(),
+      rotationVelocity.calculateVelocity(pointerInput = false).x.toDouble(),
     )
   }
 
@@ -220,6 +233,7 @@ internal class PointerTransform(
     centroidVelocity.addPosition(sample.time, sample.centroid)
     val scale =
       if (sample.distance > 0 && origin.distance > 0) ln(sample.distance / origin.distance) else 0.0
-    transformVelocity.addPosition(sample.time, Offset(scale.toFloat(), totalRotation.toFloat()))
+    scaleVelocity.addPosition(sample.time, Offset(scale.toFloat(), 0f))
+    rotationVelocity.addPosition(sample.time, Offset(totalRotation.toFloat(), 0f))
   }
 }

@@ -51,6 +51,7 @@ internal class PointerGesture(
   private val clickSlopPx: Float,
   private val panSlopPx: Float,
   private val touchSlopPx: Float,
+  private val maximumFlingVelocity: Float,
   private val twoFingerTapSlopPx: Float,
   private val doubleTapSlopPx: Float,
   private val doubleClickMinTimeMillis: Long,
@@ -83,7 +84,7 @@ internal class PointerGesture(
   private var lastSingle: PointerInputChange? = null
   private var singleDragOrigin: Offset? = null
   private var dragRecognition: PointerDrag? = null
-  private val singleVelocity = GestureVelocityTracker()
+  private val singleVelocity = GestureVelocityTracker(maximumFlingVelocity)
 
   private var pair: PointerPairGesture? = null
   private val contactOrder = mutableListOf<PointerId>()
@@ -507,6 +508,12 @@ internal class PointerGesture(
           is SelectedDrag.Custom -> it
         }
       }
+      if (gestureInProgress) {
+        // A departing transform contact can cross slop at high speed. Estimate a new drag's
+        // momentum from movement after recognition, not from that transition.
+        singleVelocity.resetTracking()
+        singleVelocity.addPosition(change.uptimeMillis, change.position)
+      }
       beginGesture()
       dragStarted = true
       when (binding) {
@@ -701,6 +708,7 @@ internal class PointerGesture(
           deferredTwoFingerVelocity = deferredTwoFingerVelocity?.without(component)
         },
         retainAuthority = ::retainCameraAuthority,
+        maximumFlingVelocity = maximumFlingVelocity,
       )
     pair = candidate
     if (candidate.hasDemand || twoFingerTap != null) {
@@ -1047,7 +1055,7 @@ internal class PointerGesture(
   private fun animateFling(fling: GestureMath.Fling) {
     val token = gestureToken
     continuation.launchFling(cameraSession?.scope ?: scope) {
-      animateDecelerating(fling.duration) { frameFraction ->
+      animateDecelerating(fling.duration, power = 2) { frameFraction ->
         val deltaX = fling.offsetXDp * frameFraction
         val deltaY = fling.offsetYDp * frameFraction
         GestureMath.forEachScreenSpaceStep(deltaX, deltaY) { stepX, stepY ->
@@ -1066,9 +1074,10 @@ internal class PointerGesture(
     }
   }
 
-  /** Remaining motion falls as `(1 - t)^2`. */
+  /** Integrates displacement; velocity falls as `(1 - t)^(power - 1)`. */
   private suspend fun animateDecelerating(
     duration: Duration,
+    power: Int = GestureMath.TRANSFORM_DECAY_POWER,
     apply: (frameFraction: Double) -> Unit,
   ) {
     val durationNanos = duration.inWholeNanoseconds.coerceAtLeast(1L)
@@ -1077,7 +1086,7 @@ internal class PointerGesture(
     do {
       val now = withFrameNanos { it }
       val progress = ((now - startedAt).toDouble() / durationNanos).coerceIn(0.0, 1.0)
-      val easedProgress = 1.0 - (1.0 - progress).pow(2.0)
+      val easedProgress = 1.0 - (1.0 - progress).pow(power)
       val frameFraction = easedProgress - previousEasedProgress
       if (frameFraction != 0.0) apply(frameFraction)
       previousEasedProgress = easedProgress

@@ -7,7 +7,7 @@ import androidx.compose.ui.input.pointer.util.VelocityTracker1D
 import androidx.compose.ui.unit.Velocity
 
 /** Coalesces quantized host samples before passing distinct times to Compose's velocity fit. */
-internal class GestureVelocityTracker {
+internal class GestureVelocityTracker(private val maximumVelocity: Float = Float.MAX_VALUE) {
   private data class Sample(val time: Long, val position: Offset)
 
   private val samples = mutableListOf<Sample>()
@@ -39,11 +39,6 @@ internal class GestureVelocityTracker {
   /** Pointer input uses the host's estimator; delta streams use the common axis estimators. */
   fun calculateVelocity(pointerInput: Boolean = true): Velocity {
     if (samples.size < 2) return Velocity.Zero
-    if (samples.size == 2) {
-      val delta = samples.last().position - samples.first().position
-      val scale = 1000f / (samples.last().time - samples.first().time)
-      return Velocity(delta.x * scale, delta.y * scale)
-    }
     if (!pointerInput) {
       val x = VelocityTracker1D(isDataDifferential = false)
       val y = VelocityTracker1D(isDataDifferential = false)
@@ -55,6 +50,6 @@ internal class GestureVelocityTracker {
     }
     val tracker = VelocityTracker()
     samples.forEach { tracker.addPosition(it.time, it.position) }
-    return tracker.calculateVelocity()
+    return tracker.calculateVelocity(Velocity(maximumVelocity, maximumVelocity))
   }
 }

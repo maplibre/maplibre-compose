@@ -37,6 +37,7 @@ internal class PointerPairGesture(
   private val begin: () -> CameraInputToken?,
   private val onRecognized: (TransformComponent) -> Unit,
   private val retainAuthority: () -> Boolean,
+  maximumFlingVelocity: Float = Float.MAX_VALUE,
 ) {
   private class Component {
     var sample: GesturePointerSample? = null
@@ -90,6 +91,7 @@ internal class PointerPairGesture(
       ::delta,
       ::endComponent,
       ::cancelComponent,
+      maximumFlingVelocity,
     )
   val firstId
     get() = recognition.firstId

@@ -7,6 +7,7 @@ import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.unit.Velocity
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class GestureVelocityTrackerTest {
   @Test
@@ -26,7 +27,13 @@ class GestureVelocityTrackerTest {
         )
         .copy(pressure = 1f, historical = listOf(HistoricalChange(90, Offset(-100f, 0f))))
     )
-    assertEquals(Velocity(100f, 0f), tracker.calculateVelocity())
+    tracker.addPosition(140, Offset(4f, 0f))
+    val clean = GestureVelocityTracker()
+    clean.addPosition(100, Offset.Zero)
+    clean.addPosition(120, Offset(2f, 0f))
+    clean.addPosition(140, Offset(4f, 0f))
+    assertTrue(clean.calculateVelocity().x > 0f)
+    assertEquals(clean.calculateVelocity(), tracker.calculateVelocity())
   }
 
   @Test
@@ -44,7 +51,13 @@ class GestureVelocityTrackerTest {
     tracker.addPosition(10, Offset.Zero)
     tracker.addPosition(10, Offset(10f, 20f))
     tracker.addPosition(20, Offset(20f, 40f))
-    assertEquals(Velocity(1000f, 2000f), tracker.calculateVelocity())
+    tracker.addPosition(30, Offset(30f, 60f))
+    val coalesced = GestureVelocityTracker()
+    coalesced.addPosition(10, Offset(10f, 20f))
+    coalesced.addPosition(20, Offset(20f, 40f))
+    coalesced.addPosition(30, Offset(30f, 60f))
+    assertTrue(coalesced.calculateVelocity().x > 0f)
+    assertEquals(coalesced.calculateVelocity(), tracker.calculateVelocity())
   }
 
   @Test

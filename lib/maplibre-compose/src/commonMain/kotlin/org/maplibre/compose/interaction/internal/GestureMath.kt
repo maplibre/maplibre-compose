@@ -20,6 +20,8 @@ internal object GestureMath {
   const val TWO_FINGER_TAP_SLOP_DP = 5.0
   const val TWO_FINGER_TAP_TIMEOUT_MILLIS = 150L
   const val ROTATE_START_DEGREES = 3.0
+  // MapLibre GL JS uses 25 logical pixels of arc travel to reject pinch-induced angle noise.
+  const val ROTATE_START_WHILE_ZOOMING_ARC_DP = 25.0
   const val SHOVE_MAX_FINGER_ANGLE_DEGREES = 20.0
   const val PRESSURE_RATIO_THRESHOLD = 0.67f
 
@@ -31,7 +33,10 @@ internal object GestureMath {
   private const val MINIMUM_ANGLED_SCALE_SPEED_DP_PER_MILLISECOND = 0.9
   private const val MAXIMUM_SCALE_VELOCITY_ZOOM_CHANGE = 2.5
   // Decay the measured camera speed over the default momentum duration.
-  private const val TRANSFORM_DECAY_MILLIS = 300.0
+  private const val TRANSFORM_DECAY_MILLIS = 600.0
+  // Quartic displacement gives a cubic velocity decay: a fast initial slowdown and a gentle tail.
+  // Its integral is initialVelocity * duration / 4.
+  const val TRANSFORM_DECAY_POWER = 4
 
   /** Returns a multiplicative scale, not a zoom delta. */
   fun pinchScale(rawScale: Double): Double {
@@ -148,7 +153,7 @@ internal object GestureMath {
     if (!continuation.enabled || !zoomLevelsPerSecond.isFinite() || zoomLevelsPerSecond == 0.0)
       return null
     val duration = continuation.duration(TRANSFORM_DECAY_MILLIS) ?: return null
-    val zoomDelta = zoomLevelsPerSecond * duration.inWholeNanoseconds / 1e9 / 2.0
+    val zoomDelta = zoomLevelsPerSecond * duration.inWholeNanoseconds / 1e9 / TRANSFORM_DECAY_POWER
     return ScaleVelocity(
       zoomDelta.coerceIn(-MAXIMUM_SCALE_VELOCITY_ZOOM_CHANGE, MAXIMUM_SCALE_VELOCITY_ZOOM_CHANGE),
       duration,
@@ -164,12 +169,15 @@ internal object GestureMath {
     if (!continuation.enabled || !degreesPerSecond.isFinite() || degreesPerSecond == 0.0)
       return null
     val duration = continuation.duration(TRANSFORM_DECAY_MILLIS) ?: return null
-    return RotationVelocity(degreesPerSecond * duration.inWholeNanoseconds / 1e9 / 2.0, duration)
+    return RotationVelocity(
+      degreesPerSecond * duration.inWholeNanoseconds / 1e9 / TRANSFORM_DECAY_POWER,
+      duration,
+    )
   }
 
   data class TiltVelocity(val pitchDelta: Double, val duration: Duration)
 
-  /** Integrates a pitch speed that decays linearly to zero over the configured duration. */
+  /** Integrates a pitch speed that decays cubically to zero over the configured duration. */
   fun tiltVelocity(
     degreesPerSecond: Double,
     continuation: TiltMomentum = TiltMomentum(),
@@ -183,7 +191,7 @@ internal object GestureMath {
     )
       return null
     return TiltVelocity(
-      degreesPerSecond * (continuation.duration.inWholeNanoseconds / 1e9 / 2.0),
+      degreesPerSecond * (continuation.duration.inWholeNanoseconds / 1e9 / TRANSFORM_DECAY_POWER),
       continuation.duration,
     )
   }

@@ -227,6 +227,7 @@ private fun Modifier.pointerGestures(
         clickSlopPx = 3.dp.toPx(),
         panSlopPx = GestureMath.PAN_START_DP.dp.toPx(),
         touchSlopPx = viewConfiguration.touchSlop,
+        maximumFlingVelocity = viewConfiguration.maximumFlingVelocity,
         twoFingerTapSlopPx = GestureMath.TWO_FINGER_TAP_SLOP_DP.dp.toPx(),
         doubleTapSlopPx = GestureMath.DOUBLE_TAP_SLOP_DP.dp.toPx(),
         doubleClickMinTimeMillis = viewConfiguration.doubleTapMinTimeMillis,

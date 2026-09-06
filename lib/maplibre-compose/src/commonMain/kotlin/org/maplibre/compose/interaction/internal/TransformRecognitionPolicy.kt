@@ -1,6 +1,8 @@
 package org.maplibre.compose.interaction.internal
 
 import androidx.compose.ui.unit.Density
+import kotlin.math.PI
+import kotlin.math.min
 import kotlin.math.sign
 
 /** Map fidelity rules: velocity-gated rotation/scale and exclusive two-contact vertical drag. */
@@ -12,11 +14,13 @@ internal class TransformRecognitionPolicy(
   private val shove: TransformTiltBinding?,
 ) : PointerTransformPolicy {
   private var rotationSpan = 0.0
+  private var minimumRotationSpan = 0.0
   private var rotationOrigin: PairSample? = null
   private var zoomWasActive = false
 
   override fun reset(sample: PairSample) {
     rotationSpan = sample.distance
+    minimumRotationSpan = sample.distance
     rotationOrigin = sample
     zoomWasActive = false
   }
@@ -43,19 +47,6 @@ internal class TransformRecognitionPolicy(
     val spanFromStartDp = (current.distance - motion.origin.distance) * 2 / density.density
     val spanDeltaDp = (current.distance - motion.previous.distance) * 2 / density.density
 
-    // Rotation and scale use both displacement and speed to reject incidental finger motion.
-    var startRotate =
-      rotationFromStart != 0.0 &&
-        rotate != null &&
-        !rotating &&
-        !shoving &&
-        GestureMath.shouldStartRotation(
-          rotationFromStart,
-          motion.rotation,
-          motion.elapsed,
-          rotate.startAngle,
-        )
-
     val scaleSlop = pinch?.startSpanSlop?.value?.toDouble() ?: 0.0
     val scaleSpan =
       if (rotating) (current.distance - rotationSpan) * 2 / density.density else spanFromStartDp
@@ -73,6 +64,31 @@ internal class TransformRecognitionPolicy(
           motion.rotation,
           scaleThreshold,
         )
+    // A fixed angle becomes too sensitive as a pinch closes. Require enough arc travel
+    // while zooming, using the smallest span so reopening the pinch cannot lower the threshold.
+    minimumRotationSpan = min(minimumRotationSpan, current.distance)
+    val rotationThreshold =
+      if (zooming || startPinch)
+        maxOf(
+          rotate?.startAngle ?: 0.0,
+          GestureMath.ROTATE_START_WHILE_ZOOMING_ARC_DP * density.density * 360.0 /
+            (PI * minimumRotationSpan),
+        )
+      else rotate?.startAngle ?: 0.0
+
+    // Rotation and scale use both displacement and speed to reject incidental finger motion.
+    var startRotate =
+      rotationFromStart != 0.0 &&
+        rotate != null &&
+        !rotating &&
+        !shoving &&
+        GestureMath.shouldStartRotation(
+          rotationFromStart,
+          motion.rotation,
+          motion.elapsed,
+          rotationThreshold,
+        )
+
     val rotationBlockedByZoom = rotate?.allowDuringZoom == false && (zooming || startPinch)
     if (rotationBlockedByZoom) startRotate = false
 
@@ -104,7 +120,7 @@ internal class TransformRecognitionPolicy(
     if (startRotate) {
       cancels += TransformComponent.Scale
       rotationSpan = current.distance
-      rotation = rotationFromStart - sign(rotationFromStart) * checkNotNull(rotate).startAngle
+      rotation = rotationFromStart - sign(rotationFromStart) * rotationThreshold
       starts += TransformComponent.Rotation
     } else if (startPinch) {
       val baseline = if (rotating) rotationSpan else motion.origin.distance
