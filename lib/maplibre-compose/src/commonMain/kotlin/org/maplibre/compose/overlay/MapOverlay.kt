@@ -1,10 +1,7 @@
 package org.maplibre.compose.overlay
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.LayoutScopeMarker
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
@@ -145,15 +142,8 @@ public class MapOverlay(
      * the app shows the attribution somewhere else.
      */
     public val AttributionOnly: MapOverlay = MapOverlay {
-      val overlayScope = this
-      Row(
-        Modifier.align(Alignment.BottomStart).fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-      ) {
-        MaplibreLogo()
-        overlayScope.ExpandingAttributionButton()
-      }
+      MaplibreLogo(Modifier.align(Alignment.BottomStart))
+      ExpandingAttributionButton(Modifier.align(Alignment.BottomEnd))
     }
 
     /**

@@ -1,33 +1,45 @@
 package org.maplibre.compose.demoapp
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ElevatedButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
@@ -38,22 +50,35 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.vectorResource
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.brightness_auto_24px
 import org.maplibre.compose.demoapp.generated.dark_mode_24px
 import org.maplibre.compose.demoapp.generated.filter_center_focus_24px
 import org.maplibre.compose.demoapp.generated.light_mode_24px
+import org.maplibre.compose.demoapp.generated.location_disabled_24px
+import org.maplibre.compose.demoapp.generated.location_searching_24px
+import org.maplibre.compose.demoapp.generated.my_location_24px
+import org.maplibre.compose.demoapp.generated.my_location_fill_24px
+import org.maplibre.compose.demoapp.generated.navigation_24px
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.StyleLoadState
-import org.maplibre.compose.material3.Material3
+import org.maplibre.compose.material3.DisappearingCompassButton as MaterialDisappearingCompassButton
+import org.maplibre.compose.material3.DisappearingScaleBar as MaterialDisappearingScaleBar
+import org.maplibre.compose.material3.Material3AttributionOnly
 import org.maplibre.compose.material3.PointerPinButton
 import org.maplibre.compose.material3.ZoomButtons as MaterialZoomButtons
+import org.maplibre.compose.overlay.CompassButtonStyle
+import org.maplibre.compose.overlay.CompassDefaults
+import org.maplibre.compose.overlay.DisappearingCompassButton
+import org.maplibre.compose.overlay.DisappearingScaleBar
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.ZoomButtons
+import org.maplibre.compose.overlay.ZoomButtonsDefaults
 import org.maplibre.compose.overlay.include
 import org.maplibre.spatialk.geojson.Position
 
@@ -80,48 +105,208 @@ internal suspend fun MapState.flyTo(destination: DemoDestination) {
   }
 }
 
+private val DemoControlSize = 48.dp
+
+/** Compass enter/exit: fade plus a height change so zoom and theme slide instead of popping. */
+private val DemoCompassEnter = fadeIn() + expandVertically()
+
+private val DemoCompassExit = fadeOut() + shrinkVertically()
+
 /**
- * The map controls the settings ask for. [controlsModifier] applies to the column of controls at
- * the trailing edge, so a shell can route D-pad focus through them.
+ * The map controls the settings ask for. Compass, zoom, follow, and theme stack at the top-end,
+ * where the compass sits on [MapOverlay.Default]. The compass is first so hiding it slides the
+ * other buttons up; its slot expands and shrinks instead of popping. [controlsModifier] applies to
+ * the stack so a shell can route D-pad focus through it.
  */
-fun demoMapOverlay(settings: DemoSettings, controlsModifier: Modifier = Modifier): MapOverlay =
-  MapOverlay {
-    val overlayScope = this
-    include(if (settings.useMaterial3Controls) MapOverlay.Material3 else MapOverlay.Default)
+internal fun demoMapOverlay(
+  settings: DemoSettings,
+  location: DemoLocationUi,
+  controlsModifier: Modifier = Modifier,
+): MapOverlay = MapOverlay {
+  val overlayScope = this
+  val material3 = settings.useMaterial3Controls
+  val metersPerDp = mapState.viewport?.metersPerDpAtTarget ?: 0.0
+  val zoom = mapState.cameraPosition.zoom
+  if (material3) {
+    MaterialDisappearingScaleBar(
+      metersPerDp = metersPerDp,
+      zoom = zoom,
+      modifier = Modifier.align(Alignment.TopStart),
+    )
+  } else {
+    DisappearingScaleBar(
+      metersPerDp = metersPerDp,
+      zoom = zoom,
+      modifier = Modifier.align(Alignment.TopStart),
+    )
+  }
+  include(if (material3) MapOverlay.Material3AttributionOnly else MapOverlay.AttributionOnly)
+  Column(
+    modifier = Modifier.align(Alignment.TopEnd).then(controlsModifier),
+    horizontalAlignment = Alignment.End,
+  ) {
+    val compassSpacing = Modifier.padding(bottom = MapOverlay.Spacing)
+    if (material3) {
+      overlayScope.MaterialDisappearingCompassButton(
+        contentModifier = compassSpacing,
+        enterTransition = DemoCompassEnter,
+        exitTransition = DemoCompassExit,
+      )
+    } else {
+      overlayScope.DisappearingCompassButton(
+        contentModifier = compassSpacing,
+        enterTransition = DemoCompassEnter,
+        exitTransition = DemoCompassExit,
+      )
+    }
     Column(
-      modifier = Modifier.align(Alignment.CenterEnd).then(controlsModifier),
-      verticalArrangement = Arrangement.spacedBy(8.dp),
-      horizontalAlignment = Alignment.CenterHorizontally,
+      verticalArrangement = Arrangement.spacedBy(MapOverlay.Spacing),
+      horizontalAlignment = Alignment.End,
     ) {
       if (settings.showZoomButtons) {
-        if (settings.useMaterial3Controls) overlayScope.MaterialZoomButtons()
-        else overlayScope.ZoomButtons()
+        if (material3) overlayScope.MaterialZoomButtons() else overlayScope.ZoomButtons()
       }
-      val mode = settings.mapStyleMode
-      ElevatedButton(
-        onClick = { settings.mapStyleMode = mode.next },
-        modifier =
-          Modifier.size(48.dp).semantics {
-            contentDescription = "Map style: ${mode.displayName}"
-            onClick(label = "Switch to ${mode.next.displayName}", action = null)
-          },
-        shape = CircleShape,
-        contentPadding = PaddingValues(12.dp),
-      ) {
-        Icon(
-          imageVector =
-            vectorResource(
-              when (mode) {
-                MapStyleMode.System -> Res.drawable.brightness_auto_24px
-                MapStyleMode.Light -> Res.drawable.light_mode_24px
-                MapStyleMode.Dark -> Res.drawable.dark_mode_24px
-              }
-            ),
-          contentDescription = null,
-        )
-      }
+      DemoFollowButton(settings, location)
+      DemoThemeToggleButton(settings)
     }
   }
+}
+
+@Composable
+private fun DemoFollowButton(settings: DemoSettings, location: DemoLocationUi) {
+  val (style, contentColor) = demoControlColors(settings.useMaterial3Controls)
+  val visual = location.followVisual()
+  val activeColor =
+    if (settings.useMaterial3Controls) MaterialTheme.colorScheme.primary else Color(0xFF1565C0)
+  val disabledColor =
+    if (settings.useMaterial3Controls) MaterialTheme.colorScheme.onSurfaceVariant
+    else contentColor.copy(alpha = 0.45f)
+  val look =
+    when (visual) {
+      DemoFollowVisual.Idle ->
+        FollowButtonLook(
+          Res.drawable.my_location_24px,
+          contentColor,
+          "Follow your location",
+          "Start following",
+        )
+      DemoFollowVisual.Searching ->
+        FollowButtonLook(
+          Res.drawable.location_searching_24px,
+          activeColor,
+          "Finding your location",
+          if (location.followMode == DemoFollowMode.Heading) "Stop following" else "Follow heading",
+        )
+      DemoFollowVisual.Following ->
+        FollowButtonLook(
+          Res.drawable.my_location_fill_24px,
+          activeColor,
+          "Following your location",
+          "Follow heading",
+        )
+      DemoFollowVisual.Heading ->
+        FollowButtonLook(
+          Res.drawable.navigation_24px,
+          activeColor,
+          "Following your heading",
+          "Stop following",
+        )
+      DemoFollowVisual.Disabled ->
+        FollowButtonLook(
+          Res.drawable.location_disabled_24px,
+          disabledColor,
+          "Location is unavailable",
+          "Try following",
+        )
+    }
+  DemoControlButton(
+    onClick = { location.cycleFollow() },
+    style = style,
+    contentDescription = look.contentDescription,
+    onClickLabel = look.onClickLabel,
+  ) {
+    Icon(imageVector = vectorResource(look.icon), contentDescription = null, tint = look.tint)
+  }
+}
+
+private data class FollowButtonLook(
+  val icon: DrawableResource,
+  val tint: Color,
+  val contentDescription: String,
+  val onClickLabel: String,
+)
+
+@Composable
+private fun DemoThemeToggleButton(settings: DemoSettings) {
+  val mode = settings.mapStyleMode
+  val (style, contentColor) = demoControlColors(settings.useMaterial3Controls)
+  DemoControlButton(
+    onClick = { settings.mapStyleMode = mode.next },
+    style = style,
+    contentDescription = "Map style: ${mode.displayName}",
+    onClickLabel = "Switch to ${mode.next.displayName}",
+  ) {
+    Icon(
+      imageVector =
+        vectorResource(
+          when (mode) {
+            MapStyleMode.System -> Res.drawable.brightness_auto_24px
+            MapStyleMode.Light -> Res.drawable.light_mode_24px
+            MapStyleMode.Dark -> Res.drawable.dark_mode_24px
+          }
+        ),
+      contentDescription = null,
+      tint = contentColor,
+    )
+  }
+}
+
+@Composable
+private fun demoControlColors(material3: Boolean): Pair<CompassButtonStyle, Color> =
+  if (material3) {
+    val colors = ButtonDefaults.elevatedButtonColors()
+    CompassButtonStyle(
+      containerColor = colors.containerColor,
+      shadowElevation = 1.dp,
+      hoveredShadowElevation = 3.dp,
+    ) to colors.contentColor
+  } else {
+    CompassDefaults.style() to ZoomButtonsDefaults.ContentColor
+  }
+
+/** Same chrome as [org.maplibre.compose.overlay.CompassButton]. */
+@Composable
+private fun DemoControlButton(
+  onClick: () -> Unit,
+  style: CompassButtonStyle,
+  contentDescription: String,
+  onClickLabel: String,
+  content: @Composable () -> Unit,
+) {
+  val interactionSource = remember { MutableInteractionSource() }
+  val hovered by interactionSource.collectIsHoveredAsState()
+  val shadowElevation by
+    animateDpAsState(if (hovered) style.hoveredShadowElevation else style.shadowElevation)
+  Box(
+    Modifier.requiredSize(DemoControlSize)
+      .shadow(shadowElevation, style.shape, clip = false)
+      .background(style.containerColor, style.shape)
+      .clip(style.shape)
+      .semantics {
+        this.contentDescription = contentDescription
+        onClick(label = onClickLabel, action = null)
+      }
+      .clickable(
+        interactionSource = interactionSource,
+        indication = LocalIndication.current,
+        role = Role.Button,
+        onClick = onClick,
+      )
+      .padding(12.dp),
+    contentAlignment = Alignment.Center,
+    content = { content() },
+  )
+}
 
 /**
  * The shared map, the selected demo's overlay, the pointer pin, and the diagnostic overlays.
@@ -133,7 +318,7 @@ fun demoMapOverlay(settings: DemoSettings, controlsModifier: Modifier = Modifier
 fun DemoMap(
   state: DemoAppState,
   viewportInsets: MapViewportInsets,
-  overlay: MapOverlay = demoMapOverlay(state.settings),
+  overlay: MapOverlay = demoMapOverlay(state.settings, state.location),
   modifier: Modifier = Modifier,
 ) {
   val scope = rememberCoroutineScope()

@@ -240,6 +240,8 @@ private fun SettingsScreen(
       onSelect = { state.settings.paletteMode = it },
     )
 
+    LocationSettingsItems(state.location)
+
     SectionHeader("Options")
     SubmenuRow("Rendering", "Frame rate cap, tile detail, and debug views") { onOpen("rendering") }
     SubmenuRow("Controls", "Map controls and diagnostic overlays") { onOpen("controls") }
