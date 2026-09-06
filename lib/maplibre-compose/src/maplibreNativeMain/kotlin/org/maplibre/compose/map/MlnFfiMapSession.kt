@@ -246,9 +246,8 @@ internal class MlnFfiMapSession(
   private var styleReadinessNotifiedFor: MlnFfiStyleBinding? = null
 
   /**
-   * Increments on every reconciliation. A posted revision completion that observes a newer
-   * generation was superseded: the newer revision posts its own completion, so the stale one only
-   * repaints. Read on the owner thread.
+   * Increments when a reconciliation or replay begins. A posted revision completion that observes a
+   * newer generation was superseded and only repaints. Read on the owner thread.
    */
   @Volatile private var reconcileGeneration = 0L
 
@@ -1108,6 +1107,8 @@ internal class MlnFfiMapSession(
   override suspend fun replayStyleRevision(revision: DesiredStyleRevision) {
     val binding = styleBinding ?: return
     if (!styleLoadTracker.beginReconciliation(binding.identity)) return
+    // A completion queued before the replay began must not confirm the replayed content.
+    ++reconcileGeneration
     try {
       styleReconciler.apply(binding, revision)
     } catch (error: CancellationException) {

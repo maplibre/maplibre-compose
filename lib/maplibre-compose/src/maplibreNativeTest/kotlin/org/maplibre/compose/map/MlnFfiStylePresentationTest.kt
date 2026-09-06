@@ -95,39 +95,55 @@ class MlnFfiStylePresentationTest {
   }
 
   @Test
-  fun a_superseded_revision_completion_does_not_reveal_a_failed_revision() = runBlocking {
-    BridgeMapFixture.create().use { fixture ->
-      fixture.loadStyle(INITIAL_STYLE)
-      val session = fixture.session
-      session.reconcileStyleRevision(APPLICATION_REVISION)
-      assertTrue(session.canPresentFrames)
-
-      // Hold the owner thread so the next steady-state revision's completion stays queued.
-      val ownerBusy = CompletableDeferred<Unit>()
-      val releaseOwner = CompletableDeferred<Unit>()
-      assertTrue(
-        session.postOwnerTaskForTest {
-          ownerBusy.complete(Unit)
-          runBlocking { releaseOwner.await() }
-        }
-      )
-      withTimeout(5.seconds) { ownerBusy.await() }
-
-      // Steady state: this revision's completion is posted behind the held queue, not awaited.
-      session.reconcileStyleRevision(APPLICATION_REVISION)
-
-      // A newer reconciliation begins and fails before the queued completion runs.
+  fun a_superseded_revision_completion_does_not_reveal_a_failed_revision() =
+    assertSupersededCompletionStaysHidden { session ->
       assertFailsWith<IllegalArgumentException> { session.reconcileStyleRevision(BROKEN_REVISION) }
-      assertFalse(session.canPresentFrames)
-
-      releaseOwner.complete(Unit)
-      fixture.pump()
-      assertFalse(
-        session.canPresentFrames,
-        "the superseded completion must not reveal the failed revision",
-      )
     }
-  }
+
+  @Test
+  fun a_superseded_replay_completion_does_not_reveal_a_failed_replay() =
+    assertSupersededCompletionStaysHidden { session ->
+      assertFailsWith<IllegalArgumentException> { session.replayStyleRevision(BROKEN_REVISION) }
+    }
+
+  /**
+   * Queues a steady-state completion behind a held owner thread, then fails a newer reconciliation
+   * or replay through [fail]. The queued completion must not reveal the hidden presentation.
+   */
+  private fun assertSupersededCompletionStaysHidden(fail: suspend (MlnFfiMapSession) -> Unit) =
+    runBlocking {
+      BridgeMapFixture.create().use { fixture ->
+        fixture.loadStyle(INITIAL_STYLE)
+        val session = fixture.session
+        session.reconcileStyleRevision(APPLICATION_REVISION)
+        assertTrue(session.canPresentFrames)
+
+        // Hold the owner thread so the next steady-state revision's completion stays queued.
+        val ownerBusy = CompletableDeferred<Unit>()
+        val releaseOwner = CompletableDeferred<Unit>()
+        assertTrue(
+          session.postOwnerTaskForTest {
+            ownerBusy.complete(Unit)
+            runBlocking { releaseOwner.await() }
+          }
+        )
+        withTimeout(5.seconds) { ownerBusy.await() }
+
+        // Steady state: this revision's completion is posted behind the held queue, not awaited.
+        session.reconcileStyleRevision(APPLICATION_REVISION)
+
+        // A newer reconciliation begins and fails before the queued completion runs.
+        fail(session)
+        assertFalse(session.canPresentFrames)
+
+        releaseOwner.complete(Unit)
+        fixture.pump()
+        assertFalse(
+          session.canPresentFrames,
+          "the superseded completion must not reveal the failed revision",
+        )
+      }
+    }
 
   private companion object {
     val APPLICATION_COLOR = RgbaPixel(red = 0x33, green = 0x66, blue = 0x99, alpha = 0xff)
