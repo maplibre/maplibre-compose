@@ -242,6 +242,15 @@ internal class MlnFfiMapSession(
   @Volatile private var styleBinding: MlnFfiStyleBinding? = null
   private val styleReconciler = StyleReconciler()
 
+  /** The binding whose readiness callback has already succeeded; see [reconcileStyleRevision]. */
+  private var styleReadinessNotifiedFor: MlnFfiStyleBinding? = null
+
+  /**
+   * Increments when a reconciliation or replay begins. A posted revision completion that observes a
+   * newer generation was superseded and only repaints. Read on the owner thread.
+   */
+  @Volatile private var reconcileGeneration = 0L
+
   internal val loadedStyleIdentity
     get() = styleBinding?.identity
 
@@ -278,6 +287,9 @@ internal class MlnFfiMapSession(
       sessionOpen = { lifecycle.acceptsWork },
       accessMap = { action ->
         if (!lifecycle.acceptsWork) false else runOnMap(action).let { true }
+      },
+      postMap = { action ->
+        if (!lifecycle.acceptsWork) false else loop?.post(action) ?: false
       },
       accessRenderSession = { action ->
         if (!lifecycle.acceptsWork || !renderSessionReady) {
@@ -1056,12 +1068,31 @@ internal class MlnFfiMapSession(
     val engine = lifecycleEngineIdentity ?: return
     val style = lifecycleStyleIdentity ?: return
     if (!styleLoadTracker.beginReconciliation(binding.identity)) return
+    val generation = ++reconcileGeneration
     try {
       styleReconciler.apply(binding, revision)
-      runOnMap {
-        it.requestRepaint()
-        if (styleLoadTracker.reconciled(binding.identity)) {
+      val noteReconciled: (MapHandle) -> Unit = { map ->
+        map.requestRepaint()
+        if (generation == reconcileGeneration && styleLoadTracker.reconciled(binding.identity)) {
           lifecycleCallbacks.onStyleReady(engine, style, this)
+        }
+      }
+      if (styleReadinessNotifiedFor === binding) {
+        // Steady state: per-frame revisions must not block the caller on the owner thread. The
+        // readiness callback already succeeded for this binding, so a later failure hides the
+        // presentation instead of propagating to the caller.
+        onMap { map ->
+          try {
+            noteReconciled(map)
+          } catch (error: Throwable) {
+            styleLoadTracker.failed(binding.identity)
+            throw error
+          }
+        }
+      } else {
+        // Until the style is ready, readiness failures must propagate to the caller.
+        if (runOnMap(noteReconciled) != null) {
+          styleReadinessNotifiedFor = binding
         }
       }
     } catch (error: CancellationException) {
@@ -1076,6 +1107,8 @@ internal class MlnFfiMapSession(
   override suspend fun replayStyleRevision(revision: DesiredStyleRevision) {
     val binding = styleBinding ?: return
     if (!styleLoadTracker.beginReconciliation(binding.identity)) return
+    // A completion queued before the replay began must not confirm the replayed content.
+    ++reconcileGeneration
     try {
       styleReconciler.apply(binding, revision)
     } catch (error: CancellationException) {

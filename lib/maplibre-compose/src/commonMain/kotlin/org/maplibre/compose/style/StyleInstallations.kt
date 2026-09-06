@@ -125,6 +125,11 @@ internal class LayerInstallation(
     reportUnsupported(definition)
   }
 
+  /**
+   * Applies the property writes that bring the installed layer from its current definition to
+   * [definition], as one batch. A rejected write is the engine keeping the previous value, so
+   * [current] advances regardless.
+   */
   fun update(definition: LayerDefinition, animatorDurationScale: Float = 1f) {
     style.requireCurrent()
     require(definition.id == id) { "A layer handle cannot change resource identity" }
@@ -132,23 +137,25 @@ internal class LayerInstallation(
     if (next == current) return
     val previousValue = current.value
     val nextValue = next.value
-    updateProperties(
-      previousValue["layout"] as? JsonObject,
-      nextValue["layout"] as? JsonObject,
-      LayerPropertyKind.LAYOUT,
-    )
-    updateProperties(
-      previousValue["paint"] as? JsonObject,
-      nextValue["paint"] as? JsonObject,
-      LayerPropertyKind.PAINT,
-    )
-    ROOT_PROPERTY_NAMES.forEach { name ->
-      val previous = previousValue[name]
-      val value = nextValue[name]
-      if (previous == value) return@forEach
-      if (name == "filter") style.setLayerFilter(id, value ?: JsonNull)
-      else style.setLayerProperty(id, name, value ?: JsonNull, LayerPropertyKind.ROOT)
+    val writes = buildList {
+      collectProperties(
+        previousValue["layout"] as? JsonObject,
+        nextValue["layout"] as? JsonObject,
+        LayerPropertyKind.LAYOUT,
+      )
+      collectProperties(
+        previousValue["paint"] as? JsonObject,
+        nextValue["paint"] as? JsonObject,
+        LayerPropertyKind.PAINT,
+      )
+      ROOT_PROPERTY_NAMES.forEach { name ->
+        val previous = previousValue[name]
+        val value = nextValue[name]
+        if (previous == value) return@forEach
+        add(LayerPropertyWrite(id, current.type, name, value ?: JsonNull, LayerPropertyKind.ROOT))
+      }
     }
+    style.setLayerProperties(writes)
     current = next
     reportUnsupported(definition)
   }
@@ -178,7 +185,7 @@ internal class LayerInstallation(
     check(added) { "Layer '$id' was not added because its style is no longer loaded" }
   }
 
-  private fun updateProperties(
+  private fun MutableList<LayerPropertyWrite>.collectProperties(
     previous: JsonObject?,
     next: JsonObject?,
     kind: LayerPropertyKind,
@@ -192,14 +199,7 @@ internal class LayerInstallation(
         val oldValue = previous?.get(name)
         val newValue = next?.get(name)
         if (oldValue == newValue) return@forEach
-        try {
-          style.setLayerProperty(id, name, newValue ?: clearingValue(kind, name), kind)
-        } catch (error: StyleMutationException) {
-          style.logger?.w(error) {
-            "Layer '$id' of type '${current.type}' kept its previous '$name': MapLibre rejected " +
-              "$newValue."
-          }
-        }
+        add(LayerPropertyWrite(id, current.type, name, newValue ?: clearingValue(kind, name), kind))
       }
   }
 
