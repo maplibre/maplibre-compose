@@ -88,7 +88,8 @@ class PointerPairGestureTest {
     input.pair.end(75)
     assertEquals(75, events.last().uptimeMillis)
     assertEquals(3, events.size)
-    assertTrue((events[1] as PinchEvent.Delta).scaleFactor > 1.0)
+    val scale = (events[1] as PinchEvent.Delta).scaleFactor
+    assertTrue(scale > 1.0 && scale < 200.0 / 160.0, "first delta must exclude span slop")
     assertEquals(0.0, (events.last() as PinchEvent.End).zoomVelocity)
   }
 

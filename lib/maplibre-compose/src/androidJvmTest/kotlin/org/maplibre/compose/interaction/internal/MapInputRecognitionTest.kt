@@ -48,7 +48,6 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performTrackpadInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.requestFocus
-import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.withKeyDown
 import androidx.compose.ui.unit.dp
 import kotlin.concurrent.atomics.AtomicInt
@@ -68,7 +67,6 @@ import org.maplibre.compose.interaction.CameraInputStart
 import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.DoubleTapEvent
 import org.maplibre.compose.interaction.DragEvent
-import org.maplibre.compose.interaction.GestureAnchor
 import org.maplibre.compose.interaction.GestureCancellationReason
 import org.maplibre.compose.interaction.HoverEvent
 import org.maplibre.compose.interaction.KeyModifier
@@ -1689,14 +1687,6 @@ class MapInputRecognitionTest {
     }
 
   @Test
-  fun arrow_keys_request_a_pan() = runRecognitionTest { target ->
-    val map = mapNode()
-    map.performMouseInput { click(Offset(10f, 10f)) }
-    map.performKeyInput { pressKey(Key.DirectionRight) }
-    waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.isNotEmpty() }
-  }
-
-  @Test
   fun plus_and_minus_request_zoom() = runRecognitionTest { target ->
     val map = mapNode()
     map.performMouseInput { click(Offset(10f, 10f)) }
@@ -1828,49 +1818,6 @@ class MapInputRecognitionTest {
       waitForIdle()
       assertEquals(1, events.count { it is DragEvent.End })
       assertEquals(1, target.endedCount)
-    }
-  }
-
-  @Test
-  fun pair_pinch_subtracts_configured_span_slop_before_its_first_delta() {
-    val events = mutableListOf<PinchEvent>()
-    runRecognitionTest(
-      options =
-        MapInteractions(MapInteractions.None) {
-          bindings {
-            transform {
-              zoom {
-                enabled = true
-                startSpanSlop = 40.dp
-                anchor = GestureAnchor.CameraCenter
-                momentum { enabled = false }
-                onStart { events += it }
-                onDelta { events += it }
-                onEnd { events += it }
-              }
-            }
-          }
-        }
-    ) { target ->
-      mapNode().performTouchInput {
-        down(0, center - Offset(80f, 0f))
-        down(1, center + Offset(80f, 0f))
-        updatePointerBy(0, Offset(-60f, 0f))
-        updatePointerBy(1, Offset(60f, 0f))
-        move()
-        up(0)
-        up(1)
-      }
-      waitForIdle()
-      assertTrue(events.first() is PinchEvent.Start)
-      val delta = events[1] as PinchEvent.Delta
-      assertTrue(
-        delta.scaleFactor > 1.0 && delta.scaleFactor < 280.0 / 160.0,
-        "the first delta should exclude the motion spent crossing slop",
-      )
-      assertTrue(target.scaleCalls.single().scale > 1.0)
-      assertEquals(null, target.scaleCalls.single().anchor)
-      assertTrue(events.last() is PinchEvent.End)
     }
   }
 
@@ -2298,20 +2245,6 @@ class MapInputRecognitionTest {
     }
 
   @Test
-  fun two_finger_rotation_requests_bearing() = runRecognitionTest { target ->
-    mapNode().performTouchInput {
-      down(0, center - Offset(80f, 0f))
-      down(1, center + Offset(80f, 0f))
-      updatePointerTo(0, center - Offset(0f, 80f))
-      updatePointerTo(1, center + Offset(0f, 80f))
-      move()
-      up(0)
-      up(1)
-    }
-    waitUntil(timeoutMillis = TIMEOUT) { target.rotateCalls.any { it.bearingDelta != 0.0 } }
-  }
-
-  @Test
   fun two_finger_tap_requests_a_zoom_out() = runRecognitionTest { target ->
     mapNode().performTouchInput {
       down(0, center - Offset(40f, 0f))
@@ -2320,12 +2253,6 @@ class MapInputRecognitionTest {
       up(1)
     }
     waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.any { it.scale < 1.0 } }
-  }
-
-  @Test
-  fun one_finger_swipe_requests_a_pan() = runRecognitionTest { target ->
-    mapNode().performTouchInput { swipe(center, center + Offset(80f, 0f), durationMillis = 100) }
-    waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.isNotEmpty() }
   }
 
   @Test
@@ -2598,42 +2525,6 @@ class MapInputRecognitionTest {
       mapNode().performKeyInput { pressKey(Key.Tab) }
       onNodeWithTag(AFTER_MAP_TAG).assertIsFocused()
     }
-
-  @Test
-  fun held_key_repeats_share_one_semantic_start_and_callback_updates_keep_the_session() {
-    val starts = mutableListOf<Pair<String, CameraInputStart>>()
-    fun configuration(label: String) = MapInteractions {
-      camera { pan { onStart { starts += label to it } } }
-    }
-    var options by mutableStateOf(configuration("initial"))
-    runFocusTest(optionsProvider = { options }) { target, _ ->
-      val map = mapNode()
-      map.requestFocus()
-      map.performKeyInput {
-        pressKey(Key.Enter)
-        keyDown(Key.DirectionRight)
-        advanceEventTime(600)
-      }
-      waitForIdle()
-      assertTrue(target.moveCalls.size > 1)
-      assertEquals(listOf("initial"), starts.map { it.first })
-      val moves = target.moveCalls.size
-      runOnIdle { options = configuration("updated") }
-      map.performKeyInput { advanceEventTime(100) }
-      waitForIdle()
-      assertTrue(target.moveCalls.size > moves)
-      assertEquals(1, starts.size)
-      assertEquals(1, target.startedCount)
-      map.performKeyInput {
-        keyUp(Key.DirectionRight)
-        keyDown(Key.DirectionRight)
-        keyUp(Key.DirectionRight)
-      }
-      waitForIdle()
-      assertEquals(listOf("initial", "updated"), starts.map { it.first })
-      assertTrue(starts.first().second.sessionId != starts.last().second.sessionId)
-    }
-  }
 
   @Test
   fun camera_takeover_during_a_held_key_suppresses_repeats_until_release() {

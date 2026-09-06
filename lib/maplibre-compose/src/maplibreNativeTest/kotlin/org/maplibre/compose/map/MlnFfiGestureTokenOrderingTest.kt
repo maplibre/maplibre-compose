@@ -5,15 +5,12 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.internal.withCameraInput
+import org.maplibre.compose.camera.internal.inputPanBy
+import org.maplibre.compose.interaction.internal.GestureInputSession
 import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.MapTestResult
@@ -86,7 +83,7 @@ class MlnFfiGestureTokenOrderingTest {
     }
 
   @Test
-  fun normal_scope_completion_waits_for_a_backlogged_owner_fence(): MapTestResult = runMapTest {
+  fun cancellation_rejects_commands_already_queued_on_the_owner(): MapTestResult = runMapTest {
     coroutineScope {
       createMapFixture().use { fixture ->
         val session = fixture.session as MlnFfiMapSession
@@ -105,66 +102,15 @@ class MlnFfiGestureTokenOrderingTest {
         )
         try {
           assertTrue(entered.await(5_000))
-          val queued = CompletableDeferred<Unit>()
-          val work =
-            async(start = CoroutineStart.UNDISPATCHED) {
-              fixture.state.withCameraInput {
-                panBy(DRAG_STEP_DP, 0.0)
-                panBy(DRAG_STEP_DP, 0.0)
-                queued.complete(Unit)
-              }
-            }
-          queued.await()
-          assertFalse(work.isCompleted, "scope returned before its queued work executed")
+          val input = GestureInputSession(this, fixture.gestures)
+          fixture.gestures.inputPanBy(DRAG_STEP_DP, 0.0, input.token)
+          input.end()
+          input.scope.cancel()
           release.countDown()
-          fixture.awaitWhileRendering("normal gesture completion fence") { work.await() }
-          assertTrue(
-            abs(fixture.state.cameraPosition.target.longitude - before.target.longitude) >
-              MIN_DELTA_DEGREES
-          )
-          assertFalse(fixture.state.isCameraMoving)
-        } finally {
-          release.countDown()
-        }
-      }
-    }
-  }
-
-  @Test
-  fun caller_cancellation_drops_queued_scope_commands(): MapTestResult = runMapTest {
-    coroutineScope {
-      createMapFixture().use { fixture ->
-        val session = fixture.session as MlnFfiMapSession
-        fixture.loadStyle(BaseStyle.Empty)
-        fixture.awaitMapReady()
-        fixture.state.setCameraPosition(CameraPosition(zoom = START_ZOOM))
-        fixture.settle()
-        val before = fixture.state.cameraPosition
-        val entered = TestLatch(1)
-        val release = TestLatch(1)
-        assertTrue(
-          session.postOwnerTaskForTest {
-            entered.countDown()
-            check(release.await(5_000))
+          fixture.awaitWhileRendering("cancelled gesture completion fence") {
+            fixture.gestures.awaitGestureEnded(input.token)
           }
-        )
-        try {
-          assertTrue(entered.await(5_000))
-          val queued = CompletableDeferred<Unit>()
-          val work =
-            launch(start = CoroutineStart.UNDISPATCHED) {
-              fixture.state.withCameraInput {
-                panBy(DRAG_STEP_DP, 0.0)
-                queued.complete(Unit)
-                awaitCancellation()
-              }
-            }
-          queued.await()
-          work.cancel()
-          release.countDown()
-          fixture.awaitWhileRendering("cancelled gesture completion fence") { work.join() }
           fixture.settle()
-          assertTrue(work.isCancelled)
           assertEquals(before.target.longitude, fixture.state.cameraPosition.target.longitude, 1e-6)
           assertFalse(fixture.state.isCameraMoving)
         } finally {

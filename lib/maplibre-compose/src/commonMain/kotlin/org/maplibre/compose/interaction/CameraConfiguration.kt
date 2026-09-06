@@ -15,7 +15,6 @@ public enum class CameraInputOrigin {
   TapDrag,
   Key,
   Rotary,
-  External,
 }
 
 /** A component start within an input session. Several components can share [sessionId]. */

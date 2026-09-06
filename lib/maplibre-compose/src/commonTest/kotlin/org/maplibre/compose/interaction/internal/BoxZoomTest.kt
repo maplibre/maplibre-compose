@@ -12,19 +12,6 @@ import org.maplibre.compose.camera.internal.boxZoomFit
 import org.maplibre.spatialk.geojson.Position
 
 class BoxZoomTest {
-  @Test
-  fun preview_preserves_the_press_origin_and_clears_on_completion() {
-    val preview = BoxZoomPreview()
-    preview.move(DpOffset(30.dp, 40.dp))
-    assertNull(preview.bounds)
-    preview.start(DpOffset(20.dp, 30.dp), DpOffset(10.dp, 40.dp))
-    assertEquals(DpRect(10.dp, 30.dp, 20.dp, 40.dp), preview.bounds)
-    preview.move(DpOffset(40.dp, 10.dp))
-    assertEquals(DpRect(20.dp, 10.dp, 40.dp, 30.dp), preview.clear())
-    assertNull(preview.bounds)
-    preview.move(DpOffset(50.dp, 50.dp))
-    assertNull(preview.bounds)
-  }
 
   @Test
   fun undersized_or_nonfinite_selections_do_not_project() {

@@ -13,8 +13,6 @@ import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapAttachment
 import org.maplibre.compose.map.MapState
 
-internal class CameraInputTakenOver : CancellationException("A newer input owns the camera")
-
 internal fun interface CameraCommandGuard {
   fun isValid(): Boolean
 }
@@ -72,8 +70,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
     get() = owner.lifecycle.serialized { inputGeneration }
 
   fun acquire(
-    adapter: MapAdapter? = null,
-    requireReady: Boolean = false,
+    adapter: MapAdapter,
     expectedInputGeneration: Long? = null,
   ): CameraInputToken {
     var previous: CameraInputToken? = null
@@ -86,11 +83,8 @@ internal class CameraInputAuthority(private val owner: MapState) {
             owner.isCurrent(attachment) &&
             attachment.viewport != null &&
             target?.isGestureReady == true &&
-            (adapter == null || adapter === attachment.adapter) &&
+            adapter === attachment.adapter &&
             (expectedInputGeneration == null || expectedInputGeneration == inputGeneration)
-        check(!requireReady || ready) {
-          "withCameraInput requires an attached, presentable viewport"
-        }
         val token = CameraInputToken(++nextId, this, attachment, target)
         if (!ready) {
           token.status = CameraInputToken.Status.Cancelled
@@ -138,7 +132,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
         token.job = job
         token.status == CameraInputToken.Status.Cancelled
       }
-    if (cancel) job.cancel(CameraInputTakenOver())
+    if (cancel) job.cancel(CancellationException("A newer input owns the camera"))
   }
 
   fun accepts(token: CameraInputToken, enqueue: Boolean): Boolean =
@@ -208,7 +202,9 @@ internal class CameraInputAuthority(private val owner: MapState) {
   }
 
   private fun cancelOutsideLock(token: CameraInputToken) {
-    owner.lifecycle.serialized { token.job }?.cancel(CameraInputTakenOver())
+    owner.lifecycle
+      .serialized { token.job }
+      ?.cancel(CancellationException("A newer input owns the camera"))
     token.target?.cancelGesture(token)
   }
 }

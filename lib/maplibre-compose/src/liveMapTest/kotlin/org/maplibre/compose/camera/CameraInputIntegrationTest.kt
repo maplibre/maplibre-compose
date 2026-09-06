@@ -6,7 +6,6 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration
@@ -14,13 +13,13 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
-import org.maplibre.compose.camera.internal.CameraInputScope
 import org.maplibre.compose.camera.internal.inputPanBy
-import org.maplibre.compose.camera.internal.withCameraInput
+import org.maplibre.compose.camera.internal.inputPanByAwaitingTransition
+import org.maplibre.compose.camera.internal.inputRotateAndPitchByAwaitingTransition
+import org.maplibre.compose.camera.internal.inputScaleByAwaitingTransition
 import org.maplibre.compose.interaction.CameraBuilder
 import org.maplibre.compose.interaction.internal.CameraConfiguration
 import org.maplibre.compose.interaction.internal.GestureInputSession
@@ -95,33 +94,6 @@ class CameraInputIntegrationTest {
     }
 
   @Test
-  fun normal_completion_observes_accepted_native_or_js_commands_before_returning(): MapTestResult =
-    runMapTest {
-      coroutineScope {
-        createMapFixture().use { fixture ->
-          fixture.loadStyle(BaseStyle.Empty)
-          fixture.awaitMapReady()
-          fixture.state.setCameraPosition(CameraPosition(zoom = 4.0))
-          fixture.settle()
-          val before = fixture.state.cameraPosition
-          lateinit var retained: CameraInputScope
-          fixture.awaitWhileRendering("gesture command fence") {
-            fixture.state.withCameraInput {
-              retained = this
-              panBy(10.0, 0.0)
-              panBy(10.0, 0.0)
-            }
-          }
-          assertTrue(
-            abs(fixture.state.cameraPosition.target.longitude - before.target.longitude) > 0.1
-          )
-          assertFalse(fixture.state.isCameraMoving)
-          assertFailsWith<IllegalStateException> { retained.panBy(10.0, 0.0) }
-        }
-      }
-    }
-
-  @Test
   fun centered_rotation_preserves_the_padded_camera_target(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
@@ -133,9 +105,15 @@ class CameraInputIntegrationTest {
       fixture.settle()
       val before = fixture.state.cameraPosition
       fixture.awaitWhileRendering("centered rotation") {
-        fixture.state.withCameraInput {
-          rotateAndPitchByAwaitingTransition(20.0, 5.0, Duration.ZERO)
-        }
+        val input = GestureInputSession(this, fixture.gestures)
+        fixture.gestures.inputRotateAndPitchByAwaitingTransition(
+          20.0,
+          5.0,
+          Duration.ZERO,
+          input.token,
+        )
+        input.end()
+        input.scope.coroutineContext[Job]!!.join()
       }
       val after = fixture.state.cameraPosition
       assertEquals(before.target.longitude, after.target.longitude, 1e-6)
@@ -166,11 +144,23 @@ class CameraInputIntegrationTest {
               .build()
           )
           fixture.awaitWhileRendering("centered scope zoom") {
-            fixture.state.withCameraInput {
-              panBy(20.0, 10.0)
-              scaleByAwaitingTransition(2.0, DpOffset(5.dp, 5.dp), Duration.ZERO)
-              rotateAndPitchByAwaitingTransition(15.0, 0.0, Duration.ZERO, DpOffset(5.dp, 5.dp))
-            }
+            val input = GestureInputSession(this, fixture.gestures)
+            fixture.gestures.inputPanBy(20.0, 10.0, input.token)
+            fixture.gestures.inputScaleByAwaitingTransition(
+              2.0,
+              DpOffset(5.dp, 5.dp),
+              Duration.ZERO,
+              input.token,
+            )
+            fixture.gestures.inputRotateAndPitchByAwaitingTransition(
+              15.0,
+              0.0,
+              Duration.ZERO,
+              input.token,
+              DpOffset(5.dp, 5.dp),
+            )
+            input.end()
+            input.scope.coroutineContext[Job]!!.join()
           }
           val after = fixture.state.cameraPosition
           assertEquals(before.target.longitude, after.target.longitude, 1e-6)
@@ -191,11 +181,17 @@ class CameraInputIntegrationTest {
         fixture.state.setCameraPosition(CameraPosition(zoom = 4.0))
         fixture.settle()
         fixture.awaitWhileRendering("zero duration gesture commands") {
-          fixture.state.withCameraInput {
-            scaleByAwaitingTransition(2.0, duration = Duration.ZERO)
-            rotateAndPitchByAwaitingTransition(10.0, 5.0, Duration.ZERO)
-            panByAwaitingTransition(10.0, 0.0, Duration.ZERO)
-          }
+          val input = GestureInputSession(this, fixture.gestures)
+          fixture.gestures.inputScaleByAwaitingTransition(2.0, null, Duration.ZERO, input.token)
+          fixture.gestures.inputRotateAndPitchByAwaitingTransition(
+            10.0,
+            5.0,
+            Duration.ZERO,
+            input.token,
+          )
+          fixture.gestures.inputPanByAwaitingTransition(10.0, 0.0, Duration.ZERO, input.token)
+          input.end()
+          input.scope.coroutineContext[Job]!!.join()
         }
         assertTrue(
           abs(fixture.state.cameraPosition.target.longitude) > 1e-6,
@@ -205,63 +201,6 @@ class CameraInputIntegrationTest {
         assertEquals(10.0, fixture.state.cameraPosition.bearing, 1e-6)
         assertEquals(5.0, fixture.state.cameraPosition.tilt, 1e-6)
         assertFalse(fixture.state.isCameraMoving)
-      }
-    }
-  }
-
-  @Test
-  fun programmatic_takeover_returns_normally_to_the_application_input_loop(): MapTestResult =
-    runMapTest {
-      coroutineScope {
-        createMapFixture().use { fixture ->
-          fixture.loadStyle(BaseStyle.Empty)
-          fixture.awaitMapReady()
-          var returned = false
-          val started = CompletableDeferred<Unit>()
-          val input =
-            launch(start = CoroutineStart.UNDISPATCHED) {
-              fixture.state.withCameraInput {
-                panBy(10.0, 0.0)
-                started.complete(Unit)
-                awaitCancellation()
-              }
-              returned = true
-            }
-          started.await()
-          fixture.pumpUntil("camera input to start moving") { fixture.state.isCameraMoving }
-          fixture.state.setCameraPosition(CameraPosition(zoom = 5.0))
-          fixture.awaitWhileRendering("programmatic takeover fence") { input.join() }
-          assertTrue(returned)
-          assertFalse(input.isCancelled)
-          fixture.settle()
-          assertEquals(5.0, fixture.state.cameraPosition.zoom, 1e-6)
-          assertEquals(CameraMoveReason.PROGRAMMATIC, fixture.state.cameraMoveReason)
-          assertFalse(fixture.state.isCameraMoving)
-        }
-      }
-    }
-
-  @Test
-  fun closing_a_map_releases_an_active_scope_without_more_frames(): MapTestResult = runMapTest {
-    coroutineScope {
-      createMapFixture().use { fixture ->
-        fixture.loadStyle(BaseStyle.Empty)
-        fixture.awaitMapReady()
-        val started = CompletableDeferred<Unit>()
-        var returned = false
-        val input = launch {
-          fixture.state.withCameraInput {
-            panBy(10.0, 0.0)
-            started.complete(Unit)
-            awaitCancellation()
-          }
-          returned = true
-        }
-        started.await()
-        fixture.closeSession()
-        withTimeout(5.seconds) { input.join() }
-        assertTrue(returned)
-        assertFalse(input.isCancelled)
       }
     }
   }

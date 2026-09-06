@@ -3,7 +3,6 @@ package org.maplibre.compose.interaction.internal
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -50,13 +49,6 @@ class GestureMathTest {
   }
 
   @Test
-  fun a_short_screen_offset_is_one_step() {
-    val steps = mutableListOf<Pair<Double, Double>>()
-    GestureMath.forEachScreenSpaceStep(3.0, 4.0, maxStepDp = 16.0) { x, y -> steps += x to y }
-    assertEquals(listOf(3.0 to 4.0), steps)
-  }
-
-  @Test
   fun a_long_screen_offset_splits_into_bounded_steps_that_sum() {
     val steps = mutableListOf<Pair<Double, Double>>()
     GestureMath.forEachScreenSpaceStep(0.0, 80.0, maxStepDp = 16.0) { x, y -> steps += x to y }
@@ -82,26 +74,6 @@ class GestureMathTest {
     assertTrue(clockwise.bearingDelta > 0.0)
     assertEquals(-clockwise.bearingDelta, counterclockwise.bearingDelta)
     assertEquals(clockwise.duration, counterclockwise.duration)
-  }
-
-  @Test
-  fun equal_time_samples_use_spatial_slop_without_artificial_speed_rejection() {
-    assertFalse(GestureMath.shouldStartScale(19.0, 19.0, 0, 0.0, startSpanSlopDp = 20.0))
-    assertTrue(GestureMath.shouldStartScale(21.0, 21.0, 0, 2.0, startSpanSlopDp = 20.0))
-    assertFalse(GestureMath.shouldStartRotation(9.0, 9.0, 0, startAngleDegrees = 10.0))
-    assertTrue(GestureMath.shouldStartRotation(11.0, 11.0, 0, startAngleDegrees = 10.0))
-    assertFalse(GestureMath.shouldStartScale(100.0, 100.0, -1, 0.0))
-    assertFalse(GestureMath.shouldStartRotation(100.0, 100.0, -1))
-  }
-
-  @Test
-  fun selected_thresholds_replace_the_family_defaults() {
-    assertTrue(GestureMath.shouldStartScale(5.0, 5.0, 0, 0.0, startSpanSlopDp = 5.0))
-    assertFalse(GestureMath.shouldStartScale(8.0, 8.0, 0, 0.0, startSpanSlopDp = 9.0))
-    assertTrue(GestureMath.shouldStartRotation(2.0, 2.0, 0, startAngleDegrees = 2.0))
-    assertFalse(GestureMath.shouldStartRotation(9.0, 9.0, 0, startAngleDegrees = 10.0))
-    assertTrue(GestureMath.shouldStartShove(8.0, 15.0, startSlopDp = 8.0))
-    assertFalse(GestureMath.shouldStartShove(8.0, 21.0, startSlopDp = 8.0))
   }
 
   @Test

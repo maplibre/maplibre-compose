@@ -880,32 +880,12 @@ internal class PointerGesture(
     if (!secondTapUseful) return PressRole.First
 
     val elapsedMillis = timeMillis - open.tap.upAt
-    val samePointerType = type == open.tap.type
-    val distancePx = (origin - open.tap.origin).getDistance()
-    if (
-      isBounceSecondTap(
-        elapsedMillis = elapsedMillis,
-        distancePx = distancePx,
-        samePointerType = samePointerType,
-        minTimeMillis = doubleClickMinTimeMillis,
-        slopPx = slopPx(),
-      )
-    ) {
-      return PressRole.Bounce
-    }
-    return if (
-      isPairedSecondTap(
-        elapsedMillis = elapsedMillis,
-        distancePx = distancePx,
-        samePointerType = samePointerType,
-        minTimeMillis = doubleClickMinTimeMillis,
-        timeoutMillis = doubleClickTimeoutMillis,
-        slopPx = slopPx(),
-      )
-    ) {
-      PressRole.Paired
-    } else {
-      PressRole.First
+    val withinSlop = (origin - open.tap.origin).getDistance() <= slopPx()
+    if (type != open.tap.type || !withinSlop) return PressRole.First
+    return when {
+      elapsedMillis < doubleClickMinTimeMillis -> PressRole.Bounce
+      elapsedMillis <= doubleClickTimeoutMillis -> PressRole.Paired
+      else -> PressRole.First
     }
   }
 
@@ -1255,30 +1235,3 @@ internal class PointerGesture(
           GestureMath.TWO_FINGER_TAP_TIMEOUT_MILLIS
   }
 }
-
-/** A second down that is too soon and still on the first tap is a bounce. */
-internal fun isBounceSecondTap(
-  elapsedMillis: Long,
-  distancePx: Float,
-  samePointerType: Boolean,
-  minTimeMillis: Long,
-  slopPx: Float,
-): Boolean = samePointerType && elapsedMillis < minTimeMillis && distancePx <= slopPx
-
-/**
- * Compose's tap detector pairs a second down to the previous up when the elapsed time is at least
- * [minTimeMillis] and at most [timeoutMillis]. Touch pairing also keeps the two downs within
- * Android's double-tap slop.
- */
-internal fun isPairedSecondTap(
-  elapsedMillis: Long,
-  distancePx: Float,
-  samePointerType: Boolean,
-  minTimeMillis: Long,
-  timeoutMillis: Long,
-  slopPx: Float,
-): Boolean =
-  samePointerType &&
-    elapsedMillis >= minTimeMillis &&
-    elapsedMillis <= timeoutMillis &&
-    distancePx <= slopPx

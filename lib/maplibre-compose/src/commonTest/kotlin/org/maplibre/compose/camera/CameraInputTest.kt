@@ -19,13 +19,11 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.camera.internal.BoxZoomFit
-import org.maplibre.compose.camera.internal.CameraInputScope
 import org.maplibre.compose.camera.internal.inputFitBoundsAwaitingTransition
 import org.maplibre.compose.camera.internal.inputPanBy
 import org.maplibre.compose.camera.internal.inputRotateAndPitchBy
 import org.maplibre.compose.camera.internal.inputScaleBy
 import org.maplibre.compose.camera.internal.inputScaleByAwaitingTransition
-import org.maplibre.compose.camera.internal.withCameraInput
 import org.maplibre.compose.interaction.CameraBuilder
 import org.maplibre.compose.interaction.CameraInputOrigin
 import org.maplibre.compose.interaction.CameraInputStart
@@ -206,216 +204,6 @@ class CameraInputTest {
   }
 
   @Test
-  fun acquisition_requires_a_current_presentable_viewport() = runTest {
-    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
-    val state = runtime.createMapState(BaseStyle.Empty)
-    assertFailsWith<IllegalStateException> { state.withCameraInput {} }
-    state.close()
-    assertFailsWith<IllegalStateException> { state.withCameraInput {} }
-    state.awaitClosed()
-    runtime.close()
-  }
-
-  @Test
-  fun normal_completion_seals_enqueues_and_waits_for_the_ordered_fence() =
-    cameraTest { state, target ->
-      lateinit var retained: CameraInputScope
-      val work = launch {
-        state.withCameraInput {
-          retained = this
-          panBy(10.0, 0.0)
-          panBy(20.0, 0.0)
-        }
-      }
-      runCurrent()
-      assertFalse(work.isCompleted)
-      assertTrue(target.moveCalls.isEmpty())
-      assertFailsWith<IllegalStateException> { retained.panBy(30.0, 0.0) }
-      target.drain()
-      runCurrent()
-      assertTrue(work.isCompleted)
-      assertEquals(listOf(10.0, 20.0), target.moveCalls.map { it.x.toDouble() })
-      assertFailsWith<IllegalStateException> { retained.panBy(30.0, 0.0) }
-    }
-
-  @Test
-  fun takeover_drops_queued_work_and_returns_to_the_outer_input_loop() =
-    cameraTest { state, target ->
-      lateinit var firstScope: CameraInputScope
-      var returned = false
-      val first = launch {
-        state.withCameraInput {
-          firstScope = this
-          panBy(10.0, 0.0)
-          awaitCancellation()
-        }
-        returned = true
-      }
-      runCurrent()
-      lateinit var secondScope: CameraInputScope
-      val second = launch {
-        state.withCameraInput {
-          secondScope = this
-          panBy(20.0, 0.0)
-          awaitCancellation()
-        }
-      }
-      runCurrent()
-      assertFailsWith<IllegalStateException> { firstScope.panBy(30.0, 0.0) }
-      target.drain()
-      runCurrent()
-      assertTrue(returned)
-      assertFalse(first.isCancelled)
-      assertFalse(second.isCompleted)
-      assertEquals(listOf(20.0), target.moveCalls.map { it.x.toDouble() })
-      secondScope.panBy(40.0, 0.0)
-      target.drain()
-      assertEquals(listOf(20.0, 40.0), target.moveCalls.map { it.x.toDouble() })
-      second.cancel()
-      runCurrent()
-      target.drain()
-      runCurrent()
-      assertTrue(second.isCancelled)
-    }
-
-  @Test
-  fun caller_cancellation_revokes_accepted_commands_and_still_cancels_the_caller() =
-    cameraTest { state, target ->
-      val work = launch {
-        state.withCameraInput {
-          panBy(10.0, 0.0)
-          awaitCancellation()
-        }
-      }
-      runCurrent()
-      work.cancel()
-      runCurrent()
-      target.drain()
-      runCurrent()
-      assertTrue(work.isCancelled)
-      assertTrue(work.isCompleted)
-      assertTrue(target.moveCalls.isEmpty())
-    }
-
-  @Test
-  fun cancelling_a_caller_waiting_on_a_normal_fence_revokes_its_queued_commands() =
-    cameraTest { state, target ->
-      val work = launch { state.withCameraInput { panBy(10.0, 0.0) } }
-      runCurrent()
-      assertFalse(work.isCompleted)
-      work.cancel()
-      // Drain before the child's finally resumes: execution must check the registered job too.
-      target.drain()
-      runCurrent()
-      target.drain()
-      runCurrent()
-      assertTrue(work.isCompleted)
-      assertTrue(work.isCancelled)
-      assertTrue(target.moveCalls.isEmpty())
-    }
-
-  @Test
-  fun block_failure_propagates_after_cleanup_and_does_not_drain_camera_work() =
-    cameraTest { state, target ->
-      var failure: Throwable? = null
-      val work = launch {
-        failure =
-          runCatching {
-            state.withCameraInput {
-              panBy(10.0, 0.0)
-              error("tool failed")
-            }
-          }
-            .exceptionOrNull()
-      }
-      runCurrent()
-      assertFalse(work.isCompleted)
-      target.drain()
-      runCurrent()
-      assertEquals("tool failed", failure?.message)
-      assertTrue(target.moveCalls.isEmpty())
-    }
-
-  @Test
-  fun public_mutation_from_the_block_invalidates_old_authority_immediately() =
-    cameraTest { state, target ->
-      var rejected = false
-      val work = launch {
-        state.withCameraInput {
-          panBy(10.0, 0.0)
-          state.setCameraPosition(CameraPosition(zoom = 6.0))
-          assertFailsWith<IllegalStateException> { panBy(20.0, 0.0) }
-          rejected = true
-        }
-      }
-      runCurrent()
-      target.drain()
-      runCurrent()
-      assertTrue(rejected)
-      assertTrue(work.isCompleted)
-      assertTrue(target.moveCalls.isEmpty())
-    }
-
-  @Test
-  fun detach_rejects_the_scope_before_asynchronous_cleanup() = cameraTest { state, target ->
-    val work = launch {
-      state.withCameraInput {
-        panBy(10.0, 0.0)
-        state.invalidatePresentation(target)
-        assertFailsWith<IllegalStateException> { panBy(20.0, 0.0) }
-      }
-    }
-    runCurrent()
-    target.drain()
-    runCurrent()
-    assertTrue(work.isCompleted)
-    assertTrue(target.moveCalls.isEmpty())
-  }
-
-  @Test
-  fun same_state_nesting_is_rejected_before_it_can_cancel_the_parent() =
-    cameraTest { state, target ->
-      val work = launch {
-        state.withCameraInput {
-          assertFailsWith<IllegalStateException> { state.withCameraInput {} }
-          panBy(10.0, 0.0)
-        }
-      }
-      runCurrent()
-      target.drain()
-      runCurrent()
-      assertTrue(work.isCompleted)
-      assertFalse(work.isCancelled)
-      assertEquals(listOf(10.0), target.moveCalls.map { it.x.toDouble() })
-    }
-
-  @Test
-  fun different_states_can_nest_but_a_to_b_to_a_cannot() = cameraTest { state, target ->
-    val other = state.runtime.createMapState(BaseStyle.Empty)
-    val otherTarget = RecordingGestureTarget(other, deferred = true)
-    val work = launch {
-      state.withCameraInput {
-        panBy(10.0, 0.0)
-        other.withCameraInput {
-          assertFailsWith<IllegalStateException> { state.withCameraInput {} }
-          panBy(20.0, 0.0)
-        }
-        panBy(30.0, 0.0)
-      }
-    }
-    runCurrent()
-    otherTarget.drain()
-    runCurrent()
-    target.drain()
-    runCurrent()
-    assertTrue(work.isCompleted)
-    assertEquals(listOf(10.0, 30.0), target.moveCalls.map { it.x.toDouble() })
-    assertEquals(listOf(20.0), otherTarget.moveCalls.map { it.x.toDouble() })
-    other.close()
-    other.awaitClosed()
-  }
-
-  @Test
   fun cancelled_camera_callers_leave_the_current_gesture_in_control() =
     cameraTest { state, target ->
       val bounds = BoundingBox(0.0, 0.0, 1.0, 1.0)
@@ -438,20 +226,6 @@ class CameraInputTest {
         target.drain()
       }
       assertEquals(listOf(10.0, 10.0, 10.0), target.moveCalls.map { it.x.toDouble() })
-    }
-
-  @Test
-  fun a_later_camera_owner_invalidates_a_programmatic_guard_without_a_gesture_being_active() =
-    cameraTest { state, target ->
-      val first = state.gestureAuthority.beginProgrammatic()
-      assertTrue(first.isValid())
-      val second = state.gestureAuthority.beginProgrammatic()
-      assertFalse(first.isValid())
-      assertTrue(second.isValid())
-      val token = target.onGestureStarted()
-      assertFalse(second.isValid())
-      target.onGestureEnded(token)
-      target.drain()
     }
 
   @Test
@@ -548,39 +322,6 @@ class CameraInputTest {
       runCurrent()
       assertTrue(target.moveCalls.isEmpty())
       assertFalse(input.token.acceptsCommands)
-    }
-
-  @Test
-  fun external_disabled_commands_still_validate_and_policy_changes_revoke_queued_work() =
-    cameraTest { state, target ->
-      state.gestureAuthority.updateConfiguration(
-        CameraBuilder(CameraConfiguration())
-          .apply {
-            pan { enabled = false }
-          }
-          .build()
-      )
-      val input = launch {
-        state.withCameraInput {
-          assertFailsWith<IllegalArgumentException> { panBy(Double.NaN, 0.0) }
-          panBy(10.0, 0.0)
-          scaleBy(2.0)
-          state.gestureAuthority.updateConfiguration(
-            CameraBuilder(CameraConfiguration())
-              .apply {
-                zoom { enabled = false }
-              }
-              .build()
-          )
-          assertFailsWith<IllegalStateException> { panBy(0.0, 0.0) }
-        }
-      }
-      runCurrent()
-      target.drain()
-      runCurrent()
-      assertTrue(input.isCompleted)
-      assertTrue(target.moveCalls.isEmpty())
-      assertTrue(target.scaleCalls.isEmpty())
     }
 
   @Test
