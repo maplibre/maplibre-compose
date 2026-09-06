@@ -283,7 +283,9 @@ private fun Modifier.pointerGestures(
                   event.type,
                   event.gestureSample(0, target, density, change.position),
                   change.scaleFactor.toDouble(),
-                  change.panOffset.toLogicalDpOffset(density),
+                  // Platform pans report a scroll delta (positive = scroll down/right, like a
+                  // wheel); the camera pans in drag convention (content follows the fingers).
+                  (-change.panOffset).toLogicalDpOffset(density),
                   platformRouting.blocked || event.changes.any { it.isConsumed },
                 )
               if (claimedPlatform) event.changes.forEach(PointerInputChange::consume)
