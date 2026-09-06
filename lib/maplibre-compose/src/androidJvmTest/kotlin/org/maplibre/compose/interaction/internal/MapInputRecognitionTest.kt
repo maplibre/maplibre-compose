@@ -83,7 +83,9 @@ import org.maplibre.compose.interaction.RotateEvent
 import org.maplibre.compose.interaction.ScrollEvent
 import org.maplibre.compose.map.GestureTestFixture
 import org.maplibre.compose.map.RecordingGestureTarget
+import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.mlnffi.runPlainComposeUiTest
+import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.scaledBy
 import org.maplibre.compose.style.systemAnimatorDurationScale
 import org.maplibre.spatialk.geojson.Position
@@ -780,6 +782,44 @@ class MapInputRecognitionTest {
       assertEquals(0, target.clicks)
       assertEquals(0, target.startedCount)
       mapNode().assert(expectValue(SemanticsProperties.StateDescription, "not engaged"))
+    }
+  }
+
+  @Test
+  fun releasing_a_long_press_does_not_cancel_its_accepted_zoom() = runPlainComposeUiTest {
+    val runtime = mapRuntimeForTest()
+    val state = runtime.createMapState(BaseStyle.Empty)
+    val target = RecordingGestureTarget(state, deferred = true)
+    try {
+      setContent {
+        GestureHost(
+          target,
+          MapInteractions(from = MapInteractions.None) {
+            bindings {
+              longPress {
+                enabled = true
+                mappings { otherwise { zoomIn() } }
+              }
+            }
+          },
+        )
+      }
+      waitForIdle()
+      mainClock.autoAdvance = false
+      mapNode().performTouchInput { down(center) }
+      mainClock.advanceTimeBy(1_000)
+      waitForIdle()
+      assertEquals(1, target.startedCount, "the long press did not start its zoom")
+      assertTrue(target.scaleCalls.isEmpty(), "engine execution should still be paused")
+      mapNode().performTouchInput { up() }
+      target.drain()
+      waitForIdle()
+      assertEquals(1, target.scaleCalls.size, "release discarded the long press's zoom")
+    } finally {
+      mainClock.autoAdvance = true
+      state.close()
+      target.drain()
+      runtime.close()
     }
   }
 
