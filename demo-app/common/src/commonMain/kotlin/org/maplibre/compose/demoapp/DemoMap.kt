@@ -202,7 +202,7 @@ private fun DemoFollowButton(settings: DemoSettings, location: DemoLocationUi) {
           Res.drawable.location_searching_24px,
           activeColor,
           "Finding your location",
-          "Stop following",
+          if (location.followMode == DemoFollowMode.Heading) "Stop following" else "Follow heading",
         )
       DemoFollowVisual.Following ->
         FollowButtonLook(

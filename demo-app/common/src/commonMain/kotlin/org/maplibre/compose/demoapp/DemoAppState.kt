@@ -60,6 +60,7 @@ internal constructor(
       mapConfiguration.appliedStyle(dark, demo).base.takeIf { it != mapState.style.baseStyle }
     val styleLoadsSeen = lastStyleLoad.count
     selectedDemo = demo
+    location.followMode = DemoFollowMode.Off
     shell = DemoShell.Demos
     reveal()
     if (newBase != null) awaitStyleLoad(seen = styleLoadsSeen, base = newBase)

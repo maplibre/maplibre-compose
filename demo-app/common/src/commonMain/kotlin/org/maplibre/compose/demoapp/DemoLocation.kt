@@ -81,6 +81,7 @@ internal fun DemoLocationMapContent(location: DemoLocationUi) {
     rememberLocationState(
       provider = locationProvider,
       headingProvider = engine.rememberHeadingProvider(),
+      enabled = location.isFollowing,
     )
   DisposableEffect(locationState, locationProvider) {
     location.locationState = locationState
@@ -137,7 +138,9 @@ fun LocationSettingsItems(state: DemoAppState) {
 internal fun LocationSettingsItems(location: DemoLocationUi) {
   SectionHeader("Location")
   Text(
-    text = location.locationState?.statusMessage() ?: "Location is off",
+    text =
+      if (location.isFollowing) location.locationState?.statusMessage() ?: "Location is off"
+      else "Location is off",
     style = MaterialTheme.typography.bodyMedium,
     color = MaterialTheme.colorScheme.onSurfaceVariant,
     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
