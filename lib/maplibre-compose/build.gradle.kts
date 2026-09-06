@@ -219,3 +219,5 @@ class ShutdownTestClasspathArguments(@get:Classpath val classpath: FileCollectio
 tasks.named<Test>("jvmTest") {
   jvmArgumentProviders.add(ShutdownTestClasspathArguments(classpath))
 }
+
+stageIosSimulatorTestResources()
