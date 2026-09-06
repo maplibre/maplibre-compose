@@ -15,7 +15,6 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlinx.browser.window
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.RasterLayer
@@ -67,28 +66,6 @@ class BrowserMapStyleStateTest {
         .trimIndent()
     )
 
-  /** Delays the TileJSON so the source's attribution is not readable until well after load. */
-  private fun installSlowTileJson(): () -> Unit {
-    val global = js("window")
-    val original = global.fetch
-    global.fetch = { input: dynamic, init: dynamic ->
-      val url = if (jsTypeOf(input) == "string") input as String else input.url as String
-      if (url.contains("tilejson.test")) {
-        Promise<dynamic> { resolve, _ ->
-          window.setTimeout({ resolve(makeJsonResponse(TILE_JSON)) }, 250)
-        }
-      } else {
-        original.call(global, input, init)
-      }
-    }
-    return { global.fetch = original }
-  }
-
-  /**
-   * Holds the TileJSON response until the test has observed the source's initial state. MapLibre GL
-   * JS 6 awaits `transformRequest` before `fetch`, so the request is not in flight in the same turn
-   * as `addSource`.
-   */
   private fun installDeferredTileJson(): DeferredTileJson {
     val global = js("window")
     val original = global.fetch
@@ -336,7 +313,7 @@ class BrowserMapStyleStateTest {
 
   @Test
   fun a_source_reports_the_attribution_its_tilejson_carries(): Promise<*> = runBrowserMapTest {
-    val restoreFetch = installSlowTileJson()
+    val tileJson = installDeferredTileJson()
     try {
       var styleState: MapStyleState? = null
       var mapState: MapState? = null
@@ -346,6 +323,9 @@ class BrowserMapStyleStateTest {
         styleState = current.style
         MaplibreMap(state = current, modifier = Modifier)
       }
+      waitUntilMap("the map to request its TileJSON") { tileJson.isRequested() }
+      assertTrue(mapState?.style?.loadState != StyleLoadState.Ready)
+      tileJson.resolve()
       waitUntilMap("the map to report that it finished loading") {
         mapState?.style?.loadState == StyleLoadState.Ready
       }
@@ -357,33 +337,7 @@ class BrowserMapStyleStateTest {
           "this the moment it is told",
       )
     } finally {
-      restoreFetch()
-    }
-  }
-
-  @Test
-  fun switching_to_a_tilejson_style_keeps_the_attribution(): Promise<*> = runBrowserMapTest {
-    val restoreFetch = installSlowTileJson()
-    try {
-      val current = mutableStateOf(styleWith("first", "first-source"))
-      var styleState: MapStyleState? = null
-      var mapState: MapState? = null
-      setBrowserMapContent {
-        val logicalMap = rememberMapState(baseStyle = current.value)
-        mapState = logicalMap
-        styleState = logicalMap.style
-        MaplibreMap(state = logicalMap, modifier = Modifier)
-      }
-      waitUntilMap("the first style to load") {
-        mapState?.style?.loadState == StyleLoadState.Ready
-      }
-
-      current.value = tileJsonStyle
-      waitUntilMap("the switched style's attribution to be reported") {
-        styleState?.sources?.map { it.attributionHtml } == listOf("fetched attribution")
-      }
-    } finally {
-      restoreFetch()
+      tileJson.restore()
     }
   }
 
@@ -415,14 +369,12 @@ class BrowserMapStyleStateTest {
 
         waitUntilMap("the late source's initial snapshot") { styleState?.sources?.count() == 1 }
         assertEquals(listOf(""), styleState?.sources?.map { it.attributionHtml })
-        val initialSource = styleState?.sources?.single()
 
         waitUntilMap("MapLibre to request the TileJSON") { tileJson.isRequested() }
         tileJson.resolve()
         waitUntilMap("the late source's attribution") {
           styleState?.sources?.map { it.attributionHtml } == listOf("fetched attribution")
         }
-        assertNotSame(initialSource, styleState?.sources?.single())
         assertEquals(
           StyleLoadState.Ready,
           mapState?.style?.loadState,

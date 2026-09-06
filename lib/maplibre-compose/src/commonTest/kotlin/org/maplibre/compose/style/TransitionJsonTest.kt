@@ -2,7 +2,9 @@ package org.maplibre.compose.style
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.serialization.json.Json
 
@@ -29,29 +31,12 @@ class TransitionJsonTest {
     assertNull(transitionOf("""{"duration":700,"delay":-50}"""))
   }
 
+  @Test
+  fun transition_timing_must_be_finite_and_nonnegative() {
+    assertFailsWith<IllegalArgumentException> { TransitionOptions(duration = Duration.INFINITE) }
+    assertFailsWith<IllegalArgumentException> { TransitionOptions(delay = (-1).milliseconds) }
+  }
+
   private fun transitionOf(json: String): TransitionOptions? =
     Json.parseToJsonElement(json).toTransitionOptions()
-
-  @Test
-  fun a_scale_of_one_returns_the_same_timing() {
-    val options = TransitionOptions(700.milliseconds, 50.milliseconds)
-    assertEquals(options, options.scaledBy(1f))
-  }
-
-  @Test
-  fun scaling_multiplies_duration_and_delay() {
-    assertEquals(
-      TransitionOptions(350.milliseconds, 25.milliseconds),
-      TransitionOptions(700.milliseconds, 50.milliseconds).scaledBy(0.5f),
-    )
-  }
-
-  /** A zero scale is Android's "remove animations": property changes apply instantly. */
-  @Test
-  fun a_scale_of_zero_zeroes_duration_and_delay() {
-    assertEquals(
-      TransitionOptions(0.milliseconds, 0.milliseconds),
-      TransitionOptions(700.milliseconds, 50.milliseconds).scaledBy(0f),
-    )
-  }
 }

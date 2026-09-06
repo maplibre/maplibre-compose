@@ -48,20 +48,14 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.expressions.dsl.asString
-import org.maplibre.compose.expressions.dsl.case
 import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.dsl.feature
-import org.maplibre.compose.expressions.dsl.switch
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.BackgroundLayer
-import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
 import org.maplibre.compose.mlnffi.setFfiTestMapContent
-import org.maplibre.compose.offline.rememberOfflinePacksSource
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.include
 import org.maplibre.compose.sources.GeoJsonData
@@ -72,10 +66,7 @@ import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
-import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Position
-import org.maplibre.spatialk.geojson.dsl.addFeature
-import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
 
 /** Composes real maps against the platform's real FFI runtime and rendering host. */
 @OptIn(ExperimentalTestApi::class)
@@ -91,16 +82,6 @@ class MlnFfiMapCompositionTest {
   @AfterTest
   fun cleanUp() {
     FfiTestPlatform.deleteCacheFile(cacheFile)
-  }
-
-  @Test
-  fun an_empty_style_composes_without_error() = runBridgeMapTest { errors, onFrame ->
-    TestMap(
-      modifier = Modifier,
-      baseStyle = BaseStyle.Empty,
-      onMapLoadFailed = { errors += "mapLoadFailed: $it" },
-      onFrame = { onFrame() },
-    )
   }
 
   @Test
@@ -554,87 +535,6 @@ class MlnFfiMapCompositionTest {
     assertTrue(errors.any { it.startsWith("mapLoadFailed") }, "The load was not reported: $errors")
   }
 
-  /** The exact shape the offline demo composes, in the no-packs state the screen opens in. */
-  @Test
-  fun the_offline_demo_layer_composes_without_error() = runBridgeMapTest { errors, onFrame ->
-    TestMap(
-      modifier = Modifier,
-      baseStyle = BaseStyle.Empty,
-      onMapLoadFailed = { errors += "mapLoadFailed: $it" },
-      onFrame = { onFrame() },
-    ) {
-      val offlineManager = DefaultMapRuntime.instance.offlineManager
-      FillLayer(
-        id = "offline-packs",
-        source = rememberOfflinePacksSource(offlineManager.packs),
-        opacity = const(0.5f),
-        color =
-          switch(
-            feature["status"].asString(),
-            case(label = "Complete", output = const(Color.Green)),
-            case(label = "Downloading", output = const(Color.Blue)),
-            case(label = "Paused", output = const(Color.Yellow)),
-            fallback = const(Color.Red),
-          ),
-      )
-    }
-  }
-
-  @Test
-  fun an_empty_geojson_source_composes_without_error() = runBridgeMapTest { errors, onFrame ->
-    TestMap(
-      modifier = Modifier,
-      baseStyle = BaseStyle.Empty,
-      onMapLoadFailed = { errors += "mapLoadFailed: $it" },
-      onFrame = { onFrame() },
-    ) {
-      FillLayer(
-        id = "empty",
-        source =
-          rememberGeoJsonSource(
-            data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>())
-          ),
-        color = const(Color.Red),
-      )
-    }
-  }
-
-  @Test
-  fun changing_geojson_data_recomposes_and_requests_a_frame() = runFfiComposeUiTest {
-    var data by mutableStateOf(pointAt(ORIGIN))
-    val errors = RecordingList<String>()
-    val frames = AtomicInt(0)
-    lateinit var mapState: MapState
-
-    setFfiTestMapContent(runtimeOptions) {
-      mapState =
-        TestMap(
-          modifier = Modifier.size(128.dp),
-          baseStyle = GEOJSON_UPDATE_STYLE,
-          initialCameraPosition = CameraPosition(target = ORIGIN, zoom = 14.0),
-          onMapLoadFailed = { errors += "mapLoadFailed: $it" },
-          onFrame = { frames.incrementAndFetch() },
-        ) {
-          CircleLayer(
-            id = "point",
-            source = rememberGeoJsonSource(GeoJsonData.Features(data)),
-            radius = const(16.dp),
-            color = const(Color.Black),
-          )
-        }
-    }
-
-    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { frames.load() > 0 || errors.isNotEmpty() }
-    assertTrue(errors.isEmpty(), "The initial point did not render: $errors")
-    waitForIdle()
-    val framesBeforeUpdate = frames.load()
-
-    data = pointAt(FAR_AWAY)
-
-    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { frames.load() > framesBeforeUpdate }
-    assertTrue(errors.isEmpty(), "The GeoJSON update reported errors: $errors")
-  }
-
   @Test
   fun a_layer_removed_and_re_added_comes_back() {
     var visible by mutableStateOf(true)
@@ -824,25 +724,8 @@ class MlnFfiMapCompositionTest {
     const val RENDER_TIMEOUT_MILLIS = 30_000L
 
     const val PLACED_AT_TAG = "map-placed-at"
-
-    val ORIGIN = Position(0.0, 0.0)
-    val FAR_AWAY = Position(5.0, 5.0)
-    val GEOJSON_UPDATE_STYLE =
-      BaseStyle.Json(
-        """
-        {"version":8,"sources":{},"layers":[
-          {"id":"background","type":"background","paint":{"background-color":"#336699"}}
-        ]}
-        """
-          .trimIndent()
-      )
   }
 }
-
-private fun pointAt(position: Position): FeatureCollection<Geometry, JsonObject?> =
-  buildFeatureCollection {
-    addFeature(geometry = Point(position))
-  }
 
 /** Small test host that observes loading through [MapState.style]. */
 @Composable

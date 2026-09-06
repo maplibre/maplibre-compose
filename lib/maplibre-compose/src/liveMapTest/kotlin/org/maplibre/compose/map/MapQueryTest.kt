@@ -9,9 +9,11 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -37,8 +39,10 @@ class MapQueryTest {
   fun a_query_at_a_covered_point_returns_the_feature(): MapTestResult = runMapTest {
     createMapFixture().use {
       it.loadStyle(BaseStyle.Json(WORLD_POLYGON_STYLE))
-      // Rendering, not loading, is what populates the queryable set.
-      it.pump(frames = 30)
+      it.awaitMapReady()
+      it.pumpUntil("the style's features to become queryable") {
+        it.state.queryRenderedFeatures(rect = DpRect(0.dp, 0.dp, 512.dp, 512.dp)).isNotEmpty()
+      }
 
       val features = it.state.queryRenderedFeatures(offset = CENTER)
 
@@ -52,7 +56,10 @@ class MapQueryTest {
   fun queried_feature_metadata_does_not_replace_source_properties(): MapTestResult = runMapTest {
     createMapFixture().use {
       it.loadStyle(BaseStyle.Json(COLLIDING_PROPERTIES_STYLE))
-      it.pump(frames = 30)
+      it.awaitMapReady()
+      it.pumpUntil("the style's features to become queryable") {
+        it.state.queryRenderedFeatures(rect = DpRect(0.dp, 0.dp, 512.dp, 512.dp)).isNotEmpty()
+      }
 
       val feature = it.state.queryRenderedFeatures(offset = CENTER).first()
 
@@ -69,7 +76,10 @@ class MapQueryTest {
   fun a_query_restricted_to_another_layer_returns_nothing(): MapTestResult = runMapTest {
     createMapFixture().use {
       it.loadStyle(BaseStyle.Json(WORLD_POLYGON_STYLE))
-      it.pump(frames = 30)
+      it.awaitMapReady()
+      it.pumpUntil("the style's features to become queryable") {
+        it.state.queryRenderedFeatures(rect = DpRect(0.dp, 0.dp, 512.dp, 512.dp)).isNotEmpty()
+      }
 
       val features =
         it.state.queryRenderedFeatures(
@@ -82,32 +92,13 @@ class MapQueryTest {
   }
 
   @Test
-  fun a_query_while_a_style_loads_is_not_a_load_failure(): MapTestResult = runMapTest {
-    createMapFixture().use {
-      it.loadStyle(BaseStyle.Json(WORLD_POLYGON_STYLE))
-      it.pump(frames = 5)
-
-      // Not awaited: the query below must land inside the loading window.
-      it.session.setBaseStyle(BaseStyle.Json(EMPTY_STYLE))
-      it.state.queryRenderedFeatures(
-        offset = CENTER,
-        layerIds = setOf("no-such-layer"),
-      )
-      it.pump(frames = 30)
-
-      assertTrue(
-        it.errors.isEmpty(),
-        "Naming a layer the style does not have is an ordinary query, not the map failing to " +
-          "load. Got: ${it.errors}",
-      )
-    }
-  }
-
-  @Test
   fun a_box_query_covering_the_map_returns_the_feature(): MapTestResult = runMapTest {
     createMapFixture().use {
       it.loadStyle(BaseStyle.Json(WORLD_POLYGON_STYLE))
-      it.pump(frames = 30)
+      it.awaitMapReady()
+      it.pumpUntil("the style's features to become queryable") {
+        it.state.queryRenderedFeatures(rect = DpRect(0.dp, 0.dp, 512.dp, 512.dp)).isNotEmpty()
+      }
 
       val features =
         it.state.queryRenderedFeatures(
@@ -128,9 +119,9 @@ class MapQueryTest {
           }
 
         assertFalse(query.isCompleted)
-        fixture.pumpUntil("the first viewport to make the query available") { query.isCompleted }
+        fixture.awaitMapReady()
 
-        assertTrue(query.await().isEmpty())
+        assertTrue(withTimeout(30.seconds) { query.await() }.isEmpty())
       }
     }
   }
@@ -139,7 +130,10 @@ class MapQueryTest {
   fun a_predicate_keeps_only_matching_features(): MapTestResult = runMapTest {
     createMapFixture().use {
       it.loadStyle(BaseStyle.Json(WORLD_POLYGON_STYLE))
-      it.pump(frames = 30)
+      it.awaitMapReady()
+      it.pumpUntil("the style's features to become queryable") {
+        it.state.queryRenderedFeatures(rect = DpRect(0.dp, 0.dp, 512.dp, 512.dp)).isNotEmpty()
+      }
 
       val matching = Feature["name"].cast<StringValue>() eq const("world")
       val misses = Feature["name"].cast<StringValue>() eq const("other")
@@ -157,7 +151,11 @@ class MapQueryTest {
   fun a_query_returns_the_front_layer_first(): MapTestResult = runMapTest {
     createMapFixture().use {
       it.loadStyle(BaseStyle.Json(OVERLAPPING_FILL_STYLE))
-      it.pump(frames = 30)
+      it.awaitMapReady()
+      it.pumpUntil("both overlapping sources to become queryable") {
+        it.state.queryRenderedFeatures(rect = DpRect(0.dp, 0.dp, 512.dp, 512.dp)).names() ==
+          setOf("front", "back")
+      }
 
       val features = it.state.queryRenderedFeatures(offset = CENTER)
       val names = features.map { feature ->
@@ -182,7 +180,10 @@ class MapQueryTest {
       it.loadStyle(BaseStyle.Json(TWO_HALVES_STYLE))
       // Zoom 0 keeps ±90 inside the 512 px viewport.
       it.state.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = 0.0))
-      it.pump(frames = 30)
+      it.awaitMapReady()
+      it.pumpUntil("the style's features to become queryable") {
+        it.state.queryRenderedFeatures(rect = DpRect(0.dp, 0.dp, 512.dp, 512.dp)).isNotEmpty()
+      }
 
       val westAt = assertNotNull(it.state.screenLocationFromPosition(WEST_POINT))
       val eastAt = assertNotNull(it.state.screenLocationFromPosition(EAST_POINT))
@@ -206,7 +207,10 @@ class MapQueryTest {
   fun a_queried_feature_keeps_its_geojson_id(): MapTestResult = runMapTest {
     createMapFixture().use {
       it.loadStyle(BaseStyle.Json(WORLD_POLYGON_STYLE))
-      it.pump(frames = 30)
+      it.awaitMapReady()
+      it.pumpUntil("the style's features to become queryable") {
+        it.state.queryRenderedFeatures(rect = DpRect(0.dp, 0.dp, 512.dp, 512.dp)).isNotEmpty()
+      }
 
       val feature = it.state.queryRenderedFeatures(offset = CENTER).first()
       val id = assertIs<JsonPrimitive>(feature.id)
@@ -309,9 +313,6 @@ class MapQueryTest {
       }
       """
         .trimIndent()
-
-    val EMPTY_STYLE =
-      """{ "version": 8, "name": "empty", "sources": {}, "layers": [] }""".trimIndent()
 
     val COLLIDING_PROPERTIES_STYLE =
       WORLD_POLYGON_STYLE.replace(

@@ -5,6 +5,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.serialization.json.float
+import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.expressions.ast.BooleanLiteral
 import org.maplibre.compose.expressions.ast.ColorLiteral
 import org.maplibre.compose.expressions.ast.CompiledExpression
@@ -43,6 +45,17 @@ class ExpressionJsonTest {
     assertEquals("true", json(BooleanLiteral.of(true)))
     assertEquals("1.5", json(FloatLiteral.of(1.5f)))
     assertEquals("\"park\"", json(StringLiteral.of("park")))
+  }
+
+  @Test
+  fun numeric_literals_keep_their_value_without_rounding_nearby_numbers() {
+    for (value in listOf(0f, 1f, 511f, 512f, 0.05f, 0.051f, 0.66f, 25.55f, -0.05f, 600f)) {
+      assertEquals(
+        value,
+        compiled(const(value)).toStyleJson().jsonPrimitive.float,
+        "literal $value",
+      )
+    }
   }
 
   @Test

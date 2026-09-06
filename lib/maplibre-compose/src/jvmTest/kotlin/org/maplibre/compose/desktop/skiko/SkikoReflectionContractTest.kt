@@ -1,8 +1,10 @@
 package org.maplibre.compose.desktop.skiko
 
+import java.lang.reflect.Modifier
 import kotlin.test.Test
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * Pins the Compose Desktop and Skiko internals the default host reflects into, so that a Compose
@@ -15,7 +17,9 @@ class SkikoReflectionContractTest {
 
   @Test
   fun `static invocation accepts the null result of a void method`() {
-    assertNull(with(SkikoReflection) { Thread::class.java.staticInvoke("yield") })
+    StaticTarget.called = false
+    assertNull(with(SkikoReflection) { StaticTarget::class.java.staticInvoke("record") })
+    assertTrue(StaticTarget.called)
   }
 
   @Test
@@ -56,7 +60,6 @@ class SkikoReflectionContractTest {
 
   @Test
   fun `the Metal context handler exposes the device and context the host reads`() {
-    // No test drives the Metal host: the suite runs on Vulkan even on macOS.
     assertField(Class.forName(SkikoReflection.METAL_CONTEXT_HANDLER_CLASS), "device")
     assertField(Class.forName(SkikoReflection.CONTEXT_HANDLER_CLASS), "context")
     assertMethod(Class.forName(SkikoReflection.CONTEXT_HANDLER_CLASS), "getContext")
@@ -91,10 +94,24 @@ class SkikoReflectionContractTest {
   }
 
   private fun assertStaticMethod(owner: Class<*>, name: String, parameterCount: Int) {
-    val found = owner.methods.firstOrNull { it.name == name && it.parameterCount == parameterCount }
+    val found =
+      owner.methods.firstOrNull {
+        it.name == name && it.parameterCount == parameterCount && Modifier.isStatic(it.modifiers)
+      }
     assertNotNull(
       found,
       "${owner.name} no longer declares a static '$name' taking $parameterCount argument(s)",
     )
+  }
+
+  class StaticTarget {
+    companion object {
+      var called = false
+
+      @JvmStatic
+      fun record() {
+        called = true
+      }
+    }
   }
 }

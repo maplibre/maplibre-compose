@@ -32,11 +32,9 @@ internal class RecordingStyleBinding(
   override val supportsCustomDemEncoding: Boolean = false,
   override val supportsRasterDemScheme: Boolean = true,
   private val refusedSourceRemovals: Set<String> = emptySet(),
-  private val refusedLightProperties: Set<String> = emptySet(),
   override val supportsSky: Boolean = true,
   override val supportsProjection: Boolean = true,
   private val beforeAddImage: ((String) -> Unit)? = null,
-  private val beforeClusterExpansionZoomResult: suspend () -> Unit = {},
   private val onInvalidate: () -> Unit = {},
   /** The fake platform's animator duration scale; a test changes it to simulate the setting. */
   val animatorDurationScaleState: MutableState<Float> = mutableStateOf(1f),
@@ -71,9 +69,6 @@ internal class RecordingStyleBinding(
 
   val imageIds: Set<String>
     get() = images.keys
-
-  var customGeometryProvider: GeometryTileProvider? = null
-    private set
 
   var customVectorProvider: VectorTileProvider? = null
     private set
@@ -174,7 +169,6 @@ internal class RecordingStyleBinding(
     options: CustomGeometrySourceOptions,
     provider: GeometryTileProvider,
   ): Boolean {
-    customGeometryProvider = provider
     sources[sourceId] = JsonObject(mapOf("type" to JsonPrimitive("custom-geometry")))
     return true
   }
@@ -199,7 +193,6 @@ internal class RecordingStyleBinding(
     sourceId: String,
     feature: Feature<*, JsonObject?>,
   ): Double? {
-    beforeClusterExpansionZoomResult()
     return null
   }
 
@@ -304,11 +297,6 @@ internal class RecordingStyleBinding(
     if (isLoaded) lightProperties[name] else null
 
   override fun setLight(light: JsonObject) {
-    light.keys
-      .firstOrNull { it in refusedLightProperties }
-      ?.let { name ->
-        throw StyleMutationException("Light property '$name' is not supported", null)
-      }
     lightProperties.clear()
     lightProperties.putAll(light)
   }

@@ -11,7 +11,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
-import kotlin.time.TimeSource
+import kotlin.time.TestTimeSource
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.spatialk.geojson.Position
@@ -64,7 +64,8 @@ class LocationPuckTest {
   @Test
   fun measurementBecomesOldAndNewMeasurementStartsFresh() = runComposeUiTest {
     mainClock.autoAdvance = false
-    var measurementMark by mutableStateOf(TimeSource.Monotonic.markNow())
+    val time = TestTimeSource()
+    var measurementMark by mutableStateOf(time.markNow())
     var isOld = false
     setContent { isOld = rememberIsLocationOld(1.seconds, measurementMark) }
 
@@ -76,7 +77,8 @@ class LocationPuckTest {
     waitForIdle()
     assertTrue(isOld)
 
-    measurementMark = TimeSource.Monotonic.markNow()
+    time += 2.seconds
+    measurementMark = time.markNow()
     mainClock.advanceTimeByFrame()
     waitForIdle()
     assertFalse(isOld)
@@ -84,12 +86,7 @@ class LocationPuckTest {
 
   @Test
   fun suppliedMonotonicMarkDeterminesLiveStaleness() = runComposeUiTest {
-    val location =
-      LocationMeasurement(
-        position = Position(longitude = 13.0, latitude = 52.0),
-        measuredAt = Clock.System.now(),
-      )
-    val measurementMark = TimeSource.Monotonic.markNow() - 2.seconds
+    val measurementMark = TestTimeSource().markNow() - 2.seconds
     var isOld = false
 
     setContent {

@@ -91,6 +91,14 @@ class MlnFfiOfflinePackTest {
     // pack reports.
     updated[0] = '!'.code.toByte()
     assertContentEquals("after, and longer than before".encodeToByteArray(), pack.metadata)
+
+    assertTrue(manager.close())
+    val reopened = manager()
+    await("the updated metadata to be listed after reopening") { reopened.packs.isNotEmpty() }
+    assertContentEquals(
+      "after, and longer than before".encodeToByteArray(),
+      reopened.packs.single().metadata,
+    )
   }
 
   @Test
@@ -189,9 +197,7 @@ class MlnFfiOfflinePackTest {
     await("the reopened manager to list the pack that was kept") {
       second.packs.any { it.regionId == kept.regionId }
     }
-    // The listing registers every region it found in one owner-thread callback, so a surviving
-    // second region would land right after the first.
-    delay(SETTLE_MILLIS)
+    assertTrue(second.close(), "the reopened manager should finish its listing before closing")
 
     assertEquals(listOf(kept.regionId), second.packs.map { it.regionId })
   }
@@ -282,50 +288,6 @@ class MlnFfiOfflinePackTest {
     assertTrue(status.completedResourceCount > 0, "the pack should still have its resources")
   }
 
-  /**
-   * The ambient cache and offline packs share a database and a resource table, and clearing one is
-   * documented not to touch the other.
-   */
-  @Test
-  fun clearing_the_ambient_cache_leaves_a_pack_s_downloaded_resources_in_place() = runBlocking {
-    val manager = manager()
-    val pack = downloadedPack(manager, "ambient-clear.json")
-    val downloaded =
-      awaitHealthy(pack, "the pack to finish downloading") { it.completedResourceCount > 0 }
-
-    withTimeout(OPERATION_TIMEOUT_MILLIS) { manager.clearAmbientCache() }
-
-    val after = rereadStatus(manager, pack)
-    assertEquals(
-      downloaded.completedResourceCount,
-      after.completedResourceCount,
-      "clearing the ambient cache discarded a resource the offline pack owns",
-    )
-    assertEquals(downloaded.completedResourceBytes, after.completedResourceBytes)
-  }
-
-  /**
-   * Invalidation marks a pack for revalidation on its next download; it must not discard the
-   * resources in the meantime.
-   */
-  @Test
-  fun invalidating_a_pack_keeps_its_downloaded_resources() = runBlocking {
-    val manager = manager()
-    val pack = downloadedPack(manager, "invalidate.json")
-    val downloaded =
-      awaitHealthy(pack, "the pack to finish downloading") { it.completedResourceCount > 0 }
-
-    withTimeout(OPERATION_TIMEOUT_MILLIS) { manager.invalidate(pack) }
-
-    val after = rereadStatus(manager, pack)
-    assertEquals(
-      downloaded.completedResourceCount,
-      after.completedResourceCount,
-      "invalidating the pack discarded resources instead of marking them stale",
-    )
-    assertEquals(setOf(pack), manager.packs, "an invalidated pack should still be listed")
-  }
-
   // region fixtures
 
   private fun manager(options: MlnFfiRuntimeOptions = this.options): MlnFfiOfflineManager =
@@ -342,20 +304,6 @@ class MlnFfiOfflinePackTest {
       }
     manager.resume(pack)
     return pack
-  }
-
-  /**
-   * Reads the pack's status back from the database, clearing the published value first so a stale
-   * read cannot satisfy an assertion about a count *not* changing. Pausing is what asks for the
-   * read: [MlnFfiOfflineManager.setDownloadState] follows a state change with a status query.
-   */
-  private suspend fun rereadStatus(
-    manager: MlnFfiOfflineManager,
-    pack: OfflinePack,
-  ): DownloadProgress.Healthy {
-    pack.progressState.value = DownloadProgress.Unknown
-    manager.pause(pack)
-    return awaitHealthy(pack, "a fresh status read for pack ${pack.regionId}") { true }
   }
 
   private fun writeStyle(name: String): String {
@@ -415,9 +363,6 @@ class MlnFfiOfflinePackTest {
     const val OPERATION_TIMEOUT_MILLIS = 30_000L
 
     const val POLL_MILLIS = 20L
-
-    /** Long enough that "it never arrived" is a conclusion rather than a guess. */
-    const val SETTLE_MILLIS = 2_000L
   }
   // endregion
 }

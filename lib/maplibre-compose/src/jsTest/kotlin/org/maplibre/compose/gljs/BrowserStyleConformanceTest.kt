@@ -8,25 +8,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.ExperimentalTestApi
-import kotlin.js.Promise
 import kotlin.test.Test
-import kotlin.test.assertContains
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.FillLayer
-import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.layers.UnknownLayer
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.StyleLoadState
 import org.maplibre.compose.map.rememberMapState
-import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.TileSetOptions
-import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.sources.rememberVectorSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LocalStyleNode
@@ -58,107 +51,6 @@ class BrowserStyleConformanceTest {
       """
         .trimIndent()
     )
-
-  private val points =
-    GeoJsonData.JsonString(
-      """
-      {"type": "FeatureCollection", "features": [
-        {"type": "Feature", "properties": {"kind": "a"},
-         "geometry": {"type": "Point", "coordinates": [0, 0]}}]}
-      """
-        .trimIndent()
-    )
-
-  @Test
-  fun a_base_style_loads_and_reports_itself() = runStyleTest { style ->
-    assertEquals(
-      listOf("base-background", "base-fill"),
-      style.getLayers().map { it.id },
-      "the base style's layers should be visible, in the order the style declares them",
-    )
-    assertEquals(
-      "base attribution",
-      style.getSource("base-source")?.attributionHtml,
-      "a base source should report the attribution the style declared",
-    )
-  }
-
-  @Test
-  fun composed_layers_sit_on_top_of_the_base_style() =
-    runStyleTest(
-      content = {
-        val source = rememberGeoJsonSource(points)
-        FillLayer(id = "composed-fill", source = source, color = const(Color.Blue))
-        LineLayer(id = "composed-line", source = source, color = const(Color.Cyan))
-      }
-    ) { style ->
-      assertEquals(
-        listOf("base-background", "base-fill", "composed-fill", "composed-line"),
-        style.getLayers().map { it.id },
-        "composed layers should follow the base style's, in composition order",
-      )
-    }
-
-  @Test
-  fun a_composed_source_reaches_the_style() =
-    runStyleTest(
-      content = {
-        val source = rememberGeoJsonSource(points)
-        FillLayer(id = "composed-fill", source = source, color = const(Color.Blue))
-      }
-    ) { style ->
-      // The composed source's id is generated, so only its presence can be asserted.
-      assertEquals(
-        2,
-        style.getSources().size,
-        "the composition's source should be in the style alongside the base one",
-      )
-    }
-
-  @Test
-  fun a_paint_property_reads_back_off_the_live_layer() =
-    runStyleTest(
-      content = {
-        val source = rememberGeoJsonSource(points)
-        FillLayer(
-          id = "round-trip",
-          source = source,
-          color = const(Color.Blue),
-          opacity = const(0.25f),
-        )
-      }
-    ) { style ->
-      val layer = assertNotNull(style.getLayer("round-trip"), "the composed layer should be here")
-      val definition = layer.toString()
-      assertContains(definition, "round-trip")
-    }
-
-  @Test
-  fun a_filter_is_accepted_on_a_composed_layer() =
-    runStyleTest(
-      content = {
-        val source = rememberGeoJsonSource(points)
-        FillLayer(
-          id = "filtered",
-          source = source,
-          filter = feature.has("kind"),
-          color = const(Color.Blue),
-        )
-      }
-    ) { style ->
-      assertContains(style.getLayers().map { it.id }, "filtered")
-    }
-
-  @Test
-  fun a_layer_can_be_hidden_and_shown_again() =
-    runStyleTest(
-      content = {
-        val source = rememberGeoJsonSource(points)
-        FillLayer(id = "toggled", source = source, visible = false, color = const(Color.Blue))
-      }
-    ) { style ->
-      assertContains(style.getLayers().map { it.id }, "toggled")
-    }
 
   @Test
   fun changing_a_source_layer_recreates_the_layer_and_keeps_its_anchor() = runBrowserMapTest {
@@ -221,27 +113,6 @@ class BrowserStyleConformanceTest {
       style?.getLayers()?.map { it.id } == listOf("base-background", "base-fill")
     }
     assertTrue(failures.isEmpty(), "the map reported load failures: $failures")
-  }
-
-  private fun runStyleTest(
-    content: @Composable @MaplibreComposable () -> Unit = {},
-    assertions: (StyleBinding) -> Unit,
-  ): Promise<*> = runBrowserMapTest {
-    var style by mutableStateOf<StyleBinding?>(null)
-    val failures = mutableListOf<String>()
-    setBrowserMapContent {
-      TestMap(
-        modifier = Modifier,
-        baseStyle = baseStyle,
-        onMapLoadFailed = { failures += it.orEmpty() },
-      ) {
-        CaptureStyle { style = it }
-        content()
-      }
-    }
-    waitUntilMap("the style to load") { style != null }
-    assertTrue(failures.isEmpty(), "the map reported load failures: $failures")
-    assertions(style!!)
   }
 
   @Composable

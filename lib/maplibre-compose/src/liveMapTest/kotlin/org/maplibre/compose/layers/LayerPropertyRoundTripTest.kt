@@ -8,7 +8,6 @@ import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.serialization.json.Json
@@ -205,7 +204,10 @@ class LayerPropertyRoundTripTest {
       installation.update(layer.definition(), scale)
 
       val cleared = style.layerProperty("timed", "background-color-transition")
-      assertNull((cleared as? JsonObject)?.get("duration"), "clearing must drop the timing")
+      assertTrue(
+        cleared == null || cleared == JsonObject(emptyMap()),
+        "clearing must remove both duration and delay, got $cleared",
+      )
       assertEquals(emptyList(), it.errors, "the map should report nothing")
     }
   }
@@ -265,7 +267,7 @@ class LayerPropertyRoundTripTest {
       this is JsonPrimitive && expected is JsonPrimitive -> {
         val actualNumber = doubleOrNull
         val expectedNumber = expected.doubleOrNull
-        if (actualNumber != null && expectedNumber != null) {
+        if (!isString && !expected.isString && actualNumber != null && expectedNumber != null) {
           abs(actualNumber - expectedNumber) <= NUMBER_TOLERANCE
         } else {
           this == expected

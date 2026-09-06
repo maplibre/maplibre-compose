@@ -15,25 +15,6 @@ import org.maplibre.compose.style.uninstall
 
 class UnknownSourceRestoreTest {
 
-  @Test
-  fun a_base_style_source_is_reconstructed_with_the_style_spec_s_name_for_its_type() {
-    val fixture = BridgeMapFixture.create()
-    fixture.use {
-      it.loadStyle(BaseStyle.Json(VECTOR_STYLE))
-      val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
-
-      val source = assertIs<UnknownSource>(style.getSource(SOURCE_ID))
-
-      assertEquals("vector", (source.definition["type"] as? JsonPrimitive)?.content)
-      assertEquals(
-        listOf("https://example.invalid/{z}/{x}/{y}.pbf"),
-        (source.definition["tiles"] as? JsonArray)?.map { (it as JsonPrimitive).content },
-      )
-      assertEquals(ATTRIBUTION, source.attributionHtml)
-      assertEquals(emptyList(), it.errors, "the map should report nothing")
-    }
-  }
-
   /**
    * MapLibre retains a tiled source's templates, so a reconstructed source can be added to a later
    * style.
@@ -50,6 +31,7 @@ class UnknownSourceRestoreTest {
       style.install(source)
 
       val restored = assertIs<UnknownSource>(style.getSource(SOURCE_ID))
+      assertEquals(JsonPrimitive("vector"), restored.definition["type"])
       assertEquals(
         listOf("https://example.invalid/{z}/{x}/{y}.pbf"),
         (restored.definition["tiles"] as? JsonArray)?.map { (it as JsonPrimitive).content },

@@ -4,10 +4,12 @@ import java.util.ServiceLoader
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -15,7 +17,6 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
@@ -29,6 +30,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.freedesktop.dbus.types.UInt64
 import org.freedesktop.dbus.types.Variant
+import org.junit.Assume.assumeTrue
 import org.maplibre.compose.location.DesktopLocationBackend
 import org.maplibre.compose.location.LocationAccuracyAuthorization
 import org.maplibre.compose.location.LocationBackendAvailability
@@ -159,7 +161,7 @@ class LinuxPortalLocationProviderTest {
     assertEquals(8.0, event.measurement.horizontalAccuracy?.inMeters)
     assertEquals(3.0, event.measurement.distancePerSecond?.inMeters)
     assertEquals(Bearing.North + 90.degrees, event.measurement.course)
-    assertTrue(event.measurementMark.elapsedNow() < 1.seconds)
+    assertEquals(Instant.fromEpochMilliseconds(1_700_000_000_123), event.measurement.measuredAt)
   }
 
   @Test
@@ -181,7 +183,10 @@ class LinuxPortalLocationProviderTest {
 
   @Test
   fun realPortalSessionCanOpenAndClose() = runTest {
-    if (System.getenv("MAPLIBRE_TEST_LINUX_LOCATION_PORTAL") != "true") return@runTest
+    assumeTrue(
+      "Requires an opted-in Linux location portal",
+      System.getenv("MAPLIBRE_TEST_LINUX_LOCATION_PORTAL") == "true",
+    )
 
     val portal = DbusLocationPortal()
     assertTrue(portal.available)
@@ -194,11 +199,12 @@ class LinuxPortalLocationProviderTest {
   fun cancellingCollectorWaitsForPortalSessionCleanup() = runTest {
     val portal = FakeLinuxLocationPortal()
     var cleanedUp = false
+    val releaseCleanup = CompletableDeferred<Unit>()
     portal.events = flow {
       try {
         awaitCancellation()
       } finally {
-        withContext(NonCancellable) { delay(1) }
+        withContext(NonCancellable) { releaseCleanup.await() }
         cleanedUp = true
       }
     }
@@ -206,7 +212,15 @@ class LinuxPortalLocationProviderTest {
     val collection = launch { provider.updates().collect {} }
     runCurrent()
 
-    collection.cancelAndJoin()
+    val cancellation = launch { collection.cancelAndJoin() }
+    try {
+      runCurrent()
+      assertFalse(cancellation.isCompleted)
+      assertFalse(cleanedUp)
+    } finally {
+      releaseCleanup.complete(Unit)
+    }
+    cancellation.join()
 
     assertTrue(cleanedUp)
     assertEquals(0, portal.closeCount)

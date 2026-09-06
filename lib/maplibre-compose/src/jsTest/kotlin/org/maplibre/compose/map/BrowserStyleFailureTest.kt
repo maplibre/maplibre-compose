@@ -76,28 +76,31 @@ class BrowserStyleFailureTest {
   }
 
   @Test
-  fun a_missing_style_url_is_reported_once(): MapTestResult = runMapTest {
+  fun a_missing_style_url_reports_once_and_a_later_style_recovers(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       fixture.session.setBaseStyle(BaseStyle.Uri("/missing-maplibre-compose-style.json"))
       fixture.pumpUntil("the missing style URL to fail") { fixture.errors.isNotEmpty() }
 
       val reported = fixture.errors.single()
-      fixture.pump(frames = 20)
+      fixture.loadStyle(BaseStyle.Json(STYLE_B))
+      fixture.awaitMapReady()
       assertEquals(listOf(reported), fixture.errors)
     }
   }
 
   @Test
-  fun an_invalid_inline_style_is_reported_once(): MapTestResult = runMapTest {
-    createMapFixture().use { fixture ->
-      fixture.session.setBaseStyle(BaseStyle.Json(INVALID_STYLE))
-      fixture.pumpUntil("the invalid style to fail") { fixture.errors.isNotEmpty() }
+  fun an_invalid_inline_style_reports_once_and_a_later_style_recovers(): MapTestResult =
+    runMapTest {
+      createMapFixture().use { fixture ->
+        fixture.session.setBaseStyle(BaseStyle.Json(INVALID_STYLE))
+        fixture.pumpUntil("the invalid style to fail") { fixture.errors.isNotEmpty() }
 
-      val reported = fixture.errors.single()
-      fixture.pump(frames = 20)
-      assertEquals(listOf(reported), fixture.errors)
+        val reported = fixture.errors.single()
+        fixture.loadStyle(BaseStyle.Json(STYLE_B))
+        fixture.awaitMapReady()
+        assertEquals(listOf(reported), fixture.errors)
+      }
     }
-  }
 
   private companion object {
     const val STYLE_A = """{"version":8,"sources":{},"layers":[]}"""

@@ -6,8 +6,10 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.layers.Anchor
+import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.HillshadeLayer
 import org.maplibre.compose.layers.RasterLayer
+import org.maplibre.compose.map.FakeImageBitmap
 import org.maplibre.compose.sources.RasterDemSource
 import org.maplibre.compose.sources.RasterSource
 
@@ -37,8 +39,9 @@ class StyleNodeTest {
     val revision = DesiredStyleRevision(sources, layers, images)
 
     sources += source("later").definition()
-    layers.clear()
-    images.clear()
+    layers += DesiredStyleLayer(BackgroundLayer("later").definition(), Anchor.Top, null, null)
+    images +=
+      StyleImageDefinition("later", ImageSnapshot.capture(FakeImageBitmap(1, 1)), false, null)
 
     assertEquals(listOf("first"), revision.sources.map { it.id })
     assertTrue(revision.layers.isEmpty())

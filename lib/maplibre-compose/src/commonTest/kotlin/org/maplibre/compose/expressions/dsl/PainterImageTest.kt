@@ -27,7 +27,7 @@ class PainterImageTest {
   }
 
   @Test
-  fun unspecified_intrinsic_size_uses_the_default_size() {
+  fun unspecified_intrinsic_size_is_accepted() {
     image(TestPainter(Size.Unspecified))
   }
 

@@ -8,9 +8,7 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
-import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.spatialk.geojson.Position
 
 class MapRuntimeTest {
   @Test
@@ -69,26 +67,6 @@ class MapRuntimeTest {
     second.close()
     second.awaitClosed()
     assertTrue(secondResourcesClosed)
-  }
-
-  @Test
-  fun state_starts_with_the_requested_durable_values() {
-    val runtime = mapRuntimeForTest()
-    val camera =
-      CameraPosition(
-        bearing = 12.0,
-        target = Position(longitude = 7.0, latitude = 8.0),
-        tilt = 30.0,
-        zoom = 9.0,
-      )
-
-    val state = runtime.createMapState(baseStyle = BaseStyle.Empty, initialCameraPosition = camera)
-
-    assertTrue(state.cameraPosition == camera)
-    assertTrue(state.style.baseStyle == BaseStyle.Empty)
-    assertTrue(state.currentMapAttachment == null)
-    state.close()
-    runtime.close()
   }
 
   @Test

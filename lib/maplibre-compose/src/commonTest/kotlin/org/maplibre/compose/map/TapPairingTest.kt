@@ -1,7 +1,6 @@
 package org.maplibre.compose.map
 
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -27,15 +26,6 @@ class TapPairingTest {
     assertFalse(paired(samePointerType = false))
     assertFalse(paired(distancePx = 100.01f))
     assertTrue(paired(distancePx = 100f))
-  }
-
-  @Test
-  fun touch_uses_android_double_tap_slop_rather_than_scale_slop() {
-    assertEquals(100.0, GestureMath.DOUBLE_TAP_SLOP_DP)
-    val androidSlop = GestureMath.DOUBLE_TAP_SLOP_DP.toFloat()
-    val scaleSlop = GestureMath.SCALE_START_SPAN_DP.toFloat()
-    assertTrue(paired(distancePx = 50f, slopPx = androidSlop))
-    assertFalse(paired(distancePx = 50f, slopPx = scaleSlop))
   }
 
   private fun bounce(

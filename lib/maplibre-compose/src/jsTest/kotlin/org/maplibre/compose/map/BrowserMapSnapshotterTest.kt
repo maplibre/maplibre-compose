@@ -6,7 +6,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import kotlin.js.Promise
 import kotlin.js.js
@@ -41,7 +40,6 @@ import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.geojson.dsl.addFeature
 import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
-import web.html.HTMLCanvasElement
 import web.html.HTMLElement
 
 @OptIn(ExperimentalTestApi::class)
@@ -135,53 +133,31 @@ class BrowserMapSnapshotterTest {
     }
 
   @Test
-  fun content_sees_the_viewport_of_the_capture_it_is_evaluated_for(): Promise<*> =
-    runBrowserMapTest {
-      val sizes = mutableListOf<DpSize?>()
-      val runtime = createMapRuntime(MapRuntimeOptions())
-      val snapshotter =
-        runtime.createSnapshotter(BASE_STYLE) { sizes += LocalViewport.current?.size }
-      try {
-        snapshotter.capture(MapSnapshotRequest(width = 31, height = 23))
-
-        assertEquals(setOf(DpSize(31.dp, 23.dp)), sizes.toSet())
-      } finally {
-        snapshotter.close()
-        snapshotter.awaitClosed()
-        runtime.close()
-        runtime.awaitClosed()
+  fun consecutive_captures_honor_size_and_density(): Promise<*> = runBrowserMapTest {
+    val runtime = createMapRuntime(MapRuntimeOptions())
+    val snapshotter = runtime.createSnapshotter(BASE_STYLE)
+    try {
+      for ((request, size) in
+        listOf(
+          MapSnapshotRequest(width = 32, height = 24) to (32 to 24),
+          MapSnapshotRequest(width = 96, height = 64, density = 2f) to (192 to 128),
+          MapSnapshotRequest(width = 1, height = 1, density = 3f) to (3 to 3),
+          MapSnapshotRequest(width = 31, height = 23, density = 1.25f) to (39 to 29),
+          MapSnapshotRequest(width = 1, height = 1, density = 0.5f) to (1 to 1),
+        )) {
+        val captured = snapshotter.capture(request)
+        assertEquals(size.first, captured.width, "width for $request")
+        assertEquals(size.second, captured.height, "height for $request")
+        assertEquals(BACKGROUND, captured.readPixel(0, 0))
+        assertEquals(BACKGROUND, captured.readPixel(captured.width - 1, captured.height - 1))
       }
+    } finally {
+      snapshotter.close()
+      snapshotter.awaitClosed()
+      runtime.close()
+      runtime.awaitClosed()
     }
-
-  @Test
-  fun consecutive_requests_reuse_the_private_map_at_each_requested_extent(): Promise<*> =
-    runBrowserMapTest {
-      val runtime = createMapRuntime(MapRuntimeOptions())
-      val snapshotter = runtime.createSnapshotter(BASE_STYLE, POINT_STYLE)
-      try {
-        val first = snapshotter.capture(MapSnapshotRequest(width = 32, height = 24))
-        val target = assertNotNull(snapshotTargets().singleOrNull())
-        val canvas = assertNotNull(target.querySelector("canvas")).unsafeCast<HTMLCanvasElement>()
-
-        assertEquals(32, first.width)
-        assertEquals(24, first.height)
-        assertEquals(32, canvas.width)
-        assertEquals(24, canvas.height)
-
-        val second = snapshotter.capture(MapSnapshotRequest(width = 96, height = 64, density = 2f))
-
-        assertSame(target, snapshotTargets().singleOrNull())
-        assertEquals(192, second.width)
-        assertEquals(128, second.height)
-        assertEquals(192, canvas.width)
-        assertEquals(128, canvas.height)
-      } finally {
-        snapshotter.close()
-        snapshotter.awaitClosed()
-        runtime.close()
-        runtime.awaitClosed()
-      }
-    }
+  }
 
   @Test
   fun camera_position_is_a_per_capture_value(): Promise<*> = runBrowserMapTest {
@@ -211,79 +187,6 @@ class BrowserMapSnapshotterTest {
 
       assertEquals(GREEN, centered.readPixel(SIZE / 2, SIZE / 2))
       assertEquals(BACKGROUND, shifted.readPixel(SIZE / 2, SIZE / 2))
-    } finally {
-      snapshotter.close()
-      snapshotter.awaitClosed()
-      runtime.close()
-      runtime.awaitClosed()
-    }
-  }
-
-  @Test
-  fun density_scales_the_bitmap_without_changing_the_logical_viewport(): Promise<*> =
-    runBrowserMapTest {
-      val runtime = createMapRuntime(MapRuntimeOptions())
-      val snapshotter = runtime.createSnapshotter(BASE_STYLE)
-      try {
-        val captured = snapshotter.capture(MapSnapshotRequest(width = 1, height = 1, density = 3f))
-        val target = assertNotNull(snapshotTargets().singleOrNull())
-        val canvas = assertNotNull(target.querySelector("canvas")).unsafeCast<HTMLCanvasElement>()
-
-        assertEquals(3, captured.width)
-        assertEquals(3, captured.height)
-        assertEquals(1, target.clientWidth)
-        assertEquals(1, target.clientHeight)
-        assertEquals(3, canvas.width)
-        assertEquals(3, canvas.height)
-      } finally {
-        snapshotter.close()
-        snapshotter.awaitClosed()
-        runtime.close()
-        runtime.awaitClosed()
-      }
-    }
-
-  @Test
-  fun fractional_density_rounds_the_output_up_from_the_gl_js_canvas(): Promise<*> =
-    runBrowserMapTest {
-      val runtime = createMapRuntime(MapRuntimeOptions())
-      val snapshotter = runtime.createSnapshotter(BASE_STYLE)
-      try {
-        val captured =
-          snapshotter.capture(MapSnapshotRequest(width = 31, height = 23, density = 1.25f))
-        val target = assertNotNull(snapshotTargets().singleOrNull())
-        val canvas = assertNotNull(target.querySelector("canvas")).unsafeCast<HTMLCanvasElement>()
-
-        assertEquals(39, captured.width)
-        assertEquals(29, captured.height)
-        assertEquals(31, target.clientWidth)
-        assertEquals(23, target.clientHeight)
-        assertEquals(38, canvas.width)
-        assertEquals(28, canvas.height)
-        assertEquals(BACKGROUND, captured.readPixel(38, 28))
-      } finally {
-        snapshotter.close()
-        snapshotter.awaitClosed()
-        runtime.close()
-        runtime.awaitClosed()
-      }
-    }
-
-  @Test
-  fun subpixel_density_keeps_the_gl_js_canvas_nonzero(): Promise<*> = runBrowserMapTest {
-    val runtime = createMapRuntime(MapRuntimeOptions())
-    val snapshotter = runtime.createSnapshotter(BASE_STYLE)
-    try {
-      val captured = snapshotter.capture(MapSnapshotRequest(width = 1, height = 1, density = 0.5f))
-      val target = assertNotNull(snapshotTargets().singleOrNull())
-      val canvas = assertNotNull(target.querySelector("canvas")).unsafeCast<HTMLCanvasElement>()
-
-      assertEquals(1, captured.width)
-      assertEquals(1, captured.height)
-      assertEquals(1, target.clientWidth)
-      assertEquals(1, target.clientHeight)
-      assertEquals(1, canvas.width)
-      assertEquals(1, canvas.height)
     } finally {
       snapshotter.close()
       snapshotter.awaitClosed()

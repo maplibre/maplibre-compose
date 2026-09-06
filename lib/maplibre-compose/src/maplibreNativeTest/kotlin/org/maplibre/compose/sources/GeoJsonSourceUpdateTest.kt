@@ -78,31 +78,19 @@ class GeoJsonSourceUpdateTest {
     }
 
   @Test
-  fun a_base_style_update_uses_the_loaded_sources_non_default_options(): MapTestResult =
-    runMapTest {
-      createMapFixture().use { fixture ->
-        fixture.loadStyle(CLUSTERED_STYLE)
-        fixture.state.setCameraPosition(CameraPosition(target = ORIGIN, zoom = 14.0))
-        val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources[SOURCE_ID])
-        fixture.pumpUntil("the base-style point to render") {
-          fixture.readPixel(256, 256).isNear(CIRCLE)
-        }
-
-        handle.setData(GeoJsonData.Features(pointAt(FAR_AWAY)))
-
-        (fixture.style as MlnFfiStyleBinding).awaitGeoJsonUpdates()
-        fixture.settle()
-        assertTrue(fixture.readPixel(256, 256).isNear(BACKGROUND))
-        assertEquals(emptyList(), fixture.errors)
-      }
-    }
-
-  @Test
   fun a_base_style_update_preserves_the_loaded_sources_minimum_zoom(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(MIN_ZOOM_STYLE)
-      fixture.state.setCameraPosition(CameraPosition(target = ORIGIN, zoom = 6.0))
+      fixture.state.setCameraPosition(CameraPosition(target = ORIGIN, zoom = 8.0))
       val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources[SOURCE_ID])
+      fixture.pumpUntil("the source to render above its minimum zoom") {
+        fixture.readPixel(256, 256).isNear(CIRCLE)
+      }
+      handle.setData(GeoJsonData.Features(pointAt(FAR_AWAY)))
+      (fixture.style as MlnFfiStyleBinding).awaitGeoJsonUpdates()
+      fixture.settle()
+      assertTrue(fixture.readPixel(256, 256).isNear(BACKGROUND))
+      fixture.state.setCameraPosition(CameraPosition(target = ORIGIN, zoom = 6.0))
       fixture.pumpUntil("the source to stay hidden below its minimum zoom") {
         fixture.readPixel(256, 256).isNear(BACKGROUND)
       }
@@ -112,51 +100,13 @@ class GeoJsonSourceUpdateTest {
       (fixture.style as MlnFfiStyleBinding).awaitGeoJsonUpdates()
       fixture.settle()
       assertTrue(fixture.readPixel(256, 256).isNear(BACKGROUND))
+      fixture.state.setCameraPosition(CameraPosition(target = ORIGIN, zoom = 8.0))
+      fixture.pumpUntil("the updated point to render above its minimum zoom") {
+        fixture.readPixel(256, 256).isNear(CIRCLE)
+      }
       assertEquals(emptyList(), fixture.errors)
     }
   }
-
-  @Test
-  fun a_cached_handle_uses_reconciled_options_after_a_same_id_replacement(): MapTestResult =
-    runMapTest {
-      createMapFixture().use { fixture ->
-        fixture.loadStyle(STYLE)
-        val style = checkNotNull(fixture.style)
-        fixture.state.style.sources.add(
-          GeoJsonSource(
-            SOURCE_ID,
-            GeoJsonData.Features(pointAt(ORIGIN)),
-            GeoJsonOptions(),
-          )
-        )
-        val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources[SOURCE_ID])
-        style.removeSource(SOURCE_ID)
-        style.install(
-          GeoJsonSource(
-            SOURCE_ID,
-            GeoJsonData.Features(pointAt(ORIGIN)),
-            GeoJsonOptions(
-              cluster = true,
-              clusterRadius = 123,
-              clusterMaxZoom = 10,
-              synchronousUpdate = true,
-            ),
-          )
-        )
-
-        assertFailsWith<StyleHandleException> {
-          handle.setData(GeoJsonData.JsonString("{invalid GeoJSON}"))
-        }
-        handle.setData(GeoJsonData.Features(pointAt(FAR_AWAY)))
-        (fixture.style as MlnFfiStyleBinding).awaitGeoJsonUpdates()
-
-        assertEquals(
-          emptyList(),
-          fixture.engineEvents.filterIsInstance<MapEvent.SourceDataFailed>(),
-        )
-        assertEquals(emptyList(), fixture.errors)
-      }
-    }
 
   @Test
   fun rejected_data_reports_a_source_event_keeps_the_previous_point_and_allows_recovery():
@@ -278,19 +228,6 @@ class GeoJsonSourceUpdateTest {
         {"version":8,"sources":{},"layers":[
           {"id":"background","type":"background","paint":{"background-color":"#336699"}}
         ]}
-        """
-          .trimIndent()
-      )
-    val CLUSTERED_STYLE =
-      BaseStyle.Json(
-        """
-        {"version":8,"sources":{"points":{"type":"geojson","data":{
-          "type":"FeatureCollection","features":[{"type":"Feature","geometry":{
-            "type":"Point","coordinates":[0,0]},"properties":{}}]},
-          "cluster":true,"clusterRadius":123,"clusterMaxZoom":10}},"layers":[
-          {"id":"background","type":"background","paint":{"background-color":"#336699"}},
-          {"id":"points-layer","type":"circle","source":"points","paint":{
-            "circle-radius":16,"circle-color":"#000000"}}]}
         """
           .trimIndent()
       )

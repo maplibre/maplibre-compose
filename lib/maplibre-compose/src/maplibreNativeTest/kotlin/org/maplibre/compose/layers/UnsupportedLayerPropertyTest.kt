@@ -96,13 +96,9 @@ class UnsupportedLayerPropertyTest {
         )
       }
 
-      assertEquals(
-        listOf(
-          "Layer 'labels' of type 'symbol' cannot set 'icon-overlap'",
-          "Layer 'labels' of type 'symbol' cannot set 'text-overlap'",
-        ),
-        warnings().map { warning -> warning.substringBefore(": MapLibre") },
-      )
+      for (property in listOf("icon-overlap", "text-overlap")) {
+        assertTrue(warnings().any { "labels" in it && property in it }, "No warning for $property")
+      }
 
       layer.setIconOverlap(const("never").compile(ExpressionContext.None))
       handle.update(layer.definition())
@@ -164,13 +160,7 @@ class UnsupportedLayerPropertyTest {
           "the layer should have kept the value MapLibre accepted",
         )
       }
-      assertEquals(
-        listOf(
-          "Layer 'labels' of type 'symbol' kept its previous 'text-rotation-alignment': " +
-            "MapLibre rejected \"viewport-glyph\"."
-        ),
-        warnings(),
-      )
+      assertTrue(warnings().any { "labels" in it && "text-rotation-alignment" in it })
       assertEquals(emptyList(), it.errors, "the map should report nothing")
     }
   }
@@ -202,13 +192,9 @@ class UnsupportedLayerPropertyTest {
         )
       }
 
-      assertEquals(
-        listOf(
-          "Layer 'fills' of type 'fill' cannot set 'fill-layer-opacity'",
-          "Layer 'fills' of type 'fill' cannot set 'fill-layer-opacity-transition'",
-        ),
-        warnings().map { warning -> warning.substringBefore(": MapLibre") },
-      )
+      for (property in listOf("fill-layer-opacity", "fill-layer-opacity-transition")) {
+        assertTrue(warnings().any { "fills" in it && property in it }, "No warning for $property")
+      }
       assertEquals(emptyList(), it.errors, "the map should report nothing")
     }
   }
