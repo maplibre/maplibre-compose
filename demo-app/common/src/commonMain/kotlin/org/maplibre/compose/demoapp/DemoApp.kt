@@ -148,7 +148,7 @@ private fun DemoShell(state: DemoAppState, contentPadding: PaddingValues) {
     // A route to a map that cannot take focus strands the D-pad on the handle.
     val mapFocusable =
       when (state.shell) {
-        DemoShell.Demos -> state.settings.gestureSettings.hasKeyboardGesture
+        DemoShell.Demos -> true
         DemoShell.Benchmarks -> state.selectedScenario.usesGestures
       }
 

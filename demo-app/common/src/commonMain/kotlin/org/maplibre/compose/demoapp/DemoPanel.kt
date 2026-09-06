@@ -148,11 +148,6 @@ fun DemoPanel(
         onOpen = { navController.navigate("settings/$it") },
       )
     }
-    composable("settings/interactions") {
-      SettingsSubScreen("Gestures", onBack = { navController.popBackStack() }) {
-        GestureSettingsItems(state.settings)
-      }
-    }
     composable("settings/rendering") {
       SettingsSubScreen("Rendering", onBack = { navController.popBackStack() }) {
         TileLodSettingsItems(state.settings)
@@ -246,7 +241,6 @@ private fun SettingsScreen(
     )
 
     SectionHeader("Options")
-    SubmenuRow("Gestures", "Which inputs move the camera") { onOpen("interactions") }
     SubmenuRow("Rendering", "Frame rate cap, tile detail, and debug views") { onOpen("rendering") }
     SubmenuRow("Controls", "Map controls and diagnostic overlays") { onOpen("controls") }
   }

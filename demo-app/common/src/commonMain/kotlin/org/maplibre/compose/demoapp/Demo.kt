@@ -10,6 +10,7 @@ import org.maplibre.compose.demoapp.demos.LiveTrackingDemo
 import org.maplibre.compose.demoapp.demos.LocationDemo
 import org.maplibre.compose.demoapp.demos.MagnifyingLensDemo
 import org.maplibre.compose.demoapp.demos.Manhattan3dDemo
+import org.maplibre.compose.demoapp.demos.MapControlsDemo
 import org.maplibre.compose.demoapp.demos.MapSnapshotterDemo
 import org.maplibre.compose.demoapp.demos.MaterialStyleDemo
 import org.maplibre.compose.demoapp.demos.TransitNetworkDemo
@@ -46,8 +47,8 @@ interface Demo {
   val pointerPin: DemoPointerPin?
     get() = null
 
-  /** Adds demo interactions to the user's gesture settings. */
-  fun interactions(base: MapInteractions, mapState: MapState): MapInteractions = base
+  /** Camera controls and app interactions while this demo is selected. */
+  fun interactions(mapState: MapState): MapInteractions = MapInteractions.Standard
 
   @MaplibreComposable @Composable fun MapContent() {}
 
@@ -96,6 +97,7 @@ val allDemos: List<Demo> =
     Manhattan3dDemo,
     CastelloPlanDemo,
     DataVizDemo,
+    MapControlsDemo,
     LiveTrackingDemo,
     DragDropDemo,
     MagnifyingLensDemo,

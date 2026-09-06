@@ -78,10 +78,9 @@ object LiveTrackingDemo : Demo {
   private var followVehicle by mutableStateOf(false)
   private var vehiclePosition by mutableStateOf(route.first())
 
-  override fun interactions(base: MapInteractions, mapState: MapState): MapInteractions =
-    MapInteractions(from = base) {
-      camera { pan { onStart { followVehicle = false } } }
-    }
+  override fun interactions(mapState: MapState): MapInteractions = MapInteractions {
+    camera { pan { onStart { followVehicle = false } } }
+  }
 
   private val segmentLengths = route.zipWithNext { a, b -> approximateDistanceMeters(a, b) }
 

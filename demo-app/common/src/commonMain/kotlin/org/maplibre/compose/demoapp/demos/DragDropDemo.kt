@@ -89,60 +89,59 @@ object DragDropDemo : Demo {
         Handle.Southeast -> southeast
       }
 
-  override fun interactions(base: MapInteractions, mapState: MapState): MapInteractions =
-    MapInteractions(from = base) {
-      bindings {
-        drag {
-          for (handle in handles.asReversed()) {
-            custom("handle-${handle.name}") {
-              canStart { press ->
-                val screen = mapState.screenLocationFromPosition(position(handle))
-                press.modifierKeys.isEmpty() &&
-                  !press.pairedSecondPress &&
-                  screen != null &&
-                  hypot(
-                    (press.screenOffset.x - screen.x).value,
-                    (press.screenOffset.y - screen.y).value,
-                  ) <= 10f + dragPadding
-              }
-              onEvent { event ->
-                when (event) {
-                  is DragEvent.Start -> {
-                    val position = position(handle)
-                    dragPreview =
-                      mapState.screenLocationFromPosition(position)?.let {
-                        DragPreview(handle, it, DpOffset.Zero, position)
-                      }
-                  }
-                  is DragEvent.Delta ->
-                    dragPreview?.let { preview ->
-                      val displacement = preview.displacement + event.delta
-                      val position =
-                        mapState.positionFromScreenLocation(preview.origin + displacement)
-                      dragPreview =
-                        preview.copy(
-                          displacement = displacement,
-                          position = position ?: preview.position,
-                        )
+  override fun interactions(mapState: MapState): MapInteractions = MapInteractions {
+    bindings {
+      drag {
+        for (handle in handles.asReversed()) {
+          custom("handle-${handle.name}") {
+            canStart { press ->
+              val screen = mapState.screenLocationFromPosition(position(handle))
+              press.modifierKeys.isEmpty() &&
+                !press.pairedSecondPress &&
+                screen != null &&
+                hypot(
+                  (press.screenOffset.x - screen.x).value,
+                  (press.screenOffset.y - screen.y).value,
+                ) <= 10f + dragPadding
+            }
+            onEvent { event ->
+              when (event) {
+                is DragEvent.Start -> {
+                  val position = position(handle)
+                  dragPreview =
+                    mapState.screenLocationFromPosition(position)?.let {
+                      DragPreview(handle, it, DpOffset.Zero, position)
                     }
-                  is DragEvent.End -> {
-                    dragPreview?.let { preview ->
-                      when (preview.handle) {
-                        Handle.Pin -> pinPosition = preview.position
-                        Handle.Northwest -> northwest = preview.position
-                        Handle.Southeast -> southeast = preview.position
-                      }
-                    }
-                    dragPreview = null
-                  }
-                  is DragEvent.Cancel -> dragPreview = null
                 }
+                is DragEvent.Delta ->
+                  dragPreview?.let { preview ->
+                    val displacement = preview.displacement + event.delta
+                    val position =
+                      mapState.positionFromScreenLocation(preview.origin + displacement)
+                    dragPreview =
+                      preview.copy(
+                        displacement = displacement,
+                        position = position ?: preview.position,
+                      )
+                  }
+                is DragEvent.End -> {
+                  dragPreview?.let { preview ->
+                    when (preview.handle) {
+                      Handle.Pin -> pinPosition = preview.position
+                      Handle.Northwest -> northwest = preview.position
+                      Handle.Southeast -> southeast = preview.position
+                    }
+                  }
+                  dragPreview = null
+                }
+                is DragEvent.Cancel -> dragPreview = null
               }
             }
           }
         }
       }
     }
+  }
 
   /** Keeps the box valid when one handle crosses the other. */
   private fun boundingBox(): BoundingBox {
