@@ -48,17 +48,22 @@ class MlnFfiGestureTokenOrderingTest {
               check(release.await(5_000))
             }
           )
-          assertTrue(entered.await(5_000))
+          try {
+            assertTrue(entered.await(5_000))
 
-          val stale = fixture.gestures.onGestureStarted()
-          fixture.gestures.moveBy(DRAG_STEP_DP, 0.0, gestureToken = stale)
-          val latest = fixture.gestures.onGestureStarted()
-          fixture.gestures.moveBy(0.0, DRAG_STEP_DP, gestureToken = latest)
-          fixture.gestures.onGestureEnded(latest)
-          fixture.gestures.onGestureEnded(stale)
-          release.countDown()
-          fixture.pump(FRAMES)
-          fixture.settle()
+            val stale = fixture.gestures.onGestureStarted()
+            fixture.gestures.moveBy(DRAG_STEP_DP, 0.0, gestureToken = stale)
+            val latest = fixture.gestures.onGestureStarted()
+            fixture.gestures.moveBy(0.0, DRAG_STEP_DP, gestureToken = latest)
+            fixture.gestures.onGestureEnded(latest)
+            fixture.gestures.onGestureEnded(stale)
+            release.countDown()
+            fixture.awaitWhileRendering("the current gesture to finish") {
+              fixture.gestures.awaitGestureEnded(latest)
+            }
+          } finally {
+            release.countDown()
+          }
 
           val camera = session.getCameraPosition()
           assertTrue(
@@ -191,8 +196,15 @@ class MlnFfiGestureTokenOrderingTest {
         fixture.gestures.moveBy(DRAG_STEP_DP, 0.0, gestureToken = gesture)
         fixture.gestures.onGestureEnded(gesture)
         release.countDown()
-        fixture.settle()
-        assertEquals(START_ZOOM, session.getCameraPosition().zoom, 1e-6)
+        fixture.awaitWhileRendering("the replacement gesture to finish") {
+          fixture.gestures.awaitGestureEnded(gesture)
+        }
+        val camera = session.getCameraPosition()
+        assertEquals(START_ZOOM, camera.zoom, 1e-6)
+        assertTrue(
+          abs(camera.target.longitude) > MIN_DELTA_DEGREES,
+          "the current gesture's pan must still execute",
+        )
       } finally {
         release.countDown()
       }
@@ -201,8 +213,6 @@ class MlnFfiGestureTokenOrderingTest {
 
   private companion object {
     const val DRAG_STEP_DP = 10.0
-
-    const val FRAMES = 8
 
     const val START_ZOOM = 3.0
 

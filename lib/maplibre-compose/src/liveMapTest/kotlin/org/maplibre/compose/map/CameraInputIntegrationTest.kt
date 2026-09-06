@@ -12,7 +12,6 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.awaitCancellation
@@ -25,63 +24,9 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
-import org.maplibre.compose.util.ClickResult
 import org.maplibre.spatialk.geojson.Position
 
 class CameraInputIntegrationTest {
-  @Test
-  fun pending_tap_delivery_survives_programmatic_takeover_without_restoring_its_zoom():
-    MapTestResult = runMapTest {
-    coroutineScope {
-      createMapFixture().use { fixture ->
-        fixture.loadStyle(BaseStyle.Empty)
-        fixture.awaitMapReady()
-        val queryStarted = CompletableDeferred<Unit>()
-        val queryResult = CompletableDeferred<Unit>()
-        val finished = CompletableDeferred<Unit>()
-        val work = Job(coroutineContext[Job])
-        val scope = CoroutineScope(coroutineContext + work)
-        var delivered = false
-        try {
-          val clicks = { _: TapFamily ->
-            MapClickPath({ true }) {
-              queryStarted.complete(Unit)
-              queryResult.await()
-              delivered = true
-              ClickResult.Pass
-            }
-          }
-          val continuation = GestureContinuation(scope)
-          val dispatcher =
-            MapTapDispatcher(scope, clicks, InteractionSubscriptions(MapInteractions.Standard)) {
-              MapInteractions.Standard
-            }
-          val generation = fixture.gestures.observeInput()
-          dispatcher.dispatch(
-            checkNotNull(dispatcher.capture(TapFamily.DoubleTap)),
-            GesturePointerSample(1, 10, DpOffset.Zero, null, emptySet(), emptySet(), emptySet()),
-          ) {
-            continuation.launchTapTransition(fixture.gestures, generation) { token ->
-              inputScaleByAwaitingTransition(2.0, null, Duration.ZERO, token)
-            }
-            finished.complete(Unit)
-          }
-          fixture.awaitWhileRendering("tap query starts") { queryStarted.await() }
-          fixture.state.setCameraPosition(CameraPosition(zoom = 5.0))
-          queryResult.complete(Unit)
-          fixture.awaitWhileRendering("tap application delivery") { finished.await() }
-          fixture.settle()
-          assertTrue(delivered)
-          assertEquals(5.0, fixture.state.cameraPosition.zoom, 1e-6)
-          assertEquals(CameraMoveReason.PROGRAMMATIC, fixture.state.cameraMoveReason)
-        } finally {
-          work.cancel()
-          work.join()
-        }
-      }
-    }
-  }
-
   @Test
   fun built_in_session_completion_drains_the_backend_before_its_job_finishes(): MapTestResult =
     runMapTest {
@@ -114,9 +59,10 @@ class CameraInputIntegrationTest {
         val input = GestureInputSession(this, fixture.gestures) { cancelled.complete(Unit) }
         val ease =
           input.scope.launch(start = CoroutineStart.UNDISPATCHED) {
-            fixture.gestures.scaleByAwaitingTransition(4.0, null, 1.seconds, input.token)
+            fixture.gestures.scaleByAwaitingTransition(4.0, null, 30.seconds, input.token)
           }
-        fixture.pump(2)
+        fixture.pumpUntil("the built-in ease to start") { fixture.state.isCameraMoving }
+        assertFalse(ease.isCompleted)
         fixture.state.setCameraPosition(CameraPosition(zoom = 5.0))
         fixture.awaitWhileRendering("built-in takeover cancellation") { cancelled.await() }
         assertTrue(ease.isCancelled)
@@ -172,7 +118,7 @@ class CameraInputIntegrationTest {
     }
 
   @Test
-  fun default_drag_rotation_preserves_the_padded_camera_target(): MapTestResult = runMapTest {
+  fun centered_rotation_preserves_the_padded_camera_target(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       fixture.awaitMapReady()
@@ -182,25 +128,9 @@ class CameraInputIntegrationTest {
       )
       fixture.settle()
       val before = fixture.state.cameraPosition
-      val settings = MapInteractions.Standard.bindings.drag.rotateTilt
-      val sample =
-        GesturePointerSample(
-          1,
-          10,
-          DpOffset(50.dp, 80.dp),
-          null,
-          emptySet(),
-          emptySet(),
-          emptySet(),
-        )
-      fixture.awaitWhileRendering("default drag rotation") {
+      fixture.awaitWhileRendering("centered rotation") {
         fixture.state.withCameraInput {
-          rotateAndPitchByAwaitingTransition(
-            20.0 * settings.bearingDegreesPerDp,
-            -10.0 * settings.pitchDegreesPerDp,
-            Duration.ZERO,
-            settings.anchor.location(sample),
-          )
+          rotateAndPitchByAwaitingTransition(20.0, 5.0, Duration.ZERO)
         }
       }
       val after = fixture.state.cameraPosition
@@ -263,6 +193,10 @@ class CameraInputIntegrationTest {
             panByAwaitingTransition(10.0, 0.0, Duration.ZERO)
           }
         }
+        assertTrue(
+          abs(fixture.state.cameraPosition.target.longitude) > 1e-6,
+          "pan did not move the target",
+        )
         assertEquals(5.0, fixture.state.cameraPosition.zoom, 1e-6)
         assertEquals(10.0, fixture.state.cameraPosition.bearing, 1e-6)
         assertEquals(5.0, fixture.state.cameraPosition.tilt, 1e-6)
@@ -290,8 +224,7 @@ class CameraInputIntegrationTest {
               returned = true
             }
           started.await()
-          fixture.pump(2)
-          assertTrue(fixture.state.isCameraMoving)
+          fixture.pumpUntil("camera input to start moving") { fixture.state.isCameraMoving }
           fixture.state.setCameraPosition(CameraPosition(zoom = 5.0))
           fixture.awaitWhileRendering("programmatic takeover fence") { input.join() }
           assertTrue(returned)

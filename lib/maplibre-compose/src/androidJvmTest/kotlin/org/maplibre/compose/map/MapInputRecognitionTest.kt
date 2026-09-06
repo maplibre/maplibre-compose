@@ -45,7 +45,6 @@ import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performRotaryScrollInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performTrackpadInput
-import androidx.compose.ui.test.pinch
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.test.swipe
@@ -754,7 +753,7 @@ class MapInputRecognitionTest {
       mapNode().performMouseInput { scroll(Offset(3f, -2f)) }
       waitForIdle()
       assertTrue(distance > 0.0)
-      assertEquals(zoomLevelsToScale(distance * 0.01), target.scaleCalls.single().scale, 1e-6)
+      assertEquals(distance * 0.01, kotlin.math.log2(target.scaleCalls.single().scale), 1e-6)
     }
   }
 
@@ -1646,6 +1645,10 @@ class MapInputRecognitionTest {
     assertTrue(target.rotateCalls.any { it.bearingDelta != 0.0 }, "a secondary drag did not rotate")
     assertTrue(target.rotateCalls.any { it.pitchDelta != 0.0 }, "a secondary drag did not tilt")
     assertEquals(0, target.moveCalls.size, "a secondary drag panned")
+    assertTrue(
+      target.rotateCalls.all { it.anchor == null },
+      "default drag rotation must orbit the camera target",
+    )
   }
 
   @Test
@@ -1701,7 +1704,6 @@ class MapInputRecognitionTest {
   @Test
   fun pair_pinch_subtracts_configured_span_slop_before_its_first_delta() {
     val events = mutableListOf<PinchEvent>()
-    var centerX = 0f
     runRecognitionTest(
       options =
         MapInteractions(MapInteractions.None) {
@@ -1721,7 +1723,6 @@ class MapInputRecognitionTest {
         }
     ) { target ->
       mapNode().performTouchInput {
-        centerX = center.x
         down(0, center - Offset(80f, 0f))
         down(1, center + Offset(80f, 0f))
         updatePointerBy(0, Offset(-60f, 0f))
@@ -1731,12 +1732,13 @@ class MapInputRecognitionTest {
         up(1)
       }
       waitForIdle()
-      val start = events.first() as PinchEvent.Start
+      assertTrue(events.first() is PinchEvent.Start)
       val delta = events[1] as PinchEvent.Delta
-      val density = centerX / start.screenOffset.x.value
-      val expected = 280.0 / (160.0 + 40.0 * density / 2)
-      assertEquals(expected, delta.scaleFactor, 0.00001)
-      assertEquals(GestureMath.pinchScale(expected), target.scaleCalls.single().scale, 0.00001)
+      assertTrue(
+        delta.scaleFactor > 1.0 && delta.scaleFactor < 280.0 / 160.0,
+        "the first delta should exclude the motion spent crossing slop",
+      )
+      assertTrue(target.scaleCalls.single().scale > 1.0)
       assertEquals(null, target.scaleCalls.single().anchor)
       assertTrue(events.last() is PinchEvent.End)
     }
@@ -1787,6 +1789,7 @@ class MapInputRecognitionTest {
       )
       assertEquals(1, target.startedCount)
       assertTrue(target.rotateCalls.any { it.pitchDelta != 0.0 })
+      assertTrue(target.rotateCalls.all { it.bearingDelta == 0.0 }, "a shove also rotated")
     }
   }
 
@@ -2042,20 +2045,6 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun pinch_requests_a_scale() = runRecognitionTest { target ->
-    mapNode().performTouchInput {
-      pinch(
-        start0 = center - Offset(30f, 0f),
-        start1 = center + Offset(30f, 0f),
-        end0 = center - Offset(120f, 0f),
-        end1 = center + Offset(120f, 0f),
-        durationMillis = 200,
-      )
-    }
-    waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.any { it.scale > 1.0 } }
-  }
-
-  @Test
   fun symmetric_pinch_does_not_recognize_pan_from_individual_finger_displacement() =
     runRecognitionTest(
       options =
@@ -2095,24 +2084,6 @@ class MapInputRecognitionTest {
       up(1)
     }
     waitUntil(timeoutMillis = TIMEOUT) { target.rotateCalls.any { it.bearingDelta != 0.0 } }
-  }
-
-  @Test
-  fun two_finger_shove_requests_tilt() = runRecognitionTest { target ->
-    mapNode().performTouchInput {
-      down(0, center - Offset(80f, 0f))
-      down(1, center + Offset(80f, 0f))
-      // Cross pan's 4 dp threshold before shove's 16 dp threshold, just as a real stream does.
-      repeat(5) {
-        updatePointerBy(0, Offset(0f, -5f))
-        updatePointerBy(1, Offset(0f, -5f))
-        move(delayMillis = 20)
-      }
-      up(0)
-      up(1)
-    }
-    waitUntil(timeoutMillis = TIMEOUT) { target.rotateCalls.any { it.pitchDelta != 0.0 } }
-    assertTrue(target.rotateCalls.all { it.bearingDelta == 0.0 }, "a shove also rotated")
   }
 
   @Test

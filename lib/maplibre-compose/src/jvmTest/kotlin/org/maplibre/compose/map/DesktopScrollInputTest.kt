@@ -9,6 +9,7 @@ import java.awt.Canvas
 import java.awt.event.MouseWheelEvent
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class DesktopScrollInputTest {
   @Test
@@ -21,6 +22,7 @@ class DesktopScrollInputTest {
         desktopScrollDelta(raw, wheel(MouseWheelEvent.WHEEL_UNIT_SCROLL, 1), density, bounds, os)
       val three =
         desktopScrollDelta(raw, wheel(MouseWheelEvent.WHEEL_UNIT_SCROLL, 3), density, bounds, os)
+      assertTrue(one.x < 0f && one.y > 0f, "unit scroll must produce displacement on both axes")
       assertEquals(one * 3f, three)
     }
   }

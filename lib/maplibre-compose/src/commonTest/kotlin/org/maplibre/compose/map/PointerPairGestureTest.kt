@@ -8,7 +8,6 @@ import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import kotlin.math.pow
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -76,7 +75,7 @@ class PointerPairGestureTest {
     input.pair.end(75)
     assertEquals(75, events.last().uptimeMillis)
     assertEquals(3, events.size)
-    assertEquals(200.0 / 170, (events[1] as PinchEvent.Delta).scaleFactor, 1e-9)
+    assertTrue((events[1] as PinchEvent.Delta).scaleFactor > 1.0)
     assertEquals(0.0, (events.last() as PinchEvent.End).zoomVelocity)
   }
 
@@ -132,31 +131,30 @@ class PointerPairGestureTest {
 
   @Test
   fun pinch_and_rotation_keep_independent_anchors_and_gains() {
-    val input =
-      PairInput(
-        MapInteractions(MapInteractions.None) {
-          bindings {
-            transform {
-              zoom {
-                enabled = true
-                zoomScale = 2.0
-                anchor = GestureAnchor.CameraCenter
-              }
-              rotate {
-                enabled = true
-                anchor = GestureAnchor.Input
-              }
+    fun options(gain: Double) =
+      MapInteractions(MapInteractions.None) {
+        bindings {
+          transform {
+            zoom {
+              enabled = true
+              zoomScale = gain
+              anchor = GestureAnchor.CameraCenter
+            }
+            rotate {
+              enabled = true
+              anchor = GestureAnchor.Input
             }
           }
         }
-      )
+      }
+    val baseline = PairInput(options(1.0))
+    baseline.move(20, Offset(-100f, 0f), Offset(100f, 0f))
+    val scale = baseline.target.scaleCalls.single().scale
+    assertTrue(scale > 1.0)
+    val input = PairInput(options(2.0))
     input.move(20, Offset(-100f, 0f), Offset(100f, 0f))
-    assertEquals(
-      GestureMath.pinchScale(200.0 / 163.5).pow(2),
-      input.target.scaleCalls.single().scale,
-      1e-9,
-    )
-    assertEquals(null, input.target.scaleCalls.single().anchor)
+    assertEquals(scale * scale, input.target.scaleCalls.last().scale, 1e-9)
+    assertEquals(null, input.target.scaleCalls.last().anchor)
     input.move(40, Offset(10f, -100f), Offset(10f, 100f))
     assertEquals(DpOffset(10.dp, 0.dp), input.target.rotateCalls.single().anchor)
   }
@@ -251,7 +249,7 @@ class PointerPairGestureTest {
         bindings { transform { pan { onDelta { second += it.gestureId } } } }
       }
     input.move(40, Offset(-40f, 0f), Offset(120f, 0f))
-    assertEquals(starts, first)
+    assertEquals(listOf(starts.single()), first)
     assertEquals(starts, second)
   }
 

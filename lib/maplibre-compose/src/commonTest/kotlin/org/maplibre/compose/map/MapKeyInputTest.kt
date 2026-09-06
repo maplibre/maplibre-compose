@@ -8,9 +8,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 
@@ -77,6 +76,7 @@ class MapKeyInputTest {
   @Test
   fun release_drains_the_latest_repeat_without_ending_on_an_older_cancelled_step() = runTest {
     val options = MapInteractions.Standard
+    val steps = mutableListOf<CompletableDeferred<Unit>>()
     val target =
       object : GestureTarget by map.target {
         override suspend fun moveByAwaitingTransition(
@@ -86,7 +86,7 @@ class MapKeyInputTest {
           gestureToken: GestureToken,
         ) {
           map.target.moveByAwaitingTransition(deltaX, deltaY, duration, gestureToken)
-          delay(300)
+          CompletableDeferred<Unit>().also { steps += it }.await()
         }
       }
     val focus =
@@ -108,16 +108,18 @@ class MapKeyInputTest {
       )
     input.configure(options.structuralKey)
     input.onSample(Key.DirectionRight, KeyEventType.KeyDown, emptySet(), 0)
-    advanceTimeBy(100)
+    runCurrent()
+    val superseded = steps.single()
     input.onSample(Key.DirectionRight, KeyEventType.KeyDown, emptySet(), 100)
     input.onSample(Key.DirectionRight, KeyEventType.KeyUp, emptySet(), 100)
     runCurrent()
     assertEquals(0, map.target.endedCount)
     assertEquals(1, map.target.startedCount)
-    advanceTimeBy(299)
+    assertEquals(2, steps.size)
+    superseded.complete(Unit)
     runCurrent()
     assertEquals(0, map.target.endedCount)
-    advanceTimeBy(1)
+    steps.last().complete(Unit)
     runCurrent()
     assertEquals(1, map.target.endedCount)
   }

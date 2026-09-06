@@ -62,15 +62,9 @@ class BoxZoomIntegrationTest {
             assertEquals(CameraMoveReason.GESTURE, fixture.state.cameraMoveReason)
             assertFalse(fixture.state.isCameraMoving)
 
-            // The existing fit API defines padding and pitched-fit semantics for both engines.
-            fixture.state.setCameraPosition(initial)
-            fixture.settle()
-            fixture.state.fitCameraToBounds(fit.bounds, fit.bearing, fit.tilt, PaddingValues())
-            fixture.settle()
-            val expected = fixture.state.cameraPosition
-            assertEquals(expected.zoom, actual.zoom, 1e-5)
-            assertEquals(expected.target.longitude, actual.target.longitude, 1e-5)
-            assertEquals(expected.target.latitude, actual.target.latitude, 1e-5)
+            val target = assertNotNull(fixture.state.screenLocationFromPosition(actual.target))
+            assertEquals((size.width.value + 50f - 10f) / 2f, target.x.value, 1f)
+            assertEquals((size.height.value + 20f - 30f) / 2f, target.y.value, 1f)
           } finally {
             input.cancel()
           }
@@ -97,12 +91,13 @@ class BoxZoomIntegrationTest {
         try {
           val motion =
             input.scope.launch {
-              fixture.gestures.fitBoundsAwaitingTransition(fit, 2.seconds, input.token)
+              fixture.gestures.fitBoundsAwaitingTransition(fit, 30.seconds, input.token)
               input.end()
             }
           fixture.pumpUntil("box fit changes the camera") {
-            fixture.state.cameraPosition.zoom > 3.01
+            fixture.state.isCameraMoving && fixture.state.cameraPosition.zoom > 3.0
           }
+          assertFalse(motion.isCompleted, "box fit finished before the takeover")
           val replacement = CameraPosition(target = Position(25.0, 10.0), zoom = 7.0)
           fixture.state.setCameraPosition(replacement)
           fixture.awaitWhileRendering("box fit cancels") { motion.join() }

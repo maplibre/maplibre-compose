@@ -411,7 +411,8 @@ class CameraInputTest {
       runCurrent()
       assertTrue(target.moveCalls.isEmpty())
       assertEquals(listOf("zoom", "tilt"), starts)
-      assertTrue(target.scaleCalls.all { it.anchor == null })
+      assertEquals(listOf(2.0, 2.0), target.scaleCalls.map { it.scale })
+      assertEquals(listOf(null, null), target.scaleCalls.map { it.anchor })
       assertEquals(RecordingGestureTarget.RotateCall(0.0, 5.0, null), target.rotateCalls.single())
     }
 
@@ -524,13 +525,17 @@ class CameraInputTest {
             }
             .build()
         )
+        target.fitCalls.clear()
         val input = GestureInputSession(this, target)
         target.inputFitBoundsAwaitingTransition(fit, Duration.ZERO, input.token)
         input.end()
         target.drain()
         runCurrent()
+        assertEquals(
+          if (pan && zoom) listOf(fit) else emptyList(),
+          target.fitCalls.map { it.first },
+        )
       }
-      assertEquals(1, target.fitCalls.size)
       assertEquals(0, starts)
     }
 

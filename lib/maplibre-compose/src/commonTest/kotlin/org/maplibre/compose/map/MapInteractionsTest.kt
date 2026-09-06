@@ -214,13 +214,14 @@ class MapInteractionsTest {
   }
 
   @Test
-  fun custom_keys_keep_declaration_order_and_inherit_handlers() {
+  fun custom_drags_keep_declaration_order_and_inherit_handlers() {
+    val observed = mutableListOf<DragEvent>()
     val initial = MapInteractions {
       bindings {
         drag {
           custom("first") {
             canStart { true }
-            onEvent {}
+            onEvent { observed += it }
           }
           custom("second") {
             canStart { false }
@@ -234,10 +235,9 @@ class MapInteractionsTest {
         bindings { drag { custom("first") { startSlop = 8.dp } } }
       }
     assertEquals(listOf("first", "second"), edited.bindings.drag.custom.map { it.key })
-    assertEquals(
-      initial.bindings.drag.custom.first().onEvent,
-      edited.bindings.drag.custom.first().onEvent,
-    )
+    val event = DragEvent.Start(sample(), DpOffset.Zero)
+    edited.bindings.drag.custom.first().onEvent(event)
+    assertEquals(listOf<DragEvent>(event), observed)
     assertFailsWith<IllegalArgumentException> {
       MapInteractions { bindings { drag { custom("missing") { canStart { true } } } } }
     }

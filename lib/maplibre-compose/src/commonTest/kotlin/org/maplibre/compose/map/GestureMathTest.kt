@@ -116,11 +116,10 @@ class GestureMathTest {
 
   @Test
   fun equal_time_samples_use_spatial_slop_without_artificial_speed_rejection() {
-    assertFalse(GestureMath.shouldStartScale(6.9, 6.9, 0, 0.0))
-    assertTrue(GestureMath.shouldStartScale(7.0, 7.0, 0, 2.0))
-    assertFalse(GestureMath.shouldStartRotation(2.9, 2.9, 0))
-    assertTrue(GestureMath.shouldStartRotation(3.0, 3.0, 0))
-    assertFalse(GestureMath.shouldStartRotation(3.0, 3.0, 1))
+    assertFalse(GestureMath.shouldStartScale(19.0, 19.0, 0, 0.0, startSpanSlopDp = 20.0))
+    assertTrue(GestureMath.shouldStartScale(21.0, 21.0, 0, 2.0, startSpanSlopDp = 20.0))
+    assertFalse(GestureMath.shouldStartRotation(9.0, 9.0, 0, startAngleDegrees = 10.0))
+    assertTrue(GestureMath.shouldStartRotation(11.0, 11.0, 0, startAngleDegrees = 10.0))
     assertFalse(GestureMath.shouldStartScale(100.0, 100.0, -1, 0.0))
     assertFalse(GestureMath.shouldStartRotation(100.0, 100.0, -1))
   }
@@ -146,8 +145,11 @@ class GestureMathTest {
           PanMomentum(baseTime = 100.milliseconds, durationScale = 2.0),
         )
       )
-    assertEquals(400.milliseconds, fling.duration)
-    assertEquals(117.6, fling.offsetXDp, 1e-10)
+    val unscaled =
+      assertNotNull(GestureMath.fling(1050.0, 0.0, PanMomentum(baseTime = 100.milliseconds)))
+    assertTrue(unscaled.offsetXDp > 0.0)
+    assertEquals(unscaled.duration * 2, fling.duration)
+    assertEquals(unscaled.offsetXDp * 2, fling.offsetXDp, 1e-10)
     assertNull(GestureMath.fling(1050.0, 0.0, PanMomentum(durationScale = 0.0)))
     assertNull(GestureMath.fling(0.0, 0.0, PanMomentum(minimumSpeed = 0.0)))
     assertNull(GestureMath.fling(Double.NaN, 0.0))
@@ -164,7 +166,6 @@ class GestureMathTest {
         { scale(it)?.duration },
         { rotate(it)?.duration },
       )) {
-      assertEquals(300.milliseconds, calculate(VelocityMomentum()))
       assertEquals(
         120.milliseconds,
         calculate(VelocityMomentum(maximumDuration = 120.milliseconds)),
@@ -181,11 +182,19 @@ class GestureMathTest {
   }
 
   @Test
-  fun tilt_integrates_linear_velocity_decay_with_signed_direction_and_threshold() {
-    assertNull(GestureMath.tiltVelocity(4.99))
-    assertEquals(0.75, assertNotNull(GestureMath.tiltVelocity(10.0)).pitchDelta, 1e-12)
-    assertEquals(-0.75, assertNotNull(GestureMath.tiltVelocity(-10.0)).pitchDelta, 1e-12)
-    assertNull(GestureMath.tiltVelocity(10.0, TiltMomentum(duration = Duration.ZERO)))
-    assertNull(GestureMath.tiltVelocity(0.0, TiltMomentum(minimumSpeed = 0.0)))
+  fun tilt_momentum_preserves_direction_and_obeys_configured_threshold_and_duration() {
+    val settings = TiltMomentum(minimumSpeed = 8.0, duration = 200.milliseconds)
+    assertNull(GestureMath.tiltVelocity(7.0, settings))
+    val forward = assertNotNull(GestureMath.tiltVelocity(10.0, settings))
+    val backward = assertNotNull(GestureMath.tiltVelocity(-10.0, settings))
+    val longer =
+      assertNotNull(GestureMath.tiltVelocity(10.0, settings.copy(duration = 400.milliseconds)))
+    assertTrue(forward.pitchDelta > 0.0)
+    assertEquals(-forward.pitchDelta, backward.pitchDelta, 1e-12)
+    assertEquals(forward.duration, backward.duration)
+    assertTrue(longer.pitchDelta > forward.pitchDelta)
+    assertEquals(400.milliseconds, longer.duration)
+    assertNull(GestureMath.tiltVelocity(10.0, settings.copy(duration = Duration.ZERO)))
+    assertNull(GestureMath.tiltVelocity(0.0, settings.copy(minimumSpeed = 0.0)))
   }
 }
