@@ -86,6 +86,7 @@ internal open class MlnFfiStyleBinding(
   private val loggerProvider: () -> MapLog? = { null },
   private val sessionOpen: () -> Boolean = { false },
   private val accessMap: ((MapHandle) -> Unit) -> Boolean = { false },
+  private val postMap: ((MapHandle) -> Unit) -> Boolean = { false },
   private val accessRenderSession: ((RenderSessionHandle) -> Unit) -> Boolean = { false },
   private val sourceChanged: (String) -> Unit = {},
   private val sourceDataFailed: (StyleIdentity, String, Throwable) -> Unit = { _, _, _ -> },
@@ -547,6 +548,20 @@ internal open class MlnFfiStyleBinding(
     data: GeoJsonData,
     fallbackOptions: GeoJsonOptions,
   ) {
+    // An established asynchronous installation accepts inline data from any thread; only its
+    // creation, URL updates, and synchronous updates need the owner thread. Per-frame updates
+    // must not block on a round trip.
+    if (data !is GeoJsonData.Uri && isLoaded) {
+      val coordinator = geoJsonLock.withLock { geoJsonCoordinators[sourceId] }
+      if (coordinator != null && !coordinator.synchronousUpdate) {
+        try {
+          coordinator.submit(data) { error("Expected inline data") }
+          return
+        } catch (closed: IllegalStateException) {
+          // The installation closed concurrently; retry on the owner thread below.
+        }
+      }
+    }
     mutateMap { map ->
       requireLoadedStyle()
       val coordinator =
@@ -812,15 +827,7 @@ internal open class MlnFfiStyleBinding(
   ) {
     mutateMap { map ->
       try {
-        when {
-          kind != LayerPropertyKind.ROOT -> map.setLayerProperty(layerId, name, value.toJsonBytes())
-          name == "source" -> map.setLayerSourceId(layerId, value.requireRootString(layerId, name))
-          name == "source-layer" ->
-            map.setLayerSourceLayer(layerId, value.requireRootString(layerId, name))
-          name == "minzoom" -> map.setLayerMinZoom(layerId, value.requireRootNumber(layerId, name))
-          name == "maxzoom" -> map.setLayerMaxZoom(layerId, value.requireRootNumber(layerId, name))
-          else -> map.setLayerProperty(layerId, name, value.toJsonBytes())
-        }
+        applyLayerWrite(map, layerId, name, value, kind)
       } catch (error: MaplibreException) {
         throw StyleMutationException(error.message, error)
       }
@@ -834,6 +841,46 @@ internal open class MlnFfiStyleBinding(
       } catch (error: MaplibreException) {
         throw StyleMutationException(error.message, error)
       }
+    }
+  }
+
+  /**
+   * The batch runs as one posted owner-thread task rather than one round trip per write. A rejected
+   * write is non-fatal — the engine keeps the previous value and the reconciler's bookkeeping
+   * already accounts for that — so the caller does not wait for the result.
+   */
+  override fun setLayerProperties(writes: List<LayerPropertyWrite>) {
+    if (writes.isEmpty()) return
+    postMap { map ->
+      if (!isLoaded) return@postMap
+      writes.forEach { write ->
+        try {
+          applyLayerWrite(map, write.layerId, write.name, write.value, write.kind)
+        } catch (error: MaplibreException) {
+          reportRejectedWrite(write, StyleMutationException(error.message, error))
+        }
+      }
+      requestRepaint(map)
+    }
+  }
+
+  private fun applyLayerWrite(
+    map: MapHandle,
+    layerId: String,
+    name: String,
+    value: JsonElement,
+    kind: LayerPropertyKind,
+  ) {
+    when {
+      kind == LayerPropertyKind.ROOT && name == "filter" ->
+        map.setLayerFilter(layerId, value.toJsonBytes())
+      kind != LayerPropertyKind.ROOT -> map.setLayerProperty(layerId, name, value.toJsonBytes())
+      name == "source" -> map.setLayerSourceId(layerId, value.requireRootString(layerId, name))
+      name == "source-layer" ->
+        map.setLayerSourceLayer(layerId, value.requireRootString(layerId, name))
+      name == "minzoom" -> map.setLayerMinZoom(layerId, value.requireRootNumber(layerId, name))
+      name == "maxzoom" -> map.setLayerMaxZoom(layerId, value.requireRootNumber(layerId, name))
+      else -> map.setLayerProperty(layerId, name, value.toJsonBytes())
     }
   }
 

@@ -332,6 +332,7 @@ private class NativeSnapshotterAdapter(
       loggerProvider = { options.logger },
       sessionOpen = { open },
       accessMap = { action -> source.loop.call(action = action) != null },
+      postMap = { action -> source.loop.post(action = action) },
       accessRenderSession = { action ->
         source.loop.call(action = { _ -> source.resources.withSession(action) }) != null
       },

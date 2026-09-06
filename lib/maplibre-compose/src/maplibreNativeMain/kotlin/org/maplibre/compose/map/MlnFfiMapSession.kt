@@ -242,6 +242,9 @@ internal class MlnFfiMapSession(
   @Volatile private var styleBinding: MlnFfiStyleBinding? = null
   private val styleReconciler = StyleReconciler()
 
+  /** The binding whose readiness callback has already succeeded; see [reconcileStyleRevision]. */
+  private var styleReadinessNotifiedFor: MlnFfiStyleBinding? = null
+
   internal val loadedStyleIdentity
     get() = styleBinding?.identity
 
@@ -278,6 +281,9 @@ internal class MlnFfiMapSession(
       sessionOpen = { lifecycle.acceptsWork },
       accessMap = { action ->
         if (!lifecycle.acceptsWork) false else runOnMap(action).let { true }
+      },
+      postMap = { action ->
+        if (!lifecycle.acceptsWork) false else loop?.post(action) ?: false
       },
       accessRenderSession = { action ->
         if (!lifecycle.acceptsWork || !renderSessionReady) {
@@ -1058,10 +1064,28 @@ internal class MlnFfiMapSession(
     if (!styleLoadTracker.beginReconciliation(binding.identity)) return
     try {
       styleReconciler.apply(binding, revision)
-      runOnMap {
-        it.requestRepaint()
+      val noteReconciled: (MapHandle) -> Unit = { map ->
+        map.requestRepaint()
         if (styleLoadTracker.reconciled(binding.identity)) {
           lifecycleCallbacks.onStyleReady(engine, style, this)
+        }
+      }
+      if (styleReadinessNotifiedFor === binding) {
+        // Steady state: per-frame revisions must not block the caller on the owner thread. The
+        // readiness callback already succeeded for this binding, so a later failure hides the
+        // presentation instead of propagating to the caller.
+        onMap { map ->
+          try {
+            noteReconciled(map)
+          } catch (error: Throwable) {
+            styleLoadTracker.failed(binding.identity)
+            throw error
+          }
+        }
+      } else {
+        // Until the style is ready, readiness failures must propagate to the caller.
+        if (runOnMap(noteReconciled) != null) {
+          styleReadinessNotifiedFor = binding
         }
       }
     } catch (error: CancellationException) {
