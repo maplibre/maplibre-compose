@@ -1,5 +1,6 @@
 package org.maplibre.compose.map
 
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.unit.Density
@@ -8,62 +9,27 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 
-/** Only the host adapter interprets native metadata. Axis values always come from Compose. */
-internal expect fun scrollUnits(event: PointerEvent): ScrollUnits
-
-internal enum class ScrollUnits {
-  BrowserPixel,
-  BrowserLine,
-  BrowserPage,
-  MacRotation,
-  Rotation,
-  IosIndirect,
+/** Converts host scroll units to content displacement in pixels, following platform scrolling. */
+internal fun interface ScrollConfig {
+  fun calculateScroll(event: PointerEvent, density: Density, bounds: IntSize): Offset
 }
 
-internal data class NormalizedScroll(
-  val panDelta: DpOffset,
-  val zoomNotches: DpOffset,
-)
+@Composable internal expect fun rememberScrollConfig(): ScrollConfig
 
-/** Converts host scroll units before any binding claims the sample. */
-internal fun normalizeScroll(
-  raw: Offset,
-  units: ScrollUnits,
-  density: Density,
-  viewportSize: IntSize,
-): NormalizedScroll? {
-  if (!raw.x.isFinite() || !raw.y.isFinite() || (raw.x == 0f && raw.y == 0f)) return null
-  val pixelsPerDp = density.density.toDouble()
-  if (!pixelsPerDp.isFinite() || pixelsPerDp <= 0.0) return null
-  fun pan(component: Float, size: Int): Float {
-    val multiplier =
-      when (units) {
-        ScrollUnits.BrowserPixel -> 1.0
-        ScrollUnits.BrowserLine -> 100.0 / 3.0
-        ScrollUnits.BrowserPage -> size / pixelsPerDp
-        ScrollUnits.MacRotation -> 10.0
-        ScrollUnits.Rotation -> 40.0
-        ScrollUnits.IosIndirect -> 100.0 / pixelsPerDp
-      }
-    return (-component * multiplier).toFloat()
-  }
-  fun notches(component: Float): Float =
-    (component /
-        when (units) {
-          ScrollUnits.BrowserPixel -> 100.0
-          ScrollUnits.BrowserLine -> 3.0
-          ScrollUnits.IosIndirect -> pixelsPerDp
-          else -> 1.0
-        })
-      .toFloat()
-  val x = pan(raw.x, viewportSize.width)
-  val y = pan(raw.y, viewportSize.height)
-  val notchX = notches(raw.x)
-  val notchY = notches(raw.y)
-  // JS numbers retain double precision until DpOffset packs them into two Float values.
-  if (listOf(x, y, notchX, notchY).any { !it.isFinite() || abs(it) > Float.MAX_VALUE }) return null
-  return NormalizedScroll(
-    DpOffset(x.dp, y.dp),
-    DpOffset(notchX.dp, notchY.dp),
+/** Rejects unusable displacement before a binding claims input. */
+internal fun normalizeScroll(delta: Offset, density: Density): DpOffset? {
+  if (!density.density.isFinite() || density.density <= 0f) return null
+  val logical = delta / density.density
+  if (
+    !logical.x.isFinite() ||
+      !logical.y.isFinite() ||
+      logical == Offset.Zero ||
+      abs(logical.x) > Float.MAX_VALUE ||
+      abs(logical.y) > Float.MAX_VALUE
   )
+    return null
+  return DpOffset(logical.x.dp, logical.y.dp)
 }
+
+internal val PointerEvent.totalScrollDelta: Offset
+  get() = changes.fold(Offset.Zero) { delta, change -> delta + change.scrollDelta }

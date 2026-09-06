@@ -39,6 +39,11 @@ both axes, while Ctrl-scroll zooms:
 
 <Code code={region(interaction, "scroll-mappings")} lang="kotlin" title="App.kt" />
 
+Scroll amounts follow the host's scrolling conventions and are converted to dp.
+`bindings.scroll.zoomPerDp` sets zoom levels per dp of vertical scroll; its default
+is 0.0015 (0.15 zoom levels per 100 dp). Scroll callbacks expose this displacement
+as `delta`, including when the selected response is zoom.
+
 The rows are configuration, built before input arrives. You can use ordinary
 Kotlin `if` statements to include rows for an app mode. `none()` ends matching
 without a camera response. An empty table removes camera responses but preserves

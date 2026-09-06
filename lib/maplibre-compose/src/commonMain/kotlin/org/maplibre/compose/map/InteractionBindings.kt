@@ -609,11 +609,11 @@ internal data class ScrollBinding(
   val mappings: List<ScrollMapping> = emptyList(),
   val idleDuration: Duration = 200.milliseconds,
   val anchor: GestureAnchor = GestureAnchor.Input,
-  val zoomStep: Double = 0.15,
+  val zoomPerDp: Double = 0.0015,
   val handlers: ScrollHandlers = ScrollHandlers(),
 ) {
   val structuralKey: Any
-    get() = listOf(enabled, pointerTypes, mappings, idleDuration, anchor, zoomStep)
+    get() = listOf(enabled, pointerTypes, mappings, idleDuration, anchor, zoomPerDp)
 }
 
 @MapInteractionDsl
@@ -628,7 +628,11 @@ public class ScrollBindingBuilder internal constructor(from: ScrollBinding) {
 
   public var idleDuration: Duration = from.idleDuration
   public var anchor: GestureAnchor = from.anchor
-  public var zoomStep: Double = from.zoomStep
+  /**
+   * Zoom levels per dp of vertical scroll displacement. The default changes zoom by 0.15 levels per
+   * 100 dp. Positive values zoom in when scrolling up; negative values reverse that direction.
+   */
+  public var zoomPerDp: Double = from.zoomPerDp
   private var handlers = from.handlers
 
   public fun onStart(block: ((ScrollEvent.Start) -> Unit)?) {
@@ -649,14 +653,14 @@ public class ScrollBindingBuilder internal constructor(from: ScrollBinding) {
 
   internal fun build(): ScrollBinding {
     requireNonnegativeFinite(idleDuration, "idleDuration")
-    require(zoomStep.isFinite()) { "zoomStep must be finite" }
+    require(zoomPerDp.isFinite()) { "zoomPerDp must be finite" }
     return ScrollBinding(
       enabled,
       pointerTypes?.toSet(),
       rows,
       idleDuration,
       anchor,
-      zoomStep,
+      zoomPerDp,
       handlers,
     )
   }

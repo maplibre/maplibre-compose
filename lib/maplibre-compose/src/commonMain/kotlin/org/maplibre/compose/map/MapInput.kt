@@ -160,6 +160,7 @@ internal fun Modifier.mapInput(
       boxZoom,
       platformRouting,
       subscriptions,
+      rememberScrollConfig(),
     )
 }
 
@@ -194,8 +195,9 @@ private fun Modifier.pointerGestures(
   boxZoom: BoxZoomPreview,
   platformRouting: PlatformTransformRouting,
   subscriptions: InteractionSubscriptions,
+  scrollConfig: ScrollConfig,
 ): Modifier =
-  pointerInput(target, options.structuralKey, density, continuation) {
+  pointerInput(target, options.structuralKey, density, continuation, scrollConfig) {
     val scope = CoroutineScope(currentCoroutineContext())
     val hover =
       MapHoverGesture(
@@ -215,6 +217,7 @@ private fun Modifier.pointerGestures(
         ids,
         density,
         { size },
+        scrollConfig,
         scope,
         continuation,
       )
@@ -360,6 +363,7 @@ private class MapScrollGesture(
   private val ids: GestureIds,
   private val density: Density,
   private val viewportSize: () -> IntSize,
+  private val scrollConfig: ScrollConfig,
   private val scope: CoroutineScope,
   private val continuation: GestureContinuation,
 ) {
@@ -384,9 +388,9 @@ private class MapScrollGesture(
       cancel(GestureCancellationReason.InputConsumed)
       return
     }
-    val change = event.changes.firstOrNull() ?: return
     val normalized =
-      normalizeScroll(change.scrollDelta, scrollUnits(event), density, viewportSize()) ?: return
+      normalizeScroll(scrollConfig.calculateScroll(event, density, viewportSize()), density)
+        ?: return
     val sample = event.gestureSample(burst?.sample?.gestureId ?: ids.next(), target, density)
     val previous = burst
     if (previous != null && sample.uptimeMillis < previous.sample.uptimeMillis) {
@@ -409,7 +413,7 @@ private class MapScrollGesture(
     if (burst != null && burst?.response != selected)
       cancel(GestureCancellationReason.BindingChanged)
     if (selected == null) return
-    if (selected == ScrollResponse.Zoom && normalized.zoomNotches.y.value == 0f) return
+    if (selected == ScrollResponse.Zoom && normalized.y.value == 0f) return
     target.observeInput()
     val current =
       burst
@@ -444,10 +448,10 @@ private class MapScrollGesture(
       return
     }
     current.sample = sample.copy(gestureId = current.sample.gestureId)
-    current.displacement += Offset(normalized.panDelta.x.value, normalized.panDelta.y.value)
+    current.displacement += Offset(normalized.x.value, normalized.y.value)
     current.velocity.addPosition(sample.uptimeMillis, current.displacement)
     current.membership.observe(
-      ScrollEvent.Delta(current.sample, normalized.panDelta, normalized.zoomNotches),
+      ScrollEvent.Delta(current.sample, normalized),
       currentOptions().bindings.scroll.handlers,
     )
     if (!current.token.acceptsCommands) {
@@ -457,15 +461,13 @@ private class MapScrollGesture(
     when (selected) {
       ScrollResponse.Pan ->
         target.inputPanBy(
-          normalized.panDelta.x.value.toDouble(),
-          normalized.panDelta.y.value.toDouble(),
+          normalized.x.value.toDouble(),
+          normalized.y.value.toDouble(),
           gestureToken = current.token,
         )
       ScrollResponse.Zoom -> {
         val scale =
-          zoomLevelsToScale(
-            -normalized.zoomNotches.y.value.toDouble() * options.bindings.scroll.zoomStep
-          )
+          zoomLevelsToScale(normalized.y.value.toDouble() * options.bindings.scroll.zoomPerDp)
         if (scale.isFinite() && scale > 0.0)
           target.inputScaleBy(
             scale,
@@ -475,7 +477,7 @@ private class MapScrollGesture(
       }
       else -> Unit
     }
-    change.consume()
+    event.changes.forEach { it.consume() }
     finishJob?.cancel()
     finishJob =
       current.session.scope.launch {

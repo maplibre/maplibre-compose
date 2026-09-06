@@ -2,54 +2,31 @@ package org.maplibre.compose.map
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class ScrollInputTest {
   @Test
-  fun each_host_converts_each_axis_in_its_reported_units() {
-    data class Case(val units: ScrollUnits, val x: Double, val y: Double, val notch: Double)
-    val cases =
-      listOf(
-        Case(ScrollUnits.BrowserPixel, -3.0, 6.0, -0.06),
-        Case(ScrollUnits.BrowserLine, -100.0, 200.0, -2.0),
-        Case(ScrollUnits.BrowserPage, -900.0, 1200.0, -6.0),
-        Case(ScrollUnits.MacRotation, -30.0, 60.0, -6.0),
-        Case(ScrollUnits.Rotation, -120.0, 240.0, -6.0),
-        Case(ScrollUnits.IosIndirect, -150.0, 300.0, -3.0),
+  fun displacement_is_reported_in_dp_at_each_display_density() {
+    for (scale in listOf(1f, 2f, 2.5f)) {
+      assertEquals(
+        DpOffset(12.dp, (-24).dp),
+        normalizeScroll(Offset(12f, -24f) * scale, Density(scale)),
       )
-    for (case in cases) {
-      val result =
-        checkNotNull(normalizeScroll(Offset(3f, -6f), case.units, Density(2f), IntSize(600, 400)))
-      assertEquals(case.x, result.panDelta.x.value.toDouble(), 0.00001, case.units.name)
-      assertEquals(case.y, result.panDelta.y.value.toDouble(), 0.00001, case.units.name)
-      assertEquals(case.notch, result.zoomNotches.y.value.toDouble(), 0.00001, case.units.name)
     }
   }
 
   @Test
-  fun logical_scroll_units_are_independent_of_display_density() {
-    for (units in
-      listOf(ScrollUnits.BrowserPixel, ScrollUnits.BrowserLine, ScrollUnits.MacRotation)) {
-      val normal = normalizeScroll(Offset(0f, 100f), units, Density(1f), IntSize(600, 400))
-      val highDensity = normalizeScroll(Offset(0f, 100f), units, Density(2.5f), IntSize(600, 400))
-      assertEquals(normal, highDensity)
+  fun unusable_displacement_cannot_claim_input() {
+    for (delta in listOf(Offset.Zero, Offset(Float.NaN, 1f), Offset(1f, Float.POSITIVE_INFINITY))) {
+      assertNull(normalizeScroll(delta, Density(1f)))
     }
-  }
-
-  @Test
-  fun zero_nonfinite_and_overflowing_samples_cannot_claim_input() {
-    for (raw in
-      listOf(
-        Offset.Zero,
-        Offset(-0f, 0f),
-        Offset(Float.NaN, 1f),
-        Offset(1f, Float.POSITIVE_INFINITY),
-        Offset(Float.MAX_VALUE, 1f),
-      )) {
-      assertNull(normalizeScroll(raw, ScrollUnits.Rotation, Density(1f), IntSize(600, 400)))
+    for (scale in listOf(0f, -1f, Float.NaN, Float.POSITIVE_INFINITY)) {
+      assertNull(normalizeScroll(Offset(1f, 1f), Density(scale)))
     }
+    assertNull(normalizeScroll(Offset(Float.MAX_VALUE, 1f), Density(0.5f)))
   }
 }

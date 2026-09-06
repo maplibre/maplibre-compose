@@ -199,12 +199,13 @@ public sealed class ScrollEvent private constructor(sample: GesturePointerSample
   internal constructor(sample: GesturePointerSample, public val startOffset: DpOffset) :
     ScrollEvent(sample)
 
-  /** The scroll amount expressed as pan distance and zoom notches. */
+  /**
+   * The host scroll amount as content displacement in dp, before applying the selected response.
+   */
   public class Delta
   internal constructor(
     sample: GesturePointerSample,
-    public val panDelta: DpOffset,
-    public val zoomNotches: DpOffset,
+    public val delta: DpOffset,
   ) : ScrollEvent(sample)
 
   /** Scrolling ended after the configured idle duration. */

@@ -737,6 +737,27 @@ class MapInputRecognitionTest {
     }
 
   @Test
+  fun scroll_zoom_sensitivity_uses_the_reported_vertical_distance() {
+    var distance = 0.0
+    runRecognitionTest(
+      options =
+        MapInteractions {
+          bindings {
+            scroll {
+              zoomPerDp = 0.01
+              onDelta { distance += it.delta.y.value }
+            }
+          }
+        }
+    ) { target ->
+      mapNode().performMouseInput { scroll(Offset(3f, -2f)) }
+      waitForIdle()
+      assertTrue(distance > 0.0)
+      assertEquals(zoomLevelsToScale(distance * 0.01), target.scaleCalls.single().scale, 1e-6)
+    }
+  }
+
+  @Test
   fun scroll_lifecycle_observes_the_selected_binding_and_balances_its_burst() {
     val events = mutableListOf<ScrollEvent>()
     runRecognitionTest(

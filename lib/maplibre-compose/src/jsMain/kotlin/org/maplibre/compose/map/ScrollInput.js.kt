@@ -1,14 +1,58 @@
 package org.maplibre.compose.map
 
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerEvent
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.IntSize
+import kotlinx.browser.document
+import kotlinx.browser.window
+import org.w3c.dom.HTMLElement
 import org.w3c.dom.events.WheelEvent
 
-internal actual fun scrollUnits(event: PointerEvent): ScrollUnits =
-  browserScrollUnits(event.nativeEvent)
+@Composable internal actual fun rememberScrollConfig(): ScrollConfig = BrowserScrollConfig
 
-internal fun browserScrollUnits(nativeEvent: Any?): ScrollUnits =
-  when ((nativeEvent as? WheelEvent)?.deltaMode) {
-    1 -> ScrollUnits.BrowserLine
-    2 -> ScrollUnits.BrowserPage
-    else -> ScrollUnits.BrowserPixel
+private object BrowserScrollConfig : ScrollConfig {
+  // Match Compose's browser line height: initial font size, with a 16 CSS-pixel fallback.
+  private val lineHeight: Float by lazy {
+    val body = document.body
+    if (body == null) 16f
+    else {
+      val probe = document.createElement("div") as HTMLElement
+      probe.style.fontSize = "initial"
+      probe.style.display = "none"
+      body.appendChild(probe)
+      try {
+        window.getComputedStyle(probe).fontSize.removeSuffix("px").toFloatOrNull() ?: 16f
+      } finally {
+        body.removeChild(probe)
+      }
+    }
+  }
+
+  override fun calculateScroll(event: PointerEvent, density: Density, bounds: IntSize): Offset {
+    val mode = (event.nativeEvent as? WheelEvent)?.deltaMode
+    return browserScrollDelta(
+      event.totalScrollDelta,
+      mode,
+      density,
+      bounds,
+      if (mode == WheelEvent.DOM_DELTA_LINE) lineHeight else 1f,
+    )
+  }
+}
+
+internal fun browserScrollDelta(
+  raw: Offset,
+  deltaMode: Int?,
+  density: Density,
+  bounds: IntSize,
+  lineHeight: Float,
+): Offset =
+  when (deltaMode) {
+    WheelEvent.DOM_DELTA_LINE -> raw * -lineHeight * density.density
+    WheelEvent.DOM_DELTA_PAGE -> Offset(-raw.x * bounds.width, -raw.y * bounds.height)
+    WheelEvent.DOM_DELTA_PIXEL -> raw * -density.density
+    // Compose-generated scroll events without DOM metadata use CSS pixels too.
+    else -> raw * -density.density
   }
