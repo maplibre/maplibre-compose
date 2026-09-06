@@ -61,7 +61,8 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent
     bridge.pumpUntil("style $style to finish reconciliation", timeout, extent) {
       events.count { it == MapFixture.STYLE_READY } > styleReadyCountBefore
     }
-    state.markStyleReady(bridge.session)
+    state.updateLoadedStyle(bridge.session, checkNotNull(bridge.style))
+    check(state.markStyleReady(bridge.session))
   }
 
   override suspend fun awaitMapReady(timeout: Duration) {
