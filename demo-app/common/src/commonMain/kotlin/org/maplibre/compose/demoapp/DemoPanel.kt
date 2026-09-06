@@ -100,7 +100,6 @@ fun DemoPanel(
         },
         onOpenBenchmarks = {
           state.selectedDemo = null
-          state.location.followMode = DemoFollowMode.Off
           state.shell = DemoShell.Benchmarks
           navController.navigate("benchmarks")
         },

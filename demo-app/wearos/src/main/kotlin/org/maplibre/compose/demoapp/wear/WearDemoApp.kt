@@ -39,14 +39,13 @@ import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoAppTheme
 import org.maplibre.compose.demoapp.DemoMap
-import org.maplibre.compose.demoapp.LocationSettingsItems
 import org.maplibre.compose.demoapp.MapStyleMode
 import org.maplibre.compose.demoapp.MapViewportInsets
 import org.maplibre.compose.demoapp.allDemos
-import org.maplibre.compose.demoapp.compactDemoMapOverlay
 import org.maplibre.compose.demoapp.rememberDemoAppState
 import org.maplibre.compose.map.StyleLoadState
 import org.maplibre.compose.overlay.AttributionLinks
+import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.attributions
 
 /**
@@ -107,7 +106,7 @@ private fun MapScreen(state: DemoAppState, active: Boolean, onOpenDemos: () -> U
       DemoMap(
         state,
         viewportInsets = MapViewportInsets(bottom = EdgeButtonInset),
-        overlay = compactDemoMapOverlay(state),
+        overlay = MapOverlay.None,
         modifier = Modifier.focusRequester(focusRequester),
       )
       EdgeButton(
@@ -134,7 +133,6 @@ private fun DemosScreen(state: DemoAppState, onOpenDemo: (Demo) -> Unit) {
         item { ListHeader { Text(demo.name) } }
         item { Column { with(demo) { Panel(state) } } }
       }
-      item { LocationSettingsItems(state) }
       item { ListHeader { Text("Demos") } }
       items(allDemos) { demo ->
         Button(onClick = { onOpenDemo(demo) }, label = { Text(demo.name) })
