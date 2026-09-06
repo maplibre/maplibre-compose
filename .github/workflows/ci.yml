@@ -196,6 +196,7 @@ jobs:
       - uses: ./.github/actions/setup-ci-deps
         with:
           save-toolchains: "true"
+          native-cache-scope: ios-simulator
       - id: ios-tests
         run: mise run test:ios
       - name: Upload iOS test results to Trunk
@@ -232,6 +233,7 @@ jobs:
       - uses: ./.github/actions/setup-ci-deps
         with:
           save-toolchains: "false"
+          native-cache-scope: ios-device
       - run: mise run build:ios:device
 
   js:

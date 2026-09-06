@@ -6,6 +6,9 @@ inputs:
     description: Set up Gradle and its user-home cache; jobs that run no Gradle build leave this off
     required: false
     default: "true"
+  native-cache-scope:
+    description: Native target family whose compiled dependencies this job preserves
+    default: distribution
   save-toolchains:
     description: >-
       Save the toolchain cache when this job misses it. One job per runner label
@@ -99,16 +102,16 @@ runs:
       shell: pwsh
       run: '"GRADLE_ACTIONS_SKIP_BUILD_RESULT_CAPTURE=true" >> $env:GITHUB_ENV'
 
-    # Roughly a gigabyte, and outside the Gradle user home. Its version tracks
-    # Kotlin's, which is what the key hashes.
+    # Keep simulator and device compiler caches separate so a faster unrelated
+    # job cannot save their immutable cache key before linking finishes.
     - name: Cache the Kotlin/Native toolchain
       if: ${{ inputs.gradle == 'true' }}
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.konan
-        key: konan-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
+        key: konan-v2-${{ runner.os }}-${{ runner.arch }}-${{ inputs.native-cache-scope }}-${{ hashFiles('gradle/libs.versions.toml') }}
         restore-keys: |
-          konan-v1-${{ runner.os }}-${{ runner.arch }}-
+          konan-v2-${{ runner.os }}-${{ runner.arch }}-${{ inputs.native-cache-scope }}-
 
     - name: Point Gradle at a same-volume temp directory
       if: ${{ inputs.gradle == 'true' && runner.os == 'Windows' }}
