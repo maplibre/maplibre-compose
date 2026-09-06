@@ -16,11 +16,13 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.camera.internal.BoxZoomFit
+import org.maplibre.compose.camera.internal.CameraInputScope
 import org.maplibre.compose.camera.internal.inputFitBoundsAwaitingTransition
 import org.maplibre.compose.camera.internal.inputPanBy
 import org.maplibre.compose.camera.internal.inputRotateAndPitchBy
 import org.maplibre.compose.camera.internal.inputScaleBy
 import org.maplibre.compose.camera.internal.inputScaleByAwaitingTransition
+import org.maplibre.compose.camera.internal.withCameraInput
 import org.maplibre.compose.interaction.CameraBuilder
 import org.maplibre.compose.interaction.CameraInputOrigin
 import org.maplibre.compose.interaction.CameraInputStart

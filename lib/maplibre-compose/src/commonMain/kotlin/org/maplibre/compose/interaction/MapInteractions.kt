@@ -85,10 +85,7 @@ private constructor(
         InteractionBindings.standard(),
         InteractionCallbacks(),
       )
-    /**
-     * Disables built-in input, including feature clicks and hover; external camera input remains
-     * allowed.
-     */
+    /** Disables built-in input, including feature clicks and hover. */
     public val None: MapInteractions =
       MapInteractions(
         CameraConfiguration(),

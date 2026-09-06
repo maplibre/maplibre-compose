@@ -18,7 +18,9 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import org.maplibre.compose.camera.internal.CameraInputScope
 import org.maplibre.compose.camera.internal.inputPanBy
+import org.maplibre.compose.camera.internal.withCameraInput
 import org.maplibre.compose.interaction.CameraBuilder
 import org.maplibre.compose.interaction.internal.CameraConfiguration
 import org.maplibre.compose.interaction.internal.GestureInputSession

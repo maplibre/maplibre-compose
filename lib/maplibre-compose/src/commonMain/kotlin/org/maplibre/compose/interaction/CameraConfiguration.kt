@@ -36,7 +36,7 @@ public class CameraBuilder internal constructor(from: CameraConfiguration) {
 
   /**
    * Configures bearing input. Release momentum applies to recognized two-pointer rotation;
-   * single-pointer rotate/tilt drags, keys, and external commands add no rotation momentum.
+   * single-pointer rotate/tilt drags and keys add no rotation momentum.
    */
   public fun rotate(block: VelocityCameraBuilder.() -> Unit) {
     value = value.copy(rotate = VelocityCameraBuilder(value.rotate).apply(block).build())
