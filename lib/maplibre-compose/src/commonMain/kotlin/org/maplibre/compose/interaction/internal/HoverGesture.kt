@@ -40,14 +40,19 @@ internal class HoverGesture(
   }
 
   fun onPointerEvent(event: PointerEvent) {
-    if (event.type == PointerEventType.Exit || event.changes.any { it.pressed }) {
+    if (event.type == PointerEventType.Exit) {
       exit()
       return
     }
-    if (event.type == PointerEventType.Scroll) return
+    // A captured drag can keep delivering moves outside the map after Exit.
+    if (
+      event.type != PointerEventType.Enter &&
+        (event.type != PointerEventType.Move || location == null)
+    )
+      return
     val change = event.changes.firstOrNull { it.type in hoverTypes } ?: return
     val sample = event.gestureSample(0, null, density, change.position, setOf(change.type))
-    if (sample.buttons.isNotEmpty()) exit() else move(sample)
+    move(sample)
   }
 
   internal fun move(sample: GesturePointerSample) {

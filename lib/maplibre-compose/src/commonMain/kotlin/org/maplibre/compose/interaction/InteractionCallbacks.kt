@@ -60,8 +60,8 @@ internal constructor(internal var event: ((LongClickEvent) -> ClickResult)?) {
 }
 
 /**
- * Receives [HoverEvent] while no contacts or physical buttons are pressed, including an exit on
- * press.
+ * Receives [HoverEvent] for pointer entry, movement, and exit, including mouse movement during
+ * drags. Entry and exit follow the host; pressing a button does not itself end hover.
  */
 @MapInteractionDsl
 public class HoverCallbackBuilder

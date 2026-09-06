@@ -206,8 +206,9 @@ public sealed class ScrollEvent private constructor(sample: GesturePointerSample
 }
 
 /**
- * Mouse or stylus entry, movement, and exit while no contacts or physical buttons are pressed.
- * Camera and style changes do not produce events. Hover does not consume input or query features.
+ * Mouse or stylus entry, movement, and exit as reported by the host, including mouse movement while
+ * buttons are pressed. Camera and style changes do not produce events. Hover does not consume input
+ * or query features.
  */
 @Immutable
 public sealed class HoverEvent private constructor(sample: GesturePointerSample) :

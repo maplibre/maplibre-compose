@@ -255,6 +255,7 @@ private fun Modifier.pointerGestures(
       awaitPointerEventScope {
         while (true) {
           val event = awaitPointerEvent(PointerEventPass.Main)
+          hover.onPointerEvent(event)
           val routed =
             platformRouting.route(
               event.type,
@@ -266,7 +267,6 @@ private fun Modifier.pointerGestures(
           // become a map drag or tap. Scroll competes in the same Compose consumption pass.
           var claimedPlatform = false
           if (routed) {
-            hover.exit()
             if (!platformRouteActive) {
               gesture.cancel(GestureCancellationReason.BindingChanged)
               consumption.suppress()
@@ -299,7 +299,6 @@ private fun Modifier.pointerGestures(
             )
               platformRouteActive = false
           } else if (event.type == PointerEventType.Scroll) {
-            hover.onPointerEvent(event)
             scroll.onPointerEvent(event) {
               platform.cancel(GestureCancellationReason.CameraTakeover)
               platformRouteActive = false
@@ -307,7 +306,6 @@ private fun Modifier.pointerGestures(
               consumption.suppress()
             }
           } else {
-            if (platform.isActive) hover.exit() else hover.onPointerEvent(event)
             consumption.main(event, gesture::onPointerEvent)
           }
 

@@ -400,7 +400,7 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun a_mouse_press_exits_hover_before_drag_slop_and_release_can_reenter() {
+  fun hover_tracks_a_mouse_drag_until_the_pointer_leaves_the_map() {
     val events = mutableListOf<HoverEvent>()
     runRecognitionTest(
       options = MapInteractions { callbacks { hover { onEvent { events += it } } } }
@@ -409,20 +409,28 @@ class MapInputRecognitionTest {
       map.performMouseInput {
         moveTo(center)
         press()
+        moveBy(Offset(20f, 0f))
       }
       waitForIdle()
-      assertTrue(events.first() is HoverEvent.Enter)
-      assertTrue(events.last() is HoverEvent.Exit)
+      assertTrue(target.moveCalls.isNotEmpty())
+      val dragged = events.last()
+      assertTrue(dragged is HoverEvent.Move)
+      assertTrue(dragged.buttons.isNotEmpty())
       assertEquals(1, events.count { it is HoverEvent.Enter })
-      assertEquals(1, events.count { it is HoverEvent.Exit })
-      assertTrue(target.moveCalls.isEmpty())
+      assertTrue(events.none { it is HoverEvent.Exit })
       map.performMouseInput {
+        moveTo(Offset(-10f, -10f))
+        moveTo(Offset(-20f, -20f))
         release()
-        moveBy(Offset(5f, 0f))
       }
       waitForIdle()
-      assertEquals(2, events.count { it is HoverEvent.Enter })
-      assertTrue(events.last() is HoverEvent.Move)
+      assertTrue(events.last() is HoverEvent.Exit)
+      assertEquals(1, events.count { it is HoverEvent.Exit })
+      assertEquals(1, events.count { it is HoverEvent.Enter })
+      map.performMouseInput { moveTo(center) }
+      waitForIdle()
+      assertTrue(events.last() is HoverEvent.Enter)
+      assertTrue(events.last().buttons.isEmpty())
     }
   }
 
