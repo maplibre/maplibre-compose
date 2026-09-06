@@ -150,8 +150,9 @@ class MapQueryTest {
     createMapFixture().use {
       it.loadStyle(BaseStyle.Json(OVERLAPPING_FILL_STYLE))
       it.awaitMapReady()
-      it.pumpUntil("the style's features to become queryable") {
-        it.state.queryRenderedFeatures(rect = DpRect(0.dp, 0.dp, 512.dp, 512.dp)).isNotEmpty()
+      it.pumpUntil("both overlapping sources to become queryable") {
+        it.state.queryRenderedFeatures(rect = DpRect(0.dp, 0.dp, 512.dp, 512.dp)).names() ==
+          setOf("front", "back")
       }
 
       val features = it.state.queryRenderedFeatures(offset = CENTER)
