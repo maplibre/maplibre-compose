@@ -92,7 +92,11 @@ internal fun DemoLocationMapContent(location: DemoLocationUi, locationState: Loc
       }
   }
 
-  LocationTrackingEffect(locationState = locationState, enabled = location.isFollowing) {
+  LocationTrackingEffect(
+    locationState = locationState,
+    enabled = location.isFollowing,
+    trackBearing = location.followMode == DemoFollowMode.Heading,
+  ) {
     val bearingUpdate =
       when (location.followMode) {
         DemoFollowMode.Off -> return@LocationTrackingEffect

@@ -173,10 +173,11 @@ internal fun demoMapOverlay(
 
 /**
  * Follow only. Watch and other tight shells pass this instead of [demoMapOverlay] so the map stays
- * clear of compass, zoom, and theme.
+ * clear of compass, zoom, and theme. The button sits at the trailing center so it stays on-screen
+ * on a round watch.
  */
 fun compactDemoMapOverlay(state: DemoAppState): MapOverlay = MapOverlay {
-  Box(Modifier.align(Alignment.TopEnd)) { DemoFollowButton(state.settings, state.location) }
+  Box(Modifier.align(Alignment.CenterEnd)) { DemoFollowButton(state.settings, state.location) }
 }
 
 @Composable
