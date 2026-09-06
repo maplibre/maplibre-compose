@@ -1643,7 +1643,6 @@ internal class MlnFfiMapSession(
 
   // region input, called from Compose
 
-  /** The begin is queued with the gesture's first camera command. */
   override val isGestureReady: Boolean
     get() =
       canPresentFrames &&
@@ -1659,7 +1658,11 @@ internal class MlnFfiMapSession(
   override fun onGestureStartedIfCurrent(generation: Long): CameraInputToken? =
     lifecycleAuthority.gestureCamera.acquireIfCurrent(this, generation)
 
-  override fun onGestureStarted(): CameraInputToken = lifecycleAuthority.gestureCamera.acquire(this)
+  override fun onGestureStarted(): CameraInputToken =
+    lifecycleAuthority.gestureCamera.acquire(this).also { token ->
+      // Recognition takes over an existing transition even before the first movement.
+      token.enqueue { onMap { map -> activateGesture(map, token) } }
+    }
 
   override fun onGestureEnded(token: CameraInputToken) = finishGesture(token, cancelled = false)
 

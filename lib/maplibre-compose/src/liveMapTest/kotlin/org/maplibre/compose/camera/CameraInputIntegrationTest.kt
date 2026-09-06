@@ -31,6 +31,29 @@ import org.maplibre.spatialk.geojson.Position
 
 class CameraInputIntegrationTest {
   @Test
+  fun recognized_input_stops_programmatic_motion_before_its_first_delta(): MapTestResult =
+    runMapTest {
+      coroutineScope {
+        createMapFixture().use { fixture ->
+          fixture.loadStyle(BaseStyle.Empty)
+          fixture.awaitMapReady()
+          val animation = launch {
+            fixture.state.animateCameraPosition(CameraPosition(zoom = 8.0), 30.seconds)
+          }
+          fixture.pumpUntil("the programmatic animation to start") { fixture.state.isCameraMoving }
+          val input = GestureInputSession(this, fixture.gestures)
+          try {
+            fixture.awaitWhileRendering("recognition to stop the animation") { animation.join() }
+            assertTrue(input.token.acceptsCommands)
+            assertTrue(fixture.state.cameraPosition.zoom < 8.0)
+          } finally {
+            input.end()
+          }
+        }
+      }
+    }
+
+  @Test
   fun built_in_session_completion_drains_the_backend_before_its_job_finishes(): MapTestResult =
     runMapTest {
       coroutineScope {

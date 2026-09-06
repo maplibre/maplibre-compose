@@ -1102,7 +1102,11 @@ internal class GlJsMapSession(
   override fun onGestureStartedIfCurrent(generation: Long): CameraInputToken? =
     lifecycleAuthority.gestureCamera.acquireIfCurrent(this, generation)
 
-  override fun onGestureStarted(): CameraInputToken = lifecycleAuthority.gestureCamera.acquire(this)
+  override fun onGestureStarted(): CameraInputToken =
+    lifecycleAuthority.gestureCamera.acquire(this).also { token ->
+      // Recognition takes over an existing transition even before the first movement.
+      onGestureMap(token) {}
+    }
 
   override fun onGestureEnded(token: CameraInputToken) = finishGesture(token, cancelled = false)
 

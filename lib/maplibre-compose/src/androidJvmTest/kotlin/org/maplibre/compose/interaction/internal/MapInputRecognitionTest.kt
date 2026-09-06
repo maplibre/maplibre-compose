@@ -107,6 +107,20 @@ class MapInputRecognitionTest {
   @AfterTest fun closeMap() = fixture.close()
 
   @Test
+  fun a_closed_map_ignores_pointer_input_while_still_composed() = runRecognitionTest { target ->
+    fixture.state.close()
+    mapNode().performMouseInput {
+      moveTo(center)
+      press()
+      moveBy(Offset(20f, 0f))
+      release()
+    }
+    waitForIdle()
+    assertTrue(target.moveCalls.isEmpty())
+    assertEquals(0, target.clicks)
+  }
+
+  @Test
   fun a_throwing_pan_delta_cancels_once_before_applying_the_camera_response() {
     val calls = mutableListOf<String>()
     lateinit var recorded: RecordingGestureTarget
