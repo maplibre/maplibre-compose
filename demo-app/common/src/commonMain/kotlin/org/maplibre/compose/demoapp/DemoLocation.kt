@@ -129,6 +129,11 @@ internal fun DemoLocationMapContent(location: DemoLocationUi) {
 }
 
 @Composable
+fun LocationSettingsItems(state: DemoAppState) {
+  LocationSettingsItems(state.location)
+}
+
+@Composable
 internal fun LocationSettingsItems(location: DemoLocationUi) {
   SectionHeader("Location")
   Text(

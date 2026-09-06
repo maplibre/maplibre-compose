@@ -171,6 +171,14 @@ internal fun demoMapOverlay(
   }
 }
 
+/**
+ * Follow only. Watch and other tight shells pass this instead of [demoMapOverlay] so the map stays
+ * clear of compass, zoom, and theme.
+ */
+fun compactDemoMapOverlay(state: DemoAppState): MapOverlay = MapOverlay {
+  Box(Modifier.align(Alignment.TopEnd)) { DemoFollowButton(state.settings, state.location) }
+}
+
 @Composable
 private fun DemoFollowButton(settings: DemoSettings, location: DemoLocationUi) {
   val (style, contentColor) = demoControlColors(settings.useMaterial3Controls)
