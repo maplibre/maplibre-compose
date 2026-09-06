@@ -245,6 +245,13 @@ internal class MlnFfiMapSession(
   /** The binding whose readiness callback has already succeeded; see [reconcileStyleRevision]. */
   private var styleReadinessNotifiedFor: MlnFfiStyleBinding? = null
 
+  /**
+   * Increments on every reconciliation. A posted revision completion that observes a newer
+   * generation was superseded: the newer revision posts its own completion, so the stale one only
+   * repaints. Read on the owner thread.
+   */
+  @Volatile private var reconcileGeneration = 0L
+
   internal val loadedStyleIdentity
     get() = styleBinding?.identity
 
@@ -1062,11 +1069,12 @@ internal class MlnFfiMapSession(
     val engine = lifecycleEngineIdentity ?: return
     val style = lifecycleStyleIdentity ?: return
     if (!styleLoadTracker.beginReconciliation(binding.identity)) return
+    val generation = ++reconcileGeneration
     try {
       styleReconciler.apply(binding, revision)
       val noteReconciled: (MapHandle) -> Unit = { map ->
         map.requestRepaint()
-        if (styleLoadTracker.reconciled(binding.identity)) {
+        if (generation == reconcileGeneration && styleLoadTracker.reconciled(binding.identity)) {
           lifecycleCallbacks.onStyleReady(engine, style, this)
         }
       }

@@ -7,7 +7,10 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.Anchor
@@ -91,6 +94,41 @@ class MlnFfiStylePresentationTest {
     }
   }
 
+  @Test
+  fun a_superseded_revision_completion_does_not_reveal_a_failed_revision() = runBlocking {
+    BridgeMapFixture.create().use { fixture ->
+      fixture.loadStyle(INITIAL_STYLE)
+      val session = fixture.session
+      session.reconcileStyleRevision(APPLICATION_REVISION)
+      assertTrue(session.canPresentFrames)
+
+      // Hold the owner thread so the next steady-state revision's completion stays queued.
+      val ownerBusy = CompletableDeferred<Unit>()
+      val releaseOwner = CompletableDeferred<Unit>()
+      assertTrue(
+        session.postOwnerTaskForTest {
+          ownerBusy.complete(Unit)
+          runBlocking { releaseOwner.await() }
+        }
+      )
+      withTimeout(5.seconds) { ownerBusy.await() }
+
+      // Steady state: this revision's completion is posted behind the held queue, not awaited.
+      session.reconcileStyleRevision(APPLICATION_REVISION)
+
+      // A newer reconciliation begins and fails before the queued completion runs.
+      assertFailsWith<IllegalArgumentException> { session.reconcileStyleRevision(BROKEN_REVISION) }
+      assertFalse(session.canPresentFrames)
+
+      releaseOwner.complete(Unit)
+      fixture.pump()
+      assertFalse(
+        session.canPresentFrames,
+        "the superseded completion must not reveal the failed revision",
+      )
+    }
+  }
+
   private companion object {
     val APPLICATION_COLOR = RgbaPixel(red = 0x33, green = 0x66, blue = 0x99, alpha = 0xff)
 
@@ -113,6 +151,24 @@ class MlnFfiStylePresentationTest {
               onLongClick = null,
             )
           ),
+        images = emptyList(),
+      )
+
+    /**
+     * Fails during reconciliation without touching the owner thread: the existing layer is
+     * unchanged, and the new layer anchors above a layer the base style does not have.
+     */
+    val BROKEN_REVISION =
+      DesiredStyleRevision(
+        sources = emptyList(),
+        layers =
+          APPLICATION_REVISION.layers +
+            DesiredStyleLayer(
+              definition = BackgroundLayer("broken").definition(),
+              anchor = Anchor.Above("missing"),
+              onClick = null,
+              onLongClick = null,
+            ),
         images = emptyList(),
       )
 
