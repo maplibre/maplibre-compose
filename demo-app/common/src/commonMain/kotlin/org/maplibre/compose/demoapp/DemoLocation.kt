@@ -20,6 +20,7 @@ import org.maplibre.compose.demoapp.demos.demoLocationEngines
 import org.maplibre.compose.demoapp.design.ButtonRow
 import org.maplibre.compose.demoapp.design.SectionHeader
 import org.maplibre.compose.demoapp.design.SegmentedRow
+import org.maplibre.compose.location.BearingUpdate
 import org.maplibre.compose.location.LocationBackendAvailability
 import org.maplibre.compose.location.LocationPermission
 import org.maplibre.compose.location.LocationPuck
@@ -34,10 +35,17 @@ import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.material3.LocationPuckDefaults
 import org.maplibre.compose.util.MaplibreComposable
 
+/** Camera follow on the location button: off, lock to the puck, or lock bearing as well. */
+internal enum class DemoFollowMode {
+  Off,
+  Location,
+  Heading,
+}
+
 /** Follow mode, engine choice, and the active [LocationState] for the shared map. */
 @Stable
 internal class DemoLocationUi {
-  var follow by mutableStateOf(false)
+  var followMode by mutableStateOf(DemoFollowMode.Off)
   var engine by mutableStateOf(demoLocationEngines.first())
   var locationState by mutableStateOf<LocationState?>(null)
     internal set
@@ -45,9 +53,17 @@ internal class DemoLocationUi {
   var backendId by mutableStateOf<String?>(null)
     internal set
 
-  fun toggleFollow() {
-    follow = !follow
-    if (follow) locationState?.requestPermission()
+  val isFollowing: Boolean
+    get() = followMode != DemoFollowMode.Off
+
+  fun cycleFollow() {
+    followMode =
+      when (followMode) {
+        DemoFollowMode.Off -> DemoFollowMode.Location
+        DemoFollowMode.Location -> DemoFollowMode.Heading
+        DemoFollowMode.Heading -> DemoFollowMode.Off
+      }
+    if (isFollowing) locationState?.requestPermission()
   }
 }
 
@@ -82,20 +98,26 @@ internal fun DemoLocationMapContent(location: DemoLocationUi) {
     snapshotFlow { mapState.cameraMoveReason }
       .collect { reason ->
         if (previous != CameraMoveReason.GESTURE && reason == CameraMoveReason.GESTURE) {
-          location.follow = false
+          location.followMode = DemoFollowMode.Off
         }
         previous = reason
       }
   }
 
-  LocationTrackingEffect(locationState = locationState, enabled = location.follow) {
+  LocationTrackingEffect(locationState = locationState, enabled = location.isFollowing) {
+    val bearingUpdate =
+      when (location.followMode) {
+        DemoFollowMode.Off -> return@LocationTrackingEffect
+        DemoFollowMode.Location -> BearingUpdate.IGNORE
+        DemoFollowMode.Heading -> BearingUpdate.TRACK_AUTOMATIC
+      }
     if (previousLocation == null) {
       mapState.animateCameraPosition(
         CameraPosition(target = currentLocation.position, zoom = 16.0),
         duration = DemoFlightDuration,
       )
     } else {
-      updateCamera(mapState)
+      updateCamera(mapState, updateBearing = bearingUpdate)
     }
   }
 
@@ -167,6 +189,33 @@ private fun LocationState.statusMessage(): String {
     permission != null -> "Waiting for location permission"
     else -> trackingStatusMessage()
   }
+}
+
+/** Which glyph the overlay location button should show. */
+internal enum class DemoFollowVisual {
+  Idle,
+  Searching,
+  Following,
+  Heading,
+  Disabled,
+}
+
+internal fun DemoLocationUi.followVisual(): DemoFollowVisual {
+  val state = locationState
+  val permission = state?.permission
+  val deniedPermanently =
+    permission is LocationPermission.NotGranted && permission.canRequest == false
+  val blocked =
+    deniedPermanently ||
+      state?.availability == LocationBackendAvailability.Unsupported ||
+      state?.availability is LocationBackendAvailability.Misconfigured ||
+      (state?.status as? LocationTrackingStatus.Unavailable)?.reason ==
+        LocationUnavailableReason.ServicesDisabled
+  if (blocked) return DemoFollowVisual.Disabled
+  if (!isFollowing) return DemoFollowVisual.Idle
+  if (state?.status != LocationTrackingStatus.Tracking) return DemoFollowVisual.Searching
+  return if (followMode == DemoFollowMode.Heading) DemoFollowVisual.Heading
+  else DemoFollowVisual.Following
 }
 
 private fun LocationState.trackingStatusMessage(): String =

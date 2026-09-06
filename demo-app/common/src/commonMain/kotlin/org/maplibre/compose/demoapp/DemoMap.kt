@@ -50,13 +50,18 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.vectorResource
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.brightness_auto_24px
 import org.maplibre.compose.demoapp.generated.dark_mode_24px
 import org.maplibre.compose.demoapp.generated.filter_center_focus_24px
 import org.maplibre.compose.demoapp.generated.light_mode_24px
+import org.maplibre.compose.demoapp.generated.location_disabled_24px
+import org.maplibre.compose.demoapp.generated.location_searching_24px
 import org.maplibre.compose.demoapp.generated.my_location_24px
+import org.maplibre.compose.demoapp.generated.my_location_fill_24px
+import org.maplibre.compose.demoapp.generated.navigation_24px
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
@@ -169,20 +174,66 @@ internal fun demoMapOverlay(
 @Composable
 private fun DemoFollowButton(settings: DemoSettings, location: DemoLocationUi) {
   val (style, contentColor) = demoControlColors(settings.useMaterial3Controls)
-  val following = location.follow
+  val visual = location.followVisual()
+  val activeColor =
+    if (settings.useMaterial3Controls) MaterialTheme.colorScheme.primary else Color(0xFF1565C0)
+  val disabledColor =
+    if (settings.useMaterial3Controls) MaterialTheme.colorScheme.onSurfaceVariant
+    else contentColor.copy(alpha = 0.45f)
+  val look =
+    when (visual) {
+      DemoFollowVisual.Idle ->
+        FollowButtonLook(
+          Res.drawable.my_location_24px,
+          contentColor,
+          "Follow your location",
+          "Start following",
+        )
+      DemoFollowVisual.Searching ->
+        FollowButtonLook(
+          Res.drawable.location_searching_24px,
+          activeColor,
+          "Finding your location",
+          "Stop following",
+        )
+      DemoFollowVisual.Following ->
+        FollowButtonLook(
+          Res.drawable.my_location_fill_24px,
+          activeColor,
+          "Following your location",
+          "Follow heading",
+        )
+      DemoFollowVisual.Heading ->
+        FollowButtonLook(
+          Res.drawable.navigation_24px,
+          activeColor,
+          "Following your heading",
+          "Stop following",
+        )
+      DemoFollowVisual.Disabled ->
+        FollowButtonLook(
+          Res.drawable.location_disabled_24px,
+          disabledColor,
+          "Location is unavailable",
+          "Try following",
+        )
+    }
   DemoControlButton(
-    onClick = { location.toggleFollow() },
+    onClick = { location.cycleFollow() },
     style = style,
-    contentDescription = if (following) "Following your location" else "Follow your location",
-    onClickLabel = if (following) "Stop following" else "Start following",
+    contentDescription = look.contentDescription,
+    onClickLabel = look.onClickLabel,
   ) {
-    Icon(
-      imageVector = vectorResource(Res.drawable.my_location_24px),
-      contentDescription = null,
-      tint = if (following) MaterialTheme.colorScheme.primary else contentColor,
-    )
+    Icon(imageVector = vectorResource(look.icon), contentDescription = null, tint = look.tint)
   }
 }
+
+private data class FollowButtonLook(
+  val icon: DrawableResource,
+  val tint: Color,
+  val contentDescription: String,
+  val onClickLabel: String,
+)
 
 @Composable
 private fun DemoThemeToggleButton(settings: DemoSettings) {
