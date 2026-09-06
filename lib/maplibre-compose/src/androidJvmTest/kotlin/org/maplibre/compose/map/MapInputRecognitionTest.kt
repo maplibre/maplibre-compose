@@ -72,6 +72,8 @@ private const val RECOGNITION_MAP_TAG = "recognition-map"
 private const val BEFORE_MAP_TAG = "before-map"
 private const val AFTER_MAP_TAG = "after-map"
 
+internal expect fun assumeClassifiedTrackpadInputSupported()
+
 /**
  * Gesture recognition and binding for [mapInput], hosted on a recording [GestureTarget].
  *
@@ -246,7 +248,8 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun trackpad_pan_and_scale_reach_the_pointer_node_without_clicks() =
+  fun trackpad_pan_and_scale_reach_the_pointer_node_without_clicks() {
+    assumeClassifiedTrackpadInputSupported()
     runRecognitionTest { target ->
       mapNode().performTrackpadInput {
         moveTo(Offset(80f, 80f))
@@ -262,9 +265,11 @@ class MapInputRecognitionTest {
       assertEquals(1.5, target.scaleCalls.single().scale, 1e-6)
       assertEquals(0, target.clicks)
     }
+  }
 
   @Test
   fun a_structural_restart_suppresses_trackpad_changes_until_the_old_component_ends() {
+    assumeClassifiedTrackpadInputSupported()
     val terminals = mutableListOf<GestureCancellationReason>()
     var options by
       mutableStateOf(
