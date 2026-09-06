@@ -2,6 +2,7 @@ package org.maplibre.compose.camera.internal
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.maplibre.compose.interaction.CameraInputOrigin
@@ -117,6 +118,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
     var previous: CameraInputToken? = null
     val generation =
       owner.lifecycle.serialized {
+        job?.ensureActive()
         check(!owner.isClosed) { "The map state is closed" }
         previous = revokeLocked()
         inputGeneration++

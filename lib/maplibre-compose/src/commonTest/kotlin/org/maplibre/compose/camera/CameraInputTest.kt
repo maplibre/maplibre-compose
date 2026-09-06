@@ -8,9 +8,12 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
@@ -384,6 +387,31 @@ class CameraInputTest {
     other.close()
     other.awaitClosed()
   }
+
+  @Test
+  fun cancelled_camera_callers_leave_the_current_gesture_in_control() =
+    cameraTest { state, target ->
+      val bounds = BoundingBox(0.0, 0.0, 1.0, 1.0)
+      val commands: List<suspend () -> Unit> =
+        listOf(
+          { state.fitCameraToBounds(bounds) },
+          { state.animateCameraPosition(CameraPosition(zoom = 5.0)) },
+          { state.animateCameraToBounds(bounds) },
+        )
+      for (command in commands) {
+        val token = target.onGestureStarted()
+        val caller = launch {
+          currentCoroutineContext().cancel()
+          assertFailsWith<CancellationException> { command() }
+        }
+        runCurrent()
+        assertTrue(caller.isCompleted)
+        target.inputPanBy(10.0, 0.0, gestureToken = token)
+        target.onGestureEnded(token)
+        target.drain()
+      }
+      assertEquals(listOf(10.0, 10.0, 10.0), target.moveCalls.map { it.x.toDouble() })
+    }
 
   @Test
   fun a_later_camera_owner_invalidates_a_programmatic_guard_without_a_gesture_being_active() =
