@@ -106,6 +106,7 @@ internal class PointerGesture(
   /** Eligibility is fixed at the first press, including subscriber demand. */
   private var secondTapUseful = false
   private var pressInputGeneration = 0L
+  private var pressAccepted = false
 
   /**
    * Pairing state after a first tap. The delayed-click job exists only in [TapWait.Open]; a valid
@@ -197,6 +198,7 @@ internal class PointerGesture(
   }
 
   private fun onPress(event: PointerEvent, change: PointerInputChange) {
+    pressAccepted = false
     lastSingle = change
     singleDragOrigin = change.position
     clickOrigin = change.position
@@ -260,6 +262,7 @@ internal class PointerGesture(
     singleVelocity.addPointerInputChange(change)
     deferredTwoFingerVelocity = null
 
+    pressAccepted = true
     onAcceptedPress()
     target.observeInput()
     cancelCameraSession()
@@ -712,6 +715,7 @@ internal class PointerGesture(
       )
     pair = candidate
     if (candidate.hasDemand || twoFingerTap != null) {
+      pressAccepted = true
       if (event.changes.any { it.pressed && !it.previousPressed }) onAcceptedPress()
       target.observeInput()
       pressInputGeneration = target.inputGeneration
@@ -721,6 +725,8 @@ internal class PointerGesture(
   }
 
   private fun onRelease(event: PointerEvent) {
+    val accepted = pressAccepted
+    pressAccepted = false
     val completedDrag = selectedDrag.takeIf { dragStarted }
     if (dragStarted) {
       dragStarted = false
@@ -803,7 +809,7 @@ internal class PointerGesture(
       return
     }
 
-    continuation.finish(target::onGestureEnded)
+    if (accepted) continuation.finish(target::onGestureEnded)
     if (completedTwoFingerTap != null) {
       emitTap(
         TapFamily.TwoFingerTap,
@@ -1171,6 +1177,7 @@ internal class PointerGesture(
       boxZoom.clear()
       cancelLongClick()
       longClickHandled = false
+      pressAccepted = false
       deferredTwoFingerVelocity = null
       discardTapWait(emitClick = false)
       pressRole = PressRole.First

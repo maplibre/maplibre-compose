@@ -23,6 +23,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalViewConfiguration
@@ -781,6 +782,42 @@ class MapInputRecognitionTest {
       mapNode().assert(expectValue(SemanticsProperties.StateDescription, "not engaged"))
     }
   }
+
+  @Test
+  fun an_unbound_mouse_click_leaves_touch_momentum_running() =
+    runRecognitionTest(
+      options =
+        MapInteractions(from = MapInteractions.None) {
+          bindings {
+            drag {
+              enabled = true
+              pointerTypes = setOf(PointerType.Touch)
+              mappings { otherwise { pan() } }
+            }
+          }
+        }
+    ) { target ->
+      mainClock.autoAdvance = false
+      val map = mapNode()
+      map.performTouchInput {
+        down(center)
+        repeat(6) { moveBy(Offset(20f, 0f), delayMillis = 16) }
+        up()
+      }
+      val releasedMoves = target.moveCalls.size
+      mainClock.advanceTimeBy(64)
+      waitForIdle()
+      assertTrue(target.moveCalls.size > releasedMoves, "the touch pan did not fling")
+      map.performMouseInput { click(center) }
+      val movesAfterClick = target.moveCalls.size
+      mainClock.advanceTimeBy(64)
+      waitForIdle()
+      assertTrue(
+        target.moveCalls.size > movesAfterClick,
+        "an unbound mouse click stopped the fling",
+      )
+      mainClock.autoAdvance = true
+    }
 
   @Test
   fun a_custom_reservation_waits_for_its_own_slop() {

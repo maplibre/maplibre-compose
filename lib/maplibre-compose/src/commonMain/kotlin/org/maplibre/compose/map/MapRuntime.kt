@@ -42,6 +42,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -901,8 +902,9 @@ internal constructor(
     position: CameraPosition,
     duration: Duration = 300.milliseconds,
   ): Unit {
-    val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])
+    currentCoroutineContext().ensureActive()
     cameraMutation.mutate {
+      val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])
       retryAcrossAttachments {
         it.animateCameraPosition(position, duration.scaledBy(systemAnimatorDurationScale()), guard)
       }
@@ -922,8 +924,9 @@ internal constructor(
     padding: PaddingValues = PaddingValues(0.dp),
     duration: Duration = 300.milliseconds,
   ): Unit {
-    val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])
+    currentCoroutineContext().ensureActive()
     cameraMutation.mutate {
+      val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])
       retryAcrossAttachments {
         it.animateCameraToBounds(
           boundingBox,
