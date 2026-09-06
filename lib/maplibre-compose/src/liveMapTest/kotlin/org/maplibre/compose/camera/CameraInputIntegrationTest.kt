@@ -37,9 +37,11 @@ class CameraInputIntegrationTest {
         createMapFixture().use { fixture ->
           fixture.loadStyle(BaseStyle.Empty)
           fixture.awaitMapReady()
-          val animation = launch {
-            fixture.state.animateCameraPosition(CameraPosition(zoom = 8.0), 30.seconds)
-          }
+          // Exercise backend interruption even when Android system animations are disabled.
+          val animation =
+            launch(start = CoroutineStart.UNDISPATCHED) {
+              fixture.session.animateCameraPosition(CameraPosition(zoom = 8.0), 30.seconds)
+            }
           fixture.pumpUntil("the programmatic animation to start") { fixture.state.isCameraMoving }
           val input = GestureInputSession(this, fixture.gestures)
           try {
