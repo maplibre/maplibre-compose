@@ -1,5 +1,9 @@
 # Gesture API consolidation and reusable input
 
+The planned next API revision is specified in
+[Map interaction API plan](MAP_INTERACTIONS.md). This document records the
+current implementation baseline.
+
 Preserve the behavior required by gesture issues #230, #951, #952, and #1201 and
 the pinned StreetComplete findings in [the redesign](GESTURE_REDESIGN.md).
 Keyboard rebinding, decay tuning, pan observation, recognition thresholds,

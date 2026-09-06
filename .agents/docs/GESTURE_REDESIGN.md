@@ -1,5 +1,9 @@
 # Gesture redesign for 0.16
 
+The planned next API revision is specified in
+[Map interaction API plan](MAP_INTERACTIONS.md). This document records the
+current implementation baseline.
+
 Implementation plan for the
 [gestures milestone](https://github.com/maplibre/maplibre-compose/milestone/16):
 [#230](https://github.com/maplibre/maplibre-compose/issues/230),
