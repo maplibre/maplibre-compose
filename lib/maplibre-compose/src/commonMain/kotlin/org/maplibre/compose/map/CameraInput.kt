@@ -315,14 +315,6 @@ internal class GestureCameraAuthority(private val owner: MapState) {
       }
     }
 
-  fun cancel(token: GestureToken): Boolean =
-    owner.lifecycle.serialized {
-      if (token.status == GestureToken.Status.Completed) return false
-      token.status = GestureToken.Status.Cancelled
-      if (active === token) active = null
-      true
-    }
-
   fun complete(token: GestureToken) =
     owner.lifecycle.serialized {
       if (token.status != GestureToken.Status.Cancelled)

@@ -36,8 +36,7 @@ import org.maplibre.spatialk.geojson.Position
 class MapClickDispatcherTest {
   @Test
   fun hover_uses_loaded_order_and_exact_points_even_with_tap_padding() = runTest {
-    val fixture = Fixture()
-    try {
+    Fixture().use { fixture ->
       val back = fixture.node("back") { ClickResult.Pass }.copy(onHover = {})
       val front = fixture.node("front") { ClickResult.Pass }.copy(hitPadding = 25.dp, onHover = {})
       fixture.revision.value = DesiredStyleRevision(emptyList(), listOf(front, back), emptyList())
@@ -48,15 +47,12 @@ class MapClickDispatcherTest {
       val revision = fixture.dispatcher.hoverRevision
       fixture.dispatcher.presentationChanged(fixture.adapter)
       assertTrue(revision != fixture.dispatcher.hoverRevision)
-    } finally {
-      fixture.close()
     }
   }
 
   @Test
   fun layers_and_unhandled_follow_loaded_order_and_padding() = runTest {
-    val fixture = Fixture()
-    try {
+    Fixture().use { fixture ->
       val order = mutableListOf<String>()
       val back =
         fixture.node("back") {
@@ -90,15 +86,12 @@ class MapClickDispatcherTest {
       assertEquals(listOf("front", "back", "unhandled"), order)
       assertEquals(listOf("front", "back"), fixture.adapter.queries)
       assertEquals(listOf(DpRect(5.dp, 15.dp, 15.dp, 25.dp), null), fixture.adapter.rectangles)
-    } finally {
-      fixture.close()
     }
   }
 
   @Test
   fun suspended_query_uses_latest_surviving_handler_and_skips_replaced_registration() = runTest {
-    val fixture = Fixture()
-    try {
+    Fixture().use { fixture ->
       val order = mutableListOf<String>()
       val back =
         fixture.node("back") {
@@ -136,15 +129,12 @@ class MapClickDispatcherTest {
       delivery.await()
       assertEquals(listOf("latest front"), order)
       assertEquals(listOf("front"), fixture.adapter.queries)
-    } finally {
-      fixture.close()
     }
   }
 
   @Test
   fun style_invalidation_during_a_query_stops_handlers_and_fallthrough() = runTest {
-    val fixture = Fixture()
-    try {
+    Fixture().use { fixture ->
       var calls = 0
       fixture.revision.value =
         DesiredStyleRevision(
@@ -166,15 +156,12 @@ class MapClickDispatcherTest {
       assertTrue(delivery.await().consumed)
       assertTrue(!path.isValid())
       assertEquals(0, calls)
-    } finally {
-      fixture.close()
     }
   }
 
   @Test
   fun no_layer_subscribers_means_no_query() = runTest {
-    val fixture = Fixture()
-    try {
+    Fixture().use { fixture ->
       assertEquals(emptySet(), fixture.dispatcher.capabilities)
       fixture.dispatcher.capture(TapFamily.DoubleTap)!!.deliver(fixture.event)
       assertTrue(fixture.adapter.queries.isEmpty())
@@ -195,15 +182,12 @@ class MapClickDispatcherTest {
       assertTrue(fixture.dispatcher.capture(TapFamily.Tap)!!.deliver(fixture.event).consumed)
       assertEquals(1, unhandled)
       assertTrue(fixture.adapter.queries.isEmpty())
-    } finally {
-      fixture.close()
     }
   }
 
   @Test
   fun newly_added_layer_and_unhandled_slots_do_not_join_an_admitted_click() = runTest {
-    val fixture = Fixture()
-    try {
+    Fixture().use { fixture ->
       val calls = mutableListOf<String>()
       val path = checkNotNull(fixture.dispatcher.capture(TapFamily.Tap))
       fixture.revision.value =
@@ -232,15 +216,12 @@ class MapClickDispatcherTest {
       assertEquals(ClickResult.Pass, path.deliver(fixture.event))
       assertTrue(calls.isEmpty())
       assertTrue(fixture.adapter.queries.isEmpty())
-    } finally {
-      fixture.close()
     }
   }
 
   @Test
   fun admitted_unhandled_slot_reads_replacement_body_after_layer_removes_itself() = runTest {
-    val fixture = Fixture()
-    try {
+    Fixture().use { fixture ->
       val calls = mutableListOf<String>()
       fixture.configure(
         MapInteractions {
@@ -274,15 +255,12 @@ class MapClickDispatcherTest {
       val path = checkNotNull(fixture.dispatcher.capture(TapFamily.Tap))
       assertEquals(ClickResult.Pass, path.deliver(fixture.event))
       assertEquals(listOf("layer", "current unhandled"), calls)
-    } finally {
-      fixture.close()
     }
   }
 
   @Test
   fun layer_and_unhandled_resubscriptions_cannot_join_a_suspended_click_query() = runTest {
-    val fixture = Fixture()
-    try {
+    Fixture().use { fixture ->
       var calls = 0
       val registered = org.maplibre.compose.style.LayerNode(layer("front"), Anchor.Top)
       registered.onClick = {
@@ -345,12 +323,10 @@ class MapClickDispatcherTest {
       assertEquals(ClickResult.Pass, delivery.await())
       assertEquals(0, calls)
       assertEquals(listOf("front"), fixture.adapter.queries)
-    } finally {
-      fixture.close()
     }
   }
 
-  private class Fixture {
+  private class Fixture : AutoCloseable {
     val runtime = mapRuntimeForTest()
     val state = runtime.createMapState(BaseStyle.Empty)
     val adapter = QueryAdapter()
@@ -396,7 +372,7 @@ class MapClickDispatcherTest {
     fun node(id: String, handler: FeaturesClickHandler) =
       DesiredStyleLayer(layer(id).definition(), Anchor.Top, handler, null, registration = Any())
 
-    fun close() {
+    override fun close() {
       state.close()
       runtime.close()
     }

@@ -274,32 +274,6 @@ class MapTapDispatcherTest {
   }
 
   @Test
-  fun secondary_click_and_long_press_have_independent_admission_but_share_context_delivery() {
-    val seen = mutableListOf<PointerGestureEvent>()
-    val options = MapInteractions {
-      bindings { longPress { enabled = false } }
-      callbacks {
-        contextClick {
-          onEvent {
-            seen += it
-            ClickResult.Pass
-          }
-        }
-      }
-    }
-    val mouse =
-      sample(1)
-        .copy(pointerTypes = setOf(PointerType.Mouse), buttons = setOf(PointerButton.Secondary))
-    kotlin.test.assertTrue(TapFamily.SecondaryClick.matches(options, mouse))
-    kotlin.test.assertFalse(TapFamily.Tap.matches(options, mouse))
-    kotlin.test.assertFalse(TapFamily.LongPress.matches(options, sample(2)))
-    val event = TapFamily.SecondaryClick.event(mouse)
-    TapFamily.SecondaryClick.observe(options.callbacks, event)
-    kotlin.test.assertTrue(seen.single() is ContextClickEvent)
-    assertEquals(setOf(PointerButton.Secondary), seen.single().buttons)
-  }
-
-  @Test
   fun removing_and_readding_a_map_callback_does_not_rejoin_an_admitted_click() = runTest {
     var calls = 0
     var options = MapInteractions {

@@ -89,27 +89,12 @@ internal class MapPlatformTransform(
     )
       return false
     val settings = options.bindings.transform
-    val enabled =
+    val eligible =
       when (kind) {
-        Kind.Scale -> settings.zoom.enabled && options.camera.zoom.enabled
-        Kind.Pan -> settings.pan.enabled && options.camera.pan.enabled
+        Kind.Scale -> options.camera.zoom.enabled && settings.zoom.matches(sample)
+        Kind.Pan -> options.camera.pan.enabled && settings.pan.matches(sample)
       }
-    val pattern =
-      when (kind) {
-        Kind.Scale ->
-          PointerPattern(settings.zoom.pointerTypes, modifiers = settings.zoom.modifiers)
-        Kind.Pan -> PointerPattern(settings.pan.pointerTypes, modifiers = settings.pan.modifiers)
-      }
-    if (
-      !enabled ||
-        !pattern.matches(
-          sample.pointerTypes,
-          sample.buttons,
-          sample.modifierKeys,
-          contact = true,
-          platformTransform = true,
-        )
-    ) {
+    if (!eligible) {
       if (components.containsKey(kind)) {
         suppressed += kind
         cancel(GestureCancellationReason.BindingChanged)

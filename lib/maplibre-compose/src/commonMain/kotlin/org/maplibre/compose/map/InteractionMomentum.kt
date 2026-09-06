@@ -23,55 +23,48 @@ internal data class PanMomentumOverride(
       baseTime = baseTime ?: base.baseTime,
       durationScale = durationScale ?: base.durationScale,
     )
-
-  fun merge(other: PanMomentumOverride): PanMomentumOverride =
-    PanMomentumOverride(
-      enabled = other.enabled ?: enabled,
-      minimumSpeed = other.minimumSpeed ?: minimumSpeed,
-      baseTime = other.baseTime ?: baseTime,
-      durationScale = other.durationScale ?: durationScale,
-    )
 }
 
 /** Pan momentum after normal release. Speeds are dp/second; cancellation starts no momentum. */
 @MapInteractionDsl
-public class PanMomentumBuilder internal constructor(private val from: PanMomentum) {
-  private var changes = PanMomentumOverride()
+public class PanMomentumBuilder
+internal constructor(
+  private val from: PanMomentum,
+  initial: PanMomentumOverride = PanMomentumOverride(),
+) {
+  internal var overrides: PanMomentumOverride = initial
+    private set
+
   public var enabled: Boolean
-    get() = changes.enabled ?: from.enabled
+    get() = overrides.enabled ?: from.enabled
     set(value) {
-      changes = changes.copy(enabled = value)
+      overrides = overrides.copy(enabled = value)
     }
 
   public var minimumSpeed: Double
-    get() = changes.minimumSpeed ?: from.minimumSpeed
+    get() = overrides.minimumSpeed ?: from.minimumSpeed
     set(value) {
-      changes = changes.copy(minimumSpeed = value)
+      overrides = overrides.copy(minimumSpeed = value)
     }
 
   public var baseTime: Duration
-    get() = changes.baseTime ?: from.baseTime
+    get() = overrides.baseTime ?: from.baseTime
     set(value) {
-      changes = changes.copy(baseTime = value)
+      overrides = overrides.copy(baseTime = value)
     }
 
   public var durationScale: Double
-    get() = changes.durationScale ?: from.durationScale
+    get() = overrides.durationScale ?: from.durationScale
     set(value) {
-      changes = changes.copy(durationScale = value)
+      overrides = overrides.copy(durationScale = value)
     }
 
-  internal fun build(): PanMomentum =
-    changes.resolve(from).also { value ->
+  internal fun build(base: PanMomentum = from): PanMomentum =
+    overrides.resolve(base).also { value ->
       requireNonnegativeFinite(value.minimumSpeed, "minimumSpeed")
       requireNonnegativeFinite(value.baseTime, "baseTime")
       requireNonnegativeFinite(value.durationScale, "durationScale")
     }
-
-  internal fun override(): PanMomentumOverride {
-    build()
-    return changes
-  }
 }
 
 internal data class VelocityMomentum(
@@ -91,47 +84,41 @@ internal data class VelocityMomentumOverride(
       durationScale = durationScale ?: base.durationScale,
       maximumDuration = maximumDuration ?: base.maximumDuration,
     )
-
-  fun merge(other: VelocityMomentumOverride): VelocityMomentumOverride =
-    VelocityMomentumOverride(
-      enabled = other.enabled ?: enabled,
-      durationScale = other.durationScale ?: durationScale,
-      maximumDuration = other.maximumDuration ?: maximumDuration,
-    )
 }
 
 /** Zoom or rotation momentum after normal release, with a bounded duration. */
 @MapInteractionDsl
-public class VelocityMomentumBuilder internal constructor(private val from: VelocityMomentum) {
-  private var changes = VelocityMomentumOverride()
+public class VelocityMomentumBuilder
+internal constructor(
+  private val from: VelocityMomentum,
+  initial: VelocityMomentumOverride = VelocityMomentumOverride(),
+) {
+  internal var overrides: VelocityMomentumOverride = initial
+    private set
+
   public var enabled: Boolean
-    get() = changes.enabled ?: from.enabled
+    get() = overrides.enabled ?: from.enabled
     set(value) {
-      changes = changes.copy(enabled = value)
+      overrides = overrides.copy(enabled = value)
     }
 
   public var durationScale: Double
-    get() = changes.durationScale ?: from.durationScale
+    get() = overrides.durationScale ?: from.durationScale
     set(value) {
-      changes = changes.copy(durationScale = value)
+      overrides = overrides.copy(durationScale = value)
     }
 
   public var maximumDuration: Duration
-    get() = changes.maximumDuration ?: from.maximumDuration
+    get() = overrides.maximumDuration ?: from.maximumDuration
     set(value) {
-      changes = changes.copy(maximumDuration = value)
+      overrides = overrides.copy(maximumDuration = value)
     }
 
-  internal fun build(): VelocityMomentum =
-    changes.resolve(from).also { value ->
+  internal fun build(base: VelocityMomentum = from): VelocityMomentum =
+    overrides.resolve(base).also { value ->
       requireNonnegativeFinite(value.durationScale, "durationScale")
       requireNonnegativeFinite(value.maximumDuration, "maximumDuration")
     }
-
-  internal fun override(): VelocityMomentumOverride {
-    build()
-    return changes
-  }
 }
 
 internal data class TiltMomentum(
@@ -151,45 +138,39 @@ internal data class TiltMomentumOverride(
       minimumSpeed = minimumSpeed ?: base.minimumSpeed,
       duration = duration ?: base.duration,
     )
-
-  fun merge(other: TiltMomentumOverride): TiltMomentumOverride =
-    TiltMomentumOverride(
-      enabled = other.enabled ?: enabled,
-      minimumSpeed = other.minimumSpeed ?: minimumSpeed,
-      duration = other.duration ?: duration,
-    )
 }
 
 /** Pitch momentum after normal release. Speeds are degrees/second. */
 @MapInteractionDsl
-public class TiltMomentumBuilder internal constructor(private val from: TiltMomentum) {
-  private var changes = TiltMomentumOverride()
+public class TiltMomentumBuilder
+internal constructor(
+  private val from: TiltMomentum,
+  initial: TiltMomentumOverride = TiltMomentumOverride(),
+) {
+  internal var overrides: TiltMomentumOverride = initial
+    private set
+
   public var enabled: Boolean
-    get() = changes.enabled ?: from.enabled
+    get() = overrides.enabled ?: from.enabled
     set(value) {
-      changes = changes.copy(enabled = value)
+      overrides = overrides.copy(enabled = value)
     }
 
   public var minimumSpeed: Double
-    get() = changes.minimumSpeed ?: from.minimumSpeed
+    get() = overrides.minimumSpeed ?: from.minimumSpeed
     set(value) {
-      changes = changes.copy(minimumSpeed = value)
+      overrides = overrides.copy(minimumSpeed = value)
     }
 
   public var duration: Duration
-    get() = changes.duration ?: from.duration
+    get() = overrides.duration ?: from.duration
     set(value) {
-      changes = changes.copy(duration = value)
+      overrides = overrides.copy(duration = value)
     }
 
-  internal fun build(): TiltMomentum =
-    changes.resolve(from).also { value ->
+  internal fun build(base: TiltMomentum = from): TiltMomentum =
+    overrides.resolve(base).also { value ->
       requireNonnegativeFinite(value.minimumSpeed, "minimumSpeed")
       requireNonnegativeFinite(value.duration, "duration")
     }
-
-  internal fun override(): TiltMomentumOverride {
-    build()
-    return changes
-  }
 }

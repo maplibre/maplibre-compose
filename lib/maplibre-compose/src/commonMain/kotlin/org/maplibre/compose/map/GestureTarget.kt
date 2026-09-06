@@ -55,8 +55,6 @@ internal class GestureToken(
 
   fun finish(cancelled: Boolean, enqueue: () -> Unit) = authority.finish(this, cancelled, enqueue)
 
-  fun cancel(): Boolean = authority.cancel(this)
-
   fun complete() = authority.complete(this)
 }
 
@@ -85,6 +83,7 @@ internal interface GestureTarget {
   val isGestureReady: Boolean
     get() = true
 
+  /** Revokes accepted commands synchronously, then queues backend cancellation and its fence. */
   fun cancelGesture(token: GestureToken) {
     token.finish(cancelled = true) {
       onGestureEnded(token)

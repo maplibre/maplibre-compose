@@ -136,7 +136,14 @@ class MapInteractionsTest {
   @Test
   fun momentum_overrides_inherit_final_camera_fields_independent_of_block_order() {
     val interactions = MapInteractions {
-      bindings { transform { pan { momentum { minimumSpeed = 250.0 } } } }
+      bindings {
+        transform {
+          pan {
+            momentum { minimumSpeed = 250.0 }
+            momentum { durationScale = 2.0 }
+          }
+        }
+      }
       camera {
         pan {
           momentum {
@@ -148,6 +155,7 @@ class MapInteractionsTest {
     }
     val pan = interactions.bindings.transform.pan.momentum
     assertEquals(250.0, pan.minimumSpeed)
+    assertEquals(2.0, pan.durationScale)
     assertEquals(500.milliseconds, pan.baseTime)
     assertFalse(pan.enabled)
     val edited =

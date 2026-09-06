@@ -58,7 +58,6 @@ internal class GestureInputSession(
   /** Revocation precedes coroutine cleanup, so queued camera commands cannot execute meanwhile. */
   fun cancel() {
     if (work.isCompleted) return
-    token.cancel()
     target.cancelGesture(token)
     work.cancel()
   }

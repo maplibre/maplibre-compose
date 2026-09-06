@@ -482,11 +482,12 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun a_secondary_mouse_click_retains_its_button_in_context_metadata() {
+  fun secondary_click_delivers_context_when_long_press_is_disabled() {
     val events = mutableListOf<ContextClickEvent>()
     runRecognitionTest(
       options =
         MapInteractions {
+          bindings { longPress { enabled = false } }
           callbacks {
             contextClick {
               onEvent {

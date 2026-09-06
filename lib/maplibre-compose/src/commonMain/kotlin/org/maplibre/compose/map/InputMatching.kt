@@ -62,17 +62,15 @@ internal data class PointerPattern(
     buttons: Set<PointerButton>,
     modifierKeys: Set<KeyModifier>,
     contact: Boolean,
-    platformTransform: Boolean = false,
   ): Boolean =
     (pointerTypes?.let { allowed -> types.all { it in allowed } } != false) &&
       (button == null ||
         button in buttons ||
         (button == PointerButton.Primary &&
           contact &&
-          ((platformTransform && buttons.isEmpty()) ||
-            (types.isNotEmpty() &&
-              types.all {
-                it == PointerType.Touch || it == PointerType.Stylus || it == PointerType.Eraser
-              })))) &&
+          types.isNotEmpty() &&
+          types.all {
+            it == PointerType.Touch || it == PointerType.Stylus || it == PointerType.Eraser
+          })) &&
       modifiers.matches(modifierKeys)
 }

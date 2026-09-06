@@ -122,7 +122,7 @@ internal fun Modifier.mapInput(
   }
 
   SideEffect { continuation.configure(options.structuralKey, target) }
-  val keys = options.hasKeyboardGesture
+  val keys = options.bindings.keys.hasCameraBindings(options.camera)
   val rotary =
     options.bindings.rotary.enabled &&
       options.camera.zoom.enabled &&
@@ -162,9 +162,6 @@ internal fun Modifier.mapInput(
       subscriptions,
     )
 }
-
-private val MapInteractions.hasKeyboardGesture: Boolean
-  get() = bindings.keys.hasCameraBindings(camera)
 
 /** The composition locals that one [mapInput] node reads, resolved where the node is composed. */
 internal class MapInputEnvironment(
@@ -532,10 +529,11 @@ private class MapPointerGesture(
   private val continuation: GestureContinuation,
   private val onAcceptedPress: () -> Unit,
 ) {
-  private var gestureInProgress = false
   private var gestureToken: GestureToken? = null
+  private val gestureInProgress: Boolean
+    get() = gestureToken != null
+
   private var cameraSession: GestureInputSession? = null
-  private var mode = Mode.NONE
 
   private sealed interface SelectedDrag {
     data class Camera(val response: DragResponse) : SelectedDrag
@@ -554,7 +552,6 @@ private class MapPointerGesture(
   private var lastSingle: PointerInputChange? = null
   private var singleDragOrigin: Offset? = null
   private var dragRecognition: PointerDrag? = null
-  private var singleMotion = SingleMotion.NONE
   private val singleVelocity = GestureVelocityTracker()
 
   private var pair: PointerPairGesture? = null
@@ -587,9 +584,6 @@ private class MapPointerGesture(
   private var pressRole = PressRole.First
 
   fun onPointerEvent(event: PointerEvent) {
-    // Wheel events have no pressed pointers. Treating one as a release would close the
-    // gesture scrollZoom keeps open for the rest of the burst.
-    if (event.type == PointerEventType.Scroll) return
     val oldContacts = contactOrder.toList()
     val pressedIds = event.changes.filter { it.pressed }.map { it.id }
     contactOrder.retainAll(pressedIds)
@@ -604,11 +598,7 @@ private class MapPointerGesture(
       suppressedUntilRelease = pressed.isNotEmpty()
       return
     }
-    if (
-      pressed.size >= 2 &&
-        (mode == Mode.SINGLE || mode == Mode.QUICK_ZOOM) &&
-        selectedDrag is SelectedDrag.Custom
-    ) {
+    if (pressed.size >= 2 && lastSingle != null && selectedDrag is SelectedDrag.Custom) {
       cancel(GestureCancellationReason.BindingChanged)
       suppressedUntilRelease = true
       return
@@ -628,8 +618,7 @@ private class MapPointerGesture(
 
   /** A lift closes the pointer we are tracking. A hover does not. */
   private fun isAwaitingPointerRelease(): Boolean =
-    mode != Mode.NONE ||
-      gestureInProgress ||
+    gestureInProgress ||
       lastSingle != null ||
       pair != null ||
       twoFingerTap != null ||
@@ -646,7 +635,6 @@ private class MapPointerGesture(
         retainCameraAuthority()
         return
       }
-      mode = Mode.SINGLE
       lastSingle = change
       singleDragOrigin = change.position
       dragSample =
@@ -654,7 +642,6 @@ private class MapPointerGesture(
       selectedDrag = selectCameraDrag(checkNotNull(dragSample))
       dragStarted = false
       dragRecognition = selectedDrag?.let { dragRecognizer(change, it) }
-      singleMotion = SingleMotion.NONE
       singleVelocity.resetTracking()
       singleVelocity.addPointerInputChange(change)
       return
@@ -664,7 +651,6 @@ private class MapPointerGesture(
   }
 
   private fun onPress(event: PointerEvent, change: PointerInputChange) {
-    mode = Mode.SINGLE
     lastSingle = change
     singleDragOrigin = change.position
     clickOrigin = change.position
@@ -717,7 +703,6 @@ private class MapPointerGesture(
     quickZoomOriginY = change.position.y
     quickZoomAppliedDelta = 0.0
     lastQuickZoomSpanDeltaPixels = 0.0
-    singleMotion = SingleMotion.NONE
     singleVelocity.resetTracking()
     singleVelocity.addPointerInputChange(change)
     deferredTwoFingerVelocity = null
@@ -736,7 +721,7 @@ private class MapPointerGesture(
       val origin = change.position
       longClickJob = scope.launch {
         delay(longClickTimeoutMillis)
-        if (clickOrigin == origin && !gestureInProgress && mode == Mode.SINGLE) {
+        if (clickOrigin == origin && !gestureInProgress && lastSingle != null) {
           longClickHandled = true
           clickOrigin = null
           // This press is a long click, including a paired second tap that was held.
@@ -896,14 +881,12 @@ private class MapPointerGesture(
         cancelDrag(GestureCancellationReason.BindingChanged)
         cancelCameraSession()
         gestureToken = null
-        gestureInProgress = false
         selectedDrag = next
         dragRecognition = next?.let { dragRecognizer(change, it) }
         dragSample = sample.copy(gestureId = ids.next())
         singleDragOrigin = change.position
         singleVelocity.resetTracking()
         singleVelocity.addPointerInputChange(change)
-        singleMotion = SingleMotion.NONE
         clickOrigin = null
         quickZoomCandidate = false
         cancelLongClick()
@@ -960,17 +943,6 @@ private class MapPointerGesture(
           }
         is SelectedDrag.Custom -> Unit
       }
-      singleMotion =
-        when (binding) {
-          SelectedDrag.TapDrag -> SingleMotion.QUICK_ZOOM
-          is SelectedDrag.Camera ->
-            when (binding.response) {
-              DragResponse.Pan -> SingleMotion.PAN
-              DragResponse.RotateTilt -> SingleMotion.ROTATE_TILT
-              else -> SingleMotion.NONE
-            }
-          is SelectedDrag.Custom -> SingleMotion.NONE
-        }
       discardTapWait(emitClick = !quickZoomCandidate)
       deliverDrag(DragEvent.Start(sample, origin.toLogicalDpOffset(density)))
       if (!retainCameraAuthority()) return
@@ -999,7 +971,6 @@ private class MapPointerGesture(
           DragResponse.None -> Unit
         }
       SelectedDrag.TapDrag -> {
-        mode = Mode.QUICK_ZOOM
         val settings = options.bindings.tapDrag
         val direction = if (settings.direction == QuickZoomDirection.DownZoomsIn) 1.0 else -1.0
         val targetDelta =
@@ -1084,7 +1055,6 @@ private class MapPointerGesture(
         return
       }
       selectedDrag = null
-      singleMotion = SingleMotion.NONE
       cancelLongClick()
       discardTapWait(emitClick = true)
       clickOrigin = null
@@ -1115,7 +1085,6 @@ private class MapPointerGesture(
         }
       }
     }
-    mode = Mode.TWO_FINGER
     val candidate =
       PointerPairGesture(
         target,
@@ -1148,6 +1117,7 @@ private class MapPointerGesture(
   }
 
   private fun onRelease(event: PointerEvent) {
+    val completedDrag = selectedDrag.takeIf { dragStarted }
     if (dragStarted) {
       dragStarted = false
       dragRecognition?.finish()
@@ -1197,19 +1167,17 @@ private class MapPointerGesture(
       retainCameraAuthority()
       return
     }
-    finishSingleVelocity()
+    finishSingleVelocity(completedDrag)
     pairContinuation?.let(::finishPairVelocity)
     deferredTwoFingerVelocity = null
     lastSingle = null
     singleDragOrigin = null
     dragRecognition = null
-    singleMotion = SingleMotion.NONE
     clickOrigin = null
     longClickHandled = false
     quickZoomCandidate = false
     pressRole = PressRole.First
     twoFingerTap = null
-    mode = Mode.NONE
     selectedDrag = null
 
     if (
@@ -1255,11 +1223,9 @@ private class MapPointerGesture(
     taps.dispatch(captured, sample) camera@{
       if (action == null || action == TapResponse.None) return@camera
       val direction = if (action == TapResponse.ZoomIn) 1.0 else -1.0
-      continuation.launchDiscreteTransition(
+      continuation.launchTapTransition(
         target,
-        beforeCommand = {},
-        expectedGeneration = generation,
-        origin = CameraInputOrigin.Tap,
+        generation,
         command = { token ->
           inputScaleByAwaitingTransition(
             zoomLevelsToScale(direction * binding.zoomStep),
@@ -1407,22 +1373,35 @@ private class MapPointerGesture(
     if (pressedCount > 2 || !candidate.update(event, twoFingerTapSlopPx)) twoFingerTap = null
   }
 
-  private fun finishSingleVelocity() {
-    if (selectedDrag == null) return
+  private fun finishSingleVelocity(binding: SelectedDrag?) {
+    if (binding == null || !gestureInProgress) return
     val velocity = singleVelocity.calculateVelocity()
-    if (!gestureInProgress) return
-    when (singleMotion) {
-      SingleMotion.PAN -> {
-        val tuning = options.camera.pan.momentum.takeIf { it.enabled } ?: return
-        val fling =
-          GestureMath.fling(
-            (velocity.x / density.density).toDouble(),
-            (velocity.y / density.density).toDouble(),
-            tuning,
-          ) ?: return
-        animateFling(fling)
-      }
-      SingleMotion.QUICK_ZOOM -> {
+    when (binding) {
+      is SelectedDrag.Camera ->
+        when (binding.response) {
+          DragResponse.Pan -> {
+            val tuning = options.camera.pan.momentum.takeIf { it.enabled } ?: return
+            val fling =
+              GestureMath.fling(
+                (velocity.x / density.density).toDouble(),
+                (velocity.y / density.density).toDouble(),
+                tuning,
+              ) ?: return
+            animateFling(fling)
+          }
+          DragResponse.RotateTilt -> {
+            if (!options.camera.tilt.enabled) return
+            val tuning = options.camera.tilt.momentum.takeIf { it.enabled } ?: return
+            val response =
+              GestureMath.tiltVelocity(
+                velocity.y / density.density * options.bindings.drag.rotateTilt.pitchDegreesPerDp,
+                tuning,
+              ) ?: return
+            animateTiltVelocity(response)
+          }
+          else -> Unit
+        }
+      SelectedDrag.TapDrag -> {
         val tuning = options.bindings.tapDrag.momentum.takeIf { it.enabled } ?: return
         val direction =
           if (options.bindings.tapDrag.direction == QuickZoomDirection.DownZoomsIn) 1 else -1
@@ -1437,17 +1416,7 @@ private class MapPointerGesture(
           ) ?: return
         animateScaleVelocity(velocityResponse, dragSample?.let(::dragAnchor))
       }
-      SingleMotion.ROTATE_TILT -> {
-        if (!options.camera.tilt.enabled) return
-        val tuning = options.camera.tilt.momentum.takeIf { it.enabled } ?: return
-        val response =
-          GestureMath.tiltVelocity(
-            velocity.y / density.density * options.bindings.drag.rotateTilt.pitchDegreesPerDp,
-            tuning,
-          ) ?: return
-        animateTiltVelocity(response)
-      }
-      else -> Unit
+      is SelectedDrag.Custom -> Unit
     }
   }
 
@@ -1536,8 +1505,6 @@ private class MapPointerGesture(
 
   private fun endDrag() {
     cancelLongClick()
-    if (!gestureInProgress) return
-    gestureInProgress = false
     val token = gestureToken ?: return
     gestureToken = null
     if (continuation.hasMotionJobs()) {
@@ -1569,7 +1536,6 @@ private class MapPointerGesture(
       gestureToken?.origin = origin
       return
     }
-    gestureInProgress = true
     lateinit var session: GestureInputSession
     session =
       GestureInputSession(scope, target, origin = origin) {
@@ -1601,13 +1567,10 @@ private class MapPointerGesture(
       discardTapWait(emitClick = false)
       pressRole = PressRole.First
       cancelCameraSession()
-      gestureInProgress = false
       gestureToken = null
-      mode = Mode.NONE
       lastSingle = null
       singleDragOrigin = null
       dragRecognition = null
-      singleMotion = SingleMotion.NONE
       singleVelocity.resetTracking()
       twoFingerTap = null
       pair = null
@@ -1622,20 +1585,6 @@ private class MapPointerGesture(
   private fun cancelLongClick() {
     longClickJob?.cancel()
     longClickJob = null
-  }
-
-  private enum class Mode {
-    NONE,
-    SINGLE,
-    QUICK_ZOOM,
-    TWO_FINGER,
-  }
-
-  private enum class SingleMotion {
-    NONE,
-    PAN,
-    ROTATE_TILT,
-    QUICK_ZOOM,
   }
 
   /**
@@ -1771,40 +1720,27 @@ internal class GestureContinuation(private val scope: CoroutineScope) {
     }
   }
 
-  fun launchDiscreteTransition(
+  /** A delayed tap may acquire the camera only while its captured input generation is current. */
+  fun launchTapTransition(
     target: GestureTarget,
-    beforeCommand: () -> Unit,
+    generation: Long,
     command: suspend GestureTarget.(GestureToken) -> Unit,
-    expectedGeneration: Long? = null,
-    origin: CameraInputOrigin = CameraInputOrigin.Tap,
   ) {
-    val token =
-      if (expectedGeneration == null) target.onGestureStarted()
-      else target.onGestureStartedIfCurrent(expectedGeneration) ?: return
+    val token = target.onGestureStartedIfCurrent(generation) ?: return
     discreteSession?.cancel()
-    val session = GestureInputSession(scope, target, token, origin = origin)
+    val session = GestureInputSession(scope, target, token, origin = CameraInputOrigin.Tap)
     discreteSession = session
-    try {
-      beforeCommand()
-      if (!session.token.acceptsCommands) {
-        session.cancel()
-        return
+    session.scope.launch {
+      try {
+        command(target, token)
+      } finally {
+        if (currentCoroutineContext().isActive) session.end() else session.cancel()
       }
-      session.scope.launch {
-        try {
-          command(target, session.token)
-        } finally {
-          if (currentCoroutineContext().isActive) session.end() else session.cancel()
-        }
-      }
-    } catch (error: Throwable) {
-      session.cancel()
-      throw error
     }
   }
 
-  /** Stops this node's earlier continuation and discrete response jobs. */
-  fun interrupt() {
+  /** Stops this node's earlier response jobs and releases any retained motion token. */
+  fun finish(onFinished: (GestureToken) -> Unit) {
     scaleVelocityJob?.cancel()
     scaleVelocityJob = null
     rotationVelocityJob?.cancel()
@@ -1815,19 +1751,11 @@ internal class GestureContinuation(private val scope: CoroutineScope) {
     boundsFitJob = null
     discreteSession?.cancel()
     discreteSession = null
-  }
-
-  private fun takePendingToken(): GestureToken? {
     val token = openToken
     finishJob?.cancel()
     finishJob = null
     openToken = null
-    return token?.takeIf { it.acceptsCommands }
-  }
-
-  fun finish(onFinished: (GestureToken) -> Unit) {
-    interrupt()
-    takePendingToken()?.let(onFinished)
+    token?.takeIf { it.acceptsCommands }?.let(onFinished)
   }
 }
 

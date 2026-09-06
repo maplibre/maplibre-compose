@@ -6,9 +6,7 @@ import androidx.compose.ui.input.pointer.PointerType
 internal fun PointerPattern.matches(
   sample: GesturePointerSample,
   contact: Boolean = true,
-  platformTransform: Boolean = false,
-): Boolean =
-  matches(sample.pointerTypes, sample.buttons, sample.modifierKeys, contact, platformTransform)
+): Boolean = matches(sample.pointerTypes, sample.buttons, sample.modifierKeys, contact)
 
 private fun eligible(
   enabled: Boolean,
@@ -150,40 +148,23 @@ internal fun KeyBinding.select(
   return selected.takeIf { it.isCamera || it == KeyResponse.None || hasCameraBindings(camera) }
 }
 
-internal fun TransformPanBinding.matches(
-  sample: GesturePointerSample,
-  platformTransform: Boolean = false,
-): Boolean =
-  eligible(enabled, pointerTypes, sample) &&
-    PointerPattern(modifiers = modifiers).matches(sample, platformTransform = platformTransform)
+internal fun TransformPanBinding.matches(sample: GesturePointerSample): Boolean =
+  eligible(enabled, pointerTypes, sample) && modifiers.matches(sample.modifierKeys)
 
-internal fun TransformZoomBinding.matches(
-  sample: GesturePointerSample,
-  platformTransform: Boolean = false,
-): Boolean =
-  eligible(enabled, pointerTypes, sample) &&
-    PointerPattern(modifiers = modifiers).matches(sample, platformTransform = platformTransform)
+internal fun TransformZoomBinding.matches(sample: GesturePointerSample): Boolean =
+  eligible(enabled, pointerTypes, sample) && modifiers.matches(sample.modifierKeys)
 
-internal fun TransformRotateBinding.matches(
-  sample: GesturePointerSample,
-  platformTransform: Boolean = false,
-): Boolean =
-  eligible(enabled, pointerTypes, sample) &&
-    PointerPattern(modifiers = modifiers).matches(sample, platformTransform = platformTransform)
+internal fun TransformRotateBinding.matches(sample: GesturePointerSample): Boolean =
+  eligible(enabled, pointerTypes, sample) && modifiers.matches(sample.modifierKeys)
 
-internal fun TransformTiltBinding.matches(
-  sample: GesturePointerSample,
-  platformTransform: Boolean = false,
-): Boolean =
-  eligible(enabled, pointerTypes, sample) &&
-    PointerPattern(modifiers = modifiers).matches(sample, platformTransform = platformTransform)
+internal fun TransformTiltBinding.matches(sample: GesturePointerSample): Boolean =
+  eligible(enabled, pointerTypes, sample) && modifiers.matches(sample.modifierKeys)
 
 internal fun TransformBinding.hasDemand(
   sample: GesturePointerSample,
   camera: CameraConfiguration,
-  platformTransform: Boolean = false,
 ): Boolean =
-  (camera.pan.enabled && pan.matches(sample, platformTransform)) ||
-    (camera.zoom.enabled && zoom.matches(sample, platformTransform)) ||
-    (!platformTransform && camera.rotate.enabled && rotate.matches(sample)) ||
-    (!platformTransform && camera.tilt.enabled && tilt.matches(sample))
+  (camera.pan.enabled && pan.matches(sample)) ||
+    (camera.zoom.enabled && zoom.matches(sample)) ||
+    (camera.rotate.enabled && rotate.matches(sample)) ||
+    (camera.tilt.enabled && tilt.matches(sample))

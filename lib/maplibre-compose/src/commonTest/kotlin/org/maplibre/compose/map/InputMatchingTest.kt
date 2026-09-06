@@ -76,54 +76,6 @@ class InputMatchingTest {
   }
 
   @Test
-  fun classified_buttonless_mouse_transform_is_logical_primary_only_for_contacts() {
-    assertFalse(
-      PointerPattern(button = PointerButton.Primary)
-        .matches(
-          setOf(PointerType.Mouse),
-          setOf(PointerButton.Secondary),
-          emptySet(),
-          contact = true,
-          platformTransform = true,
-        )
-    )
-    assertTrue(
-      PointerPattern(button = PointerButton.Primary)
-        .matches(
-          setOf(PointerType.Mouse),
-          emptySet(),
-          emptySet(),
-          contact = true,
-          platformTransform = true,
-        )
-    )
-    assertFalse(
-      PointerPattern(button = PointerButton.Primary)
-        .matches(setOf(PointerType.Mouse), emptySet(), emptySet(), contact = true)
-    )
-    assertFalse(
-      PointerPattern(button = PointerButton.Primary)
-        .matches(
-          setOf(PointerType.Mouse),
-          emptySet(),
-          emptySet(),
-          contact = false,
-          platformTransform = true,
-        )
-    )
-    assertFalse(
-      PointerPattern(setOf(PointerType.Touch), button = PointerButton.Primary)
-        .matches(
-          setOf(PointerType.Mouse),
-          emptySet(),
-          emptySet(),
-          contact = true,
-          platformTransform = true,
-        )
-    )
-  }
-
-  @Test
   fun pointer_event_snapshots_metadata_without_fabricating_projection_or_buttons() {
     val types = mutableSetOf(PointerType.Touch, PointerType.Stylus)
     val modifiers = mutableSetOf(KeyModifier.Ctrl)

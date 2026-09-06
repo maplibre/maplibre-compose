@@ -46,16 +46,6 @@ internal class MapInputFocus(private val onChanged: (engaged: Boolean) -> Unit) 
 
   /** A null response retains only consumption until release after cancellation. */
   val claimedKeys = mutableStateMapOf<Key, KeyClaim>()
-  private var structuralKey: Any? = null
-
-  fun configure(key: Any): Boolean {
-    if (structuralKey == key) return false
-    structuralKey = key
-    claimedKeys.keys.toList().forEach { held ->
-      claimedKeys[held] = claimedKeys.getValue(held).copy(response = null)
-    }
-    return true
-  }
 
   /** Engagement belongs to the key handler, so a map without one never engages or stays engaged. */
   var hasKeyBindings = false
@@ -133,10 +123,12 @@ internal class MapKeyInput(
   private var session: GestureInputSession? = null
   private var step: Job? = null
   private var stepGeneration = 0L
+  private var structuralKey: Any? = null
 
-  fun configure(structuralKey: Any) {
-    subscription.update(options().bindings.keys.onEvent != null)
-    if (focus.configure(structuralKey)) cancel()
+  fun configure(key: Any) {
+    if (structuralKey == key) return
+    structuralKey = key
+    cancel()
   }
 
   fun onEvent(event: KeyEvent): Boolean {

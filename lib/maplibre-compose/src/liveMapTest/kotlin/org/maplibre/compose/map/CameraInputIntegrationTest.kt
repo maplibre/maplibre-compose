@@ -63,14 +63,9 @@ class CameraInputIntegrationTest {
             checkNotNull(dispatcher.capture(TapFamily.DoubleTap)),
             GesturePointerSample(1, 10, DpOffset.Zero, null, emptySet(), emptySet(), emptySet()),
           ) {
-            continuation.launchDiscreteTransition(
-              fixture.gestures,
-              {},
-              { token ->
-                scaleByAwaitingTransition(2.0, null, Duration.ZERO, token)
-              },
-              generation,
-            )
+            continuation.launchTapTransition(fixture.gestures, generation) { token ->
+              inputScaleByAwaitingTransition(2.0, null, Duration.ZERO, token)
+            }
             finished.complete(Unit)
           }
           fixture.awaitWhileRendering("tap query starts") { queryStarted.await() }

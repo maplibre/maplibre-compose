@@ -110,7 +110,7 @@ public class CameraBuilder internal constructor(from: CameraConfiguration) {
 @MapInteractionDsl
 public class PanCameraBuilder internal constructor(from: PanCameraConfiguration) {
   public var enabled: Boolean = from.enabled
-  private var momentum = from.momentum
+  private val momentum = PanMomentumBuilder(from.momentum)
   private var start = from.onStart
 
   /** Runs before the first effective command each time this component starts. */
@@ -119,17 +119,18 @@ public class PanCameraBuilder internal constructor(from: PanCameraConfiguration)
   }
 
   public fun momentum(block: PanMomentumBuilder.() -> Unit) {
-    momentum = PanMomentumBuilder(momentum).apply(block).build()
+    momentum.apply(block)
   }
 
-  internal fun build(): PanCameraConfiguration = PanCameraConfiguration(enabled, momentum, start)
+  internal fun build(): PanCameraConfiguration =
+    PanCameraConfiguration(enabled, momentum.build(), start)
 }
 
 /** Camera permission and default release momentum for this component. */
 @MapInteractionDsl
 public class VelocityCameraBuilder internal constructor(from: VelocityCameraConfiguration) {
   public var enabled: Boolean = from.enabled
-  private var momentum = from.momentum
+  private val momentum = VelocityMomentumBuilder(from.momentum)
   private var start = from.onStart
 
   /** Runs before the first effective command each time this component starts. */
@@ -138,18 +139,18 @@ public class VelocityCameraBuilder internal constructor(from: VelocityCameraConf
   }
 
   public fun momentum(block: VelocityMomentumBuilder.() -> Unit) {
-    momentum = VelocityMomentumBuilder(momentum).apply(block).build()
+    momentum.apply(block)
   }
 
   internal fun build(): VelocityCameraConfiguration =
-    VelocityCameraConfiguration(enabled, momentum, start)
+    VelocityCameraConfiguration(enabled, momentum.build(), start)
 }
 
 /** Camera permission and default release momentum for this component. */
 @MapInteractionDsl
 public class TiltCameraBuilder internal constructor(from: TiltCameraConfiguration) {
   public var enabled: Boolean = from.enabled
-  private var momentum = from.momentum
+  private val momentum = TiltMomentumBuilder(from.momentum)
   private var start = from.onStart
 
   /** Runs before the first effective command each time this component starts. */
@@ -158,8 +159,9 @@ public class TiltCameraBuilder internal constructor(from: TiltCameraConfiguratio
   }
 
   public fun momentum(block: TiltMomentumBuilder.() -> Unit) {
-    momentum = TiltMomentumBuilder(momentum).apply(block).build()
+    momentum.apply(block)
   }
 
-  internal fun build(): TiltCameraConfiguration = TiltCameraConfiguration(enabled, momentum, start)
+  internal fun build(): TiltCameraConfiguration =
+    TiltCameraConfiguration(enabled, momentum.build(), start)
 }

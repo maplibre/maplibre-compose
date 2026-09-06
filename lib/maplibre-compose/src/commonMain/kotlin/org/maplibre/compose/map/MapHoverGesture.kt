@@ -141,7 +141,7 @@ internal class MapHoverGesture(
         position = target.positionFromScreenLocation(raw.screenOffset),
       )
     bindingSubscription = subscriptions.hover.capture()
-    observe(bindingEntry, sample, options().callbacks.hover) { bindingEntry = it }
+    observeMap(sample)
     if (!valid()) return
     if (scene.layers.isEmpty()) {
       pending = null
@@ -151,14 +151,10 @@ internal class MapHoverGesture(
     startWorker()
   }
 
-  private fun observe(
-    previous: Entered?,
-    sample: GesturePointerSample,
-    handler: ((HoverEvent) -> Unit)?,
-    set: (Entered?) -> Unit,
-  ) {
-    val next = handler?.let { Entered(sample, it) }
-    set(next)
+  private fun observeMap(sample: GesturePointerSample) {
+    val previous = bindingEntry
+    val handler = options().callbacks.hover
+    bindingEntry = handler?.let { Entered(sample, it) }
     if (handler == null) previous?.handler?.invoke(HoverEvent.Exit(previous.sample))
     else handler(if (previous == null) HoverEvent.Enter(sample) else HoverEvent.Move(sample))
   }

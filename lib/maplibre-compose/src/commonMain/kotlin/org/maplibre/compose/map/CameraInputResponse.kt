@@ -7,31 +7,28 @@ import kotlin.time.Duration
 internal fun GestureTarget.inputPanBy(
   deltaX: Double,
   deltaY: Double,
-  duration: Duration = Duration.ZERO,
-  gestureToken: GestureToken? = null,
+  gestureToken: GestureToken?,
 ) {
   val token = gestureToken ?: return
   if ((deltaX != 0.0 || deltaY != 0.0) && token.prepare(CameraComponent.Pan))
-    moveBy(deltaX, deltaY, duration, token)
+    moveBy(deltaX, deltaY, gestureToken = token)
 }
 
 internal fun GestureTarget.inputScaleBy(
   scale: Double,
   anchor: DpOffset?,
-  duration: Duration = Duration.ZERO,
-  gestureToken: GestureToken? = null,
+  gestureToken: GestureToken?,
 ) {
   val token = gestureToken ?: return
   if (scale != 1.0 && token.prepare(CameraComponent.Zoom))
-    scaleBy(scale, anchor.takeIf { token.permitted(CameraComponent.Pan) }, duration, token)
+    scaleBy(scale, anchor.takeIf { token.permitted(CameraComponent.Pan) }, gestureToken = token)
 }
 
 internal fun GestureTarget.inputRotateAndPitchBy(
   bearingDelta: Double,
   pitchDelta: Double,
-  duration: Duration = Duration.ZERO,
   anchor: DpOffset? = null,
-  gestureToken: GestureToken? = null,
+  gestureToken: GestureToken?,
 ) {
   val token = gestureToken ?: return
   val bearing =
@@ -41,9 +38,8 @@ internal fun GestureTarget.inputRotateAndPitchBy(
     rotateAndPitchBy(
       bearing,
       pitch,
-      duration,
-      anchor.takeIf { token.permitted(CameraComponent.Pan) },
-      token,
+      anchor = anchor.takeIf { token.permitted(CameraComponent.Pan) },
+      gestureToken = token,
     )
 }
 

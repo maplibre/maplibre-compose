@@ -16,7 +16,7 @@ import org.maplibre.compose.input.TransformVelocity
 /** Adapts shared screen-space recognition to map events, response gains, and camera ownership. */
 internal class PointerPairGesture(
   private val target: GestureTarget,
-  private val options: MapInteractions,
+  options: MapInteractions,
   private val currentOptions: () -> MapInteractions,
   private val subscriptions: InteractionSubscriptions,
   private val ids: GestureIds,
@@ -28,7 +28,7 @@ internal class PointerPairGesture(
   private val onRecognized: () -> Unit,
   private val retainAuthority: () -> Boolean,
 ) {
-  private class Component(val kind: TransformComponent) {
+  private class Component {
     var sample: GesturePointerSample? = null
     var observer: (PointerGestureEvent) -> Unit = {}
     val active: Boolean
@@ -45,29 +45,13 @@ internal class PointerPairGesture(
     )
   private val settings = options.bindings.transform
   private val pan =
-    component(
-      TransformComponent.Pan,
-      settings.pan.enabled && options.camera.pan.enabled,
-      PointerPattern(settings.pan.pointerTypes, modifiers = settings.pan.modifiers),
-    )
+    if (options.camera.pan.enabled && settings.pan.matches(metadata)) Component() else null
   private val pinch =
-    component(
-      TransformComponent.Scale,
-      settings.zoom.enabled && options.camera.zoom.enabled,
-      PointerPattern(settings.zoom.pointerTypes, modifiers = settings.zoom.modifiers),
-    )
+    if (options.camera.zoom.enabled && settings.zoom.matches(metadata)) Component() else null
   private val rotate =
-    component(
-      TransformComponent.Rotation,
-      settings.rotate.enabled && options.camera.rotate.enabled,
-      PointerPattern(settings.rotate.pointerTypes, modifiers = settings.rotate.modifiers),
-    )
+    if (options.camera.rotate.enabled && settings.rotate.matches(metadata)) Component() else null
   private val shove =
-    component(
-      TransformComponent.VerticalDrag,
-      settings.tilt.enabled && options.camera.tilt.enabled,
-      PointerPattern(settings.tilt.pointerTypes, modifiers = settings.tilt.modifiers),
-    )
+    if (options.camera.tilt.enabled && settings.tilt.matches(metadata)) Component() else null
   private val components =
     mapOf(
       TransformComponent.Pan to pan,
@@ -102,23 +86,6 @@ internal class PointerPairGesture(
 
   val secondId
     get() = recognition.secondId
-
-  private fun component(
-    kind: TransformComponent,
-    enabled: Boolean,
-    pattern: PointerPattern,
-  ): Component? =
-    if (
-      enabled &&
-        pattern.matches(
-          metadata.pointerTypes,
-          metadata.buttons,
-          metadata.modifierKeys,
-          contact = true,
-        )
-    )
-      Component(kind)
-    else null
 
   fun matches(first: PointerInputChange, second: PointerInputChange): Boolean =
     first.id == firstId && second.id == secondId

@@ -243,15 +243,11 @@ public class TransformPanBuilder internal constructor(from: TransformPanBinding)
   public var pointerTypes: Set<PointerType>? = from.pointerTypes
   public var modifiers: ModifierMatch = from.modifiers
   public var startSlop: Dp = from.startSlop
-  private var override = from.momentumOverride
-  private val inheritedMomentum = from.momentum
+  private val momentumBuilder = PanMomentumBuilder(from.momentum, from.momentumOverride)
   private var handlers = from.handlers
 
   public fun momentum(block: PanMomentumBuilder.() -> Unit) {
-    override =
-      override.merge(
-        PanMomentumBuilder(override.resolve(inheritedMomentum)).apply(block).override()
-      )
+    momentumBuilder.apply(block)
   }
 
   public fun onStart(block: ((DragEvent.Start) -> Unit)?) {
@@ -277,8 +273,8 @@ public class TransformPanBuilder internal constructor(from: TransformPanBinding)
       pointerTypes?.toSet(),
       modifiers,
       startSlop,
-      override,
-      override.resolve(base),
+      momentumBuilder.overrides,
+      momentumBuilder.build(base),
       handlers,
     )
   }
@@ -307,15 +303,11 @@ public class TransformZoomBuilder internal constructor(from: TransformZoomBindin
   public var startSpanSlop: Dp = from.startSpanSlop
   public var anchor: GestureAnchor = from.anchor
   public var zoomScale: Double = from.zoomScale
-  private var override = from.momentumOverride
-  private val inheritedMomentum = from.momentum
+  private val momentumBuilder = VelocityMomentumBuilder(from.momentum, from.momentumOverride)
   private var handlers = from.handlers
 
   public fun momentum(block: VelocityMomentumBuilder.() -> Unit) {
-    override =
-      override.merge(
-        VelocityMomentumBuilder(override.resolve(inheritedMomentum)).apply(block).override()
-      )
+    momentumBuilder.apply(block)
   }
 
   public fun onStart(block: ((PinchEvent.Start) -> Unit)?) {
@@ -344,8 +336,8 @@ public class TransformZoomBuilder internal constructor(from: TransformZoomBindin
       startSpanSlop,
       anchor,
       zoomScale,
-      override,
-      override.resolve(base),
+      momentumBuilder.overrides,
+      momentumBuilder.build(base),
       handlers,
     )
   }
@@ -386,15 +378,11 @@ public class TransformRotateBuilder internal constructor(from: TransformRotateBi
   public var anchor: GestureAnchor = from.anchor
   public var rotationScale: Double = from.rotationScale
   public var allowDuringZoom: Boolean = from.allowDuringZoom
-  private var override = from.momentumOverride
-  private val inheritedMomentum = from.momentum
+  private val momentumBuilder = VelocityMomentumBuilder(from.momentum, from.momentumOverride)
   private var handlers = from.handlers
 
   public fun momentum(block: VelocityMomentumBuilder.() -> Unit) {
-    override =
-      override.merge(
-        VelocityMomentumBuilder(override.resolve(inheritedMomentum)).apply(block).override()
-      )
+    momentumBuilder.apply(block)
   }
 
   public fun onStart(block: ((RotateEvent.Start) -> Unit)?) {
@@ -424,8 +412,8 @@ public class TransformRotateBuilder internal constructor(from: TransformRotateBi
       anchor,
       rotationScale,
       allowDuringZoom,
-      override,
-      override.resolve(base),
+      momentumBuilder.overrides,
+      momentumBuilder.build(base),
       handlers,
     )
   }
@@ -452,15 +440,11 @@ public class TransformTiltBuilder internal constructor(from: TransformTiltBindin
   public var modifiers: ModifierMatch = from.modifiers
   public var startSlop: Dp = from.startSlop
   public var pitchDegreesPerDp: Double = from.pitchDegreesPerDp
-  private var override = from.momentumOverride
-  private val inheritedMomentum = from.momentum
+  private val momentumBuilder = TiltMomentumBuilder(from.momentum, from.momentumOverride)
   private var handlers = from.handlers
 
   public fun momentum(block: TiltMomentumBuilder.() -> Unit) {
-    override =
-      override.merge(
-        TiltMomentumBuilder(override.resolve(inheritedMomentum)).apply(block).override()
-      )
+    momentumBuilder.apply(block)
   }
 
   public fun onStart(block: ((ShoveEvent.Start) -> Unit)?) {
@@ -488,8 +472,8 @@ public class TransformTiltBuilder internal constructor(from: TransformTiltBindin
       modifiers,
       startSlop,
       pitchDegreesPerDp,
-      override,
-      override.resolve(base),
+      momentumBuilder.overrides,
+      momentumBuilder.build(base),
       handlers,
     )
   }
@@ -531,15 +515,11 @@ public class TapDragBuilder internal constructor(from: TapDragBinding) {
   public var anchor: GestureAnchor = from.anchor
   public var direction: QuickZoomDirection = from.direction
   public var zoomLevelsPerViewport: Double = from.zoomLevelsPerViewport
-  private var override = from.momentumOverride
-  private val inheritedMomentum = from.momentum
+  private val momentumBuilder = VelocityMomentumBuilder(from.momentum, from.momentumOverride)
   private var handlers = from.handlers
 
   public fun momentum(block: VelocityMomentumBuilder.() -> Unit) {
-    override =
-      override.merge(
-        VelocityMomentumBuilder(override.resolve(inheritedMomentum)).apply(block).override()
-      )
+    momentumBuilder.apply(block)
   }
 
   public fun onStart(block: ((DragEvent.Start) -> Unit)?) {
@@ -569,8 +549,8 @@ public class TapDragBuilder internal constructor(from: TapDragBinding) {
       anchor,
       direction,
       zoomLevelsPerViewport,
-      override,
-      override.resolve(base),
+      momentumBuilder.overrides,
+      momentumBuilder.build(base),
       handlers,
     )
   }

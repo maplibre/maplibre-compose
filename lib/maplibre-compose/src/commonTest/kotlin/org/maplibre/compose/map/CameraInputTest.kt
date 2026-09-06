@@ -51,12 +51,9 @@ class CameraInputTest {
           checkNotNull(dispatcher.capture(TapFamily.DoubleTap)),
           GesturePointerSample(id, 10, DpOffset.Zero, null, emptySet(), emptySet(), emptySet()),
         ) {
-          continuation.launchDiscreteTransition(
-            target,
-            {},
-            { token -> inputPanBy(10.0, 0.0, gestureToken = token) },
-            generation,
-          )
+          continuation.launchTapTransition(target, generation) { token ->
+            inputPanBy(10.0, 0.0, gestureToken = token)
+          }
         }
       }
       dispatch(1, target.observeInput())
