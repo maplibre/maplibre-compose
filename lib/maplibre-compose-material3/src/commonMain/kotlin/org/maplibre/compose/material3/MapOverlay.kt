@@ -1,8 +1,5 @@
 package org.maplibre.compose.material3
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import org.maplibre.compose.overlay.MapOverlay
@@ -10,15 +7,8 @@ import org.maplibre.compose.overlay.MaplibreLogo
 import org.maplibre.compose.overlay.include
 
 private val Material3AttributionOnlyOverlay = MapOverlay {
-  val overlayScope = this
-  Row(
-    Modifier.align(Alignment.BottomStart).fillMaxWidth(),
-    horizontalArrangement = Arrangement.SpaceBetween,
-    verticalAlignment = Alignment.CenterVertically,
-  ) {
-    MaplibreLogo()
-    overlayScope.ExpandingAttributionButton()
-  }
+  MaplibreLogo(Modifier.align(Alignment.BottomStart))
+  ExpandingAttributionButton(Modifier.align(Alignment.BottomEnd))
 }
 
 private val Material3DefaultOverlay = MapOverlay {
