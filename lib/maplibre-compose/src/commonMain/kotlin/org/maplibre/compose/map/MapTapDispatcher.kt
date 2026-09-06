@@ -96,7 +96,7 @@ internal class MapClickPath(
 /** One input node orders application delivery independently of continuous camera input. */
 internal class MapTapDispatcher(
   scope: CoroutineScope,
-  private val clicks: MapInteractionTarget,
+  private val captureClickPath: (TapFamily) -> MapClickPath?,
   private val subscriptions: InteractionSubscriptions,
   private val currentOptions: () -> MapInteractions,
 ) {
@@ -141,7 +141,7 @@ internal class MapTapDispatcher(
   }
 
   fun capture(family: TapFamily): MapTapAdmission? =
-    clicks.capture(family)?.let {
+    captureClickPath(family)?.let {
       val slot = family.subscription(subscriptions).capture()
       MapTapAdmission(family, it, slot, slot != null || it.hasSubscribers)
     }

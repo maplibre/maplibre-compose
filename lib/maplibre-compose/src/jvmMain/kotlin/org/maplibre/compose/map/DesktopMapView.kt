@@ -28,7 +28,7 @@ internal actual fun ComposableMapView(
   onReset: () -> Unit,
   logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
-  clicks: MapInteractionTarget,
+  captureClickPath: (TapFamily) -> MapClickPath?,
   subscriptions: InteractionSubscriptions,
   options: MapViewOptions,
 ) {
@@ -48,7 +48,7 @@ internal actual fun ComposableMapView(
     onReset = onReset,
     logger = logger,
     callbacks = callbacks,
-    clicks = clicks,
+    captureClickPath = captureClickPath,
     subscriptions = subscriptions,
     options = options,
   )

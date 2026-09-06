@@ -2763,7 +2763,7 @@ private fun GestureHost(
       .testTag(RECOGNITION_MAP_TAG)
       .mapInput(
         target,
-        target,
+        target::capture,
         options,
         density,
         focusRequester,

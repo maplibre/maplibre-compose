@@ -56,12 +56,7 @@ internal class MapHoverGesture(
   private fun refresh(moved: Boolean) {
     val raw = location ?: return
     val binding = options().bindings.hover
-    val handler =
-      options().callbacks.hover?.takeIf {
-        binding.enabled &&
-          PointerPattern(binding.pointerTypes, modifiers = binding.modifiers)
-            .matches(raw.pointerTypes, raw.buttons, raw.modifierKeys, contact = false)
-      }
+    val handler = options().callbacks.hover?.takeIf { binding.matches(raw) }
     val subscription = subscriptions.hover.capture()
     val previous = entered
     if (previous != null && (handler == null || previous.subscription !== subscription)) {

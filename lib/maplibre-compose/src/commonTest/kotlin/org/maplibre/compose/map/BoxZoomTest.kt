@@ -40,27 +40,20 @@ class BoxZoomTest {
   @Test
   fun all_four_projected_corners_determine_the_fit_and_preserve_orientation() {
     val positions =
-      listOf(Position(-2.0, 7.0), Position(5.0, 9.0), Position(8.0, -3.0), Position(-4.0, -1.0))
-    val queried = mutableListOf<DpOffset>()
+      mapOf(
+        DpOffset(10.dp, 20.dp) to Position(-2.0, 7.0),
+        DpOffset(18.dp, 20.dp) to Position(5.0, 9.0),
+        DpOffset(18.dp, 28.dp) to Position(8.0, -3.0),
+        DpOffset(10.dp, 28.dp) to Position(-4.0, -1.0),
+      )
     val fit =
       assertNotNull(
         boxZoomFit(
           DpRect(10.dp, 20.dp, 18.dp, 28.dp),
           CameraPosition(bearing = 25.0, tilt = 40.0),
-        ) {
-          queried += it
-          positions[queried.lastIndex]
-        }
+          positions::get,
+        )
       )
-    assertEquals(
-      listOf(
-        DpOffset(10.dp, 20.dp),
-        DpOffset(18.dp, 20.dp),
-        DpOffset(18.dp, 28.dp),
-        DpOffset(10.dp, 28.dp),
-      ),
-      queried,
-    )
     assertEquals(-4.0, fit.bounds.west)
     assertEquals(8.0, fit.bounds.east)
     assertEquals(-3.0, fit.bounds.south)
@@ -71,11 +64,16 @@ class BoxZoomTest {
 
   @Test
   fun unavailable_or_invalid_projection_abandons_the_whole_fit() {
-    for (missing in 0..3) {
-      var index = 0
+    for (missing in
+      listOf(
+        DpOffset(0.dp, 0.dp),
+        DpOffset(10.dp, 0.dp),
+        DpOffset(10.dp, 10.dp),
+        DpOffset(0.dp, 10.dp),
+      )) {
       assertNull(
         boxZoomFit(DpRect(0.dp, 0.dp, 10.dp, 10.dp), CameraPosition()) {
-          if (index++ == missing) null else Position(0.0, 0.0)
+          if (it == missing) null else Position(0.0, 0.0)
         }
       )
     }
@@ -86,14 +84,13 @@ class BoxZoomTest {
 
   @Test
   fun longitudes_are_unwrapped_around_the_camera_target_world_copy() {
-    var index = 0
     val fit =
       assertNotNull(
         boxZoomFit(
           DpRect(0.dp, 0.dp, 10.dp, 10.dp),
           CameraPosition(target = Position(540.0, 0.0)),
         ) {
-          Position(if (index++ % 2 == 0) 179.0 else -179.0, 0.0)
+          Position(if (it.x == 0.dp) 179.0 else -179.0, 0.0)
         }
       )
     assertEquals(539.0, fit.bounds.west)

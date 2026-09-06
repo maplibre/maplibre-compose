@@ -45,7 +45,7 @@ internal fun MlnFfiMapView(
   onReset: () -> Unit,
   logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
-  clicks: MapInteractionTarget,
+  captureClickPath: (TapFamily) -> MapClickPath?,
   subscriptions: InteractionSubscriptions,
   options: MapViewOptions,
 ) {
@@ -75,7 +75,7 @@ internal fun MlnFfiMapView(
     onReset = onReset,
     logger = logger,
     callbacks = callbacks,
-    clicks = clicks,
+    captureClickPath = captureClickPath,
     subscriptions = subscriptions,
     options = options,
   )
@@ -93,7 +93,7 @@ internal fun MlnFfiMapView(
   onReset: () -> Unit,
   logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
-  clicks: MapInteractionTarget,
+  captureClickPath: (TapFamily) -> MapClickPath?,
   subscriptions: InteractionSubscriptions,
   options: MapViewOptions,
 ) {
@@ -184,7 +184,7 @@ internal fun MlnFfiMapView(
   val inputModifier =
     modifier.mapInput(
       session,
-      clicks,
+      captureClickPath,
       options.interactions,
       density,
       focusRequester,

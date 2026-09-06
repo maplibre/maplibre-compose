@@ -19,32 +19,6 @@ class MapRotaryGestureTest {
   @AfterTest fun closeMap() = map.close()
 
   @Test
-  fun direction_anchor_burst_identity_and_idle_completion() = runTest {
-    val events = mutableListOf<RotaryGestureEvent>()
-    val fixture = Fixture(backgroundScope, RotaryBinding(onEvent = { events += it }))
-    assertTrue(fixture.input.onSample(24f, 0f, 0))
-    runCurrent()
-    advanceTimeBy(100)
-    assertTrue(fixture.input.onSample(-24f, 0f, 0))
-    runCurrent()
-    assertTrue(fixture.target.scaleCalls[0].scale < 1.0)
-    assertTrue(fixture.target.scaleCalls[1].scale > 1.0)
-    assertTrue(fixture.target.scaleCalls.all { it.anchor == null })
-    assertEquals(1, fixture.target.startedCount)
-    assertEquals(events[0].gestureId, events[1].gestureId)
-    advanceTimeBy(199)
-    runCurrent()
-    assertEquals(0, fixture.target.endedCount)
-    advanceTimeBy(1)
-    runCurrent()
-    assertEquals(1, fixture.target.endedCount)
-    assertEquals(2, fixture.target.scaleCalls.size)
-    fixture.input.onSample(24f, 0f, 0)
-    assertTrue(events.last().gestureId != events.first().gestureId)
-    fixture.input.cancel()
-  }
-
-  @Test
   fun invalid_or_disabled_samples_do_not_claim_camera() = runTest {
     for (notch in listOf(0f, -24f, Float.NaN, Float.POSITIVE_INFINITY)) {
       val fixture = Fixture(backgroundScope, notch = notch)

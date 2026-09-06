@@ -24,7 +24,7 @@ internal class GestureTestFixture : AutoCloseable {
 internal class RecordingGestureTarget(
   private val state: MapState,
   private val deferred: Boolean = false,
-) : PresentationTestAdapter(), GestureTarget, MapInteractionTarget {
+) : PresentationTestAdapter(), GestureTarget {
   var startedCount = 0
     private set
 
@@ -47,6 +47,8 @@ internal class RecordingGestureTarget(
   fun updateConfiguration(options: MapInteractions) {
     state.gestureAuthority.updateConfiguration(options.camera)
   }
+
+  override val isGestureReady: Boolean = true
 
   override fun cancelTransitions() = Unit
 
@@ -145,7 +147,7 @@ internal class RecordingGestureTarget(
   var clicks = 0
   var longClicks = 0
 
-  override fun capture(family: TapFamily): MapClickPath =
+  fun capture(family: TapFamily): MapClickPath =
     MapClickPath({ !state.isClosed }, family in clickFamilies) {
       deliveredTapFamilies += family
       when (family) {

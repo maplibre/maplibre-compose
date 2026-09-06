@@ -19,8 +19,8 @@ internal class MapInteractionDispatcher(
   private val loadedStyle: State<StyleBinding?>,
   private val interactions: State<MapInteractions>,
   private val subscriptions: InteractionSubscriptions,
-) : MapInteractionTarget {
-  override fun capture(family: TapFamily): MapClickPath? {
+) {
+  fun capture(family: TapFamily): MapClickPath? {
     val attachment = state.currentMapAttachment ?: return null
     val style = loadedStyle.value
     val structure = interactions.value.structuralKey

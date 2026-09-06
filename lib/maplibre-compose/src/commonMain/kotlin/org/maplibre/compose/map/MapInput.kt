@@ -66,7 +66,7 @@ import org.maplibre.compose.style.systemAnimatorDurationScale
 @Composable
 internal fun Modifier.mapInput(
   target: GestureTarget,
-  clicks: MapInteractionTarget,
+  captureClickPath: (TapFamily) -> MapClickPath?,
   options: MapInteractions,
   density: Density,
   focusRequester: FocusRequester,
@@ -148,7 +148,7 @@ internal fun Modifier.mapInput(
     .drawBoxZoom(boxZoom)
     .pointerGestures(
       target,
-      clicks,
+      captureClickPath,
       options,
       { pointerOptions.value },
       { currentOptions.value.structuralKey },
@@ -160,7 +160,7 @@ internal fun Modifier.mapInput(
       boxZoom,
       platformRouting,
       subscriptions,
-      rememberScrollConfig(),
+      rememberScrollConverter(),
     )
 }
 
@@ -183,7 +183,7 @@ internal fun mapInputEnvironment(): MapInputEnvironment =
 
 private fun Modifier.pointerGestures(
   target: GestureTarget,
-  clicks: MapInteractionTarget,
+  captureClickPath: (TapFamily) -> MapClickPath?,
   options: MapInteractions,
   currentOptions: () -> MapInteractions,
   currentStructuralKey: () -> Any,
@@ -195,9 +195,9 @@ private fun Modifier.pointerGestures(
   boxZoom: BoxZoomPreview,
   platformRouting: PlatformTransformRouting,
   subscriptions: InteractionSubscriptions,
-  scrollConfig: ScrollConfig,
+  scrollConverter: ScrollConverter,
 ): Modifier =
-  pointerInput(target, options.structuralKey, density, continuation, scrollConfig) {
+  pointerInput(target, options.structuralKey, density, continuation, scrollConverter) {
     val scope = CoroutineScope(currentCoroutineContext())
     val hover =
       MapHoverGesture(
@@ -217,7 +217,7 @@ private fun Modifier.pointerGestures(
         ids,
         density,
         { size },
-        scrollConfig,
+        scrollConverter,
         scope,
         continuation,
       )
@@ -226,7 +226,7 @@ private fun Modifier.pointerGestures(
     val gesture =
       MapPointerGesture(
         target = target,
-        taps = MapTapDispatcher(scope, clicks, subscriptions, currentOptions),
+        taps = MapTapDispatcher(scope, captureClickPath, subscriptions, currentOptions),
         options = options,
         currentOptions = currentOptions,
         subscriptions = subscriptions,
@@ -367,7 +367,7 @@ private class MapScrollGesture(
   private val ids: GestureIds,
   private val density: Density,
   private val viewportSize: () -> IntSize,
-  private val scrollConfig: ScrollConfig,
+  private val scrollConverter: ScrollConverter,
   private val scope: CoroutineScope,
   private val continuation: GestureContinuation,
 ) {
@@ -393,8 +393,7 @@ private class MapScrollGesture(
       return
     }
     val normalized =
-      normalizeScroll(scrollConfig.calculateScroll(event, density, viewportSize()), density)
-        ?: return
+      normalizeScroll(scrollConverter(event, density, viewportSize()), density) ?: return
     val sample = event.gestureSample(burst?.sample?.gestureId ?: ids.next(), target, density)
     val previous = burst
     if (previous != null && sample.uptimeMillis < previous.sample.uptimeMillis) {

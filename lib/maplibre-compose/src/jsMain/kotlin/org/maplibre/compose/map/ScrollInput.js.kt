@@ -2,7 +2,6 @@ package org.maplibre.compose.map
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
 import kotlinx.browser.document
@@ -10,36 +9,34 @@ import kotlinx.browser.window
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.events.WheelEvent
 
-@Composable internal actual fun rememberScrollConfig(): ScrollConfig = BrowserScrollConfig
+@Composable internal actual fun rememberScrollConverter(): ScrollConverter = BrowserScrollConverter
 
-private object BrowserScrollConfig : ScrollConfig {
-  // Match Compose's browser line height: initial font size, with a 16 CSS-pixel fallback.
-  private val lineHeight: Float by lazy {
-    val body = document.body
-    if (body == null) 16f
-    else {
-      val probe = document.createElement("div") as HTMLElement
-      probe.style.fontSize = "initial"
-      probe.style.display = "none"
-      body.appendChild(probe)
-      try {
-        window.getComputedStyle(probe).fontSize.removeSuffix("px").toFloatOrNull() ?: 16f
-      } finally {
-        body.removeChild(probe)
-      }
+// Match Compose's browser line height: initial font size, with a 16 CSS-pixel fallback.
+private val browserLineHeight: Float by lazy {
+  val body = document.body
+  if (body == null) 16f
+  else {
+    val probe = document.createElement("div") as HTMLElement
+    probe.style.fontSize = "initial"
+    probe.style.display = "none"
+    body.appendChild(probe)
+    try {
+      window.getComputedStyle(probe).fontSize.removeSuffix("px").toFloatOrNull() ?: 16f
+    } finally {
+      body.removeChild(probe)
     }
   }
+}
 
-  override fun calculateScroll(event: PointerEvent, density: Density, bounds: IntSize): Offset {
-    val mode = (event.nativeEvent as? WheelEvent)?.deltaMode
-    return browserScrollDelta(
-      event.totalScrollDelta,
-      mode,
-      density,
-      bounds,
-      if (mode == WheelEvent.DOM_DELTA_LINE) lineHeight else 1f,
-    )
-  }
+private val BrowserScrollConverter: ScrollConverter = { event, density, bounds ->
+  val mode = (event.nativeEvent as? WheelEvent)?.deltaMode
+  browserScrollDelta(
+    event.totalScrollDelta,
+    mode,
+    density,
+    bounds,
+    if (mode == WheelEvent.DOM_DELTA_LINE) browserLineHeight else 1f,
+  )
 }
 
 internal fun browserScrollDelta(

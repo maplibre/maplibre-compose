@@ -43,16 +43,14 @@ class CameraInputIntegrationTest {
         val scope = CoroutineScope(coroutineContext + work)
         var delivered = false
         try {
-          val clicks =
-            object : MapInteractionTarget {
-              override fun capture(family: TapFamily) =
-                MapClickPath({ true }) {
-                  queryStarted.complete(Unit)
-                  queryResult.await()
-                  delivered = true
-                  ClickResult.Pass
-                }
+          val clicks = { _: TapFamily ->
+            MapClickPath({ true }) {
+              queryStarted.complete(Unit)
+              queryResult.await()
+              delivered = true
+              ClickResult.Pass
             }
+          }
           val continuation = GestureContinuation(scope)
           val dispatcher =
             MapTapDispatcher(scope, clicks, InteractionSubscriptions(MapInteractions.Standard)) {

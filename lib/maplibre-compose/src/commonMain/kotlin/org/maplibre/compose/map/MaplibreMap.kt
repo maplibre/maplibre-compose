@@ -262,7 +262,7 @@ private fun MaplibreMapPresentation(
       },
       logger = state.runtime.logger,
       callbacks = adapterCallbacks,
-      clicks = clickDispatcher,
+      captureClickPath = clickDispatcher::capture,
       subscriptions = subscriptions,
       options = mapViewOptions,
     )

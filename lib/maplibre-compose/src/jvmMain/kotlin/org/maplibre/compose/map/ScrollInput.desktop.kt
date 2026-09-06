@@ -3,25 +3,22 @@ package org.maplibre.compose.map
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.awt.awtEventOrNull
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
 import java.awt.event.MouseWheelEvent
 import kotlin.math.sqrt
 
-@Composable internal actual fun rememberScrollConfig(): ScrollConfig = DesktopScrollConfig
+@Composable internal actual fun rememberScrollConverter(): ScrollConverter = DesktopScrollConverter
 
-private object DesktopScrollConfig : ScrollConfig {
-  private val os = System.getProperty("os.name").lowercase()
-
-  override fun calculateScroll(event: PointerEvent, density: Density, bounds: IntSize): Offset =
-    desktopScrollDelta(
-      event.totalScrollDelta,
-      event.awtEventOrNull as? MouseWheelEvent,
-      density,
-      bounds,
-      os,
-    )
+private val desktopOs = System.getProperty("os.name").lowercase()
+private val DesktopScrollConverter: ScrollConverter = { event, density, bounds ->
+  desktopScrollDelta(
+    event.totalScrollDelta,
+    event.awtEventOrNull as? MouseWheelEvent,
+    density,
+    bounds,
+    desktopOs,
+  )
 }
 
 /** Matches Compose's macOS, Windows, and Linux scroll distances and AWT line/page settings. */

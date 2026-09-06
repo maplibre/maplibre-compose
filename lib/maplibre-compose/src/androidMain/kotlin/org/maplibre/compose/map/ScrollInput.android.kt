@@ -8,11 +8,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
 
 @Composable
-internal actual fun rememberScrollConfig(): ScrollConfig {
+internal actual fun rememberScrollConverter(): ScrollConverter {
   val context = LocalContext.current
   return remember(context) {
     val configuration = ViewConfiguration.get(context)
-    ScrollConfig { event, density, _ ->
+    return@remember { event, density, _ ->
       // Match Compose's ViewConfiguration factors and its fallback for older Android releases.
       val horizontal =
         if (Build.VERSION.SDK_INT > 26) configuration.scaledHorizontalScrollFactor

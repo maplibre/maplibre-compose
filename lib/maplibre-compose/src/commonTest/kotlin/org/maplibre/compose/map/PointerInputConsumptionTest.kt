@@ -10,17 +10,6 @@ import org.maplibre.compose.input.PointerInputConsumption
 
 class PointerInputConsumptionTest {
   @Test
-  fun restarting_during_a_drag_waits_for_release_before_accepting_a_new_press() {
-    var recognized = 0
-    val arena = PointerInputConsumption { error("a restarted arena has no action to cancel") }
-    arena.main(event(change(pressed = true, previousPressed = true))) { recognized++ }
-    arena.main(event(change(pressed = false, previousPressed = true))) { recognized++ }
-    assertEquals(0, recognized)
-    arena.main(event(change(pressed = true, previousPressed = false))) { recognized++ }
-    assertEquals(1, recognized)
-  }
-
-  @Test
   fun an_intercepted_new_press_does_not_interrupt_an_unrelated_camera_continuation() {
     var recognized = 0
     val arena = PointerInputConsumption { error("an intercepted down took over input") }

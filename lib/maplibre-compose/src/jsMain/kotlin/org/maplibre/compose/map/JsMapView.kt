@@ -28,7 +28,7 @@ internal actual fun ComposableMapView(
   onReset: () -> Unit,
   logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
-  clicks: MapInteractionTarget,
+  captureClickPath: (TapFamily) -> MapClickPath?,
   subscriptions: InteractionSubscriptions,
   options: MapViewOptions,
 ) {
@@ -94,7 +94,7 @@ internal actual fun ComposableMapView(
           .indication(inputFocus.indicationInteractions, inputEnvironment.indication)
           .mapInput(
             session,
-            clicks,
+            captureClickPath,
             options.interactions,
             density,
             focusRequester,

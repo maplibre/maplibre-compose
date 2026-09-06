@@ -199,7 +199,6 @@ internal object GestureMath {
         MAXIMUM_ANGULAR_VELOCITY,
       )
     if (abs(angularVelocity) < MINIMUM_ANGULAR_VELOCITY_DP * density) return null
-    if (!continuation.enabled) return null
     val velocity = abs(velocityXPixelsPerSecond) + abs(velocityYPixelsPerSecond)
     if (
       scaling &&

@@ -69,11 +69,11 @@ internal data class TransformDecision(
 )
 
 internal interface PointerTransformPolicy {
-  fun reset(sample: PairSample) = Unit
+  fun reset(sample: PairSample)
 
-  fun accepts(previous: PairSample, current: PairSample): Boolean = true
+  fun accepts(previous: PairSample, current: PairSample): Boolean
 
-  fun needsRebase(previous: PairSample, current: PairSample): Boolean = previous.distance <= 0
+  fun needsRebase(previous: PairSample, current: PairSample): Boolean
 
   fun recognize(motion: PairMotion, active: Set<TransformComponent>): TransformDecision
 }

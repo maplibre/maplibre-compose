@@ -41,14 +41,12 @@ class MapTapDispatcherTest {
               }
             }
           }
-          val target =
-            object : MapInteractionTarget {
-              override fun capture(family: TapFamily) =
-                MapClickPath({ true }) {
-                  order += "map"
-                  error("map failed")
-                }
+          val target = { _: TapFamily ->
+            MapClickPath({ true }) {
+              order += "map"
+              error("map failed")
             }
+          }
           val dispatcher =
             MapTapDispatcher(scope, target, InteractionSubscriptions(options)) { options }
           dispatcher.dispatch(checkNotNull(dispatcher.capture(TapFamily.DoubleTap)), sample(1)) {
@@ -84,16 +82,14 @@ class MapTapDispatcherTest {
         }
       }
     }
-    val target =
-      object : MapInteractionTarget {
-        override fun capture(family: TapFamily) =
-          MapClickPath({ true }) {
-            order += "map ${it.gestureId}"
-            if (it.gestureId == 1L) query.await()
-            order += "layer ${it.gestureId}"
-            ClickResult.Pass
-          }
+    val target = { _: TapFamily ->
+      MapClickPath({ true }) {
+        order += "map ${it.gestureId}"
+        if (it.gestureId == 1L) query.await()
+        order += "layer ${it.gestureId}"
+        ClickResult.Pass
       }
+    }
     val dispatcher =
       MapTapDispatcher(backgroundScope, target, InteractionSubscriptions(options)) { options }
     dispatcher.dispatch(checkNotNull(dispatcher.capture(TapFamily.Tap)), sample(1)) {
@@ -125,14 +121,12 @@ class MapTapDispatcherTest {
   fun binding_consumption_stops_the_entire_application_and_camera_path() = runTest {
     var delivery = 0
     var cameras = 0
-    val target =
-      object : MapInteractionTarget {
-        override fun capture(family: TapFamily) =
-          MapClickPath({ true }) {
-            delivery++
-            ClickResult.Pass
-          }
+    val target = { _: TapFamily ->
+      MapClickPath({ true }) {
+        delivery++
+        ClickResult.Pass
       }
+    }
     val options = MapInteractions { callbacks { doubleClick { onEvent { ClickResult.Consume } } } }
     val dispatcher =
       MapTapDispatcher(backgroundScope, target, InteractionSubscriptions(options)) { options }
@@ -149,14 +143,12 @@ class MapTapDispatcherTest {
     var options = MapInteractions.Standard
     val query = CompletableDeferred<Unit>()
     var cameras = 0
-    val target =
-      object : MapInteractionTarget {
-        override fun capture(family: TapFamily) =
-          MapClickPath({ true }) {
-            query.await()
-            ClickResult.Pass
-          }
+    val target = { _: TapFamily ->
+      MapClickPath({ true }) {
+        query.await()
+        ClickResult.Pass
       }
+    }
     val dispatcher =
       MapTapDispatcher(backgroundScope, target, InteractionSubscriptions(options)) { options }
     dispatcher.dispatch(checkNotNull(dispatcher.capture(TapFamily.DoubleTap)), sample(1)) {
@@ -172,19 +164,16 @@ class MapTapDispatcherTest {
   @Test
   fun cancellation_of_one_lease_bound_query_does_not_become_pass_or_kill_later_clicks() = runTest {
     val cameras = mutableListOf<Long>()
-    val target =
-      object : MapInteractionTarget {
-        override fun capture(family: TapFamily): MapClickPath {
-          var valid = true
-          return MapClickPath({ valid }) {
-            if (it.gestureId == 1L) {
-              valid = false
-              throw CancellationException("attachment changed")
-            }
-            ClickResult.Pass
-          }
+    val target = { _: TapFamily ->
+      var valid = true
+      MapClickPath({ valid }) {
+        if (it.gestureId == 1L) {
+          valid = false
+          throw CancellationException("attachment changed")
         }
+        ClickResult.Pass
       }
+    }
     val dispatcher =
       MapTapDispatcher(
         backgroundScope,
@@ -207,14 +196,12 @@ class MapTapDispatcherTest {
   fun invalidating_the_path_in_a_binding_observer_stops_the_next_stage() = runTest {
     var valid = true
     var delivery = 0
-    val target =
-      object : MapInteractionTarget {
-        override fun capture(family: TapFamily) =
-          MapClickPath({ valid }) {
-            delivery++
-            ClickResult.Pass
-          }
+    val target = { _: TapFamily ->
+      MapClickPath({ valid }) {
+        delivery++
+        ClickResult.Pass
       }
+    }
     val options = MapInteractions {
       callbacks {
         click {
@@ -238,14 +225,12 @@ class MapTapDispatcherTest {
   fun press_admission_keeps_slots_but_uses_current_bodies_and_allows_self_removal() = runTest {
     val order = mutableListOf<String>()
     var options = MapInteractions.Standard
-    val target =
-      object : MapInteractionTarget {
-        override fun capture(family: TapFamily) =
-          MapClickPath({ true }) {
-            order += "layers"
-            ClickResult.Pass
-          }
+    val target = { _: TapFamily ->
+      MapClickPath({ true }) {
+        order += "layers"
+        ClickResult.Pass
       }
+    }
     val subscriptions = InteractionSubscriptions(options)
     val dispatcher = MapTapDispatcher(backgroundScope, target, subscriptions) { options }
     val beforeSubscription = checkNotNull(dispatcher.capture(TapFamily.Tap))
@@ -287,10 +272,9 @@ class MapTapDispatcherTest {
       }
     }
     val subscriptions = InteractionSubscriptions(options)
-    val target =
-      object : MapInteractionTarget {
-        override fun capture(family: TapFamily) = MapClickPath({ true }) { ClickResult.Pass }
-      }
+    val target = { _: TapFamily ->
+      MapClickPath({ true }) { ClickResult.Pass }
+    }
     val dispatcher = MapTapDispatcher(backgroundScope, target, subscriptions) { options }
     val admitted = checkNotNull(dispatcher.capture(TapFamily.Tap))
     subscriptions.update(MapInteractions.Standard)

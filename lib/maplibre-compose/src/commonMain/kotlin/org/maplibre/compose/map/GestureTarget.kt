@@ -61,15 +61,13 @@ internal class GestureToken(
 /** What [mapInput] needs of a map. Distances are in logical pixels. */
 internal interface GestureTarget {
   /** Accepted input invalidates older asynchronous camera fallthrough, even before recognition. */
-  fun observeInput(): Long = 0L
+  fun observeInput(): Long
 
   val inputGeneration: Long
-    get() = 0L
 
-  fun onGestureStartedIfCurrent(generation: Long): GestureToken? =
-    if (generation == inputGeneration) onGestureStarted() else null
+  fun onGestureStartedIfCurrent(generation: Long): GestureToken?
 
-  fun positionFromScreenLocation(offset: DpOffset): Position? = null
+  fun positionFromScreenLocation(offset: DpOffset): Position?
 
   fun boxZoomFit(rect: DpRect): BoxZoomFit? =
     boxZoomFit(rect, getCameraPosition(), ::positionFromScreenLocation)
@@ -78,20 +76,14 @@ internal interface GestureTarget {
     fit: BoxZoomFit,
     duration: Duration,
     gestureToken: GestureToken,
-  ): Unit = error("This gesture target does not support bounds fitting")
+  )
 
   val isGestureReady: Boolean
-    get() = true
 
   /** Revokes accepted commands synchronously, then queues backend cancellation and its fence. */
-  fun cancelGesture(token: GestureToken) {
-    token.finish(cancelled = true) {
-      onGestureEnded(token)
-      token.complete()
-    }
-  }
+  fun cancelGesture(token: GestureToken)
 
-  suspend fun awaitGestureEnded(token: GestureToken) = Unit
+  suspend fun awaitGestureEnded(token: GestureToken)
 
   fun cancelTransitions()
 
@@ -147,9 +139,4 @@ internal interface GestureTarget {
     gestureToken: GestureToken,
     anchor: DpOffset? = null,
   )
-}
-
-/** Supplies subscriber demand and captures eligible application slots at press admission. */
-internal interface MapInteractionTarget {
-  fun capture(family: TapFamily): MapClickPath?
 }

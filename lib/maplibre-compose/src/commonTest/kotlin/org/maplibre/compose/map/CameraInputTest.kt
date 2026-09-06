@@ -28,15 +28,13 @@ class CameraInputTest {
     cameraTest { _, target ->
       val query = CompletableDeferred<Unit>()
       var layers = 0
-      val clicks =
-        object : MapInteractionTarget {
-          override fun capture(family: TapFamily) =
-            MapClickPath({ true }) {
-              query.await()
-              layers++
-              ClickResult.Pass
-            }
+      val clicks = { _: TapFamily ->
+        MapClickPath({ true }) {
+          query.await()
+          layers++
+          ClickResult.Pass
         }
+      }
       val continuation = GestureContinuation(backgroundScope)
       val dispatcher =
         MapTapDispatcher(
