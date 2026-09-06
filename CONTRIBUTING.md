@@ -172,6 +172,19 @@ The boot task opens the emulator window by default. Pass `--headless` to run it
 without a window. The AVD lives under `build/android-emulator`, so removing the
 build tree removes the device.
 
+## Inspect Compose compiler reports
+
+The demo's Compose compiler reports are disabled by default so normal builds can
+reuse cached compilation across checkout paths. To regenerate reports for the
+iOS simulator compilation on macOS, run:
+
+```bash
+mise exec -- ./gradlew :demo-app:common:compileKotlinIosSimulatorArm64 --rerun -PcomposeCompilerReports=true
+```
+
+Reports are written to `demo-app/common/build/compose/reports`. Use `--rerun`
+because restoring cached compilation does not recreate the diagnostic files.
+
 ## Building documentation
 
 `mise run build:docs` builds the Starlight site and the Dokka API reference into
