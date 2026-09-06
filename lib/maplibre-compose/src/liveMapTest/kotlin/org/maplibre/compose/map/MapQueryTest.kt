@@ -9,9 +9,11 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -117,9 +119,9 @@ class MapQueryTest {
           }
 
         assertFalse(query.isCompleted)
-        fixture.pumpUntil("the first viewport to make the query available") { query.isCompleted }
+        fixture.awaitMapReady()
 
-        assertTrue(query.await().isEmpty())
+        assertTrue(withTimeout(30.seconds) { query.await() }.isEmpty())
       }
     }
   }
