@@ -274,7 +274,11 @@ private fun Modifier.pointerGestures(
         while (true) {
           val event = awaitPointerEvent(PointerEventPass.Main)
           val routed =
-            platformRouting.route(event.type, isClassifiedPlatformTransform(event), event.changes)
+            platformRouting.route(
+              event.type,
+              hasAndroidTransformClassification(event),
+              event.changes,
+            )
           var claimedPlatform = false
           if (routed) {
             hover.exit()

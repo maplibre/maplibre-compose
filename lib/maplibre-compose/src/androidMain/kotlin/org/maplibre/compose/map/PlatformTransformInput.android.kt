@@ -4,7 +4,7 @@ import android.os.Build
 import android.view.MotionEvent
 import androidx.compose.ui.input.pointer.PointerEvent
 
-internal actual fun isClassifiedPlatformTransform(event: PointerEvent): Boolean =
+internal actual fun hasAndroidTransformClassification(event: PointerEvent): Boolean =
   isAndroidClassifiedTransform(Build.VERSION.SDK_INT, event.classification)
 
 internal fun isAndroidClassifiedTransform(sdk: Int, classification: Int): Boolean =

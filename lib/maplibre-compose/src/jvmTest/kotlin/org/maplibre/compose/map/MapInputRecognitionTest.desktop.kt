@@ -1,3 +1,4 @@
 package org.maplibre.compose.map
 
-internal actual fun assumeClassifiedTrackpadInputSupported() = Unit
+// The desktop Compose test host supports synthetic pan and scale events.
+internal actual fun assumeTrackpadEventInjectionSupported() = Unit

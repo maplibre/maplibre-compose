@@ -138,7 +138,7 @@ internal class MapKeyInput(
       if (event.isAltPressed) add(KeyModifier.Alt)
       if (event.isMetaPressed) add(KeyModifier.Meta)
     }
-    return onSample(event.key, event.type, modifiers, inputUptimeMillis())
+    return onSample(event.key, event.type, modifiers, keyDispatchUptimeMillis())
   }
 
   fun onSample(

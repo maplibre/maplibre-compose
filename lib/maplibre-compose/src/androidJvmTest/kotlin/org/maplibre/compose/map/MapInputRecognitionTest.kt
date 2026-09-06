@@ -72,7 +72,8 @@ private const val RECOGNITION_MAP_TAG = "recognition-map"
 private const val BEFORE_MAP_TAG = "before-map"
 private const val AFTER_MAP_TAG = "after-map"
 
-internal expect fun assumeClassifiedTrackpadInputSupported()
+/** Skips tests when the Compose test host cannot inject pan and scale events. */
+internal expect fun assumeTrackpadEventInjectionSupported()
 
 /**
  * Gesture recognition and binding for [mapInput], hosted on a recording [GestureTarget].
@@ -249,7 +250,7 @@ class MapInputRecognitionTest {
 
   @Test
   fun trackpad_pan_and_scale_work_independently_of_scroll_bindings() {
-    assumeClassifiedTrackpadInputSupported()
+    assumeTrackpadEventInjectionSupported()
     runRecognitionTest(options = MapInteractions { bindings { scroll { enabled = false } } }) {
       target ->
       mapNode().performTrackpadInput {
@@ -270,7 +271,7 @@ class MapInputRecognitionTest {
 
   @Test
   fun a_structural_restart_suppresses_trackpad_changes_until_the_old_component_ends() {
-    assumeClassifiedTrackpadInputSupported()
+    assumeTrackpadEventInjectionSupported()
     val terminals = mutableListOf<GestureCancellationReason>()
     var options by
       mutableStateOf(

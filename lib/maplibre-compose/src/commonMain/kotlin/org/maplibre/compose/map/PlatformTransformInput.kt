@@ -5,7 +5,11 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.PointerInputChange
 
-internal expect fun isClassifiedPlatformTransform(event: PointerEvent): Boolean
+/**
+ * Android also classifies the pointer events surrounding a trackpad pan or pinch. Keep those
+ * contacts out of tap/drag recognition. Explicit Compose pan/scale types use [isPlatformTransform].
+ */
+internal expect fun hasAndroidTransformClassification(event: PointerEvent): Boolean
 
 internal fun isPlatformTransform(type: PointerEventType): Boolean =
   type == PointerEventType.ScaleStart ||
