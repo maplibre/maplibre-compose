@@ -7,8 +7,14 @@ import org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeSimulatorTes
 import org.jetbrains.kotlin.gradle.tasks.KotlinNativeLink
 
 fun Project.stageIosSimulatorTestResources() {
-  // Compose registers its copy task after evaluation. Give it a directory that the linker
-  // does not own, then assemble both outputs for the existing simulator test runner.
+  // Work around an output overlap observed with Compose 1.12.0 and Kotlin 2.4.10:
+  // copyTestComposeResourcesForIosSimulatorArm64 writes compose-resources beneath
+  // linkDebugTestIosSimulatorArm64's destinationDirectory. Gradle 9.5.0 --info reports
+  // "Task output caching requires exclusive access to output paths", so the library and
+  // demo test links run again even when compilation is FROM-CACHE. Move the copy output
+  // out of the linker directory, then assemble the binary and resources for the test runner.
+  // Remove this workaround once upstream gives the copy and link tasks disjoint outputs.
+  // Compose registers its copy task after evaluation.
   afterEvaluate {
     val resourceDirectory = layout.buildDirectory.dir("compose/iosSimulatorArm64TestResources")
     val resources =
