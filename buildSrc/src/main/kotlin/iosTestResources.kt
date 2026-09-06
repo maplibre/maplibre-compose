@@ -20,7 +20,8 @@ fun Project.stageIosSimulatorTestResources() {
       tasks.register<Sync>("stageIosSimulatorArm64Test") {
         dependsOn(link, resources)
         from(link.flatMap { it.destinationDirectory })
-        from(resourceDirectory) { into("compose-resources") }
+        // Copy retains deleted files in its output; stage only its current source tree.
+        from(resources.map { it.source }) { into("compose-resources") }
         into(layout.buildDirectory.dir("test-bundles/iosSimulatorArm64"))
       }
     tasks.named<KotlinNativeSimulatorTest>("iosSimulatorArm64Test") {
