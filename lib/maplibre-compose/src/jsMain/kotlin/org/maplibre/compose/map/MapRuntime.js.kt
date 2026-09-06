@@ -17,25 +17,20 @@ public actual data class MapRuntimeOptions(
 
 internal actual fun defaultMapRuntimeOptions(): MapRuntimeOptions = MapRuntimeOptions()
 
-internal class JsRuntimePlatform(
-  val options: MapRuntimeOptions,
-  val requests: GlJsRequestController,
-)
-
 public actual fun createMapRuntime(options: MapRuntimeOptions): MapRuntime {
   val logger = MapLog
   val resourceConfig =
     MapResourceConfig(options.requestInterceptor, options.resourceProvider, logger)
   val requests = GlJsRequestController(resourceConfig)
   return RuntimeImplementation(
-    platformOptions = JsRuntimePlatform(options, requests),
-    resources = MapRuntimeResources { requests.close() },
+    platformContext = requests,
+    closeResources = { requests.close() },
     logger = logger,
     offlineManagerBackend = UnsupportedOfflineManager,
-    snapshotterAdapterFactory = GlJsSnapshotterAdapterFactory(logger, requests),
+    createSnapshotterAdapter = { GlJsSnapshotterAdapter(logger, requests) },
     resourceConfig = resourceConfig,
   )
 }
 
 internal val RuntimeImplementation.jsRequests: GlJsRequestController?
-  get() = (platformOptions as? JsRuntimePlatform)?.requests
+  get() = platformContext as? GlJsRequestController

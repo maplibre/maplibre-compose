@@ -23,7 +23,6 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.location.DesktopLocationBackend
-import org.maplibre.compose.location.DesktopLocationProvider
 import org.maplibre.compose.location.LocationBackendAvailability
 import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationPermission
@@ -40,8 +39,7 @@ public class MacosLocationBackend : DesktopLocationBackend {
   override fun isAvailable(): Boolean =
     System.getProperty("os.name").lowercase(Locale.ROOT).startsWith("mac")
 
-  override fun createProvider(window: XdgPortalWindow?): DesktopLocationProvider =
-    MacosLocationProvider()
+  override fun createProvider(window: XdgPortalWindow?): LocationProvider = MacosLocationProvider()
 }
 
 /**
@@ -61,7 +59,7 @@ internal constructor(
   private val client: CoreLocationClient,
   private val dispatcher: CoroutineContext = Dispatchers.Main,
   private val ioDispatcher: CoroutineContext = Dispatchers.IO,
-) : DesktopLocationProvider {
+) : LocationProvider {
   public constructor() : this(SystemCoreLocationClient())
 
   private val job = SupervisorJob()

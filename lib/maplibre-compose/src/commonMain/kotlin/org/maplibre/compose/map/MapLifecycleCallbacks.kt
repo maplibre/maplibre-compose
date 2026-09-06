@@ -29,7 +29,7 @@ internal class MapLifecycleCallbacks(
   }
 
   fun onStyleReady(engine: EngineMapIdentity, style: StyleIdentity, map: MapAdapter) =
-    withStyle(engine, style) {
+    lifecycle.acceptStyleEvent(engine, style) {
       delegate().onStyleReady(map)
     }
 
@@ -51,7 +51,7 @@ internal class MapLifecycleCallbacks(
     map: MapAdapter,
     sourceId: String?,
   ) =
-    withStyle(engine, style) {
+    lifecycle.acceptStyleEvent(engine, style) {
       delegate().onStyleSourcesChanged(map, sourceId)
     }
 
@@ -61,12 +61,12 @@ internal class MapLifecycleCallbacks(
     map: MapAdapter,
     active: Boolean,
   ) =
-    withPresentation(engine, lease) {
+    lifecycle.acceptPresentationEvent(engine, lease) {
       delegate().onGestureActive(map, active)
     }
 
   fun onViewportChanged(engine: EngineMapIdentity, lease: RenderLease, map: MapAdapter) =
-    withPresentation(engine, lease) {
+    lifecycle.acceptPresentationEvent(engine, lease) {
       delegate().onViewportChanged(map)
     }
 
@@ -84,13 +84,13 @@ internal class MapLifecycleCallbacks(
     event: MapEvent,
     beforeDelegate: () -> Unit = {},
   ) =
-    withPresentation(engine, lease) {
+    lifecycle.acceptPresentationEvent(engine, lease) {
       beforeDelegate()
       delegate().onEvent(map, event)
     }
 
   fun onEvent(engine: EngineMapIdentity, style: StyleIdentity, map: MapAdapter, event: MapEvent) =
-    withStyle(engine, style) { delegate().onEvent(map, event) }
+    lifecycle.acceptStyleEvent(engine, style) { delegate().onEvent(map, event) }
 
   fun onEvent(
     engine: EngineMapIdentity,
@@ -107,22 +107,12 @@ internal class MapLifecycleCallbacks(
     imageId: String,
   ): Deferred<Unit>? {
     var resolution: Deferred<Unit>? = null
-    withStyle(engine, style) { resolution = delegate().resolveMissingImage(map, imageId) }
+    lifecycle.acceptStyleEvent(engine, style) {
+      resolution = delegate().resolveMissingImage(map, imageId)
+    }
     return resolution
   }
 
   fun onPresentationEvent(engine: EngineMapIdentity, lease: RenderLease, event: () -> Unit) =
-    withPresentation(engine, lease, event)
-
-  private fun withStyle(
-    engine: EngineMapIdentity,
-    style: StyleIdentity,
-    event: () -> Unit,
-  ): Boolean = lifecycle.acceptStyleEvent(engine, style, event)
-
-  private fun withPresentation(
-    engine: EngineMapIdentity,
-    lease: RenderLease,
-    event: () -> Unit,
-  ): Boolean = lifecycle.acceptPresentationEvent(engine, lease, event)
+    lifecycle.acceptPresentationEvent(engine, lease, event)
 }

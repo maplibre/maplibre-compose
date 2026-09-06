@@ -1019,9 +1019,6 @@ internal constructor(
     }
   }
 
-  internal fun acceptsPresentationEvent(adapter: MapAdapter): Boolean =
-    lifecycle.acceptsPresentation(adapter)
-
   internal fun refreshStyleSources(adapter: MapAdapter): Boolean {
     val read = lifecycle.serialized {
       if (!lifecycle.acceptsAdapter(adapter)) return false
@@ -1757,14 +1754,6 @@ public fun rememberMapState(
   return state
 }
 
-private data class SavedCameraPosition(
-  val bearing: Double,
-  val longitude: Double,
-  val latitude: Double,
-  val tilt: Double,
-  val zoom: Double,
-)
-
 private fun mapStateSaver(
   runtime: MapRuntime,
   baseStyle: BaseStyle,
@@ -1772,54 +1761,34 @@ private fun mapStateSaver(
 ): Saver<MapState, List<Double>> =
   Saver(
     save = { state ->
-      state.cameraPosition.toSavedCameraPosition().toList()
+      with(state.cameraPosition) {
+        listOf(bearing, target.longitude, target.latitude, tilt, zoom)
+      }
     },
     restore = { values ->
-      val saved = values.toSavedCameraPosition()
+      require(values.size == 5) { "A saved camera position must contain five values" }
       runtime.createMapState(
         baseStyle = baseStyle,
         initialCameraPosition =
           CameraPosition(
-            bearing = saved.bearing,
-            target = Position(longitude = saved.longitude, latitude = saved.latitude),
-            tilt = saved.tilt,
-            zoom = saved.zoom,
+            bearing = values[0],
+            target = Position(longitude = values[1], latitude = values[2]),
+            tilt = values[3],
+            zoom = values[4],
           ),
         content = content,
       )
     },
   )
 
-private fun CameraPosition.toSavedCameraPosition(): SavedCameraPosition =
-  SavedCameraPosition(bearing, target.longitude, target.latitude, tilt, zoom)
-
-private fun SavedCameraPosition.toList(): List<Double> =
-  listOf(bearing, longitude, latitude, tilt, zoom)
-
-private fun List<Double>.toSavedCameraPosition(): SavedCameraPosition {
-  require(size == 5) { "A saved camera position must contain five values" }
-  return SavedCameraPosition(
-    bearing = this[0],
-    longitude = this[1],
-    latitude = this[2],
-    tilt = this[3],
-    zoom = this[4],
-  )
-}
-
-internal fun interface MapRuntimeResources {
-  suspend fun close()
-}
-
 internal class RuntimeImplementation(
-  internal val platformOptions: Any?,
-  private val resources: MapRuntimeResources,
+  internal val platformContext: Any?,
+  private val closeResources: suspend () -> Unit,
   internal val logger: MapLog?,
   offlineManagerBackend: OfflineManager = UnsupportedOfflineManager,
   internal val physicalScope: CoroutineScope =
     CoroutineScope(SupervisorJob() + Dispatchers.Default),
-  internal val snapshotterAdapterFactory: SnapshotterAdapterFactory =
-    UnsupportedSnapshotterAdapterFactory,
+  internal val createSnapshotterAdapter: () -> SnapshotterAdapter = ::unsupportedSnapshots,
   internal val styleEvaluator: StyleCompositionEvaluator = DefaultStyleCompositionEvaluator,
   internal val resourceConfig: MapResourceConfig = MapResourceConfig(),
 ) : MapRuntime {
@@ -1878,7 +1847,7 @@ internal class RuntimeImplementation(
       closingSnapshotters.forEach { child ->
         runCatching { child.awaitClosed() }.exceptionOrNull()?.let(failures::addCleanupFailure)
       }
-      runCatching { resources.close() }.exceptionOrNull()?.let(failures::addCleanupFailure)
+      runCatching { closeResources() }.exceptionOrNull()?.let(failures::addCleanupFailure)
       closure.complete(failures.cleanupResult("Map runtime"))
     }
   }

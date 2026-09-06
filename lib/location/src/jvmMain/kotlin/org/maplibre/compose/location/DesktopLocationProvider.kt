@@ -23,18 +23,14 @@ public interface DesktopLocationBackend {
   public fun isAvailable(): Boolean
 
   /** Creates a location provider whose system dialogs are parented to [window]. */
-  public fun createProvider(window: XdgPortalWindow?): DesktopLocationProvider
+  public fun createProvider(window: XdgPortalWindow?): LocationProvider
 }
-
-/** A desktop provider whose process resources can be released with [close]. */
-public interface DesktopLocationProvider : LocationProvider
 
 /**
  * Creates the default desktop location provider from the installed backend. The provider's system
- * dialogs are parented to [window], and [DesktopLocationProvider.close] releases its process
- * resources.
+ * dialogs are parented to [window], and [LocationProvider.close] releases its process resources.
  */
-public fun createDefaultLocationProvider(window: XdgPortalWindow? = null): DesktopLocationProvider =
+public fun createDefaultLocationProvider(window: XdgPortalWindow? = null): LocationProvider =
   DesktopLocationBackendResolver.discover(window)
 
 internal object DesktopLocationBackendResolver {
@@ -43,7 +39,7 @@ internal object DesktopLocationBackendResolver {
     loadBackends: () -> List<DesktopLocationBackend> = {
       ServiceLoader.load(DesktopLocationBackend::class.java).toList()
     },
-  ): DesktopLocationProvider =
+  ): LocationProvider =
     try {
       resolve(loadBackends(), window)
     } catch (error: ServiceConfigurationError) {
@@ -53,7 +49,7 @@ internal object DesktopLocationBackendResolver {
   fun resolve(
     backends: List<DesktopLocationBackend>,
     window: XdgPortalWindow? = null,
-  ): DesktopLocationProvider {
+  ): LocationProvider {
     val availableBackends =
       try {
         backends.filter { it.isAvailable() }
@@ -84,7 +80,7 @@ internal object DesktopLocationBackendResolver {
 
 private class UnavailableDesktopLocationProvider(
   override val backendAvailability: LocationBackendAvailability
-) : DesktopLocationProvider {
+) : LocationProvider {
   override fun updates(request: LocationRequest): Flow<LocationEvent> = flow {
     check(backendAvailability == LocationBackendAvailability.Available) {
       "Location updates require an available backend: $backendAvailability"

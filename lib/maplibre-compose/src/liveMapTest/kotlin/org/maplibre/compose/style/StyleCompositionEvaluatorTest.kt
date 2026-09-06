@@ -21,14 +21,12 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.sources.RasterSource
-import org.maplibre.compose.testing.supportsComposeRuntimeTests
 import org.maplibre.compose.util.MaplibreComposable
 
 class StyleCompositionEvaluatorTest {
 
   @Test
   fun one_definition_creates_independent_evaluators() = runTest {
-    if (!supportsComposeRuntimeTests) return@runTest
     val started = mutableListOf<Any>()
     val disposed = mutableListOf<Any>()
     val content: @Composable @MaplibreComposable () -> Unit = {

@@ -7,7 +7,6 @@ import kotlin.test.assertSame
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
-import org.maplibre.compose.map.MapRuntimeResources
 import org.maplibre.compose.map.RuntimeImplementation
 import org.maplibre.spatialk.geojson.BoundingBox
 
@@ -78,7 +77,7 @@ class RuntimeBoundOfflineManagerTest {
     val runtime =
       runtime(
         backend,
-        resources = MapRuntimeResources { releaseCleanup.await() },
+        closeResources = { releaseCleanup.await() },
       )
     val manager = runtime.offlineManager
     val retainedPack = manager.packs.single()
@@ -106,11 +105,11 @@ class RuntimeBoundOfflineManagerTest {
 
   private fun runtime(
     backend: OfflineManager,
-    resources: MapRuntimeResources = MapRuntimeResources {},
+    closeResources: suspend () -> Unit = {},
   ) =
     RuntimeImplementation(
-      platformOptions = null,
-      resources = resources,
+      platformContext = null,
+      closeResources = closeResources,
       logger = null,
       offlineManagerBackend = backend,
     )

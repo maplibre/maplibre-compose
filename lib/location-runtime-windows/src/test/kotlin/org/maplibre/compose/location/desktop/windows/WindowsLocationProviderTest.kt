@@ -440,10 +440,10 @@ private class FakeWindowsLocationClient(
     return access
   }
 
-  override fun observeAccess(onChanged: (WindowsAccessStatus) -> Unit): WindowsCloseable {
+  override fun observeAccess(onChanged: (WindowsAccessStatus) -> Unit): AutoCloseable {
     accessObserver = onChanged
     var closed = false
-    return WindowsCloseable {
+    return AutoCloseable {
       if (!closed) {
         closed = true
         observationCloses++
@@ -460,12 +460,12 @@ private class FakeWindowsLocationClient(
   override fun createSession(
     configuration: WindowsLocationConfiguration,
     listener: WindowsLocationListener,
-  ): WindowsCloseable {
+  ): AutoCloseable {
     onCreateSession?.invoke()
     sessionFailure?.let { throw it }
     val session = FakeWindowsSession(configuration, listener)
     sessions += session
-    return WindowsCloseable(session::close)
+    return AutoCloseable(session::close)
   }
 
   override fun close() {

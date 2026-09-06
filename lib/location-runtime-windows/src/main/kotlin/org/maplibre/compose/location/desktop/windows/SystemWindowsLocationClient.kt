@@ -56,7 +56,7 @@ internal class SystemWindowsLocationClient : WindowsLocationClient {
     return blocking(::checkAccessNative)
   }
 
-  override fun observeAccess(onChanged: (WindowsAccessStatus) -> Unit): WindowsCloseable {
+  override fun observeAccess(onChanged: (WindowsAccessStatus) -> Unit): AutoCloseable {
     checkAvailable()
     return blocking {
       val capability = createAppCapability()
@@ -69,8 +69,8 @@ internal class SystemWindowsLocationClient : WindowsLocationClient {
       try {
         val token = addEventHandler(capability.value, APP_CAPABILITY_ADD_ACCESS_CHANGED, callback)
         val observationClosed = AtomicBoolean()
-        WindowsCloseable {
-          if (!observationClosed.compareAndSet(false, true)) return@WindowsCloseable
+        AutoCloseable {
+          if (!observationClosed.compareAndSet(false, true)) return@AutoCloseable
           blocking {
             try {
               removeEventHandler(capability.value, APP_CAPABILITY_REMOVE_ACCESS_CHANGED, token)
@@ -139,12 +139,12 @@ internal class SystemWindowsLocationClient : WindowsLocationClient {
   override fun createSession(
     configuration: WindowsLocationConfiguration,
     listener: WindowsLocationListener,
-  ): WindowsCloseable {
+  ): AutoCloseable {
     checkAvailable()
     val session = blocking {
       SystemWindowsLocationSession.create(this, configuration, listener).also { sessions += it }
     }
-    return WindowsCloseable { session.close() }
+    return AutoCloseable { session.close() }
   }
 
   @Synchronized

@@ -16,11 +16,11 @@ import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.toImageBitmap
 
 internal class ImageManager(private val node: StyleNode) {
-  private val bitmapIds = IncrementingIdMap<BitmapKey>("bitmap")
+  private val bitmapIds = IncrementingId("bitmap")
   private val bitmapCounter = ReferenceCounter<BitmapKey>()
   private val bitmapDefinitions = linkedMapOf<BitmapKey, StyleImageDefinition>()
 
-  private val painterIds = IncrementingIdMap<PainterKey>("painter")
+  private val painterIds = IncrementingId("painter")
   private val painterCounter = ReferenceCounter<PainterKey>()
   private val painterDefinitions = linkedMapOf<PainterKey, StyleImageDefinition>()
 
@@ -29,17 +29,16 @@ internal class ImageManager(private val node: StyleNode) {
 
   internal fun acquireBitmap(key: BitmapKey): String {
     bitmapCounter.increment(key) {
-      val id = bitmapIds.addId(key)
+      val id = bitmapIds.next()
       bitmapDefinitions[key] =
         StyleImageDefinition(id, ImageSnapshot.capture(key.bitmap), key.isSdf, key.stretch)
       node.scheduleApplyChanges()
     }
-    return bitmapIds.getId(key)
+    return bitmapDefinitions.getValue(key).id
   }
 
   internal fun releaseBitmap(key: BitmapKey) {
     bitmapCounter.decrement(key) {
-      bitmapIds.removeId(key)
       bitmapDefinitions.remove(key)
       node.scheduleApplyChanges()
     }
@@ -70,7 +69,7 @@ internal class ImageManager(private val node: StyleNode) {
 
   internal fun acquirePainter(key: PainterKey): String {
     painterCounter.increment(key) {
-      val id = painterIds.addId(key)
+      val id = painterIds.next()
       key.drawToBitmap().let { bitmap ->
         val resolved = if (key.drawAsSdf) bitmap.toSdf() else bitmap
         painterDefinitions[key] =
@@ -78,12 +77,11 @@ internal class ImageManager(private val node: StyleNode) {
       }
       node.scheduleApplyChanges()
     }
-    return painterIds.getId(key)
+    return painterDefinitions.getValue(key).id
   }
 
   internal fun releasePainter(key: PainterKey) {
     painterCounter.decrement(key) {
-      painterIds.removeId(key)
       painterDefinitions.remove(key)
       node.scheduleApplyChanges()
     }

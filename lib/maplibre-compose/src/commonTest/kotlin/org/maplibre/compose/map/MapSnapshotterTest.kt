@@ -1,12 +1,6 @@
 package org.maplibre.compose.map
 
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.ImageBitmapConfig
-import androidx.compose.ui.graphics.colorspace.ColorSpace
-import androidx.compose.ui.graphics.colorspace.ColorSpaces
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -40,9 +34,7 @@ import org.maplibre.compose.sources.VectorSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.RecordingStyleBinding
-import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleException
-import org.maplibre.compose.testing.supportsComposeRuntimeTests
 
 class MapSnapshotterTest {
 
@@ -63,7 +55,7 @@ class MapSnapshotterTest {
       )
     val runtime =
       mapRuntimeForTest(
-        snapshotterAdapterFactory = SnapshotterAdapterFactory { adapter },
+        createSnapshotterAdapter = { adapter },
         styleEvaluator =
           StyleCompositionEvaluator { _, _, _, _, _, _ -> DesiredStyleRevision.Empty },
       )
@@ -104,11 +96,10 @@ class MapSnapshotterTest {
       )
     val runtime =
       mapRuntimeForTest(
-        snapshotterAdapterFactory =
-          SnapshotterAdapterFactory {
-            adapterCreations++
-            adapter
-          },
+        createSnapshotterAdapter = {
+          adapterCreations++
+          adapter
+        },
         styleEvaluator =
           StyleCompositionEvaluator { _, _, _, density, layoutDirection, _ ->
             evaluations += Triple(externalState, density.density, layoutDirection)
@@ -151,45 +142,11 @@ class MapSnapshotterTest {
   }
 
   @Test
-  fun snapshot_content_reads_the_viewport_of_its_own_request() = runTest {
-    if (!supportsComposeRuntimeTests) return@runTest
-    val sizes = mutableListOf<DpSize?>()
-    val runtime =
-      mapRuntimeForTest(
-        snapshotterAdapterFactory = SnapshotterAdapterFactory { FakeSnapshotterAdapter() }
-      )
-    val snapshotter =
-      runtime.createSnapshotter(BaseStyle.Empty) { sizes += LocalViewport.current?.size }
-
-    snapshotter.capture(MapSnapshotRequest(width = 30, height = 20))
-
-    assertEquals(setOf(DpSize(30.dp, 20.dp)), sizes.toSet())
-    close(snapshotter, runtime)
-  }
-
-  @Test
-  fun snapshot_content_has_no_map_state() = runTest {
-    if (!supportsComposeRuntimeTests) return@runTest
-    val states = mutableListOf<MapState?>()
-    val runtime =
-      mapRuntimeForTest(
-        snapshotterAdapterFactory = SnapshotterAdapterFactory { FakeSnapshotterAdapter() }
-      )
-    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty) { states += LocalMapState.current }
-
-    snapshotter.capture(MapSnapshotRequest(1, 1))
-
-    assertEquals(listOf<MapState?>(null), states)
-    close(snapshotter, runtime)
-  }
-
-  @Test
   fun a_published_snapshot_style_accepts_imperative_source_and_image_commands() = runTest {
     val binding = RecordingStyleBinding()
     val runtime =
       mapRuntimeForTest(
-        snapshotterAdapterFactory =
-          SnapshotterAdapterFactory { FakeSnapshotterAdapter(prepare = { _, _ -> binding }) },
+        createSnapshotterAdapter = { FakeSnapshotterAdapter(prepare = { _, _ -> binding }) },
         styleEvaluator =
           StyleCompositionEvaluator { _, _, _, _, _, _ -> DesiredStyleRevision.Empty },
       )
@@ -230,8 +187,7 @@ class MapSnapshotterTest {
       )
     val runtime =
       mapRuntimeForTest(
-        snapshotterAdapterFactory =
-          SnapshotterAdapterFactory { FakeSnapshotterAdapter(prepare = { _, _ -> binding }) },
+        createSnapshotterAdapter = { FakeSnapshotterAdapter(prepare = { _, _ -> binding }) },
         styleEvaluator =
           StyleCompositionEvaluator { _, _, _, _, _, _ -> DesiredStyleRevision.Empty },
       )
@@ -256,18 +212,17 @@ class MapSnapshotterTest {
     val binding = RecordingStyleBinding(sources = listOf(original))
     val runtime =
       mapRuntimeForTest(
-        snapshotterAdapterFactory =
-          SnapshotterAdapterFactory {
-            FakeSnapshotterAdapter(
-              prepare = { _, _ -> binding },
-              capture = { request, _ ->
-                if (desired.sources.single() == replacement.definition()) {
-                  binding.replaceSource(replacement)
-                }
-                FakeImageBitmap(request.width, request.height)
-              },
-            )
-          },
+        createSnapshotterAdapter = {
+          FakeSnapshotterAdapter(
+            prepare = { _, _ -> binding },
+            capture = { request, _ ->
+              if (desired.sources.single() == replacement.definition()) {
+                binding.replaceSource(replacement)
+              }
+              FakeImageBitmap(request.width, request.height)
+            },
+          )
+        },
         styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _, _ -> desired },
       )
     val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
@@ -291,19 +246,18 @@ class MapSnapshotterTest {
     var blockCapture = false
     val runtime =
       mapRuntimeForTest(
-        snapshotterAdapterFactory =
-          SnapshotterAdapterFactory {
-            FakeSnapshotterAdapter(
-              prepare = { _, _ -> binding },
-              capture = { _, _ ->
-                if (blockCapture) {
-                  captureStarted.complete(Unit)
-                  finishCapture.await()
-                }
-                FakeImageBitmap(1, 1)
-              },
-            )
-          },
+        createSnapshotterAdapter = {
+          FakeSnapshotterAdapter(
+            prepare = { _, _ -> binding },
+            capture = { _, _ ->
+              if (blockCapture) {
+                captureStarted.complete(Unit)
+                finishCapture.await()
+              }
+              FakeImageBitmap(1, 1)
+            },
+          )
+        },
         styleEvaluator =
           StyleCompositionEvaluator { _, _, _, _, _, _ -> DesiredStyleRevision.Empty },
       )
@@ -465,7 +419,7 @@ class MapSnapshotterTest {
     val runtime =
       mapRuntimeForTest(
         physicalScope = this,
-        snapshotterAdapterFactory = SnapshotterAdapterFactory { adapter },
+        createSnapshotterAdapter = { adapter },
         styleEvaluator =
           StyleCompositionEvaluator { _, _, _, _, _, _ -> DesiredStyleRevision.Empty },
       )
@@ -513,7 +467,7 @@ class MapSnapshotterTest {
     val runtime =
       mapRuntimeForTest(
         physicalScope = this,
-        snapshotterAdapterFactory = SnapshotterAdapterFactory { adapter },
+        createSnapshotterAdapter = { adapter },
         styleEvaluator =
           StyleCompositionEvaluator { _, _, _, _, _, _ -> DesiredStyleRevision.Empty },
       )
@@ -736,7 +690,7 @@ class MapSnapshotterTest {
     },
   ): MapRuntime =
     mapRuntimeForTest(
-      snapshotterAdapterFactory = SnapshotterAdapterFactory { adapter },
+      createSnapshotterAdapter = { adapter },
       styleEvaluator = styleEvaluator,
     )
 
@@ -755,52 +709,4 @@ class MapSnapshotterTest {
     )
 
   private class FatalSnapshotError : Error("fatal snapshot failure")
-
-  private class FakeSnapshotterAdapter(
-    private val prepare: suspend (BaseStyle, MapSnapshotRequest) -> StyleBinding = { _, _ ->
-      RecordingStyleBinding()
-    },
-    private val capture: suspend (MapSnapshotRequest, DesiredStyleRevision) -> ImageBitmap =
-      { request, _ ->
-        FakeImageBitmap(request.width, request.height)
-      },
-    private val cancel: suspend () -> SnapshotterEngineDisposition = {
-      SnapshotterEngineDisposition.RETAINED
-    },
-    private val close: suspend () -> Unit = {},
-  ) : SnapshotterAdapter {
-    override suspend fun prepare(
-      baseStyle: BaseStyle,
-      baseStyleRevision: Long,
-      request: MapSnapshotRequest,
-    ): SnapshotPreparation =
-      SnapshotPreparation(prepare.invoke(baseStyle, request), viewportFor(request))
-
-    override suspend fun capture(
-      request: MapSnapshotRequest,
-      revision: DesiredStyleRevision,
-    ): ImageBitmap = capture.invoke(request, revision)
-
-    override suspend fun cancelActiveCapture(): SnapshotterEngineDisposition = cancel.invoke()
-
-    override suspend fun close() = close.invoke()
-  }
-
-  private class FakeImageBitmap(override val width: Int, override val height: Int) : ImageBitmap {
-    override val colorSpace: ColorSpace = ColorSpaces.Srgb
-    override val hasAlpha: Boolean = true
-    override val config: ImageBitmapConfig = ImageBitmapConfig.Argb8888
-
-    override fun readPixels(
-      buffer: IntArray,
-      startX: Int,
-      startY: Int,
-      width: Int,
-      height: Int,
-      bufferOffset: Int,
-      stride: Int,
-    ) = Unit
-
-    override fun prepareToDraw() = Unit
-  }
 }

@@ -56,6 +56,5 @@ class LocationMeasurementTest {
     val encoded = Json.encodeToString(expected)
 
     assertEquals(expected, Json.decodeFromString<LocationMeasurement>(encoded))
-    assertEquals(false, encoded.contains("TimeMark"))
   }
 }

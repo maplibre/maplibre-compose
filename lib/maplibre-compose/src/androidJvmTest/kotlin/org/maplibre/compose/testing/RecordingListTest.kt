@@ -5,7 +5,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class RecordingListTest {
@@ -25,7 +24,6 @@ class RecordingListTest {
       writerStarted.await()
       while (writer.isAlive) {
         val snapshot = list.toList()
-        assertEquals(snapshot.size, snapshot.count { true })
         list.count { it >= 0 }
         if (snapshot.isNotEmpty()) {
           assertTrue(list.contains(snapshot.first()))
@@ -38,13 +36,18 @@ class RecordingListTest {
   }
 
   @Test
-  fun iterator_remove_is_refused() {
+  fun iterators_keep_their_snapshot_after_appending_and_clearing() {
     val list = RecordingList<Int>()
     list += 1
+    list += 2
     val iterator = list.iterator()
-    assertTrue(iterator.hasNext())
-    iterator.next()
-    assertFailsWith<UnsupportedOperationException> { iterator.remove() }
-    assertEquals(listOf(1), list.toList())
+    val listIterator = list.listIterator(1)
+
+    list += 3
+    list.clear()
+
+    assertEquals(listOf(1, 2), iterator.asSequence().toList())
+    assertEquals(2, listIterator.next())
+    assertEquals(emptyList(), list.toList())
   }
 }

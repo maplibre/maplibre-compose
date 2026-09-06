@@ -24,6 +24,7 @@ import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.testing.MapFixture
+import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.testing.RecordingMapCallbacks
 import org.maplibre.compose.testing.RgbaPixel
 
@@ -46,16 +47,16 @@ private constructor(
     }
   }
 
-  val events: MutableList<String>
+  val events: RecordingList<String>
     get() = recorder.events
 
-  val engineEvents: MutableList<MapEvent>
+  val engineEvents: RecordingList<MapEvent>
     get() = recorder.engineEvents
 
-  val sourceChanges: MutableList<String?>
+  val sourceChanges: RecordingList<String?>
     get() = recorder.sourceChanges
 
-  val errors: MutableList<String>
+  val errors: RecordingList<String>
     get() = recorder.errors
 
   /** The live style, once one has loaded. */

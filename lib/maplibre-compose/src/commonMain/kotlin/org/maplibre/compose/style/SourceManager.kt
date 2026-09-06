@@ -36,7 +36,7 @@ internal class SourceManager(private val node: StyleNode) {
     }
   }
 
-  internal suspend fun updateReference(source: Source) {
+  internal fun updateReference(source: Source) {
     if (source in desiredSources) node.scheduleApplyChanges()
   }
 }

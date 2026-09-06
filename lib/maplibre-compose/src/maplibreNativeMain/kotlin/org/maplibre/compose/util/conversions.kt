@@ -1,7 +1,6 @@
 package org.maplibre.compose.util
 
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -67,7 +66,3 @@ internal fun CameraPosition.toCameraOptions(padding: EdgeInsets): CameraOptions 
     it.pitch = tilt
     it.padding = padding
   }
-
-/** Converts physical Compose pixels to the logical pixels MapLibre projects in. */
-internal fun Density.physicalPixelsToScreenPoint(x: Float, y: Float): ScreenPoint =
-  ScreenPoint(x = (x / density).toDouble(), y = (y / density).toDouble())

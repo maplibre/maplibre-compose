@@ -795,15 +795,10 @@ class MlnFfiMapCompositionTest {
     }
   }
 
-  /** Composes [content] on a bridge-driven map and fails if anything reported an error. */
+  /** Composes [content], then runs [body] after the first frame, failing on any reported error. */
   private fun runBridgeMapTest(
-    content: @Composable (MutableList<String>, onFrame: () -> Unit) -> Unit
-  ) = runBridgeMapTest(body = {}, content = content)
-
-  /** As above, but [body] runs after the first composition settles. */
-  private fun runBridgeMapTest(
-    body: ComposeUiTest.(MutableList<String>) -> Unit,
-    content: @Composable (MutableList<String>, onFrame: () -> Unit) -> Unit,
+    body: ComposeUiTest.(RecordingList<String>) -> Unit = {},
+    content: @Composable (RecordingList<String>, onFrame: () -> Unit) -> Unit,
   ) = runFfiComposeUiTest {
     val errors = RecordingList<String>()
     val frames = AtomicInt(0)

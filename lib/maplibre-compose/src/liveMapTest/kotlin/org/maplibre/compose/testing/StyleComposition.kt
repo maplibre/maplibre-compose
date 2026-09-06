@@ -23,7 +23,7 @@ import org.maplibre.compose.util.MaplibreComposable
 /**
  * Composes [content] once against [style] and applies the revision it publishes, then returns
  * [style] with everything the composition installed. With [thenChange], runs it, recomposes, and
- * applies the revision that follows. Guard a call with [supportsComposeRuntimeTests].
+ * applies the revision that follows.
  */
 internal suspend fun composeStyle(
   style: RecordingStyleBinding = RecordingStyleBinding(),

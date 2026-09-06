@@ -38,22 +38,17 @@ private val SNAPSHOT_EVENTS =
     RuntimeEventMask.MAP_RENDER_ERROR +
     RuntimeEventMask.MAP_RENDER_UPDATE_AVAILABLE
 
-internal class NativeSnapshotterAdapterFactory(
-  private val options: MlnFfiRuntimeOptions,
-  private val resourceConfig: MapResourceConfig,
-  private val runtimeBackends: () -> Set<MapRenderBackend> = {
-    loadRuntimeBackends(options.logger)
-  },
-) : SnapshotterAdapterFactory {
-  override fun create(): SnapshotterAdapter {
-    val backends = runtimeBackends()
-    val targetPlan =
-      NativeSnapshotRenderTarget.select(backends)
-        ?: throw UnsupportedOperationException(
-          "No compatible offscreen snapshot backend is available from ${backends.joinToString()}"
-        )
-    return NativeSnapshotterAdapter(options, resourceConfig, targetPlan)
-  }
+internal fun createNativeSnapshotterAdapter(
+  options: MlnFfiRuntimeOptions,
+  resourceConfig: MapResourceConfig,
+  backends: Set<MapRenderBackend> = loadRuntimeBackends(options.logger),
+): SnapshotterAdapter {
+  val targetPlan =
+    NativeSnapshotRenderTarget.select(backends)
+      ?: throw UnsupportedOperationException(
+        "No compatible offscreen snapshot backend is available from ${backends.joinToString()}"
+      )
+  return NativeSnapshotterAdapter(options, resourceConfig, targetPlan)
 }
 
 /** One private map, offscreen render session, and retained reconciler for a native snapshotter. */
@@ -354,7 +349,7 @@ private class NativeSnapshotterAdapter(
             val info = session.textureImageInfo()
             NativeBuffer.allocate(info.byteLength).use { buffer ->
               val copied = session.readPremultipliedRgba8(buffer)
-              Triple(copied, buffer.toByteArray(), request.outputOptions.transparent)
+              Triple(copied, buffer.toByteArray(), request.transparent)
             }
           }
         }
