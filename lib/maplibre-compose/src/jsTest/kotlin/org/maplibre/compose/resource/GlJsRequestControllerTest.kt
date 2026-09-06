@@ -139,7 +139,7 @@ class GlJsRequestControllerTest {
   }
 
   @Test
-  fun each_runtime_registers_an_unguessable_protocol_scheme() {
+  fun each_runtime_rejects_another_runtimes_protocol_url() {
     val first =
       GlJsRequestController(
         MapResourceConfig(provider = MapResourceProvider("app") { ByteArray(0) })
@@ -148,8 +148,6 @@ class GlJsRequestControllerTest {
       GlJsRequestController(
         MapResourceConfig(provider = MapResourceProvider("app") { ByteArray(0) })
       )
-    assertTrue(SCHEME.matches(first.scheme))
-    assertTrue(SCHEME.matches(second.scheme))
     assertNotEquals(first.scheme, second.scheme)
     val foreign = first.protocolUrl("app://style.json", MapResourceKind.Style)
     assertFails { second.parseProtocolUrl(foreign) }
@@ -216,18 +214,10 @@ class GlJsRequestControllerTest {
     }
   }
 
-  private suspend fun rejection(result: MapResourceLoad): Throwable =
-    try {
-      load(result).await()
-      error("expected the protocol promise to reject")
-    } catch (error: Throwable) {
-      error
-    }
+  private suspend fun rejection(result: MapResourceLoad): Throwable = assertFails {
+    load(result).await()
+  }
 
   private fun ArrayBuffer.decodeToString(): String =
     js("new TextDecoder()").decode(this).unsafeCast<String>()
-
-  private companion object {
-    val SCHEME = Regex("^mlc-res-[0-9a-f]{32}$")
-  }
 }

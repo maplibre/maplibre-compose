@@ -1,37 +1,53 @@
 package org.maplibre.compose.mlnffi
 
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import org.maplibre.compose.map.MapExtent
 
 class IosMlnFfiSurfaceControllerTest {
-  private class NoOpRenderer : MlnFfiMapRenderer {
+  @Test
+  fun close_releases_the_surface_once_before_late_uikit_callbacks() {
+    val renderer = RecordingRenderer()
+    IosMlnFfiSurfaceController(renderer, logger = null).use { controller ->
+      controller.surfaceLayoutChanged(1L, MapExtent.fromLogical(32, 32, 1.0))
+      controller.close()
+      controller.surfaceDestroyed()
+      controller.close()
+
+      assertEquals(listOf("available", "resized", "lost"), renderer.events)
+    }
+  }
+
+  @Test
+  fun destruction_before_layout_does_not_prevent_a_later_surface() {
+    val renderer = RecordingRenderer()
+    IosMlnFfiSurfaceController(renderer, logger = null).use { controller ->
+      controller.surfaceDestroyed()
+      controller.surfaceLayoutChanged(1L, MapExtent.fromLogical(32, 32, 1.0))
+      controller.surfaceDestroyed()
+
+      assertEquals(listOf("available", "resized", "lost"), renderer.events)
+    }
+  }
+
+  private class RecordingRenderer : MlnFfiMapRenderer {
+    val events = mutableListOf<String>()
     override val backend = MapRenderBackend.METAL
+
+    override fun onSurfaceAvailable(session: MlnFfiMapHostSession) {
+      events += "available"
+    }
+
+    override fun onSurfaceChanged(extent: MapExtent) {
+      events += "resized"
+    }
+
+    override fun onSurfaceLost() {
+      events += "lost"
+    }
 
     override fun render(frame: MlnFfiMapFrame) = MlnFfiFrameResult.SKIPPED
 
-    override fun close() {}
-  }
-
-  @Test
-  fun `surfaceDestroyed after close does not throw`() {
-    // UIKit releases interop views in a deferred transaction that can land after close(); the
-    // close teardown has already dropped the render session by then.
-    val controller = IosMlnFfiSurfaceController(NoOpRenderer(), logger = null)
-    controller.close()
-    controller.surfaceDestroyed()
-  }
-
-  @Test
-  fun `surfaceDestroyed before a surface does not throw`() {
-    // UIKitView onRelease can fire without a layout ever reporting an extent.
-    val controller = IosMlnFfiSurfaceController(NoOpRenderer(), logger = null)
-    controller.surfaceDestroyed()
-    controller.close()
-  }
-
-  @Test
-  fun `double close does not throw`() {
-    val controller = IosMlnFfiSurfaceController(NoOpRenderer(), logger = null)
-    controller.close()
-    controller.close()
+    override fun close() = Unit
   }
 }

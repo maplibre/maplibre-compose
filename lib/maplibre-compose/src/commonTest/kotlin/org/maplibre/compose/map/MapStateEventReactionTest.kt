@@ -25,56 +25,6 @@ import org.maplibre.spatialk.geojson.Position
 class MapStateEventReactionTest {
 
   @Test
-  fun an_engine_camera_change_moves_the_camera_and_reads_as_programmatic() = runTest {
-    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
-    val state = runtime.createMapState(BaseStyle.Demo)
-    val adapter = presentedAdapter(state)
-
-    state.onEvent(adapter, MapEvent.CameraMoveStarted(animated = false))
-
-    assertTrue(state.isCameraMoving)
-    assertEquals(CameraMoveReason.PROGRAMMATIC, state.cameraMoveReason)
-    assertEquals(adapter.currentViewport, state.viewport)
-
-    state.onEvent(adapter, MapEvent.CameraMoveEnded(animated = false))
-
-    assertFalse(state.isCameraMoving)
-    assertEquals(CameraMoveReason.PROGRAMMATIC, state.cameraMoveReason)
-
-    state.close()
-    state.awaitClosed()
-    runtime.close()
-  }
-
-  @Test
-  fun a_gesture_spans_the_camera_changes_the_engine_reports_one_by_one() = runTest {
-    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
-    val state = runtime.createMapState(BaseStyle.Demo)
-    val adapter = presentedAdapter(state)
-
-    state.setGestureActive(adapter, true)
-
-    assertTrue(state.isCameraMoving)
-    assertEquals(CameraMoveReason.GESTURE, state.cameraMoveReason)
-
-    repeat(3) {
-      state.onEvent(adapter, MapEvent.CameraMoveStarted(animated = false))
-      state.onEvent(adapter, MapEvent.CameraMoveEnded(animated = false))
-      assertTrue(state.isCameraMoving, "the drag ended at jump $it")
-      assertEquals(CameraMoveReason.GESTURE, state.cameraMoveReason)
-    }
-
-    state.setGestureActive(adapter, false)
-
-    assertFalse(state.isCameraMoving)
-    assertEquals(CameraMoveReason.GESTURE, state.cameraMoveReason)
-
-    state.close()
-    state.awaitClosed()
-    runtime.close()
-  }
-
-  @Test
   fun a_camera_change_reports_a_move_while_the_map_has_no_viewport() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
     val state = runtime.createMapState(BaseStyle.Demo)

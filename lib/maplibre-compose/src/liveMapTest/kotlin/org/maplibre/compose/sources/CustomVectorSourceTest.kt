@@ -5,11 +5,16 @@ import androidx.compose.ui.unit.dp
 import kotlin.concurrent.Volatile
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.expressions.ast.ExpressionContext
+import org.maplibre.compose.expressions.dsl.asString
 import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.dsl.eq
+import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.install
@@ -34,7 +39,7 @@ class CustomVectorSourceTest {
           requests += tile
           POINT_TILE
         }
-      style.install(source)
+      fixture.state.style.sources.add(source)
       val layer = CircleLayer("custom-vector-points", source)
       layer.sourceLayer = SOURCE_LAYER
       layer.setCircleRadius(const(48.dp).compile(ExpressionContext.None))
@@ -42,6 +47,19 @@ class CustomVectorSourceTest {
       style.install(layer)
 
       fixture.pumpUntilPixel("the custom MVT point to render", CENTER, CENTER, BLUE)
+
+      val handle = assertIs<VectorSourceHandle>(fixture.state.style.sources[SOURCE_ID])
+      val features = handle.querySourceFeatures(setOf(SOURCE_LAYER))
+      assertEquals(
+        setOf("center"),
+        features.map { it.properties?.get("name")?.jsonPrimitive?.content }.toSet(),
+      )
+      assertTrue(handle.querySourceFeatures(setOf("missing")).isEmpty())
+      assertTrue(
+        handle
+          .querySourceFeatures(setOf(SOURCE_LAYER), feature["name"].asString() eq const("absent"))
+          .isEmpty()
+      )
 
       assertTrue(requests.isNotEmpty())
       assertEquals(TileCoordinate(zoomLevel = 0, x = 0, y = 0), requests.first())

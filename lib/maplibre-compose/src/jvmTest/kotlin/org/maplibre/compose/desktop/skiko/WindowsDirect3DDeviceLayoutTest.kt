@@ -85,15 +85,15 @@ class WindowsDirect3DDeviceLayoutTest {
     backendContextDevice: Long,
     deviceField: Long,
   ): MemorySegment =
-    arena.allocate(SkikoDirect3DDeviceLayout.READ_SIZE).apply {
+    arena.allocate(56).apply {
       set(
         ValueLayout.ADDRESS,
-        SkikoDirect3DDeviceLayout.BACKEND_CONTEXT_DEVICE_OFFSET,
+        16L,
         MemorySegment.ofAddress(backendContextDevice),
       )
       set(
         ValueLayout.ADDRESS,
-        SkikoDirect3DDeviceLayout.DEVICE_OFFSET,
+        48L,
         MemorySegment.ofAddress(deviceField),
       )
     }

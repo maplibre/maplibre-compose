@@ -107,12 +107,14 @@ class MlnFfiTileRequestCoordinatorTest {
   @Test
   fun provider_failure_does_not_cancel_other_requests() = runBlocking {
     val successful = CompletableDeferred<Unit>()
+    val failureHandled = CompletableDeferred<Unit>()
     val coordinator = coordinator { tile ->
       if (tile.x == 0L) error("fixture failure") else successful.complete(Unit)
     }
-    coordinator.attach(DroppingBinding())
+    coordinator.attach(DroppingBinding { failureHandled.complete(Unit) })
 
     coordinator.fetch(CanonicalTileId(z = 1, x = 0, y = 0))
+    withTimeout(5.seconds) { failureHandled.await() }
     coordinator.fetch(CanonicalTileId(z = 1, x = 1, y = 0))
 
     withTimeout(5.seconds) { successful.await() }
@@ -129,12 +131,14 @@ class MlnFfiTileRequestCoordinatorTest {
       fail = { _, _, error -> throw error },
     )
 
-  private class DroppingBinding : MlnFfiStyleBinding(sessionOpen = { true }) {
+  private class DroppingBinding(val onDrop: () -> Unit = {}) :
+    MlnFfiStyleBinding(sessionOpen = { true }) {
 
     override fun <T> readMap(action: (MapHandle) -> T): T? = null
 
     override fun <T> mutateMap(abandon: () -> Unit, action: (MapHandle) -> T): T? {
       abandon()
+      onDrop()
       return null
     }
 

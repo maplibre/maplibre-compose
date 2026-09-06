@@ -8,9 +8,7 @@ import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.gljs.GlJsMapEvent
@@ -33,7 +31,7 @@ class BrowserCameraTransitionLifecycleTest {
       createMapFixture().use {
         it.session.setBaseStyle(BaseStyle.Empty)
         val animation =
-          CoroutineScope(Dispatchers.Default).launch(start = CoroutineStart.UNDISPATCHED) {
+          launch(start = CoroutineStart.UNDISPATCHED) {
             it.session.animateCameraPosition(STALE_CAMERA, 60.seconds)
           }
 
@@ -57,7 +55,7 @@ class BrowserCameraTransitionLifecycleTest {
     createMapFixture().use {
       it.session.setBaseStyle(BaseStyle.Json("{ this is not json"))
       val animation =
-        CoroutineScope(Dispatchers.Default).launch(start = CoroutineStart.UNDISPATCHED) {
+        launch(start = CoroutineStart.UNDISPATCHED) {
           it.session.animateCameraPosition(STALE_CAMERA, 60.seconds)
         }
 

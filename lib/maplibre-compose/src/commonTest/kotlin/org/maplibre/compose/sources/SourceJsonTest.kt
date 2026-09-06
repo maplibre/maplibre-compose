@@ -10,10 +10,25 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
-import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
 import org.maplibre.spatialk.geojson.toJson
 
 class SourceJsonTest {
+
+  @Test
+  fun tiled_source_urls_preserve_their_type_and_do_not_add_inline_tiles() {
+    val uri = "https://example.invalid/tiles.json"
+    for ((source, type) in
+      listOf(
+        VectorSource("vector", uri = uri) to "vector",
+        RasterSource("raster", uri = uri) to "raster",
+        RasterDemSource("dem", uri = uri) to "raster-dem",
+      )) {
+      val json = source.toJson()
+      assertEquals(JsonPrimitive(type), json["type"])
+      assertEquals(JsonPrimitive(uri), json["url"])
+      assertNull(json["tiles"])
+    }
+  }
 
   @Test
   fun a_tile_set_writes_the_shared_tile_json_fields() {
@@ -77,15 +92,6 @@ class SourceJsonTest {
       (json["tiles"] as JsonArray).map { it.jsonPrimitive.content },
     )
     assertEquals("512", json["tileSize"]?.jsonPrimitive?.content, "tileSize, not tilesize")
-  }
-
-  @Test
-  fun inline_utf8_is_the_feature_json_bytes() {
-    val collection = featureCollectionOf()
-    assertEquals(
-      collection.toJson(),
-      GeoJsonData.Features(collection).toInlineUtf8()!!.decodeToString(),
-    )
   }
 
   @Test

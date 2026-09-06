@@ -9,7 +9,6 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
@@ -241,10 +240,10 @@ private constructor(
     description: String,
     timeout: Duration = 30.seconds,
     block: suspend () -> T,
-  ): T {
-    val work = CoroutineScope(Dispatchers.Default).async { block() }
+  ): T = runBlocking {
+    val work = async(Dispatchers.Default) { block() }
     pumpUntil(description, timeout) { work.isCompleted }
-    return runBlocking { work.await() }
+    work.await()
   }
 
   /**

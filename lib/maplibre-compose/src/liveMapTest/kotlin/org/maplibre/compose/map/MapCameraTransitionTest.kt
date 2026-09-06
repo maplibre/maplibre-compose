@@ -9,7 +9,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraPosition
@@ -19,6 +18,7 @@ import org.maplibre.compose.testing.MapFixture
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
+import org.maplibre.compose.testing.skipMapTest
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
@@ -128,7 +128,7 @@ class MapCameraTransitionTest {
         it.pump(frames = 2)
 
         val animation =
-          CoroutineScope(Dispatchers.Default).launch {
+          launch(Dispatchers.Default) {
             it.state.animateCameraPosition(TARGET, 2.seconds)
           }
         it.awaitCameraMoving()
@@ -169,6 +169,11 @@ class MapCameraTransitionTest {
       it.awaitWhileRendering("the instant animation to complete") {
         it.state.animateCameraPosition(TARGET, 0.milliseconds)
       }
+      assertNear(
+        TARGET.zoom,
+        it.session.getCameraPosition().zoom,
+        "the instant animation should reach its target",
+      )
     }
   }
 
@@ -179,18 +184,18 @@ class MapCameraTransitionTest {
   fun a_replacement_animation_waits_for_its_own_end(): MapTestResult = runMapTest {
     // A zero animator duration scale makes every animation a jump, so nothing is in flight to
     // cancel or to keep running.
-    if (systemAnimatorDurationScale() == 0f) return@runMapTest
+    if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
     createMapFixture().use {
       it.startAtOrigin()
 
       val superseded =
-        CoroutineScope(Dispatchers.Default).launch {
+        launch(Dispatchers.Default) {
           it.state.animateCameraPosition(TARGET, 10.seconds)
         }
       it.awaitCameraMoving()
 
       val replacement =
-        CoroutineScope(Dispatchers.Default).launch {
+        launch(Dispatchers.Default) {
           it.state.animateCameraPosition(MIDPOINT, 2.seconds)
         }
       it.pumpUntil("the superseded animation to cancel") { superseded.isCompleted }
@@ -215,13 +220,13 @@ class MapCameraTransitionTest {
   fun cancelling_an_animation_stops_the_camera_and_leaves_nothing_registered(): MapTestResult =
     runMapTest {
       // A zero animator duration scale lands the camera on its target before a cancel can arrive.
-      if (systemAnimatorDurationScale() == 0f) return@runMapTest
+      if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
       createMapFixture().use {
         it.startAtOrigin()
         it.events.clear()
 
         val animation =
-          CoroutineScope(Dispatchers.Default).launch {
+          launch(Dispatchers.Default) {
             it.state.animateCameraPosition(TARGET, 30.seconds)
           }
         it.awaitCameraMoving()

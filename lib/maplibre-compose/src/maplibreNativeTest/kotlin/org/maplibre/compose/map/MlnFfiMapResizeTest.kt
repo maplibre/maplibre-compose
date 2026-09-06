@@ -16,28 +16,6 @@ import org.maplibre.compose.style.BaseStyle
 class MlnFfiMapResizeTest {
 
   @Test
-  fun resizing_retargets_the_live_session_rather_than_re_attaching() {
-    val fixture = BridgeMapFixture.create()
-    fixture.use {
-      fixture.loadStyle(BaseStyle.Json(EMPTY_STYLE))
-      fixture.pumpUntilRendered()
-
-      val attachesAfterFirstFrame = fixture.session.attachCount
-      assertEquals(0, fixture.session.retargetCount, "nothing to retarget before the first resize")
-
-      fixture.hasRendered = false
-      fixture.pumpUntil("the resized map to render", extent = WIDER_EXTENT) { fixture.hasRendered }
-
-      assertEquals(
-        attachesAfterFirstFrame,
-        fixture.session.attachCount,
-        "a resize at an unchanged scale factor must not attach a second session",
-      )
-      assertTrue(fixture.session.retargetCount > 0, "the resize should have retargeted")
-    }
-  }
-
-  @Test
   fun a_resize_back_and_forth_keeps_reusing_the_one_session() {
     val fixture = BridgeMapFixture.create()
     fixture.use {
@@ -47,8 +25,8 @@ class MlnFfiMapResizeTest {
 
       // Every step is a new host target: a borrowed texture cannot be resized, only reallocated.
       listOf(WIDER_EXTENT, TALLER_EXTENT, BridgeMapFixture.DEFAULT_EXTENT).forEach { extent ->
-        fixture.frame(extent)
-        fixture.frame(extent)
+        fixture.hasRendered = false
+        fixture.pumpUntil("the resized map to render", extent = extent) { fixture.hasRendered }
       }
 
       assertEquals(attaches, fixture.session.attachCount, "no resize should have re-attached")

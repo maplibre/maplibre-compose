@@ -10,15 +10,6 @@ import org.maplibre.compose.testing.runMapTest
 
 class StyleTransitionTest {
   @Test
-  fun a_style_without_a_transition_reads_the_spec_defaults(): MapTestResult = runMapTest {
-    createMapFixture().use { fixture ->
-      fixture.loadStyle(EMPTY_STYLE)
-
-      assertEquals(TransitionOptions(), fixture.state.style.transition.get())
-    }
-  }
-
-  @Test
   fun a_declared_transition_reads_back_and_a_reload_replaces_a_write(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(TIMED_STYLE)

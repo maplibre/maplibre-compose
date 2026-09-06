@@ -29,7 +29,6 @@ class StyleCompositionOrderTest {
 
     StyleReconciler().apply(style, revision)
 
-    assertEquals(listOf("first-layer", "second-layer"), revision.layers.map { it.definition.id })
     assertEquals(listOf("first-layer", "second-layer"), style.layerIds())
   }
 

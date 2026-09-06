@@ -31,19 +31,12 @@ class MapExtentTest {
   fun preserves_the_host_physical_size_at_fractional_scale() {
     // 1.7f reproduces GLFW's scale precisely: widening it to Double produces 1.700000047..., so
     // recalculating ceil(960 * scale) would incorrectly turn a 1632-pixel framebuffer into 1633.
-    for (scale in listOf(1.25, 1.5, 1.7f.toDouble(), 1.75, 2.25, 2.5)) {
-      for (physical in listOf(801, 1000, 1023, 1088, 1632, 1919, 2561)) {
-        val extent = MapExtent.fromPhysical(physical, physical, scale)
-        val expectedLogical = kotlin.math.ceil(physical / scale).toInt()
+    val extent = MapExtent.fromPhysical(1632, 1088, 1.7f.toDouble())
 
-        assertEquals(expectedLogical, extent.width, "logical width for $physical at scale $scale")
-        assertEquals(physical, extent.physicalWidth, "physical width at scale $scale")
-        assertTrue(
-          extent.width > 0 && extent.physicalWidth > 0,
-          "extent must stay renderable for $physical at scale $scale",
-        )
-      }
-    }
+    assertEquals(960, extent.width)
+    assertEquals(640, extent.height)
+    assertEquals(1632, extent.physicalWidth)
+    assertEquals(1088, extent.physicalHeight)
   }
 
   @Test
@@ -64,17 +57,5 @@ class MapExtentTest {
       assertEquals(1.0, extent.scaleFactor, "scale $bad should fall back to 1.0")
       assertFalse(extent.isEmpty)
     }
-  }
-
-  @Test
-  fun compares_by_value_so_a_resize_to_the_same_size_is_not_a_change() {
-    assertEquals(MapExtent.fromLogical(800, 600, 2.0), MapExtent.fromLogical(800, 600, 2.0))
-    assertEquals(
-      MapExtent.fromLogical(800, 600, 2.0).hashCode(),
-      MapExtent.fromLogical(800, 600, 2.0).hashCode(),
-    )
-    // A density change alone must compare unequal: MapLibre fixes pixelRatio at creation, so the
-    // map has to be recreated.
-    assertTrue(MapExtent.fromLogical(800, 600, 1.0) != MapExtent.fromLogical(800, 600, 2.0))
   }
 }

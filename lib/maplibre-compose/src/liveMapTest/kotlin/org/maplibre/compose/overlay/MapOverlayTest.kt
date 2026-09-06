@@ -8,7 +8,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotDisplayed
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
@@ -25,21 +29,25 @@ class MapOverlayTest {
     setContent {
       MapOverlayHost(
         overlay = {
-          Box(Modifier.size(8.dp).placedAt(Position(0.0, 0.0)))
-          Box(Modifier.size(8.dp).placedTowards(Position(90.0, 0.0)))
-          Box(Modifier.size(8.dp).align(Alignment.TopStart))
+          Box(Modifier.size(8.dp).testTag("at").placedAt(Position(0.0, 0.0)))
+          Box(Modifier.size(8.dp).testTag("towards").placedTowards(Position(90.0, 0.0)))
+          Box(Modifier.size(8.dp).testTag("aligned").align(Alignment.TopStart))
         },
         mapState = mapState,
         contentWindowInsets = WindowInsets(0),
       )
     }
     waitForIdle()
+    onNodeWithTag("aligned").assertIsDisplayed()
+    onNodeWithTag("at").assertIsNotDisplayed()
+    onNodeWithTag("towards").assertIsNotDisplayed()
+    mapState.close()
   }
 
   @Test
   fun removing_a_placed_towards_child_resets_its_state() = runComposeUiTest {
     val mapState = mapRuntimeForTest().createMapState(baseStyle = BaseStyle.Empty)
-    val state = PlacedTowardsState().apply { isPlaced = true }
+    val state = PlacedTowardsState()
     var show by mutableStateOf(true)
     setContent {
       MapOverlayHost(
@@ -53,8 +61,12 @@ class MapOverlayTest {
       )
     }
     waitForIdle()
-    show = false
+    runOnIdle {
+      state.isPlaced = true
+      show = false
+    }
     waitForIdle()
     assertFalse(state.isPlaced)
+    mapState.close()
   }
 }

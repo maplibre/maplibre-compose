@@ -7,9 +7,9 @@ import kotlin.test.Test
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
@@ -116,7 +116,7 @@ class MlnFfiProjectionTest {
   }
 
   @Test
-  fun conversions_succeed_while_the_owner_thread_replaces_the_snapshot() {
+  fun conversions_succeed_while_the_owner_thread_replaces_the_snapshot() = runBlocking {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       fixture.session.setCameraPosition(START_CAMERA)
@@ -125,7 +125,7 @@ class MlnFfiProjectionTest {
       }
 
       val flight =
-        CoroutineScope(Dispatchers.Default).launch {
+        launch(Dispatchers.Default) {
           fixture.session.animateCameraPosition(ROTATED_CAMERA, 2.seconds)
         }
       fixture.pumpUntil("the camera to start moving") {

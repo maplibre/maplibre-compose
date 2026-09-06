@@ -1,6 +1,7 @@
 package org.maplibre.compose.testing
 
 import kotlin.time.Duration
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.map.GestureTarget
@@ -116,4 +117,10 @@ internal actual val mapLibreFlavor: MapLibreFlavor = MapLibreFlavor.NATIVE
 
 actual typealias MapTestResult = Unit
 
-internal actual fun runMapTest(block: suspend () -> Unit): MapTestResult = runBlocking { block() }
+internal actual fun runMapTest(block: suspend CoroutineScope.() -> Unit): MapTestResult =
+  runBlocking {
+    block()
+  }
+
+internal actual fun skipMapTest(reason: String): Nothing =
+  org.maplibre.compose.mlnffi.FfiTestPlatform.skip(reason)

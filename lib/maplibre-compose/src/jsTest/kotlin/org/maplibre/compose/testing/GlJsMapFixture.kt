@@ -4,9 +4,9 @@ import androidx.compose.ui.unit.LayoutDirection
 import kotlin.js.Date
 import kotlin.time.Duration
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.promise
 import org.khronos.webgl.Uint8Array
 import org.khronos.webgl.get
@@ -166,10 +166,10 @@ internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
     description: String,
     timeout: Duration,
     block: suspend () -> T,
-  ): T {
-    val work = CoroutineScope(Dispatchers.Default).async { block() }
+  ): T = coroutineScope {
+    val work = async { block() }
     pumpUntil(description, timeout) { work.isCompleted }
-    return work.await()
+    work.await()
   }
 
   override fun closeSession() {
@@ -199,7 +199,10 @@ internal actual val mapLibreFlavor: MapLibreFlavor = MapLibreFlavor.GL_JS
 
 actual typealias MapTestResult = JsPromise
 
-internal actual fun runMapTest(block: suspend () -> Unit): MapTestResult {
+internal actual fun runMapTest(block: suspend CoroutineScope.() -> Unit): MapTestResult {
   GlJsRuntime.pointAtWorker(LOCAL_WORKER_URL)
   return MainScope().promise { block() }.unsafeCast<JsPromise>()
 }
+
+internal actual fun skipMapTest(reason: String): Nothing =
+  error("Browser tests must run with the required capabilities: $reason")
