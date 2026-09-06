@@ -30,7 +30,7 @@ public class DragPanBuilder internal constructor(from: DragPanSettings) {
 internal data class DragRotateTiltSettings(
   val startSlop: Dp = 3.dp,
   val mouseStartSlop: Dp = 3.dp,
-  val anchor: GestureAnchor = GestureAnchor.Input,
+  val anchor: GestureAnchor = GestureAnchor.CameraCenter,
   val bearingDegreesPerDp: Double = 0.8,
   val pitchDegreesPerDp: Double = -0.5,
 )
@@ -42,6 +42,8 @@ public class DragRotateTiltBuilder internal constructor(from: DragRotateTiltSett
 
   /** Recognition distance for mouse pointers, in dp; independent of [startSlop]. */
   public var mouseStartSlop: Dp = from.mouseStartSlop
+
+  /** Point held fixed while rotating and tilting. Defaults to the camera target. */
   public var anchor: GestureAnchor = from.anchor
   public var bearingDegreesPerDp: Double = from.bearingDegreesPerDp
   public var pitchDegreesPerDp: Double = from.pitchDegreesPerDp

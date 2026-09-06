@@ -174,6 +174,46 @@ class CameraInputIntegrationTest {
     }
 
   @Test
+  fun default_drag_rotation_preserves_the_padded_camera_target(): MapTestResult = runMapTest {
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      fixture.awaitMapReady()
+      fixture.session.setCameraPadding(PaddingValues(start = 65.dp, top = 25.dp, end = 10.dp))
+      fixture.state.setCameraPosition(
+        CameraPosition(target = Position(3.0, 45.0), zoom = 5.0, bearing = 20.0, tilt = 30.0)
+      )
+      fixture.settle()
+      val before = fixture.state.cameraPosition
+      val settings = MapInteractions.Standard.bindings.drag.rotateTilt
+      val sample =
+        GesturePointerSample(
+          1,
+          10,
+          DpOffset(50.dp, 80.dp),
+          null,
+          emptySet(),
+          emptySet(),
+          emptySet(),
+        )
+      fixture.awaitWhileRendering("default drag rotation") {
+        fixture.state.withCameraInput {
+          rotateAndPitchByAwaitingTransition(
+            20.0 * settings.bearingDegreesPerDp,
+            -10.0 * settings.pitchDegreesPerDp,
+            Duration.ZERO,
+            settings.anchor.location(sample),
+          )
+        }
+      }
+      val after = fixture.state.cameraPosition
+      assertEquals(before.target.longitude, after.target.longitude, 1e-6)
+      assertEquals(before.target.latitude, after.target.latitude, 1e-6)
+      assertTrue(after.bearing > before.bearing)
+      assertTrue(after.tilt > before.tilt)
+    }
+  }
+
+  @Test
   fun pan_lock_preserves_padded_target_even_when_input_requests_an_anchor(): MapTestResult =
     runMapTest {
       coroutineScope {
