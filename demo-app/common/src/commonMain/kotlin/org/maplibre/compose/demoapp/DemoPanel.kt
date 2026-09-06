@@ -10,6 +10,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -197,6 +198,8 @@ private fun DemosScreen(
           Icon(vectorResource(Res.drawable.settings_24px), contentDescription = "Settings")
         }
       },
+      // The shell's safe-inset padding already offsets the panel, so the app bar adds none.
+      windowInsets = WindowInsets(0),
       colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
     )
     Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
@@ -288,6 +291,7 @@ internal fun SettingsSubScreen(title: String, onBack: () -> Unit, content: @Comp
           Icon(vectorResource(Res.drawable.arrow_back_24px), contentDescription = "Back")
         }
       },
+      windowInsets = WindowInsets(0),
       colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
     )
     Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) { content() }
