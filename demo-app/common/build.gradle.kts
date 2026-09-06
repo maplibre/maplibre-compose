@@ -123,6 +123,8 @@ kotlin {
 
 compose.resources { packageOfResClass = "org.maplibre.compose.demoapp.generated" }
 
-composeCompiler { reportsDestination = layout.buildDirectory.dir("compose/reports") }
+if (providers.gradleProperty("composeCompilerReports").orNull == "true") {
+  composeCompiler { reportsDestination = layout.buildDirectory.dir("compose/reports") }
+}
 
 stageIosSimulatorTestResources()
