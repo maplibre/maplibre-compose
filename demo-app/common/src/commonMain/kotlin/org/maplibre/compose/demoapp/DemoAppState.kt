@@ -38,6 +38,7 @@ internal constructor(
   val mapRuntime: MapRuntime,
   val mapState: MapState,
   val settings: DemoSettings,
+  internal val location: DemoLocationUi,
   val frameRateState: FrameRateState,
   private val mapConfiguration: DemoMapConfiguration,
 ) {
@@ -128,6 +129,7 @@ internal data class StyleLoad(val count: Int, val base: BaseStyle?)
 fun rememberDemoAppState(): DemoAppState {
   val mapRuntime = DefaultMapRuntime.instance
   val settings = rememberDemoSettings()
+  val location = remember { DemoLocationUi() }
   val mapConfiguration = remember { DemoMapConfiguration() }
   val appliedStyle = mapConfiguration.appliedStyle(settings.mapStyleMode.isDark)
   val mapState =
@@ -136,10 +138,11 @@ fun rememberDemoAppState(): DemoAppState {
       baseStyle = appliedStyle.base,
       initialCameraPosition = StartPosition,
     ) {
+      DemoLocationMapContent(location)
       mapConfiguration.selectedDemo?.let { demo -> key(demo) { demo.MapContent() } }
     }
   val frameRateState = remember { FrameRateState() }
   return remember {
-    DemoAppState(mapRuntime, mapState, settings, frameRateState, mapConfiguration)
+    DemoAppState(mapRuntime, mapState, settings, location, frameRateState, mapConfiguration)
   }
 }
