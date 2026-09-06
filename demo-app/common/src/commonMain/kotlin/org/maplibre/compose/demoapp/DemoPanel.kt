@@ -245,6 +245,8 @@ private fun SettingsScreen(
       onSelect = { state.settings.paletteMode = it },
     )
 
+    LocationSettingsItems(state.location)
+
     SectionHeader("Options")
     SubmenuRow("Gestures", "Which inputs move the camera") { onOpen("gestures") }
     SubmenuRow("Rendering", "Frame rate cap, tile detail, and debug views") { onOpen("rendering") }

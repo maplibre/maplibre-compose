@@ -6,7 +6,7 @@ import org.maplibre.compose.location.LocationProvider
 import org.maplibre.compose.location.rememberDefaultHeadingProvider
 import org.maplibre.compose.location.rememberDefaultLocationProvider
 
-/** A location engine that [LocationDemo] offers on its engine selector. */
+/** A location engine that the demo settings offer on the engine selector. */
 internal interface DemoLocationEngine {
   /** The short label that names this engine on the selector. */
   val label: String

@@ -1,6 +1,7 @@
 package org.maplibre.compose.demoapp
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -14,6 +15,7 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.demoapp.benchmark.BenchmarkScenario
 import org.maplibre.compose.demoapp.benchmark.BenchmarkUiState
 import org.maplibre.compose.demoapp.benchmark.allBenchmarkScenarios
+import org.maplibre.compose.location.rememberLocationState
 import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.map.MapRuntime
 import org.maplibre.compose.map.MapState
@@ -38,6 +40,7 @@ internal constructor(
   val mapRuntime: MapRuntime,
   val mapState: MapState,
   val settings: DemoSettings,
+  internal val location: DemoLocationUi,
   val frameRateState: FrameRateState,
   private val mapConfiguration: DemoMapConfiguration,
 ) {
@@ -128,6 +131,25 @@ internal data class StyleLoad(val count: Int, val base: BaseStyle?)
 fun rememberDemoAppState(): DemoAppState {
   val mapRuntime = DefaultMapRuntime.instance
   val settings = rememberDemoSettings()
+  val location = remember { DemoLocationUi() }
+  val engine = location.engine
+  val locationProvider = engine.rememberLocationProvider()
+  val locationState =
+    rememberLocationState(
+      provider = locationProvider,
+      headingProvider = engine.rememberHeadingProvider(),
+      enabled = location.isFollowing,
+    )
+  DisposableEffect(locationState, locationProvider) {
+    location.locationState = locationState
+    location.backendId = locationProvider.backendId
+    onDispose {
+      if (location.locationState === locationState) {
+        location.locationState = null
+        location.backendId = null
+      }
+    }
+  }
   val mapConfiguration = remember { DemoMapConfiguration() }
   val appliedStyle = mapConfiguration.appliedStyle(settings.mapStyleMode.isDark)
   val mapState =
@@ -137,9 +159,10 @@ fun rememberDemoAppState(): DemoAppState {
       initialCameraPosition = StartPosition,
     ) {
       mapConfiguration.selectedDemo?.let { demo -> key(demo) { demo.MapContent() } }
+      DemoLocationMapContent(location, locationState)
     }
   val frameRateState = remember { FrameRateState() }
   return remember {
-    DemoAppState(mapRuntime, mapState, settings, frameRateState, mapConfiguration)
+    DemoAppState(mapRuntime, mapState, settings, location, frameRateState, mapConfiguration)
   }
 }

@@ -301,7 +301,11 @@ private fun ShellMap(
   if (state.shell == DemoShell.Benchmarks) {
     BenchmarkMap(state, viewportInsets)
   } else {
-    DemoMap(state, viewportInsets, overlay = demoMapOverlay(state.settings, controlsModifier))
+    DemoMap(
+      state,
+      viewportInsets,
+      overlay = demoMapOverlay(state.settings, state.location, controlsModifier),
+    )
   }
 }
 

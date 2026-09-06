@@ -50,12 +50,18 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.vectorResource
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.brightness_auto_24px
 import org.maplibre.compose.demoapp.generated.dark_mode_24px
 import org.maplibre.compose.demoapp.generated.filter_center_focus_24px
 import org.maplibre.compose.demoapp.generated.light_mode_24px
+import org.maplibre.compose.demoapp.generated.location_disabled_24px
+import org.maplibre.compose.demoapp.generated.location_searching_24px
+import org.maplibre.compose.demoapp.generated.my_location_24px
+import org.maplibre.compose.demoapp.generated.my_location_fill_24px
+import org.maplibre.compose.demoapp.generated.navigation_24px
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
@@ -106,75 +112,133 @@ private val DemoCompassEnter = fadeIn() + expandVertically()
 private val DemoCompassExit = fadeOut() + shrinkVertically()
 
 /**
- * The map controls the settings ask for. Compass, zoom, and theme stack at the top-end, where the
- * compass sits on [MapOverlay.Default]. The compass is first so hiding it slides the other buttons
- * up; its slot expands and shrinks instead of popping. [controlsModifier] applies to the stack so a
- * shell can route D-pad focus through it.
+ * The map controls the settings ask for. Compass, zoom, follow, and theme stack at the top-end,
+ * where the compass sits on [MapOverlay.Default]. The compass is first so hiding it slides the
+ * other buttons up; its slot expands and shrinks instead of popping. [controlsModifier] applies to
+ * the stack so a shell can route D-pad focus through it.
  */
-fun demoMapOverlay(settings: DemoSettings, controlsModifier: Modifier = Modifier): MapOverlay =
-  MapOverlay {
-    val overlayScope = this
-    val material3 = settings.useMaterial3Controls
-    val metersPerDp = mapState.viewport?.metersPerDpAtTarget ?: 0.0
-    val zoom = mapState.cameraPosition.zoom
+internal fun demoMapOverlay(
+  settings: DemoSettings,
+  location: DemoLocationUi,
+  controlsModifier: Modifier = Modifier,
+): MapOverlay = MapOverlay {
+  val overlayScope = this
+  val material3 = settings.useMaterial3Controls
+  val metersPerDp = mapState.viewport?.metersPerDpAtTarget ?: 0.0
+  val zoom = mapState.cameraPosition.zoom
+  if (material3) {
+    MaterialDisappearingScaleBar(
+      metersPerDp = metersPerDp,
+      zoom = zoom,
+      modifier = Modifier.align(Alignment.TopStart),
+    )
+  } else {
+    DisappearingScaleBar(
+      metersPerDp = metersPerDp,
+      zoom = zoom,
+      modifier = Modifier.align(Alignment.TopStart),
+    )
+  }
+  include(if (material3) MapOverlay.Material3AttributionOnly else MapOverlay.AttributionOnly)
+  Column(
+    modifier = Modifier.align(Alignment.TopEnd).then(controlsModifier),
+    horizontalAlignment = Alignment.End,
+  ) {
+    val compassSpacing = Modifier.padding(bottom = MapOverlay.Spacing)
     if (material3) {
-      MaterialDisappearingScaleBar(
-        metersPerDp = metersPerDp,
-        zoom = zoom,
-        modifier = Modifier.align(Alignment.TopStart),
+      overlayScope.MaterialDisappearingCompassButton(
+        contentModifier = compassSpacing,
+        enterTransition = DemoCompassEnter,
+        exitTransition = DemoCompassExit,
       )
     } else {
-      DisappearingScaleBar(
-        metersPerDp = metersPerDp,
-        zoom = zoom,
-        modifier = Modifier.align(Alignment.TopStart),
+      overlayScope.DisappearingCompassButton(
+        contentModifier = compassSpacing,
+        enterTransition = DemoCompassEnter,
+        exitTransition = DemoCompassExit,
       )
     }
-    include(if (material3) MapOverlay.Material3AttributionOnly else MapOverlay.AttributionOnly)
     Column(
-      modifier = Modifier.align(Alignment.TopEnd).then(controlsModifier),
+      verticalArrangement = Arrangement.spacedBy(MapOverlay.Spacing),
       horizontalAlignment = Alignment.End,
     ) {
-      val compassSpacing = Modifier.padding(bottom = MapOverlay.Spacing)
-      if (material3) {
-        overlayScope.MaterialDisappearingCompassButton(
-          contentModifier = compassSpacing,
-          enterTransition = DemoCompassEnter,
-          exitTransition = DemoCompassExit,
-        )
-      } else {
-        overlayScope.DisappearingCompassButton(
-          contentModifier = compassSpacing,
-          enterTransition = DemoCompassEnter,
-          exitTransition = DemoCompassExit,
-        )
+      if (settings.showZoomButtons) {
+        if (material3) overlayScope.MaterialZoomButtons() else overlayScope.ZoomButtons()
       }
-      Column(
-        verticalArrangement = Arrangement.spacedBy(MapOverlay.Spacing),
-        horizontalAlignment = Alignment.End,
-      ) {
-        if (settings.showZoomButtons) {
-          if (material3) overlayScope.MaterialZoomButtons() else overlayScope.ZoomButtons()
-        }
-        DemoThemeToggleButton(settings)
-      }
+      DemoFollowButton(settings, location)
+      DemoThemeToggleButton(settings)
     }
   }
+}
+
+@Composable
+private fun DemoFollowButton(settings: DemoSettings, location: DemoLocationUi) {
+  val (style, contentColor) = demoControlColors(settings.useMaterial3Controls)
+  val visual = location.followVisual()
+  val activeColor =
+    if (settings.useMaterial3Controls) MaterialTheme.colorScheme.primary else Color(0xFF1565C0)
+  val disabledColor =
+    if (settings.useMaterial3Controls) MaterialTheme.colorScheme.onSurfaceVariant
+    else contentColor.copy(alpha = 0.45f)
+  val look =
+    when (visual) {
+      DemoFollowVisual.Idle ->
+        FollowButtonLook(
+          Res.drawable.my_location_24px,
+          contentColor,
+          "Follow your location",
+          "Start following",
+        )
+      DemoFollowVisual.Searching ->
+        FollowButtonLook(
+          Res.drawable.location_searching_24px,
+          activeColor,
+          "Finding your location",
+          if (location.followMode == DemoFollowMode.Heading) "Stop following" else "Follow heading",
+        )
+      DemoFollowVisual.Following ->
+        FollowButtonLook(
+          Res.drawable.my_location_fill_24px,
+          activeColor,
+          "Following your location",
+          "Follow heading",
+        )
+      DemoFollowVisual.Heading ->
+        FollowButtonLook(
+          Res.drawable.navigation_24px,
+          activeColor,
+          "Following your heading",
+          "Stop following",
+        )
+      DemoFollowVisual.Disabled ->
+        FollowButtonLook(
+          Res.drawable.location_disabled_24px,
+          disabledColor,
+          "Location is unavailable",
+          "Try following",
+        )
+    }
+  DemoControlButton(
+    onClick = { location.cycleFollow() },
+    style = style,
+    contentDescription = look.contentDescription,
+    onClickLabel = look.onClickLabel,
+  ) {
+    Icon(imageVector = vectorResource(look.icon), contentDescription = null, tint = look.tint)
+  }
+}
+
+private data class FollowButtonLook(
+  val icon: DrawableResource,
+  val tint: Color,
+  val contentDescription: String,
+  val onClickLabel: String,
+)
 
 @Composable
 private fun DemoThemeToggleButton(settings: DemoSettings) {
   val mode = settings.mapStyleMode
-  val (style, contentColor) =
-    if (settings.useMaterial3Controls) {
-      val colors = ButtonDefaults.elevatedButtonColors()
-      CompassButtonStyle(
-        containerColor = colors.containerColor,
-        shadowElevation = 1.dp,
-        hoveredShadowElevation = 3.dp,
-      ) to colors.contentColor
-    } else {
-      CompassDefaults.style() to ZoomButtonsDefaults.ContentColor
-    }
+  val (style, contentColor) = demoControlColors(settings.useMaterial3Controls)
   DemoControlButton(
     onClick = { settings.mapStyleMode = mode.next },
     style = style,
@@ -195,6 +259,19 @@ private fun DemoThemeToggleButton(settings: DemoSettings) {
     )
   }
 }
+
+@Composable
+private fun demoControlColors(material3: Boolean): Pair<CompassButtonStyle, Color> =
+  if (material3) {
+    val colors = ButtonDefaults.elevatedButtonColors()
+    CompassButtonStyle(
+      containerColor = colors.containerColor,
+      shadowElevation = 1.dp,
+      hoveredShadowElevation = 3.dp,
+    ) to colors.contentColor
+  } else {
+    CompassDefaults.style() to ZoomButtonsDefaults.ContentColor
+  }
 
 /** Same chrome as [org.maplibre.compose.overlay.CompassButton]. */
 @Composable
@@ -240,7 +317,7 @@ private fun DemoControlButton(
 fun DemoMap(
   state: DemoAppState,
   viewportInsets: MapViewportInsets,
-  overlay: MapOverlay = demoMapOverlay(state.settings),
+  overlay: MapOverlay = demoMapOverlay(state.settings, state.location),
   modifier: Modifier = Modifier,
 ) {
   val scope = rememberCoroutineScope()
