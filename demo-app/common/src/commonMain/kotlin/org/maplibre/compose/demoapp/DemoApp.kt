@@ -204,7 +204,6 @@ private fun DemoShell(state: DemoAppState, contentPadding: PaddingValues) {
           Modifier.align(Alignment.CenterStart)
             .fillMaxHeight()
             .padding(safeInsets.asPaddingValues())
-            // Consumed so Material components in the panel don't inset themselves again.
             .consumeWindowInsets(safeInsets.asPaddingValues())
             .padding(ShellSpacing)
             .graphicsLayer { translationX = panelTranslation }
