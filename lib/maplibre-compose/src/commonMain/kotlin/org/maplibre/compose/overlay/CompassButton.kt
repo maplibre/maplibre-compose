@@ -133,7 +133,6 @@ public fun MapOverlayScope.CompassButton(
 @Composable
 public fun MapOverlayScope.DisappearingCompassButton(
   modifier: Modifier = Modifier,
-  contentModifier: Modifier = Modifier,
   onClick: () -> Unit = {},
   style: CompassButtonStyle = CompassDefaults.style(),
   contentDescription: String = CompassDefaults.contentDescription(),
@@ -145,6 +144,7 @@ public fun MapOverlayScope.DisappearingCompassButton(
   exitTransition: ExitTransition = fadeOut(),
   getHomePosition: (CameraPosition) -> CameraPosition = { it.copy(bearing = 0.0, tilt = 0.0) },
   slop: Double = 0.5,
+  contentModifier: Modifier = Modifier,
 ) {
   val overlayScope = this
   val visible = remember { MutableTransitionState(false) }
