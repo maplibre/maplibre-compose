@@ -228,7 +228,7 @@ private fun DemoFollowButton(settings: DemoSettings, location: DemoLocationUi) {
         )
     }
   DemoControlButton(
-    onClick = { location.cycleFollow() },
+    onClick = { location.onFollowClick() },
     style = style,
     contentDescription = look.contentDescription,
     onClickLabel = look.onClickLabel,

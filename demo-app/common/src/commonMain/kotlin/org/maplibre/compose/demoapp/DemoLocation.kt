@@ -15,7 +15,6 @@ import androidx.compose.ui.unit.dp
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.demoapp.demos.DefaultLocationEngine
-import org.maplibre.compose.demoapp.demos.LiveTrackingDemo
 import org.maplibre.compose.demoapp.demos.demoLocationEngines
 import org.maplibre.compose.demoapp.design.ButtonRow
 import org.maplibre.compose.demoapp.design.SectionHeader
@@ -46,7 +45,14 @@ internal enum class DemoFollowMode {
 /** Follow mode, engine choice, and the active [LocationState] for the shared map. */
 @Stable
 internal class DemoLocationUi {
-  var followMode by mutableStateOf(DemoFollowMode.Off)
+  private var followModeState by mutableStateOf(DemoFollowMode.Off)
+  var followMode: DemoFollowMode
+    get() = followModeState
+    set(value) {
+      followModeState = value
+      if (value == DemoFollowMode.Off) lockedFollowCamera = false
+    }
+
   var engine by mutableStateOf(demoLocationEngines.first())
   var locationState by mutableStateOf<LocationState?>(null)
     internal set
@@ -54,20 +60,39 @@ internal class DemoLocationUi {
   var backendId by mutableStateOf<String?>(null)
     internal set
 
+  /**
+   * True after the first follow lock this session, so a remade effect does not zoom to 16 again.
+   */
+  internal var lockedFollowCamera by mutableStateOf(false)
+
   val isFollowing: Boolean
     get() = followMode != DemoFollowMode.Off
 
-  fun cycleFollow() {
+  fun onFollowClick() {
+    if (followVisual() == DemoFollowVisual.Disabled) {
+      tryFollow()
+    } else {
+      cycleFollow()
+    }
+  }
+
+  private fun cycleFollow() {
     followMode =
       when (followMode) {
         DemoFollowMode.Off -> DemoFollowMode.Location
         DemoFollowMode.Location -> DemoFollowMode.Heading
         DemoFollowMode.Heading -> DemoFollowMode.Off
       }
-    if (isFollowing) {
-      locationState?.requestPermission()
-      LiveTrackingDemo.followVehicle = false
-    }
+    if (isFollowing) locationState?.requestPermission()
+  }
+
+  /**
+   * Starts follow if needed and restarts tracking, matching the disabled button's "Try following".
+   */
+  private fun tryFollow() {
+    if (followMode == DemoFollowMode.Off) followMode = DemoFollowMode.Location
+    locationState?.requestPermission()
+    locationState?.retry()
   }
 }
 
@@ -103,7 +128,7 @@ internal fun DemoLocationMapContent(location: DemoLocationUi, locationState: Loc
         DemoFollowMode.Location -> BearingUpdate.IGNORE
         DemoFollowMode.Heading -> BearingUpdate.TRACK_AUTOMATIC
       }
-    if (previousLocation == null) {
+    if (previousLocation == null && !location.lockedFollowCamera) {
       val followBearing =
         if (bearingUpdate == BearingUpdate.IGNORE) mapState.cameraPosition.bearing
         else
@@ -118,8 +143,10 @@ internal fun DemoLocationMapContent(location: DemoLocationUi, locationState: Loc
         ),
         duration = DemoFlightDuration,
       )
+      location.lockedFollowCamera = true
     } else {
       updateCamera(mapState, updateBearing = bearingUpdate)
+      location.lockedFollowCamera = true
     }
   }
 

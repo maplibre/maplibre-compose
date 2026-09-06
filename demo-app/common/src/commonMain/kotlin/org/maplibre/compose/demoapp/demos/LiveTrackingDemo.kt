@@ -16,7 +16,6 @@ import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
-import org.maplibre.compose.demoapp.DemoFollowMode
 import org.maplibre.compose.demoapp.DemoPointerPin
 import org.maplibre.compose.demoapp.center
 import org.maplibre.compose.demoapp.design.SwitchRow
@@ -72,7 +71,7 @@ object LiveTrackingDemo : Demo {
   private const val SPEED_METERS_PER_SECOND = 250.0
 
   // Off by default so the initial flight runs uninterrupted.
-  internal var followVehicle by mutableStateOf(false)
+  private var followVehicle by mutableStateOf(false)
   private var vehiclePosition by mutableStateOf(route.first())
 
   private val segmentLengths = route.zipWithNext { a, b -> approximateDistanceMeters(a, b) }
@@ -166,10 +165,7 @@ object LiveTrackingDemo : Demo {
     SwitchRow(
       label = "Follow the ferry",
       checked = followVehicle,
-      onCheckedChange = { checked ->
-        followVehicle = checked
-        if (checked) state.location.followMode = DemoFollowMode.Off
-      },
+      onCheckedChange = { followVehicle = it },
     )
   }
 }
