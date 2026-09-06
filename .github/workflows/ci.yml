@@ -26,7 +26,7 @@ permissions:
   contents: read
 
 env:
-  CI_SECRETS: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository) || (github.event_name == 'workflow_dispatch' && github.event.inputs.secrets != 'false') }}
+  CI_SECRETS: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository) || (github.event_name == 'workflow_dispatch' && github.event.inputs.secrets != 'false') }}
 
 jobs:
   plan:
@@ -52,7 +52,7 @@ jobs:
       contents: write
       actions: write
     env:
-      DEPENDABOT_PR: ${{ github.event_name == 'pull_request' && github.actor == 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository }}
+      DEPENDABOT_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: env.DEPENDABOT_PR != 'true'
@@ -325,7 +325,7 @@ jobs:
         ${{
           github.event_name == 'push'
           || (github.event_name == 'pull_request'
-          && github.actor != 'dependabot[bot]'
+          && github.event.pull_request.user.login != 'dependabot[bot]'
           && github.event.pull_request.head.repo.full_name == github.repository)
           || (github.event_name == 'workflow_dispatch'
           && github.event.inputs.secrets != 'false')
