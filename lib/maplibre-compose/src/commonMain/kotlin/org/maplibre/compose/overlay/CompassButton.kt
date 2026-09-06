@@ -124,6 +124,8 @@ public fun MapOverlayScope.CompassButton(
  * This component draws with Compose Foundation alone. The Material 3 module provides a themed
  * version of it.
  *
+ * @param contentModifier Applied to the button inside the visibility animation. Padding here
+ *   expands and shrinks with the button, unlike [modifier], which sits on the visibility wrapper.
  * @param visibilityDuration How long the button stays visible after the camera returns home.
  * @param slop How far the camera may turn from [getHomePosition] before the button appears, in
  *   degrees.
@@ -131,6 +133,7 @@ public fun MapOverlayScope.CompassButton(
 @Composable
 public fun MapOverlayScope.DisappearingCompassButton(
   modifier: Modifier = Modifier,
+  contentModifier: Modifier = Modifier,
   onClick: () -> Unit = {},
   style: CompassButtonStyle = CompassDefaults.style(),
   contentDescription: String = CompassDefaults.contentDescription(),
@@ -177,6 +180,7 @@ public fun MapOverlayScope.DisappearingCompassButton(
     exit = exitTransition,
   ) {
     overlayScope.CompassButton(
+      modifier = contentModifier,
       onClick = onClick,
       style = style,
       contentDescription = contentDescription,
