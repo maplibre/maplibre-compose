@@ -197,7 +197,15 @@ private fun Modifier.pointerGestures(
 ): Modifier =
   pointerInput(target, options.structuralKey, density, continuation) {
     val scope = CoroutineScope(currentCoroutineContext())
-    val hover = MapHoverGesture(scope, target, clicks, currentOptions, ids, density, subscriptions)
+    val hover =
+      MapHoverGesture(
+        scope,
+        target::positionFromScreenLocation,
+        currentOptions,
+        ids,
+        density,
+        subscriptions,
+      )
     val scroll =
       MapScrollGesture(
         target,
@@ -674,6 +682,7 @@ private class MapPointerGesture(
     if (pressRole == PressRole.First) {
       tapAdmissions =
         TapFamily.entries
+          .filter { it.matches(options, sample) }
           .mapNotNull { family ->
             taps.capture(family)?.let { family to it }
           }

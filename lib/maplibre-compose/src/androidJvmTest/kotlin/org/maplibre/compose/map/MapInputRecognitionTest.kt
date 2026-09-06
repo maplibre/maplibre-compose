@@ -540,10 +540,10 @@ class MapInputRecognitionTest {
           bindings { tapDrag { enabled = false } }
         }
     ) { target ->
-      target.capabilities = setOf(TapFamily.Tap, TapFamily.DoubleTap)
+      target.clickFamilies = setOf(TapFamily.Tap, TapFamily.DoubleTap)
       val map = mapNode()
       map.performTouchInput { down(center) }
-      target.capabilities = setOf(TapFamily.Tap)
+      target.clickFamilies = setOf(TapFamily.Tap)
       map.performTouchInput {
         up()
         advanceEventTime(SECOND_TAP_GAP_MILLIS)
@@ -2444,7 +2444,7 @@ class MapInputRecognitionTest {
         },
       parentOnClick = { parentClicks++ },
     ) { target ->
-      target.capabilities = emptySet()
+      target.clickFamilies = emptySet()
       mapNode().performTouchInput { click(center) }
       waitForIdle()
       assertEquals(1, parentClicks)

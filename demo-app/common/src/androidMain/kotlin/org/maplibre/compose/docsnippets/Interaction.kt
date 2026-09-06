@@ -10,6 +10,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import org.maplibre.compose.map.HoverEvent
 import org.maplibre.compose.map.KeyModifier
 import org.maplibre.compose.map.MapInteractions
 import org.maplibre.compose.map.MapState
@@ -19,6 +20,7 @@ import org.maplibre.compose.map.ScrollKind
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.map.withCameraInput
 import org.maplibre.compose.util.ClickResult
+import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.geojson.toJson
 
 @Composable
@@ -90,6 +92,22 @@ fun Interaction() {
       },
   )
   // #endregion click-listeners
+
+  // #region pointer-hover
+  var pointerPosition by remember { mutableStateOf<Position?>(null) }
+  MaplibreMap(
+    interactions =
+      MapInteractions {
+        callbacks {
+          hover {
+            onEvent { event ->
+              pointerPosition = if (event is HoverEvent.Exit) null else event.position
+            }
+          }
+        }
+      }
+  )
+  // #endregion pointer-hover
 }
 
 // #region camera-input

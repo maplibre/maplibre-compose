@@ -1,9 +1,6 @@
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.State
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.style.DesiredStyleLayer
@@ -12,7 +9,10 @@ import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.util.ClickResult
 import org.maplibre.compose.util.FeaturesClickHandler
 
-/** Layer knowledge stays outside input recognition; each queued click captures one loaded order. */
+/**
+ * Layer knowledge stays outside input recognition; presses capture subscriptions; recognized clicks
+ * read loaded order.
+ */
 internal class MapInteractionDispatcher(
   private val state: MapState,
   private val desiredRevision: State<State<DesiredStyleRevision?>>,
@@ -20,76 +20,17 @@ internal class MapInteractionDispatcher(
   private val interactions: State<MapInteractions>,
   private val subscriptions: InteractionSubscriptions,
 ) : MapInteractionTarget {
-  private var renderedRevision by mutableIntStateOf(0)
-
-  fun presentationChanged(map: MapAdapter) {
-    if (state.currentMapAttachment?.adapter === map) renderedRevision++
-  }
-
-  override val hoverRevision: Any
-    get() =
-      listOf(
-        state.currentMapAttachment,
-        state.currentMapAttachment?.isValid,
-        state.isClosed,
-        state.viewport,
-        renderedRevision,
-        loadedStyle.value,
-        loadedStyle.value?.isLoaded,
-        desiredRevision.value.value,
-      )
-
-  override fun captureHover(): HoverScene? {
-    val attachment = state.currentMapAttachment ?: return null
-    if (!attachment.isValid || state.isClosed) return null
-    val style = loadedStyle.value
-    val loaded = style?.isLoaded == true
-    val nodes = desiredRevision.value.value?.layers?.associateBy { it.definition.id }.orEmpty()
-    val layers =
-      if (loaded)
-        checkNotNull(style).getLayers().asReversed().mapNotNull { layer ->
-          val node = nodes[layer.id] ?: return@mapNotNull null
-          node.onHover?.let {
-            HoverLayer(layer.id, node.hoverSubscription ?: node.registration ?: node, it)
-          }
-        }
-      else emptyList()
-    return HoverScene(
-      attachment,
-      listOf(attachment, style, loaded),
-      layers,
-      {
-        !state.isClosed &&
-          attachment.isValid &&
-          state.currentMapAttachment === attachment &&
-          loadedStyle.value === style &&
-          (style?.isLoaded == true) == loaded
-      },
-    ) { layer, offset ->
-      attachment.queryRenderedFeatures(offset, setOf(layer.id)).isNotEmpty()
-    }
-  }
-
-  override val capabilities: Set<TapFamily>
-    get() =
-      TapFamily.entries.filterTo(mutableSetOf()) { family ->
-        family == TapFamily.Tap && interactions.value.callbacks.unhandledClick != null ||
-          desiredRevision.value.value?.layers?.any { it.handler(family) != null } == true
-      }
-
   override fun capture(family: TapFamily): MapClickPath? {
     val attachment = state.currentMapAttachment ?: return null
     val style = loadedStyle.value
     val structure = interactions.value.structuralKey
     val unhandledSlot = subscriptions.unhandledClick.capture().takeIf { family == TapFamily.Tap }
-    val nodes = desiredRevision.value.value?.layers?.associateBy { it.definition.id }.orEmpty()
-    val candidates =
-      style
-        ?.takeIf { it.isLoaded }
-        ?.getLayers()
+    val nodes =
+      desiredRevision.value.value
+        ?.layers
+        ?.filter { it.handler(family) != null }
+        ?.associateBy { it.definition.id }
         .orEmpty()
-        .asReversed()
-        .mapNotNull { nodes[it.id]?.takeIf { node -> node.handler(family) != null } }
     fun valid(): Boolean =
       interactions.value.structuralKey == structure &&
         !state.isClosed &&
@@ -103,9 +44,11 @@ internal class MapInteractionDispatcher(
           it.registration === node.registration &&
           it.subscription(family) === node.subscription(family)
       }
-    return MapClickPath(::valid) { event ->
+    return MapClickPath(::valid, nodes.isNotEmpty() || unhandledSlot != null) { event ->
       if (!valid()) return@MapClickPath ClickResult.Consume
-      for (node in candidates) {
+      val layerIds = style?.takeIf { nodes.isNotEmpty() && it.isLoaded }?.layerIds().orEmpty()
+      for (id in layerIds.asReversed()) {
+        val node = nodes[id] ?: continue
         if (current(node)?.handler(family) == null) continue
         val offset = event.screenOffset
         val padding = node.hitPadding

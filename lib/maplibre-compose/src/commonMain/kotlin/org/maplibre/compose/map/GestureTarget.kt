@@ -151,13 +151,5 @@ internal interface GestureTarget {
 
 /** Supplies subscriber demand and captures eligible application slots at press admission. */
 internal interface MapInteractionTarget {
-  val capabilities: Set<TapFamily>
-    get() = emptySet()
-
   fun capture(family: TapFamily): MapClickPath?
-
-  val hoverRevision: Any
-    get() = Unit
-
-  fun captureHover(): HoverScene? = HoverScene(Unit, Unit, emptyList(), { true }) { _, _ -> false }
 }

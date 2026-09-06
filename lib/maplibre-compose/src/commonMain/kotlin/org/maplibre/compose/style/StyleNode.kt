@@ -52,12 +52,10 @@ internal class StyleNode(
             onTwoFingerClick = node.onTwoFingerClick,
             hitPadding = node.hitPadding,
             registration = node,
-            onHover = node.onHover,
             clickSubscription = node.clickSubscription.capture(),
             contextClickSubscription = node.contextClickSubscription.capture(),
             doubleClickSubscription = node.doubleClickSubscription.capture(),
             twoFingerClickSubscription = node.twoFingerClickSubscription.capture(),
-            hoverSubscription = node.hoverSubscription.capture(),
           )
         },
       images = imageManager.desiredImages,

@@ -224,13 +224,10 @@ private fun MaplibreMapPresentation(
 
         override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) {
           state.refreshStyleSources(map)
-          clickDispatcher.presentationChanged(map)
         }
 
         override fun onEvent(map: MapAdapter, event: MapEvent) {
           state.onEvent(map, event)
-          if (event is MapEvent.FrameRendered || event == MapEvent.Idle)
-            clickDispatcher.presentationChanged(map)
         }
 
         override fun resolveMissingImage(map: MapAdapter, imageId: String) =

@@ -92,10 +92,18 @@ After Pass, a tap's selected camera response runs if it is still valid. Feature
 dispatch does not reverse Compose pointer consumption or forward a click to a
 parent composable.
 
-`callbacks.hover.onEvent` reports pointer entry, movement, and exit without
-feature queries. Layer `onHover` handlers additionally receive exact-point hits.
-Hover updates beneath a stationary pointer when the camera or style changes,
-does not consume input, and does not use click hit padding.
+Use `callbacks.hover.onEvent` for coordinate readouts, crosshairs, or pointer
+previews. It reports pointer entry, movement, and exit without consuming input,
+inspecting the style, or querying features. Camera movement and rendered frames
+do not generate hover events.
+
+<Code code={region(interaction, "pointer-hover")} lang="kotlin" title="App.kt" />
+
+For feature highlighting, use `MapState.queryRenderedFeatures` at the reported
+`screenOffset`. The app chooses the layers and query frequency; avoid starting
+an unbounded query for every pointer event. If a readout must update while the
+camera moves beneath a stationary pointer, keep the last screen offset, observe
+`mapState.viewport`, and call `mapState.positionFromScreenLocation(offset)`.
 
 ## Add external camera input
 

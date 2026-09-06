@@ -4,7 +4,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.Layer
-import org.maplibre.compose.map.HoverEvent
 import org.maplibre.compose.map.SubscriptionSlot
 import org.maplibre.compose.util.FeaturesClickHandler
 
@@ -38,12 +37,6 @@ internal class LayerNode<T : Layer>(val layer: T, val anchor: Anchor) : MapNode 
     }
 
   internal var hitPadding: Dp = 0.dp
-  internal val hoverSubscription = SubscriptionSlot()
-  internal var onHover: ((HoverEvent) -> Unit)? = null
-    set(value) {
-      hoverSubscription.update(value != null)
-      field = value
-    }
 
   override fun toString(): String {
     return "LayerNode(layer=${layer.id}, anchor=$anchor)"

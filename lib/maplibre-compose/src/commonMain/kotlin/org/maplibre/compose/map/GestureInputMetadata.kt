@@ -23,7 +23,7 @@ internal class GestureIds {
 
 internal fun PointerEvent.gestureSample(
   id: Long,
-  target: GestureTarget,
+  target: GestureTarget?,
   density: Density,
   offset: androidx.compose.ui.geometry.Offset = changes.first().position,
   types: Set<PointerType> = changes.mapTo(mutableSetOf()) { it.type },
@@ -33,7 +33,7 @@ internal fun PointerEvent.gestureSample(
     id,
     changes.maxOfOrNull { it.uptimeMillis } ?: 0L,
     location,
-    target.positionFromScreenLocation(location),
+    target?.positionFromScreenLocation(location),
     types,
     buildSet {
       if (buttons.isPrimaryPressed) add(PointerButton.Primary)

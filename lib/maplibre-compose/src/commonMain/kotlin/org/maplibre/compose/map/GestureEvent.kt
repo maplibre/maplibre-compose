@@ -235,7 +235,10 @@ public enum class ScrollKind {
   Continuous,
 }
 
-/** Mouse or stylus hover while no contacts or physical buttons are pressed. */
+/**
+ * Mouse or stylus entry, movement, and exit while no contacts or physical buttons are pressed.
+ * Camera and style changes do not produce events. Hover does not consume input or query features.
+ */
 @Immutable
 public sealed class HoverEvent private constructor(sample: GesturePointerSample) :
   PointerGestureEvent(sample) {

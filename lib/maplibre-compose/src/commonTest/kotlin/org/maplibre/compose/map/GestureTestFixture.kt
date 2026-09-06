@@ -140,13 +140,13 @@ internal class RecordingGestureTarget(
     anchor: DpOffset?,
   ) = rotateAndPitchBy(bearingDelta, pitchDelta, duration, anchor, gestureToken)
 
-  override var capabilities = setOf(TapFamily.Tap, TapFamily.LongPress, TapFamily.SecondaryClick)
+  var clickFamilies = setOf(TapFamily.Tap, TapFamily.LongPress, TapFamily.SecondaryClick)
   val deliveredTapFamilies = mutableListOf<TapFamily>()
   var clicks = 0
   var longClicks = 0
 
   override fun capture(family: TapFamily): MapClickPath =
-    MapClickPath({ !state.isClosed }) {
+    MapClickPath({ !state.isClosed }, family in clickFamilies) {
       deliveredTapFamilies += family
       when (family) {
         TapFamily.Tap -> clicks++

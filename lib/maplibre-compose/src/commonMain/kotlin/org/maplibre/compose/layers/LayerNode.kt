@@ -7,7 +7,6 @@ import androidx.compose.runtime.Updater
 import androidx.compose.runtime.key
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import org.maplibre.compose.map.HoverEvent
 import org.maplibre.compose.style.LayerNode
 import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.MapNodeApplier
@@ -26,7 +25,6 @@ internal fun <T : Layer> LayerNode(
   onDoubleClick: FeaturesClickHandler? = null,
   onTwoFingerClick: FeaturesClickHandler? = null,
   hitPadding: Dp = 0.dp,
-  onHover: ((HoverEvent) -> Unit)? = null,
 ) {
   require(hitPadding.value.isFinite() && hitPadding.value >= 0f) {
     "hitPadding must be finite and nonnegative"
@@ -44,7 +42,6 @@ internal fun <T : Layer> LayerNode(
         set(onDoubleClick) { this.onDoubleClick = it }
         set(onTwoFingerClick) { this.onTwoFingerClick = it }
         set(hitPadding) { this.hitPadding = it }
-        set(onHover) { this.onHover = it }
       },
     )
     SideEffect { node.scheduleApplyChanges() }

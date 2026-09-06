@@ -89,6 +89,7 @@ internal class MapTapAdmission(
  */
 internal class MapClickPath(
   val isValid: () -> Boolean,
+  val hasSubscribers: Boolean = false,
   val deliver: suspend (PointerGestureEvent) -> ClickResult,
 )
 
@@ -142,7 +143,7 @@ internal class MapTapDispatcher(
   fun capture(family: TapFamily): MapTapAdmission? =
     clicks.capture(family)?.let {
       val slot = family.subscription(subscriptions).capture()
-      MapTapAdmission(family, it, slot, slot != null || family in clicks.capabilities)
+      MapTapAdmission(family, it, slot, slot != null || it.hasSubscribers)
     }
 
   fun dispatch(admission: MapTapAdmission, sample: GesturePointerSample, camera: () -> Unit) {
