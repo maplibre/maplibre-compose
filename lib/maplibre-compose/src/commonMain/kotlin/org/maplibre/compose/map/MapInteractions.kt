@@ -318,6 +318,7 @@ public class ScrollResponseBuilder internal constructor() {
     select(ScrollResponse.Pan)
   }
 
+  /** Zooms from vertical scrolling. Horizontal-only events remain unclaimed. */
   public fun zoom() {
     select(ScrollResponse.Zoom)
   }

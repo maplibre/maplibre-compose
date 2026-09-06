@@ -1201,7 +1201,7 @@ class MapInputRecognitionTest {
     }
 
   @Test
-  fun scroll_is_claimed_during_main_before_the_parent_observes_it() {
+  fun scroll_zoom_uses_vertical_motion_and_leaves_horizontal_only_input_unclaimed() {
     var parentSawConsumed = false
     runRecognitionTest(
       options = MapInteractions { bindings { scroll { mappings { otherwise { zoom() } } } } },
@@ -1217,13 +1217,18 @@ class MapInputRecognitionTest {
           }
         },
     ) { target ->
+      mapNode().performMouseInput { scroll(Offset(2f, 0f)) }
+      waitForIdle()
+      assertFalse(parentSawConsumed)
+      assertTrue(target.scaleCalls.isEmpty())
+      assertTrue(target.moveCalls.isEmpty())
       mapNode().performMouseInput { scroll(Offset(2f, -1f)) }
       waitForIdle()
       assertTrue(parentSawConsumed)
       assertEquals(1, target.scaleCalls.size)
       assertTrue(
-        target.scaleCalls.single().scale < 1.0,
-        "horizontal dominance lost the zoom direction",
+        target.scaleCalls.single().scale > 1.0,
+        "horizontal movement reversed the vertical zoom direction",
       )
     }
   }

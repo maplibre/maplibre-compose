@@ -409,6 +409,7 @@ private class MapScrollGesture(
     if (burst != null && burst?.response != selected)
       cancel(GestureCancellationReason.BindingChanged)
     if (selected == null) return
+    if (selected == ScrollResponse.Zoom && normalized.zoomNotches.y.value == 0f) return
     target.observeInput()
     val current =
       burst
@@ -461,7 +462,10 @@ private class MapScrollGesture(
           gestureToken = current.token,
         )
       ScrollResponse.Zoom -> {
-        val scale = zoomLevelsToScale(-normalized.zoomComponent * options.bindings.scroll.zoomStep)
+        val scale =
+          zoomLevelsToScale(
+            -normalized.zoomNotches.y.value.toDouble() * options.bindings.scroll.zoomStep
+          )
         if (scale.isFinite() && scale > 0.0)
           target.inputScaleBy(
             scale,

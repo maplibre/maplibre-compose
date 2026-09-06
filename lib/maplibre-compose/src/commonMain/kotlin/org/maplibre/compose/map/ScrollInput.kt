@@ -23,13 +23,7 @@ internal enum class ScrollUnits {
 internal data class NormalizedScroll(
   val panDelta: DpOffset,
   val zoomNotches: DpOffset,
-) {
-  /** Horizontal-only wheels work; opposite-sign diagonal axes never cancel one another. */
-  val zoomComponent: Double
-    get() =
-      if (abs(zoomNotches.x.value) > abs(zoomNotches.y.value)) zoomNotches.x.value.toDouble()
-      else zoomNotches.y.value.toDouble()
-}
+)
 
 /** Converts host scroll units before any binding claims the sample. */
 internal fun normalizeScroll(

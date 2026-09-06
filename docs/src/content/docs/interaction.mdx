@@ -33,8 +33,9 @@ camera methods remain independent.
 ## Choose scroll behavior
 
 A `mappings` block replaces a family's camera responses. The first matching row
-with a permitted response wins. Scrolling zooms by default. This example changes
-ordinary scrolling to pan, while Ctrl-scroll zooms:
+with a permitted response wins. Vertical scrolling zooms by default; horizontal-only
+scrolling is left unclaimed. This example changes ordinary scrolling to pan on
+both axes, while Ctrl-scroll zooms:
 
 <Code code={region(interaction, "scroll-mappings")} lang="kotlin" title="App.kt" />
 

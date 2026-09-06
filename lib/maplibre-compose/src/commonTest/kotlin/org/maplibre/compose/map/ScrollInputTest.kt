@@ -25,7 +25,7 @@ class ScrollInputTest {
         checkNotNull(normalizeScroll(Offset(3f, -6f), case.units, Density(2f), IntSize(600, 400)))
       assertEquals(case.x, result.panDelta.x.value.toDouble(), 0.00001, case.units.name)
       assertEquals(case.y, result.panDelta.y.value.toDouble(), 0.00001, case.units.name)
-      assertEquals(case.notch, result.zoomComponent, 0.00001, case.units.name)
+      assertEquals(case.notch, result.zoomNotches.y.value.toDouble(), 0.00001, case.units.name)
     }
   }
 
@@ -37,14 +37,6 @@ class ScrollInputTest {
       val highDensity = normalizeScroll(Offset(0f, 100f), units, Density(2.5f), IntSize(600, 400))
       assertEquals(normal, highDensity)
     }
-  }
-
-  @Test
-  fun dominant_axis_drives_zoom_and_y_wins_ties() {
-    assertEquals(2.0, normalize(Offset(2f, 0f)).zoomComponent)
-    assertEquals(3.0, normalize(Offset(3f, -2f)).zoomComponent)
-    assertEquals(-3.0, normalize(Offset(3f, -3f)).zoomComponent)
-    assertEquals(-4.0, normalize(Offset(3f, -4f)).zoomComponent)
   }
 
   @Test
@@ -60,7 +52,4 @@ class ScrollInputTest {
       assertNull(normalizeScroll(raw, ScrollUnits.Rotation, Density(1f), IntSize(600, 400)))
     }
   }
-
-  private fun normalize(raw: Offset, units: ScrollUnits = ScrollUnits.Rotation): NormalizedScroll =
-    checkNotNull(normalizeScroll(raw, units, Density(1f), IntSize(600, 400)))
 }
