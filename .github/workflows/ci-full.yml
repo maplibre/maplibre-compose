@@ -1,8 +1,8 @@
-name: CI
+name: CI full
 
-# The draft tier: every pull request commit, main, and manual runs. Readiness
-# and label changes are handled by CI ready and CI full, so a commit's draft
-# results stand once they exist.
+# The full tier: variants a pull request gains from the ci:full label or from
+# Dependabot authorship. Adding the label runs them; removing it records that
+# the tier is no longer required, so an earlier failure stops blocking.
 on:
   push:
     branches: [main]
@@ -11,15 +11,19 @@ on:
       - opened
       - synchronize
       - reopened
+      - labeled
+      - unlabeled
   workflow_dispatch:
     inputs:
       secrets:
         type: boolean
         default: true
 
+# Only a push makes an earlier run stale. A label event on the same commit
+# may need the earlier run's verdict.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: ${{ github.event.action == 'synchronize' }}
 
 permissions:
   contents: read
@@ -33,12 +37,7 @@ jobs:
       restate: ${{ steps.plan.outputs.restate }}
       check: ${{ steps.plan.outputs.check }}
       secrets: ${{ steps.plan.outputs.secrets }}
-      hygiene: ${{ steps.plan.outputs.hygiene }}
-      android: ${{ steps.plan.outputs.android }}
-      ios-device: ${{ steps.plan.outputs.ios-device }}
-      js: ${{ steps.plan.outputs.js }}
       desktop: ${{ steps.plan.outputs.desktop }}
-      docs: ${{ steps.plan.outputs.docs }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -46,32 +45,27 @@ jobs:
       - id: plan
         # Planning needs only the runner Python standard library.
         env:
-          CI_TIER: draft
+          CI_TIER: full
         run: bash .mise/tasks/ci/plan
 
-  draft:
+  full:
     needs: plan
     if: needs.plan.outputs.selected == 'true'
-    uses: ./.github/workflows/tier-draft.yml
+    uses: ./.github/workflows/tier-full.yml
     with:
       secrets-available: ${{ fromJSON(needs.plan.outputs.secrets) }}
-      hygiene: ${{ needs.plan.outputs.hygiene }}
-      android: ${{ needs.plan.outputs.android }}
-      ios-device: ${{ needs.plan.outputs.ios-device }}
-      js: ${{ needs.plan.outputs.js }}
       desktop: ${{ needs.plan.outputs.desktop }}
-      docs: ${{ needs.plan.outputs.docs }}
     secrets: inherit
     permissions:
       actions: write
       contents: write
 
   all-good:
-    name: all-good (draft)
+    name: all-good (full)
     if: ${{ always() }}
     needs:
       - plan
-      - draft
+      - full
     # A job-level block resets unspecified permissions, so restate the read.
     permissions:
       checks: read
@@ -88,7 +82,7 @@ jobs:
           PLAN_RESULT: ${{ needs.plan.result }}
           SELECTED: ${{ needs.plan.outputs.selected }}
           RESTATE: ${{ needs.plan.outputs.restate }}
-          RESULT: ${{ needs.draft.result }}
+          RESULT: ${{ needs.full.result }}
           CHECK_NAME: ${{ needs.plan.outputs.check }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: bash .mise/tasks/ci/verdict

@@ -1,0 +1,70 @@
+[
+  { "job": "hygiene", "variant": "ubuntu", "tier": "draft" },
+  { "job": "docs", "variant": "ubuntu", "tier": "draft" },
+  { "job": "js", "variant": "chromium", "tier": "draft" },
+  { "job": "ios-device", "variant": "arm64", "tier": "draft" },
+  { "job": "ios", "variant": "arm64", "tier": "ready" },
+  {
+    "job": "android",
+    "variant": "36",
+    "tier": "draft",
+    "api-level": 36,
+    "artifact_name": "demo-app-android"
+  },
+  { "job": "android", "variant": "26", "tier": "ready", "api-level": 26 },
+  {
+    "job": "desktop",
+    "variant": "linux-x64",
+    "tier": "draft",
+    "runner": "ubuntu-24.04",
+    "save_toolchains": "false",
+    "artifact_type": "appimage",
+    "artifact_glob": "*.tar",
+    "artifact_name": "demo-app-desktop-linux-x64",
+    "test_variant": "desktop-linux-x64"
+  },
+  {
+    "job": "desktop",
+    "variant": "macos-arm64",
+    "tier": "ready",
+    "runner": "macos-26",
+    "save_toolchains": "false",
+    "artifact_type": "dmg",
+    "artifact_glob": "*",
+    "artifact_name": "demo-app-desktop-macos-arm64",
+    "test_variant": "desktop-macos-arm64"
+  },
+  {
+    "job": "desktop",
+    "variant": "windows-x64",
+    "tier": "ready",
+    "runner": "windows-2022",
+    "save_toolchains": "true",
+    "artifact_type": "msi",
+    "artifact_glob": "*",
+    "artifact_name": "demo-app-desktop-windows-x64",
+    "test_variant": "desktop-windows-x64"
+  },
+  {
+    "job": "desktop",
+    "variant": "linux-arm64",
+    "tier": "full",
+    "runner": "ubuntu-24.04-arm",
+    "save_toolchains": "true",
+    "artifact_type": "appimage",
+    "artifact_glob": "*.tar",
+    "artifact_name": "demo-app-desktop-linux-arm64",
+    "test_variant": "desktop-linux-arm64"
+  },
+  {
+    "job": "desktop",
+    "variant": "windows-arm64",
+    "tier": "full",
+    "runner": "windows-11-arm",
+    "save_toolchains": "true",
+    "artifact_type": "msi",
+    "artifact_glob": "*",
+    "artifact_name": "demo-app-desktop-windows-arm64",
+    "test_variant": "desktop-windows-arm64"
+  }
+]

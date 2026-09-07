@@ -29,4 +29,6 @@ if [[ ${committed} != true && $(git log -1 --pretty=%s) != "chore: apply hygiene
   exit 0
 fi
 git push
-gh workflow run CI --ref "${HEAD_REF}" -f secrets=false
+for workflow in CI "CI ready" "CI full"; do
+  gh workflow run "${workflow}" --ref "${HEAD_REF}" -f secrets=false
+done

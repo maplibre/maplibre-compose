@@ -77,11 +77,17 @@ change, with detail proportional to its complexity.
 Use draft status for unfinished work, unresolved decisions, or pending human
 review of generated code.
 
-Draft PRs run Android, JS, Linux x64 desktop, docs, hygiene, and iOS device
-compilation; ready PRs also run iOS simulator, macOS desktop, and Windows x64
-tests. Dependabot PRs, main, and manual runs always include every platform.
+CI runs in tiers. `ci/jobs.json` lists every job variant with the tier that
+introduces it. Each tier has a caller workflow with its own required check, a
+tier workflow listing the jobs it owns, and each job a reusable workflow that
+holds its body once. `ci/plan.py` selects the variants per event. Draft PRs run
+the draft tier: Android API 36, JS, Linux x64 desktop, docs, hygiene, and iOS
+device compilation. Ready PRs add the ready tier: Android API 26, iOS simulator,
+macOS desktop, and Windows x64. Marking a PR ready runs only the ready tier.
+Dependabot PRs, main, and manual runs always include every variant.
 
 For CI, FFI, toolchain, native loading, packaging, or architecture-sensitive
 changes, request every platform (including Linux/Windows ARM64) with
 `gh pr edit <number> --add-label 'ci:full'`. The label also works on drafts and
-persists across pushes; removing it restores the default tier.
+persists across pushes. Adding it runs only the tiers the PR has not yet run,
+and removing it restores the default tier without rerunning anything.

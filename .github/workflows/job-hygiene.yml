@@ -1,0 +1,69 @@
+name: hygiene job
+
+# One CI job as a matrix over the variants ci/plan.py selected for it. The tier
+# workflows call this; the variant is the only matrix dimension, so GitHub
+# names each run after it.
+on:
+  workflow_call:
+    inputs:
+      matrix:
+        description: The job's matrix, as ci/plan.py emits it.
+        type: string
+        required: true
+      secrets-available:
+        description: Whether repository secrets are available to this run.
+        type: boolean
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  hygiene:
+    name: ${{ matrix.variant }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(inputs.matrix) }}
+    timeout-minutes: 25
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: write
+    env:
+      DEPENDABOT_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: env.DEPENDABOT_PR != 'true'
+        with:
+          persist-credentials: false
+          # The docs versions file is generated from the release tags.
+          fetch-tags: true
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: env.DEPENDABOT_PR == 'true'
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-tags: true
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          dprint-cache: "true"
+          pnpm-cache: "true"
+          save-toolchains: "true"
+      - run: mise run fix
+      - id: apply-fix
+        if: env.DEPENDABOT_PR == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: mise run ci:commit-hygiene-fixes
+      - name: Check formatted files
+        if: steps.apply-fix.outputs.committed != 'true'
+        run: |
+          git update-index -q --refresh
+          git diff --exit-code
+          git diff --cached --exit-code
+      - run: mise run lint:android
+        if: steps.apply-fix.outputs.committed != 'true'
+      - run: mise run ci:test-scripts
+        if: steps.apply-fix.outputs.committed != 'true'
+      - run: mise run style-spec:parity -- --check
+        if: steps.apply-fix.outputs.committed != 'true'

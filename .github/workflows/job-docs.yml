@@ -1,0 +1,88 @@
+name: docs job
+
+# One CI job as a matrix over the variants ci/plan.py selected for it. The tier
+# workflows call this; the variant is the only matrix dimension, so GitHub
+# names each run after it.
+on:
+  workflow_call:
+    inputs:
+      matrix:
+        description: The job's matrix, as ci/plan.py emits it.
+        type: string
+        required: true
+      secrets-available:
+        description: Whether repository secrets are available to this run.
+        type: boolean
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  docs:
+    name: ${{ matrix.variant }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(inputs.matrix) }}
+    timeout-minutes: 30
+    runs-on: ubuntu-24.04
+    environment:
+      name: cloudflare-pages
+      url: ${{ steps.deploy-cloudflare.outputs.pages-deployment-alias-url }}
+      deployment: >-
+        ${{
+          github.event_name == 'push'
+          || (github.event_name == 'pull_request'
+          && github.event.pull_request.user.login != 'dependabot[bot]'
+          && github.event.pull_request.head.repo.full_name == github.repository)
+          || (github.event_name == 'workflow_dispatch'
+          && github.event.inputs.secrets != 'false')
+        }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          pnpm-cache: "true"
+      - run: mise run test:pages
+        env:
+          DOCS_BANNER: >-
+            ${{ github.event_name == 'pull_request'
+            && format(
+              'This site is a preview of <a href="{0}">pull request #{1}</a>.',
+              github.event.pull_request.html_url,
+              github.event.number)
+            || 'This site is a preview of the main branch. The published
+            documentation is at <a
+            href="https://maplibre.org/maplibre-compose/">maplibre.org</a>.' }}
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: docs/dist
+      - name: Deploy the Cloudflare Pages preview
+        id: deploy-cloudflare
+        if: ${{ inputs.secrets-available }}
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
+        env:
+          CLOUDFLARE_BRANCH: >-
+            ${{ github.event_name == 'pull_request'
+            && format('pr-{0}', github.event.number)
+            || 'main' }}
+        with:
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          command: >-
+            pages deploy build/cloudflare-pages
+            --project-name=maplibre-compose
+            --branch=${{ env.CLOUDFLARE_BRANCH }}
+          packageManager: pnpm
+          wranglerVersion: "4.125.0"
+      - name: Report the Cloudflare Pages preview
+        if: steps.deploy-cloudflare.outcome == 'success'
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy-cloudflare.outputs.deployment-url }}
+          PREVIEW_URL: ${{ steps.deploy-cloudflare.outputs.pages-deployment-alias-url }}
+        run: |
+          url="${PREVIEW_URL:-$DEPLOYMENT_URL}"
+          echo "Cloudflare Pages: ${url}/maplibre-compose/" >> "$GITHUB_STEP_SUMMARY"

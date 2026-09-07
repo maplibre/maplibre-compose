@@ -1,0 +1,112 @@
+name: android job
+
+# One CI job as a matrix over the variants ci/plan.py selected for it. The tier
+# workflows call this; the variant is the only matrix dimension, so GitHub
+# names each run after it.
+on:
+  workflow_call:
+    inputs:
+      matrix:
+        description: The job's matrix, as ci/plan.py emits it.
+        type: string
+        required: true
+      secrets-available:
+        description: Whether repository secrets are available to this run.
+        type: boolean
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: ${{ matrix.variant }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(inputs.matrix) }}
+    timeout-minutes: 45
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # API 24 is minSdk. Its Package Manager hangs on UTP streamed
+      # install-write (#1047). Oreo is the oldest image that completes that
+      # path, so ci/jobs.json pairs the current API with 26.
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          android-emulator: ${{ matrix.api-level }}
+      - id: android-host-tests
+        if: ${{ matrix.api-level == 36 }}
+        run: mise run test:android
+      - name: Upload Android host test results to Trunk
+        if: ${{ !cancelled() && matrix.api-level == 36 && inputs.secrets-available }}
+        continue-on-error: true
+        uses: trunk-io/analytics-uploader@385f1ccdf345b4532dc4b6c665dd432b702b8e28 # v2.1.2
+        with:
+          junit-paths: "**/build/test-results/testDebugUnitTest/TEST-*.xml,**/build/test-results/testAndroidHostTest/TEST-*.xml"
+          org-slug: sargunv
+          token: ${{ secrets.TRUNK_API_TOKEN }}
+          variant: android-host
+          previous-step-outcome: ${{ steps.android-host-tests.outcome }}
+          allow-missing-junit-files: "false"
+        env:
+          TRUNK_API_TOKEN: ${{ secrets.TRUNK_API_TOKEN }}
+      - name: Upload Android host test reports
+        if: ${{ failure() && steps.android-host-tests.outcome == 'failure' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          retention-days: 14
+          if-no-files-found: warn
+          name: android-${{ matrix.api-level }}-host-test-reports
+          path: |
+            **/build/reports/tests
+            **/build/test-results
+      - id: android-device-tests
+        run: mise run test:android:device ${{ matrix.api-level }}
+      - name: Upload Android device test results to Trunk
+        if: ${{ !cancelled() && inputs.secrets-available }}
+        continue-on-error: true
+        uses: trunk-io/analytics-uploader@385f1ccdf345b4532dc4b6c665dd432b702b8e28 # v2.1.2
+        with:
+          junit-paths: "**/build/outputs/androidTest-results/**/TEST-*.xml"
+          org-slug: sargunv
+          token: ${{ secrets.TRUNK_API_TOKEN }}
+          variant: android-device-api-${{ matrix.api-level }}
+          previous-step-outcome: ${{ steps.android-device-tests.outcome }}
+          allow-missing-junit-files: "false"
+        env:
+          TRUNK_API_TOKEN: ${{ secrets.TRUNK_API_TOKEN }}
+      # Job timeout is cancelled, not failure. Logcat's TestRunner lines name a
+      # hung test, so capture after every device-test outcome, including cancel.
+      - name: Capture Android emulator diagnostics
+        if: ${{ always() && steps.android-device-tests.outcome != 'skipped' }}
+        continue-on-error: true
+        run: mise run android-emulator:diagnostics
+      - name: Upload Android emulator diagnostics
+        if: ${{ always() && steps.android-device-tests.outcome != 'skipped' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          retention-days: 14
+          if-no-files-found: warn
+          name: android-${{ matrix.api-level }}-diagnostics
+          path: |
+            build/android-emulator/avd/**/*.ini
+            build/android-emulator/diagnostics
+            build/android-emulator/emulator.log
+            **/build/outputs/androidTest-results
+            **/build/reports/androidTests
+      - if: ${{ matrix.artifact_name != '' }}
+        run: mise run build:android-app
+      - if: ${{ matrix.artifact_name != '' }}
+        run: mise run test:publishing
+      - if: ${{ matrix.artifact_name != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          retention-days: 7
+          if-no-files-found: error
+          name: ${{ matrix.artifact_name }}
+          path: |
+            demo-app/android/build/outputs/apk/release/android-release.apk
+            demo-app/wearos/build/outputs/apk/release/wearos-release.apk
