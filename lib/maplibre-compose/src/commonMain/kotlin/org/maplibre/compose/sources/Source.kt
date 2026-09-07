@@ -29,8 +29,7 @@ public sealed class Source(internal val id: String) {
 }
 
 /**
- * Get the source with the given [id] from the base style specified via the `baseStyle` parameter in
- * [MaplibreMap][org.maplibre.compose.map.MaplibreMap].
+ * Get the source with the given [id] from the base style of the current loaded style.
  *
  * @throws IllegalStateException if the source does not exist
  */

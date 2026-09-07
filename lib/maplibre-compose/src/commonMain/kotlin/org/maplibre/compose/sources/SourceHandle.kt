@@ -18,7 +18,14 @@ import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
 
-/** Provides imperative access to a source for one loaded base-style generation. */
+/**
+ * Provides access to a source for one loaded base-style generation.
+ *
+ * Style content owns the definitions of declared sources: attempts to replace their data, image,
+ * URI, or bounds throw [StyleHandleException]. Feature state, queries, and invalidation remain
+ * available. Base-style sources and sources added through
+ * [org.maplibre.compose.map.StyleSources.add] also permit definition writes.
+ */
 public sealed class SourceHandle
 protected constructor(
   public val id: String,
@@ -66,6 +73,11 @@ protected constructor(
     action()
   }
 
+  protected fun definitionOperation(action: () -> Unit): Unit = operation {
+    operations.requireSourceWritable(id)
+    action()
+  }
+
   protected suspend fun <T> suspendingOperation(action: suspend () -> T): T {
     val checkpoint = operations.checkpoint()
     operation {}
@@ -109,10 +121,11 @@ internal constructor(
    * data. The source's currently applied options determine this behavior, including after source
    * replacement. The browser ignores this option.
    *
-   * @throws StyleHandleException if submission or synchronous preparation or installation fails.
+   * @throws StyleHandleException if style content declares this source, or submission or
+   *   synchronous preparation or installation fails.
    */
   public fun setData(data: GeoJsonData) {
-    operation {
+    definitionOperation {
       mutate("set data") { style.submitGeoJsonData(id, data, options) }
     }
   }
@@ -263,9 +276,13 @@ internal constructor(
   currentKind: () -> String?,
   operations: StyleHandleOperationGuard,
 ) : SourceHandle(id, style, "image", currentKind, operations) {
-  /** Updates the geographic corners of the image. */
+  /**
+   * Updates the geographic corners of the image.
+   *
+   * @throws StyleHandleException if style content declares this source.
+   */
   public fun setBounds(bounds: PositionQuad) {
-    operation {
+    definitionOperation {
       style.setImageSourceCoordinates(
         id,
         listOf(bounds.topLeft, bounds.topRight, bounds.bottomRight, bounds.bottomLeft),
@@ -273,14 +290,22 @@ internal constructor(
     }
   }
 
-  /** Replaces the source image with [image]. */
+  /**
+   * Replaces the source image with [image].
+   *
+   * @throws StyleHandleException if style content declares this source.
+   */
   public fun setImage(image: ImageBitmap) {
-    operation { style.setImageSourceImage(id, image) }
+    definitionOperation { style.setImageSourceImage(id, image) }
   }
 
-  /** Replaces the source image URI with [uri]. */
+  /**
+   * Replaces the source image URI with [uri].
+   *
+   * @throws StyleHandleException if style content declares this source.
+   */
   public fun setUri(uri: String) {
-    operation { style.setImageSourceUrl(id, uri) }
+    definitionOperation { style.setImageSourceUrl(id, uri) }
   }
 }
 

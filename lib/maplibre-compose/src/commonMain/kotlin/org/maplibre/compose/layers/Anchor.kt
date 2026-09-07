@@ -17,9 +17,9 @@ internal val LocalAnchor: ProvidableCompositionLocal<Anchor> = compositionLocalO
  * in the base style JSON rather than exclusively on top of these.
  *
  * **Note:** This mechanism can only be used to anchor layers at `layerId`s from the *base map
- * style* referred to in the `baseStyle` parameter of the
- * [MapLibreMap][org.maplibre.compose.map.MaplibreMap] composable. Anchoring layers defined in the
- * composition to other layers defined in the composition is not possible.
+ * style* loaded by [MapStyleState.baseStyle][org.maplibre.compose.map.MapStyleState.baseStyle].
+ * Anchoring layers defined in the composition to other layers defined in the composition is not
+ * possible.
  *
  * See [Anchor.Companion] for [Composable] functions to use in the layers composition.
  */

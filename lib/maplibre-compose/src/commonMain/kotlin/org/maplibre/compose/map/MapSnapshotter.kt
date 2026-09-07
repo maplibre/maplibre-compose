@@ -247,6 +247,16 @@ internal class MapSnapshotterImplementation(
           override fun desiredSourceDefinition(id: String) =
             this@MapSnapshotterImplementation.desiredSourceDefinition(id)
 
+          override fun requireSourceWritable(id: String) = lock.withLock {
+            requireNoDesiredSource(id)
+          }
+
+          override fun requireLayerWritable(id: String) = lock.withLock {
+            if (desiredRevision.layers.any { it.definition.id == id }) {
+              throw StyleHandleException("Layer ID '$id' is declared by the style content")
+            }
+          }
+
           override fun addStyleSource(source: Source) =
             this@MapSnapshotterImplementation.addStyleSource(source)
 
