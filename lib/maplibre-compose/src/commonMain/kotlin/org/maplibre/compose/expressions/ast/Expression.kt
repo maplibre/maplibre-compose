@@ -5,9 +5,11 @@ import org.maplibre.compose.expressions.value.ExpressionValue
 /**
  * An [Expression] that evaluates to a value of type [T].
  *
- * The functions to create expressions are defined in the
+ * Write expressions with ordinary Kotlin inside
+ * [expr][org.maplibre.compose.expressions.kotlin.expr]. The compiler plugin lowers that block to
+ * this AST. The functions in
  * [`org.maplibre.compose.expressions.dsl`](https://maplibre.org/maplibre-compose/api/lib/maplibre-compose/org.maplibre.compose.expressions.dsl/index.html)
- * package.
+ * remain as the lowering target and as an escape hatch.
  *
  * Most functions are named the same as in the
  * [MapLibre style specification](https://maplibre.org/maplibre-style-spec/expressions/), a few have

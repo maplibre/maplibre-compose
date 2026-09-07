@@ -8,6 +8,8 @@ plugins {
   id(libs.plugins.mavenPublish.get().pluginId)
 }
 
+applyMapLibreExprCompilerPlugin()
+
 mavenPublishing {
   pom {
     name = "MapLibre Compose"

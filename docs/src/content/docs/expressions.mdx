@@ -1,6 +1,6 @@
 ---
 title: Expressions in Kotlin
-description: The expression DSL that computes layer properties from feature data and zoom.
+description: Write layer expressions as ordinary Kotlin. A compiler plugin lowers them to MapLibre style JSON.
 ---
 
 import { Code } from "@astrojs/starlight/components";
@@ -12,25 +12,28 @@ import expressions from "../../../../demo-app/common/src/commonMain/kotlin/org/m
 Layer properties in MapLibre are not plain values. Each property takes an
 expression: a formula that the map evaluates while it renders, per feature and
 per zoom level. The [MapLibre Style Specification][spec-expressions] defines
-expressions as JSON arrays. MapLibre Compose provides a Kotlin DSL that builds
-them with type checking, in <Api of="org.maplibre.compose.expressions.dsl" />.
+expressions as JSON arrays.
 
-The DSL uses Compose types when a Compose type matches the property: `Dp` for
-sizes, `Color` for colors, and `DpOffset` for offsets.
+MapLibre Compose captures ordinary Kotlin inside
+<Api of="org.maplibre.compose.expressions.kotlin.expr" />. The compiler plugin
+rewrites `if`, `when`, operators, and helpers such as `feature` and `zoom` into
+that JSON. Layer parameters still take
+<Api of="org.maplibre.compose.expressions.ast.Expression" />.
+
+The Kotlin types match the property: `Dp` for sizes, `Color` for colors, and
+`Boolean` for filters.
 
 ## Constants
 
-A constant value must also be an expression. Wrap a plain value in
-<Api of="const" />:
+A constant is still an expression. Write the Kotlin value inside `expr`:
 
 <Code code={rememberedMapStyle(region(expressions, "constants"))} lang="kotlin" title="App.kt" />
 
 ## Read feature data
 
-<Api of="feature" /> accesses the properties of the feature being rendered.
-The result is untyped, so convert it with functions such as `asNumber()` or
-`asString()`. Functions such as <Api of="step" /> and <Api of="switch" />
-select an output from the value:
+<Api of="org.maplibre.compose.expressions.kotlin.FeatureExpr" /> is the feature
+being rendered. `feature["mag"]` is untyped. `feature.number("mag")` asserts a
+number. Kotlin `if` and `when` choose an output per feature:
 
 <Code code={rememberedMapStyle(region(expressions, "feature-data"))} lang="kotlin" title="App.kt" />
 
@@ -39,8 +42,8 @@ radius and a color computed from its own magnitude.
 
 ## React to zoom
 
-<Api of="zoom" /> is the current zoom level. <Api of="interpolate" /> computes
-a smooth value between stops:
+`zoom` is the current zoom level. `interpolate` computes a smooth value between
+stops:
 
 <Code code={rememberedMapStyle(region(expressions, "zoom"))} lang="kotlin" title="App.kt" />
 
@@ -53,13 +56,13 @@ features for which it is true:
 
 ## Where the code runs
 
-Kotlin code outside an expression runs during composition and produces an
-expression. The expression runs inside the map renderer, once per feature. A
-Kotlin `if` selects which expression to build; an expression `switch` selects
-a value per feature. Use Kotlin for decisions that depend on app state, and
-expressions for decisions that depend on feature data or zoom.
+The `expr` block is not executed during composition. The compiler plugin
+rewrites it into an expression tree. That tree runs inside the map renderer,
+once per feature. A Kotlin `if` inside `expr` is a per-feature `case`. A Kotlin
+`if` outside `expr` still selects which expression to build from app state.
 
-The API reference documents the full set of expression functions under
-<Api of="org.maplibre.compose.expressions.dsl" />.
+MapLibre-specific operations that have no Kotlin equivalent stay as helpers on
+<Api of="org.maplibre.compose.expressions.kotlin.ExprScope" />: `interpolate`,
+`step`, `format`, `image`, `collator`, and typed feature accessors.
 
 [spec-expressions]: https://maplibre.org/maplibre-style-spec/expressions/

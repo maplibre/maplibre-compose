@@ -44,6 +44,7 @@ include(
   ":demo-app:desktop-nucleus",
   ":lib",
   ":lib:maplibre-compose",
+  ":lib:maplibre-compose-expr-compiler",
   ":lib:maplibre-compose-material3",
   ":lib:maplibre-compose-runtime-opengl-android",
   ":lib:maplibre-compose-runtime-vulkan-android",

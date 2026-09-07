@@ -7,6 +7,8 @@ plugins {
   id(libs.plugins.compose.get().pluginId)
 }
 
+applyMapLibreExprCompilerPlugin()
+
 kotlin {
   jvmToolchain(libs.versions.java.toolchain.get().toInt())
 

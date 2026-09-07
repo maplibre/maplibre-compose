@@ -1,0 +1,164 @@
+package org.maplibre.compose.expressions.kotlin
+
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.TextUnit
+import kotlin.time.Duration
+import org.maplibre.compose.expressions.ast.Expression
+import org.maplibre.compose.expressions.ast.FunctionCall
+import org.maplibre.compose.expressions.ast.Options
+import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.dsl.image
+import org.maplibre.compose.expressions.dsl.nil
+import org.maplibre.compose.expressions.dsl.span
+import org.maplibre.compose.expressions.value.EnumValue
+import org.maplibre.compose.expressions.value.ExpressionValue
+import org.maplibre.compose.style.ProjectionTransition
+import org.maplibre.compose.util.DpPadding
+
+/**
+ * Stable call target for the compiler plugin. Each method has a simple JVM signature so IR
+ * generation does not have to pick among DSL overloads.
+ */
+public object ExprEmit {
+  public fun lit(value: Any?): Expression<*> =
+    when (value) {
+      null -> nil()
+      is Expression<*> -> value
+      is Boolean -> const(value)
+      is Int -> const(value)
+      is Long -> const(value.toInt())
+      is Float -> const(value)
+      is Double -> const(value.toFloat())
+      is String -> const(value)
+      is Color -> const(value)
+      is Dp -> const(value)
+      is DpOffset -> const(value)
+      is Offset -> const(value)
+      is DpPadding -> const(value)
+      is TextUnit -> const(value)
+      is Duration -> const(value)
+      is ProjectionTransition -> const(value)
+      is EnumValue<*> -> value.literal
+      is ImageBitmap -> image(value)
+      is Painter -> image(value)
+      is List<*> -> listLiteral(value)
+      else ->
+        error(
+          "Cannot capture ${value::class.simpleName} as an expression literal. " +
+            "Pass a Boolean, Number, String, Color, Dp, Offset, Duration, enum, " +
+            "list of those, or an Expression."
+        )
+    }
+
+  public fun op(name: String, vararg args: Expression<*>): Expression<*> =
+    FunctionCall.of(name, args.asList())
+
+  public fun match(
+    input: Expression<*>,
+    fallback: Expression<*>,
+    vararg labelsAndOutputs: Expression<*>,
+  ): Expression<*> {
+    val args =
+      buildList(labelsAndOutputs.size + 2) {
+        add(input)
+        addAll(labelsAndOutputs)
+        add(fallback)
+      }
+    val caseCount = labelsAndOutputs.size / 2
+    return FunctionCall.of(
+      "match",
+      args,
+      isLiteralArg = { i -> i in 1..(caseCount * 2) && i % 2 == 1 },
+    )
+  }
+
+  public fun interpolate(
+    kind: String,
+    type: Expression<*>,
+    input: Expression<*>,
+    vararg stops: Expression<*>,
+  ): Expression<*> {
+    val args =
+      buildList(stops.size + 2) {
+        add(type)
+        add(input)
+        addAll(stops)
+      }
+    return FunctionCall.of(kind, args)
+  }
+
+  public fun step(
+    input: Expression<*>,
+    fallback: Expression<*>,
+    vararg stops: Expression<*>,
+  ): Expression<*> {
+    val args =
+      buildList(stops.size + 2) {
+        add(input)
+        add(fallback)
+        addAll(stops)
+      }
+    return FunctionCall.of("step", args)
+  }
+
+  public fun formatSpans(vararg valuesAndOptions: Expression<*>): Expression<*> =
+    FunctionCall.of("format", valuesAndOptions.asList())
+
+  public fun spanOptions(
+    textFont: Expression<*>?,
+    textColor: Expression<*>?,
+    textSize: Expression<*>?,
+  ): Expression<*> = Options.build {
+    textFont?.let { put("text-font", it) }
+    textColor?.let { put("text-color", it) }
+    textSize?.let { put("font-scale", it) }
+  }
+
+  public fun namedOptions(vararg keysAndValues: Any?): Expression<*> = Options.build {
+    var i = 0
+    while (i < keysAndValues.size) {
+      val key = keysAndValues[i] as String
+      val value = keysAndValues[i + 1] as Expression<*>?
+      if (value != null) put(key, value)
+      i += 2
+    }
+  }
+
+  public fun formattedSpan(
+    value: Expression<*>,
+    textFont: String?,
+    textColor: Color?,
+    textSize: TextUnit?,
+  ): Expression<*> =
+    span(
+        value = value.cast(),
+        textFont = textFont?.let { const(it) },
+        textColor = textColor?.let { const(it) },
+        textSize = textSize?.let { const(it) },
+      )
+      .value
+
+  @Suppress("UNCHECKED_CAST")
+  private fun listLiteral(values: List<*>): Expression<*> {
+    if (values.isEmpty()) return const(emptyList<String>())
+    return when (val first = values.first()) {
+      is String -> const(values as List<String>)
+      is Number -> const(values as List<Number>)
+      is EnumValue<*> -> const(values.map { (it as EnumValue<*>).literal })
+      is Expression<*> -> {
+        val literals = values.map { it as Expression<*> }
+        if (literals.all { it is org.maplibre.compose.expressions.ast.Literal<*, *> }) {
+          const(literals as List<org.maplibre.compose.expressions.ast.Literal<ExpressionValue, *>>)
+        } else {
+          error("List literals must contain only compile-time values")
+        }
+      }
+      else -> error("Cannot capture a list of ${first?.let { it::class.simpleName }}")
+    }
+  }
+}
