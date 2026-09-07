@@ -60,7 +60,17 @@ class BearingHapticDetectorTest {
 
   @Test
   fun haptic_blocks_replace_inherited_notches_without_enabling_snapping() {
-    val north = MapInteractions { camera { rotate { haptics { notch(BearingTargets.at(0.0)) } } } }
+    val defaults = MapInteractions.Standard.camera.settings.rotate.haptics
+    val detector = BearingHapticDetector(defaults)
+    assertEquals(HapticEmphasis.Standard, detector.update(355.0, 5.0, 0.milliseconds))
+    val north = MapInteractions {
+      camera {
+        rotate {
+          snapping { enabled = false }
+          haptics { notch(BearingTargets.at(0.0)) }
+        }
+      }
+    }
     assertEquals(false, north.camera.settings.rotate.snapping.enabled)
     val other =
       MapInteractions(north) { camera { rotate { haptics { notch(BearingTargets.at(32.0)) } } } }

@@ -147,10 +147,10 @@ internal constructor(
   }
 
   /**
-   * Replaces haptic notches; an empty block disables them. Feedback is opt-in and runs during
-   * pointer rotation, not momentum, settlement, keys, or programmatic camera changes. iOS, Android,
-   * and macOS use platform feedback subject to hardware and system settings. Other platforms are
-   * silent.
+   * Replaces the default standard-emphasis north notch; an empty block disables feedback. Runs
+   * during pointer rotation, not momentum, settlement, keys, or programmatic camera changes. iOS,
+   * Android, and macOS use platform feedback subject to hardware and system settings. Other
+   * platforms are silent.
    */
   public fun haptics(block: BearingHapticsBuilder.() -> Unit) {
     haptics = BearingHapticsBuilder().apply(block).build()

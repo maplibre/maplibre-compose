@@ -5,7 +5,7 @@ import kotlin.math.abs
 /**
  * Settles near a target after rotation input and its momentum finish normally.
  *
- * Snapping is disabled until configured. The initial targets and tolerance snap to north within 7°.
+ * Snapping defaults to north within 7°. Set [enabled] to false to disable it.
  */
 @MapInteractionDsl
 public class BearingSnappingBuilder internal constructor(from: BearingSnapping) {
@@ -28,7 +28,7 @@ public class BearingSnappingBuilder internal constructor(from: BearingSnapping) 
 }
 
 internal data class BearingSnapping(
-  val enabled: Boolean = false,
+  val enabled: Boolean = true,
   val targets: BearingTargets = BearingTargets.at(0.0),
   val tolerance: Double = 7.0,
 ) {
