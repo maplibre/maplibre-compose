@@ -325,15 +325,6 @@ internal constructor(
   operations: StyleHandleOperationGuard,
 ) : SourceHandle(id, style, "raster-dem", currentKind, operations)
 
-/** Provides imperative access to a video source reconstructed from a loaded style. */
-public class VideoSourceHandle
-internal constructor(
-  id: String,
-  style: StyleBinding,
-  currentKind: () -> String?,
-  operations: StyleHandleOperationGuard,
-) : SourceHandle(id, style, "video", currentKind, operations)
-
 /** Provides imperative access to a source type that has no specialized common handle. */
 public class UnknownSourceHandle
 internal constructor(
@@ -374,7 +365,6 @@ internal fun StyleBinding.sourceHandle(
     "raster" -> RasterSourceHandle(id, this, currentKind, operations)
     "raster-dem" -> RasterDemSourceHandle(id, this, currentKind, operations)
     "vector" -> VectorSourceHandle(id, this, currentKind = currentKind, operations = operations)
-    "video" -> VideoSourceHandle(id, this, currentKind, operations)
     else -> UnknownSourceHandle(id, this, currentKind, operations)
   }
 }

@@ -36,21 +36,25 @@ public sealed class Source(internal val id: String) {
  */
 public sealed class FeatureSource(id: String) : Source(id)
 
-/**
- * A source that a raster layer can draw: tiled raster pictures, a positioned image, or a video
- * source from a style.
- */
+/** A source that a raster layer can draw: tiled raster pictures or a positioned image. */
 public sealed class RasterLayerSource(id: String) : Source(id)
 
 /**
- * Get the source with the given [id] from the base style of the current loaded style.
+ * Get the source with the given [id] from the base style of the current loaded style, or null when
+ * the base style has no such source.
  *
- * The type argument selects the reconstructed source class. A vector tile source in the style is a
- * [VectorSource]; a GeoJSON source is a [GeoJsonSource]. The function returns null when the source
- * is missing or is a different class.
+ * The type argument names the class the caller needs, such as [VectorSource] for a feature layer.
+ *
+ * @throws IllegalStateException if the source exists but is not a [T].
  */
 @Composable
-public inline fun <reified T : Source> getBaseSource(id: String): T? = baseSourceOrNull(id) as? T
+public inline fun <reified T : Source> getBaseSource(id: String): T? {
+  val source = baseSourceOrNull(id) ?: return null
+  check(source is T) {
+    "Base source '$id' is a ${source::class.simpleName}, not a ${T::class.simpleName}"
+  }
+  return source
+}
 
 @PublishedApi
 @Composable

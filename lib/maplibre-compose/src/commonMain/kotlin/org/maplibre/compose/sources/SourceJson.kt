@@ -98,16 +98,15 @@ internal fun Expression<BooleanValue>.toFilterJson(): JsonElement? = takeUnless 
   ?.toStyleJson()
 
 /**
- * Rebuilds a source descriptor from style JSON. Known `type` values become the matching public
- * class so layer composables can accept them. Unrecognized types stay [UnknownSource].
+ * Rebuilds a base-style source from what MapLibre reports about it. Returns null for a style-spec
+ * `type` this API has no class for, such as a GL JS canvas or video source.
  */
-internal fun reconstructedSource(id: String, definition: JsonObject): Source =
+internal fun reconstructedSource(id: String, definition: JsonObject): Source? =
   when ((definition["type"] as? JsonPrimitive)?.content) {
     "vector" -> VectorSource(id, definition)
     "raster" -> RasterSource(id, definition)
     "raster-dem" -> RasterDemSource(id, definition)
     "geojson" -> GeoJsonSource(id, definition)
     "image" -> ImageSource(id, definition)
-    "video" -> VideoSource(id, definition)
-    else -> UnknownSource(id, definition)
+    else -> null
   }

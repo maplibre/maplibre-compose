@@ -168,7 +168,7 @@ internal open class MlnFfiStyleBinding(
   }
 
   override fun getSources(): List<Source> = readMap { map ->
-    map.styleSourceIds().filter { isStyleSource(map, it) }.map { reconstructSource(map, it) }
+    map.styleSourceIds().filter { isStyleSource(map, it) }.mapNotNull { reconstructSource(map, it) }
   }
     .orEmpty()
 
@@ -186,7 +186,7 @@ internal open class MlnFfiStyleBinding(
   private fun isStyleSource(map: MapHandle, id: String): Boolean =
     map.styleSourceExists(id) && map.styleSourceType(id) != SourceType.ANNOTATIONS
 
-  private fun reconstructSource(map: MapHandle, id: String): Source =
+  private fun reconstructSource(map: MapHandle, id: String): Source? =
     reconstructedSource(id, sourceDefinition(map, id))
 
   private fun sourceDefinition(map: MapHandle, id: String): JsonObject {

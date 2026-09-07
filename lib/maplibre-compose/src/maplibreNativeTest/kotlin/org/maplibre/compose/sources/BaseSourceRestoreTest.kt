@@ -13,7 +13,7 @@ import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.install
 import org.maplibre.compose.style.uninstall
 
-class UnknownSourceRestoreTest {
+class BaseSourceRestoreTest {
 
   /**
    * MapLibre retains a tiled source's templates, so a reconstructed source can be added to a later
@@ -74,7 +74,7 @@ class UnknownSourceRestoreTest {
       """
       {
         "version": 8,
-        "name": "unknown-source-restore-test",
+        "name": "base-source-restore-test",
         "sources": {
           "vec": {
             "type": "vector",

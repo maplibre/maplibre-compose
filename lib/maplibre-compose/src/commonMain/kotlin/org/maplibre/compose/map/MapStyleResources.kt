@@ -18,12 +18,8 @@ import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.sources.RasterSourceHandle
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceHandle
-import org.maplibre.compose.sources.UnknownSource
-import org.maplibre.compose.sources.UnknownSourceHandle
 import org.maplibre.compose.sources.VectorSource
 import org.maplibre.compose.sources.VectorSourceHandle
-import org.maplibre.compose.sources.VideoSource
-import org.maplibre.compose.sources.VideoSourceHandle
 import org.maplibre.compose.style.Light
 import org.maplibre.compose.style.Projection
 import org.maplibre.compose.style.Sky
@@ -71,14 +67,6 @@ public class StyleSources internal constructor(private val style: MapStyleState)
   /** Returns the current handle with [source]'s ID and type, or null while unavailable. */
   public operator fun get(source: CustomVectorSource): CustomVectorSourceHandle? =
     get(source.id) as? CustomVectorSourceHandle
-
-  /** Returns the current handle with [source]'s ID and type, or null while unavailable. */
-  public operator fun get(source: VideoSource): VideoSourceHandle? =
-    get(source.id) as? VideoSourceHandle
-
-  /** Returns the current handle with [source]'s ID and type, or null while unavailable. */
-  public operator fun get(source: UnknownSource): UnknownSourceHandle? =
-    get(source.id) as? UnknownSourceHandle
 
   /** Adds [source] to the current loaded-style generation and returns its handle. */
   public fun add(source: Source): SourceHandle = style.requireOwner().addStyleSource(source)

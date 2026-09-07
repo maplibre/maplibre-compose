@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.ImageBitmap
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -18,37 +17,21 @@ import org.maplibre.spatialk.geojson.Position
 /** A map data source of an image placed at a given position. */
 public class ImageSource : RasterLayerSource {
 
-  private var bounds: PositionQuad
-  private var url: String
-
-  /** The pixels this source draws, or null when a URL names them. */
-  private var image: ImageBitmap?
-
-  /** The style JSON this source was reconstructed from, or null for an application-built source. */
-  private val reconstructedJson: JsonObject?
+  private val content: Content
 
   /** Create an ImageSource from coordinates and a bitmap image. */
   public constructor(id: String, position: PositionQuad, image: ImageBitmap) : super(id) {
-    bounds = position
-    url = ""
-    this.image = image
-    reconstructedJson = null
+    content = Declared(position, url = "", image = image)
   }
 
   /** Create an ImageSource from coordinates and an image URI. */
   public constructor(id: String, position: PositionQuad, uri: String) : super(id) {
-    bounds = position
-    url = uri
-    image = null
-    reconstructedJson = null
+    content = Declared(position, url = uri, image = null)
   }
 
-  /** An image source reconstructed from a loaded style. */
+  /** An image source reconstructed from a loaded style; it knows only what MapLibre reports. */
   internal constructor(id: String, definition: JsonObject) : super(id) {
-    reconstructedJson = definition
-    bounds = RECONSTRUCTED_IMAGE_BOUNDS
-    url = (definition["url"] as? JsonPrimitive)?.content.orEmpty()
-    image = null
+    content = FromStyle(definition)
   }
 
   /**
@@ -56,41 +39,58 @@ public class ImageSource : RasterLayerSource {
    * pixel-backed source added from [toJson] would be added empty.
    */
   override fun definition(): SourceDefinition =
-    reconstructedJson?.let { SourceDefinition.Json(id, it) }
-      ?: SourceDefinition.Image(
-        id,
-        toJson(),
-        bounds.toCorners(),
-        image?.let(ImageSnapshot::capture),
-      )
+    when (val content = content) {
+      is Declared ->
+        SourceDefinition.Image(
+          id,
+          toJson(),
+          content.bounds.toCorners(),
+          content.image?.let(ImageSnapshot::capture),
+        )
+      is FromStyle -> super.definition()
+    }
 
   /** The URL form of this source; a pixel-backed source reports an empty `url` here. */
   override fun toJson(): JsonObject =
-    reconstructedJson
-      ?: buildJsonObject {
-        put("type", "image")
-        put("url", url)
-        putJsonArray("coordinates") { bounds.toCorners().forEach { add(it.toCoordinateJson()) } }
-      }
+    when (val content = content) {
+      is Declared ->
+        buildJsonObject {
+          put("type", "image")
+          put("url", content.url)
+          putJsonArray("coordinates") {
+            content.bounds.toCorners().forEach { add(it.toCoordinateJson()) }
+          }
+        }
+      is FromStyle -> content.json
+    }
 
   internal fun setDesiredBounds(bounds: PositionQuad) {
-    this.bounds = bounds
+    declared().bounds = bounds
   }
 
   internal fun setDesiredImage(image: ImageBitmap) {
-    url = ""
-    this.image = image
+    declared().url = ""
+    declared().image = image
   }
 
   internal fun setDesiredUri(uri: String) {
-    url = uri
-    image = null
+    declared().url = uri
+    declared().image = null
   }
-}
 
-/** Placeholder corners; reconstructed image sources replay their style JSON. */
-private val RECONSTRUCTED_IMAGE_BOUNDS =
-  PositionQuad(Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0))
+  private fun declared(): Declared {
+    check(content is Declared) { "Base-style source '$id' takes no image from the composition" }
+    return content
+  }
+
+  private sealed interface Content
+
+  /** @param image The pixels this source draws, or null when [url] names them. */
+  private class Declared(var bounds: PositionQuad, var url: String, var image: ImageBitmap?) :
+    Content
+
+  private class FromStyle(val json: JsonObject) : Content
+}
 
 /** The order MapLibre expects: top left, top right, bottom right, bottom left. */
 private fun PositionQuad.toCorners(): List<Position> =

@@ -175,12 +175,12 @@ internal class GlJsStyleBinding(
 
   override fun getSource(id: String): Source? {
     requireLoaded()
-    return if (map.getSource<SourceHandle>(id) == null) null else reconstructSource(id)
+    return reconstructSource(id)
   }
 
   override fun getSources(): List<Source> {
     requireLoaded()
-    return map.getStyle().sources.keys().map(::reconstructSource)
+    return map.getStyle().sources.keys().mapNotNull(::reconstructSource)
   }
 
   override fun sourceIds(): List<String> {
@@ -198,18 +198,14 @@ internal class GlJsStyleBinding(
     return map.getLayersOrder().toList()
   }
 
-  private fun reconstructSource(id: String): Source {
-    val source = map.getSource<SourceHandle>(id)
-    val serialized = source?.serialize()?.toJsonElement() as? JsonObject
+  private fun reconstructSource(id: String): Source? {
+    val source = map.getSource<SourceHandle>(id) ?: return null
     return reconstructedSource(
       id,
-      serialized
-        ?: buildJsonObject {
-          source?.let {
-            put("type", it.type)
-            it.attribution?.let { attribution -> put("attribution", attribution) }
-          }
-        },
+      buildJsonObject {
+        put("type", source.type)
+        source.attribution?.let { put("attribution", it) }
+      },
     )
   }
 

@@ -28,12 +28,7 @@ internal const val CLUSTER_ID_PROPERTY = "cluster_id"
  */
 public class GeoJsonSource : FeatureSource {
 
-  private val options: GeoJsonOptions
-
-  private var data: GeoJsonData
-
-  /** The style JSON this source was reconstructed from, or null for an application-built source. */
-  private val reconstructedJson: JsonObject?
+  private val content: Content
 
   /**
    * @param id Unique identifier for this source
@@ -41,37 +36,46 @@ public class GeoJsonSource : FeatureSource {
    * @param options see [GeoJsonOptions]
    */
   public constructor(id: String, data: GeoJsonData, options: GeoJsonOptions) : super(id) {
-    this.options = options
-    this.data = data
-    reconstructedJson = null
+    content = Declared(data, options)
   }
 
-  /** A GeoJSON source reconstructed from a loaded style. */
+  /** A GeoJSON source reconstructed from a loaded style; it knows only what MapLibre reports. */
   internal constructor(id: String, definition: JsonObject) : super(id) {
-    reconstructedJson = definition
-    options = GeoJsonOptions()
-    data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}""")
+    content = FromStyle(definition)
   }
 
   override fun toJson(): JsonObject =
-    reconstructedJson
-      ?: buildJsonObject {
-        put("type", "geojson")
-        put("data", data.toDataJson())
-        putGeoJsonOptions(options)
-      }
+    when (val content = content) {
+      is Declared ->
+        buildJsonObject {
+          put("type", "geojson")
+          put("data", content.data.toDataJson())
+          putGeoJsonOptions(content.options)
+        }
+      is FromStyle -> content.json
+    }
 
   override fun definition(): SourceDefinition =
-    reconstructedJson?.let { SourceDefinition.Json(id, it) }
-      ?: SourceDefinition.GeoJson(
-        id,
-        data,
-        options.copy(clusterProperties = options.clusterProperties.toMap()),
-      )
+    when (val content = content) {
+      is Declared ->
+        SourceDefinition.GeoJson(
+          id,
+          content.data,
+          content.options.copy(clusterProperties = content.options.clusterProperties.toMap()),
+        )
+      is FromStyle -> super.definition()
+    }
 
   internal fun setDesiredData(data: GeoJsonData) {
-    this.data = data
+    check(content is Declared) { "Base-style source '$id' takes no data from the composition" }
+    content.data = data
   }
+
+  private sealed interface Content
+
+  private class Declared(var data: GeoJsonData, val options: GeoJsonOptions) : Content
+
+  private class FromStyle(val json: JsonObject) : Content
 
   public fun isCluster(feature: Feature<*, JsonObject?>): Boolean =
     CLUSTER_ID_PROPERTY in feature.properties.orEmpty()

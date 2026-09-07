@@ -103,8 +103,6 @@ internal external interface StyleLayer {
 internal external interface SourceHandle {
   val type: String
   val attribution: String?
-
-  fun serialize(): SourceSpecification
 }
 
 internal external interface GlJsGeoJsonSource : SourceHandle {
