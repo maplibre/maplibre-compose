@@ -64,6 +64,7 @@ import org.maplibre.compose.style.StyleLoadTracker
 import org.maplibre.compose.style.StylePresentation
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleRequestId
+import org.maplibre.compose.style.StyleResourceChanges
 import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.metersPerDpAtLatitude
@@ -246,15 +247,6 @@ internal class MlnFfiMapSession(
 
   @Volatile private var styleBinding: MlnFfiStyleBinding? = null
   private val styleReconciler = StyleReconciler()
-
-  /** The binding whose readiness callback has already succeeded; see [reconcileStyleRevision]. */
-  private var styleReadinessNotifiedFor: MlnFfiStyleBinding? = null
-
-  /**
-   * Increments when a reconciliation or replay begins. A posted revision completion that observes a
-   * newer generation was superseded and only repaints. Read on the owner thread.
-   */
-  @Volatile private var reconcileGeneration = 0L
 
   internal val loadedStyleIdentity
     get() = styleBinding?.identity
@@ -1073,62 +1065,49 @@ internal class MlnFfiMapSession(
     onMap {}
   }
 
-  override suspend fun reconcileStyleRevision(revision: DesiredStyleRevision) {
-    val binding = styleBinding ?: return
-    val engine = lifecycleEngineIdentity ?: return
-    val style = lifecycleStyleIdentity ?: return
-    if (!styleLoadTracker.beginReconciliation(binding.identity)) return
-    val generation = ++reconcileGeneration
+  override suspend fun reconcileStyleRevision(
+    revision: DesiredStyleRevision
+  ): StyleResourceChanges {
+    val binding = checkNotNull(styleBinding)
+    val engine = checkNotNull(lifecycleEngineIdentity)
+    val style = checkNotNull(lifecycleStyleIdentity)
     try {
-      styleReconciler.apply(binding, revision)
-      val noteReconciled: (MapHandle) -> Unit = { map ->
-        map.requestRepaint()
-        if (generation == reconcileGeneration && styleLoadTracker.reconciled(binding.identity)) {
-          lifecycleCallbacks.onStyleReady(engine, style, this)
-        }
-      }
-      if (styleReadinessNotifiedFor === binding) {
-        // Steady state: per-frame revisions must not block the caller on the owner thread. The
-        // readiness callback already succeeded for this binding, so a later failure hides the
-        // presentation instead of propagating to the caller.
-        onMap { map ->
-          try {
-            noteReconciled(map)
-          } catch (error: Throwable) {
-            styleLoadTracker.failed(binding.identity)
-            throw error
+      val changes = styleReconciler.apply(binding, revision)
+      if (!styleLoadTracker.contentReady) {
+        runOnMap { map ->
+          map.requestRepaint()
+          if (styleLoadTracker.reconciled(binding.identity)) {
+            lifecycleCallbacks.onStyleReady(engine, style, this)
           }
         }
       } else {
-        // Until the style is ready, readiness failures must propagate to the caller.
-        if (runOnMap(noteReconciled) != null) {
-          styleReadinessNotifiedFor = binding
-        }
+        onMap { it.requestRepaint() }
       }
+      requestRender()
+      return changes
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
       styleLoadTracker.failed(binding.identity)
       throw error
     }
-    requestRender()
   }
 
-  override suspend fun replayStyleRevision(revision: DesiredStyleRevision) {
-    val binding = styleBinding ?: return
-    if (!styleLoadTracker.beginReconciliation(binding.identity)) return
-    // A completion queued before the replay began must not confirm the replayed content.
-    ++reconcileGeneration
-    try {
-      styleReconciler.apply(binding, revision)
-    } catch (error: CancellationException) {
-      throw error
-    } catch (error: Throwable) {
-      styleLoadTracker.failed(binding.identity)
-      throw error
-    }
+  override suspend fun replayStyleRevision(revision: DesiredStyleRevision): StyleResourceChanges {
+    val binding = checkNotNull(styleBinding)
+    check(styleLoadTracker.beginReplay(binding.identity))
+    val changes =
+      try {
+        styleReconciler.apply(binding, revision)
+      } catch (error: CancellationException) {
+        throw error
+      } catch (error: Throwable) {
+        styleLoadTracker.failed(binding.identity)
+        throw error
+      }
     onMap { it.requestRepaint() }
     requestRender()
+    return changes
   }
 
   /** Owner thread only. */

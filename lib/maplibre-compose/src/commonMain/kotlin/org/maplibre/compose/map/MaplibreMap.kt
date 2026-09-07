@@ -54,7 +54,7 @@ private class MapStateAttachment(
   suspend fun reconcileStyleRevision(map: MapAdapter, revision: DesiredStyleRevision) {
     state.beginStyleRevision(map, revision)
     try {
-      map.reconcileStyleRevision(revision)
+      state.updateStyleResources(map, map.reconcileStyleRevision(revision))
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
@@ -184,7 +184,7 @@ private fun MaplibreMapPresentation(
     val map = mapAttachment?.adapter ?: return@LaunchedEffect
     if (rememberedStyle == null) return@LaunchedEffect
     try {
-      map.replayStyleRevision(state.desiredStyleRevision)
+      state.updateStyleResources(map, map.replayStyleRevision(state.desiredStyleRevision))
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
@@ -223,7 +223,7 @@ private fun MaplibreMapPresentation(
         }
 
         override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) {
-          state.refreshStyleSources(map)
+          state.refreshStyleSources(map, sourceId)
         }
 
         override fun onEvent(map: MapAdapter, event: MapEvent) {

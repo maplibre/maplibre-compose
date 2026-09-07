@@ -13,7 +13,7 @@ class StyleLoadTrackerTest {
       val tracker = StyleLoadTracker()
       val identity = StyleIdentity.create()
       assertTrue(tracker.loaded(tracker.requestId, identity, baseStyleReady = false))
-      assertTrue(tracker.beginReconciliation(identity))
+      assertTrue(tracker.beginReplay(identity))
       assertFalse(
         if (contentFirst) tracker.reconciled(identity) else tracker.baseStyleReady(identity)
       )
@@ -26,7 +26,10 @@ class StyleLoadTrackerTest {
       assertEquals(StylePresentation.Live, tracker.presentation)
       assertTrue(tracker.isReady)
       assertFalse(tracker.baseStyleReady(identity))
-      assertFalse(tracker.reconciled(identity), "readiness is reported only once per revision")
+      assertFalse(
+        tracker.reconciled(identity),
+        "readiness is reported only once per initialization",
+      )
     }
   }
 
@@ -41,16 +44,14 @@ class StyleLoadTrackerTest {
     assertEquals(StylePresentation.Retained, tracker.presentation)
     val second = StyleIdentity.create()
     assertTrue(tracker.loaded(replacement, second, baseStyleReady = false))
-    assertTrue(tracker.beginReconciliation(second))
+    assertTrue(tracker.beginReplay(second))
     assertEquals(StylePresentation.Retained, tracker.presentation)
     assertFalse(tracker.reconciled(second))
     assertEquals(StylePresentation.Live, tracker.presentation, "source loading may need frames")
     assertFalse(tracker.isReady)
     assertTrue(tracker.baseStyleReady(second))
 
-    assertTrue(tracker.beginReconciliation(second))
-    assertEquals(StylePresentation.Retained, tracker.presentation, "content updates are atomic too")
-    assertTrue(tracker.reconciled(second))
+    assertFalse(tracker.reconciled(second), "ordinary updates do not repeat readiness")
     assertEquals(StylePresentation.Live, tracker.presentation)
   }
 
@@ -88,11 +89,11 @@ class StyleLoadTrackerTest {
     val identity = StyleIdentity.create()
     assertTrue(tracker.loaded(tracker.requestId, identity))
     assertTrue(tracker.reconciled(identity))
-    assertTrue(tracker.beginReconciliation(identity))
+    assertTrue(tracker.beginReplay(identity))
     tracker.failed(identity)
     assertEquals(StylePresentation.Hidden, tracker.presentation)
     assertFalse(tracker.isReady)
-    assertTrue(tracker.beginReconciliation(identity))
+    assertTrue(tracker.beginReplay(identity))
     assertTrue(tracker.reconciled(identity))
     assertEquals(StylePresentation.Live, tracker.presentation)
   }
@@ -106,7 +107,7 @@ class StyleLoadTrackerTest {
     assertTrue(tracker.reconciled(identity))
     tracker.resetPresentation()
     assertEquals(StylePresentation.Hidden, tracker.presentation)
-    assertTrue(tracker.beginReconciliation(identity))
+    assertTrue(tracker.beginReplay(identity))
     assertEquals(
       StylePresentation.Hidden,
       tracker.presentation,
@@ -118,7 +119,7 @@ class StyleLoadTrackerTest {
     tracker.engineBecameUnavailable()
     assertNotSame(request, tracker.requestId)
     assertEquals(StylePresentation.Hidden, tracker.presentation)
-    assertFalse(tracker.beginReconciliation(identity))
+    assertFalse(tracker.beginReplay(identity))
     assertFalse(tracker.loaded(request, identity))
     assertFalse(tracker.reconciled(identity))
     assertFalse(tracker.failed(request))

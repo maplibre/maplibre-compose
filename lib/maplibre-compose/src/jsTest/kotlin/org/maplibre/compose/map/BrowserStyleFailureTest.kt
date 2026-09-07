@@ -32,6 +32,8 @@ class BrowserStyleFailureTest {
             map.asDynamic().isStyleLoaded = { false }
             fixture.loadStyle(BaseStyle.Json(STYLE_B))
             map.asDynamic().isStyleLoaded = originalIsStyleLoaded
+          } else {
+            session.replayStyleRevision(DesiredStyleRevision.Empty)
           }
           session.callbacks =
             object : MapAdapter.Callbacks by callbacks {
@@ -54,6 +56,26 @@ class BrowserStyleFailureTest {
         session.reconcileStyleRevision(DesiredStyleRevision.Empty)
         assertTrue(session.canPresentFrames)
       }
+    }
+  }
+
+  @Test
+  fun ordinary_revisions_do_not_repeat_readiness(): MapTestResult = runMapTest {
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(BaseStyle.Json(STYLE_A))
+      val session = fixture.session as GlJsMapSession
+      val callbacks = session.callbacks
+      var readyCount = 0
+      session.callbacks =
+        object : MapAdapter.Callbacks by callbacks {
+          override fun onStyleReady(map: MapAdapter) {
+            readyCount++
+            callbacks.onStyleReady(map)
+          }
+        }
+      repeat(3) { session.reconcileStyleRevision(DesiredStyleRevision.Empty) }
+      assertEquals(0, readyCount)
+      assertTrue(session.canPresentFrames)
     }
   }
 

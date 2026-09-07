@@ -35,6 +35,9 @@ internal class StyleLoadTracker {
   val isReady: Boolean
     get() = lock.withLock { (load as? Load.Loaded)?.isReady == true }
 
+  val contentReady: Boolean
+    get() = lock.withLock { (load as? Load.Loaded)?.contentReady == true }
+
   fun request(): StyleRequestId = lock.withLock {
     currentRequest = StyleRequestId()
     load = Load.Loading
@@ -61,8 +64,8 @@ internal class StyleLoadTracker {
     true
   }
 
-  /** A retained replay also starts here; only the complete current revision can finish it. */
-  fun beginReconciliation(identity: StyleIdentity): Boolean = lock.withLock {
+  /** A new presentation waits for the current composition after replaying retained content. */
+  fun beginReplay(identity: StyleIdentity): Boolean = lock.withLock {
     val current = load as? Load.Loaded ?: return false
     if (current.identity !== identity) return false
     load = current.copy(contentReady = false)
@@ -100,9 +103,10 @@ internal class StyleLoadTracker {
   }
 
   fun failed(identity: StyleIdentity) = lock.withLock {
-    if (beginReconciliation(identity)) {
-      presentation = StylePresentation.Hidden
-    }
+    val current = load as? Load.Loaded ?: return@withLock
+    if (current.identity !== identity) return@withLock
+    load = current.copy(contentReady = false)
+    presentation = StylePresentation.Hidden
   }
 
   private fun retainPresentation() {

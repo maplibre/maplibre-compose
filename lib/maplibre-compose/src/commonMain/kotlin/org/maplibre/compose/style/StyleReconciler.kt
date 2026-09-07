@@ -17,11 +17,11 @@ internal class StyleReconciler {
    */
   private var knownLayerIds: MutableList<String>? = null
 
-  suspend fun apply(style: StyleBinding, revision: DesiredStyleRevision) {
+  suspend fun apply(style: StyleBinding, revision: DesiredStyleRevision): StyleResourceChanges {
     style.requireCurrent()
     if (binding !== style) reset(style)
     try {
-      applyRevision(style, revision)
+      return applyRevision(style, revision)
     } catch (error: Throwable) {
       // A mutation may have succeeded before the failure; the tracked order is no longer trusted.
       knownLayerIds = null
@@ -29,7 +29,12 @@ internal class StyleReconciler {
     }
   }
 
-  private suspend fun applyRevision(style: StyleBinding, revision: DesiredStyleRevision) {
+  private suspend fun applyRevision(
+    style: StyleBinding,
+    revision: DesiredStyleRevision,
+  ): StyleResourceChanges {
+    val changes = StyleResourceChanges(style.identity)
+    var layerOrderChanged = false
     val desiredSources = revision.sources.associateBy(SourceDefinition::id)
     val replacedSourceIds =
       sources.mapNotNullTo(mutableSetOf()) { (id, applied) ->
@@ -47,26 +52,26 @@ internal class StyleReconciler {
           desired.definition.value["source-layer"] != applied.definition.value["source-layer"] ||
           desired.definition.sourceId in replacedSourceIds
       ) {
-        removeLayer(style, applied)
+        removeLayer(style, applied, changes)
       }
     }
 
     sources.values.toList().forEach { applied ->
       val desired = desiredSources[applied.definition.id]
       when {
-        desired == null -> removeSource(applied)
+        desired == null -> removeSource(applied, changes)
         applied.definition.canUpdateTo(desired) -> {
           applied.installation.update(desired)
           applied.definition = desired
         }
         else -> {
-          removeSource(applied)
-          addSource(style, desired)
+          removeSource(applied, changes)
+          addSource(style, desired, changes)
         }
       }
     }
     revision.sources.forEach { definition ->
-      if (definition.id !in sources) addSource(style, definition)
+      if (definition.id !in sources) addSource(style, definition, changes)
     }
 
     syncImages(style, revision.images)
@@ -100,9 +105,12 @@ internal class StyleReconciler {
                     revision.animatorDurationScale,
                   ),
               )
+            changes.layers.add(id)
             layers[id] = applied
             layerIds(style).insertBelow(id, before)
             if (anchor is Anchor.Replace && group.first() === desired) {
+              style.identity.layers.remove(anchor.layerId)
+              changes.layers.add(anchor.layerId)
               style.removeLayer(anchor.layerId)
               layerIds(style).remove(anchor.layerId)
             }
@@ -112,6 +120,7 @@ internal class StyleReconciler {
             if (shouldMoveLayer(layerIds(style), anchor, previousId, id, nextDesiredId)) {
               val before = beforeLayerId(layerIds(style), anchor, previousId, id)
               if (before != id) {
+                layerOrderChanged = true
                 applied.installation.move(before)
                 layerIds(style).also {
                   it.remove(id)
@@ -123,6 +132,9 @@ internal class StyleReconciler {
           previousId = id
         }
       }
+    if (changes.layers.isNotEmpty() || layerOrderChanged)
+      changes.layerOrder = layerIds(style).toList()
+    return changes
   }
 
   private fun reset(style: StyleBinding) {
@@ -148,21 +160,33 @@ internal class StyleReconciler {
     }
   }
 
-  private fun addSource(style: StyleBinding, definition: SourceDefinition) {
+  private fun addSource(
+    style: StyleBinding,
+    definition: SourceDefinition,
+    changes: StyleResourceChanges,
+  ) {
+    changes.sources.add(definition.id)
     sources[definition.id] = AppliedSource(definition, SourceInstallation(style, definition))
   }
 
-  private fun removeSource(applied: AppliedSource) {
+  private fun removeSource(applied: AppliedSource, changes: StyleResourceChanges) {
+    changes.sources.add(applied.definition.id)
     applied.installation.remove()
     sources.remove(applied.definition.id)
   }
 
-  private fun removeLayer(style: StyleBinding, applied: AppliedLayer) {
+  private fun removeLayer(
+    style: StyleBinding,
+    applied: AppliedLayer,
+    changes: StyleResourceChanges,
+  ) {
+    changes.layers.add(applied.definition.id)
     val anchor = applied.anchor
     val isLastReplacement =
       anchor is Anchor.Replace && layers.values.count { it.anchor == anchor } == 1
     if (isLastReplacement) {
       val original = requireNotNull(replacedLayers.remove(anchor))
+      changes.layers.add(original.id)
       style.addLayer(original, beforeLayerId = applied.definition.id)
       knownLayerIds?.insertBelow(anchor.layerId, applied.definition.id)
     }
@@ -258,3 +282,10 @@ internal fun SourceDefinition.canUpdateTo(next: SourceDefinition): Boolean =
       options == next.options
     else -> this == next
   }
+
+/** IDs touched by actual insertions, removals, or moves during an applied revision. */
+internal class StyleResourceChanges(val identity: StyleIdentity? = null) {
+  val sources = linkedSetOf<String>()
+  val layers = linkedSetOf<String>()
+  var layerOrder: List<String>? = null
+}

@@ -96,7 +96,7 @@ class BrowserStyleConformanceTest {
     }
     assertEquals(
       listOf("base-background", "switching-source-layer"),
-      style?.getLayers()?.map { it.id },
+      style?.layerIds(),
     )
 
     sourceLayer = "roads"
@@ -105,12 +105,12 @@ class BrowserStyleConformanceTest {
     }
     assertEquals(
       listOf("base-background", "switching-source-layer"),
-      style?.getLayers()?.map { it.id },
+      style?.layerIds(),
     )
 
     showLayer = false
     waitUntilMap("the replaced base layer to be restored") {
-      style?.getLayers()?.map { it.id } == listOf("base-background", "base-fill")
+      style?.layerIds() == listOf("base-background", "base-fill")
     }
     assertTrue(failures.isEmpty(), "the map reported load failures: $failures")
   }

@@ -72,7 +72,7 @@ class SymbolLayerCompositionTest {
         composeStyle(
           style = binding,
           thenChange = {
-            assertEquals(ids.value, binding.getLayers().map { it.id })
+            assertEquals(ids.value, binding.layerIds())
             assertEquals(1, binding.imageIds.size)
             initialImageIds = binding.imageIds.toSet()
             ids.value = remaining
@@ -83,7 +83,7 @@ class SymbolLayerCompositionTest {
           }
         }
 
-        assertEquals(remaining, binding.getLayers().map { it.id })
+        assertEquals(remaining, binding.layerIds())
         assertEquals(if (remaining.isEmpty()) emptySet() else initialImageIds, binding.imageIds)
       }
     }

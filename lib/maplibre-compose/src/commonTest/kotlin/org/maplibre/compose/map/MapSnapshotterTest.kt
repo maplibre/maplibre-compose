@@ -35,6 +35,7 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleHandleException
+import org.maplibre.compose.style.StyleReconciler
 
 class MapSnapshotterTest {
 
@@ -209,16 +210,15 @@ class MapSnapshotterTest {
     val original = attributedVectorSource("original")
     val replacement = attributedVectorSource("replacement")
     var desired = DesiredStyleRevision(listOf(original.definition()), emptyList(), emptyList())
-    val binding = RecordingStyleBinding(sources = listOf(original))
+    val binding = RecordingStyleBinding()
+    val reconciler = StyleReconciler()
     val runtime =
       mapRuntimeForTest(
         createSnapshotterAdapter = {
           FakeSnapshotterAdapter(
             prepare = { _, _ -> binding },
-            capture = { request, _ ->
-              if (desired.sources.single() == replacement.definition()) {
-                binding.replaceSource(replacement)
-              }
+            capture = { request, revision ->
+              reconciler.apply(binding, revision)
               FakeImageBitmap(request.width, request.height)
             },
           )

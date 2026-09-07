@@ -48,8 +48,8 @@ class DesktopPackagedStyleTest {
       assertEquals(emptyList(), fixture.errors, "the map reported errors loading $url")
       val style = assertNotNull(fixture.style, "the style should have reached the callbacks")
       assertTrue(
-        style.getLayers().any { it.id == layerId },
-        "Expected the packaged style's own layer. Got ${style.getLayers().map { it.id }}",
+        layerId in style.layerIds(),
+        "Expected the packaged style's own layer. Got ${style.layerIds()}",
       )
     }
   }
