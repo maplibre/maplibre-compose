@@ -3,13 +3,8 @@ package org.maplibre.compose.interaction.internal
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
-import kotlin.test.assertTrue
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.advanceTimeBy
-import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.map.GestureTestFixture
 
@@ -22,55 +17,16 @@ class MapRotaryGestureTest {
   @Test
   fun invalid_or_disabled_samples_do_not_claim_camera() = runTest {
     for (notch in listOf(0f, -24f, Float.NaN, Float.POSITIVE_INFINITY)) {
-      val fixture = Fixture(backgroundScope, notch = notch)
-      assertFalse(fixture.input.onSample(24f, 0f, 0))
-      assertEquals(0, fixture.target.startedCount)
+      val input = RotaryGesture(map.target, RotaryBinding(), notch, backgroundScope)
+      assertFalse(input.onSample(24f))
     }
-    val fixture = Fixture(backgroundScope)
+    val input = RotaryGesture(map.target, RotaryBinding(), 24f, backgroundScope)
     for (vertical in listOf(0f, Float.NaN, Float.POSITIVE_INFINITY)) {
-      assertFalse(fixture.input.onSample(vertical, 0f, 0))
+      assertFalse(input.onSample(vertical))
     }
-    assertFalse(fixture.input.onSample(24f, Float.NaN, 0))
-    fixture.binding = fixture.binding.copy(enabled = false)
-    assertFalse(fixture.input.onSample(24f, 0f, 0))
-    assertEquals(0, fixture.target.startedCount)
-  }
-
-  @Test
-  fun callback_updates_apply_within_the_burst_and_takeover_stops_the_old_response() = runTest {
-    val observed = mutableListOf<String>()
-    val fixture = Fixture(backgroundScope, RotaryBinding(onEvent = { observed += "initial" }))
-    fixture.input.onSample(24f, 0f, 0)
-    fixture.binding = fixture.binding.copy(onEvent = { observed += "updated" })
-    fixture.input.onSample(24f, 0f, 0)
-    assertEquals(listOf("initial", "updated"), observed)
-    assertEquals(1, fixture.target.startedCount)
-    fixture.binding = fixture.binding.copy(onEvent = { fixture.target.onGestureStarted() })
-    fixture.input.onSample(24f, 0f, 0)
-    runCurrent()
-    assertEquals(2, fixture.target.scaleCalls.size)
-    assertEquals(2, fixture.target.startedCount)
-    assertEquals(1, fixture.target.endedCount)
-    advanceTimeBy(250)
-    runCurrent()
-    assertEquals(1, fixture.target.endedCount, "old idle job ended the replacement session")
-    map.close()
-  }
-
-  @Test
-  fun throwing_observer_cancels_the_burst_before_response_and_a_later_sample_recovers() = runTest {
-    val fixture = Fixture(backgroundScope, RotaryBinding(onEvent = { error("observer failed") }))
-    assertFailsWith<IllegalStateException> { fixture.input.onSample(24f, 0f, 0) }
-    assertEquals(1, fixture.target.endedCount)
-    assertTrue(fixture.target.scaleCalls.isEmpty())
-    fixture.binding = RotaryBinding()
-    assertTrue(fixture.input.onSample(24f, 0f, 0))
-    assertEquals(2, fixture.target.startedCount)
-    assertEquals(1, fixture.target.scaleCalls.size)
-    fixture.input.cancel()
-    advanceTimeBy(250)
-    runCurrent()
-    assertEquals(2, fixture.target.endedCount)
+    val disabled = RotaryGesture(map.target, RotaryBinding(enabled = false), 24f, backgroundScope)
+    assertFalse(disabled.onSample(24f))
+    assertEquals(0, map.target.startedCount)
   }
 
   @Test
@@ -86,23 +42,5 @@ class MapRotaryGestureTest {
     focus.replay()
     assertEquals(listOf(false, true, true, false, false), notifications)
     assertFalse(focus.consumesBack)
-  }
-
-  private inner class Fixture(
-    scope: CoroutineScope,
-    initial: RotaryBinding = RotaryBinding(),
-    notch: Float = 24f,
-  ) {
-    var binding = initial
-
-    val target = map.target
-    val input =
-      RotaryGesture(
-        target,
-        { binding },
-        GestureIds(),
-        notch,
-        scope,
-      )
   }
 }

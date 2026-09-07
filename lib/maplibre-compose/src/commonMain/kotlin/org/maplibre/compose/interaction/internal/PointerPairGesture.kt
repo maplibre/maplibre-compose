@@ -1,6 +1,5 @@
 package org.maplibre.compose.interaction.internal
 
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.unit.Density
@@ -14,80 +13,48 @@ import org.maplibre.compose.camera.internal.inputPanBy
 import org.maplibre.compose.camera.internal.inputRotateAndPitchBy
 import org.maplibre.compose.camera.internal.inputScaleBy
 import org.maplibre.compose.interaction.CameraInputOrigin
-import org.maplibre.compose.interaction.DragEvent
-import org.maplibre.compose.interaction.GestureCancellationReason
+import org.maplibre.compose.interaction.GestureAnchor
 import org.maplibre.compose.interaction.MapInteractions
-import org.maplibre.compose.interaction.PinchEvent
-import org.maplibre.compose.interaction.RotateEvent
-import org.maplibre.compose.interaction.ScreenVelocity
-import org.maplibre.compose.interaction.ShoveEvent
 
-/** Adapts shared screen-space recognition to map events, response gains, and camera ownership. */
+/** Applies camera response gains and momentum to a recognized touch pair. */
 internal class PointerPairGesture(
   private val target: CameraInputTarget,
   options: MapInteractions,
-  private val currentOptions: () -> MapInteractions,
-  private val ids: GestureIds,
   private val density: Density,
   event: PointerEvent,
   first: PointerInputChange,
   second: PointerInputChange,
   private val begin: () -> CameraInputToken?,
-  private val onRecognized: (TransformComponent) -> Unit,
+  private val onRecognized: (CameraComponent) -> Unit,
   private val retainAuthority: () -> Boolean,
   maximumFlingVelocity: Float = Float.MAX_VALUE,
 ) {
-  private class Component {
-    var sample: GesturePointerSample? = null
-    val active: Boolean
-      get() = sample != null
-  }
-
-  private var metadata =
+  private val initialInput =
     event.gestureSample(
-      0,
-      target,
+      null,
       density,
       (first.position + second.position) / 2f,
       setOf(first.type, second.type),
     )
   private val settings = options.bindings.transform
-  private val pan =
-    if (options.camera.pan.enabled && settings.pan.matches(metadata)) Component() else null
+  private val pan = settings.pan.takeIf { options.camera.pan.enabled && it.matches(initialInput) }
   private val pinch =
-    if (options.camera.zoom.enabled && settings.zoom.matches(metadata)) Component() else null
+    settings.zoom.takeIf { options.camera.zoom.enabled && it.matches(initialInput) }
   private val rotate =
-    if (options.camera.rotate.enabled && settings.rotate.matches(metadata)) Component() else null
+    settings.rotate.takeIf { options.camera.rotate.enabled && it.matches(initialInput) }
   private val shove =
-    if (options.camera.tilt.enabled && settings.tilt.matches(metadata)) Component() else null
-  private val components =
-    mapOf(
-      TransformComponent.Pan to pan,
-      TransformComponent.Scale to pinch,
-      TransformComponent.Rotation to rotate,
-      TransformComponent.VerticalDrag to shove,
-    )
+    settings.tilt.takeIf { options.camera.tilt.enabled && it.matches(initialInput) }
   val hasDemand: Boolean
-    get() = components.values.any { it != null }
+    get() = pan != null || pinch != null || rotate != null || shove != null
 
   private var token: CameraInputToken? = null
-  private var cancellationReason = GestureCancellationReason.BindingChanged
-  private var endTime = metadata.uptimeMillis
   private val recognition =
     PointerTransform(
       first,
       second,
-      TransformRecognitionPolicy(
-        density,
-        settings.pan.takeIf { pan != null },
-        settings.zoom.takeIf { pinch != null },
-        settings.rotate.takeIf { rotate != null },
-        settings.tilt.takeIf { shove != null },
-      ),
+      TransformRecognitionPolicy(density, pan, pinch, rotate, shove),
       ::start,
       ::delta,
-      ::endComponent,
-      ::cancelComponent,
       maximumFlingVelocity,
     )
   val firstId
@@ -99,118 +66,55 @@ internal class PointerPairGesture(
   fun matches(first: PointerInputChange, second: PointerInputChange): Boolean =
     first.id == firstId && second.id == secondId
 
-  private fun sample(event: PointerEvent, first: PointerInputChange, second: PointerInputChange) {
-    metadata =
-      event.gestureSample(
-        0,
-        target,
-        density,
-        (first.position + second.position) / 2f,
-        setOf(first.type, second.type),
-      )
-    components.values.filterNotNull().forEach { component ->
-      component.sample?.let { component.sample = metadata.copy(gestureId = it.gestureId) }
-    }
-  }
+  private var centroid = initialInput.screenOffset
 
-  fun rebase(event: PointerEvent, first: PointerInputChange, second: PointerInputChange) {
-    sample(event, first, second)
+  fun rebase(first: PointerInputChange, second: PointerInputChange) {
+    centroid = ((first.position + second.position) / 2f).toLogicalDpOffset(density)
     recognition.rebase(first, second)
   }
 
   fun move(event: PointerEvent, first: PointerInputChange, second: PointerInputChange) {
-    sample(event, first, second)
+    centroid = ((first.position + second.position) / 2f).toLogicalDpOffset(density)
     if (recognition.move(first, second))
       event.changes.filter { it.id == firstId || it.id == secondId }.forEach { it.consume() }
   }
 
-  private fun start(kind: TransformComponent, origin: Offset): Boolean {
+  private fun start(kind: CameraComponent): Boolean {
     token = begin()
-    if (token?.acceptsCommands != true) {
-      retainAuthority()
-      return false
-    }
-
+    if (token?.acceptsCommands != true) return false
     onRecognized(kind)
-    val component = checkNotNull(components[kind])
     token?.origin = CameraInputOrigin.Transform
-    token?.rearm(kind.cameraComponent)
-
-    val sample = metadata.copy(gestureId = ids.next())
-    component.sample = sample
-    val position = DpOffset((origin.x / density.density).dp, (origin.y / density.density).dp)
-    val handlers = currentOptions().bindings.transform
-    when (kind) {
-      TransformComponent.Pan -> handlers.pan.handlers.observe(DragEvent.Start(sample, position))
-      TransformComponent.Scale -> handlers.zoom.handlers.observe(PinchEvent.Start(sample, position))
-      TransformComponent.Rotation ->
-        handlers.rotate.handlers.observe(RotateEvent.Start(sample, position))
-      TransformComponent.VerticalDrag ->
-        handlers.tilt.handlers.observe(ShoveEvent.Start(sample, position))
-    }
-
-    return retainAuthority()
+    token?.rearm(kind)
+    return true
   }
 
-  private fun delta(kind: TransformComponent, delta: TransformDecision): Boolean {
-    val component = checkNotNull(components[kind])
-    val sample = checkNotNull(component.sample)
-
-    // Deliver measured motion before applying response gains. Every observer may revoke camera
-    // ownership, so each component checks authority before issuing its command.
+  private fun delta(kind: CameraComponent, delta: TransformDecision): Boolean {
     when (kind) {
-      TransformComponent.Pan -> {
+      CameraComponent.Pan -> {
         val offset =
           DpOffset((delta.pan.x / density.density).dp, (delta.pan.y / density.density).dp)
-        currentOptions().bindings.transform.pan.handlers.observe(DragEvent.Delta(sample, offset))
-        if (!retainAuthority()) return false
-
         target.inputPanBy(
           offset.x.value.toDouble(),
           offset.y.value.toDouble(),
           gestureToken = token,
         )
       }
-      TransformComponent.Scale -> {
-        currentOptions()
-          .bindings
-          .transform
-          .zoom
-          .handlers
-          .observe(PinchEvent.Delta(sample, delta.scale))
-        if (!retainAuthority()) return false
-
+      CameraComponent.Zoom -> {
         target.inputScaleBy(
           GestureMath.pinchScale(delta.scale).pow(settings.zoom.zoomScale),
-          settings.zoom.anchor.location(metadata),
+          centroid.takeIf { settings.zoom.anchor == GestureAnchor.Input },
           gestureToken = token,
         )
       }
-      TransformComponent.Rotation -> {
-        currentOptions()
-          .bindings
-          .transform
-          .rotate
-          .handlers
-          .observe(RotateEvent.Delta(sample, delta.rotation))
-        if (!retainAuthority()) return false
-
+      CameraComponent.Rotate -> {
         target.inputRotateAndPitchBy(
           -delta.rotation * settings.rotate.rotationScale,
           0.0,
-          anchor = settings.rotate.anchor.location(metadata),
+          anchor = centroid.takeIf { settings.rotate.anchor == GestureAnchor.Input },
           gestureToken = token,
         )
       }
-      TransformComponent.VerticalDrag -> {
-        currentOptions()
-          .bindings
-          .transform
-          .tilt
-          .handlers
-          .observe(ShoveEvent.Delta(sample, (delta.verticalDrag / density.density).dp))
-        if (!retainAuthority()) return false
-
+      CameraComponent.Tilt -> {
         target.inputRotateAndPitchBy(
           0.0,
           delta.verticalDrag / density.density * settings.tilt.pitchDegreesPerDp,
@@ -222,92 +126,33 @@ internal class PointerPairGesture(
     return retainAuthority()
   }
 
-  private fun cancelComponent(kind: TransformComponent) {
-    val component = checkNotNull(components[kind])
-    val sample = component.sample ?: return
-    component.sample = null
-    val handlers = currentOptions().bindings.transform
-    when (kind) {
-      TransformComponent.Pan ->
-        handlers.pan.handlers.observe(DragEvent.Cancel(sample, cancellationReason))
-      TransformComponent.Scale ->
-        handlers.zoom.handlers.observe(PinchEvent.Cancel(sample, cancellationReason))
-      TransformComponent.Rotation ->
-        handlers.rotate.handlers.observe(RotateEvent.Cancel(sample, cancellationReason))
-      TransformComponent.VerticalDrag ->
-        handlers.tilt.handlers.observe(ShoveEvent.Cancel(sample, cancellationReason))
-    }
-  }
+  fun cancel() = recognition.cancel()
 
-  fun cancel(reason: GestureCancellationReason) {
-    cancellationReason = reason
+  fun end(): PairContinuation? {
+    val continuation = if (token?.acceptsCommands == true) continuation() else null
     recognition.cancel()
-  }
-
-  private fun endComponent(kind: TransformComponent, velocity: TransformVelocity): Boolean {
-    val component = checkNotNull(components[kind])
-    val last = component.sample ?: return true
-    component.sample = null
-
-    val sample =
-      last.copy(
-        uptimeMillis = endTime,
-        position = target.positionFromScreenLocation(last.screenOffset),
-      )
-    val linear =
-      ScreenVelocity(
-        (velocity.centroid.x / density.density).toDouble(),
-        (velocity.centroid.y / density.density).toDouble(),
-      )
-
-    val handlers = currentOptions().bindings.transform
-    when (kind) {
-      TransformComponent.Pan -> handlers.pan.handlers.observe(DragEvent.End(sample, linear))
-      TransformComponent.Scale ->
-        handlers.zoom.handlers.observe(
-          PinchEvent.End(
-            sample,
-            velocity.logarithmicScale * ln(GestureMath.pinchScale(kotlin.math.E)) / ln(2.0),
-          )
-        )
-      TransformComponent.Rotation ->
-        handlers.rotate.handlers.observe(RotateEvent.End(sample, velocity.rotation))
-      TransformComponent.VerticalDrag ->
-        handlers.tilt.handlers.observe(ShoveEvent.End(sample, linear))
-    }
-
-    if (token?.acceptsCommands == false) {
-      retainAuthority()
-      return false
-    }
-    return true
-  }
-
-  fun end(uptimeMillis: Long = metadata.uptimeMillis): PairContinuation? {
-    val continuation = continuation()
-    endTime = uptimeMillis
-    return continuation.takeIf { recognition.end() }
+    return continuation
   }
 
   private fun continuation(): PairContinuation? {
     val velocity = recognition.velocity()
-    val centroid = velocity.centroid
+    val panVelocity = velocity.centroid
 
     val panFling =
       pan
-        ?.takeIf { it.active }
+        ?.takeIf { CameraComponent.Pan in recognition.active }
         ?.let { settings.pan.momentum.takeIf { it.enabled } }
         ?.let {
           GestureMath.fling(
-            (centroid.x / density.density).toDouble(),
-            (centroid.y / density.density).toDouble(),
+            (panVelocity.x / density.density).toDouble(),
+            (panVelocity.y / density.density).toDouble(),
             it,
           )
         }
 
     val scale =
       pinch
-        ?.takeIf { it.active }
+        ?.takeIf { CameraComponent.Zoom in recognition.active }
         ?.let { settings.zoom.momentum.takeIf { it.enabled } }
         ?.let {
           GestureMath.scaleVelocity(
@@ -319,7 +164,7 @@ internal class PointerPairGesture(
 
     val rotation =
       rotate
-        ?.takeIf { it.active }
+        ?.takeIf { CameraComponent.Rotate in recognition.active }
         ?.let { settings.rotate.momentum.takeIf { it.enabled } }
         ?.let {
           GestureMath.rotationVelocity(
@@ -330,11 +175,11 @@ internal class PointerPairGesture(
 
     val tilt =
       shove
-        ?.takeIf { it.active }
+        ?.takeIf { CameraComponent.Tilt in recognition.active }
         ?.let { settings.tilt.momentum.takeIf { it.enabled } }
         ?.let {
           GestureMath.tiltVelocity(
-            centroid.y / density.density * settings.tilt.pitchDegreesPerDp,
+            panVelocity.y / density.density * settings.tilt.pitchDegreesPerDp,
             it,
           )
         }
@@ -345,8 +190,8 @@ internal class PointerPairGesture(
       scale,
       rotation,
       tilt,
-      settings.zoom.anchor.location(metadata),
-      settings.rotate.anchor.location(metadata),
+      centroid.takeIf { settings.zoom.anchor == GestureAnchor.Input },
+      centroid.takeIf { settings.rotate.anchor == GestureAnchor.Input },
     )
   }
 }
@@ -359,12 +204,12 @@ internal data class PairContinuation(
   val scaleAnchor: DpOffset?,
   val rotationAnchor: DpOffset?,
 ) {
-  fun without(component: TransformComponent): PairContinuation =
+  fun without(component: CameraComponent): PairContinuation =
     when (component) {
-      TransformComponent.Pan -> copy(pan = null)
-      TransformComponent.Scale -> copy(scale = null)
-      TransformComponent.Rotation -> copy(rotation = null)
-      TransformComponent.VerticalDrag -> copy(tilt = null)
+      CameraComponent.Pan -> copy(pan = null)
+      CameraComponent.Zoom -> copy(scale = null)
+      CameraComponent.Rotate -> copy(rotation = null)
+      CameraComponent.Tilt -> copy(tilt = null)
     }
 
   fun withPrevious(previous: PairContinuation?): PairContinuation =
@@ -377,12 +222,3 @@ internal data class PairContinuation(
       rotationAnchor = if (rotation != null) rotationAnchor else previous?.rotationAnchor,
     )
 }
-
-internal val TransformComponent.cameraComponent: CameraComponent
-  get() =
-    when (this) {
-      TransformComponent.Pan -> CameraComponent.Pan
-      TransformComponent.Scale -> CameraComponent.Zoom
-      TransformComponent.Rotation -> CameraComponent.Rotate
-      TransformComponent.VerticalDrag -> CameraComponent.Tilt
-    }

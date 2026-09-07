@@ -5,7 +5,6 @@ import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.MapInteractions
-import org.maplibre.compose.interaction.TapEvent
 import org.maplibre.compose.layers.FeaturesClickHandler
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.style.DesiredStyleLayer
@@ -77,7 +76,7 @@ internal class FeatureClickDispatcher(
       }
 
       if (family == TapFamily.Tap)
-        interactions.value.callbacks.unhandledClick?.invoke(event as TapEvent) ?: ClickResult.Pass
+        interactions.value.callbacks.unhandledClick?.invoke(event) ?: ClickResult.Pass
       else ClickResult.Pass
     }
   }

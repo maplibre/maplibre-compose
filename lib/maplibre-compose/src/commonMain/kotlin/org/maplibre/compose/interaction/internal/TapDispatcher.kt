@@ -7,13 +7,10 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import org.maplibre.compose.interaction.ClickEvent
 import org.maplibre.compose.interaction.ClickResult
-import org.maplibre.compose.interaction.DoubleTapEvent
-import org.maplibre.compose.interaction.LongClickEvent
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.PointerButton
-import org.maplibre.compose.interaction.PointerGestureEvent
-import org.maplibre.compose.interaction.TapEvent
 
 internal enum class TapFamily {
   Tap,
@@ -54,38 +51,20 @@ internal enum class TapFamily {
         .matches(sample.pointerTypes, sample.buttons, sample.modifierKeys, contact = true)
   }
 
-  fun event(sample: GesturePointerSample): PointerGestureEvent? =
+  fun callback(callbacks: InteractionCallbacks): ((ClickEvent) -> ClickResult)? =
     when (this) {
-      Tap -> TapEvent(sample)
-      DoubleTap -> DoubleTapEvent(sample)
+      Tap -> callbacks.click
+      DoubleTap -> callbacks.doubleClick
       SecondaryClick,
-      LongPress -> LongClickEvent(sample)
+      LongPress -> callbacks.longClick
       TwoFingerTap -> null
     }
-
-  fun hasCallback(callbacks: InteractionCallbacks): Boolean =
-    when (this) {
-      Tap -> callbacks.click != null
-      DoubleTap -> callbacks.doubleClick != null
-      SecondaryClick,
-      LongPress -> callbacks.longClick != null
-      TwoFingerTap -> false
-    }
-
-  fun observe(callbacks: InteractionCallbacks, event: PointerGestureEvent): ClickResult =
-    when (this) {
-      Tap -> callbacks.click?.invoke(event as TapEvent)
-      DoubleTap -> callbacks.doubleClick?.invoke(event as DoubleTapEvent)
-      SecondaryClick,
-      LongPress -> callbacks.longClick?.invoke(event as LongClickEvent)
-      TwoFingerTap -> null
-    } ?: ClickResult.Pass
 }
 
 /** A recognized click keeps its map and layer targets valid across asynchronous feature queries. */
 internal class ClickPath(
   val isValid: () -> Boolean,
-  val deliver: suspend (PointerGestureEvent) -> ClickResult,
+  val deliver: suspend (ClickEvent) -> ClickResult,
 )
 
 /** One input node orders application delivery independently of continuous camera input. */
@@ -98,7 +77,7 @@ internal class TapDispatcher(
   private class Dispatch(
     val family: TapFamily,
     val path: ClickPath,
-    val event: PointerGestureEvent?,
+    val event: ClickEvent?,
     val camera: () -> Unit,
   )
 
@@ -114,7 +93,8 @@ internal class TapDispatcher(
 
             // Two-finger taps have only a camera response, so they skip application delivery.
             if (event != null) {
-              if (dispatch.family.observe(currentOptions().callbacks, event).consumed) continue
+              val callback = dispatch.family.callback(currentOptions().callbacks)
+              if (callback?.invoke(event)?.consumed == true) continue
               if (!dispatch.path.isValid()) continue
               if (dispatch.path.deliver(event).consumed) continue
             }
@@ -134,10 +114,11 @@ internal class TapDispatcher(
   }
 
   fun hasHandlers(family: TapFamily): Boolean =
-    family.hasCallback(currentOptions().callbacks) || hasClickHandlers(family)
+    family.callback(currentOptions().callbacks) != null || hasClickHandlers(family)
 
   fun dispatch(family: TapFamily, sample: GesturePointerSample, camera: () -> Unit) {
     val path = captureClickPath(family) ?: return
-    queue.trySend(Dispatch(family, path, family.event(sample), camera))
+    val event = if (family == TapFamily.TwoFingerTap) null else ClickEvent(sample)
+    queue.trySend(Dispatch(family, path, event, camera))
   }
 }

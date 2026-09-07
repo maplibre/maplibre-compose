@@ -6,7 +6,6 @@ import androidx.compose.foundation.focusable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -37,7 +36,6 @@ import org.maplibre.compose.generated.Res
 import org.maplibre.compose.generated.map
 import org.maplibre.compose.generated.map_engaged
 import org.maplibre.compose.generated.map_not_engaged
-import org.maplibre.compose.interaction.GestureCancellationReason
 import org.maplibre.compose.interaction.MapInteractions
 
 /**
@@ -63,8 +61,6 @@ internal fun Modifier.mapInput(
   // The semantics block observes no snapshot state, so engagement is read here.
   val engaged = focus.isEngaged
   val currentOptions = rememberUpdatedState(options)
-  val pointerOptions = key(options.structuralKey) { rememberUpdatedState(options) }
-  val ids = remember(target) { GestureIds() }
   val boxZoom = remember(target) { BoxZoomPreview() }
   val platformRouting = remember(target) { PlatformTransformRouting() }
   val inputScope = rememberCoroutineScope()
@@ -72,14 +68,9 @@ internal fun Modifier.mapInput(
     remember(target, options.structuralKey, rotaryNotchPixels) {
       RotaryGesture(
         target,
-        {
-          currentOptions.value.let { latest ->
-            latest.bindings.rotary.copy(
-              enabled = latest.bindings.rotary.enabled && latest.camera.zoom.enabled
-            )
-          }
-        },
-        ids,
+        options.bindings.rotary.copy(
+          enabled = options.bindings.rotary.enabled && options.camera.zoom.enabled
+        ),
         rotaryNotchPixels,
         inputScope,
       )
@@ -92,7 +83,6 @@ internal fun Modifier.mapInput(
         target,
         { currentOptions.value },
         focus,
-        ids,
         inputScope,
       )
     }
@@ -134,12 +124,10 @@ internal fun Modifier.mapInput(
       captureClickPath,
       hasClickHandlers,
       options,
-      { pointerOptions.value },
-      { currentOptions.value.structuralKey },
+      { currentOptions.value },
       density,
       focusRequester,
       focus,
-      ids,
       boxZoom,
       platformRouting,
       rememberScrollConverter(),
@@ -169,11 +157,9 @@ private fun Modifier.pointerGestures(
   hasClickHandlers: (TapFamily) -> Boolean,
   options: MapInteractions,
   currentOptions: () -> MapInteractions,
-  currentStructuralKey: () -> Any,
   density: Density,
   focusRequester: FocusRequester,
   focus: InputFocus,
-  ids: GestureIds,
   boxZoom: BoxZoomPreview,
   platformRouting: PlatformTransformRouting,
   scrollConverter: ScrollConverter,
@@ -184,8 +170,6 @@ private fun Modifier.pointerGestures(
       ScrollGesture(
         target,
         options,
-        currentOptions,
-        ids,
         density,
         { size },
         scrollConverter,
@@ -199,8 +183,6 @@ private fun Modifier.pointerGestures(
         target = target,
         taps = TapDispatcher(scope, captureClickPath, hasClickHandlers, currentOptions),
         options = options,
-        currentOptions = currentOptions,
-        ids = ids,
         boxZoom = boxZoom,
         density = density,
         focusRequester = focusRequester,
@@ -217,28 +199,23 @@ private fun Modifier.pointerGestures(
         longClickTimeoutMillis = viewConfiguration.longPressTimeoutMillis,
         scope = scope,
         onAcceptedPress = {
-          scroll.cancel(GestureCancellationReason.CameraTakeover)
-          platform.cancel(GestureCancellationReason.CameraTakeover)
+          scroll.cancel()
+          platform.cancel()
           platformRouteActive = false
         },
       )
 
     val consumption = PointerInputConsumption {
-      gesture.cancel(
-        if (target.isGestureReady) GestureCancellationReason.InputConsumed
-        else GestureCancellationReason.Detached
-      )
+      gesture.cancel()
     }
     platform =
       PlatformTransformSession(
         target,
         options,
-        currentOptions,
-        ids,
         scope,
         platformRouting,
       ) {
-        scroll.cancel(GestureCancellationReason.CameraTakeover)
+        scroll.cancel()
         runCatching { focusRequester.requestFocus() }
         focus.engage(byKey = false)
       }
@@ -260,7 +237,7 @@ private fun Modifier.pointerGestures(
           var claimedPlatform = false
           if (routed) {
             if (!platformRouteActive) {
-              gesture.cancel(GestureCancellationReason.BindingChanged)
+              gesture.cancel()
               platformRouteActive = true
             }
             val admitted = consumption.main(event, ready) {}
@@ -272,7 +249,7 @@ private fun Modifier.pointerGestures(
               claimedPlatform =
                 platform.onInput(
                   event.type,
-                  event.gestureSample(0, target, density, change.position),
+                  event.gestureSample(null, density, change.position),
                   change.scaleFactor.toDouble(),
                   // Platform pans report a scroll delta (positive = scroll down/right, like a
                   // wheel); the camera pans in drag convention (content follows the fingers).
@@ -290,12 +267,11 @@ private fun Modifier.pointerGestures(
             )
               platformRouteActive = false
           } else if (event.type == PointerEventType.Scroll && !ready) {
-            scroll.cancel(GestureCancellationReason.Detached)
+            scroll.cancel()
           } else if (event.type == PointerEventType.Scroll) {
             scroll.onPointerEvent(event) {
-              platform.cancel(GestureCancellationReason.CameraTakeover)
+              platform.cancel()
               platformRouteActive = false
-              gesture.cancel(GestureCancellationReason.CameraTakeover)
               consumption.suppress()
             }
           } else {
@@ -307,30 +283,15 @@ private fun Modifier.pointerGestures(
           if (routed) {
             if (!claimedPlatform && final.changes.any { it.isConsumed }) {
               platformRouting.intercept()
-              platform.cancel(GestureCancellationReason.InputConsumed)
+              platform.cancel()
             }
           } else if (event.type != PointerEventType.Scroll) consumption.final(final)
         }
       }
     } finally {
-      // MapLibre keeps the gesture flag until it is cleared, so a drag ended by coroutine
-      // cancellation rather than by a pointer-up has to clear it here.
-      val reason =
-        when {
-          currentStructuralKey() != options.structuralKey ->
-            GestureCancellationReason.ConfigurationChanged
-          !target.isGestureReady -> GestureCancellationReason.Detached
-          else -> GestureCancellationReason.InputCancelled
-        }
-      try {
-        gesture.cancel(reason)
-      } finally {
-        try {
-          scroll.cancel(reason)
-        } finally {
-          platform.cancel(reason)
-        }
-      }
+      gesture.cancel()
+      scroll.cancel()
+      platform.cancel()
     }
   }
 

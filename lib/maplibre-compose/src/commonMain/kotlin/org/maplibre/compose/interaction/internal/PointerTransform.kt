@@ -9,17 +9,6 @@ import kotlin.math.hypot
 import kotlin.math.ln
 import kotlin.math.min
 
-/**
- * Recognition uses screen pixels. Projection, response gains, and mutation ownership belong to the
- * caller.
- */
-internal enum class TransformComponent {
-  Pan,
-  Scale,
-  Rotation,
-  VerticalDrag,
-}
-
 internal data class PairSample(
   val first: Offset,
   val second: Offset,
@@ -60,23 +49,13 @@ internal class PairMotion(
 
 /** A policy selects components and subtracts its thresholds from the first delivered deltas. */
 internal data class TransformDecision(
-  val start: Set<TransformComponent> = emptySet(),
-  val cancel: Set<TransformComponent> = emptySet(),
+  val start: Set<CameraComponent> = emptySet(),
+  val cancel: Set<CameraComponent> = emptySet(),
   val pan: Offset,
   val scale: Double,
   val rotation: Double,
   val verticalDrag: Float,
 )
-
-internal interface PointerTransformPolicy {
-  fun reset(sample: PairSample)
-
-  fun accepts(previous: PairSample, current: PairSample): Boolean
-
-  fun needsRebase(previous: PairSample, current: PairSample): Boolean
-
-  fun recognize(motion: PairMotion, active: Set<TransformComponent>): TransformDecision
-}
 
 internal data class TransformVelocity(
   val centroid: Velocity,
@@ -88,11 +67,9 @@ internal data class TransformVelocity(
 internal class PointerTransform(
   first: PointerInputChange,
   second: PointerInputChange,
-  private val policy: PointerTransformPolicy,
-  private val onStart: (TransformComponent, Offset) -> Boolean,
-  private val onDelta: (TransformComponent, TransformDecision) -> Boolean,
-  private val onEnd: (TransformComponent, TransformVelocity) -> Boolean,
-  private val onCancel: (TransformComponent) -> Unit,
+  private val policy: TransformRecognitionPolicy,
+  private val onStart: (CameraComponent) -> Boolean,
+  private val onDelta: (CameraComponent, TransformDecision) -> Boolean,
   maximumFlingVelocity: Float = Float.MAX_VALUE,
 ) {
   val firstId = first.id
@@ -103,9 +80,9 @@ internal class PointerTransform(
   var current = origin
     private set
 
-  private val components = linkedSetOf<TransformComponent>()
-  val active: Set<TransformComponent>
-    get() = components.toSet()
+  private val components = linkedSetOf<CameraComponent>()
+  val active: Set<CameraComponent>
+    get() = components
 
   private val centroidVelocity = GestureVelocityTracker(maximumFlingVelocity)
   private val scaleVelocity = GestureVelocityTracker()
@@ -153,23 +130,23 @@ internal class PointerTransform(
     record(next)
     current = next
 
-    // Cancel losing components before admitting their replacements. Start callbacks can cancel the
-    // whole pair, so no later component may continue after ownership is lost.
+    // Replace losing components before applying motion. A semantic camera callback can cancel
+    // the pair during a delta, so later components must check that recognition remains open.
     val decision = policy.recognize(motion, active)
-    decision.cancel.forEach { cancel(it) }
+    components.removeAll(decision.cancel)
     for (component in decision.start) {
       if (closed) return false
       if (components.add(component)) {
         // Recognition is the start of this component's motion history. A late twist at the
         // end of a pinch must not inherit a flick from movement before rotation was accepted.
         when (component) {
-          TransformComponent.Scale -> scaleVelocity.resetTracking()
-          TransformComponent.Rotation -> rotationVelocity.resetTracking()
-          TransformComponent.Pan,
-          TransformComponent.VerticalDrag -> centroidVelocity.resetTracking()
+          CameraComponent.Zoom -> scaleVelocity.resetTracking()
+          CameraComponent.Rotate -> rotationVelocity.resetTracking()
+          CameraComponent.Pan,
+          CameraComponent.Tilt -> centroidVelocity.resetTracking()
         }
         record(current)
-        if (!onStart(component, origin.centroid)) return false
+        if (!onStart(component)) return false
       }
     }
 
@@ -177,11 +154,11 @@ internal class PointerTransform(
       if (closed || component !in components) return false
       val moved =
         when (component) {
-          TransformComponent.Pan -> decision.pan != Offset.Zero
-          TransformComponent.Scale ->
+          CameraComponent.Pan -> decision.pan != Offset.Zero
+          CameraComponent.Zoom ->
             decision.scale.isFinite() && decision.scale > 0 && abs(decision.scale - 1) >= 1e-6
-          TransformComponent.Rotation -> abs(decision.rotation) >= 1e-6
-          TransformComponent.VerticalDrag -> decision.verticalDrag != 0f
+          CameraComponent.Rotate -> abs(decision.rotation) >= 1e-6
+          CameraComponent.Tilt -> decision.verticalDrag != 0f
         }
 
       if (moved && !onDelta(component, decision)) return false
@@ -198,35 +175,9 @@ internal class PointerTransform(
     )
   }
 
-  fun end(): Boolean {
-    if (closed) return false
-    closed = true
-    val velocity = velocity()
-    for (component in components.sortedBy { it.ordinal }) {
-      if (components.remove(component) && !onEnd(component, velocity)) return false
-    }
-    return true
-  }
-
   fun cancel() {
     closed = true
-
-    // One failing cancellation observer must not prevent the others from being notified.
-    var failure: Throwable? = null
-    components
-      .sortedBy { it.ordinal }
-      .forEach {
-        try {
-          cancel(it)
-        } catch (cause: Throwable) {
-          if (failure == null) failure = cause else checkNotNull(failure).addSuppressed(cause)
-        }
-      }
-    failure?.let { throw it }
-  }
-
-  private fun cancel(component: TransformComponent) {
-    if (components.remove(component)) onCancel(component)
+    components.clear()
   }
 
   private fun record(sample: PairSample) {

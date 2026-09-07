@@ -26,13 +26,6 @@ internal class GestureInputSession(
   private val work = Job(parent.coroutineContext[Job])
   val scope = CoroutineScope(parent.coroutineContext + work)
   private var ending = false
-  private val momentum = mutableMapOf<CameraComponent, Job>()
-
-  fun launchMomentum(component: CameraComponent, block: suspend CoroutineScope.() -> Unit) {
-    check(!ending)
-    momentum.remove(component)?.cancel()
-    momentum[component] = scope.launch(block = block)
-  }
 
   init {
     token.origin = origin
@@ -41,7 +34,7 @@ internal class GestureInputSession(
       if (work.isCancelled) {
         target.cancelGesture(token)
         // Authority can be revoked from an engine callback. Explicit dispatch prevents a Main
-        // immediate dispatcher from invoking application input callbacks inside that owner loop.
+        // immediate dispatcher from changing recognizer state inside that owner loop.
         val dispatcher =
           parent.coroutineContext[ContinuationInterceptor] as? CoroutineDispatcher
             ?: Dispatchers.Main

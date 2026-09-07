@@ -69,7 +69,7 @@ class CameraInputTest {
       fun dispatch(id: Long, generation: Long) {
         dispatcher.dispatch(
           TapFamily.DoubleTap,
-          GesturePointerSample(id, 10, DpOffset.Zero, null, emptySet(), emptySet(), emptySet()),
+          GesturePointerSample(id, DpOffset.Zero, null, emptySet(), emptySet(), emptySet()),
         ) {
           launchTapTransition(backgroundScope, target, generation) { token ->
             inputPanBy(10.0, 0.0, gestureToken = token)

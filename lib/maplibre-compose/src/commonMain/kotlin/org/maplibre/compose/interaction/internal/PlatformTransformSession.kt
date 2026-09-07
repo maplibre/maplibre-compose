@@ -1,41 +1,25 @@
 package org.maplibre.compose.interaction.internal
 
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.DpOffset
-import kotlin.math.log2
 import kotlin.math.pow
 import kotlinx.coroutines.CoroutineScope
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.inputPanBy
 import org.maplibre.compose.camera.internal.inputScaleBy
 import org.maplibre.compose.interaction.CameraInputOrigin
-import org.maplibre.compose.interaction.DragEvent
-import org.maplibre.compose.interaction.GestureCancellationReason
 import org.maplibre.compose.interaction.MapInteractions
-import org.maplibre.compose.interaction.PinchEvent
-import org.maplibre.compose.interaction.ScreenVelocity
 import org.maplibre.compose.interaction.internal.PlatformTransformRouting.Kind
 
 /** Host-recognized components share one camera session and append no library momentum. */
 internal class PlatformTransformSession(
   private val target: CameraInputTarget,
   private val options: MapInteractions,
-  private val currentOptions: () -> MapInteractions,
-  private val ids: GestureIds,
   private val scope: CoroutineScope,
   private val routing: PlatformTransformRouting,
   private val onAccepted: () -> Unit,
 ) {
-  private class Component(
-    val kind: Kind,
-    var sample: GesturePointerSample,
-  ) {
-    val velocity = GestureVelocityTracker()
-    var displacement = Offset.Zero
-  }
-
-  private val components = mutableMapOf<Kind, Component>()
+  private val components = mutableSetOf<Kind>()
   private var session: GestureInputSession? = null
   val isActive: Boolean
     get() = components.isNotEmpty()
@@ -49,7 +33,7 @@ internal class PlatformTransformSession(
     consumed: Boolean = false,
   ): Boolean {
     if (!isPlatformTransform(type)) {
-      if (consumed) cancel(GestureCancellationReason.InputConsumed)
+      if (consumed) cancel()
       return false
     }
 
@@ -63,30 +47,21 @@ internal class PlatformTransformSession(
       else Kind.Pan
     val end = type == PointerEventType.ScaleEnd || type == PointerEventType.PanEnd
 
-    if (session?.token?.acceptsCommands == false)
-      cancel(
-        if (target.isGestureReady) GestureCancellationReason.CameraTakeover
-        else GestureCancellationReason.Detached
-      )
+    if (session?.token?.acceptsCommands == false) cancel()
 
     // A cancelled component stays suppressed until the host ends it; later deltas must not
     // reopen a camera session after another handler has taken the input.
     if (consumed) {
       routing.suppressed += kind
-      cancel(GestureCancellationReason.InputConsumed)
+      cancel()
       if (end) routing.suppressed.remove(kind)
       return false
     }
 
     if (end) {
       routing.suppressed.remove(kind)
-      val previous = components.remove(kind) ?: return false
-      previous.sample = previous.sample.copy(uptimeMillis = sample.uptimeMillis)
-      try {
-        deliverEnd(previous)
-      } finally {
-        finishIfIdle()
-      }
+      if (!components.remove(kind)) return false
+      finishIfIdle()
       return true
     }
 
@@ -108,64 +83,18 @@ internal class PlatformTransformSession(
         }
     if (!eligible) {
       routing.suppressed += kind
-      cancel(
-        if (target.isGestureReady) GestureCancellationReason.BindingChanged
-        else GestureCancellationReason.Detached
-      )
+      components.remove(kind)
+      finishIfIdle()
       return false
     }
 
-    var current = components[kind]
-    if (
-      current != null &&
-        (current.sample.modifierKeys != sample.modifierKeys ||
-          current.sample.buttons != sample.buttons ||
-          current.sample.pointerTypes != sample.pointerTypes)
-    ) {
-      routing.suppressed += kind
-      cancel(GestureCancellationReason.BindingChanged)
-      return false
-    }
-
-    if (current == null) {
-      current = startComponent(kind, sample)
+    if (kind !in components) {
+      startComponent(kind)
       if (!retainAuthority()) return true
     }
     if (!delta) return true
 
-    // A host clock discontinuity is a new velocity baseline, not a movement to replay.
-    if (sample.uptimeMillis < current.sample.uptimeMillis) {
-      current.velocity.resetTracking()
-      current.sample = sample.copy(gestureId = current.sample.gestureId)
-      current.velocity.addPosition(sample.uptimeMillis, current.displacement)
-      return true
-    }
-
-    current.sample = sample.copy(gestureId = current.sample.gestureId)
     target.observeInput()
-    current.displacement +=
-      if (kind == Kind.Scale) Offset(log2(scaleFactor).toFloat(), 0f)
-      else Offset(panDelta.x.value, panDelta.y.value)
-    current.velocity.addPosition(sample.uptimeMillis, current.displacement)
-    when (kind) {
-      Kind.Scale ->
-        currentOptions()
-          .bindings
-          .transform
-          .zoom
-          .handlers
-          .observe(PinchEvent.Delta(current.sample, scaleFactor))
-      Kind.Pan ->
-        currentOptions()
-          .bindings
-          .transform
-          .pan
-          .handlers
-          .observe(DragEvent.Delta(current.sample, panDelta))
-    }
-    // Observers may move the camera themselves, revoking this session before its response.
-    if (!retainAuthority()) return true
-
     val token = checkNotNull(session).token
     when (kind) {
       Kind.Scale -> {
@@ -173,7 +102,7 @@ internal class PlatformTransformSession(
         if (scale.isFinite() && scale > 0.0)
           target.inputScaleBy(
             scale,
-            settings.zoom.anchor.location(current.sample),
+            settings.zoom.anchor.location(sample),
             gestureToken = token,
           )
       }
@@ -189,82 +118,26 @@ internal class PlatformTransformSession(
     return true
   }
 
-  private fun startComponent(kind: Kind, sample: GesturePointerSample): Component {
+  private fun startComponent(kind: Kind) {
     if (session == null) {
       onAccepted()
       target.observeInput()
       lateinit var input: GestureInputSession
       input =
         GestureInputSession(scope, target, origin = CameraInputOrigin.Transform) {
-          if (session === input)
-            cancel(
-              if (target.isGestureReady) GestureCancellationReason.CameraTakeover
-              else GestureCancellationReason.Detached
-            )
+          if (session === input) cancel()
         }
       session = input
     }
 
     session?.token?.rearm(if (kind == Kind.Scale) CameraComponent.Zoom else CameraComponent.Pan)
-    val current = Component(kind, sample.copy(gestureId = ids.next()))
-    components[kind] = current
-    current.velocity.addPosition(sample.uptimeMillis, Offset.Zero)
-    deliverStart(current)
-    return current
+    components += kind
   }
 
   private fun retainAuthority(): Boolean {
     if (session?.token?.acceptsCommands == true) return true
-    cancel(
-      if (target.isGestureReady) GestureCancellationReason.CameraTakeover
-      else GestureCancellationReason.Detached
-    )
+    cancel()
     return false
-  }
-
-  private fun deliverStart(component: Component) {
-    val sample = component.sample
-    when (component.kind) {
-      Kind.Scale ->
-        currentOptions()
-          .bindings
-          .transform
-          .zoom
-          .handlers
-          .observe(PinchEvent.Start(sample, sample.screenOffset))
-      Kind.Pan ->
-        currentOptions()
-          .bindings
-          .transform
-          .pan
-          .handlers
-          .observe(DragEvent.Start(sample, sample.screenOffset))
-    }
-  }
-
-  private fun deliverEnd(component: Component) {
-    val velocity = component.velocity.calculateVelocity(pointerInput = false)
-    when (component.kind) {
-      Kind.Scale ->
-        currentOptions()
-          .bindings
-          .transform
-          .zoom
-          .handlers
-          .observe(PinchEvent.End(component.sample, velocity.x.toDouble()))
-      Kind.Pan ->
-        currentOptions()
-          .bindings
-          .transform
-          .pan
-          .handlers
-          .observe(
-            DragEvent.End(
-              component.sample,
-              ScreenVelocity(velocity.x.toDouble(), velocity.y.toDouble()),
-            )
-          )
-    }
   }
 
   private fun finishIfIdle() {
@@ -274,41 +147,11 @@ internal class PlatformTransformSession(
     completed?.end()
   }
 
-  fun cancel(reason: GestureCancellationReason = GestureCancellationReason.InputCancelled) {
-    val previous = components.values.toList()
-    routing.suppressed += components.keys
+  fun cancel() {
+    routing.suppressed += components
     components.clear()
     val cancelled = session
     session = null
-
-    // Clear ownership before invoking user callbacks; every active component still gets Cancel.
-    var failure: Throwable? = null
-    try {
-      for (component in previous) {
-        try {
-          when (component.kind) {
-            Kind.Scale ->
-              currentOptions()
-                .bindings
-                .transform
-                .zoom
-                .handlers
-                .observe(PinchEvent.Cancel(component.sample, reason))
-            Kind.Pan ->
-              currentOptions()
-                .bindings
-                .transform
-                .pan
-                .handlers
-                .observe(DragEvent.Cancel(component.sample, reason))
-          }
-        } catch (cause: Throwable) {
-          if (failure == null) failure = cause else failure.addSuppressed(cause)
-        }
-      }
-    } finally {
-      cancelled?.cancel()
-    }
-    failure?.let { throw it }
+    cancelled?.cancel()
   }
 }

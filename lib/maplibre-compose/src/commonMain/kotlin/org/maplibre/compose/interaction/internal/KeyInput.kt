@@ -27,14 +27,8 @@ import org.maplibre.compose.camera.internal.inputPanByAwaitingTransition
 import org.maplibre.compose.camera.internal.inputRotateAndPitchByAwaitingTransition
 import org.maplibre.compose.camera.internal.inputScaleByAwaitingTransition
 import org.maplibre.compose.interaction.CameraInputOrigin
-import org.maplibre.compose.interaction.KeyGestureEvent
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.MapInteractions
-
-internal data class KeyClaim(
-  val response: KeyResponse?,
-  val gestureId: Long,
-)
 
 /**
  * The focus and engagement of one [mapInput] node. The node writes both states, and [onChanged]
@@ -53,7 +47,7 @@ internal class InputFocus(private val onChanged: (engaged: Boolean) -> Unit) {
   val indicationInteractions = MutableInteractionSource()
 
   /** A null response retains only consumption until release after cancellation. */
-  val claimedKeys = mutableStateMapOf<Key, KeyClaim>()
+  val claimedKeys = mutableStateMapOf<Key, KeyResponse?>()
 
   /** Engagement belongs to the key handler, so a map without one never engages or stays engaged. */
   var hasKeyBindings = false
@@ -123,7 +117,6 @@ internal class KeyInput(
   private val target: CameraInputTarget,
   private val options: () -> MapInteractions,
   private val focus: InputFocus,
-  private val ids: GestureIds,
   private val scope: CoroutineScope,
 ) {
   private var session: GestureInputSession? = null
@@ -143,24 +136,21 @@ internal class KeyInput(
       if (event.isAltPressed) add(KeyModifier.Alt)
       if (event.isMetaPressed) add(KeyModifier.Meta)
     }
-    return onSample(event.key, event.type, modifiers, keyDispatchUptimeMillis())
+    return onSample(event.key, event.type, modifiers)
   }
 
   fun onSample(
     key: Key,
     type: KeyEventType,
     modifiers: Set<KeyModifier>,
-    uptimeMillis: Long,
   ): Boolean {
     if (session?.token?.acceptsCommands == false) cancel()
 
     // Releases close an existing claim even if its binding was removed while the key was held.
     if (type == KeyEventType.KeyUp) {
-      val released = focus.claimedKeys.remove(key) ?: return false
-      val component = released.response?.component
-      if (
-        component != null && focus.claimedKeys.values.none { it.response?.component == component }
-      )
+      if (key !in focus.claimedKeys) return false
+      val component = focus.claimedKeys.remove(key)?.component
+      if (component != null && focus.claimedKeys.values.none { it?.component == component })
         session?.token?.rearm(component)
       finishIfReleased()
       return true
@@ -168,12 +158,13 @@ internal class KeyInput(
     if (type != KeyEventType.KeyDown) return false
 
     val previous = focus.claimedKeys[key]
-    if (previous != null && previous.response == null) return true
+    if (key in focus.claimedKeys && previous == null) return true
     val settings = options()
     if (!settings.bindings.keys.hasCameraBindings(settings.camera)) return false
     val action =
-      (previous?.response ?: settings.bindings.keys.select(key, modifiers, settings.camera))
-        ?.takeUnless { it == KeyResponse.None } ?: return false
+      (previous ?: settings.bindings.keys.select(key, modifiers, settings.camera))?.takeUnless {
+        it == KeyResponse.None
+      } ?: return false
 
     val consumed =
       when (action) {
@@ -187,18 +178,11 @@ internal class KeyInput(
     // A press after every camera key was released starts a new lifetime, even if the last
     // release's easing is still draining. Overlapping held keys keep their shared authority.
     if (action.isCamera && previous == null && !hasHeldCameraKeys() && session != null) cancel()
-    val claim = previous ?: KeyClaim(action, ids.next()).also { focus.claimedKeys[key] = it }
+    if (previous == null) focus.claimedKeys[key] = action
 
     target.observeInput()
-    val event = KeyGestureEvent(claim.gestureId, uptimeMillis, key, modifiers, previous != null)
     if (!action.isCamera) {
-      try {
-        settings.bindings.keys.onEvent?.invoke(event)
-        if (!focus.isEngaged) cancel()
-      } catch (error: Throwable) {
-        cancel()
-        throw error
-      }
+      if (!focus.isEngaged) cancel()
       return true
     }
 
@@ -214,13 +198,6 @@ internal class KeyInput(
         }
 
     try {
-      settings.bindings.keys.onEvent?.invoke(event)
-      // An observer can take over the camera; its key response must then stop here.
-      if (!current.token.acceptsCommands) {
-        cancel()
-        return true
-      }
-
       step?.cancel()
       step =
         current.scope.launch(start = CoroutineStart.UNDISPATCHED) {
@@ -246,8 +223,7 @@ internal class KeyInput(
     return true
   }
 
-  private fun hasHeldCameraKeys(): Boolean =
-    focus.claimedKeys.values.any { it.response?.isCamera == true }
+  private fun hasHeldCameraKeys(): Boolean = focus.claimedKeys.values.any { it?.isCamera == true }
 
   private fun finishIfReleased() {
     if (hasHeldCameraKeys()) return
@@ -261,7 +237,7 @@ internal class KeyInput(
     session = null
     step = null
     focus.claimedKeys.keys.toList().forEach { key ->
-      focus.claimedKeys[key] = focus.claimedKeys.getValue(key).copy(response = null)
+      focus.claimedKeys[key] = null
     }
     previous?.cancel()
   }

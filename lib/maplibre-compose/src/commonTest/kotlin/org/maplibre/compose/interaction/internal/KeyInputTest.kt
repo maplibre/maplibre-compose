@@ -48,12 +48,11 @@ class MapKeyInputTest {
           map.target,
           { options },
           focus,
-          GestureIds(),
           backgroundScope,
         )
       input.configure(options.structuralKey)
-      fun down(key: Key) = assertTrue(input.onSample(key, KeyEventType.KeyDown, emptySet(), 0))
-      fun up(key: Key) = assertTrue(input.onSample(key, KeyEventType.KeyUp, emptySet(), 0))
+      fun down(key: Key) = assertTrue(input.onSample(key, KeyEventType.KeyDown, emptySet()))
+      fun up(key: Key) = assertTrue(input.onSample(key, KeyEventType.KeyUp, emptySet()))
       down(Key.DirectionLeft)
       down(Key.DirectionRight)
       down(Key.Plus)
@@ -73,7 +72,7 @@ class MapKeyInputTest {
       up(Key.Plus)
       runCurrent()
       assertEquals(1, map.target.endedCount)
-      assertFalse(input.onSample(Key.Plus, KeyEventType.KeyUp, emptySet(), 0))
+      assertFalse(input.onSample(Key.Plus, KeyEventType.KeyUp, emptySet()))
     }
 
   @Test
@@ -104,15 +103,14 @@ class MapKeyInputTest {
         target,
         { options },
         focus,
-        GestureIds(),
         backgroundScope,
       )
     input.configure(options.structuralKey)
-    input.onSample(Key.DirectionRight, KeyEventType.KeyDown, emptySet(), 0)
+    input.onSample(Key.DirectionRight, KeyEventType.KeyDown, emptySet())
     runCurrent()
     val superseded = steps.single()
-    input.onSample(Key.DirectionRight, KeyEventType.KeyDown, emptySet(), 100)
-    input.onSample(Key.DirectionRight, KeyEventType.KeyUp, emptySet(), 100)
+    input.onSample(Key.DirectionRight, KeyEventType.KeyDown, emptySet())
+    input.onSample(Key.DirectionRight, KeyEventType.KeyUp, emptySet())
     runCurrent()
     assertEquals(0, map.target.endedCount)
     assertEquals(1, map.target.startedCount)
@@ -141,20 +139,19 @@ class MapKeyInputTest {
         map.target,
         { options },
         focus,
-        GestureIds(),
         backgroundScope,
       )
     input.configure(options.structuralKey)
-    input.onSample(Key.DirectionRight, KeyEventType.KeyDown, emptySet(), 0)
+    input.onSample(Key.DirectionRight, KeyEventType.KeyDown, emptySet())
     options = MapInteractions { bindings { keys { panStep = androidx.compose.ui.unit.Dp(50f) } } }
     input.configure(options.structuralKey)
-    assertTrue(input.onSample(Key.DirectionRight, KeyEventType.KeyDown, emptySet(), 0))
+    assertTrue(input.onSample(Key.DirectionRight, KeyEventType.KeyDown, emptySet()))
     assertEquals(1, map.target.moveCalls.size)
-    assertTrue(input.onSample(Key.DirectionRight, KeyEventType.KeyUp, emptySet(), 0))
-    assertTrue(input.onSample(Key.DirectionRight, KeyEventType.KeyDown, emptySet(), 0))
+    assertTrue(input.onSample(Key.DirectionRight, KeyEventType.KeyUp, emptySet()))
+    assertTrue(input.onSample(Key.DirectionRight, KeyEventType.KeyDown, emptySet()))
     assertEquals(2, map.target.moveCalls.size)
     assertEquals(-50f, map.target.moveCalls.last().x)
-    input.onSample(Key.DirectionRight, KeyEventType.KeyUp, emptySet(), 0)
+    input.onSample(Key.DirectionRight, KeyEventType.KeyUp, emptySet())
     runCurrent()
   }
 }

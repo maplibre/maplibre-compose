@@ -7,10 +7,10 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import org.maplibre.compose.interaction.ClickEvent
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.ModifierMatch
 import org.maplibre.compose.interaction.PointerButton
-import org.maplibre.compose.interaction.TapEvent
 
 class InputMatchingTest {
   @Test
@@ -85,13 +85,10 @@ class InputMatchingTest {
     val modifiers = mutableSetOf(KeyModifier.Ctrl)
     val buttons = mutableSetOf<PointerButton>()
     val event =
-      TapEvent(
-        GesturePointerSample(7L, 50L, DpOffset(12.dp, 34.dp), null, types, buttons, modifiers)
-      )
+      ClickEvent(GesturePointerSample(50L, DpOffset(12.dp, 34.dp), null, types, buttons, modifiers))
     types.clear()
     modifiers.clear()
     buttons += PointerButton.Primary
-    assertEquals(7L, event.gestureId)
     assertEquals(50L, event.uptimeMillis)
     assertEquals(DpOffset(12.dp, 34.dp), event.screenOffset)
     assertEquals(null, event.position)

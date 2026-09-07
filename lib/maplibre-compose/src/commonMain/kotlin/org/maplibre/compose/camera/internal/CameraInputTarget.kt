@@ -61,7 +61,7 @@ internal class CameraInputToken(
   fun complete() = authority.complete(this)
 }
 
-/** Camera operations shared by recognized gestures and app-owned input. Screen distances are dp. */
+/** Camera operations used by built-in map controls. Screen distances are dp. */
 internal interface CameraInputTarget {
   /** Accepted input invalidates older asynchronous camera fallthrough, even before recognition. */
   fun observeInput(): Long

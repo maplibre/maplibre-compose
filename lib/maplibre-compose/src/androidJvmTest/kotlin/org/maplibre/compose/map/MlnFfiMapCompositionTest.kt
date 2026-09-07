@@ -38,7 +38,6 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicInt
-import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.math.abs
@@ -54,7 +53,6 @@ import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.interaction.DragEvent
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.PointerButton
 import org.maplibre.compose.layers.Anchor
@@ -100,7 +98,6 @@ class MlnFfiMapCompositionTest {
       val state = runtime.createMapState(baseStyle = BaseStyle.Empty, initialCameraPosition = start)
       var configuration by mutableStateOf(MapInteractions.None)
       var density = 1f
-      val release = AtomicReference<DragEvent.End?>(null)
       try {
         setFfiTestMapContent(runtimeOptions) {
           density = LocalDensity.current.density
@@ -118,7 +115,6 @@ class MlnFfiMapCompositionTest {
 
         fun pan(direction: Float, withFling: Boolean): Float {
           runOnUiThread {
-            release.store(null)
             configuration =
               MapInteractions(from = MapInteractions.None) {
                 camera {
@@ -133,7 +129,6 @@ class MlnFfiMapCompositionTest {
                   drag {
                     enabled = true
                     mappings { on(button = PointerButton.Primary) { pan() } }
-                    onEnd { release.store(it) }
                   }
                 }
               }
@@ -152,15 +147,8 @@ class MlnFfiMapCompositionTest {
             up()
           }
           waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
-            release.load() != null &&
-              state.cameraMoveReason == CameraMoveReason.GESTURE &&
-              !state.isCameraMoving
+            state.cameraMoveReason == CameraMoveReason.GESTURE && !state.isCameraMoving
           }
-          val ended = checkNotNull(release.load())
-          assertTrue(
-            direction * ended.velocity.yDpPerSecond > 1000.0,
-            "the stroke did not qualify for fling",
-          )
           val camera = state.cameraPosition
           assertEquals(start.zoom, camera.zoom, 1e-6)
           assertEquals(start.bearing, camera.bearing, 1e-6)

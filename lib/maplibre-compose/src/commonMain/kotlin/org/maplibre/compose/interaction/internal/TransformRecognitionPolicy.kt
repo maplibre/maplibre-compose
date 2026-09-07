@@ -12,28 +12,28 @@ internal class TransformRecognitionPolicy(
   private val pinch: TransformZoomBinding?,
   private val rotate: TransformRotateBinding?,
   private val shove: TransformTiltBinding?,
-) : PointerTransformPolicy {
+) {
   private var rotationSpan = 0.0
   private var minimumRotationSpan = 0.0
   private var rotationOrigin: PairSample? = null
   private var zoomWasActive = false
 
-  override fun reset(sample: PairSample) {
+  fun reset(sample: PairSample) {
     rotationSpan = sample.distance
     minimumRotationSpan = sample.distance
     rotationOrigin = sample
     zoomWasActive = false
   }
 
-  override fun accepts(previous: PairSample, current: PairSample): Boolean =
+  fun accepts(previous: PairSample, current: PairSample): Boolean =
     GestureMath.hasStablePressure(current.pressure, previous.pressure)
 
-  override fun needsRebase(previous: PairSample, current: PairSample): Boolean =
+  fun needsRebase(previous: PairSample, current: PairSample): Boolean =
     current.distance < GestureMath.MINIMUM_TWO_FINGER_SPAN_DP * density.density ||
       previous.distance <= 0
 
-  override fun recognize(motion: PairMotion, active: Set<TransformComponent>): TransformDecision {
-    val zooming = TransformComponent.Scale in active
+  fun recognize(motion: PairMotion, active: Set<CameraComponent>): TransformDecision {
+    val zooming = CameraComponent.Zoom in active
     // A zoom that just ended supplies the new rotation origin, not the original finger down.
     if (zoomWasActive && !zooming && rotate?.allowDuringZoom == false)
       rotationOrigin = motion.previous
@@ -41,8 +41,8 @@ internal class TransformRecognitionPolicy(
 
     val rotationFromStart =
       PairMotion(rotationOrigin ?: motion.origin, motion.previous, motion.current).rotationFromStart
-    val rotating = TransformComponent.Rotation in active
-    val shoving = TransformComponent.VerticalDrag in active
+    val rotating = CameraComponent.Rotate in active
+    val shoving = CameraComponent.Tilt in active
     val current = motion.current
     val spanFromStartDp = (current.distance - motion.origin.distance) * 2 / density.density
     val spanDeltaDp = (current.distance - motion.previous.distance) * 2 / density.density
@@ -55,7 +55,7 @@ internal class TransformRecognitionPolicy(
     val startPinch =
       scaleSpan != 0.0 &&
         pinch != null &&
-        TransformComponent.Scale !in active &&
+        CameraComponent.Zoom !in active &&
         !shoving &&
         GestureMath.shouldStartScale(
           scaleSpan,
@@ -102,8 +102,8 @@ internal class TransformRecognitionPolicy(
           shove.startSlop.value.toDouble(),
         )
 
-    val starts = linkedSetOf<TransformComponent>()
-    val cancels = linkedSetOf<TransformComponent>()
+    val starts = linkedSetOf<CameraComponent>()
+    val cancels = linkedSetOf<CameraComponent>()
     var panDelta = motion.pan
     var scale = motion.scale
     var rotation = motion.rotation
@@ -111,42 +111,38 @@ internal class TransformRecognitionPolicy(
 
     // Rebase while zoom owns the pair, so rotation cannot inherit the motion it rejected.
     if (rotationBlockedByZoom) {
-      if (rotating) cancels += TransformComponent.Rotation
+      if (rotating) cancels += CameraComponent.Rotate
       rotationOrigin = current
     }
 
     // Rotation wins simultaneous recognition; tilt takes over only when neither starts.
     // Each first delta excludes the recognition threshold to avoid a visible camera jump.
     if (startRotate) {
-      cancels += TransformComponent.Scale
+      cancels += CameraComponent.Zoom
       rotationSpan = current.distance
       rotation = rotationFromStart - sign(rotationFromStart) * rotationThreshold
-      starts += TransformComponent.Rotation
+      starts += CameraComponent.Rotate
     } else if (startPinch) {
       val baseline = if (rotating) rotationSpan else motion.origin.distance
       scale = current.distance / (baseline + sign(scaleSpan) * scaleThreshold * density.density / 2)
-      starts += TransformComponent.Scale
+      starts += CameraComponent.Zoom
     } else if (startShove) {
-      cancels +=
-        listOf(TransformComponent.Pan, TransformComponent.Scale, TransformComponent.Rotation)
+      cancels += listOf(CameraComponent.Pan, CameraComponent.Zoom, CameraComponent.Rotate)
       vertical =
         motion.displacement.y -
           sign(motion.displacement.y) * checkNotNull(shove).startSlop.value * density.density
-      starts += TransformComponent.VerticalDrag
+      starts += CameraComponent.Tilt
     }
 
     // Pan can accompany scale and rotation. Two-finger tilt owns the pair exclusively.
     if (
-      !shoving &&
-        TransformComponent.VerticalDrag !in starts &&
-        pan != null &&
-        TransformComponent.Pan !in active
+      !shoving && CameraComponent.Tilt !in starts && pan != null && CameraComponent.Pan !in active
     ) {
       val slop = pan.startSlop.value * density.density
       val distance = motion.displacement.getDistance()
       if (distance > 0 && distance >= slop) {
         panDelta = motion.displacement * ((distance - slop) / distance)
-        starts += TransformComponent.Pan
+        starts += CameraComponent.Pan
       }
     }
 

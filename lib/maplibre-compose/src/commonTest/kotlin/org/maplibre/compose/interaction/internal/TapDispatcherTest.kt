@@ -76,7 +76,7 @@ class MapTapDispatcherTest {
       callbacks {
         click {
           onEvent {
-            order += "binding ${it.gestureId}"
+            order += "binding ${it.uptimeMillis}"
             ClickResult.Pass
           }
         }
@@ -84,9 +84,9 @@ class MapTapDispatcherTest {
     }
     val target = { _: TapFamily ->
       ClickPath({ true }) {
-        order += "map ${it.gestureId}"
-        if (it.gestureId == 1L) query.await()
-        order += "layer ${it.gestureId}"
+        order += "map ${it.uptimeMillis}"
+        if (it.uptimeMillis == 1L) query.await()
+        order += "layer ${it.uptimeMillis}"
         ClickResult.Pass
       }
     }
@@ -142,7 +142,7 @@ class MapTapDispatcherTest {
     val target = { _: TapFamily ->
       var valid = true
       ClickPath({ valid }) {
-        if (it.gestureId == 1L) {
+        if (it.uptimeMillis == 1L) {
           valid = false
           throw CancellationException("attachment changed")
         }
@@ -232,7 +232,6 @@ class MapTapDispatcherTest {
   private fun sample(id: Long) =
     GesturePointerSample(
       id,
-      10,
       DpOffset.Zero,
       null,
       setOf(PointerType.Touch),

@@ -33,10 +33,11 @@ private constructor(
   ) : this(Builder(from).apply(block))
 
   private constructor(
-    builder: Builder
+    builder: Builder,
+    camera: CameraConfiguration = builder.cameraBuilder.build(),
   ) : this(
-    builder.cameraBuilder.build(),
-    builder.bindingsBuilder.build(builder.cameraBuilder.build()),
+    camera,
+    builder.bindingsBuilder.build(camera),
     builder.callbacksBuilder.build(),
     builder.animationDuration,
   )

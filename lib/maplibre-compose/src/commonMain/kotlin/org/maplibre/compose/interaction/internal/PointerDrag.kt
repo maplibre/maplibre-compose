@@ -14,7 +14,6 @@ internal class PointerDrag(
   val origin = first.position
 
   private var previous = first
-  private var closed = false
   var active = false
     private set
 
@@ -25,7 +24,6 @@ internal class PointerDrag(
   )
 
   fun move(change: PointerInputChange): Motion? {
-    if (closed) return null
     val old = previous
     previous = change
     val delta = change.position - old.position
@@ -43,13 +41,5 @@ internal class PointerDrag(
       }
     active = true
     return Motion(true, beyond, displacement - beyond)
-  }
-
-  /** Closes recognition and returns whether the contact crossed the movement threshold. */
-  fun finish(): Boolean {
-    val started = active
-    active = false
-    closed = true
-    return started
   }
 }

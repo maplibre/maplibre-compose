@@ -91,8 +91,6 @@ public class DragBindingBuilder internal constructor(from: DragBinding) {
   private val rotateTiltBuilder = DragRotateTiltBuilder(from.rotateTilt)
   private val fitBoundsBuilder = DragFitBoundsBuilder(from.fitBounds)
 
-  private var handlers = from.handlers
-
   public fun mappings(block: DragMappingsBuilder.() -> Unit) {
     rows = DragMappingsBuilder().apply(block).build()
   }
@@ -109,22 +107,6 @@ public class DragBindingBuilder internal constructor(from: DragBinding) {
     fitBoundsBuilder.apply(block)
   }
 
-  public fun onStart(block: ((DragEvent.Start) -> Unit)?) {
-    handlers = handlers.copy(onStart = block)
-  }
-
-  public fun onDelta(block: ((DragEvent.Delta) -> Unit)?) {
-    handlers = handlers.copy(onDelta = block)
-  }
-
-  public fun onEnd(block: ((DragEvent.End) -> Unit)?) {
-    handlers = handlers.copy(onEnd = block)
-  }
-
-  public fun onCancel(block: ((DragEvent.Cancel) -> Unit)?) {
-    handlers = handlers.copy(onCancel = block)
-  }
-
   internal fun build(): DragBinding =
     DragBinding(
       enabled,
@@ -133,7 +115,6 @@ public class DragBindingBuilder internal constructor(from: DragBinding) {
       panBuilder.build(),
       rotateTiltBuilder.build(),
       fitBoundsBuilder.build(),
-      handlers,
     )
 }
 
@@ -146,27 +127,10 @@ public class TransformPanBuilder internal constructor(from: TransformPanBinding)
   /** Recognition distance for touch pairs. Host-recognized pans have already passed host slop. */
   public var startSlop: Dp = from.startSlop
   private val momentumBuilder = PanMomentumBuilder(from.momentum, from.momentumOverride)
-  private var handlers = from.handlers
 
   /** Momentum for touch pairs. Host-recognized pans retain only momentum supplied by the host. */
   public fun momentum(block: PanMomentumBuilder.() -> Unit) {
     momentumBuilder.apply(block)
-  }
-
-  public fun onStart(block: ((DragEvent.Start) -> Unit)?) {
-    handlers = handlers.copy(onStart = block)
-  }
-
-  public fun onDelta(block: ((DragEvent.Delta) -> Unit)?) {
-    handlers = handlers.copy(onDelta = block)
-  }
-
-  public fun onEnd(block: ((DragEvent.End) -> Unit)?) {
-    handlers = handlers.copy(onEnd = block)
-  }
-
-  public fun onCancel(block: ((DragEvent.Cancel) -> Unit)?) {
-    handlers = handlers.copy(onCancel = block)
   }
 
   internal fun build(base: PanMomentum): TransformPanBinding {
@@ -178,7 +142,6 @@ public class TransformPanBuilder internal constructor(from: TransformPanBinding)
       startSlop,
       momentumBuilder.overrides,
       momentumBuilder.build(base),
-      handlers,
     )
   }
 }
@@ -192,26 +155,9 @@ public class TransformZoomBuilder internal constructor(from: TransformZoomBindin
   public var anchor: GestureAnchor = from.anchor
   public var zoomScale: Double = from.zoomScale
   private val momentumBuilder = VelocityMomentumBuilder(from.momentum, from.momentumOverride)
-  private var handlers = from.handlers
 
   public fun momentum(block: VelocityMomentumBuilder.() -> Unit) {
     momentumBuilder.apply(block)
-  }
-
-  public fun onStart(block: ((PinchEvent.Start) -> Unit)?) {
-    handlers = handlers.copy(onStart = block)
-  }
-
-  public fun onDelta(block: ((PinchEvent.Delta) -> Unit)?) {
-    handlers = handlers.copy(onDelta = block)
-  }
-
-  public fun onEnd(block: ((PinchEvent.End) -> Unit)?) {
-    handlers = handlers.copy(onEnd = block)
-  }
-
-  public fun onCancel(block: ((PinchEvent.Cancel) -> Unit)?) {
-    handlers = handlers.copy(onCancel = block)
   }
 
   internal fun build(base: VelocityMomentum): TransformZoomBinding {
@@ -226,7 +172,6 @@ public class TransformZoomBuilder internal constructor(from: TransformZoomBindin
       zoomScale,
       momentumBuilder.overrides,
       momentumBuilder.build(base),
-      handlers,
     )
   }
 }
@@ -241,26 +186,9 @@ public class TransformRotateBuilder internal constructor(from: TransformRotateBi
   public var rotationScale: Double = from.rotationScale
   public var allowDuringZoom: Boolean = from.allowDuringZoom
   private val momentumBuilder = VelocityMomentumBuilder(from.momentum, from.momentumOverride)
-  private var handlers = from.handlers
 
   public fun momentum(block: VelocityMomentumBuilder.() -> Unit) {
     momentumBuilder.apply(block)
-  }
-
-  public fun onStart(block: ((RotateEvent.Start) -> Unit)?) {
-    handlers = handlers.copy(onStart = block)
-  }
-
-  public fun onDelta(block: ((RotateEvent.Delta) -> Unit)?) {
-    handlers = handlers.copy(onDelta = block)
-  }
-
-  public fun onEnd(block: ((RotateEvent.End) -> Unit)?) {
-    handlers = handlers.copy(onEnd = block)
-  }
-
-  public fun onCancel(block: ((RotateEvent.Cancel) -> Unit)?) {
-    handlers = handlers.copy(onCancel = block)
   }
 
   internal fun build(base: VelocityMomentum): TransformRotateBinding {
@@ -276,7 +204,6 @@ public class TransformRotateBuilder internal constructor(from: TransformRotateBi
       allowDuringZoom,
       momentumBuilder.overrides,
       momentumBuilder.build(base),
-      handlers,
     )
   }
 }
@@ -289,26 +216,9 @@ public class TransformTiltBuilder internal constructor(from: TransformTiltBindin
   public var startSlop: Dp = from.startSlop
   public var pitchDegreesPerDp: Double = from.pitchDegreesPerDp
   private val momentumBuilder = TiltMomentumBuilder(from.momentum, from.momentumOverride)
-  private var handlers = from.handlers
 
   public fun momentum(block: TiltMomentumBuilder.() -> Unit) {
     momentumBuilder.apply(block)
-  }
-
-  public fun onStart(block: ((ShoveEvent.Start) -> Unit)?) {
-    handlers = handlers.copy(onStart = block)
-  }
-
-  public fun onDelta(block: ((ShoveEvent.Delta) -> Unit)?) {
-    handlers = handlers.copy(onDelta = block)
-  }
-
-  public fun onEnd(block: ((ShoveEvent.End) -> Unit)?) {
-    handlers = handlers.copy(onEnd = block)
-  }
-
-  public fun onCancel(block: ((ShoveEvent.Cancel) -> Unit)?) {
-    handlers = handlers.copy(onCancel = block)
   }
 
   internal fun build(base: TiltMomentum): TransformTiltBinding {
@@ -322,7 +232,6 @@ public class TransformTiltBuilder internal constructor(from: TransformTiltBindin
       pitchDegreesPerDp,
       momentumBuilder.overrides,
       momentumBuilder.build(base),
-      handlers,
     )
   }
 }
@@ -337,26 +246,9 @@ public class TapDragBuilder internal constructor(from: TapDragBinding) {
   public var direction: QuickZoomDirection = from.direction
   public var zoomLevelsPerViewport: Double = from.zoomLevelsPerViewport
   private val momentumBuilder = VelocityMomentumBuilder(from.momentum, from.momentumOverride)
-  private var handlers = from.handlers
 
   public fun momentum(block: VelocityMomentumBuilder.() -> Unit) {
     momentumBuilder.apply(block)
-  }
-
-  public fun onStart(block: ((DragEvent.Start) -> Unit)?) {
-    handlers = handlers.copy(onStart = block)
-  }
-
-  public fun onDelta(block: ((DragEvent.Delta) -> Unit)?) {
-    handlers = handlers.copy(onDelta = block)
-  }
-
-  public fun onEnd(block: ((DragEvent.End) -> Unit)?) {
-    handlers = handlers.copy(onEnd = block)
-  }
-
-  public fun onCancel(block: ((DragEvent.Cancel) -> Unit)?) {
-    handlers = handlers.copy(onCancel = block)
   }
 
   internal fun build(base: VelocityMomentum): TapDragBinding {
@@ -372,7 +264,6 @@ public class TapDragBuilder internal constructor(from: TapDragBinding) {
       zoomLevelsPerViewport,
       momentumBuilder.overrides,
       momentumBuilder.build(base),
-      handlers,
     )
   }
 }
@@ -426,23 +317,6 @@ public class ScrollBindingBuilder internal constructor(from: ScrollBinding) {
    * 100 dp. Positive values zoom in when scrolling up; negative values reverse that direction.
    */
   public var zoomPerDp: Double = from.zoomPerDp
-  private var handlers = from.handlers
-
-  public fun onStart(block: ((ScrollEvent.Start) -> Unit)?) {
-    handlers = handlers.copy(onStart = block)
-  }
-
-  public fun onDelta(block: ((ScrollEvent.Delta) -> Unit)?) {
-    handlers = handlers.copy(onDelta = block)
-  }
-
-  public fun onEnd(block: ((ScrollEvent.End) -> Unit)?) {
-    handlers = handlers.copy(onEnd = block)
-  }
-
-  public fun onCancel(block: ((ScrollEvent.Cancel) -> Unit)?) {
-    handlers = handlers.copy(onCancel = block)
-  }
 
   internal fun build(): ScrollBinding {
     requireNonnegativeFinite(idleDuration, "idleDuration")
@@ -454,7 +328,6 @@ public class ScrollBindingBuilder internal constructor(from: ScrollBinding) {
       idleDuration,
       anchor,
       zoomPerDp,
-      handlers,
     )
   }
 }
@@ -491,18 +364,13 @@ public class KeyBindingBuilder internal constructor(from: KeyBinding) {
   public var zoomStep: Double = from.zoomStep
   public var rotateStep: Double = from.rotateStep
   public var pitchStep: Double = from.pitchStep
-  private var observer = from.onEvent
-
-  public fun onEvent(block: ((KeyGestureEvent) -> Unit)?) {
-    observer = block
-  }
 
   internal fun build(): KeyBinding {
     require(panStep.value.isFinite()) { "panStep must be finite" }
     require(zoomStep.isFinite()) { "zoomStep must be finite" }
     require(rotateStep.isFinite()) { "rotateStep must be finite" }
     require(pitchStep.isFinite()) { "pitchStep must be finite" }
-    return KeyBinding(enabled, rows, panStep, zoomStep, rotateStep, pitchStep, observer)
+    return KeyBinding(enabled, rows, panStep, zoomStep, rotateStep, pitchStep)
   }
 }
 
@@ -511,16 +379,11 @@ public class RotaryBindingBuilder internal constructor(from: RotaryBinding) {
   public var enabled: Boolean = from.enabled
   public var zoomStep: Double = from.zoomStep
   public var idleDuration: Duration = from.idleDuration
-  private var observer = from.onEvent
-
-  public fun onEvent(block: ((RotaryGestureEvent) -> Unit)?) {
-    observer = block
-  }
 
   internal fun build(): RotaryBinding {
     require(zoomStep.isFinite()) { "zoomStep must be finite" }
     requireNonnegativeFinite(idleDuration, "idleDuration")
-    return RotaryBinding(enabled, zoomStep, idleDuration, observer)
+    return RotaryBinding(enabled, zoomStep, idleDuration)
   }
 }
 

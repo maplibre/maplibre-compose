@@ -4,7 +4,7 @@ import androidx.compose.ui.unit.DpOffset
 import kotlin.time.Duration
 import org.maplibre.compose.interaction.internal.CameraComponent
 
-/** Shared policy boundary between recognized/app input and raw backend camera commands. */
+/** Applies camera permissions and start callbacks before backend commands. */
 internal fun CameraInputTarget.inputPanBy(
   deltaX: Double,
   deltaY: Double,

@@ -9,47 +9,36 @@ import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.inputScaleBy
 import org.maplibre.compose.interaction.CameraInputOrigin
-import org.maplibre.compose.interaction.RotaryGestureEvent
 
 /** Focused rotary input has its own burst; it does not resume a pointer's continuation. */
 internal class RotaryGesture(
   private val target: CameraInputTarget,
-  private val binding: () -> RotaryBinding,
-  private val ids: GestureIds,
+  private val binding: RotaryBinding,
   private val notchPixels: Float,
   private val scope: CoroutineScope,
 ) {
   private var session: GestureInputSession? = null
-  private var gestureId = 0L
 
   private var finishJob: Job? = null
 
-  fun onEvent(event: RotaryScrollEvent): Boolean =
-    onSample(event.verticalScrollPixels, event.horizontalScrollPixels, event.uptimeMillis)
+  fun onEvent(event: RotaryScrollEvent): Boolean = onSample(event.verticalScrollPixels)
 
-  fun onSample(
-    verticalScrollPixels: Float,
-    horizontalScrollPixels: Float,
-    uptimeMillis: Long,
-  ): Boolean {
-    val selected = binding()
+  fun onSample(verticalScrollPixels: Float): Boolean {
     if (
-      !selected.enabled ||
+      !binding.enabled ||
         notchPixels <= 0f ||
         !notchPixels.isFinite() ||
         verticalScrollPixels == 0f ||
-        !verticalScrollPixels.isFinite() ||
-        !horizontalScrollPixels.isFinite()
+        !verticalScrollPixels.isFinite()
     )
       return false
-    val scale = 2.0.pow(-verticalScrollPixels / notchPixels * selected.zoomStep)
+    val scale = 2.0.pow(-verticalScrollPixels / notchPixels * binding.zoomStep)
     if (!scale.isFinite() || scale <= 0.0) return false
     target.observeInput()
     val current =
       session?.takeIf { it.token.acceptsCommands }
         ?: run {
           cancel()
-          gestureId = ids.next()
 
           lateinit var created: GestureInputSession
           created =
@@ -59,23 +48,11 @@ internal class RotaryGesture(
           created.also { session = it }
         }
     try {
-      selected.onEvent?.invoke(
-        RotaryGestureEvent(
-          gestureId,
-          uptimeMillis,
-          verticalScrollPixels,
-          horizontalScrollPixels,
-        )
-      )
-      if (!current.token.acceptsCommands) {
-        cancel()
-        return true
-      }
       target.inputScaleBy(scale, null, gestureToken = current.token)
       finishJob?.cancel()
       finishJob =
         current.scope.launch {
-          delay(selected.idleDuration.inWholeMilliseconds)
+          delay(binding.idleDuration.inWholeMilliseconds)
           session = null
           finishJob = null
           current.end()

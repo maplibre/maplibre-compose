@@ -17,9 +17,9 @@ import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.compose.interaction.ClickEvent
 import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.MapInteractions
-import org.maplibre.compose.interaction.TapEvent
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.FeaturesClickHandler
 import org.maplibre.compose.layers.UnknownLayer
@@ -62,7 +62,7 @@ class MapClickDispatcherTest {
           fixture.revision.value = DesiredStyleRevision(emptyList(), nodes, emptyList())
           val path = checkNotNull(fixture.dispatcher.capture(family))
           checkNotNull(fixture.style.value).moveLayer("back", "")
-          path.deliver(checkNotNull(family.event(fixture.sample)))
+          path.deliver(ClickEvent(fixture.sample))
           assertEquals(listOf("back"), delivered, family.name)
         }
       }
@@ -256,7 +256,6 @@ class MapClickDispatcherTest {
     val dispatcher: FeatureClickDispatcher
     val sample =
       GesturePointerSample(
-        1,
         10,
         DpOffset(10.dp, 20.dp),
         Position(0.0, 0.0),
@@ -264,7 +263,7 @@ class MapClickDispatcherTest {
         emptySet(),
         emptySet(),
       )
-    val event = TapEvent(sample)
+    val event = ClickEvent(sample)
 
     init {
       state.publishPresentation(state.reservePresentation(), adapter)

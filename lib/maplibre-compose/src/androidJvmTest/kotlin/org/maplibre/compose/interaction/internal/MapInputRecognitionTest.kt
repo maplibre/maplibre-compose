@@ -56,7 +56,6 @@ import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
@@ -68,19 +67,12 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.CameraInputToken
 import org.maplibre.compose.interaction.CameraInputStart
+import org.maplibre.compose.interaction.ClickEvent
 import org.maplibre.compose.interaction.ClickResult
-import org.maplibre.compose.interaction.DoubleTapEvent
-import org.maplibre.compose.interaction.DragEvent
-import org.maplibre.compose.interaction.GestureCancellationReason
 import org.maplibre.compose.interaction.KeyModifier
-import org.maplibre.compose.interaction.LongClickEvent
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.ModifierMatch
-import org.maplibre.compose.interaction.PinchEvent
 import org.maplibre.compose.interaction.PointerButton
-import org.maplibre.compose.interaction.RotaryGestureEvent
-import org.maplibre.compose.interaction.RotateEvent
-import org.maplibre.compose.interaction.ScrollEvent
 import org.maplibre.compose.map.GestureTestFixture
 import org.maplibre.compose.map.RecordingGestureTarget
 import org.maplibre.compose.map.mapRuntimeForTest
@@ -160,129 +152,6 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun a_throwing_pan_delta_cancels_once_before_applying_the_camera_response() {
-    val calls = mutableListOf<String>()
-    lateinit var recorded: RecordingGestureTarget
-    val failure =
-      assertFailsWith<IllegalStateException> {
-        runRecognitionTest(
-          options =
-            MapInteractions {
-              bindings {
-                drag {
-                  onStart { calls += "start" }
-                  onDelta {
-                    calls += "delta"
-                    error("pan observer failed")
-                  }
-                  onCancel { calls += "cancel" }
-                }
-              }
-            }
-        ) { target ->
-          recorded = target
-          mapNode().performTouchInput {
-            down(Offset(30f, 30f))
-            moveBy(Offset(40f, 0f))
-            up()
-          }
-          waitForIdle()
-        }
-      }
-    assertEquals("pan observer failed", failure.message)
-    assertEquals(listOf("start", "delta", "cancel"), calls)
-    assertTrue(recorded.moveCalls.isEmpty())
-    assertEquals(1, recorded.startedCount)
-    assertEquals(1, recorded.endedCount)
-  }
-
-  @Test
-  fun a_throwing_pair_end_observer_cancels_other_started_components_once() {
-    val observed = mutableListOf<String>()
-    lateinit var recorded: RecordingGestureTarget
-    val failure =
-      assertFailsWith<IllegalStateException> {
-        runRecognitionTest(
-          options =
-            MapInteractions {
-              bindings {
-                transform {
-                  pan {
-                    onEnd {
-                      observed += "pan end"
-                      error("pair end failed")
-                    }
-                    onCancel { observed += "pan cancel" }
-                  }
-                }
-              }
-              bindings {
-                transform {
-                  zoom {
-                    onStart { observed += "pinch start" }
-                    onEnd { observed += "pinch end" }
-                    onCancel { observed += "pinch cancel" }
-                  }
-                }
-              }
-            }
-        ) { target ->
-          recorded = target
-          mapNode().performTouchInput {
-            down(0, Offset(40f, 100f))
-            down(1, Offset(200f, 100f))
-            updatePointerTo(0, Offset(50f, 100f))
-            updatePointerTo(1, Offset(250f, 100f))
-            move(delayMillis = 32)
-            up(0)
-            up(1)
-          }
-          waitForIdle()
-        }
-      }
-    assertEquals("pair end failed", failure.message)
-    assertEquals(listOf("pinch start", "pan end", "pinch cancel"), observed)
-    assertEquals(1, recorded.startedCount)
-    assertEquals(1, recorded.endedCount)
-  }
-
-  @Test
-  fun a_throwing_scroll_end_observer_closes_the_session_without_a_second_terminal() {
-    val observed = mutableListOf<String>()
-    lateinit var recorded: RecordingGestureTarget
-    val failure =
-      assertFailsWith<IllegalStateException> {
-        runRecognitionTest(
-          options =
-            MapInteractions {
-              bindings {
-                scroll {
-                  onEnd {
-                    observed += "end"
-                    error("scroll end failed")
-                  }
-                  onCancel { observed += "cancel" }
-                }
-              }
-            }
-        ) { target ->
-          recorded = target
-          mapNode().performMouseInput {
-            moveTo(Offset(40f, 40f))
-            scroll(1f)
-          }
-          mainClock.advanceTimeBy(300)
-          waitForIdle()
-        }
-      }
-    assertEquals("scroll end failed", failure.message)
-    assertEquals(listOf("end"), observed)
-    assertEquals(1, recorded.scaleCalls.size)
-    assertEquals(1, recorded.startedCount)
-    assertEquals(1, recorded.endedCount)
-  }
-
-  @Test
   fun trackpad_pan_and_scale_work_independently_of_scroll_bindings() {
     assumeTrackpadEventInjectionSupported()
     runRecognitionTest(options = MapInteractions { bindings { scroll { enabled = false } } }) {
@@ -306,11 +175,7 @@ class MapInputRecognitionTest {
   @Test
   fun a_structural_restart_suppresses_trackpad_changes_until_the_old_component_ends() {
     assumeTrackpadEventInjectionSupported()
-    val terminals = mutableListOf<GestureCancellationReason>()
-    var options by
-      mutableStateOf(
-        MapInteractions { bindings { transform { zoom { onCancel { terminals += it.reason } } } } }
-      )
+    var options by mutableStateOf(MapInteractions.Standard)
     runRecognitionTest(optionsProvider = { options }) { target ->
       val map = mapNode()
       map.performTrackpadInput {
@@ -327,7 +192,7 @@ class MapInputRecognitionTest {
         scaleEnd()
       }
       waitForIdle()
-      assertEquals(listOf(GestureCancellationReason.ConfigurationChanged), terminals)
+      assertEquals(1, target.endedCount)
       assertEquals(1, target.scaleCalls.size)
       map.performTrackpadInput {
         scaleStart()
@@ -443,7 +308,7 @@ class MapInputRecognitionTest {
 
   @Test
   fun consuming_a_double_tap_binding_suppresses_zoom_and_map_delivery() {
-    val doubles = mutableListOf<DoubleTapEvent>()
+    val doubles = mutableListOf<ClickEvent>()
     runRecognitionTest(
       options =
         MapInteractions {
@@ -472,7 +337,7 @@ class MapInputRecognitionTest {
 
   @Test
   fun a_primary_click_does_not_suppress_secondary_click_when_long_press_is_disabled() {
-    val events = mutableListOf<LongClickEvent>()
+    val events = mutableListOf<ClickEvent>()
     runRecognitionTest(
       options =
         MapInteractions {
@@ -563,14 +428,12 @@ class MapInputRecognitionTest {
 
   @Test
   fun an_unmatched_contact_does_not_cancel_an_active_scroll_burst() {
-    val cancelled = mutableListOf<GestureCancellationReason>()
     runRecognitionTest(
       options =
         MapInteractions(MapInteractions.None) {
           bindings {
             scroll {
               enabled = true
-              onCancel { cancelled += it.reason }
               mappings { otherwise { zoom() } }
             }
           }
@@ -585,7 +448,6 @@ class MapInputRecognitionTest {
           up()
         }
         waitForIdle()
-        assertTrue(cancelled.isEmpty())
         assertEquals(0, target.endedCount)
         map.performMouseInput { scroll(-1f) }
         waitForIdle()
@@ -599,17 +461,15 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun observer_takeover_cancels_before_final_pass_consumption_can_replace_the_reason() {
+  fun camera_start_takeover_survives_final_pass_consumption() {
     var recorded: RecordingGestureTarget? = null
     var newer: CameraInputToken? = null
-    val cancelled = mutableListOf<GestureCancellationReason>()
     runRecognitionTest(
       options =
         MapInteractions {
-          bindings {
-            drag {
+          camera {
+            pan {
               onStart { newer = checkNotNull(recorded).onGestureStarted() }
-              onCancel { cancelled += it.reason }
             }
           }
         },
@@ -622,7 +482,6 @@ class MapInputRecognitionTest {
         up()
       }
       waitForIdle()
-      assertEquals(listOf(GestureCancellationReason.CameraTakeover), cancelled)
       assertTrue(target.moveCalls.isEmpty())
       assertTrue(checkNotNull(newer).acceptsCommands)
       target.onGestureEnded(checkNotNull(newer))
@@ -631,15 +490,7 @@ class MapInputRecognitionTest {
 
   @Test
   fun key_takeover_cancels_a_held_drag_without_waiting_for_another_pointer_event() {
-    val cancelled = mutableListOf<GestureCancellationReason>()
-    runRecognitionTest(
-      options =
-        MapInteractions {
-          bindings {
-            drag { onCancel { cancelled += it.reason } }
-          }
-        }
-    ) { target ->
+    runRecognitionTest { target ->
       val map = mapNode()
       map.performTouchInput {
         down(center)
@@ -648,7 +499,7 @@ class MapInputRecognitionTest {
       waitForIdle()
       map.performKeyInput { pressKey(Key.DirectionRight) }
       waitForIdle()
-      assertEquals(listOf(GestureCancellationReason.CameraTakeover), cancelled)
+      assertEquals(2, target.startedCount)
       val moves = target.moveCalls.size
       map.performTouchInput {
         moveBy(Offset(30f, 0f))
@@ -672,51 +523,20 @@ class MapInputRecognitionTest {
     }
 
   @Test
-  fun scroll_zoom_sensitivity_uses_the_reported_vertical_distance() {
-    var distance = 0.0
-    runRecognitionTest(
-      options =
-        MapInteractions {
-          bindings {
-            scroll {
-              zoomPerDp = 0.01
-              onDelta { distance += it.delta.y.value }
-            }
-          }
-        }
-    ) { target ->
-      mapNode().performMouseInput { scroll(Offset(3f, -2f)) }
+  fun scroll_zoom_sensitivity_scales_the_same_reported_distance() {
+    var options by mutableStateOf(MapInteractions { bindings { scroll { zoomPerDp = 0.01 } } })
+    runRecognitionTest(optionsProvider = { options }) { target ->
+      val map = mapNode()
+      map.performMouseInput { scroll(Offset(3f, -2f)) }
       waitForIdle()
-      assertTrue(distance > 0.0)
-      assertEquals(distance * 0.01, kotlin.math.log2(target.scaleCalls.single().scale), 1e-6)
-    }
-  }
-
-  @Test
-  fun scroll_lifecycle_observes_the_selected_binding_and_balances_its_burst() {
-    val events = mutableListOf<ScrollEvent>()
-    runRecognitionTest(
-      options =
-        MapInteractions {
-          bindings {
-            scroll {
-              onStart { events += it }
-              onDelta { events += it }
-              onEnd { events += it }
-            }
-          }
-        }
-    ) { target ->
-      mapNode().performMouseInput { scroll(Offset(1f, 2f)) }
-      mainClock.advanceTimeBy(SCROLL_HOLD_MILLIS + FRAME_MILLIS)
+      val baseline = kotlin.math.log2(target.scaleCalls.single().scale)
+      assertTrue(baseline > 0.0)
+      runOnIdle {
+        options = MapInteractions { bindings { scroll { zoomPerDp = 0.02 } } }
+      }
+      map.performMouseInput { scroll(Offset(3f, -2f)) }
       waitForIdle()
-      assertEquals(3, events.size)
-      assertTrue(events[0] is ScrollEvent.Start)
-      assertTrue(events[1] is ScrollEvent.Delta)
-      assertTrue(events[2] is ScrollEvent.End)
-      assertEquals(1, events.map { it.gestureId }.distinct().size)
-      assertTrue(target.moveCalls.isEmpty())
-      assertTrue(target.scaleCalls.isNotEmpty())
+      assertEquals(baseline * 2.0, kotlin.math.log2(target.scaleCalls.last().scale), 1e-6)
     }
   }
 
@@ -821,51 +641,8 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun changing_only_a_callback_updates_delivery_without_restarting_the_drag() {
-    val callbacks = mutableListOf<String>()
-    var configuration by
-      mutableStateOf(
-        MapInteractions {
-          bindings {
-            drag { onDelta { callbacks += "old" } }
-          }
-        }
-      )
-    runRecognitionTest(optionsProvider = { configuration }) { target ->
-      val map = mapNode()
-      map.performTouchInput {
-        down(center)
-        moveBy(Offset(30f, 0f))
-      }
-      waitForIdle()
-      runOnIdle {
-        configuration = MapInteractions {
-          bindings {
-            drag { onDelta { callbacks += "new" } }
-          }
-        }
-      }
-      map.performTouchInput {
-        moveBy(Offset(30f, 0f))
-        up()
-      }
-      waitForIdle()
-      assertEquals(listOf("old", "new"), callbacks)
-      assertEquals(1, target.startedCount)
-    }
-  }
-
-  @Test
   fun a_structural_change_cancels_the_drag_and_waits_for_existing_contacts_to_lift() {
-    val cancellations = mutableListOf<GestureCancellationReason>()
-    var configuration by
-      mutableStateOf(
-        MapInteractions {
-          bindings {
-            drag { onCancel { cancellations += it.reason } }
-          }
-        }
-      )
+    var configuration by mutableStateOf(MapInteractions.Standard)
     runRecognitionTest(optionsProvider = { configuration }) { target ->
       val map = mapNode()
       map.performTouchInput {
@@ -887,7 +664,7 @@ class MapInputRecognitionTest {
         up()
       }
       waitForIdle()
-      assertEquals(listOf(GestureCancellationReason.ConfigurationChanged), cancellations)
+      assertEquals(1, target.endedCount)
       assertEquals(moves, target.moveCalls.size)
       map.performTouchInput {
         down(center)
@@ -900,16 +677,15 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun a_pan_observer_runs_before_its_first_camera_command() {
+  fun semantic_pan_start_runs_before_its_first_camera_command() {
     var recorded: RecordingGestureTarget? = null
     val counts = mutableListOf<Int>()
     runRecognitionTest(
       options =
         MapInteractions {
-          bindings {
-            drag {
+          camera {
+            pan {
               onStart { counts += checkNotNull(recorded).moveCalls.size }
-              onDelta { counts += checkNotNull(recorded).moveCalls.size }
             }
           }
         }
@@ -921,23 +697,19 @@ class MapInputRecognitionTest {
         up()
       }
       waitForIdle()
-      assertEquals(listOf(0, 0), counts)
+      assertEquals(listOf(0), counts)
       assertTrue(target.moveCalls.isNotEmpty())
     }
   }
 
   @Test
   fun split_axis_scroll_keeps_panning_when_horizontal_events_add_shift() {
-    val events = mutableListOf<ScrollEvent>()
     runRecognitionTest(
       options =
         MapInteractions {
           bindings {
             scroll {
               mappings { otherwise { pan() } }
-              onStart { events += it }
-              onCancel { events += it }
-              onEnd { events += it }
             }
           }
         }
@@ -955,11 +727,10 @@ class MapInputRecognitionTest {
         assertTrue(target.moveCalls.any { it.x != 0f })
         assertTrue(target.moveCalls.any { it.y != 0f })
         assertTrue(target.scaleCalls.isEmpty())
-        assertTrue(events.single() is ScrollEvent.Start)
+        assertEquals(1, target.startedCount)
         mainClock.advanceTimeBy(SCROLL_HOLD_MILLIS + FRAME_MILLIS)
         waitForIdle()
-        assertTrue(events.last() is ScrollEvent.End)
-        assertTrue(events.all { it.gestureId == events.first().gestureId })
+        assertEquals(1, target.endedCount)
       } finally {
         mainClock.autoAdvance = true
       }
@@ -1493,8 +1264,7 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun pair_pan_uses_its_slop_and_ends_when_the_first_contact_lifts() {
-    val events = mutableListOf<DragEvent>()
+  fun pair_pan_keeps_its_camera_session_until_the_last_contact_lifts() {
     runRecognitionTest(
       options =
         MapInteractions(MapInteractions.None) {
@@ -1503,11 +1273,6 @@ class MapInputRecognitionTest {
             transform {
               pan {
                 enabled = true
-
-                onStart { events += it }
-                onDelta { events += it }
-                onEnd { events += it }
-                onCancel { events += it }
 
                 startSlop = 20.dp
               }
@@ -1525,19 +1290,10 @@ class MapInputRecognitionTest {
         up(0)
       }
       waitForIdle()
-      val start = events.first() as DragEvent.Start
-      val delta = events[1] as DragEvent.Delta
-      assertEquals(
-        start.screenOffset.x.value - start.startOffset.x.value - 20f,
-        delta.delta.x.value,
-        0.001f,
-      )
-      assertTrue(events.last() is DragEvent.End)
-      assertEquals(1, events.map { it.gestureId }.distinct().size)
+      assertTrue(target.moveCalls.isNotEmpty())
       assertEquals(0, target.endedCount, "the remaining contact lost the shared camera session")
       map.performTouchInput { up(1) }
       waitForIdle()
-      assertEquals(1, events.count { it is DragEvent.End })
       assertEquals(1, target.endedCount)
     }
   }
@@ -1548,28 +1304,20 @@ class MapInputRecognitionTest {
     runRecognitionTest(
       options =
         MapInteractions {
-          camera { pan { momentum { enabled = false } } }
-          bindings {
-            transform {
-              pan {
-                onStart { order += "pan start" }
-                onEnd { order += "pan end" }
-                onCancel { order += "pan cancel ${it.reason}" }
-              }
+          camera {
+            pan {
+              momentum { enabled = false }
+              onStart { order += "pan" }
             }
-          }
-          bindings {
-            transform {
-              tilt {
-                momentum { enabled = false }
-                onStart { order += "tilt start" }
-                onEnd { order += "tilt end" }
-              }
+            tilt {
+              momentum { enabled = false }
+              onStart { order += "tilt" }
             }
           }
         }
     ) { target ->
-      mapNode().performTouchInput {
+      val map = mapNode()
+      map.performTouchInput {
         down(0, center - Offset(80f, 0f))
         down(1, center + Offset(80f, 0f))
         repeat(16) {
@@ -1577,14 +1325,20 @@ class MapInputRecognitionTest {
           updatePointerBy(1, Offset(0f, -5f))
           move(delayMillis = 20)
         }
+      }
+      waitForIdle()
+      val panMoves = target.moveCalls.size
+      assertTrue(panMoves > 0)
+      map.performTouchInput {
+        updatePointerBy(0, Offset(0f, -20f))
+        updatePointerBy(1, Offset(0f, -20f))
+        move(delayMillis = 20)
         up(0)
         up(1)
       }
       waitForIdle()
-      assertEquals(
-        listOf("pan start", "pan cancel BindingChanged", "tilt start", "tilt end"),
-        order,
-      )
+      assertEquals(panMoves, target.moveCalls.size, "tilt also panned the map")
+      assertEquals(listOf("pan", "tilt"), order)
       assertEquals(1, target.startedCount)
       assertTrue(target.rotateCalls.any { it.pitchDelta != 0.0 })
       assertTrue(target.rotateCalls.all { it.bearingDelta == 0.0 }, "a shove also rotated")
@@ -1593,11 +1347,14 @@ class MapInputRecognitionTest {
 
   @Test
   fun rotation_cancels_pinch_and_additional_span_starts_a_new_pinch() {
-    val pinches = mutableListOf<PinchEvent>()
-    val rotations = mutableListOf<RotateEvent>()
+    val starts = mutableListOf<String>()
     runRecognitionTest(
       options =
         MapInteractions {
+          camera {
+            zoom { onStart { starts += "zoom" } }
+            rotate { onStart { starts += "rotate" } }
+          }
           bindings {
             transform {
               pan {
@@ -1610,9 +1367,6 @@ class MapInputRecognitionTest {
             transform {
               zoom {
                 momentum { enabled = false }
-                onStart { pinches += it }
-                onCancel { pinches += it }
-                onEnd { pinches += it }
               }
             }
           }
@@ -1620,8 +1374,6 @@ class MapInputRecognitionTest {
             transform {
               rotate {
                 momentum { enabled = false }
-                onStart { rotations += it }
-                onEnd { rotations += it }
               }
             }
           }
@@ -1643,20 +1395,15 @@ class MapInputRecognitionTest {
         up(1)
       }
       waitForIdle()
-      assertEquals(2, pinches.count { it is PinchEvent.Start })
-      assertEquals(1, pinches.count { it is PinchEvent.Cancel })
-      assertEquals(1, pinches.count { it is PinchEvent.End })
-      assertEquals(2, pinches.map { it.gestureId }.distinct().size)
-      assertEquals(2, rotations.size)
-      assertTrue(rotations.first() is RotateEvent.Start)
-      assertTrue(rotations.last() is RotateEvent.End)
+      assertEquals(listOf("zoom", "rotate", "zoom"), starts)
+      assertEquals(2, target.scaleCalls.size)
+      assertEquals(1, target.rotateCalls.size)
       assertEquals(1, target.startedCount)
     }
   }
 
   @Test
   fun replacing_a_selected_contact_ends_the_old_pair_and_rebases_the_new_pair() {
-    val events = mutableListOf<DragEvent>()
     runRecognitionTest(
       options =
         MapInteractions(MapInteractions.None) {
@@ -1665,10 +1412,6 @@ class MapInputRecognitionTest {
             transform {
               pan {
                 enabled = true
-
-                onStart { events += it }
-                onEnd { events += it }
-                onCancel { events += it }
               }
             }
           }
@@ -1696,7 +1439,6 @@ class MapInputRecognitionTest {
         target.moveCalls.size,
         "an unselected contact or replacement jumped the camera",
       )
-      assertEquals(1, events.count { it is DragEvent.End })
       map.performTouchInput {
         updatePointerBy(0, Offset(40f, 0f))
         updatePointerBy(2, Offset(40f, 0f))
@@ -1705,10 +1447,7 @@ class MapInputRecognitionTest {
         up(2)
       }
       waitForIdle()
-      assertEquals(2, events.count { it is DragEvent.Start })
-      assertEquals(2, events.count { it is DragEvent.End })
-      assertTrue(events.none { it is DragEvent.Cancel })
-      assertEquals(2, events.map { it.gestureId }.distinct().size)
+      assertTrue(target.moveCalls.size > moves, "replacement pair never resumed panning")
       assertEquals(1, target.startedCount)
       assertEquals(1, target.endedCount)
     }
@@ -1892,26 +1631,14 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun pair_observer_takeover_cancels_all_started_components_before_response() {
+  fun semantic_zoom_start_takeover_stops_pair_response() {
     var recorded: RecordingGestureTarget? = null
     var newer: CameraInputToken? = null
-    val events = mutableListOf<PinchEvent>()
     runRecognitionTest(
       options =
         MapInteractions(MapInteractions.None) {
-          bindings {
-            transform {
-              zoom {
-                enabled = true
-                onStart {
-                  events += it
-                  newer = checkNotNull(recorded).onGestureStarted()
-                }
-                onDelta { events += it }
-                onCancel { events += it }
-              }
-            }
-          }
+          camera { zoom { onStart { newer = checkNotNull(recorded).onGestureStarted() } } }
+          bindings { transform { zoom { enabled = true } } }
         }
     ) { target ->
       recorded = target
@@ -1925,12 +1652,6 @@ class MapInputRecognitionTest {
         up(1)
       }
       waitForIdle()
-      assertEquals(2, events.size)
-      assertTrue(events.first() is PinchEvent.Start)
-      assertEquals(
-        GestureCancellationReason.CameraTakeover,
-        (events.last() as PinchEvent.Cancel).reason,
-      )
       assertTrue(target.scaleCalls.isEmpty())
       assertTrue(checkNotNull(newer).acceptsCommands)
       target.onGestureEnded(checkNotNull(newer))
@@ -2201,26 +1922,6 @@ class MapInputRecognitionTest {
     }
 
   @Test
-  fun key_observer_replacement_is_used_without_losing_engagement() {
-    val observed = mutableListOf<String>()
-    var options by
-      mutableStateOf(MapInteractions { bindings { keys { onEvent { observed += "initial" } } } })
-    runFocusTest(optionsProvider = { options }) { target, _ ->
-      val map = mapNode()
-      map.requestFocus()
-      map.performKeyInput { pressKey(Key.Enter) }
-      runOnIdle {
-        options = MapInteractions { bindings { keys { onEvent { observed += "updated" } } } }
-      }
-      waitForIdle()
-      map.performKeyInput { pressKey(Key.DirectionRight) }
-      waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.size == 1 }
-      assertEquals(listOf("initial", "updated"), observed)
-      map.assert(expectValue(SemanticsProperties.StateDescription, "engaged"))
-    }
-  }
-
-  @Test
   fun losing_focus_clears_engagement_before_the_map_is_focused_again() =
     runFocusTest { target, unconsumed ->
       val map = mapNode()
@@ -2348,14 +2049,12 @@ class MapInputRecognitionTest {
   @Test
   fun focused_rotary_zooms_in_both_directions_without_engagement_and_ends_its_burst() {
     assumeRotaryInjectionSupported()
-    val observed = mutableListOf<RotaryGestureEvent>()
     runFocusTest(
       options =
         MapInteractions(from = MapInteractions.None) {
           bindings {
             rotary {
               enabled = true
-              onEvent { observed += it }
             }
           }
         },
@@ -2376,13 +2075,12 @@ class MapInputRecognitionTest {
       assertTrue(target.scaleCalls.all { it.anchor == null })
       assertEquals(1, target.startedCount)
       assertEquals(0, target.endedCount)
-      assertEquals(1, observed.map { it.gestureId }.distinct().size)
       map.assert(expectValue(SemanticsProperties.StateDescription, "not engaged"))
       mainClock.advanceTimeBy(250)
       waitForIdle()
       assertEquals(1, target.endedCount)
       map.performRotaryScrollInput { rotateToScrollVertically(24f) }
-      assertEquals(2, observed.map { it.gestureId }.distinct().size)
+      assertEquals(2, target.startedCount)
     }
   }
 

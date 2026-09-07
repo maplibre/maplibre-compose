@@ -27,30 +27,30 @@ internal constructor(private var value: InteractionCallbacks) {
 @MapInteractionDsl
 public class ClickCallbackBuilder
 internal constructor(
-  internal var event: ((TapEvent) -> ClickResult)?,
-  internal var unhandled: ((TapEvent) -> ClickResult)?,
+  internal var event: ((ClickEvent) -> ClickResult)?,
+  internal var unhandled: ((ClickEvent) -> ClickResult)?,
 ) {
-  public fun onEvent(block: ((TapEvent) -> ClickResult)?) {
+  public fun onEvent(block: ((ClickEvent) -> ClickResult)?) {
     event = block
   }
 
-  public fun onUnhandled(block: ((TapEvent) -> ClickResult)?) {
+  public fun onUnhandled(block: ((ClickEvent) -> ClickResult)?) {
     unhandled = block
   }
 }
 
 @MapInteractionDsl
 public class DoubleClickCallbackBuilder
-internal constructor(internal var event: ((DoubleTapEvent) -> ClickResult)?) {
-  public fun onEvent(block: ((DoubleTapEvent) -> ClickResult)?) {
+internal constructor(internal var event: ((ClickEvent) -> ClickResult)?) {
+  public fun onEvent(block: ((ClickEvent) -> ClickResult)?) {
     event = block
   }
 }
 
 @MapInteractionDsl
 public class LongClickCallbackBuilder
-internal constructor(internal var event: ((LongClickEvent) -> ClickResult)?) {
-  public fun onEvent(block: ((LongClickEvent) -> ClickResult)?) {
+internal constructor(internal var event: ((ClickEvent) -> ClickResult)?) {
+  public fun onEvent(block: ((ClickEvent) -> ClickResult)?) {
     event = block
   }
 }

@@ -22,7 +22,7 @@ class MapInteractionsTest {
     type: PointerType = PointerType.Mouse,
     buttons: Set<PointerButton> = setOf(PointerButton.Primary),
     modifiers: Set<KeyModifier> = emptySet(),
-  ) = GesturePointerSample(1, 0, DpOffset.Zero, null, setOf(type), buttons, modifiers)
+  ) = GesturePointerSample(0, DpOffset.Zero, null, setOf(type), buttons, modifiers)
 
   @Test
   fun camera_policy_and_terminal_none_share_ordered_routing() {

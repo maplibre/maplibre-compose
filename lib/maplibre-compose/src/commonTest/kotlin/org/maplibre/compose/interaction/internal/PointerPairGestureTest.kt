@@ -14,18 +14,14 @@ import kotlin.math.sin
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.maplibre.compose.interaction.GestureAnchor
-import org.maplibre.compose.interaction.GestureCancellationReason
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.ModifierMatch
-import org.maplibre.compose.interaction.PinchEvent
-import org.maplibre.compose.interaction.RotateEvent
 import org.maplibre.compose.map.GestureTestFixture
 
 class PointerPairGestureTest {
@@ -39,23 +35,25 @@ class PointerPairGestureTest {
     val input =
       PairInput(
         MapInteractions {
+          camera {
+            pan { onStart { starts++ } }
+            zoom { onStart { starts++ } }
+            rotate { onStart { starts++ } }
+            tilt { onStart { starts++ } }
+          }
           bindings {
             transform {
               pan {
                 startSlop = 0.dp
-                onStart { starts++ }
               }
               zoom {
                 startSpanSlop = 0.dp
-                onStart { starts++ }
               }
               rotate {
                 startAngle = 0.0
-                onStart { starts++ }
               }
               tilt {
                 startSlop = 0.dp
-                onStart { starts++ }
               }
             }
           }
@@ -67,7 +65,6 @@ class PointerPairGestureTest {
 
   @Test
   fun equal_time_samples_recognize_slop_without_fabricating_release_velocity() {
-    val events = mutableListOf<PinchEvent>()
     val input =
       PairInput(
         MapInteractions(MapInteractions.None) {
@@ -76,21 +73,15 @@ class PointerPairGestureTest {
               zoom {
                 enabled = true
                 startSpanSlop = 20.dp
-                onStart { events += it }
-                onDelta { events += it }
-                onEnd { events += it }
               }
             }
           }
         }
       )
     input.move(0, Offset(-100f, 0f), Offset(100f, 0f))
-    input.pair.end(75)
-    assertEquals(75, events.last().uptimeMillis)
-    assertEquals(3, events.size)
-    val scale = (events[1] as PinchEvent.Delta).scaleFactor
+    val scale = input.target.scaleCalls.single().scale
     assertTrue(scale > 1.0 && scale < 200.0 / 160.0, "first delta must exclude span slop")
-    assertEquals(0.0, (events.last() as PinchEvent.End).zoomVelocity)
+    assertNull(input.pair.end()?.scale, "equal timestamps fabricated zoom momentum")
   }
 
   @Test
@@ -119,7 +110,6 @@ class PointerPairGestureTest {
 
   @Test
   fun rotation_uses_selected_angle_slop_and_response_gain() {
-    val events = mutableListOf<RotateEvent>()
     val input =
       PairInput(
         MapInteractions(MapInteractions.None) {
@@ -130,15 +120,12 @@ class PointerPairGestureTest {
                 startAngle = 45.0
                 rotationScale = 2.0
                 anchor = GestureAnchor.CameraCenter
-                onStart { events += it }
-                onDelta { events += it }
               }
             }
           }
         }
       )
     input.move(20, Offset(0f, -80f), Offset(0f, 80f))
-    assertEquals(45.0, (events[1] as RotateEvent.Delta).degrees, 1e-9)
     assertEquals(-90.0, input.target.rotateCalls.single().bearingDelta, 1e-9)
     assertEquals(null, input.target.rotateCalls.single().anchor)
   }
@@ -202,74 +189,7 @@ class PointerPairGestureTest {
   }
 
   @Test
-  fun a_cancel_callback_failure_still_cleans_up_other_started_components_once() {
-    val failure = IllegalStateException("observer")
-    var pinchCancels = 0
-    var panCancels = 0
-    val input =
-      PairInput(
-        MapInteractions(MapInteractions.None) {
-          bindings {
-            transform {
-              pan {
-                enabled = true
-                onCancel {
-                  panCancels++
-                  throw failure
-                }
-              }
-              zoom {
-                enabled = true
-                onCancel { pinchCancels++ }
-              }
-            }
-          }
-        }
-      )
-    input.move(20, Offset(-100f, 30f), Offset(100f, 30f))
-    assertEquals(
-      failure,
-      assertFailsWith<IllegalStateException> {
-        input.pair.cancel(GestureCancellationReason.InputConsumed)
-      },
-    )
-    input.pair.cancel(GestureCancellationReason.InputCancelled)
-    assertEquals(1, panCancels)
-    assertEquals(1, pinchCancels)
-  }
-
-  @Test
-  fun pair_callbacks_read_updated_handlers_without_restarting_the_component() {
-    val starts = mutableListOf<Long>()
-    val first = mutableListOf<Long>()
-    val second = mutableListOf<Long>()
-    val input =
-      PairInput(
-        MapInteractions(MapInteractions.None) {
-          bindings {
-            transform {
-              pan {
-                enabled = true
-                onStart { starts += it.gestureId }
-                onDelta { first += it.gestureId }
-              }
-            }
-          }
-        }
-      )
-    input.move(20, Offset(-50f, 0f), Offset(110f, 0f))
-    input.options =
-      MapInteractions(input.options) {
-        bindings { transform { pan { onDelta { second += it.gestureId } } } }
-      }
-    input.move(40, Offset(-40f, 0f), Offset(120f, 0f))
-    assertEquals(listOf(starts.single()), first)
-    assertEquals(starts, second)
-  }
-
-  @Test
-  fun zoom_priority_suppresses_simultaneous_rotation_and_cancels_a_previous_rotation_once() {
-    val rotations = mutableListOf<RotateEvent>()
+  fun zoom_priority_suppresses_simultaneous_and_previously_started_rotation() {
     fun configuration() =
       MapInteractions(MapInteractions.None) {
         bindings {
@@ -278,26 +198,24 @@ class PointerPairGestureTest {
             rotate {
               enabled = true
               allowDuringZoom = false
-              onStart { rotations += it }
-              onCancel { rotations += it }
-              onEnd { rotations += it }
             }
           }
         }
       }
     val simultaneous = PairInput(configuration())
     simultaneous.move(20, Offset(-100f, -50f), Offset(100f, 50f))
-    assertTrue(rotations.isEmpty())
+    assertTrue(simultaneous.target.rotateCalls.isEmpty())
     assertEquals(1, simultaneous.target.scaleCalls.size)
     simultaneous.pair.end()
     val successive = PairInput(configuration())
     successive.move(20, Offset(0f, -80f), Offset(0f, 80f))
-    assertTrue(rotations.single() is RotateEvent.Start)
+    assertEquals(1, successive.target.rotateCalls.size)
+    val scalesBefore = successive.target.scaleCalls.size
     successive.move(40, Offset(0f, -140f), Offset(0f, 140f))
     successive.move(60, Offset(20f, -160f), Offset(-20f, 160f))
     successive.pair.end()
-    assertEquals(2, rotations.size)
-    assertTrue(rotations.last() is RotateEvent.Cancel)
+    assertEquals(1, successive.target.rotateCalls.size)
+    assertTrue(successive.target.scaleCalls.size > scalesBefore)
   }
 
   @Test
@@ -401,7 +319,7 @@ class PointerPairGestureTest {
     private val secondType: PointerType = PointerType.Touch,
     center: Offset = Offset.Zero,
   ) {
-    var options = initial
+    val options = initial
 
     val target = map.target
     private var time = 0L
@@ -418,8 +336,6 @@ class PointerPairGestureTest {
         PointerPairGesture(
           target,
           options,
-          { options },
-          GestureIds(),
           Density(1f),
           event,
           event.changes[0],

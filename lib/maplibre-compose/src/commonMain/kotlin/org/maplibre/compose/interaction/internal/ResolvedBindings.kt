@@ -8,13 +8,11 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import org.maplibre.compose.interaction.DragMappingsBuilder
 import org.maplibre.compose.interaction.GestureAnchor
-import org.maplibre.compose.interaction.KeyGestureEvent
 import org.maplibre.compose.interaction.KeyMappingsBuilder
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.ModifierMatch
 import org.maplibre.compose.interaction.PointerButton
 import org.maplibre.compose.interaction.QuickZoomDirection
-import org.maplibre.compose.interaction.RotaryGestureEvent
 import org.maplibre.compose.interaction.ScrollMappingsBuilder
 import org.maplibre.compose.interaction.TapMappingsBuilder
 
@@ -43,19 +41,7 @@ internal data class DragBinding(
   val pan: DragPanSettings = DragPanSettings(),
   val rotateTilt: DragRotateTiltSettings = DragRotateTiltSettings(),
   val fitBounds: DragFitBoundsSettings = DragFitBoundsSettings(),
-  val handlers: DragHandlers = DragHandlers(),
-) {
-  val structuralKey: Any
-    get() =
-      listOf(
-        enabled,
-        pointerTypes,
-        mappings,
-        pan,
-        rotateTilt,
-        fitBounds,
-      )
-}
+)
 
 internal data class TransformPanBinding(
   val enabled: Boolean = true,
@@ -64,7 +50,6 @@ internal data class TransformPanBinding(
   val startSlop: Dp = 4.dp,
   val momentumOverride: PanMomentumOverride = PanMomentumOverride(),
   val momentum: PanMomentum = PanMomentum(),
-  val handlers: DragHandlers = DragHandlers(),
 ) {
   val structuralKey: Any
     get() = listOf(enabled, pointerTypes, modifiers, startSlop, momentum)
@@ -79,7 +64,6 @@ internal data class TransformZoomBinding(
   val zoomScale: Double = 1.0,
   val momentumOverride: VelocityMomentumOverride = VelocityMomentumOverride(),
   val momentum: VelocityMomentum = VelocityMomentum(),
-  val handlers: ZoomHandlers = ZoomHandlers(),
 ) {
   val structuralKey: Any
     get() = listOf(enabled, pointerTypes, modifiers, startSpanSlop, anchor, zoomScale, momentum)
@@ -95,7 +79,6 @@ internal data class TransformRotateBinding(
   val allowDuringZoom: Boolean = true,
   val momentumOverride: VelocityMomentumOverride = VelocityMomentumOverride(),
   val momentum: VelocityMomentum = VelocityMomentum(),
-  val handlers: RotateHandlers = RotateHandlers(),
 ) {
   val structuralKey: Any
     get() =
@@ -119,7 +102,6 @@ internal data class TransformTiltBinding(
   val pitchDegreesPerDp: Double = -0.1,
   val momentumOverride: TiltMomentumOverride = TiltMomentumOverride(),
   val momentum: TiltMomentum = TiltMomentum(),
-  val handlers: TiltHandlers = TiltHandlers(),
 ) {
   val structuralKey: Any
     get() = listOf(enabled, pointerTypes, modifiers, startSlop, pitchDegreesPerDp, momentum)
@@ -136,7 +118,6 @@ internal data class TapDragBinding(
   val zoomLevelsPerViewport: Double = 4.0,
   val momentumOverride: VelocityMomentumOverride = VelocityMomentumOverride(),
   val momentum: VelocityMomentum = VelocityMomentum(),
-  val handlers: DragHandlers = DragHandlers(),
 ) {
   val structuralKey: Any
     get() =
@@ -169,11 +150,7 @@ internal data class ScrollBinding(
   val idleDuration: Duration = 200.milliseconds,
   val anchor: GestureAnchor = GestureAnchor.Input,
   val zoomPerDp: Double = 0.0015,
-  val handlers: ScrollHandlers = ScrollHandlers(),
-) {
-  val structuralKey: Any
-    get() = listOf(enabled, pointerTypes, mappings, idleDuration, anchor, zoomPerDp)
-}
+)
 
 internal data class TapBinding(
   val enabled: Boolean = true,
@@ -181,10 +158,7 @@ internal data class TapBinding(
   val mappings: List<TapMapping> = emptyList(),
   val anchor: GestureAnchor = GestureAnchor.Input,
   val zoomStep: Double = 1.0,
-) {
-  val structuralKey: Any
-    get() = listOf(enabled, pointerTypes, mappings, anchor, zoomStep)
-}
+)
 
 internal data class KeyBinding(
   val enabled: Boolean = true,
@@ -193,21 +167,13 @@ internal data class KeyBinding(
   val zoomStep: Double = 1.0,
   val rotateStep: Double = 15.0,
   val pitchStep: Double = 10.0,
-  val onEvent: ((KeyGestureEvent) -> Unit)? = null,
-) {
-  val structuralKey: Any
-    get() = listOf(enabled, mappings, panStep, zoomStep, rotateStep, pitchStep)
-}
+)
 
 internal data class RotaryBinding(
   val enabled: Boolean = true,
   val zoomStep: Double = 0.15,
   val idleDuration: Duration = 200.milliseconds,
-  val onEvent: ((RotaryGestureEvent) -> Unit)? = null,
-) {
-  val structuralKey: Any
-    get() = listOf(enabled, zoomStep, idleDuration)
-}
+)
 
 internal data class InteractionBindings(
   val drag: DragBinding = DragBinding(),
@@ -225,17 +191,17 @@ internal data class InteractionBindings(
   val structuralKey: Any
     get() =
       listOf(
-        drag.structuralKey,
+        drag,
         transform.structuralKey,
-        scroll.structuralKey,
-        tap.structuralKey,
-        doubleTap.structuralKey,
-        secondaryClick.structuralKey,
-        longPress.structuralKey,
-        twoFingerTap.structuralKey,
+        scroll,
+        tap,
+        doubleTap,
+        secondaryClick,
+        longPress,
+        twoFingerTap,
         tapDrag.structuralKey,
-        keys.structuralKey,
-        rotary.structuralKey,
+        keys,
+        rotary,
       )
 
   companion object {
