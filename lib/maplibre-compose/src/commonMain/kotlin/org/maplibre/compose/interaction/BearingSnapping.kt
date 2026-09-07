@@ -2,7 +2,11 @@ package org.maplibre.compose.interaction
 
 import kotlin.math.abs
 
-/** Settles near a target after rotation input and its momentum finish normally. */
+/**
+ * Settles near a target after rotation input and its momentum finish normally.
+ *
+ * Snapping is disabled until configured. The initial targets and tolerance snap to north within 7°.
+ */
 @MapInteractionDsl
 public class BearingSnappingBuilder internal constructor(from: BearingSnapping) {
   /** Whether to settle. Entering a snapping block enables it unless explicitly disabled. */

@@ -73,15 +73,8 @@ layer handles, such as clearing an app's selection.
 
 ## Snap rotation to bearings
 
-Enable `camera { rotate { snapping { … } } }` to settle near a bearing after
-rotation input and its momentum finish. Snapping is disabled by default. An
-empty `snapping()` block enables north snapping within 7°. Use
-`BearingTargets.at(32.0)` for a custom bearing, multiple arguments for selected
-bearings, or `evenlySpaced(count = 4, offset = 0.0)` for cardinal directions.
+Use `camera.rotate.snapping` to snap to nearby bearings after rotation ends.
+Choose specific bearings or evenly spaced targets, such as the four cardinal
+directions:
 
 <Code code={region(interaction, "bearing-snapping")} lang="kotlin" />
-
-The nearest target within `tolerance` wins. Other bearings stay free. Settlement
-uses `animationDuration` and preserves the camera center, zoom, and tilt. New
-input or programmatic camera control cancels it. Programmatic movement does not
-snap. To disable inherited snapping, use `snapping { enabled = false }`.
