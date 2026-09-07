@@ -325,15 +325,6 @@ internal constructor(
   operations: StyleHandleOperationGuard,
 ) : SourceHandle(id, style, "raster-dem", currentKind, operations)
 
-/** Provides imperative access to a source type that has no specialized common handle. */
-public class UnknownSourceHandle
-internal constructor(
-  id: String,
-  style: StyleBinding,
-  currentKind: () -> String?,
-  operations: StyleHandleOperationGuard,
-) : SourceHandle(id, style, null, currentKind, operations)
-
 internal fun StyleBinding.sourceHandle(
   id: String,
   definition: SourceDefinition?,
@@ -343,7 +334,7 @@ internal fun StyleBinding.sourceHandle(
 ): SourceHandle? {
   requireCurrent()
   if (sourceExists(id) != true) return null
-  val kind = sourceKind(definition, getSource(id))
+  val kind = sourceKind(definition, getSource(id)) ?: return null
   val composed = definition != null
   val currentKind = currentKind@{
     if (!isCurrentResource()) return@currentKind null
@@ -365,7 +356,7 @@ internal fun StyleBinding.sourceHandle(
     "raster" -> RasterTileSourceHandle(id, this, currentKind, operations)
     "raster-dem" -> RasterDemTileSourceHandle(id, this, currentKind, operations)
     "vector" -> VectorTileSourceHandle(id, this, currentKind = currentKind, operations = operations)
-    else -> UnknownSourceHandle(id, this, currentKind, operations)
+    else -> null
   }
 }
 
