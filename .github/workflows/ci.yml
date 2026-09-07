@@ -72,8 +72,10 @@ jobs:
     needs:
       - plan
       - draft
+    # A job-level block resets unspecified permissions, so restate the read.
     permissions:
       checks: read
+      contents: read
     # Restating may wait for a sibling run on the same commit to finish.
     timeout-minutes: 60
     runs-on: ubuntu-slim
