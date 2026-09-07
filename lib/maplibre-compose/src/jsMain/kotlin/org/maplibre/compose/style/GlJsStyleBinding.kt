@@ -682,8 +682,8 @@ internal class GlJsStyleBinding(
   }
 
   /**
-   * Runs a write that the common contract posts: MapLibre GL JS applies it inline, and a rejection
-   * is reported the way a posted engine would report it rather than thrown.
+   * Runs a write that the common contract posts. MapLibre GL JS applies it inline and reports a
+   * rejection through the logger.
    */
   private inline fun posted(target: String, value: JsonElement?, action: () -> Unit) {
     try {

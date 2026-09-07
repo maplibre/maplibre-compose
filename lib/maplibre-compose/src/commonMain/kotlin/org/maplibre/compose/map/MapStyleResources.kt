@@ -118,9 +118,6 @@ public class StyleImages internal constructor(private val style: MapStyleState) 
  * A base-style reload replaces the transition with the one that the new style declares. A still
  * snapshot ignores the duration and delay.
  *
- * A read asks the engine and suspends until it answers. A write posts to the engine's thread and
- * returns at once.
- *
  * On Android, the system animator duration scale multiplies the transition that [set] writes. A
  * transition that the style JSON declares keeps its timing.
  */
@@ -163,8 +160,8 @@ public class StyleTransition internal constructor(private val style: MapStyleSta
  *
  * A base-style reload replaces the light with the one that the new style declares.
  *
- * A read asks the engine and suspends until it answers. A write posts to the engine's thread and
- * returns at once; a light the engine rejects is logged, and the style keeps its previous light.
+ * [set] returns before the engine applies the light. A light the engine rejects is logged, and the
+ * style keeps its previous light.
  */
 @Stable
 public class StyleLight internal constructor(private val style: MapStyleState) {
@@ -186,8 +183,8 @@ public class StyleLight internal constructor(private val style: MapStyleState) {
  * A base-style reload replaces the sky with the one that the new style declares. MapLibre Native
  * does not support the sky: every property reads null, and a write logs a warning.
  *
- * A read asks the engine and suspends until it answers. A write posts to the engine's thread and
- * returns at once; a sky the engine rejects is logged, and the style keeps its previous sky.
+ * [set] returns before the engine applies the sky. A sky the engine rejects is logged, and the
+ * style keeps its previous sky.
  */
 @Stable
 public class StyleSky internal constructor(private val style: MapStyleState) {
@@ -213,9 +210,8 @@ public class StyleSky internal constructor(private val style: MapStyleState) {
  * Native supports only the Mercator projection: every property reads null, and a write logs a
  * warning.
  *
- * A read asks the engine and suspends until it answers. A write posts to the engine's thread and
- * returns at once; a projection the engine rejects is logged, and the style keeps its previous
- * projection.
+ * [set] returns before the engine applies the projection. A projection the engine rejects is
+ * logged, and the style keeps its previous projection.
  */
 @Stable
 public class StyleProjection internal constructor(private val style: MapStyleState) {

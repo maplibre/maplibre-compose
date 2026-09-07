@@ -20,10 +20,8 @@ import org.maplibre.compose.style.toTransitionOptions
 /**
  * Provides property access to a layer for one loaded base-style generation.
  *
- * [id], [type], [source], and [sourceLayer] are plain values, read once when the handle is created.
- * [getProperty] and [getPaintTransition] ask the engine and suspend until it answers. A setter
- * posts its write to the engine's thread and returns at once; a value the engine rejects is logged,
- * and the layer keeps its previous value.
+ * A setter returns before the engine applies the write. A value the engine rejects is logged, and
+ * the layer keeps its previous value.
  *
  * Style content owns all properties of declared layers. Their properties can be read, but setter
  * calls and [clearFilter] throw [StyleHandleException]. Base-style layers also permit writes.

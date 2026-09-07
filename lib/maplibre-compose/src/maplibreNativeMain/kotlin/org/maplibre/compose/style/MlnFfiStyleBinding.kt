@@ -85,8 +85,8 @@ import org.maplibre.spatialk.geojson.toJson
  * belongs to the render session.
  *
  * [accessMap] runs an action and waits for it. [postMap] queues an action and returns; its second
- * argument runs instead when the queued action is dropped. [enqueueRenderSession] queues an action
- * for the renderer thread, which receives the ready render session or null without one.
+ * argument runs when the queued action is dropped. [enqueueRenderSession] queues an action for the
+ * renderer thread, which receives the ready render session or null without one.
  */
 internal open class MlnFfiStyleBinding(
   override val identity: StyleIdentity = StyleIdentity.create(),

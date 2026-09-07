@@ -21,10 +21,8 @@ import org.maplibre.spatialk.geojson.Geometry
 /**
  * Provides access to a source for one loaded base-style generation.
  *
- * [id] and [attributionHtml] are plain values, read once when the handle is created. A read that
- * asks the engine for a value, such as feature state, a source query, or a cluster query, suspends
- * until the engine answers. A feature-state write posts to the engine's thread and returns at once;
- * a state the engine rejects is logged, and the feature keeps its previous state.
+ * A feature-state write returns before the engine applies it. A state the engine rejects is logged,
+ * and the feature keeps its previous state.
  *
  * Style content owns the definitions of declared sources: attempts to replace their data, image,
  * URI, or bounds throw [StyleHandleException]. Feature state, queries, and invalidation remain

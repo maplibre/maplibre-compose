@@ -31,10 +31,9 @@ import org.maplibre.spatialk.geojson.Position
  * Style unload invalidates the binding. An operation on an invalid binding produces a stale-style
  * error.
  *
- * A read that asks the engine for a value suspends until the engine's thread answers. A property
- * write posts to the engine's thread and returns before it runs; the engine's rejection of such a
- * write is logged through [reportRejectedWrite] rather than thrown. Structural commands, such as
- * adding a source, layer, or image, still wait for the engine and throw [StyleMutationException].
+ * A property write posts to the engine's thread and returns before it runs; the engine's rejection
+ * of such a write is logged through [reportRejectedWrite]. A structural command, such as adding a
+ * source, layer, or image, waits for the engine and throws [StyleMutationException] on refusal.
  */
 internal interface StyleBinding {
   /** Identifies the loaded base-style generation for this binding. */
@@ -149,11 +148,7 @@ internal interface StyleBinding {
     }
   }
 
-  /**
-   * Reads one layer property on the engine's thread.
-   *
-   * @return null if the style has unloaded or the layer has no value for [name].
-   */
+  /** @return null if the style has unloaded or the layer has no value for [name]. */
   suspend fun layerProperty(layerId: String, name: String): JsonElement?
 
   /**
@@ -447,11 +442,7 @@ internal interface StyleBinding {
     state: JsonObject,
   )
 
-  /**
-   * Reads one feature's state on the engine's thread.
-   *
-   * @return an empty object when the feature has no state, or the style has unloaded.
-   */
+  /** @return an empty object when the feature has no state, or the style has unloaded. */
   suspend fun featureState(sourceId: String, sourceLayerId: String?, featureId: String): JsonObject
 
   /**
@@ -472,8 +463,7 @@ internal interface StyleBinding {
   fun resetFeatureStates(sourceId: String, sourceLayerId: String?)
 
   /**
-   * Queries the features a source has loaded, whether or not they are drawn. Runs on the engine's
-   * thread.
+   * Queries the features a source has loaded, whether or not they are drawn.
    *
    * @param filter a style-spec filter expression, or null to match every feature.
    * @return empty when the style has unloaded or nothing has rendered yet.
