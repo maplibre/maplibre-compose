@@ -259,6 +259,36 @@ class PointerPairGestureTest {
   }
 
   @Test
+  fun vertical_drift_during_rotation_does_not_start_tilt() {
+    val input = PairInput(MapInteractions.Standard)
+    fun move(at: Long, degrees: Double, vertical: Float) {
+      val angle = degrees * PI / 180.0
+      val radius = Offset(80f * cos(angle).toFloat(), 80f * sin(angle).toFloat())
+      val center = Offset(0f, vertical)
+      input.move(at, center - radius, center + radius)
+    }
+    move(20, 16.0, 0f)
+    assertTrue(input.target.rotateCalls.any { it.bearingDelta != 0.0 })
+    val rotations = input.target.rotateCalls.size
+    move(40, 18.0, 24f)
+    move(60, 20.0, 32f)
+    assertTrue(input.target.rotateCalls.size > rotations, "rotation stopped during vertical drift")
+    assertTrue(input.target.rotateCalls.all { it.pitchDelta == 0.0 }, "rotation became tilt")
+  }
+
+  @Test
+  fun vertical_drift_during_pinch_does_not_start_tilt() {
+    val input = PairInput(MapInteractions.Standard)
+    input.move(20, Offset(-100f, 0f), Offset(100f, 0f))
+    assertTrue(input.target.scaleCalls.isNotEmpty())
+    val scales = input.target.scaleCalls.size
+    input.move(40, Offset(-120f, 24f), Offset(120f, 24f))
+    input.move(60, Offset(-140f, 32f), Offset(140f, 32f))
+    assertTrue(input.target.scaleCalls.size > scales, "pinch stopped during vertical drift")
+    assertTrue(input.target.rotateCalls.isEmpty(), "horizontal pinch became tilt")
+  }
+
+  @Test
   fun a_small_sideways_shift_at_the_end_of_a_pinch_does_not_start_rotation() {
     val input = PairInput(MapInteractions.Standard)
     for ((index, span) in listOf(150f, 120f, 90f, 60f).withIndex()) {
