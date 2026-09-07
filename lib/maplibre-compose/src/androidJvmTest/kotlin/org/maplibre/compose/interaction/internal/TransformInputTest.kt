@@ -12,6 +12,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performTrackpadInput
 import androidx.compose.ui.unit.dp
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.math.ln
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -329,6 +330,51 @@ class TransformInputTest {
     waitForIdle()
     assertTrue(target.moveCalls.isEmpty(), "lifting the pinch started a pan")
     assertTrue(target.scaleCalls.size > scales, "pinch momentum was lost during release")
+  }
+
+  @Test
+  fun pan_and_pinch_release_follow_the_same_animation_progress() {
+    fixture.runRecognitionTest { target ->
+      val map = mapNode()
+      map.performTouchInput {
+        down(0, center - Offset(80f, 0f))
+        down(1, center + Offset(80f, 0f))
+        repeat(6) {
+          updatePointerBy(0, Offset(8f, 0f))
+          updatePointerBy(1, Offset(56f, 0f))
+          move(delayMillis = 16)
+        }
+      }
+      waitForIdle()
+      val moves = target.moveCalls.size
+      val scales = target.scaleCalls.size
+      mainClock.autoAdvance = false
+      try {
+        map.performTouchInput {
+          up(0)
+          up(1)
+        }
+        mainClock.advanceTimeBy(160)
+        waitForIdle()
+        val partialPan = target.moveCalls.drop(moves).sumOf { it.x.toDouble() }
+        val partialZoom = target.scaleCalls.drop(scales).sumOf { ln(it.scale) }
+        mainClock.advanceTimeBy(600)
+        waitForIdle()
+        val totalPan = target.moveCalls.drop(moves).sumOf { it.x.toDouble() }
+        val totalZoom = target.scaleCalls.drop(scales).sumOf { ln(it.scale) }
+        assertTrue(partialPan > 0.0 && partialPan < totalPan)
+        assertTrue(partialZoom > 0.0 && partialZoom < totalZoom)
+        assertEquals(partialZoom / totalZoom, partialPan / totalPan, 1e-5)
+        val completedMoves = target.moveCalls.size
+        val completedScales = target.scaleCalls.size
+        mainClock.advanceTimeBy(600)
+        waitForIdle()
+        assertEquals(completedMoves, target.moveCalls.size)
+        assertEquals(completedScales, target.scaleCalls.size)
+      } finally {
+        mainClock.autoAdvance = true
+      }
+    }
   }
 
   @Test
