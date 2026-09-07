@@ -4,7 +4,6 @@ import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.FunctionCall
 import org.maplibre.compose.expressions.value.AnyValue
 import org.maplibre.compose.expressions.value.BooleanValue
-import org.maplibre.compose.expressions.value.ExpressionValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.GeoJsonValue
 import org.maplibre.compose.expressions.value.GeometryType
@@ -47,7 +46,8 @@ public object Feature {
 
   /**
    * Retrieves a property value from the current feature's state. Returns `null` if the requested
-   * property is not present on the feature's state.
+   * property is not present on the feature's state. The type of the value is known only when the
+   * map evaluates the expression; see [AnyValue].
    *
    * A feature's state is runtime data for one loaded style. It is separate from GeoJSON and vector
    * tile data.
@@ -58,12 +58,13 @@ public object Feature {
    * or any primitive data type. Only data-driven paint properties documented as supporting feature
    * state accept [state].
    */
-  public fun <T : ExpressionValue> state(key: Expression<StringValue>): Expression<T> =
+  public fun state(key: Expression<StringValue>): Expression<AnyValue> =
     FunctionCall.of("feature-state", key).cast()
 
   /**
    * Retrieves a property value from the current feature's state. Returns `null` if the requested
-   * property is not present on the feature's state.
+   * property is not present on the feature's state. The type of the value is known only when the
+   * map evaluates the expression; see [AnyValue].
    *
    * A feature's state is runtime data for one loaded style. It is separate from GeoJSON and vector
    * tile data.
@@ -74,13 +75,13 @@ public object Feature {
    * or any primitive data type. Only data-driven paint properties documented as supporting feature
    * state accept [state].
    */
-  public fun <T : ExpressionValue> state(key: String): Expression<T> = state(const(key))
+  public fun state(key: String): Expression<AnyValue> = state(const(key))
 
   /** Gets the feature's geometry type. */
   public fun geometryType(): Expression<GeometryType> = FunctionCall.of("geometry-type").cast()
 
   /** Gets the feature's id, if it has one. */
-  public fun <T : ExpressionValue> id(): Expression<T> = FunctionCall.of("id").cast()
+  public fun id(): Expression<AnyValue> = FunctionCall.of("id").cast()
 
   /**
    * Gets the progress along a gradient line. Can only be used in the `gradient` property of a line

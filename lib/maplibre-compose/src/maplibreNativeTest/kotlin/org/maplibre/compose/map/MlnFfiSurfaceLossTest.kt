@@ -17,7 +17,6 @@ import org.maplibre.compose.expressions.dsl.condition
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.expressions.dsl.switch
-import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.sources.GeoJsonData
@@ -131,8 +130,8 @@ class MlnFfiSurfaceLossTest {
         switch(
             condition(
               all(
-                feature.state<BooleanValue>("before-surface").asBoolean(const(false)),
-                feature.state<BooleanValue>("without-surface").asBoolean(const(false)),
+                feature.state("before-surface").asBoolean(const(false)),
+                feature.state("without-surface").asBoolean(const(false)),
               ),
               const(Color.Red),
             ),

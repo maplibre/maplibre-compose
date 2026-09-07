@@ -8,7 +8,6 @@ import androidx.compose.ui.unit.dp
 import org.maplibre.compose.expressions.dsl.asNumber
 import org.maplibre.compose.expressions.dsl.condition
 import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.dsl.eq
 import org.maplibre.compose.expressions.dsl.exponential
 import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.expressions.dsl.gt
@@ -77,12 +76,6 @@ fun Expressions() {
       id = "large-quakes",
       source = earthquakes,
       filter = feature["mag"].asNumber() gt const(5),
-    )
-
-    CircleLayer(
-      id = "tsunami-quakes",
-      source = earthquakes,
-      filter = feature["tsunami"] eq const(1),
     )
     // #endregion filter
   }

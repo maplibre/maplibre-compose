@@ -34,6 +34,30 @@ class AnyValueTest {
   }
 
   @Test
+  fun feature_state_and_id_compare_without_an_assertion() {
+    assertEquals(
+      """["==",["feature-state","selected"],true]""",
+      json(feature.state("selected") eq const(true)),
+    )
+    assertEquals("""["==",["id"],"a"]""", json(feature.id() eq const("a")))
+  }
+
+  @Test
+  fun switch_matches_a_property_against_labels_of_one_type() {
+    assertEquals(
+      """["match",["get","kind"],"park",1.0,["road","path"],2.0,0.0]""",
+      json(
+        switch(
+          input = feature["kind"],
+          case("park", const(1)),
+          case(listOf("road", "path"), const(2)),
+          fallback = const(0),
+        )
+      ),
+    )
+  }
+
+  @Test
   fun list_membership_accepts_a_property() {
     assertEquals(
       """["in",["get","oneway"],["literal",["yes","-1"]]]""",
