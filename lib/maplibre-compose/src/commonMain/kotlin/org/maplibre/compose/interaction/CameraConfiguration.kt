@@ -126,6 +126,7 @@ internal constructor(
   public var enabled: Boolean = from.enabled
   private val momentum = VelocityMomentumBuilder(from.momentum)
   private var snapping = from.snapping
+  private var haptics = from.haptics
 
   public fun onStart(block: (() -> Unit)?) {
     start = block
@@ -145,6 +146,16 @@ internal constructor(
     snapping = BearingSnappingBuilder(snapping).apply(block).build()
   }
 
+  /**
+   * Replaces the default standard-emphasis north notch; an empty block disables feedback. Runs
+   * during pointer rotation, not momentum, settlement, keys, or programmatic camera changes. iOS,
+   * Android, and macOS use platform feedback subject to hardware and system settings. Other
+   * platforms are silent.
+   */
+  public fun haptics(block: BearingHapticsBuilder.() -> Unit) {
+    haptics = BearingHapticsBuilder().apply(block).build()
+  }
+
   internal fun build(): RotateCameraConfiguration =
-    RotateCameraConfiguration(enabled, momentum.build(), snapping)
+    RotateCameraConfiguration(enabled, momentum.build(), snapping, haptics)
 }

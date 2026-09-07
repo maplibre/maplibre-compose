@@ -27,6 +27,7 @@ import org.maplibre.compose.camera.internal.inputRotateAndPitchBy
 import org.maplibre.compose.camera.internal.inputScaleBy
 import org.maplibre.compose.camera.internal.inputScaleByAwaitingTransition
 import org.maplibre.compose.interaction.DragResponse
+import org.maplibre.compose.interaction.HapticEmphasis
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.QuickZoomDirection
 import org.maplibre.compose.interaction.TapResponse
@@ -51,6 +52,7 @@ internal class PointerGesture(
   private val longClickTimeoutMillis: Long,
   private val scope: CoroutineScope,
   private val onAcceptedPress: () -> Unit,
+  private val onHaptic: ((HapticEmphasis) -> Unit)? = null,
 ) {
   private val gestureToken: CameraInputToken?
     get() = cameraSession?.token
@@ -823,6 +825,7 @@ internal class PointerGesture(
         target.inputRotateAndPitchBy(
           velocity.bearingDelta * fraction,
           0.0,
+          feedback = false,
           anchor = anchor,
           gestureToken = token,
         )
@@ -857,6 +860,7 @@ internal class PointerGesture(
         target,
         token,
         animationDuration = options.scaledAnimationDuration(),
+        onHaptic = onHaptic,
       ) {
         if (cameraSession === session) {
           val contactsRemain = lastSingle != null || pair != null

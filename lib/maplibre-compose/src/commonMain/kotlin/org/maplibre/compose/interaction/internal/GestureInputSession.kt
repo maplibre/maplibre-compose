@@ -9,12 +9,14 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.CameraInputToken
+import org.maplibre.compose.interaction.HapticEmphasis
 
 /** A recognized input group and all its continuation work share this camera lifetime. */
 internal class GestureInputSession(
@@ -22,15 +24,26 @@ internal class GestureInputSession(
   private val target: CameraInputTarget,
   val token: CameraInputToken = target.onGestureStarted(),
   private val animationDuration: Duration = 300.milliseconds,
+  onHaptic: ((HapticEmphasis) -> Unit)? = null,
   private val onCancelled: () -> Unit = {},
 ) {
   private val work = Job(parent.coroutineContext[Job])
   val scope = CoroutineScope(parent.coroutineContext + work)
   private var ending = false
+  private val feedback = onHaptic?.let { Channel<HapticEmphasis>(Channel.CONFLATED) }
 
   init {
     token.registerJob(work)
+    if (feedback != null && onHaptic != null) {
+      token.setHapticFeedback { feedback.trySend(it) }
+      scope.launch {
+        for (emphasis in feedback) {
+          if (token.acceptsCommands) onHaptic(emphasis)
+        }
+      }
+    }
     work.invokeOnCompletion {
+      feedback?.cancel()
       if (work.isCancelled) {
         target.cancelGesture(token)
         // Authority can be revoked from an engine callback. Explicit dispatch prevents a Main
@@ -49,6 +62,7 @@ internal class GestureInputSession(
   fun end() {
     if (ending || work.isCancelled) return
     ending = true
+    feedback?.close()
     parent.launch(start = CoroutineStart.UNDISPATCHED) {
       try {
         work.children.toList().joinAll()
@@ -72,6 +86,7 @@ internal class GestureInputSession(
   /** Revocation precedes coroutine cleanup, so queued camera commands cannot execute meanwhile. */
   fun cancel() {
     if (work.isCompleted) return
+    feedback?.cancel()
     target.cancelGesture(token)
     work.cancel()
   }

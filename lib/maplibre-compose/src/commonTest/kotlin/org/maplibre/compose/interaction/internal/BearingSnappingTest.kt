@@ -39,8 +39,12 @@ class BearingSnappingTest {
   }
 
   @Test
-  fun snapping_is_opt_in_and_can_disable_inherited_settings() {
-    assertNull(MapInteractions.Standard.camera.settings.rotate.snapping.delta(3.0))
+  fun snapping_defaults_to_north_and_can_disable_inherited_settings() {
+    val defaults = MapInteractions.Standard.camera.settings.rotate.snapping
+    assertEquals(-3.0, defaults.delta(3.0))
+    assertEquals(7.0, defaults.delta(353.0))
+    assertNull(defaults.delta(352.9))
+    assertNull(defaults.delta(90.0))
     val configured = MapInteractions {
       camera { rotate { snapping { targets = BearingTargets.at(32.0) } } }
     }

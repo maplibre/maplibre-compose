@@ -5,6 +5,7 @@ package org.maplibre.compose.docsnippets
 import androidx.compose.runtime.Composable
 import org.maplibre.compose.interaction.BearingTargets
 import org.maplibre.compose.interaction.ClickResult
+import org.maplibre.compose.interaction.HapticEmphasis
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.ModifierMatch.Containing
@@ -41,6 +42,23 @@ fun Interaction() {
       }
   )
   // #endregion bearing-snapping
+
+  // #region bearing-haptics
+  MaplibreMap(
+    interactions =
+      MapInteractions {
+        camera {
+          rotate {
+            haptics {
+              notch(BearingTargets.evenlySpaced(24), HapticEmphasis.Subtle)
+              notch(BearingTargets.evenlySpaced(4), HapticEmphasis.Standard)
+              notch(BearingTargets.at(0.0), HapticEmphasis.Emphasized)
+            }
+          }
+        }
+      }
+  )
+  // #endregion bearing-haptics
 
   // #region scroll-mappings
   MaplibreMap(

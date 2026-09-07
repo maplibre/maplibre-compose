@@ -1258,9 +1258,13 @@ internal class GlJsMapSession(
     duration: Duration,
     anchor: DpOffset?,
     gestureToken: CameraInputToken?,
+    feedback: Boolean,
   ) {
     onGestureMap(gestureToken) { map ->
+      val before = map.getBearing()
       map.easeTo(rotateOptions(map, bearingDelta, pitchDelta, anchor, duration))
+      if (feedback && bearingDelta != 0.0 && duration == Duration.ZERO)
+        gestureToken?.reportRotation(before, map.getBearing())
     }
   }
 

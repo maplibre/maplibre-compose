@@ -1,5 +1,6 @@
 package org.maplibre.compose.camera.internal
 
+import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
@@ -7,6 +8,8 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.maplibre.compose.interaction.BearingSnapping
+import org.maplibre.compose.interaction.HapticEmphasis
+import org.maplibre.compose.interaction.internal.BearingHapticDetector
 import org.maplibre.compose.interaction.internal.CameraComponent
 import org.maplibre.compose.interaction.internal.CameraConfiguration
 import org.maplibre.compose.map.MapAdapter
@@ -162,6 +165,29 @@ internal class CameraInputAuthority(private val owner: MapState) {
     private val completion = CompletableDeferred<Unit>().also { if (!ready) it.complete(Unit) }
     private val startedComponents = mutableSetOf<CameraComponent>()
     private var rotated = false
+    private var hapticDetector: BearingHapticDetector? = null
+    private var onHaptic: ((HapticEmphasis) -> Unit)? = null
+    private val hapticClock = TimeSource.Monotonic.markNow()
+
+    fun setHapticFeedback(callback: (HapticEmphasis) -> Unit) {
+      owner.lifecycle.serialized { onHaptic = callback }
+    }
+
+    /** Called after a direct rotation executes; callbacks leave the lifecycle lock. */
+    fun reportRotation(from: Double, to: Double) {
+      val event =
+        owner.lifecycle.serialized {
+          if (!acceptsLocked(enqueue = false)) return@serialized null
+          val callback = onHaptic ?: return@serialized null
+          val detector =
+            hapticDetector
+              ?: BearingHapticDetector(configuration.settings.rotate.haptics).also {
+                hapticDetector = it
+              }
+          detector.update(from, to, hapticClock.elapsedNow())?.let { callback to it }
+        }
+      event?.let { (callback, emphasis) -> callback(emphasis) }
+    }
 
     val bearingSnapping: BearingSnapping?
       get() =
@@ -201,6 +227,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
     fun rearm(component: CameraComponent) =
       owner.lifecycle.serialized {
         startedComponents.remove(component)
+        if (component == CameraComponent.Rotate) hapticDetector = null
       }
 
     fun registerJob(value: Job) {

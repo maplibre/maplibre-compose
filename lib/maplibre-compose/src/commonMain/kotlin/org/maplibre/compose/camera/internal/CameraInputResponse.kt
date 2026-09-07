@@ -30,6 +30,7 @@ internal fun CameraInputTarget.inputRotateAndPitchBy(
   pitchDelta: Double,
   anchor: DpOffset? = null,
   gestureToken: CameraInputToken?,
+  feedback: Boolean = true,
 ) {
   val token = gestureToken ?: return
   val bearing =
@@ -41,6 +42,7 @@ internal fun CameraInputTarget.inputRotateAndPitchBy(
       pitch,
       anchor = anchor.takeIf { token.permitted(CameraComponent.Pan) },
       gestureToken = token,
+      feedback = feedback,
     )
 }
 

@@ -70,6 +70,11 @@ internal object ObjectiveC {
     JNI.invokePPPV(receiver, selector, argument, implementation(receiver, selector))
   }
 
+  fun sendVoid(receiver: Long, selectorName: String, first: Long, second: Long) {
+    val selector = selector(selectorName)
+    JNI.invokePPPPV(receiver, selector, first, second, implementation(receiver, selector))
+  }
+
   fun nsString(value: String): Long =
     MemoryStack.stackPush().use { stack ->
       sendPointer(
@@ -102,6 +107,7 @@ internal object ObjectiveC {
   private fun loadFrameworkForClass(className: String) {
     when {
       className.startsWith("MTL") -> loadFramework("Metal")
+      className == "NSHapticFeedbackManager" -> loadFramework("AppKit")
       else -> loadFramework("Foundation")
     }
   }

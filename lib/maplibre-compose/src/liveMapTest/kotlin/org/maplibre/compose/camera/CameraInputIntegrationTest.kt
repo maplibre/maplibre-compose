@@ -23,6 +23,7 @@ import org.maplibre.compose.camera.internal.inputRotateAndPitchByAwaitingTransit
 import org.maplibre.compose.camera.internal.inputScaleByAwaitingTransition
 import org.maplibre.compose.interaction.BearingTargets
 import org.maplibre.compose.interaction.CameraBuilder
+import org.maplibre.compose.interaction.HapticEmphasis
 import org.maplibre.compose.interaction.internal.CameraConfiguration
 import org.maplibre.compose.interaction.internal.GestureInputSession
 import org.maplibre.compose.style.BaseStyle
@@ -32,6 +33,46 @@ import org.maplibre.compose.testing.runMapTest
 import org.maplibre.spatialk.geojson.Position
 
 class CameraInputIntegrationTest {
+  @Test
+  fun haptic_feedback_tracks_applied_rotation_but_not_momentum_or_settlement(): MapTestResult =
+    runMapTest {
+      coroutineScope {
+        createMapFixture().use { fixture ->
+          fixture.loadStyle(BaseStyle.Empty)
+          fixture.awaitMapReady()
+          fixture.state.gestureAuthority.updateConfiguration(
+            CameraBuilder(CameraConfiguration())
+              .apply {
+                rotate {
+                  snapping()
+                  haptics { notch(BearingTargets.at(0.0)) }
+                }
+              }
+              .build()
+          )
+          fixture.state.setCameraPosition(CameraPosition(zoom = 5.0, bearing = 355.0))
+          fixture.settle()
+          val ticks = mutableListOf<HapticEmphasis>()
+          val input = GestureInputSession(this, fixture.gestures, onHaptic = { ticks += it })
+          fixture.gestures.inputRotateAndPitchBy(10.0, 0.0, gestureToken = input.token)
+          fixture.pumpUntil("a haptic crossing after applied rotation") { ticks.isNotEmpty() }
+          assertEquals(listOf(HapticEmphasis.Standard), ticks)
+          fixture.gestures.inputRotateAndPitchBy(
+            -10.0,
+            0.0,
+            gestureToken = input.token,
+            feedback = false,
+          )
+          input.end()
+          fixture.awaitWhileRendering("silent momentum and settlement") {
+            input.scope.coroutineContext[Job]!!.join()
+          }
+          assertEquals(listOf(HapticEmphasis.Standard), ticks)
+          assertEquals(0.0, fixture.state.cameraPosition.bearing, 1e-6)
+        }
+      }
+    }
+
   @Test
   fun rotation_settles_after_queued_movement_and_momentum_preserving_other_components():
     MapTestResult = runMapTest {
