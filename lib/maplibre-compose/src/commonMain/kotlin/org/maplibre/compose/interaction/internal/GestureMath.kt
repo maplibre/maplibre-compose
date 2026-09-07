@@ -101,7 +101,24 @@ internal object GestureMath {
   fun hasStablePressure(current: Float, previous: Float): Boolean =
     previous <= 0f || current / previous > PRESSURE_RATIO_THRESHOLD
 
-  data class Fling(val offsetXDp: Double, val offsetYDp: Double, val duration: Duration)
+  data class Fling(
+    val offsetXDp: Double,
+    val offsetYDp: Double,
+    val duration: Duration,
+    val decayPower: Int = 2,
+  ) {
+    fun settleWith(transformDuration: Duration): Fling {
+      // Preserve initial speed when changing decay curves, without increasing total travel.
+      val distanceScale =
+        minOf(1.0, transformDuration / duration * decayPower / TRANSFORM_DECAY_POWER)
+      return copy(
+        offsetXDp = offsetXDp * distanceScale,
+        offsetYDp = offsetYDp * distanceScale,
+        duration = transformDuration,
+        decayPower = TRANSFORM_DECAY_POWER,
+      )
+    }
+  }
 
   /**
    * Screen-space travel for a flick of this speed. Equal speeds produce equal offsets, whether or

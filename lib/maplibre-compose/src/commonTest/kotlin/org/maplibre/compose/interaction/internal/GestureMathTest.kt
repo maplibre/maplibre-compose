@@ -41,6 +41,26 @@ class GestureMathTest {
   }
 
   @Test
+  fun synchronizing_pan_with_pinch_never_increases_travel_or_initial_speed() {
+    for (speed in listOf(250.0, 1000.0, 2000.0, 10000.0)) {
+      for (duration in listOf(100.milliseconds, 600.milliseconds)) {
+        val original = assertNotNull(GestureMath.fling(speed, -speed))
+        val combined = original.settleWith(duration)
+        assertEquals(duration, combined.duration)
+        assertEquals(GestureMath.TRANSFORM_DECAY_POWER, combined.decayPower)
+        assertTrue(combined.offsetXDp > 0.0)
+        assertTrue(combined.offsetXDp <= original.offsetXDp)
+        assertEquals(-combined.offsetXDp, combined.offsetYDp)
+        val originalSpeed =
+          original.offsetXDp * original.decayPower / original.duration.inWholeNanoseconds
+        val combinedSpeed =
+          combined.offsetXDp * combined.decayPower / combined.duration.inWholeNanoseconds
+        assertTrue(combinedSpeed <= originalSpeed + 1e-12)
+      }
+    }
+  }
+
+  @Test
   fun opposite_vertical_flings_are_equal_and_opposite() {
     val down = assertNotNull(GestureMath.fling(0.0, 1400.0))
     val up = assertNotNull(GestureMath.fling(0.0, -1400.0))

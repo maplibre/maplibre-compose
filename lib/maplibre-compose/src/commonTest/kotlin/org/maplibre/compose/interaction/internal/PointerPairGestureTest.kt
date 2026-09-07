@@ -18,6 +18,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 import org.maplibre.compose.interaction.GestureAnchor
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.MapInteractions
@@ -229,6 +230,40 @@ class PointerPairGestureTest {
     input.move(20, Offset(-50f, 0f), Offset(110f, 0f))
     input.move(40, Offset(-40f, 0f), Offset(120f, 0f))
     assertEquals(2, input.target.moveCalls.size)
+  }
+
+  @Test
+  fun pan_and_pinch_momentum_share_the_configured_zoom_duration_and_decay() {
+    for (zoomMomentum in listOf(true, false)) {
+      val input =
+        PairInput(
+          MapInteractions {
+            camera {
+              zoom {
+                momentum {
+                  enabled = zoomMomentum
+                  maximumDuration = 300.milliseconds
+                }
+              }
+            }
+          }
+        )
+      repeat(6) { index ->
+        val step = index + 1
+        input.move(step * 16L, Offset(-80f + step * 8f, 0f), Offset(80f + step * 56f, 0f))
+      }
+      val release = assertNotNull(input.pair.end())
+      val pan = assertNotNull(release.pan)
+      if (zoomMomentum) {
+        val scale = assertNotNull(release.scale)
+        assertEquals(300.milliseconds, scale.duration)
+        assertEquals(scale.duration, pan.duration)
+        assertEquals(GestureMath.TRANSFORM_DECAY_POWER, pan.decayPower)
+      } else {
+        assertNull(release.scale)
+        assertEquals(2, pan.decayPower)
+      }
+    }
   }
 
   @Test

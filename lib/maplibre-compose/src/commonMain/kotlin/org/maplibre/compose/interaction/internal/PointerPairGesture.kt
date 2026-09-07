@@ -186,7 +186,7 @@ internal class PointerPairGesture(
 
     if (panFling == null && scale == null && rotation == null && tilt == null) return null
     return PairContinuation(
-      panFling,
+      if (scale != null) panFling?.settleWith(scale.duration) else panFling,
       scale,
       rotation,
       tilt,
