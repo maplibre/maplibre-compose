@@ -25,11 +25,9 @@ class MapHoverGestureTest {
   @Test
   fun hover_reports_pointer_positions_and_balances_exit() = hoverTest { fixture ->
     fixture.project = { Position(it.x.value.toDouble(), 0.0) }
-    fixture.hover.move(sample(10))
-    fixture.hover.move(sample(20))
     val events = mutableListOf<HoverEvent>()
     fixture.onHover = { events += it }
-    applyChanges()
+    fixture.hover.move(sample(20))
     fixture.hover.move(sample(30))
     fixture.hover.exit()
     fixture.hover.exit()
