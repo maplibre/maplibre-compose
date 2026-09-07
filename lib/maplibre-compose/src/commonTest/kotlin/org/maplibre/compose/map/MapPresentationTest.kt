@@ -59,6 +59,7 @@ import org.maplibre.compose.style.Sky
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleImageDefinition
 import org.maplibre.compose.style.TransitionOptions
+import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
@@ -1120,7 +1121,7 @@ class MapPresentationTest {
     val fixture = presentationFixture()
 
     assertNull(fixture.state.getVisibleRegion())
-    assertNull(fixture.state.getVisibleBoundingBox())
+    assertNull(fixture.state.getVisibleBounds())
     assertNull(fixture.state.metersPerDpAtLatitude(0.0))
     fixture.close()
   }
@@ -1510,8 +1511,8 @@ internal open class PresentationTestAdapter(
 
   override fun setCameraConstraints(value: CameraConstraints) = Unit
 
-  override fun getVisibleBoundingBox(): BoundingBox =
-    BoundingBox(Position(-1.0, -1.0), Position(1.0, 1.0))
+  override fun getVisibleBounds(): VisibleBounds =
+    VisibleBounds(Position(-1.0, -1.0), Position(1.0, 1.0))
 
   override fun getVisibleRegion(): VisibleRegion =
     VisibleRegion(
@@ -1557,7 +1558,7 @@ internal open class PresentationTestAdapter(
 private fun testViewport(): Viewport =
   Viewport(
     size = DpSize(100.dp, 100.dp),
-    visibleBoundingBox = BoundingBox(Position(-1.0, -1.0), Position(1.0, 1.0)),
+    visibleBounds = VisibleBounds(Position(-1.0, -1.0), Position(1.0, 1.0)),
     visibleRegion =
       VisibleRegion(
         farLeft = Position(-1.0, 1.0),

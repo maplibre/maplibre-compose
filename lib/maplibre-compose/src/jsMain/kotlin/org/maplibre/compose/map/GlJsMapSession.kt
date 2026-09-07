@@ -35,6 +35,7 @@ import org.maplibre.compose.gljs.GlJsRuntime
 import org.maplibre.compose.gljs.GlJsSubscription
 import org.maplibre.compose.gljs.GlJsSurfaceSession
 import org.maplibre.compose.gljs.JumpToOptions
+import org.maplibre.compose.gljs.LngLat
 import org.maplibre.compose.gljs.MapOptions
 import org.maplibre.compose.gljs.MaplibreMap
 import org.maplibre.compose.gljs.PaddingOptions
@@ -60,6 +61,8 @@ import org.maplibre.compose.style.StyleLoadTracker
 import org.maplibre.compose.style.StylePresentation
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleRequestId
+import org.maplibre.compose.util.AngleMath
+import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.metersPerDpAtLatitude
 import org.maplibre.compose.util.toBoundingBox
@@ -72,6 +75,7 @@ import org.maplibre.compose.util.toPaddingOptions
 import org.maplibre.compose.util.toPoint
 import org.maplibre.compose.util.toPosition
 import org.maplibre.compose.util.toStyleJson
+import org.maplibre.compose.util.toVisibleBounds
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
@@ -899,8 +903,10 @@ internal class GlJsMapSession(
     if (value.maxPitch < maxPitch) map.setMaxPitch(value.maxPitch)
   }
 
-  override fun getVisibleBoundingBox(): BoundingBox =
-    withMap(BoundingBox(Position(0.0, 0.0), Position(0.0, 0.0))) { it.getBounds().toBoundingBox() }
+  override fun getVisibleBounds(): VisibleBounds =
+    withMap(VisibleBounds(Position(0.0, 0.0), Position(0.0, 0.0))) {
+      it.getBounds().toVisibleBounds()
+    }
 
   override fun getVisibleRegion(): VisibleRegion =
     withMap(
@@ -954,7 +960,13 @@ internal class GlJsMapSession(
     withMap(null) { map -> map.unprojectAt(offset.x.value.toDouble(), offset.y.value.toDouble()) }
 
   override fun screenLocationFromPosition(position: Position): DpOffset? =
-    withMap(null) { map -> map.project(position.toLngLat()).toDpOffset() }
+    withMap(null) { map ->
+      // GL JS projects a longitude as given, while MapLibre Native wraps it onto the world copy
+      // nearest the camera. Wrap here so both engines share one contract.
+      val center = map.getCenter()
+      val nearestCopy = with(AngleMath) { center.lng + position.longitude.diff(center.lng) }
+      map.project(LngLat(lng = nearestCopy, lat = position.latitude)).toDpOffset()
+    }
 
   override suspend fun queryRenderedFeatures(
     offset: DpOffset,

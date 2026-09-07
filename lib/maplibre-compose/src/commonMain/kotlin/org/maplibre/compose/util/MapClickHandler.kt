@@ -6,6 +6,9 @@ import org.maplibre.spatialk.geojson.Position
 /**
  * A callback for when the map is clicked. Called before any layer click handlers.
  *
+ * The position preserves the clicked world copy, matching
+ * [org.maplibre.compose.map.MapState.positionFromScreenLocation].
+ *
  * @return [ClickResult.Consume] if this click should be consumed and not passed down to layers or
  *   [ClickResult.Pass] if it should be passed down.
  */

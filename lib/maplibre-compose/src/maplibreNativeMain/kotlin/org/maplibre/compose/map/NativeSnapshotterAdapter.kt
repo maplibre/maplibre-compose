@@ -274,7 +274,7 @@ private class NativeSnapshotterAdapter(
     }
     return Viewport(
       size = applied.size,
-      visibleBoundingBox = applied.boundingBox,
+      visibleBounds = applied.visibleBounds,
       visibleRegion = applied.visibleRegion,
       metersPerDpAtTarget =
         metersPerDpAtLatitude(applied.camera.zoom, applied.camera.target.latitude),

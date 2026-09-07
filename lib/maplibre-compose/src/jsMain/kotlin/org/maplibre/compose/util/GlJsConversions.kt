@@ -30,6 +30,9 @@ internal fun Point.toDpOffset(): DpOffset = DpOffset(x.dp, y.dp)
 internal fun LngLatBounds.toBoundingBox(): BoundingBox =
   BoundingBox(southwest = getSouthWest().toPosition(), northeast = getNorthEast().toPosition())
 
+internal fun LngLatBounds.toVisibleBounds(): VisibleBounds =
+  VisibleBounds(southwest = getSouthWest().toPosition(), northeast = getNorthEast().toPosition())
+
 internal fun BoundingBox.toLngLatBounds(): LngLatBounds =
   LngLatBounds(sw = southwest.toLngLat(), ne = northeast.toLngLat())
 
