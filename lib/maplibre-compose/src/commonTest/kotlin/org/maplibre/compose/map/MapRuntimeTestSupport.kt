@@ -6,8 +6,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import org.maplibre.compose.camera.Viewport
+import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
-import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
 internal fun mapRuntimeForTest(
@@ -29,7 +29,7 @@ internal fun mapRuntimeForTest(
 internal fun viewportFor(request: MapSnapshotRequest): Viewport =
   Viewport(
     size = DpSize(request.width.dp, request.height.dp),
-    visibleBoundingBox = BoundingBox(Position(-1.0, -1.0), Position(1.0, 1.0)),
+    visibleBounds = VisibleBounds(Position(-1.0, -1.0), Position(1.0, 1.0)),
     visibleRegion =
       VisibleRegion(
         farLeft = Position(-1.0, 1.0),

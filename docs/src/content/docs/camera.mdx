@@ -41,7 +41,7 @@ an animation.
 ## Read the visible area
 
 <Api of="MapState.viewport" /> reports the current rendered size,
-visible bounding box, and visible region. It is null until the map renders its
+visible bounds, and visible region. It is null until the map renders its
 first viewport. A composition that reads it recomposes when the camera moves or
 the map resizes:
 
@@ -55,3 +55,36 @@ position to an offset from the top-left corner of the map composable.
 direction:
 
 <Code code={region(camera, "convert")} lang="kotlin" title="App.kt" />
+
+## The repeated world and the antimeridian
+
+MapLibre renders the world repeating horizontally: scrolling east past 180°
+continues into another copy of the world at -180°. The library keeps the two
+coordinate conventions apart with two types.
+
+Values **read from the map** — <Api of="Viewport.visibleBounds" />,
+<Api of="VisibleRegion" />, <Api of="MapState.positionFromScreenLocation" />,
+and the position delivered to click handlers — use continuous longitudes that
+preserve the world copy you see. They may extend past ±180°, and the visible
+bounds can span more than 360° when more than one world fits in the viewport.
+Within <Api of="VisibleBounds" />, east is always numerically greater than or
+equal to west; it never uses the GeoJSON antimeridian encoding.
+
+`VisibleBounds.wrapped()` converts to a GeoJSON `BoundingBox` with longitudes
+wrapped into ±180°. When the wrapped bounds cross the antimeridian, the result
+follows RFC 7946: the east longitude is less than the west longitude:
+
+<Code code={region(camera, "repeated-world")} lang="kotlin" title="App.kt" />
+
+Values **passed to the map** treat longitudes equivalent modulo 360° as the
+same place. A camera target at longitude 190° looks at the same map as -170°.
+Bounds fitting and camera constraints accept an antimeridian-crossing region in
+either encoding: east less than west (GeoJSON), or east greater than 180°
+(continuous). Fitting always frames the region the short way around.
+<Api of="MapState.screenLocationFromPosition" /> projects the world copy
+nearest the camera.
+
+Features returned by <Api of="MapState.queryRenderedFeatures" /> keep the
+coordinates the engine rendered, without normalization: a geometry that crosses
+the antimeridian may come back split into pieces, and longitudes may fall
+outside ±180° in either direction.

@@ -8,8 +8,8 @@ import org.maplibre.compose.gljs.MaplibreMap
 import org.maplibre.compose.gljs.Point
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.metersPerDpAtLatitude
-import org.maplibre.compose.util.toBoundingBox
 import org.maplibre.compose.util.toPosition
+import org.maplibre.compose.util.toVisibleBounds
 import org.maplibre.spatialk.geojson.Position
 
 /**
@@ -19,7 +19,7 @@ import org.maplibre.spatialk.geojson.Position
 internal fun MaplibreMap.readViewport(width: Double, height: Double): Viewport =
   Viewport(
     size = DpSize(width.dp, height.dp),
-    visibleBoundingBox = getBounds().toBoundingBox(),
+    visibleBounds = getBounds().toVisibleBounds(),
     visibleRegion = readVisibleRegion(width, height),
     metersPerDpAtTarget = metersPerDpAtLatitude(getZoom(), getCenter().toPosition().latitude),
   )

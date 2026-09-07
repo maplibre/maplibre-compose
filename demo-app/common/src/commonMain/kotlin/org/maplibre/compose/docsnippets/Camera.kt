@@ -48,9 +48,22 @@ fun Camera() {
   // #region viewport
   val viewport = mapState.viewport
   if (viewport != null) {
-    Text("Visible bounds: ${viewport.visibleBoundingBox}")
+    Text("Visible bounds: ${viewport.visibleBounds}")
   }
   // #endregion viewport
+
+  // #region repeated-world
+  if (viewport != null) {
+    val bounds = viewport.visibleBounds
+    if (bounds.longitudeSpan >= 360.0) {
+      Text("More than one world is visible")
+    }
+    // Converts to a GeoJSON BoundingBox. When the result crosses the antimeridian, its east
+    // longitude is less than its west longitude, per RFC 7946.
+    val geoJsonBounds: BoundingBox = bounds.wrapped()
+    Text("GeoJSON bounds: $geoJsonBounds")
+  }
+  // #endregion repeated-world
 
   // #region convert
   val screenOffset = mapState.screenLocationFromPosition(mapState.cameraPosition.target)

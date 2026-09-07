@@ -2,8 +2,8 @@ package org.maplibre.compose.camera
 
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.unit.DpSize
+import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
-import org.maplibre.spatialk.geojson.BoundingBox
 
 /**
  * The map composable's size and visible area.
@@ -20,17 +20,17 @@ internal constructor(
   public val size: DpSize,
 
   /**
-   * The smallest bounding box that contains the currently visible area.
+   * The smallest bounds that contain the currently visible area.
    *
-   * This north-aligned rectangle can include areas outside [visibleRegion] when the map is rotated
-   * or tilted. Longitudes preserve world copies, so the box may extend past ±180° or span more than
-   * 360°.
+   * These north-aligned bounds can include areas outside [visibleRegion] when the map is rotated or
+   * tilted. Longitudes follow the [VisibleBounds] contract: they preserve world copies, so the
+   * bounds may extend past ±180° or span more than 360°.
    */
-  public val visibleBoundingBox: BoundingBox,
+  public val visibleBounds: VisibleBounds,
 
   /**
    * The polygon formed by the map composable's four corners. Camera tilt makes it a trapezoid
-   * instead of a rectangle.
+   * instead of a rectangle. Corner longitudes preserve world copies; see [VisibleRegion].
    */
   public val visibleRegion: VisibleRegion,
 

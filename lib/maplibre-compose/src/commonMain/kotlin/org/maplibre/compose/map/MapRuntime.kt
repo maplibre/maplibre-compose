@@ -82,6 +82,7 @@ import org.maplibre.compose.style.systemAnimatorDurationScale
 import org.maplibre.compose.style.withScaledTransitions
 import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.MaplibreComposable
+import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
@@ -560,7 +561,7 @@ internal constructor(
 
   fun getVisibleRegion(): VisibleRegion? = withViewport { it.getVisibleRegion() }
 
-  fun getVisibleBoundingBox(): BoundingBox? = withViewport { it.getVisibleBoundingBox() }
+  fun getVisibleBounds(): VisibleBounds? = withViewport { it.getVisibleBounds() }
 
   fun screenLocationFromPosition(position: Position): DpOffset? = withViewport {
     it.screenLocationFromPosition(position)
@@ -759,7 +760,12 @@ internal constructor(
   private var nextMapAttachment = CompletableDeferred<MapAttachment>()
   private val cameraMutation = MutatorMutex()
 
-  /** Contains the current rendered viewport, or null while no viewport is available. */
+  /**
+   * Contains the current rendered viewport, or null while no viewport is available.
+   *
+   * Geographic results preserve world copies: [Viewport.visibleBounds] and [Viewport.visibleRegion]
+   * may report longitudes past ±180° or span more than 360°.
+   */
   public val viewport: Viewport?
     get() = currentMapAttachment?.viewport
 
@@ -864,7 +870,13 @@ internal constructor(
     applyAttachmentCameraCommand(command.attachment, command.command)
   }
 
-  /** Waits for a viewport, then fits [boundingBox] without animation. */
+  /**
+   * Waits for a viewport, then fits [boundingBox] without animation.
+   *
+   * A box that crosses the antimeridian is fitted the short way around. That applies to both
+   * encodings of such a box: the GeoJSON convention with an east longitude less than the west
+   * longitude, and continuous longitudes with an east longitude past ±180°.
+   */
   public suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double = 0.0,
@@ -892,6 +904,10 @@ internal constructor(
   /**
    * Waits for a viewport, then animates to fit [boundingBox]. A new animation replaces this one.
    *
+   * A box that crosses the antimeridian is fitted the short way around. That applies to both
+   * encodings of such a box: the GeoJSON convention with an east longitude less than the west
+   * longitude, and continuous longitudes with an east longitude past ±180°.
+   *
    * On Android, the system animator duration scale multiplies [duration]. A scale of zero jumps to
    * fit [boundingBox].
    */
@@ -913,15 +929,30 @@ internal constructor(
     }
   }
 
-  /** Returns the visible region, or null while no viewport is available. */
+  /**
+   * Returns the visible region, or null while no viewport is available.
+   *
+   * Corner longitudes preserve world copies and may extend past ±180°; see [VisibleRegion].
+   */
   public fun getVisibleRegion(): VisibleRegion? =
     withAttachmentRead(MapAttachment::getVisibleRegion)
 
-  /** Returns the visible axis-aligned bounds, or null while no viewport is available. */
-  public fun getVisibleBoundingBox(): BoundingBox? =
-    withAttachmentRead(MapAttachment::getVisibleBoundingBox)
+  /**
+   * Returns the visible axis-aligned bounds, or null while no viewport is available.
+   *
+   * Longitudes follow the [VisibleBounds] contract: they preserve world copies, so the bounds may
+   * extend past ±180° or span more than 360°.
+   */
+  public fun getVisibleBounds(): VisibleBounds? =
+    withAttachmentRead(MapAttachment::getVisibleBounds)
 
-  /** Projects [position] into a logical-pixel offset, or returns null without a viewport. */
+  /**
+   * Projects [position] into a logical-pixel offset, or returns null without a viewport.
+   *
+   * The world repeats horizontally, and the position is projected onto the world copy nearest the
+   * camera target: longitudes equivalent modulo 360° describe the same screen location. The offset
+   * may fall outside the composable when that copy is not visible.
+   */
   public fun screenLocationFromPosition(position: Position): DpOffset? = withAttachmentRead {
     it.screenLocationFromPosition(position)
   }
@@ -943,6 +974,11 @@ internal constructor(
   /**
    * Waits for a viewport, then queries rendered features at [offset] in front-to-back render order.
    * Detaching the map surface during the query cancels it.
+   *
+   * Feature geometries carry the coordinates the engine rendered, exactly as queried: they are not
+   * normalized, a geometry that crosses the antimeridian may be split into pieces, and longitudes
+   * may fall outside ±180° in either direction. When several world copies are visible, the same
+   * source feature can appear once per copy it occupies in the query area.
    */
   public suspend fun queryRenderedFeatures(
     offset: DpOffset,
@@ -954,6 +990,11 @@ internal constructor(
   /**
    * Waits for a viewport, then queries rendered features that intersect [rect] in front-to-back
    * render order. Detaching the map surface during the query cancels it.
+   *
+   * Feature geometries carry the coordinates the engine rendered, exactly as queried: they are not
+   * normalized, a geometry that crosses the antimeridian may be split into pieces, and longitudes
+   * may fall outside ±180° in either direction. When several world copies are visible, the same
+   * source feature can appear once per copy it occupies in the query area.
    */
   public suspend fun queryRenderedFeatures(
     rect: DpRect,

@@ -60,6 +60,7 @@ import org.maplibre.compose.style.StyleLoadTracker
 import org.maplibre.compose.style.StylePresentation
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleRequestId
+import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.metersPerDpAtLatitude
 import org.maplibre.compose.util.renderedQueryOptions
@@ -1150,7 +1151,7 @@ internal class MlnFfiMapSession(
     val size: DpSize = DpSize.Zero,
     val visibleRegion: VisibleRegion =
       VisibleRegion(Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0)),
-    val boundingBox: BoundingBox = BoundingBox(Position(0.0, 0.0), Position(0.0, 0.0)),
+    val visibleBounds: VisibleBounds = VisibleBounds(Position(0.0, 0.0), Position(0.0, 0.0)),
     val projection: MapProjectionHandle? = null,
   )
 
@@ -1185,7 +1186,7 @@ internal class MlnFfiMapSession(
         camera = geometry.camera,
         size = geometry.size,
         visibleRegion = geometry.visibleRegion,
-        boundingBox = geometry.boundingBox,
+        visibleBounds = geometry.visibleBounds,
         // A fresh handle per snapshot: createProjection freezes the transform at creation.
         projection = map.createProjection(),
       )
@@ -1418,7 +1419,7 @@ internal class MlnFfiMapSession(
     }
   }
 
-  override fun getVisibleBoundingBox(): BoundingBox = mirroredViewport.boundingBox
+  override fun getVisibleBounds(): VisibleBounds = mirroredViewport.visibleBounds
 
   override fun getVisibleRegion(): VisibleRegion = mirroredViewport.visibleRegion
 
@@ -1431,7 +1432,7 @@ internal class MlnFfiMapSession(
     if (mirror.size == DpSize.Zero) return null
     return Viewport(
       size = mirror.size,
-      visibleBoundingBox = mirror.boundingBox,
+      visibleBounds = mirror.visibleBounds,
       visibleRegion = mirror.visibleRegion,
       metersPerDpAtTarget =
         metersPerDpAtLatitude(mirror.camera.zoom, mirror.camera.target.latitude),
