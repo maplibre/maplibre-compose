@@ -26,11 +26,14 @@ internal const val CLUSTER_ID_PROPERTY = "cluster_id"
  * fails. With [GeoJsonOptions.synchronousUpdate], initial inline data is prepared before the source
  * is added, and failures throw without adding the source.
  */
-public class GeoJsonSource : Source {
+public class GeoJsonSource : FeatureSource {
 
   private val options: GeoJsonOptions
 
   private var data: GeoJsonData
+
+  /** The style JSON this source was reconstructed from, or null for an application-built source. */
+  private val reconstructedJson: JsonObject?
 
   /**
    * @param id Unique identifier for this source
@@ -40,20 +43,31 @@ public class GeoJsonSource : Source {
   public constructor(id: String, data: GeoJsonData, options: GeoJsonOptions) : super(id) {
     this.options = options
     this.data = data
+    reconstructedJson = null
   }
 
-  override fun toJson(): JsonObject = buildJsonObject {
-    put("type", "geojson")
-    put("data", data.toDataJson())
-    putGeoJsonOptions(options)
+  /** A GeoJSON source reconstructed from a loaded style. */
+  internal constructor(id: String, definition: JsonObject) : super(id) {
+    reconstructedJson = definition
+    options = GeoJsonOptions()
+    data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}""")
   }
+
+  override fun toJson(): JsonObject =
+    reconstructedJson
+      ?: buildJsonObject {
+        put("type", "geojson")
+        put("data", data.toDataJson())
+        putGeoJsonOptions(options)
+      }
 
   override fun definition(): SourceDefinition =
-    SourceDefinition.GeoJson(
-      id,
-      data,
-      options.copy(clusterProperties = options.clusterProperties.toMap()),
-    )
+    reconstructedJson?.let { SourceDefinition.Json(id, it) }
+      ?: SourceDefinition.GeoJson(
+        id,
+        data,
+        options.copy(clusterProperties = options.clusterProperties.toMap()),
+      )
 
   internal fun setDesiredData(data: GeoJsonData) {
     this.data = data

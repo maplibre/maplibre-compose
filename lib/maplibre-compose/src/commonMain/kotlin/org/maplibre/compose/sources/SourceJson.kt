@@ -2,6 +2,7 @@ package org.maplibre.compose.sources
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
@@ -95,3 +96,18 @@ internal fun Expression<BooleanValue>.toFilterJson(): JsonElement? = takeUnless 
 }
   ?.compile(ExpressionContext.None)
   ?.toStyleJson()
+
+/**
+ * Rebuilds a source descriptor from style JSON. Known `type` values become the matching public
+ * class so layer composables can accept them. Unrecognized types, including omitted ones such as
+ * video, stay [UnknownSource].
+ */
+internal fun reconstructedSource(id: String, definition: JsonObject): Source =
+  when ((definition["type"] as? JsonPrimitive)?.content) {
+    "vector" -> VectorSource(id, definition)
+    "raster" -> RasterSource(id, definition)
+    "raster-dem" -> RasterDemSource(id, definition)
+    "geojson" -> GeoJsonSource(id, definition)
+    "image" -> ImageSource(id, definition)
+    else -> UnknownSource(id, definition)
+  }

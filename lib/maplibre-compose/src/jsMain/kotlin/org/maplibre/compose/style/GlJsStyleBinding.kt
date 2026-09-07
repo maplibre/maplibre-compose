@@ -47,9 +47,9 @@ import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeometryTileProvider
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.TileCoordinate
-import org.maplibre.compose.sources.UnknownSource
 import org.maplibre.compose.sources.VectorTileProvider
 import org.maplibre.compose.sources.featureIdentifiers
+import org.maplibre.compose.sources.reconstructedSource
 import org.maplibre.compose.sources.toDataJson
 import org.maplibre.compose.sources.toJsonObjectOrEmpty
 import org.maplibre.compose.util.toDataUrl
@@ -198,16 +198,20 @@ internal class GlJsStyleBinding(
     return map.getLayersOrder().toList()
   }
 
-  private fun reconstructSource(id: String): Source =
-    UnknownSource(
+  private fun reconstructSource(id: String): Source {
+    val source = map.getSource<SourceHandle>(id)
+    val serialized = source?.serialize()?.toJsonElement() as? JsonObject
+    return reconstructedSource(
       id,
-      buildJsonObject {
-        map.getSource<SourceHandle>(id)?.let { source ->
-          put("type", source.type)
-          source.attribution?.let { put("attribution", it) }
-        }
-      },
+      serialized
+        ?: buildJsonObject {
+          source?.let {
+            put("type", it.type)
+            it.attribution?.let { attribution -> put("attribution", attribution) }
+          }
+        },
     )
+  }
 
   private fun reconstructLayer(id: String): Layer {
     val definition =

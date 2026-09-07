@@ -9,7 +9,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 
 /** A map data source of tiled vector data. */
-public class VectorSource : Source {
+public class VectorSource : FeatureSource {
 
   private val json: JsonObject
 
@@ -36,6 +36,11 @@ public class VectorSource : Source {
       putJsonArray("tiles") { tiles.forEach { add(it) } }
       putTileSetOptions(options)
     }
+  }
+
+  /** A vector source reconstructed from a loaded style. */
+  internal constructor(id: String, definition: JsonObject) : super(id) {
+    json = definition
   }
 
   override fun toJson(): JsonObject = json

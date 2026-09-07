@@ -73,6 +73,12 @@ public class RasterDemSource : Source {
       )
   }
 
+  /** A raster-dem source reconstructed from a loaded style. */
+  internal constructor(id: String, definition: JsonObject) : super(id) {
+    tileSet = null
+    json = definition
+  }
+
   override fun toJson(): JsonObject = json
 
   override fun definition(): SourceDefinition {

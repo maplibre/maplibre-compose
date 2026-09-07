@@ -17,7 +17,8 @@ layer draws data from a source.
 ## Reference a base style source
 
 <Api of="getBaseSource" /> looks up a source that the base style defines, so a
-layer of yours can draw data that the style already loads:
+layer of yours can draw data that the style already loads. Pass the source class
+the layer accepts, such as <Api of="VectorSource" /> for a vector tile source:
 
 <Code code={region(layers, "simple")} lang="kotlin" title="App.kt" />
 

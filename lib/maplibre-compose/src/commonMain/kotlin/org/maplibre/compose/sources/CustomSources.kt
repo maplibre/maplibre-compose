@@ -81,7 +81,7 @@ public class CustomGeometrySource(
   id: String,
   private val options: CustomGeometrySourceOptions = CustomGeometrySourceOptions(),
   private var provider: GeometryTileProvider,
-) : Source(id) {
+) : FeatureSource(id) {
 
   override fun definition(): SourceDefinition =
     SourceDefinition.CustomGeometry(id, options, provider)
@@ -110,7 +110,7 @@ public class CustomVectorSource(
   id: String,
   private val options: CustomVectorSourceOptions = CustomVectorSourceOptions(),
   private var provider: VectorTileProvider,
-) : Source(id) {
+) : FeatureSource(id) {
 
   override fun definition(): SourceDefinition = SourceDefinition.CustomVector(id, options, provider)
 

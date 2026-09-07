@@ -19,7 +19,7 @@ import org.maplibre.compose.expressions.value.LineCap
 import org.maplibre.compose.expressions.value.LineJoin
 import org.maplibre.compose.expressions.value.TranslateAnchor
 import org.maplibre.compose.expressions.value.VectorValue
-import org.maplibre.compose.sources.Source
+import org.maplibre.compose.sources.FeatureSource
 import org.maplibre.compose.sources.SourceReferenceEffect
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.MaplibreComposable
@@ -124,7 +124,7 @@ import org.maplibre.compose.util.MaplibreComposable
 @MaplibreComposable
 public fun LineLayer(
   id: String,
-  source: Source,
+  source: FeatureSource,
   sourceLayer: String = "",
   minZoom: Float = 0.0f,
   maxZoom: Float = 24.0f,
@@ -228,7 +228,7 @@ public fun LineLayer(
   )
 }
 
-internal class LineLayer(id: String, source: Source) : FeatureLayer(id, source) {
+internal class LineLayer(id: String, source: FeatureSource) : FeatureLayer(id, source) {
 
   override val type: String = "line"
 

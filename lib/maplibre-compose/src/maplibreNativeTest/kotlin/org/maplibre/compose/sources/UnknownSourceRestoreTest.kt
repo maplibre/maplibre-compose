@@ -26,15 +26,15 @@ class UnknownSourceRestoreTest {
       it.loadStyle(BaseStyle.Json(VECTOR_STYLE))
       val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
 
-      val source = assertIs<UnknownSource>(style.getSource(SOURCE_ID))
+      val source = assertIs<VectorSource>(style.getSource(SOURCE_ID))
       style.uninstall(source)
       style.install(source)
 
-      val restored = assertIs<UnknownSource>(style.getSource(SOURCE_ID))
-      assertEquals(JsonPrimitive("vector"), restored.definition["type"])
+      val restored = assertIs<VectorSource>(style.getSource(SOURCE_ID))
+      assertEquals(JsonPrimitive("vector"), restored.toJson()["type"])
       assertEquals(
         listOf("https://example.invalid/{z}/{x}/{y}.pbf"),
-        (restored.definition["tiles"] as? JsonArray)?.map { (it as JsonPrimitive).content },
+        (restored.toJson()["tiles"] as? JsonArray)?.map { (it as JsonPrimitive).content },
       )
       assertEquals(ATTRIBUTION, restored.attributionHtml)
       assertEquals(emptyList(), it.errors, "the map should report nothing")
@@ -51,8 +51,7 @@ class UnknownSourceRestoreTest {
       assertEquals(
         mapOf(SOURCE_ID to "vector", RASTER_SOURCE_ID to "raster"),
         style.getSources().associate { source ->
-          source.id to
-            (assertIs<UnknownSource>(source).definition["type"] as? JsonPrimitive)?.content
+          source.id to (source.toJson()["type"] as? JsonPrimitive)?.content
         },
       )
       // MapLibre's own, in every map whether or not anything draws an annotation.

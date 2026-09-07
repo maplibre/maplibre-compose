@@ -3,10 +3,12 @@ package org.maplibre.compose.sources
 import kotlinx.serialization.json.JsonObject
 
 /**
- * A source that came from the style rather than from the composition, such as a base-style source.
+ * A source whose style-spec `type` this API does not construct, such as a video source from a
+ * style.
  *
- * Reconstructed from the metadata MapLibre retains on the live source: type, attribution, URL or
- * tile templates, and the other TileJSON fields the style declared.
+ * Known types reconstruct as [VectorSource], [RasterSource], [RasterDemSource], [GeoJsonSource], or
+ * [ImageSource]. This class remains the fallback so a later or omitted type can still be read,
+ * re-added, and looked up by id.
  *
  * @param definition what MapLibre reports about the source.
  */

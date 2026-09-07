@@ -23,7 +23,6 @@ import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
-import org.maplibre.compose.sources.Source
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.style.TransitionOptions
@@ -201,7 +200,7 @@ class UnsupportedLayerPropertyTest {
 
   private fun warnings(): List<String> = CAPTURED.filter { it.startsWith("Layer ") }
 
-  private fun addSource(style: MlnFfiStyleBinding): Source =
+  private fun addSource(style: MlnFfiStyleBinding): GeoJsonSource =
     GeoJsonSource(
         id = "features",
         data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>()),

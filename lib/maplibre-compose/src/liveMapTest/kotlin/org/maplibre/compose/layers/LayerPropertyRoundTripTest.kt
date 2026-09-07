@@ -59,7 +59,6 @@ import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.RasterDemEncoding
 import org.maplibre.compose.sources.RasterDemSource
 import org.maplibre.compose.sources.RasterSource
-import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LayerInstallation
@@ -303,7 +302,7 @@ class LayerPropertyRoundTripTest {
 
     fun <T : ExpressionValue> Expression<T>.c() = compile(ExpressionContext.None)
 
-    fun addFeatureSource(style: StyleBinding): Source =
+    fun addFeatureSource(style: StyleBinding): GeoJsonSource =
       GeoJsonSource(
           id = SOURCE_ID,
           data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>()),
