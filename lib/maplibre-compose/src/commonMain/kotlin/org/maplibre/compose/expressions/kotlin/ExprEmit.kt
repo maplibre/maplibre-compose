@@ -44,10 +44,10 @@ public object ExprEmit {
       value == false -> litBoolean(false)
       value is Expression<*> -> value
       value is Boolean -> litBoolean(value)
-      value is Int -> const(value)
+      // Kotlin/JS compiles `is Int`, `is Float`, and `is Double` to `typeof === 'number'`.
+      // The Int branch then indexes IntCache with 2.5 and returns undefined.
       value is Long -> const(value.toInt())
-      value is Float -> const(value)
-      value is Double -> const(value.toFloat())
+      value is Number -> numberLiteral(value)
       value is String -> const(value)
       value is Color -> const(value)
       value is Dp -> const(value)
@@ -226,6 +226,17 @@ public object ExprEmit {
         }
       }
       else -> error("Cannot capture a list of ${first?.let { it::class.simpleName }}")
+    }
+  }
+
+  private fun numberLiteral(value: Number): Expression<*> {
+    val d = value.toDouble()
+    return if (
+      d.isFinite() && d == kotlin.math.floor(d) && d >= Int.MIN_VALUE && d <= Int.MAX_VALUE
+    ) {
+      const(d.toInt())
+    } else {
+      const(d.toFloat())
     }
   }
 }

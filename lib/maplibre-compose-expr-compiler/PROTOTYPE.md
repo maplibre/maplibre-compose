@@ -105,7 +105,12 @@ These are engine or Kotlin constraints, not missing visitor branches.
     fields are assigned, and `of(true)` returns `undefined`. Do not intern them.
     Boolean IR constants now call typed `litBoolean(Boolean)`, which goes
     through `const(Boolean)` and never boxes as `Any?`.
-11. **Dokka `failOnWarning` rejects an unresolved `[EnumValue]` KDoc link.**
+11. **Kotlin/JS numbers are one `typeof === 'number'`.** `is Int` / `is Float` /
+    `is Double` all match, so `lit(2.5)` used to take the Int branch.
+    `IntCache[2.5]` is a hole (`array[2.5]` is `undefined`) and `compile()` then
+    throws. `lit(Any?)` now has one `Number` path: whole values become `Int`
+    literals, the rest `Float`.
+12. **Dokka `failOnWarning` rejects an unresolved `[EnumValue]` KDoc link.**
     `ExprScope` does not import that type, and `ExprScopeStubs.asEnum` inherits
     the same comment. A fully qualified destination still warned. Write the type
     name in prose instead of a link.
