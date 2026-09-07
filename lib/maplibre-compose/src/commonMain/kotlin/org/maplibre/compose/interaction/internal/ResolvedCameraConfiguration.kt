@@ -1,5 +1,7 @@
 package org.maplibre.compose.interaction.internal
 
+import org.maplibre.compose.interaction.BearingSnapping
+
 internal enum class CameraComponent {
   Pan,
   Zoom,
@@ -15,7 +17,7 @@ internal data class CameraConfiguration(
 internal data class CameraSettings(
   val pan: PanCameraConfiguration = PanCameraConfiguration(),
   val zoom: VelocityCameraConfiguration = VelocityCameraConfiguration(),
-  val rotate: VelocityCameraConfiguration = VelocityCameraConfiguration(),
+  val rotate: RotateCameraConfiguration = RotateCameraConfiguration(),
   val tilt: TiltCameraConfiguration = TiltCameraConfiguration(),
 ) {
   fun enabled(component: CameraComponent): Boolean =
@@ -40,4 +42,10 @@ internal data class VelocityCameraConfiguration(
 internal data class TiltCameraConfiguration(
   val enabled: Boolean = true,
   val momentum: TiltMomentum = TiltMomentum(),
+)
+
+internal data class RotateCameraConfiguration(
+  val enabled: Boolean = true,
+  val momentum: VelocityMomentum = VelocityMomentum(),
+  val snapping: BearingSnapping = BearingSnapping(),
 )
