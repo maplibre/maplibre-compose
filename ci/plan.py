@@ -8,9 +8,7 @@ import pathlib
 
 FULL_LABEL = "ci:full"
 TIERS = ("draft", "ready", "full")
-# The caller job in each tier's workflow, which prefixes every check name.
-CALLERS = {"draft": "ci", "ready": "ready", "full": "full"}
-JOBS = ("plan", "hygiene", "android", "ios", "ios-device", "js", "desktop", "docs")
+JOBS = ("hygiene", "android", "ios", "ios-device", "js", "desktop", "docs")
 CATALOG = pathlib.Path(__file__).with_name("jobs.json")
 
 
@@ -18,9 +16,18 @@ def variants() -> list[dict]:
     """Every job variant, each tagged with the tier that introduces it."""
     rows = json.loads(CATALOG.read_text())
     for row in rows:
-        if row["job"] not in JOBS[1:] or row["tier"] not in TIERS:
+        if row["job"] not in JOBS or row["tier"] not in TIERS:
             raise ValueError(f"unknown job or tier in {row['job']} {row['variant']}")
     return rows
+
+
+def tier_jobs(tier: str) -> list[str]:
+    """The jobs with at least one variant in the tier, in workflow order."""
+    return [
+        job
+        for job in JOBS
+        if any(r["job"] == job and r["tier"] == tier for r in variants())
+    ]
 
 
 def required(tier: str, pr: dict) -> bool:
@@ -51,46 +58,56 @@ def state_before(event: dict) -> dict | None:
     return None
 
 
-def plan(tier: str, event_name: str, event: dict) -> dict:
+def secrets_available(event_name: str, event: dict, repository: str) -> bool:
+    """Whether the run may use repository secrets, such as upload tokens."""
+    if event_name == "push":
+        return True
+    if event_name == "pull_request":
+        pr = event["pull_request"]
+        head_repo = pr["head"].get("repo") or {}
+        return (
+            pr["user"]["login"] != "dependabot[bot]"
+            and head_repo.get("full_name") == repository
+        )
+    if event_name == "workflow_dispatch":
+        return str(event.get("inputs", {}).get("secrets", "true")).lower() != "false"
+    return False
+
+
+def plan(tier: str, event_name: str, event: dict, repository: str) -> dict:
     if tier not in TIERS:
         raise ValueError(f"unknown CI tier {tier!r}")
     restate = False
     if event_name == "pull_request":
-        # Each tier's workflow runs only the variants that tier introduces, and
-        # only when the event is what made them necessary. A tier that was
-        # already required before the event has a verdict on this commit, which
-        # the required check restates rather than replaces.
+        # A tier's workflow runs its variants only when the event is what made
+        # them necessary. A tier that was already required before the event
+        # has a verdict on this commit, which the required check restates
+        # rather than replaces.
         pr = event["pull_request"]
         before = state_before(event)
-        selected = {tier} if required(tier, pr) else set()
+        selected = required(tier, pr)
         if selected and before is not None and required(tier, before):
-            selected = set()
+            selected = False
             restate = True
     else:
-        # Main and manual runs cover every variant in a single workflow.
-        selected = set(TIERS)
+        # Main and manual runs trigger every tier's workflow.
+        selected = True
     # `variant` is the only matrix dimension, so GitHub names each job after it
     # and leaves the row's other fields out of the name.
-    matrices: dict[str, dict] = {
-        job: {"variant": [], "include": []} for job in JOBS[1:]
-    }
+    matrices: dict[str, dict] = {job: {"variant": [], "include": []} for job in JOBS}
     for row in variants():
-        if row["tier"] in selected:
+        if selected and row["tier"] == tier:
             matrix = matrices[row["job"]]
             matrix["variant"].append(row["variant"])
             matrix["include"].append(
                 {key: value for key, value in row.items() if key not in ("job", "tier")}
             )
-    run = [job for job, matrix in matrices.items() if matrix["include"]]
-    expected = {"plan": "success"}
-    for job, matrix in matrices.items():
-        expected[job] = "success" if matrix["include"] else "skipped"
     return {
         "tier": tier,
-        "check": f"{CALLERS[tier]} / all-good",
+        "check": f"all-good ({tier})",
+        "selected": selected,
         "restate": restate,
-        "run": run,
-        "expected": expected,
+        "secrets": secrets_available(event_name, event, repository),
         **matrices,
     }
 
@@ -100,6 +117,7 @@ def main() -> None:
         os.environ["CI_TIER"],
         os.environ["GITHUB_EVENT_NAME"],
         json.loads(pathlib.Path(os.environ["GITHUB_EVENT_PATH"]).read_text()),
+        os.environ["GITHUB_REPOSITORY"],
     )
     with pathlib.Path(os.environ["GITHUB_OUTPUT"]).open("a") as output:
         for key, value in selection.items():
@@ -111,9 +129,7 @@ def main() -> None:
                 encoded = json.dumps(value, separators=(",", ":"))
             print(f"{key}={encoded}", file=output)
     names = [
-        f"{job} ({variant})"
-        for job in selection["run"]
-        for variant in selection[job]["variant"]
+        f"{job} / {variant}" for job in JOBS for variant in selection[job]["variant"]
     ]
     with pathlib.Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as summary:
         print(f"CI tier: **{selection['tier']}**", file=summary)

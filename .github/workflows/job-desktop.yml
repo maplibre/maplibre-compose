@@ -1,0 +1,69 @@
+name: desktop job
+
+# One CI job as a matrix over the variants ci/plan.py selected for it. The tier
+# workflows call this; the variant is the only matrix dimension, so GitHub
+# names each run after it.
+on:
+  workflow_call:
+    inputs:
+      matrix:
+        description: The job's matrix, as ci/plan.py emits it.
+        type: string
+        required: true
+      secrets-available:
+        description: Whether repository secrets are available to this run.
+        type: boolean
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  desktop:
+    name: ${{ matrix.variant }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(inputs.matrix) }}
+    timeout-minutes: 45
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-desktop-vulkan
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          save-toolchains: ${{ matrix.save_toolchains }}
+      - id: desktop-tests
+        run: mise run test:desktop
+      - name: Upload desktop test results to Trunk
+        if: ${{ !cancelled() && inputs.secrets-available }}
+        continue-on-error: true
+        uses: trunk-io/analytics-uploader@385f1ccdf345b4532dc4b6c665dd432b702b8e28 # v2.1.2
+        with:
+          junit-paths: "**/build/test-results/jvmTest/TEST-*.xml,**/build/test-results/test/TEST-*.xml"
+          org-slug: sargunv
+          token: ${{ secrets.TRUNK_API_TOKEN }}
+          variant: ${{ matrix.test_variant }}
+          previous-step-outcome: ${{ steps.desktop-tests.outcome }}
+          allow-missing-junit-files: "false"
+        env:
+          TRUNK_API_TOKEN: ${{ secrets.TRUNK_API_TOKEN }}
+      - name: Upload desktop test reports
+        if: ${{ failure() && steps.desktop-tests.outcome == 'failure' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          retention-days: 14
+          if-no-files-found: warn
+          name: ${{ matrix.artifact_name }}-test-reports
+          path: |
+            **/build/reports/tests
+            **/build/test-results
+      - run: mise run build:desktop-app
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          retention-days: 7
+          if-no-files-found: error
+          name: ${{ matrix.artifact_name }}
+          path:
+            "demo-app/desktop/build/compose/binaries/main/${{ matrix.artifact_type }}/${{ matrix.artifact_glob }}"

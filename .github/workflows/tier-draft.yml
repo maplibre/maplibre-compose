@@ -1,0 +1,74 @@
+name: draft tier
+
+# The jobs whose variants the draft tier introduces, per ci/jobs.json. The
+# caller skips this workflow as a unit when the tier is not required, so a
+# pull request never shows individual jobs skipped.
+on:
+  workflow_call:
+    inputs:
+      secrets-available:
+        description: Whether repository secrets are available to this run.
+        type: boolean
+        required: true
+      hygiene:
+        description: The hygiene job's matrix.
+        type: string
+        required: true
+      android:
+        description: The android job's matrix.
+        type: string
+        required: true
+      ios-device:
+        description: The ios-device job's matrix.
+        type: string
+        required: true
+      js:
+        description: The js job's matrix.
+        type: string
+        required: true
+      desktop:
+        description: The desktop job's matrix.
+        type: string
+        required: true
+      docs:
+        description: The docs job's matrix.
+        type: string
+        required: true
+
+jobs:
+  hygiene:
+    uses: ./.github/workflows/job-hygiene.yml
+    with:
+      matrix: ${{ inputs.hygiene }}
+      secrets-available: ${{ inputs.secrets-available }}
+    secrets: inherit
+  android:
+    uses: ./.github/workflows/job-android.yml
+    with:
+      matrix: ${{ inputs.android }}
+      secrets-available: ${{ inputs.secrets-available }}
+    secrets: inherit
+  ios-device:
+    uses: ./.github/workflows/job-ios-device.yml
+    with:
+      matrix: ${{ inputs.ios-device }}
+      secrets-available: ${{ inputs.secrets-available }}
+    secrets: inherit
+  js:
+    uses: ./.github/workflows/job-js.yml
+    with:
+      matrix: ${{ inputs.js }}
+      secrets-available: ${{ inputs.secrets-available }}
+    secrets: inherit
+  desktop:
+    uses: ./.github/workflows/job-desktop.yml
+    with:
+      matrix: ${{ inputs.desktop }}
+      secrets-available: ${{ inputs.secrets-available }}
+    secrets: inherit
+  docs:
+    uses: ./.github/workflows/job-docs.yml
+    with:
+      matrix: ${{ inputs.docs }}
+      secrets-available: ${{ inputs.secrets-available }}
+    secrets: inherit

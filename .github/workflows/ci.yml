@@ -1,8 +1,8 @@
 name: CI
 
-# The draft tier: every pull request, plus every variant on main and on manual
-# runs. Readiness and label changes are handled by CI ready and CI full, so a
-# commit's draft results stand once they exist.
+# The draft tier: every pull request commit, main, and manual runs. Readiness
+# and label changes are handled by CI ready and CI full, so a commit's draft
+# results stand once they exist.
 on:
   push:
     branches: [main]
@@ -25,12 +25,68 @@ permissions:
   contents: read
 
 jobs:
-  ci:
-    uses: ./.github/workflows/ci-jobs.yml
+  plan:
+    timeout-minutes: 5
+    runs-on: ubuntu-slim
+    outputs:
+      selected: ${{ steps.plan.outputs.selected }}
+      restate: ${{ steps.plan.outputs.restate }}
+      check: ${{ steps.plan.outputs.check }}
+      secrets: ${{ steps.plan.outputs.secrets }}
+      hygiene: ${{ steps.plan.outputs.hygiene }}
+      android: ${{ steps.plan.outputs.android }}
+      ios-device: ${{ steps.plan.outputs.ios-device }}
+      js: ${{ steps.plan.outputs.js }}
+      desktop: ${{ steps.plan.outputs.desktop }}
+      docs: ${{ steps.plan.outputs.docs }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: plan
+        # Planning needs only the runner Python standard library.
+        env:
+          CI_TIER: draft
+        run: bash .mise/tasks/ci/plan
+
+  draft:
+    needs: plan
+    if: needs.plan.outputs.selected == 'true'
+    uses: ./.github/workflows/tier-draft.yml
     with:
-      tier: draft
+      secrets-available: ${{ fromJSON(needs.plan.outputs.secrets) }}
+      hygiene: ${{ needs.plan.outputs.hygiene }}
+      android: ${{ needs.plan.outputs.android }}
+      ios-device: ${{ needs.plan.outputs.ios-device }}
+      js: ${{ needs.plan.outputs.js }}
+      desktop: ${{ needs.plan.outputs.desktop }}
+      docs: ${{ needs.plan.outputs.docs }}
     secrets: inherit
     permissions:
       actions: write
-      checks: read
       contents: write
+
+  all-good:
+    name: all-good (draft)
+    if: ${{ always() }}
+    needs:
+      - plan
+      - draft
+    permissions:
+      checks: read
+    # Restating may wait for a sibling run on the same commit to finish.
+    timeout-minutes: 60
+    runs-on: ubuntu-slim
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          PLAN_RESULT: ${{ needs.plan.result }}
+          SELECTED: ${{ needs.plan.outputs.selected }}
+          RESTATE: ${{ needs.plan.outputs.restate }}
+          RESULT: ${{ needs.draft.result }}
+          CHECK_NAME: ${{ needs.plan.outputs.check }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bash .mise/tasks/ci/verdict

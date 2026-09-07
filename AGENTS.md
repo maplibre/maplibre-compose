@@ -78,11 +78,13 @@ Use draft status for unfinished work, unresolved decisions, or pending human
 review of generated code.
 
 CI runs in tiers. `ci/jobs.json` lists every job variant with the tier that
-introduces it, and each tier has its own workflow and required check. Draft PRs
-run the draft tier: Android API 36, JS, Linux x64 desktop, docs, hygiene, and
-iOS device compilation. Ready PRs add the ready tier: Android API 26, iOS
-simulator, macOS desktop, and Windows x64. Marking a PR ready runs only the
-ready tier. Dependabot PRs, main, and manual runs always include every variant.
+introduces it. Each tier has a caller workflow with its own required check, a
+tier workflow listing the jobs it owns, and each job a reusable workflow that
+holds its body once. `ci/plan.py` selects the variants per event. Draft PRs run
+the draft tier: Android API 36, JS, Linux x64 desktop, docs, hygiene, and iOS
+device compilation. Ready PRs add the ready tier: Android API 26, iOS simulator,
+macOS desktop, and Windows x64. Marking a PR ready runs only the ready tier.
+Dependabot PRs, main, and manual runs always include every variant.
 
 For CI, FFI, toolchain, native loading, packaging, or architecture-sensitive
 changes, request every platform (including Linux/Windows ARM64) with

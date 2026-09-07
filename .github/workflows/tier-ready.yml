@@ -1,0 +1,44 @@
+name: ready tier
+
+# The jobs whose variants the ready tier introduces, per ci/jobs.json. The
+# caller skips this workflow as a unit when the tier is not required, so a
+# pull request never shows individual jobs skipped.
+on:
+  workflow_call:
+    inputs:
+      secrets-available:
+        description: Whether repository secrets are available to this run.
+        type: boolean
+        required: true
+      android:
+        description: The android job's matrix.
+        type: string
+        required: true
+      ios:
+        description: The ios job's matrix.
+        type: string
+        required: true
+      desktop:
+        description: The desktop job's matrix.
+        type: string
+        required: true
+
+jobs:
+  android:
+    uses: ./.github/workflows/job-android.yml
+    with:
+      matrix: ${{ inputs.android }}
+      secrets-available: ${{ inputs.secrets-available }}
+    secrets: inherit
+  ios:
+    uses: ./.github/workflows/job-ios.yml
+    with:
+      matrix: ${{ inputs.ios }}
+      secrets-available: ${{ inputs.secrets-available }}
+    secrets: inherit
+  desktop:
+    uses: ./.github/workflows/job-desktop.yml
+    with:
+      matrix: ${{ inputs.desktop }}
+      secrets-available: ${{ inputs.secrets-available }}
+    secrets: inherit
