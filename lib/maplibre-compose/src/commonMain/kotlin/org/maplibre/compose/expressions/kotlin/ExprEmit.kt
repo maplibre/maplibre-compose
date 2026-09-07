@@ -36,6 +36,10 @@ public object ExprEmit {
   public fun lit(value: Any?): Expression<*> =
     when (value) {
       null -> nil()
+      // Kotlin/JS keeps booleans as primitive `boolean`. `is Boolean` does not match that box,
+      // so `lit(true)` would fall through and return nothing. Equality does match.
+      true -> const(true)
+      false -> const(false)
       is Expression<*> -> value
       is Boolean -> const(value)
       is Int -> const(value)
