@@ -32,13 +32,13 @@ fun main() {
     // A fixture, not a shipped app: allow parallel launches next to other demos.
     enableSingleInstance = false,
   ) {
-    val state = rememberDemoAppState()
-    DemoAppTheme(state) {
-      MaterialDecoratedWindow(
-        onCloseRequest = ::exitApplication,
-        title = "MapLibre Compose on Nucleus Tao",
-        state = rememberWindowState(size = DpSize(960.dp, 640.dp)),
-      ) {
+    MaterialDecoratedWindow(
+      onCloseRequest = ::exitApplication,
+      title = "MapLibre Compose on Nucleus Tao",
+      state = rememberWindowState(size = DpSize(960.dp, 640.dp)),
+    ) {
+      val state = rememberDemoAppState()
+      DemoAppTheme(state) {
         WindowBackground(MaterialTheme.colorScheme.background)
         WindowAppearance(
           if (MaterialTheme.colorScheme.background.luminance() < 0.5f) {

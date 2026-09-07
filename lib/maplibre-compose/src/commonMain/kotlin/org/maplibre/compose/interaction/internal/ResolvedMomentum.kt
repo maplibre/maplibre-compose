@@ -5,7 +5,7 @@ import kotlin.time.Duration.Companion.milliseconds
 
 internal data class PanMomentum(
   val enabled: Boolean = true,
-  val minimumSpeed: Double = 1000.0,
+  val minimumSpeed: Double = 250.0,
   val baseTime: Duration = 150.milliseconds,
   val durationScale: Double = 1.0,
 )
