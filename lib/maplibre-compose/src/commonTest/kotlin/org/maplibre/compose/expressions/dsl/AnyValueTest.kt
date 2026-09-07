@@ -20,7 +20,7 @@ class AnyValueTest {
   @Test
   fun property_compares_equal_to_a_constant_without_an_assertion() {
     assertEquals("""["==",["get","oneway"],"yes"]""", json(feature["oneway"] eq const("yes")))
-    assertEquals("""["!=",1.0,["get","lanes"]]""", json(const(1) neq feature["lanes"]))
+    assertEquals("""["!=",true,["get","oneway"]]""", json(const(true) neq feature["oneway"]))
   }
 
   @Test
@@ -45,13 +45,13 @@ class AnyValueTest {
   @Test
   fun switch_matches_a_property_against_labels_of_one_type() {
     assertEquals(
-      """["match",["get","kind"],"park",1.0,["road","path"],2.0,0.0]""",
+      """["match",["get","kind"],"park","green",["road","path"],"gray","none"]""",
       json(
         switch(
           input = feature["kind"],
-          case("park", const(1)),
-          case(listOf("road", "path"), const(2)),
-          fallback = const(0),
+          case("park", const("green")),
+          case(listOf("road", "path"), const("gray")),
+          fallback = const("none"),
         )
       ),
     )
@@ -72,8 +72,8 @@ class AnyValueTest {
       json(feature.properties()["kind"] eq const("park")),
     )
     assertEquals(
-      """["==",["at",0.0,["array",["get","tags"],null,null]],"a"]""",
-      json(feature["tags"].asList()[0] eq const("a")),
+      """["in","a",["array",["get","tags"],null,null]]""",
+      json(feature["tags"].asList().contains(const("a"))),
     )
   }
 
