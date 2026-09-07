@@ -490,7 +490,10 @@ internal constructor(
     position: CameraPosition,
     duration: Duration = 300.milliseconds,
     guard: CameraCommandGuard? = null,
-  ): Unit = runLeaseBound { adapter.animateCameraPosition(position, duration, boundGuard(guard)) }
+  ): Unit = runLeaseBound {
+    awaitViewportState()
+    adapter.animateCameraPosition(position, duration, boundGuard(guard))
+  }
 
   suspend fun animateCameraToBounds(
     boundingBox: BoundingBox,
@@ -834,8 +837,8 @@ internal constructor(
   }
 
   /**
-   * Waits for an attached map, then animates to [position]. A newer camera command or accepted
-   * input cancels this call.
+   * Waits for a viewport, then animates to [position]. A newer camera command or accepted input
+   * cancels this call.
    *
    * On Android, the system animator duration scale multiplies [duration]. A scale of zero jumps to
    * [position].

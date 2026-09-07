@@ -4,6 +4,11 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
@@ -19,6 +24,27 @@ class MlnFfiViewportTest {
   @Test
   fun a_camera_set_before_the_first_frame_does_not_apply_pending_padding_to_the_bootstrap_size() {
     checkInitialPadding(tilt = 30.0, cameraAfterPadding = true)
+  }
+
+  @Test
+  fun an_animation_requested_before_the_first_viewport_reaches_its_target() = runBlocking {
+    BridgeMapFixture.create().use { fixture ->
+      val state = fixture.state
+      state.publishPresentation(state.reservePresentation(), fixture.session)
+      fixture.bindState(state)
+      fixture.loadStyleBeforeRendering(BaseStyle.Empty)
+      fixture.session.setCameraPadding(PaddingValues(top = 24.dp))
+      val target = CameraPosition(target = Position(-74.006, 40.7128), zoom = 5.0)
+      val animation =
+        async(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
+          state.animateCameraPosition(target, 200.milliseconds)
+        }
+      // Let the owner accept the animation before any render target has attached.
+      fixture.session.readMap {}
+      fixture.pumpUntil("the startup animation to finish") { animation.isCompleted }
+      animation.await()
+      assertEquals(target.zoom, fixture.session.getCameraPosition().zoom, 0.0001)
+    }
   }
 
   private fun checkInitialPadding(tilt: Double, cameraAfterPadding: Boolean) {

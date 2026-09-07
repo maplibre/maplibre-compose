@@ -1496,6 +1496,7 @@ class MapPresentationTest {
   @Test
   fun a_replacement_animation_cancels_only_the_previous_camera_mutation() = runTest {
     val fixture = presentationFixture()
+    fixture.attachment.updateViewport(testViewport())
     val first = async {
       fixture.state.animateCameraPosition(CameraPosition(zoom = 2.0), 1.seconds)
     }
@@ -1515,7 +1516,7 @@ class MapPresentationTest {
   }
 
   @Test
-  fun the_latest_camera_animation_waits_for_attachment_and_restarts_on_replacement() = runTest {
+  fun the_latest_camera_animation_waits_for_a_viewport_and_restarts_on_replacement() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
     val state = runtime.createMapState(BaseStyle.Demo)
     val superseded = async {
@@ -1532,6 +1533,9 @@ class MapPresentationTest {
     val firstToken = state.reservePresentation()
     val first = PresentationTestAdapter()
     state.publishPresentation(firstToken, first)
+    testScheduler.runCurrent()
+    assertFalse(first.animationStarted.isCompleted)
+    requireNotNull(state.currentMapAttachment).updateViewport(testViewport())
     first.animationStarted.await()
 
     state.releasePresentation(firstToken, first)
@@ -1541,6 +1545,9 @@ class MapPresentationTest {
     val replacementToken = state.reservePresentation()
     val replacement = PresentationTestAdapter()
     state.publishPresentation(replacementToken, replacement)
+    testScheduler.runCurrent()
+    assertFalse(replacement.animationStarted.isCompleted)
+    requireNotNull(state.currentMapAttachment).updateViewport(testViewport())
     replacement.animationStarted.await()
     replacement.finishAnimation.complete(Unit)
 
