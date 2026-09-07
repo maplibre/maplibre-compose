@@ -24,11 +24,8 @@ positions in the layer stack.
 <Code code={region(composition, "base-plus-content")} lang="kotlin" title="App.kt" />
 
 The library manages the sources and layers in the style block. It
-does not modify the rest of the base style. To change a base style layer,
-look up its <Api of="LayerHandle" /> in `mapState.style.layers` and write the
-property through the handle, in an effect keyed on the handle:
-
-<Code code={region(composition, "base-layer-handle")} lang="kotlin" title="App.kt" />
+does not modify the rest of the base style. To change a base style layer, use
+its <Api of="LayerHandle" /> from `mapState.style.layers`.
 
 `initialBaseStyle` seeds the map once. Changing that input does not reload the
 remembered map; assign `mapState.style.baseStyle` to switch styles.
