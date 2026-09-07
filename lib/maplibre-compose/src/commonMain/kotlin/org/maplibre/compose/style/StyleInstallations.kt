@@ -94,6 +94,7 @@ internal class SourceInstallation(
 
   fun remove() {
     style.requireCurrent()
+    style.identity.sources.remove(id)
     style.removeSource(id)
   }
 
@@ -162,6 +163,7 @@ internal class LayerInstallation(
 
   fun remove() {
     style.requireCurrent()
+    style.identity.layers.remove(id)
     style.removeLayer(id)
   }
 

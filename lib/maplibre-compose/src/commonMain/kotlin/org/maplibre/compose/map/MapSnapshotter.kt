@@ -234,7 +234,6 @@ internal class MapSnapshotterImplementation(
   private val imperativeImages = mutableMapOf<String, ImperativeImageRecord>()
   private var activeStyleMutation: StyleMutationReservation? = null
   private var activeStyleClaim: StyleClaim? = null
-  private var styleHandleEpoch = 0L
   private var desiredRevision = DesiredStyleRevision.Empty
 
   override val style: MapStyleState =
@@ -279,18 +278,6 @@ internal class MapSnapshotterImplementation(
             binding: StyleBinding,
             action: () -> T,
           ): T = this@MapSnapshotterImplementation.runStyleHandleOperation(binding, action)
-
-          override fun styleHandleCheckpoint(binding: StyleBinding) =
-            this@MapSnapshotterImplementation.styleHandleCheckpoint(binding)
-
-          override fun requireStyleHandleUnchanged(
-            binding: StyleBinding,
-            checkpoint: Long,
-          ) =
-            this@MapSnapshotterImplementation.requireStyleHandleUnchanged(
-              binding,
-              checkpoint,
-            )
         }
       )
     }
@@ -315,7 +302,6 @@ internal class MapSnapshotterImplementation(
     val finishNow = lock.withLock {
       if (closed) return
       closed = true
-      styleHandleEpoch++
       val queued = queue.toList()
       queue.clear()
       queued.forEach { it.continuation.resumeWithException(snapshotterClosedCancellation()) }
@@ -461,7 +447,6 @@ internal class MapSnapshotterImplementation(
 
   private fun settleStyleAfterCancellation() {
     lock.withLock {
-      styleHandleEpoch++
       imperativeSources.clear()
       imperativeImages.clear()
       style.invalidateLoadedStyle()
@@ -504,7 +489,6 @@ internal class MapSnapshotterImplementation(
       requireOpenLocked()
       if (style.baseStyle == value) return
       requireNoActiveStyleMutation()
-      styleHandleEpoch++
       baseStyleRevision++
       imperativeSources.clear()
       imperativeImages.clear()
@@ -572,7 +556,7 @@ internal class MapSnapshotterImplementation(
       lock.withLock {
         requireStyleHandleLocked(binding)
         imperativeSources.remove(id)
-        style.invalidateSourceIdentities(setOf(id))
+        binding.identity.sources.remove(id)
       }
       refreshSourcesAfterCommand(binding)
       return true
@@ -700,23 +684,6 @@ internal class MapSnapshotterImplementation(
     return result
   }
 
-  internal fun styleHandleCheckpoint(binding: StyleBinding): Long = lock.withLock {
-    requireStyleHandleLocked(binding)
-    styleHandleEpoch
-  }
-
-  internal fun requireStyleHandleUnchanged(
-    binding: StyleBinding,
-    checkpoint: Long,
-  ) {
-    lock.withLock {
-      if (checkpoint != styleHandleEpoch) {
-        throw CancellationException("The loaded style changed during the operation")
-      }
-      requireStyleHandleLocked(binding)
-    }
-  }
-
   private suspend fun claimStyle(): StyleClaim {
     while (true) {
       val result = lock.withLock {
@@ -771,11 +738,7 @@ internal class MapSnapshotterImplementation(
     revision: DesiredStyleRevision,
   ): Boolean = lock.withLock {
     if (closed || capture.abandoned || claim.revision != baseStyleRevision) return@withLock false
-    styleHandleEpoch++
     val reusesLoadedStyle = style.currentLoadedStyle() === binding
-    if (reusesLoadedStyle) {
-      style.invalidateStructurallyReplacedResources(desiredRevision, revision)
-    }
     desiredRevision = revision
     if (!reusesLoadedStyle) {
       imperativeSources.clear()

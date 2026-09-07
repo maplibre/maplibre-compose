@@ -12,7 +12,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.internal.CameraCommandGuard
-import org.maplibre.compose.sources.Source
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleBinding
@@ -322,7 +321,7 @@ private class OwnerThreadSourceReadStyleBinding : StyleBinding by RecordingStyle
   val sourceReadStarted = CountDownLatch(1)
   val ownerReadCompleted = CountDownLatch(1)
 
-  override fun getSources(): List<Source> {
+  override fun sourceIds(): List<String> {
     sourceReadStarted.countDown()
     assertTrue(
       ownerReadCompleted.await(5, TimeUnit.SECONDS),

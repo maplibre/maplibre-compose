@@ -79,10 +79,8 @@ protected constructor(
   }
 
   protected suspend fun <T> suspendingOperation(action: suspend () -> T): T {
-    val checkpoint = operations.checkpoint()
     operation {}
     val result = action()
-    operations.requireUnchanged(checkpoint)
     operation {}
     return result
   }

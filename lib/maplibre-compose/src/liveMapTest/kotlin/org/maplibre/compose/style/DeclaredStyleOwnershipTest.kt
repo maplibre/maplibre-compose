@@ -123,8 +123,7 @@ class DeclaredStyleOwnershipTest {
         SnapshotStyleOwnership.Empty,
       )
     state.beginStyleRevision(session, revision)
-    session.reconcileStyleRevision(revision)
-    assertTrue(state.markStyleReady(session))
+    state.updateStyleResources(session, session.reconcileStyleRevision(revision))
   }
 
   private companion object {

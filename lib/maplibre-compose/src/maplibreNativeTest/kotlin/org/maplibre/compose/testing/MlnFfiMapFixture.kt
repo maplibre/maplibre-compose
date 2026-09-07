@@ -51,12 +51,8 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent
   override suspend fun loadStyle(style: BaseStyle, timeout: Duration) {
     state.style.loadState = org.maplibre.compose.map.StyleLoadState.Loading
     state.updateLoadedStyle(bridge.session, null)
-    val styleReadyCountBefore = events.count { it == MapFixture.STYLE_READY }
     bridge.loadStyle(style, timeout, extent)
     bridge.session.reconcileStyleRevision(DesiredStyleRevision.Empty)
-    bridge.pumpUntil("style $style to finish reconciliation", timeout, extent) {
-      events.count { it == MapFixture.STYLE_READY } > styleReadyCountBefore
-    }
     state.updateLoadedStyle(bridge.session, checkNotNull(bridge.style))
     check(state.markStyleReady(bridge.session))
   }

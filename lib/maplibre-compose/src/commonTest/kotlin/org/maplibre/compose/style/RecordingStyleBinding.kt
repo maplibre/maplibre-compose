@@ -110,10 +110,10 @@ internal class RecordingStyleBinding(
 
   override fun getSources(): List<Source> = sources.keys.mapNotNull(::getSource)
 
+  override fun sourceIds(): List<String> = sources.keys.toList()
+
   override fun getLayer(id: String): Layer? =
     baseLayers[id] ?: layers[id]?.let { UnknownLayer(id, it) }
-
-  override fun getLayers(): List<Layer> = orderedLayerIds.mapNotNull(::getLayer)
 
   override fun layerIds() = orderedLayerIds.toList()
 

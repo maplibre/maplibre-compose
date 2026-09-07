@@ -66,6 +66,7 @@ import org.maplibre.compose.style.StyleLoadTracker
 import org.maplibre.compose.style.StylePresentation
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleRequestId
+import org.maplibre.compose.style.StyleResourceChanges
 import org.maplibre.compose.util.AngleMath
 import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
@@ -626,37 +627,41 @@ internal class GlJsMapSession(
     if (hasReplayedPresentationState) onMap(::applyRequestedStyle)
   }
 
-  override suspend fun reconcileStyleRevision(revision: DesiredStyleRevision) {
-    val binding = styleBinding ?: return
-    val engine = lifecycleEngineIdentity ?: return
-    val style = lifecycleStyleIdentity ?: return
-    if (!styleLoadTracker.beginReconciliation(binding.identity)) return
+  override suspend fun reconcileStyleRevision(
+    revision: DesiredStyleRevision
+  ): StyleResourceChanges {
+    val binding = checkNotNull(styleBinding)
+    val engine = checkNotNull(lifecycleEngineIdentity)
+    val style = checkNotNull(lifecycleStyleIdentity)
     try {
-      styleReconciler.apply(binding, revision)
+      val changes = styleReconciler.apply(binding, revision)
       if (styleLoadTracker.reconciled(binding.identity)) {
         lifecycleCallbacks.onStyleReady(engine, style, this)
       }
+      surface?.requestFrame()
+      return changes
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
       styleLoadTracker.failed(binding.identity)
       throw error
     }
-    surface?.requestFrame()
   }
 
-  override suspend fun replayStyleRevision(revision: DesiredStyleRevision) {
-    val binding = styleBinding ?: return
-    if (!styleLoadTracker.beginReconciliation(binding.identity)) return
-    try {
-      styleReconciler.apply(binding, revision)
-    } catch (error: CancellationException) {
-      throw error
-    } catch (error: Throwable) {
-      styleLoadTracker.failed(binding.identity)
-      throw error
-    }
+  override suspend fun replayStyleRevision(revision: DesiredStyleRevision): StyleResourceChanges {
+    val binding = checkNotNull(styleBinding)
+    check(styleLoadTracker.beginReplay(binding.identity))
+    val changes =
+      try {
+        styleReconciler.apply(binding, revision)
+      } catch (error: CancellationException) {
+        throw error
+      } catch (error: Throwable) {
+        styleLoadTracker.failed(binding.identity)
+        throw error
+      }
     surface?.requestFrame()
+    return changes
   }
 
   private fun applyRequestedStyle(map: MaplibreMap) {

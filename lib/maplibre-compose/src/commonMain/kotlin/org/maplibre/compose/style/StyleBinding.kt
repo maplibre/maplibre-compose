@@ -69,9 +69,9 @@ internal interface StyleBinding {
 
   fun getSources(): List<Source>
 
-  fun getLayer(id: String): Layer?
+  fun sourceIds(): List<String> = getSources().map { it.id }
 
-  fun getLayers(): List<Layer>
+  fun getLayer(id: String): Layer?
 
   fun layerIds(): List<String>
 

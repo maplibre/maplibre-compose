@@ -183,12 +183,15 @@ internal class GlJsStyleBinding(
     return map.getStyle().sources.keys().map(::reconstructSource)
   }
 
+  override fun sourceIds(): List<String> {
+    requireLoaded()
+    return map.getStyle().sources.keys().toList()
+  }
+
   override fun getLayer(id: String): Layer? {
     requireLoaded()
     return map.getLayer(id)?.let { reconstructLayer(id) }
   }
-
-  override fun getLayers(): List<Layer> = layerIds().map(::reconstructLayer)
 
   override fun layerIds(): List<String> {
     requireLoaded()

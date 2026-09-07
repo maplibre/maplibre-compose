@@ -172,14 +172,14 @@ internal open class MlnFfiStyleBinding(
   }
     .orEmpty()
 
+  override fun sourceIds(): List<String> = readMap { map ->
+    map.styleSourceIds().filter { isStyleSource(map, it) }
+  }
+    .orEmpty()
+
   override fun getLayer(id: String): Layer? = readMap { map ->
     if (!map.styleLayerExists(id)) null else reconstructLayer(map, id)
   }
-
-  override fun getLayers(): List<Layer> = readMap { map ->
-    map.styleLayerIds().map { reconstructLayer(map, it) }
-  }
-    .orEmpty()
 
   override fun layerIds(): List<String> = readMap { it.styleLayerIds() }.orEmpty()
 

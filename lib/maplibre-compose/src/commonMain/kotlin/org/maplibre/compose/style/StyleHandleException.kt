@@ -10,8 +10,4 @@ internal interface StyleHandleOperationGuard {
   fun requireSourceWritable(id: String)
 
   fun requireLayerWritable(id: String)
-
-  fun checkpoint(): Long
-
-  fun requireUnchanged(checkpoint: Long)
 }

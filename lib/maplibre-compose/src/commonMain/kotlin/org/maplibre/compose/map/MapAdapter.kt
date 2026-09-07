@@ -14,6 +14,7 @@ import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.StyleResourceChanges
 import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -61,12 +62,13 @@ internal interface MapAdapter {
   fun setBaseStyle(style: BaseStyle)
 
   /**
-   * Applies one complete style-composition revision; [Callbacks.onStyleReady] reports readiness.
+   * Applies a style-composition revision. [Callbacks.onStyleReady] reports initial readiness;
+   * subsequent updates preserve readiness and return only the resources they changed.
    */
-  suspend fun reconcileStyleRevision(revision: DesiredStyleRevision)
+  suspend fun reconcileStyleRevision(revision: DesiredStyleRevision): StyleResourceChanges
 
   /** Restores a retained revision before the current composition is evaluated. */
-  suspend fun replayStyleRevision(revision: DesiredStyleRevision)
+  suspend fun replayStyleRevision(revision: DesiredStyleRevision): StyleResourceChanges
 
   fun getCameraPosition(): CameraPosition
 
@@ -129,7 +131,7 @@ internal interface MapAdapter {
     /** Offers the binding for a loaded style, or null when no binding is current. */
     fun onStyleChanged(map: MapAdapter, style: StyleBinding?)
 
-    /** Reports that the style composition applied and is ready to present. */
+    /** Reports that the base style and initial composition are ready to present. */
     fun onStyleReady(map: MapAdapter)
 
     /**
@@ -197,7 +199,7 @@ internal class DurableStyleCallbacks(private val owner: MapState) : MapAdapter.C
   }
 
   override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) {
-    owner.refreshStyleSources(map)
+    owner.refreshStyleSources(map, sourceId)
   }
 
   override fun onEvent(map: MapAdapter, event: MapEvent) {
