@@ -36,7 +36,10 @@ public sealed class Source(internal val id: String) {
  */
 public sealed class FeatureSource(id: String) : Source(id)
 
-/** A source that a raster layer can draw: tiled raster pictures or a positioned image. */
+/**
+ * A source that a raster layer can draw: tiled raster pictures, a positioned image, or a video
+ * source from a style.
+ */
 public sealed class RasterLayerSource(id: String) : Source(id)
 
 /**

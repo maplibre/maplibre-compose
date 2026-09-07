@@ -99,8 +99,7 @@ internal fun Expression<BooleanValue>.toFilterJson(): JsonElement? = takeUnless 
 
 /**
  * Rebuilds a source descriptor from style JSON. Known `type` values become the matching public
- * class so layer composables can accept them. Unrecognized types, including omitted ones such as
- * video, stay [UnknownSource].
+ * class so layer composables can accept them. Unrecognized types stay [UnknownSource].
  */
 internal fun reconstructedSource(id: String, definition: JsonObject): Source =
   when ((definition["type"] as? JsonPrimitive)?.content) {
@@ -109,5 +108,6 @@ internal fun reconstructedSource(id: String, definition: JsonObject): Source =
     "raster-dem" -> RasterDemSource(id, definition)
     "geojson" -> GeoJsonSource(id, definition)
     "image" -> ImageSource(id, definition)
+    "video" -> VideoSource(id, definition)
     else -> UnknownSource(id, definition)
   }

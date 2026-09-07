@@ -17,7 +17,7 @@ import org.maplibre.compose.util.MaplibreComposable
  * Raster map textures such as satellite imagery.
  *
  * @param id Unique layer name.
- * @param source Raster data source for this layer.
+ * @param source Raster, image, or video source for this layer.
  * @param minZoom The minimum zoom level for the layer. At zoom levels less than this, the layer
  *   will be hidden. A value in the range of `[0..24]`.
  * @param maxZoom The maximum zoom level for the layer. At zoom levels equal to or greater than
