@@ -103,6 +103,12 @@ These are engine or Kotlin constraints, not missing visitor branches.
     by equality. Interning `BooleanLiteral.True`/`False` on the companion also
     fails: constructing those instances re-enters the companion before the
     fields are assigned, and `of(true)` returns `undefined`. Do not intern them.
+    Boolean IR constants now call typed `litBoolean(Boolean)`, which goes
+    through `const(Boolean)` and never boxes as `Any?`.
+11. **Dokka `failOnWarning` rejects an unresolved `[EnumValue]` KDoc link.**
+    `ExprScope` does not import that type, and `ExprScopeStubs.asEnum` inherits
+    the same comment. A fully qualified destination still warned. Write the type
+    name in prose instead of a link.
 
 Const-able types: Boolean, Number, String, Color, Dp, Offset, DpOffset,
 DpPadding, TextUnit, Duration, ProjectionTransition, EnumValue, ImageBitmap,

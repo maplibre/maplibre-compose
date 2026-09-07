@@ -11,7 +11,6 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.TextUnitType
 import kotlin.time.Duration
-import org.maplibre.compose.expressions.ast.BooleanLiteral
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.FunctionCall
 import org.maplibre.compose.expressions.ast.Options
@@ -34,33 +33,35 @@ import org.maplibre.spatialk.geojson.GeoJsonObject
  * generation does not have to pick among DSL overloads.
  */
 public object ExprEmit {
+  /** Typed boolean path. `lit(Any?)` boxing loses `is Boolean` on Kotlin/JS primitives. */
+  public fun litBoolean(value: Boolean): Expression<*> = const(value)
+
   public fun lit(value: Any?): Expression<*> =
-    when (value) {
-      null -> nil()
-      // Kotlin/JS keeps booleans as primitive `boolean`. `is Boolean` does not match that box,
-      // and BooleanLiteral's interned True/False can be unread during companion init.
-      true -> BooleanLiteral.of(true)
-      false -> BooleanLiteral.of(false)
-      is Expression<*> -> value
-      is Boolean -> BooleanLiteral.of(value)
-      is Int -> const(value)
-      is Long -> const(value.toInt())
-      is Float -> const(value)
-      is Double -> const(value.toFloat())
-      is String -> const(value)
-      is Color -> const(value)
-      is Dp -> const(value)
-      is DpOffset -> const(value)
-      is Offset -> const(value)
-      is DpPadding -> const(value)
-      is TextUnit -> const(value)
-      is Duration -> const(value)
-      is ProjectionTransition -> const(value)
-      is EnumValue<*> -> value.literal
-      is GeoJsonObject -> const(value)
-      is ImageBitmap -> image(value)
-      is Painter -> image(value)
-      is List<*> -> listLiteral(value)
+    when {
+      value == null -> nil()
+      // Equality, not `is Boolean`: Kotlin/JS stores `true` as a primitive `boolean`.
+      value == true -> litBoolean(true)
+      value == false -> litBoolean(false)
+      value is Expression<*> -> value
+      value is Boolean -> litBoolean(value)
+      value is Int -> const(value)
+      value is Long -> const(value.toInt())
+      value is Float -> const(value)
+      value is Double -> const(value.toFloat())
+      value is String -> const(value)
+      value is Color -> const(value)
+      value is Dp -> const(value)
+      value is DpOffset -> const(value)
+      value is Offset -> const(value)
+      value is DpPadding -> const(value)
+      value is TextUnit -> const(value)
+      value is Duration -> const(value)
+      value is ProjectionTransition -> const(value)
+      value is EnumValue<*> -> value.literal
+      value is GeoJsonObject -> const(value)
+      value is ImageBitmap -> image(value)
+      value is Painter -> image(value)
+      value is List<*> -> listLiteral(value)
       else ->
         error(
           "Cannot capture ${value::class.simpleName} as an expression literal. " +

@@ -1072,7 +1072,8 @@ internal class ExprIrLowering(
   }
 
   private fun emitLit(value: IrExpression): IrExpression {
-    val fn = emitFunction("lit")
+    val booleanConst = (value as? IrConst)?.value as? Boolean
+    val fn = emitFunction(if (booleanConst != null) "litBoolean" else "lit")
     return builder.irCall(fn).apply {
       arguments[0] = builder.irGetObject(emitClass)
       arguments[1] = value.deepCopyWithoutPatchingParents()

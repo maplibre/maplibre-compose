@@ -17,7 +17,9 @@ class ExprEmitTest {
 
   @Test
   fun lit_encodes_scalars() {
+    assertEquals("true", json(ExprEmit.litBoolean(true)))
     assertEquals("true", json(ExprEmit.lit(true)))
+    assertEquals("false", json(ExprEmit.litBoolean(false)))
     assertEquals("\"park\"", json(ExprEmit.lit("park")))
     assertEquals("2.5", json(ExprEmit.lit(2.5)))
   }

@@ -136,9 +136,8 @@ public interface ExprScope {
   public fun Any?.asColor(vararg fallbacks: Any?): Color
 
   /**
-   * Asserts the value is one of [entries] (style-spec strings, or
-   * [EnumValue][org.maplibre.compose.expressions.value.EnumValue] names via `entries.map {
-   * it.literal.value }`). Reified `asEnum<T>()` is not possible on an interface.
+   * Asserts the value is one of [entries] (style-spec strings, or EnumValue names via `entries.map
+   * { it.literal.value }`). Reified `asEnum<T>()` is not possible on an interface.
    */
   public fun Any?.asEnum(entries: List<String>, vararg fallbacks: Any?): String
 
