@@ -13,8 +13,7 @@ internal class PointerDrag(
   private val slop: Float,
   private val verticalOnly: Boolean = false,
 ) {
-  var origin = first.position
-    private set
+  val origin = first.position
 
   private var previous = first
   private var closed = false
@@ -27,19 +26,10 @@ internal class PointerDrag(
     val thresholdOffset: Offset = Offset.Zero,
   )
 
-  fun rebase(change: PointerInputChange) {
-    origin = change.position
-    previous = change
-  }
-
   fun move(change: PointerInputChange): Motion? {
     if (closed) return null
     val old = previous
     previous = change
-    if (change.uptimeMillis < old.uptimeMillis) {
-      rebase(change)
-      return null
-    }
     val delta = change.position - old.position
     if (delta == Offset.Zero) return null
     if (active) return Motion(false, delta)

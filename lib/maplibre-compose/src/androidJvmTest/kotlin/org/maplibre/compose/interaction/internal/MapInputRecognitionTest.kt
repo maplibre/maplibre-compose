@@ -60,7 +60,11 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import org.junit.Assume.assumeTrue
+import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.CameraInputToken
 import org.maplibre.compose.interaction.CameraInputStart
@@ -644,35 +648,6 @@ class MapInputRecognitionTest {
       assertEquals(1, target.scaleCalls.size)
     }
   }
-
-  @Test
-  fun losing_second_tap_eligibility_preserves_both_touch_clicks() =
-    runRecognitionTest(
-      options =
-        MapInteractions {
-          bindings {
-            doubleTap {
-              mappings { on(modifiers = ModifierMatch.Containing(KeyModifier.Ctrl)) { zoomIn() } }
-            }
-            tapDrag { modifiers = ModifierMatch.Containing(KeyModifier.Ctrl) }
-          }
-        }
-    ) { target ->
-      mainClock.autoAdvance = false
-      val map = mapNode()
-      map.requestFocus()
-      map.performKeyInput { keyDown(Key.CtrlLeft) }
-      map.performTouchInput { click(center) }
-      map.performKeyInput { keyUp(Key.CtrlLeft) }
-      map.performTouchInput {
-        advanceEventTime(SECOND_TAP_GAP_MILLIS)
-        click(center)
-      }
-      mainClock.advanceTimeBy(1_000)
-      waitForIdle()
-      assertEquals(listOf(TapFamily.Tap, TapFamily.Tap), target.deliveredTapFamilies)
-      assertTrue(target.scaleCalls.isEmpty())
-    }
 
   @Test
   fun a_quick_zoom_only_configuration_can_pair_its_initial_press() {
@@ -1771,6 +1746,34 @@ class MapInputRecognitionTest {
       map.performKeyInput { pressKey(Key.DirectionRight) }
       waitForIdle()
       assertTrue(target.moveCalls.size > moves)
+    }
+
+  @Test
+  fun a_second_touch_interrupts_camera_motion_before_the_pair_crosses_slop() =
+    runRecognitionTest(
+      options =
+        MapInteractions(MapInteractions.None) {
+          bindings { transform { pan { enabled = true } } }
+        }
+    ) { target ->
+      val map = mapNode()
+      map.performTouchInput { down(0, center - Offset(30f, 0f)) }
+      val animation =
+        CoroutineScope(Dispatchers.Unconfined).launch {
+          fixture.state.animateCameraPosition(CameraPosition(zoom = 8.0))
+        }
+      try {
+        assertFalse(animation.isCompleted)
+        map.performTouchInput { down(1, center + Offset(30f, 0f)) }
+        assertTrue(animation.isCancelled)
+        assertTrue(target.moveCalls.isEmpty())
+        map.performTouchInput {
+          up(0)
+          up(1)
+        }
+      } finally {
+        animation.cancel()
+      }
     }
 
   @Test

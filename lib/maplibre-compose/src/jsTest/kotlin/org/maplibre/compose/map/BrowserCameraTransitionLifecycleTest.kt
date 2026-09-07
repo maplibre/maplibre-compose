@@ -67,7 +67,7 @@ class BrowserCameraTransitionLifecycleTest {
           withTimeout(5.seconds) { animation.join() }
           fixture.loadStyle(BaseStyle.Empty)
           fixture.settle()
-          assertFalse(animation.isCancelled)
+          assertTrue(animation.isCancelled)
           assertTrue(fixture.state.cameraPosition.isNear(CURRENT_CAMERA))
         }
       }

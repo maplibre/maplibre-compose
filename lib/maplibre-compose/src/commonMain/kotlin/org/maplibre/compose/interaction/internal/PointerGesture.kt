@@ -254,6 +254,7 @@ internal class PointerGesture(
     singleVelocity.addPointerInputChange(change)
     deferredTwoFingerVelocity = null
 
+    cancelCameraSession()
     acceptPress()
 
     // Click candidates claim their press, including mouse clicks competing with a parent click.
@@ -266,10 +267,9 @@ internal class PointerGesture(
   private fun acceptPress() {
     if (!target.isGestureReady) return
     onAcceptedPress()
-    cancelCameraSession()
     runCatching { focusRequester.requestFocus() }
     focus.engage(byKey = false)
-    target.interruptCamera()
+    if (gestureToken == null) target.interruptCamera() else target.observeInput()
     pressInputGeneration = target.inputGeneration
   }
 
@@ -463,13 +463,6 @@ internal class PointerGesture(
         }
     if (delta == Offset.Zero) return
 
-    if (change.uptimeMillis < previous.uptimeMillis) {
-      singleDragOrigin = change.position
-      dragRecognition?.rebase(change)
-      singleVelocity.resetTracking()
-      return
-    }
-
     val motion = dragRecognition?.move(change)
     if (motion == null) {
       if (
@@ -626,8 +619,7 @@ internal class PointerGesture(
     if (previous != null && previous.matches(first, second)) {
       if (contactsChanged) {
         if (previous.hasDemand && event.changes.any { it.pressed && !it.previousPressed }) {
-          onAcceptedPress()
-          target.observeInput()
+          acceptPress()
         }
         // Do not interpret a contact-set change as movement of the already selected pair.
         previous.rebase(event, first, second)
@@ -707,12 +699,11 @@ internal class PointerGesture(
         maximumFlingVelocity = maximumFlingVelocity,
       )
     pair = candidate
-    if (candidate.hasDemand || twoFingerTap != null) {
-      if (event.changes.any { it.pressed && !it.previousPressed }) onAcceptedPress()
-      target.observeInput()
-      pressInputGeneration = target.inputGeneration
-      runCatching { focusRequester.requestFocus() }
-      focus.engage(byKey = false)
+    if (
+      (candidate.hasDemand || twoFingerTap != null) &&
+        event.changes.any { it.pressed && !it.previousPressed }
+    ) {
+      acceptPress()
     }
   }
 

@@ -1286,6 +1286,38 @@ class MapPresentationTest {
   }
 
   @Test
+  fun camera_takeover_cancels_calls_waiting_for_attachment_or_viewport() = runTest {
+    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
+    val state = runtime.createMapState(BaseStyle.Empty)
+    val bounds = BoundingBox(Position(-1.0, -1.0), Position(1.0, 1.0))
+    val animation = async { state.animateCameraPosition(CameraPosition(zoom = 2.0)) }
+    testScheduler.runCurrent()
+    state.setCameraPosition(CameraPosition(zoom = 3.0))
+    testScheduler.runCurrent()
+    assertTrue(animation.isCancelled)
+
+    val fit = async { state.fitCameraToBounds(bounds) }
+    testScheduler.runCurrent()
+    val token = state.reservePresentation()
+    val adapter = PresentationTestAdapter()
+    state.publishPresentation(token, adapter)
+    testScheduler.runCurrent()
+    assertFalse(fit.isCompleted)
+
+    val animatedFit = async { state.animateCameraToBounds(bounds) }
+    testScheduler.runCurrent()
+    assertTrue(fit.isCancelled)
+    assertFalse(animatedFit.isCompleted)
+    state.setCameraPosition(CameraPosition(zoom = 4.0))
+    testScheduler.runCurrent()
+    assertTrue(animatedFit.isCancelled)
+    assertFalse(adapter.boundsFit.isCompleted)
+    state.close()
+    state.awaitClosed()
+    runtime.close()
+  }
+
+  @Test
   fun closing_a_map_fails_a_camera_animation_waiting_for_attachment() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
     val state = runtime.createMapState(BaseStyle.Demo)

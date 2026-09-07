@@ -2,7 +2,6 @@
 
 package org.maplibre.compose.map
 
-import androidx.compose.foundation.MutatorMutex
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -42,7 +41,6 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -772,7 +770,6 @@ internal constructor(
     internal set
 
   private var nextMapAttachment = CompletableDeferred<MapAttachment>()
-  private val cameraMutation = MutatorMutex()
 
   /** Contains the current rendered viewport, or null while no viewport is available. */
   public val viewport: Viewport?
@@ -881,19 +878,23 @@ internal constructor(
     applyAttachmentCameraCommand(command.attachment, command.command)
   }
 
-  /** Waits for a viewport, then fits [boundingBox] without animation. */
+  /**
+   * Waits for a viewport, then fits [boundingBox] without animation. A newer camera command or
+   * accepted input cancels this call.
+   */
   public suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double = 0.0,
     tilt: Double = 0.0,
     padding: PaddingValues = PaddingValues(0.dp),
-  ): Unit {
+  ): Unit = coroutineScope {
     val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])
     retryAcrossAttachments { it.fitCameraToBounds(boundingBox, bearing, tilt, padding, guard) }
   }
 
   /**
-   * Waits for an attached map, then animates to [position]. A new animation replaces this one.
+   * Waits for an attached map, then animates to [position]. A newer camera command or accepted
+   * input cancels this call.
    *
    * On Android, the system animator duration scale multiplies [duration]. A scale of zero jumps to
    * [position].
@@ -901,18 +902,16 @@ internal constructor(
   public suspend fun animateCameraPosition(
     position: CameraPosition,
     duration: Duration = 300.milliseconds,
-  ): Unit {
-    currentCoroutineContext().ensureActive()
-    cameraMutation.mutate {
-      val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])
-      retryAcrossAttachments {
-        it.animateCameraPosition(position, duration.scaledBy(systemAnimatorDurationScale()), guard)
-      }
+  ): Unit = coroutineScope {
+    val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])
+    retryAcrossAttachments {
+      it.animateCameraPosition(position, duration.scaledBy(systemAnimatorDurationScale()), guard)
     }
   }
 
   /**
-   * Waits for a viewport, then animates to fit [boundingBox]. A new animation replaces this one.
+   * Waits for a viewport, then animates to fit [boundingBox]. A newer camera command or accepted
+   * input cancels this call.
    *
    * On Android, the system animator duration scale multiplies [duration]. A scale of zero jumps to
    * fit [boundingBox].
@@ -923,20 +922,17 @@ internal constructor(
     tilt: Double = 0.0,
     padding: PaddingValues = PaddingValues(0.dp),
     duration: Duration = 300.milliseconds,
-  ): Unit {
-    currentCoroutineContext().ensureActive()
-    cameraMutation.mutate {
-      val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])
-      retryAcrossAttachments {
-        it.animateCameraToBounds(
-          boundingBox,
-          bearing,
-          tilt,
-          padding,
-          duration.scaledBy(systemAnimatorDurationScale()),
-          guard,
-        )
-      }
+  ): Unit = coroutineScope {
+    val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])
+    retryAcrossAttachments {
+      it.animateCameraToBounds(
+        boundingBox,
+        bearing,
+        tilt,
+        padding,
+        duration.scaledBy(systemAnimatorDurationScale()),
+        guard,
+      )
     }
   }
 

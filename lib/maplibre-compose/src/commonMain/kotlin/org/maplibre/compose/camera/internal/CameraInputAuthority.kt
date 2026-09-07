@@ -23,6 +23,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
   private var cameraGeneration = 0L
   private var inputGeneration = 0L
   private var active: CameraInputToken? = null
+  private var programmaticJob: Job? = null
   private var configuration = CameraConfiguration()
 
   /** Callback replacements do not revoke input. Resolved policy and momentum changes do. */
@@ -74,6 +75,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
     expectedInputGeneration: Long? = null,
   ): CameraInputToken {
     var previous: CameraInputToken? = null
+    var previousJob: Job? = null
     val token =
       owner.lifecycle.serialized {
         val attachment = owner.currentMapAttachment
@@ -92,11 +94,14 @@ internal class CameraInputAuthority(private val owner: MapState) {
           return@serialized token
         }
         previous = revokeLocked()
+        previousJob = programmaticJob
+        programmaticJob = null
         cameraGeneration++
         inputGeneration++
         active = token
         token
       }
+    previousJob?.cancel(CancellationException("A newer input owns the camera"))
     previous?.let(::cancelOutsideLock)
     return token
   }
@@ -110,18 +115,27 @@ internal class CameraInputAuthority(private val owner: MapState) {
 
   fun beginProgrammatic(job: Job? = null): CameraCommandGuard {
     var previous: CameraInputToken? = null
+    var previousJob: Job? = null
     val generation =
       owner.lifecycle.serialized {
         job?.ensureActive()
         check(!owner.isClosed) { "The map state is closed" }
         previous = revokeLocked()
+        previousJob = programmaticJob
+        programmaticJob = job
         inputGeneration++
         ++cameraGeneration
       }
+    previousJob?.cancel(CancellationException("A newer command owns the camera"))
+    job?.invokeOnCompletion {
+      owner.lifecycle.serialized {
+        if (programmaticJob === job) programmaticJob = null
+      }
+    }
     previous?.let(::cancelOutsideLock)
     return CameraCommandGuard {
       owner.lifecycle.serialized {
-        !owner.isClosed && cameraGeneration == generation && job?.isActive != false
+        !owner.isClosed && cameraGeneration == generation && job?.isCancelled != true
       }
     }
   }
