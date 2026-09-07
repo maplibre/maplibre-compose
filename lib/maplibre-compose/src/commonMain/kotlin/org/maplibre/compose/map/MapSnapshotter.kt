@@ -349,10 +349,15 @@ internal class MapSnapshotterImplementation(
         } ?: break
 
       runCapture(next)
-      val shouldClose = lock.withLock {
-        active = null
-        closed && queue.isEmpty()
-      }
+      // close() and cancel() attach a cancellation only while this capture is active, so reading
+      // it in the section that clears `active` sees every marker. Awaiting it before finishClose()
+      // keeps the cancellation's cleanup failures inside the closure result.
+      val (cancellation, shouldClose) =
+        lock.withLock {
+          active = null
+          next.cancellation to (closed && queue.isEmpty())
+        }
+      cancellation?.await()
       if (shouldClose) break
     }
 
@@ -419,7 +424,6 @@ internal class MapSnapshotterImplementation(
     }
     operation.start()
     operation.join()
-    capture.cancellation?.await()
   }
 
   private fun cancel(capture: Capture) {
