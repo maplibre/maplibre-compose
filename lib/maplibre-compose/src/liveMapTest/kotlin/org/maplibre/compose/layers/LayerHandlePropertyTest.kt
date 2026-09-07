@@ -2,12 +2,14 @@ package org.maplibre.compose.layers
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.scaledBy
 import org.maplibre.compose.style.systemAnimatorDurationScale
@@ -98,11 +100,15 @@ class LayerHandlePropertyTest {
 
       captureWarnings { warnings ->
         handle.setRootProperty("minzoom", JsonPrimitive("4"))
-        handle.setRootProperty("source-layer", JsonPrimitive("replacement"))
         assertEquals(JsonPrimitive(3.0), handle.getProperty("minzoom"))
-        assertNull(handle.getProperty("source-layer"))
-        assertEquals(2, warnings.count { "'background'" in it }, "Warnings: $warnings")
+        assertEquals(1, warnings.count { "'background'" in it }, "Warnings: $warnings")
       }
+      assertFailsWith<StyleHandleException> {
+        circle.setRootProperty("source-layer", JsonPrimitive("replacement"))
+      }
+      assertFailsWith<StyleHandleException> { circle.setRootProperty("source", JsonPrimitive("x")) }
+      assertEquals("points-layer", circle.sourceLayer)
+      assertEquals(JsonPrimitive("points-layer"), circle.getProperty("source-layer"))
     }
   }
 

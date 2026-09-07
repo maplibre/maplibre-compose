@@ -86,8 +86,16 @@ internal constructor(
   public suspend fun getPaintTransition(property: String): TransitionOptions? =
     getProperty(property + TRANSITION_SUFFIX)?.toTransitionOptions()
 
-  /** Sets the top-level property [name], such as `minzoom`, for this loaded style. */
+  /**
+   * Sets the top-level property [name], such as `minzoom`, for this loaded style.
+   *
+   * @throws StyleHandleException if [name] is `source` or `source-layer`: [source] and
+   *   [sourceLayer] are fixed for the layer's generation.
+   */
   public fun setRootProperty(name: String, value: JsonElement) {
+    if (name in FIXED_ROOT_PROPERTIES) {
+      throw StyleHandleException("'$name' is fixed for the generation of $type layer '$id'")
+    }
     setProperty(name, value, LayerPropertyKind.ROOT)
   }
 
@@ -122,6 +130,10 @@ internal constructor(
     val result = action()
     operation {}
     return result
+  }
+
+  private companion object {
+    val FIXED_ROOT_PROPERTIES = setOf("source", "source-layer")
   }
 }
 
