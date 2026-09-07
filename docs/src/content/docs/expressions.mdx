@@ -28,9 +28,11 @@ A constant value must also be an expression. Wrap a plain value in
 ## Read feature data
 
 <Api of="feature" /> accesses the properties of the feature being rendered.
-The result is untyped, so convert it with functions such as `asNumber()` or
-`asString()`. Functions such as <Api of="step" /> and <Api of="switch" />
-select an output from the value:
+The type of a property is known only when the map evaluates the expression, so
+the result is an <Api of="AnyValue" />. Give it a known type with functions
+such as `asNumber()` or `asString()` before using it in arithmetic, ordering
+comparisons, or layer properties. Functions such as <Api of="step" /> and
+<Api of="switch" /> select an output from the value:
 
 <Code code={rememberedMapStyle(region(expressions, "feature-data"))} lang="kotlin" title="App.kt" />
 
@@ -47,7 +49,9 @@ a smooth value between stops:
 ## Filter features
 
 The `filter` parameter takes a boolean expression. The layer renders only the
-features for which it is true:
+features for which it is true. Equality comparisons with <Api of="eq" /> and
+<Api of="neq" /> accept a property of unknown type directly; a property whose
+type differs from the other side is not equal:
 
 <Code code={rememberedMapStyle(region(expressions, "filter"))} lang="kotlin" title="App.kt" />
 

@@ -2,6 +2,7 @@ package org.maplibre.compose.expressions.dsl
 
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.FunctionCall
+import org.maplibre.compose.expressions.value.AnyValue
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.expressions.value.ExpressionValue
 import org.maplibre.compose.expressions.value.FloatValue
@@ -15,14 +16,21 @@ public object Feature {
   /**
    * Returns the value corresponding to the given [key] in the current feature's properties or
    * `null` if it is not present.
+   *
+   * The type of the value is known only when the map evaluates the expression. See [AnyValue] for
+   * which operations accept it directly and how to give it a known type.
    */
-  public operator fun get(key: Expression<StringValue>): Expression<*> = FunctionCall.of("get", key)
+  public operator fun get(key: Expression<StringValue>): Expression<AnyValue> =
+    FunctionCall.of("get", key).cast()
 
   /**
    * Returns the value corresponding to the given [key] in the current feature's properties or
    * `null` if it is not present.
+   *
+   * The type of the value is known only when the map evaluates the expression. See [AnyValue] for
+   * which operations accept it directly and how to give it a known type.
    */
-  public operator fun get(key: String): Expression<*> = get(const(key))
+  public operator fun get(key: String): Expression<AnyValue> = get(const(key))
 
   /** Tests for the presence of a property value [key] in the current feature's properties. */
   public fun has(key: Expression<StringValue>): Expression<BooleanValue> =
@@ -35,7 +43,7 @@ public object Feature {
    * Gets the feature properties object. Note that in some cases, it may be more efficient to use
    * [get]`("property_name")` directly.
    */
-  public fun properties(): Expression<MapValue<*>> = FunctionCall.of("properties").cast()
+  public fun properties(): Expression<MapValue<AnyValue>> = FunctionCall.of("properties").cast()
 
   /**
    * Retrieves a property value from the current feature's state. Returns `null` if the requested
@@ -85,7 +93,7 @@ public object Feature {
    * `clusterProperties` option of a clustered GeoJSON source, see
    * [GeoJsonOptions][org.maplibre.compose.sources.GeoJsonOptions].
    */
-  public fun accumulated(): Expression<*> = FunctionCall.of("accumulated")
+  public fun accumulated(): Expression<AnyValue> = FunctionCall.of("accumulated").cast()
 
   /**
    * Returns true if the evaluated feature is fully contained inside a boundary of the input

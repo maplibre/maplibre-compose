@@ -242,7 +242,12 @@ public fun <O : ExpressionValue> case(
 public fun <T : ExpressionValue> coalesce(vararg values: Expression<T>): Expression<T> =
   FunctionCall.of("coalesce", values.asList()).cast()
 
-/** Returns whether this expression is equal to [other]. */
+/**
+ * Returns whether this expression is equal to [other].
+ *
+ * Values of unknown type, such as feature properties, are compared when the map evaluates the
+ * expression. A value whose type differs from [other] is not equal.
+ */
 public infix fun Expression<EquatableValue>.eq(
   other: Expression<EquatableValue>
 ): Expression<BooleanValue> = FunctionCall.of("==", this, other).cast()
@@ -258,7 +263,12 @@ public fun eq(
   collator: Expression<CollatorValue>,
 ): Expression<BooleanValue> = FunctionCall.of("==", left, right, collator).cast()
 
-/** Returns whether this expression is not equal to [other]. */
+/**
+ * Returns whether this expression is not equal to [other].
+ *
+ * Values of unknown type, such as feature properties, are compared when the map evaluates the
+ * expression. A value whose type differs from [other] is not equal.
+ */
 public infix fun Expression<EquatableValue>.neq(
   other: Expression<EquatableValue>
 ): Expression<BooleanValue> = FunctionCall.of("!=", this, other).cast()

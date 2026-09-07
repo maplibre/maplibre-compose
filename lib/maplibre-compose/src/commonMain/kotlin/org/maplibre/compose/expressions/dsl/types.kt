@@ -6,6 +6,7 @@ import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.FunctionCall
 import org.maplibre.compose.expressions.ast.Options
 import org.maplibre.compose.expressions.ast.TextUnitCalculation
+import org.maplibre.compose.expressions.value.AnyValue
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.expressions.value.CollatorValue
 import org.maplibre.compose.expressions.value.ColorValue
@@ -36,7 +37,7 @@ public fun Expression<*>.type(): Expression<ExpressionType> = FunctionCall.of("t
 public fun Expression<*>.asList(
   type: Expression<ExpressionType> = nil(),
   length: Expression<IntValue> = nil(),
-): Expression<ListValue<*>> = FunctionCall.of("array", this, type, length).cast()
+): Expression<ListValue<AnyValue>> = FunctionCall.of("array", this, type, length).cast()
 
 /**
  * Asserts that this is a list of numbers, optionally with a specific [length].
@@ -130,7 +131,7 @@ public fun Expression<*>.asBoolean(vararg fallbacks: Expression<*>): Expression<
  * In case this expression is not a map, each of the [fallbacks] is evaluated in order until a map
  * is obtained. If none of the inputs are maps, the expression is an error.
  */
-public fun Expression<*>.asMap(vararg fallbacks: Expression<*>): Expression<MapValue<*>> =
+public fun Expression<*>.asMap(vararg fallbacks: Expression<*>): Expression<MapValue<AnyValue>> =
   FunctionCall.of("object", this, *fallbacks).cast()
 
 /**
