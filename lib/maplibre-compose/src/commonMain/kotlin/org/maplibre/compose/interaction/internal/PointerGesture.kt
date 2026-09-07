@@ -206,15 +206,15 @@ internal class PointerGesture(
     pressStartedAtMillis = change.uptimeMillis
     longClickHandled = false
 
-    pressRole = classifyPress(change.position, change.uptimeMillis, change.type)
+    val sample =
+      event.gestureSample(ids.next(), target, density, change.position, setOf(change.type))
+    pressRole = classifyPress(change.position, change.uptimeMillis, change.type, sample)
     when (pressRole) {
       PressRole.First -> discardTapWait(emitClick = true)
       PressRole.Paired -> claimOpenTap()
       PressRole.Bounce -> Unit
     }
 
-    val sample =
-      event.gestureSample(ids.next(), target, density, change.position, setOf(change.type))
     dragSample = sample
     selectedDrag = selectDrag(sample, paired = pressRole == PressRole.Paired)
     dragStarted = false
@@ -875,10 +875,18 @@ internal class PointerGesture(
   }
 
   /** What this down is relative to a [TapWait.Open] first tap. */
-  private fun classifyPress(origin: Offset, timeMillis: Long, type: PointerType): PressRole {
+  private fun classifyPress(
+    origin: Offset,
+    timeMillis: Long,
+    type: PointerType,
+    sample: GesturePointerSample,
+  ): PressRole {
     if (pressedSecondary) return PressRole.First
     val open = tapWait as? TapWait.Open ?: return PressRole.First
-    if (!secondTapUseful) return PressRole.First
+    val canPair =
+      (TapFamily.DoubleTap in tapDemand && TapFamily.DoubleTap.matches(options, sample)) ||
+        (options.camera.zoom.enabled && options.bindings.tapDrag.matches(sample))
+    if (!canPair) return PressRole.First
 
     val elapsedMillis = timeMillis - open.tap.upAt
     val withinSlop = (origin - open.tap.origin).getDistance() <= slopPx()

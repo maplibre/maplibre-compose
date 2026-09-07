@@ -15,7 +15,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerInputChange
@@ -116,8 +118,10 @@ internal fun Modifier.mapInput(
       stateDescription = if (engaged) environment.engaged else environment.notEngaged
     }
     // Key and rotary events reach the focused node, so these precede the focus target in the chain.
-    .onKeyEvent(keyInput::onEvent)
-    .onRotaryScrollEvent(rotaryInput::onEvent)
+    .onKeyEvent {
+      (target.isGestureReady || it.type == KeyEventType.KeyUp) && keyInput.onEvent(it)
+    }
+    .onRotaryScrollEvent { target.isGestureReady && rotaryInput.onEvent(it) }
     .onFocusChanged {
       focus.onFocusChanged(it.isFocused)
       if (!it.isFocused) {
@@ -258,7 +262,8 @@ private fun Modifier.pointerGestures(
       awaitPointerEventScope {
         while (true) {
           val event = awaitPointerEvent(PointerEventPass.Main)
-          hover.onPointerEvent(event)
+          val ready = target.isGestureReady
+          if (ready) hover.onPointerEvent(event) else hover.exit()
           val routed =
             platformRouting.route(
               event.type,
@@ -274,7 +279,7 @@ private fun Modifier.pointerGestures(
               gesture.cancel(GestureCancellationReason.BindingChanged)
               platformRouteActive = true
             }
-            val admitted = consumption.main(event, target.isGestureReady) {}
+            val admitted = consumption.main(event, ready) {}
             if (!admitted || event.changes.any { it.isConsumed }) platformRouting.intercept()
             val change =
               event.changes.firstOrNull { it.scaleFactor != 1f || it.panOffset != Offset.Zero }
@@ -300,6 +305,8 @@ private fun Modifier.pointerGestures(
                   event.type == PointerEventType.Release)
             )
               platformRouteActive = false
+          } else if (event.type == PointerEventType.Scroll && !ready) {
+            scroll.cancel(GestureCancellationReason.Detached)
           } else if (event.type == PointerEventType.Scroll) {
             scroll.onPointerEvent(event) {
               platform.cancel(GestureCancellationReason.CameraTakeover)
@@ -308,7 +315,7 @@ private fun Modifier.pointerGestures(
               consumption.suppress()
             }
           } else {
-            consumption.main(event, target.isGestureReady, gesture::onPointerEvent)
+            consumption.main(event, ready, gesture::onPointerEvent)
           }
 
           // A parent can consume later in Main. Recheck in Final before continuing the session.

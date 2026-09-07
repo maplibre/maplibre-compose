@@ -55,11 +55,6 @@ internal class ScrollGesture(
       normalizeScroll(scrollConverter(event, density, viewportSize()), density) ?: return
     val sample = event.gestureSample(burst?.sample?.gestureId ?: ids.next(), target, density)
     val previous = burst
-    if (previous != null && sample.uptimeMillis < previous.sample.uptimeMillis) {
-      previous.velocity.resetTracking()
-      return
-    }
-
     if (
       previous != null &&
         (!previous.token.acceptsCommands || previous.sample.buttons != sample.buttons)

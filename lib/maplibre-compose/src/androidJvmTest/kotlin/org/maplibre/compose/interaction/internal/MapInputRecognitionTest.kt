@@ -133,16 +133,26 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun a_closed_map_ignores_pointer_input_while_still_composed() = runRecognitionTest { target ->
+  fun a_closed_map_ignores_input_while_still_composed() = runRecognitionTest { target ->
+    val map = mapNode()
+    map.requestFocus()
     fixture.state.close()
-    mapNode().performMouseInput {
+    map.performKeyInput {
+      pressKey(Key.Enter)
+      pressKey(Key.DirectionRight)
+    }
+    map.performRotaryScrollInput { rotateToScrollVertically(100f) }
+    map.performMouseInput {
       moveTo(center)
       press()
       moveBy(Offset(20f, 0f))
       release()
+      scroll(1f)
     }
     waitForIdle()
     assertTrue(target.moveCalls.isEmpty())
+    assertTrue(target.scaleCalls.isEmpty())
+    assertEquals(0, target.startedCount)
     assertEquals(0, target.clicks)
   }
 
@@ -634,6 +644,33 @@ class MapInputRecognitionTest {
       assertEquals(1, target.scaleCalls.size)
     }
   }
+
+  @Test
+  fun losing_tap_drag_eligibility_preserves_both_touch_clicks() =
+    runRecognitionTest(
+      options =
+        MapInteractions {
+          bindings {
+            doubleTap { enabled = false }
+            tapDrag { modifiers = ModifierMatch.Containing(KeyModifier.Ctrl) }
+          }
+        }
+    ) { target ->
+      mainClock.autoAdvance = false
+      val map = mapNode()
+      map.requestFocus()
+      map.performKeyInput { keyDown(Key.CtrlLeft) }
+      map.performTouchInput { click(center) }
+      map.performKeyInput { keyUp(Key.CtrlLeft) }
+      map.performTouchInput {
+        advanceEventTime(SECOND_TAP_GAP_MILLIS)
+        click(center)
+      }
+      mainClock.advanceTimeBy(1_000)
+      waitForIdle()
+      assertEquals(listOf(TapFamily.Tap, TapFamily.Tap), target.deliveredTapFamilies)
+      assertTrue(target.scaleCalls.isEmpty())
+    }
 
   @Test
   fun a_quick_zoom_only_configuration_can_pair_its_initial_press() {
