@@ -20,9 +20,17 @@ one named Gradle task per invocation.
 - Documentation: `mise run build:docs` or `mise run //docs:dev`. These tasks
   supply versions derived from Git tags; direct Gradle builds use placeholders.
 
-Keep verification proportional to the change. Extend existing tests for changed
-behavior; add coverage where it catches a regression. Report what ran, its
-result, and any untested platform or behavior that matters to the change.
+Choose verification by the changed behavior and its platform dependencies.
+Shared Kotlin logic can usually be validated on Linux; it does not need an
+additional macOS run unless the change depends on macOS behavior. Test affected
+OS APIs, GPU backends, loading, and packaging on their relevant platforms.
+“Native” in this repository means the MapLibre Native backend used by desktop,
+Android, and iOS. Shared Kotlin code and calls to existing FFI APIs are not by
+themselves platform- or architecture-specific changes.
+
+Extend existing tests for changed behavior; add coverage where it catches a
+regression. Report what ran, its result, and any untested platform or behavior
+that matters to the change.
 
 ### Test and environment constraints
 
@@ -86,8 +94,14 @@ device compilation. Ready PRs add the ready tier: Android API 26, iOS simulator,
 macOS desktop, and Windows x64. Marking a PR ready runs only the ready tier.
 Dependabot PRs, main, and manual runs always include every variant.
 
-For CI, FFI, toolchain, native loading, packaging, or architecture-sensitive
-changes, request every platform (including Linux/Windows ARM64) with
-`gh pr edit <number> --add-label 'ci:full'`. The label also works on drafts and
-persists across pushes. Adding it runs only the tiers the PR has not yet run,
-and removing it restores the default tier without rerunning anything.
+Use the default CI tiers for most PRs. Reserve `ci:full` for a concrete risk on
+the additional Linux/Windows ARM64 variants, such as changes to ABI or pointer
+layout, architecture-specific artifact selection, loading/linking, or toolchain
+and runner configuration that affects those variants. Explain which additional
+platform could fail and why. A change to shared Kotlin, an existing FFI call, or
+an unrelated CI task is not enough reason to request every platform.
+
+Request the extra coverage with `gh pr edit <number> --add-label 'ci:full'`. The
+label also works on drafts and persists across pushes. Adding it runs only the
+tiers the PR has not yet run, and removing it restores the default tier without
+rerunning anything.
