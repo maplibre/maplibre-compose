@@ -19,7 +19,6 @@ import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.asPromise
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
@@ -52,6 +51,8 @@ import org.maplibre.compose.gljs.Point
 import org.maplibre.compose.gljs.QueryGeometry
 import org.maplibre.compose.gljs.QueryRenderedFeaturesOptions
 import org.maplibre.compose.gljs.SetStyleOptions
+import org.maplibre.compose.gljs.eventLayerId
+import org.maplibre.compose.gljs.fireStyleError
 import org.maplibre.compose.gljs.glGetNumber
 import org.maplibre.compose.gljs.isCameraEasing
 import org.maplibre.compose.gljs.isTerminalStyleLoadFailure
@@ -61,12 +62,12 @@ import org.maplibre.compose.gljs.queryPoint
 import org.maplibre.compose.gljs.styleJson
 import org.maplibre.compose.gljs.styleUrl
 import org.maplibre.compose.gljs.subscribe
+import org.maplibre.compose.gljs.toJsStringArray
 import org.maplibre.compose.interaction.BearingSnapping
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.logging.MapLogLevel
 import org.maplibre.compose.logging.MapLogSource
 import org.maplibre.compose.resource.GlJsRequestController
-import org.maplibre.compose.gljs.toJsStringArray
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.GlJsStyleBinding
@@ -529,7 +530,7 @@ internal class GlJsMapSession(
           throwable = null,
           message = { reason },
           source = MapLogSource.WebEngine,
-          category = event.sourceId ?: event.asDynamic().layer?.id as? String,
+          category = event.sourceId ?: eventLayerId(event),
         )
       }
     }
@@ -543,7 +544,13 @@ internal class GlJsMapSession(
       val resolution =
         if (style == null) null
         else lifecycleCallbacks.resolveMissingImage(engine, style, this, imageId)
-      resolution?.asPromise()
+      resolution?.let { pending ->
+        completionPromise { complete ->
+          pending.invokeOnCompletion { error ->
+            complete(error?.let { org.maplibre.compose.gljs.jsError(it.stackTraceToString()) })
+          }
+        }
+      }
     }
 
     subscribeTranslated(map, ENGINE_GL_JS_EVENTS) { lifecycleCallbacks.onEvent(engine, this, it) }
@@ -790,12 +797,7 @@ internal class GlJsMapSession(
 
   internal fun fireStyleErrorForTest(message: String) {
     val currentMap = map ?: return
-    val properties = js("({})")
-    properties.error = js("new Error()")
-    properties.error.message = message
-    properties.style = currentMap.asDynamic().style
-    properties.sourceId = "unrelated-source"
-    currentMap.fire("error", properties)
+    fireStyleError(currentMap, message)
   }
 
   /** Answers camera reads made before the map exists. */
@@ -1363,3 +1365,10 @@ internal class GlJsMapSession(
       private set
   }
 }
+
+private fun completionPromise(
+  register: ((kotlin.js.JsAny?) -> Unit) -> Unit
+): kotlin.js.Promise<kotlin.js.JsAny?> =
+  js(
+    "new Promise((resolve, reject) => register(error => error == null ? resolve(null) : reject(error)))"
+  )

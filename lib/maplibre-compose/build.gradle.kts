@@ -45,7 +45,11 @@ kotlin {
     browser { testTask { useKarma { useChromeHeadless() } } }
   }
 
-  @OptIn(ExperimentalWasmDsl::class) wasmJs { browser() }
+  @OptIn(ExperimentalWasmDsl::class)
+  wasmJs {
+    browser { testTask { useKarma { useChromeHeadless() } } }
+    binaries.executable()
+  }
 
   applyDefaultHierarchyTemplate()
 

@@ -35,7 +35,7 @@ internal external class MaplibreMap(options: MapOptions) : JsAny {
 
   fun on(type: String, listener: (event: GlJsMapEvent) -> Unit): Subscription
 
-  fun fire(type: String, properties: Any)
+  fun fire(type: String, properties: JsAny)
 
   fun getCanvas(): HTMLCanvasElement
 

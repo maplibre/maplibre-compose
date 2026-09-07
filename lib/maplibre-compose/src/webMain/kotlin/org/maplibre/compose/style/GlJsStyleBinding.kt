@@ -2,14 +2,14 @@ package org.maplibre.compose.style
 
 import androidx.compose.ui.graphics.ImageBitmap
 import js.objects.unsafeJso
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.DurationUnit
 import kotlin.js.JsAny
 import kotlin.js.JsArray
 import kotlin.js.JsNumber
 import kotlin.js.toJsString
 import kotlin.js.toList
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.DurationUnit
 import kotlinx.coroutines.await
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -39,12 +39,16 @@ import org.maplibre.compose.gljs.StyleImageMetadata
 import org.maplibre.compose.gljs.StyleSetterOptions
 import org.maplibre.compose.gljs.TransitionSpecification
 import org.maplibre.compose.gljs.UpdateImageOptions
-import org.maplibre.compose.gljs.keys
+import org.maplibre.compose.gljs.jsGet
 import org.maplibre.compose.gljs.jsNumberAt
 import org.maplibre.compose.gljs.jsNumberToDouble
 import org.maplibre.compose.gljs.jsPair
+import org.maplibre.compose.gljs.jsQuad
+import org.maplibre.compose.gljs.jsSet
 import org.maplibre.compose.gljs.jsUnsafeCast
+import org.maplibre.compose.gljs.keys
 import org.maplibre.compose.gljs.subscribe
+import org.maplibre.compose.gljs.toKotlinStrings
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.UnknownLayer
 import org.maplibre.compose.logging.MapLog
@@ -155,7 +159,7 @@ internal class GlJsStyleBinding(
           if (px.stretchY.isNotEmpty()) stretchY = px.stretchY.toGlJsStretch()
           px.content?.let { box ->
             content =
-              arrayOf(
+              jsQuad(
                 box.left.toDouble(),
                 box.top.toDouble(),
                 box.right.toDouble(),
@@ -194,7 +198,7 @@ internal class GlJsStyleBinding(
 
   override fun sourceIds(): List<String> {
     requireLoaded()
-    return map.getStyle().sources.keys().toList()
+    return map.getStyle().sources.keys()
   }
 
   override fun getLayer(id: String): Layer? {
@@ -204,7 +208,7 @@ internal class GlJsStyleBinding(
 
   override fun layerIds(): List<String> {
     requireLoaded()
-    return map.getLayersOrder().toList()
+    return map.getLayersOrder().toKotlinStrings()
   }
 
   private fun reconstructSource(id: String): Source =
@@ -220,7 +224,7 @@ internal class GlJsStyleBinding(
 
   private fun reconstructLayer(id: String): Layer {
     val definition =
-      map.getStyle().layers.firstOrNull { it.id == id }?.toJsonElement() as? JsonObject
+      map.getStyle().layers.toList().firstOrNull { it.id == id }?.toJsonElement() as? JsonObject
         ?: buildJsonObject {
           put("id", id)
           map.getLayer(id)?.let { put("type", it.type) }
@@ -609,7 +613,7 @@ internal class GlJsStyleBinding(
 
   override fun lightProperty(name: String): JsonElement? {
     requireLoaded()
-    return map.getLight().asDynamic()[name].unsafeCast<Any?>()?.toJsonElement()
+    return jsGet(map.getLight(), name)?.toJsonElement()
   }
 
   /**
@@ -629,7 +633,7 @@ internal class GlJsStyleBinding(
   override fun skyProperty(name: String): JsonElement? {
     requireLoaded()
     val sky = map.getSky() ?: return null
-    return sky.asDynamic()[name].unsafeCast<Any?>()?.toJsonElement()
+    return jsGet(sky, name)?.toJsonElement()
   }
 
   /** Merges like the light. MapLibre treats an absent sky as no sky. */
@@ -650,7 +654,7 @@ internal class GlJsStyleBinding(
   override fun projectionProperty(name: String): JsonElement? {
     requireLoaded()
     val projection = map.getProjection() ?: return null
-    return projection.asDynamic()[name].unsafeCast<Any?>()?.toJsonElement()
+    return jsGet(projection, name)?.toJsonElement()
   }
 
   /** MapLibre falls back to Mercator for an unknown name with a console warning, not an error. */
@@ -666,9 +670,9 @@ internal class GlJsStyleBinding(
    * with a null for every property of [current] that [next] omits. Validation rejects a null, and
    * only an unvalidated null clears a property.
    */
-  private inline fun <T : Any> replace(
+  private inline fun <T : JsAny> replace(
     what: String,
-    current: Any?,
+    current: JsAny?,
     next: JsonObject,
     set: (T, StyleSetterOptions) -> Unit,
   ) {
@@ -676,7 +680,7 @@ internal class GlJsStyleBinding(
     val stale = current?.unsafeCast<JsRecord<*>>()?.keys()?.filter { it !in next }.orEmpty()
     if (stale.isEmpty()) return
     val cleared = next.toJsValue<T>()
-    for (key in stale) cleared.asDynamic()[key] = null
+    for (key in stale) jsSet(cleared, key, null)
     mutate(what) { set(cleared, unsafeJso { validate = false }) }
   }
 
@@ -698,7 +702,9 @@ internal class GlJsStyleBinding(
   }
 }
 
-private fun List<Pair<Float, Float>>.toGlJsStretch(): Array<Array<Double>> = map { (start, end) ->
-  arrayOf(start.toDouble(), end.toDouble())
-}
-  .toTypedArray()
+private fun List<Pair<Float, Float>>.toGlJsStretch(): JsArray<JsArray<JsNumber>> =
+  JsArray<JsArray<JsNumber>>().also { result ->
+    forEachIndexed { index, (start, end) ->
+      result[index] = jsPair(start.toDouble(), end.toDouble())
+    }
+  }

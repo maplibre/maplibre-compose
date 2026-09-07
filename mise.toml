@@ -197,10 +197,11 @@ udid="$(.mise/bin/boot-ios-simulator)"
 
 [tasks."test:js"]
 depends = ["deps:chromium"]
-description = "Run the Kotlin/JS browser test suite and compile the Kotlin/Wasm library targets."
+description = "Run the JS browser suite, compile Wasm targets, and test the Wasm library."
 run = '''
 ./gradlew jsBrowserTest
 ./gradlew compileKotlinWasmJs
+./gradlew :lib:maplibre-compose:wasmJsBrowserTest
 '''
 
 [tasks."test:desktop"]

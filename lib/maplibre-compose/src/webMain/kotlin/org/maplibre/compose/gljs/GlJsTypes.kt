@@ -1,8 +1,8 @@
 package org.maplibre.compose.gljs
 
 import js.buffer.ArrayBuffer
-import js.typedarrays.Uint8Array
 import js.date.Date
+import js.typedarrays.Uint8Array
 import kotlin.js.JsAny
 import kotlin.js.JsArray
 import kotlin.js.JsNumber
@@ -59,21 +59,21 @@ internal external interface StyleSpecification : JsAny {
 }
 
 /** Milliseconds; MapLibre fills in the style-spec defaults when it reads the style's own. */
-internal external interface TransitionSpecification {
+internal external interface TransitionSpecification : JsAny {
   var duration: Double?
   var delay: Double?
 }
 
 /** A style-spec `light` object; keys index it. */
-internal external interface LightSpecification
+internal external interface LightSpecification : JsAny
 
 /** A style-spec `sky` object; keys index it. */
-internal external interface SkySpecification
+internal external interface SkySpecification : JsAny
 
 /** A style-spec `projection` object; keys index it. */
-internal external interface ProjectionSpecification
+internal external interface ProjectionSpecification : JsAny
 
-internal external interface StyleSetterOptions {
+internal external interface StyleSetterOptions : JsAny {
   var validate: Boolean?
 }
 
@@ -84,8 +84,8 @@ internal external interface LayerSpecification : JsAny {
 internal external interface SourceSpecification : JsAny
 
 internal external interface RequestParameters : JsAny {
-  val url: String
-  val headers: Any?
+  var url: String
+  var headers: JsAny?
 }
 
 internal external interface ProtocolResponse : JsAny {

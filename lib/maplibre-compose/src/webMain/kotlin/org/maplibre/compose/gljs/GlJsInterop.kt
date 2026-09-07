@@ -67,3 +67,15 @@ internal fun <T : JsAny?> jsUnsafeCast(value: JsAny?): T = js("value")
 internal fun jsGet(obj: JsAny, name: String): JsAny? = js("obj[name]")
 
 internal fun call0Boolean(receiver: JsAny, name: String): Boolean = js("receiver[name]()")
+
+internal fun jsSet(obj: JsAny, name: String, value: JsAny?): Unit = js("{ obj[name] = value }")
+
+internal fun eventLayerId(event: GlJsMapEvent): String? =
+  js("event.layer == null ? null : event.layer.id")
+
+internal fun fireStyleError(map: MaplibreMap, message: String): Unit =
+  js(
+    "{ map.fire('error', {error: new Error(message), style: map.style, sourceId: 'unrelated-source'}) }"
+  )
+
+internal fun jsError(message: String): JsAny = js("new Error(message)")

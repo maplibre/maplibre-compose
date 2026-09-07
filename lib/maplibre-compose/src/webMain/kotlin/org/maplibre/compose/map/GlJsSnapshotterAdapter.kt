@@ -202,7 +202,8 @@ internal class GlJsSnapshotterAdapter(
         attributionControl = false
         maplibreLogo = false
         pixelRatio = renderPixelRatio(request)
-        maxCanvasSize = arrayOf(MAX_CANVAS_SIZE.toDouble(), MAX_CANVAS_SIZE.toDouble())
+        maxCanvasSize =
+          org.maplibre.compose.gljs.jsPair(MAX_CANVAS_SIZE.toDouble(), MAX_CANVAS_SIZE.toDouble())
         canvasContextAttributes =
           unsafeJso<CanvasContextAttributes> { preserveDrawingBuffer = true }
         requests?.let { controller ->
@@ -256,23 +257,14 @@ internal class GlJsSnapshotterAdapter(
     val output = document.createElement("canvas").unsafeCast<HTMLCanvasElement>()
     output.width = width
     output.height = height
-    val context = output.asDynamic().getContext("2d")
-    check(context != null && context != undefined) {
-      "The browser would not give a 2D context for a ${width}x$height snapshot"
-    }
-    if (!request.transparent) {
-      context.fillStyle = "#ffffff"
-      context.fillRect(0, 0, width, height)
-    }
-    context.drawImage(source, 0, 0, width, height)
-    val data = context.getImageData(0, 0, width, height).data
+    val data = snapshotRgba(output, source, width, height, request.transparent)
     val pixels =
       IntArray(width * height) { index ->
         val offset = index * 4
-        (data[offset].unsafeCast<Int>() shl 16) or
-          (data[offset + 1].unsafeCast<Int>() shl 8) or
-          data[offset + 2].unsafeCast<Int>() or
-          (data[offset + 3].unsafeCast<Int>() shl 24)
+        (snapshotByte(data, offset) shl 16) or
+          (snapshotByte(data, offset + 1) shl 8) or
+          snapshotByte(data, offset + 2) or
+          (snapshotByte(data, offset + 3) shl 24)
       }
     return pixels.toImageBitmap(width, height)
   }
@@ -312,27 +304,26 @@ internal class GlJsSnapshotterAdapter(
       return it
     }
     return suspendCancellableCoroutine { continuation ->
-      val dynamicDocument = document.asDynamic()
-      lateinit var listener: (dynamic) -> Unit
+      lateinit var listener: () -> Unit
       listener = {
         val body = documentBodyOrNull()
         if (body != null) {
-          dynamicDocument.removeEventListener("DOMContentLoaded", listener)
+          removeBodyListener(listener)
           if (continuation.isActive) continuation.resume(body)
         }
       }
-      dynamicDocument.addEventListener("DOMContentLoaded", listener)
+      addBodyListener(listener)
       continuation.invokeOnCancellation {
-        dynamicDocument.removeEventListener("DOMContentLoaded", listener)
+        removeBodyListener(listener)
       }
-      listener(null)
+      documentBodyOrNull()?.let { body ->
+        removeBodyListener(listener)
+        if (continuation.isActive) continuation.resume(body)
+      }
     }
   }
 
-  private fun documentBodyOrNull(): HTMLElement? {
-    val body = document.asDynamic().body
-    return if (body == null) null else body.unsafeCast<HTMLElement>()
-  }
+  private fun documentBodyOrNull(): HTMLElement? = browserBody()
 
   private fun MapSnapshotRequest.extent(): MapExtent =
     MapExtent.fromLogical(width, height, density.toDouble())
@@ -342,3 +333,24 @@ internal class GlJsSnapshotterAdapter(
     const val SNAPSHOTTER_TARGET_ATTRIBUTE = "data-maplibre-compose-snapshotter"
   }
 }
+
+private fun snapshotRgba(
+  output: HTMLCanvasElement,
+  source: HTMLCanvasElement,
+  width: Int,
+  height: Int,
+  transparent: Boolean,
+): kotlin.js.JsAny =
+  js(
+    "{ const context = output.getContext('2d'); if (!context) throw new Error('The browser would not give a 2D snapshot context'); if (!transparent) {context.fillStyle = '#ffffff'; context.fillRect(0,0,width,height);} context.drawImage(source,0,0,width,height); return context.getImageData(0,0,width,height).data; }"
+  )
+
+private fun snapshotByte(data: kotlin.js.JsAny, index: Int): Int = js("data[index]")
+
+private fun addBodyListener(listener: () -> Unit): Unit =
+  js("{ document.addEventListener('DOMContentLoaded', listener) }")
+
+private fun removeBodyListener(listener: () -> Unit): Unit =
+  js("{ document.removeEventListener('DOMContentLoaded', listener) }")
+
+private fun browserBody(): HTMLElement? = js("document.body")

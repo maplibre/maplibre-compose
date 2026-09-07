@@ -13,7 +13,8 @@ actual constructor(locale: Locale, maximumFractionDigits: Int) {
   private val numberFormat =
     NumberFormat(
       locales = locale.toLanguageTag(),
-      options = numberFormatOptions(maximumFractionDigits.coerceAtMost(100)),
+      // Preserve support for Safari versions whose Intl limit is 20.
+      options = numberFormatOptions(maximumFractionDigits.coerceAtMost(20)),
     )
 
   actual fun format(value: Number): String = numberFormat.format(value.toDouble())
