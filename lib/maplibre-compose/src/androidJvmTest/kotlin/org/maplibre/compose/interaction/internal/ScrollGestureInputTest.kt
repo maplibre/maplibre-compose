@@ -26,6 +26,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.ModifierMatch
+import org.maplibre.compose.interaction.ScrollResponse
 import org.maplibre.compose.map.GestureTestFixture
 
 @OptIn(ExperimentalAtomicApi::class, ExperimentalTestApi::class)
@@ -42,7 +43,7 @@ class ScrollGestureInputTest {
           bindings {
             scroll {
               enabled = true
-              mappings { otherwise { zoom() } }
+              mappings { otherwise(ScrollResponse.Zoom) }
             }
           }
         }
@@ -105,7 +106,7 @@ class ScrollGestureInputTest {
         MapInteractions {
           bindings {
             scroll {
-              mappings { otherwise { pan() } }
+              mappings { otherwise(ScrollResponse.Pan) }
             }
           }
         }
@@ -141,8 +142,11 @@ class ScrollGestureInputTest {
           bindings {
             scroll {
               mappings {
-                on(modifiers = ModifierMatch.Containing(KeyModifier.Ctrl)) { zoom() }
-                otherwise { pan() }
+                on(
+                  modifiers = ModifierMatch.Containing(KeyModifier.Ctrl),
+                  response = ScrollResponse.Zoom,
+                )
+                otherwise(ScrollResponse.Pan)
               }
             }
           }
@@ -177,7 +181,8 @@ class ScrollGestureInputTest {
   fun scroll_zoom_uses_vertical_motion_and_leaves_horizontal_only_input_unclaimed() {
     var parentSawConsumed = false
     fixture.runRecognitionTest(
-      options = MapInteractions { bindings { scroll { mappings { otherwise { zoom() } } } } },
+      options =
+        MapInteractions { bindings { scroll { mappings { otherwise(ScrollResponse.Zoom) } } } },
       parentModifier =
         Modifier.pointerInput(Unit) {
           awaitPointerEventScope {

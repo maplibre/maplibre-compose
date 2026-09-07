@@ -17,6 +17,7 @@ import org.maplibre.compose.demoapp.design.DropdownRow
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.ModifierMatch.Containing
+import org.maplibre.compose.interaction.ScrollResponse
 import org.maplibre.compose.map.MapState
 import org.maplibre.spatialk.geojson.Position
 
@@ -64,8 +65,8 @@ object MapControlsDemo : Demo {
         bindings {
           scroll {
             mappings {
-              on(modifiers = Containing(KeyModifier.Ctrl)) { zoom() }
-              otherwise { pan() }
+              on(modifiers = Containing(KeyModifier.Ctrl), response = ScrollResponse.Zoom)
+              otherwise(ScrollResponse.Pan)
             }
           }
         }

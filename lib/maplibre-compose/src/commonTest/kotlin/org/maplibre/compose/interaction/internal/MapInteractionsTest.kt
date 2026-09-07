@@ -11,10 +11,13 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.maplibre.compose.interaction.DragBindingBuilder
+import org.maplibre.compose.interaction.DragResponse
 import org.maplibre.compose.interaction.KeyModifier
+import org.maplibre.compose.interaction.KeyResponse
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.ModifierMatch
 import org.maplibre.compose.interaction.PointerButton
+import org.maplibre.compose.interaction.ScrollResponse
 
 class MapInteractionsTest {
   private fun sample(
@@ -36,8 +39,8 @@ class MapInteractionsTest {
       bindings {
         scroll {
           mappings {
-            on { pan() }
-            otherwise { zoom() }
+            on(response = ScrollResponse.Pan)
+            otherwise(ScrollResponse.Zoom)
           }
         }
       }
@@ -50,8 +53,11 @@ class MapInteractionsTest {
       bindings {
         scroll {
           mappings {
-            on(modifiers = ModifierMatch.Containing(KeyModifier.Ctrl)) { none() }
-            otherwise { zoom() }
+            on(
+              modifiers = ModifierMatch.Containing(KeyModifier.Ctrl),
+              response = ScrollResponse.None,
+            )
+            otherwise(ScrollResponse.Zoom)
           }
         }
       }
@@ -66,7 +72,7 @@ class MapInteractionsTest {
           pan { enabled = !lockPan }
           zoom { enabled = lockPan }
         }
-        bindings { drag { mappings { otherwise { fitBounds() } } } }
+        bindings { drag { mappings { otherwise(DragResponse.FitBounds) } } }
       }
       assertNull(locked.bindings.drag.select(sample(), locked.camera.settings))
     }
@@ -148,9 +154,9 @@ class MapInteractionsTest {
       bindings {
         keys {
           mappings {
-            on(Key.Plus) { none() }
-            on(Key.Plus) { zoomIn() }
-            on(Key.Enter) { engage() }
+            on(Key.Plus, response = KeyResponse.None)
+            on(Key.Plus, response = KeyResponse.ZoomIn)
+            on(Key.Enter, response = KeyResponse.Engage)
           }
         }
       }
@@ -165,8 +171,8 @@ class MapInteractionsTest {
       bindings {
         keys {
           mappings {
-            on(Key.Plus) { zoomIn() }
-            on(Key.Enter) { engage() }
+            on(Key.Plus, response = KeyResponse.ZoomIn)
+            on(Key.Enter, response = KeyResponse.Engage)
           }
         }
       }
@@ -179,6 +185,42 @@ class MapInteractionsTest {
         MapInteractions.Standard.camera.settings,
       )
     )
+  }
+
+  @Test
+  fun null_modifiers_match_any_keys_and_restore_inherited_pointer_filters() {
+    val base = MapInteractions {
+      bindings {
+        transform { pan { modifiers = ModifierMatch.Exactly() } }
+        keys { mappings { on(Key.DirectionLeft, response = KeyResponse.PanLeft) } }
+      }
+    }
+    val modified = sample(type = PointerType.Touch, modifiers = setOf(KeyModifier.Alt))
+    assertFalse(base.bindings.transform.pan.matches(modified))
+    assertNull(
+      base.bindings.keys.select(Key.DirectionLeft, modified.modifierKeys, base.camera.settings)
+    )
+    val wildcard =
+      MapInteractions(from = base) {
+        bindings {
+          transform { pan { modifiers = null } }
+          keys {
+            mappings {
+              on(Key.DirectionLeft, modifiers = null, response = KeyResponse.PanLeft)
+            }
+          }
+        }
+      }
+    assertTrue(wildcard.bindings.transform.pan.matches(modified))
+    assertEquals(
+      KeyResponse.PanLeft,
+      wildcard.bindings.keys.select(
+        Key.DirectionLeft,
+        modified.modifierKeys,
+        wildcard.camera.settings,
+      ),
+    )
+    assertTrue(wildcard.hasCameraKeys)
   }
 
   @Test
@@ -198,29 +240,12 @@ class MapInteractionsTest {
     assertEquals(setOf(PointerType.Mouse), value.bindings.drag.pointerTypes)
     assertTrue(value.bindings.drag.enabled)
     assertFailsWith<IllegalArgumentException> {
-      MapInteractions { bindings { scroll { mappings { otherwise {} } } } }
-    }
-    assertFailsWith<IllegalArgumentException> {
       MapInteractions {
         bindings {
           scroll {
             mappings {
-              otherwise {
-                pan()
-                zoom()
-              }
-            }
-          }
-        }
-      }
-    }
-    assertFailsWith<IllegalArgumentException> {
-      MapInteractions {
-        bindings {
-          scroll {
-            mappings {
-              otherwise { pan() }
-              on { zoom() }
+              otherwise(ScrollResponse.Pan)
+              on(response = ScrollResponse.Zoom)
             }
           }
         }

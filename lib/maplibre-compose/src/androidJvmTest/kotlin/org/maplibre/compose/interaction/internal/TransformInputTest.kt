@@ -22,7 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.internal.CameraInputToken
-import org.maplibre.compose.interaction.CameraInputStart
+import org.maplibre.compose.interaction.DragResponse
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.PointerButton
 import org.maplibre.compose.map.GestureTestFixture
@@ -403,7 +403,7 @@ class TransformInputTest {
             drag {
               enabled = true
 
-              mappings { on(button = PointerButton.Primary) { pan() } }
+              mappings { on(button = PointerButton.Primary, response = DragResponse.Pan) }
             }
             transform {
               pan {
@@ -533,13 +533,13 @@ class TransformInputTest {
 
   @Test
   fun pair_to_single_pan_restarts_the_semantic_component_under_the_retained_session() {
-    val starts = mutableListOf<CameraInputStart>()
+    var starts = 0
     fixture.runRecognitionTest(
       options =
         MapInteractions {
           camera {
             pan {
-              onStart { starts += it }
+              onStart { starts++ }
               momentum { enabled = false }
             }
           }
@@ -565,8 +565,7 @@ class TransformInputTest {
         up(1)
       }
       waitForIdle()
-      assertEquals(2, starts.size)
-      assertEquals(starts.first().sessionId, starts.last().sessionId)
+      assertEquals(2, starts)
       assertEquals(1, target.startedCount)
       assertEquals(1, target.endedCount)
     }

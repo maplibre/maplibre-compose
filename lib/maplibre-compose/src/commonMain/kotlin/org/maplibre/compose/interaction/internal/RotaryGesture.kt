@@ -8,7 +8,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.inputScaleBy
-import org.maplibre.compose.interaction.CameraInputOrigin
 
 /** Focused rotary input has its own burst; it does not resume a pointer's continuation. */
 internal class RotaryGesture(
@@ -42,7 +41,7 @@ internal class RotaryGesture(
 
           lateinit var created: GestureInputSession
           created =
-            GestureInputSession(scope, target, origin = CameraInputOrigin.Rotary) {
+            GestureInputSession(scope, target) {
               if (session === created) cancel()
             }
           created.also { session = it }

@@ -1,7 +1,5 @@
 package org.maplibre.compose.interaction.internal
 
-import org.maplibre.compose.interaction.CameraInputStart
-
 internal enum class CameraComponent {
   Pan,
   Zoom,
@@ -11,7 +9,7 @@ internal enum class CameraComponent {
 
 internal data class CameraConfiguration(
   val settings: CameraSettings = CameraSettings(),
-  val onStart: Map<CameraComponent, (CameraInputStart) -> Unit> = emptyMap(),
+  val onStart: Map<CameraComponent, () -> Unit> = emptyMap(),
 )
 
 internal data class CameraSettings(

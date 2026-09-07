@@ -25,8 +25,6 @@ import org.maplibre.compose.camera.internal.inputRotateAndPitchBy
 import org.maplibre.compose.camera.internal.inputScaleBy
 import org.maplibre.compose.camera.internal.inputScaleByAwaitingTransition
 import org.maplibre.compose.interaction.CameraBuilder
-import org.maplibre.compose.interaction.CameraInputOrigin
-import org.maplibre.compose.interaction.CameraInputStart
 import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.internal.CameraComponent
@@ -247,7 +245,7 @@ class CameraInputTest {
           }
           .build()
       )
-      val input = GestureInputSession(this, target, origin = CameraInputOrigin.Transform)
+      val input = GestureInputSession(this, target)
       target.inputPanBy(10.0, 20.0, gestureToken = input.token)
       target.inputScaleBy(2.0, DpOffset(10.dp, 20.dp), gestureToken = input.token)
       target.inputRotateAndPitchBy(
@@ -268,13 +266,13 @@ class CameraInputTest {
     }
 
   @Test
-  fun component_restarts_share_session_and_use_current_observer_without_cancelling_input() =
+  fun component_restarts_use_current_observer_without_cancelling_input() =
     cameraTest { state, target ->
-      val starts = mutableListOf<CameraInputStart>()
+      var starts = 0
       val initial =
-        CameraBuilder(CameraConfiguration()).apply { pan { onStart { starts += it } } }.build()
+        CameraBuilder(CameraConfiguration()).apply { pan { onStart { starts++ } } }.build()
       state.gestureAuthority.updateConfiguration(initial)
-      val input = GestureInputSession(this, target, origin = CameraInputOrigin.Transform)
+      val input = GestureInputSession(this, target)
       target.inputPanBy(1.0, 0.0, gestureToken = input.token)
       target.inputPanBy(2.0, 0.0, gestureToken = input.token)
       var replacement = 0
@@ -283,7 +281,7 @@ class CameraInputTest {
           .apply {
             pan {
               onStart {
-                starts += it
+                starts++
                 replacement++
               }
             }
@@ -294,13 +292,7 @@ class CameraInputTest {
       input.token.rearm(CameraComponent.Pan)
       target.inputPanBy(3.0, 0.0, gestureToken = input.token)
       assertEquals(1, replacement)
-      assertEquals(
-        listOf(
-          CameraInputStart(input.token.value, CameraInputOrigin.Transform),
-          CameraInputStart(input.token.value, CameraInputOrigin.Transform),
-        ),
-        starts,
-      )
+      assertEquals(2, starts)
       input.end()
       target.drain()
       runCurrent()

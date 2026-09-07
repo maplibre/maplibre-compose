@@ -7,6 +7,7 @@ import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.ModifierMatch.Containing
+import org.maplibre.compose.interaction.ScrollResponse
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.spatialk.geojson.Position
 
@@ -31,8 +32,8 @@ fun Interaction() {
         bindings {
           scroll {
             mappings {
-              on(modifiers = Containing(KeyModifier.Ctrl)) { zoom() }
-              otherwise { pan() }
+              on(modifiers = Containing(KeyModifier.Ctrl), response = ScrollResponse.Zoom)
+              otherwise(ScrollResponse.Pan)
             }
           }
         }

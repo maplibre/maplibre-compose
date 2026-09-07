@@ -27,8 +27,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.maplibre.compose.interaction.ClickEvent
 import org.maplibre.compose.interaction.ClickResult
+import org.maplibre.compose.interaction.DragResponse
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.PointerButton
+import org.maplibre.compose.interaction.TapResponse
 import org.maplibre.compose.map.GestureTestFixture
 import org.maplibre.compose.map.RecordingGestureTarget
 import org.maplibre.compose.map.mapRuntimeForTest
@@ -148,7 +150,7 @@ class ClickInputTest {
             bindings {
               longPress {
                 enabled = true
-                mappings { otherwise { zoomIn() } }
+                mappings { otherwise(TapResponse.ZoomIn) }
               }
             }
           },
@@ -182,7 +184,7 @@ class ClickInputTest {
             drag {
               enabled = true
               pointerTypes = setOf(PointerType.Touch)
-              mappings { otherwise { pan() } }
+              mappings { otherwise(DragResponse.Pan) }
             }
           }
         }
@@ -462,7 +464,7 @@ class ClickInputTest {
           bindings {
             twoFingerTap {
               enabled = true
-              mappings { otherwise { zoomOut() } }
+              mappings { otherwise(TapResponse.ZoomOut) }
             }
           }
         },

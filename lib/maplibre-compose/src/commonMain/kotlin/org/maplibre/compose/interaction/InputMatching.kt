@@ -19,11 +19,9 @@ public enum class KeyModifier {
   Meta,
 }
 
-/** Matches the complete modifier set, a subset, or any modifiers. */
+/** Matches the complete modifier set or a subset. A null filter matches any modifiers. */
 @Immutable
 public sealed class ModifierMatch private constructor() {
-  public data object Any : ModifierMatch()
-
   public class Exactly(vararg modifiers: KeyModifier) : ModifierMatch() {
     public val modifiers: Set<KeyModifier> = modifiers.toSet()
 
@@ -44,7 +42,6 @@ public sealed class ModifierMatch private constructor() {
 
   internal fun matches(actual: Set<KeyModifier>): Boolean =
     when (this) {
-      Any -> true
       is Exactly -> actual == modifiers
       is Containing -> actual.containsAll(modifiers)
     }

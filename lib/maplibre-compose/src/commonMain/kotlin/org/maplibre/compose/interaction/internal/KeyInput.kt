@@ -26,8 +26,8 @@ import org.maplibre.compose.camera.internal.CameraInputToken
 import org.maplibre.compose.camera.internal.inputPanByAwaitingTransition
 import org.maplibre.compose.camera.internal.inputRotateAndPitchByAwaitingTransition
 import org.maplibre.compose.camera.internal.inputScaleByAwaitingTransition
-import org.maplibre.compose.interaction.CameraInputOrigin
 import org.maplibre.compose.interaction.KeyModifier
+import org.maplibre.compose.interaction.KeyResponse
 import org.maplibre.compose.interaction.MapInteractions
 
 /**
@@ -192,7 +192,7 @@ internal class KeyInput(
         ?: run {
           lateinit var created: GestureInputSession
           created =
-            GestureInputSession(scope, target, origin = CameraInputOrigin.Key) {
+            GestureInputSession(scope, target) {
               if (session === created) cancel()
             }
           created.also { session = it }

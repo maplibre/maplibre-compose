@@ -7,7 +7,6 @@ import kotlinx.coroutines.CoroutineScope
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.inputPanBy
 import org.maplibre.compose.camera.internal.inputScaleBy
-import org.maplibre.compose.interaction.CameraInputOrigin
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.internal.PlatformTransformRouting.Kind
 
@@ -124,7 +123,7 @@ internal class PlatformTransformSession(
       target.observeInput()
       lateinit var input: GestureInputSession
       input =
-        GestureInputSession(scope, target, origin = CameraInputOrigin.Transform) {
+        GestureInputSession(scope, target) {
           if (session === input) cancel()
         }
       session = input

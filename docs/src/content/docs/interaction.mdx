@@ -30,6 +30,8 @@ built-in input, including feature clicks.
 
 To stop [following the user's location](/maplibre-compose/location/) when they
 pan, use <Api of="PanCameraBuilder.onStart" display="camera.pan.onStart" />.
+This hook runs before the component responds to input and can run again within
+the same gesture. It does not report when camera movement ends.
 For moving the camera from app code, see [Control the camera](/maplibre-compose/camera/).
 
 ## Change scroll controls
@@ -42,6 +44,10 @@ while Ctrl-scroll zooms:
 A `mappings` block replaces the default responses for that input. Rows are
 tried from top to bottom; `otherwise` handles the remaining input. Available
 gestures depend on the input device and Compose host.
+
+A null pointer-type, button, or modifier filter matches any value. Key mappings
+default to exactly no modifiers; set `modifiers = null` to match a key with any
+modifiers.
 
 ## Handle map clicks
 
