@@ -760,23 +760,16 @@ internal constructor(
   public val events: Flow<MapEvent> = eventsFlow.asSharedFlow()
 
   /**
-   * Supplies images that the style draws and the loaded style does not hold, such as an icon that
-   * its sprite does not contain.
+   * Supplies missing style images on demand. Null (the default) disables resolution.
    *
-   * The map calls the resolver with the image id and adds the [ResolvedStyleImage] that it returns
-   * to the loaded style. A resolver that returns null leaves the image unresolved, as does one that
-   * throws, which the map logs. The map calls the resolver at most once per image id per loaded
-   * style. A new base style, or a different resolver set here, lets the next engine request for
-   * that id reach the resolver again.
+   * Return a [ResolvedStyleImage] for the requested ID, suspending if it needs to be loaded. Be
+   * prepared to supply the same ID again after the map discards unused images. On native maps,
+   * resolved images may appear only at the next symbol placement.
    *
-   * The map never calls the resolver inline from the engine's callback, and the resolver may
-   * suspend. MapLibre GL JS waits for it before it draws without the image; MapLibre Native draws
-   * the image at the next symbol placement after the resolver answers. Setting a resolver here does
-   * not stop a resolution that is already in flight, which still supplies the image that it
-   * resolves.
+   * Return null for IDs you cannot supply. Null results and exceptions are not retried until the
+   * base style reloads or the resolver is replaced.
    *
-   * Set it before or after the style loads. Null, the default, leaves every missing image
-   * unresolved.
+   * Replacing or clearing this property does not cancel calls already running.
    */
   public var missingImageResolver: MissingImageResolver?
     get() = missingImageResolverState
@@ -1249,8 +1242,14 @@ internal constructor(
       }
       val token = Any()
       runtime.physicalScope
-        .async { supplyMissingImage(resolver, binding, imageId, token) }
-        .also { missingImageResolutions[imageId] = MissingImageResolution(token, it) }
+        .async(start = CoroutineStart.LAZY) {
+          supplyMissingImage(resolver, binding, imageId, token)
+        }
+        .also {
+          // Register before starting: even an inline completion must be able to remove its record.
+          missingImageResolutions[imageId] = MissingImageResolution(token, it)
+          it.start()
+        }
     }
 
   private suspend fun supplyMissingImage(
@@ -1259,28 +1258,38 @@ internal constructor(
     imageId: String,
     token: Any,
   ) {
-    val resolved =
-      try {
-        resolver(imageId)
-      } catch (error: CancellationException) {
-        throw error
-      } catch (error: Throwable) {
-        runtime.logger?.w(error) { "The missing-image resolver failed for image '$imageId'" }
-        null
-      }
-    if (resolved == null) return
+    var rememberFailure = false
     try {
+      // A queued miss may arrive after another request or style command supplied the image.
+      // Consult the engine outside the lifecycle lock: Native marshals this read to its map thread.
+      if (binding.imageExists(imageId) == true) return
+      val resolved =
+        try {
+          resolver(imageId)
+        } catch (error: CancellationException) {
+          throw error
+        } catch (error: Throwable) {
+          runtime.logger?.w(error) { "The missing-image resolver failed for image '$imageId'" }
+          null
+        }
+      if (resolved == null) {
+        rememberFailure = true
+        return
+      }
       addResolvedStyleImage(binding, imageId, resolved)
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
-      // A composition can claim the id while the resolver runs. Dropping the record lets a repeated
-      // request try again, unless a later resolution already holds the id.
-      lifecycle.serialized {
-        if (missingImageResolutions[imageId]?.token === token)
-          missingImageResolutions.remove(imageId)
-      }
       runtime.logger?.w(error) { "Could not add the resolved image '$imageId'" }
+    } finally {
+      // Keep negative results to avoid a request loop, but let a later engine miss restore an
+      // evicted image. An older resolver must not clear a replacement resolver's pending work.
+      if (!rememberFailure) {
+        lifecycle.serialized {
+          if (missingImageResolutions[imageId]?.token === token)
+            missingImageResolutions.remove(imageId)
+        }
+      }
     }
   }
 
@@ -1299,6 +1308,7 @@ internal constructor(
   ) {
     val record = ImperativeImageRecord()
     val reservation = StyleMutationReservation()
+    var claimed = false
     while (true) {
       val inProgress = lifecycle.serialized {
         if (lifecycle.isClosed) return
@@ -1306,8 +1316,13 @@ internal constructor(
         (activeStyleMutation ?: backgroundStyleMutation)?.let {
           return@serialized it
         }
-        if (hasDesiredImage(imageId) || imageId in imperativeImages) return
-        imperativeImages[imageId] = record
+        if (hasDesiredImage(imageId)) return
+        // Ownership survives engine eviction. Only the engine's image set below tells us whether
+        // an image is still present; an existing ownership record must not prevent restoration.
+        if (imageId !in imperativeImages) {
+          imperativeImages[imageId] = record
+          claimed = true
+        }
         backgroundStyleMutation = reservation
         null
       }
@@ -1334,7 +1349,8 @@ internal constructor(
       }
     } finally {
       lifecycle.serialized {
-        if (!committed && imperativeImages[imageId] === record) imperativeImages.remove(imageId)
+        if (claimed && !committed && imperativeImages[imageId] === record)
+          imperativeImages.remove(imageId)
         completeStyleMutation(reservation)
       }
     }

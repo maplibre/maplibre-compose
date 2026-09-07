@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
@@ -43,6 +44,32 @@ class MissingImageResolverTest {
         fixture.state.style.images.remove(MISSING_ICON_ID),
         "the resolved image did not reach the style",
       )
+    }
+  }
+
+  @Test
+  fun an_image_removed_by_the_engine_is_resolved_again(): MapTestResult = runMapTest {
+    createMapFixture().use { fixture ->
+      val requests = RecordingList<String>()
+      fixture.state.missingImageResolver = { id ->
+        requests += id
+        ResolvedStyleImage(ImageBitmap(1, 1))
+      }
+      fixture.loadStyle(BaseStyle.Json(missingIconStyle()))
+      val style = assertNotNull(fixture.style)
+      fixture.pumpUntil("the first resolution to reach the style") {
+        style.imageExists(MISSING_ICON_ID) == true
+      }
+      fixture.settle()
+
+      // Bypass Compose's ownership records, as Native does when evicting unused images.
+      style.removeImage(MISSING_ICON_ID)
+      fixture.state.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = 4.0))
+      fixture.pumpUntil("the removed image to be requested and restored") {
+        requests.size >= 2 && style.imageExists(MISSING_ICON_ID) == true
+      }
+      fixture.settle()
+      assertEquals(listOf(MISSING_ICON_ID, MISSING_ICON_ID), requests.toList())
     }
   }
 
