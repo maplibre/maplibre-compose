@@ -8,7 +8,7 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.MillisecondsValue
 import org.maplibre.compose.expressions.value.RasterResampling
-import org.maplibre.compose.sources.ImagerySource
+import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.sources.SourceReferenceEffect
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.MaplibreComposable
@@ -55,7 +55,7 @@ import org.maplibre.compose.util.MaplibreComposable
 @MaplibreComposable
 public fun RasterLayer(
   id: String,
-  source: ImagerySource,
+  source: RasterSource,
   minZoom: Float = 0.0f,
   maxZoom: Float = 24.0f,
   visible: Boolean = true,
@@ -112,7 +112,7 @@ public fun RasterLayer(
   )
 }
 
-internal class RasterLayer(id: String, val source: ImagerySource) : Layer(id) {
+internal class RasterLayer(id: String, val source: RasterSource) : Layer(id) {
 
   override val type: String = "raster"
 

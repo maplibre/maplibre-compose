@@ -103,9 +103,9 @@ internal fun Expression<BooleanValue>.toFilterJson(): JsonElement? = takeUnless 
  */
 internal fun reconstructedSource(id: String, definition: JsonObject): Source? =
   when ((definition["type"] as? JsonPrimitive)?.content) {
-    "vector" -> VectorSource(id, definition)
-    "raster" -> RasterSource(id, definition)
-    "raster-dem" -> RasterDemSource(id, definition)
+    "vector" -> VectorTileSource(id, definition)
+    "raster" -> RasterTileSource(id, definition)
+    "raster-dem" -> RasterDemTileSource(id, definition)
     "geojson" -> GeoJsonSource(id, definition)
     "image" -> ImageSource(id, definition)
     else -> null

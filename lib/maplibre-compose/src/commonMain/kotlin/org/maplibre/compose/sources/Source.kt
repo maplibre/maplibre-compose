@@ -29,10 +29,10 @@ public sealed class Source(internal val id: String) {
 }
 
 /** A source of vector features: tiled vector data, GeoJSON, or application-supplied tiles. */
-public sealed class FeatureSource(id: String) : Source(id)
+public sealed class VectorSource(id: String) : Source(id)
 
 /** A source of raster imagery: tiled pictures or a positioned image. */
-public sealed class ImagerySource(id: String) : Source(id)
+public sealed class RasterSource(id: String) : Source(id)
 
 /**
  * Get the source with the given [id] from the base style of the current loaded style, or null when

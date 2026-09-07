@@ -10,7 +10,7 @@ import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.UnknownLayer
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
-import org.maplibre.compose.sources.CustomVectorSourceOptions
+import org.maplibre.compose.sources.CustomVectorTileSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeometryTileProvider
@@ -183,7 +183,7 @@ internal class RecordingStyleBinding(
 
   override fun addCustomVectorSource(
     sourceId: String,
-    options: CustomVectorSourceOptions,
+    options: CustomVectorTileSourceOptions,
     provider: VectorTileProvider,
   ): Boolean {
     customVectorProvider = provider

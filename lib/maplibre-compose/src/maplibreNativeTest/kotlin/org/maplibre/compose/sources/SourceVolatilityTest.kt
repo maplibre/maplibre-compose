@@ -16,7 +16,11 @@ class SourceVolatilityTest {
       createMapFixture().use { fixture ->
         fixture.loadStyle(BaseStyle.Empty)
         val source =
-          VectorSource("tiles", listOf("https://example.invalid/{z}/{x}/{y}.pbf"), TileSetOptions())
+          VectorTileSource(
+            "tiles",
+            listOf("https://example.invalid/{z}/{x}/{y}.pbf"),
+            TileSetOptions(),
+          )
         fixture.state.style.sources.add(source)
         val handle = assertNotNull(fixture.state.style.sources[source.id])
         assertEquals(false, handle.isVolatile)

@@ -16,7 +16,7 @@ class ReconstructedSourceTest {
       put("url", "https://example.invalid/tiles.json")
       put("attribution", "© nobody")
     }
-    val source = assertIs<VectorSource>(reconstructedSource("tiles", definition))
+    val source = assertIs<VectorTileSource>(reconstructedSource("tiles", definition))
     assertEquals(definition, source.toJson())
     assertEquals("© nobody", source.attributionHtml)
   }

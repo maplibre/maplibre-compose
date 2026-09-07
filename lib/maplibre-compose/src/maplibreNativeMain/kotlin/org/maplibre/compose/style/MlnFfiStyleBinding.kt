@@ -26,7 +26,7 @@ import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.MlnFfiLock
 import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
-import org.maplibre.compose.sources.CustomVectorSourceOptions
+import org.maplibre.compose.sources.CustomVectorTileSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeometryTileProvider
@@ -420,7 +420,7 @@ internal open class MlnFfiStyleBinding(
 
   override fun addCustomVectorSource(
     sourceId: String,
-    options: CustomVectorSourceOptions,
+    options: CustomVectorTileSourceOptions,
     provider: VectorTileProvider,
   ): Boolean {
     val coordinator =
@@ -485,7 +485,7 @@ internal open class MlnFfiStyleBinding(
   }
 
   override fun sourceExists(sourceId: String): Boolean? = readMap { map ->
-    map.styleSourceExists(sourceId)
+    isStyleSource(map, sourceId)
   }
 
   /** The bitmap is converted on the caller so the owner-thread hop only uploads. */

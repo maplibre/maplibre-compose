@@ -41,7 +41,7 @@ import org.maplibre.compose.layers.UnknownLayer
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.sources.CLUSTER_ID_PROPERTY
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
-import org.maplibre.compose.sources.CustomVectorSourceOptions
+import org.maplibre.compose.sources.CustomVectorTileSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeometryTileProvider
@@ -240,7 +240,7 @@ internal class GlJsStyleBinding(
   ): Boolean =
     throw UnsupportedOperationException(
       "Custom geometry source '$sourceId' is not available in the browser. Use " +
-        "CustomVectorSource when the provider can return MVT data, or use GeoJsonSource for " +
+        "CustomVectorTileSource when the provider can return MVT data, or use GeoJsonSource for " +
         "geographic features."
     )
 
@@ -256,7 +256,7 @@ internal class GlJsStyleBinding(
 
   override fun addCustomVectorSource(
     sourceId: String,
-    options: CustomVectorSourceOptions,
+    options: CustomVectorTileSourceOptions,
     provider: VectorTileProvider,
   ): Boolean {
     requireLoaded()

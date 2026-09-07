@@ -42,8 +42,8 @@ import org.maplibre.compose.expressions.value.TextUnitValue
 import org.maplibre.compose.expressions.value.TextVariableAnchorOffsetValue
 import org.maplibre.compose.expressions.value.TextWritingMode
 import org.maplibre.compose.expressions.value.TranslateAnchor
-import org.maplibre.compose.sources.FeatureSource
 import org.maplibre.compose.sources.SourceReferenceEffect
+import org.maplibre.compose.sources.VectorSource
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.MaplibreComposable
@@ -458,7 +458,7 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
 @MaplibreComposable
 public fun SymbolLayer(
   id: String,
-  source: FeatureSource,
+  source: VectorSource,
   sourceLayer: String = "",
   minZoom: Float = 0.0f,
   maxZoom: Float = 24.0f,
@@ -728,7 +728,7 @@ public fun SymbolLayer(
   )
 }
 
-internal class SymbolLayer(id: String, source: FeatureSource) : FeatureLayer(id, source) {
+internal class SymbolLayer(id: String, source: VectorSource) : FeatureLayer(id, source) {
 
   override val type: String = "symbol"
 

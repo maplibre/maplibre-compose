@@ -10,8 +10,8 @@ import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.HillshadeLayer
 import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.map.FakeImageBitmap
-import org.maplibre.compose.sources.RasterDemSource
-import org.maplibre.compose.sources.RasterSource
+import org.maplibre.compose.sources.RasterDemTileSource
+import org.maplibre.compose.sources.RasterTileSource
 
 class StyleNodeTest {
 
@@ -71,7 +71,7 @@ class StyleNodeTest {
     val style = RecordingStyleBinding()
     val recording = RecordingOperations(style)
     val reconciler = StyleReconciler()
-    val source = RasterDemSource("dem", listOf("https://example.invalid/{z}/{x}/{y}.png"))
+    val source = RasterDemTileSource("dem", listOf("https://example.invalid/{z}/{x}/{y}.png"))
     val layer = HillshadeLayer("hillshade", source)
     val revision =
       DesiredStyleRevision(
@@ -115,9 +115,9 @@ class StyleNodeTest {
   }
 
   private fun source(id: String) =
-    RasterSource(id, listOf("https://example.invalid/{z}/{x}/{y}.png"))
+    RasterTileSource(id, listOf("https://example.invalid/{z}/{x}/{y}.png"))
 
-  private fun revision(source: RasterSource, layer: RasterLayer) =
+  private fun revision(source: RasterTileSource, layer: RasterLayer) =
     DesiredStyleRevision(
       sources = listOf(source.definition()),
       layers = listOf(DesiredStyleLayer(layer.definition(), Anchor.Top, null, null)),

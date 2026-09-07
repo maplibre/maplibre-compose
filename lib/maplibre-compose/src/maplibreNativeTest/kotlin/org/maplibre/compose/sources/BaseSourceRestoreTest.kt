@@ -26,11 +26,11 @@ class BaseSourceRestoreTest {
       it.loadStyle(BaseStyle.Json(VECTOR_STYLE))
       val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
 
-      val source = assertIs<VectorSource>(style.getSource(SOURCE_ID))
+      val source = assertIs<VectorTileSource>(style.getSource(SOURCE_ID))
       style.uninstall(source)
       style.install(source)
 
-      val restored = assertIs<VectorSource>(style.getSource(SOURCE_ID))
+      val restored = assertIs<VectorTileSource>(style.getSource(SOURCE_ID))
       assertEquals(JsonPrimitive("vector"), restored.toJson()["type"])
       assertEquals(
         listOf("https://example.invalid/{z}/{x}/{y}.pbf"),

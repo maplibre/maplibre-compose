@@ -12,7 +12,7 @@ import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleMutationException
 
 /** A map data source of DEM raster images. */
-public class RasterDemSource : Source {
+public class RasterDemTileSource : Source {
 
   /** The tiled form's inputs, or null for a TileJSON URL or a source from the style. */
   private val tileSet: TileSet?
@@ -170,30 +170,30 @@ public sealed class RasterDemEncoding(internal val value: String) {
   ) : RasterDemEncoding("custom")
 }
 
-/** Remember a new [RasterDemSource] with the given [tileSize] from the given [uri]. */
+/** Remember a new [RasterDemTileSource] with the given [tileSize] from the given [uri]. */
 @Composable
-public fun rememberRasterDemSource(
+public fun rememberRasterDemTileSource(
   uri: String,
   tileSize: Int = SourceDefaults.RASTER_TILE_SIZE,
-): RasterDemSource =
+): RasterDemTileSource =
   key(uri, tileSize) {
     rememberUserSource(
-      factory = { RasterDemSource(id = it, uri = uri, tileSize = tileSize) },
+      factory = { RasterDemTileSource(id = it, uri = uri, tileSize = tileSize) },
       update = {},
     )
   }
 
 @Composable
-public fun rememberRasterDemSource(
+public fun rememberRasterDemTileSource(
   tiles: List<String>,
   options: TileSetOptions = TileSetOptions(),
   tileSize: Int = SourceDefaults.RASTER_TILE_SIZE,
   encoding: RasterDemEncoding = RasterDemEncoding.Mapbox,
-): RasterDemSource =
+): RasterDemTileSource =
   key(tiles, options, tileSize, encoding) {
     rememberUserSource(
       factory = {
-        RasterDemSource(
+        RasterDemTileSource(
           id = it,
           tiles = tiles,
           options = options,

@@ -9,7 +9,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 
 /** A map data source of tiled vector data. */
-public class VectorSource : FeatureSource {
+public class VectorTileSource : VectorSource {
 
   private val json: JsonObject
 
@@ -45,19 +45,19 @@ public class VectorSource : FeatureSource {
   override fun toJson(): JsonObject = json
 }
 
-/** Remember a new [VectorSource] from the given [uri]. */
+/** Remember a new [VectorTileSource] from the given [uri]. */
 @Composable
-public fun rememberVectorSource(uri: String): VectorSource =
-  key(uri) { rememberUserSource(factory = { VectorSource(id = it, uri = uri) }, update = {}) }
+public fun rememberVectorTileSource(uri: String): VectorTileSource =
+  key(uri) { rememberUserSource(factory = { VectorTileSource(id = it, uri = uri) }, update = {}) }
 
 @Composable
-public fun rememberVectorSource(
+public fun rememberVectorTileSource(
   tiles: List<String>,
   options: TileSetOptions = TileSetOptions(),
-): VectorSource =
+): VectorTileSource =
   key(tiles, options) {
     rememberUserSource(
-      factory = { VectorSource(id = it, tiles = tiles, options = options) },
+      factory = { VectorTileSource(id = it, tiles = tiles, options = options) },
       update = {},
     )
   }

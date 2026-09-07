@@ -3,9 +3,9 @@ package org.maplibre.compose.layers
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
-import org.maplibre.compose.sources.FeatureSource
+import org.maplibre.compose.sources.VectorSource
 
-internal sealed class FeatureLayer(id: String, val source: FeatureSource) : Layer(id) {
+internal sealed class FeatureLayer(id: String, val source: VectorSource) : Layer(id) {
 
   override val sourceId: String
     get() = source.id

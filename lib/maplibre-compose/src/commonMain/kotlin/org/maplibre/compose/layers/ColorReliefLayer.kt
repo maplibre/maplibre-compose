@@ -8,7 +8,7 @@ import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.RasterResampling
-import org.maplibre.compose.sources.RasterDemSource
+import org.maplibre.compose.sources.RasterDemTileSource
 import org.maplibre.compose.sources.SourceReferenceEffect
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.MaplibreComposable
@@ -39,7 +39,7 @@ import org.maplibre.compose.util.MaplibreComposable
 @MaplibreComposable
 public fun ColorReliefLayer(
   id: String,
-  source: RasterDemSource,
+  source: RasterDemTileSource,
   minZoom: Float = 0.0f,
   maxZoom: Float = 24.0f,
   visible: Boolean = true,
@@ -71,7 +71,7 @@ public fun ColorReliefLayer(
   )
 }
 
-internal class ColorReliefLayer(id: String, val source: RasterDemSource) : Layer(id) {
+internal class ColorReliefLayer(id: String, val source: RasterDemTileSource) : Layer(id) {
 
   override val type: String = "color-relief"
 

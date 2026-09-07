@@ -26,7 +26,7 @@ internal const val CLUSTER_ID_PROPERTY = "cluster_id"
  * fails. With [GeoJsonOptions.synchronousUpdate], initial inline data is prepared before the source
  * is added, and failures throw without adding the source.
  */
-public class GeoJsonSource : FeatureSource {
+public class GeoJsonSource : VectorSource {
 
   private val content: Content
 

@@ -6,20 +6,20 @@ import kotlinx.serialization.json.JsonElement
 import org.maplibre.compose.layers.LayerHandle
 import org.maplibre.compose.sources.CustomGeometrySource
 import org.maplibre.compose.sources.CustomGeometrySourceHandle
-import org.maplibre.compose.sources.CustomVectorSource
-import org.maplibre.compose.sources.CustomVectorSourceHandle
+import org.maplibre.compose.sources.CustomVectorTileSource
+import org.maplibre.compose.sources.CustomVectorTileSourceHandle
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.GeoJsonSourceHandle
 import org.maplibre.compose.sources.ImageSource
 import org.maplibre.compose.sources.ImageSourceHandle
-import org.maplibre.compose.sources.RasterDemSource
-import org.maplibre.compose.sources.RasterDemSourceHandle
-import org.maplibre.compose.sources.RasterSource
-import org.maplibre.compose.sources.RasterSourceHandle
+import org.maplibre.compose.sources.RasterDemTileSource
+import org.maplibre.compose.sources.RasterDemTileSourceHandle
+import org.maplibre.compose.sources.RasterTileSource
+import org.maplibre.compose.sources.RasterTileSourceHandle
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceHandle
-import org.maplibre.compose.sources.VectorSource
-import org.maplibre.compose.sources.VectorSourceHandle
+import org.maplibre.compose.sources.VectorTileSource
+import org.maplibre.compose.sources.VectorTileSourceHandle
 import org.maplibre.compose.style.Light
 import org.maplibre.compose.style.Projection
 import org.maplibre.compose.style.Sky
@@ -49,24 +49,24 @@ public class StyleSources internal constructor(private val style: MapStyleState)
     get(source.id) as? ImageSourceHandle
 
   /** Returns the current handle with [source]'s ID and type, or null while unavailable. */
-  public operator fun get(source: VectorSource): VectorSourceHandle? =
-    get(source.id) as? VectorSourceHandle
+  public operator fun get(source: VectorTileSource): VectorTileSourceHandle? =
+    get(source.id) as? VectorTileSourceHandle
 
   /** Returns the current handle with [source]'s ID and type, or null while unavailable. */
-  public operator fun get(source: RasterSource): RasterSourceHandle? =
-    get(source.id) as? RasterSourceHandle
+  public operator fun get(source: RasterTileSource): RasterTileSourceHandle? =
+    get(source.id) as? RasterTileSourceHandle
 
   /** Returns the current handle with [source]'s ID and type, or null while unavailable. */
-  public operator fun get(source: RasterDemSource): RasterDemSourceHandle? =
-    get(source.id) as? RasterDemSourceHandle
+  public operator fun get(source: RasterDemTileSource): RasterDemTileSourceHandle? =
+    get(source.id) as? RasterDemTileSourceHandle
 
   /** Returns the current handle with [source]'s ID and type, or null while unavailable. */
   public operator fun get(source: CustomGeometrySource): CustomGeometrySourceHandle? =
     get(source.id) as? CustomGeometrySourceHandle
 
   /** Returns the current handle with [source]'s ID and type, or null while unavailable. */
-  public operator fun get(source: CustomVectorSource): CustomVectorSourceHandle? =
-    get(source.id) as? CustomVectorSourceHandle
+  public operator fun get(source: CustomVectorTileSource): CustomVectorTileSourceHandle? =
+    get(source.id) as? CustomVectorTileSourceHandle
 
   /** Adds [source] to the current loaded-style generation and returns its handle. */
   public fun add(source: Source): SourceHandle = style.requireOwner().addStyleSource(source)

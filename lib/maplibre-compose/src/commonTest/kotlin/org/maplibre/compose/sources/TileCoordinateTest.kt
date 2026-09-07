@@ -56,9 +56,9 @@ class TileCoordinateTest {
   @Test
   fun zoom_options_validate_the_supported_range_and_order() {
     assertFailsWith<IllegalArgumentException> { CustomGeometrySourceOptions(minZoom = -1) }
-    assertFailsWith<IllegalArgumentException> { CustomVectorSourceOptions(maxZoom = 33) }
+    assertFailsWith<IllegalArgumentException> { CustomVectorTileSourceOptions(maxZoom = 33) }
     assertFailsWith<IllegalArgumentException> {
-      CustomVectorSourceOptions(minZoom = 4, maxZoom = 3)
+      CustomVectorTileSourceOptions(minZoom = 4, maxZoom = 3)
     }
     assertTrue(CustomGeometrySourceOptions(minZoom = 0, maxZoom = 32).minZoom == 0)
   }

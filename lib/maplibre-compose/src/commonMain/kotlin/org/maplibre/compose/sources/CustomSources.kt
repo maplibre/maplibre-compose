@@ -81,7 +81,7 @@ public class CustomGeometrySource(
   id: String,
   private val options: CustomGeometrySourceOptions = CustomGeometrySourceOptions(),
   private var provider: GeometryTileProvider,
-) : FeatureSource(id) {
+) : VectorSource(id) {
 
   override fun definition(): SourceDefinition =
     SourceDefinition.CustomGeometry(id, options, provider)
@@ -106,11 +106,11 @@ public class CustomGeometrySource(
  *
  * Layers that use this source specify a source layer that exists in the returned MVT document.
  */
-public class CustomVectorSource(
+public class CustomVectorTileSource(
   id: String,
-  private val options: CustomVectorSourceOptions = CustomVectorSourceOptions(),
+  private val options: CustomVectorTileSourceOptions = CustomVectorTileSourceOptions(),
   private var provider: VectorTileProvider,
-) : FeatureSource(id) {
+) : VectorSource(id) {
 
   override fun definition(): SourceDefinition = SourceDefinition.CustomVector(id, options, provider)
 
@@ -155,7 +155,7 @@ public data class CustomGeometrySourceOptions(
 
 /** Options for application-supplied MVT tiles. */
 @Immutable
-public data class CustomVectorSourceOptions(
+public data class CustomVectorTileSourceOptions(
   val minZoom: Int = SourceDefaults.MIN_ZOOM,
   val maxZoom: Int = SourceDefaults.MAX_ZOOM,
 ) {
@@ -178,15 +178,15 @@ public fun rememberCustomGeometrySource(
   }
 }
 
-/** Remembers a [CustomVectorSource] that uses [provider]. */
+/** Remembers a [CustomVectorTileSource] that uses [provider]. */
 @Composable
-public fun rememberCustomVectorSource(
-  options: CustomVectorSourceOptions = CustomVectorSourceOptions(),
+public fun rememberCustomVectorTileSource(
+  options: CustomVectorTileSourceOptions = CustomVectorTileSourceOptions(),
   provider: VectorTileProvider,
-): CustomVectorSource {
+): CustomVectorTileSource {
   return key(options) {
     rememberUserSource(
-      factory = { CustomVectorSource(id = it, options = options, provider = provider) },
+      factory = { CustomVectorTileSource(id = it, options = options, provider = provider) },
       update = { setDesiredProvider(provider) },
     )
   }

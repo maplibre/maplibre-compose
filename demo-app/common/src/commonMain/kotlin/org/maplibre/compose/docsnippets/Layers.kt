@@ -22,7 +22,7 @@ import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.VectorSource
+import org.maplibre.compose.sources.VectorTileSource
 import org.maplibre.compose.sources.getBaseSource
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
@@ -37,7 +37,7 @@ fun Layers() {
     rememberMapState(
       initialBaseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty")
     ) {
-      getBaseSource<VectorSource>(id = "openmaptiles")?.let { tiles ->
+      getBaseSource<VectorTileSource>(id = "openmaptiles")?.let { tiles ->
         CircleLayer(id = "example", source = tiles, sourceLayer = "poi")
       }
     }

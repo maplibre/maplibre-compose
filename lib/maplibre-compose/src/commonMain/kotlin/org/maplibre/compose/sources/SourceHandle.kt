@@ -186,7 +186,7 @@ internal constructor(
 }
 
 /** Provides imperative access to a vector source for one loaded base-style generation. */
-public open class VectorSourceHandle
+public open class VectorTileSourceHandle
 internal constructor(
   id: String,
   style: StyleBinding,
@@ -227,14 +227,14 @@ internal constructor(
 }
 
 /** Provides imperative access to an application-supplied vector source. */
-public class CustomVectorSourceHandle
+public class CustomVectorTileSourceHandle
 internal constructor(
   id: String,
   style: StyleBinding,
   currentKind: () -> String?,
   operations: StyleHandleOperationGuard,
 ) :
-  VectorSourceHandle(
+  VectorTileSourceHandle(
     id,
     style,
     expectedKind = "custom-vector",
@@ -308,7 +308,7 @@ internal constructor(
 }
 
 /** Provides imperative access to a raster source for one loaded base-style generation. */
-public class RasterSourceHandle
+public class RasterTileSourceHandle
 internal constructor(
   id: String,
   style: StyleBinding,
@@ -317,7 +317,7 @@ internal constructor(
 ) : SourceHandle(id, style, "raster", currentKind, operations)
 
 /** Provides imperative access to a raster DEM source for one loaded base-style generation. */
-public class RasterDemSourceHandle
+public class RasterDemTileSourceHandle
 internal constructor(
   id: String,
   style: StyleBinding,
@@ -342,8 +342,8 @@ internal fun StyleBinding.sourceHandle(
   operations: StyleHandleOperationGuard,
 ): SourceHandle? {
   requireCurrent()
-  val source = getSource(id) ?: return null
-  val kind = sourceKind(definition, source)
+  if (sourceExists(id) != true) return null
+  val kind = sourceKind(definition, getSource(id))
   val composed = definition != null
   val currentKind = currentKind@{
     if (!isCurrentResource()) return@currentKind null
@@ -359,12 +359,12 @@ internal fun StyleBinding.sourceHandle(
         currentKind,
         operations,
       )
-    "custom-vector" -> CustomVectorSourceHandle(id, this, currentKind, operations)
+    "custom-vector" -> CustomVectorTileSourceHandle(id, this, currentKind, operations)
     "custom-geometry" -> CustomGeometrySourceHandle(id, this, currentKind, operations)
     "image" -> ImageSourceHandle(id, this, currentKind, operations)
-    "raster" -> RasterSourceHandle(id, this, currentKind, operations)
-    "raster-dem" -> RasterDemSourceHandle(id, this, currentKind, operations)
-    "vector" -> VectorSourceHandle(id, this, currentKind = currentKind, operations = operations)
+    "raster" -> RasterTileSourceHandle(id, this, currentKind, operations)
+    "raster-dem" -> RasterDemTileSourceHandle(id, this, currentKind, operations)
+    "vector" -> VectorTileSourceHandle(id, this, currentKind = currentKind, operations = operations)
     else -> UnknownSourceHandle(id, this, currentKind, operations)
   }
 }

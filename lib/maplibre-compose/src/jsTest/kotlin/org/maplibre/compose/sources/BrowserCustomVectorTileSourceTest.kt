@@ -17,7 +17,7 @@ import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
 
-class BrowserCustomVectorSourceTest {
+class BrowserCustomVectorTileSourceTest {
 
   @Test
   fun empty_mvt_data_completes_as_an_empty_tile(): MapTestResult = runMapTest {
@@ -27,7 +27,8 @@ class BrowserCustomVectorSourceTest {
       fixture.loadStyle(BaseStyle.Empty)
       val style = assertIs<GlJsStyleBinding>(fixture.style)
       val source =
-        CustomVectorSource("empty", CustomVectorSourceOptions(minZoom = 0, maxZoom = 0)) { tile ->
+        CustomVectorTileSource("empty", CustomVectorTileSourceOptions(minZoom = 0, maxZoom = 0)) {
+          tile ->
           requests += tile
           release.await()
           byteArrayOf()
@@ -51,8 +52,9 @@ class BrowserCustomVectorSourceTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       val style = assertIs<GlJsStyleBinding>(fixture.style)
-      val first = CustomVectorSource("first", CustomVectorSourceOptions()) { byteArrayOf() }
-      val second = CustomVectorSource("second", CustomVectorSourceOptions()) { byteArrayOf() }
+      val first = CustomVectorTileSource("first", CustomVectorTileSourceOptions()) { byteArrayOf() }
+      val second =
+        CustomVectorTileSource("second", CustomVectorTileSourceOptions()) { byteArrayOf() }
 
       style.install(first)
       style.install(second)
@@ -64,7 +66,7 @@ class BrowserCustomVectorSourceTest {
   }
 
   /** The tile URL template MapLibre GL JS holds for this live source. */
-  private fun CustomVectorSource.liveTileUrlTemplate(style: GlJsStyleBinding): String? =
+  private fun CustomVectorTileSource.liveTileUrlTemplate(style: GlJsStyleBinding): String? =
     style
       .withMap { map -> map.getSource<SourceHandle>(id)?.asDynamic()?.serialize()?.tiles }
       ?.unsafeCast<Array<String>>()
@@ -77,7 +79,7 @@ class BrowserCustomVectorSourceTest {
       fixture.loadStyle(BaseStyle.Empty)
       val style = assertIs<GlJsStyleBinding>(fixture.style)
       val source =
-        CustomVectorSource("failing", CustomVectorSourceOptions(minZoom = 0, maxZoom = 0)) {
+        CustomVectorTileSource("failing", CustomVectorTileSourceOptions(minZoom = 0, maxZoom = 0)) {
           requested = true
           error("fixture protocol failure")
         }

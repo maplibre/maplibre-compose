@@ -66,7 +66,7 @@ import org.maplibre.compose.mlnffi.setFfiTestMapContent
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.include
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.RasterSource
+import org.maplibre.compose.sources.RasterTileSource
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.RecordingList
@@ -263,7 +263,7 @@ class MlnFfiMapCompositionTest {
       RasterLayer(
         id = "shared-layer",
         source =
-          RasterSource(
+          RasterTileSource(
             "shared-source",
             listOf("https://example.invalid/{z}/{x}/{y}.png"),
           ),

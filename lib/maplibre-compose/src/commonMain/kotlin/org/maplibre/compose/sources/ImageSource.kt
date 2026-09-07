@@ -15,7 +15,7 @@ import org.maplibre.compose.util.PositionQuad
 import org.maplibre.spatialk.geojson.Position
 
 /** A map data source of an image placed at a given position. */
-public class ImageSource : ImagerySource {
+public class ImageSource : RasterSource {
 
   private val content: Content
 

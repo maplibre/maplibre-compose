@@ -17,8 +17,8 @@ import org.maplibre.compose.expressions.value.DpOffsetValue
 import org.maplibre.compose.expressions.value.DpValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.TranslateAnchor
-import org.maplibre.compose.sources.FeatureSource
 import org.maplibre.compose.sources.SourceReferenceEffect
+import org.maplibre.compose.sources.VectorSource
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.MaplibreComposable
 
@@ -84,7 +84,7 @@ import org.maplibre.compose.util.MaplibreComposable
 @MaplibreComposable
 public fun CircleLayer(
   id: String,
-  source: FeatureSource,
+  source: VectorSource,
   sourceLayer: String = "",
   minZoom: Float = 0.0f,
   maxZoom: Float = 24.0f,
@@ -169,7 +169,7 @@ public fun CircleLayer(
   )
 }
 
-internal class CircleLayer(id: String, source: FeatureSource) : FeatureLayer(id, source) {
+internal class CircleLayer(id: String, source: VectorSource) : FeatureLayer(id, source) {
 
   override val type: String = "circle"
 
