@@ -21,6 +21,11 @@ import org.maplibre.spatialk.geojson.Geometry
 /**
  * Provides access to a source for one loaded base-style generation.
  *
+ * [id] and [attributionHtml] are plain values, read once when the handle is created. A read that
+ * asks the engine for a value, such as feature state, a source query, or a cluster query, suspends
+ * until the engine answers. A feature-state write posts to the engine's thread and returns at once;
+ * a state the engine rejects is logged, and the feature keeps its previous state.
+ *
  * Style content owns the definitions of declared sources: attempts to replace their data, image,
  * URI, or bounds throw [StyleHandleException]. Feature state, queries, and invalidation remain
  * available. Base-style sources and sources added through
@@ -29,6 +34,11 @@ import org.maplibre.spatialk.geojson.Geometry
 public sealed class SourceHandle
 protected constructor(
   public val id: String,
+  /**
+   * The source attribution when this handle was created. A source whose attribution arrives later,
+   * such as from a TileJSON document, is published again as a new handle.
+   */
+  public val attributionHtml: String,
   internal val style: StyleBinding,
   private val expectedKind: String?,
   private val currentKind: () -> String?,
@@ -44,16 +54,12 @@ protected constructor(
     }
   }
 
-  /** Contains the source attribution from the current loaded style. */
-  public val attributionHtml: String
-    get() = operation { style.getSource(id)?.attributionHtml.orEmpty() }
-
   protected fun writeFeatureState(sourceLayerId: String?, featureId: String, state: JsonObject) {
     operation { style.setFeatureState(id, sourceLayerId, featureId, state) }
   }
 
-  protected fun readFeatureState(sourceLayerId: String?, featureId: String): JsonObject {
-    return operation { style.featureState(id, sourceLayerId, featureId) }
+  protected suspend fun readFeatureState(sourceLayerId: String?, featureId: String): JsonObject {
+    return suspendingOperation { style.featureState(id, sourceLayerId, featureId) }
   }
 
   protected fun clearFeatureState(
@@ -90,6 +96,7 @@ protected constructor(
 public class GeoJsonSourceHandle
 internal constructor(
   id: String,
+  attributionHtml: String,
   style: StyleBinding,
   private val options: GeoJsonOptions,
   currentKind: () -> String?,
@@ -97,6 +104,7 @@ internal constructor(
 ) :
   SourceHandle(
     id,
+    attributionHtml,
     style,
     expectedKind = "geojson",
     currentKind = currentKind,
@@ -160,7 +168,7 @@ internal constructor(
   }
 
   /** Returns the runtime state of the feature identified by [featureId]. */
-  public fun getFeatureState(featureId: String): JsonObject =
+  public suspend fun getFeatureState(featureId: String): JsonObject =
     readFeatureState(sourceLayerId = null, featureId)
 
   /** Removes [stateKey], or every state key when [stateKey] is null. */
@@ -189,17 +197,23 @@ internal constructor(
 public open class VectorSourceHandle
 internal constructor(
   id: String,
+  attributionHtml: String,
   style: StyleBinding,
   expectedKind: String = "vector",
   currentKind: () -> String?,
   operations: StyleHandleOperationGuard,
-) : SourceHandle(id, style, expectedKind, currentKind, operations) {
-  /** Returns loaded features from [sourceLayerIds] that match [predicate]. */
-  public fun querySourceFeatures(
+) : SourceHandle(id, attributionHtml, style, expectedKind, currentKind, operations) {
+  /**
+   * Returns loaded features from [sourceLayerIds] that match [predicate]. The result is empty
+   * before the map has rendered.
+   */
+  public suspend fun querySourceFeatures(
     sourceLayerIds: Set<String>,
     predicate: Expression<BooleanValue> = const(true),
   ): List<Feature<Geometry, JsonObject?>> {
-    return operation { style.querySourceFeatures(id, sourceLayerIds, predicate.toFilterJson()) }
+    return suspendingOperation {
+      style.querySourceFeatures(id, sourceLayerIds, predicate.toFilterJson())
+    }
   }
 
   /** Merges [state] into the runtime state of one feature. */
@@ -208,7 +222,7 @@ internal constructor(
   }
 
   /** Returns the runtime state of one feature. */
-  public fun getFeatureState(sourceLayerId: String, featureId: String): JsonObject =
+  public suspend fun getFeatureState(sourceLayerId: String, featureId: String): JsonObject =
     readFeatureState(sourceLayerId, featureId)
 
   /** Removes [stateKey], or every state key when [stateKey] is null. */
@@ -230,12 +244,14 @@ internal constructor(
 public class CustomVectorSourceHandle
 internal constructor(
   id: String,
+  attributionHtml: String,
   style: StyleBinding,
   currentKind: () -> String?,
   operations: StyleHandleOperationGuard,
 ) :
   VectorSourceHandle(
     id,
+    attributionHtml,
     style,
     expectedKind = "custom-vector",
     currentKind = currentKind,
@@ -251,10 +267,11 @@ internal constructor(
 public class CustomGeometrySourceHandle
 internal constructor(
   id: String,
+  attributionHtml: String,
   style: StyleBinding,
   currentKind: () -> String?,
   operations: StyleHandleOperationGuard,
-) : SourceHandle(id, style, "custom-geometry", currentKind, operations) {
+) : SourceHandle(id, attributionHtml, style, "custom-geometry", currentKind, operations) {
   /** Requests new features for tiles that intersect [bounds]. */
   public fun invalidateBounds(bounds: BoundingBox) {
     operation { style.invalidateCustomGeometrySourceBounds(id, bounds) }
@@ -270,10 +287,11 @@ internal constructor(
 public class ImageSourceHandle
 internal constructor(
   id: String,
+  attributionHtml: String,
   style: StyleBinding,
   currentKind: () -> String?,
   operations: StyleHandleOperationGuard,
-) : SourceHandle(id, style, "image", currentKind, operations) {
+) : SourceHandle(id, attributionHtml, style, "image", currentKind, operations) {
   /**
    * Updates the geographic corners of the image.
    *
@@ -311,28 +329,31 @@ internal constructor(
 public class RasterSourceHandle
 internal constructor(
   id: String,
+  attributionHtml: String,
   style: StyleBinding,
   currentKind: () -> String?,
   operations: StyleHandleOperationGuard,
-) : SourceHandle(id, style, "raster", currentKind, operations)
+) : SourceHandle(id, attributionHtml, style, "raster", currentKind, operations)
 
 /** Provides imperative access to a raster DEM source for one loaded base-style generation. */
 public class RasterDemSourceHandle
 internal constructor(
   id: String,
+  attributionHtml: String,
   style: StyleBinding,
   currentKind: () -> String?,
   operations: StyleHandleOperationGuard,
-) : SourceHandle(id, style, "raster-dem", currentKind, operations)
+) : SourceHandle(id, attributionHtml, style, "raster-dem", currentKind, operations)
 
 /** Provides imperative access to a source type that has no specialized common handle. */
 public class UnknownSourceHandle
 internal constructor(
   id: String,
+  attributionHtml: String,
   style: StyleBinding,
   currentKind: () -> String?,
   operations: StyleHandleOperationGuard,
-) : SourceHandle(id, style, null, currentKind, operations)
+) : SourceHandle(id, attributionHtml, style, null, currentKind, operations)
 
 internal fun StyleBinding.sourceHandle(
   id: String,
@@ -344,34 +365,48 @@ internal fun StyleBinding.sourceHandle(
   requireCurrent()
   val source = getSource(id) ?: return null
   val kind = sourceKind(definition, source)
+  val attribution = source.attributionHtml
   val composed = definition != null
+  // The identity check covers replacement under the same ID, so the kind check needs no engine
+  // read: a composed source's kind follows its desired definition, and any other source keeps the
+  // kind it was created with.
   val currentKind = currentKind@{
     if (!isCurrentResource()) return@currentKind null
-    val current = currentDefinition()
-    if (composed && current == null) null else sourceKind(current, getSource(id))
+    if (!composed) return@currentKind kind
+    currentDefinition()?.let { sourceKind(it, null) ?: kind }
   }
   return when (kind) {
     "geojson" ->
       GeoJsonSourceHandle(
         id,
+        attribution,
         this,
         (definition as? SourceDefinition.GeoJson)?.options ?: GeoJsonOptions(),
         currentKind,
         operations,
       )
-    "custom-vector" -> CustomVectorSourceHandle(id, this, currentKind, operations)
-    "custom-geometry" -> CustomGeometrySourceHandle(id, this, currentKind, operations)
-    "image" -> ImageSourceHandle(id, this, currentKind, operations)
-    "raster" -> RasterSourceHandle(id, this, currentKind, operations)
-    "raster-dem" -> RasterDemSourceHandle(id, this, currentKind, operations)
-    "vector" -> VectorSourceHandle(id, this, currentKind = currentKind, operations = operations)
-    else -> UnknownSourceHandle(id, this, currentKind, operations)
+    "custom-vector" -> CustomVectorSourceHandle(id, attribution, this, currentKind, operations)
+    "custom-geometry" -> CustomGeometrySourceHandle(id, attribution, this, currentKind, operations)
+    "image" -> ImageSourceHandle(id, attribution, this, currentKind, operations)
+    "raster" -> RasterSourceHandle(id, attribution, this, currentKind, operations)
+    "raster-dem" -> RasterDemSourceHandle(id, attribution, this, currentKind, operations)
+    "vector" ->
+      VectorSourceHandle(id, attribution, this, currentKind = currentKind, operations = operations)
+    else -> UnknownSourceHandle(id, attribution, this, currentKind, operations)
   }
 }
 
+/**
+ * The style-spec type of a source, from its definition when the definition states one and from the
+ * engine's [source] otherwise. Null when neither does.
+ */
 private fun sourceKind(definition: SourceDefinition?, source: Source?): String? =
   when (definition) {
     is SourceDefinition.CustomGeometry -> "custom-geometry"
     is SourceDefinition.CustomVector -> "custom-vector"
-    else -> (source?.toJson()?.get("type") as? JsonPrimitive)?.content
+    is SourceDefinition.GeoJson -> "geojson"
+    is SourceDefinition.Image -> "image"
+    is SourceDefinition.RasterDem -> "raster-dem"
+    is SourceDefinition.Json -> (definition.value["type"] as? JsonPrimitive)?.content
+    null -> (source?.toJson()?.get("type") as? JsonPrimitive)?.content
   }

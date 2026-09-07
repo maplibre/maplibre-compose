@@ -410,8 +410,10 @@ internal class GlJsStyleBinding(
   ) {
     requireLoaded()
     val js = state.toJsValue<Any>()
-    for (ident in featureIdentifiers(sourceId, sourceLayerId, featureId)) {
-      map.setFeatureState(ident, js)
+    posted("Feature '$featureId' in source '$sourceId'", state) {
+      for (ident in featureIdentifiers(sourceId, sourceLayerId, featureId)) {
+        mutate("set the feature state") { map.setFeatureState(ident, js) }
+      }
     }
   }
 
@@ -419,7 +421,7 @@ internal class GlJsStyleBinding(
    * Merged across the identifier forms: MapLibre keys state by the feature id's JS type, and a
    * feature the common API names as text may be stored under either.
    */
-  override fun featureState(
+  override suspend fun featureState(
     sourceId: String,
     sourceLayerId: String?,
     featureId: String,
@@ -454,7 +456,7 @@ internal class GlJsStyleBinding(
   }
 
   /** MapLibre GL JS queries one source layer per call, where the common contract takes a set. */
-  override fun querySourceFeatures(
+  override suspend fun querySourceFeatures(
     sourceId: String,
     sourceLayerIds: Set<String>,
     filter: JsonElement?,
@@ -542,7 +544,7 @@ internal class GlJsStyleBinding(
    * Trying paint before layout is safe: the style spec gives no layer type a name in both. MapLibre
    * throws rather than answering for a name it does not have.
    */
-  override fun layerProperty(layerId: String, name: String): JsonElement? {
+  override suspend fun layerProperty(layerId: String, name: String): JsonElement? {
     requireLoaded()
     val layer = map.getLayer(layerId) ?: return null
     val root =
@@ -563,7 +565,7 @@ internal class GlJsStyleBinding(
     return value?.toJsonElement()
   }
 
-  override fun transition(): TransitionOptions? {
+  override suspend fun transition(): TransitionOptions? {
     requireLoaded()
     val transition = map.style.getTransition()
     return TransitionOptions(
@@ -583,7 +585,7 @@ internal class GlJsStyleBinding(
 
   override val supportsPlacementTransitions: Boolean = false
 
-  override fun placementTransitions(): Boolean? {
+  override suspend fun placementTransitions(): Boolean? {
     requireLoaded()
     return true
   }
@@ -595,7 +597,7 @@ internal class GlJsStyleBinding(
     }
   }
 
-  override fun lightProperty(name: String): JsonElement? {
+  override suspend fun lightProperty(name: String): JsonElement? {
     requireLoaded()
     return map.getLight().asDynamic()[name].unsafeCast<Any?>()?.toJsonElement()
   }
@@ -607,14 +609,16 @@ internal class GlJsStyleBinding(
    */
   override fun setLight(light: JsonObject) {
     requireLoaded()
-    replace<LightSpecification>("set the light", map.getLight(), light) { value, options ->
-      map.setLight(value, options)
+    posted("The light", light) {
+      replace<LightSpecification>("set the light", map.getLight(), light) { value, options ->
+        map.setLight(value, options)
+      }
     }
   }
 
   override val supportsSky: Boolean = true
 
-  override fun skyProperty(name: String): JsonElement? {
+  override suspend fun skyProperty(name: String): JsonElement? {
     requireLoaded()
     val sky = map.getSky() ?: return null
     return sky.asDynamic()[name].unsafeCast<Any?>()?.toJsonElement()
@@ -623,19 +627,21 @@ internal class GlJsStyleBinding(
   /** Merges like the light. MapLibre treats an absent sky as no sky. */
   override fun setSky(sky: JsonObject?) {
     requireLoaded()
-    if (sky == null) {
-      val options = unsafeJso<StyleSetterOptions> { validate = false }
-      mutate("remove the sky") { map.setSky(null, options) }
-      return
-    }
-    replace<SkySpecification>("set the sky", map.getSky(), sky) { value, options ->
-      map.setSky(value, options)
+    posted("The sky", sky) {
+      if (sky == null) {
+        val options = unsafeJso<StyleSetterOptions> { validate = false }
+        mutate("remove the sky") { map.setSky(null, options) }
+      } else {
+        replace<SkySpecification>("set the sky", map.getSky(), sky) { value, options ->
+          map.setSky(value, options)
+        }
+      }
     }
   }
 
   override val supportsProjection: Boolean = true
 
-  override fun projectionProperty(name: String): JsonElement? {
+  override suspend fun projectionProperty(name: String): JsonElement? {
     requireLoaded()
     val projection = map.getProjection() ?: return null
     return projection.asDynamic()[name].unsafeCast<Any?>()?.toJsonElement()
@@ -644,8 +650,10 @@ internal class GlJsStyleBinding(
   /** MapLibre falls back to Mercator for an unknown name with a console warning, not an error. */
   override fun setProjection(projection: JsonObject) {
     requireLoaded()
-    mutate("set the projection") {
-      map.setProjection(projection.toJsValue<ProjectionSpecification>())
+    posted("The projection", projection) {
+      mutate("set the projection") {
+        map.setProjection(projection.toJsValue<ProjectionSpecification>())
+      }
     }
   }
 
@@ -671,6 +679,18 @@ internal class GlJsStyleBinding(
   override fun layerExists(layerId: String): Boolean? {
     requireLoaded()
     return map.getLayer(layerId) != null
+  }
+
+  /**
+   * Runs a write that the common contract posts: MapLibre GL JS applies it inline, and a rejection
+   * is reported the way a posted engine would report it rather than thrown.
+   */
+  private inline fun posted(target: String, value: JsonElement?, action: () -> Unit) {
+    try {
+      action()
+    } catch (error: StyleMutationException) {
+      reportRejectedWrite(target, value, error)
+    }
   }
 
   private inline fun mutate(what: String, action: () -> Unit) {

@@ -142,6 +142,6 @@ class MlnFfiTileRequestCoordinatorTest {
       return null
     }
 
-    override fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T? = null
+    override suspend fun <T> awaitRenderSession(action: (RenderSessionHandle) -> T): T? = null
   }
 }

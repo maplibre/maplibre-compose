@@ -290,23 +290,15 @@ internal class MlnFfiMapSession(
       accessMap = { action ->
         if (!lifecycle.acceptsWork) false else runOnMap(action).let { true }
       },
-      postMap = { action ->
-        if (!lifecycle.acceptsWork) false else loop?.post(action) ?: false
+      postMap = { action, abandon ->
+        if (!lifecycle.acceptsWork) false else loop?.post(action, abandon) ?: false
       },
-      accessRenderSession = { action ->
-        if (!lifecycle.acceptsWork) {
+      enqueueRenderSession = { action ->
+        val host = hostSession
+        if (!lifecycle.acceptsWork || host == null) {
           false
         } else {
-          withRendererAccess {
-            val session = renderSession
-            if (session == null || !renderSessionReady) {
-              logger?.d { "Ignoring a render session call: no session is ready yet" }
-              false
-            } else {
-              action(session)
-              true
-            }
-          } ?: false
+          host.enqueueRenderer { action(renderSession.takeIf { renderSessionReady }) }
         }
       },
       sourceChanged = { sourceId ->
@@ -1053,11 +1045,6 @@ internal class MlnFfiMapSession(
   }
 
   /** The render session lives on the host's renderer thread. */
-  private fun <T> withRendererAccess(action: () -> T): T? {
-    val host = hostSession ?: return null
-    return host.withRendererAccess(action)
-  }
-
   // endregion
 
   // region MapAdapter

@@ -236,7 +236,7 @@ class LayerPropertyRoundTripTest {
     }
   }
 
-  private fun <L : Layer> check(
+  private suspend fun <L : Layer> check(
     style: StyleBinding,
     layer: L,
     case: Case<L>,

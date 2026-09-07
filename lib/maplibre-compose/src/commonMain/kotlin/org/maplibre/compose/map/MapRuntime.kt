@@ -236,56 +236,55 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   /** Projection of the current loaded-style generation. */
   public val projection: StyleProjection = StyleProjection(this)
 
-  internal fun transitionOptions(): TransitionOptions? = readStyle { it.transition() }
+  internal suspend fun transitionOptions(): TransitionOptions? = readStyle { it.transition() }
 
   internal fun setTransitionOptions(options: TransitionOptions) {
-    mutateStyle("the transition") { it.setTransition(options.scaledBy(it.animatorDurationScale)) }
+    mutateStyle { it.setTransition(options.scaledBy(it.animatorDurationScale)) }
   }
 
-  internal fun placementTransitions(): Boolean? = readStyle { it.placementTransitions() }
+  internal suspend fun placementTransitions(): Boolean? = readStyle { it.placementTransitions() }
 
   internal fun setPlacementTransitions(enabled: Boolean) {
-    mutateStyle("placement transitions") { it.setPlacementTransitions(enabled) }
+    mutateStyle { it.setPlacementTransitions(enabled) }
   }
 
-  internal fun lightProperty(name: String): JsonElement? = readStyle { it.lightProperty(name) }
+  internal suspend fun lightProperty(name: String): JsonElement? = readStyle {
+    it.lightProperty(name)
+  }
 
   internal fun setLight(light: Light) {
-    mutateStyle("the light") {
-      it.setLight(light.toJson().withScaledTransitions(it.animatorDurationScale))
-    }
+    mutateStyle { it.setLight(light.toJson().withScaledTransitions(it.animatorDurationScale)) }
   }
 
-  internal fun skyProperty(name: String): JsonElement? = readStyle { it.skyProperty(name) }
+  internal suspend fun skyProperty(name: String): JsonElement? = readStyle { it.skyProperty(name) }
 
   internal fun setSky(sky: Sky?) {
-    mutateStyle("the sky") {
-      it.setSky(sky?.toJson()?.withScaledTransitions(it.animatorDurationScale))
-    }
+    mutateStyle { it.setSky(sky?.toJson()?.withScaledTransitions(it.animatorDurationScale)) }
   }
 
-  internal fun projectionProperty(name: String): JsonElement? = readStyle {
+  internal suspend fun projectionProperty(name: String): JsonElement? = readStyle {
     it.projectionProperty(name)
   }
 
   internal fun setProjection(projection: Projection) {
-    mutateStyle("the projection") { it.setProjection(projection.toJson()) }
+    mutateStyle { it.setProjection(projection.toJson()) }
   }
 
-  private fun <T> readStyle(read: (StyleBinding) -> T?): T? {
+  /**
+   * Reads from the ready loaded style, or returns null without one. A style that stops being ready
+   * while the engine answers also reads as null: the value belongs to a generation that is gone.
+   */
+  private suspend fun <T> readStyle(read: suspend (StyleBinding) -> T?): T? {
     val current = readyLoadedStyle() ?: return null
-    return operationGuard(current).run { read(current) }
+    operationGuard(current).run {}
+    val result = read(current)
+    return result.takeIf { readyLoadedStyle() === current }
   }
 
-  private fun mutateStyle(what: String, mutate: (StyleBinding) -> Unit) {
+  /** Posts a write to the ready loaded style. The engine reports a rejection through the logger. */
+  private fun mutateStyle(mutate: (StyleBinding) -> Unit) {
     val current = checkNotNull(readyLoadedStyle()) { "No ready loaded style" }
-    operationGuard(current).run {
-      try {
-        mutate(current)
-      } catch (error: StyleMutationException) {
-        throw StyleHandleException("Could not set $what: ${error.message}", error)
-      }
-    }
+    operationGuard(current).run { mutate(current) }
   }
 
   internal fun sourceHandle(id: String): SourceHandle? {

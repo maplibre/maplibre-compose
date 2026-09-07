@@ -6,6 +6,7 @@ import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -150,7 +151,7 @@ class MlnFfiSurfaceLossTest {
       style.setFeatureState(source.id, null, "1", state("without-surface"))
       assertEquals(
         state("before-surface", "without-surface"),
-        style.featureState(source.id, null, "1"),
+        runBlocking { style.featureState(source.id, null, "1") },
       )
       it.restoreSurface()
       assertEquals(null, it.tryReadPixel(CENTER, CENTER))
@@ -163,7 +164,7 @@ class MlnFfiSurfaceLossTest {
       style.resetFeatureStates(source.id, null)
       assertEquals(
         JsonObject(emptyMap()),
-        style.featureState(source.id, null, "1"),
+        runBlocking { style.featureState(source.id, null, "1") },
       )
       it.restoreSurface()
       assertEquals(null, it.tryReadPixel(CENTER, CENTER))

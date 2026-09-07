@@ -30,6 +30,11 @@ import org.maplibre.spatialk.geojson.Position
  *
  * Style unload invalidates the binding. An operation on an invalid binding produces a stale-style
  * error.
+ *
+ * A read that asks the engine for a value suspends until the engine's thread answers. A property
+ * write posts to the engine's thread and returns before it runs; the engine's rejection of such a
+ * write is logged through [reportRejectedWrite] rather than thrown. Structural commands, such as
+ * adding a source, layer, or image, still wait for the engine and throw [StyleMutationException].
  */
 internal interface StyleBinding {
   /** Identifies the loaded base-style generation for this binding. */
@@ -134,8 +139,22 @@ internal interface StyleBinding {
     }
   }
 
-  /** @return null if the style has unloaded or the layer has no value for [name]. */
-  fun layerProperty(layerId: String, name: String): JsonElement?
+  /**
+   * Reports a posted write that the engine rejected. [target] names what kept its previous value,
+   * such as `The light`; [value] is what the engine refused, or null when the write carried none.
+   */
+  fun reportRejectedWrite(target: String, value: JsonElement?, error: StyleMutationException) {
+    logger?.w(error) {
+      "$target kept its previous value: MapLibre rejected ${value ?: "the write"}."
+    }
+  }
+
+  /**
+   * Reads one layer property on the engine's thread.
+   *
+   * @return null if the style has unloaded or the layer has no value for [name].
+   */
+  suspend fun layerProperty(layerId: String, name: String): JsonElement?
 
   /**
    * Checks whether the style contains a live layer with [layerId]. Callers use the result to report
@@ -154,9 +173,12 @@ internal interface StyleBinding {
   val animatorDurationScale: Float
 
   /** @return the loaded style's global transition, or null if the style has unloaded. */
-  fun transition(): TransitionOptions?
+  suspend fun transition(): TransitionOptions?
 
-  /** Replaces the loaded style's global transition. */
+  /**
+   * Replaces the loaded style's global transition. The write runs on the engine's thread, possibly
+   * after this function returns.
+   */
   fun setTransition(options: TransitionOptions)
 
   /** Returns true if this engine can switch the symbol placement cross-fade at runtime. */
@@ -166,19 +188,22 @@ internal interface StyleBinding {
    * @return whether symbol placement changes cross-fade, or null if the style has unloaded. An
    *   engine without [supportsPlacementTransitions] reports true.
    */
-  fun placementTransitions(): Boolean?
+  suspend fun placementTransitions(): Boolean?
 
-  /** An engine without [supportsPlacementTransitions] logs a warning and keeps the cross-fade. */
+  /**
+   * Sets whether symbol placement changes cross-fade. The write runs on the engine's thread,
+   * possibly after this function returns. An engine without [supportsPlacementTransitions] logs a
+   * warning and keeps the cross-fade.
+   */
   fun setPlacementTransitions(enabled: Boolean)
 
   /** @return null if the style has unloaded or the style light sets no value for [name]. */
-  fun lightProperty(name: String): JsonElement?
+  suspend fun lightProperty(name: String): JsonElement?
 
   /**
-   * Replaces the style light. A property absent from [light] returns to its spec default.
-   *
-   * @throws StyleMutationException if the engine returns an error. An error does not change the
-   *   previous value.
+   * Replaces the style light. A property absent from [light] returns to its spec default. The write
+   * runs on the engine's thread, possibly after this function returns. A light the engine rejects
+   * is reported through [reportRejectedWrite] and leaves the previous light in place.
    */
   fun setLight(light: JsonObject)
 
@@ -189,14 +214,13 @@ internal interface StyleBinding {
    * @return null if the style has unloaded or the style sky sets no value for [name]. An engine
    *   without [supportsSky] reports null.
    */
-  fun skyProperty(name: String): JsonElement?
+  suspend fun skyProperty(name: String): JsonElement?
 
   /**
    * Replaces the style sky. A property absent from [sky] returns to its spec default; a null [sky]
-   * removes the sky. An engine without [supportsSky] logs a warning.
-   *
-   * @throws StyleMutationException if the engine returns an error. An error does not change the
-   *   previous value.
+   * removes the sky. The write runs on the engine's thread, possibly after this function returns. A
+   * sky the engine rejects is reported through [reportRejectedWrite] and leaves the previous sky in
+   * place. An engine without [supportsSky] logs a warning.
    */
   fun setSky(sky: JsonObject?)
 
@@ -207,14 +231,13 @@ internal interface StyleBinding {
    * @return null if the style has unloaded or the style projection sets no value for [name]. An
    *   engine without [supportsProjection] reports null.
    */
-  fun projectionProperty(name: String): JsonElement?
+  suspend fun projectionProperty(name: String): JsonElement?
 
   /**
    * Replaces the style projection. A property absent from [projection] returns to its spec default.
-   * An engine without [supportsProjection] logs a warning and keeps Mercator.
-   *
-   * @throws StyleMutationException if the engine returns an error. An error does not change the
-   *   previous value.
+   * The write runs on the engine's thread, possibly after this function returns. A projection the
+   * engine rejects is reported through [reportRejectedWrite] and leaves the previous projection in
+   * place. An engine without [supportsProjection] logs a warning and keeps Mercator.
    */
   fun setProjection(projection: JsonObject)
 
@@ -412,7 +435,11 @@ internal interface StyleBinding {
    */
   fun reportSourceChanged(sourceId: String) {}
 
-  /** Merges [state] into the state of one feature; a null value in [state] drops that key. */
+  /**
+   * Merges [state] into the state of one feature; a null value in [state] drops that key. The write
+   * runs on the engine's thread, possibly after this function returns. A state the engine rejects
+   * is reported through [reportRejectedWrite] and leaves the previous state in place.
+   */
   fun setFeatureState(
     sourceId: String,
     sourceLayerId: String?,
@@ -420,10 +447,17 @@ internal interface StyleBinding {
     state: JsonObject,
   )
 
-  /** @return an empty object when the feature has no state, or the style has unloaded. */
-  fun featureState(sourceId: String, sourceLayerId: String?, featureId: String): JsonObject
+  /**
+   * Reads one feature's state on the engine's thread.
+   *
+   * @return an empty object when the feature has no state, or the style has unloaded.
+   */
+  suspend fun featureState(sourceId: String, sourceLayerId: String?, featureId: String): JsonObject
 
-  /** Removes one key of a feature's state, or the whole state when [stateKey] is null. */
+  /**
+   * Removes one key of a feature's state, or the whole state when [stateKey] is null. The write
+   * runs on the engine's thread, possibly after this function returns.
+   */
   fun removeFeatureState(
     sourceId: String,
     sourceLayerId: String?,
@@ -431,16 +465,20 @@ internal interface StyleBinding {
     stateKey: String?,
   )
 
-  /** Removes the state of every feature in a source, or in one of its source layers. */
+  /**
+   * Removes the state of every feature in a source, or in one of its source layers. The write runs
+   * on the engine's thread, possibly after this function returns.
+   */
   fun resetFeatureStates(sourceId: String, sourceLayerId: String?)
 
   /**
-   * Queries the features a source has loaded, whether or not they are drawn.
+   * Queries the features a source has loaded, whether or not they are drawn. Runs on the engine's
+   * thread.
    *
    * @param filter a style-spec filter expression, or null to match every feature.
    * @return empty when the style has unloaded or nothing has rendered yet.
    */
-  fun querySourceFeatures(
+  suspend fun querySourceFeatures(
     sourceId: String,
     sourceLayerIds: Set<String>,
     filter: JsonElement?,
