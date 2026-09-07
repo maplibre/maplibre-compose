@@ -3,14 +3,15 @@ package org.maplibre.compose.gljs
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.skiaCanvas
-import org.jetbrains.skia.Rect
-import org.jetbrains.skia.SamplingMode
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.map.ComposeMapSurface
 import org.maplibre.compose.map.MapExtent
@@ -24,14 +25,15 @@ internal fun GlJsMapSurface(
   logger: MapLog?,
   presentFrames: Boolean,
 ) {
-  val createCompositor = LocalGlJsCompositor.current
+  var physicalSize by remember { mutableStateOf(IntSize.Zero) }
+  val compositor = rememberGlJsCompositor(physicalSize)
   val controller =
-    remember(renderer, createCompositor) {
-      GlJsSurfaceController(renderer, createCompositor(logger), logger)
+    remember(renderer, compositor) {
+      GlJsSurfaceController(renderer, compositor, logger)
     }
   // Node detachment can be temporary; composition owns the platform resources.
   DisposableEffect(controller) { onDispose { controller.close() } }
-  Box(modifier.mapSurface(controller, presentFrames))
+  Box(modifier.onSizeChanged { physicalSize = it }.mapSurface(controller, presentFrames))
 }
 
 private class GlJsSurfaceController(
@@ -74,9 +76,10 @@ private class GlJsSurfaceController(
   override fun prepare(extent: MapExtent): Boolean {
     if (failed || closed || extent.isEmpty) return false
     return try {
-      val acquired = compositor.acquire(extent)
-      val rendered =
-        acquired != GlJsFrameTarget.UnsupportedSize && renderer.render(acquired, extent)
+      var rendered = false
+      val acquired = compositor.render(extent) { target ->
+        rendered = renderer.render(target, extent)
+      }
       when (acquired) {
         GlJsFrameTarget.NotReady -> requestFrame()
         GlJsFrameTarget.OwnCanvas,
@@ -102,21 +105,10 @@ private class GlJsSurfaceController(
 
   override fun draw(scope: DrawScope) {
     val target = prepared
-    val currentTarget =
-      target != null && EmscriptenGl.currentContext()?.handle == target.hostContext.handle
-    if (target != null && !currentTarget) requestFrame()
     with(scope) {
-      if (presentFrames && currentTarget) {
-        drawIntoCanvas { canvas ->
-          canvas.skiaCanvas.drawImageRect(
-            image = target.image,
-            src = Rect.makeWH(target.widthPx.toFloat(), target.heightPx.toFloat()),
-            dst = Rect.makeWH(size.width, size.height),
-            samplingMode = SamplingMode.LINEAR,
-            paint = null,
-            strict = true,
-          )
-        }
+      val painter = compositor.painter
+      if (presentFrames && target != null && painter != null) {
+        with(painter) { draw(size) }
       } else drawRect(Color.Transparent)
     }
   }
