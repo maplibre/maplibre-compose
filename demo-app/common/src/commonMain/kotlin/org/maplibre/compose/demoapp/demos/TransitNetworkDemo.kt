@@ -73,6 +73,7 @@ import org.maplibre.compose.expressions.dsl.eq
 import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.expressions.dsl.offset
 import org.maplibre.compose.expressions.value.SymbolAnchor
+import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.layers.SymbolLayer
@@ -376,31 +377,33 @@ object TransitNetworkDemo : Demo {
     val routeSource = rememberGeoJsonSource(GeoJsonData.Features(network.routeLines))
     val terminalSource = rememberGeoJsonSource(GeoJsonData.Features(network.terminals))
 
-    LineLayer(
-      id = "transit-routes",
-      source = routeSource,
-      color = feature["color"].asString().convertToColor(),
-      width = const(3.dp),
-      opacity = if (selected == null) const(0.8f) else const(0.2f),
-    )
-    if (selected != null) {
+    Anchor.Below({ it.type == "symbol" }) {
       LineLayer(
-        id = "transit-route-selected",
+        id = "transit-routes",
         source = routeSource,
-        filter = feature["route"] eq const(selected),
         color = feature["color"].asString().convertToColor(),
-        width = const(4.dp),
+        width = const(3.dp),
+        opacity = if (selected == null) const(0.8f) else const(0.2f),
+      )
+      if (selected != null) {
+        LineLayer(
+          id = "transit-route-selected",
+          source = routeSource,
+          filter = feature["route"] eq const(selected),
+          color = feature["color"].asString().convertToColor(),
+          width = const(4.dp),
+        )
+      }
+
+      CircleLayer(
+        id = "transit-terminals",
+        source = terminalSource,
+        radius = const(4.dp),
+        color = const(Color.White),
+        strokeWidth = const(2.dp),
+        strokeColor = const(Color(0xFF37474F)),
       )
     }
-
-    CircleLayer(
-      id = "transit-terminals",
-      source = terminalSource,
-      radius = const(4.dp),
-      color = const(Color.White),
-      strokeWidth = const(2.dp),
-      strokeColor = const(Color(0xFF37474F)),
-    )
     SymbolLayer(
       id = "transit-terminal-names",
       source = terminalSource,

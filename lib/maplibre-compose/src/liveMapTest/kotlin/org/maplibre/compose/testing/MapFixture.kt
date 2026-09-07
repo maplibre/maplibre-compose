@@ -1,5 +1,8 @@
 package org.maplibre.compose.testing
 
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import kotlin.math.abs
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -8,13 +11,16 @@ import kotlin.time.TimeSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import org.maplibre.compose.camera.internal.CameraInputTarget
+import org.maplibre.compose.map.DefaultStyleCompositionEvaluator
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapAttachment
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MapState
+import org.maplibre.compose.map.SnapshotStyleOwnership
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.util.MaplibreComposable
 
 /**
  * A real map session on whichever MapLibre this platform uses, driven frame by frame by the test.
@@ -118,6 +124,22 @@ internal suspend fun MapFixture.pumpUntilPixel(
 }
 
 internal expect fun createMapFixture(extent: MapExtent = MapFixture.DEFAULT_EXTENT): MapFixture
+
+/** Evaluates real composables, then publishes and reconciles through the map's production paths. */
+internal suspend fun MapFixture.declare(content: @Composable @MaplibreComposable () -> Unit) {
+  awaitMapReady()
+  val revision =
+    DefaultStyleCompositionEvaluator.evaluate(
+      content,
+      checkNotNull(style),
+      checkNotNull(session.getViewport()),
+      Density(1f),
+      LayoutDirection.Ltr,
+      SnapshotStyleOwnership.Empty,
+    )
+  state.beginStyleRevision(session, revision)
+  state.updateStyleResources(session, session.reconcileStyleRevision(revision))
+}
 
 internal enum class MapLibreFlavor {
   NATIVE,

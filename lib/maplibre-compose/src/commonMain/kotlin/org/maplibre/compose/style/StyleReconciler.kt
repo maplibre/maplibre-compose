@@ -46,7 +46,7 @@ internal class StyleReconciler {
       sources.mapNotNullTo(mutableSetOf()) { (id, applied) ->
         desiredSources[id]?.takeIf { !applied.definition.canUpdateTo(it) }?.let { id }
       }
-    val placements = hashMapOf<Anchor, String>()
+    val placements = hashMapOf<Anchor, Placement>()
     val placedLayers =
       revision.layers.map { desired ->
         PlacedLayer(
@@ -158,19 +158,22 @@ internal class StyleReconciler {
         .map { (id, type) -> predicateLayerHandle(style, id, type) }
         .also { baseLayers = it }
 
-  /**
-   * Resolves [anchor] to the ID of the base-style layer that its layers sit directly below, or to
-   * an empty string for the top of the stack.
-   */
-  private fun placement(style: StyleBinding, anchor: Anchor): String =
+  /** Resolves [anchor] against the base-style layers of the bound generation. */
+  private fun placement(style: StyleBinding, anchor: Anchor): Placement =
     when (anchor) {
-      is Anchor.Top -> ""
-      is Anchor.Bottom -> baseLayers(style).firstOrNull()?.id.orEmpty()
-      is Anchor.Below -> baseLayers(style).firstOrNull { anchor.predicate(it) }?.id.orEmpty()
+      is Anchor.Top -> Placement.Top
+      is Anchor.Bottom -> Placement.Bottom
+      is Anchor.Below ->
+        baseLayers(style).firstOrNull { anchor.predicate(it) }?.let { Placement.Below(it.id) }
+          ?: Placement.Top
       is Anchor.Above -> {
         val base = baseLayers(style)
         val highest = base.indexOfLast { anchor.predicate(it) }
-        base.getOrNull(if (highest < 0) 0 else highest + 1)?.id.orEmpty()
+        when {
+          highest < 0 -> Placement.Bottom
+          highest == base.lastIndex -> Placement.Top
+          else -> Placement.Below(base[highest + 1].id)
+        }
       }
     }
 
@@ -226,18 +229,30 @@ internal class StyleReconciler {
 
   private fun shouldMoveLayer(
     ids: List<String>,
-    placement: String,
+    placement: Placement,
     previousId: String?,
     id: String,
     nextDesiredId: String?,
   ): Boolean {
     if (previousId != null) return ids.idAbove(previousId) != id
     if (nextDesiredId != null) return ids.idAbove(id) != nextDesiredId
-    return placement != id && ids.idAbove(id) != placement
+    val before = beforeLayerId(ids, placement, null)
+    return before != id && ids.idAbove(id) != before
   }
 
-  private fun beforeLayerId(ids: List<String>, placement: String, previousId: String?): String =
-    if (previousId != null) ids.idAbove(previousId) else placement
+  /**
+   * The ID a layer at [placement] is inserted below, or an empty string for the top of the stack.
+   * [Placement.Bottom] reads the tracked order at insertion time, so it sits under the engine's own
+   * layers as well as the base style's.
+   */
+  private fun beforeLayerId(ids: List<String>, placement: Placement, previousId: String?): String {
+    if (previousId != null) return ids.idAbove(previousId)
+    return when (placement) {
+      Placement.Top -> ""
+      Placement.Bottom -> ids.firstOrNull().orEmpty()
+      is Placement.Below -> placement.layerId
+    }
+  }
 
   private fun List<String>.idAbove(id: String): String {
     val index = indexOf(id)
@@ -252,19 +267,34 @@ internal class StyleReconciler {
 
   private class AppliedLayer(
     var definition: LayerDefinition,
-    val placement: String,
+    val placement: Placement,
     val installation: LayerInstallation,
   )
 
-  private class PlacedLayer(desired: DesiredStyleLayer, val placement: String) {
+  private class PlacedLayer(desired: DesiredStyleLayer, val placement: Placement) {
     val definition: LayerDefinition = desired.definition
+  }
+
+  /**
+   * An anchor resolved against one base-style generation. Layers with equal placements form one
+   * group in style-content order, so two anchors that resolve to the same position never move each
+   * other's layers.
+   */
+  private sealed interface Placement {
+    data object Top : Placement
+
+    data object Bottom : Placement
+
+    /** Directly under the base-style layer [layerId]. */
+    data class Below(val layerId: String) : Placement
   }
 }
 
 /**
  * A handle for an anchor predicate. The reconciler holds the style while a predicate runs, so
  * operations run inline; a write from a predicate would mutate the base style mid-revision, so
- * writes are refused.
+ * writes are refused. Base layers do not change within a generation, so [type] is trusted for the
+ * handle's life and a property read costs one engine read.
  */
 private fun predicateLayerHandle(style: StyleBinding, id: String, type: String): LayerHandle {
   val identity = style.identity.layers.get(id)

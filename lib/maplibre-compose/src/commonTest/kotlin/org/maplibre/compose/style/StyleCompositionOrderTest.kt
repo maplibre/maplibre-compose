@@ -174,6 +174,49 @@ class StyleCompositionOrderTest {
     )
   }
 
+  /**
+   * MapLibre GL JS has no layers of its own, so an empty base style has nothing between the top and
+   * the bottom of the stack. The two must stay apart, and a scan with no match must reach its end.
+   */
+  @Test
+  fun top_and_bottom_stay_distinct_on_an_empty_base() = runTest {
+    val style = RecordingStyleBinding()
+    val reconciler = StyleReconciler()
+    fun revision() =
+      revision(
+        background("front") to Anchor.Top,
+        background("back") to Anchor.Bottom,
+        background("over-nothing") to Anchor.Above { it.type == "symbol" },
+        background("under-nothing") to Anchor.Below { it.type == "symbol" },
+      )
+
+    reconciler.apply(style, revision())
+    assertEquals(listOf("back", "over-nothing", "front", "under-nothing"), style.layerIds())
+
+    val changes = reconciler.apply(style, revision())
+    assertEquals(listOf("back", "over-nothing", "front", "under-nothing"), style.layerIds())
+    assertNull(changes.layerOrder)
+  }
+
+  /** The engine's own layers, such as MapLibre Native's annotation layer, sit above the base. */
+  @Test
+  fun bottom_lands_under_a_layer_that_is_not_a_base_layer() = runTest {
+    val style = RecordingStyleBinding(layers = listOf(BackgroundLayer("engine-owned")))
+    val base =
+      object : StyleBinding by style {
+        override fun layerTypes(): Map<String, String> = emptyMap()
+      }
+    val reconciler = StyleReconciler()
+    val revision = revision(background("front") to Anchor.Top, background("back") to Anchor.Bottom)
+
+    reconciler.apply(base, revision)
+    assertEquals(listOf("back", "engine-owned", "front"), style.layerIds())
+
+    val changes = reconciler.apply(base, revision)
+    assertEquals(listOf("back", "engine-owned", "front"), style.layerIds())
+    assertNull(changes.layerOrder)
+  }
+
   @Test
   fun composition_owned_layers_are_never_matched() = runTest {
     val style = RecordingStyleBinding(layers = listOf(BackgroundLayer("bg"), symbolLayer("labels")))

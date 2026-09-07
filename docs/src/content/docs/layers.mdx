@@ -59,10 +59,10 @@ after the property. The default, null, uses the global transition that
 By default, your layers draw above the base style layers. <Api of="Anchor" />
 inserts a layer at another position: at the `Bottom`, at the `Top`, or `Above`
 or `Below` base layers that a predicate selects. The predicate receives a
-<Api of="LayerHandle" /> for each base layer, so it can match on the layer's
-type, ID, or properties. `Below` lands under the lowest matching layer and
-`Above` lands over the highest one. When nothing matches, `Below` places the
-layers at the top and `Above` places them at the bottom, without an error.
+<Api of="LayerHandle" /> for a base layer, so it can match on the layer's type,
+ID, or properties. `Below` lands under the lowest matching layer and `Above`
+lands over the highest one. When nothing matches, `Below` places the layers at
+the top and `Above` places them at the bottom, without an error.
 
 <Code code={rememberedMapStyle(region(layers, "anchors"))} lang="kotlin" title="App.kt" />
 

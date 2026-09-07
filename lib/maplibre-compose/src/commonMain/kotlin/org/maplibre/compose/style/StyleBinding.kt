@@ -76,9 +76,9 @@ internal interface StyleBinding {
   fun layerIds(): List<String>
 
   /**
-   * Every layer's style-spec type keyed by ID, in stack order from bottom to top. The default reads
-   * each layer separately; an engine with per-call overhead overrides this to read them in one
-   * pass.
+   * Every layer's style-spec type keyed by ID, in stack order from bottom to top. A layer the
+   * engine adds for its own use is omitted, as [getLayer] omits it. The default reads each layer
+   * separately; an engine with per-call overhead overrides this to read them in one pass.
    */
   fun layerTypes(): Map<String, String> =
     layerIds().mapNotNull { id -> getLayer(id)?.definition()?.type?.let { id to it } }.toMap()

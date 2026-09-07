@@ -99,9 +99,7 @@ internal constructor(
 
   private fun requireCurrent() {
     style.requireCurrent(identity)
-    check(isCurrentResource()) { "Layer '$id' is no longer owned by this handle" }
-    val currentType = style.getLayer(id)?.definition()?.type
-    check(currentType == type) { "Layer '$id' is no longer the $type layer owned by this handle" }
+    check(isCurrentResource()) { "Layer '$id' is no longer the $type layer owned by this handle" }
   }
 
   private fun <T> operation(action: () -> T): T = operations.run {
@@ -122,12 +120,22 @@ internal constructor(
   }
 }
 
+/**
+ * A handle for the style state, which outlives revisions. Each operation re-reads the layer's type
+ * from the engine, so a layer that another writer replaced under the same ID is refused.
+ */
 internal fun StyleBinding.layerHandle(
   id: String,
   isCurrentResource: () -> Boolean,
   operations: StyleHandleOperationGuard,
 ): LayerHandle? {
   requireCurrent()
-  val layer = getLayer(id) ?: return null
-  return LayerHandle(id, layer.definition().type, this, isCurrentResource, operations)
+  val type = getLayer(id)?.definition()?.type ?: return null
+  return LayerHandle(
+    id = id,
+    type = type,
+    style = this,
+    isCurrentResource = { isCurrentResource() && getLayer(id)?.definition()?.type == type },
+    operations = operations,
+  )
 }

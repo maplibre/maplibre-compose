@@ -1,7 +1,6 @@
 package org.maplibre.compose.demoapp
 
 import org.maplibre.compose.demoapp.generated.Res
-import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.style.BaseStyle
 
 /**
@@ -28,10 +27,6 @@ interface DemoStyle {
    */
   val textFont: List<String>
     get() = listOf("Noto Sans Regular")
-
-  /** An anchor that keeps a demo's layers below the style's labels. */
-  val anchorBelowSymbols: Anchor
-    get() = Anchor.Below { it.type == "symbol" }
 }
 
 /**

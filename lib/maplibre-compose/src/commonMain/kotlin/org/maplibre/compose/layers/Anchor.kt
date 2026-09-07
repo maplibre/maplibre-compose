@@ -44,9 +44,9 @@ public sealed interface Anchor {
    * the bottom of the stack when it accepts none. See [Anchor.Companion.Above] to use this in the
    * style content.
    *
-   * The predicate is called with a [LayerHandle] for each base-style layer, from the bottom of the
-   * stack to the top, every time the style content is applied to the loaded style. The handles are
-   * read-only: a property setter throws
+   * Every time the style content is applied to the loaded style, the predicate is called with a
+   * [LayerHandle] for one base-style layer at a time, from the top of the stack down, until it
+   * accepts one. The handles are read-only: a property setter throws
    * [StyleHandleException][org.maplibre.compose.style.StyleHandleException].
    */
   public class Above private constructor(private val selector: LayerSelector) : Anchor {
@@ -70,9 +70,9 @@ public sealed interface Anchor {
    * the top of the stack when it accepts none. See [Anchor.Companion.Below] to use this in the
    * style content.
    *
-   * The predicate is called with a [LayerHandle] for each base-style layer, from the bottom of the
-   * stack to the top, every time the style content is applied to the loaded style. The handles are
-   * read-only: a property setter throws
+   * Every time the style content is applied to the loaded style, the predicate is called with a
+   * [LayerHandle] for one base-style layer at a time, from the bottom of the stack up, until it
+   * accepts one. The handles are read-only: a property setter throws
    * [StyleHandleException][org.maplibre.compose.style.StyleHandleException].
    */
   public class Below private constructor(private val selector: LayerSelector) : Anchor {
