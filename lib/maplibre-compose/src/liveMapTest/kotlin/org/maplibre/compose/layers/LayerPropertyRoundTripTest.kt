@@ -57,9 +57,8 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.RasterDemEncoding
-import org.maplibre.compose.sources.RasterDemSource
-import org.maplibre.compose.sources.RasterSource
-import org.maplibre.compose.sources.Source
+import org.maplibre.compose.sources.RasterDemTileSource
+import org.maplibre.compose.sources.RasterTileSource
 import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LayerInstallation
@@ -135,7 +134,7 @@ class LayerPropertyRoundTripTest {
   fun raster_layer_properties_reach_maplibre(): MapTestResult = runMapTest {
     assertPropertiesRoundTrip(RASTER_CASES) { style ->
       val source =
-        RasterSource(
+        RasterTileSource(
           id = "raster",
           tiles = listOf(TILE_TEMPLATE),
           options = TileSetOptions(),
@@ -150,7 +149,7 @@ class LayerPropertyRoundTripTest {
   fun hillshade_layer_properties_reach_maplibre(): MapTestResult = runMapTest {
     assertPropertiesRoundTrip(HILLSHADE_CASES) { style ->
       val source =
-        RasterDemSource(
+        RasterDemTileSource(
           id = "dem",
           tiles = listOf(TILE_TEMPLATE),
           options = TileSetOptions(),
@@ -166,7 +165,7 @@ class LayerPropertyRoundTripTest {
   fun color_relief_layer_properties_reach_maplibre(): MapTestResult = runMapTest {
     assertPropertiesRoundTrip(COLOR_RELIEF_CASES) { style ->
       val source =
-        RasterDemSource(
+        RasterDemTileSource(
           id = "dem",
           tiles = listOf(TILE_TEMPLATE),
           options = TileSetOptions(),
@@ -303,7 +302,7 @@ class LayerPropertyRoundTripTest {
 
     fun <T : ExpressionValue> Expression<T>.c() = compile(ExpressionContext.None)
 
-    fun addFeatureSource(style: StyleBinding): Source =
+    fun addFeatureSource(style: StyleBinding): GeoJsonSource =
       GeoJsonSource(
           id = SOURCE_ID,
           data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>()),

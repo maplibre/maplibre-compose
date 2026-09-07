@@ -15,8 +15,8 @@ import org.maplibre.compose.expressions.value.DpOffsetValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.ImageValue
 import org.maplibre.compose.expressions.value.TranslateAnchor
-import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceReferenceEffect
+import org.maplibre.compose.sources.VectorSource
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.MaplibreComposable
 
@@ -84,7 +84,7 @@ import org.maplibre.compose.util.MaplibreComposable
 @MaplibreComposable
 public fun FillExtrusionLayer(
   id: String,
-  source: Source,
+  source: VectorSource,
   sourceLayer: String = "",
   minZoom: Float = 0.0f,
   maxZoom: Float = 24.0f,
@@ -156,7 +156,7 @@ public fun FillExtrusionLayer(
   )
 }
 
-internal class FillExtrusionLayer(id: String, source: Source) : FeatureLayer(id, source) {
+internal class FillExtrusionLayer(id: String, source: VectorSource) : FeatureLayer(id, source) {
 
   override val type: String = "fill-extrusion"
 

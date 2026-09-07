@@ -30,7 +30,7 @@ import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.GeoJsonSourceHandle
 import org.maplibre.compose.sources.TileSetOptions
-import org.maplibre.compose.sources.VectorSource
+import org.maplibre.compose.sources.VectorTileSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.RecordingStyleBinding
@@ -701,8 +701,8 @@ class MapSnapshotterTest {
     runtime.awaitClosed()
   }
 
-  private fun attributedVectorSource(attribution: String): VectorSource =
-    VectorSource(
+  private fun attributedVectorSource(attribution: String): VectorTileSource =
+    VectorTileSource(
       id = "shared",
       tiles = listOf("https://example.com/{z}/{x}/{y}.pbf"),
       options = TileSetOptions(attributionHtml = attribution),

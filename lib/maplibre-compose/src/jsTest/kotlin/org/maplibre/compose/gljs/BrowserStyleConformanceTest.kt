@@ -20,7 +20,7 @@ import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.StyleLoadState
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.sources.TileSetOptions
-import org.maplibre.compose.sources.rememberVectorSource
+import org.maplibre.compose.sources.rememberVectorTileSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.StyleBinding
@@ -74,7 +74,7 @@ class BrowserStyleConformanceTest {
       ) {
         CaptureStyle { style = it }
         val source =
-          rememberVectorSource(
+          rememberVectorTileSource(
             tiles = listOf("https://example.invalid/{z}/{x}/{y}.pbf"),
             options = TileSetOptions(minZoom = 24, maxZoom = 24),
           )

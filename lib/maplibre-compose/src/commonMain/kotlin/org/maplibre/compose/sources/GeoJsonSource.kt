@@ -26,11 +26,9 @@ internal const val CLUSTER_ID_PROPERTY = "cluster_id"
  * fails. With [GeoJsonOptions.synchronousUpdate], initial inline data is prepared before the source
  * is added, and failures throw without adding the source.
  */
-public class GeoJsonSource : Source {
+public class GeoJsonSource : VectorSource {
 
-  private val options: GeoJsonOptions
-
-  private var data: GeoJsonData
+  private val content: Content
 
   /**
    * @param id Unique identifier for this source
@@ -38,26 +36,46 @@ public class GeoJsonSource : Source {
    * @param options see [GeoJsonOptions]
    */
   public constructor(id: String, data: GeoJsonData, options: GeoJsonOptions) : super(id) {
-    this.options = options
-    this.data = data
+    content = Declared(data, options)
   }
 
-  override fun toJson(): JsonObject = buildJsonObject {
-    put("type", "geojson")
-    put("data", data.toDataJson())
-    putGeoJsonOptions(options)
+  internal constructor(id: String, definition: JsonObject) : super(id) {
+    content = FromStyle(definition)
   }
+
+  override fun toJson(): JsonObject =
+    when (val content = content) {
+      is Declared ->
+        buildJsonObject {
+          put("type", "geojson")
+          put("data", content.data.toDataJson())
+          putGeoJsonOptions(content.options)
+        }
+      is FromStyle -> content.json
+    }
 
   override fun definition(): SourceDefinition =
-    SourceDefinition.GeoJson(
-      id,
-      data,
-      options.copy(clusterProperties = options.clusterProperties.toMap()),
-    )
+    when (val content = content) {
+      is Declared ->
+        SourceDefinition.GeoJson(
+          id,
+          content.data,
+          content.options.copy(clusterProperties = content.options.clusterProperties.toMap()),
+        )
+      is FromStyle -> super.definition()
+    }
 
   internal fun setDesiredData(data: GeoJsonData) {
-    this.data = data
+    check(content is Declared) { "Source '$id' came from the style, not the composition" }
+    content.data = data
   }
+
+  private sealed interface Content
+
+  private class Declared(var data: GeoJsonData, val options: GeoJsonOptions) : Content
+
+  /** What MapLibre reports about a base-style source; the composition never rebuilds it. */
+  private class FromStyle(val json: JsonObject) : Content
 
   public fun isCluster(feature: Feature<*, JsonObject?>): Boolean =
     CLUSTER_ID_PROPERTY in feature.properties.orEmpty()

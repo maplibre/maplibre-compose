@@ -16,7 +16,7 @@ import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
 
-class CustomVectorSourceNativeTest {
+class CustomVectorTileSourceNativeTest {
 
   @Test
   fun empty_mvt_data_completes_as_an_empty_tile(): MapTestResult = runMapTest {
@@ -27,7 +27,8 @@ class CustomVectorSourceNativeTest {
       fixture.loadStyle(BaseStyle.Empty)
       val style = assertNotNull(fixture.style)
       val source =
-        CustomVectorSource("empty", CustomVectorSourceOptions(minZoom = 0, maxZoom = 0)) { tile ->
+        CustomVectorTileSource("empty", CustomVectorTileSourceOptions(minZoom = 0, maxZoom = 0)) {
+          tile ->
           requests += tile
           release.await()
           byteArrayOf()
@@ -47,7 +48,7 @@ class CustomVectorSourceNativeTest {
 
       fixture.state.desiredStyleRevision =
         DesiredStyleRevision(listOf(source.definition()), emptyList(), emptyList())
-      val handle = assertIs<CustomVectorSourceHandle>(fixture.state.style.sources["empty"])
+      val handle = assertIs<CustomVectorTileSourceHandle>(fixture.state.style.sources["empty"])
       assertTrue(handle.querySourceFeatures(setOf("points")).isEmpty())
       val answered = requests.size
 

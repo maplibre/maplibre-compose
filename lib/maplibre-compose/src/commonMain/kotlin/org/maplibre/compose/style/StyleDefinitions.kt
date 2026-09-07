@@ -3,7 +3,7 @@ package org.maplibre.compose.style
 import androidx.compose.ui.graphics.ImageBitmap
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
-import org.maplibre.compose.sources.CustomVectorSourceOptions
+import org.maplibre.compose.sources.CustomVectorTileSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeometryTileProvider
@@ -41,7 +41,7 @@ internal sealed interface SourceDefinition {
 
   data class CustomVector(
     override val id: String,
-    val options: CustomVectorSourceOptions,
+    val options: CustomVectorTileSourceOptions,
     val provider: VectorTileProvider,
   ) : SourceDefinition
 

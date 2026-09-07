@@ -15,26 +15,22 @@ import org.maplibre.compose.util.PositionQuad
 import org.maplibre.spatialk.geojson.Position
 
 /** A map data source of an image placed at a given position. */
-public class ImageSource : Source {
+public class ImageSource : RasterSource {
 
-  private var bounds: PositionQuad
-  private var url: String
-
-  /** The pixels this source draws, or null when a URL names them. */
-  private var image: ImageBitmap?
+  private val content: Content
 
   /** Create an ImageSource from coordinates and a bitmap image. */
   public constructor(id: String, position: PositionQuad, image: ImageBitmap) : super(id) {
-    bounds = position
-    url = ""
-    this.image = image
+    content = Declared(position, url = "", image = image)
   }
 
   /** Create an ImageSource from coordinates and an image URI. */
   public constructor(id: String, position: PositionQuad, uri: String) : super(id) {
-    bounds = position
-    url = uri
-    image = null
+    content = Declared(position, url = uri, image = null)
+  }
+
+  internal constructor(id: String, definition: JsonObject) : super(id) {
+    content = FromStyle(definition)
   }
 
   /**
@@ -42,28 +38,60 @@ public class ImageSource : Source {
    * pixel-backed source added from [toJson] would be added empty.
    */
   override fun definition(): SourceDefinition =
-    SourceDefinition.Image(id, toJson(), bounds.toCorners(), image?.let(ImageSnapshot::capture))
+    when (val content = content) {
+      is Declared ->
+        SourceDefinition.Image(
+          id,
+          toJson(),
+          content.bounds.toCorners(),
+          content.image?.let(ImageSnapshot::capture),
+        )
+      is FromStyle -> super.definition()
+    }
 
   /** The URL form of this source; a pixel-backed source reports an empty `url` here. */
-  override fun toJson(): JsonObject = buildJsonObject {
-    put("type", "image")
-    put("url", url)
-    putJsonArray("coordinates") { bounds.toCorners().forEach { add(it.toCoordinateJson()) } }
-  }
+  override fun toJson(): JsonObject =
+    when (val content = content) {
+      is Declared ->
+        buildJsonObject {
+          put("type", "image")
+          put("url", content.url)
+          putJsonArray("coordinates") {
+            content.bounds.toCorners().forEach { add(it.toCoordinateJson()) }
+          }
+        }
+      is FromStyle -> content.json
+    }
 
   internal fun setDesiredBounds(bounds: PositionQuad) {
-    this.bounds = bounds
+    declared().bounds = bounds
   }
 
   internal fun setDesiredImage(image: ImageBitmap) {
-    url = ""
-    this.image = image
+    val content = declared()
+    content.url = ""
+    content.image = image
   }
 
   internal fun setDesiredUri(uri: String) {
-    url = uri
-    image = null
+    val content = declared()
+    content.url = uri
+    content.image = null
   }
+
+  private fun declared(): Declared {
+    check(content is Declared) { "Source '$id' came from the style, not the composition" }
+    return content
+  }
+
+  private sealed interface Content
+
+  /** @param image The pixels this source draws, or null when [url] names them. */
+  private class Declared(var bounds: PositionQuad, var url: String, var image: ImageBitmap?) :
+    Content
+
+  /** What MapLibre reports about a base-style source; the composition never rebuilds it. */
+  private class FromStyle(val json: JsonObject) : Content
 }
 
 /** The order MapLibre expects: top left, top right, bottom right, bottom left. */

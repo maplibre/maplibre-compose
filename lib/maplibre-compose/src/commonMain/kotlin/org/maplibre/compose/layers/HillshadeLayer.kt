@@ -12,7 +12,7 @@ import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.HillshadeMethod
 import org.maplibre.compose.expressions.value.IlluminationAnchor
 import org.maplibre.compose.expressions.value.RasterResampling
-import org.maplibre.compose.sources.Source
+import org.maplibre.compose.sources.RasterDemTileSource
 import org.maplibre.compose.sources.SourceReferenceEffect
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.MaplibreComposable
@@ -61,7 +61,7 @@ import org.maplibre.compose.util.MaplibreComposable
 @MaplibreComposable
 public fun HillshadeLayer(
   id: String,
-  source: Source,
+  source: RasterDemTileSource,
   minZoom: Float = 0.0f,
   maxZoom: Float = 24.0f,
   visible: Boolean = true,
@@ -117,7 +117,7 @@ public fun HillshadeLayer(
   )
 }
 
-internal class HillshadeLayer(id: String, val source: Source) : Layer(id) {
+internal class HillshadeLayer(id: String, val source: RasterDemTileSource) : Layer(id) {
 
   override val type: String = "hillshade"
 

@@ -15,8 +15,8 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.RasterDemEncoding
-import org.maplibre.compose.sources.RasterDemSource
-import org.maplibre.compose.sources.RasterSource
+import org.maplibre.compose.sources.RasterDemTileSource
+import org.maplibre.compose.sources.RasterTileSource
 import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.TransitionOptions
@@ -349,7 +349,7 @@ class LayerTransitionWiringTest {
       GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
 
     fun rasterSource() =
-      RasterSource(
+      RasterTileSource(
         id = "raster",
         tiles = listOf(TILE_TEMPLATE),
         options = TileSetOptions(),
@@ -357,7 +357,7 @@ class LayerTransitionWiringTest {
       )
 
     fun demSource() =
-      RasterDemSource(
+      RasterDemTileSource(
         id = "dem",
         tiles = listOf(TILE_TEMPLATE),
         options = TileSetOptions(),

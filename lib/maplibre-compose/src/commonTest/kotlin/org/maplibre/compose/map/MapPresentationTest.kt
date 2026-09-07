@@ -51,7 +51,7 @@ import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.GeoJsonSourceHandle
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.TileSetOptions
-import org.maplibre.compose.sources.VectorSource
+import org.maplibre.compose.sources.VectorTileSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleLayer
 import org.maplibre.compose.style.DesiredStyleRevision
@@ -783,7 +783,7 @@ class MapPresentationTest {
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, loadedStyle)
     fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
     val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources["shared"])
-    val vector = VectorSource("shared", "https://example.com/tiles.json")
+    val vector = VectorTileSource("shared", "https://example.com/tiles.json")
 
     fixture.state.beginStyleRevision(
       fixture.adapter,
@@ -1600,10 +1600,11 @@ class MapPresentationTest {
   }
 }
 
-private fun attributedVectorSource(): VectorSource = attributedVectorSource("tiles", "attribution")
+private fun attributedVectorSource(): VectorTileSource =
+  attributedVectorSource("tiles", "attribution")
 
-private fun attributedVectorSource(id: String, attribution: String): VectorSource =
-  VectorSource(
+private fun attributedVectorSource(id: String, attribution: String): VectorTileSource =
+  VectorTileSource(
     id = id,
     tiles = listOf("https://example.com/{z}/{x}/{y}.pbf"),
     options = TileSetOptions(attributionHtml = attribution),

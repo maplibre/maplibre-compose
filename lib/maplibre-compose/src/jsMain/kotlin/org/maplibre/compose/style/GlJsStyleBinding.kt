@@ -41,15 +41,15 @@ import org.maplibre.compose.layers.UnknownLayer
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.sources.CLUSTER_ID_PROPERTY
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
-import org.maplibre.compose.sources.CustomVectorSourceOptions
+import org.maplibre.compose.sources.CustomVectorTileSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeometryTileProvider
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.TileCoordinate
-import org.maplibre.compose.sources.UnknownSource
 import org.maplibre.compose.sources.VectorTileProvider
 import org.maplibre.compose.sources.featureIdentifiers
+import org.maplibre.compose.sources.reconstructedSource
 import org.maplibre.compose.sources.toDataJson
 import org.maplibre.compose.sources.toJsonObjectOrEmpty
 import org.maplibre.compose.util.toDataUrl
@@ -175,12 +175,12 @@ internal class GlJsStyleBinding(
 
   override fun getSource(id: String): Source? {
     requireLoaded()
-    return if (map.getSource<SourceHandle>(id) == null) null else reconstructSource(id)
+    return reconstructSource(id)
   }
 
   override fun getSources(): List<Source> {
     requireLoaded()
-    return map.getStyle().sources.keys().map(::reconstructSource)
+    return map.getStyle().sources.keys().mapNotNull(::reconstructSource)
   }
 
   override fun sourceIds(): List<String> {
@@ -203,16 +203,16 @@ internal class GlJsStyleBinding(
     return map.getLayersOrder().mapNotNull { id -> map.getLayer(id)?.let { id to it.type } }.toMap()
   }
 
-  private fun reconstructSource(id: String): Source =
-    UnknownSource(
+  private fun reconstructSource(id: String): Source? {
+    val source = map.getSource<SourceHandle>(id) ?: return null
+    return reconstructedSource(
       id,
       buildJsonObject {
-        map.getSource<SourceHandle>(id)?.let { source ->
-          put("type", source.type)
-          source.attribution?.let { put("attribution", it) }
-        }
+        put("type", source.type)
+        source.attribution?.let { put("attribution", it) }
       },
     )
+  }
 
   private fun reconstructLayer(id: String): Layer {
     val definition =
@@ -245,7 +245,7 @@ internal class GlJsStyleBinding(
   ): Boolean =
     throw UnsupportedOperationException(
       "Custom geometry source '$sourceId' is not available in the browser. Use " +
-        "CustomVectorSource when the provider can return MVT data, or use GeoJsonSource for " +
+        "CustomVectorTileSource when the provider can return MVT data, or use GeoJsonSource for " +
         "geographic features."
     )
 
@@ -261,7 +261,7 @@ internal class GlJsStyleBinding(
 
   override fun addCustomVectorSource(
     sourceId: String,
-    options: CustomVectorSourceOptions,
+    options: CustomVectorTileSourceOptions,
     provider: VectorTileProvider,
   ): Boolean {
     requireLoaded()

@@ -26,7 +26,7 @@ import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.StyleLoadState
 import org.maplibre.compose.map.createMapRuntime
 import org.maplibre.compose.map.rememberMapState
-import org.maplibre.compose.sources.RasterSource
+import org.maplibre.compose.sources.RasterTileSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.StyleIdentity
@@ -136,7 +136,7 @@ class BrowserMapStyleStateTest {
           val suffix = if (useLatestRevision.value) "latest" else "initial"
           RasterLayer(
             id = "$suffix-overlay",
-            source = RasterSource("$suffix-source", "https://example.invalid/$suffix.json"),
+            source = RasterTileSource("$suffix-source", "https://example.invalid/$suffix.json"),
             visible = true,
           )
         }
@@ -347,7 +347,7 @@ class BrowserMapStyleStateTest {
       val tileJson = installDeferredTileJson()
       try {
         val showLateSource = mutableStateOf(false)
-        val source = RasterSource("late-source", "https://tilejson.test/x.json")
+        val source = RasterTileSource("late-source", "https://tilejson.test/x.json")
         var styleState: MapStyleState? = null
         var mapState: MapState? = null
         setBrowserMapContent {

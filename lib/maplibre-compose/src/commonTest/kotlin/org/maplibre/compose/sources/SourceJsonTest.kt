@@ -19,9 +19,9 @@ class SourceJsonTest {
     val uri = "https://example.invalid/tiles.json"
     for ((source, type) in
       listOf(
-        VectorSource("vector", uri = uri) to "vector",
-        RasterSource("raster", uri = uri) to "raster",
-        RasterDemSource("dem", uri = uri) to "raster-dem",
+        VectorTileSource("vector", uri = uri) to "vector",
+        RasterTileSource("raster", uri = uri) to "raster",
+        RasterDemTileSource("dem", uri = uri) to "raster-dem",
       )) {
       val json = source.toJson()
       assertEquals(JsonPrimitive(type), json["type"])
@@ -67,7 +67,7 @@ class SourceJsonTest {
   @Test
   fun a_raster_source_writes_its_own_keys_and_its_tile_set_s() {
     val json =
-      RasterSource(
+      RasterTileSource(
           id = "tiles",
           tiles = listOf("https://example.invalid/{z}/{x}/{y}.png"),
           options =

@@ -8,7 +8,7 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.MillisecondsValue
 import org.maplibre.compose.expressions.value.RasterResampling
-import org.maplibre.compose.sources.Source
+import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.sources.SourceReferenceEffect
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.MaplibreComposable
@@ -17,7 +17,7 @@ import org.maplibre.compose.util.MaplibreComposable
  * Raster map textures such as satellite imagery.
  *
  * @param id Unique layer name.
- * @param source Raster data source for this layer.
+ * @param source Raster tile or image source for this layer.
  * @param minZoom The minimum zoom level for the layer. At zoom levels less than this, the layer
  *   will be hidden. A value in the range of `[0..24]`.
  * @param maxZoom The maximum zoom level for the layer. At zoom levels equal to or greater than
@@ -55,7 +55,7 @@ import org.maplibre.compose.util.MaplibreComposable
 @MaplibreComposable
 public fun RasterLayer(
   id: String,
-  source: Source,
+  source: RasterSource,
   minZoom: Float = 0.0f,
   maxZoom: Float = 24.0f,
   visible: Boolean = true,
@@ -112,7 +112,7 @@ public fun RasterLayer(
   )
 }
 
-internal class RasterLayer(id: String, val source: Source) : Layer(id) {
+internal class RasterLayer(id: String, val source: RasterSource) : Layer(id) {
 
   override val type: String = "raster"
 
