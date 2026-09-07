@@ -11,7 +11,6 @@ import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntSize
-import kotlin.math.abs
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.time.Duration
@@ -161,6 +160,7 @@ internal class PointerGesture(
       singleDragOrigin = change.position
       dragSample = event.gestureSample(null, density, change.position, setOf(change.type))
       selectedDrag = selectCameraDrag(checkNotNull(dragSample))
+      if (selectedDrag != null) acceptPress()
       // Lifting one contact often shifts the other. Require the host's normal touch slop
       // before treating that remaining contact as a new drag.
       dragRecognition = selectedDrag?.let {
@@ -348,29 +348,13 @@ internal class PointerGesture(
       }
     }
 
-    val binding =
-      selectedDrag
-        ?: run {
-          if ((change.position - checkNotNull(singleDragOrigin)).getDistance() > dragSlopPx()) {
-            clickOrigin = null
-            cancelLongClick()
-          }
-          return
-        }
-    if (delta == Offset.Zero) return
-
-    val motion = dragRecognition?.move(change)
-    if (motion == null) {
-      if (
-        quickZoomCandidate &&
-          abs(change.position.x - checkNotNull(singleDragOrigin).x) >
-            dragSlop(binding, change.type == PointerType.Mouse)
-      ) {
-        clickOrigin = null
-        cancelLongClick()
-      }
-      return
+    if (clickOrigin?.let { (change.position - it).getDistance() > clickMovementSlopPx() } == true) {
+      clickOrigin = null
+      cancelLongClick()
     }
+    val binding = selectedDrag ?: return
+    if (delta == Offset.Zero) return
+    val motion = dragRecognition?.move(change) ?: return
 
     // The recognizer removes slop from the first delta; quick zoom must use that same origin.
     delta = motion.delta
@@ -478,7 +462,7 @@ internal class PointerGesture(
           )
         if (
           options.bindings.transform.hasDemand(sample, options.camera.settings) ||
-            TapFamily.TwoFingerTap in tapDemand && TapFamily.TwoFingerTap.matches(options, sample)
+            hasTapDemand(TapFamily.TwoFingerTap, sample)
         )
           return a to b
       }
@@ -533,9 +517,7 @@ internal class PointerGesture(
             (first.position + second.position) / 2f,
             setOf(first.type, second.type),
           )
-        if (
-          TapFamily.TwoFingerTap in tapDemand && TapFamily.TwoFingerTap.matches(options, sample)
-        ) {
+        if (hasTapDemand(TapFamily.TwoFingerTap, sample)) {
           twoFingerTap =
             TwoFingerTapCandidate(
               min(pressStartedAtMillis, sample.uptimeMillis),
@@ -717,7 +699,8 @@ internal class PointerGesture(
           it != TapResponse.None
         } == true)
 
-  private fun dragSlopPx(): Float = if (pressedType == PointerType.Mouse) clickSlopPx else panSlopPx
+  private fun clickMovementSlopPx(): Float =
+    if (pressedType == PointerType.Mouse) clickSlopPx else panSlopPx
 
   private fun finishSingleVelocity(binding: SelectedDrag?) {
     if (binding == null || !gestureInProgress) return

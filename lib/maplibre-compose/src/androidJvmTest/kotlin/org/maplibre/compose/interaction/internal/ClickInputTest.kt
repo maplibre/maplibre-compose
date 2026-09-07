@@ -17,6 +17,7 @@ import androidx.compose.ui.test.moveBy
 import androidx.compose.ui.test.moveTo
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.dp
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
@@ -277,6 +278,22 @@ class ClickInputTest {
     waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.isNotEmpty() }
     assertEquals(0, target.clicks, "the drag reported a click")
   }
+
+  @Test
+  fun increasing_drag_slop_does_not_expand_click_tolerance() =
+    fixture.runRecognitionTest(
+      options = MapInteractions { bindings { drag { pan { mouseStartSlop = 100.dp } } } }
+    ) { target ->
+      mapNode().performMouseInput {
+        moveTo(center)
+        press()
+        moveBy(Offset(60f, 0f))
+        release()
+      }
+      waitForIdle()
+      assertEquals(0, target.clicks)
+      assertTrue(target.moveCalls.isEmpty())
+    }
 
   @Test
   fun a_map_click_does_not_also_click_its_parent() {
