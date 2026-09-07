@@ -646,12 +646,14 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun losing_tap_drag_eligibility_preserves_both_touch_clicks() =
+  fun losing_second_tap_eligibility_preserves_both_touch_clicks() =
     runRecognitionTest(
       options =
         MapInteractions {
           bindings {
-            doubleTap { enabled = false }
+            doubleTap {
+              mappings { on(modifiers = ModifierMatch.Containing(KeyModifier.Ctrl)) { zoomIn() } }
+            }
             tapDrag { modifiers = ModifierMatch.Containing(KeyModifier.Ctrl) }
           }
         }

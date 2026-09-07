@@ -232,14 +232,7 @@ internal class PointerGesture(
           }
           .toMap()
     }
-    tapDemand =
-      TapFamily.entries.filterTo(mutableSetOf()) { family ->
-        family.matches(options, sample) &&
-          (tapAdmissions[family]?.hasSubscribers == true ||
-            family.binding(options).select(sample, options.camera)?.let {
-              it != TapResponse.None
-            } == true)
-      }
+    tapDemand = TapFamily.entries.filterTo(mutableSetOf()) { hasTapDemand(it, sample) }
 
     secondTapUseful =
       TapFamily.DoubleTap in tapDemand ||
@@ -874,6 +867,12 @@ internal class PointerGesture(
     rememberFirstTap(clickSample, origin, pressedType, sample.uptimeMillis)
   }
 
+  private fun hasTapDemand(family: TapFamily, sample: GesturePointerSample): Boolean =
+    family.matches(options, sample) &&
+      (tapAdmissions[family]?.hasSubscribers == true ||
+        family.binding(options).select(sample, options.camera)?.let { it != TapResponse.None } ==
+          true)
+
   /** What this down is relative to a [TapWait.Open] first tap. */
   private fun classifyPress(
     origin: Offset,
@@ -884,7 +883,7 @@ internal class PointerGesture(
     if (pressedSecondary) return PressRole.First
     val open = tapWait as? TapWait.Open ?: return PressRole.First
     val canPair =
-      (TapFamily.DoubleTap in tapDemand && TapFamily.DoubleTap.matches(options, sample)) ||
+      (TapFamily.DoubleTap in tapDemand && hasTapDemand(TapFamily.DoubleTap, sample)) ||
         (options.camera.zoom.enabled && options.bindings.tapDrag.matches(sample))
     if (!canPair) return PressRole.First
 
