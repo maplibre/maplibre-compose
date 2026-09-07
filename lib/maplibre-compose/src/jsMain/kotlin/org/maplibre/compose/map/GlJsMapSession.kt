@@ -136,8 +136,8 @@ internal class GlJsMapSession(
   /** Platform-access callbacks waiting for this render lease's engine map. */
   private val pendingPlatformMapAccess = mutableListOf<PendingMapAction>()
 
-  /** Transitions MapLibre would cancel while applying the first style's camera. */
-  private val pendingInitialStyleActions = mutableListOf<PendingMapAction>()
+  /** Only the current camera transition can wait for the initial style. */
+  private var pendingInitialStyleAction: PendingMapAction? = null
 
   /** Whether the current engine map has loaded its first base style. */
   private var hasLoadedInitialStyle = false
@@ -294,7 +294,7 @@ internal class GlJsMapSession(
   override suspend fun closeResources() {
     activeGestureToken = null
     abandonPending(pendingMapActions)
-    abandonPending(pendingInitialStyleActions)
+    releasePendingCameraTransition()
     abandonPending(pendingPlatformMapAccess)
     surface = null
   }
@@ -393,7 +393,8 @@ internal class GlJsMapSession(
       .onFailure { logger?.e(it) { "MapLibre failed to close" } }
     container?.let { runCatching { it.remove() } }
     container = null
-    resumeStrandedTransitions()
+    // No moveend follows a map that is going away.
+    resumeTransitions()
   }
 
   private fun invalidateStyleBinding() {
@@ -582,14 +583,10 @@ internal class GlJsMapSession(
     if (current == null) pendingMapActions += action else action.run(current)
   }
 
-  private fun postWhenInitialStyleLoaded(action: PendingMapAction) {
-    if (!lifecycle.acceptsWork) {
-      action.abandon()
-      return
-    }
-    val current = map
-    if (current == null || !hasLoadedInitialStyle) pendingInitialStyleActions += action
-    else action.run(current)
+  private fun releasePendingCameraTransition() {
+    val pending = pendingInitialStyleAction
+    pendingInitialStyleAction = null
+    pending?.abandon()
   }
 
   private fun runPending(actions: MutableList<PendingMapAction>, map: MaplibreMap) {
@@ -709,7 +706,9 @@ internal class GlJsMapSession(
           applyTileLod(map)
           if (!hasLoadedInitialStyle) {
             hasLoadedInitialStyle = true
-            runPending(pendingInitialStyleActions, map)
+            val pending = pendingInitialStyleAction
+            pendingInitialStyleAction = null
+            pending?.run(map)
           }
         } else {
           binding.invalidate()
@@ -728,7 +727,7 @@ internal class GlJsMapSession(
         if (accepted) {
           if (lifecycleCallbacks.onStyleFailed(engine, lifecycleRequest, this, reason)) {
             logger?.e { "Map loading failed: $reason" }
-            if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
+            if (!hasLoadedInitialStyle) releasePendingCameraTransition()
             lifecycleCallbacks.onEvent(
               engine,
               lifecycleRequest,
@@ -768,7 +767,7 @@ internal class GlJsMapSession(
           MapEvent.StyleLoadFailed(reason),
         )
       }
-      if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
+      if (!hasLoadedInitialStyle) releasePendingCameraTransition()
     }
   }
 
@@ -800,6 +799,7 @@ internal class GlJsMapSession(
   override fun setCameraPosition(cameraPosition: CameraPosition, guard: CameraCommandGuard?) {
     if (guard?.isValid() == false) return
     requestedCamera = cameraPosition
+    releasePendingCameraTransition()
     onMap { map -> if (guard?.isValid() != false) map.jumpTo(cameraPosition.toJumpToOptions()) }
   }
 
@@ -818,6 +818,7 @@ internal class GlJsMapSession(
     guard: CameraCommandGuard?,
   ) {
     if (guard?.isValid() == false) return
+    releasePendingCameraTransition()
     onMap { map ->
       if (guard?.isValid() == false) return@onMap
       map.cameraPositionForBounds(boundingBox, bearing, tilt, padding)?.let {
@@ -1036,15 +1037,24 @@ internal class GlJsMapSession(
         abandon = { if (continuation.isActive) continuation.resume(Unit) },
       )
     continuation.invokeOnCancellation {
-      if (pendingInitialStyleActions.remove(pending)) return@invokeOnCancellation
+      if (pendingInitialStyleAction === pending) {
+        pendingInitialStyleAction = null
+        return@invokeOnCancellation
+      }
       if (transitionWaiters.remove(continuation)) map?.stop()
     }
-    if (
-      guard?.isValid() == false ||
-        gestureToken != null && !gestureToken.enqueue { postWhenInitialStyleLoaded(pending) }
-    ) {
+    val enqueue: () -> Unit = {
+      val current = map
+      if (!lifecycle.acceptsWork) pending.abandon()
+      else if (current == null || !hasLoadedInitialStyle) {
+        val previous = pendingInitialStyleAction
+        pendingInitialStyleAction = pending
+        previous?.abandon()
+      } else pending.run(current)
+    }
+    if (guard?.isValid() == false || gestureToken != null && !gestureToken.enqueue(enqueue)) {
       if (continuation.isActive) continuation.resume(Unit)
-    } else if (gestureToken == null) postWhenInitialStyleLoaded(pending)
+    } else if (gestureToken == null) enqueue()
   }
 
   private fun startTransitionOnMap(
@@ -1074,14 +1084,9 @@ internal class GlJsMapSession(
     resuming.forEach { waiter -> if (waiter.isActive) runCatching { waiter.resume(Unit) } }
   }
 
-  /** No `moveend` follows a map that is going away. */
-  private fun resumeStrandedTransitions() {
-    resumeTransitions()
-  }
-
   override fun interruptCamera() {
     val guard = lifecycleAuthority.gestureCamera.beginProgrammatic()
-    abandonPending(pendingInitialStyleActions)
+    releasePendingCameraTransition()
     onMap { if (guard.isValid()) it.stop() }
   }
 
@@ -1105,6 +1110,7 @@ internal class GlJsMapSession(
   override fun onGestureStarted(): CameraInputToken =
     lifecycleAuthority.gestureCamera.acquire(this).also { token ->
       // Recognition takes over an existing transition even before the first movement.
+      if (token.acceptsCommands) releasePendingCameraTransition()
       onGestureMap(token) {}
     }
 

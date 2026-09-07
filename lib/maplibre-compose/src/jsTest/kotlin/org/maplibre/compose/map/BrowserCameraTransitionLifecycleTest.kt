@@ -11,6 +11,7 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.gljs.GlJsMapEvent
 import org.maplibre.compose.gljs.isNear
@@ -63,8 +64,8 @@ class BrowserCameraTransitionLifecycleTest {
             }
           assertFalse(animation.isCompleted)
           fixture.state.setCameraPosition(CURRENT_CAMERA)
+          withTimeout(5.seconds) { animation.join() }
           fixture.loadStyle(BaseStyle.Empty)
-          fixture.awaitWhileRendering("superseded programmatic command") { animation.join() }
           fixture.settle()
           assertFalse(animation.isCancelled)
           assertTrue(fixture.state.cameraPosition.isNear(CURRENT_CAMERA))
