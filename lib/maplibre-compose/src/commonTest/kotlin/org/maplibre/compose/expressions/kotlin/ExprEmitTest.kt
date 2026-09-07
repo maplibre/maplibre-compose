@@ -3,9 +3,13 @@ package org.maplibre.compose.expressions.kotlin
 import androidx.compose.ui.graphics.Color
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.ExpressionContext
+import org.maplibre.compose.expressions.ast.FunctionCall
 import org.maplibre.compose.util.toStyleJson
+import org.maplibre.spatialk.geojson.Point
+import org.maplibre.spatialk.geojson.Position
 
 class ExprEmitTest {
   private fun json(expression: Expression<*>): String =
@@ -61,5 +65,20 @@ class ExprEmitTest {
       "[\"interpolate\",[\"linear\"],[\"zoom\"],5,2,10,8]",
       json(interpolated).replace(".0", ""),
     )
+  }
+
+  @Test
+  fun lit_encodes_geojson_as_a_bare_object() {
+    val point = Point(Position(longitude = 1.0, latitude = 2.0))
+    val encoded = json(ExprEmit.lit(point))
+    assertTrue(encoded.startsWith("{"), encoded)
+    assertTrue(encoded.contains("Point") || encoded.contains("point"), encoded)
+  }
+
+  @Test
+  fun image_name_is_a_single_image_operator() {
+    val encoded = json(ExprEmit.imageName(ExprEmit.lit("marker")))
+    assertEquals("""["image","marker"]""", encoded)
+    assertEquals("image", (ExprEmit.imageName(ExprEmit.lit("marker")) as FunctionCall).name)
   }
 }

@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlinx.serialization.json.float
 import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.expressions.ast.BooleanLiteral
@@ -21,6 +22,8 @@ import org.maplibre.compose.expressions.ast.OffsetLiteral
 import org.maplibre.compose.expressions.ast.StringLiteral
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.padding
+import org.maplibre.spatialk.geojson.Point
+import org.maplibre.spatialk.geojson.Position
 
 /**
  * Written against values, not rendered text, wherever a whole number is involved: Kotlin renders
@@ -127,5 +130,13 @@ class ExpressionJsonTest {
   fun encodes_negative_padding_sides() {
     val padding = padding(left = 2.5.dp, top = (-2.5).dp, right = 0.1.dp, bottom = (-7.1).dp)
     assertEquals("""["literal",[-2.5,0.1,-7.1,2.5]]""", json(compiled(padding)))
+  }
+
+  @Test
+  fun encodes_geojson_as_a_bare_object_argument() {
+    val point = const(Point(Position(longitude = 0.0, latitude = 1.0)))
+    val encoded = json(compiled(point))
+    assertTrue(encoded.startsWith("{"), encoded)
+    assertTrue(encoded.contains("\"type\""), encoded)
   }
 }

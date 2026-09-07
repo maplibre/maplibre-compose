@@ -63,6 +63,13 @@ once per feature. A Kotlin `if` inside `expr` is a per-feature `case`. A Kotlin
 
 MapLibre-specific operations that have no Kotlin equivalent stay as helpers on
 <Api of="org.maplibre.compose.expressions.kotlin.ExprScope" />: `interpolate`,
-`step`, `format`, `image`, `collator`, and typed feature accessors.
+`step`, `match`, `format`, `image`, `collator`, and typed feature accessors.
+
+Values captured from outside the block are frozen when the tree is built. The
+plugin accepts Boolean, Number, String, Color, Dp, Offset, Duration, enum,
+GeoJSON, lists of those, and an already-built expression. A type it cannot
+encode, or a Kotlin function that takes feature or zoom data, is a compile
+error. MapLibre also cannot build an `Offset` or `listOf` from feature numbers;
+those constructors stay composition-time.
 
 [spec-expressions]: https://maplibre.org/maplibre-style-spec/expressions/

@@ -5,4 +5,7 @@ kotlin {
   compilerOptions { allWarningsAsErrors = false }
 }
 
-dependencies { compileOnly(libs.kotlin.compilerEmbeddable) }
+dependencies {
+  compileOnly(libs.kotlin.compilerEmbeddable)
+  testImplementation(kotlin("test"))
+}

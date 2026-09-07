@@ -14,6 +14,7 @@ import org.maplibre.compose.expressions.ast.CompiledListLiteral
 import org.maplibre.compose.expressions.ast.CompiledOptions
 import org.maplibre.compose.expressions.ast.DpPaddingLiteral
 import org.maplibre.compose.expressions.ast.FloatLiteral
+import org.maplibre.compose.expressions.ast.GeoJsonLiteral
 import org.maplibre.compose.expressions.ast.NullLiteral
 import org.maplibre.compose.expressions.ast.OffsetLiteral
 import org.maplibre.compose.expressions.ast.ProjectionTransitionLiteral
@@ -53,6 +54,9 @@ private fun CompiledExpression<*>.normalizeJsonLike(inLiteral: Boolean): JsonEle
           JsonPrimitive(value.progress),
         )
       )
+
+    // Bare object: within/distance take GeoJSON as a function argument, not ["literal", ...].
+    is GeoJsonLiteral -> value
 
     is DpPaddingLiteral ->
       // Style order is top, right, bottom, left.

@@ -2,23 +2,31 @@ package org.maplibre.compose.expressions.kotlin
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.TextUnitType
 import kotlin.time.Duration
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.FunctionCall
 import org.maplibre.compose.expressions.ast.Options
+import org.maplibre.compose.expressions.ast.TextUnitCalculation
+import org.maplibre.compose.expressions.ast.TextUnitOffsetCalculation
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.expressions.dsl.span
 import org.maplibre.compose.expressions.value.EnumValue
 import org.maplibre.compose.expressions.value.ExpressionValue
+import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.style.ProjectionTransition
 import org.maplibre.compose.util.DpPadding
+import org.maplibre.compose.util.ImageStretch
+import org.maplibre.spatialk.geojson.GeoJsonObject
 
 /**
  * Stable call target for the compiler plugin. Each method has a simple JVM signature so IR
@@ -44,6 +52,7 @@ public object ExprEmit {
       is Duration -> const(value)
       is ProjectionTransition -> const(value)
       is EnumValue<*> -> value.literal
+      is GeoJsonObject -> const(value)
       is ImageBitmap -> image(value)
       is Painter -> image(value)
       is List<*> -> listLiteral(value)
@@ -51,7 +60,7 @@ public object ExprEmit {
         error(
           "Cannot capture ${value::class.simpleName} as an expression literal. " +
             "Pass a Boolean, Number, String, Color, Dp, Offset, Duration, enum, " +
-            "list of those, or an Expression."
+            "GeoJSON, list of those, or an Expression."
         )
     }
 
@@ -125,6 +134,61 @@ public object ExprEmit {
       i += 2
     }
   }
+
+  public fun textUnit(value: Expression<*>, type: String): Expression<*> {
+    val unit =
+      when (type.lowercase()) {
+        "sp" -> TextUnitType.Sp
+        "em" -> TextUnitType.Em
+        else -> error("Text unit type must be sp or em, was $type")
+      }
+    return TextUnitCalculation.of(value.cast<FloatValue>(), unit)
+  }
+
+  public fun textUnitOffset(x: TextUnit, y: TextUnit): Expression<*> =
+    TextUnitOffsetCalculation.of(x, y)
+
+  public fun imageName(name: Expression<*>): Expression<*> = image(name.cast())
+
+  public fun imageBitmap(
+    bitmap: ImageBitmap,
+    isSdf: Boolean,
+    stretch: ImageStretch?,
+  ): Expression<*> = image(bitmap, isSdf, stretch)
+
+  public fun numberOffset(x: Number, y: Number): Expression<*> =
+    const(Offset(x.toFloat(), y.toFloat()))
+
+  public fun dpOffset(x: Dp, y: Dp): Expression<*> = const(DpOffset(x, y))
+
+  public fun padding(left: Dp, top: Dp, right: Dp, bottom: Dp): Expression<*> =
+    const(DpPadding(left = left, top = top, right = right, bottom = bottom))
+
+  public fun projectionTransition(from: Any, to: Any, progress: Number): Expression<*> =
+    const(
+      ProjectionTransition(
+        from as org.maplibre.compose.expressions.value.ProjectionType,
+        to as org.maplibre.compose.expressions.value.ProjectionType,
+        progress.toFloat(),
+      )
+    )
+
+  public fun textVariableAnchorOffset(pairs: List<*>): Expression<*> {
+    val typed = pairs.map { pair ->
+      val (anchor, offset) = pair as Pair<*, *>
+      (anchor as org.maplibre.compose.expressions.value.SymbolAnchor) to (offset as Offset)
+    }
+    return org.maplibre.compose.expressions.dsl.textVariableAnchorOffset(*typed.toTypedArray())
+  }
+
+  public fun imagePainter(
+    painter: Painter,
+    size: DpSize?,
+    drawAsSdf: Boolean,
+    stretch: ImageStretch?,
+    alpha: Float,
+    colorFilter: ColorFilter?,
+  ): Expression<*> = image(painter, size, drawAsSdf, stretch, alpha, colorFilter)
 
   public fun formattedSpan(
     value: Expression<*>,

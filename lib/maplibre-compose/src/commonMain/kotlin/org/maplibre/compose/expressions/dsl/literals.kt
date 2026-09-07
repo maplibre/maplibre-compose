@@ -8,6 +8,8 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.TextUnitType
 import kotlin.jvm.JvmName
 import kotlin.time.Duration
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.expressions.ast.BooleanLiteral
 import org.maplibre.compose.expressions.ast.ColorLiteral
 import org.maplibre.compose.expressions.ast.DpLiteral
@@ -16,6 +18,7 @@ import org.maplibre.compose.expressions.ast.DpPaddingLiteral
 import org.maplibre.compose.expressions.ast.EnumLiteral
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.FloatLiteral
+import org.maplibre.compose.expressions.ast.GeoJsonLiteral
 import org.maplibre.compose.expressions.ast.IntLiteral
 import org.maplibre.compose.expressions.ast.ListLiteral
 import org.maplibre.compose.expressions.ast.Literal
@@ -29,6 +32,7 @@ import org.maplibre.compose.expressions.ast.TextUnitOffsetCalculation
 import org.maplibre.compose.expressions.value.DpPaddingValue
 import org.maplibre.compose.expressions.value.EnumValue
 import org.maplibre.compose.expressions.value.ExpressionValue
+import org.maplibre.compose.expressions.value.GeoJsonValue
 import org.maplibre.compose.expressions.value.StringValue
 import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.expressions.value.TextUnitOffsetValue
@@ -36,6 +40,8 @@ import org.maplibre.compose.expressions.value.TextVariableAnchorOffsetValue
 import org.maplibre.compose.expressions.value.VectorValue
 import org.maplibre.compose.style.ProjectionTransition
 import org.maplibre.compose.util.DpPadding
+import org.maplibre.spatialk.geojson.GeoJsonObject
+import org.maplibre.spatialk.geojson.toJson
 
 /** Creates a literal expression for a [String] value. */
 public fun const(string: String): StringLiteral = StringLiteral.of(string)
@@ -83,6 +89,14 @@ public fun const(padding: DpPadding): DpPaddingLiteral = DpPaddingLiteral.of(pad
 /** Creates a literal expression for a [ProjectionTransition] value. */
 public fun const(transition: ProjectionTransition): ProjectionTransitionLiteral =
   ProjectionTransitionLiteral.of(transition)
+
+/**
+ * Creates a literal GeoJSON object for
+ * [feature.within][org.maplibre.compose.expressions.dsl.Feature.within] and
+ * [feature.distance][org.maplibre.compose.expressions.dsl.Feature.distance].
+ */
+public fun const(geoJson: GeoJsonObject): Expression<GeoJsonValue> =
+  GeoJsonLiteral.of(Json.parseToJsonElement(geoJson.toJson()) as JsonObject)
 
 /** Creates a literal expression for a list. */
 public fun <T : ExpressionValue> const(list: List<Literal<T, *>>): ListLiteral<T> =
