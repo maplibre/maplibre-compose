@@ -273,8 +273,8 @@ public class ScrollBindingBuilder internal constructor(from: ScrollBinding) {
   public var idleDuration: Duration = from.idleDuration
   public var anchor: GestureAnchor = from.anchor
   /**
-   * Zoom levels per dp of vertical scroll displacement. The default changes zoom by 0.15 levels per
-   * 100 dp. Positive values zoom in when scrolling up; negative values reverse that direction.
+   * Zoom levels per dp of vertical scroll displacement. The default changes zoom by one level per
+   * 300 dp. Positive values zoom in when scrolling up; negative values reverse that direction.
    */
   public var zoomPerDp: Double = from.zoomPerDp
 

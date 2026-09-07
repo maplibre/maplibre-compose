@@ -101,7 +101,7 @@ internal data class ScrollBinding(
   val mappings: List<ScrollMapping> = emptyList(),
   val idleDuration: Duration = 200.milliseconds,
   val anchor: GestureAnchor = GestureAnchor.Input,
-  val zoomPerDp: Double = 0.0015,
+  val zoomPerDp: Double = 1.0 / 300.0,
 )
 
 internal data class TapBinding(
