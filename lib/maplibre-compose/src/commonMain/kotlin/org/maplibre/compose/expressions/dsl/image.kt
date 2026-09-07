@@ -77,6 +77,8 @@ public fun image(
  * The [Painter] will be drawn to an [ImageBitmap] and registered with the style when it's
  * referenced by a layer, and unregistered from the style if it's no longer referenced by any layer.
  * An ID referencing the bitmap will be generated automatically and inserted into the expression.
+ * Painters that draw identical pixels share one style image, so calling `painterResource` for the
+ * same resource in several layers registers the image once.
  *
  * The bitmap will be created with the provided [size], or the intrinsic size of the painter if not
  * provided, or 16x16 DP if the painter has no intrinsic size.

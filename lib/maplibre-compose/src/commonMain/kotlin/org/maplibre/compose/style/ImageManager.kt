@@ -15,31 +15,65 @@ import kotlin.math.ceil
 import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.toImageBitmap
 
+/**
+ * Registers bitmaps and painters as style images and shares one style image between every reference
+ * that resolves to the same pixels.
+ *
+ * Bitmap and painter keys count references from compiled expressions. Each key resolves once to a
+ * [ContentKey], which counts the keys that resolved to it and owns the style image. Painters
+ * without value equality, such as vector painters from different call sites, therefore still share
+ * an image when they draw the same pixels.
+ */
 internal class ImageManager(private val node: StyleNode) {
-  private val bitmapIds = IncrementingId("bitmap")
-  private val bitmapCounter = ReferenceCounter<BitmapKey>()
-  private val bitmapDefinitions = linkedMapOf<BitmapKey, StyleImageDefinition>()
+  private val imageIds = IncrementingId("image")
+  private val contentCounter = ReferenceCounter<ContentKey>()
+  private val definitions = linkedMapOf<ContentKey, StyleImageDefinition>()
 
-  private val painterIds = IncrementingId("painter")
+  private val bitmapCounter = ReferenceCounter<BitmapKey>()
+  private val bitmapContent = mutableMapOf<BitmapKey, ContentKey>()
+
   private val painterCounter = ReferenceCounter<PainterKey>()
-  private val painterDefinitions = linkedMapOf<PainterKey, StyleImageDefinition>()
+  private val painterContent = mutableMapOf<PainterKey, ContentKey>()
 
   internal val desiredImages: List<StyleImageDefinition>
-    get() = bitmapDefinitions.values.toList() + painterDefinitions.values
+    get() = definitions.values.toList()
 
   internal fun acquireBitmap(key: BitmapKey): String {
     bitmapCounter.increment(key) {
-      val id = bitmapIds.next()
-      bitmapDefinitions[key] =
-        StyleImageDefinition(id, ImageSnapshot.capture(key.bitmap), key.isSdf, key.stretch)
-      node.scheduleApplyChanges()
+      bitmapContent[key] =
+        acquireContent(ContentKey(ImageSnapshot.capture(key.bitmap), key.isSdf, key.stretch))
     }
-    return bitmapDefinitions.getValue(key).id
+    return definitions.getValue(bitmapContent.getValue(key)).id
   }
 
   internal fun releaseBitmap(key: BitmapKey) {
-    bitmapCounter.decrement(key) {
-      bitmapDefinitions.remove(key)
+    bitmapCounter.decrement(key) { releaseContent(bitmapContent.remove(key)!!) }
+  }
+
+  internal fun acquirePainter(key: PainterKey): String {
+    painterCounter.increment(key) {
+      val bitmap = key.drawToBitmap().let { if (key.drawAsSdf) it.toSdf() else it }
+      painterContent[key] =
+        acquireContent(ContentKey(ImageSnapshot.capture(bitmap), key.drawAsSdf, key.stretch))
+    }
+    return definitions.getValue(painterContent.getValue(key)).id
+  }
+
+  internal fun releasePainter(key: PainterKey) {
+    painterCounter.decrement(key) { releaseContent(painterContent.remove(key)!!) }
+  }
+
+  private fun acquireContent(key: ContentKey): ContentKey {
+    contentCounter.increment(key) {
+      definitions[key] = StyleImageDefinition(imageIds.next(), key.image, key.sdf, key.stretch)
+      node.scheduleApplyChanges()
+    }
+    return key
+  }
+
+  private fun releaseContent(key: ContentKey) {
+    contentCounter.decrement(key) {
+      definitions.remove(key)
       node.scheduleApplyChanges()
     }
   }
@@ -67,25 +101,12 @@ internal class ImageManager(private val node: StyleNode) {
     return pixels.toImageBitmap(w, pixels.size / w)
   }
 
-  internal fun acquirePainter(key: PainterKey): String {
-    painterCounter.increment(key) {
-      val id = painterIds.next()
-      key.drawToBitmap().let { bitmap ->
-        val resolved = if (key.drawAsSdf) bitmap.toSdf() else bitmap
-        painterDefinitions[key] =
-          StyleImageDefinition(id, ImageSnapshot.capture(resolved), key.drawAsSdf, key.stretch)
-      }
-      node.scheduleApplyChanges()
-    }
-    return painterDefinitions.getValue(key).id
-  }
-
-  internal fun releasePainter(key: PainterKey) {
-    painterCounter.decrement(key) {
-      painterDefinitions.remove(key)
-      node.scheduleApplyChanges()
-    }
-  }
+  /** The resolved pixels and style image options that identify one style image. */
+  private data class ContentKey(
+    val image: ImageSnapshot,
+    val sdf: Boolean,
+    val stretch: ImageStretch?,
+  )
 
   internal data class BitmapKey(
     val bitmap: ImageBitmap,

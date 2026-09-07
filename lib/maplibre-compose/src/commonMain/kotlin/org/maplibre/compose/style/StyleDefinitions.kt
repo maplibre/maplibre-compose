@@ -78,6 +78,8 @@ private constructor(
   val height: Int,
   private val pixels: IntArray,
 ) {
+  private val hash = 31 * (31 * width + height) + pixels.contentHashCode()
+
   fun toImageBitmap(): ImageBitmap = pixels.copyOf().toImageBitmap(width, height)
 
   override fun equals(other: Any?): Boolean =
@@ -86,7 +88,7 @@ private constructor(
       height == other.height &&
       pixels.contentEquals(other.pixels)
 
-  override fun hashCode(): Int = 31 * (31 * width + height) + pixels.contentHashCode()
+  override fun hashCode(): Int = hash
 
   companion object {
     fun capture(bitmap: ImageBitmap): ImageSnapshot {
