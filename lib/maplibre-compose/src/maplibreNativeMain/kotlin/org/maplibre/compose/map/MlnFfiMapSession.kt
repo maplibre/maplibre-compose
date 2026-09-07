@@ -204,9 +204,9 @@ internal class MlnFfiMapSession(
   private var hasAttachedViewport = false
 
   /**
-   * Renderer-thread state, with [renderSessionReady] and [attachedTarget]: read and written only on
-   * the host's renderer thread, which [render] runs on and
-   * [MlnFfiMapHostSession.withRendererAccess] reaches from any other thread.
+   * Renderer-thread state, with [renderSessionReady]: read and written only on the host's renderer
+   * thread, which [render] runs on and [MlnFfiMapHostSession.withRendererAccess] reaches from any
+   * other thread.
    */
   private var renderSession: RenderSessionHandle? = null
 
@@ -220,7 +220,8 @@ internal class MlnFfiMapSession(
 
   private data class TargetKey(val generation: Long, val extent: MapExtent)
 
-  private var attachedTarget: TargetKey? = null
+  /** Written by the renderer; the map owner also reads its extent to defer camera padding. */
+  @Volatile private var attachedTarget: TargetKey? = null
 
   /** Renderer-thread state, read by tests. */
   @Volatile
@@ -617,7 +618,8 @@ internal class MlnFfiMapSession(
     applyRequestedStyle(map)
     // A camera set before this map existed reaches it as a queued jump, which a loop that stopped
     // before running it has already abandoned.
-    requestedCamera?.let { map.jumpTo(it.toCameraOptions(cameraPadding)) }
+    appliedCameraPadding = EdgeInsets.ZERO
+    requestedCamera?.let { map.jumpTo(it.toCameraOptions(appliedCameraPadding)) }
   }
 
   /**
@@ -1033,10 +1035,9 @@ internal class MlnFfiMapSession(
   private fun recordCamera(position: CameraPosition, guard: CameraCommandGuard?) {
     if (guard?.isValid() == false) return
     requestedCamera = position
-    val padding = cameraPadding
     configureMap { map ->
       if (guard?.isValid() == false) return@configureMap
-      map.jumpTo(position.toCameraOptions(padding))
+      map.jumpTo(position.toCameraOptions(appliedCameraPadding))
       snapshotViewport(map)
     }
   }
@@ -1259,10 +1260,23 @@ internal class MlnFfiMapSession(
     if (cameraPadding == insets) return
     cameraPadding = insets
     configureMap { map ->
-      map.jumpTo(CameraOptions().also { it.padding = insets })
-      appliedCameraPadding = insets
+      applyCameraPadding(map)
       snapshotViewport(map)
     }
+  }
+
+  /**
+   * Owner thread only. Padding on the bootstrap 1x1 viewport can make Native's pitch limit
+   * negative. Attaching posts a resize, so wait until the map has received the target's size.
+   */
+  private fun applyCameraPadding(map: MapHandle) {
+    val padding = cameraPadding
+    if (padding == appliedCameraPadding) return
+    val extent = attachedTarget?.extent ?: return
+    val size = map.size
+    if (size.width != extent.width || size.height != extent.height) return
+    map.jumpTo(CameraOptions().also { it.padding = padding })
+    appliedCameraPadding = padding
   }
 
   override fun fitCameraToBounds(
@@ -1759,6 +1773,7 @@ internal class MlnFfiMapSession(
   }
 
   private fun onEventsDrained(engine: EngineMapIdentity, map: MapHandle) {
+    applyCameraPadding(map)
     ownerThreadRenderLease?.let { lease ->
       lifecycleCallbacks.onPresentationEvent(engine, lease) { snapshotViewport(map) }
     }
