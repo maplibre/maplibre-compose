@@ -202,11 +202,9 @@ internal class MlnFfiMapSession(
   private var hasAttachedViewport = false
 
   /**
-   * Renderer-thread state, like [renderSessionReady] and [attachedTarget]: read and written only on
+   * Renderer-thread state, with [renderSessionReady] and [attachedTarget]: read and written only on
    * the host's renderer thread, which [render] runs on and
-   * [MlnFfiMapHostSession.withRendererAccess] reaches from any other thread. A close requested from
-   * another thread therefore closes whatever is attached when the request reaches that thread,
-   * never a handle read earlier, and a frame queued behind it sees the cleared state.
+   * [MlnFfiMapHostSession.withRendererAccess] reaches from any other thread.
    */
   private var renderSession: RenderSessionHandle? = null
 
@@ -574,7 +572,7 @@ internal class MlnFfiMapSession(
     styleBinding = null
     appliedStyleRequest = null
     styleLoadTracker.engineBecameUnavailable()
-    // After loop is cleared, so a frame queued behind this close re-reads it and does not attach.
+    // After loop is cleared: a frame queued behind this close re-reads it in ensureAttached.
     closeRenderSession()
     try {
       stopping?.close()
@@ -600,8 +598,8 @@ internal class MlnFfiMapSession(
 
   /**
    * Closes whatever is attached once this reaches the host's renderer thread, and returns the
-   * failure. A session attaches only through a host, and [onSurfaceLost] closes it before the host
-   * is dropped, so there is nothing to close without one.
+   * failure. Nothing is attached without a host: [onSurfaceLost] closes the session before it drops
+   * one.
    */
   private fun releaseRenderSession(): Throwable? {
     val host = hostSession ?: return null
@@ -630,9 +628,8 @@ internal class MlnFfiMapSession(
   }
 
   /**
-   * Renderer thread only. Teardown clears [loop] or closes the lifecycle before it queues its close
-   * on this thread, so a frame that read them earlier re-reads them here: attaching behind that
-   * close would leave a session nothing closes, and native then refuses to destroy the map.
+   * Renderer thread only. Re-reads [loop] and the lifecycle: teardown clears or closes them before
+   * it queues its close on this thread, and a session attached behind that close is never closed.
    */
   private fun ensureAttached(
     loop: MlnFfiMapRuntimeLoop,

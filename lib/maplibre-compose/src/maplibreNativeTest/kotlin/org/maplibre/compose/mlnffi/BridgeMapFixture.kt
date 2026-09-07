@@ -102,8 +102,7 @@ private constructor(
       }
 
       override fun enqueueRenderer(action: () -> Unit): Boolean {
-        val thread = rendererThread
-        if (thread == null) driver.withRendererAccess(action) else thread.post(action)
+        withRendererAccess(action)
         return true
       }
     }
@@ -246,13 +245,9 @@ private constructor(
 
   /**
    * Runs [block] on this thread while a dedicated renderer thread drives frames, and returns its
-   * result.
-   *
-   * Renderer access requested from any other thread is serialized onto that thread the way a
-   * platform host serializes it onto its own, in the order that exposes bookkeeping the session
-   * keeps off that thread: the access runs after a frame that started after the request, as it does
-   * behind a frame the host had already posted. A frame that fails, or a frame that this call ends
-   * while an access is still queued, fails the call.
+   * result. Renderer access from any other thread runs on that thread behind a frame that started
+   * after the request, as it does on a host that had already posted a frame. A frame that fails
+   * fails this call.
    */
   fun <T> whileRenderingOnRendererThread(block: () -> T): T {
     val thread = RendererThread(driver) { frame() }
@@ -260,12 +255,9 @@ private constructor(
     thread.start()
     val result = runCatching(block)
     rendererThread = null
-    val renderFailure = thread.stop()
-    result.exceptionOrNull()?.let { failure ->
-      renderFailure?.let(failure::addSuppressed)
-      throw failure
+    thread.stop()?.let { renderFailure ->
+      result.exceptionOrNull()?.addSuppressed(renderFailure) ?: throw renderFailure
     }
-    renderFailure?.let { throw it }
     return result.getOrThrow()
   }
 
@@ -332,11 +324,7 @@ private constructor(
     FfiTestPlatform.deleteCacheFile(cacheFile)
   }
 
-  /**
-   * Drives frames until stopped, running queued renderer access between them. An access requested
-   * from another thread waits for a frame that started after the request; one requested on this
-   * thread runs at once.
-   */
+  /** Drives frames until stopped, running queued renderer access between them. */
   private class RendererThread(
     private val driver: FfiTestRenderDriver,
     private val frame: () -> Unit,
@@ -365,14 +353,6 @@ private constructor(
       enqueue { result = runCatching { driver.withRendererAccess(action) } }.awaitUntilOpen()
       return checkNotNull(result) { "The test renderer thread stopped before running an access" }
         .getOrThrow()
-    }
-
-    fun post(action: () -> Unit) {
-      if (thread.isCurrent()) {
-        driver.withRendererAccess(action)
-        return
-      }
-      enqueue { runCatching { driver.withRendererAccess(action) } }
     }
 
     /** Stops the thread and returns what failed on it, if anything. */
@@ -413,12 +393,12 @@ private constructor(
     }
 
     private fun runQueuedAccess() {
-      val ready = lock.withLock {
-        val eligible = queue.filter { it.framesStartedWhenQueued < framesStarted }
-        queue.removeAll(eligible)
-        eligible
-      }
-      ready.forEach { access ->
+      while (true) {
+        val access =
+          lock.withLock {
+            val next = queue.firstOrNull() ?: return@withLock null
+            if (next.framesStartedWhenQueued < framesStarted) queue.removeFirst() else null
+          } ?: return
         try {
           access.run()
         } finally {
