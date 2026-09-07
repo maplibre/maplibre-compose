@@ -21,7 +21,8 @@ stay the same.
   `Expression<BooleanValue>` as the user-facing type.
 - `ExprEmit` is a small, overload-free runtime API. The IR phase only has to
   emit `lit` / `op` / `interpolate` / `step` / `match`. That avoided picking
-  among the DSL's many overloads from IR.
+  among the DSL's many overloads from IR. Vararg `Expression<*>` failed at
+  runtime (`Object[]` cannot cast to `Expression[]`); list parameters work.
 - Reusing Kotlin's own functions covers a large part of the style spec: `+` /
   `*` / `>`, `kotlin.math.sqrt`, `String.uppercase()`, `List.contains`.
 - Local `val` inlining and captured outer values (`val threshold = 5.0`) fall
@@ -56,9 +57,10 @@ stay the same.
    `ExprEmit` calls.
 2. **`expr { }` returns `Expression<T>`, layers stay unchanged.** The user API
    is the lambda. The engine API is still the sealed `Expression` type.
-3. **Overloads of `expr` per Kotlin return type** (`Boolean`, `Color`, `Dp`, …)
-   instead of one generic. That keeps layer property types inferable without
-   casts.
+3. **One generic `expr`.** Per-return-type overloads clashed on the JVM and
+   broke receiver resolution (`feature` was unresolved).
+   `fun <T : ExpressionValue> expr(block: ExprScope.() -> Any?)` lets the layer
+   property infer `T` (`color = expr { Color.Red }`).
 4. **Helpers stay on `ExprScope` for operations Kotlin does not have:**
    `interpolate`, `step`, `feature`, `zoom`, `format`, `image`, `collator`,
    `bind` (MapLibre `let`).

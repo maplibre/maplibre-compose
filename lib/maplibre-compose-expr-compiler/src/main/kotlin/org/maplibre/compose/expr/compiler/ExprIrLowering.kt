@@ -559,7 +559,7 @@ internal class ExprIrLowering(
     return builder.irCall(fn).apply {
       arguments[0] = builder.irGetObject(emitClass)
       arguments[1] = builder.irString(name)
-      arguments[2] = builder.irVararg(context.irBuiltIns.anyNType, args)
+      arguments[2] = irListOf(args)
     }
   }
 
@@ -583,7 +583,21 @@ internal class ExprIrLowering(
       var slot = 0
       arguments[slot++] = builder.irGetObject(emitClass)
       prefix.forEach { arguments[slot++] = it }
-      arguments[slot] = builder.irVararg(context.irBuiltIns.anyNType, varargArgs)
+      arguments[slot] = irListOf(varargArgs)
+    }
+  }
+
+  private fun irListOf(values: List<IrExpression>): IrExpression {
+    val listOf =
+      context
+        .referenceFunctions(CallableId(FqName("kotlin.collections"), Name.identifier("listOf")))
+        .single { symbol ->
+          val parameters = symbol.owner.parameters
+          parameters.size == 1 && parameters.single().isVararg
+        }
+    return builder.irCall(listOf).apply {
+      typeArguments[0] = context.irBuiltIns.anyNType
+      arguments[0] = builder.irVararg(context.irBuiltIns.anyNType, values)
     }
   }
 

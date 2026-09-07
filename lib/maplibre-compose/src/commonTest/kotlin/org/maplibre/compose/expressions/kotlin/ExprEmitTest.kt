@@ -20,9 +20,9 @@ class ExprEmitTest {
 
   @Test
   fun op_builds_function_calls() {
-    val get = ExprEmit.op("get", ExprEmit.lit("mag"))
-    val number = ExprEmit.op("number", get)
-    val cmp = ExprEmit.op(">", number, ExprEmit.lit(5))
+    val get = ExprEmit.op("get", listOf(ExprEmit.lit("mag")))
+    val number = ExprEmit.op("number", listOf(get))
+    val cmp = ExprEmit.op(">", listOf(number, ExprEmit.lit(5)))
     assertEquals("[\"\u003e\",[\"number\",[\"get\",\"mag\"]],5]", json(cmp).replace("5.0", "5"))
   }
 
@@ -31,9 +31,11 @@ class ExprEmitTest {
     val case =
       ExprEmit.op(
         "case",
-        ExprEmit.op(">", ExprEmit.lit(1), ExprEmit.lit(0)),
-        ExprEmit.lit(Color.Red),
-        ExprEmit.lit(Color.Yellow),
+        listOf(
+          ExprEmit.op(">", listOf(ExprEmit.lit(1), ExprEmit.lit(0))),
+          ExprEmit.lit(Color.Red),
+          ExprEmit.lit(Color.Yellow),
+        ),
       )
     assertEquals("case", (case as org.maplibre.compose.expressions.ast.FunctionCall).name)
 
@@ -41,8 +43,7 @@ class ExprEmitTest {
       ExprEmit.match(
         ExprEmit.lit("park"),
         ExprEmit.lit(Color.Gray),
-        ExprEmit.lit("park"),
-        ExprEmit.lit(Color.Green),
+        listOf(ExprEmit.lit("park"), ExprEmit.lit(Color.Green)),
       )
     assertEquals("match", (match as org.maplibre.compose.expressions.ast.FunctionCall).name)
   }
@@ -52,12 +53,9 @@ class ExprEmitTest {
     val interpolated =
       ExprEmit.interpolate(
         "interpolate",
-        ExprEmit.op("linear"),
-        ExprEmit.op("zoom"),
-        ExprEmit.lit(5),
-        ExprEmit.lit(2),
-        ExprEmit.lit(10),
-        ExprEmit.lit(8),
+        ExprEmit.op("linear", emptyList<Expression<*>>()),
+        ExprEmit.op("zoom", emptyList<Expression<*>>()),
+        listOf(ExprEmit.lit(5), ExprEmit.lit(2), ExprEmit.lit(10), ExprEmit.lit(8)),
       )
     assertEquals(
       "[\"interpolate\",[\"linear\"],[\"zoom\"],5,2,10,8]",

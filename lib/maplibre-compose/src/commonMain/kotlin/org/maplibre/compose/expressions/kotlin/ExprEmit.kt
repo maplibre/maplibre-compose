@@ -55,21 +55,22 @@ public object ExprEmit {
         )
     }
 
-  public fun op(name: String, vararg args: Expression<*>): Expression<*> =
-    FunctionCall.of(name, args.asList())
+  public fun op(name: String, args: List<*>): Expression<*> =
+    FunctionCall.of(name, args.map { it as Expression<*> })
 
   public fun match(
     input: Expression<*>,
     fallback: Expression<*>,
-    vararg labelsAndOutputs: Expression<*>,
+    labelsAndOutputs: List<*>,
   ): Expression<*> {
+    val labels = labelsAndOutputs.map { it as Expression<*> }
     val args =
-      buildList(labelsAndOutputs.size + 2) {
+      buildList(labels.size + 2) {
         add(input)
-        addAll(labelsAndOutputs)
+        addAll(labels)
         add(fallback)
       }
-    val caseCount = labelsAndOutputs.size / 2
+    val caseCount = labels.size / 2
     return FunctionCall.of(
       "match",
       args,
@@ -81,33 +82,29 @@ public object ExprEmit {
     kind: String,
     type: Expression<*>,
     input: Expression<*>,
-    vararg stops: Expression<*>,
+    stops: List<*>,
   ): Expression<*> {
     val args =
       buildList(stops.size + 2) {
         add(type)
         add(input)
-        addAll(stops)
+        addAll(stops.map { it as Expression<*> })
       }
     return FunctionCall.of(kind, args)
   }
 
-  public fun step(
-    input: Expression<*>,
-    fallback: Expression<*>,
-    vararg stops: Expression<*>,
-  ): Expression<*> {
+  public fun step(input: Expression<*>, fallback: Expression<*>, stops: List<*>): Expression<*> {
     val args =
       buildList(stops.size + 2) {
         add(input)
         add(fallback)
-        addAll(stops)
+        addAll(stops.map { it as Expression<*> })
       }
     return FunctionCall.of("step", args)
   }
 
-  public fun formatSpans(vararg valuesAndOptions: Expression<*>): Expression<*> =
-    FunctionCall.of("format", valuesAndOptions.asList())
+  public fun formatSpans(valuesAndOptions: List<*>): Expression<*> =
+    FunctionCall.of("format", valuesAndOptions.map { it as Expression<*> })
 
   public fun spanOptions(
     textFont: Expression<*>?,
@@ -119,7 +116,7 @@ public object ExprEmit {
     textSize?.let { put("font-scale", it) }
   }
 
-  public fun namedOptions(vararg keysAndValues: Any?): Expression<*> = Options.build {
+  public fun namedOptions(keysAndValues: List<*>): Expression<*> = Options.build {
     var i = 0
     while (i < keysAndValues.size) {
       val key = keysAndValues[i] as String
