@@ -62,6 +62,6 @@ MapLibre repeats the world horizontally. Geographic values read from the map,
 such as <Api of="Viewport.visibleBounds" /> and
 <Api of="MapState.positionFromScreenLocation" />, preserve the world copy:
 longitudes may extend past ±180°, and the visible bounds may span more than
-360°. `VisibleBounds.wrapped()` converts to a GeoJSON `BoundingBox`, where an
+360°. `VisibleBounds.toBoundingBox()` converts to a GeoJSON `BoundingBox`, where an
 antimeridian crossing follows RFC 7946 with an east longitude less than the
 west.

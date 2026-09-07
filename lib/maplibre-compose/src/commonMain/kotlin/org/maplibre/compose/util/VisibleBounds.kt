@@ -14,7 +14,7 @@ import org.maplibre.spatialk.geojson.Position
  *
  * This is deliberately not a [BoundingBox]. A GeoJSON bounding box (RFC 7946 §5) keeps longitudes
  * within ±180° and instead encodes an antimeridian crossing as an east longitude *less than* the
- * west longitude, and it cannot express a span wider than the world at all. Use [wrapped] to
+ * west longitude, and it cannot express a span wider than the world at all. Use [toBoundingBox] to
  * convert to that representation.
  */
 @Immutable
@@ -58,7 +58,7 @@ public data class VisibleBounds(
    * longitude (RFC 7946 §5.1); on the antimeridian that longitude is -180°, matching how spatial-k
    * wraps a [Position]'s longitude.
    */
-  public fun wrapped(): BoundingBox {
+  public fun toBoundingBox(): BoundingBox {
     if (east - west >= 360.0) {
       return BoundingBox(
         southwest = Position(longitude = -180.0, latitude = south),
