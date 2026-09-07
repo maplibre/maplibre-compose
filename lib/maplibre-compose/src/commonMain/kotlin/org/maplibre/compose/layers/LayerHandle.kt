@@ -15,7 +15,12 @@ import org.maplibre.compose.style.scaledBy
 import org.maplibre.compose.style.toTransitionJson
 import org.maplibre.compose.style.toTransitionOptions
 
-/** Provides imperative property access to a layer for one loaded base-style generation. */
+/**
+ * Provides property access to a layer for one loaded base-style generation.
+ *
+ * Style content owns all properties of declared layers. Their properties can be read, but setter
+ * calls and [clearFilter] throw [StyleHandleException]. Base-style layers also permit writes.
+ */
 public class LayerHandle
 internal constructor(
   public val id: String,
@@ -104,6 +109,7 @@ internal constructor(
   }
 
   private inline fun mutate(property: String, action: () -> Unit) {
+    operations.requireLayerWritable(id)
     try {
       action()
     } catch (error: StyleMutationException) {

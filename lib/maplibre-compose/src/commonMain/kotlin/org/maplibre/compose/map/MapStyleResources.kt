@@ -4,8 +4,24 @@ import androidx.compose.runtime.Stable
 import androidx.compose.ui.graphics.ImageBitmap
 import kotlinx.serialization.json.JsonElement
 import org.maplibre.compose.layers.LayerHandle
+import org.maplibre.compose.sources.CustomGeometrySource
+import org.maplibre.compose.sources.CustomGeometrySourceHandle
+import org.maplibre.compose.sources.CustomVectorSource
+import org.maplibre.compose.sources.CustomVectorSourceHandle
+import org.maplibre.compose.sources.GeoJsonSource
+import org.maplibre.compose.sources.GeoJsonSourceHandle
+import org.maplibre.compose.sources.ImageSource
+import org.maplibre.compose.sources.ImageSourceHandle
+import org.maplibre.compose.sources.RasterDemSource
+import org.maplibre.compose.sources.RasterDemSourceHandle
+import org.maplibre.compose.sources.RasterSource
+import org.maplibre.compose.sources.RasterSourceHandle
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceHandle
+import org.maplibre.compose.sources.UnknownSource
+import org.maplibre.compose.sources.UnknownSourceHandle
+import org.maplibre.compose.sources.VectorSource
+import org.maplibre.compose.sources.VectorSourceHandle
 import org.maplibre.compose.style.Light
 import org.maplibre.compose.style.Projection
 import org.maplibre.compose.style.Sky
@@ -18,6 +34,45 @@ public class StyleSources internal constructor(private val style: MapStyleState)
   Iterable<SourceHandle> {
   /** Returns the current generation's handle for [id], or null when unavailable or absent. */
   public operator fun get(id: String): SourceHandle? = style.sourceHandle(id)
+
+  /**
+   * Returns the current handle with [source]'s ID, or null while absent or no style is ready. A
+   * remembered source is installed only while a declared layer references it. Look up a new handle
+   * after a base-style reload or source replacement.
+   */
+  public operator fun get(source: Source): SourceHandle? = get(source.id)
+
+  /** Returns the current handle with [source]'s ID and type, or null while unavailable. */
+  public operator fun get(source: GeoJsonSource): GeoJsonSourceHandle? =
+    get(source.id) as? GeoJsonSourceHandle
+
+  /** Returns the current handle with [source]'s ID and type, or null while unavailable. */
+  public operator fun get(source: ImageSource): ImageSourceHandle? =
+    get(source.id) as? ImageSourceHandle
+
+  /** Returns the current handle with [source]'s ID and type, or null while unavailable. */
+  public operator fun get(source: VectorSource): VectorSourceHandle? =
+    get(source.id) as? VectorSourceHandle
+
+  /** Returns the current handle with [source]'s ID and type, or null while unavailable. */
+  public operator fun get(source: RasterSource): RasterSourceHandle? =
+    get(source.id) as? RasterSourceHandle
+
+  /** Returns the current handle with [source]'s ID and type, or null while unavailable. */
+  public operator fun get(source: RasterDemSource): RasterDemSourceHandle? =
+    get(source.id) as? RasterDemSourceHandle
+
+  /** Returns the current handle with [source]'s ID and type, or null while unavailable. */
+  public operator fun get(source: CustomGeometrySource): CustomGeometrySourceHandle? =
+    get(source.id) as? CustomGeometrySourceHandle
+
+  /** Returns the current handle with [source]'s ID and type, or null while unavailable. */
+  public operator fun get(source: CustomVectorSource): CustomVectorSourceHandle? =
+    get(source.id) as? CustomVectorSourceHandle
+
+  /** Returns the current handle with [source]'s ID and type, or null while unavailable. */
+  public operator fun get(source: UnknownSource): UnknownSourceHandle? =
+    get(source.id) as? UnknownSourceHandle
 
   /** Adds [source] to the current loaded-style generation and returns its handle. */
   public fun add(source: Source): SourceHandle = style.requireOwner().addStyleSource(source)

@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableFloatStateOf
@@ -96,7 +97,9 @@ object MagnifyingLensDemo : Demo {
   @Composable
   override fun MapOverlayScope.Overlay(state: DemoAppState) {
     val appliedStyle = state.appliedStyle
-    val lensState = rememberMapState(runtime = state.mapRuntime, baseStyle = appliedStyle.base)
+    val lensState =
+      rememberMapState(runtime = state.mapRuntime, initialBaseStyle = appliedStyle.base)
+    SideEffect { lensState.style.baseStyle = appliedStyle.base }
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
     val lensSizePx = with(density) { lensSize.dp.toPx() }

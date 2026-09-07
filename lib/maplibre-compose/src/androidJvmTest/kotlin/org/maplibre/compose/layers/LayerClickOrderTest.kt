@@ -136,7 +136,7 @@ class LayerClickOrderTest {
       mapState =
         rememberMapState(
           initialCameraPosition = CameraPosition(target = Position(0.0, 0.0), zoom = START_ZOOM),
-          baseStyle = BaseStyle.Empty,
+          initialBaseStyle = BaseStyle.Empty,
         ) {
           val source = rememberGeoJsonSource(data = GeoJsonData.JsonString(WORLD_POLYGON))
 

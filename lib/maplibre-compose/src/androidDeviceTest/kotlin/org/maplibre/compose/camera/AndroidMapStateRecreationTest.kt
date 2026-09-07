@@ -122,7 +122,7 @@ class MapStateRecreationActivity : ComponentActivity() {
     setContent {
       val firstRuntime: MapRuntime = DefaultMapRuntime.instance
       val secondRuntime: MapRuntime = DefaultMapRuntime.instance
-      val state = rememberMapState(firstRuntime, baseStyle = BaseStyle.Empty)
+      val state = rememberMapState(firstRuntime, initialBaseStyle = BaseStyle.Empty)
       SideEffect {
         mapState = state
         defaultRuntimeIsShared = firstRuntime === secondRuntime

@@ -132,7 +132,7 @@ class BrowserMapStyleStateTest {
       val presented = mutableStateOf(true)
       val useLatestRevision = mutableStateOf(false)
       val state =
-        runtime.createMapState(baseStyle = STYLE_A) {
+        runtime.createMapState(initialBaseStyle = STYLE_A) {
           val suffix = if (useLatestRevision.value) "latest" else "initial"
           RasterLayer(
             id = "$suffix-overlay",
@@ -208,7 +208,7 @@ class BrowserMapStyleStateTest {
   fun a_web_presentation_waits_for_a_viewport_and_survives_style_failure(): Promise<*> =
     runBrowserMapTest {
       val runtime = createMapRuntime(MapRuntimeOptions())
-      val state = runtime.createMapState(baseStyle = STYLE_A)
+      val state = runtime.createMapState(initialBaseStyle = STYLE_A)
       val size = mutableStateOf(0.dp)
 
       setBrowserMapContent { MaplibreMap(state = state, modifier = Modifier.size(size.value)) }
@@ -245,7 +245,7 @@ class BrowserMapStyleStateTest {
     Promise<*> = runBrowserMapTest {
     val runtime = createMapRuntime(MapRuntimeOptions())
     val state =
-      runtime.createMapState(baseStyle = STYLE_A) {
+      runtime.createMapState(initialBaseStyle = STYLE_A) {
         BackgroundLayer(id = "application", color = const(Color.Red))
       }
 
@@ -318,7 +318,7 @@ class BrowserMapStyleStateTest {
       var styleState: MapStyleState? = null
       var mapState: MapState? = null
       setBrowserMapContent {
-        val current = rememberMapState(baseStyle = tileJsonStyle)
+        val current = rememberMapState(initialBaseStyle = tileJsonStyle)
         mapState = current
         styleState = current.style
         MaplibreMap(state = current, modifier = Modifier)
@@ -352,7 +352,7 @@ class BrowserMapStyleStateTest {
         var mapState: MapState? = null
         setBrowserMapContent {
           val logicalMap =
-            rememberMapState(baseStyle = BaseStyle.Empty) {
+            rememberMapState(initialBaseStyle = BaseStyle.Empty) {
               if (showLateSource.value) {
                 RasterLayer(id = "late-layer", source = source, visible = true)
               }
@@ -393,7 +393,7 @@ class BrowserMapStyleStateTest {
     var mapState: MapState? = null
     setBrowserMapContent {
       val logicalMap =
-        rememberMapState(baseStyle = current.value) {
+        rememberMapState(initialBaseStyle = current.value) {
           identity = LocalStyleNode.current.style.identity
         }
       mapState = logicalMap
@@ -410,7 +410,7 @@ class BrowserMapStyleStateTest {
     )
 
     val observed = mutableListOf<List<String>>()
-    current.value = styleWith("second", "second-source")
+    runOnIdle { checkNotNull(mapState).style.baseStyle = styleWith("second", "second-source") }
     waitUntilMap("the second style's sources to be reported") {
       styleState?.sources?.map { it.attributionHtml }?.let { observed += it }
       mapState?.style?.loadState == StyleLoadState.Ready &&

@@ -27,8 +27,8 @@ Create a <Api of="MapState" /> with the style URI as its initial
 
 ## Switch styles at runtime
 
-Select a style with regular Compose logic. The map animates the transition
-between styles. For example, select a style from the system theme:
+Assign `mapState.style.baseStyle` to switch styles. To follow Compose state such
+as the system theme, assign it in a `SideEffect`:
 
 <Code code={region(styling, "dynamic")} lang="kotlin" title="App.kt" />
 

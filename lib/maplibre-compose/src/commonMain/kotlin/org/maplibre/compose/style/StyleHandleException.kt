@@ -7,6 +7,10 @@ public class StyleHandleException(message: String, cause: Throwable? = null) :
 internal interface StyleHandleOperationGuard {
   fun <T> run(action: () -> T): T
 
+  fun requireSourceWritable(id: String)
+
+  fun requireLayerWritable(id: String)
+
   fun checkpoint(): Long
 
   fun requireUnchanged(checkpoint: Long)

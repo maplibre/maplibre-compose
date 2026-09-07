@@ -33,7 +33,9 @@ import org.maplibre.spatialk.geojson.toJson
 fun Layers() {
   // #region simple
   val baseState =
-    rememberMapState(baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty")) {
+    rememberMapState(
+      initialBaseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty")
+    ) {
       getBaseSource(id = "openmaptiles")?.let { tiles ->
         CircleLayer(id = "example", source = tiles, sourceLayer = "poi")
       }
