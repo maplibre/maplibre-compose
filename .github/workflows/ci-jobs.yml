@@ -3,6 +3,9 @@ name: CI jobs
 # Every CI job, as a matrix over the variants in ci/jobs.json. The CI, CI
 # ready, and CI full workflows each call this with the tier whose variants they
 # own; a job with no variants in that tier is skipped before its matrix is read.
+# Jobs take GitHub's default names, so a run shows `android (36)` and a skip
+# shows `android`; a name expression over the matrix renders as raw text when
+# the job is skipped.
 on:
   workflow_call:
     inputs:
@@ -43,7 +46,6 @@ jobs:
   hygiene:
     needs: plan
     if: contains(fromJSON(needs.plan.outputs.run), 'hygiene')
-    name: ${{ matrix.name }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.hygiene) }}
@@ -94,7 +96,6 @@ jobs:
   android:
     needs: plan
     if: contains(fromJSON(needs.plan.outputs.run), 'android')
-    name: ${{ matrix.name }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.android) }}
@@ -188,7 +189,6 @@ jobs:
   ios:
     needs: plan
     if: contains(fromJSON(needs.plan.outputs.run), 'ios')
-    name: ${{ matrix.name }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.ios) }}
@@ -231,7 +231,6 @@ jobs:
   ios-device:
     needs: plan
     if: contains(fromJSON(needs.plan.outputs.run), 'ios-device')
-    name: ${{ matrix.name }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.ios-device) }}
@@ -250,7 +249,6 @@ jobs:
   js:
     needs: plan
     if: contains(fromJSON(needs.plan.outputs.run), 'js')
-    name: ${{ matrix.name }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.js) }}
@@ -290,7 +288,6 @@ jobs:
   desktop:
     needs: plan
     if: contains(fromJSON(needs.plan.outputs.run), 'desktop')
-    name: ${{ matrix.name }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.desktop) }}
@@ -341,7 +338,6 @@ jobs:
   docs:
     needs: plan
     if: contains(fromJSON(needs.plan.outputs.run), 'docs')
-    name: ${{ matrix.name }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.docs) }}

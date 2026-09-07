@@ -17,7 +17,7 @@ def variants() -> list[dict]:
     rows = json.loads(CATALOG.read_text())
     for row in rows:
         if row["job"] not in JOBS[1:] or row["tier"] not in TIERS:
-            raise ValueError(f"unknown job or tier in variant {row['name']!r}")
+            raise ValueError(f"unknown job or tier in {row['job']} {row['variant']}")
     return rows
 
 
@@ -43,11 +43,18 @@ def plan(tier: str, event_name: str, event: dict) -> dict:
     else:
         # Main and manual runs cover every variant in a single workflow.
         selected = set(TIERS)
-    matrices: dict[str, dict] = {job: {"include": []} for job in JOBS[1:]}
+    # `variant` is the only matrix dimension, so GitHub names each job after it
+    # and leaves the row's other fields out of the name.
+    matrices: dict[str, dict] = {
+        job: {"variant": [], "include": []} for job in JOBS[1:]
+    }
     for row in variants():
         if row["tier"] in selected:
-            matrix_row = {key: value for key, value in row.items() if key != "tier"}
-            matrices[row["job"]]["include"].append(matrix_row)
+            matrix = matrices[row["job"]]
+            matrix["variant"].append(row["variant"])
+            matrix["include"].append(
+                {key: value for key, value in row.items() if key not in ("job", "tier")}
+            )
     run = [job for job, matrix in matrices.items() if matrix["include"]]
     expected = {"plan": "success"}
     for job, matrix in matrices.items():
@@ -70,7 +77,9 @@ def main() -> None:
             )
             print(f"{key}={encoded}", file=output)
     names = [
-        row["name"] for job in selection["run"] for row in selection[job]["include"]
+        f"{job} ({variant})"
+        for job in selection["run"]
+        for variant in selection[job]["variant"]
     ]
     with pathlib.Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as summary:
         print(f"CI tier: **{selection['tier']}**", file=summary)

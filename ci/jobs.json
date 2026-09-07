@@ -1,20 +1,20 @@
 [
-  { "job": "hygiene", "name": "hygiene", "tier": "draft" },
-  { "job": "docs", "name": "docs", "tier": "draft" },
-  { "job": "js", "name": "js", "tier": "draft" },
-  { "job": "ios-device", "name": "ios device", "tier": "draft" },
-  { "job": "ios", "name": "ios simulator", "tier": "ready" },
+  { "job": "hygiene", "variant": "ubuntu", "tier": "draft" },
+  { "job": "docs", "variant": "ubuntu", "tier": "draft" },
+  { "job": "js", "variant": "chromium", "tier": "draft" },
+  { "job": "ios-device", "variant": "arm64", "tier": "draft" },
+  { "job": "ios", "variant": "arm64", "tier": "ready" },
   {
     "job": "android",
-    "name": "android 36",
+    "variant": "36",
     "tier": "draft",
     "api-level": 36,
     "artifact_name": "demo-app-android"
   },
-  { "job": "android", "name": "android 26", "tier": "ready", "api-level": 26 },
+  { "job": "android", "variant": "26", "tier": "ready", "api-level": 26 },
   {
     "job": "desktop",
-    "name": "desktop linux-x64",
+    "variant": "linux-x64",
     "tier": "draft",
     "runner": "ubuntu-24.04",
     "save_toolchains": "false",
@@ -25,7 +25,7 @@
   },
   {
     "job": "desktop",
-    "name": "desktop macos-arm64",
+    "variant": "macos-arm64",
     "tier": "ready",
     "runner": "macos-26",
     "save_toolchains": "false",
@@ -36,7 +36,7 @@
   },
   {
     "job": "desktop",
-    "name": "desktop windows-x64",
+    "variant": "windows-x64",
     "tier": "ready",
     "runner": "windows-2022",
     "save_toolchains": "true",
@@ -47,7 +47,7 @@
   },
   {
     "job": "desktop",
-    "name": "desktop linux-arm64",
+    "variant": "linux-arm64",
     "tier": "full",
     "runner": "ubuntu-24.04-arm",
     "save_toolchains": "true",
@@ -58,7 +58,7 @@
   },
   {
     "job": "desktop",
-    "name": "desktop windows-arm64",
+    "variant": "windows-arm64",
     "tier": "full",
     "runner": "windows-11-arm",
     "save_toolchains": "true",

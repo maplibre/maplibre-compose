@@ -35,17 +35,23 @@ def pr_event(
 
 
 def names(selection: dict) -> set[str]:
-    return {row["name"] for job in JOBS[1:] for row in selection[job]["include"]}
+    return {
+        f"{job} ({variant})"
+        for job in JOBS[1:]
+        for variant in selection[job]["variant"]
+    }
 
 
 def catalog_names(*tiers: str) -> set[str]:
-    return {row["name"] for row in variants() if row["tier"] in tiers}
+    return {
+        f"{row['job']} ({row['variant']})" for row in variants() if row["tier"] in tiers
+    }
 
 
 class CatalogTest(unittest.TestCase):
     def test_every_variant_has_a_unique_name_and_a_single_tier(self) -> None:
         rows = variants()
-        self.assertEqual(len({row["name"] for row in rows}), len(rows))
+        self.assertEqual(len({(row["job"], row["variant"]) for row in rows}), len(rows))
         for row in rows:
             self.assertIn(row["tier"], TIERS)
             self.assertIn(row["job"], JOBS)
@@ -54,12 +60,12 @@ class CatalogTest(unittest.TestCase):
         self.assertEqual(
             catalog_names("draft"),
             {
-                "hygiene",
-                "docs",
-                "js",
-                "ios device",
-                "android 36",
-                "desktop linux-x64",
+                "hygiene (ubuntu)",
+                "docs (ubuntu)",
+                "js (chromium)",
+                "ios-device (arm64)",
+                "android (36)",
+                "desktop (linux-x64)",
             },
         )
 
@@ -67,14 +73,14 @@ class CatalogTest(unittest.TestCase):
         self.assertEqual(
             catalog_names("ready"),
             {
-                "ios simulator",
-                "android 26",
-                "desktop macos-arm64",
-                "desktop windows-x64",
+                "ios (arm64)",
+                "android (26)",
+                "desktop (macos-arm64)",
+                "desktop (windows-x64)",
             },
         )
         self.assertEqual(
-            catalog_names("full"), {"desktop linux-arm64", "desktop windows-arm64"}
+            catalog_names("full"), {"desktop (linux-arm64)", "desktop (windows-arm64)"}
         )
 
 
@@ -87,8 +93,12 @@ class PlanTest(unittest.TestCase):
             self.assertEqual(
                 selection["expected"][job], "success" if rows else "skipped"
             )
+            self.assertEqual(
+                selection[job]["variant"], [row["variant"] for row in rows]
+            )
             for row in rows:
                 self.assertNotIn("tier", row)
+                self.assertNotIn("job", row)
         self.assertEqual(selection["expected"]["plan"], "success")
 
     def test_each_tier_runs_only_its_own_variants_on_a_ready_pr(self) -> None:
@@ -207,7 +217,7 @@ class PlanCommandTest(unittest.TestCase):
             )
             self.assertEqual(json.loads(values["expected"])["js"], "skipped")
             self.assertIn("CI tier: **ready**", summary.read_text())
-            self.assertIn("ios simulator", summary.read_text())
+            self.assertIn("ios (arm64)", summary.read_text())
 
 
 class WorkflowTest(unittest.TestCase):
