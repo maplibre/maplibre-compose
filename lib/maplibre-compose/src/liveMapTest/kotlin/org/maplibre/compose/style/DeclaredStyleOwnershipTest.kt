@@ -1,10 +1,7 @@
 package org.maplibre.compose.style
 
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpRect
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -17,19 +14,16 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.RasterLayer
-import org.maplibre.compose.map.DefaultStyleCompositionEvaluator
-import org.maplibre.compose.map.SnapshotStyleOwnership
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.ImageSource
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.sources.rememberImageSource
-import org.maplibre.compose.testing.MapFixture
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
+import org.maplibre.compose.testing.declare
 import org.maplibre.compose.testing.runMapTest
-import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.compose.util.PositionQuad
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Point
@@ -108,22 +102,6 @@ class DeclaredStyleOwnershipTest {
       assertFailsWith<StyleHandleException> { handle.setImage(bitmap) }
       assertFailsWith<StyleHandleException> { handle.setUri("https://example.invalid/image.png") }
     }
-  }
-
-  /** Evaluate real composables, then publish and reconcile through the map's production paths. */
-  private suspend fun MapFixture.declare(content: @Composable @MaplibreComposable () -> Unit) {
-    awaitMapReady()
-    val revision =
-      DefaultStyleCompositionEvaluator.evaluate(
-        content,
-        checkNotNull(style),
-        checkNotNull(session.getViewport()),
-        Density(1f),
-        LayoutDirection.Ltr,
-        SnapshotStyleOwnership.Empty,
-      )
-    state.beginStyleRevision(session, revision)
-    state.updateStyleResources(session, session.reconcileStyleRevision(revision))
   }
 
   private companion object {

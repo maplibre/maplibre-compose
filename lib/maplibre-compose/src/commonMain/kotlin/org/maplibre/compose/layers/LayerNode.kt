@@ -30,11 +30,14 @@ internal fun <T : Layer> LayerNode(
   val anchor = LocalAnchor.current
   val node = LocalStyleNode.current
 
-  key(factory, anchor, recreateKey) {
+  // The anchor is not part of the node's identity: a predicate anchor built from a fresh lambda on
+  // each recomposition must update the node in place, not recreate it and its click registration.
+  key(factory, recreateKey) {
     ComposeNode<LayerNode<T>, MapNodeApplier>(
       factory = { LayerNode(layer = factory(), anchor = anchor) },
       update = {
         update()
+        set(anchor) { this.anchor = it }
         set(onClick) { this.onClick = it }
         set(onLongClick) { this.onLongClick = it }
         set(onDoubleClick) { this.onDoubleClick = it }
