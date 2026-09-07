@@ -33,8 +33,9 @@ public sealed interface Anchor {
   /**
    * Layers are placed directly over the highest base-style layer that [predicate] accepts, or at
    * the bottom of the stack when it accepts none. Layers declared in the style content are not
-   * candidates, and the [LayerHandle] passed to the predicate is read-only. See
-   * [Anchor.Companion.Above] to use this in the style content.
+   * candidates, and the [LayerHandle] passed to the predicate is read-only. The predicate runs
+   * outside composition, so snapshot state it reads is not observed; read state in composition and
+   * capture the values. See [Anchor.Companion.Above] to use this in the style content.
    */
   public class Above private constructor(private val selector: LayerSelector) : Anchor {
     public constructor(predicate: (LayerHandle) -> Boolean) : this(LayerSelector(predicate))
@@ -55,8 +56,9 @@ public sealed interface Anchor {
   /**
    * Layers are placed directly under the lowest base-style layer that [predicate] accepts, or at
    * the top of the stack when it accepts none. Layers declared in the style content are not
-   * candidates, and the [LayerHandle] passed to the predicate is read-only. See
-   * [Anchor.Companion.Below] to use this in the style content.
+   * candidates, and the [LayerHandle] passed to the predicate is read-only. The predicate runs
+   * outside composition, so snapshot state it reads is not observed; read state in composition and
+   * capture the values. See [Anchor.Companion.Below] to use this in the style content.
    */
   public class Below private constructor(private val selector: LayerSelector) : Anchor {
     public constructor(predicate: (LayerHandle) -> Boolean) : this(LayerSelector(predicate))
