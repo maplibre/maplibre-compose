@@ -64,4 +64,20 @@ class VisibleBoundsTest {
     assertEquals(170.0, toMeridian.wrapped().west)
     assertEquals(180.0, toMeridian.wrapped().east)
   }
+
+  @Test
+  fun a_zero_width_bound_stays_zero_width() {
+    // west == east interpolates to a meridian strip per RFC 7946 §5.1, never to the whole world.
+    val strip = VisibleBounds(southwest = Position(100.0, 0.0), northeast = Position(100.0, 1.0))
+    assertEquals(100.0, strip.wrapped().west)
+    assertEquals(100.0, strip.wrapped().east)
+
+    // A zero-width bound on the antimeridian wraps both edges to -180°, from any approach side.
+    for (longitude in listOf(-180.0, 180.0, 540.0)) {
+      val meridian =
+        VisibleBounds(southwest = Position(longitude, 0.0), northeast = Position(longitude, 1.0))
+      assertEquals(-180.0, meridian.wrapped().west)
+      assertEquals(-180.0, meridian.wrapped().east)
+    }
+  }
 }

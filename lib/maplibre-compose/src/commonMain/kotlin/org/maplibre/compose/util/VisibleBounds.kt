@@ -54,13 +54,22 @@ public data class VisibleBounds(
    *
    * When the wrapped bounds cross the antimeridian, the result follows the GeoJSON convention: the
    * east longitude is less than the west longitude. A span of 360° or more wraps onto the whole
-   * world, from -180° to 180°.
+   * world, from -180° to 180° (RFC 7946 §5.3). Both edges of a zero-width bound wrap to the same
+   * longitude (RFC 7946 §5.1); on the antimeridian that longitude is -180°, matching how spatial-k
+   * wraps a [Position]'s longitude.
    */
   public fun wrapped(): BoundingBox {
     if (east - west >= 360.0) {
       return BoundingBox(
         southwest = Position(longitude = -180.0, latitude = south),
         northeast = Position(longitude = 180.0, latitude = north),
+      )
+    }
+    if (east == west) {
+      val longitude = wrapLongitudeWest(west)
+      return BoundingBox(
+        southwest = Position(longitude = longitude, latitude = south),
+        northeast = Position(longitude = longitude, latitude = north),
       )
     }
     return BoundingBox(
