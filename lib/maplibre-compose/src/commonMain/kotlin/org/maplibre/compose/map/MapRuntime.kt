@@ -949,10 +949,9 @@ internal constructor(
    * Waits for a viewport, then queries rendered features at [offset] in front-to-back render order.
    * Detaching the map surface during the query cancels it.
    *
-   * Feature geometries carry the coordinates the engine rendered, exactly as queried: they are not
-   * normalized, a geometry that crosses the antimeridian may be split into pieces, and longitudes
-   * may fall outside ±180° in either direction. When several world copies are visible, the same
-   * source feature can appear once per copy it occupies in the query area.
+   * A geometry that crosses the antimeridian may come back split into pieces, with longitudes past
+   * ±180° in either direction. When several world copies are visible, the same source feature can
+   * appear once per copy it occupies in the query area.
    */
   public suspend fun queryRenderedFeatures(
     offset: DpOffset,
@@ -965,10 +964,9 @@ internal constructor(
    * Waits for a viewport, then queries rendered features that intersect [rect] in front-to-back
    * render order. Detaching the map surface during the query cancels it.
    *
-   * Feature geometries carry the coordinates the engine rendered, exactly as queried: they are not
-   * normalized, a geometry that crosses the antimeridian may be split into pieces, and longitudes
-   * may fall outside ±180° in either direction. When several world copies are visible, the same
-   * source feature can appear once per copy it occupies in the query area.
+   * A geometry that crosses the antimeridian may come back split into pieces, with longitudes past
+   * ±180° in either direction. When several world copies are visible, the same source feature can
+   * appear once per copy it occupies in the query area.
    */
   public suspend fun queryRenderedFeatures(
     rect: DpRect,

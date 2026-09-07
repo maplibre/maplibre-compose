@@ -127,22 +127,14 @@ internal constructor(
       style.clusterExpansionZoom(id, feature) ?: 0.0
     }
 
-  /**
-   * Returns the cluster children for [feature], or an empty collection for a non-cluster.
-   *
-   * Coordinates come from the loaded tiles as stored and are not normalized.
-   */
+  /** Returns the cluster children for [feature], or an empty collection for a non-cluster. */
   public suspend fun getClusterChildren(
     feature: Feature<*, JsonObject?>
   ): FeatureCollection<Geometry, JsonObject?> = suspendingOperation {
     style.clusterChildren(id, feature) ?: FeatureCollection(emptyList())
   }
 
-  /**
-   * Returns the cluster leaves for [feature], or an empty collection for a non-cluster.
-   *
-   * Coordinates come from the loaded tiles as stored and are not normalized.
-   */
+  /** Returns the cluster leaves for [feature], or an empty collection for a non-cluster. */
   public suspend fun getClusterLeaves(
     feature: Feature<*, JsonObject?>,
     limit: Long,
@@ -191,12 +183,7 @@ internal constructor(
   currentKind: () -> String?,
   operations: StyleHandleOperationGuard,
 ) : SourceHandle(id, style, expectedKind, currentKind, operations) {
-  /**
-   * Returns loaded features from [sourceLayerIds] that match [predicate].
-   *
-   * Feature coordinates come from the loaded tiles as stored and are not normalized; tile buffers
-   * can push them slightly past ±180° near the antimeridian.
-   */
+  /** Returns loaded features from [sourceLayerIds] that match [predicate]. */
   public fun querySourceFeatures(
     sourceLayerIds: Set<String>,
     predicate: Expression<BooleanValue> = const(true),
