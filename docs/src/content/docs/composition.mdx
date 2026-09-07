@@ -53,8 +53,10 @@ current state, and let the runtime reconcile it.
 When you assign `mapState.style.baseStyle`, the map loads the new style and evaluates
 the style block against it. Each evaluation declares your
 sources and layers against the new style. They persist across the switch
-without extra code. An `Anchor` that names a base layer applies only when that
-layer exists in the new style.
+without extra code. An `Anchor` resolves again against the new style's layers,
+so a predicate that matches by layer type lands in the equivalent place in each
+style, and one that matches nothing falls back to the top or bottom of the
+stack.
 
 To share one definition between several maps, write the style content as a
 composable function and call that function from each style block. The same
@@ -74,4 +76,4 @@ read. Content that runs on both hosts branches on it.
 Layers and sources have string IDs because the underlying MapLibre style
 identifies them by ID. Within one map, each layer ID must be unique, including
 against the base style's layers. A feature query takes layer IDs to limit its
-scope, and an `Anchor` names a base style layer by its ID.
+scope, and an `Anchor` can select a base style layer by its ID.

@@ -1068,7 +1068,7 @@ internal class MlnFfiMapSession(
     requestedStyle = style
     val trackerRequest = styleLoadTracker.request()
     // Disposes the composition holding the old style's sources and layers, which would otherwise
-    // fail anchor validation against the base layers being replaced.
+    // be validated against the base layers being replaced.
     val lifecycleRequest = lifecycleEngineIdentity?.let {
       lifecycleCallbacks.beginStyleRequest(it, this)
     }

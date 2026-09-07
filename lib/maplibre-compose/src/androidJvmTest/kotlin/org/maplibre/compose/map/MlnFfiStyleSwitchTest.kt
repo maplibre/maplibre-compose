@@ -53,7 +53,17 @@ class MlnFfiStyleSwitchTest {
   }
 
   @Test
-  fun rotating_the_base_style_with_content_composed_over_it() = runFfiComposeUiTest {
+  fun rotating_the_base_style_with_content_composed_over_it() =
+    // A different base-style anchor per style, so the anchor changes in the same recomposition as
+    // the style itself.
+    rotateStyles { it.anchor }
+
+  @Test
+  fun one_predicate_anchor_lands_below_the_labels_of_every_style() =
+    // The label layers have different IDs per style, so one anchor has to resolve against each.
+    rotateStyles { Anchor.Below { layer -> layer.type == "symbol" } }
+
+  private fun rotateStyles(anchorFor: (DemoStyle) -> Anchor) = runFfiComposeUiTest {
     val runtime = createMapRuntime(runtimeOptions)
     var style by mutableStateOf(STYLES[0])
     var extraLayer by mutableStateOf(false)
@@ -62,12 +72,10 @@ class MlnFfiStyleSwitchTest {
         val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
         // Two layers on one source at different anchors, so the re-add order matters.
         CircleLayer(id = "user-circles", source = points, color = const(Color.Red))
-        // A different base-style anchor per style, so the anchor changes in the same
-        // recomposition as the style itself.
-        Anchor.At(style.anchor) {
+        Anchor.At(anchorFor(style)) {
           FillLayer(id = "user-fill", source = points, color = const(Color.Blue))
-          // Comes and goes across the rotation, covering removal of a layer that was added while
-          // its anchor was unresolvable.
+          // Comes and goes across the rotation, covering removal of a layer that was added against
+          // a different base style.
           if (extraLayer) {
             FillLayer(id = "user-extra", source = points, color = const(Color.Green))
           }
@@ -256,6 +264,9 @@ class MlnFfiStyleSwitchTest {
     const val B_STYLE_URL = "held://style-b"
     const val C_STYLE_URL = "held://style-c"
 
+    const val EMPTY_SOURCE_JSON =
+      """{"type":"geojson","data":{"type":"FeatureCollection","features":[]}}"""
+
     const val STYLE_C_JSON =
       """{"version":8,"sources":{},"layers":[{"id":"base-c","type":"background"}]}"""
 
@@ -310,9 +321,9 @@ class MlnFfiStyleSwitchTest {
           base =
             BaseStyle.Json(
               """
-              {"version":8,"sources":{},"layers":[
+              {"version":8,"sources":{"empty":$EMPTY_SOURCE_JSON},"layers":[
                 {"id":"bg-a","type":"background","paint":{"background-color":"#eee"}},
-                {"id":"labels-a","type":"background","paint":{"background-color":"#e0e0e0"}}
+                {"id":"labels-a","type":"symbol","source":"empty"}
               ]}
               """
             ),
@@ -323,9 +334,9 @@ class MlnFfiStyleSwitchTest {
           base =
             BaseStyle.Json(
               """
-              {"version":8,"sources":{},"layers":[
+              {"version":8,"sources":{"empty":$EMPTY_SOURCE_JSON},"layers":[
                 {"id":"bg-b","type":"background","paint":{"background-color":"#ddd"}},
-                {"id":"labels-b","type":"background","paint":{"background-color":"#cccccc"}}
+                {"id":"labels-b","type":"symbol","source":"empty"}
               ]}
               """
             ),

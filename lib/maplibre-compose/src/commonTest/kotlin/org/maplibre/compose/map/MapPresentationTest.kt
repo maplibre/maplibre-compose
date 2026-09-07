@@ -943,7 +943,8 @@ class MapPresentationTest {
     val original = DesiredStyleLayer(layer.definition(), Anchor.Top, null, null)
     fixture.state.desiredStyleRevision =
       DesiredStyleRevision(emptyList(), listOf(original), emptyList())
-    val binding = RecordingStyleBinding()
+    // A base layer separates Top from Bottom; without one they resolve to the same position.
+    val binding = RecordingStyleBinding(layers = listOf(BackgroundLayer("base")))
     val reconciler = StyleReconciler()
     reconciler.apply(binding, fixture.state.desiredStyleRevision)
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)

@@ -31,6 +31,7 @@ interface DemoStyle {
 
   /** An anchor that keeps a demo's layers below the style's labels. */
   val anchorBelowSymbols: Anchor
+    get() = Anchor.Below { it.type == "symbol" }
 }
 
 /**
@@ -51,8 +52,6 @@ enum class OpenFreeMap(override val isDark: Boolean = false) : DemoStyle {
   override val displayName = "$name (OpenFreeMap)"
 
   override val base = BaseStyle.Uri("https://tiles.openfreemap.org/styles/${name.lowercase()}")
-
-  override val anchorBelowSymbols = Anchor.Below("waterway_line_label")
 }
 
 enum class Protomaps(override val isDark: Boolean = false) : DemoStyle {
@@ -68,8 +67,6 @@ enum class Protomaps(override val isDark: Boolean = false) : DemoStyle {
     BaseStyle.Uri(
       "https://api.protomaps.com/styles/v5/${name.lowercase()}/en.json?key=$PROTOMAPS_API_KEY"
     )
-
-  override val anchorBelowSymbols = Anchor.Below("address_label")
 }
 
 enum class Versatiles(override val isDark: Boolean = false) : DemoStyle {
@@ -81,8 +78,6 @@ enum class Versatiles(override val isDark: Boolean = false) : DemoStyle {
 
   override val base = BaseStyle.Uri(Res.getUri("files/styles/${name.lowercase()}.json"))
 
-  override val anchorBelowSymbols = Anchor.Below("label-address-housenumber")
-
   // Versatiles names its fonts in snake case; "Noto Sans Regular" 404s here.
   override val textFont = listOf("noto_sans_regular")
 }
@@ -91,7 +86,6 @@ enum class OtherStyles(
   override val displayName: String,
   override val base: BaseStyle,
   override val isDark: Boolean = false,
-  override val anchorBelowSymbols: Anchor = Anchor.Top,
   override val textFont: List<String> = listOf("Noto Sans Regular"),
 ) : DemoStyle {
   // A raster style with no `glyphs` endpoint, so no font stack works here and the value is inert.

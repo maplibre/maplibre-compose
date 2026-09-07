@@ -183,6 +183,11 @@ internal open class MlnFfiStyleBinding(
 
   override fun layerIds(): List<String> = readMap { it.styleLayerIds() }.orEmpty()
 
+  override fun layerTypes(): Map<String, String> = readMap { map ->
+    map.styleLayerIds().mapNotNull { id -> map.styleLayerType(id)?.let { id to it } }.toMap()
+  }
+    .orEmpty()
+
   private fun isStyleSource(map: MapHandle, id: String): Boolean =
     map.styleSourceExists(id) && map.styleSourceType(id) != SourceType.ANNOTATIONS
 

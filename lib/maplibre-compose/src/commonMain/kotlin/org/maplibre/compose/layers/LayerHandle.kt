@@ -19,7 +19,8 @@ import org.maplibre.compose.style.toTransitionOptions
  * Provides property access to a layer for one loaded base-style generation.
  *
  * Style content owns all properties of declared layers. Their properties can be read, but setter
- * calls and [clearFilter] throw [StyleHandleException]. Base-style layers also permit writes.
+ * calls and [clearFilter] throw [StyleHandleException]. Base-style layers also permit writes,
+ * except through the handles that an [Anchor] predicate receives, which are read-only.
  */
 public class LayerHandle
 internal constructor(

@@ -76,6 +76,14 @@ internal interface StyleBinding {
   fun layerIds(): List<String>
 
   /**
+   * Every layer's style-spec type keyed by ID, in stack order from bottom to top. The default reads
+   * each layer separately; an engine with per-call overhead overrides this to read them in one
+   * pass.
+   */
+  fun layerTypes(): Map<String, String> =
+    layerIds().mapNotNull { id -> getLayer(id)?.definition()?.type?.let { id to it } }.toMap()
+
+  /**
    * Adds a complete layer object directly below [beforeLayerId], or on top when that is empty.
    *
    * @return false if the style has unloaded, in which case nothing was added.
