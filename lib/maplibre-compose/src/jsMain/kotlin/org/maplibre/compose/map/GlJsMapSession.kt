@@ -243,7 +243,6 @@ internal class GlJsMapSession(
       GlJsRuntime.withDrawingBufferSize(mapTarget.gl, mapTarget.widthPx, mapTarget.heightPx) {
         map.redraw()
       }
-      mapTarget.resetSkiaState()
     } else {
       // GL JS runs style updates, tile loading and every camera ease from inside its own render, so
       // even a map nothing samples has to be asked to draw.

@@ -11,8 +11,6 @@ fun main() {
   // Reachable use so production DCE keeps @js-joda/timezone. See JsJodaTimeZone.kt.
   @Suppress("UNUSED_VARIABLE") val keepJsJodaTimeZone = jsJodaTz
   onWasmReady {
-    // Must run before Compose builds its renderer, which creates the GPU context maps composite
-    // into.
     installMapLibreCompose()
     ComposeViewport(document.body!!) { DemoApp() }
   }
