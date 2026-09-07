@@ -13,7 +13,7 @@ class CustomSourceDefinitionTest {
   fun replacing_a_provider_publishes_a_new_definition() = runTest {
     val first = VectorTileProvider { byteArrayOf(1) }
     val second = VectorTileProvider { byteArrayOf(2) }
-    val source = CustomVectorSource("custom", provider = first)
+    val source = CustomVectorTileSource("custom", provider = first)
     val firstDefinition = source.definition() as SourceDefinition.CustomVector
     val binding = RecordingStyleBinding()
     val handle = SourceInstallation(binding, firstDefinition)

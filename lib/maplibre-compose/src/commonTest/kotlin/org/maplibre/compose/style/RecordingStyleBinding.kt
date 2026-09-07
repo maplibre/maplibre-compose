@@ -10,14 +10,14 @@ import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.UnknownLayer
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
-import org.maplibre.compose.sources.CustomVectorSourceOptions
+import org.maplibre.compose.sources.CustomVectorTileSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeometryTileProvider
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.TileCoordinate
-import org.maplibre.compose.sources.UnknownSource
 import org.maplibre.compose.sources.VectorTileProvider
+import org.maplibre.compose.sources.reconstructedSource
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -106,7 +106,7 @@ internal class RecordingStyleBinding(
   override fun imageExists(id: String): Boolean = id in images
 
   override fun getSource(id: String): Source? =
-    baseSources[id] ?: sources[id]?.let { UnknownSource(id, it) }
+    baseSources[id] ?: sources[id]?.let { reconstructedSource(id, it) }
 
   override fun getSources(): List<Source> = sources.keys.mapNotNull(::getSource)
 
@@ -183,7 +183,7 @@ internal class RecordingStyleBinding(
 
   override fun addCustomVectorSource(
     sourceId: String,
-    options: CustomVectorSourceOptions,
+    options: CustomVectorTileSourceOptions,
     provider: VectorTileProvider,
   ): Boolean {
     customVectorProvider = provider

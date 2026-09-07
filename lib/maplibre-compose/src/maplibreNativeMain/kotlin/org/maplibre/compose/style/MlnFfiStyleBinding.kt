@@ -28,7 +28,7 @@ import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.MlnFfiLock
 import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
-import org.maplibre.compose.sources.CustomVectorSourceOptions
+import org.maplibre.compose.sources.CustomVectorTileSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeometryTileProvider
@@ -36,10 +36,10 @@ import org.maplibre.compose.sources.MlnFfiTileCoordinatorStore
 import org.maplibre.compose.sources.MlnFfiTileRequestCoordinator
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.TileCoordinate
-import org.maplibre.compose.sources.UnknownSource
 import org.maplibre.compose.sources.VectorTileProvider
 import org.maplibre.compose.sources.featureStateSelector
 import org.maplibre.compose.sources.putClusterProperties
+import org.maplibre.compose.sources.reconstructedSource
 import org.maplibre.compose.sources.toInlineUtf8
 import org.maplibre.compose.sources.toMlnFfiTileId
 import org.maplibre.compose.sources.toStyleSpecEncoding
@@ -175,7 +175,7 @@ internal open class MlnFfiStyleBinding(
   }
 
   override fun getSources(): List<Source> = readMap { map ->
-    map.styleSourceIds().filter { isStyleSource(map, it) }.map { reconstructSource(map, it) }
+    map.styleSourceIds().filter { isStyleSource(map, it) }.mapNotNull { reconstructSource(map, it) }
   }
     .orEmpty()
 
@@ -221,8 +221,8 @@ internal open class MlnFfiStyleBinding(
       map.styleSourceType(sourceId) != SourceType.ANNOTATIONS
   }
 
-  private fun reconstructSource(map: MapHandle, id: String): Source =
-    UnknownSource(id, sourceDefinition(map, id))
+  private fun reconstructSource(map: MapHandle, id: String): Source? =
+    reconstructedSource(id, sourceDefinition(map, id))
 
   private fun sourceDefinition(map: MapHandle, id: String): JsonObject {
     val info = map.styleSourceInfo(id)
@@ -506,7 +506,7 @@ internal open class MlnFfiStyleBinding(
 
   override fun addCustomVectorSource(
     sourceId: String,
-    options: CustomVectorSourceOptions,
+    options: CustomVectorTileSourceOptions,
     provider: VectorTileProvider,
   ): Boolean {
     val coordinator =
@@ -571,7 +571,7 @@ internal open class MlnFfiStyleBinding(
   }
 
   override fun sourceExists(sourceId: String): Boolean? = readMap { map ->
-    map.styleSourceExists(sourceId)
+    isStyleSource(map, sourceId)
   }
 
   /** The bitmap is converted on the caller so the owner-thread hop only uploads. */

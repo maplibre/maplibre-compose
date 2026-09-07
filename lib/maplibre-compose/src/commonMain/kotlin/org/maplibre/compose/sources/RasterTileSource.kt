@@ -9,7 +9,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 
 /** A map data source of tiled map pictures. */
-public class RasterSource : Source {
+public class RasterTileSource : RasterSource {
 
   private val json: JsonObject
 
@@ -54,31 +54,37 @@ public class RasterSource : Source {
     }
   }
 
+  internal constructor(id: String, definition: JsonObject) : super(id) {
+    json = definition
+  }
+
   override fun toJson(): JsonObject = json
 }
 
-/** Remember a new [RasterSource] with the given [tileSize] from the given [uri]. */
+/** Remember a new [RasterTileSource] with the given [tileSize] from the given [uri]. */
 @Composable
-public fun rememberRasterSource(
+public fun rememberRasterTileSource(
   uri: String,
   tileSize: Int = SourceDefaults.RASTER_TILE_SIZE,
-): RasterSource =
+): RasterTileSource =
   key(uri, tileSize) {
     rememberUserSource(
-      factory = { RasterSource(id = it, uri = uri, tileSize = tileSize) },
+      factory = { RasterTileSource(id = it, uri = uri, tileSize = tileSize) },
       update = {},
     )
   }
 
 @Composable
-public fun rememberRasterSource(
+public fun rememberRasterTileSource(
   tiles: List<String>,
   options: TileSetOptions = TileSetOptions(),
   tileSize: Int = SourceDefaults.RASTER_TILE_SIZE,
-): RasterSource =
+): RasterTileSource =
   key(tiles, options, tileSize) {
     rememberUserSource(
-      factory = { RasterSource(id = it, tiles = tiles, options = options, tileSize = tileSize) },
+      factory = {
+        RasterTileSource(id = it, tiles = tiles, options = options, tileSize = tileSize)
+      },
       update = {},
     )
   }

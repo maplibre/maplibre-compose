@@ -31,8 +31,8 @@ import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.GeoJsonSourceHandle
 import org.maplibre.compose.sources.TileSetOptions
-import org.maplibre.compose.sources.VectorSource
-import org.maplibre.compose.sources.VectorSourceHandle
+import org.maplibre.compose.sources.VectorTileSource
+import org.maplibre.compose.sources.VectorTileSourceHandle
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.RecordingStyleBinding
@@ -230,7 +230,7 @@ class MapSnapshotterTest {
     val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
     val request = MapSnapshotRequest(1, 1)
     snapshotter.capture(request)
-    val stale = assertIs<VectorSourceHandle>(snapshotter.style.sources["shared"])
+    val stale = assertIs<VectorTileSourceHandle>(snapshotter.style.sources["shared"])
 
     desired = DesiredStyleRevision(listOf(replacement.definition()), emptyList(), emptyList())
     snapshotter.capture(request)
@@ -703,8 +703,8 @@ class MapSnapshotterTest {
     runtime.awaitClosed()
   }
 
-  private fun attributedVectorSource(attribution: String): VectorSource =
-    VectorSource(
+  private fun attributedVectorSource(attribution: String): VectorTileSource =
+    VectorTileSource(
       id = "shared",
       tiles = listOf("https://example.com/{z}/{x}/{y}.pbf"),
       options = TileSetOptions(attributionHtml = attribution),

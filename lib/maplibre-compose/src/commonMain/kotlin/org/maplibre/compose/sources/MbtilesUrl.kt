@@ -6,8 +6,8 @@ import androidx.compose.runtime.produceState
 import org.maplibre.compose.resource.encodeResourceUrl
 
 /**
- * Returns the `mbtiles:` URL of the MBTiles file at [uri], for the `tiles` list of a [VectorSource]
- * or a [RasterSource].
+ * Returns the `mbtiles:` URL of the MBTiles file at [uri], for the `tiles` list of a
+ * [VectorTileSource] or a [RasterTileSource].
  *
  * MapLibre Native opens an MBTiles file through SQLite, so the file must be on the file system. A
  * `file:` URI that names a file on the file system converts directly. A URI that names a packaged

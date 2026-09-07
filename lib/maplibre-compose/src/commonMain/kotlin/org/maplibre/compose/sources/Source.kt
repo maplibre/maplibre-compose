@@ -28,13 +28,30 @@ public sealed class Source(internal val id: String) {
   override fun toString(): String = "${this::class.simpleName}(id=\"$id\")"
 }
 
+/** A source of vector features: tiled vector data, GeoJSON, or application-supplied tiles. */
+public sealed class VectorSource(id: String) : Source(id)
+
+/** A source of raster imagery: tiled pictures or a positioned image. */
+public sealed class RasterSource(id: String) : Source(id)
+
 /**
- * Get the source with the given [id] from the base style of the current loaded style.
+ * Get the source with the given [id] from the base style of the current loaded style, or null when
+ * the base style has no such source.
  *
- * @throws IllegalStateException if the source does not exist
+ * @throws IllegalStateException if the source is not a [T].
  */
 @Composable
-public fun getBaseSource(id: String): Source? {
+public inline fun <reified T : Source> getBaseSource(id: String): T? {
+  val source = baseSourceOrNull(id) ?: return null
+  check(source is T) {
+    "Base source '$id' is a ${source::class.simpleName}, not a ${T::class.simpleName}"
+  }
+  return source
+}
+
+@PublishedApi
+@Composable
+internal fun baseSourceOrNull(id: String): Source? {
   val node = LocalStyleNode.current
   return remember(node, id) { node.sourceManager.getBaseSource(id) }
 }

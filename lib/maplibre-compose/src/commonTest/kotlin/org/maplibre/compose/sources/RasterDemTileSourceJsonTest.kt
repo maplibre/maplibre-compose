@@ -12,12 +12,12 @@ import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.SourceInstallation
 
 /** A raster DEM definition resolves against the capabilities of each loaded engine. */
-class RasterDemSourceJsonTest {
+class RasterDemTileSourceJsonTest {
 
   @Test
   fun the_definition_keeps_the_scheme_and_encoding_it_was_given() {
     val json =
-      RasterDemSource(
+      RasterDemTileSource(
           id = "dem",
           tiles = listOf(TILE_TEMPLATE),
           options = TileSetOptions(tileCoordinateSystem = TileCoordinateSystem.TMS),
@@ -34,7 +34,7 @@ class RasterDemSourceJsonTest {
   fun an_engine_without_the_custom_encoding_takes_mapbox() {
     val binding = RecordingStyleBinding(supportsCustomDemEncoding = false)
     val source =
-      RasterDemSource(
+      RasterDemTileSource(
         id = "dem",
         tiles = listOf(TILE_TEMPLATE),
         demEncoding = RasterDemEncoding.Custom(redFactor = 2f),
@@ -51,7 +51,7 @@ class RasterDemSourceJsonTest {
   fun an_engine_with_the_custom_encoding_takes_its_factors() {
     val binding = RecordingStyleBinding(supportsCustomDemEncoding = true)
     val source =
-      RasterDemSource(
+      RasterDemTileSource(
         id = "dem",
         tiles = listOf(TILE_TEMPLATE),
         demEncoding = RasterDemEncoding.Custom(redFactor = 2f, baseShift = 3f),
@@ -68,7 +68,7 @@ class RasterDemSourceJsonTest {
   @Test
   fun a_definition_keeps_the_tiles_present_when_it_was_created() {
     val tiles = mutableListOf(TILE_TEMPLATE)
-    val definition = RasterDemSource(id = "dem", tiles = tiles).definition()
+    val definition = RasterDemTileSource(id = "dem", tiles = tiles).definition()
     tiles[0] = "https://changed.invalid/{z}/{x}/{y}.png"
     val binding = RecordingStyleBinding()
 
@@ -83,7 +83,7 @@ class RasterDemSourceJsonTest {
   fun an_engine_without_the_scheme_key_never_sees_it() {
     val binding = RecordingStyleBinding(supportsRasterDemScheme = false)
     val source =
-      RasterDemSource(
+      RasterDemTileSource(
         id = "dem",
         tiles = listOf(TILE_TEMPLATE),
         options = TileSetOptions(tileCoordinateSystem = TileCoordinateSystem.XYZ),
@@ -98,7 +98,7 @@ class RasterDemSourceJsonTest {
   fun tms_tiles_fail_on_an_engine_without_the_scheme_key() {
     val binding = RecordingStyleBinding(supportsRasterDemScheme = false)
     val source =
-      RasterDemSource(
+      RasterDemTileSource(
         id = "dem",
         tiles = listOf(TILE_TEMPLATE),
         options = TileSetOptions(tileCoordinateSystem = TileCoordinateSystem.TMS),
@@ -114,7 +114,7 @@ class RasterDemSourceJsonTest {
   @Test
   fun a_tile_json_source_carries_neither_key() {
     val binding = RecordingStyleBinding(supportsRasterDemScheme = false)
-    val source = RasterDemSource(id = "dem", uri = "https://example.invalid/tiles.json")
+    val source = RasterDemTileSource(id = "dem", uri = "https://example.invalid/tiles.json")
 
     SourceInstallation(binding, source.definition())
 

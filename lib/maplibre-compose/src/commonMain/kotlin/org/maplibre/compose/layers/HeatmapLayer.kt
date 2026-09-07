@@ -11,8 +11,8 @@ import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.DpValue
 import org.maplibre.compose.expressions.value.FloatValue
-import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceReferenceEffect
+import org.maplibre.compose.sources.VectorSource
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.MaplibreComposable
 
@@ -58,7 +58,7 @@ import org.maplibre.compose.util.MaplibreComposable
 @MaplibreComposable
 public fun HeatmapLayer(
   id: String,
-  source: Source,
+  source: VectorSource,
   sourceLayer: String = "",
   minZoom: Float = 0.0f,
   maxZoom: Float = 24.0f,
@@ -112,7 +112,7 @@ public fun HeatmapLayer(
   )
 }
 
-internal class HeatmapLayer(id: String, source: Source) : FeatureLayer(id, source) {
+internal class HeatmapLayer(id: String, source: VectorSource) : FeatureLayer(id, source) {
 
   override val type: String = "heatmap"
 

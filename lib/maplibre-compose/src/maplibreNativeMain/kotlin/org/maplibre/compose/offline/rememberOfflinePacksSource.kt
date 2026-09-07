@@ -6,7 +6,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
-import org.maplibre.compose.sources.Source
+import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Polygon
@@ -30,7 +30,7 @@ public fun rememberOfflinePacksSource(
   offlinePacks: Set<OfflinePack>,
   options: GeoJsonOptions = GeoJsonOptions(),
   putExtraProperties: JsonObjectBuilder.(OfflinePack) -> Unit = {},
-): Source {
+): GeoJsonSource {
   return rememberGeoJsonSource(
     options = options,
     data =

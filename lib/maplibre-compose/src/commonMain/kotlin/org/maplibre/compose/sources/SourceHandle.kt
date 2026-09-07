@@ -192,7 +192,7 @@ internal constructor(
 }
 
 /** Provides imperative access to a vector source for one loaded base-style generation. */
-public open class VectorSourceHandle
+public open class VectorTileSourceHandle
 internal constructor(
   id: String,
   attributionHtml: String,
@@ -239,7 +239,7 @@ internal constructor(
 }
 
 /** Provides imperative access to an application-supplied vector source. */
-public class CustomVectorSourceHandle
+public class CustomVectorTileSourceHandle
 internal constructor(
   id: String,
   attributionHtml: String,
@@ -247,7 +247,7 @@ internal constructor(
   currentKind: () -> String?,
   operations: StyleHandleOperationGuard,
 ) :
-  VectorSourceHandle(
+  VectorTileSourceHandle(
     id,
     attributionHtml,
     style,
@@ -324,7 +324,7 @@ internal constructor(
 }
 
 /** Provides imperative access to a raster source for one loaded base-style generation. */
-public class RasterSourceHandle
+public class RasterTileSourceHandle
 internal constructor(
   id: String,
   attributionHtml: String,
@@ -334,7 +334,7 @@ internal constructor(
 ) : SourceHandle(id, attributionHtml, style, "raster", currentKind, operations)
 
 /** Provides imperative access to a raster DEM source for one loaded base-style generation. */
-public class RasterDemSourceHandle
+public class RasterDemTileSourceHandle
 internal constructor(
   id: String,
   attributionHtml: String,
@@ -342,16 +342,6 @@ internal constructor(
   currentKind: () -> String?,
   operations: StyleHandleOperationGuard,
 ) : SourceHandle(id, attributionHtml, style, "raster-dem", currentKind, operations)
-
-/** Provides imperative access to a source type that has no specialized common handle. */
-public class UnknownSourceHandle
-internal constructor(
-  id: String,
-  attributionHtml: String,
-  style: StyleBinding,
-  currentKind: () -> String?,
-  operations: StyleHandleOperationGuard,
-) : SourceHandle(id, attributionHtml, style, null, currentKind, operations)
 
 internal fun StyleBinding.sourceHandle(
   id: String,
@@ -361,9 +351,10 @@ internal fun StyleBinding.sourceHandle(
   operations: StyleHandleOperationGuard,
 ): SourceHandle? {
   requireCurrent()
-  val source = getSource(id) ?: return null
-  val kind = sourceKind(definition, source)
-  val attribution = source.attributionHtml
+  if (sourceExists(id) != true) return null
+  val source = getSource(id)
+  val kind = sourceKind(definition, source) ?: return null
+  val attribution = source?.attributionHtml.orEmpty()
   val composed = definition != null
   // The identity check covers replacement under the same ID, so the kind check needs no engine
   // read: a composed source's kind follows its desired definition, and any other source keeps the
@@ -383,14 +374,20 @@ internal fun StyleBinding.sourceHandle(
         currentKind,
         operations,
       )
-    "custom-vector" -> CustomVectorSourceHandle(id, attribution, this, currentKind, operations)
+    "custom-vector" -> CustomVectorTileSourceHandle(id, attribution, this, currentKind, operations)
     "custom-geometry" -> CustomGeometrySourceHandle(id, attribution, this, currentKind, operations)
     "image" -> ImageSourceHandle(id, attribution, this, currentKind, operations)
-    "raster" -> RasterSourceHandle(id, attribution, this, currentKind, operations)
-    "raster-dem" -> RasterDemSourceHandle(id, attribution, this, currentKind, operations)
+    "raster" -> RasterTileSourceHandle(id, attribution, this, currentKind, operations)
+    "raster-dem" -> RasterDemTileSourceHandle(id, attribution, this, currentKind, operations)
     "vector" ->
-      VectorSourceHandle(id, attribution, this, currentKind = currentKind, operations = operations)
-    else -> UnknownSourceHandle(id, attribution, this, currentKind, operations)
+      VectorTileSourceHandle(
+        id,
+        attribution,
+        this,
+        currentKind = currentKind,
+        operations = operations,
+      )
+    else -> null
   }
 }
 

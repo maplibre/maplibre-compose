@@ -26,7 +26,7 @@ import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.pumpUntilPixel
 import org.maplibre.compose.testing.runMapTest
 
-class CustomVectorSourceTest {
+class CustomVectorTileSourceTest {
 
   @Test
   fun an_mvt_provider_renders_its_tile(): MapTestResult = runMapTest {
@@ -35,7 +35,10 @@ class CustomVectorSourceTest {
       fixture.loadStyle(BLACK_STYLE)
       val style = assertNotNull(fixture.style)
       val source =
-        CustomVectorSource(SOURCE_ID, CustomVectorSourceOptions(minZoom = 0, maxZoom = 0)) { tile ->
+        CustomVectorTileSource(
+          SOURCE_ID,
+          CustomVectorTileSourceOptions(minZoom = 0, maxZoom = 0),
+        ) { tile ->
           requests += tile
           POINT_TILE
         }
@@ -48,7 +51,7 @@ class CustomVectorSourceTest {
 
       fixture.pumpUntilPixel("the custom MVT point to render", CENTER, CENTER, BLUE)
 
-      val handle = assertIs<VectorSourceHandle>(fixture.state.style.sources[SOURCE_ID])
+      val handle = assertIs<VectorTileSourceHandle>(fixture.state.style.sources[SOURCE_ID])
       val features = handle.querySourceFeatures(setOf(SOURCE_LAYER))
       assertEquals(
         setOf("center"),
@@ -73,7 +76,7 @@ class CustomVectorSourceTest {
       fixture.loadStyle(BLACK_STYLE)
       val style = assertNotNull(fixture.style)
       val source =
-        CustomVectorSource(SOURCE_ID, CustomVectorSourceOptions(minZoom = 0, maxZoom = 0)) {
+        CustomVectorTileSource(SOURCE_ID, CustomVectorTileSourceOptions(minZoom = 0, maxZoom = 0)) {
           state.started = true
           try {
             awaitCancellation()
@@ -100,7 +103,7 @@ class CustomVectorSourceTest {
       fixture.loadStyle(BLACK_STYLE)
       val style = assertNotNull(fixture.style)
       val source =
-        CustomVectorSource(SOURCE_ID, CustomVectorSourceOptions(minZoom = 0, maxZoom = 0)) {
+        CustomVectorTileSource(SOURCE_ID, CustomVectorTileSourceOptions(minZoom = 0, maxZoom = 0)) {
           state.started = true
           try {
             awaitCancellation()

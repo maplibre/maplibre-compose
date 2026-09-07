@@ -12,13 +12,14 @@ import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.layers.UnknownLayer
-import org.maplibre.compose.sources.RasterSource
+import org.maplibre.compose.sources.RasterTileSource
 
 class StyleCompositionOrderTest {
 
   @Test
   fun a_complete_revision_preserves_explicit_layer_order() = runTest {
-    val source = RasterSource("composed-source", listOf("https://example.invalid/{z}/{x}/{y}.png"))
+    val source =
+      RasterTileSource("composed-source", listOf("https://example.invalid/{z}/{x}/{y}.png"))
     val first = RasterLayer("first-layer", source)
     val second = RasterLayer("second-layer", source)
     val revision =
@@ -53,7 +54,7 @@ class StyleCompositionOrderTest {
       )
     for (anchor in anchors) {
       val source =
-        RasterSource("composed-source", listOf("https://example.invalid/{z}/{x}/{y}.png"))
+        RasterTileSource("composed-source", listOf("https://example.invalid/{z}/{x}/{y}.png"))
       val first = RasterLayer("first-layer", source)
       val second = RasterLayer("second-layer", source)
       val revision =
@@ -89,7 +90,8 @@ class StyleCompositionOrderTest {
 
   @Test
   fun a_single_above_layer_does_not_move_onto_itself() = runTest {
-    val source = RasterSource("composed-source", listOf("https://example.invalid/{z}/{x}/{y}.png"))
+    val source =
+      RasterTileSource("composed-source", listOf("https://example.invalid/{z}/{x}/{y}.png"))
     val layer = RasterLayer("hillshade", source)
     val revision =
       DesiredStyleRevision(
