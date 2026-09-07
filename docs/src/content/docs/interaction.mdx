@@ -78,3 +78,11 @@ Choose specific bearings or evenly spaced targets, such as the four cardinal
 directions:
 
 <Code code={region(interaction, "bearing-snapping")} lang="kotlin" />
+
+## Feel bearing notches
+
+Use `camera.rotate.haptics` to add feedback at chosen bearings while rotating.
+Haptics work independently of snapping and support Android, iOS, and macOS.
+Combine notches with different emphasis levels:
+
+<Code code={region(interaction, "bearing-haptics")} lang="kotlin" />

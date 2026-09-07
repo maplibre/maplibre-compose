@@ -1,5 +1,6 @@
 package org.maplibre.compose.interaction.internal
 
+import org.maplibre.compose.interaction.BearingHapticNotch
 import org.maplibre.compose.interaction.BearingSnapping
 
 internal enum class CameraComponent {
@@ -48,4 +49,5 @@ internal data class RotateCameraConfiguration(
   val enabled: Boolean = true,
   val momentum: VelocityMomentum = VelocityMomentum(),
   val snapping: BearingSnapping = BearingSnapping(),
+  val haptics: List<BearingHapticNotch> = emptyList(),
 )

@@ -120,6 +120,7 @@ internal class RecordingGestureTarget(
     duration: Duration,
     anchor: DpOffset?,
     gestureToken: CameraInputToken?,
+    feedback: Boolean,
   ) = command(gestureToken) { rotateCalls += RotateCall(bearingDelta, pitchDelta, anchor) }
 
   override suspend fun fitBoundsAwaitingTransition(

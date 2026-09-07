@@ -70,6 +70,7 @@ internal interface CameraInputTarget {
     duration: Duration = Duration.ZERO,
     anchor: DpOffset? = null,
     gestureToken: CameraInputToken? = null,
+    feedback: Boolean = false,
   )
 
   /** Suspends until the map hands the camera back at the end of the transition. */

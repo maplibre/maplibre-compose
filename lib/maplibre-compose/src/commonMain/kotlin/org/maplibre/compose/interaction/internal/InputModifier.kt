@@ -36,6 +36,7 @@ import org.maplibre.compose.generated.Res
 import org.maplibre.compose.generated.map
 import org.maplibre.compose.generated.map_engaged
 import org.maplibre.compose.generated.map_not_engaged
+import org.maplibre.compose.interaction.HapticEmphasis
 import org.maplibre.compose.interaction.MapInteractions
 
 /**
@@ -131,6 +132,7 @@ internal fun Modifier.mapInput(
       boxZoom,
       platformRouting,
       rememberScrollConverter(),
+      rememberBearingHapticFeedback(),
     )
 }
 
@@ -163,8 +165,9 @@ private fun Modifier.pointerGestures(
   boxZoom: BoxZoomPreview,
   platformRouting: PlatformTransformRouting,
   scrollConverter: ScrollConverter,
+  onHaptic: (HapticEmphasis) -> Unit,
 ): Modifier =
-  pointerInput(target, options.settings, density, scrollConverter) {
+  pointerInput(target, options.settings, density, scrollConverter, onHaptic) {
     val scope = CoroutineScope(currentCoroutineContext())
     val scroll =
       ScrollGesture(
@@ -198,6 +201,7 @@ private fun Modifier.pointerGestures(
         doubleClickTimeoutMillis = viewConfiguration.doubleTapTimeoutMillis,
         longClickTimeoutMillis = viewConfiguration.longPressTimeoutMillis,
         scope = scope,
+        onHaptic = onHaptic.takeIf { options.camera.settings.rotate.haptics.isNotEmpty() },
         onAcceptedPress = {
           scroll.cancel()
           platform.cancel()

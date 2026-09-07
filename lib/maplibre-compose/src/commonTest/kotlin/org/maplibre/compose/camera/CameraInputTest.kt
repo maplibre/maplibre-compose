@@ -24,8 +24,10 @@ import org.maplibre.compose.camera.internal.inputPanBy
 import org.maplibre.compose.camera.internal.inputRotateAndPitchBy
 import org.maplibre.compose.camera.internal.inputScaleBy
 import org.maplibre.compose.camera.internal.inputScaleByAwaitingTransition
+import org.maplibre.compose.interaction.BearingTargets
 import org.maplibre.compose.interaction.CameraBuilder
 import org.maplibre.compose.interaction.ClickResult
+import org.maplibre.compose.interaction.HapticEmphasis
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.internal.CameraComponent
 import org.maplibre.compose.interaction.internal.CameraConfiguration
@@ -44,6 +46,33 @@ import org.maplibre.spatialk.geojson.Position
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class CameraInputTest {
+  @Test
+  fun haptics_survive_new_samples_but_pending_feedback_is_cancelled_on_takeover() =
+    cameraTest { _, target ->
+      val options = MapInteractions {
+        camera { rotate { haptics { notch(BearingTargets.at(0.0)) } } }
+      }
+      target.updateConfiguration(options)
+      val ticks = mutableListOf<HapticEmphasis>()
+      val input = GestureInputSession(this, target, onHaptic = { ticks += it })
+      runCurrent()
+      target.observeInput()
+      input.token.reportRotation(355.0, 5.0)
+      runCurrent()
+      assertEquals(listOf(HapticEmphasis.Standard), ticks)
+      input.cancel()
+      target.drain()
+      runCurrent()
+
+      ticks.clear()
+      val cancelled = GestureInputSession(this, target, onHaptic = { ticks += it })
+      cancelled.token.reportRotation(355.0, 5.0)
+      target.interruptCamera()
+      runCurrent()
+      target.drain()
+      assertTrue(ticks.isEmpty())
+    }
+
   @Test
   fun newer_input_preserves_queued_click_delivery_but_rejects_its_camera_fallthrough() =
     cameraTest { _, target ->

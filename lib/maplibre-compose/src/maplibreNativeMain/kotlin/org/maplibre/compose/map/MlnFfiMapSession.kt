@@ -1862,6 +1862,7 @@ internal class MlnFfiMapSession(
     duration: Duration,
     anchor: DpOffset?,
     gestureToken: CameraInputToken?,
+    feedback: Boolean,
   ) {
     // The read and the write must happen together on the owner thread.
     onMap(gestureToken) { map ->
@@ -1875,6 +1876,9 @@ internal class MlnFfiMapSession(
         }
       if (duration == Duration.ZERO) map.jumpTo(target)
       else map.easeTo(target, duration.toAnimationOptions())
+      if (feedback && bearingDelta != 0.0 && duration == Duration.ZERO) {
+        gestureToken?.reportRotation(camera.bearing ?: 0.0, map.camera.bearing ?: 0.0)
+      }
     }
   }
 
