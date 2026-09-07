@@ -19,7 +19,7 @@ internal class MlnFfiGeoJsonCoordinator<P : AutoCloseable>(
   private val prepare: (GeoJsonData) -> P,
   private val install: (P, isCurrent: () -> Boolean) -> Unit,
   private val reportFailure: (Throwable, isCurrent: () -> Boolean) -> Unit,
-  private val synchronousUpdate: Boolean = false,
+  val synchronousUpdate: Boolean = false,
   dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : AutoCloseable {
   private class Request {

@@ -105,6 +105,35 @@ internal interface StyleBinding {
 
   fun setLayerFilter(layerId: String, filter: JsonElement)
 
+  /**
+   * Applies a batch of layer property writes together.
+   *
+   * The default applies them one by one; an engine with per-call overhead can override this to
+   * apply them in one pass, possibly after this function returns. A write the engine rejects is
+   * logged and skipped: it does not fail the batch, the remaining writes, or the revision.
+   */
+  fun setLayerProperties(writes: List<LayerPropertyWrite>) {
+    writes.forEach { write ->
+      try {
+        if (write.kind == LayerPropertyKind.ROOT && write.name == "filter") {
+          setLayerFilter(write.layerId, write.value)
+        } else {
+          setLayerProperty(write.layerId, write.name, write.value, write.kind)
+        }
+      } catch (error: StyleMutationException) {
+        reportRejectedWrite(write, error)
+      }
+    }
+  }
+
+  /** Reports a write the engine rejected during [setLayerProperties]. */
+  fun reportRejectedWrite(write: LayerPropertyWrite, error: StyleMutationException) {
+    logger?.w(error) {
+      "Layer '${write.layerId}' of type '${write.layerType}' kept its previous '${write.name}': " +
+        "MapLibre rejected ${write.value}."
+    }
+  }
+
   /** @return null if the style has unloaded or the layer has no value for [name]. */
   fun layerProperty(layerId: String, name: String): JsonElement?
 
@@ -426,6 +455,18 @@ internal enum class LayerPropertyKind {
   /** Identifies a key on the layer object, such as `minzoom`, outside `layout` and `paint`. */
   ROOT,
 }
+
+/**
+ * One layer property change in a reconciled revision. [layerType] is carried only so a rejection
+ * can name it in a log after the write has left the reconciler's hands.
+ */
+internal class LayerPropertyWrite(
+  val layerId: String,
+  val layerType: String,
+  val name: String,
+  val value: JsonElement,
+  val kind: LayerPropertyKind,
+)
 
 /** Reports an engine error from a style mutation. */
 internal class StyleMutationException(message: String?, cause: Throwable?) :

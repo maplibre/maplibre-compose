@@ -3,12 +3,12 @@ package org.maplibre.compose.map
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.toCameraPosition
 import org.maplibre.compose.util.toPosition
 import org.maplibre.nativeffi.geo.ScreenPoint
 import org.maplibre.nativeffi.map.MapHandle
-import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
 /** The applied camera and the extents it renders, all read from one map transform. */
@@ -16,7 +16,7 @@ internal data class MapViewportGeometry(
   val camera: CameraPosition,
   val size: DpSize,
   val visibleRegion: VisibleRegion,
-  val boundingBox: BoundingBox,
+  val visibleBounds: VisibleBounds,
 )
 
 /** Owner thread only. Reads the camera and extents the map would render right now. */
@@ -33,8 +33,8 @@ internal fun MapHandle.readViewportGeometry(): MapViewportGeometry {
         nearLeft = corners[2],
         nearRight = corners[3],
       ),
-    boundingBox =
-      BoundingBox(
+    visibleBounds =
+      VisibleBounds(
         southwest =
           Position(
             longitude = corners.minOf { it.longitude },

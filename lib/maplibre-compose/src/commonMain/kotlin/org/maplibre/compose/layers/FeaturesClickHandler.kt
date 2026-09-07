@@ -8,6 +8,9 @@ import org.maplibre.spatialk.geojson.Geometry
 /**
  * A callback for when a feature is clicked.
  *
+ * Feature geometries keep the coordinates the engine rendered; see
+ * [org.maplibre.compose.map.MapState.queryRenderedFeatures].
+ *
  * @return [ClickResult.Consume] if this click should be consumed and not passed down to layers
  *   rendered below this one or [ClickResult.Pass] if it should be passed down.
  */

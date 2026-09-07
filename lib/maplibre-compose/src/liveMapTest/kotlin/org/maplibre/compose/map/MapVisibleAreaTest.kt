@@ -12,8 +12,8 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
+import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
-import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
 /**
@@ -30,7 +30,7 @@ class MapVisibleAreaTest {
       it.state.setCameraPosition(CAMERA)
       it.pumpUntil("the camera to apply") { it.session.hasNativeCamera(CAMERA) }
 
-      val box = assertNotNull(it.state.getVisibleBoundingBox())
+      val box = assertNotNull(it.state.getVisibleBounds())
       assertContains(box, CAMERA.target, "the camera target")
       assertTrue(box.northeast.latitude > box.southwest.latitude, "the box should span latitude")
       assertTrue(box.northeast.longitude > box.southwest.longitude, "the box should span longitude")
@@ -46,7 +46,7 @@ class MapVisibleAreaTest {
       it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(ROTATED_CAMERA) }
 
       val region = assertNotNull(it.state.getVisibleRegion())
-      val box = assertNotNull(it.state.getVisibleBoundingBox())
+      val box = assertNotNull(it.state.getVisibleBounds())
       assertContains(box, region.farLeft, "the far left corner")
       assertContains(box, region.farRight, "the far right corner")
       assertContains(box, region.nearLeft, "the near left corner")
@@ -72,7 +72,7 @@ class MapVisibleAreaTest {
       it.state.setCameraPosition(ANTIMERIDIAN_CAMERA)
       it.pumpUntil("the camera to apply") { it.session.hasNativeCamera(ANTIMERIDIAN_CAMERA) }
 
-      val box = assertNotNull(it.state.getVisibleBoundingBox())
+      val box = assertNotNull(it.state.getVisibleBounds())
       // A wrapped hull would span nearly the whole world instead of the short interval, which may
       // extend past ±180.
       assertTrue(
@@ -100,7 +100,7 @@ class MapVisibleAreaTest {
       }
 
       val region = assertNotNull(it.state.getVisibleRegion())
-      val box = assertNotNull(it.state.getVisibleBoundingBox())
+      val box = assertNotNull(it.state.getVisibleBounds())
       // At zoom 1 a world is 1024 dp wide. A 1600 dp viewport spans 562.5 degrees.
       val expectedSpan = 360.0 * 1600.0 / 1024.0
       assertEquals(expectedSpan, region.farRight.longitude - region.farLeft.longitude, 1e-5)
@@ -129,7 +129,7 @@ class MapVisibleAreaTest {
     fun MapAdapter.hasNativeCamera(camera: CameraPosition): Boolean {
       if (abs(getCameraPosition().zoom - camera.zoom) >= 0.01) return false
       if (abs(getCameraPosition().bearing - camera.bearing) >= 0.01) return false
-      val box = getVisibleBoundingBox()
+      val box = getVisibleBounds()
       val latSpan = box.northeast.latitude - box.southwest.latitude
       return latSpan > 0.01 && latSpan < 40.0
     }
@@ -138,7 +138,7 @@ class MapVisibleAreaTest {
 
     fun span(a: Position, b: Position) = abs(a.longitude - b.longitude)
 
-    fun assertContains(box: BoundingBox, position: Position, what: String) {
+    fun assertContains(box: VisibleBounds, position: Position, what: String) {
       assertTrue(
         position.longitude in
           (box.southwest.longitude - TOLERANCE)..(box.northeast.longitude + TOLERANCE) &&

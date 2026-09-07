@@ -41,7 +41,7 @@ an animation.
 ## Read the visible area
 
 <Api of="MapState.viewport" /> reports the current rendered size,
-visible bounding box, and visible region. It is null until the map renders its
+visible bounds, and visible region. It is null until the map renders its
 first viewport. A composition that reads it recomposes when the camera moves or
 the map resizes:
 
@@ -55,3 +55,13 @@ position to an offset from the top-left corner of the map composable.
 direction:
 
 <Code code={region(camera, "convert")} lang="kotlin" title="App.kt" />
+
+## The repeated world and the antimeridian
+
+MapLibre repeats the world horizontally. Geographic values read from the map,
+such as <Api of="Viewport.visibleBounds" /> and
+<Api of="MapState.positionFromScreenLocation" />, preserve the world copy:
+longitudes may extend past ±180°, and the visible bounds may span more than
+360°. `VisibleBounds.toBoundingBox()` converts to a GeoJSON `BoundingBox`, where an
+antimeridian crossing follows RFC 7946 with an east longitude less than the
+west.

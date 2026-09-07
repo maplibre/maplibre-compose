@@ -14,6 +14,7 @@ import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
@@ -83,7 +84,7 @@ internal interface MapAdapter {
 
   fun setCameraConstraints(value: CameraConstraints)
 
-  fun getVisibleBoundingBox(): BoundingBox
+  fun getVisibleBounds(): VisibleBounds
 
   fun getVisibleRegion(): VisibleRegion
 

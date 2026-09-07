@@ -121,5 +121,6 @@ val allBenchmarkScenarios: List<BenchmarkScenario> =
     FlyAroundScenario,
     GeoJsonLoadScenario(synchronousUpdate = true),
     GeoJsonLoadScenario(synchronousUpdate = false),
+    LiveMarkerScenario,
     GestureTrailScenario,
   )

@@ -275,7 +275,7 @@ private class NativeSnapshotterAdapter(
     }
     return Viewport(
       size = applied.size,
-      visibleBoundingBox = applied.boundingBox,
+      visibleBounds = applied.visibleBounds,
       visibleRegion = applied.visibleRegion,
       metersPerDpAtTarget =
         metersPerDpAtLatitude(applied.camera.zoom, applied.camera.target.latitude),
@@ -333,6 +333,7 @@ private class NativeSnapshotterAdapter(
       loggerProvider = { options.logger },
       sessionOpen = { open },
       accessMap = { action -> source.loop.call(action = action) != null },
+      postMap = { action -> source.loop.post(action = action) },
       accessRenderSession = { action ->
         source.loop.call(action = { _ -> source.resources.withSession(action) }) != null
       },

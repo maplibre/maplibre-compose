@@ -48,7 +48,7 @@ fun Camera() {
   // #region viewport
   val viewport = mapState.viewport
   if (viewport != null) {
-    Text("Visible bounds: ${viewport.visibleBoundingBox}")
+    Text("Visible bounds: ${viewport.visibleBounds}")
   }
   // #endregion viewport
 
