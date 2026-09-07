@@ -3,6 +3,7 @@ package org.maplibre.compose.expressions.dsl
 import kotlin.jvm.JvmName
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.FunctionCall
+import org.maplibre.compose.expressions.value.AnyValue
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.expressions.value.CollatorValue
 import org.maplibre.compose.expressions.value.ComparableValue
@@ -116,7 +117,7 @@ public fun <T : ExpressionValue> condition(
  * Example:
  * ```kt
  * switch(
- *   input = feature["building_type"].asString(),
+ *   input = feature["building_type"],
  *   case(
  *     label = "residential",
  *     output = const(Color.Cyan),
@@ -136,6 +137,42 @@ public fun <T : ExpressionValue> condition(
 public fun <I : MatchableValue, O : ExpressionValue> switch(
   input: Expression<I>,
   cases: List<Case<I, O>>,
+  fallback: Expression<O>,
+): Expression<O> = match(input, cases, fallback)
+
+/**
+ * Selects the output from the given [cases] whose label value matches the [input], or the
+ * [fallback] value if no match is found.
+ *
+ * The [input] has a type known only when the map evaluates the expression, such as a feature
+ * property, so the labels may be of any one matchable type. If the input type does not match the
+ * type of the labels, the result will be the [fallback] value. See [AnyValue].
+ */
+@JvmName("switchAny")
+public fun <I : MatchableValue, O : ExpressionValue> switch(
+  input: Expression<AnyValue>,
+  cases: List<Case<I, O>>,
+  fallback: Expression<O>,
+): Expression<O> = match(input, cases, fallback)
+
+/**
+ * Selects the output from the given [cases] whose label value matches the [input], or the
+ * [fallback] value if no match is found.
+ *
+ * The [input] has a type known only when the map evaluates the expression, such as a feature
+ * property, so the labels may be of any one matchable type. If the input type does not match the
+ * type of the labels, the result will be the [fallback] value. See [AnyValue].
+ */
+@JvmName("switchAny")
+public fun <I : MatchableValue, O : ExpressionValue> switch(
+  input: Expression<AnyValue>,
+  vararg cases: Case<I, O>,
+  fallback: Expression<O>,
+): Expression<O> = match(input, cases.asList(), fallback)
+
+private fun <O : ExpressionValue> match(
+  input: Expression<*>,
+  cases: List<Case<*, O>>,
   fallback: Expression<O>,
 ): Expression<O> =
   when (cases.size) {
@@ -173,7 +210,7 @@ public fun <I : MatchableValue, O : ExpressionValue> switch(
  * Example:
  * ```kt
  * switch(
- *   input = feature["building_type"].asString(),
+ *   input = feature["building_type"],
  *   case(
  *     label = "residential",
  *     output = const(Color.Cyan),
@@ -242,7 +279,12 @@ public fun <O : ExpressionValue> case(
 public fun <T : ExpressionValue> coalesce(vararg values: Expression<T>): Expression<T> =
   FunctionCall.of("coalesce", values.asList()).cast()
 
-/** Returns whether this expression is equal to [other]. */
+/**
+ * Returns whether this expression is equal to [other].
+ *
+ * Values of unknown type, such as feature properties, are compared when the map evaluates the
+ * expression. A value whose type differs from [other] is not equal.
+ */
 public infix fun Expression<EquatableValue>.eq(
   other: Expression<EquatableValue>
 ): Expression<BooleanValue> = FunctionCall.of("==", this, other).cast()
@@ -258,7 +300,12 @@ public fun eq(
   collator: Expression<CollatorValue>,
 ): Expression<BooleanValue> = FunctionCall.of("==", left, right, collator).cast()
 
-/** Returns whether this expression is not equal to [other]. */
+/**
+ * Returns whether this expression is not equal to [other].
+ *
+ * Values of unknown type, such as feature properties, are compared when the map evaluates the
+ * expression. A value whose type differs from [other] is not equal.
+ */
 public infix fun Expression<EquatableValue>.neq(
   other: Expression<EquatableValue>
 ): Expression<BooleanValue> = FunctionCall.of("!=", this, other).cast()

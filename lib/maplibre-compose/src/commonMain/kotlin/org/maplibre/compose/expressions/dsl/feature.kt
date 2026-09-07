@@ -2,8 +2,8 @@ package org.maplibre.compose.expressions.dsl
 
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.FunctionCall
+import org.maplibre.compose.expressions.value.AnyValue
 import org.maplibre.compose.expressions.value.BooleanValue
-import org.maplibre.compose.expressions.value.ExpressionValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.GeoJsonValue
 import org.maplibre.compose.expressions.value.GeometryType
@@ -15,14 +15,21 @@ public object Feature {
   /**
    * Returns the value corresponding to the given [key] in the current feature's properties or
    * `null` if it is not present.
+   *
+   * The type of the value is known only when the map evaluates the expression. See [AnyValue] for
+   * which operations accept it directly and how to give it a known type.
    */
-  public operator fun get(key: Expression<StringValue>): Expression<*> = FunctionCall.of("get", key)
+  public operator fun get(key: Expression<StringValue>): Expression<AnyValue> =
+    FunctionCall.of("get", key).cast()
 
   /**
    * Returns the value corresponding to the given [key] in the current feature's properties or
    * `null` if it is not present.
+   *
+   * The type of the value is known only when the map evaluates the expression. See [AnyValue] for
+   * which operations accept it directly and how to give it a known type.
    */
-  public operator fun get(key: String): Expression<*> = get(const(key))
+  public operator fun get(key: String): Expression<AnyValue> = get(const(key))
 
   /** Tests for the presence of a property value [key] in the current feature's properties. */
   public fun has(key: Expression<StringValue>): Expression<BooleanValue> =
@@ -35,11 +42,12 @@ public object Feature {
    * Gets the feature properties object. Note that in some cases, it may be more efficient to use
    * [get]`("property_name")` directly.
    */
-  public fun properties(): Expression<MapValue<*>> = FunctionCall.of("properties").cast()
+  public fun properties(): Expression<MapValue<AnyValue>> = FunctionCall.of("properties").cast()
 
   /**
    * Retrieves a property value from the current feature's state. Returns `null` if the requested
-   * property is not present on the feature's state.
+   * property is not present on the feature's state. The type of the value is known only when the
+   * map evaluates the expression; see [AnyValue].
    *
    * A feature's state is runtime data for one loaded style. It is separate from GeoJSON and vector
    * tile data.
@@ -50,12 +58,13 @@ public object Feature {
    * or any primitive data type. Only data-driven paint properties documented as supporting feature
    * state accept [state].
    */
-  public fun <T : ExpressionValue> state(key: Expression<StringValue>): Expression<T> =
+  public fun state(key: Expression<StringValue>): Expression<AnyValue> =
     FunctionCall.of("feature-state", key).cast()
 
   /**
    * Retrieves a property value from the current feature's state. Returns `null` if the requested
-   * property is not present on the feature's state.
+   * property is not present on the feature's state. The type of the value is known only when the
+   * map evaluates the expression; see [AnyValue].
    *
    * A feature's state is runtime data for one loaded style. It is separate from GeoJSON and vector
    * tile data.
@@ -66,13 +75,13 @@ public object Feature {
    * or any primitive data type. Only data-driven paint properties documented as supporting feature
    * state accept [state].
    */
-  public fun <T : ExpressionValue> state(key: String): Expression<T> = state(const(key))
+  public fun state(key: String): Expression<AnyValue> = state(const(key))
 
   /** Gets the feature's geometry type. */
   public fun geometryType(): Expression<GeometryType> = FunctionCall.of("geometry-type").cast()
 
   /** Gets the feature's id, if it has one. */
-  public fun <T : ExpressionValue> id(): Expression<T> = FunctionCall.of("id").cast()
+  public fun id(): Expression<AnyValue> = FunctionCall.of("id").cast()
 
   /**
    * Gets the progress along a gradient line. Can only be used in the `gradient` property of a line
@@ -85,7 +94,7 @@ public object Feature {
    * `clusterProperties` option of a clustered GeoJSON source, see
    * [GeoJsonOptions][org.maplibre.compose.sources.GeoJsonOptions].
    */
-  public fun accumulated(): Expression<*> = FunctionCall.of("accumulated")
+  public fun accumulated(): Expression<AnyValue> = FunctionCall.of("accumulated").cast()
 
   /**
    * Returns true if the evaluated feature is fully contained inside a boundary of the input

@@ -18,6 +18,23 @@ import org.maplibre.compose.util.DpPadding
 public sealed interface ExpressionValue
 
 /**
+ * Represents an [ExpressionValue] whose type is known only when the map evaluates the expression,
+ * such as a feature property read with
+ * [feature.get][org.maplibre.compose.expressions.dsl.Feature.get]. Corresponds to the `value` type
+ * in the style spec.
+ *
+ * MapLibre compares a value of unknown type for equality at evaluation time, so this is an
+ * [EquatableValue] and works directly with [eq][org.maplibre.compose.expressions.dsl.eq],
+ * [neq][org.maplibre.compose.expressions.dsl.neq], and
+ * [contains][org.maplibre.compose.expressions.dsl.contains]. A mismatched type compares as not
+ * equal. Other uses need a known type: assert one with a function such as
+ * [asString][org.maplibre.compose.expressions.dsl.asString], convert it with a function such as
+ * [convertToNumber][org.maplibre.compose.expressions.dsl.convertToNumber], or assume one with
+ * [cast][org.maplibre.compose.expressions.ast.Expression.cast].
+ */
+public sealed interface AnyValue : ExpressionValue, EquatableValue
+
+/**
  * Represents an [ExpressionValue] that resolves to a true or false value. See
  * [const][org.maplibre.compose.expressions.dsl.const].
  */

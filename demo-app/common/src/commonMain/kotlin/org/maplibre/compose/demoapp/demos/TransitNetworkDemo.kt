@@ -387,7 +387,7 @@ object TransitNetworkDemo : Demo {
       LineLayer(
         id = "transit-route-selected",
         source = routeSource,
-        filter = feature["route"].asString() eq const(selected),
+        filter = feature["route"] eq const(selected),
         color = feature["color"].asString().convertToColor(),
         width = const(4.dp),
       )

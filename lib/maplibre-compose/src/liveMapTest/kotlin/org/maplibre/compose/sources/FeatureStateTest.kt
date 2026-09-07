@@ -17,7 +17,6 @@ import org.maplibre.compose.expressions.dsl.condition
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.expressions.dsl.switch
-import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.install
@@ -56,7 +55,7 @@ class FeatureStateTest {
       layer.setCircleColor(
         switch(
             condition(
-              feature.state<BooleanValue>("selected").asBoolean(const(false)),
+              feature.state("selected").asBoolean(const(false)),
               const(Color.Red),
             ),
             fallback = const(Color.Blue),
