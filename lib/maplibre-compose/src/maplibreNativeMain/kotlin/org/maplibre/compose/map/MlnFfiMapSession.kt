@@ -201,10 +201,14 @@ internal class MlnFfiMapSession(
   /** Guarded by [stateLock]; once true, the map has dimensions suitable for fitting bounds. */
   private var hasAttachedViewport = false
 
-  /** Renderer-thread state. */
+  /**
+   * Renderer-thread state, with [renderSessionReady] and [attachedTarget]: read and written only on
+   * the host's renderer thread, which [render] runs on and
+   * [MlnFfiMapHostSession.withRendererAccess] reaches from any other thread.
+   */
   private var renderSession: RenderSessionHandle? = null
 
-  /** Renderer-thread state; the FFI creates its renderer during the first successful render. */
+  /** The FFI creates its renderer during the first successful render. */
   private var renderSessionReady = false
 
   @Volatile private var hostSession: MlnFfiMapHostSession? = null
@@ -297,13 +301,13 @@ internal class MlnFfiMapSession(
         if (!lifecycle.acceptsWork) false else loop?.post(action) ?: false
       },
       accessRenderSession = { action ->
-        if (!lifecycle.acceptsWork || !renderSessionReady) {
+        if (!lifecycle.acceptsWork) {
           false
         } else {
           withRendererAccess {
             val session = renderSession
-            if (session == null) {
-              logger?.d { "Ignoring a render session call: no session is attached yet" }
+            if (session == null || !renderSessionReady) {
+              logger?.d { "Ignoring a render session call: no session is ready yet" }
               false
             } else {
               action(session)
@@ -378,7 +382,7 @@ internal class MlnFfiMapSession(
       return MlnFfiFrameResult.SKIPPED
     renderedCameraPadding = appliedCameraPadding
 
-    if (!ensureAttached(map, frame)) return MlnFfiFrameResult.SKIPPED
+    if (!ensureAttached(loop, map, frame)) return MlnFfiFrameResult.SKIPPED
     // Consumed before rendering, so an update published during the render below is not discarded.
     if (!renderRequested.exchange(false)) return MlnFfiFrameResult.SKIPPED
     // The cap measures start-to-start; measuring from the end of the last render rejects every
@@ -568,6 +572,7 @@ internal class MlnFfiMapSession(
     styleBinding = null
     appliedStyleRequest = null
     styleLoadTracker.engineBecameUnavailable()
+    // After loop is cleared: a frame queued behind this close re-reads it in ensureAttached.
     closeRenderSession()
     try {
       stopping?.close()
@@ -591,23 +596,23 @@ internal class MlnFfiMapSession(
     releaseRenderSession()?.let { throw it }
   }
 
-  /** Clears bookkeeping before attempting the owner-thread close and returns its failure. */
+  /**
+   * Closes whatever is attached once this reaches the host's renderer thread, and returns the
+   * failure. Nothing is attached without a host: [onSurfaceLost] closes the session before it drops
+   * one.
+   */
   private fun releaseRenderSession(): Throwable? {
-    val handle = renderSession
+    val host = hostSession ?: return null
+    return runCatching { host.withRendererAccess { closeAttachedSession() } }.exceptionOrNull()
+  }
+
+  /** Renderer thread only. Clears the bookkeeping first, so a failed close is not retried. */
+  private fun closeAttachedSession() {
+    val handle = renderSession ?: return
     renderSession = null
     renderSessionReady = false
     attachedTarget = null
-    if (handle == null) return null
-
-    val host = hostSession
-    if (host == null) {
-      // Only the thread that attached the handle may close it, and that is reached through the
-      // host.
-      return IllegalStateException(
-        "Cannot close the MapLibre render session because its host surface is already gone"
-      )
-    }
-    return runCatching { host.withRendererAccess { handle.close() } }.exceptionOrNull()
+    handle.close()
   }
 
   // endregion
@@ -622,9 +627,18 @@ internal class MlnFfiMapSession(
     requestedCamera?.let { map.jumpTo(it.toCameraOptions(cameraPadding)) }
   }
 
-  private fun ensureAttached(map: MapHandle, frame: MlnFfiMapFrame): Boolean {
+  /**
+   * Renderer thread only. Re-reads [loop] and the lifecycle: teardown clears or closes them before
+   * it queues its close on this thread, and a session attached behind that close is never closed.
+   */
+  private fun ensureAttached(
+    loop: MlnFfiMapRuntimeLoop,
+    map: MapHandle,
+    frame: MlnFfiMapFrame,
+  ): Boolean {
     val extent = frame.extent
     if (extent.isEmpty) return false
+    if (this.loop !== loop || !lifecycle.acceptsWork) return false
 
     val key = TargetKey(frame.target.generation, extent)
     val attached = attachedTarget
@@ -645,7 +659,8 @@ internal class MlnFfiMapSession(
     }
 
     // Attaching before closing throws, because a map permits only one live session.
-    closeRenderSession()
+    runCatching { closeAttachedSession() }
+      .onFailure { logger?.e(it) { "Failed to close the MapLibre render session" } }
 
     // There is no map.resize: attaching sets the map's size from the descriptor's logical extent.
     renderSession =
