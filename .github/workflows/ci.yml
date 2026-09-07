@@ -31,5 +31,6 @@ jobs:
       tier: draft
     secrets: inherit
     permissions:
-      contents: write
       actions: write
+      checks: read
+      contents: write

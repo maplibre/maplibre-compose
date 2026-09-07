@@ -11,9 +11,11 @@ on:
       - ready_for_review
       - labeled
 
+# Only a push makes an earlier run stale. A readiness or label event on the
+# same commit may need the earlier run's verdict.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event.action == 'synchronize' }}
 
 permissions:
   contents: read
@@ -25,5 +27,6 @@ jobs:
       tier: ready
     secrets: inherit
     permissions:
-      contents: write
       actions: write
+      checks: read
+      contents: write
