@@ -107,23 +107,20 @@ class MlnFfiStyleSwitchTest {
   }
 
   @Test
-  fun recreating_a_replacement_layer_while_switching_the_base_style() = runFfiComposeUiTest {
+  fun recreating_an_anchored_layer_while_switching_the_base_style() = runFfiComposeUiTest {
     val runtime = createMapRuntime(runtimeOptions)
-    var style by mutableStateOf(REPLACEMENT_STYLES[0])
+    var style by mutableStateOf(SLOT_STYLES[0])
     var sourceLayer by mutableStateOf("places")
-    var showReplacement by mutableStateOf(true)
     val state =
-      runtime.createMapState(initialBaseStyle = REPLACEMENT_STYLES[0]) {
+      runtime.createMapState(initialBaseStyle = SLOT_STYLES[0]) {
         val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
-        if (showReplacement) {
-          Anchor.Replace("base-slot") {
-            FillLayer(
-              id = "user-replacement",
-              source = points,
-              sourceLayer = sourceLayer,
-              color = const(Color.Blue),
-            )
-          }
+        Anchor.Below("base-slot") {
+          FillLayer(
+            id = "user-anchored",
+            source = points,
+            sourceLayer = sourceLayer,
+            color = const(Color.Blue),
+          )
         }
       }
 
@@ -135,14 +132,13 @@ class MlnFfiStyleSwitchTest {
       state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
     }
     val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
-    fun replacementLayers(): List<String> =
-      session.currentStyleLayerIds().filter { it in REPLACEMENT_LAYER_IDS }
+    fun slotLayers(): List<String> = session.currentStyleLayerIds().filter { it in SLOT_LAYER_IDS }
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-      replacementLayers() == listOf("bg-a", "user-replacement")
+      slotLayers() == listOf("bg-a", "user-anchored", "base-slot")
     }
 
     runOnUiThread {
-      style = REPLACEMENT_STYLES[1]
+      style = SLOT_STYLES[1]
       sourceLayer = "roads"
       state.style.baseStyle = style
     }
@@ -150,11 +146,7 @@ class MlnFfiStyleSwitchTest {
       state.style.loadState == StyleLoadState.Ready
     }
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-      replacementLayers() == listOf("bg-b", "user-replacement")
-    }
-    runOnUiThread { showReplacement = false }
-    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-      replacementLayers() == listOf("bg-b", "base-slot")
+      slotLayers() == listOf("bg-b", "user-anchored", "base-slot")
     }
     runtime.close()
     runtime.awaitClosed()
@@ -286,9 +278,9 @@ class MlnFfiStyleSwitchTest {
         "user-circles",
       )
 
-    val REPLACEMENT_LAYER_IDS = setOf("bg-a", "bg-b", "base-slot", "user-replacement")
+    val SLOT_LAYER_IDS = setOf("bg-a", "bg-b", "base-slot", "user-anchored")
 
-    val REPLACEMENT_STYLES =
+    val SLOT_STYLES =
       listOf(
         BaseStyle.Json(
           """

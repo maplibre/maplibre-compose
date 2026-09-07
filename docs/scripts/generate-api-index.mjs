@@ -118,7 +118,7 @@ for (const module of entries(apiDir)) {
 }
 
 // A companion factory function can share its name with the class it builds
-// (e.g. `Anchor.Replace`). Within one module and package, keep the type page.
+// (e.g. `Anchor.Above`). Within one module and package, keep the type page.
 for (const [name, hits] of Object.entries(symbols)) {
   const deduped = new Map();
   for (const hit of hits) {

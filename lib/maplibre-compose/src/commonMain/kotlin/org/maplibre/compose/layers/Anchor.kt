@@ -49,12 +49,6 @@ public sealed interface Anchor {
    */
   public data class Below(val layerId: String) : Anchor
 
-  /**
-   * Layer(s) replace the layer (i.e. are shown instead of it) with the given [layerId] from the
-   * base map style. See [Anchor.Companion.Replace] to use this in the layers composition.
-   */
-  public data class Replace(val layerId: String) : Anchor
-
   public companion object {
     /** The layers specified in [block] are put at the top, i.e. in front of all other layers. */
     @Composable
@@ -83,15 +77,6 @@ public sealed interface Anchor {
     @MaplibreComposable
     public fun Below(layerId: String, block: @Composable () -> Unit): Unit =
       At(Below(layerId), block)
-
-    /**
-     * The layers specified in [block] replace the layer (i.e. are shown instead of it) with the
-     * given [layerId] from the base map style.
-     */
-    @Composable
-    @MaplibreComposable
-    public fun Replace(layerId: String, block: @Composable () -> Unit): Unit =
-      At(Replace(layerId), block)
 
     /** The layers specified in [block] are put at the given [Anchor]. */
     @Composable

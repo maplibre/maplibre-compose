@@ -8,7 +8,6 @@ internal class StyleReconciler {
   private val sources = linkedMapOf<String, AppliedSource>()
   private val layers = linkedMapOf<String, AppliedLayer>()
   private val images = linkedMapOf<String, StyleImageDefinition>()
-  private val replacedLayers = mutableMapOf<Anchor.Replace, LayerDefinition>()
 
   /**
    * The engine's layer order, bottom to top, as this reconciler's mutations leave it. Reading the
@@ -85,14 +84,7 @@ internal class StyleReconciler {
           val nextDesiredId = group.getOrNull(index + 1)?.definition?.id
           var applied = layers[id]
           if (applied == null) {
-            val before = beforeLayerId(layerIds(style), anchor, previousId, id)
-            if (anchor is Anchor.Replace && anchor !in replacedLayers) {
-              val replaced =
-                requireNotNull(style.getLayer(anchor.layerId)) {
-                  "Layer ID '${anchor.layerId}' not found in base style"
-                }
-              replacedLayers[anchor] = replaced.definition()
-            }
+            val before = beforeLayerId(layerIds(style), anchor, previousId)
             applied =
               AppliedLayer(
                 definition = desired.definition,
@@ -108,17 +100,11 @@ internal class StyleReconciler {
             changes.layers.add(id)
             layers[id] = applied
             layerIds(style).insertBelow(id, before)
-            if (anchor is Anchor.Replace && group.first() === desired) {
-              style.identity.layers.remove(anchor.layerId)
-              changes.layers.add(anchor.layerId)
-              style.removeLayer(anchor.layerId)
-              layerIds(style).remove(anchor.layerId)
-            }
           } else {
             applied.installation.update(desired.definition, revision.animatorDurationScale)
             applied.definition = desired.definition
             if (shouldMoveLayer(layerIds(style), anchor, previousId, id, nextDesiredId)) {
-              val before = beforeLayerId(layerIds(style), anchor, previousId, id)
+              val before = beforeLayerId(layerIds(style), anchor, previousId)
               if (before != id) {
                 layerOrderChanged = true
                 applied.installation.move(before)
@@ -142,7 +128,6 @@ internal class StyleReconciler {
     sources.clear()
     layers.clear()
     images.clear()
-    replacedLayers.clear()
     knownLayerIds = null
   }
 
@@ -181,15 +166,6 @@ internal class StyleReconciler {
     changes: StyleResourceChanges,
   ) {
     changes.layers.add(applied.definition.id)
-    val anchor = applied.anchor
-    val isLastReplacement =
-      anchor is Anchor.Replace && layers.values.count { it.anchor == anchor } == 1
-    if (isLastReplacement) {
-      val original = requireNotNull(replacedLayers.remove(anchor))
-      changes.layers.add(original.id)
-      style.addLayer(original, beforeLayerId = applied.definition.id)
-      knownLayerIds?.insertBelow(anchor.layerId, applied.definition.id)
-    }
     applied.installation.remove()
     knownLayerIds?.remove(applied.definition.id)
     layers.remove(applied.definition.id)
@@ -221,30 +197,17 @@ internal class StyleReconciler {
   ): Boolean {
     if (previousId != null) return ids.idAbove(previousId) != id
     if (nextDesiredId != null) return ids.positionBefore(id) != nextDesiredId
-    val before = beforeLayerId(ids, anchor, previousId = null, desiredId = id)
+    val before = beforeLayerId(ids, anchor, previousId = null)
     return before != id && ids.positionBefore(id) != before
   }
 
-  private fun beforeLayerId(
-    ids: List<String>,
-    anchor: Anchor,
-    previousId: String?,
-    desiredId: String? = null,
-  ): String {
+  private fun beforeLayerId(ids: List<String>, anchor: Anchor, previousId: String?): String {
     if (previousId != null) return ids.idAbove(previousId)
-    if (anchor is Anchor.Replace && anchor in replacedLayers) {
-      val firstReplacement = ids.firstOrNull { layers[it]?.anchor == anchor }
-      if (firstReplacement != null && firstReplacement != desiredId) return firstReplacement
-      if (desiredId != null && desiredId in ids) {
-        return ids.positionBefore(desiredId)
-      }
-    }
     return when (anchor) {
       is Anchor.Top -> ""
       is Anchor.Bottom -> ids.firstOrNull().orEmpty()
       is Anchor.Above -> ids.idAbove(anchor.layerId)
       is Anchor.Below -> anchor.layerId
-      is Anchor.Replace -> ids.idAbove(anchor.layerId)
     }
   }
 

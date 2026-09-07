@@ -40,7 +40,6 @@ class StyleCompositionOrderTest {
         Anchor.Bottom,
         Anchor.Above("water"),
         Anchor.Below("roads"),
-        Anchor.Replace("park"),
       )
     for (anchor in anchors) {
       val source =

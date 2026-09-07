@@ -284,18 +284,13 @@ class MapPresentationTest {
       fixture.state.updateLoadedStyle(fixture.adapter, binding)
       fixture.state.markStyleReady(fixture.adapter)
       val base = checkNotNull(fixture.state.style.layers["base"])
-      suspend fun apply(ids: List<String>, replaceBase: Boolean = false) {
+      suspend fun apply(ids: List<String>) {
         val revision =
           DesiredStyleRevision(
             if (ids.isEmpty()) emptyList()
             else listOf(attributedVectorSource("added", "attribution").definition()),
             ids.map { id ->
-              DesiredStyleLayer(
-                BackgroundLayer(id).definition(),
-                if (replaceBase) Anchor.Replace("base") else Anchor.Top,
-                null,
-                null,
-              )
+              DesiredStyleLayer(BackgroundLayer(id).definition(), Anchor.Top, null, null)
             },
             emptyList(),
           )
@@ -312,13 +307,10 @@ class MapPresentationTest {
       assertEquals(listOf("base", "b", "a"), fixture.state.style.layers.map { it.id })
       assertSame(a, fixture.state.style.layers["a"])
       assertSame(base, fixture.state.style.layers["base"])
-      apply(listOf("replacement"), replaceBase = true)
-      assertEquals(listOf("replacement"), fixture.state.style.layers.map { it.id })
-      assertFailsWith<IllegalStateException> { base.getProperty("background-opacity") }
       apply(emptyList())
       assertEquals(listOf("base"), fixture.state.style.layers.map { it.id })
       assertTrue(fixture.state.style.sources.none())
-      assertFailsWith<IllegalStateException> { base.getProperty("background-opacity") }
+      assertSame(base, fixture.state.style.layers["base"])
       assertFailsWith<IllegalStateException> { a.getProperty("background-opacity") }
     } finally {
       fixture.close()
