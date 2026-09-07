@@ -14,7 +14,7 @@ import org.maplibre.compose.style.StyleMutationException
 /** A map data source of DEM raster images. */
 public class RasterDemSource : Source {
 
-  /** The tiled form's inputs, or null when this source is a TileJSON URL. */
+  /** The tiled form's inputs, or null for a TileJSON URL or a source from the style. */
   private val tileSet: TileSet?
 
   private val json: JsonObject
@@ -73,7 +73,6 @@ public class RasterDemSource : Source {
       )
   }
 
-  /** A raster-dem source reconstructed from a loaded style. */
   internal constructor(id: String, definition: JsonObject) : super(id) {
     tileSet = null
     json = definition

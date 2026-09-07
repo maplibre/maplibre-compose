@@ -38,7 +38,6 @@ public class VectorSource : FeatureSource {
     }
   }
 
-  /** A vector source reconstructed from a loaded style. */
   internal constructor(id: String, definition: JsonObject) : super(id) {
     json = definition
   }

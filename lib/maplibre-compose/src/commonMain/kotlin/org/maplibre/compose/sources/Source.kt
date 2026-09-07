@@ -12,9 +12,7 @@ import org.maplibre.compose.style.SourceDefinition
  * A data source for map data.
  *
  * A source describes reusable style content. Loaded-map state is owned by a generation-bound handle
- * rather than this value. Layer composables accept a source kind, not this root type: feature
- * layers take a [FeatureSource], raster layers take a [RasterLayerSource], and hillshade and
- * color-relief layers take a [RasterDemSource].
+ * rather than this value.
  */
 public sealed class Source(internal val id: String) {
 
@@ -30,22 +28,17 @@ public sealed class Source(internal val id: String) {
   override fun toString(): String = "${this::class.simpleName}(id=\"$id\")"
 }
 
-/**
- * A source that fill, line, symbol, circle, heatmap, and fill-extrusion layers can draw: vector
- * tiles, GeoJSON, or application-supplied vector data.
- */
+/** A source of vector features: tiled vector data, GeoJSON, or application-supplied tiles. */
 public sealed class FeatureSource(id: String) : Source(id)
 
-/** A source that a raster layer can draw: tiled raster pictures or a positioned image. */
-public sealed class RasterLayerSource(id: String) : Source(id)
+/** A source of raster imagery: tiled pictures or a positioned image. */
+public sealed class ImagerySource(id: String) : Source(id)
 
 /**
  * Get the source with the given [id] from the base style of the current loaded style, or null when
  * the base style has no such source.
  *
- * The type argument names the class the caller needs, such as [VectorSource] for a feature layer.
- *
- * @throws IllegalStateException if the source exists but is not a [T].
+ * @throws IllegalStateException if the source is not a [T].
  */
 @Composable
 public inline fun <reified T : Source> getBaseSource(id: String): T? {

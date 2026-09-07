@@ -15,7 +15,7 @@ import org.maplibre.compose.util.PositionQuad
 import org.maplibre.spatialk.geojson.Position
 
 /** A map data source of an image placed at a given position. */
-public class ImageSource : RasterLayerSource {
+public class ImageSource : ImagerySource {
 
   private val content: Content
 
@@ -29,7 +29,6 @@ public class ImageSource : RasterLayerSource {
     content = Declared(position, url = uri, image = null)
   }
 
-  /** An image source reconstructed from a loaded style; it knows only what MapLibre reports. */
   internal constructor(id: String, definition: JsonObject) : super(id) {
     content = FromStyle(definition)
   }
@@ -69,17 +68,19 @@ public class ImageSource : RasterLayerSource {
   }
 
   internal fun setDesiredImage(image: ImageBitmap) {
-    declared().url = ""
-    declared().image = image
+    val content = declared()
+    content.url = ""
+    content.image = image
   }
 
   internal fun setDesiredUri(uri: String) {
-    declared().url = uri
-    declared().image = null
+    val content = declared()
+    content.url = uri
+    content.image = null
   }
 
   private fun declared(): Declared {
-    check(content is Declared) { "Base-style source '$id' takes no image from the composition" }
+    check(content is Declared) { "Source '$id' came from the style, not the composition" }
     return content
   }
 
@@ -89,6 +90,7 @@ public class ImageSource : RasterLayerSource {
   private class Declared(var bounds: PositionQuad, var url: String, var image: ImageBitmap?) :
     Content
 
+  /** What MapLibre reports about a base-style source; the composition never rebuilds it. */
   private class FromStyle(val json: JsonObject) : Content
 }
 

@@ -9,7 +9,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 
 /** A map data source of tiled map pictures. */
-public class RasterSource : RasterLayerSource {
+public class RasterSource : ImagerySource {
 
   private val json: JsonObject
 
@@ -54,7 +54,6 @@ public class RasterSource : RasterLayerSource {
     }
   }
 
-  /** A raster source reconstructed from a loaded style. */
   internal constructor(id: String, definition: JsonObject) : super(id) {
     json = definition
   }

@@ -39,7 +39,6 @@ public class GeoJsonSource : FeatureSource {
     content = Declared(data, options)
   }
 
-  /** A GeoJSON source reconstructed from a loaded style; it knows only what MapLibre reports. */
   internal constructor(id: String, definition: JsonObject) : super(id) {
     content = FromStyle(definition)
   }
@@ -67,7 +66,7 @@ public class GeoJsonSource : FeatureSource {
     }
 
   internal fun setDesiredData(data: GeoJsonData) {
-    check(content is Declared) { "Base-style source '$id' takes no data from the composition" }
+    check(content is Declared) { "Source '$id' came from the style, not the composition" }
     content.data = data
   }
 
@@ -75,6 +74,7 @@ public class GeoJsonSource : FeatureSource {
 
   private class Declared(var data: GeoJsonData, val options: GeoJsonOptions) : Content
 
+  /** What MapLibre reports about a base-style source; the composition never rebuilds it. */
   private class FromStyle(val json: JsonObject) : Content
 
   public fun isCluster(feature: Feature<*, JsonObject?>): Boolean =
