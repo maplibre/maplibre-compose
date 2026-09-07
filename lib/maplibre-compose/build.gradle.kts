@@ -130,9 +130,9 @@ kotlin {
       implementation(libs.jetbrains.compose.ui.test)
     }
 
-    // Live-map and Compose UI tests shared by jsTest and every platform that consumes
-    // maplibreNativeMain. androidHostTest inherits commonTest and has no MapLibre runtime and no
-    // Compose UI test host.
+    // Live-map, Compose UI, and real-bitmap tests shared by jsTest and every platform that
+    // consumes maplibreNativeMain. androidHostTest inherits commonTest and has no MapLibre runtime,
+    // no Compose UI test host, and no android.graphics.Bitmap implementation.
     val liveMapTest =
       create("liveMapTest") {
         dependsOn(commonTest.get())
