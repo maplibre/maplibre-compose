@@ -96,6 +96,8 @@ internal class TransformRecognitionPolicy(
       motion.displacement.y != 0f &&
         shove != null &&
         !shoving &&
+        !rotating &&
+        !zooming &&
         GestureMath.shouldStartShove(
           (motion.displacement.y / density.density).toDouble(),
           current.horizontalAngle,
@@ -115,7 +117,7 @@ internal class TransformRecognitionPolicy(
       rotationOrigin = current
     }
 
-    // Rotation wins simultaneous recognition; tilt takes over only when neither starts.
+    // Rotation wins simultaneous recognition; tilt can take over pan, but not rotation or zoom.
     // Each first delta excludes the recognition threshold to avoid a visible camera jump.
     if (startRotate) {
       cancels += CameraComponent.Zoom
