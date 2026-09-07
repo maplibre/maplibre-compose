@@ -369,6 +369,36 @@ class MapPlatformTransformTest {
   }
 
   @Test
+  fun unavailable_map_leaves_transforms_unclaimed_until_the_host_ends_them() = runTest {
+    val events = mutableListOf<PinchEvent>()
+    val fixture =
+      Fixture(
+        backgroundScope,
+        MapInteractions {
+          bindings {
+            transform {
+              zoom {
+                onStart { events += it }
+                onCancel { events += it }
+              }
+            }
+          }
+        },
+      )
+    val viewport = fixture.target.currentViewport
+    fixture.target.currentViewport = null
+    assertFalse(fixture.input.onInput(PointerEventType.ScaleStart, sample(0)))
+    fixture.target.currentViewport = viewport
+    assertFalse(fixture.input.onInput(PointerEventType.ScaleChange, sample(10), scaleFactor = 2.0))
+    assertFalse(fixture.input.onInput(PointerEventType.ScaleEnd, sample(20)))
+    assertTrue(events.isEmpty())
+    assertTrue(fixture.target.scaleCalls.isEmpty())
+    assertTrue(fixture.input.onInput(PointerEventType.ScaleStart, sample(30)))
+    assertTrue(events.single() is PinchEvent.Start)
+    fixture.input.cancel()
+  }
+
+  @Test
   fun disabled_and_nonmatching_bindings_leave_platform_streams_unclaimed() = runTest {
     val fixture = Fixture(backgroundScope, MapInteractions.None)
     assertFalse(fixture.input.onInput(PointerEventType.PanStart, sample(0)))

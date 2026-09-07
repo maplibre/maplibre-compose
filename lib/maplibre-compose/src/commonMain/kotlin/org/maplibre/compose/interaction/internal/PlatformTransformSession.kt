@@ -104,15 +104,17 @@ internal class PlatformTransformSession(
 
     val settings = options.bindings.transform
     val eligible =
-      when (kind) {
-        Kind.Scale -> options.camera.zoom.enabled && settings.zoom.matches(sample)
-        Kind.Pan -> options.camera.pan.enabled && settings.pan.matches(sample)
-      }
+      target.isGestureReady &&
+        when (kind) {
+          Kind.Scale -> options.camera.zoom.enabled && settings.zoom.matches(sample)
+          Kind.Pan -> options.camera.pan.enabled && settings.pan.matches(sample)
+        }
     if (!eligible) {
-      if (components.containsKey(kind)) {
-        routing.suppressed += kind
-        cancel(GestureCancellationReason.BindingChanged)
-      }
+      routing.suppressed += kind
+      cancel(
+        if (target.isGestureReady) GestureCancellationReason.BindingChanged
+        else GestureCancellationReason.Detached
+      )
       return false
     }
 

@@ -107,6 +107,32 @@ class MapInputRecognitionTest {
   @AfterTest fun closeMap() = fixture.close()
 
   @Test
+  fun contacts_rejected_before_a_viewport_wait_for_release() = runRecognitionTest { target ->
+    val viewport = target.currentViewport
+    target.currentViewport = null
+    val map = mapNode()
+    map.performMouseInput {
+      moveTo(center)
+      press()
+    }
+    target.currentViewport = viewport
+    map.performMouseInput {
+      moveBy(Offset(20f, 0f))
+      release()
+    }
+    waitForIdle()
+    assertTrue(target.moveCalls.isEmpty())
+    assertEquals(0, target.clicks)
+    map.performMouseInput {
+      press()
+      moveBy(Offset(20f, 0f))
+      release()
+    }
+    waitForIdle()
+    assertTrue(target.moveCalls.isNotEmpty())
+  }
+
+  @Test
   fun a_closed_map_ignores_pointer_input_while_still_composed() = runRecognitionTest { target ->
     fixture.state.close()
     mapNode().performMouseInput {

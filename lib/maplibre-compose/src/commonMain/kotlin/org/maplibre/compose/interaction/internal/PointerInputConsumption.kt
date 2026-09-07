@@ -10,7 +10,7 @@ internal class PointerInputConsumption(private val cancel: () -> Unit) {
   private var relevant = emptySet<PointerId>()
   private var consumedHere = emptySet<PointerId>()
 
-  fun main(event: PointerEvent, recognize: (PointerEvent) -> Unit) {
+  fun main(event: PointerEvent, enabled: Boolean, recognize: (PointerEvent) -> Unit): Boolean {
     val pressed = event.changes.filter { it.pressed }.mapTo(mutableSetOf()) { it.id }
     relevant = contacts + event.changes.filter { it.pressed && !it.previousPressed }.map { it.id }
     consumedHere = emptySet()
@@ -21,16 +21,17 @@ internal class PointerInputConsumption(private val cancel: () -> Unit) {
     val hadContacts = contacts.isNotEmpty()
     contacts.clear()
     contacts.addAll(pressed)
-    if (suppressed || orphaned || intercepted) {
+    if (!enabled || suppressed || orphaned || intercepted) {
       if (!suppressed && hadContacts) cancel()
       suppressed = pressed.isNotEmpty()
       relevant = emptySet()
-      return
+      return false
     }
 
     recognize(event)
     consumedHere =
       event.changes.filter { it.id in relevant && it.isConsumed }.mapTo(mutableSetOf()) { it.id }
+    return true
   }
 
   fun final(event: PointerEvent) {

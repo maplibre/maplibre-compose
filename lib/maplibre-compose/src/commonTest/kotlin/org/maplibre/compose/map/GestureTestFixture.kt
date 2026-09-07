@@ -55,7 +55,7 @@ internal class RecordingGestureTarget(
   }
 
   override val isGestureReady: Boolean
-    get() = !state.isClosed
+    get() = !state.isClosed && currentViewport != null
 
   override fun interruptCamera() {
     state.gestureAuthority.beginProgrammatic()

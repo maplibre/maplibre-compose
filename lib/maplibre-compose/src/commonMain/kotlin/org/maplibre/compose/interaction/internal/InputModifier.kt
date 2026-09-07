@@ -234,7 +234,10 @@ private fun Modifier.pointerGestures(
       )
 
     val consumption = PointerInputConsumption {
-      gesture.cancel(GestureCancellationReason.InputConsumed)
+      gesture.cancel(
+        if (target.isGestureReady) GestureCancellationReason.InputConsumed
+        else GestureCancellationReason.Detached
+      )
     }
     platform =
       PlatformTransformSession(
@@ -269,11 +272,10 @@ private fun Modifier.pointerGestures(
           if (routed) {
             if (!platformRouteActive) {
               gesture.cancel(GestureCancellationReason.BindingChanged)
-              consumption.suppress()
               platformRouteActive = true
             }
-            consumption.main(event) {}
-            if (event.changes.any { it.isConsumed }) platformRouting.intercept()
+            val admitted = consumption.main(event, target.isGestureReady) {}
+            if (!admitted || event.changes.any { it.isConsumed }) platformRouting.intercept()
             val change =
               event.changes.firstOrNull { it.scaleFactor != 1f || it.panOffset != Offset.Zero }
                 ?: event.changes.firstOrNull()
@@ -286,7 +288,7 @@ private fun Modifier.pointerGestures(
                   // Platform pans report a scroll delta (positive = scroll down/right, like a
                   // wheel); the camera pans in drag convention (content follows the fingers).
                   (-change.panOffset).toLogicalDpOffset(density),
-                  platformRouting.blocked || event.changes.any { it.isConsumed },
+                  !admitted || platformRouting.blocked || event.changes.any { it.isConsumed },
                 )
               if (claimedPlatform) event.changes.forEach(PointerInputChange::consume)
             }
@@ -306,7 +308,7 @@ private fun Modifier.pointerGestures(
               consumption.suppress()
             }
           } else {
-            consumption.main(event, gesture::onPointerEvent)
+            consumption.main(event, target.isGestureReady, gesture::onPointerEvent)
           }
 
           // A parent can consume later in Main. Recheck in Final before continuing the session.

@@ -117,10 +117,6 @@ internal class PointerGesture(
   private var pressRole = PressRole.First
 
   fun onPointerEvent(event: PointerEvent) {
-    if (!target.isGestureReady) {
-      cancel(GestureCancellationReason.Detached)
-      return
-    }
     val oldContacts = contactOrder.toList()
     val pressedIds = event.changes.filter { it.pressed }.map { it.id }
     contactOrder.retainAll(pressedIds)
