@@ -15,6 +15,7 @@ import org.maplibre.compose.expressions.dsl.interpolate
 import org.maplibre.compose.expressions.dsl.zoom
 import org.maplibre.compose.expressions.value.LineCap
 import org.maplibre.compose.expressions.value.LineJoin
+import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.LineLayer
@@ -25,7 +26,6 @@ import org.maplibre.compose.sources.getBaseSource
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.TransitionOptions
-import org.maplibre.compose.util.ClickResult
 import org.maplibre.spatialk.geojson.toJson
 
 @Composable
@@ -108,6 +108,7 @@ fun Layers() {
     CircleLayer(
       id = "amtrak-stations",
       source = interactiveAmtrakStations,
+      hitPadding = 12.dp,
       onClick = { features ->
         println("Clicked on ${features[0].toJson()}")
         ClickResult.Consume

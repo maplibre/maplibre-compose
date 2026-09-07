@@ -46,7 +46,6 @@ import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceReferenceEffect
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.DpPadding
-import org.maplibre.compose.util.FeaturesClickHandler
 import org.maplibre.compose.util.MaplibreComposable
 
 private const val ASSUMED_SP = 16f // MapLibre's default text size
@@ -451,7 +450,9 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *   Ignored if [textField] is not specified.
  *
  * @param onClick Function to call when any feature in this layer has been clicked.
- * @param onLongClick Function to call when any feature in this layer has been long-clicked.
+ * @param onLongClick Called for a touch long press or secondary mouse click on this layer.
+ * @param onDoubleClick Called for a double tap or double click on this layer.
+ * @param hitPadding Expands tap queries to a square of this radius in dp; zero uses a point.
  */
 @Composable
 @MaplibreComposable
@@ -563,6 +564,8 @@ public fun SymbolLayer(
   textTranslateAnchor: Expression<TranslateAnchor> = const(TranslateAnchor.Map),
   onClick: FeaturesClickHandler? = null,
   onLongClick: FeaturesClickHandler? = null,
+  onDoubleClick: FeaturesClickHandler? = null,
+  hitPadding: Dp = 0.dp,
 ) {
   // Scaling code will need changes after https://github.com/maplibre/maplibre-native/issues/3057.
   val compileWithDpTextSize = rememberDpCompiler(LocalDensity.current.fontScale.dp)
@@ -720,6 +723,8 @@ public fun SymbolLayer(
     },
     onClick = onClick,
     onLongClick = onLongClick,
+    onDoubleClick = onDoubleClick,
+    hitPadding = hitPadding,
   )
 }
 

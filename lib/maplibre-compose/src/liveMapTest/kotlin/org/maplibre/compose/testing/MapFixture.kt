@@ -7,7 +7,7 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
-import org.maplibre.compose.map.GestureTarget
+import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapAttachment
 import org.maplibre.compose.map.MapEvent
@@ -27,7 +27,7 @@ internal interface MapFixture : AutoCloseable {
   /** Public logical-map surface exercised by style-handle tests. */
   val state: MapState
 
-  val gestures: GestureTarget
+  val gestures: CameraInputTarget
 
   val style: StyleBinding?
 

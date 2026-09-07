@@ -1,18 +1,20 @@
 package org.maplibre.compose.demoapp.demos
 
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameMillis
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sqrt
-import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
@@ -20,9 +22,11 @@ import org.maplibre.compose.demoapp.DemoPointerPin
 import org.maplibre.compose.demoapp.center
 import org.maplibre.compose.demoapp.design.SwitchRow
 import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.map.LocalMapState
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -74,6 +78,10 @@ object LiveTrackingDemo : Demo {
   private var followVehicle by mutableStateOf(false)
   private var vehiclePosition by mutableStateOf(route.first())
 
+  override fun interactions(mapState: MapState): MapInteractions = MapInteractions {
+    camera { pan { onStart { followVehicle = false } } }
+  }
+
   private val segmentLengths = route.zipWithNext { a, b -> approximateDistanceMeters(a, b) }
 
   private val routeLength = segmentLengths.sum()
@@ -112,12 +120,6 @@ object LiveTrackingDemo : Demo {
   @Composable
   override fun MapContent() {
     val mapState = checkNotNull(LocalMapState.current)
-    LaunchedEffect(mapState.cameraMoveReason) {
-      if (mapState.cameraMoveReason == CameraMoveReason.GESTURE) {
-        followVehicle = false
-      }
-    }
-
     LaunchedEffect(Unit) {
       val startMillis = withFrameMillis { it }
       while (true) {
@@ -127,7 +129,7 @@ object LiveTrackingDemo : Demo {
           val phase = traveled % (2 * routeLength)
           vehiclePosition = positionAt(routeLength - abs(phase - routeLength))
         }
-        if (followVehicle) {
+        if (followVehicle && !mapState.isCameraMoving) {
           mapState.setCameraPosition(mapState.cameraPosition.copy(target = vehiclePosition))
         }
       }
@@ -166,6 +168,10 @@ object LiveTrackingDemo : Demo {
       label = "Follow the ferry",
       checked = followVehicle,
       onCheckedChange = { followVehicle = it },
+    )
+    Text(
+      "Panning stops follow. Zooming and rotating keep it enabled.",
+      modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
     )
   }
 }

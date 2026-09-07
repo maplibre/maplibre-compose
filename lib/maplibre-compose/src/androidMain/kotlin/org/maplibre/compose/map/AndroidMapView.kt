@@ -4,6 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import org.maplibre.compose.interaction.internal.ClickPath
+import org.maplibre.compose.interaction.internal.TapFamily
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.AndroidMapSurfaceKind
 import org.maplibre.compose.mlnffi.AndroidMlnFfiSurface
@@ -21,7 +23,8 @@ internal actual fun ComposableMapView(
   onReset: () -> Unit,
   logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
-  clicks: MapClickTarget,
+  captureClickPath: (TapFamily) -> ClickPath?,
+  hasClickHandlers: (TapFamily) -> Boolean,
   options: MapViewOptions,
 ) {
   val runtimeBackends = remember { loadRuntimeBackends(logger) }
@@ -54,7 +57,8 @@ internal actual fun ComposableMapView(
       onReset = onReset,
       logger = logger,
       callbacks = callbacks,
-      clicks = clicks,
+      captureClickPath = captureClickPath,
+      hasClickHandlers = hasClickHandlers,
       options = options,
     )
   }

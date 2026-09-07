@@ -62,6 +62,7 @@ import org.maplibre.compose.demoapp.generated.location_searching_24px
 import org.maplibre.compose.demoapp.generated.my_location_24px
 import org.maplibre.compose.demoapp.generated.my_location_fill_24px
 import org.maplibre.compose.demoapp.generated.navigation_24px
+import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
@@ -352,7 +353,7 @@ fun DemoMap(
       modifier = modifier,
       cameraPadding = viewportInsets.asPaddingValues(),
       renderOptions = state.settings.renderOptions,
-      gestureOptions = state.settings.gestureOptions,
+      interactions = selectedDemo?.interactions(state.mapState) ?: MapInteractions.Standard,
       tileLodOptions = state.settings.tileLodOptions,
       contentWindowInsets = viewportInsets.asWindowInsets(),
     ) {

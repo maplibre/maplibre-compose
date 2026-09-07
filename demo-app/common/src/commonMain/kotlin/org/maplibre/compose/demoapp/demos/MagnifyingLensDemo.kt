@@ -47,7 +47,7 @@ import org.maplibre.compose.demoapp.design.SectionHeader
 import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.demoapp.design.SliderRow
 import org.maplibre.compose.demoapp.design.SwitchRow
-import org.maplibre.compose.map.GestureOptions
+import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.map.rememberMapState
@@ -59,7 +59,7 @@ import org.maplibre.spatialk.geojson.BoundingBox
  * A second map floats over the shared one as a magnifying lens.
  *
  * The lens has its own logical map, synced one-way from the main map. The lens map disables
- * gestures so the sync cannot loop.
+ * interactions so the sync cannot loop.
  *
  * On Android, Compose modifiers reach the map only in texture mode, so the panel exposes the lens
  * map's render mode.
@@ -164,7 +164,7 @@ object MagnifyingLensDemo : Demo {
           },
         state = lensState,
         renderOptions = lensRenderOptions,
-        gestureOptions = GestureOptions.AllDisabled,
+        interactions = MapInteractions.None,
         contentWindowInsets = WindowInsets(0),
       ) {}
       Box(

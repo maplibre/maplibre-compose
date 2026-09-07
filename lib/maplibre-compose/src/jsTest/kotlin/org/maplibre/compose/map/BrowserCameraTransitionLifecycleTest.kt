@@ -9,7 +9,9 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.gljs.GlJsMapEvent
 import org.maplibre.compose.gljs.isNear
@@ -36,7 +38,7 @@ class BrowserCameraTransitionLifecycleTest {
           }
 
         assertFalse(animation.isCompleted, "the animation should be queued before cancellation")
-        it.gestures.cancelTransitions()
+        it.gestures.interruptCamera()
         it.pumpUntil("transition cancellation to release the queued animation") {
           animation.isCompleted
         }
@@ -47,6 +49,27 @@ class BrowserCameraTransitionLifecycleTest {
           kotlin.math.abs(it.session.getCameraPosition().zoom) < 0.01,
           "the cancelled animation should not start after the style loads",
         )
+      }
+    }
+
+  @Test
+  fun public_camera_takeover_rejects_an_animation_queued_before_initial_style(): MapTestResult =
+    runMapTest {
+      coroutineScope {
+        createMapFixture().use { fixture ->
+          fixture.session.setBaseStyle(BaseStyle.Empty)
+          val animation =
+            launch(start = CoroutineStart.UNDISPATCHED) {
+              fixture.state.animateCameraPosition(STALE_CAMERA, 60.seconds)
+            }
+          assertFalse(animation.isCompleted)
+          fixture.state.setCameraPosition(CURRENT_CAMERA)
+          withTimeout(5.seconds) { animation.join() }
+          fixture.loadStyle(BaseStyle.Empty)
+          fixture.settle()
+          assertTrue(animation.isCancelled)
+          assertTrue(fixture.state.cameraPosition.isNear(CURRENT_CAMERA))
+        }
       }
     }
 

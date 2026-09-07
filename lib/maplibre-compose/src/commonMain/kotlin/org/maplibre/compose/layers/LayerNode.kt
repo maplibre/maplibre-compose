@@ -5,10 +5,11 @@ import androidx.compose.runtime.ComposeNode
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Updater
 import androidx.compose.runtime.key
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import org.maplibre.compose.style.LayerNode
 import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.MapNodeApplier
-import org.maplibre.compose.util.FeaturesClickHandler
 import org.maplibre.compose.util.MaplibreComposable
 
 /** [recreateKey] replaces the desired layer node when a construction key changes. */
@@ -20,7 +21,12 @@ internal fun <T : Layer> LayerNode(
   onClick: FeaturesClickHandler?,
   onLongClick: FeaturesClickHandler?,
   recreateKey: Any? = Unit,
+  onDoubleClick: FeaturesClickHandler? = null,
+  hitPadding: Dp = 0.dp,
 ) {
+  require(hitPadding.value.isFinite() && hitPadding.value >= 0f) {
+    "hitPadding must be finite and nonnegative"
+  }
   val anchor = LocalAnchor.current
   val node = LocalStyleNode.current
 
@@ -31,6 +37,8 @@ internal fun <T : Layer> LayerNode(
         update()
         set(onClick) { this.onClick = it }
         set(onLongClick) { this.onLongClick = it }
+        set(onDoubleClick) { this.onDoubleClick = it }
+        set(hitPadding) { this.hitPadding = it }
       },
     )
     SideEffect { node.scheduleApplyChanges() }

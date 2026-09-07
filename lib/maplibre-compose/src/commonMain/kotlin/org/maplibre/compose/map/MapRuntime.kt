@@ -2,7 +2,6 @@
 
 package org.maplibre.compose.map
 
-import androidx.compose.foundation.MutatorMutex
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -35,11 +34,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -50,11 +51,14 @@ import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
+import org.maplibre.compose.camera.internal.CameraCommandGuard
+import org.maplibre.compose.camera.internal.CameraInputAuthority
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.compose.interaction.internal.select
 import org.maplibre.compose.layers.LayerHandle
 import org.maplibre.compose.layers.layerHandle
 import org.maplibre.compose.logging.MapLog
@@ -538,15 +542,17 @@ internal constructor(
     bearing: Double = 0.0,
     tilt: Double = 0.0,
     padding: PaddingValues = PaddingValues(0.dp),
+    guard: CameraCommandGuard? = null,
   ): Unit = runLeaseBound {
     awaitViewportState()
-    adapter.fitCameraToBounds(boundingBox, bearing, tilt, padding)
+    adapter.fitCameraToBounds(boundingBox, bearing, tilt, padding, boundGuard(guard))
   }
 
   suspend fun animateCameraPosition(
     position: CameraPosition,
     duration: Duration = 300.milliseconds,
-  ): Unit = runLeaseBound { adapter.animateCameraPosition(position, duration) }
+    guard: CameraCommandGuard? = null,
+  ): Unit = runLeaseBound { adapter.animateCameraPosition(position, duration, boundGuard(guard)) }
 
   suspend fun animateCameraToBounds(
     boundingBox: BoundingBox,
@@ -554,9 +560,10 @@ internal constructor(
     tilt: Double = 0.0,
     padding: PaddingValues = PaddingValues(0.dp),
     duration: Duration = 300.milliseconds,
+    guard: CameraCommandGuard? = null,
   ): Unit = runLeaseBound {
     awaitViewportState()
-    adapter.animateCameraToBounds(boundingBox, bearing, tilt, padding, duration)
+    adapter.animateCameraToBounds(boundingBox, bearing, tilt, padding, duration, boundGuard(guard))
   }
 
   fun getVisibleRegion(): VisibleRegion? = withViewport { it.getVisibleRegion() }
@@ -629,6 +636,7 @@ internal constructor(
   }
 
   internal fun invalidate() {
+    owner.gestureAuthority.detach(this)
     owner.lifecycle.serialized {
       validState = false
       viewportState = null
@@ -646,6 +654,10 @@ internal constructor(
 
   private fun <T> withViewport(block: (MapAdapter) -> T): T? =
     owner.withCurrentOrNull(this) { if (viewportState == null) null else block(adapter) }
+
+  private fun boundGuard(guard: CameraCommandGuard?): CameraCommandGuard = CameraCommandGuard {
+    owner.isCurrent(this) && guard?.isValid() != false
+  }
 
   private suspend fun awaitViewportState(): Viewport = firstViewport.await()
 
@@ -684,6 +696,7 @@ internal constructor(
     }
   }
   internal val lifecycle = MapLifecycleAuthority(this, runtime.physicalScope)
+  internal val gestureAuthority = CameraInputAuthority(this)
   private var baseStyleCommandRevision = 0L
   private var cameraCommandRevision = 0L
   private var styleHandleEpoch = 0L
@@ -758,7 +771,6 @@ internal constructor(
     internal set
 
   private var nextMapAttachment = CompletableDeferred<MapAttachment>()
-  private val cameraMutation = MutatorMutex()
 
   /** Contains the current rendered viewport, or null while no viewport is available. */
   public val viewport: Viewport?
@@ -852,31 +864,38 @@ internal constructor(
    * Sets the durable camera position and applies it to the current surface when one is attached.
    */
   public fun setCameraPosition(position: CameraPosition) {
+    val guard = gestureAuthority.beginProgrammatic()
     val command = lifecycle.serialized {
       requireOpenLocked()
+      if (!guard.isValid()) return
       cameraPositionState = position
       cameraCommandRevision++
       val attachment = currentMapAttachment ?: return
       AttachmentCameraCommand(
         attachment = attachment,
-        command = CameraCommand(attachment.adapter, position, cameraCommandRevision),
+        command = CameraCommand(attachment.adapter, position, cameraCommandRevision, guard),
       )
     }
     applyAttachmentCameraCommand(command.attachment, command.command)
   }
 
-  /** Waits for a viewport, then fits [boundingBox] without animation. */
+  /**
+   * Waits for a viewport, then fits [boundingBox] without animation. A newer camera command or
+   * accepted input cancels this call.
+   */
   public suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double = 0.0,
     tilt: Double = 0.0,
     padding: PaddingValues = PaddingValues(0.dp),
-  ): Unit = retryAcrossAttachments {
-    it.fitCameraToBounds(boundingBox, bearing, tilt, padding)
+  ): Unit = coroutineScope {
+    val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])
+    retryAcrossAttachments { it.fitCameraToBounds(boundingBox, bearing, tilt, padding, guard) }
   }
 
   /**
-   * Waits for an attached map, then animates to [position]. A new animation replaces this one.
+   * Waits for an attached map, then animates to [position]. A newer camera command or accepted
+   * input cancels this call.
    *
    * On Android, the system animator duration scale multiplies [duration]. A scale of zero jumps to
    * [position].
@@ -884,14 +903,16 @@ internal constructor(
   public suspend fun animateCameraPosition(
     position: CameraPosition,
     duration: Duration = 300.milliseconds,
-  ): Unit = cameraMutation.mutate {
+  ): Unit = coroutineScope {
+    val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])
     retryAcrossAttachments {
-      it.animateCameraPosition(position, duration.scaledBy(systemAnimatorDurationScale()))
+      it.animateCameraPosition(position, duration.scaledBy(systemAnimatorDurationScale()), guard)
     }
   }
 
   /**
-   * Waits for a viewport, then animates to fit [boundingBox]. A new animation replaces this one.
+   * Waits for a viewport, then animates to fit [boundingBox]. A newer camera command or accepted
+   * input cancels this call.
    *
    * On Android, the system animator duration scale multiplies [duration]. A scale of zero jumps to
    * fit [boundingBox].
@@ -902,7 +923,8 @@ internal constructor(
     tilt: Double = 0.0,
     padding: PaddingValues = PaddingValues(0.dp),
     duration: Duration = 300.milliseconds,
-  ): Unit = cameraMutation.mutate {
+  ): Unit = coroutineScope {
+    val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])
     retryAcrossAttachments {
       it.animateCameraToBounds(
         boundingBox,
@@ -910,6 +932,7 @@ internal constructor(
         tilt,
         padding,
         duration.scaledBy(systemAnimatorDurationScale()),
+        guard,
       )
     }
   }
@@ -1630,11 +1653,11 @@ internal constructor(
     var command = initial
     while (true) {
       if (lifecycle.currentAdapter() !== command.adapter) return
-      command.adapter.setCameraPosition(command.value)
+      command.adapter.setCameraPosition(command.value, command.guard)
       command = lifecycle.serialized {
         if (lifecycle.currentAdapter() !== command.adapter) return
         if (cameraCommandRevision == command.revision) return
-        CameraCommand(command.adapter, cameraPositionState, cameraCommandRevision)
+        CameraCommand(command.adapter, cameraPositionState, cameraCommandRevision, command.guard)
       }
     }
   }
@@ -1643,14 +1666,17 @@ internal constructor(
     attachment: MapAttachment,
     initial: CameraCommand,
   ) {
+    val guard = CameraCommandGuard {
+      isCurrent(attachment) && initial.guard?.isValid() != false
+    }
     var command = initial
     while (true) {
       if (!lifecycle.isCurrent(attachment.token, command.adapter)) return
-      command.adapter.setCameraPosition(command.value)
+      command.adapter.setCameraPosition(command.value, guard)
       command = lifecycle.serialized {
         if (!lifecycle.isCurrent(attachment.token, command.adapter)) return
         if (cameraCommandRevision == command.revision) return
-        CameraCommand(command.adapter, cameraPositionState, cameraCommandRevision)
+        CameraCommand(command.adapter, cameraPositionState, cameraCommandRevision, command.guard)
       }
     }
   }
@@ -1710,6 +1736,7 @@ internal constructor(
     val adapter: MapAdapter,
     val value: CameraPosition,
     val revision: Long,
+    val guard: CameraCommandGuard? = null,
   )
 
   private data class AttachmentCameraCommand(

@@ -35,7 +35,7 @@ import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.MapViewportInsets
-import org.maplibre.compose.map.GestureOptions
+import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
@@ -214,7 +214,7 @@ internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets
         state = mapState,
         cameraPadding = viewportInsets.asPaddingValues(),
         renderOptions = RenderOptions.Standard,
-        gestureOptions = scenario.gestureOptions,
+        interactions = scenario.interactions,
         contentWindowInsets = viewportInsets.asWindowInsets(),
       ) {}
     }
@@ -291,5 +291,5 @@ private fun logReport(report: BenchmarkReport) {
 }
 
 /** A scenario that drives the camera itself takes no gesture. */
-internal val BenchmarkScenario.gestureOptions: GestureOptions
-  get() = if (usesGestures) GestureOptions.Standard else GestureOptions.AllDisabled
+internal val BenchmarkScenario.interactions: MapInteractions
+  get() = if (usesGestures) MapInteractions.Standard else MapInteractions.None

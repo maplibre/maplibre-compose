@@ -9,9 +9,12 @@ import org.maplibre.compose.demoapp.demos.DragDropDemo
 import org.maplibre.compose.demoapp.demos.LiveTrackingDemo
 import org.maplibre.compose.demoapp.demos.MagnifyingLensDemo
 import org.maplibre.compose.demoapp.demos.Manhattan3dDemo
+import org.maplibre.compose.demoapp.demos.MapControlsDemo
 import org.maplibre.compose.demoapp.demos.MapSnapshotterDemo
 import org.maplibre.compose.demoapp.demos.MaterialStyleDemo
 import org.maplibre.compose.demoapp.demos.TransitNetworkDemo
+import org.maplibre.compose.interaction.MapInteractions
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -42,6 +45,9 @@ interface Demo {
   /** An optional map pin that restores a useful view of the demo. */
   val pointerPin: DemoPointerPin?
     get() = null
+
+  /** Camera controls and app interactions while this demo is selected. */
+  fun interactions(mapState: MapState): MapInteractions = MapInteractions.Standard
 
   @MaplibreComposable @Composable fun MapContent() {}
 
@@ -90,6 +96,7 @@ val allDemos: List<Demo> =
     Manhattan3dDemo,
     CastelloPlanDemo,
     DataVizDemo,
+    MapControlsDemo,
     LiveTrackingDemo,
     DragDropDemo,
     MagnifyingLensDemo,

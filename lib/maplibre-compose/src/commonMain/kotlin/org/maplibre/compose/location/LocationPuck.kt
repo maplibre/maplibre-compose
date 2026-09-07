@@ -45,13 +45,13 @@ import org.maplibre.compose.expressions.dsl.switch
 import org.maplibre.compose.expressions.value.CirclePitchAlignment
 import org.maplibre.compose.expressions.value.IconRotationAlignment
 import org.maplibre.compose.expressions.value.SymbolAnchor
+import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.SymbolLayer
 import org.maplibre.compose.map.LocalViewport
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.rememberGeoJsonSource
-import org.maplibre.compose.util.ClickResult
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Point
@@ -80,8 +80,8 @@ import org.maplibre.spatialk.units.extensions.meters
  * @param sizes The sizes to use for the location puck.
  * @param onClick A [LocationClickHandler] to invoke when the main location indicator dot is
  *   clicked.
- * @param onLongClick A [LocationClickHandler] to invoke when the main location indicator dot is
- *   long-clicked.
+ * @param onLongClick Called for a touch long press or secondary mouse click on the main location
+ *   indicator dot.
  */
 @Composable
 public fun LocationPuck(
@@ -135,8 +135,8 @@ public fun LocationPuck(
  * @param sizes The sizes to use for the location puck.
  * @param onClick A [LocationClickHandler] to invoke when the main location indicator dot is
  *   clicked.
- * @param onLongClick A [LocationClickHandler] to invoke when the main location indicator dot is
- *   long-clicked.
+ * @param onLongClick Called for a touch long press or secondary mouse click on the main location
+ *   indicator dot.
  */
 @Composable
 public fun LocationPuck(

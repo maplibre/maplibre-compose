@@ -7,13 +7,18 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import org.maplibre.compose.gljs.GlJsMapSurface
+import org.maplibre.compose.interaction.internal.ClickPath
+import org.maplibre.compose.interaction.internal.InputFocus
+import org.maplibre.compose.interaction.internal.TapFamily
+import org.maplibre.compose.interaction.internal.inputEnvironment
+import org.maplibre.compose.interaction.internal.mapInput
+import org.maplibre.compose.interaction.internal.rotaryNotchPixels
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.style.BaseStyle
 
@@ -28,7 +33,8 @@ internal actual fun ComposableMapView(
   onReset: () -> Unit,
   logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
-  clicks: MapClickTarget,
+  captureClickPath: (TapFamily) -> ClickPath?,
+  hasClickHandlers: (TapFamily) -> Boolean,
   options: MapViewOptions,
 ) {
   val density = LocalDensity.current
@@ -73,15 +79,13 @@ internal actual fun ComposableMapView(
   val focusRequester = remember { FocusRequester() }
   val inputFocus =
     remember(session, state) {
-      MapInputFocus { engaged -> state.setEngaged(session, engaged) }
+      InputFocus { engaged -> state.setEngaged(session, engaged) }
     }
   // A press can engage the map before the attachment publishes, and a write before that is
   // dropped.
   val attached = state.currentMapAttachment?.adapter === session
   LaunchedEffect(inputFocus, attached) { if (attached) inputFocus.replay() }
-  val inputEnvironment = mapInputEnvironment()
-  val inputScope = rememberCoroutineScope()
-  val continuation = remember(session, inputScope) { GestureContinuation(inputScope) }
+  val inputEnvironment = inputEnvironment()
   val rotaryNotchPixels = rotaryNotchPixels()
 
   // A new Canvas delays the first frame until the update path attaches the camera to the session.
@@ -93,13 +97,13 @@ internal actual fun ComposableMapView(
           .indication(inputFocus.indicationInteractions, inputEnvironment.indication)
           .mapInput(
             session,
-            clicks,
-            options.gestureOptions,
+            captureClickPath,
+            hasClickHandlers,
+            options.interactions,
             density,
             focusRequester,
             inputFocus,
             inputEnvironment,
-            continuation,
             rotaryNotchPixels,
           ),
       logger = logger,

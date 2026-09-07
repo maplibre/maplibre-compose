@@ -3,6 +3,7 @@ package org.maplibre.compose.map
 import kotlin.test.Test
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import org.maplibre.compose.interaction.internal.select
 import org.maplibre.compose.mlnffi.MapRenderBackend
 
 class NativeSnapshotRenderTargetTest {

@@ -36,6 +36,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
+import org.maplibre.compose.camera.internal.CameraCommandGuard
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.layers.Anchor
@@ -1286,6 +1287,38 @@ class MapPresentationTest {
   }
 
   @Test
+  fun camera_takeover_cancels_calls_waiting_for_attachment_or_viewport() = runTest {
+    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
+    val state = runtime.createMapState(BaseStyle.Empty)
+    val bounds = BoundingBox(Position(-1.0, -1.0), Position(1.0, 1.0))
+    val animation = async { state.animateCameraPosition(CameraPosition(zoom = 2.0)) }
+    testScheduler.runCurrent()
+    state.setCameraPosition(CameraPosition(zoom = 3.0))
+    testScheduler.runCurrent()
+    assertTrue(animation.isCancelled)
+
+    val fit = async { state.fitCameraToBounds(bounds) }
+    testScheduler.runCurrent()
+    val token = state.reservePresentation()
+    val adapter = PresentationTestAdapter()
+    state.publishPresentation(token, adapter)
+    testScheduler.runCurrent()
+    assertFalse(fit.isCompleted)
+
+    val animatedFit = async { state.animateCameraToBounds(bounds) }
+    testScheduler.runCurrent()
+    assertTrue(fit.isCancelled)
+    assertFalse(animatedFit.isCompleted)
+    state.setCameraPosition(CameraPosition(zoom = 4.0))
+    testScheduler.runCurrent()
+    assertTrue(animatedFit.isCancelled)
+    assertFalse(adapter.boundsFit.isCompleted)
+    state.close()
+    state.awaitClosed()
+    runtime.close()
+  }
+
+  @Test
   fun closing_a_map_fails_a_camera_animation_waiting_for_attachment() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
     val state = runtime.createMapState(BaseStyle.Demo)
@@ -1416,8 +1449,8 @@ private class ClosingDuringConfigurationAdapter(private val closeState: () -> Un
   PresentationTestAdapter() {
   private var closed = false
 
-  override fun setCameraPosition(cameraPosition: CameraPosition) {
-    super.setCameraPosition(cameraPosition)
+  override fun setCameraPosition(cameraPosition: CameraPosition, guard: CameraCommandGuard?) {
+    super.setCameraPosition(cameraPosition, guard)
     if (!closed) {
       closed = true
       closeState()
@@ -1443,8 +1476,8 @@ private class ReleasingCameraAdapter(private val release: (MapAdapter) -> Unit) 
   PresentationTestAdapter() {
   var releaseOnNextCameraSet = false
 
-  override fun setCameraPosition(cameraPosition: CameraPosition) {
-    super.setCameraPosition(cameraPosition)
+  override fun setCameraPosition(cameraPosition: CameraPosition, guard: CameraCommandGuard?) {
+    super.setCameraPosition(cameraPosition, guard)
     if (releaseOnNextCameraSet) {
       releaseOnNextCameraSet = false
       release(this)
@@ -1468,7 +1501,11 @@ internal open class PresentationTestAdapter(
 
   open override suspend fun awaitClosed() = Unit
 
-  override suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration) {
+  override suspend fun animateCameraPosition(
+    finalPosition: CameraPosition,
+    duration: Duration,
+    guard: CameraCommandGuard?,
+  ) {
     animationStarted.complete(Unit)
     finishAnimation.await()
   }
@@ -1479,6 +1516,7 @@ internal open class PresentationTestAdapter(
     tilt: Double,
     padding: PaddingValues,
     duration: Duration,
+    guard: CameraCommandGuard?,
   ) = awaitCancellation()
 
   override fun setBaseStyle(style: BaseStyle) {
@@ -1492,7 +1530,7 @@ internal open class PresentationTestAdapter(
 
   override fun getCameraPosition(): CameraPosition = lastCameraPosition
 
-  override fun setCameraPosition(cameraPosition: CameraPosition) {
+  override fun setCameraPosition(cameraPosition: CameraPosition, guard: CameraCommandGuard?) {
     presentationWasVisibleWhileConfiguring =
       presentationWasVisibleWhileConfiguring || currentAttachment() != null
     lastCameraPosition = cameraPosition
@@ -1505,6 +1543,7 @@ internal open class PresentationTestAdapter(
     bearing: Double,
     tilt: Double,
     padding: PaddingValues,
+    guard: CameraCommandGuard?,
   ) {
     boundsFit.complete(Unit)
   }
@@ -1528,8 +1567,6 @@ internal open class PresentationTestAdapter(
   }
 
   override fun setRenderSettings(value: RenderOptions) = Unit
-
-  override fun setGestureSettings(value: GestureOptions) = Unit
 
   override fun setTileLodSettings(value: TileLodOptions) = Unit
 

@@ -8,6 +8,7 @@ import kotlinx.coroutines.Deferred
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
+import org.maplibre.compose.camera.internal.CameraCommandGuard
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.BaseStyle
@@ -42,7 +43,11 @@ internal interface MapAdapter {
 
   suspend fun awaitClosed()
 
-  suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration)
+  suspend fun animateCameraPosition(
+    finalPosition: CameraPosition,
+    duration: Duration,
+    guard: CameraCommandGuard? = null,
+  )
 
   suspend fun animateCameraToBounds(
     boundingBox: BoundingBox,
@@ -50,6 +55,7 @@ internal interface MapAdapter {
     tilt: Double,
     padding: PaddingValues,
     duration: Duration,
+    guard: CameraCommandGuard? = null,
   )
 
   fun setBaseStyle(style: BaseStyle)
@@ -64,7 +70,7 @@ internal interface MapAdapter {
 
   fun getCameraPosition(): CameraPosition
 
-  fun setCameraPosition(cameraPosition: CameraPosition)
+  fun setCameraPosition(cameraPosition: CameraPosition, guard: CameraCommandGuard? = null)
 
   fun setCameraPadding(padding: PaddingValues)
 
@@ -73,6 +79,7 @@ internal interface MapAdapter {
     bearing: Double,
     tilt: Double,
     padding: PaddingValues,
+    guard: CameraCommandGuard? = null,
   )
 
   fun setCameraConstraints(value: CameraConstraints)
@@ -89,8 +96,6 @@ internal interface MapAdapter {
   fun getViewport(): Viewport?
 
   fun setRenderSettings(value: RenderOptions)
-
-  fun setGestureSettings(value: GestureOptions)
 
   fun setTileLodSettings(value: TileLodOptions)
 
