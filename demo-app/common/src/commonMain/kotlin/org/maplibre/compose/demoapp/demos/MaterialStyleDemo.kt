@@ -61,7 +61,7 @@ import org.maplibre.compose.layers.FillExtrusionLayer
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.layers.SymbolLayer
-import org.maplibre.compose.sources.Source
+import org.maplibre.compose.sources.VectorSource
 import org.maplibre.compose.sources.rememberVectorSource
 import org.maplibre.compose.style.BaseStyle
 
@@ -142,7 +142,7 @@ object MaterialStyleDemo : Demo {
   }
 
   @Composable
-  private fun Terrain(tiles: Source, colors: ColorScheme) {
+  private fun Terrain(tiles: VectorSource, colors: ColorScheme) {
     BackgroundLayer(id = "material-background", color = const(colors.surfaceDim))
 
     FillLayer(
@@ -236,7 +236,7 @@ object MaterialStyleDemo : Demo {
   }
 
   @Composable
-  private fun Water(tiles: Source, colors: ColorScheme) {
+  private fun Water(tiles: VectorSource, colors: ColorScheme) {
     FillLayer(
       id = "material-water",
       source = tiles,
@@ -276,7 +276,7 @@ object MaterialStyleDemo : Demo {
    * renders tunnels at half opacity.
    */
   @Composable
-  private fun Roads(tiles: Source, colors: ColorScheme) {
+  private fun Roads(tiles: VectorSource, colors: ColorScheme) {
     val sourceLayer = "roads"
 
     val highwayWidth =
@@ -428,7 +428,7 @@ object MaterialStyleDemo : Demo {
   }
 
   @Composable
-  private fun Built(tiles: Source, colors: ColorScheme) {
+  private fun Built(tiles: VectorSource, colors: ColorScheme) {
     // Use the darker surface token in either color scheme.
     val buildingsColor =
       if (colors.surfaceDim.luminance() < colors.surfaceContainerLowest.luminance())
@@ -482,7 +482,7 @@ object MaterialStyleDemo : Demo {
   }
 
   @Composable
-  private fun Labels(tiles: Source, colors: ColorScheme) {
+  private fun Labels(tiles: VectorSource, colors: ColorScheme) {
     val regular = const(listOf("Noto Sans Regular"))
     val medium = const(listOf("Noto Sans Medium"))
     val italic = const(listOf("Noto Sans Italic"))
