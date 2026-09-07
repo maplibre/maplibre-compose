@@ -745,17 +745,14 @@ internal constructor(
     get() = currentMapAttachment?.isEngaged == true
 
   /**
-   * Emits each [MapEvent] that the engine behind this map reports.
+   * Reports [MapEvent]s that occur after collection starts. Past events are not replayed, and slow
+   * collectors may miss events.
    *
-   * A collector receives the events that the map reports after it subscribes. The flow replays
-   * nothing, and a bounded buffer drops the oldest event that a collector has not taken. Style and
-   * idle events continue while a retained native engine stays alive between presentations, and
-   * camera and frame events stop while no map surface is attached.
+   * Style and idle events can continue while a native map has no attached surface. Camera and frame
+   * events require an attached surface.
    *
-   * A collector on an undispatched context runs on the thread that reported the event, which is the
-   * map's own thread on native platforms and the MapLibre GL JS event listener on the browser, and
-   * it runs while the map holds the lock that serializes its lifecycle. Read state and record
-   * values there. Collect on a dispatcher to call a map command such as [StyleImages.add].
+   * Unconfined collectors may run inside engine callbacks. Use a dispatcher that queues execution
+   * for collectors that call map commands such as [StyleImages.add].
    */
   public val events: Flow<MapEvent> = eventsFlow.asSharedFlow()
 
