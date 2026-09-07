@@ -32,6 +32,7 @@ import org.maplibre.compose.camera.internal.boxZoomFit
 import org.maplibre.compose.camera.internal.runCameraCommand
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.compose.interaction.BearingSnapping
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.EglContextHandles
 import org.maplibre.compose.mlnffi.MapRenderBackend
@@ -1369,6 +1370,7 @@ internal class MlnFfiMapSession(
     duration: Duration,
     gestureToken: CameraInputToken? = null,
     guard: CameraCommandGuard? = null,
+    shouldStart: (MapHandle) -> Boolean = { true },
     start: (MapHandle, AnimationOptions) -> Unit,
   ): Unit = suspendCancellableCoroutine { continuation ->
     val enqueue = {
@@ -1382,7 +1384,8 @@ internal class MlnFfiMapSession(
                   guard,
                   activate = { gestureToken?.let { activateGesture(map, it) } },
                 ) {
-                  startTransitionOnMap(map, duration, start, continuation)
+                  if (shouldStart(map)) startTransitionOnMap(map, duration, start, continuation)
+                  else if (continuation.isActive) continuation.resume(Unit)
                 }
             if (!started && continuation.isActive) continuation.resume(Unit)
           },
@@ -1872,6 +1875,28 @@ internal class MlnFfiMapSession(
         }
       if (duration == Duration.ZERO) map.jumpTo(target)
       else map.easeTo(target, duration.toAnimationOptions())
+    }
+  }
+
+  override suspend fun snapBearingAwaitingTransition(
+    snapping: BearingSnapping,
+    duration: Duration,
+    gestureToken: CameraInputToken,
+  ) {
+    if (!acceptsGestures) return
+    var bearing = 0.0
+    startTransitionAwaitingRelease(
+      duration,
+      gestureToken = gestureToken,
+      shouldStart = { map ->
+        val current = map.camera.bearing ?: 0.0
+        snapping.delta(current)?.let {
+          bearing = current + it
+          true
+        } ?: false
+      },
+    ) { map, animation ->
+      map.easeTo(CameraOptions().also { it.bearing = bearing }, animation)
     }
   }
 

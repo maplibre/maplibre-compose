@@ -6,6 +6,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import org.maplibre.compose.interaction.BearingSnapping
 import org.maplibre.compose.interaction.internal.CameraComponent
 import org.maplibre.compose.interaction.internal.CameraConfiguration
 import org.maplibre.compose.map.MapAdapter
@@ -160,6 +161,16 @@ internal class CameraInputAuthority(private val owner: MapState) {
     private var finishQueued = false
     private val completion = CompletableDeferred<Unit>().also { if (!ready) it.complete(Unit) }
     private val startedComponents = mutableSetOf<CameraComponent>()
+    private var rotated = false
+
+    val bearingSnapping: BearingSnapping?
+      get() =
+        owner.lifecycle.serialized {
+          configuration.settings.rotate.snapping.takeIf {
+            acceptsLocked(enqueue = true) && rotated && it.enabled
+          }
+        }
+
     val acceptsCommands: Boolean
       get() = owner.lifecycle.serialized { acceptsLocked(enqueue = true) }
 
@@ -180,6 +191,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
         owner.lifecycle.serialized {
           if (!acceptsLocked(enqueue = true) || !configuration.settings.enabled(component))
             return false
+          if (component == CameraComponent.Rotate) rotated = true
           if (startedComponents.add(component)) configuration.onStart[component] else null
         }
       start?.invoke()

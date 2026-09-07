@@ -6,6 +6,7 @@ import kotlin.time.Duration
 import org.maplibre.compose.camera.internal.BoxZoomFit
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.CameraInputToken
+import org.maplibre.compose.interaction.BearingSnapping
 import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.internal.ClickPath
@@ -148,6 +149,17 @@ internal class RecordingGestureTarget(
     gestureToken: CameraInputToken,
     anchor: DpOffset?,
   ) = rotateAndPitchBy(bearingDelta, pitchDelta, duration, anchor, gestureToken)
+
+  override suspend fun snapBearingAwaitingTransition(
+    snapping: BearingSnapping,
+    duration: Duration,
+    gestureToken: CameraInputToken,
+  ) =
+    command(gestureToken) {
+      snapping.delta(getCameraPosition().bearing)?.let {
+        rotateCalls += RotateCall(it, 0.0, null)
+      }
+    }
 
   var clickFamilies = setOf(TapFamily.Tap, TapFamily.LongPress, TapFamily.SecondaryClick)
   val deliveredTapFamilies = mutableListOf<TapFamily>()

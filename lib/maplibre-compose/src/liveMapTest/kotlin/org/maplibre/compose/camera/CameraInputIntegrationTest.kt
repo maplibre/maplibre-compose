@@ -18,8 +18,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.camera.internal.inputPanBy
 import org.maplibre.compose.camera.internal.inputPanByAwaitingTransition
+import org.maplibre.compose.camera.internal.inputRotateAndPitchBy
 import org.maplibre.compose.camera.internal.inputRotateAndPitchByAwaitingTransition
 import org.maplibre.compose.camera.internal.inputScaleByAwaitingTransition
+import org.maplibre.compose.interaction.BearingTargets
 import org.maplibre.compose.interaction.CameraBuilder
 import org.maplibre.compose.interaction.internal.CameraConfiguration
 import org.maplibre.compose.interaction.internal.GestureInputSession
@@ -30,6 +32,89 @@ import org.maplibre.compose.testing.runMapTest
 import org.maplibre.spatialk.geojson.Position
 
 class CameraInputIntegrationTest {
+  @Test
+  fun rotation_settles_after_queued_movement_and_momentum_preserving_other_components():
+    MapTestResult = runMapTest {
+    coroutineScope {
+      createMapFixture().use { fixture ->
+        fixture.loadStyle(BaseStyle.Empty)
+        fixture.awaitMapReady()
+        fixture.session.setCameraPadding(PaddingValues(start = 65.dp, top = 25.dp, end = 10.dp))
+        fixture.state.gestureAuthority.updateConfiguration(
+          CameraBuilder(CameraConfiguration())
+            .apply {
+              rotate { snapping { targets = BearingTargets.evenlySpaced(4, 32.0) } }
+            }
+            .build()
+        )
+        for (momentum in listOf(false, true)) {
+          val before =
+            CameraPosition(target = Position(3.0, 45.0), zoom = 5.0, bearing = 20.0, tilt = 30.0)
+          fixture.state.setCameraPosition(before)
+          fixture.settle()
+          fixture.awaitWhileRendering("rotation settlement") {
+            val input = GestureInputSession(this, fixture.gestures)
+            fixture.gestures.inputRotateAndPitchBy(8.0, 0.0, gestureToken = input.token)
+            if (momentum)
+              input.scope.launch {
+                fixture.gestures.inputRotateAndPitchByAwaitingTransition(
+                  3.0,
+                  0.0,
+                  0.1.seconds,
+                  input.token,
+                )
+              }
+            input.end()
+            input.scope.coroutineContext[Job]!!.join()
+          }
+          val after = fixture.state.cameraPosition
+          assertEquals(32.0, after.bearing, 1e-6)
+          assertEquals(before.target.longitude, after.target.longitude, 1e-6)
+          assertEquals(before.target.latitude, after.target.latitude, 1e-6)
+          assertEquals(before.zoom, after.zoom, 1e-6)
+          assertEquals(before.tilt, after.tilt, 1e-6)
+          assertFalse(fixture.state.isCameraMoving)
+        }
+      }
+    }
+  }
+
+  @Test
+  fun snapping_does_not_follow_pan_or_override_programmatic_takeover(): MapTestResult = runMapTest {
+    coroutineScope {
+      createMapFixture().use { fixture ->
+        fixture.loadStyle(BaseStyle.Empty)
+        fixture.awaitMapReady()
+        fixture.state.gestureAuthority.updateConfiguration(
+          CameraBuilder(CameraConfiguration())
+            .apply {
+              rotate { snapping() }
+            }
+            .build()
+        )
+        fixture.state.setCameraPosition(CameraPosition(zoom = 5.0, bearing = 3.0))
+        fixture.settle()
+        fixture.awaitWhileRendering("pan without rotation") {
+          val input = GestureInputSession(this, fixture.gestures)
+          fixture.gestures.inputPanBy(10.0, 0.0, input.token)
+          input.end()
+          input.scope.coroutineContext[Job]!!.join()
+        }
+        assertEquals(3.0, fixture.state.cameraPosition.bearing, 1e-6)
+        val input = GestureInputSession(this, fixture.gestures, animationDuration = 30.seconds)
+        fixture.gestures.inputRotateAndPitchBy(1.0, 0.0, gestureToken = input.token)
+        input.end()
+        fixture.pumpUntil("settling to start") { fixture.state.isCameraMoving }
+        fixture.state.setCameraPosition(CameraPosition(zoom = 5.0, bearing = 42.0))
+        fixture.awaitWhileRendering("takeover to cancel settlement") {
+          input.scope.coroutineContext[Job]!!.join()
+        }
+        fixture.settle()
+        assertEquals(42.0, fixture.state.cameraPosition.bearing, 1e-6)
+      }
+    }
+  }
+
   @Test
   fun recognized_input_stops_programmatic_motion_before_its_first_delta(): MapTestResult =
     runMapTest {

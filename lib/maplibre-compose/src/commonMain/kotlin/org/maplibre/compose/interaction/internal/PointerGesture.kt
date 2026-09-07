@@ -852,7 +852,12 @@ internal class PointerGesture(
     val token = target.onGestureStarted()
     lateinit var session: GestureInputSession
     session =
-      GestureInputSession(scope, target, token) {
+      GestureInputSession(
+        scope,
+        target,
+        token,
+        animationDuration = options.scaledAnimationDuration(),
+      ) {
         if (cameraSession === session) {
           val contactsRemain = lastSingle != null || pair != null
           cancel()

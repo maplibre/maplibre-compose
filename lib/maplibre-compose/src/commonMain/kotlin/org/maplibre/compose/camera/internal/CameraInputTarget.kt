@@ -4,6 +4,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import kotlin.time.Duration
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.interaction.BearingSnapping
 import org.maplibre.spatialk.geojson.Position
 
 /** Camera operations used by built-in map controls. Screen distances are dp. */
@@ -22,6 +23,13 @@ internal interface CameraInputTarget {
 
   suspend fun fitBoundsAwaitingTransition(
     fit: BoxZoomFit,
+    duration: Duration,
+    gestureToken: CameraInputToken,
+  )
+
+  /** Selects a target on the engine thread after queued movement, under the same camera token. */
+  suspend fun snapBearingAwaitingTransition(
+    snapping: BearingSnapping,
     duration: Duration,
     gestureToken: CameraInputToken,
   )

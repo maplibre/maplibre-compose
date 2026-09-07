@@ -55,6 +55,7 @@ import org.maplibre.compose.gljs.queryPoint
 import org.maplibre.compose.gljs.styleJson
 import org.maplibre.compose.gljs.styleUrl
 import org.maplibre.compose.gljs.subscribe
+import org.maplibre.compose.interaction.BearingSnapping
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.logging.MapLogLevel
 import org.maplibre.compose.logging.MapLogSource
@@ -1255,6 +1256,24 @@ internal class GlJsMapSession(
   ) {
     onGestureMap(gestureToken) { map ->
       map.easeTo(rotateOptions(map, bearingDelta, pitchDelta, anchor, duration))
+    }
+  }
+
+  override suspend fun snapBearingAwaitingTransition(
+    snapping: BearingSnapping,
+    duration: Duration,
+    gestureToken: CameraInputToken,
+  ) {
+    awaitCameraRelease(gestureToken = gestureToken) { map ->
+      val current = map.getBearing()
+      snapping.delta(current)?.let { delta ->
+        map.easeTo(
+          unsafeJso<EaseToOptions> {
+            bearing = current + delta
+            this.duration = duration.inWholeMilliseconds.toDouble()
+          }
+        )
+      }
     }
   }
 

@@ -1,6 +1,8 @@
 package org.maplibre.compose.interaction.internal
 
 import kotlin.coroutines.ContinuationInterceptor
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -19,6 +21,7 @@ internal class GestureInputSession(
   private val parent: CoroutineScope,
   private val target: CameraInputTarget,
   val token: CameraInputToken = target.onGestureStarted(),
+  private val animationDuration: Duration = 300.milliseconds,
   private val onCancelled: () -> Unit = {},
 ) {
   private val work = Job(parent.coroutineContext[Job])
@@ -50,8 +53,16 @@ internal class GestureInputSession(
       try {
         work.children.toList().joinAll()
         if (work.isCancelled) return@launch
+        withContext(scope.coroutineContext) {
+          token.bearingSnapping?.let {
+            target.snapBearingAwaitingTransition(it, animationDuration, token)
+          }
+        }
         target.onGestureEnded(token)
         withContext(NonCancellable) { token.awaitCompletion() }
+      } catch (error: Throwable) {
+        cancel()
+        throw error
       } finally {
         work.complete()
       }

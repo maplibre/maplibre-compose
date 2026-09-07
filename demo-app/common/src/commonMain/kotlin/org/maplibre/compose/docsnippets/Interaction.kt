@@ -3,6 +3,7 @@
 package org.maplibre.compose.docsnippets
 
 import androidx.compose.runtime.Composable
+import org.maplibre.compose.interaction.BearingTargets
 import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.MapInteractions
@@ -24,6 +25,22 @@ fun Interaction() {
       }
   )
   // #endregion camera-movement
+
+  // #region bearing-snapping
+  MaplibreMap(
+    interactions =
+      MapInteractions {
+        camera {
+          rotate {
+            snapping {
+              targets = BearingTargets.evenlySpaced(count = 4)
+              tolerance = 7.0
+            }
+          }
+        }
+      }
+  )
+  // #endregion bearing-snapping
 
   // #region scroll-mappings
   MaplibreMap(
