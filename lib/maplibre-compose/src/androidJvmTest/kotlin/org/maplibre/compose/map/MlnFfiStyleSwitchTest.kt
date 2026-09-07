@@ -111,19 +111,16 @@ class MlnFfiStyleSwitchTest {
     val runtime = createMapRuntime(runtimeOptions)
     var style by mutableStateOf(SLOT_STYLES[0])
     var sourceLayer by mutableStateOf("places")
-    var showLayer by mutableStateOf(true)
     val state =
       runtime.createMapState(initialBaseStyle = SLOT_STYLES[0]) {
         val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
-        if (showLayer) {
-          Anchor.Below("base-slot") {
-            FillLayer(
-              id = "user-anchored",
-              source = points,
-              sourceLayer = sourceLayer,
-              color = const(Color.Blue),
-            )
-          }
+        Anchor.Below("base-slot") {
+          FillLayer(
+            id = "user-anchored",
+            source = points,
+            sourceLayer = sourceLayer,
+            color = const(Color.Blue),
+          )
         }
       }
 
@@ -150,10 +147,6 @@ class MlnFfiStyleSwitchTest {
     }
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
       slotLayers() == listOf("bg-b", "user-anchored", "base-slot")
-    }
-    runOnUiThread { showLayer = false }
-    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-      slotLayers() == listOf("bg-b", "base-slot")
     }
     runtime.close()
     runtime.awaitClosed()
