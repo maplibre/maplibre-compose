@@ -149,9 +149,9 @@ public fun <I : MatchableValue, O : ExpressionValue> switch(
  * type of the labels, the result will be the [fallback] value. See [AnyValue].
  */
 @JvmName("switchAny")
-public fun <O : ExpressionValue> switch(
+public fun <I : MatchableValue, O : ExpressionValue> switch(
   input: Expression<AnyValue>,
-  cases: List<Case<*, O>>,
+  cases: List<Case<I, O>>,
   fallback: Expression<O>,
 ): Expression<O> = match(input, cases, fallback)
 
@@ -164,9 +164,9 @@ public fun <O : ExpressionValue> switch(
  * type of the labels, the result will be the [fallback] value. See [AnyValue].
  */
 @JvmName("switchAny")
-public fun <O : ExpressionValue> switch(
+public fun <I : MatchableValue, O : ExpressionValue> switch(
   input: Expression<AnyValue>,
-  vararg cases: Case<*, O>,
+  vararg cases: Case<I, O>,
   fallback: Expression<O>,
 ): Expression<O> = match(input, cases.asList(), fallback)
 
