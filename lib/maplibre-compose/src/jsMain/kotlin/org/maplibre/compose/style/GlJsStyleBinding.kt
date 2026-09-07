@@ -31,6 +31,7 @@ import org.maplibre.compose.gljs.SkySpecification
 import org.maplibre.compose.gljs.SourceHandle
 import org.maplibre.compose.gljs.SourceSpecification
 import org.maplibre.compose.gljs.StyleImageMetadata
+import org.maplibre.compose.gljs.StyleLayer
 import org.maplibre.compose.gljs.StyleSetterOptions
 import org.maplibre.compose.gljs.TransitionSpecification
 import org.maplibre.compose.gljs.UpdateImageOptions
@@ -190,12 +191,17 @@ internal class GlJsStyleBinding(
 
   override fun getLayer(id: String): Layer? {
     requireLoaded()
-    return map.getLayer(id)?.let { reconstructLayer(id) }
+    return map.getLayer(id)?.let(::reconstructLayer)
   }
 
   override fun layerIds(): List<String> {
     requireLoaded()
     return map.getLayersOrder().toList()
+  }
+
+  override fun layerType(id: String): String? {
+    requireLoaded()
+    return map.getLayer(id)?.type
   }
 
   override fun layerTypes(): Map<String, String> {
@@ -214,14 +220,14 @@ internal class GlJsStyleBinding(
       },
     )
 
-  private fun reconstructLayer(id: String): Layer {
+  private fun reconstructLayer(layer: StyleLayer): Layer {
     val definition =
-      map.getStyle().layers.firstOrNull { it.id == id }?.toJsonElement() as? JsonObject
+      layer.serialize().toJsonElement() as? JsonObject
         ?: buildJsonObject {
-          put("id", id)
-          map.getLayer(id)?.let { put("type", it.type) }
+          put("id", layer.id)
+          put("type", layer.type)
         }
-    return UnknownLayer(id, definition)
+    return UnknownLayer(layer.id, definition)
   }
 
   override fun addSource(sourceId: String, source: JsonObject): Boolean {

@@ -126,16 +126,16 @@ internal constructor(
  */
 internal fun StyleBinding.layerHandle(
   id: String,
+  type: String,
   isCurrentResource: () -> Boolean,
   operations: StyleHandleOperationGuard,
-): LayerHandle? {
+): LayerHandle {
   requireCurrent()
-  val type = getLayer(id)?.definition()?.type ?: return null
   return LayerHandle(
     id = id,
     type = type,
     style = this,
-    isCurrentResource = { isCurrentResource() && getLayer(id)?.definition()?.type == type },
+    isCurrentResource = { isCurrentResource() && layerType(id) == type },
     operations = operations,
   )
 }
