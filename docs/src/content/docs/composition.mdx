@@ -24,9 +24,8 @@ positions in the layer stack.
 <Code code={region(composition, "base-plus-content")} lang="kotlin" title="App.kt" />
 
 The library manages the sources and layers in the style block. It
-does not modify the rest of the base style. To change a base style layer,
-use its handle in `mapState.style.layers`, or replace it with
-<Api of="Anchor.Replace" /> and declare its replacement yourself.
+does not modify the rest of the base style. To change a base style layer, use
+its <Api of="LayerHandle" /> from `mapState.style.layers`.
 
 `initialBaseStyle` seeds the map once. Changing that input does not reload the
 remembered map; assign `mapState.style.baseStyle` to switch styles.
@@ -54,8 +53,7 @@ current state, and let the runtime reconcile it.
 When you assign `mapState.style.baseStyle`, the map loads the new style and evaluates
 the style block against it. Each evaluation declares your
 sources and layers against the new style. They persist across the switch
-without extra code. An `Anchor` that names a base layer applies only when that
-layer exists in the new style.
+without extra code. An `Anchor` is resolved against the new style's layers.
 
 To share one definition between several maps, write the style content as a
 composable function and call that function from each style block. The same
@@ -75,4 +73,4 @@ read. Content that runs on both hosts branches on it.
 Layers and sources have string IDs because the underlying MapLibre style
 identifies them by ID. Within one map, each layer ID must be unique, including
 against the base style's layers. A feature query takes layer IDs to limit its
-scope, and an `Anchor` names a base style layer by its ID.
+scope, and an `Anchor` can select a base style layer by its ID.

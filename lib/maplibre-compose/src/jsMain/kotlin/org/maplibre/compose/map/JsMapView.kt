@@ -58,7 +58,8 @@ internal actual fun ComposableMapView(
   val currentOnReset = rememberUpdatedState(onReset)
 
   // Must run in the apply phase, not from a coroutine: the unload has to precede the content
-  // subcomposition inserting layers, or a style switch crashes on anchor validation (see #269).
+  // subcomposition inserting layers, or a style switch inserts them against the base style being
+  // replaced (see #269).
   SideEffect { session.setBaseStyle(style) }
   if (session.hasUsableViewport) {
     SideEffect {

@@ -55,7 +55,6 @@ import org.maplibre.compose.expressions.value.LineCap
 import org.maplibre.compose.expressions.value.LineJoin
 import org.maplibre.compose.expressions.value.SymbolPlacement
 import org.maplibre.compose.expressions.value.TextTransform
-import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.FillExtrusionLayer
 import org.maplibre.compose.layers.FillLayer
@@ -86,8 +85,6 @@ private enum class Material(override val isDark: Boolean = false) : DemoStyle {
     putJsonObject("sources") {}
     putJsonArray("layers") {}
   }
-
-  override val anchorBelowSymbols = Anchor.Top
 }
 
 /**

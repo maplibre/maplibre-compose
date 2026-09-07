@@ -56,8 +56,8 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.interaction.DragResponse
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.PointerButton
-import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.BackgroundLayer
+import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.mlnffi.FfiTestPlatform
@@ -66,6 +66,7 @@ import org.maplibre.compose.mlnffi.setFfiTestMapContent
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.include
 import org.maplibre.compose.sources.GeoJsonData
+import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.RasterTileSource
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
@@ -404,16 +405,16 @@ class MlnFfiMapCompositionTest {
   fun a_later_revision_supersedes_reconciliation_failure_before_the_surface_is_revealed() =
     runFfiComposeUiTest {
       val runtime = createMapRuntime(runtimeOptions)
-      var invalidAnchor by mutableStateOf(true)
+      // Synchronous GeoJSON parsing rejects malformed data inside the revision itself.
+      var malformedData by mutableStateOf(true)
       val state =
         runtime.createMapState(initialBaseStyle = BaseStyle.Empty) {
-          if (invalidAnchor) {
-            Anchor.Below("missing-base-layer") {
-              BackgroundLayer(id = "application-background", color = const(Color.Red))
-            }
-          } else {
-            BackgroundLayer(id = "application-background", color = const(Color.Blue))
-          }
+          val points =
+            rememberGeoJsonSource(
+              data = GeoJsonData.JsonString(if (malformedData) "{" else EMPTY_FEATURE_COLLECTION),
+              options = GeoJsonOptions(synchronousUpdate = true),
+            )
+          CircleLayer(id = "application-circles", source = points, color = const(Color.Red))
         }
 
       setFfiTestMapContent(runtimeOptions) { MaplibreMap(state = state) }
@@ -426,12 +427,12 @@ class MlnFfiMapCompositionTest {
       )
       onNodeWithContentDescription("Map").assertExists("a map without a style has no semantics")
 
-      invalidAnchor = false
+      malformedData = false
       waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
         state.style.loadState == StyleLoadState.Ready
       }
       val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
-      assertTrue("application-background" in session.currentStyleLayerIds())
+      assertTrue("application-circles" in session.currentStyleLayerIds())
       assertTrue(onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty())
 
       runtime.close()
@@ -811,6 +812,8 @@ class MlnFfiMapCompositionTest {
       BaseStyle.Json(
         """{"version":8,"sources":{},"layers":[{"id":"replacement-style","type":"background"}]}"""
       )
+
+    const val EMPTY_FEATURE_COLLECTION = """{"type":"FeatureCollection","features":[]}"""
 
     const val RENDER_TIMEOUT_MILLIS = 30_000L
 

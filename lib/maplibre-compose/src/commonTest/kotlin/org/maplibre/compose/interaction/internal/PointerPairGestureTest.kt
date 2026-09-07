@@ -18,6 +18,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 import org.maplibre.compose.interaction.GestureAnchor
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.MapInteractions
@@ -232,6 +233,40 @@ class PointerPairGestureTest {
   }
 
   @Test
+  fun pan_and_pinch_momentum_share_the_configured_zoom_duration_and_decay() {
+    for (zoomMomentum in listOf(true, false)) {
+      val input =
+        PairInput(
+          MapInteractions {
+            camera {
+              zoom {
+                momentum {
+                  enabled = zoomMomentum
+                  maximumDuration = 300.milliseconds
+                }
+              }
+            }
+          }
+        )
+      repeat(6) { index ->
+        val step = index + 1
+        input.move(step * 16L, Offset(-80f + step * 8f, 0f), Offset(80f + step * 56f, 0f))
+      }
+      val release = assertNotNull(input.pair.end())
+      val pan = assertNotNull(release.pan)
+      if (zoomMomentum) {
+        val scale = assertNotNull(release.scale)
+        assertEquals(300.milliseconds, scale.duration)
+        assertEquals(scale.duration, pan.duration)
+        assertEquals(GestureMath.TRANSFORM_DECAY_POWER, pan.decayPower)
+      } else {
+        assertNull(release.scale)
+        assertEquals(2, pan.decayPower)
+      }
+    }
+  }
+
+  @Test
   fun pinch_momentum_does_not_depend_on_which_finger_moves() {
     val options =
       MapInteractions(MapInteractions.None) {
@@ -256,6 +291,36 @@ class PointerPairGestureTest {
     assertTrue(first.zoomDelta > 0.0)
     assertEquals(first.zoomDelta, second.zoomDelta, 1e-6)
     assertEquals(first.duration, second.duration)
+  }
+
+  @Test
+  fun vertical_drift_during_rotation_does_not_start_tilt() {
+    val input = PairInput(MapInteractions.Standard)
+    fun move(at: Long, degrees: Double, vertical: Float) {
+      val angle = degrees * PI / 180.0
+      val radius = Offset(80f * cos(angle).toFloat(), 80f * sin(angle).toFloat())
+      val center = Offset(0f, vertical)
+      input.move(at, center - radius, center + radius)
+    }
+    move(20, 16.0, 0f)
+    assertTrue(input.target.rotateCalls.any { it.bearingDelta != 0.0 })
+    val rotations = input.target.rotateCalls.size
+    move(40, 18.0, 24f)
+    move(60, 20.0, 32f)
+    assertTrue(input.target.rotateCalls.size > rotations, "rotation stopped during vertical drift")
+    assertTrue(input.target.rotateCalls.all { it.pitchDelta == 0.0 }, "rotation became tilt")
+  }
+
+  @Test
+  fun vertical_drift_during_pinch_does_not_start_tilt() {
+    val input = PairInput(MapInteractions.Standard)
+    input.move(20, Offset(-100f, 0f), Offset(100f, 0f))
+    assertTrue(input.target.scaleCalls.isNotEmpty())
+    val scales = input.target.scaleCalls.size
+    input.move(40, Offset(-120f, 24f), Offset(120f, 24f))
+    input.move(60, Offset(-140f, 32f), Offset(140f, 32f))
+    assertTrue(input.target.scaleCalls.size > scales, "pinch stopped during vertical drift")
+    assertTrue(input.target.rotateCalls.isEmpty(), "horizontal pinch became tilt")
   }
 
   @Test

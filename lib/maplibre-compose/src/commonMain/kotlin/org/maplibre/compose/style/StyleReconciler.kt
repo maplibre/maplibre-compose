@@ -1,6 +1,7 @@
 package org.maplibre.compose.style
 
 import org.maplibre.compose.layers.Anchor
+import org.maplibre.compose.layers.LayerHandle
 
 /** Reconciles complete desired revisions into one loaded base-style generation. */
 internal class StyleReconciler {
@@ -8,7 +9,6 @@ internal class StyleReconciler {
   private val sources = linkedMapOf<String, AppliedSource>()
   private val layers = linkedMapOf<String, AppliedLayer>()
   private val images = linkedMapOf<String, StyleImageDefinition>()
-  private val replacedLayers = mutableMapOf<Anchor.Replace, LayerDefinition>()
 
   /**
    * The engine's layer order, bottom to top, as this reconciler's mutations leave it. Reading the
@@ -16,6 +16,12 @@ internal class StyleReconciler {
    * re-read only when it may have drifted: after a binding change or a failed revision.
    */
   private var knownLayerIds: MutableList<String>? = null
+
+  /**
+   * The base-style layers of the bound generation, bottom to top, as anchor predicates see them.
+   * Base layers do not change within one generation, so they are read once per binding.
+   */
+  private var baseLayers: List<LayerHandle>? = null
 
   suspend fun apply(style: StyleBinding, revision: DesiredStyleRevision): StyleResourceChanges {
     style.requireCurrent()
@@ -40,19 +46,27 @@ internal class StyleReconciler {
       sources.mapNotNullTo(mutableSetOf()) { (id, applied) ->
         desiredSources[id]?.takeIf { !applied.definition.canUpdateTo(it) }?.let { id }
       }
-    val desiredLayers = revision.layers.associateBy { it.definition.id }
+    val placements = hashMapOf<Anchor, Placement>()
+    val placedLayers =
+      revision.layers.map { desired ->
+        PlacedLayer(
+          desired,
+          placements.getOrPut(desired.anchor) { placement(style, desired.anchor) },
+        )
+      }
+    val desiredLayers = placedLayers.associateBy { it.definition.id }
 
     layers.values.toList().forEach { applied ->
       val desired = desiredLayers[applied.definition.id]
       if (
         desired == null ||
-          desired.anchor != applied.anchor ||
+          desired.placement != applied.placement ||
           desired.definition.type != applied.definition.type ||
           desired.definition.sourceId != applied.definition.sourceId ||
           desired.definition.value["source-layer"] != applied.definition.value["source-layer"] ||
           desired.definition.sourceId in replacedSourceIds
       ) {
-        removeLayer(style, applied, changes)
+        removeLayer(applied, changes)
       }
     }
 
@@ -76,27 +90,20 @@ internal class StyleReconciler {
 
     syncImages(style, revision.images)
 
-    revision.layers
-      .groupByTo(linkedMapOf()) { it.anchor }
-      .forEach { (anchor, group) ->
+    placedLayers
+      .groupByTo(linkedMapOf()) { it.placement }
+      .forEach { (placement, group) ->
         var previousId: String? = null
         group.forEachIndexed { index, desired ->
           val id = desired.definition.id
           val nextDesiredId = group.getOrNull(index + 1)?.definition?.id
           var applied = layers[id]
           if (applied == null) {
-            val before = beforeLayerId(layerIds(style), anchor, previousId, id)
-            if (anchor is Anchor.Replace && anchor !in replacedLayers) {
-              val replaced =
-                requireNotNull(style.getLayer(anchor.layerId)) {
-                  "Layer ID '${anchor.layerId}' not found in base style"
-                }
-              replacedLayers[anchor] = replaced.definition()
-            }
+            val before = beforeLayerId(layerIds(style), placement, previousId)
             applied =
               AppliedLayer(
                 definition = desired.definition,
-                anchor = anchor,
+                placement = placement,
                 installation =
                   LayerInstallation(
                     style,
@@ -108,17 +115,11 @@ internal class StyleReconciler {
             changes.layers.add(id)
             layers[id] = applied
             layerIds(style).insertBelow(id, before)
-            if (anchor is Anchor.Replace && group.first() === desired) {
-              style.identity.layers.remove(anchor.layerId)
-              changes.layers.add(anchor.layerId)
-              style.removeLayer(anchor.layerId)
-              layerIds(style).remove(anchor.layerId)
-            }
           } else {
             applied.installation.update(desired.definition, revision.animatorDurationScale)
             applied.definition = desired.definition
-            if (shouldMoveLayer(layerIds(style), anchor, previousId, id, nextDesiredId)) {
-              val before = beforeLayerId(layerIds(style), anchor, previousId, id)
+            if (shouldMoveLayer(layerIds(style), placement, previousId, id, nextDesiredId)) {
+              val before = beforeLayerId(layerIds(style), placement, previousId)
               if (before != id) {
                 layerOrderChanged = true
                 applied.installation.move(before)
@@ -142,12 +143,39 @@ internal class StyleReconciler {
     sources.clear()
     layers.clear()
     images.clear()
-    replacedLayers.clear()
     knownLayerIds = null
+    baseLayers = null
   }
 
   private fun layerIds(style: StyleBinding): MutableList<String> =
     knownLayerIds ?: style.layerIds().toMutableList().also { knownLayerIds = it }
+
+  private fun baseLayers(style: StyleBinding): List<LayerHandle> =
+    baseLayers
+      ?: style
+        .layerTypes()
+        .filterKeys { it !in layers }
+        .map { (id, type) -> predicateLayerHandle(style, id, type) }
+        .also { baseLayers = it }
+
+  /** Resolves [anchor] against the base-style layers of the bound generation. */
+  private fun placement(style: StyleBinding, anchor: Anchor): Placement =
+    when (anchor) {
+      is Anchor.Top -> Placement.Top
+      is Anchor.Bottom -> Placement.Bottom
+      is Anchor.Below ->
+        baseLayers(style).firstOrNull { anchor.predicate(it) }?.let { Placement.Below(it.id) }
+          ?: Placement.Top
+      is Anchor.Above -> {
+        val base = baseLayers(style)
+        val highest = base.indexOfLast { anchor.predicate(it) }
+        when {
+          highest < 0 -> Placement.Bottom
+          highest == base.lastIndex -> Placement.Top
+          else -> Placement.Below(base[highest + 1].id)
+        }
+      }
+    }
 
   /** Places [id] directly below [beforeLayerId], or on top when that is empty. */
   private fun MutableList<String>.insertBelow(id: String, beforeLayerId: String) {
@@ -155,7 +183,7 @@ internal class StyleReconciler {
       add(id)
     } else {
       val index = indexOf(beforeLayerId)
-      require(index >= 0) { "Layer ID '$beforeLayerId' not found in style" }
+      check(index >= 0) { "Layer ID '$beforeLayerId' not found in style" }
       add(index, id)
     }
   }
@@ -175,21 +203,8 @@ internal class StyleReconciler {
     sources.remove(applied.definition.id)
   }
 
-  private fun removeLayer(
-    style: StyleBinding,
-    applied: AppliedLayer,
-    changes: StyleResourceChanges,
-  ) {
+  private fun removeLayer(applied: AppliedLayer, changes: StyleResourceChanges) {
     changes.layers.add(applied.definition.id)
-    val anchor = applied.anchor
-    val isLastReplacement =
-      anchor is Anchor.Replace && layers.values.count { it.anchor == anchor } == 1
-    if (isLastReplacement) {
-      val original = requireNotNull(replacedLayers.remove(anchor))
-      changes.layers.add(original.id)
-      style.addLayer(original, beforeLayerId = applied.definition.id)
-      knownLayerIds?.insertBelow(anchor.layerId, applied.definition.id)
-    }
     applied.installation.remove()
     knownLayerIds?.remove(applied.definition.id)
     layers.remove(applied.definition.id)
@@ -214,49 +229,34 @@ internal class StyleReconciler {
 
   private fun shouldMoveLayer(
     ids: List<String>,
-    anchor: Anchor,
+    placement: Placement,
     previousId: String?,
     id: String,
     nextDesiredId: String?,
   ): Boolean {
     if (previousId != null) return ids.idAbove(previousId) != id
-    if (nextDesiredId != null) return ids.positionBefore(id) != nextDesiredId
-    val before = beforeLayerId(ids, anchor, previousId = null, desiredId = id)
-    return before != id && ids.positionBefore(id) != before
+    if (nextDesiredId != null) return ids.idAbove(id) != nextDesiredId
+    val before = beforeLayerId(ids, placement, null)
+    return before != id && ids.idAbove(id) != before
   }
 
-  private fun beforeLayerId(
-    ids: List<String>,
-    anchor: Anchor,
-    previousId: String?,
-    desiredId: String? = null,
-  ): String {
+  /**
+   * The ID a layer at [placement] is inserted below, or an empty string for the top of the stack.
+   * [Placement.Bottom] reads the tracked order at insertion time, so it sits under the engine's own
+   * layers as well as the base style's.
+   */
+  private fun beforeLayerId(ids: List<String>, placement: Placement, previousId: String?): String {
     if (previousId != null) return ids.idAbove(previousId)
-    if (anchor is Anchor.Replace && anchor in replacedLayers) {
-      val firstReplacement = ids.firstOrNull { layers[it]?.anchor == anchor }
-      if (firstReplacement != null && firstReplacement != desiredId) return firstReplacement
-      if (desiredId != null && desiredId in ids) {
-        return ids.positionBefore(desiredId)
-      }
-    }
-    return when (anchor) {
-      is Anchor.Top -> ""
-      is Anchor.Bottom -> ids.firstOrNull().orEmpty()
-      is Anchor.Above -> ids.idAbove(anchor.layerId)
-      is Anchor.Below -> anchor.layerId
-      is Anchor.Replace -> ids.idAbove(anchor.layerId)
+    return when (placement) {
+      Placement.Top -> ""
+      Placement.Bottom -> ids.firstOrNull().orEmpty()
+      is Placement.Below -> placement.layerId
     }
   }
 
   private fun List<String>.idAbove(id: String): String {
     val index = indexOf(id)
-    require(index >= 0) { "Layer ID '$id' not found in base style" }
-    return getOrNull(index + 1).orEmpty()
-  }
-
-  private fun List<String>.positionBefore(id: String): String {
-    val index = indexOf(id)
-    require(index >= 0) { "Layer ID '$id' not found in style" }
+    check(index >= 0) { "Layer ID '$id' not found in style" }
     return getOrNull(index + 1).orEmpty()
   }
 
@@ -267,8 +267,53 @@ internal class StyleReconciler {
 
   private class AppliedLayer(
     var definition: LayerDefinition,
-    val anchor: Anchor,
+    val placement: Placement,
     val installation: LayerInstallation,
+  )
+
+  private class PlacedLayer(desired: DesiredStyleLayer, val placement: Placement) {
+    val definition: LayerDefinition = desired.definition
+  }
+
+  /**
+   * An anchor resolved against one base-style generation. Layers with equal placements form one
+   * group in style-content order, so two anchors that resolve to the same position never move each
+   * other's layers.
+   */
+  private sealed interface Placement {
+    data object Top : Placement
+
+    data object Bottom : Placement
+
+    /** Directly under the base-style layer [layerId]. */
+    data class Below(val layerId: String) : Placement
+  }
+}
+
+/**
+ * A handle for an anchor predicate. The reconciler holds the style while a predicate runs, so
+ * operations run inline; a write from a predicate would mutate the base style mid-revision, so
+ * writes are refused. Base layers do not change within a generation, so [type] is trusted for the
+ * handle's life and a property read costs one engine read.
+ */
+private fun predicateLayerHandle(style: StyleBinding, id: String, type: String): LayerHandle {
+  val identity = style.identity.layers.get(id)
+  return LayerHandle(
+    id = id,
+    type = type,
+    style = style,
+    isCurrentResource = { style.identity.layers.isCurrent(id, identity) },
+    operations =
+      object : StyleHandleOperationGuard {
+        override fun <T> run(action: () -> T): T = action()
+
+        override fun requireSourceWritable(id: String) = refuseWrite(id)
+
+        override fun requireLayerWritable(id: String) = refuseWrite(id)
+
+        private fun refuseWrite(id: String): Nothing =
+          throw StyleHandleException("Layer '$id' is read-only in an anchor predicate")
+      },
   )
 }
 

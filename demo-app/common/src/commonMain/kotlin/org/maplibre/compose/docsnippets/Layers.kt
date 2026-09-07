@@ -100,8 +100,13 @@ fun Layers() {
     // #region anchors
     val anchoredAmtrakRoutes =
       rememberGeoJsonSource(GeoJsonData.Uri(Res.getUri("files/data/amtrak_routes.geojson")))
-    Anchor.Above("road_motorway") {
+    // Below the base style's labels, whatever the style names them
+    Anchor.Below({ it.type == "symbol" }) {
       LineLayer(id = "amtrak-routes", source = anchoredAmtrakRoutes)
+    }
+    // Above one base layer, named by its ID
+    Anchor.Above("road_motorway") {
+      LineLayer(id = "amtrak-routes-casing", source = anchoredAmtrakRoutes)
     }
     // #endregion anchors
 

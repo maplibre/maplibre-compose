@@ -284,18 +284,13 @@ class MapPresentationTest {
       fixture.state.updateLoadedStyle(fixture.adapter, binding)
       fixture.state.markStyleReady(fixture.adapter)
       val base = checkNotNull(fixture.state.style.layers["base"])
-      suspend fun apply(ids: List<String>, replaceBase: Boolean = false) {
+      suspend fun apply(ids: List<String>) {
         val revision =
           DesiredStyleRevision(
             if (ids.isEmpty()) emptyList()
             else listOf(attributedVectorSource("added", "attribution").definition()),
             ids.map { id ->
-              DesiredStyleLayer(
-                BackgroundLayer(id).definition(),
-                if (replaceBase) Anchor.Replace("base") else Anchor.Top,
-                null,
-                null,
-              )
+              DesiredStyleLayer(BackgroundLayer(id).definition(), Anchor.Top, null, null)
             },
             emptyList(),
           )
@@ -312,13 +307,10 @@ class MapPresentationTest {
       assertEquals(listOf("base", "b", "a"), fixture.state.style.layers.map { it.id })
       assertSame(a, fixture.state.style.layers["a"])
       assertSame(base, fixture.state.style.layers["base"])
-      apply(listOf("replacement"), replaceBase = true)
-      assertEquals(listOf("replacement"), fixture.state.style.layers.map { it.id })
-      assertFailsWith<IllegalStateException> { base.getProperty("background-opacity") }
       apply(emptyList())
       assertEquals(listOf("base"), fixture.state.style.layers.map { it.id })
       assertTrue(fixture.state.style.sources.none())
-      assertFailsWith<IllegalStateException> { base.getProperty("background-opacity") }
+      assertSame(base, fixture.state.style.layers["base"])
       assertFailsWith<IllegalStateException> { a.getProperty("background-opacity") }
     } finally {
       fixture.close()
@@ -1496,6 +1488,7 @@ class MapPresentationTest {
   @Test
   fun a_replacement_animation_cancels_only_the_previous_camera_mutation() = runTest {
     val fixture = presentationFixture()
+    fixture.attachment.updateViewport(testViewport())
     val first = async {
       fixture.state.animateCameraPosition(CameraPosition(zoom = 2.0), 1.seconds)
     }
@@ -1515,7 +1508,7 @@ class MapPresentationTest {
   }
 
   @Test
-  fun the_latest_camera_animation_waits_for_attachment_and_restarts_on_replacement() = runTest {
+  fun the_latest_camera_animation_waits_for_a_viewport_and_restarts_on_replacement() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
     val state = runtime.createMapState(BaseStyle.Demo)
     val superseded = async {
@@ -1532,6 +1525,9 @@ class MapPresentationTest {
     val firstToken = state.reservePresentation()
     val first = PresentationTestAdapter()
     state.publishPresentation(firstToken, first)
+    testScheduler.runCurrent()
+    assertFalse(first.animationStarted.isCompleted)
+    requireNotNull(state.currentMapAttachment).updateViewport(testViewport())
     first.animationStarted.await()
 
     state.releasePresentation(firstToken, first)
@@ -1541,6 +1537,9 @@ class MapPresentationTest {
     val replacementToken = state.reservePresentation()
     val replacement = PresentationTestAdapter()
     state.publishPresentation(replacementToken, replacement)
+    testScheduler.runCurrent()
+    assertFalse(replacement.animationStarted.isCompleted)
+    requireNotNull(state.currentMapAttachment).updateViewport(testViewport())
     replacement.animationStarted.await()
     replacement.finishAnimation.complete(Unit)
 

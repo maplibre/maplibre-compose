@@ -198,6 +198,11 @@ internal class GlJsStyleBinding(
     return map.getLayersOrder().toList()
   }
 
+  override fun layerTypes(): Map<String, String> {
+    requireLoaded()
+    return map.getLayersOrder().mapNotNull { id -> map.getLayer(id)?.let { id to it.type } }.toMap()
+  }
+
   private fun reconstructSource(id: String): Source? {
     val source = map.getSource<SourceHandle>(id) ?: return null
     return reconstructedSource(

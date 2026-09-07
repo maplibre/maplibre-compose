@@ -777,7 +777,7 @@ internal class PointerGesture(
   private fun animateFling(fling: GestureMath.Fling) {
     val token = gestureToken
     checkNotNull(cameraSession).scope.launch {
-      animateDecelerating(fling.duration, power = 2) { frameFraction ->
+      animateDecelerating(fling.duration, power = fling.decayPower) { frameFraction ->
         val deltaX = fling.offsetXDp * frameFraction
         val deltaY = fling.offsetYDp * frameFraction
         GestureMath.forEachScreenSpaceStep(deltaX, deltaY) { stepX, stepY ->
