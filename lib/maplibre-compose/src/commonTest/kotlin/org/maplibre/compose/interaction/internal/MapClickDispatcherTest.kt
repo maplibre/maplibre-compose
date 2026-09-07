@@ -30,8 +30,8 @@ import org.maplibre.compose.style.DesiredStyleLayer
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
-import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Point
@@ -398,7 +398,7 @@ class MapClickDispatcherTest {
       currentViewport =
         Viewport(
           DpSize(100.dp, 100.dp),
-          BoundingBox(Position(-1.0, -1.0), Position(1.0, 1.0)),
+          VisibleBounds(Position(-1.0, -1.0), Position(1.0, 1.0)),
           VisibleRegion(
             Position(-1.0, 1.0),
             Position(1.0, 1.0),

@@ -42,6 +42,7 @@ public abstract class PointerGestureEvent internal constructor(sample: GesturePo
   final override val gestureId: Long = sample.gestureId
   final override val uptimeMillis: Long = sample.uptimeMillis
   public val screenOffset: DpOffset = sample.screenOffset
+  /** Geographic position in the pointed-to world copy; longitude may fall outside ±180°. */
   public val position: Position? = sample.position
   public val pointerTypes: Set<PointerType> = sample.pointerTypes.toSet()
   public val buttons: Set<PointerButton> = sample.buttons.toSet()

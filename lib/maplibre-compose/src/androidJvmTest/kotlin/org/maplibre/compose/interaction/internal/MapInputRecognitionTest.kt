@@ -1749,6 +1749,28 @@ class MapInputRecognitionTest {
     }
 
   @Test
+  fun a_camera_command_supersedes_a_press_that_has_not_crossed_slop() =
+    runRecognitionTest { target ->
+      val map = mapNode()
+      map.performTouchInput { down(center) }
+      fixture.state.setCameraPosition(CameraPosition(zoom = 3.0))
+      map.performTouchInput {
+        moveBy(Offset(80f, 0f))
+        up()
+      }
+      waitForIdle()
+      assertTrue(target.moveCalls.isEmpty())
+      assertEquals(0, target.clicks)
+      map.performTouchInput {
+        down(center)
+        moveBy(Offset(80f, 0f))
+        up()
+      }
+      waitForIdle()
+      assertTrue(target.moveCalls.isNotEmpty())
+    }
+
+  @Test
   fun a_second_touch_interrupts_camera_motion_before_the_pair_crosses_slop() =
     runRecognitionTest(
       options =
@@ -2708,7 +2730,7 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun custom_drag_requires_primary_contact_and_stays_latched_when_mouse_modifiers_change() {
+  fun custom_drag_selects_its_button_and_stays_latched_when_mouse_modifiers_change() {
     var admissions = 0
     val events = mutableListOf<DragEvent>()
     runRecognitionTest(
@@ -2719,7 +2741,7 @@ class MapInputRecognitionTest {
               custom("handle") {
                 canStart {
                   admissions++
-                  true
+                  PointerButton.Secondary in it.buttons
                 }
                 onEvent { events += it }
               }
@@ -2728,22 +2750,22 @@ class MapInputRecognitionTest {
         }
     ) { target ->
       val map = mapNode()
-      map.performMouseInput { click(center, MouseButton.Secondary) }
+      map.performMouseInput { click(center) }
       waitForIdle()
-      assertEquals(0, admissions)
+      assertEquals(1, admissions)
       map.performMouseInput {
         moveTo(center)
-        press()
+        press(MouseButton.Secondary)
         moveBy(Offset(30f, 0f))
       }
       map.performKeyInput { keyDown(Key.CtrlLeft) }
       map.performMouseInput {
         moveBy(Offset(30f, 0f))
-        release()
+        release(MouseButton.Secondary)
       }
       map.performKeyInput { keyUp(Key.CtrlLeft) }
       waitForIdle()
-      assertEquals(1, admissions)
+      assertEquals(2, admissions)
       assertEquals(1, events.count { it is DragEvent.Start })
       assertEquals(1, events.count { it is DragEvent.End })
       assertTrue(events.none { it is DragEvent.Cancel })

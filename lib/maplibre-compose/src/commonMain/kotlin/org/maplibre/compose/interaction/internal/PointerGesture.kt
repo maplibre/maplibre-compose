@@ -31,7 +31,6 @@ import org.maplibre.compose.interaction.CameraInputOrigin
 import org.maplibre.compose.interaction.DragEvent
 import org.maplibre.compose.interaction.GestureCancellationReason
 import org.maplibre.compose.interaction.MapInteractions
-import org.maplibre.compose.interaction.PointerButton
 import org.maplibre.compose.interaction.PointerPressEvent
 import org.maplibre.compose.interaction.QuickZoomDirection
 import org.maplibre.compose.interaction.ScreenVelocity
@@ -302,7 +301,7 @@ internal class PointerGesture(
 
   private fun selectDrag(sample: GesturePointerSample, paired: Boolean): SelectedDrag? {
     val drag = options.bindings.drag
-    if (drag.matches(sample) && PointerPattern(button = PointerButton.Primary).matches(sample)) {
+    if (drag.matches(sample)) {
       for (binding in currentOptions().bindings.drag.custom) {
         if (binding.canStart(PointerPressEvent(sample, paired))) return SelectedDrag.Custom(binding)
       }
@@ -503,7 +502,10 @@ internal class PointerGesture(
         singleVelocity.resetTracking()
         singleVelocity.addPosition(change.uptimeMillis, change.position)
       }
-      beginGesture()
+      if (beginGesture() == null) {
+        retainCameraAuthority()
+        return
+      }
       dragStarted = true
       when (binding) {
         SelectedDrag.TapDrag -> gestureToken?.rearm(CameraComponent.Zoom)
@@ -687,10 +689,7 @@ internal class PointerGesture(
         event,
         first,
         second,
-        begin = {
-          beginGesture(CameraInputOrigin.Transform)
-          gestureToken
-        },
+        begin = { beginGesture(CameraInputOrigin.Transform) },
         onRecognized = { component ->
           twoFingerTap = null
           deferredTwoFingerVelocity = deferredTwoFingerVelocity?.without(component)
@@ -1109,16 +1108,17 @@ internal class PointerGesture(
     origin: CameraInputOrigin =
       if (selectedDrag == SelectedDrag.TapDrag) CameraInputOrigin.TapDrag
       else CameraInputOrigin.Drag
-  ) {
+  ): CameraInputToken? {
     cancelLongClick()
     if (gestureInProgress) {
       gestureToken?.origin = origin
-      return
+      return gestureToken
     }
 
+    val token = target.onGestureStartedIfCurrent(pressInputGeneration) ?: return null
     lateinit var session: GestureInputSession
     session =
-      GestureInputSession(scope, target, origin = origin) {
+      GestureInputSession(scope, target, token, origin = origin) {
         if (cameraSession === session) {
           val contactsRemain = lastSingle != null || pair != null
           cancel(
@@ -1129,6 +1129,7 @@ internal class PointerGesture(
         }
       }
     cameraSession = session
+    return token
   }
 
   fun cancel(reason: GestureCancellationReason = GestureCancellationReason.InputCancelled) {
