@@ -9,7 +9,7 @@ import org.maplibre.spatialk.geojson.BoundingBox
  * @param boundingBox The region the camera target must stay within, or null for no geographic
  *   limit. A region that crosses the antimeridian is supported in both encodings: the GeoJSON
  *   convention with an east longitude less than the west longitude, and continuous longitudes with
- *   an east longitude past ±180°. How the camera settles against an edge is engine-defined.
+ *   an east longitude past ±180°.
  */
 @Immutable
 public data class CameraConstraints(
