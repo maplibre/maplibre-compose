@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+
 plugins {
   id("module-conventions")
   id("android-library-conventions")
@@ -25,6 +27,12 @@ kotlin {
   js {
     // MapLibre GL JS bindings require ES modules in every consumer.
     useEsModules()
+    browser { commonWebpackConfig { outputFileName = "app.js" } }
+    binaries.executable()
+  }
+
+  @OptIn(ExperimentalWasmDsl::class)
+  wasmJs {
     browser { commonWebpackConfig { outputFileName = "app.js" } }
     binaries.executable()
   }
@@ -58,7 +66,11 @@ kotlin {
       dependsOn(nonAndroidMain)
     }
 
-    jsMain { dependsOn(nonAndroidMain) }
+    webMain { dependsOn(nonAndroidMain) }
+
+    listOf(webMain, jsMain, wasmJsMain).forEach {
+      it { languageSettings { optIn("kotlin.js.ExperimentalWasmJsInterop") } }
+    }
 
     commonMain.dependencies {
       // The platform modules compose against these, so they are api rather than implementation.
@@ -101,8 +113,7 @@ kotlin {
 
     iosMain.dependencies { implementation(libs.ktor.client.darwin) }
 
-    jsMain.dependencies {
-      implementation(libs.jetbrains.compose.html.core)
+    webMain.dependencies {
       implementation(libs.kotlin.wrappers.js)
       implementation(libs.ktor.client.js)
       implementation(npm("fflate", libs.versions.fflate.get()))

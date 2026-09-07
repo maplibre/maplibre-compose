@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+
 plugins {
   id("library-conventions")
   id("android-library-conventions")
@@ -27,6 +29,8 @@ kotlin {
     browser { testTask { useKarma { useChromeHeadless() } } }
   }
 
+  @OptIn(ExperimentalWasmDsl::class) wasmJs { browser() }
+
   applyDefaultHierarchyTemplate()
 
   sourceSets {
@@ -45,7 +49,11 @@ kotlin {
       implementation(libs.lifecycle.runtime)
     }
 
-    jsMain.dependencies {
+    listOf(webMain, jsMain, wasmJsMain, jsTest, wasmJsTest).forEach {
+      it { languageSettings { optIn("kotlin.js.ExperimentalWasmJsInterop") } }
+    }
+
+    webMain.dependencies {
       implementation(libs.kotlin.wrappers.js)
       implementation(libs.kotlin.wrappers.browser)
     }

@@ -133,7 +133,8 @@ launch on iOS. Every other host has a task:
 - Wear OS: `mise run demo:wearos`, on a watch or on the emulator that
   `mise run android-emulator:boot --wear 36.1` starts
 - Desktop: `mise run demo:desktop`
-- Web: `mise run demo:js`
+- Web (Kotlin/Wasm, the live site): `mise run demo:wasm`
+- Web (Kotlin/JS): `mise run demo:js`
 - Desktop on the Nucleus Tao host instead of the AWT one:
   `mise run demo:desktop-nucleus`
 

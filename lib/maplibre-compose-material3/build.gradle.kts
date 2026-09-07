@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+
 plugins {
   id("library-conventions")
   id("android-library-conventions")
@@ -34,6 +36,8 @@ kotlin {
     browser()
   }
 
+  @OptIn(ExperimentalWasmDsl::class) wasmJs { browser() }
+
   applyDefaultHierarchyTemplate()
 
   sourceSets {
@@ -54,7 +58,11 @@ kotlin {
     val jvmMain by getting
     jvmMain.dependsOn(maplibreNativeMain)
 
-    jsMain { dependencies { implementation(libs.kotlin.wrappers.js) } }
+    listOf(webMain, jsMain, wasmJsMain, jsTest, wasmJsTest).forEach {
+      it { languageSettings { optIn("kotlin.js.ExperimentalWasmJsInterop") } }
+    }
+
+    webMain.dependencies { implementation(libs.kotlin.wrappers.js) }
 
     commonTest.dependencies {
       implementation(kotlin("test"))
