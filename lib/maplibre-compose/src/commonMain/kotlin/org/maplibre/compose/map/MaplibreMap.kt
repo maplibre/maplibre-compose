@@ -78,11 +78,6 @@ private class MapStateAttachment(
  *
  * The map is a focus target, and the overlay is a focus group. Focus modifiers on [modifier] apply
  * to the map, and a control in the overlay keeps its own focus properties.
- *
- * @param onClick Called when the map is clicked; see [MapClickHandler]. The position preserves the
- *   clicked world copy, so its longitude may extend past ±180°.
- * @param onLongClick Called when the map is long-clicked, with the same position contract as
- *   [onClick].
  */
 @Composable
 public fun MaplibreMap(

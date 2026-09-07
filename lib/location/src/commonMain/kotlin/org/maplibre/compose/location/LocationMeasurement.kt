@@ -10,9 +10,7 @@ import org.maplibre.spatialk.units.Rotation
 /**
  * One measured geographic location.
  *
- * @property position Geographic position, with an optional altitude in meters. A measured location
- *   always reports real-world coordinates, with latitude within ±90° and longitude within ±180°; it
- *   never carries the repeated-world longitudes that map viewport queries can return.
+ * @property position Geographic position, with an optional altitude in meters.
  * @property horizontalAccuracy Estimated horizontal error radius, or `null` when unknown.
  * @property altitudeAccuracy Estimated altitude error, or `null` when unknown or when [position]
  *   contains no altitude.

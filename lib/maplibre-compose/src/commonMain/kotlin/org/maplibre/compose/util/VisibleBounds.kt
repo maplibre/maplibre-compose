@@ -49,14 +49,6 @@ public data class VisibleBounds(
   public val north: Double
     get() = northeast.latitude
 
-  /** The longitude width in degrees; more than 360° when more than one world is visible. */
-  public val longitudeSpan: Double
-    get() = east - west
-
-  /** The latitude height in degrees. */
-  public val latitudeSpan: Double
-    get() = north - south
-
   /**
    * Converts to a GeoJSON [BoundingBox] (RFC 7946 §5) with longitudes wrapped into ±180°.
    *
@@ -65,7 +57,7 @@ public data class VisibleBounds(
    * world, from -180° to 180°.
    */
   public fun wrapped(): BoundingBox {
-    if (longitudeSpan >= 360.0) {
+    if (east - west >= 360.0) {
       return BoundingBox(
         southwest = Position(longitude = -180.0, latitude = south),
         northeast = Position(longitude = 180.0, latitude = north),

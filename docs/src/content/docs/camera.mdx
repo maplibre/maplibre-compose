@@ -65,7 +65,3 @@ longitudes may extend past ±180°, and the visible bounds may span more than
 360°. `VisibleBounds.wrapped()` converts to a GeoJSON `BoundingBox`, where an
 antimeridian crossing follows RFC 7946 with an east longitude less than the
 west.
-
-Values passed to the map treat longitudes equivalent modulo 360° as the same
-place, and a bounding box that crosses the antimeridian is fitted the short
-way around.

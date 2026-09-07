@@ -23,14 +23,13 @@ internal constructor(
    * The smallest bounds that contain the currently visible area.
    *
    * These north-aligned bounds can include areas outside [visibleRegion] when the map is rotated or
-   * tilted. Longitudes follow the [VisibleBounds] contract: they preserve world copies, so the
-   * bounds may extend past ±180° or span more than 360°.
+   * tilted.
    */
   public val visibleBounds: VisibleBounds,
 
   /**
    * The polygon formed by the map composable's four corners. Camera tilt makes it a trapezoid
-   * instead of a rectangle. Corner longitudes preserve world copies; see [VisibleRegion].
+   * instead of a rectangle.
    */
   public val visibleRegion: VisibleRegion,
 

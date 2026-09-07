@@ -77,7 +77,7 @@ class AntimeridianContractTest {
       }
       // Either way, the visible bounds stay continuous around the camera's world copy.
       val bounds = assertNotNull(it.state.getVisibleBounds())
-      assertEquals(45.0, bounds.longitudeSpan, 1.0)
+      assertEquals(45.0, bounds.east - bounds.west, 1.0)
     }
   }
 

@@ -64,12 +64,4 @@ class VisibleBoundsTest {
     assertEquals(170.0, toMeridian.wrapped().west)
     assertEquals(180.0, toMeridian.wrapped().east)
   }
-
-  @Test
-  fun spans_measure_continuous_degrees() {
-    val bounds =
-      VisibleBounds(southwest = Position(-102.25, -30.0), northeast = Position(460.25, 45.0))
-    assertEquals(562.5, bounds.longitudeSpan)
-    assertEquals(75.0, bounds.latitudeSpan)
-  }
 }

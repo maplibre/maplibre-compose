@@ -760,12 +760,7 @@ internal constructor(
   private var nextMapAttachment = CompletableDeferred<MapAttachment>()
   private val cameraMutation = MutatorMutex()
 
-  /**
-   * Contains the current rendered viewport, or null while no viewport is available.
-   *
-   * Geographic results preserve world copies: [Viewport.visibleBounds] and [Viewport.visibleRegion]
-   * may report longitudes past ±180° or span more than 360°.
-   */
+  /** Contains the current rendered viewport, or null while no viewport is available. */
   public val viewport: Viewport?
     get() = currentMapAttachment?.viewport
 
@@ -870,13 +865,7 @@ internal constructor(
     applyAttachmentCameraCommand(command.attachment, command.command)
   }
 
-  /**
-   * Waits for a viewport, then fits [boundingBox] without animation.
-   *
-   * A box that crosses the antimeridian is fitted the short way around. That applies to both
-   * encodings of such a box: the GeoJSON convention with an east longitude less than the west
-   * longitude, and continuous longitudes with an east longitude past ±180°.
-   */
+  /** Waits for a viewport, then fits [boundingBox] without animation. */
   public suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double = 0.0,
@@ -904,10 +893,6 @@ internal constructor(
   /**
    * Waits for a viewport, then animates to fit [boundingBox]. A new animation replaces this one.
    *
-   * A box that crosses the antimeridian is fitted the short way around. That applies to both
-   * encodings of such a box: the GeoJSON convention with an east longitude less than the west
-   * longitude, and continuous longitudes with an east longitude past ±180°.
-   *
    * On Android, the system animator duration scale multiplies [duration]. A scale of zero jumps to
    * fit [boundingBox].
    */
@@ -929,29 +914,18 @@ internal constructor(
     }
   }
 
-  /**
-   * Returns the visible region, or null while no viewport is available.
-   *
-   * Corner longitudes preserve world copies and may extend past ±180°; see [VisibleRegion].
-   */
+  /** Returns the visible region, or null while no viewport is available. */
   public fun getVisibleRegion(): VisibleRegion? =
     withAttachmentRead(MapAttachment::getVisibleRegion)
 
-  /**
-   * Returns the visible axis-aligned bounds, or null while no viewport is available.
-   *
-   * Longitudes follow the [VisibleBounds] contract: they preserve world copies, so the bounds may
-   * extend past ±180° or span more than 360°.
-   */
+  /** Returns the visible axis-aligned bounds, or null while no viewport is available. */
   public fun getVisibleBounds(): VisibleBounds? =
     withAttachmentRead(MapAttachment::getVisibleBounds)
 
   /**
    * Projects [position] into a logical-pixel offset, or returns null without a viewport.
    *
-   * The world repeats horizontally, and the position is projected onto the world copy nearest the
-   * camera target: longitudes equivalent modulo 360° describe the same screen location. The offset
-   * may fall outside the composable when that copy is not visible.
+   * Longitudes equivalent modulo 360° project onto the world copy nearest the camera target.
    */
   public fun screenLocationFromPosition(position: Position): DpOffset? = withAttachmentRead {
     it.screenLocationFromPosition(position)
