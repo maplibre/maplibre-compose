@@ -10,7 +10,6 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.milliseconds
 import org.maplibre.compose.interaction.DragBindingBuilder
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.MapInteractions
@@ -28,7 +27,10 @@ class MapInteractionsTest {
   fun camera_policy_and_terminal_none_share_ordered_routing() {
     val standard = MapInteractions.Standard
     val ctrlShift = sample(modifiers = setOf(KeyModifier.Ctrl, KeyModifier.Shift))
-    assertEquals(DragResponse.RotateTilt, standard.bindings.drag.select(ctrlShift, standard.camera))
+    assertEquals(
+      DragResponse.RotateTilt,
+      standard.bindings.drag.select(ctrlShift, standard.camera.settings),
+    )
     val panLocked = MapInteractions {
       camera { pan { enabled = false } }
       bindings {
@@ -42,7 +44,7 @@ class MapInteractionsTest {
     }
     assertEquals(
       ScrollResponse.Zoom,
-      panLocked.bindings.scroll.select(sample(), panLocked.camera),
+      panLocked.bindings.scroll.select(sample(), panLocked.camera.settings),
     )
     val excluded = MapInteractions {
       bindings {
@@ -56,7 +58,7 @@ class MapInteractionsTest {
     }
     assertEquals(
       ScrollResponse.None,
-      excluded.bindings.scroll.select(ctrlShift, excluded.camera),
+      excluded.bindings.scroll.select(ctrlShift, excluded.camera.settings),
     )
     for (lockPan in listOf(false, true)) {
       val locked = MapInteractions {
@@ -66,7 +68,7 @@ class MapInteractionsTest {
         }
         bindings { drag { mappings { otherwise { fitBounds() } } } }
       }
-      assertNull(locked.bindings.drag.select(sample(), locked.camera))
+      assertNull(locked.bindings.drag.select(sample(), locked.camera.settings))
     }
   }
 
@@ -120,10 +122,10 @@ class MapInteractionsTest {
   fun none_does_not_restore_camera_mappings_when_a_family_is_enabled() {
     val none = MapInteractions.None
     assertTrue(
-      none.camera.pan.enabled &&
-        none.camera.zoom.enabled &&
-        none.camera.rotate.enabled &&
-        none.camera.tilt.enabled
+      none.camera.settings.pan.enabled &&
+        none.camera.settings.zoom.enabled &&
+        none.camera.settings.rotate.enabled &&
+        none.camera.settings.tilt.enabled
     )
     val appOnly =
       MapInteractions(from = none) {
@@ -137,40 +139,7 @@ class MapInteractionsTest {
     assertTrue(appOnly.bindings.drag.mappings.isEmpty())
     assertTrue(appOnly.bindings.transform.zoom.enabled)
     assertFalse(appOnly.bindings.transform.pan.enabled)
-    assertFalse(appOnly.bindings.keys.hasCameraBindings(appOnly.camera))
-  }
-
-  @Test
-  fun momentum_overrides_inherit_final_camera_fields_independent_of_block_order() {
-    val interactions = MapInteractions {
-      bindings {
-        transform {
-          pan {
-            momentum { minimumSpeed = 250.0 }
-            momentum { durationScale = 2.0 }
-          }
-        }
-      }
-      camera {
-        pan {
-          momentum {
-            enabled = false
-            baseTime = 500.milliseconds
-          }
-        }
-      }
-    }
-    val pan = interactions.bindings.transform.pan.momentum
-    assertEquals(250.0, pan.minimumSpeed)
-    assertEquals(2.0, pan.durationScale)
-    assertEquals(500.milliseconds, pan.baseTime)
-    assertFalse(pan.enabled)
-    val edited =
-      MapInteractions(from = interactions) {
-        camera { pan { momentum { baseTime = 600.milliseconds } } }
-      }
-    assertEquals(600.milliseconds, edited.bindings.transform.pan.momentum.baseTime)
-    assertEquals(250.0, edited.bindings.transform.pan.momentum.minimumSpeed)
+    assertFalse(appOnly.hasCameraKeys)
   }
 
   @Test
@@ -186,9 +155,11 @@ class MapInteractionsTest {
         }
       }
     }
-    assertFalse(hidden.bindings.keys.hasCameraBindings(hidden.camera))
-    assertNull(hidden.bindings.keys.select(Key.Enter, emptySet(), hidden.camera))
-    assertEquals(KeyResponse.None, hidden.bindings.keys.select(Key.Plus, emptySet(), hidden.camera))
+    assertFalse(hidden.hasCameraKeys)
+    assertEquals(
+      KeyResponse.None,
+      hidden.bindings.keys.select(Key.Plus, emptySet(), hidden.camera.settings),
+    )
     val locked = MapInteractions {
       camera { zoom { enabled = false } }
       bindings {
@@ -200,12 +171,12 @@ class MapInteractionsTest {
         }
       }
     }
-    assertFalse(locked.bindings.keys.hasCameraBindings(locked.camera))
+    assertFalse(locked.hasCameraKeys)
     assertNull(
       MapInteractions.Standard.bindings.keys.select(
         Key.DirectionLeft,
         setOf(KeyModifier.Alt),
-        MapInteractions.Standard.camera,
+        MapInteractions.Standard.camera.settings,
       )
     )
   }

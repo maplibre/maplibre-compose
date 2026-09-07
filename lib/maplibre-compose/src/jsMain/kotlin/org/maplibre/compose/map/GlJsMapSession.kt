@@ -25,6 +25,7 @@ import org.maplibre.compose.camera.internal.BoxZoomFit
 import org.maplibre.compose.camera.internal.CameraCommandGuard
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.CameraInputToken
+import org.maplibre.compose.camera.internal.runCameraCommand
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.gljs.CameraForBoundsOptions
@@ -1037,14 +1038,16 @@ internal class GlJsMapSession(
     val pending =
       PendingMapAction(
         run = { current ->
-          if (
-            gestureToken?.canExecute != false && guard?.isValid() != false && continuation.isActive
-          ) {
-            activateGesture(gestureToken)
-            if (gestureToken?.canExecute != false && guard?.isValid() != false)
-              startTransitionOnMap(current, start, continuation)
-            else if (continuation.isActive) continuation.resume(Unit)
-          } else if (continuation.isActive) continuation.resume(Unit)
+          val started =
+            continuation.isActive &&
+              runCameraCommand(
+                gestureToken,
+                guard,
+                activate = { activateGesture(gestureToken) },
+              ) {
+                startTransitionOnMap(current, start, continuation)
+              }
+          if (!started && continuation.isActive) continuation.resume(Unit)
         },
         abandon = { if (continuation.isActive) continuation.resume(Unit) },
       )
@@ -1130,10 +1133,6 @@ internal class GlJsMapSession(
 
   override fun cancelGesture(token: CameraInputToken) = finishGesture(token, cancelled = true)
 
-  override suspend fun awaitGestureEnded(token: CameraInputToken) {
-    token.completion.await()
-  }
-
   private fun finishGesture(token: CameraInputToken, cancelled: Boolean) {
     token.finish(cancelled) {
       if (activeGestureToken === token) {
@@ -1149,7 +1148,7 @@ internal class GlJsMapSession(
 
   /** Reports on each command, after checking authority at execution. */
   private fun activateGesture(token: CameraInputToken?) {
-    if (token == null || !token.canExecute) return
+    if (token == null) return
     if (activeGestureToken !== token) {
       map?.stop()
       if (!token.canExecute) return
@@ -1162,10 +1161,8 @@ internal class GlJsMapSession(
     if (!isGestureReady) return
     val enqueue = {
       onMap { map ->
-        if (isGestureReady && token?.canExecute != false) {
-          activateGesture(token)
-          if (token?.canExecute != false) action(map)
-        }
+        if (isGestureReady)
+          runCameraCommand(token, activate = { activateGesture(token) }) { action(map) }
       }
     }
     if (token == null) enqueue() else token.enqueue(enqueue)

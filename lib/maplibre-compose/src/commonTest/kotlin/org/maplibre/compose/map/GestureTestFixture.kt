@@ -87,8 +87,6 @@ internal class RecordingGestureTarget(
     }
   }
 
-  override suspend fun awaitGestureEnded(token: CameraInputToken) = token.completion.await()
-
   private fun execute(action: () -> Unit) {
     if (deferred) pending.add(action) else action()
   }

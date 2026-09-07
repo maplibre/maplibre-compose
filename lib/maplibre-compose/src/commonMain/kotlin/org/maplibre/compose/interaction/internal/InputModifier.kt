@@ -65,11 +65,11 @@ internal fun Modifier.mapInput(
   val platformRouting = remember(target) { PlatformTransformRouting() }
   val inputScope = rememberCoroutineScope()
   val rotaryInput =
-    remember(target, options.structuralKey, rotaryNotchPixels) {
+    remember(target, options.settings, rotaryNotchPixels) {
       RotaryGesture(
         target,
         options.bindings.rotary.copy(
-          enabled = options.bindings.rotary.enabled && options.camera.zoom.enabled
+          enabled = options.bindings.rotary.enabled && options.camera.settings.zoom.enabled
         ),
         rotaryNotchPixels,
         inputScope,
@@ -89,13 +89,13 @@ internal fun Modifier.mapInput(
   DisposableEffect(keyInput) { onDispose { keyInput.cancel() } }
 
   SideEffect {
-    keyInput.configure(options.structuralKey)
+    keyInput.configure(options.settings)
   }
 
-  val keys = options.bindings.keys.hasCameraBindings(options.camera)
+  val keys = options.hasCameraKeys
   val rotary =
     options.bindings.rotary.enabled &&
-      options.camera.zoom.enabled &&
+      options.camera.settings.zoom.enabled &&
       rotaryNotchPixels > 0f &&
       rotaryNotchPixels.isFinite()
   focus.hasKeyBindings = keys
@@ -164,7 +164,7 @@ private fun Modifier.pointerGestures(
   platformRouting: PlatformTransformRouting,
   scrollConverter: ScrollConverter,
 ): Modifier =
-  pointerInput(target, options.structuralKey, density, scrollConverter) {
+  pointerInput(target, options.settings, density, scrollConverter) {
     val scope = CoroutineScope(currentCoroutineContext())
     val scroll =
       ScrollGesture(

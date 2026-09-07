@@ -57,7 +57,7 @@ class MlnFfiGestureTokenOrderingTest {
             fixture.gestures.onGestureEnded(stale)
             release.countDown()
             fixture.awaitWhileRendering("the current gesture to finish") {
-              fixture.gestures.awaitGestureEnded(latest)
+              latest.awaitCompletion()
             }
           } finally {
             release.countDown()
@@ -108,7 +108,7 @@ class MlnFfiGestureTokenOrderingTest {
           input.scope.cancel()
           release.countDown()
           fixture.awaitWhileRendering("cancelled gesture completion fence") {
-            fixture.gestures.awaitGestureEnded(input.token)
+            input.token.awaitCompletion()
           }
           fixture.settle()
           assertEquals(before.target.longitude, fixture.state.cameraPosition.target.longitude, 1e-6)
@@ -144,7 +144,7 @@ class MlnFfiGestureTokenOrderingTest {
         fixture.gestures.onGestureEnded(gesture)
         release.countDown()
         fixture.awaitWhileRendering("the replacement gesture to finish") {
-          fixture.gestures.awaitGestureEnded(gesture)
+          gesture.awaitCompletion()
         }
         val camera = session.getCameraPosition()
         assertEquals(START_ZOOM, camera.zoom, 1e-6)

@@ -121,11 +121,11 @@ internal class KeyInput(
 ) {
   private var session: GestureInputSession? = null
   private var step: Job? = null
-  private var structuralKey: Any? = null
+  private var settings: MapInteractions.Settings? = null
 
-  fun configure(key: Any) {
-    if (structuralKey == key) return
-    structuralKey = key
+  fun configure(value: MapInteractions.Settings) {
+    if (settings == value) return
+    settings = value
     cancel()
   }
 
@@ -160,11 +160,12 @@ internal class KeyInput(
     val previous = focus.claimedKeys[key]
     if (key in focus.claimedKeys && previous == null) return true
     val settings = options()
-    if (!settings.bindings.keys.hasCameraBindings(settings.camera)) return false
+    if (!settings.hasCameraKeys) return false
     val action =
-      (previous ?: settings.bindings.keys.select(key, modifiers, settings.camera))?.takeUnless {
-        it == KeyResponse.None
-      } ?: return false
+      (previous ?: settings.bindings.keys.select(key, modifiers, settings.camera.settings))
+        ?.takeUnless {
+          it == KeyResponse.None
+        } ?: return false
 
     val consumed =
       when (action) {

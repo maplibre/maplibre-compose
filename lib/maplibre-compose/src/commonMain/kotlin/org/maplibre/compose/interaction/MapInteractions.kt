@@ -4,8 +4,10 @@ import androidx.compose.runtime.Immutable
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import org.maplibre.compose.interaction.internal.CameraConfiguration
+import org.maplibre.compose.interaction.internal.CameraSettings
 import org.maplibre.compose.interaction.internal.InteractionBindings
 import org.maplibre.compose.interaction.internal.InteractionCallbacks
+import org.maplibre.compose.interaction.internal.hasCameraBindings
 import org.maplibre.compose.interaction.internal.requireNonnegativeFinite
 
 /** Keeps configuration blocks scoped to their current input or camera component. */
@@ -33,17 +35,22 @@ private constructor(
   ) : this(Builder(from).apply(block))
 
   private constructor(
-    builder: Builder,
-    camera: CameraConfiguration = builder.cameraBuilder.build(),
+    builder: Builder
   ) : this(
-    camera,
-    builder.bindingsBuilder.build(camera),
+    builder.cameraBuilder.build(),
+    builder.bindingsBuilder.build(),
     builder.callbacksBuilder.build(),
     builder.animationDuration,
   )
 
-  internal val structuralKey: Any =
-    listOf(camera.structuralKey, bindings.structuralKey, animationDuration)
+  internal val settings = Settings(camera.settings, bindings, animationDuration)
+  internal val hasCameraKeys = bindings.keys.hasCameraBindings(camera.settings)
+
+  internal data class Settings(
+    val camera: CameraSettings,
+    val bindings: InteractionBindings,
+    val animationDuration: Duration,
+  )
 
   override fun equals(other: Any?): Boolean =
     other is MapInteractions &&

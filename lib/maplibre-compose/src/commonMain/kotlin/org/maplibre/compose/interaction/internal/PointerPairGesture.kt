@@ -37,13 +37,15 @@ internal class PointerPairGesture(
       setOf(first.type, second.type),
     )
   private val settings = options.bindings.transform
-  private val pan = settings.pan.takeIf { options.camera.pan.enabled && it.matches(initialInput) }
+  private val camera = options.camera
+  private val pan =
+    settings.pan.takeIf { options.camera.settings.pan.enabled && it.matches(initialInput) }
   private val pinch =
-    settings.zoom.takeIf { options.camera.zoom.enabled && it.matches(initialInput) }
+    settings.zoom.takeIf { options.camera.settings.zoom.enabled && it.matches(initialInput) }
   private val rotate =
-    settings.rotate.takeIf { options.camera.rotate.enabled && it.matches(initialInput) }
+    settings.rotate.takeIf { options.camera.settings.rotate.enabled && it.matches(initialInput) }
   private val shove =
-    settings.tilt.takeIf { options.camera.tilt.enabled && it.matches(initialInput) }
+    settings.tilt.takeIf { options.camera.settings.tilt.enabled && it.matches(initialInput) }
   val hasDemand: Boolean
     get() = pan != null || pinch != null || rotate != null || shove != null
 
@@ -141,7 +143,7 @@ internal class PointerPairGesture(
     val panFling =
       pan
         ?.takeIf { CameraComponent.Pan in recognition.active }
-        ?.let { settings.pan.momentum.takeIf { it.enabled } }
+        ?.let { camera.settings.pan.momentum.takeIf { it.enabled } }
         ?.let {
           GestureMath.fling(
             (panVelocity.x / density.density).toDouble(),
@@ -153,7 +155,7 @@ internal class PointerPairGesture(
     val scale =
       pinch
         ?.takeIf { CameraComponent.Zoom in recognition.active }
-        ?.let { settings.zoom.momentum.takeIf { it.enabled } }
+        ?.let { camera.settings.zoom.momentum.takeIf { it.enabled } }
         ?.let {
           GestureMath.scaleVelocity(
             velocity.logarithmicScale * ln(GestureMath.pinchScale(kotlin.math.E)) / ln(2.0) *
@@ -165,7 +167,7 @@ internal class PointerPairGesture(
     val rotation =
       rotate
         ?.takeIf { CameraComponent.Rotate in recognition.active }
-        ?.let { settings.rotate.momentum.takeIf { it.enabled } }
+        ?.let { camera.settings.rotate.momentum.takeIf { it.enabled } }
         ?.let {
           GestureMath.rotationVelocity(
             -velocity.rotation * settings.rotate.rotationScale,
@@ -176,7 +178,7 @@ internal class PointerPairGesture(
     val tilt =
       shove
         ?.takeIf { CameraComponent.Tilt in recognition.active }
-        ?.let { settings.tilt.momentum.takeIf { it.enabled } }
+        ?.let { camera.settings.tilt.momentum.takeIf { it.enabled } }
         ?.let {
           GestureMath.tiltVelocity(
             panVelocity.y / density.density * settings.tilt.pitchDegreesPerDp,

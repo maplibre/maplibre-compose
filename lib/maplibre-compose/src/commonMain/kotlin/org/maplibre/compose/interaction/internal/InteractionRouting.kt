@@ -31,7 +31,7 @@ internal fun TapDragBinding.matches(sample: GesturePointerSample): Boolean =
     PointerType.Mouse !in sample.pointerTypes &&
     PointerPattern(button = PointerButton.Primary).matches(sample)
 
-internal fun CameraConfiguration.permits(response: DragResponse): Boolean =
+internal fun CameraSettings.permits(response: DragResponse): Boolean =
   when (response) {
     DragResponse.Pan -> pan.enabled
     DragResponse.RotateTilt -> rotate.enabled || tilt.enabled
@@ -39,17 +39,17 @@ internal fun CameraConfiguration.permits(response: DragResponse): Boolean =
     DragResponse.None -> true
   }
 
-internal fun CameraConfiguration.permits(response: ScrollResponse): Boolean =
+internal fun CameraSettings.permits(response: ScrollResponse): Boolean =
   when (response) {
     ScrollResponse.Pan -> pan.enabled
     ScrollResponse.Zoom -> zoom.enabled
     ScrollResponse.None -> true
   }
 
-internal fun CameraConfiguration.permits(response: TapResponse): Boolean =
+internal fun CameraSettings.permits(response: TapResponse): Boolean =
   response == TapResponse.None || zoom.enabled
 
-internal fun CameraConfiguration.permits(response: KeyResponse): Boolean =
+internal fun CameraSettings.permits(response: KeyResponse): Boolean =
   when (response) {
     KeyResponse.PanLeft,
     KeyResponse.PanRight,
@@ -69,7 +69,7 @@ internal fun CameraConfiguration.permits(response: KeyResponse): Boolean =
 
 internal fun DragBinding.select(
   sample: GesturePointerSample,
-  camera: CameraConfiguration,
+  camera: CameraSettings,
 ): DragResponse? =
   if (!matches(sample)) null
   else
@@ -81,7 +81,7 @@ internal fun DragBinding.select(
 
 internal fun ScrollBinding.select(
   sample: GesturePointerSample,
-  camera: CameraConfiguration,
+  camera: CameraSettings,
 ): ScrollResponse? =
   if (!matches(sample)) null
   else
@@ -93,7 +93,7 @@ internal fun ScrollBinding.select(
 
 internal fun TapBinding.select(
   sample: GesturePointerSample,
-  camera: CameraConfiguration,
+  camera: CameraSettings,
 ): TapResponse? =
   if (!matches(sample)) null
   else
@@ -103,10 +103,10 @@ internal fun TapBinding.select(
       }
       ?.response
 
-private fun KeyBinding.selectRow(
+internal fun KeyBinding.select(
   key: Key,
   modifiers: Set<KeyModifier>,
-  camera: CameraConfiguration,
+  camera: CameraSettings,
 ): KeyResponse? =
   if (!enabled) null
   else
@@ -119,7 +119,7 @@ private fun KeyBinding.selectRow(
       ?.response
 
 /** Exhaustive modifier enumeration proves reachability without running application code. */
-internal fun KeyBinding.hasCameraBindings(camera: CameraConfiguration): Boolean {
+internal fun KeyBinding.hasCameraBindings(camera: CameraSettings): Boolean {
   if (!enabled) return false
   val explicitKeys = mappings.mapNotNull { it.key }.toSet()
   // A representative outside the explicit finite table tests catch-all reachability.
@@ -130,18 +130,9 @@ internal fun KeyBinding.hasCameraBindings(camera: CameraConfiguration): Boolean 
     (0 until (1 shl KeyModifier.entries.size)).any { mask ->
       val modifiers =
         KeyModifier.entries.filterIndexed { index, _ -> mask and (1 shl index) != 0 }.toSet()
-      selectRow(key, modifiers, camera)?.isCamera == true
+      select(key, modifiers, camera)?.isCamera == true
     }
   }
-}
-
-internal fun KeyBinding.select(
-  key: Key,
-  modifiers: Set<KeyModifier>,
-  camera: CameraConfiguration,
-): KeyResponse? {
-  val selected = selectRow(key, modifiers, camera) ?: return null
-  return selected.takeIf { it.isCamera || it == KeyResponse.None || hasCameraBindings(camera) }
 }
 
 internal fun TransformPanBinding.matches(sample: GesturePointerSample): Boolean =
@@ -158,7 +149,7 @@ internal fun TransformTiltBinding.matches(sample: GesturePointerSample): Boolean
 
 internal fun TransformBinding.hasDemand(
   sample: GesturePointerSample,
-  camera: CameraConfiguration,
+  camera: CameraSettings,
 ): Boolean =
   (camera.pan.enabled && pan.matches(sample)) ||
     (camera.zoom.enabled && zoom.matches(sample)) ||

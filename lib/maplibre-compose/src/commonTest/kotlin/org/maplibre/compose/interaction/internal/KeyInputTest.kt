@@ -50,7 +50,7 @@ class MapKeyInputTest {
           focus,
           backgroundScope,
         )
-      input.configure(options.structuralKey)
+      input.configure(options.settings)
       fun down(key: Key) = assertTrue(input.onSample(key, KeyEventType.KeyDown, emptySet()))
       fun up(key: Key) = assertTrue(input.onSample(key, KeyEventType.KeyUp, emptySet()))
       down(Key.DirectionLeft)
@@ -105,7 +105,7 @@ class MapKeyInputTest {
         focus,
         backgroundScope,
       )
-    input.configure(options.structuralKey)
+    input.configure(options.settings)
     input.onSample(Key.DirectionRight, KeyEventType.KeyDown, emptySet())
     runCurrent()
     val superseded = steps.single()
@@ -141,10 +141,10 @@ class MapKeyInputTest {
         focus,
         backgroundScope,
       )
-    input.configure(options.structuralKey)
+    input.configure(options.settings)
     input.onSample(Key.DirectionRight, KeyEventType.KeyDown, emptySet())
     options = MapInteractions { bindings { keys { panStep = androidx.compose.ui.unit.Dp(50f) } } }
-    input.configure(options.structuralKey)
+    input.configure(options.settings)
     assertTrue(input.onSample(Key.DirectionRight, KeyEventType.KeyDown, emptySet()))
     assertEquals(1, map.target.moveCalls.size)
     assertTrue(input.onSample(Key.DirectionRight, KeyEventType.KeyUp, emptySet()))

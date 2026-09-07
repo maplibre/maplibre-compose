@@ -78,8 +78,8 @@ internal class PlatformTransformSession(
     val eligible =
       target.isGestureReady &&
         when (kind) {
-          Kind.Scale -> options.camera.zoom.enabled && settings.zoom.matches(sample)
-          Kind.Pan -> options.camera.pan.enabled && settings.pan.matches(sample)
+          Kind.Scale -> options.camera.settings.zoom.enabled && settings.zoom.matches(sample)
+          Kind.Pan -> options.camera.settings.pan.enabled && settings.pan.matches(sample)
         }
     if (!eligible) {
       routing.suppressed += kind

@@ -29,6 +29,7 @@ import org.maplibre.compose.camera.internal.CameraCommandGuard
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.CameraInputToken
 import org.maplibre.compose.camera.internal.boxZoomFit
+import org.maplibre.compose.camera.internal.runCameraCommand
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.logging.MapLog
@@ -1374,16 +1375,16 @@ internal class MlnFfiMapSession(
       val queued =
         postWhenMapExists(
           { map ->
-            if (
-              gestureToken?.canExecute != false &&
-                guard?.isValid() != false &&
-                continuation.isActive
-            ) {
-              gestureToken?.let { activateGesture(map, it) }
-              if (gestureToken?.canExecute != false && guard?.isValid() != false)
-                startTransitionOnMap(map, duration, start, continuation)
-              else if (continuation.isActive) continuation.resume(Unit)
-            } else if (continuation.isActive) continuation.resume(Unit)
+            val started =
+              continuation.isActive &&
+                runCameraCommand(
+                  gestureToken,
+                  guard,
+                  activate = { gestureToken?.let { activateGesture(map, it) } },
+                ) {
+                  startTransitionOnMap(map, duration, start, continuation)
+                }
+            if (!started && continuation.isActive) continuation.resume(Unit)
           },
           { if (continuation.isActive) continuation.resume(Unit) },
         )
@@ -1695,16 +1696,12 @@ internal class MlnFfiMapSession(
   override fun onGestureStarted(): CameraInputToken =
     lifecycleAuthority.gestureCamera.acquire(this).also { token ->
       // Recognition takes over an existing transition even before the first movement.
-      token.enqueue { onMap { map -> activateGesture(map, token) } }
+      onMap(token) {}
     }
 
   override fun onGestureEnded(token: CameraInputToken) = finishGesture(token, cancelled = false)
 
   override fun cancelGesture(token: CameraInputToken) = finishGesture(token, cancelled = true)
-
-  override suspend fun awaitGestureEnded(token: CameraInputToken) {
-    token.completion.await()
-  }
 
   private fun finishGesture(token: CameraInputToken, cancelled: Boolean) {
     token.finish(cancelled) {
@@ -1731,7 +1728,6 @@ internal class MlnFfiMapSession(
    */
   private fun activateGesture(map: MapHandle, token: CameraInputToken) {
     val active = activeGestureToken
-    if (!token.canExecute) return
     if (active != token) {
       map.cancelTransitions()
       activeGestureToken = token
@@ -1788,10 +1784,13 @@ internal class MlnFfiMapSession(
     if (!acceptsGestures) return
     val enqueue = {
       onMap { map ->
-        if (acceptsGestures && gestureToken?.canExecute != false) {
-          gestureToken?.let { activateGesture(map, it) }
-          if (gestureToken?.canExecute != false) action(map)
-        }
+        if (acceptsGestures)
+          runCameraCommand(
+            gestureToken,
+            activate = { gestureToken?.let { activateGesture(map, it) } },
+          ) {
+            action(map)
+          }
       }
     }
     if (gestureToken == null) enqueue() else gestureToken.enqueue(enqueue)

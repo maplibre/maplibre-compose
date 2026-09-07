@@ -89,12 +89,12 @@ class PointerPairGestureTest {
     val input =
       PairInput(
         MapInteractions(MapInteractions.None) {
+          camera { pan { momentum { enabled = false } } }
           bindings {
             transform {
               pan {
                 enabled = true
                 startSlop = 10.dp
-                momentum { enabled = false }
               }
             }
           }

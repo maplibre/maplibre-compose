@@ -3,25 +3,21 @@ package org.maplibre.compose.interaction
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.unit.Dp
 import kotlin.time.Duration
-import org.maplibre.compose.interaction.internal.CameraConfiguration
 import org.maplibre.compose.interaction.internal.DragBinding
 import org.maplibre.compose.interaction.internal.DragFitBoundsSettings
 import org.maplibre.compose.interaction.internal.DragPanSettings
 import org.maplibre.compose.interaction.internal.DragRotateTiltSettings
 import org.maplibre.compose.interaction.internal.InteractionBindings
 import org.maplibre.compose.interaction.internal.KeyBinding
-import org.maplibre.compose.interaction.internal.PanMomentum
 import org.maplibre.compose.interaction.internal.RotaryBinding
 import org.maplibre.compose.interaction.internal.ScrollBinding
 import org.maplibre.compose.interaction.internal.TapBinding
 import org.maplibre.compose.interaction.internal.TapDragBinding
-import org.maplibre.compose.interaction.internal.TiltMomentum
 import org.maplibre.compose.interaction.internal.TransformBinding
 import org.maplibre.compose.interaction.internal.TransformPanBinding
 import org.maplibre.compose.interaction.internal.TransformRotateBinding
 import org.maplibre.compose.interaction.internal.TransformTiltBinding
 import org.maplibre.compose.interaction.internal.TransformZoomBinding
-import org.maplibre.compose.interaction.internal.VelocityMomentum
 import org.maplibre.compose.interaction.internal.requireNonnegativeFinite
 
 @MapInteractionDsl
@@ -126,22 +122,14 @@ public class TransformPanBuilder internal constructor(from: TransformPanBinding)
   public var modifiers: ModifierMatch = from.modifiers
   /** Recognition distance for touch pairs. Host-recognized pans have already passed host slop. */
   public var startSlop: Dp = from.startSlop
-  private val momentumBuilder = PanMomentumBuilder(from.momentum, from.momentumOverride)
 
-  /** Momentum for touch pairs. Host-recognized pans retain only momentum supplied by the host. */
-  public fun momentum(block: PanMomentumBuilder.() -> Unit) {
-    momentumBuilder.apply(block)
-  }
-
-  internal fun build(base: PanMomentum): TransformPanBinding {
+  internal fun build(): TransformPanBinding {
     requireNonnegativeFinite(startSlop.value.toDouble(), "startSlop")
     return TransformPanBinding(
       enabled,
       pointerTypes?.toSet(),
       modifiers,
       startSlop,
-      momentumBuilder.overrides,
-      momentumBuilder.build(base),
     )
   }
 }
@@ -154,13 +142,8 @@ public class TransformZoomBuilder internal constructor(from: TransformZoomBindin
   public var startSpanSlop: Dp = from.startSpanSlop
   public var anchor: GestureAnchor = from.anchor
   public var zoomScale: Double = from.zoomScale
-  private val momentumBuilder = VelocityMomentumBuilder(from.momentum, from.momentumOverride)
 
-  public fun momentum(block: VelocityMomentumBuilder.() -> Unit) {
-    momentumBuilder.apply(block)
-  }
-
-  internal fun build(base: VelocityMomentum): TransformZoomBinding {
+  internal fun build(): TransformZoomBinding {
     requireNonnegativeFinite(startSpanSlop.value.toDouble(), "startSpanSlop")
     require(zoomScale.isFinite()) { "zoomScale must be finite" }
     return TransformZoomBinding(
@@ -170,8 +153,6 @@ public class TransformZoomBuilder internal constructor(from: TransformZoomBindin
       startSpanSlop,
       anchor,
       zoomScale,
-      momentumBuilder.overrides,
-      momentumBuilder.build(base),
     )
   }
 }
@@ -185,13 +166,8 @@ public class TransformRotateBuilder internal constructor(from: TransformRotateBi
   public var anchor: GestureAnchor = from.anchor
   public var rotationScale: Double = from.rotationScale
   public var allowDuringZoom: Boolean = from.allowDuringZoom
-  private val momentumBuilder = VelocityMomentumBuilder(from.momentum, from.momentumOverride)
 
-  public fun momentum(block: VelocityMomentumBuilder.() -> Unit) {
-    momentumBuilder.apply(block)
-  }
-
-  internal fun build(base: VelocityMomentum): TransformRotateBinding {
+  internal fun build(): TransformRotateBinding {
     requireNonnegativeFinite(startAngle, "startAngle")
     require(rotationScale.isFinite()) { "rotationScale must be finite" }
     return TransformRotateBinding(
@@ -202,8 +178,6 @@ public class TransformRotateBuilder internal constructor(from: TransformRotateBi
       anchor,
       rotationScale,
       allowDuringZoom,
-      momentumBuilder.overrides,
-      momentumBuilder.build(base),
     )
   }
 }
@@ -215,13 +189,8 @@ public class TransformTiltBuilder internal constructor(from: TransformTiltBindin
   public var modifiers: ModifierMatch = from.modifiers
   public var startSlop: Dp = from.startSlop
   public var pitchDegreesPerDp: Double = from.pitchDegreesPerDp
-  private val momentumBuilder = TiltMomentumBuilder(from.momentum, from.momentumOverride)
 
-  public fun momentum(block: TiltMomentumBuilder.() -> Unit) {
-    momentumBuilder.apply(block)
-  }
-
-  internal fun build(base: TiltMomentum): TransformTiltBinding {
+  internal fun build(): TransformTiltBinding {
     requireNonnegativeFinite(startSlop.value.toDouble(), "startSlop")
     require(pitchDegreesPerDp.isFinite()) { "pitchDegreesPerDp must be finite" }
     return TransformTiltBinding(
@@ -230,8 +199,6 @@ public class TransformTiltBuilder internal constructor(from: TransformTiltBindin
       modifiers,
       startSlop,
       pitchDegreesPerDp,
-      momentumBuilder.overrides,
-      momentumBuilder.build(base),
     )
   }
 }
@@ -245,13 +212,8 @@ public class TapDragBuilder internal constructor(from: TapDragBinding) {
   public var anchor: GestureAnchor = from.anchor
   public var direction: QuickZoomDirection = from.direction
   public var zoomLevelsPerViewport: Double = from.zoomLevelsPerViewport
-  private val momentumBuilder = VelocityMomentumBuilder(from.momentum, from.momentumOverride)
 
-  public fun momentum(block: VelocityMomentumBuilder.() -> Unit) {
-    momentumBuilder.apply(block)
-  }
-
-  internal fun build(base: VelocityMomentum): TapDragBinding {
+  internal fun build(): TapDragBinding {
     requireNonnegativeFinite(startSlop.value.toDouble(), "startSlop")
     require(zoomLevelsPerViewport.isFinite()) { "zoomLevelsPerViewport must be finite" }
     return TapDragBinding(
@@ -262,8 +224,6 @@ public class TapDragBuilder internal constructor(from: TapDragBinding) {
       anchor,
       direction,
       zoomLevelsPerViewport,
-      momentumBuilder.overrides,
-      momentumBuilder.build(base),
     )
   }
 }
@@ -291,12 +251,12 @@ public class TransformBuilder internal constructor(from: TransformBinding) {
     tiltBuilder.apply(block)
   }
 
-  internal fun build(camera: CameraConfiguration): TransformBinding =
+  internal fun build(): TransformBinding =
     TransformBinding(
-      panBuilder.build(camera.pan.momentum),
-      zoomBuilder.build(camera.zoom.momentum),
-      rotateBuilder.build(camera.rotate.momentum),
-      tiltBuilder.build(camera.tilt.momentum),
+      panBuilder.build(),
+      zoomBuilder.build(),
+      rotateBuilder.build(),
+      tiltBuilder.build(),
     )
 }
 
@@ -446,17 +406,17 @@ public class InteractionBindingsBuilder internal constructor(from: InteractionBi
     rotaryBuilder.apply(block)
   }
 
-  internal fun build(camera: CameraConfiguration): InteractionBindings =
+  internal fun build(): InteractionBindings =
     InteractionBindings(
       drag = dragBuilder.build(),
-      transform = transformBuilder.build(camera),
+      transform = transformBuilder.build(),
       scroll = scrollBuilder.build(),
       tap = tapBuilder.build(),
       doubleTap = doubleTapBuilder.build(),
       secondaryClick = secondaryClickBuilder.build(),
       longPress = longPressBuilder.build(),
       twoFingerTap = twoFingerTapBuilder.build(),
-      tapDrag = tapDragBuilder.build(camera.zoom.momentum),
+      tapDrag = tapDragBuilder.build(),
       keys = keysBuilder.build(),
       rotary = rotaryBuilder.build(),
     )

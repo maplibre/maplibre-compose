@@ -279,15 +279,16 @@ class CameraInputTest {
       target.inputPanBy(2.0, 0.0, gestureToken = input.token)
       var replacement = 0
       state.gestureAuthority.updateConfiguration(
-        initial.copy(
-          pan =
-            initial.pan.copy(
-              onStart = {
+        CameraBuilder(initial)
+          .apply {
+            pan {
+              onStart {
                 starts += it
                 replacement++
               }
-            )
-        )
+            }
+          }
+          .build()
       )
       assertTrue(input.token.acceptsCommands)
       input.token.rearm(CameraComponent.Pan)

@@ -46,8 +46,8 @@ internal class PointerGesture(
   private val maximumFlingVelocity: Float,
   private val twoFingerTapSlopPx: Float,
   private val doubleTapSlopPx: Float,
-  private val doubleClickMinTimeMillis: Long,
-  private val doubleClickTimeoutMillis: Long,
+  doubleClickMinTimeMillis: Long,
+  doubleClickTimeoutMillis: Long,
   private val longClickTimeoutMillis: Long,
   private val scope: CoroutineScope,
   private val onAcceptedPress: () -> Unit,
@@ -96,13 +96,11 @@ internal class PointerGesture(
   /** Eligibility is fixed at the first press, including subscriber demand. */
   private var secondTapUseful = false
 
-  /**
-   * Pairing state after a first tap. The delayed-click job exists only in [TapWait.Open]; a valid
-   * second down moves to [TapWait.Claimed] and cancels that job.
-   */
-  private var tapWait: TapWait = TapWait.None
-  /** What this press is relative to [tapWait]. */
-  private var pressRole = PressRole.First
+  private val pairing =
+    TapPairing(scope, doubleClickMinTimeMillis, doubleClickTimeoutMillis) { sample, generation ->
+      emitTap(TapFamily.Tap, sample, generation)
+    }
+  private var pressRole = TapPairing.Press.First
 
   fun onPointerEvent(event: PointerEvent) {
     val oldContacts = contactOrder.toList()
@@ -186,29 +184,35 @@ internal class PointerGesture(
     longClickHandled = false
 
     val sample = event.gestureSample(null, density, change.position, setOf(change.type))
-    pressRole = classifyPress(change.position, change.uptimeMillis, change.type, sample)
-    when (pressRole) {
-      PressRole.First -> discardTapWait(emitClick = true)
-      PressRole.Paired -> claimOpenTap()
-      PressRole.Bounce -> Unit
-    }
+    val canPair =
+      !pressedSecondary &&
+        ((TapFamily.DoubleTap in tapDemand && hasTapDemand(TapFamily.DoubleTap, sample)) ||
+          (options.camera.settings.zoom.enabled && options.bindings.tapDrag.matches(sample)))
+    pressRole =
+      pairing.press(
+        change.position,
+        change.uptimeMillis,
+        change.type,
+        if (pressedType == PointerType.Mouse) clickSlopPx else doubleTapSlopPx,
+        canPair,
+      )
 
     dragSample = sample
-    selectedDrag = selectDrag(sample, paired = pressRole == PressRole.Paired)
+    selectedDrag = selectDrag(sample, paired = pressRole == TapPairing.Press.Paired)
     dragRecognition = selectedDrag?.let { dragRecognizer(change, it) }
 
     tapDemand = TapFamily.entries.filterTo(mutableSetOf()) { hasTapDemand(it, sample) }
 
     secondTapUseful =
       TapFamily.DoubleTap in tapDemand ||
-        (options.camera.zoom.enabled && options.bindings.tapDrag.matches(sample))
+        (options.camera.settings.zoom.enabled && options.bindings.tapDrag.matches(sample))
     val longPress = TapFamily.LongPress in tapDemand
     val clickDemand = secondTapUseful || tapDemand.any { it != TapFamily.TwoFingerTap }
     if (!clickDemand) clickOrigin = null
     if (
       selectedDrag == null &&
         !clickDemand &&
-        !options.bindings.transform.hasDemand(sample, options.camera) &&
+        !options.bindings.transform.hasDemand(sample, options.camera.settings) &&
         TapFamily.TwoFingerTap !in tapDemand
     )
       return
@@ -244,7 +248,7 @@ internal class PointerGesture(
         longClickHandled = true
         clickOrigin = null
         // This press is a long click, including a paired second tap that was held.
-        discardTapWait(emitClick = false)
+        pairing.discard(emitClick = false)
         val last = checkNotNull(dragSample)
         emitTap(
           TapFamily.LongPress,
@@ -258,7 +262,7 @@ internal class PointerGesture(
   }
 
   private fun selectCameraDrag(sample: GesturePointerSample): SelectedDrag? =
-    when (options.bindings.drag.select(sample, options.camera)) {
+    when (options.bindings.drag.select(sample, options.camera.settings)) {
       DragResponse.Pan -> SelectedDrag.Pan
       DragResponse.RotateTilt -> SelectedDrag.RotateTilt
       DragResponse.FitBounds -> SelectedDrag.FitBounds
@@ -267,7 +271,7 @@ internal class PointerGesture(
     }
 
   private fun selectDrag(sample: GesturePointerSample, paired: Boolean): SelectedDrag? {
-    if (paired && options.camera.zoom.enabled && options.bindings.tapDrag.matches(sample))
+    if (paired && options.camera.settings.zoom.enabled && options.bindings.tapDrag.matches(sample))
       return SelectedDrag.TapDrag
     return selectCameraDrag(sample)
   }
@@ -400,7 +404,7 @@ internal class PointerGesture(
         }
         else -> Unit
       }
-      discardTapWait(emitClick = !quickZoomCandidate)
+      pairing.discard(emitClick = !quickZoomCandidate)
       if (binding == SelectedDrag.FitBounds)
         boxZoom.start(origin.toLogicalDpOffset(density), sample.screenOffset)
     }
@@ -473,7 +477,7 @@ internal class PointerGesture(
             setOf(a.type, b.type),
           )
         if (
-          options.bindings.transform.hasDemand(sample, options.camera) ||
+          options.bindings.transform.hasDemand(sample, options.camera.settings) ||
             TapFamily.TwoFingerTap in tapDemand && TapFamily.TwoFingerTap.matches(options, sample)
         )
           return a to b
@@ -517,9 +521,9 @@ internal class PointerGesture(
       }
       selectedDrag = null
       cancelLongClick()
-      discardTapWait(emitClick = true)
+      pairing.discard(emitClick = true)
       clickOrigin = null
-      pressRole = PressRole.First
+      pressRole = TapPairing.Press.First
       lastSingle = null
       if (first.type != PointerType.Mouse && second.type != PointerType.Mouse) {
         val sample =
@@ -594,8 +598,8 @@ internal class PointerGesture(
     }
 
     val origin = clickOrigin
-    val pairedSecondTap = pressRole == PressRole.Paired
-    val ignoreReleaseAsTap = pressRole == PressRole.Bounce
+    val pairedSecondTap = pressRole == TapPairing.Press.Paired
+    val ignoreReleaseAsTap = pressRole == TapPairing.Press.Bounce
     val handledLongClick = longClickHandled
     val completedTwoFingerTap = twoFingerTap?.takeIf { it.isComplete(event) }
     cancelLongClick()
@@ -617,7 +621,7 @@ internal class PointerGesture(
     dragRecognition = null
     clickOrigin = null
     longClickHandled = false
-    pressRole = PressRole.First
+    pressRole = TapPairing.Press.First
     twoFingerTap = null
     selectedDrag = null
 
@@ -647,7 +651,7 @@ internal class PointerGesture(
     } else if (origin != null && !ignoreReleaseAsTap) {
       onClick(event, origin, pairedSecondTap)
     } else if (handledLongClick) {
-      discardTapWait(emitClick = false)
+      pairing.discard(emitClick = false)
     }
   }
 
@@ -657,7 +661,7 @@ internal class PointerGesture(
     generation: Long = target.inputGeneration,
   ) {
     val binding = family.binding(options)
-    val action = binding.select(sample, options.camera)
+    val action = binding.select(sample, options.camera.settings)
 
     taps.dispatch(family, sample) camera@{
       if (action == null || action == TapResponse.None) return@camera
@@ -684,123 +688,34 @@ internal class PointerGesture(
     val clickSample = sample.copy(buttons = dragSample?.buttons ?: sample.buttons)
     if (pressedSecondary) {
       if (TapFamily.SecondaryClick in tapDemand) emitTap(TapFamily.SecondaryClick, clickSample)
-      tapWait = TapWait.None
+      pairing.discard(emitClick = false)
       return
     }
 
     if (pairedSecondTap && TapFamily.DoubleTap in tapDemand) {
       emitTap(TapFamily.DoubleTap, clickSample)
-      tapWait = TapWait.None
+      pairing.discard(emitClick = false)
       return
     }
 
     if (TapFamily.Tap in tapDemand && (pressedType == PointerType.Mouse || !secondTapUseful))
       emitTap(TapFamily.Tap, clickSample)
-    rememberFirstTap(clickSample, origin, pressedType, sample.uptimeMillis)
+    pairing.remember(
+      clickSample,
+      target.inputGeneration,
+      origin,
+      pressedType,
+      secondTapUseful,
+      pressedType != PointerType.Mouse && TapFamily.Tap in tapDemand,
+    )
   }
 
   private fun hasTapDemand(family: TapFamily, sample: GesturePointerSample): Boolean =
     family.matches(options, sample) &&
       (taps.hasHandlers(family) ||
-        family.binding(options).select(sample, options.camera)?.let { it != TapResponse.None } ==
-          true)
-
-  /** What this down is relative to a [TapWait.Open] first tap. */
-  private fun classifyPress(
-    origin: Offset,
-    timeMillis: Long,
-    type: PointerType,
-    sample: GesturePointerSample,
-  ): PressRole {
-    if (pressedSecondary) return PressRole.First
-    val open = tapWait as? TapWait.Open ?: return PressRole.First
-    val canPair =
-      (TapFamily.DoubleTap in tapDemand && hasTapDemand(TapFamily.DoubleTap, sample)) ||
-        (options.camera.zoom.enabled && options.bindings.tapDrag.matches(sample))
-    if (!canPair) return PressRole.First
-
-    val elapsedMillis = timeMillis - open.tap.upAt
-    val withinSlop = (origin - open.tap.origin).getDistance() <= slopPx()
-    if (type != open.tap.type || !withinSlop) return PressRole.First
-    return when {
-      elapsedMillis < doubleClickMinTimeMillis -> PressRole.Bounce
-      elapsedMillis <= doubleClickTimeoutMillis -> PressRole.Paired
-      else -> PressRole.First
-    }
-  }
-
-  /** A valid second down claims the first tap and stops the delayed click. */
-  private fun claimOpenTap() {
-    val open = tapWait as? TapWait.Open ?: return
-    open.tap.job?.cancel()
-    tapWait = TapWait.Claimed(open.tap.copy(job = null))
-  }
-
-  /**
-   * Opens the pairing window after a first tap. Touch reports the click when the window expires;
-   * mouse already reported it on the up.
-   */
-  private fun rememberFirstTap(
-    sample: GesturePointerSample,
-    origin: Offset,
-    type: PointerType,
-    timeMillis: Long,
-  ) {
-    if (!secondTapUseful) {
-      tapWait = TapWait.None
-      return
-    }
-
-    val clickOnExpiry = type != PointerType.Mouse && TapFamily.Tap in tapDemand
-    val job =
-      if (clickOnExpiry) {
-        lateinit var launched: Job
-        launched = scope.launch {
-          delay(doubleClickTimeoutMillis)
-          val open = tapWait as? TapWait.Open
-          if (open?.tap?.job == launched) {
-            tapWait = TapWait.None
-            emitTap(TapFamily.Tap, open.tap.sample, open.tap.generation)
-          }
-        }
-        launched
-      } else {
-        null
-      }
-
-    tapWait =
-      TapWait.Open(
-        OpenTap(
-          sample,
-          target.inputGeneration,
-          origin,
-          type,
-          timeMillis,
-          clickOnExpiry,
-          job,
-        )
-      )
-  }
-
-  /** Closes [tapWait]. [emitClick] reports a touch first tap that was still waiting. */
-  private fun discardTapWait(emitClick: Boolean) {
-    when (val wait = tapWait) {
-      is TapWait.Open -> {
-        wait.tap.job?.cancel()
-        if (emitClick && wait.tap.clickOnExpiry)
-          emitTap(TapFamily.Tap, wait.tap.sample, wait.tap.generation)
-      }
-      is TapWait.Claimed -> {
-        if (emitClick && wait.tap.clickOnExpiry)
-          emitTap(TapFamily.Tap, wait.tap.sample, wait.tap.generation)
-      }
-      TapWait.None -> Unit
-    }
-    tapWait = TapWait.None
-  }
-
-  private fun slopPx(): Float =
-    if (pressedType == PointerType.Mouse) clickSlopPx else doubleTapSlopPx
+        family.binding(options).select(sample, options.camera.settings)?.let {
+          it != TapResponse.None
+        } == true)
 
   private fun dragSlopPx(): Float = if (pressedType == PointerType.Mouse) clickSlopPx else panSlopPx
 
@@ -809,7 +724,7 @@ internal class PointerGesture(
     val velocity = singleVelocity.calculateVelocity()
     when (binding) {
       SelectedDrag.Pan -> {
-        val tuning = options.camera.pan.momentum.takeIf { it.enabled } ?: return
+        val tuning = options.camera.settings.pan.momentum.takeIf { it.enabled } ?: return
         val fling =
           GestureMath.fling(
             (velocity.x / density.density).toDouble(),
@@ -819,8 +734,8 @@ internal class PointerGesture(
         animateFling(fling)
       }
       SelectedDrag.RotateTilt -> {
-        if (!options.camera.tilt.enabled) return
-        val tuning = options.camera.tilt.momentum.takeIf { it.enabled } ?: return
+        if (!options.camera.settings.tilt.enabled) return
+        val tuning = options.camera.settings.tilt.momentum.takeIf { it.enabled } ?: return
         val response =
           GestureMath.tiltVelocity(
             velocity.y / density.density * options.bindings.drag.rotateTilt.pitchDegreesPerDp,
@@ -830,7 +745,7 @@ internal class PointerGesture(
       }
       SelectedDrag.FitBounds -> Unit
       SelectedDrag.TapDrag -> {
-        val tuning = options.bindings.tapDrag.momentum.takeIf { it.enabled } ?: return
+        val tuning = options.camera.settings.zoom.momentum.takeIf { it.enabled } ?: return
         val direction =
           if (options.bindings.tapDrag.direction == QuickZoomDirection.DownZoomsIn) 1 else -1
         val velocityResponse =
@@ -975,8 +890,8 @@ internal class PointerGesture(
     cancelLongClick()
     longClickHandled = false
     deferredTwoFingerVelocity = null
-    discardTapWait(emitClick = false)
-    pressRole = PressRole.First
+    pairing.discard(emitClick = false)
+    pressRole = TapPairing.Press.First
     lastSingle = null
     singleDragOrigin = null
     dragRecognition = null
@@ -993,40 +908,6 @@ internal class PointerGesture(
   private fun cancelLongClick() {
     longClickJob?.cancel()
     longClickJob = null
-  }
-
-  /**
-   * Pairing window after a first tap. The delayed-click job lives only in [Open]. [Claimed] is a
-   * valid second down; that job is already gone.
-   */
-  private sealed class TapWait {
-    data object None : TapWait()
-
-    data class Open(val tap: OpenTap) : TapWait()
-
-    data class Claimed(val tap: OpenTap) : TapWait()
-  }
-
-  /**
-   * The first tap [TapWait] is pairing.
-   *
-   * [clickOnExpiry] is a touch tap that waited for a second tap. A mouse click already reported on
-   * the first up, so expiry only closes the window.
-   */
-  private data class OpenTap(
-    val sample: GesturePointerSample,
-    val generation: Long,
-    val origin: Offset,
-    val type: PointerType,
-    val upAt: Long,
-    val clickOnExpiry: Boolean,
-    val job: Job?,
-  )
-
-  private enum class PressRole {
-    First,
-    Bounce,
-    Paired,
   }
 
   private data class TwoFingerTapCandidate(

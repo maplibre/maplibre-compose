@@ -54,7 +54,7 @@ internal class GestureInputSession(
         work.children.toList().joinAll()
         if (work.isCancelled) return@launch
         target.onGestureEnded(token)
-        withContext(NonCancellable) { target.awaitGestureEnded(token) }
+        withContext(NonCancellable) { token.awaitCompletion() }
       } finally {
         work.complete()
       }

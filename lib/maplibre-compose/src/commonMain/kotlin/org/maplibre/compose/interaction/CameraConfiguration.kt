@@ -1,7 +1,9 @@
 package org.maplibre.compose.interaction
 
 import androidx.compose.runtime.Immutable
+import org.maplibre.compose.interaction.internal.CameraComponent
 import org.maplibre.compose.interaction.internal.CameraConfiguration
+import org.maplibre.compose.interaction.internal.CameraSettings
 import org.maplibre.compose.interaction.internal.PanCameraConfiguration
 import org.maplibre.compose.interaction.internal.TiltCameraConfiguration
 import org.maplibre.compose.interaction.internal.VelocityCameraConfiguration
@@ -23,14 +25,18 @@ public enum class CameraInputOrigin {
 /** Permissions, release momentum, and semantic start callbacks for camera input. */
 @MapInteractionDsl
 public class CameraBuilder internal constructor(from: CameraConfiguration) {
-  private var value = from
+  private val pan = PanCameraBuilder(from.settings.pan, from.onStart[CameraComponent.Pan])
+  private val zoom = VelocityCameraBuilder(from.settings.zoom, from.onStart[CameraComponent.Zoom])
+  private val rotate =
+    VelocityCameraBuilder(from.settings.rotate, from.onStart[CameraComponent.Rotate])
+  private val tilt = TiltCameraBuilder(from.settings.tilt, from.onStart[CameraComponent.Tilt])
 
   public fun pan(block: PanCameraBuilder.() -> Unit) {
-    value = value.copy(pan = PanCameraBuilder(value.pan).apply(block).build())
+    pan.apply(block)
   }
 
   public fun zoom(block: VelocityCameraBuilder.() -> Unit) {
-    value = value.copy(zoom = VelocityCameraBuilder(value.zoom).apply(block).build())
+    zoom.apply(block)
   }
 
   /**
@@ -38,22 +44,34 @@ public class CameraBuilder internal constructor(from: CameraConfiguration) {
    * single-pointer rotate/tilt drags and keys add no rotation momentum.
    */
   public fun rotate(block: VelocityCameraBuilder.() -> Unit) {
-    value = value.copy(rotate = VelocityCameraBuilder(value.rotate).apply(block).build())
+    rotate.apply(block)
   }
 
   public fun tilt(block: TiltCameraBuilder.() -> Unit) {
-    value = value.copy(tilt = TiltCameraBuilder(value.tilt).apply(block).build())
+    tilt.apply(block)
   }
 
-  internal fun build(): CameraConfiguration = value
+  internal fun build(): CameraConfiguration =
+    CameraConfiguration(
+      CameraSettings(pan.build(), zoom.build(), rotate.build(), tilt.build()),
+      buildMap {
+        pan.start?.let { put(CameraComponent.Pan, it) }
+        zoom.start?.let { put(CameraComponent.Zoom, it) }
+        rotate.start?.let { put(CameraComponent.Rotate, it) }
+        tilt.start?.let { put(CameraComponent.Tilt, it) }
+      },
+    )
 }
 
-/** Camera permission and default release momentum for this component. */
+/** Camera permission and release momentum for this component. */
 @MapInteractionDsl
-public class PanCameraBuilder internal constructor(from: PanCameraConfiguration) {
+public class PanCameraBuilder
+internal constructor(
+  from: PanCameraConfiguration,
+  internal var start: ((CameraInputStart) -> Unit)?,
+) {
   public var enabled: Boolean = from.enabled
   private val momentum = PanMomentumBuilder(from.momentum)
-  private var start = from.onStart
 
   /** Runs before the first effective command each time this component starts. */
   public fun onStart(block: ((CameraInputStart) -> Unit)?) {
@@ -64,16 +82,18 @@ public class PanCameraBuilder internal constructor(from: PanCameraConfiguration)
     momentum.apply(block)
   }
 
-  internal fun build(): PanCameraConfiguration =
-    PanCameraConfiguration(enabled, momentum.build(), start)
+  internal fun build(): PanCameraConfiguration = PanCameraConfiguration(enabled, momentum.build())
 }
 
-/** Camera permission and default release momentum for this component. */
+/** Camera permission and release momentum for this component. */
 @MapInteractionDsl
-public class VelocityCameraBuilder internal constructor(from: VelocityCameraConfiguration) {
+public class VelocityCameraBuilder
+internal constructor(
+  from: VelocityCameraConfiguration,
+  internal var start: ((CameraInputStart) -> Unit)?,
+) {
   public var enabled: Boolean = from.enabled
   private val momentum = VelocityMomentumBuilder(from.momentum)
-  private var start = from.onStart
 
   /** Runs before the first effective command each time this component starts. */
   public fun onStart(block: ((CameraInputStart) -> Unit)?) {
@@ -85,15 +105,18 @@ public class VelocityCameraBuilder internal constructor(from: VelocityCameraConf
   }
 
   internal fun build(): VelocityCameraConfiguration =
-    VelocityCameraConfiguration(enabled, momentum.build(), start)
+    VelocityCameraConfiguration(enabled, momentum.build())
 }
 
-/** Camera permission and default release momentum for this component. */
+/** Camera permission and release momentum for this component. */
 @MapInteractionDsl
-public class TiltCameraBuilder internal constructor(from: TiltCameraConfiguration) {
+public class TiltCameraBuilder
+internal constructor(
+  from: TiltCameraConfiguration,
+  internal var start: ((CameraInputStart) -> Unit)?,
+) {
   public var enabled: Boolean = from.enabled
   private val momentum = TiltMomentumBuilder(from.momentum)
-  private var start = from.onStart
 
   /** Runs before the first effective command each time this component starts. */
   public fun onStart(block: ((CameraInputStart) -> Unit)?) {
@@ -104,6 +127,5 @@ public class TiltCameraBuilder internal constructor(from: TiltCameraConfiguratio
     momentum.apply(block)
   }
 
-  internal fun build(): TiltCameraConfiguration =
-    TiltCameraConfiguration(enabled, momentum.build(), start)
+  internal fun build(): TiltCameraConfiguration = TiltCameraConfiguration(enabled, momentum.build())
 }

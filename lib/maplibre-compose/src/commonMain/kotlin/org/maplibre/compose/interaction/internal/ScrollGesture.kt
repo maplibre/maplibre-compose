@@ -48,7 +48,7 @@ internal class ScrollGesture(
     }
 
     val selected =
-      options.bindings.scroll.select(sample, options.camera)?.takeUnless {
+      options.bindings.scroll.select(sample, options.camera.settings)?.takeUnless {
         it == ScrollResponse.None
       }
     if (burst != null && burst?.response != selected) cancel()

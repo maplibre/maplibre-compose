@@ -48,12 +48,7 @@ internal data class TransformPanBinding(
   val pointerTypes: Set<PointerType>? = null,
   val modifiers: ModifierMatch = ModifierMatch.Any,
   val startSlop: Dp = 4.dp,
-  val momentumOverride: PanMomentumOverride = PanMomentumOverride(),
-  val momentum: PanMomentum = PanMomentum(),
-) {
-  val structuralKey: Any
-    get() = listOf(enabled, pointerTypes, modifiers, startSlop, momentum)
-}
+)
 
 internal data class TransformZoomBinding(
   val enabled: Boolean = true,
@@ -62,12 +57,7 @@ internal data class TransformZoomBinding(
   val startSpanSlop: Dp = 7.dp,
   val anchor: GestureAnchor = GestureAnchor.Input,
   val zoomScale: Double = 1.0,
-  val momentumOverride: VelocityMomentumOverride = VelocityMomentumOverride(),
-  val momentum: VelocityMomentum = VelocityMomentum(),
-) {
-  val structuralKey: Any
-    get() = listOf(enabled, pointerTypes, modifiers, startSpanSlop, anchor, zoomScale, momentum)
-}
+)
 
 internal data class TransformRotateBinding(
   val enabled: Boolean = true,
@@ -77,22 +67,7 @@ internal data class TransformRotateBinding(
   val anchor: GestureAnchor = GestureAnchor.Input,
   val rotationScale: Double = 1.0,
   val allowDuringZoom: Boolean = true,
-  val momentumOverride: VelocityMomentumOverride = VelocityMomentumOverride(),
-  val momentum: VelocityMomentum = VelocityMomentum(),
-) {
-  val structuralKey: Any
-    get() =
-      listOf(
-        enabled,
-        pointerTypes,
-        modifiers,
-        startAngle,
-        anchor,
-        rotationScale,
-        allowDuringZoom,
-        momentum,
-      )
-}
+)
 
 internal data class TransformTiltBinding(
   val enabled: Boolean = true,
@@ -100,12 +75,7 @@ internal data class TransformTiltBinding(
   val modifiers: ModifierMatch = ModifierMatch.Any,
   val startSlop: Dp = 16.dp,
   val pitchDegreesPerDp: Double = -0.1,
-  val momentumOverride: TiltMomentumOverride = TiltMomentumOverride(),
-  val momentum: TiltMomentum = TiltMomentum(),
-) {
-  val structuralKey: Any
-    get() = listOf(enabled, pointerTypes, modifiers, startSlop, pitchDegreesPerDp, momentum)
-}
+)
 
 internal data class TapDragBinding(
   val enabled: Boolean = true,
@@ -116,32 +86,14 @@ internal data class TapDragBinding(
   val anchor: GestureAnchor = GestureAnchor.CameraCenter,
   val direction: QuickZoomDirection = QuickZoomDirection.DownZoomsIn,
   val zoomLevelsPerViewport: Double = 4.0,
-  val momentumOverride: VelocityMomentumOverride = VelocityMomentumOverride(),
-  val momentum: VelocityMomentum = VelocityMomentum(),
-) {
-  val structuralKey: Any
-    get() =
-      listOf(
-        enabled,
-        pointerTypes,
-        modifiers,
-        startSlop,
-        anchor,
-        direction,
-        zoomLevelsPerViewport,
-        momentum,
-      )
-}
+)
 
 internal data class TransformBinding(
   val pan: TransformPanBinding = TransformPanBinding(),
   val zoom: TransformZoomBinding = TransformZoomBinding(),
   val rotate: TransformRotateBinding = TransformRotateBinding(),
   val tilt: TransformTiltBinding = TransformTiltBinding(),
-) {
-  val structuralKey: Any
-    get() = listOf(pan.structuralKey, zoom.structuralKey, rotate.structuralKey, tilt.structuralKey)
-}
+)
 
 internal data class ScrollBinding(
   val enabled: Boolean = true,
@@ -188,22 +140,6 @@ internal data class InteractionBindings(
   val keys: KeyBinding = KeyBinding(),
   val rotary: RotaryBinding = RotaryBinding(),
 ) {
-  val structuralKey: Any
-    get() =
-      listOf(
-        drag,
-        transform.structuralKey,
-        scroll,
-        tap,
-        doubleTap,
-        secondaryClick,
-        longPress,
-        twoFingerTap,
-        tapDrag.structuralKey,
-        keys,
-        rotary,
-      )
-
   companion object {
     fun standard(): InteractionBindings {
       val mouse = setOf(PointerType.Mouse)

@@ -53,7 +53,7 @@ class BoxZoomIntegrationTest {
             fixture.awaitWhileRendering("box fit completes") {
               fixture.gestures.fitBoundsAwaitingTransition(fit, 100.milliseconds, input.token)
               input.end()
-              fixture.gestures.awaitGestureEnded(input.token)
+              input.token.awaitCompletion()
             }
             fixture.settle()
             val actual = fixture.state.cameraPosition
