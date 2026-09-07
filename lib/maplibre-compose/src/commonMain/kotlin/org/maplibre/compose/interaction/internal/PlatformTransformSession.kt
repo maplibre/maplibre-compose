@@ -14,7 +14,6 @@ import org.maplibre.compose.interaction.DragEvent
 import org.maplibre.compose.interaction.GestureCancellationReason
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.PinchEvent
-import org.maplibre.compose.interaction.PointerGestureEvent
 import org.maplibre.compose.interaction.ScreenVelocity
 import org.maplibre.compose.interaction.internal.PlatformTransformRouting.Kind
 
@@ -23,7 +22,6 @@ internal class PlatformTransformSession(
   private val target: CameraInputTarget,
   private val options: MapInteractions,
   private val currentOptions: () -> MapInteractions,
-  private val subscriptions: InteractionSubscriptions,
   private val ids: GestureIds,
   private val scope: CoroutineScope,
   private val routing: PlatformTransformRouting,
@@ -31,7 +29,6 @@ internal class PlatformTransformSession(
 ) {
   private class Component(
     val kind: Kind,
-    val observer: (PointerGestureEvent) -> Unit,
     var sample: GesturePointerSample,
   ) {
     val velocity = GestureVelocityTracker()
@@ -151,8 +148,20 @@ internal class PlatformTransformSession(
       else Offset(panDelta.x.value, panDelta.y.value)
     current.velocity.addPosition(sample.uptimeMillis, current.displacement)
     when (kind) {
-      Kind.Scale -> current.observer(PinchEvent.Delta(current.sample, scaleFactor))
-      Kind.Pan -> current.observer(DragEvent.Delta(current.sample, panDelta))
+      Kind.Scale ->
+        currentOptions()
+          .bindings
+          .transform
+          .zoom
+          .handlers
+          .observe(PinchEvent.Delta(current.sample, scaleFactor))
+      Kind.Pan ->
+        currentOptions()
+          .bindings
+          .transform
+          .pan
+          .handlers
+          .observe(DragEvent.Delta(current.sample, panDelta))
     }
     // Observers may move the camera themselves, revoking this session before its response.
     if (!retainAuthority()) return true
@@ -196,24 +205,8 @@ internal class PlatformTransformSession(
       session = input
     }
 
-    val membership =
-      if (kind == Kind.Scale) subscriptions.transformZoom.capture()
-      else subscriptions.transformPan.capture()
-    val observer: (PointerGestureEvent) -> Unit =
-      when (kind) {
-        Kind.Scale -> { event ->
-          membership.observe(
-            event as PinchEvent,
-            currentOptions().bindings.transform.zoom.handlers,
-          )
-        }
-        Kind.Pan -> { event ->
-          membership.observe(event as DragEvent, currentOptions().bindings.transform.pan.handlers)
-        }
-      }
-
     session?.token?.rearm(if (kind == Kind.Scale) CameraComponent.Zoom else CameraComponent.Pan)
-    val current = Component(kind, observer, sample.copy(gestureId = ids.next()))
+    val current = Component(kind, sample.copy(gestureId = ids.next()))
     components[kind] = current
     current.velocity.addPosition(sample.uptimeMillis, Offset.Zero)
     deliverStart(current)
@@ -232,22 +225,45 @@ internal class PlatformTransformSession(
   private fun deliverStart(component: Component) {
     val sample = component.sample
     when (component.kind) {
-      Kind.Scale -> component.observer(PinchEvent.Start(sample, sample.screenOffset))
-      Kind.Pan -> component.observer(DragEvent.Start(sample, sample.screenOffset))
+      Kind.Scale ->
+        currentOptions()
+          .bindings
+          .transform
+          .zoom
+          .handlers
+          .observe(PinchEvent.Start(sample, sample.screenOffset))
+      Kind.Pan ->
+        currentOptions()
+          .bindings
+          .transform
+          .pan
+          .handlers
+          .observe(DragEvent.Start(sample, sample.screenOffset))
     }
   }
 
   private fun deliverEnd(component: Component) {
     val velocity = component.velocity.calculateVelocity(pointerInput = false)
     when (component.kind) {
-      Kind.Scale -> component.observer(PinchEvent.End(component.sample, velocity.x.toDouble()))
+      Kind.Scale ->
+        currentOptions()
+          .bindings
+          .transform
+          .zoom
+          .handlers
+          .observe(PinchEvent.End(component.sample, velocity.x.toDouble()))
       Kind.Pan ->
-        component.observer(
-          DragEvent.End(
-            component.sample,
-            ScreenVelocity(velocity.x.toDouble(), velocity.y.toDouble()),
+        currentOptions()
+          .bindings
+          .transform
+          .pan
+          .handlers
+          .observe(
+            DragEvent.End(
+              component.sample,
+              ScreenVelocity(velocity.x.toDouble(), velocity.y.toDouble()),
+            )
           )
-        )
     }
   }
 
@@ -271,8 +287,20 @@ internal class PlatformTransformSession(
       for (component in previous) {
         try {
           when (component.kind) {
-            Kind.Scale -> component.observer(PinchEvent.Cancel(component.sample, reason))
-            Kind.Pan -> component.observer(DragEvent.Cancel(component.sample, reason))
+            Kind.Scale ->
+              currentOptions()
+                .bindings
+                .transform
+                .zoom
+                .handlers
+                .observe(PinchEvent.Cancel(component.sample, reason))
+            Kind.Pan ->
+              currentOptions()
+                .bindings
+                .transform
+                .pan
+                .handlers
+                .observe(DragEvent.Cancel(component.sample, reason))
           }
         } catch (cause: Throwable) {
           if (failure == null) failure = cause else failure.addSuppressed(cause)

@@ -33,15 +33,6 @@ internal enum class TapFamily {
       }
     }
 
-  fun subscription(subscriptions: InteractionSubscriptions): SubscriptionSlot? =
-    when (this) {
-      Tap -> subscriptions.click
-      DoubleTap -> subscriptions.doubleClick
-      SecondaryClick,
-      LongPress -> subscriptions.longClick
-      TwoFingerTap -> null
-    }
-
   fun matches(options: MapInteractions, sample: GesturePointerSample): Boolean {
     val binding = binding(options)
     if (!binding.enabled) return false
@@ -72,6 +63,15 @@ internal enum class TapFamily {
       TwoFingerTap -> null
     }
 
+  fun hasCallback(callbacks: InteractionCallbacks): Boolean =
+    when (this) {
+      Tap -> callbacks.click != null
+      DoubleTap -> callbacks.doubleClick != null
+      SecondaryClick,
+      LongPress -> callbacks.longClick != null
+      TwoFingerTap -> false
+    }
+
   fun observe(callbacks: InteractionCallbacks, event: PointerGestureEvent): ClickResult =
     when (this) {
       Tap -> callbacks.click?.invoke(event as TapEvent)
@@ -82,20 +82,9 @@ internal enum class TapFamily {
     } ?: ClickResult.Pass
 }
 
-/** Subscription membership captured at press admission; callback bodies remain current. */
-internal class TapAdmission(
-  val family: TapFamily,
-  val path: ClickPath,
-  val mapCallbackSlot: Any?,
-  val hasSubscribers: Boolean,
-)
-
-/**
- * Captured at press admission; validity is checked between every application callback and query.
- */
+/** A recognized click keeps its map and layer targets valid across asynchronous feature queries. */
 internal class ClickPath(
   val isValid: () -> Boolean,
-  val hasSubscribers: Boolean = false,
   val deliver: suspend (PointerGestureEvent) -> ClickResult,
 )
 
@@ -103,49 +92,39 @@ internal class ClickPath(
 internal class TapDispatcher(
   scope: CoroutineScope,
   private val captureClickPath: (TapFamily) -> ClickPath?,
-  private val subscriptions: InteractionSubscriptions,
+  private val hasClickHandlers: (TapFamily) -> Boolean,
   private val currentOptions: () -> MapInteractions,
 ) {
   private class Dispatch(
-    val admission: TapAdmission,
+    val family: TapFamily,
+    val path: ClickPath,
     val event: PointerGestureEvent?,
     val camera: () -> Unit,
   )
 
   private val queue = Channel<Dispatch>(Channel.UNLIMITED)
-  private val structure = currentOptions().structuralKey
-
-  private fun valid(dispatch: Dispatch): Boolean =
-    currentOptions().structuralKey == structure && dispatch.admission.path.isValid()
 
   init {
     scope.launch {
       try {
         for (dispatch in queue) {
           try {
-            if (!valid(dispatch)) continue
-            val admission = dispatch.admission
+            if (!dispatch.path.isValid()) continue
             val event = dispatch.event
 
             // Two-finger taps have only a camera response, so they skip application delivery.
             if (event != null) {
-              val subscribed =
-                admission.family.subscription(subscriptions)?.contains(admission.mapCallbackSlot) ==
-                  true
-              if (
-                subscribed && admission.family.observe(currentOptions().callbacks, event).consumed
-              )
-                continue
-              if (!valid(dispatch)) continue
-              if (admission.path.deliver(event).consumed) continue
+              if (dispatch.family.observe(currentOptions().callbacks, event).consumed) continue
+              if (!dispatch.path.isValid()) continue
+              if (dispatch.path.deliver(event).consumed) continue
             }
 
-            if (valid(dispatch)) dispatch.camera()
+            if (dispatch.path.isValid()) dispatch.camera()
           } catch (cancelled: CancellationException) {
             // A lease-bound query can be cancelled without cancelling this attached input node.
             // Drop that dispatch; cancellation never falls through to the camera.
             currentCoroutineContext().ensureActive()
-            if (valid(dispatch)) throw cancelled
+            if (dispatch.path.isValid()) throw cancelled
           }
         }
       } finally {
@@ -154,13 +133,11 @@ internal class TapDispatcher(
     }
   }
 
-  fun capture(family: TapFamily): TapAdmission? =
-    captureClickPath(family)?.let {
-      val slot = family.subscription(subscriptions)?.capture()
-      TapAdmission(family, it, slot, slot != null || it.hasSubscribers)
-    }
+  fun hasHandlers(family: TapFamily): Boolean =
+    family.hasCallback(currentOptions().callbacks) || hasClickHandlers(family)
 
-  fun dispatch(admission: TapAdmission, sample: GesturePointerSample, camera: () -> Unit) {
-    queue.trySend(Dispatch(admission, admission.family.event(sample), camera))
+  fun dispatch(family: TapFamily, sample: GesturePointerSample, camera: () -> Unit) {
+    val path = captureClickPath(family) ?: return
+    queue.trySend(Dispatch(family, path, family.event(sample), camera))
   }
 }

@@ -50,7 +50,6 @@ class MapKeyInputTest {
           focus,
           GestureIds(),
           backgroundScope,
-          InteractionSubscriptions(options).keys,
         )
       input.configure(options.structuralKey)
       fun down(key: Key) = assertTrue(input.onSample(key, KeyEventType.KeyDown, emptySet(), 0))
@@ -107,7 +106,6 @@ class MapKeyInputTest {
         focus,
         GestureIds(),
         backgroundScope,
-        InteractionSubscriptions(options).keys,
       )
     input.configure(options.structuralKey)
     input.onSample(Key.DirectionRight, KeyEventType.KeyDown, emptySet(), 0)
@@ -145,7 +143,6 @@ class MapKeyInputTest {
         focus,
         GestureIds(),
         backgroundScope,
-        InteractionSubscriptions(options).keys,
       )
     input.configure(options.structuralKey)
     input.onSample(Key.DirectionRight, KeyEventType.KeyDown, emptySet(), 0)

@@ -48,12 +48,11 @@ class MapTapDispatcherTest {
               error("map failed")
             }
           }
-          val dispatcher =
-            TapDispatcher(scope, target, InteractionSubscriptions(options)) { options }
-          dispatcher.dispatch(checkNotNull(dispatcher.capture(TapFamily.DoubleTap)), sample(1)) {
+          val dispatcher = TapDispatcher(scope, target, { false }) { options }
+          dispatcher.dispatch(TapFamily.DoubleTap, sample(1)) {
             order += "camera"
           }
-          dispatcher.dispatch(checkNotNull(dispatcher.capture(TapFamily.DoubleTap)), sample(2)) {
+          dispatcher.dispatch(TapFamily.DoubleTap, sample(2)) {
             order += "next camera"
           }
           testScheduler.runCurrent()
@@ -91,12 +90,11 @@ class MapTapDispatcherTest {
         ClickResult.Pass
       }
     }
-    val dispatcher =
-      TapDispatcher(backgroundScope, target, InteractionSubscriptions(options)) { options }
-    dispatcher.dispatch(checkNotNull(dispatcher.capture(TapFamily.Tap)), sample(1)) {
+    val dispatcher = TapDispatcher(backgroundScope, target, { false }) { options }
+    dispatcher.dispatch(TapFamily.Tap, sample(1)) {
       order += "camera 1"
     }
-    dispatcher.dispatch(checkNotNull(dispatcher.capture(TapFamily.Tap)), sample(2)) {
+    dispatcher.dispatch(TapFamily.Tap, sample(2)) {
       order += "camera 2"
     }
     testScheduler.runCurrent()
@@ -129,36 +127,12 @@ class MapTapDispatcherTest {
       }
     }
     val options = MapInteractions { callbacks { doubleClick { onEvent { ClickResult.Consume } } } }
-    val dispatcher =
-      TapDispatcher(backgroundScope, target, InteractionSubscriptions(options)) { options }
-    dispatcher.dispatch(checkNotNull(dispatcher.capture(TapFamily.DoubleTap)), sample(1)) {
+    val dispatcher = TapDispatcher(backgroundScope, target, { false }) { options }
+    dispatcher.dispatch(TapFamily.DoubleTap, sample(1)) {
       cameras++
     }
     testScheduler.runCurrent()
     assertEquals(0, delivery)
-    assertEquals(0, cameras)
-  }
-
-  @Test
-  fun a_structural_change_during_a_query_cancels_camera_fallthrough() = runTest {
-    var options = MapInteractions.Standard
-    val query = CompletableDeferred<Unit>()
-    var cameras = 0
-    val target = { _: TapFamily ->
-      ClickPath({ true }) {
-        query.await()
-        ClickResult.Pass
-      }
-    }
-    val dispatcher =
-      TapDispatcher(backgroundScope, target, InteractionSubscriptions(options)) { options }
-    dispatcher.dispatch(checkNotNull(dispatcher.capture(TapFamily.DoubleTap)), sample(1)) {
-      cameras++
-    }
-    testScheduler.runCurrent()
-    options = MapInteractions.None
-    query.complete(Unit)
-    testScheduler.runCurrent()
     assertEquals(0, cameras)
   }
 
@@ -179,14 +153,14 @@ class MapTapDispatcherTest {
       TapDispatcher(
         backgroundScope,
         target,
-        InteractionSubscriptions(MapInteractions.Standard),
+        { false },
       ) {
         MapInteractions.Standard
       }
-    dispatcher.dispatch(checkNotNull(dispatcher.capture(TapFamily.DoubleTap)), sample(1)) {
+    dispatcher.dispatch(TapFamily.DoubleTap, sample(1)) {
       cameras += 1
     }
-    dispatcher.dispatch(checkNotNull(dispatcher.capture(TapFamily.DoubleTap)), sample(2)) {
+    dispatcher.dispatch(TapFamily.DoubleTap, sample(2)) {
       cameras += 2
     }
     testScheduler.runCurrent()
@@ -213,9 +187,8 @@ class MapTapDispatcherTest {
         }
       }
     }
-    val dispatcher =
-      TapDispatcher(backgroundScope, target, InteractionSubscriptions(options)) { options }
-    dispatcher.dispatch(checkNotNull(dispatcher.capture(TapFamily.Tap)), sample(1)) {
+    val dispatcher = TapDispatcher(backgroundScope, target, { false }) { options }
+    dispatcher.dispatch(TapFamily.Tap, sample(1)) {
       error("invalid camera fallthrough")
     }
     testScheduler.runCurrent()
@@ -223,81 +196,37 @@ class MapTapDispatcherTest {
   }
 
   @Test
-  fun press_admission_keeps_slots_but_uses_current_bodies_and_allows_self_removal() = runTest {
+  fun queued_click_uses_the_current_callback() = runTest {
     val order = mutableListOf<String>()
-    var options = MapInteractions.Standard
-    val target = { _: TapFamily ->
-      ClickPath({ true }) {
-        order += "layers"
-        ClickResult.Pass
-      }
-    }
-    val subscriptions = InteractionSubscriptions(options)
-    val dispatcher = TapDispatcher(backgroundScope, target, subscriptions) { options }
-    val beforeSubscription = checkNotNull(dispatcher.capture(TapFamily.Tap))
-    options = MapInteractions {
-      callbacks { click { onEvent { error("replaced body") } } }
-    }
-    subscriptions.update(options)
-    val admitted = checkNotNull(dispatcher.capture(TapFamily.Tap))
-    options = MapInteractions {
-      callbacks {
-        click {
-          onEvent {
-            order += "current map"
-            options = MapInteractions { callbacks { click { onEvent(null) } } }
-            subscriptions.update(options)
-            ClickResult.Pass
-          }
-        }
-      }
-    }
-    subscriptions.update(options)
-    dispatcher.dispatch(beforeSubscription, sample(1)) { order += "first camera" }
-    dispatcher.dispatch(admitted, sample(2)) { order += "second camera" }
-    testScheduler.runCurrent()
-    assertEquals(listOf("layers", "first camera", "current map", "layers", "second camera"), order)
-  }
-
-  @Test
-  fun removing_and_readding_a_map_callback_does_not_rejoin_an_admitted_click() = runTest {
-    var calls = 0
     var options = MapInteractions {
-      callbacks {
-        click {
-          onEvent {
-            calls++
+      callbacks { click { onEvent { error("replaced callback") } } }
+    }
+    val dispatcher =
+      TapDispatcher(
+        backgroundScope,
+        {
+          ClickPath({ true }) {
+            order += "layer"
             ClickResult.Pass
           }
-        }
+        },
+        { true },
+      ) {
+        options
       }
-    }
-    val subscriptions = InteractionSubscriptions(options)
-    val target = { _: TapFamily ->
-      ClickPath({ true }) { ClickResult.Pass }
-    }
-    val dispatcher = TapDispatcher(backgroundScope, target, subscriptions) { options }
-    val admitted = checkNotNull(dispatcher.capture(TapFamily.Tap))
-    subscriptions.update(MapInteractions.Standard)
+    dispatcher.dispatch(TapFamily.Tap, sample(1)) { order += "camera" }
     options = MapInteractions {
       callbacks {
         click {
           onEvent {
-            calls++
+            order += "current callback"
             ClickResult.Pass
           }
         }
       }
     }
-    subscriptions.update(options)
-    var camera = 0
-    dispatcher.dispatch(admitted, sample(1)) { camera++ }
     testScheduler.runCurrent()
-    assertEquals(0, calls)
-    assertEquals(1, camera)
-    dispatcher.dispatch(checkNotNull(dispatcher.capture(TapFamily.Tap)), sample(2)) { camera++ }
-    testScheduler.runCurrent()
-    assertEquals(1, calls)
+    assertEquals(listOf("current callback", "layer", "camera"), order)
   }
 
   private fun sample(id: Long) =

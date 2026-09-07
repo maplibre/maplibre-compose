@@ -157,7 +157,7 @@ internal class RecordingGestureTarget(
   var longClicks = 0
 
   fun capture(family: TapFamily): ClickPath =
-    ClickPath({ !state.isClosed }, family in clickFamilies) {
+    ClickPath({ !state.isClosed }) {
       deliveredTapFamilies += family
       when (family) {
         TapFamily.Tap -> clicks++

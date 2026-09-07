@@ -64,53 +64,48 @@ internal fun PointerEvent.gestureSample(
 internal fun GestureAnchor.location(sample: GesturePointerSample): DpOffset? =
   sample.screenOffset.takeIf { this == GestureAnchor.Input }
 
-/** Delivers only to the subscriptions admitted when this lifecycle began. */
-internal fun LifecycleMembership.observe(event: DragEvent, current: DragHandlers) {
+internal fun DragHandlers.observe(event: DragEvent) {
   when (event) {
-    is DragEvent.Start -> if (hasStart) current.onStart?.invoke(event)
-    is DragEvent.Delta -> if (hasDelta) current.onDelta?.invoke(event)
-    is DragEvent.End -> if (hasEnd) current.onEnd?.invoke(event)
-    is DragEvent.Cancel -> if (hasCancel) current.onCancel?.invoke(event)
+    is DragEvent.Start -> onStart?.invoke(event)
+    is DragEvent.Delta -> onDelta?.invoke(event)
+    is DragEvent.End -> onEnd?.invoke(event)
+    is DragEvent.Cancel -> onCancel?.invoke(event)
   }
 }
 
-/** Delivers only to the subscriptions admitted when this lifecycle began. */
-internal fun LifecycleMembership.observe(event: PinchEvent, current: ZoomHandlers) {
+internal fun ZoomHandlers.observe(event: PinchEvent) {
   when (event) {
-    is PinchEvent.Start -> if (hasStart) current.onStart?.invoke(event)
-    is PinchEvent.Delta -> if (hasDelta) current.onDelta?.invoke(event)
-    is PinchEvent.End -> if (hasEnd) current.onEnd?.invoke(event)
-    is PinchEvent.Cancel -> if (hasCancel) current.onCancel?.invoke(event)
+    is PinchEvent.Start -> onStart?.invoke(event)
+    is PinchEvent.Delta -> onDelta?.invoke(event)
+    is PinchEvent.End -> onEnd?.invoke(event)
+    is PinchEvent.Cancel -> onCancel?.invoke(event)
   }
 }
 
-/** Delivers only to the subscriptions admitted when this lifecycle began. */
-internal fun LifecycleMembership.observe(event: RotateEvent, current: RotateHandlers) {
+internal fun RotateHandlers.observe(event: RotateEvent) {
   when (event) {
-    is RotateEvent.Start -> if (hasStart) current.onStart?.invoke(event)
-    is RotateEvent.Delta -> if (hasDelta) current.onDelta?.invoke(event)
-    is RotateEvent.End -> if (hasEnd) current.onEnd?.invoke(event)
-    is RotateEvent.Cancel -> if (hasCancel) current.onCancel?.invoke(event)
+    is RotateEvent.Start -> onStart?.invoke(event)
+    is RotateEvent.Delta -> onDelta?.invoke(event)
+    is RotateEvent.End -> onEnd?.invoke(event)
+    is RotateEvent.Cancel -> onCancel?.invoke(event)
   }
 }
 
-/** Delivers only to the subscriptions admitted when this lifecycle began. */
-internal fun LifecycleMembership.observe(event: ShoveEvent, current: TiltHandlers) {
+internal fun TiltHandlers.observe(event: ShoveEvent) {
   when (event) {
-    is ShoveEvent.Start -> if (hasStart) current.onStart?.invoke(event)
-    is ShoveEvent.Delta -> if (hasDelta) current.onDelta?.invoke(event)
-    is ShoveEvent.End -> if (hasEnd) current.onEnd?.invoke(event)
-    is ShoveEvent.Cancel -> if (hasCancel) current.onCancel?.invoke(event)
+    is ShoveEvent.Start -> onStart?.invoke(event)
+    is ShoveEvent.Delta -> onDelta?.invoke(event)
+    is ShoveEvent.End -> onEnd?.invoke(event)
+    is ShoveEvent.Cancel -> onCancel?.invoke(event)
   }
 }
 
-/** Delivers only to the subscriptions admitted when this lifecycle began. */
-internal fun LifecycleMembership.observe(event: ScrollEvent, current: ScrollHandlers) {
+internal fun ScrollHandlers.observe(event: ScrollEvent) {
   when (event) {
-    is ScrollEvent.Start -> if (hasStart) current.onStart?.invoke(event)
-    is ScrollEvent.Delta -> if (hasDelta) current.onDelta?.invoke(event)
-    is ScrollEvent.End -> if (hasEnd) current.onEnd?.invoke(event)
-    is ScrollEvent.Cancel -> if (hasCancel) current.onCancel?.invoke(event)
+    is ScrollEvent.Start -> onStart?.invoke(event)
+    is ScrollEvent.Delta -> onDelta?.invoke(event)
+    is ScrollEvent.End -> onEnd?.invoke(event)
+    is ScrollEvent.Cancel -> onCancel?.invoke(event)
   }
 }
 

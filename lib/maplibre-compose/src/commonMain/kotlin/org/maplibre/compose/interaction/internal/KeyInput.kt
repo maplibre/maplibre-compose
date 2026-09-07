@@ -34,7 +34,6 @@ import org.maplibre.compose.interaction.MapInteractions
 internal data class KeyClaim(
   val response: KeyResponse?,
   val gestureId: Long,
-  val subscription: Any?,
 )
 
 /**
@@ -126,7 +125,6 @@ internal class KeyInput(
   private val focus: InputFocus,
   private val ids: GestureIds,
   private val scope: CoroutineScope,
-  private val subscription: SubscriptionSlot,
 ) {
   private var session: GestureInputSession? = null
   private var step: Job? = null
@@ -189,15 +187,13 @@ internal class KeyInput(
     // A press after every camera key was released starts a new lifetime, even if the last
     // release's easing is still draining. Overlapping held keys keep their shared authority.
     if (action.isCamera && previous == null && !hasHeldCameraKeys() && session != null) cancel()
-    val claim =
-      previous
-        ?: KeyClaim(action, ids.next(), subscription.capture()).also { focus.claimedKeys[key] = it }
+    val claim = previous ?: KeyClaim(action, ids.next()).also { focus.claimedKeys[key] = it }
 
     target.observeInput()
     val event = KeyGestureEvent(claim.gestureId, uptimeMillis, key, modifiers, previous != null)
     if (!action.isCamera) {
       try {
-        if (subscription.contains(claim.subscription)) settings.bindings.keys.onEvent?.invoke(event)
+        settings.bindings.keys.onEvent?.invoke(event)
         if (!focus.isEngaged) cancel()
       } catch (error: Throwable) {
         cancel()
@@ -218,7 +214,7 @@ internal class KeyInput(
         }
 
     try {
-      if (subscription.contains(claim.subscription)) settings.bindings.keys.onEvent?.invoke(event)
+      settings.bindings.keys.onEvent?.invoke(event)
       // An observer can take over the camera; its key response must then stop here.
       if (!current.token.acceptsCommands) {
         cancel()

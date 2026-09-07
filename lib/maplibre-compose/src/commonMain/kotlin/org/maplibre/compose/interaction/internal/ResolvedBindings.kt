@@ -6,7 +6,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
-import org.maplibre.compose.interaction.DragEvent
 import org.maplibre.compose.interaction.DragMappingsBuilder
 import org.maplibre.compose.interaction.GestureAnchor
 import org.maplibre.compose.interaction.KeyGestureEvent
@@ -14,7 +13,6 @@ import org.maplibre.compose.interaction.KeyMappingsBuilder
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.ModifierMatch
 import org.maplibre.compose.interaction.PointerButton
-import org.maplibre.compose.interaction.PointerPressEvent
 import org.maplibre.compose.interaction.QuickZoomDirection
 import org.maplibre.compose.interaction.RotaryGestureEvent
 import org.maplibre.compose.interaction.ScrollMappingsBuilder
@@ -38,17 +36,6 @@ internal data class DragFitBoundsSettings(
   val mouseStartSlop: Dp = 3.dp,
 )
 
-internal data class CustomDragBinding(
-  val key: String,
-  val startSlop: Dp = 4.dp,
-  val mouseStartSlop: Dp = 3.dp,
-  val canStart: (PointerPressEvent) -> Boolean,
-  val onEvent: (DragEvent) -> Unit,
-) {
-  val structuralKey: Any
-    get() = listOf(key, startSlop, mouseStartSlop)
-}
-
 internal data class DragBinding(
   val enabled: Boolean = true,
   val pointerTypes: Set<PointerType>? = null,
@@ -56,7 +43,6 @@ internal data class DragBinding(
   val pan: DragPanSettings = DragPanSettings(),
   val rotateTilt: DragRotateTiltSettings = DragRotateTiltSettings(),
   val fitBounds: DragFitBoundsSettings = DragFitBoundsSettings(),
-  val custom: List<CustomDragBinding> = emptyList(),
   val handlers: DragHandlers = DragHandlers(),
 ) {
   val structuralKey: Any
@@ -68,7 +54,6 @@ internal data class DragBinding(
         pan,
         rotateTilt,
         fitBounds,
-        custom.map { it.structuralKey },
       )
 }
 
@@ -201,16 +186,6 @@ internal data class TapBinding(
     get() = listOf(enabled, pointerTypes, mappings, anchor, zoomStep)
 }
 
-internal data class HoverBinding(
-  val enabled: Boolean = true,
-  val pointerTypes: Set<PointerType>? =
-    setOf(PointerType.Mouse, PointerType.Stylus, PointerType.Eraser),
-  val modifiers: ModifierMatch = ModifierMatch.Any,
-) {
-  val structuralKey: Any
-    get() = listOf(enabled, pointerTypes, modifiers)
-}
-
 internal data class KeyBinding(
   val enabled: Boolean = true,
   val mappings: List<KeyMapping> = emptyList(),
@@ -244,7 +219,6 @@ internal data class InteractionBindings(
   val longPress: TapBinding = TapBinding(),
   val twoFingerTap: TapBinding = TapBinding(),
   val tapDrag: TapDragBinding = TapDragBinding(),
-  val hover: HoverBinding = HoverBinding(),
   val keys: KeyBinding = KeyBinding(),
   val rotary: RotaryBinding = RotaryBinding(),
 ) {
@@ -260,7 +234,6 @@ internal data class InteractionBindings(
         longPress.structuralKey,
         twoFingerTap.structuralKey,
         tapDrag.structuralKey,
-        hover.structuralKey,
         keys.structuralKey,
         rotary.structuralKey,
       )
@@ -368,7 +341,6 @@ internal data class InteractionBindings(
         longPress = TapBinding(enabled = false),
         twoFingerTap = TapBinding(enabled = false),
         tapDrag = TapDragBinding(enabled = false),
-        hover = HoverBinding(enabled = false),
         keys = KeyBinding(enabled = false),
         rotary = RotaryBinding(enabled = false),
       )

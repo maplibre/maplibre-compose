@@ -2,15 +2,12 @@ package org.maplibre.compose.interaction
 
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import kotlin.time.Duration
 import org.maplibre.compose.interaction.internal.CameraConfiguration
-import org.maplibre.compose.interaction.internal.CustomDragBinding
 import org.maplibre.compose.interaction.internal.DragBinding
 import org.maplibre.compose.interaction.internal.DragFitBoundsSettings
 import org.maplibre.compose.interaction.internal.DragPanSettings
 import org.maplibre.compose.interaction.internal.DragRotateTiltSettings
-import org.maplibre.compose.interaction.internal.HoverBinding
 import org.maplibre.compose.interaction.internal.InteractionBindings
 import org.maplibre.compose.interaction.internal.KeyBinding
 import org.maplibre.compose.interaction.internal.PanMomentum
@@ -85,53 +82,6 @@ public class DragFitBoundsBuilder internal constructor(from: DragFitBoundsSettin
   }
 }
 
-/**
- * An app-owned single-contact drag. The stable key identifies its lifecycle across configuration
- * updates.
- *
- * For precise handle positioning, use [DragEvent.screenOffset] and preserve the offset from the
- * press to the handle. Summing [DragEvent.Delta.delta] omits the initial recognition slop. Set
- * [startSlop] and [mouseStartSlop] to zero to recognize on the first movement.
- *
- * For app-owned pinch or scroll handling, use Compose pointer input on an overlay and consume the
- * changes it handles so they do not also move the map.
- */
-@MapInteractionDsl
-public class CustomDragBuilder
-internal constructor(private val key: String, from: CustomDragBinding?) {
-  /** Recognition distance for non-mouse pointers, in dp. */
-  public var startSlop: Dp = from?.startSlop ?: 4.dp
-
-  /** Recognition distance for mouse pointers, in dp; independent of [startSlop]. */
-  public var mouseStartSlop: Dp = from?.mouseStartSlop ?: 3.dp
-  private var admission = from?.canStart
-  private var observer = from?.onEvent
-
-  /**
-   * Accepts or declines the press. Accepting reserves the drag and stops map momentum immediately;
-   * [DragEvent.Start] waits until movement crosses the configured slop.
-   */
-  public fun canStart(block: (PointerPressEvent) -> Boolean) {
-    admission = block
-  }
-
-  public fun onEvent(block: (DragEvent) -> Unit) {
-    observer = block
-  }
-
-  internal fun build(): CustomDragBinding {
-    requireNonnegativeFinite(startSlop.value.toDouble(), "startSlop")
-    requireNonnegativeFinite(mouseStartSlop.value.toDouble(), "mouseStartSlop")
-    return CustomDragBinding(
-      key,
-      startSlop,
-      mouseStartSlop,
-      requireNotNull(admission) { "custom requires canStart" },
-      requireNotNull(observer) { "custom requires onEvent" },
-    )
-  }
-}
-
 @MapInteractionDsl
 public class DragBindingBuilder internal constructor(from: DragBinding) {
   public var enabled: Boolean = from.enabled
@@ -140,12 +90,6 @@ public class DragBindingBuilder internal constructor(from: DragBinding) {
   private val panBuilder = DragPanBuilder(from.pan)
   private val rotateTiltBuilder = DragRotateTiltBuilder(from.rotateTilt)
   private val fitBoundsBuilder = DragFitBoundsBuilder(from.fitBounds)
-  private val customBindings = from.custom.toMutableList()
-  private val declaredKeys = mutableSetOf<String>()
-
-  internal fun beginBlock() {
-    declaredKeys.clear()
-  }
 
   private var handlers = from.handlers
 
@@ -163,20 +107,6 @@ public class DragBindingBuilder internal constructor(from: DragBinding) {
 
   public fun fitBounds(block: DragFitBoundsBuilder.() -> Unit) {
     fitBoundsBuilder.apply(block)
-  }
-
-  /** Custom candidates precede camera mappings, in declaration order. */
-  public fun custom(key: String, block: CustomDragBuilder.() -> Unit) {
-    require(key.isNotBlank()) { "A custom drag needs a nonblank key" }
-    require(declaredKeys.add(key)) { "Duplicate custom drag key: $key" }
-    val index = customBindings.indexOfFirst { it.key == key }
-    val updated = CustomDragBuilder(key, customBindings.getOrNull(index)).apply(block).build()
-    if (index >= 0) customBindings[index] = updated else customBindings += updated
-  }
-
-  /** Removes an inherited custom drag; active instances receive cancellation. */
-  public fun removeCustom(key: String) {
-    customBindings.removeAll { it.key == key }
   }
 
   public fun onStart(block: ((DragEvent.Start) -> Unit)?) {
@@ -203,7 +133,6 @@ public class DragBindingBuilder internal constructor(from: DragBinding) {
       panBuilder.build(),
       rotateTiltBuilder.build(),
       fitBoundsBuilder.build(),
-      customBindings.toList(),
       handlers,
     )
 }
@@ -550,17 +479,6 @@ public class TapBindingBuilder internal constructor(from: TapBinding) {
 }
 
 @MapInteractionDsl
-public class HoverBindingBuilder internal constructor(from: HoverBinding) {
-  public var enabled: Boolean = from.enabled
-  public var pointerTypes: Set<PointerType>? = from.pointerTypes
-  public var modifiers: ModifierMatch = from.modifiers
-
-  internal fun build(): HoverBinding {
-    return HoverBinding(enabled, pointerTypes?.toSet(), modifiers)
-  }
-}
-
-@MapInteractionDsl
 public class KeyBindingBuilder internal constructor(from: KeyBinding) {
   public var enabled: Boolean = from.enabled
   private var rows = from.mappings
@@ -618,12 +536,10 @@ public class InteractionBindingsBuilder internal constructor(from: InteractionBi
   private val longPressBuilder = TapBindingBuilder(from.longPress)
   private val twoFingerTapBuilder = TapBindingBuilder(from.twoFingerTap)
   private val tapDragBuilder = TapDragBuilder(from.tapDrag)
-  private val hoverBuilder = HoverBindingBuilder(from.hover)
   private val keysBuilder = KeyBindingBuilder(from.keys)
   private val rotaryBuilder = RotaryBindingBuilder(from.rotary)
 
   public fun drag(block: DragBindingBuilder.() -> Unit) {
-    dragBuilder.beginBlock()
     dragBuilder.apply(block)
   }
 
@@ -659,10 +575,6 @@ public class InteractionBindingsBuilder internal constructor(from: InteractionBi
     tapDragBuilder.apply(block)
   }
 
-  public fun hover(block: HoverBindingBuilder.() -> Unit) {
-    hoverBuilder.apply(block)
-  }
-
   public fun keys(block: KeyBindingBuilder.() -> Unit) {
     keysBuilder.apply(block)
   }
@@ -682,7 +594,6 @@ public class InteractionBindingsBuilder internal constructor(from: InteractionBi
       longPress = longPressBuilder.build(),
       twoFingerTap = twoFingerTapBuilder.build(),
       tapDrag = tapDragBuilder.build(camera.zoom.momentum),
-      hover = hoverBuilder.build(),
       keys = keysBuilder.build(),
       rotary = rotaryBuilder.build(),
     )

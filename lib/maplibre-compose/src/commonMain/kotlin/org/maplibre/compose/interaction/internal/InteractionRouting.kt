@@ -25,9 +25,6 @@ internal fun ScrollBinding.matches(sample: GesturePointerSample): Boolean =
 internal fun TapBinding.matches(sample: GesturePointerSample): Boolean =
   eligible(enabled, pointerTypes, sample)
 
-internal fun HoverBinding.matches(sample: GesturePointerSample): Boolean =
-  eligible(enabled, pointerTypes, sample) && modifiers.matches(sample.modifierKeys)
-
 internal fun TapDragBinding.matches(sample: GesturePointerSample): Boolean =
   eligible(enabled, pointerTypes, sample) &&
     modifiers.matches(sample.modifierKeys) &&

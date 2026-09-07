@@ -301,8 +301,7 @@ class PointerPairGestureTest {
   }
 
   @Test
-  fun mouse_only_single_drag_leaves_touch_pair_pan_and_late_observers_do_not_join() {
-    var lateDeltas = 0
+  fun mouse_only_single_drag_leaves_touch_pair_pan_enabled() {
     val input =
       PairInput(
         MapInteractions {
@@ -310,40 +309,8 @@ class PointerPairGestureTest {
         }
       )
     input.move(20, Offset(-50f, 0f), Offset(110f, 0f))
-    input.options =
-      MapInteractions(input.options) {
-        bindings { transform { pan { onDelta { lateDeltas++ } } } }
-      }
     input.move(40, Offset(-40f, 0f), Offset(120f, 0f))
     assertEquals(2, input.target.moveCalls.size)
-    assertEquals(0, lateDeltas)
-  }
-
-  @Test
-  fun removed_and_readded_observer_cannot_join_the_existing_pan_between_input_events() {
-    val seen = mutableListOf<String>()
-    val input =
-      PairInput(
-        MapInteractions {
-          bindings { transform { pan { onDelta { seen += "original" } } } }
-        }
-      )
-    input.move(20, Offset(-50f, 0f), Offset(110f, 0f))
-    input.options =
-      MapInteractions(input.options) {
-        bindings { transform { pan { onDelta(null) } } }
-      }
-    input.options =
-      MapInteractions(input.options) {
-        bindings { transform { pan { onDelta { seen += "readded" } } } }
-      }
-    input.move(40, Offset(-40f, 0f), Offset(120f, 0f))
-    input.pair.end()
-    assertEquals(listOf("original"), seen)
-    assertEquals(2, input.target.moveCalls.size)
-    val next = PairInput(input.options)
-    next.move(20, Offset(-50f, 0f), Offset(110f, 0f))
-    assertEquals(listOf("original", "readded"), seen)
   }
 
   @Test
@@ -434,12 +401,7 @@ class PointerPairGestureTest {
     private val secondType: PointerType = PointerType.Touch,
     center: Offset = Offset.Zero,
   ) {
-    val subscriptions = InteractionSubscriptions(initial)
     var options = initial
-      set(value) {
-        field = value
-        subscriptions.update(value)
-      }
 
     val target = map.target
     private var time = 0L
@@ -457,7 +419,6 @@ class PointerPairGestureTest {
           target,
           options,
           { options },
-          subscriptions,
           GestureIds(),
           Density(1f),
           event,

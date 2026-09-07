@@ -15,7 +15,6 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import org.maplibre.compose.gljs.GlJsMapSurface
 import org.maplibre.compose.interaction.internal.ClickPath
 import org.maplibre.compose.interaction.internal.InputFocus
-import org.maplibre.compose.interaction.internal.InteractionSubscriptions
 import org.maplibre.compose.interaction.internal.TapFamily
 import org.maplibre.compose.interaction.internal.inputEnvironment
 import org.maplibre.compose.interaction.internal.mapInput
@@ -35,7 +34,7 @@ internal actual fun ComposableMapView(
   logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
   captureClickPath: (TapFamily) -> ClickPath?,
-  subscriptions: InteractionSubscriptions,
+  hasClickHandlers: (TapFamily) -> Boolean,
   options: MapViewOptions,
 ) {
   val density = LocalDensity.current
@@ -99,13 +98,13 @@ internal actual fun ComposableMapView(
           .mapInput(
             session,
             captureClickPath,
+            hasClickHandlers,
             options.interactions,
             density,
             focusRequester,
             inputFocus,
             inputEnvironment,
             rotaryNotchPixels,
-            subscriptions = subscriptions,
           ),
       logger = logger,
       presentFrames = session.canPresentFrames,

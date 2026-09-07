@@ -14,9 +14,9 @@ import org.maplibre.compose.interaction.internal.requireNonnegativeFinite
 public annotation class MapInteractionDsl
 
 /**
- * Immutable camera policy, input mappings, and application callbacks for one map. Callback bodies
- * and subscription presence can update without restarting input. Changes to permissions, matching
- * patterns, or tuning cancel input using the previous configuration.
+ * Immutable camera policy, input mappings, and application callbacks for one map. Callbacks can
+ * update without restarting input. Changes to permissions, matching patterns, or tuning cancel
+ * input using the previous configuration.
  */
 @Immutable
 public class MapInteractions
@@ -78,14 +78,14 @@ private constructor(
   }
 
   public companion object {
-    /** Standard camera controls with no application subscriptions. */
+    /** Standard camera controls with no application callbacks. */
     public val Standard: MapInteractions =
       MapInteractions(
         CameraConfiguration(),
         InteractionBindings.standard(),
         InteractionCallbacks(),
       )
-    /** Disables built-in input, including feature clicks and hover. */
+    /** Disables built-in input, including feature clicks. */
     public val None: MapInteractions =
       MapInteractions(
         CameraConfiguration(),

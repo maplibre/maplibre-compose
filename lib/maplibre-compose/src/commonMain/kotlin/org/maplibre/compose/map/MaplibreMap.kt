@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.internal.FeatureClickDispatcher
-import org.maplibre.compose.interaction.internal.InteractionSubscriptions
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MapOverlayHost
 import org.maplibre.compose.overlay.MapOverlayScope
@@ -165,7 +164,6 @@ private fun MaplibreMapPresentation(
     )
   val desiredRevision by desiredRevisionState
   val mapAttachment = state.currentMapAttachment
-  val subscriptions = remember(state) { InteractionSubscriptions(mapViewOptions.interactions) }
   val currentInteractions = rememberUpdatedState(mapViewOptions.interactions)
   SideEffect { state.gestureAuthority.updateConfiguration(mapViewOptions.interactions.camera) }
   // The style subcomposition publishes into a revision state it re-creates per loaded style, and
@@ -178,7 +176,6 @@ private fun MaplibreMapPresentation(
         desiredRevision = currentDesiredRevision,
         loadedStyle = rememberedStyleState,
         interactions = currentInteractions,
-        subscriptions = subscriptions,
       )
     }
   var retainedRevisionReplayed by remember(rememberedStyle, mapAttachment) { mutableStateOf(false) }
@@ -266,7 +263,7 @@ private fun MaplibreMapPresentation(
       logger = state.runtime.logger,
       callbacks = adapterCallbacks,
       captureClickPath = clickDispatcher::capture,
-      subscriptions = subscriptions,
+      hasClickHandlers = clickDispatcher::hasHandlers,
       options = mapViewOptions,
     )
 

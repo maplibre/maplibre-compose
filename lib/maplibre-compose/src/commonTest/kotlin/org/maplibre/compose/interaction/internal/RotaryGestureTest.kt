@@ -93,12 +93,7 @@ class MapRotaryGestureTest {
     initial: RotaryBinding = RotaryBinding(),
     notch: Float = 24f,
   ) {
-    private val subscription = SubscriptionSlot().apply { update(initial.onEvent != null) }
     var binding = initial
-      set(value) {
-        field = value
-        subscription.update(value.onEvent != null)
-      }
 
     val target = map.target
     val input =
@@ -108,7 +103,6 @@ class MapRotaryGestureTest {
         GestureIds(),
         notch,
         scope,
-        subscription,
       )
   }
 }

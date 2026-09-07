@@ -51,9 +51,6 @@ internal class StyleNode(
             onDoubleClick = node.onDoubleClick,
             hitPadding = node.hitPadding,
             registration = node,
-            clickSubscription = node.clickSubscription.capture(),
-            longClickSubscription = node.longClickSubscription.capture(),
-            doubleClickSubscription = node.doubleClickSubscription.capture(),
           )
         },
       images = imageManager.desiredImages,

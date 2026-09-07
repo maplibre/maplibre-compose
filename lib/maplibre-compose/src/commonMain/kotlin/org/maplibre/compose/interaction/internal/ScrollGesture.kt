@@ -22,7 +22,6 @@ internal class ScrollGesture(
   private val target: CameraInputTarget,
   private val options: MapInteractions,
   private val currentOptions: () -> MapInteractions,
-  private val subscriptions: InteractionSubscriptions,
   private val ids: GestureIds,
   private val density: Density,
   private val viewportSize: () -> IntSize,
@@ -31,7 +30,6 @@ internal class ScrollGesture(
 ) {
   private class Burst(
     val response: ScrollResponse,
-    val membership: LifecycleMembership,
     val session: GestureInputSession,
     var sample: GesturePointerSample,
   ) {
@@ -90,16 +88,16 @@ internal class ScrollGesture(
             }
           Burst(
               selected,
-              subscriptions.scroll.capture(),
               session,
               sample.copy(gestureId = ids.next()),
             )
             .also {
               burst = it
-              it.membership.observe(
-                ScrollEvent.Start(it.sample, it.sample.screenOffset),
-                currentOptions().bindings.scroll.handlers,
-              )
+              currentOptions()
+                .bindings
+                .scroll
+                .handlers
+                .observe(ScrollEvent.Start(it.sample, it.sample.screenOffset))
             }
         }
 
@@ -111,10 +109,7 @@ internal class ScrollGesture(
     current.sample = sample.copy(gestureId = current.sample.gestureId)
     current.displacement += Offset(normalized.x.value, normalized.y.value)
     current.velocity.addPosition(sample.uptimeMillis, current.displacement)
-    current.membership.observe(
-      ScrollEvent.Delta(current.sample, normalized),
-      currentOptions().bindings.scroll.handlers,
-    )
+    currentOptions().bindings.scroll.handlers.observe(ScrollEvent.Delta(current.sample, normalized))
 
     if (!current.token.acceptsCommands) {
       cancel(GestureCancellationReason.CameraTakeover)
@@ -153,13 +148,16 @@ internal class ScrollGesture(
         finishJob = null
         val velocity = current.velocity.calculateVelocity(pointerInput = false)
         try {
-          current.membership.observe(
-            ScrollEvent.End(
-              current.sample,
-              ScreenVelocity(velocity.x.toDouble(), velocity.y.toDouble()),
-            ),
-            currentOptions().bindings.scroll.handlers,
-          )
+          currentOptions()
+            .bindings
+            .scroll
+            .handlers
+            .observe(
+              ScrollEvent.End(
+                current.sample,
+                ScreenVelocity(velocity.x.toDouble(), velocity.y.toDouble()),
+              )
+            )
         } finally {
           current.session.end()
         }
@@ -172,10 +170,7 @@ internal class ScrollGesture(
     val previous = burst ?: return
     burst = null
     try {
-      previous.membership.observe(
-        ScrollEvent.Cancel(previous.sample, reason),
-        currentOptions().bindings.scroll.handlers,
-      )
+      currentOptions().bindings.scroll.handlers.observe(ScrollEvent.Cancel(previous.sample, reason))
     } finally {
       previous.session.cancel()
     }

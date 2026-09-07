@@ -49,18 +49,6 @@ public abstract class PointerGestureEvent internal constructor(sample: GesturePo
   public val modifierKeys: Set<KeyModifier> = sample.modifierKeys.toSet()
 }
 
-/**
- * The press supplied to a custom drag predicate before reserving its input lifetime.
- * [pairedSecondPress] identifies a paired second press. Declining an eligible non-mouse press
- * leaves tap-drag zoom available.
- */
-@Immutable
-public class PointerPressEvent
-internal constructor(
-  sample: GesturePointerSample,
-  public val pairedSecondPress: Boolean = false,
-) : PointerGestureEvent(sample)
-
 /** An ordinary tap or primary click. */
 @Immutable
 public class TapEvent internal constructor(sample: GesturePointerSample) :
@@ -204,21 +192,6 @@ public sealed class ScrollEvent private constructor(sample: GesturePointerSample
   public class Cancel
   internal constructor(sample: GesturePointerSample, public val reason: GestureCancellationReason) :
     ScrollEvent(sample)
-}
-
-/**
- * Mouse or stylus entry, movement, and exit as reported by the host, including mouse movement while
- * buttons are pressed. Camera and style changes do not produce events. Hover does not consume input
- * or query features.
- */
-@Immutable
-public sealed class HoverEvent private constructor(sample: GesturePointerSample) :
-  PointerGestureEvent(sample) {
-  public class Enter internal constructor(sample: GesturePointerSample) : HoverEvent(sample)
-
-  public class Move internal constructor(sample: GesturePointerSample) : HoverEvent(sample)
-
-  public class Exit internal constructor(sample: GesturePointerSample) : HoverEvent(sample)
 }
 
 /** An accepted key press or repeat; no pointer location is fabricated. */

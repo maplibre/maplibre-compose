@@ -34,7 +34,6 @@ import org.maplibre.compose.interaction.internal.CameraConfiguration
 import org.maplibre.compose.interaction.internal.ClickPath
 import org.maplibre.compose.interaction.internal.GestureInputSession
 import org.maplibre.compose.interaction.internal.GesturePointerSample
-import org.maplibre.compose.interaction.internal.InteractionSubscriptions
 import org.maplibre.compose.interaction.internal.TapDispatcher
 import org.maplibre.compose.interaction.internal.TapFamily
 import org.maplibre.compose.interaction.internal.launchTapTransition
@@ -63,13 +62,13 @@ class CameraInputTest {
         TapDispatcher(
           backgroundScope,
           clicks,
-          InteractionSubscriptions(MapInteractions.Standard),
+          { false },
         ) {
           MapInteractions.Standard
         }
       fun dispatch(id: Long, generation: Long) {
         dispatcher.dispatch(
-          checkNotNull(dispatcher.capture(TapFamily.DoubleTap)),
+          TapFamily.DoubleTap,
           GesturePointerSample(id, 10, DpOffset.Zero, null, emptySet(), emptySet(), emptySet()),
         ) {
           launchTapTransition(backgroundScope, target, generation) { token ->

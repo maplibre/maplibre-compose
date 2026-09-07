@@ -18,7 +18,6 @@ import org.maplibre.compose.interaction.DragEvent
 import org.maplibre.compose.interaction.GestureCancellationReason
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.PinchEvent
-import org.maplibre.compose.interaction.PointerGestureEvent
 import org.maplibre.compose.interaction.RotateEvent
 import org.maplibre.compose.interaction.ScreenVelocity
 import org.maplibre.compose.interaction.ShoveEvent
@@ -28,7 +27,6 @@ internal class PointerPairGesture(
   private val target: CameraInputTarget,
   options: MapInteractions,
   private val currentOptions: () -> MapInteractions,
-  private val subscriptions: InteractionSubscriptions,
   private val ids: GestureIds,
   private val density: Density,
   event: PointerEvent,
@@ -41,7 +39,6 @@ internal class PointerPairGesture(
 ) {
   private class Component {
     var sample: GesturePointerSample? = null
-    var observer: (PointerGestureEvent) -> Unit = {}
     val active: Boolean
       get() = sample != null
   }
@@ -139,45 +136,18 @@ internal class PointerPairGesture(
     token?.origin = CameraInputOrigin.Transform
     token?.rearm(kind.cameraComponent)
 
-    // Membership is fixed at Start; handler replacements are read when each event is delivered.
-    val membership =
-      when (kind) {
-        TransformComponent.Pan -> subscriptions.transformPan.capture()
-        TransformComponent.Scale -> subscriptions.transformZoom.capture()
-        TransformComponent.Rotation -> subscriptions.transformRotate.capture()
-        TransformComponent.VerticalDrag -> subscriptions.transformTilt.capture()
-      }
-    component.observer =
-      when (kind) {
-        TransformComponent.Pan -> { event ->
-          membership.observe(event as DragEvent, currentOptions().bindings.transform.pan.handlers)
-        }
-        TransformComponent.Scale -> { event ->
-          membership.observe(event as PinchEvent, currentOptions().bindings.transform.zoom.handlers)
-        }
-        TransformComponent.Rotation -> { event ->
-          membership.observe(
-            event as RotateEvent,
-            currentOptions().bindings.transform.rotate.handlers,
-          )
-        }
-        TransformComponent.VerticalDrag -> { event ->
-          membership.observe(event as ShoveEvent, currentOptions().bindings.transform.tilt.handlers)
-        }
-      }
-
     val sample = metadata.copy(gestureId = ids.next())
     component.sample = sample
     val position = DpOffset((origin.x / density.density).dp, (origin.y / density.density).dp)
-    observe(
-      component,
-      when (kind) {
-        TransformComponent.Pan -> DragEvent.Start(sample, position)
-        TransformComponent.Scale -> PinchEvent.Start(sample, position)
-        TransformComponent.Rotation -> RotateEvent.Start(sample, position)
-        TransformComponent.VerticalDrag -> ShoveEvent.Start(sample, position)
-      },
-    )
+    val handlers = currentOptions().bindings.transform
+    when (kind) {
+      TransformComponent.Pan -> handlers.pan.handlers.observe(DragEvent.Start(sample, position))
+      TransformComponent.Scale -> handlers.zoom.handlers.observe(PinchEvent.Start(sample, position))
+      TransformComponent.Rotation ->
+        handlers.rotate.handlers.observe(RotateEvent.Start(sample, position))
+      TransformComponent.VerticalDrag ->
+        handlers.tilt.handlers.observe(ShoveEvent.Start(sample, position))
+    }
 
     return retainAuthority()
   }
@@ -192,7 +162,7 @@ internal class PointerPairGesture(
       TransformComponent.Pan -> {
         val offset =
           DpOffset((delta.pan.x / density.density).dp, (delta.pan.y / density.density).dp)
-        observe(component, DragEvent.Delta(sample, offset))
+        currentOptions().bindings.transform.pan.handlers.observe(DragEvent.Delta(sample, offset))
         if (!retainAuthority()) return false
 
         target.inputPanBy(
@@ -202,7 +172,12 @@ internal class PointerPairGesture(
         )
       }
       TransformComponent.Scale -> {
-        observe(component, PinchEvent.Delta(sample, delta.scale))
+        currentOptions()
+          .bindings
+          .transform
+          .zoom
+          .handlers
+          .observe(PinchEvent.Delta(sample, delta.scale))
         if (!retainAuthority()) return false
 
         target.inputScaleBy(
@@ -212,7 +187,12 @@ internal class PointerPairGesture(
         )
       }
       TransformComponent.Rotation -> {
-        observe(component, RotateEvent.Delta(sample, delta.rotation))
+        currentOptions()
+          .bindings
+          .transform
+          .rotate
+          .handlers
+          .observe(RotateEvent.Delta(sample, delta.rotation))
         if (!retainAuthority()) return false
 
         target.inputRotateAndPitchBy(
@@ -223,7 +203,12 @@ internal class PointerPairGesture(
         )
       }
       TransformComponent.VerticalDrag -> {
-        observe(component, ShoveEvent.Delta(sample, (delta.verticalDrag / density.density).dp))
+        currentOptions()
+          .bindings
+          .transform
+          .tilt
+          .handlers
+          .observe(ShoveEvent.Delta(sample, (delta.verticalDrag / density.density).dp))
         if (!retainAuthority()) return false
 
         target.inputRotateAndPitchBy(
@@ -237,21 +222,21 @@ internal class PointerPairGesture(
     return retainAuthority()
   }
 
-  private fun observe(component: Component, event: PointerGestureEvent) = component.observer(event)
-
   private fun cancelComponent(kind: TransformComponent) {
     val component = checkNotNull(components[kind])
     val sample = component.sample ?: return
     component.sample = null
-    observe(
-      component,
-      when (kind) {
-        TransformComponent.Pan -> DragEvent.Cancel(sample, cancellationReason)
-        TransformComponent.Scale -> PinchEvent.Cancel(sample, cancellationReason)
-        TransformComponent.Rotation -> RotateEvent.Cancel(sample, cancellationReason)
-        TransformComponent.VerticalDrag -> ShoveEvent.Cancel(sample, cancellationReason)
-      },
-    )
+    val handlers = currentOptions().bindings.transform
+    when (kind) {
+      TransformComponent.Pan ->
+        handlers.pan.handlers.observe(DragEvent.Cancel(sample, cancellationReason))
+      TransformComponent.Scale ->
+        handlers.zoom.handlers.observe(PinchEvent.Cancel(sample, cancellationReason))
+      TransformComponent.Rotation ->
+        handlers.rotate.handlers.observe(RotateEvent.Cancel(sample, cancellationReason))
+      TransformComponent.VerticalDrag ->
+        handlers.tilt.handlers.observe(ShoveEvent.Cancel(sample, cancellationReason))
+    }
   }
 
   fun cancel(reason: GestureCancellationReason) {
@@ -275,19 +260,21 @@ internal class PointerPairGesture(
         (velocity.centroid.y / density.density).toDouble(),
       )
 
-    observe(
-      component,
-      when (kind) {
-        TransformComponent.Pan -> DragEvent.End(sample, linear)
-        TransformComponent.Scale ->
+    val handlers = currentOptions().bindings.transform
+    when (kind) {
+      TransformComponent.Pan -> handlers.pan.handlers.observe(DragEvent.End(sample, linear))
+      TransformComponent.Scale ->
+        handlers.zoom.handlers.observe(
           PinchEvent.End(
             sample,
             velocity.logarithmicScale * ln(GestureMath.pinchScale(kotlin.math.E)) / ln(2.0),
           )
-        TransformComponent.Rotation -> RotateEvent.End(sample, velocity.rotation)
-        TransformComponent.VerticalDrag -> ShoveEvent.End(sample, linear)
-      },
-    )
+        )
+      TransformComponent.Rotation ->
+        handlers.rotate.handlers.observe(RotateEvent.End(sample, velocity.rotation))
+      TransformComponent.VerticalDrag ->
+        handlers.tilt.handlers.observe(ShoveEvent.End(sample, linear))
+    }
 
     if (token?.acceptsCommands == false) {
       retainAuthority()

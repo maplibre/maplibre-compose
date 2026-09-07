@@ -18,7 +18,6 @@ import androidx.compose.ui.platform.testTag
 import kotlinx.coroutines.CancellationException
 import org.maplibre.compose.interaction.internal.ClickPath
 import org.maplibre.compose.interaction.internal.InputFocus
-import org.maplibre.compose.interaction.internal.InteractionSubscriptions
 import org.maplibre.compose.interaction.internal.TapFamily
 import org.maplibre.compose.interaction.internal.inputEnvironment
 import org.maplibre.compose.interaction.internal.mapInput
@@ -52,7 +51,7 @@ internal fun MlnFfiMapView(
   logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
   captureClickPath: (TapFamily) -> ClickPath?,
-  subscriptions: InteractionSubscriptions,
+  hasClickHandlers: (TapFamily) -> Boolean,
   options: MapViewOptions,
 ) {
   val density = LocalDensity.current
@@ -82,7 +81,7 @@ internal fun MlnFfiMapView(
     logger = logger,
     callbacks = callbacks,
     captureClickPath = captureClickPath,
-    subscriptions = subscriptions,
+    hasClickHandlers = hasClickHandlers,
     options = options,
   )
 }
@@ -100,7 +99,7 @@ internal fun MlnFfiMapView(
   logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
   captureClickPath: (TapFamily) -> ClickPath?,
-  subscriptions: InteractionSubscriptions,
+  hasClickHandlers: (TapFamily) -> Boolean,
   options: MapViewOptions,
 ) {
   val applicationOptions = state.runtime.nativeRuntimeOptions
@@ -189,13 +188,13 @@ internal fun MlnFfiMapView(
     modifier.mapInput(
       session,
       captureClickPath,
+      hasClickHandlers,
       options.interactions,
       density,
       focusRequester,
       inputFocus,
       inputEnvironment,
       rotaryNotchPixels,
-      subscriptions = subscriptions,
     )
 
   // The indication draws over the surface and the load placeholder alike.

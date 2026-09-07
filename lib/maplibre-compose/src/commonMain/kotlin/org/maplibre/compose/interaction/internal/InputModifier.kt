@@ -52,13 +52,13 @@ import org.maplibre.compose.interaction.MapInteractions
 internal fun Modifier.mapInput(
   target: CameraInputTarget,
   captureClickPath: (TapFamily) -> ClickPath?,
+  hasClickHandlers: (TapFamily) -> Boolean,
   options: MapInteractions,
   density: Density,
   focusRequester: FocusRequester,
   focus: InputFocus,
   environment: InputEnvironment,
   rotaryNotchPixels: Float,
-  subscriptions: InteractionSubscriptions,
 ): Modifier {
   // The semantics block observes no snapshot state, so engagement is read here.
   val engaged = focus.isEngaged
@@ -82,7 +82,6 @@ internal fun Modifier.mapInput(
         ids,
         rotaryNotchPixels,
         inputScope,
-        subscriptions.rotary,
       )
     }
   DisposableEffect(rotaryInput) { onDispose { rotaryInput.cancel() } }
@@ -95,13 +94,11 @@ internal fun Modifier.mapInput(
         focus,
         ids,
         inputScope,
-        subscriptions.keys,
       )
     }
   DisposableEffect(keyInput) { onDispose { keyInput.cancel() } }
 
   SideEffect {
-    subscriptions.update(options)
     keyInput.configure(options.structuralKey)
   }
 
@@ -135,6 +132,7 @@ internal fun Modifier.mapInput(
     .pointerGestures(
       target,
       captureClickPath,
+      hasClickHandlers,
       options,
       { pointerOptions.value },
       { currentOptions.value.structuralKey },
@@ -144,7 +142,6 @@ internal fun Modifier.mapInput(
       ids,
       boxZoom,
       platformRouting,
-      subscriptions,
       rememberScrollConverter(),
     )
 }
@@ -169,6 +166,7 @@ internal fun inputEnvironment(): InputEnvironment =
 private fun Modifier.pointerGestures(
   target: CameraInputTarget,
   captureClickPath: (TapFamily) -> ClickPath?,
+  hasClickHandlers: (TapFamily) -> Boolean,
   options: MapInteractions,
   currentOptions: () -> MapInteractions,
   currentStructuralKey: () -> Any,
@@ -178,26 +176,15 @@ private fun Modifier.pointerGestures(
   ids: GestureIds,
   boxZoom: BoxZoomPreview,
   platformRouting: PlatformTransformRouting,
-  subscriptions: InteractionSubscriptions,
   scrollConverter: ScrollConverter,
 ): Modifier =
   pointerInput(target, options.structuralKey, density, scrollConverter) {
     val scope = CoroutineScope(currentCoroutineContext())
-    val hover =
-      HoverGesture(
-        scope,
-        target::positionFromScreenLocation,
-        currentOptions,
-        ids,
-        density,
-        subscriptions,
-      )
     val scroll =
       ScrollGesture(
         target,
         options,
         currentOptions,
-        subscriptions,
         ids,
         density,
         { size },
@@ -210,10 +197,9 @@ private fun Modifier.pointerGestures(
     val gesture =
       PointerGesture(
         target = target,
-        taps = TapDispatcher(scope, captureClickPath, subscriptions, currentOptions),
+        taps = TapDispatcher(scope, captureClickPath, hasClickHandlers, currentOptions),
         options = options,
         currentOptions = currentOptions,
-        subscriptions = subscriptions,
         ids = ids,
         boxZoom = boxZoom,
         density = density,
@@ -248,7 +234,6 @@ private fun Modifier.pointerGestures(
         target,
         options,
         currentOptions,
-        subscriptions,
         ids,
         scope,
         platformRouting,
@@ -263,7 +248,6 @@ private fun Modifier.pointerGestures(
         while (true) {
           val event = awaitPointerEvent(PointerEventPass.Main)
           val ready = target.isGestureReady
-          if (ready) hover.onPointerEvent(event) else hover.exit()
           val routed =
             platformRouting.route(
               event.type,
@@ -344,11 +328,7 @@ private fun Modifier.pointerGestures(
         try {
           scroll.cancel(reason)
         } finally {
-          try {
-            platform.cancel(reason)
-          } finally {
-            hover.exit()
-          }
+          platform.cancel(reason)
         }
       }
     }

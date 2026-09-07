@@ -18,11 +18,10 @@ internal class RotaryGesture(
   private val ids: GestureIds,
   private val notchPixels: Float,
   private val scope: CoroutineScope,
-  private val subscription: SubscriptionSlot,
 ) {
   private var session: GestureInputSession? = null
   private var gestureId = 0L
-  private var admittedCallback: Any? = null
+
   private var finishJob: Job? = null
 
   fun onEvent(event: RotaryScrollEvent): Boolean =
@@ -51,7 +50,7 @@ internal class RotaryGesture(
         ?: run {
           cancel()
           gestureId = ids.next()
-          admittedCallback = subscription.capture()
+
           lateinit var created: GestureInputSession
           created =
             GestureInputSession(scope, target, origin = CameraInputOrigin.Rotary) {
@@ -60,15 +59,14 @@ internal class RotaryGesture(
           created.also { session = it }
         }
     try {
-      if (subscription.contains(admittedCallback))
-        selected.onEvent?.invoke(
-          RotaryGestureEvent(
-            gestureId,
-            uptimeMillis,
-            verticalScrollPixels,
-            horizontalScrollPixels,
-          )
+      selected.onEvent?.invoke(
+        RotaryGestureEvent(
+          gestureId,
+          uptimeMillis,
+          verticalScrollPixels,
+          horizontalScrollPixels,
         )
+      )
       if (!current.token.acceptsCommands) {
         cancel()
         return true

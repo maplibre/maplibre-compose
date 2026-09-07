@@ -6,7 +6,6 @@ import androidx.compose.ui.Modifier
 import org.maplibre.compose.desktop.LocalComposeMapPresentationHost
 import org.maplibre.compose.desktop.bridge.ComposeMapPresentationHostFactory
 import org.maplibre.compose.interaction.internal.ClickPath
-import org.maplibre.compose.interaction.internal.InteractionSubscriptions
 import org.maplibre.compose.interaction.internal.TapFamily
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.style.BaseStyle
@@ -32,7 +31,7 @@ internal actual fun ComposableMapView(
   logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
   captureClickPath: (TapFamily) -> ClickPath?,
-  subscriptions: InteractionSubscriptions,
+  hasClickHandlers: (TapFamily) -> Boolean,
   options: MapViewOptions,
 ) {
   val hostFactory =
@@ -52,7 +51,7 @@ internal actual fun ComposableMapView(
     logger = logger,
     callbacks = callbacks,
     captureClickPath = captureClickPath,
-    subscriptions = subscriptions,
+    hasClickHandlers = hasClickHandlers,
     options = options,
   )
 }

@@ -3,7 +3,6 @@ package org.maplibre.compose.interaction.internal
 import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.DoubleTapEvent
 import org.maplibre.compose.interaction.DragEvent
-import org.maplibre.compose.interaction.HoverEvent
 import org.maplibre.compose.interaction.LongClickEvent
 import org.maplibre.compose.interaction.PinchEvent
 import org.maplibre.compose.interaction.RotateEvent
@@ -51,5 +50,4 @@ internal data class InteractionCallbacks(
   val unhandledClick: ((TapEvent) -> ClickResult)? = null,
   val doubleClick: ((DoubleTapEvent) -> ClickResult)? = null,
   val longClick: ((LongClickEvent) -> ClickResult)? = null,
-  val hover: ((HoverEvent) -> Unit)? = null,
 )

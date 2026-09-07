@@ -72,7 +72,6 @@ import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.DoubleTapEvent
 import org.maplibre.compose.interaction.DragEvent
 import org.maplibre.compose.interaction.GestureCancellationReason
-import org.maplibre.compose.interaction.HoverEvent
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.LongClickEvent
 import org.maplibre.compose.interaction.MapInteractions
@@ -194,44 +193,6 @@ class MapInputRecognitionTest {
     assertEquals(listOf("start", "delta", "cancel"), calls)
     assertTrue(recorded.moveCalls.isEmpty())
     assertEquals(1, recorded.startedCount)
-    assertEquals(1, recorded.endedCount)
-  }
-
-  @Test
-  fun a_throwing_custom_end_still_releases_camera_ownership() {
-    val response = mutableListOf<DragEvent>()
-    lateinit var recorded: RecordingGestureTarget
-    val failure =
-      assertFailsWith<IllegalStateException> {
-        runRecognitionTest(
-          options =
-            MapInteractions {
-              bindings {
-                drag {
-                  custom("edit") {
-                    canStart { true }
-                    onEvent {
-                      response += it
-                      if (it is DragEvent.End) error("end response failed")
-                    }
-                  }
-                }
-              }
-            }
-        ) { target ->
-          recorded = target
-          mapNode().performTouchInput {
-            down(Offset(30f, 30f))
-            moveBy(Offset(40f, 0f))
-            up()
-          }
-          waitForIdle()
-        }
-      }
-    assertEquals("end response failed", failure.message)
-    assertTrue(response.first() is DragEvent.Start)
-    assertEquals(0, response.count { it is DragEvent.Cancel })
-    assertEquals(1, response.count { it is DragEvent.End })
     assertEquals(1, recorded.endedCount)
   }
 
@@ -454,57 +415,6 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun hover_tracks_a_mouse_drag_until_the_pointer_leaves_the_map() {
-    val events = mutableListOf<HoverEvent>()
-    runRecognitionTest(
-      options = MapInteractions { callbacks { hover { onEvent { events += it } } } }
-    ) { target ->
-      val map = mapNode()
-      map.performMouseInput {
-        moveTo(center)
-        press()
-        moveBy(Offset(20f, 0f))
-      }
-      waitForIdle()
-      assertTrue(target.moveCalls.isNotEmpty())
-      val dragged = events.last()
-      assertTrue(dragged is HoverEvent.Move)
-      assertTrue(dragged.buttons.isNotEmpty())
-      assertEquals(1, events.count { it is HoverEvent.Enter })
-      assertTrue(events.none { it is HoverEvent.Exit })
-      map.performMouseInput {
-        moveTo(Offset(-10f, -10f))
-        moveTo(Offset(-20f, -20f))
-        release()
-      }
-      waitForIdle()
-      assertTrue(events.last() is HoverEvent.Exit)
-      assertEquals(1, events.count { it is HoverEvent.Exit })
-      assertEquals(1, events.count { it is HoverEvent.Enter })
-      map.performMouseInput { moveTo(center) }
-      waitForIdle()
-      assertTrue(events.last() is HoverEvent.Enter)
-      assertTrue(events.last().buttons.isEmpty())
-    }
-  }
-
-  @Test
-  fun touchscreen_input_never_reports_hover() {
-    val events = mutableListOf<HoverEvent>()
-    runRecognitionTest(
-      options = MapInteractions { callbacks { hover { onEvent { events += it } } } }
-    ) { _ ->
-      mapNode().performTouchInput {
-        down(center)
-        moveBy(Offset(5f, 0f))
-        up()
-      }
-      waitForIdle()
-      assertTrue(events.isEmpty())
-    }
-  }
-
-  @Test
   fun two_finger_tap_only_claims_its_press_against_a_parent_click() {
     var parentClicks = 0
     runRecognitionTest(
@@ -590,7 +500,7 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun a_double_tap_slot_without_a_dispatch_path_does_not_delay_touch_clicks() {
+  fun an_unused_double_tap_binding_does_not_delay_touch_clicks() {
     runRecognitionTest(
       options =
         MapInteractions {
@@ -606,30 +516,6 @@ class MapInputRecognitionTest {
       } finally {
         mainClock.autoAdvance = true
       }
-    }
-  }
-
-  @Test
-  fun layer_double_tap_demand_is_snapshotted_for_the_contact_sequence() {
-    runRecognitionTest(
-      options =
-        MapInteractions {
-          bindings { doubleTap { mappings {} } }
-          bindings { tapDrag { enabled = false } }
-        }
-    ) { target ->
-      target.clickFamilies = setOf(TapFamily.Tap, TapFamily.DoubleTap)
-      val map = mapNode()
-      map.performTouchInput { down(center) }
-      target.clickFamilies = setOf(TapFamily.Tap)
-      map.performTouchInput {
-        up()
-        advanceEventTime(SECOND_TAP_GAP_MILLIS)
-        click(center)
-      }
-      waitForIdle()
-      assertEquals(listOf(TapFamily.DoubleTap), target.deliveredTapFamilies)
-      assertTrue(target.scaleCalls.isEmpty())
     }
   }
 
@@ -935,216 +821,6 @@ class MapInputRecognitionTest {
   }
 
   @Test
-  fun a_custom_reservation_waits_for_its_own_slop() {
-    val delivered = mutableListOf<DragEvent>()
-    var claims = 0
-    var claimHandle = false
-    val options = MapInteractions {
-      bindings {
-        drag {
-          custom("handle") {
-            startSlop = 40.dp
-            canStart {
-              if (claimHandle) claims++
-              claimHandle
-            }
-            onEvent { delivered += it }
-          }
-        }
-      }
-    }
-    runRecognitionTest(options = options) { target ->
-      val map = mapNode()
-      mainClock.autoAdvance = false
-      map.performTouchInput {
-        down(center)
-        repeat(6) { moveBy(Offset(20f, 0f), delayMillis = 16) }
-        up()
-      }
-      val releasedMoves = target.moveCalls.size
-      mainClock.advanceTimeBy(64)
-      waitForIdle()
-      assertTrue(target.moveCalls.size > releasedMoves, "the preceding pan did not fling")
-      runOnIdle { claimHandle = true }
-      map.performTouchInput {
-        down(center)
-        moveBy(Offset(10f, 0f))
-      }
-      val claimedMoves = target.moveCalls.size
-      mainClock.advanceTimeBy(1_000)
-      waitForIdle()
-      assertTrue(delivered.isEmpty())
-      assertEquals(
-        claimedMoves,
-        target.moveCalls.size,
-        "momentum continued under the reserved handle",
-      )
-      map.performTouchInput {
-        moveBy(Offset(90f, 0f))
-        up()
-      }
-      waitForIdle()
-      assertEquals(1, claims)
-      assertTrue(delivered.first() is DragEvent.Start)
-      assertTrue(delivered[1] is DragEvent.Delta)
-      assertTrue(delivered.last() is DragEvent.End)
-      assertEquals(1, delivered.map { it.gestureId }.distinct().size)
-      assertEquals(claimedMoves, target.moveCalls.size)
-      mainClock.autoAdvance = true
-    }
-  }
-
-  @Test
-  fun takeover_in_custom_end_does_not_cancel_an_already_completed_action() {
-    var recorded: RecordingGestureTarget? = null
-    var newer: CameraInputToken? = null
-    val delivered = mutableListOf<DragEvent>()
-    runRecognitionTest(
-      options =
-        MapInteractions {
-          bindings {
-            drag {
-              custom("handle") {
-                canStart { true }
-                onEvent {
-                  delivered += it
-                  if (it is DragEvent.End) newer = checkNotNull(recorded).onGestureStarted()
-                }
-              }
-            }
-          }
-        }
-    ) { target ->
-      recorded = target
-      mapNode().performTouchInput {
-        down(center)
-        moveBy(Offset(60f, 0f))
-        up()
-      }
-      waitForIdle()
-      assertEquals(1, delivered.count { it is DragEvent.Start })
-      assertEquals(1, delivered.count { it is DragEvent.End })
-      assertEquals(0, delivered.count { it is DragEvent.Cancel })
-      assertTrue(checkNotNull(newer).acceptsCommands)
-      target.onGestureEnded(checkNotNull(newer))
-    }
-  }
-
-  @Test
-  fun takeover_in_custom_start_balances_the_started_action() {
-    var recorded: RecordingGestureTarget? = null
-    var newer: CameraInputToken? = null
-    val delivered = mutableListOf<DragEvent>()
-    runRecognitionTest(
-      options =
-        MapInteractions {
-          bindings {
-            drag {
-              custom("handle") {
-                canStart { true }
-                onEvent {
-                  delivered += it
-                  if (it is DragEvent.Start) newer = checkNotNull(recorded).onGestureStarted()
-                }
-              }
-            }
-          }
-        }
-    ) { target ->
-      recorded = target
-      mapNode().performTouchInput {
-        down(center)
-        moveBy(Offset(60f, 0f))
-        up()
-      }
-      waitForIdle()
-      assertEquals(1, delivered.count { it is DragEvent.Start })
-      assertEquals(1, delivered.count { it is DragEvent.Cancel })
-      assertFalse(delivered.any { it is DragEvent.Delta || it is DragEvent.End })
-      assertTrue(checkNotNull(newer).acceptsCommands)
-      target.onGestureEnded(checkNotNull(newer))
-    }
-  }
-
-  @Test
-  fun a_rejected_custom_claim_allows_an_observed_camera_binding() {
-    var customEvents = 0
-    val observed = mutableListOf<DragEvent>()
-    lateinit var recorded: RecordingGestureTarget
-    runRecognitionTest(
-      options =
-        MapInteractions {
-          bindings {
-            drag {
-              onStart {
-                assertTrue(recorded.moveCalls.isEmpty())
-                observed += it
-              }
-              onDelta { observed += it }
-              onEnd { observed += it }
-            }
-          }
-          bindings {
-            drag {
-              custom("handle") {
-                canStart { false }
-                onEvent { customEvents++ }
-              }
-            }
-          }
-        }
-    ) { target ->
-      recorded = target
-      mapNode().performTouchInput {
-        down(center)
-        moveBy(Offset(60f, 0f))
-        up()
-      }
-      waitForIdle()
-      assertTrue(target.moveCalls.isNotEmpty())
-      assertEquals(0, customEvents)
-      assertTrue(observed.first() is DragEvent.Start)
-      assertTrue(observed.any { it is DragEvent.Delta })
-      assertTrue(observed.last() is DragEvent.End)
-    }
-  }
-
-  @Test
-  fun adding_a_contact_cancels_a_custom_drag_and_suppresses_the_group() {
-    val delivered = mutableListOf<DragEvent>()
-    runRecognitionTest(
-      options =
-        MapInteractions {
-          bindings {
-            drag {
-              custom("handle") {
-                canStart { true }
-                onEvent { delivered += it }
-              }
-            }
-          }
-        }
-    ) { target ->
-      mapNode().performTouchInput {
-        down(0, center)
-        moveBy(Offset(60f, 0f))
-        down(1, center + Offset(-60f, 0f))
-        moveBy(0, Offset(30f, 0f))
-        up(1)
-        moveBy(0, Offset(30f, 0f))
-        up(0)
-      }
-      waitForIdle()
-      val cancel = delivered.last() as DragEvent.Cancel
-      assertEquals(GestureCancellationReason.BindingChanged, cancel.reason)
-      assertEquals(1, delivered.count { it is DragEvent.Cancel })
-      assertEquals(0, delivered.count { it is DragEvent.End })
-      assertTrue(target.moveCalls.isEmpty())
-      assertTrue(target.scaleCalls.isEmpty())
-    }
-  }
-
-  @Test
   fun changing_only_a_callback_updates_delivery_without_restarting_the_drag() {
     val callbacks = mutableListOf<String>()
     var configuration by
@@ -1176,51 +852,6 @@ class MapInputRecognitionTest {
       waitForIdle()
       assertEquals(listOf("old", "new"), callbacks)
       assertEquals(1, target.startedCount)
-    }
-  }
-
-  @Test
-  fun structural_replacement_cancels_the_previous_custom_response_with_its_latest_callback() {
-    val callbacks = mutableListOf<Pair<String, DragEvent>>()
-    fun configuration(name: String, slop: Int) = MapInteractions {
-      bindings {
-        drag {
-          custom("handle") {
-            canStart { true }
-
-            startSlop = slop.dp
-            onEvent { callbacks += name to it }
-          }
-        }
-      }
-    }
-    var options by mutableStateOf(configuration("initial", 4))
-    runRecognitionTest(optionsProvider = { options }) {
-      val map = mapNode()
-      map.performTouchInput {
-        down(center)
-        moveBy(Offset(40f, 0f))
-      }
-      runOnIdle { options = configuration("updated", 4) }
-      waitForIdle()
-      runOnIdle { options = configuration("replacement", 8) }
-      waitForIdle()
-      val cancellation = callbacks.single { it.second is DragEvent.Cancel }
-      assertEquals("updated", cancellation.first)
-      assertEquals(
-        GestureCancellationReason.ConfigurationChanged,
-        (cancellation.second as DragEvent.Cancel).reason,
-      )
-      assertFalse(callbacks.any { it.first == "replacement" })
-      map.performTouchInput {
-        up()
-        down(center)
-        moveBy(Offset(40f, 0f))
-        up()
-      }
-      waitForIdle()
-      assertTrue(callbacks.last().second is DragEvent.End)
-      assertEquals("replacement", callbacks.last().first)
     }
   }
 
@@ -1746,28 +1377,6 @@ class MapInputRecognitionTest {
       map.performKeyInput { pressKey(Key.DirectionRight) }
       waitForIdle()
       assertTrue(target.moveCalls.size > moves)
-    }
-
-  @Test
-  fun a_camera_command_supersedes_a_press_that_has_not_crossed_slop() =
-    runRecognitionTest { target ->
-      val map = mapNode()
-      map.performTouchInput { down(center) }
-      fixture.state.setCameraPosition(CameraPosition(zoom = 3.0))
-      map.performTouchInput {
-        moveBy(Offset(80f, 0f))
-        up()
-      }
-      waitForIdle()
-      assertTrue(target.moveCalls.isEmpty())
-      assertEquals(0, target.clicks)
-      map.performTouchInput {
-        down(center)
-        moveBy(Offset(80f, 0f))
-        up()
-      }
-      waitForIdle()
-      assertTrue(target.moveCalls.isNotEmpty())
     }
 
   @Test
@@ -2729,51 +2338,6 @@ class MapInputRecognitionTest {
     }
   }
 
-  @Test
-  fun custom_drag_selects_its_button_and_stays_latched_when_mouse_modifiers_change() {
-    var admissions = 0
-    val events = mutableListOf<DragEvent>()
-    runRecognitionTest(
-      options =
-        MapInteractions {
-          bindings {
-            drag {
-              custom("handle") {
-                canStart {
-                  admissions++
-                  PointerButton.Secondary in it.buttons
-                }
-                onEvent { events += it }
-              }
-            }
-          }
-        }
-    ) { target ->
-      val map = mapNode()
-      map.performMouseInput { click(center) }
-      waitForIdle()
-      assertEquals(1, admissions)
-      map.performMouseInput {
-        moveTo(center)
-        press(MouseButton.Secondary)
-        moveBy(Offset(30f, 0f))
-      }
-      map.performKeyInput { keyDown(Key.CtrlLeft) }
-      map.performMouseInput {
-        moveBy(Offset(30f, 0f))
-        release(MouseButton.Secondary)
-      }
-      map.performKeyInput { keyUp(Key.CtrlLeft) }
-      waitForIdle()
-      assertEquals(2, admissions)
-      assertEquals(1, events.count { it is DragEvent.Start })
-      assertEquals(1, events.count { it is DragEvent.End })
-      assertTrue(events.none { it is DragEvent.Cancel })
-      assertTrue(target.moveCalls.isEmpty())
-      assertTrue(target.rotateCalls.isEmpty())
-    }
-  }
-
   private fun assumeRotaryInjectionSupported() {
     assumeTrue(
       "Compose Skiko rotary injection is a no-op",
@@ -2944,7 +2508,6 @@ private fun GestureHost(
 ) {
   SideEffect { target.updateConfiguration(options) }
   val density = LocalDensity.current
-  val subscriptions = remember { InteractionSubscriptions(options) }
   val focusRequester = remember { FocusRequester() }
   val focus = remember { InputFocus {} }
   val environment = remember {
@@ -2961,13 +2524,13 @@ private fun GestureHost(
       .mapInput(
         target,
         target::capture,
+        { it in target.clickFamilies },
         options,
         density,
         focusRequester,
         focus,
         environment,
         rotaryNotchPixels,
-        subscriptions,
       )
   )
 }

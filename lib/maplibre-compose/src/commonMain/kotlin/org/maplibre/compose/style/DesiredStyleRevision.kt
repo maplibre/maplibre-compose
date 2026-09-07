@@ -57,7 +57,4 @@ internal data class DesiredStyleLayer(
   val onDoubleClick: FeaturesClickHandler? = null,
   val hitPadding: Dp = 0.dp,
   val registration: Any? = null,
-  val clickSubscription: Any? = onClick,
-  val longClickSubscription: Any? = onLongClick,
-  val doubleClickSubscription: Any? = onDoubleClick,
 )

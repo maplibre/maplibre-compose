@@ -31,7 +31,6 @@ import org.maplibre.compose.interaction.CameraInputOrigin
 import org.maplibre.compose.interaction.DragEvent
 import org.maplibre.compose.interaction.GestureCancellationReason
 import org.maplibre.compose.interaction.MapInteractions
-import org.maplibre.compose.interaction.PointerPressEvent
 import org.maplibre.compose.interaction.QuickZoomDirection
 import org.maplibre.compose.interaction.ScreenVelocity
 
@@ -40,7 +39,6 @@ internal class PointerGesture(
   private val taps: TapDispatcher,
   private val options: MapInteractions,
   private val currentOptions: () -> MapInteractions,
-  private val subscriptions: InteractionSubscriptions,
   private val ids: GestureIds,
   private val boxZoom: BoxZoomPreview,
   private val density: Density,
@@ -71,14 +69,10 @@ internal class PointerGesture(
     data class Camera(val response: DragResponse) : SelectedDrag
 
     data object TapDrag : SelectedDrag
-
-    data class Custom(val binding: CustomDragBinding) : SelectedDrag
   }
 
   private var selectedDrag: SelectedDrag? = null
-  private var dragSubscription: LifecycleMembership? = null
   private var dragStarted = false
-  private var customDragStarted = false
   private var dragSample: GesturePointerSample? = null
   private var suppressedUntilRelease = false
   private var lastSingle: PointerInputChange? = null
@@ -102,10 +96,8 @@ internal class PointerGesture(
   private var longClickJob: Job? = null
   private var longClickHandled = false
   private var tapDemand = emptySet<TapFamily>()
-  private var tapAdmissions = emptyMap<TapFamily, TapAdmission>()
   /** Eligibility is fixed at the first press, including subscriber demand. */
   private var secondTapUseful = false
-  private var pressInputGeneration = 0L
 
   /**
    * Pairing state after a first tap. The delayed-click job exists only in [TapWait.Open]; a valid
@@ -129,11 +121,6 @@ internal class PointerGesture(
     if (gestureToken?.acceptsCommands == false) {
       cancel(GestureCancellationReason.CameraTakeover)
       suppressedUntilRelease = pressed.isNotEmpty()
-      return
-    }
-    if (pressed.size >= 2 && lastSingle != null && selectedDrag is SelectedDrag.Custom) {
-      cancel(GestureCancellationReason.BindingChanged)
-      suppressedUntilRelease = true
       return
     }
 
@@ -220,17 +207,6 @@ internal class PointerGesture(
     quickZoomCandidate = selectedDrag == SelectedDrag.TapDrag
     dragRecognition = selectedDrag?.let { dragRecognizer(change, it) }
 
-    // Capture click-path membership at press time. Recomposition may replace handlers while
-    // the press is held, but cannot admit a new subscriber into this click.
-    if (pressRole == PressRole.First) {
-      tapAdmissions =
-        TapFamily.entries
-          .filter { it.matches(options, sample) }
-          .mapNotNull { family ->
-            taps.capture(family)?.let { family to it }
-          }
-          .toMap()
-    }
     tapDemand = TapFamily.entries.filterTo(mutableSetOf()) { hasTapDemand(it, sample) }
 
     secondTapUseful =
@@ -269,7 +245,6 @@ internal class PointerGesture(
     runCatching { focusRequester.requestFocus() }
     focus.engage(byKey = false)
     if (gestureToken == null) target.interruptCamera() else target.observeInput()
-    pressInputGeneration = target.inputGeneration
   }
 
   private fun scheduleLongClick(origin: Offset) {
@@ -300,12 +275,6 @@ internal class PointerGesture(
       ?.let(SelectedDrag::Camera)
 
   private fun selectDrag(sample: GesturePointerSample, paired: Boolean): SelectedDrag? {
-    val drag = options.bindings.drag
-    if (drag.matches(sample)) {
-      for (binding in currentOptions().bindings.drag.custom) {
-        if (binding.canStart(PointerPressEvent(sample, paired))) return SelectedDrag.Custom(binding)
-      }
-    }
     if (paired && options.camera.zoom.enabled && options.bindings.tapDrag.matches(sample))
       return SelectedDrag.TapDrag
     return selectCameraDrag(sample)
@@ -322,51 +291,12 @@ internal class PointerGesture(
       else -> null
     }
 
-  private fun deliverDrag(event: DragEvent) {
-    val selected = selectedDrag ?: return
-    if (selected !is SelectedDrag.Custom) {
-      if (event is DragEvent.Start)
-        dragSubscription =
-          (if (selectedDrag == SelectedDrag.TapDrag) subscriptions.tapDrag else subscriptions.drag)
-            .capture()
-      dragSubscription?.observe(event, currentDragHandlers())
-      return
-    }
-
-    val active = gestureToken?.acceptsCommands == true
-    val response =
-      when (event) {
-        is DragEvent.Start -> event.takeIf { active }?.also { customDragStarted = true }
-        is DragEvent.Delta -> event.takeIf { active && customDragStarted }
-        is DragEvent.End ->
-          if (!customDragStarted) null
-          else {
-            customDragStarted = false
-            if (active) event
-            else
-              DragEvent.Cancel(
-                checkNotNull(dragSample),
-                if (!target.isGestureReady) GestureCancellationReason.Detached
-                else GestureCancellationReason.CameraTakeover,
-              )
-          }
-        is DragEvent.Cancel ->
-          event.takeIf { customDragStarted }?.also { customDragStarted = false }
-      }
-
-    if (response != null) {
-      val current =
-        currentOptions().bindings.drag.custom.firstOrNull { it.key == selected.binding.key }
-      (current?.onEvent ?: selected.binding.onEvent).invoke(response)
-    }
-  }
-
   private fun cancelDrag(reason: GestureCancellationReason) {
     if (!dragStarted) return
     dragStarted = false
     dragRecognition?.finish()
     try {
-      dragSample?.let { deliverDrag(DragEvent.Cancel(it, reason)) }
+      dragSample?.let { currentDragHandlers().observe(DragEvent.Cancel(it, reason)) }
     } finally {
       boxZoom.clear()
     }
@@ -385,8 +315,6 @@ internal class PointerGesture(
   private fun dragSlop(binding: SelectedDrag, mouse: Boolean): Float {
     val slop =
       when (binding) {
-        is SelectedDrag.Custom ->
-          if (mouse) binding.binding.mouseStartSlop else binding.binding.startSlop
         SelectedDrag.TapDrag -> options.bindings.tapDrag.startSlop
         is SelectedDrag.Camera ->
           when (binding.response) {
@@ -429,7 +357,6 @@ internal class PointerGesture(
     // the replacement gesture cannot apply movement measured for the previous response.
     if (
       change.type == PointerType.Mouse &&
-        selectedDrag !is SelectedDrag.Custom &&
         oldSample != null &&
         (oldSample.buttons != sample.buttons || oldSample.modifierKeys != sample.modifierKeys)
     ) {
@@ -493,7 +420,6 @@ internal class PointerGesture(
               DragResponse.FitBounds -> null
               DragResponse.None -> it
             }
-          is SelectedDrag.Custom -> it
         }
       }
       if (gestureInProgress) {
@@ -502,10 +428,7 @@ internal class PointerGesture(
         singleVelocity.resetTracking()
         singleVelocity.addPosition(change.uptimeMillis, change.position)
       }
-      if (beginGesture() == null) {
-        retainCameraAuthority()
-        return
-      }
+      beginGesture()
       dragStarted = true
       when (binding) {
         SelectedDrag.TapDrag -> gestureToken?.rearm(CameraComponent.Zoom)
@@ -518,17 +441,16 @@ internal class PointerGesture(
             }
             else -> Unit
           }
-        is SelectedDrag.Custom -> Unit
       }
       discardTapWait(emitClick = !quickZoomCandidate)
-      deliverDrag(DragEvent.Start(sample, origin.toLogicalDpOffset(density)))
+      currentDragHandlers().observe(DragEvent.Start(sample, origin.toLogicalDpOffset(density)))
       if (!retainCameraAuthority()) return
       if (binding == SelectedDrag.Camera(DragResponse.FitBounds))
         boxZoom.start(origin.toLogicalDpOffset(density), sample.screenOffset)
     }
 
     singleVelocity.addPointerInputChange(change)
-    deliverDrag(DragEvent.Delta(sample, delta.toLogicalDpOffset(density)))
+    currentDragHandlers().observe(DragEvent.Delta(sample, delta.toLogicalDpOffset(density)))
     if (!retainCameraAuthority()) return
 
     applyDragResponse(binding, sample, change.position, delta)
@@ -575,7 +497,6 @@ internal class PointerGesture(
         )
         quickZoomAppliedDelta = targetDelta
       }
-      is SelectedDrag.Custom -> Unit
     }
   }
 
@@ -683,7 +604,6 @@ internal class PointerGesture(
         target,
         options,
         currentOptions,
-        subscriptions,
         ids,
         density,
         event,
@@ -716,15 +636,16 @@ internal class PointerGesture(
       boxZoom.move(sample.screenOffset)
       val selection = boxZoom.clear()
       val velocity = singleVelocity.calculateVelocity()
-      deliverDrag(
-        DragEvent.End(
-          sample,
-          ScreenVelocity(
-            (velocity.x / density.density).toDouble(),
-            (velocity.y / density.density).toDouble(),
-          ),
+      currentDragHandlers()
+        .observe(
+          DragEvent.End(
+            sample,
+            ScreenVelocity(
+              (velocity.x / density.density).toDouble(),
+              (velocity.y / density.density).toDouble(),
+            ),
+          )
         )
-      )
       if (gestureToken?.acceptsCommands != true) {
         cancel(GestureCancellationReason.CameraTakeover)
         return
@@ -810,14 +731,12 @@ internal class PointerGesture(
   private fun emitTap(
     family: TapFamily,
     sample: GesturePointerSample,
-    generation: Long = pressInputGeneration,
-    admission: TapAdmission? = tapAdmissions[family],
+    generation: Long = target.inputGeneration,
   ) {
-    val captured = admission ?: return
     val binding = family.binding(options)
     val action = binding.select(sample, options.camera)
 
-    taps.dispatch(captured, sample) camera@{
+    taps.dispatch(family, sample) camera@{
       if (action == null || action == TapResponse.None) return@camera
       val direction = if (action == TapResponse.ZoomIn) 1.0 else -1.0
       launchTapTransition(
@@ -859,7 +778,7 @@ internal class PointerGesture(
 
   private fun hasTapDemand(family: TapFamily, sample: GesturePointerSample): Boolean =
     family.matches(options, sample) &&
-      (tapAdmissions[family]?.hasSubscribers == true ||
+      (taps.hasHandlers(family) ||
         family.binding(options).select(sample, options.camera)?.let { it != TapResponse.None } ==
           true)
 
@@ -918,7 +837,7 @@ internal class PointerGesture(
           val open = tapWait as? TapWait.Open
           if (open?.tap?.job == launched) {
             tapWait = TapWait.None
-            emitTap(TapFamily.Tap, open.tap.sample, open.tap.generation, open.tap.admission)
+            emitTap(TapFamily.Tap, open.tap.sample, open.tap.generation)
           }
         }
         launched
@@ -930,13 +849,12 @@ internal class PointerGesture(
       TapWait.Open(
         OpenTap(
           sample,
-          pressInputGeneration,
+          target.inputGeneration,
           origin,
           type,
           timeMillis,
           clickOnExpiry,
           job,
-          tapAdmissions[TapFamily.Tap],
         )
       )
   }
@@ -947,11 +865,11 @@ internal class PointerGesture(
       is TapWait.Open -> {
         wait.tap.job?.cancel()
         if (emitClick && wait.tap.clickOnExpiry)
-          emitTap(TapFamily.Tap, wait.tap.sample, wait.tap.generation, wait.tap.admission)
+          emitTap(TapFamily.Tap, wait.tap.sample, wait.tap.generation)
       }
       is TapWait.Claimed -> {
         if (emitClick && wait.tap.clickOnExpiry)
-          emitTap(TapFamily.Tap, wait.tap.sample, wait.tap.generation, wait.tap.admission)
+          emitTap(TapFamily.Tap, wait.tap.sample, wait.tap.generation)
       }
       TapWait.None -> Unit
     }
@@ -1006,7 +924,6 @@ internal class PointerGesture(
           ) ?: return
         animateScaleVelocity(velocityResponse, dragSample?.let(::dragAnchor))
       }
-      is SelectedDrag.Custom -> Unit
     }
   }
 
@@ -1115,7 +1032,7 @@ internal class PointerGesture(
       return gestureToken
     }
 
-    val token = target.onGestureStartedIfCurrent(pressInputGeneration) ?: return null
+    val token = target.onGestureStarted()
     lateinit var session: GestureInputSession
     session =
       GestureInputSession(scope, target, token, origin = origin) {
@@ -1192,7 +1109,6 @@ internal class PointerGesture(
     val upAt: Long,
     val clickOnExpiry: Boolean,
     val job: Job?,
-    val admission: TapAdmission?,
   )
 
   private enum class PressRole {

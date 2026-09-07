@@ -12,7 +12,6 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import org.maplibre.compose.interaction.DragBindingBuilder
-import org.maplibre.compose.interaction.DragEvent
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.ModifierMatch
@@ -79,11 +78,6 @@ class MapInteractionsTest {
           pan { mouseStartSlop = 9.dp }
           rotateTilt { mouseStartSlop = 9.dp }
           fitBounds { mouseStartSlop = 9.dp }
-          custom("handle") {
-            mouseStartSlop = 9.dp
-            canStart { true }
-            onEvent {}
-          }
         }
       }
     }
@@ -94,7 +88,6 @@ class MapInteractionsTest {
               pan { startSlop = 12.dp }
               rotateTilt { startSlop = 12.dp }
               fitBounds { startSlop = 12.dp }
-              custom("handle") { startSlop = 12.dp }
             }
           }
         }
@@ -105,7 +98,6 @@ class MapInteractionsTest {
         edited.pan.startSlop to edited.pan.mouseStartSlop,
         edited.rotateTilt.startSlop to edited.rotateTilt.mouseStartSlop,
         edited.fitBounds.startSlop to edited.fitBounds.mouseStartSlop,
-        edited.custom.single().startSlop to edited.custom.single().mouseStartSlop,
       )) {
       assertEquals(12.dp, start)
       assertEquals(9.dp, mouse)
@@ -145,7 +137,6 @@ class MapInteractionsTest {
     assertTrue(appOnly.bindings.drag.mappings.isEmpty())
     assertTrue(appOnly.bindings.transform.zoom.enabled)
     assertFalse(appOnly.bindings.transform.pan.enabled)
-    assertFalse(appOnly.bindings.hover.enabled)
     assertFalse(appOnly.bindings.keys.hasCameraBindings(appOnly.camera))
   }
 
@@ -217,46 +208,6 @@ class MapInteractionsTest {
         MapInteractions.Standard.camera,
       )
     )
-  }
-
-  @Test
-  fun custom_drags_keep_declaration_order_and_inherit_handlers() {
-    val observed = mutableListOf<DragEvent>()
-    val initial = MapInteractions {
-      bindings {
-        drag {
-          custom("first") {
-            canStart { true }
-            onEvent { observed += it }
-          }
-          custom("second") {
-            canStart { false }
-            onEvent {}
-          }
-        }
-      }
-    }
-    val edited =
-      MapInteractions(from = initial) {
-        bindings { drag { custom("first") { startSlop = 8.dp } } }
-      }
-    assertEquals(listOf("first", "second"), edited.bindings.drag.custom.map { it.key })
-    val event = DragEvent.Start(sample(), DpOffset.Zero)
-    edited.bindings.drag.custom.first().onEvent(event)
-    assertEquals(listOf<DragEvent>(event), observed)
-    assertFailsWith<IllegalArgumentException> {
-      MapInteractions { bindings { drag { custom("missing") { canStart { true } } } } }
-    }
-    assertFailsWith<IllegalArgumentException> {
-      MapInteractions(from = initial) {
-        bindings {
-          drag {
-            custom("first") {}
-            custom("first") {}
-          }
-        }
-      }
-    }
   }
 
   @Test

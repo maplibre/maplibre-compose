@@ -200,40 +200,7 @@ class MapClickDispatcherTest {
   }
 
   @Test
-  fun newly_added_layer_and_unhandled_slots_do_not_join_an_admitted_click() = runTest {
-    Fixture().use { fixture ->
-      val calls = mutableListOf<String>()
-      val path = checkNotNull(fixture.dispatcher.capture(TapFamily.Tap))
-      fixture.revision.value =
-        DesiredStyleRevision(
-          emptyList(),
-          listOf(
-            fixture.node("front") {
-              calls += "new layer"
-              ClickResult.Pass
-            }
-          ),
-          emptyList(),
-        )
-      fixture.configure(
-        MapInteractions {
-          callbacks {
-            click {
-              onUnhandled {
-                calls += "new unhandled"
-                ClickResult.Pass
-              }
-            }
-          }
-        }
-      )
-      assertEquals(ClickResult.Pass, path.deliver(fixture.event))
-      assertTrue(calls.isEmpty())
-    }
-  }
-
-  @Test
-  fun admitted_unhandled_slot_reads_replacement_body_after_layer_removes_itself() = runTest {
+  fun unhandled_callback_reads_replacement_body_after_layer_removes_itself() = runTest {
     Fixture().use { fixture ->
       val calls = mutableListOf<String>()
       fixture.configure(
@@ -271,83 +238,14 @@ class MapClickDispatcherTest {
     }
   }
 
-  @Test
-  fun layer_and_unhandled_resubscriptions_cannot_join_a_suspended_click_query() = runTest {
-    Fixture().use { fixture ->
-      var calls = 0
-      val registered = org.maplibre.compose.style.LayerNode(layer("front"), Anchor.Top)
-      registered.onClick = {
-        calls++
-        ClickResult.Pass
-      }
-      fun revision() =
-        DesiredStyleRevision(
-          emptyList(),
-          listOf(
-            DesiredStyleLayer(
-              registered.layer.definition(),
-              Anchor.Top,
-              registered.onClick,
-              null,
-              registration = registered,
-              clickSubscription = registered.clickSubscription.capture(),
-            )
-          ),
-          emptyList(),
-        )
-      fixture.revision.value = revision()
-      fixture.configure(
-        MapInteractions {
-          callbacks {
-            click {
-              onUnhandled {
-                calls++
-                ClickResult.Pass
-              }
-            }
-          }
-        }
-      )
-      val path = checkNotNull(fixture.dispatcher.capture(TapFamily.Tap))
-      fixture.adapter.gate = CompletableDeferred()
-      val delivery = async { path.deliver(fixture.event) }
-      fixture.adapter.entered.await()
-      registered.onClick = null
-      fixture.revision.value = revision()
-      registered.onClick = {
-        calls++
-        ClickResult.Pass
-      }
-      fixture.revision.value = revision()
-      fixture.configure(MapInteractions.Standard)
-      fixture.configure(
-        MapInteractions {
-          callbacks {
-            click {
-              onUnhandled {
-                calls++
-                ClickResult.Pass
-              }
-            }
-          }
-        }
-      )
-      fixture.adapter.gate!!.complete(Unit)
-      assertEquals(ClickResult.Pass, delivery.await())
-      assertEquals(0, calls)
-    }
-  }
-
   private class Fixture : AutoCloseable {
     val runtime = mapRuntimeForTest()
     val state = runtime.createMapState(BaseStyle.Empty)
     val adapter = QueryAdapter()
     val gestures = mutableStateOf(MapInteractions.Standard)
-    val subscriptions = InteractionSubscriptions(MapInteractions.Standard)
 
     fun configure(options: MapInteractions) {
       gestures.value = options
-      subscriptions.update(options)
     }
 
     val revision = mutableStateOf<DesiredStyleRevision?>(null)
@@ -376,7 +274,6 @@ class MapClickDispatcherTest {
           mutableStateOf<State<DesiredStyleRevision?>>(revision),
           style,
           gestures,
-          subscriptions,
         )
     }
 

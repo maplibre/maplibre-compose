@@ -467,19 +467,14 @@ class MapPlatformTransformTest {
 
     val target = map.target
     val routing = PlatformTransformRouting()
-    val subscriptions = InteractionSubscriptions(initial)
+
     var options = initial
-      set(value) {
-        field = value
-        subscriptions.update(value)
-      }
 
     val input =
       PlatformTransformSession(
         target,
         initial,
         { options },
-        subscriptions,
         GestureIds(),
         scope,
         routing,

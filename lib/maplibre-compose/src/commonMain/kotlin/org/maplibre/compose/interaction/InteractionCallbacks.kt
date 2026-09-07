@@ -21,10 +21,6 @@ internal constructor(private var value: InteractionCallbacks) {
     value = value.copy(longClick = LongClickCallbackBuilder(value.longClick).apply(block).event)
   }
 
-  public fun hover(block: HoverCallbackBuilder.() -> Unit) {
-    value = value.copy(hover = HoverCallbackBuilder(value.hover).apply(block).event)
-  }
-
   internal fun build(): InteractionCallbacks = value
 }
 
@@ -55,18 +51,6 @@ internal constructor(internal var event: ((DoubleTapEvent) -> ClickResult)?) {
 public class LongClickCallbackBuilder
 internal constructor(internal var event: ((LongClickEvent) -> ClickResult)?) {
   public fun onEvent(block: ((LongClickEvent) -> ClickResult)?) {
-    event = block
-  }
-}
-
-/**
- * Receives [HoverEvent] for pointer entry, movement, and exit, including mouse movement during
- * drags. Entry and exit follow the host; pressing a button does not itself end hover.
- */
-@MapInteractionDsl
-public class HoverCallbackBuilder
-internal constructor(internal var event: ((HoverEvent) -> Unit)?) {
-  public fun onEvent(block: ((HoverEvent) -> Unit)?) {
     event = block
   }
 }

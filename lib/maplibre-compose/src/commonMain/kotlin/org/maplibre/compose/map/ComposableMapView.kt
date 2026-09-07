@@ -3,7 +3,6 @@ package org.maplibre.compose.map
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import org.maplibre.compose.interaction.internal.ClickPath
-import org.maplibre.compose.interaction.internal.InteractionSubscriptions
 import org.maplibre.compose.interaction.internal.TapFamily
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.style.BaseStyle
@@ -21,6 +20,6 @@ internal expect fun ComposableMapView(
   logger: MapLog?,
   callbacks: MapAdapter.Callbacks,
   captureClickPath: (TapFamily) -> ClickPath?,
-  subscriptions: InteractionSubscriptions,
+  hasClickHandlers: (TapFamily) -> Boolean,
   options: MapViewOptions,
 )

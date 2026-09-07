@@ -15,7 +15,7 @@ customize controls or respond to input. The configuration has three parts:
 
 - `camera`: which movements the controls allow, such as panning or rotation.
 - `bindings`: what gestures, scrolling, and keys do.
-- `callbacks`: how your app responds to clicks and hover.
+- `callbacks`: how your app responds to clicks.
 
 ## Restrict camera movement
 
@@ -52,8 +52,7 @@ clicked position to your app:
 
 Return <Api of="ClickResult.Consume" /> when your app handles the click, or
 <Api of="ClickResult.Pass" /> to let it continue to interactive layers.
-Use `longClick` for a long press or secondary mouse click, and `hover` for
-pointer readouts or previews.
+Use `longClick` for a long press or secondary mouse click.
 
 ## Select layer features
 
@@ -65,5 +64,3 @@ to make small features easier to select:
 Layers receive clicks from front to back until a handler returns
 `ClickResult.Consume`. Use `callbacks.click.onUnhandled` for clicks that no
 layer handles, such as clearing an app's selection.
-
-For feature editing, see <Api of="CustomDragBuilder" />.

@@ -5,9 +5,7 @@ import androidx.compose.ui.input.pointer.PointerInputChange
 import kotlin.math.abs
 import kotlin.math.sign
 
-/**
- * A reserved contact's geometric lifetime. The caller decides which application action reserves it.
- */
+/** Tracks drag displacement after a contact crosses its movement threshold. */
 internal class PointerDrag(
   first: PointerInputChange,
   private val slop: Float,
@@ -47,9 +45,7 @@ internal class PointerDrag(
     return Motion(true, beyond, displacement - beyond)
   }
 
-  /**
-   * End and cancellation both close recognition; application commit/rollback belongs to the caller.
-   */
+  /** Closes recognition and returns whether the contact crossed the movement threshold. */
   fun finish(): Boolean {
     val started = active
     active = false
