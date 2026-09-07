@@ -11,17 +11,8 @@ internal val LocalAnchor: ProvidableCompositionLocal<Anchor> = compositionLocalO
 
 /**
  * Declares where layers from the style content are placed in the layer stack of the loaded base
- * style.
- *
- * [Top] places layers over every layer and [Bottom] places them under every layer. [Above] and
- * [Below] place layers next to the base-style layers that a predicate selects: [Below] lands
- * directly under the lowest matching layer, and [Above] lands directly over the highest matching
- * layer. When no layer matches, [Below] places the layers at the top of the stack and [Above]
- * places them at the bottom.
- *
- * Only the layers of the loaded base style are candidates. A layer declared in the style content is
- * never matched, so an anchor cannot refer to layers of another anchor. Layers that resolve to the
- * same position keep their order from the style content.
+ * style: [Top], [Bottom], [Above], or [Below]. Layers that resolve to the same position keep their
+ * order from the style content.
  *
  * See [Anchor.Companion] for the composable functions that apply an anchor to a block of layers.
  */
@@ -41,13 +32,9 @@ public sealed interface Anchor {
 
   /**
    * Layers are placed directly over the highest base-style layer that [predicate] accepts, or at
-   * the bottom of the stack when it accepts none. See [Anchor.Companion.Above] to use this in the
-   * style content.
-   *
-   * Every time the style content is applied to the loaded style, the predicate is called with a
-   * [LayerHandle] for one base-style layer at a time, from the top of the stack down, until it
-   * accepts one. The handles are read-only: a property setter throws
-   * [StyleHandleException][org.maplibre.compose.style.StyleHandleException].
+   * the bottom of the stack when it accepts none. Layers declared in the style content are not
+   * candidates, and the [LayerHandle] passed to the predicate is read-only. See
+   * [Anchor.Companion.Above] to use this in the style content.
    */
   public class Above private constructor(private val selector: LayerSelector) : Anchor {
     public constructor(predicate: (LayerHandle) -> Boolean) : this(LayerSelector(predicate))
@@ -67,13 +54,9 @@ public sealed interface Anchor {
 
   /**
    * Layers are placed directly under the lowest base-style layer that [predicate] accepts, or at
-   * the top of the stack when it accepts none. See [Anchor.Companion.Below] to use this in the
-   * style content.
-   *
-   * Every time the style content is applied to the loaded style, the predicate is called with a
-   * [LayerHandle] for one base-style layer at a time, from the bottom of the stack up, until it
-   * accepts one. The handles are read-only: a property setter throws
-   * [StyleHandleException][org.maplibre.compose.style.StyleHandleException].
+   * the top of the stack when it accepts none. Layers declared in the style content are not
+   * candidates, and the [LayerHandle] passed to the predicate is read-only. See
+   * [Anchor.Companion.Below] to use this in the style content.
    */
   public class Below private constructor(private val selector: LayerSelector) : Anchor {
     public constructor(predicate: (LayerHandle) -> Boolean) : this(LayerSelector(predicate))
@@ -113,8 +96,7 @@ public sealed interface Anchor {
 
     /**
      * The layers specified in [block] are placed directly over the highest base-style layer that
-     * [predicate] accepts, or at the bottom of the stack when it accepts none. See [Anchor.Above]
-     * for how the predicate is evaluated.
+     * [predicate] accepts, or at the bottom of the stack when it accepts none. See [Anchor.Above].
      */
     @Composable
     @MaplibreComposable
@@ -132,8 +114,7 @@ public sealed interface Anchor {
 
     /**
      * The layers specified in [block] are placed directly under the lowest base-style layer that
-     * [predicate] accepts, or at the top of the stack when it accepts none. See [Anchor.Below] for
-     * how the predicate is evaluated.
+     * [predicate] accepts, or at the top of the stack when it accepts none. See [Anchor.Below].
      */
     @Composable
     @MaplibreComposable
