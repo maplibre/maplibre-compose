@@ -184,6 +184,10 @@ internal open class MlnFfiStyleBinding(
   /** The full engine order, annotation layer included: insertions and moves are relative to it. */
   override fun layerIds(): List<String> = readMap { it.styleLayerIds() }.orEmpty()
 
+  override fun layerType(id: String): String? = readMap { map ->
+    if (isStyleLayer(map, id)) map.styleLayerType(id) else null
+  }
+
   override fun layerTypes(): Map<String, String> = readMap { map ->
     map
       .styleLayerIds()

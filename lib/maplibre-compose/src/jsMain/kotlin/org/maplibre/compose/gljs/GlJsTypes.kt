@@ -98,6 +98,9 @@ internal external interface StyleLayer {
   val sourceLayer: String?
   val minzoom: Double?
   val maxzoom: Double?
+
+  /** Serializes this one layer as its style-spec object. */
+  fun serialize(): LayerSpecification
 }
 
 internal external interface SourceHandle {

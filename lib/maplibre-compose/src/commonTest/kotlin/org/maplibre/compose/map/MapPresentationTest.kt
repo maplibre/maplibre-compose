@@ -106,9 +106,9 @@ class MapPresentationTest {
             return backing.sourceIds()
           }
 
-          override fun layerIds(): List<String> {
+          override fun layerTypes(): Map<String, String> {
             resourceReads++
-            return backing.layerIds()
+            return backing.layerTypes()
           }
         }
       val reconciler = StyleReconciler()
