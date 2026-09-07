@@ -185,13 +185,41 @@ internal open class MlnFfiStyleBinding(
     .orEmpty()
 
   override fun getLayer(id: String): Layer? = readMap { map ->
-    if (!map.styleLayerExists(id)) null else reconstructLayer(map, id)
+    if (!isStyleLayer(map, id)) null else reconstructLayer(map, id)
   }
 
+  /** The full engine order, annotation layer included: insertions and moves are relative to it. */
   override fun layerIds(): List<String> = readMap { it.styleLayerIds() }.orEmpty()
+
+  override fun layerSummaries(): Map<String, LayerSummary> = readMap { map ->
+    map
+      .styleLayerIds()
+      .filter { isStyleLayer(map, it) }
+      .mapNotNull { id ->
+        map.styleLayerType(id)?.let { type ->
+          id to
+            LayerSummary(
+              type = type,
+              source = map.layerSourceId(id).takeIf(String::isNotEmpty),
+              sourceLayer = map.layerSourceLayer(id).takeIf(String::isNotEmpty),
+            )
+        }
+      }
+      .toMap()
+  }
+    .orEmpty()
 
   private fun isStyleSource(map: MapHandle, id: String): Boolean =
     map.styleSourceExists(id) && map.styleSourceType(id) != SourceType.ANNOTATIONS
+
+  /** MapLibre Native appends a layer that draws from its annotation source to every style. */
+  private fun isStyleLayer(map: MapHandle, id: String): Boolean {
+    if (!map.styleLayerExists(id)) return false
+    val sourceId = map.layerSourceId(id)
+    return sourceId.isEmpty() ||
+      !map.styleSourceExists(sourceId) ||
+      map.styleSourceType(sourceId) != SourceType.ANNOTATIONS
+  }
 
   private fun reconstructSource(map: MapHandle, id: String): Source =
     UnknownSource(id, sourceDefinition(map, id))

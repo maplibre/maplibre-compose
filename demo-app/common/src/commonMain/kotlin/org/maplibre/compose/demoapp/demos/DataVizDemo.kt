@@ -19,6 +19,7 @@ import org.maplibre.compose.expressions.dsl.interpolate
 import org.maplibre.compose.expressions.dsl.linear
 import org.maplibre.compose.expressions.dsl.not
 import org.maplibre.compose.expressions.dsl.step
+import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.HeatmapLayer
 import org.maplibre.compose.layers.SymbolLayer
@@ -53,10 +54,12 @@ object DataVizDemo : Demo {
 
   @Composable
   override fun MapContent() {
-    when (mode) {
-      Mode.Points -> Points()
-      Mode.Heatmap -> Heatmap()
-      Mode.Clusters -> Clusters()
+    Anchor.Below({ it.type == "symbol" }) {
+      when (mode) {
+        Mode.Points -> Points()
+        Mode.Heatmap -> Heatmap()
+        Mode.Clusters -> Clusters()
+      }
     }
   }
 

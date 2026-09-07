@@ -198,6 +198,16 @@ internal class GlJsStyleBinding(
     return map.getLayersOrder().toList()
   }
 
+  override fun layerSummaries(): Map<String, LayerSummary> {
+    requireLoaded()
+    return map
+      .getLayersOrder()
+      .mapNotNull { id ->
+        map.getLayer(id)?.let { id to LayerSummary(it.type, it.source, it.sourceLayer) }
+      }
+      .toMap()
+  }
+
   private fun reconstructSource(id: String): Source =
     UnknownSource(
       id,

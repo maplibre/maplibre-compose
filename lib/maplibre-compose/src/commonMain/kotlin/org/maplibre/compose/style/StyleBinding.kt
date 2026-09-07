@@ -3,7 +3,9 @@ package org.maplibre.compose.style
 import androidx.compose.ui.graphics.ImageBitmap
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.logging.MapLog
@@ -78,6 +80,14 @@ internal interface StyleBinding {
   fun getLayer(id: String): Layer?
 
   fun layerIds(): List<String>
+
+  /**
+   * Every layer's [LayerSummary] keyed by ID, in stack order from bottom to top. A layer the engine
+   * adds for its own use is omitted, as [getLayer] omits it. The default reads each layer
+   * separately; an engine with per-call overhead overrides this to read them in one pass.
+   */
+  fun layerSummaries(): Map<String, LayerSummary> =
+    layerIds().mapNotNull { id -> getLayer(id)?.definition()?.summary()?.let { id to it } }.toMap()
 
   /**
    * Adds a complete layer object directly below [beforeLayerId], or on top when that is empty.
@@ -474,6 +484,23 @@ internal interface StyleBinding {
     filter: JsonElement?,
   ): List<Feature<Geometry, JsonObject?>>
 }
+
+/**
+ * The values of a layer that are fixed for a loaded style generation: its style-spec [type], the
+ * [source] it draws from, and the [sourceLayer] within that source, each null when the layer names
+ * none.
+ */
+internal data class LayerSummary(val type: String, val source: String?, val sourceLayer: String?)
+
+internal fun LayerDefinition.summary(): LayerSummary =
+  LayerSummary(
+    type = type,
+    source = sourceId ?: value.rootString("source"),
+    sourceLayer = value.rootString("source-layer"),
+  )
+
+private fun Map<String, JsonElement>.rootString(name: String): String? =
+  (this[name] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
 
 /** Identifies the section of a layer object that contains a property. */
 internal enum class LayerPropertyKind {

@@ -186,7 +186,7 @@ internal class MlnFfiMapSession(
   override val backend: MapRenderBackend = renderBackend
   private val initialExtent = MapExtent.fromLogical(1, 1, scaleFactor)
 
-  /** Guards loop startup and actions accepted before it. */
+  /** Guards loop startup, pending actions, and viewport handoffs. */
   private val stateLock = MlnFfiLock()
 
   @Volatile private var loop: MlnFfiMapRuntimeLoop? = null
@@ -200,8 +200,14 @@ internal class MlnFfiMapSession(
 
   private val pendingMapActions = mutableListOf<PendingMapAction>()
 
-  /** Guarded by [stateLock]; once true, the map has dimensions suitable for fitting bounds. */
-  private var hasAttachedViewport = false
+  private class ViewportRequest(val extent: MapExtent)
+
+  /** Requested by the renderer and acknowledged by the owner, under [stateLock]. */
+  @Volatile private var viewportRequest: ViewportRequest? = null
+  @Volatile private var appliedViewportRequest: ViewportRequest? = null
+
+  private val hasViewport: Boolean
+    get() = appliedViewportRequest != null
 
   /**
    * Renderer-thread state, with [renderSessionReady] and [attachedTarget]: read and written only on
@@ -466,7 +472,10 @@ internal class MlnFfiMapSession(
   }
 
   override suspend fun detach(identity: EngineMapIdentity, lease: RenderLease) {
-    stateLock.withLock { hasAttachedViewport = false }
+    stateLock.withLock {
+      viewportRequest = null
+      appliedViewportRequest = null
+    }
     callbacks = durableCallbacks
     if (lifecycleRenderLease == lease) lifecycleRenderLease = null
     // This must happen before the first suspension. A host may tear down its renderer thread as
@@ -546,7 +555,8 @@ internal class MlnFfiMapSession(
     val stopping = stateLock.withLock {
       val current = loop
       loop = null
-      hasAttachedViewport = false
+      viewportRequest = null
+      appliedViewportRequest = null
       abandoned += pendingMapActions
       pendingMapActions.clear()
       current
@@ -597,6 +607,7 @@ internal class MlnFfiMapSession(
     renderSession = null
     renderSessionReady = false
     attachedTarget = null
+    stateLock.withLock { viewportRequest = null }
     handle.close()
   }
 
@@ -609,7 +620,8 @@ internal class MlnFfiMapSession(
     applyRequestedStyle(map)
     // A camera set before this map existed reaches it as a queued jump, which a loop that stopped
     // before running it has already abandoned.
-    requestedCamera?.let { map.jumpTo(it.toCameraOptions(cameraPadding)) }
+    appliedCameraPadding = EdgeInsets.ZERO
+    requestedCamera?.let { map.jumpTo(it.toCameraOptions(appliedCameraPadding)) }
   }
 
   /**
@@ -638,7 +650,7 @@ internal class MlnFfiMapSession(
         retargetCount++
         // The replacement texture holds nothing yet; this request buys the frame that fills it.
         renderRequested.store(true)
-        onMap(::snapshotViewportAndNotify)
+        requestViewport(extent)
         return true
       }
     }
@@ -658,8 +670,7 @@ internal class MlnFfiMapSession(
     renderSessionReady = false
     attachedTarget = key
     attachCount++
-    publishAttachedViewport()
-    onMap(::snapshotViewportAndNotify)
+    requestViewport(extent)
     // The new texture holds nothing yet; this request buys the frame that fills it.
     renderRequested.store(true)
     return true
@@ -1015,20 +1026,40 @@ internal class MlnFfiMapSession(
     postWhenMapExists(action, abandon = {})
   }
 
-  private fun publishAttachedViewport() {
+  /**
+   * The renderer sends dimensions; the owner acknowledges them after Native's asynchronous resize.
+   */
+  private fun requestViewport(extent: MapExtent) {
     stateLock.withLock {
       if (!lifecycle.acceptsWork) return
-      hasAttachedViewport = true
+      viewportRequest = ViewportRequest(extent)
     }
+    onMap(::applyPendingViewport)
+  }
+
+  /** Owner thread only. Publish readiness after size and padding describe the same viewport. */
+  private fun applyPendingViewport(map: MapHandle) {
+    val request = viewportRequest?.takeUnless { it === appliedViewportRequest } ?: return
+    val size = map.size
+    if (size.width != request.extent.width || size.height != request.extent.height) return
+    applyCameraPadding(map)
+    snapshotViewport(map)
+    // Keep the last usable viewport during resize and surface loss. A detached presentation
+    // cannot be made ready by an acknowledgment that was already in flight.
+    val applied = stateLock.withLock {
+      if (viewportRequest !== request) return@withLock false
+      appliedViewportRequest = request
+      true
+    }
+    if (applied) notifyViewportChanged()
   }
 
   private fun recordCamera(position: CameraPosition, guard: CameraCommandGuard?) {
     if (guard?.isValid() == false) return
     requestedCamera = position
-    val padding = cameraPadding
     configureMap { map ->
       if (guard?.isValid() == false) return@configureMap
-      map.jumpTo(position.toCameraOptions(padding))
+      map.jumpTo(position.toCameraOptions(appliedCameraPadding))
       snapshotViewport(map)
     }
   }
@@ -1055,7 +1086,7 @@ internal class MlnFfiMapSession(
     requestedStyle = style
     val trackerRequest = styleLoadTracker.request()
     // Disposes the composition holding the old style's sources and layers, which would otherwise
-    // fail anchor validation against the base layers being replaced.
+    // be validated against the base layers being replaced.
     val lifecycleRequest = lifecycleEngineIdentity?.let {
       lifecycleCallbacks.beginStyleRequest(it, this)
     }
@@ -1187,13 +1218,8 @@ internal class MlnFfiMapSession(
    */
   private val projectionLock = MlnFfiLock()
 
-  /**
-   * A resize changes the projection without a camera event, so Compose overlays that read
-   * [MapState.viewport] would keep the previous screen locations unless this reports the new
-   * snapshot.
-   */
-  private fun snapshotViewportAndNotify(map: MapHandle) {
-    snapshotViewport(map)
+  /** Owner thread only. Publish newly available or changed viewport geometry. */
+  private fun notifyViewportChanged() {
     // The first attach snapshot can land before the lease is Attached. Seed from the snapshot
     // itself so a dropped camera callback cannot leave MapState.viewport null.
     lifecycleAuthority.seedCurrentPresentationViewport(this)
@@ -1246,10 +1272,19 @@ internal class MlnFfiMapSession(
     if (cameraPadding == insets) return
     cameraPadding = insets
     configureMap { map ->
-      map.jumpTo(CameraOptions().also { it.padding = insets })
-      appliedCameraPadding = insets
-      snapshotViewport(map)
+      if (hasViewport) {
+        applyCameraPadding(map)
+        snapshotViewport(map)
+      }
     }
+  }
+
+  /** Owner thread only, with a usable viewport. */
+  private fun applyCameraPadding(map: MapHandle) {
+    val padding = cameraPadding
+    if (padding == appliedCameraPadding) return
+    map.jumpTo(CameraOptions().also { it.padding = padding })
+    appliedCameraPadding = padding
   }
 
   override fun fitCameraToBounds(
@@ -1266,10 +1301,9 @@ internal class MlnFfiMapSession(
       snapshotViewport(map)
     }
     // MapState waits for the current attachment's viewport before it calls this adapter.
-    val hasViewport = stateLock.withLock {
-      hasAttachedViewport && lifecycle.acceptsWork && loop != null
+    check(hasViewport && lifecycle.acceptsWork && loop != null) {
+      "A bounds fit requires the current presentation viewport"
     }
-    check(hasViewport) { "A bounds fit requires the current presentation viewport" }
     check(runOnMap(fit) != null) { "The map became unavailable during the bounds fit" }
   }
 
@@ -1324,9 +1358,8 @@ internal class MlnFfiMapSession(
     duration: Duration,
     guard: CameraCommandGuard?,
   ) {
-    val padding = cameraPadding
     startTransitionAwaitingRelease(duration, guard = guard) { map, animation ->
-      map.flyTo(finalPosition.toCameraOptions(padding), animation)
+      map.flyTo(finalPosition.toCameraOptions(appliedCameraPadding), animation)
     }
   }
 
@@ -1338,7 +1371,7 @@ internal class MlnFfiMapSession(
     duration: Duration,
     guard: CameraCommandGuard?,
   ) {
-    check(stateLock.withLock { hasAttachedViewport }) {
+    check(hasViewport) {
       "A bounds animation requires the current presentation viewport"
     }
     startTransitionAwaitingRelease(duration, guard = guard) { map, animation ->
@@ -1476,9 +1509,9 @@ internal class MlnFfiMapSession(
   override fun getVisibleRegion(): VisibleRegion = mirroredViewport.visibleRegion
 
   override fun getViewport(): Viewport? {
-    // The map bootstraps at a 1x1 extent, so the mirror describes a real viewport only once a
-    // render target has attached with the composable's dimensions.
-    if (!stateLock.withLock { hasAttachedViewport }) return null
+    // The map bootstraps at a 1x1 extent, so the mirror describes a real viewport only once the
+    // map owner has acknowledged the render target's dimensions and applied padding.
+    if (!hasViewport) return null
     // One read so every property comes from the same publish.
     val mirror = mirroredViewport
     if (mirror.size == DpSize.Zero) return null
@@ -1504,7 +1537,8 @@ internal class MlnFfiMapSession(
       }
       if (cameraProjectionChanged) {
         map.projectionMode = value.cameraProjection.toFfi()
-        snapshotViewportAndNotify(map)
+        snapshotViewport(map)
+        notifyViewportChanged()
       }
     }
   }
@@ -1663,11 +1697,7 @@ internal class MlnFfiMapSession(
   // region input, called from Compose
 
   override val isGestureReady: Boolean
-    get() =
-      canPresentFrames &&
-        loop != null &&
-        loop?.failure == null &&
-        stateLock.withLock { hasAttachedViewport }
+    get() = canPresentFrames && loop != null && loop?.failure == null && hasViewport
 
   override fun observeInput(): Long = lifecycleAuthority.gestureCamera.observeInput()
 
@@ -1746,6 +1776,7 @@ internal class MlnFfiMapSession(
   }
 
   private fun onEventsDrained(engine: EngineMapIdentity, map: MapHandle) {
+    applyPendingViewport(map)
     ownerThreadRenderLease?.let { lease ->
       lifecycleCallbacks.onPresentationEvent(engine, lease) { snapshotViewport(map) }
     }

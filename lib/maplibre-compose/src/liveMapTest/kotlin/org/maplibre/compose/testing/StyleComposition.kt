@@ -23,11 +23,12 @@ import org.maplibre.compose.util.MaplibreComposable
 /**
  * Composes [content] once against [style] and applies the revision it publishes, then returns
  * [style] with everything the composition installed. With [thenChange], runs it, recomposes, and
- * applies the revision that follows.
+ * applies the revision that follows. [onRevision] sees each revision the composition publishes.
  */
 internal suspend fun composeStyle(
   style: RecordingStyleBinding = RecordingStyleBinding(),
   thenChange: (() -> Unit)? = null,
+  onRevision: (DesiredStyleRevision) -> Unit = {},
   content: @Composable @MaplibreComposable () -> Unit,
 ): RecordingStyleBinding {
   val frameClock = BroadcastFrameClock()
@@ -42,7 +43,14 @@ internal suspend fun composeStyle(
             LocalDensity provides Density(1f),
             LocalLayoutDirection provides LayoutDirection.Ltr,
           ) {
-            StyleContent(rootNode, publish = { revision = it }, content = content)
+            StyleContent(
+              rootNode,
+              publish = {
+                revision = it
+                onRevision(it)
+              },
+              content = content,
+            )
           }
         }
         val reconciler = StyleReconciler()

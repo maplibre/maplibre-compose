@@ -2,8 +2,6 @@ package org.maplibre.compose.layers
 
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
 import org.maplibre.compose.style.CLEARED_TRANSITION
 import org.maplibre.compose.style.LayerPropertyKind
 import org.maplibre.compose.style.LayerPropertyWrite
@@ -14,6 +12,7 @@ import org.maplibre.compose.style.StyleIdentity
 import org.maplibre.compose.style.TRANSITION_SUFFIX
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.scaledBy
+import org.maplibre.compose.style.summary
 import org.maplibre.compose.style.toTransitionJson
 import org.maplibre.compose.style.toTransitionOptions
 
@@ -24,7 +23,8 @@ import org.maplibre.compose.style.toTransitionOptions
  * the layer keeps its previous value.
  *
  * Style content owns all properties of declared layers. Their properties can be read, but setter
- * calls and [clearFilter] throw [StyleHandleException]. Base-style layers also permit writes.
+ * calls and [clearFilter] throw [StyleHandleException]. Base-style layers also permit writes,
+ * except through the handles that an [Anchor] predicate receives, which are read-only.
  */
 public class LayerHandle
 internal constructor(
@@ -109,7 +109,7 @@ internal constructor(
 
   private fun requireCurrent() {
     style.requireCurrent(identity)
-    check(isCurrentResource()) { "Layer '$id' is no longer owned by this handle" }
+    check(isCurrentResource()) { "Layer '$id' is no longer the $type layer owned by this handle" }
   }
 
   private fun <T> operation(action: () -> T): T = operations.run {
@@ -125,23 +125,24 @@ internal constructor(
   }
 }
 
+/**
+ * A handle for the style state, which outlives revisions. A layer replaced under the same ID takes
+ * a new identity, so [isCurrentResource] refuses the handle of the replaced one.
+ */
 internal fun StyleBinding.layerHandle(
   id: String,
   isCurrentResource: () -> Boolean,
   operations: StyleHandleOperationGuard,
 ): LayerHandle? {
   requireCurrent()
-  val definition = getLayer(id)?.definition() ?: return null
+  val summary = getLayer(id)?.definition()?.summary() ?: return null
   return LayerHandle(
     id = id,
-    type = definition.type,
-    source = definition.sourceId ?: definition.value.rootString("source"),
-    sourceLayer = definition.value.rootString("source-layer"),
+    type = summary.type,
+    source = summary.source,
+    sourceLayer = summary.sourceLayer,
     style = this,
     isCurrentResource = isCurrentResource,
     operations = operations,
   )
 }
-
-private fun Map<String, JsonElement>.rootString(name: String): String? =
-  (this[name] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
