@@ -98,9 +98,11 @@ These are engine or Kotlin constraints, not missing visitor branches.
    `org.maplibre.compose.expressions.kotlin`, so a prefix match treated
    `themeRed()` as an expr helper. Only `ExprScope` / `FeatureExpr` owners
    count.
-10. **Kotlin/JS does not treat a JS `boolean` as `is Boolean`.** `ExprEmit.lit`
-    takes `Any?`. `lit(true)` fell through on JS and returned `undefined`. Match
-    `true`/`false` by equality before the type check.
+10. **Kotlin/JS boolean literals are two separate holes.** `is Boolean` does not
+    match a primitive JS `boolean`, so `lit(Any?)` must match `true` / `false`
+    by equality. Interning `BooleanLiteral.True`/`False` on the companion also
+    fails: constructing those instances re-enters the companion before the
+    fields are assigned, and `of(true)` returns `undefined`. Do not intern them.
 
 Const-able types: Boolean, Number, String, Color, Dp, Offset, DpOffset,
 DpPadding, TextUnit, Duration, ProjectionTransition, EnumValue, ImageBitmap,

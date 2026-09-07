@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.TextUnitType
 import kotlin.time.Duration
+import org.maplibre.compose.expressions.ast.BooleanLiteral
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.FunctionCall
 import org.maplibre.compose.expressions.ast.Options
@@ -37,11 +38,11 @@ public object ExprEmit {
     when (value) {
       null -> nil()
       // Kotlin/JS keeps booleans as primitive `boolean`. `is Boolean` does not match that box,
-      // so `lit(true)` would fall through and return nothing. Equality does match.
-      true -> const(true)
-      false -> const(false)
+      // and BooleanLiteral's interned True/False can be unread during companion init.
+      true -> BooleanLiteral.of(true)
+      false -> BooleanLiteral.of(false)
       is Expression<*> -> value
-      is Boolean -> const(value)
+      is Boolean -> BooleanLiteral.of(value)
       is Int -> const(value)
       is Long -> const(value.toInt())
       is Float -> const(value)

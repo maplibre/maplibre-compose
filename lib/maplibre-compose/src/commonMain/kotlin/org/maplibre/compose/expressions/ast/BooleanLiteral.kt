@@ -8,9 +8,9 @@ public data class BooleanLiteral private constructor(override val value: Boolean
   override fun visit(block: (Expression<*>) -> Unit): Unit = block(this)
 
   public companion object {
-    private val True: BooleanLiteral = BooleanLiteral(true)
-    private val False: BooleanLiteral = BooleanLiteral(false)
-
-    public fun of(value: Boolean): BooleanLiteral = if (value) True else False
+    // Do not intern True/False. On Kotlin/JS the companion initializes those
+    // instances by constructing BooleanLiteral, which re-enters the companion
+    // before the fields are assigned, so of(true) can return undefined.
+    public fun of(value: Boolean): BooleanLiteral = BooleanLiteral(value)
   }
 }
