@@ -3,6 +3,7 @@
 package org.maplibre.compose.mlnffi
 
 import androidx.compose.ui.unit.LayoutDirection
+import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.time.Duration
@@ -84,6 +85,9 @@ private constructor(
     recorder.state = state
   }
 
+  /** The thread [whileRenderingOnRendererThread] drives frames from, while one is running. */
+  @Volatile private var rendererThread: RendererThread? = null
+
   private val hostSession =
     object : MlnFfiMapHostSession {
       override val backends: RenderBackendPair = driver.backends
@@ -92,10 +96,14 @@ private constructor(
         frameRequested = true
       }
 
-      override fun <T> withRendererAccess(action: () -> T): T = driver.withRendererAccess(action)
+      override fun <T> withRendererAccess(action: () -> T): T {
+        val thread = rendererThread ?: return driver.withRendererAccess(action)
+        return thread.run(action)
+      }
 
       override fun enqueueRenderer(action: () -> Unit): Boolean {
-        driver.withRendererAccess(action)
+        val thread = rendererThread
+        if (thread == null) driver.withRendererAccess(action) else thread.post(action)
         return true
       }
     }
@@ -132,6 +140,7 @@ private constructor(
    * Whether MapLibre has rendered at least once, which is how a test knows the map exists and is
    * attached. The runtime and map are created on their own thread, so the first frame is not it.
    */
+  @Volatile
   var hasRendered: Boolean = false
     internal set
 
@@ -235,6 +244,31 @@ private constructor(
     }
   }
 
+  /**
+   * Runs [block] on this thread while a dedicated renderer thread drives frames, and returns its
+   * result.
+   *
+   * Renderer access requested from any other thread is serialized onto that thread the way a
+   * platform host serializes it onto its own, in the order that exposes bookkeeping the session
+   * keeps off that thread: the access runs after a frame that started after the request, as it does
+   * behind a frame the host had already posted. A frame that fails, or a frame that this call ends
+   * while an access is still queued, fails the call.
+   */
+  fun <T> whileRenderingOnRendererThread(block: () -> T): T {
+    val thread = RendererThread(driver) { frame() }
+    rendererThread = thread
+    thread.start()
+    val result = runCatching(block)
+    rendererThread = null
+    val renderFailure = thread.stop()
+    result.exceptionOrNull()?.let { failure ->
+      renderFailure?.let(failure::addSuppressed)
+      throw failure
+    }
+    renderFailure?.let { throw it }
+    return result.getOrThrow()
+  }
+
   /** Runs [block] on another thread while this one renders frames, and returns its result. */
   fun <T> awaitWhileRendering(
     description: String,
@@ -296,6 +330,106 @@ private constructor(
     }
     runCatching { driver.close() }
     FfiTestPlatform.deleteCacheFile(cacheFile)
+  }
+
+  /**
+   * Drives frames until stopped, running queued renderer access between them. An access requested
+   * from another thread waits for a frame that started after the request; one requested on this
+   * thread runs at once.
+   */
+  private class RendererThread(
+    private val driver: FfiTestRenderDriver,
+    private val frame: () -> Unit,
+  ) {
+    private class Access(
+      val framesStartedWhenQueued: Long,
+      val run: () -> Unit,
+      val done: MlnFfiGate,
+    )
+
+    private val lock = MlnFfiLock()
+    private val queue = ArrayDeque<Access>()
+    private var framesStarted = 0L
+    private var stopped = false
+    @Volatile private var stopRequested = false
+    @Volatile private var failure: Throwable? = null
+    private val thread = MlnFfiOwnerThread("maplibre-compose-test-renderer", ::loop)
+
+    fun start() {
+      thread.start()
+    }
+
+    fun <T> run(action: () -> T): T {
+      if (thread.isCurrent()) return driver.withRendererAccess(action)
+      var result: Result<T>? = null
+      enqueue { result = runCatching { driver.withRendererAccess(action) } }.awaitUntilOpen()
+      return checkNotNull(result) { "The test renderer thread stopped before running an access" }
+        .getOrThrow()
+    }
+
+    fun post(action: () -> Unit) {
+      if (thread.isCurrent()) {
+        driver.withRendererAccess(action)
+        return
+      }
+      enqueue { runCatching { driver.withRendererAccess(action) } }
+    }
+
+    /** Stops the thread and returns what failed on it, if anything. */
+    fun stop(): Throwable? {
+      stopRequested = true
+      check(thread.join(STOP_TIMEOUT_MILLIS)) { "The test renderer thread did not stop" }
+      return failure
+    }
+
+    /** Queues [run] and returns the gate that opens once it has run or been abandoned. */
+    private fun enqueue(run: () -> Unit): MlnFfiGate {
+      val done = MlnFfiGate()
+      val accepted = lock.withLock {
+        if (!stopped) queue += Access(framesStarted, run, done)
+        !stopped
+      }
+      if (!accepted) done.open()
+      return done
+    }
+
+    private fun loop() {
+      try {
+        while (!stopRequested) {
+          runQueuedAccess()
+          lock.withLock { framesStarted++ }
+          frame()
+          parkForTest(1L)
+        }
+      } catch (error: Throwable) {
+        failure = error
+      } finally {
+        val abandoned = lock.withLock {
+          stopped = true
+          queue.toList().also { queue.clear() }
+        }
+        abandoned.forEach { it.done.open() }
+      }
+    }
+
+    private fun runQueuedAccess() {
+      val ready = lock.withLock {
+        val eligible = queue.filter { it.framesStartedWhenQueued < framesStarted }
+        queue.removeAll(eligible)
+        eligible
+      }
+      ready.forEach { access ->
+        try {
+          access.run()
+        } finally {
+          access.done.open()
+        }
+      }
+    }
+
+    private companion object {
+      const val STOP_TIMEOUT_MILLIS = 30_000L
+    }
   }
 
   companion object {
