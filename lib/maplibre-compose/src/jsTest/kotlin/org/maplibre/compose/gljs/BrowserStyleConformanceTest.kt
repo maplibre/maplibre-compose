@@ -78,7 +78,7 @@ class BrowserStyleConformanceTest {
             tiles = listOf("https://example.invalid/{z}/{x}/{y}.pbf"),
             options = TileSetOptions(minZoom = 24, maxZoom = 24),
           )
-        Anchor.Replace("base-fill") {
+        Anchor.Below("base-fill") {
           if (showLayer) {
             FillLayer(
               id = "switching-source-layer",
@@ -95,21 +95,21 @@ class BrowserStyleConformanceTest {
       liveSourceLayer() == "places"
     }
     assertEquals(
-      listOf("base-background", "switching-source-layer"),
+      listOf("base-background", "switching-source-layer", "base-fill"),
       style?.layerIds(),
     )
 
     sourceLayer = "roads"
-    waitUntilMap("the replacement source layer to reach the live style") {
+    waitUntilMap("the recreated source layer to reach the live style") {
       liveSourceLayer() == "roads"
     }
     assertEquals(
-      listOf("base-background", "switching-source-layer"),
+      listOf("base-background", "switching-source-layer", "base-fill"),
       style?.layerIds(),
     )
 
     showLayer = false
-    waitUntilMap("the replaced base layer to be restored") {
+    waitUntilMap("the removed layer to leave the live style") {
       style?.layerIds() == listOf("base-background", "base-fill")
     }
     assertTrue(failures.isEmpty(), "the map reported load failures: $failures")

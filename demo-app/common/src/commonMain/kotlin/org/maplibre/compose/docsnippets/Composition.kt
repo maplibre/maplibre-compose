@@ -3,6 +3,8 @@
 package org.maplibre.compose.docsnippets
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
@@ -21,4 +23,11 @@ fun Composition() {
     }
   MaplibreMap(state = state)
   // #endregion base-plus-content
+
+  // #region base-layer-handle
+  val buildings = state.style.layers["building"]
+  LaunchedEffect(buildings) {
+    buildings?.setPaintProperty("fill-color", JsonPrimitive("#2196f3"))
+  }
+  // #endregion base-layer-handle
 }
