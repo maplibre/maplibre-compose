@@ -4,6 +4,8 @@ on:
   workflow_run:
     workflows:
       - CI
+      - CI ready
+      - CI full
     types:
       - completed
 
@@ -58,16 +60,17 @@ jobs:
               "${run}/attempts/${CI_RUN_ATTEMPT}/jobs?per_page=100"
           )"
           # A primary failure also fails all-good and can skip dependent jobs.
+          # Jobs of a reusable workflow are named '<caller> / <job>'.
           primary_failure_count="$(
             jq '[
               .jobs[]
-              | select(.conclusion == "failure" and .name != "all-good")
+              | select(.conclusion == "failure" and (.name | endswith("all-good") | not))
             ] | length' <<<"$jobs"
           )"
           aggregate_failure_count="$(
             jq '[
               .jobs[]
-              | select(.conclusion == "failure" and .name == "all-good")
+              | select(.conclusion == "failure" and (.name | endswith("all-good")))
             ] | length' <<<"$jobs"
           )"
           unexpected_conclusion_count="$(
@@ -98,14 +101,14 @@ jobs:
           job_id="$(
             jq -r '
               .jobs[]
-              | select(.conclusion == "failure" and .name != "all-good")
+              | select(.conclusion == "failure" and (.name | endswith("all-good") | not))
               | .id
             ' <<<"$jobs"
           )"
           job_name="$(
             jq -r '
               .jobs[]
-              | select(.conclusion == "failure" and .name != "all-good")
+              | select(.conclusion == "failure" and (.name | endswith("all-good") | not))
               | .name
             ' <<<"$jobs"
           )"

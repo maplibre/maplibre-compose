@@ -1,0 +1,29 @@
+name: CI ready
+
+# The ready tier: variants a pull request gains when it leaves draft status or
+# opts in with the ci:full label. Only this workflow reruns on those events.
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+      - labeled
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ready:
+    uses: ./.github/workflows/ci-jobs.yml
+    with:
+      tier: ready
+    secrets: inherit
+    permissions:
+      contents: write
+      actions: write

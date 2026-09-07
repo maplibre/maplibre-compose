@@ -1,0 +1,28 @@
+name: CI full
+
+# The full tier: variants a pull request gains from the ci:full label or from
+# Dependabot authorship. Only this workflow reruns when the label is added.
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  full:
+    uses: ./.github/workflows/ci-jobs.yml
+    with:
+      tier: full
+    secrets: inherit
+    permissions:
+      contents: write
+      actions: write
