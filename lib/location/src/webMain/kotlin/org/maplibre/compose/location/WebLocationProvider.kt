@@ -296,30 +296,14 @@ internal interface BrowserGeolocationBoundary {
   fun startWatch(options: BrowserOptions, onResult: (BrowserResult) -> Unit): (() -> Unit)
 }
 
-private fun hasGeolocation(): Boolean =
-  js("typeof navigator !== 'undefined' && !!navigator.geolocation")
-
-private fun hasPermissionsQuery(): Boolean =
-  js("typeof navigator !== 'undefined' && !!navigator.permissions && !!navigator.permissions.query")
-
-private fun setPositionTimeout(options: PositionOptions, millis: Double): Unit =
-  js("{ options.timeout = millis }")
-
 private object BrowserGeolocation : BrowserGeolocationBoundary {
-<<<<<<<< HEAD:lib/location/src/webMain/kotlin/org/maplibre/compose/location/WebLocationProvider.kt
   private val rawNavigator: dynamic = js("navigator")
-|||||||| parent of 00c8b08f (Share the GL JS platform on webMain for Kotlin/JS and Kotlin/Wasm.):lib/location/src/jsMain/kotlin/org/maplibre/compose/location/BrowserLocationProvider.kt
-  private val rawNavigator: dynamic = js("navigator")
-  override val permissionState = BrowserLocationPermissionState()
-========
-  override val permissionState = BrowserLocationPermissionState()
->>>>>>>> 00c8b08f (Share the GL JS platform on webMain for Kotlin/JS and Kotlin/Wasm.):lib/location/src/webMain/kotlin/org/maplibre/compose/location/BrowserLocationProvider.kt
 
   override val supported: Boolean
-    get() = hasGeolocation()
+    get() = rawNavigator.geolocation != null
 
   override fun permissionChanges(): Flow<BrowserPermission> = callbackFlow {
-    if (!supported || !hasPermissionsQuery()) {
+    if (!supported || rawNavigator.permissions?.query == null) {
       trySend(BrowserPermission.Unknown)
       awaitCancellation()
     }
@@ -379,7 +363,8 @@ private fun LocationRequest.asBrowserOptions(): BrowserOptions =
 
 internal fun BrowserOptions.toPositionOptions(): PositionOptions {
   val result = unsafeJso<PositionOptions> { enableHighAccuracy = highAccuracy }
-  timeout?.let { setPositionTimeout(result, it.inWholeMilliseconds.toDouble()) }
+  val rawResult: dynamic = result
+  timeout?.let { rawResult.timeout = it.inWholeMilliseconds.toDouble() }
   return result
 }
 

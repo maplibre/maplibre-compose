@@ -28,7 +28,8 @@ class BrowserPlatformMapAccessTest {
     val runtime = createMapRuntime()
     val state = runtime.createMapState(BaseStyle.Demo)
 
-    val failure = assertFailsWith<IllegalStateException> { state.withPlatformMap { map.getZoom() } }
+    val failure =
+      assertFailsWith<IllegalStateException> { state.withPlatformMap { map.asDynamic().getZoom() } }
 
     assertEquals("Platform map access requires an attached Web map surface", failure.message)
     assertNull(state.currentMapAttachment)
@@ -42,7 +43,7 @@ class BrowserPlatformMapAccessTest {
     try {
       fixture.awaitMapReady()
 
-      val zoom = fixture.state.withPlatformMap { map.getZoom() }
+      val zoom = fixture.state.withPlatformMap { map.asDynamic().getZoom() }
 
       assertEquals(0.0, zoom)
       assertTrue(fixture.state.currentMapAttachment?.isValid == true)
@@ -98,7 +99,7 @@ class BrowserPlatformMapAccessTest {
           async(start = CoroutineStart.UNDISPATCHED) {
             fixture.state.withPlatformMap {
               callbackRan = true
-              map.getZoom()
+              map.asDynamic().getZoom()
             }
           }
 
@@ -123,7 +124,7 @@ class BrowserPlatformMapAccessTest {
           async(start = CoroutineStart.UNDISPATCHED) {
             fixture.state.withPlatformMap {
               callbackRan = true
-              map.getZoom()
+              map.asDynamic().getZoom()
             }
           }
 
@@ -146,7 +147,7 @@ class BrowserPlatformMapAccessTest {
           async(start = CoroutineStart.UNDISPATCHED) {
             fixture.state.withPlatformMap {
               fixture.state.close()
-              map.getZoom()
+              map.asDynamic().getZoom()
             }
           }
 

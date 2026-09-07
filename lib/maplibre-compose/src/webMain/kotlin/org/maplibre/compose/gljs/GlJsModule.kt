@@ -41,7 +41,7 @@ internal external class MaplibreMap(options: MapOptions) : JsAny {
 
   fun on(type: String, listener: (event: GlJsMapEvent) -> Unit): Subscription
 
-  fun fire(type: String, properties: Any)
+  fun fire(type: String, properties: JsAny)
 
   fun getCanvas(): HTMLCanvasElement
 
@@ -142,3 +142,96 @@ internal external class MaplibreMap(options: MapOptions) : JsAny {
     options: QuerySourceFeatureOptions,
   ): JsArray<GeoJsonFeature>
 
+  fun setGlobalStateProperty(propertyName: String, value: Any?)
+
+  fun getGlobalState(): Any
+
+  fun setFeatureState(feature: FeatureIdentifier, state: Any)
+
+  fun getFeatureState(feature: FeatureIdentifier): JsAny?
+
+  fun removeFeatureState(feature: FeatureIdentifier, key: String = definedExternally)
+
+  fun addSource(id: String, source: SourceSpecification)
+
+  fun removeSource(id: String)
+
+  /** Unbounded: MapLibre bounds this by its own `Source`, which collides with this library's. */
+  fun <T : JsAny> getSource(id: String): T?
+
+  fun addLayer(layer: LayerSpecification, beforeId: String = definedExternally)
+
+  fun moveLayer(id: String, beforeId: String = definedExternally)
+
+  fun removeLayer(id: String)
+
+  fun getLayer(id: String): StyleLayer?
+
+  fun getLayersOrder(): JsArray<JsString>
+
+  fun setLayerZoomRange(layerId: String, minzoom: Double, maxzoom: Double)
+
+  fun setFilter(layerId: String, filter: FilterSpecification?)
+
+  fun getFilter(layerId: String): FilterSpecification?
+
+  fun setPaintProperty(layerId: String, name: String, value: JsAny?)
+
+  fun getPaintProperty(layerId: String, name: String): JsAny?
+
+  fun setLayoutProperty(layerId: String, name: String, value: JsAny?)
+
+  fun getLayoutProperty(layerId: String, name: String): JsAny?
+
+  fun addImage(id: String, image: StyleImageData, options: StyleImageMetadata)
+
+  fun hasImage(id: String): Boolean
+
+  fun removeImage(id: String)
+
+  /**
+   * MapLibre awaits the promise that the resolver returns before it treats the image as missing. A
+   * null [resolver] removes the one in place; MapLibre exposes no separate remover.
+   */
+  fun setMissingStyleImageResolver(resolver: ((id: String) -> Promise<*>?)?)
+}
+
+internal external class LngLat(lng: Double, lat: Double) : JsAny {
+  val lng: Double
+  val lat: Double
+}
+
+internal external class LngLatBounds(sw: LngLat, ne: LngLat) : JsAny {
+  fun getSouthWest(): LngLat
+
+  fun getNorthEast(): LngLat
+}
+
+/**
+ * MapLibre exposes no transition setter, and its style diff treats `setTransition` as a no-op, so
+ * update [stylesheet], the public field that [getTransition] reads every frame.
+ */
+internal external class Style {
+  var stylesheet: StyleSpecification
+
+  val tileManagers: JsRecord<Any>
+
+  val light: Light
+
+  val sky: Sky
+
+  fun getTransition(): TransitionSpecification
+}
+
+/**
+ * The style's light validates its input and reports a rejected write as an `error` event on itself,
+ * with no evented parent, so a listener on the map never hears it.
+ */
+internal external class Light {
+  fun on(type: String, listener: (event: GlJsMapEvent) -> Unit): Subscription
+}
+
+/** The style's sky reports a rejected write the same way as [Light]. */
+internal external class Sky {
+  fun on(type: String, listener: (event: GlJsMapEvent) -> Unit): Subscription
+}

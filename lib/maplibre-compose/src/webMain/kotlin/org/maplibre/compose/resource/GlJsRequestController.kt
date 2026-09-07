@@ -1,9 +1,10 @@
 package org.maplibre.compose.resource
 
 import js.buffer.ArrayBuffer
+import js.date.Date
 import js.objects.unsafeJso
 import js.typedarrays.Uint8Array
-import kotlin.js.Date
+import kotlin.js.JsAny
 import kotlin.js.Promise
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineName
@@ -19,6 +20,7 @@ import org.maplibre.compose.gljs.ProtocolResponse
 import org.maplibre.compose.gljs.RequestParameters
 import org.maplibre.compose.gljs.addProtocol
 import org.maplibre.compose.gljs.removeProtocol
+import org.maplibre.compose.gljs.setUint8At
 
 internal class GlJsRequestController(private val config: MapResourceConfig) : AutoCloseable {
   val scheme: String by lazy { newResourceProtocolScheme() }
@@ -35,7 +37,7 @@ internal class GlJsRequestController(private val config: MapResourceConfig) : Au
     }
   }
 
-  fun transformRequest(url: String, resourceType: String?): Any? {
+  fun transformRequest(url: String, resourceType: String?): JsAny? {
     val kind = resourceType.toResourceKind()
     val interceptor = config.interceptor
     return when (val route = config.route(MapResourceRequest(url, kind))) {
@@ -51,7 +53,7 @@ internal class GlJsRequestController(private val config: MapResourceConfig) : Au
 
   internal fun loadProtocol(
     request: RequestParameters,
-    abortController: Any,
+    abortController: ProtocolAbortController,
   ): Promise<ProtocolResponse> {
     val parsed = parseProtocolUrl(request.url)
     val work = scope.async {
@@ -70,12 +72,12 @@ internal class GlJsRequestController(private val config: MapResourceConfig) : Au
       val workerTile = parsed.kind == MapResourceKind.Tile && request.type == "arrayBuffer"
       result.toProtocolResponse(parsed.url, workerTile)
     }
-    val signal = abortController.asDynamic().signal
+    val signal = abortController.signal
     val abort: () -> Unit = { work.cancel() }
     signal.addEventListener("abort", abort)
     work.invokeOnCompletion { signal.removeEventListener("abort", abort) }
     if (signal.aborted == true) work.cancel()
-    return work.asPromise()
+    return unwrapProtocolResult(work.asPromise())
   }
 
   fun protocolUrl(url: String, kind: MapResourceKind): String =
@@ -107,11 +109,11 @@ internal class GlJsRequestController(private val config: MapResourceConfig) : Au
  */
 private fun newResourceProtocolScheme(): String {
   val bytes = Uint8Array<ArrayBuffer>(16)
-  js("crypto.getRandomValues")(bytes)
+  randomize(bytes)
   val token =
     buildString(32) {
       for (index in 0 until 16) {
-        val value = bytes.asDynamic()[index].unsafeCast<Int>()
+        val value = byteAt(bytes, index)
         append("0123456789abcdef"[value ushr 4])
         append("0123456789abcdef"[value and 0x0f])
       }
@@ -119,7 +121,7 @@ private fun newResourceProtocolScheme(): String {
   return "mlc-res-$token"
 }
 
-private val undefined: Any? = js("undefined")
+private val undefined: JsAny? = js("undefined")
 
 /** The kind that MapLibre GL JS names with this resource type, or [MapResourceKind.Unknown]. */
 internal fun String?.toResourceKind(): MapResourceKind =
@@ -129,16 +131,23 @@ internal fun String?.toResourceKind(): MapResourceKind =
 internal fun String.toStoredResourceKind(): MapResourceKind =
   MapResourceKind(decodeResourceUrl(this))
 
-private fun requestParameters(url: String, headers: Map<String, String>): Any {
-  val params = js("{}")
-  params.url = url
+private fun requestParameters(url: String, headers: Map<String, String>): RequestParameters {
+  val params = unsafeJso<RequestParameters> { this.url = url }
   if (headers.isNotEmpty()) {
-    val headerObject = js("{}")
-    headers.forEach { (name, value) -> headerObject[name] = value }
-    params.headers = headerObject
+    val values = unsafeJso<JsAny>()
+    headers.forEach { (name, value) -> setHeader(values, name, value) }
+    params.headers = values
   }
   return params
 }
+
+private fun setHeader(headers: JsAny, name: String, value: String): Unit =
+  js("{ headers[name] = value }")
+
+private fun randomize(bytes: Uint8Array<ArrayBuffer>): Unit =
+  js("{ crypto.getRandomValues(bytes) }")
+
+private fun byteAt(bytes: Uint8Array<ArrayBuffer>, index: Int): Int = js("bytes[index]")
 
 /**
  * The HTTP status that MapLibre GL JS reads from a rejected protocol promise, or null for a reason
@@ -197,9 +206,16 @@ private fun MapResourceLoad.toProtocolResponse(
 
 private fun ByteArray.toProtocolResponse(expires: Date?): ProtocolResponse {
   val bytes = Uint8Array<ArrayBuffer>(size)
-  forEachIndexed { index, byte -> bytes.asDynamic()[index] = byte.toInt() and 0xFF }
+  forEachIndexed { index, byte -> setUint8At(bytes, index, byte.toInt() and 0xFF) }
   return unsafeJso {
     data = bytes.buffer
     if (expires != null) this.expires = expires
   }
 }
+
+/** Constructs the rejection value without passing it through Kotlin exception wrapping. */
+private fun protocolError(message: String, status: Int?): JsAny =
+  js("{ const error = new Error(message); error.status = status; return error; }")
+
+private fun unwrapProtocolResult(promise: Promise<JsAny>): Promise<ProtocolResponse> =
+  js("promise.then(value => { if (value instanceof Error) throw value; return value; })")

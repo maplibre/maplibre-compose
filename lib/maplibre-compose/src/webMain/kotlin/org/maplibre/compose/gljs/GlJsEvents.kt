@@ -32,7 +32,9 @@ internal fun GlJsMapEvent.failedTile(): String? {
 internal fun GlJsMapEvent.failedUrl(): String? = error?.asDynamic()?.url as? String
 
 /** Whether an error event ended a base-style request rather than one source or tile request. */
-internal fun GlJsMapEvent.isTerminalStyleLoadFailure(): Boolean {
-  val style = asDynamic().style ?: return false
-  return style._loaded != true && style._loadStyleRequest == null && style._frameRequest == null
-}
+internal fun GlJsMapEvent.isTerminalStyleLoadFailure(): Boolean = terminalStyleLoadFailure(this)
+
+private fun terminalStyleLoadFailure(event: GlJsMapEvent): Boolean =
+  js(
+    "!!event.style && event.style._loaded !== true && event.style._loadStyleRequest == null && event.style._frameRequest == null"
+  )

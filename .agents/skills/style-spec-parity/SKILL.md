@@ -114,3 +114,22 @@ move the test from the `glJsOnly*` list into the shared cases.
 A whole type has no binding filter like a property does. Put the public
 composable in the source set that has the engine:
 
+- Native only: `maplibreNativeMain`, as `LocationIndicatorLayer` does.
+- GL JS only: `webMain`.
+
+The other platform's demo or helper uses `expect`/`actual` when it needs a
+stand-in, the way `NativeLocationIndicator` falls back to nothing on the
+browser.
+
+## Verify
+
+```sh
+mise run style-spec:parity -- --check
+mise run test:desktop
+mise run test:js
+mise run check
+```
+
+Run `mise run ci:test-scripts` when changing the catalog checker. For catalog or
+documentation-only changes, select the relevant checks without running map
+suites whose behavior is unchanged.

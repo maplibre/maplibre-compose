@@ -11,7 +11,7 @@ import org.maplibre.compose.util.ExperimentalMaplibreComposeApi
 @ExperimentalMaplibreComposeApi
 public actual class PlatformMapScope internal constructor(private val engineMap: MaplibreMap) {
   /** The raw MapLibre GL JS `Map` object. */
-  public val map: dynamic
+  public val map: kotlin.js.JsAny
     get() = engineMap
 }
 

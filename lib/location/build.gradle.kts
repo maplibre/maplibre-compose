@@ -1,0 +1,91 @@
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+import org.jetbrains.kotlin.gradle.ExperimentalJsTestDsl
+
+plugins {
+  id("multiplatform-library-conventions")
+  id("android-library-conventions")
+  id(libs.plugins.kotlin.multiplatform.get().pluginId)
+  id(libs.plugins.android.library.get().pluginId)
+  id(libs.plugins.mavenPublish.get().pluginId)
+}
+
+mavenPublishing {
+  pom {
+    name = "MapLibre Compose Location"
+    description = "Multiplatform location and heading providers, usable without Compose."
+    url = "https://github.com/maplibre/maplibre-compose"
+  }
+}
+
+kotlin {
+  android { namespace = "org.maplibre.compose.location" }
+
+  iosArm64()
+  iosSimulatorArm64()
+  macosArm64()
+
+  jvm { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
+
+  js {
+    useEsModules()
+    browser {
+      @OptIn(ExperimentalJsTestDsl::class)
+      test {
+        chromium()
+        firefox()
+        webkit()
+      }
+    }
+  }
+
+  @OptIn(ExperimentalWasmDsl::class)
+  wasmJs { browser() }
+
+  applyDefaultHierarchyTemplate()
+
+  sourceSets {
+    listOf(webMain, jsMain, wasmJsMain, jsTest, wasmJsTest).forEach {
+      it { languageSettings { optIn("kotlin.js.ExperimentalWasmJsInterop") } }
+    }
+
+    jsTest.dependencies { implementation(npm("mocha", libs.versions.mocha.get())) }
+
+    listOf(appleMain, iosMain, iosArm64Main, iosSimulatorArm64Main, macosMain, macosArm64Main)
+      .forEach {
+        it { languageSettings { optIn("kotlinx.cinterop.ExperimentalForeignApi") } }
+      }
+
+    commonMain.dependencies {
+      // Stability annotations for Compose apps, which already have them. Compile-only keeps them
+      // off the classpath of consumers without Compose, which need not resolve them on any target.
+      compileOnly(libs.androidx.composeRuntime.annotation)
+      api(libs.kotlinx.coroutines.core)
+      api(libs.spatialk.geojson)
+      api(libs.spatialk.units)
+    }
+
+    androidMain.dependencies {
+      implementation(libs.androidx.activity)
+      implementation(libs.lifecycle.runtime)
+    }
+
+    webMain.dependencies {
+      implementation(libs.kotlin.wrappers.js)
+      implementation(libs.kotlin.wrappers.browser)
+    }
+
+    commonTest.dependencies {
+      implementation(kotlin("test"))
+      implementation(kotlin("test-common"))
+      implementation(kotlin("test-annotations-common"))
+      implementation(libs.kotlinx.coroutines.test)
+    }
+
+    androidHostTest.dependencies { implementation(libs.robolectric) }
+
+    // The device test APK must package the instrumentation runner itself.
+    androidDeviceTest.dependencies { implementation(libs.androidx.test.runner) }
+  }
+}
+
+configureBrowserTestBundle()

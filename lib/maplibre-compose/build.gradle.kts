@@ -1,0 +1,338 @@
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+import kotlin.time.Duration.Companion.minutes
+import org.jetbrains.kotlin.gradle.ExperimentalJsTestDsl
+import org.jetbrains.kotlin.gradle.targets.js.ir.DefaultIncrementalSyncTask
+import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
+import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpack
+
+plugins {
+  id("multiplatform-library-conventions")
+  id("android-library-conventions")
+  id(libs.plugins.kotlin.multiplatform.get().pluginId)
+  id(libs.plugins.kotlin.composeCompiler.get().pluginId)
+  id(libs.plugins.android.library.get().pluginId)
+  id(libs.plugins.compose.get().pluginId)
+  id(libs.plugins.mavenPublish.get().pluginId)
+}
+
+mavenPublishing {
+  pom {
+    name = "MapLibre Compose"
+    description = "Add interactive vector tile maps to your Compose app"
+    url = "https://github.com/maplibre/maplibre-compose"
+  }
+}
+
+kotlin {
+  android {
+    namespace = "org.maplibre.compose"
+    optimization {
+      // The Vulkan bridge class is resolved by JNI name.
+      consumerKeepRules.publish = true
+      consumerKeepRules.files.add(project.file("consumer-rules.pro"))
+    }
+  }
+
+  iosArm64()
+  iosSimulatorArm64()
+  macosArm64()
+
+  jvm { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
+
+  js {
+    // The MapLibre GL JS declarations are @file:JsModule with no global to fall back on, which UMD
+    // output rejects. Every consumer of this module's js target has to match.
+    useEsModules()
+    outputModuleName.set("maplibre-compose")
+    // Compose UI browser tests need an executable binary so webpack can load the Skiko runtime
+    // (CMP-4906).
+    binaries.executable()
+    browser {
+      @OptIn(ExperimentalJsTestDsl::class)
+      test {
+        // This deadline covers the entire browser suite, not one test.
+        timeout.set(5.minutes)
+        chromium {
+          launchArgs.addAll(
+            "--use-gl=angle",
+            "--use-angle=swiftshader",
+            "--enable-unsafe-swiftshader",
+            "--no-sandbox",
+          )
+        }
+        firefox {
+          // Firefox needs an Xvfb display for software WebGL on Linux.
+          headless.set(!System.getProperty("os.name").startsWith("Linux"))
+        }
+        webkit()
+      }
+    }
+  }
+
+  @OptIn(ExperimentalWasmDsl::class)
+  wasmJs { browser() }
+
+  applyDefaultHierarchyTemplate()
+
+  sourceSets {
+    listOf(webMain, jsMain, wasmJsMain, jsTest, wasmJsTest).forEach {
+      it { languageSettings { optIn("kotlin.js.ExperimentalWasmJsInterop") } }
+    }
+
+    jsTest.dependencies { implementation(npm("mocha", libs.versions.mocha.get())) }
+
+    val jvmMain by getting
+
+    listOf(appleMain, iosMain, iosArm64Main, iosSimulatorArm64Main, macosMain, macosArm64Main)
+      .forEach {
+        it { languageSettings { optIn("kotlinx.cinterop.ExperimentalForeignApi") } }
+      }
+
+    // Tests install loggers, borrow the platform map, and build desktop presentation hosts
+    // without each test opting in.
+    matching { it.name.endsWith("Test") }
+      .configureEach {
+        languageSettings {
+          optIn("org.maplibre.compose.util.DelicateMaplibreComposeApi")
+          optIn("org.maplibre.compose.util.ExperimentalMaplibreComposeApi")
+        }
+      }
+
+    commonMain.dependencies {
+      api(project(":lib:location"))
+      implementation(libs.jetbrains.compose.foundation)
+      implementation(libs.jetbrains.compose.components.resources)
+      implementation(libs.htmlConverterCompose)
+      api(libs.lifecycle.runtime.compose)
+      api(libs.kotlinx.coroutines.core)
+      implementation(libs.kotlinx.atomicfu)
+      api(libs.kotlinx.io.core)
+      api(libs.spatialk.geojson)
+      api(libs.spatialk.units)
+    }
+
+    // Desktop, iOS, and the browser. Android implements the same expect APIs in androidMain,
+    // because Compose on Android draws through the Android Canvas API instead of Skia.
+    create("nonAndroidMain") {
+      dependsOn(commonMain.get())
+      jvmMain.dependsOn(this)
+      appleMain.get().dependsOn(this)
+      webMain.get().dependsOn(this)
+    }
+
+    // MapLibre Native platforms (Android, iOS, desktop). The browser stays on MapLibre GL JS.
+    // This source set stays free of java.* so a Native actual can sit beside the Java one.
+    val maplibreNativeMain =
+      create("maplibreNativeMain") {
+        dependsOn(commonMain.get())
+        appleMain.get().dependsOn(this)
+        dependencies {
+          // Backend-independent binding only; the application selects the native runtime.
+          api(libs.maplibre.nativeFfi)
+        }
+      }
+
+    // Java implementations shared by Android and desktop, including mln-ffi actuals that iOS
+    // provides separately in iosMain.
+    create("androidJvmMain") {
+      dependsOn(maplibreNativeMain)
+      androidMain.get().dependsOn(this)
+      jvmMain.dependsOn(this)
+    }
+
+    appleMain {
+      dependencies {
+        // iOS runs the Metal backend, on the device and in the simulator; the runtime klib
+        // carries the static MapLibre Native archive and its Apple framework linker opts.
+        implementation(libs.maplibre.nativeFfi.runtimeMetalKmp)
+      }
+    }
+
+    jvmMain.apply {
+      dependencies {
+        implementation(compose.desktop.common)
+
+        // The Compose host needs direct Vulkan/OpenGL access; the natives come from the runtime
+        // artifact the application picks.
+        implementation(libs.lwjgl.core)
+        implementation(libs.lwjgl.egl)
+        implementation(libs.lwjgl.opengl)
+        implementation(libs.lwjgl.opengles)
+        implementation(libs.lwjgl.vulkan)
+      }
+    }
+
+    webMain.dependencies {
+      implementation(libs.kotlin.wrappers.js)
+      api(libs.kotlin.wrappers.browser)
+      implementation(
+        npm("@maplibre/maplibre-gl-style-spec", libs.versions.maplibre.styleSpec.get()),
+      )
+      implementation(npm("@maplibre/geojson-vt", libs.versions.maplibre.geojsonVt.get()))
+      implementation(npm("@maplibre/vt-pbf", libs.versions.maplibre.vtPbf.get()))
+    }
+
+    commonTest.dependencies {
+      implementation(kotlin("test"))
+      implementation(kotlin("test-common"))
+      implementation(kotlin("test-annotations-common"))
+      implementation(libs.kotlinx.coroutines.test)
+
+      implementation(libs.jetbrains.compose.ui.test)
+    }
+
+    // Map, Compose composition/UI, and real-bitmap tests shared by jsTest and every platform that
+    // consumes maplibreNativeMain. androidHostTest inherits commonTest but has no Android runtime;
+    // even headless Composition/Recomposer tests call Android Trace and Log there.
+    val liveMapTest =
+      create("liveMapTest") {
+        dependsOn(commonTest.get())
+        jsTest.get().dependsOn(this)
+        wasmJsTest.get().dependsOn(this)
+      }
+
+    // Behavioral contracts for the shared MapLibre Native integration. Every platform that
+    // consumes maplibreNativeMain must execute this source set except androidHostTest, which has
+    // no MapLibre runtime. The platform test source supplies only runtime, render-host, storage,
+    // and Compose-runner adapters.
+    val maplibreNativeTest =
+      create("maplibreNativeTest") {
+        dependsOn(commonTest.get())
+        dependsOn(liveMapTest)
+      }
+
+    // Java implementations of the shared test adapters. This source set also holds the handful of
+    // shared-suite tests that only its runners can host: a test that composes the real map view
+    // needs a Compose test runner that hosts a native interop view, which the iOS headless runner
+    // cannot (LocalInteropContainer is internal to Compose UI), and one test that exercises JVM
+    // thread interruption.
+    create("androidJvmTest") {
+      dependsOn(maplibreNativeTest)
+      getByName("androidDeviceTest").dependsOn(this)
+      getByName("jvmTest").dependsOn(this)
+    }
+
+    // iOS executes the same shared Native contract suite; its test source supplies the Native
+    // platform adapters instead of the Java ones in androidJvmTest.
+    getByName("appleTest").dependsOn(maplibreNativeTest)
+
+    // One native runtime is loaded per test process; `maplibre.desktop.backend` selects which, and
+    // a CI matrix adds processes for additional applicable backends.
+    val jvmTest by getting
+    jvmTest.dependencies {
+      implementation(compose.desktop.currentOs)
+      // Real-runtime tests deliver engine callbacks on Dispatchers.Main, which Swing supplies.
+      implementation(libs.kotlinx.coroutines.swing)
+      // Only the EGL interop tests bind EGL directly; nothing in the library does.
+      implementation(libs.lwjgl.egl)
+    }
+
+    androidHostTest.dependencies { implementation(compose.desktop.currentOs) }
+
+    androidDeviceTest.dependencies {
+      implementation(libs.androidx.activity.compose)
+      implementation(libs.jetbrains.compose.ui.testJunit4)
+      implementation(libs.androidx.composeUi.testManifest)
+      // The shared device-test render driver targets OpenGL.
+      implementation(libs.maplibre.nativeFfi.runtimeOpenGl)
+    }
+  }
+}
+
+val requestedDesktopBackend = providers.gradleProperty("maplibre.desktop.backend")
+
+configurations.named("jvmTestRuntimeOnly") {
+  dependencies.addAllLater(
+    providers.provider {
+      val platform = DesktopHostPlatform.current()
+      listOf(
+        project.dependencies.project(
+          mapOf(
+            "path" to
+              ":lib:${platform.runtimeArtifactId(platform.selectedRenderBackend(requestedDesktopBackend.orNull))}",
+          ),
+        ),
+      )
+    },
+  )
+}
+
+compose.resources { packageOfResClass = "org.maplibre.compose.generated" }
+
+// Kotlin/Native spawns simulator tests with `simctl spawn --standalone`, whose bootstrap context
+// has no access to the GPU daemon, so MTLCreateSystemDefaultDevice returns nil there. The map
+// tests render through Metal, so they run in the regular bootstrap instead.
+tasks.withType<org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeSimulatorTest> {
+  standalone.set(false)
+}
+
+class ShutdownTestClasspathArguments(@get:Classpath val classpath: FileCollection) :
+  CommandLineArgumentProvider {
+  override fun asArguments() = listOf("-Dorg.maplibre.compose.test.classpath=${classpath.asPath}")
+}
+
+tasks.named<Test>("jvmTest") {
+  jvmArgumentProviders.add(ShutdownTestClasspathArguments(classpath))
+  if (providers.environmentVariable("CI").orNull == "true") {
+    // A hung process never writes its reports. Keep the active test and watchdog stacks in CI logs.
+    testLogging { events("started", "failed", "skipped", "standardError") }
+  }
+}
+
+stageIosSimulatorTestResources()
+
+// The new browser runner bundles JavaScript but does not copy runtime resources.
+val browserTestRuntime =
+  tasks.named<DefaultIncrementalSyncTask>("jsTestTestDevelopmentExecutableCompileSync")
+val browserTestResources =
+  browserTestRuntime.flatMap { it.destinationDirectory }.map { it.resolve("composeResources") }
+
+tasks.named("prepareWebpackBundleForKotlinJsTests") {
+  inputs.dir(layout.buildDirectory.dir("maplibre-gl-js"))
+  val bundleDirectory = layout.buildDirectory.dir("kotlinJsTest/dist")
+  doLast {
+    val bundle = bundleDirectory.get().asFile
+    val html = bundle.resolve("test.html")
+    html.writeText(
+      html
+        .readText()
+        .replace(
+          "// KOTLIN_TEST_BROWSER_CONFIG",
+          "config.mochaSetupOptions.timeout = 60000;",
+        ),
+    )
+    browserTestResources.get().copyRecursively(bundle.resolve("composeResources"), overwrite = true)
+  }
+}
+
+configureBrowserTestBundle()
+
+// Both project dependencies and published KLIBs expose this same module subpath. Extraction
+// from a Maven artifact is handled by the consumer's Kotlin Gradle plugin.
+val buildMaplibreGlJs by
+  tasks.registering(Exec::class) {
+    workingDir(rootDir)
+    commandLine("mise", "run", "build:maplibre-gl-js")
+    // The script checks the submodule pin and patch state outside Gradle configuration and caches
+    // the expensive build itself. Always validate that state, including contributor source edits.
+  }
+val glJsRuntime = layout.buildDirectory.dir("maplibre-gl-js")
+
+tasks.withType<KotlinWebpack>().configureEach { inputs.dir(glJsRuntime) }
+
+val stageMaplibreGlJs by
+  tasks.registering(Sync::class) {
+    dependsOn(buildMaplibreGlJs)
+    from(glJsRuntime) { exclude(".stamp") }
+    into(kotlin.js().compilations.getByName("main").npmProject.dir.map { it.dir("maplibre-gl") })
+  }
+
+tasks.named("jsPackageJson") { dependsOn(stageMaplibreGlJs) }
+
+tasks.named<Zip>("jsJar") {
+  dependsOn(buildMaplibreGlJs)
+  from(glJsRuntime) {
+    into("maplibre-gl")
+    exclude(".stamp")
+  }
+}

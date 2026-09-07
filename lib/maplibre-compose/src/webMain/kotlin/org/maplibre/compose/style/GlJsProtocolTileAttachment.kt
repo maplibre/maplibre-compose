@@ -16,12 +16,10 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
-import org.maplibre.compose.gljs.ProtocolAbortController
 import org.maplibre.compose.gljs.ProtocolResponse
 import org.maplibre.compose.gljs.RequestParameters
 import org.maplibre.compose.gljs.addProtocol
 import org.maplibre.compose.gljs.removeProtocol
-import org.maplibre.compose.gljs.setUint8At
 import org.maplibre.compose.sources.TileCoordinate
 
 /**
@@ -66,7 +64,7 @@ internal class GlJsProtocolTileAttachment(
 
   private fun loadProtocolTile(
     request: RequestParameters,
-    abortController: ProtocolAbortController,
+    abortController: Any,
   ): Promise<ProtocolResponse> {
     check(open) { "Protocol tile attachment '$name' is detached" }
     val tile = parseTileCoordinate(request.url)
@@ -98,7 +96,7 @@ internal class GlJsProtocolTileAttachment(
       }
     shared.clients++
 
-    val signal = abortController.signal
+    val signal = abortController.asDynamic().signal
     val abort: () -> Unit = { work.cancel() }
     signal.addEventListener("abort", abort)
     work.invokeOnCompletion {
@@ -162,6 +160,6 @@ private fun protocolFailure(error: Throwable): Throwable {
 
 private fun ByteArray.toProtocolResponse(): ProtocolResponse {
   val bytes = Uint8Array<ArrayBuffer>(size)
-  forEachIndexed { index, byte -> setUint8At(bytes, index, byte.toInt() and 0xFF) }
+  forEachIndexed { index, byte -> bytes.asDynamic()[index] = byte.toInt() and 0xFF }
   return unsafeJso { data = bytes.buffer }
 }

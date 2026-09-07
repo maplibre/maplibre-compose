@@ -1,1 +1,167 @@
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpack
+
+plugins {
+  id("module-conventions")
+  id("android-library-conventions")
+  id(libs.plugins.kotlin.multiplatform.get().pluginId)
+  id(libs.plugins.android.library.get().pluginId)
+  id(libs.plugins.kotlin.composeCompiler.get().pluginId)
+  id(libs.plugins.kotlin.serialization.get().pluginId)
+  id(libs.plugins.compose.get().pluginId)
+}
+
+kotlin {
+  jvmToolchain(libs.versions.java.toolchain.get().toInt())
+
+  // Distinct from the app module's namespace, which AGP requires to be unique across modules.
+  android { namespace = "org.maplibre.compose.demoapp.common" }
+
+  listOf(iosArm64(), iosSimulatorArm64()).forEach {
+    it.binaries.framework {
+      baseName = "DemoApp"
+      isStatic = true
+    }
+  }
+
+  macosArm64()
+
+  jvm { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
+
+  js {
+    // MapLibre GL JS bindings require ES modules in every consumer.
+    useEsModules()
+    browser { commonWebpackConfig { outputFileName = "app.js" } }
+    binaries.executable()
+  }
+
+  @OptIn(ExperimentalWasmDsl::class)
+  wasmJs {
+    browser { commonWebpackConfig { outputFileName = "app.js" } }
+    binaries.executable()
+  }
+
+  applyDefaultHierarchyTemplate()
+
+  compilerOptions {
+    freeCompilerArgs.addAll("-Xexpect-actual-classes", "-Xconsistent-data-class-copy-visibility")
+  }
+
+  sourceSets {
+    listOf(webMain, jsMain, wasmJsMain, jsTest, wasmJsTest).forEach {
+      it { languageSettings { optIn("kotlin.js.ExperimentalWasmJsInterop") } }
+    }
+
+    all { languageSettings { optIn("androidx.compose.material3.ExperimentalMaterial3Api") } }
+
+    // MapLibre Native platforms (Android, iOS, desktop). The browser stays on MapLibre GL JS,
+    // so render toggles and offline UI live here.
+    val maplibreNativeMain by creating {
+      dependsOn(commonMain.get())
+    }
+    val androidJvmMain by creating { dependsOn(maplibreNativeMain) }
+    val nonAndroidMain by creating { dependsOn(commonMain.get()) }
+
+    androidMain { dependsOn(androidJvmMain) }
+
+    jvmMain {
+      dependsOn(androidJvmMain)
+      dependsOn(nonAndroidMain)
+      // The n-gon layer plugin that deps:ngon-plugin builds.
+      resources.srcDir(layout.buildDirectory.dir("generated/ngonPlugin"))
+    }
+
+    appleMain {
+      dependsOn(maplibreNativeMain)
+      dependsOn(nonAndroidMain)
+    }
+
+    webMain { dependsOn(nonAndroidMain) }
+
+    commonMain.dependencies {
+      api(project(":benchmarks:core"))
+      // The platform modules compose against these, so they are api rather than implementation.
+      api(libs.jetbrains.compose.foundation)
+      api(libs.jetbrains.compose.runtime)
+      api(libs.jetbrains.compose.ui)
+
+      implementation(libs.jetbrains.compose.components.resources)
+      implementation(libs.jetbrains.compose.material3)
+      implementation(libs.jetbrains.compose.material3.adaptive)
+      implementation(libs.materialKolor)
+      implementation(libs.htmlConverterCompose)
+      implementation(libs.androidx.navigation.compose)
+      implementation(libs.kotlinx.serialization.json)
+      implementation(libs.kermit)
+      implementation(libs.ktor.client.core)
+      implementation(libs.mobilityData.gtfsSchedule)
+      implementation(libs.spatialk.geojson)
+      implementation(libs.spatialk.turf)
+
+      api(project(":lib:maplibre-compose"))
+      implementation(project(":lib:maplibre-compose-material3"))
+    }
+
+    androidMain {
+      dependencies {
+        implementation(libs.jetbrains.compose.ui.tooling)
+        implementation(libs.androidx.activity.compose)
+        implementation(libs.kotlinx.coroutines.android)
+        implementation(libs.ktor.client.okhttp)
+        implementation(project(":lib:location-runtime-gms"))
+        implementation(project(":lib:location-runtime-hms"))
+      }
+    }
+
+    jvmMain.dependencies {
+      implementation(compose.desktop.common)
+      implementation(libs.kotlinx.coroutines.swing)
+      implementation(libs.ktor.client.okhttp)
+    }
+
+    appleMain.dependencies { implementation(libs.ktor.client.darwin) }
+
+    jsMain.dependencies { implementation(libs.jetbrains.compose.html.core) }
+
+    webMain.dependencies {
+      implementation(libs.kotlin.wrappers.browser)
+      implementation(libs.kotlin.wrappers.js)
+      implementation(libs.ktor.client.js)
+      implementation(npm("fflate", libs.versions.fflate.get()))
+      // IANA zone rules for kotlinx-datetime TimeZone.of on Kotlin/JS.
+      implementation(npm("@js-joda/timezone", libs.versions.jsJodaTimezone.get()))
+    }
+  }
+}
+
+// KGP does not track changes to JavaScript staged inside a project npm dependency.
+tasks.withType<KotlinWebpack>().configureEach {
+  inputs.dir(project(":lib:maplibre-compose").layout.buildDirectory.dir("maplibre-gl-js"))
+}
+
+val benchmarkResources =
+  tasks.register<Sync>("benchmarkResources") {
+    from("src/commonMain/composeResources")
+    from(rootProject.layout.projectDirectory.dir("benchmarks/build/fixtures")) { into("files") }
+    into(layout.buildDirectory.dir("generated/combinedComposeResources"))
+  }
+
+compose.resources {
+  packageOfResClass = "org.maplibre.compose.demoapp.generated"
+  customDirectory(
+    sourceSetName = "commonMain",
+    directoryProvider = layout.dir(benchmarkResources.map { it.destinationDir }),
+  )
+}
+
+if (providers.gradleProperty("composeCompilerReports").orNull == "true") {
+  composeCompiler { reportsDestination = layout.buildDirectory.dir("compose/reports") }
+}
+
+tasks.register<Tar>("archiveBrowserDemo") {
+  dependsOn("jsBrowserDistribution")
+  from(layout.buildDirectory.dir("dist/js/productionExecutable"))
+  compression = Compression.GZIP
+  archiveFileName.set("MapLibreCompose-browser.tar.gz")
+  destinationDirectory.set(layout.buildDirectory.dir("packages"))
+}
