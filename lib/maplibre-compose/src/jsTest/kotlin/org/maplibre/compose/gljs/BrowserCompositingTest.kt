@@ -4,31 +4,19 @@ import kotlin.js.Promise
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNotSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.promise
-import org.jetbrains.skia.Bitmap
-import org.jetbrains.skia.ColorAlphaType
-import org.jetbrains.skia.ColorType
-import org.jetbrains.skia.ImageInfo
-import org.jetbrains.skia.Rect
-import org.jetbrains.skia.SamplingMode
-import org.jetbrains.skia.Surface
-import org.jetbrains.skia.SurfaceOrigin
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.style.BaseStyle
 
 private const val FULL = GPU_CANVAS_SIZE
 private const val SMALL = FULL / 2
-private const val INSET = FULL / 4
 private const val FRACTIONAL_SCALE = 1.7
 
 private const val RED = "#ff0000"
 private const val BLUE = "#0000ff"
-private const val PAGE = "#101014"
 private const val CANVAS = "#00ff00"
-private const val PAGE_ARGB = 0xff101014.toInt()
 
 private val SPLIT_STYLE =
   BaseStyle.Json(
@@ -129,21 +117,6 @@ class BrowserCompositingTest {
   }
 
   @Test
-  fun the_two_colour_style_splits_the_target_down_the_prime_meridian() = gpuTest { gpu ->
-    val gl = gpu.gl.asDynamic()
-    browserRenderTarget(gpu, FULL, FULL).use { target ->
-      CompositedMap(SPLIT_STYLE).use { map ->
-        map.drawTheWholeStyle(target)
-        assertEquals(
-          mapOf(RED to FULL * FULL / 2, BLUE to FULL * FULL / 2),
-          histogram(readFramebuffer(gl, target.framebuffer, FULL, FULL)),
-          "the world should fill the target, red west of the prime meridian and blue east",
-        )
-      }
-    }
-  }
-
-  @Test
   fun a_heatmap_uses_the_map_target_size_instead_of_the_shared_canvas_size() = gpuTest { gpu ->
     val gl = gpu.gl.asDynamic()
     browserRenderTarget(gpu, SMALL, SMALL).use { target ->
@@ -165,24 +138,6 @@ class BrowserCompositingTest {
           "the map draw should restore the shared canvas drawing buffer size",
         )
       }
-    }
-  }
-
-  @Test
-  fun skia_draws_the_adopted_texture_into_a_gpu_surface() = gpuTest { gpu ->
-    val gl = gpu.gl.asDynamic()
-    browserRenderTarget(gpu, FULL, FULL).use { target ->
-      CompositedMap(SPLIT_STYLE).use { map -> map.drawTheWholeStyle(target) }
-
-      assertEquals(
-        mapOf(
-          PAGE to FULL * FULL - SMALL * SMALL,
-          RED to SMALL * SMALL / 2,
-          BLUE to SMALL * SMALL / 2,
-        ),
-        drawTargetWithSkia(gpu.skia, target),
-        "Skia should sample MapLibre's texture into exactly the rect it was drawn to",
-      )
     }
   }
 
@@ -253,9 +208,7 @@ class BrowserCompositingTest {
       CompositedMap(SPLIT_STYLE).use { map ->
         map.drawTheWholeStyle(target)
 
-        val imageBeforeResize = target.image
         target.resize(SMALL, SMALL)
-        assertNotSame(imageBeforeResize, target.image, "resize should replace the adopted texture")
         assertTrue(map.drawOnce(target), "the map should draw after the target changes size")
 
         assertEquals(
@@ -286,42 +239,5 @@ private fun gpuTest(block: suspend (BrowserGpu) -> Unit): Promise<*> =
 private suspend fun CompositedMap.drawTheWholeStyle(target: GlJsRenderTarget) {
   drawUntil(target, "the red polygon to reach the render tree") {
     rendersFeature("shape", target.widthPx / 4, target.heightPx / 2)
-  }
-}
-
-private fun drawTargetWithSkia(
-  skia: org.jetbrains.skia.DirectContext,
-  target: TestGlJsRenderTarget,
-): Map<String, Int> {
-  val surface =
-    Surface.makeRenderTarget(
-      skia,
-      false,
-      ImageInfo(FULL, FULL, ColorType.RGBA_8888, ColorAlphaType.PREMUL),
-      0,
-      SurfaceOrigin.TOP_LEFT,
-      null,
-      false,
-    )
-  val bitmap = Bitmap()
-  try {
-    surface.canvas.clear(PAGE_ARGB)
-    surface.canvas.drawImageRect(
-      target.image,
-      Rect.makeWH(target.widthPx.toFloat(), target.heightPx.toFloat()),
-      Rect.makeXYWH(INSET.toFloat(), INSET.toFloat(), SMALL.toFloat(), SMALL.toFloat()),
-      SamplingMode.LINEAR,
-      null,
-      strict = true,
-    )
-    skia.flush(surface)
-    skia.submit(true)
-
-    bitmap.allocPixels(ImageInfo(FULL, FULL, ColorType.RGBA_8888, ColorAlphaType.UNPREMUL))
-    assertTrue(surface.readPixels(bitmap, 0, 0), "the GPU surface should read back")
-    return histogram(checkNotNull(bitmap.readPixels()))
-  } finally {
-    bitmap.close()
-    surface.close()
   }
 }

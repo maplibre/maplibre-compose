@@ -11,8 +11,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
@@ -75,7 +73,6 @@ internal fun GlJsMapSurface(
 
   Canvas(modifier = modifier.onSizeChanged { physicalSize = it }) {
     frameRequest
-    drawRect(Color.Transparent, size = Size(size.width, size.height))
     if (presentFrames) {
       compositor.painter?.let { painter -> with(painter) { draw(size) } }
     }

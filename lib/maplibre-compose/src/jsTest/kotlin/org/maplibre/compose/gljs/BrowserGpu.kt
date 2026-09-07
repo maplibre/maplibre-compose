@@ -3,7 +3,6 @@ package org.maplibre.compose.gljs
 import kotlin.js.Promise
 import kotlinx.browser.document
 import kotlinx.coroutines.await
-import org.jetbrains.skia.DirectContext
 import org.jetbrains.skiko.wasm.onWasmReady
 import org.khronos.webgl.Uint8Array
 import org.khronos.webgl.get
@@ -16,7 +15,6 @@ internal const val GPU_CANVAS_SIZE: Int = 256
 internal class BrowserGpu(
   val canvas: HTMLCanvasElement,
   val gl: WebGL2RenderingContext,
-  val skia: DirectContext,
 )
 
 /** Stood up at most once per Karma run; neither context is ever closed. */
@@ -39,27 +37,10 @@ private fun createGpu(): BrowserGpu {
   canvas.width = GPU_CANVAS_SIZE
   canvas.height = GPU_CANVAS_SIZE
 
-  // Emscripten's registry, not canvas.getContext: skia addresses a context by the integer name only
-  // this registers.
-  val registry: dynamic = js("globalThis").GL
-  val attributes =
-    js(
-      "({alpha:1,depth:1,stencil:8,antialias:0,premultipliedAlpha:1,preserveDrawingBuffer:0," +
-        "preferLowPowerToHighPerformance:0,failIfMajorPerformanceCaveat:0," +
-        "enableExtensionsByDefault:1,explicitSwapControl:0,renderViaOffscreenBackBuffer:0," +
-        "majorVersion:2})"
-    )
-  val handle = registry.createContext(canvas, attributes)
-  check(handle != null && handle != undefined && handle != 0) {
-    "no WebGL2 context in this browser"
-  }
-  registry.makeContextCurrent(handle)
-
   installMapLibreCompose(workerUrl = LOCAL_WORKER_URL)
-  val skia = DirectContext.makeGL()
-  val hostContext = checkNotNull(EmscriptenGl.currentContext())
-
-  return BrowserGpu(canvas, hostContext.webGlContext, skia)
+  val gl =
+    checkNotNull(canvas.asDynamic().getContext("webgl2")).unsafeCast<WebGL2RenderingContext>()
+  return BrowserGpu(canvas, gl)
 }
 
 internal fun browserRenderTarget(

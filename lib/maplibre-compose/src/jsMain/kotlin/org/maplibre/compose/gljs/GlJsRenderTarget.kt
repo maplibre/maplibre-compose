@@ -4,7 +4,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.platform.webgl.WebGLRenderTarget
 
 /** The WebGL target that MapLibre renders into for a composited frame. */
-internal interface GlJsRenderTarget : AutoCloseable {
+internal interface GlJsRenderTarget {
   val gl: dynamic
   val framebuffer: Any
   val widthPx: Int
@@ -12,9 +12,6 @@ internal interface GlJsRenderTarget : AutoCloseable {
 
   /** Clears state that Compose uses but MapLibre GL JS does not track. */
   fun prepareMapRender()
-
-  /** Restores state used by another renderer after MapLibre GL JS renders. */
-  fun finishMapRender()
 }
 
 internal class GlJsMapRenderState(private val gl: dynamic) {
@@ -46,8 +43,4 @@ internal class ComposeGlJsRenderTarget(private val target: WebGLRenderTarget) : 
   override fun prepareMapRender() {
     mapRenderState.prepare()
   }
-
-  override fun finishMapRender() = Unit
-
-  override fun close() = Unit
 }

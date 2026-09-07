@@ -6,6 +6,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.painter.ColorPainter
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
@@ -55,8 +57,9 @@ class SymbolLayerCompositionTest {
     )
   }
 
+  @OptIn(ExperimentalTestApi::class)
   @Test
-  fun keyed_layers_reorder_and_release_shared_images() = runTest {
+  fun keyed_layers_reorder_and_release_shared_images() = runComposeUiTest {
     val source =
       GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
     val icons =
