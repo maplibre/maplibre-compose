@@ -16,7 +16,9 @@ class InputMatchingTest {
   @Test
   fun modifier_matching_distinguishes_any_exact_and_containing() {
     val ctrlShift = setOf(KeyModifier.Ctrl, KeyModifier.Shift)
-    assertTrue(ModifierMatch.Any.matches(ctrlShift))
+    assertTrue(
+      PointerPattern().matches(setOf(PointerType.Unknown), emptySet(), ctrlShift, contact = true)
+    )
     assertFalse(ModifierMatch.Exactly(KeyModifier.Ctrl).matches(ctrlShift))
     assertTrue(ModifierMatch.Containing(KeyModifier.Ctrl).matches(ctrlShift))
     assertFalse(ModifierMatch.Exactly().matches(ctrlShift))

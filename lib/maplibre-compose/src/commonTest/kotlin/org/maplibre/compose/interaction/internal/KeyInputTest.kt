@@ -14,7 +14,6 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.CameraInputToken
-import org.maplibre.compose.interaction.CameraInputStart
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.map.GestureTestFixture
 
@@ -27,12 +26,12 @@ class MapKeyInputTest {
   @Test
   fun overlapping_keys_share_authority_and_components_rearm_only_after_their_last_release() =
     runTest {
-      val panStarts = mutableListOf<CameraInputStart>()
-      val zoomStarts = mutableListOf<CameraInputStart>()
+      var panStarts = 0
+      var zoomStarts = 0
       val options = MapInteractions {
         camera {
-          pan { onStart { panStarts += it } }
-          zoom { onStart { zoomStarts += it } }
+          pan { onStart { panStarts++ } }
+          zoom { onStart { zoomStarts++ } }
         }
       }
       map.target.updateConfiguration(options)
@@ -58,15 +57,14 @@ class MapKeyInputTest {
       down(Key.Plus)
       down(Key.DirectionLeft)
       assertEquals(1, map.target.startedCount)
-      assertEquals(1, panStarts.size)
-      assertEquals(panStarts.single().sessionId, zoomStarts.single().sessionId)
+      assertEquals(1, panStarts)
+      assertEquals(1, zoomStarts)
       up(Key.DirectionLeft)
       down(Key.DirectionRight)
-      assertEquals(1, panStarts.size)
+      assertEquals(1, panStarts)
       up(Key.DirectionRight)
       down(Key.DirectionRight)
-      assertEquals(2, panStarts.size)
-      assertEquals(panStarts.first().sessionId, panStarts.last().sessionId)
+      assertEquals(2, panStarts)
       up(Key.DirectionRight)
       assertEquals(0, map.target.endedCount)
       up(Key.Plus)

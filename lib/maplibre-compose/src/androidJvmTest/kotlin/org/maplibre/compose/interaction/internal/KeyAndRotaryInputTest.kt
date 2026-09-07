@@ -29,7 +29,9 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.junit.Assume.assumeTrue
 import org.maplibre.compose.camera.internal.CameraInputToken
+import org.maplibre.compose.interaction.DragResponse
 import org.maplibre.compose.interaction.KeyModifier
+import org.maplibre.compose.interaction.KeyResponse
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.ModifierMatch
 import org.maplibre.compose.map.GestureTestFixture
@@ -86,11 +88,16 @@ class KeyAndRotaryInputTest {
           bindings {
             drag {
               enabled = true
-              mappings { on(modifiers = ModifierMatch.Containing(KeyModifier.Ctrl)) { pan() } }
+              mappings {
+                on(
+                  modifiers = ModifierMatch.Containing(KeyModifier.Ctrl),
+                  response = DragResponse.Pan,
+                )
+              }
             }
             keys {
               enabled = true
-              mappings { on(Key.DirectionRight) { panRight() } }
+              mappings { on(Key.DirectionRight, response = KeyResponse.PanRight) }
             }
           }
           camera { pan { momentum { enabled = false } } }
@@ -450,7 +457,7 @@ class KeyAndRotaryInputTest {
       waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.size == 1 }
       runOnIdle {
         options = MapInteractions {
-          bindings { keys { mappings { on(Key.DirectionRight) { zoomIn() } } } }
+          bindings { keys { mappings { on(Key.DirectionRight, response = KeyResponse.ZoomIn) } } }
         }
       }
       waitForIdle()

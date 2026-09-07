@@ -119,7 +119,7 @@ public class DragBindingBuilder internal constructor(from: DragBinding) {
 public class TransformPanBuilder internal constructor(from: TransformPanBinding) {
   public var enabled: Boolean = from.enabled
   public var pointerTypes: Set<PointerType>? = from.pointerTypes
-  public var modifiers: ModifierMatch = from.modifiers
+  public var modifiers: ModifierMatch? = from.modifiers
   /** Recognition distance for touch pairs. Host-recognized pans have already passed host slop. */
   public var startSlop: Dp = from.startSlop
 
@@ -138,7 +138,7 @@ public class TransformPanBuilder internal constructor(from: TransformPanBinding)
 public class TransformZoomBuilder internal constructor(from: TransformZoomBinding) {
   public var enabled: Boolean = from.enabled
   public var pointerTypes: Set<PointerType>? = from.pointerTypes
-  public var modifiers: ModifierMatch = from.modifiers
+  public var modifiers: ModifierMatch? = from.modifiers
   public var startSpanSlop: Dp = from.startSpanSlop
   public var anchor: GestureAnchor = from.anchor
   public var zoomScale: Double = from.zoomScale
@@ -161,7 +161,7 @@ public class TransformZoomBuilder internal constructor(from: TransformZoomBindin
 public class TransformRotateBuilder internal constructor(from: TransformRotateBinding) {
   public var enabled: Boolean = from.enabled
   public var pointerTypes: Set<PointerType>? = from.pointerTypes
-  public var modifiers: ModifierMatch = from.modifiers
+  public var modifiers: ModifierMatch? = from.modifiers
   public var startAngle: Double = from.startAngle
   public var anchor: GestureAnchor = from.anchor
   public var rotationScale: Double = from.rotationScale
@@ -186,7 +186,7 @@ public class TransformRotateBuilder internal constructor(from: TransformRotateBi
 public class TransformTiltBuilder internal constructor(from: TransformTiltBinding) {
   public var enabled: Boolean = from.enabled
   public var pointerTypes: Set<PointerType>? = from.pointerTypes
-  public var modifiers: ModifierMatch = from.modifiers
+  public var modifiers: ModifierMatch? = from.modifiers
   public var startSlop: Dp = from.startSlop
   public var pitchDegreesPerDp: Double = from.pitchDegreesPerDp
 
@@ -207,7 +207,7 @@ public class TransformTiltBuilder internal constructor(from: TransformTiltBindin
 public class TapDragBuilder internal constructor(from: TapDragBinding) {
   public var enabled: Boolean = from.enabled
   public var pointerTypes: Set<PointerType>? = from.pointerTypes
-  public var modifiers: ModifierMatch = from.modifiers
+  public var modifiers: ModifierMatch? = from.modifiers
   public var startSlop: Dp = from.startSlop
   public var anchor: GestureAnchor = from.anchor
   public var direction: QuickZoomDirection = from.direction

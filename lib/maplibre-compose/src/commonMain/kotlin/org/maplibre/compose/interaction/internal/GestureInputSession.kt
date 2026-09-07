@@ -13,14 +13,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.CameraInputToken
-import org.maplibre.compose.interaction.CameraInputOrigin
 
 /** A recognized input group and all its continuation work share this camera lifetime. */
 internal class GestureInputSession(
   private val parent: CoroutineScope,
   private val target: CameraInputTarget,
   val token: CameraInputToken = target.onGestureStarted(),
-  origin: CameraInputOrigin = CameraInputOrigin.Drag,
   private val onCancelled: () -> Unit = {},
 ) {
   private val work = Job(parent.coroutineContext[Job])
@@ -28,7 +26,6 @@ internal class GestureInputSession(
   private var ending = false
 
   init {
-    token.origin = origin
     token.registerJob(work)
     work.invokeOnCompletion {
       if (work.isCancelled) {
@@ -77,7 +74,7 @@ internal fun launchTapTransition(
   command: suspend CameraInputTarget.(CameraInputToken) -> Unit,
 ) {
   val token = target.onGestureStartedIfCurrent(generation) ?: return
-  val session = GestureInputSession(scope, target, token, origin = CameraInputOrigin.Tap)
+  val session = GestureInputSession(scope, target, token)
   session.scope.launch {
     try {
       command(target, token)

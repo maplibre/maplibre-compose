@@ -12,7 +12,6 @@ import org.maplibre.compose.camera.internal.CameraInputToken
 import org.maplibre.compose.camera.internal.inputPanBy
 import org.maplibre.compose.camera.internal.inputRotateAndPitchBy
 import org.maplibre.compose.camera.internal.inputScaleBy
-import org.maplibre.compose.interaction.CameraInputOrigin
 import org.maplibre.compose.interaction.GestureAnchor
 import org.maplibre.compose.interaction.MapInteractions
 
@@ -85,7 +84,6 @@ internal class PointerPairGesture(
     token = begin()
     if (token?.acceptsCommands != true) return false
     onRecognized(kind)
-    token?.origin = CameraInputOrigin.Transform
     token?.rearm(kind)
     return true
   }

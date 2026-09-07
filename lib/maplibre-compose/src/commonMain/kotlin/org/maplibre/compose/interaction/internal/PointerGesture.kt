@@ -26,9 +26,10 @@ import org.maplibre.compose.camera.internal.inputPanBy
 import org.maplibre.compose.camera.internal.inputRotateAndPitchBy
 import org.maplibre.compose.camera.internal.inputScaleBy
 import org.maplibre.compose.camera.internal.inputScaleByAwaitingTransition
-import org.maplibre.compose.interaction.CameraInputOrigin
+import org.maplibre.compose.interaction.DragResponse
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.QuickZoomDirection
+import org.maplibre.compose.interaction.TapResponse
 
 internal class PointerGesture(
   private val target: CameraInputTarget,
@@ -539,7 +540,7 @@ internal class PointerGesture(
         event,
         first,
         second,
-        begin = { beginGesture(CameraInputOrigin.Transform) },
+        begin = { beginGesture() },
         onRecognized = { component ->
           twoFingerTap = null
           deferredTwoFingerVelocity = deferredTwoFingerVelocity?.without(component)
@@ -842,21 +843,16 @@ internal class PointerGesture(
     previous?.cancel()
   }
 
-  private fun beginGesture(
-    origin: CameraInputOrigin =
-      if (selectedDrag == SelectedDrag.TapDrag) CameraInputOrigin.TapDrag
-      else CameraInputOrigin.Drag
-  ): CameraInputToken? {
+  private fun beginGesture(): CameraInputToken? {
     cancelLongClick()
     if (gestureInProgress) {
-      gestureToken?.origin = origin
       return gestureToken
     }
 
     val token = target.onGestureStarted()
     lateinit var session: GestureInputSession
     session =
-      GestureInputSession(scope, target, token, origin = origin) {
+      GestureInputSession(scope, target, token) {
         if (cameraSession === session) {
           val contactsRemain = lastSingle != null || pair != null
           cancel()

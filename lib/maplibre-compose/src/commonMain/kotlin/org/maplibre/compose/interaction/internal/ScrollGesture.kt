@@ -10,8 +10,8 @@ import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.inputPanBy
 import org.maplibre.compose.camera.internal.inputScaleBy
-import org.maplibre.compose.interaction.CameraInputOrigin
 import org.maplibre.compose.interaction.MapInteractions
+import org.maplibre.compose.interaction.ScrollResponse
 
 /** Scroll shares the pointer arena so it sees consumption before claiming an event. */
 internal class ScrollGesture(
@@ -62,7 +62,7 @@ internal class ScrollGesture(
           takeOverContacts()
           lateinit var session: GestureInputSession
           session =
-            GestureInputSession(scope, target, origin = CameraInputOrigin.Scroll) {
+            GestureInputSession(scope, target) {
               if (burst?.session === session) cancel()
             }
           Burst(selected, session).also { burst = it }

@@ -2,8 +2,12 @@ package org.maplibre.compose.interaction.internal
 
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.pointer.PointerType
+import org.maplibre.compose.interaction.DragResponse
 import org.maplibre.compose.interaction.KeyModifier
+import org.maplibre.compose.interaction.KeyResponse
 import org.maplibre.compose.interaction.PointerButton
+import org.maplibre.compose.interaction.ScrollResponse
+import org.maplibre.compose.interaction.TapResponse
 
 internal fun PointerPattern.matches(
   sample: GesturePointerSample,
@@ -27,7 +31,7 @@ internal fun TapBinding.matches(sample: GesturePointerSample): Boolean =
 
 internal fun TapDragBinding.matches(sample: GesturePointerSample): Boolean =
   eligible(enabled, pointerTypes, sample) &&
-    modifiers.matches(sample.modifierKeys) &&
+    (modifiers?.matches(sample.modifierKeys) != false) &&
     PointerType.Mouse !in sample.pointerTypes &&
     PointerPattern(button = PointerButton.Primary).matches(sample)
 
@@ -113,7 +117,7 @@ internal fun KeyBinding.select(
     mappings
       .firstOrNull {
         (it.key == null || it.key == key) &&
-          it.modifiers.matches(modifiers) &&
+          (it.modifiers?.matches(modifiers) != false) &&
           camera.permits(it.response)
       }
       ?.response
@@ -136,16 +140,16 @@ internal fun KeyBinding.hasCameraBindings(camera: CameraSettings): Boolean {
 }
 
 internal fun TransformPanBinding.matches(sample: GesturePointerSample): Boolean =
-  eligible(enabled, pointerTypes, sample) && modifiers.matches(sample.modifierKeys)
+  eligible(enabled, pointerTypes, sample) && (modifiers?.matches(sample.modifierKeys) != false)
 
 internal fun TransformZoomBinding.matches(sample: GesturePointerSample): Boolean =
-  eligible(enabled, pointerTypes, sample) && modifiers.matches(sample.modifierKeys)
+  eligible(enabled, pointerTypes, sample) && (modifiers?.matches(sample.modifierKeys) != false)
 
 internal fun TransformRotateBinding.matches(sample: GesturePointerSample): Boolean =
-  eligible(enabled, pointerTypes, sample) && modifiers.matches(sample.modifierKeys)
+  eligible(enabled, pointerTypes, sample) && (modifiers?.matches(sample.modifierKeys) != false)
 
 internal fun TransformTiltBinding.matches(sample: GesturePointerSample): Boolean =
-  eligible(enabled, pointerTypes, sample) && modifiers.matches(sample.modifierKeys)
+  eligible(enabled, pointerTypes, sample) && (modifiers?.matches(sample.modifierKeys) != false)
 
 internal fun TransformBinding.hasDemand(
   sample: GesturePointerSample,

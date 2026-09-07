@@ -9,7 +9,7 @@ import org.maplibre.compose.interaction.PointerButton
 internal data class PointerPattern(
   val pointerTypes: Set<PointerType>? = null,
   val button: PointerButton? = null,
-  val modifiers: ModifierMatch = ModifierMatch.Any,
+  val modifiers: ModifierMatch? = null,
 ) {
   fun matches(
     types: Set<PointerType>,
@@ -26,5 +26,5 @@ internal data class PointerPattern(
           types.all {
             it == PointerType.Touch || it == PointerType.Stylus || it == PointerType.Eraser
           })) &&
-      modifiers.matches(modifierKeys)
+      (modifiers?.matches(modifierKeys) != false)
 }

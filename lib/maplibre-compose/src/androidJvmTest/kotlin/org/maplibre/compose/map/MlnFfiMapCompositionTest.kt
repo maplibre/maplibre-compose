@@ -53,6 +53,7 @@ import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.interaction.DragResponse
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.PointerButton
 import org.maplibre.compose.layers.Anchor
@@ -128,7 +129,7 @@ class MlnFfiMapCompositionTest {
                 bindings {
                   drag {
                     enabled = true
-                    mappings { on(button = PointerButton.Primary) { pan() } }
+                    mappings { on(button = PointerButton.Primary, response = DragResponse.Pan) }
                   }
                 }
               }

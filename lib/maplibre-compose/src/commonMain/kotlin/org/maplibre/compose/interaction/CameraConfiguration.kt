@@ -1,26 +1,11 @@
 package org.maplibre.compose.interaction
 
-import androidx.compose.runtime.Immutable
 import org.maplibre.compose.interaction.internal.CameraComponent
 import org.maplibre.compose.interaction.internal.CameraConfiguration
 import org.maplibre.compose.interaction.internal.CameraSettings
 import org.maplibre.compose.interaction.internal.PanCameraConfiguration
 import org.maplibre.compose.interaction.internal.TiltCameraConfiguration
 import org.maplibre.compose.interaction.internal.VelocityCameraConfiguration
-
-/** The input source that began a permitted camera response. */
-public enum class CameraInputOrigin {
-  Drag,
-  Transform,
-  Scroll,
-  Tap,
-  TapDrag,
-  Key,
-  Rotary,
-}
-
-/** A component start within an input session. Several components can share [sessionId]. */
-@Immutable public data class CameraInputStart(val sessionId: Long, val origin: CameraInputOrigin)
 
 /** Permissions, release momentum, and semantic start callbacks for camera input. */
 @MapInteractionDsl
@@ -68,13 +53,13 @@ public class CameraBuilder internal constructor(from: CameraConfiguration) {
 public class PanCameraBuilder
 internal constructor(
   from: PanCameraConfiguration,
-  internal var start: ((CameraInputStart) -> Unit)?,
+  internal var start: (() -> Unit)?,
 ) {
   public var enabled: Boolean = from.enabled
   private val momentum = PanMomentumBuilder(from.momentum)
 
-  /** Runs before the first effective command each time this component starts. */
-  public fun onStart(block: ((CameraInputStart) -> Unit)?) {
+  /** Runs before this component begins responding to input, including restarts within a gesture. */
+  public fun onStart(block: (() -> Unit)?) {
     start = block
   }
 
@@ -90,13 +75,13 @@ internal constructor(
 public class VelocityCameraBuilder
 internal constructor(
   from: VelocityCameraConfiguration,
-  internal var start: ((CameraInputStart) -> Unit)?,
+  internal var start: (() -> Unit)?,
 ) {
   public var enabled: Boolean = from.enabled
   private val momentum = VelocityMomentumBuilder(from.momentum)
 
-  /** Runs before the first effective command each time this component starts. */
-  public fun onStart(block: ((CameraInputStart) -> Unit)?) {
+  /** Runs before this component begins responding to input, including restarts within a gesture. */
+  public fun onStart(block: (() -> Unit)?) {
     start = block
   }
 
@@ -113,13 +98,13 @@ internal constructor(
 public class TiltCameraBuilder
 internal constructor(
   from: TiltCameraConfiguration,
-  internal var start: ((CameraInputStart) -> Unit)?,
+  internal var start: (() -> Unit)?,
 ) {
   public var enabled: Boolean = from.enabled
   private val momentum = TiltMomentumBuilder(from.momentum)
 
-  /** Runs before the first effective command each time this component starts. */
-  public fun onStart(block: ((CameraInputStart) -> Unit)?) {
+  /** Runs before this component begins responding to input, including restarts within a gesture. */
+  public fun onStart(block: (() -> Unit)?) {
     start = block
   }
 

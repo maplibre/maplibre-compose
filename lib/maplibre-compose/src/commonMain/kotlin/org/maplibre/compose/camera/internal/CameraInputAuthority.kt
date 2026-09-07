@@ -6,8 +6,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import org.maplibre.compose.interaction.CameraInputOrigin
-import org.maplibre.compose.interaction.CameraInputStart
 import org.maplibre.compose.interaction.internal.CameraComponent
 import org.maplibre.compose.interaction.internal.CameraConfiguration
 import org.maplibre.compose.map.MapAdapter
@@ -38,7 +36,6 @@ internal inline fun runCameraCommand(
 
 /** The lifecycle lock serializes admission with takeover and completion fences. */
 internal class CameraInputAuthority(private val owner: MapState) {
-  private var nextId = 0L
   private var cameraGeneration = 0L
   private var inputGeneration = 0L
   private var active: CameraInputToken? = null
@@ -79,7 +76,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
             target?.isGestureReady == true &&
             adapter === attachment.adapter &&
             (expectedInputGeneration == null || expectedInputGeneration == inputGeneration)
-        val token = Token(++nextId, attachment, target, ready)
+        val token = Token(attachment, target, ready)
         if (!ready) {
           return@serialized token
         }
@@ -154,7 +151,6 @@ internal class CameraInputAuthority(private val owner: MapState) {
   /** State and its synchronization stay together; backends only queue, execute, and finish. */
   inner class Token
   internal constructor(
-    val value: Long,
     val attachment: MapAttachment?,
     private val target: CameraInputTarget?,
     ready: Boolean,
@@ -164,14 +160,6 @@ internal class CameraInputAuthority(private val owner: MapState) {
     private var finishQueued = false
     private val completion = CompletableDeferred<Unit>().also { if (!ready) it.complete(Unit) }
     private val startedComponents = mutableSetOf<CameraComponent>()
-    private var inputOrigin = CameraInputOrigin.Drag
-
-    var origin: CameraInputOrigin
-      get() = owner.lifecycle.serialized { inputOrigin }
-      set(value) {
-        owner.lifecycle.serialized { inputOrigin = value }
-      }
-
     val acceptsCommands: Boolean
       get() = owner.lifecycle.serialized { acceptsLocked(enqueue = true) }
 
@@ -192,11 +180,9 @@ internal class CameraInputAuthority(private val owner: MapState) {
         owner.lifecycle.serialized {
           if (!acceptsLocked(enqueue = true) || !configuration.settings.enabled(component))
             return false
-          if (startedComponents.add(component))
-            configuration.onStart[component]?.let { it to CameraInputStart(value, inputOrigin) }
-          else null
+          if (startedComponents.add(component)) configuration.onStart[component] else null
         }
-      start?.let { (callback, event) -> callback(event) }
+      start?.invoke()
       return permitted(component)
     }
 

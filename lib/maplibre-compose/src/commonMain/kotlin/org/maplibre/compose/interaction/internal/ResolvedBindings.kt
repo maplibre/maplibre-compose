@@ -7,14 +7,18 @@ import androidx.compose.ui.unit.dp
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import org.maplibre.compose.interaction.DragMappingsBuilder
+import org.maplibre.compose.interaction.DragResponse
 import org.maplibre.compose.interaction.GestureAnchor
 import org.maplibre.compose.interaction.KeyMappingsBuilder
 import org.maplibre.compose.interaction.KeyModifier
+import org.maplibre.compose.interaction.KeyResponse
 import org.maplibre.compose.interaction.ModifierMatch
 import org.maplibre.compose.interaction.PointerButton
 import org.maplibre.compose.interaction.QuickZoomDirection
 import org.maplibre.compose.interaction.ScrollMappingsBuilder
+import org.maplibre.compose.interaction.ScrollResponse
 import org.maplibre.compose.interaction.TapMappingsBuilder
+import org.maplibre.compose.interaction.TapResponse
 
 internal data class DragPanSettings(
   val startSlop: Dp = 4.dp,
@@ -46,14 +50,14 @@ internal data class DragBinding(
 internal data class TransformPanBinding(
   val enabled: Boolean = true,
   val pointerTypes: Set<PointerType>? = null,
-  val modifiers: ModifierMatch = ModifierMatch.Any,
+  val modifiers: ModifierMatch? = null,
   val startSlop: Dp = 4.dp,
 )
 
 internal data class TransformZoomBinding(
   val enabled: Boolean = true,
   val pointerTypes: Set<PointerType>? = null,
-  val modifiers: ModifierMatch = ModifierMatch.Any,
+  val modifiers: ModifierMatch? = null,
   val startSpanSlop: Dp = 7.dp,
   val anchor: GestureAnchor = GestureAnchor.Input,
   val zoomScale: Double = 1.0,
@@ -62,7 +66,7 @@ internal data class TransformZoomBinding(
 internal data class TransformRotateBinding(
   val enabled: Boolean = true,
   val pointerTypes: Set<PointerType>? = null,
-  val modifiers: ModifierMatch = ModifierMatch.Any,
+  val modifiers: ModifierMatch? = null,
   val startAngle: Double = 3.0,
   val anchor: GestureAnchor = GestureAnchor.Input,
   val rotationScale: Double = 1.0,
@@ -72,7 +76,7 @@ internal data class TransformRotateBinding(
 internal data class TransformTiltBinding(
   val enabled: Boolean = true,
   val pointerTypes: Set<PointerType>? = null,
-  val modifiers: ModifierMatch = ModifierMatch.Any,
+  val modifiers: ModifierMatch? = null,
   val startSlop: Dp = 16.dp,
   val pitchDegreesPerDp: Double = -0.1,
 )
@@ -81,7 +85,7 @@ internal data class TapDragBinding(
   val enabled: Boolean = true,
   val pointerTypes: Set<PointerType>? =
     setOf(PointerType.Touch, PointerType.Stylus, PointerType.Eraser),
-  val modifiers: ModifierMatch = ModifierMatch.Any,
+  val modifiers: ModifierMatch? = null,
   val startSlop: Dp = 7.dp,
   val anchor: GestureAnchor = GestureAnchor.CameraCenter,
   val direction: QuickZoomDirection = QuickZoomDirection.DownZoomsIn,
@@ -150,22 +154,24 @@ internal data class InteractionBindings(
             mappings =
               DragMappingsBuilder()
                 .apply {
-                  on(pointerTypes = mouse, button = PointerButton.Secondary) { rotateTilt() }
+                  on(
+                    pointerTypes = mouse,
+                    button = PointerButton.Secondary,
+                    response = DragResponse.RotateTilt,
+                  )
                   on(
                     pointerTypes = mouse,
                     button = PointerButton.Primary,
                     modifiers = ModifierMatch.Containing(KeyModifier.Ctrl),
-                  ) {
-                    rotateTilt()
-                  }
+                    response = DragResponse.RotateTilt,
+                  )
                   on(
                     pointerTypes = mouse,
                     button = PointerButton.Primary,
                     modifiers = ModifierMatch.Containing(KeyModifier.Shift),
-                  ) {
-                    fitBounds()
-                  }
-                  on(button = PointerButton.Primary) { pan() }
+                    response = DragResponse.FitBounds,
+                  )
+                  on(button = PointerButton.Primary, response = DragResponse.Pan)
                 }
                 .build()
           ),
@@ -174,7 +180,7 @@ internal data class InteractionBindings(
             mappings =
               ScrollMappingsBuilder()
                 .apply {
-                  otherwise { zoom() }
+                  otherwise(ScrollResponse.Zoom)
                 }
                 .build()
           ),
@@ -186,40 +192,57 @@ internal data class InteractionBindings(
                   on(
                     pointerTypes = mouse,
                     modifiers = ModifierMatch.Containing(KeyModifier.Shift),
-                  ) {
-                    zoomOut()
-                  }
-                  otherwise { zoomIn() }
+                    response = TapResponse.ZoomOut,
+                  )
+                  otherwise(TapResponse.ZoomIn)
                 }
                 .build()
           ),
         secondaryClick = TapBinding(pointerTypes = mouse),
         longPress = TapBinding(pointerTypes = touch),
         twoFingerTap =
-          TapBinding(mappings = TapMappingsBuilder().apply { otherwise { zoomOut() } }.build()),
+          TapBinding(
+            mappings = TapMappingsBuilder().apply { otherwise(TapResponse.ZoomOut) }.build()
+          ),
         keys =
           KeyBinding(
             mappings =
               KeyMappingsBuilder()
                 .apply {
-                  on(Key.DirectionLeft) { panLeft() }
-                  on(Key.DirectionRight) { panRight() }
-                  on(Key.DirectionUp) { panUp() }
-                  on(Key.DirectionDown) { panDown() }
-                  on(Key.DirectionLeft, ModifierMatch.Exactly(KeyModifier.Shift)) { rotateLeft() }
-                  on(Key.DirectionRight, ModifierMatch.Exactly(KeyModifier.Shift)) { rotateRight() }
-                  on(Key.DirectionUp, ModifierMatch.Exactly(KeyModifier.Shift)) { tiltUp() }
-                  on(Key.DirectionDown, ModifierMatch.Exactly(KeyModifier.Shift)) { tiltDown() }
+                  on(Key.DirectionLeft, response = KeyResponse.PanLeft)
+                  on(Key.DirectionRight, response = KeyResponse.PanRight)
+                  on(Key.DirectionUp, response = KeyResponse.PanUp)
+                  on(Key.DirectionDown, response = KeyResponse.PanDown)
+                  on(
+                    Key.DirectionLeft,
+                    ModifierMatch.Exactly(KeyModifier.Shift),
+                    response = KeyResponse.RotateLeft,
+                  )
+                  on(
+                    Key.DirectionRight,
+                    ModifierMatch.Exactly(KeyModifier.Shift),
+                    response = KeyResponse.RotateRight,
+                  )
+                  on(
+                    Key.DirectionUp,
+                    ModifierMatch.Exactly(KeyModifier.Shift),
+                    response = KeyResponse.TiltUp,
+                  )
+                  on(
+                    Key.DirectionDown,
+                    ModifierMatch.Exactly(KeyModifier.Shift),
+                    response = KeyResponse.TiltDown,
+                  )
                   for (key in listOf(Key.Plus, Key.Equals)) {
-                    on(key) { zoomIn() }
-                    on(key, ModifierMatch.Exactly(KeyModifier.Shift)) { zoomIn() }
+                    on(key, response = KeyResponse.ZoomIn)
+                    on(key, ModifierMatch.Exactly(KeyModifier.Shift), response = KeyResponse.ZoomIn)
                   }
-                  on(Key.Minus) { zoomOut() }
+                  on(Key.Minus, response = KeyResponse.ZoomOut)
                   for (key in listOf(Key.Enter, Key.NumPadEnter, Key.DirectionCenter)) {
-                    on(key) { engage() }
+                    on(key, response = KeyResponse.Engage)
                   }
-                  on(Key.Escape) { disengage() }
-                  on(Key.Back) { back() }
+                  on(Key.Escape, response = KeyResponse.Disengage)
+                  on(Key.Back, response = KeyResponse.Back)
                 }
                 .build()
           ),
