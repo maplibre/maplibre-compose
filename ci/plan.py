@@ -46,6 +46,8 @@ def state_before(event: dict) -> dict | None:
         added = event["label"]["name"]
         labels = [label for label in pr["labels"] if label["name"] != added]
         return {**pr, "labels": labels}
+    if event.get("action") == "unlabeled":
+        return {**pr, "labels": [*pr["labels"], event["label"]]}
     return None
 
 

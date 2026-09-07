@@ -187,9 +187,23 @@ class PlanTest(unittest.TestCase):
         opted_in = pr_event(False, ("ci:full", "infra"), action="labeled", label=label)
         self.assert_restated(plan("full", "pull_request", opted_in))
 
+    def test_removing_the_opt_in_label_records_the_downgraded_tier(self) -> None:
+        label = {"name": "ci:full"}
+        on_ready = pr_event(False, ("infra",), action="unlabeled", label=label)
+        self.assert_restated(plan("ready", "pull_request", on_ready))
+        selection = plan("full", "pull_request", on_ready)
+        self.assert_selected(selection, set())
+        self.assertFalse(selection["restate"])
+        on_draft = pr_event(True, (), action="unlabeled", label=label)
+        for tier in ["ready", "full"]:
+            selection = plan(tier, "pull_request", on_draft)
+            self.assert_selected(selection, set())
+            self.assertFalse(selection["restate"])
+
     def test_label_event_without_label_metadata_fails_closed(self) -> None:
-        with self.assertRaises(KeyError):
-            plan("ready", "pull_request", pr_event(action="labeled"))
+        for action in ["labeled", "unlabeled"]:
+            with self.assertRaises(KeyError):
+                plan("ready", "pull_request", pr_event(action=action))
 
     def test_dependabot_prs_require_every_tier_after_maintainer_events(self) -> None:
         for draft in [True, False]:
@@ -299,10 +313,11 @@ class WorkflowTest(unittest.TestCase):
     def test_only_the_tier_an_event_can_add_reruns_on_it(self) -> None:
         code = {"opened", "synchronize", "reopened"}
         self.assertEqual(self.pr_events("ci.yml"), code)
+        labels = {"labeled", "unlabeled"}
         self.assertEqual(
-            self.pr_events("ci-ready.yml"), code | {"ready_for_review", "labeled"}
+            self.pr_events("ci-ready.yml"), code | {"ready_for_review"} | labels
         )
-        self.assertEqual(self.pr_events("ci-full.yml"), code | {"labeled"})
+        self.assertEqual(self.pr_events("ci-full.yml"), code | labels)
 
     def test_main_and_manual_runs_use_a_single_workflow(self) -> None:
         for tier, workflow in CALLERS.items():

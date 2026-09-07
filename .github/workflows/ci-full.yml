@@ -1,7 +1,8 @@
 name: CI full
 
 # The full tier: variants a pull request gains from the ci:full label or from
-# Dependabot authorship. Only this workflow reruns when the label is added.
+# Dependabot authorship. Adding the label runs them; removing it records that
+# the tier is no longer required, so an earlier failure stops blocking.
 on:
   pull_request:
     types:
@@ -9,6 +10,7 @@ on:
       - synchronize
       - reopened
       - labeled
+      - unlabeled
 
 # Only a push makes an earlier run stale. A readiness or label event on the
 # same commit may need the earlier run's verdict.

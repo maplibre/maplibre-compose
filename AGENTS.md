@@ -87,4 +87,5 @@ ready tier. Dependabot PRs, main, and manual runs always include every variant.
 For CI, FFI, toolchain, native loading, packaging, or architecture-sensitive
 changes, request every platform (including Linux/Windows ARM64) with
 `gh pr edit <number> --add-label 'ci:full'`. The label also works on drafts and
-persists across pushes; adding it runs only the tiers the PR has not yet run.
+persists across pushes. Adding it runs only the tiers the PR has not yet run,
+and removing it restores the default tier without rerunning anything.
