@@ -1,10 +1,12 @@
 # Camera input lifetime
 
 Built-in controls use `GestureInputSession` to group contact movement and
-release momentum. A session holds one camera token. Pan, zoom, rotation, and
-tilt can share that token, but each reports its own semantic `onStart` before
-its first effective command. A replacement contact can restart a component
-without replacing the whole session.
+release momentum. A session starts when input is recognized and holds one camera
+token. A pointer held below drag slop does not reserve the camera; crossing slop
+interrupts the then-current camera motion. Pan, zoom, rotation, and tilt can
+share that token, but each reports its own semantic `onStart` before its first
+effective command. A replacement contact can restart a component without
+replacing the whole session.
 
 `CameraInputAuthority` coordinates input with programmatic camera changes and
 map attachment changes. Its token owns private state synchronized by the map's

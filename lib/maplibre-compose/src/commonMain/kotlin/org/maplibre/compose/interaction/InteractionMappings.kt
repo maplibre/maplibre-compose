@@ -220,7 +220,10 @@ public class ScrollMappingsBuilder internal constructor() {
   internal fun build(): List<ScrollMapping> = rows.toList()
 }
 
-/** Ordered mappings; the first matching permitted response wins. */
+/**
+ * Ordered mappings; the first matching permitted response wins. The enclosing tap binding selects
+ * the mouse button: primary for tap and double tap, secondary for secondary click.
+ */
 @MapInteractionDsl
 public class TapMappingsBuilder internal constructor() {
   private val rows = mutableListOf<TapMapping>()
@@ -228,14 +231,13 @@ public class TapMappingsBuilder internal constructor() {
 
   public fun on(
     pointerTypes: Set<PointerType>? = null,
-    button: PointerButton? = null,
     modifiers: ModifierMatch = ModifierMatch.Any,
     block: TapResponseBuilder.() -> Unit,
   ) {
     require(!hasOtherwise) { "otherwise must be the final row" }
     rows +=
       TapMapping(
-        PointerPattern(pointerTypes?.toSet(), button, modifiers),
+        PointerPattern(pointerTypes = pointerTypes?.toSet(), modifiers = modifiers),
         TapResponseBuilder().apply(block).build(),
       )
   }
