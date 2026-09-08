@@ -10,7 +10,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -209,15 +208,13 @@ internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets
         drawTrail(mapState, session)
       }
   ) {
-    key(scenario.id) {
-      MaplibreMap(
-        state = mapState,
-        cameraPadding = viewportInsets.asPaddingValues(),
-        renderOptions = RenderOptions.Standard,
-        interactions = scenario.interactions,
-        contentWindowInsets = viewportInsets.asWindowInsets(),
-      ) {}
-    }
+    MaplibreMap(
+      state = mapState,
+      cameraPadding = viewportInsets.asPaddingValues(),
+      renderOptions = RenderOptions.Standard,
+      interactions = scenario.interactions,
+      contentWindowInsets = viewportInsets.asWindowInsets(),
+    ) {}
 
     Box(Modifier.fillMaxSize().padding(viewportInsets.asPaddingValues())) {
       Column(
