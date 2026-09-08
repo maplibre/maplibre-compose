@@ -10,12 +10,10 @@ import { region, rememberedMapStyle } from "../../snippets";
 import interaction from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Interaction.kt?raw";
 import layers from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Layers.kt?raw";
 
-Users can pan, zoom, rotate, and tilt the map by default. Pass <Api of="MapInteractions" /> to
-customize controls or respond to input. The configuration has three parts:
-
-- `camera`: which movements the controls allow, such as panning or rotation.
-- `bindings`: what gestures, scrolling, and keys do.
-- `callbacks`: how your app responds to clicks.
+Users can pan, zoom, rotate, and tilt the map by default. Two builders configure
+input. <Api of="MapInteractions" /> sets which camera movements are allowed and
+how your app responds to clicks. <Api of="MapUiOptions" /> sets what gestures,
+scrolling, and keys do.
 
 ## Restrict camera movement
 
@@ -25,8 +23,9 @@ camera movements:
 <Code code={region(interaction, "camera-movement")} lang="kotlin" title="App.kt" />
 
 Omitted settings keep their defaults. Use `MapInteractions(from = existing)`
-to build on another configuration, or `MapInteractions.None` to disable
-built-in input, including feature clicks.
+to build on another configuration. `MapInteractions.None` disallows every
+camera movement. `MapUiOptions.None` disables every gesture, scroll, and key
+binding, including feature clicks.
 
 To stop [following the user's location](/maplibre-compose/location/) when they
 pan, use <Api of="PanCameraBuilder.onStart" display="camera.pan.onStart" />.
@@ -43,7 +42,8 @@ while Ctrl-scroll zooms:
 
 A `mappings` block replaces the default responses for that input. Rows are
 tried from top to bottom; `otherwise` handles the remaining input. Available
-gestures depend on the input device and Compose host.
+gestures depend on the input device and platform. A mapping cannot enable a
+camera movement that `MapInteractions` disallows.
 
 A null pointer-type, button, or modifier filter matches any value. Key mappings
 default to exactly no modifiers; set `modifiers = null` to match a key with any

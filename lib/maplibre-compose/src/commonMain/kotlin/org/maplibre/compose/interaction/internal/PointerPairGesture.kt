@@ -13,12 +13,11 @@ import org.maplibre.compose.camera.internal.inputPanBy
 import org.maplibre.compose.camera.internal.inputRotateAndPitchBy
 import org.maplibre.compose.camera.internal.inputScaleBy
 import org.maplibre.compose.interaction.GestureAnchor
-import org.maplibre.compose.interaction.MapInteractions
 
 /** Applies camera response gains and momentum to a recognized touch pair. */
 internal class PointerPairGesture(
   private val target: CameraInputTarget,
-  options: MapInteractions,
+  options: InputConfiguration,
   private val density: Density,
   event: PointerEvent,
   first: PointerInputChange,

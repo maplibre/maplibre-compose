@@ -16,6 +16,7 @@ import org.maplibre.compose.demoapp.demos.MaterialStyleDemo
 import org.maplibre.compose.demoapp.demos.TransitNetworkDemo
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.map.MapState
+import org.maplibre.compose.map.MapUiOptions
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -52,6 +53,9 @@ interface Demo {
 
   /** Input and presentation modifiers applied to the shared map while this demo is selected. */
   @UiComposable @Composable fun mapModifier(mapState: MapState): Modifier = Modifier
+
+  /** Compose UI input bindings while this demo is selected, edited from the app [settings]. */
+  fun uiOptions(settings: MapUiOptions): MapUiOptions = settings
 
   /** Map layers using the active [style], including its label font stack. */
   @MaplibreComposable @Composable fun MapContent(style: DemoStyle) {}

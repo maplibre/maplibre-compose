@@ -24,7 +24,6 @@ import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.internal.CameraInputToken
 import org.maplibre.compose.interaction.DragResponse
-import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.PointerButton
 import org.maplibre.compose.map.GestureTestFixture
 import org.maplibre.compose.map.RecordingGestureTarget
@@ -40,7 +39,7 @@ class TransformInputTest {
   fun trackpad_pan_and_scale_work_independently_of_scroll_bindings() {
     assumeTrackpadEventInjectionSupported()
     fixture.runRecognitionTest(
-      options = MapInteractions { bindings { scroll { enabled = false } } }
+      options = InputConfiguration { bindings { scroll { enabled = false } } }
     ) { target ->
       mapNode().performTrackpadInput {
         moveTo(Offset(80f, 80f))
@@ -61,7 +60,7 @@ class TransformInputTest {
   @Test
   fun a_structural_restart_suppresses_trackpad_changes_until_the_old_component_ends() {
     assumeTrackpadEventInjectionSupported()
-    var options by mutableStateOf(MapInteractions.Standard)
+    var options by mutableStateOf(InputConfiguration.Standard)
     fixture.runRecognitionTest(optionsProvider = { options }) { target ->
       val map = mapNode()
       map.performTrackpadInput {
@@ -70,7 +69,7 @@ class TransformInputTest {
         scaleChangeBy(1.5f)
       }
       runOnIdle {
-        options = MapInteractions { bindings { transform { zoom { zoomScale = 2.0 } } } }
+        options = InputConfiguration { bindings { transform { zoom { zoomScale = 2.0 } } } }
       }
       waitForIdle()
       map.performTrackpadInput {
@@ -95,7 +94,7 @@ class TransformInputTest {
   fun a_second_touch_interrupts_camera_motion_before_the_pair_crosses_slop() =
     fixture.runRecognitionTest(
       options =
-        MapInteractions(MapInteractions.None) {
+        InputConfiguration(InputConfiguration.NoBindings) {
           bindings { transform { pan { enabled = true } } }
         }
     ) { target ->
@@ -123,7 +122,7 @@ class TransformInputTest {
   fun pair_pan_keeps_its_camera_session_until_the_last_contact_lifts() {
     fixture.runRecognitionTest(
       options =
-        MapInteractions(MapInteractions.None) {
+        InputConfiguration(InputConfiguration.NoBindings) {
           camera { pan { momentum { enabled = false } } }
           bindings {
             transform {
@@ -159,7 +158,7 @@ class TransformInputTest {
     val order = mutableListOf<String>()
     fixture.runRecognitionTest(
       options =
-        MapInteractions {
+        InputConfiguration {
           camera {
             pan {
               momentum { enabled = false }
@@ -206,7 +205,7 @@ class TransformInputTest {
     val starts = mutableListOf<String>()
     fixture.runRecognitionTest(
       options =
-        MapInteractions {
+        InputConfiguration {
           camera {
             zoom { onStart { starts += "zoom" } }
             rotate { onStart { starts += "rotate" } }
@@ -252,7 +251,7 @@ class TransformInputTest {
   fun replacing_a_selected_contact_ends_the_old_pair_and_rebases_the_new_pair() {
     fixture.runRecognitionTest(
       options =
-        MapInteractions(MapInteractions.None) {
+        InputConfiguration(InputConfiguration.NoBindings) {
           camera { pan { momentum { enabled = false } } }
           bindings {
             transform {
@@ -305,7 +304,7 @@ class TransformInputTest {
     var touchSlop = 0f
     setContent {
       touchSlop = LocalViewConfiguration.current.touchSlop
-      GestureHost(target, MapInteractions.Standard)
+      GestureHost(target, InputConfiguration.Standard)
     }
     waitForIdle()
     val map = mapNode()
@@ -431,7 +430,7 @@ class TransformInputTest {
 
   private fun checkDepartingPinchFinger(zoomMomentum: Boolean) {
     fixture.runRecognitionTest(
-      options = MapInteractions { camera { zoom { momentum { enabled = zoomMomentum } } } }
+      options = InputConfiguration { camera { zoom { momentum { enabled = zoomMomentum } } } }
     ) { target ->
       val map = mapNode()
       map.performTouchInput {
@@ -470,7 +469,7 @@ class TransformInputTest {
   fun newly_recognized_single_pan_discards_the_previous_pairs_staged_momentum() {
     fixture.runRecognitionTest(
       options =
-        MapInteractions(MapInteractions.None) {
+        InputConfiguration(InputConfiguration.NoBindings) {
           camera { pan { momentum { minimumSpeed = 1.0 } } }
           bindings {
             drag {
@@ -514,7 +513,7 @@ class TransformInputTest {
   fun pair_pan_stages_momentum_until_the_group_lifts() {
     fixture.runRecognitionTest(
       options =
-        MapInteractions(MapInteractions.None) {
+        InputConfiguration(InputConfiguration.NoBindings) {
           camera { pan { momentum { minimumSpeed = 1.0 } } }
           bindings {
             transform {
@@ -554,7 +553,7 @@ class TransformInputTest {
     var newer: CameraInputToken? = null
     fixture.runRecognitionTest(
       options =
-        MapInteractions(MapInteractions.None) {
+        InputConfiguration(InputConfiguration.NoBindings) {
           camera { zoom { onStart { newer = checkNotNull(recorded).onGestureStarted() } } }
           bindings { transform { zoom { enabled = true } } }
         }
@@ -580,7 +579,7 @@ class TransformInputTest {
   fun symmetric_pinch_does_not_recognize_pan_from_individual_finger_displacement() =
     fixture.runRecognitionTest(
       options =
-        MapInteractions {
+        InputConfiguration {
           bindings { transform { zoom { enabled = false } } }
           bindings { transform { rotate { enabled = false } } }
           bindings { transform { tilt { enabled = false } } }
@@ -609,7 +608,7 @@ class TransformInputTest {
     var starts = 0
     fixture.runRecognitionTest(
       options =
-        MapInteractions {
+        InputConfiguration {
           camera {
             pan {
               onStart { starts++ }

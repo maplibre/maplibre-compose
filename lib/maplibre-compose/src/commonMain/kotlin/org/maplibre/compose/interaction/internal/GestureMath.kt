@@ -9,7 +9,6 @@ import kotlin.math.ln
 import kotlin.math.pow
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
-import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.style.scaledBy
 import org.maplibre.compose.style.systemAnimatorDurationScale
 
@@ -232,5 +231,5 @@ internal object GestureMath {
 /** A zoom level is a doubling. */
 internal fun zoomLevelsToScale(levelDelta: Double): Double = 2.0.pow(levelDelta)
 
-internal fun MapInteractions.scaledAnimationDuration(): Duration =
+internal fun InputConfiguration.scaledAnimationDuration(): Duration =
   animationDuration.scaledBy(systemAnimatorDurationScale())

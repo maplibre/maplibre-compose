@@ -948,10 +948,10 @@ internal class GlJsMapSession(
   override fun setRenderSettings(value: RenderOptions) {
     maximumFps = value.maximumFps
     onMap { map ->
-      map.showTileBoundaries = value.isTileBordersEnabled
-      map.showCollisionBoxes = value.isCollisionBoxesEnabled
-      map.showPadding = value.isPaddingEnabled
-      map.showOverdrawInspector = value.isOverdrawInspectorEnabled
+      map.showTileBoundaries = value.debug.tileBorders
+      map.showCollisionBoxes = value.debug.collisionBoxes
+      map.showPadding = value.debug.padding
+      map.showOverdrawInspector = value.debug.overdrawInspector
     }
   }
 

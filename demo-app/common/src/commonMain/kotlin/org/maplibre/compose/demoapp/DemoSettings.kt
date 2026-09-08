@@ -9,6 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import org.maplibre.compose.demoapp.design.DropdownRow
 import org.maplibre.compose.demoapp.design.SectionHeader
+import org.maplibre.compose.map.MapUiOptions
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.map.TileLodOptions
 
@@ -61,7 +62,7 @@ class DemoSettings {
   var mapStyleMode by mutableStateOf(MapStyleMode.System)
   var paletteMode by mutableStateOf(defaultPaletteMode)
   var renderOptions by mutableStateOf(RenderOptions.Standard)
-  var tileLodOptions by mutableStateOf(TileLodOptions.Standard)
+  var uiOptions by mutableStateOf(MapUiOptions.Standard)
   var showFpsOverlay by mutableStateOf(false)
   var showCameraOverlay by mutableStateOf(false)
   var showPointerPinDiagnostics by mutableStateOf(false)
@@ -81,7 +82,7 @@ fun TileLodSettingsItems(settings: DemoSettings) {
     label = "When the camera is pitched",
     options =
       listOf(TileLodOptions.Standard, TileLodOptions.Performance, TileLodOptions.HighDetail),
-    selected = settings.tileLodOptions,
+    selected = settings.renderOptions.tileLod,
     optionLabel = {
       when (it) {
         TileLodOptions.Standard -> "Standard"
@@ -90,6 +91,8 @@ fun TileLodSettingsItems(settings: DemoSettings) {
         else -> "Custom"
       }
     },
-    onSelect = { settings.tileLodOptions = it },
+    onSelect = { lod ->
+      settings.renderOptions = RenderOptions(settings.renderOptions) { tileLod = lod }
+    },
   )
 }

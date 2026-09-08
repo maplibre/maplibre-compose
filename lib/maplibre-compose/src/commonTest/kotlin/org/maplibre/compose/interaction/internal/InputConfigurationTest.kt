@@ -14,7 +14,6 @@ import org.maplibre.compose.interaction.DragBindingBuilder
 import org.maplibre.compose.interaction.DragResponse
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.KeyResponse
-import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.ModifierMatch
 import org.maplibre.compose.interaction.PointerButton
 import org.maplibre.compose.interaction.ScrollResponse
@@ -28,13 +27,13 @@ class MapInteractionsTest {
 
   @Test
   fun camera_policy_and_terminal_none_share_ordered_routing() {
-    val standard = MapInteractions.Standard
+    val standard = InputConfiguration.Standard
     val ctrlShift = sample(modifiers = setOf(KeyModifier.Ctrl, KeyModifier.Shift))
     assertEquals(
       DragResponse.RotateTilt,
       standard.bindings.drag.select(ctrlShift, standard.camera.settings),
     )
-    val panLocked = MapInteractions {
+    val panLocked = InputConfiguration {
       camera { pan { enabled = false } }
       bindings {
         scroll {
@@ -49,7 +48,7 @@ class MapInteractionsTest {
       ScrollResponse.Zoom,
       panLocked.bindings.scroll.select(sample(), panLocked.camera.settings),
     )
-    val excluded = MapInteractions {
+    val excluded = InputConfiguration {
       bindings {
         scroll {
           mappings {
@@ -67,7 +66,7 @@ class MapInteractionsTest {
       excluded.bindings.scroll.select(ctrlShift, excluded.camera.settings),
     )
     for (lockPan in listOf(false, true)) {
-      val locked = MapInteractions {
+      val locked = InputConfiguration {
         camera {
           pan { enabled = !lockPan }
           zoom { enabled = lockPan }
@@ -80,7 +79,7 @@ class MapInteractionsTest {
 
   @Test
   fun non_mouse_slop_edits_preserve_inherited_mouse_thresholds() {
-    val base = MapInteractions {
+    val base = InputConfiguration {
       bindings {
         drag {
           pan { mouseStartSlop = 9.dp }
@@ -90,7 +89,7 @@ class MapInteractionsTest {
       }
     }
     val edited =
-      MapInteractions(from = base) {
+      InputConfiguration(from = base) {
           bindings {
             drag {
               pan { startSlop = 12.dp }
@@ -114,19 +113,19 @@ class MapInteractionsTest {
 
   @Test
   fun mappings_are_replaced_and_tuning_does_not_restore_them() {
-    val cleared = MapInteractions { bindings { doubleTap { mappings {} } } }
-    val tuned = MapInteractions(from = cleared) { bindings { doubleTap { zoomStep = 2.0 } } }
+    val cleared = InputConfiguration { bindings { doubleTap { mappings {} } } }
+    val tuned = InputConfiguration(from = cleared) { bindings { doubleTap { zoomStep = 2.0 } } }
     assertTrue(tuned.bindings.doubleTap.mappings.isEmpty())
     assertTrue(tuned.bindings.doubleTap.enabled)
-    assertEquals(MapInteractions.Standard.bindings.drag.mappings, tuned.bindings.drag.mappings)
-    assertTrue(MapInteractions.Standard.bindings.tap.mappings.isEmpty())
-    assertTrue(MapInteractions.Standard.bindings.secondaryClick.mappings.isEmpty())
-    assertTrue(MapInteractions.Standard.bindings.longPress.mappings.isEmpty())
+    assertEquals(InputConfiguration.Standard.bindings.drag.mappings, tuned.bindings.drag.mappings)
+    assertTrue(InputConfiguration.Standard.bindings.tap.mappings.isEmpty())
+    assertTrue(InputConfiguration.Standard.bindings.secondaryClick.mappings.isEmpty())
+    assertTrue(InputConfiguration.Standard.bindings.longPress.mappings.isEmpty())
   }
 
   @Test
-  fun none_does_not_restore_camera_mappings_when_a_family_is_enabled() {
-    val none = MapInteractions.None
+  fun no_bindings_does_not_restore_camera_mappings_when_a_family_is_enabled() {
+    val none = InputConfiguration.NoBindings
     assertTrue(
       none.camera.settings.pan.enabled &&
         none.camera.settings.zoom.enabled &&
@@ -134,7 +133,7 @@ class MapInteractionsTest {
         none.camera.settings.tilt.enabled
     )
     val appOnly =
-      MapInteractions(from = none) {
+      InputConfiguration(from = none) {
         bindings {
           tap { enabled = true }
           drag { enabled = true }
@@ -150,7 +149,7 @@ class MapInteractionsTest {
 
   @Test
   fun keyboard_demand_requires_a_reachable_permitted_camera_row() {
-    val hidden = MapInteractions {
+    val hidden = InputConfiguration {
       bindings {
         keys {
           mappings {
@@ -166,7 +165,7 @@ class MapInteractionsTest {
       KeyResponse.None,
       hidden.bindings.keys.select(Key.Plus, emptySet(), hidden.camera.settings),
     )
-    val locked = MapInteractions {
+    val locked = InputConfiguration {
       camera { zoom { enabled = false } }
       bindings {
         keys {
@@ -179,17 +178,17 @@ class MapInteractionsTest {
     }
     assertFalse(locked.hasCameraKeys)
     assertNull(
-      MapInteractions.Standard.bindings.keys.select(
+      InputConfiguration.Standard.bindings.keys.select(
         Key.DirectionLeft,
         setOf(KeyModifier.Alt),
-        MapInteractions.Standard.camera.settings,
+        InputConfiguration.Standard.camera.settings,
       )
     )
   }
 
   @Test
   fun null_modifiers_match_any_keys_and_restore_inherited_pointer_filters() {
-    val base = MapInteractions {
+    val base = InputConfiguration {
       bindings {
         transform { pan { modifiers = ModifierMatch.Exactly() } }
         keys { mappings { on(Key.DirectionLeft, response = KeyResponse.PanLeft) } }
@@ -201,7 +200,7 @@ class MapInteractionsTest {
       base.bindings.keys.select(Key.DirectionLeft, modified.modifierKeys, base.camera.settings)
     )
     val wildcard =
-      MapInteractions(from = base) {
+      InputConfiguration(from = base) {
         bindings {
           transform { pan { modifiers = null } }
           keys {
@@ -227,7 +226,7 @@ class MapInteractionsTest {
   fun snapshots_and_mapping_rows_validate_at_configuration_time() {
     val types = mutableSetOf(PointerType.Mouse)
     lateinit var retained: DragBindingBuilder
-    val value = MapInteractions {
+    val value = InputConfiguration {
       bindings {
         drag {
           retained = this
@@ -240,7 +239,7 @@ class MapInteractionsTest {
     assertEquals(setOf(PointerType.Mouse), value.bindings.drag.pointerTypes)
     assertTrue(value.bindings.drag.enabled)
     assertFailsWith<IllegalArgumentException> {
-      MapInteractions {
+      InputConfiguration {
         bindings {
           scroll {
             mappings {

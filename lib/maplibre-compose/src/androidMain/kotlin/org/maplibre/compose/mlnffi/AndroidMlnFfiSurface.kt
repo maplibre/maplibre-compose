@@ -16,6 +16,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import org.maplibre.compose.logging.MapLog
+import org.maplibre.compose.map.AndroidRenderMode
 import org.maplibre.compose.map.mlnFfiArchitecture
 import org.maplibre.compose.map.mlnFfiOperatingSystem
 
@@ -25,7 +26,7 @@ internal fun AndroidMlnFfiSurface(
   renderer: MlnFfiMapRenderer,
   runtimeBackends: Set<MapRenderBackend>,
   backend: MapRenderBackend,
-  kind: AndroidMapSurfaceKind,
+  renderMode: AndroidRenderMode,
   maximumFps: Int? = null,
   modifier: Modifier,
   logger: MapLog?,
@@ -80,8 +81,8 @@ internal fun AndroidMlnFfiSurface(
     return
   }
 
-  when (kind) {
-    AndroidMapSurfaceKind.Texture ->
+  when (renderMode) {
+    AndroidRenderMode.Texture ->
       // Never opaque: before its first swap a TextureView would otherwise fill with black.
       AndroidEmbeddedExternalSurface(modifier = modifier, isOpaque = false) {
         onSurface { surface, width, height ->
@@ -92,7 +93,7 @@ internal fun AndroidMlnFfiSurface(
           surface.onDestroyed { controller.surfaceDestroyed() }
         }
       }
-    AndroidMapSurfaceKind.Surface ->
+    AndroidRenderMode.Surface ->
       // Do not reuse a SurfaceView whose callback belongs to a disposed renderer session.
       // https://issuetracker.google.com/issues/554586999
       key(controller) {

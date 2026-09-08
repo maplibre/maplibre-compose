@@ -73,8 +73,10 @@ private class MapStateAttachment(
  * The map is a focus target, and the overlay is a focus group. Focus modifiers on [modifier] apply
  * to the map, and a control in the overlay keeps its own focus properties.
  *
- * Configure input handlers through [interactions]. Tap handlers run before interactive layers;
- * unhandled tap callbacks run after layers pass the event.
+ * [interactions] sets which camera movements are allowed and how the app responds to clicks.
+ * [uiOptions] sets what gestures, scrolling, and keys do, and what shows before the first frame.
+ * Tap handlers run before interactive layers; unhandled tap callbacks run after layers pass the
+ * event.
  */
 @Composable
 public fun MaplibreMap(
@@ -84,7 +86,7 @@ public fun MaplibreMap(
   cameraConstraints: CameraConstraints = CameraConstraints(),
   renderOptions: RenderOptions = RenderOptions.Standard,
   interactions: MapInteractions = MapInteractions.Standard,
-  tileLodOptions: TileLodOptions = TileLodOptions.Standard,
+  uiOptions: MapUiOptions = MapUiOptions.Standard,
   contentWindowInsets: WindowInsets = WindowInsets.safeDrawing,
   overlay: @Composable @UiComposable MapOverlayScope.() -> Unit = {
     include(MapOverlay.Default)
@@ -103,7 +105,7 @@ public fun MaplibreMap(
       cameraConstraints = cameraConstraints,
       renderOptions = renderOptions,
       interactions = interactions,
-      tileLodOptions = tileLodOptions,
+      uiOptions = uiOptions,
     )
   key(state, presentationHostIdentity) {
     PresentedMaplibreMap(
@@ -253,7 +255,7 @@ private fun MaplibreMapPresentation(
           map.setCameraPadding(mapViewOptions.cameraPadding)
           map.setCameraConstraints(mapViewOptions.cameraConstraints)
           map.setRenderSettings(mapViewOptions.renderOptions)
-          map.setTileLodSettings(mapViewOptions.tileLodOptions)
+          map.setTileLodSettings(mapViewOptions.renderOptions.tileLod)
           attachment.publish(map)
         },
       onReset = {

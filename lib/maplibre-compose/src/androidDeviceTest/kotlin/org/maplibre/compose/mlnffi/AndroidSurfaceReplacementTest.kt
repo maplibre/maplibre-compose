@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.first
+import org.maplibre.compose.map.AndroidRenderMode
 import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapRuntimeOptions
@@ -140,7 +141,7 @@ class ReusableSurfaceActivity : ComponentActivity() {
           renderer = renderer,
           runtimeBackends = setOf(MapRenderBackend.OPENGL),
           backend = MapRenderBackend.OPENGL,
-          kind = AndroidMapSurfaceKind.Surface,
+          renderMode = AndroidRenderMode.Surface,
           modifier = Modifier.fillMaxSize(),
           logger = null,
         )

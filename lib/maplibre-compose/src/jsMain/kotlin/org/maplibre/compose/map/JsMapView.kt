@@ -1,5 +1,6 @@
 package org.maplibre.compose.map
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.indication
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -10,10 +11,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import org.maplibre.compose.gljs.GlJsMapSurface
 import org.maplibre.compose.interaction.internal.ClickPath
+import org.maplibre.compose.interaction.internal.InputConfiguration
 import org.maplibre.compose.interaction.internal.InputFocus
 import org.maplibre.compose.interaction.internal.TapFamily
 import org.maplibre.compose.interaction.internal.inputEnvironment
@@ -95,12 +98,15 @@ internal actual fun ComposableMapView(
       renderer = session,
       modifier =
         modifier
+          .background(
+            if (session.canPresentFrames) Color.Transparent else options.uiOptions.loadColor
+          )
           .indication(inputFocus.indicationInteractions, inputEnvironment.indication)
           .mapInput(
             session,
             captureClickPath,
             hasClickHandlers,
-            options.interactions,
+            InputConfiguration(options.interactions, options.uiOptions.bindings),
             density,
             focusRequester,
             inputFocus,

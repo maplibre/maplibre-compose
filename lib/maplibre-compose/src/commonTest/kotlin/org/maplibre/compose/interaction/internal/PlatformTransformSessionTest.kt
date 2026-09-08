@@ -19,7 +19,6 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.interaction.GestureAnchor
 import org.maplibre.compose.interaction.KeyModifier
-import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.ModifierMatch
 import org.maplibre.compose.map.GestureTestFixture
 
@@ -34,7 +33,7 @@ class MapPlatformTransformTest {
     val fixture =
       Fixture(
         backgroundScope,
-        MapInteractions {
+        InputConfiguration {
           bindings {
             transform {
               zoom {
@@ -90,7 +89,8 @@ class MapPlatformTransformTest {
 
   @Test
   fun disabled_zoom_does_not_interrupt_an_active_pan() = runTest {
-    val fixture = Fixture(backgroundScope, MapInteractions { camera { zoom { enabled = false } } })
+    val fixture =
+      Fixture(backgroundScope, InputConfiguration { camera { zoom { enabled = false } } })
     try {
       assertTrue(fixture.input.onInput(PointerEventType.PanStart, sample(0)))
       fixture.input.onInput(
@@ -177,7 +177,7 @@ class MapPlatformTransformTest {
     fixture =
       Fixture(
         backgroundScope,
-        MapInteractions {
+        InputConfiguration {
           camera { zoom { onStart { fixture.target.onGestureStarted() } } }
         },
       )
@@ -242,7 +242,7 @@ class MapPlatformTransformTest {
 
   @Test
   fun disabled_and_nonmatching_bindings_leave_platform_streams_unclaimed() = runTest {
-    val fixture = Fixture(backgroundScope, MapInteractions.None)
+    val fixture = Fixture(backgroundScope, InputConfiguration.NoBindings)
     assertFalse(fixture.input.onInput(PointerEventType.PanStart, sample(0)))
     assertFalse(fixture.input.onInput(PointerEventType.ScaleChange, sample(10), scaleFactor = 2.0))
     assertEquals(0, fixture.target.startedCount)
@@ -250,7 +250,7 @@ class MapPlatformTransformTest {
     val unmatched =
       Fixture(
         backgroundScope,
-        MapInteractions {
+        InputConfiguration {
           bindings { transform { zoom { modifiers = ModifierMatch.Containing(KeyModifier.Ctrl) } } }
         },
       )
@@ -301,7 +301,7 @@ class MapPlatformTransformTest {
 
   private inner class Fixture(
     scope: CoroutineScope,
-    initial: MapInteractions = MapInteractions.Standard,
+    initial: InputConfiguration = InputConfiguration.Standard,
   ) {
     init {
       map.state.gestureAuthority.updateConfiguration(initial.camera)

@@ -32,7 +32,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.maplibre.compose.camera.internal.CameraInputToken
-import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.map.GestureTestFixture
 import org.maplibre.compose.map.RecordingGestureTarget
 import org.maplibre.compose.style.scaledBy
@@ -117,7 +116,7 @@ class PointerInputTest {
       assertEquals(before, map.captureToImage().toPixelMap()[50, 50])
       assertEquals(1, target.fitCalls.size)
       assertEquals(
-        MapInteractions.Standard.animationDuration.scaledBy(systemAnimatorDurationScale()),
+        InputConfiguration.Standard.animationDuration.scaledBy(systemAnimatorDurationScale()),
         target.fitCalls.single().second,
       )
       assertEquals(1, target.startedCount)
@@ -128,7 +127,7 @@ class PointerInputTest {
 
   @Test
   fun cancelling_box_zoom_clears_the_preview_without_fitting() {
-    var configuration by mutableStateOf(MapInteractions.Standard)
+    var configuration by mutableStateOf(InputConfiguration.Standard)
     fixture.runRecognitionTest(optionsProvider = { configuration }) { target ->
       target.project = { Position(it.x.value.toDouble(), -it.y.value.toDouble()) }
       val map = mapNode()
@@ -141,7 +140,7 @@ class PointerInputTest {
       }
       waitForIdle()
       assertTrue(before != map.captureToImage().toPixelMap()[50, 50])
-      runOnIdle { configuration = MapInteractions.None }
+      runOnIdle { configuration = InputConfiguration.NoBindings }
       waitForIdle()
       assertEquals(before, map.captureToImage().toPixelMap()[50, 50])
       map.performMouseInput { release() }
@@ -158,7 +157,7 @@ class PointerInputTest {
     var newer: CameraInputToken? = null
     fixture.runRecognitionTest(
       options =
-        MapInteractions {
+        InputConfiguration {
           camera {
             pan {
               onStart { newer = checkNotNull(recorded).onGestureStarted() }
@@ -182,7 +181,7 @@ class PointerInputTest {
 
   @Test
   fun a_structural_change_cancels_the_drag_and_waits_for_existing_contacts_to_lift() {
-    var configuration by mutableStateOf(MapInteractions.Standard)
+    var configuration by mutableStateOf(InputConfiguration.Standard)
     fixture.runRecognitionTest(optionsProvider = { configuration }) { target ->
       val map = mapNode()
       map.performTouchInput {
@@ -193,7 +192,7 @@ class PointerInputTest {
       val moves = target.moveCalls.size
       runOnIdle {
         configuration =
-          MapInteractions(from = configuration) {
+          InputConfiguration(from = configuration) {
             bindings {
               drag { pan { startSlop = 8.dp } }
             }
@@ -222,7 +221,7 @@ class PointerInputTest {
     val counts = mutableListOf<Int>()
     fixture.runRecognitionTest(
       options =
-        MapInteractions {
+        InputConfiguration {
           camera {
             pan {
               onStart { counts += checkNotNull(recorded).moveCalls.size }

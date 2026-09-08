@@ -19,6 +19,7 @@ import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.ModifierMatch.Containing
 import org.maplibre.compose.interaction.ScrollResponse
 import org.maplibre.compose.map.MapState
+import org.maplibre.compose.map.MapUiOptions
 import org.maplibre.spatialk.geojson.Position
 
 object MapControlsDemo : Demo {
@@ -30,7 +31,8 @@ object MapControlsDemo : Demo {
   private enum class Recipe(
     val title: String,
     val explanation: String,
-    val interactions: MapInteractions,
+    val interactions: MapInteractions = MapInteractions.Standard,
+    val bindings: (MapUiOptions) -> MapUiOptions = { it },
   ) {
     Standard(
       "Standard navigation",
@@ -61,12 +63,14 @@ object MapControlsDemo : Demo {
     ScrollPan(
       "Scroll to pan",
       "Use a wheel or trackpad to pan. Hold Ctrl while scrolling vertically to zoom. Touch controls stay standard.",
-      MapInteractions {
-        bindings {
-          scroll {
-            mappings {
-              on(modifiers = Containing(KeyModifier.Ctrl), response = ScrollResponse.Zoom)
-              otherwise(ScrollResponse.Pan)
+      bindings = { settings ->
+        MapUiOptions(settings) {
+          bindings {
+            scroll {
+              mappings {
+                on(modifiers = Containing(KeyModifier.Ctrl), response = ScrollResponse.Zoom)
+                otherwise(ScrollResponse.Pan)
+              }
             }
           }
         }
@@ -77,6 +81,8 @@ object MapControlsDemo : Demo {
   private var recipe by mutableStateOf(Recipe.Standard)
 
   override fun interactions(mapState: MapState): MapInteractions = recipe.interactions
+
+  override fun uiOptions(settings: MapUiOptions): MapUiOptions = recipe.bindings(settings)
 
   @Composable
   override fun Panel(state: DemoAppState) {

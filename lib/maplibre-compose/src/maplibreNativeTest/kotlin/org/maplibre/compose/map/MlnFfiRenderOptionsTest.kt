@@ -16,7 +16,7 @@ class MlnFfiRenderOptionsTest {
       fixture.loadStyle(BaseStyle.Empty)
       val movedBefore = fixture.events.count { it == "viewportChanged" }
       fixture.session.setRenderSettings(
-        RenderOptions(cameraProjection = CameraProjection.Axonometric())
+        RenderOptions { cameraProjection = CameraProjection.Axonometric() }
       )
 
       val defaultAxonometric = assertNotNull(fixture.session.readMap { it.projectionMode })
@@ -29,7 +29,7 @@ class MlnFfiRenderOptionsTest {
       )
 
       fixture.session.setRenderSettings(
-        RenderOptions(cameraProjection = CameraProjection.Axonometric(xSkew = 0.25, ySkew = 0.5))
+        RenderOptions { cameraProjection = CameraProjection.Axonometric(xSkew = 0.25, ySkew = 0.5) }
       )
 
       val axonometric = assertNotNull(fixture.session.readMap { it.projectionMode })

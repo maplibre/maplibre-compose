@@ -28,7 +28,6 @@ import org.maplibre.compose.camera.internal.inputRotateAndPitchByAwaitingTransit
 import org.maplibre.compose.camera.internal.inputScaleByAwaitingTransition
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.KeyResponse
-import org.maplibre.compose.interaction.MapInteractions
 
 /**
  * The focus and engagement of one [mapInput] node. The node writes both states, and [onChanged]
@@ -115,15 +114,15 @@ internal class InputFocus(private val onChanged: (engaged: Boolean) -> Unit) {
  */
 internal class KeyInput(
   private val target: CameraInputTarget,
-  private val options: () -> MapInteractions,
+  private val options: () -> InputConfiguration,
   private val focus: InputFocus,
   private val scope: CoroutineScope,
 ) {
   private var session: GestureInputSession? = null
   private var step: Job? = null
-  private var settings: MapInteractions.Settings? = null
+  private var settings: InputConfiguration.Settings? = null
 
-  fun configure(value: MapInteractions.Settings) {
+  fun configure(value: InputConfiguration.Settings) {
     if (settings == value) return
     settings = value
     cancel()

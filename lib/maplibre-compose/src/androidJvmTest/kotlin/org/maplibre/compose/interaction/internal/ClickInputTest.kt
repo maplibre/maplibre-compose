@@ -28,7 +28,6 @@ import kotlin.test.assertTrue
 import org.maplibre.compose.interaction.ClickEvent
 import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.DragResponse
-import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.PointerButton
 import org.maplibre.compose.interaction.TapResponse
 import org.maplibre.compose.map.GestureTestFixture
@@ -48,7 +47,7 @@ class ClickInputTest {
     val doubles = mutableListOf<ClickEvent>()
     fixture.runRecognitionTest(
       options =
-        MapInteractions {
+        InputConfiguration {
           callbacks {
             doubleClick {
               onEvent {
@@ -77,7 +76,7 @@ class ClickInputTest {
     val events = mutableListOf<ClickEvent>()
     fixture.runRecognitionTest(
       options =
-        MapInteractions {
+        InputConfiguration {
           bindings { longPress { enabled = false } }
           callbacks {
             longClick {
@@ -105,7 +104,7 @@ class ClickInputTest {
   fun an_unused_double_tap_binding_does_not_delay_touch_clicks() {
     fixture.runRecognitionTest(
       options =
-        MapInteractions {
+        InputConfiguration {
           bindings { doubleTap { mappings {} } }
           bindings { tapDrag { enabled = false } }
         }
@@ -125,7 +124,7 @@ class ClickInputTest {
   fun consuming_the_first_mouse_click_does_not_consume_the_later_double_click() {
     fixture.runRecognitionTest(
       options =
-        MapInteractions {
+        InputConfiguration {
           callbacks { click { onEvent { ClickResult.Consume } } }
         }
     ) { target ->
@@ -146,7 +145,7 @@ class ClickInputTest {
       setContent {
         GestureHost(
           target,
-          MapInteractions(from = MapInteractions.None) {
+          InputConfiguration(from = InputConfiguration.NoBindings) {
             bindings {
               longPress {
                 enabled = true
@@ -179,7 +178,7 @@ class ClickInputTest {
   fun an_unbound_click_preserves_touch_momentum_until_bindings_change() {
     var configuration by
       mutableStateOf(
-        MapInteractions(from = MapInteractions.None) {
+        InputConfiguration(from = InputConfiguration.NoBindings) {
           bindings {
             drag {
               enabled = true
@@ -211,7 +210,7 @@ class ClickInputTest {
       )
       runOnIdle {
         configuration =
-          MapInteractions(from = configuration) { bindings { drag { enabled = false } } }
+          InputConfiguration(from = configuration) { bindings { drag { enabled = false } } }
       }
       mainClock.advanceTimeByFrame()
       waitForIdle()
@@ -284,7 +283,7 @@ class ClickInputTest {
   @Test
   fun increasing_drag_slop_does_not_expand_click_tolerance() =
     fixture.runRecognitionTest(
-      options = MapInteractions { bindings { drag { pan { mouseStartSlop = 100.dp } } } }
+      options = InputConfiguration { bindings { drag { pan { mouseStartSlop = 100.dp } } } }
     ) { target ->
       mapNode().performMouseInput {
         moveTo(center)
@@ -327,7 +326,7 @@ class ClickInputTest {
   fun a_tap_reports_at_once_when_no_gesture_would_use_a_second_one() =
     fixture.runRecognitionTest(
       options =
-        MapInteractions {
+        InputConfiguration {
           bindings { doubleTap { enabled = false } }
           bindings { tapDrag { enabled = false } }
         }
@@ -347,7 +346,7 @@ class ClickInputTest {
   fun a_second_tap_inside_the_bounce_window_still_clicks_when_no_gesture_awaits_it() =
     fixture.runRecognitionTest(
       options =
-        MapInteractions {
+        InputConfiguration {
           bindings { doubleTap { enabled = false } }
           bindings { tapDrag { enabled = false } }
         }
@@ -414,7 +413,7 @@ class ClickInputTest {
   fun a_quick_zoom_only_configuration_can_pair_its_initial_press() {
     fixture.runRecognitionTest(
       options =
-        MapInteractions(MapInteractions.None) {
+        InputConfiguration(InputConfiguration.NoBindings) {
           camera { zoom { momentum { enabled = false } } }
           bindings { tapDrag { enabled = true } }
         }
@@ -437,7 +436,7 @@ class ClickInputTest {
     var parentClicks = 0
     fixture.runRecognitionTest(
       options =
-        MapInteractions {
+        InputConfiguration {
           bindings {
             doubleTap { mappings {} }
             tapDrag { enabled = false }
@@ -460,7 +459,7 @@ class ClickInputTest {
     var parentClicks = 0
     fixture.runRecognitionTest(
       options =
-        MapInteractions(MapInteractions.None) {
+        InputConfiguration(InputConfiguration.NoBindings) {
           bindings {
             twoFingerTap {
               enabled = true

@@ -98,7 +98,8 @@ class MlnFfiMapCompositionTest {
       val runtime = createMapRuntime(runtimeOptions)
       val start = CameraPosition(target = Position(0.0, 0.0), zoom = 12.0, tilt = 60.0)
       val state = runtime.createMapState(baseStyle = BaseStyle.Empty, cameraPosition = start)
-      var configuration by mutableStateOf(MapInteractions.None)
+      var configuration by mutableStateOf(MapInteractions.Standard)
+      var uiOptions by mutableStateOf(MapUiOptions.None)
       var density = 1f
       try {
         setFfiTestMapContent(runtimeOptions) {
@@ -107,6 +108,7 @@ class MlnFfiMapCompositionTest {
             modifier = Modifier.size(300.dp).testTag("pitched-fling-map"),
             state = state,
             interactions = configuration,
+            uiOptions = uiOptions,
           )
         }
         waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
@@ -117,16 +119,18 @@ class MlnFfiMapCompositionTest {
 
         fun pan(direction: Float, withFling: Boolean): Float {
           runOnUiThread {
-            configuration =
-              MapInteractions(from = MapInteractions.None) {
-                camera {
-                  pan {
-                    momentum {
-                      enabled = withFling
-                      durationScale = 0.25
-                    }
+            configuration = MapInteractions {
+              camera {
+                pan {
+                  momentum {
+                    enabled = withFling
+                    durationScale = 0.25
                   }
                 }
+              }
+            }
+            uiOptions =
+              MapUiOptions(MapUiOptions.None) {
                 bindings {
                   drag {
                     enabled = true

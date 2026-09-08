@@ -24,7 +24,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import org.maplibre.compose.interaction.KeyModifier
-import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.ModifierMatch
 import org.maplibre.compose.interaction.ScrollResponse
 import org.maplibre.compose.map.GestureTestFixture
@@ -39,7 +38,7 @@ class ScrollGestureInputTest {
   fun an_unmatched_contact_does_not_cancel_an_active_scroll_burst() {
     fixture.runRecognitionTest(
       options =
-        MapInteractions(MapInteractions.None) {
+        InputConfiguration(InputConfiguration.NoBindings) {
           bindings {
             scroll {
               enabled = true
@@ -83,7 +82,7 @@ class ScrollGestureInputTest {
 
   @Test
   fun scroll_zoom_sensitivity_scales_the_same_reported_distance() {
-    var options by mutableStateOf(MapInteractions { bindings { scroll { zoomPerDp = 0.01 } } })
+    var options by mutableStateOf(InputConfiguration { bindings { scroll { zoomPerDp = 0.01 } } })
     fixture.runRecognitionTest(optionsProvider = { options }) { target ->
       val map = mapNode()
       map.performMouseInput { scroll(Offset(3f, -2f)) }
@@ -91,7 +90,7 @@ class ScrollGestureInputTest {
       val baseline = kotlin.math.log2(target.scaleCalls.single().scale)
       assertTrue(baseline > 0.0)
       runOnIdle {
-        options = MapInteractions { bindings { scroll { zoomPerDp = 0.02 } } }
+        options = InputConfiguration { bindings { scroll { zoomPerDp = 0.02 } } }
       }
       map.performMouseInput { scroll(Offset(3f, -2f)) }
       waitForIdle()
@@ -103,7 +102,7 @@ class ScrollGestureInputTest {
   fun split_axis_scroll_keeps_panning_when_horizontal_events_add_shift() {
     fixture.runRecognitionTest(
       options =
-        MapInteractions {
+        InputConfiguration {
           bindings {
             scroll {
               mappings { otherwise(ScrollResponse.Pan) }
@@ -138,7 +137,7 @@ class ScrollGestureInputTest {
   fun explicit_scroll_mappings_switch_between_pan_and_zoom_with_ctrl() =
     fixture.runRecognitionTest(
       options =
-        MapInteractions {
+        InputConfiguration {
           bindings {
             scroll {
               mappings {
@@ -182,7 +181,7 @@ class ScrollGestureInputTest {
     var parentSawConsumed = false
     fixture.runRecognitionTest(
       options =
-        MapInteractions { bindings { scroll { mappings { otherwise(ScrollResponse.Zoom) } } } },
+        InputConfiguration { bindings { scroll { mappings { otherwise(ScrollResponse.Zoom) } } } },
       parentModifier =
         Modifier.pointerInput(Unit) {
           awaitPointerEventScope {
@@ -295,7 +294,7 @@ class ScrollGestureInputTest {
   @Test
   fun the_scroll_hold_is_as_long_as_its_option_says() =
     fixture.runRecognitionTest(
-      options = MapInteractions { bindings { scroll { idleDuration = 600.milliseconds } } }
+      options = InputConfiguration { bindings { scroll { idleDuration = 600.milliseconds } } }
     ) { target ->
       mainClock.autoAdvance = false
       try {

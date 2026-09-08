@@ -37,7 +37,6 @@ import org.maplibre.compose.generated.map
 import org.maplibre.compose.generated.map_engaged
 import org.maplibre.compose.generated.map_not_engaged
 import org.maplibre.compose.interaction.HapticEmphasis
-import org.maplibre.compose.interaction.MapInteractions
 
 /**
  * Neither backend owns platform gestures: MapLibre Native declines to, and GL JS is composited
@@ -52,7 +51,7 @@ internal fun Modifier.mapInput(
   target: CameraInputTarget,
   captureClickPath: (TapFamily) -> ClickPath?,
   hasClickHandlers: (TapFamily) -> Boolean,
-  options: MapInteractions,
+  options: InputConfiguration,
   density: Density,
   focusRequester: FocusRequester,
   focus: InputFocus,
@@ -157,8 +156,8 @@ private fun Modifier.pointerGestures(
   target: CameraInputTarget,
   captureClickPath: (TapFamily) -> ClickPath?,
   hasClickHandlers: (TapFamily) -> Boolean,
-  options: MapInteractions,
-  currentOptions: () -> MapInteractions,
+  options: InputConfiguration,
+  currentOptions: () -> InputConfiguration,
   density: Density,
   focusRequester: FocusRequester,
   focus: InputFocus,

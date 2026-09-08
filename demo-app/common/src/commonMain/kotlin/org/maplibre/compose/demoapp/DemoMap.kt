@@ -354,7 +354,7 @@ fun DemoMap(
       cameraPadding = viewportInsets.asPaddingValues(),
       renderOptions = state.settings.renderOptions,
       interactions = selectedDemo?.interactions(state.mapState) ?: MapInteractions.Standard,
-      tileLodOptions = state.settings.tileLodOptions,
+      uiOptions = selectedDemo?.uiOptions(state.settings.uiOptions) ?: state.settings.uiOptions,
       contentWindowInsets = viewportInsets.asWindowInsets(),
     ) {
       include(overlay)

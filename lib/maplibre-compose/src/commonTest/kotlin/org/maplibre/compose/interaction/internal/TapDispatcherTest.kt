@@ -13,7 +13,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.interaction.ClickResult
-import org.maplibre.compose.interaction.MapInteractions
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MapTapDispatcherTest {
@@ -31,7 +30,7 @@ class MapTapDispatcherTest {
               CoroutineExceptionHandler { _, error -> errors += error }
           )
         try {
-          val options = MapInteractions {
+          val options = InputConfiguration {
             callbacks {
               doubleClick {
                 onEvent {
@@ -72,7 +71,7 @@ class MapTapDispatcherTest {
   fun recognition_order_is_preserved_across_a_suspended_query() = runTest {
     val order = mutableListOf<String>()
     val query = CompletableDeferred<Unit>()
-    val options = MapInteractions {
+    val options = InputConfiguration {
       callbacks {
         click {
           onEvent {
@@ -126,7 +125,9 @@ class MapTapDispatcherTest {
         ClickResult.Pass
       }
     }
-    val options = MapInteractions { callbacks { doubleClick { onEvent { ClickResult.Consume } } } }
+    val options = InputConfiguration {
+      callbacks { doubleClick { onEvent { ClickResult.Consume } } }
+    }
     val dispatcher = TapDispatcher(backgroundScope, target, { false }) { options }
     dispatcher.dispatch(TapFamily.DoubleTap, sample(1)) {
       cameras++
@@ -155,7 +156,7 @@ class MapTapDispatcherTest {
         target,
         { false },
       ) {
-        MapInteractions.Standard
+        InputConfiguration.Standard
       }
     dispatcher.dispatch(TapFamily.DoubleTap, sample(1)) {
       cameras += 1
@@ -177,7 +178,7 @@ class MapTapDispatcherTest {
         ClickResult.Pass
       }
     }
-    val options = MapInteractions {
+    val options = InputConfiguration {
       callbacks {
         click {
           onEvent {
@@ -198,7 +199,7 @@ class MapTapDispatcherTest {
   @Test
   fun queued_click_uses_the_current_callback() = runTest {
     val order = mutableListOf<String>()
-    var options = MapInteractions {
+    var options = InputConfiguration {
       callbacks { click { onEvent { error("replaced callback") } } }
     }
     val dispatcher =
@@ -215,7 +216,7 @@ class MapTapDispatcherTest {
         options
       }
     dispatcher.dispatch(TapFamily.Tap, sample(1)) { order += "camera" }
-    options = MapInteractions {
+    options = InputConfiguration {
       callbacks {
         click {
           onEvent {
