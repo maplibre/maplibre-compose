@@ -1253,6 +1253,7 @@ internal constructor(
       if (binding.imageExists(id) == true) {
         throw StyleHandleException("Image ID '$id' already exists in style")
       }
+      binding.identity.images.remove(id)
       binding.addImage(id, image, sdf, stretch)
       val handle = lifecycle.serialized {
         requireStyleHandleLocked(binding)

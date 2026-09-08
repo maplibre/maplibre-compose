@@ -1057,6 +1057,24 @@ class MapPresentationTest {
   }
 
   @Test
+  fun adding_an_image_after_engine_eviction_retires_the_base_image_handle() {
+    val fixture = presentationFixture()
+    val image = FakeImageBitmap(1, 1)
+    val binding = RecordingStyleBinding(images = listOf("marker" to image))
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+    val old = assertNotNull(fixture.state.style.images["marker"]?.asMutable)
+
+    binding.removeImage("marker")
+    val replacement = fixture.state.style.images.add("marker", image)
+
+    assertFailsWith<IllegalStateException> { old.remove() }
+    assertTrue(binding.imageExists("marker"))
+    assertTrue(replacement.remove())
+    fixture.close()
+  }
+
+  @Test
   fun imperative_image_commands_add_remove_and_reject_duplicates() {
     val fixture = presentationFixture()
     val binding = RecordingStyleBinding()

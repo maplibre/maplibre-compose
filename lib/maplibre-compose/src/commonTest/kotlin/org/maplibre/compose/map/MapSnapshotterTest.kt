@@ -6,6 +6,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -179,6 +180,30 @@ class MapSnapshotterTest {
       assertEquals(setOf("imperative"), binding.imageIds)
     }
 
+    close(snapshotter, runtime)
+  }
+
+  @Test
+  fun adding_an_image_after_engine_eviction_retires_the_snapshot_image_handle() = runTest {
+    val image = FakeImageBitmap(1, 1)
+    val binding = RecordingStyleBinding(images = listOf("marker" to image))
+    val runtime =
+      mapRuntimeForTest(
+        createSnapshotterAdapter = { FakeSnapshotterAdapter(prepare = { _, _ -> binding }) },
+        styleEvaluator =
+          StyleCompositionEvaluator { _, _, _, _, _, _ -> DesiredStyleRevision.Empty },
+      )
+    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
+    withContext(Dispatchers.Unconfined) {
+      snapshotter.capture(MapSnapshotRequest(1, 1))
+      val old = assertNotNull(snapshotter.style.images["marker"]?.asMutable)
+      binding.removeImage("marker")
+      val replacement = snapshotter.style.images.add("marker", image)
+
+      assertFailsWith<IllegalStateException> { old.remove() }
+      assertTrue(binding.imageExists("marker"))
+      assertTrue(replacement.remove())
+    }
     close(snapshotter, runtime)
   }
 
