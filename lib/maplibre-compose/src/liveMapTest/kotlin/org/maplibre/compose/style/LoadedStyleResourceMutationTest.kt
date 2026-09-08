@@ -26,13 +26,15 @@ class LoadedStyleResourceMutationTest {
         )
 
       val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources.add(source))
-      handle.setData(GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""))
+      handle.asMutable!!.setData(
+        GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}""")
+      )
       assertIs<GeoJsonSourceHandle>(fixture.state.style.sources["imperative"])
       fixture.state.style.images.add("imperative", ImageBitmap(1, 1))
       fixture.settle()
 
-      assertTrue(fixture.state.style.images.remove("imperative"))
-      assertTrue(fixture.state.style.sources.remove("imperative"))
+      assertTrue(fixture.state.style.images["imperative"]!!.asMutable!!.remove())
+      assertTrue(fixture.state.style.sources["imperative"]!!.asMutable!!.remove())
       assertNull(fixture.state.style.sources["imperative"])
     }
   }

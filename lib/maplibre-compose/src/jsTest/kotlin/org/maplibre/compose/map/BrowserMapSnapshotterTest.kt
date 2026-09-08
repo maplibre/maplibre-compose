@@ -92,7 +92,7 @@ class BrowserMapSnapshotterTest {
         POINT_STYLE()
       }
       val runtime = createMapRuntime(MapRuntimeOptions())
-      val state = runtime.createMapState(initialBaseStyle = BASE_STYLE, content = content)
+      val state = runtime.createMapState(baseStyle = BASE_STYLE, content = content)
       val snapshotter = runtime.createSnapshotter(BASE_STYLE, content)
       try {
         setBrowserMapContent(size = SIZE) { MaplibreMap(state = state) }
@@ -328,7 +328,7 @@ class BrowserMapSnapshotterTest {
             snapshotTargets().isEmpty() && snapshotter.style.loadState == StyleLoadState.Pending
           }
         }
-        snapshotter.style.baseStyle = BASE_STYLE
+        snapshotter.style.asMutable!!.baseStyle = BASE_STYLE
         val image =
           snapshotter.capture(
             MapSnapshotRequest(

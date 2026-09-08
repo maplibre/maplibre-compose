@@ -73,8 +73,8 @@ class BrowserMapLifecycleTest {
         )
       val state =
         runtime.createMapState(
-          initialCameraPosition = initialCamera,
-          initialBaseStyle = STYLE_A,
+          cameraPosition = initialCamera,
+          baseStyle = STYLE_A,
         )
       val presented = mutableStateOf(true)
 
@@ -102,7 +102,7 @@ class BrowserMapLifecycleTest {
 
       val deferredStyle = installDeferredReplayStyle()
       try {
-        state.style.baseStyle = REPLAY_STYLE
+        state.style.asMutable!!.baseStyle = REPLAY_STYLE
         runOnIdle { presented.value = true }
         waitUntilMap("the replacement Web map to request its retained style") {
           state.currentMapAttachment != null && deferredStyle.isStyleRequested()

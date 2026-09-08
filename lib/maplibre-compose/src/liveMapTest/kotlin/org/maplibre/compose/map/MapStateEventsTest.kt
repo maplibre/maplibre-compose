@@ -29,7 +29,7 @@ class MapStateEventsTest {
             async(start = CoroutineStart.UNDISPATCHED) {
               fixture.state.events.first { it is MapEvent.FrameRendered }
             }
-          fixture.state.style.baseStyle = EVENT_TEST_STYLE
+          fixture.state.style.asMutable!!.baseStyle = EVENT_TEST_STYLE
 
           assertEquals(MapEvent.StyleLoaded, styleLoaded.await())
           frameRendered.await()

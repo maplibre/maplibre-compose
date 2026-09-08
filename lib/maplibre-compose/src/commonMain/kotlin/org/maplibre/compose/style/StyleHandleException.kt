@@ -12,6 +12,12 @@ public class StyleHandleException(message: String, cause: Throwable? = null) :
 internal interface StyleHandleOperationGuard {
   fun <T> run(action: () -> T): T
 
+  fun isSourceWritable(id: String): Boolean
+
+  fun isLayerWritable(id: String): Boolean
+
+  fun removeSource(id: String, identity: Any): Boolean
+
   fun requireSourceWritable(id: String)
 
   fun requireLayerWritable(id: String)

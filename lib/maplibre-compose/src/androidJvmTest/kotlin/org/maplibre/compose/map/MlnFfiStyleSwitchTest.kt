@@ -68,7 +68,7 @@ class MlnFfiStyleSwitchTest {
     var style by mutableStateOf(STYLES[0])
     var extraLayer by mutableStateOf(false)
     val state =
-      runtime.createMapState(initialBaseStyle = STYLES[0].base) {
+      runtime.createMapState(baseStyle = STYLES[0].base) {
         val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
         // Two layers on one source at different anchors, so the re-add order matters.
         CircleLayer(id = "user-circles", source = points, color = const(Color.Red))
@@ -99,7 +99,7 @@ class MlnFfiStyleSwitchTest {
       runOnUiThread {
         style = STYLES[(round + 1) % STYLES.size]
         extraLayer = !extraLayer
-        state.style.baseStyle = style.base
+        state.style.asMutable!!.baseStyle = style.base
       }
       waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
         state.style.loadState == StyleLoadState.Ready && session.loadedStyleIdentity != identity
@@ -120,7 +120,7 @@ class MlnFfiStyleSwitchTest {
     var style by mutableStateOf(SLOT_STYLES[0])
     var sourceLayer by mutableStateOf("places")
     val state =
-      runtime.createMapState(initialBaseStyle = SLOT_STYLES[0]) {
+      runtime.createMapState(baseStyle = SLOT_STYLES[0]) {
         val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
         Anchor.Below("base-slot") {
           FillLayer(
@@ -148,7 +148,7 @@ class MlnFfiStyleSwitchTest {
     runOnUiThread {
       style = SLOT_STYLES[1]
       sourceLayer = "roads"
-      state.style.baseStyle = style
+      state.style.asMutable!!.baseStyle = style
     }
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
       state.style.loadState == StyleLoadState.Ready
@@ -186,7 +186,7 @@ class MlnFfiStyleSwitchTest {
       )
     var showLatestLayer by mutableStateOf(false)
     val state =
-      runtime.createMapState(initialBaseStyle = INITIAL_STYLE) {
+      runtime.createMapState(baseStyle = INITIAL_STYLE) {
         if (showLatestLayer) {
           Anchor.Below("base-c") {
             BackgroundLayer(id = "user-latest", color = const(Color.Blue))
@@ -204,7 +204,7 @@ class MlnFfiStyleSwitchTest {
     val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
 
     runOnUiThread {
-      state.style.baseStyle = BaseStyle.Uri(B_STYLE_URL)
+      state.style.asMutable!!.baseStyle = BaseStyle.Uri(B_STYLE_URL)
     }
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
       styleBStarted.count == 0L
@@ -212,7 +212,7 @@ class MlnFfiStyleSwitchTest {
 
     runOnUiThread {
       showLatestLayer = true
-      state.style.baseStyle = BaseStyle.Uri(C_STYLE_URL)
+      state.style.asMutable!!.baseStyle = BaseStyle.Uri(C_STYLE_URL)
     }
 
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {

@@ -25,7 +25,7 @@ class LayerHandlePropertyTest {
       fixture.loadStyle(STYLE)
       val handle = assertNotNull(fixture.state.style.layers["background"])
 
-      handle.setPaintProperty("background-opacity", JsonPrimitive(0.25))
+      handle.asMutable!!.setPaintProperty("background-opacity", JsonPrimitive(0.25))
 
       assertEquals(JsonPrimitive(0.25), handle.getProperty("background-opacity"))
     }
@@ -42,14 +42,14 @@ class LayerHandlePropertyTest {
       val handle = assertNotNull(fixture.state.style.layers["background"])
       val timing = TransitionOptions(700.milliseconds, 50.milliseconds)
 
-      handle.setPaintTransition("background-color", timing)
+      handle.asMutable!!.setPaintTransition("background-color", timing)
 
       assertEquals(
         timing.scaledBy(systemAnimatorDurationScale()),
         handle.getPaintTransition("background-color"),
       )
 
-      handle.setPaintTransition("background-color", null)
+      handle.asMutable!!.setPaintTransition("background-color", null)
 
       assertNull(handle.getPaintTransition("background-color"))
     }
@@ -62,10 +62,10 @@ class LayerHandlePropertyTest {
       createMapFixture().use { fixture ->
         fixture.loadStyle(STYLE)
         val handle = assertNotNull(fixture.state.style.layers["background"])
-        handle.setPaintProperty("background-opacity", JsonPrimitive(0.25))
+        handle.asMutable!!.setPaintProperty("background-opacity", JsonPrimitive(0.25))
 
         captureWarnings { warnings ->
-          handle.setPaintProperty("background-opacity", JsonPrimitive("opaque"))
+          handle.asMutable!!.setPaintProperty("background-opacity", JsonPrimitive("opaque"))
 
           // The read is queued behind the write, so the warning has been logged once it answers.
           assertEquals(JsonPrimitive(0.25), handle.getProperty("background-opacity"))
@@ -95,18 +95,20 @@ class LayerHandlePropertyTest {
       assertEquals(JsonPrimitive(2.0), handle.getProperty("minzoom"))
       assertEquals(JsonPrimitive("points-source"), circle.getProperty("source"))
       assertEquals(JsonPrimitive("points-layer"), circle.getProperty("source-layer"))
-      handle.setRootProperty("minzoom", JsonPrimitive(3.0))
+      handle.asMutable!!.setRootProperty("minzoom", JsonPrimitive(3.0))
       assertEquals(JsonPrimitive(3.0), handle.getProperty("minzoom"))
 
       captureWarnings { warnings ->
-        handle.setRootProperty("minzoom", JsonPrimitive("4"))
+        handle.asMutable!!.setRootProperty("minzoom", JsonPrimitive("4"))
         assertEquals(JsonPrimitive(3.0), handle.getProperty("minzoom"))
         assertEquals(1, warnings.count { "'background'" in it }, "Warnings: $warnings")
       }
       assertFailsWith<StyleHandleException> {
-        circle.setRootProperty("source-layer", JsonPrimitive("replacement"))
+        circle.asMutable!!.setRootProperty("source-layer", JsonPrimitive("replacement"))
       }
-      assertFailsWith<StyleHandleException> { circle.setRootProperty("source", JsonPrimitive("x")) }
+      assertFailsWith<StyleHandleException> {
+        circle.asMutable!!.setRootProperty("source", JsonPrimitive("x"))
+      }
       assertEquals("points-layer", circle.sourceLayer)
       assertEquals(JsonPrimitive("points-layer"), circle.getProperty("source-layer"))
     }

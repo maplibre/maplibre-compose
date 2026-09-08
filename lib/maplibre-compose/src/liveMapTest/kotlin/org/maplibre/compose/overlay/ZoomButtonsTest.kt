@@ -23,7 +23,7 @@ import org.maplibre.compose.style.BaseStyle
 class ZoomButtonsTest {
   @Test
   fun zoom_buttons_compose_before_the_map_attaches_and_report_clicks() = runComposeUiTest {
-    val mapState = mapRuntimeForTest().createMapState(initialBaseStyle = BaseStyle.Empty)
+    val mapState = mapRuntimeForTest().createMapState(baseStyle = BaseStyle.Empty)
     var zoomInClicks = 0
     var zoomOutClicks = 0
     setContent {
@@ -53,7 +53,7 @@ class ZoomButtonsTest {
 
   @Test
   fun full_overlay_draws_zoom_buttons() = runComposeUiTest {
-    val mapState = mapRuntimeForTest().createMapState(initialBaseStyle = BaseStyle.Empty)
+    val mapState = mapRuntimeForTest().createMapState(baseStyle = BaseStyle.Empty)
     setContent {
       MapOverlayHost(
         overlay = { include(MapOverlay.Full) },

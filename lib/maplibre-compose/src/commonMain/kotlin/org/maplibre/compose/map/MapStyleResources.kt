@@ -12,6 +12,9 @@ import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.GeoJsonSourceHandle
 import org.maplibre.compose.sources.ImageSource
 import org.maplibre.compose.sources.ImageSourceHandle
+import org.maplibre.compose.sources.MutableGeoJsonSourceHandle
+import org.maplibre.compose.sources.MutableImageSourceHandle
+import org.maplibre.compose.sources.MutableSourceHandle
 import org.maplibre.compose.sources.RasterDemTileSource
 import org.maplibre.compose.sources.RasterDemTileSourceHandle
 import org.maplibre.compose.sources.RasterTileSource
@@ -69,10 +72,16 @@ public class StyleSources internal constructor(private val style: MapStyleState)
     get(source.id) as? CustomVectorTileSourceHandle
 
   /** Adds [source] to the current loaded-style generation and returns its handle. */
-  public fun add(source: Source): SourceHandle = style.requireOwner().addStyleSource(source)
+  public fun add(source: Source): MutableSourceHandle =
+    checkNotNull(style.requireOwner().addStyleSource(source).asMutable)
 
-  /** Removes [id] from the current loaded-style generation and reports whether it existed. */
-  public fun remove(id: String): Boolean = style.requireOwner().removeStyleSource(id)
+  /** Adds a GeoJSON source and returns definition writes and removal for its generation. */
+  public fun add(source: GeoJsonSource): MutableGeoJsonSourceHandle =
+    checkNotNull((style.requireOwner().addStyleSource(source) as GeoJsonSourceHandle).asMutable)
+
+  /** Adds an image source and returns definition writes and removal for its generation. */
+  public fun add(source: ImageSource): MutableImageSourceHandle =
+    checkNotNull((style.requireOwner().addStyleSource(source) as ImageSourceHandle).asMutable)
 
   /** Iterates over the current loaded sources in engine style order. */
   override fun iterator(): Iterator<SourceHandle> = style.sourceHandles().values.iterator()
@@ -98,12 +107,18 @@ public class StyleImages internal constructor(private val style: MapStyleState) 
     image: ImageBitmap,
     sdf: Boolean = false,
     stretch: ImageStretch? = null,
-  ) {
-    style.requireOwner().addStyleImage(id, image, sdf, stretch)
+  ): MutableStyleImageHandle {
+    return checkNotNull(style.requireOwner().addStyleImage(id, image, sdf, stretch).asMutable)
   }
 
-  /** Removes [id] and reports whether it existed. */
-  public fun remove(id: String): Boolean = style.requireOwner().removeStyleImage(id)
+  /** Returns the image in the current loaded style, or null when absent or unavailable. */
+  public operator fun get(id: String): StyleImageHandle? {
+    val binding = style.readyLoadedStyle() ?: return null
+    return style.operationGuard(binding).run {
+      if (binding.imageExists(id) != true) return@run null
+      StyleImageHandleImpl(id, style, binding)
+    }
+  }
 }
 
 /**

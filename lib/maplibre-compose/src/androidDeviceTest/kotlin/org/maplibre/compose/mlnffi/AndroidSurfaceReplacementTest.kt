@@ -248,7 +248,7 @@ private fun TestMap(
   onPresentation: () -> Unit,
   onFrame: () -> Unit,
 ) {
-  val state = rememberMapState(initialBaseStyle = SOLID_STYLE)
+  val state = rememberMapState(baseStyle = SOLID_STYLE)
   LaunchedEffect(state) {
     onState(state)
     snapshotFlow { state.currentMapAttachment }.first { it != null }

@@ -118,8 +118,8 @@ class NativeMapSnapshotterTest {
             )
           snapshotter.capture(request)
 
-          snapshotter.style.baseStyle = ALTERNATE_STYLE
-          snapshotter.style.baseStyle = BASE_STYLE
+          snapshotter.style.asMutable!!.baseStyle = ALTERNATE_STYLE
+          snapshotter.style.asMutable!!.baseStyle = BASE_STYLE
           val captured = snapshotter.capture(request)
 
           assertEquals(GREEN, captured.readPixel(SIZE / 2, SIZE / 2))
@@ -148,7 +148,7 @@ class NativeMapSnapshotterTest {
         val rejected = runCatching { snapshotter.capture(MapSnapshotRequest(SIZE, SIZE)) }
         assertTrue(rejected.isFailure)
 
-        snapshotter.style.baseStyle = BASE_STYLE
+        snapshotter.style.asMutable!!.baseStyle = BASE_STYLE
         val captured = snapshotter.capture(MapSnapshotRequest(SIZE, SIZE))
 
         assertEquals(BACKGROUND, captured.readPixel(0, 0))
@@ -227,7 +227,7 @@ class NativeMapSnapshotterTest {
         assertEquals(GREEN, snapshotter.capture(request).readPixel(SIZE / 2, SIZE / 2))
 
         assertFailsWith<StyleHandleException> {
-          handle.setData(GeoJsonData.JsonString("{not json}"))
+          handle.asMutable!!.setData(GeoJsonData.JsonString("{not json}"))
         }
         val captured = snapshotter.capture(request)
 

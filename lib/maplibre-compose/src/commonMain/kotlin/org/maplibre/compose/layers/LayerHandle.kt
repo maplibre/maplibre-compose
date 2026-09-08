@@ -1,75 +1,24 @@
 package org.maplibre.compose.layers
 
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonNull
-import org.maplibre.compose.style.CLEARED_TRANSITION
-import org.maplibre.compose.style.LayerPropertyKind
-import org.maplibre.compose.style.LayerPropertyWrite
-import org.maplibre.compose.style.LayerSummary
-import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleException
-import org.maplibre.compose.style.StyleHandleOperationGuard
-import org.maplibre.compose.style.StyleIdentity
-import org.maplibre.compose.style.TRANSITION_SUFFIX
 import org.maplibre.compose.style.TransitionOptions
-import org.maplibre.compose.style.scaledBy
-import org.maplibre.compose.style.toTransitionJson
-import org.maplibre.compose.style.toTransitionOptions
 
-/**
- * Provides property access to a layer for one loaded base-style generation.
- *
- * A setter does not wait for the engine to apply the write. A value the engine rejects is logged,
- * and the layer keeps its previous value.
- *
- * Style content owns all properties of declared layers. Their properties can be read, but setter
- * calls and [clearFilter] throw [StyleHandleException]. Base-style layers also permit writes,
- * except through the handles that an [Anchor] predicate receives, which are read-only.
- */
-public class LayerHandle
-internal constructor(
-  public val id: String,
-  public val type: String,
-  /** The ID of the source the layer draws from, or null for a layer without one. */
-  public val source: String?,
-  /** The source layer the layer draws from, or null when the layer names none. */
-  public val sourceLayer: String?,
-  private val style: StyleBinding,
-  private val isCurrentResource: () -> Boolean,
-  private val operations: StyleHandleOperationGuard,
-) {
-  private val identity: StyleIdentity = style.identity
+/** Reads a layer in one loaded style generation. Handles expire on removal or replacement. */
+public sealed interface LayerHandle {
+  public val id: String
+  public val type: String
+  /** The source ID, or null for a layer without one. */
+  public val source: String?
+  /** The source layer, or null when none is specified. */
+  public val sourceLayer: String?
+  /**
+   * Definition writes, or null for a declared layer or a handle supplied to an anchor predicate.
+   */
+  public val asMutable: MutableLayerHandle?
 
   /** Returns the current value of [name], or null when the layer has no value for that property. */
-  public suspend fun getProperty(name: String): JsonElement? {
-    return suspendingOperation { style.layerProperty(id, name) }
-  }
-
-  /** Sets the layout property [name] for this loaded style. */
-  public fun setLayoutProperty(name: String, value: JsonElement) {
-    setProperty(name, value, LayerPropertyKind.LAYOUT)
-  }
-
-  /** Sets the paint property [name] for this loaded style. */
-  public fun setPaintProperty(name: String, value: JsonElement) {
-    setProperty(name, value, LayerPropertyKind.PAINT)
-  }
-
-  /**
-   * Sets the transition of the paint property [property], named without the `-transition` suffix. A
-   * null [options] returns the property to the style's global transition. The reset is written at
-   * once, as the spec's empty transition object; a layer composable drops the key from its layer
-   * definition instead, with the same result.
-   *
-   * On Android, the system animator duration scale multiplies the timing that reaches the engine. A
-   * scale of zero applies the property change instantly.
-   */
-  public fun setPaintTransition(property: String, options: TransitionOptions?) {
-    setPaintProperty(
-      property + TRANSITION_SUFFIX,
-      options?.scaledBy(style.animatorDurationScale)?.toTransitionJson() ?: CLEARED_TRANSITION,
-    )
-  }
+  public suspend fun getProperty(name: String): JsonElement?
 
   /**
    * Returns the transition of the paint property [property], named without the `-transition`
@@ -83,8 +32,30 @@ internal constructor(
    * The reported timing is the engine's: a transition that the library wrote is under the animator
    * duration scale of the time it was written.
    */
-  public suspend fun getPaintTransition(property: String): TransitionOptions? =
-    getProperty(property + TRANSITION_SUFFIX)?.toTransitionOptions()
+  public suspend fun getPaintTransition(property: String): TransitionOptions?
+}
+
+/**
+ * Definition writes for a layer that composition does not own. Writes do not wait for the engine;
+ * rejected values are logged and retain the previous value. The view expires with its read handle.
+ */
+public sealed interface MutableLayerHandle : LayerHandle {
+  /** Sets the layout property [name] for this loaded style. */
+  public fun setLayoutProperty(name: String, value: JsonElement): Unit
+
+  /** Sets the paint property [name] for this loaded style. */
+  public fun setPaintProperty(name: String, value: JsonElement): Unit
+
+  /**
+   * Sets the transition of the paint property [property], named without the `-transition` suffix. A
+   * null [options] returns the property to the style's global transition. The reset is written at
+   * once, as the spec's empty transition object; a layer composable drops the key from its layer
+   * definition instead, with the same result.
+   *
+   * On Android, the system animator duration scale multiplies the timing that reaches the engine. A
+   * scale of zero applies the property change instantly.
+   */
+  public fun setPaintTransition(property: String, options: TransitionOptions?): Unit
 
   /**
    * Sets the top-level property [name], such as `minzoom`, for this loaded style.
@@ -92,69 +63,8 @@ internal constructor(
    * @throws StyleHandleException if [name] is `source` or `source-layer`: [source] and
    *   [sourceLayer] are fixed for the layer's generation.
    */
-  public fun setRootProperty(name: String, value: JsonElement) {
-    if (name in FIXED_ROOT_PROPERTIES) {
-      throw StyleHandleException("'$name' is fixed for the generation of $type layer '$id'")
-    }
-    setProperty(name, value, LayerPropertyKind.ROOT)
-  }
+  public fun setRootProperty(name: String, value: JsonElement): Unit
 
   /** Removes the layer filter for this loaded style. */
-  public fun clearFilter() {
-    setProperty("filter", JsonNull, LayerPropertyKind.ROOT)
-  }
-
-  /**
-   * Posts one write through the batched path, so the engine's rejection is logged the way a
-   * rejected composed property is, and the caller does not wait for the engine.
-   */
-  private fun setProperty(name: String, value: JsonElement, kind: LayerPropertyKind) {
-    operation {
-      operations.requireLayerWritable(id)
-      style.setLayerProperties(listOf(LayerPropertyWrite(id, type, name, value, kind)))
-    }
-  }
-
-  private fun requireCurrent() {
-    style.requireCurrent(identity)
-    check(isCurrentResource()) { "Layer '$id' is no longer the $type layer owned by this handle" }
-  }
-
-  private fun <T> operation(action: () -> T): T = operations.run {
-    requireCurrent()
-    action()
-  }
-
-  private suspend fun <T> suspendingOperation(action: suspend () -> T): T {
-    operation {}
-    val result = action()
-    operation {}
-    return result
-  }
-
-  private companion object {
-    val FIXED_ROOT_PROPERTIES = setOf("source", "source-layer")
-  }
-}
-
-/**
- * A handle for the style state, which outlives revisions. A layer replaced under the same ID takes
- * a new identity, so [isCurrentResource] refuses the handle of the replaced one.
- */
-internal fun StyleBinding.layerHandle(
-  id: String,
-  summary: LayerSummary,
-  isCurrentResource: () -> Boolean,
-  operations: StyleHandleOperationGuard,
-): LayerHandle {
-  requireCurrent()
-  return LayerHandle(
-    id = id,
-    type = summary.type,
-    source = summary.source,
-    sourceLayer = summary.sourceLayer,
-    style = this,
-    isCurrentResource = isCurrentResource,
-    operations = operations,
-  )
+  public fun clearFilter(): Unit
 }

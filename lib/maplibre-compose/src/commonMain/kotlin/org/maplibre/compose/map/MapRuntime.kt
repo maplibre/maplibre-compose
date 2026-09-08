@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -115,27 +116,27 @@ public interface MapRuntime {
   public val offlineManager: OfflineManager
 
   /**
-   * Creates a logical map with [initialBaseStyle] and the sources, layers, and images that
-   * [content] declares. The caller must close the result.
+   * Creates a logical map with [baseStyle] and the sources, layers, and images that [content]
+   * declares. The caller must close the result.
    *
    * [content] reads the returned state through [LocalMapState] and its viewport through
    * [LocalViewport].
    */
   public fun createMapState(
-    initialBaseStyle: BaseStyle,
-    initialCameraPosition: CameraPosition = CameraPosition(),
+    baseStyle: BaseStyle,
+    cameraPosition: CameraPosition = CameraPosition(),
     content: @Composable @MaplibreComposable () -> Unit = {},
   ): MapState
 
   /**
-   * Creates an independent non-UI map with [initialBaseStyle] and the sources, layers, and images
-   * that [content] declares, for image capture. The caller must close the result.
+   * Creates an independent non-UI map with [baseStyle] and the sources, layers, and images that
+   * [content] declares, for image capture. The caller must close the result.
    *
    * [content] reads the viewport of each capture request through [LocalViewport]. It has no
    * [MapState], so [LocalMapState] is null.
    */
   public fun createSnapshotter(
-    initialBaseStyle: BaseStyle,
+    baseStyle: BaseStyle,
     content: @Composable @MaplibreComposable () -> Unit = {},
   ): MapSnapshotter
 
@@ -176,17 +177,28 @@ internal interface MapStyleStateOwner {
 
   fun desiredSourceDefinition(id: String): org.maplibre.compose.style.SourceDefinition?
 
+  fun isSourceWritable(id: String): Boolean
+
+  fun isLayerWritable(id: String): Boolean
+
+  fun isImageWritable(id: String): Boolean
+
   fun requireSourceWritable(id: String)
 
   fun requireLayerWritable(id: String)
 
   fun addStyleSource(source: Source): SourceHandle
 
-  fun removeStyleSource(id: String): Boolean
+  fun removeStyleSource(id: String, expectedStyle: StyleBinding, identity: Any): Boolean
 
-  fun addStyleImage(id: String, image: ImageBitmap, sdf: Boolean, stretch: ImageStretch?)
+  fun addStyleImage(
+    id: String,
+    image: ImageBitmap,
+    sdf: Boolean,
+    stretch: ImageStretch?,
+  ): StyleImageHandle
 
-  fun removeStyleImage(id: String): Boolean
+  fun removeStyleImage(id: String, expectedStyle: StyleBinding, identity: Any): Boolean
 
   fun readyLoadedStyle(): StyleBinding?
 
@@ -194,24 +206,28 @@ internal interface MapStyleStateOwner {
 }
 
 /** Desired and applied style state for one logical map or snapshotter. */
-public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
+public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   private var owner: MapStyleStateOwner? = null
   private val loadedStyle = AtomicReference<StyleBinding?>(null)
   private var sourcesState: Map<String, SourceHandle> by
     mutableStateOf(emptyMap(), referentialEqualityPolicy())
   private var layersState: Map<String, LayerHandle> by
     mutableStateOf(emptyMap(), referentialEqualityPolicy())
-  private var baseStyleState: BaseStyle by
-    mutableStateOf(initialBaseStyle, structuralEqualityPolicy())
+  private var baseStyleState: BaseStyle by mutableStateOf(baseStyle, structuralEqualityPolicy())
 
-  /**
-   * The current base style. Assigning a new value loads it and replaces generation-bound resources.
-   */
-  public var baseStyle: BaseStyle
+  internal var baseStyleDeclared: Boolean = false
+
+  /** The desired base style. A change replaces generation-bound resources. */
+  public val baseStyle: BaseStyle
     get() = baseStyleState
-    set(value) {
-      owner?.setBaseStyle(value) ?: setBaseStyleState(value)
-    }
+
+  /** Base-style commands, or null when [rememberMapState] owns the base style. */
+  public val asMutable: MutableMapStyleState?
+    get() = if (baseStyleDeclared) null else MutableMapStyleState(this)
+
+  internal fun updateBaseStyle(value: BaseStyle) {
+    owner?.setBaseStyle(value) ?: setBaseStyleState(value)
+  }
 
   public var loadState: StyleLoadState by mutableStateOf(StyleLoadState.Pending)
     internal set
@@ -310,7 +326,7 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
     return layersState[id]
   }
 
-  private fun readyLoadedStyle(): StyleBinding? {
+  internal fun readyLoadedStyle(): StyleBinding? {
     if (loadState != StyleLoadState.Ready) return null
     // With an owner attached, its serialized check is the only authority: a plain fallback to the
     // stored reference could return a binding the owner has already moved to Loading.
@@ -420,10 +436,17 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   internal fun layerHandles(): Map<String, LayerHandle> =
     if (readyLoadedStyle() == null) emptyMap() else layersState
 
-  private fun operationGuard(style: StyleBinding): StyleHandleOperationGuard =
+  internal fun operationGuard(style: StyleBinding): StyleHandleOperationGuard =
     object : StyleHandleOperationGuard {
       override fun <T> run(action: () -> T): T =
         owner?.runStyleHandleOperation(style, action) ?: action()
+
+      override fun isSourceWritable(id: String): Boolean = owner?.isSourceWritable(id) == true
+
+      override fun isLayerWritable(id: String): Boolean = owner?.isLayerWritable(id) == true
+
+      override fun removeSource(id: String, identity: Any): Boolean =
+        requireOwner().removeStyleSource(id, style, identity)
 
       override fun requireSourceWritable(id: String) {
         owner?.requireSourceWritable(id)
@@ -635,8 +658,8 @@ private class MapAttachmentChangedException :
 public class MapState
 internal constructor(
   internal val runtime: RuntimeImplementation,
-  initialCameraPosition: CameraPosition,
-  initialBaseStyle: BaseStyle,
+  cameraPosition: CameraPosition,
+  baseStyle: BaseStyle,
   content: @Composable @MaplibreComposable () -> Unit,
 ) {
   internal val styleContent: @Composable @MaplibreComposable () -> Unit = {
@@ -669,18 +692,30 @@ internal constructor(
     )
   private var closedState: Boolean by mutableStateOf(false)
   private var cameraPositionState: CameraPosition by
-    mutableStateOf(initialCameraPosition, structuralEqualityPolicy())
+    mutableStateOf(cameraPosition, structuralEqualityPolicy())
 
   internal var desiredStyleRevision: DesiredStyleRevision = DesiredStyleRevision.Empty
 
   public val style: MapStyleState =
-    MapStyleState(initialBaseStyle).also {
+    MapStyleState(baseStyle).also {
       it.attach(
         object : MapStyleStateOwner {
           override fun setBaseStyle(value: BaseStyle) = this@MapState.setBaseStyle(value)
 
           override fun desiredSourceDefinition(id: String) =
             this@MapState.desiredSourceDefinition(id)
+
+          override fun isSourceWritable(id: String): Boolean = lifecycle.serialized {
+            desiredStyleRevision.sources.none { it.id == id }
+          }
+
+          override fun isLayerWritable(id: String): Boolean = lifecycle.serialized {
+            desiredStyleRevision.layers.none { it.definition.id == id }
+          }
+
+          override fun isImageWritable(id: String): Boolean = lifecycle.serialized {
+            desiredStyleRevision.images.none { it.id == id }
+          }
 
           override fun requireSourceWritable(id: String) = lifecycle.serialized {
             requireNoDesiredSource(id)
@@ -694,7 +729,8 @@ internal constructor(
 
           override fun addStyleSource(source: Source) = this@MapState.addStyleSource(source)
 
-          override fun removeStyleSource(id: String) = this@MapState.removeStyleSource(id)
+          override fun removeStyleSource(id: String, expectedStyle: StyleBinding, identity: Any) =
+            this@MapState.removeStyleSource(id, expectedStyle, identity)
 
           override fun addStyleImage(
             id: String,
@@ -703,7 +739,8 @@ internal constructor(
             stretch: ImageStretch?,
           ) = this@MapState.addStyleImage(id, image, sdf, stretch)
 
-          override fun removeStyleImage(id: String) = this@MapState.removeStyleImage(id)
+          override fun removeStyleImage(id: String, expectedStyle: StyleBinding, identity: Any) =
+            this@MapState.removeStyleImage(id, expectedStyle, identity)
 
           override fun readyLoadedStyle() = this@MapState.readyLoadedStyle()
 
@@ -1160,10 +1197,14 @@ internal constructor(
     }
   }
 
-  internal fun removeStyleSource(id: String): Boolean {
+  internal fun removeStyleSource(id: String, expectedStyle: StyleBinding, identity: Any): Boolean {
     val reservation = StyleMutationReservation()
     val binding = lifecycle.serialized {
       requireOpenLocked()
+      requireStyleHandleLocked(expectedStyle)
+      check(expectedStyle.identity.sources.isCurrent(id, identity)) {
+        "Source '$id' has been removed or replaced"
+      }
       requireNoDesiredSource(id)
       requireNoActiveStyleMutation()
       checkNotNull(style.currentLoadedStyle()).also(::requireStyleHandleLocked).also {
@@ -1192,7 +1233,7 @@ internal constructor(
     image: ImageBitmap,
     sdf: Boolean,
     stretch: ImageStretch?,
-  ) {
+  ): StyleImageHandle {
     val record = ImperativeImageRecord(fromResolver = false)
     val reservation = StyleMutationReservation()
     val binding = lifecycle.serialized {
@@ -1212,9 +1253,14 @@ internal constructor(
       if (binding.imageExists(id) == true) {
         throw StyleHandleException("Image ID '$id' already exists in style")
       }
+      binding.identity.images.remove(id)
       binding.addImage(id, image, sdf, stretch)
-      lifecycle.serialized { requireStyleHandleLocked(binding) }
+      val handle = lifecycle.serialized {
+        requireStyleHandleLocked(binding)
+        StyleImageHandleImpl(id, style, binding)
+      }
       committed = true
+      return handle
     } catch (error: StyleMutationException) {
       throw StyleHandleException("Could not add image '$id': ${error.message}", error)
     } finally {
@@ -1336,6 +1382,8 @@ internal constructor(
     var committed = false
     try {
       if (binding.imageExists(imageId) == true) return
+      // An engine eviction ends the previous image identity, even when its ID is reused.
+      binding.identity.images.remove(imageId)
       binding.addImage(imageId, resolved.image, resolved.sdf, resolved.stretch)
       committed = lifecycle.serialized {
         !lifecycle.isClosed && style.isCurrentLoadedStyle(binding)
@@ -1366,10 +1414,14 @@ internal constructor(
     missingImageResolutions.clear()
   }
 
-  internal fun removeStyleImage(id: String): Boolean {
+  internal fun removeStyleImage(id: String, expectedStyle: StyleBinding, identity: Any): Boolean {
     val reservation = StyleMutationReservation()
     val binding = lifecycle.serialized {
       requireOpenLocked()
+      requireStyleHandleLocked(expectedStyle)
+      check(expectedStyle.identity.images.isCurrent(id, identity)) {
+        "Image '$id' has been removed or replaced"
+      }
       requireNoDesiredImage(id)
       requireNoActiveStyleMutation()
       checkNotNull(style.currentLoadedStyle()).also(::requireStyleHandleLocked).also {
@@ -1382,6 +1434,7 @@ internal constructor(
       lifecycle.serialized {
         requireStyleHandleLocked(binding)
         imperativeImages.remove(id)
+        binding.identity.images.remove(id)
       }
       return true
     } catch (error: StyleMutationException) {
@@ -1737,10 +1790,10 @@ internal class MapPresentationOwnerToken
 /**
  * Remembers a logical map and closes it when this call leaves composition.
  *
- * [initialBaseStyle] and [initialCameraPosition] seed the map. Changes to these inputs do not
- * update it; use [MapStyleState.baseStyle] and [MapState.setCameraPosition]. Changes to [content]
- * update the declared resources. Restoration creates a new map with the saved camera position and
- * the current [initialBaseStyle].
+ * [baseStyle] owns the map's base style and updates it on recomposition. Its
+ * [MapStyleState.asMutable] is null. [initialCameraPosition] only seeds the camera; use
+ * [MapState.setCameraPosition] to move it. Changes to [content] update the declared resources.
+ * Restoration creates a new map with the saved camera position and the current [baseStyle].
  *
  * [content] declares the map's sources, layers, and images. It reads the returned state through
  * [LocalMapState] and its viewport through [LocalViewport].
@@ -1748,27 +1801,30 @@ internal class MapPresentationOwnerToken
 @Composable
 public fun rememberMapState(
   runtime: MapRuntime = DefaultMapRuntime.instance,
-  initialBaseStyle: BaseStyle = BaseStyle.Demo,
+  baseStyle: BaseStyle = BaseStyle.Demo,
   initialCameraPosition: CameraPosition = CameraPosition(),
   content: @Composable @MaplibreComposable () -> Unit = {},
 ): MapState {
   val currentContent by rememberUpdatedState(content)
   val stableContent = remember<@Composable @MaplibreComposable () -> Unit> { { currentContent() } }
   val state =
-    rememberSaveable(runtime, saver = mapStateSaver(runtime, initialBaseStyle, stableContent)) {
-      runtime.createMapState(
-        initialBaseStyle = initialBaseStyle,
-        initialCameraPosition = initialCameraPosition,
-        content = stableContent,
-      )
+    rememberSaveable(runtime, saver = mapStateSaver(runtime, baseStyle, stableContent)) {
+      runtime
+        .createMapState(
+          baseStyle = baseStyle,
+          cameraPosition = initialCameraPosition,
+          content = stableContent,
+        )
+        .also { it.style.baseStyleDeclared = true }
     }
+  SideEffect { state.style.updateBaseStyle(baseStyle) }
   DisposableEffect(state) { onDispose { state.close() } }
   return state
 }
 
 private fun mapStateSaver(
   runtime: MapRuntime,
-  initialBaseStyle: BaseStyle,
+  baseStyle: BaseStyle,
   content: @Composable @MaplibreComposable () -> Unit,
 ): Saver<MapState, List<Double>> =
   Saver(
@@ -1779,17 +1835,19 @@ private fun mapStateSaver(
     },
     restore = { values ->
       require(values.size == 5) { "A saved camera position must contain five values" }
-      runtime.createMapState(
-        initialBaseStyle = initialBaseStyle,
-        initialCameraPosition =
-          CameraPosition(
-            bearing = values[0],
-            target = Position(longitude = values[1], latitude = values[2]),
-            tilt = values[3],
-            zoom = values[4],
-          ),
-        content = content,
-      )
+      runtime
+        .createMapState(
+          baseStyle = baseStyle,
+          cameraPosition =
+            CameraPosition(
+              bearing = values[0],
+              target = Position(longitude = values[1], latitude = values[2]),
+              tilt = values[3],
+              zoom = values[4],
+            ),
+          content = content,
+        )
+        .also { it.style.baseStyleDeclared = true }
     },
   )
 
@@ -1817,20 +1875,20 @@ internal class RuntimeImplementation(
   private var closedState: Boolean by mutableStateOf(false)
 
   final override fun createMapState(
-    initialBaseStyle: BaseStyle,
-    initialCameraPosition: CameraPosition,
+    baseStyle: BaseStyle,
+    cameraPosition: CameraPosition,
     content: @Composable @MaplibreComposable () -> Unit,
   ): MapState = lock.withLock {
     requireOpenLocked()
-    MapState(this, initialCameraPosition, initialBaseStyle, content).also(children::add)
+    MapState(this, cameraPosition, baseStyle, content).also(children::add)
   }
 
   final override fun createSnapshotter(
-    initialBaseStyle: BaseStyle,
+    baseStyle: BaseStyle,
     content: @Composable @MaplibreComposable () -> Unit,
   ): MapSnapshotter = lock.withLock {
     requireOpenLocked()
-    MapSnapshotterImplementation(this, initialBaseStyle, content).also(snapshotters::add)
+    MapSnapshotterImplementation(this, baseStyle, content).also(snapshotters::add)
   }
 
   private fun requireOpen() {

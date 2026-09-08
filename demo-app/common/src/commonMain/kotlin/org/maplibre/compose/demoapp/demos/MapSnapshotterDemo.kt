@@ -101,7 +101,7 @@ object MapSnapshotterDemo : Demo {
     val snapshotter =
       remember(state.mapRuntime, appliedBaseStyle) {
         state.mapRuntime.createSnapshotter(
-          initialBaseStyle = appliedBaseStyle,
+          baseStyle = appliedBaseStyle,
           content = { SnapshotMarker() },
         )
       }

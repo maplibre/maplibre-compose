@@ -7,6 +7,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -33,55 +34,45 @@ import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
 
 class DeclaredStyleOwnershipTest {
   @Test
-  fun declared_sources_allow_feature_state_and_clusters_but_reject_definition_writes():
-    MapTestResult = runMapTest {
-    createMapFixture().use { fixture ->
-      fixture.loadStyle(BaseStyle.Empty)
-      lateinit var source: GeoJsonSource
-      fixture.declare {
-        source = rememberGeoJsonSource(DATA, GeoJsonOptions(cluster = true))
-        CircleLayer("points", source, visible = true)
-      }
-      val handle = assertNotNull(fixture.state.style.sources[source])
-      val selected = buildJsonObject { put("selected", true) }
-      handle.setFeatureState("0", selected)
-      assertEquals(selected, handle.getFeatureState("0"))
-      handle.removeFeatureState("0", "selected")
-      assertEquals(JsonObject(emptyMap()), handle.getFeatureState("0"))
-      handle.setFeatureState("0", selected)
-      handle.resetFeatureStates()
-      assertEquals(JsonObject(emptyMap()), handle.getFeatureState("0"))
-      assertFailsWith<StyleHandleException> { handle.setData(EMPTY_DATA) }
-      assertFailsWith<StyleHandleException> { fixture.state.style.sources.remove(handle.id) }
+  fun declared_sources_allow_runtime_operations_without_mutation_capabilities(): MapTestResult =
+    runMapTest {
+      createMapFixture().use { fixture ->
+        fixture.loadStyle(BaseStyle.Empty)
+        lateinit var source: GeoJsonSource
+        fixture.declare {
+          source = rememberGeoJsonSource(DATA, GeoJsonOptions(cluster = true))
+          CircleLayer("points", source, visible = true)
+        }
+        val handle = assertNotNull(fixture.state.style.sources[source])
+        val selected = buildJsonObject { put("selected", true) }
+        handle.setFeatureState("0", selected)
+        assertEquals(selected, handle.getFeatureState("0"))
+        handle.removeFeatureState("0", "selected")
+        assertEquals(JsonObject(emptyMap()), handle.getFeatureState("0"))
+        handle.setFeatureState("0", selected)
+        handle.resetFeatureStates()
+        assertEquals(JsonObject(emptyMap()), handle.getFeatureState("0"))
+        assertNull(handle.asMutable)
+        val layer = assertNotNull(fixture.state.style.layers["points"])
+        assertEquals(JsonPrimitive("circle"), layer.getProperty("type"))
+        assertNull(layer.asMutable)
 
-      val layer = assertNotNull(fixture.state.style.layers["points"])
-      assertEquals(JsonPrimitive("circle"), layer.getProperty("type"))
-      assertFailsWith<StyleHandleException> {
-        layer.setPaintProperty("circle-radius", JsonPrimitive(20))
-      }
-      assertFailsWith<StyleHandleException> {
-        layer.setLayoutProperty("visibility", JsonPrimitive("none"))
-      }
-      assertFailsWith<StyleHandleException> { layer.setRootProperty("minzoom", JsonPrimitive(2)) }
-      assertFailsWith<StyleHandleException> { layer.clearFilter() }
-      assertFailsWith<StyleHandleException> { layer.setPaintTransition("circle-radius", null) }
+        val area = DpRect(0.dp, 0.dp, 512.dp, 512.dp)
+        fixture.pumpUntil("the declared source's cluster") {
+          fixture.state.queryRenderedFeatures(area).any(handle::isCluster)
+        }
+        val cluster = fixture.state.queryRenderedFeatures(area).first(handle::isCluster)
+        assertTrue(handle.getClusterExpansionZoom(cluster) > 0.0)
+        assertTrue(handle.getClusterChildren(cluster).features.isNotEmpty())
+        assertEquals(3, handle.getClusterLeaves(cluster, 10, 0).features.size)
 
-      val area = DpRect(0.dp, 0.dp, 512.dp, 512.dp)
-      fixture.pumpUntil("the declared source's cluster") {
-        fixture.state.queryRenderedFeatures(area).any(handle::isCluster)
+        fixture.loadStyle(BaseStyle.Empty)
+        assertFailsWith<IllegalStateException> { handle.getFeatureState("0") }
       }
-      val cluster = fixture.state.queryRenderedFeatures(area).first(handle::isCluster)
-      assertTrue(handle.getClusterExpansionZoom(cluster) > 0.0)
-      assertTrue(handle.getClusterChildren(cluster).features.isNotEmpty())
-      assertEquals(3, handle.getClusterLeaves(cluster, 10, 0).features.size)
-
-      fixture.loadStyle(BaseStyle.Empty)
-      assertFailsWith<IllegalStateException> { handle.getFeatureState("0") }
     }
-  }
 
   @Test
-  fun declared_image_sources_reject_each_definition_write(): MapTestResult = runMapTest {
+  fun declared_image_sources_have_no_mutation_capability(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       val bounds =
@@ -98,14 +89,11 @@ class DeclaredStyleOwnershipTest {
         RasterLayer("image", source, visible = true)
       }
       val handle = assertNotNull(fixture.state.style.sources[source])
-      assertFailsWith<StyleHandleException> { handle.setBounds(bounds) }
-      assertFailsWith<StyleHandleException> { handle.setImage(bitmap) }
-      assertFailsWith<StyleHandleException> { handle.setUri("https://example.invalid/image.png") }
+      assertNull(handle.asMutable)
     }
   }
 
   private companion object {
-    val EMPTY_DATA = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}""")
     val DATA =
       GeoJsonData.Features(
         buildFeatureCollection<Geometry, JsonObject?> {

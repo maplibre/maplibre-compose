@@ -15,7 +15,7 @@ fun Composition() {
   val state =
     rememberMapState(
       runtime = runtime,
-      initialBaseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty"),
+      baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty"),
     ) {
       // Sources and layers declared here are added to the base style.
     }
