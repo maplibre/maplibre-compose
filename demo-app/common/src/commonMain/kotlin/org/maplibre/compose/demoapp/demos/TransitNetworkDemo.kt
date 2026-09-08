@@ -62,6 +62,7 @@ import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
 import org.maplibre.compose.demoapp.DemoPointerPin
+import org.maplibre.compose.demoapp.DemoStyle
 import org.maplibre.compose.demoapp.Protomaps
 import org.maplibre.compose.demoapp.center
 import org.maplibre.compose.demoapp.design.SectionHeader
@@ -360,7 +361,7 @@ object TransitNetworkDemo : Demo {
   }
 
   @Composable
-  override fun MapContent() {
+  override fun MapContent(style: DemoStyle) {
     val mapState = checkNotNull(LocalMapState.current)
     val network = (feedState as? FeedState.Loaded)?.network ?: return
     val selected = selectedRouteId
@@ -408,7 +409,7 @@ object TransitNetworkDemo : Demo {
       id = "transit-terminal-names",
       source = terminalSource,
       textField = feature["name"].asString(),
-      textFont = const(preferredLightStyle.textFont),
+      textFont = const(style.textFont),
       textColor = const(Color(0xFF37474F)),
       textHaloColor = const(Color.White),
       textHaloWidth = const(1.dp),

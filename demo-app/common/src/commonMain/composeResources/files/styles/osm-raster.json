@@ -1,4 +1,5 @@
 {
+  "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
   "layers": [
     {
       "id": "simple-tiles",

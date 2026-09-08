@@ -1,11 +1,12 @@
 package org.maplibre.compose.demoapp
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.UiComposable
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.demoapp.demos.CastelloPlanDemo
 import org.maplibre.compose.demoapp.demos.DataVizDemo
-import org.maplibre.compose.demoapp.demos.DragDropDemo
+import org.maplibre.compose.demoapp.demos.EditableMarkersDemo
 import org.maplibre.compose.demoapp.demos.LiveTrackingDemo
 import org.maplibre.compose.demoapp.demos.MagnifyingLensDemo
 import org.maplibre.compose.demoapp.demos.Manhattan3dDemo
@@ -49,7 +50,11 @@ interface Demo {
   /** Camera controls and app interactions while this demo is selected. */
   fun interactions(mapState: MapState): MapInteractions = MapInteractions.Standard
 
-  @MaplibreComposable @Composable fun MapContent() {}
+  /** Input and presentation modifiers applied to the shared map while this demo is selected. */
+  @UiComposable @Composable fun mapModifier(mapState: MapState): Modifier = Modifier
+
+  /** Map layers using the active [style], including its label font stack. */
+  @MaplibreComposable @Composable fun MapContent(style: DemoStyle) {}
 
   /**
    * Compose UI drawn over the map while this demo is selected. [state] exposes the shell's
@@ -98,7 +103,7 @@ val allDemos: List<Demo> =
     DataVizDemo,
     MapControlsDemo,
     LiveTrackingDemo,
-    DragDropDemo,
+    EditableMarkersDemo,
     MagnifyingLensDemo,
     MapSnapshotterDemo,
     TransitNetworkDemo,

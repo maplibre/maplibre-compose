@@ -42,6 +42,7 @@ import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
 import org.maplibre.compose.demoapp.DemoPointerPin
+import org.maplibre.compose.demoapp.DemoStyle
 import org.maplibre.compose.demoapp.design.SectionHeader
 import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.expressions.dsl.const
@@ -91,7 +92,7 @@ object MapSnapshotterDemo : Demo {
   private var activeSession: Any? = null
 
   @Composable
-  override fun MapContent() {
+  override fun MapContent(style: DemoStyle) {
     SnapshotMarker()
   }
 
