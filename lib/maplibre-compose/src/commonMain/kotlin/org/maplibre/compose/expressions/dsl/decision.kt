@@ -277,8 +277,9 @@ public fun <O : ExpressionValue?> case(
  * returns that value. The result is null when every value is null.
  *
  * An assertion such as [asString] inside [values] aborts on a null input instead of moving on to
- * the next value. Pass the untyped source, or [cast] it to a nullable type, and assert or convert
- * the result.
+ * the next value. Pass the untyped source, or
+ * [cast][org.maplibre.compose.expressions.ast.Expression.cast] it to a nullable type, and assert or
+ * convert the result.
  */
 public fun <T : ExpressionValue> coalesce(vararg values: Expression<T?>): Expression<T?> =
   FunctionCall.of("coalesce", values.asList()).cast()
@@ -289,8 +290,9 @@ public fun <T : ExpressionValue> coalesce(vararg values: Expression<T?>): Expres
  * [fallback] is not.
  *
  * An assertion such as [asString] inside [values] aborts on a null input instead of moving on to
- * the next value. Pass the untyped source, or [cast] it to a nullable type, and assert or convert
- * the result.
+ * the next value. Pass the untyped source, or
+ * [cast][org.maplibre.compose.expressions.ast.Expression.cast] it to a nullable type, and assert or
+ * convert the result.
  */
 public fun <T : ExpressionValue> coalesce(
   vararg values: Expression<T?>,

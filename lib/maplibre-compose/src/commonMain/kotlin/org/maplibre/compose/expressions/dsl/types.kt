@@ -102,8 +102,8 @@ public fun Expression<*>.asPadding(): Expression<DpPaddingValue> =
  *
  * In case this expression is not a string, each of the [fallbacks] is evaluated in order until a
  * string is obtained. If none of the inputs are strings, the expression is an error. A missing
- * property is a null input and needs a fallback. Where the map property accepts a null, [cast] to a
- * nullable type instead.
+ * property is a null input and needs a fallback. Where the map property accepts a null,
+ * [cast][org.maplibre.compose.expressions.ast.Expression.cast] to a nullable type instead.
  */
 public fun Expression<*>.asString(vararg fallbacks: Expression<*>): Expression<StringValue> =
   FunctionCall.of("string", this, *fallbacks).cast()
@@ -135,8 +135,8 @@ public inline fun <reified T> Expression<*>.asEnum(vararg fallbacks: Expression<
  *
  * In case this expression is not a number, each of the [fallbacks] is evaluated in order until a
  * number is obtained. If none of the inputs are numbers, the expression is an error. A missing
- * property is a null input and needs a fallback. Where the map property accepts a null, [cast] to a
- * nullable type instead.
+ * property is a null input and needs a fallback. Where the map property accepts a null,
+ * [cast][org.maplibre.compose.expressions.ast.Expression.cast] to a nullable type instead.
  */
 public fun Expression<*>.asNumber(vararg fallbacks: Expression<*>): Expression<FloatValue> =
   FunctionCall.of("number", this, *fallbacks).cast()
@@ -146,8 +146,8 @@ public fun Expression<*>.asNumber(vararg fallbacks: Expression<*>): Expression<F
  *
  * In case this expression is not a boolean, each of the [fallbacks] is evaluated in order until a
  * boolean is obtained. If none of the inputs are booleans, the expression is an error. A missing
- * property is a null input and needs a fallback. Where the map property accepts a null, [cast] to a
- * nullable type instead.
+ * property is a null input and needs a fallback. Where the map property accepts a null,
+ * [cast][org.maplibre.compose.expressions.ast.Expression.cast] to a nullable type instead.
  */
 public fun Expression<*>.asBoolean(vararg fallbacks: Expression<*>): Expression<BooleanValue> =
   FunctionCall.of("boolean", this, *fallbacks).cast()
@@ -157,8 +157,8 @@ public fun Expression<*>.asBoolean(vararg fallbacks: Expression<*>): Expression<
  *
  * In case this expression is not a map, each of the [fallbacks] is evaluated in order until a map
  * is obtained. If none of the inputs are maps, the expression is an error. A missing property is a
- * null input and needs a fallback. Where the map property accepts a null, [cast] to a nullable type
- * instead.
+ * null input and needs a fallback. Where the map property accepts a null,
+ * [cast][org.maplibre.compose.expressions.ast.Expression.cast] to a nullable type instead.
  */
 public fun Expression<*>.asMap(vararg fallbacks: Expression<*>): Expression<MapValue<AnyValue>> =
   FunctionCall.of("object", this, *fallbacks).cast()
