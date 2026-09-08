@@ -3,25 +3,28 @@ package org.maplibre.compose.style
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
 
-class StyleLayerTypesTest {
+class StyleLayerSummariesTest {
   @Test
-  fun layer_types_report_every_layer_in_style_order(): MapTestResult = runMapTest {
+  fun layer_summaries_report_every_layer_in_style_order(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(LAYERED_STYLE)
       val style = assertNotNull(fixture.style)
 
-      val types = style.layerTypes()
+      val summaries = style.layerSummaries()
 
       // Native's own annotations layer is omitted, as getLayer omits it.
-      assertEquals(mapOf("backdrop" to "background", "lakes" to "fill"), types)
-      assertEquals(listOf("backdrop", "lakes"), types.keys.toList())
-      assertEquals("fill", style.layerType("lakes"))
-      assertNull(style.layerType("missing"))
+      assertEquals(
+        mapOf(
+          "backdrop" to LayerSummary("background", source = null, sourceLayer = null),
+          "lakes" to LayerSummary("fill", source = "water", sourceLayer = "lake"),
+        ),
+        summaries,
+      )
+      assertEquals(listOf("backdrop", "lakes"), summaries.keys.toList())
     }
   }
 
@@ -33,13 +36,13 @@ class StyleLayerTypesTest {
           "version": 8,
           "sources": {
             "water": {
-              "type": "geojson",
-              "data": { "type": "FeatureCollection", "features": [] }
+              "type": "vector",
+              "tiles": ["https://example.invalid/{z}/{x}/{y}.pbf"]
             }
           },
           "layers": [
             { "id": "backdrop", "type": "background" },
-            { "id": "lakes", "type": "fill", "source": "water" }
+            { "id": "lakes", "type": "fill", "source": "water", "source-layer": "lake" }
           ]
         }
         """

@@ -6,8 +6,10 @@ import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.ast.ExpressionContext
@@ -22,7 +24,10 @@ import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
+import org.maplibre.compose.sources.featureStateSelector
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.MlnFfiStyleBinding
+import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.spatialk.geojson.Geometry
@@ -150,7 +155,7 @@ class MlnFfiSurfaceLossTest {
       style.setFeatureState(source.id, null, "1", state("without-surface"))
       assertEquals(
         state("before-surface", "without-surface"),
-        style.featureState(source.id, null, "1"),
+        style.featureStateOnOwnerThread(source.id, "1"),
       )
       it.restoreSurface()
       assertEquals(null, it.tryReadPixel(CENTER, CENTER))
@@ -163,7 +168,7 @@ class MlnFfiSurfaceLossTest {
       style.resetFeatureStates(source.id, null)
       assertEquals(
         JsonObject(emptyMap()),
-        style.featureState(source.id, null, "1"),
+        style.featureStateOnOwnerThread(source.id, "1"),
       )
       it.restoreSurface()
       assertEquals(null, it.tryReadPixel(CENTER, CENTER))
@@ -211,4 +216,21 @@ class MlnFfiSurfaceLossTest {
       assertTrue(abs(expected - actual) < TOLERANCE, "$message (expected $expected, got $actual)")
     }
   }
+}
+
+/**
+ * Reads a feature's state through the fixture's blocking owner-thread seam. The bridge fixture
+ * drives the map without coroutines, so this stays off the suspend read a caller would use.
+ */
+private fun StyleBinding.featureStateOnOwnerThread(
+  sourceId: String,
+  featureId: String,
+): JsonObject {
+  val bytes =
+    checkNotNull(
+      (this as MlnFfiStyleBinding).readMap { map ->
+        map.getFeatureState(featureStateSelector(sourceId, null, featureId))
+      }
+    )
+  return Json.parseToJsonElement(bytes.decodeToString()).jsonObject
 }

@@ -52,10 +52,12 @@ import org.maplibre.compose.sources.GeoJsonSourceHandle
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.sources.VectorTileSource
+import org.maplibre.compose.sources.VectorTileSourceHandle
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleLayer
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.ImageSnapshot
+import org.maplibre.compose.style.LayerSummary
 import org.maplibre.compose.style.Light
 import org.maplibre.compose.style.Projection
 import org.maplibre.compose.style.RecordingStyleBinding
@@ -106,9 +108,9 @@ class MapPresentationTest {
             return backing.sourceIds()
           }
 
-          override fun layerTypes(): Map<String, String> {
+          override fun layerSummaries(): Map<String, LayerSummary> {
             resourceReads++
-            return backing.layerTypes()
+            return backing.layerSummaries()
           }
         }
       val reconciler = StyleReconciler()
@@ -710,7 +712,7 @@ class MapPresentationTest {
   }
 
   @Test
-  fun a_live_source_handle_is_ready_bound_and_cannot_target_a_replacement_style() {
+  fun a_live_source_handle_is_ready_bound_and_cannot_target_a_replacement_style() = runTest {
     val fixture = presentationFixture()
     val firstStyle =
       RecordingStyleBinding(
@@ -814,14 +816,15 @@ class MapPresentationTest {
     val binding = RecordingStyleBinding(sources = listOf(original))
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
     fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
-    val stale = checkNotNull(fixture.state.style.sources["shared"])
+    val stale = assertIs<VectorTileSourceHandle>(fixture.state.style.sources["shared"])
 
     assertTrue(fixture.state.style.sources.remove("shared"))
     val replacement =
       fixture.state.style.sources.add(attributedVectorSource("shared", "replacement"))
 
     assertEquals("replacement", replacement.attributionHtml)
-    assertFailsWith<IllegalStateException> { stale.attributionHtml }
+    assertEquals("original", stale.attributionHtml)
+    assertFailsWith<IllegalStateException> { stale.resetFeatureStates("layer") }
     fixture.close()
   }
 
@@ -836,7 +839,7 @@ class MapPresentationTest {
     reconciler.apply(binding, fixture.state.desiredStyleRevision)
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
     fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
-    val stale = checkNotNull(fixture.state.style.sources["shared"])
+    val stale = assertIs<VectorTileSourceHandle>(fixture.state.style.sources["shared"])
     val replacement = attributedVectorSource("shared", "replacement")
 
     fixture.state.beginStyleRevision(
@@ -848,7 +851,7 @@ class MapPresentationTest {
       reconciler.apply(binding, fixture.state.desiredStyleRevision),
     )
 
-    assertFailsWith<IllegalStateException> { stale.attributionHtml }
+    assertFailsWith<IllegalStateException> { stale.resetFeatureStates("layer") }
     assertEquals("replacement", fixture.state.style.sources["shared"]?.attributionHtml)
     fixture.close()
   }
@@ -920,7 +923,7 @@ class MapPresentationTest {
   }
 
   @Test
-  fun a_live_layer_handle_reads_and_writes_only_its_loaded_style() {
+  fun a_live_layer_handle_reads_and_writes_only_its_loaded_style() = runTest {
     val fixture = presentationFixture()
     val loadedStyle = RecordingStyleBinding(layers = listOf(BackgroundLayer("background")))
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, loadedStyle)
@@ -1037,7 +1040,9 @@ class MapPresentationTest {
     assertTrue(fixture.state.style.sources.remove("added"))
     assertNull(fixture.state.style.sources["added"])
     val replacementHandle = fixture.state.style.sources.add(added)
-    assertFailsWith<IllegalStateException> { firstHandle.attributionHtml }
+    assertFailsWith<IllegalStateException> {
+      assertIs<VectorTileSourceHandle>(firstHandle).resetFeatureStates("layer")
+    }
     assertEquals("added attribution", replacementHandle.attributionHtml)
     assertTrue(fixture.state.style.sources.remove("added"))
 
@@ -1069,7 +1074,7 @@ class MapPresentationTest {
    * the engine holds, and a transition the style JSON holds is left alone.
    */
   @Test
-  fun a_set_transition_is_scaled_for_the_engine() {
+  fun a_set_transition_is_scaled_for_the_engine() = runTest {
     val fixture = presentationFixture()
     val binding =
       RecordingStyleBinding(
@@ -1104,7 +1109,7 @@ class MapPresentationTest {
   }
 
   @Test
-  fun transition_light_sky_and_projection_commands_target_only_a_ready_loaded_style() {
+  fun transition_light_sky_and_projection_commands_target_only_a_ready_loaded_style() = runTest {
     val fixture = presentationFixture()
     val binding = RecordingStyleBinding()
     val transition = fixture.state.style.transition

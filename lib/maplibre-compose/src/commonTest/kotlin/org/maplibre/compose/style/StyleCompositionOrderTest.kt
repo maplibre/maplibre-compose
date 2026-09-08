@@ -6,7 +6,6 @@ import kotlin.test.assertNull
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.BackgroundLayer
@@ -124,22 +123,23 @@ class StyleCompositionOrderTest {
     )
   }
 
+  /** A predicate reaches the handle's plain values: its type, source, and source layer. */
   @Test
-  fun a_predicate_can_read_a_layer_property() = runTest {
+  fun a_predicate_can_read_a_layers_source_and_source_layer() = runTest {
     val base =
       listOf(
         BackgroundLayer("bg"),
-        UnknownLayer("hidden", layerJson("hidden", "symbol", visibility = "none")),
-        symbolLayer("shown"),
+        UnknownLayer("pois", layerJson("pois", "symbol", source = "base", sourceLayer = "poi")),
+        UnknownLayer("roads", layerJson("roads", "symbol", source = "base", sourceLayer = "road")),
       )
     val style = RecordingStyleBinding(layers = base)
-    val belowShown = Anchor.Below {
-      it.type == "symbol" && it.getProperty("visibility")?.jsonPrimitive?.content != "none"
+    val belowRoads = Anchor.Below {
+      it.type == "symbol" && it.source == "base" && it.sourceLayer == "road"
     }
 
-    StyleReconciler().apply(style, revision(background("under") to belowShown))
+    StyleReconciler().apply(style, revision(background("under") to belowRoads))
 
-    assertEquals(listOf("bg", "hidden", "under", "shown"), style.layerIds())
+    assertEquals(listOf("bg", "pois", "under", "roads"), style.layerIds())
   }
 
   @Test
@@ -206,7 +206,7 @@ class StyleCompositionOrderTest {
     val style = RecordingStyleBinding(layers = listOf(BackgroundLayer("engine-owned")))
     val base =
       object : StyleBinding by style {
-        override fun layerTypes(): Map<String, String> = emptyMap()
+        override fun layerSummaries(): Map<String, LayerSummary> = emptyMap()
       }
     val reconciler = StyleReconciler()
     val revision = revision(background("front") to Anchor.Top, background("back") to Anchor.Bottom)
@@ -302,10 +302,15 @@ class StyleCompositionOrderTest {
 
   private fun symbolLayer(id: String): Layer = UnknownLayer(id, layerJson(id, "symbol"))
 
-  private fun layerJson(id: String, type: String, visibility: String? = null): JsonObject =
-    buildJsonObject {
-      put("id", id)
-      put("type", type)
-      visibility?.let { put("layout", buildJsonObject { put("visibility", it) }) }
-    }
+  private fun layerJson(
+    id: String,
+    type: String,
+    source: String? = null,
+    sourceLayer: String? = null,
+  ): JsonObject = buildJsonObject {
+    put("id", id)
+    put("type", type)
+    source?.let { put("source", it) }
+    sourceLayer?.let { put("source-layer", it) }
+  }
 }

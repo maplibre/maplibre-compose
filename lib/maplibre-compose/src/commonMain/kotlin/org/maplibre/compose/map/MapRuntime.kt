@@ -71,6 +71,7 @@ import org.maplibre.compose.sources.SourceHandle
 import org.maplibre.compose.sources.sourceHandle
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
+import org.maplibre.compose.style.LayerSummary
 import org.maplibre.compose.style.Light
 import org.maplibre.compose.style.Projection
 import org.maplibre.compose.style.Sky
@@ -236,56 +237,55 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   /** Projection of the current loaded-style generation. */
   public val projection: StyleProjection = StyleProjection(this)
 
-  internal fun transitionOptions(): TransitionOptions? = readStyle { it.transition() }
+  internal suspend fun transitionOptions(): TransitionOptions? = readStyle { it.transition() }
 
   internal fun setTransitionOptions(options: TransitionOptions) {
-    mutateStyle("the transition") { it.setTransition(options.scaledBy(it.animatorDurationScale)) }
+    mutateStyle { it.setTransition(options.scaledBy(it.animatorDurationScale)) }
   }
 
-  internal fun placementTransitions(): Boolean? = readStyle { it.placementTransitions() }
+  internal suspend fun placementTransitions(): Boolean? = readStyle { it.placementTransitions() }
 
   internal fun setPlacementTransitions(enabled: Boolean) {
-    mutateStyle("placement transitions") { it.setPlacementTransitions(enabled) }
+    mutateStyle { it.setPlacementTransitions(enabled) }
   }
 
-  internal fun lightProperty(name: String): JsonElement? = readStyle { it.lightProperty(name) }
+  internal suspend fun lightProperty(name: String): JsonElement? = readStyle {
+    it.lightProperty(name)
+  }
 
   internal fun setLight(light: Light) {
-    mutateStyle("the light") {
-      it.setLight(light.toJson().withScaledTransitions(it.animatorDurationScale))
-    }
+    mutateStyle { it.setLight(light.toJson().withScaledTransitions(it.animatorDurationScale)) }
   }
 
-  internal fun skyProperty(name: String): JsonElement? = readStyle { it.skyProperty(name) }
+  internal suspend fun skyProperty(name: String): JsonElement? = readStyle { it.skyProperty(name) }
 
   internal fun setSky(sky: Sky?) {
-    mutateStyle("the sky") {
-      it.setSky(sky?.toJson()?.withScaledTransitions(it.animatorDurationScale))
-    }
+    mutateStyle { it.setSky(sky?.toJson()?.withScaledTransitions(it.animatorDurationScale)) }
   }
 
-  internal fun projectionProperty(name: String): JsonElement? = readStyle {
+  internal suspend fun projectionProperty(name: String): JsonElement? = readStyle {
     it.projectionProperty(name)
   }
 
   internal fun setProjection(projection: Projection) {
-    mutateStyle("the projection") { it.setProjection(projection.toJson()) }
+    mutateStyle { it.setProjection(projection.toJson()) }
   }
 
-  private fun <T> readStyle(read: (StyleBinding) -> T?): T? {
+  /**
+   * Reads from the ready loaded style, or returns null without one. A style that stops being ready
+   * while the engine answers also reads as null: the value belongs to a generation that is gone.
+   */
+  private suspend fun <T> readStyle(read: suspend (StyleBinding) -> T?): T? {
     val current = readyLoadedStyle() ?: return null
-    return operationGuard(current).run { read(current) }
+    operationGuard(current).run {}
+    val result = read(current)
+    return result.takeIf { readyLoadedStyle() === current }
   }
 
-  private fun mutateStyle(what: String, mutate: (StyleBinding) -> Unit) {
+  /** Posts a write to the ready loaded style. The engine reports a rejection through the logger. */
+  private fun mutateStyle(mutate: (StyleBinding) -> Unit) {
     val current = checkNotNull(readyLoadedStyle()) { "No ready loaded style" }
-    operationGuard(current).run {
-      try {
-        mutate(current)
-      } catch (error: StyleMutationException) {
-        throw StyleHandleException("Could not set $what: ${error.message}", error)
-      }
-    }
+    operationGuard(current).run { mutate(current) }
   }
 
   internal fun sourceHandle(id: String): SourceHandle? {
@@ -379,23 +379,23 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   }
 
   internal fun readLayers(current: StyleBinding): Map<String, LayerHandle> {
-    val types = current.layerTypes()
-    current.identity.layers.retain(types.keys)
-    return types.mapValues { (id, type) -> layerHandle(current, id, type) }
+    val summaries = current.layerSummaries()
+    current.identity.layers.retain(summaries.keys)
+    return summaries.mapValues { (id, summary) -> layerHandle(current, id, summary) }
   }
 
   /** Rereads the handles of [ids] in one engine round trip; a removed layer maps to null. */
   internal fun readLayers(current: StyleBinding, ids: Set<String>): Map<String, LayerHandle?> {
     if (ids.isEmpty()) return emptyMap()
-    val types = current.layerTypes()
-    return ids.associateWith { id -> types[id]?.let { layerHandle(current, id, it) } }
+    val summaries = current.layerSummaries()
+    return ids.associateWith { id -> summaries[id]?.let { layerHandle(current, id, it) } }
   }
 
-  internal fun layerHandle(current: StyleBinding, id: String, type: String): LayerHandle {
+  internal fun layerHandle(current: StyleBinding, id: String, summary: LayerSummary): LayerHandle {
     val identity = current.identity.layers.get(id)
     return current.layerHandle(
       id,
-      type,
+      summary,
       isCurrentResource = { current.identity.layers.isCurrent(id, identity) },
       operations = operationGuard(current),
     )

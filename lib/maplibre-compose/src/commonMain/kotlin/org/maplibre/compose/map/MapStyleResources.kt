@@ -123,7 +123,7 @@ public class StyleTransition internal constructor(private val style: MapStyleSta
    * The reported timing is the engine's: a transition that [set] wrote is under the animator
    * duration scale of the time it was written.
    */
-  public fun get(): TransitionOptions? = style.transitionOptions()
+  public suspend fun get(): TransitionOptions? = style.transitionOptions()
 
   /** Replaces the loaded style's transition. The command fails while no style is ready. */
   public fun set(options: TransitionOptions) {
@@ -135,7 +135,7 @@ public class StyleTransition internal constructor(private val style: MapStyleSta
    *
    * The cross-fade is engine behavior outside the style spec. MapLibre GL JS always reports true.
    */
-  public fun placementTransitions(): Boolean? = style.placementTransitions()
+  public suspend fun placementTransitions(): Boolean? = style.placementTransitions()
 
   /**
    * Sets whether symbol placement changes cross-fade. A cleared cross-fade applies placement
@@ -153,6 +153,9 @@ public class StyleTransition internal constructor(private val style: MapStyleSta
  * Provides the light of the current loaded-style generation.
  *
  * A base-style reload replaces the light with the one that the new style declares.
+ *
+ * [set] does not wait for the engine to apply the light. A light the engine rejects is logged, and
+ * the style keeps its previous light.
  */
 @Stable
 public class StyleLight internal constructor(private val style: MapStyleState) {
@@ -160,7 +163,7 @@ public class StyleLight internal constructor(private val style: MapStyleState) {
    * Returns the value of the style spec's light property [name], such as `anchor` or `color`, or
    * null when the style sets no value or no style is ready.
    */
-  public fun getProperty(name: String): JsonElement? = style.lightProperty(name)
+  public suspend fun getProperty(name: String): JsonElement? = style.lightProperty(name)
 
   /** Replaces the loaded style's light. The command fails while no style is ready. */
   public fun set(light: Light) {
@@ -173,6 +176,9 @@ public class StyleLight internal constructor(private val style: MapStyleState) {
  *
  * A base-style reload replaces the sky with the one that the new style declares. MapLibre Native
  * does not support the sky: every property reads null, and a write logs a warning.
+ *
+ * [set] does not wait for the engine to apply the sky. A sky the engine rejects is logged, and the
+ * style keeps its previous sky.
  */
 @Stable
 public class StyleSky internal constructor(private val style: MapStyleState) {
@@ -180,7 +186,7 @@ public class StyleSky internal constructor(private val style: MapStyleState) {
    * Returns the value of the style spec's sky property [name], such as `sky-color`, or null when
    * the style sets no value or no style is ready.
    */
-  public fun getProperty(name: String): JsonElement? = style.skyProperty(name)
+  public suspend fun getProperty(name: String): JsonElement? = style.skyProperty(name)
 
   /**
    * Replaces the loaded style's sky, or removes it when [sky] is null. The command fails while no
@@ -197,6 +203,9 @@ public class StyleSky internal constructor(private val style: MapStyleState) {
  * A base-style reload replaces the projection with the one that the new style declares. MapLibre
  * Native supports only the Mercator projection: every property reads null, and a write logs a
  * warning.
+ *
+ * [set] does not wait for the engine to apply the projection. A projection the engine rejects is
+ * logged, and the style keeps its previous projection.
  */
 @Stable
 public class StyleProjection internal constructor(private val style: MapStyleState) {
@@ -204,7 +213,7 @@ public class StyleProjection internal constructor(private val style: MapStyleSta
    * Returns the value of the style spec's projection property [name], which is `type`, or null when
    * the style sets no value or no style is ready.
    */
-  public fun getProperty(name: String): JsonElement? = style.projectionProperty(name)
+  public suspend fun getProperty(name: String): JsonElement? = style.projectionProperty(name)
 
   /** Replaces the loaded style's projection. The command fails while no style is ready. */
   public fun set(projection: Projection) {

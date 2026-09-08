@@ -274,7 +274,7 @@ internal class RecordingStyleBinding(
       else JsonObject(layer + ("filter" to filter))
   }
 
-  override fun layerProperty(layerId: String, name: String): JsonElement? {
+  override suspend fun layerProperty(layerId: String, name: String): JsonElement? {
     val layer = layers[layerId] ?: return null
     return layer[name]
       ?: (layer["layout"] as? JsonObject)?.get(name)
@@ -291,7 +291,7 @@ internal class RecordingStyleBinding(
 
   val lightProperties: MutableMap<String, JsonElement> = mutableMapOf()
 
-  override fun transition(): TransitionOptions? = transition.takeIf { isLoaded }
+  override suspend fun transition(): TransitionOptions? = transition.takeIf { isLoaded }
 
   override fun setTransition(options: TransitionOptions) {
     transition = options
@@ -299,13 +299,15 @@ internal class RecordingStyleBinding(
 
   override val supportsPlacementTransitions: Boolean = true
 
-  override fun placementTransitions(): Boolean? = placementTransitionsEnabled.takeIf { isLoaded }
+  override suspend fun placementTransitions(): Boolean? = placementTransitionsEnabled.takeIf {
+    isLoaded
+  }
 
   override fun setPlacementTransitions(enabled: Boolean) {
     placementTransitionsEnabled = enabled
   }
 
-  override fun lightProperty(name: String): JsonElement? =
+  override suspend fun lightProperty(name: String): JsonElement? =
     if (isLoaded) lightProperties[name] else null
 
   override fun setLight(light: JsonObject) {
@@ -316,7 +318,7 @@ internal class RecordingStyleBinding(
   var sky: JsonObject? = null
     private set
 
-  override fun skyProperty(name: String): JsonElement? =
+  override suspend fun skyProperty(name: String): JsonElement? =
     if (isLoaded && supportsSky) sky?.get(name) else null
 
   override fun setSky(sky: JsonObject?) {
@@ -326,7 +328,7 @@ internal class RecordingStyleBinding(
   var projection: JsonObject = JsonObject(emptyMap())
     private set
 
-  override fun projectionProperty(name: String): JsonElement? =
+  override suspend fun projectionProperty(name: String): JsonElement? =
     if (isLoaded && supportsProjection) projection[name] else null
 
   override fun setProjection(projection: JsonObject) {
@@ -348,7 +350,7 @@ internal class RecordingStyleBinding(
       )
   }
 
-  override fun featureState(
+  override suspend fun featureState(
     sourceId: String,
     sourceLayerId: String?,
     featureId: String,
@@ -370,7 +372,7 @@ internal class RecordingStyleBinding(
     featureStates.keys.removeAll { it.first == sourceId && it.second == sourceLayerId }
   }
 
-  override fun querySourceFeatures(
+  override suspend fun querySourceFeatures(
     sourceId: String,
     sourceLayerIds: Set<String>,
     filter: JsonElement?,

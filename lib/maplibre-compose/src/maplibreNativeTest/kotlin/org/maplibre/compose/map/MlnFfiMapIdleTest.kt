@@ -39,10 +39,9 @@ class MlnFfiMapIdleTest {
       requireNotNull(fixture.style).also { style ->
         style.getSources()
         style.layerIds()
-        style.layerTypes()
+        style.layerSummaries()
         style.getSource("missing")
         style.getLayer("missing")
-        style.layerType("missing")
       }
 
       val drawn = fixture.renderOnDemand(IDLE_WINDOW)

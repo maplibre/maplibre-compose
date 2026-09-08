@@ -2,10 +2,12 @@ package org.maplibre.compose.style
 
 import androidx.compose.ui.graphics.ImageBitmap
 import kotlin.concurrent.Volatile
+import kotlin.coroutines.resume
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.DurationUnit
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -79,15 +81,20 @@ import org.maplibre.spatialk.geojson.toJson
 
 /**
  * [StyleBinding] for one loaded style in a MapLibre Native map. The supplied access functions
- * marshal every engine call to the map's owner thread.
+ * marshal every engine call to the map's owner thread, or to the renderer thread for a query that
+ * belongs to the render session.
+ *
+ * [accessMap] runs an action and waits for it. [postMap] queues an action and returns; its second
+ * argument runs when the queued action is dropped. [enqueueRenderSession] queues an action for the
+ * renderer thread, which receives the ready render session or null without one.
  */
 internal open class MlnFfiStyleBinding(
   override val identity: StyleIdentity = StyleIdentity.create(),
   private val loggerProvider: () -> MapLog? = { null },
   private val sessionOpen: () -> Boolean = { false },
   private val accessMap: ((MapHandle) -> Unit) -> Boolean = { false },
-  private val postMap: ((MapHandle) -> Unit) -> Boolean = { false },
-  private val accessRenderSession: ((RenderSessionHandle) -> Unit) -> Boolean = { false },
+  private val postMap: ((MapHandle) -> Unit, () -> Unit) -> Boolean = { _, _ -> false },
+  private val enqueueRenderSession: ((RenderSessionHandle?) -> Unit) -> Boolean = { false },
   private val sourceChanged: (String) -> Unit = {},
   private val sourceDataFailed: (StyleIdentity, String, Throwable) -> Unit = { _, _, _ -> },
   private val getScale: () -> Float = { 1f },
@@ -184,15 +191,20 @@ internal open class MlnFfiStyleBinding(
   /** The full engine order, annotation layer included: insertions and moves are relative to it. */
   override fun layerIds(): List<String> = readMap { it.styleLayerIds() }.orEmpty()
 
-  override fun layerType(id: String): String? = readMap { map ->
-    if (isStyleLayer(map, id)) map.styleLayerType(id) else null
-  }
-
-  override fun layerTypes(): Map<String, String> = readMap { map ->
+  override fun layerSummaries(): Map<String, LayerSummary> = readMap { map ->
     map
       .styleLayerIds()
       .filter { isStyleLayer(map, it) }
-      .mapNotNull { id -> map.styleLayerType(id)?.let { id to it } }
+      .mapNotNull { id ->
+        map.styleLayerType(id)?.let { type ->
+          id to
+            LayerSummary(
+              type = type,
+              source = map.layerSourceId(id).takeIf(String::isNotEmpty),
+              sourceLayer = map.layerSourceLayer(id).takeIf(String::isNotEmpty),
+            )
+        }
+      }
       .toMap()
   }
     .orEmpty()
@@ -338,15 +350,71 @@ internal open class MlnFfiStyleBinding(
   }
 
   /**
-   * Returns null when no renderer is ready or owner access ends before [action] can run. The
-   * renderer exists after the first successful frame and until teardown. The handle must not escape
-   * [action].
+   * Runs [action] on the owner thread and suspends until it has run. Returns null when there is no
+   * map, or when the loop stops before the work can run.
    */
-  open fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T? {
+  open suspend fun <T> awaitMap(action: (MapHandle) -> T): T? {
     requireLoadedStyle()
-    var result: Result<T>? = null
-    if (!accessRenderSession { session -> result = runCatching { action(session) } }) return null
-    return checkNotNull(result).getOrThrow()
+    return suspendCancellableCoroutine { continuation ->
+      val accepted =
+        postMap(
+          { map ->
+            // A cancelled reader has no use for the result, so the engine is not asked for it.
+            if (!continuation.isActive) return@postMap
+            continuation.resumeWith(runCatching { action(map) })
+          },
+          { continuation.resume(null) },
+        )
+      if (!accepted) continuation.resume(null)
+    }
+  }
+
+  /**
+   * Queues [action] for the owner thread and returns at once. Requests a repaint after it runs. An
+   * engine refusal inside [action] is the action's to report: nothing waits for the result.
+   */
+  private fun postMutation(action: (MapHandle) -> Unit) {
+    requireLoadedStyle()
+    postMap(
+      { map ->
+        if (!isLoaded) return@postMap
+        action(map)
+        requestRepaint(map)
+      },
+      {},
+    )
+  }
+
+  /** Runs [action] on the owner thread, reporting an engine refusal as a rejected write. */
+  private fun postWrite(target: String, value: JsonElement?, action: (MapHandle) -> Unit) {
+    postMutation { map ->
+      try {
+        action(map)
+      } catch (error: MaplibreException) {
+        reportRejectedWrite(target, value, StyleMutationException(error.message, error))
+      }
+    }
+  }
+
+  /**
+   * Runs [action] on the renderer thread and suspends until it has run. Returns null when no
+   * renderer is ready or the host can no longer run it. The renderer exists after the first
+   * successful frame and until teardown. The handle must not escape [action].
+   */
+  open suspend fun <T> awaitRenderSession(action: (RenderSessionHandle) -> T): T? {
+    requireLoadedStyle()
+    return suspendCancellableCoroutine { continuation ->
+      val accepted = enqueueRenderSession { session ->
+        if (!continuation.isActive) return@enqueueRenderSession
+        if (session == null) {
+          logger?.d { "Ignoring a render session call: no session is ready yet" }
+          continuation.resume(null)
+        } else {
+          continuation.resumeWith(runCatching { action(session) })
+        }
+      }
+      if (!accepted) continuation.resume(null)
+    }
   }
 
   /**
@@ -727,19 +795,19 @@ internal open class MlnFfiStyleBinding(
    * Runs one supercluster query against the render session. Returns null when the feature carries
    * no cluster id, when no render session is attached yet, or when the query failed.
    */
-  private fun queryClusterExtension(
+  private suspend fun queryClusterExtension(
     sourceId: String,
     feature: Feature<*, JsonObject?>,
     field: String,
     arguments: ByteArray? = null,
   ): ByteArray? {
     val ffiFeature = feature.toFfiClusterFeature() ?: return null
-    return withRenderSession { session ->
+    return awaitRenderSession { session ->
       session.queryFeatureExtension(sourceId, ffiFeature, SUPERCLUSTER_EXTENSION, field, arguments)
     }
   }
 
-  private fun queryClusterFeatures(
+  private suspend fun queryClusterFeatures(
     sourceId: String,
     feature: Feature<*, JsonObject?>,
     field: String,
@@ -769,20 +837,18 @@ internal open class MlnFfiStyleBinding(
     featureId: String,
     state: JsonObject,
   ) {
-    mutateMap { map ->
-      map.setFeatureState(
-        featureStateSelector(sourceId, sourceLayerId, featureId),
-        state.toJsonBytes(),
-      )
+    val bytes = state.toJsonBytes()
+    postWrite("Feature '$featureId' in source '$sourceId'", state) { map ->
+      map.setFeatureState(featureStateSelector(sourceId, sourceLayerId, featureId), bytes)
     }
   }
 
-  override fun featureState(
+  override suspend fun featureState(
     sourceId: String,
     sourceLayerId: String?,
     featureId: String,
   ): JsonObject =
-    readMap { map ->
+    awaitMap { map ->
       Json.parseToJsonElement(
           map
             .getFeatureState(featureStateSelector(sourceId, sourceLayerId, featureId))
@@ -797,19 +863,19 @@ internal open class MlnFfiStyleBinding(
     featureId: String,
     stateKey: String?,
   ) {
-    mutateMap { map ->
+    postWrite("Feature '$featureId' in source '$sourceId'", null) { map ->
       map.removeFeatureState(featureStateSelector(sourceId, sourceLayerId, featureId, stateKey))
     }
   }
 
   override fun resetFeatureStates(sourceId: String, sourceLayerId: String?) {
-    mutateMap { map ->
+    postWrite("Source '$sourceId'", null) { map ->
       map.removeFeatureState(featureStateSelector(sourceId, sourceLayerId))
     }
   }
 
   /** Empty rather than an exception when no render session is attached. */
-  override fun querySourceFeatures(
+  override suspend fun querySourceFeatures(
     sourceId: String,
     sourceLayerIds: Set<String>,
     filter: JsonElement?,
@@ -820,7 +886,7 @@ internal open class MlnFfiStyleBinding(
         it.sourceLayerIds = sourceLayerIds.toList()
         it.filter = filter?.toJsonBytes()
       }
-    return withRenderSession { session -> session.querySourceFeatures(sourceId, options) }
+    return awaitRenderSession { session -> session.querySourceFeatures(sourceId, options) }
       ?.toGeoJsonFeatures()
       .orEmpty()
   }
@@ -874,16 +940,17 @@ internal open class MlnFfiStyleBinding(
    */
   override fun setLayerProperties(writes: List<LayerPropertyWrite>) {
     if (writes.isEmpty()) return
-    postMap { map ->
-      if (!isLoaded) return@postMap
+    postMutation { map ->
       writes.forEach { write ->
         try {
           applyLayerWrite(map, write.layerId, write.name, write.value, write.kind)
         } catch (error: MaplibreException) {
           reportRejectedWrite(write, StyleMutationException(error.message, error))
+        } catch (error: StyleMutationException) {
+          // A root value of the wrong type is refused before it reaches the engine.
+          reportRejectedWrite(write, error)
         }
       }
-      requestRepaint(map)
     }
   }
 
@@ -907,22 +974,23 @@ internal open class MlnFfiStyleBinding(
     }
   }
 
-  override fun layerProperty(layerId: String, name: String): JsonElement? = readMap { map ->
-    when (name) {
-      "id" -> JsonPrimitive(layerId)
-      "type" -> map.styleLayerType(layerId)?.let(::JsonPrimitive)
-      "source" -> map.layerSourceId(layerId).takeIf(String::isNotEmpty)?.let(::JsonPrimitive)
-      "source-layer" ->
-        map.layerSourceLayer(layerId).takeIf(String::isNotEmpty)?.let(::JsonPrimitive)
-      "minzoom" -> map.layerMinZoom(layerId).takeIf(Double::isFinite)?.let(::JsonPrimitive)
-      "maxzoom" -> map.layerMaxZoom(layerId).takeIf(Double::isFinite)?.let(::JsonPrimitive)
-      "filter" -> map.layerFilter(layerId)?.toJsonElement()
-      else -> map.layerProperty(layerId, name)?.toJsonElement()
+  override suspend fun layerProperty(layerId: String, name: String): JsonElement? =
+    awaitMap { map ->
+      when (name) {
+        "id" -> JsonPrimitive(layerId)
+        "type" -> map.styleLayerType(layerId)?.let(::JsonPrimitive)
+        "source" -> map.layerSourceId(layerId).takeIf(String::isNotEmpty)?.let(::JsonPrimitive)
+        "source-layer" ->
+          map.layerSourceLayer(layerId).takeIf(String::isNotEmpty)?.let(::JsonPrimitive)
+        "minzoom" -> map.layerMinZoom(layerId).takeIf(Double::isFinite)?.let(::JsonPrimitive)
+        "maxzoom" -> map.layerMaxZoom(layerId).takeIf(Double::isFinite)?.let(::JsonPrimitive)
+        "filter" -> map.layerFilter(layerId)?.toJsonElement()
+        else -> map.layerProperty(layerId, name)?.toJsonElement()
+      }
     }
-  }
 
   /** An unset native duration applies paint changes instantly, so it reads as zero. */
-  override fun transition(): TransitionOptions? = readMap { map ->
+  override suspend fun transition(): TransitionOptions? = awaitMap { map ->
     val options = map.styleTransitionOptions()
     TransitionOptions(
       duration = options.durationMs?.milliseconds ?: Duration.ZERO,
@@ -932,7 +1000,7 @@ internal open class MlnFfiStyleBinding(
 
   /** Native replaces every field on write, so the placement flag is read back first. */
   override fun setTransition(options: TransitionOptions) {
-    mutateMap { map ->
+    postMutation { map ->
       map.setStyleTransitionOptions(
         map.styleTransitionOptions().copy {
           durationMs = options.duration.toDouble(DurationUnit.MILLISECONDS)
@@ -944,35 +1012,30 @@ internal open class MlnFfiStyleBinding(
 
   override val supportsPlacementTransitions: Boolean = true
 
-  override fun placementTransitions(): Boolean? = readMap { map ->
+  override suspend fun placementTransitions(): Boolean? = awaitMap { map ->
     map.styleTransitionOptions().enablePlacementTransitions ?: true
   }
 
   override fun setPlacementTransitions(enabled: Boolean) {
-    mutateMap { map ->
+    postMutation { map ->
       map.setStyleTransitionOptions(
         map.styleTransitionOptions().copy { enablePlacementTransitions = enabled }
       )
     }
   }
 
-  override fun lightProperty(name: String): JsonElement? = readMap { map ->
+  override suspend fun lightProperty(name: String): JsonElement? = awaitMap { map ->
     map.styleLightProperty(name)?.toJsonElement()
   }
 
   override fun setLight(light: JsonObject) {
-    mutateMap { map ->
-      try {
-        map.setStyleLightJson(light.toJsonBytes())
-      } catch (error: MaplibreException) {
-        throw StyleMutationException(error.message, error)
-      }
-    }
+    val bytes = light.toJsonBytes()
+    postWrite("The light", light) { map -> map.setStyleLightJson(bytes) }
   }
 
   override val supportsSky: Boolean = false
 
-  override fun skyProperty(name: String): JsonElement? {
+  override suspend fun skyProperty(name: String): JsonElement? {
     requireLoadedStyle()
     return null
   }
@@ -984,7 +1047,7 @@ internal open class MlnFfiStyleBinding(
 
   override val supportsProjection: Boolean = false
 
-  override fun projectionProperty(name: String): JsonElement? {
+  override suspend fun projectionProperty(name: String): JsonElement? {
     requireLoadedStyle()
     return null
   }

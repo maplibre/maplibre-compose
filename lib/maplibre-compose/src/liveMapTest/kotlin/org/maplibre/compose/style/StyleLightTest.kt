@@ -2,7 +2,6 @@ package org.maplibre.compose.style
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.time.Duration.Companion.seconds
@@ -15,6 +14,7 @@ import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.IlluminationAnchor
 import org.maplibre.compose.testing.MapTestResult
+import org.maplibre.compose.testing.captureWarnings
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
 
@@ -44,6 +44,7 @@ class StyleLightTest {
     }
   }
 
+  /** A posted write returns before the engine sees it, so its rejection arrives as a warning. */
   @Test
   fun a_declared_light_reads_back_and_a_rejected_write_changes_nothing(): MapTestResult =
     runMapTest {
@@ -52,19 +53,18 @@ class StyleLightTest {
         val light = fixture.state.style.light
         assertEquals(JsonPrimitive("map"), light.getProperty("anchor"))
 
-        assertFailsWith<StyleHandleException> {
+        captureWarnings { warnings ->
           light.set(
             Light(
               anchor = const(IlluminationAnchor.Map),
               intensity = const("bright").cast<FloatValue>(),
             )
           )
-        }
-        assertFailsWith<StyleHandleException> {
           light.set(Light(anchor = nil(), intensity = const("bright").cast<FloatValue>()))
+          assertEquals(JsonPrimitive("map"), light.getProperty("anchor"))
+          assertNull(light.getProperty("intensity"))
+          assertEquals(2, warnings.count { it.startsWith("The light") }, "Warnings: $warnings")
         }
-        assertEquals(JsonPrimitive("map"), light.getProperty("anchor"))
-        assertNull(light.getProperty("intensity"))
       }
     }
 

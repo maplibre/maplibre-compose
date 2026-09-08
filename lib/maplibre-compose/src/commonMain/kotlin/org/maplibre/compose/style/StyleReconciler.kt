@@ -153,9 +153,9 @@ internal class StyleReconciler {
   private fun baseLayers(style: StyleBinding): List<LayerHandle> =
     baseLayers
       ?: style
-        .layerTypes()
+        .layerSummaries()
         .filterKeys { it !in layers }
-        .map { (id, type) -> predicateLayerHandle(style, id, type) }
+        .map { (id, summary) -> predicateLayerHandle(style, id, summary) }
         .also { baseLayers = it }
 
   /** Resolves [anchor] against the base-style layers of the bound generation. */
@@ -291,16 +291,21 @@ internal class StyleReconciler {
 }
 
 /**
- * A handle for an anchor predicate. The reconciler holds the style while a predicate runs, so
- * operations run inline; a write from a predicate would mutate the base style mid-revision, so
- * writes are refused. Base layers do not change within a generation, so [type] is trusted for the
- * handle's life and a property read costs one engine read.
+ * A handle for an anchor predicate. A predicate is not a suspend function, so it reaches only the
+ * handle's plain values, which base layers keep for the generation. A write from a predicate would
+ * mutate the base style mid-revision, so writes are refused.
  */
-private fun predicateLayerHandle(style: StyleBinding, id: String, type: String): LayerHandle {
+private fun predicateLayerHandle(
+  style: StyleBinding,
+  id: String,
+  summary: LayerSummary,
+): LayerHandle {
   val identity = style.identity.layers.get(id)
   return LayerHandle(
     id = id,
-    type = type,
+    type = summary.type,
+    source = summary.source,
+    sourceLayer = summary.sourceLayer,
     style = style,
     isCurrentResource = { style.identity.layers.isCurrent(id, identity) },
     operations =

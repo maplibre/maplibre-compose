@@ -5,6 +5,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -31,6 +32,7 @@ import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.GeoJsonSourceHandle
 import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.sources.VectorTileSource
+import org.maplibre.compose.sources.VectorTileSourceHandle
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.RecordingStyleBinding
@@ -228,12 +230,12 @@ class MapSnapshotterTest {
     val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
     val request = MapSnapshotRequest(1, 1)
     snapshotter.capture(request)
-    val stale = checkNotNull(snapshotter.style.sources["shared"])
+    val stale = assertIs<VectorTileSourceHandle>(snapshotter.style.sources["shared"])
 
     desired = DesiredStyleRevision(listOf(replacement.definition()), emptyList(), emptyList())
     snapshotter.capture(request)
 
-    assertFailsWith<IllegalStateException> { stale.attributionHtml }
+    assertFailsWith<IllegalStateException> { stale.resetFeatureStates("layer") }
     assertEquals("replacement", snapshotter.style.sources["shared"]?.attributionHtml)
     close(snapshotter, runtime)
   }
