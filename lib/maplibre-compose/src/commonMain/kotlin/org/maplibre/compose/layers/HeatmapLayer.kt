@@ -6,7 +6,6 @@ import androidx.compose.ui.unit.dp
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.DpValue
@@ -62,7 +61,7 @@ public fun HeatmapLayer(
   sourceLayer: String = "",
   minZoom: Float = 0.0f,
   maxZoom: Float = 24.0f,
-  filter: Expression<BooleanValue> = nil(),
+  filter: Expression<BooleanValue>? = null,
   visible: Boolean = true,
   color: Expression<ColorValue> = LayerDefaults.HeatmapColors,
   opacity: Expression<FloatValue> = const(1f),

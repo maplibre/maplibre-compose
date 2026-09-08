@@ -5,7 +5,6 @@ import androidx.compose.ui.graphics.Color
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.ImageValue
@@ -46,7 +45,7 @@ public fun BackgroundLayer(
   opacityTransition: TransitionOptions? = null,
   color: Expression<ColorValue> = const(Color.Black),
   colorTransition: TransitionOptions? = null,
-  pattern: Expression<ImageValue> = nil(),
+  pattern: Expression<ImageValue?>? = null,
   patternTransition: TransitionOptions? = null,
 ) {
   val compile = rememberPropertyCompiler()
@@ -85,7 +84,7 @@ internal class BackgroundLayer(id: String) : Layer(id) {
     setPaintTransition("background-color", options)
   }
 
-  fun setBackgroundPattern(pattern: CompiledExpression<ImageValue>) {
+  fun setBackgroundPattern(pattern: CompiledExpression<ImageValue?>) {
     setPaintProperty("background-pattern", pattern)
   }
 

@@ -47,13 +47,13 @@ import org.maplibre.compose.expressions.value.FloatValue
  */
 @Immutable
 public data class Sky(
-  val skyColor: Expression<ColorValue> = const(Color(0xFF88C6FC)),
-  val horizonColor: Expression<ColorValue> = const(Color.White),
-  val fogColor: Expression<ColorValue> = const(Color.White),
-  val fogGroundBlend: Expression<FloatValue> = const(0.5f),
-  val horizonFogBlend: Expression<FloatValue> = const(0.8f),
-  val skyHorizonBlend: Expression<FloatValue> = const(0.8f),
-  val atmosphereBlend: Expression<FloatValue> = const(0.8f),
+  val skyColor: Expression<ColorValue>? = const(Color(0xFF88C6FC)),
+  val horizonColor: Expression<ColorValue>? = const(Color.White),
+  val fogColor: Expression<ColorValue>? = const(Color.White),
+  val fogGroundBlend: Expression<FloatValue>? = const(0.5f),
+  val horizonFogBlend: Expression<FloatValue>? = const(0.8f),
+  val skyHorizonBlend: Expression<FloatValue>? = const(0.8f),
+  val atmosphereBlend: Expression<FloatValue>? = const(0.8f),
   val skyColorTransition: TransitionOptions? = null,
   val horizonColorTransition: TransitionOptions? = null,
   val fogColorTransition: TransitionOptions? = null,

@@ -10,7 +10,6 @@ import kotlinx.serialization.json.double
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.IlluminationAnchor
 import org.maplibre.compose.testing.MapTestResult
@@ -30,7 +29,7 @@ class StyleLightTest {
       assertEquals(JsonPrimitive(0.25), light.getProperty("intensity"))
       assertEquals(JsonPrimitive("viewport"), light.getProperty("anchor"))
 
-      light.set(Light(intensity = nil()))
+      light.set(Light(intensity = null))
       assertNull(light.getProperty("intensity"))
       assertEquals(JsonPrimitive("viewport"), light.getProperty("anchor"))
 
@@ -60,7 +59,7 @@ class StyleLightTest {
               intensity = const("bright").cast<FloatValue>(),
             )
           )
-          light.set(Light(anchor = nil(), intensity = const("bright").cast<FloatValue>()))
+          light.set(Light(anchor = null, intensity = const("bright").cast<FloatValue>()))
           assertEquals(JsonPrimitive("map"), light.getProperty("anchor"))
           assertNull(light.getProperty("intensity"))
           assertEquals(2, warnings.count { it.startsWith("The light") }, "Warnings: $warnings")

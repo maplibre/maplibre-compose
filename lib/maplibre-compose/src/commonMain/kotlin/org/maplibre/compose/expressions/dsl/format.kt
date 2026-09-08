@@ -8,6 +8,7 @@ import org.maplibre.compose.expressions.ast.Options
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.FormattableValue
 import org.maplibre.compose.expressions.value.FormattedValue
+import org.maplibre.compose.expressions.value.ListValue
 import org.maplibre.compose.expressions.value.StringValue
 import org.maplibre.compose.expressions.value.TextUnitValue
 
@@ -43,8 +44,8 @@ public fun format(vararg spans: FormatSpan): Expression<FormattedValue> {
 
 /** Configures a span of text in a [format] expression. */
 public fun span(
-  value: Expression<StringValue>,
-  textFont: Expression<StringValue>? = null,
+  value: Expression<StringValue?>,
+  textFont: Expression<ListValue<StringValue>>? = null,
   textColor: Expression<ColorValue>? = null,
   textSize: Expression<TextUnitValue>? = null,
 ): FormatSpan =
@@ -53,7 +54,7 @@ public fun span(
 /** Configures a span of text in a [format] expression. */
 public fun span(
   value: String,
-  textFont: String? = null,
+  textFont: List<String>? = null,
   textColor: Color? = null,
   textSize: TextUnit? = null,
 ): FormatSpan =
@@ -65,13 +66,13 @@ public fun span(
   )
 
 /** Configures an image in a [format] expression. */
-public fun span(value: Expression<FormattableValue>): FormatSpan = FormatSpan(value = value)
+public fun span(value: Expression<FormattableValue?>): FormatSpan = FormatSpan(value = value)
 
 /** Represents a component of a [format] expression. See [span]. */
 public data class FormatSpan
 internal constructor(
-  val value: Expression<FormattableValue>,
-  val textFont: Expression<StringValue>? = null,
+  val value: Expression<FormattableValue?>,
+  val textFont: Expression<ListValue<StringValue>>? = null,
   val textColor: Expression<ColorValue>? = null,
   val textSize: Expression<TextUnitValue>? = null,
 ) {

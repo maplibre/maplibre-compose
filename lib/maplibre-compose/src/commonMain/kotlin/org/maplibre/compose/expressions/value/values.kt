@@ -23,6 +23,9 @@ public sealed interface ExpressionValue
  * [feature.get][org.maplibre.compose.expressions.dsl.Feature.get]. Corresponds to the `value` type
  * in the style spec.
  *
+ * A source that may also produce no value, such as a missing property, has the type `AnyValue?`.
+ * See [Expression][org.maplibre.compose.expressions.ast.Expression] for what a nullable type means.
+ *
  * MapLibre compares a value of unknown type for equality at evaluation time, so this is an
  * [EquatableValue] and works directly with [eq][org.maplibre.compose.expressions.dsl.eq],
  * [neq][org.maplibre.compose.expressions.dsl.neq], and
@@ -33,6 +36,18 @@ public sealed interface ExpressionValue
  * [cast][org.maplibre.compose.expressions.ast.Expression.cast].
  */
 public sealed interface AnyValue : ExpressionValue, EquatableValue
+
+/**
+ * Represents the `null` literal, created with [nil][org.maplibre.compose.expressions.dsl.nil].
+ *
+ * MapLibre accepts a `null` literal only where it expects a value of unknown type: as an operand of
+ * [eq][org.maplibre.compose.expressions.dsl.eq] or [neq][org.maplibre.compose.expressions.dsl.neq],
+ * as an item of a list literal, or as a variable binding. A layer property or a typed function
+ * argument rejects it when the style loads. This type is therefore not assignable to a nullable
+ * expression type such as `Expression<StringValue?>`, which only a source of unknown type can
+ * produce.
+ */
+public sealed interface NullValue : ExpressionValue, EquatableValue
 
 /**
  * Represents an [ExpressionValue] that resolves to a true or false value. See
@@ -128,13 +143,13 @@ public sealed interface ProjectionValue : ExpressionValue, InterpolatableValue<P
  * Represents an [ExpressionValue] that resolves to a map value (corresponds to a JSON object). See
  * [const][org.maplibre.compose.expressions.dsl.const].
  */
-public sealed interface MapValue<@Suppress("unused") out T : ExpressionValue> : ExpressionValue
+public sealed interface MapValue<@Suppress("unused") out T : ExpressionValue?> : ExpressionValue
 
 /**
  * Represents an [ExpressionValue] that resolves to a list value (corresponds to a JSON array). See
  * [const][org.maplibre.compose.expressions.dsl.const].
  */
-public sealed interface ListValue<out T : ExpressionValue> : ExpressionValue
+public sealed interface ListValue<out T : ExpressionValue?> : ExpressionValue
 
 /**
  * Represents an [ExpressionValue] that resolves to a list value (corresponds to a JSON array) of

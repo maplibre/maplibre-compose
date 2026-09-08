@@ -8,7 +8,6 @@ import androidx.compose.ui.unit.dp
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.expressions.value.CirclePitchAlignment
 import org.maplibre.compose.expressions.value.CirclePitchScale
@@ -88,9 +87,9 @@ public fun CircleLayer(
   sourceLayer: String = "",
   minZoom: Float = 0.0f,
   maxZoom: Float = 24.0f,
-  filter: Expression<BooleanValue> = nil(),
+  filter: Expression<BooleanValue>? = null,
   visible: Boolean = true,
-  sortKey: Expression<FloatValue> = nil(),
+  sortKey: Expression<FloatValue>? = null,
   translate: Expression<DpOffsetValue> = const(DpOffset.Zero),
   translateTransition: TransitionOptions? = null,
   translateAnchor: Expression<TranslateAnchor> = const(TranslateAnchor.Map),

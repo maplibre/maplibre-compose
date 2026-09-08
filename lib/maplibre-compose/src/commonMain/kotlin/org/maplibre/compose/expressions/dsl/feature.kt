@@ -19,7 +19,7 @@ public object Feature {
    * The type of the value is known only when the map evaluates the expression. See [AnyValue] for
    * which operations accept it directly and how to give it a known type.
    */
-  public operator fun get(key: Expression<StringValue>): Expression<AnyValue> =
+  public operator fun get(key: Expression<StringValue>): Expression<AnyValue?> =
     FunctionCall.of("get", key).cast()
 
   /**
@@ -29,7 +29,7 @@ public object Feature {
    * The type of the value is known only when the map evaluates the expression. See [AnyValue] for
    * which operations accept it directly and how to give it a known type.
    */
-  public operator fun get(key: String): Expression<AnyValue> = get(const(key))
+  public operator fun get(key: String): Expression<AnyValue?> = get(const(key))
 
   /** Tests for the presence of a property value [key] in the current feature's properties. */
   public fun has(key: Expression<StringValue>): Expression<BooleanValue> =
@@ -58,7 +58,7 @@ public object Feature {
    * or any primitive data type. Only data-driven paint properties documented as supporting feature
    * state accept [state].
    */
-  public fun state(key: Expression<StringValue>): Expression<AnyValue> =
+  public fun state(key: Expression<StringValue>): Expression<AnyValue?> =
     FunctionCall.of("feature-state", key).cast()
 
   /**
@@ -75,13 +75,13 @@ public object Feature {
    * or any primitive data type. Only data-driven paint properties documented as supporting feature
    * state accept [state].
    */
-  public fun state(key: String): Expression<AnyValue> = state(const(key))
+  public fun state(key: String): Expression<AnyValue?> = state(const(key))
 
   /** Gets the feature's geometry type. */
   public fun geometryType(): Expression<GeometryType> = FunctionCall.of("geometry-type").cast()
 
   /** Gets the feature's id, if it has one. */
-  public fun id(): Expression<AnyValue> = FunctionCall.of("id").cast()
+  public fun id(): Expression<AnyValue?> = FunctionCall.of("id").cast()
 
   /**
    * Gets the progress along a gradient line. Can only be used in the `gradient` property of a line

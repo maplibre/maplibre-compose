@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.RasterResampling
@@ -46,7 +45,7 @@ public fun ColorReliefLayer(
   color: Expression<ColorValue> = LayerDefaults.ColorReliefColors,
   opacity: Expression<FloatValue> = const(1f),
   opacityTransition: TransitionOptions? = null,
-  resampling: Expression<RasterResampling> = nil(),
+  resampling: Expression<RasterResampling>? = null,
 ) {
   val compile = rememberPropertyCompiler()
 

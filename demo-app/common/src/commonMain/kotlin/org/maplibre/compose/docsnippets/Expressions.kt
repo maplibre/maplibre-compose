@@ -6,16 +6,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.expressions.dsl.asNumber
+import org.maplibre.compose.expressions.dsl.coalesce
 import org.maplibre.compose.expressions.dsl.condition
 import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.dsl.dp
 import org.maplibre.compose.expressions.dsl.exponential
 import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.expressions.dsl.gt
 import org.maplibre.compose.expressions.dsl.interpolate
+import org.maplibre.compose.expressions.dsl.neq
+import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.expressions.dsl.step
 import org.maplibre.compose.expressions.dsl.switch
 import org.maplibre.compose.expressions.dsl.zoom
+import org.maplibre.compose.expressions.value.FloatValue
+import org.maplibre.compose.expressions.value.StringValue
 import org.maplibre.compose.layers.CircleLayer
+import org.maplibre.compose.layers.SymbolLayer
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.sources.GeoJsonData
@@ -78,6 +85,22 @@ fun Expressions() {
       filter = feature["mag"].asNumber() gt const(5),
     )
     // #endregion filter
+
+    // #region missing-data
+    SymbolLayer(
+      id = "quake-places",
+      source = earthquakes,
+      // A missing "place" renders as no text.
+      textField = feature["place"].cast<StringValue?>(),
+    )
+    CircleLayer(
+      id = "quakes-with-fallback",
+      source = earthquakes,
+      // A missing "mag" counts as 1.
+      radius = coalesce(feature["mag"].cast<FloatValue?>(), fallback = const(1f)).dp,
+      filter = feature["place"] neq nil(),
+    )
+    // #endregion missing-data
   }
   MaplibreMap(state = state)
 }

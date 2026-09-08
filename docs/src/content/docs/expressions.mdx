@@ -51,6 +51,26 @@ features for which it is true:
 
 <Code code={rememberedMapStyle(region(expressions, "filter"))} lang="kotlin" title="App.kt" />
 
+## Missing data
+
+A feature property can be absent, so `feature["place"]` has the type
+`Expression<AnyValue?>`: the type is unknown and the value may be null. A
+nullable type argument follows Kotlin's rule. `Expression<StringValue?>` may
+evaluate to null and `Expression<StringValue>` may not.
+
+An assertion such as `asString()` aborts the expression for a feature without
+the property, and the map draws the property's default instead. Where a null is
+acceptable, keep the nullable type: a text or image property renders a null as
+nothing, and `eq`, `neq`, and `switch` on a value handle it. Where a value is
+required, supply one with <Api of="coalesce" /> and a fallback, or with the
+fallback argument of an assertion such as `asNumber(const(0f))`.
+
+<Code code={rememberedMapStyle(region(expressions, "missing-data"))} lang="kotlin" title="App.kt" />
+
+<Api of="nil" /> is a `null` literal. MapLibre accepts it only where the
+expected type is unknown, such as in a comparison. To leave a layer property
+unset, pass Kotlin `null` to the layer.
+
 ## Where the code runs
 
 Kotlin code outside an expression runs during composition and produces an

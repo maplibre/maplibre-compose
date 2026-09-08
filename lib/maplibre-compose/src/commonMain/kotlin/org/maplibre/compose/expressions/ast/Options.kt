@@ -4,7 +4,7 @@ import org.maplibre.compose.expressions.value.ExpressionValue
 import org.maplibre.compose.expressions.value.MapValue
 
 /** An [Expression] representing a JSON object with values all [Expression]. */
-public data class Options<T : ExpressionValue>
+public data class Options<T : ExpressionValue?>
 private constructor(val value: Map<String, Expression<T>>) : Expression<MapValue<T>> {
 
   override fun compile(context: ExpressionContext): CompiledOptions<T> =

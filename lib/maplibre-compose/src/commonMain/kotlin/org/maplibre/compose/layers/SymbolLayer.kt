@@ -12,7 +12,6 @@ import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.div
-import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.expressions.dsl.textOffset
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.expressions.value.ColorValue
@@ -466,18 +465,18 @@ public fun SymbolLayer(
   sourceLayer: String = "",
   minZoom: Float = 0.0f,
   maxZoom: Float = 24.0f,
-  filter: Expression<BooleanValue> = nil(),
+  filter: Expression<BooleanValue>? = null,
   visible: Boolean = true,
-  sortKey: Expression<FloatValue> = nil(),
+  sortKey: Expression<FloatValue>? = null,
   placement: Expression<SymbolPlacement> = const(SymbolPlacement.Point),
   spacing: Expression<DpValue> = const(250.dp),
   avoidEdges: Expression<BooleanValue> = const(false),
   zOrder: Expression<SymbolZOrder> = const(SymbolZOrder.Auto),
-  heightOffset: Expression<FloatValue> = nil(),
-  heightAnchor: Expression<SymbolHeightAnchor> = nil(),
+  heightOffset: Expression<FloatValue>? = null,
+  heightAnchor: Expression<SymbolHeightAnchor>? = null,
 
   // icon image
-  iconImage: Expression<ImageValue> = nil(),
+  iconImage: Expression<ImageValue?>? = null,
 
   // icon colors
   iconOpacity: Expression<FloatValue> = const(1f),
@@ -507,7 +506,7 @@ public fun SymbolLayer(
   // icon collision
   iconPadding: Expression<DpPaddingValue> = const(DpPadding(2.dp, 2.dp, 2.dp, 2.dp)),
   iconAllowOverlap: Expression<BooleanValue> = const(false),
-  iconOverlap: Expression<StringValue> = nil(),
+  iconOverlap: Expression<StringValue>? = null,
   iconIgnorePlacement: Expression<BooleanValue> = const(false),
   iconOptional: Expression<BooleanValue> = const(false),
 
@@ -517,7 +516,7 @@ public fun SymbolLayer(
   iconTranslateAnchor: Expression<TranslateAnchor> = const(TranslateAnchor.Map),
 
   // text content
-  textField: Expression<FormattedValue> = const("").cast(),
+  textField: Expression<FormattedValue?> = const("").cast(),
 
   // text glyph colors
   textOpacity: Expression<FloatValue> = const(1f),
@@ -544,21 +543,21 @@ public fun SymbolLayer(
   textMaxWidth: Expression<TextUnitValue> = const(10f.em),
   textLineHeight: Expression<TextUnitValue> = const(1.2f.em),
   textJustify: Expression<TextJustify> = const(TextJustify.Center),
-  textWritingMode: Expression<ListValue<TextWritingMode>> = nil(),
+  textWritingMode: Expression<ListValue<TextWritingMode>>? = null,
   textKeepUpright: Expression<BooleanValue> = const(true),
   textRotate: Expression<FloatValue> = const(0f),
 
   // text anchoring
   textAnchor: Expression<SymbolAnchor> = const(SymbolAnchor.Center),
   textOffset: Expression<TextUnitOffsetValue> = textOffset(0f.em, 0f.em),
-  textVariableAnchor: Expression<ListValue<SymbolAnchor>> = nil(),
+  textVariableAnchor: Expression<ListValue<SymbolAnchor>>? = null,
   textRadialOffset: Expression<TextUnitValue> = const(0f.em),
-  textVariableAnchorOffset: Expression<TextVariableAnchorOffsetValue> = nil(),
+  textVariableAnchorOffset: Expression<TextVariableAnchorOffsetValue>? = null,
 
   // text collision
   textPadding: Expression<DpValue> = const(2.dp),
   textAllowOverlap: Expression<BooleanValue> = const(false),
-  textOverlap: Expression<SymbolOverlap> = nil(),
+  textOverlap: Expression<SymbolOverlap>? = null,
   textIgnorePlacement: Expression<BooleanValue> = const(false),
   textOptional: Expression<BooleanValue> = const(false),
 
@@ -808,7 +807,7 @@ internal class SymbolLayer(id: String, source: VectorSource) : FeatureLayer(id, 
     setLayoutProperty("icon-text-fit-padding", textFitPadding)
   }
 
-  fun setIconImage(image: CompiledExpression<ImageValue>) {
+  fun setIconImage(image: CompiledExpression<ImageValue?>) {
     setLayoutProperty("icon-image", image)
   }
 
@@ -896,7 +895,7 @@ internal class SymbolLayer(id: String, source: VectorSource) : FeatureLayer(id, 
     setLayoutProperty("text-rotation-alignment", rotationAlignment)
   }
 
-  fun setTextField(field: CompiledExpression<FormattedValue>) {
+  fun setTextField(field: CompiledExpression<FormattedValue?>) {
     setLayoutProperty("text-field", field)
   }
 

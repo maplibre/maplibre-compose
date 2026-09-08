@@ -21,7 +21,7 @@ import org.maplibre.compose.expressions.value.InterpolationValue
  * returns 0 if the zoom is less than 10, 2.5 if the zoom is between 10 and less than 20, 10.5 if
  * the zoom is greater than or equal 20.
  */
-public fun <T : ExpressionValue> step(
+public fun <T : ExpressionValue?> step(
   input: Expression<FloatValue>,
   fallback: Expression<T>,
   vararg stops: Pair<Number, Expression<T>>,

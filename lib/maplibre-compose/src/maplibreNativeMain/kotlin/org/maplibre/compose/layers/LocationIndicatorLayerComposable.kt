@@ -5,7 +5,6 @@ import androidx.compose.ui.graphics.Color
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.image
-import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.ImageValue
@@ -63,9 +62,9 @@ public fun LocationIndicatorLayer(
   accuracyRadius: Expression<FloatValue> = const(0f),
   accuracyRadiusColor: Expression<ColorValue> = const(Color.White),
   accuracyRadiusBorderColor: Expression<ColorValue> = const(Color.White),
-  topImage: Expression<ImageValue> = nil(),
-  bearingImage: Expression<ImageValue> = nil(),
-  shadowImage: Expression<ImageValue> = nil(),
+  topImage: Expression<ImageValue>? = null,
+  bearingImage: Expression<ImageValue>? = null,
+  shadowImage: Expression<ImageValue>? = null,
   topImageSize: Expression<FloatValue> = const(1f),
   bearingImageSize: Expression<FloatValue> = const(1f),
   shadowImageSize: Expression<FloatValue> = const(1f),
