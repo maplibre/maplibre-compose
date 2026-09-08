@@ -13,7 +13,7 @@ import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.div
 import org.maplibre.compose.expressions.dsl.nil
-import org.maplibre.compose.expressions.dsl.offset
+import org.maplibre.compose.expressions.dsl.textOffset
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.DpOffsetValue
@@ -550,7 +550,7 @@ public fun SymbolLayer(
 
   // text anchoring
   textAnchor: Expression<SymbolAnchor> = const(SymbolAnchor.Center),
-  textOffset: Expression<TextUnitOffsetValue> = offset(0f.em, 0f.em),
+  textOffset: Expression<TextUnitOffsetValue> = textOffset(0f.em, 0f.em),
   textVariableAnchor: Expression<ListValue<SymbolAnchor>> = nil(),
   textRadialOffset: Expression<TextUnitValue> = const(0f.em),
   textVariableAnchorOffset: Expression<TextVariableAnchorOffsetValue> = nil(),

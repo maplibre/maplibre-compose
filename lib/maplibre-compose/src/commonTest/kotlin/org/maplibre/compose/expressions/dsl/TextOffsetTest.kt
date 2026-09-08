@@ -5,15 +5,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import org.maplibre.compose.expressions.ast.ExpressionContext
 
 class TextOffsetTest {
   @Test
-  fun text_unit_overloads_keep_existing_offset_semantics() {
-    assertEquals(offset(1.sp, (-2).sp), textOffset(1.sp, (-2).sp))
-    assertEquals(offset(1.em, (-2).em), textOffset(1.em, (-2).em))
+  fun text_offsets_require_matching_units() {
     assertFailsWith<IllegalArgumentException> { textOffset(1.sp, 1.em) }
   }
 

@@ -131,14 +131,6 @@ public fun offset(x: Float, y: Float): OffsetLiteral = OffsetLiteral.of(Offset(x
 public fun offset(x: Dp, y: Dp): DpOffsetLiteral = DpOffsetLiteral.of(DpOffset(x, y))
 
 /**
- * Creates a literal expression for a 2D [TextUnit] offset.
- *
- * Both [x] and [y] must have the same [TextUnitType].
- */
-public fun offset(x: TextUnit, y: TextUnit): Expression<TextUnitOffsetValue> =
-  TextUnitOffsetCalculation.of(x, y)
-
-/**
  * Creates a text offset with a fixed DP distance, independent of font scale and label size.
  *
  * As with SP offsets, the layer's text size must not use zoom interpolation.
@@ -152,9 +144,9 @@ public fun textOffset(x: Dp, y: Dp): Expression<TextUnitOffsetValue> = DpTextOff
  * Creates a text offset in SP or EM. Both components must have the same [TextUnitType].
  *
  * SP offsets scale with accessibility text size; EM offsets also scale with the label's text size.
- * Equivalent to [offset] with [TextUnit] arguments.
  */
-public fun textOffset(x: TextUnit, y: TextUnit): Expression<TextUnitOffsetValue> = offset(x, y)
+public fun textOffset(x: TextUnit, y: TextUnit): Expression<TextUnitOffsetValue> =
+  TextUnitOffsetCalculation.of(x, y)
 
 /** Creates a literal expression for a [DpPadding] value. */
 public fun padding(left: Dp, top: Dp, right: Dp, bottom: Dp): Expression<DpPaddingValue> =
