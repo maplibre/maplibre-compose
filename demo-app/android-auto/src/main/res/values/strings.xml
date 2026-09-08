@@ -1,0 +1,9 @@
+<resources>
+  <string name="app_name">MapLibre Places</string>
+  <string name="places_title">New York places</string>
+  <string name="shown_on_map">Shown on map</string>
+  <string name="map_credits">Map credits</string>
+  <string name="map_loading">Loading map…</string>
+  <string name="map_unavailable">Map unavailable. Reopen this demo to try again.</string>
+  <string name="map_credits_loading">Map source credits become available after the style loads.</string>
+</resources>

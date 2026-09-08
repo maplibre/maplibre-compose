@@ -2,6 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <application>
     <activity
+      android:name="org.maplibre.compose.map.SurfaceHandoffActivity"
+      android:exported="false"
+      android:theme="@android:style/Theme.Material.Light.NoActionBar"
+    />
+    <activity
       android:name="org.maplibre.compose.camera.MapStateRecreationActivity"
       android:exported="false"
       android:theme="@android:style/Theme.Material.Light.NoActionBar"

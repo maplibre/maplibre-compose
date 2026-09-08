@@ -39,6 +39,7 @@ include(
   ":demo-app",
   ":demo-app:common",
   ":demo-app:android",
+  ":demo-app:android-auto",
   ":demo-app:wearos",
   ":demo-app:desktop",
   ":demo-app:desktop-nucleus",

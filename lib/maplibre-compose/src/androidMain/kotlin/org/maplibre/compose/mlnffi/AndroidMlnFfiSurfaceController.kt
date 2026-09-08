@@ -27,6 +27,7 @@ internal class AndroidMlnFfiSurfaceController(
   private val backend: MapRenderBackend,
   private val logger: MapLog?,
   maximumFps: Int? = null,
+  private val onFailure: (Throwable) -> Unit = {},
 ) : MlnFfiMapHostSession, AutoCloseable {
   override val backends = RenderBackendPair(backend, ComposeRenderBackend.OPENGL)
 
@@ -249,6 +250,7 @@ internal class AndroidMlnFfiSurfaceController(
     extent = MapExtent.Empty
     runCatching { renderer.close() }
       .onFailure { logger?.e(it) { "Failed to close the Android map renderer" } }
+    onFailure(IllegalStateException(message, error))
   }
 
   private companion object {

@@ -128,6 +128,7 @@ Use IntelliJ or Android Studio to launch the demo app on Android and XCode to
 launch on iOS. Every other host has a task:
 
 - Android: `mise run demo:android`
+- Android Auto: `mise run demo:android-auto` (see setup below)
 - Android TV: `mise run demo:android-tv`, on a TV or on the emulator that
   `mise run android-emulator:boot --tv` starts
 - Wear OS: `mise run demo:wearos`, on a watch or on the emulator that
@@ -142,6 +143,29 @@ Map render backend than the platform default, as in
 `mise run demo:desktop -- --backend=opengl`. It passes the
 `maplibre.desktop.backend` Gradle property, which swaps the packaged
 `maplibre-compose-runtime-*` artifact.
+
+### Android Auto
+
+The `demo-app/android-auto` app browses places using the Car App Library and
+renders the shared demo map into the host's Surface. It needs an Android Auto
+host supporting Car API 7 or newer.
+
+For the
+[Desktop Head Unit](https://developer.android.com/training/cars/testing/dhu):
+
+1. Install and update Android Auto on a connected phone. Enable its developer
+   mode, allow unknown sources, and start the head unit server from its
+   developer menu.
+2. Install **Android Auto Desktop Head Unit Emulator** from Android Studio's SDK
+   Tools, or run `sdkmanager 'extras;google;auto'`.
+3. Run `mise run demo:android-auto`. The task installs the app, forwards the
+   head unit server port, and launches the Desktop Head Unit. Select **MapLibre
+   Places** in the car launcher.
+
+Use `--install-only` to install for a physical head unit without starting the
+Desktop Head Unit. The demo supports `--backend vulkan`, like the phone demo.
+Check map rendering, pan/zoom, place selection, day/night mode, window resizing,
+and reconnecting the host when changing Surface integration.
 
 ## Run the tests
 
