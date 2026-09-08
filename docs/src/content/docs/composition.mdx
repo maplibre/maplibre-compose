@@ -37,10 +37,11 @@ feature state, cluster queries, and invalidation. These runtime operations do no
 change its declared definition. Handles belong to one loaded style generation;
 look them up again after a style reload or resource replacement.
 
-A handle write returns before the map applies it. When the engine rejects a
-written value, the library logs a warning and the previous value stays in
-place. The same applies to `mapState.style.transition`, `light`, `sky`, and
-`projection`.
+A handle write does not wait for the map to apply it. On MapLibre Native the
+write runs on the map's own thread after the call returns; MapLibre GL JS
+applies it during the call. When the engine rejects a written value, the
+library logs a warning and the previous value stays in place. The same applies
+to `mapState.style.transition`, `light`, `sky`, and `projection`.
 
 ## Recomposition updates the style
 

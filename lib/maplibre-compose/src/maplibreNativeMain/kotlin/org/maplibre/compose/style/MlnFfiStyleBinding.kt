@@ -358,7 +358,11 @@ internal open class MlnFfiStyleBinding(
     return suspendCancellableCoroutine { continuation ->
       val accepted =
         postMap(
-          { map -> continuation.resumeWith(runCatching { action(map) }) },
+          { map ->
+            // A cancelled reader has no use for the result, so the engine is not asked for it.
+            if (!continuation.isActive) return@postMap
+            continuation.resumeWith(runCatching { action(map) })
+          },
           { continuation.resume(null) },
         )
       if (!accepted) continuation.resume(null)
@@ -401,6 +405,7 @@ internal open class MlnFfiStyleBinding(
     requireLoadedStyle()
     return suspendCancellableCoroutine { continuation ->
       val accepted = enqueueRenderSession { session ->
+        if (!continuation.isActive) return@enqueueRenderSession
         if (session == null) {
           logger?.d { "Ignoring a render session call: no session is ready yet" }
           continuation.resume(null)

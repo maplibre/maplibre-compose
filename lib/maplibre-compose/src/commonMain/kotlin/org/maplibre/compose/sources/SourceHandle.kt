@@ -21,8 +21,8 @@ import org.maplibre.spatialk.geojson.Geometry
 /**
  * Provides access to a source for one loaded base-style generation.
  *
- * A feature-state write returns before the engine applies it. A state the engine rejects is logged,
- * and the feature keeps its previous state.
+ * A feature-state write does not wait for the engine to apply it. A state the engine rejects is
+ * logged, and the feature keeps its previous state.
  *
  * Style content owns the definitions of declared sources: attempts to replace their data, image,
  * URI, or bounds throw [StyleHandleException]. Feature state, queries, and invalidation remain

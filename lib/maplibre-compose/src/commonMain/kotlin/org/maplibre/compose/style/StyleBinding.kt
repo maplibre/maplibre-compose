@@ -33,8 +33,9 @@ import org.maplibre.spatialk.geojson.Position
  * Style unload invalidates the binding. An operation on an invalid binding produces a stale-style
  * error.
  *
- * A property write posts to the engine's thread and returns before it runs; the engine's rejection
- * of such a write is logged through [reportRejectedWrite]. A structural command, such as adding a
+ * A property write does not wait for the engine: MapLibre Native runs it on the map's owner thread
+ * after the call returns, and MapLibre GL JS runs it during the call. The engine's rejection of
+ * such a write is logged through [reportRejectedWrite]. A structural command, such as adding a
  * source, layer, or image, waits for the engine and throws [StyleMutationException] on refusal.
  */
 internal interface StyleBinding {
