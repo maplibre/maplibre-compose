@@ -139,11 +139,9 @@ public fun offset(x: TextUnit, y: TextUnit): Expression<TextUnitOffsetValue> =
   TextUnitOffsetCalculation.of(x, y)
 
 /**
- * Creates a text offset with a fixed DP distance, independent of accessibility text size.
+ * Creates a text offset with a fixed DP distance, independent of font scale and label size.
  *
- * The consuming symbol layer converts the offset to EM using its text size and local font scale.
- * The expression can be created outside composition and reused at different font scales. As with SP
- * offsets, the layer's text size must not use zoom interpolation.
+ * As with SP offsets, the layer's text size must not use zoom interpolation.
  *
  * Use the [TextUnit] overload for offsets that scale with accessibility text size (SP) or the
  * label's text size (EM).

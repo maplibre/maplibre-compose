@@ -74,7 +74,7 @@ class SymbolLayerCompositionTest {
     val binding = RecordingStyleBinding()
     val fontScale = mutableStateOf(1f)
     val textSize = mutableStateOf(16.sp)
-    // Construct once, outside composition. Conversion must use the consuming layer's density.
+    // Reuse the same offsets as font scale and text size change.
     val offsets =
       mapOf(
         "dp" to textOffset((-4).dp, 12.dp),
