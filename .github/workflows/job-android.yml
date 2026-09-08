@@ -110,3 +110,4 @@ jobs:
           path: |
             demo-app/android/build/outputs/apk/release/android-release.apk
             demo-app/wearos/build/outputs/apk/release/wearos-release.apk
+            demo-app/android-auto/build/outputs/apk/release/android-auto-release.apk

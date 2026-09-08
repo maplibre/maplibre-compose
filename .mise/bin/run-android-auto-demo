@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Install the projected car app and connect the SDK Desktop Head Unit.
+set -euo pipefail
+
+repository_root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+sdk_root="$("$repository_root/.mise/bin/android-sdk-root")"
+adb="$sdk_root/platform-tools/adb"
+dhu="$sdk_root/extras/google/auto/desktop-head-unit"
+requested="${1:-${usage_serial:-}}"
+install_only="${usage_install_only:-false}"
+
+if [[ "$install_only" != true && ! -x "$dhu" ]]; then
+  echo "Install Android Auto Desktop Head Unit Emulator from SDK Tools, or use --install-only." >&2
+  exit 1
+fi
+
+export ANDROID_SERIAL
+ANDROID_SERIAL="$("$repository_root/.mise/bin/pick-android-device" "$requested")"
+"$repository_root/gradlew" :demo-app:android-auto:installDebug \
+  -Pmaplibre.android.backend="${usage_backend:-opengl}"
+
+if [[ "$install_only" == true ]]; then
+  exit 0
+fi
+if [[ -z "$("$adb" -s "$ANDROID_SERIAL" shell pm path com.google.android.projection.gearhead)" ]]; then
+  echo "Install and configure Android Auto on this device before starting the Desktop Head Unit." >&2
+  exit 1
+fi
+
+"$adb" -s "$ANDROID_SERIAL" forward tcp:5277 tcp:5277
+echo "Start the head unit server in Android Auto's developer menu; select MapLibre Places in the car launcher."
+cd "$(dirname "$dhu")"
+exec "$dhu"

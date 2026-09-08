@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="androidx.car.app.ACCESS_SURFACE" />
+  <uses-permission android:name="androidx.car.app.MAP_TEMPLATES" />
+  <application
+    android:allowBackup="false"
+    android:icon="@drawable/map_24px"
+    android:label="@string/app_name"
+    android:supportsRtl="true"
+  >
+    <meta-data
+      android:name="com.google.android.gms.car.application"
+      android:resource="@xml/automotive_app_desc"
+    />
+    <meta-data
+      android:name="androidx.car.app.minCarApiLevel"
+      android:value="7"
+    />
+    <service android:name=".MapCarAppService" android:exported="true">
+      <intent-filter>
+        <action android:name="androidx.car.app.CarAppService" />
+        <category android:name="androidx.car.app.category.POI" />
+      </intent-filter>
+    </service>
+  </application>
+</manifest>

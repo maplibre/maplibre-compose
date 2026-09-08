@@ -26,6 +26,8 @@ java-desktopTarget = "25"
 accompanistPermissions = "0.37.3"
 alchemist = "0.2.0"
 androidx-activity = "1.13.0"
+# 1.8.0-rc01 contains the security fix recommended by the Car App release notes.
+androidx-carApp = "1.8.0-rc01"
 androidx-testRunner = "1.7.0"
 bytesize = "2.2.1"
 dbusJava = "5.2.0"
@@ -83,6 +85,9 @@ accompanist-permissions = { module = "com.google.accompanist:accompanist-permiss
 alchemist = { module = "io.github.kevincianfarini.alchemist:alchemist", version.ref = "alchemist" }
 androidx-activity = { module = "androidx.activity:activity", version.ref = "androidx-activity" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
+androidx-car-app = { module = "androidx.car.app:app", version.ref = "androidx-carApp" }
+androidx-car-appProjected = { module = "androidx.car.app:app-projected", version.ref = "androidx-carApp" }
+androidx-car-appTesting = { module = "androidx.car.app:app-testing", version.ref = "androidx-carApp" }
 androidx-composeUi-testManifest = { module = "androidx.compose.ui:ui-test-manifest", version.ref = "androidx-compose" }
 androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidx-testRunner" }
 androidx-navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-compose", version.ref = "jetbrains-navigation" }
