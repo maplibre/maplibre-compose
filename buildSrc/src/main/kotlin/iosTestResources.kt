@@ -13,7 +13,8 @@ fun Project.stageIosSimulatorTestResources() {
   // "Task output caching requires exclusive access to output paths", so the library and
   // demo test links run again even when compilation is FROM-CACHE. Move the copy output
   // out of the linker directory, then assemble the binary and resources for the test runner.
-  // Remove this workaround once upstream gives the copy and link tasks disjoint outputs.
+  // TODO: Remove this workaround once upstream gives the copy and link tasks disjoint outputs:
+  // https://youtrack.jetbrains.com/issue/CMP-10767/copyTestComposeResources-writes-into-KotlinNativeLinks-destinationDirectory-defeating-build-cache-for-iOS-test-binaries
   // Compose registers its copy task after evaluation.
   afterEvaluate {
     val resourceDirectory = layout.buildDirectory.dir("compose/iosSimulatorArm64TestResources")
