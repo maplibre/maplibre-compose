@@ -128,13 +128,13 @@ internal class PointerPairGesture(
 
   fun cancel() = recognition.cancel()
 
-  fun end(): PairContinuation? {
+  fun end(): PointerContinuation? {
     val continuation = if (token?.acceptsCommands == true) continuation() else null
     recognition.cancel()
     return continuation
   }
 
-  private fun continuation(): PairContinuation? {
+  private fun continuation(): PointerContinuation? {
     val velocity = recognition.velocity()
     val panVelocity = velocity.centroid
 
@@ -185,8 +185,8 @@ internal class PointerPairGesture(
         }
 
     if (panFling == null && scale == null && rotation == null && tilt == null) return null
-    return PairContinuation(
-      if (scale != null) panFling?.settleWith(scale.duration) else panFling,
+    return PointerContinuation(
+      panFling,
       scale,
       rotation,
       tilt,
@@ -194,31 +194,4 @@ internal class PointerPairGesture(
       centroid.takeIf { settings.rotate.anchor == GestureAnchor.Input },
     )
   }
-}
-
-internal data class PairContinuation(
-  val pan: GestureMath.Fling?,
-  val scale: GestureMath.ScaleVelocity?,
-  val rotation: GestureMath.RotationVelocity?,
-  val tilt: GestureMath.TiltVelocity?,
-  val scaleAnchor: DpOffset?,
-  val rotationAnchor: DpOffset?,
-) {
-  fun without(component: CameraComponent): PairContinuation =
-    when (component) {
-      CameraComponent.Pan -> copy(pan = null)
-      CameraComponent.Zoom -> copy(scale = null)
-      CameraComponent.Rotate -> copy(rotation = null)
-      CameraComponent.Tilt -> copy(tilt = null)
-    }
-
-  fun withPrevious(previous: PairContinuation?): PairContinuation =
-    copy(
-      pan = pan ?: previous?.pan,
-      scale = scale ?: previous?.scale,
-      rotation = rotation ?: previous?.rotation,
-      tilt = tilt ?: previous?.tilt,
-      scaleAnchor = if (scale != null) scaleAnchor else previous?.scaleAnchor,
-      rotationAnchor = if (rotation != null) rotationAnchor else previous?.rotationAnchor,
-    )
 }

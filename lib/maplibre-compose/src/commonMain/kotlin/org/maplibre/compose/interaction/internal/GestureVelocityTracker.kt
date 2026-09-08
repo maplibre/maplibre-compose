@@ -14,13 +14,13 @@ internal class GestureVelocityTracker(private val maximumVelocity: Float = Float
 
   fun resetTracking() = samples.clear()
 
-  fun addPointerInputChange(change: PointerInputChange) {
+  fun addPointerInputChange(change: PointerInputChange, notBefore: Long = Long.MIN_VALUE) {
     // A newly selected contact may carry history from its previous gesture.
-    val lastTime = samples.lastOrNull()?.time
+    val historyStart = maxOf(notBefore, samples.lastOrNull()?.time ?: Long.MIN_VALUE)
     change.historical.forEach {
-      if (lastTime == null || it.uptimeMillis >= lastTime) addPosition(it.uptimeMillis, it.position)
+      if (it.uptimeMillis >= historyStart) addPosition(it.uptimeMillis, it.position)
     }
-    addPosition(change.uptimeMillis, change.position)
+    if (change.uptimeMillis >= notBefore) addPosition(change.uptimeMillis, change.position)
   }
 
   fun addPosition(time: Long, position: Offset) {

@@ -93,13 +93,13 @@ internal class TransformRecognitionPolicy(
     if (rotationBlockedByZoom) startRotate = false
 
     val startShove =
-      motion.displacement.y != 0f &&
-        shove != null &&
+      shove != null &&
         !shoving &&
         !rotating &&
         !zooming &&
         GestureMath.shouldStartShove(
-          (motion.displacement.y / density.density).toDouble(),
+          (current.first - motion.origin.first) / density.density,
+          (current.second - motion.origin.second) / density.density,
           current.horizontalAngle,
           shove.startSlop.value.toDouble(),
         )
@@ -117,9 +117,15 @@ internal class TransformRecognitionPolicy(
       rotationOrigin = current
     }
 
-    // Rotation wins simultaneous recognition; tilt can take over pan, but not rotation or zoom.
+    // Tilt wins simultaneous recognition, but cannot interrupt established rotation or zoom.
     // Each first delta excludes the recognition threshold to avoid a visible camera jump.
-    if (startRotate) {
+    if (startShove) {
+      cancels += CameraComponent.Pan
+      vertical =
+        motion.displacement.y -
+          sign(motion.displacement.y) * checkNotNull(shove).startSlop.value * density.density
+      starts += CameraComponent.Tilt
+    } else if (startRotate) {
       cancels += CameraComponent.Zoom
       rotationSpan = current.distance
       rotation = rotationFromStart - sign(rotationFromStart) * rotationThreshold
@@ -128,12 +134,6 @@ internal class TransformRecognitionPolicy(
       val baseline = if (rotating) rotationSpan else motion.origin.distance
       scale = current.distance / (baseline + sign(scaleSpan) * scaleThreshold * density.density / 2)
       starts += CameraComponent.Zoom
-    } else if (startShove) {
-      cancels += listOf(CameraComponent.Pan, CameraComponent.Zoom, CameraComponent.Rotate)
-      vertical =
-        motion.displacement.y -
-          sign(motion.displacement.y) * checkNotNull(shove).startSlop.value * density.density
-      starts += CameraComponent.Tilt
     }
 
     // Pan can accompany scale and rotation. Two-finger tilt owns the pair exclusively.

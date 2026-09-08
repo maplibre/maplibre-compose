@@ -1,8 +1,10 @@
 package org.maplibre.compose.interaction.internal
 
+import androidx.compose.ui.geometry.Offset
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -10,6 +12,30 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
 class GestureMathTest {
+  @Test
+  fun shove_accepts_staggered_fingers_moving_up_or_down() {
+    for (direction in listOf(-1f, 1f)) {
+      assertTrue(
+        GestureMath.shouldStartShove(
+          Offset(4f, 20f) * direction,
+          Offset(2f, 24f) * direction,
+          45.0,
+        )
+      )
+    }
+    assertFalse(GestureMath.shouldStartShove(Offset(0f, 24f), Offset(0f, 24f), 46.0))
+    assertFalse(GestureMath.shouldStartShove(Offset(0f, 15f), Offset(0f, 15f), 30.0))
+  }
+
+  @Test
+  fun shove_requires_both_fingers_to_move_predominantly_vertically_in_the_same_direction() {
+    val vertical = Offset(0f, 40f)
+    for (other in listOf(Offset.Zero, Offset(0f, -4f), Offset(24f, 20f), Offset(20f, 20f))) {
+      assertFalse(GestureMath.shouldStartShove(vertical, other, 0.0), "accepted $other")
+      assertFalse(GestureMath.shouldStartShove(other, vertical, 0.0), "accepted $other")
+    }
+  }
+
   @Test
   fun pinch_preserves_direction_and_reverses_with_the_finger_motion() {
     assertEquals(1.0, GestureMath.pinchScale(1.0))
