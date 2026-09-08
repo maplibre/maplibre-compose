@@ -1166,6 +1166,209 @@ class MapPresentationTest {
   }
 
   @Test
+  fun an_evicted_resolver_image_is_supplied_again_in_the_same_style() = runTest {
+    val fixture = presentationFixture()
+    val binding = RecordingStyleBinding()
+    var calls = 0
+    fixture.state.missingImageResolver = {
+      calls++
+      ResolvedStyleImage(FakeImageBitmap(1, 1))
+    }
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+
+    repeat(3) { eviction ->
+      assertNotNull(fixture.state.resolveMissingImage(fixture.adapter, "icon")).await()
+      assertTrue(binding.imageExists("icon"), "image stayed absent after eviction $eviction")
+      assertEquals(eviction + 1, calls)
+      // Native eviction removes the engine image without going through StyleImages.remove.
+      binding.removeImage("icon")
+    }
+    fixture.close()
+  }
+
+  @Test
+  fun a_resolver_cannot_restore_an_explicitly_owned_image() = runTest {
+    val fixture = presentationFixture()
+    val binding = RecordingStyleBinding()
+    val started = CompletableDeferred<Unit>()
+    val release = CompletableDeferred<Unit>()
+    var calls = 0
+    fixture.state.missingImageResolver = {
+      calls++
+      started.complete(Unit)
+      release.await()
+      ResolvedStyleImage(FakeImageBitmap(1, 1))
+    }
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+    val pending = assertNotNull(fixture.state.resolveMissingImage(fixture.adapter, "icon"))
+    started.await()
+    fixture.state.style.images.add("icon", FakeImageBitmap(1, 1))
+    // An explicit addition can answer a pending Native request and become eligible for eviction.
+    binding.removeImage("icon")
+    release.complete(Unit)
+    pending.await()
+    repeat(3) { assertNull(fixture.state.resolveMissingImage(fixture.adapter, "icon")) }
+    assertEquals(1, calls)
+    assertFalse(binding.imageExists("icon"))
+    fixture.close()
+  }
+
+  @Test
+  fun declarative_image_ownership_suppresses_resolution_until_released() = runTest {
+    val fixture = presentationFixture()
+    val binding = RecordingStyleBinding()
+    val started = CompletableDeferred<Unit>()
+    val release = CompletableDeferred<Unit>()
+    val image = FakeImageBitmap(1, 1)
+    var calls = 0
+    fixture.state.missingImageResolver = {
+      calls++
+      started.complete(Unit)
+      release.await()
+      ResolvedStyleImage(image)
+    }
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    val pending = assertNotNull(fixture.state.resolveMissingImage(fixture.adapter, "icon"))
+    started.await()
+    // The revision owns the ID before its image reaches the engine, including when replay fails.
+    fixture.state.desiredStyleRevision =
+      DesiredStyleRevision(
+        sources = emptyList(),
+        layers = emptyList(),
+        images = listOf(StyleImageDefinition("icon", ImageSnapshot.capture(image), false, null)),
+      )
+    release.complete(Unit)
+    pending.await()
+    repeat(3) { assertNull(fixture.state.resolveMissingImage(fixture.adapter, "icon")) }
+    assertEquals(1, calls)
+    assertFalse(binding.imageExists("icon"))
+    fixture.state.desiredStyleRevision = DesiredStyleRevision.Empty
+    assertNotNull(fixture.state.resolveMissingImage(fixture.adapter, "icon")).await()
+    assertEquals(2, calls)
+    assertTrue(binding.imageExists("icon"))
+    fixture.close()
+  }
+
+  @Test
+  fun concurrent_missing_image_requests_share_the_resolution() = runTest {
+    val fixture = presentationFixture()
+    val binding = RecordingStyleBinding()
+    val started = CompletableDeferred<Unit>()
+    val release = CompletableDeferred<Unit>()
+    var calls = 0
+    fixture.state.missingImageResolver = {
+      calls++
+      started.complete(Unit)
+      release.await()
+      ResolvedStyleImage(FakeImageBitmap(1, 1))
+    }
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    val first = assertNotNull(fixture.state.resolveMissingImage(fixture.adapter, "icon"))
+    started.await()
+    assertSame(first, fixture.state.resolveMissingImage(fixture.adapter, "icon"))
+    release.complete(Unit)
+    first.await()
+    assertEquals(1, calls)
+    assertTrue(binding.imageExists("icon"))
+    fixture.close()
+  }
+
+  @Test
+  fun null_and_throwing_resolvers_are_not_retried_until_replaced() = runTest {
+    val fixture = presentationFixture()
+    val binding = RecordingStyleBinding()
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    for (throws in listOf(false, true)) {
+      var calls = 0
+      fixture.state.missingImageResolver = {
+        calls++
+        if (throws) error("cannot generate icon")
+        null
+      }
+      repeat(3) {
+        assertNotNull(fixture.state.resolveMissingImage(fixture.adapter, "icon")).await()
+      }
+      assertEquals(1, calls)
+      assertFalse(binding.imageExists("icon"))
+    }
+    fixture.close()
+  }
+
+  @Test
+  fun a_failed_image_add_can_be_retried() = runTest {
+    val fixture = presentationFixture()
+    val binding = RecordingStyleBinding(beforeAddImage = { error("add failed") })
+    var calls = 0
+    fixture.state.missingImageResolver = {
+      calls++
+      ResolvedStyleImage(FakeImageBitmap(1, 1))
+    }
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    assertNotNull(fixture.state.resolveMissingImage(fixture.adapter, "icon")).await()
+    assertFalse(binding.imageExists("icon"))
+    assertNotNull(fixture.state.resolveMissingImage(fixture.adapter, "icon")).await()
+    assertTrue(binding.imageExists("icon"))
+    assertEquals(2, calls)
+    fixture.close()
+  }
+
+  @Test
+  fun an_old_resolution_does_not_forget_a_replacement_resolution() = runTest {
+    val fixture = presentationFixture()
+    val binding = RecordingStyleBinding()
+    val oldStarted = CompletableDeferred<Unit>()
+    val oldRelease = CompletableDeferred<Unit>()
+    val newStarted = CompletableDeferred<Unit>()
+    val newRelease = CompletableDeferred<Unit>()
+    fixture.state.missingImageResolver = {
+      oldStarted.complete(Unit)
+      oldRelease.await()
+      ResolvedStyleImage(FakeImageBitmap(1, 1))
+    }
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    val old = assertNotNull(fixture.state.resolveMissingImage(fixture.adapter, "icon"))
+    oldStarted.await()
+    fixture.state.missingImageResolver = {
+      newStarted.complete(Unit)
+      newRelease.await()
+      ResolvedStyleImage(FakeImageBitmap(1, 1))
+    }
+    val replacement = assertNotNull(fixture.state.resolveMissingImage(fixture.adapter, "icon"))
+    newStarted.await()
+    oldRelease.complete(Unit)
+    old.await()
+    assertSame(replacement, fixture.state.resolveMissingImage(fixture.adapter, "icon"))
+    newRelease.complete(Unit)
+    replacement.await()
+    assertTrue(binding.imageExists("icon"))
+    fixture.close()
+  }
+
+  @Test
+  fun a_style_reload_cancels_pending_image_resolution() = runTest {
+    val fixture = presentationFixture()
+    val oldBinding = RecordingStyleBinding()
+    val newBinding = RecordingStyleBinding()
+    val started = CompletableDeferred<Unit>()
+    fixture.state.missingImageResolver = {
+      started.complete(Unit)
+      awaitCancellation()
+    }
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, oldBinding)
+    val old = assertNotNull(fixture.state.resolveMissingImage(fixture.adapter, "icon"))
+    started.await()
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, newBinding)
+    assertFailsWith<CancellationException> { old.await() }
+
+    fixture.state.missingImageResolver = { ResolvedStyleImage(FakeImageBitmap(1, 1)) }
+    assertNotNull(fixture.state.resolveMissingImage(fixture.adapter, "icon")).await()
+    assertFalse(oldBinding.imageExists("icon"))
+    assertTrue(newBinding.imageExists("icon"))
+    fixture.close()
+  }
+
+  @Test
   fun a_replaced_resolver_leaves_the_resolution_in_flight_to_finish() = runTest {
     val fixture = presentationFixture()
     val binding = RecordingStyleBinding()
