@@ -57,6 +57,7 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleLayer
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.ImageSnapshot
+import org.maplibre.compose.style.LayerSummary
 import org.maplibre.compose.style.Light
 import org.maplibre.compose.style.Projection
 import org.maplibre.compose.style.RecordingStyleBinding
@@ -107,9 +108,9 @@ class MapPresentationTest {
             return backing.sourceIds()
           }
 
-          override fun layerIds(): List<String> {
+          override fun layerSummaries(): Map<String, LayerSummary> {
             resourceReads++
-            return backing.layerIds()
+            return backing.layerSummaries()
           }
         }
       val reconciler = StyleReconciler()

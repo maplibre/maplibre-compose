@@ -5,6 +5,7 @@ import kotlinx.serialization.json.JsonNull
 import org.maplibre.compose.style.CLEARED_TRANSITION
 import org.maplibre.compose.style.LayerPropertyKind
 import org.maplibre.compose.style.LayerPropertyWrite
+import org.maplibre.compose.style.LayerSummary
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleHandleOperationGuard
@@ -12,7 +13,6 @@ import org.maplibre.compose.style.StyleIdentity
 import org.maplibre.compose.style.TRANSITION_SUFFIX
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.scaledBy
-import org.maplibre.compose.style.summary
 import org.maplibre.compose.style.toTransitionJson
 import org.maplibre.compose.style.toTransitionOptions
 
@@ -143,11 +143,11 @@ internal constructor(
  */
 internal fun StyleBinding.layerHandle(
   id: String,
+  summary: LayerSummary,
   isCurrentResource: () -> Boolean,
   operations: StyleHandleOperationGuard,
-): LayerHandle? {
+): LayerHandle {
   requireCurrent()
-  val summary = getLayer(id)?.definition()?.summary() ?: return null
   return LayerHandle(
     id = id,
     type = summary.type,

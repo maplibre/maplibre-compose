@@ -71,6 +71,7 @@ import org.maplibre.compose.sources.SourceHandle
 import org.maplibre.compose.sources.sourceHandle
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
+import org.maplibre.compose.style.LayerSummary
 import org.maplibre.compose.style.Light
 import org.maplibre.compose.style.Projection
 import org.maplibre.compose.style.Sky
@@ -378,15 +379,23 @@ public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
   }
 
   internal fun readLayers(current: StyleBinding): Map<String, LayerHandle> {
-    val ids = current.layerIds().toSet()
-    current.identity.layers.retain(ids)
-    return ids.mapNotNull { id -> layerHandle(current, id)?.let { id to it } }.toMap()
+    val summaries = current.layerSummaries()
+    current.identity.layers.retain(summaries.keys)
+    return summaries.mapValues { (id, summary) -> layerHandle(current, id, summary) }
   }
 
-  internal fun layerHandle(current: StyleBinding, id: String): LayerHandle? {
+  /** Rereads the handles of [ids] in one engine round trip; a removed layer maps to null. */
+  internal fun readLayers(current: StyleBinding, ids: Set<String>): Map<String, LayerHandle?> {
+    if (ids.isEmpty()) return emptyMap()
+    val summaries = current.layerSummaries()
+    return ids.associateWith { id -> summaries[id]?.let { layerHandle(current, id, it) } }
+  }
+
+  internal fun layerHandle(current: StyleBinding, id: String, summary: LayerSummary): LayerHandle {
     val identity = current.identity.layers.get(id)
     return current.layerHandle(
       id,
+      summary,
       isCurrentResource = { current.identity.layers.isCurrent(id, identity) },
       operations = operationGuard(current),
     )
@@ -1036,9 +1045,7 @@ internal constructor(
       StyleResourceRead(binding, styleHandleEpoch, styleSourceChangeRevision)
     }
     changes.sources.forEach { refreshStyleSources(adapter, it) }
-    val layers = runCatching {
-      changes.layers.associateWith { style.layerHandle(read.binding, it) }
-    }
+    val layers = runCatching { style.readLayers(read.binding, changes.layers) }
     lifecycle.serialized {
       if (!isCurrentStyleResourceRead(adapter, read)) return
       changes.layerOrder?.let { style.updateLayers(layers.getOrThrow(), it) }
