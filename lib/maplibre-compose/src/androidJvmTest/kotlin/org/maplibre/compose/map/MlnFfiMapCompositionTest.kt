@@ -461,11 +461,11 @@ class MlnFfiMapCompositionTest {
 
     assertTrue(!firstAttachment.isValid)
     assertEquals(StyleLoadState.Ready, state.style.loadState)
-    state.style.baseStyle = BaseStyle.Json("{")
+    state.style.asMutable!!.baseStyle = BaseStyle.Json("{")
     waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
       state.currentMapAttachment == null && state.style.loadState is StyleLoadState.Failed
     }
-    state.style.baseStyle = RETAINED_STYLE
+    state.style.asMutable!!.baseStyle = RETAINED_STYLE
     assertEquals(StyleLoadState.Loading, state.style.loadState)
 
     presented = true
@@ -560,7 +560,7 @@ class MlnFfiMapCompositionTest {
     assertTrue(session.canPresentFrames)
     assertTrue(onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty())
 
-    runOnUiThread { state.style.baseStyle = second }
+    runOnUiThread { state.style.asMutable!!.baseStyle = second }
     waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { state.style.baseStyle == second }
     assertTrue(
       session.canPresentFrames,
@@ -591,7 +591,7 @@ class MlnFfiMapCompositionTest {
     val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
     assertTrue(session.canPresentFrames)
 
-    runOnUiThread { state.style.baseStyle = BaseStyle.Json("{") }
+    runOnUiThread { state.style.asMutable!!.baseStyle = BaseStyle.Json("{") }
     waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
       state.style.loadState is StyleLoadState.Failed
     }
@@ -835,7 +835,7 @@ private fun TestMap(
   val state =
     rememberMapState(
       initialCameraPosition = initialCameraPosition,
-      initialBaseStyle = baseStyle,
+      baseStyle = baseStyle,
     ) {
       content()
     }

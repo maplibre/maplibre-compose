@@ -64,7 +64,7 @@ class GeoJsonSourceUpdateTest {
           fixture.readPixel(centerX, centerY).isNear(CIRCLE)
         }
 
-        sourceHandle.setData(GeoJsonData.Features(pointAt(FAR_AWAY)))
+        sourceHandle.asMutable!!.setData(GeoJsonData.Features(pointAt(FAR_AWAY)))
 
         // Real hosts draw only requested frames. No unconditional pump may mask a missing repaint.
         (fixture.style as MlnFfiStyleBinding).awaitGeoJsonUpdates()
@@ -86,7 +86,7 @@ class GeoJsonSourceUpdateTest {
       fixture.pumpUntil("the source to render above its minimum zoom") {
         fixture.readPixel(256, 256).isNear(CIRCLE)
       }
-      handle.setData(GeoJsonData.Features(pointAt(FAR_AWAY)))
+      handle.asMutable!!.setData(GeoJsonData.Features(pointAt(FAR_AWAY)))
       (fixture.style as MlnFfiStyleBinding).awaitGeoJsonUpdates()
       fixture.settle()
       assertTrue(fixture.readPixel(256, 256).isNear(BACKGROUND))
@@ -95,7 +95,7 @@ class GeoJsonSourceUpdateTest {
         fixture.readPixel(256, 256).isNear(BACKGROUND)
       }
 
-      handle.setData(GeoJsonData.Features(pointAt(ORIGIN)))
+      handle.asMutable!!.setData(GeoJsonData.Features(pointAt(ORIGIN)))
 
       (fixture.style as MlnFfiStyleBinding).awaitGeoJsonUpdates()
       fixture.settle()
@@ -131,7 +131,7 @@ class GeoJsonSourceUpdateTest {
             fixture.state.events.filterIsInstance<MapEvent.SourceDataFailed>().first()
           }
         // Submission succeeds; parsing fails later on the worker.
-        handle.setData(GeoJsonData.JsonString("{invalid GeoJSON}"))
+        handle.asMutable!!.setData(GeoJsonData.JsonString("{invalid GeoJSON}"))
         assertTrue(runCatching { binding.awaitGeoJsonUpdates() }.isFailure)
         val failure = withTimeout(5_000) { event.await() }
         assertEquals(SOURCE_ID, failure.sourceId)
@@ -139,7 +139,7 @@ class GeoJsonSourceUpdateTest {
       }
       assertTrue(fixture.readPixel(256, 256).isNear(CIRCLE))
 
-      handle.setData(GeoJsonData.Features(pointAt(FAR_AWAY)))
+      handle.asMutable!!.setData(GeoJsonData.Features(pointAt(FAR_AWAY)))
       binding.awaitGeoJsonUpdates()
       fixture.settle()
       assertTrue(fixture.readPixel(256, 256).isNear(BACKGROUND))
@@ -197,13 +197,13 @@ class GeoJsonSourceUpdateTest {
       }
 
       assertFailsWith<StyleHandleException> {
-        handle.setData(GeoJsonData.JsonString("{invalid GeoJSON}"))
+        handle.asMutable!!.setData(GeoJsonData.JsonString("{invalid GeoJSON}"))
       }
       fixture.settle()
       assertTrue(fixture.readPixel(256, 256).isNear(CIRCLE))
       assertEquals(emptyList(), fixture.engineEvents.filterIsInstance<MapEvent.SourceDataFailed>())
 
-      handle.setData(GeoJsonData.Features(pointAt(FAR_AWAY)))
+      handle.asMutable!!.setData(GeoJsonData.Features(pointAt(FAR_AWAY)))
       fixture.settle()
       assertTrue(fixture.readPixel(256, 256).isNear(BACKGROUND))
       assertEquals(emptyList(), fixture.engineEvents.filterIsInstance<MapEvent.SourceDataFailed>())

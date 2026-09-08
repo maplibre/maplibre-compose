@@ -11,10 +11,22 @@ import org.maplibre.compose.style.MlnFfiStyleBinding
  *
  * Like other handle operations, access fails after the source is removed or its style is replaced.
  */
-public var SourceHandle.isVolatile: Boolean
-  get() = operation {
-    checkNotNull((style as MlnFfiStyleBinding).readMap { it.styleSourceInfo(id)?.volatileSource })
+public val SourceHandle.isVolatile: Boolean
+  get() = implementation.operation {
+    checkNotNull(
+      (implementation.style as MlnFfiStyleBinding).readMap {
+        it.styleSourceInfo(id)?.volatileSource
+      }
+    )
   }
+
+/** Changes the source's native storage policy. See [SourceHandle.isVolatile]. */
+public var MutableSourceHandle.isVolatile: Boolean
+  get() = (this as SourceHandle).isVolatile
   set(value) {
-    operation { (style as MlnFfiStyleBinding).mutateMap { it.setStyleSourceVolatile(id, value) } }
+    implementation.definitionOperation {
+      (implementation.style as MlnFfiStyleBinding).mutateMap {
+        it.setStyleSourceVolatile(id, value)
+      }
+    }
   }

@@ -66,7 +66,8 @@ class GeoJsonPreparationThreadTest {
               GeoJsonSource("points", GeoJsonData.JsonString(EMPTY), options)
             )
           )
-        val updateFailure = assertFailsWith<StyleHandleException> { handle.setData(data) }
+        val updateFailure =
+          assertFailsWith<StyleHandleException> { handle.asMutable!!.setData(data) }
         assertSame(failure, updateFailure.cause?.cause)
         (fixture.style as MlnFfiStyleBinding).awaitGeoJsonUpdates()
         fixture.settle()
@@ -105,7 +106,7 @@ class GeoJsonPreparationThreadTest {
             )
           )
         )
-      if (!initial) handle.setData(data)
+      if (!initial) handle.asMutable!!.setData(data)
 
       assertEquals(0L, serialized.count, "submission returned before serialization")
       assertEquals(emptyList(), fixture.errors)
@@ -147,7 +148,7 @@ class GeoJsonPreparationThreadTest {
           )
         if (!initial) {
           binding.awaitGeoJsonUpdates()
-          handle.setData(data)
+          handle.asMutable!!.setData(data)
         }
         assertTrue(entered.await(5, TimeUnit.SECONDS), "worker did not begin serialization")
         // Preparation is still blocked, but an owner-thread round trip must finish.

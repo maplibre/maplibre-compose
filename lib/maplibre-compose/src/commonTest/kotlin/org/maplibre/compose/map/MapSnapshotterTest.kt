@@ -163,13 +163,20 @@ class MapSnapshotterTest {
 
     withContext(Dispatchers.Unconfined) {
       snapshotter.capture(MapSnapshotRequest(1, 1))
-      assertTrue(snapshotter.style.sources.add(source) is GeoJsonSourceHandle)
+      val sourceHandle = snapshotter.style.sources.add(source)
+      assertEquals("imperative", sourceHandle.id)
       assertTrue(snapshotter.style.sources["imperative"] is GeoJsonSourceHandle)
-      snapshotter.style.images.add("imperative", FakeImageBitmap(1, 1))
+      val imageHandle = snapshotter.style.images.add("imperative", FakeImageBitmap(1, 1))
       assertEquals(setOf("imperative"), binding.imageIds)
-      assertTrue(snapshotter.style.images.remove("imperative"))
-      assertTrue(snapshotter.style.sources.remove("imperative"))
+      assertTrue(imageHandle.remove())
+      assertTrue(sourceHandle.remove())
       assertTrue(snapshotter.style.sources.none())
+      snapshotter.style.sources.add(source)
+      snapshotter.style.images.add("imperative", FakeImageBitmap(1, 1))
+      assertFailsWith<IllegalStateException> { sourceHandle.remove() }
+      assertFailsWith<IllegalStateException> { imageHandle.remove() }
+      assertTrue(binding.sourceExists("imperative") == true)
+      assertEquals(setOf("imperative"), binding.imageIds)
     }
 
     close(snapshotter, runtime)
@@ -510,7 +517,7 @@ class MapSnapshotterTest {
     val staleResult = async { runCatching { snapshotter.capture(MapSnapshotRequest(1, 1)) } }
     prepareStarted.await()
 
-    snapshotter.style.baseStyle = replacementStyle
+    snapshotter.style.asMutable!!.baseStyle = replacementStyle
     releaseFailure.complete(Unit)
     assertTrue(staleResult.await().isFailure)
     assertEquals(StyleLoadState.Pending, snapshotter.style.loadState)

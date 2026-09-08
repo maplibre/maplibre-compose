@@ -30,7 +30,7 @@ class BrowserMapStateTest {
       firstRuntime = DefaultMapRuntime.instance
       secondRuntime = DefaultMapRuntime.instance
       if (includeState.value) {
-        val remembered = rememberMapState(firstRuntime, initialBaseStyle = BaseStyle.Empty)
+        val remembered = rememberMapState(firstRuntime, baseStyle = BaseStyle.Empty)
         SideEffect { state = remembered }
       }
     }

@@ -134,6 +134,7 @@ class StyleCompositionOrderTest {
       )
     val style = RecordingStyleBinding(layers = base)
     val belowRoads = Anchor.Below {
+      assertNull(it.asMutable)
       it.type == "symbol" && it.source == "base" && it.sourceLayer == "road"
     }
 

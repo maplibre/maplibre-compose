@@ -2,6 +2,7 @@ package org.maplibre.compose.style
 
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.LayerHandle
+import org.maplibre.compose.layers.LayerHandleImpl
 
 /** Reconciles complete desired revisions into one loaded base-style generation. */
 internal class StyleReconciler {
@@ -216,6 +217,7 @@ internal class StyleReconciler {
       val next = desiredById[applied.id]
       if (next == null || next != applied) {
         style.removeImage(applied.id)
+        style.identity.images.remove(applied.id)
         images.remove(applied.id)
       }
     }
@@ -301,7 +303,7 @@ private fun predicateLayerHandle(
   summary: LayerSummary,
 ): LayerHandle {
   val identity = style.identity.layers.get(id)
-  return LayerHandle(
+  return LayerHandleImpl(
     id = id,
     type = summary.type,
     source = summary.source,
@@ -311,6 +313,12 @@ private fun predicateLayerHandle(
     operations =
       object : StyleHandleOperationGuard {
         override fun <T> run(action: () -> T): T = action()
+
+        override fun isSourceWritable(id: String): Boolean = false
+
+        override fun isLayerWritable(id: String): Boolean = false
+
+        override fun removeSource(id: String, identity: Any): Boolean = refuseWrite(id)
 
         override fun requireSourceWritable(id: String) = refuseWrite(id)
 

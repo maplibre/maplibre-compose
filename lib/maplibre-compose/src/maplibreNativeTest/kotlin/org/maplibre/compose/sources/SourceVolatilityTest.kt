@@ -24,14 +24,15 @@ class SourceVolatilityTest {
         fixture.state.style.sources.add(source)
         val handle = assertNotNull(fixture.state.style.sources[source.id])
         assertEquals(false, handle.isVolatile)
-        handle.isVolatile = true
+        val mutable = assertNotNull(handle.asMutable)
+        mutable.isVolatile = true
         // A separately acquired handle must see native state, rather than a handle-local copy.
         assertEquals(true, assertNotNull(fixture.state.style.sources[source.id]).isVolatile)
-        handle.isVolatile = false
+        mutable.isVolatile = false
         assertEquals(false, handle.isVolatile)
-        fixture.state.style.sources.remove(source.id)
+        fixture.state.style.sources[source.id]!!.asMutable!!.remove()
         assertFailsWith<IllegalStateException> { handle.isVolatile }
-        assertFailsWith<IllegalStateException> { handle.isVolatile = true }
+        assertFailsWith<IllegalStateException> { mutable.isVolatile = true }
       }
     }
 }

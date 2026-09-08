@@ -3,8 +3,8 @@ package org.maplibre.compose.map
 import androidx.compose.ui.graphics.ImageBitmap
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
@@ -41,7 +41,7 @@ class MissingImageResolverTest {
 
       assertEquals(listOf(MISSING_ICON_ID), requests.toList(), "the resolver ran more than once")
       assertTrue(
-        fixture.state.style.images.remove(MISSING_ICON_ID),
+        fixture.state.style.images[MISSING_ICON_ID]!!.asMutable!!.remove(),
         "the resolved image did not reach the style",
       )
     }
@@ -97,7 +97,7 @@ class MissingImageResolverTest {
 
       assertEquals(listOf(MISSING_ICON_ID, MISSING_ICON_ID), requests.toList())
       assertTrue(
-        fixture.state.style.images.remove(MISSING_ICON_ID),
+        fixture.state.style.images[MISSING_ICON_ID]!!.asMutable!!.remove(),
         "the resolved image did not reach the reloaded style",
       )
     }
@@ -118,8 +118,8 @@ class MissingImageResolverTest {
         declined.size == 1
       }
       fixture.settle()
-      assertFalse(
-        fixture.state.style.images.remove(MISSING_ICON_ID),
+      assertNull(
+        fixture.state.style.images[MISSING_ICON_ID],
         "a declined image reached the style",
       )
 
@@ -138,7 +138,7 @@ class MissingImageResolverTest {
       assertEquals(listOf(MISSING_ICON_ID), supplied.toList())
       assertEquals(listOf(MISSING_ICON_ID), declined.toList(), "the replaced resolver ran again")
       assertTrue(
-        fixture.state.style.images.remove(MISSING_ICON_ID),
+        fixture.state.style.images[MISSING_ICON_ID]!!.asMutable!!.remove(),
         "the resolved image did not reach the style",
       )
     }

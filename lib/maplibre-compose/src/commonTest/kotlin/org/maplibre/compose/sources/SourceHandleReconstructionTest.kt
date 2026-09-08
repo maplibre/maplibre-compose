@@ -39,6 +39,12 @@ class SourceHandleReconstructionTest {
   private object ImmediateOperations : StyleHandleOperationGuard {
     override fun <T> run(action: () -> T): T = action()
 
+    override fun isSourceWritable(id: String): Boolean = true
+
+    override fun isLayerWritable(id: String): Boolean = true
+
+    override fun removeSource(id: String, identity: Any): Boolean = error("Unused")
+
     override fun requireSourceWritable(id: String) {}
 
     override fun requireLayerWritable(id: String) {}

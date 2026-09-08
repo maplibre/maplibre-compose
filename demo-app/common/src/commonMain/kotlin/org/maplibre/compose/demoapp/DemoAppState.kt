@@ -2,7 +2,6 @@ package org.maplibre.compose.demoapp
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -156,13 +155,12 @@ fun rememberDemoAppState(): DemoAppState {
   val mapState =
     rememberMapState(
       runtime = mapRuntime,
-      initialBaseStyle = appliedStyle.base,
+      baseStyle = appliedStyle.base,
       initialCameraPosition = StartPosition,
     ) {
       mapConfiguration.selectedDemo?.let { demo -> key(demo) { demo.MapContent() } }
       DemoLocationMapContent(location, locationState)
     }
-  SideEffect { mapState.style.baseStyle = appliedStyle.base }
   val frameRateState = remember { FrameRateState() }
   return remember {
     DemoAppState(mapRuntime, mapState, settings, location, frameRateState, mapConfiguration)

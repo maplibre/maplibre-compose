@@ -157,7 +157,7 @@ class BrowserMapStyleStateTest {
       waitUntilMap("the Web map to detach") { state.currentMapAttachment == null }
       runOnIdle {
         useLatestRevision.value = true
-        state.style.baseStyle = STYLE_B
+        state.style.asMutable!!.baseStyle = STYLE_B
       }
 
       assertEquals(STYLE_B, state.style.baseStyle)
@@ -227,7 +227,7 @@ class BrowserMapStyleStateTest {
       assertNotNull(session.engineMapForTest())
       assertTrue(session.canPresentFrames)
 
-      runOnIdle { state.style.baseStyle = INVALID_STYLE }
+      runOnIdle { state.style.asMutable!!.baseStyle = INVALID_STYLE }
       waitUntilMap("the replacement style request to fail") {
         state.style.loadState is StyleLoadState.Failed
       }
@@ -280,7 +280,7 @@ class BrowserMapStyleStateTest {
         renderedLayerSets += ids.split(',').filter(String::isNotEmpty).toSet()
       }
     try {
-      runOnIdle { state.style.baseStyle = BaseStyle.Uri(DEFERRED_STYLE_URL) }
+      runOnIdle { state.style.asMutable!!.baseStyle = BaseStyle.Uri(DEFERRED_STYLE_URL) }
       waitUntilMap("MapLibre to request the replacement style") { deferredStyle.isRequested() }
       assertEquals(StyleLoadState.Loading, state.style.loadState)
       assertTrue(session.canPresentFrames, "the previous frame must remain visible during loading")
@@ -318,7 +318,7 @@ class BrowserMapStyleStateTest {
       var styleState: MapStyleState? = null
       var mapState: MapState? = null
       setBrowserMapContent {
-        val current = rememberMapState(initialBaseStyle = tileJsonStyle)
+        val current = rememberMapState(baseStyle = tileJsonStyle)
         mapState = current
         styleState = current.style
         MaplibreMap(state = current, modifier = Modifier)
@@ -352,7 +352,7 @@ class BrowserMapStyleStateTest {
         var mapState: MapState? = null
         setBrowserMapContent {
           val logicalMap =
-            rememberMapState(initialBaseStyle = BaseStyle.Empty) {
+            rememberMapState(baseStyle = BaseStyle.Empty) {
               if (showLateSource.value) {
                 RasterLayer(id = "late-layer", source = source, visible = true)
               }
@@ -393,7 +393,7 @@ class BrowserMapStyleStateTest {
     var mapState: MapState? = null
     setBrowserMapContent {
       val logicalMap =
-        rememberMapState(initialBaseStyle = current.value) {
+        rememberMapState(baseStyle = current.value) {
           identity = LocalStyleNode.current.style.identity
         }
       mapState = logicalMap
@@ -410,7 +410,7 @@ class BrowserMapStyleStateTest {
     )
 
     val observed = mutableListOf<List<String>>()
-    runOnIdle { checkNotNull(mapState).style.baseStyle = styleWith("second", "second-source") }
+    runOnIdle { current.value = styleWith("second", "second-source") }
     waitUntilMap("the second style's sources to be reported") {
       styleState?.sources?.map { it.attributionHtml }?.let { observed += it }
       mapState?.style?.loadState == StyleLoadState.Ready &&

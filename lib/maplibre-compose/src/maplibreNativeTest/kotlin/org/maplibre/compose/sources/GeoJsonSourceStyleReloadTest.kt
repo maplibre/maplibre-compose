@@ -27,7 +27,9 @@ class GeoJsonSourceStyleReloadTest {
       fixture.loadStyle(REPLACEMENT_STYLE)
 
       assertFailsWith<IllegalStateException> {
-        handle.setData(GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>(emptyList())))
+        handle.asMutable!!.setData(
+          GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>(emptyList()))
+        )
       }
     }
   }

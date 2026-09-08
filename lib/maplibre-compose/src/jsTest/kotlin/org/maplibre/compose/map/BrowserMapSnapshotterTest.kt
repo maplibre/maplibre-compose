@@ -328,7 +328,7 @@ class BrowserMapSnapshotterTest {
             snapshotTargets().isEmpty() && snapshotter.style.loadState == StyleLoadState.Pending
           }
         }
-        snapshotter.style.baseStyle = BASE_STYLE
+        snapshotter.style.asMutable!!.baseStyle = BASE_STYLE
         val image =
           snapshotter.capture(
             MapSnapshotRequest(

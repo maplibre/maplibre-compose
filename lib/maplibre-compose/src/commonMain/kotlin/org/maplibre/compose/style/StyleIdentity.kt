@@ -9,6 +9,7 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 internal class StyleIdentity private constructor() {
   val sources = ResourceIdentities()
   val layers = ResourceIdentities()
+  val images = ResourceIdentities()
 
   companion object {
     fun create(): StyleIdentity = StyleIdentity()

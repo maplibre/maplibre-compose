@@ -99,7 +99,7 @@ class MlnFfiStyleSwitchTest {
       runOnUiThread {
         style = STYLES[(round + 1) % STYLES.size]
         extraLayer = !extraLayer
-        state.style.baseStyle = style.base
+        state.style.asMutable!!.baseStyle = style.base
       }
       waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
         state.style.loadState == StyleLoadState.Ready && session.loadedStyleIdentity != identity
@@ -148,7 +148,7 @@ class MlnFfiStyleSwitchTest {
     runOnUiThread {
       style = SLOT_STYLES[1]
       sourceLayer = "roads"
-      state.style.baseStyle = style
+      state.style.asMutable!!.baseStyle = style
     }
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
       state.style.loadState == StyleLoadState.Ready
@@ -204,7 +204,7 @@ class MlnFfiStyleSwitchTest {
     val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
 
     runOnUiThread {
-      state.style.baseStyle = BaseStyle.Uri(B_STYLE_URL)
+      state.style.asMutable!!.baseStyle = BaseStyle.Uri(B_STYLE_URL)
     }
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
       styleBStarted.count == 0L
@@ -212,7 +212,7 @@ class MlnFfiStyleSwitchTest {
 
     runOnUiThread {
       showLatestLayer = true
-      state.style.baseStyle = BaseStyle.Uri(C_STYLE_URL)
+      state.style.asMutable!!.baseStyle = BaseStyle.Uri(C_STYLE_URL)
     }
 
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {

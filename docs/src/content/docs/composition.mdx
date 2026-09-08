@@ -16,7 +16,7 @@ viewport, projection, and feature-query operations while the map is attached.
 
 ## The style is base plus content
 
-A MapLibre style is a document with sources and layers. The `initialBaseStyle`
+A MapLibre style is a document with sources and layers. The `baseStyle`
 parameter loads that document without modification. The trailing
 <Api of="rememberMapState" /> block declares your sources, layers, and their
 positions in the layer stack.
@@ -25,13 +25,15 @@ positions in the layer stack.
 
 The library manages the sources and layers in the style block. It
 does not modify the rest of the base style. To change a base style layer, use
-its <Api of="LayerHandle" /> from `mapState.style.layers`.
+the `asMutable` view of its <Api of="LayerHandle" /> from `mapState.style.layers`.
 
-`initialBaseStyle` seeds the map once. Changing that input does not reload the
-remembered map; assign `mapState.style.baseStyle` to switch styles.
+Changing `baseStyle` reloads the remembered map's style while keeping the same
+map state. Maps and snapshotters created through `MapRuntime` instead accept an
+`initialBaseStyle`; their `style.asMutable` view permits later base-style commands.
 
 Composition owns the definitions and lifetimes of declared sources, layers, and
-images. Handles reject definition writes and removal commands for those resources.
+images. Their handles expose reads and runtime operations; `asMutable` is null.
+For other resources, `asMutable` provides definition writes and `remove()`.
 Use `mapState.style.sources[source]` to obtain a declared source's typed handle for
 feature state, cluster queries, and invalidation. These runtime operations do not
 change its declared definition. Handles belong to one loaded style generation;
@@ -56,7 +58,7 @@ current state, and let the runtime reconcile it.
 
 ## Style switches re-apply your content
 
-When you assign `mapState.style.baseStyle`, the map loads the new style and evaluates
+When you change `baseStyle`, the map loads the new style and evaluates
 the style block against it. Each evaluation declares your
 sources and layers against the new style. They persist across the switch
 without extra code. An `Anchor` is resolved against the new style's layers.

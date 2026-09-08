@@ -130,10 +130,10 @@ public sealed interface GeoJsonData {
  * @param lineMetrics Whether to calculate line distance metrics. This is required for
  *   [LineLayer][org.maplibre.compose.layers.LineLayer]s that specify a `gradient`.
  * @param synchronousUpdate Whether native engines serialize, parse, index, and install inline data
- *   on the map's owner thread before source creation or [GeoJsonSourceHandle.setData] returns.
- *   Requested tiles are also generated during the update pass. This blocks the caller and can
- *   reduce frame rate; it does not wait for rendering. URL loading remains asynchronous. Android,
- *   iOS, and desktop honor this option. The browser ignores it.
+ *   on the map's owner thread before source creation or [MutableGeoJsonSourceHandle.setData]
+ *   returns. Requested tiles are also generated during the update pass. This blocks the caller and
+ *   can reduce frame rate; it does not wait for rendering. URL loading remains asynchronous.
+ *   Android, iOS, and desktop honor this option. The browser ignores it.
  */
 @Immutable
 public data class GeoJsonOptions(
