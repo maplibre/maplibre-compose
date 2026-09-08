@@ -13,7 +13,7 @@ import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.div
 import org.maplibre.compose.expressions.dsl.nil
-import org.maplibre.compose.expressions.dsl.offset
+import org.maplibre.compose.expressions.dsl.textOffset
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.DpOffsetValue
@@ -289,9 +289,9 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *   Ignored if [textField] is not specified.
  *
  *   **Important:** If using zoom interpolation for text size, then all other properties defined in
- *   text units (like [textLetterSpacing], [textOffset], etc) MUST be defined in EM units, not SP
- *   units. This is a limitation of the MapLibre expression parser. If text size does not use zoom
- *   interpolation, then those other properties can be defined in either unit.
+ *   text units (like [textLetterSpacing], [textOffset], etc) MUST be defined in EM units, not SP or
+ *   DP units. This is a limitation of the MapLibre expression parser. If text size does not use
+ *   zoom interpolation, then those other properties can use their supported units.
  *
  * @param textTransform Specifies how to capitalize text. The expression may use feature properties.
  * @param textLetterSpacing Text tracking amount. The expression may use feature properties.
@@ -358,6 +358,10 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *   and down, while negative values indicate left and up. If used with [textVariableAnchor], input
  *   values will be taken as absolute values. Offsets along the x- and y-axis will be applied
  *   automatically based on the anchor position. The expression may use feature properties.
+ *
+ *   Use [org.maplibre.compose.expressions.dsl.textOffset] with DP arguments for a fixed distance,
+ *   or SP/EM arguments for a distance that scales with text. See [textSize] for the zoom
+ *   restriction.
  *
  *   Overridden by [textRadialOffset].
  *
@@ -546,7 +550,7 @@ public fun SymbolLayer(
 
   // text anchoring
   textAnchor: Expression<SymbolAnchor> = const(SymbolAnchor.Center),
-  textOffset: Expression<TextUnitOffsetValue> = offset(0f.em, 0f.em),
+  textOffset: Expression<TextUnitOffsetValue> = textOffset(0f.em, 0f.em),
   textVariableAnchor: Expression<ListValue<SymbolAnchor>> = nil(),
   textRadialOffset: Expression<TextUnitValue> = const(0f.em),
   textVariableAnchorOffset: Expression<TextVariableAnchorOffsetValue> = nil(),

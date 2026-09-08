@@ -6,6 +6,8 @@ import androidx.compose.ui.unit.isSpecified
 import org.maplibre.compose.expressions.dsl.interpolate
 import org.maplibre.compose.expressions.dsl.linear
 import org.maplibre.compose.expressions.dsl.offset
+import org.maplibre.compose.expressions.value.FloatOffsetValue
+import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.TextUnitOffsetValue
 
 /**
@@ -22,18 +24,7 @@ public data class TextUnitOffsetCalculation private constructor(val x: TextUnit,
         else -> error("Unrecognized TextUnitType: ${x.type}")
       }
 
-    // Interpolation clamps above this scale.
-    val maxScale = 1000f
-
-    return interpolate(
-        type = linear(),
-        input = scale,
-        0f to offset(0f, 0f),
-        1f to offset(x.value, y.value),
-        maxScale to offset(x.value * maxScale, y.value * maxScale),
-      )
-      .compile(context)
-      .cast()
+    return scaledTextOffset(x.value, y.value, scale).compile(context).cast()
   }
 
   override fun visit(block: (Expression<*>) -> Unit): Unit = block(this)
@@ -45,4 +36,21 @@ public data class TextUnitOffsetCalculation private constructor(val x: TextUnit,
       return TextUnitOffsetCalculation(x, y)
     }
   }
+}
+
+internal fun scaledTextOffset(
+  x: Float,
+  y: Float,
+  scale: Expression<FloatValue>,
+): Expression<FloatOffsetValue> {
+  // Interpolation scales both components because style expressions cannot multiply vectors.
+  // Keep the same upper bound as the SP/EM offset conversion.
+  val maxScale = 1000f
+  return interpolate(
+    type = linear(),
+    input = scale,
+    0f to offset(0f, 0f),
+    1f to offset(x, y),
+    maxScale to offset(x * maxScale, y * maxScale),
+  )
 }

@@ -72,7 +72,7 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.convertToColor
 import org.maplibre.compose.expressions.dsl.eq
 import org.maplibre.compose.expressions.dsl.feature
-import org.maplibre.compose.expressions.dsl.offset
+import org.maplibre.compose.expressions.dsl.textOffset
 import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.CircleLayer
@@ -414,7 +414,7 @@ object TransitNetworkDemo : Demo {
       textHaloColor = const(Color.White),
       textHaloWidth = const(1.dp),
       textAnchor = const(SymbolAnchor.Top),
-      textOffset = offset(0.em, 0.4.em),
+      textOffset = textOffset(0.em, 0.4.em),
     )
   }
 

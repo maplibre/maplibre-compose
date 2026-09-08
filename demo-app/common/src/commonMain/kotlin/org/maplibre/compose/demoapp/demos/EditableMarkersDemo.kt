@@ -72,6 +72,7 @@ import org.maplibre.compose.demoapp.generated.delete_24px
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.expressions.dsl.offset
+import org.maplibre.compose.expressions.dsl.textOffset
 import org.maplibre.compose.expressions.value.IconPitchAlignment
 import org.maplibre.compose.expressions.value.IconRotationAlignment
 import org.maplibre.compose.expressions.value.SymbolAnchor
@@ -359,8 +360,7 @@ object EditableMarkersDemo : Demo {
           textFont = const(style.textFont),
           textSize = const(14.sp),
           textAnchor = const(SymbolAnchor.Top),
-          // Convert a fixed gap to sp so the offset does not grow with accessibility text size.
-          textOffset = with(LocalDensity.current) { offset(0.sp, 12.dp.toSp()) },
+          textOffset = textOffset(0.dp, 12.dp),
           textColor = const(theme.onSurface),
           textHaloColor = const(theme.surface),
           textHaloWidth = const(2.dp),

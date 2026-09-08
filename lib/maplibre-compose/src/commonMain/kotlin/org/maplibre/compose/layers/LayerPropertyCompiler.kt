@@ -14,6 +14,7 @@ import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.ast.PainterLiteral
 import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.dsl.div
 import org.maplibre.compose.expressions.value.ExpressionValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.style.ImageManager
@@ -58,6 +59,12 @@ internal class LayerPropertyCompiler(
               else -> error("mixing SP and EM units is not supported in most expressions")
             }
         }
+
+      // Use the same linear font scale as SymbolLayer's rendered text size.
+      override val dpScale: Expression<FloatValue>
+        get() =
+          (this@LayerPropertyCompiler.spScale
+            ?: error("DP text offsets require a text-unit compiler")) / const(density.fontScale)
 
       override fun resolveBitmap(bitmap: BitmapLiteral): String {
         return styleNode.imageManager.acquireBitmap(bitmap.key())
