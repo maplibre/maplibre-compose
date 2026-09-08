@@ -109,15 +109,6 @@ kotlin {
       // IANA zone rules for kotlinx-datetime TimeZone.of on Kotlin/JS.
       implementation(npm("@js-joda/timezone", libs.versions.jsJodaTimezone.get()))
     }
-
-    commonTest.dependencies { implementation(kotlin("test")) }
-
-    // commonTest is on the device test classpath, so the APK must include the
-    // runner android-library-conventions names in the instrumentation manifest.
-    androidDeviceTest.dependencies {
-      implementation(libs.jetbrains.compose.ui.testJunit4)
-      implementation(libs.androidx.composeUi.testManifest)
-    }
   }
 }
 
@@ -126,5 +117,3 @@ compose.resources { packageOfResClass = "org.maplibre.compose.demoapp.generated"
 if (providers.gradleProperty("composeCompilerReports").orNull == "true") {
   composeCompiler { reportsDestination = layout.buildDirectory.dir("compose/reports") }
 }
-
-stageIosSimulatorTestResources()

@@ -34,23 +34,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.PointerIcon
-import androidx.compose.ui.input.pointer.PointerId
-import androidx.compose.ui.input.pointer.PointerType
-import androidx.compose.ui.input.pointer.isPrimaryPressed
-import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
@@ -118,11 +108,9 @@ object EditableMarkersDemo : Demo {
   private var overTrash by mutableStateOf(false)
   private var trashNeedsExit by mutableStateOf(false)
 
-  // Pointer events are map-local; Compose overlay bounds are in root coordinates.
+  // The editor uses map dimensions; drag targets use root coordinates.
   private var trashBounds: Rect? = null
   private var mapSize by mutableStateOf(IntSize.Zero)
-  private var mapOrigin = Offset.Zero
-  private val editorBounds = mutableMapOf<Int, Rect>()
 
   private fun select(marker: EditableMarker) {
     if (marker.removing) return
@@ -145,145 +133,72 @@ object EditableMarkersDemo : Demo {
     dragTilt = 0f
   }
 
-  override fun interactions(mapState: MapState) = MapInteractions {
-    callbacks {
-      click {
-        onUnhandled { event ->
-          // Dismiss first. Creating a new pin takes a separate tap on the empty map.
-          if (editingId != null) editingId = null
-          else if (draggingId == null) {
-            event.position?.let { position ->
-              val marker = EditableMarker(nextId++, position, "New place")
-              markers.add(marker)
-              editingId = marker.id
+  override fun interactions(mapState: MapState) =
+    MapInteractions(
+      if (pressedId != null || draggingId != null) MapInteractions.None
+      else MapInteractions.Standard
+    ) {
+      callbacks {
+        click {
+          onUnhandled { event ->
+            // Dismiss first. Creating a new pin takes a separate tap on the empty map.
+            if (editingId != null) editingId = null
+            else if (draggingId == null) {
+              event.position?.let { position ->
+                val marker = EditableMarker(nextId++, position, "New place")
+                markers.add(marker)
+                editingId = marker.id
+              }
             }
+            ClickResult.Consume
           }
-          ClickResult.Consume
         }
       }
     }
+
+  @Composable
+  override fun mapModifier(mapState: MapState): Modifier = Modifier.onGloballyPositioned {
+    mapSize = it.size
   }
 
   @Composable
-  override fun mapModifier(mapState: MapState): Modifier =
-    Modifier.onGloballyPositioned {
-        mapOrigin = it.positionInRoot()
-        mapSize = it.size
-      }
-      .pointerHoverIcon(
-        if (hoveredId != null || draggingId != null) PointerIcon.Hand else PointerIcon.Default
-      )
-      .pointerInput(mapState) {
-        fun hit(position: Offset): EditableMarker? {
-          if (editorBounds.values.any { it.contains(position + mapOrigin) }) return null
-          val point = DpOffset(position.x.toDp(), position.y.toDp())
-          return markers
-            .filterNot { it.removing }
-            .mapNotNull { marker ->
-              val anchor =
-                mapState.screenLocationFromPosition(marker.position) ?: return@mapNotNull null
-              markerHitDistance(point, anchor)?.let { marker to it }
-            }
-            .minByOrNull { it.second }
-            ?.first
-        }
-        try {
-          awaitPointerEventScope {
-            var captured: EditableMarker? = null
-            var pointer: PointerId? = null
-            var trashTarget: MarkerTrashTarget? = null
-            var down = Offset.Zero
-            var anchor = DpOffset.Zero
-            var swallowing = false
-            while (true) {
-              // Reserve pin presses before the map's camera recognizer sees them.
-              val event = awaitPointerEvent(PointerEventPass.Initial)
-              val change = event.changes.firstOrNull() ?: continue
-              if (event.type == PointerEventType.Exit) hoveredId = null
-              else if (change.type == PointerType.Mouse && !change.pressed) {
-                hoveredId = hit(change.position)?.id
-              }
-
-              // After a second finger interrupts a pin drag, consume the rest of that gesture.
-              if (swallowing) {
-                event.changes.forEach { it.consume() }
-                if (event.changes.none { it.pressed }) swallowing = false
-                continue
-              }
-
-              // Capture only presses on a pin. All other input reaches the map camera.
-              if (
-                captured == null &&
-                  event.type == PointerEventType.Press &&
-                  event.changes.count { it.pressed } == 1 &&
-                  !change.isConsumed &&
-                  (change.type != PointerType.Mouse || event.buttons.isPrimaryPressed)
-              ) {
-                val marker = hit(change.position)
-                val screen = marker?.let { mapState.screenLocationFromPosition(it.position) }
-                if (marker != null && screen != null) {
-                  captured = marker
-                  pointer = change.id
-                  down = change.position
-                  trashTarget = MarkerTrashTarget(down + mapOrigin)
-                  anchor = screen
-                  pressedId = marker.id
-                  change.consume()
-                }
-              }
-
-              val marker = captured ?: continue
-              val tracked = event.changes.firstOrNull { it.id == pointer }
-              if (tracked == null || event.changes.count { it.pressed } > 1 || marker.removing) {
-                captured = null
-                endGesture()
-                swallowing = event.changes.any { it.pressed }
-                event.changes.forEach { it.consume() }
-                continue
-              }
-
-              // Keep a press as a tap until it crosses the platform touch slop.
-              tracked.consume()
-              val distance = tracked.position - down
-              if (
-                tracked.pressed &&
-                  draggingId == null &&
-                  distance.getDistance() > viewConfiguration.touchSlop
-              ) {
-                editingId = null
-                draggingId = marker.id
-                pressedId = null
-              }
-
-              // Preserve the grab offset so the pin does not jump to the finger.
-              if (draggingId == marker.id) {
-                overTrash = trashTarget?.update(tracked.position + mapOrigin, trashBounds) == true
-                trashNeedsExit = trashTarget?.needsExit == true
-                mapState
-                  .positionFromScreenLocation(
-                    anchor + DpOffset(distance.x.toDp(), distance.y.toDp())
-                  )
-                  ?.let { marker.position = it }
-                dragTilt =
-                  ((tracked.position.x - tracked.previousPosition.x) * 0.7f).coerceIn(-18f, 18f)
-              }
-
-              // Release either finishes a move/delete or opens the editor for a tap.
-              if (!tracked.pressed) {
-                if (draggingId == marker.id) {
-                  if (overTrash) remove(marker) else marker.bounce++
-                } else select(marker)
-                captured = null
-                pointer = null
-                endGesture()
-              }
-            }
+  private fun MapOverlayScope.MarkerTargets() {
+    val activeId = pressedId ?: draggingId
+    for (marker in markers) key(marker.id) {
+      var anchor by remember { mutableStateOf<DpOffset?>(null) }
+      var trashTarget by remember { mutableStateOf<MarkerTrashTarget?>(null) }
+      MarkerInputTarget(
+        modifier = Modifier.placedAt(marker.position, Alignment.BottomCenter),
+        enabled = !marker.removing && (activeId == null || activeId == marker.id),
+        onHover = { hovered ->
+          if (hovered) hoveredId = marker.id else if (hoveredId == marker.id) hoveredId = null
+        },
+        onPress = { rootPosition ->
+          anchor = mapState.screenLocationFromPosition(marker.position)
+          trashTarget = MarkerTrashTarget(rootPosition)
+          pressedId = marker.id
+        },
+        onDragStart = {
+          editingId = null
+          draggingId = marker.id
+          pressedId = null
+        },
+        onDrag = { rootPosition, distance, delta ->
+          overTrash = trashTarget?.update(rootPosition, trashBounds) == true
+          trashNeedsExit = trashTarget?.needsExit == true
+          anchor?.let { start ->
+            mapState.positionFromScreenLocation(start + distance)?.let { marker.position = it }
           }
-        } finally {
-          hoveredId = null
-          endGesture()
-        }
-      }
+          dragTilt = (delta.x * 0.7f).coerceIn(-18f, 18f)
+        },
+        onTap = { select(marker) },
+        onDragEnd = { if (overTrash) remove(marker) else marker.bounce++ },
+        onFinish = {
+          if (pressedId == marker.id || draggingId == marker.id) endGesture()
+        },
+      )
+    }
+  }
 
   @Composable
   override fun MapContent(style: DemoStyle) {
@@ -381,6 +296,7 @@ object EditableMarkersDemo : Demo {
 
   @Composable
   override fun MapOverlayScope.Overlay(state: DemoAppState) {
+    MarkerTargets()
     AnimatedVisibility(
       visible = draggingId != null,
       modifier = Modifier.align(Alignment.TopCenter).padding(top = 16.dp),
@@ -481,11 +397,9 @@ object EditableMarkersDemo : Demo {
               animationSpec = tween(120),
             ),
       ) {
-        DisposableEffect(marker.id) { onDispose { editorBounds.remove(marker.id) } }
         val surface = MaterialTheme.colorScheme.surfaceContainerLowest
         Column(
           Modifier.width(editorWidth.dp).absoluteOffset(x = shift.dp).onGloballyPositioned {
-            editorBounds[marker.id] = it.boundsInRoot()
             editorHeight = with(density) { it.size.height.toDp().value }
           },
           horizontalAlignment = Alignment.CenterHorizontally,
@@ -521,14 +435,6 @@ object EditableMarkersDemo : Demo {
       onRemove = ::remove,
     )
   }
-}
-
-// The tip is the geographic anchor. Hit the pin body, with padding for small touch targets.
-internal fun markerHitDistance(point: DpOffset, anchor: DpOffset): Float? {
-  val padding = 10f
-  val x = (point.x - anchor.x).value / (20f + padding)
-  val y = ((point.y - anchor.y).value + 24f) / (24f + padding)
-  return (x * x + y * y).takeIf { it <= 1f }
 }
 
 @Composable

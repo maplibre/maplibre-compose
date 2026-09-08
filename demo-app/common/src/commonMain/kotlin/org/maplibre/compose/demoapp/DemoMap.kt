@@ -357,7 +357,6 @@ fun DemoMap(
       uiOptions = selectedDemo?.uiOptions(state.settings.uiOptions) ?: state.settings.uiOptions,
       contentWindowInsets = viewportInsets.asWindowInsets(),
     ) {
-      include(overlay)
       selectedDemo?.let { demo ->
         key(demo) {
           with(demo) { Overlay(state) }
@@ -374,6 +373,7 @@ fun DemoMap(
           }
         }
       }
+      include(overlay)
     }
 
     if (state.settings.showPointerPinDiagnostics && pointerPin != null) {
