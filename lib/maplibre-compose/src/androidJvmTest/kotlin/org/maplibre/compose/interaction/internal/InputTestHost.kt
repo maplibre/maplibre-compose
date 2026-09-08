@@ -28,7 +28,6 @@ import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.dp
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.map.GestureTestFixture
 import org.maplibre.compose.map.RecordingGestureTarget
 import org.maplibre.compose.mlnffi.runPlainComposeUiTest
@@ -43,16 +42,17 @@ internal expect fun assumeTrackpadEventInjectionSupported()
 const val TIMEOUT = 5_000L
 const val FRAME_MILLIS = 16L
 const val SECOND_TAP_GAP_MILLIS = 80L
-val SCROLL_HOLD_MILLIS = MapInteractions.Standard.bindings.scroll.idleDuration.inWholeMilliseconds
+val SCROLL_HOLD_MILLIS =
+  InputConfiguration.Standard.bindings.scroll.idleDuration.inWholeMilliseconds
 
 /**
  * Places the map between two focusables and records every key press or release that reaches the
  * parent, which is every one the map does not consume.
  */
 internal fun GestureTestFixture.runFocusTest(
-  options: MapInteractions = MapInteractions.Standard,
+  options: InputConfiguration = InputConfiguration.Standard,
   rotaryNotchPixels: Float = 0f,
-  optionsProvider: () -> MapInteractions = { options },
+  optionsProvider: () -> InputConfiguration = { options },
   body: ComposeUiTest.(RecordingGestureTarget, List<Key>) -> Unit,
 ) = runPlainComposeUiTest {
   val target = this@runFocusTest.target
@@ -76,11 +76,11 @@ internal fun GestureTestFixture.runFocusTest(
 }
 
 internal fun GestureTestFixture.runRecognitionTest(
-  options: MapInteractions = MapInteractions.Standard,
+  options: InputConfiguration = InputConfiguration.Standard,
   parentOnClick: (() -> Unit)? = null,
   parentOnLongClick: (() -> Unit)? = null,
   parentModifier: Modifier = Modifier,
-  optionsProvider: () -> MapInteractions = { options },
+  optionsProvider: () -> InputConfiguration = { options },
   body: ComposeUiTest.(RecordingGestureTarget) -> Unit,
 ) = runPlainComposeUiTest {
   val target = this@runRecognitionTest.target
@@ -115,7 +115,7 @@ internal fun ComposeUiTest.mapNode(): SemanticsNodeInteraction =
 @Composable
 internal fun GestureHost(
   target: RecordingGestureTarget,
-  options: MapInteractions,
+  options: InputConfiguration,
   rotaryNotchPixels: Float = 0f,
 ) {
   SideEffect { target.updateConfiguration(options) }

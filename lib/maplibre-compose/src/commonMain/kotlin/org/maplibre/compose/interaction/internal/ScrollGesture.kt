@@ -10,13 +10,12 @@ import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.inputPanBy
 import org.maplibre.compose.camera.internal.inputScaleBy
-import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.ScrollResponse
 
 /** Scroll shares the pointer arena so it sees consumption before claiming an event. */
 internal class ScrollGesture(
   private val target: CameraInputTarget,
-  private val options: MapInteractions,
+  private val options: InputConfiguration,
   private val density: Density,
   private val viewportSize: () -> IntSize,
   private val scrollConverter: ScrollConverter,

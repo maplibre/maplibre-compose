@@ -1530,10 +1530,10 @@ internal class MlnFfiMapSession(
     cameraProjection = value.cameraProjection
     configureMap { map ->
       map.debugOptions = buildSet {
-        if (value.isTileBordersEnabled) add(DebugOption.TILE_BORDERS)
-        if (value.isTileTimestampsEnabled) add(DebugOption.TIMESTAMPS)
-        if (value.isCollisionBoxesEnabled) add(DebugOption.COLLISION)
-        if (value.isTileParseStatusEnabled) add(DebugOption.PARSE_STATUS)
+        if (value.debug.tileBorders) add(DebugOption.TILE_BORDERS)
+        if (value.debug.tileTimestamps) add(DebugOption.TIMESTAMPS)
+        if (value.debug.collisionBoxes) add(DebugOption.COLLISION)
+        if (value.debug.tileParseStatus) add(DebugOption.PARSE_STATUS)
       }
       if (cameraProjectionChanged) {
         map.projectionMode = value.cameraProjection.toFfi()

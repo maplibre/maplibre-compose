@@ -32,7 +32,6 @@ import org.maplibre.compose.camera.internal.CameraInputToken
 import org.maplibre.compose.interaction.DragResponse
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.KeyResponse
-import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.ModifierMatch
 import org.maplibre.compose.map.GestureTestFixture
 
@@ -68,7 +67,7 @@ class KeyAndRotaryInputTest {
   fun none_leaves_clicks_and_focus_to_the_parent() {
     var parentClicks = 0
     fixture.runRecognitionTest(
-      options = MapInteractions.None,
+      options = InputConfiguration.NoBindings,
       parentOnClick = { parentClicks++ },
     ) { target ->
       mapNode().performMouseInput { click(center) }
@@ -84,7 +83,7 @@ class KeyAndRotaryInputTest {
   fun a_drag_enabled_mid_press_engages_keyboard_controls() =
     fixture.runRecognitionTest(
       options =
-        MapInteractions(from = MapInteractions.None) {
+        InputConfiguration(from = InputConfiguration.NoBindings) {
           bindings {
             drag {
               enabled = true
@@ -209,7 +208,7 @@ class KeyAndRotaryInputTest {
   fun a_map_with_every_keyboard_gesture_disabled_takes_no_tab_stop() =
     fixture.runFocusTest(
       options =
-        MapInteractions {
+        InputConfiguration {
           bindings {
             keys {
               mappings {}
@@ -226,7 +225,7 @@ class KeyAndRotaryInputTest {
   fun a_rotary_only_map_takes_a_tab_stop() =
     fixture.runFocusTest(
       options =
-        MapInteractions {
+        InputConfiguration {
           bindings {
             keys {
               mappings {}
@@ -251,7 +250,7 @@ class KeyAndRotaryInputTest {
 
   @Test
   fun disabling_all_bindings_while_a_key_is_held_still_consumes_its_release() {
-    var options by mutableStateOf(MapInteractions.Standard)
+    var options by mutableStateOf(InputConfiguration.Standard)
     fixture.runFocusTest(optionsProvider = { options }) { target, unconsumed ->
       val map = mapNode()
       map.requestFocus()
@@ -260,7 +259,7 @@ class KeyAndRotaryInputTest {
         keyDown(Key.DirectionRight)
       }
       waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.size == 1 }
-      runOnIdle { options = MapInteractions.None }
+      runOnIdle { options = InputConfiguration.NoBindings }
       waitForIdle()
       map.assertIsFocused()
       map.assert(expectValue(SemanticsProperties.StateDescription, "not engaged"))
@@ -295,7 +294,9 @@ class KeyAndRotaryInputTest {
   fun an_invalid_rotary_notch_does_not_create_a_focus_stop() =
     fixture.runFocusTest(
       options =
-        MapInteractions(from = MapInteractions.None) { bindings { rotary { enabled = true } } },
+        InputConfiguration(from = InputConfiguration.NoBindings) {
+          bindings { rotary { enabled = true } }
+        },
       rotaryNotchPixels = Float.POSITIVE_INFINITY,
     ) { _, _ ->
       onNodeWithTag(BEFORE_MAP_TAG).requestFocus()
@@ -335,7 +336,7 @@ class KeyAndRotaryInputTest {
     assumeRotaryInjectionSupported()
     fixture.runFocusTest(
       options =
-        MapInteractions(from = MapInteractions.None) {
+        InputConfiguration(from = InputConfiguration.NoBindings) {
           bindings {
             rotary {
               enabled = true
@@ -446,7 +447,7 @@ class KeyAndRotaryInputTest {
 
   @Test
   fun replacing_a_held_chord_does_not_reinterpret_its_release() {
-    var options by mutableStateOf(MapInteractions.Standard)
+    var options by mutableStateOf(InputConfiguration.Standard)
     fixture.runFocusTest(optionsProvider = { options }) { target, unconsumed ->
       val map = mapNode()
       map.requestFocus()
@@ -456,7 +457,7 @@ class KeyAndRotaryInputTest {
       }
       waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.size == 1 }
       runOnIdle {
-        options = MapInteractions {
+        options = InputConfiguration {
           bindings { keys { mappings { on(Key.DirectionRight, response = KeyResponse.ZoomIn) } } }
         }
       }

@@ -34,6 +34,7 @@ import org.maplibre.compose.interaction.internal.CameraConfiguration
 import org.maplibre.compose.interaction.internal.ClickPath
 import org.maplibre.compose.interaction.internal.GestureInputSession
 import org.maplibre.compose.interaction.internal.GesturePointerSample
+import org.maplibre.compose.interaction.internal.InputConfiguration
 import org.maplibre.compose.interaction.internal.TapDispatcher
 import org.maplibre.compose.interaction.internal.TapFamily
 import org.maplibre.compose.interaction.internal.launchTapTransition
@@ -91,7 +92,7 @@ class CameraInputTest {
           clicks,
           { false },
         ) {
-          MapInteractions.Standard
+          InputConfiguration.Standard
         }
       fun dispatch(id: Long, generation: Long) {
         dispatcher.dispatch(

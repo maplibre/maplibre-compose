@@ -7,13 +7,12 @@ import kotlinx.coroutines.CoroutineScope
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.inputPanBy
 import org.maplibre.compose.camera.internal.inputScaleBy
-import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.internal.PlatformTransformRouting.Kind
 
 /** Host-recognized components share one camera session and append no library momentum. */
 internal class PlatformTransformSession(
   private val target: CameraInputTarget,
-  private val options: MapInteractions,
+  private val options: InputConfiguration,
   private val scope: CoroutineScope,
   private val routing: PlatformTransformRouting,
   private val onAccepted: () -> Unit,

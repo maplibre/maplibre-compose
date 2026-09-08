@@ -7,7 +7,6 @@ import androidx.compose.ui.Modifier
 import org.maplibre.compose.interaction.internal.ClickPath
 import org.maplibre.compose.interaction.internal.TapFamily
 import org.maplibre.compose.logging.MapLog
-import org.maplibre.compose.mlnffi.AndroidMapSurfaceKind
 import org.maplibre.compose.mlnffi.AndroidMlnFfiSurface
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.style.BaseStyle
@@ -30,12 +29,8 @@ internal actual fun ComposableMapView(
   val runtimeBackends = remember { loadRuntimeBackends(logger) }
   val renderBackend =
     remember(runtimeBackends) { runtimeBackends.firstOrNull() ?: MapRenderBackend.OPENGL }
-  val surfaceKind =
-    when (options.renderOptions.preferredRenderMode) {
-      RenderOptions.RenderMode.Texture -> AndroidMapSurfaceKind.Texture
-      RenderOptions.RenderMode.Surface -> AndroidMapSurfaceKind.Surface
-    }
-  key(surfaceKind, renderBackend) {
+  val renderMode = options.uiOptions.renderMode
+  key(renderMode, renderBackend) {
     MlnFfiMapView(
       renderBackend = renderBackend,
       surface = { renderer, surfaceModifier, surfaceLogger, presentFrames ->
@@ -43,7 +38,7 @@ internal actual fun ComposableMapView(
           renderer = renderer,
           runtimeBackends = runtimeBackends,
           backend = renderBackend,
-          kind = surfaceKind,
+          renderMode = renderMode,
           maximumFps = options.renderOptions.maximumFps,
           modifier = surfaceModifier,
           logger = surfaceLogger,

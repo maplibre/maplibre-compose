@@ -6,6 +6,10 @@ import org.maplibre.compose.demoapp.design.SectionHeader
 import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.demoapp.design.SwitchRow
 import org.maplibre.compose.map.CameraProjection
+import org.maplibre.compose.map.RenderOptions
+import org.maplibre.compose.map.cameraProjection
+import org.maplibre.compose.map.tileParseStatus
+import org.maplibre.compose.map.tileTimestamps
 
 @Composable
 actual fun RenderSettingsItems(settings: DemoSettings) {
@@ -17,28 +21,30 @@ actual fun RenderSettingsItems(settings: DemoSettings) {
     optionLabel = { if (it) "Axonometric" else "Perspective" },
     onSelect = { axonometric ->
       settings.renderOptions =
-        options.copy(
+        RenderOptions(options) {
           cameraProjection =
             if (axonometric) CameraProjection.Axonometric() else CameraProjection.Perspective
-        )
+        }
     },
   )
 
   SectionHeader("Renderer")
   RenderModeItem(settings)
-  FpsCapRow(options.maximumFps) { settings.renderOptions = options.copy(maximumFps = it) }
+  FpsCapRow(options.maximumFps) { fps ->
+    settings.renderOptions = RenderOptions(options) { maximumFps = fps }
+  }
 
   SectionHeader("Debug views")
-  SwitchRow("Tile borders", options.isTileBordersEnabled) {
-    settings.renderOptions = options.copy(isTileBordersEnabled = it)
+  SwitchRow("Tile borders", options.debug.tileBorders) { on ->
+    settings.renderOptions = RenderOptions(options) { debug { tileBorders = on } }
   }
-  SwitchRow("Tile timestamps", options.isTileTimestampsEnabled) {
-    settings.renderOptions = options.copy(isTileTimestampsEnabled = it)
+  SwitchRow("Tile timestamps", options.debug.tileTimestamps) { on ->
+    settings.renderOptions = RenderOptions(options) { debug { tileTimestamps = on } }
   }
-  SwitchRow("Tile parse status", options.isTileParseStatusEnabled) {
-    settings.renderOptions = options.copy(isTileParseStatusEnabled = it)
+  SwitchRow("Tile parse status", options.debug.tileParseStatus) { on ->
+    settings.renderOptions = RenderOptions(options) { debug { tileParseStatus = on } }
   }
-  SwitchRow("Collision boxes", options.isCollisionBoxesEnabled) {
-    settings.renderOptions = options.copy(isCollisionBoxesEnabled = it)
+  SwitchRow("Collision boxes", options.debug.collisionBoxes) { on ->
+    settings.renderOptions = RenderOptions(options) { debug { collisionBoxes = on } }
   }
 }

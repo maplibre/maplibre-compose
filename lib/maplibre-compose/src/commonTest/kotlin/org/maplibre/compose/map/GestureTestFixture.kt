@@ -10,6 +10,7 @@ import org.maplibre.compose.interaction.BearingSnapping
 import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.internal.ClickPath
+import org.maplibre.compose.interaction.internal.InputConfiguration
 import org.maplibre.compose.interaction.internal.TapFamily
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.Position
@@ -54,6 +55,8 @@ internal class RecordingGestureTarget(
   fun updateConfiguration(options: MapInteractions) {
     state.gestureAuthority.updateConfiguration(options.camera)
   }
+
+  fun updateConfiguration(options: InputConfiguration) = updateConfiguration(options.interactions)
 
   override val isGestureReady: Boolean
     get() = !state.isClosed && currentViewport != null

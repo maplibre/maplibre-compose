@@ -10,6 +10,7 @@ import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.ModifierMatch.Containing
 import org.maplibre.compose.interaction.ScrollResponse
+import org.maplibre.compose.map.MapUiOptions
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.spatialk.geojson.Position
 
@@ -62,8 +63,8 @@ fun Interaction() {
 
   // #region scroll-mappings
   MaplibreMap(
-    interactions =
-      MapInteractions {
+    uiOptions =
+      MapUiOptions {
         bindings {
           scroll {
             mappings {

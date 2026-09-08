@@ -9,7 +9,6 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import org.maplibre.compose.interaction.ClickEvent
 import org.maplibre.compose.interaction.ClickResult
-import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.PointerButton
 
 internal enum class TapFamily {
@@ -19,7 +18,7 @@ internal enum class TapFamily {
   LongPress,
   TwoFingerTap;
 
-  fun binding(options: MapInteractions): TapBinding =
+  fun binding(options: InputConfiguration): TapBinding =
     with(options.bindings) {
       when (this@TapFamily) {
         Tap -> tap
@@ -30,7 +29,7 @@ internal enum class TapFamily {
       }
     }
 
-  fun matches(options: MapInteractions, sample: GesturePointerSample): Boolean {
+  fun matches(options: InputConfiguration, sample: GesturePointerSample): Boolean {
     val binding = binding(options)
     if (!binding.enabled) return false
     val physical =
@@ -72,7 +71,7 @@ internal class TapDispatcher(
   scope: CoroutineScope,
   private val captureClickPath: (TapFamily) -> ClickPath?,
   private val hasClickHandlers: (TapFamily) -> Boolean,
-  private val currentOptions: () -> MapInteractions,
+  private val currentOptions: () -> InputConfiguration,
 ) {
   private class Dispatch(
     val family: TapFamily,

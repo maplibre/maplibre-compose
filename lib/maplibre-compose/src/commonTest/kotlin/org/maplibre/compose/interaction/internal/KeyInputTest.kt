@@ -14,7 +14,6 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.CameraInputToken
-import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.map.GestureTestFixture
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -28,7 +27,7 @@ class MapKeyInputTest {
     runTest {
       var panStarts = 0
       var zoomStarts = 0
-      val options = MapInteractions {
+      val options = InputConfiguration {
         camera {
           pan { onStart { panStarts++ } }
           zoom { onStart { zoomStarts++ } }
@@ -75,7 +74,7 @@ class MapKeyInputTest {
 
   @Test
   fun release_drains_the_latest_repeat_without_ending_on_an_older_cancelled_step() = runTest {
-    val options = MapInteractions.Standard
+    val options = InputConfiguration.Standard
     val steps = mutableListOf<CompletableDeferred<Unit>>()
     val target =
       object : CameraInputTarget by map.target {
@@ -123,7 +122,7 @@ class MapKeyInputTest {
 
   @Test
   fun structural_change_suppresses_every_held_mapping_until_release() = runTest {
-    var options = MapInteractions.Standard
+    var options = InputConfiguration.Standard
     map.target.updateConfiguration(options)
     val focus =
       InputFocus {}
@@ -141,7 +140,9 @@ class MapKeyInputTest {
       )
     input.configure(options.settings)
     input.onSample(Key.DirectionRight, KeyEventType.KeyDown, emptySet())
-    options = MapInteractions { bindings { keys { panStep = androidx.compose.ui.unit.Dp(50f) } } }
+    options = InputConfiguration {
+      bindings { keys { panStep = androidx.compose.ui.unit.Dp(50f) } }
+    }
     input.configure(options.settings)
     assertTrue(input.onSample(Key.DirectionRight, KeyEventType.KeyDown, emptySet()))
     assertEquals(1, map.target.moveCalls.size)

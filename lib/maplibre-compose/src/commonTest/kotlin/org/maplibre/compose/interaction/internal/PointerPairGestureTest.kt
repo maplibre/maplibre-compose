@@ -21,7 +21,6 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import org.maplibre.compose.interaction.GestureAnchor
 import org.maplibre.compose.interaction.KeyModifier
-import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.ModifierMatch
 import org.maplibre.compose.map.GestureTestFixture
 
@@ -35,7 +34,7 @@ class PointerPairGestureTest {
     var starts = 0
     val input =
       PairInput(
-        MapInteractions {
+        InputConfiguration {
           camera {
             pan { onStart { starts++ } }
             zoom { onStart { starts++ } }
@@ -68,7 +67,7 @@ class PointerPairGestureTest {
   fun equal_time_samples_recognize_slop_without_fabricating_release_velocity() {
     val input =
       PairInput(
-        MapInteractions(MapInteractions.None) {
+        InputConfiguration(InputConfiguration.NoBindings) {
           bindings {
             transform {
               zoom {
@@ -89,7 +88,7 @@ class PointerPairGestureTest {
   fun backwards_time_rebases_motion_without_a_camera_jump() {
     val input =
       PairInput(
-        MapInteractions(MapInteractions.None) {
+        InputConfiguration(InputConfiguration.NoBindings) {
           camera { pan { momentum { enabled = false } } }
           bindings {
             transform {
@@ -113,7 +112,7 @@ class PointerPairGestureTest {
   fun rotation_uses_selected_angle_slop_and_response_gain() {
     val input =
       PairInput(
-        MapInteractions(MapInteractions.None) {
+        InputConfiguration(InputConfiguration.NoBindings) {
           bindings {
             transform {
               rotate {
@@ -134,7 +133,7 @@ class PointerPairGestureTest {
   @Test
   fun pinch_and_rotation_keep_independent_anchors_and_gains() {
     fun options(gain: Double) =
-      MapInteractions(MapInteractions.None) {
+      InputConfiguration(InputConfiguration.NoBindings) {
         bindings {
           transform {
             zoom {
@@ -170,7 +169,7 @@ class PointerPairGestureTest {
       )) {
       val input =
         PairInput(
-          MapInteractions(MapInteractions.None) {
+          InputConfiguration(InputConfiguration.NoBindings) {
             bindings {
               transform {
                 zoom {
@@ -192,7 +191,7 @@ class PointerPairGestureTest {
   @Test
   fun zoom_priority_suppresses_simultaneous_and_previously_started_rotation() {
     fun configuration() =
-      MapInteractions(MapInteractions.None) {
+      InputConfiguration(InputConfiguration.NoBindings) {
         bindings {
           transform {
             zoom { enabled = true }
@@ -223,7 +222,7 @@ class PointerPairGestureTest {
   fun mouse_only_single_drag_leaves_touch_pair_pan_enabled() {
     val input =
       PairInput(
-        MapInteractions {
+        InputConfiguration {
           bindings { drag { pointerTypes = setOf(PointerType.Mouse) } }
         }
       )
@@ -237,7 +236,7 @@ class PointerPairGestureTest {
     for (zoomMomentum in listOf(true, false)) {
       val input =
         PairInput(
-          MapInteractions {
+          InputConfiguration {
             camera {
               zoom {
                 momentum {
@@ -269,7 +268,7 @@ class PointerPairGestureTest {
   @Test
   fun pinch_momentum_does_not_depend_on_which_finger_moves() {
     val options =
-      MapInteractions(MapInteractions.None) {
+      InputConfiguration(InputConfiguration.NoBindings) {
         bindings { transform { zoom { enabled = true } } }
       }
     fun release(movingFirst: Boolean): GestureMath.ScaleVelocity {
@@ -296,7 +295,7 @@ class PointerPairGestureTest {
   @Test
   fun staggered_fingers_can_shove_with_small_sideways_motion() {
     val radius = Offset(80f, 60f)
-    val input = PairInput(MapInteractions.Standard, radius = radius)
+    val input = PairInput(InputConfiguration.Standard, radius = radius)
     input.move(20, -radius + Offset(2f, 12f), radius + Offset(2f, 12f))
     assertTrue(input.target.rotateCalls.isEmpty(), "tilt started below slop")
     input.move(40, -radius + Offset(4f, 24f), radius + Offset(4f, 24f))
@@ -310,7 +309,7 @@ class PointerPairGestureTest {
 
   @Test
   fun shove_wins_when_rotation_first_qualifies_on_the_same_event() {
-    val input = PairInput(MapInteractions.Standard)
+    val input = PairInput(InputConfiguration.Standard)
     val angle = 16.0 * PI / 180.0
     val radius = Offset(80f * cos(angle).toFloat(), 80f * sin(angle).toFloat())
     val center = Offset(0f, 40f)
@@ -323,7 +322,7 @@ class PointerPairGestureTest {
 
   @Test
   fun shove_wins_when_pinch_first_qualifies_on_the_same_event() {
-    val input = PairInput(MapInteractions.Standard)
+    val input = PairInput(InputConfiguration.Standard)
     input.move(20, Offset(-100f, 40f), Offset(100f, 40f))
     assertTrue(input.target.rotateCalls.any { it.pitchDelta != 0.0 }, "pinch won over shove")
     assertTrue(input.target.rotateCalls.all { it.bearingDelta == 0.0 })
@@ -333,7 +332,7 @@ class PointerPairGestureTest {
 
   @Test
   fun vertical_drift_during_rotation_does_not_start_tilt() {
-    val input = PairInput(MapInteractions.Standard)
+    val input = PairInput(InputConfiguration.Standard)
     fun move(at: Long, degrees: Double, vertical: Float) {
       val angle = degrees * PI / 180.0
       val radius = Offset(80f * cos(angle).toFloat(), 80f * sin(angle).toFloat())
@@ -351,7 +350,7 @@ class PointerPairGestureTest {
 
   @Test
   fun vertical_drift_during_pinch_does_not_start_tilt() {
-    val input = PairInput(MapInteractions.Standard)
+    val input = PairInput(InputConfiguration.Standard)
     input.move(20, Offset(-100f, 0f), Offset(100f, 0f))
     assertTrue(input.target.scaleCalls.isNotEmpty())
     val scales = input.target.scaleCalls.size
@@ -363,7 +362,7 @@ class PointerPairGestureTest {
 
   @Test
   fun a_small_sideways_shift_at_the_end_of_a_pinch_does_not_start_rotation() {
-    val input = PairInput(MapInteractions.Standard)
+    val input = PairInput(InputConfiguration.Standard)
     for ((index, span) in listOf(150f, 120f, 90f, 60f).withIndex()) {
       input.move((index + 1) * 16L, Offset(-span, 0f), Offset(span, 0f))
     }
@@ -381,7 +380,7 @@ class PointerPairGestureTest {
   fun newly_recognized_rotation_does_not_inherit_pre_recognition_velocity() {
     val input =
       PairInput(
-        MapInteractions(MapInteractions.None) {
+        InputConfiguration(InputConfiguration.NoBindings) {
           bindings { transform { rotate { enabled = true } } }
         }
       )
@@ -397,7 +396,7 @@ class PointerPairGestureTest {
   @Test
   fun rotation_momentum_does_not_depend_on_position_on_the_screen() {
     val options =
-      MapInteractions(MapInteractions.None) {
+      InputConfiguration(InputConfiguration.NoBindings) {
         bindings { transform { rotate { enabled = true } } }
       }
     fun release(center: Offset): GestureMath.RotationVelocity {
@@ -418,7 +417,7 @@ class PointerPairGestureTest {
   }
 
   private inner class PairInput(
-    initial: MapInteractions,
+    initial: InputConfiguration,
     private val secondType: PointerType = PointerType.Touch,
     center: Offset = Offset.Zero,
     radius: Offset = Offset(80f, 0f),

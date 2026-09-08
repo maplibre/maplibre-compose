@@ -14,6 +14,7 @@ import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.map.mapRuntimeForTest
+import org.maplibre.compose.map.overdrawInspector
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
@@ -58,7 +59,7 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
   }
 
   fun setOverdrawInspector(enabled: Boolean) {
-    session.setRenderSettings(RenderOptions(isOverdrawInspectorEnabled = enabled))
+    session.setRenderSettings(RenderOptions { debug { overdrawInspector = enabled } })
   }
 
   suspend fun drawUntil(target: GlJsRenderTarget, what: String, condition: suspend () -> Boolean) {

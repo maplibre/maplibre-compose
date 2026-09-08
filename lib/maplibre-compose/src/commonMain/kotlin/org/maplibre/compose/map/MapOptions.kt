@@ -12,5 +12,5 @@ internal data class MapViewOptions(
   val cameraConstraints: CameraConstraints = CameraConstraints(),
   val renderOptions: RenderOptions = RenderOptions.Standard,
   val interactions: MapInteractions = MapInteractions.Standard,
-  val tileLodOptions: TileLodOptions = TileLodOptions.Standard,
+  val uiOptions: MapUiOptions = MapUiOptions.Standard,
 )

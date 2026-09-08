@@ -38,13 +38,13 @@ class MlnFfiTileLodTest {
       fixture.loadStyle(BaseStyle.Empty)
 
       fixture.session.setTileLodSettings(
-        TileLodOptions(
-          mode = TileLodMode.Distance,
-          minRadius = 4.0,
-          scale = 2.0,
-          pitchThreshold = 30.0,
-          zoomShift = 1.0,
-        )
+        TileLodOptions {
+          mode = TileLodMode.Distance
+          minRadius = 4.0
+          scale = 2.0
+          pitchThreshold = 30.0
+          zoomShift = 1.0
+        }
       )
       val appliedDistance = assertNotNull(fixture.session.readMap { it.tileOptions })
 

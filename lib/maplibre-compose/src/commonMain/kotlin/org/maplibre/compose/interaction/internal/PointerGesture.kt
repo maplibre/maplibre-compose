@@ -28,14 +28,13 @@ import org.maplibre.compose.camera.internal.inputScaleBy
 import org.maplibre.compose.camera.internal.inputScaleByAwaitingTransition
 import org.maplibre.compose.interaction.DragResponse
 import org.maplibre.compose.interaction.HapticEmphasis
-import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.QuickZoomDirection
 import org.maplibre.compose.interaction.TapResponse
 
 internal class PointerGesture(
   private val target: CameraInputTarget,
   private val taps: TapDispatcher,
-  private val options: MapInteractions,
+  private val options: InputConfiguration,
   private val boxZoom: BoxZoomPreview,
   private val density: Density,
   private val focusRequester: FocusRequester,

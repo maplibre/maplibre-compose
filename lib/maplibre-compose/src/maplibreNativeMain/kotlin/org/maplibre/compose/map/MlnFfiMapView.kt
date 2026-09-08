@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import kotlinx.coroutines.CancellationException
 import org.maplibre.compose.interaction.internal.ClickPath
+import org.maplibre.compose.interaction.internal.InputConfiguration
 import org.maplibre.compose.interaction.internal.InputFocus
 import org.maplibre.compose.interaction.internal.TapFamily
 import org.maplibre.compose.interaction.internal.inputEnvironment
@@ -190,7 +191,7 @@ internal fun MlnFfiMapView(
       session,
       captureClickPath,
       hasClickHandlers,
-      options.interactions,
+      InputConfiguration(options.interactions, options.uiOptions.bindings),
       density,
       focusRequester,
       inputFocus,
@@ -206,7 +207,7 @@ internal fun MlnFfiMapView(
       // on the hidden surface. It consumes nothing, so a parent scroller still scrolls.
       Box(
         Modifier.matchParentSize()
-          .background(options.renderOptions.foregroundLoadColor)
+          .background(options.uiOptions.loadColor)
           .pointerInput(Unit) {}
           .testTag(MAP_LOAD_PLACEHOLDER_TAG)
       )
