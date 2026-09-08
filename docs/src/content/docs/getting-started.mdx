@@ -246,8 +246,8 @@ Compile the JS target to ES modules. Non-ESM builds are not supported.
   </TabItem>
 </Tabs>
 
-Install the browser graphics integration inside `onWasmReady`, before Compose
-starts. The integration captures Compose's graphics context.
+Call `installMapLibreCompose` before creating a map to configure its worker URL.
+Compose provides the shared WebGL render target.
 
 ```kotlin title="main.kt"
 fun main() {
