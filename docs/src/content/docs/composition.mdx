@@ -9,9 +9,10 @@ import { region } from "../../snippets";
 
 import composition from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Composition.kt?raw";
 
-MapLibre Compose has no public map view object. <Api of="MapState" /> defines a
+<Api of="MapState" /> defines a
 logical map, including its base style and declarative style content.
-<Api of="MaplibreMap" /> presents that state. `MapState` provides camera,
+<Api of="MaplibreMap" /> presents that state in Compose UI. Android hosts can also
+[present it on a caller-owned Surface](/maplibre-compose/android-surface/). `MapState` provides camera,
 viewport, projection, and feature-query operations while the map is attached.
 
 ## The style is base plus content

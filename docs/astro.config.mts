@@ -52,6 +52,7 @@ export default defineConfig({
             { label: "Style the map", slug: "styling" },
             { label: "Control the camera", slug: "camera" },
             { label: "Capture a map image", slug: "snapshotter" },
+            { label: "Present on an Android Surface", slug: "android-surface" },
             { label: "Handle gestures and clicks", slug: "interaction" },
             { label: "Add data to the map", slug: "layers" },
             { label: "Add images and icons", slug: "images" },
