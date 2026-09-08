@@ -123,13 +123,13 @@ class FeatureDataTypingTest {
       """["image",["concat","icon-",["string",["get","kind"]]]]""",
       styleJson(image(const("icon-") + feature["kind"].asString())),
     )
-    val icon: Expression<ImageValue> =
+    val icon: Expression<ImageValue?> =
       switch(feature["kind"].asString(), case("park", image("tree")), fallback = image("dot"))
     assertEquals(
       """["match",["string",["get","kind"]],"park",["image","tree"],["image","dot"]]""",
       styleJson(icon),
     )
-    val none: Expression<ImageValue> =
+    val none: Expression<ImageValue?> =
       switch(
         condition(feature.has("icon"), image(feature["icon"].asString())),
         fallback = image(""),

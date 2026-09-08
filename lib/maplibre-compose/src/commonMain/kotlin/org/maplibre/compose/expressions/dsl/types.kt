@@ -188,16 +188,19 @@ public fun collator(
     .cast()
 
 /**
+ * Returns a collator with MapLibre's defaults: case-insensitive, diacritic-insensitive, and the
+ * default locale.
+ */
+public fun collator(): Expression<CollatorValue> =
+  FunctionCall.of("collator", Options.build {}).cast()
+
+/**
  * Returns a collator for use in locale-dependent comparison operations. The [caseSensitive] and
  * [diacriticSensitive] options default to `false`. The [locale] argument specifies the IETF
  * language tag of the locale to use. If none is provided, the default locale is used. If the
  * requested locale is not available, the collator will use a system-defined fallback locale. Use
  * [resolvedLocale] to test the results of locale fallback behavior.
  */
-/** Returns a collator with the default locale that is case-sensitive and diacritic-sensitive. */
-public fun collator(): Expression<CollatorValue> =
-  FunctionCall.of("collator", Options.build {}).cast()
-
 public fun collator(
   caseSensitive: Boolean? = null,
   diacriticSensitive: Boolean? = null,
@@ -237,6 +240,10 @@ public fun Expression<NumberValue<*>>.formatToString(
     )
     .cast()
 
+/** Converts this number to a string in the default locale. */
+public fun Expression<NumberValue<*>>.formatToString(): Expression<StringValue> =
+  FunctionCall.of("number-format", this, Options.build {}).cast()
+
 /**
  * Converts this number into a string representation using the provided formatting rules.
  *
@@ -245,10 +252,6 @@ public fun Expression<NumberValue<*>>.formatToString(
  * @param minFractionDigits minimum fractional digits to include
  * @param maxFractionDigits maximum fractional digits to include
  */
-/** Converts this number to a string in the default locale. */
-public fun Expression<NumberValue<*>>.formatToString(): Expression<StringValue> =
-  FunctionCall.of("number-format", this, Options.build {}).cast()
-
 public fun Expression<NumberValue<*>>.formatToString(
   locale: String? = null,
   currency: String? = null,

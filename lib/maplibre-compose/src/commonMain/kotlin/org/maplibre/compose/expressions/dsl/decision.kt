@@ -242,7 +242,7 @@ public fun <O : ExpressionValue?> case(label: String, output: Expression<O>): Ca
   Case(const(label), output)
 
 /** Create a [Case], see [switch] */
-public fun <O : ExpressionValue, E : EnumValue<E>> case(
+public fun <O : ExpressionValue?, E : EnumValue<E>> case(
   label: E,
   output: Expression<O>,
 ): Case<E, O> = Case(const(label), output)
@@ -260,7 +260,7 @@ public fun <O : ExpressionValue?> case(
 
 /** Create a [Case], see [switch] */
 @JvmName("enumsCase")
-public fun <O : ExpressionValue, E : EnumValue<E>> case(
+public fun <O : ExpressionValue?, E : EnumValue<E>> case(
   label: List<E>,
   output: Expression<O>,
 ): Case<E, O> = Case(const(label), output)

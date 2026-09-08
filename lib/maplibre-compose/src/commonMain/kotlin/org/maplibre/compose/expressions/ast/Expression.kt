@@ -18,8 +18,9 @@ import org.maplibre.compose.expressions.value.ExpressionValue
  * A nullable type argument, such as `Expression<StringValue?>`, marks an expression that may
  * evaluate to no value. Only a source of unknown type produces one: a feature property read with
  * `feature.`[get][org.maplibre.compose.expressions.dsl.Feature.get], feature state, a map lookup, a
- * [coalesce][org.maplibre.compose.expressions.dsl.coalesce] without a fallback, or a [cast] to a
- * nullable type.
+ * [coalesce][org.maplibre.compose.expressions.dsl.coalesce] without a fallback, an
+ * [image][org.maplibre.compose.expressions.dsl.image] named by a string, which is null when the
+ * style has no such image, or a [cast] to a nullable type.
  *
  * Functions that MapLibre defines for a null input accept a nullable expression:
  * [eq][org.maplibre.compose.expressions.dsl.eq], [neq][org.maplibre.compose.expressions.dsl.neq],

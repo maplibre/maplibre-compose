@@ -14,15 +14,15 @@ internal class LocationIndicatorLayer(id: String) : Layer(id) {
 
   override val type: String = "location-indicator"
 
-  fun setTopImage(topImage: CompiledExpression<ImageValue>) {
+  fun setTopImage(topImage: CompiledExpression<ImageValue?>) {
     setImageProperty("top-image", topImage)
   }
 
-  fun setBearingImage(bearingImage: CompiledExpression<ImageValue>) {
+  fun setBearingImage(bearingImage: CompiledExpression<ImageValue?>) {
     setImageProperty("bearing-image", bearingImage)
   }
 
-  fun setShadowImage(shadowImage: CompiledExpression<ImageValue>) {
+  fun setShadowImage(shadowImage: CompiledExpression<ImageValue?>) {
     setImageProperty("shadow-image", shadowImage)
   }
 
@@ -31,7 +31,7 @@ internal class LocationIndicatorLayer(id: String) : Layer(id) {
    * even the constant `["image", name]` wrapper the DSL compiles to — aborts the renderer with
    * `bad_variant_access` on the first frame. Only a plain image name is safe to write.
    */
-  private fun setImageProperty(name: String, image: CompiledExpression<ImageValue>) {
+  private fun setImageProperty(name: String, image: CompiledExpression<ImageValue?>) {
     when (val json = image.toStyleJson()) {
       is JsonNull,
       is JsonPrimitive -> setLayoutProperty(name, json)

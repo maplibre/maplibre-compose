@@ -300,7 +300,7 @@ class LayerPropertyRoundTripTest {
     /** Unresolvable on purpose: tests must not reach the network. */
     const val TILE_TEMPLATE = "https://example.invalid/{z}/{x}/{y}.png"
 
-    fun <T : ExpressionValue> Expression<T>.c() = compile(ExpressionContext.None)
+    fun <T : ExpressionValue?> Expression<T>.c() = compile(ExpressionContext.None)
 
     fun addFeatureSource(style: StyleBinding): GeoJsonSource =
       GeoJsonSource(

@@ -88,6 +88,13 @@ class NullabilityTest {
     assertEquals("""["get","name"]""", styleJson(label))
     assertEquals("""["get","icon"]""", styleJson(icon))
 
+    // An image named by a string is null when the style lacks it, so images coalesce.
+    val named: Expression<ImageValue?> = image(feature["icon"].asString())
+    assertEquals(
+      """["coalesce",["image",["string",["get","icon"]]],["image","dot"]]""",
+      styleJson(coalesce(named, image("dot"))),
+    )
+
     val rank: Expression<FloatValue?> = feature["rank"].cast()
     val ranked: Expression<FloatValue> =
       withVariable("r", rank) { r -> coalesce(r.use(), fallback = const(0f)) }
