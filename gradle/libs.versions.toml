@@ -87,7 +87,6 @@ androidx-activity = { module = "androidx.activity:activity", version.ref = "andr
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
 androidx-car-app = { module = "androidx.car.app:app", version.ref = "androidx-carApp" }
 androidx-car-appProjected = { module = "androidx.car.app:app-projected", version.ref = "androidx-carApp" }
-androidx-car-appTesting = { module = "androidx.car.app:app-testing", version.ref = "androidx-carApp" }
 androidx-composeUi-testManifest = { module = "androidx.compose.ui:ui-test-manifest", version.ref = "androidx-compose" }
 androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidx-testRunner" }
 androidx-navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-compose", version.ref = "jetbrains-navigation" }
