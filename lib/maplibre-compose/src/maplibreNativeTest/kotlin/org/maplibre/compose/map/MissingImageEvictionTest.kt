@@ -59,7 +59,8 @@ class MissingImageEvictionTest {
       fixture.pumpUntil("all quest icons to be supplied") {
         ids.all { style.imageExists(it) == true }
       }
-      // Native draws asynchronously supplied icons at the next symbol placement.
+      // Finish the pending tile layout before requesting another symbol placement.
+      fixture.settle()
       fixture.state.setCameraPosition(CameraPosition(zoom = 1.0))
       fixture.pumpUntilPixel("initial quest artwork", 192, 192, green)
       fixture.settle()
@@ -86,6 +87,7 @@ class MissingImageEvictionTest {
       fixture.pumpUntil("evicted quest icons to be restored") {
         ids.all { style.imageExists(it) == true }
       }
+      fixture.settle()
       fixture.state.setCameraPosition(CameraPosition(zoom = 2.0))
       fixture.pumpUntilPixel("restored quest artwork above the circle markers", 192, 192, green)
       assertEquals(ids.toSet(), requests.toList().toSet())

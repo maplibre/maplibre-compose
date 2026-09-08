@@ -434,7 +434,7 @@ internal data class LoadedStyleResources(
 
 internal class ImperativeSourceRecord(val definition: SourceDefinition)
 
-internal class ImperativeImageRecord
+internal class ImperativeImageRecord(val fromResolver: Boolean = false)
 
 /**
  * One missing-image resolution, identified by [token] so a stale one cannot evict its successor.
@@ -1187,7 +1187,7 @@ internal constructor(
     sdf: Boolean,
     stretch: ImageStretch?,
   ) {
-    val record = ImperativeImageRecord()
+    val record = ImperativeImageRecord(fromResolver = false)
     val reservation = StyleMutationReservation()
     val binding = lifecycle.serialized {
       requireOpenLocked()
@@ -1234,6 +1234,8 @@ internal constructor(
       if (lifecycle.isClosed || !lifecycle.acceptsAdapter(adapter)) return@serialized null
       val resolver = missingImageResolverState ?: return@serialized null
       val binding = style.currentLoadedStyle() ?: return@serialized null
+      if (hasDesiredImage(imageId) || imperativeImages[imageId]?.fromResolver == false)
+        return@serialized null
       missingImageResolutions[imageId]?.let {
         return@serialized it.work
       }
@@ -1303,7 +1305,7 @@ internal constructor(
     imageId: String,
     resolved: ResolvedStyleImage,
   ) {
-    val record = ImperativeImageRecord()
+    val record = ImperativeImageRecord(fromResolver = true)
     val reservation = StyleMutationReservation()
     var claimed = false
     while (true) {
@@ -1313,9 +1315,8 @@ internal constructor(
         (activeStyleMutation ?: backgroundStyleMutation)?.let {
           return@serialized it
         }
-        if (hasDesiredImage(imageId)) return
-        // Ownership survives engine eviction. Only the engine's image set below tells us whether
-        // an image is still present; an existing ownership record must not prevent restoration.
+        if (hasDesiredImage(imageId) || imperativeImages[imageId]?.fromResolver == false) return
+        // Resolver ownership survives eviction, but must not replace an explicitly added image.
         if (imageId !in imperativeImages) {
           imperativeImages[imageId] = record
           claimed = true
