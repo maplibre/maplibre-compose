@@ -1,5 +1,6 @@
 package org.maplibre.compose.interaction.internal
 
+import androidx.compose.ui.geometry.Offset
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -25,7 +26,7 @@ internal object GestureMath {
   const val ROTATE_START_DEGREES = 3.0
   // MapLibre GL JS uses 25 logical pixels of arc travel to reject pinch-induced angle noise.
   const val ROTATE_START_WHILE_ZOOMING_ARC_DP = 25.0
-  const val SHOVE_MAX_FINGER_ANGLE_DEGREES = 20.0
+  const val SHOVE_MAX_FINGER_ANGLE_DEGREES = 45.0
   const val PRESSURE_RATIO_THRESHOLD = 0.67f
 
   /** 6 mm at 160 dpi: 6 / 25.4 * 160. */
@@ -90,11 +91,15 @@ internal object GestureMath {
   }
 
   fun shouldStartShove(
-    verticalDisplacementDp: Double,
+    firstDisplacementDp: Offset,
+    secondDisplacementDp: Offset,
     fingerAngleFromHorizontalDegrees: Double,
     startSlopDp: Double = SHOVE_START_DP,
   ): Boolean =
-    abs(verticalDisplacementDp) >= startSlopDp &&
+    abs((firstDisplacementDp.y + secondDisplacementDp.y) / 2) >= startSlopDp &&
+      abs(firstDisplacementDp.y) > abs(firstDisplacementDp.x) &&
+      abs(secondDisplacementDp.y) > abs(secondDisplacementDp.x) &&
+      (firstDisplacementDp.y > 0) == (secondDisplacementDp.y > 0) &&
       abs(fingerAngleFromHorizontalDegrees) <= SHOVE_MAX_FINGER_ANGLE_DEGREES
 
   /** Rejects a sudden pressure drop, which is usually a finger lift. */

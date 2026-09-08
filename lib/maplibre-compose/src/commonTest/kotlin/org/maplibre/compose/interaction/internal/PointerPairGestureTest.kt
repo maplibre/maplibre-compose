@@ -252,7 +252,7 @@ class PointerPairGestureTest {
         val step = index + 1
         input.move(step * 16L, Offset(-80f + step * 8f, 0f), Offset(80f + step * 56f, 0f))
       }
-      val release = assertNotNull(input.pair.end())
+      val release = assertNotNull(input.pair.end()).settled()
       val pan = assertNotNull(release.pan)
       if (zoomMomentum) {
         val scale = assertNotNull(release.scale)
@@ -291,6 +291,44 @@ class PointerPairGestureTest {
     assertTrue(first.zoomDelta > 0.0)
     assertEquals(first.zoomDelta, second.zoomDelta, 1e-6)
     assertEquals(first.duration, second.duration)
+  }
+
+  @Test
+  fun staggered_fingers_can_shove_with_small_sideways_motion() {
+    val radius = Offset(80f, 60f)
+    val input = PairInput(MapInteractions.Standard, radius = radius)
+    input.move(20, -radius + Offset(2f, 12f), radius + Offset(2f, 12f))
+    assertTrue(input.target.rotateCalls.isEmpty(), "tilt started below slop")
+    input.move(40, -radius + Offset(4f, 24f), radius + Offset(4f, 24f))
+    assertTrue(input.target.rotateCalls.any { it.pitchDelta != 0.0 }, "staggered shove rejected")
+    assertTrue(input.target.rotateCalls.all { it.bearingDelta == 0.0 })
+    assertTrue(input.target.scaleCalls.isEmpty())
+    val pans = input.target.moveCalls.size
+    input.move(60, -radius + Offset(6f, 36f), radius + Offset(6f, 36f))
+    assertEquals(pans, input.target.moveCalls.size, "shove continued panning")
+  }
+
+  @Test
+  fun shove_wins_when_rotation_first_qualifies_on_the_same_event() {
+    val input = PairInput(MapInteractions.Standard)
+    val angle = 16.0 * PI / 180.0
+    val radius = Offset(80f * cos(angle).toFloat(), 80f * sin(angle).toFloat())
+    val center = Offset(0f, 40f)
+    input.move(20, center - radius, center + radius)
+    assertTrue(input.target.rotateCalls.any { it.pitchDelta != 0.0 }, "rotation won over shove")
+    assertTrue(input.target.rotateCalls.all { it.bearingDelta == 0.0 })
+    assertTrue(input.target.scaleCalls.isEmpty())
+    assertTrue(input.target.moveCalls.isEmpty())
+  }
+
+  @Test
+  fun shove_wins_when_pinch_first_qualifies_on_the_same_event() {
+    val input = PairInput(MapInteractions.Standard)
+    input.move(20, Offset(-100f, 40f), Offset(100f, 40f))
+    assertTrue(input.target.rotateCalls.any { it.pitchDelta != 0.0 }, "pinch won over shove")
+    assertTrue(input.target.rotateCalls.all { it.bearingDelta == 0.0 })
+    assertTrue(input.target.scaleCalls.isEmpty())
+    assertTrue(input.target.moveCalls.isEmpty())
   }
 
   @Test
@@ -383,12 +421,13 @@ class PointerPairGestureTest {
     initial: MapInteractions,
     private val secondType: PointerType = PointerType.Touch,
     center: Offset = Offset.Zero,
+    radius: Offset = Offset(80f, 0f),
   ) {
     val options = initial
 
     val target = map.target
     private var time = 0L
-    private var positions = listOf(center + Offset(-80f, 0f), center + Offset(80f, 0f))
+    private var positions = listOf(center - radius, center + radius)
     private val token = run {
       map.state.gestureAuthority.updateConfiguration(options.camera)
       target.onGestureStarted()

@@ -378,7 +378,7 @@ class TransformInputTest {
   }
 
   @Test
-  fun a_new_pan_preserves_the_previous_pinchs_zoom_momentum() {
+  fun a_continued_pan_settles_with_the_previous_pinch_momentum() {
     fixture.runRecognitionTest { target ->
       val map = mapNode()
       map.performTouchInput {
@@ -390,7 +390,7 @@ class TransformInputTest {
           move(delayMillis = 16)
         }
         up(0)
-        repeat(5) {
+        repeat(12) {
           updatePointerBy(1, Offset(80f, 0f))
           move(delayMillis = 16)
         }
@@ -400,17 +400,39 @@ class TransformInputTest {
       val moves = target.moveCalls.size
       val scales = target.scaleCalls.size
       assertTrue(scales > 0)
-      map.performTouchInput { up(1) }
-      waitForIdle()
-      assertTrue(target.scaleCalls.size > scales, "new pan discarded zoom momentum")
-      assertTrue(target.moveCalls.size > moves, "continued pan lost its own momentum")
+      mainClock.autoAdvance = false
+      try {
+        map.performTouchInput { up(1) }
+        mainClock.advanceTimeBy(160)
+        waitForIdle()
+        val partialPan = target.moveCalls.drop(moves).sumOf { it.x.toDouble() }
+        val partialZoom = target.scaleCalls.drop(scales).sumOf { ln(it.scale) }
+        mainClock.advanceTimeBy(600)
+        waitForIdle()
+        val totalPan = target.moveCalls.drop(moves).sumOf { it.x.toDouble() }
+        val totalZoom = target.scaleCalls.drop(scales).sumOf { ln(it.scale) }
+        assertTrue(partialPan > 0.0 && partialPan < totalPan, "continued pan lost momentum")
+        assertTrue(partialZoom > 0.0 && partialZoom < totalZoom, "new pan discarded zoom momentum")
+        assertEquals(partialZoom / totalZoom, partialPan / totalPan, 1e-5)
+      } finally {
+        mainClock.autoAdvance = true
+      }
       assertEquals(1, target.endedCount)
     }
   }
 
   @Test
-  fun a_finger_departing_a_pinch_does_not_become_a_pan_fling() {
-    fixture.runRecognitionTest { target ->
+  fun a_finger_departing_a_pinch_does_not_become_a_pan_fling() =
+    checkDepartingPinchFinger(zoomMomentum = true)
+
+  @Test
+  fun a_finger_departing_a_pinch_cannot_fling_when_zoom_momentum_is_disabled() =
+    checkDepartingPinchFinger(zoomMomentum = false)
+
+  private fun checkDepartingPinchFinger(zoomMomentum: Boolean) {
+    fixture.runRecognitionTest(
+      options = MapInteractions { camera { zoom { momentum { enabled = zoomMomentum } } } }
+    ) { target ->
       val map = mapNode()
       map.performTouchInput {
         down(0, center - Offset(80f, 0f))
@@ -424,6 +446,10 @@ class TransformInputTest {
         // A fast departing finger crosses slop during the interval between lifts.
         updatePointerBy(1, Offset(160f, 0f))
         move(delayMillis = 8)
+        repeat(3) {
+          updatePointerBy(1, Offset(24f, 0f))
+          move(delayMillis = 8)
+        }
       }
       waitForIdle()
       val moves = target.moveCalls.size
@@ -435,7 +461,8 @@ class TransformInputTest {
       }
       waitForIdle()
       assertEquals(moves, target.moveCalls.size, "departing finger became a pan fling")
-      assertTrue(target.scaleCalls.size > scales, "pinch momentum was discarded")
+      if (zoomMomentum) assertTrue(target.scaleCalls.size > scales, "pinch momentum was discarded")
+      else assertEquals(scales, target.scaleCalls.size)
     }
   }
 
