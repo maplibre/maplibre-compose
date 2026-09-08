@@ -13,6 +13,7 @@ import org.maplibre.compose.expressions.ast.ColorLiteral
 import org.maplibre.compose.expressions.ast.DpLiteral
 import org.maplibre.compose.expressions.ast.DpOffsetLiteral
 import org.maplibre.compose.expressions.ast.DpPaddingLiteral
+import org.maplibre.compose.expressions.ast.DpTextOffsetCalculation
 import org.maplibre.compose.expressions.ast.EnumLiteral
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.FloatLiteral
@@ -136,6 +137,26 @@ public fun offset(x: Dp, y: Dp): DpOffsetLiteral = DpOffsetLiteral.of(DpOffset(x
  */
 public fun offset(x: TextUnit, y: TextUnit): Expression<TextUnitOffsetValue> =
   TextUnitOffsetCalculation.of(x, y)
+
+/**
+ * Creates a text offset with a fixed DP distance, independent of accessibility text size.
+ *
+ * The consuming symbol layer converts the offset to EM using its text size and local font scale.
+ * The expression can be created outside composition and reused at different font scales. As with SP
+ * offsets, the layer's text size must not use zoom interpolation.
+ *
+ * Use the [TextUnit] overload for offsets that scale with accessibility text size (SP) or the
+ * label's text size (EM).
+ */
+public fun textOffset(x: Dp, y: Dp): Expression<TextUnitOffsetValue> = DpTextOffsetCalculation(x, y)
+
+/**
+ * Creates a text offset in SP or EM. Both components must have the same [TextUnitType].
+ *
+ * SP offsets scale with accessibility text size; EM offsets also scale with the label's text size.
+ * Equivalent to [offset] with [TextUnit] arguments.
+ */
+public fun textOffset(x: TextUnit, y: TextUnit): Expression<TextUnitOffsetValue> = offset(x, y)
 
 /** Creates a literal expression for a [DpPadding] value. */
 public fun padding(left: Dp, top: Dp, right: Dp, bottom: Dp): Expression<DpPaddingValue> =

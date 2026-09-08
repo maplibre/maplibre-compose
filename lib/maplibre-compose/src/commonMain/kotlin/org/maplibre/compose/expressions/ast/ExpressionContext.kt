@@ -14,6 +14,10 @@ public interface ExpressionContext {
   /** The scale factor to convert SPs to the desired unit */
   public val spScale: Expression<FloatValue>
 
+  /** The scale factor to convert DP text offsets to the desired text unit. */
+  public val dpScale: Expression<FloatValue>
+    get() = error("DP text offsets are not allowed in this context")
+
   /** @return the resolved identifier for the [bitmap]. */
   public fun resolveBitmap(bitmap: BitmapLiteral): String
 
