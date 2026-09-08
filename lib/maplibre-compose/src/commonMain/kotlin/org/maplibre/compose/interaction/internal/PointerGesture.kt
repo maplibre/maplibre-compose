@@ -1,6 +1,5 @@
 package org.maplibre.compose.interaction.internal
 
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerEvent
@@ -12,8 +11,6 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntSize
 import kotlin.math.min
-import kotlin.math.pow
-import kotlin.time.Duration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -772,15 +769,7 @@ internal class PointerGesture(
 
   private fun animateFling(fling: GestureMath.Fling) {
     val token = gestureToken
-    checkNotNull(cameraSession).scope.launch {
-      animateDecelerating(fling.duration, power = fling.decayPower) { frameFraction ->
-        val deltaX = fling.offsetXDp * frameFraction
-        val deltaY = fling.offsetYDp * frameFraction
-        GestureMath.forEachScreenSpaceStep(deltaX, deltaY) { stepX, stepY ->
-          target.inputPanBy(stepX, stepY, gestureToken = token)
-        }
-      }
-    }
+    checkNotNull(cameraSession).scope.launch { target.animateFling(fling, token) }
   }
 
   private fun animateTiltVelocity(velocity: GestureMath.TiltVelocity) {
@@ -790,25 +779,6 @@ internal class PointerGesture(
         target.inputRotateAndPitchBy(0.0, velocity.pitchDelta * fraction, gestureToken = token)
       }
     }
-  }
-
-  /** Integrates displacement; velocity falls as `(1 - t)^(power - 1)`. */
-  private suspend fun animateDecelerating(
-    duration: Duration,
-    power: Int = GestureMath.TRANSFORM_DECAY_POWER,
-    apply: (frameFraction: Double) -> Unit,
-  ) {
-    val durationNanos = duration.inWholeNanoseconds.coerceAtLeast(1L)
-    val startedAt = withFrameNanos { it }
-    var previousEasedProgress = 0.0
-    do {
-      val now = withFrameNanos { it }
-      val progress = ((now - startedAt).toDouble() / durationNanos).coerceIn(0.0, 1.0)
-      val easedProgress = 1.0 - (1.0 - progress).pow(power)
-      val frameFraction = easedProgress - previousEasedProgress
-      if (frameFraction != 0.0) apply(frameFraction)
-      previousEasedProgress = easedProgress
-    } while (progress < 1.0)
   }
 
   private fun animateRotationVelocity(

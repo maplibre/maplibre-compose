@@ -71,6 +71,15 @@ Layers receive clicks from front to back until a handler returns
 `ClickResult.Consume`. Use `callbacks.click.onUnhandled` for clicks that no
 layer handles, such as clearing an app's selection.
 
+## Pass gestures from your own code
+
+Code that recognizes gestures itself can pass them through <Api of="MapState.panBy" />, <Api of="MapState.scaleBy" />,
+<Api of="MapState.fling" />, and <Api of="MapState.click" />. They follow the
+camera permissions and callbacks in `MapInteractions` and report
+<Api of="CameraMoveReason.GESTURE" />, like a pointer gesture. They take logical
+pixels and do nothing while no map is presented. See
+[Present on an Android Surface](/maplibre-compose/android-surface/).
+
 ## Snap rotation to bearings
 
 Use `camera.rotate.snapping` to snap to nearby bearings after rotation ends.

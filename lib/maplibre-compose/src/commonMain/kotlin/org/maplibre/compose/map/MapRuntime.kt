@@ -59,6 +59,7 @@ import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.compose.interaction.internal.RecognizedMapInput
 import org.maplibre.compose.interaction.internal.select
 import org.maplibre.compose.layers.LayerHandle
 import org.maplibre.compose.layers.layerHandle
@@ -669,6 +670,8 @@ internal constructor(
   }
   internal val lifecycle = MapLifecycleAuthority(this, runtime.physicalScope)
   internal val gestureAuthority = CameraInputAuthority(this)
+  /** Set by the current presentation; recognized gestures are ignored without one. */
+  internal var recognizedInput: RecognizedMapInput? = null
   private var baseStyleCommandRevision = 0L
   private var cameraCommandRevision = 0L
   private var styleHandleEpoch = 0L
@@ -913,6 +916,43 @@ internal constructor(
         guard,
       )
     }
+  }
+
+  /**
+   * Pans the map by [delta] in logical pixels, as a gesture would. A positive x moves the content
+   * right.
+   *
+   * [panBy], [scaleBy], [fling], and [click] pass gestures that your code recognized. They follow
+   * the camera permissions and callbacks in [org.maplibre.compose.interaction.MapInteractions],
+   * interrupt a camera animation in progress, and report [CameraMoveReason.GESTURE]. They do
+   * nothing while no map is presented.
+   */
+  public fun panBy(delta: DpOffset) {
+    recognizedInput?.pan(delta)
+  }
+
+  /**
+   * Scales the map by [factor], as a gesture would, keeping [anchor] fixed on screen. A null anchor
+   * scales about the viewport center. See [panBy].
+   */
+  public fun scaleBy(factor: Double, anchor: DpOffset? = null) {
+    recognizedInput?.scale(factor, anchor)
+  }
+
+  /**
+   * Continues a pan at [velocity], in logical pixels per second, until the momentum settles or
+   * newer input interrupts it. Velocities below the momentum threshold are ignored. See [panBy].
+   */
+  public fun fling(velocity: DpOffset) {
+    recognizedInput?.fling(velocity)
+  }
+
+  /**
+   * Dispatches a click at [offset], in logical pixels, to the click callbacks and interactive
+   * layers. See [panBy].
+   */
+  public fun click(offset: DpOffset) {
+    recognizedInput?.click(offset)
   }
 
   /** Returns the visible region, or null while no viewport is available. */

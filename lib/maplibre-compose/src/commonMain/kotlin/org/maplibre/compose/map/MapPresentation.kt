@@ -7,10 +7,13 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CancellationException
+import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.interaction.internal.FeatureClickDispatcher
+import org.maplibre.compose.interaction.internal.RecognizedMapInput
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.rememberStyleComposition
@@ -45,7 +48,7 @@ private class MapStateAttachment(
   }
 }
 
-/** Style composition and adapter callbacks for one presentation of [state]. */
+/** Style composition, callbacks, and recognized input for one presentation of [state]. */
 @Composable
 internal fun MapPresentationContent(
   state: MapState,
@@ -86,6 +89,24 @@ internal fun MapPresentationContent(
         interactions = currentInteractions,
       )
     }
+  val inputScope = rememberCoroutineScope()
+  DisposableEffect(mapAttachment, clickDispatcher) {
+    val target =
+      mapAttachment?.adapter as? CameraInputTarget ?: return@DisposableEffect onDispose {}
+    val input =
+      RecognizedMapInput(
+        target,
+        clickDispatcher::capture,
+        clickDispatcher::hasHandlers,
+        { currentInteractions.value },
+        inputScope,
+      )
+    state.recognizedInput = input
+    onDispose {
+      input.cancel()
+      if (state.recognizedInput === input) state.recognizedInput = null
+    }
+  }
   var retainedRevisionReplayed by remember(rememberedStyle, mapAttachment) { mutableStateOf(false) }
 
   LaunchedEffect(rememberedStyle, mapAttachment, attachment) {
