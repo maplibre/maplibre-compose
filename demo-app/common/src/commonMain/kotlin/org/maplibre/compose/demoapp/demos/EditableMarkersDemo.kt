@@ -84,6 +84,7 @@ import org.maplibre.compose.layers.SymbolLayer
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.sources.GeoJsonData
+import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.spatialk.geojson.Feature
@@ -309,7 +310,8 @@ object EditableMarkersDemo : Demo {
         val colors = markerColorScheme(marker.color)
         val source =
           rememberGeoJsonSource(
-            GeoJsonData.Features(Feature(geometry = Point(marker.position), properties = null))
+            GeoJsonData.Features(Feature(geometry = Point(marker.position), properties = null)),
+            options = GeoJsonOptions(synchronousUpdate = true),
           )
 
         // A soft shadow makes the lift during hover and drag visible against the map.
