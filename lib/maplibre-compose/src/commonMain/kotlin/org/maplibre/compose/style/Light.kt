@@ -34,10 +34,10 @@ import org.maplibre.compose.expressions.value.VectorValue
  */
 @Immutable
 public data class Light(
-  val anchor: Expression<IlluminationAnchor> = const(IlluminationAnchor.Viewport),
-  val position: Expression<VectorValue<Number>> = const(listOf(1.15f, 210f, 30f)),
-  val color: Expression<ColorValue> = const(Color.White),
-  val intensity: Expression<FloatValue> = const(0.5f),
+  val anchor: Expression<IlluminationAnchor>? = const(IlluminationAnchor.Viewport),
+  val position: Expression<VectorValue<Number>>? = const(listOf(1.15f, 210f, 30f)),
+  val color: Expression<ColorValue>? = const(Color.White),
+  val intensity: Expression<FloatValue>? = const(0.5f),
   val positionTransition: TransitionOptions? = null,
   val colorTransition: TransitionOptions? = null,
   val intensityTransition: TransitionOptions? = null,

@@ -30,6 +30,7 @@ import org.maplibre.compose.expressions.ast.TextUnitOffsetCalculation
 import org.maplibre.compose.expressions.value.DpPaddingValue
 import org.maplibre.compose.expressions.value.EnumValue
 import org.maplibre.compose.expressions.value.ExpressionValue
+import org.maplibre.compose.expressions.value.NullValue
 import org.maplibre.compose.expressions.value.StringValue
 import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.expressions.value.TextUnitOffsetValue
@@ -86,7 +87,7 @@ public fun const(transition: ProjectionTransition): ProjectionTransitionLiteral 
   ProjectionTransitionLiteral.of(transition)
 
 /** Creates a literal expression for a list. */
-public fun <T : ExpressionValue> const(list: List<Literal<T, *>>): ListLiteral<T> =
+public fun <T : ExpressionValue?> const(list: List<Literal<T, *>>): ListLiteral<T> =
   ListLiteral.of(list)
 
 /** Creates a literal expression for a list of strings. */
@@ -155,7 +156,9 @@ public fun padding(left: Dp, top: Dp, right: Dp, bottom: Dp): Expression<DpPaddi
 /**
  * Creates a literal expression for a `null` value.
  *
- * For simplicity, the expression type system does not encode nullability, so the return value of
- * this function is assignable to any kind of expression.
+ * MapLibre accepts a `null` literal only where it expects a value of unknown type, so the result
+ * has the type [NullValue] and is not assignable to a nullable expression type such as
+ * `Expression<StringValue?>`. See [NullValue] for where it can be used. To leave a layer property
+ * unset, pass Kotlin `null` to the layer instead.
  */
-public fun nil(): Expression<Nothing> = NullLiteral.cast()
+public fun nil(): NullLiteral = NullLiteral

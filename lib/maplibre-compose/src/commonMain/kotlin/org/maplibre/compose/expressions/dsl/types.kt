@@ -24,63 +24,86 @@ import org.maplibre.compose.expressions.value.MillisecondsValue
 import org.maplibre.compose.expressions.value.NumberValue
 import org.maplibre.compose.expressions.value.StringValue
 import org.maplibre.compose.expressions.value.TextUnitValue
+import org.maplibre.compose.expressions.value.VectorValue
 
 /** Returns a string describing the type of this expression. */
 public fun Expression<*>.type(): Expression<ExpressionType> = FunctionCall.of("typeof", this).cast()
 
 /**
- * Asserts that this is a list (optionally with a specific item [type] and [length]).
+ * Asserts that this is a list, optionally of items of one [type] and of one [length].
+ *
+ * [type] is [ExpressionType.String], [ExpressionType.Number], or [ExpressionType.Boolean]. A
+ * [length] needs a [type]. Both are plain values because MapLibre reads them when the style loads.
  *
  * If, when the input expression is evaluated, it is not of the asserted type, then this assertion
- * will cause the whole expression to be aborted.
+ * will cause the whole expression to be aborted. A null input, such as a missing property, aborts.
  */
 public fun Expression<*>.asList(
-  type: Expression<ExpressionType> = nil(),
-  length: Expression<IntValue> = nil(),
-): Expression<ListValue<AnyValue>> = FunctionCall.of("array", this, type, length).cast()
+  type: ExpressionType? = null,
+  length: Int? = null,
+): Expression<ListValue<AnyValue?>> {
+  require(
+    type == null ||
+      type == ExpressionType.String ||
+      type == ExpressionType.Number ||
+      type == ExpressionType.Boolean
+  ) {
+    "The item type of a list assertion must be String, Number, or Boolean"
+  }
+  require(length == null || type != null) { "A list assertion with a length needs an item type" }
+  val args = buildList {
+    type?.let { add(const(it)) }
+    length?.let { add(const(it)) }
+    add(this@asList)
+  }
+  return FunctionCall.of("array", args).cast()
+}
 
 /**
  * Asserts that this is a list of numbers, optionally with a specific [length].
  *
  * If, when the input expression is evaluated, it is not of the asserted type, then this assertion
- * will cause the whole expression to be aborted.
+ * will cause the whole expression to be aborted. A null input, such as a missing property, aborts.
+ *
+ * @param U the unit type of the numbers. For dimensionless quantities, use [Number].
  */
-public fun <U, V : NumberValue<U>> Expression<*>.asVector(
-  length: Expression<IntValue> = nil()
-): Expression<V> = asList(const(ExpressionType.Number), length).cast()
+public fun <U> Expression<*>.asVector(length: Int? = null): Expression<VectorValue<U>> =
+  asList(ExpressionType.Number, length).cast()
 
 /**
  * Asserts that this is a list of numbers of length 2.
  *
  * If, when the input expression is evaluated, it is not of the asserted type, then this assertion
- * will cause the whole expression to be aborted.
+ * will cause the whole expression to be aborted. A null input, such as a missing property, aborts.
  */
 public fun Expression<*>.asOffset(): Expression<FloatOffsetValue> =
-  asList(const(ExpressionType.Number), const(2)).cast()
+  asList(ExpressionType.Number, 2).cast()
 
 /**
  * Asserts that this is a list of numbers of length 2.
  *
  * If, when the input expression is evaluated, it is not of the asserted type, then this assertion
- * will cause the whole expression to be aborted.
+ * will cause the whole expression to be aborted. A null input, such as a missing property, aborts.
  */
 public fun Expression<*>.asDpOffset(): Expression<DpOffsetValue> =
-  asList(const(ExpressionType.Number), const(2)).cast()
+  asList(ExpressionType.Number, 2).cast()
 
 /**
- * Asserts that this is a list of numbers of length 4.
+ * Asserts that this is a list of numbers. Padding takes one to four numbers.
  *
  * If, when the input expression is evaluated, it is not of the asserted type, then this assertion
- * will cause the whole expression to be aborted.
+ * will cause the whole expression to be aborted. A null input, such as a missing property, aborts.
  */
 public fun Expression<*>.asPadding(): Expression<DpPaddingValue> =
-  asList(const(ExpressionType.Number), const(2)).cast()
+  asList(ExpressionType.Number).cast()
 
 /**
  * Asserts that this value is a string.
  *
  * In case this expression is not a string, each of the [fallbacks] is evaluated in order until a
- * string is obtained. If none of the inputs are strings, the expression is an error.
+ * string is obtained. If none of the inputs are strings, the expression is an error. A missing
+ * property is a null input and needs a fallback. Where the map property accepts a null,
+ * [cast][org.maplibre.compose.expressions.ast.Expression.cast] to a nullable type instead.
  */
 public fun Expression<*>.asString(vararg fallbacks: Expression<*>): Expression<StringValue> =
   FunctionCall.of("string", this, *fallbacks).cast()
@@ -93,7 +116,7 @@ public fun Expression<*>.asString(vararg fallbacks: Expression<*>): Expression<S
  */
 public inline fun <reified T> Expression<*>.asEnum(vararg fallbacks: Expression<*>): Expression<T>
   where T : Enum<T>, T : EnumValue<T> {
-  val entries = const(enumEntries<T>().map { it.name })
+  val entries = const(enumEntries<T>().map { it.literal })
   val conditions =
     buildList(fallbacks.size + 1) {
       add(condition(entries.contains(this@asEnum), this@asEnum))
@@ -111,7 +134,9 @@ public inline fun <reified T> Expression<*>.asEnum(vararg fallbacks: Expression<
  * Asserts that this value is a number.
  *
  * In case this expression is not a number, each of the [fallbacks] is evaluated in order until a
- * number is obtained. If none of the inputs are numbers, the expression is an error.
+ * number is obtained. If none of the inputs are numbers, the expression is an error. A missing
+ * property is a null input and needs a fallback. Where the map property accepts a null,
+ * [cast][org.maplibre.compose.expressions.ast.Expression.cast] to a nullable type instead.
  */
 public fun Expression<*>.asNumber(vararg fallbacks: Expression<*>): Expression<FloatValue> =
   FunctionCall.of("number", this, *fallbacks).cast()
@@ -120,7 +145,9 @@ public fun Expression<*>.asNumber(vararg fallbacks: Expression<*>): Expression<F
  * Asserts that this value is a boolean.
  *
  * In case this expression is not a boolean, each of the [fallbacks] is evaluated in order until a
- * boolean is obtained. If none of the inputs are booleans, the expression is an error.
+ * boolean is obtained. If none of the inputs are booleans, the expression is an error. A missing
+ * property is a null input and needs a fallback. Where the map property accepts a null,
+ * [cast][org.maplibre.compose.expressions.ast.Expression.cast] to a nullable type instead.
  */
 public fun Expression<*>.asBoolean(vararg fallbacks: Expression<*>): Expression<BooleanValue> =
   FunctionCall.of("boolean", this, *fallbacks).cast()
@@ -129,7 +156,9 @@ public fun Expression<*>.asBoolean(vararg fallbacks: Expression<*>): Expression<
  * Asserts that this value is a map.
  *
  * In case this expression is not a map, each of the [fallbacks] is evaluated in order until a map
- * is obtained. If none of the inputs are maps, the expression is an error.
+ * is obtained. If none of the inputs are maps, the expression is an error. A missing property is a
+ * null input and needs a fallback. Where the map property accepts a null,
+ * [cast][org.maplibre.compose.expressions.ast.Expression.cast] to a nullable type instead.
  */
 public fun Expression<*>.asMap(vararg fallbacks: Expression<*>): Expression<MapValue<AnyValue>> =
   FunctionCall.of("object", this, *fallbacks).cast()
@@ -157,6 +186,13 @@ public fun collator(
       ),
     )
     .cast()
+
+/**
+ * Returns a collator with MapLibre's defaults: case-insensitive, diacritic-insensitive, and the
+ * default locale.
+ */
+public fun collator(): Expression<CollatorValue> =
+  FunctionCall.of("collator", Options.build {}).cast()
 
 /**
  * Returns a collator for use in locale-dependent comparison operations. The [caseSensitive] and
@@ -204,6 +240,10 @@ public fun Expression<NumberValue<*>>.formatToString(
     )
     .cast()
 
+/** Converts this number to a string in the default locale. */
+public fun Expression<NumberValue<*>>.formatToString(): Expression<StringValue> =
+  FunctionCall.of("number-format", this, Options.build {}).cast()
+
 /**
  * Converts this number into a string representation using the provided formatting rules.
  *
@@ -237,7 +277,7 @@ public fun Expression<NumberValue<*>>.formatToString(
  *   numerals ranging from 0 to 255, and `a` ranges from 0 to 1.
  *
  * Otherwise, the input is converted to a string in the format specified by the JSON.stringify
- * function of the ECMAScript Language Specification.
+ * function of the ECMAScript Language Specification. A null input becomes an empty string.
  */
 public fun Expression<*>.convertToString(): Expression<StringValue> =
   FunctionCall.of("to-string", this).cast()

@@ -6,7 +6,6 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
@@ -20,7 +19,7 @@ class BrowserStyleSkyTest {
         val sky = fixture.state.style.sky
         assertNull(sky.getProperty("sky-color"))
 
-        sky.set(Sky(skyColor = nil(), atmosphereBlend = const(0.25f)))
+        sky.set(Sky(skyColor = null, atmosphereBlend = const(0.25f)))
         assertEquals(JsonPrimitive(0.25), sky.getProperty("atmosphere-blend"))
         assertNull(sky.getProperty("sky-color"))
 

@@ -8,7 +8,6 @@ import androidx.compose.ui.unit.dp
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.DpOffsetValue
@@ -88,9 +87,9 @@ public fun FillExtrusionLayer(
   sourceLayer: String = "",
   minZoom: Float = 0.0f,
   maxZoom: Float = 24.0f,
-  filter: Expression<BooleanValue> = nil(),
+  filter: Expression<BooleanValue>? = null,
   visible: Boolean = true,
-  roundedCornerDistance: Expression<FloatValue> = nil(),
+  roundedCornerDistance: Expression<FloatValue>? = null,
   translate: Expression<DpOffsetValue> = const(DpOffset.Zero),
   translateTransition: TransitionOptions? = null,
   translateAnchor: Expression<TranslateAnchor> = const(TranslateAnchor.Map),
@@ -98,7 +97,7 @@ public fun FillExtrusionLayer(
   opacityTransition: TransitionOptions? = null,
   color: Expression<ColorValue> = const(Color.Black),
   colorTransition: TransitionOptions? = null,
-  pattern: Expression<ImageValue> = nil(),
+  pattern: Expression<ImageValue?>? = null,
   patternTransition: TransitionOptions? = null,
   height: Expression<FloatValue> = const(0f),
   heightTransition: TransitionOptions? = null,
@@ -198,7 +197,7 @@ internal class FillExtrusionLayer(id: String, source: VectorSource) : FeatureLay
     setPaintProperty("fill-extrusion-translate-anchor", anchor)
   }
 
-  fun setFillExtrusionPattern(pattern: CompiledExpression<ImageValue>) {
+  fun setFillExtrusionPattern(pattern: CompiledExpression<ImageValue?>) {
     setPaintProperty("fill-extrusion-pattern", pattern)
   }
 

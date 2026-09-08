@@ -32,7 +32,8 @@ internal val CLEARED_TRANSITION: JsonObject = JsonObject(emptyMap())
  * The root style objects take no context: none of their properties measures text or refers to an
  * image.
  */
-internal fun JsonObjectBuilder.putExpression(name: String, expression: Expression<*>) {
+internal fun JsonObjectBuilder.putExpression(name: String, expression: Expression<*>?) {
+  if (expression == null) return
   val json = expression.compile(ExpressionContext.None).toStyleJson()
   if (json !is JsonNull) put(name, json)
 }

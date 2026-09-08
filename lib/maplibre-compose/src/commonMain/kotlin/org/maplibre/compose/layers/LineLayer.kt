@@ -8,7 +8,6 @@ import androidx.compose.ui.unit.dp
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.DpOffsetValue
@@ -128,23 +127,23 @@ public fun LineLayer(
   sourceLayer: String = "",
   minZoom: Float = 0.0f,
   maxZoom: Float = 24.0f,
-  filter: Expression<BooleanValue> = nil(),
+  filter: Expression<BooleanValue>? = null,
   visible: Boolean = true,
-  sortKey: Expression<FloatValue> = nil(),
+  sortKey: Expression<FloatValue>? = null,
   translate: Expression<DpOffsetValue> = const(DpOffset.Zero),
   translateTransition: TransitionOptions? = null,
   translateAnchor: Expression<TranslateAnchor> = const(TranslateAnchor.Map),
   opacity: Expression<FloatValue> = const(1f),
   opacityTransition: TransitionOptions? = null,
-  layerOpacity: Expression<FloatValue> = nil(),
+  layerOpacity: Expression<FloatValue>? = null,
   layerOpacityTransition: TransitionOptions? = null,
   color: Expression<ColorValue> = const(Color.Black),
   colorTransition: TransitionOptions? = null,
-  dasharray: Expression<VectorValue<Number>> = nil(),
+  dasharray: Expression<VectorValue<Number>>? = null,
   dasharrayTransition: TransitionOptions? = null,
-  pattern: Expression<ImageValue> = nil(),
+  pattern: Expression<ImageValue?>? = null,
   patternTransition: TransitionOptions? = null,
-  gradient: Expression<ColorValue> = nil(),
+  gradient: Expression<ColorValue>? = null,
   blur: Expression<DpValue> = const(0.dp),
   blurTransition: TransitionOptions? = null,
   width: Expression<DpValue> = const(1.dp),
@@ -338,7 +337,7 @@ internal class LineLayer(id: String, source: VectorSource) : FeatureLayer(id, so
     setPaintTransition("line-dasharray", options)
   }
 
-  fun setLinePattern(pattern: CompiledExpression<ImageValue>) {
+  fun setLinePattern(pattern: CompiledExpression<ImageValue?>) {
     setPaintProperty("line-pattern", pattern)
   }
 

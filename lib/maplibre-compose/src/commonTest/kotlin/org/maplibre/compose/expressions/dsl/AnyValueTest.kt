@@ -72,7 +72,7 @@ class AnyValueTest {
       json(feature.properties()["kind"] eq const("park")),
     )
     assertEquals(
-      """["in","a",["array",["get","tags"],null,null]]""",
+      """["in","a",["array",["get","tags"]]]""",
       json(feature["tags"].asList().contains(const("a"))),
     )
   }

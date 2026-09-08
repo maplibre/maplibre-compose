@@ -8,7 +8,6 @@ import androidx.compose.ui.unit.dp
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.DpOffsetValue
@@ -97,19 +96,19 @@ public fun FillLayer(
   sourceLayer: String = "",
   minZoom: Float = 0.0f,
   maxZoom: Float = 24.0f,
-  filter: Expression<BooleanValue> = nil(),
+  filter: Expression<BooleanValue>? = null,
   visible: Boolean = true,
-  sortKey: Expression<FloatValue> = nil(),
+  sortKey: Expression<FloatValue>? = null,
   translate: Expression<DpOffsetValue> = const(DpOffset.Zero),
   translateTransition: TransitionOptions? = null,
   translateAnchor: Expression<TranslateAnchor> = const(TranslateAnchor.Map),
   opacity: Expression<FloatValue> = const(1f),
   opacityTransition: TransitionOptions? = null,
-  layerOpacity: Expression<FloatValue> = nil(),
+  layerOpacity: Expression<FloatValue>? = null,
   layerOpacityTransition: TransitionOptions? = null,
   color: Expression<ColorValue> = const(Color.Black),
   colorTransition: TransitionOptions? = null,
-  pattern: Expression<ImageValue> = nil(),
+  pattern: Expression<ImageValue?>? = null,
   patternTransition: TransitionOptions? = null,
   antialias: Expression<BooleanValue> = const(true),
   outlineColor: Expression<ColorValue> = color,
@@ -231,7 +230,7 @@ internal class FillLayer(id: String, source: VectorSource) : FeatureLayer(id, so
     setPaintProperty("fill-translate-anchor", translateAnchor)
   }
 
-  fun setFillPattern(pattern: CompiledExpression<ImageValue>) {
+  fun setFillPattern(pattern: CompiledExpression<ImageValue?>) {
     setPaintProperty("fill-pattern", pattern)
   }
 

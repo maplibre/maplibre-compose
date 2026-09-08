@@ -42,7 +42,7 @@ import org.maplibre.compose.expressions.value.StringValue
  * these two colors based on the zoom level. Otherwise, if the feature has a "color" property, that
  * color is returned. If the feature has none of the three, the color red is returned.
  */
-public fun <T : ExpressionValue> switch(
+public fun <T : ExpressionValue?> switch(
   conditions: List<Condition<T>>,
   fallback: Expression<T>,
 ): Expression<T> =
@@ -89,20 +89,20 @@ public fun <T : ExpressionValue> switch(
  * these two colors based on the zoom level. Otherwise, if the feature has a "color" property, that
  * color is returned. If the feature has none of the three, the color red is returned.
  */
-public fun <T : ExpressionValue> switch(
+public fun <T : ExpressionValue?> switch(
   vararg conditions: Condition<T>,
   fallback: Expression<T>,
 ): Expression<T> = switch(conditions.asList(), fallback)
 
 /** See [case] */
-public data class Condition<T : ExpressionValue>
+public data class Condition<out T : ExpressionValue?>
 internal constructor(
   internal val test: Expression<BooleanValue>,
   internal val output: Expression<T>,
 )
 
 /** Create a [Condition], see [case] */
-public fun <T : ExpressionValue> condition(
+public fun <T : ExpressionValue?> condition(
   test: Expression<BooleanValue>,
   output: Expression<T>,
 ): Condition<T> = Condition(test, output)
@@ -134,8 +134,8 @@ public fun <T : ExpressionValue> condition(
  * Otherwise, if the value of that property is either "commercial" or "industrial", yellow is
  * returned. If none of that is true, the fallback is returned, i.e. red.
  */
-public fun <I : MatchableValue, O : ExpressionValue> switch(
-  input: Expression<I>,
+public fun <I : MatchableValue, O : ExpressionValue?> switch(
+  input: Expression<I?>,
   cases: List<Case<I, O>>,
   fallback: Expression<O>,
 ): Expression<O> = match(input, cases, fallback)
@@ -149,8 +149,8 @@ public fun <I : MatchableValue, O : ExpressionValue> switch(
  * type of the labels, the result will be the [fallback] value. See [AnyValue].
  */
 @JvmName("switchAny")
-public fun <I : MatchableValue, O : ExpressionValue> switch(
-  input: Expression<AnyValue>,
+public fun <I : MatchableValue, O : ExpressionValue?> switch(
+  input: Expression<AnyValue?>,
   cases: List<Case<I, O>>,
   fallback: Expression<O>,
 ): Expression<O> = match(input, cases, fallback)
@@ -164,13 +164,13 @@ public fun <I : MatchableValue, O : ExpressionValue> switch(
  * type of the labels, the result will be the [fallback] value. See [AnyValue].
  */
 @JvmName("switchAny")
-public fun <I : MatchableValue, O : ExpressionValue> switch(
-  input: Expression<AnyValue>,
+public fun <I : MatchableValue, O : ExpressionValue?> switch(
+  input: Expression<AnyValue?>,
   vararg cases: Case<I, O>,
   fallback: Expression<O>,
 ): Expression<O> = match(input, cases.asList(), fallback)
 
-private fun <O : ExpressionValue> match(
+private fun <O : ExpressionValue?> match(
   input: Expression<*>,
   cases: List<Case<*, O>>,
   fallback: Expression<O>,
@@ -227,57 +227,77 @@ private fun <O : ExpressionValue> match(
  * Otherwise, if the value of that property is either "commercial" or "industrial", yellow is
  * returned. If none of that is true, the fallback is returned, i.e. red.
  */
-public fun <I : MatchableValue, O : ExpressionValue> switch(
-  input: Expression<I>,
+public fun <I : MatchableValue, O : ExpressionValue?> switch(
+  input: Expression<I?>,
   vararg cases: Case<I, O>,
   fallback: Expression<O>,
 ): Expression<O> = switch(input, cases.asList(), fallback)
 
 /** See [switch] */
-public data class Case<@Suppress("unused") I : MatchableValue, O : ExpressionValue>
+public data class Case<@Suppress("unused") in I : MatchableValue, out O : ExpressionValue?>
 internal constructor(internal val label: Expression<*>, internal val output: Expression<O>)
 
 /** Create a [Case], see [switch] */
-public fun <O : ExpressionValue> case(label: String, output: Expression<O>): Case<StringValue, O> =
+public fun <O : ExpressionValue?> case(label: String, output: Expression<O>): Case<StringValue, O> =
   Case(const(label), output)
 
 /** Create a [Case], see [switch] */
-public fun <O : ExpressionValue, E : EnumValue<E>> case(
+public fun <O : ExpressionValue?, E : EnumValue<E>> case(
   label: E,
   output: Expression<O>,
-): Case<EnumValue<E>, O> = Case(const(label), output)
+): Case<E, O> = Case(const(label), output)
 
 /** Create a [Case], see [switch] */
-public fun <O : ExpressionValue> case(label: Number, output: Expression<O>): Case<FloatValue, O> =
+public fun <O : ExpressionValue?> case(label: Number, output: Expression<O>): Case<FloatValue, O> =
   Case(const(label.toFloat()), output)
 
 /** Create a [Case], see [switch] */
 @JvmName("stringsCase")
-public fun <O : ExpressionValue> case(
+public fun <O : ExpressionValue?> case(
   label: List<String>,
   output: Expression<O>,
 ): Case<StringValue, O> = Case(const(label), output)
 
 /** Create a [Case], see [switch] */
 @JvmName("enumsCase")
-public fun <O : ExpressionValue, E : EnumValue<E>> case(
+public fun <O : ExpressionValue?, E : EnumValue<E>> case(
   label: List<E>,
   output: Expression<O>,
-): Case<StringValue, O> = Case(const(label), output)
+): Case<E, O> = Case(const(label), output)
 
 /** Create a [Case], see [switch] */
 @JvmName("numbersCase")
-public fun <O : ExpressionValue> case(
+public fun <O : ExpressionValue?> case(
   label: List<Number>,
   output: Expression<O>,
 ): Case<FloatValue, O> = Case(const(label), output)
 
 /**
  * Evaluates each expression in [values] in turn until the first non-null value is obtained, and
- * returns that value.
+ * returns that value. The result is null when every value is null.
+ *
+ * An assertion such as [asString] inside [values] aborts on a null input instead of moving on to
+ * the next value. Pass the untyped source, or
+ * [cast][org.maplibre.compose.expressions.ast.Expression.cast] it to a nullable type, and assert or
+ * convert the result.
  */
-public fun <T : ExpressionValue> coalesce(vararg values: Expression<T>): Expression<T> =
+public fun <T : ExpressionValue> coalesce(vararg values: Expression<T?>): Expression<T?> =
   FunctionCall.of("coalesce", values.asList()).cast()
+
+/**
+ * Evaluates each expression in [values] in turn until the first non-null value is obtained, and
+ * returns that value. Returns [fallback] when every value is null, so the result is not null when
+ * [fallback] is not.
+ *
+ * An assertion such as [asString] inside [values] aborts on a null input instead of moving on to
+ * the next value. Pass the untyped source, or
+ * [cast][org.maplibre.compose.expressions.ast.Expression.cast] it to a nullable type, and assert or
+ * convert the result.
+ */
+public fun <T : ExpressionValue> coalesce(
+  vararg values: Expression<T?>,
+  fallback: Expression<T>,
+): Expression<T> = FunctionCall.of("coalesce", values.asList() + fallback).cast()
 
 /**
  * Returns whether this expression is equal to [other].
@@ -285,8 +305,8 @@ public fun <T : ExpressionValue> coalesce(vararg values: Expression<T>): Express
  * Values of unknown type, such as feature properties, are compared when the map evaluates the
  * expression. A value whose type differs from [other] is not equal.
  */
-public infix fun Expression<EquatableValue>.eq(
-  other: Expression<EquatableValue>
+public infix fun Expression<EquatableValue?>.eq(
+  other: Expression<EquatableValue?>
 ): Expression<BooleanValue> = FunctionCall.of("==", this, other).cast()
 
 /**
@@ -306,8 +326,8 @@ public fun eq(
  * Values of unknown type, such as feature properties, are compared when the map evaluates the
  * expression. A value whose type differs from [other] is not equal.
  */
-public infix fun Expression<EquatableValue>.neq(
-  other: Expression<EquatableValue>
+public infix fun Expression<EquatableValue?>.neq(
+  other: Expression<EquatableValue?>
 ): Expression<BooleanValue> = FunctionCall.of("!=", this, other).cast()
 
 /**

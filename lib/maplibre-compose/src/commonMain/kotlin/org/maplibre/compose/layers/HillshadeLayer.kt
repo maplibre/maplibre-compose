@@ -5,7 +5,6 @@ import androidx.compose.ui.graphics.Color
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.FloatOrVectorValue
 import org.maplibre.compose.expressions.value.FloatValue
@@ -77,7 +76,7 @@ public fun HillshadeLayer(
   illuminationAnchor: Expression<IlluminationAnchor> = const(IlluminationAnchor.Viewport),
   exaggeration: Expression<FloatValue> = const(0.5f),
   exaggerationTransition: TransitionOptions? = null,
-  resampling: Expression<RasterResampling> = nil(),
+  resampling: Expression<RasterResampling>? = null,
 ) {
   val compile = rememberPropertyCompiler()
 

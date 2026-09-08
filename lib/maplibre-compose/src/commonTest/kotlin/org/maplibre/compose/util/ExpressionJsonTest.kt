@@ -95,7 +95,7 @@ class ExpressionJsonTest {
     assertEquals(initialHash, expression.hashCode())
     val visited = mutableListOf<Expression<*>>()
     expression.visit { visited.add(it) }
-    assertEquals(listOf(expression, const("park")), visited)
+    assertEquals<List<Expression<*>>>(listOf(expression, const("park")), visited)
   }
 
   @Test

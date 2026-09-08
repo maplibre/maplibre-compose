@@ -13,6 +13,31 @@ import org.maplibre.compose.expressions.value.ExpressionValue
  * [MapLibre style specification](https://maplibre.org/maplibre-style-spec/expressions/), a few have
  * been renamed to be Kotlin-idiomatic or made into extension functions (to an [Expression]).
  *
+ * # Nullability
+ *
+ * A nullable type argument, such as `Expression<StringValue?>`, marks an expression that may
+ * evaluate to no value. Only a source of unknown type produces one: a feature property read with
+ * `feature.`[get][org.maplibre.compose.expressions.dsl.Feature.get], feature state, a map lookup, a
+ * [coalesce][org.maplibre.compose.expressions.dsl.coalesce] without a fallback, an
+ * [image][org.maplibre.compose.expressions.dsl.image] named by a string, which is null when the
+ * style has no such image, or a [cast] to a nullable type.
+ *
+ * Functions that MapLibre defines for a null input accept a nullable expression:
+ * [eq][org.maplibre.compose.expressions.dsl.eq], [neq][org.maplibre.compose.expressions.dsl.neq],
+ * [contains][org.maplibre.compose.expressions.dsl.contains],
+ * [switch][org.maplibre.compose.expressions.dsl.switch] on an input value,
+ * [coalesce][org.maplibre.compose.expressions.dsl.coalesce],
+ * [type][org.maplibre.compose.expressions.dsl.type], the `convertTo` functions, and
+ * [format][org.maplibre.compose.expressions.dsl.format]. A text or image layer property also
+ * accepts one and renders a null as no text or no image. Every other function and property needs a
+ * value: assert one with a function such as
+ * [asString][org.maplibre.compose.expressions.dsl.asString], which aborts the expression on a null
+ * unless a fallback matches, or supply one with
+ * [coalesce][org.maplibre.compose.expressions.dsl.coalesce] and a fallback.
+ *
+ * [nil][org.maplibre.compose.expressions.dsl.nil] is a `null` literal, not a nullable expression.
+ * See [NullValue][org.maplibre.compose.expressions.value.NullValue] for where MapLibre accepts it.
+ *
  * # Function overview
  *
  * ### Literals
@@ -131,12 +156,12 @@ import org.maplibre.compose.expressions.value.ExpressionValue
  * - [withVariable][org.maplibre.compose.expressions.dsl.withVariable] - define variable within
  *   expression
  */
-public sealed interface Expression<out T : ExpressionValue> {
+public sealed interface Expression<out T : ExpressionValue?> {
   /** Transform this expression into the equivalent [CompiledExpression]. */
   public fun compile(context: ExpressionContext): CompiledExpression<T>
 
   public fun visit(block: (Expression<*>) -> Unit)
 
   @Suppress("UNCHECKED_CAST")
-  public fun <X : ExpressionValue> cast(): Expression<X> = this as Expression<X>
+  public fun <X : ExpressionValue?> cast(): Expression<X> = this as Expression<X>
 }

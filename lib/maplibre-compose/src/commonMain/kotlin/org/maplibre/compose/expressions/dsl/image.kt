@@ -26,7 +26,7 @@ import org.maplibre.compose.util.ImageStretch
  * currently in the style. This validation process is synchronous and requires the image to have
  * been added to the style before requesting it in the image argument.
  */
-public fun image(value: Expression<StringValue>): Expression<ImageValue> =
+public fun image(value: Expression<StringValue>): Expression<ImageValue?> =
   FunctionCall.of("image", value).cast()
 
 /**
@@ -42,7 +42,7 @@ public fun image(value: Expression<StringValue>): Expression<ImageValue> =
  * style. This validation process is synchronous and requires the image to have been added to the
  * style before requesting it in the image argument.
  */
-public fun image(value: String): Expression<ImageValue> = image(const(value))
+public fun image(value: String): Expression<ImageValue?> = image(const(value))
 
 /**
  * Returns an image type for use in `iconImage` (see
