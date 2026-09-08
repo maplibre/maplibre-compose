@@ -127,7 +127,7 @@ object MaterialStyleDemo : Demo {
     interpolate(exponential(1.6f), zoom(), *stops)
 
   @Composable
-  override fun MapContent() {
+  override fun MapContent(style: DemoStyle) {
     val tiles = rememberVectorTileSource("$TILES?key=$PROTOMAPS_API_KEY")
     val colors = MaterialTheme.colorScheme
 

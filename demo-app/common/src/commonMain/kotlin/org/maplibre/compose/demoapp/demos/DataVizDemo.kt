@@ -9,6 +9,7 @@ import androidx.compose.ui.unit.dp
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
+import org.maplibre.compose.demoapp.DemoStyle
 import org.maplibre.compose.demoapp.Protomaps
 import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.expressions.dsl.asNumber
@@ -53,12 +54,12 @@ object DataVizDemo : Demo {
   private val magnitude = feature["mag"].asNumber()
 
   @Composable
-  override fun MapContent() {
+  override fun MapContent(style: DemoStyle) {
     Anchor.Below({ it.type == "symbol" }) {
       when (mode) {
         Mode.Points -> Points()
         Mode.Heatmap -> Heatmap()
-        Mode.Clusters -> Clusters()
+        Mode.Clusters -> Clusters(style)
       }
     }
   }
@@ -97,7 +98,7 @@ object DataVizDemo : Demo {
   }
 
   @Composable
-  private fun Clusters() {
+  private fun Clusters(style: DemoStyle) {
     val source =
       rememberGeoJsonSource(
         GeoJsonData.Uri(FEED_URI),
@@ -125,7 +126,7 @@ object DataVizDemo : Demo {
       source = source,
       filter = feature.has("point_count"),
       textField = feature["point_count_abbreviated"].convertToString(),
-      textFont = const(preferredLightStyle.textFont),
+      textFont = const(style.textFont),
       textColor = const(Color.Black),
     )
 

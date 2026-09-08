@@ -16,6 +16,7 @@ import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
 import org.maplibre.compose.demoapp.DemoPointerPin
+import org.maplibre.compose.demoapp.DemoStyle
 import org.maplibre.compose.demoapp.center
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.expressions.dsl.const
@@ -50,7 +51,7 @@ object CastelloPlanDemo : Demo {
     )
 
   @Composable
-  override fun MapContent() {
+  override fun MapContent(style: DemoStyle) {
     val source =
       rememberImageSource(position = corners, uri = Res.getUri("files/castello-plan.jpg"))
     RasterLayer(id = "castello-plan", source = source, opacity = const(opacity))

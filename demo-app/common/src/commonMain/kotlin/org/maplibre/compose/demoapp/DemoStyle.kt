@@ -83,7 +83,6 @@ enum class OtherStyles(
   override val isDark: Boolean = false,
   override val textFont: List<String> = listOf("Noto Sans Regular"),
 ) : DemoStyle {
-  // A raster style with no `glyphs` endpoint, so no font stack works here and the value is inert.
   OpenStreetMaps(
     displayName = "OpenStreetMaps Carto",
     base = BaseStyle.Uri(Res.getUri("files/styles/osm-raster.json")),

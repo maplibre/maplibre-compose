@@ -350,7 +350,7 @@ fun DemoMap(
   Box(Modifier.fillMaxSize()) {
     MaplibreMap(
       state = state.mapState,
-      modifier = modifier,
+      modifier = modifier.then(selectedDemo?.mapModifier(state.mapState) ?: Modifier),
       cameraPadding = viewportInsets.asPaddingValues(),
       renderOptions = state.settings.renderOptions,
       interactions = selectedDemo?.interactions(state.mapState) ?: MapInteractions.Standard,
