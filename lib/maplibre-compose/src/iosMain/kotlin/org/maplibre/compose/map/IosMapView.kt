@@ -3,12 +3,8 @@ package org.maplibre.compose.map
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import org.maplibre.compose.interaction.internal.ClickPath
-import org.maplibre.compose.interaction.internal.TapFamily
-import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.IosMlnFfiSurface
 import org.maplibre.compose.mlnffi.MapRenderBackend
-import org.maplibre.compose.style.BaseStyle
 
 @Composable internal actual fun mapPresentationHostIdentity(): Any = Unit
 
@@ -16,16 +12,10 @@ import org.maplibre.compose.style.BaseStyle
 internal actual fun ComposableMapView(
   modifier: Modifier,
   state: MapState,
-  style: BaseStyle,
-  update: (map: MapAdapter) -> Unit,
-  onReset: () -> Unit,
-  logger: MapLog?,
-  callbacks: MapAdapter.Callbacks,
-  captureClickPath: (TapFamily) -> ClickPath?,
-  hasClickHandlers: (TapFamily) -> Boolean,
+  presentationOwner: MapPresentationOwnerToken,
   options: MapViewOptions,
 ) {
-  val runtimeBackends = remember { loadRuntimeBackends(logger) }
+  val runtimeBackends = remember { loadRuntimeBackends(state.runtime.logger) }
   MlnFfiMapView(
     renderBackend = MapRenderBackend.METAL,
     surface = { renderer, surfaceModifier, surfaceLogger, presentFrames ->
@@ -40,13 +30,7 @@ internal actual fun ComposableMapView(
     },
     modifier = modifier,
     state = state,
-    style = style,
-    update = update,
-    onReset = onReset,
-    logger = logger,
-    callbacks = callbacks,
-    captureClickPath = captureClickPath,
-    hasClickHandlers = hasClickHandlers,
+    presentationOwner = presentationOwner,
     options = options,
   )
 }

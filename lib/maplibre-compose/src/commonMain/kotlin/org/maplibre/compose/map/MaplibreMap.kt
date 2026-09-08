@@ -8,60 +8,18 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.UiComposable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.CancellationException
 import org.maplibre.compose.interaction.MapInteractions
-import org.maplibre.compose.interaction.internal.FeatureClickDispatcher
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MapOverlayHost
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.overlay.include
-import org.maplibre.compose.style.DesiredStyleRevision
-import org.maplibre.compose.style.StyleBinding
-import org.maplibre.compose.style.rememberStyleComposition
-
-private class MapStateAttachment(
-  val state: MapState,
-  private val token: MapPresentationToken,
-) {
-  fun publish(map: MapAdapter) {
-    state.publishPresentation(token, map)
-  }
-
-  fun release(map: MapAdapter? = null) {
-    state.releasePresentation(token, map)
-  }
-
-  fun markStyleReady(map: MapAdapter): Boolean = state.markStyleReady(map)
-
-  fun markStyleFailed(map: MapAdapter, reason: String?) {
-    state.markStyleFailed(map, reason)
-  }
-
-  suspend fun reconcileStyleRevision(map: MapAdapter, revision: DesiredStyleRevision) {
-    state.beginStyleRevision(map, revision)
-    try {
-      state.updateStyleResources(map, map.reconcileStyleRevision(revision))
-    } catch (error: CancellationException) {
-      throw error
-    } catch (error: Throwable) {
-      state.markStyleFailed(map, error.message)
-    }
-  }
-}
 
 /**
  * Displays [state] on a map surface.
@@ -108,172 +66,19 @@ public fun MaplibreMap(
       uiOptions = uiOptions,
     )
   key(state, presentationHostIdentity) {
-    PresentedMaplibreMap(
-      state = state,
-      presentationOwner = presentationOwner,
-      modifier = modifier,
-      mapViewOptions = mapViewOptions,
-      contentWindowInsets = contentWindowInsets,
-      overlay = overlay,
-    )
-  }
-}
-
-@Composable
-private fun PresentedMaplibreMap(
-  state: MapState,
-  presentationOwner: MapPresentationOwnerToken,
-  modifier: Modifier,
-  mapViewOptions: MapViewOptions,
-  contentWindowInsets: WindowInsets,
-  overlay: @Composable @UiComposable MapOverlayScope.() -> Unit,
-) {
-  val token = remember(state, presentationOwner) { state.reservePresentation(presentationOwner) }
-  val attachment = remember(state, token) { MapStateAttachment(state, token) }
-  DisposableEffect(attachment) { onDispose { attachment.release() } }
-  MaplibreMapPresentation(
-    state = state,
-    attachment = attachment,
-    modifier = modifier,
-    mapViewOptions = mapViewOptions,
-    contentWindowInsets = contentWindowInsets,
-    overlay = overlay,
-  )
-}
-
-@Composable
-private fun MaplibreMapPresentation(
-  state: MapState,
-  attachment: MapStateAttachment,
-  modifier: Modifier,
-  mapViewOptions: MapViewOptions,
-  contentWindowInsets: WindowInsets,
-  overlay: @Composable @UiComposable MapOverlayScope.() -> Unit,
-) {
-  // The dispatcher reads this state directly: a click can arrive between the style binding's
-  // invalidation and the recomposition that clears it.
-  val rememberedStyleState = remember { mutableStateOf<StyleBinding?>(null) }
-  var rememberedStyle by rememberedStyleState
-  val desiredRevisionState =
-    rememberStyleComposition(
-      content = state.styleContent,
-      maybeStyle = rememberedStyle,
-      replaceableSourceIds = state.desiredStyleRevision.sources.mapTo(mutableSetOf()) { it.id },
-      replaceableLayerIds =
-        state.desiredStyleRevision.layers.mapTo(mutableSetOf()) {
-          it.definition.id
-        },
-    )
-  val desiredRevision by desiredRevisionState
-  val mapAttachment = state.currentMapAttachment
-  val currentInteractions = rememberUpdatedState(mapViewOptions.interactions)
-  SideEffect { state.gestureAuthority.updateConfiguration(mapViewOptions.interactions.camera) }
-  // The style subcomposition publishes into a revision state it re-creates per loaded style, and
-  // the dispatcher must keep its identity because the pointer input holding it does not restart.
-  val currentDesiredRevision = rememberUpdatedState(desiredRevisionState)
-  val clickDispatcher =
-    remember(state) {
-      FeatureClickDispatcher(
+    Box(modifier.fillMaxSize()) {
+      ComposableMapView(
+        modifier = Modifier.fillMaxSize(),
         state = state,
-        desiredRevision = currentDesiredRevision,
-        loadedStyle = rememberedStyleState,
-        interactions = currentInteractions,
+        presentationOwner = presentationOwner,
+        options = mapViewOptions,
+      )
+      MapOverlayHost(
+        overlay = overlay,
+        mapState = state,
+        contentWindowInsets = contentWindowInsets,
+        modifier = Modifier.matchParentSize().focusGroup(),
       )
     }
-  var retainedRevisionReplayed by remember(rememberedStyle, mapAttachment) { mutableStateOf(false) }
-
-  LaunchedEffect(rememberedStyle, mapAttachment, attachment) {
-    val map = mapAttachment?.adapter ?: return@LaunchedEffect
-    if (rememberedStyle == null) return@LaunchedEffect
-    try {
-      state.updateStyleResources(map, map.replayStyleRevision(state.desiredStyleRevision))
-    } catch (error: CancellationException) {
-      throw error
-    } catch (error: Throwable) {
-      state.runtime.logger?.w(error) { "Could not replay the retained style revision" }
-    } finally {
-      retainedRevisionReplayed = true
-    }
-  }
-
-  LaunchedEffect(rememberedStyle, desiredRevision, mapAttachment, retainedRevisionReplayed) {
-    if (!retainedRevisionReplayed) return@LaunchedEffect
-    val map = mapAttachment?.adapter ?: return@LaunchedEffect
-    val revision = desiredRevision ?: return@LaunchedEffect
-    attachment.reconcileStyleRevision(map, revision)
-  }
-
-  val adapterCallbacks =
-    remember(attachment, mapAttachment) {
-      object : MapAdapter.Callbacks {
-        private fun synchronizeCamera(map: MapAdapter): MapAttachment? {
-          return state.synchronizeCamera(map)
-        }
-
-        override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
-          if (!state.updateLoadedStyle(map, style)) return
-          rememberedStyle = style
-          synchronizeCamera(map)
-        }
-
-        override fun onStyleReady(map: MapAdapter) {
-          attachment.markStyleReady(map)
-        }
-
-        override fun onStyleFailed(map: MapAdapter, reason: String?) {
-          attachment.markStyleFailed(map, reason)
-        }
-
-        override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) {
-          state.refreshStyleSources(map, sourceId)
-        }
-
-        override fun onEvent(map: MapAdapter, event: MapEvent) {
-          state.onEvent(map, event)
-        }
-
-        override fun resolveMissingImage(map: MapAdapter, imageId: String) =
-          state.resolveMissingImage(map, imageId)
-
-        override fun onGestureActive(map: MapAdapter, active: Boolean) {
-          state.setGestureActive(map, active)
-        }
-
-        override fun onViewportChanged(map: MapAdapter) {
-          synchronizeCamera(map)
-        }
-      }
-    }
-
-  Box(modifier.fillMaxSize()) {
-    ComposableMapView(
-      modifier = Modifier.fillMaxSize(),
-      state = state,
-      style = state.style.baseStyle,
-      update = update@{ map ->
-          if (state.isClosed) return@update
-          map.setCameraPadding(mapViewOptions.cameraPadding)
-          map.setCameraConstraints(mapViewOptions.cameraConstraints)
-          map.setRenderSettings(mapViewOptions.renderOptions)
-          map.setTileLodSettings(mapViewOptions.renderOptions.tileLod)
-          attachment.publish(map)
-        },
-      onReset = {
-        attachment.release()
-        rememberedStyle = null
-      },
-      logger = state.runtime.logger,
-      callbacks = adapterCallbacks,
-      captureClickPath = clickDispatcher::capture,
-      hasClickHandlers = clickDispatcher::hasHandlers,
-      options = mapViewOptions,
-    )
-
-    MapOverlayHost(
-      overlay = overlay,
-      mapState = state,
-      contentWindowInsets = contentWindowInsets,
-      modifier = Modifier.matchParentSize().focusGroup(),
-    )
   }
 }

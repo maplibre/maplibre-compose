@@ -5,10 +5,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import org.maplibre.compose.desktop.LocalComposeMapPresentationHost
 import org.maplibre.compose.desktop.bridge.ComposeMapPresentationHostFactory
-import org.maplibre.compose.interaction.internal.ClickPath
-import org.maplibre.compose.interaction.internal.TapFamily
-import org.maplibre.compose.logging.MapLog
-import org.maplibre.compose.style.BaseStyle
 
 /** Gives Compose value-based keys reference-identity semantics for physical host resources. */
 internal class ReferenceIdentityKey(private val value: Any) {
@@ -25,13 +21,7 @@ internal actual fun mapPresentationHostIdentity(): Any =
 internal actual fun ComposableMapView(
   modifier: Modifier,
   state: MapState,
-  style: BaseStyle,
-  update: (map: MapAdapter) -> Unit,
-  onReset: () -> Unit,
-  logger: MapLog?,
-  callbacks: MapAdapter.Callbacks,
-  captureClickPath: (TapFamily) -> ClickPath?,
-  hasClickHandlers: (TapFamily) -> Boolean,
+  presentationOwner: MapPresentationOwnerToken,
   options: MapViewOptions,
 ) {
   val hostFactory =
@@ -45,13 +35,7 @@ internal actual fun ComposableMapView(
     hostFactory = hostFactory,
     modifier = modifier,
     state = state,
-    style = style,
-    update = update,
-    onReset = onReset,
-    logger = logger,
-    callbacks = callbacks,
-    captureClickPath = captureClickPath,
-    hasClickHandlers = hasClickHandlers,
+    presentationOwner = presentationOwner,
     options = options,
   )
 }

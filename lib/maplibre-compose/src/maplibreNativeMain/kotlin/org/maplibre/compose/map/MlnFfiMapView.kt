@@ -4,22 +4,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.indication
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
-import kotlinx.coroutines.CancellationException
-import org.maplibre.compose.interaction.internal.ClickPath
+import org.maplibre.compose.interaction.internal.FeatureClickDispatcher
 import org.maplibre.compose.interaction.internal.InputConfiguration
 import org.maplibre.compose.interaction.internal.InputFocus
-import org.maplibre.compose.interaction.internal.TapFamily
 import org.maplibre.compose.interaction.internal.inputEnvironment
 import org.maplibre.compose.interaction.internal.mapInput
 import org.maplibre.compose.interaction.internal.rotaryNotchPixels
@@ -32,7 +26,6 @@ import org.maplibre.compose.mlnffi.MlnFfiMapSurface
 import org.maplibre.compose.mlnffi.RenderBackendPair
 import org.maplibre.compose.mlnffi.backendDiagnostic
 import org.maplibre.compose.mlnffi.selectBridge
-import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.render.RenderBackend
@@ -46,17 +39,11 @@ internal fun MlnFfiMapView(
   hostFactory: MlnFfiMapHostFactory,
   modifier: Modifier,
   state: MapState,
-  style: BaseStyle,
-  update: (map: MapAdapter) -> Unit,
-  onReset: () -> Unit,
-  logger: MapLog?,
-  callbacks: MapAdapter.Callbacks,
-  captureClickPath: (TapFamily) -> ClickPath?,
-  hasClickHandlers: (TapFamily) -> Boolean,
+  presentationOwner: MapPresentationOwnerToken,
   options: MapViewOptions,
 ) {
   val density = LocalDensity.current
-
+  val logger = state.runtime.logger
   // Safe to call off the owner thread: it only inspects what the loaded library was built with.
   val runtimeBackends = remember { loadRuntimeBackends(logger) }
   val scaleFactor = density.density.toDouble()
@@ -76,13 +63,7 @@ internal fun MlnFfiMapView(
     },
     modifier = modifier,
     state = state,
-    style = style,
-    update = update,
-    onReset = onReset,
-    logger = logger,
-    callbacks = callbacks,
-    captureClickPath = captureClickPath,
-    hasClickHandlers = hasClickHandlers,
+    presentationOwner = presentationOwner,
     options = options,
   )
 }
@@ -94,83 +75,28 @@ internal fun MlnFfiMapView(
   surface: @Composable (MlnFfiMapRenderer, Modifier, MapLog?, Boolean) -> Unit,
   modifier: Modifier,
   state: MapState,
-  style: BaseStyle,
-  update: (map: MapAdapter) -> Unit,
-  onReset: () -> Unit,
-  logger: MapLog?,
-  callbacks: MapAdapter.Callbacks,
-  captureClickPath: (TapFamily) -> ClickPath?,
-  hasClickHandlers: (TapFamily) -> Boolean,
+  presentationOwner: MapPresentationOwnerToken,
   options: MapViewOptions,
 ) {
-  val applicationOptions = state.runtime.nativeRuntimeOptions
-  val layoutDirection = LocalLayoutDirection.current
+  MlnFfiMapPresentation(renderBackend, state, presentationOwner, options) { session, clicks ->
+    MlnFfiMapInputSurface(session, clicks, options, modifier, state) { inputModifier, revealSurface
+      ->
+      surface(session, inputModifier, state.runtime.logger, revealSurface)
+    }
+  }
+}
+
+/** Recognizes UI input and draws the loading/focus presentation around a platform surface. */
+@Composable
+private fun MlnFfiMapInputSurface(
+  session: MlnFfiMapSession,
+  clicks: FeatureClickDispatcher,
+  options: MapViewOptions,
+  modifier: Modifier,
+  state: MapState,
+  surface: @Composable (Modifier, Boolean) -> Unit,
+) {
   val density = LocalDensity.current
-  val scaleFactor = density.density.toDouble()
-  val compatibility =
-    remember(renderBackend, scaleFactor) {
-      NativeEngineCompatibility(renderBackend = renderBackend, scaleFactor = scaleFactor)
-    }
-  val retainedSession = state.retainedAdapter(compatibility) as? MlnFfiMapSession
-
-  val unpreparedSession =
-    retainedSession
-      ?: remember(renderBackend, scaleFactor, applicationOptions, state) {
-        MlnFfiMapSession(
-          lifecycleAuthority = state.lifecycle,
-          callbacks = callbacks,
-          logger = logger,
-          renderBackend = renderBackend,
-          scaleFactor = scaleFactor,
-          layoutDirection = layoutDirection,
-          cacheFile = applicationOptions.cacheFile,
-          resourceProviderFactory = applicationOptions.resourceProviderFactory,
-          resourceConfig = state.runtime.resourceConfig,
-        )
-      }
-  val session = remember(unpreparedSession) { unpreparedSession.apply { preparePresentation() } }
-
-  session.durableCallbacks = state.durableStyleCallbacks()
-  session.callbacks = callbacks
-  session.logger = logger
-  session.layoutDirection = layoutDirection
-  val currentUpdate = rememberUpdatedState(update)
-  val currentOnReset = rememberUpdatedState(onReset)
-
-  // Must run in the apply phase, not from a coroutine: the unload has to precede the content
-  // subcomposition inserting layers, or a style switch inserts them against the base style being
-  // replaced (see #269).
-  SideEffect { session.setBaseStyle(style) }
-  SideEffect {
-    if (session.beginPresentationAttachment() && session.isPresentationPublished) {
-      currentUpdate.value(session)
-    }
-  }
-  LaunchedEffect(session) {
-    try {
-      session.attachPresentation()
-      if (!session.isPresentationPublished) {
-        currentUpdate.value(session)
-        if (state.currentMapAttachment?.adapter !== session) return@LaunchedEffect
-      }
-      session.publishRetainedStyle()
-    } catch (_: MapClosedException) {
-      // A still-mounted UI on a closed map is inert.
-    } catch (_: MapLeaseInvalidatedException) {
-      // Detach or close won before attach finished.
-    } catch (error: CancellationException) {
-      throw error
-    } catch (error: Throwable) {
-      callbacks.onStyleFailed(session, error.message)
-    }
-  }
-
-  DisposableEffect(session) {
-    onDispose {
-      currentOnReset.value()
-    }
-  }
-
   val focusRequester = remember { FocusRequester() }
   val inputFocus =
     remember(session, state) {
@@ -189,8 +115,8 @@ internal fun MlnFfiMapView(
   val inputModifier =
     modifier.mapInput(
       session,
-      captureClickPath,
-      hasClickHandlers,
+      clicks::capture,
+      clicks::hasHandlers,
       InputConfiguration(options.interactions, options.uiOptions.bindings),
       density,
       focusRequester,
@@ -201,7 +127,7 @@ internal fun MlnFfiMapView(
 
   // The indication draws over the surface and the load placeholder alike.
   Box(Modifier.indication(inputFocus.indicationInteractions, inputEnvironment.indication)) {
-    surface(session, inputModifier, logger, revealSurface)
+    surface(inputModifier, revealSurface)
     if (!revealSurface) {
       // A pointer handler makes the placeholder the hit target, so a press reaches no recognizer
       // on the hidden surface. It consumes nothing, so a parent scroller still scrolls.

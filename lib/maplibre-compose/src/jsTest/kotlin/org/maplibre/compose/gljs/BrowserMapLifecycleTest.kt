@@ -1,14 +1,24 @@
 package org.maplibre.compose.gljs
 
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.unit.Density
 import kotlin.js.Promise
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotSame
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.map.GlJsMapSession
 import org.maplibre.compose.map.MapRuntimeOptions
 import org.maplibre.compose.map.MaplibreMap
@@ -143,6 +153,77 @@ class BrowserMapLifecycleTest {
 
       runtime.close()
       runtime.awaitClosed()
+    }
+
+  @Test
+  fun pixel_density_renews_the_presentation_and_font_scale_preserves_it(): Promise<*> =
+    runBrowserMapTest {
+      val runtime = createMapRuntime(MapRuntimeOptions())
+      val density = mutableStateOf(Density(1f))
+      var observedDensity: Density? = null
+      val camera = CameraPosition(target = Position(11.0, 47.0), zoom = 8.0)
+      val state =
+        runtime.createMapState(BaseStyle.Empty, cameraPosition = camera) {
+          val current = LocalDensity.current
+          SideEffect { observedDensity = current }
+          key(current.density, current.fontScale) {
+            BackgroundLayer(
+              id =
+                when {
+                  current.fontScale > 1f -> "scaled-font"
+                  current.density > 1f -> "scaled-density"
+                  else -> "initial-density"
+                },
+              color = const(Color.Red),
+            )
+          }
+        }
+      try {
+        setBrowserMapContent {
+          CompositionLocalProvider(LocalDensity provides density.value) {
+            MaplibreMap(state = state)
+          }
+        }
+        waitUntilMap("the first density's declarative style") {
+          state.currentMapAttachment != null &&
+            state.style.loadState == StyleLoadState.Ready &&
+            (state.currentMapAttachment?.adapter as? GlJsMapSession)?.canPresentFrames == true
+        }
+        val firstAttachment = requireNotNull(state.currentMapAttachment)
+        val firstSession = firstAttachment.adapter as GlJsMapSession
+        val firstEngine = requireNotNull(firstSession.engineMapForTest())
+        runOnIdle { density.value = Density(2f) }
+        waitUntilMap("a replacement presentation after the browser density changes") {
+          val current = state.currentMapAttachment
+          current != null &&
+            current !== firstAttachment &&
+            state.style.loadState == StyleLoadState.Ready &&
+            (current.adapter as GlJsMapSession).canPresentFrames
+        }
+        val replacement = requireNotNull(state.currentMapAttachment)
+        val replacementSession = replacement.adapter as GlJsMapSession
+        val replacementEngine = requireNotNull(replacementSession.engineMapForTest())
+        assertFalse(firstAttachment.isValid)
+        assertNull(firstSession.engineMapForTest())
+        assertNotSame(firstSession, replacementSession)
+        assertNotSame(firstEngine, replacementEngine)
+        assertTrue(state.cameraPosition.isNear(camera))
+        waitUntilMap("the replacement engine's density-dependent style") {
+          replacementEngine.getStyle().layers.any { it.id == "scaled-density" }
+        }
+        runOnIdle { density.value = Density(2f, fontScale = 1.5f) }
+        waitUntilMap("font scale to recompose without replacing the browser engine") {
+          observedDensity?.fontScale == 1.5f &&
+            replacementEngine.getStyle().layers.any { it.id == "scaled-font" } &&
+            replacementEngine.getStyle().layers.none { it.id == "scaled-density" }
+        }
+        assertSame(replacement, state.currentMapAttachment)
+        assertSame(replacementEngine, replacementSession.engineMapForTest())
+        assertTrue(state.cameraPosition.isNear(camera))
+      } finally {
+        runtime.close()
+        runtime.awaitClosed()
+      }
     }
 
   private companion object {
