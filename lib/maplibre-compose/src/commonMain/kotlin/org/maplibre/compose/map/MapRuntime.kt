@@ -116,27 +116,27 @@ public interface MapRuntime {
   public val offlineManager: OfflineManager
 
   /**
-   * Creates a logical map with [initialBaseStyle] and the sources, layers, and images that
-   * [content] declares. The caller must close the result.
+   * Creates a logical map with [baseStyle] and the sources, layers, and images that [content]
+   * declares. The caller must close the result.
    *
    * [content] reads the returned state through [LocalMapState] and its viewport through
    * [LocalViewport].
    */
   public fun createMapState(
-    initialBaseStyle: BaseStyle,
-    initialCameraPosition: CameraPosition = CameraPosition(),
+    baseStyle: BaseStyle,
+    cameraPosition: CameraPosition = CameraPosition(),
     content: @Composable @MaplibreComposable () -> Unit = {},
   ): MapState
 
   /**
-   * Creates an independent non-UI map with [initialBaseStyle] and the sources, layers, and images
-   * that [content] declares, for image capture. The caller must close the result.
+   * Creates an independent non-UI map with [baseStyle] and the sources, layers, and images that
+   * [content] declares, for image capture. The caller must close the result.
    *
    * [content] reads the viewport of each capture request through [LocalViewport]. It has no
    * [MapState], so [LocalMapState] is null.
    */
   public fun createSnapshotter(
-    initialBaseStyle: BaseStyle,
+    baseStyle: BaseStyle,
     content: @Composable @MaplibreComposable () -> Unit = {},
   ): MapSnapshotter
 
@@ -206,15 +206,14 @@ internal interface MapStyleStateOwner {
 }
 
 /** Desired and applied style state for one logical map or snapshotter. */
-public class MapStyleState internal constructor(initialBaseStyle: BaseStyle) {
+public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   private var owner: MapStyleStateOwner? = null
   private val loadedStyle = AtomicReference<StyleBinding?>(null)
   private var sourcesState: Map<String, SourceHandle> by
     mutableStateOf(emptyMap(), referentialEqualityPolicy())
   private var layersState: Map<String, LayerHandle> by
     mutableStateOf(emptyMap(), referentialEqualityPolicy())
-  private var baseStyleState: BaseStyle by
-    mutableStateOf(initialBaseStyle, structuralEqualityPolicy())
+  private var baseStyleState: BaseStyle by mutableStateOf(baseStyle, structuralEqualityPolicy())
 
   internal var baseStyleDeclared: Boolean = false
 
@@ -659,8 +658,8 @@ private class MapAttachmentChangedException :
 public class MapState
 internal constructor(
   internal val runtime: RuntimeImplementation,
-  initialCameraPosition: CameraPosition,
-  initialBaseStyle: BaseStyle,
+  cameraPosition: CameraPosition,
+  baseStyle: BaseStyle,
   content: @Composable @MaplibreComposable () -> Unit,
 ) {
   internal val styleContent: @Composable @MaplibreComposable () -> Unit = {
@@ -693,12 +692,12 @@ internal constructor(
     )
   private var closedState: Boolean by mutableStateOf(false)
   private var cameraPositionState: CameraPosition by
-    mutableStateOf(initialCameraPosition, structuralEqualityPolicy())
+    mutableStateOf(cameraPosition, structuralEqualityPolicy())
 
   internal var desiredStyleRevision: DesiredStyleRevision = DesiredStyleRevision.Empty
 
   public val style: MapStyleState =
-    MapStyleState(initialBaseStyle).also {
+    MapStyleState(baseStyle).also {
       it.attach(
         object : MapStyleStateOwner {
           override fun setBaseStyle(value: BaseStyle) = this@MapState.setBaseStyle(value)
@@ -1811,8 +1810,8 @@ public fun rememberMapState(
     rememberSaveable(runtime, saver = mapStateSaver(runtime, baseStyle, stableContent)) {
       runtime
         .createMapState(
-          initialBaseStyle = baseStyle,
-          initialCameraPosition = initialCameraPosition,
+          baseStyle = baseStyle,
+          cameraPosition = initialCameraPosition,
           content = stableContent,
         )
         .also { it.style.baseStyleDeclared = true }
@@ -1824,7 +1823,7 @@ public fun rememberMapState(
 
 private fun mapStateSaver(
   runtime: MapRuntime,
-  initialBaseStyle: BaseStyle,
+  baseStyle: BaseStyle,
   content: @Composable @MaplibreComposable () -> Unit,
 ): Saver<MapState, List<Double>> =
   Saver(
@@ -1837,8 +1836,8 @@ private fun mapStateSaver(
       require(values.size == 5) { "A saved camera position must contain five values" }
       runtime
         .createMapState(
-          initialBaseStyle = initialBaseStyle,
-          initialCameraPosition =
+          baseStyle = baseStyle,
+          cameraPosition =
             CameraPosition(
               bearing = values[0],
               target = Position(longitude = values[1], latitude = values[2]),
@@ -1875,20 +1874,20 @@ internal class RuntimeImplementation(
   private var closedState: Boolean by mutableStateOf(false)
 
   final override fun createMapState(
-    initialBaseStyle: BaseStyle,
-    initialCameraPosition: CameraPosition,
+    baseStyle: BaseStyle,
+    cameraPosition: CameraPosition,
     content: @Composable @MaplibreComposable () -> Unit,
   ): MapState = lock.withLock {
     requireOpenLocked()
-    MapState(this, initialCameraPosition, initialBaseStyle, content).also(children::add)
+    MapState(this, cameraPosition, baseStyle, content).also(children::add)
   }
 
   final override fun createSnapshotter(
-    initialBaseStyle: BaseStyle,
+    baseStyle: BaseStyle,
     content: @Composable @MaplibreComposable () -> Unit,
   ): MapSnapshotter = lock.withLock {
     requireOpenLocked()
-    MapSnapshotterImplementation(this, initialBaseStyle, content).also(snapshotters::add)
+    MapSnapshotterImplementation(this, baseStyle, content).also(snapshotters::add)
   }
 
   private fun requireOpen() {

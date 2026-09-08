@@ -23,7 +23,7 @@ suspend fun captureCurrentMap(
 ): ImageBitmap {
   val snapshotter =
     runtime.createSnapshotter(
-      initialBaseStyle = mapState.style.baseStyle,
+      baseStyle = mapState.style.baseStyle,
       content = content,
     )
   return try {

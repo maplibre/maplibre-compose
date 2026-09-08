@@ -34,8 +34,8 @@ internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
   private val runtime = mapRuntimeForTest()
   override val state =
     runtime.createMapState(
-      initialCameraPosition = CameraPosition(zoom = 0.0),
-      initialBaseStyle = BaseStyle.Empty,
+      cameraPosition = CameraPosition(zoom = 0.0),
+      baseStyle = BaseStyle.Empty,
     )
   private val glJsSession = GlJsMapSession(state.lifecycle, recorder, MapLog, LayoutDirection.Ltr)
   private val token = state.reservePresentation()

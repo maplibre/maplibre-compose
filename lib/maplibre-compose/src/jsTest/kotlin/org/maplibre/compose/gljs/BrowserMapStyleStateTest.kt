@@ -132,7 +132,7 @@ class BrowserMapStyleStateTest {
       val presented = mutableStateOf(true)
       val useLatestRevision = mutableStateOf(false)
       val state =
-        runtime.createMapState(initialBaseStyle = STYLE_A) {
+        runtime.createMapState(baseStyle = STYLE_A) {
           val suffix = if (useLatestRevision.value) "latest" else "initial"
           RasterLayer(
             id = "$suffix-overlay",
@@ -208,7 +208,7 @@ class BrowserMapStyleStateTest {
   fun a_web_presentation_waits_for_a_viewport_and_survives_style_failure(): Promise<*> =
     runBrowserMapTest {
       val runtime = createMapRuntime(MapRuntimeOptions())
-      val state = runtime.createMapState(initialBaseStyle = STYLE_A)
+      val state = runtime.createMapState(baseStyle = STYLE_A)
       val size = mutableStateOf(0.dp)
 
       setBrowserMapContent { MaplibreMap(state = state, modifier = Modifier.size(size.value)) }
@@ -245,7 +245,7 @@ class BrowserMapStyleStateTest {
     Promise<*> = runBrowserMapTest {
     val runtime = createMapRuntime(MapRuntimeOptions())
     val state =
-      runtime.createMapState(initialBaseStyle = STYLE_A) {
+      runtime.createMapState(baseStyle = STYLE_A) {
         BackgroundLayer(id = "application", color = const(Color.Red))
       }
 

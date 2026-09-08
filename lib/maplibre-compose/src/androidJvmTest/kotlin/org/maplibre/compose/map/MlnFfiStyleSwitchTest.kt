@@ -68,7 +68,7 @@ class MlnFfiStyleSwitchTest {
     var style by mutableStateOf(STYLES[0])
     var extraLayer by mutableStateOf(false)
     val state =
-      runtime.createMapState(initialBaseStyle = STYLES[0].base) {
+      runtime.createMapState(baseStyle = STYLES[0].base) {
         val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
         // Two layers on one source at different anchors, so the re-add order matters.
         CircleLayer(id = "user-circles", source = points, color = const(Color.Red))
@@ -120,7 +120,7 @@ class MlnFfiStyleSwitchTest {
     var style by mutableStateOf(SLOT_STYLES[0])
     var sourceLayer by mutableStateOf("places")
     val state =
-      runtime.createMapState(initialBaseStyle = SLOT_STYLES[0]) {
+      runtime.createMapState(baseStyle = SLOT_STYLES[0]) {
         val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
         Anchor.Below("base-slot") {
           FillLayer(
@@ -186,7 +186,7 @@ class MlnFfiStyleSwitchTest {
       )
     var showLatestLayer by mutableStateOf(false)
     val state =
-      runtime.createMapState(initialBaseStyle = INITIAL_STYLE) {
+      runtime.createMapState(baseStyle = INITIAL_STYLE) {
         if (showLatestLayer) {
           Anchor.Below("base-c") {
             BackgroundLayer(id = "user-latest", color = const(Color.Blue))

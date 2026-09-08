@@ -20,7 +20,7 @@ class AndroidExplicitRuntimeTest {
       createMapRuntime(
         MapRuntimeOptions(cacheFile = Path(cacheDirectory.resolve("cache.db").absolutePath))
       )
-    val state = runtime.createMapState(initialBaseStyle = BaseStyle.Empty)
+    val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
 
     try {
       assertSame(context.applicationContext, AndroidMlnFfiPlatform.applicationContext)

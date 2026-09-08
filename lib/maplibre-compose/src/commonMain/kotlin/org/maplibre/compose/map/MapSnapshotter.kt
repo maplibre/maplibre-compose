@@ -214,7 +214,7 @@ public interface MapSnapshotter {
 
 internal class MapSnapshotterImplementation(
   private val runtime: RuntimeImplementation,
-  initialBaseStyle: BaseStyle,
+  baseStyle: BaseStyle,
   private val styleContent: @Composable @MaplibreComposable () -> Unit,
 ) : MapSnapshotter {
   private val lock = reentrantLock()
@@ -237,7 +237,7 @@ internal class MapSnapshotterImplementation(
   private var desiredRevision = DesiredStyleRevision.Empty
 
   override val style: MapStyleState =
-    MapStyleState(initialBaseStyle).also {
+    MapStyleState(baseStyle).also {
       it.attach(
         object : MapStyleStateOwner {
           override fun setBaseStyle(value: BaseStyle) =

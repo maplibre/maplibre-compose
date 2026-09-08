@@ -25,7 +25,7 @@ import org.maplibre.spatialk.geojson.Position
 class MapOverlayTest {
   @Test
   fun overlay_composes_before_the_map_attaches() = runComposeUiTest {
-    val mapState = mapRuntimeForTest().createMapState(initialBaseStyle = BaseStyle.Empty)
+    val mapState = mapRuntimeForTest().createMapState(baseStyle = BaseStyle.Empty)
     setContent {
       MapOverlayHost(
         overlay = {
@@ -46,7 +46,7 @@ class MapOverlayTest {
 
   @Test
   fun removing_a_placed_towards_child_resets_its_state() = runComposeUiTest {
-    val mapState = mapRuntimeForTest().createMapState(initialBaseStyle = BaseStyle.Empty)
+    val mapState = mapRuntimeForTest().createMapState(baseStyle = BaseStyle.Empty)
     val state = PlacedTowardsState()
     var show by mutableStateOf(true)
     setContent {

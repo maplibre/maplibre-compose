@@ -1622,8 +1622,8 @@ class MapPresentationTest {
     val initialCamera = CameraPosition(target = Position(12.0, 34.0), zoom = 8.0)
     val state =
       runtime.createMapState(
-        initialBaseStyle = BaseStyle.Demo,
-        initialCameraPosition = initialCamera,
+        baseStyle = BaseStyle.Demo,
+        cameraPosition = initialCamera,
       )
     val token = state.reservePresentation()
     val adapter = PresentationTestAdapter { state.currentMapAttachment }
