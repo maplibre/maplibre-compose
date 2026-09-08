@@ -58,14 +58,17 @@ fun DemoApp(
   state: DemoAppState = rememberDemoAppState(),
   contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
+  val sync = org.maplibre.compose.demoapp.benchmark.benchmarkLaunchConfig()
+  if (sync != null) {
+    org.maplibre.compose.demoapp.benchmark.BenchmarkRun(sync)
+    return
+  }
   DemoAppTheme(state) { DemoShell(state, contentPadding) }
 }
 
 @Composable
 fun DemoAppTheme(state: DemoAppState, content: @Composable () -> Unit) {
-  val dark =
-    if (state.shell == DemoShell.Benchmarks) state.selectedScenario.style.isDark
-    else state.appliedStyle.isDark
+  val dark = if (state.shell == DemoShell.Benchmarks) true else state.appliedStyle.isDark
   val colorScheme = rememberDemoColorScheme(dark, state.settings.paletteMode)
   MaterialTheme(colorScheme = colorScheme, content = content)
 }
@@ -150,7 +153,7 @@ private fun DemoShell(state: DemoAppState, contentPadding: PaddingValues) {
     val mapFocusable =
       when (state.shell) {
         DemoShell.Demos -> true
-        DemoShell.Benchmarks -> state.selectedScenario.usesGestures
+        DemoShell.Benchmarks -> false
       }
 
     val handleTranslation =
