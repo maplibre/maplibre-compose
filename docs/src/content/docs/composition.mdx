@@ -27,9 +27,8 @@ The library manages the sources and layers in the style block. It
 does not modify the rest of the base style. To change a base style layer, use
 the `asMutable` view of its <Api of="LayerHandle" /> from `mapState.style.layers`.
 
-Changing `baseStyle` reloads the remembered map's style while keeping the same
-map state. Maps and snapshotters created through `MapRuntime` instead accept an
-`initialBaseStyle`; their `style.asMutable` view permits later base-style commands.
+Maps and snapshotters created through `MapRuntime` accept `initialBaseStyle`.
+Use `style.asMutable` to change their base style after creation.
 
 Composition owns the definitions and lifetimes of declared sources, layers, and
 images. Their handles expose reads and runtime operations; `asMutable` is null.
