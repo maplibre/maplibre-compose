@@ -8,11 +8,12 @@ import androidx.compose.ui.graphics.Paint
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-import org.maplibre.compose.camera.CameraPosition
+import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.LayerPropertyKind
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.testing.RgbaPixel
@@ -59,9 +60,9 @@ class MissingImageEvictionTest {
       fixture.pumpUntil("all quest icons to be supplied") {
         ids.all { style.imageExists(it) == true }
       }
-      // Finish the pending tile layout before requesting another symbol placement.
-      fixture.settle()
-      fixture.state.setCameraPosition(CameraPosition(zoom = 1.0))
+      // Reparse tiles with the supplied images: a camera move can reuse a tile that completed
+      // layout before the asynchronous resolver added its images.
+      style.setLayerProperty("pins", "icon-size", JsonPrimitive(0.5), LayerPropertyKind.LAYOUT)
       fixture.pumpUntilPixel("initial quest artwork", 192, 192, green)
       fixture.settle()
       assertEquals(ids.toSet(), requests.toList().toSet())
@@ -87,8 +88,7 @@ class MissingImageEvictionTest {
       fixture.pumpUntil("evicted quest icons to be restored") {
         ids.all { style.imageExists(it) == true }
       }
-      fixture.settle()
-      fixture.state.setCameraPosition(CameraPosition(zoom = 2.0))
+      style.setLayerProperty("pins", "icon-size", JsonPrimitive(1.0), LayerPropertyKind.LAYOUT)
       fixture.pumpUntilPixel("restored quest artwork above the circle markers", 192, 192, green)
       assertEquals(ids.toSet(), requests.toList().toSet())
     }

@@ -761,7 +761,7 @@ internal constructor(
    *
    * Return a [ResolvedStyleImage] for the requested ID, suspending if it needs to be loaded. Be
    * prepared to supply the same ID again after the map discards unused images. On native maps,
-   * resolved images may appear only at the next symbol placement.
+   * resolved images may appear only after the affected tiles are laid out again.
    *
    * Return null for IDs you cannot supply. Null results and exceptions are not retried until the
    * base style reloads or the resolver is replaced.
