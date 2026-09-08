@@ -33,13 +33,13 @@ import org.maplibre.compose.style.BaseStyle
 @OptIn(ExperimentalTestApi::class)
 class DesktopDensityPresentationTest {
   @Test
-  fun pixel_density_replaces_the_engine_and_font_scale_keeps_it_attached() {
+  fun pixel_density_round_trip_replaces_engines_and_font_scale_keeps_the_attachment() {
     val cacheFile = FfiTestPlatform.createCacheFile()
     try {
       runFfiComposeUiTest {
         val options = MapRuntimeOptions(cacheFile = cacheFile)
         val runtime = createMapRuntime(options)
-        var density by mutableStateOf(Density(1f))
+        var density by mutableStateOf(Density(2f))
         val frames = AtomicInteger()
         val observedDensity = AtomicReference<Density>()
         val styleEffectStarts = AtomicInteger()
@@ -58,7 +58,7 @@ class DesktopDensityPresentationTest {
             )
           }
         try {
-          setFfiTestMapContent(options, presentationCount = 2) {
+          setFfiTestMapContent(options, presentationCount = 3) {
             LaunchedEffect(state) {
               state.events.collect { if (it is MapEvent.FrameRendered) frames.incrementAndGet() }
             }
@@ -74,7 +74,7 @@ class DesktopDensityPresentationTest {
           val firstAttachment = requireNotNull(state.currentMapAttachment)
           val firstEngine = firstAttachment.adapter
           val beforeReplacement = frames.get()
-          runOnIdle { density = Density(2f) }
+          runOnIdle { density = Density(1f) }
           waitUntil(timeoutMillis = 10_000) {
             val current = state.currentMapAttachment
             current != null &&
@@ -85,6 +85,7 @@ class DesktopDensityPresentationTest {
           val replacement = requireNotNull(state.currentMapAttachment)
           assertNotSame(firstEngine, replacement.adapter)
           assertFalse(firstAttachment.isValid)
+          firstEngine.awaitClosed()
           val retainedCamera = state.cameraPosition
           assertEquals(camera.bearing, retainedCamera.bearing, 1e-4)
           assertEquals(camera.tilt, retainedCamera.tilt, 1e-4)
@@ -92,7 +93,25 @@ class DesktopDensityPresentationTest {
           assertEquals(camera.target.longitude, retainedCamera.target.longitude, 1e-4)
           assertEquals(camera.target.latitude, retainedCamera.target.latitude, 1e-4)
           waitUntil(timeoutMillis = 10_000) {
-            "density-2.0-1.0" in (replacement.adapter as MlnFfiMapSession).currentStyleLayerIds()
+            "density-1.0-1.0" in (replacement.adapter as MlnFfiMapSession).currentStyleLayerIds()
+          }
+
+          val beforeReturn = frames.get()
+          runOnIdle { density = Density(2f) }
+          waitUntil(timeoutMillis = 10_000) {
+            val current = state.currentMapAttachment
+            current != null &&
+              current !== replacement &&
+              state.style.loadState == StyleLoadState.Ready &&
+              frames.get() > beforeReturn
+          }
+          val returned = requireNotNull(state.currentMapAttachment)
+          assertNotSame(firstEngine, returned.adapter)
+          assertNotSame(replacement.adapter, returned.adapter)
+          assertFalse(replacement.isValid)
+          replacement.adapter.awaitClosed()
+          waitUntil(timeoutMillis = 10_000) {
+            "density-2.0-1.0" in (returned.adapter as MlnFfiMapSession).currentStyleLayerIds()
           }
 
           // Font scale changes declarative content but not native engine compatibility.
@@ -102,10 +121,10 @@ class DesktopDensityPresentationTest {
             observedDensity.get()?.fontScale == 1.5f
           }
           waitUntil(timeoutMillis = 10_000) {
-            val layers = (replacement.adapter as MlnFfiMapSession).currentStyleLayerIds()
+            val layers = (returned.adapter as MlnFfiMapSession).currentStyleLayerIds()
             "density-2.0-1.5" in layers && "density-2.0-1.0" !in layers
           }
-          assertSame(replacement, state.currentMapAttachment)
+          assertSame(returned, state.currentMapAttachment)
           assertEquals(
             effectsBeforeFontScale,
             styleEffectStarts.get(),
