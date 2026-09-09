@@ -24,8 +24,14 @@ kotlin {
 
   js {
     useEsModules()
-    // karma.config.d/ci.js replaces this list with one unsandboxed Chromium on Linux CI.
-    browser { testTask { useKarma { useChromeHeadless() } } }
+    browser {
+      testTask {
+        useKarma {
+          useChromeHeadless()
+          useFirefoxHeadless()
+        }
+      }
+    }
   }
 
   applyDefaultHierarchyTemplate()

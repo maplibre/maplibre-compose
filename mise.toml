@@ -85,6 +85,7 @@ swiftformat = { version = "{{vars.swiftformat_version}}", backend = "github:nick
 [env]
 PLAYWRIGHT_BROWSERS_PATH = "{{ config_root }}/.cache/playwright"
 CHROME_BIN = { value = '''{{ exec(command="node -e \"console.log(require(process.argv[1]).chromium.executablePath())\" \"" ~ tools.playwright.path ~ "/node_modules/playwright\"") }}''', tools = true }
+FIREFOX_BIN = { value = '''{{ exec(command="node -e \"console.log(require(process.argv[1]).firefox.executablePath())\" \"" ~ tools.playwright.path ~ "/node_modules/playwright\"") }}''', tools = true }
 
 [hooks]
 postinstall = ["hk install --mise --quiet"]
@@ -100,6 +101,15 @@ run = "playwright install chromium --no-shell"
 
 [tasks."deps:chromium"]
 run = "mise deps install chromium"
+
+[deps.firefox]
+auto = false
+sources = ["mise.lock"]
+outputs = [".cache/playwright/firefox-*"]
+run = "playwright install firefox --no-shell"
+
+[tasks."deps:firefox"]
+run = "mise deps install firefox"
 
 [tasks.check]
 description = "Run every formatter and linter in report-only mode."
@@ -198,15 +208,21 @@ udid="$(.mise/bin/boot-ios-simulator)"
 '''
 
 [tasks."test:js"]
-depends = ["deps:chromium"]
+depends = ["deps:chromium", "deps:firefox"]
 description = "Run the Kotlin/JS browser test suite."
 run = '''
-# Playwright Chromium, not the Chrome/Firefox/Edge binaries on the host.
-# Karma runs every name in config.browsers; karma.config.d keeps that list at
-# one WebGL-capable headless Chromium.
 echo "JS tests launch ${CHROME_BIN:?}"
 "$CHROME_BIN" --version
-./gradlew jsBrowserTest
+echo "JS tests launch ${FIREFOX_BIN:?}"
+"$FIREFOX_BIN" --version
+# Firefox refuses WebGL in headless mode (bugzilla 1375585). Headed Firefox on
+# Xvfb still gets a software GL context; Chromium stays on its SwiftShader flags.
+if [[ "$(uname -s)" == Linux ]]; then
+  xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" \
+    env LIBGL_ALWAYS_SOFTWARE=1 ./gradlew jsBrowserTest
+else
+  ./gradlew jsBrowserTest
+fi
 '''
 
 [tasks."test:desktop"]
