@@ -67,7 +67,7 @@ appimagetool_version = "1.9.1"
 
 # Runs the Python file tasks under .mise/tasks/.
 "core:python" = "{{vars.python_version}}"
-"aqua:astral-sh/uv" = "{{vars.uv_version}}" # Isolated video benchmark dependencies
+"github:astral-sh/uv" = "{{vars.uv_version}}" # Isolated video benchmark dependencies
 
 # Upstream ships Windows as an MSI only, which this backend cannot unpack, and
 # nothing formats Swift on Windows anyway.
