@@ -9,24 +9,23 @@ import { region } from "../../snippets";
 
 import snapshotter from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Snapshotter.kt?raw";
 
-An <Api of="MapSnapshotter" /> renders an independent, non-UI map to an
-`ImageBitmap`. `createMapState` and `createSnapshotter` both accept a
-<Api of="BaseStyle" /> and a content block. Pass the same base style and the
-same content function to capture the displayed map's declared content. Copy its
-current camera position into the capture request.
+Use <Api of="MapSnapshotter" /> to create a map image for a preview or sharing.
+It renders a <Api of="BaseStyle" /> and a content block to an `ImageBitmap`
+without displaying a map.
+
+To match a displayed map, pass the same base style and content function, then
+copy its camera position into the capture request. Compose overlays are not
+part of the captured image.
 
 Create and close the snapshotter in a coroutine. <Api of="MapSnapshotter.capture" />
 suspends until the image is ready:
 
 <Code code={region(snapshotter, "capture")} lang="kotlin" title="App.kt" />
 
-The request width and height are logical pixels. Its density scales the output
-bitmap and evaluates `Dp` values in the content block. Pass
-`LocalDensity.current` and `LocalLayoutDirection.current` from the calling
-composable to match the displayed map. The content block reads the viewport of the
-request through <Api of="LocalViewport" />.
+The request size is in logical pixels. Pass `LocalDensity.current` and
+`LocalLayoutDirection.current` from the calling composable to match the displayed
+map's sizing and layout direction.
 
 For repeated captures, keep one snapshotter and call `capture` again with a new
-request. Calls that overlap execute in submission order. Close the snapshotter
-when its owner leaves the composition, then call
-<Api of="MapSnapshotter.awaitClosed" /> from a non-cancellable cleanup block.
+request. Follow the same cleanup pattern as the example when its owner finishes
+using it.

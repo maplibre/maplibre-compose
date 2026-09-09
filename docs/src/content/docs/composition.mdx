@@ -11,9 +11,8 @@ import composition from "../../../../demo-app/common/src/commonMain/kotlin/org/m
 
 <Api of="MapState" /> defines a
 logical map, including its base style and declarative style content.
-<Api of="MaplibreMap" /> presents that state in Compose UI. Android hosts can also
-[present it on a caller-owned Surface](/maplibre-compose/android-surface/). `MapState` provides camera,
-viewport, projection, and feature-query operations while the map is attached.
+<Api of="MaplibreMap" /> displays it in Compose UI. Use the state to control the
+camera, read the visible area, and query features.
 
 ## The style is base plus content
 
@@ -28,19 +27,11 @@ The library manages the sources and layers in the style block. It
 does not modify the rest of the base style. To change a base style layer, use
 the `asMutable` view of its <Api of="LayerHandle" /> from `mapState.style.layers`.
 
-Composition owns the definitions and lifetimes of declared sources, layers, and
-images. Their handles expose reads and runtime operations; `asMutable` is null.
-For other resources, `asMutable` provides definition writes and `remove()`.
-Use `mapState.style.sources[source]` to obtain a declared source's typed handle for
-feature state, cluster queries, and invalidation. These runtime operations do not
-change its declared definition. Handles belong to one loaded style generation;
-look them up again after a style reload or resource replacement.
-
-A handle write does not wait for the map to apply it. On MapLibre Native the
-write runs on the map's own thread after the call returns; MapLibre GL JS
-applies it during the call. When the engine rejects a written value, the
-library logs a warning and the previous value stays in place. The same applies
-to `mapState.style.transition`, `light`, `sky`, and `projection`.
+Use Compose state to update sources, layers, and images declared in the style
+block. Use handles for runtime operations such as feature state and cluster
+queries. For example, `mapState.style.sources[source]` gives you the typed
+handle for a declared source. See <Api of="MapStyleState" /> for handle access and
+mutation rules.
 
 ## Recomposition updates the style
 
@@ -65,13 +56,9 @@ composable function and call that function from each style block. The same
 function applies to `rememberMapState`, `MapRuntime.createMapState`, and
 `MapRuntime.createSnapshotter`.
 
-Style content reads its host through two composition locals.
-<Api of="LocalViewport" /> contains the viewport that the content is evaluated
-for. An interactive map provides its rendered viewport, which is null until the
-map has drawn a frame, and a snapshotter provides the viewport of the capture
-request. <Api of="LocalMapState" /> contains the interactive map, and is null
-inside a snapshotter. Content that requires the map checks for null at the
-read. Content that runs on both hosts branches on it.
+Use <Api of="LocalViewport" /> for content that depends on the visible area.
+When sharing content with a snapshotter, keep interactive behavior separate:
+<Api of="LocalMapState" /> is available only in an interactive map.
 
 ## Layer and source IDs
 

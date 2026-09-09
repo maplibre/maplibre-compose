@@ -97,12 +97,9 @@ zoom, or a window resize moves the child with the map.
 
 ## Point at an off-screen location
 
-<Api of="MapOverlayScope.placedTowards" /> puts a child on the edge of an
-ellipse inscribed in the unobstructed map region, on the line towards a
-geographic position. The
-child appears only while the position projects outside of that ellipse. A
-position near a corner of the map region can be visible and still lie outside
-the ellipse.
+Use <Api of="MapOverlayScope.placedTowards" /> for a direction indicator when
+a location is out of view. It places the child along an ellipse inside the
+unobstructed map region and hides it while the location is inside that ellipse.
 
 <Code code={region(controls, "placedTowards")} lang="kotlin" title="App.kt" />
 
