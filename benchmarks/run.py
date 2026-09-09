@@ -71,6 +71,14 @@ def artifact_hash(path):
     return digest.hexdigest()
 
 
+def desktop_artifact_hash(executable):
+    executable = Path(executable).resolve()
+    bundle = next(
+        (parent for parent in executable.parents if parent.suffix == ".app"), None
+    )
+    return artifact_hash(bundle or executable)
+
+
 def android(args, output, metadata):
     sdk = call(".mise/bin/android-sdk-root")
     adb = [str(Path(sdk) / "platform-tools/adb"), "-s", args.device]
@@ -248,7 +256,7 @@ def desktop(args, output, metadata):
         args.app
         or "demo-app/desktop/build/compose/binaries/main/app/org.maplibre.compose.demoapp.app/Contents/MacOS/org.maplibre.compose.demoapp"
     )
-    metadata["app_sha256"] = artifact_hash(Path(executable).resolve().parents[1])
+    metadata["app_sha256"] = desktop_artifact_hash(executable)
     if args.mode != "performance":
         recorder_path = Path("build/benchmarks/record-window").resolve()
         recorder_path.parent.mkdir(parents=True, exist_ok=True)

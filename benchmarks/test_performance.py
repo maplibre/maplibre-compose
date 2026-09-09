@@ -6,15 +6,15 @@ from performance import process_cpu_metrics, window_metrics
 
 class WindowMetricsTest(unittest.TestCase):
     def log(self, frames=3, lost=0):
-        report = {"frames": frames, "lost_reports": lost, "missed_deadlines": 1}
+        report = {"frames": frames, "lost_reports": lost}
         return (
             "MAP_BENCHMARK WINDOW "
             + json.dumps(report)
-            + "\nMAP_BENCHMARK FRAMES 1.0,1.5E-4;2.0,-1.0\nMAP_BENCHMARK FRAMES 3.0,1.0\n"
+            + "\nMAP_BENCHMARK FRAMES 1000000,1000000,150,1000000;2000000,2000000,-1,1000000\nMAP_BENCHMARK FRAMES 4000000,3000000,1000000,4000000\n"
         )
 
     def test_batches_preserve_small_gpu_durations_and_unavailable_samples(self):
-        result = window_metrics(self.log())
+        result = window_metrics(self.log(), 1000000, 7000000)
         self.assertEqual(result["frames"], 3)
         self.assertEqual(result["total_ms"]["p50"], 2)
         self.assertAlmostEqual(result["gpu_ms"]["p50"], (1.0 + 0.00015) / 2)
@@ -22,7 +22,19 @@ class WindowMetricsTest(unittest.TestCase):
     def test_incomplete_or_dropped_reports_are_rejected(self):
         for log in (self.log(frames=4), self.log(lost=1)):
             with self.assertRaises(ValueError):
-                window_metrics(log)
+                window_metrics(log, 1000000, 7000000)
+
+    def test_only_complete_frames_inside_trace_contribute(self):
+        result = window_metrics(self.log(), 4000000, 7000000)
+        self.assertEqual(result["reported_frames"], 3)
+        self.assertEqual(result["frames"], 1)
+        self.assertEqual(result["missed_deadlines"], 0)
+        self.assertEqual(result["total_ms"]["p95"], 3)
+        self.assertEqual(result["gpu_ms"]["p95"], 1)
+        for start, end in ((1000001, 1999999), (4000000, 6999999)):
+            result = window_metrics(self.log(), start, end)
+            self.assertFalse(result["available"])
+            self.assertIsNone(result["total_ms"])
 
 
 class ProcessCpuTest(unittest.TestCase):

@@ -66,6 +66,10 @@ only the marked workload.
 | Presentation events               | Android FrameTimeline, grouped by layer and reason. Transaction entries and prediction errors are retained separately; they are not counts of dropped map buffers. Coverage depends on Android and the presentation path.                        |
 | Input-to-captured-display latency | Input event timestamp to the first recording frame showing its alternating camera step, independently for map and overlay. Requires Android screenrecord Winscope v2 boot-clock metadata; reports bounds between adjacent capture frames.        |
 
+Android window metrics include only frames whose intended start and completion
+fall within the Perfetto measurement interval. Collection starts before warm-up
+so registration and callback delays do not determine the measured boundaries.
+
 Frame intervals in a video describe the **capture**, not the map FPS. A recorder
 may emit only changed frames during the input scenario; latency bounds become
 wider across idle gaps. Separation percentiles count captured frames and can
@@ -106,10 +110,12 @@ mise run benchmark:run -- desktop --config setters,surface,60,0 \
   --output build/benchmarks/desktop-setters
 ```
 
-For iOS, select an Xcode compatible with the simulator via `DEVELOPER_DIR`.
-macOS captures only the new benchmark process's window and needs Screen
-Recording access. Its recorder requests 60 FPS, but the actual capture cadence
-is recorded and can be lower.
+For iOS, select an Xcode compatible with the simulator via `DEVELOPER_DIR`. For
+desktop, `--app` selects an executable. Artifact matching hashes its enclosing
+`.app` bundle when present, otherwise the executable itself. macOS captures only
+the new benchmark process's window and needs Screen Recording access. Its
+recorder requests 60 FPS, but the actual capture cadence is recorded and can be
+lower.
 
 For web, the runner serves the local build on an ephemeral localhost port and
 closes the server afterward:

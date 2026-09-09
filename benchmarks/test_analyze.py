@@ -7,7 +7,33 @@ from pathlib import Path
 import cv2
 import numpy as np
 from analyze import analyze, input_response, screenrecord_timestamps
-from run import validate_workload
+from run import desktop_artifact_hash, validate_workload
+
+
+class ArtifactHashTest(unittest.TestCase):
+    def test_custom_executables_have_independent_hashes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            baseline, candidate = root / "baseline/app", root / "candidate/app"
+            for executable in (baseline, candidate):
+                executable.parent.mkdir()
+                executable.write_text(executable.parent.name)
+            before = desktop_artifact_hash(baseline)
+            self.assertNotEqual(before, desktop_artifact_hash(candidate))
+            candidate.write_text("changed")
+            self.assertEqual(before, desktop_artifact_hash(baseline))
+
+    def test_app_bundle_hash_includes_runtime_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            bundle = Path(directory) / "Demo.app"
+            executable = bundle / "Contents/MacOS/app"
+            executable.parent.mkdir(parents=True)
+            executable.write_text("launcher")
+            runtime = bundle / "Contents/runtime.jar"
+            runtime.write_text("baseline")
+            before = desktop_artifact_hash(executable)
+            runtime.write_text("candidate")
+            self.assertNotEqual(before, desktop_artifact_hash(executable))
 
 
 class CaptureClockTest(unittest.TestCase):

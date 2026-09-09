@@ -46,27 +46,20 @@ internal actual fun BenchmarkPlatformMetrics(active: Boolean) {
     if (window == null || !active) return@DisposableEffect onDispose {}
     val worker = HandlerThread("benchmark-metrics").apply { start() }
     val handler = Handler(worker.looper)
-    val total = ArrayList<Double>()
-    val gpu = ArrayList<Double>()
-    var missedDeadlines = 0
-    var deadlineFrames = 0
+    val frames = ArrayList<LongArray>()
     var lostReports = 0
     val listener =
       android.view.Window.OnFrameMetricsAvailableListener { _, metrics, dropped ->
         lostReports += dropped
-        val duration = metrics.getMetric(FrameMetrics.TOTAL_DURATION)
-        if (duration < 0) return@OnFrameMetricsAvailableListener
-        total += duration / 1e6
-        val gpuDuration =
-          if (Build.VERSION.SDK_INT >= 31) metrics.getMetric(FrameMetrics.GPU_DURATION) else -1L
-        gpu += if (gpuDuration >= 0) gpuDuration / 1e6 else -1.0
-        if (Build.VERSION.SDK_INT >= 31) {
-          val deadline = metrics.getMetric(FrameMetrics.DEADLINE)
-          if (deadline >= 0) {
-            deadlineFrames++
-            if (duration > deadline) missedDeadlines++
-          }
-        }
+        // FrameMetrics uses the monotonic clock; Perfetto's trace uses boot time.
+        val bootOffset = SystemClock.elapsedRealtimeNanos() - System.nanoTime()
+        frames +=
+          longArrayOf(
+            metrics.getMetric(FrameMetrics.INTENDED_VSYNC_TIMESTAMP) + bootOffset,
+            metrics.getMetric(FrameMetrics.TOTAL_DURATION),
+            if (Build.VERSION.SDK_INT >= 31) metrics.getMetric(FrameMetrics.GPU_DURATION) else -1L,
+            if (Build.VERSION.SDK_INT >= 31) metrics.getMetric(FrameMetrics.DEADLINE) else -1L,
+          )
       }
     window.addOnFrameMetricsAvailableListener(listener, handler)
     onDispose {
@@ -75,17 +68,12 @@ internal actual fun BenchmarkPlatformMetrics(active: Boolean) {
         val report =
           JSONObject()
             .put("scope", "Android app window; excludes independently rendered map GPU work")
-            .put(
-              "missed_deadlines",
-              if (deadlineFrames > 0) missedDeadlines else JSONObject.NULL,
-            )
-            .put("deadline_frames", deadlineFrames)
-            .put("frames", total.size)
+            .put("frames", frames.size)
             .put("lost_reports", lostReports)
         // Batches stay below logcat's entry limit without overflowing its message queue.
         println("MAP_BENCHMARK WINDOW $report")
-        total.indices.chunked(32).forEach { indices ->
-          println("MAP_BENCHMARK FRAMES " + indices.joinToString(";") { "${total[it]},${gpu[it]}" })
+        frames.chunked(32).forEach { batch ->
+          println("MAP_BENCHMARK FRAMES " + batch.joinToString(";") { it.joinToString(",") })
         }
         worker.quitSafely()
       }

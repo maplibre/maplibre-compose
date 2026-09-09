@@ -9,7 +9,7 @@ from analyze import distribution, read_run
 from perfetto.trace_processor import TraceProcessor
 
 
-def window_metrics(logs):
+def window_metrics(logs, start, end):
     reports = re.findall(r"MAP_BENCHMARK WINDOW (\{[^\n]+\})", logs)
     window = {"available": False, "reason": "No Window FrameMetrics report"}
     if len(reports) == 1:
@@ -17,17 +17,33 @@ def window_metrics(logs):
         if window["lost_reports"]:
             raise ValueError("Window FrameMetrics reports were dropped")
         metrics = [
-            tuple(map(float, record.split(",")))
+            tuple(map(int, record.split(",")))
             for batch in re.findall(r"MAP_BENCHMARK FRAMES (\S+)", logs)
             for record in batch.split(";")
         ]
         if len(metrics) != window["frames"]:
             raise ValueError("Window frame metric log is incomplete")
+        if any(len(frame) != 4 or frame[0] <= 0 or frame[1] < 0 for frame in metrics):
+            raise ValueError("Invalid Window FrameMetrics record")
+        # Include only complete frames within the same interval as scheduled CPU work.
+        frames = [
+            frame
+            for frame in metrics
+            if start <= frame[0] and frame[0] + frame[1] <= end
+        ]
+        deadlines = [frame for frame in frames if frame[3] >= 0]
         window.update(
-            available=bool(metrics),
-            frames=len(metrics),
-            total_ms=distribution([a for a, b in metrics]),
-            gpu_ms=distribution([b for a, b in metrics if b >= 0]),
+            available=bool(frames),
+            reported_frames=len(metrics),
+            frames=len(frames),
+            deadline_frames=len(deadlines),
+            missed_deadlines=sum(
+                total > deadline for _, total, _, deadline in deadlines
+            )
+            if deadlines
+            else None,
+            total_ms=distribution([total / 1e6 for _, total, _, _ in frames]),
+            gpu_ms=distribution([gpu / 1e6 for _, _, gpu, _ in frames if gpu >= 0]),
         )
     return window
 
@@ -123,7 +139,7 @@ def analyze_performance(directory):
         )
         if loss:
             raise ValueError(f"Trace lost data: {loss}")
-        window = window_metrics(logs)
+        window = window_metrics(logs, start, end)
         result = {
             "schema": 1,
             "duration_ms": (end - start) / 1e6,

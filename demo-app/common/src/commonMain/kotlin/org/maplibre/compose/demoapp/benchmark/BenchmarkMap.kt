@@ -90,7 +90,8 @@ internal fun BenchmarkRun(
   val density = LocalDensity.current.density
   var measuring by remember { mutableStateOf(false) }
   var inputSequence by remember { mutableStateOf(0) }
-  BenchmarkPlatformMetrics(measuring)
+  var collectingMetrics by remember { mutableStateOf(true) }
+  BenchmarkPlatformMetrics(collectingMetrics)
   LaunchedEffect(state, config) {
     var traced = false
     var complete = false
@@ -138,6 +139,7 @@ internal fun BenchmarkRun(
     } finally {
       measuring = false
       if (traced) benchmarkTrace(false)
+      collectingMetrics = false
       // Closing is part of a completed run; cancellation must also release its map runtime.
       withContext(NonCancellable) {
         if (complete)
