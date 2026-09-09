@@ -10,7 +10,7 @@ import subprocess
 import tempfile
 import unittest
 
-from ci.plan import JOBS, TIERS, plan, tier_jobs, variants
+from ci.plan import JOBS, TIERS, plan, resolve_restatement, tier_jobs, variants
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT / ".github/workflows"
@@ -271,7 +271,180 @@ class PlanTest(unittest.TestCase):
             self.plan("all", "push", {})
 
 
+class CoverageReuseTest(unittest.TestCase):
+    @staticmethod
+    def checks(tier: str) -> list[dict]:
+        return [
+            {
+                "id": index,
+                "name": f"{tier} / {name}",
+                "status": "completed",
+                "conclusion": "success",
+            }
+            for index, name in enumerate(sorted(catalog_names(tier)))
+        ]
+
+    def selection(self, tier: str) -> dict:
+        return plan(
+            tier,
+            "pull_request",
+            pr_event(
+                author="dependabot[bot]",
+                action="labeled",
+                labels=("dependencies",),
+                label={"name": "dependencies"},
+            ),
+            REPO,
+        )
+
+    def test_dependabot_label_burst_replaces_pending_producer(self) -> None:
+        # Regardless of which event survives the pending queue, it must produce
+        # the required coverage when opened/synchronize never reached its jobs.
+        for tier in ("ready", "full"):
+            for label in ("dependencies", "javascript"):
+                event = pr_event(
+                    author="dependabot[bot]",
+                    action="labeled",
+                    labels=(label,),
+                    label={"name": label},
+                )
+                selection = resolve_restatement(
+                    plan(tier, "pull_request", event, REPO), []
+                )
+                self.assertEqual(names(selection), catalog_names(tier))
+                self.assertTrue(selection["selected"])
+                self.assertFalse(selection["restate"])
+                self.assertFalse(selection["secrets"])
+
+    def test_complete_platform_success_can_be_reused(self) -> None:
+        for tier in ("ready", "full"):
+            selection = resolve_restatement(self.selection(tier), self.checks(tier))
+            self.assertFalse(selection["selected"])
+            self.assertTrue(selection["restate"])
+
+    def test_missing_running_failed_or_cancelled_platform_runs_again(self) -> None:
+        for status, conclusion in (
+            ("queued", None),
+            ("in_progress", None),
+            ("completed", "failure"),
+            ("completed", "cancelled"),
+            ("completed", "skipped"),
+        ):
+            checks = self.checks("ready")
+            checks[0] = {**checks[0], "status": status, "conclusion": conclusion}
+            selection = resolve_restatement(self.selection("ready"), checks)
+            self.assertEqual(names(selection), catalog_names("ready"))
+        selection = resolve_restatement(
+            self.selection("ready"), self.checks("ready")[1:]
+        )
+        self.assertEqual(names(selection), catalog_names("ready"))
+
+    def test_latest_platform_check_wins_across_workflow_runs(self) -> None:
+        checks = self.checks("ready")
+        failed = {**checks[0], "id": 100, "conclusion": "failure"}
+        for responses in (checks + [failed], [failed] + checks):
+            self.assertTrue(
+                resolve_restatement(self.selection("ready"), responses)["selected"]
+            )
+        recovered = {**failed, "id": 101, "conclusion": "success"}
+        self.assertFalse(
+            resolve_restatement(self.selection("ready"), checks + [failed, recovered])[
+                "selected"
+            ]
+        )
+
+    def test_aggregate_success_or_another_tier_is_not_platform_coverage(self) -> None:
+        checks = self.checks("full") + [
+            {
+                "id": 100,
+                "name": "all-good (ready)",
+                "status": "completed",
+                "conclusion": "success",
+            }
+        ]
+        self.assertEqual(
+            names(resolve_restatement(self.selection("ready"), checks)),
+            catalog_names("ready"),
+        )
+
+    def test_code_events_still_run_and_unrequired_tiers_stay_skipped(self) -> None:
+        for action in ("opened", "synchronize", "reopened"):
+            selection = plan("ready", "pull_request", pr_event(action=action), REPO)
+            self.assertEqual(
+                names(resolve_restatement(selection, self.checks("ready"))),
+                catalog_names("ready"),
+            )
+        selection = plan("full", "pull_request", pr_event(), REPO)
+        self.assertEqual(names(resolve_restatement(selection, [])), set())
+
+
 class PlanCommandTest(unittest.TestCase):
+    def test_label_plan_reads_exact_head_and_fails_closed_on_api_error(self) -> None:
+        for checks, api_exit in (
+            (CoverageReuseTest.checks("ready"), 0),
+            ([], 0),
+            ([], 1),
+        ):
+            with (
+                self.subTest(checks=bool(checks), api_exit=api_exit),
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                root = pathlib.Path(directory)
+                event = pr_event(
+                    author="dependabot[bot]",
+                    action="labeled",
+                    labels=("javascript",),
+                    label={"name": "javascript"},
+                )
+                event["pull_request"]["head"]["sha"] = "exact-head"
+                (root / "event.json").write_text(json.dumps(event))
+                # Multiple pages must contribute coverage, including an empty page.
+                (root / "checks.json").write_text(
+                    json.dumps(
+                        [
+                            {"check_runs": checks[:1]},
+                            {"check_runs": []},
+                            {"check_runs": checks[1:]},
+                        ]
+                    )
+                )
+                gh = root / "gh"
+                gh.write_text(
+                    '#!/bin/sh\ncd "$FAKE_ROOT"\nprintf "%s\\n" "$@" > args\ncat checks.json\n'
+                    + f"exit {api_exit}\n"
+                )
+                gh.chmod(0o755)
+                result = subprocess.run(
+                    ["bash", str(ROOT / ".mise/tasks/ci/plan")],
+                    cwd=root,
+                    env={
+                        "PATH": f"{root}:{os.environ['PATH']}",
+                        "FAKE_ROOT": str(root),
+                        "CI_TIER": "ready",
+                        "GITHUB_EVENT_NAME": "pull_request",
+                        "GITHUB_EVENT_PATH": str(root / "event.json"),
+                        "GITHUB_REPOSITORY": REPO,
+                        "GITHUB_OUTPUT": str(root / "output"),
+                        "GITHUB_STEP_SUMMARY": str(root / "summary"),
+                    },
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                args = (root / "args").read_text().splitlines()
+                self.assertIn(f"repos/{REPO}/commits/exact-head/check-runs", args)
+                self.assertIn("filter=latest", args)
+                self.assertIn("--paginate", args)
+                if api_exit:
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertFalse((root / "output").exists())
+                else:
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    output = (root / "output").read_text()
+                    self.assertIn(f"selected={str(not checks).lower()}\n", output)
+                    self.assertIn(f"restate={str(bool(checks)).lower()}\n", output)
+                    self.assertIn("secrets=false\n", output)
+
     def test_task_runs_outside_checkout_without_mise_environment(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)
@@ -387,64 +560,23 @@ class WorkflowTest(unittest.TestCase):
 
 
 class VerdictScriptTest(unittest.TestCase):
-    """Run the verdict task against a fake `gh` that replays check runs."""
+    """Verify that only successful planning and tier execution can pass."""
 
-    RUN_ID = "42"
-
-    @staticmethod
-    def check_run(status: str, conclusion: str | None, run: str, started: str) -> dict:
-        return {
-            "status": status,
-            "conclusion": conclusion,
-            "started_at": started,
-            "details_url": f"https://github.com/o/r/actions/runs/{run}/job/1",
-        }
-
-    def verdict(
-        self, *responses: list[dict], **env: str
-    ) -> subprocess.CompletedProcess:
-        with tempfile.TemporaryDirectory() as directory:
-            root = pathlib.Path(directory)
-            for index, check_runs in enumerate(responses):
-                (root / f"response-{index}.json").write_text(
-                    json.dumps({"check_runs": check_runs})
-                )
-            gh = root / "gh"
-            gh.write_text(
-                "#!/usr/bin/env bash\n"
-                "set -euo pipefail\n"
-                f'count_file="{root}/count"\n'
-                'count=$(cat "$count_file" 2>/dev/null || echo 0)\n'
-                'echo $((count + 1)) > "$count_file"\n'
-                'for arg in "$@"; do\n'
-                "  [[ $arg == --jq ]] && jq_next=1 && continue\n"
-                "  [[ ${jq_next:-} == 1 ]] && filter=$arg && jq_next=0\n"
-                "done\n"
-                f'jq -r "$filter" "{root}/response-$count.json"\n'
-            )
-            gh.chmod(0o755)
-            return subprocess.run(
-                ["bash", str(ROOT / ".mise/tasks/ci/verdict")],
-                cwd=root,
-                env={
-                    "PATH": f"{root}:{os.environ['PATH']}",
-                    "GH_TOKEN": "token",
-                    "GITHUB_REPOSITORY": "o/r",
-                    "GITHUB_RUN_ID": self.RUN_ID,
-                    "GITHUB_STEP_SUMMARY": str(root / "summary"),
-                    "CHECK_NAME": "all-good (ready)",
-                    "HEAD_SHA": "abc",
-                    "POLL_SECONDS": "0",
-                    "PLAN_RESULT": "success",
-                    "SELECTED": "false",
-                    "RESTATE": "false",
-                    "RESULT": "skipped",
-                    **env,
-                },
-                check=False,
-                capture_output=True,
-                text=True,
-            )
+    def verdict(self, **env: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            ["bash", str(ROOT / ".mise/tasks/ci/verdict")],
+            env={
+                "PATH": os.environ["PATH"],
+                "PLAN_RESULT": "success",
+                "SELECTED": "false",
+                "RESTATE": "false",
+                "RESULT": "skipped",
+                **env,
+            },
+            check=False,
+            capture_output=True,
+            text=True,
+        )
 
     def test_selected_tier_passes_only_when_its_jobs_succeeded(self) -> None:
         self.assertEqual(self.verdict(SELECTED="true", RESULT="success").returncode, 0)
@@ -466,33 +598,11 @@ class VerdictScriptTest(unittest.TestCase):
         self.assertNotEqual(self.verdict(SELECTED="").returncode, 0)
         self.assertNotEqual(self.verdict(SELECTED="", RESULT="success").returncode, 0)
 
-    def test_restates_the_latest_completed_verdict(self) -> None:
-        older = self.check_run("completed", "failure", "1", "2026-01-01T00:00:00Z")
-        newer = self.check_run("completed", "success", "2", "2026-01-01T01:00:00Z")
-        self.assertEqual(self.verdict([older, newer], RESTATE="true").returncode, 0)
-        self.assertEqual(self.verdict([newer, older], RESTATE="true").returncode, 0)
-        failed = self.check_run("completed", "failure", "3", "2026-01-01T02:00:00Z")
-        self.assertNotEqual(self.verdict([newer, failed], RESTATE="true").returncode, 0)
-
-    def test_waits_for_a_verdict_still_in_progress(self) -> None:
-        running = self.check_run("in_progress", None, "2", "2026-01-01T01:00:00Z")
-        finished = self.check_run("completed", "success", "2", "2026-01-01T01:00:00Z")
-        result = self.verdict([running], [running], [finished], RESTATE="true")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.count("Waiting for"), 2)
-
-    def test_ignores_its_own_check_and_fails_without_an_earlier_verdict(self) -> None:
-        own = self.check_run("in_progress", None, self.RUN_ID, "2026-01-01T03:00:00Z")
-        self.assertNotEqual(self.verdict([own], RESTATE="true").returncode, 0)
-        self.assertNotEqual(self.verdict([], RESTATE="true").returncode, 0)
-        earlier = self.check_run("completed", "success", "1", "2026-01-01T00:00:00Z")
-        self.assertEqual(self.verdict([own, earlier], RESTATE="true").returncode, 0)
-
-    def test_treats_a_cancelled_verdict_as_failure(self) -> None:
-        cancelled = self.check_run(
-            "completed", "cancelled", "1", "2026-01-01T00:00:00Z"
+    def test_reuses_coverage_verified_by_the_planner(self) -> None:
+        self.assertEqual(self.verdict(RESTATE="true").returncode, 0)
+        self.assertNotEqual(
+            self.verdict(RESTATE="true", PLAN_RESULT="failure").returncode, 0
         )
-        self.assertNotEqual(self.verdict([cancelled], RESTATE="true").returncode, 0)
 
 
 if __name__ == "__main__":
