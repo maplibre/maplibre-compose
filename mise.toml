@@ -46,6 +46,7 @@ ruff_version = "0.16.2"
 shellcheck_version = "0.11.0"
 swiftformat_version = "0.62.1"
 xcodes_version = "2.0.3"
+uv_version = "0.12.10"
 appimagetool_version = "1.9.1"
 
 [tools]
@@ -66,6 +67,7 @@ appimagetool_version = "1.9.1"
 
 # Runs the Python file tasks under .mise/tasks/.
 "core:python" = "{{vars.python_version}}"
+"github:astral-sh/uv" = "{{vars.uv_version}}" # Isolated video benchmark dependencies
 
 # Upstream ships Windows as an MSI only, which this backend cannot unpack, and
 # nothing formats Swift on Windows anyway.
@@ -452,3 +454,17 @@ run = '.mise/bin/version-args "$usage_mode"'
 [tasks.actions-up]
 description = "Update and pin GitHub Actions steps."
 run = "npx -y actions-up"
+
+# Benchmark capture uses release Android builds and platform-specific visual adapters.
+[tasks."benchmark:build:android"]
+run = "./gradlew :demo-app:android:assembleRelease"
+[tasks."benchmark:build:ios"]
+run = "./gradlew :demo-app:common:linkDebugFrameworkIosSimulatorArm64"
+[tasks."benchmark:build:js"]
+run = "./gradlew :demo-app:common:jsBrowserDevelopmentWebpack"
+[tasks."benchmark:build:desktop"]
+run = "./gradlew :demo-app:desktop:createDistributable"
+[tasks."benchmark:run"]
+run = "uv run benchmarks/run.py"
+[tasks."benchmark:test"]
+run = "uv run --with opencv-python-headless==4.13.0.92 --with numpy==2.4.3 --with perfetto==0.58.2 python -m unittest discover -s benchmarks"

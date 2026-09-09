@@ -1,292 +1,205 @@
 package org.maplibre.compose.demoapp.benchmark
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import co.touchlab.kermit.Logger
-import kotlin.time.TimeSource
+import kotlin.math.PI
+import kotlin.math.sin
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.filterIsInstance
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.demoapp.DemoAppState
-import org.maplibre.compose.demoapp.MapViewportInsets
-import org.maplibre.compose.interaction.MapInteractions
-import org.maplibre.compose.map.MapEvent
-import org.maplibre.compose.map.MapState
+import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.map.StyleLoadState
-import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.spatialk.geojson.Position
 
-private val benchLog = Logger.withTag(BenchmarkReport.LogPrefix)
+private val Origin = Position(0.0, 0.0)
 
-/**
- * A map instance that exists only while the Benchmarks shell is open. Demo layers, camera, and
- * settings do not compose here.
- */
+private fun camera(x: Double) = CameraPosition(target = Position(x * 0.002, 0.0), zoom = 15.0)
+
 @Composable
-internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
-  val scenario = state.selectedScenario
-  val density = LocalDensity.current
-  val prefetcher = rememberTilePrefetcher()
-  val session =
-    remember(prefetcher, density) {
-      BenchmarkSession(
-        ui = state.benchmark,
-        prefetcher = prefetcher,
-        density = density,
+internal fun BenchmarkMap(state: DemoAppState) {
+  val ui = state.benchmark
+  val runId = ui.runId
+  Box(Modifier.fillMaxSize().background(Color(0xff202020))) {
+    if (ui.runId == 0)
+      Text(
+        "Choose settings and run the benchmark.",
+        Modifier.align(Alignment.Center).padding(24.dp),
+        color = Color.LightGray,
       )
-    }
-  val mapState =
-    rememberMapState(
-      runtime = state.mapRuntime,
-      baseStyle = scenario.style.base,
-      initialCameraPosition = scenario.camera,
-    ) {
-      scenario.MapContent(session)
-    }
-  val mapLoaded = remember(scenario.id) { CompletableDeferred<Unit>() }
-  LaunchedEffect(mapState.style.loadState, mapLoaded) {
-    when (val load = mapState.style.loadState) {
-      StyleLoadState.Ready -> mapLoaded.complete(Unit)
-      is StyleLoadState.Failed ->
-        mapLoaded.completeExceptionally(IllegalStateException(load.reason ?: "Map failed to load"))
-      StyleLoadState.Loading,
-      StyleLoadState.Pending -> Unit
-    }
-  }
-  val styleUrl = (scenario.style.base as BaseStyle.Uri).uri
-  LaunchedEffect(scenario.id, mapState) {
-    state.benchmark.abandonRun()
-    mapState.setCameraPosition(scenario.camera)
-    session.geoJson = null
-    session.pin = null
-    session.pointerPx = null
-  }
-
-  LaunchedEffect(state.benchmark.runId) {
-    if (state.benchmark.runId == 0) return@LaunchedEffect
-    val ui = state.benchmark
-    val running = state.selectedScenario
-    ui.running = true
-    session.geoJson = null
-    session.pin = null
-    session.pointerPx = null
-    session.gestures.reset()
-    try {
-      ui.status = "Waiting for the map"
-      mapLoaded.await()
-      mapState.setCameraPosition(running.camera)
-      ui.status = "Prefetching tiles"
-      prefetcher.ensurePacked(
-        scenarioId = running.id,
-        styleUrl = styleUrl,
-        bounds = running.region,
-        minZoom = running.minZoom,
-        maxZoom = running.maxZoom,
-        camera = mapState,
-        onStatus = { ui.status = it },
-      )
-      ui.status = "Running ${running.title}"
-      session.frames.start()
-      val started = TimeSource.Monotonic.markNow()
-      coroutineScope {
-        val composeJob = launch {
-          var lastNanos = 0L
-          while (true) {
-            withFrameNanos { now ->
-              if (lastNanos != 0L) {
-                session.frames.recordComposeFrameMs((now - lastNanos) / 1_000_000.0)
-              }
-              lastNanos = now
-              samplePin(mapState, session)
-            }
-          }
+    else
+      key(ui.runId, state.selectedScenario) {
+        val config = remember {
+          BenchmarkConfig(state.selectedScenario, ui.surface, ui.maximumFps, ui.load)
         }
-        // Unconfined, so the mark carries no dispatch delay and a loaded run drops no event. The
-        // collector only writes to the sample arrays, which is all that MapState.events allows on
-        // an undispatched context.
-        val frameJob =
-          launch(Dispatchers.Unconfined) {
-            mapState.events.filterIsInstance<MapEvent.FrameRendered>().collect {
-              session.frames.recordMapFrame(TimeSource.Monotonic.markNow())
-            }
-          }
-        try {
-          running.run(mapState, session)
-        } finally {
-          composeJob.cancel()
-          frameJob.cancel()
-        }
-      }
-      val durationMs = started.elapsedNow().inWholeMilliseconds.toDouble()
-      val frames = session.frames.stop()
-      val gesture = session.gestures.stats().takeIf { it.samples > 0 }
-      val report =
-        BenchmarkReport(
-          scenario = running.id,
-          platform = benchmarkPlatformLabel,
-          prefetch = prefetcher.mode,
-          durationMs = durationMs,
-          frames = frames,
-          gesture = gesture,
-        )
-      logReport(report)
-      ui.report = report
-      ui.status = "Done"
-    } catch (e: CancellationException) {
-      session.frames.stop()
-      throw e
-    } catch (e: Throwable) {
-      session.frames.stop()
-      ui.status = e.message ?: "Failed"
-      ui.report = null
-    } finally {
-      ui.running = false
-    }
-  }
-
-  Box(
-    Modifier.fillMaxSize()
-      .pointerInput(session, scenario.usesGestures) {
-        awaitPointerEventScope {
-          while (true) {
-            val event = awaitPointerEvent(PointerEventPass.Initial)
-            if (
-              event.type != PointerEventType.Move &&
-                event.type != PointerEventType.Press &&
-                event.type != PointerEventType.Release
-            ) {
-              continue
-            }
-            val change = event.changes.firstOrNull() ?: continue
-            val x = change.position.x.toDouble()
-            val y = change.position.y.toDouble()
-            if (scenario.usesGestures || session.gestures.capturing) {
-              session.pointerPx = Offset(change.position.x, change.position.y)
-            }
-            if (change.pressed && session.pin == null && scenario.usesGestures) {
-              session.pin =
-                mapState.positionFromScreenLocation(
-                  with(density) { DpOffset(change.position.x.toDp(), change.position.y.toDp()) }
-                )
-            }
-            session.gestures.onPointer(x, y, change.pressed)
-            if (!change.pressed && scenario.usesGestures) {
-              session.pointerPx = null
-            }
+        BenchmarkRun(config) { status, running ->
+          if (ui.runId == runId && state.selectedScenario == config.scenario) {
+            ui.status = status
+            ui.running = running
           }
         }
       }
-      .drawWithContent {
-        drawContent()
-        drawTrail(mapState, session)
-      }
-  ) {
-    MaplibreMap(
-      state = mapState,
-      cameraPadding = viewportInsets.asPaddingValues(),
-      renderOptions = RenderOptions.Standard,
-      interactions = scenario.interactions,
-      contentWindowInsets = viewportInsets.asWindowInsets(),
-    ) {}
-
-    Box(Modifier.fillMaxSize().padding(viewportInsets.asPaddingValues())) {
-      Column(
-        modifier = Modifier.align(Alignment.TopCenter).padding(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-      ) {
-        Text(
-          text = state.benchmark.status,
-          style = MaterialTheme.typography.labelMedium,
-          color = MaterialTheme.colorScheme.onSurface,
-          modifier =
-            Modifier.background(
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-                shape = RoundedCornerShape(8.dp),
-              )
-              .padding(horizontal = 8.dp, vertical = 4.dp),
-        )
-      }
-    }
   }
 }
 
-private fun samplePin(mapState: MapState, session: BenchmarkSession) {
-  val pin = session.pin ?: return
-  val projected = mapState.screenLocationFromPosition(pin) ?: return
-  val px = with(session.density) { Offset(projected.x.toPx(), projected.y.toPx()) }
-  session.gestures.onMapProjection(px.x.toDouble(), px.y.toDouble())
-}
-
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawTrail(
-  mapState: MapState,
-  session: BenchmarkSession,
+/** The same isolated scene is used by the demo panel and the command-line capture adapters. */
+@Composable
+internal fun BenchmarkRun(
+  config: BenchmarkConfig,
+  onStatus: (String, Boolean) -> Unit = { _, _ -> },
 ) {
-  val composePoint = session.pointerPx
-  val pin = session.pin
-  val projected = pin?.let { mapState.screenLocationFromPosition(it) }
-  val mapPoint = projected?.let { with(session.density) { Offset(it.x.toPx(), it.y.toPx()) } }
-  if (composePoint != null) {
-    val arm = 12.dp.toPx()
-    val color = Color(0xFF1565C0)
-    drawLine(
-      color,
-      Offset(composePoint.x - arm, composePoint.y),
-      Offset(composePoint.x + arm, composePoint.y),
-      2.dp.toPx(),
-    )
-    drawLine(
-      color,
-      Offset(composePoint.x, composePoint.y - arm),
-      Offset(composePoint.x, composePoint.y + arm),
-      2.dp.toPx(),
-    )
+  val style = remember(config.load) { benchmarkStyle(config.load) }
+  val state = remember {
+    DefaultMapRuntime.instance.createMapState(baseStyle = style, cameraPosition = camera(-1.0))
   }
-  if (mapPoint != null) {
-    drawCircle(
-      color = Color(0xFFE53935),
-      radius = 6.dp.toPx(),
-      center = mapPoint,
-      style = Stroke(2.dp.toPx()),
-    )
+  DisposableEffect(state) { onDispose { state.close() } }
+  val density = LocalDensity.current.density
+  var measuring by remember { mutableStateOf(false) }
+  var inputSequence by remember { mutableStateOf(0) }
+  var collectingMetrics by remember { mutableStateOf(true) }
+  BenchmarkPlatformMetrics(collectingMetrics)
+  LaunchedEffect(state, config) {
+    var traced = false
+    var complete = false
+    try {
+      onStatus("Loading", true)
+      withTimeout(15000) {
+        snapshotFlow { state.style.loadState }
+          .first { it is StyleLoadState.Ready || it is StyleLoadState.Failed }
+        check(state.style.loadState is StyleLoadState.Ready) { "Benchmark style failed to load" }
+        snapshotFlow { state.viewport }.first { it != null }
+      }
+      println("MAP_BENCHMARK START ${config.encode()} $density")
+      onStatus("Warming up", true)
+      delay(3000)
+      // Run the same animation once before measurement to warm the map and Compose paths.
+      state.animateCameraPosition(camera(1.0), 500.milliseconds)
+      state.animateCameraPosition(camera(-1.0), 500.milliseconds)
+      delay(500)
+      benchmarkTrace(true)
+      traced = true
+      measuring = true
+      println("MAP_BENCHMARK MEASURE")
+      onStatus(if (config.scenario == BenchmarkScenario.Input) "Tap the map" else "Measuring", true)
+      when (config.scenario) {
+        BenchmarkScenario.Animation ->
+          repeat(8) {
+            state.animateCameraPosition(camera(if (it % 2 == 0) 1.0 else -1.0), 1500.milliseconds)
+          }
+        BenchmarkScenario.Setters -> {
+          val start = withFrameNanos { it }
+          while (true) {
+            val seconds = (withFrameNanos { it } - start) / 1e9
+            if (seconds >= 12.0) break
+            state.setCameraPosition(camera(-sin(seconds * 2 * PI / 3 + PI / 2)))
+          }
+        }
+        BenchmarkScenario.Input -> delay(12000)
+      }
+      complete = true
+    } catch (e: CancellationException) {
+      throw e
+    } catch (e: Exception) {
+      println("MAP_BENCHMARK ERROR ${e.message}")
+      onStatus(e.message ?: "Failed", false)
+    } finally {
+      measuring = false
+      if (traced) benchmarkTrace(false)
+      collectingMetrics = false
+      // Closing is part of a completed run; cancellation must also release its map runtime.
+      withContext(NonCancellable) {
+        if (complete)
+          delay(200) // Let the inactive gate reach the compositor before removing the map.
+        state.close()
+        withTimeout(10000) { state.awaitClosed() }
+      }
+      println("MAP_BENCHMARK CLOSED")
+      if (complete) {
+        println("MAP_BENCHMARK DONE $inputSequence")
+        onStatus("Done. Analyze the capture for measurements.", false)
+      }
+    }
   }
-  if (composePoint != null && mapPoint != null) {
-    drawLine(Color(0x99E53935), composePoint, mapPoint, 2.dp.toPx())
+  Box(Modifier.fillMaxSize().background(Color(0xff202020))) {
+    MaplibreMap(
+      state = state,
+      uiOptions = benchmarkMapOptions(config),
+      renderOptions = RenderOptions { maximumFps = config.maximumFps },
+      overlay = {
+        Canvas(Modifier.placedAt(Origin).size(44.dp)) {
+          drawCircle(Color.Cyan, 20.dp.toPx(), style = Stroke(3.dp.toPx()))
+        }
+      },
+    )
+    // Input goes through the platform event pipeline. Each press causes a discrete, visible step.
+    if (config.scenario == BenchmarkScenario.Input) {
+      Box(
+        Modifier.fillMaxSize().pointerInput(state, measuring) {
+          awaitPointerEventScope {
+            while (true) {
+              val event = awaitPointerEvent()
+              if (measuring && event.type == PointerEventType.Press) {
+                inputSequence++
+                benchmarkInput(inputSequence, event.changes.first().uptimeMillis)
+                state.setCameraPosition(camera(if (inputSequence % 2 == 1) 1.0 else -1.0))
+              }
+              event.changes.forEach { it.consume() }
+            }
+          }
+        }
+      )
+    }
+    Row(Modifier.padding(12.dp)) {
+      Box(Modifier.size(16.dp).background(if (measuring) Color.Green else Color.DarkGray))
+      Spacer(Modifier.width(4.dp))
+      Box(Modifier.size(16.dp).background(Color.Magenta))
+    }
   }
 }
 
-private fun logReport(report: BenchmarkReport) {
-  val line = "${BenchmarkReport.LogPrefix} ${report.toJsonLine()}"
-  benchLog.i { line }
-  println(line)
+/** A network-free reference marker with optional deterministic gray geometry to increase work. */
+internal fun benchmarkStyle(load: Int): BaseStyle {
+  val points =
+    (0 until load).joinToString(",") { i ->
+      val x = ((i * 73 % 997) / 997.0 - 0.5) * 0.02
+      val y = ((i * 137 % 991) / 991.0 - 0.5) * 0.01
+      "[$x,$y]"
+    }
+  return BaseStyle.Json(
+    """{"version":8,"sources":{"point":{"type":"geojson","data":{"type":"Point","coordinates":[0,0]}},"load":{"type":"geojson","data":{"type":"MultiPoint","coordinates":[$points]}}},"layers":[{"id":"background","type":"background","paint":{"background-color":"#202020"}},{"id":"load","type":"circle","source":"load","paint":{"circle-radius":8,"circle-color":"#505050"}},{"id":"point","type":"circle","source":"point","paint":{"circle-radius":10,"circle-color":"#ff0000","circle-pitch-alignment":"map"}}]}"""
+  )
 }
-
-/** A scenario that drives the camera itself takes no gesture. */
-internal val BenchmarkScenario.interactions: MapInteractions
-  get() = if (usesGestures) MapInteractions.Standard else MapInteractions.None

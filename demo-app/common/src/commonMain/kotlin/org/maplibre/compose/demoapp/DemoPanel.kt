@@ -121,6 +121,7 @@ fun DemoPanel(
       BenchmarksScreen(
         onBack = { navController.popBackStack() },
         onOpenScenario = { scenario ->
+          state.benchmark.abandonRun()
           state.selectedScenario = scenario
           navController.navigate("benchmark")
         },

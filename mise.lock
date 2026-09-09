@@ -254,6 +254,41 @@ checksum = "sha256:ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384
 url = "https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage"
 url_api = "https://api.github.com/repos/AppImage/appimagetool/releases/assets/324406736"
 
+[[tools."github:astral-sh/uv"]]
+version = "0.12.10"
+backend = "github:astral-sh/uv"
+
+[tools."github:astral-sh/uv"."platforms.linux-arm64"]
+checksum = "sha256:9ff6b9d4665edcdd3a88dcc73cd1eb641754deb927f14e8c62ebfde6bf4f5f5e"
+url = "https://github.com/astral-sh/uv/releases/download/0.12.10/uv-aarch64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/uv/releases/assets/545034356"
+provenance = "github-attestations"
+
+[tools."github:astral-sh/uv"."platforms.linux-x64"]
+checksum = "sha256:173d95a0c32d18c896c46ba6fafbf3cf9c14ab74b033f81b76c883ef492a976b"
+url = "https://github.com/astral-sh/uv/releases/download/0.12.10/uv-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/uv/releases/assets/545034465"
+provenance = "github-attestations"
+
+[tools."github:astral-sh/uv"."platforms.macos-arm64"]
+checksum = "sha256:51c6170e8e3a01cef9f33b94f582b7b81ac65046f55d40afb35f9cff5a68c179"
+url = "https://github.com/astral-sh/uv/releases/download/0.12.10/uv-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/uv/releases/assets/545034336"
+provenance = "github-attestations"
+provenance_verified = true
+
+[tools."github:astral-sh/uv"."platforms.windows-arm64"]
+checksum = "sha256:ee985c51c0c9c1f82267a5d80f959b34a7ff888c109182bd3b2b35c4661bbcde"
+url = "https://github.com/astral-sh/uv/releases/download/0.12.10/uv-aarch64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/astral-sh/uv/releases/assets/545034348"
+provenance = "github-attestations"
+
+[tools."github:astral-sh/uv"."platforms.windows-x64"]
+checksum = "sha256:f65744f94072152b1f86ba2aace4d01f1124d9a8ecb235805039e3718c36cac2"
+url = "https://github.com/astral-sh/uv/releases/download/0.12.10/uv-x86_64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/astral-sh/uv/releases/assets/545034461"
+provenance = "github-attestations"
+
 [[tools."github:sargunv/jvl"]]
 version = "2026.05.03"
 backend = "github:sargunv/jvl"

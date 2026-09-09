@@ -65,5 +65,7 @@ jobs:
         if: steps.apply-fix.outputs.committed != 'true'
       - run: mise run ci:test-scripts
         if: steps.apply-fix.outputs.committed != 'true'
+      - run: mise run benchmark:test
+        if: steps.apply-fix.outputs.committed != 'true'
       - run: mise run style-spec:parity -- --check
         if: steps.apply-fix.outputs.committed != 'true'
