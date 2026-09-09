@@ -66,7 +66,7 @@ if [[ -z "$cmake" ]]; then
 fi
 
 # Paired with the directory that proves each is installed, so a rerun starts no
-# JVM and reaches no network. The platform for compileSdk 37 is android-37.0.
+# JVM and reaches no network. The platform for compileSdk N is android-N.0.
 packages=(
   "platforms;android-${compile_sdk}.0|platforms/android-${compile_sdk}.0"
   "build-tools;${build_tools}|build-tools/${build_tools}"

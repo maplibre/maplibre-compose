@@ -1,9 +1,9 @@
 [versions]
 # Platform floors and toolchain levels.
-# compileSdk 37 is the API floor AGP 9.1.1 supports. targetSdk stays on 36,
-# the latest shipping Android 16 behavior.
+# compileSdk follows the current AGP maximum. targetSdk stays on the latest
+# shipping Android 16 behavior.
 android-compileSdk = "37"
-# The Build-Tools release AGP 9.1.1 consumes. Read by
+# The Build-Tools release the current AGP consumes. Read by
 # .mise/bin/sync-android-packages, not by Gradle.
 android-buildTools = "36.0.0"
 # Build the JNI shim in lib/maplibre-compose-runtime-vulkan-android. Read by
@@ -75,10 +75,8 @@ androidx-wear-compose = "1.6.2"
 # Android and Kotlin: Keep Kotlin up to date and set Android accordingly.
 # Also note the Gradle and XCode versions in the matrix!
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-compatibility-guide.html
-gradle-kotlin = "2.4.10"
-# Kotlin 2.4.10 documents AGP through 9.1.0. 9.1.1 is the floor for
-# compileSdk 37.
-gradle-android = "9.1.1"
+gradle-kotlin = "2.4.20"
+gradle-android = "9.3.1"
 
 [libraries]
 accompanist-permissions = { module = "com.google.accompanist:accompanist-permissions", version.ref = "accompanistPermissions" }
