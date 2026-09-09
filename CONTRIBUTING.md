@@ -48,6 +48,9 @@ environment.
 `mise tasks` lists every task. CI runs these same tasks, so a green
 `mise run check` locally means the same thing as a green CI job.
 
+The demo's [benchmark guide](benchmarks/README.md) covers repeatable map/overlay
+captures and Android CPU, GPU, frame-deadline, and input-response measurements.
+
 #### Option 2: manual setup
 
 If you prefer not to use mise, check `mise.toml` for the list of required tools

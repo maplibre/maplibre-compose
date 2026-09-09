@@ -92,9 +92,10 @@ def android(args, output, metadata):
         display=call(*adb, "shell", "wm", "size"),
         density=call(*adb, "shell", "wm", "density"),
     )
+    dimensions = re.findall(r"(\d+)x(\d+)", metadata["display"])[-1]
     metadata["uid"] = int(
         re.search(
-            r"uid:(\d+)",
+            rf"(?m)^package:{re.escape(PACKAGE)} uid:(\d+)$",
             call(*adb, "shell", "cmd", "package", "list", "packages", "-U", PACKAGE),
         )[1]
     )
@@ -120,6 +121,8 @@ def android(args, output, metadata):
                         *adb,
                         "shell",
                         "screenrecord",
+                        "--size",
+                        "x".join(dimensions),
                         "--time-limit",
                         "24",
                         remote + ".mp4",
@@ -151,7 +154,6 @@ def android(args, output, metadata):
                 processes.append(logger)
                 wait_for(output / "app.log", "MAP_BENCHMARK MEASURE")
                 if args.config.startswith("input,"):
-                    dimensions = re.findall(r"(\d+)x(\d+)", metadata["display"])[-1]
                     x, y = (str(int(v) // 2) for v in dimensions)
                     for _ in range(8):
                         time.sleep(1)

@@ -87,6 +87,9 @@ class PixelMeasurementTest(unittest.TestCase):
             image = np.full((160, 240, 3), 32, dtype=np.uint8)
             x = int(120 + 45 * np.sin(frame / 30)) if moving else 120
             cv2.rectangle(image, (12, 12), (28, 28), (0, 255, 0), -1)
+            # Startup can contain green UI. Only the two-color measurement pattern qualifies.
+            if frame >= 20:
+                cv2.rectangle(image, (32, 12), (48, 28), (255, 0, 255), -1)
             cv2.circle(image, (x, 80), 6, (0, 0, 255), -1)
             cv2.circle(image, (x + offset, 80), 20, (255, 255, 0), 3)
             writer.write(image)
@@ -98,6 +101,7 @@ class PixelMeasurementTest(unittest.TestCase):
                 path = Path(directory)
                 self.recording(path, offset=offset)
                 result = analyze(path)
+                self.assertEqual(result["samples"], 710)
                 self.assertAlmostEqual(
                     result["separation_px"]["p95"], offset, delta=0.5
                 )

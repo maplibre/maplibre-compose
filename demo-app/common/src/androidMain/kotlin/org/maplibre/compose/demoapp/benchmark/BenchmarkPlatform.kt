@@ -82,10 +82,10 @@ internal actual fun BenchmarkPlatformMetrics(active: Boolean) {
             .put("deadline_frames", deadlineFrames)
             .put("frames", total.size)
             .put("lost_reports", lostReports)
-        // One JSON line per frame avoids Android logcat's per-entry length limit.
+        // Batches stay below logcat's entry limit without overflowing its message queue.
         println("MAP_BENCHMARK WINDOW $report")
-        total.forEachIndexed { index, value ->
-          println("MAP_BENCHMARK FRAME $value ${gpu.getOrNull(index) ?: -1.0}")
+        total.indices.chunked(32).forEach { indices ->
+          println("MAP_BENCHMARK FRAMES " + indices.joinToString(";") { "${total[it]},${gpu[it]}" })
         }
         worker.quitSafely()
       }

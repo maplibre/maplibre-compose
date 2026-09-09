@@ -8,6 +8,29 @@ from analyze import distribution, read_run
 from perfetto.trace_processor import TraceProcessor
 
 
+def window_metrics(logs):
+    reports = re.findall(r"MAP_BENCHMARK WINDOW (\{[^\n]+\})", logs)
+    window = {"available": False, "reason": "No Window FrameMetrics report"}
+    if len(reports) == 1:
+        window = json.loads(reports[0])
+        if window["lost_reports"]:
+            raise ValueError("Window FrameMetrics reports were dropped")
+        metrics = [
+            tuple(map(float, record.split(",")))
+            for batch in re.findall(r"MAP_BENCHMARK FRAMES (\S+)", logs)
+            for record in batch.split(";")
+        ]
+        if len(metrics) != window["frames"]:
+            raise ValueError("Window frame metric log is incomplete")
+        window.update(
+            available=bool(metrics),
+            frames=len(metrics),
+            total_ms=distribution([a for a, b in metrics]),
+            gpu_ms=distribution([b for a, b in metrics if b >= 0]),
+        )
+    return window
+
+
 def analyze_performance(directory):
     directory = Path(directory)
     metadata, logs, _ = read_run(directory)
@@ -78,24 +101,7 @@ def analyze_performance(directory):
         )
         if loss:
             raise ValueError(f"Trace lost data: {loss}")
-        reports = re.findall(r"MAP_BENCHMARK WINDOW (\{[^\n]+\})", logs)
-        window = {"available": False, "reason": "No Window FrameMetrics report"}
-        if len(reports) == 1:
-            window = json.loads(reports[0])
-            if window["lost_reports"]:
-                raise ValueError("Window FrameMetrics reports were dropped")
-            metrics = [
-                (float(a), float(b))
-                for a, b in re.findall(r"MAP_BENCHMARK FRAME ([\d.-]+) ([\d.-]+)", logs)
-            ]
-            if len(metrics) != window["frames"]:
-                raise ValueError("Window frame metric log is incomplete")
-            window.update(
-                available=bool(metrics),
-                frames=len(metrics),
-                total_ms=distribution([a for a, b in metrics]),
-                gpu_ms=distribution([b for a, b in metrics if b >= 0]),
-            )
+        window = window_metrics(logs)
         result = {
             "schema": 1,
             "duration_ms": (end - start) / 1e6,

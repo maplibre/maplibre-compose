@@ -1,4 +1,4 @@
-// Usage: node browser.cjs <playwright module> <output directory> [surface,ease,60]
+// Invoked by run.py with Playwright, output directory, configuration, and server URL.
 const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require(process.argv[2]);
@@ -13,7 +13,9 @@ const config = process.argv[4] || 'animation,surface,default,0';
     const logs = [];
     page.on('console', m => logs.push(m.text()));
     page.on('pageerror', e => logs.push(String(e)));
-    await page.goto((process.argv[5] || 'http://127.0.0.1:8765/') + '?benchmark=' + config);
+    const url = new URL(process.argv[5] || 'http://127.0.0.1:8765/');
+    url.searchParams.set('benchmark', config);
+    await page.goto(url.href);
     await page.waitForSelector('canvas:not(.maplibregl-canvas)');
     const metadata = await page.locator('canvas[role=generic]').evaluate(canvas => {
       const gl = canvas.getContext('webgl2');

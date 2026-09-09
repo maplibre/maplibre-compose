@@ -83,6 +83,25 @@ def input_response(rows, events):
     return output
 
 
+def measurement_gate(hsv, density):
+    """A green square followed by a magenta square identifies the scenario, not the launcher."""
+    corner = hsv[: hsv.shape[0] // 4, : hsv.shape[1] // 4]
+    tag = cv2.inRange(corner, (140, 90, 150), (169, 255, 255))
+    x, y, width, height = cv2.boundingRect(tag)
+    if not (
+        10 * density <= width <= 20 * density and 10 * density <= height <= 20 * density
+    ):
+        return False
+    left = round(x - 20 * density)
+    if left < 0:
+        return False
+    flag = corner[y : y + height, left : left + width]
+    return (
+        cv2.countNonZero(cv2.inRange(flag, (40, 90, 150), (79, 255, 255)))
+        >= 32 * density * density
+    )
+
+
 def read_run(directory):
     directory = Path(directory)
     metadata = json.loads((directory / "metadata.json").read_text())
@@ -120,8 +139,7 @@ def analyze(directory):
             index = frame_index
             frame_index += 1
             hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-            gate = cv2.inRange(hsv, (40, 90, 150), (79, 255, 255))
-            if cv2.countNonZero(gate) < 50:
+            if not measurement_gate(hsv, density):
                 continue
             active += 1
             masks = (

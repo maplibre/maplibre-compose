@@ -3,9 +3,12 @@ package org.maplibre.compose.demoapp.benchmark
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -178,9 +181,11 @@ internal fun BenchmarkRun(
         }
       )
     }
-    Box(
-      Modifier.padding(12.dp).size(16.dp).background(if (measuring) Color.Green else Color.DarkGray)
-    )
+    Row(Modifier.padding(12.dp)) {
+      Box(Modifier.size(16.dp).background(if (measuring) Color.Green else Color.DarkGray))
+      Spacer(Modifier.width(4.dp))
+      Box(Modifier.size(16.dp).background(Color.Magenta))
+    }
   }
 }
 
