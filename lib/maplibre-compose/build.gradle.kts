@@ -39,7 +39,8 @@ kotlin {
     // (CMP-4906).
     binaries.executable()
     // The browser platform composites MapLibre GL JS into the Compose scene, so its tests need a
-    // real WebGL context; karma.config.d supplies the flags that give one to a headless browser.
+    // real WebGL context. karma.config.d replaces this Karma list with one headless Chromium
+    // that has those flags. Extra useKarma launchers do not run until that file lists them too.
     browser { testTask { useKarma { useChromeHeadless() } } }
   }
 

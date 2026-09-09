@@ -178,8 +178,21 @@ job ran:
 - `mise run test:android` — Android host (JVM) suite
 - `mise run test:android:device [api-level]` — instrumented suite
 - `mise run test:ios`
-- `mise run test:js`
+- `mise run test:js` — Kotlin/JS browser suite
 - `mise run test:desktop`
+
+`test:js` launches **one** browser: the Playwright Chromium that `deps:chromium`
+installs, via `CHROME_BIN`. The task prints that binary's version before Gradle
+starts. Karma would run every launcher listed in `config.browsers`, but
+`karma.config.d` replaces that list with a single headless Chromium that has a
+software WebGL context.
+
+The JS CI job uses `ubuntu-24.04`. That image also ships Google Chrome, Firefox,
+and Edge. The suite does not launch them. Safari is not on the Linux image, so
+WebKit is not in CI.
+
+A published browser version floor, including Firefox and Safari, is still open
+in [#1169](https://github.com/maplibre/maplibre-compose/issues/1169).
 
 The device suites bring their own device. `test:android:device` boots a headless
 emulator for the API level you name, and installs the emulator and system image

@@ -200,7 +200,14 @@ udid="$(.mise/bin/boot-ios-simulator)"
 [tasks."test:js"]
 depends = ["deps:chromium"]
 description = "Run the Kotlin/JS browser test suite."
-run = "./gradlew jsBrowserTest"
+run = '''
+# Playwright Chromium, not the Chrome/Firefox/Edge binaries on the host.
+# Karma runs every name in config.browsers; karma.config.d keeps that list at
+# one WebGL-capable headless Chromium.
+echo "JS tests launch ${CHROME_BIN:?}"
+"$CHROME_BIN" --version
+./gradlew jsBrowserTest
+'''
 
 [tasks."test:desktop"]
 description = "Run the desktop (JVM) test suite against a real Vulkan or Metal device."
