@@ -3,11 +3,39 @@ import struct
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import cv2
 import numpy as np
 from analyze import analyze, input_response, screenrecord_timestamps
-from run import desktop_artifact_hash, validate_workload
+from run import android, desktop_artifact_hash, validate_workload, web
+
+
+class RunnerConfigurationTest(unittest.TestCase):
+    def test_external_url_does_not_need_local_assets(self):
+        args = SimpleNamespace(
+            mode="visual",
+            config="animation,surface,60,0",
+            playwright="playwright",
+            url="https://example.test/demo",
+        )
+        metadata = {}
+        with (
+            patch("run.shutil.copytree", side_effect=FileNotFoundError),
+            patch("run.call") as call,
+        ):
+            web(args, Path("capture"), metadata)
+        self.assertIn(args.url, call.call_args.args)
+        self.assertIsNone(metadata["assets_sha256"])
+
+    def test_android_rejects_nonstandard_animation_scale_before_install(self):
+        args = SimpleNamespace(device="test-device", mode="visual")
+        for scale in ("0", "0.5", "2"):
+            with patch("run.call", side_effect=["/sdk", scale]) as call:
+                with self.assertRaisesRegex(ValueError, "animator duration scale"):
+                    android(args, Path("capture"), {})
+                self.assertEqual(call.call_count, 2)
 
 
 class ArtifactHashTest(unittest.TestCase):
@@ -117,11 +145,21 @@ class VisibleResponseTest(unittest.TestCase):
 
 
 class PixelMeasurementTest(unittest.TestCase):
-    def recording(self, path, offset=0, frames=730, moving=True):
+    def recording(
+        self,
+        path,
+        offset=0,
+        frames=730,
+        moving=True,
+        fps=60,
+        cap="default",
+        end_gate=False,
+    ):
+        config = f"setters,surface,{cap},0"
         (path / "metadata.json").write_text(
             json.dumps(
                 {
-                    "config": "setters,surface,default,0",
+                    "config": config,
                     "platform": "desktop",
                     "video": "screen.avi",
                     "mode": "visual",
@@ -132,21 +170,23 @@ class PixelMeasurementTest(unittest.TestCase):
             )
         )
         (path / "app.log").write_text(
-            "MAP_BENCHMARK START setters,surface,default,0 1.0\nMAP_BENCHMARK CLOSED\nMAP_BENCHMARK DONE 0\n"
+            f"MAP_BENCHMARK START {config} 1.0\nMAP_BENCHMARK CLOSED\nMAP_BENCHMARK DONE 0\n"
         )
         writer = cv2.VideoWriter(
-            str(path / "screen.avi"), cv2.VideoWriter_fourcc(*"MJPG"), 60, (240, 160)
+            str(path / "screen.avi"), cv2.VideoWriter_fourcc(*"MJPG"), fps, (240, 160)
         )
         self.assertTrue(writer.isOpened())
         for frame in range(frames):
             image = np.full((160, 240, 3), 32, dtype=np.uint8)
-            x = int(120 + 45 * np.sin(frame / 30)) if moving else 120
+            x = int(120 + 45 * np.sin(frame / fps * 2)) if moving else 120
             cv2.rectangle(image, (12, 12), (28, 28), (0, 255, 0), -1)
             # Startup can contain green UI. Only the two-color measurement pattern qualifies.
-            if frame >= 20:
+            if frame / fps >= 1 / 3:
                 cv2.rectangle(image, (32, 12), (48, 28), (255, 0, 255), -1)
             cv2.circle(image, (x, 80), 6, (0, 0, 255), -1)
             cv2.circle(image, (x + offset, 80), 20, (255, 255, 0), 3)
+            if end_gate and frame == frames - 1:
+                cv2.rectangle(image, (12, 12), (28, 28), (32, 32, 32), -1)
             writer.write(image)
         writer.release()
 
@@ -167,6 +207,25 @@ class PixelMeasurementTest(unittest.TestCase):
                 path = Path(directory)
                 self.recording(path, **options)
                 with self.assertRaises(ValueError):
+                    analyze(path)
+
+    def test_low_fps_captures_require_motion_and_a_complete_interval(self):
+        for fps in (1, 2, 5):
+            with tempfile.TemporaryDirectory() as directory:
+                path = Path(directory)
+                options = {
+                    "fps": fps,
+                    "cap": str(fps),
+                    "frames": 13 * fps + 1,
+                    "end_gate": True,
+                }
+                self.recording(path, **options)
+                self.assertGreaterEqual(analyze(path)["samples"], 10)
+                self.recording(path, **dict(options, frames=7 * fps))
+                with self.assertRaises(ValueError):
+                    analyze(path)
+                self.recording(path, **dict(options, moving=False))
+                with self.assertRaisesRegex(ValueError, "did not move"):
                     analyze(path)
 
     def test_performance_requires_matching_raw_visual_evidence(self):

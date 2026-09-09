@@ -93,7 +93,7 @@ def analyze_performance(directory):
         if not cpu:
             raise ValueError("CPU scheduling data is absent")
         frames = query(f"""SELECT layer_name, present_type, jank_type, dur/1e6 AS duration_ms
-          FROM actual_frame_timeline_slice WHERE upid={upid} AND ts>={start} AND ts<{end} AND dur>=0""")
+          FROM actual_frame_timeline_slice WHERE upid={upid} AND ts>={start} AND ts<{end} AND ts+dur<={end} AND dur>=0""")
         layers = {}
         for frame in frames:
             layers.setdefault(frame["layer_name"], []).append(frame)

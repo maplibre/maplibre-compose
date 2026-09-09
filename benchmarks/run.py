@@ -18,6 +18,7 @@ import subprocess
 import tempfile
 import threading
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 from analyze import analyze, read_run
@@ -87,6 +88,10 @@ def android(args, output, metadata):
         and int(call(*adb, "shell", "getprop", "ro.build.version.sdk")) < 29
     ):
         raise ValueError("Performance tracing requires Android API 29 or newer")
+    scale = call(*adb, "shell", "settings", "get", "global", "animator_duration_scale")
+    metadata["animator_duration_scale"] = float(scale) if scale != "null" else 1.0
+    if metadata["animator_duration_scale"] != 1.0:
+        raise ValueError("Android capture requires animator duration scale 1×")
     apk = args.app or "demo-app/android/build/outputs/apk/release/android-release.apk"
     call(*adb, "install", "-r", apk)
     installed = (
@@ -293,12 +298,12 @@ def desktop(args, output, metadata):
         metadata["video"] = "screen.mp4"
 
 
-def web(args, output, metadata):
-    if args.mode != "visual" or args.config.startswith("input,"):
-        raise ValueError("Web adapter supports animation/setter visual capture only")
-    playwright = args.playwright or str(
-        Path(call("mise", "where", "npm:playwright")) / "node_modules/playwright"
-    )
+@contextmanager
+def web_url(url, metadata):
+    if url:
+        metadata["assets_sha256"] = None
+        yield url
+        return
     with tempfile.TemporaryDirectory(prefix="map-benchmark-web-") as directory:
         for source in (
             "demo-app/common/build/processedResources/js/main",
@@ -313,24 +318,29 @@ def web(args, output, metadata):
         worker = threading.Thread(target=server.serve_forever, daemon=True)
         worker.start()
         try:
-            url = args.url or f"http://127.0.0.1:{server.server_port}/"
-            if args.url:
-                metadata["assets_sha256"] = (
-                    None  # A remote server's assets were not verified.
-                )
-            call(
-                "node",
-                str(ROOT / "browser.cjs"),
-                playwright,
-                str(output),
-                args.config,
-                url,
-                timeout=90,
-            )
+            yield f"http://127.0.0.1:{server.server_port}/"
         finally:
             server.shutdown()
             server.server_close()
             worker.join()
+
+
+def web(args, output, metadata):
+    if args.mode != "visual" or args.config.startswith("input,"):
+        raise ValueError("Web adapter supports animation/setter visual capture only")
+    playwright = args.playwright or str(
+        Path(call("mise", "where", "npm:playwright")) / "node_modules/playwright"
+    )
+    with web_url(args.url, metadata) as url:
+        call(
+            "node",
+            str(ROOT / "browser.cjs"),
+            playwright,
+            str(output),
+            args.config,
+            url,
+            timeout=90,
+        )
     metadata["video"] = "screen.webm"
 
 
@@ -346,7 +356,7 @@ def validate_workload(output, reference=None):
     artifact = "apk_sha256" if metadata["platform"] == "android" else "app_sha256"
     keys = ("platform", "config", "device", "host", artifact)
     if metadata["platform"] == "android":
-        keys += ("fingerprint", "display", "density")
+        keys += ("fingerprint", "display", "density", "animator_duration_scale")
     if any(not metadata.get(k) or metadata[k] != other.get(k) for k in keys):
         raise ValueError(
             "Visual reference must match artifact, configuration, and device"

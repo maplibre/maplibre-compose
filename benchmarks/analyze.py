@@ -152,6 +152,8 @@ def analyze(directory):
     rows, active, frame_index = [], 0, 0
     gate_end = None
     is_input = metadata["config"].startswith("input,")
+    cap = metadata["config"].split(",")[2]
+    minimum_samples = 100 if cap == "default" else max(10, min(100, int(cap) * 10))
     try:
         while True:
             ok, frame = capture.read()
@@ -199,11 +201,11 @@ def analyze(directory):
         capture.release()
     if boot_times is not None and len(boot_times) != frame_index:
         raise ValueError("Video and clock metadata have different frame counts")
-    if len(rows) < (10 if is_input else 100) or len(rows) < active * 0.98:
+    if len(rows) < (10 if is_input else minimum_samples) or len(rows) < active * 0.98:
         raise ValueError(f"Insufficient marker coverage: {len(rows)}/{active}")
     data = np.asarray(rows)
     intervals = np.diff(data[:, 0]) / 1e6
-    measurement_end = gate_end if is_input else data[-1, 0]
+    measurement_end = gate_end if is_input or minimum_samples < 100 else data[-1, 0]
     if (
         not np.isfinite(data).all()
         or (intervals < 0).any()

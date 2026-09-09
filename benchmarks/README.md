@@ -40,7 +40,8 @@ performance results. Use these paired runs to check how much recording affects
 results; they cannot prove that every unrecorded run displayed the same motion.
 Android performance tracing requires API 29 or newer; the demo and visual
 scenario retain the library's minimum API. Release builds are profileable by the
-shell.
+shell. Android captures require a system animator duration scale of 1×; the
+runner checks and records this setting.
 
 ```sh
 mise run benchmark:run -- android --device emulator-5554 \
@@ -69,6 +70,11 @@ only the marked workload.
 Android window metrics include only frames whose intended start and completion
 fall within the Perfetto measurement interval. Collection starts before warm-up
 so registration and callback delays do not determine the measured boundaries.
+
+For low FPS caps, visual analysis scales the required sample count and uses the
+visible end marker to verify the full interval. Sparse samples limit the
+precision of separation percentiles. FrameTimeline results include only fully
+contained events.
 
 Frame intervals in a video describe the **capture**, not the map FPS. A recorder
 may emit only changed frames during the input scenario; latency bounds become
