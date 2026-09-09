@@ -395,6 +395,22 @@ class ClickInputTest {
   }
 
   @Test
+  fun mouse_quick_zoom_reports_its_first_click() = fixture.runRecognitionTest { target ->
+    mapNode().performMouseInput {
+      click(center)
+      advanceEventTime(SECOND_TAP_GAP_MILLIS)
+      press()
+      moveBy(Offset(0f, 100f))
+      release()
+    }
+    waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.any { it.scale > 1.0 } }
+    mainClock.advanceTimeBy(1_000)
+    waitForIdle()
+    assertEquals(1, target.clicks, "a mouse quick zoom did not report exactly its first click")
+    assertEquals(0, target.moveCalls.size, "a mouse quick zoom panned")
+  }
+
+  @Test
   fun horizontal_motion_disqualifies_quick_zoom() = fixture.runRecognitionTest { target ->
     mapNode().performTouchInput {
       click(center)
@@ -407,6 +423,22 @@ class ClickInputTest {
     waitForIdle()
     assertEquals(0, target.scaleCalls.size, "a rejected quick zoom scaled")
     assertEquals(0, target.moveCalls.size, "the disqualifying move panned")
+  }
+
+  @Test
+  fun horizontal_mouse_motion_disqualifies_quick_zoom() = fixture.runRecognitionTest { target ->
+    mapNode().performMouseInput {
+      click(center)
+      advanceEventTime(SECOND_TAP_GAP_MILLIS)
+      press()
+      moveBy(Offset(100f, 0f))
+      release()
+    }
+    mainClock.advanceTimeBy(500)
+    waitForIdle()
+    assertEquals(0, target.scaleCalls.size, "a rejected mouse quick zoom scaled")
+    assertEquals(0, target.moveCalls.size, "the disqualifying move panned")
+    assertEquals(1, target.clicks, "a rejected mouse quick zoom did not report its first click")
   }
 
   @Test

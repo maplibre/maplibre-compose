@@ -128,6 +128,18 @@ class MapInteractionsTest {
   }
 
   @Test
+  fun tap_drag_admits_primary_mouse_like_touch() {
+    val standard = InputConfiguration.Standard
+    assertTrue(standard.bindings.tapDrag.matches(sample(PointerType.Mouse)))
+    assertTrue(standard.bindings.tapDrag.matches(sample(PointerType.Touch)))
+    assertFalse(
+      standard.bindings.tapDrag.matches(
+        sample(PointerType.Mouse, buttons = setOf(PointerButton.Secondary))
+      )
+    )
+  }
+
+  @Test
   fun mappings_are_replaced_and_tuning_does_not_restore_them() {
     val cleared = InputConfiguration { bindings { doubleTap { mappings {} } } }
     val tuned = InputConfiguration(from = cleared) { bindings { doubleTap { zoomStep = 2.0 } } }
