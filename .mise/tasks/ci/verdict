@@ -3,8 +3,7 @@
 set -euo pipefail
 
 # PLAN_RESULT, SELECTED, RESTATE, and RESULT come from the plan job and the
-# tier's aggregate result. CHECK_NAME and HEAD_SHA locate an earlier verdict on
-# the same commit when this event changed nothing the tier requires.
+# tier's aggregate result. RESTATE means the planner verified earlier coverage.
 if [[ ${PLAN_RESULT:-} != success ]]; then
   echo "The plan job concluded ${PLAN_RESULT:-nothing}, so no verdict is possible." >&2
   exit 1
@@ -35,32 +34,5 @@ if [[ ${RESTATE:-} != true ]]; then
   exit 0
 fi
 
-# The event did not change what the tier requires, so the latest verdict for
-# this check on the commit stands. A sibling run still in progress usually
-# finishes first because the callers queue behind each other; poll otherwise.
-while true; do
-  verdict="$(
-    gh api --method GET \
-      "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs" \
-      -f check_name="${CHECK_NAME}" -f per_page=100 \
-      --jq '
-        [.check_runs[]
-          | select(.details_url | test("/runs/'"${GITHUB_RUN_ID}"'/") | not)]
-        | sort_by(.started_at) | last // empty
-        | "\(.status) \(.conclusion // "") \(.details_url)"
-      '
-  )"
-  if [[ -z ${verdict} ]]; then
-    echo "No earlier ${CHECK_NAME} verdict exists for ${HEAD_SHA}." >&2
-    echo "Re-run this workflow to evaluate the tier." >&2
-    exit 1
-  fi
-  read -r status conclusion url <<<"${verdict}"
-  if [[ ${status} == completed ]]; then
-    break
-  fi
-  echo "Waiting for ${url} (${status})."
-  sleep "${POLL_SECONDS:-30}"
-done
-echo "Restating ${conclusion} from ${url}." | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
-[[ ${conclusion} == success ]]
+# The planner verified successful coverage for every platform job on this head.
+echo "Every job in the tier already succeeded on this commit."

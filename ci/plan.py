@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import subprocess
 
 FULL_LABEL = "ci:full"
 TIERS = ("draft", "ready", "full")
@@ -79,10 +80,8 @@ def plan(tier: str, event_name: str, event: dict, repository: str) -> dict:
         raise ValueError(f"unknown CI tier {tier!r}")
     restate = False
     if event_name == "pull_request":
-        # A tier's workflow runs its variants only when the event is what made
-        # them necessary. A tier that was already required before the event
-        # has a verdict on this commit, which the required check restates
-        # rather than replaces.
+        # State-only events may reuse this commit's successful platform jobs.
+        # main() verifies that coverage before leaving the tier unselected.
         pr = event["pull_request"]
         before = state_before(event)
         selected = required(tier, pr)
@@ -112,13 +111,72 @@ def plan(tier: str, event_name: str, event: dict, repository: str) -> dict:
     }
 
 
+def resolve_restatement(selection: dict, check_runs: list[dict]) -> dict:
+    """Reuse only complete, successful coverage; otherwise run the whole tier."""
+    if not selection["restate"]:
+        return selection
+    expected = {
+        f"{selection['tier']} / {row['job']} / {row['variant']}"
+        for row in variants()
+        if row["tier"] == selection["tier"]
+    }
+    # Different workflow runs have different check suites. Keep the newest
+    # check across suites too, so an older success cannot hide a later failure.
+    latest = {
+        check["name"]: check
+        for check in sorted(check_runs, key=lambda check: check["id"])
+    }
+    successful = {
+        check["name"]
+        for check in latest.values()
+        if check["status"] == "completed" and check["conclusion"] == "success"
+    }
+    if expected <= successful:
+        return selection
+    # A pending producer can be replaced by this event in GitHub's concurrency
+    # queue. Every surviving run must be able to provide the missing coverage.
+    selected = plan(selection["tier"], "workflow_dispatch", {}, "")
+    return {**selected, "secrets": selection["secrets"]}
+
+
+def latest_checks(repository: str, head_sha: str) -> list[dict]:
+    """Read the latest check for each job on this exact PR head, across pages."""
+    result = subprocess.run(
+        [
+            "gh",
+            "api",
+            "--method",
+            "GET",
+            "--paginate",
+            "--slurp",
+            f"repos/{repository}/commits/{head_sha}/check-runs",
+            "-f",
+            "filter=latest",
+            "-f",
+            "per_page=100",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return [check for page in json.loads(result.stdout) for check in page["check_runs"]]
+
+
 def main() -> None:
+    event = json.loads(pathlib.Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
     selection = plan(
         os.environ["CI_TIER"],
         os.environ["GITHUB_EVENT_NAME"],
-        json.loads(pathlib.Path(os.environ["GITHUB_EVENT_PATH"]).read_text()),
+        event,
         os.environ["GITHUB_REPOSITORY"],
     )
+    if selection["restate"]:
+        selection = resolve_restatement(
+            selection,
+            latest_checks(
+                os.environ["GITHUB_REPOSITORY"], event["pull_request"]["head"]["sha"]
+            ),
+        )
     with pathlib.Path(os.environ["GITHUB_OUTPUT"]).open("a") as output:
         for key, value in selection.items():
             if isinstance(value, str):
@@ -134,7 +192,7 @@ def main() -> None:
     with pathlib.Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as summary:
         print(f"CI tier: **{selection['tier']}**", file=summary)
         if selection["restate"]:
-            jobs = "none; this event did not change what the tier requires"
+            jobs = "none; every platform job already succeeded on this commit"
         else:
             jobs = ", ".join(names) if names else "none required"
         print(f"\nJobs: {jobs}", file=summary)
