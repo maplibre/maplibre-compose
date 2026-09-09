@@ -46,48 +46,6 @@ Declare the dependency in the shared source set:
 
 Use the same version for the library and for every runtime artifact below.
 
-### Snapshots
-
-Snapshot builds of `main` are available from [Central Portal
-Snapshots][snapshots]. This site documents the latest release, which may not
-match the snapshot. If you use snapshots, read the
-[documentation for the latest `main`](https://maplibre-compose.pages.dev/maplibre-compose/)
-instead.
-
-Add the snapshot repository, then set the catalog version to
-**v{versions.snapshot}**.
-
-<Tabs syncKey="build-system">
-  <TabItem label="Gradle" icon="seti:gradle">
-    ```kotlin title="settings.gradle.kts"
-    repositories {
-      maven {
-        name = "Central Portal Snapshots"
-        url = uri("https://central.sonatype.com/repository/maven-snapshots/")
-        mavenContent { snapshotsOnly() }
-        content {
-          includeGroup("org.maplibre.compose")
-          includeGroup("org.maplibre.nativeffi")
-        }
-      }
-    }
-    ```
-  </TabItem>
-
-  <TabItem label="Kotlin Toolchain" icon="seti:kotlin">
-    ```yaml title="shared/module.yaml"
-    repositories:
-      - id: central-portal-snapshots
-        url: https://central.sonatype.com/repository/maven-snapshots/
-    ```
-  </TabItem>
-</Tabs>
-
-```toml title="libs.versions.toml"
-[libraries]
-maplibre-compose = { module = "org.maplibre.compose:maplibre-compose", version = "{{snapshot}}" }
-```
-
 ## Configure your targets
 
 Complete the section for each target that your app supports.
@@ -145,8 +103,7 @@ your iOS app target's **Other Linker Flags** build setting:
 
 ### Desktop (JVM)
 
-**Desktop requires Java 25.** The native bindings use the FFM API, so the
-desktop target cannot run on an older JVM.
+**Desktop requires Java 25 or later.**
 
 Alongside the library, add a runtime for your platform and one render backend.
 
@@ -192,8 +149,7 @@ host, implement `ComposeMapPresentationHost` yourself.
 
 <Code code={region(desktopGettingStarted, "main")} lang="kotlin" title="Main.kt" />
 
-The native bindings make FFM downcalls. Enable native access when you run the
-app:
+Enable native access when you run the desktop app:
 
 <Tabs syncKey="build-system">
   <TabItem label="Gradle" icon="seti:gradle">
@@ -247,7 +203,7 @@ Compile the JS target to ES modules. Non-ESM builds are not supported.
 </Tabs>
 
 Install the browser graphics integration inside `onWasmReady`, before Compose
-starts. The integration captures Compose's graphics context.
+starts.
 
 ```kotlin title="main.kt"
 fun main() {
@@ -266,6 +222,48 @@ In your Composable UI, add a map:
 
 When you run your app, the map shows the default [demotiles] style. To load a
 full-featured style, proceed to [Styling](/maplibre-compose/styling/).
+
+## Use a development snapshot
+
+Snapshot builds of `main` are available from [Central Portal
+Snapshots][snapshots]. This site documents the latest release, which may not
+match the snapshot. If you use snapshots, read the
+[documentation for the latest `main`](https://maplibre-compose.pages.dev/maplibre-compose/)
+instead.
+
+Add the snapshot repository, then set the catalog version to
+**v{versions.snapshot}**.
+
+<Tabs syncKey="build-system">
+  <TabItem label="Gradle" icon="seti:gradle">
+    ```kotlin title="settings.gradle.kts"
+    repositories {
+      maven {
+        name = "Central Portal Snapshots"
+        url = uri("https://central.sonatype.com/repository/maven-snapshots/")
+        mavenContent { snapshotsOnly() }
+        content {
+          includeGroup("org.maplibre.compose")
+          includeGroup("org.maplibre.nativeffi")
+        }
+      }
+    }
+    ```
+  </TabItem>
+
+  <TabItem label="Kotlin Toolchain" icon="seti:kotlin">
+    ```yaml title="shared/module.yaml"
+    repositories:
+      - id: central-portal-snapshots
+        url: https://central.sonatype.com/repository/maven-snapshots/
+    ```
+  </TabItem>
+</Tabs>
+
+```toml title="libs.versions.toml"
+[libraries]
+maplibre-compose = { module = "org.maplibre.compose:maplibre-compose", version = "{{snapshot}}" }
+```
 
 [compose-guide]: https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-multiplatform-create-first-app.html
 

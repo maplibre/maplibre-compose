@@ -25,24 +25,13 @@ unsupported or misconfigured provider before the application requests permission
 initially draws nothing. Afterward, the state retains the last measurement when
 tracking stops or permission changes.
 
-A `Bearing` is an absolute horizontal direction, such as South or East. A
-heading is the bearing that the device faces, and a course is the bearing along
-which the device moves. A `Rotation` is a relative angular displacement, for
-example the angle between two bearings.
-
 ## Request permission
 
 The library never requests location permission automatically. Call
 <Api of="LocationState.requestPermission" /> when the application is ready to
 present the platform permission UI:
 
-```kotlin title="App.kt"
-if (locationState.permission !is LocationPermission.Granted) {
-  Button(onClick = locationState::requestPermission) {
-    Text("Use my location")
-  }
-}
-```
+<Code code={region(location, "permission")} lang="kotlin" title="App.kt" />
 
 When authorization is absent, <Api of="LocationPermission.NotGranted" />
 reports the next step: explain first when `shouldShowRationale` is set
@@ -50,26 +39,10 @@ reports the next step: explain first when `shouldShowRationale` is set
 the system settings otherwise. <Api of="rememberSystemSettingsLauncher" />
 opens the settings screens on the platforms that have them.
 
-```kotlin title="App.kt"
-val settings = rememberSystemSettingsLauncher()
-val permission = locationState.permission
-if (permission is LocationPermission.NotGranted) {
-  when {
-    permission.shouldShowRationale ->
-      LocationRationale(onAccept = locationState::requestPermission)
-    permission.canRequest != false ->
-      Button(onClick = locationState::requestPermission) { Text("Use my location") }
-    settings.canOpenApplicationSettings ->
-      Button(onClick = { settings.openApplicationSettings() }) { Text("Open settings") }
-  }
-}
-```
+<Code code={region(location, "permission-settings")} lang="kotlin" title="App.kt" />
 
-<Api of="LocationPermission.Unknown" /> means the permission check has not
-completed. Location collection retries the check without prompting. If the
-check fails, <Api of="LocationState.status" /> reports
-<Api of="LocationTrackingStatus.Unavailable" /> with the cause. Call
-<Api of="LocationState.retry" /> to try again.
+Use <Api of="LocationState.status" /> to show tracking failures and
+<Api of="LocationState.retry" /> to let the user try again.
 
 ## Platform requirements
 
