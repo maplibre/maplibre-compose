@@ -43,6 +43,6 @@ class BenchmarkConfigTest {
     ui.abandonRun()
     assertEquals(0, ui.runId)
     ui.requestRun()
-    assertEquals(1, ui.runId)
+    assertEquals(2, ui.runId)
   }
 }

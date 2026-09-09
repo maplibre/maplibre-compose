@@ -61,6 +61,7 @@ data class BenchmarkConfig(
 }
 
 class BenchmarkUiState {
+  private var nextRunId = 0
   var runId by mutableStateOf(0)
     private set
 
@@ -74,7 +75,7 @@ class BenchmarkUiState {
     if (running) return
     running = true
     status = "Starting"
-    runId++
+    runId = ++nextRunId
   }
 
   fun abandonRun() {

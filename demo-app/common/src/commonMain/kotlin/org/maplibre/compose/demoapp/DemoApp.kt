@@ -299,7 +299,7 @@ private fun ShellMap(
   controlsModifier: Modifier,
 ) {
   if (state.shell == DemoShell.Benchmarks) {
-    BenchmarkMap(state, viewportInsets)
+    BenchmarkMap(state)
   } else {
     DemoMap(
       state,

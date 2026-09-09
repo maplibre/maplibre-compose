@@ -4,17 +4,13 @@ import json
 import re
 from pathlib import Path
 
-from analyze import distribution
+from analyze import distribution, read_run
 from perfetto.trace_processor import TraceProcessor
-
-PACKAGE = "org.maplibre.compose.demoapp"
 
 
 def analyze_performance(directory):
     directory = Path(directory)
-    logs = (directory / "app.log").read_text()
-    if "MAP_BENCHMARK DONE" not in logs or "FATAL EXCEPTION" in logs:
-        raise ValueError("App did not finish cleanly")
+    metadata, logs, _ = read_run(directory)
     with TraceProcessor(trace=str(directory / "trace.perfetto-trace")) as trace:
 
         def query(sql):
@@ -29,16 +25,14 @@ def analyze_performance(directory):
             )
         start, end = runs[0]["ts"], runs[0]["ts"] + runs[0]["dur"]
         upid = runs[0]["upid"]
-        uid = json.loads((directory / "metadata.json").read_text()).get(
-            "uid", runs[0]["uid"]
-        )
+        uid = int(metadata.get("uid", runs[0]["uid"]) or 0)
         cpu = query(f"""SELECT thread.name AS thread, SUM(MIN(s.ts+s.dur,{end})-MAX(s.ts,{start}))/1e6 AS cpu_ms
           FROM sched s JOIN thread USING(utid) WHERE thread.upid={upid}
           AND s.dur>0 AND s.ts<{end} AND s.ts+s.dur>{start} GROUP BY thread.utid ORDER BY cpu_ms DESC""")
         if not cpu:
             raise ValueError("CPU scheduling data is absent")
         frames = query(f"""SELECT layer_name, present_type, jank_type, dur/1e6 AS duration_ms
-          FROM actual_frame_timeline_slice WHERE upid={upid} AND ts>={start} AND ts<{end} AND dur>0""")
+          FROM actual_frame_timeline_slice WHERE upid={upid} AND ts>={start} AND ts<{end} AND dur>=0""")
         layers = {}
         for frame in frames:
             layers.setdefault(frame["layer_name"], []).append(frame)
@@ -94,6 +88,8 @@ def analyze_performance(directory):
                 (float(a), float(b))
                 for a, b in re.findall(r"MAP_BENCHMARK FRAME ([\d.-]+) ([\d.-]+)", logs)
             ]
+            if len(metrics) != window["frames"]:
+                raise ValueError("Window frame metric log is incomplete")
             window.update(
                 available=bool(metrics),
                 frames=len(metrics),

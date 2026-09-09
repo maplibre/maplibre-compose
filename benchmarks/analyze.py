@@ -32,6 +32,8 @@ def screenrecord_timestamps(path):
     if offset < 0:
         return None
     offset += len(magic)
+    if offset + 16 > len(data):
+        raise ValueError("Truncated screenrecord clock header")
     version, _realtime_offset, count = struct.unpack_from("<IqI", data, offset)
     if version != 2:
         return None  # Version 1 used a different clock; never silently treat it as boot time.
@@ -81,7 +83,7 @@ def input_response(rows, events):
     return output
 
 
-def analyze(directory):
+def read_run(directory):
     directory = Path(directory)
     metadata = json.loads((directory / "metadata.json").read_text())
     logs = (directory / "app.log").read_text()
@@ -98,6 +100,12 @@ def analyze(directory):
     density = float(start[0][1])
     if density <= 0:
         raise ValueError("Invalid density")
+    return metadata, logs, density
+
+
+def analyze(directory):
+    directory = Path(directory)
+    metadata, logs, density = read_run(directory)
     video = directory / metadata["video"]
     boot_times = (
         screenrecord_timestamps(video) if metadata["platform"] == "android" else None

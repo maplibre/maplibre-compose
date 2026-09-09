@@ -80,6 +80,7 @@ internal actual fun BenchmarkPlatformMetrics(active: Boolean) {
               if (deadlineFrames > 0) missedDeadlines else JSONObject.NULL,
             )
             .put("deadline_frames", deadlineFrames)
+            .put("frames", total.size)
             .put("lost_reports", lostReports)
         // One JSON line per frame avoids Android logcat's per-entry length limit.
         println("MAP_BENCHMARK WINDOW $report")

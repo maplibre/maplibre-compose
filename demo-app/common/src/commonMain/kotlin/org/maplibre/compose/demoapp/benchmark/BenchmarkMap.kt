@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -35,7 +36,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.demoapp.DemoAppState
-import org.maplibre.compose.demoapp.MapViewportInsets
 import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.RenderOptions
@@ -48,18 +48,26 @@ private val Origin = Position(0.0, 0.0)
 private fun camera(x: Double) = CameraPosition(target = Position(x * 0.002, 0.0), zoom = 15.0)
 
 @Composable
-internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
+internal fun BenchmarkMap(state: DemoAppState) {
   val ui = state.benchmark
-  Box(Modifier.fillMaxSize().padding(viewportInsets.asPaddingValues())) {
-    if (ui.runId == 0) Text("Choose settings and run the benchmark.")
+  val runId = ui.runId
+  Box(Modifier.fillMaxSize().background(Color(0xff202020))) {
+    if (ui.runId == 0)
+      Text(
+        "Choose settings and run the benchmark.",
+        Modifier.align(Alignment.Center).padding(24.dp),
+        color = Color.LightGray,
+      )
     else
       key(ui.runId, state.selectedScenario) {
         val config = remember {
           BenchmarkConfig(state.selectedScenario, ui.surface, ui.maximumFps, ui.load)
         }
         BenchmarkRun(config) { status, running ->
-          ui.status = status
-          ui.running = running
+          if (ui.runId == runId && state.selectedScenario == config.scenario) {
+            ui.status = status
+            ui.running = running
+          }
         }
       }
   }
