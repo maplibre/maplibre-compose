@@ -32,8 +32,7 @@ between two positions.
 
 The runner installs and verifies the release APK, starts the app with the
 configuration, and stops it after capture. `--app` selects another APK.
-`--mode
-visual` records pixels, `--mode performance` records Perfetto without
+`--mode visual` records pixels, `--mode performance` records Perfetto without
 video, and `--mode both` records both. Use performance-only runs to check how
 much recording affects results. Android performance tracing requires API 29 or
 newer; the demo and visual scenario retain the library's minimum API. Release
@@ -51,11 +50,13 @@ builds are profileable by the shell.
 | Presentation events               | Android FrameTimeline, grouped by layer and reason. Transaction entries and prediction errors are retained separately; they are not counts of dropped map buffers. Coverage depends on Android and the presentation path.                        |
 | Input-to-captured-display latency | Input event timestamp to the first recording frame showing its alternating camera step, independently for map and overlay. Requires Android screenrecord Winscope v2 boot-clock metadata; reports bounds between adjacent capture frames.        |
 
-Frame intervals in a video describe the **capture**, not the map FPS. Latency
-bounds include recording-frame uncertainty and a one-millisecond margin for the
-Android input clock conversion. Screenrecord captures a virtual display; these
-measurements exclude the physical touchscreen, panel scanout, and pixel
-response. Physical touch-to-photon latency requires external measurement.
+Frame intervals in a video describe the **capture**, not the map FPS. A recorder
+may emit only changed frames during the input scenario; latency bounds become
+wider across idle gaps. Latency bounds include recording-frame uncertainty and a
+one-millisecond margin for the Android input clock conversion. Screenrecord
+captures a virtual display; these measurements exclude the physical touchscreen,
+panel scanout, and pixel response. Physical touch-to-photon latency requires
+external measurement.
 
 The scene's simple pan is a synchronization reference, not a representative
 production style. Repeat comparisons in alternating order with both motions,

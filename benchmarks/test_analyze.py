@@ -56,6 +56,16 @@ class VisibleResponseTest(unittest.TestCase):
                     self.assertGreaterEqual(upper, delay)
                     self.assertLessEqual(upper - lower, 19)
 
+    def test_sparse_capture_ends_on_last_response(self):
+        data, events = self.steps(50, 20)
+        changes = np.flatnonzero(np.any(np.diff(data[:, (1, 3)], axis=0), axis=1)) + 1
+        sparse = data[np.r_[0, changes]]
+        result = input_response(sparse, events)
+        for name, delay in (("map", 50), ("overlay", 20)):
+            for lower, upper in result[name]["bounds_ms"]:
+                self.assertLessEqual(lower, delay)
+                self.assertGreaterEqual(upper, delay)
+
     def test_rejects_clock_error_and_missing_response(self):
         data, events = self.steps(30, 10)
         with self.assertRaisesRegex(ValueError, "preceded"):

@@ -55,7 +55,9 @@ def input_response(rows, events):
         midpoint = (np.percentile(positions, 10) + np.percentile(positions, 90)) / 2
         bounds = []
         for index, (sequence, event_ns) in enumerate(events):
-            deadline = events[index + 1][1] if index + 1 < len(events) else times[-1]
+            deadline = (
+                events[index + 1][1] if index + 1 < len(events) else times[-1] + 1
+            )
             first = np.searchsorted(times, event_ns)
             if first == 0 or first == len(times):
                 raise ValueError("Input falls outside calibrated capture")
@@ -116,6 +118,13 @@ def read_run(directory):
         or "FATAL EXCEPTION" in logs
     ):
         raise ValueError("Benchmark failed or did not complete shutdown")
+    if metadata["config"].startswith("input,"):
+        sequences = [int(i) for i in re.findall(r"MAP_BENCHMARK INPUT (\d+) ", logs)]
+        done = int(re.search(r"MAP_BENCHMARK DONE (\d+)", logs)[1])
+        if len(sequences) < 5 or sequences != list(range(1, done + 1)):
+            raise ValueError(
+                "Missing input events; at least five complete steps required"
+            )
     density = float(start[0][1])
     if density <= 0:
         raise ValueError("Invalid density")
@@ -131,6 +140,8 @@ def analyze(directory):
     )
     capture = cv2.VideoCapture(str(video))
     rows, active, frame_index = [], 0, 0
+    gate_end = None
+    is_input = metadata["config"].startswith("input,")
     try:
         while True:
             ok, frame = capture.read()
@@ -138,8 +149,17 @@ def analyze(directory):
                 break
             index = frame_index
             frame_index += 1
+            if boot_times is not None and index >= len(boot_times):
+                raise ValueError("Video and clock metadata have different frame counts")
+            timestamp = (
+                boot_times[index]
+                if boot_times is not None
+                else capture.get(cv2.CAP_PROP_POS_MSEC) * 1e6
+            )
             hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
             if not measurement_gate(hsv, density):
+                if active and gate_end is None:
+                    gate_end = timestamp
                 continue
             active += 1
             masks = (
@@ -162,15 +182,6 @@ def analyze(directory):
                     moments["m01"] / moments["m00"],
                 ]
             if len(points) == 4:
-                if boot_times is not None and index >= len(boot_times):
-                    raise ValueError(
-                        "Video and clock metadata have different frame counts"
-                    )
-                timestamp = (
-                    boot_times[index]
-                    if boot_times is not None
-                    else capture.get(cv2.CAP_PROP_POS_MSEC) * 1e6
-                )
                 rows.append([timestamp, *points])
                 if len(rows) == 1:
                     cv2.imwrite(str(directory / "first-frame.png"), frame)
@@ -178,14 +189,16 @@ def analyze(directory):
         capture.release()
     if boot_times is not None and len(boot_times) != frame_index:
         raise ValueError("Video and clock metadata have different frame counts")
-    if len(rows) < 100 or len(rows) < active * 0.98:
+    if len(rows) < (10 if is_input else 100) or len(rows) < active * 0.98:
         raise ValueError(f"Insufficient marker coverage: {len(rows)}/{active}")
     data = np.asarray(rows)
     intervals = np.diff(data[:, 0]) / 1e6
+    measurement_end = gate_end if is_input else data[-1, 0]
     if (
         not np.isfinite(data).all()
         or (intervals <= 0).any()
-        or data[-1, 0] - data[0, 0] < 11e9
+        or measurement_end is None
+        or measurement_end - data[0, 0] < 11e9
     ):
         raise ValueError("Invalid timestamps or truncated measurement")
     if np.ptp(data[:, 1]) / density < 40:
@@ -203,16 +216,11 @@ def analyze(directory):
             "reason": "Requires input scenario and a calibrated capture clock",
         },
     }
-    if metadata["config"].startswith("input,") and boot_times is not None:
+    if is_input and boot_times is not None:
         events = [
             (int(i), int(t))
             for i, t in re.findall(r"MAP_BENCHMARK INPUT (\d+) (\d+)", logs)
         ]
-        done = int(re.search(r"MAP_BENCHMARK DONE (\d+)", logs)[1])
-        if len(events) < 5 or [i for i, _ in events] != list(range(1, done + 1)):
-            raise ValueError(
-                "Missing input events; at least five complete steps required"
-            )
         result["input_to_captured_display"] = {
             "available": True,
             "clock": "elapsed_realtime",
