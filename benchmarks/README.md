@@ -33,10 +33,26 @@ between two positions.
 The runner installs and verifies the release APK, starts the app with the
 configuration, and stops it after capture. `--app` selects another APK.
 `--mode visual` records pixels, `--mode performance` records Perfetto without
-video, and `--mode both` records both. Use performance-only runs to check how
-much recording affects results. Android performance tracing requires API 29 or
-newer; the demo and visual scenario retain the library's minimum API. Release
-builds are profileable by the shell.
+video, and `--mode both` records both. Performance-only runs require
+`--visual-reference <capture-directory>` from the same artifact, configuration,
+device, and host. The runner revalidates its raw pixels before publishing
+performance results. Use these paired runs to check how much recording affects
+results; they cannot prove that every unrecorded run displayed the same motion.
+Android performance tracing requires API 29 or newer; the demo and visual
+scenario retain the library's minimum API. Release builds are profileable by the
+shell.
+
+```sh
+mise run benchmark:run -- android --device emulator-5554 \
+  --config animation,surface,default,0 --mode performance \
+  --visual-reference build/benchmarks/surface-animation-1 \
+  --output build/benchmarks/surface-animation-no-video-1
+```
+
+Capture and lifecycle waits allow sixty seconds, covering the fifteen-second
+readiness limit, warm-up, twelve-second workload, shutdown, and launch margin.
+Android, desktop, and web recordings retain this full interval; measurements use
+only the marked workload.
 
 ## What the measurements mean
 
@@ -75,8 +91,9 @@ Desktop and iOS also record process CPU time across all app threads using the
 JVM process CPU counter and Darwin `getrusage`, respectively. They do not yet
 measure GPU time, presentation deadlines, or calibrated input latency. Web
 currently reports visual measurements only. Use `--mode performance` on desktop
-or iOS to measure CPU without video recording; the map still runs on screen.
-Android's surface setting is ignored on these platforms.
+or iOS with a matching `--visual-reference` to measure CPU without video
+recording; the map still runs on screen. Android's surface setting is ignored on
+these platforms.
 
 ```sh
 mise run benchmark:build:ios
@@ -117,10 +134,12 @@ mise run benchmark:test
 
 Analysis rejects incomplete runs, insufficient marker coverage, stationary map
 markers, mismatched configurations, truncated recordings, invalid clocks, and
-missing input responses. Synthetic tests check known pixel offsets and latency
-bounds. Adding a scenario requires a deterministic workload, an explicit
-measurement interval, and validation that detects a broken workload; projection
-callback timing is not a substitute for presentation evidence.
+missing input responses. Performance-only results retain their visual reference
+in metadata and require it again on reanalysis. Synthetic tests check known
+pixel offsets and latency bounds. Adding a scenario requires a deterministic
+workload, an explicit measurement interval, and validation that detects a broken
+workload; projection callback timing is not a substitute for presentation
+evidence.
 
 Reference contracts:
 [Android frame metrics](https://developer.android.com/reference/android/view/FrameMetrics),

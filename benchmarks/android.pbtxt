@@ -1,5 +1,5 @@
 buffers { size_kb: 65536 fill_policy: RING_BUFFER }
-duration_ms: 24000
+duration_ms: 60000
 data_sources { config {
   name: "linux.ftrace"
   ftrace_config {

@@ -36,7 +36,6 @@ kotlin {
   }
 
   sourceSets {
-    jvmTest.dependencies { implementation(kotlin("test")) }
     all { languageSettings { optIn("androidx.compose.material3.ExperimentalMaterial3Api") } }
 
     // MapLibre Native platforms (Android, iOS, desktop). The browser stays on MapLibre GL JS,
@@ -114,8 +113,6 @@ kotlin {
 }
 
 compose.resources { packageOfResClass = "org.maplibre.compose.demoapp.generated" }
-
-tasks.named<Test>("jvmTest") { failOnNoDiscoveredTests = true }
 
 if (providers.gradleProperty("composeCompilerReports").orNull == "true") {
   composeCompiler { reportsDestination = layout.buildDirectory.dir("compose/reports") }

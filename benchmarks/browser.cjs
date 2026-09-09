@@ -34,7 +34,7 @@ const config = process.argv[4] || 'animation,surface,default,0';
         reader.readAsDataURL(new Blob(chunks, { type: 'video/webm' }));
       };
       recorder.start();
-      setTimeout(() => recorder.stop(), 22000);
+      setTimeout(() => recorder.stop(), 60000);
     }));
     fs.writeFileSync(path.join(output, 'screen.webm'), Buffer.from(encoded, 'base64'));
     fs.writeFileSync(path.join(output, 'app.log'), logs.join('\n'));

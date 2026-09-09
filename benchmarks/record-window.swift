@@ -112,7 +112,7 @@ struct WindowRecorder {
     let queue = DispatchQueue(label: "map-sync.capture")
     try stream.addStreamOutput(frames, type: .screen, sampleHandlerQueue: queue)
     try await stream.startCapture()
-    try await Task.sleep(nanoseconds: 22_000_000_000)
+    try await Task.sleep(nanoseconds: 60_000_000_000)
     try await stream.stopCapture()
     guard queue.sync(execute: { frames.started }) else { throw NSError(
       domain: "map-sync",

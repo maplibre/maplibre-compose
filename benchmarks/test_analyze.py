@@ -7,6 +7,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 from analyze import analyze, input_response, screenrecord_timestamps
+from run import validate_workload
 
 
 class CaptureClockTest(unittest.TestCase):
@@ -97,6 +98,10 @@ class PixelMeasurementTest(unittest.TestCase):
                     "config": "setters,surface,default,0",
                     "platform": "desktop",
                     "video": "screen.avi",
+                    "mode": "visual",
+                    "device": "test-device",
+                    "host": "test-host",
+                    "app_sha256": "test-artifact",
                 }
             )
         )
@@ -137,6 +142,34 @@ class PixelMeasurementTest(unittest.TestCase):
                 self.recording(path, **options)
                 with self.assertRaises(ValueError):
                     analyze(path)
+
+    def test_performance_requires_matching_raw_visual_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            reference = Path(directory) / "reference"
+            output = Path(directory) / "performance"
+            reference.mkdir()
+            output.mkdir()
+            self.recording(reference)
+            metadata = json.loads((reference / "metadata.json").read_text())
+            metadata.update(mode="performance")
+            metadata.pop("video")
+            (output / "metadata.json").write_text(json.dumps(metadata))
+            (output / "app.log").write_text((reference / "app.log").read_text())
+            with self.assertRaisesRegex(ValueError, "--visual-reference"):
+                validate_workload(output)
+            self.assertEqual(
+                validate_workload(output, reference), str(reference.resolve())
+            )
+            for key in ("app_sha256", "device", "host", "config"):
+                changed = dict(metadata, **{key: "different"})
+                (output / "metadata.json").write_text(json.dumps(changed))
+                with self.assertRaises(ValueError):
+                    validate_workload(output, reference)
+            (output / "metadata.json").write_text(json.dumps(metadata))
+            # A passing cached report cannot conceal a broken workload in the raw capture.
+            self.recording(reference, moving=False)
+            with self.assertRaises(ValueError):
+                validate_workload(output, reference)
 
 
 if __name__ == "__main__":

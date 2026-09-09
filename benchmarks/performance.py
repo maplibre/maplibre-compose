@@ -137,5 +137,4 @@ def analyze_performance(directory):
             "window": window,
             "gpu": gpu_result,
         }
-        (directory / "performance.json").write_text(json.dumps(result, indent=2) + "\n")
         return result

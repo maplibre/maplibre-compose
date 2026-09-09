@@ -10,6 +10,7 @@ import hashlib
 import http.server
 import json
 import os
+import platform
 import re
 import shutil
 import signal
@@ -24,6 +25,8 @@ from performance import analyze_performance, process_cpu_metrics
 
 ROOT = Path(__file__).resolve().parent
 PACKAGE = "org.maplibre.compose.demoapp"
+# 15 s readiness + 4.5 s warm-up + 12 s workload + 10 s shutdown, plus launch margin.
+RUN_TIMEOUT = 60
 
 
 def call(*command, **kwargs):
@@ -32,7 +35,7 @@ def call(*command, **kwargs):
     ).stdout.strip()
 
 
-def wait_for(path, marker, timeout=30):
+def wait_for(path, marker, timeout=RUN_TIMEOUT):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if path.exists():
@@ -124,7 +127,7 @@ def android(args, output, metadata):
                         "--size",
                         "x".join(dimensions),
                         "--time-limit",
-                        "24",
+                        str(RUN_TIMEOUT),
                         remote + ".mp4",
                     ],
                     stdout=log,
@@ -158,16 +161,16 @@ def android(args, output, metadata):
                     for _ in range(8):
                         time.sleep(1)
                         call(*adb, "shell", "input", "tap", x, y)
-                wait_for(output / "app.log", "MAP_BENCHMARK DONE", timeout=20)
+                wait_for(output / "app.log", "MAP_BENCHMARK DONE", timeout=30)
                 if args.mode != "visual":
-                    trace.wait(timeout=30)
+                    trace.wait(timeout=RUN_TIMEOUT)
                     if trace.returncode:
                         raise RuntimeError("Perfetto failed; inspect capture.log")
                     call(
                         *adb, "pull", remote_trace, str(output / "trace.perfetto-trace")
                     )
                 if args.mode != "performance":
-                    recorder.wait(timeout=30)
+                    recorder.wait(timeout=RUN_TIMEOUT)
                     if recorder.returncode:
                         raise RuntimeError("Screenrecord failed; inspect capture.log")
                     call(*adb, "pull", remote + ".mp4", str(output / "screen.mp4"))
@@ -274,7 +277,7 @@ def desktop(args, output, metadata):
                     str(recorder_path),
                     str(app.pid),
                     str(output / "screen.mp4"),
-                    timeout=40,
+                    timeout=90,
                 )
         finally:
             stop(app)
@@ -314,13 +317,36 @@ def web(args, output, metadata):
                 str(output),
                 args.config,
                 url,
-                timeout=45,
+                timeout=90,
             )
         finally:
             server.shutdown()
             server.server_close()
             worker.join()
     metadata["video"] = "screen.webm"
+
+
+def validate_workload(output, reference=None):
+    metadata, _, density = read_run(output)
+    if metadata["mode"] != "performance":
+        analyze(output)
+        return str(output)
+    if reference is None:
+        raise ValueError("Performance-only runs require --visual-reference")
+    reference = Path(reference).resolve()
+    other, _, other_density = read_run(reference)
+    artifact = "apk_sha256" if metadata["platform"] == "android" else "app_sha256"
+    keys = ("platform", "config", "device", "host", artifact)
+    if metadata["platform"] == "android":
+        keys += ("fingerprint", "display", "density")
+    if any(not metadata.get(k) or metadata[k] != other.get(k) for k in keys):
+        raise ValueError(
+            "Visual reference must match artifact, configuration, and device"
+        )
+    if density != other_density:
+        raise ValueError("Visual reference must match scene density")
+    analyze(reference)  # Revalidate raw pixels; a previous JSON report is insufficient.
+    return str(reference)
 
 
 def main():
@@ -338,6 +364,11 @@ def main():
     )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
+        "--visual-reference",
+        type=Path,
+        help="Validated capture of the same artifact, configuration, and device; required for performance-only runs",
+    )
+    parser.add_argument(
         "--url", help="External web server; by default serve the local demo build"
     )
     parser.add_argument("--playwright", help="Path to the installed Playwright module")
@@ -350,6 +381,12 @@ def main():
     _, _, fps, load = args.config.split(",")
     if (fps != "default" and int(fps) > 240) or int(load) > 10000:
         parser.error("Maximum FPS is 240 and maximum load is 10000")
+    if (
+        args.platform != "analyze"
+        and args.mode == "performance"
+        and args.visual_reference is None
+    ):
+        parser.error("--mode performance requires --visual-reference")
     output = args.output.resolve()
     if args.platform != "analyze":
         output.mkdir(parents=True, exist_ok=False)
@@ -359,6 +396,7 @@ def main():
             "config": args.config,
             "mode": args.mode,
             "device": args.device,
+            "host": platform.node(),
             "commit": call("git", "rev-parse", "HEAD"),
             "diff_sha256": hashlib.sha256(
                 subprocess.check_output(["git", "diff", "HEAD"])
@@ -370,16 +408,23 @@ def main():
             ](args, output, metadata)
         finally:
             (output / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
+    metadata = json.loads((output / "metadata.json").read_text())
+    reference = args.visual_reference or metadata.get("visual_reference")
+    validated = validate_workload(output, reference)
+    if metadata["mode"] == "performance":
+        metadata["visual_reference"] = validated
+        (output / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
     if (output / "trace.perfetto-trace").exists():
-        print(json.dumps(analyze_performance(output), indent=2))
+        cpu = analyze_performance(output)
     else:
         _, logs, _ = read_run(output)
         cpu = process_cpu_metrics(logs)
-        if cpu is not None:
-            (output / "performance.json").write_text(json.dumps(cpu, indent=2) + "\n")
-            print(json.dumps(cpu, indent=2))
-    if list(output.glob("screen.*")):
-        print(json.dumps(analyze(output), indent=2))
+    if cpu is not None:
+        cpu["visual_reference"] = validated
+        (output / "performance.json").write_text(json.dumps(cpu, indent=2) + "\n")
+        print(json.dumps(cpu, indent=2))
+    if metadata["mode"] != "performance":
+        print((output / "visual.json").read_text())
 
 
 if __name__ == "__main__":

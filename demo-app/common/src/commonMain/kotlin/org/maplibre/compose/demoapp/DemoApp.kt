@@ -49,20 +49,24 @@ import androidx.window.core.layout.WindowSizeClass
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.vectorResource
 import org.maplibre.compose.demoapp.benchmark.BenchmarkMap
+import org.maplibre.compose.demoapp.benchmark.BenchmarkRun
+import org.maplibre.compose.demoapp.benchmark.benchmarkLaunchConfig
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.chevron_left_24px
 import org.maplibre.compose.demoapp.generated.chevron_right_24px
 
 @Composable
-fun DemoApp(
-  state: DemoAppState = rememberDemoAppState(),
-  contentPadding: PaddingValues = PaddingValues(0.dp),
-) {
-  val sync = org.maplibre.compose.demoapp.benchmark.benchmarkLaunchConfig()
-  if (sync != null) {
-    org.maplibre.compose.demoapp.benchmark.BenchmarkRun(sync)
-    return
+fun DemoApp(contentPadding: PaddingValues = PaddingValues(0.dp)) {
+  val benchmark = benchmarkLaunchConfig()
+  if (benchmark != null) {
+    BenchmarkRun(benchmark)
+  } else {
+    DemoApp(rememberDemoAppState(), contentPadding)
   }
+}
+
+@Composable
+fun DemoApp(state: DemoAppState, contentPadding: PaddingValues = PaddingValues(0.dp)) {
   DemoAppTheme(state) { DemoShell(state, contentPadding) }
 }
 
