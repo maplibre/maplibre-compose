@@ -43,7 +43,7 @@ builds are profileable by the shell.
 | Measurement                       | Source and scope                                                                                                                                                                                                                                 |
 | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Map/overlay separation            | Centers of the red native marker and cyan Compose ring in composed recordings; distributions in pixels and density-independent pixels.                                                                                                           |
-| CPU time                          | Perfetto scheduled execution summed across this app process's threads during the marked measurement interval. Includes native renderer threads; excludes time waiting and other processes.                                                       |
+| CPU time                          | Android: Perfetto scheduled execution summed across app threads. Desktop/iOS: process CPU counter deltas. Includes native renderer threads; excludes time waiting and other processes.                                                           |
 | Window GPU time                   | Android `FrameMetrics.GPU_DURATION`, API 31+. Measures the app window's GPU work, including TextureView composition; excludes the map's separately submitted GPU commands.                                                                       |
 | App GPU active time               | Perfetto `power/gpu_work_period`, attributed to the app UID, on devices whose driver exposes it. Uses reported active duration; boundary periods are excluded and reported period coverage is retained. Missing data is unavailable, never zero. |
 | Missed window deadlines           | Android `FrameMetrics.TOTAL_DURATION > DEADLINE`, API 31+. Lost metric reports invalidate the performance result.                                                                                                                                |
@@ -70,8 +70,12 @@ presentation behavior cannot establish physical-phone overhead.
 ## Other platforms
 
 The shared scenario and pixel analysis run on iOS simulator, macOS desktop, and
-Chromium. Their current adapters support `animation` and `setters` visual runs;
-they do not claim calibrated input latency or CPU/GPU/deadline measurements.
+Chromium. Their current adapters support `animation` and `setters` visual runs.
+Desktop and iOS also record process CPU time across all app threads using the
+JVM process CPU counter and Darwin `getrusage`, respectively. They do not yet
+measure GPU time, presentation deadlines, or calibrated input latency. Web
+currently reports visual measurements only. Use `--mode performance` on desktop
+or iOS to measure CPU without video recording; the map still runs on screen.
 Android's surface setting is ignored on these platforms.
 
 ```sh

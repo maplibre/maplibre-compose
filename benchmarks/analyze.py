@@ -206,7 +206,7 @@ def analyze(directory):
     measurement_end = gate_end if is_input else data[-1, 0]
     if (
         not np.isfinite(data).all()
-        or (intervals <= 0).any()
+        or (intervals < 0).any()
         or measurement_end is None
         or measurement_end - data[0, 0] < 11e9
     ):
@@ -220,7 +220,8 @@ def analyze(directory):
         "coverage": len(rows) / active,
         "separation_px": distribution(separation),
         "separation_dp": distribution(separation / density),
-        "capture_interval_ms": distribution(intervals),
+        "capture_interval_ms": distribution(intervals[intervals > 0]),
+        "capture_duplicate_timestamps": int(sum(intervals == 0)),
         "input_to_captured_display": {
             "available": False,
             "reason": "Requires input scenario and a calibrated capture clock",

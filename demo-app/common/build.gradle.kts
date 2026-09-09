@@ -36,7 +36,7 @@ kotlin {
   }
 
   sourceSets {
-    commonTest.dependencies { implementation(kotlin("test")) }
+    jvmTest.dependencies { implementation(kotlin("test")) }
     all { languageSettings { optIn("androidx.compose.material3.ExperimentalMaterial3Api") } }
 
     // MapLibre Native platforms (Android, iOS, desktop). The browser stays on MapLibre GL JS,

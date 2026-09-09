@@ -1,7 +1,7 @@
 import json
 import unittest
 
-from performance import window_metrics
+from performance import process_cpu_metrics, window_metrics
 
 
 class WindowMetricsTest(unittest.TestCase):
@@ -23,6 +23,17 @@ class WindowMetricsTest(unittest.TestCase):
         for log in (self.log(frames=4), self.log(lost=1)):
             with self.assertRaises(ValueError):
                 window_metrics(log)
+
+
+class ProcessCpuTest(unittest.TestCase):
+    def test_counter_delta_and_unavailable_measurements(self):
+        self.assertEqual(
+            process_cpu_metrics("MAP_BENCHMARK CPU 1.25e3")["cpu_ms"], 1250
+        )
+        self.assertIsNone(process_cpu_metrics("unsupported"))
+        for value in ("-1", "nan", "inf", "1\nMAP_BENCHMARK CPU 2"):
+            with self.assertRaises(ValueError):
+                process_cpu_metrics("MAP_BENCHMARK CPU " + value)
 
 
 if __name__ == "__main__":

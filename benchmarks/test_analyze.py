@@ -24,6 +24,15 @@ class CaptureClockTest(unittest.TestCase):
             )
             self.assertIsNone(screenrecord_timestamps(path))
 
+    def test_android_clock_must_be_strictly_increasing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "capture.mp4"
+            path.write_bytes(
+                b"#VV1NSC0PET1ME2#" + struct.pack("<IqI3Q", 2, 0, 3, 10, 10, 30)
+            )
+            with self.assertRaisesRegex(ValueError, "Non-monotonic"):
+                screenrecord_timestamps(path)
+
     def test_missing_clock_is_unavailable(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "capture.mp4"

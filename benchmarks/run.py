@@ -19,8 +19,8 @@ import threading
 import time
 from pathlib import Path
 
-from analyze import analyze
-from performance import analyze_performance
+from analyze import analyze, read_run
+from performance import analyze_performance, process_cpu_metrics
 
 ROOT = Path(__file__).resolve().parent
 PACKAGE = "org.maplibre.compose.demoapp"
@@ -180,10 +180,6 @@ def android(args, output, metadata):
 
 
 def ios(args, output, metadata):
-    if args.mode != "visual":
-        raise ValueError(
-            "iOS runner supports visual capture; use Instruments for CPU/GPU/presentation profiling"
-        )
     if args.config.startswith("input,"):
         raise ValueError(
             "Automated iOS input injection and capture-clock calibration are not implemented"
@@ -199,18 +195,20 @@ def ios(args, output, metadata):
         (output / "app.log").open("w") as log,
         (output / "capture.log").open("w") as capture_log,
     ):
-        recorder = subprocess.Popen(
-            [
-                *command,
-                "io",
-                args.device,
-                "recordVideo",
-                "--codec=h264",
-                str(output / "screen.mp4"),
-            ],
-            stdout=capture_log,
-            stderr=capture_log,
-        )
+        recorder = None
+        if args.mode != "performance":
+            recorder = subprocess.Popen(
+                [
+                    *command,
+                    "io",
+                    args.device,
+                    "recordVideo",
+                    "--codec=h264",
+                    str(output / "screen.mp4"),
+                ],
+                stdout=capture_log,
+                stderr=capture_log,
+            )
         app = None
         try:
             time.sleep(0.7)
@@ -221,12 +219,14 @@ def ios(args, output, metadata):
                 stderr=log,
             )
             wait_for(output / "app.log", "MAP_BENCHMARK DONE")
-            recorder.send_signal(signal.SIGINT)
-            recorder.wait(timeout=15)
-            if recorder.returncode:
-                raise RuntimeError("Simulator capture failed")
+            if recorder:
+                recorder.send_signal(signal.SIGINT)
+                recorder.wait(timeout=15)
+                if recorder.returncode:
+                    raise RuntimeError("Simulator capture failed")
         finally:
-            stop(recorder)
+            if recorder:
+                stop(recorder)
             subprocess.run(
                 [*command, "terminate", args.device, PACKAGE],
                 capture_output=True,
@@ -234,31 +234,31 @@ def ios(args, output, metadata):
             )
             if app:
                 stop(app)
-    metadata["video"] = "screen.mp4"
+    if args.mode != "performance":
+        metadata["video"] = "screen.mp4"
 
 
 def desktop(args, output, metadata):
-    if args.mode != "visual" or args.config.startswith("input,"):
-        raise ValueError(
-            "Desktop adapter supports animation/setter visual capture only"
-        )
+    if args.config.startswith("input,"):
+        raise ValueError("Desktop adapter supports animation/setter workloads only")
     executable = (
         args.app
         or "demo-app/desktop/build/compose/binaries/main/app/org.maplibre.compose.demoapp.app/Contents/MacOS/org.maplibre.compose.demoapp"
     )
     metadata["app_sha256"] = artifact_hash(Path(executable).resolve().parents[1])
-    recorder_path = Path("build/benchmarks/record-window").resolve()
-    recorder_path.parent.mkdir(parents=True, exist_ok=True)
-    call(
-        "xcrun",
-        "swiftc",
-        "-parse-as-library",
-        "-swift-version",
-        "5",
-        str(ROOT / "record-window.swift"),
-        "-o",
-        str(recorder_path),
-    )
+    if args.mode != "performance":
+        recorder_path = Path("build/benchmarks/record-window").resolve()
+        recorder_path.parent.mkdir(parents=True, exist_ok=True)
+        call(
+            "xcrun",
+            "swiftc",
+            "-parse-as-library",
+            "-swift-version",
+            "5",
+            str(ROOT / "record-window.swift"),
+            "-o",
+            str(recorder_path),
+        )
     with (output / "app.log").open("w") as log:
         app = subprocess.Popen(
             [str(Path(executable).resolve())],
@@ -267,15 +267,19 @@ def desktop(args, output, metadata):
             stderr=log,
         )
         try:
-            call(
-                str(recorder_path),
-                str(app.pid),
-                str(output / "screen.mp4"),
-                timeout=40,
-            )
+            if args.mode == "performance":
+                wait_for(output / "app.log", "MAP_BENCHMARK DONE")
+            else:
+                call(
+                    str(recorder_path),
+                    str(app.pid),
+                    str(output / "screen.mp4"),
+                    timeout=40,
+                )
         finally:
             stop(app)
-    metadata["video"] = "screen.mp4"
+    if args.mode != "performance":
+        metadata["video"] = "screen.mp4"
 
 
 def web(args, output, metadata):
@@ -368,6 +372,12 @@ def main():
             (output / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
     if (output / "trace.perfetto-trace").exists():
         print(json.dumps(analyze_performance(output), indent=2))
+    else:
+        _, logs, _ = read_run(output)
+        cpu = process_cpu_metrics(logs)
+        if cpu is not None:
+            (output / "performance.json").write_text(json.dumps(cpu, indent=2) + "\n")
+            print(json.dumps(cpu, indent=2))
     if list(output.glob("screen.*")):
         print(json.dumps(analyze(output), indent=2))
 

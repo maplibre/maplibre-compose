@@ -10,7 +10,14 @@ internal actual fun benchmarkLaunchConfig(): BenchmarkConfig? =
 internal actual fun benchmarkMapOptions(config: BenchmarkConfig): MapUiOptions =
   MapUiOptions.Standard
 
-internal actual fun benchmarkTrace(active: Boolean) {}
+private var startCpuNanos = -1L
+
+internal actual fun benchmarkTrace(active: Boolean) {
+  val now = ProcessHandle.current().info().totalCpuDuration().orElse(null)?.toNanos() ?: -1L
+  if (active) startCpuNanos = now
+  else if (startCpuNanos >= 0 && now >= startCpuNanos)
+    println("MAP_BENCHMARK CPU ${(now - startCpuNanos) / 1e6}")
+}
 
 @Composable internal actual fun BenchmarkPlatformMetrics(active: Boolean) {}
 

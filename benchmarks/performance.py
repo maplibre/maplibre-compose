@@ -1,6 +1,7 @@
-"""Android execution and presentation metrics, restricted to the scenario's trace interval."""
+"""Process CPU counters and Android trace metrics for the scenario measurement interval."""
 
 import json
+import math
 import re
 from pathlib import Path
 
@@ -29,6 +30,27 @@ def window_metrics(logs):
             gpu_ms=distribution([b for a, b in metrics if b >= 0]),
         )
     return window
+
+
+def process_cpu_metrics(logs):
+    records = re.findall(r"MAP_BENCHMARK CPU (\S+)", logs)
+    if not records:
+        return None
+    if len(records) != 1:
+        raise ValueError("Expected one process CPU measurement")
+    cpu = float(records[0])
+    if not math.isfinite(cpu) or cpu < 0:
+        raise ValueError("Invalid process CPU measurement")
+    return {
+        "schema": 1,
+        "cpu_ms": cpu,
+        "cpu_scope": "Process CPU counter delta across all app threads during the measurement interval",
+        "gpu": {"available": False, "reason": "No GPU adapter for this platform"},
+        "window": {
+            "available": False,
+            "reason": "No presentation timing adapter for this platform",
+        },
+    }
 
 
 def analyze_performance(directory):
