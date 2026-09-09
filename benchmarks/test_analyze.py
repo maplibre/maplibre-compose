@@ -49,6 +49,7 @@ class VisibleResponseTest(unittest.TestCase):
         for map_delay, overlay_delay in ((0, 0), (50, 20), (20, 70), (150, 10)):
             data, events = self.steps(map_delay, overlay_delay)
             result = input_response(data, events)
+            json.dumps(result)
             if map_delay == overlay_delay:
                 self.assertEqual(result["responses_in_different_capture_frames"], 0)
             elif abs(map_delay - overlay_delay) > 20:

@@ -88,7 +88,9 @@ def input_response(rows, events):
         abs(m[1] - o[1])
         for m, o in zip(output["map"]["bounds_ms"], output["overlay"]["bounds_ms"])
     ]
-    output["responses_in_different_capture_frames"] = sum(gap > 0.001 for gap in gaps)
+    output["responses_in_different_capture_frames"] = int(
+        sum(gap > 0.001 for gap in gaps)
+    )
     output["response_frame_gap_ms"] = distribution(gaps)
     return output
 
