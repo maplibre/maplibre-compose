@@ -82,6 +82,14 @@ def input_response(rows, events):
             "upper_ms": distribution([b[1] for b in bounds]),
             "bounds_ms": bounds,
         }
+    # Both bounds use the same capture clock and margin. Their upper-bound difference
+    # is the observed response-frame spacing, not sub-frame presentation latency.
+    gaps = [
+        abs(m[1] - o[1])
+        for m, o in zip(output["map"]["bounds_ms"], output["overlay"]["bounds_ms"])
+    ]
+    output["responses_in_different_capture_frames"] = sum(gap > 0.001 for gap in gaps)
+    output["response_frame_gap_ms"] = distribution(gaps)
     return output
 
 

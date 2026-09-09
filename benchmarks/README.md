@@ -52,11 +52,14 @@ builds are profileable by the shell.
 
 Frame intervals in a video describe the **capture**, not the map FPS. A recorder
 may emit only changed frames during the input scenario; latency bounds become
-wider across idle gaps. Latency bounds include recording-frame uncertainty and a
-one-millisecond margin for the Android input clock conversion. Screenrecord
-captures a virtual display; these measurements exclude the physical touchscreen,
-panel scanout, and pixel response. Physical touch-to-photon latency requires
-external measurement.
+wider across idle gaps. Separation percentiles count captured frames and can
+therefore change with capture cadence. For input comparisons, also report how
+many events showed map and overlay responses in different capture frames and the
+spacing between those response frames. Latency bounds include recording-frame
+uncertainty and a one-millisecond margin for the Android input clock conversion.
+Screenrecord captures a virtual display; these measurements exclude the physical
+touchscreen, panel scanout, and pixel response. Physical touch-to-photon latency
+requires external measurement.
 
 The scene's simple pan is a synchronization reference, not a representative
 production style. Repeat comparisons in alternating order with both motions,
