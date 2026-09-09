@@ -29,25 +29,7 @@ binding, including feature clicks.
 
 To stop [following the user's location](/maplibre-compose/location/) when they
 pan, use <Api of="PanCameraBuilder.onStart" display="camera.pan.onStart" />.
-This hook runs before the component responds to input and can run again within
-the same gesture. It does not report when camera movement ends.
 For moving the camera from app code, see [Control the camera](/maplibre-compose/camera/).
-
-## Change scroll controls
-
-Vertical scrolling zooms by default. This example makes scrolling pan the map,
-while Ctrl-scroll zooms:
-
-<Code code={region(interaction, "scroll-mappings")} lang="kotlin" title="App.kt" />
-
-A `mappings` block replaces the default responses for that input. Rows are
-tried from top to bottom; `otherwise` handles the remaining input. Available
-gestures depend on the input device and platform. A mapping cannot enable a
-camera movement that `MapInteractions` disallows.
-
-A null pointer-type, button, or modifier filter matches any value. Key mappings
-default to exactly no modifiers; set `modifiers = null` to match a key with any
-modifiers.
 
 ## Handle map clicks
 
@@ -71,14 +53,17 @@ Layers receive clicks from front to back until a handler returns
 `ClickResult.Consume`. Use `callbacks.click.onUnhandled` for clicks that no
 layer handles, such as clearing an app's selection.
 
-## Pass gestures from your own code
+## Change scroll controls
 
-Code that recognizes gestures itself can pass them through <Api of="MapState.panBy" />, <Api of="MapState.scaleBy" />,
-<Api of="MapState.fling" />, and <Api of="MapState.click" />. They follow the
-camera permissions and callbacks in `MapInteractions` and report
-<Api of="CameraMoveReason.GESTURE" />, like a pointer gesture. They take logical
-pixels and do nothing while no map is presented. See
-[Present on an Android Surface](/maplibre-compose/android-surface/).
+Vertical scrolling zooms by default. This example makes scrolling pan the map,
+while Ctrl-scroll zooms:
+
+<Code code={region(interaction, "scroll-mappings")} lang="kotlin" title="App.kt" />
+
+A `mappings` block replaces the default responses for that input. Rows are
+tried from top to bottom; `otherwise` handles the remaining input. Available
+gestures depend on the input device and platform. A mapping cannot enable a
+camera movement that `MapInteractions` disallows.
 
 ## Snap rotation to bearings
 
@@ -95,3 +80,10 @@ Haptics work independently of snapping and support Android, iOS, and macOS.
 Combine notches with different emphasis levels:
 
 <Code code={region(interaction, "bearing-haptics")} lang="kotlin" />
+
+## Pass gestures from your own code
+
+For hosts with their own gesture recognizer, use <Api of="MapState.panBy" />,
+<Api of="MapState.scaleBy" />, <Api of="MapState.fling" />, and
+<Api of="MapState.click" />. See
+[Present on an Android Surface](/maplibre-compose/android-surface/) for an example.

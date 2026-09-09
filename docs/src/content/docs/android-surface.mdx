@@ -23,39 +23,25 @@ style content, camera operations, and click handlers work as they do with
 presenting the state elsewhere.
 
 Construct the presentation on the main thread with a `Lifecycle`. Rendering
-pauses while the lifecycle is stopped. Destroying the lifecycle closes the
-presentation. Closing the state also closes it.
+pauses while the lifecycle is stopped.
 
 <Code code={region(surface, "surface-host")} lang="kotlin" title="SurfaceMapHost.kt" />
 
 `attachSurface` takes the Surface's size in physical pixels and its density in
 physical pixels per logical pixel. Keep the returned
-<Api of="AndroidMapPresentation.SurfaceBinding" /> and pass size or density changes to
-`update`. A density change recreates the native map.
+<Api of="AndroidMapPresentation.SurfaceBinding" /> to update the size or density,
+and close it before releasing the Surface.
 
-Close the binding before releasing the Surface. Closing waits for rendering to
-stop using the Surface. Attaching another Surface closes the previous binding.
-A closed binding ignores later updates.
-
-The map produces no frames until its style can be presented. Show your own
-loading content on the Surface until then. A map without a style renders black.
-
-Pass a `Configuration` to `updateConfiguration` when the locale, layout
-direction, font scale, or night mode changes. Style content reads it through
-`LocalConfiguration` and `LocalContext`, and reads the Surface density through
-`LocalDensity`. UI composables and view-dependent locals are not available in
-style content.
-
-`failure` reports an error that ended the presentation. Create a new
-presentation to retry.
+Forward configuration changes with `updateConfiguration` so the map follows
+the host's locale, font scale, layout direction, and theme. See
+<Api of="AndroidMapPresentation" /> for presentation lifecycle and failure handling.
 
 ## Pass gestures
 
 The presentation has no gesture recognizer. Pass gestures your code recognized
 to <Api of="MapState.panBy" />, <Api of="MapState.fling" />,
 <Api of="MapState.scaleBy" />, and <Api of="MapState.click" />. They follow the
-camera permissions and callbacks in the presentation's `interactions`, interrupt
-camera animations, and dispatch clicks to interactive layers. Convert physical
-pixels to logical pixels first.
+camera permissions and callbacks in the presentation's `interactions`.
+Convert physical pixels to logical pixels first.
 
 <Code code={region(surface, "surface-input")} lang="kotlin" title="SurfaceInput.kt" />

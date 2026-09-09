@@ -49,23 +49,30 @@ import androidx.window.core.layout.WindowSizeClass
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.vectorResource
 import org.maplibre.compose.demoapp.benchmark.BenchmarkMap
+import org.maplibre.compose.demoapp.benchmark.BenchmarkRun
+import org.maplibre.compose.demoapp.benchmark.benchmarkLaunchConfig
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.chevron_left_24px
 import org.maplibre.compose.demoapp.generated.chevron_right_24px
 
 @Composable
-fun DemoApp(
-  state: DemoAppState = rememberDemoAppState(),
-  contentPadding: PaddingValues = PaddingValues(0.dp),
-) {
+fun DemoApp(contentPadding: PaddingValues = PaddingValues(0.dp)) {
+  val benchmark = benchmarkLaunchConfig()
+  if (benchmark != null) {
+    BenchmarkRun(benchmark)
+  } else {
+    DemoApp(rememberDemoAppState(), contentPadding)
+  }
+}
+
+@Composable
+fun DemoApp(state: DemoAppState, contentPadding: PaddingValues = PaddingValues(0.dp)) {
   DemoAppTheme(state) { DemoShell(state, contentPadding) }
 }
 
 @Composable
 fun DemoAppTheme(state: DemoAppState, content: @Composable () -> Unit) {
-  val dark =
-    if (state.shell == DemoShell.Benchmarks) state.selectedScenario.style.isDark
-    else state.appliedStyle.isDark
+  val dark = if (state.shell == DemoShell.Benchmarks) true else state.appliedStyle.isDark
   val colorScheme = rememberDemoColorScheme(dark, state.settings.paletteMode)
   MaterialTheme(colorScheme = colorScheme, content = content)
 }
@@ -150,7 +157,7 @@ private fun DemoShell(state: DemoAppState, contentPadding: PaddingValues) {
     val mapFocusable =
       when (state.shell) {
         DemoShell.Demos -> true
-        DemoShell.Benchmarks -> state.selectedScenario.usesGestures
+        DemoShell.Benchmarks -> false
       }
 
     val handleTranslation =
@@ -296,7 +303,7 @@ private fun ShellMap(
   controlsModifier: Modifier,
 ) {
   if (state.shell == DemoShell.Benchmarks) {
-    BenchmarkMap(state, viewportInsets)
+    BenchmarkMap(state)
   } else {
     DemoMap(
       state,

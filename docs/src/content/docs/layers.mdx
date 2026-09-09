@@ -14,13 +14,6 @@ declare sources and layers in the trailing <Api of="rememberMapState" /> block,
 then pass that state to <Api of="MaplibreMap" />. A source holds the data, and a
 layer draws data from a source.
 
-## Reference a base style source
-
-<Api of="getBaseSource" /> looks up a source that the base style defines, so a
-layer of yours can draw data that the style already loads:
-
-<Code code={region(layers, "simple")} lang="kotlin" title="App.kt" />
-
 ## Declare your own source
 
 <Api of="rememberGeoJsonSource" /> creates a source from a GeoJSON URI or
@@ -43,6 +36,22 @@ time. Wrap a constant value in <Api of="const" />. Functions such as
 system. The [MapLibre Style Specification][spec-layers] documents every layer
 type and property.
 
+## Anchor a layer in the stack
+
+By default, your layers draw above the base style layers. <Api of="Anchor" />
+inserts a layer at another position: at the `Bottom`, at the `Top`, or `Above`
+or `Below` a base style layer selected by ID or by a predicate over its
+<Api of="LayerHandle" />:
+
+<Code code={rememberedMapStyle(region(layers, "anchors"))} lang="kotlin" title="App.kt" />
+
+## Reference a base style source
+
+<Api of="getBaseSource" /> looks up a source that the base style defines, so a
+layer of yours can draw data that the style already loads:
+
+<Code code={region(layers, "simple")} lang="kotlin" title="App.kt" />
+
 ## Time a property change
 
 When a paint property changes, the map animates it over the style's global
@@ -53,14 +62,5 @@ transition. Pass a <Api of="TransitionOptions" /> to time one property instead:
 Every transitionable paint property has a matching transition parameter, named
 after the property. The default, null, uses the global transition that
 <Api of="StyleTransition" /> reads and sets.
-
-## Anchor a layer in the stack
-
-By default, your layers draw above the base style layers. <Api of="Anchor" />
-inserts a layer at another position: at the `Bottom`, at the `Top`, or `Above`
-or `Below` a base style layer selected by ID or by a predicate over its
-<Api of="LayerHandle" />:
-
-<Code code={rememberedMapStyle(region(layers, "anchors"))} lang="kotlin" title="App.kt" />
 
 [spec-layers]: https://maplibre.org/maplibre-style-spec/layers/

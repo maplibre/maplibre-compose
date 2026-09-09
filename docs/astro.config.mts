@@ -51,15 +51,15 @@ export default defineConfig({
           items: [
             { label: "Style the map", slug: "styling" },
             { label: "Control the camera", slug: "camera" },
-            { label: "Capture a map image", slug: "snapshotter" },
-            { label: "Present on an Android Surface", slug: "android-surface" },
-            { label: "Handle gestures and clicks", slug: "interaction" },
             { label: "Add data to the map", slug: "layers" },
             { label: "Add images and icons", slug: "images" },
+            { label: "Handle gestures and clicks", slug: "interaction" },
             { label: "Overlay Compose UI", slug: "controls" },
             { label: "Show the user's location", slug: "location" },
+            { label: "Capture a map image", slug: "snapshotter" },
             { label: "Download maps for offline use", slug: "offline" },
             { label: "Rewrite or serve map requests", slug: "requests" },
+            { label: "Present on an Android Surface", slug: "android-surface" },
           ],
         },
         {
