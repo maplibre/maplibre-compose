@@ -1,18 +1,14 @@
 package org.maplibre.compose.demoapp.benchmark
 
 import androidx.compose.runtime.Composable
-import kotlinx.browser.window
 import org.maplibre.compose.map.MapUiOptions
 
 @Composable
 internal actual fun benchmarkLaunchConfig(): BenchmarkConfig? =
-  BenchmarkConfig.parse(
-    window.location.search
-      .removePrefix("?")
-      .split("&")
-      .firstOrNull { it.startsWith("benchmark=") }
-      ?.substringAfter("=")
-  )
+  BenchmarkConfig.parse(benchmarkQuery())
+
+private fun benchmarkQuery(): String? =
+  js("new URLSearchParams(window.location.search).get('benchmark')")
 
 internal actual fun benchmarkMapOptions(config: BenchmarkConfig): MapUiOptions =
   MapUiOptions.Standard
