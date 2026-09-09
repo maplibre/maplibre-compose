@@ -145,6 +145,16 @@ runs:
         restore-keys: |
           ${{ steps.toolchain-key.outputs.prefix }}-
 
+    # Kotlin/Native documents a specific Xcode for each Kotlin release. The
+    # macos-26 image default can be newer than that pin.
+    - name: Select the pinned Xcode
+      if: ${{ runner.os == 'macOS' }}
+      shell: bash
+      run: |
+        version="$(tr -d '[:space:]' < .xcode-version)"
+        sudo xcode-select --switch "/Applications/Xcode_${version}.app"
+        xcodebuild -version
+
     - name: Install toolchains
       uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
       env:
