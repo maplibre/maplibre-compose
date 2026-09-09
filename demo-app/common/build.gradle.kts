@@ -115,6 +115,8 @@ kotlin {
 
 compose.resources { packageOfResClass = "org.maplibre.compose.demoapp.generated" }
 
+tasks.named<Test>("jvmTest") { failOnNoDiscoveredTests = true }
+
 if (providers.gradleProperty("composeCompilerReports").orNull == "true") {
   composeCompiler { reportsDestination = layout.buildDirectory.dir("compose/reports") }
 }
