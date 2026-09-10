@@ -26,6 +26,7 @@ internal class IosMlnFfiSurfaceController(
   private val renderer: MlnFfiMapRenderer,
   private val logger: MapLog?,
   maximumFps: Int? = null,
+  private val onFailure: (Throwable) -> Unit,
 ) : MlnFfiMapHostSession, AutoCloseable {
   override val backends = RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL)
 
@@ -343,8 +344,8 @@ internal class IosMlnFfiSurfaceController(
     runCatching { renderer.onSurfaceLost() }
     layerAddress = 0L
     extent = MapExtent.Empty
-    runCatching { renderer.close() }
-      .onFailure { logger?.e(it) { "Failed to close the iOS map renderer" } }
+    // The presentation owns the map and decides whether to retain it after detachment.
+    onFailure(error)
   }
 
   private companion object {

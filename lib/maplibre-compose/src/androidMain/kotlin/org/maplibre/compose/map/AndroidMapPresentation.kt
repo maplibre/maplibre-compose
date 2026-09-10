@@ -89,7 +89,7 @@ public class AndroidMapPresentation(
   private var binding: SurfaceBinding? by mutableStateOf(null)
   private var active by mutableStateOf(lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
   private var controller: AndroidMlnFfiSurfaceController? = null
-  private var composition: AndroidPresentationComposition? = null
+  private var composition: PresentationComposition? = null
   private var closed = false
   private val lifecycleObserver = LifecycleEventObserver { _, event ->
     if (event == Lifecycle.Event.ON_DESTROY) close()
@@ -125,7 +125,8 @@ public class AndroidMapPresentation(
     val backend = runtimeBackends.firstOrNull() ?: MapRenderBackend.OPENGL
     val owner = MapPresentationOwnerToken()
     try {
-      composition = AndroidPresentationComposition(scope) { Content(backend, owner) }
+      composition =
+        PresentationComposition(scope, { mainHandler.post(it) }) { Content(backend, owner) }
     } catch (error: Throwable) {
       scope.cancel()
       throw error

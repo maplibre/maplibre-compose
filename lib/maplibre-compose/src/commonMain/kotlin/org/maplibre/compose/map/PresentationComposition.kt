@@ -1,13 +1,11 @@
 package org.maplibre.compose.map
 
-import android.os.Handler
-import android.os.Looper
 import androidx.compose.runtime.AbstractApplier
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Composition
 import androidx.compose.runtime.Recomposer
 import androidx.compose.runtime.snapshots.Snapshot
-import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
@@ -16,14 +14,14 @@ import kotlinx.coroutines.launch
  * A persistent Compose Runtime composition with no UI host. [scope] must carry a main-thread
  * dispatcher and a frame clock; the recomposer and every effect run in it.
  */
-internal class AndroidPresentationComposition(
+internal class PresentationComposition(
   scope: CoroutineScope,
+  private val post: (() -> Unit) -> Unit,
   content: @Composable () -> Unit,
 ) : AutoCloseable {
-  private val handler = Handler(Looper.getMainLooper())
-  private val notificationPending = AtomicBoolean(false)
-  private val applyNotifications = Runnable {
-    notificationPending.set(false)
+  private val notificationPending = atomic(false)
+  private val applyNotifications: () -> Unit = {
+    notificationPending.value = false
     Snapshot.sendApplyNotifications()
   }
   // Compose UI sends apply notifications for the process only while a UI composition exists.
@@ -44,7 +42,7 @@ internal class AndroidPresentationComposition(
   }
 
   private fun scheduleApplyNotifications() {
-    if (notificationPending.compareAndSet(false, true)) handler.post(applyNotifications)
+    if (notificationPending.compareAndSet(false, true)) post(applyNotifications)
   }
 
   override fun close() {
