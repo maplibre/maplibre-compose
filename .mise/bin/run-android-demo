@@ -26,4 +26,6 @@ esac
 "$repository_root/gradlew" ":demo-app:$module:installDebug" \
   -Pmaplibre.android.backend="${usage_backend:-opengl}"
 "$adb" -s "$ANDROID_SERIAL" shell am start \
+  -a android.intent.action.MAIN \
+  -c android.intent.category.LAUNCHER \
   -n "$application_id/.MainActivity"
