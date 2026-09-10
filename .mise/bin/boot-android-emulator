@@ -223,12 +223,29 @@ if [[ ! -f "$pid_file" ]]; then
   if [[ "$(uname -s)" == Darwin && "$headless" == false ]]; then
     # launchd keeps the macOS GUI process outside the invoking task's process
     # group, which lets the window remain open after mise exits.
+    # `launchctl submit` implies keep-alive, reopening even a closed window.
+    launchd_plist="$state_dir/emulator.plist"
+    python3 - "$launchd_plist" "$launchd_label" "$log_file" "$ANDROID_AVD_HOME" "${launcher[@]}" <<'PY'
+import plistlib
+import sys
+
+path, label, log, avd_home, *command = sys.argv[1:]
+with open(path, "wb") as stream:
+    plistlib.dump(
+        {
+            "Label": label,
+            "ProgramArguments": command,
+            "EnvironmentVariables": {"ANDROID_AVD_HOME": avd_home},
+            "StandardOutPath": log,
+            "StandardErrorPath": log,
+            "RunAtLoad": True,
+            "KeepAlive": False,
+        },
+        stream,
+    )
+PY
     launchctl remove "$launchd_label" 2>/dev/null || true
-    launchctl submit \
-      -l "$launchd_label" \
-      -o "$log_file" \
-      -e "$log_file" \
-      -- /usr/bin/env "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" "${launcher[@]}"
+    launchctl bootstrap "gui/$(id -u)" "$launchd_plist"
 
     pid=
     for ((attempt = 0; attempt < 30; attempt++)); do
