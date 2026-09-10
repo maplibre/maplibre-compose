@@ -28,6 +28,6 @@ if [[ -z "$("$adb" -s "$ANDROID_SERIAL" shell pm path com.google.android.project
 fi
 
 "$adb" -s "$ANDROID_SERIAL" forward tcp:5277 tcp:5277
-echo "Start the head unit server in Android Auto's developer menu; select MapLibre Places in the car launcher."
+echo "Start the head unit server in Android Auto's developer menu; select MapLibre in the car launcher."
 cd "$(dirname "$dhu")"
 exec "$dhu"

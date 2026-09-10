@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <uses-permission android:name="android.permission.INTERNET" />
   <uses-permission android:name="androidx.car.app.ACCESS_SURFACE" />
-  <uses-permission android:name="androidx.car.app.MAP_TEMPLATES" />
+  <uses-permission android:name="androidx.car.app.NAVIGATION_TEMPLATES" />
   <application
     android:allowBackup="false"
     android:icon="@drawable/map_24px"
@@ -20,7 +20,7 @@
     <service android:name=".MapCarAppService" android:exported="true">
       <intent-filter>
         <action android:name="androidx.car.app.CarAppService" />
-        <category android:name="androidx.car.app.category.POI" />
+        <category android:name="androidx.car.app.category.NAVIGATION" />
       </intent-filter>
     </service>
   </application>

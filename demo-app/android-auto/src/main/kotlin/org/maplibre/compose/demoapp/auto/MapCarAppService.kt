@@ -12,7 +12,7 @@ import org.maplibre.compose.map.MapRuntime
 import org.maplibre.compose.map.MapRuntimeOptions
 import org.maplibre.compose.map.createMapRuntime
 
-/** A projected POI app: each car session owns its map, while sessions share the runtime cache. */
+/** A projected map demo: each car session owns its map, while sessions share the runtime cache. */
 class MapCarAppService : CarAppService() {
   private var runtime: MapRuntime? = null
 
@@ -42,10 +42,10 @@ class MapCarAppService : CarAppService() {
 }
 
 private class MapCarSession(private val runtime: MapRuntime) : Session() {
-  private var mapScreen: PlacesScreen? = null
+  private var mapScreen: MapScreen? = null
 
   override fun onCreateScreen(intent: Intent): Screen =
-    PlacesScreen(carContext, runtime).also { mapScreen = it }
+    MapScreen(carContext, runtime).also { mapScreen = it }
 
   override fun onCarConfigurationChanged(newConfiguration: Configuration) {
     mapScreen?.updateConfiguration(newConfiguration)
