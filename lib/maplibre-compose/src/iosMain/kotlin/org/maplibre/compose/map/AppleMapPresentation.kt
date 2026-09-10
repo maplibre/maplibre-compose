@@ -28,7 +28,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.internal.FeatureClickDispatcher
-import org.maplibre.compose.mlnffi.IosMlnFfiSurfaceController
+import org.maplibre.compose.mlnffi.AppleMlnFfiSurfaceController
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import platform.Foundation.NSProcessInfo
 import platform.Foundation.NSThread
@@ -87,7 +87,7 @@ internal constructor(
   private val logger = state.runtime.logger
   private var options by mutableStateOf(initialOptions)
   private var binding: LayerBinding? by mutableStateOf(null)
-  private var controller: IosMlnFfiSurfaceController? = null
+  private var controller: AppleMlnFfiSurfaceController? = null
   private var composition: PresentationComposition? = null
   private var scope: CoroutineScope? = null
   internal var isClosed: Boolean by mutableStateOf(false)
@@ -251,7 +251,7 @@ internal constructor(
     MlnFfiMapPresentation(MapRenderBackend.METAL, state, owner, options) { session, clicks ->
       val controller =
         remember(session) {
-          IosMlnFfiSurfaceController(session, logger, options.renderOptions.maximumFps) { error ->
+          AppleMlnFfiSurfaceController(session, logger, options.renderOptions.maximumFps) { error ->
             postAppleMain { fail(error) }
           }
         }

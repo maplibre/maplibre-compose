@@ -20,6 +20,8 @@ kotlin {
     }
   }
 
+  macosArm64()
+
   jvm { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
 
   js {
@@ -53,7 +55,7 @@ kotlin {
       dependsOn(nonAndroidMain)
     }
 
-    iosMain {
+    appleMain {
       dependsOn(maplibreNativeMain)
       dependsOn(nonAndroidMain)
     }
@@ -99,7 +101,7 @@ kotlin {
       implementation(libs.ktor.client.okhttp)
     }
 
-    iosMain.dependencies { implementation(libs.ktor.client.darwin) }
+    appleMain.dependencies { implementation(libs.ktor.client.darwin) }
 
     jsMain.dependencies {
       implementation(libs.jetbrains.compose.html.core)

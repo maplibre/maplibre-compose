@@ -43,6 +43,7 @@ include(
   ":demo-app:wearos",
   ":demo-app:desktop",
   ":demo-app:desktop-nucleus",
+  ":demo-app:macos",
   ":lib",
   ":lib:maplibre-compose",
   ":lib:maplibre-compose-material3",

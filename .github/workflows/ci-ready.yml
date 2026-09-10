@@ -43,6 +43,7 @@ jobs:
       secrets: ${{ steps.plan.outputs.secrets }}
       android: ${{ steps.plan.outputs.android }}
       ios: ${{ steps.plan.outputs.ios }}
+      macos-native: ${{ steps.plan.outputs.macos-native }}
       desktop: ${{ steps.plan.outputs.desktop }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -63,6 +64,7 @@ jobs:
       secrets-available: ${{ fromJSON(needs.plan.outputs.secrets) }}
       android: ${{ needs.plan.outputs.android }}
       ios: ${{ needs.plan.outputs.ios }}
+      macos-native: ${{ needs.plan.outputs.macos-native }}
       desktop: ${{ needs.plan.outputs.desktop }}
     secrets: inherit
     permissions:
