@@ -55,8 +55,13 @@ public interface LocationProvider : AutoCloseable {
    * [LocationBackendAvailability.Available]. An unavailable provider fails collection with an
    * [IllegalStateException].
    *
-   * Each collector starts an independent platform location request. Cancelling collection stops
-   * that request and unregisters its callbacks.
+   * Providers that can observe permission changes keep collection active while permission is
+   * denied. They report [LocationUnavailableReason.PermissionDenied] and resume updates when a
+   * grant is observed. Each collector owns an independent request; cancelling one collector stops
+   * its request and unregisters its callbacks.
+   *
+   * Permission requests remain explicit through [requestPermission]. See the platform provider's
+   * documentation for observation limits and the Linux portal's session-consent exception.
    */
   public fun updates(request: LocationRequest = LocationRequest()): Flow<LocationEvent>
 

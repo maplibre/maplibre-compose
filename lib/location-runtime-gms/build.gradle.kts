@@ -38,6 +38,7 @@ kotlin {
     androidDeviceTest.dependencies { implementation(libs.androidx.test.runner) }
 
     androidHostTest.dependencies {
+      implementation(libs.robolectric)
       implementation(kotlin("test"))
       implementation(libs.playServices.location)
       implementation(libs.kotlinx.coroutines.test)

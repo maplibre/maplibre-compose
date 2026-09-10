@@ -8,9 +8,21 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
+import platform.CoreLocation.CLAuthorizationStatus
+import platform.CoreLocation.CLLocation
 import platform.CoreLocation.CLLocationManager
+import platform.CoreLocation.kCLAuthorizationStatusAuthorizedWhenInUse
+import platform.CoreLocation.kCLAuthorizationStatusDenied
 import platform.CoreLocation.kCLErrorDenied
 import platform.CoreLocation.kCLErrorDomain
 import platform.CoreLocation.kCLErrorLocationUnknown
@@ -18,7 +30,60 @@ import platform.CoreLocation.kCLErrorNetwork
 import platform.Foundation.NSError
 import platform.Foundation.NSThread
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class IosLocationProviderTest {
+  @Test
+  fun deniedCollectorsRecoverAndReleaseIndependentManagers() = runTest {
+    Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+    val permissionManager = TestLocationManager()
+    val requester = IosLocationPermissionRequester(permissionManager)
+    val managers = mutableListOf<TestLocationManager>()
+    val provider =
+      IosLocationProvider(requester) {
+        TestLocationManager().also { managers += it }
+      }
+    val events = Channel<LocationEvent>(Channel.UNLIMITED)
+    val first = backgroundScope.launch {
+      provider.updates(LocationRequest()).collect { events.send(it) }
+    }
+    val second = backgroundScope.launch { provider.updates(LocationRequest()).collect {} }
+    try {
+      assertEquals(
+        LocationUnavailableReason.PermissionDenied,
+        (events.receive() as LocationEvent.Unavailable).reason,
+      )
+      assertTrue(managers.isEmpty())
+      permissionManager.status = kCLAuthorizationStatusAuthorizedWhenInUse
+      permissionManager.delegate?.locationManagerDidChangeAuthorization(permissionManager)
+      runCurrent()
+      assertEquals(2, managers.size)
+      managers.first().sendLocation()
+      assertTrue(events.receive() is LocationEvent.Update)
+      permissionManager.status = kCLAuthorizationStatusDenied
+      permissionManager.delegate?.locationManagerDidChangeAuthorization(permissionManager)
+      assertEquals(
+        LocationUnavailableReason.PermissionDenied,
+        (events.receive() as LocationEvent.Unavailable).reason,
+      )
+      assertTrue(managers.all { !it.updating && it.delegate == null })
+      second.cancelAndJoin()
+      permissionManager.status = kCLAuthorizationStatusAuthorizedWhenInUse
+      permissionManager.delegate?.locationManagerDidChangeAuthorization(permissionManager)
+      runCurrent()
+      assertEquals(3, managers.size)
+      managers.last().sendLocation()
+      assertTrue(events.receive() is LocationEvent.Update)
+      first.cancelAndJoin()
+      assertTrue(managers.all { !it.updating && it.delegate == null })
+      assertEquals(0, permissionManager.requests)
+    } finally {
+      first.cancelAndJoin()
+      second.cancelAndJoin()
+      provider.close()
+      Dispatchers.resetMain()
+    }
+  }
+
   @Test
   fun exposesPermissionFromItsRequester() {
     IosLocationPermissionRequester().use { requester ->
@@ -97,4 +162,28 @@ class IosLocationProviderTest {
 
   private fun coreLocationError(code: Long): NSError =
     NSError.errorWithDomain(kCLErrorDomain, code, null)
+}
+
+private class TestLocationManager : CLLocationManager() {
+  var status: CLAuthorizationStatus = kCLAuthorizationStatusDenied
+  var updating = false
+  var requests = 0
+
+  override fun authorizationStatus(): CLAuthorizationStatus = status
+
+  override fun startUpdatingLocation() {
+    updating = true
+  }
+
+  override fun stopUpdatingLocation() {
+    updating = false
+  }
+
+  override fun requestWhenInUseAuthorization() {
+    requests++
+  }
+
+  fun sendLocation() {
+    delegate?.locationManager(this, didUpdateLocations = listOf(CLLocation(52.0, 13.0)))
+  }
 }

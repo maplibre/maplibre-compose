@@ -1,10 +1,8 @@
 package org.maplibre.compose.hms
 
-import android.Manifest
 import android.content.Context
 import android.os.HandlerThread
 import androidx.annotation.MainThread
-import androidx.annotation.RequiresPermission
 import com.huawei.hmf.tasks.Task
 import com.huawei.hmf.tasks.TaskExecutors
 import com.huawei.hms.location.FusedLocationProviderClient
@@ -13,11 +11,16 @@ import com.huawei.hms.location.LocationCallback
 import com.huawei.hms.location.LocationRequest as HmsLocationRequest
 import com.huawei.hms.location.LocationResult
 import com.huawei.hms.location.LocationServices
-import kotlinx.coroutines.channels.ProducerScope
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.retryWhen
 import org.maplibre.compose.location.AndroidLocationProvider
 import org.maplibre.compose.location.LocationAccuracy
 import org.maplibre.compose.location.LocationEvent
@@ -40,6 +43,11 @@ import org.maplibre.spatialk.units.extensions.inMeters
  *
  * The [Context] constructor handles permission requests. The [FusedLocationProviderClient]
  * constructor reports permission as granted and requires the caller to manage authorization.
+ * Collectors wait through permission denial and resume without prompting. Context-backed providers
+ * observe permission through [AndroidLocationProvider]. Without a context, a security failure
+ * retries the location request once per second because there is no permission observer. A
+ * client-only provider cannot observe revocation that the client does not report; prefer the
+ * [Context] constructor for permission recovery.
  *
  * Create the provider, request permission, and close it on the main thread.
  */
@@ -88,10 +96,23 @@ internal constructor(
     permissionDelegate?.close()
   }
 
-  @RequiresPermission(
-    anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
-  )
-  override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
+  @OptIn(ExperimentalCoroutinesApi::class)
+  override fun updates(request: LocationRequest): Flow<LocationEvent> =
+    permission.flatMapLatest { status ->
+      if (status is LocationPermission.Granted) {
+        locationUpdates(request).retryWhen { error, _ ->
+          if (error !is SecurityException) return@retryWhen false
+          emit(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied, error))
+          delay(1.seconds)
+          true
+        }
+      } else {
+        flowOf(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied))
+      }
+    }
+
+  @Suppress("MissingPermission")
+  private fun locationUpdates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
     val callback =
       object : LocationCallback() {
         override fun onLocationResult(result: LocationResult?) {
@@ -113,13 +134,13 @@ internal constructor(
           .addOnSuccessListener { location ->
             location?.let { trySend(it.asMapLibreLocationUpdate()) }
           }
-          .addOnFailureListener { error -> handleFailure(error) }
+          .addOnFailureListener { error -> close(error) }
 
         locationClient
           .requestLocationUpdates(request.asHmsLocationRequest(), callback, callbackThread.looper)
-          .addOnFailureListener { error -> handleFailure(error) }
+          .addOnFailureListener { error -> close(error) }
       } catch (error: SecurityException) {
-        handleFailure(error)
+        close(error)
         null
       }
 
@@ -129,15 +150,6 @@ internal constructor(
       } else {
         registrationTask.invokeOnCompletion { locationClient.removeLocationUpdates(callback) }
       }
-    }
-  }
-
-  private fun ProducerScope<LocationEvent>.handleFailure(error: Exception) {
-    if (error is SecurityException) {
-      trySend(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied, error))
-      close()
-    } else {
-      close(error)
     }
   }
 

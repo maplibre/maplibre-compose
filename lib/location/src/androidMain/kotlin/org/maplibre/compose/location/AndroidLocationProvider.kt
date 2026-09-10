@@ -5,7 +5,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.pm.PackageManager
 import android.location.Criteria
 import android.location.Location as AndroidLocation
 import android.location.LocationListener
@@ -17,10 +16,18 @@ import android.os.HandlerThread
 import androidx.annotation.MainThread
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.retryWhen
 import org.maplibre.spatialk.units.extensions.inMeters
 
 /**
@@ -31,7 +38,11 @@ import org.maplibre.spatialk.units.extensions.inMeters
  *
  * Disabled location services report [LocationUnavailableReason.ServicesDisabled]. Missing
  * permission reports [LocationUnavailableReason.PermissionDenied]. Invalid provider registration
- * reports [LocationUnavailableReason.UnexpectedFailure].
+ * reports [LocationUnavailableReason.UnexpectedFailure]. Collectors wait through permission denial
+ * and resume after a grant is observed, without requesting permission. The requester checks once
+ * per second while collection is active, including with an application context, and refreshes when
+ * the supplied activity resumes. Android may terminate the process on permission revocation;
+ * recovery applies while the process and collector remain alive.
  *
  * See [AndroidLocationPermissionRequester] for permission request requirements.
  *
@@ -58,16 +69,23 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
 
   @MainThread override fun close(): Unit = requester.close()
 
-  @RequiresPermission(
-    anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
-  )
-  override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
-    if (!context.hasLocationPermission()) {
-      trySend(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied))
-      close()
-      return@callbackFlow
+  @OptIn(ExperimentalCoroutinesApi::class)
+  override fun updates(request: LocationRequest): Flow<LocationEvent> =
+    permission.flatMapLatest { status ->
+      if (status is LocationPermission.Granted) {
+        locationUpdates(request).retryWhen { error, _ ->
+          if (error !is SecurityException) return@retryWhen false
+          emit(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied, error))
+          delay(1.seconds)
+          true
+        }
+      } else {
+        flowOf(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied))
+      }
     }
 
+  @Suppress("MissingPermission")
+  private fun locationUpdates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
     val manager = context.getSystemService(LocationManager::class.java)
     val listener =
       object : LocationListener {
@@ -123,8 +141,7 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
             trySend(LocationEvent.Unavailable(LocationUnavailableReason.UnexpectedFailure, error))
             close()
           } catch (error: SecurityException) {
-            trySend(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied, error))
-            close()
+            close(error)
           }
         }
       }
@@ -136,8 +153,7 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
       trySend(LocationEvent.Unavailable(LocationUnavailableReason.UnexpectedFailure, error))
       close()
     } catch (error: SecurityException) {
-      trySend(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied, error))
-      close()
+      close(error)
     }
 
     awaitClose {
@@ -145,6 +161,7 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
       manager.removeUpdates(listener)
     }
   }
+    .flowOn(Dispatchers.Main.immediate)
 
   @Suppress("DEPRECATION")
   private fun selectProvider(
@@ -236,12 +253,6 @@ private class IdentifiedLocationProvider(
   override val backendId: String,
   private val delegate: LocationProvider,
 ) : LocationProvider by delegate
-
-private fun Context.hasLocationPermission(): Boolean =
-  checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) ==
-    PackageManager.PERMISSION_GRANTED ||
-    checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) ==
-      PackageManager.PERMISSION_GRANTED
 
 private fun Context.registerLocationSettingsReceiver(receiver: BroadcastReceiver) {
   val filter =

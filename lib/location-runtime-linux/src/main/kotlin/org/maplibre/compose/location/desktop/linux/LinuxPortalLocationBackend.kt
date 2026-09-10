@@ -73,6 +73,10 @@ internal suspend fun <T> XdgPortalWindow?.withPortalParentWindow(action: suspend
  * portal distance threshold suppresses every update, including the first, on a host whose GeoIP
  * position never moves.
  *
+ * The portal has no passive permission observer. Starting a location session may show its consent
+ * dialog, and a denied session completes the flow. After denial, the application must explicitly
+ * start collection again; this provider does not retry because that could reopen the dialog.
+ *
  * A missing portal maps [LocationProvider.backendAvailability] to
  * [LocationBackendAvailability.Unsupported]. A cancelled
  * [`Request.Response`](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Request.html#org-freedesktop-portal-request-response)

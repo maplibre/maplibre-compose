@@ -8,6 +8,7 @@ import kotlin.time.Instant
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -15,6 +16,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.maplibre.spatialk.geojson.Position
@@ -45,6 +50,10 @@ import web.permissions.query
  * reports [LocationUnavailableReason.PermissionDenied] and updates [permission]. Timeouts and
  * unavailable positions report [LocationUnavailableReason.TemporarilyUnavailable]. Failure to start
  * location updates reports [LocationUnavailableReason.UnexpectedFailure].
+ *
+ * Collectors wait for permission without prompting, and restart their watch when a grant is
+ * observed. Without the Permissions API, call [requestPermission] explicitly to establish a grant;
+ * changes made outside the application cannot be observed on those browsers.
  */
 public class BrowserLocationProvider
 internal constructor(
@@ -68,7 +77,23 @@ internal constructor(
 
   override fun requestPermission(): Unit = requester.requestForegroundPermission()
 
-  override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
+  @OptIn(ExperimentalCoroutinesApi::class)
+  override fun updates(request: LocationRequest): Flow<LocationEvent> = flow {
+    check(backendAvailability == LocationBackendAvailability.Available) {
+      "Location updates require an available backend: $backendAvailability"
+    }
+    emitAll(
+      permission.flatMapLatest { status ->
+        if (status is LocationPermission.Granted) {
+          locationUpdates(request)
+        } else {
+          flowOf(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied))
+        }
+      }
+    )
+  }
+
+  private fun locationUpdates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
     check(backendAvailability == LocationBackendAvailability.Available) {
       "Location updates require an available backend: $backendAvailability"
     }
@@ -91,10 +116,10 @@ internal constructor(
         is BrowserResult.Error -> {
           val reason = result.value.asUnavailableReason()
           previous = null
-          trySend(LocationEvent.Unavailable(reason))
           if (reason == LocationUnavailableReason.PermissionDenied) {
             boundary.permissionState.acceptDenial()
-            close()
+          } else {
+            trySend(LocationEvent.Unavailable(reason))
           }
         }
       }

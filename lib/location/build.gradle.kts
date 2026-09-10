@@ -57,6 +57,8 @@ kotlin {
       implementation(libs.kotlinx.coroutines.test)
     }
 
+    androidHostTest.dependencies { implementation(libs.robolectric) }
+
     // The device test APK must package the instrumentation runner itself.
     androidDeviceTest.dependencies { implementation(libs.androidx.test.runner) }
   }

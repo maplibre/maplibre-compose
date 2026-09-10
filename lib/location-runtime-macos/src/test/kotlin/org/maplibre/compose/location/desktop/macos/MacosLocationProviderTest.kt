@@ -40,6 +40,54 @@ import org.maplibre.spatialk.units.extensions.meters
 @OptIn(ExperimentalCoroutinesApi::class)
 class MacosLocationProviderTest {
   @Test
+  fun deniedCollectorsRecoverAndReleaseIndependentManagers() = runTest {
+    val client = FakeCoreLocationClient(authorizationStatus = CL_AUTHORIZATION_DENIED)
+    val provider = MacosLocationProvider(client, Dispatchers.Unconfined, Dispatchers.Unconfined)
+    val permissionManager = client.managers.single()
+    val events = mutableListOf<LocationEvent>()
+    val first = backgroundScope.launch { provider.updates(LocationRequest()).collect(events::add) }
+    val second = backgroundScope.launch { provider.updates(LocationRequest()).collect {} }
+    runCurrent()
+    assertEquals(
+      LocationUnavailableReason.PermissionDenied,
+      assertIs<LocationEvent.Unavailable>(events.last()).reason,
+    )
+    assertEquals(1, client.managers.size)
+
+    permissionManager.authorizationStatus = CL_AUTHORIZATION_AUTHORIZED_WHEN_IN_USE
+    permissionManager.boundDelegate?.didChangeAuthorization()
+    runCurrent()
+    val firstManagers = client.managers.drop(1)
+    assertEquals(2, firstManagers.size)
+    firstManagers.forEach { it.boundDelegate?.didUpdateLocations(listOf(sampleMeasurement())) }
+    runCurrent()
+    assertIs<LocationEvent.Update>(events.last())
+
+    permissionManager.authorizationStatus = CL_AUTHORIZATION_DENIED
+    permissionManager.boundDelegate?.didChangeAuthorization()
+    runCurrent()
+    assertTrue(firstManagers.all { it.closed })
+    assertEquals(
+      LocationUnavailableReason.PermissionDenied,
+      assertIs<LocationEvent.Unavailable>(events.last()).reason,
+    )
+    second.cancel()
+    runCurrent()
+    permissionManager.authorizationStatus = CL_AUTHORIZATION_AUTHORIZED_WHEN_IN_USE
+    permissionManager.boundDelegate?.didChangeAuthorization()
+    runCurrent()
+    assertEquals(4, client.managers.size)
+    client.managers.last().boundDelegate?.didUpdateLocations(listOf(sampleMeasurement()))
+    runCurrent()
+    assertIs<LocationEvent.Update>(events.last())
+    first.cancel()
+    runCurrent()
+    assertTrue(client.managers.last().closed)
+    assertTrue(client.managers.all { it.whenInUseRequests == 0 })
+    provider.close()
+  }
+
+  @Test
   fun serviceLoaderFindsMacosBackend() {
     assertTrue(
       ServiceLoader.load(DesktopLocationBackend::class.java).any { it is MacosLocationBackend }

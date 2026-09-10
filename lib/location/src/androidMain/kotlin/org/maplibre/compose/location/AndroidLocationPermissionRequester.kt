@@ -14,8 +14,18 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 /**
  * Observes and requests foreground location permission on Android.
@@ -48,6 +58,7 @@ internal constructor(
     readRationale = { context.readRationale() },
   )
 
+  private val observationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
   private var closed = false
   private var pendingLauncher: ActivityResultLauncher<Array<String>>? = null
   private val observer = LifecycleEventObserver { _, event ->
@@ -76,23 +87,42 @@ internal constructor(
    *   check.
    * - `canRequest = true` otherwise.
    *
-   * The value refreshes when the resolved activity resumes.
+   * The value refreshes when the resolved activity resumes and once per second while [status] has
+   * collectors. This also observes grants made elsewhere when the supplied context cannot reach an
+   * activity. Observation never launches a permission request.
    */
   public val status: StateFlow<LocationPermission> = mutableStatus
 
   init {
     if (lifecycle?.currentState == Lifecycle.State.DESTROYED) {
       closed = true
+      observationScope.cancel()
     } else {
       lifecycle?.addObserver(observer)
+      // Ordinary apps have no public callback for all runtime-permission changes. Observe only
+      // while needed; an activity lifecycle alone would leave application contexts stale.
+      observationScope.launch {
+        mutableStatus.subscriptionCount
+          .map { it > 0 }
+          .distinctUntilChanged()
+          .collectLatest { observed ->
+            if (observed) {
+              while (!closed) {
+                refresh()
+                delay(1.seconds)
+              }
+            }
+          }
+      }
     }
   }
 
-  /** Removes the activity observer and unregisters any pending permission callback. */
+  /** Stops permission observation and unregisters any pending permission callback. */
   override fun close() {
     if (closed) return
     lifecycle?.removeObserver(observer)
     closed = true
+    observationScope.cancel()
     pendingLauncher?.unregister()
     pendingLauncher = null
   }

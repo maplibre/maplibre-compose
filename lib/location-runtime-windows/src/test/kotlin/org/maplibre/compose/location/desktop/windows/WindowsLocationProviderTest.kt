@@ -225,6 +225,43 @@ class WindowsLocationProviderTest {
   }
 
   @Test
+  fun permissionDenialDoesNotEndTheNativeSession() = runTest {
+    val client = FakeWindowsLocationClient(access = WindowsAccessStatus.DeniedByUser)
+    val provider = WindowsLocationProvider(client)
+    val events = mutableListOf<LocationEvent>()
+    val collection =
+      backgroundScope.launch(Dispatchers.Unconfined) {
+        provider
+          .updates(LocationRequest(minimumInterval = 0.seconds, minimumDistance = 0.meters))
+          .collect(events::add)
+      }
+    val session = client.sessions.single()
+    session.listener.onStatus(WindowsPositionStatus.Disabled)
+    assertEquals(
+      LocationUnavailableReason.PermissionDenied,
+      assertIs<LocationEvent.Unavailable>(events.last()).reason,
+    )
+    client.changeAccess(WindowsAccessStatus.Allowed)
+    session.listener.onPosition(sampleMeasurement())
+    assertIs<LocationEvent.Update>(events.last())
+    client.changeAccess(WindowsAccessStatus.DeniedByUser)
+    session.listener.onStatus(WindowsPositionStatus.Disabled)
+    assertEquals(
+      LocationUnavailableReason.PermissionDenied,
+      assertIs<LocationEvent.Unavailable>(events.last()).reason,
+    )
+    client.changeAccess(WindowsAccessStatus.Allowed)
+    session.listener.onPosition(sampleMeasurement())
+    assertIs<LocationEvent.Update>(events.last())
+    assertTrue(collection.isActive)
+    assertEquals(0, client.accessRequests)
+    assertEquals(1, client.sessions.size)
+    collection.cancelAndJoin()
+    assertEquals(1, session.closeCount)
+    provider.close()
+  }
+
+  @Test
   fun providerAppliesRequestAndForwardsFixesAndStatuses() = runTest {
     val client = FakeWindowsLocationClient(access = WindowsAccessStatus.Allowed)
     val provider = WindowsLocationProvider(client)
