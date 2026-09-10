@@ -81,6 +81,7 @@ public class DragFitBoundsBuilder internal constructor(from: DragFitBoundsSettin
 @MapInteractionDsl
 public class DragBindingBuilder internal constructor(from: DragBinding) {
   public var enabled: Boolean = from.enabled
+  /** Android accessibility gestures may report [PointerType.Unknown]. */
   public var pointerTypes: Set<PointerType>? = from.pointerTypes
   private var rows = from.mappings
   private val panBuilder = DragPanBuilder(from.pan)
@@ -118,6 +119,7 @@ public class DragBindingBuilder internal constructor(from: DragBinding) {
 @MapInteractionDsl
 public class TransformPanBuilder internal constructor(from: TransformPanBinding) {
   public var enabled: Boolean = from.enabled
+  /** Android accessibility gestures may report [PointerType.Unknown]. */
   public var pointerTypes: Set<PointerType>? = from.pointerTypes
   public var modifiers: ModifierMatch? = from.modifiers
   /** Recognition distance for touch pairs. Host-recognized pans have already passed host slop. */
@@ -137,6 +139,7 @@ public class TransformPanBuilder internal constructor(from: TransformPanBinding)
 @MapInteractionDsl
 public class TransformZoomBuilder internal constructor(from: TransformZoomBinding) {
   public var enabled: Boolean = from.enabled
+  /** Android accessibility gestures may report [PointerType.Unknown]. */
   public var pointerTypes: Set<PointerType>? = from.pointerTypes
   public var modifiers: ModifierMatch? = from.modifiers
   public var startSpanSlop: Dp = from.startSpanSlop
@@ -160,6 +163,7 @@ public class TransformZoomBuilder internal constructor(from: TransformZoomBindin
 @MapInteractionDsl
 public class TransformRotateBuilder internal constructor(from: TransformRotateBinding) {
   public var enabled: Boolean = from.enabled
+  /** Android accessibility gestures may report [PointerType.Unknown]. */
   public var pointerTypes: Set<PointerType>? = from.pointerTypes
   public var modifiers: ModifierMatch? = from.modifiers
   public var startAngle: Double = from.startAngle
@@ -185,6 +189,7 @@ public class TransformRotateBuilder internal constructor(from: TransformRotateBi
 @MapInteractionDsl
 public class TransformTiltBuilder internal constructor(from: TransformTiltBinding) {
   public var enabled: Boolean = from.enabled
+  /** Android accessibility gestures may report [PointerType.Unknown]. */
   public var pointerTypes: Set<PointerType>? = from.pointerTypes
   public var modifiers: ModifierMatch? = from.modifiers
   public var startSlop: Dp = from.startSlop
@@ -206,6 +211,7 @@ public class TransformTiltBuilder internal constructor(from: TransformTiltBindin
 @MapInteractionDsl
 public class TapDragBuilder internal constructor(from: TapDragBinding) {
   public var enabled: Boolean = from.enabled
+  /** Android accessibility gestures may report [PointerType.Unknown]. */
   public var pointerTypes: Set<PointerType>? = from.pointerTypes
   public var modifiers: ModifierMatch? = from.modifiers
   public var startSlop: Dp = from.startSlop
@@ -263,6 +269,7 @@ public class TransformBuilder internal constructor(from: TransformBinding) {
 @MapInteractionDsl
 public class ScrollBindingBuilder internal constructor(from: ScrollBinding) {
   public var enabled: Boolean = from.enabled
+  /** Android accessibility gestures may report [PointerType.Unknown]. */
   public var pointerTypes: Set<PointerType>? = from.pointerTypes
   private var rows = from.mappings
 
@@ -295,6 +302,7 @@ public class ScrollBindingBuilder internal constructor(from: ScrollBinding) {
 @MapInteractionDsl
 public class TapBindingBuilder internal constructor(from: TapBinding) {
   public var enabled: Boolean = from.enabled
+  /** Android accessibility gestures may report [PointerType.Unknown]. */
   public var pointerTypes: Set<PointerType>? = from.pointerTypes
   private var rows = from.mappings
 

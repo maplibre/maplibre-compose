@@ -26,6 +26,22 @@ class MapInteractionsTest {
   ) = GesturePointerSample(0, DpOffset.Zero, null, setOf(type), buttons, modifiers)
 
   @Test
+  fun unknown_contact_supports_standard_touch_gestures() {
+    val standard = InputConfiguration.Standard
+    val contact = sample(type = PointerType.Unknown, buttons = emptySet())
+    assertEquals(
+      DragResponse.Pan,
+      standard.bindings.drag.select(contact, standard.camera.settings),
+    )
+    for (family in
+      listOf(TapFamily.Tap, TapFamily.DoubleTap, TapFamily.LongPress, TapFamily.TwoFingerTap)) {
+      assertTrue(family.matches(standard, contact), "$family should accept unknown contact")
+    }
+    assertTrue(standard.bindings.tapDrag.matches(contact))
+    assertFalse(TapFamily.SecondaryClick.matches(standard, contact))
+  }
+
+  @Test
   fun camera_policy_and_terminal_none_share_ordered_routing() {
     val standard = InputConfiguration.Standard
     val ctrlShift = sample(modifiers = setOf(KeyModifier.Ctrl, KeyModifier.Shift))

@@ -84,7 +84,7 @@ internal data class TransformTiltBinding(
 internal data class TapDragBinding(
   val enabled: Boolean = true,
   val pointerTypes: Set<PointerType>? =
-    setOf(PointerType.Touch, PointerType.Stylus, PointerType.Eraser),
+    setOf(PointerType.Touch, PointerType.Stylus, PointerType.Eraser, PointerType.Unknown),
   val modifiers: ModifierMatch? = null,
   val startSlop: Dp = 7.dp,
   val anchor: GestureAnchor = GestureAnchor.CameraCenter,
@@ -147,7 +147,8 @@ internal data class InteractionBindings(
   companion object {
     fun standard(): InteractionBindings {
       val mouse = setOf(PointerType.Mouse)
-      val touch = setOf(PointerType.Touch, PointerType.Stylus, PointerType.Eraser)
+      val touch =
+        setOf(PointerType.Touch, PointerType.Stylus, PointerType.Eraser, PointerType.Unknown)
       return InteractionBindings(
         drag =
           DragBinding(
