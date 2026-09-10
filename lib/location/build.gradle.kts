@@ -19,6 +19,7 @@ kotlin {
 
   iosArm64()
   iosSimulatorArm64()
+  macosArm64()
 
   jvm { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
 
@@ -30,9 +31,10 @@ kotlin {
   applyDefaultHierarchyTemplate()
 
   sourceSets {
-    listOf(iosMain, iosArm64Main, iosSimulatorArm64Main).forEach {
-      it { languageSettings { optIn("kotlinx.cinterop.ExperimentalForeignApi") } }
-    }
+    listOf(appleMain, iosMain, iosArm64Main, iosSimulatorArm64Main, macosMain, macosArm64Main)
+      .forEach {
+        it { languageSettings { optIn("kotlinx.cinterop.ExperimentalForeignApi") } }
+      }
 
     commonMain.dependencies {
       api(libs.kotlinx.coroutines.core)

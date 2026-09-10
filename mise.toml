@@ -197,6 +197,19 @@ udid="$(.mise/bin/boot-ios-simulator)"
 ./gradlew iosSimulatorArm64Test -- --device "$udid"
 '''
 
+[tasks."test:macos"]
+description = "Run the macOS ARM64 Kotlin/Native test suite."
+run = "./gradlew macosArm64Test"
+
+[tasks."build:macos-app"]
+description = "Build and package the macOS ARM64 Kotlin/Native demo."
+run = ".mise/bin/package-macos-demo"
+
+[tasks."demo:macos"]
+description = "Run the macOS ARM64 Kotlin/Native demo."
+depends = ["build:macos-app"]
+run = "demo-app/macos/build/MapLibreCompose.app/Contents/MacOS/MapLibreCompose"
+
 [tasks."test:js"]
 depends = ["deps:chromium"]
 description = "Run the Kotlin/JS browser test suite."

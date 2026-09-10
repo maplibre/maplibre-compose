@@ -39,12 +39,16 @@ MapLibre Compose uses [Kotlin's stability levels][stability] to describe update
 risk. The public API is still evolving, and minor releases can contain breaking
 changes.
 
-| Platform | Stability                                               |
-| -------- | ------------------------------------------------------- |
-| Android  | [![Beta](https://kotl.in/badges/beta.svg)][stability]   |
-| iOS      | [![Beta](https://kotl.in/badges/beta.svg)][stability]   |
-| Desktop  | [![Alpha](https://kotl.in/badges/alpha.svg)][stability] |
-| Web      | [![Alpha](https://kotl.in/badges/alpha.svg)][stability] |
+| Platform             | Stability                                                             |
+| -------------------- | --------------------------------------------------------------------- |
+| Android              | [![Beta](https://kotl.in/badges/beta.svg)][stability]                 |
+| iOS                  | [![Beta](https://kotl.in/badges/beta.svg)][stability]                 |
+| macOS Native (ARM64) | [![Experimental](https://kotl.in/badges/experimental.svg)][stability] |
+| Desktop (JVM)        | [![Alpha](https://kotl.in/badges/alpha.svg)][stability]               |
+| Web                  | [![Alpha](https://kotl.in/badges/alpha.svg)][stability]               |
+
+Native macOS uses an experimental Compose host and an AppKit Metal underlay. See
+the getting-started guide for its composition constraints.
 
 Desktop and Web are Alpha because their platform integrations depend on
 implementation details in Compose and Skia.

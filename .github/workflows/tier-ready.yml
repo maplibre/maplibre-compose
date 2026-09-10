@@ -18,6 +18,10 @@ on:
         description: The ios job's matrix.
         type: string
         required: true
+      macos-native:
+        description: The macOS Native job matrix.
+        type: string
+        required: true
       desktop:
         description: The desktop job's matrix.
         type: string
@@ -34,6 +38,12 @@ jobs:
     uses: ./.github/workflows/job-ios.yml
     with:
       matrix: ${{ inputs.ios }}
+      secrets-available: ${{ inputs.secrets-available }}
+    secrets: inherit
+  macos-native:
+    uses: ./.github/workflows/job-macos-native.yml
+    with:
+      matrix: ${{ inputs.macos-native }}
       secrets-available: ${{ inputs.secrets-available }}
     secrets: inherit
   desktop:

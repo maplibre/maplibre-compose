@@ -9,7 +9,16 @@ import subprocess
 
 FULL_LABEL = "ci:full"
 TIERS = ("draft", "ready", "full")
-JOBS = ("hygiene", "android", "ios", "ios-device", "js", "desktop", "docs")
+JOBS = (
+    "hygiene",
+    "android",
+    "ios",
+    "ios-device",
+    "macos-native",
+    "js",
+    "desktop",
+    "docs",
+)
 CATALOG = pathlib.Path(__file__).with_name("jobs.json")
 
 

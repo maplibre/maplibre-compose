@@ -28,6 +28,7 @@ kotlin {
 
   iosArm64()
   iosSimulatorArm64()
+  macosArm64()
 
   jvm { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
 
@@ -48,9 +49,10 @@ kotlin {
   sourceSets {
     val jvmMain by getting
 
-    listOf(iosMain, iosArm64Main, iosSimulatorArm64Main).forEach {
-      it { languageSettings { optIn("kotlinx.cinterop.ExperimentalForeignApi") } }
-    }
+    listOf(appleMain, iosMain, iosArm64Main, iosSimulatorArm64Main, macosMain, macosArm64Main)
+      .forEach {
+        it { languageSettings { optIn("kotlinx.cinterop.ExperimentalForeignApi") } }
+      }
 
     commonMain.dependencies {
       api(project(":lib:location"))
@@ -70,7 +72,7 @@ kotlin {
     create("nonAndroidMain") {
       dependsOn(commonMain.get())
       jvmMain.dependsOn(this)
-      iosMain.get().dependsOn(this)
+      appleMain.get().dependsOn(this)
       jsMain.get().dependsOn(this)
     }
 
@@ -79,7 +81,7 @@ kotlin {
     val maplibreNativeMain =
       create("maplibreNativeMain") {
         dependsOn(commonMain.get())
-        iosMain.get().dependsOn(this)
+        appleMain.get().dependsOn(this)
         dependencies {
           // Backend-independent binding only; the application selects the native runtime.
           api(libs.maplibre.nativeFfi)
@@ -94,7 +96,7 @@ kotlin {
       jvmMain.dependsOn(this)
     }
 
-    iosMain {
+    appleMain {
       dependencies {
         // iOS runs the Metal backend, on the device and in the simulator; the runtime klib
         // carries the static MapLibre Native archive and its Apple framework linker opts.
@@ -162,7 +164,7 @@ kotlin {
 
     // iOS executes the same shared Native contract suite; its test source supplies the Native
     // platform adapters instead of the Java ones in androidJvmTest.
-    getByName("iosTest").dependsOn(maplibreNativeTest)
+    getByName("appleTest").dependsOn(maplibreNativeTest)
 
     // One native runtime is loaded per test process; `maplibre.desktop.backend` selects which, and
     // a CI matrix adds processes for additional applicable backends.

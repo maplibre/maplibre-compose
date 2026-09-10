@@ -19,10 +19,17 @@ pluginManager.withPlugin("org.jetbrains.dokka") {
   }
 }
 
-// Compose's iOS metadata contains duplicate KLIB names. Keep the upstream warning visible without
+// Compose's Apple metadata contains duplicate KLIB names. Keep the upstream warning visible without
 // making this intermediate compilation fail. https://youtrack.jetbrains.com/issue/CMP-8498
 tasks
-  .matching { it.name == "compileIosMainKotlinMetadata" }
+  .matching {
+    it.name in
+      setOf(
+        "compileAppleMainKotlinMetadata",
+        "compileIosMainKotlinMetadata",
+        "compileMacosMainKotlinMetadata",
+      )
+  }
   .withType<KotlinCompilationTask<*>>()
   .configureEach { compilerOptions { allWarningsAsErrors = false } }
 

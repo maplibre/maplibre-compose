@@ -11,6 +11,8 @@ import versions from "../../generated/versions.json";
 import gettingStarted from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/GettingStarted.kt?raw";
 import desktopGettingStarted from "../../../../demo-app/common/src/jvmMain/kotlin/org/maplibre/compose/docsnippets/GettingStartedDesktop.kt?raw";
 
+import macosGettingStarted from "../../../../demo-app/common/src/macosMain/kotlin/org/maplibre/compose/docsnippets/GettingStartedMacos.kt?raw";
+
 This page assumes you have a Compose Multiplatform project. To create one,
 follow [the official JetBrains documentation][compose-guide] or run
 `kotlin init compose-multiplatform`.
@@ -100,6 +102,38 @@ your iOS app target's **Other Linker Flags** build setting:
 -framework Metal
 -framework QuartzCore
 ```
+
+### macOS (Kotlin/Native)
+
+The `macosArm64` target runs on Apple Silicon with the Metal runtime linked
+statically. It needs no JVM or additional MapLibre runtime dependency. Enable
+`org.jetbrains.compose.experimental.macos.enabled=true` in `gradle.properties`.
+Compose's native macOS host is experimental.
+
+Inside the native Compose `Window` content, pass its `window` to the presentation
+host once, around the application's map content:
+
+<Code code={region(macosGettingStarted, "host")} lang="kotlin" />
+
+The host puts AppKit map views beneath Compose and keeps their bounds aligned
+with Compose layout. It clears each map's drawing area to reveal the native
+view. Compose handles map input and draws later overlays, including translucent
+controls. Layout positioning and resizing, rounded clips, and rectangular
+ancestor clipping are supported. Graphics-layer translation, scaling, rotation,
+overlapping maps, and ancestors that force offscreen composition or group
+opacity are not supported. Independently presented Metal surfaces can show
+transient seams during resize.
+
+Applications own their Compose window lifecycle and must dispose map content
+and close their map runtime on shutdown. The experimental stock host does not
+provide complete scene disposal on window close. The native demo removes its
+content and awaits runtime closure before terminating.
+
+Bundle Compose resources under `Contents/Resources/compose-resources`, including
+transitive library resources. For Core Location, include
+`NSLocationWhenInUseUsageDescription` and `NSLocationUsageDescription` in the
+app's `Info.plist`. macOS does not provide compass heading measurements.
+See `demo-app/macos` for the executable and app-bundle setup.
 
 ### Desktop (JVM)
 

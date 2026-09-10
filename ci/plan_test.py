@@ -75,6 +75,7 @@ class CatalogTest(unittest.TestCase):
             catalog_names("ready"),
             {
                 "ios / arm64",
+                "macos-native / arm64",
                 "android / 26",
                 "desktop / macos-arm64",
                 "desktop / windows-x64",
