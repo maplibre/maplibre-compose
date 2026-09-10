@@ -191,7 +191,7 @@ for the device SDK too. Ordinary phone builds do not require this entitlement.
 
 ### Wear OS
 
-The watch demo is a Protomaps map with a recenter button and attribution links.
+The watch demo is a Protomaps map with one edge button that opens map credits.
 Drag to pan, pinch or turn the crown to zoom. It uses Wear Compose controls and
 does not load the phone demo's gallery or settings.
 
