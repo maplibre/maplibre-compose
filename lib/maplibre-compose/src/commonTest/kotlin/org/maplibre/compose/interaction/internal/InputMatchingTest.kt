@@ -40,6 +40,7 @@ class InputMatchingTest {
       )
     )
     assertFalse(filter.matches(setOf(PointerType.Mouse), emptySet(), emptySet(), contact = true))
+    assertFalse(filter.matches(setOf(PointerType.Unknown), emptySet(), emptySet(), contact = true))
     assertTrue(
       PointerPattern(button = null)
         .matches(setOf(PointerType.Unknown), emptySet(), emptySet(), contact = true)
@@ -47,8 +48,9 @@ class InputMatchingTest {
   }
 
   @Test
-  fun touch_and_stylus_match_logical_primary_but_scroll_requires_physical_buttons() {
-    for (type in listOf(PointerType.Touch, PointerType.Stylus, PointerType.Eraser)) {
+  fun non_mouse_contact_matches_logical_primary_but_scroll_requires_physical_buttons() {
+    for (type in
+      listOf(PointerType.Touch, PointerType.Stylus, PointerType.Eraser, PointerType.Unknown)) {
       assertTrue(
         PointerPattern(button = PointerButton.Primary)
           .matches(setOf(type), emptySet(), emptySet(), contact = true)

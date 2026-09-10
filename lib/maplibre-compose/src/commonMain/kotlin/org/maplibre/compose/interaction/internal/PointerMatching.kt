@@ -24,7 +24,10 @@ internal data class PointerPattern(
           contact &&
           types.isNotEmpty() &&
           types.all {
-            it == PointerType.Touch || it == PointerType.Stylus || it == PointerType.Eraser
+            it == PointerType.Touch ||
+              it == PointerType.Stylus ||
+              it == PointerType.Eraser ||
+              it == PointerType.Unknown
           })) &&
       (modifiers?.matches(modifierKeys) != false)
 }

@@ -17,6 +17,7 @@ public class ClickEvent internal constructor(sample: GesturePointerSample) {
   public val screenOffset: DpOffset = sample.screenOffset
   /** Geographic position in the pointed-to world copy; longitude may fall outside ±180°. */
   public val position: Position? = sample.position
+  /** Android accessibility gestures may report [PointerType.Unknown]. */
   public val pointerTypes: Set<PointerType> = sample.pointerTypes.toSet()
   public val buttons: Set<PointerButton> = sample.buttons.toSet()
   public val modifierKeys: Set<KeyModifier> = sample.modifierKeys.toSet()
