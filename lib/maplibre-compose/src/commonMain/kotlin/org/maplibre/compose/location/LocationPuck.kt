@@ -175,25 +175,24 @@ private fun LocationPuckContent(
   onClick: LocationClickHandler?,
   onLongClick: LocationClickHandler?,
 ) {
-  val viewport = LocalViewport.current
   val location = measurement?.location
   val bearing = measurement?.bearing
   val bearingAccuracy = measurement?.bearingAccuracy
   val bearingPainter = rememberBearingPainter(sizes, colors)
   val positionAccuracy = location?.horizontalAccuracy
+  val accuracyVisible = positionAccuracy != null && positionAccuracy > accuracyThreshold
+  val metersPerDp = if (accuracyVisible) LocalViewport.current?.metersPerDpAtTarget ?: 0.0 else 0.0
   val locationSource = rememberLocationSource(measurement, oldLocationThreshold)
   val isOldLocation = feature["isOldLocation"].asBoolean(const(false))
 
   CircleLayer(
     id = "$idPrefix-accuracy",
     source = locationSource,
-    visible = positionAccuracy != null && positionAccuracy > accuracyThreshold,
+    visible = accuracyVisible,
     radius =
       switch(
         condition(test = isOldLocation, output = const(0.dp)),
-        fallback =
-          (feature["accuracy"].asNumber() / const((viewport?.metersPerDpAtTarget ?: 0.0).toFloat()))
-            .dp,
+        fallback = (feature["accuracy"].asNumber() / const(metersPerDp.toFloat())).dp,
       ),
     color = const(colors.accuracyFillColor),
     strokeColor = const(colors.accuracyStrokeColor),
