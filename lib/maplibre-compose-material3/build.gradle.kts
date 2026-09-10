@@ -21,6 +21,7 @@ kotlin {
 
   iosArm64()
   iosSimulatorArm64()
+  macosArm64()
 
   jvm { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
 
@@ -46,7 +47,7 @@ kotlin {
 
     val maplibreNativeMain by creating { dependsOn(commonMain.get()) }
 
-    iosMain { dependsOn(maplibreNativeMain) }
+    appleMain { dependsOn(maplibreNativeMain) }
 
     androidMain { dependsOn(maplibreNativeMain) }
 

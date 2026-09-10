@@ -4,6 +4,7 @@
   { "job": "js", "variant": "chromium", "tier": "draft" },
   { "job": "ios-device", "variant": "arm64", "tier": "draft" },
   { "job": "ios", "variant": "arm64", "tier": "ready" },
+  { "job": "macos-native", "variant": "arm64", "tier": "ready" },
   {
     "job": "android",
     "variant": "36",

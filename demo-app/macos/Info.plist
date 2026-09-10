@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>CFBundleExecutable</key>
+    <string>MapLibreCompose</string>
+    <key>CFBundleIdentifier</key>
+    <string>org.maplibre.compose.demoapp.macos</string>
+    <key>CFBundleName</key>
+    <string>MapLibre Compose Native</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSLocationUsageDescription</key>
+    <string>Show your location on the map.</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Show your location on the map.</string>
+  </dict>
+</plist>

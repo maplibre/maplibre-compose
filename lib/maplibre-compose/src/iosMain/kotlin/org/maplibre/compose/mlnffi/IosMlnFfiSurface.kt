@@ -38,7 +38,7 @@ internal fun IosMlnFfiSurface(
   presentWindow: Boolean = true,
 ) {
   val lifecycleOwner = LocalLifecycleOwner.current
-  val controller = remember(renderer) { IosMlnFfiSurfaceController(renderer, logger, maximumFps) }
+  val controller = remember(renderer) { AppleMlnFfiSurfaceController(renderer, logger, maximumFps) }
   val available = MapRenderBackend.METAL in runtimeBackends
 
   SideEffect { controller.setMaximumFps(maximumFps) }
