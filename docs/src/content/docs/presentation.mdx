@@ -1,0 +1,52 @@
+---
+title: Present outside Compose UI
+description: Reuse map state and styles in Android Auto, CarPlay, or native UI hosts.
+---
+
+import { Code } from "@astrojs/starlight/components";
+import Api from "../../components/Api.astro";
+import { region } from "../../snippets";
+
+import android from "../../../../demo-app/common/src/androidMain/kotlin/org/maplibre/compose/docsnippets/AndroidSurface.kt?raw";
+import apple from "../../../../demo-app/common/src/iosMain/kotlin/org/maplibre/compose/docsnippets/ApplePresentation.kt?raw";
+
+<Api of="MaplibreMap" /> provides the map's Compose UI integration. When another
+framework owns the UI, such as Android Auto, CarPlay, UIKit, or SwiftUI, use a
+platform presentation to reuse the same map state, camera operations, and
+declarative styles.
+
+Create a <Api of="MapState" /> with <Api of="MapRuntime.createMapState" /> and
+pass it to a presentation. Your application supplies the host, manages its
+lifecycle, and forwards recognized gestures through the
+[map's input methods](/maplibre-compose/interaction/#pass-gestures-from-your-own-code).
+Compose UI dependencies are still required, but a Compose UI hierarchy is not.
+
+## Android
+
+<Api of="AndroidMapPresentation" /> draws into an Android `Surface`, such as
+one supplied by Android Auto. Connect the presentation to the host's lifecycle
+and surface callbacks:
+
+<Code code={region(android, "surface-host")} lang="kotlin" title="SurfaceMapHost.kt" />
+
+The [Android Auto demo](https://github.com/maplibre/maplibre-compose/tree/main/demo-app/android-auto)
+shows a complete car-app integration. See <Api of="AndroidMapPresentation" />
+for configuration, surface ownership, and lifecycle contracts.
+
+## iOS
+
+<Api of="AppleMapPresentation" /> presents the map, and
+<Api of="MaplibreMapView" /> supplies a UIKit view that manages the Metal layer
+and its layout:
+
+<Code code={region(apple, "apple-view")} lang="kotlin" title="UIKitMapHost.kt" />
+
+Add the view to a UIKit or CarPlay view hierarchy, or return it from SwiftUI's
+`UIViewRepresentable.makeUIView`. Forward activation from the scene hosting
+the map; CarPlay has a separate scene from the phone's UI. See
+<Api of="MaplibreMapView" /> and <Api of="AppleMapPresentation" /> for ownership,
+configuration, and lifecycle contracts.
+
+For hosts that already manage a Metal layer, use
+<Api of="AppleMapPresentation.attachLayer" /> directly. This is the same
+attachment API used by `MaplibreMapView`.

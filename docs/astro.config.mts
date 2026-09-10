@@ -11,6 +11,9 @@ const base = "/maplibre-compose";
 export default defineConfig({
   site: "https://maplibre.org",
   base,
+  redirects: {
+    "/android-surface": `${base}/presentation/`,
+  },
   markdown: {
     processor: unified({
       remarkPlugins: [remarkVersions],
@@ -59,7 +62,7 @@ export default defineConfig({
             { label: "Capture a map image", slug: "snapshotter" },
             { label: "Download maps for offline use", slug: "offline" },
             { label: "Rewrite or serve map requests", slug: "requests" },
-            { label: "Present on an Android Surface", slug: "android-surface" },
+            { label: "Present outside Compose UI", slug: "presentation" },
           ],
         },
         {
