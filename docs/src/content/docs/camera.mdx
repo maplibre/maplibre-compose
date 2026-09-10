@@ -28,11 +28,6 @@ Use <Api of="MapState.setCameraPosition" /> to move without an animation. The
 position is retained when the map is detached and restored when it is displayed
 again.
 
-When a view model owns the <Api of="MapState" />, persist
-<Api of="CameraPosition" /> with kotlinx.serialization.
-<Api of="rememberMapState" /> already saves the camera when composition owns
-the state.
-
 ## Fit a bounding box
 
 <Api of="MapState.animateCameraToBounds" /> fits a `BoundingBox` in the current
