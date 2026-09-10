@@ -135,7 +135,9 @@ private fun DemoShell(state: DemoAppState, contentPadding: PaddingValues) {
         }
       }
     val viewportInsets =
-      safeInsets.withLeadingPanel(panelWidth, panelProgress.value, layoutDirection)
+      remember(safeInsets, panelWidth, panelProgress, layoutDirection) {
+        { safeInsets.withLeadingPanel(panelWidth, panelProgress.value, layoutDirection) }
+      }
     val hiddenTranslation =
       with(density) {
         val distance =
@@ -145,7 +147,6 @@ private fun DemoShell(state: DemoAppState, contentPadding: PaddingValues) {
           }
         distance.toPx() * if (layoutDirection == LayoutDirection.Ltr) -1 else 1
       }
-    val panelTranslation = hiddenTranslation * (1f - panelProgress.value)
 
     // Every control sits inside the map's rectangle, so directional focus search never reaches the
     // map from the handle or the handle from the map.
@@ -158,16 +159,6 @@ private fun DemoShell(state: DemoAppState, contentPadding: PaddingValues) {
       when (state.shell) {
         DemoShell.Demos -> true
         DemoShell.Benchmarks -> false
-      }
-
-    val handleTranslation =
-      with(density) {
-        val trailingEdge =
-          lerp(0.dp, ShellSpacing + panelWidth - HandleOverlap, panelProgress.value)
-        when (layoutDirection) {
-          LayoutDirection.Ltr -> (safeInsets.left + trailingEdge).toPx()
-          LayoutDirection.Rtl -> -(safeInsets.right + trailingEdge).toPx()
-        }
       }
 
     Box(Modifier.fillMaxSize()) {
@@ -199,7 +190,15 @@ private fun DemoShell(state: DemoAppState, contentPadding: PaddingValues) {
         onClick = { scope.launch { setPanelOpen(!panelOpen) } },
         modifier =
           Modifier.align(Alignment.CenterStart)
-            .graphicsLayer { translationX = handleTranslation }
+            .graphicsLayer {
+              val trailingEdge =
+                lerp(0.dp, ShellSpacing + panelWidth - HandleOverlap, panelProgress.value)
+              translationX =
+                when (layoutDirection) {
+                  LayoutDirection.Ltr -> (safeInsets.left + trailingEdge).toPx()
+                  LayoutDirection.Rtl -> -(safeInsets.right + trailingEdge).toPx()
+                }
+            }
             .focusRequester(handleFocusRequester)
             .focusProperties { if (mapRouted) end = mapFocusRequester },
       )
@@ -210,7 +209,7 @@ private fun DemoShell(state: DemoAppState, contentPadding: PaddingValues) {
             .padding(safeInsets.asPaddingValues())
             .consumeWindowInsets(safeInsets.asPaddingValues())
             .padding(ShellSpacing)
-            .graphicsLayer { translationX = panelTranslation }
+            .graphicsLayer { translationX = hiddenTranslation * (1f - panelProgress.value) }
             .semantics { if (!panelOpen) hideFromAccessibility() }
       ) {
         Surface(
@@ -299,7 +298,7 @@ private fun MapViewportInsets.withLeadingPanel(
 @Composable
 private fun ShellMap(
   state: DemoAppState,
-  viewportInsets: MapViewportInsets,
+  viewportInsets: () -> MapViewportInsets,
   controlsModifier: Modifier,
 ) {
   if (state.shell == DemoShell.Benchmarks) {
@@ -307,7 +306,7 @@ private fun ShellMap(
   } else {
     DemoMap(
       state,
-      viewportInsets,
+      viewportInsets(),
       overlay = demoMapOverlay(state.settings, state.location, controlsModifier),
     )
   }
