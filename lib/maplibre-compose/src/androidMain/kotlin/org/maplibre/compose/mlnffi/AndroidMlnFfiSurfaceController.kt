@@ -44,7 +44,7 @@ internal class AndroidMlnFfiSurfaceController(
   private var active = true
   @Volatile private var closed = false
   private var terminalFailure = false
-  private var consecutiveFailures = 0
+  private var recoveryAttempts = 0
 
   /** Records [maximumFps] for the post delay. */
   fun setMaximumFps(maximumFps: Int?) {
@@ -68,7 +68,7 @@ internal class AndroidMlnFfiSurfaceController(
     scaleFactor: Double,
   ) {
     checkRenderThread()
-    if (closed) return
+    if (closed || terminalFailure) return
     surfaceDestroyedOnRenderThread()
     try {
       graphics = AndroidMapGraphicsContext.create(backend, surface)
@@ -89,7 +89,7 @@ internal class AndroidMlnFfiSurfaceController(
 
   private fun surfaceChangedOnRenderThread(width: Int, height: Int, scaleFactor: Double) {
     checkRenderThread()
-    if (graphics == null || closed) return
+    if (graphics == null || closed || terminalFailure) return
     val changed = MapExtent.fromPhysical(width, height, scaleFactor)
     if (changed == extent) return
     extent = changed
@@ -118,7 +118,6 @@ internal class AndroidMlnFfiSurfaceController(
       .onFailure { logger?.e(it) { "Failed to release the Android map graphics context" } }
     graphics = null
     extent = MapExtent.Empty
-    consecutiveFailures = 0
   }
 
   fun setActive(active: Boolean) {
@@ -157,7 +156,8 @@ internal class AndroidMlnFfiSurfaceController(
     framePosted = false
     val currentGraphics = graphics
     val currentExtent = extent
-    if (closed || !active || currentGraphics == null || currentExtent.isEmpty) return
+    if (closed || terminalFailure || !active || currentGraphics == null || currentExtent.isEmpty)
+      return
 
     val frameId = nextFrameId++
     val target = currentGraphics.target(currentExtent, generation)
@@ -166,21 +166,18 @@ internal class AndroidMlnFfiSurfaceController(
     val frameStartUptimeMs = SystemClock.uptimeMillis()
     try {
       if (renderer.render(frame) == MlnFfiFrameResult.RENDERED) {
-        consecutiveFailures = 0
         lastFrameStartUptimeMs = frameStartUptimeMs
       }
     } catch (error: Throwable) {
       if (error is VirtualMachineError) throw error
-      consecutiveFailures++
-      if (
-        error !is MlnFfiRecoverableFrameException || consecutiveFailures > MAX_RECOVERY_ATTEMPTS
-      ) {
+      if (error !is MlnFfiRecoverableFrameException || recoveryAttempts >= MAX_RECOVERY_ATTEMPTS) {
         fail("Android map frame $frameId could not recover", error)
         return
       }
+      recoveryAttempts++
       logger?.w(error) {
         "Android map frame $frameId failed; rebuilding the render session " +
-          "(attempt $consecutiveFailures of $MAX_RECOVERY_ATTEMPTS)"
+          "(attempt $recoveryAttempts of $MAX_RECOVERY_ATTEMPTS)"
       }
 
       // A lost context invalidates the session but not the Android surface or the map runtime.
