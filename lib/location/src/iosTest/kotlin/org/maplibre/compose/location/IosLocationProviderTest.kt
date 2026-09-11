@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -11,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -39,7 +41,7 @@ class IosLocationProviderTest {
     val requester = IosLocationPermissionRequester(permissionManager)
     val managers = mutableListOf<TestLocationManager>()
     val provider =
-      IosLocationProvider(requester) {
+      IosLocationProvider(requester, servicesEnabled = { true }) {
         TestLocationManager().also { managers += it }
       }
     val events = Channel<LocationEvent>(Channel.UNLIMITED)
@@ -78,6 +80,24 @@ class IosLocationProviderTest {
       collection.cancelAndJoin()
       provider.close()
       Dispatchers.resetMain()
+    }
+  }
+
+  @Test
+  fun deniedAuthorizationReportsGloballyDisabledServices() = runTest {
+    val manager = TestLocationManager()
+    val provider =
+      IosLocationProvider(
+        IosLocationPermissionRequester(manager),
+        servicesEnabled = { false },
+        createManager = { error("Disabled services must not start location updates") },
+      )
+    try {
+      val event = assertIs<LocationEvent.Unavailable>(provider.updates().first())
+      assertEquals(LocationUnavailableReason.ServicesDisabled, event.reason)
+      assertEquals(0, manager.requests)
+    } finally {
+      provider.close()
     }
   }
 

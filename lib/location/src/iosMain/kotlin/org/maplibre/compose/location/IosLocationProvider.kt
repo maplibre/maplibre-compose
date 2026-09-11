@@ -46,6 +46,7 @@ import platform.darwin.NSObject
 public class IosLocationProvider
 internal constructor(
   private val requester: IosLocationPermissionRequester,
+  private val servicesEnabled: suspend () -> Boolean = ::locationServicesEnabled,
   private val createManager: () -> CLLocationManager = { CLLocationManager() },
 ) : LocationProvider {
   /** Creates a provider with its own permission requester. */
@@ -64,7 +65,12 @@ internal constructor(
       if (status is LocationPermission.Granted) {
         locationUpdates(request)
       } else {
-        flowOf(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied))
+        flowOf(
+          LocationEvent.Unavailable(
+            if (servicesEnabled()) LocationUnavailableReason.PermissionDenied
+            else LocationUnavailableReason.ServicesDisabled
+          )
+        )
       }
     }
 
@@ -92,7 +98,7 @@ internal constructor(
         when (callback) {
           is IosLocationCallback.Update -> callback.event
           is IosLocationCallback.Failure ->
-            LocationEvent.Unavailable(callback.error.asUnavailableReason())
+            LocationEvent.Unavailable(callback.error.asUnavailableReason(servicesEnabled))
         }
       }
 
