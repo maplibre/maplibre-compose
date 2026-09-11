@@ -1,11 +1,16 @@
 package org.maplibre.compose.mlnffi
 
+import android.os.Build
 import java.io.File
 import kotlinx.io.files.Path
 import org.junit.Assume.assumeTrue
 
 internal actual object FfiTestPlatform {
-  actual val runtimeCapabilities = FfiTestRuntimeCapabilities(customGeometrySourceCallbacks = true)
+  actual val runtimeCapabilities =
+    FfiTestRuntimeCapabilities(
+      customGeometrySourceCallbacks = true,
+      fontFaceRasterization = !Build.SUPPORTED_ABIS.first().startsWith("x86"),
+    )
 
   actual fun initialize() {
     AndroidMlnFfiPlatform.initialize()

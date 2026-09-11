@@ -30,7 +30,9 @@ import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.declare
 import org.maplibre.compose.testing.fontFacesForTest
 import org.maplibre.compose.testing.mapLibreFlavor
+import org.maplibre.compose.testing.registeredFontSkipReason
 import org.maplibre.compose.testing.runMapTest
+import org.maplibre.compose.testing.skipMapTest
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Position
@@ -45,6 +47,7 @@ class RegisteredFontTest {
 
   @Test
   fun a_registered_font_draws_text_without_the_glyph_server(): MapTestResult = runMapTest {
+    registeredFontSkipReason()?.let(::skipMapTest)
     val glyphRequests = RecordingList<String>()
     val glyphServer =
       MapResourceProvider(

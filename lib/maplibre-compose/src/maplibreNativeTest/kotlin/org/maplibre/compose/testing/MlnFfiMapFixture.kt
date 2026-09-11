@@ -103,6 +103,10 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent
   }
 }
 
+internal actual fun registeredFontSkipReason(): String? =
+  if (org.maplibre.compose.mlnffi.FfiTestPlatform.runtimeCapabilities.fontFaceRasterization) null
+  else "This MapLibre Native build rasterizes no glyphs from a font-faces file"
+
 internal actual fun StyleBinding.fontFacesForTest(): Map<String, String?>? =
   (this as? org.maplibre.compose.style.MlnFfiStyleBinding)?.declaredFontFacesForTest()
 

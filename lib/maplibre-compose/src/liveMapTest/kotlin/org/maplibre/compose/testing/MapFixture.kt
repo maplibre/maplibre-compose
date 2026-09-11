@@ -124,6 +124,9 @@ internal suspend fun MapFixture.pumpUntilPixel(
   }
 }
 
+/** Why this platform's engine cannot draw text from a registered font, or null when it can. */
+internal expect fun registeredFontSkipReason(): String?
+
 /** The `font-faces` the loaded style declares, or null when the engine cannot report them. */
 internal expect fun StyleBinding.fontFacesForTest(): Map<String, String?>?
 

@@ -44,7 +44,15 @@ internal expect fun pathOfFileUrl(url: String): Path
 internal expect fun unusedLoopbackPort(): Int
 
 /** Feature availability of the packaged FFI runtime/binding pair. */
-internal data class FfiTestRuntimeCapabilities(val customGeometrySourceCallbacks: Boolean)
+internal data class FfiTestRuntimeCapabilities(
+  val customGeometrySourceCallbacks: Boolean,
+  /**
+   * Whether the packaged runtime draws text from a `font-faces` file. The x86_64 Android build
+   * requests and receives the file but rasterizes no glyphs from it (observed on the API 26 and 36
+   * emulators, 2026-09-11); the arm64 build draws them.
+   */
+  val fontFaceRasterization: Boolean = true,
+)
 
 /**
  * Platform/backend mechanics underneath the shared real-map fixture.
