@@ -30,7 +30,9 @@ internal fun MapResourceConfig.route(request: MapResourceRequest): MapResourceRo
   else MapResourceRoute.Fetch(rewritten)
 }
 
-/** The provider that loads [request]: the font store for a registered font, else [provider]. */
+/**
+ * The provider that loads [request]: the font store for a registered font, else the application's.
+ */
 internal fun MapResourceConfig.providerFor(request: MapResourceRequest): MapResourceProvider? =
   when {
     fonts.provider.accepts(request) -> fonts.provider
