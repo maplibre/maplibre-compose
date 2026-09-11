@@ -38,6 +38,7 @@ import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.testing.composeStyle
+import org.maplibre.compose.testing.runGraphicsTest
 import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
 
 class SymbolLayerCompositionTest {
@@ -146,7 +147,7 @@ class SymbolLayerCompositionTest {
   }
 
   @Test
-  fun keyed_layers_reorder_and_release_shared_images() = runTest {
+  fun keyed_layers_reorder_and_release_shared_images() = runGraphicsTest { graphics ->
     val source =
       GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
     val icons =
@@ -161,6 +162,8 @@ class SymbolLayerCompositionTest {
         var initialImageIds = emptySet<String>()
         composeStyle(
           style = binding,
+          graphicsContext = graphics,
+          awaitRevision = { it.images.size == if (ids.value.isEmpty()) 0 else 1 },
           thenChange = {
             assertEquals(ids.value, binding.layerIds())
             assertEquals(1, binding.imageIds.size)

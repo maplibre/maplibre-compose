@@ -74,9 +74,10 @@ public fun image(
  * [FillExtrusionLayer][org.maplibre.compose.layers.FillExtrusionLayer],
  * [LineLayer][org.maplibre.compose.layers.LineLayer]) and as a section in the [format] expression.
  *
- * The [Painter] will be drawn to an [ImageBitmap] and registered with the style when it's
- * referenced by a layer, and unregistered from the style if it's no longer referenced by any layer.
- * An ID referencing the bitmap will be generated automatically and inserted into the expression.
+ * The [Painter] will be drawn asynchronously to an [ImageBitmap] and registered with the style when
+ * it's referenced by a layer, and unregistered from the style if it's no longer referenced by any
+ * layer. An ID referencing the bitmap will be generated automatically and inserted into the
+ * expression. A layer property containing a painter stays unset until its painters are ready.
  * Painters that draw identical pixels share one style image, so calling `painterResource` for the
  * same resource in several layers registers the image once.
  *

@@ -2,12 +2,16 @@ package org.maplibre.compose.layers
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.key
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalGraphicsContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.TextUnitType
+import kotlinx.coroutines.awaitCancellation
 import org.maplibre.compose.expressions.ast.BitmapLiteral
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
@@ -29,7 +33,10 @@ internal class LayerPropertyCompiler(
   private val emScale: Expression<FloatValue>? = null,
   private val spScale: Expression<FloatValue>? = null,
 ) {
-  private val context =
+  private fun context(
+    painters: Map<ImageManager.PainterKey, String> = emptyMap(),
+    acquiredBitmaps: MutableList<ImageManager.BitmapKey>? = null,
+  ) =
     object : ExpressionContext {
       private var seenTextUnitType: TextUnitType? = null
 
@@ -68,15 +75,12 @@ internal class LayerPropertyCompiler(
             ?: error("DP text offsets require a text-unit compiler")) / const(density.fontScale)
 
       override fun resolveBitmap(bitmap: BitmapLiteral): String {
-        return styleNode.imageManager.acquireBitmap(bitmap.key())
+        val key = bitmap.key()
+        return styleNode.imageManager.acquireBitmap(key).also { acquiredBitmaps?.add(key) }
       }
 
       override fun resolvePainter(painter: PainterLiteral): String {
-        return styleNode.imageManager.acquirePainter(painter.key(density, layoutDirection))
-      }
-
-      fun reset() {
-        seenTextUnitType = null
+        return painters.getValue(painter.key(density, layoutDirection))
       }
     }
 
@@ -87,23 +91,38 @@ internal class LayerPropertyCompiler(
   @Composable
   operator fun <T : ExpressionValue?> invoke(expression: Expression<T>?): CompiledExpression<T> {
     val expression = expression ?: NullLiteral.cast()
-    DisposableEffect(this, expression) {
-      onDispose {
-        expression.visit {
-          when (it) {
-            is BitmapLiteral -> styleNode.imageManager.releaseBitmap(it.key())
-            is PainterLiteral ->
-              styleNode.imageManager.releasePainter(it.key(density, layoutDirection))
-
-            else -> {}
-          }
+    val painters =
+      remember(this, expression) {
+        buildSet {
+          expression.visit { if (it is PainterLiteral) add(it.key(density, layoutDirection)) }
         }
       }
+    if (painters.isNotEmpty()) {
+      val graphicsContext = LocalGraphicsContext.current
+      return key(this, expression, graphicsContext) {
+        produceState<CompiledExpression<T>>(NullLiteral.cast()) {
+            val acquired = mutableMapOf<ImageManager.PainterKey, String>()
+            val acquiredBitmaps = mutableListOf<ImageManager.BitmapKey>()
+            try {
+              for (painter in painters) {
+                acquired[painter] = styleNode.imageManager.acquirePainter(painter, graphicsContext)
+              }
+              value = expression.compile(context(acquired, acquiredBitmaps))
+              awaitCancellation()
+            } finally {
+              acquiredBitmaps.forEach(styleNode.imageManager::releaseBitmap)
+              acquired.keys.forEach(styleNode.imageManager::releasePainter)
+            }
+          }
+          .value
+      }
     }
-    return remember(this, expression) {
-      context.reset()
-      expression.compile(context)
-    }
+    DisposableEffect(this, expression) { onDispose { releaseBitmaps(expression) } }
+    return remember(this, expression) { expression.compile(context()) }
+  }
+
+  private fun releaseBitmaps(expression: Expression<*>) {
+    expression.visit { if (it is BitmapLiteral) styleNode.imageManager.releaseBitmap(it.key()) }
   }
 
   private fun BitmapLiteral.key() = ImageManager.BitmapKey(value, sdf, stretch)
