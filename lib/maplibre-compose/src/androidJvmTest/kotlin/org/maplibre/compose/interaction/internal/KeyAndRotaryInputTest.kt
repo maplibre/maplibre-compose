@@ -352,8 +352,7 @@ class KeyAndRotaryInputTest {
       assertTrue(target.moveCalls.all { it.x < 0f && it.y == 0f }, "${target.moveCalls}")
       assertEquals(0, target.endedCount)
       map.performKeyInput { keyUp(Key.DirectionRight) }
-      waitForIdle()
-      assertEquals(1, target.endedCount)
+      waitUntil(timeoutMillis = TIMEOUT) { target.endedCount == 1 }
       val settled = target.moveCalls.toList()
       mainClock.advanceTimeBy(600)
       assertEquals(settled, target.moveCalls)
