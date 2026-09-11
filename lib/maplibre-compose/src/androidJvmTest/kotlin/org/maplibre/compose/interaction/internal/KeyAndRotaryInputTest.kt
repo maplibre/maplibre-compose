@@ -22,6 +22,7 @@ import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.test.withKeyDown
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.math.log2
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -34,6 +35,7 @@ import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.KeyResponse
 import org.maplibre.compose.interaction.ModifierMatch
 import org.maplibre.compose.map.GestureTestFixture
+import org.maplibre.compose.map.RecordingGestureTarget
 
 @OptIn(ExperimentalAtomicApi::class, ExperimentalTestApi::class)
 class KeyAndRotaryInputTest {
@@ -258,8 +260,8 @@ class KeyAndRotaryInputTest {
         pressKey(Key.Enter)
         keyDown(Key.DirectionRight)
       }
-      waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.size == 1 }
-      runOnIdle { options = InputConfiguration.NoBindings }
+      waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.isNotEmpty() }
+      runOnUiThread { options = InputConfiguration.NoBindings }
       waitForIdle()
       map.assertIsFocused()
       map.assert(expectValue(SemanticsProperties.StateDescription, "not engaged"))
@@ -305,29 +307,72 @@ class KeyAndRotaryInputTest {
     }
 
   @Test
-  fun camera_takeover_during_a_held_key_suppresses_repeats_until_release() {
+  fun camera_takeover_during_a_held_key_stops_motion_until_release() {
     fixture.runFocusTest { target, unconsumed ->
+      mainClock.autoAdvance = false
       val map = mapNode()
       map.requestFocus()
       map.performKeyInput {
         pressKey(Key.Enter)
         keyDown(Key.DirectionRight)
       }
-      waitForIdle()
+      mainClock.advanceTimeBy(FRAME_MILLIS * 4)
       val moves = target.moveCalls.size
+      assertTrue(moves > 0)
       lateinit var newer: CameraInputToken
-      runOnIdle { newer = target.onGestureStarted() }
-      map.performKeyInput {
-        advanceEventTime(600)
-        keyUp(Key.DirectionRight)
-      }
-      waitForIdle()
+      runOnUiThread { newer = target.onGestureStarted() }
+      mainClock.advanceTimeBy(FRAME_MILLIS * 4)
+      assertEquals(moves, target.moveCalls.size)
+      map.performKeyInput { keyUp(Key.DirectionRight) }
+      mainClock.advanceTimeBy(600)
       assertEquals(moves, target.moveCalls.size)
       assertFalse(Key.DirectionRight in unconsumed)
-      runOnIdle { target.onGestureEnded(newer) }
+      runOnUiThread { target.onGestureEnded(newer) }
       map.performKeyInput { pressKey(Key.DirectionRight) }
+      mainClock.advanceTimeBy(600)
+      assertTrue(target.moveCalls.size > moves)
+    }
+  }
+
+  @Test
+  fun a_held_key_pans_every_frame_and_release_ends_the_session() {
+    fixture.runFocusTest { target, _ ->
+      mainClock.autoAdvance = false
+      val map = mapNode()
+      map.requestFocus()
+      map.performKeyInput {
+        pressKey(Key.Enter)
+        keyDown(Key.DirectionRight)
+      }
+      mainClock.advanceTimeByFrame()
+      repeat(6) {
+        mainClock.advanceTimeByFrame()
+        assertEquals(it + 1, target.moveCalls.size, "frame ${it + 1}")
+      }
+      assertTrue(target.moveCalls.all { it.x < 0f && it.y == 0f }, "${target.moveCalls}")
+      assertEquals(0, target.endedCount)
+      map.performKeyInput { keyUp(Key.DirectionRight) }
       waitForIdle()
-      assertEquals(moves + 1, target.moveCalls.size)
+      assertEquals(1, target.endedCount)
+      val settled = target.moveCalls.toList()
+      mainClock.advanceTimeBy(600)
+      assertEquals(settled, target.moveCalls)
+    }
+  }
+
+  @Test
+  fun a_tap_pans_one_step() {
+    fixture.runFocusTest { target, _ ->
+      val map = mapNode()
+      map.requestFocus()
+      map.performKeyInput {
+        pressKey(Key.Enter)
+        pressKey(Key.DirectionRight)
+      }
+      waitForIdle()
+      val panStep = InputConfiguration.Standard.bindings.keys.panStep.value
+      assertEquals(-panStep, target.moveCalls.sumOf { it.x.toDouble() }.toFloat(), 1e-3f)
+      assertEquals(1, target.endedCount)
     }
   }
 
@@ -399,7 +444,7 @@ class KeyAndRotaryInputTest {
       map.performRotaryScrollInput { rotateToScrollVertically(24f) }
       map.performKeyInput { pressKey(Key.DirectionRight) }
       waitForIdle()
-      assertEquals(1, target.moveCalls.size)
+      assertTrue(target.moveCalls.isNotEmpty())
       assertEquals(2, target.startedCount)
       assertEquals(2, target.endedCount)
       map.performRotaryScrollInput { rotateToScrollVertically(24f) }
@@ -436,12 +481,13 @@ class KeyAndRotaryInputTest {
           pressKey(Key.Plus)
         }
       }
-      waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.size == 2 }
+      val zoomStep = InputConfiguration.Standard.bindings.keys.zoomStep
+      waitUntil(timeoutMillis = TIMEOUT) { target.zoomed() >= 2 * zoomStep - 1e-6 }
       assertFalse(Key.Equals in unconsumed)
       assertFalse(Key.Plus in unconsumed)
       map.performKeyInput { withKeyDown(Key.CtrlLeft) { pressKey(Key.Equals) } }
       waitForIdle()
-      assertEquals(2, target.scaleCalls.size)
+      assertEquals(2 * zoomStep, target.zoomed(), 1e-6)
       assertTrue(Key.Equals in unconsumed)
     }
 
@@ -455,8 +501,8 @@ class KeyAndRotaryInputTest {
         pressKey(Key.Enter)
         keyDown(Key.DirectionRight)
       }
-      waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.size == 1 }
-      runOnIdle {
+      waitUntil(timeoutMillis = TIMEOUT) { target.moveCalls.isNotEmpty() }
+      runOnUiThread {
         options = InputConfiguration {
           bindings { keys { mappings { on(Key.DirectionRight, response = KeyResponse.ZoomIn) } } }
         }
@@ -470,7 +516,9 @@ class KeyAndRotaryInputTest {
       assertFalse(Key.DirectionRight in unconsumed)
       assertTrue(target.scaleCalls.isEmpty())
       map.performKeyInput { pressKey(Key.DirectionRight) }
-      waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.size == 1 }
+      waitUntil(timeoutMillis = TIMEOUT) { target.scaleCalls.isNotEmpty() }
     }
   }
+
+  private fun RecordingGestureTarget.zoomed(): Double = scaleCalls.sumOf { log2(it.scale) }
 }

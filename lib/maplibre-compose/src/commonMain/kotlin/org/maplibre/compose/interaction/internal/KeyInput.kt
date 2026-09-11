@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
@@ -23,8 +24,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.CameraInputToken
+import org.maplibre.compose.camera.internal.inputPanBy
 import org.maplibre.compose.camera.internal.inputPanByAwaitingTransition
+import org.maplibre.compose.camera.internal.inputRotateAndPitchBy
 import org.maplibre.compose.camera.internal.inputRotateAndPitchByAwaitingTransition
+import org.maplibre.compose.camera.internal.inputScaleBy
 import org.maplibre.compose.camera.internal.inputScaleByAwaitingTransition
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.KeyResponse
@@ -110,7 +114,15 @@ internal class InputFocus(private val onChanged: (engaged: Boolean) -> Unit) {
 }
 
 /**
- * Held keys share camera ownership; repeating a step replaces its easing, not its input lifetime.
+ * A camera key moves the map by one step per [InputConfiguration.animationDuration] for as long as
+ * it is held, applied every frame through the gesture session. A release before a full step eases
+ * the remainder over the rest of that duration, so a tap still moves exactly one step. Held keys
+ * add their directions, so opposite keys cancel and a pan can combine with a zoom. OS key repeats
+ * are consumed and ignored.
+ *
+ * The animator duration scale applies to the eased remainder only. At scale zero a tap jumps one
+ * step and a held key still moves every frame. A zero [InputConfiguration.animationDuration] has no
+ * rate to hold at, so every press and repeat jumps one step.
  */
 internal class KeyInput(
   private val target: CameraInputTarget,
@@ -119,7 +131,9 @@ internal class KeyInput(
   private val scope: CoroutineScope,
 ) {
   private var session: GestureInputSession? = null
-  private var step: Job? = null
+  private var hold: Job? = null
+  /** The fraction of a step each held camera key has moved through the hold loop. */
+  private val progress = mutableMapOf<Key, Double>()
   private var settings: InputConfiguration.Settings? = null
 
   fun configure(value: InputConfiguration.Settings) {
@@ -148,7 +162,9 @@ internal class KeyInput(
     // Releases close an existing claim even if its binding was removed while the key was held.
     if (type == KeyEventType.KeyUp) {
       if (key !in focus.claimedKeys) return false
-      val component = focus.claimedKeys.remove(key)?.component
+      val action = focus.claimedKeys.remove(key)
+      if (action?.isCamera == true && hold != null) completeStep(key, action)
+      val component = action?.component
       if (component != null && focus.claimedKeys.values.none { it?.component == component })
         session?.token?.rearm(component)
       finishIfReleased()
@@ -201,81 +217,177 @@ internal class KeyInput(
           created.also { session = it }
         }
 
-    try {
-      step?.cancel()
-      step =
-        current.scope.launch(start = CoroutineStart.UNDISPATCHED) {
-          try {
-            applyStep(
-              action,
-              settings.bindings.keys,
-              settings.scaledAnimationDuration(),
-              current.token,
-            )
-          } catch (error: CancellationException) {
-            throw error
-          } catch (error: Throwable) {
-            cancel()
-            throw error
-          }
-        }
-    } catch (error: Throwable) {
-      cancel()
-      throw error
+    if (settings.animationDuration == Duration.ZERO) {
+      launchStep(current, action, settings, fraction = 1.0)
+    } else if (previous == null && hold == null) {
+      hold = launchHold(current, settings)
     }
-
     return true
   }
 
   private fun hasHeldCameraKeys(): Boolean = focus.claimedKeys.values.any { it?.isCamera == true }
 
+  private fun launchHold(session: GestureInputSession, settings: InputConfiguration): Job =
+    session.scope.launch(start = CoroutineStart.UNDISPATCHED) {
+      try {
+        val keys = settings.bindings.keys
+        val durationNanos = settings.animationDuration.inWholeNanoseconds.toDouble()
+        var previous = withFrameNanos { it }
+        var fraction = 0.0
+        while (true) {
+          var motion = KeyMotion.None
+          for ((key, action) in focus.claimedKeys) {
+            if (action?.isCamera != true) continue
+            val moved = progress[key]
+            // A key pressed since the previous frame starts moving at the next one.
+            if (moved == null) {
+              progress[key] = 0.0
+            } else {
+              progress[key] = moved + fraction
+              motion += action.motion
+            }
+          }
+          motion.apply(keys, fraction, session.token)
+          val now = withFrameNanos { it }
+          fraction = (now - previous) / durationNanos
+          previous = now
+        }
+      } catch (error: CancellationException) {
+        throw error
+      } catch (error: Throwable) {
+        cancel()
+        throw error
+      }
+    }
+
+  /** Eases the rest of a step that the hold loop had not finished. */
+  private fun completeStep(key: Key, action: KeyResponse) {
+    val current = session ?: return
+    val remaining = 1.0 - (progress.remove(key) ?: 0.0)
+    if (remaining > 0.0) launchStep(current, action, options(), fraction = remaining)
+  }
+
+  private fun launchStep(
+    session: GestureInputSession,
+    action: KeyResponse,
+    settings: InputConfiguration,
+    fraction: Double,
+  ) {
+    session.scope.launch(start = CoroutineStart.UNDISPATCHED) {
+      try {
+        action.motion.applyEased(
+          settings.bindings.keys,
+          fraction,
+          settings.scaledAnimationDuration() * fraction,
+          session.token,
+        )
+      } catch (error: CancellationException) {
+        throw error
+      } catch (error: Throwable) {
+        cancel()
+        throw error
+      }
+    }
+  }
+
   private fun finishIfReleased() {
     if (hasHeldCameraKeys()) return
-    step = null
-    // Retain the response so focus loss or a binding change can still cancel its easing.
+    hold?.cancel()
+    hold = null
+    progress.clear()
+    // Retain the session so focus loss or a binding change can still cancel its easing.
     session?.end()
   }
 
   fun cancel() {
     val previous = session
     session = null
-    step = null
+    hold = null
+    progress.clear()
     focus.claimedKeys.keys.toList().forEach { key ->
       focus.claimedKeys[key] = null
     }
     previous?.cancel()
   }
 
-  private suspend fun applyStep(
-    action: KeyResponse,
+  private suspend fun KeyMotion.applyEased(
     keys: KeyBinding,
+    fraction: Double,
     duration: Duration,
     token: CameraInputToken,
   ) {
-    val pan = keys.panStep.value.toDouble()
+    val pan = keys.panStep.value * fraction
     with(target) {
-      when (action) {
-        KeyResponse.PanLeft -> inputPanByAwaitingTransition(pan, 0.0, duration, token)
-        KeyResponse.PanRight -> inputPanByAwaitingTransition(-pan, 0.0, duration, token)
-        KeyResponse.PanUp -> inputPanByAwaitingTransition(0.0, pan, duration, token)
-        KeyResponse.PanDown -> inputPanByAwaitingTransition(0.0, -pan, duration, token)
-        KeyResponse.ZoomIn ->
-          inputScaleByAwaitingTransition(zoomLevelsToScale(keys.zoomStep), null, duration, token)
-        KeyResponse.ZoomOut ->
-          inputScaleByAwaitingTransition(zoomLevelsToScale(-keys.zoomStep), null, duration, token)
-        KeyResponse.RotateLeft ->
-          inputRotateAndPitchByAwaitingTransition(-keys.rotateStep, 0.0, duration, token)
-        KeyResponse.RotateRight ->
-          inputRotateAndPitchByAwaitingTransition(keys.rotateStep, 0.0, duration, token)
-        KeyResponse.TiltUp ->
-          inputRotateAndPitchByAwaitingTransition(0.0, keys.pitchStep, duration, token)
-        KeyResponse.TiltDown ->
-          inputRotateAndPitchByAwaitingTransition(0.0, -keys.pitchStep, duration, token)
-        else -> Unit
-      }
+      if (x != 0.0 || y != 0.0) inputPanByAwaitingTransition(x * pan, y * pan, duration, token)
+      if (zoom != 0.0)
+        inputScaleByAwaitingTransition(
+          zoomLevelsToScale(zoom * keys.zoomStep * fraction),
+          null,
+          duration,
+          token,
+        )
+      if (bearing != 0.0 || pitch != 0.0)
+        inputRotateAndPitchByAwaitingTransition(
+          bearing * keys.rotateStep * fraction,
+          pitch * keys.pitchStep * fraction,
+          duration,
+          token,
+        )
+    }
+  }
+
+  private fun KeyMotion.apply(keys: KeyBinding, fraction: Double, token: CameraInputToken) {
+    val pan = keys.panStep.value * fraction
+    with(target) {
+      inputPanBy(x * pan, y * pan, token)
+      if (zoom != 0.0) inputScaleBy(zoomLevelsToScale(zoom * keys.zoomStep * fraction), null, token)
+      inputRotateAndPitchBy(
+        bearing * keys.rotateStep * fraction,
+        pitch * keys.pitchStep * fraction,
+        gestureToken = token,
+        feedback = false,
+      )
     }
   }
 }
+
+/** Directions in units of the configured steps. */
+private data class KeyMotion(
+  val x: Double = 0.0,
+  val y: Double = 0.0,
+  val zoom: Double = 0.0,
+  val bearing: Double = 0.0,
+  val pitch: Double = 0.0,
+) {
+  operator fun plus(other: KeyMotion) =
+    KeyMotion(
+      x + other.x,
+      y + other.y,
+      zoom + other.zoom,
+      bearing + other.bearing,
+      pitch + other.pitch,
+    )
+
+  companion object {
+    val None = KeyMotion()
+  }
+}
+
+private val KeyResponse.motion: KeyMotion
+  get() =
+    when (this) {
+      KeyResponse.PanLeft -> KeyMotion(x = 1.0)
+      KeyResponse.PanRight -> KeyMotion(x = -1.0)
+      KeyResponse.PanUp -> KeyMotion(y = 1.0)
+      KeyResponse.PanDown -> KeyMotion(y = -1.0)
+      KeyResponse.ZoomIn -> KeyMotion(zoom = 1.0)
+      KeyResponse.ZoomOut -> KeyMotion(zoom = -1.0)
+      KeyResponse.RotateLeft -> KeyMotion(bearing = -1.0)
+      KeyResponse.RotateRight -> KeyMotion(bearing = 1.0)
+      KeyResponse.TiltUp -> KeyMotion(pitch = 1.0)
+      KeyResponse.TiltDown -> KeyMotion(pitch = -1.0)
+      else -> KeyMotion.None
+    }
 
 private val KeyResponse.component: CameraComponent?
   get() =
