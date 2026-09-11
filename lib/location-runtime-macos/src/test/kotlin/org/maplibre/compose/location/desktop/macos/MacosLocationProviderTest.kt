@@ -458,22 +458,29 @@ class MacosLocationProviderTest {
   fun collectionRetriesPermissionInitializationWithoutPrompting() = runTest {
     val failure = IllegalStateException("native failed")
     val client = FakeCoreLocationClient().apply { createFailure = failure }
-    val provider = MacosLocationProvider(client, Dispatchers.Unconfined, Dispatchers.Unconfined)
-
-    val failed = assertIs<LocationEvent.Unavailable>(provider.updates().first())
+    val dispatcher = StandardTestDispatcher(testScheduler)
+    val provider = MacosLocationProvider(client, dispatcher, dispatcher)
+    val events = mutableListOf<LocationEvent>()
+    val collection = backgroundScope.launch { provider.updates().collect(events::add) }
+    runCurrent()
+    val failed = assertIs<LocationEvent.Unavailable>(events.single())
     assertEquals(LocationUnavailableReason.UnexpectedFailure, failed.reason)
     assertEquals(failure, failed.cause)
     assertEquals(LocationPermission.Unknown, provider.permission.value)
 
     client.createFailure = null
     client.nextLocation = sampleMeasurement()
-    assertIs<LocationEvent.Update>(provider.updates().first())
+    advanceTimeBy(1.seconds)
+    runCurrent()
+    assertIs<LocationEvent.Update>(events.last())
     assertEquals(
       LocationPermission.Granted(LocationAccuracyAuthorization.Precise),
       provider.permission.value,
     )
     assertEquals(2, client.managers.size)
     assertTrue(client.managers.all { it.whenInUseRequests == 0 })
+    collection.cancel()
+    runCurrent()
     provider.close()
     assertTrue(client.managers.all { it.closeCount == 1 })
     assertEquals(1, client.closeCount)

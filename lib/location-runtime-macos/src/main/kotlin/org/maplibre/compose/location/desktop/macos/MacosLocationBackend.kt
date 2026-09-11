@@ -110,25 +110,13 @@ internal constructor(
       "Location updates require an available backend: $backendAvailability"
     }
     // Refresh before subscribing so a stale initial value cannot keep collection waiting.
-    try {
-      requester.refreshPermission()
-    } catch (error: Throwable) {
-      if (error is CancellationException) throw error
-      emit(LocationEvent.Unavailable(LocationUnavailableReason.UnexpectedFailure, error))
-      return@flow
-    }
+    emitAll(refreshPermission())
     emitAll(
       permission.flatMapLatest { status ->
         if (status is LocationPermission.Granted) {
           collectUpdates(request)
         } else if (status == LocationPermission.Unknown) {
-          flow<LocationEvent> { requester.refreshPermission() }
-            .retryWhen { error, _ ->
-              if (error is CancellationException) return@retryWhen false
-              emit(LocationEvent.Unavailable(LocationUnavailableReason.UnexpectedFailure, error))
-              delay(1.seconds)
-              true
-            }
+          refreshPermission()
         } else {
           flow {
             val enabled = withContext(ioDispatcher) { client.locationServicesEnabled }
@@ -144,6 +132,15 @@ internal constructor(
     )
   }
     .flowOn(dispatcher)
+
+  private fun refreshPermission(): Flow<LocationEvent> =
+    flow<LocationEvent> { requester.refreshPermission() }
+      .retryWhen { error, _ ->
+        if (error is CancellationException) return@retryWhen false
+        emit(LocationEvent.Unavailable(LocationUnavailableReason.UnexpectedFailure, error))
+        delay(1.seconds)
+        true
+      }
 
   private fun collectUpdates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
     val locationServicesEnabled = withContext(ioDispatcher) { client.locationServicesEnabled }

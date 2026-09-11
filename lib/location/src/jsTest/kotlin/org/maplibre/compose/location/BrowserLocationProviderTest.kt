@@ -13,7 +13,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -241,6 +243,33 @@ class BrowserLocationProviderTest {
   }
 
   @Test
+  fun collectionWaitsForPermissionInitialization() = runTest {
+    val initialized = CompletableDeferred<Unit>()
+    val boundary = FakeBrowserGeolocationBoundary(permissionInitialized = initialized)
+    val provider = BrowserLocationProvider(boundary, backgroundScope)
+    val events = mutableListOf<LocationEvent>()
+    val collection = backgroundScope.launch { provider.updates().collect(events::add) }
+    runCurrent()
+    assertEquals(emptyList(), events)
+    assertEquals(emptyList(), boundary.watchedOptions)
+    assertEquals(emptyList(), boundary.requestedOptions)
+
+    collection.cancel()
+    runCurrent()
+    val resumedCollection = backgroundScope.launch { provider.updates().collect(events::add) }
+    runCurrent()
+    initialized.complete(Unit)
+    runCurrent()
+    boundary.send(position(milliseconds = 0, longitude = 1.0))
+    runCurrent()
+    assertIs<LocationEvent.Update>(events.single())
+    assertEquals(1, boundary.watchedOptions.size)
+    resumedCollection.cancel()
+    runCurrent()
+    assertEquals(1, boundary.stopCount)
+  }
+
+  @Test
   fun collectorRecoversAfterPermissionChangesWithoutPrompting() = runTest {
     val boundary = FakeBrowserGeolocationBoundary()
     boundary.permission.value = BrowserPermission.Denied
@@ -315,8 +344,10 @@ class BrowserLocationProviderTest {
     )
 }
 
-private class FakeBrowserGeolocationBoundary(override val supported: Boolean = true) :
-  BrowserGeolocationBoundary {
+private class FakeBrowserGeolocationBoundary(
+  override val supported: Boolean = true,
+  private val permissionInitialized: CompletableDeferred<Unit>? = null,
+) : BrowserGeolocationBoundary {
   override val permissionState = BrowserLocationPermissionState()
   val permission = MutableStateFlow(BrowserPermission.Granted)
   var requestPositionAction: suspend (BrowserOptions) -> BrowserResult = { awaitCancellation() }
@@ -325,7 +356,10 @@ private class FakeBrowserGeolocationBoundary(override val supported: Boolean = t
   var callback: ((BrowserResult) -> Unit)? = null
   var stopCount = 0
 
-  override fun permissionChanges(): Flow<BrowserPermission> = permission
+  override fun permissionChanges(): Flow<BrowserPermission> = flow {
+    permissionInitialized?.await()
+    emitAll(permission)
+  }
 
   override suspend fun requestPosition(options: BrowserOptions): BrowserResult {
     requestedOptions += options

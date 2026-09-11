@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
@@ -82,6 +83,8 @@ internal constructor(
       permission.flatMapLatest { status ->
         if (status is LocationPermission.Granted) {
           locationUpdates(request)
+        } else if (status == LocationPermission.Unknown) {
+          emptyFlow()
         } else {
           flowOf(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied))
         }
@@ -270,8 +273,7 @@ internal sealed interface BrowserResult {
 }
 
 internal class BrowserLocationPermissionState {
-  private val mutableStatus =
-    MutableStateFlow<LocationPermission>(LocationPermission.NotGranted(canRequest = null))
+  private val mutableStatus = MutableStateFlow<LocationPermission>(LocationPermission.Unknown)
   val status: StateFlow<LocationPermission> = mutableStatus
 
   fun accept(permission: LocationPermission) {
