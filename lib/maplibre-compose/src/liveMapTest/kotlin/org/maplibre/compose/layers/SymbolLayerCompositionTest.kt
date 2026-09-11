@@ -156,12 +156,10 @@ class SymbolLayerCompositionTest {
   fun keyed_layers_reorder_and_release_shared_images() = runGraphicsTest { graphics ->
     val source =
       GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
-    val icons =
-      listOf(
-        image(ImageBitmap(2, 2)),
-        image(ColorPainter(Color.Red), size = DpSize(2.dp, 2.dp)),
-      )
-    for (icon in icons) {
+    val bitmap = image(ImageBitmap(2, 2))
+    val painter = image(ColorPainter(Color.Red), size = DpSize(2.dp, 2.dp))
+    val icons = listOf(bitmap to 1, painter to 1, coalesce(bitmap, bitmap, painter) to 2)
+    for ((icon, imageCount) in icons) {
       for (remaining in listOf(listOf("c", "a"), emptyList())) {
         val ids = mutableStateOf(listOf("a", "b", "c"))
         val binding = RecordingStyleBinding()
@@ -169,10 +167,10 @@ class SymbolLayerCompositionTest {
         composeStyle(
           style = binding,
           graphicsContext = graphics,
-          awaitRevision = { it.images.size == if (ids.value.isEmpty()) 0 else 1 },
+          awaitRevision = { it.images.size == if (ids.value.isEmpty()) 0 else imageCount },
           thenChange = {
             assertEquals(ids.value, binding.layerIds())
-            assertEquals(1, binding.imageIds.size)
+            assertEquals(imageCount, binding.imageIds.size)
             initialImageIds = binding.imageIds.toSet()
             ids.value = remaining
           },

@@ -1,17 +1,12 @@
 package org.maplibre.compose.layers
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.key
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalGraphicsContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.TextUnitType
-import kotlinx.coroutines.awaitCancellation
 import org.maplibre.compose.expressions.ast.BitmapLiteral
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
@@ -22,7 +17,6 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.div
 import org.maplibre.compose.expressions.value.ExpressionValue
 import org.maplibre.compose.expressions.value.FloatValue
-import org.maplibre.compose.style.ImageManager
 import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.StyleNode
 
@@ -33,7 +27,20 @@ internal class LayerPropertyCompiler(
   private val emScale: Expression<FloatValue>? = null,
   private val spScale: Expression<FloatValue>? = null,
 ) {
-  private fun context(painters: Map<ImageManager.PainterKey, String> = emptyMap()) =
+  /**
+   * Compiles [expression]. A null [expression] compiles to a null literal, which leaves the
+   * property unset.
+   */
+  @Composable
+  operator fun <T : ExpressionValue?> invoke(expression: Expression<T>?): CompiledExpression<T> {
+    val expression = expression ?: NullLiteral.cast()
+    val images =
+      rememberLayerPropertyImages(expression, styleNode.imageManager, density, layoutDirection)
+        ?: return NullLiteral.cast()
+    return remember(this, expression, images) { expression.compile(context(images)) }
+  }
+
+  private fun context(images: LayerPropertyImages) =
     object : ExpressionContext {
       private var seenTextUnitType: TextUnitType? = null
 
@@ -71,79 +78,10 @@ internal class LayerPropertyCompiler(
           (this@LayerPropertyCompiler.spScale
             ?: error("DP text offsets require a text-unit compiler")) / const(density.fontScale)
 
-      override fun resolveBitmap(bitmap: BitmapLiteral): String {
-        return styleNode.imageManager.acquireBitmap(bitmap.key())
-      }
+      override fun resolveBitmap(bitmap: BitmapLiteral): String = images.resolve(bitmap)
 
-      override fun resolvePainter(painter: PainterLiteral): String {
-        return painters.getValue(painter.key(density, layoutDirection))
-      }
+      override fun resolvePainter(painter: PainterLiteral): String = images.resolve(painter)
     }
-
-  /**
-   * Compiles [expression]. A null [expression] compiles to a null literal, which leaves the
-   * property unset.
-   */
-  @Composable
-  operator fun <T : ExpressionValue?> invoke(expression: Expression<T>?): CompiledExpression<T> {
-    val expression = expression ?: NullLiteral.cast()
-    val painters =
-      remember(this, expression) {
-        buildSet {
-          expression.visit { if (it is PainterLiteral) add(it.key(density, layoutDirection)) }
-        }
-      }
-    // Expressions can be rebuilt each animation frame without changing their painters.
-    // Keep image references alive independently of expression compilation.
-    val resolvedPainters =
-      if (painters.isNotEmpty()) {
-        val graphicsContext = LocalGraphicsContext.current
-        key(styleNode, painters, graphicsContext) {
-          produceState<Map<ImageManager.PainterKey, String>?>(null) {
-              val acquired = mutableMapOf<ImageManager.PainterKey, String>()
-              try {
-                for (painter in painters) {
-                  acquired[painter] =
-                    styleNode.imageManager.acquirePainter(painter, graphicsContext)
-                }
-                value = acquired
-                awaitCancellation()
-              } finally {
-                acquired.keys.forEach(styleNode.imageManager::releasePainter)
-              }
-            }
-            .value
-        }
-      } else emptyMap()
-    if (resolvedPainters == null) return NullLiteral.cast()
-    DisposableEffect(this, expression, resolvedPainters) {
-      onDispose { releaseBitmaps(expression) }
-    }
-    return remember(this, expression, resolvedPainters) {
-      expression.compile(context(resolvedPainters))
-    }
-  }
-
-  private fun releaseBitmaps(expression: Expression<*>) {
-    expression.visit { if (it is BitmapLiteral) styleNode.imageManager.releaseBitmap(it.key()) }
-  }
-
-  private fun BitmapLiteral.key() = ImageManager.BitmapKey(value, sdf, stretch)
-
-  private fun PainterLiteral.key(
-    density: Density,
-    layoutDirection: LayoutDirection,
-  ): ImageManager.PainterKey =
-    ImageManager.PainterKey(
-      value,
-      density,
-      layoutDirection,
-      size,
-      sdf,
-      stretch,
-      alpha,
-      colorFilter,
-    )
 }
 
 @Composable
