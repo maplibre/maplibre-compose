@@ -652,7 +652,11 @@ internal constructor(
         block()
       }
     select {
-      operation.onAwait { it }
+      operation.onAwait { result ->
+        // An inline operation can finish after invalidation, before select starts listening.
+        if (!owner.isCurrent(this@MapAttachment)) throw MapAttachmentChangedException()
+        result
+      }
       invalidated.onAwait {
         operation.cancelAndJoin()
         throw MapAttachmentChangedException()
