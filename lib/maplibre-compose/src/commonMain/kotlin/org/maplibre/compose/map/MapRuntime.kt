@@ -51,6 +51,7 @@ import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
+import org.maplibre.compose.camera.forPath
 import org.maplibre.compose.camera.internal.CameraCommandGuard
 import org.maplibre.compose.camera.internal.CameraInputAuthority
 import org.maplibre.compose.expressions.ast.CompiledExpression
@@ -533,7 +534,7 @@ internal constructor(
     guard: CameraCommandGuard? = null,
   ): Unit = runLeaseBound {
     awaitViewportState()
-    adapter.animateCameraPosition(position, animation, boundGuard(guard))
+    adapter.animateCameraPosition(position, animation.forPathTo(position), boundGuard(guard))
   }
 
   suspend fun animateCameraToBounds(
@@ -545,7 +546,24 @@ internal constructor(
     guard: CameraCommandGuard? = null,
   ): Unit = runLeaseBound {
     awaitViewportState()
-    adapter.animateCameraToBounds(boundingBox, bearing, tilt, padding, animation, boundGuard(guard))
+    val target = adapter.cameraForBounds(boundingBox, bearing, tilt, padding)
+    adapter.animateCameraToBounds(
+      boundingBox,
+      bearing,
+      tilt,
+      padding,
+      animation.forPathTo(target),
+      boundGuard(guard),
+    )
+  }
+
+  /**
+   * [animation] arrives already scaled by the animator duration scale, so a fallback ease it turns
+   * into is scaled here.
+   */
+  private fun CameraAnimation.forPathTo(target: CameraPosition): CameraAnimation {
+    val resolved = forPath(adapter.getCameraPosition(), target)
+    return if (resolved === this) this else resolved.scaledBy(systemAnimatorDurationScale())
   }
 
   fun getVisibleRegion(): VisibleRegion? = withViewport { it.getVisibleRegion() }

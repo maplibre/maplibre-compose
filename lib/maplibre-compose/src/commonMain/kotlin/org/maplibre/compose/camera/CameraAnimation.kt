@@ -1,6 +1,7 @@
 package org.maplibre.compose.camera
 
 import androidx.compose.runtime.Immutable
+import kotlin.math.abs
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -34,7 +35,9 @@ public sealed interface CameraAnimation {
    * remains legible over any distance.
    *
    * The flight takes [duration] when one is given. Otherwise its duration follows from the length
-   * of the path and [speed]. Set at most one of the two.
+   * of the path and [speed]. Set at most one of the two. A flight that changes only bearing or
+   * tilt, or nothing, has no path to pace: without a duration it becomes an [Ease] with the default
+   * duration and the same [easing].
    *
    * @param duration The total time of the flight. Null derives it from [speed].
    * @param speed The average speed in screenfuls per second, where a screenful is the visible span
@@ -88,3 +91,21 @@ public data class CubicBezier(
     public val Linear: CubicBezier = CubicBezier(0.0, 0.0, 1.0, 1.0)
   }
 }
+
+/**
+ * Returns the animation to run from [from] to [to]. A speed-paced flight between the same center
+ * and zoom has no path length to derive a duration from, and the engines disagree about it:
+ * MapLibre Native jumps and MapLibre GL JS eases for its own default duration. Both instead run an
+ * [CameraAnimation.Ease] with the default duration.
+ */
+internal fun CameraAnimation.forPath(from: CameraPosition, to: CameraPosition): CameraAnimation {
+  if (this !is CameraAnimation.Fly || duration != null) return this
+  val longitudeDelta = abs((to.target.longitude - from.target.longitude).mod(360.0))
+  val hasPath =
+    abs(to.zoom - from.zoom) > PATH_EPSILON ||
+      abs(to.target.latitude - from.target.latitude) > PATH_EPSILON ||
+      minOf(longitudeDelta, 360.0 - longitudeDelta) > PATH_EPSILON
+  return if (hasPath) this else CameraAnimation.Ease(easing = easing)
+}
+
+private const val PATH_EPSILON = 1e-9

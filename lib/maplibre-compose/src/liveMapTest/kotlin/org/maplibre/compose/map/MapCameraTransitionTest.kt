@@ -268,19 +268,46 @@ class MapCameraTransitionTest {
     }
   }
 
-  /** The map's own minimum zoom shapes a flight the same way as a requested minimum. */
+  /**
+   * The map's own minimum zoom shapes a flight the same way as a requested minimum: the path peaks
+   * near it, part way along the route. A flight fit without it dives past the minimum early, so its
+   * displayed zoom sits clamped at the minimum while the camera is still near its start.
+   */
   @Test
-  fun a_flight_peaks_near_the_maps_minimum_zoom(): MapTestResult = runMapTest {
+  fun the_maps_minimum_zoom_shapes_a_flight(): MapTestResult = runMapTest {
     if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
     createMapFixture().use {
       it.startAt(FLIGHT_START)
-      it.session.setCameraConstraints(TEST_CONSTRAINTS.copy(minZoom = FLIGHT_START.zoom))
+      it.session.setCameraConstraints(TEST_CONSTRAINTS.copy(minZoom = FLIGHT_START.zoom - 2.0))
       it.pump(frames = 2)
 
-      val lowestZoom = it.lowestZoomWhileAnimating(FLIGHT_TARGET, CameraAnimation.Fly(1.seconds))
+      val trace = it.cameraTraceWhileAnimating(FLIGHT_TARGET, CameraAnimation.Fly(1.seconds))
 
-      assertTrue(lowestZoom > FLIGHT_START.zoom - 0.5, "the flight zoomed out to $lowestZoom")
+      val peak = trace.minBy { camera -> camera.zoom }
+      assertTrue(peak.zoom > FLIGHT_START.zoom - 2.5, "the flight zoomed out to ${peak.zoom}")
+      assertTrue(
+        peak.target.longitude > 2.0,
+        "the flight reached its lowest zoom at longitude ${peak.target.longitude}, near its start",
+      )
       it.assertLanded(FLIGHT_TARGET, "the flight")
+    }
+  }
+
+  /** A flight that changes only the bearing has no path to pace, so it eases instead of jumping. */
+  @Test
+  fun a_flight_with_no_path_eases_its_orientation(): MapTestResult = runMapTest {
+    if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
+    createMapFixture().use {
+      it.startAt(FLIGHT_START)
+      val turned = FLIGHT_START.copy(bearing = 90.0)
+
+      val trace = it.cameraTraceWhileAnimating(turned, CameraAnimation.Fly())
+
+      assertTrue(
+        trace.any { camera -> camera.bearing > 5.0 && camera.bearing < 85.0 },
+        "the turn jumped to its target",
+      )
+      assertNear(turned.bearing, it.session.getCameraPosition().bearing, "the turn target bearing")
     }
   }
 
@@ -485,14 +512,20 @@ class MapCameraTransitionTest {
   private suspend fun MapFixture.lowestZoomWhileAnimating(
     target: CameraPosition,
     animation: CameraAnimation,
-  ): Double = coroutineScope {
+  ): Double = cameraTraceWhileAnimating(target, animation).minOf { camera -> camera.zoom }
+
+  /** Runs an animation to [target] and returns the camera at every frame rendered on the way. */
+  private suspend fun MapFixture.cameraTraceWhileAnimating(
+    target: CameraPosition,
+    animation: CameraAnimation,
+  ): List<CameraPosition> = coroutineScope {
     val job = launch(Dispatchers.Default) { state.animateCameraPosition(target, animation) }
-    var lowest = session.getCameraPosition().zoom
+    val trace = mutableListOf(session.getCameraPosition())
     pumpUntil("the animation to complete") {
-      lowest = minOf(lowest, session.getCameraPosition().zoom)
+      trace += session.getCameraPosition()
       job.isCompleted
     }
-    lowest
+    trace
   }
 
   private fun MapFixture.assertLanded(target: CameraPosition, description: String) {
