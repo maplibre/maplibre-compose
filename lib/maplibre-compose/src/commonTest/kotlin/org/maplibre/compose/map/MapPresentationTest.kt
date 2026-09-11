@@ -1706,6 +1706,98 @@ class MapPresentationTest {
   }
 
   @Test
+  fun inline_queries_reject_results_from_a_detached_presentation() = runTest {
+    val queries: List<suspend (MapState) -> Any> =
+      listOf(
+        { it.cameraForBounds(BoundingBox(Position(-1.0, -1.0), Position(1.0, 1.0))) },
+        { it.queryRenderedFeatures(DpOffset.Zero) },
+        { it.queryRenderedFeatures(DpRect(0.dp, 0.dp, 10.dp, 10.dp)) },
+      )
+    for (query in queries) {
+      val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
+      val state = runtime.createMapState(BaseStyle.Demo)
+      val token = state.reservePresentation()
+      val adapter =
+        object : PresentationTestAdapter() {
+          override fun cameraForBounds(
+            boundingBox: BoundingBox,
+            bearing: Double,
+            tilt: Double,
+            padding: PaddingValues,
+          ): CameraPosition {
+            state.releasePresentation(token, this)
+            return CameraPosition(zoom = 5.0)
+          }
+
+          override suspend fun queryRenderedFeatures(
+            offset: DpOffset,
+            layerIds: Set<String>?,
+            predicate: CompiledExpression<BooleanValue>?,
+          ): List<Feature<Geometry, JsonObject?>> {
+            state.releasePresentation(token, this)
+            return emptyList()
+          }
+
+          override suspend fun queryRenderedFeatures(
+            rect: DpRect,
+            layerIds: Set<String>?,
+            predicate: CompiledExpression<BooleanValue>?,
+          ): List<Feature<Geometry, JsonObject?>> {
+            state.releasePresentation(token, this)
+            return emptyList()
+          }
+        }
+      try {
+        state.publishPresentation(token, adapter)
+        requireNotNull(state.currentMapAttachment).updateViewport(testViewport())
+        // Both completion and invalidation are ready before runLeaseBound reaches select.
+        assertFailsWith<CancellationException> { query(state) }
+      } finally {
+        state.close()
+        state.awaitClosed()
+        runtime.close()
+      }
+    }
+  }
+
+  @Test
+  fun a_bounds_query_waits_for_an_attachment_and_its_viewport() = runTest {
+    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
+    val state = runtime.createMapState(BaseStyle.Demo)
+    val query = async {
+      state.cameraForBounds(BoundingBox(Position(-1.0, -1.0), Position(1.0, 1.0)))
+    }
+    testScheduler.runCurrent()
+    assertFalse(query.isCompleted)
+
+    val token = state.reservePresentation()
+    val adapter = PresentationTestAdapter()
+    state.publishPresentation(token, adapter)
+    testScheduler.runCurrent()
+    assertFalse(query.isCompleted)
+
+    requireNotNull(state.currentMapAttachment).updateViewport(testViewport())
+    assertEquals(adapter.lastCameraPosition, query.await())
+    assertFalse(adapter.boundsFit.isCompleted)
+    state.close()
+    state.awaitClosed()
+    runtime.close()
+  }
+
+  @Test
+  fun detaching_cancels_a_bounds_query_waiting_for_a_viewport() = runTest {
+    val fixture = presentationFixture()
+    val query = async {
+      fixture.state.cameraForBounds(BoundingBox(Position(-1.0, -1.0), Position(1.0, 1.0)))
+    }
+    testScheduler.runCurrent()
+    assertFalse(query.isCompleted)
+    fixture.state.releasePresentation(fixture.token, fixture.adapter)
+    assertFailsWith<CancellationException> { query.await() }
+    fixture.close()
+  }
+
+  @Test
   fun a_bounds_fit_waits_for_an_attachment_and_its_viewport() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
     val state = runtime.createMapState(BaseStyle.Demo)
@@ -2084,6 +2176,13 @@ internal open class PresentationTestAdapter(
   }
 
   override fun setCameraPadding(padding: PaddingValues) = Unit
+
+  override fun cameraForBounds(
+    boundingBox: BoundingBox,
+    bearing: Double,
+    tilt: Double,
+    padding: PaddingValues,
+  ): CameraPosition = lastCameraPosition
 
   override fun fitCameraToBounds(
     boundingBox: BoundingBox,

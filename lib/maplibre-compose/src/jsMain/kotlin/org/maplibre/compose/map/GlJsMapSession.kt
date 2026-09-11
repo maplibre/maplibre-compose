@@ -821,6 +821,16 @@ internal class GlJsMapSession(
     onMap { map -> map.jumpTo(unsafeJso<JumpToOptions> { this.padding = resolved }) }
   }
 
+  override fun cameraForBounds(
+    boundingBox: BoundingBox,
+    bearing: Double,
+    tilt: Double,
+    padding: PaddingValues,
+  ): CameraPosition =
+    checkNotNull(map?.cameraPositionForBounds(boundingBox, bearing, tilt, padding)) {
+      "The map could not calculate a camera for the bounds"
+    }
+
   override fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,

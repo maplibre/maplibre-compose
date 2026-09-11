@@ -45,6 +45,17 @@ fun Camera() {
   }
   // #endregion fit-bounds
 
+  // #region camera-for-bounds
+  LaunchedEffect(mapState) {
+    val camera =
+      mapState.cameraForBounds(
+        boundingBox = BoundingBox(west = -123.0, south = 47.0, east = -122.0, north = 48.0),
+        padding = PaddingValues(32.dp),
+      )
+    mapState.animateCameraPosition(camera.copy(zoom = minOf(camera.zoom, 12.0)))
+  }
+  // #endregion camera-for-bounds
+
   // #region viewport
   val viewport = mapState.viewport
   if (viewport != null) {
