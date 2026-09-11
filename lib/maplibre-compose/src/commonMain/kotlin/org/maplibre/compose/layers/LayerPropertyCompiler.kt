@@ -33,10 +33,7 @@ internal class LayerPropertyCompiler(
   private val emScale: Expression<FloatValue>? = null,
   private val spScale: Expression<FloatValue>? = null,
 ) {
-  private fun context(
-    painters: Map<ImageManager.PainterKey, String> = emptyMap(),
-    acquiredBitmaps: MutableList<ImageManager.BitmapKey>? = null,
-  ) =
+  private fun context(painters: Map<ImageManager.PainterKey, String> = emptyMap()) =
     object : ExpressionContext {
       private var seenTextUnitType: TextUnitType? = null
 
@@ -75,8 +72,7 @@ internal class LayerPropertyCompiler(
             ?: error("DP text offsets require a text-unit compiler")) / const(density.fontScale)
 
       override fun resolveBitmap(bitmap: BitmapLiteral): String {
-        val key = bitmap.key()
-        return styleNode.imageManager.acquireBitmap(key).also { acquiredBitmaps?.add(key) }
+        return styleNode.imageManager.acquireBitmap(bitmap.key())
       }
 
       override fun resolvePainter(painter: PainterLiteral): String {
@@ -97,28 +93,35 @@ internal class LayerPropertyCompiler(
           expression.visit { if (it is PainterLiteral) add(it.key(density, layoutDirection)) }
         }
       }
-    if (painters.isNotEmpty()) {
-      val graphicsContext = LocalGraphicsContext.current
-      return key(this, expression, graphicsContext) {
-        produceState<CompiledExpression<T>>(NullLiteral.cast()) {
-            val acquired = mutableMapOf<ImageManager.PainterKey, String>()
-            val acquiredBitmaps = mutableListOf<ImageManager.BitmapKey>()
-            try {
-              for (painter in painters) {
-                acquired[painter] = styleNode.imageManager.acquirePainter(painter, graphicsContext)
+    // Expressions can be rebuilt each animation frame without changing their painters.
+    // Keep image references alive independently of expression compilation.
+    val resolvedPainters =
+      if (painters.isNotEmpty()) {
+        val graphicsContext = LocalGraphicsContext.current
+        key(styleNode, painters, graphicsContext) {
+          produceState<Map<ImageManager.PainterKey, String>?>(null) {
+              val acquired = mutableMapOf<ImageManager.PainterKey, String>()
+              try {
+                for (painter in painters) {
+                  acquired[painter] =
+                    styleNode.imageManager.acquirePainter(painter, graphicsContext)
+                }
+                value = acquired
+                awaitCancellation()
+              } finally {
+                acquired.keys.forEach(styleNode.imageManager::releasePainter)
               }
-              value = expression.compile(context(acquired, acquiredBitmaps))
-              awaitCancellation()
-            } finally {
-              acquiredBitmaps.forEach(styleNode.imageManager::releaseBitmap)
-              acquired.keys.forEach(styleNode.imageManager::releasePainter)
             }
-          }
-          .value
-      }
+            .value
+        }
+      } else emptyMap()
+    if (resolvedPainters == null) return NullLiteral.cast()
+    DisposableEffect(this, expression, resolvedPainters) {
+      onDispose { releaseBitmaps(expression) }
     }
-    DisposableEffect(this, expression) { onDispose { releaseBitmaps(expression) } }
-    return remember(this, expression) { expression.compile(context()) }
+    return remember(this, expression, resolvedPainters) {
+      expression.compile(context(resolvedPainters))
+    }
   }
 
   private fun releaseBitmaps(expression: Expression<*>) {

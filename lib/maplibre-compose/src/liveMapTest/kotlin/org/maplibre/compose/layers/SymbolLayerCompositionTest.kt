@@ -4,9 +4,12 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.painter.ColorPainter
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpSize
@@ -16,10 +19,12 @@ import androidx.compose.ui.unit.sp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -27,6 +32,7 @@ import kotlinx.serialization.json.double
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
+import org.maplibre.compose.expressions.dsl.coalesce
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.expressions.dsl.offset
@@ -180,6 +186,53 @@ class SymbolLayerCompositionTest {
         assertEquals(if (remaining.isEmpty()) emptySet() else initialImageIds, binding.imageIds)
       }
     }
+  }
+
+  @Test
+  fun changing_an_expression_keeps_its_unchanged_painter_visible() = runGraphicsTest { graphics ->
+    val source =
+      GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+    val frame = mutableStateOf(0)
+    var draws = 0
+    val painter =
+      object : Painter() {
+        override val intrinsicSize = Size(4f, 4f)
+
+        override fun DrawScope.onDraw() {
+          draws++
+          drawRect(Color.Red)
+        }
+      }
+    var ready = false
+    var imageId: String? = null
+    composeStyle(
+      graphicsContext = graphics,
+      awaitRevision = { revision ->
+        val layout = revision.layers.singleOrNull()?.definition?.value?.get("layout") as? JsonObject
+        layout?.get("icon-image")?.let { it != JsonNull } == true
+      },
+      onRevision = { revision ->
+        if (!ready && revision.images.isNotEmpty()) imageId = revision.images.single().id
+        if (ready) {
+          assertEquals(listOf(imageId), revision.images.map { it.id })
+          val layout = revision.layers.single().definition.value["layout"] as JsonObject
+          assertTrue(layout["icon-image"] != null && layout["icon-image"] != JsonNull)
+        }
+      },
+      thenChange = {
+        assertNotNull(imageId)
+        ready = true
+        frame.value++
+      },
+    ) {
+      SymbolLayer(
+        id = "animated",
+        source = source,
+        iconImage = coalesce(image(painter), image("fallback-${frame.value}")),
+        iconSize = const(1f + frame.value * 0.1f),
+      )
+    }
+    assertEquals(1, draws)
   }
 
   private fun JsonElement.normalizeNumbers(): JsonElement =
