@@ -7,9 +7,10 @@ import kotlin.time.Duration.Companion.milliseconds
 /**
  * How the camera moves from its current position to a new one.
  *
- * [Ease] travels directly. [Fly] zooms out, travels, and zooms back in. Both engines implement both
- * transitions from the same model, so a transition looks the same on MapLibre Native and on the
- * browser.
+ * [Ease] travels directly. [Fly] zooms out, travels, and zooms back in. MapLibre Native and
+ * MapLibre GL JS each implement both transitions with the same controls. Their paths and timing are
+ * close but not identical: the engines interpolate the center differently and GL JS measures the
+ * viewport without camera padding.
  */
 @Immutable
 public sealed interface CameraAnimation {
@@ -17,10 +18,10 @@ public sealed interface CameraAnimation {
   public val easing: CubicBezier
 
   /**
-   * Interpolates the camera directly from its current position to the new position over [duration].
-   * Zoom changes at a steady rate, so an ease between distant positions crosses the ground quickly
-   * at the current zoom. Use it for short moves, such as following a location or changing zoom in
-   * place.
+   * Moves the camera directly from its current position to the new position over [duration]. Zoom
+   * interpolates straight to its target, so the transition never zooms out on the way, and an ease
+   * between distant positions crosses the ground quickly at the current zoom. Use it for short
+   * moves, such as following a location or changing zoom in place.
    */
   @Immutable
   public data class Ease(
@@ -38,8 +39,10 @@ public sealed interface CameraAnimation {
    * @param duration The total time of the flight. Null derives it from [speed].
    * @param speed The average speed in screenfuls per second, where a screenful is the visible span
    *   of the map. Null uses [DefaultSpeed]. Ignored when [duration] is set.
-   * @param minZoom The lowest zoom the flight path may reach. Null lets the path zoom out as far as
-   *   it needs to.
+   * @param minZoom Keeps the flight path from zooming out past this zoom. The engines fit the
+   *   flight curve so that its peak lands near this value rather than clamping, so the path can
+   *   pass up to about half a zoom level below it. A value below the map's minimum zoom or below
+   *   the natural path has no effect.
    */
   @Immutable
   public data class Fly(

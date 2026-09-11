@@ -1419,23 +1419,26 @@ internal class MlnFfiMapSession(
   }
 
   /**
-   * MapLibre Native treats a flight's minimum zoom as the zoom the path peaks at, and zooms out to
-   * reach it even when the natural path would stay closer. MapLibre GL JS treats it as a ceiling
-   * that only shortens the zoom-out. This returns the minimum zoom to pass so that native matches:
-   * [minZoom] when the natural path would pass it, null otherwise. Mirrors the setup of
-   * `Transform::flyTo`.
+   * The minimum zoom to pass to `flyTo`, or null to leave the flight path alone.
+   *
+   * MapLibre GL JS fits the flight curve to the higher of the requested minimum and the map's
+   * minimum zoom, and only when the natural path would pass below it. MapLibre Native fits the
+   * curve to the requested minimum whenever one is given, zooming out to reach it, and otherwise
+   * ignores the map's minimum until it clamps each frame. This mirrors the GL JS decision, using
+   * the setup of `Transform::flyTo`.
    */
   private fun MapHandle.flightMinZoom(camera: CameraOptions, minZoom: Double?): Double? {
-    if (minZoom == null) return null
     val current = this.camera
     val size = size
     val padding = camera.padding ?: current.padding ?: EdgeInsets(0.0, 0.0, 0.0, 0.0)
     val startZoom = current.zoom ?: return null
     val start = current.center ?: return null
     val end = camera.center ?: start
-    val zoomRange = (bounds.minZoom ?: 0.0)..(bounds.maxZoom ?: MAX_NATIVE_ZOOM)
+    val mapMinZoom = bounds.minZoom ?: 0.0
+    val zoomRange = mapMinZoom..(bounds.maxZoom ?: MAX_NATIVE_ZOOM)
     val zoom = (camera.zoom ?: startZoom).coerceIn(zoomRange)
-    val peakZoom = minOf(minZoom, startZoom, zoom).coerceIn(zoomRange)
+    val floor = maxOf(minZoom ?: mapMinZoom, mapMinZoom)
+    val peakZoom = minOf(floor, startZoom, zoom).coerceIn(zoomRange)
     val pathLength =
       mercatorPixelDistance(startZoom, start.toPosition(), end.toPosition()).takeIf { it > 0.0 }
         ?: return null
@@ -1446,7 +1449,7 @@ internal class MlnFfiMapSession(
         size.height - padding.top - padding.bottom,
       )
     val peakSpan = startSpan / 2.0.pow(peakZoom - startZoom)
-    return minZoom.takeIf { sqrt(peakSpan / pathLength * 2.0) < FLIGHT_CURVE }
+    return floor.takeIf { sqrt(peakSpan / pathLength * 2.0) < FLIGHT_CURVE }
   }
 
   private fun CameraAnimation.toAnimationOptions(): AnimationOptions =

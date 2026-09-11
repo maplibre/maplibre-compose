@@ -215,19 +215,36 @@ class MapCameraTransitionTest {
     }
   }
 
-  /** A flight without a duration paces itself by speed, so it still completes and lands. */
+  /**
+   * A flight without a duration paces itself by speed. The camera must be seen part way, since a
+   * flight that jumps also lands on its target.
+   */
   @Test
-  fun a_flight_paced_by_speed_completes_and_lands_on_its_target(): MapTestResult = runMapTest {
-    createMapFixture().use {
-      it.startAt(FLIGHT_START)
+  fun a_flight_paced_by_speed_moves_over_time_and_lands_on_its_target(): MapTestResult =
+    runMapTest {
+      if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
+      createMapFixture().use {
+        it.startAt(FLIGHT_START)
 
-      it.awaitWhileRendering("the flight to complete") {
-        it.state.animateCameraPosition(FLIGHT_TARGET, CameraAnimation.Fly(speed = 20.0))
+        val flight =
+          launch(Dispatchers.Default) {
+            it.state.animateCameraPosition(FLIGHT_TARGET, CameraAnimation.Fly(speed = 20.0))
+          }
+        it.pumpUntil("the flight to move the camera") {
+          flight.isCompleted ||
+            abs(it.session.getCameraPosition().target.latitude - FLIGHT_START.target.latitude) > 1.0
+        }
+        assertFalse(flight.isCompleted, "the flight jumped to its target")
+        val partWay = it.session.getCameraPosition()
+        assertTrue(
+          abs(partWay.target.latitude - FLIGHT_TARGET.target.latitude) > 1.0,
+          "the flight had already arrived at $partWay",
+        )
+
+        it.pumpUntil("the flight to complete") { flight.isCompleted }
+        it.assertLanded(FLIGHT_TARGET, "the flight")
       }
-
-      it.assertLanded(FLIGHT_TARGET, "the flight")
     }
-  }
 
   /**
    * A minimum zoom at the start zoom keeps a flight that would zoom out from doing so. Both engines
@@ -235,7 +252,7 @@ class MapCameraTransitionTest {
    * it, rather than clamping the zoom.
    */
   @Test
-  fun a_flight_respects_its_minimum_zoom(): MapTestResult = runMapTest {
+  fun a_flight_peaks_near_its_minimum_zoom(): MapTestResult = runMapTest {
     if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
     createMapFixture().use {
       it.startAt(FLIGHT_START)
@@ -245,6 +262,22 @@ class MapCameraTransitionTest {
           FLIGHT_TARGET,
           CameraAnimation.Fly(1.seconds, minZoom = FLIGHT_START.zoom),
         )
+
+      assertTrue(lowestZoom > FLIGHT_START.zoom - 0.5, "the flight zoomed out to $lowestZoom")
+      it.assertLanded(FLIGHT_TARGET, "the flight")
+    }
+  }
+
+  /** The map's own minimum zoom shapes a flight the same way as a requested minimum. */
+  @Test
+  fun a_flight_peaks_near_the_maps_minimum_zoom(): MapTestResult = runMapTest {
+    if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
+    createMapFixture().use {
+      it.startAt(FLIGHT_START)
+      it.session.setCameraConstraints(TEST_CONSTRAINTS.copy(minZoom = FLIGHT_START.zoom))
+      it.pump(frames = 2)
+
+      val lowestZoom = it.lowestZoomWhileAnimating(FLIGHT_TARGET, CameraAnimation.Fly(1.seconds))
 
       assertTrue(lowestZoom > FLIGHT_START.zoom - 0.5, "the flight zoomed out to $lowestZoom")
       it.assertLanded(FLIGHT_TARGET, "the flight")
