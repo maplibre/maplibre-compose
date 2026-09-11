@@ -215,14 +215,7 @@ echo "JS tests launch ${CHROME_BIN:?}"
 "$CHROME_BIN" --version
 echo "JS tests launch ${FIREFOX_BIN:?}"
 "$FIREFOX_BIN" --version
-# Firefox refuses WebGL in headless mode (bugzilla 1375585). Headed Firefox on
-# Xvfb still gets a software GL context; Chromium stays on its SwiftShader flags.
-if [[ "$(uname -s)" == Linux ]]; then
-  xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" \
-    env LIBGL_ALWAYS_SOFTWARE=1 ./gradlew jsBrowserTest
-else
-  ./gradlew jsBrowserTest
-fi
+./gradlew jsBrowserTest
 '''
 
 [tasks."test:desktop"]

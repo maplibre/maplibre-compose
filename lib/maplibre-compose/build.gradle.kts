@@ -44,8 +44,7 @@ kotlin {
       testTask {
         useKarma {
           useChromeHeadless()
-          // Headed: Firefox headless has no WebGL. test:js puts a display under Xvfb on Linux.
-          useFirefox()
+          useFirefoxHeadless()
         }
       }
     }
