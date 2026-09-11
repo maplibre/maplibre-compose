@@ -21,6 +21,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
@@ -39,6 +41,100 @@ import org.maplibre.spatialk.units.extensions.meters
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MacosLocationProviderTest {
+  @Test
+  fun collectorRecoversAfterPermissionChanges() = runTest {
+    val client = FakeCoreLocationClient(authorizationStatus = CL_AUTHORIZATION_DENIED)
+    val provider = MacosLocationProvider(client, Dispatchers.Unconfined, Dispatchers.Unconfined)
+    val permissionManager = client.managers.single()
+    val events = mutableListOf<LocationEvent>()
+    val collection = backgroundScope.launch {
+      provider.updates(LocationRequest()).collect(events::add)
+    }
+    runCurrent()
+    assertEquals(
+      LocationUnavailableReason.PermissionDenied,
+      assertIs<LocationEvent.Unavailable>(events.last()).reason,
+    )
+    assertEquals(1, client.managers.size)
+
+    permissionManager.authorizationStatus = CL_AUTHORIZATION_AUTHORIZED_WHEN_IN_USE
+    permissionManager.boundDelegate?.didChangeAuthorization()
+    runCurrent()
+    val firstManagers = client.managers.drop(1)
+    assertEquals(1, firstManagers.size)
+    firstManagers.forEach { it.boundDelegate?.didUpdateLocations(listOf(sampleMeasurement())) }
+    runCurrent()
+    assertIs<LocationEvent.Update>(events.last())
+
+    permissionManager.authorizationStatus = CL_AUTHORIZATION_DENIED
+    permissionManager.boundDelegate?.didChangeAuthorization()
+    runCurrent()
+    assertTrue(firstManagers.all { it.closed })
+    assertEquals(
+      LocationUnavailableReason.PermissionDenied,
+      assertIs<LocationEvent.Unavailable>(events.last()).reason,
+    )
+    permissionManager.authorizationStatus = CL_AUTHORIZATION_AUTHORIZED_WHEN_IN_USE
+    permissionManager.boundDelegate?.didChangeAuthorization()
+    runCurrent()
+    assertEquals(3, client.managers.size)
+    client.managers.last().boundDelegate?.didUpdateLocations(listOf(sampleMeasurement()))
+    runCurrent()
+    assertIs<LocationEvent.Update>(events.last())
+    collection.cancel()
+    runCurrent()
+    assertTrue(client.managers.last().closed)
+    assertTrue(client.managers.all { it.whenInUseRequests == 0 })
+    provider.close()
+  }
+
+  @Test
+  fun collectorRetriesFailedPermissionReadsWithoutAnotherAuthorizationCallback() = runTest {
+    val dispatcher = StandardTestDispatcher(testScheduler)
+    val client = FakeCoreLocationClient().apply { nextLocation = sampleMeasurement() }
+    val provider = MacosLocationProvider(client, dispatcher, dispatcher)
+    val permissionManager = client.managers.single()
+    val events = mutableListOf<LocationEvent>()
+    val collection = backgroundScope.launch { provider.updates().collect(events::add) }
+    runCurrent()
+    assertIs<LocationEvent.Update>(events.last())
+
+    val failure = IllegalStateException("permission read failed")
+    var failing = true
+    var reads = 0
+    permissionManager.onAuthorizationRead = {
+      reads++
+      if (failing) throw failure
+    }
+    permissionManager.boundDelegate?.didChangeAuthorization()
+    runCurrent()
+    val unavailable = assertIs<LocationEvent.Unavailable>(events.last())
+    assertEquals(LocationUnavailableReason.UnexpectedFailure, unavailable.reason)
+    assertEquals(failure, unavailable.cause)
+    assertTrue(client.managers.last().closed)
+    advanceTimeBy(1.seconds)
+    runCurrent()
+    assertEquals(3, reads)
+    assertEquals(2, client.managers.size)
+
+    failing = false
+    advanceTimeBy(1.seconds)
+    runCurrent()
+    assertIs<LocationEvent.Update>(events.last())
+    assertEquals(3, client.managers.size)
+
+    failing = true
+    permissionManager.boundDelegate?.didChangeAuthorization()
+    runCurrent()
+    collection.cancel()
+    runCurrent()
+    val readsBeforeCancellation = reads
+    advanceTimeBy(2.seconds)
+    runCurrent()
+    assertEquals(readsBeforeCancellation, reads)
+    provider.close()
+  }
+
   @Test
   fun serviceLoaderFindsMacosBackend() {
     assertTrue(
@@ -260,14 +356,16 @@ class MacosLocationProviderTest {
   }
 
   @Test
-  fun missingLocationServicesEmitsServicesDisabled() = runTest {
+  fun missingLocationServicesReportsAndCompletes() = runTest {
     val client = FakeCoreLocationClient(locationServicesEnabled = false)
     val provider = MacosLocationProvider(client, Dispatchers.Unconfined)
     val managersBeforeUpdates = client.managers.size
 
-    val event = assertIs<LocationEvent.Unavailable>(provider.updates(LocationRequest()).first())
+    val event =
+      assertIs<LocationEvent.Unavailable>(provider.updates(LocationRequest()).toList().single())
     assertEquals(LocationUnavailableReason.ServicesDisabled, event.reason)
     assertEquals(managersBeforeUpdates, client.managers.size)
+    provider.close()
   }
 
   @Test
@@ -362,22 +460,29 @@ class MacosLocationProviderTest {
   fun collectionRetriesPermissionInitializationWithoutPrompting() = runTest {
     val failure = IllegalStateException("native failed")
     val client = FakeCoreLocationClient().apply { createFailure = failure }
-    val provider = MacosLocationProvider(client, Dispatchers.Unconfined, Dispatchers.Unconfined)
-
-    val failed = assertIs<LocationEvent.Unavailable>(provider.updates().first())
+    val dispatcher = StandardTestDispatcher(testScheduler)
+    val provider = MacosLocationProvider(client, dispatcher, dispatcher)
+    val events = mutableListOf<LocationEvent>()
+    val collection = backgroundScope.launch { provider.updates().collect(events::add) }
+    runCurrent()
+    val failed = assertIs<LocationEvent.Unavailable>(events.single())
     assertEquals(LocationUnavailableReason.UnexpectedFailure, failed.reason)
     assertEquals(failure, failed.cause)
     assertEquals(LocationPermission.Unknown, provider.permission.value)
 
     client.createFailure = null
     client.nextLocation = sampleMeasurement()
-    assertIs<LocationEvent.Update>(provider.updates().first())
+    advanceTimeBy(1.seconds)
+    runCurrent()
+    assertIs<LocationEvent.Update>(events.last())
     assertEquals(
       LocationPermission.Granted(LocationAccuracyAuthorization.Precise),
       provider.permission.value,
     )
     assertEquals(2, client.managers.size)
     assertTrue(client.managers.all { it.whenInUseRequests == 0 })
+    collection.cancel()
+    runCurrent()
     provider.close()
     assertTrue(client.managers.all { it.closeCount == 1 })
     assertEquals(1, client.closeCount)

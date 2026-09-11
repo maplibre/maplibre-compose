@@ -9,12 +9,14 @@ import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.maplibre.spatialk.geojson.Position
@@ -72,6 +74,24 @@ internal constructor(
     check(backendAvailability == LocationBackendAvailability.Available) {
       "Location updates require an available backend: $backendAvailability"
     }
+    val collection = launch {
+      permission.collectLatest { status ->
+        when (status) {
+          is LocationPermission.Granted -> {
+            locationUpdates(request).collect { send(it) }
+            close()
+            this@launch.cancel()
+          }
+          LocationPermission.Unknown -> Unit
+          is LocationPermission.NotGranted ->
+            send(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied))
+        }
+      }
+    }
+    awaitClose { collection.cancel() }
+  }
+
+  private fun locationUpdates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
     var previous: BrowserPosition? = null
     fun publish(result: BrowserResult) {
       when (result) {
@@ -91,10 +111,10 @@ internal constructor(
         is BrowserResult.Error -> {
           val reason = result.value.asUnavailableReason()
           previous = null
-          trySend(LocationEvent.Unavailable(reason))
           if (reason == LocationUnavailableReason.PermissionDenied) {
-            boundary.permissionState.acceptDenial()
-            close()
+            requester.acceptDenial()
+          } else {
+            trySend(LocationEvent.Unavailable(reason))
           }
         }
       }
@@ -145,8 +165,16 @@ internal constructor(
       LocationBackendAvailability.Unsupported
     }
 
+  private val mutableStatus = MutableStateFlow<LocationPermission>(LocationPermission.Unknown)
+
   /** Current foreground location permission. */
-  public val status: StateFlow<LocationPermission> = boundary.permissionState.status
+  public val status: StateFlow<LocationPermission> = mutableStatus
+
+  internal fun acceptDenial() {
+    if (mutableStatus.value !is LocationPermission.NotGranted) {
+      mutableStatus.value = LocationPermission.NotGranted(canRequest = null)
+    }
+  }
 
   private var requestPending = false
 
@@ -155,7 +183,11 @@ internal constructor(
       boundary
         .permissionChanges()
         .catch { emit(BrowserPermission.Unknown) }
-        .collect { boundary.permissionState.accept(it.asLocationPermission()) }
+        .collect {
+          if (it != BrowserPermission.Unknown || status.value == LocationPermission.Unknown) {
+            mutableStatus.value = it.asLocationPermission()
+          }
+        }
     }
   }
 
@@ -185,21 +217,18 @@ internal constructor(
             )
         ) {
           is BrowserResult.Position ->
-            boundary.permissionState.accept(
-              LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)
-            )
+            mutableStatus.value = LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)
           is BrowserResult.Error ->
             if (result.value == BrowserError.PermissionDenied) {
-              boundary.permissionState.acceptDenial()
+              acceptDenial()
             } else {
-              boundary.permissionState.accept(
+              mutableStatus.value =
                 LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)
-              )
             }
         }
       } catch (error: Throwable) {
         if (error is CancellationException) throw error
-        boundary.permissionState.accept(LocationPermission.NotGranted(canRequest = null))
+        mutableStatus.value = LocationPermission.NotGranted(canRequest = null)
       } finally {
         requestPending = false
       }
@@ -251,25 +280,8 @@ internal sealed interface BrowserResult {
   data class Error(val value: BrowserError) : BrowserResult
 }
 
-internal class BrowserLocationPermissionState {
-  private val mutableStatus =
-    MutableStateFlow<LocationPermission>(LocationPermission.NotGranted(canRequest = null))
-  val status: StateFlow<LocationPermission> = mutableStatus
-
-  fun accept(permission: LocationPermission) {
-    mutableStatus.value = permission
-  }
-
-  fun acceptDenial() {
-    if (mutableStatus.value is LocationPermission.Granted) {
-      mutableStatus.value = LocationPermission.NotGranted(canRequest = null)
-    }
-  }
-}
-
 internal interface BrowserGeolocationBoundary {
   val supported: Boolean
-  val permissionState: BrowserLocationPermissionState
 
   fun permissionChanges(): Flow<BrowserPermission>
 
@@ -280,7 +292,6 @@ internal interface BrowserGeolocationBoundary {
 
 private object BrowserGeolocation : BrowserGeolocationBoundary {
   private val rawNavigator: dynamic = js("navigator")
-  override val permissionState = BrowserLocationPermissionState()
 
   override val supported: Boolean
     get() = rawNavigator.geolocation != null

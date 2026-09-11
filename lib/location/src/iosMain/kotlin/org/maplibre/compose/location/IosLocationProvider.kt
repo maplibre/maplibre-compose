@@ -2,11 +2,14 @@ package org.maplibre.compose.location
 
 import kotlin.time.TimeSource
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
@@ -41,7 +44,11 @@ import platform.darwin.NSObject
  * report [LocationUnavailableReason.UnexpectedFailure].
  */
 public class IosLocationProvider
-internal constructor(private val requester: IosLocationPermissionRequester) : LocationProvider {
+internal constructor(
+  private val requester: IosLocationPermissionRequester,
+  private val servicesEnabled: suspend () -> Boolean = ::locationServicesEnabled,
+  private val createManager: () -> CLLocationManager = { CLLocationManager() },
+) : LocationProvider {
   /** Creates a provider with its own permission requester. */
   public constructor() : this(IosLocationPermissionRequester())
 
@@ -52,9 +59,24 @@ internal constructor(private val requester: IosLocationPermissionRequester) : Lo
 
   override fun close(): Unit = requester.close()
 
+  @OptIn(ExperimentalCoroutinesApi::class)
   override fun updates(request: LocationRequest): Flow<LocationEvent> =
+    permission.flatMapLatest { status ->
+      if (status is LocationPermission.Granted) {
+        locationUpdates(request)
+      } else {
+        flowOf(
+          LocationEvent.Unavailable(
+            if (servicesEnabled()) LocationUnavailableReason.PermissionDenied
+            else LocationUnavailableReason.ServicesDisabled
+          )
+        )
+      }
+    }
+
+  private fun locationUpdates(request: LocationRequest): Flow<LocationEvent> =
     callbackFlow<IosLocationCallback> {
-        val manager = CLLocationManager()
+        val manager = createManager()
         val delegate = Delegate(channel)
         manager.delegate = delegate
         manager.desiredAccuracy =
@@ -76,7 +98,7 @@ internal constructor(private val requester: IosLocationPermissionRequester) : Lo
         when (callback) {
           is IosLocationCallback.Update -> callback.event
           is IosLocationCallback.Failure ->
-            LocationEvent.Unavailable(callback.error.asUnavailableReason())
+            LocationEvent.Unavailable(callback.error.asUnavailableReason(servicesEnabled))
         }
       }
 

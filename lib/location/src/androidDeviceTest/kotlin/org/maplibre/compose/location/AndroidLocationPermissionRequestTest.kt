@@ -17,21 +17,23 @@ import kotlinx.coroutines.launch
 class AndroidLocationPermissionRequestTest {
   @Test
   fun reentrantCloseDuringPermissionRefreshPreventsLaunch() {
-    val registry = TestResultRegistry()
-    var rationale = false
-    val requester = AndroidLocationPermissionRequester(null, registry, { null }, { rationale })
-    val observer =
-      CoroutineScope(Dispatchers.Unconfined).launch {
-        requester.status.drop(1).collect { requester.close() }
+    InstrumentationRegistry.getInstrumentation().runOnMainSync {
+      val registry = TestResultRegistry()
+      var rationale = false
+      val requester = AndroidLocationPermissionRequester(null, registry, { null }, { rationale })
+      val observer =
+        CoroutineScope(Dispatchers.Unconfined).launch {
+          requester.status.drop(1).collect { requester.close() }
+        }
+      try {
+        rationale = true
+        requester.requestForegroundPermission()
+        assertEquals(0, registry.launches)
+        assertFailsWith<IllegalStateException> { requester.refresh() }
+      } finally {
+        observer.cancel()
+        requester.close()
       }
-    try {
-      rationale = true
-      requester.requestForegroundPermission()
-      assertEquals(0, registry.launches)
-      assertFailsWith<IllegalStateException> { requester.refresh() }
-    } finally {
-      observer.cancel()
-      requester.close()
     }
   }
 

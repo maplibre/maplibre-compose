@@ -5,7 +5,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.pm.PackageManager
 import android.location.Criteria
 import android.location.Location as AndroidLocation
 import android.location.LocationListener
@@ -17,10 +16,18 @@ import android.os.HandlerThread
 import androidx.annotation.MainThread
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.retryWhen
+import kotlinx.coroutines.launch
 import org.maplibre.spatialk.units.extensions.inMeters
 
 /**
@@ -58,16 +65,30 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
 
   @MainThread override fun close(): Unit = requester.close()
 
-  @RequiresPermission(
-    anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
-  )
   override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
-    if (!context.hasLocationPermission()) {
-      trySend(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied))
-      close()
-      return@callbackFlow
+    val collection = launch {
+      permission.collectLatest { status ->
+        if (status is LocationPermission.Granted) {
+          locationUpdates(request)
+            .retryWhen { error, _ ->
+              if (error !is SecurityException) return@retryWhen false
+              emit(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied, error))
+              delay(1.seconds)
+              true
+            }
+            .collect { send(it) }
+          close()
+          this@launch.cancel()
+        } else {
+          send(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied))
+        }
+      }
     }
+    awaitClose { collection.cancel() }
+  }
 
+  @Suppress("MissingPermission")
+  private fun locationUpdates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
     val manager = context.getSystemService(LocationManager::class.java)
     val listener =
       object : LocationListener {
@@ -123,8 +144,7 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
             trySend(LocationEvent.Unavailable(LocationUnavailableReason.UnexpectedFailure, error))
             close()
           } catch (error: SecurityException) {
-            trySend(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied, error))
-            close()
+            close(error)
           }
         }
       }
@@ -136,8 +156,7 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
       trySend(LocationEvent.Unavailable(LocationUnavailableReason.UnexpectedFailure, error))
       close()
     } catch (error: SecurityException) {
-      trySend(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied, error))
-      close()
+      close(error)
     }
 
     awaitClose {
@@ -145,6 +164,7 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
       manager.removeUpdates(listener)
     }
   }
+    .flowOn(Dispatchers.Main.immediate)
 
   @Suppress("DEPRECATION")
   private fun selectProvider(
@@ -236,12 +256,6 @@ private class IdentifiedLocationProvider(
   override val backendId: String,
   private val delegate: LocationProvider,
 ) : LocationProvider by delegate
-
-private fun Context.hasLocationPermission(): Boolean =
-  checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) ==
-    PackageManager.PERMISSION_GRANTED ||
-    checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) ==
-      PackageManager.PERMISSION_GRANTED
 
 private fun Context.registerLocationSettingsReceiver(receiver: BroadcastReceiver) {
   val filter =
