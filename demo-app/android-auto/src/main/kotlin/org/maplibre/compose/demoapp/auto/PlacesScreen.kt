@@ -22,6 +22,7 @@ import androidx.lifecycle.lifecycleScope
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.demoapp.Protomaps
@@ -119,7 +120,7 @@ internal class PlacesScreen(carContext: CarContext, runtime: MapRuntime) : Scree
     inFlightZoom = null
     cameraAnimation?.cancel()
     cameraAnimation = lifecycleScope.launch {
-      state.animateCameraPosition(place.camera, duration = 650.milliseconds)
+      state.animateCameraPosition(place.camera, CameraAnimation.Fly(650.milliseconds))
     }
     invalidate()
   }
@@ -131,7 +132,7 @@ internal class PlacesScreen(carContext: CarContext, runtime: MapRuntime) : Scree
     inFlightZoom = request
     cameraAnimation = lifecycleScope.launch {
       try {
-        state.animateCameraPosition(request.target)
+        state.animateCameraPosition(request.target, CameraAnimation.Ease())
       } finally {
         if (inFlightZoom === request) inFlightZoom = null
       }

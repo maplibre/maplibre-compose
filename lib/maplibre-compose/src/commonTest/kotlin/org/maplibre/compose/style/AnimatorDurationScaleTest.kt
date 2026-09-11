@@ -2,10 +2,14 @@ package org.maplibre.compose.style
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.double
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import org.maplibre.compose.camera.CameraAnimation
 
 class AnimatorDurationScaleTest {
 
@@ -34,5 +38,28 @@ class AnimatorDurationScaleTest {
         value.jsonPrimitive.double
       },
     )
+  }
+
+  /** A flight without a duration slows its speed instead, so the flight still takes longer. */
+  @Test
+  fun scaling_a_camera_animation_scales_its_timing() {
+    assertEquals(
+      CameraAnimation.Ease(600.milliseconds),
+      CameraAnimation.Ease(300.milliseconds).scaledBy(2f),
+    )
+    assertEquals(CameraAnimation.Fly(2.seconds), CameraAnimation.Fly(1.seconds).scaledBy(2f))
+    assertEquals(CameraAnimation.Fly(speed = 1.0), CameraAnimation.Fly(speed = 2.0).scaledBy(2f))
+    assertEquals(
+      CameraAnimation.Fly(speed = CameraAnimation.Fly.DefaultSpeed / 2),
+      CameraAnimation.Fly().scaledBy(2f),
+    )
+  }
+
+  /** A scale of zero turns every transition into a jump, including a flight paced by speed. */
+  @Test
+  fun a_zero_scale_makes_a_camera_animation_a_jump() {
+    assertEquals(CameraAnimation.Ease(Duration.ZERO), CameraAnimation.Ease(1.seconds).scaledBy(0f))
+    assertEquals(CameraAnimation.Fly(Duration.ZERO), CameraAnimation.Fly(1.seconds).scaledBy(0f))
+    assertEquals(CameraAnimation.Fly(Duration.ZERO), CameraAnimation.Fly(speed = 2.0).scaledBy(0f))
   }
 }

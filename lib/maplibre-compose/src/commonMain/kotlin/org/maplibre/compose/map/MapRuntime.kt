@@ -25,8 +25,6 @@ import androidx.compose.ui.unit.dp
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.jvm.JvmInline
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
 import kotlinx.coroutines.CancellationException
@@ -49,6 +47,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
@@ -530,11 +529,11 @@ internal constructor(
 
   suspend fun animateCameraPosition(
     position: CameraPosition,
-    duration: Duration = 300.milliseconds,
+    animation: CameraAnimation = CameraAnimation.Fly(),
     guard: CameraCommandGuard? = null,
   ): Unit = runLeaseBound {
     awaitViewportState()
-    adapter.animateCameraPosition(position, duration, boundGuard(guard))
+    adapter.animateCameraPosition(position, animation, boundGuard(guard))
   }
 
   suspend fun animateCameraToBounds(
@@ -542,11 +541,11 @@ internal constructor(
     bearing: Double = 0.0,
     tilt: Double = 0.0,
     padding: PaddingValues = PaddingValues(0.dp),
-    duration: Duration = 300.milliseconds,
+    animation: CameraAnimation = CameraAnimation.Fly(),
     guard: CameraCommandGuard? = null,
   ): Unit = runLeaseBound {
     awaitViewportState()
-    adapter.animateCameraToBounds(boundingBox, bearing, tilt, padding, duration, boundGuard(guard))
+    adapter.animateCameraToBounds(boundingBox, bearing, tilt, padding, animation, boundGuard(guard))
   }
 
   fun getVisibleRegion(): VisibleRegion? = withViewport { it.getVisibleRegion() }
@@ -909,35 +908,35 @@ internal constructor(
   }
 
   /**
-   * Waits for a viewport, then animates to [position]. A newer camera command or accepted input
-   * cancels this call.
+   * Waits for a viewport, then moves the camera to [position] with [animation]. A newer camera
+   * command or accepted input cancels this call.
    *
-   * On Android, the system animator duration scale multiplies [duration]. A scale of zero jumps to
-   * [position].
+   * On Android, the system animator duration scale multiplies the duration of [animation]. A scale
+   * of zero jumps to [position].
    */
   public suspend fun animateCameraPosition(
     position: CameraPosition,
-    duration: Duration = 300.milliseconds,
+    animation: CameraAnimation = CameraAnimation.Fly(),
   ): Unit = coroutineScope {
     val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])
     retryAcrossAttachments {
-      it.animateCameraPosition(position, duration.scaledBy(systemAnimatorDurationScale()), guard)
+      it.animateCameraPosition(position, animation.scaledBy(systemAnimatorDurationScale()), guard)
     }
   }
 
   /**
-   * Waits for a viewport, then animates to fit [boundingBox]. A newer camera command or accepted
-   * input cancels this call.
+   * Waits for a viewport, then moves the camera to fit [boundingBox] with [animation]. A newer
+   * camera command or accepted input cancels this call.
    *
-   * On Android, the system animator duration scale multiplies [duration]. A scale of zero jumps to
-   * fit [boundingBox].
+   * On Android, the system animator duration scale multiplies the duration of [animation]. A scale
+   * of zero jumps to fit [boundingBox].
    */
   public suspend fun animateCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double = 0.0,
     tilt: Double = 0.0,
     padding: PaddingValues = PaddingValues(0.dp),
-    duration: Duration = 300.milliseconds,
+    animation: CameraAnimation = CameraAnimation.Fly(),
   ): Unit = coroutineScope {
     val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])
     retryAcrossAttachments {
@@ -946,7 +945,7 @@ internal constructor(
         bearing,
         tilt,
         padding,
-        duration.scaledBy(systemAnimatorDurationScale()),
+        animation.scaledBy(systemAnimatorDurationScale()),
         guard,
       )
     }

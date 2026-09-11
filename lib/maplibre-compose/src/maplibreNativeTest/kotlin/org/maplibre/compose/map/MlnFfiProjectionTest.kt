@@ -10,6 +10,7 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
@@ -126,7 +127,7 @@ class MlnFfiProjectionTest {
 
       val flight =
         launch(Dispatchers.Default) {
-          fixture.session.animateCameraPosition(ROTATED_CAMERA, 2.seconds)
+          fixture.session.animateCameraPosition(ROTATED_CAMERA, CameraAnimation.Fly(2.seconds))
         }
       fixture.pumpUntil("the camera to start moving") {
         abs(fixture.session.getCameraPosition().zoom - START_CAMERA.zoom) > 0.01

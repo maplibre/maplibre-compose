@@ -13,6 +13,8 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.math.PI
+import kotlin.math.pow
+import kotlin.math.sqrt
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
@@ -22,6 +24,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.io.files.Path
 import kotlinx.serialization.json.JsonObject
+import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.camera.internal.BoxZoomFit
@@ -68,6 +71,7 @@ import org.maplibre.compose.style.StyleRequestId
 import org.maplibre.compose.style.StyleResourceChanges
 import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
+import org.maplibre.compose.util.mercatorPixelDistance
 import org.maplibre.compose.util.metersPerDpAtLatitude
 import org.maplibre.compose.util.renderedQueryOptions
 import org.maplibre.compose.util.toCameraOptions
@@ -84,6 +88,7 @@ import org.maplibre.nativeffi.camera.BoundsConstraint
 import org.maplibre.nativeffi.camera.CameraFitOptions
 import org.maplibre.nativeffi.camera.CameraOptions
 import org.maplibre.nativeffi.camera.EdgeInsets
+import org.maplibre.nativeffi.camera.UnitBezier
 import org.maplibre.nativeffi.error.InvalidArgumentException
 import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.error.NativeErrorException
@@ -125,6 +130,12 @@ private const val MIN_PITCH_DEGREES = 0.0
 
 /** MapLibre rejects a pitch beyond this, so the drag is clamped rather than throwing. */
 private const val MAX_PITCH_DEGREES = 60.0
+
+/** `util::MAX_ZOOM`, the zoom MapLibre Native clamps to when the map has no maximum. */
+private const val MAX_NATIVE_ZOOM = 25.5
+
+/** The zoom curve of a flight, `rho` in `Transform::flyTo`. */
+private const val FLIGHT_CURVE = 1.42
 
 /** The events [MlnFfiMapSession.handleEvent] consumes. */
 private val HANDLED_MAP_EVENTS: RuntimeEventMask =
@@ -1370,11 +1381,11 @@ internal class MlnFfiMapSession(
 
   override suspend fun animateCameraPosition(
     finalPosition: CameraPosition,
-    duration: Duration,
+    animation: CameraAnimation,
     guard: CameraCommandGuard?,
   ) {
-    startTransitionAwaitingRelease(duration, guard = guard) { map, animation ->
-      map.flyTo(finalPosition.toCameraOptions(appliedCameraPadding), animation)
+    startTransitionAwaitingRelease(animation.toAnimationOptions(), guard = guard) { map, options ->
+      map.animateTo(finalPosition.toCameraOptions(appliedCameraPadding), animation, options)
     }
   }
 
@@ -1383,20 +1394,76 @@ internal class MlnFfiMapSession(
     bearing: Double,
     tilt: Double,
     padding: PaddingValues,
-    duration: Duration,
+    animation: CameraAnimation,
     guard: CameraCommandGuard?,
   ) {
     check(hasViewport) {
       "A bounds animation requires the current presentation viewport"
     }
-    startTransitionAwaitingRelease(duration, guard = guard) { map, animation ->
-      map.flyTo(cameraForBounds(map, boundingBox, bearing, tilt, padding), animation)
+    startTransitionAwaitingRelease(animation.toAnimationOptions(), guard = guard) { map, options ->
+      map.animateTo(cameraForBounds(map, boundingBox, bearing, tilt, padding), animation, options)
     }
   }
 
+  /** Owner thread only. */
+  private fun MapHandle.animateTo(
+    camera: CameraOptions,
+    animation: CameraAnimation,
+    options: AnimationOptions,
+  ) {
+    when (animation) {
+      is CameraAnimation.Ease -> easeTo(camera, options)
+      is CameraAnimation.Fly ->
+        flyTo(camera, options.copy { minZoom = flightMinZoom(camera, animation.minZoom) })
+    }
+  }
+
+  /**
+   * MapLibre Native treats a flight's minimum zoom as the zoom the path peaks at, and zooms out to
+   * reach it even when the natural path would stay closer. MapLibre GL JS treats it as a ceiling
+   * that only shortens the zoom-out. This returns the minimum zoom to pass so that native matches:
+   * [minZoom] when the natural path would pass it, null otherwise. Mirrors the setup of
+   * `Transform::flyTo`.
+   */
+  private fun MapHandle.flightMinZoom(camera: CameraOptions, minZoom: Double?): Double? {
+    if (minZoom == null) return null
+    val current = this.camera
+    val size = size
+    val padding = camera.padding ?: current.padding ?: EdgeInsets(0.0, 0.0, 0.0, 0.0)
+    val startZoom = current.zoom ?: return null
+    val start = current.center ?: return null
+    val end = camera.center ?: start
+    val zoomRange = (bounds.minZoom ?: 0.0)..(bounds.maxZoom ?: MAX_NATIVE_ZOOM)
+    val zoom = (camera.zoom ?: startZoom).coerceIn(zoomRange)
+    val peakZoom = minOf(minZoom, startZoom, zoom).coerceIn(zoomRange)
+    val pathLength =
+      mercatorPixelDistance(startZoom, start.toPosition(), end.toPosition()).takeIf { it > 0.0 }
+        ?: return null
+    // Screenfuls in pixels at the start scale: the visible span now and at the peak.
+    val startSpan =
+      maxOf(
+        size.width - padding.left - padding.right,
+        size.height - padding.top - padding.bottom,
+      )
+    val peakSpan = startSpan / 2.0.pow(peakZoom - startZoom)
+    return minZoom.takeIf { sqrt(peakSpan / pathLength * 2.0) < FLIGHT_CURVE }
+  }
+
+  private fun CameraAnimation.toAnimationOptions(): AnimationOptions =
+    AnimationOptions().also {
+      it.easing = UnitBezier(easing.x1, easing.y1, easing.x2, easing.y2)
+      when (this) {
+        is CameraAnimation.Ease -> it.durationMs = duration.inWholeMilliseconds.toDouble()
+        is CameraAnimation.Fly -> {
+          it.durationMs = duration?.inWholeMilliseconds?.toDouble()
+          it.velocity = speed ?: CameraAnimation.Fly.DefaultSpeed
+        }
+      }
+    }
+
   /** Resumes normally however the transition ended. */
   private suspend fun startTransitionAwaitingRelease(
-    duration: Duration,
+    animation: AnimationOptions,
     gestureToken: CameraInputToken? = null,
     guard: CameraCommandGuard? = null,
     shouldStart: (MapHandle) -> Boolean = { true },
@@ -1413,7 +1480,7 @@ internal class MlnFfiMapSession(
                   guard,
                   activate = { gestureToken?.let { activateGesture(map, it) } },
                 ) {
-                  if (shouldStart(map)) startTransitionOnMap(map, duration, start, continuation)
+                  if (shouldStart(map)) startTransitionOnMap(map, animation, start, continuation)
                   else if (continuation.isActive) continuation.resume(Unit)
                 }
             if (!started && continuation.isActive) continuation.resume(Unit)
@@ -1430,7 +1497,7 @@ internal class MlnFfiMapSession(
   /** Owner thread only. */
   private fun startTransitionOnMap(
     map: MapHandle,
-    duration: Duration,
+    animation: AnimationOptions,
     start: (MapHandle, AnimationOptions) -> Unit,
     continuation: CancellableContinuation<Unit>,
   ) {
@@ -1440,13 +1507,7 @@ internal class MlnFfiMapSession(
     transitionWaiters[id] = continuation
     currentTransitionId = id
     try {
-      start(
-        map,
-        AnimationOptions().also {
-          it.durationMs = duration.inWholeMilliseconds.toDouble()
-          it.transitionId = id
-        },
-      )
+      start(map, animation.copy { transitionId = id })
     } catch (error: Throwable) {
       // A rejected command emits no event, so nothing else would resume the continuation.
       forgetTransition(id)
@@ -1625,7 +1686,9 @@ internal class MlnFfiMapSession(
     gestureToken: CameraInputToken,
   ) {
     if (!acceptsGestures) return
-    startTransitionAwaitingRelease(duration, gestureToken = gestureToken) { map, animation ->
+    startTransitionAwaitingRelease(duration.toAnimationOptions(), gestureToken = gestureToken) {
+      map,
+      animation ->
       val camera = cameraForBounds(map, fit.bounds, fit.bearing, fit.tilt, PaddingValues())
       map.easeTo(camera, animation)
     }
@@ -1846,7 +1909,9 @@ internal class MlnFfiMapSession(
     gestureToken: CameraInputToken,
   ) {
     if (!acceptsGestures) return
-    startTransitionAwaitingRelease(duration, gestureToken = gestureToken) { map, animation ->
+    startTransitionAwaitingRelease(duration.toAnimationOptions(), gestureToken = gestureToken) {
+      map,
+      animation ->
       map.moveByAnimated(deltaX, deltaY, animation)
     }
   }
@@ -1871,7 +1936,9 @@ internal class MlnFfiMapSession(
     gestureToken: CameraInputToken,
   ) {
     if (!acceptsGestures) return
-    startTransitionAwaitingRelease(duration, gestureToken = gestureToken) { map, animation ->
+    startTransitionAwaitingRelease(duration.toAnimationOptions(), gestureToken = gestureToken) {
+      map,
+      animation ->
       map.scaleByAnimated(scale, anchor?.toScreenPoint(), animation)
     }
   }
@@ -1917,7 +1984,7 @@ internal class MlnFfiMapSession(
     if (!acceptsGestures) return
     var bearing = 0.0
     startTransitionAwaitingRelease(
-      duration,
+      duration.toAnimationOptions(),
       gestureToken = gestureToken,
       shouldStart = { map ->
         val current = map.camera.bearing ?: 0.0
@@ -1939,7 +2006,9 @@ internal class MlnFfiMapSession(
     anchor: DpOffset?,
   ) {
     if (!acceptsGestures) return
-    startTransitionAwaitingRelease(duration, gestureToken = gestureToken) { map, animation ->
+    startTransitionAwaitingRelease(duration.toAnimationOptions(), gestureToken = gestureToken) {
+      map,
+      animation ->
       val camera = map.camera
       map.easeTo(
         CameraOptions().also {

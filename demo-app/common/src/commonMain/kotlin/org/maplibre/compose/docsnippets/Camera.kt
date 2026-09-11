@@ -8,7 +8,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
@@ -30,11 +32,29 @@ fun Camera() {
   LaunchedEffect(mapState) {
     mapState.animateCameraPosition(
       position =
-        mapState.cameraPosition.copy(target = Position(latitude = 47.607, longitude = -122.342)),
-      duration = 3.seconds,
+        mapState.cameraPosition.copy(target = Position(latitude = 47.607, longitude = -122.342))
     )
   }
   // #endregion animate
+
+  // #region animate-fly
+  LaunchedEffect(mapState) {
+    mapState.animateCameraPosition(
+      position =
+        CameraPosition(target = Position(latitude = 40.713, longitude = -74.006), zoom = 12.0),
+      animation = CameraAnimation.Fly(duration = 3.seconds, minZoom = 4.0),
+    )
+  }
+  // #endregion animate-fly
+
+  // #region animate-ease
+  LaunchedEffect(mapState) {
+    mapState.animateCameraPosition(
+      position = mapState.cameraPosition.copy(zoom = mapState.cameraPosition.zoom + 1.0),
+      animation = CameraAnimation.Ease(duration = 500.milliseconds),
+    )
+  }
+  // #endregion animate-ease
 
   // #region fit-bounds
   LaunchedEffect(mapState) {

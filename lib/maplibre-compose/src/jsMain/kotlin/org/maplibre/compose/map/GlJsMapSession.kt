@@ -1,5 +1,6 @@
 package org.maplibre.compose.map
 
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -19,7 +20,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.asPromise
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.JsonObject
+import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.CubicBezier
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.camera.internal.BoxZoomFit
 import org.maplibre.compose.camera.internal.CameraCommandGuard
@@ -43,6 +46,7 @@ import org.maplibre.compose.gljs.JumpToOptions
 import org.maplibre.compose.gljs.LngLat
 import org.maplibre.compose.gljs.MapOptions
 import org.maplibre.compose.gljs.MaplibreMap
+import org.maplibre.compose.gljs.PaddedCameraOptions
 import org.maplibre.compose.gljs.PaddingOptions
 import org.maplibre.compose.gljs.Point
 import org.maplibre.compose.gljs.QueryGeometry
@@ -850,21 +854,10 @@ internal class GlJsMapSession(
 
   override suspend fun animateCameraPosition(
     finalPosition: CameraPosition,
-    duration: Duration,
+    animation: CameraAnimation,
     guard: CameraCommandGuard?,
   ) {
-    awaitCameraRelease(guard = guard) { map ->
-      map.flyTo(
-        unsafeJso<FlyToOptions> {
-          center = finalPosition.target.toLngLat()
-          zoom = finalPosition.zoom
-          bearing = finalPosition.bearing
-          pitch = finalPosition.tilt
-          padding = cameraPadding
-          this.duration = duration.inWholeMilliseconds.toDouble()
-        }
-      )
-    }
+    awaitCameraRelease(guard = guard) { map -> map.animateTo(finalPosition, animation) }
   }
 
   override suspend fun animateCameraToBounds(
@@ -872,14 +865,42 @@ internal class GlJsMapSession(
     bearing: Double,
     tilt: Double,
     padding: PaddingValues,
-    duration: Duration,
+    animation: CameraAnimation,
     guard: CameraCommandGuard?,
   ) {
     awaitCameraRelease(guard = guard) { map ->
       map.cameraPositionForBounds(boundingBox, bearing, tilt, padding)?.let {
-        map.easeTo(it.toEaseToOptions(duration))
+        map.animateTo(it, animation)
       }
     }
+  }
+
+  private fun MaplibreMap.animateTo(position: CameraPosition, animation: CameraAnimation) {
+    when (animation) {
+      is CameraAnimation.Ease ->
+        easeTo(
+          unsafeJso<EaseToOptions> {
+            applyTarget(position)
+            duration = animation.duration.inWholeMilliseconds.toDouble()
+            easing = animation.easing.toEasingFunction()
+          }
+        )
+      is CameraAnimation.Fly ->
+        flyTo(
+          unsafeJso<FlyToOptions> {
+            applyTarget(position)
+            duration = animation.duration?.inWholeMilliseconds?.toDouble()
+            screenSpeed = animation.speed ?: CameraAnimation.Fly.DefaultSpeed
+            minZoom = animation.minZoom
+            easing = animation.easing.toEasingFunction()
+          }
+        )
+    }
+  }
+
+  private fun CubicBezier.toEasingFunction(): (Double) -> Double {
+    val curve = CubicBezierEasing(x1.toFloat(), y1.toFloat(), x2.toFloat(), y2.toFloat())
+    return { t -> curve.transform(t.toFloat()).toDouble() }
   }
 
   private fun MaplibreMap.cameraPositionForBounds(
@@ -1339,20 +1360,21 @@ internal class GlJsMapSession(
   // endregion
 
   private fun CameraPosition.toJumpToOptions(): JumpToOptions = unsafeJso {
-    center = target.toLngLat()
-    zoom = this@toJumpToOptions.zoom
-    bearing = this@toJumpToOptions.bearing
-    pitch = tilt
-    padding = cameraPadding
+    applyTarget(this@toJumpToOptions)
   }
 
   private fun CameraPosition.toEaseToOptions(duration: Duration): EaseToOptions = unsafeJso {
-    center = target.toLngLat()
-    zoom = this@toEaseToOptions.zoom
-    bearing = this@toEaseToOptions.bearing
-    pitch = tilt
-    padding = cameraPadding
+    applyTarget(this@toEaseToOptions)
     this.duration = duration.inWholeMilliseconds.toDouble()
+  }
+
+  /** Sets the camera fields of an options object, with the persistent camera padding. */
+  private fun PaddedCameraOptions.applyTarget(position: CameraPosition) {
+    center = position.target.toLngLat()
+    zoom = position.zoom
+    bearing = position.bearing
+    pitch = position.tilt
+    padding = cameraPadding
   }
 
   private fun PaddingOptions.sameAs(other: PaddingOptions): Boolean =
