@@ -14,7 +14,10 @@ import org.maplibre.compose.style.isFontUrl
  * that register the same bytes share one entry, and one map dropping its files never removes a file
  * another map still refers to.
  */
-internal class StyleFontStore {
+internal class StyleFontStore(
+  /** Test seam: observes each URL the engine asked for and whether a file was found. */
+  private val onServe: ((url: String, found: Boolean) -> Unit)? = null
+) {
   private val lock = reentrantLock()
   private val files = mutableMapOf<String, FontFile>()
   private val holders = mutableMapOf<String, MutableSet<Any>>()
@@ -51,8 +54,10 @@ internal class StyleFontStore {
     lock.withLock { held.remove(owner)?.forEach { releaseLocked(owner, it) } }
   }
 
-  fun bytes(url: String): ByteArray? = lock.withLock {
-    files[url.removePrefix("$FONT_URL_SCHEME://")]?.bytes
+  fun bytes(url: String): ByteArray? {
+    val bytes = lock.withLock { files[url.removePrefix("$FONT_URL_SCHEME://")]?.bytes }
+    onServe?.invoke(url, bytes != null)
+    return bytes
   }
 
   private fun releaseLocked(owner: Any, file: FontFile) {

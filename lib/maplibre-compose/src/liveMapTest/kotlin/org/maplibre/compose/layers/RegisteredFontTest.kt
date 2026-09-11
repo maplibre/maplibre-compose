@@ -15,6 +15,7 @@ import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.resource.MapResourceError
 import org.maplibre.compose.resource.MapResourceLoad
 import org.maplibre.compose.resource.MapResourceProvider
+import org.maplibre.compose.resource.StyleFontStore
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
@@ -47,13 +48,18 @@ class RegisteredFontTest {
     val glyphRequests = RecordingList<String>()
     val glyphServer =
       MapResourceProvider(
-        accepts = { it.url.startsWith("glyphs://") },
+        accepts = {
+          glyphRequests += "asked ${it.url}"
+          it.url.startsWith("glyphs://")
+        },
         load = { request ->
           glyphRequests += request.url
           MapResourceLoad.Failed(MapResourceError.NotFound, "no glyphs")
         },
       )
-    createMapFixture(resourceConfig = MapResourceConfig(provider = glyphServer)).use { fixture ->
+    val fonts = StyleFontStore { url, found -> glyphRequests += "font $url found=$found" }
+    val config = MapResourceConfig(provider = glyphServer, fonts = fonts)
+    createMapFixture(resourceConfig = config).use { fixture ->
       fixture.loadStyle(BaseStyle.Json(whiteStyle("first")))
       fixture.state.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = 2.0))
       val content = labelContent()
@@ -68,7 +74,7 @@ class RegisteredFontTest {
 
       fixture.pumpUntilTextDrawn(glyphRequests)
       assertTrue(
-        glyphRequests.none { FONT_NAME in it },
+        glyphRequests.none { it.startsWith("glyphs://") && FONT_NAME in it },
         "the glyph server was asked for the registered stack: ${glyphRequests.toList()}",
       )
     }
