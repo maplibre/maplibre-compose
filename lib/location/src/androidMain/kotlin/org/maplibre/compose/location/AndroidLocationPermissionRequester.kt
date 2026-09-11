@@ -87,9 +87,7 @@ internal constructor(
    *   check.
    * - `canRequest = true` otherwise.
    *
-   * The value refreshes when the resolved activity resumes and once per second while [status] has
-   * collectors. This also observes grants made elsewhere when the supplied context cannot reach an
-   * activity. Observation never launches a permission request.
+   * Refreshes on activity resume and once per second while collected.
    */
   public val status: StateFlow<LocationPermission> = mutableStatus
 

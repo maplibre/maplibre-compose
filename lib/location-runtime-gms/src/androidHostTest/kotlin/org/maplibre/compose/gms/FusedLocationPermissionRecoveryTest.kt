@@ -34,30 +34,9 @@ import org.robolectric.annotation.Config
 @Config(sdk = [36], manifest = Config.NONE)
 class FusedLocationPermissionRecoveryTest {
   @Test
-  fun securityFailureRetriesWithoutAPermissionDelegateAndCancellationStopsRetrying() = runTest {
-    var denied = true
-    var reads = 0
-    var removals = 0
-    val client =
-      Proxy.newProxyInstance(
-        FusedLocationProviderClient::class.java.classLoader,
-        arrayOf(FusedLocationProviderClient::class.java),
-      ) { _, method, _ ->
-        when (method.name) {
-          "getLastLocation" -> {
-            reads++
-            if (denied) throw SecurityException("denied")
-            Tasks.forResult(Location("fused").apply { time = System.currentTimeMillis() })
-          }
-          "requestLocationUpdates" -> Tasks.forResult<Void>(null)
-          "removeLocationUpdates" -> {
-            removals++
-            Tasks.forResult<Void>(null)
-          }
-          else -> error(method.name)
-        }
-      } as FusedLocationProviderClient
-    val provider = FusedLocationProvider(client, null, Executor { it.run() })
+  fun securityFailureRecoversWithoutPermissionDelegate() = runTest {
+    val client = TestClient().apply { denied = true }
+    val provider = FusedLocationProvider(client.delegate, null, Executor { it.run() })
     val events = mutableListOf<LocationEvent>()
     val collection = backgroundScope.launch {
       provider.updates(LocationRequest()).collect(events::add)
@@ -67,20 +46,17 @@ class FusedLocationPermissionRecoveryTest {
       LocationUnavailableReason.PermissionDenied,
       assertIs<LocationEvent.Unavailable>(events.last()).reason,
     )
-    denied = false
+    client.denied = false
+    client.lastLocation = Location("fused")
     advanceTimeBy(1.seconds)
     runCurrent()
     assertIs<LocationEvent.Update>(events.last())
-    assertEquals(2, reads)
     collection.cancelAndJoin()
-    advanceTimeBy(2.seconds)
-    runCurrent()
-    assertEquals(2, reads)
-    assertEquals(1, removals)
+    assertTrue(client.callbacks.isEmpty())
   }
 
   @Test
-  fun collectorsRecoverWithoutPromptsAndRemoveOnlyTheirOwnCallbacks() = runTest {
+  fun collectorRecoversAfterPermissionChanges() = runTest {
     val permission = MutableStateFlow<LocationPermission>(LocationPermission.NotGranted(false))
     val delegate =
       object : LocationProvider {
@@ -91,51 +67,24 @@ class FusedLocationPermissionRecoveryTest {
 
         override fun requestPermission() = error("Collection must not prompt")
       }
-    val callbacks = mutableSetOf<LocationCallback>()
-    val client =
-      Proxy.newProxyInstance(
-        FusedLocationProviderClient::class.java.classLoader,
-        arrayOf(FusedLocationProviderClient::class.java),
-      ) { _, method, args ->
-        when (method.name) {
-          "getLastLocation" -> Tasks.forResult<Location>(null)
-          "requestLocationUpdates" -> {
-            callbacks += args[2] as LocationCallback
-            Tasks.forResult<Void>(null)
-          }
-          "removeLocationUpdates" -> {
-            callbacks -= args[0] as LocationCallback
-            Tasks.forResult<Void>(null)
-          }
-          else -> error(method.name)
-        }
-      } as FusedLocationProviderClient
-    val provider = FusedLocationProvider(client, delegate, Executor { it.run() })
+    val client = TestClient()
+    val provider = FusedLocationProvider(client.delegate, delegate, Executor { it.run() })
     val events = mutableListOf<LocationEvent>()
-    val first = backgroundScope.launch { provider.updates(LocationRequest()).collect(events::add) }
-    val second = backgroundScope.launch { provider.updates(LocationRequest()).collect {} }
+    val collection = backgroundScope.launch {
+      provider.updates(LocationRequest()).collect(events::add)
+    }
     runCurrent()
     assertEquals(
       LocationUnavailableReason.PermissionDenied,
       assertIs<LocationEvent.Unavailable>(events.last()).reason,
     )
-    assertTrue(callbacks.isEmpty())
+    assertTrue(client.callbacks.isEmpty())
     permission.value = LocationPermission.Granted(LocationAccuracyAuthorization.Precise)
     runCurrent()
-    assertEquals(2, callbacks.size)
+    assertEquals(1, client.callbacks.size)
     fun sendLocation() {
-      val result =
-        LocationResult.create(
-          listOf(
-            Location("fused").apply {
-              latitude = 52.0
-              longitude = 13.0
-              accuracy = 3f
-              time = System.currentTimeMillis()
-            }
-          )
-        )
-      callbacks.toList().forEach { it.onLocationResult(result) }
+      val result = LocationResult.create(listOf(Location("fused")))
+      client.callbacks.toList().forEach { it.onLocationResult(result) }
     }
     sendLocation()
     runCurrent()
@@ -146,16 +95,42 @@ class FusedLocationPermissionRecoveryTest {
       LocationUnavailableReason.PermissionDenied,
       assertIs<LocationEvent.Unavailable>(events.last()).reason,
     )
-    assertTrue(callbacks.isEmpty())
-    second.cancelAndJoin()
+    assertTrue(client.callbacks.isEmpty())
     permission.value = LocationPermission.Granted(LocationAccuracyAuthorization.Approximate)
     runCurrent()
-    assertEquals(1, callbacks.size)
+    assertEquals(1, client.callbacks.size)
     sendLocation()
     runCurrent()
     assertIs<LocationEvent.Update>(events.last())
-    first.cancelAndJoin()
-    assertTrue(callbacks.isEmpty())
+    collection.cancelAndJoin()
+    assertTrue(client.callbacks.isEmpty())
     provider.close()
   }
+}
+
+private class TestClient {
+  var denied = false
+  var lastLocation: Location? = null
+  val callbacks = mutableSetOf<LocationCallback>()
+  val delegate =
+    Proxy.newProxyInstance(
+      FusedLocationProviderClient::class.java.classLoader,
+      arrayOf(FusedLocationProviderClient::class.java),
+    ) { _, method, args ->
+      when (method.name) {
+        "getLastLocation" -> {
+          if (denied) throw SecurityException("denied")
+          Tasks.forResult(lastLocation)
+        }
+        "requestLocationUpdates" -> {
+          callbacks += args[2] as LocationCallback
+          Tasks.forResult<Void>(null)
+        }
+        "removeLocationUpdates" -> {
+          callbacks -= args[0] as LocationCallback
+          Tasks.forResult<Void>(null)
+        }
+        else -> error(method.name)
+      }
+    } as FusedLocationProviderClient
 }

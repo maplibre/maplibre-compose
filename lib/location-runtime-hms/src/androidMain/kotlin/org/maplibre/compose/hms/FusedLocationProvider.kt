@@ -43,11 +43,6 @@ import org.maplibre.spatialk.units.extensions.inMeters
  *
  * The [Context] constructor handles permission requests. The [FusedLocationProviderClient]
  * constructor reports permission as granted and requires the caller to manage authorization.
- * Collectors wait through permission denial and resume without prompting. Context-backed providers
- * observe permission through [AndroidLocationProvider]. Without a context, a security failure
- * retries the location request once per second because there is no permission observer. A
- * client-only provider cannot observe revocation that the client does not report; prefer the
- * [Context] constructor for permission recovery.
  *
  * Create the provider, request permission, and close it on the main thread.
  */

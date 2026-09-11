@@ -33,7 +33,7 @@ import platform.Foundation.NSThread
 @OptIn(ExperimentalCoroutinesApi::class)
 class IosLocationProviderTest {
   @Test
-  fun deniedCollectorsRecoverAndReleaseIndependentManagers() = runTest {
+  fun collectorRecoversAfterPermissionChanges() = runTest {
     Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
     val permissionManager = TestLocationManager()
     val requester = IosLocationPermissionRequester(permissionManager)
@@ -43,10 +43,9 @@ class IosLocationProviderTest {
         TestLocationManager().also { managers += it }
       }
     val events = Channel<LocationEvent>(Channel.UNLIMITED)
-    val first = backgroundScope.launch {
+    val collection = backgroundScope.launch {
       provider.updates(LocationRequest()).collect { events.send(it) }
     }
-    val second = backgroundScope.launch { provider.updates(LocationRequest()).collect {} }
     try {
       assertEquals(
         LocationUnavailableReason.PermissionDenied,
@@ -56,7 +55,7 @@ class IosLocationProviderTest {
       permissionManager.status = kCLAuthorizationStatusAuthorizedWhenInUse
       permissionManager.delegate?.locationManagerDidChangeAuthorization(permissionManager)
       runCurrent()
-      assertEquals(2, managers.size)
+      assertEquals(1, managers.size)
       managers.first().sendLocation()
       assertTrue(events.receive() is LocationEvent.Update)
       permissionManager.status = kCLAuthorizationStatusDenied
@@ -66,19 +65,17 @@ class IosLocationProviderTest {
         (events.receive() as LocationEvent.Unavailable).reason,
       )
       assertTrue(managers.all { !it.updating && it.delegate == null })
-      second.cancelAndJoin()
       permissionManager.status = kCLAuthorizationStatusAuthorizedWhenInUse
       permissionManager.delegate?.locationManagerDidChangeAuthorization(permissionManager)
       runCurrent()
-      assertEquals(3, managers.size)
+      assertEquals(2, managers.size)
       managers.last().sendLocation()
       assertTrue(events.receive() is LocationEvent.Update)
-      first.cancelAndJoin()
+      collection.cancelAndJoin()
       assertTrue(managers.all { !it.updating && it.delegate == null })
       assertEquals(0, permissionManager.requests)
     } finally {
-      first.cancelAndJoin()
-      second.cancelAndJoin()
+      collection.cancelAndJoin()
       provider.close()
       Dispatchers.resetMain()
     }

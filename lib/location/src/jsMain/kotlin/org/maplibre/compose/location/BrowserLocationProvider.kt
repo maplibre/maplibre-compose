@@ -50,10 +50,6 @@ import web.permissions.query
  * reports [LocationUnavailableReason.PermissionDenied] and updates [permission]. Timeouts and
  * unavailable positions report [LocationUnavailableReason.TemporarilyUnavailable]. Failure to start
  * location updates reports [LocationUnavailableReason.UnexpectedFailure].
- *
- * Collectors wait for permission without prompting, and restart their watch when a grant is
- * observed. Without the Permissions API, call [requestPermission] explicitly to establish a grant;
- * changes made outside the application cannot be observed on those browsers.
  */
 public class BrowserLocationProvider
 internal constructor(
@@ -94,9 +90,6 @@ internal constructor(
   }
 
   private fun locationUpdates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
-    check(backendAvailability == LocationBackendAvailability.Available) {
-      "Location updates require an available backend: $backendAvailability"
-    }
     var previous: BrowserPosition? = null
     fun publish(result: BrowserResult) {
       when (result) {

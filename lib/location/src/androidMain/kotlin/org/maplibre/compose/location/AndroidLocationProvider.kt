@@ -38,11 +38,7 @@ import org.maplibre.spatialk.units.extensions.inMeters
  *
  * Disabled location services report [LocationUnavailableReason.ServicesDisabled]. Missing
  * permission reports [LocationUnavailableReason.PermissionDenied]. Invalid provider registration
- * reports [LocationUnavailableReason.UnexpectedFailure]. Collectors wait through permission denial
- * and resume after a grant is observed, without requesting permission. The requester checks once
- * per second while collection is active, including with an application context, and refreshes when
- * the supplied activity resumes. Android may terminate the process on permission revocation;
- * recovery applies while the process and collector remain alive.
+ * reports [LocationUnavailableReason.UnexpectedFailure].
  *
  * See [AndroidLocationPermissionRequester] for permission request requirements.
  *

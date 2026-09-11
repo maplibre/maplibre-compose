@@ -48,11 +48,6 @@ import org.maplibre.spatialk.units.extensions.inMeters
  *
  * The [Context] constructor handles permission requests. The [FusedLocationProviderClient]
  * constructor reports permission as granted and requires the caller to manage authorization.
- * Collectors wait through permission denial and resume without prompting. Context-backed providers
- * observe permission through [AndroidLocationProvider]. Without a context, a security failure
- * retries the location request once per second because there is no permission observer. A
- * client-only provider cannot observe revocation that the client does not report; prefer the
- * [Context] constructor for permission recovery.
  *
  * Create the provider, request permission, and close it on the main thread.
  */
@@ -136,28 +131,24 @@ internal constructor(
 
     var registration: Task<Void>? = null
     try {
-      try {
-        locationClient
-          .getLastLocation(
-            LastLocationRequest.Builder()
-              .setGranularity(Granularity.GRANULARITY_PERMISSION_LEVEL)
-              .build()
-          )
-          .await()
-          ?.let { location ->
-            trySend(location.asMapLibreLocationUpdate())
-          }
+      locationClient
+        .getLastLocation(
+          LastLocationRequest.Builder()
+            .setGranularity(Granularity.GRANULARITY_PERMISSION_LEVEL)
+            .build()
+        )
+        .await()
+        ?.let { location ->
+          trySend(location.asMapLibreLocationUpdate())
+        }
 
-        registration =
-          locationClient.requestLocationUpdates(
-            request.asGmsLocationRequest(),
-            executor,
-            callback,
-          )
-        registration.await()
-      } catch (error: SecurityException) {
-        close(error)
-      }
+      registration =
+        locationClient.requestLocationUpdates(
+          request.asGmsLocationRequest(),
+          executor,
+          callback,
+        )
+      registration.await()
 
       awaitClose()
     } finally {

@@ -135,9 +135,6 @@ internal constructor(
     .flowOn(dispatcher)
 
   private fun collectUpdates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
-    check(backendAvailability == LocationBackendAvailability.Available) {
-      "Location updates require an available backend: $backendAvailability"
-    }
     val locationServicesEnabled = withContext(ioDispatcher) { client.locationServicesEnabled }
     if (!locationServicesEnabled) {
       trySend(LocationEvent.Unavailable(LocationUnavailableReason.ServicesDisabled))

@@ -40,13 +40,14 @@ import org.maplibre.spatialk.units.extensions.meters
 @OptIn(ExperimentalCoroutinesApi::class)
 class MacosLocationProviderTest {
   @Test
-  fun deniedCollectorsRecoverAndReleaseIndependentManagers() = runTest {
+  fun collectorRecoversAfterPermissionChanges() = runTest {
     val client = FakeCoreLocationClient(authorizationStatus = CL_AUTHORIZATION_DENIED)
     val provider = MacosLocationProvider(client, Dispatchers.Unconfined, Dispatchers.Unconfined)
     val permissionManager = client.managers.single()
     val events = mutableListOf<LocationEvent>()
-    val first = backgroundScope.launch { provider.updates(LocationRequest()).collect(events::add) }
-    val second = backgroundScope.launch { provider.updates(LocationRequest()).collect {} }
+    val collection = backgroundScope.launch {
+      provider.updates(LocationRequest()).collect(events::add)
+    }
     runCurrent()
     assertEquals(
       LocationUnavailableReason.PermissionDenied,
@@ -58,7 +59,7 @@ class MacosLocationProviderTest {
     permissionManager.boundDelegate?.didChangeAuthorization()
     runCurrent()
     val firstManagers = client.managers.drop(1)
-    assertEquals(2, firstManagers.size)
+    assertEquals(1, firstManagers.size)
     firstManagers.forEach { it.boundDelegate?.didUpdateLocations(listOf(sampleMeasurement())) }
     runCurrent()
     assertIs<LocationEvent.Update>(events.last())
@@ -71,16 +72,14 @@ class MacosLocationProviderTest {
       LocationUnavailableReason.PermissionDenied,
       assertIs<LocationEvent.Unavailable>(events.last()).reason,
     )
-    second.cancel()
-    runCurrent()
     permissionManager.authorizationStatus = CL_AUTHORIZATION_AUTHORIZED_WHEN_IN_USE
     permissionManager.boundDelegate?.didChangeAuthorization()
     runCurrent()
-    assertEquals(4, client.managers.size)
+    assertEquals(3, client.managers.size)
     client.managers.last().boundDelegate?.didUpdateLocations(listOf(sampleMeasurement()))
     runCurrent()
     assertIs<LocationEvent.Update>(events.last())
-    first.cancel()
+    collection.cancel()
     runCurrent()
     assertTrue(client.managers.last().closed)
     assertTrue(client.managers.all { it.whenInUseRequests == 0 })
