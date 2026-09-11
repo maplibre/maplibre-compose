@@ -34,12 +34,26 @@ internal class ImageManager(private val node: StyleNode) {
   private val bitmapCounter = ReferenceCounter<BitmapKey>()
   private val bitmapContent = mutableMapOf<BitmapKey, ContentKey>()
 
+  private var pendingProperties = 0
   private val painterMutex = Mutex()
   private val painterCounter = ReferenceCounter<PainterKey>()
   private val painterContent = mutableMapOf<PainterKey, ContentKey>()
 
   internal val desiredImages: List<StyleImageDefinition>
     get() = definitions.values.toList()
+
+  internal val hasPendingImages: Boolean
+    get() = pendingProperties != 0
+
+  internal fun beginImagePreparation() {
+    pendingProperties++
+    node.scheduleApplyChanges()
+  }
+
+  internal fun endImagePreparation() {
+    pendingProperties--
+    node.scheduleApplyChanges()
+  }
 
   internal fun acquireBitmap(key: BitmapKey): String {
     bitmapCounter.increment(key) {

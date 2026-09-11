@@ -42,6 +42,7 @@ import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
+import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.testing.composeStyle
 import org.maplibre.compose.testing.runGraphicsTest
@@ -232,6 +233,54 @@ class SymbolLayerCompositionTest {
     }
     assertEquals(1, draws)
   }
+
+  @Test
+  fun replacing_a_painter_releases_its_image_and_never_exposes_stale_ids() =
+    runGraphicsTest { graphics ->
+      val source =
+        GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+      val replace = mutableStateOf(false)
+      val red = ColorPainter(Color.Red)
+      val blue = ColorPainter(Color.Blue)
+      var initialId: String? = null
+      var replacementId: String? = null
+
+      fun DesiredStyleRevision.iconId(): String? {
+        val layout = layers.singleOrNull()?.definition?.value?.get("layout") as? JsonObject
+        return (layout?.get("icon-image") as? JsonArray)?.get(1)?.jsonPrimitive?.contentOrNull
+      }
+
+      composeStyle(
+        graphicsContext = graphics,
+        awaitRevision = { revision ->
+          val id = revision.iconId()
+          id != null && revision.images.size == 1 && (!replace.value || id != initialId)
+        },
+        onRevision = { revision ->
+          val id = revision.iconId()
+          if (id != null) {
+            val image = assertNotNull(revision.images.singleOrNull { it.id == id })
+            val pixels = IntArray(16)
+            image.image.toImageBitmap().readPixels(pixels)
+            val expected = if (replace.value) 0xff0000ff.toInt() else 0xffff0000.toInt()
+            assertEquals(List(16) { expected }, pixels.toList())
+            if (replace.value) replacementId = id else initialId = id
+          }
+        },
+        thenChange = {
+          assertNotNull(initialId)
+          replace.value = true
+        },
+      ) {
+        SymbolLayer(
+          id = "replaced",
+          source = source,
+          iconImage = image(if (replace.value) blue else red, size = DpSize(4.dp, 4.dp)),
+        )
+      }
+      assertNotNull(replacementId)
+      assertTrue(initialId != replacementId)
+    }
 
   private fun JsonElement.normalizeNumbers(): JsonElement =
     when (this) {

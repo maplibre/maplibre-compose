@@ -50,7 +50,15 @@ internal fun rememberLayerPropertyImages(
       bitmaps to painters
     }
   // Expressions can change every animation frame while their image inputs stay the same.
-  val painters = rememberPainterImages(manager, painterKeys) ?: return null
+  val painters = rememberPainterImages(manager, painterKeys)
+  if (painters == null) {
+    // Snapshot evaluators must wait until the property has compiled with its resolved image IDs.
+    DisposableEffect(manager) {
+      manager.beginImagePreparation()
+      onDispose { manager.endImagePreparation() }
+    }
+    return null
+  }
   val bitmaps = remember(manager, bitmapKeys) { bitmapKeys.associateWith(manager::acquireBitmap) }
   DisposableEffect(manager, bitmaps) {
     onDispose { bitmaps.keys.forEach(manager::releaseBitmap) }

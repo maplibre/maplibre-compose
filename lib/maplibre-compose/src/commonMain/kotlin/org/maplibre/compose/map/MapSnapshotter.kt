@@ -7,6 +7,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Recomposer
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalGraphicsContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
@@ -140,39 +141,46 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
     ownership: SnapshotStyleOwnership,
   ): DesiredStyleRevision {
     val frameClock = BroadcastFrameClock()
-    return withContext(frameClock) {
-      coroutineScope {
-        val revision = CompletableDeferred<DesiredStyleRevision>()
-        val recomposer = Recomposer(currentCoroutineContext())
-        val recomposerJob =
-          launch(start = CoroutineStart.UNDISPATCHED) {
-            recomposer.runRecomposeAndApplyChanges()
-          }
-        val root =
-          StyleNode(
-            style,
-            replaceableSourceIds = ownership.sourceIds,
-            replaceableLayerIds = ownership.layerIds,
-          )
-        val evaluator = Composition(MapNodeApplier(root), recomposer)
-        try {
-          evaluator.setContent {
-            CompositionLocalProvider(
-              LocalDensity provides density,
-              LocalLayoutDirection provides layoutDirection,
-              LocalViewport provides viewport,
-            ) {
-              StyleContent(rootNode = root, publish = revision::complete, content = content)
+    return withSnapshotGraphicsContext { graphicsContext ->
+      withContext(frameClock) {
+        coroutineScope {
+          val revision = CompletableDeferred<DesiredStyleRevision>()
+          val recomposer = Recomposer(currentCoroutineContext())
+          val recomposerJob =
+            launch(start = CoroutineStart.UNDISPATCHED) {
+              recomposer.runRecomposeAndApplyChanges()
             }
+          val root =
+            StyleNode(
+              style,
+              replaceableSourceIds = ownership.sourceIds,
+              replaceableLayerIds = ownership.layerIds,
+            )
+          val evaluator = Composition(MapNodeApplier(root), recomposer)
+          try {
+            evaluator.setContent {
+              CompositionLocalProvider(
+                LocalGraphicsContext provides graphicsContext,
+                LocalDensity provides density,
+                LocalLayoutDirection provides layoutDirection,
+                LocalViewport provides viewport,
+              ) {
+                StyleContent(
+                  rootNode = root,
+                  publish = { if (!root.imageManager.hasPendingImages) revision.complete(it) },
+                  content = content,
+                )
+              }
+            }
+            while (!revision.isCompleted) {
+              if (frameClock.hasAwaiters) frameClock.sendFrame(0L) else yield()
+            }
+            revision.await()
+          } finally {
+            evaluator.dispose()
+            recomposer.close()
+            recomposerJob.join()
           }
-          while (!revision.isCompleted) {
-            if (frameClock.hasAwaiters) frameClock.sendFrame(0L) else yield()
-          }
-          revision.await()
-        } finally {
-          evaluator.dispose()
-          recomposer.close()
-          recomposerJob.join()
         }
       }
     }
