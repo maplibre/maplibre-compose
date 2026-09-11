@@ -38,7 +38,7 @@ hms-location = "6.12.0.300"
 nucleus = "2.5.15"
 kermit = "2.1.0"
 kotlin-dsv = "0.4.0"
-kotlin-wrappers = "2026.8.5"
+kotlin-wrappers = "2026.9.1"
 kotlinx-coroutines = "1.11.0"
 kotlinx-atomicfu = "0.33.0"
 kotlinx-io = "0.9.1"
@@ -76,7 +76,7 @@ androidx-wear-compose = "1.6.2"
 # Android and Kotlin: Keep Kotlin up to date and set Android accordingly.
 # Also note the Gradle and XCode versions in the matrix!
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-compatibility-guide.html
-gradle-kotlin = "2.4.10"
+gradle-kotlin = "2.4.20"
 # Kotlin 2.4.10 documents AGP through 9.1.0. 9.1.1 is the floor for
 # compileSdk 37.
 gradle-android = "9.1.1"
