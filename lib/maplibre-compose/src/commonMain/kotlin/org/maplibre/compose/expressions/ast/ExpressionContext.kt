@@ -25,7 +25,8 @@ public interface ExpressionContext {
   public fun resolvePainter(painter: PainterLiteral): String
 
   /** @return the font stack that [font] compiles to, after registering its file. */
-  public fun resolveFont(font: FontLiteral): List<String>
+  public fun resolveFont(font: FontLiteral): List<String> =
+    error("Fonts are not allowed in this context")
 
   /** A context where no complex types can be resolved. */
   public object None : ExpressionContext {
@@ -40,8 +41,5 @@ public interface ExpressionContext {
 
     override fun resolvePainter(painter: PainterLiteral): String =
       error("Painter not allowed in this context")
-
-    override fun resolveFont(font: FontLiteral): List<String> =
-      error("Font not allowed in this context")
   }
 }
