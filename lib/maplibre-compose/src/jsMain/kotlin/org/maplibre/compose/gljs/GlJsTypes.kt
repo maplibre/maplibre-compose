@@ -68,6 +68,9 @@ internal external interface SkySpecification
 /** A style-spec `projection` object; keys index it. */
 internal external interface ProjectionSpecification
 
+/** The style's `font-faces` object: stack name to a URL, a face object, or an array of either. */
+internal external interface FontFacesSpecification
+
 internal external interface StyleSetterOptions {
   var validate: Boolean?
 }

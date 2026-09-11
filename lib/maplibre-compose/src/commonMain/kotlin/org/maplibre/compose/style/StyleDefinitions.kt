@@ -71,6 +71,9 @@ internal data class StyleImageDefinition(
   val stretch: ImageStretch?,
 )
 
+/** Defines a font file registered under a `text-font` stack name. */
+internal data class StyleFontDefinition(val name: String, val file: FontFile)
+
 /** Stores an independent pixel copy in an engine-neutral format. */
 internal class ImageSnapshot
 private constructor(

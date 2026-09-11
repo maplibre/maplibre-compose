@@ -23,21 +23,28 @@ import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.mapRuntimeForTest
+import org.maplibre.compose.resource.GlJsRequestController
+import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
 
 /** A [GlJsMapSession] on a canvas of its own, with no Compose or skiko, never composited. */
-internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
+internal class GlJsMapFixture(
+  private val extent: MapExtent,
+  resourceConfig: MapResourceConfig = MapResourceConfig(),
+) : MapFixture {
 
   private val recorder = RecordingMapCallbacks()
   private val runtime = mapRuntimeForTest()
+  private val requests = GlJsRequestController(resourceConfig)
   override val state =
     runtime.createMapState(
       cameraPosition = CameraPosition(zoom = 0.0),
       baseStyle = BaseStyle.Empty,
     )
-  private val glJsSession = GlJsMapSession(state.lifecycle, recorder, MapLog, LayoutDirection.Ltr)
+  private val glJsSession =
+    GlJsMapSession(state.lifecycle, recorder, MapLog, LayoutDirection.Ltr, requests)
   private val token = state.reservePresentation()
 
   override val session: MapAdapter
@@ -181,14 +188,18 @@ internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
     // Every map holds a WebGL context, and browsers cap how many may live at once.
     state.close()
     runtime.close()
+    requests.close()
   }
 }
 
-internal actual fun createMapFixture(extent: MapExtent): MapFixture {
+internal actual fun createMapFixture(
+  extent: MapExtent,
+  resourceConfig: MapResourceConfig,
+): MapFixture {
   // `pointAtWorker` keeps the first call. Pin the Karma-served worker here so a MapFixture
   // test that runs before `runBrowserMapTest` still keeps the suite off the CDN.
   GlJsRuntime.pointAtWorker(LOCAL_WORKER_URL)
-  return GlJsMapFixture(extent)
+  return GlJsMapFixture(extent, resourceConfig)
 }
 
 internal actual val mapLibreFlavor: MapLibreFlavor = MapLibreFlavor.GL_JS

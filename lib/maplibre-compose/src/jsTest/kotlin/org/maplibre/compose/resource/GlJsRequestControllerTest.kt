@@ -3,6 +3,7 @@ package org.maplibre.compose.resource
 import js.buffer.ArrayBuffer
 import kotlin.js.Promise
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
 import kotlin.test.assertNotEquals
@@ -13,6 +14,7 @@ import kotlinx.coroutines.await
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.gljs.ProtocolResponse
 import org.maplibre.compose.gljs.RequestParameters
+import org.maplibre.compose.style.FontFile
 
 class GlJsRequestControllerTest {
 
@@ -163,6 +165,26 @@ class GlJsRequestControllerTest {
       )
     assertNull(controller.transformRequest("https://tiles.example.com/style.json", "Tile"))
     controller.close()
+  }
+
+  @Test
+  fun a_registered_font_is_served_through_the_protocol_without_a_provider() = runTest {
+    val controller = GlJsRequestController(MapResourceConfig())
+    val file = FontFile(byteArrayOf(7, 8, 9))
+    controller.fonts.hold(this, listOf(file))
+    try {
+      val result = controller.transformRequest(file.url, "Glyphs")
+      val url = result.asDynamic().url as String
+      assertTrue(url.startsWith("${controller.scheme}://Glyphs/"))
+      val request = js("({})").unsafeCast<RequestParameters>()
+      request.asDynamic().url = url
+      val response = controller.loadProtocol(request, js("new AbortController()")).await()
+      val buffer = response.data
+      val bytes = js("Array.from(new Uint8Array(buffer))").unsafeCast<Array<Int>>()
+      assertContentEquals(file.bytes, ByteArray(bytes.size) { bytes[it].toByte() })
+    } finally {
+      controller.close()
+    }
   }
 
   @Test

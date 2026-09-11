@@ -124,6 +124,45 @@ class StyleNodeTest {
       images = emptyList(),
     )
 
+  @Test
+  fun font_faces_are_set_once_per_changed_set_and_cleared_when_released() = runTest {
+    val style = RecordingStyleBinding()
+    val reconciler = StyleReconciler()
+    val body = StyleFontDefinition("Body", FontFile(byteArrayOf(1)))
+    val title = StyleFontDefinition("Title", FontFile(byteArrayOf(2)))
+
+    reconciler.apply(style, DesiredStyleRevision(emptyList(), emptyList(), emptyList()))
+    assertTrue(style.fontFaceCalls.isEmpty())
+
+    val withFonts = { fonts: List<StyleFontDefinition> ->
+      DesiredStyleRevision(emptyList(), emptyList(), emptyList(), fonts = fonts)
+    }
+    reconciler.apply(style, withFonts(listOf(body, title)))
+    reconciler.apply(style, withFonts(listOf(body, title)))
+    assertEquals(listOf(listOf(body, title)), style.fontFaceCalls)
+
+    reconciler.apply(style, withFonts(listOf(body)))
+    assertEquals(listOf(body), style.fonts)
+
+    reconciler.apply(style, withFonts(emptyList()))
+    assertEquals(3, style.fontFaceCalls.size)
+    assertTrue(style.fonts.isEmpty())
+  }
+
+  @Test
+  fun a_reloaded_style_receives_the_fonts_again() = runTest {
+    val reconciler = StyleReconciler()
+    val fonts = listOf(StyleFontDefinition("Body", FontFile(byteArrayOf(1))))
+    val revision = DesiredStyleRevision(emptyList(), emptyList(), emptyList(), fonts = fonts)
+
+    val first = RecordingStyleBinding()
+    reconciler.apply(first, revision)
+    val second = RecordingStyleBinding()
+    reconciler.apply(second, revision)
+
+    assertEquals(fonts, second.fonts)
+  }
+
   private class RecordingOperations(private val delegate: RecordingStyleBinding) :
     StyleBinding by delegate {
     val additions = mutableListOf<String>()

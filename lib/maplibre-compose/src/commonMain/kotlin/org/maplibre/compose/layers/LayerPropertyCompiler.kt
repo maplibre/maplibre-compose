@@ -11,6 +11,7 @@ import org.maplibre.compose.expressions.ast.BitmapLiteral
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.ExpressionContext
+import org.maplibre.compose.expressions.ast.FontLiteral
 import org.maplibre.compose.expressions.ast.NullLiteral
 import org.maplibre.compose.expressions.ast.PainterLiteral
 import org.maplibre.compose.expressions.dsl.const
@@ -34,13 +35,13 @@ internal class LayerPropertyCompiler(
   @Composable
   operator fun <T : ExpressionValue?> invoke(expression: Expression<T>?): CompiledExpression<T> {
     val expression = expression ?: NullLiteral.cast()
-    val images =
-      rememberLayerPropertyImages(expression, styleNode.imageManager, density, layoutDirection)
+    val resources =
+      rememberLayerPropertyResources(expression, styleNode, density, layoutDirection)
         ?: return NullLiteral.cast()
-    return remember(this, expression, images) { expression.compile(context(images)) }
+    return remember(this, expression, resources) { expression.compile(context(resources)) }
   }
 
-  private fun context(images: LayerPropertyImages) =
+  private fun context(resources: LayerPropertyResources) =
     object : ExpressionContext {
       private var seenTextUnitType: TextUnitType? = null
 
@@ -78,9 +79,11 @@ internal class LayerPropertyCompiler(
           (this@LayerPropertyCompiler.spScale
             ?: error("DP text offsets require a text-unit compiler")) / const(density.fontScale)
 
-      override fun resolveBitmap(bitmap: BitmapLiteral): String = images.resolve(bitmap)
+      override fun resolveBitmap(bitmap: BitmapLiteral): String = resources.resolve(bitmap)
 
-      override fun resolvePainter(painter: PainterLiteral): String = images.resolve(painter)
+      override fun resolvePainter(painter: PainterLiteral): String = resources.resolve(painter)
+
+      override fun resolveFont(font: FontLiteral): List<String> = resources.resolve(font)
     }
 }
 

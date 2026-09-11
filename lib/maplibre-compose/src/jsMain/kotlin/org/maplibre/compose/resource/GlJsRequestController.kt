@@ -19,17 +19,19 @@ import org.maplibre.compose.gljs.removeProtocol
 
 internal class GlJsRequestController(private val config: MapResourceConfig) : AutoCloseable {
   val scheme: String by lazy { newResourceProtocolScheme() }
+
+  /** Serves the font files registered with this runtime's maps. */
+  val fonts: StyleFontStore
+    get() = config.fonts
+
   private val scope =
     CoroutineScope(
       SupervisorJob() + Dispatchers.Default + CoroutineName("maplibre-compose-js-resource")
     )
-  private val protocolInstalled = config.provider != null
   private var open = true
 
   init {
-    if (protocolInstalled) {
-      addProtocol(scheme) { request, abortController -> loadProtocol(request, abortController) }
-    }
+    addProtocol(scheme) { request, abortController -> loadProtocol(request, abortController) }
   }
 
   fun transformRequest(url: String, resourceType: String?): Any? {
@@ -53,7 +55,7 @@ internal class GlJsRequestController(private val config: MapResourceConfig) : Au
     val parsed = parseProtocolUrl(request.url)
     val work = scope.async {
       val provider =
-        config.provider ?: throw IllegalStateException("No resource provider is installed")
+        config.providerFor(parsed) ?: throw IllegalStateException("No provider accepts $parsed")
       // MapLibre GL JS passes only the URL and the kind, so every other field is the default.
       val result = provider.load(MapResourceLoadRequest(parsed.url, parsed.kind))
       result.toProtocolResponse(parsed.url)
@@ -83,7 +85,7 @@ internal class GlJsRequestController(private val config: MapResourceConfig) : Au
     if (!open) return
     open = false
     scope.cancel()
-    if (protocolInstalled) removeProtocol(scheme)
+    removeProtocol(scheme)
   }
 }
 

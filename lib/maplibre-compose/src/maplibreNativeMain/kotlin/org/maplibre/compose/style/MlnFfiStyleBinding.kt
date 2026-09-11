@@ -170,6 +170,29 @@ internal open class MlnFfiStyleBinding(
 
   override fun imageExists(id: String): Boolean? = readMap { it.styleImageInfo(id) != null }
 
+  override val supportsFontFaceUpdates: Boolean = false
+
+  private val reportedFonts = mutableSetOf<String>()
+
+  /**
+   * The engine reads `font-faces` from the document it parsed, and the FFI has no setter, so a font
+   * that document does not declare is reported once and takes effect at the next load.
+   */
+  override fun setFontFaces(fonts: List<StyleFontDefinition>) {
+    if (fonts.isEmpty()) return
+    val declared =
+      readMap { map ->
+        val document = runCatching { map.loadedStyleJson().toJsonElement() }.getOrNull()
+        ((document as? JsonObject)?.get(FONT_FACES_KEY) as? JsonObject)?.fontFaceUrls()
+      } ?: return
+    val missing = fonts.filter { declared[it.name] != it.file.url && reportedFonts.add(it.name) }
+    if (missing.isEmpty()) return
+    logger?.w {
+      "MapLibre Native declares registered fonts when the base style loads; " +
+        "${missing.joinToString { "'${it.name}'" }} will be served from the next base style load"
+    }
+  }
+
   override fun getSource(id: String): Source? = readMap { map ->
     if (!isStyleSource(map, id)) null else reconstructSource(map, id)
   }

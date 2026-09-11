@@ -36,6 +36,7 @@ import org.maplibre.compose.style.MapNodeApplier
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleContent
+import org.maplibre.compose.style.StyleFontDefinition
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.StyleNode
@@ -81,11 +82,16 @@ internal interface SnapshotterAdapter {
    * Applies the size and camera of [request] to the engine map and loads [baseStyle] if needed. The
    * returned viewport is read after both, so it describes the transform the capture renders,
    * including the loaded style's projection.
+   *
+   * [fonts] are the registered fonts the loaded style must declare. An engine whose binding lacks
+   * [StyleBinding.supportsFontFaceUpdates] loads them with the style document, so a change to
+   * [fonts] loads the style again.
    */
   suspend fun prepare(
     baseStyle: BaseStyle,
     baseStyleRevision: Long,
     request: MapSnapshotRequest,
+    fonts: List<StyleFontDefinition>,
   ): SnapshotPreparation
 
   suspend fun capture(
@@ -99,8 +105,15 @@ internal interface SnapshotterAdapter {
   suspend fun close()
 }
 
-/** The loaded style and the viewport of the request that [SnapshotterAdapter.prepare] applied. */
-internal class SnapshotPreparation(val binding: StyleBinding, val viewport: Viewport)
+/**
+ * The loaded style and the viewport of the request that [SnapshotterAdapter.prepare] applied, with
+ * the registered [fonts] the preparation accounts for.
+ */
+internal class SnapshotPreparation(
+  val binding: StyleBinding,
+  val viewport: Viewport,
+  val fonts: List<StyleFontDefinition> = emptyList(),
+)
 
 /** Whether cancellation left the snapshotter engine and its loaded style available for reuse. */
 internal enum class SnapshotterEngineDisposition {
@@ -392,22 +405,40 @@ internal class MapSnapshotterImplementation(
           try {
             val currentClaim = claimStyle()
             claim = currentClaim
-            val prepared =
-              platform.prepare(currentClaim.baseStyle, currentClaim.revision, capture.request)
-            val currentBinding = prepared.binding
-            binding = currentBinding
             val request = capture.request
+            var prepared =
+              platform.prepare(
+                currentClaim.baseStyle,
+                currentClaim.revision,
+                request,
+                currentClaim.fonts,
+              )
+            binding = prepared.binding
             val evaluationOwnership =
-              styleEvaluationOwnership(currentBinding, currentClaim.ownership)
+              styleEvaluationOwnership(prepared.binding, currentClaim.ownership)
             val revision =
               runtime.styleEvaluator.evaluate(
                 styleContent,
-                currentBinding,
+                prepared.binding,
                 prepared.viewport,
                 Density(request.density, request.fontScale),
                 request.layoutDirection,
                 evaluationOwnership,
               )
+            // The revision does not depend on the loaded generation, so a document reloaded with
+            // the fonts it declares takes the same revision.
+            if (!prepared.binding.supportsFontFaceUpdates && revision.fonts != prepared.fonts) {
+              prepared.binding.invalidate()
+              prepared =
+                platform.prepare(
+                  currentClaim.baseStyle,
+                  currentClaim.revision,
+                  request,
+                  revision.fonts,
+                )
+              binding = prepared.binding
+            }
+            val currentBinding = prepared.binding
             requireNoImperativeResourceConflicts(currentBinding, revision)
             recordStyleOwnership(currentClaim, revision)
             val image = platform.capture(request, revision)
@@ -726,6 +757,7 @@ internal class MapSnapshotterImplementation(
           ?: StyleClaim(
               baseStyle = style.baseStyle,
               revision = baseStyleRevision,
+              fonts = desiredRevision.fonts,
               ownership =
                 if (ownedBaseStyleRevision == baseStyleRevision) {
                   SnapshotStyleOwnership(ownedSourceIds.toSet(), ownedLayerIds.toSet())
@@ -829,6 +861,7 @@ internal class MapSnapshotterImplementation(
   private data class StyleClaim(
     val baseStyle: BaseStyle,
     val revision: Long,
+    val fonts: List<StyleFontDefinition>,
     val ownership: SnapshotStyleOwnership,
   )
 

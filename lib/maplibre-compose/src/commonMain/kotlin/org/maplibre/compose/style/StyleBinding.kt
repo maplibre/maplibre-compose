@@ -72,6 +72,18 @@ internal interface StyleBinding {
   /** @return whether [id] exists, or null when the loaded style became unavailable. */
   fun imageExists(id: String): Boolean?
 
+  /**
+   * Returns true if this engine applies [setFontFaces] to the loaded style. An engine without it
+   * reads registered fonts from the style document when the base style loads.
+   */
+  val supportsFontFaceUpdates: Boolean
+
+  /**
+   * Declares [fonts] as the registered font files of the loaded style, replacing the previously
+   * registered set. A registered name replaces the base style's `font-faces` entry with that name.
+   */
+  fun setFontFaces(fonts: List<StyleFontDefinition>)
+
   fun getSource(id: String): Source?
 
   fun getSources(): List<Source>

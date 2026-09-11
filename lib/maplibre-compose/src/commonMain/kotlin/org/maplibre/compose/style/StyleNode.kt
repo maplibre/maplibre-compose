@@ -14,6 +14,7 @@ internal class StyleNode(
   private val baseLayerIds = style.layerIds().toSet() - replaceableLayerIds
   internal val sourceManager = SourceManager(this)
   internal val imageManager = ImageManager(this)
+  internal val fontManager = FontManager(this)
 
   // A nested content scope can recompose without its StyleContent parent. This state invalidates
   // that parent after a structural change so it records the post-observer layer-application effect.
@@ -51,5 +52,6 @@ internal class StyleNode(
           )
         },
       images = imageManager.desiredImages,
+      fonts = fontManager.desiredFonts,
     )
 }

@@ -9,6 +9,7 @@ import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.BridgeMapFixture
+import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
@@ -102,8 +103,10 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent
   }
 }
 
-internal actual fun createMapFixture(extent: MapExtent): MapFixture =
-  MlnFfiMapFixture(BridgeMapFixture.create(extent), extent)
+internal actual fun createMapFixture(
+  extent: MapExtent,
+  resourceConfig: MapResourceConfig,
+): MapFixture = MlnFfiMapFixture(BridgeMapFixture.create(extent, resourceConfig), extent)
 
 internal actual val mapLibreFlavor: MapLibreFlavor = MapLibreFlavor.NATIVE
 

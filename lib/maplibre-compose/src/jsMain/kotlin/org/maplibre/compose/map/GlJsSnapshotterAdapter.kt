@@ -24,6 +24,7 @@ import org.maplibre.compose.resource.GlJsRequestController
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.GlJsStyleBinding
+import org.maplibre.compose.style.StyleFontDefinition
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.util.toImageBitmap
 import org.maplibre.compose.util.toLngLat
@@ -65,6 +66,7 @@ internal class GlJsSnapshotterAdapter(
     baseStyle: BaseStyle,
     baseStyleRevision: Long,
     request: MapSnapshotRequest,
+    fonts: List<StyleFontDefinition>,
   ): SnapshotPreparation {
     check(open) { "The Web snapshotter is closed" }
     val currentMap = ensureMap(request)
@@ -75,7 +77,7 @@ internal class GlJsSnapshotterAdapter(
         loadedDensity == request.density &&
         current?.isLoaded == true
     ) {
-      return SnapshotPreparation(current, readViewport(currentMap, request))
+      return SnapshotPreparation(current, readViewport(currentMap, request), fonts)
     }
 
     current?.invalidate()
@@ -93,7 +95,7 @@ internal class GlJsSnapshotterAdapter(
         errorSubscription.cancel()
         if (styleLoadSubscription === loadSubscription) styleLoadSubscription = null
         if (styleErrorSubscription === errorSubscription) styleErrorSubscription = null
-        val binding = GlJsStyleBinding(currentMap, logger) { currentDensity }
+        val binding = GlJsStyleBinding(currentMap, logger, requests?.fonts) { currentDensity }
         styleBinding?.invalidate()
         styleBinding = binding
         loadedBaseStyleRevision = baseStyleRevision
@@ -129,7 +131,7 @@ internal class GlJsSnapshotterAdapter(
     }
     val binding =
       checkNotNull(styleBinding) { "MapLibre loaded a snapshot style without a binding" }
-    return SnapshotPreparation(binding, readViewport(currentMap, request))
+    return SnapshotPreparation(binding, readViewport(currentMap, request), fonts)
   }
 
   /**

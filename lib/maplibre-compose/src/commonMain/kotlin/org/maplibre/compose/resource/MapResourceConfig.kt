@@ -7,6 +7,8 @@ internal class MapResourceConfig(
   val interceptor: MapRequestInterceptor? = null,
   val provider: MapResourceProvider? = null,
   val logger: MapLog? = null,
+  /** Serves registered font files; consulted before [provider]. */
+  val fonts: StyleFontStore = StyleFontStore(),
 )
 
 internal sealed interface MapResourceRoute {
@@ -23,13 +25,18 @@ internal sealed interface MapResourceRoute {
 
 internal fun MapResourceConfig.route(request: MapResourceRequest): MapResourceRoute {
   val rewritten = request.copy(url = interceptor.rewrittenUrl(request, logger))
-  val provider = provider
-  return if (provider != null && provider.acceptsOrDeclines(rewritten, logger)) {
-    MapResourceRoute.Load(rewritten, provider)
-  } else {
-    MapResourceRoute.Fetch(rewritten)
-  }
+  val provider = providerFor(rewritten)
+  return if (provider != null) MapResourceRoute.Load(rewritten, provider)
+  else MapResourceRoute.Fetch(rewritten)
 }
+
+/** The provider that loads [request]: the font store for a registered font, else [provider]. */
+internal fun MapResourceConfig.providerFor(request: MapResourceRequest): MapResourceProvider? =
+  when {
+    fonts.provider.accepts(request) -> fonts.provider
+    provider != null && provider.acceptsOrDeclines(request, logger) -> provider
+    else -> null
+  }
 
 /**
  * The URL to fetch for [request]. A null interceptor, a null or blank rewrite, and a non-fatal

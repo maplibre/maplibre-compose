@@ -63,6 +63,9 @@ internal suspend fun composeStyle(
         var frame = 0L
         suspend fun pumpFrames() {
           do {
+            // No UI host flushes global snapshot writes here, so a state an effect wrote reaches
+            // the recomposer only through this call.
+            Snapshot.sendApplyNotifications()
             if (frameClock.hasAwaiters) frameClock.sendFrame(frame++)
             delay(1)
           } while (recomposer.hasPendingWork || revision?.let(awaitRevision) != true)

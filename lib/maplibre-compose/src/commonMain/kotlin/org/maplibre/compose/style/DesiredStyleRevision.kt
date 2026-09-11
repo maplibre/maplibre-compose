@@ -12,15 +12,18 @@ internal class DesiredStyleRevision(
   images: List<StyleImageDefinition>,
   /** The animator duration scale the composition read; layer transitions are scaled by it. */
   val animatorDurationScale: Float = 1f,
+  fonts: List<StyleFontDefinition> = emptyList(),
 ) {
   val sources: List<SourceDefinition> = sources.toList()
   val layers: List<DesiredStyleLayer> = layers.toList()
   val images: List<StyleImageDefinition> = images.toList()
+  val fonts: List<StyleFontDefinition> = fonts.toList()
 
   init {
     requireUniqueIds("Source", sources.map(SourceDefinition::id))
     requireUniqueIds("Layer", layers.map { it.definition.id })
     requireUniqueIds("Image", images.map(StyleImageDefinition::id))
+    requireUniqueIds("Font", fonts.map(StyleFontDefinition::name))
   }
 
   private fun requireUniqueIds(kind: String, ids: List<String>) {
@@ -33,14 +36,16 @@ internal class DesiredStyleRevision(
       sources == other.sources &&
       layers == other.layers &&
       images == other.images &&
+      fonts == other.fonts &&
       animatorDurationScale == other.animatorDurationScale
 
   override fun hashCode(): Int =
-    31 * (31 * (31 * sources.hashCode() + layers.hashCode()) + images.hashCode()) +
-      animatorDurationScale.hashCode()
+    31 *
+      (31 * (31 * (31 * sources.hashCode() + layers.hashCode()) + images.hashCode()) +
+        fonts.hashCode()) + animatorDurationScale.hashCode()
 
   override fun toString(): String =
-    "DesiredStyleRevision(sources=$sources, layers=$layers, images=$images, " +
+    "DesiredStyleRevision(sources=$sources, layers=$layers, images=$images, fonts=$fonts, " +
       "animatorDurationScale=$animatorDurationScale)"
 
   companion object {

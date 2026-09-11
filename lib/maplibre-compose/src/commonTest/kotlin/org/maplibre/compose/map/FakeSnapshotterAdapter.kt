@@ -8,6 +8,7 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.StyleFontDefinition
 
 internal class FakeSnapshotterAdapter(
   private val prepare: suspend (BaseStyle, MapSnapshotRequest) -> StyleBinding = { _, _ ->
@@ -22,12 +23,18 @@ internal class FakeSnapshotterAdapter(
   },
   private val close: suspend () -> Unit = {},
 ) : SnapshotterAdapter {
+  /** The fonts of every [prepare] call, in order. */
+  val preparedFonts: MutableList<List<StyleFontDefinition>> = mutableListOf()
+
   override suspend fun prepare(
     baseStyle: BaseStyle,
     baseStyleRevision: Long,
     request: MapSnapshotRequest,
-  ): SnapshotPreparation =
-    SnapshotPreparation(prepare.invoke(baseStyle, request), viewportFor(request))
+    fonts: List<StyleFontDefinition>,
+  ): SnapshotPreparation {
+    preparedFonts += fonts
+    return SnapshotPreparation(prepare.invoke(baseStyle, request), viewportFor(request), fonts)
+  }
 
   override suspend fun capture(
     request: MapSnapshotRequest,

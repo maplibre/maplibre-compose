@@ -35,6 +35,7 @@ internal class RecordingStyleBinding(
   private val refusedLayerProperties: Set<String> = emptySet(),
   override val supportsSky: Boolean = true,
   override val supportsProjection: Boolean = true,
+  override val supportsFontFaceUpdates: Boolean = true,
   private val beforeAddImage: ((String) -> Unit)? = null,
   private val onInvalidate: () -> Unit = {},
   /** The fake platform's animator duration scale; a test changes it to simulate the setting. */
@@ -104,6 +105,16 @@ internal class RecordingStyleBinding(
   }
 
   override fun imageExists(id: String): Boolean = id in images
+
+  /** Every [setFontFaces] call, in order. */
+  val fontFaceCalls: MutableList<List<StyleFontDefinition>> = mutableListOf()
+
+  val fonts: List<StyleFontDefinition>
+    get() = fontFaceCalls.lastOrNull().orEmpty()
+
+  override fun setFontFaces(fonts: List<StyleFontDefinition>) {
+    fontFaceCalls += fonts
+  }
 
   override fun getSource(id: String): Source? =
     baseSources[id] ?: sources[id]?.let { reconstructedSource(id, it) }

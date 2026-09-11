@@ -16,7 +16,9 @@ import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.MlnFfiStyleBinding
+import org.maplibre.compose.style.StyleFontDefinition
 import org.maplibre.compose.style.StyleReconciler
+import org.maplibre.compose.style.loadBaseStyle
 import org.maplibre.compose.util.metersPerDpAtLatitude
 import org.maplibre.compose.util.toCameraOptions
 import org.maplibre.compose.util.toImageBitmap
@@ -62,6 +64,7 @@ private class NativeSnapshotterAdapter(
   @Volatile private var engine: NativeSnapshotEngine? = null
   @Volatile private var styleBinding: MlnFfiStyleBinding? = null
   @Volatile private var loadedBaseStyleRevision: Long? = null
+  @Volatile private var loadedFonts: List<StyleFontDefinition> = emptyList()
   @Volatile private var currentDensity = 1f
   @Volatile private var terminalOperation: NativeSnapshotOperation? = null
   @Volatile private var stillImageOperation: NativeSnapshotOperation? = null
@@ -72,13 +75,18 @@ private class NativeSnapshotterAdapter(
     baseStyle: BaseStyle,
     baseStyleRevision: Long,
     request: MapSnapshotRequest,
+    fonts: List<StyleFontDefinition>,
   ): SnapshotPreparation = runNativeRequest {
     ensureEngine(request)
     currentDensity = request.density
     configureRequest(request)
     val current = styleBinding
-    if (baseStyleRevision == loadedBaseStyleRevision && current?.isLoaded == true) {
-      return@runNativeRequest SnapshotPreparation(current, readViewport(request))
+    if (
+      baseStyleRevision == loadedBaseStyleRevision &&
+        fonts == loadedFonts &&
+        current?.isLoaded == true
+    ) {
+      return@runNativeRequest SnapshotPreparation(current, readViewport(request), fonts)
     }
 
     current?.invalidate()
@@ -86,14 +94,17 @@ private class NativeSnapshotterAdapter(
     loadedBaseStyleRevision = null
     val loading = NativeSnapshotOperation(NativeSnapshotOperation.Kind.STYLE)
     terminalOperation = loading
-    postStyleToMap(loading, baseStyle)
+    resourceConfig.fonts.hold(this, fonts.map { it.file })
+    postStyleToMap(loading, baseStyle, fonts)
     val loadResult = loading.completion.await()
     if (terminalOperation === loading) terminalOperation = null
     loadResult.getOrThrow()
     loadedBaseStyleRevision = baseStyleRevision
+    loadedFonts = fonts
     SnapshotPreparation(
       binding = checkNotNull(styleBinding) { "MapLibre reported a loaded style without a binding" },
       viewport = readViewport(request),
+      fonts = fonts,
     )
   }
 
@@ -145,6 +156,7 @@ private class NativeSnapshotterAdapter(
     runCatching { styleBinding?.invalidate() }.exceptionOrNull()?.let(failures::add)
     styleBinding = null
     loadedBaseStyleRevision = null
+    resourceConfig.fonts.drop(this)
     releaseEngine(failures)
     throwCleanupFailures(failures)
   }
@@ -388,13 +400,14 @@ private class NativeSnapshotterAdapter(
     return pixels.toImageBitmap(info.width, info.height)
   }
 
-  private fun postStyleToMap(operation: NativeSnapshotOperation, baseStyle: BaseStyle) {
+  private fun postStyleToMap(
+    operation: NativeSnapshotOperation,
+    baseStyle: BaseStyle,
+    fonts: List<StyleFontDefinition>,
+  ) {
     postToMap(operation) { map ->
       try {
-        when (baseStyle) {
-          is BaseStyle.Uri -> map.setStyleUrl(baseStyle.uri)
-          is BaseStyle.Json -> map.setStyleJson(baseStyle.json.encodeToByteArray())
-        }
+        map.loadBaseStyle(baseStyle, fonts, options.logger)
       } catch (_: MaplibreException) {
         // A rejected inline style also queues MAP_LOADING_FAILED. That event owns completion so it
         // is drained before the FIFO worker can expose the next operation to snapshot events.

@@ -10,6 +10,7 @@ internal class StyleReconciler {
   private val sources = linkedMapOf<String, AppliedSource>()
   private val layers = linkedMapOf<String, AppliedLayer>()
   private val images = linkedMapOf<String, StyleImageDefinition>()
+  private var fonts: List<StyleFontDefinition> = emptyList()
 
   /**
    * The engine's layer order, bottom to top, as this reconciler's mutations leave it. Reading the
@@ -90,6 +91,7 @@ internal class StyleReconciler {
     }
 
     syncImages(style, revision.images)
+    syncFonts(style, revision.fonts)
 
     placedLayers
       .groupByTo(linkedMapOf()) { it.placement }
@@ -144,6 +146,7 @@ internal class StyleReconciler {
     sources.clear()
     layers.clear()
     images.clear()
+    fonts = emptyList()
     knownLayerIds = null
     baseLayers = null
   }
@@ -227,6 +230,12 @@ internal class StyleReconciler {
         images[definition.id] = definition
       }
     }
+  }
+
+  private fun syncFonts(style: StyleBinding, desired: List<StyleFontDefinition>) {
+    if (desired == fonts) return
+    style.setFontFaces(desired)
+    fonts = desired
   }
 
   private fun shouldMoveLayer(

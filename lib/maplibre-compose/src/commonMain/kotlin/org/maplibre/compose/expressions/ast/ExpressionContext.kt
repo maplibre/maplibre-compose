@@ -3,7 +3,7 @@ package org.maplibre.compose.expressions.ast
 import org.maplibre.compose.expressions.value.FloatValue
 
 /**
- * Resolves text units and images when compiling an [Expression].
+ * Resolves text units, images, and fonts when compiling an [Expression].
  *
  * The library supplies this context; applications do not need to implement it.
  */
@@ -24,6 +24,9 @@ public interface ExpressionContext {
   /** @return the resolved identifier for the [painter]. */
   public fun resolvePainter(painter: PainterLiteral): String
 
+  /** @return the font stack that [font] compiles to, after registering its file. */
+  public fun resolveFont(font: FontLiteral): List<String>
+
   /** A context where no complex types can be resolved. */
   public object None : ExpressionContext {
     override val emScale: Expression<FloatValue>
@@ -37,5 +40,8 @@ public interface ExpressionContext {
 
     override fun resolvePainter(painter: PainterLiteral): String =
       error("Painter not allowed in this context")
+
+    override fun resolveFont(font: FontLiteral): List<String> =
+      error("Font not allowed in this context")
   }
 }

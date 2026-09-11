@@ -17,6 +17,7 @@ import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import org.maplibre.compose.gljs.FilterSpecification
+import org.maplibre.compose.gljs.FontFacesSpecification
 import org.maplibre.compose.gljs.GeoJsonSourceData
 import org.maplibre.compose.gljs.GlJsGeoJsonSource
 import org.maplibre.compose.gljs.GlJsImageSource
@@ -40,6 +41,7 @@ import org.maplibre.compose.gljs.subscribe
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.UnknownLayer
 import org.maplibre.compose.logging.MapLog
+import org.maplibre.compose.resource.StyleFontStore
 import org.maplibre.compose.sources.CLUSTER_ID_PROPERTY
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
 import org.maplibre.compose.sources.CustomVectorTileSourceOptions
@@ -69,10 +71,16 @@ import org.maplibre.spatialk.geojson.Position
 internal class GlJsStyleBinding(
   private val map: MaplibreMap,
   override val logger: MapLog?,
+  /** Serves registered font files; null when this map has no request controller. */
+  private val fonts: StyleFontStore?,
   private val getScale: () -> Float,
 ) : StyleBinding {
 
   override val identity: StyleIdentity = StyleIdentity.create()
+
+  /** The style's own `font-faces`, which registered fonts are declared on top of. */
+  private val baseFontFaces: JsonObject? =
+    map.getFontFaces()?.let { it.toJsonElement() as? JsonObject }
 
   override val animatorDurationScale: Float
     get() = systemAnimatorDurationScale()
@@ -120,6 +128,7 @@ internal class GlJsStyleBinding(
     val attachments = customVectorAttachments.values.toList()
     customVectorAttachments.clear()
     attachments.forEach { it.close() }
+    fonts?.drop(this)
   }
 
   private fun requireLoaded() {
@@ -172,6 +181,26 @@ internal class GlJsStyleBinding(
   override fun imageExists(id: String): Boolean {
     requireLoaded()
     return map.hasImage(id)
+  }
+
+  override val supportsFontFaceUpdates: Boolean = true
+
+  override fun setFontFaces(fonts: List<StyleFontDefinition>) {
+    requireLoaded()
+    val store = this.fonts
+    if (store == null) {
+      if (fonts.isNotEmpty()) {
+        logger?.w { "This map has no request controller, so registered fonts cannot be served" }
+      }
+      return
+    }
+    store.hold(this, fonts.map { it.file })
+    val declaration = fontFacesJson(baseFontFaces, fonts)
+    mutate("set the font faces") {
+      map.setFontFaces(
+        if (declaration.isEmpty()) null else declaration.toJsValue<FontFacesSpecification>()
+      )
+    }
   }
 
   override fun getSource(id: String): Source? {

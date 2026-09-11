@@ -18,6 +18,7 @@ import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.SnapshotStyleOwnership
+import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.util.MaplibreComposable
@@ -123,7 +124,10 @@ internal suspend fun MapFixture.pumpUntilPixel(
   }
 }
 
-internal expect fun createMapFixture(extent: MapExtent = MapFixture.DEFAULT_EXTENT): MapFixture
+internal expect fun createMapFixture(
+  extent: MapExtent = MapFixture.DEFAULT_EXTENT,
+  resourceConfig: MapResourceConfig = MapResourceConfig(),
+): MapFixture
 
 /** Evaluates real composables, then publishes and reconciles through the map's production paths. */
 internal suspend fun MapFixture.declare(content: @Composable @MaplibreComposable () -> Unit) {

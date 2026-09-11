@@ -687,7 +687,8 @@ internal class GlJsMapSession(
         if (styleLoadSubscription === loadSubscription) styleLoadSubscription = null
         if (styleErrorSubscription === errorSubscription) styleErrorSubscription = null
         styleLoadPending = false
-        val binding = GlJsStyleBinding(map, logger) { appliedExtent.scaleFactor.toFloat() }
+        val binding =
+          GlJsStyleBinding(map, logger, requests?.fonts) { appliedExtent.scaleFactor.toFloat() }
         if (!styleLoadTracker.loaded(trackerRequest, binding.identity, map.isStyleLoaded())) {
           binding.invalidate()
           applyRequestedStyle(map)

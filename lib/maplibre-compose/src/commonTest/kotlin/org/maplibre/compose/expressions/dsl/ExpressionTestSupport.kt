@@ -8,6 +8,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.BitmapLiteral
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.ExpressionContext
+import org.maplibre.compose.expressions.ast.FontLiteral
 import org.maplibre.compose.expressions.ast.PainterLiteral
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.util.toStyleJson
@@ -47,4 +48,6 @@ internal object TextContext : ExpressionContext {
   override fun resolveBitmap(bitmap: BitmapLiteral): String = error("no bitmaps in tests")
 
   override fun resolvePainter(painter: PainterLiteral): String = error("no painters in tests")
+
+  override fun resolveFont(font: FontLiteral): List<String> = error("no fonts in tests")
 }

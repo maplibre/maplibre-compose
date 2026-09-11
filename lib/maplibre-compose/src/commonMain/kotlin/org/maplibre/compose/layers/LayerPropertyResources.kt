@@ -12,14 +12,18 @@ import androidx.compose.ui.unit.LayoutDirection
 import kotlinx.coroutines.awaitCancellation
 import org.maplibre.compose.expressions.ast.BitmapLiteral
 import org.maplibre.compose.expressions.ast.Expression
+import org.maplibre.compose.expressions.ast.FontLiteral
 import org.maplibre.compose.expressions.ast.PainterLiteral
 import org.maplibre.compose.style.ImageManager
 import org.maplibre.compose.style.ImageManager.BitmapKey
 import org.maplibre.compose.style.ImageManager.PainterKey
+import org.maplibre.compose.style.StyleNode
 
-internal class LayerPropertyImages(
+/** The images and fonts one layer property references, resolved to their style identifiers. */
+internal class LayerPropertyResources(
   private val bitmaps: Map<BitmapKey, String>,
   private val painters: Map<PainterKey, String>,
+  private val fonts: Map<FontLiteral, List<String>>,
   private val density: Density,
   private val layoutDirection: LayoutDirection,
 ) {
@@ -27,27 +31,32 @@ internal class LayerPropertyImages(
 
   fun resolve(painter: PainterLiteral): String =
     painters.getValue(painter.imageKey(density, layoutDirection))
+
+  fun resolve(font: FontLiteral): List<String> = fonts.getValue(font)
 }
 
 @Composable
-internal fun rememberLayerPropertyImages(
+internal fun rememberLayerPropertyResources(
   expression: Expression<*>,
-  manager: ImageManager,
+  styleNode: StyleNode,
   density: Density,
   layoutDirection: LayoutDirection,
-): LayerPropertyImages? {
-  val (bitmapKeys, painterKeys) =
+): LayerPropertyResources? {
+  val manager = styleNode.imageManager
+  val (bitmapKeys, painterKeys, fontLiterals) =
     remember(expression, density, layoutDirection) {
       val bitmaps = mutableSetOf<BitmapKey>()
       val painters = mutableSetOf<PainterKey>()
+      val fonts = mutableSetOf<FontLiteral>()
       expression.visit {
         when (it) {
           is BitmapLiteral -> bitmaps.add(it.imageKey())
           is PainterLiteral -> painters.add(it.imageKey(density, layoutDirection))
+          is FontLiteral -> fonts.add(it)
           else -> Unit
         }
       }
-      bitmaps to painters
+      Triple(bitmaps, painters, fonts)
     }
   // Expressions can change every animation frame while their image inputs stay the same.
   val painters = rememberPainterImages(manager, painterKeys)
@@ -63,8 +72,12 @@ internal fun rememberLayerPropertyImages(
   DisposableEffect(manager, bitmaps) {
     onDispose { bitmaps.keys.forEach(manager::releaseBitmap) }
   }
-  return remember(bitmaps, painters, density, layoutDirection) {
-    LayerPropertyImages(bitmaps, painters, density, layoutDirection)
+  val fontManager = styleNode.fontManager
+  val fonts =
+    remember(fontManager, fontLiterals) { fontLiterals.associateWith(fontManager::acquire) }
+  DisposableEffect(fontManager, fonts) { onDispose { fonts.keys.forEach(fontManager::release) } }
+  return remember(bitmaps, painters, fonts, density, layoutDirection) {
+    LayerPropertyResources(bitmaps, painters, fonts, density, layoutDirection)
   }
 }
 

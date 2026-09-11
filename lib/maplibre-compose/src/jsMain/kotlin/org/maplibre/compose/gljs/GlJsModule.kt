@@ -58,6 +58,10 @@ internal external class MaplibreMap(options: MapOptions) {
 
   fun getProjection(): ProjectionSpecification?
 
+  fun setFontFaces(fontFaces: FontFacesSpecification?)
+
+  fun getFontFaces(): FontFacesSpecification?
+
   fun isStyleLoaded(): Boolean
 
   fun isSourceLoaded(id: String): Boolean

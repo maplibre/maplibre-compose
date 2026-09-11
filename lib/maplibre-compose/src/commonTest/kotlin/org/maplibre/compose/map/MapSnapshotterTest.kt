@@ -36,11 +36,56 @@ import org.maplibre.compose.sources.VectorTileSource
 import org.maplibre.compose.sources.VectorTileSourceHandle
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
+import org.maplibre.compose.style.FontFile
 import org.maplibre.compose.style.RecordingStyleBinding
+import org.maplibre.compose.style.StyleFontDefinition
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleReconciler
 
 class MapSnapshotterTest {
+
+  @Test
+  fun an_engine_that_loads_fonts_with_the_document_prepares_again_for_new_fonts() = runTest {
+    val adapter =
+      FakeSnapshotterAdapter(
+        prepare = { _, _ -> RecordingStyleBinding(supportsFontFaceUpdates = false) }
+      )
+    val body = listOf(StyleFontDefinition("Body", FontFile(byteArrayOf(1, 2, 3))))
+    val runtime =
+      mapRuntimeForTest(
+        createSnapshotterAdapter = { adapter },
+        styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _, _ -> revisionWithFonts(body) },
+      )
+    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
+
+    snapshotter.capture(MapSnapshotRequest(1, 1))
+    assertEquals(listOf(emptyList(), body), adapter.preparedFonts)
+
+    snapshotter.capture(MapSnapshotRequest(1, 1))
+    assertEquals(listOf(emptyList(), body, body), adapter.preparedFonts)
+    runtime.close()
+    runtime.awaitClosed()
+  }
+
+  @Test
+  fun an_engine_that_updates_fonts_at_runtime_prepares_once() = runTest {
+    val adapter = FakeSnapshotterAdapter()
+    val body = listOf(StyleFontDefinition("Body", FontFile(byteArrayOf(1))))
+    val runtime =
+      mapRuntimeForTest(
+        createSnapshotterAdapter = { adapter },
+        styleEvaluator = StyleCompositionEvaluator { _, _, _, _, _, _ -> revisionWithFonts(body) },
+      )
+    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
+
+    snapshotter.capture(MapSnapshotRequest(1, 1))
+    assertEquals(listOf(emptyList()), adapter.preparedFonts)
+    runtime.close()
+    runtime.awaitClosed()
+  }
+
+  private fun revisionWithFonts(fonts: List<StyleFontDefinition>) =
+    DesiredStyleRevision(emptyList(), emptyList(), emptyList(), fonts = fonts)
 
   @Test
   fun captures_execute_in_submission_order() = runTest {

@@ -61,11 +61,13 @@ import org.maplibre.compose.resource.MlnFfiResourceProviderFactory
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.MlnFfiStyleBinding
+import org.maplibre.compose.style.StyleFontDefinition
 import org.maplibre.compose.style.StyleLoadTracker
 import org.maplibre.compose.style.StylePresentation
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleRequestId
 import org.maplibre.compose.style.StyleResourceChanges
+import org.maplibre.compose.style.loadBaseStyle
 import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.metersPerDpAtLatitude
@@ -248,6 +250,9 @@ internal class MlnFfiMapSession(
   private var failureReported = false
 
   @Volatile private var requestedStyle: BaseStyle? = null
+
+  /** The fonts the last reconciled revision registered; declared by every base style load. */
+  @Volatile private var registeredFonts: List<StyleFontDefinition> = emptyList()
   @Volatile private var requestedStyleLoad: RequestedStyleLoad? = null
   private val styleLoadTracker = StyleLoadTracker()
   private var appliedStyleRequest: StyleRequestId? = null
@@ -567,6 +572,7 @@ internal class MlnFfiMapSession(
     styleBinding?.invalidate()
     styleBinding = null
     appliedStyleRequest = null
+    resourceConfig.fonts.drop(this)
     styleLoadTracker.engineBecameUnavailable()
     // After loop is cleared: a frame queued behind this close re-reads it in ensureAttached.
     closeRenderSession()
@@ -1106,6 +1112,7 @@ internal class MlnFfiMapSession(
     val binding = checkNotNull(styleBinding)
     val engine = checkNotNull(lifecycleEngineIdentity)
     val style = checkNotNull(lifecycleStyleIdentity)
+    registeredFonts = revision.fonts
     try {
       val changes = styleReconciler.apply(binding, revision)
       if (!styleLoadTracker.contentReady) {
@@ -1131,6 +1138,7 @@ internal class MlnFfiMapSession(
   override suspend fun replayStyleRevision(revision: DesiredStyleRevision): StyleResourceChanges {
     val binding = checkNotNull(styleBinding)
     check(styleLoadTracker.beginReplay(binding.identity))
+    registeredFonts = revision.fonts
     val changes =
       try {
         styleReconciler.apply(binding, revision)
@@ -1165,10 +1173,9 @@ internal class MlnFfiMapSession(
     // native retires the old document, with no event. Report either once and disconnect its
     // producer.
     try {
-      when (style) {
-        is BaseStyle.Uri -> map.setStyleUrl(style.uri)
-        is BaseStyle.Json -> map.setStyleJson(style.json.encodeToByteArray())
-      }
+      val fonts = registeredFonts
+      resourceConfig.fonts.hold(this, fonts.map { it.file })
+      map.loadBaseStyle(style, fonts, logger)
     } catch (error: MaplibreException) {
       styleEventProducer = null
       val reason = error.message ?: "Failed to apply the base style"

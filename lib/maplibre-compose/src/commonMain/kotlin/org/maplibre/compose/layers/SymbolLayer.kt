@@ -279,6 +279,7 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  * @param textHaloBlurTransition Timing for changes to [textHaloBlur]. Null uses the style's global
  *   transition.
  * @param textFont Font stack to use for displaying text. The expression may use feature properties.
+ *   [font][org.maplibre.compose.expressions.dsl.font] serves a stack name from a TTF or OTF file.
  *
  *   Ignored if [textField] is not specified.
  *
