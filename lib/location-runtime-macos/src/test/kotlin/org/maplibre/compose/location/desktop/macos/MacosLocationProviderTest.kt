@@ -21,6 +21,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
@@ -83,6 +85,53 @@ class MacosLocationProviderTest {
     runCurrent()
     assertTrue(client.managers.last().closed)
     assertTrue(client.managers.all { it.whenInUseRequests == 0 })
+    provider.close()
+  }
+
+  @Test
+  fun collectorRetriesFailedPermissionReadsWithoutAnotherAuthorizationCallback() = runTest {
+    val dispatcher = StandardTestDispatcher(testScheduler)
+    val client = FakeCoreLocationClient().apply { nextLocation = sampleMeasurement() }
+    val provider = MacosLocationProvider(client, dispatcher, dispatcher)
+    val permissionManager = client.managers.single()
+    val events = mutableListOf<LocationEvent>()
+    val collection = backgroundScope.launch { provider.updates().collect(events::add) }
+    runCurrent()
+    assertIs<LocationEvent.Update>(events.last())
+
+    val failure = IllegalStateException("permission read failed")
+    var failing = true
+    var reads = 0
+    permissionManager.onAuthorizationRead = {
+      reads++
+      if (failing) throw failure
+    }
+    permissionManager.boundDelegate?.didChangeAuthorization()
+    runCurrent()
+    val unavailable = assertIs<LocationEvent.Unavailable>(events.last())
+    assertEquals(LocationUnavailableReason.UnexpectedFailure, unavailable.reason)
+    assertEquals(failure, unavailable.cause)
+    assertTrue(client.managers.last().closed)
+    advanceTimeBy(1.seconds)
+    runCurrent()
+    assertEquals(3, reads)
+    assertEquals(2, client.managers.size)
+
+    failing = false
+    advanceTimeBy(1.seconds)
+    runCurrent()
+    assertIs<LocationEvent.Update>(events.last())
+    assertEquals(3, client.managers.size)
+
+    failing = true
+    permissionManager.boundDelegate?.didChangeAuthorization()
+    runCurrent()
+    collection.cancel()
+    runCurrent()
+    val readsBeforeCancellation = reads
+    advanceTimeBy(2.seconds)
+    runCurrent()
+    assertEquals(readsBeforeCancellation, reads)
     provider.close()
   }
 

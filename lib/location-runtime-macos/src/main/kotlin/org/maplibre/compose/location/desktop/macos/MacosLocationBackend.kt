@@ -3,6 +3,7 @@ package org.maplibre.compose.location.desktop.macos
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.CoroutineContext
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -14,6 +15,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +25,7 @@ import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.location.DesktopLocationBackend
@@ -118,6 +121,14 @@ internal constructor(
       permission.flatMapLatest { status ->
         if (status is LocationPermission.Granted) {
           collectUpdates(request)
+        } else if (status == LocationPermission.Unknown) {
+          flow<LocationEvent> { requester.refreshPermission() }
+            .retryWhen { error, _ ->
+              if (error is CancellationException) return@retryWhen false
+              emit(LocationEvent.Unavailable(LocationUnavailableReason.UnexpectedFailure, error))
+              delay(1.seconds)
+              true
+            }
         } else {
           flow {
             val enabled = withContext(ioDispatcher) { client.locationServicesEnabled }
