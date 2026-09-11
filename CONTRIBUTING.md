@@ -132,6 +132,7 @@ launch on iOS. Every other host has a task:
 
 - Android: `mise run demo:android`
 - Android Auto: `mise run demo:android-auto` (see setup below)
+- CarPlay: `mise run demo:ios`, then connect a CarPlay display (see setup below)
 - Android TV: `mise run demo:android-tv`, on a TV or on the emulator that
   `mise run android-emulator:boot --tv` starts
 - Wear OS: `mise run demo:wearos`, on a watch or on the emulator that
@@ -149,9 +150,9 @@ Map render backend than the platform default, as in
 
 ### Android Auto
 
-The `demo-app/android-auto` app browses places using the Car App Library and
-renders the shared demo map into the host's Surface. It needs an Android Auto
-host supporting Car API 7 or newer.
+The `demo-app/android-auto` app uses the Car App Library to display a Protomaps
+map with pan, zoom, recenter, and attribution controls. It renders into the
+host's Surface. It needs an Android Auto host supporting Car API 7 or newer.
 
 For the
 [Desktop Head Unit](https://developer.android.com/training/cars/testing/dhu):
@@ -162,13 +163,37 @@ For the
 2. Install **Android Auto Desktop Head Unit Emulator** from Android Studio's SDK
    Tools, or run `sdkmanager 'extras;google;auto'`.
 3. Run `mise run demo:android-auto`. The task installs the app, forwards the
-   head unit server port, and launches the Desktop Head Unit. Select **MapLibre
-   Places** in the car launcher.
+   head unit server port, and launches the Desktop Head Unit. Select
+   **MapLibre** in the car launcher.
 
 Use `--install-only` to install for a physical head unit without starting the
 Desktop Head Unit. The demo supports `--backend vulkan`, like the phone demo.
-Check map rendering, pan/zoom, place selection, day/night mode, window resizing,
-and reconnecting the host when changing Surface integration.
+Check map rendering, pan/zoom, recentering, day/night mode, window resizing, and
+reconnecting the host when changing Surface integration.
+
+### CarPlay
+
+The iOS app includes a CarPlay scene with the same map and controls as Android
+Auto. Kotlin owns the map state and `MaplibreMapView`; Swift connects the view
+to CarPlay's window and forwards template actions and scene lifecycle events.
+
+Run `mise run demo:ios`, then choose **I/O > External Displays > CarPlay** in
+Simulator. Open **maplibre-compose-demo** in the car launcher. Check map
+rendering, pan/zoom, recentering, day/night mode, and disconnecting and
+reconnecting the CarPlay display while the phone app remains open.
+
+The project enables the CarPlay maps entitlement for simulator builds. A
+physical CarPlay connection requires Apple's
+[CarPlay entitlement approval](https://developer.apple.com/documentation/carplay/requesting-carplay-entitlements)
+and a matching provisioning profile. After configuring signing for an approved
+app identifier, set `CODE_SIGN_ENTITLEMENTS` to `iosApp/CarPlay.entitlements`
+for the device SDK too. Ordinary phone builds do not require this entitlement.
+
+### Wear OS
+
+The watch demo is a Protomaps map with one edge button that opens map credits.
+Drag to pan, pinch or turn the crown to zoom. It uses Wear Compose controls and
+does not load the phone demo's gallery or settings.
 
 ## Run the tests
 

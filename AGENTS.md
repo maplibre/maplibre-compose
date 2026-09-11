@@ -63,9 +63,10 @@ static checks and `dprint.jsonc` configures formatting.
 ## Architecture and task guidance
 
 `demo-app/common` is the demo's only Kotlin Multiplatform module and contains
-the shared app. Android (phone and TV), Android Auto, AWT desktop, Nucleus
-desktop, and iOS modules launch it, and `demo-app/wearos` wraps its map in a
-Wear Compose shell. The browser entry point is in `common/src/jsMain`.
+the shared app. Android (phone and TV), AWT desktop, Nucleus desktop, and iOS
+modules launch it. Android Auto and CarPlay share a small map demo with native
+controls; `demo-app/wearos` presents a simple map with Wear Compose controls.
+The browser entry point is in `common/src/jsMain`.
 
 - For repository prose and KDoc, use
   [docs-writing](.agents/skills/docs-writing/SKILL.md).

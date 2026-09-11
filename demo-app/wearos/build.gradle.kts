@@ -45,7 +45,6 @@ dependencies {
   implementation(libs.androidx.activity.compose)
   implementation(libs.androidx.wear.compose.foundation)
   implementation(libs.androidx.wear.compose.material3)
-  implementation(libs.jetbrains.compose.material3)
 
   runtimeOnly(project(":lib:maplibre-compose-runtime-$androidBackend-android"))
 }
