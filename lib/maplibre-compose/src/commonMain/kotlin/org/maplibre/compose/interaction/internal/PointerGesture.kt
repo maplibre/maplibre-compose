@@ -609,6 +609,8 @@ internal class PointerGesture(
     pressRole = TapPairing.Press.First
     twoFingerTap = null
     selectedDrag = null
+    // A paired press that ended without a click or drag claimed the first tap; drop it.
+    if (pairedSecondTap && origin == null) pairing.discard(emitClick = false)
 
     if (
       (!gestureInProgress &&

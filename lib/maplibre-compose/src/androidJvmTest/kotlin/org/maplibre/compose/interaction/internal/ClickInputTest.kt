@@ -424,6 +424,13 @@ class ClickInputTest {
     waitForIdle()
     assertEquals(0, target.scaleCalls.size, "a rejected quick zoom scaled")
     assertEquals(0, target.moveCalls.size, "the disqualifying move panned")
+    mapNode().performTouchInput {
+      advanceEventTime(1_000)
+      click(center)
+    }
+    mainClock.advanceTimeBy(1_000)
+    waitForIdle()
+    assertEquals(1, target.clicks, "a later tap reported the rejected quick zoom's first tap")
   }
 
   @Test
