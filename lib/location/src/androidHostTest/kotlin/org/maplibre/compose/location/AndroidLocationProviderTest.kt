@@ -18,6 +18,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
@@ -89,6 +90,26 @@ class AndroidLocationProviderTest {
 
       collection.cancelAndJoin()
       assertTrue(shadowOf(manager).locationUpdateListeners.isEmpty())
+      provider.close()
+    }
+
+  @Test
+  fun collectionRefreshesStalePermissionBeforeEmittingFromAnotherDispatcher() =
+    runTest(dispatcher) {
+      val provider = AndroidLocationProvider(application)
+      grant()
+      val events = mutableListOf<LocationEvent>()
+      val collection =
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+          provider.updates().collect(events::add)
+        }
+      // Collection can run now, but the main-thread refresh has not run yet.
+      assertTrue(events.isEmpty())
+      runCurrent()
+      sendLocation()
+      runCurrent()
+      assertIs<LocationEvent.Update>(events.single())
+      collection.cancelAndJoin()
       provider.close()
     }
 

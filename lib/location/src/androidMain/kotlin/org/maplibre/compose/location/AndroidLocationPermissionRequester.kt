@@ -17,15 +17,18 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Observes and requests foreground location permission on Android.
@@ -89,7 +92,16 @@ internal constructor(
    *
    * Refreshes on activity resume and once per second while collected.
    */
-  public val status: StateFlow<LocationPermission> = mutableStatus
+  @OptIn(ExperimentalForInheritanceCoroutinesApi::class)
+  public val status: StateFlow<LocationPermission> =
+    object : StateFlow<LocationPermission> by mutableStatus {
+      override suspend fun collect(collector: FlowCollector<LocationPermission>): Nothing {
+        withContext(Dispatchers.Main.immediate) {
+          if (!closed) refresh()
+        }
+        mutableStatus.collect(collector)
+      }
+    }
 
   init {
     if (lifecycle?.currentState == Lifecycle.State.DESTROYED) {
@@ -106,8 +118,8 @@ internal constructor(
           .collectLatest { observed ->
             if (observed) {
               while (!closed) {
-                refresh()
                 delay(1.seconds)
+                refresh()
               }
             }
           }
