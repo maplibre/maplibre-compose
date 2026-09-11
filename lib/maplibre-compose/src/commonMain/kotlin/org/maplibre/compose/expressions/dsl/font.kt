@@ -23,8 +23,11 @@ import org.maplibre.compose.expressions.value.StringValue
  * serves, tried for glyphs the file lacks. A registered name replaces a `font-faces` entry of the
  * base style with the same name.
  *
- * MapLibre Native reads registered fonts from the style document, so a font registered after the
- * base style loaded is used from the next base style load. MapLibre GL JS uses it at once.
+ * MapLibre GL JS uses a registered font at once. MapLibre Native reads registered fonts from the
+ * style document it parses: a font registered after a
+ * [BaseStyle.Json][org.maplibre.compose.style.BaseStyle.Json] loaded is used from that style's next
+ * load, and a [BaseStyle.Uri][org.maplibre.compose.style.BaseStyle.Uri] is fetched by the engine
+ * and cannot use registered fonts.
  */
 public fun font(
   name: String,

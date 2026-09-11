@@ -38,6 +38,17 @@ class FontManagerTest {
   }
 
   @Test
+  fun a_literal_keeps_its_own_copy_of_the_bytes() {
+    val bytes = byteArrayOf(1, 2, 3)
+    val literal = FontLiteral.of("Body", bytes, emptyList())
+    bytes[0] = 9
+    literal.value[1] = 9
+
+    assertEquals(FontFile(byteArrayOf(1, 2, 3)), literal.file)
+    assertTrue(literal.file.bytes.contentEquals(byteArrayOf(1, 2, 3)))
+  }
+
+  @Test
   fun a_font_file_is_identified_by_its_content() {
     val bytes = byteArrayOf(1, 2, 3)
     assertEquals(FontFile(bytes), FontFile(bytes.copyOf()))

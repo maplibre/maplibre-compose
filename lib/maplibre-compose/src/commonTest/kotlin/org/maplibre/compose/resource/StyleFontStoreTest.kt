@@ -41,6 +41,20 @@ class StyleFontStoreTest {
   }
 
   @Test
+  fun a_font_url_is_not_rewritten_by_the_application_interceptor() {
+    val config =
+      MapResourceConfig(
+        interceptor = MapRequestInterceptor(rewriteUrl = { "https://proxy.test/?u=${it.url}" })
+      )
+    config.fonts.hold(this, listOf(file))
+
+    val route = config.route(MapResourceRequest(file.url, MapResourceKind.Unknown))
+    assertIs<MapResourceRoute.Load>(route)
+    assertEquals(file.url, route.request.url)
+    assertSame(config.fonts.provider, route.provider)
+  }
+
+  @Test
   fun the_config_routes_a_font_url_to_the_store_before_the_provider() = runTest {
     val user = MapResourceProvider(accepts = { true }, load = { MapResourceLoad.NoContent() })
     val config = MapResourceConfig(provider = user)

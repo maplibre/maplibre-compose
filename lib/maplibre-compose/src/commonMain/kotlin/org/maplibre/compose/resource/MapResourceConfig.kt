@@ -24,6 +24,8 @@ internal sealed interface MapResourceRoute {
 }
 
 internal fun MapResourceConfig.route(request: MapResourceRequest): MapResourceRoute {
+  // A registered font URL is internal, so the application interceptor never sees it.
+  if (fonts.provider.accepts(request)) return MapResourceRoute.Load(request, fonts.provider)
   val rewritten = request.copy(url = interceptor.rewrittenUrl(request, logger))
   val provider = providerFor(rewritten)
   return if (provider != null) MapResourceRoute.Load(rewritten, provider)

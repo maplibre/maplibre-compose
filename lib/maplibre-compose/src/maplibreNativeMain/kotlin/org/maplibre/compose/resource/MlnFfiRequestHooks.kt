@@ -1,5 +1,6 @@
 package org.maplibre.compose.resource
 
+import org.maplibre.compose.style.isFontUrl
 import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.nativeffi.resource.HttpHeader
 import org.maplibre.nativeffi.resource.HttpHeaderTransformCallback
@@ -32,6 +33,7 @@ internal fun RuntimeHandle.installRequestInterceptor(config: MapResourceConfig) 
   }
   setResourceTransform(
     ResourceTransformCallback { request ->
+      if (isFontUrl(request.url)) return@ResourceTransformCallback null
       val mapRequest = MapResourceRequest(request.url, request.kind.toCommon())
       val url = config.interceptor.rewrittenUrl(mapRequest, config.logger)
       if (url == request.url) null else url

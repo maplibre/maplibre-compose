@@ -35,6 +35,12 @@ class FontFacesTest {
   }
 
   @Test
+  fun a_document_that_is_not_json_is_returned_for_the_engine_to_reject() {
+    val document = "{ not json"
+    assertSame(document, mergeFontFaces(document, listOf(body)))
+  }
+
+  @Test
   fun no_registered_fonts_leaves_the_document_untouched() {
     val document = """{"version": 8}"""
     assertSame(document, mergeFontFaces(document, emptyList()))

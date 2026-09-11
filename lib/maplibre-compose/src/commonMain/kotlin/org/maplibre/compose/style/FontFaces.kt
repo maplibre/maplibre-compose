@@ -49,11 +49,13 @@ internal fun fontFacesJson(base: JsonObject?, fonts: List<StyleFontDefinition>):
 
 /**
  * Returns [document] with [fonts] declared in its `font-faces` object. A registered name replaces
- * the document's own entry under that name. An empty [fonts] returns [document] unchanged.
+ * the document's own entry under that name. An empty [fonts], or a document that is not a JSON
+ * object, returns [document] unchanged so the engine reports the document's own failure.
  */
 internal fun mergeFontFaces(document: String, fonts: List<StyleFontDefinition>): String {
   if (fonts.isEmpty()) return document
-  val root = Json.parseToJsonElement(document) as? JsonObject ?: return document
+  val root =
+    runCatching { Json.parseToJsonElement(document) }.getOrNull() as? JsonObject ?: return document
   val merged = fontFacesJson(root[FONT_FACES_KEY] as? JsonObject, fonts)
   return JsonObject(root + (FONT_FACES_KEY to merged)).toString()
 }

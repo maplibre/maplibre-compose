@@ -7,7 +7,7 @@ import org.maplibre.compose.style.FontFile
 /**
  * A [Literal] representing a font stack whose first name is backed by a TTF or OTF file. The file
  * is registered with the style when a layer references the literal, and released when no layer
- * references it any more.
+ * references it any more. The literal keeps its own copy of the bytes.
  */
 public class FontLiteral
 private constructor(
@@ -17,8 +17,9 @@ private constructor(
   /** Stack names tried after [name]. */
   public val fallbacks: List<String>,
 ) : Literal<ListValue<StringValue>, ByteArray> {
+  /** A copy of the file; the literal's own bytes are never exposed. */
   override val value: ByteArray
-    get() = file.bytes
+    get() = file.bytes.copyOf()
 
   /** The stack this literal compiles to. */
   public val stack: List<String>
@@ -41,7 +42,7 @@ private constructor(
     public fun of(name: String, bytes: ByteArray, fallbacks: List<String>): FontLiteral {
       require(name.isNotBlank()) { "A font name must not be blank" }
       require(bytes.isNotEmpty()) { "A font file must not be empty" }
-      return FontLiteral(name, FontFile(bytes), fallbacks.toList())
+      return FontLiteral(name, FontFile(bytes.copyOf()), fallbacks.toList())
     }
   }
 }
