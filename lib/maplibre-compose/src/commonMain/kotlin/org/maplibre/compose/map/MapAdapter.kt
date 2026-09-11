@@ -93,6 +93,9 @@ internal interface MapAdapter {
 
   fun setCameraConstraints(value: CameraConstraints)
 
+  /** The constraints last applied with [setCameraConstraints], or the defaults before any. */
+  fun getCameraConstraints(): CameraConstraints
+
   fun getVisibleBounds(): VisibleBounds
 
   fun getVisibleRegion(): VisibleRegion

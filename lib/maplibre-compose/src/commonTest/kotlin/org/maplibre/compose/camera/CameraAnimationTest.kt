@@ -20,6 +20,16 @@ class CameraAnimationTest {
     assertSame(flight, flight.forPath(START, START.copy(target = Position(1.0, 0.0))))
   }
 
+  /** The path test is projected distance, so the same move counts at one zoom and not another. */
+  @Test
+  fun a_path_is_measured_in_pixels_at_the_current_zoom() {
+    val flight = CameraAnimation.Fly()
+    val nudged = START.copy(target = Position(START.target.longitude + 1e-9, 0.0))
+
+    assertEquals(CameraAnimation.Ease(), flight.forPath(START, nudged))
+    assertSame(flight, flight.forPath(START.copy(zoom = 22.0), nudged.copy(zoom = 22.0)))
+  }
+
   @Test
   fun a_timed_flight_and_an_ease_keep_their_animation() {
     val timed = CameraAnimation.Fly(1.seconds)

@@ -558,11 +558,15 @@ internal constructor(
   }
 
   /**
-   * [animation] arrives already scaled by the animator duration scale, so a fallback ease it turns
-   * into is scaled here.
+   * Resolves [CameraAnimation.forPath] against the zoom the map will apply. The engines also keep
+   * the center inside a bounding box constraint, which is not mirrored here. [animation] arrives
+   * already scaled by the animator duration scale, so a fallback ease it turns into is scaled here.
    */
   private fun CameraAnimation.forPathTo(target: CameraPosition): CameraAnimation {
-    val resolved = forPath(adapter.getCameraPosition(), target)
+    val constraints = adapter.getCameraConstraints()
+    val constrained =
+      target.copy(zoom = target.zoom.coerceIn(constraints.minZoom, constraints.maxZoom))
+    val resolved = forPath(adapter.getCameraPosition(), constrained)
     return if (resolved === this) this else resolved.scaledBy(systemAnimatorDurationScale())
   }
 

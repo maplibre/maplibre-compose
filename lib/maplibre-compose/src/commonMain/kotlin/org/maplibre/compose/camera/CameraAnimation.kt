@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import kotlin.math.abs
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import org.maplibre.compose.util.mercatorPixelDistance
 
 /**
  * How the camera moves from its current position to a new one.
@@ -93,19 +94,21 @@ public data class CubicBezier(
 }
 
 /**
- * Returns the animation to run from [from] to [to]. A speed-paced flight between the same center
- * and zoom has no path length to derive a duration from, and the engines disagree about it:
- * MapLibre Native jumps and MapLibre GL JS eases for its own default duration. Both instead run an
- * [CameraAnimation.Ease] with the default duration.
+ * Returns the animation to run from [from] to [to], where [to] has the zoom the map will apply. A
+ * speed-paced flight between the same center and zoom has no path length to derive a duration from,
+ * and the engines disagree about it: MapLibre Native jumps and MapLibre GL JS eases for its own
+ * default duration. Both instead run an [CameraAnimation.Ease] with the default duration. The path
+ * test is the engines' own: the projected distance at the current zoom, in pixels.
  */
 internal fun CameraAnimation.forPath(from: CameraPosition, to: CameraPosition): CameraAnimation {
   if (this !is CameraAnimation.Fly || duration != null) return this
-  val longitudeDelta = abs((to.target.longitude - from.target.longitude).mod(360.0))
   val hasPath =
-    abs(to.zoom - from.zoom) > PATH_EPSILON ||
-      abs(to.target.latitude - from.target.latitude) > PATH_EPSILON ||
-      minOf(longitudeDelta, 360.0 - longitudeDelta) > PATH_EPSILON
+    abs(to.zoom - from.zoom) > PATH_ZOOM_EPSILON ||
+      mercatorPixelDistance(from.zoom, from.target, to.target) > PATH_PIXEL_EPSILON
   return if (hasPath) this else CameraAnimation.Ease(easing = easing)
 }
 
-private const val PATH_EPSILON = 1e-9
+/** GL JS treats a shorter projected path as too short to fly; MapLibre Native uses half this. */
+private const val PATH_PIXEL_EPSILON = 2e-6
+
+private const val PATH_ZOOM_EPSILON = 1e-6

@@ -1564,6 +1564,8 @@ internal class MlnFfiMapSession(
     flushTransitionResumes()
   }
 
+  override fun getCameraConstraints(): CameraConstraints = cameraConstraints ?: CameraConstraints()
+
   override fun setCameraConstraints(value: CameraConstraints) {
     if (value == cameraConstraints) return
     cameraConstraints = value

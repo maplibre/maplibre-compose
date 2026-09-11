@@ -2175,6 +2175,8 @@ internal open class PresentationTestAdapter(
 
   override fun getCameraPosition(): CameraPosition = lastCameraPosition
 
+  override fun getCameraConstraints(): CameraConstraints = CameraConstraints()
+
   override fun setCameraPosition(cameraPosition: CameraPosition, guard: CameraCommandGuard?) {
     presentationWasVisibleWhileConfiguring =
       presentationWasVisibleWhileConfiguring || currentAttachment() != null
