@@ -48,10 +48,13 @@ class FontManagerTest {
     manager.acquire(first)
     assertEquals(listOf(StyleFontDefinition("Body", first.file)), manager.desiredFonts)
 
-    manager.release(first)
-    assertEquals(listOf(StyleFontDefinition("Body", first.file)), manager.desiredFonts)
+    // Releasing the newest acquisition leaves the second file as the most recent one held.
     manager.release(first)
     assertEquals(listOf(StyleFontDefinition("Body", second.file)), manager.desiredFonts)
+    manager.release(second)
+    assertEquals(listOf(StyleFontDefinition("Body", first.file)), manager.desiredFonts)
+    manager.release(first)
+    assertTrue(manager.desiredFonts.isEmpty())
   }
 
   @Test
