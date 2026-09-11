@@ -153,6 +153,14 @@ internal open class MlnFfiStyleBinding(
     }
   }
 
+  private fun declaredFontFaces(): Map<String, String?>? = readMap { map ->
+    val document = runCatching { map.loadedStyleJson().toJsonElement() }.getOrNull()
+    ((document as? JsonObject)?.get(FONT_FACES_KEY) as? JsonObject)?.fontFaceUrls()
+  }
+
+  /** Exists for tests. */
+  internal fun declaredFontFacesForTest(): Map<String, String?>? = declaredFontFaces()
+
   internal fun imageStretches(id: String): Pair<List<FfiImageStretch>, List<FfiImageStretch>>? =
     readMap {
       it.styleImageStretches(id)
@@ -180,11 +188,7 @@ internal open class MlnFfiStyleBinding(
    */
   override fun setFontFaces(fonts: List<StyleFontDefinition>) {
     if (fonts.isEmpty()) return
-    val declared =
-      readMap { map ->
-        val document = runCatching { map.loadedStyleJson().toJsonElement() }.getOrNull()
-        ((document as? JsonObject)?.get(FONT_FACES_KEY) as? JsonObject)?.fontFaceUrls()
-      } ?: return
+    val declared = declaredFontFaces() ?: return
     val missing = fonts.filter { declared[it.name] != it.file.url && reportedFonts.add(it.name) }
     if (missing.isEmpty()) return
     logger?.w {

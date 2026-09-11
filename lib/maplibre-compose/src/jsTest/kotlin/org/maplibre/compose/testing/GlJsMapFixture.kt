@@ -192,6 +192,8 @@ internal class GlJsMapFixture(
   }
 }
 
+internal actual fun StyleBinding.fontFacesForTest(): Map<String, String?>? = null
+
 internal actual fun createMapFixture(
   extent: MapExtent,
   resourceConfig: MapResourceConfig,

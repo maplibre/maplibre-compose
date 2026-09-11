@@ -103,6 +103,9 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent
   }
 }
 
+internal actual fun StyleBinding.fontFacesForTest(): Map<String, String?>? =
+  (this as? org.maplibre.compose.style.MlnFfiStyleBinding)?.declaredFontFacesForTest()
+
 internal actual fun createMapFixture(
   extent: MapExtent,
   resourceConfig: MapResourceConfig,

@@ -124,6 +124,9 @@ internal suspend fun MapFixture.pumpUntilPixel(
   }
 }
 
+/** The `font-faces` the loaded style declares, or null when the engine cannot report them. */
+internal expect fun StyleBinding.fontFacesForTest(): Map<String, String?>?
+
 internal expect fun createMapFixture(
   extent: MapExtent = MapFixture.DEFAULT_EXTENT,
   resourceConfig: MapResourceConfig = MapResourceConfig(),

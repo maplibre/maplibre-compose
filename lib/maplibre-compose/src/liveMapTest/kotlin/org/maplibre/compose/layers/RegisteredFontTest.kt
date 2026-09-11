@@ -27,6 +27,7 @@ import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.declare
+import org.maplibre.compose.testing.fontFacesForTest
 import org.maplibre.compose.testing.mapLibreFlavor
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.spatialk.geojson.Geometry
@@ -65,7 +66,7 @@ class RegisteredFontTest {
         fixture.declare(content)
       }
 
-      fixture.pumpUntilTextDrawn()
+      fixture.pumpUntilTextDrawn(glyphRequests)
       assertTrue(
         glyphRequests.none { FONT_NAME in it },
         "the glyph server was asked for the registered stack: ${glyphRequests.toList()}",
@@ -97,11 +98,17 @@ class RegisteredFontTest {
     )
   }
 
-  private suspend fun MapFixture.pumpUntilTextDrawn() {
+  private suspend fun MapFixture.pumpUntilTextDrawn(glyphRequests: RecordingList<String>) {
     val deadline = TimeSource.Monotonic.markNow() + 30.seconds
     while (!textDrawn()) {
-      check(deadline.hasNotPassedNow()) {
-        "Timed out waiting for the text to draw. Errors: $errors"
+      if (deadline.hasPassedNow()) {
+        val center = MapFixture.DEFAULT_EXTENT.width / 2
+        val row = (0 until MapFixture.DEFAULT_EXTENT.width step 32).map { readPixel(it, center) }
+        error(
+          "Timed out waiting for the text to draw. Errors: $errors. Glyph requests: " +
+            "${glyphRequests.toList()}. Declared font faces: ${style?.fontFacesForTest()}. " +
+            "Center row: $row"
+        )
       }
       pump(frames = 1)
     }
