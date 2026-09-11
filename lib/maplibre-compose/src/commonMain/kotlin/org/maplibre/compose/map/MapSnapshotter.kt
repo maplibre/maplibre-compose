@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Composition
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Recomposer
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalGraphicsContext
@@ -180,12 +181,15 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
               ) {
                 StyleContent(
                   rootNode = root,
-                  publish = { if (!root.imageManager.hasPendingImages) revision.complete(it) },
+                  publish = { if (!root.hasPendingResources) revision.complete(it) },
                   content = content,
                 )
               }
             }
             while (!revision.isCompleted) {
+              // No UI host flushes global snapshot writes here, so a state an effect wrote after
+              // suspending reaches the recomposer only through this call.
+              Snapshot.sendApplyNotifications()
               if (frameClock.hasAwaiters) frameClock.sendFrame(0L) else yield()
             }
             revision.await()
@@ -428,6 +432,14 @@ internal class MapSnapshotterImplementation(
             // The revision does not depend on the loaded generation, so a document reloaded with
             // the fonts it declares takes the same revision.
             if (!prepared.binding.supportsFontFaceUpdates && revision.fonts != prepared.fonts) {
+              if (
+                lock.withLock { imperativeSources.isNotEmpty() || imperativeImages.isNotEmpty() }
+              ) {
+                runtime.logger?.w {
+                  "The snapshot style is loaded again to declare its registered fonts; sources " +
+                    "and images added through the style handle are discarded"
+                }
+              }
               prepared.binding.invalidate()
               prepared =
                 platform.prepare(

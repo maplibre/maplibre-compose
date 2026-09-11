@@ -85,4 +85,9 @@ internal fun StyleContent(
   }
 }
 
-internal val LocalStyleNode = staticCompositionLocalOf<StyleNode> { throw IllegalStateException() }
+/** The node of the enclosing map content, or null outside one. */
+internal val LocalStyleNode = staticCompositionLocalOf<StyleNode?> { null }
+
+@Composable
+internal fun currentStyleNode(): StyleNode =
+  checkNotNull(LocalStyleNode.current) { "Style content must be composed inside map content" }

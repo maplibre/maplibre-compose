@@ -7,10 +7,12 @@ import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.dsl.image
+import org.maplibre.compose.expressions.dsl.rememberFont
 import org.maplibre.compose.layers.SymbolLayer
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
@@ -54,6 +56,39 @@ class SnapshotCompositionTest {
       runtime.close()
       runtime.awaitClosed()
     }
+  }
+
+  @Test
+  fun snapshot_waits_for_a_remembered_font_file() = runTest {
+    val fonts = mutableListOf<List<String>>()
+    val adapter =
+      FakeSnapshotterAdapter(
+        capture = { request, revision ->
+          fonts += revision.fonts.map { it.name }
+          FakeImageBitmap(request.width, request.height)
+        }
+      )
+    val runtime = mapRuntimeForTest(createSnapshotterAdapter = { adapter })
+    val source =
+      GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+    val snapshotter =
+      runtime.createSnapshotter(BaseStyle.Empty) {
+        SymbolLayer(
+          id = "labels",
+          source = source,
+          textFont =
+            rememberFont("Body", emptyList(), source = "file") {
+              yield()
+              byteArrayOf(1, 2, 3)
+            },
+        )
+      }
+
+    snapshotter.capture(MapSnapshotRequest(1, 1))
+
+    assertEquals(listOf(listOf("Body")), fonts)
+    runtime.close()
+    runtime.awaitClosed()
   }
 
   @Test

@@ -9,8 +9,8 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.value.ExpressionValue
-import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.SourceDefinition
+import org.maplibre.compose.style.currentStyleNode
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.GeoJsonObject
 
@@ -178,7 +178,7 @@ public fun rememberGeoJsonSource(
   options: GeoJsonOptions = GeoJsonOptions(),
 ): GeoJsonSource =
   key(options) {
-    val node = LocalStyleNode.current
+    val node = currentStyleNode()
     val source =
       rememberUserSource(
         factory = { GeoJsonSource(id = it, data = data, options = options) },

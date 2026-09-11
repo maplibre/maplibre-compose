@@ -7,7 +7,7 @@ import org.maplibre.compose.expressions.ast.FontLiteral
  * reference to the same file under the same name.
  *
  * One name maps to one file in a loaded style. When two references register different files under
- * one name, the most recently registered file is the one the style declares, so a font that changes
+ * one name, the most recently acquired file is the one the style declares, so a font that changes
  * file under a fixed name reaches the engine as soon as the new reference compiles.
  */
 internal class FontManager(private val node: StyleNode) {
@@ -21,8 +21,11 @@ internal class FontManager(private val node: StyleNode) {
 
   internal fun acquire(font: FontLiteral): List<String> {
     val definition = StyleFontDefinition(font.name, font.file)
-    counter.increment(definition) {
-      registrations.getOrPut(definition.name, ::mutableListOf).add(definition)
+    counter.increment(definition) {}
+    val active = registrations.getOrPut(definition.name, ::mutableListOf)
+    if (active.lastOrNull() != definition) {
+      active.remove(definition)
+      active.add(definition)
       node.scheduleApplyChanges()
     }
     return font.stack

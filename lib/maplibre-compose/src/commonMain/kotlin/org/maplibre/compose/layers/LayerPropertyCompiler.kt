@@ -18,8 +18,8 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.div
 import org.maplibre.compose.expressions.value.ExpressionValue
 import org.maplibre.compose.expressions.value.FloatValue
-import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.StyleNode
+import org.maplibre.compose.style.currentStyleNode
 
 internal class LayerPropertyCompiler(
   private val styleNode: StyleNode,
@@ -92,7 +92,7 @@ internal fun rememberPropertyCompiler(
   emScale: Expression<FloatValue>? = null,
   spScale: Expression<FloatValue>? = null,
 ): LayerPropertyCompiler {
-  val styleNode = LocalStyleNode.current
+  val styleNode = currentStyleNode()
   val density = LocalDensity.current
   val layoutDirection = LocalLayoutDirection.current
   return remember(styleNode, density, layoutDirection, emScale, spScale) {

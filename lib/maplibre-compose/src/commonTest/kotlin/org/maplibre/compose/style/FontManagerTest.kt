@@ -38,6 +38,23 @@ class FontManagerTest {
   }
 
   @Test
+  fun acquiring_an_already_held_file_again_makes_it_the_declared_one() {
+    val manager = FontManager(StyleNode(RecordingStyleBinding()))
+    val first = FontLiteral.of("Body", byteArrayOf(1), emptyList())
+    val second = FontLiteral.of("Body", byteArrayOf(2), emptyList())
+
+    manager.acquire(first)
+    manager.acquire(second)
+    manager.acquire(first)
+    assertEquals(listOf(StyleFontDefinition("Body", first.file)), manager.desiredFonts)
+
+    manager.release(first)
+    assertEquals(listOf(StyleFontDefinition("Body", first.file)), manager.desiredFonts)
+    manager.release(first)
+    assertEquals(listOf(StyleFontDefinition("Body", second.file)), manager.desiredFonts)
+  }
+
+  @Test
   fun a_literal_keeps_its_own_copy_of_the_bytes() {
     val bytes = byteArrayOf(1, 2, 3)
     val literal = FontLiteral.of("Body", bytes, emptyList())

@@ -1,6 +1,7 @@
 package org.maplibre.compose.expressions.dsl
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.produceState
@@ -13,6 +14,7 @@ import org.maplibre.compose.expressions.ast.FontLiteral
 import org.maplibre.compose.expressions.ast.NullLiteral
 import org.maplibre.compose.expressions.value.ListValue
 import org.maplibre.compose.expressions.value.StringValue
+import org.maplibre.compose.style.LocalStyleNode
 
 /**
  * Returns a font stack for `textFont` (see [SymbolLayer][org.maplibre.compose.layers.SymbolLayer])
@@ -68,6 +70,14 @@ internal fun rememberFont(
       val state by produceState<ByteArray?>(null) { value = load() }
       state
     }
+  val node = LocalStyleNode.current
+  if (bytes == null && node != null) {
+    // A snapshot waits for the file rather than capturing the stand-in stack.
+    DisposableEffect(node) {
+      node.beginResourcePreparation()
+      onDispose { node.endResourcePreparation() }
+    }
+  }
   return remember(name, bytes, fallbacks) {
     when {
       bytes != null -> font(name, bytes, fallbacks)

@@ -8,8 +8,8 @@ import androidx.compose.runtime.key
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.style.LayerNode
-import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.MapNodeApplier
+import org.maplibre.compose.style.currentStyleNode
 import org.maplibre.compose.util.MaplibreComposable
 
 /** [recreateKey] replaces the desired layer node when a construction key changes. */
@@ -28,7 +28,7 @@ internal fun <T : Layer> LayerNode(
     "hitPadding must be finite and nonnegative"
   }
   val anchor = LocalAnchor.current
-  val node = LocalStyleNode.current
+  val node = currentStyleNode()
 
   // The anchor is not part of the node's identity: a predicate anchor built from a fresh lambda on
   // each recomposition must update the node in place, not recreate it and its click registration.

@@ -62,9 +62,9 @@ internal fun rememberLayerPropertyResources(
   val painters = rememberPainterImages(manager, painterKeys)
   if (painters == null) {
     // Snapshot evaluators must wait until the property has compiled with its resolved image IDs.
-    DisposableEffect(manager) {
-      manager.beginImagePreparation()
-      onDispose { manager.endImagePreparation() }
+    DisposableEffect(styleNode) {
+      styleNode.beginResourcePreparation()
+      onDispose { styleNode.endResourcePreparation() }
     }
     return null
   }

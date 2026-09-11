@@ -5,8 +5,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.SourceDefinition
+import org.maplibre.compose.style.currentStyleNode
 
 /**
  * A data source for map data.
@@ -52,13 +52,13 @@ public inline fun <reified T : Source> getBaseSource(id: String): T? {
 @PublishedApi
 @Composable
 internal fun baseSourceOrNull(id: String): Source? {
-  val node = LocalStyleNode.current
+  val node = currentStyleNode()
   return remember(node, id) { node.sourceManager.getBaseSource(id) }
 }
 
 @Composable
 internal fun <T : Source> rememberUserSource(factory: (String) -> T, update: T.() -> Unit): T {
-  val node = LocalStyleNode.current
+  val node = currentStyleNode()
   val source = remember(node) { factory(node.sourceManager.nextId()) }
   LaunchedEffect(source, update, !node.style.isLoaded) {
     if (node.style.isLoaded) {

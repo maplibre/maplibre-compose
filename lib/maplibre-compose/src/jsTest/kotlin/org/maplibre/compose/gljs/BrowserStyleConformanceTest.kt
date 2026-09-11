@@ -22,8 +22,8 @@ import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.sources.rememberVectorTileSource
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.currentStyleNode
 import org.maplibre.compose.util.MaplibreComposable
 
 @OptIn(ExperimentalTestApi::class)
@@ -118,7 +118,7 @@ class BrowserStyleConformanceTest {
   @Composable
   @MaplibreComposable
   private fun CaptureStyle(onStyle: (StyleBinding) -> Unit) {
-    val node = LocalStyleNode.current
+    val node = currentStyleNode()
     LaunchedEffect(node) { onStyle(node.style) }
   }
 

@@ -28,8 +28,8 @@ import org.maplibre.compose.map.createMapRuntime
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.sources.RasterTileSource
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.StyleIdentity
+import org.maplibre.compose.style.currentStyleNode
 
 @OptIn(ExperimentalTestApi::class)
 class BrowserMapStyleStateTest {
@@ -394,7 +394,7 @@ class BrowserMapStyleStateTest {
     setBrowserMapContent {
       val logicalMap =
         rememberMapState(baseStyle = current.value) {
-          identity = LocalStyleNode.current.style.identity
+          identity = currentStyleNode().style.identity
         }
       mapState = logicalMap
       styleState = logicalMap.style

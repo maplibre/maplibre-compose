@@ -23,6 +23,22 @@ internal class StyleNode(
   internal val currentApplyGeneration: Int
     get() = applyGeneration
 
+  private var pendingResources = 0
+
+  /** Whether a property or font is still being prepared, so the revision is incomplete. */
+  internal val hasPendingResources: Boolean
+    get() = pendingResources != 0
+
+  internal fun beginResourcePreparation() {
+    pendingResources++
+    scheduleApplyChanges()
+  }
+
+  internal fun endResourcePreparation() {
+    pendingResources--
+    scheduleApplyChanges()
+  }
+
   internal fun scheduleApplyChanges() {
     applyGeneration++
   }
