@@ -15,7 +15,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.inset
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.DpSize
@@ -159,7 +159,10 @@ internal fun rememberMarkerPainter(colors: ColorScheme): Painter {
 
       override fun DrawScope.onDraw() {
         with(silhouette) { draw(size, colorFilter = ColorFilter.tint(outline)) }
-        inset(horizontal = size.width * 0.055f, vertical = size.height * 0.045f) {
+        // Scale the canvas so both draws request the same vector size. With inset, VectorPainter
+        // rewrites its cached bitmap for the smaller draw before Android's recording canvas plays
+        // back the outline draw, corrupting the outline. Scaling avoids that cache mutation.
+        scale(scaleX = 0.89f, scaleY = 0.91f) {
           with(silhouette) { draw(size, colorFilter = ColorFilter.tint(colors.primary)) }
         }
         val center = Offset(size.width / 2f, size.height * 0.4f)
