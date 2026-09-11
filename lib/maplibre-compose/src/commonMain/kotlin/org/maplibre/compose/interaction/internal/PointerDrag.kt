@@ -17,6 +17,10 @@ internal class PointerDrag(
   var active = false
     private set
 
+  /** A vertical-only drag whose motion crossed the threshold sideways first. */
+  var rejected = false
+    private set
+
   data class Motion(
     val started: Boolean,
     val delta: Offset,
@@ -29,9 +33,14 @@ internal class PointerDrag(
     val delta = change.position - old.position
     if (delta == Offset.Zero) return null
     if (active) return Motion(false, delta)
+    if (rejected) return null
     val displacement = change.position - origin
     val beyond =
       if (verticalOnly) {
+        if (abs(displacement.x) >= slop && abs(displacement.x) > abs(displacement.y)) {
+          rejected = true
+          return null
+        }
         if (abs(displacement.y) < slop || displacement.y == 0f) return null
         Offset(0f, displacement.y - sign(displacement.y) * slop)
       } else {

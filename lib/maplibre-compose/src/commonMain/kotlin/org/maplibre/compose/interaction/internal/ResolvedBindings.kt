@@ -199,6 +199,8 @@ internal data class InteractionBindings(
                 .build()
           ),
         secondaryClick = TapBinding(pointerTypes = mouse),
+        // Modifier drags (box zoom, rotate/tilt) keep priority over a paired mouse press.
+        tapDrag = TapDragBinding(modifiers = ModifierMatch.Exactly()),
         longPress = TapBinding(pointerTypes = touch),
         twoFingerTap =
           TapBinding(

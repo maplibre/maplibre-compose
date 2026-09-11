@@ -417,6 +417,7 @@ class ClickInputTest {
       advanceEventTime(SECOND_TAP_GAP_MILLIS)
       down(0, center)
       moveTo(0, center + Offset(100f, 0f), delayMillis = 50)
+      moveTo(0, center + Offset(100f, 100f), delayMillis = 50)
       up(0)
     }
     mainClock.advanceTimeBy(500)
@@ -432,6 +433,7 @@ class ClickInputTest {
       advanceEventTime(SECOND_TAP_GAP_MILLIS)
       press()
       moveBy(Offset(100f, 0f))
+      moveBy(Offset(0f, 100f))
       release()
     }
     mainClock.advanceTimeBy(500)

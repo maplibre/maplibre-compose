@@ -350,7 +350,14 @@ internal class PointerGesture(
     }
     val binding = selectedDrag ?: return
     if (delta == Offset.Zero) return
-    val motion = dragRecognition?.move(change) ?: return
+    val recognition = dragRecognition ?: return
+    val motion = recognition.move(change)
+    if (recognition.rejected) {
+      dragRecognition = null
+      selectedDrag = null
+      return
+    }
+    if (motion == null) return
 
     // The recognizer removes slop from the first delta; quick zoom must use that same origin.
     delta = motion.delta

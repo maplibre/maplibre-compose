@@ -128,14 +128,15 @@ class MapInteractionsTest {
   }
 
   @Test
-  fun tap_drag_admits_primary_mouse_like_touch() {
+  fun standard_tap_drag_yields_to_modifier_drags_and_secondary_button() {
     val standard = InputConfiguration.Standard
-    assertTrue(standard.bindings.tapDrag.matches(sample(PointerType.Mouse)))
-    assertTrue(standard.bindings.tapDrag.matches(sample(PointerType.Touch)))
-    assertFalse(
-      standard.bindings.tapDrag.matches(
-        sample(PointerType.Mouse, buttons = setOf(PointerButton.Secondary))
-      )
+    assertTrue(standard.bindings.tapDrag.matches(sample()))
+    assertFalse(standard.bindings.tapDrag.matches(sample(buttons = setOf(PointerButton.Secondary))))
+    val shifted = sample(modifiers = setOf(KeyModifier.Shift))
+    assertFalse(standard.bindings.tapDrag.matches(shifted))
+    assertEquals(
+      DragResponse.FitBounds,
+      standard.bindings.drag.select(shifted, standard.camera.settings),
     )
   }
 
