@@ -32,7 +32,6 @@ internal fun TapBinding.matches(sample: GesturePointerSample): Boolean =
 internal fun TapDragBinding.matches(sample: GesturePointerSample): Boolean =
   eligible(enabled, pointerTypes, sample) &&
     (modifiers?.matches(sample.modifierKeys) != false) &&
-    PointerType.Mouse !in sample.pointerTypes &&
     PointerPattern(button = PointerButton.Primary).matches(sample)
 
 internal fun CameraSettings.permits(response: DragResponse): Boolean =

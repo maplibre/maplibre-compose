@@ -83,8 +83,7 @@ internal data class TransformTiltBinding(
 
 internal data class TapDragBinding(
   val enabled: Boolean = true,
-  val pointerTypes: Set<PointerType>? =
-    setOf(PointerType.Touch, PointerType.Stylus, PointerType.Eraser, PointerType.Unknown),
+  val pointerTypes: Set<PointerType>? = null,
   val modifiers: ModifierMatch? = null,
   val startSlop: Dp = 7.dp,
   val anchor: GestureAnchor = GestureAnchor.CameraCenter,
@@ -200,6 +199,8 @@ internal data class InteractionBindings(
                 .build()
           ),
         secondaryClick = TapBinding(pointerTypes = mouse),
+        // Modifier drags (box zoom, rotate/tilt) keep priority over a paired mouse press.
+        tapDrag = TapDragBinding(modifiers = ModifierMatch.Exactly()),
         longPress = TapBinding(pointerTypes = touch),
         twoFingerTap =
           TapBinding(

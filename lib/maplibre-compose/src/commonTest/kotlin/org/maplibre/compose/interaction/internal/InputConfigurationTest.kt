@@ -128,6 +128,19 @@ class MapInteractionsTest {
   }
 
   @Test
+  fun standard_tap_drag_yields_to_modifier_drags_and_secondary_button() {
+    val standard = InputConfiguration.Standard
+    assertTrue(standard.bindings.tapDrag.matches(sample()))
+    assertFalse(standard.bindings.tapDrag.matches(sample(buttons = setOf(PointerButton.Secondary))))
+    val shifted = sample(modifiers = setOf(KeyModifier.Shift))
+    assertFalse(standard.bindings.tapDrag.matches(shifted))
+    assertEquals(
+      DragResponse.FitBounds,
+      standard.bindings.drag.select(shifted, standard.camera.settings),
+    )
+  }
+
+  @Test
   fun mappings_are_replaced_and_tuning_does_not_restore_them() {
     val cleared = InputConfiguration { bindings { doubleTap { mappings {} } } }
     val tuned = InputConfiguration(from = cleared) { bindings { doubleTap { zoomStep = 2.0 } } }
