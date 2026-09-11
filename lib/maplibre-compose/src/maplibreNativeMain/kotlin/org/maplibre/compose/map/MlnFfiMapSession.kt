@@ -71,6 +71,7 @@ import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.metersPerDpAtLatitude
 import org.maplibre.compose.util.renderedQueryOptions
 import org.maplibre.compose.util.toCameraOptions
+import org.maplibre.compose.util.toCameraPosition
 import org.maplibre.compose.util.toDpOffset
 import org.maplibre.compose.util.toEdgeInsets
 import org.maplibre.compose.util.toGeoJsonFeatures
@@ -1286,6 +1287,20 @@ internal class MlnFfiMapSession(
     map.jumpTo(CameraOptions().also { it.padding = padding })
     appliedCameraPadding = padding
   }
+
+  override fun cameraForBounds(
+    boundingBox: BoundingBox,
+    bearing: Double,
+    tilt: Double,
+    padding: PaddingValues,
+  ): CameraPosition =
+    checkNotNull(
+      runOnMap { map ->
+        cameraForBounds(map, boundingBox, bearing, tilt, padding).toCameraPosition()
+      }
+    ) {
+      "The map became unavailable during the bounds query"
+    }
 
   override fun fitCameraToBounds(
     boundingBox: BoundingBox,

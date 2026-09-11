@@ -9,8 +9,11 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.systemAnimatorDurationScale
@@ -26,6 +29,68 @@ import org.maplibre.spatialk.geojson.Position
  * Both backends advance a transition only from inside a render, so every test renders as it waits.
  */
 class MapCameraTransitionTest {
+
+  @Test
+  fun a_bounds_query_can_be_applied_with_transient_padding(): MapTestResult = runMapTest {
+    createMapFixture().use {
+      it.loadStyle(BaseStyle.Empty)
+      it.session.setCameraPadding(CAMERA_PADDING)
+      it.state.setCameraPosition(START)
+      it.awaitMapReady()
+      it.pumpUntil("the camera padding to be applied") {
+        it.cameraTargetMatches(START, CAMERA_PADDING)
+      }
+      val before = it.session.getCameraPosition()
+      val camera = it.state.cameraForBounds(BOUNDS, padding = FIT_PADDING)
+      it.pump(frames = 2)
+      assertSameFit(before, it.session.getCameraPosition(), "the query moved the camera")
+
+      it.state.setCameraPosition(camera)
+      it.pumpUntil("the calculated camera to be applied") {
+        abs(it.session.getCameraPosition().zoom - camera.zoom) < 0.01
+      }
+      it.assertCameraTarget(camera, CAMERA_PADDING)
+      it.assertBoundsInside(CAMERA_PADDING + FIT_PADDING)
+
+      it.state.fitCameraToBounds(BOUNDS, padding = FIT_PADDING)
+      it.pump(frames = 2)
+      assertSameFit(camera, it.session.getCameraPosition(), "the query disagrees with the fit")
+    }
+  }
+
+  @Test
+  fun a_bounds_query_waits_for_the_first_viewport(): MapTestResult = runMapTest {
+    createMapFixture().use { fixture ->
+      val query =
+        async(start = CoroutineStart.UNDISPATCHED) {
+          fixture.state.cameraForBounds(ANTIMERIDIAN_BOUNDS)
+        }
+      assertFalse(query.isCompleted)
+      fixture.awaitMapReady()
+      val camera = withTimeout(30.seconds) { query.await() }
+      assertTrue(abs(abs(camera.target.longitude) - 180.0) < 1.0)
+      assertTrue(camera.zoom > START.zoom)
+    }
+  }
+
+  @Test
+  fun a_bounds_query_does_not_interrupt_an_animation(): MapTestResult = runMapTest {
+    createMapFixture().use {
+      it.startAtOrigin()
+      val animation =
+        launch(Dispatchers.Default) {
+          it.state.animateCameraPosition(TARGET, 2.seconds)
+        }
+      it.awaitCameraMoving()
+      it.state.cameraForBounds(BOUNDS, bearing = 35.0, tilt = 20.0).also { camera ->
+        assertNear(35.0, camera.bearing, "the query bearing")
+        assertNear(20.0, camera.tilt, "the query tilt")
+      }
+      it.pumpUntil("the animation to complete after the query") { animation.isCompleted }
+      assertFalse(animation.isCancelled)
+      assertNear(TARGET.zoom, it.session.getCameraPosition().zoom, "the animation target")
+    }
+  }
 
   @Test
   fun a_bounds_jump_adds_transient_fit_padding_to_camera_padding(): MapTestResult = runMapTest {

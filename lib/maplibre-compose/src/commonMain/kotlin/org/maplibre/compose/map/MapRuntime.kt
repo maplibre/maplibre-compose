@@ -507,6 +507,16 @@ internal constructor(
   val cameraMoveReason: CameraMoveReason
     get() = moveReasonState
 
+  suspend fun cameraForBounds(
+    boundingBox: BoundingBox,
+    bearing: Double,
+    tilt: Double,
+    padding: PaddingValues,
+  ): CameraPosition = runLeaseBound {
+    awaitViewportState()
+    adapter.cameraForBounds(boundingBox, bearing, tilt, padding)
+  }
+
   suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double = 0.0,
@@ -859,6 +869,26 @@ internal constructor(
     }
     applyAttachmentCameraCommand(command.attachment, command.command)
   }
+
+  /**
+   * Waits for a viewport, then calculates a camera for [boundingBox] without moving the map or
+   * interrupting camera input or animations. Detaching the surface during the query cancels it.
+   *
+   * [padding] adds space around the bounds in addition to the map's camera padding. It does not
+   * change the map's padding. The result uses the current viewport size and camera constraints;
+   * recalculate it if those or the map's padding change before applying it.
+   *
+   * On the browser, fitting calculates the target and zoom without [tilt], then assigns [tilt] to
+   * the result. A nonzero tilt may therefore leave part of the bounds outside the viewport.
+   *
+   * @throws IllegalStateException if the backend cannot calculate a camera for the bounds.
+   */
+  public suspend fun cameraForBounds(
+    boundingBox: BoundingBox,
+    bearing: Double = 0.0,
+    tilt: Double = 0.0,
+    padding: PaddingValues = PaddingValues(0.dp),
+  ): CameraPosition = awaitAttachment().cameraForBounds(boundingBox, bearing, tilt, padding)
 
   /**
    * Waits for a viewport, then fits [boundingBox] without animation. A newer camera command or
