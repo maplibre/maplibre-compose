@@ -2,16 +2,18 @@ package org.maplibre.compose.style
 
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.takeOrElse
-import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.GraphicsContext
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.math.ceil
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.toImageBitmap
 
@@ -32,11 +34,26 @@ internal class ImageManager(private val node: StyleNode) {
   private val bitmapCounter = ReferenceCounter<BitmapKey>()
   private val bitmapContent = mutableMapOf<BitmapKey, ContentKey>()
 
+  private var pendingProperties = 0
+  private val painterMutex = Mutex()
   private val painterCounter = ReferenceCounter<PainterKey>()
   private val painterContent = mutableMapOf<PainterKey, ContentKey>()
 
   internal val desiredImages: List<StyleImageDefinition>
     get() = definitions.values.toList()
+
+  internal val hasPendingImages: Boolean
+    get() = pendingProperties != 0
+
+  internal fun beginImagePreparation() {
+    pendingProperties++
+    node.scheduleApplyChanges()
+  }
+
+  internal fun endImagePreparation() {
+    pendingProperties--
+    node.scheduleApplyChanges()
+  }
 
   internal fun acquireBitmap(key: BitmapKey): String {
     bitmapCounter.increment(key) {
@@ -50,14 +67,18 @@ internal class ImageManager(private val node: StyleNode) {
     bitmapCounter.decrement(key) { releaseContent(bitmapContent.remove(key)!!) }
   }
 
-  internal fun acquirePainter(key: PainterKey): String {
-    painterCounter.increment(key) {
-      val bitmap = key.drawToBitmap().let { if (key.drawAsSdf) it.toSdf() else it }
-      painterContent[key] =
-        acquireContent(ContentKey(ImageSnapshot.capture(bitmap), key.drawAsSdf, key.stretch))
+  internal suspend fun acquirePainter(key: PainterKey, graphicsContext: GraphicsContext): String =
+    painterMutex.withLock {
+      val content =
+        painterContent[key]
+          ?: run {
+            val bitmap =
+              key.drawToBitmap(graphicsContext).let { if (key.drawAsSdf) it.toSdf() else it }
+            ContentKey(ImageSnapshot.capture(bitmap), key.drawAsSdf, key.stretch)
+          }
+      painterCounter.increment(key) { painterContent[key] = acquireContent(content) }
+      definitions.getValue(painterContent.getValue(key)).id
     }
-    return definitions.getValue(painterContent.getValue(key)).id
-  }
 
   internal fun releasePainter(key: PainterKey) {
     painterCounter.decrement(key) { releaseContent(painterContent.remove(key)!!) }
@@ -78,17 +99,21 @@ internal class ImageManager(private val node: StyleNode) {
     }
   }
 
-  private fun PainterKey.drawToBitmap(): ImageBitmap {
+  private suspend fun PainterKey.drawToBitmap(graphicsContext: GraphicsContext): ImageBitmap {
     val size =
       with(density) {
         size?.let { Size(it.width.toPx(), it.height.toPx()) }
           ?: painter.intrinsicSize.takeOrElse { Size(16.dp.toPx(), 16.dp.toPx()) }
       }
-    val bitmap = ImageBitmap(size.width.toInt(), size.height.toInt())
-    CanvasDrawScope().draw(density, layoutDirection, Canvas(bitmap), size) {
-      with(painter) { draw(size, alpha, colorFilter) }
+    val layer = graphicsContext.createGraphicsLayer()
+    try {
+      layer.record(density, layoutDirection, IntSize(size.width.toInt(), size.height.toInt())) {
+        with(painter) { draw(size, alpha, colorFilter) }
+      }
+      return layer.toImageBitmap()
+    } finally {
+      graphicsContext.releaseGraphicsLayer(layer)
     }
-    return bitmap
   }
 
   private fun ImageBitmap.toSdf(radius: Double = 8.0, cutoff: Double = 0.25): ImageBitmap {

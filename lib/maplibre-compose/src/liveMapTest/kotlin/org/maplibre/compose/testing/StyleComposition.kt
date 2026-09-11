@@ -6,12 +6,14 @@ import androidx.compose.runtime.Composition
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.runtime.withRunningRecomposer
+import androidx.compose.ui.graphics.GraphicsContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalGraphicsContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.yield
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.MapNodeApplier
 import org.maplibre.compose.style.RecordingStyleBinding
@@ -28,7 +30,9 @@ import org.maplibre.compose.util.MaplibreComposable
 internal suspend fun composeStyle(
   style: RecordingStyleBinding = RecordingStyleBinding(),
   thenChange: (() -> Unit)? = null,
+  graphicsContext: GraphicsContext? = null,
   onRevision: (DesiredStyleRevision) -> Unit = {},
+  awaitRevision: (DesiredStyleRevision) -> Boolean = { true },
   content: @Composable @MaplibreComposable () -> Unit,
 ): RecordingStyleBinding {
   val frameClock = BroadcastFrameClock()
@@ -40,6 +44,8 @@ internal suspend fun composeStyle(
       try {
         composition.setContent {
           CompositionLocalProvider(
+            *if (graphicsContext != null) arrayOf(LocalGraphicsContext provides graphicsContext)
+            else emptyArray(),
             LocalDensity provides Density(1f),
             LocalLayoutDirection provides LayoutDirection.Ltr,
           ) {
@@ -57,10 +63,9 @@ internal suspend fun composeStyle(
         var frame = 0L
         suspend fun pumpFrames() {
           do {
-            while (!frameClock.hasAwaiters) yield()
-            frameClock.sendFrame(frame++)
-            yield()
-          } while (recomposer.hasPendingWork)
+            if (frameClock.hasAwaiters) frameClock.sendFrame(frame++)
+            delay(1)
+          } while (recomposer.hasPendingWork || revision?.let(awaitRevision) != true)
           recomposer.awaitIdle()
         }
         pumpFrames()
