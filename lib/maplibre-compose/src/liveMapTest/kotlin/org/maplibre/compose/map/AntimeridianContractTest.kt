@@ -123,6 +123,8 @@ class AntimeridianContractTest {
         it.pumpUntil("the style's features to become queryable") {
           it.state.queryRenderedFeatures(offset = DpOffset(800.dp, 256.dp)).isNotEmpty()
         }
+        // The wrapped world copy renders from its own tile, which can land after the first hit.
+        it.settle()
 
         val hits =
           it.state.queryRenderedFeatures(offset = DpOffset(800.dp, 256.dp)).mapNotNull { hit ->

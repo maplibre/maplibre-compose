@@ -38,9 +38,9 @@ that matters to the change.
 tests out of `commonTest`, which Android host tests inherit. Android host and
 device tests live in `androidHostTest` and `androidDeviceTest` respectively.
 
-Browser tests run real maps in Chrome. Set `CHROME_BIN` if Karma cannot find it.
-Do not pass `--tests` to the browser suite; it silently runs no tests and
-reports success.
+Browser tests run real maps in Playwright Chromium and Firefox. Set `CHROME_BIN`
+and `FIREFOX_BIN` if Karma cannot find them. Do not pass `--tests` to the
+browser suite; it silently runs no tests and reports success.
 
 Android SDK lookup is `local.properties`, then `ANDROID_HOME`, then
 `ANDROID_SDK_ROOT`. `mise run android-sdk-packages` installs required packages.

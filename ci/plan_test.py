@@ -63,7 +63,7 @@ class CatalogTest(unittest.TestCase):
             {
                 "hygiene / ubuntu",
                 "docs / ubuntu",
-                "js / chromium",
+                "js / chromium-firefox",
                 "ios-device / arm64",
                 "android / 36",
                 "desktop / linux-x64",

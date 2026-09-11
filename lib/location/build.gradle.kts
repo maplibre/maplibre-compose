@@ -24,7 +24,14 @@ kotlin {
 
   js {
     useEsModules()
-    browser { testTask { useKarma { useChromeHeadless() } } }
+    browser {
+      testTask {
+        useKarma {
+          useChromeHeadless()
+          useFirefoxHeadless()
+        }
+      }
+    }
   }
 
   applyDefaultHierarchyTemplate()
