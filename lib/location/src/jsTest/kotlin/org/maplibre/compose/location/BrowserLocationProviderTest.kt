@@ -6,11 +6,15 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emitAll
@@ -270,6 +274,103 @@ class BrowserLocationProviderTest {
   }
 
   @Test
+  fun cancellingOneCollectorLeavesTheOtherWatchRunning() = runTest {
+    val boundary = FakeBrowserGeolocationBoundary()
+    val provider = BrowserLocationProvider(boundary, backgroundScope)
+    val firstEvents = mutableListOf<LocationEvent>()
+    val secondEvents = mutableListOf<LocationEvent>()
+    val first = backgroundScope.launch { provider.updates().collect(firstEvents::add) }
+    val second = backgroundScope.launch { provider.updates().collect(secondEvents::add) }
+    runCurrent()
+    assertEquals(2, boundary.watchedOptions.size)
+    boundary.send(position(milliseconds = 0, longitude = 1.0))
+    runCurrent()
+    assertIs<LocationEvent.Update>(firstEvents.single())
+    assertIs<LocationEvent.Update>(secondEvents.single())
+    first.cancel()
+    runCurrent()
+    boundary.send(position(milliseconds = 2_000, longitude = 2.0))
+    runCurrent()
+    assertEquals(1, firstEvents.size)
+    assertEquals(2, secondEvents.size)
+    assertEquals(1, boundary.stopCount)
+    second.cancel()
+    runCurrent()
+    assertEquals(2, boundary.stopCount)
+    assertNull(boundary.callback)
+  }
+
+  @Test
+  fun failedWatchStartupReportsFailureAndCompletes() = runTest {
+    val failure = IllegalStateException("watch unavailable")
+    val boundary = FakeBrowserGeolocationBoundary().apply { startFailure = failure }
+    val provider = BrowserLocationProvider(boundary, backgroundScope)
+    val events = mutableListOf<LocationEvent>()
+    val collection = backgroundScope.launch { provider.updates().collect(events::add) }
+    runCurrent()
+    val event = assertIs<LocationEvent.Unavailable>(events.single())
+    assertTrue(collection.isCompleted)
+    assertEquals(LocationUnavailableReason.UnexpectedFailure, event.reason)
+    assertEquals(failure, event.cause)
+    assertEquals(0, boundary.stopCount)
+  }
+
+  @Test
+  fun explicitRequestResultsWhilePermissionQueryIsPendingArePublished() = runTest {
+    val initialized = CompletableDeferred<Unit>()
+    val boundary = FakeBrowserGeolocationBoundary(permissionInitialized = initialized)
+    boundary.requestPositionAction = { BrowserResult.Error(BrowserError.PermissionDenied) }
+    val provider = BrowserLocationProvider(boundary, backgroundScope)
+    val events = mutableListOf<LocationEvent>()
+    backgroundScope.launch { provider.updates().collect(events::add) }
+    runCurrent()
+    provider.requestPermission()
+    runCurrent()
+    assertEquals(LocationPermission.NotGranted(canRequest = null), provider.permission.value)
+    assertEquals(
+      LocationUnavailableReason.PermissionDenied,
+      assertIs<LocationEvent.Unavailable>(events.single()).reason,
+    )
+    assertEquals(emptyList(), boundary.watchedOptions)
+
+    boundary.requestPositionAction = { position(milliseconds = 0, longitude = 1.0) }
+    provider.requestPermission()
+    runCurrent()
+    boundary.permission.value = BrowserPermission.Unknown
+    initialized.complete(Unit)
+    runCurrent()
+    assertIs<LocationPermission.Granted>(provider.permission.value)
+    assertEquals(1, boundary.watchedOptions.size)
+  }
+
+  @Test
+  fun newRequesterDoesNotReusePermissionFromACancelledScope() = runTest {
+    val boundary = FakeBrowserGeolocationBoundary()
+    boundary.permission.value = BrowserPermission.Denied
+    val oldScope = CoroutineScope(coroutineContext + Job())
+    val oldProvider = BrowserLocationProvider(boundary, oldScope)
+    runCurrent()
+    assertEquals(LocationPermission.NotGranted(false), oldProvider.permission.value)
+    oldScope.cancel()
+    runCurrent()
+
+    val initialized = CompletableDeferred<Unit>()
+    boundary.permissionInitialized = initialized
+    boundary.permission.value = BrowserPermission.Granted
+    val provider = BrowserLocationProvider(boundary, backgroundScope)
+    val events = mutableListOf<LocationEvent>()
+    backgroundScope.launch { provider.updates().collect(events::add) }
+    runCurrent()
+    assertEquals(emptyList(), events)
+    assertEquals(emptyList(), boundary.watchedOptions)
+    initialized.complete(Unit)
+    runCurrent()
+    boundary.send(position(milliseconds = 0, longitude = 1.0))
+    runCurrent()
+    assertIs<LocationEvent.Update>(events.single())
+  }
+
+  @Test
   fun collectorRecoversAfterPermissionChangesWithoutPrompting() = runTest {
     val boundary = FakeBrowserGeolocationBoundary()
     boundary.permission.value = BrowserPermission.Denied
@@ -346,15 +447,18 @@ class BrowserLocationProviderTest {
 
 private class FakeBrowserGeolocationBoundary(
   override val supported: Boolean = true,
-  private val permissionInitialized: CompletableDeferred<Unit>? = null,
+  var permissionInitialized: CompletableDeferred<Unit>? = null,
 ) : BrowserGeolocationBoundary {
-  override val permissionState = BrowserLocationPermissionState()
   val permission = MutableStateFlow(BrowserPermission.Granted)
   var requestPositionAction: suspend (BrowserOptions) -> BrowserResult = { awaitCancellation() }
   val requestedOptions = mutableListOf<BrowserOptions>()
   val watchedOptions = mutableListOf<BrowserOptions>()
-  var callback: ((BrowserResult) -> Unit)? = null
+  private val callbacks = mutableSetOf<(BrowserResult) -> Unit>()
+  val callback: ((BrowserResult) -> Unit)?
+    get() = callbacks.firstOrNull()
+
   var stopCount = 0
+  var startFailure: Throwable? = null
 
   override fun permissionChanges(): Flow<BrowserPermission> = flow {
     permissionInitialized?.await()
@@ -370,15 +474,16 @@ private class FakeBrowserGeolocationBoundary(
     options: BrowserOptions,
     onResult: (BrowserResult) -> Unit,
   ): () -> Unit {
+    startFailure?.let { throw it }
     watchedOptions += options
-    callback = onResult
+    callbacks += onResult
     return {
       stopCount += 1
-      callback = null
+      callbacks -= onResult
     }
   }
 
   fun send(result: BrowserResult) {
-    callback?.invoke(result)
+    callbacks.toList().forEach { it(result) }
   }
 }

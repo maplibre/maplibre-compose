@@ -30,6 +30,9 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.Implementation
+import org.robolectric.annotation.Implements
+import org.robolectric.shadows.ShadowLocationManager
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @Suppress("DEPRECATION") // Inspect registrations to verify per-collector cleanup.
@@ -111,6 +114,25 @@ class AndroidLocationProviderTest {
       assertIs<LocationEvent.Update>(events.single())
       collection.cancelAndJoin()
       provider.close()
+    }
+
+  @Test
+  @Config(shadows = [FailingLocationManager::class])
+  fun invalidRegistrationReportsFailureAndCompletes() =
+    runTest(dispatcher) {
+      grant()
+      val provider = AndroidLocationProvider(application)
+      try {
+        val events = mutableListOf<LocationEvent>()
+        val collection = backgroundScope.launch { provider.updates().collect(events::add) }
+        runCurrent()
+        val event = assertIs<LocationEvent.Unavailable>(events.single())
+        assertTrue(collection.isCompleted)
+        assertEquals(LocationUnavailableReason.UnexpectedFailure, event.reason)
+        assertTrue(shadowOf(manager).locationUpdateListeners.isEmpty())
+      } finally {
+        provider.close()
+      }
     }
 
   @Test
@@ -199,5 +221,13 @@ class AndroidLocationProviderTest {
           elapsedRealtimeNanos = android.os.SystemClock.elapsedRealtimeNanos()
         }
       )
+  }
+}
+
+@Implements(LocationManager::class)
+class FailingLocationManager : ShadowLocationManager() {
+  @Implementation
+  override fun getLastKnownLocation(provider: String): Location? {
+    throw IllegalArgumentException("Provider disappeared")
   }
 }

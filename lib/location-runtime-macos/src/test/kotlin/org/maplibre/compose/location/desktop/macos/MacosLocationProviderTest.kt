@@ -356,14 +356,16 @@ class MacosLocationProviderTest {
   }
 
   @Test
-  fun missingLocationServicesEmitsServicesDisabled() = runTest {
+  fun missingLocationServicesReportsAndCompletes() = runTest {
     val client = FakeCoreLocationClient(locationServicesEnabled = false)
     val provider = MacosLocationProvider(client, Dispatchers.Unconfined)
     val managersBeforeUpdates = client.managers.size
 
-    val event = assertIs<LocationEvent.Unavailable>(provider.updates(LocationRequest()).first())
+    val event =
+      assertIs<LocationEvent.Unavailable>(provider.updates(LocationRequest()).toList().single())
     assertEquals(LocationUnavailableReason.ServicesDisabled, event.reason)
     assertEquals(managersBeforeUpdates, client.managers.size)
+    provider.close()
   }
 
   @Test

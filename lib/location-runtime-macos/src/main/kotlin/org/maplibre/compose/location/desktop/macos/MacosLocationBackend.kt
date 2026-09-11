@@ -8,9 +8,9 @@ import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.awaitClose
@@ -21,8 +21,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.emitAll
-import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.retryWhen
@@ -91,7 +90,29 @@ internal constructor(
     val collection = scope.launch {
       try {
         currentCoroutineContext().ensureActive()
-        permissionUpdates(request).collect { send(it) }
+        check(backendAvailability == LocationBackendAvailability.Available) {
+          "Location updates require an available backend: $backendAvailability"
+        }
+        refreshPermission().collect { send(it) }
+        permission.collectLatest { status ->
+          when (status) {
+            is LocationPermission.Granted -> {
+              collectUpdates(request).collect { send(it) }
+              channel.close()
+              this@launch.cancel()
+            }
+            LocationPermission.Unknown -> refreshPermission().collect { send(it) }
+            is LocationPermission.NotGranted -> {
+              val enabled = withContext(ioDispatcher) { client.locationServicesEnabled }
+              send(
+                LocationEvent.Unavailable(
+                  if (enabled) LocationUnavailableReason.PermissionDenied
+                  else LocationUnavailableReason.ServicesDisabled
+                )
+              )
+            }
+          }
+        }
       } catch (error: Throwable) {
         if (job.isActive) channel.close(error)
       }
@@ -103,35 +124,6 @@ internal constructor(
       withContext(NonCancellable) { collection.cancelAndJoin() }
     }
   }
-
-  @OptIn(ExperimentalCoroutinesApi::class)
-  private fun permissionUpdates(request: LocationRequest): Flow<LocationEvent> = flow {
-    check(backendAvailability == LocationBackendAvailability.Available) {
-      "Location updates require an available backend: $backendAvailability"
-    }
-    // Refresh before subscribing so a stale initial value cannot keep collection waiting.
-    emitAll(refreshPermission())
-    emitAll(
-      permission.flatMapLatest { status ->
-        if (status is LocationPermission.Granted) {
-          collectUpdates(request)
-        } else if (status == LocationPermission.Unknown) {
-          refreshPermission()
-        } else {
-          flow {
-            val enabled = withContext(ioDispatcher) { client.locationServicesEnabled }
-            emit(
-              LocationEvent.Unavailable(
-                if (enabled) LocationUnavailableReason.PermissionDenied
-                else LocationUnavailableReason.ServicesDisabled
-              )
-            )
-          }
-        }
-      }
-    )
-  }
-    .flowOn(dispatcher)
 
   private fun refreshPermission(): Flow<LocationEvent> =
     flow<LocationEvent> { requester.refreshPermission() }
