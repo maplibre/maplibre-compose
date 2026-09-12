@@ -46,12 +46,18 @@ internal class AndroidSnapshotSharer(private val context: Context) : SnapshotSha
     return withContext(Dispatchers.IO) {
       try {
         val directory = File(context.cacheDir, "snapshots").apply { mkdirs() }
-        // The cache keeps only the latest capture.
-        directory.listFiles()?.forEach { it.delete() }
-        val file = File(directory, fileName)
+        // A share target may still be reading an earlier capture when another chooser opens.
+        val expired = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
+        directory.listFiles()?.filter { it.lastModified() < expired }?.forEach { it.delete() }
+        val file = File.createTempFile("snapshot-", ".png", directory)
         file.writeBytes(image.toPngBytes())
         val uri =
-          FileProvider.getUriForFile(context, "${context.packageName}.snapshotprovider", file)
+          FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.snapshotprovider",
+            file,
+            fileName,
+          )
         val send =
           Intent(Intent.ACTION_SEND).apply {
             type = "image/png"

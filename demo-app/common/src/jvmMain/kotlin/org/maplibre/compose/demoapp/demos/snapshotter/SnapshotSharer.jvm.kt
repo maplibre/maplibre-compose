@@ -8,6 +8,7 @@ import java.awt.EventQueue
 import java.awt.FileDialog
 import java.awt.Frame
 import java.io.File
+import javax.swing.JOptionPane
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jetbrains.skia.EncodedImageFormat
@@ -37,7 +38,21 @@ internal class JvmSnapshotSharer : SnapshotSharer {
             val directory = dialog.directory
             val name = dialog.file
             if (directory != null && name != null) {
-              chosen = File(directory, if (name.endsWith(".png")) name else "$name.png")
+              val target =
+                File(directory, if (name.endsWith(".png", ignoreCase = true)) name else "$name.png")
+              // The dialog only confirmed its selected path, which can differ after adding .png.
+              if (
+                target.name == name ||
+                  !target.exists() ||
+                  JOptionPane.showConfirmDialog(
+                    null,
+                    "Replace ${target.name}?",
+                    "Save snapshot",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE,
+                  ) == JOptionPane.YES_OPTION
+              )
+                chosen = target
             }
           } finally {
             dialog.dispose()

@@ -1,9 +1,10 @@
 package org.maplibre.compose.demoapp.demos.snapshotter
 
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector2D
 import androidx.compose.animation.core.TwoWayConverter
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateValueAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -12,21 +13,18 @@ import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -43,6 +41,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.contentDescription
@@ -53,7 +53,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import kotlin.math.min
 import kotlin.math.roundToInt
-import kotlinx.coroutines.launch
 
 /** Touch target of a corner handle; the visual dot is much smaller. */
 private val HandleTouchTarget = 48.dp
@@ -62,83 +61,38 @@ private val HandleDotSize = 16.dp
 /** Arm length cap for the corner brackets, so small frames keep their thirds grid readable. */
 private val BracketArm = 26.dp
 
-/**
- * The capture viewfinder: a scrim dimming the whole map with a hole for the frame, a thirds grid,
- * corner brackets, and one drag handle per corner. It draws over the map without eating its
- * gestures; only the handles take pointer input.
- *
- * The frame itself centers on the safe area; [fullMap] is the whole map's size, which lets the
- * scrim reach past the safe area to the map's edges. The scrim only draws, so extending past this
- * child's layout bounds is safe — nothing clips on the way to the map.
- */
+/** The viewfinder fills the space that the surrounding column leaves above its controls. */
 @Composable
 internal fun SnapshotFrame(
-  state: SnapshotterDemoState,
-  safe: DpSize,
-  originDp: DpOffset,
-  fullMap: DpSize?,
+  aspect: SnapshotAspect,
   modifier: Modifier = Modifier,
+  onPositioned: (LayoutCoordinates) -> Unit,
 ) {
-  val scope = rememberCoroutineScope()
-  val frameSize = remember { Animatable(DpSize.Zero, DpSizeVectorConverter) }
-  val motion = MaterialTheme.motionScheme
-
-  // First layout picks a default; later safe-area changes only clamp the frame back inside.
-  LaunchedEffect(safe) {
-    if (safe.width <= FrameMargin * 2 || safe.height <= FrameMargin * 2) return@LaunchedEffect
-    if (state.frameSize == DpSize.Zero) {
-      val initial = defaultFrameSize(safe, state.aspect)
-      state.frameSize = initial
-      frameSize.snapTo(initial)
-    } else {
-      state.frameSize = fitFrameToSafeArea(state.frameSize, safe, state.aspect)
-    }
-  }
-  LaunchedEffect(state.aspect) {
-    if (state.frameSize != DpSize.Zero) {
-      state.frameSize = refitFrame(state.frameSize, safe, state.aspect)
-    }
-  }
-  LaunchedEffect(state.frameSize) {
-    if (state.frameSize != DpSize.Zero && frameSize.value != state.frameSize) {
-      // A returning composition starts from zero; snapping there avoids a grow-from-center
-      // animation on every visit. Live edits animate.
-      if (frameSize.value == DpSize.Zero) frameSize.snapTo(state.frameSize)
-      else frameSize.animateTo(state.frameSize, motion.defaultSpatialSpec())
-    }
-  }
-
-  // The capture request and the reveal flight read the frame from map coordinates. The flow must
-  // read the current safe area and origin, not the values captured at its first composition.
-  val currentSafe by rememberUpdatedState(safe)
-  val currentOrigin by rememberUpdatedState(originDp)
-  LaunchedEffect(Unit) {
-    snapshotFlow {
-      if (frameSize.value == DpSize.Zero) null
-      else
-        centeredFrame(frameSize.value, currentSafe)
-          .translate(Offset(currentOrigin.x.value, currentOrigin.y.value))
-    }
-      .collect { state.frameBounds = it }
-  }
-
-  if (frameSize.value == DpSize.Zero) return
-
-  val frame = centeredFrame(frameSize.value, safe)
-
-  ScrimAndBrackets(frame, fullMap, originDp, modifier)
-
-  FrameCorner.entries.forEach { corner ->
-    key(corner) {
-      FrameHandle(
-        corner = corner,
-        frame = frame,
-        onDrag = { drag ->
-          val resized = resizedFrame(state.frameSize, corner, drag, safe, state.aspect)
-          state.frameSize = resized
-          scope.launch { frameSize.snapTo(resized) }
-        },
+  var preferredSize by remember { mutableStateOf<DpSize?>(null) }
+  var dragging by remember { mutableStateOf(false) }
+  BoxWithConstraints(modifier.fillMaxSize()) {
+    val safe = DpSize(maxWidth, maxHeight)
+    val target =
+      fitFrameToSafeArea(preferredSize ?: DpSize(maxWidth * 0.62f, maxHeight * 0.62f), safe, aspect)
+    val animated by
+      animateValueAsState(
+        target,
+        DpSizeVectorConverter,
+        animationSpec = if (dragging) snap() else MaterialTheme.motionScheme.defaultSpatialSpec(),
+        label = "frame size",
       )
+    val size = fitFrameToSafeArea(animated, safe, SnapshotAspect.Free)
+    val frame = centeredFrame(size, safe)
+    Box(Modifier.align(Alignment.Center).size(size).onGloballyPositioned(onPositioned))
+    if (size.width >= HandleTouchTarget && size.height >= HandleTouchTarget) {
+      FrameCorner.entries.forEach { corner ->
+        FrameHandle(
+          corner,
+          frame,
+          onDragging = { dragging = it },
+          onDrag = { drag -> preferredSize = resizedFrame(size, corner, drag, safe, aspect) },
+        )
+      }
     }
   }
 }
@@ -149,39 +103,17 @@ private val DpSizeVectorConverter =
     convertFromVector = { DpSize(it.v1.dp, it.v2.dp) },
   )
 
+/** Full-map drawing uses the measured frame's map-relative pixel bounds. */
 @Composable
-private fun ScrimAndBrackets(
-  frame: Rect,
-  fullMap: DpSize?,
-  originDp: DpOffset,
-  modifier: Modifier = Modifier,
-) {
-  val scrimColor = Color.Black.copy(alpha = 0.38f)
+internal fun SnapshotScrim(frame: Rect?) {
   val scrimPath = remember { Path() }
-  Canvas(modifier.fillMaxSize()) {
-    val left = frame.left.dp.toPx()
-    val top = frame.top.dp.toPx()
-    val width = frame.width.dp.toPx()
-    val height = frame.height.dp.toPx()
-    val framePx = Rect(left, top, left + width, top + height)
-
-    // The outer rect reaches from this child's top left to the map's far edges, so the dimming
-    // covers the full map rather than stopping at the safe area.
-    val outer =
-      if (fullMap == null) Rect(Offset.Zero, size)
-      else
-        Rect(
-          left = -originDp.x.toPx(),
-          top = -originDp.y.toPx(),
-          right = fullMap.width.toPx() - originDp.x.toPx(),
-          bottom = fullMap.height.toPx() - originDp.y.toPx(),
-        )
-
+  Canvas(Modifier.fillMaxSize()) {
     scrimPath.rewind()
     scrimPath.fillType = PathFillType.EvenOdd
-    scrimPath.addRect(outer)
-    scrimPath.addRoundRect(RoundRect(framePx, CornerRadius(4.dp.toPx())))
-    drawPath(scrimPath, scrimColor)
+    scrimPath.addRect(Rect(Offset.Zero, size))
+    if (frame != null) scrimPath.addRoundRect(RoundRect(frame, CornerRadius(4.dp.toPx())))
+    drawPath(scrimPath, Color.Black.copy(alpha = 0.38f))
+    val framePx = frame ?: return@Canvas
 
     val gridColor = Color.White.copy(alpha = 0.3f)
     val gridStroke = 1.dp.toPx()
@@ -224,7 +156,12 @@ private fun DrawScope.drawBrackets(frame: Rect, arm: Float, color: Color, stroke
 }
 
 @Composable
-private fun FrameHandle(corner: FrameCorner, frame: Rect, onDrag: (DpOffset) -> Unit) {
+private fun FrameHandle(
+  corner: FrameCorner,
+  frame: Rect,
+  onDragging: (Boolean) -> Unit,
+  onDrag: (DpOffset) -> Unit,
+) {
   val interactionSource = remember { MutableInteractionSource() }
   val hovered by interactionSource.collectIsHoveredAsState()
   var dragging by remember { mutableStateOf(false) }
@@ -288,9 +225,18 @@ private fun FrameHandle(corner: FrameCorner, frame: Rect, onDrag: (DpOffset) -> 
         .hoverable(interactionSource)
         .pointerInput(corner) {
           detectDragGestures(
-            onDragStart = { dragging = true },
-            onDragEnd = { dragging = false },
-            onDragCancel = { dragging = false },
+            onDragStart = {
+              dragging = true
+              onDragging(true)
+            },
+            onDragEnd = {
+              dragging = false
+              onDragging(false)
+            },
+            onDragCancel = {
+              dragging = false
+              onDragging(false)
+            },
           ) { change, dragAmount ->
             change.consume()
             currentOnDrag(DpOffset(dragAmount.x.toDp(), dragAmount.y.toDp()))

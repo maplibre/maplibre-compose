@@ -23,7 +23,12 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -43,30 +48,52 @@ import org.maplibre.compose.demoapp.generated.share_24px
  */
 @Composable
 internal fun SnapshotSheet(state: SnapshotterDemoState) {
-  // Hoisted above the early exits so an in-flight share or save survives closing the sheet; the
-  // scope only dies with the demo itself.
   val scope = rememberCoroutineScope()
-  val shot = state.captured ?: return
-  if (!state.sheetOpen) return
+  // The Android result launcher must live as long as the action, including while the sheet is
+  // closed.
   val sharer = rememberSnapshotSharer()
+  var runningAction by remember { mutableStateOf<SnapshotAction?>(null) }
+  var actionMessage by remember { mutableStateOf<String?>(null) }
+  var actionFailed by remember { mutableStateOf(false) }
+  val shot = state.captured
+  LaunchedEffect(shot) { actionMessage = null }
+  if (shot == null || !state.sheetOpen) return
 
   fun run(action: SnapshotAction) {
-    if (state.runningAction != null) return
-    state.runningAction = action
-    state.actionMessage = null
+    if (runningAction != null) return
+    runningAction = action
+    actionMessage = null
     scope.launch {
-      val result =
-        try {
+      try {
+        val result =
           when (action) {
             SnapshotAction.Share -> sharer.share(shot.image, shot.fileName)
             SnapshotAction.Save -> sharer.save(shot.image, shot.fileName)
           }
-        } catch (error: CancellationException) {
-          throw error
-        } catch (error: Throwable) {
-          SnapshotActionResult.Failed
+        if (state.captured === shot) {
+          actionFailed = result is SnapshotActionResult.Failed
+          actionMessage =
+            when (result) {
+              is SnapshotActionResult.Completed ->
+                when (action) {
+                  SnapshotAction.Share -> result.detail ?: "Shared"
+                  SnapshotAction.Save -> result.detail?.let { "Saved to $it" } ?: "Saved"
+                }
+              SnapshotActionResult.Cancelled -> null
+              SnapshotActionResult.Failed ->
+                "Could not ${if (action == SnapshotAction.Share) "share" else "save"} the snapshot"
+            }
         }
-      state.noteActionResult(action, result)
+      } catch (error: CancellationException) {
+        throw error
+      } catch (error: Exception) {
+        if (state.captured === shot) {
+          actionFailed = true
+          actionMessage = error.message ?: "The snapshot action failed"
+        }
+      } finally {
+        runningAction = null
+      }
     }
   }
 
@@ -113,8 +140,8 @@ internal fun SnapshotSheet(state: SnapshotterDemoState) {
           ActionButton(
             label = "Share",
             drawableIcon = Res.drawable.share_24px,
-            running = state.runningAction == SnapshotAction.Share,
-            enabled = state.runningAction == null,
+            running = runningAction == SnapshotAction.Share,
+            enabled = runningAction == null,
             tonal = false,
             onClick = { run(SnapshotAction.Share) },
           )
@@ -123,19 +150,19 @@ internal fun SnapshotSheet(state: SnapshotterDemoState) {
           ActionButton(
             label = "Save",
             drawableIcon = Res.drawable.download_24px,
-            running = state.runningAction == SnapshotAction.Save,
-            enabled = state.runningAction == null,
+            running = runningAction == SnapshotAction.Save,
+            enabled = runningAction == null,
             tonal = true,
             onClick = { run(SnapshotAction.Save) },
           )
         }
       }
-      AnimatedVisibility(state.actionMessage != null) {
+      AnimatedVisibility(actionMessage != null) {
         Text(
-          text = state.actionMessage.orEmpty(),
+          text = actionMessage.orEmpty(),
           style = MaterialTheme.typography.bodyMedium,
           color =
-            if (state.actionFailed) MaterialTheme.colorScheme.error
+            if (actionFailed) MaterialTheme.colorScheme.error
             else MaterialTheme.colorScheme.onSurfaceVariant,
         )
       }

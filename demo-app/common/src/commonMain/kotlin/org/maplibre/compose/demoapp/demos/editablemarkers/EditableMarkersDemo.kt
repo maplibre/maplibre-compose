@@ -1,5 +1,6 @@
 package org.maplibre.compose.demoapp.demos.editablemarkers
 
+import org.maplibre.compose.overlay.MapOverlayScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -16,15 +17,16 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import org.maplibre.compose.demoapp.DefaultMapControls
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
+import org.maplibre.compose.demoapp.DemoMapControls
 import org.maplibre.compose.demoapp.DemoStyle
 import org.maplibre.compose.demoapp.flyTo
 import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.map.MapState
-import org.maplibre.compose.overlay.MapOverlayScope
 
 /** Editable places with scalable labels and a geographically anchored Compose editor. */
 object EditableMarkersDemo : Demo {
@@ -88,7 +90,13 @@ object EditableMarkersDemo : Demo {
     }
 
   @Composable
-  override fun MapOverlayScope.Overlay(state: DemoAppState) {
+  override fun MapOverlayScope.Overlay(state: DemoAppState, controls: DemoMapControls) {
+    DemoOverlay(state)
+    DefaultMapControls(controls)
+  }
+
+  @Composable
+  private fun MapOverlayScope.DemoOverlay(state: DemoAppState) {
     MarkerTargets(markersState)
     MarkerTrash(
       visible = markersState.draggingId != null,

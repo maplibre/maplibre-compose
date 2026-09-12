@@ -9,7 +9,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -34,80 +34,55 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.DpOffset
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.vectorResource
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.photo_camera_24px
 
-/** The soft backdrop behind the controls; it keeps white text readable without opaque boxes. */
-private val ControlGradientHeight = 152.dp
-private val ControlGradientColor = Color.Black.copy(alpha = 0.45f)
-
-/**
- * The capture controls at the bottom center of the safe area, in camera-app chrome: the aspect
- * presets are plain white text and the white shutter button is the one solid element. They sit side
- * by side while the width allows and wrap into two centered rows on narrow maps. Failures surface
- * as a pill above the controls until the next attempt.
- */
+/** The thumbnail is a measured slot alongside the shutter, not an independently positioned dock. */
 @Composable
-internal fun BoxScope.SnapshotControls(
+internal fun SnapshotControls(
   state: SnapshotterDemoState,
-  originDp: DpOffset,
-  fullMap: DpSize?,
+  canCapture: Boolean,
+  modifier: Modifier = Modifier,
   onCapture: () -> Unit,
+  onDockPositioned: (LayoutCoordinates) -> Unit,
 ) {
-  // Like the scrim, the gradient only draws, so it can reach past this child's bounds: it anchors
-  // to the map's bottom edge at the map's full width rather than stopping at the safe area.
-  Canvas(Modifier.matchParentSize()) {
-    val height = ControlGradientHeight.toPx()
-    val bottom = if (fullMap == null) size.height else fullMap.height.toPx() - originDp.y.toPx()
-    val left = if (fullMap == null) 0f else -originDp.x.toPx()
-    val width = if (fullMap == null) size.width else fullMap.width.toPx()
-    drawRect(
-      brush =
-        Brush.verticalGradient(
-          0f to Color.Transparent,
-          1f to ControlGradientColor,
-          startY = bottom - height,
-          endY = bottom,
-        ),
-      topLeft = Offset(left, bottom - height),
-      size = Size(width, height),
-    )
-  }
   Column(
-    modifier = Modifier.align(Alignment.BottomCenter).padding(horizontal = 16.dp, vertical = 12.dp),
+    modifier = modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
     verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
     StatusPill(state)
     FlowRow(
-      modifier = Modifier.fillMaxWidth(),
       horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
       verticalArrangement = Arrangement.spacedBy(8.dp),
       itemVerticalAlignment = Alignment.CenterVertically,
     ) {
-      CaptureButton(state, onCapture)
+      Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+      ) {
+        CaptureButton(state, canCapture, onCapture)
+        Box(Modifier.size(56.dp).onGloballyPositioned(onDockPositioned))
+      }
       AspectSelector(state)
     }
   }
 }
 
 @Composable
-private fun CaptureButton(state: SnapshotterDemoState, onCapture: () -> Unit) {
+private fun CaptureButton(state: SnapshotterDemoState, canCapture: Boolean, onCapture: () -> Unit) {
   val capturing = state.status is CaptureStatus.Capturing
   Button(
     onClick = onCapture,
-    enabled = state.frameBounds != null && !capturing,
+    enabled = canCapture && !capturing,
     colors =
       ButtonDefaults.buttonColors(
         containerColor = Color.White,
@@ -173,11 +148,9 @@ private fun AspectSelector(state: SnapshotterDemoState) {
 
 @Composable
 private fun StatusPill(state: SnapshotterDemoState) {
-  val cleanupFailure = state.cleanupFailure
   val status = state.status
   val message =
     when {
-      cleanupFailure != null -> "Snapshot cleanup failed: $cleanupFailure"
       status is CaptureStatus.Failed -> status.message
       else -> null
     }
@@ -201,17 +174,9 @@ private fun StatusPill(state: SnapshotterDemoState) {
   }
 }
 
-/**
- * A white flash over the whole map on every capture. Like the scrim, it only draws, so it can reach
- * past this child's layout bounds to the map's edges; it never takes pointer input.
- */
+/** A shutter flash drawn inside the full-map overlay. */
 @Composable
-internal fun SnapshotFlash(
-  tick: Int,
-  originDp: DpOffset,
-  fullMap: DpSize?,
-  modifier: Modifier = Modifier,
-) {
+internal fun SnapshotFlash(tick: Int) {
   val alpha = remember { Animatable(0f) }
   LaunchedEffect(tick) {
     if (tick == 0) return@LaunchedEffect
@@ -219,14 +184,5 @@ internal fun SnapshotFlash(
     delay(60)
     alpha.animateTo(0f, tween(350))
   }
-  // The alpha read lives in the draw block so the fade redraws without recomposing this child.
-  Canvas(modifier.fillMaxSize()) {
-    if (alpha.value > 0f) {
-      val topLeft =
-        if (fullMap == null) Offset.Zero else Offset(-originDp.x.toPx(), -originDp.y.toPx())
-      val flashSize =
-        if (fullMap == null) size else Size(fullMap.width.toPx(), fullMap.height.toPx())
-      drawRect(Color.White, topLeft = topLeft, size = flashSize, alpha = alpha.value)
-    }
-  }
+  Canvas(Modifier.fillMaxSize()) { drawRect(Color.White, alpha = alpha.value) }
 }

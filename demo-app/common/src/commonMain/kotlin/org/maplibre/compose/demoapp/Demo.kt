@@ -1,5 +1,6 @@
 package org.maplibre.compose.demoapp
 
+import org.maplibre.compose.overlay.MapOverlayScope
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.UiComposable
@@ -17,7 +18,6 @@ import org.maplibre.compose.demoapp.demos.snapshotter.MapSnapshotterDemo
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MapUiOptions
-import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
@@ -62,11 +62,15 @@ interface Demo {
 
   /**
    * Compose UI drawn over the map while this demo is selected. [state] exposes the shell's
-   * settings, style, and camera.
+   * settings, style, and camera. Place [controls] in the layout so shared controls have room.
    *
-   * [org.maplibre.compose.overlay.MapOverlayScope.placedAt] pins a child to a geographic position.
+   * [org.maplibre.compose.overlay.placedAt] pins a child to a geographic position.
    */
-  @UiComposable @Composable fun MapOverlayScope.Overlay(state: DemoAppState) {}
+  @UiComposable
+  @Composable
+  fun MapOverlayScope.Overlay(state: DemoAppState, controls: DemoMapControls) {
+    DefaultMapControls(controls)
+  }
 
   /**
    * Controls shown in the sheet or side panel while this demo is selected. [state] exposes the
