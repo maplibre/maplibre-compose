@@ -50,6 +50,9 @@ import org.maplibre.spatialk.geojson.Position
 private val SnapshotTarget = Position(longitude = -122.3358, latitude = 47.6086)
 private val SnapshotMarkerColor = Color(0xFF00897B)
 
+/** MapLibre GL JS rejects render canvases beyond this size; requests stay under it everywhere. */
+private const val MaxSnapshotCanvasPx = 4_096f
+
 /** A camera viewfinder for [org.maplibre.compose.map.MapSnapshotter]: frame, shoot, share. */
 object MapSnapshotterDemo : Demo {
   override val name = "Map snapshotter"
@@ -210,11 +213,15 @@ object MapSnapshotterDemo : Demo {
     val center =
       mapState.positionFromScreenLocation(DpOffset(frame.center.x.dp, frame.center.y.dp))
         ?: return null
+    // MapLibre GL JS rejects render canvases over 4096 px; a Free frame on a large high-DPI
+    // viewport can reach that, so the request density yields before the frame does.
+    val cappedDensity =
+      minOf(density.density, MaxSnapshotCanvasPx / frame.width, MaxSnapshotCanvasPx / frame.height)
     return MapSnapshotRequest(
       width = frame.width.roundToInt().coerceAtLeast(1),
       height = frame.height.roundToInt().coerceAtLeast(1),
       cameraPosition = mapState.cameraPosition.copy(target = center),
-      density = density.density,
+      density = cappedDensity,
       fontScale = density.fontScale,
       layoutDirection = layoutDirection,
     )

@@ -11,7 +11,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -43,11 +45,14 @@ private val DockBottomClearance = 48.dp
 /** How long the developed photo holds over the frame before flying to the dock. */
 private const val RevealHoldMillis = 650L
 
+/** Docks smaller than this are not usable targets; the result sheet opens itself instead. */
+private const val MinUsableDockHeight = 48f
+
 /**
  * The capture celebration: the photo develops in place over the frame, holds, then springs to a
  * docked thumbnail at the bottom end of the safe area, above the attribution button and the capture
  * controls ([controlsHeight], whichever needs more room). Tapping the docked thumbnail opens the
- * result sheet.
+ * result sheet. On hosts too small for a usable dock, the sheet opens on its own after the flight.
  */
 @Composable
 internal fun SnapshotFlight(
@@ -62,14 +67,6 @@ internal fun SnapshotFlight(
   val motion = MaterialTheme.motionScheme
   val develop = remember { Animatable(0f) }
   val flight = remember { Animatable(0f) }
-
-  LaunchedEffect(shot) {
-    develop.snapTo(0f)
-    flight.snapTo(0f)
-    develop.animateTo(1f, motion.fastSpatialSpec())
-    delay(RevealHoldMillis)
-    flight.animateTo(1f, motion.slowSpatialSpec())
-  }
 
   // The frame rect is stored in map coordinates; this overlay child is offset by originDp.
   val start = shot.frame.translate(Offset(-originDp.x.value, -originDp.y.value))
@@ -90,6 +87,17 @@ internal fun SnapshotFlight(
       right = dockLeft + dockWidth,
       bottom = safe.height.value - clearance.value,
     )
+  val dockUsable by rememberUpdatedState(dockHeight >= MinUsableDockHeight)
+  val currentOnOpen by rememberUpdatedState(onOpen)
+
+  LaunchedEffect(shot) {
+    develop.snapTo(0f)
+    flight.snapTo(0f)
+    develop.animateTo(1f, motion.fastSpatialSpec())
+    delay(RevealHoldMillis)
+    flight.animateTo(1f, motion.slowSpatialSpec())
+    if (!dockUsable) currentOnOpen()
+  }
   val progress = flight.value
   val rect = lerpRect(start, dock, progress)
   // A parabolic tilt: level at takeoff and landing, a few degrees of bank mid-flight.

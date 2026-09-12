@@ -7,6 +7,7 @@ import androidx.compose.ui.graphics.asSkiaBitmap
 import java.awt.FileDialog
 import java.awt.Frame
 import java.io.File
+import javax.swing.JOptionPane
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jetbrains.skia.EncodedImageFormat
@@ -31,7 +32,21 @@ internal class JvmSnapshotSharer : SnapshotSharer {
         val directory = dialog.directory ?: return@withContext SnapshotActionResult.Cancelled
         val chosen = dialog.file ?: return@withContext SnapshotActionResult.Cancelled
         val name = if (chosen.endsWith(".png")) chosen else "$chosen.png"
-        File(directory, name).writeBytes(bytes)
+        val target = File(directory, name)
+        // Appending the extension can redirect to a file the dialog never confirmed; ask before
+        // replacing it.
+        if (target.exists()) {
+          val replace =
+            JOptionPane.showConfirmDialog(
+              null,
+              "${target.name} already exists. Replace it?",
+              "Save snapshot",
+              JOptionPane.YES_NO_OPTION,
+              JOptionPane.WARNING_MESSAGE,
+            )
+          if (replace != JOptionPane.YES_OPTION) return@withContext SnapshotActionResult.Cancelled
+        }
+        target.writeBytes(bytes)
         SnapshotActionResult.Completed("$directory${File.separator}$name")
       } catch (error: Throwable) {
         SnapshotActionResult.Failed
