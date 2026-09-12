@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
@@ -17,7 +16,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -30,7 +28,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.DpOffset
@@ -51,6 +48,7 @@ import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.map.MapUiOptions
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
+import org.maplibre.compose.overlay.Controls
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -98,6 +96,7 @@ object MagnifyingLensDemo : Demo {
     val appliedStyle = state.appliedStyle
     val lensState = rememberMapState(runtime = state.mapRuntime, baseStyle = appliedStyle.base)
     val density = LocalDensity.current
+    val padding = cameraPadding
     val layoutDirection = LocalLayoutDirection.current
     val lensSizePx = with(density) { lensSize.dp.toPx() }
     val spacingPx = with(density) { MapOverlay.Spacing.roundToPx() }
@@ -105,7 +104,11 @@ object MagnifyingLensDemo : Demo {
     // The overlay's coordinates are the main map's screen coordinates. The query point is the
     // unobstructed overlay center plus the drag. The lens widget's layout bounds move by half a
     // pixel when the lens size is odd, so they are not a stable camera target.
-    var overlaySize by remember { mutableStateOf(IntSize.Zero) }
+    val overlaySize =
+      with(density) {
+        mapState.viewport?.size?.let { IntSize(it.width.roundToPx(), it.height.roundToPx()) }
+          ?: IntSize.Zero
+      }
     val placedDrag = IntOffset(dragOffset.x.roundToInt(), dragOffset.y.roundToInt())
     val lensCenter =
       overlaySize
@@ -114,10 +117,12 @@ object MagnifyingLensDemo : Demo {
           overlayInnerCenterPx(
             overlayWidthPx = size.width,
             overlayHeightPx = size.height,
-            insetLeftPx = contentWindowInsets.getLeft(density, layoutDirection),
-            insetTopPx = contentWindowInsets.getTop(density),
-            insetRightPx = contentWindowInsets.getRight(density, layoutDirection),
-            insetBottomPx = contentWindowInsets.getBottom(density),
+            insetLeftPx =
+              with(density) { padding.calculateLeftPadding(layoutDirection).roundToPx() },
+            insetTopPx = with(density) { padding.calculateTopPadding().roundToPx() },
+            insetRightPx =
+              with(density) { padding.calculateRightPadding(layoutDirection).roundToPx() },
+            insetBottomPx = with(density) { padding.calculateBottomPadding().roundToPx() },
             spacingPx = spacingPx,
           ) + Offset(placedDrag.x.toFloat(), placedDrag.y.toFloat())
         }
@@ -136,47 +141,45 @@ object MagnifyingLensDemo : Demo {
         .collect { lensState.setCameraPosition(it) }
     }
 
-    Box(
-      modifier =
-        Modifier.align(Alignment.Center)
-          .offset { placedDrag }
-          .onGloballyPositioned { coordinates ->
-            coordinates.parentLayoutCoordinates?.size?.let { overlaySize = it }
-          }
-          .pointerInput(Unit) {
-            detectDragGestures { change, dragAmount ->
-              change.consume()
-              dragOffset += dragAmount
-            }
-          }
-          .size(lensSize.dp)
-          .shadow(16.dp, lensShape.shape)
-          .border(6.dp, rimBrush, lensShape.shape)
-          .clip(lensShape.shape)
-          .background(MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-      MaplibreMap(
-        modifier =
-          if (lensDistortionEnabled) {
-            Modifier.fillMaxSize().radialLensDistortion(lensSizePx)
-          } else {
-            Modifier.fillMaxSize()
-          },
-        state = lensState,
-        uiOptions = lensUiOptions,
-        interactions = MapInteractions.None,
-        contentWindowInsets = WindowInsets(0),
-      ) {}
+    Controls {
       Box(
-        Modifier.fillMaxSize()
-          .background(
-            Brush.linearGradient(
-              0.0f to Color.White.copy(alpha = 0.30f),
-              0.4f to Color.White.copy(alpha = 0.05f),
-              0.6f to Color.Transparent,
+        modifier =
+          Modifier.align(Alignment.Center)
+            .offset { placedDrag }
+            .pointerInput(Unit) {
+              detectDragGestures { change, dragAmount ->
+                change.consume()
+                dragOffset += dragAmount
+              }
+            }
+            .size(lensSize.dp)
+            .shadow(16.dp, lensShape.shape)
+            .border(6.dp, rimBrush, lensShape.shape)
+            .clip(lensShape.shape)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+      ) {
+        MaplibreMap(
+          modifier =
+            if (lensDistortionEnabled) {
+              Modifier.fillMaxSize().radialLensDistortion(lensSizePx)
+            } else {
+              Modifier.fillMaxSize()
+            },
+          state = lensState,
+          uiOptions = lensUiOptions,
+          interactions = MapInteractions.None,
+        ) {}
+        Box(
+          Modifier.fillMaxSize()
+            .background(
+              Brush.linearGradient(
+                0.0f to Color.White.copy(alpha = 0.30f),
+                0.4f to Color.White.copy(alpha = 0.05f),
+                0.6f to Color.Transparent,
+              )
             )
-          )
-      )
+        )
+      }
     }
   }
 

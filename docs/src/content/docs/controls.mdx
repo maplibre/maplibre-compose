@@ -34,7 +34,7 @@ shows the attribution somewhere else, such as an about screen.
 
 <Code code={region(controls, "disabled")} lang="kotlin" title="App.kt" />
 
-The trailing block draws the controls that you list. `Modifier.align` positions
+The trailing block draws the controls that you list. Inside `Controls`, `Modifier.align` positions
 a control against an inset edge of the map.
 
 <Code code={region(controls, "custom")} lang="kotlin" title="App.kt" />
@@ -75,8 +75,17 @@ block:
 
 ## Inset overlays and the camera
 
-Use `contentWindowInsets` to inset overlay controls. Use `cameraPadding` to
-shift the camera center. They can use the same values or vary independently.
+The overlay is a full-map `Box`: ordinary sizing and alignment apply no implicit
+padding. Use <Api of="Controls" /> for controls. It uses the larger
+of `cameraPadding` and safe-drawing insets on each edge, then adds
+<Api of="MapOverlay.Spacing" />. The built-in presets use this layout.
+
+`cameraPadding` shifts the camera center and supplies the default control insets.
+Override `Controls(contentPadding = ...)` when controls need different padding.
+`contentWindowInsets` on `Controls` defaults to `WindowInsets.safeDrawing`; override
+it to choose different system insets. Padding and insets are consumed using Compose
+layout rules, so an outer layout can already have handled the safe area.
+Insets follow the supplied padding immediately, without waiting for a map frame.
 
 <Code code={region(controls, "insets")} lang="kotlin" title="App.kt" />
 
@@ -86,7 +95,7 @@ Padding on a bounding-box camera move adds to `cameraPadding` for that fit.
 
 ## Pin Compose UI to a location
 
-<Api of="MapOverlayScope.placedAt" /> puts a child on a geographic position.
+<Api of="AtPosition" /> puts a child on a geographic position.
 Include <Api of="MapOverlay.Default" /> to keep the default controls. A pan, a
 zoom, or a window resize moves the child with the map.
 
@@ -97,14 +106,17 @@ zoom, or a window resize moves the child with the map.
 
 ## Point at an off-screen location
 
-Use <Api of="MapOverlayScope.placedTowards" /> for a direction indicator when
-a location is out of view. It places the child along an ellipse inside the
-unobstructed map region and hides it while the location is inside that ellipse.
+Use <Api of="TowardsPosition" /> for a direction indicator when
+a location is out of view. It places the child along an ellipse inside its
+layout bounds and hides it while the location is inside that ellipse. Nest it in
+`Controls` to use the unobstructed region, or size and pad it with normal Compose
+layouts. Geographic placements convert map coordinates into their local layout,
+including when nested or offset.
 
 <Code code={region(controls, "placedTowards")} lang="kotlin" title="App.kt" />
 
 1. The state stores the placement that the overlay computed.
 2. `angleDegrees` is the direction of the target, clockwise from screen-up.
 
-<Api of="PointerPinButton" /> from the Material 3 module uses this modifier
+<Api of="PointerPinButton" /> from the Material 3 module uses this layout
 to display a pin-shaped button that points at the target.

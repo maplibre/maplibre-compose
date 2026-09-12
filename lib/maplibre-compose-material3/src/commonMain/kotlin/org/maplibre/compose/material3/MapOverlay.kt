@@ -2,30 +2,34 @@ package org.maplibre.compose.material3
 
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import org.maplibre.compose.overlay.Controls
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MaplibreLogo
 import org.maplibre.compose.overlay.include
 
 private val Material3AttributionOnlyOverlay = MapOverlay {
-  MaplibreLogo(Modifier.align(Alignment.BottomStart))
-  ExpandingAttributionButton(Modifier.align(Alignment.BottomEnd))
+  Controls {
+    MaplibreLogo(Modifier.align(Alignment.BottomStart))
+    ExpandingAttributionButton(Modifier.align(Alignment.BottomEnd))
+  }
 }
 
 private val Material3DefaultOverlay = MapOverlay {
-  DisappearingScaleBar(
-    metersPerDp = mapState.viewport?.metersPerDpAtTarget ?: 0.0,
-    zoom = mapState.cameraPosition.zoom,
-    modifier = Modifier.align(Alignment.TopStart),
-  )
+  Controls {
+    DisappearingScaleBar(
+      metersPerDp = mapState.viewport?.metersPerDpAtTarget ?: 0.0,
+      zoom = mapState.cameraPosition.zoom,
+      modifier = Modifier.align(Alignment.TopStart),
+    )
 
-  DisappearingCompassButton(modifier = Modifier.align(Alignment.TopEnd))
-
+    DisappearingCompassButton(modifier = Modifier.align(Alignment.TopEnd))
+  }
   include(Material3AttributionOnlyOverlay)
 }
 
 private val Material3FullOverlay = MapOverlay {
   include(Material3DefaultOverlay)
-  ZoomButtons(Modifier.align(Alignment.CenterEnd))
+  Controls { ZoomButtons(Modifier.align(Alignment.CenterEnd)) }
 }
 
 /**

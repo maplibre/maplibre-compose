@@ -80,6 +80,7 @@ import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.layers.SymbolLayer
 import org.maplibre.compose.map.LocalMapState
+import org.maplibre.compose.overlay.AtPosition
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
@@ -442,11 +443,12 @@ object TransitNetworkDemo : Demo {
         val terminal = network.terminalsById[stopId]
         val departure = departures.nextByStopId[stopId]
         if (terminal != null && departure != null) {
-          DepartureChip(
-            text = departure,
-            modifier =
-              Modifier.placedAt(terminal.position, Alignment.BottomCenter).padding(bottom = 8.dp),
-          )
+          AtPosition(terminal.position, alignment = Alignment.BottomCenter) {
+            DepartureChip(
+              text = departure,
+              modifier = Modifier.padding(bottom = 8.dp),
+            )
+          }
         }
       }
     }

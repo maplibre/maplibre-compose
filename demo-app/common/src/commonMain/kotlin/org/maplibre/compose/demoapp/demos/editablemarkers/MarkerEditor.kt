@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.painterResource
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.check_24px
+import org.maplibre.compose.overlay.AtPosition
 import org.maplibre.compose.overlay.MapOverlayScope
 
 @Composable
@@ -67,14 +68,14 @@ internal fun MapOverlayScope.MarkerEditors(state: EditableMarkersState, mapSize:
   with(state) {
     // Keep the editor inside the usable map, flipping below pins near the top edge.
     val density = LocalDensity.current
+    val padding = cameraPadding
     val layoutDirection = LocalLayoutDirection.current
-    val left =
-      with(density) { contentWindowInsets.getLeft(this, layoutDirection).toDp().value } + 8f
+    val left = with(density) { padding.calculateLeftPadding(layoutDirection).value } + 8f
     val right =
       with(density) {
-        (mapSize.width - contentWindowInsets.getRight(this, layoutDirection)).toDp().value
+        (mapSize.width - padding.calculateRightPadding(layoutDirection).roundToPx()).toDp().value
       } - 8f
-    val top = with(density) { contentWindowInsets.getTop(this).toDp().value } + 8f
+    val top = with(density) { padding.calculateTopPadding().value } + 8f
     val editorWidth = (right - left).coerceIn(0f, 272f)
 
     for (marker in markers) key(marker.id) {
@@ -87,26 +88,27 @@ internal fun MapOverlayScope.MarkerEditors(state: EditableMarkersState, mapSize:
       val shift = screen?.let { markerEditorShift(it.x.value, editorWidth, left, right) } ?: 0f
       val below = screen != null && screen.y.value - 76f - editorHeight < top
 
-      AnimatedMarkerEditor(
-        marker = marker,
-        visible = editingId == marker.id && draggingId == null && !marker.removing,
-        below = below,
-        shift = shift,
-        onClose = { editingId = null },
-        modifier =
-          Modifier.placedAt(
-              marker.position,
-              if (below) Alignment.TopCenter else Alignment.BottomCenter,
-            )
-            .padding(
+      AtPosition(
+        marker.position,
+        alignment = if (below) Alignment.TopCenter else Alignment.BottomCenter,
+      ) {
+        AnimatedMarkerEditor(
+          marker = marker,
+          visible = editingId == marker.id && draggingId == null && !marker.removing,
+          below = below,
+          shift = shift,
+          onClose = { editingId = null },
+          modifier =
+            Modifier.padding(
               top = if (below) (32f + 14f * textScale).dp else 0.dp,
               bottom = if (below) 0.dp else 76.dp,
             ),
-        editorModifier =
-          Modifier.width(editorWidth.dp).absoluteOffset(x = shift.dp).onGloballyPositioned {
-            editorHeight = with(density) { it.size.height.toDp().value }
-          },
-      )
+          editorModifier =
+            Modifier.width(editorWidth.dp).absoluteOffset(x = shift.dp).onGloballyPositioned {
+              editorHeight = with(density) { it.size.height.toDp().value }
+            },
+        )
+      }
     }
   }
 

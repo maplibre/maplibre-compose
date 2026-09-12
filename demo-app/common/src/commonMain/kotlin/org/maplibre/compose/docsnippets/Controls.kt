@@ -14,9 +14,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.map.MaplibreMap
+import org.maplibre.compose.overlay.AtPosition
+import org.maplibre.compose.overlay.Controls
 import org.maplibre.compose.overlay.ExpandingAttributionButton
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MaplibreLogo
+import org.maplibre.compose.overlay.TowardsPosition
 import org.maplibre.compose.overlay.include
 import org.maplibre.compose.overlay.rememberPlacedTowardsState
 import org.maplibre.spatialk.geojson.Position
@@ -33,20 +36,19 @@ fun Controls() {
 
   // #region custom
   MaplibreMap {
-    MaplibreLogo(Modifier.align(Alignment.BottomStart))
-    ExpandingAttributionButton(
-      modifier = Modifier.align(Alignment.TopEnd),
-      contentAlignment = Alignment.TopEnd,
-    )
+    Controls {
+      MaplibreLogo(Modifier.align(Alignment.BottomStart))
+      ExpandingAttributionButton(
+        modifier = Modifier.align(Alignment.TopEnd),
+        contentAlignment = Alignment.TopEnd,
+      )
+    }
   }
   // #endregion custom
 
   // #region insets
-  val mapInsets = WindowInsets.safeDrawing.union(WindowInsets(bottom = 128.dp))
-  MaplibreMap(
-    contentWindowInsets = mapInsets, // (1)!
-    cameraPadding = mapInsets.asPaddingValues(),
-  )
+  val mapInsets = WindowInsets.safeDrawing.union(WindowInsets(bottom = 128.dp)) // (1)!
+  MaplibreMap(cameraPadding = mapInsets.asPaddingValues())
   // #endregion insets
 }
 
@@ -55,10 +57,12 @@ fun LocationOverlay(position: Position) {
   // #region placedAt
   MaplibreMap {
     include(MapOverlay.Default)
-    Text(
-      "Next sailing 12:40",
-      Modifier.placedAt(position, Alignment.BottomCenter).padding(bottom = 8.dp), // (1)!
-    )
+    AtPosition(position, alignment = Alignment.BottomCenter) {
+      Text(
+        "Next sailing 12:40",
+        Modifier.padding(bottom = 8.dp), // (1)!
+      )
+    }
   }
   // #endregion placedAt
 }
@@ -68,13 +72,17 @@ fun OffScreenIndicator(position: Position) {
   // #region placedTowards
   MaplibreMap {
     include(MapOverlay.Default)
-    val placement = rememberPlacedTowardsState() // (1)!
-    Text(
-      "▲",
-      Modifier.placedTowards(position, placement).graphicsLayer {
-        rotationZ = placement.angleDegrees // (2)!
-      },
-    )
+    Controls {
+      val placement = rememberPlacedTowardsState() // (1)!
+      TowardsPosition(position, state = placement) {
+        Text(
+          "▲",
+          Modifier.graphicsLayer {
+            rotationZ = placement.angleDegrees // (2)!
+          },
+        )
+      }
+    }
   }
   // #endregion placedTowards
 }

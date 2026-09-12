@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -182,7 +181,7 @@ object MapSnapshotterDemo : Demo {
     }
 
     capturedSnapshot?.let { snapshot ->
-      Box(Modifier.fillMaxSize().windowInsetsPadding(contentWindowInsets)) {
+      Box(Modifier.fillMaxSize().padding(cameraPadding)) {
         Surface(
           modifier =
             Modifier.align(Alignment.BottomEnd)

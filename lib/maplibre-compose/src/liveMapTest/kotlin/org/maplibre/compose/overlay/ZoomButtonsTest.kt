@@ -1,6 +1,5 @@
 package org.maplibre.compose.overlay
 
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
@@ -38,7 +37,6 @@ class ZoomButtonsTest {
           )
         },
         mapState = mapState,
-        contentWindowInsets = WindowInsets(0),
       )
     }
     waitForIdle()
@@ -58,7 +56,6 @@ class ZoomButtonsTest {
       MapOverlayHost(
         overlay = { include(MapOverlay.Full) },
         mapState = mapState,
-        contentWindowInsets = WindowInsets(0),
       )
     }
     waitForIdle()
