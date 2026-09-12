@@ -111,10 +111,10 @@ internal class SnapshotterDemoState {
 internal fun defaultFrameSize(safe: DpSize, aspect: SnapshotAspect): DpSize {
   val maxWidth = (safe.width - FrameMargin * 2).coerceAtLeast(FrameMinSize)
   val maxHeight = (safe.height - FrameMargin * 2).coerceAtLeast(FrameMinSize)
-  val ratio = aspect.ratio ?: return DpSize(maxWidth * 0.62f, maxHeight * 0.62f)
-  val width = maxWidth * 0.62f
-  val height = width / ratio
-  return if (height <= maxHeight) DpSize(width, height) else DpSize(maxHeight * ratio, maxHeight)
+  val ratio = aspect.ratio
+  // Clamp through the same paths as refits and drags so the floor holds on tiny safe areas.
+  return if (ratio == null) clampFrameSize(DpSize(maxWidth * 0.62f, maxHeight * 0.62f), safe)
+  else clampFrameToRatio(DpSize(maxWidth * 0.62f, maxWidth * 0.62f / ratio), ratio, safe)
 }
 
 /** Clamps [size] so the centered frame stays on the safe area and at least [FrameMinSize]. */
