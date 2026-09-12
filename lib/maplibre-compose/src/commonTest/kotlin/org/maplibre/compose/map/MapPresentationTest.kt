@@ -1988,6 +1988,59 @@ class MapPresentationTest {
   }
 
   @Test
+  fun a_queued_stop_cannot_cancel_a_newer_command() = runTest {
+    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
+    val state = runtime.createMapState(BaseStyle.Empty)
+    var stopGuard: CameraCommandGuard? = null
+    val adapter =
+      object : PresentationTestAdapter() {
+        override fun stopCameraMovement(guard: CameraCommandGuard) {
+          stopGuard = guard
+        }
+      }
+    val token = state.reservePresentation()
+    state.publishPresentation(token, adapter)
+    state.stopCameraMovement()
+    val guard = assertNotNull(stopGuard)
+    assertTrue(guard.isValid())
+    state.setCameraPosition(CameraPosition(zoom = 4.0))
+    assertFalse(guard.isValid())
+    state.close()
+    state.awaitClosed()
+    runtime.close()
+  }
+
+  @Test
+  fun stopping_cancels_commands_before_attachment_and_before_a_viewport() = runTest {
+    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
+    val state = runtime.createMapState(BaseStyle.Empty)
+    val position = CameraPosition(zoom = 3.0)
+    state.setCameraPosition(position)
+    val animation = async { state.animateCameraPosition(CameraPosition(zoom = 8.0)) }
+    testScheduler.runCurrent()
+    state.stopCameraMovement()
+    testScheduler.runCurrent()
+    assertTrue(animation.isCancelled)
+    assertEquals(position, state.cameraPosition)
+
+    val token = state.reservePresentation()
+    val adapter = PresentationTestAdapter()
+    state.publishPresentation(token, adapter)
+    val fit = async {
+      state.fitCameraToBounds(BoundingBox(Position(-1.0, -1.0), Position(1.0, 1.0)))
+    }
+    testScheduler.runCurrent()
+    assertFalse(fit.isCompleted)
+    state.stopCameraMovement()
+    testScheduler.runCurrent()
+    assertTrue(fit.isCancelled)
+    assertFalse(adapter.boundsFit.isCompleted)
+    state.close()
+    state.awaitClosed()
+    runtime.close()
+  }
+
+  @Test
   fun closing_a_map_fails_a_camera_animation_waiting_for_attachment() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
     val state = runtime.createMapState(BaseStyle.Demo)
@@ -2208,6 +2261,8 @@ internal open class PresentationTestAdapter(
       presentationWasVisibleWhileConfiguring || currentAttachment() != null
     lastCameraPosition = cameraPosition
   }
+
+  override fun stopCameraMovement(guard: CameraCommandGuard) = Unit
 
   override fun setCameraPadding(padding: PaddingValues) = Unit
 

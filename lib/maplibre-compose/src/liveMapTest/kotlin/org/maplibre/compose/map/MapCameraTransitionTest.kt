@@ -571,6 +571,37 @@ class MapCameraTransitionTest {
       }
     }
 
+  @Test
+  fun stopping_an_animation_retains_its_position_and_allows_a_new_command(): MapTestResult =
+    runMapTest {
+      if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
+      createMapFixture().use {
+        it.startAtOrigin()
+        val animation =
+          launch(Dispatchers.Default) {
+            it.state.animateCameraPosition(TARGET, CameraAnimation.Ease(30.seconds))
+          }
+        it.awaitCameraMoving()
+        it.state.stopCameraMovement()
+        it.pumpUntil("the stopped animation to cancel") {
+          animation.isCompleted && !it.state.isCameraMoving
+        }
+        assertTrue(animation.isCancelled)
+        val stopped = it.session.getCameraPosition()
+        assertTrue(stopped.zoom < TARGET.zoom - 0.1)
+        it.pump(frames = 10)
+        assertSameFit(stopped, it.session.getCameraPosition(), "movement after stop")
+        assertSameFit(stopped, it.state.cameraPosition, "retained stopped camera")
+
+        // Queue a stop and a replacement without rendering between them.
+        it.state.stopCameraMovement()
+        it.awaitWhileRendering("the command racing the stop to complete") {
+          it.state.animateCameraPosition(TARGET, CameraAnimation.Ease(200.milliseconds))
+        }
+        it.assertLanded(TARGET, "the newer command")
+      }
+    }
+
   private suspend fun MapFixture.startAtOrigin() = startAt(START)
 
   private suspend fun MapFixture.startAt(position: CameraPosition) {
