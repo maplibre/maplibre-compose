@@ -185,22 +185,15 @@ object MapSnapshotterDemo : Demo {
     val density = LocalDensity.current
     // The viewport changes with every camera frame; only its size matters here.
     val fullMap by remember { derivedStateOf { mapState.viewport?.size } }
-    var controlsHeight by remember { mutableStateOf(0.dp) }
     BoxWithConstraints(
       Modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInParent() }
     ) {
       val safe = DpSize(maxWidth, maxHeight)
       val originDp = with(density) { DpOffset(origin.x.toDp(), origin.y.toDp()) }
-      SnapshotFrame(demoState, safe, originDp, fullMap, bottomClearance = controlsHeight)
+      SnapshotFrame(demoState, safe, originDp, fullMap)
       SnapshotFlash(demoState.flashTick, originDp, fullMap)
-      SnapshotFlight(
-        demoState,
-        safe,
-        originDp,
-        controlsHeight = controlsHeight,
-        onOpen = { demoState.sheetOpen = true },
-      )
-      SnapshotControls(demoState, onCapture = beginCapture, onHeight = { controlsHeight = it })
+      SnapshotFlight(demoState, safe, originDp, onOpen = { demoState.sheetOpen = true })
+      SnapshotControls(demoState, onCapture = beginCapture)
     }
   }
 
