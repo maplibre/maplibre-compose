@@ -7,6 +7,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.Button
@@ -127,12 +129,12 @@ private fun CaptureButton(state: SnapshotterDemoState, onCapture: () -> Unit) {
 /**
  * The aspect presets as a camera-style mode row: plain text over the dimmed map, the selection
  * shown with weight and brightness. Tapping one animates the frame itself, which is the real
- * preview.
+ * preview. The row scrolls on hosts too narrow for it, like the Wear map.
  */
 @Composable
 private fun AspectSelector(state: SnapshotterDemoState) {
   Row(
-    modifier = Modifier.selectableGroup(),
+    modifier = Modifier.selectableGroup().horizontalScroll(rememberScrollState()),
     horizontalArrangement = Arrangement.spacedBy(2.dp),
     verticalAlignment = Alignment.CenterVertically,
   ) {

@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
+import kotlin.math.max
 import kotlin.math.min
 import org.maplibre.compose.map.MapSnapshotRequest
 
@@ -89,7 +90,7 @@ internal class SnapshotterDemoState {
         actionFailed = false
         actionMessage =
           when (action) {
-            SnapshotAction.Share -> "Shared"
+            SnapshotAction.Share -> result.detail ?: "Shared"
             SnapshotAction.Save -> result.detail?.let { "Saved to $it" } ?: "Saved"
           }
       }
@@ -163,8 +164,12 @@ private fun clampFrameToRatio(size: DpSize, ratio: Float, safe: DpSize): DpSize 
   val maxHeight = (safe.height - FrameMargin * 2).coerceAtLeast(FrameMinSize)
   val scale = min(1f, min(maxWidth / size.width, maxHeight / size.height))
   val fitted = DpSize(size.width * scale, size.height * scale)
-  // On tiny safe areas the ratio yields to the floor so the handles stay reachable.
-  return if (fitted.width >= FrameMinSize && fitted.height >= FrameMinSize) fitted
+  if (fitted.width >= FrameMinSize && fitted.height >= FrameMinSize) return fitted
+  // Under the floor, grow back to the smallest size that keeps the ratio and clears both axes.
+  val growScale = max(FrameMinSize / fitted.width, FrameMinSize / fitted.height)
+  val grown = DpSize(fitted.width * growScale, fitted.height * growScale)
+  // Only a genuinely tight safe area abandons the ratio.
+  return if (grown.width <= maxWidth && grown.height <= maxHeight) grown
   else clampFrameSize(fitted, safe)
 }
 
