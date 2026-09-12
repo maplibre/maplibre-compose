@@ -16,7 +16,7 @@ class BrowserOfflineManagerTest {
     val runtime = createMapRuntime(MapRuntimeOptions())
     val manager = runtime.offlineManager
 
-    assertTrue(manager.packs.isEmpty())
+    assertTrue(manager.packs.value.isEmpty())
     assertFailsWith<UnsupportedOperationException> {
       manager.create(
         OfflinePackDefinition.TilePyramid(

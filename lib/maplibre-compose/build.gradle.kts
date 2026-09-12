@@ -65,7 +65,7 @@ kotlin {
       implementation(libs.jetbrains.compose.components.resources)
       implementation(libs.htmlConverterCompose)
       api(libs.lifecycle.runtime.compose)
-      implementation(libs.kotlinx.coroutines.core)
+      api(libs.kotlinx.coroutines.core)
       implementation(libs.kotlinx.atomicfu)
       api(libs.kotlinx.io.core)
       api(libs.spatialk.geojson)

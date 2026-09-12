@@ -5,6 +5,9 @@ package org.maplibre.compose.docsnippets
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.launch
@@ -46,22 +49,29 @@ fun Offline() {
   // #endregion create
 
   // #region progress
-  for (pack in offlineManager.packs) {
-    val name = pack.metadata?.decodeToString() ?: "Unnamed"
-    when (val progress = pack.downloadProgress) {
-      is DownloadProgress.Healthy ->
-        Text("$name: ${progress.completedResourceCount} resources, ${progress.status}")
-      is DownloadProgress.Error -> Text("$name: ${progress.message}")
-      is DownloadProgress.TileLimitExceeded -> Text("$name: tile limit ${progress.limit}")
-      is DownloadProgress.Unknown -> Text("$name: waiting for status")
+  val packs by offlineManager.packs.collectAsState()
+  for (pack in packs) {
+    key(pack) {
+      val metadata by pack.metadata.collectAsState()
+      val progress by pack.downloadProgress.collectAsState()
+      val name = metadata?.decodeToString() ?: "Unnamed"
+      when (val current = progress) {
+        is DownloadProgress.Healthy ->
+          Text("$name: ${current.completedResourceCount} resources, ${current.status}")
+        is DownloadProgress.Error -> Text("$name: ${current.message}")
+        is DownloadProgress.TileLimitExceeded -> Text("$name: tile limit ${current.limit}")
+        is DownloadProgress.Unknown -> Text("$name: waiting for status")
+      }
     }
   }
   // #endregion progress
 
   // #region delete
-  for (pack in offlineManager.packs) {
-    Button(onClick = { scope.launch { offlineManager.delete(pack) } }) {
-      Text("Delete ${pack.metadata?.decodeToString()}")
+  for (pack in packs) {
+    key(pack) {
+      Button(onClick = { scope.launch { offlineManager.delete(pack) } }) {
+        Text("Delete ${pack.metadata.value?.decodeToString()}")
+      }
     }
   }
   // #endregion delete

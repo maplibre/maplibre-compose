@@ -1,6 +1,8 @@
 package org.maplibre.compose.offline
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.key
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -31,15 +33,18 @@ public fun rememberOfflinePacksSource(
   options: GeoJsonOptions = GeoJsonOptions(),
   putExtraProperties: JsonObjectBuilder.(OfflinePack) -> Unit = {},
 ): GeoJsonSource {
+  val progressByPack = offlinePacks.associateWith { pack ->
+    key(pack) { pack.downloadProgress.collectAsState().value }
+  }
   return rememberGeoJsonSource(
     options = options,
     data =
       GeoJsonData.Features(
         buildFeatureCollection {
-          offlinePacks.forEach { pack ->
+          progressByPack.forEach { (pack, progress) ->
             addFeature(geometry = pack.definition.geometry) {
               properties = buildJsonObject {
-                putDownloadProgressProperties(pack.downloadProgress)
+                putDownloadProgressProperties(progress)
                 putExtraProperties(pack)
               }
             }

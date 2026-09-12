@@ -18,7 +18,8 @@ creates, tracks, and deletes packs.
   platform does not support them.
 </Aside>
 
-Get the manager from the map runtime inside a composition:
+Get the manager from the map runtime. A composable, a view model, a background
+worker, or `main` can hold and use it:
 
 <Code code={region(offline, "manager")} lang="kotlin" title="App.kt" />
 
@@ -39,10 +40,15 @@ GeoJSON geometry instead of a bounding box.
 ## Track download progress
 
 <Api of="OfflineManager.packs" /> and <Api of="OfflinePack.downloadProgress" />
-are backed by Compose state, so a composition that reads them recomposes as
-the download proceeds:
+are `StateFlow`s. A composition collects them with `collectAsState` and
+recomposes as the download proceeds:
 
 <Code code={region(offline, "progress")} lang="kotlin" title="App.kt" />
+
+A background worker can collect `downloadProgress` until the pack reports
+`DownloadStatus.Complete`. The runtime lists stored packs before it becomes
+available, so the first value of `packs` includes every pack from earlier
+sessions.
 
 `pause` and `resume` switch a pack between the `Paused` and `Downloading`
 states. <Api of="OfflineManager.invalidate" /> re-checks a pack's tiles

@@ -1,8 +1,13 @@
 package org.maplibre.compose.offline
 
-import androidx.compose.runtime.mutableStateOf
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
-internal fun interface OfflinePackOwner {
+internal interface OfflinePackOwner {
+  /** Throws [IllegalStateException] when the runtime that owns this manager is closed. */
+  fun requireRuntimeOpen()
+
   suspend fun updateMetadata(pack: OfflinePack, metadata: ByteArray)
 }
 
@@ -15,17 +20,18 @@ internal constructor(
   public val definition: OfflinePackDefinition,
   initialMetadata: ByteArray?,
 ) {
-  internal val metadataState = mutableStateOf(initialMetadata)
-  internal val progressState = mutableStateOf<DownloadProgress>(DownloadProgress.Unknown)
-  private var requireRuntimeOpen: () -> Unit = {}
+  internal val metadataState = MutableStateFlow(initialMetadata)
+  internal val progressState = MutableStateFlow<DownloadProgress>(DownloadProgress.Unknown)
 
-  /** Arbitrary data stored alongside the downloaded resources. Backed by Compose snapshot state. */
-  public val metadata: ByteArray?
-    get() = metadataState.value
+  /** Arbitrary data stored alongside the downloaded resources. */
+  public val metadata: StateFlow<ByteArray?> = metadataState.asStateFlow()
 
-  /** The pack's current download progress. Backed by Compose snapshot state. */
-  public val downloadProgress: DownloadProgress
-    get() = progressState.value
+  /**
+   * The pack's current download progress.
+   *
+   * A pack reads as [DownloadProgress.Unknown] until MapLibre reports its first status.
+   */
+  public val downloadProgress: StateFlow<DownloadProgress> = progressState.asStateFlow()
 
   /**
    * Replaces the arbitrary metadata that is associated with this offline pack.
@@ -34,12 +40,8 @@ internal constructor(
    * @throws [OfflineManagerException] if the operation failed.
    */
   public suspend fun setMetadata(metadata: ByteArray) {
-    requireRuntimeOpen()
+    owner.requireRuntimeOpen()
     owner.updateMetadata(this, metadata)
-  }
-
-  internal fun bindToRuntime(requireRuntimeOpen: () -> Unit): OfflinePack = apply {
-    this.requireRuntimeOpen = requireRuntimeOpen
   }
 
   override fun equals(other: Any?): Boolean =

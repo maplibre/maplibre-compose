@@ -65,6 +65,7 @@ import org.maplibre.compose.layers.LayerHandle
 import org.maplibre.compose.layers.layerHandle
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.offline.OfflineManager
+import org.maplibre.compose.offline.OfflineManagerBackend
 import org.maplibre.compose.offline.RuntimeBoundOfflineManager
 import org.maplibre.compose.offline.UnsupportedOfflineManager
 import org.maplibre.compose.resource.MapResourceConfig
@@ -1929,7 +1930,7 @@ internal class RuntimeImplementation(
   internal val platformContext: Any?,
   private val closeResources: suspend () -> Unit,
   internal val logger: MapLog?,
-  offlineManagerBackend: OfflineManager = UnsupportedOfflineManager,
+  offlineManagerBackend: OfflineManagerBackend = UnsupportedOfflineManager,
   internal val physicalScope: CoroutineScope =
     CoroutineScope(SupervisorJob() + Dispatchers.Default),
   internal val createSnapshotterAdapter: () -> SnapshotterAdapter = ::unsupportedSnapshots,
