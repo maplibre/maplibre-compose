@@ -1,7 +1,6 @@
 [versions]
 # Platform floors and toolchain levels.
-# compileSdk follows the current AGP maximum. targetSdk stays on the latest
-# shipping Android 16 behavior.
+# Compile against API 37; targetSdk retains Android 16 behavior.
 android-compileSdk = "37"
 # The Build-Tools release the current AGP consumes. Read by
 # .mise/bin/sync-android-packages, not by Gradle.

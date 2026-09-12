@@ -6,6 +6,17 @@ group = "org.maplibre.compose"
 
 version = providers.gradleProperty("maplibreVersion").get()
 
+// Kotlin wrappers bring kotlin-test into production JS dependencies. Its compiler intrinsics
+// must match our compiler, even when no test source set requests the newer version.
+configurations
+  .matching { it.name == "jsMainImplementation" }
+  .configureEach {
+    project.dependencies.constraints.add(
+      name,
+      "org.jetbrains.kotlin:kotlin-test:${project.catalogVersion("gradle-kotlin")}",
+    )
+  }
+
 // Here rather than in library-conventions so that the demo app modules are covered too, and by
 // task rather than by extension so that it does not matter which Kotlin plugin a module applies.
 tasks.withType<KotlinCompilationTask<*>>().configureEach {
