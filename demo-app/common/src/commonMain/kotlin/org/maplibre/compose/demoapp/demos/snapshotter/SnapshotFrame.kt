@@ -87,11 +87,9 @@ internal fun SnapshotFrame(
   val scope = rememberCoroutineScope()
   val frameSize = remember { Animatable(DpSize.Zero, DpSizeVectorConverter) }
   val motion = MaterialTheme.motionScheme
-  val frameArea =
-    DpSize(
-      safe.width,
-      (safe.height - bottomClearance).coerceAtLeast(FrameMinSize + FrameMargin * 2),
-    )
+  // The floor keeps geometry sane without pretending space exists where it doesn't: on compact
+  // hosts the frame may overlap the map's edges, but never claims room behind the controls.
+  val frameArea = DpSize(safe.width, (safe.height - bottomClearance).coerceAtLeast(FrameMinSize))
 
   // First layout picks a default; later safe-area changes only clamp the frame back inside.
   LaunchedEffect(frameArea) {

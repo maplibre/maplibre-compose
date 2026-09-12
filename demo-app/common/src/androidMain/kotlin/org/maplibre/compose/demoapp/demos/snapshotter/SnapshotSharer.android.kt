@@ -30,15 +30,15 @@ internal class AndroidSnapshotSharer(private val context: Context) : SnapshotSha
   var saveLauncher: ActivityResultLauncher<String>? = null
   private var pendingSave: CompletableDeferred<Uri?>? = null
 
-  override val canShare = true
+  private fun resolves(intent: Intent): Boolean =
+    context.packageManager.resolveActivity(intent, 0) != null
+
+  override val canShare: Boolean
+    get() = resolves(Intent(Intent.ACTION_SEND).setType("image/png"))
 
   // Hosts like Wear and TV can have no activity handling ACTION_CREATE_DOCUMENT at all.
   override val canSave: Boolean
-    get() =
-      context.packageManager.resolveActivity(
-        Intent(Intent.ACTION_CREATE_DOCUMENT).setType("image/png"),
-        0,
-      ) != null
+    get() = resolves(Intent(Intent.ACTION_CREATE_DOCUMENT).setType("image/png"))
 
   override suspend fun share(image: ImageBitmap, fileName: String): SnapshotActionResult {
     return withContext(Dispatchers.IO) {
