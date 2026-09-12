@@ -4,11 +4,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.ImageBitmap
 import js.array.jsArrayOf
+import js.buffer.ArrayBuffer
 import js.objects.unsafeJso
+import js.typedarrays.Uint8Array
 import kotlin.coroutines.resume
 import kotlinx.coroutines.suspendCancellableCoroutine
-import web.blob.Blob
 import web.dom.document
+import web.encoding.atob
 import web.file.File
 import web.file.FilePropertyBag
 import web.html.HTMLAnchorElement
@@ -24,8 +26,9 @@ internal class JsSnapshotSharer : SnapshotSharer {
   override val canSave = true
 
   override suspend fun share(image: ImageBitmap, fileName: String): SnapshotActionResult {
-    val blob = image.toPngBlob() ?: return SnapshotActionResult.Failed
-    val file = File(jsArrayOf(blob), fileName, unsafeJso<FilePropertyBag> { type = "image/png" })
+    // The file is built synchronously: awaiting an async encode first would spend the click's
+    // transient user activation, and strict browsers would reject share() with NotAllowedError.
+    val file = dataUrlToFile(image.toDataUrl(), fileName)
     val data = unsafeJso<ShareData> { files = jsArrayOf(file) }
     if (!navigator.canShare(data)) return SnapshotActionResult.Failed
     return suspendCancellableCoroutine { continuation ->
@@ -63,8 +66,18 @@ private fun webShareSupported(): Boolean {
   return navigator.share != undefined && navigator.canShare != undefined
 }
 
-private suspend fun ImageBitmap.toPngBlob(): Blob? = suspendCancellableCoroutine { continuation ->
-  toCanvas().asDynamic().toBlob({ blob: Blob? -> continuation.resume(blob) }, "image/png")
+/** Decodes a PNG data URL into a [File] without any async step. */
+private fun dataUrlToFile(dataUrl: String, fileName: String): File {
+  val binary = atob(dataUrl.substringAfter(','))
+  val bytes = Uint8Array<ArrayBuffer>(binary.length).asDynamic()
+  for (index in binary.indices) {
+    bytes[index] = binary[index].code
+  }
+  return File(
+    jsArrayOf(bytes.buffer.unsafeCast<js.buffer.ArrayBuffer>()),
+    fileName,
+    unsafeJso<FilePropertyBag> { type = "image/png" },
+  )
 }
 
 @Suppress("UnsafeCastFromDynamic")

@@ -53,7 +53,9 @@ internal class AndroidSnapshotSharer : SnapshotSharer {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
           }
         context.startActivity(Intent.createChooser(send, null))
-        SnapshotActionResult.Completed()
+        // The chooser reports neither a selection nor a dismissal, so launching it is all that
+        // can be reported.
+        SnapshotActionResult.Completed("Share chooser opened")
       } catch (error: CancellationException) {
         throw error
       } catch (error: Throwable) {
