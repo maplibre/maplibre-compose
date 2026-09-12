@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
@@ -70,7 +72,11 @@ internal fun SnapshotSheet(state: SnapshotterDemoState) {
 
   ModalBottomSheet(onDismissRequest = { state.sheetOpen = false }) {
     Column(
-      modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 40.dp),
+      modifier =
+        Modifier.fillMaxWidth()
+          .verticalScroll(rememberScrollState())
+          .padding(horizontal = 24.dp)
+          .padding(bottom = 40.dp),
       verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
       Row(verticalAlignment = Alignment.CenterVertically) {
