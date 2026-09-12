@@ -1,6 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The permissions the shared demo code needs. The manifest merger folds them into the app. -->
+<!-- The manifest merger folds the permissions and providers the shared demo code needs into the
+     app. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
   <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+  <application>
+    <!-- Hands snapshot captures to other apps. -->
+    <provider
+      android:name="androidx.core.content.FileProvider"
+      android:authorities="${applicationId}.snapshotprovider"
+      android:exported="false"
+      android:grantUriPermissions="true"
+    >
+      <meta-data
+        android:name="android.support.FILE_PROVIDER_PATHS"
+        android:resource="@xml/snapshot_share_paths"
+      />
+    </provider>
+  </application>
 </manifest>

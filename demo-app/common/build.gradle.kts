@@ -103,6 +103,7 @@ kotlin {
 
     jsMain.dependencies {
       implementation(libs.jetbrains.compose.html.core)
+      implementation(libs.kotlin.wrappers.browser)
       implementation(libs.kotlin.wrappers.js)
       implementation(libs.ktor.client.js)
       implementation(npm("fflate", libs.versions.fflate.get()))
