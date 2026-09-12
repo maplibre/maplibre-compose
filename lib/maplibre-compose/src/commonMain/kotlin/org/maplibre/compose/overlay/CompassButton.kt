@@ -46,6 +46,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.generated.Res
 import org.maplibre.compose.generated.compass
@@ -97,7 +98,10 @@ public fun MapOverlayScope.CompassButton(
         role = Role.Button,
       ) {
         coroutineScope.launch {
-          currentMapState.animateCameraPosition(getHomePosition(currentMapState.cameraPosition))
+          currentMapState.animateCameraPosition(
+            getHomePosition(currentMapState.cameraPosition),
+            CameraAnimation.Ease(),
+          )
         }
         onClick()
       }

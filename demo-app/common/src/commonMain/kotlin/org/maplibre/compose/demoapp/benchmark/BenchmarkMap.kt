@@ -37,6 +37,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.map.DefaultMapRuntime
@@ -107,8 +108,8 @@ internal fun BenchmarkRun(
       onStatus("Warming up", true)
       delay(3000)
       // Run the same animation once before measurement to warm the map and Compose paths.
-      state.animateCameraPosition(camera(1.0), 500.milliseconds)
-      state.animateCameraPosition(camera(-1.0), 500.milliseconds)
+      state.animateCameraPosition(camera(1.0), CameraAnimation.Fly(500.milliseconds))
+      state.animateCameraPosition(camera(-1.0), CameraAnimation.Fly(500.milliseconds))
       delay(500)
       benchmarkTrace(true)
       traced = true
@@ -118,7 +119,10 @@ internal fun BenchmarkRun(
       when (config.scenario) {
         BenchmarkScenario.Animation ->
           repeat(8) {
-            state.animateCameraPosition(camera(if (it % 2 == 0) 1.0 else -1.0), 1500.milliseconds)
+            state.animateCameraPosition(
+              camera(if (it % 2 == 0) 1.0 else -1.0),
+              CameraAnimation.Fly(1500.milliseconds),
+            )
           }
         BenchmarkScenario.Setters -> {
           val start = withFrameNanos { it }

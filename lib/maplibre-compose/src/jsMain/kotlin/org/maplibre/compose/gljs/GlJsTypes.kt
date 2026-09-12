@@ -210,24 +210,25 @@ internal external interface CenterZoomBearing {
 
 internal external interface AnimationOptions {
   var duration: Double?
+  var easing: ((Double) -> Double)?
 }
 
-internal external interface JumpToOptions : CameraOptions {
+internal external interface PaddedCameraOptions : CameraOptions {
   var padding: PaddingOptions?
 }
 
-internal external interface EaseToOptions : CameraOptions, AnimationOptions {
+internal external interface JumpToOptions : PaddedCameraOptions
+
+internal external interface EaseToOptions : PaddedCameraOptions, AnimationOptions {
   var around: LngLat?
-  var padding: PaddingOptions?
 }
 
-internal external interface FlyToOptions : CameraOptions, AnimationOptions {
-  var padding: PaddingOptions?
+internal external interface FlyToOptions : PaddedCameraOptions, AnimationOptions {
+  var screenSpeed: Double?
+  var minZoom: Double?
 }
 
-internal external interface CameraForBoundsOptions : CameraOptions {
-  var padding: PaddingOptions?
-}
+internal external interface CameraForBoundsOptions : PaddedCameraOptions
 
 internal external interface Painter {
   val context: Context

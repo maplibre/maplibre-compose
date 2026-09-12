@@ -3,9 +3,9 @@ package org.maplibre.compose.map
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
-import kotlin.time.Duration
 import kotlinx.coroutines.Deferred
 import kotlinx.serialization.json.JsonObject
+import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.camera.internal.CameraCommandGuard
@@ -46,7 +46,7 @@ internal interface MapAdapter {
 
   suspend fun animateCameraPosition(
     finalPosition: CameraPosition,
-    duration: Duration,
+    animation: CameraAnimation,
     guard: CameraCommandGuard? = null,
   )
 
@@ -55,7 +55,7 @@ internal interface MapAdapter {
     bearing: Double,
     tilt: Double,
     padding: PaddingValues,
-    duration: Duration,
+    animation: CameraAnimation,
     guard: CameraCommandGuard? = null,
   )
 
@@ -92,6 +92,9 @@ internal interface MapAdapter {
   )
 
   fun setCameraConstraints(value: CameraConstraints)
+
+  /** The constraints last applied with [setCameraConstraints], or the defaults before any. */
+  fun getCameraConstraints(): CameraConstraints
 
   fun getVisibleBounds(): VisibleBounds
 

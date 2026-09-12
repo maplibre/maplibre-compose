@@ -12,8 +12,10 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.systemAnimatorDurationScale
@@ -79,7 +81,7 @@ class MapCameraTransitionTest {
       it.startAtOrigin()
       val animation =
         launch(Dispatchers.Default) {
-          it.state.animateCameraPosition(TARGET, 2.seconds)
+          it.state.animateCameraPosition(TARGET, CameraAnimation.Fly(2.seconds))
         }
       it.awaitCameraMoving()
       it.state.cameraForBounds(BOUNDS, bearing = 35.0, tilt = 20.0).also { camera ->
@@ -148,7 +150,13 @@ class MapCameraTransitionTest {
       }
 
       it.awaitWhileRendering("the bounds animation to complete") {
-        it.state.animateCameraToBounds(BOUNDS, 0.0, 0.0, FIT_PADDING, 200.milliseconds)
+        it.state.animateCameraToBounds(
+          BOUNDS,
+          0.0,
+          0.0,
+          FIT_PADDING,
+          CameraAnimation.Fly(200.milliseconds),
+        )
       }
 
       val firstFit = it.session.getCameraPosition()
@@ -156,7 +164,13 @@ class MapCameraTransitionTest {
       it.assertBoundsInside(CAMERA_PADDING + FIT_PADDING)
 
       it.awaitWhileRendering("the repeated bounds animation to complete") {
-        it.state.animateCameraToBounds(BOUNDS, 0.0, 0.0, FIT_PADDING, 200.milliseconds)
+        it.state.animateCameraToBounds(
+          BOUNDS,
+          0.0,
+          0.0,
+          FIT_PADDING,
+          CameraAnimation.Fly(200.milliseconds),
+        )
       }
 
       assertSameFit(
@@ -173,7 +187,7 @@ class MapCameraTransitionTest {
       it.startAtOrigin()
 
       it.awaitWhileRendering("the animation to complete") {
-        it.state.animateCameraPosition(TARGET, 200.milliseconds)
+        it.state.animateCameraPosition(TARGET, CameraAnimation.Fly(200.milliseconds))
       }
 
       assertNear(
@@ -181,6 +195,196 @@ class MapCameraTransitionTest {
         it.session.getCameraPosition().zoom,
         "the camera should have reached the target zoom",
       )
+    }
+  }
+
+  /** A flight over a distance zooms out before it zooms back in to its target. */
+  @Test
+  fun a_flight_zooms_out_on_its_way_to_the_target(): MapTestResult = runMapTest {
+    if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
+    createMapFixture().use {
+      it.startAt(FLIGHT_START)
+
+      val lowestZoom = it.lowestZoomWhileAnimating(FLIGHT_TARGET, CameraAnimation.Fly(1.seconds))
+
+      assertTrue(
+        lowestZoom < FLIGHT_START.zoom - 1.0,
+        "the flight did not zoom out, lowest $lowestZoom",
+      )
+      it.assertLanded(FLIGHT_TARGET, "the flight")
+    }
+  }
+
+  /**
+   * A flight without a duration paces itself by speed. The camera must be seen part way, since a
+   * flight that jumps also lands on its target.
+   */
+  @Test
+  fun a_flight_paced_by_speed_moves_over_time_and_lands_on_its_target(): MapTestResult =
+    runMapTest {
+      if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
+      createMapFixture().use {
+        it.startAt(FLIGHT_START)
+
+        val flight =
+          launch(Dispatchers.Default) {
+            it.state.animateCameraPosition(FLIGHT_TARGET, CameraAnimation.Fly(speed = 20.0))
+          }
+        it.pumpUntil("the flight to move the camera") {
+          flight.isCompleted ||
+            abs(it.session.getCameraPosition().target.latitude - FLIGHT_START.target.latitude) > 1.0
+        }
+        assertFalse(flight.isCompleted, "the flight jumped to its target")
+        val partWay = it.session.getCameraPosition()
+        assertTrue(
+          abs(partWay.target.latitude - FLIGHT_TARGET.target.latitude) > 1.0,
+          "the flight had already arrived at $partWay",
+        )
+
+        it.pumpUntil("the flight to complete") { flight.isCompleted }
+        it.assertLanded(FLIGHT_TARGET, "the flight")
+      }
+    }
+
+  /**
+   * A minimum zoom at the start zoom keeps a flight that would zoom out from doing so. Both engines
+   * fit the zoom curve so that the path peaks near the minimum, about a third of a zoom level past
+   * it, rather than clamping the zoom.
+   */
+  @Test
+  fun a_flight_peaks_near_its_minimum_zoom(): MapTestResult = runMapTest {
+    if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
+    createMapFixture().use {
+      it.startAt(FLIGHT_START)
+
+      val lowestZoom =
+        it.lowestZoomWhileAnimating(
+          FLIGHT_TARGET,
+          CameraAnimation.Fly(1.seconds, minZoom = FLIGHT_START.zoom),
+        )
+
+      assertTrue(lowestZoom > FLIGHT_START.zoom - 0.5, "the flight zoomed out to $lowestZoom")
+      it.assertLanded(FLIGHT_TARGET, "the flight")
+    }
+  }
+
+  /**
+   * The map's own minimum zoom shapes a flight the same way as a requested minimum: the path peaks
+   * near it, part way along the route. A flight fit without it dives past the minimum early, so its
+   * displayed zoom sits clamped at the minimum while the camera is still near its start.
+   */
+  @Test
+  fun the_maps_minimum_zoom_shapes_a_flight(): MapTestResult = runMapTest {
+    if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
+    createMapFixture().use {
+      it.startAt(FLIGHT_START)
+      it.session.setCameraConstraints(TEST_CONSTRAINTS.copy(minZoom = FLIGHT_START.zoom - 2.0))
+      it.pump(frames = 2)
+
+      val trace = it.cameraTraceWhileAnimating(FLIGHT_TARGET, CameraAnimation.Fly(1.seconds))
+
+      val peak = trace.minBy { camera -> camera.zoom }
+      assertTrue(peak.zoom > FLIGHT_START.zoom - 2.5, "the flight zoomed out to ${peak.zoom}")
+      assertTrue(
+        peak.target.longitude > 2.0,
+        "the flight reached its lowest zoom at longitude ${peak.target.longitude}, near its start",
+      )
+      it.assertLanded(FLIGHT_TARGET, "the flight")
+    }
+  }
+
+  /** A flight that changes only the bearing has no path to pace, so it eases instead of jumping. */
+  @Test
+  fun a_flight_with_no_path_eases_its_orientation(): MapTestResult = runMapTest {
+    if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
+    createMapFixture().use {
+      it.startAt(FLIGHT_START)
+      val turned = FLIGHT_START.copy(bearing = 90.0)
+
+      val trace = it.cameraTraceWhileAnimating(turned, CameraAnimation.Fly())
+
+      assertTrue(
+        trace.any { camera -> camera.bearing > 5.0 && camera.bearing < 85.0 },
+        "the turn jumped to its target",
+      )
+      assertNear(turned.bearing, it.session.getCameraPosition().bearing, "the turn target bearing")
+    }
+  }
+
+  /** A zoom the map's range rejects leaves no path either, so the turn still eases. */
+  @Test
+  fun a_flight_whose_only_path_is_a_rejected_zoom_eases_its_orientation(): MapTestResult =
+    runMapTest {
+      if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
+      createMapFixture().use {
+        it.startAt(FLIGHT_START)
+        it.session.setCameraConstraints(TEST_CONSTRAINTS.copy(maxZoom = FLIGHT_START.zoom))
+        it.pump(frames = 2)
+        val turned = FLIGHT_START.copy(bearing = 90.0, zoom = FLIGHT_START.zoom + 1.0)
+
+        val trace = it.cameraTraceWhileAnimating(turned, CameraAnimation.Fly())
+
+        assertTrue(
+          trace.any { camera -> camera.bearing > 5.0 && camera.bearing < 85.0 },
+          "the turn jumped to its target",
+        )
+        assertNear(
+          turned.bearing,
+          it.session.getCameraPosition().bearing,
+          "the turn target bearing",
+        )
+        assertNear(FLIGHT_START.zoom, it.session.getCameraPosition().zoom, "the constrained zoom")
+      }
+    }
+
+  /**
+   * A minimum zoom below the natural path leaves the path alone. MapLibre Native would otherwise
+   * zoom out to reach it.
+   */
+  @Test
+  fun a_flight_ignores_a_minimum_zoom_below_its_path(): MapTestResult = runMapTest {
+    if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
+    createMapFixture().use {
+      it.startAt(START)
+
+      val lowestZoom =
+        it.lowestZoomWhileAnimating(TARGET, CameraAnimation.Fly(1.seconds, minZoom = 0.0))
+
+      assertTrue(lowestZoom > START.zoom - 0.5, "the flight zoomed out to $lowestZoom")
+      it.assertLanded(TARGET, "the flight")
+    }
+  }
+
+  /** An ease changes zoom steadily toward its target, so it never zooms out on the way. */
+  @Test
+  fun an_ease_zooms_directly_to_the_target(): MapTestResult = runMapTest {
+    if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
+    createMapFixture().use {
+      it.startAt(FLIGHT_START)
+
+      val lowestZoom = it.lowestZoomWhileAnimating(FLIGHT_TARGET, CameraAnimation.Ease(1.seconds))
+
+      assertTrue(lowestZoom > FLIGHT_START.zoom - 0.05, "the ease zoomed out to $lowestZoom")
+      it.assertLanded(FLIGHT_TARGET, "the ease")
+    }
+  }
+
+  /** An eased bounds animation lands on the same fit as a flight to the same bounds. */
+  @Test
+  fun an_eased_bounds_animation_lands_on_the_fit(): MapTestResult = runMapTest {
+    createMapFixture().use {
+      it.startAtOrigin()
+      val fit = it.state.cameraForBounds(BOUNDS, padding = FIT_PADDING)
+
+      it.awaitWhileRendering("the eased bounds animation to complete") {
+        it.state.animateCameraToBounds(
+          BOUNDS,
+          padding = FIT_PADDING,
+          animation = CameraAnimation.Ease(200.milliseconds),
+        )
+      }
+
+      assertSameFit(fit, it.session.getCameraPosition(), "the eased bounds animation")
     }
   }
 
@@ -194,7 +398,7 @@ class MapCameraTransitionTest {
 
         val animation =
           launch(Dispatchers.Default) {
-            it.state.animateCameraPosition(TARGET, 2.seconds)
+            it.state.animateCameraPosition(TARGET, CameraAnimation.Fly(2.seconds))
           }
         it.awaitCameraMoving()
         it.session.applyTestConstraints()
@@ -232,7 +436,7 @@ class MapCameraTransitionTest {
       it.startAtOrigin()
 
       it.awaitWhileRendering("the instant animation to complete") {
-        it.state.animateCameraPosition(TARGET, 0.milliseconds)
+        it.state.animateCameraPosition(TARGET, CameraAnimation.Fly(0.milliseconds))
       }
       assertNear(
         TARGET.zoom,
@@ -255,13 +459,13 @@ class MapCameraTransitionTest {
 
       val superseded =
         launch(Dispatchers.Default) {
-          it.state.animateCameraPosition(TARGET, 10.seconds)
+          it.state.animateCameraPosition(TARGET, CameraAnimation.Fly(10.seconds))
         }
       it.awaitCameraMoving()
 
       val replacement =
         launch(Dispatchers.Default) {
-          it.state.animateCameraPosition(MIDPOINT, 2.seconds)
+          it.state.animateCameraPosition(MIDPOINT, CameraAnimation.Fly(2.seconds))
         }
       it.pumpUntil("the superseded animation to cancel") { superseded.isCompleted }
 
@@ -292,7 +496,7 @@ class MapCameraTransitionTest {
 
         val animation =
           launch(Dispatchers.Default) {
-            it.state.animateCameraPosition(TARGET, 30.seconds)
+            it.state.animateCameraPosition(TARGET, CameraAnimation.Fly(30.seconds))
           }
         it.awaitCameraMoving()
         animation.cancel()
@@ -305,7 +509,7 @@ class MapCameraTransitionTest {
         )
 
         it.awaitWhileRendering("a later animation to complete") {
-          it.state.animateCameraPosition(TARGET, 200.milliseconds)
+          it.state.animateCameraPosition(TARGET, CameraAnimation.Fly(200.milliseconds))
         }
         assertNear(
           TARGET.zoom,
@@ -315,15 +519,46 @@ class MapCameraTransitionTest {
       }
     }
 
-  private suspend fun MapFixture.startAtOrigin() {
+  private suspend fun MapFixture.startAtOrigin() = startAt(START)
+
+  private suspend fun MapFixture.startAt(position: CameraPosition) {
     // GL JS renders nothing without a style.
     loadStyle(BaseStyle.Empty)
-    state.setCameraPosition(START)
+    state.setCameraPosition(position)
     // Render first: before the map exists, a camera read echoes back whatever was last set.
     awaitMapReady()
     pumpUntil("the map to reach its starting camera") {
-      abs(session.getCameraPosition().zoom - START.zoom) < 0.001
+      val camera = session.getCameraPosition()
+      abs(camera.zoom - position.zoom) < 0.001 &&
+        abs(camera.target.latitude - position.target.latitude) < 0.001
     }
+  }
+
+  /** Runs an animation to [target] and returns the lowest zoom rendered on the way. */
+  private suspend fun MapFixture.lowestZoomWhileAnimating(
+    target: CameraPosition,
+    animation: CameraAnimation,
+  ): Double = cameraTraceWhileAnimating(target, animation).minOf { camera -> camera.zoom }
+
+  /** Runs an animation to [target] and returns the camera at every frame rendered on the way. */
+  private suspend fun MapFixture.cameraTraceWhileAnimating(
+    target: CameraPosition,
+    animation: CameraAnimation,
+  ): List<CameraPosition> = coroutineScope {
+    val job = launch(Dispatchers.Default) { state.animateCameraPosition(target, animation) }
+    val trace = mutableListOf(session.getCameraPosition())
+    pumpUntil("the animation to complete") {
+      trace += session.getCameraPosition()
+      job.isCompleted
+    }
+    trace
+  }
+
+  private fun MapFixture.assertLanded(target: CameraPosition, description: String) {
+    val camera = session.getCameraPosition()
+    assertNear(target.zoom, camera.zoom, "$description target zoom")
+    assertNear(target.target.latitude, camera.target.latitude, "$description target latitude")
+    assertNear(target.target.longitude, camera.target.longitude, "$description target longitude")
   }
 
   private suspend fun MapFixture.awaitCameraMoving() {
@@ -340,6 +575,9 @@ class MapCameraTransitionTest {
     val START = CameraPosition(target = Position(0.0, 0.0), zoom = 2.0)
     val TARGET = CameraPosition(target = Position(11.0, 47.0), zoom = 8.0)
     val MIDPOINT = CameraPosition(target = Position(5.0, 20.0), zoom = 5.0)
+    // Far apart at their zoom, so a flight has to zoom out to cross the distance.
+    val FLIGHT_START = CameraPosition(target = Position(0.0, 0.0), zoom = 10.0)
+    val FLIGHT_TARGET = CameraPosition(target = Position(11.0, 47.0), zoom = 12.0)
     val BOUNDS =
       BoundingBox(
         southwest = Position(longitude = -5.0, latitude = -5.0),

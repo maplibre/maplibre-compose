@@ -5,6 +5,7 @@ import kotlin.time.Duration
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.doubleOrNull
+import org.maplibre.compose.camera.CameraAnimation
 
 /**
  * The platform's animator duration scale: the value of Android's
@@ -25,6 +26,25 @@ internal fun Duration.scaledBy(scale: Float): Duration {
   requireScale(scale)
   if (scale == 1f) return this
   return this * scale.toDouble()
+}
+
+/**
+ * Returns [this] with its timing multiplied by [scale], or [this] unchanged when the scale is 1f. A
+ * flight without a duration divides its speed by [scale] instead. A scale of zero makes the
+ * transition a jump.
+ */
+internal fun CameraAnimation.scaledBy(scale: Float): CameraAnimation {
+  requireScale(scale)
+  if (scale == 1f) return this
+  return when (this) {
+    is CameraAnimation.Ease -> copy(duration = duration.scaledBy(scale))
+    is CameraAnimation.Fly ->
+      when {
+        duration != null -> copy(duration = duration.scaledBy(scale))
+        scale == 0f -> copy(duration = Duration.ZERO, speed = null)
+        else -> copy(speed = (speed ?: CameraAnimation.Fly.DefaultSpeed) / scale)
+      }
+  }
 }
 
 /**

@@ -9,6 +9,7 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
@@ -37,7 +38,7 @@ class MlnFfiViewportTest {
       val target = CameraPosition(target = Position(-74.006, 40.7128), zoom = 5.0)
       val animation =
         async(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
-          state.animateCameraPosition(target, 200.milliseconds)
+          state.animateCameraPosition(target, CameraAnimation.Fly(200.milliseconds))
         }
       // Let the owner accept the animation before any render target has attached.
       fixture.session.readMap {}

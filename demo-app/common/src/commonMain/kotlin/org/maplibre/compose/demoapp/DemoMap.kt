@@ -52,6 +52,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.vectorResource
+import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.brightness_auto_24px
 import org.maplibre.compose.demoapp.generated.dark_mode_24px
@@ -82,8 +83,8 @@ import org.maplibre.compose.overlay.ZoomButtonsDefaults
 import org.maplibre.compose.overlay.include
 import org.maplibre.spatialk.geojson.Position
 
-/** How long the camera takes to fly to a newly selected demo. */
-val DemoFlightDuration = 2.seconds
+/** The camera flight to a newly selected demo. */
+val DemoFlight = CameraAnimation.Fly(2.seconds)
 
 /** Padding between fitted bounds and the edge of the map viewport. */
 val DemoBoundsPadding = PaddingValues(48.dp)
@@ -93,13 +94,13 @@ internal suspend fun MapState.flyTo(destination: DemoDestination) {
     is DemoDestination.ExactCamera ->
       animateCameraPosition(
         position = destination.position,
-        duration = DemoFlightDuration,
+        animation = DemoFlight,
       )
     is DemoDestination.FitBounds ->
       animateCameraToBounds(
         boundingBox = destination.bounds,
         padding = DemoBoundsPadding,
-        duration = DemoFlightDuration,
+        animation = DemoFlight,
       )
     DemoDestination.None -> Unit
   }

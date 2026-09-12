@@ -58,6 +58,7 @@ import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
@@ -371,7 +372,7 @@ object TransitNetworkDemo : Demo {
       mapState.animateCameraToBounds(
         boundingBox = route.bounds,
         padding = RouteFitPadding,
-        duration = 1.seconds,
+        animation = CameraAnimation.Fly(1.seconds),
       )
     }
 

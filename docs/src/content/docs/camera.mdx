@@ -19,8 +19,8 @@ initial <Api of="CameraPosition" /> to set the camera at startup:
 ## Animate the camera
 
 <Api of="MapState.animateCameraPosition" /> is a suspend function that moves
-the map to a new position over a duration. Call it from a coroutine. The
-function waits until the map is attached:
+the map to a new position. Call it from a coroutine. The function waits until
+the map is attached, and returns when the transition ends:
 
 <Code code={region(camera, "animate")} lang="kotlin" title="App.kt" />
 
@@ -28,10 +28,35 @@ Use <Api of="MapState.setCameraPosition" /> to move without an animation. The
 position is retained when the map is detached and restored when it is displayed
 again.
 
+### Choose the transition
+
+The `animation` parameter selects one of two transitions. Each platform
+implements both with the same controls.
+
+<Api of="CameraAnimation.Fly" /> is the default. The camera zooms out, crosses
+the ground, and zooms back in, so the map stays legible over any distance.
+Without a duration, the flight takes as long as its path length and speed
+require. Set `duration` for a fixed time, `speed` in screenfuls per second for a
+constant pace, and `minZoom` to keep the flight path from zooming out past a
+zoom. The path peaks near `minZoom` rather than stopping exactly at it:
+
+<Code code={region(camera, "animate-fly")} lang="kotlin" title="App.kt" />
+
+<Api of="CameraAnimation.Ease" /> moves the camera directly to its target over a
+fixed duration, without zooming out on the way. Use it for short moves, such as
+changing zoom in place or following a location:
+
+<Code code={region(camera, "animate-ease")} lang="kotlin" title="App.kt" />
+
+Both transitions accept an `easing` timing curve, a <Api of="CubicBezier" />.
+On Android, the system animator duration scale multiplies the duration of
+either transition. A scale of zero jumps to the target.
+
 ## Fit a bounding box
 
 <Api of="MapState.animateCameraToBounds" /> fits a `BoundingBox` in the current
-viewport. Padding adds space between the box and the map edges:
+viewport with the same `animation` choices. Padding adds space between the box
+and the map edges:
 
 <Code code={region(camera, "fit-bounds")} lang="kotlin" title="App.kt" />
 

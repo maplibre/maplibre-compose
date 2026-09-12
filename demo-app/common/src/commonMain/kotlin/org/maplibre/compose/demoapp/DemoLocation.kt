@@ -111,7 +111,7 @@ internal fun DemoLocationMapContent(location: DemoLocationUi, locationState: Loc
           zoom = 16.0,
           bearing = followBearing,
         ),
-        duration = DemoFlightDuration,
+        animation = DemoFlight,
       )
     } else {
       updateCamera(mapState, updateBearing = bearingUpdate)

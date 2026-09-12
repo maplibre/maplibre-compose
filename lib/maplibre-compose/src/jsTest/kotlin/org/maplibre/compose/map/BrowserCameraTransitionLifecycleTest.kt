@@ -12,6 +12,7 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.gljs.GlJsMapEvent
 import org.maplibre.compose.gljs.isNear
@@ -34,7 +35,7 @@ class BrowserCameraTransitionLifecycleTest {
         it.session.setBaseStyle(BaseStyle.Empty)
         val animation =
           launch(start = CoroutineStart.UNDISPATCHED) {
-            it.session.animateCameraPosition(STALE_CAMERA, 60.seconds)
+            it.session.animateCameraPosition(STALE_CAMERA, CameraAnimation.Fly(60.seconds))
           }
 
         assertFalse(animation.isCompleted, "the animation should be queued before cancellation")
@@ -60,7 +61,7 @@ class BrowserCameraTransitionLifecycleTest {
           fixture.session.setBaseStyle(BaseStyle.Empty)
           val animation =
             launch(start = CoroutineStart.UNDISPATCHED) {
-              fixture.state.animateCameraPosition(STALE_CAMERA, 60.seconds)
+              fixture.state.animateCameraPosition(STALE_CAMERA, CameraAnimation.Fly(60.seconds))
             }
           assertFalse(animation.isCompleted)
           fixture.state.setCameraPosition(CURRENT_CAMERA)
@@ -79,7 +80,7 @@ class BrowserCameraTransitionLifecycleTest {
       it.session.setBaseStyle(BaseStyle.Json("{ this is not json"))
       val animation =
         launch(start = CoroutineStart.UNDISPATCHED) {
-          it.session.animateCameraPosition(STALE_CAMERA, 60.seconds)
+          it.session.animateCameraPosition(STALE_CAMERA, CameraAnimation.Fly(60.seconds))
         }
 
       assertFalse(animation.isCompleted, "the animation should wait for the initial style result")

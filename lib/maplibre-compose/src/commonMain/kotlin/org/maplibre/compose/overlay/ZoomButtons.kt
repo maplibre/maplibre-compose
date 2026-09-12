@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.generated.Res
@@ -109,7 +110,7 @@ public fun MapOverlayScope.ZoomButtons(
     inFlight = request
     coroutineScope.launch {
       try {
-        currentMapState.animateCameraPosition(request.target)
+        currentMapState.animateCameraPosition(request.target, CameraAnimation.Ease())
       } finally {
         if (inFlight === request) inFlight = null
       }

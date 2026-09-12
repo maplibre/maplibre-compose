@@ -6,6 +6,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
+import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.MapLibreFlavor
@@ -67,7 +68,7 @@ class EngineEventTest {
       fixture.engineEvents.clear()
 
       fixture.awaitWhileRendering("the camera animation to finish") {
-        fixture.session.animateCameraPosition(DESTINATION, ANIMATION_DURATION)
+        fixture.session.animateCameraPosition(DESTINATION, CameraAnimation.Fly(ANIMATION_DURATION))
       }
 
       val started = fixture.engineEvents.indexOfFirst { it is MapEvent.CameraMoveStarted }
