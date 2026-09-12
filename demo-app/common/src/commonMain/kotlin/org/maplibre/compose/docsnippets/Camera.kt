@@ -13,7 +13,6 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.spatialk.geojson.BoundingBox
-import org.maplibre.spatialk.geojson.LineString
 import org.maplibre.spatialk.geojson.Position
 
 @Composable
@@ -56,19 +55,6 @@ fun Camera() {
     mapState.animateCameraPosition(camera.copy(zoom = minOf(camera.zoom, 12.0)))
   }
   // #endregion camera-for-bounds
-
-  // #region camera-for-geometry
-  LaunchedEffect(mapState) {
-    val route =
-      LineString(
-        Position(longitude = -122.68, latitude = 45.52),
-        Position(longitude = -122.33, latitude = 47.61),
-        Position(longitude = -123.12, latitude = 49.28),
-      )
-    val camera = mapState.cameraForGeometry(route, bearing = 30.0, padding = PaddingValues(32.dp))
-    mapState.animateCameraPosition(camera)
-  }
-  // #endregion camera-for-geometry
 
   // #region viewport
   val viewport = mapState.viewport

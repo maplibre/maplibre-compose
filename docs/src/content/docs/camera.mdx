@@ -48,17 +48,6 @@ On the browser, bounds fitting calculates the target and zoom without tilt,
 then assigns the requested tilt. With nonzero tilt, some bounds may fall outside
 the viewport.
 
-A bounding box wastes space around a diagonal route or a scattered selection
-when the camera is rotated. <Api of="MapState.cameraForGeometry" /> and
-<Api of="MapState.cameraForCoordinates" /> fit the positions themselves, so a
-rotated camera stays as close as the positions allow:
-
-<Code code={region(camera, "camera-for-geometry")} lang="kotlin" title="App.kt" />
-
-Positions are used as given. Write a route that crosses the antimeridian with
-continuous longitudes, such as 179 followed by 181. Empty geometry is rejected.
-The same tilt limitation on the browser applies to these queries.
-
 ## Read the visible area
 
 <Api of="MapState.viewport" /> reports the current rendered size,
