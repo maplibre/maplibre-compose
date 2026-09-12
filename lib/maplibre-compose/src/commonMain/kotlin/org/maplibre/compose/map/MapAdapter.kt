@@ -83,6 +83,14 @@ internal interface MapAdapter {
     padding: PaddingValues,
   ): CameraPosition
 
+  /** [geometry] has at least one position; [MapState] rejects empty input before calling. */
+  fun cameraForGeometry(
+    geometry: Geometry,
+    bearing: Double,
+    tilt: Double,
+    padding: PaddingValues,
+  ): CameraPosition
+
   fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,

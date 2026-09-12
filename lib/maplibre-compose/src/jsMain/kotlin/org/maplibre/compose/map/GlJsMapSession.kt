@@ -76,6 +76,7 @@ import org.maplibre.compose.util.AngleMath
 import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.metersPerDpAtLatitude
+import org.maplibre.compose.util.positions
 import org.maplibre.compose.util.toBoundingBox
 import org.maplibre.compose.util.toDpOffset
 import org.maplibre.compose.util.toGeoJsonFeature
@@ -834,6 +835,31 @@ internal class GlJsMapSession(
     checkNotNull(map?.cameraPositionForBounds(boundingBox, bearing, tilt, padding)) {
       "The map could not calculate a camera for the bounds"
     }
+
+  override fun cameraForGeometry(
+    geometry: Geometry,
+    bearing: Double,
+    tilt: Double,
+    padding: PaddingValues,
+  ): CameraPosition =
+    withMap(null as CameraPosition?) { map ->
+      val extent = appliedExtent
+      val fit =
+        fitPositions(
+          positions = geometry.positions(),
+          bearing = bearing,
+          zoom = map.getZoom(),
+          width = extent.width.toDouble(),
+          height = extent.height.toDouble(),
+          edgePadding = cameraPadding,
+          fitPadding = padding.toPaddingOptions(layoutDirection),
+          minZoom = map.getMinZoom(),
+          maxZoom = map.getMaxZoom(),
+        )
+      fit?.let {
+        CameraPosition(bearing = bearing, target = it.target, tilt = tilt, zoom = it.zoom)
+      }
+    } ?: throw IllegalStateException("The map could not calculate a camera for the geometry")
 
   override fun fitCameraToBounds(
     boundingBox: BoundingBox,

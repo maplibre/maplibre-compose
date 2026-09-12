@@ -125,6 +125,7 @@ import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
+import org.maplibre.spatialk.geojson.toJson
 
 private const val MIN_PITCH_DEGREES = 0.0
 
@@ -1313,6 +1314,23 @@ internal class MlnFfiMapSession(
       "The map became unavailable during the bounds query"
     }
 
+  override fun cameraForGeometry(
+    geometry: Geometry,
+    bearing: Double,
+    tilt: Double,
+    padding: PaddingValues,
+  ): CameraPosition {
+    val geoJson = geometry.toJson().encodeToByteArray()
+    return checkNotNull(
+      runOnMap { map ->
+        fitCamera(map, bearing, tilt, padding) { map.cameraForGeometry(geoJson, it) }
+          .toCameraPosition()
+      }
+    ) {
+      "The map became unavailable during the geometry query"
+    }
+  }
+
   override fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,
@@ -1339,19 +1357,27 @@ internal class MlnFfiMapSession(
     bearing: Double,
     tilt: Double,
     padding: PaddingValues,
+  ): CameraOptions =
+    fitCamera(map, bearing, tilt, padding) {
+      map.cameraForLatLngBounds(bounds = boundingBox.toLatLngBounds(), fitOptions = it)
+    }
+
+  private inline fun fitCamera(
+    map: MapHandle,
+    bearing: Double,
+    tilt: Double,
+    padding: PaddingValues,
+    fit: (CameraFitOptions) -> CameraOptions,
   ): CameraOptions {
     val persistent = cameraPadding
-    val fit = padding.toEdgeInsets(layoutDirection)
-    val total = persistent + fit
+    val total = persistent + padding.toEdgeInsets(layoutDirection)
     val fitted =
-      map.cameraForLatLngBounds(
-        bounds = boundingBox.toLatLngBounds(),
-        fitOptions =
-          CameraFitOptions().also {
-            it.padding = total
-            it.bearing = bearing
-            it.pitch = tilt
-          },
+      fit(
+        CameraFitOptions().also {
+          it.padding = total
+          it.bearing = bearing
+          it.pitch = tilt
+        }
       )
 
     // Native returns the fit padding as persistent camera state. Preserve the fitted transform

@@ -25,6 +25,7 @@ import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.compose.testing.skipMapTest
 import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Polygon
 import org.maplibre.spatialk.geojson.Position
 
 /**
@@ -93,6 +94,57 @@ class MapCameraTransitionTest {
       assertNear(TARGET.zoom, it.session.getCameraPosition().zoom, "the animation target")
     }
   }
+
+  @Test
+  fun a_geometry_query_matches_the_bounds_query_for_the_box_corners(): MapTestResult = runMapTest {
+    createMapFixture().use {
+      it.startAtOrigin()
+      val corners =
+        Polygon(listOf(listOf(BOUNDS_NW, BOUNDS.northeast, BOUNDS_SE, BOUNDS.southwest, BOUNDS_NW)))
+      val fromBounds = it.state.cameraForBounds(BOUNDS, bearing = 35.0, padding = FIT_PADDING)
+      val fromGeometry = it.state.cameraForGeometry(corners, bearing = 35.0, padding = FIT_PADDING)
+      assertSameFit(fromBounds, fromGeometry, "the geometry query disagrees with the bounds query")
+      assertNear(35.0, fromGeometry.bearing, "the query bearing")
+    }
+  }
+
+  /**
+   * At bearing 45, the box's corners rotate onto the axes while the diamond's vertices leave them.
+   */
+  @Test
+  fun a_geometry_query_fits_rotated_positions_tighter_than_their_bounds(): MapTestResult =
+    runMapTest {
+      createMapFixture().use {
+        it.startAtOrigin()
+        val fromBounds = it.state.cameraForBounds(BOUNDS, bearing = 45.0, padding = FIT_PADDING)
+        val camera =
+          it.state.cameraForCoordinates(DIAMOND_ROUTE, bearing = 45.0, padding = FIT_PADDING)
+        assertTrue(
+          camera.zoom > fromBounds.zoom + 0.5,
+          "the diamond fit should zoom in past the bounds fit (${camera.zoom} vs ${fromBounds.zoom})",
+        )
+
+        it.state.setCameraPosition(camera)
+        it.pumpUntil("the calculated camera to be applied") {
+          abs(it.session.getCameraPosition().zoom - camera.zoom) < 0.01
+        }
+        it.assertPositionsInside(DIAMOND_ROUTE, FIT_PADDING)
+      }
+    }
+
+  @Test
+  fun a_coordinates_query_crosses_the_antimeridian_with_continuous_longitudes(): MapTestResult =
+    runMapTest {
+      createMapFixture().use {
+        it.startAtOrigin()
+        val camera = it.state.cameraForCoordinates(ANTIMERIDIAN_ROUTE)
+        assertTrue(
+          abs(abs(camera.target.longitude) - 180.0) < 1.0,
+          "the target should sit on the antimeridian, but was ${camera.target}",
+        )
+        assertTrue(camera.zoom > START.zoom)
+      }
+    }
 
   @Test
   fun a_bounds_jump_adds_transient_fit_padding_to_camera_padding(): MapTestResult = runMapTest {
@@ -592,6 +644,21 @@ class MapCameraTransitionTest {
         boundingBox = null,
       )
     val DISJOINT_ZOOM_CONSTRAINTS = TEST_CONSTRAINTS.copy(minZoom = 21.0, maxZoom = 22.0)
+    val BOUNDS_NW = Position(longitude = BOUNDS.west, latitude = BOUNDS.north)
+    val BOUNDS_SE = Position(longitude = BOUNDS.east, latitude = BOUNDS.south)
+    /** The vertices touch every side of [BOUNDS] without reaching a corner. */
+    val DIAMOND_ROUTE =
+      listOf(
+        Position(longitude = -5.0, latitude = 0.0),
+        Position(longitude = 0.0, latitude = 5.0),
+        Position(longitude = 5.0, latitude = 0.0),
+        Position(longitude = 0.0, latitude = -5.0),
+      )
+    val ANTIMERIDIAN_ROUTE =
+      listOf(
+        Position(longitude = 170.0, latitude = -10.0),
+        Position(longitude = 190.0, latitude = 10.0),
+      )
     val ANTIMERIDIAN_BOUNDS =
       BoundingBox(
         southwest = Position(longitude = 170.0, latitude = -10.0),
@@ -638,17 +705,29 @@ class MapCameraTransitionTest {
     }
 
     fun MapFixture.assertBoundsInside(padding: PaddingValues) {
+      assertPositionsInside(listOf(BOUNDS.southwest, BOUNDS.northeast), padding)
+    }
+
+    fun MapFixture.assertPositionsInside(positions: List<Position>, padding: PaddingValues) {
       val viewport = requireNotNull(session.getViewport())
-      val southwest = requireNotNull(session.screenLocationFromPosition(BOUNDS.southwest))
-      val northeast = requireNotNull(session.screenLocationFromPosition(BOUNDS.northeast))
       val tolerance = 1.0
-      assertTrue(southwest.x.value + tolerance >= padding.left().value)
-      assertTrue(
-        southwest.y.value - tolerance <=
-          viewport.size.height.value - padding.calculateBottomPadding().value
-      )
-      assertTrue(northeast.x.value - tolerance <= viewport.size.width.value - padding.right().value)
-      assertTrue(northeast.y.value + tolerance >= padding.calculateTopPadding().value)
+      for (position in positions) {
+        val point = requireNotNull(session.screenLocationFromPosition(position))
+        assertTrue(point.x.value + tolerance >= padding.left().value, "$position is left of view")
+        assertTrue(
+          point.x.value - tolerance <= viewport.size.width.value - padding.right().value,
+          "$position is right of view",
+        )
+        assertTrue(
+          point.y.value + tolerance >= padding.calculateTopPadding().value,
+          "$position is above view",
+        )
+        assertTrue(
+          point.y.value - tolerance <=
+            viewport.size.height.value - padding.calculateBottomPadding().value,
+          "$position is below view",
+        )
+      }
     }
 
     fun assertNear(expected: Double, actual: Double, message: String) {

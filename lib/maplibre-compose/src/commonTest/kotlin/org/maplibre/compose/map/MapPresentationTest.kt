@@ -73,6 +73,8 @@ import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
+import org.maplibre.spatialk.geojson.GeometryCollection
+import org.maplibre.spatialk.geojson.MultiPoint
 import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.geojson.dsl.addFeature
@@ -1710,6 +1712,7 @@ class MapPresentationTest {
     val queries: List<suspend (MapState) -> Any> =
       listOf(
         { it.cameraForBounds(BoundingBox(Position(-1.0, -1.0), Position(1.0, 1.0))) },
+        { it.cameraForCoordinates(listOf(Position(-1.0, -1.0), Position(1.0, 1.0))) },
         { it.queryRenderedFeatures(DpOffset.Zero) },
         { it.queryRenderedFeatures(DpRect(0.dp, 0.dp, 10.dp, 10.dp)) },
       )
@@ -1721,6 +1724,16 @@ class MapPresentationTest {
         object : PresentationTestAdapter() {
           override fun cameraForBounds(
             boundingBox: BoundingBox,
+            bearing: Double,
+            tilt: Double,
+            padding: PaddingValues,
+          ): CameraPosition {
+            state.releasePresentation(token, this)
+            return CameraPosition(zoom = 5.0)
+          }
+
+          override fun cameraForGeometry(
+            geometry: Geometry,
             bearing: Double,
             tilt: Double,
             padding: PaddingValues,
@@ -1758,6 +1771,19 @@ class MapPresentationTest {
         runtime.close()
       }
     }
+  }
+
+  @Test
+  fun a_geometry_query_rejects_empty_input_before_waiting_for_an_attachment() = runTest {
+    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
+    val state = runtime.createMapState(BaseStyle.Demo)
+    assertFailsWith<IllegalArgumentException> { state.cameraForCoordinates(emptyList()) }
+    assertFailsWith<IllegalArgumentException> {
+      state.cameraForGeometry(GeometryCollection(listOf(MultiPoint(emptyList()))))
+    }
+    state.close()
+    state.awaitClosed()
+    runtime.close()
   }
 
   @Test
@@ -2187,6 +2213,13 @@ internal open class PresentationTestAdapter(
 
   override fun cameraForBounds(
     boundingBox: BoundingBox,
+    bearing: Double,
+    tilt: Double,
+    padding: PaddingValues,
+  ): CameraPosition = lastCameraPosition
+
+  override fun cameraForGeometry(
+    geometry: Geometry,
     bearing: Double,
     tilt: Double,
     padding: PaddingValues,
