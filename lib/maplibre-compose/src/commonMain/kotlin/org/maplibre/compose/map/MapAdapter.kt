@@ -74,6 +74,8 @@ internal interface MapAdapter {
 
   fun setCameraPosition(cameraPosition: CameraPosition, guard: CameraCommandGuard? = null)
 
+  fun stopCameraMovement(guard: CameraCommandGuard)
+
   fun setCameraPadding(padding: PaddingValues)
 
   fun cameraForBounds(

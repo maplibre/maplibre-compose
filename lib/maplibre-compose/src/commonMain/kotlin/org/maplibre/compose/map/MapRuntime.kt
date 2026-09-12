@@ -909,6 +909,30 @@ internal constructor(
   }
 
   /**
+   * Stops camera movement at the position reached when the backend processes this command.
+   *
+   * Cancels camera commands waiting for a viewport, running animations, gesture momentum, and the
+   * current recognized gesture's camera control. Interrupted suspend calls throw
+   * [kotlinx.coroutines.CancellationException]. New input or camera commands can move the camera
+   * again; a newer command takes precedence over this stop. Pointer events are not cancelled: a
+   * press that has not yet become a recognized gesture may still start one after this call.
+   *
+   * Does not wait for a surface to attach. Without a surface, the retained camera is unchanged.
+   * With a surface, [cameraPosition] updates when the backend reports the stopped position.
+   */
+  public fun stopCameraMovement() {
+    val guard = gestureAuthority.beginProgrammatic()
+    val attachment = lifecycle.serialized {
+      requireOpenLocked()
+      if (!guard.isValid()) return
+      currentMapAttachment ?: return
+    }
+    attachment.adapter.stopCameraMovement(
+      CameraCommandGuard { isCurrent(attachment) && guard.isValid() }
+    )
+  }
+
+  /**
    * Waits for a viewport, then calculates a camera for [boundingBox] without moving the map or
    * interrupting camera input or animations. Detaching the surface during the query cancels it.
    *

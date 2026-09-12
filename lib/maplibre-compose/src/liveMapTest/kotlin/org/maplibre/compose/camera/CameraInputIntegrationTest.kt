@@ -34,6 +34,39 @@ import org.maplibre.spatialk.geojson.Position
 
 class CameraInputIntegrationTest {
   @Test
+  fun stopping_revokes_active_gestures_and_their_momentum(): MapTestResult = runMapTest {
+    coroutineScope {
+      createMapFixture().use { fixture ->
+        fixture.loadStyle(BaseStyle.Empty)
+        fixture.awaitMapReady()
+        for (momentum in listOf(false, true)) {
+          fixture.state.setCameraPosition(CameraPosition(zoom = 5.0))
+          fixture.settle()
+          val input = GestureInputSession(this, fixture.gestures)
+          fixture.gestures.inputPanBy(20.0, 0.0, gestureToken = input.token)
+          fixture.settle()
+          if (momentum) {
+            input.scope.launch(start = CoroutineStart.UNDISPATCHED) {
+              fixture.gestures.inputPanByAwaitingTransition(500.0, 0.0, 30.seconds, input.token)
+            }
+            input.end()
+            fixture.pump(frames = 3)
+          }
+          fixture.state.stopCameraMovement()
+          fixture.pumpUntil("the gesture to stop") { !fixture.state.isCameraMoving }
+          assertFalse(input.token.canExecute)
+          val stopped = fixture.state.cameraPosition
+          fixture.gestures.inputPanBy(100.0, 0.0, gestureToken = input.token)
+          input.end()
+          fixture.pump(frames = 10)
+          assertEquals(stopped, fixture.state.cameraPosition)
+          assertEquals(stopped, fixture.session.getCameraPosition())
+        }
+      }
+    }
+  }
+
+  @Test
   fun haptic_feedback_tracks_applied_rotation_but_not_momentum_or_settlement(): MapTestResult =
     runMapTest {
       coroutineScope {

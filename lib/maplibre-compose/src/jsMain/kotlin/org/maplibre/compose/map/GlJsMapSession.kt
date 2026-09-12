@@ -1166,7 +1166,11 @@ internal class GlJsMapSession(
   }
 
   override fun interruptCamera() {
-    val guard = lifecycleAuthority.gestureCamera.beginProgrammatic()
+    stopCameraMovement(lifecycleAuthority.gestureCamera.beginProgrammatic())
+  }
+
+  override fun stopCameraMovement(guard: CameraCommandGuard) {
+    if (!guard.isValid()) return
     releasePendingCameraTransition()
     onMap { if (guard.isValid()) it.stop() }
   }
