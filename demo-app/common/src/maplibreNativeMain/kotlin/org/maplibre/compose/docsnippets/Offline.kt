@@ -69,8 +69,9 @@ fun Offline() {
   // #region delete
   for (pack in packs) {
     key(pack) {
+      val metadata by pack.metadata.collectAsState()
       Button(onClick = { scope.launch { offlineManager.delete(pack) } }) {
-        Text("Delete ${pack.metadata.value?.decodeToString()}")
+        Text("Delete ${metadata?.decodeToString()}")
       }
     }
   }

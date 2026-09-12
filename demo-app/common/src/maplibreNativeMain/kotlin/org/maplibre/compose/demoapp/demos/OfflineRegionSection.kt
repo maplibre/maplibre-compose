@@ -8,6 +8,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -30,7 +31,8 @@ actual fun OfflineRegionSection(region: BoundingBox, styleUrl: String, packName:
   val scope = rememberCoroutineScope()
   val metadata = remember(packName) { packName.encodeToByteArray() }
   val packs by offlineManager.packs.collectAsState()
-  val pack = packs.firstOrNull { it.metadata.value?.contentEquals(metadata) == true }
+  val metadataByPack = packs.associateWith { key(it) { it.metadata.collectAsState().value } }
+  val pack = metadataByPack.entries.firstOrNull { it.value?.contentEquals(metadata) == true }?.key
   var creating by remember { mutableStateOf(false) }
   var errorMessage by remember { mutableStateOf<String?>(null) }
 
