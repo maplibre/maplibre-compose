@@ -43,8 +43,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntOffset
@@ -68,6 +71,9 @@ private val BracketArm = 26.dp
  * The frame itself centers on the safe area; [fullMap] is the whole map's size, which lets the
  * scrim reach past the safe area to the map's edges. The scrim only draws, so extending past this
  * child's layout bounds is safe — nothing clips on the way to the map.
+ *
+ * [bottomClearance] reserves space for the bottom capture controls, so the frame's handles never
+ * reach under them on narrow hosts.
  */
 @Composable
 internal fun SnapshotFrame(
@@ -75,26 +81,34 @@ internal fun SnapshotFrame(
   safe: DpSize,
   originDp: DpOffset,
   fullMap: DpSize?,
+  bottomClearance: Dp = 0.dp,
   modifier: Modifier = Modifier,
 ) {
   val scope = rememberCoroutineScope()
   val frameSize = remember { Animatable(DpSize.Zero, DpSizeVectorConverter) }
   val motion = MaterialTheme.motionScheme
+  val frameArea =
+    DpSize(
+      safe.width,
+      (safe.height - bottomClearance).coerceAtLeast(FrameMinSize + FrameMargin * 2),
+    )
 
   // First layout picks a default; later safe-area changes only clamp the frame back inside.
-  LaunchedEffect(safe) {
-    if (safe.width <= FrameMargin * 2 || safe.height <= FrameMargin * 2) return@LaunchedEffect
+  LaunchedEffect(frameArea) {
+    if (frameArea.width <= FrameMargin * 2 || frameArea.height <= FrameMargin * 2) {
+      return@LaunchedEffect
+    }
     if (state.frameSize == DpSize.Zero) {
-      val initial = defaultFrameSize(safe, state.aspect)
+      val initial = defaultFrameSize(frameArea, state.aspect)
       state.frameSize = initial
       frameSize.snapTo(initial)
     } else {
-      state.frameSize = fitFrameToSafeArea(state.frameSize, safe, state.aspect)
+      state.frameSize = fitFrameToSafeArea(state.frameSize, frameArea, state.aspect)
     }
   }
   LaunchedEffect(state.aspect) {
     if (state.frameSize != DpSize.Zero) {
-      state.frameSize = refitFrame(state.frameSize, safe, state.aspect)
+      state.frameSize = refitFrame(state.frameSize, frameArea, state.aspect)
     }
   }
   LaunchedEffect(state.frameSize) {
@@ -107,14 +121,14 @@ internal fun SnapshotFrame(
   }
 
   // The capture request and the reveal flight read the frame from map coordinates. The flow must
-  // read the current safe area and origin, not the values captured at its first composition.
-  val currentSafe by rememberUpdatedState(safe)
+  // read the current frame area and origin, not the values captured at its first composition.
+  val currentArea by rememberUpdatedState(frameArea)
   val currentOrigin by rememberUpdatedState(originDp)
   LaunchedEffect(Unit) {
     snapshotFlow {
       if (frameSize.value == DpSize.Zero) null
       else
-        centeredFrame(frameSize.value, currentSafe)
+        centeredFrame(frameSize.value, currentArea)
           .translate(Offset(currentOrigin.x.value, currentOrigin.y.value))
     }
       .collect { state.frameBounds = it }
@@ -122,7 +136,7 @@ internal fun SnapshotFrame(
 
   if (frameSize.value == DpSize.Zero) return
 
-  val frame = centeredFrame(frameSize.value, safe)
+  val frame = centeredFrame(frameSize.value, frameArea)
 
   ScrimAndBrackets(frame, fullMap, originDp, modifier)
 
@@ -132,7 +146,7 @@ internal fun SnapshotFrame(
         corner = corner,
         frame = frame,
         onDrag = { drag ->
-          val resized = resizedFrame(state.frameSize, corner, drag, safe, state.aspect)
+          val resized = resizedFrame(state.frameSize, corner, drag, frameArea, state.aspect)
           state.frameSize = resized
           scope.launch { frameSize.snapTo(resized) }
         },
@@ -247,6 +261,10 @@ private fun FrameHandle(corner: FrameCorner, frame: Rect, onDrag: (DpOffset) -> 
       FrameCorner.BottomLeft -> "Resize frame from bottom left"
       FrameCorner.BottomRight -> "Resize frame from bottom right"
     }
+  // Drags are pointer-only, so grow and shrink also get semantics actions assistive tech can
+  // invoke. A nudge mirrors a 24 dp diagonal drag through this corner.
+  val grow = DpOffset(24.dp * corner.signX, 24.dp * corner.signY)
+  val shrink = DpOffset(-24.dp * corner.signX, -24.dp * corner.signY)
   Box(
     modifier =
       Modifier.offset {
@@ -256,7 +274,28 @@ private fun FrameHandle(corner: FrameCorner, frame: Rect, onDrag: (DpOffset) -> 
           )
         }
         .size(HandleTouchTarget)
-        .semantics { contentDescription = description }
+        .semantics {
+          contentDescription = description
+          set(
+            SemanticsActions.CustomActions,
+            listOf(
+              CustomAccessibilityAction(
+                label = "Grow frame",
+                action = {
+                  onDrag(grow)
+                  true
+                },
+              ),
+              CustomAccessibilityAction(
+                label = "Shrink frame",
+                action = {
+                  onDrag(shrink)
+                  true
+                },
+              ),
+            ),
+          )
+        }
         .pointerHoverIcon(PointerIcon.Hand)
         .hoverable(interactionSource)
         .pointerInput(corner) {

@@ -38,8 +38,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -56,10 +59,16 @@ private val ControlGradientColor = Color.Black.copy(alpha = 0.45f)
  * The capture controls at the bottom center of the safe area, in camera-app chrome: the aspect
  * presets are plain white text and the white shutter button is the one solid element. They sit side
  * by side while the width allows and wrap into two centered rows on narrow maps. Failures surface
- * as a pill above the controls until the next attempt.
+ * as a pill above the controls until the next attempt. [onHeight] reports the controls' height so
+ * the frame can stay above them.
  */
 @Composable
-internal fun BoxScope.SnapshotControls(state: SnapshotterDemoState, onCapture: () -> Unit) {
+internal fun BoxScope.SnapshotControls(
+  state: SnapshotterDemoState,
+  onCapture: () -> Unit,
+  onHeight: (Dp) -> Unit,
+) {
+  val density = LocalDensity.current
   Canvas(Modifier.matchParentSize()) {
     val height = ControlGradientHeight.toPx()
     drawRect(
@@ -75,7 +84,10 @@ internal fun BoxScope.SnapshotControls(state: SnapshotterDemoState, onCapture: (
     )
   }
   Column(
-    modifier = Modifier.align(Alignment.BottomCenter).padding(horizontal = 16.dp, vertical = 12.dp),
+    modifier =
+      Modifier.align(Alignment.BottomCenter)
+        .padding(horizontal = 16.dp, vertical = 12.dp)
+        .onGloballyPositioned { onHeight(with(density) { it.size.height.toDp() }) },
     horizontalAlignment = Alignment.CenterHorizontally,
     verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
