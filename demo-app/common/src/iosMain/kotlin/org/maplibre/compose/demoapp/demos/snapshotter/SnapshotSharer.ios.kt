@@ -9,7 +9,9 @@ import androidx.compose.ui.graphics.asSkiaBitmap
 import kotlin.coroutines.resume
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.refTo
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import org.jetbrains.skia.EncodedImageFormat
 import org.jetbrains.skia.Image
 import platform.CoreGraphics.CGRectGetHeight
@@ -41,7 +43,7 @@ internal class IosSnapshotSharer : SnapshotSharer {
   override val canSave = true
 
   override suspend fun share(image: ImageBitmap, fileName: String): SnapshotActionResult {
-    val path = image.writeToTempFile(fileName) ?: return SnapshotActionResult.Failed
+    val path = encodeToTempFile(image, fileName) ?: return SnapshotActionResult.Failed
     try {
       val presenter = topViewController() ?: return SnapshotActionResult.Failed
       val sheet =
@@ -91,7 +93,7 @@ internal class IosSnapshotSharer : SnapshotSharer {
   }
 
   override suspend fun save(image: ImageBitmap, fileName: String): SnapshotActionResult {
-    val path = image.writeToTempFile(fileName) ?: return SnapshotActionResult.Failed
+    val path = encodeToTempFile(image, fileName) ?: return SnapshotActionResult.Failed
     try {
       val uiImage = UIImage.imageWithContentsOfFile(path) ?: return SnapshotActionResult.Failed
       // performChanges reports denial and write errors, which UIImageWriteToSavedPhotosAlbum would
@@ -114,6 +116,13 @@ internal class IosSnapshotSharer : SnapshotSharer {
       NSFileManager.defaultManager.removeItemAtPath(path, error = null)
     }
   }
+
+  /**
+   * Skia encoding and the synchronous write can take a beat on large captures; keep them off the UI
+   * thread.
+   */
+  private suspend fun encodeToTempFile(image: ImageBitmap, fileName: String): String? =
+    withContext(Dispatchers.Default) { image.writeToTempFile(fileName) }
 
   private fun ImageBitmap.writeToTempFile(fileName: String): String? {
     val bytes =

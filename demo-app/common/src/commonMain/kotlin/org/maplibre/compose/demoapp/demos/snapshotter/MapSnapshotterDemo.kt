@@ -206,13 +206,15 @@ object MapSnapshotterDemo : Demo {
     val center =
       mapState.positionFromScreenLocation(DpOffset(frame.center.x.dp, frame.center.y.dp))
         ?: return null
+    val width = frame.width.roundToInt().coerceAtLeast(1)
+    val height = frame.height.roundToInt().coerceAtLeast(1)
     // MapLibre GL JS rejects render canvases over 4096 px; a Free frame on a large high-DPI
     // viewport can reach that, so the request density yields before the frame does.
     val cappedDensity =
-      minOf(density.density, MaxSnapshotCanvasPx / frame.width, MaxSnapshotCanvasPx / frame.height)
+      minOf(density.density, MaxSnapshotCanvasPx / width, MaxSnapshotCanvasPx / height)
     return MapSnapshotRequest(
-      width = frame.width.roundToInt().coerceAtLeast(1),
-      height = frame.height.roundToInt().coerceAtLeast(1),
+      width = width,
+      height = height,
       cameraPosition = mapState.cameraPosition.copy(target = center),
       density = cappedDensity,
       fontScale = density.fontScale,

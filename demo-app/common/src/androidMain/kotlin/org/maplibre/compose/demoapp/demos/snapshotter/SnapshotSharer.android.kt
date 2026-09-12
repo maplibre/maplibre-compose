@@ -88,7 +88,8 @@ internal class AndroidSnapshotSharer(private val context: Context) : SnapshotSha
     if (uri == null) return SnapshotActionResult.Cancelled
     return withContext(Dispatchers.IO) {
       try {
-        context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
+        // "rwt" truncates: overwriting a longer existing document must not leave stale bytes.
+        context.contentResolver.openOutputStream(uri, "rwt")?.use { it.write(bytes) }
           ?: return@withContext SnapshotActionResult.Failed
         SnapshotActionResult.Completed()
       } catch (error: CancellationException) {
