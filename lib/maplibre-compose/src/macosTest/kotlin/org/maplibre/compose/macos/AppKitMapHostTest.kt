@@ -5,6 +5,7 @@ package org.maplibre.compose.macos
 import androidx.compose.ui.geometry.Rect
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -20,6 +21,29 @@ import platform.Foundation.NSMakePoint
 import platform.Foundation.NSMakeRect
 
 class AppKitMapHostTest {
+  @Test
+  fun rejects_a_second_host_without_replacing_the_first_and_restores_the_original_view() {
+    NSApplication.sharedApplication()
+    val window = NSWindow(NSMakeRect(0.0, 0.0, 400.0, 300.0), 0u, NSBackingStoreBuffered, false)
+    window.releasedWhenClosed = false
+    val original = checkNotNull(window.contentView)
+    val mask = original.autoresizingMask
+    try {
+      AppKitMapHost(window).use { host ->
+        host.attach()
+        val container = window.contentView
+        assertFailsWith<IllegalStateException> { AppKitMapHost(window).attach() }
+        assertEquals(container, window.contentView)
+      }
+      assertEquals(original, window.contentView)
+      assertEquals(mask, original.autoresizingMask)
+      AppKitMapHost(window).use { it.attach() }
+      assertEquals(original, window.contentView)
+    } finally {
+      window.close()
+    }
+  }
+
   @Test
   fun forwards_non_primary_drag_movement_to_the_existing_compose_view_before_release() {
     NSApplication.sharedApplication()

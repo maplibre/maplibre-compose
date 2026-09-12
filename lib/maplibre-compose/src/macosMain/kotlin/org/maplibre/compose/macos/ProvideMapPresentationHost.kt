@@ -6,6 +6,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.geometry.Rect
+import kotlinx.cinterop.CValue
 import kotlinx.cinterop.useContents
 import platform.AppKit.NSEvent
 import platform.AppKit.NSEventMaskOtherMouseDragged
@@ -15,6 +16,7 @@ import platform.AppKit.NSViewHeightSizable
 import platform.AppKit.NSViewWidthSizable
 import platform.AppKit.NSWindow
 import platform.AppKit.NSWindowWillCloseNotification
+import platform.CoreGraphics.CGRect
 import platform.Foundation.NSMakeRect
 import platform.Foundation.NSNotificationCenter
 import platform.Foundation.NSOperationQueue
@@ -51,8 +53,12 @@ internal val LocalAppKitMapHost =
   }
 
 internal class AppKitMapHost(private val window: NSWindow) : AutoCloseable {
-  private val composeView = checkNotNull(window.contentView)
-  private val container = NSView(composeView.frame)
+  private val composeView =
+    checkNotNull(window.contentView).also {
+      check(it !is AppKitMapContainer) { "Install only one map presentation host per window" }
+    }
+  private val originalAutoresizingMask = composeView.autoresizingMask
+  private val container = AppKitMapContainer(composeView.frame)
   private val entries = mutableListOf<AppKitMapEntry>()
   private var observer: platform.darwin.NSObjectProtocol? = null
   private var dragMonitor: Any? = null
@@ -122,6 +128,7 @@ internal class AppKitMapHost(private val window: NSWindow) : AutoCloseable {
     dragMonitor = null
     if (window.contentView == container) {
       composeView.removeFromSuperview()
+      composeView.autoresizingMask = originalAutoresizingMask
       window.contentView = composeView
     }
   }
@@ -155,6 +162,8 @@ internal class AppKitMapHost(private val window: NSWindow) : AutoCloseable {
     }
   }
 }
+
+private class AppKitMapContainer(frame: CValue<CGRect>) : NSView(frame)
 
 internal class AppKitMapEntry(
   val view: NSView,
