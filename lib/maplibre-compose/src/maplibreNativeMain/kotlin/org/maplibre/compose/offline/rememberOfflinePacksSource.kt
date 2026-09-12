@@ -20,32 +20,38 @@ import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
  * Specialization of [rememberGeoJsonSource] that contains the list of [OfflinePack] as features.
  * This allows you to implement a UI to manage offline packs directly on the map.
  *
- * By default, each feature has properties corresponding to the [OfflinePack.downloadProgress].
+ * By default, each feature has properties corresponding to the [OfflinePack.downloadProgress]. The
+ * source updates when a pack's progress or metadata changes.
  *
  * @param offlinePacks The collection of offline packs to represent in the source.
- * @param putExtraProperties A function that will be called with each [OfflinePack] to allow you to
- *   add additional properties to the feature. For example, you can use this to add properties based
- *   on the [OfflinePack.metadata].
+ * @param putExtraProperties A function that will be called with each [OfflinePack] and its current
+ *   metadata to allow you to add additional properties to the feature, such as a display name
+ *   decoded from the metadata.
  */
 @Composable
 public fun rememberOfflinePacksSource(
   offlinePacks: Set<OfflinePack>,
   options: GeoJsonOptions = GeoJsonOptions(),
-  putExtraProperties: JsonObjectBuilder.(OfflinePack) -> Unit = {},
+  putExtraProperties: JsonObjectBuilder.(pack: OfflinePack, metadata: ByteArray?) -> Unit =
+    { _, _ ->
+    },
 ): GeoJsonSource {
-  val progressByPack = offlinePacks.associateWith { pack ->
-    key(pack) { pack.downloadProgress.collectAsState().value }
+  val stateByPack = offlinePacks.associateWith { pack ->
+    key(pack) {
+      pack.downloadProgress.collectAsState().value to pack.metadata.collectAsState().value
+    }
   }
   return rememberGeoJsonSource(
     options = options,
     data =
       GeoJsonData.Features(
         buildFeatureCollection {
-          progressByPack.forEach { (pack, progress) ->
+          stateByPack.forEach { (pack, state) ->
+            val (progress, metadata) = state
             addFeature(geometry = pack.definition.geometry) {
               properties = buildJsonObject {
                 putDownloadProgressProperties(progress)
-                putExtraProperties(pack)
+                putExtraProperties(pack, metadata)
               }
             }
           }
