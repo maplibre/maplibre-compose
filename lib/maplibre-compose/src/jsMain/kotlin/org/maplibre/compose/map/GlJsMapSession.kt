@@ -55,6 +55,7 @@ import org.maplibre.compose.gljs.QueryGeometry
 import org.maplibre.compose.gljs.QueryRenderedFeaturesOptions
 import org.maplibre.compose.gljs.SetStyleOptions
 import org.maplibre.compose.gljs.isCameraEasing
+import org.maplibre.compose.gljs.isPointOnMapSurface
 import org.maplibre.compose.gljs.isTerminalStyleLoadFailure
 import org.maplibre.compose.gljs.queryBox
 import org.maplibre.compose.gljs.queryPoint
@@ -912,6 +913,9 @@ internal class GlJsMapSession(
           },
           unproject = { map.unprojectAt(it.x.value.toDouble(), it.y.value.toDouble()) },
         )
+      // A behind-camera intersection can round-trip through project/unproject. Ask the engine
+      // whether this screen point is on the map, independently of its visible world copy.
+      require(map.isPointOnMapSurface(point.toPoint())) { "The anchor must project onto the map" }
       map.easeTo(
         unsafeJso<EaseToOptions> {
           around = map.unprojectAt(point.x.value.toDouble(), point.y.value.toDouble()).toLngLat()

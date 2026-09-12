@@ -2,9 +2,13 @@ package org.maplibre.compose.map
 
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.dp
 import js.objects.unsafeJso
 import kotlin.js.Promise
+import kotlin.math.abs
 import kotlin.test.Test
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
@@ -12,10 +16,12 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import org.maplibre.compose.camera.CameraAnchor
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.gljs.GlJsMapEvent
 import org.maplibre.compose.gljs.isNear
+import org.maplibre.compose.gljs.isPointOnMapSurface
 import org.maplibre.compose.gljs.runBrowserMapTest
 import org.maplibre.compose.gljs.setBrowserMapContent
 import org.maplibre.compose.gljs.waitUntilMap
@@ -23,10 +29,44 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
+import org.maplibre.compose.util.toPoint
 import org.maplibre.spatialk.geojson.Position
 
 @OptIn(ExperimentalTestApi::class)
 class BrowserCameraTransitionLifecycleTest {
+
+  @Test
+  fun a_screen_anchor_above_the_horizon_is_rejected_in_a_distant_world_copy(): MapTestResult =
+    runMapTest {
+      createMapFixture(MapExtent.fromLogical(width = 2048, height = 512, scaleFactor = 1.0)).use {
+        fixture ->
+        fixture.loadStyle(BaseStyle.Empty)
+        fixture.awaitMapReady()
+        fixture.session.setCameraConstraints(CameraConstraints(maxPitch = 85.0))
+        fixture.state.setCameraPosition(CameraPosition(zoom = 1.0, tilt = 80.0))
+        fixture.pumpUntil("the pitched camera to apply") {
+          abs(fixture.session.getCameraPosition().tilt - 80.0) < 0.01
+        }
+        val point = DpOffset(50.dp, 0.dp)
+        val map = requireNotNull((fixture.session as GlJsMapSession).engineMapForTest())
+        assertFalse(
+          map.isPointOnMapSurface(point.toPoint()),
+          "the anchor must lie above the horizon",
+        )
+        val location = requireNotNull(fixture.state.positionFromScreenLocation(point))
+        val before = fixture.session.getCameraPosition()
+        assertTrue(
+          abs(location.longitude - before.target.longitude) > 180.0,
+          "the unprojected location must lie in a distant world copy: $location",
+        )
+        assertFailsWith<IllegalArgumentException> {
+          fixture.awaitWhileRendering("anchor validation") {
+            fixture.state.animateCameraAround(CameraAnchor.Screen(point), zoom = 3.0)
+          }
+        }
+        assertTrue(fixture.session.getCameraPosition().isNear(before))
+      }
+    }
 
   @Test
   fun cancelling_transitions_releases_an_animation_queued_before_the_first_style(): MapTestResult =

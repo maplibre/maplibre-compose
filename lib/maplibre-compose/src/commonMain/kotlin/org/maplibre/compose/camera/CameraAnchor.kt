@@ -61,9 +61,10 @@ internal fun CameraAnchor.resolveScreenPoint(
   require(location.longitude.isFinite() && location.latitude.isFinite()) {
     "The anchor must project onto the map"
   }
-  // A point above the horizon can unproject to a clamped ground location. Native projects
+  // Finite unprojection alone does not guarantee a screen point round-trips. Native projects
   // geographic positions into the nearest world copy; comparing that copy with a screen anchor
   // in another visible copy would reject valid points, particularly on rotated, wide maps.
+  // GL JS additionally checks its map-surface predicate, independently of the world copy.
   if (abs(location.longitude - centerLongitude) <= 180.0) {
     val roundTrip = project(location)
     require(
