@@ -51,6 +51,9 @@ internal interface MapFixture : AutoCloseable {
   /** Renders until the map has drawn once. */
   suspend fun awaitMapReady(timeout: Duration = 30.seconds)
 
+  /** Changes the logical viewport on the next rendered frame. */
+  fun resize(extent: MapExtent)
+
   suspend fun pump(frames: Int = 30)
 
   /** A camera transition and a tile load both advance from inside a render. */

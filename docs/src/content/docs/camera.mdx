@@ -52,6 +52,27 @@ Both transitions accept an `easing` timing curve, a <Api of="CubicBezier" />.
 On Android, the system animator duration scale multiplies the duration of
 either transition. A scale of zero jumps to the target.
 
+### Keep a point fixed on screen
+
+<Api of="MapState.animateCameraAround" /> changes zoom, bearing, or tilt while
+keeping a point at its screen location. Use <Api of="CameraAnchor.Screen" /> for
+coordinates in dp from the full map's top-left corner:
+
+<Code code={region(camera, "animate-around")} lang="kotlin" title="App.kt" />
+
+Use <Api of="CameraAnchor.Geographic" /> to keep a selected geographic location
+at its current screen point. The anchor is resolved when the animation starts
+and must be visible on the map. Omitted camera components keep their starting
+values. This operation supports easing; it does not accept a flight or a target
+center because the center moves to keep the anchor fixed.
+
+Persistent camera padding participates in projection. Changing that padding,
+resizing the logical viewport, or losing the attachment cancels the animation.
+The operation does not restart on a replacement attachment. Camera constraints
+take precedence over anchor preservation. The preservation guarantee applies to
+flat Mercator maps, including tilted cameras; it does not extend to globe or
+terrain.
+
 ## Fit a bounding box
 
 <Api of="MapState.animateCameraToBounds" /> fits a `BoundingBox` in the current

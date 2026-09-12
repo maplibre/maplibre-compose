@@ -256,6 +256,17 @@ internal fun MaplibreMap.isCameraEasing(): Boolean {
 }
 
 /**
+ * Use the transform's surface test: projecting an intersection behind the camera can round-trip.
+ */
+internal fun MaplibreMap.isPointOnMapSurface(point: Point): Boolean {
+  val transform = asDynamic()._camera.transform
+  check(jsTypeOf(transform.isPointOnMapSurface) == "function") {
+    "MapLibre's transform no longer has an isPointOnMapSurface method"
+  }
+  return transform.isPointOnMapSurface(point, asDynamic().terrain) as Boolean
+}
+
+/**
  * Returns `[x, y]`. GL JS treats only an `Array` or a `Point` instance as query geometry. A plain
  * `{x, y}` object is not geometry, so the query uses the whole viewport.
  */

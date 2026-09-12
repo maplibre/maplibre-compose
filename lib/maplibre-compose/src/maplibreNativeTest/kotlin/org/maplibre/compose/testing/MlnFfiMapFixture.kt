@@ -14,7 +14,7 @@ import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
 
 /** The map runs on threads of its own, so blocking the test thread in a wait stops nothing. */
-internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent: MapExtent) :
+internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private var extent: MapExtent) :
   MapFixture {
 
   override val state = bridge.state
@@ -59,6 +59,10 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent
 
   override suspend fun awaitMapReady(timeout: Duration) {
     bridge.pumpUntilRendered(extent, timeout)
+  }
+
+  override fun resize(extent: MapExtent) {
+    this.extent = extent
   }
 
   override suspend fun pump(frames: Int) {

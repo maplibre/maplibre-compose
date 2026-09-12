@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.jvm.JvmInline
+import kotlin.time.Duration
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
 import kotlinx.coroutines.CancellationException
@@ -47,6 +48,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import org.maplibre.compose.camera.CameraAnchor
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
@@ -550,6 +552,18 @@ internal constructor(
     adapter.animateCameraPosition(position, animation.forPathTo(position), boundGuard(guard))
   }
 
+  suspend fun animateCameraAround(
+    anchor: CameraAnchor,
+    zoom: Double?,
+    bearing: Double?,
+    tilt: Double?,
+    animation: CameraAnimation.Ease,
+    guard: CameraCommandGuard? = null,
+  ): Unit = runLeaseBound {
+    awaitViewportState()
+    adapter.animateCameraAround(anchor, zoom, bearing, tilt, animation, boundGuard(guard))
+  }
+
   suspend fun animateCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double = 0.0,
@@ -1030,6 +1044,49 @@ internal constructor(
     retryAcrossAttachments {
       it.animateCameraPosition(position, animation.scaledBy(systemAnimatorDurationScale()), guard)
     }
+  }
+
+  /**
+   * Changes zoom, bearing, or tilt while keeping [anchor] at its screen location at animation
+   * start. Null camera components retain their starting values. The camera target moves to preserve
+   * the anchor; this operation does not accept a destination target or a flight animation.
+   *
+   * Waits for an attached viewport. The anchor must resolve to a visible point on the map, or this
+   * call throws [IllegalArgumentException]. Persistent camera padding participates in projection
+   * and is not changed. Screen coordinates are relative to the full map, not its padded area.
+   *
+   * A newer camera command, accepted input, coroutine cancellation, a logical viewport resize,
+   * changed camera padding, or attachment loss cancels this call. It does not restart on another
+   * attachment. The camera remains where it was interrupted, subject to the new geometry.
+   *
+   * Anchor preservation applies to flat Mercator maps, including tilted cameras. Camera constraints
+   * take precedence and can move the anchor. Globe and terrain do not have this guarantee. On
+   * Android, the system animator duration scale multiplies the duration. Zero duration applies the
+   * anchored endpoint immediately.
+   */
+  public suspend fun animateCameraAround(
+    anchor: CameraAnchor,
+    zoom: Double? = null,
+    bearing: Double? = null,
+    tilt: Double? = null,
+    animation: CameraAnimation.Ease = CameraAnimation.Ease(),
+  ): Unit = coroutineScope {
+    require(zoom == null || zoom.isFinite()) { "Zoom must be finite" }
+    require(bearing == null || bearing.isFinite()) { "Bearing must be finite" }
+    require(tilt == null || tilt.isFinite()) { "Tilt must be finite" }
+    require(animation.duration.isFinite() && animation.duration >= Duration.ZERO) {
+      "Duration must be finite and nonnegative"
+    }
+    val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])
+    awaitAttachment()
+      .animateCameraAround(
+        anchor,
+        zoom,
+        bearing,
+        tilt,
+        animation.copy(duration = animation.duration.scaledBy(systemAnimatorDurationScale())),
+        guard,
+      )
   }
 
   /**

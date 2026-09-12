@@ -10,6 +10,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import org.maplibre.compose.camera.CameraAnchor
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.map.MaplibreMap
@@ -55,6 +56,17 @@ fun Camera() {
     )
   }
   // #endregion animate-ease
+
+  // #region animate-around
+  LaunchedEffect(mapState) {
+    mapState.animateCameraAround(
+      anchor = CameraAnchor.Screen(DpOffset(120.dp, 200.dp)),
+      zoom = 16.0,
+      bearing = 90.0,
+      animation = CameraAnimation.Ease(500.milliseconds),
+    )
+  }
+  // #endregion animate-around
 
   // #region fit-bounds
   LaunchedEffect(mapState) {

@@ -28,7 +28,7 @@ import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
 
 /** A [GlJsMapSession] on a canvas of its own, with no Compose or skiko, never composited. */
-internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
+internal class GlJsMapFixture(private var extent: MapExtent) : MapFixture {
 
   private val recorder = RecordingMapCallbacks()
   private val runtime = mapRuntimeForTest()
@@ -110,6 +110,10 @@ internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
 
   override suspend fun awaitMapReady(timeout: Duration) {
     pumpUntil("the map to render its first frame", timeout) { hasRendered }
+  }
+
+  override fun resize(extent: MapExtent) {
+    this.extent = extent
   }
 
   override suspend fun pump(frames: Int) {
