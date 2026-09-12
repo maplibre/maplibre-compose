@@ -71,8 +71,12 @@ internal fun SnapshotFlight(
 
   // The frame rect is stored in map coordinates; this overlay child is offset by originDp.
   val start = shot.frame.translate(Offset(-originDp.x.value, -originDp.y.value))
-  val dockWidth = min(DockWidth.value, safe.width.value * 0.34f)
-  val dockHeight = dockWidth * shot.request.height.toFloat() / shot.request.width.toFloat()
+  // Tall Free-form captures must fit the height above the clearance as well as the width cap.
+  val aspect = shot.request.height.toFloat() / shot.request.width.toFloat()
+  val maxDockHeight =
+    (safe.height.value - DockBottomClearance.value - DockInset.value).coerceAtLeast(48f)
+  val dockWidth = min(DockWidth.value, min(safe.width.value * 0.34f, maxDockHeight / aspect))
+  val dockHeight = dockWidth * aspect
   // The dock shares the attribution button's bottom end corner, so it flips in RTL.
   val isLtr = LocalLayoutDirection.current == LayoutDirection.Ltr
   val dockLeft = if (isLtr) safe.width.value - dockWidth - DockInset.value else DockInset.value
