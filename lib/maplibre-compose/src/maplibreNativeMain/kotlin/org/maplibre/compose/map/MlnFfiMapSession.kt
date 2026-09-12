@@ -7,6 +7,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
@@ -24,6 +25,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.io.files.Path
 import kotlinx.serialization.json.JsonObject
+import org.maplibre.compose.camera.CameraAnchor
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
@@ -33,6 +35,7 @@ import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.CameraInputToken
 import org.maplibre.compose.camera.internal.boxZoomFit
 import org.maplibre.compose.camera.internal.runCameraCommand
+import org.maplibre.compose.camera.resolveScreenPoint
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.interaction.BearingSnapping
@@ -877,6 +880,10 @@ internal class MlnFfiMapSession(
           val id = payload.transitionId
           if (currentTransitionId == id) currentTransitionId = null
           val waiter = transitionWaiters.remove(id)
+          if (anchoredTransition === waiter) {
+            anchoredTransition = null
+            anchoredSize = null
+          }
           if (waiter == null) {
             // Expected after a cancellation: the caller withdrew before native finished.
             logger?.d { "Ignoring the end of unknown camera transition $id" }
@@ -1055,6 +1062,8 @@ internal class MlnFfiMapSession(
     val request = viewportRequest?.takeUnless { it === appliedViewportRequest } ?: return
     val size = map.size
     if (size.width != request.extent.width || size.height != request.extent.height) return
+    if (anchoredSize?.let { it.width != size.width.dp || it.height != size.height.dp } == true)
+      cancelAnchoredTransition()
     applyCameraPadding(map)
     snapshotViewport(map)
     // Keep the last usable viewport during resize and surface loss. A detached presentation
@@ -1221,6 +1230,7 @@ internal class MlnFfiMapSession(
       VisibleRegion(Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0)),
     val visibleBounds: VisibleBounds = VisibleBounds(Position(0.0, 0.0), Position(0.0, 0.0)),
     val projection: MapProjectionHandle? = null,
+    val wrappedProjection: MapProjectionHandle? = null,
   )
 
   @Volatile private var mirroredViewport = MirroredViewport()
@@ -1252,6 +1262,10 @@ internal class MlnFfiMapSession(
         visibleBounds = geometry.visibleBounds,
         // A fresh handle per snapshot: createProjection freezes the transform at creation.
         projection = map.createProjection(),
+        wrappedProjection =
+          if (geometry.camera.target.longitude !in -180.0..<180.0) {
+            map.createWrappedProjection()
+          } else null,
       )
     )
   }
@@ -1259,10 +1273,11 @@ internal class MlnFfiMapSession(
   private fun retireProjection() {
     val previous = projectionLock.withLock {
       val current = mirroredViewport
-      mirroredViewport = current.copy(projection = null)
+      mirroredViewport = current.copy(projection = null, wrappedProjection = null)
       current
     }
     runCatching { previous.projection?.close() }
+    runCatching { previous.wrappedProjection?.close() }
   }
 
   private fun publishViewport(next: MirroredViewport) {
@@ -1272,6 +1287,7 @@ internal class MlnFfiMapSession(
       current
     }
     runCatching { previous.projection?.close() }
+    runCatching { previous.wrappedProjection?.close() }
   }
 
   override fun getCameraPosition(): CameraPosition = mirroredViewport.camera
@@ -1296,6 +1312,7 @@ internal class MlnFfiMapSession(
   private fun applyCameraPadding(map: MapHandle) {
     val padding = cameraPadding
     if (padding == appliedCameraPadding) return
+    cancelAnchoredTransition()
     map.jumpTo(CameraOptions().also { it.padding = padding })
     appliedCameraPadding = padding
   }
@@ -1415,6 +1432,42 @@ internal class MlnFfiMapSession(
     }
   }
 
+  override suspend fun animateCameraAround(
+    anchor: CameraAnchor,
+    zoom: Double?,
+    bearing: Double?,
+    tilt: Double?,
+    animation: CameraAnimation.Ease,
+    guard: CameraCommandGuard?,
+  ) {
+    startTransitionAwaitingRelease(
+      animation.toAnimationOptions(),
+      guard = guard,
+      anchored = true,
+    ) { map, options ->
+      val size = map.size
+      val point =
+        map.createWrappedProjection().use { projection ->
+          anchor.resolveScreenPoint(
+            DpSize(size.width.dp, size.height.dp),
+            centerLongitude = checkNotNull(projection.camera.center).longitude,
+            project = { projection.pixelForLatLng(it.toLatLng()).toDpOffset() },
+            unproject = { projection.latLngForPixelUnwrapped(it.toScreenPoint()).toPosition() },
+          )
+        }
+      map.easeTo(
+        CameraOptions().also {
+          it.anchor = point.toScreenPoint()
+          it.zoom = zoom
+          it.bearing = bearing
+          it.pitch = tilt
+          it.padding = appliedCameraPadding
+        },
+        options,
+      )
+    }
+  }
+
   override suspend fun animateCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,
@@ -1495,6 +1548,7 @@ internal class MlnFfiMapSession(
     animation: AnimationOptions,
     gestureToken: CameraInputToken? = null,
     guard: CameraCommandGuard? = null,
+    anchored: Boolean = false,
     shouldStart: (MapHandle) -> Boolean = { true },
     start: (MapHandle, AnimationOptions) -> Unit,
   ): Unit = suspendCancellableCoroutine { continuation ->
@@ -1509,8 +1563,13 @@ internal class MlnFfiMapSession(
                   guard,
                   activate = { gestureToken?.let { activateGesture(map, it) } },
                 ) {
-                  if (shouldStart(map)) startTransitionOnMap(map, animation, start, continuation)
-                  else if (continuation.isActive) continuation.resume(Unit)
+                  if (shouldStart(map)) {
+                    startTransitionOnMap(map, animation, start, continuation)
+                    if (anchored && continuation.isActive) {
+                      anchoredTransition = continuation
+                      anchoredSize = DpSize(map.size.width.dp, map.size.height.dp)
+                    }
+                  } else if (continuation.isActive) continuation.resume(Unit)
                 }
             if (!started && continuation.isActive) continuation.resume(Unit)
           },
@@ -1546,6 +1605,17 @@ internal class MlnFfiMapSession(
     continuation.invokeOnCancellation { abandonTransition(id) }
   }
 
+  private var anchoredTransition: CancellableContinuation<Unit>? = null
+  private var anchoredSize: DpSize? = null
+
+  /** Owner thread only. Cancellation stops only the transition registered to this continuation. */
+  private fun cancelAnchoredTransition() {
+    val continuation = anchoredTransition
+    anchoredTransition = null
+    anchoredSize = null
+    continuation?.cancel(kotlinx.coroutines.CancellationException("The anchor viewport changed"))
+  }
+
   /** Owner-thread state, like the two maps below. */
   private var lastTransitionId = 0L
 
@@ -1568,7 +1638,11 @@ internal class MlnFfiMapSession(
   }
 
   private fun forgetTransition(id: Long) {
-    transitionWaiters.remove(id)
+    val waiter = transitionWaiters.remove(id)
+    if (anchoredTransition === waiter) {
+      anchoredTransition = null
+      anchoredSize = null
+    }
     if (currentTransitionId == id) currentTransitionId = null
   }
 
@@ -1583,6 +1657,8 @@ internal class MlnFfiMapSession(
 
   /** Closing a map discards its queued events, so no finish event will follow. */
   private fun resumeStrandedTransitions() {
+    anchoredTransition = null
+    anchoredSize = null
     val waiters = transitionWaiters.values.toList()
     transitionWaiters.clear()
     currentTransitionId = null
@@ -1725,8 +1801,34 @@ internal class MlnFfiMapSession(
     }
   }
 
-  override fun screenLocationFromPosition(position: Position): DpOffset? = withSnapshotProjection {
-    it.pixelForLatLng(position.toLatLng()).toDpOffset()
+  override fun screenLocationFromPosition(position: Position): DpOffset? = projectionLock.withLock {
+    val snapshot = mirroredViewport
+    val projection = snapshot.wrappedProjection ?: snapshot.projection ?: return@withLock null
+    projection.pixelForLatLng(position.toLatLng()).toDpOffset()
+  }
+
+  /**
+   * Native projects against a wrapped center, but anchored moves can leave the transform in another
+   * world. Normalize a standalone projection for geographic-to-screen conversion. Keep the raw
+   * snapshot separately so screen-to-geographic conversion still preserves the actual world copy.
+   */
+  private fun MapHandle.createWrappedProjection(): MapProjectionHandle {
+    val projection = createProjection()
+    try {
+      val center = camera.center
+      if (center != null && center.longitude !in -180.0..<180.0) {
+        val longitude = ((center.longitude + 180.0) % 360.0 + 360.0) % 360.0 - 180.0
+        projection.setCamera(
+          CameraOptions().also {
+            it.center = Position(longitude, center.latitude).toLatLng()
+          }
+        )
+      }
+      return projection
+    } catch (error: Throwable) {
+      projection.close()
+      throw error
+    }
   }
 
   /**

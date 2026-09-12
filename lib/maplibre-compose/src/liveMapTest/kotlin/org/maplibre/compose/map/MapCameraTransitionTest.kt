@@ -1,10 +1,12 @@
 package org.maplibre.compose.map
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.test.Test
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
@@ -15,6 +17,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import org.maplibre.compose.camera.CameraAnchor
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.style.BaseStyle
@@ -601,6 +604,230 @@ class MapCameraTransitionTest {
         it.assertLanded(TARGET, "the newer command")
       }
     }
+
+  @Test
+  fun anchored_easing_preserves_a_screen_point_through_zoom_rotation_and_tilt(): MapTestResult =
+    runMapTest {
+      if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
+      createMapFixture().use { fixture ->
+        fixture.startAt(START.copy(zoom = 8.0, bearing = 25.0, tilt = 35.0))
+        fixture.session.setCameraPadding(CAMERA_PADDING)
+        fixture.pump(frames = 3)
+        val point = DpOffset(190.dp, 300.dp)
+        val location = requireNotNull(fixture.session.positionFromScreenLocation(point))
+        val animation =
+          launch(Dispatchers.Default) {
+            fixture.state.animateCameraAround(
+              CameraAnchor.Screen(point),
+              zoom = 10.0,
+              bearing = 110.0,
+              tilt = 55.0,
+              animation = CameraAnimation.Ease(1.seconds),
+            )
+          }
+        var intermediate = false
+        fixture.pumpUntil("the anchored ease to finish") {
+          fixture.assertAnchor(location, point)
+          val zoom = fixture.session.getCameraPosition().zoom
+          intermediate = intermediate || zoom in 8.1..9.9
+          animation.isCompleted
+        }
+        assertFalse(animation.isCancelled)
+        assertTrue(intermediate, "the animation must preserve the anchor between endpoints")
+        fixture.assertAnchor(location, point)
+        val camera = fixture.session.getCameraPosition()
+        assertNear(10.0, camera.zoom, "zoom")
+        assertNear(110.0, camera.bearing, "bearing")
+        assertNear(55.0, camera.tilt, "tilt")
+        fixture.assertCameraTarget(camera, CAMERA_PADDING)
+      }
+    }
+
+  @Test
+  fun a_geographic_anchor_uses_the_nearest_world_copy_and_an_instant_anchored_endpoint():
+    MapTestResult = runMapTest {
+    createMapFixture().use { fixture ->
+      fixture.startAt(START.copy(target = Position(179.0, 0.0), zoom = 3.0, tilt = 40.0))
+      val location = Position(-179.0, 1.0)
+      val point = requireNotNull(fixture.session.screenLocationFromPosition(location))
+      fixture.awaitWhileRendering("the instant anchored zoom") {
+        fixture.state.animateCameraAround(
+          CameraAnchor.Geographic(location),
+          zoom = 5.0,
+          animation = CameraAnimation.Ease(0.milliseconds),
+        )
+      }
+      fixture.assertAnchor(location, point)
+      assertNear(5.0, fixture.session.getCameraPosition().zoom, "zoom")
+      assertNear(40.0, fixture.session.getCameraPosition().tilt, "omitted tilt")
+      assertNear(0.0, fixture.session.getCameraPosition().bearing, "omitted bearing")
+      val unwrapped = requireNotNull(fixture.session.positionFromScreenLocation(point))
+      val center = fixture.session.getCameraPosition().target.longitude
+      val expectedLongitude =
+        location.longitude + 360.0 * kotlin.math.round((center - location.longitude) / 360.0)
+      assertNear(
+        expectedLongitude,
+        unwrapped.longitude,
+        "unprojection must retain the actual world copy",
+      )
+      fixture.awaitWhileRendering("another anchored move from the unwrapped center") {
+        fixture.state.animateCameraAround(
+          CameraAnchor.Geographic(location),
+          bearing = 45.0,
+          animation = CameraAnimation.Ease(0.milliseconds),
+        )
+      }
+      fixture.assertAnchor(location, point)
+      assertNear(5.0, fixture.session.getCameraPosition().zoom, "omitted zoom")
+    }
+  }
+
+  @Test
+  fun a_screen_anchor_can_select_a_distant_visible_world_copy(): MapTestResult = runMapTest {
+    createMapFixture(MapExtent.fromLogical(width = 2048, height = 512, scaleFactor = 1.0)).use {
+      fixture ->
+      fixture.startAt(START.copy(zoom = 1.0, bearing = 15.0))
+      val point = DpOffset(50.dp, 256.dp)
+      val location = requireNotNull(fixture.session.positionFromScreenLocation(point))
+      assertTrue(abs(location.longitude) > 180.0, "the anchor must select another world copy")
+      val animation =
+        launch(Dispatchers.Default) {
+          fixture.state.animateCameraAround(
+            CameraAnchor.Screen(point),
+            zoom = 2.0,
+            animation = CameraAnimation.Ease(500.milliseconds),
+          )
+        }
+      fixture.pumpUntil("the anchored zoom in a repeated world") {
+        val actual = requireNotNull(fixture.session.positionFromScreenLocation(point))
+        val delta =
+          ((actual.longitude - location.longitude + 180.0) % 360.0 + 360.0) % 360.0 - 180.0
+        assertNear(0.0, delta, "anchor longitude")
+        assertNear(location.latitude, actual.latitude, "anchor latitude")
+        animation.isCompleted
+      }
+      assertFalse(animation.isCancelled)
+      assertNear(2.0, fixture.session.getCameraPosition().zoom, "zoom")
+    }
+  }
+
+  @Test
+  fun changing_padding_cancels_an_anchored_animation(): MapTestResult = runMapTest {
+    createMapFixture().use { fixture ->
+      fixture.assertAnchoredCancellation { fixture.session.setCameraPadding(CAMERA_PADDING) }
+    }
+  }
+
+  @Test
+  fun resizing_cancels_an_anchored_animation(): MapTestResult = runMapTest {
+    createMapFixture().use { fixture ->
+      fixture.assertAnchoredCancellation {
+        fixture.resize(MapExtent.fromLogical(width = 600, height = 400, scaleFactor = 1.0))
+      }
+    }
+  }
+
+  @Test
+  fun changing_only_pixel_density_keeps_the_anchor_animation_running(): MapTestResult = runMapTest {
+    if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
+    createMapFixture().use { fixture ->
+      fixture.startAtOrigin()
+      val point = DpOffset(190.dp, 300.dp)
+      val location = requireNotNull(fixture.session.positionFromScreenLocation(point))
+      val animation =
+        launch(Dispatchers.Default) {
+          fixture.state.animateCameraAround(
+            CameraAnchor.Screen(point),
+            zoom = 5.0,
+            animation = CameraAnimation.Ease(1.seconds),
+          )
+        }
+      fixture.awaitCameraMoving()
+      fixture.resize(MapFixture.RETINA_EXTENT)
+      fixture.pumpUntil("the animation to complete after changing density") {
+        fixture.assertAnchor(location, point)
+        animation.isCompleted
+      }
+      assertFalse(animation.isCancelled)
+      assertNear(5.0, fixture.session.getCameraPosition().zoom, "target zoom")
+    }
+  }
+
+  @Test
+  fun an_anchored_animation_obeys_zoom_and_tilt_constraints(): MapTestResult = runMapTest {
+    createMapFixture().use { fixture ->
+      fixture.startAtOrigin()
+      fixture.session.setCameraConstraints(TEST_CONSTRAINTS.copy(maxZoom = 4.0, maxPitch = 45.0))
+      fixture.pump(frames = 3)
+      val point = DpOffset(190.dp, 300.dp)
+      val location = requireNotNull(fixture.session.positionFromScreenLocation(point))
+      fixture.awaitWhileRendering("the constrained anchored animation") {
+        fixture.state.animateCameraAround(
+          CameraAnchor.Screen(point),
+          zoom = 10.0,
+          tilt = 60.0,
+          animation = CameraAnimation.Ease(0.milliseconds),
+        )
+      }
+      assertNear(4.0, fixture.session.getCameraPosition().zoom, "constrained zoom")
+      assertNear(45.0, fixture.session.getCameraPosition().tilt, "constrained tilt")
+      fixture.assertAnchor(location, point)
+    }
+  }
+
+  @Test
+  fun a_new_camera_command_cancels_an_anchored_animation(): MapTestResult = runMapTest {
+    createMapFixture().use { fixture ->
+      fixture.assertAnchoredCancellation { fixture.state.setCameraPosition(START) }
+    }
+  }
+
+  @Test
+  fun an_anchor_outside_the_viewport_is_rejected_without_moving_the_camera(): MapTestResult =
+    runMapTest {
+      createMapFixture().use { fixture ->
+        fixture.startAtOrigin()
+        assertFailsWith<IllegalArgumentException> {
+          fixture.awaitWhileRendering("anchor validation") {
+            fixture.state.animateCameraAround(
+              CameraAnchor.Screen(DpOffset((-1).dp, 100.dp)),
+              zoom = 10.0,
+            )
+          }
+        }
+        assertNear(START.zoom, fixture.session.getCameraPosition().zoom, "unchanged zoom")
+      }
+    }
+
+  private suspend fun MapFixture.assertAnchoredCancellation(change: () -> Unit) = coroutineScope {
+    if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
+    startAtOrigin()
+    val animation =
+      launch(Dispatchers.Default) {
+        state.animateCameraAround(
+          CameraAnchor.Screen(DpOffset(190.dp, 300.dp)),
+          zoom = 10.0,
+          animation = CameraAnimation.Ease(30.seconds),
+        )
+      }
+    awaitCameraMoving()
+    change()
+    pumpUntil("the anchored animation to cancel") { animation.isCompleted }
+    assertTrue(animation.isCancelled)
+    val stopped = session.getCameraPosition()
+    assertTrue(stopped.zoom < 9.0, "cancellation must not jump to the destination")
+    var frames = 0
+    pumpUntil("the camera to stay stopped") { ++frames >= 10 }
+    assertNear(stopped.zoom, session.getCameraPosition().zoom, "stopped zoom")
+  }
+
+  private fun MapFixture.assertAnchor(location: Position, point: DpOffset) {
+    val actual = requireNotNull(session.screenLocationFromPosition(location))
+    assertTrue(
+      abs(actual.x.value - point.x.value) < 0.5f && abs(actual.y.value - point.y.value) < 0.5f,
+      "anchor moved from $point to $actual at ${session.getCameraPosition()}",
+    )
+  }
 
   private suspend fun MapFixture.startAtOrigin() = startAt(START)
 

@@ -33,6 +33,7 @@ import kotlinx.serialization.json.double
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import org.maplibre.compose.camera.CameraAnchor
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
@@ -1914,6 +1915,35 @@ class MapPresentationTest {
   }
 
   @Test
+  fun an_anchored_animation_waits_for_a_viewport_but_does_not_restart_after_detach() = runTest {
+    val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
+    val state = runtime.createMapState(BaseStyle.Empty)
+    val animation = async {
+      state.animateCameraAround(CameraAnchor.Screen(DpOffset(10.dp, 10.dp)), zoom = 4.0)
+    }
+    testScheduler.runCurrent()
+    assertFalse(animation.isCompleted)
+    val token = state.reservePresentation()
+    val first = PresentationTestAdapter()
+    state.publishPresentation(token, first)
+    testScheduler.runCurrent()
+    assertFalse(first.animationStarted.isCompleted)
+    requireNotNull(state.currentMapAttachment).updateViewport(testViewport())
+    first.animationStarted.await()
+    state.releasePresentation(token, first)
+    testScheduler.runCurrent()
+    assertTrue(animation.isCancelled)
+    val replacement = PresentationTestAdapter()
+    state.publishPresentation(state.reservePresentation(), replacement)
+    requireNotNull(state.currentMapAttachment).updateViewport(testViewport())
+    testScheduler.runCurrent()
+    assertFalse(replacement.animationStarted.isCompleted)
+    state.close()
+    state.awaitClosed()
+    runtime.close()
+  }
+
+  @Test
   fun the_latest_camera_animation_waits_for_a_viewport_and_restarts_on_replacement() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
     val state = runtime.createMapState(BaseStyle.Demo)
@@ -2227,6 +2257,18 @@ internal open class PresentationTestAdapter(
   override suspend fun animateCameraPosition(
     finalPosition: CameraPosition,
     animation: CameraAnimation,
+    guard: CameraCommandGuard?,
+  ) {
+    animationStarted.complete(Unit)
+    finishAnimation.await()
+  }
+
+  override suspend fun animateCameraAround(
+    anchor: CameraAnchor,
+    zoom: Double?,
+    bearing: Double?,
+    tilt: Double?,
+    animation: CameraAnimation.Ease,
     guard: CameraCommandGuard?,
   ) {
     animationStarted.complete(Unit)

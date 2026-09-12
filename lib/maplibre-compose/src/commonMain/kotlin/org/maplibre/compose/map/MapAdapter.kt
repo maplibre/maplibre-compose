@@ -5,6 +5,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import kotlinx.coroutines.Deferred
 import kotlinx.serialization.json.JsonObject
+import org.maplibre.compose.camera.CameraAnchor
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
@@ -47,6 +48,15 @@ internal interface MapAdapter {
   suspend fun animateCameraPosition(
     finalPosition: CameraPosition,
     animation: CameraAnimation,
+    guard: CameraCommandGuard? = null,
+  )
+
+  suspend fun animateCameraAround(
+    anchor: CameraAnchor,
+    zoom: Double?,
+    bearing: Double?,
+    tilt: Double?,
+    animation: CameraAnimation.Ease,
     guard: CameraCommandGuard? = null,
   )
 

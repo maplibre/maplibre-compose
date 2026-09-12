@@ -20,6 +20,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.asPromise
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.JsonObject
+import org.maplibre.compose.camera.CameraAnchor
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CubicBezier
@@ -29,6 +30,7 @@ import org.maplibre.compose.camera.internal.CameraCommandGuard
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.CameraInputToken
 import org.maplibre.compose.camera.internal.runCameraCommand
+import org.maplibre.compose.camera.resolveScreenPoint
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.gljs.CameraForBoundsOptions
@@ -417,6 +419,8 @@ internal class GlJsMapSession(
 
   private fun applyExtent(map: MaplibreMap, extent: MapExtent) {
     if (extent == appliedExtent) return
+    if (appliedExtent.width != extent.width || appliedExtent.height != extent.height)
+      cancelAnchoredTransition()
     appliedExtent = extent
     container?.let { host ->
       host.style.width = "${extent.width}px"
@@ -822,6 +826,7 @@ internal class GlJsMapSession(
   override fun setCameraPadding(padding: PaddingValues) {
     val resolved = padding.toPaddingOptions(layoutDirection)
     if (cameraPadding.sameAs(resolved)) return
+    cancelAnchoredTransition()
     cameraPadding = resolved
     onMap { map -> map.jumpTo(unsafeJso<JumpToOptions> { this.padding = resolved }) }
   }
@@ -884,6 +889,40 @@ internal class GlJsMapSession(
     guard: CameraCommandGuard?,
   ) {
     awaitCameraRelease(guard = guard) { map -> map.animateTo(finalPosition, animation) }
+  }
+
+  override suspend fun animateCameraAround(
+    anchor: CameraAnchor,
+    zoom: Double?,
+    bearing: Double?,
+    tilt: Double?,
+    animation: CameraAnimation.Ease,
+    guard: CameraCommandGuard?,
+  ) {
+    awaitCameraRelease(guard = guard, anchored = true) { map ->
+      val extent = appliedExtent
+      val point =
+        anchor.resolveScreenPoint(
+          androidx.compose.ui.unit.DpSize(extent.width.dp, extent.height.dp),
+          centerLongitude = map.getCenter().lng,
+          project = { position ->
+            val longitude =
+              with(AngleMath) { map.getCenter().lng + position.longitude.diff(map.getCenter().lng) }
+            map.project(LngLat(lng = longitude, lat = position.latitude)).toDpOffset()
+          },
+          unproject = { map.unprojectAt(it.x.value.toDouble(), it.y.value.toDouble()) },
+        )
+      map.easeTo(
+        unsafeJso<EaseToOptions> {
+          around = map.unprojectAt(point.x.value.toDouble(), point.y.value.toDouble()).toLngLat()
+          zoom?.let { this.zoom = it }
+          bearing?.let { this.bearing = it }
+          tilt?.let { pitch = it }
+          duration = animation.duration.inWholeMilliseconds.toDouble()
+          easing = animation.easing.toEasingFunction()
+        }
+      )
+    }
   }
 
   override suspend fun animateCameraToBounds(
@@ -1099,6 +1138,7 @@ internal class GlJsMapSession(
   private suspend fun awaitCameraRelease(
     gestureToken: CameraInputToken? = null,
     guard: CameraCommandGuard? = null,
+    anchored: Boolean = false,
     start: (MaplibreMap) -> Unit,
   ) = suspendCancellableCoroutine { continuation ->
     val pending =
@@ -1112,6 +1152,7 @@ internal class GlJsMapSession(
                 activate = { activateGesture(gestureToken) },
               ) {
                 startTransitionOnMap(current, start, continuation)
+                if (anchored && continuation.isActive) anchoredTransition = continuation
               }
           if (!started && continuation.isActive) continuation.resume(Unit)
         },
@@ -1122,6 +1163,7 @@ internal class GlJsMapSession(
         pendingInitialStyleAction = null
         return@invokeOnCancellation
       }
+      if (anchoredTransition === continuation) anchoredTransition = null
       if (transitionWaiters.remove(continuation)) map?.stop()
     }
     val enqueue: () -> Unit = {
@@ -1158,10 +1200,19 @@ internal class GlJsMapSession(
     else if (continuation.isActive) continuation.resume(Unit)
   }
 
+  private var anchoredTransition: CancellableContinuation<Unit>? = null
+
+  private fun cancelAnchoredTransition() {
+    val continuation = anchoredTransition
+    anchoredTransition = null
+    continuation?.cancel(kotlinx.coroutines.CancellationException("The anchor viewport changed"))
+  }
+
   private fun resumeTransitions() {
     if (transitionWaiters.isEmpty()) return
     val resuming = transitionWaiters.toList()
     transitionWaiters.clear()
+    if (anchoredTransition in resuming) anchoredTransition = null
     resuming.forEach { waiter -> if (waiter.isActive) runCatching { waiter.resume(Unit) } }
   }
 
