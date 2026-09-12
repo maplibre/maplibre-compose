@@ -55,7 +55,7 @@ class MapOverlayTest {
             modifier = Modifier.size(300.dp).testTag("map"),
             overlay = {
               Box(Modifier.matchParentSize().testTag("full"))
-              Controls {
+              Controls(contentWindowInsets = WindowInsets(top = 24.dp)) {
                 Box(Modifier.size(10.dp).align(Alignment.TopStart).testTag("control"))
               }
               Controls(
@@ -72,7 +72,7 @@ class MapOverlayTest {
       val bounds = onNodeWithTag("map").getUnclippedBoundsInRoot()
       assertEquals(bounds, onNodeWithTag("full").getUnclippedBoundsInRoot())
       assertEquals(bounds.left + 48.dp, onNodeWithTag("control").getUnclippedBoundsInRoot().left)
-      assertEquals(bounds.top + 28.dp, onNodeWithTag("control").getUnclippedBoundsInRoot().top)
+      assertEquals(bounds.top + 32.dp, onNodeWithTag("control").getUnclippedBoundsInRoot().top)
       assertEquals(bounds.left + 8.dp, onNodeWithTag("override").getUnclippedBoundsInRoot().left)
       runOnIdle {
         rtl = true
