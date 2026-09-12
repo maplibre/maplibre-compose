@@ -62,7 +62,7 @@ internal val FrameMargin = 20.dp
 internal val FrameMinSize = 96.dp
 
 internal class SnapshotterDemoState {
-  var aspect by mutableStateOf(SnapshotAspect.Classic)
+  var aspect by mutableStateOf(SnapshotAspect.Free)
 
   /** Frame size in dp. [DpSize.Zero] until the overlay measures its first safe area. */
   var frameSize by mutableStateOf(DpSize.Zero)

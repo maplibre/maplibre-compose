@@ -193,7 +193,7 @@ object MapSnapshotterDemo : Demo {
       SnapshotFrame(demoState, safe, originDp, fullMap)
       SnapshotFlash(demoState.flashTick, originDp, fullMap)
       SnapshotFlight(demoState, safe, originDp, onOpen = { demoState.sheetOpen = true })
-      SnapshotControls(demoState, onCapture = beginCapture)
+      SnapshotControls(demoState, originDp, fullMap, onCapture = beginCapture)
     }
   }
 
