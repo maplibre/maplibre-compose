@@ -59,19 +59,29 @@ private val ControlGradientColor = Color.Black.copy(alpha = 0.45f)
  * as a pill above the controls until the next attempt.
  */
 @Composable
-internal fun BoxScope.SnapshotControls(state: SnapshotterDemoState, onCapture: () -> Unit) {
+internal fun BoxScope.SnapshotControls(
+  state: SnapshotterDemoState,
+  originDp: DpOffset,
+  fullMap: DpSize?,
+  onCapture: () -> Unit,
+) {
+  // Like the scrim, the gradient only draws, so it can reach past this child's bounds: it anchors
+  // to the map's bottom edge at the map's full width rather than stopping at the safe area.
   Canvas(Modifier.matchParentSize()) {
     val height = ControlGradientHeight.toPx()
+    val bottom = if (fullMap == null) size.height else fullMap.height.toPx() - originDp.y.toPx()
+    val left = if (fullMap == null) 0f else -originDp.x.toPx()
+    val width = if (fullMap == null) size.width else fullMap.width.toPx()
     drawRect(
       brush =
         Brush.verticalGradient(
           0f to Color.Transparent,
           1f to ControlGradientColor,
-          startY = size.height - height,
-          endY = size.height,
+          startY = bottom - height,
+          endY = bottom,
         ),
-      topLeft = Offset(0f, size.height - height),
-      size = Size(size.width, height),
+      topLeft = Offset(left, bottom - height),
+      size = Size(width, height),
     )
   }
   Column(
