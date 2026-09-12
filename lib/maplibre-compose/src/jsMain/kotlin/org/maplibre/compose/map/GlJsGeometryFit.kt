@@ -55,9 +55,9 @@ internal fun fitPositions(
     width - (edgePadding.left + edgePadding.right + fitPadding.left + fitPadding.right)
   val availableHeight =
     height - (edgePadding.top + edgePadding.bottom + fitPadding.top + fitPadding.bottom)
+  if (availableWidth <= 0 || availableHeight <= 0) return null
   val scaleX = availableWidth / (maxX - minX)
   val scaleY = availableHeight / (maxY - minY)
-  if (scaleX < 0 || scaleY < 0) return null
 
   // A zero extent scales to infinity, which the maximum zoom absorbs.
   val fittedZoom = (zoom + log2(min(scaleX, scaleY))).coerceIn(minZoom, maxZoom)
