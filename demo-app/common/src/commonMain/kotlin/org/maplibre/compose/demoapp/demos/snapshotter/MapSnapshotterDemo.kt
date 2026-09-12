@@ -190,7 +190,13 @@ object MapSnapshotterDemo : Demo {
       val originDp = with(density) { DpOffset(origin.x.toDp(), origin.y.toDp()) }
       SnapshotFrame(demoState, safe, originDp, fullMap, bottomClearance = controlsHeight)
       SnapshotFlash(demoState.flashTick, originDp, fullMap)
-      SnapshotFlight(demoState, safe, originDp, onOpen = { demoState.sheetOpen = true })
+      SnapshotFlight(
+        demoState,
+        safe,
+        originDp,
+        controlsHeight = controlsHeight,
+        onOpen = { demoState.sheetOpen = true },
+      )
       SnapshotControls(demoState, onCapture = beginCapture, onHeight = { controlsHeight = it })
     }
   }
