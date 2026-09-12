@@ -33,10 +33,12 @@ internal class AndroidSnapshotSharer(private val context: Context) : SnapshotSha
   private fun resolves(intent: Intent): Boolean =
     context.packageManager.resolveActivity(intent, 0) != null
 
-  override val canShare: Boolean
-    get() = resolves(Intent(Intent.ACTION_SEND).setType("image/png"))
+  // The chooser is a system activity and handles zero targets gracefully, but Android 11+
+  // package visibility can hide every ACTION_SEND target from a probe, so probing is wrong here.
+  override val canShare = true
 
-  // Hosts like Wear and TV can have no activity handling ACTION_CREATE_DOCUMENT at all.
+  // Hosts like Wear and TV can have no activity handling ACTION_CREATE_DOCUMENT at all; the
+  // system picker is a core package, always visible to a probe.
   override val canSave: Boolean
     get() = resolves(Intent(Intent.ACTION_CREATE_DOCUMENT).setType("image/png"))
 

@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asSkiaBitmap
+import java.awt.EventQueue
 import java.awt.FileDialog
 import java.awt.Frame
 import java.io.File
@@ -20,25 +21,39 @@ internal class JvmSnapshotSharer : SnapshotSharer {
   override suspend fun share(image: ImageBitmap, fileName: String): SnapshotActionResult =
     SnapshotActionResult.Failed
 
-  override suspend fun save(image: ImageBitmap, fileName: String): SnapshotActionResult =
-    withContext(Dispatchers.IO) {
-      val bytes = image.toPngBytes() ?: return@withContext SnapshotActionResult.Failed
-      val dialog = FileDialog(null as Frame?, "Save snapshot", FileDialog.SAVE)
+  override suspend fun save(image: ImageBitmap, fileName: String): SnapshotActionResult {
+    val bytes =
+      withContext(Dispatchers.IO) { image.toPngBytes() } ?: return SnapshotActionResult.Failed
+    // AWT widgets belong on the event-dispatch thread; the native dialog pumps its own event
+    // loop while it is open, so invokeAndWait returns when the user closes it.
+    val target =
+      withContext(Dispatchers.IO) {
+        var chosen: File? = null
+        EventQueue.invokeAndWait {
+          val dialog = FileDialog(null as Frame?, "Save snapshot", FileDialog.SAVE)
+          try {
+            dialog.file = fileName
+            dialog.isVisible = true
+            val directory = dialog.directory
+            val name = dialog.file
+            if (directory != null && name != null) {
+              chosen = File(directory, if (name.endsWith(".png")) name else "$name.png")
+            }
+          } finally {
+            dialog.dispose()
+          }
+        }
+        chosen
+      } ?: return SnapshotActionResult.Cancelled
+    return withContext(Dispatchers.IO) {
       try {
-        dialog.file = fileName
-        // Blocks until the dialog closes, which is why this runs on IO.
-        dialog.isVisible = true
-        val directory = dialog.directory ?: return@withContext SnapshotActionResult.Cancelled
-        val chosen = dialog.file ?: return@withContext SnapshotActionResult.Cancelled
-        val name = if (chosen.endsWith(".png")) chosen else "$chosen.png"
-        File(directory, name).writeBytes(bytes)
-        SnapshotActionResult.Completed("$directory${File.separator}$name")
+        target.writeBytes(bytes)
+        SnapshotActionResult.Completed(target.absolutePath)
       } catch (error: Throwable) {
         SnapshotActionResult.Failed
-      } finally {
-        dialog.dispose()
       }
     }
+  }
 
   private fun ImageBitmap.toPngBytes(): ByteArray? =
     Image.makeFromBitmap(asSkiaBitmap()).encodeToData(EncodedImageFormat.PNG)?.bytes
