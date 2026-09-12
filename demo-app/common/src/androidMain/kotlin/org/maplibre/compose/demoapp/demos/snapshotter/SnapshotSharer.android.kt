@@ -25,18 +25,22 @@ import kotlinx.coroutines.withContext
  * Shares through a [FileProvider]-backed send intent and saves through the system document picker,
  * so no storage permission is needed on any supported API level.
  */
-internal class AndroidSnapshotSharer : SnapshotSharer {
-  /** The composable supplies the current context and save launcher on every composition. */
-  var context: Context? = null
-
+internal class AndroidSnapshotSharer(private val context: Context) : SnapshotSharer {
+  /** The composable supplies the save launcher on every composition. */
   var saveLauncher: ActivityResultLauncher<String>? = null
   private var pendingSave: CompletableDeferred<Uri?>? = null
 
   override val canShare = true
-  override val canSave = true
+
+  // Hosts like Wear and TV can have no activity handling ACTION_CREATE_DOCUMENT at all.
+  override val canSave: Boolean
+    get() =
+      context.packageManager.resolveActivity(
+        Intent(Intent.ACTION_CREATE_DOCUMENT).setType("image/png"),
+        0,
+      ) != null
 
   override suspend fun share(image: ImageBitmap, fileName: String): SnapshotActionResult {
-    val context = context ?: return SnapshotActionResult.Failed
     return withContext(Dispatchers.IO) {
       try {
         val directory = File(context.cacheDir, "snapshots").apply { mkdirs() }
@@ -65,7 +69,6 @@ internal class AndroidSnapshotSharer : SnapshotSharer {
   }
 
   override suspend fun save(image: ImageBitmap, fileName: String): SnapshotActionResult {
-    val context = context ?: return SnapshotActionResult.Failed
     val launcher = saveLauncher ?: return SnapshotActionResult.Failed
     if (pendingSave != null) return SnapshotActionResult.Failed
     val bytes = withContext(Dispatchers.IO) { image.toPngBytes() }
@@ -109,16 +112,13 @@ internal class AndroidSnapshotSharer : SnapshotSharer {
 
 @Composable
 internal actual fun rememberSnapshotSharer(): SnapshotSharer {
-  val sharer = remember { AndroidSnapshotSharer() }
   val context = LocalContext.current
+  val sharer = remember(context) { AndroidSnapshotSharer(context) }
   val launcher =
     rememberLauncherForActivityResult(
       contract = ActivityResultContracts.CreateDocument("image/png"),
       onResult = sharer::onSaveResult,
     )
-  SideEffect {
-    sharer.context = context
-    sharer.saveLauncher = launcher
-  }
+  SideEffect { sharer.saveLauncher = launcher }
   return sharer
 }
