@@ -6,7 +6,9 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -28,7 +30,9 @@ actual fun OfflineRegionSection(region: BoundingBox, styleUrl: String, packName:
   val pixelRatio = LocalDensity.current.density
   val scope = rememberCoroutineScope()
   val metadata = remember(packName) { packName.encodeToByteArray() }
-  val pack = offlineManager.packs.firstOrNull { it.metadata?.contentEquals(metadata) == true }
+  val packs by offlineManager.packs.collectAsState()
+  val metadataByPack = packs.associateWith { key(it) { it.metadata.collectAsState().value } }
+  val pack = metadataByPack.entries.firstOrNull { it.value?.contentEquals(metadata) == true }?.key
   var creating by remember { mutableStateOf(false) }
   var errorMessage by remember { mutableStateOf<String?>(null) }
 

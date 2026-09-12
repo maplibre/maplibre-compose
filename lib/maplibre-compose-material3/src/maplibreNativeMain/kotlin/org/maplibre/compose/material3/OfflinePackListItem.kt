@@ -22,8 +22,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.compositionLocalOf
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -98,7 +98,7 @@ public fun OfflinePackListItem(
     OfflinePackListItemDefaults.LeadingContent(pack)
   },
   supportingContent: @Composable () -> Unit = {
-    OfflinePackListItemDefaults.SupportingContent(pack.downloadProgress)
+    OfflinePackListItemDefaults.SupportingContent(pack.downloadProgress.collectAsState().value)
   },
   trailingContent: @Composable () -> Unit = {
     OfflinePackListItemDefaults.TrailingContent(pack, offlineManager)
@@ -199,22 +199,18 @@ public object OfflinePackListItemDefaults {
       )
     },
   ) {
-    val icon by
-      remember(pack, completedIcon, pausedIcon, downloadingIcon, errorIcon, warningIcon) {
-        derivedStateOf {
-          val progress = pack.downloadProgress
-          when (progress) {
-            is DownloadProgress.Healthy ->
-              when (progress.status) {
-                DownloadStatus.Complete -> completedIcon
-                DownloadStatus.Paused -> pausedIcon
-                DownloadStatus.Downloading -> downloadingIcon
-              }
-            is DownloadProgress.Error -> errorIcon
-            is DownloadProgress.TileLimitExceeded,
-            is DownloadProgress.Unknown -> warningIcon
+    val progress by pack.downloadProgress.collectAsState()
+    val icon =
+      when (val current = progress) {
+        is DownloadProgress.Healthy ->
+          when (current.status) {
+            DownloadStatus.Complete -> completedIcon
+            DownloadStatus.Paused -> pausedIcon
+            DownloadStatus.Downloading -> downloadingIcon
           }
-        }
+        is DownloadProgress.Error -> errorIcon
+        is DownloadProgress.TileLimitExceeded,
+        is DownloadProgress.Unknown -> warningIcon
       }
     AnimatedContent(icon) { icon -> icon() }
   }
@@ -395,15 +391,11 @@ private fun OfflinePackDeleteConfirmation(
 
 @Composable
 private fun DownloadProgressCircle(pack: OfflinePack) {
-  val progressRatio by
-    remember(pack) {
-      derivedStateOf {
-        val progress = pack.downloadProgress
-        if (progress is DownloadProgress.Healthy && progress.requiredResourceCount != 0L)
-          progress.completedResourceCount.toFloat() / progress.requiredResourceCount
-        else 0f
-      }
-    }
+  val progress by pack.downloadProgress.collectAsState()
+  val progressRatio =
+    (progress as? DownloadProgress.Healthy)
+      ?.takeIf { it.requiredResourceCount != 0L }
+      ?.let { it.completedResourceCount.toFloat() / it.requiredResourceCount } ?: 0f
 
   val animatedProgressRatio by
     animateFloatAsState(
@@ -416,7 +408,8 @@ private fun DownloadProgressCircle(pack: OfflinePack) {
 
 @Composable
 private fun PauseResumeUpdateButton(pack: OfflinePack, offlineManager: OfflineManager) {
-  val status = (pack.downloadProgress as? DownloadProgress.Healthy)?.status ?: return
+  val progress by pack.downloadProgress.collectAsState()
+  val status = (progress as? DownloadProgress.Healthy)?.status ?: return
   val coroutineScope = rememberCoroutineScope()
 
   fun onClick() {

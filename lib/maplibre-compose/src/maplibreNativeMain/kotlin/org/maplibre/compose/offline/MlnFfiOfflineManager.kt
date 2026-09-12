@@ -1,10 +1,13 @@
 package org.maplibre.compose.offline
 
-import androidx.compose.runtime.mutableStateOf
 import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -29,15 +32,12 @@ internal class MlnFfiOfflineManager(
   private val options: MlnFfiRuntimeOptions,
   resourceConfig: MapResourceConfig =
     MapResourceConfig(options.requestInterceptor, options.resourceProvider, options.logger),
-) : OfflineManager, OfflinePackOwner {
+) : OfflineManagerBackend, OfflinePackOwner {
 
   private val logger = options.logger
 
-  /**
-   * Compose state updated on the owner thread to preserve status update order and avoid depending
-   * on an AWT dispatcher.
-   */
-  private val packsState = mutableStateOf(emptySet<OfflinePack>())
+  /** Updated on the owner thread only, which preserves the order of status updates. */
+  private val packsState = MutableStateFlow(emptySet<OfflinePack>())
 
   /** Owner-thread state: the packs this manager has seen, keyed by native region id. */
   private val packsById = mutableMapOf<Long, OfflinePack>()
@@ -48,28 +48,63 @@ internal class MlnFfiOfflineManager(
   /** One manager applies one cache-budget change at a time. */
   private val cacheBudgetMutex = Mutex()
 
-  override val packs: Set<OfflinePack>
-    get() = packsState.value
+  @OptIn(ExperimentalAtomicApi::class) private val runtimeGuard = AtomicReference<() -> Unit> {}
+
+  override val packs: StateFlow<Set<OfflinePack>> = packsState.asStateFlow()
 
   init {
     runtime.start()
-    awaitConfiguredRuntime()
-    submit(
-      description = "list the offline packs",
-      start = { it.startOfflineRegions() },
-      finish = { nativeRuntime, handle ->
-        nativeRuntime.takeOfflineRegionsResult(handle).forEach { info ->
-          // One unrepresentable region must not cost the user the rest of their packs.
-          runCatching { registerRegion(info) }
-            .onFailure { logger?.w(it) { "Ignoring offline region ${info.id}" } }
-        }
-      },
+    awaitStartup("configure MapLibre's offline runtime", ::configureCacheBudget)
+    // Callers may read [packs] as soon as the constructor returns, so the listing completes here.
+    awaitStartup("list MapLibre's offline packs") { complete ->
+      submit(
+        description = "list the offline packs",
+        start = { it.startOfflineRegions() },
+        finish = { nativeRuntime, handle ->
+          nativeRuntime.takeOfflineRegionsResult(handle).forEach { info ->
+            // One unrepresentable region must not cost the user the rest of their packs.
+            runCatching { registerRegion(info) }
+              .onFailure { logger?.w(it) { "Ignoring offline region ${info.id}" } }
+          }
+        },
+        onResult = complete,
+      )
+    }
+  }
+
+  @OptIn(ExperimentalAtomicApi::class)
+  override fun bindToRuntime(requireRuntimeOpen: () -> Unit) {
+    runtimeGuard.store(requireRuntimeOpen)
+  }
+
+  @OptIn(ExperimentalAtomicApi::class)
+  override fun requireRuntimeOpen() {
+    runtimeGuard.load()()
+  }
+
+  /** Applies the configured cache budget, or does nothing when there is none. */
+  private fun configureCacheBudget(complete: (Result<Unit>) -> Unit): Boolean {
+    val initialSize = options.maximumCacheSizeBytes
+    if (initialSize == null) {
+      return runtime.post(
+        task = { complete(Result.success(Unit)) },
+        reject = { complete(Result.failure(it)) },
+      )
+    }
+    return submit(
+      description = "set the initial maximum ambient cache size to $initialSize bytes",
+      start = { it.startSetMaximumAmbientCacheSize(initialSize) },
+      finish = { _, _ -> logger?.d { "Ambient cache size set to $initialSize bytes" } },
+      onResult = complete,
     )
   }
 
-  /** Publishes the manager after runtime startup and initial cache-budget configuration succeed. */
+  /**
+   * Blocks the constructing thread until a startup task reports a result, and fails construction
+   * when it fails. [run] returns false when the runtime rejected the task.
+   */
   @OptIn(ExperimentalAtomicApi::class)
-  private fun awaitConfiguredRuntime() {
+  private fun awaitStartup(description: String, run: ((Result<Unit>) -> Unit) -> Boolean) {
     val settled = MlnFfiGate()
     val completed = AtomicBoolean(false)
     var outcome: Result<Unit>? = null
@@ -80,37 +115,19 @@ internal class MlnFfiOfflineManager(
       }
     }
 
-    val initialSize = options.maximumCacheSizeBytes
-    val accepted =
-      if (initialSize == null) {
-        runtime.post(
-          task = { complete(Result.success(Unit)) },
-          reject = { complete(Result.failure(it)) },
-        )
-      } else {
-        submit(
-          description = "set the initial maximum ambient cache size to $initialSize bytes",
-          start = { it.startSetMaximumAmbientCacheSize(initialSize) },
-          finish = { _, _ -> },
-          onResult = { result -> complete(result) },
-        )
-      }
-    if (!accepted) {
-      complete(
-        Result.failure(OfflineManagerException("The offline runtime rejected configuration"))
-      )
+    if (!run(::complete)) {
+      complete(Result.failure(OfflineManagerException("The offline runtime rejected the task")))
     }
 
     settled.awaitUntilOpen()
     val settledOutcome =
       outcome
         ?: failStartup(
-          "Could not configure MapLibre's offline runtime",
-          OfflineManagerException("The offline runtime never reported its configuration"),
+          "Could not $description",
+          OfflineManagerException("The offline runtime never reported a result"),
         )
     val failure = settledOutcome.exceptionOrNull()
-    if (failure != null) failStartup("Could not configure MapLibre's offline runtime", failure)
-    if (initialSize != null) logger?.d { "Ambient cache size set to $initialSize bytes" }
+    if (failure != null) failStartup("Could not $description", failure)
   }
 
   private fun failStartup(message: String, cause: Throwable): Nothing {

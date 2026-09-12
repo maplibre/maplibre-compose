@@ -1,12 +1,19 @@
 package org.maplibre.compose.offline
 
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.io.files.Path
 
 /** Manages the offline packs and ambient cache that belong to one map runtime. */
 public interface OfflineManager {
 
-  /** All offline packs registered with this manager. Backed by Compose snapshot state. */
-  public val packs: Set<OfflinePack>
+  /**
+   * All offline packs registered with this manager.
+   *
+   * The runtime lists the packs stored in its database before it becomes available, so the first
+   * value is complete.
+   */
+  public val packs: StateFlow<Set<OfflinePack>>
 
   /**
    * Creates a paused offline pack for [definition]. Call [resume] to start its download.
@@ -90,19 +97,32 @@ public interface OfflineManager {
   public suspend fun setMaximumAmbientCacheSize(size: Long)
 }
 
+/** The runtime-independent part of an [OfflineManager] implementation. */
+internal interface OfflineManagerBackend : OfflineManager {
+  /**
+   * Installs the check that every pack operation runs before touching the backend. The runtime
+   * calls this once, before it hands the manager to callers.
+   */
+  fun bindToRuntime(requireRuntimeOpen: () -> Unit)
+}
+
 internal class RuntimeBoundOfflineManager(
-  private val delegate: OfflineManager,
+  private val delegate: OfflineManagerBackend,
   private val requireRuntimeOpen: () -> Unit,
 ) : OfflineManager {
-  override val packs: Set<OfflinePack>
-    get() = delegate.packs.onEach(::bindToRuntime)
+  init {
+    delegate.bindToRuntime(requireRuntimeOpen)
+  }
+
+  override val packs: StateFlow<Set<OfflinePack>>
+    get() = delegate.packs
 
   override suspend fun create(
     definition: OfflinePackDefinition,
     metadata: ByteArray,
   ): OfflinePack {
     requireRuntimeOpen()
-    return bindToRuntime(delegate.create(definition, metadata))
+    return delegate.create(definition, metadata)
   }
 
   override fun resume(pack: OfflinePack) {
@@ -127,7 +147,7 @@ internal class RuntimeBoundOfflineManager(
 
   override suspend fun mergeDatabase(databaseFile: Path): Set<OfflinePack> {
     requireRuntimeOpen()
-    return delegate.mergeDatabase(databaseFile).onEach(::bindToRuntime)
+    return delegate.mergeDatabase(databaseFile)
   }
 
   override suspend fun invalidateAmbientCache() {
@@ -144,12 +164,12 @@ internal class RuntimeBoundOfflineManager(
     requireRuntimeOpen()
     delegate.setMaximumAmbientCacheSize(size)
   }
-
-  private fun bindToRuntime(pack: OfflinePack): OfflinePack = pack.bindToRuntime(requireRuntimeOpen)
 }
 
-internal object UnsupportedOfflineManager : OfflineManager {
-  override val packs: Set<OfflinePack> = emptySet()
+internal object UnsupportedOfflineManager : OfflineManagerBackend {
+  override val packs: StateFlow<Set<OfflinePack>> = MutableStateFlow(emptySet())
+
+  override fun bindToRuntime(requireRuntimeOpen: () -> Unit) {}
 
   override suspend fun create(
     definition: OfflinePackDefinition,

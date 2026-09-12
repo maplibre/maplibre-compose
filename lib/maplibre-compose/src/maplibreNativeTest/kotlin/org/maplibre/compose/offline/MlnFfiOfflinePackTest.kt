@@ -11,6 +11,7 @@ import kotlin.test.fail
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeSource
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.io.buffered
@@ -57,8 +58,12 @@ class MlnFfiOfflinePackTest {
       // The pack is built from what MapLibre echoed back out of the stored region, not from the
       // definition passed in, so this is a round trip through the database's own columns.
       assertEquals(definition, pack.definition)
-      assertContentEquals(metadata, pack.metadata)
-      assertEquals(setOf(pack), manager.packs, "the created pack should be listed immediately")
+      assertContentEquals(metadata, pack.metadata.value)
+      assertEquals(
+        setOf(pack),
+        manager.packs.value,
+        "the created pack should be listed immediately",
+      )
     }
 
   @Test
@@ -85,19 +90,18 @@ class MlnFfiOfflinePackTest {
     val updated = "after, and longer than before".encodeToByteArray()
     withTimeout(OPERATION_TIMEOUT_MILLIS) { pack.setMetadata(updated) }
 
-    assertContentEquals(updated, pack.metadata)
+    assertContentEquals(updated, pack.metadata.value)
 
     // The manager copies in both directions, so a caller reusing its buffer cannot change what the
     // pack reports.
     updated[0] = '!'.code.toByte()
-    assertContentEquals("after, and longer than before".encodeToByteArray(), pack.metadata)
+    assertContentEquals("after, and longer than before".encodeToByteArray(), pack.metadata.value)
 
     assertTrue(manager.close())
     val reopened = manager()
-    await("the updated metadata to be listed after reopening") { reopened.packs.isNotEmpty() }
     assertContentEquals(
       "after, and longer than before".encodeToByteArray(),
-      reopened.packs.single().metadata,
+      reopened.packs.value.single().metadata.value,
     )
   }
 
@@ -115,11 +119,11 @@ class MlnFfiOfflinePackTest {
       withTimeout(OPERATION_TIMEOUT_MILLIS) {
         manager.create(definition, "removed".encodeToByteArray())
       }
-    assertEquals(setOf(kept, removed), manager.packs)
+    assertEquals(setOf(kept, removed), manager.packs.value)
 
     withTimeout(OPERATION_TIMEOUT_MILLIS) { manager.delete(removed) }
 
-    assertEquals(setOf(kept), manager.packs)
+    assertEquals(setOf(kept), manager.packs.value)
   }
 
   /** A runtime can close its manager and a later runtime can reopen the same persistent cache. */
@@ -136,12 +140,11 @@ class MlnFfiOfflinePackTest {
     val second = manager()
     assertNotSame(first, second)
 
-    await("the reopened manager to list the pack it inherited") { second.packs.isNotEmpty() }
-
-    val restored = second.packs.single()
+    // The manager lists its stored packs before its constructor returns.
+    val restored = second.packs.value.single()
     assertEquals(created.regionId, restored.regionId)
     assertEquals(definition, restored.definition)
-    assertContentEquals(metadata, restored.metadata)
+    assertContentEquals(metadata, restored.metadata.value)
   }
 
   /**
@@ -174,9 +177,7 @@ class MlnFfiOfflinePackTest {
     assertTrue(first.close(), "the first manager should stop")
 
     val second = manager()
-    await("the reopened manager to list the shape pack") { second.packs.isNotEmpty() }
-
-    assertEquals(definition, second.packs.single().definition)
+    assertEquals(definition, second.packs.value.single().definition)
   }
 
   @Test
@@ -194,12 +195,9 @@ class MlnFfiOfflinePackTest {
     assertTrue(first.close(), "the first manager should stop")
 
     val second = manager()
-    await("the reopened manager to list the pack that was kept") {
-      second.packs.any { it.regionId == kept.regionId }
-    }
-    assertTrue(second.close(), "the reopened manager should finish its listing before closing")
+    assertTrue(second.close(), "the reopened manager should stop")
 
-    assertEquals(listOf(kept.regionId), second.packs.map { it.regionId })
+    assertEquals(listOf(kept.regionId), second.packs.value.map { it.regionId })
   }
 
   @Test
@@ -223,10 +221,10 @@ class MlnFfiOfflinePackTest {
 
     assertEquals(2, merged.size)
     assertTrue(existing in merged, "an identical source pack should reuse the destination pack")
-    assertEquals(merged, destination.packs)
+    assertEquals(merged, destination.packs.value)
     assertEquals(
       setOf("same pack", "source-only pack"),
-      merged.map { requireNotNull(it.metadata).decodeToString() }.toSet(),
+      merged.map { requireNotNull(it.metadata.value).decodeToString() }.toSet(),
     )
   }
 
@@ -253,11 +251,14 @@ class MlnFfiOfflinePackTest {
     // A paused pack issues no requests at all, so an error arriving is itself the evidence that
     // resuming reached MapLibre.
     await({
-      "the resumed pack to report a failed fetch, but it reported ${pack.downloadProgress}"
+      "the resumed pack to report a failed fetch, but it reported ${pack.downloadProgress.value}"
     }) {
-      pack.downloadProgress is DownloadProgress.Error
+      pack.downloadProgress.value is DownloadProgress.Error
     }
-    assertEquals("REASON_CONNECTION", (pack.downloadProgress as DownloadProgress.Error).reason)
+    assertEquals(
+      "REASON_CONNECTION",
+      (pack.downloadProgress.value as DownloadProgress.Error).reason,
+    )
 
     manager.pause(pack)
 
@@ -266,6 +267,24 @@ class MlnFfiOfflinePackTest {
         it.status == DownloadStatus.Paused
       }
     assertEquals(DownloadStatus.Paused, paused.status)
+  }
+
+  /** A background worker observes completion through plain flow collection. */
+  @Test
+  fun a_download_completes_for_a_collector_with_no_compose_host() = runBlocking {
+    val manager = manager()
+    val pack = downloadedPack(manager, "collected.json")
+
+    val completed =
+      withTimeout(OPERATION_TIMEOUT_MILLIS) {
+        pack.downloadProgress.first {
+          it is DownloadProgress.Healthy && it.status == DownloadStatus.Complete
+        }
+      }
+
+    assertTrue((completed as DownloadProgress.Healthy).completedResourceCount > 0)
+    val packs = withTimeout(OPERATION_TIMEOUT_MILLIS) { manager.packs.first { pack in it } }
+    assertEquals(setOf(pack), packs)
   }
 
   /** Reopening must restore status from the database through the same code path used on restart. */
@@ -280,8 +299,7 @@ class MlnFfiOfflinePackTest {
     assertTrue(first.close(), "the first manager should stop")
 
     val second = manager()
-    await("the reopened manager to list the finished pack") { second.packs.isNotEmpty() }
-    val restored = second.packs.single()
+    val restored = second.packs.value.single()
 
     val status = awaitHealthy(restored, "the restored pack's status") { true }
     assertEquals(DownloadStatus.Complete, status.status)
@@ -338,10 +356,10 @@ class MlnFfiOfflinePackTest {
     description: String,
     predicate: (DownloadProgress.Healthy) -> Boolean,
   ): DownloadProgress.Healthy {
-    await({ "$description, but it last reported ${pack.downloadProgress}" }) {
-      (pack.downloadProgress as? DownloadProgress.Healthy)?.let(predicate) == true
+    await({ "$description, but it last reported ${pack.downloadProgress.value}" }) {
+      (pack.downloadProgress.value as? DownloadProgress.Healthy)?.let(predicate) == true
     }
-    return pack.downloadProgress as DownloadProgress.Healthy
+    return pack.downloadProgress.value as DownloadProgress.Healthy
   }
 
   private suspend fun await(description: String, condition: () -> Boolean) =
