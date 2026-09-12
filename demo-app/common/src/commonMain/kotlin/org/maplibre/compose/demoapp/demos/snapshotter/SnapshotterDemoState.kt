@@ -160,10 +160,13 @@ internal fun refitFrame(current: DpSize, safe: DpSize, aspect: SnapshotAspect): 
 
 /** Clamps [size] to the safe area, scaling both axes together so [ratio] survives the clamp. */
 private fun clampFrameToRatio(size: DpSize, ratio: Float, safe: DpSize): DpSize {
+  // Rebuild one axis from the ratio: after a tight-area fallback, size may no longer carry it.
+  // When it does, the rebuild is lossless either way a drag resolved its dominant axis.
+  val rebuilt = DpSize(size.width, size.width / ratio)
   val maxWidth = (safe.width - FrameMargin * 2).coerceAtLeast(FrameMinSize)
   val maxHeight = (safe.height - FrameMargin * 2).coerceAtLeast(FrameMinSize)
-  val scale = min(1f, min(maxWidth / size.width, maxHeight / size.height))
-  val fitted = DpSize(size.width * scale, size.height * scale)
+  val scale = min(1f, min(maxWidth / rebuilt.width, maxHeight / rebuilt.height))
+  val fitted = DpSize(rebuilt.width * scale, rebuilt.height * scale)
   if (fitted.width >= FrameMinSize && fitted.height >= FrameMinSize) return fitted
   // Under the floor, grow back to the smallest size that keeps the ratio and clears both axes.
   val growScale = max(FrameMinSize / fitted.width, FrameMinSize / fitted.height)

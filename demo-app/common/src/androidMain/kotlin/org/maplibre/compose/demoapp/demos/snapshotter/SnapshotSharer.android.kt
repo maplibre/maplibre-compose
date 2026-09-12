@@ -71,8 +71,16 @@ internal class AndroidSnapshotSharer : SnapshotSharer {
     val bytes = withContext(Dispatchers.IO) { image.toPngBytes() }
     val result = CompletableDeferred<Uri?>()
     pendingSave = result
-    launcher.launch(fileName)
-    val uri = result.await() ?: return SnapshotActionResult.Cancelled
+    // Clear the pending deferred on any exceptional exit, or a failed launch blocks every
+    // later Save at the re-entry guard.
+    val uri: Uri?
+    try {
+      launcher.launch(fileName)
+      uri = result.await()
+    } finally {
+      pendingSave = null
+    }
+    if (uri == null) return SnapshotActionResult.Cancelled
     return withContext(Dispatchers.IO) {
       try {
         context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }

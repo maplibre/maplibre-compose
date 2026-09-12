@@ -62,9 +62,21 @@ internal class JsSnapshotSharer : SnapshotSharer {
 internal actual fun rememberSnapshotSharer(): SnapshotSharer = remember { JsSnapshotSharer() }
 
 private fun webShareSupported(): Boolean {
-  val navigator = navigator.asDynamic()
-  return navigator.share != undefined && navigator.canShare != undefined
+  val nav = navigator.asDynamic()
+  if (nav.share == undefined || nav.canShare == undefined) return false
+  // Some browsers share text but not files; only a real File probe tells them apart.
+  val probe = dataUrlToFile(TinyPngDataUrl, "probe.png")
+  val data = unsafeJso<ShareData> { files = jsArrayOf(probe) }
+  return try {
+    navigator.canShare(data)
+  } catch (error: Throwable) {
+    false
+  }
 }
+
+/** A 1×1 transparent PNG, used to probe whether the browser can share files at all. */
+private const val TinyPngDataUrl =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
 
 /** Decodes a PNG data URL into a [File] without any async step. */
 private fun dataUrlToFile(dataUrl: String, fileName: String): File {

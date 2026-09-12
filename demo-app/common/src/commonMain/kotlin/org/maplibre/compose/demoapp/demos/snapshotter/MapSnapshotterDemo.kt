@@ -106,10 +106,11 @@ object MapSnapshotterDemo : Demo {
           if (activeSession === session) {
             activeSession = null
             // Reset per-session state on the way out so a later visit never replays a stale
-            // flash, flight, or failure before this effect's body would run.
+            // flash, flight, or failure before this effect's body would run. frameBounds is
+            // deliberately kept: SnapshotFrame stays composed across a snapshotter replacement,
+            // and its mirror flow only republishes when the rect changes.
             demoState.status = CaptureStatus.Ready
             demoState.captured = null
-            demoState.frameBounds = null
             demoState.cleanupFailure = null
             demoState.sheetOpen = false
             demoState.flashTick = 0
