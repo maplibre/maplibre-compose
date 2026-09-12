@@ -4,6 +4,7 @@ import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.demoapp.Protomaps
@@ -52,7 +53,7 @@ class CarMapDemo(runtime: MapRuntime, private val scope: CoroutineScope, initial
     inFlightZoom = request
     cameraAnimation = scope.launch {
       try {
-        state.animateCameraPosition(request.target)
+        state.animateCameraPosition(request.target, CameraAnimation.Ease())
       } finally {
         if (inFlightZoom === request) inFlightZoom = null
       }

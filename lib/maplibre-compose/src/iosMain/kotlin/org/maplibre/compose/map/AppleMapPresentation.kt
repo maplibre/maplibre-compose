@@ -37,7 +37,7 @@ import platform.darwin.dispatch_async
 import platform.darwin.dispatch_get_main_queue
 
 /**
- * Presents [state] on a caller-owned [CAMetalLayer], without a Compose UI hierarchy.
+ * Presents [state] on a caller-owned `CAMetalLayer`, without a Compose UI hierarchy.
  *
  * Use [MaplibreMapView] to host this presentation in UIKit; it supplies the layer, size, and
  * display scale. Custom layer hosts use [attachLayer]. Rendering runs while [isActive] is true. The
