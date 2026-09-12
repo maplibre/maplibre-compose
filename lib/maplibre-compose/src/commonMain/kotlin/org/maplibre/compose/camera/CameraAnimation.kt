@@ -42,7 +42,7 @@ public sealed interface CameraAnimation {
    *
    * @param duration The total time of the flight. Null derives it from [speed].
    * @param speed The average speed in screenfuls per second, where a screenful is the visible span
-   *   of the map. Null uses [DefaultSpeed]. Ignored when [duration] is set.
+   *   of the map. Null uses [DefaultSpeed]. Must be null when [duration] is set.
    * @param minZoom Keeps the flight path from zooming out past this zoom. The engines fit the
    *   flight curve so that its peak lands near this value rather than clamping, so the path can
    *   pass up to about half a zoom level below it. A value below the map's minimum zoom or below

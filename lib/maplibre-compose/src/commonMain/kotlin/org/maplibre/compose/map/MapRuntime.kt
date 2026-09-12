@@ -559,7 +559,7 @@ internal constructor(
 
   /**
    * Resolves [CameraAnimation.forPath] against the zoom the map will apply. The engines also keep
-   * the center inside a bounding box constraint, which is not mirrored here. [animation] arrives
+   * the center inside a bounding box constraint, which is not mirrored here. The receiver arrives
    * already scaled by the animator duration scale, so a fallback ease it turns into is scaled here.
    */
   private fun CameraAnimation.forPathTo(target: CameraPosition): CameraAnimation {
