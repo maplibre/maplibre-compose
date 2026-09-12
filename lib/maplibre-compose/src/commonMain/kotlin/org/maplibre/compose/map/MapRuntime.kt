@@ -91,9 +91,11 @@ import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
+import org.maplibre.compose.util.positions
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
+import org.maplibre.spatialk.geojson.MultiPoint
 import org.maplibre.spatialk.geojson.Position
 
 /**
@@ -517,6 +519,16 @@ internal constructor(
     adapter.cameraForBounds(boundingBox, bearing, tilt, padding)
   }
 
+  suspend fun cameraForGeometry(
+    geometry: Geometry,
+    bearing: Double,
+    tilt: Double,
+    padding: PaddingValues,
+  ): CameraPosition = runLeaseBound {
+    awaitViewportState()
+    adapter.cameraForGeometry(geometry, bearing, tilt, padding)
+  }
+
   suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double = 0.0,
@@ -893,6 +905,55 @@ internal constructor(
     tilt: Double = 0.0,
     padding: PaddingValues = PaddingValues(0.dp),
   ): CameraPosition = awaitAttachment().cameraForBounds(boundingBox, bearing, tilt, padding)
+
+  /**
+   * Waits for a viewport, then calculates a camera that fits every position of [geometry] without
+   * moving the map or interrupting camera input or animations. Detaching the surface during the
+   * query cancels it.
+   *
+   * Unlike [cameraForBounds], the fit follows the positions themselves rather than their bounding
+   * box, so a rotated camera leaves no extra space around a diagonal route. With a bearing of zero
+   * and a tilt of zero, both queries produce the same camera.
+   *
+   * Positions are used as given. Express a route that crosses the antimeridian with continuous
+   * longitudes, such as 179 followed by 181; the query does not unwrap longitudes itself.
+   *
+   * [padding] adds space around the positions in addition to the map's camera padding. It does not
+   * change the map's padding. The result uses the current viewport size and camera constraints;
+   * recalculate it if those or the map's padding change before applying it.
+   *
+   * On the browser, fitting calculates the target and zoom without [tilt], then assigns [tilt] to
+   * the result. A nonzero tilt may therefore leave part of the geometry outside the viewport.
+   *
+   * @throws IllegalArgumentException if [geometry] contains no positions.
+   * @throws IllegalStateException if the backend cannot calculate a camera for the geometry.
+   */
+  public suspend fun cameraForGeometry(
+    geometry: Geometry,
+    bearing: Double = 0.0,
+    tilt: Double = 0.0,
+    padding: PaddingValues = PaddingValues(0.dp),
+  ): CameraPosition {
+    require(geometry.positions().any()) { "The geometry contains no positions" }
+    return awaitAttachment().cameraForGeometry(geometry, bearing, tilt, padding)
+  }
+
+  /**
+   * Waits for a viewport, then calculates a camera that fits every position in [coordinates]. See
+   * [cameraForGeometry] for the fit, padding, and antimeridian semantics.
+   *
+   * @throws IllegalArgumentException if [coordinates] is empty.
+   * @throws IllegalStateException if the backend cannot calculate a camera for the coordinates.
+   */
+  public suspend fun cameraForCoordinates(
+    coordinates: Collection<Position>,
+    bearing: Double = 0.0,
+    tilt: Double = 0.0,
+    padding: PaddingValues = PaddingValues(0.dp),
+  ): CameraPosition {
+    require(coordinates.isNotEmpty()) { "The coordinates are empty" }
+    return cameraForGeometry(MultiPoint(coordinates.toList()), bearing, tilt, padding)
+  }
 
   /**
    * Waits for a viewport, then fits [boundingBox] without animation. A newer camera command or
