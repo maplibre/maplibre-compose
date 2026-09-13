@@ -60,7 +60,6 @@ import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.painterResource
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.check_24px
-import org.maplibre.compose.overlay.AtPosition
 import org.maplibre.compose.overlay.MapOverlayScope
 
 @Composable
@@ -88,27 +87,26 @@ internal fun MapOverlayScope.MarkerEditors(state: EditableMarkersState, mapSize:
       val shift = screen?.let { markerEditorShift(it.x.value, editorWidth, left, right) } ?: 0f
       val below = screen != null && screen.y.value - 76f - editorHeight < top
 
-      AtPosition(
-        marker.position,
-        alignment = if (below) Alignment.TopCenter else Alignment.BottomCenter,
-      ) {
-        AnimatedMarkerEditor(
-          marker = marker,
-          visible = editingId == marker.id && draggingId == null && !marker.removing,
-          below = below,
-          shift = shift,
-          onClose = { editingId = null },
-          modifier =
-            Modifier.padding(
+      AnimatedMarkerEditor(
+        marker = marker,
+        visible = editingId == marker.id && draggingId == null && !marker.removing,
+        below = below,
+        shift = shift,
+        onClose = { editingId = null },
+        modifier =
+          Modifier.placedAt(
+              marker.position,
+              alignment = if (below) Alignment.TopCenter else Alignment.BottomCenter,
+            )
+            .padding(
               top = if (below) (32f + 14f * textScale).dp else 0.dp,
               bottom = if (below) 0.dp else 76.dp,
             ),
-          editorModifier =
-            Modifier.width(editorWidth.dp).absoluteOffset(x = shift.dp).onGloballyPositioned {
-              editorHeight = with(density) { it.size.height.toDp().value }
-            },
-        )
-      }
+        editorModifier =
+          Modifier.width(editorWidth.dp).absoluteOffset(x = shift.dp).onGloballyPositioned {
+            editorHeight = with(density) { it.size.height.toDp().value }
+          },
+      )
     }
   }
 

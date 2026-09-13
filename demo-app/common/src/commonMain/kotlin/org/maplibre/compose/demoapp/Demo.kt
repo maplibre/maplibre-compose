@@ -64,8 +64,7 @@ interface Demo {
    * Compose UI drawn over the map while this demo is selected. [state] exposes the shell's
    * settings, style, and camera.
    *
-   * [org.maplibre.compose.overlay.MapOverlayScope.AtPosition] pins a child to a geographic
-   * position.
+   * [org.maplibre.compose.overlay.MapOverlayScope.placedAt] pins a child to a geographic position.
    */
   @UiComposable @Composable fun MapOverlayScope.Overlay(state: DemoAppState) {}
 

@@ -63,7 +63,6 @@ import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
 import org.maplibre.compose.mlnffi.setFfiTestMapContent
-import org.maplibre.compose.overlay.AtPosition
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.include
 import org.maplibre.compose.sources.GeoJsonData
@@ -784,9 +783,11 @@ class MlnFfiMapCompositionTest {
         onFrame = { onFrame() },
         overlay =
           MapOverlay {
-            AtPosition(target, alignment = Alignment.Center) {
-              Box(Modifier.size(4.dp).testTag(PLACED_AT_TAG))
-            }
+            Box(
+              Modifier.placedAt(target, alignment = Alignment.Center)
+                .size(4.dp)
+                .testTag(PLACED_AT_TAG)
+            )
           },
       )
     }

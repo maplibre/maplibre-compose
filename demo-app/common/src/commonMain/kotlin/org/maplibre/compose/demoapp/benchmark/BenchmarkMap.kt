@@ -44,7 +44,6 @@ import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.map.StyleLoadState
-import org.maplibre.compose.overlay.AtPosition
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.Position
 
@@ -165,10 +164,8 @@ internal fun BenchmarkRun(
       uiOptions = benchmarkMapOptions(config),
       renderOptions = RenderOptions { maximumFps = config.maximumFps },
       overlay = {
-        AtPosition(Origin) {
-          Canvas(Modifier.size(44.dp)) {
-            drawCircle(Color.Cyan, 20.dp.toPx(), style = Stroke(3.dp.toPx()))
-          }
+        Canvas(Modifier.placedAt(Origin).size(44.dp)) {
+          drawCircle(Color.Cyan, 20.dp.toPx(), style = Stroke(3.dp.toPx()))
         }
       },
     )

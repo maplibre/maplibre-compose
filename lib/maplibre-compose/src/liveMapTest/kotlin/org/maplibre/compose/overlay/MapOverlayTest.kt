@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import org.maplibre.compose.map.MapPresentationOwnerToken
 import org.maplibre.compose.map.MapSnapshotRequest
 import org.maplibre.compose.map.PresentationTestAdapter
@@ -141,12 +142,19 @@ class MapOverlayTest {
         modifier = Modifier.size(300.dp).testTag("map"),
         overlay = {
           val overlay = this
-          Box(Modifier.absoluteOffset(x = offset, y = offset).size(200.dp).padding(10.dp)) {
-            overlay.AtPosition(Position(100.0, 100.0)) {
-              Box(Modifier.size(10.dp).testTag("at"))
+          Box(Modifier.absoluteOffset(x = offset, y = offset).size(200.dp)) {
+            with(overlay) {
+              Box(
+                Modifier.padding(10.dp).placedAt(Position(100.0, 100.0)).size(10.dp).testTag("at")
+              )
             }
-            overlay.TowardsPosition(Position(1000.0, 100.0), state = towards) {
-              Box(Modifier.size(10.dp).testTag("towards"))
+            with(overlay) {
+              Box(
+                Modifier.padding(10.dp)
+                  .placedTowards(Position(1000.0, 100.0), state = towards)
+                  .size(10.dp)
+                  .testTag("towards")
+              )
             }
           }
         },
@@ -175,12 +183,8 @@ class MapOverlayTest {
     setContent {
       MapOverlayHost(
         overlay = {
-          AtPosition(Position(0.0, 0.0)) {
-            Box(Modifier.size(8.dp).testTag("at"))
-          }
-          TowardsPosition(Position(90.0, 0.0)) {
-            Box(Modifier.size(8.dp).testTag("towards"))
-          }
+          Box(Modifier.placedAt(Position(0.0, 0.0)).size(8.dp).testTag("at"))
+          Box(Modifier.placedTowards(Position(90.0, 0.0)).size(8.dp).testTag("towards"))
           Box(Modifier.size(8.dp).testTag("aligned").align(Alignment.TopStart))
         },
         mapState = mapState,
@@ -194,29 +198,53 @@ class MapOverlayTest {
   }
 
   @Test
-  fun removing_a_placed_towards_child_resets_its_state() = runComposeUiTest {
-    val mapState = mapRuntimeForTest().createMapState(baseStyle = BaseStyle.Empty)
-    val state = PlacedTowardsState()
-    var show by mutableStateOf(true)
+  fun placed_towards_updates_and_releases_state_without_removing_the_child() = runComposeUiTest {
+    val runtime = mapRuntimeForTest()
+    val map = runtime.createMapState(BaseStyle.Empty)
+    val adapter =
+      object : PresentationTestAdapter() {
+          override fun screenLocationFromPosition(position: Position) =
+            DpOffset(position.longitude.dp, position.latitude.dp)
+        }
+        .apply { currentViewport = viewportFor(MapSnapshotRequest(300, 300)) }
+    map.publishPresentation(map.reservePresentation(MapPresentationOwnerToken()), adapter)
+    val first = PlacedTowardsState()
+    val second = PlacedTowardsState()
+    var state by mutableStateOf(first)
+    var target by mutableStateOf(Position(1000.0, 150.0))
+    var placed by mutableStateOf(true)
     setContent {
       MapOverlayHost(
+        mapState = map,
+        modifier = Modifier.size(300.dp),
         overlay = {
-          if (show) {
-            TowardsPosition(Position(90.0, 0.0), state = state) {
-              Box(Modifier.size(8.dp))
-            }
-          }
+          Box(
+            (if (placed) Modifier.placedTowards(target, state) else Modifier)
+              .size(10.dp)
+              .testTag("pin")
+          )
         },
-        mapState = mapState,
       )
     }
     waitForIdle()
-    runOnIdle {
-      state.isPlaced = true
-      show = false
-    }
+    assertTrue(first.isPlaced)
+    onNodeWithTag("pin").assertIsDisplayed()
+    runOnIdle { state = second }
     waitForIdle()
-    assertFalse(state.isPlaced)
-    mapState.close()
+    assertFalse(first.isPlaced)
+    assertTrue(second.isPlaced)
+    runOnIdle { target = Position(150.0, 150.0) }
+    waitForIdle()
+    assertFalse(second.isPlaced)
+    onNodeWithTag("pin").assertIsNotDisplayed()
+    runOnIdle { target = Position(1000.0, 150.0) }
+    waitForIdle()
+    assertTrue(second.isPlaced)
+    runOnIdle { placed = false }
+    waitForIdle()
+    assertFalse(second.isPlaced)
+    onNodeWithTag("pin").assertIsDisplayed()
+    map.close()
+    runtime.close()
   }
 }

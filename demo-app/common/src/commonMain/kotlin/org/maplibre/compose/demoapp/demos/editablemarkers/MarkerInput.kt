@@ -31,7 +31,6 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import org.maplibre.compose.overlay.AtPosition
 import org.maplibre.compose.overlay.MapOverlayScope
 
 @Composable
@@ -41,38 +40,36 @@ internal fun MapOverlayScope.MarkerTargets(state: EditableMarkersState) =
     for (marker in markers) key(marker.id) {
       var anchor by remember { mutableStateOf<DpOffset?>(null) }
       var trashTarget by remember { mutableStateOf<MarkerTrashTarget?>(null) }
-      AtPosition(marker.position, alignment = Alignment.BottomCenter) {
-        MarkerInputTarget(
-          modifier = Modifier,
-          enabled = !marker.removing && (activeId == null || activeId == marker.id),
-          onHover = { hovered ->
-            if (hovered) hoveredId = marker.id else if (hoveredId == marker.id) hoveredId = null
-          },
-          onPress = { rootPosition ->
-            anchor = mapState.screenLocationFromPosition(marker.position)
-            trashTarget = MarkerTrashTarget(rootPosition)
-            pressedId = marker.id
-          },
-          onDragStart = {
-            editingId = null
-            draggingId = marker.id
-            pressedId = null
-          },
-          onDrag = { rootPosition, distance, delta ->
-            overTrash = trashTarget?.update(rootPosition, trashBounds) == true
-            trashNeedsExit = trashTarget?.needsExit == true
-            anchor?.let { start ->
-              mapState.positionFromScreenLocation(start + distance)?.let { marker.position = it }
-            }
-            dragTilt = (delta.x * 0.7f).coerceIn(-18f, 18f)
-          },
-          onTap = { select(marker) },
-          onDragEnd = { if (overTrash) remove(marker) else marker.bounce++ },
-          onFinish = {
-            if (pressedId == marker.id || draggingId == marker.id) endGesture()
-          },
-        )
-      }
+      MarkerInputTarget(
+        modifier = Modifier.placedAt(marker.position, alignment = Alignment.BottomCenter),
+        enabled = !marker.removing && (activeId == null || activeId == marker.id),
+        onHover = { hovered ->
+          if (hovered) hoveredId = marker.id else if (hoveredId == marker.id) hoveredId = null
+        },
+        onPress = { rootPosition ->
+          anchor = mapState.screenLocationFromPosition(marker.position)
+          trashTarget = MarkerTrashTarget(rootPosition)
+          pressedId = marker.id
+        },
+        onDragStart = {
+          editingId = null
+          draggingId = marker.id
+          pressedId = null
+        },
+        onDrag = { rootPosition, distance, delta ->
+          overTrash = trashTarget?.update(rootPosition, trashBounds) == true
+          trashNeedsExit = trashTarget?.needsExit == true
+          anchor?.let { start ->
+            mapState.positionFromScreenLocation(start + distance)?.let { marker.position = it }
+          }
+          dragTilt = (delta.x * 0.7f).coerceIn(-18f, 18f)
+        },
+        onTap = { select(marker) },
+        onDragEnd = { if (overTrash) remove(marker) else marker.bounce++ },
+        onFinish = {
+          if (pressedId == marker.id || draggingId == marker.id) endGesture()
+        },
+      )
     }
   }
 

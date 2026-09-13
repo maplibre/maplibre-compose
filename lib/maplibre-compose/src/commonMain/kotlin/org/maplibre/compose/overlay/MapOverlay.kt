@@ -13,10 +13,9 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.UiComposable
@@ -26,11 +25,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MapStyleState
+import org.maplibre.spatialk.geojson.Position
 
 /**
  * A full-map [BoxScope]. Normal Compose sizing and alignment do not apply any implicit insets. Use
- * [Controls] to arrange controls inside the unobstructed region, and [AtPosition] or
- * [TowardsPosition] for geographic placement.
+ * [Controls] to arrange controls inside the unobstructed region, and [Modifier.placedAt] or
+ * [Modifier.placedTowards] for geographic placement.
  */
 @LayoutScopeMarker
 @Stable
@@ -44,6 +44,34 @@ public interface MapOverlayScope : BoxScope {
 
   /** The camera padding supplied to the map composable, without waiting for a rendered frame. */
   public val cameraPadding: PaddingValues
+
+  /**
+   * Places this child at [position]. [alignment] selects the point of the child that sits on the
+   * position; [Alignment.BottomCenter] puts a label above it.
+   *
+   * This modifier fills the available bounded space and measures the child without constraints. Put
+   * child sizing and styling after it. Padding or sizing before it defines the placement region.
+   * Nested containers convert from map coordinates automatically. The child is not placed before a
+   * viewport exists or when entirely outside the region.
+   */
+  public fun Modifier.placedAt(
+    position: Position,
+    alignment: Alignment = Alignment.Center,
+  ): Modifier
+
+  /**
+   * Places this child on an ellipse inscribed in the available bounded space, pointing towards
+   * [position]. Only places the child while the position projects outside that ellipse. The point
+   * on the child's own inscribed ellipse that faces the target touches the placement ellipse.
+   *
+   * Padding or sizing before this modifier defines the ellipse's region; sizing and styling after
+   * it apply to the child. Nested containers convert from map coordinates automatically. Pass
+   * [state] to read the direction, for example to rotate an indicator.
+   */
+  public fun Modifier.placedTowards(
+    position: Position,
+    state: PlacedTowardsState? = null,
+  ): Modifier
 }
 
 /**
@@ -151,7 +179,7 @@ internal fun MapOverlayHost(
   cameraPadding: PaddingValues = PaddingValues(0.dp),
   modifier: Modifier = Modifier,
 ) {
-  val coordinates = remember { OverlayCoordinates() }
+  val coordinates = remember { mutableStateOf<LayoutCoordinates?>(null) }
   Box(modifier.onPlaced { coordinates.value = it }) {
     val scope =
       remember(mapState, cameraPadding, this) {
@@ -161,14 +189,16 @@ internal fun MapOverlayHost(
   }
 }
 
-internal class OverlayCoordinates {
-  var value: LayoutCoordinates? by mutableStateOf(null)
-}
-
 @Stable
 internal class MapOverlayScopeImpl(
   override val mapState: MapState,
   override val cameraPadding: PaddingValues,
   boxScope: BoxScope,
-  val coordinates: OverlayCoordinates,
-) : MapOverlayScope, BoxScope by boxScope
+  val coordinates: State<LayoutCoordinates?>,
+) : MapOverlayScope, BoxScope by boxScope {
+  override fun Modifier.placedAt(position: Position, alignment: Alignment): Modifier =
+    this.then(GeographicPlacement(mapState, coordinates, position, alignment))
+
+  override fun Modifier.placedTowards(position: Position, state: PlacedTowardsState?): Modifier =
+    this.then(GeographicPlacement(mapState, coordinates, position, alignment = null, state))
+}

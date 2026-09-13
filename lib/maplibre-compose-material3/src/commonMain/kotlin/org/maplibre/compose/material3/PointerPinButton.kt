@@ -26,15 +26,14 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.material3.util.proportionalPadding
 import org.maplibre.compose.overlay.MapOverlayScope
-import org.maplibre.compose.overlay.TowardsPosition
 import org.maplibre.compose.overlay.rememberPlacedTowardsState
 import org.maplibre.spatialk.geojson.Position
 
 /**
  * An elevated button in the shape of a pointer pin, placed through
- * [TowardsPosition][MapOverlayScope.TowardsPosition] on the edge of an ellipse inscribed in its
- * layout bounds and pointing towards [targetPosition]. Only shown while [targetPosition] is outside
- * of the ellipse.
+ * [placedTowards][MapOverlayScope.placedTowards] on the edge of an ellipse inscribed in its layout
+ * bounds and pointing towards [targetPosition]. Only shown while [targetPosition] is outside of the
+ * ellipse.
  *
  * @param targetPosition position (off-screen) the pin should point at
  * @param modifier the [Modifier] to be applied to this button
@@ -71,33 +70,32 @@ public fun MapOverlayScope.PointerPinButton(
 ) {
   val placement = rememberPlacedTowardsState()
 
-  TowardsPosition(targetPosition, state = placement) {
-    ElevatedButton(
-      onClick = onClick,
+  ElevatedButton(
+    onClick = onClick,
+    modifier =
+      Modifier.placedTowards(targetPosition, state = placement)
+        .then(modifier)
+        // Rotation applies at draw time, after the layout pass writes the angle, so the pin
+        // points at the target on the same frame it is placed.
+        .graphicsLayer { rotationZ = placement.angleDegrees },
+    enabled = enabled,
+    shape = PointerPinShape,
+    colors = colors,
+    elevation = elevation,
+    border = border,
+    contentPadding = PaddingValues(0.dp),
+    interactionSource = interactionSource,
+  ) {
+    Box(
       modifier =
-        modifier
-          // Rotation applies at draw time, after the layout pass writes the angle, so the pin
-          // points at the target on the same frame it is placed.
-          .graphicsLayer { rotationZ = placement.angleDegrees },
-      enabled = enabled,
-      shape = PointerPinShape,
-      colors = colors,
-      elevation = elevation,
-      border = border,
-      contentPadding = PaddingValues(0.dp),
-      interactionSource = interactionSource,
+        Modifier
+          // Counter-rotation keeps the content upright inside the rotated pin.
+          .graphicsLayer { rotationZ = -placement.angleDegrees }
+          // Offset the content from the pin tip to center it in the rounded part.
+          .proportionalPadding(PointerPinShape.POINTY_SIZE)
+          .padding(contentPadding)
     ) {
-      Box(
-        modifier =
-          Modifier
-            // Counter-rotation keeps the content upright inside the rotated pin.
-            .graphicsLayer { rotationZ = -placement.angleDegrees }
-            // Offset the content from the pin tip to center it in the rounded part.
-            .proportionalPadding(PointerPinShape.POINTY_SIZE)
-            .padding(contentPadding)
-      ) {
-        content()
-      }
+      content()
     }
   }
 }

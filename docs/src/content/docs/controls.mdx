@@ -95,7 +95,7 @@ Padding on a bounding-box camera move adds to `cameraPadding` for that fit.
 
 ## Pin Compose UI to a location
 
-<Api of="AtPosition" /> puts a child on a geographic position.
+<Api of="MapOverlayScope.placedAt" /> puts a child on a geographic position.
 Include <Api of="MapOverlay.Default" /> to keep the default controls. A pan, a
 zoom, or a window resize moves the child with the map.
 
@@ -106,17 +106,21 @@ zoom, or a window resize moves the child with the map.
 
 ## Point at an off-screen location
 
-Use <Api of="TowardsPosition" /> for a direction indicator when
+Use <Api of="MapOverlayScope.placedTowards" /> for a direction indicator when
 a location is out of view. It places the child along an ellipse inside its
 layout bounds and hides it while the location is inside that ellipse. Nest it in
 `Controls` to use the unobstructed region, or size and pad it with normal Compose
 layouts. Geographic placements convert map coordinates into their local layout,
 including when nested or offset.
 
+The placement modifiers fill the available space. Put marker sizing, padding,
+and drawing modifiers after `placedAt` or `placedTowards`. Put sizing or padding
+before them to change the placement region instead.
+
 <Code code={region(controls, "placedTowards")} lang="kotlin" title="App.kt" />
 
 1. The state stores the placement that the overlay computed.
 2. `angleDegrees` is the direction of the target, clockwise from screen-up.
 
-<Api of="PointerPinButton" /> from the Material 3 module uses this layout
+<Api of="PointerPinButton" /> from the Material 3 module uses this modifier
 to display a pin-shaped button that points at the target.
