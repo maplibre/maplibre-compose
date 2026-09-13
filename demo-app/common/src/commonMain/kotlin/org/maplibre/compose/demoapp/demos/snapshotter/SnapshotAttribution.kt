@@ -17,9 +17,11 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.sp
 import be.digitalia.compose.htmlconverter.htmlToAnnotatedString
 import kotlin.math.roundToInt
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /** Embeds the captured style's credits so they travel with the saved or shared image. */
-internal fun ImageBitmap.withAttribution(
+internal suspend fun ImageBitmap.withAttribution(
   attributions: List<String>,
   textMeasurer: TextMeasurer,
   density: Density,
@@ -41,18 +43,21 @@ internal fun ImageBitmap.withAttribution(
   val stripWidth = layout.size.width + padding * 2
   val stripHeight = layout.size.height + padding * 2
   val scale = minOf(1f, width / stripWidth, height / (stripHeight * 2))
-  return ImageBitmap(width, height).also { output ->
-    CanvasDrawScope().draw(
-      density,
-      layoutDirection,
-      Canvas(output),
-      Size(width.toFloat(), height.toFloat()),
-    ) {
-      drawImage(this@withAttribution)
-      translate(top = height - stripHeight * scale) {
-        scale(scale, pivot = Offset.Zero) {
-          drawRect(Color.White.copy(alpha = 0.9f), size = Size(width / scale, stripHeight))
-          drawText(layout, topLeft = Offset(padding, padding))
+  // Keep the composition-owned text measurer on the UI thread; raster work owns its output.
+  return withContext(Dispatchers.Default) {
+    ImageBitmap(width, height).also { output ->
+      CanvasDrawScope().draw(
+        density,
+        layoutDirection,
+        Canvas(output),
+        Size(width.toFloat(), height.toFloat()),
+      ) {
+        drawImage(this@withAttribution)
+        translate(top = height - stripHeight * scale) {
+          scale(scale, pivot = Offset.Zero) {
+            drawRect(Color.White.copy(alpha = 0.9f), size = Size(width / scale, stripHeight))
+            drawText(layout, topLeft = Offset(padding, padding))
+          }
         }
       }
     }
