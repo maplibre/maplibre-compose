@@ -14,8 +14,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
@@ -25,6 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -81,7 +82,11 @@ internal fun SnapshotFrame(
         animationSpec = if (dragging) snap() else MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "frame size",
       )
-    val size = fitFrameToSafeArea(animated, safe, SnapshotAspect.Free)
+    val size =
+      DpSize(
+        animated.width.coerceIn(0.dp, (safe.width - FrameMargin * 2).coerceAtLeast(0.dp)),
+        animated.height.coerceIn(0.dp, (safe.height - FrameMargin * 2).coerceAtLeast(0.dp)),
+      )
     val frame = centeredFrame(size, safe)
     Box(Modifier.align(Alignment.Center).size(size).onGloballyPositioned(onPositioned))
     if (size.width >= HandleTouchTarget && size.height >= HandleTouchTarget) {
@@ -89,6 +94,7 @@ internal fun SnapshotFrame(
         FrameHandle(
           corner,
           frame,
+          modifier = Modifier.align(AbsoluteAlignment.TopLeft),
           onDragging = { dragging = it },
           onDrag = { drag -> preferredSize = resizedFrame(size, corner, drag, safe, aspect) },
         )
@@ -159,6 +165,7 @@ private fun DrawScope.drawBrackets(frame: Rect, arm: Float, color: Color, stroke
 private fun FrameHandle(
   corner: FrameCorner,
   frame: Rect,
+  modifier: Modifier,
   onDragging: (Boolean) -> Unit,
   onDrag: (DpOffset) -> Unit,
 ) {
@@ -192,7 +199,8 @@ private fun FrameHandle(
   val shrink = DpOffset(-24.dp * corner.signX, -24.dp * corner.signY)
   Box(
     modifier =
-      Modifier.offset {
+      modifier
+        .absoluteOffset {
           IntOffset(
             (center.x.dp.toPx() - HandleTouchTarget.toPx() / 2).roundToInt(),
             (center.y.dp.toPx() - HandleTouchTarget.toPx() / 2).roundToInt(),

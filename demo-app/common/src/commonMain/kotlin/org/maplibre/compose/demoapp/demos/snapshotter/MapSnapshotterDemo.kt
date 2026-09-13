@@ -18,6 +18,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
@@ -25,6 +26,8 @@ import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
@@ -38,10 +41,13 @@ import org.maplibre.compose.demoapp.DemoMapControls
 import org.maplibre.compose.demoapp.DemoPointerPin
 import org.maplibre.compose.demoapp.DemoStyle
 import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.map.MapSnapshotRequest
 import org.maplibre.compose.demoapp.controlPadding
 import org.maplibre.compose.overlay.MapOverlayScope
+import org.maplibre.compose.map.MapState
+import org.maplibre.compose.overlay.attributions
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.spatialk.geojson.Feature
@@ -55,10 +61,14 @@ private const val MaxSnapshotCanvasPx = 4096f
 object MapSnapshotterDemo : Demo {
   override val name = "Map snapshotter"
   override val description =
-    "Frame a shot with the on-map viewfinder, capture it, and share or save the photo."
+    "Frame a top-down shot with the on-map viewfinder, capture it, and share or save the photo."
   override val destination =
     DemoDestination.ExactCamera(CameraPosition(target = SnapshotTarget, zoom = 13.5))
   override val pointerPin = DemoPointerPin(SnapshotTarget, destination)
+
+  private val topDownInteractions = MapInteractions { camera { tilt { enabled = false } } }
+
+  override fun interactions(mapState: MapState): MapInteractions = topDownInteractions
 
   @Composable
   override fun MapContent(style: DemoStyle) {
@@ -85,6 +95,7 @@ object MapSnapshotterDemo : Demo {
       onDispose { snapshotter.close() }
     }
     val scope = rememberCoroutineScope()
+    val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
     val direction = LocalLayoutDirection.current
     var coordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
@@ -96,7 +107,7 @@ object MapSnapshotterDemo : Demo {
 
     fun capture() {
       val rect = frame?.takeIf { it.width > 0 && it.height > 0 } ?: return
-      if (state.status is CaptureStatus.Capturing) return
+      if (state.status is CaptureStatus.Capturing || mapState.cameraPosition.tilt != 0.0) return
       val center =
         mapState.positionFromScreenLocation(
           with(density) { DpOffset(rect.center.x.toDp(), rect.center.y.toDp()) }
@@ -117,7 +128,15 @@ object MapSnapshotterDemo : Demo {
       state.flashTick++
       scope.launch {
         try {
-          val image = snapshotter.capture(request)
+          val image =
+            snapshotter
+              .capture(request)
+              .withAttribution(
+                snapshotter.style.attributions(),
+                textMeasurer,
+                Density(request.density, request.fontScale),
+                direction,
+              )
           state.captured = CapturedSnapshot(image, request, rect, (state.captured?.index ?: 0) + 1)
           state.status = CaptureStatus.Ready
         } catch (error: CancellationException) {
@@ -148,7 +167,9 @@ object MapSnapshotterDemo : Demo {
             // Controls can scroll on short hosts; they never consume the entire viewfinder.
             SnapshotControls(
               state,
-              canCapture = frame?.let { it.width > 0 && it.height > 0 } == true,
+              canCapture =
+                this@SnapshotStage.mapState.cameraPosition.tilt == 0.0 &&
+                  frame?.let { it.width > 0 && it.height > 0 } == true,
               modifier =
                 Modifier.heightIn(max = controlsMaxHeight).verticalScroll(rememberScrollState()),
               onCapture = ::capture,
@@ -160,7 +181,14 @@ object MapSnapshotterDemo : Demo {
       }
       SnapshotFlash(state.flashTick)
       state.captured?.let { shot ->
-        key(shot.index) { SnapshotFlight(shot, dock, onOpen = { state.sheetOpen = true }) }
+        key(shot.index) {
+          SnapshotFlight(
+            shot,
+            dock,
+            onOpen = { state.sheetOpen = true },
+            modifier = Modifier.align(AbsoluteAlignment.TopLeft),
+          )
+        }
       }
     }
     SnapshotSheet(state)

@@ -4,8 +4,8 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -73,7 +73,7 @@ internal fun SnapshotFlight(
     shadowElevation = lerp(2.dp, 8.dp, progress),
     modifier =
       modifier
-        .offset {
+        .absoluteOffset {
           IntOffset(rect.left.roundToInt(), rect.top.roundToInt())
         }
         .size(with(density) { rect.width.toDp() }, with(density) { rect.height.toDp() })
