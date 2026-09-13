@@ -127,12 +127,9 @@ DMG on macOS, and an MSI on Windows. Linux packaging uses the mise-pinned
 
 ### Building for native macOS
 
-The `macosArm64` target uses Kotlin/Native and the published Metal FFI runtime.
-It requires an Apple Silicon Mac and the configured Xcode toolchain. Run
-`mise run test:macos` for the native tests and `mise run build:macos-app` to
-package the shared demo at `demo-app/macos/build/MapLibreCompose.app`. The
-bundle includes transitive Compose resources and an ad-hoc signature for local
-use. The macOS Native CI job tests and packages this target in the ready tier.
+On an Apple Silicon Mac, run `mise run test:macos` for the native tests and
+`mise run build:macos-app` to package the demo at
+`demo-app/macos/build/MapLibreCompose.app`.
 
 ## Run the demo
 
