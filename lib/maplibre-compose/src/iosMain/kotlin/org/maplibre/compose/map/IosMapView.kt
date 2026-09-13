@@ -1,10 +1,15 @@
 package org.maplibre.compose.map
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import org.maplibre.compose.mlnffi.IosMlnFfiSurface
-import org.maplibre.compose.mlnffi.MapRenderBackend
+import androidx.compose.ui.viewinterop.UIKitInteropProperties
+import androidx.compose.ui.viewinterop.UIKitView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 
 @Composable internal actual fun mapPresentationHostIdentity(): Any = Unit
 
@@ -15,22 +20,36 @@ internal actual fun ComposableMapView(
   presentationOwner: MapPresentationOwnerToken,
   options: MapViewOptions,
 ) {
-  val runtimeBackends = remember { loadRuntimeBackends(state.runtime.logger) }
-  MlnFfiMapView(
-    renderBackend = MapRenderBackend.METAL,
-    surface = { renderer, surfaceModifier, surfaceLogger, presentFrames ->
-      IosMlnFfiSurface(
-        renderer = renderer,
-        runtimeBackends = runtimeBackends,
-        maximumFps = options.renderOptions.maximumFps,
-        modifier = surfaceModifier,
-        logger = surfaceLogger,
-        presentWindow = presentFrames,
-      )
-    },
-    modifier = modifier,
-    state = state,
-    presentationOwner = presentationOwner,
-    options = options,
-  )
+  val presentation =
+    remember(state, presentationOwner) {
+      AppleMapPresentation(state, presentationOwner, options)
+    }
+  DisposableEffect(presentation) { onDispose { presentation.close() } }
+  val lifecycle = LocalLifecycleOwner.current.lifecycle
+  DisposableEffect(presentation, lifecycle) {
+    val observer = LifecycleEventObserver { _, _ ->
+      if (!state.isClosed && !presentation.isClosed) {
+        presentation.isActive = lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+      }
+    }
+    lifecycle.addObserver(observer)
+    presentation.isActive = lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+    onDispose { lifecycle.removeObserver(observer) }
+  }
+  presentation.Content(options) { session, clicks ->
+    MlnFfiMapInputSurface(session, clicks, options, modifier, state) { inputModifier, revealSurface
+      ->
+      if (revealSurface) {
+        UIKitView(
+          modifier = inputModifier,
+          factory = { MaplibreMapView(presentation).apply { userInteractionEnabled = false } },
+          onRelease = { it.detach() },
+          properties =
+            UIKitInteropProperties(isInteractive = false, isNativeAccessibilityEnabled = false),
+        )
+      } else {
+        Box(inputModifier)
+      }
+    }
+  }
 }

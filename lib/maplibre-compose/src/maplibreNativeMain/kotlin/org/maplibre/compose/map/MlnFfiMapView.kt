@@ -88,7 +88,7 @@ internal fun MlnFfiMapView(
 
 /** Recognizes UI input and draws the loading/focus presentation around a platform surface. */
 @Composable
-private fun MlnFfiMapInputSurface(
+internal fun MlnFfiMapInputSurface(
   session: MlnFfiMapSession,
   clicks: FeatureClickDispatcher,
   options: MapViewOptions,
