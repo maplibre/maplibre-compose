@@ -1,0 +1,68 @@
+name: macos-native job
+
+# One CI job as a matrix over the variants ci/plan.py selected for it. The tier
+# workflows call this; the variant is the only matrix dimension, so GitHub
+# names each run after it.
+on:
+  workflow_call:
+    inputs:
+      matrix:
+        description: The job's matrix, as ci/plan.py emits it.
+        type: string
+        required: true
+      secrets-available:
+        description: Whether repository secrets are available to this run.
+        type: boolean
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  macos-native:
+    name: ${{ matrix.variant }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(inputs.matrix) }}
+    timeout-minutes: 45
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          save-toolchains: "true"
+          native-cache-scope: macos-native
+      - id: macos-native-tests
+        run: mise run test:macos
+      - name: Upload macOS Native test results to Trunk
+        if: ${{ !cancelled() && inputs.secrets-available }}
+        continue-on-error: true
+        uses: trunk-io/analytics-uploader@385f1ccdf345b4532dc4b6c665dd432b702b8e28 # v2.1.2
+        with:
+          junit-paths: "**/build/test-results/macosArm64Test/TEST-*.xml"
+          org-slug: sargunv
+          token: ${{ secrets.TRUNK_API_TOKEN }}
+          variant: macos-native-arm64
+          previous-step-outcome: ${{ steps.macos-native-tests.outcome }}
+          allow-missing-junit-files: "false"
+        env:
+          TRUNK_API_TOKEN: ${{ secrets.TRUNK_API_TOKEN }}
+      - name: Upload macOS Native test reports
+        if: ${{ failure() && steps.macos-native-tests.outcome == 'failure' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          retention-days: 14
+          if-no-files-found: warn
+          name: macos-native-test-reports
+          path: |
+            **/build/reports/tests
+            **/build/test-results
+      - run: mise run build:macos-app
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          retention-days: 7
+          if-no-files-found: error
+          name: demo-app-macos-native-arm64
+          path: demo-app/macos/build/MapLibreCompose-macos-arm64.tar.gz

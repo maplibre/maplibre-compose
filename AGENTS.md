@@ -16,7 +16,7 @@ one named Gradle task per invocation.
 - Static checks: `mise run check`; automatic fixes: `mise run fix`.
 - Android Lint: `mise run lint:android`.
 - Tests: `mise run test:android`, `test:android:device`, `test:ios`, `test:js`,
-  or `test:desktop`. Select the platforms affected by the change.
+  `test:macos`, or `test:desktop`. Select the platforms affected by the change.
 - Documentation: `mise run build:docs` or `mise run //docs:dev`. These tasks
   supply versions derived from Git tags; direct Gradle builds use placeholders.
 
@@ -63,10 +63,10 @@ static checks and `dprint.jsonc` configures formatting.
 ## Architecture and task guidance
 
 `demo-app/common` is the demo's only Kotlin Multiplatform module and contains
-the shared app. Android (phone and TV), AWT desktop, Nucleus desktop, and iOS
-modules launch it. Android Auto and CarPlay share a small map demo with native
-controls; `demo-app/wearos` presents a simple map with Wear Compose controls.
-The browser entry point is in `common/src/jsMain`.
+the shared app. Android (phone and TV), AWT desktop, Nucleus desktop, native
+macOS ARM64, and iOS modules launch it. Android Auto and CarPlay share a small
+map demo with native controls; `demo-app/wearos` presents a simple map with Wear
+Compose controls. The browser entry point is in `common/src/jsMain`.
 
 - For repository prose and KDoc, use
   [docs-writing](.agents/skills/docs-writing/SKILL.md).
@@ -92,8 +92,9 @@ tier workflow listing the jobs it owns, and each job a reusable workflow that
 holds its body once. `ci/plan.py` selects the variants per event. Draft PRs run
 the draft tier: Android API 36, JS, Linux x64 desktop, docs, hygiene, and iOS
 device compilation. Ready PRs add the ready tier: Android API 26, iOS simulator,
-macOS desktop, and Windows x64. Marking a PR ready runs only the ready tier.
-Dependabot PRs, main, and manual runs always include every variant.
+macOS desktop, macOS Native ARM64, and Windows x64. Marking a PR ready runs only
+the ready tier. Dependabot PRs, main, and manual runs always include every
+variant.
 
 Use the default CI tiers for most PRs. Reserve `ci:full` for a concrete risk on
 the additional Linux/Windows ARM64 variants, such as changes to ABI or pointer

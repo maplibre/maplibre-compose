@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "$(uname -s)" != Darwin || "$(uname -m)" != arm64 ]]; then
+  echo "The native macOS demo requires an Apple Silicon Mac." >&2
+  exit 2
+fi
+
+./gradlew :demo-app:macos:packageDebugApp
+app=demo-app/macos/build/MapLibreCompose.app
+codesign --force --sign - "$app"
+tar -czf demo-app/macos/build/MapLibreCompose-macos-arm64.tar.gz \
+  -C demo-app/macos/build MapLibreCompose.app

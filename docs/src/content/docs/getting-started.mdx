@@ -10,6 +10,7 @@ import versions from "../../generated/versions.json";
 
 import gettingStarted from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/GettingStarted.kt?raw";
 import desktopGettingStarted from "../../../../demo-app/common/src/jvmMain/kotlin/org/maplibre/compose/docsnippets/GettingStartedDesktop.kt?raw";
+import macosGettingStarted from "../../../../demo-app/common/src/macosMain/kotlin/org/maplibre/compose/docsnippets/GettingStartedMacos.kt?raw";
 
 This page assumes you have a Compose Multiplatform project. To create one,
 follow [the official JetBrains documentation][compose-guide] or run
@@ -100,6 +101,16 @@ your iOS app target's **Other Linker Flags** build setting:
 -framework Metal
 -framework QuartzCore
 ```
+
+### macOS (Kotlin/Native)
+
+Native macOS support is experimental and requires Apple Silicon. Enable
+`org.jetbrains.compose.experimental.macos.enabled=true` in `gradle.properties`.
+
+Inside the native Compose `Window`, wrap your content with
+`ProvideMapPresentationHost(window)`:
+
+<Code code={region(macosGettingStarted, "host")} lang="kotlin" />
 
 ### Desktop (JVM)
 

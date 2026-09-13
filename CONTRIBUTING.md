@@ -125,6 +125,12 @@ DMG on macOS, and an MSI on Windows. Linux packaging uses the mise-pinned
 `appimagetool` and does not need fakeroot or dpkg. The Linux task also writes a
 `.tar` next to the AppImage so the CI artifact keeps the execute bit.
 
+### Building for native macOS
+
+On an Apple Silicon Mac, run `mise run test:macos` for the native tests and
+`mise run build:macos-app` to package the demo at
+`demo-app/macos/build/MapLibreCompose.app`.
+
 ## Run the demo
 
 Use IntelliJ or Android Studio to launch the demo app on Android and XCode to
@@ -138,6 +144,7 @@ launch on iOS. Every other host has a task:
 - Wear OS: `mise run demo:wearos`, on a watch or on the emulator that
   `mise run android-emulator:boot --wear 36.1` starts
 - Desktop: `mise run demo:desktop`
+- Native macOS (Apple Silicon): `mise run demo:macos`
 - Web: `mise run demo:js`
 - Desktop on the Nucleus Tao host instead of the AWT one:
   `mise run demo:desktop-nucleus`
