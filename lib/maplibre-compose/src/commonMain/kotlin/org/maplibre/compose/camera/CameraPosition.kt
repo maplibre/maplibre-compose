@@ -1,6 +1,7 @@
 package org.maplibre.compose.camera
 
 import androidx.compose.runtime.Immutable
+import kotlinx.serialization.Serializable
 import org.maplibre.spatialk.geojson.Position
 
 /**
@@ -13,6 +14,7 @@ import org.maplibre.spatialk.geojson.Position
  * @param zoom Zoom level at target. A value in the range of `[0 .. 25.5]`
  */
 @Immutable
+@Serializable
 public data class CameraPosition(
   public val bearing: Double = 0.0,
   public val target: Position = Position(0.0, 0.0),
