@@ -21,7 +21,6 @@ import org.maplibre.compose.overlay.AttributionDefaults
 import org.maplibre.compose.overlay.AttributionLinks as BaseAttributionLinks
 import org.maplibre.compose.overlay.AttributionStyle
 import org.maplibre.compose.overlay.ExpandingAttributionButton as BaseExpandingAttributionButton
-import org.maplibre.compose.overlay.MapOverlayScope
 
 /**
  * An attribution popup that collapses when the user interacts with the map.
@@ -42,7 +41,7 @@ import org.maplibre.compose.overlay.MapOverlayScope
  *   the given alignment
  */
 @Composable
-public fun MapOverlayScope.ExpandingAttributionButton(
+public fun ExpandingAttributionButton(
   modifier: Modifier = Modifier,
   contentAlignment: Alignment = Alignment.BottomEnd,
   toggleButton: @Composable (onClick: () -> Unit) -> Unit = AttributionButtonDefaults.button,

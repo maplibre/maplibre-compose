@@ -34,7 +34,7 @@ shows the attribution somewhere else, such as an about screen.
 
 <Code code={region(controls, "disabled")} lang="kotlin" title="App.kt" />
 
-The trailing block draws the controls that you list. Inside `Controls`, `Modifier.align` positions
+The trailing block draws the controls that you list. Inside a `Box`, `Modifier.align` positions
 a control against an inset edge of the map.
 
 <Code code={region(controls, "custom")} lang="kotlin" title="App.kt" />
@@ -73,19 +73,27 @@ block:
    that `MapOverlay.Material3` uses fade in when the zoom or the orientation
    changes, and fade out once it settles.
 
+## Map context inside overlays
+
+Overlay content uses <Api of="MapOverlayScope" /> to position direct children.
+Controls are ordinary composables that read the enclosing map through
+<Api of="LocalMapState" />. <Api of="LocalViewport" /> exposes its current viewport,
+and <Api of="LocalCameraPadding" /> exposes its camera padding. These values remain
+available inside nested composables and layouts. A nested map provides its own context.
+
 ## Inset overlays and the camera
 
-The overlay is a full-map `Box`: ordinary sizing and alignment apply no implicit
-padding. Use <Api of="Controls" /> for controls. It uses the larger
-of `cameraPadding` and safe-drawing insets on each edge, then adds
-<Api of="MapOverlay.Spacing" />. The built-in presets use this layout.
+The overlay fills the map without implicit padding. Arrange custom controls with
+Compose layouts such as `Box`, `Row`, and `Column`, and apply padding and system
+insets to those layouts.
 
-`cameraPadding` shifts the camera center and supplies the default control insets.
-Override `Controls(contentPadding = ...)` when controls need different padding.
-`contentWindowInsets` on `Controls` defaults to `WindowInsets.safeDrawing`; override
-it to choose different system insets. Padding and insets are consumed using Compose
-layout rules, so an outer layout can already have handled the safe area.
-Insets follow the supplied padding immediately, without waiting for a map frame.
+The built-in presets use the larger of `cameraPadding` and safe-drawing insets on
+each edge, then add <Api of="MapOverlay.Spacing" />. They consume padding and insets
+using Compose layout rules, accounting for safe areas handled by an outer layout.
+The padding takes effect without waiting for a map frame.
+
+`cameraPadding` also shifts the camera center. For custom controls that follow this
+padding, read <Api of="LocalCameraPadding" /> and apply it to their container.
 
 <Code code={region(controls, "insets")} lang="kotlin" title="App.kt" />
 
@@ -107,15 +115,15 @@ zoom, or a window resize moves the child with the map.
 ## Point at an off-screen location
 
 Use <Api of="MapOverlayScope.placedTowards" /> for a direction indicator when
-a location is out of view. It places the child along an ellipse inside its
-layout bounds and hides it while the location is inside that ellipse. Nest it in
-`Controls` to use the unobstructed region, or size and pad it with normal Compose
-layouts. Geographic placements convert map coordinates into their local layout,
-including when nested or offset.
+a location is out of view. It places the child along the parent layout's inscribed
+ellipse and hides it while the location is inside that ellipse.
 
-The placement modifiers fill the available space. Put marker sizing, padding,
-and drawing modifiers after `placedAt` or `placedTowards`. Put sizing or padding
-before them to change the placement region instead.
+Use <Api of="GeographicLayout" /> to choose a smaller placement region. Apply sizing
+and padding to that layout; geographic positions still refer to the enclosing map,
+including when the layout moves. Placement modifiers apply to direct children of
+the map overlay or `GeographicLayout`. To place a compound marker, apply the modifier
+to its outer container. Sizing and padding on a child describe that child, independent
+of the placement modifier's position in the chain.
 
 <Code code={region(controls, "placedTowards")} lang="kotlin" title="App.kt" />
 

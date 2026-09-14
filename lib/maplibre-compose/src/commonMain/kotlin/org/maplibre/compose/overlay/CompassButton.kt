@@ -51,6 +51,7 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.generated.Res
 import org.maplibre.compose.generated.compass
 import org.maplibre.compose.generated.compass_needle
+import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.util.AngleMath
 
 /**
@@ -68,7 +69,7 @@ import org.maplibre.compose.util.AngleMath
  * @param getHomePosition The camera position that a click returns to.
  */
 @Composable
-public fun MapOverlayScope.CompassButton(
+public fun CompassButton(
   modifier: Modifier = Modifier,
   onClick: () -> Unit = {},
   style: CompassButtonStyle = CompassDefaults.style(),
@@ -78,7 +79,7 @@ public fun MapOverlayScope.CompassButton(
   needlePainter: Painter = CompassDefaults.needlePainter(),
   getHomePosition: (CameraPosition) -> CameraPosition = { it.copy(bearing = 0.0, tilt = 0.0) },
 ) {
-  val currentMapState = mapState
+  val currentMapState = checkNotNull(LocalMapState.current)
   val coroutineScope = rememberCoroutineScope()
   val interactionSource = remember { MutableInteractionSource() }
   val hovered by interactionSource.collectIsHoveredAsState()
@@ -135,7 +136,7 @@ public fun MapOverlayScope.CompassButton(
  *   degrees.
  */
 @Composable
-public fun MapOverlayScope.DisappearingCompassButton(
+public fun DisappearingCompassButton(
   modifier: Modifier = Modifier,
   onClick: () -> Unit = {},
   style: CompassButtonStyle = CompassDefaults.style(),
@@ -150,7 +151,7 @@ public fun MapOverlayScope.DisappearingCompassButton(
   slop: Double = 0.5,
   contentModifier: Modifier = Modifier,
 ) {
-  val overlayScope = this
+  val mapState = checkNotNull(LocalMapState.current)
   val visible = remember { MutableTransitionState(false) }
 
   val currentGetHomePosition by rememberUpdatedState(getHomePosition)
@@ -183,7 +184,7 @@ public fun MapOverlayScope.DisappearingCompassButton(
     enter = enterTransition,
     exit = exitTransition,
   ) {
-    overlayScope.CompassButton(
+    CompassButton(
       modifier = contentModifier,
       onClick = onClick,
       style = style,

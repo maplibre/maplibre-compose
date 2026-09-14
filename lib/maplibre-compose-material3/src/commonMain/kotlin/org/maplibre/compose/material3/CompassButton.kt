@@ -22,7 +22,6 @@ import org.maplibre.compose.overlay.CompassButton as BaseCompassButton
 import org.maplibre.compose.overlay.CompassButtonStyle
 import org.maplibre.compose.overlay.CompassDefaults
 import org.maplibre.compose.overlay.DisappearingCompassButton as BaseDisappearingCompassButton
-import org.maplibre.compose.overlay.MapOverlayScope
 
 /**
  * A compass that points north and returns the camera to [getHomePosition] when it is clicked.
@@ -40,7 +39,7 @@ import org.maplibre.compose.overlay.MapOverlayScope
  * @param getHomePosition The camera position that a click returns to.
  */
 @Composable
-public fun MapOverlayScope.CompassButton(
+public fun CompassButton(
   modifier: Modifier = Modifier,
   onClick: () -> Unit = {},
   colors: ButtonColors = ButtonDefaults.elevatedButtonColors(),
@@ -77,7 +76,7 @@ public fun MapOverlayScope.CompassButton(
  *   degrees.
  */
 @Composable
-public fun MapOverlayScope.DisappearingCompassButton(
+public fun DisappearingCompassButton(
   modifier: Modifier = Modifier,
   onClick: () -> Unit = {},
   colors: ButtonColors = ButtonDefaults.elevatedButtonColors(),

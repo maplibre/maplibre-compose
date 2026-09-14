@@ -14,7 +14,6 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.overlay.ZoomButtons as BaseZoomButtons
 import org.maplibre.compose.overlay.ZoomButtonsDefaults
 import org.maplibre.compose.overlay.ZoomButtonsStyle
@@ -40,7 +39,7 @@ import org.maplibre.compose.overlay.ZoomButtonsStyle
  * @param getZoomOutPosition The camera position that the zoom-out button animates to.
  */
 @Composable
-public fun MapOverlayScope.ZoomButtons(
+public fun ZoomButtons(
   modifier: Modifier = Modifier,
   onZoomIn: () -> Unit = {},
   onZoomOut: () -> Unit = {},

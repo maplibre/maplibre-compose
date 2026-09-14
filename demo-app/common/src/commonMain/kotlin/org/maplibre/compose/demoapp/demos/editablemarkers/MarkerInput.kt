@@ -31,11 +31,13 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.overlay.MapOverlayScope
 
 @Composable
 internal fun MapOverlayScope.MarkerTargets(state: EditableMarkersState) =
   with(state) {
+    val mapState = checkNotNull(LocalMapState.current)
     val activeId = pressedId ?: draggingId
     for (marker in markers) key(marker.id) {
       var anchor by remember { mutableStateOf<DpOffset?>(null) }

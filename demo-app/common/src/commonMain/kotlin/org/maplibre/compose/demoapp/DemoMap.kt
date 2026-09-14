@@ -64,6 +64,7 @@ import org.maplibre.compose.demoapp.generated.my_location_24px
 import org.maplibre.compose.demoapp.generated.my_location_fill_24px
 import org.maplibre.compose.demoapp.generated.navigation_24px
 import org.maplibre.compose.interaction.MapInteractions
+import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
@@ -75,10 +76,10 @@ import org.maplibre.compose.material3.PointerPinButton
 import org.maplibre.compose.material3.ZoomButtons as MaterialZoomButtons
 import org.maplibre.compose.overlay.CompassButtonStyle
 import org.maplibre.compose.overlay.CompassDefaults
-import org.maplibre.compose.overlay.Controls
 import org.maplibre.compose.overlay.DisappearingCompassButton
 import org.maplibre.compose.overlay.DisappearingScaleBar
 import org.maplibre.compose.overlay.ExpandingAttributionButton
+import org.maplibre.compose.overlay.GeographicLayout
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MaplibreLogo
 import org.maplibre.compose.overlay.ZoomButtons
@@ -127,8 +128,8 @@ internal fun demoMapOverlay(
   location: DemoLocationUi,
   controlsModifier: Modifier = Modifier,
 ): MapOverlay = MapOverlay {
-  Controls {
-    val overlayScope = this
+  Box(Modifier.fillMaxSize().controlPadding()) {
+    val mapState = checkNotNull(LocalMapState.current)
     val material3 = settings.useMaterial3Controls
     val metersPerDp = mapState.viewport?.metersPerDpAtTarget ?: 0.0
     val zoom = mapState.cameraPosition.zoom
@@ -154,13 +155,13 @@ internal fun demoMapOverlay(
     ) {
       val compassSpacing = Modifier.padding(bottom = MapOverlay.Spacing)
       if (material3) {
-        overlayScope.MaterialDisappearingCompassButton(
+        MaterialDisappearingCompassButton(
           contentModifier = compassSpacing,
           enterTransition = DemoCompassEnter,
           exitTransition = DemoCompassExit,
         )
       } else {
-        overlayScope.DisappearingCompassButton(
+        DisappearingCompassButton(
           contentModifier = compassSpacing,
           enterTransition = DemoCompassEnter,
           exitTransition = DemoCompassExit,
@@ -171,7 +172,7 @@ internal fun demoMapOverlay(
         horizontalAlignment = Alignment.End,
       ) {
         if (settings.showZoomButtons) {
-          if (material3) overlayScope.MaterialZoomButtons() else overlayScope.ZoomButtons()
+          if (material3) MaterialZoomButtons() else ZoomButtons()
         }
         DemoFollowButton(settings, location)
         DemoThemeToggleButton(settings)
@@ -367,7 +368,7 @@ fun DemoMap(
       selectedDemo?.let { demo ->
         key(demo) {
           with(demo) { Overlay(state) }
-          Controls {
+          GeographicLayout(Modifier.controlPadding()) {
             pointerPin?.let {
               PointerPinButton(
                 targetPosition = it.target,

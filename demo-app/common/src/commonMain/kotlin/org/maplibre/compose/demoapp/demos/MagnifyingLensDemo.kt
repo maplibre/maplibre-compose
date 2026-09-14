@@ -41,6 +41,7 @@ import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
 import org.maplibre.compose.demoapp.DemoPointerPin
 import org.maplibre.compose.demoapp.center
+import org.maplibre.compose.demoapp.controlPadding
 import org.maplibre.compose.demoapp.design.SectionHeader
 import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.demoapp.design.SliderRow
@@ -49,7 +50,6 @@ import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.map.MapUiOptions
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
-import org.maplibre.compose.overlay.Controls
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.spatialk.geojson.BoundingBox
 
@@ -93,7 +93,7 @@ object MagnifyingLensDemo : Demo {
 
   @Composable
   override fun MapOverlayScope.Overlay(state: DemoAppState) {
-    val overlay = this
+    val mapState = state.mapState
     val appliedStyle = state.appliedStyle
     val lensState = rememberMapState(runtime = state.mapRuntime, baseStyle = appliedStyle.base)
     val density = LocalDensity.current
@@ -118,7 +118,7 @@ object MagnifyingLensDemo : Demo {
     }
 
     Box(Modifier.fillMaxSize().onGloballyPositioned { overlayCoordinates = it }) {
-      overlay.Controls {
+      Box(Modifier.fillMaxSize().controlPadding()) {
         Box(
           Modifier.fillMaxSize().onGloballyPositioned { coordinates ->
             controlsCenter =

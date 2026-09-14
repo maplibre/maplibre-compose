@@ -47,6 +47,7 @@ import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.map.MapSnapshotRequest
+import org.maplibre.compose.overlay.LocalCameraPadding
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
@@ -181,7 +182,7 @@ object MapSnapshotterDemo : Demo {
     }
 
     capturedSnapshot?.let { snapshot ->
-      Box(Modifier.fillMaxSize().padding(cameraPadding)) {
+      Box(Modifier.fillMaxSize().padding(LocalCameraPadding.current)) {
         Surface(
           modifier =
             Modifier.align(Alignment.BottomEnd)

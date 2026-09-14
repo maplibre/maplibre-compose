@@ -26,6 +26,10 @@ import org.maplibre.compose.overlay.include
  * call remains in composition. [overlay] draws Compose UI over the map. The default draws
  * [MapOverlay.Default]. A supplied block replaces the default.
  *
+ * The overlay fills the map and positions direct children through [MapOverlayScope]. It provides
+ * [LocalMapState], [LocalViewport], and [org.maplibre.compose.overlay.LocalCameraPadding] to nested
+ * composables. Use ordinary Compose layouts and padding to arrange controls.
+ *
  * The map is a focus target, and the overlay is a focus group. Focus modifiers on [modifier] apply
  * to the map, and a control in the overlay keeps its own focus properties.
  *

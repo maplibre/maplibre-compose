@@ -2,10 +2,13 @@
 
 package org.maplibre.compose.docsnippets
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.union
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -14,8 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.map.MaplibreMap
-import org.maplibre.compose.overlay.Controls
 import org.maplibre.compose.overlay.ExpandingAttributionButton
+import org.maplibre.compose.overlay.GeographicLayout
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MaplibreLogo
 import org.maplibre.compose.overlay.include
@@ -34,7 +37,7 @@ fun Controls() {
 
   // #region custom
   MaplibreMap {
-    Controls {
+    Box(Modifier.fillMaxSize().safeDrawingPadding().padding(8.dp)) {
       MaplibreLogo(Modifier.align(Alignment.BottomStart))
       ExpandingAttributionButton(
         modifier = Modifier.align(Alignment.TopEnd),
@@ -69,7 +72,7 @@ fun OffScreenIndicator(position: Position) {
   // #region placedTowards
   MaplibreMap {
     include(MapOverlay.Default)
-    Controls {
+    GeographicLayout(Modifier.safeDrawingPadding().padding(8.dp)) {
       val placement = rememberPlacedTowardsState() // (1)!
       Text(
         "▲",
