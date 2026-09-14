@@ -5,22 +5,29 @@ package org.maplibre.compose.docsnippets
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import org.maplibre.compose.expressions.dsl.asNumber
 import org.maplibre.compose.expressions.dsl.coalesce
 import org.maplibre.compose.expressions.dsl.condition
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.dp
+import org.maplibre.compose.expressions.dsl.em
 import org.maplibre.compose.expressions.dsl.exponential
 import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.expressions.dsl.gt
 import org.maplibre.compose.expressions.dsl.interpolate
 import org.maplibre.compose.expressions.dsl.neq
 import org.maplibre.compose.expressions.dsl.nil
+import org.maplibre.compose.expressions.dsl.semiliteral
 import org.maplibre.compose.expressions.dsl.step
 import org.maplibre.compose.expressions.dsl.switch
+import org.maplibre.compose.expressions.dsl.textOffset
+import org.maplibre.compose.expressions.dsl.textVariableAnchorOffset
 import org.maplibre.compose.expressions.dsl.zoom
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.StringValue
+import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.SymbolLayer
 import org.maplibre.compose.map.MaplibreMap
@@ -63,6 +70,26 @@ fun Expressions() {
         ),
     )
     // #endregion feature-data
+
+    // #region array-expressions
+    SymbolLayer(
+      id = "quake-label-offsets",
+      source = earthquakes,
+      textField = feature["place"].cast<StringValue?>(),
+      textSize = const(16.sp),
+      textVariableAnchorOffset =
+        textVariableAnchorOffset(
+          SymbolAnchor.Top to textOffset(0.em, 1.em),
+          SymbolAnchor.Bottom to textOffset(0.sp, (-12).sp),
+          SymbolAnchor.Left to
+            semiliteral(
+                feature["offset_x"].asNumber(const(1f)).em,
+                feature["offset_y"].asNumber(const(0f)).em,
+              )
+              .cast(),
+        ),
+    )
+    // #endregion array-expressions
 
     // #region zoom
     CircleLayer(
