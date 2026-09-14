@@ -16,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -28,11 +29,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import org.maplibre.compose.demoapp.Demo
@@ -49,7 +50,6 @@ import org.maplibre.compose.map.MapUiOptions
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.overlay.Controls
-import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.spatialk.geojson.BoundingBox
 
@@ -93,39 +93,15 @@ object MagnifyingLensDemo : Demo {
 
   @Composable
   override fun MapOverlayScope.Overlay(state: DemoAppState) {
+    val overlay = this
     val appliedStyle = state.appliedStyle
     val lensState = rememberMapState(runtime = state.mapRuntime, baseStyle = appliedStyle.base)
     val density = LocalDensity.current
-    val padding = cameraPadding
-    val layoutDirection = LocalLayoutDirection.current
     val lensSizePx = with(density) { lensSize.dp.toPx() }
-    val spacingPx = with(density) { MapOverlay.Spacing.roundToPx() }
-
-    // The overlay's coordinates are the main map's screen coordinates. The query point is the
-    // unobstructed overlay center plus the drag. The lens widget's layout bounds move by half a
-    // pixel when the lens size is odd, so they are not a stable camera target.
-    val overlaySize =
-      with(density) {
-        mapState.viewport?.size?.let { IntSize(it.width.roundToPx(), it.height.roundToPx()) }
-          ?: IntSize.Zero
-      }
+    var overlayCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var controlsCenter by remember { mutableStateOf<Offset?>(null) }
     val placedDrag = IntOffset(dragOffset.x.roundToInt(), dragOffset.y.roundToInt())
-    val lensCenter =
-      overlaySize
-        .takeIf { it != IntSize.Zero }
-        ?.let { size ->
-          overlayInnerCenterPx(
-            overlayWidthPx = size.width,
-            overlayHeightPx = size.height,
-            insetLeftPx =
-              with(density) { padding.calculateLeftPadding(layoutDirection).roundToPx() },
-            insetTopPx = with(density) { padding.calculateTopPadding().roundToPx() },
-            insetRightPx =
-              with(density) { padding.calculateRightPadding(layoutDirection).roundToPx() },
-            insetBottomPx = with(density) { padding.calculateBottomPadding().roundToPx() },
-            spacingPx = spacingPx,
-          ) + Offset(placedDrag.x.toFloat(), placedDrag.y.toFloat())
-        }
+    val lensCenter = controlsCenter?.plus(Offset(placedDrag.x.toFloat(), placedDrag.y.toFloat()))
     val currentLensCenter by rememberUpdatedState(lensCenter)
     LaunchedEffect(Unit) {
       snapshotFlow {
@@ -141,44 +117,53 @@ object MagnifyingLensDemo : Demo {
         .collect { lensState.setCameraPosition(it) }
     }
 
-    Controls {
-      Box(
-        modifier =
-          Modifier.align(Alignment.Center)
-            .offset { placedDrag }
-            .pointerInput(Unit) {
-              detectDragGestures { change, dragAmount ->
-                change.consume()
-                dragOffset += dragAmount
-              }
-            }
-            .size(lensSize.dp)
-            .shadow(16.dp, lensShape.shape)
-            .border(6.dp, rimBrush, lensShape.shape)
-            .clip(lensShape.shape)
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-      ) {
-        MaplibreMap(
-          modifier =
-            if (lensDistortionEnabled) {
-              Modifier.fillMaxSize().radialLensDistortion(lensSizePx)
-            } else {
-              Modifier.fillMaxSize()
-            },
-          state = lensState,
-          uiOptions = lensUiOptions,
-          interactions = MapInteractions.None,
-        ) {}
+    Box(Modifier.fillMaxSize().onGloballyPositioned { overlayCoordinates = it }) {
+      overlay.Controls {
         Box(
-          Modifier.fillMaxSize()
-            .background(
-              Brush.linearGradient(
-                0.0f to Color.White.copy(alpha = 0.30f),
-                0.4f to Color.White.copy(alpha = 0.05f),
-                0.6f to Color.Transparent,
-              )
+          Modifier.fillMaxSize().onGloballyPositioned { coordinates ->
+            controlsCenter =
+              overlayCoordinates?.localBoundingBoxOf(coordinates, clipBounds = false)?.center
+          }
+        ) {
+          Box(
+            modifier =
+              Modifier.align(Alignment.Center)
+                .offset { placedDrag }
+                .pointerInput(Unit) {
+                  detectDragGestures { change, dragAmount ->
+                    change.consume()
+                    dragOffset += dragAmount
+                  }
+                }
+                .size(lensSize.dp)
+                .shadow(16.dp, lensShape.shape)
+                .border(6.dp, rimBrush, lensShape.shape)
+                .clip(lensShape.shape)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+          ) {
+            MaplibreMap(
+              modifier =
+                if (lensDistortionEnabled) {
+                  Modifier.fillMaxSize().radialLensDistortion(lensSizePx)
+                } else {
+                  Modifier.fillMaxSize()
+                },
+              state = lensState,
+              uiOptions = lensUiOptions,
+              interactions = MapInteractions.None,
+            ) {}
+            Box(
+              Modifier.fillMaxSize()
+                .background(
+                  Brush.linearGradient(
+                    0.0f to Color.White.copy(alpha = 0.30f),
+                    0.4f to Color.White.copy(alpha = 0.05f),
+                    0.6f to Color.Transparent,
+                  )
+                )
             )
-        )
+          }
+        }
       }
     }
   }
@@ -222,31 +207,6 @@ expect val LensUiOptionsDefault: MapUiOptions
 
 /** Applies a convex-lens distortion where the platform supports runtime shaders. */
 @Composable expect fun Modifier.radialLensDistortion(sizePx: Float): Modifier
-
-/**
- * The center of the overlay's unobstructed region, in overlay pixels.
- *
- * Map overlay [Alignment.Center][androidx.compose.ui.Alignment.Center] places a child in that
- * region. The child's layout bounds move by half a pixel when its size is odd. A camera target
- * taken from those bounds then moves with every size step.
- */
-private fun overlayInnerCenterPx(
-  overlayWidthPx: Int,
-  overlayHeightPx: Int,
-  insetLeftPx: Int,
-  insetTopPx: Int,
-  insetRightPx: Int,
-  insetBottomPx: Int,
-  spacingPx: Int,
-): Offset {
-  val left = insetLeftPx + spacingPx
-  val top = insetTopPx + spacingPx
-  val right = insetRightPx + spacingPx
-  val bottom = insetBottomPx + spacingPx
-  val innerWidth = (overlayWidthPx - left - right).coerceAtLeast(0)
-  val innerHeight = (overlayHeightPx - top - bottom).coerceAtLeast(0)
-  return Offset(left + innerWidth / 2f, top + innerHeight / 2f)
-}
 
 internal const val LensShader =
   """
