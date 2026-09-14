@@ -47,7 +47,7 @@ lifecycleRuntimeCompose = "2.11.0"
 lwjgl = "3.4.2"
 materialKolor = "5.0.1"
 maplibre-js = "6.9.1"
-maplibre-nativeFfi = "0.202609.1"
+maplibre-nativeFfi = "0.202609.2"
 # The style-spec release the parity catalog reads; ci/style_spec_parity.py
 # fetches v8.json at this tag. Follow the maplibre-gl release's own
 # @maplibre/maplibre-gl-style-spec dependency when bumping maplibre-js.
