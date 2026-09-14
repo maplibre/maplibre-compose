@@ -64,7 +64,7 @@ private fun LogEvent.categoryName(): String =
     LogEvent.HTTP_REQUEST -> "HttpRequest"
     LogEvent.SPRITE -> "Sprite"
     LogEvent.IMAGE -> "Image"
-    LogEvent.OPENGL -> "OpenGL"
+    LogEvent.GRAPHICS_BACKEND -> "GraphicsBackend"
     LogEvent.JNI -> "Jni"
     LogEvent.ANDROID -> "Android"
     LogEvent.CRASH -> "Crash"
