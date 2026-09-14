@@ -12,20 +12,18 @@ import org.maplibre.compose.expressions.value.MapValue
 import org.maplibre.compose.expressions.value.StringValue
 
 /**
- * Builds an array by evaluating each element. Unlike [const], elements may read feature data or
- * contain other expressions. Nested literal arrays remain literal; use another [semiliteral] for a
- * nested array of expressions.
+ * Builds a list by evaluating each element. Unlike [const], elements may read feature data or
+ * contain other expressions. Nested literal arrays remain literal; use another [list] for a nested
+ * array of expressions.
  *
  * Copies [elements] so later changes to the list do not change the expression.
  */
-public fun <T : ExpressionValue?> semiliteral(
-  elements: List<Expression<T>>
-): Expression<ListValue<T>> = Semiliteral(elements.toList())
+public fun <T : ExpressionValue?> list(elements: List<Expression<T>>): Expression<ListValue<T>> =
+  Semiliteral(elements.toList())
 
-/** Builds an array by evaluating each element. See the list overload of [semiliteral]. */
-public fun <T : ExpressionValue?> semiliteral(
-  vararg elements: Expression<T>
-): Expression<ListValue<T>> = semiliteral(elements.asList())
+/** Builds a list by evaluating each element. See the list overload of [list]. */
+public fun <T : ExpressionValue?> list(vararg elements: Expression<T>): Expression<ListValue<T>> =
+  list(elements.asList())
 
 /** Returns the item at [index]. */
 @JvmName("getAt")

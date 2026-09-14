@@ -4,7 +4,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.isSpecified
 import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.dsl.semiliteral
+import org.maplibre.compose.expressions.dsl.list
 import org.maplibre.compose.expressions.dsl.times
 import org.maplibre.compose.expressions.value.FloatOffsetValue
 import org.maplibre.compose.expressions.value.FloatValue
@@ -42,4 +42,4 @@ internal fun scaledTextOffset(
   x: Float,
   y: Float,
   scale: Expression<FloatValue>,
-): Expression<FloatOffsetValue> = semiliteral(const(x) * scale, const(y) * scale).cast()
+): Expression<FloatOffsetValue> = list(const(x) * scale, const(y) * scale).cast()

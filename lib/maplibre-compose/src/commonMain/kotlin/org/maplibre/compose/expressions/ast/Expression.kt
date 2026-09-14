@@ -106,7 +106,7 @@ import org.maplibre.compose.expressions.value.ExpressionValue
  *   feature to geometry
  *
  * ### Collections
- * - [semiliteral][org.maplibre.compose.expressions.dsl.semiliteral] - build an array of expressions
+ * - [list][org.maplibre.compose.expressions.dsl.list] - build a list of expressions
  * - `Expression<ListValue<T>>.`[get][org.maplibre.compose.expressions.dsl.get] - get value at index
  * - `Expression<ListValue<T>>.`[contains][org.maplibre.compose.expressions.dsl.contains] - check
  *   whether list contains value

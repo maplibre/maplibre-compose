@@ -120,7 +120,7 @@ public fun textVariableAnchorOffset(
       add(offset)
     }
   }
-  return semiliteral(elements).cast()
+  return list(elements).cast()
 }
 
 /** Creates a literal expression for a 2D [Offset]. */

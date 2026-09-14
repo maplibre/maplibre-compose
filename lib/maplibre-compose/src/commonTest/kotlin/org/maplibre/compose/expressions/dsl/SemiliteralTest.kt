@@ -17,16 +17,16 @@ class SemiliteralTest {
     assertEquals(
       """["let","semiliteral_value",["semiliteral",[["number",["get","x"]],["literal",["get","literal-key"]],["let","semiliteral_value",["semiliteral",[["number",["get","y"]],2]],["var","semiliteral_value"]]]],["var","semiliteral_value"]]""",
       styleJson(
-        semiliteral(
+        list(
           feature["x"].asNumber(),
           const(listOf("get", "literal-key")),
-          semiliteral(feature["y"].asNumber(), const(2)),
+          list(feature["y"].asNumber(), const(2)),
         )
       ),
     )
     assertEquals(
       """["let","semiliteral_value",["semiliteral",[]],["var","semiliteral_value"]]""",
-      styleJson(semiliteral<FloatValue>()),
+      styleJson(list<FloatValue>()),
     )
   }
 
@@ -34,7 +34,7 @@ class SemiliteralTest {
   fun construction_snapshots_the_list_and_visits_child_expressions() {
     val input = feature["x"].asNumber()
     val items = mutableListOf<Expression<FloatValue>>(input)
-    val expression = semiliteral(items)
+    val expression = list(items)
     items.clear()
     assertEquals(
       """["let","semiliteral_value",["semiliteral",[["number",["get","x"]]]],["var","semiliteral_value"]]""",
