@@ -37,7 +37,6 @@ htmlConverterCompose = "1.1.1"
 hms-location = "6.12.0.300"
 nucleus = "2.5.15"
 kermit = "2.1.0"
-kotlin-dsv = "0.4.0"
 kotlin-wrappers = "2026.8.5"
 kotlinx-coroutines = "1.11.0"
 kotlinx-atomicfu = "0.33.0"
@@ -47,15 +46,15 @@ ktor = "3.5.2"
 lifecycleRuntimeCompose = "2.11.0"
 lwjgl = "3.4.2"
 materialKolor = "5.0.1"
-maplibre-js = "6.9.0"
+maplibre-js = "6.9.1"
 maplibre-nativeFfi = "0.202609.1"
 # The style-spec release the parity catalog reads; ci/style_spec_parity.py
 # fetches v8.json at this tag. Follow the maplibre-gl release's own
 # @maplibre/maplibre-gl-style-spec dependency when bumping maplibre-js.
 maplibre-styleSpec = "26.4.2"
-mobilityData = "0.4.0"
+mobilityData = "0.5.0"
 playServices-location = "21.4.0"
-spatialk = "0.7.0"
+spatialk = "0.8.0"
 robolectric = "4.16.1"
 
 # Regular tools: keep as up to date as possible
@@ -103,7 +102,6 @@ nucleus-application = { module = "dev.nucleusframework:nucleus.nucleus-applicati
 nucleus-decoratedWindowMaterial3 = { module = "dev.nucleusframework:nucleus.decorated-window-material3", version.ref = "nucleus" }
 nucleus-decoratedWindowTao = { module = "dev.nucleusframework:nucleus.decorated-window-tao", version.ref = "nucleus" }
 kermit = { group = "co.touchlab", name = "kermit", version.ref = "kermit" }
-kotlin-dsv = { module = "dev.sargunv.kotlin-dsv:kotlin-dsv", version.ref = "kotlin-dsv" }
 kotlin-wrappers-browser = { group = "org.jetbrains.kotlin-wrappers", name = "kotlin-browser", version.ref = "kotlin-wrappers" }
 kotlin-wrappers-js = { group = "org.jetbrains.kotlin-wrappers", name = "kotlin-js", version.ref = "kotlin-wrappers" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }

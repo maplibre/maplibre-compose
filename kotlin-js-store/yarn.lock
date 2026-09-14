@@ -74,6 +74,11 @@
   resolved "https://registry.yarnpkg.com/@js-joda/timezone/-/timezone-2.22.0.tgz#dc0eea2b33c6bac4404240ce91095573543f5d3e"
   integrity sha512-9UNXxEztbcofD6XvV7xPrbzB2nE/AWaHr/XfugRZgVqg2vCZOVPnD8QI7GW164EFIWMw0c97Gs6STJ5dh0J99Q==
 
+"@js-joda/timezone@2.25.2":
+  version "2.25.2"
+  resolved "https://registry.yarnpkg.com/@js-joda/timezone/-/timezone-2.25.2.tgz#09b7862b47d63fd68661548344ab1d1eca350669"
+  integrity sha512-TEjy13bQrJyIkoWZ4EqiZ+Vz66y3sYhEdibySZpfLgPij6mhh8ncGb0NGkSROOg2PwSmZLu1+0f3o4esSv2Yaw==
+
 "@jsonjoy.com/base64@^1.1.2":
   version "1.1.2"
   resolved "https://registry.yarnpkg.com/@jsonjoy.com/base64/-/base64-1.1.2.tgz#cf8ea9dcb849b81c95f14fc0aaa151c6b54d2578"
@@ -2133,10 +2138,10 @@ lru-cache@^10.2.0:
   resolved "https://registry.yarnpkg.com/lru-cache/-/lru-cache-10.4.3.tgz#410fc8a17b70e598013df257c2446b7f3383f119"
   integrity sha512-JNAzZcXrCt42VGLuYz0zfAzDfAvJWW6AfYlDBQyDV5DClI2m5sAmK+OIO7s59XfsRsWHp02jAJrRadPRGTt6SQ==
 
-maplibre-gl@6.9.0:
-  version "6.9.0"
-  resolved "https://registry.yarnpkg.com/maplibre-gl/-/maplibre-gl-6.9.0.tgz#120b878c94204791ed459094ea327a59b467a880"
-  integrity sha512-vFMwMK0Zs+NM/rOMSdtu8bO30DIexhBEVi5KC6f70/XtI+L/K2wC3LsDCAXFZ4s8ik5gAuDugfCNbpllpdJ9bA==
+maplibre-gl@6.9.1:
+  version "6.9.1"
+  resolved "https://registry.yarnpkg.com/maplibre-gl/-/maplibre-gl-6.9.1.tgz#3f42c5c102f7f1d2a60bdc95da6acb0ab43409d6"
+  integrity sha512-piG2jNSq7crSTzj67UWDlTaxDjWvhFpfubZUuaofmaMcQKWw+kYn7mCfeh6S/Egr8+q8prBWcDqEaa6DdIQ6pw==
   dependencies:
     "@mapbox/point-geometry" "^1.1.0"
     "@mapbox/tiny-sdf" "^2.2.0"
