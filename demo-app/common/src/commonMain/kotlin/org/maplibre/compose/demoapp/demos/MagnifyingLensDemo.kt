@@ -36,9 +36,11 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
+import org.maplibre.compose.demoapp.DefaultMapControls
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
+import org.maplibre.compose.demoapp.DemoMapControls
 import org.maplibre.compose.demoapp.DemoPointerPin
 import org.maplibre.compose.demoapp.center
 import org.maplibre.compose.demoapp.controlPadding
@@ -92,7 +94,13 @@ object MagnifyingLensDemo : Demo {
   private var lensDistortionEnabled by mutableStateOf(true)
 
   @Composable
-  override fun MapOverlayScope.Overlay(state: DemoAppState) {
+  override fun MapOverlayScope.Overlay(state: DemoAppState, controls: DemoMapControls) {
+    DemoOverlay(state)
+    DefaultMapControls(controls)
+  }
+
+  @Composable
+  private fun DemoOverlay(state: DemoAppState) {
     val mapState = state.mapState
     val appliedStyle = state.appliedStyle
     val lensState = rememberMapState(runtime = state.mapRuntime, baseStyle = appliedStyle.base)

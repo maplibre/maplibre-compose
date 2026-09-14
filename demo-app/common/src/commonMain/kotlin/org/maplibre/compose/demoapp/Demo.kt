@@ -10,10 +10,10 @@ import org.maplibre.compose.demoapp.demos.LiveTrackingDemo
 import org.maplibre.compose.demoapp.demos.MagnifyingLensDemo
 import org.maplibre.compose.demoapp.demos.Manhattan3dDemo
 import org.maplibre.compose.demoapp.demos.MapControlsDemo
-import org.maplibre.compose.demoapp.demos.MapSnapshotterDemo
 import org.maplibre.compose.demoapp.demos.MaterialStyleDemo
 import org.maplibre.compose.demoapp.demos.TransitNetworkDemo
 import org.maplibre.compose.demoapp.demos.editablemarkers.EditableMarkersDemo
+import org.maplibre.compose.demoapp.demos.snapshotter.MapSnapshotterDemo
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MapUiOptions
@@ -62,11 +62,15 @@ interface Demo {
 
   /**
    * Compose UI drawn over the map while this demo is selected. [state] exposes the shell's
-   * settings, style, and camera.
+   * settings, style, and camera. Place [controls] in the layout so shared controls have room.
    *
    * [org.maplibre.compose.overlay.MapOverlayScope.placedAt] pins a child to a geographic position.
    */
-  @UiComposable @Composable fun MapOverlayScope.Overlay(state: DemoAppState) {}
+  @UiComposable
+  @Composable
+  fun MapOverlayScope.Overlay(state: DemoAppState, controls: DemoMapControls) {
+    DefaultMapControls(controls)
+  }
 
   /**
    * Controls shown in the sheet or side panel while this demo is selected. [state] exposes the

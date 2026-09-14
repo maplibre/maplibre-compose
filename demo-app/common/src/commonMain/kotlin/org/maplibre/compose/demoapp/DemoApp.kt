@@ -307,7 +307,7 @@ private fun ShellMap(
     DemoMap(
       state,
       viewportInsets(),
-      overlay = demoMapOverlay(state.settings, state.location, controlsModifier),
+      controls = demoMapControls(state.settings, state.location, controlsModifier),
     )
   }
 }

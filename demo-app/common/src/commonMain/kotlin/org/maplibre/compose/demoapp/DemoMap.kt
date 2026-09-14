@@ -15,10 +15,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -84,7 +88,6 @@ import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MaplibreLogo
 import org.maplibre.compose.overlay.ZoomButtons
 import org.maplibre.compose.overlay.ZoomButtonsDefaults
-import org.maplibre.compose.overlay.include
 import org.maplibre.spatialk.geojson.Position
 
 /** The camera flight to a newly selected demo. */
@@ -117,69 +120,71 @@ private val DemoCompassEnter = fadeIn() + expandVertically()
 
 private val DemoCompassExit = fadeOut() + shrinkVertically()
 
-/**
- * The map controls the settings ask for. Compass, zoom, follow, and theme stack at the top-end,
- * where the compass sits on [MapOverlay.Default]. The compass is first so hiding it slides the
- * other buttons up; its slot expands and shrinks instead of popping. [controlsModifier] applies to
- * the stack so a shell can route D-pad focus through it.
- */
-internal fun demoMapOverlay(
+/** Shared controls whose placement is chosen by the active demo. */
+class DemoMapControls(
+  val scale: @Composable () -> Unit,
+  val buttons: @Composable () -> Unit,
+  val attribution: @Composable () -> Unit,
+)
+
+/** [controlsModifier] lets a shell route D-pad focus through the button stack. */
+internal fun demoMapControls(
   settings: DemoSettings,
   location: DemoLocationUi,
   controlsModifier: Modifier = Modifier,
-): MapOverlay = MapOverlay {
-  Box(Modifier.fillMaxSize().controlPadding()) {
-    val mapState = checkNotNull(LocalMapState.current)
-    val material3 = settings.useMaterial3Controls
-    val metersPerDp = mapState.viewport?.metersPerDpAtTarget ?: 0.0
-    val zoom = mapState.cameraPosition.zoom
-    if (material3) {
-      MaterialDisappearingScaleBar(
-        metersPerDp = metersPerDp,
-        zoom = zoom,
-        modifier = Modifier.align(Alignment.TopStart),
-      )
-    } else {
-      DisappearingScaleBar(
-        metersPerDp = metersPerDp,
-        zoom = zoom,
-        modifier = Modifier.align(Alignment.TopStart),
-      )
-    }
-    MaplibreLogo(Modifier.align(Alignment.BottomStart))
-    if (material3) MaterialExpandingAttributionButton(Modifier.align(Alignment.BottomEnd))
-    else ExpandingAttributionButton(Modifier.align(Alignment.BottomEnd))
-    Column(
-      modifier = Modifier.align(Alignment.TopEnd).then(controlsModifier),
-      horizontalAlignment = Alignment.End,
-    ) {
-      val compassSpacing = Modifier.padding(bottom = MapOverlay.Spacing)
+): DemoMapControls =
+  DemoMapControls(
+    scale = {
+      val mapState = checkNotNull(LocalMapState.current)
+      val material3 = settings.useMaterial3Controls
+      val metersPerDp = mapState.viewport?.metersPerDpAtTarget ?: 0.0
+      val zoom = mapState.cameraPosition.zoom
       if (material3) {
-        MaterialDisappearingCompassButton(
-          contentModifier = compassSpacing,
-          enterTransition = DemoCompassEnter,
-          exitTransition = DemoCompassExit,
+        MaterialDisappearingScaleBar(
+          metersPerDp = metersPerDp,
+          zoom = zoom,
         )
       } else {
-        DisappearingCompassButton(
-          contentModifier = compassSpacing,
-          enterTransition = DemoCompassEnter,
-          exitTransition = DemoCompassExit,
+        DisappearingScaleBar(
+          metersPerDp = metersPerDp,
+          zoom = zoom,
         )
       }
+    },
+    buttons = {
+      val material3 = settings.useMaterial3Controls
       Column(
-        verticalArrangement = Arrangement.spacedBy(MapOverlay.Spacing),
+        modifier = controlsModifier.verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.End,
       ) {
-        if (settings.showZoomButtons) {
-          if (material3) MaterialZoomButtons() else ZoomButtons()
+        val compassSpacing = Modifier.padding(bottom = MapOverlay.Spacing)
+        if (material3) {
+          MaterialDisappearingCompassButton(
+            contentModifier = compassSpacing,
+            enterTransition = DemoCompassEnter,
+            exitTransition = DemoCompassExit,
+          )
+        } else {
+          DisappearingCompassButton(
+            contentModifier = compassSpacing,
+            enterTransition = DemoCompassEnter,
+            exitTransition = DemoCompassExit,
+          )
         }
-        DemoFollowButton(settings, location)
-        DemoThemeToggleButton(settings)
+        Column(
+          verticalArrangement = Arrangement.spacedBy(MapOverlay.Spacing),
+          horizontalAlignment = Alignment.End,
+        ) {
+          if (settings.showZoomButtons) {
+            if (material3) MaterialZoomButtons() else ZoomButtons()
+          }
+          DemoFollowButton(settings, location)
+          DemoThemeToggleButton(settings)
+        }
       }
-    }
-  }
-}
+    },
+    attribution = { DemoMapAttribution(settings.useMaterial3Controls) },
+  )
 
 @Composable
 private fun DemoFollowButton(settings: DemoSettings, location: DemoLocationUi) {
@@ -327,7 +332,7 @@ private fun DemoControlButton(
 fun DemoMap(
   state: DemoAppState,
   viewportInsets: MapViewportInsets,
-  overlay: MapOverlay = demoMapOverlay(state.settings, state.location),
+  controls: DemoMapControls = demoMapControls(state.settings, state.location),
   modifier: Modifier = Modifier,
 ) {
   val scope = rememberCoroutineScope()
@@ -365,9 +370,10 @@ fun DemoMap(
       interactions = selectedDemo?.interactions(state.mapState) ?: MapInteractions.Standard,
       uiOptions = selectedDemo?.uiOptions(state.settings.uiOptions) ?: state.settings.uiOptions,
     ) {
+      if (selectedDemo == null) DefaultMapControls(controls)
       selectedDemo?.let { demo ->
         key(demo) {
-          with(demo) { Overlay(state) }
+          with(demo) { Overlay(state, controls) }
           GeographicLayout(Modifier.controlPadding()) {
             pointerPin?.let {
               PointerPinButton(
@@ -383,7 +389,6 @@ fun DemoMap(
           }
         }
       }
-      include(overlay)
     }
 
     if (state.settings.showPointerPinDiagnostics && pointerPin != null) {
@@ -606,4 +611,26 @@ private fun Double.format(decimals: Int): String {
   repeat(decimals) { factor *= 10 }
   val rounded = (this * factor).roundToInt() / factor
   return if (decimals == 0) rounded.roundToInt().toString() else rounded.toString()
+}
+
+/** The shared controls' normal placement; a demo can instead allocate space for their contents. */
+@Composable
+internal fun DefaultMapControls(controls: DemoMapControls) {
+  Box(Modifier.fillMaxSize().controlPadding()) {
+    Box(Modifier.align(Alignment.TopStart)) { controls.scale() }
+    Box(Modifier.align(Alignment.TopEnd)) { controls.buttons() }
+    Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) { controls.attribution() }
+  }
+}
+
+@Composable
+private fun DemoMapAttribution(material3: Boolean) {
+  Row(
+    Modifier.fillMaxWidth(),
+    horizontalArrangement = Arrangement.SpaceBetween,
+    verticalAlignment = Alignment.Bottom,
+  ) {
+    MaplibreLogo()
+    if (material3) MaterialExpandingAttributionButton() else ExpandingAttributionButton()
+  }
 }

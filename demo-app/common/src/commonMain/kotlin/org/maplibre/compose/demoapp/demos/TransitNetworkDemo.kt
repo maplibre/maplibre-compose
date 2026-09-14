@@ -59,9 +59,11 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.maplibre.compose.camera.CameraAnimation
+import org.maplibre.compose.demoapp.DefaultMapControls
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
+import org.maplibre.compose.demoapp.DemoMapControls
 import org.maplibre.compose.demoapp.DemoPointerPin
 import org.maplibre.compose.demoapp.DemoStyle
 import org.maplibre.compose.demoapp.Protomaps
@@ -420,7 +422,13 @@ object TransitNetworkDemo : Demo {
   }
 
   @Composable
-  override fun MapOverlayScope.Overlay(state: DemoAppState) {
+  override fun MapOverlayScope.Overlay(state: DemoAppState, controls: DemoMapControls) {
+    DemoOverlay()
+    DefaultMapControls(controls)
+  }
+
+  @Composable
+  private fun MapOverlayScope.DemoOverlay() {
     LoadFeed()
     val network = (feedState as? FeedState.Loaded)?.network ?: return
     val selected = selectedRouteId
