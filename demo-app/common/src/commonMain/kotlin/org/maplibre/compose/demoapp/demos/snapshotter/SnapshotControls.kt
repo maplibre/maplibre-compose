@@ -11,7 +11,6 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,10 +19,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -60,19 +59,10 @@ internal fun SnapshotControls(
     verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
     StatusPill(state)
-    FlowRow(
-      horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
-      verticalArrangement = Arrangement.spacedBy(8.dp),
-      itemVerticalAlignment = Alignment.CenterVertically,
-    ) {
-      Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-      ) {
-        CaptureButton(state, canCapture, onCapture)
-        Box(Modifier.size(56.dp).onGloballyPositioned(onDockPositioned))
-      }
-      AspectSelector(state)
+    AspectSelector(state)
+    Box(Modifier.fillMaxWidth()) {
+      Box(Modifier.align(Alignment.Center)) { CaptureButton(state, canCapture, onCapture) }
+      Box(Modifier.align(Alignment.CenterEnd).size(56.dp).onGloballyPositioned(onDockPositioned))
     }
   }
 }
@@ -80,11 +70,12 @@ internal fun SnapshotControls(
 @Composable
 private fun CaptureButton(state: SnapshotterDemoState, canCapture: Boolean, onCapture: () -> Unit) {
   val capturing = state.status is CaptureStatus.Capturing
-  Button(
+  FilledIconButton(
     onClick = onCapture,
+    modifier = Modifier.size(56.dp),
     enabled = canCapture && !capturing,
     colors =
-      ButtonDefaults.buttonColors(
+      IconButtonDefaults.filledIconButtonColors(
         containerColor = Color.White,
         contentColor = Color.Black,
         disabledContainerColor = Color.White.copy(alpha = 0.4f),
@@ -93,28 +84,24 @@ private fun CaptureButton(state: SnapshotterDemoState, canCapture: Boolean, onCa
   ) {
     if (capturing) {
       CircularProgressIndicator(
-        modifier = Modifier.size(18.dp),
+        modifier = Modifier.size(24.dp),
         color = LocalContentColor.current,
         strokeWidth = 2.dp,
       )
     } else {
       Icon(
         vectorResource(Res.drawable.photo_camera_24px),
-        contentDescription = null,
-        modifier = Modifier.size(18.dp),
+        contentDescription = "Take snapshot",
+        modifier = Modifier.size(24.dp),
       )
     }
-    Text(
-      if (capturing) "Capturing…" else "Take snapshot",
-      modifier = Modifier.padding(start = 8.dp),
-    )
   }
 }
 
 /**
  * The aspect presets as a camera-style mode row: plain text over the dimmed map, the selection
- * shown with weight and brightness. Tapping one animates the frame itself, which is the real
- * preview. The row scrolls on hosts too narrow for it, like the Wear map.
+ * shown with weight and brightness. Tapping one updates the frame preview. The row scrolls on hosts
+ * too narrow for it, like the Wear map.
  */
 @Composable
 private fun AspectSelector(state: SnapshotterDemoState) {

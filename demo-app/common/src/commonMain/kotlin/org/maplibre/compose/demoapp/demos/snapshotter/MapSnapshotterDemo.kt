@@ -148,7 +148,7 @@ object MapSnapshotterDemo : Demo {
     }
 
     Box(Modifier.fillMaxSize().onPlaced { coordinates = it }) {
-      SnapshotScrim(frame)
+      SnapshotScrim { frame }
       Box(Modifier.fillMaxSize().controlPadding()) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
           val controlsMaxHeight = maxHeight / 2

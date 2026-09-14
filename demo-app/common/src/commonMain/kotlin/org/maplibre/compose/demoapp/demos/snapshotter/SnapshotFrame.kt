@@ -1,10 +1,6 @@
 package org.maplibre.compose.demoapp.demos.snapshotter
 
-import androidx.compose.animation.core.AnimationVector2D
-import androidx.compose.animation.core.TwoWayConverter
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.animateValueAsState
-import androidx.compose.animation.core.snap
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -70,23 +66,10 @@ internal fun SnapshotFrame(
   onPositioned: (LayoutCoordinates) -> Unit,
 ) {
   var preferredSize by remember { mutableStateOf<DpSize?>(null) }
-  var dragging by remember { mutableStateOf(false) }
   BoxWithConstraints(modifier.fillMaxSize()) {
     val safe = DpSize(maxWidth, maxHeight)
-    val target =
-      fitFrameToSafeArea(preferredSize ?: DpSize(maxWidth * 0.62f, maxHeight * 0.62f), safe, aspect)
-    val animated by
-      animateValueAsState(
-        target,
-        DpSizeVectorConverter,
-        animationSpec = if (dragging) snap() else MaterialTheme.motionScheme.defaultSpatialSpec(),
-        label = "frame size",
-      )
     val size =
-      DpSize(
-        animated.width.coerceIn(0.dp, (safe.width - FrameMargin * 2).coerceAtLeast(0.dp)),
-        animated.height.coerceIn(0.dp, (safe.height - FrameMargin * 2).coerceAtLeast(0.dp)),
-      )
+      fitFrameToSafeArea(preferredSize ?: DpSize(maxWidth * 0.62f, maxHeight * 0.62f), safe, aspect)
     val frame = centeredFrame(size, safe)
     Box(Modifier.align(Alignment.Center).size(size).onGloballyPositioned(onPositioned))
     if (size.width >= HandleTouchTarget && size.height >= HandleTouchTarget) {
@@ -95,31 +78,34 @@ internal fun SnapshotFrame(
           corner,
           frame,
           modifier = Modifier.align(AbsoluteAlignment.TopLeft),
-          onDragging = { dragging = it },
-          onDrag = { drag -> preferredSize = resizedFrame(size, corner, drag, safe, aspect) },
+          onDrag = { drag ->
+            preferredSize =
+              resizedFrame(
+                fitFrameToSafeArea(preferredSize ?: size, safe, aspect),
+                corner,
+                drag,
+                safe,
+                aspect,
+              )
+          },
         )
       }
     }
   }
 }
 
-private val DpSizeVectorConverter =
-  TwoWayConverter<DpSize, AnimationVector2D>(
-    convertToVector = { AnimationVector2D(it.width.value, it.height.value) },
-    convertFromVector = { DpSize(it.v1.dp, it.v2.dp) },
-  )
-
 /** Full-map drawing uses the measured frame's map-relative pixel bounds. */
 @Composable
-internal fun SnapshotScrim(frame: Rect?) {
+internal fun SnapshotScrim(frame: () -> Rect?) {
   val scrimPath = remember { Path() }
   Canvas(Modifier.fillMaxSize()) {
+    val framePx = frame()
     scrimPath.rewind()
     scrimPath.fillType = PathFillType.EvenOdd
     scrimPath.addRect(Rect(Offset.Zero, size))
-    if (frame != null) scrimPath.addRoundRect(RoundRect(frame, CornerRadius(4.dp.toPx())))
+    if (framePx != null) scrimPath.addRoundRect(RoundRect(framePx, CornerRadius(4.dp.toPx())))
     drawPath(scrimPath, Color.Black.copy(alpha = 0.38f))
-    val framePx = frame ?: return@Canvas
+    if (framePx == null) return@Canvas
 
     val gridColor = Color.White.copy(alpha = 0.3f)
     val gridStroke = 1.dp.toPx()
@@ -166,9 +152,9 @@ private fun FrameHandle(
   corner: FrameCorner,
   frame: Rect,
   modifier: Modifier,
-  onDragging: (Boolean) -> Unit,
   onDrag: (DpOffset) -> Unit,
 ) {
+  var coordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
   val interactionSource = remember { MutableInteractionSource() }
   val hovered by interactionSource.collectIsHoveredAsState()
   var dragging by remember { mutableStateOf(false) }
@@ -207,6 +193,7 @@ private fun FrameHandle(
           )
         }
         .size(HandleTouchTarget)
+        .onGloballyPositioned { coordinates = it }
         .semantics {
           contentDescription = description
           set(
@@ -232,22 +219,26 @@ private fun FrameHandle(
         .pointerHoverIcon(PointerIcon.Hand)
         .hoverable(interactionSource)
         .pointerInput(corner) {
+          var previousPosition: Offset? = null
           detectDragGestures(
             onDragStart = {
               dragging = true
-              onDragging(true)
+              previousPosition = null
             },
             onDragEnd = {
               dragging = false
-              onDragging(false)
             },
             onDragCancel = {
               dragging = false
-              onDragging(false)
             },
           ) { change, dragAmount ->
             change.consume()
-            currentOnDrag(DpOffset(dragAmount.x.toDp(), dragAmount.y.toDp()))
+            // The handle moves during the gesture; measure pointer travel in fixed root
+            // coordinates.
+            val position = coordinates?.localToRoot(change.position) ?: change.position
+            val delta = previousPosition?.let { position - it } ?: dragAmount
+            previousPosition = position
+            currentOnDrag(DpOffset(delta.x.toDp(), delta.y.toDp()))
           }
         },
     contentAlignment = Alignment.Center,
