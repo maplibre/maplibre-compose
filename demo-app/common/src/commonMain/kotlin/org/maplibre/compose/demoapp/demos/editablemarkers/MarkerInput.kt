@@ -31,17 +31,19 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.overlay.MapOverlayScope
 
 @Composable
 internal fun MapOverlayScope.MarkerTargets(state: EditableMarkersState) =
   with(state) {
+    val mapState = checkNotNull(LocalMapState.current)
     val activeId = pressedId ?: draggingId
     for (marker in markers) key(marker.id) {
       var anchor by remember { mutableStateOf<DpOffset?>(null) }
       var trashTarget by remember { mutableStateOf<MarkerTrashTarget?>(null) }
       MarkerInputTarget(
-        modifier = Modifier.placedAt(marker.position, Alignment.BottomCenter),
+        modifier = Modifier.placedAt(marker.position, alignment = Alignment.BottomCenter),
         enabled = !marker.removing && (activeId == null || activeId == marker.id),
         onHover = { hovered ->
           if (hovered) hoveredId = marker.id else if (hoveredId == marker.id) hoveredId = null

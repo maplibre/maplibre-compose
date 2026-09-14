@@ -60,21 +60,24 @@ import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.painterResource
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.check_24px
+import org.maplibre.compose.map.LocalMapState
+import org.maplibre.compose.overlay.LocalCameraPadding
 import org.maplibre.compose.overlay.MapOverlayScope
 
 @Composable
 internal fun MapOverlayScope.MarkerEditors(state: EditableMarkersState, mapSize: IntSize) =
   with(state) {
+    val mapState = checkNotNull(LocalMapState.current)
     // Keep the editor inside the usable map, flipping below pins near the top edge.
     val density = LocalDensity.current
+    val padding = LocalCameraPadding.current
     val layoutDirection = LocalLayoutDirection.current
-    val left =
-      with(density) { contentWindowInsets.getLeft(this, layoutDirection).toDp().value } + 8f
+    val left = with(density) { padding.calculateLeftPadding(layoutDirection).value } + 8f
     val right =
       with(density) {
-        (mapSize.width - contentWindowInsets.getRight(this, layoutDirection)).toDp().value
+        (mapSize.width - padding.calculateRightPadding(layoutDirection).roundToPx()).toDp().value
       } - 8f
-    val top = with(density) { contentWindowInsets.getTop(this).toDp().value } + 8f
+    val top = with(density) { padding.calculateTopPadding().value } + 8f
     val editorWidth = (right - left).coerceIn(0f, 272f)
 
     for (marker in markers) key(marker.id) {
@@ -96,7 +99,7 @@ internal fun MapOverlayScope.MarkerEditors(state: EditableMarkersState, mapSize:
         modifier =
           Modifier.placedAt(
               marker.position,
-              if (below) Alignment.TopCenter else Alignment.BottomCenter,
+              alignment = if (below) Alignment.TopCenter else Alignment.BottomCenter,
             )
             .padding(
               top = if (below) (32f + 14f * textScale).dp else 0.dp,

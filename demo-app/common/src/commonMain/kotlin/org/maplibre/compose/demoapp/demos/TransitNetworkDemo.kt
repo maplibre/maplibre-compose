@@ -445,7 +445,8 @@ object TransitNetworkDemo : Demo {
           DepartureChip(
             text = departure,
             modifier =
-              Modifier.placedAt(terminal.position, Alignment.BottomCenter).padding(bottom = 8.dp),
+              Modifier.placedAt(terminal.position, alignment = Alignment.BottomCenter)
+                .padding(bottom = 8.dp),
           )
         }
       }

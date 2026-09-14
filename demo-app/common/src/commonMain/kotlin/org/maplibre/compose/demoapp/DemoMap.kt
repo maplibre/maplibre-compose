@@ -64,20 +64,24 @@ import org.maplibre.compose.demoapp.generated.my_location_24px
 import org.maplibre.compose.demoapp.generated.my_location_fill_24px
 import org.maplibre.compose.demoapp.generated.navigation_24px
 import org.maplibre.compose.interaction.MapInteractions
+import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.StyleLoadState
 import org.maplibre.compose.material3.DisappearingCompassButton as MaterialDisappearingCompassButton
 import org.maplibre.compose.material3.DisappearingScaleBar as MaterialDisappearingScaleBar
-import org.maplibre.compose.material3.Material3AttributionOnly
+import org.maplibre.compose.material3.ExpandingAttributionButton as MaterialExpandingAttributionButton
 import org.maplibre.compose.material3.PointerPinButton
 import org.maplibre.compose.material3.ZoomButtons as MaterialZoomButtons
 import org.maplibre.compose.overlay.CompassButtonStyle
 import org.maplibre.compose.overlay.CompassDefaults
 import org.maplibre.compose.overlay.DisappearingCompassButton
 import org.maplibre.compose.overlay.DisappearingScaleBar
+import org.maplibre.compose.overlay.ExpandingAttributionButton
+import org.maplibre.compose.overlay.GeographicLayout
 import org.maplibre.compose.overlay.MapOverlay
+import org.maplibre.compose.overlay.MaplibreLogo
 import org.maplibre.compose.overlay.ZoomButtons
 import org.maplibre.compose.overlay.ZoomButtonsDefaults
 import org.maplibre.compose.overlay.include
@@ -124,51 +128,55 @@ internal fun demoMapOverlay(
   location: DemoLocationUi,
   controlsModifier: Modifier = Modifier,
 ): MapOverlay = MapOverlay {
-  val overlayScope = this
-  val material3 = settings.useMaterial3Controls
-  val metersPerDp = mapState.viewport?.metersPerDpAtTarget ?: 0.0
-  val zoom = mapState.cameraPosition.zoom
-  if (material3) {
-    MaterialDisappearingScaleBar(
-      metersPerDp = metersPerDp,
-      zoom = zoom,
-      modifier = Modifier.align(Alignment.TopStart),
-    )
-  } else {
-    DisappearingScaleBar(
-      metersPerDp = metersPerDp,
-      zoom = zoom,
-      modifier = Modifier.align(Alignment.TopStart),
-    )
-  }
-  include(if (material3) MapOverlay.Material3AttributionOnly else MapOverlay.AttributionOnly)
-  Column(
-    modifier = Modifier.align(Alignment.TopEnd).then(controlsModifier),
-    horizontalAlignment = Alignment.End,
-  ) {
-    val compassSpacing = Modifier.padding(bottom = MapOverlay.Spacing)
+  Box(Modifier.fillMaxSize().controlPadding()) {
+    val mapState = checkNotNull(LocalMapState.current)
+    val material3 = settings.useMaterial3Controls
+    val metersPerDp = mapState.viewport?.metersPerDpAtTarget ?: 0.0
+    val zoom = mapState.cameraPosition.zoom
     if (material3) {
-      overlayScope.MaterialDisappearingCompassButton(
-        contentModifier = compassSpacing,
-        enterTransition = DemoCompassEnter,
-        exitTransition = DemoCompassExit,
+      MaterialDisappearingScaleBar(
+        metersPerDp = metersPerDp,
+        zoom = zoom,
+        modifier = Modifier.align(Alignment.TopStart),
       )
     } else {
-      overlayScope.DisappearingCompassButton(
-        contentModifier = compassSpacing,
-        enterTransition = DemoCompassEnter,
-        exitTransition = DemoCompassExit,
+      DisappearingScaleBar(
+        metersPerDp = metersPerDp,
+        zoom = zoom,
+        modifier = Modifier.align(Alignment.TopStart),
       )
     }
+    MaplibreLogo(Modifier.align(Alignment.BottomStart))
+    if (material3) MaterialExpandingAttributionButton(Modifier.align(Alignment.BottomEnd))
+    else ExpandingAttributionButton(Modifier.align(Alignment.BottomEnd))
     Column(
-      verticalArrangement = Arrangement.spacedBy(MapOverlay.Spacing),
+      modifier = Modifier.align(Alignment.TopEnd).then(controlsModifier),
       horizontalAlignment = Alignment.End,
     ) {
-      if (settings.showZoomButtons) {
-        if (material3) overlayScope.MaterialZoomButtons() else overlayScope.ZoomButtons()
+      val compassSpacing = Modifier.padding(bottom = MapOverlay.Spacing)
+      if (material3) {
+        MaterialDisappearingCompassButton(
+          contentModifier = compassSpacing,
+          enterTransition = DemoCompassEnter,
+          exitTransition = DemoCompassExit,
+        )
+      } else {
+        DisappearingCompassButton(
+          contentModifier = compassSpacing,
+          enterTransition = DemoCompassEnter,
+          exitTransition = DemoCompassExit,
+        )
       }
-      DemoFollowButton(settings, location)
-      DemoThemeToggleButton(settings)
+      Column(
+        verticalArrangement = Arrangement.spacedBy(MapOverlay.Spacing),
+        horizontalAlignment = Alignment.End,
+      ) {
+        if (settings.showZoomButtons) {
+          if (material3) MaterialZoomButtons() else ZoomButtons()
+        }
+        DemoFollowButton(settings, location)
+        DemoThemeToggleButton(settings)
+      }
     }
   }
 }
@@ -356,20 +364,21 @@ fun DemoMap(
       renderOptions = state.settings.renderOptions,
       interactions = selectedDemo?.interactions(state.mapState) ?: MapInteractions.Standard,
       uiOptions = selectedDemo?.uiOptions(state.settings.uiOptions) ?: state.settings.uiOptions,
-      contentWindowInsets = viewportInsets.asWindowInsets(),
     ) {
       selectedDemo?.let { demo ->
         key(demo) {
           with(demo) { Overlay(state) }
-          pointerPin?.let {
-            PointerPinButton(
-              targetPosition = it.target,
-              onClick = { scope.launch { state.mapState.flyTo(it.destination) } },
-            ) {
-              Icon(
-                vectorResource(Res.drawable.filter_center_focus_24px),
-                contentDescription = "Fly back to ${demo.name}",
-              )
+          GeographicLayout(Modifier.controlPadding()) {
+            pointerPin?.let {
+              PointerPinButton(
+                targetPosition = it.target,
+                onClick = { scope.launch { state.mapState.flyTo(it.destination) } },
+              ) {
+                Icon(
+                  vectorResource(Res.drawable.filter_center_focus_24px),
+                  contentDescription = "Fly back to ${demo.name}",
+                )
+              }
             }
           }
         }

@@ -2,9 +2,15 @@
 
 package org.maplibre.compose.docsnippets
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import org.maplibre.compose.map.LocalViewport
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.material3.CompassButton
 import org.maplibre.compose.material3.ExpandingAttributionButton
@@ -23,17 +29,19 @@ fun Material3() {
 
   // #region controls
   MaplibreMap {
-    ScaleBar(
-      mapState.viewport?.metersPerDpAtTarget ?: 0.0,
-      modifier = Modifier.align(Alignment.TopStart),
-    ) // (1)!
-    CompassButton(modifier = Modifier.align(Alignment.TopEnd))
-    ZoomButtons(Modifier.align(Alignment.CenterEnd))
-    MaplibreLogo(Modifier.align(Alignment.BottomStart))
-    ExpandingAttributionButton(
-      modifier = Modifier.align(Alignment.BottomEnd),
-      contentAlignment = Alignment.BottomEnd,
-    )
+    Box(Modifier.fillMaxSize().safeDrawingPadding().padding(8.dp)) {
+      ScaleBar(
+        LocalViewport.current?.metersPerDpAtTarget ?: 0.0,
+        modifier = Modifier.align(Alignment.TopStart),
+      ) // (1)!
+      CompassButton(modifier = Modifier.align(Alignment.TopEnd))
+      ZoomButtons(Modifier.align(Alignment.CenterEnd))
+      MaplibreLogo(Modifier.align(Alignment.BottomStart))
+      ExpandingAttributionButton(
+        modifier = Modifier.align(Alignment.BottomEnd),
+        contentAlignment = Alignment.BottomEnd,
+      )
+    }
   }
   // #endregion controls
 }

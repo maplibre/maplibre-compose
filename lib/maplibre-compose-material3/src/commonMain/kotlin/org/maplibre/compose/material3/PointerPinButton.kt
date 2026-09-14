@@ -31,9 +31,9 @@ import org.maplibre.spatialk.geojson.Position
 
 /**
  * An elevated button in the shape of a pointer pin, placed through
- * [placedTowards][MapOverlayScope.placedTowards] on the edge of an ellipse inscribed in the
- * unobstructed map region and pointing towards [targetPosition]. Only shown while [targetPosition]
- * is outside of the ellipse.
+ * [placedTowards][MapOverlayScope.placedTowards] on the edge of an ellipse inscribed in its layout
+ * bounds and pointing towards [targetPosition]. Only shown while [targetPosition] is outside of the
+ * ellipse.
  *
  * @param targetPosition position (off-screen) the pin should point at
  * @param modifier the [Modifier] to be applied to this button
@@ -73,8 +73,8 @@ public fun MapOverlayScope.PointerPinButton(
   ElevatedButton(
     onClick = onClick,
     modifier =
-      modifier
-        .placedTowards(targetPosition, placement)
+      Modifier.placedTowards(targetPosition, state = placement)
+        .then(modifier)
         // Rotation applies at draw time, after the layout pass writes the angle, so the pin
         // points at the target on the same frame it is placed.
         .graphicsLayer { rotationZ = placement.angleDegrees },

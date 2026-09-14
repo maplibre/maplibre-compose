@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -48,6 +47,7 @@ import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.map.MapSnapshotRequest
+import org.maplibre.compose.overlay.LocalCameraPadding
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
@@ -182,7 +182,7 @@ object MapSnapshotterDemo : Demo {
     }
 
     capturedSnapshot?.let { snapshot ->
-      Box(Modifier.fillMaxSize().windowInsetsPadding(contentWindowInsets)) {
+      Box(Modifier.fillMaxSize().padding(LocalCameraPadding.current)) {
         Surface(
           modifier =
             Modifier.align(Alignment.BottomEnd)

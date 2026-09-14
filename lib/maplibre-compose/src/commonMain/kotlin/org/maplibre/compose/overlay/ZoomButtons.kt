@@ -47,6 +47,7 @@ import org.maplibre.compose.generated.add
 import org.maplibre.compose.generated.remove
 import org.maplibre.compose.generated.zoom_in
 import org.maplibre.compose.generated.zoom_out
+import org.maplibre.compose.map.LocalMapState
 
 /**
  * Buttons that zoom the camera in and out, drawn as one vertical segmented container.
@@ -67,7 +68,7 @@ import org.maplibre.compose.generated.zoom_out
  * @param getZoomOutPosition The camera position that the zoom-out button animates to.
  */
 @Composable
-public fun MapOverlayScope.ZoomButtons(
+public fun ZoomButtons(
   modifier: Modifier = Modifier,
   onZoomIn: () -> Unit = {},
   onZoomOut: () -> Unit = {},
@@ -81,7 +82,7 @@ public fun MapOverlayScope.ZoomButtons(
   getZoomInPosition: (CameraPosition) -> CameraPosition = { it.copy(zoom = it.zoom + 1) },
   getZoomOutPosition: (CameraPosition) -> CameraPosition = { it.copy(zoom = it.zoom - 1) },
 ) {
-  val currentMapState = mapState
+  val currentMapState = checkNotNull(LocalMapState.current)
   val coroutineScope = rememberCoroutineScope()
   val zoomInInteractionSource = remember { MutableInteractionSource() }
   val zoomOutInteractionSource = remember { MutableInteractionSource() }

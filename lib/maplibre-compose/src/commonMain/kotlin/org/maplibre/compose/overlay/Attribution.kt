@@ -62,6 +62,7 @@ import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.generated.Res
 import org.maplibre.compose.generated.attribution
 import org.maplibre.compose.generated.info
+import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.map.MapStyleState
 import org.maplibre.compose.util.horizontal
 import org.maplibre.compose.util.reverse
@@ -88,7 +89,7 @@ import org.maplibre.compose.util.vertical
  *   the given alignment
  */
 @Composable
-public fun MapOverlayScope.ExpandingAttributionButton(
+public fun ExpandingAttributionButton(
   modifier: Modifier = Modifier,
   contentAlignment: Alignment = Alignment.BottomEnd,
   toggleButton: @Composable (onClick: () -> Unit) -> Unit = AttributionDefaults.button,
@@ -100,7 +101,7 @@ public fun MapOverlayScope.ExpandingAttributionButton(
   collapse: (Alignment) -> ExitTransition = AttributionDefaults.collapse,
 ) {
   var expanded by remember { mutableStateOf(true) }
-  val currentMapState = mapState
+  val currentMapState = checkNotNull(LocalMapState.current)
 
   // dismiss on any map gesture
   LaunchedEffect(currentMapState.isCameraMoving, currentMapState.cameraMoveReason) {
@@ -111,7 +112,7 @@ public fun MapOverlayScope.ExpandingAttributionButton(
     }
   }
 
-  val mapStyle = style
+  val mapStyle = currentMapState.style
   val attributions by remember(mapStyle) { derivedStateOf { mapStyle.attributions() } }
   if (attributions.isEmpty()) return
 

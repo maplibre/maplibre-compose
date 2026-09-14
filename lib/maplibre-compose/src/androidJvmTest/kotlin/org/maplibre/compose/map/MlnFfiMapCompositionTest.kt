@@ -783,7 +783,11 @@ class MlnFfiMapCompositionTest {
         onFrame = { onFrame() },
         overlay =
           MapOverlay {
-            Box(Modifier.size(4.dp).placedAt(target, Alignment.Center).testTag(PLACED_AT_TAG))
+            Box(
+              Modifier.placedAt(target, alignment = Alignment.Center)
+                .size(4.dp)
+                .testTag(PLACED_AT_TAG)
+            )
           },
       )
     }
