@@ -1,6 +1,5 @@
 package org.maplibre.compose.demoapp
 
-import org.maplibre.compose.map.LocalMapState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -69,6 +68,7 @@ import org.maplibre.compose.demoapp.generated.my_location_24px
 import org.maplibre.compose.demoapp.generated.my_location_fill_24px
 import org.maplibre.compose.demoapp.generated.navigation_24px
 import org.maplibre.compose.interaction.MapInteractions
+import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
@@ -80,7 +80,6 @@ import org.maplibre.compose.material3.PointerPinButton
 import org.maplibre.compose.material3.ZoomButtons as MaterialZoomButtons
 import org.maplibre.compose.overlay.CompassButtonStyle
 import org.maplibre.compose.overlay.CompassDefaults
-import org.maplibre.compose.demoapp.controlPadding
 import org.maplibre.compose.overlay.DisappearingCompassButton
 import org.maplibre.compose.overlay.DisappearingScaleBar
 import org.maplibre.compose.overlay.ExpandingAttributionButton
@@ -632,7 +631,6 @@ private fun DemoMapAttribution(material3: Boolean) {
     verticalAlignment = Alignment.Bottom,
   ) {
     MaplibreLogo()
-    if (material3) MaterialExpandingAttributionButton()
-    else ExpandingAttributionButton()
+    if (material3) MaterialExpandingAttributionButton() else ExpandingAttributionButton()
   }
 }

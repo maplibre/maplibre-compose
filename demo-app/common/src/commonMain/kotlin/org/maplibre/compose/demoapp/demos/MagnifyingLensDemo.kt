@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
-import org.maplibre.compose.overlay.MapOverlayScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
@@ -44,6 +43,7 @@ import org.maplibre.compose.demoapp.DemoDestination
 import org.maplibre.compose.demoapp.DemoMapControls
 import org.maplibre.compose.demoapp.DemoPointerPin
 import org.maplibre.compose.demoapp.center
+import org.maplibre.compose.demoapp.controlPadding
 import org.maplibre.compose.demoapp.design.SectionHeader
 import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.demoapp.design.SliderRow
@@ -52,7 +52,7 @@ import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.map.MapUiOptions
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
-import org.maplibre.compose.demoapp.controlPadding
+import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.spatialk.geojson.BoundingBox
 
 /**

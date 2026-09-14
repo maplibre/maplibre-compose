@@ -6,7 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import org.maplibre.compose.overlay.MapOverlayScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
@@ -83,6 +82,7 @@ import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.layers.SymbolLayer
 import org.maplibre.compose.map.LocalMapState
+import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -423,12 +423,12 @@ object TransitNetworkDemo : Demo {
 
   @Composable
   override fun MapOverlayScope.Overlay(state: DemoAppState, controls: DemoMapControls) {
-    DemoOverlay(state)
+    DemoOverlay()
     DefaultMapControls(controls)
   }
 
   @Composable
-  private fun MapOverlayScope.DemoOverlay(state: DemoAppState) {
+  private fun MapOverlayScope.DemoOverlay() {
     LoadFeed()
     val network = (feedState as? FeedState.Loaded)?.network ?: return
     val selected = selectedRouteId

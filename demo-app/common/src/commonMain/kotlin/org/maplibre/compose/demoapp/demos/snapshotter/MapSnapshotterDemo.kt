@@ -40,13 +40,13 @@ import org.maplibre.compose.demoapp.DemoDestination
 import org.maplibre.compose.demoapp.DemoMapControls
 import org.maplibre.compose.demoapp.DemoPointerPin
 import org.maplibre.compose.demoapp.DemoStyle
+import org.maplibre.compose.demoapp.controlPadding
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.map.MapSnapshotRequest
-import org.maplibre.compose.demoapp.controlPadding
-import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.map.MapState
+import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.overlay.attributions
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
@@ -168,7 +168,7 @@ object MapSnapshotterDemo : Demo {
             SnapshotControls(
               state,
               canCapture =
-                this@SnapshotStage.mapState.cameraPosition.tilt == 0.0 &&
+                mapState.cameraPosition.tilt == 0.0 &&
                   frame?.let { it.width > 0 && it.height > 0 } == true,
               modifier =
                 Modifier.heightIn(max = controlsMaxHeight).verticalScroll(rememberScrollState()),

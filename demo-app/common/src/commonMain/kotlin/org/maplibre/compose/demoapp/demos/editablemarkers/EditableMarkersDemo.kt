@@ -1,6 +1,5 @@
 package org.maplibre.compose.demoapp.demos.editablemarkers
 
-import org.maplibre.compose.overlay.MapOverlayScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -27,6 +26,7 @@ import org.maplibre.compose.demoapp.flyTo
 import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.map.MapState
+import org.maplibre.compose.overlay.MapOverlayScope
 
 /** Editable places with scalable labels and a geographically anchored Compose editor. */
 object EditableMarkersDemo : Demo {
