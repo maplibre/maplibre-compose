@@ -206,7 +206,7 @@ object TransitNetworkDemo : Demo {
         routeTrips
           .flatMap { trip -> stopTimesByTrip[trip.tripId].orEmpty() }
           .filter { it.allowsBoarding }
-          .mapTo(mutableSetOf()) { it.stopId }
+          .mapNotNullTo(mutableSetOf()) { it.stopId }
       }
 
       val lineFeatures = mutableListOf<Feature<LineString, JsonObject>>()
@@ -262,7 +262,7 @@ object TransitNetworkDemo : Demo {
         terminals = FeatureCollection(terminalFeatures),
         terminalsById = terminalsById,
         stopIdsByRoute = stopIdsByRoute,
-        timeZone = agencies.first().agencyTimezone,
+        timeZone = TimeZone.of(agencies.first().agencyTimezone),
         tripsByRoute = tripsByRoute,
         stopTimesByTrip = stopTimesByTrip,
         firstStopTimeByTrip =
@@ -317,6 +317,7 @@ object TransitNetworkDemo : Demo {
         }
 
         for (stopTime in network.stopTimesByTrip[trip.tripId].orEmpty()) {
+          val stopId = stopTime.stopId ?: continue
           val departure = stopTime.departureTime
           if (departure != null && stopTime.allowsBoarding) {
             val sailing =
@@ -324,11 +325,11 @@ object TransitNetworkDemo : Demo {
                 instant = departure.toInstant(date, network.timeZone),
                 headsign = stopTime.stopHeadsign ?: trip.tripHeadsign ?: "",
               )
-            val previous = nextSailingByStopId[stopTime.stopId]
+            val previous = nextSailingByStopId[stopId]
             if (
               sailing.instant >= now && (previous == null || sailing.instant < previous.instant)
             ) {
-              nextSailingByStopId[stopTime.stopId] = sailing
+              nextSailingByStopId[stopId] = sailing
             }
           }
         }
