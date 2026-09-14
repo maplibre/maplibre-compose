@@ -37,24 +37,6 @@ select an output from the value:
 The map evaluates this formula once per feature: each earthquake receives a
 radius and a color computed from its own magnitude.
 
-## Build arrays from expressions
-
-Use <Api of="semiliteral" /> when each array element needs to evaluate an
-expression. `const(listOf(...))` keeps its elements literal. Nested constant
-arrays stay literal inside `semiliteral`; nest another `semiliteral` to
-calculate their elements too.
-
-<Api of="textVariableAnchorOffset" /> pairs anchors with <Api of="textOffset" />
-expressions. EM offsets scale with the label's text size, SP offsets scale with
-accessibility font size, and DP offsets keep a fixed distance.
-
-<Code code={rememberedMapStyle(region(expressions, "array-expressions"))} lang="kotlin" title="App.kt" />
-
-Replace old pairs such as `SymbolAnchor.Top to Offset(0f, 1f)` with
-`SymbolAnchor.Top to textOffset(0.em, 1.em)`. When `textSize` uses zoom
-interpolation, use EM offsets: the engines do not allow the nested zoom
-expression needed for SP or DP conversion.
-
 ## React to zoom
 
 <Api of="zoom" /> is the current zoom level. <Api of="interpolate" /> computes
