@@ -605,6 +605,10 @@ internal constructor(
     it.screenLocationFromPosition(position)
   }
 
+  fun overlayScreenLocationFromPosition(position: Position): DpOffset? = withViewport {
+    it.overlayScreenLocationFromPosition(position)
+  }
+
   fun positionFromScreenLocation(offset: DpOffset): Position? = withViewport {
     it.positionFromScreenLocation(offset)
   }
@@ -1169,6 +1173,11 @@ internal constructor(
   public fun screenLocationFromPosition(position: Position): DpOffset? = withAttachmentRead {
     it.screenLocationFromPosition(position)
   }
+
+  internal fun overlayScreenLocationFromPosition(position: Position): DpOffset? =
+    withAttachmentRead {
+      it.overlayScreenLocationFromPosition(position)
+    }
 
   /**
    * Unprojects [offset] into a geographic position, or returns null without a viewport.

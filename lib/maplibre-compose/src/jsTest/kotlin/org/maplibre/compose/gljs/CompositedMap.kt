@@ -33,8 +33,7 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
   var frameRequests: Int = 0
     private set
 
-  private val session =
-    GlJsMapSession(state.lifecycle, Callbacks(), logger = null, LayoutDirection.Ltr)
+  val session = GlJsMapSession(state.lifecycle, Callbacks(), logger = null, LayoutDirection.Ltr)
   private val token = state.reservePresentation()
 
   init {
@@ -54,7 +53,7 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
   /** Synchronous, so a caller can bracket it with GL of its own. */
   fun drawOnce(target: GlJsRenderTarget): Boolean {
     val rendered = session.render(GlJsFrameTarget.Composited(target), extentOf(target))
-    session.markPresentationStateReplayed()
+    if (session.hasUsableViewport) session.markPresentationStateReplayed()
     return rendered
   }
 
@@ -91,6 +90,7 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
 
   private inner class Callbacks : MapAdapter.Callbacks {
     override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
+      styleLoaded = false
       if (style != null) {
         scope.launch { session.reconcileStyleRevision(DesiredStyleRevision.Empty) }
       }

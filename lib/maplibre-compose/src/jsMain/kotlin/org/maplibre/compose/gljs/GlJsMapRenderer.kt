@@ -11,7 +11,7 @@ internal interface GlJsMapRenderer : AutoCloseable {
   fun onSurfaceLost()
 
   /**
-   * Renders one frame into [target], inside Compose's draw.
+   * Renders one frame into [target], before Compose overlay placement.
    *
    * @return whether anything was rendered. False is ordinary: before the style loads there is
    *   nothing to draw.

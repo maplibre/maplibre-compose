@@ -34,7 +34,7 @@ private val gpu: Promise<BrowserGpu> by lazy {
 
 internal suspend fun browserGpu(): BrowserGpu = gpu.await()
 
-private fun createGpu(): BrowserGpu {
+internal fun createGpu(): BrowserGpu {
   val canvas = document.createElement("canvas").unsafeCast<HTMLCanvasElement>()
   canvas.width = GPU_CANVAS_SIZE
   canvas.height = GPU_CANVAS_SIZE
@@ -93,6 +93,21 @@ internal inline fun <T> BrowserGpu.withRecreatedSkiaContext(block: (DirectContex
     nextSkia.close()
     registry.deleteContext(nextHandle)
     canvas.asDynamic().GLctxObject = previous
+    registry.makeContextCurrent(previous.handle)
+  }
+}
+
+/** Creates a distinct browser context, rather than another Skia handle for the same canvas. */
+internal inline fun <T> withNewWebGlContext(block: (BrowserGpu) -> T): T {
+  val registry: dynamic = js("globalThis").GL
+  val previous = registry.currentContext
+  val next = createGpu()
+  val handle = registry.currentContext.handle
+  try {
+    return block(next)
+  } finally {
+    next.skia.close()
+    registry.deleteContext(handle)
     registry.makeContextCurrent(previous.handle)
   }
 }

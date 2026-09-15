@@ -100,6 +100,6 @@ internal class GlJsRenderTarget(
   override fun close() {
     gl.deleteFramebuffer(framebufferObject)
     gl.deleteRenderbuffer(depthStencil)
-    image.close()
+    EmscriptenGl.withContext(hostContext) { image.close() }
   }
 }
