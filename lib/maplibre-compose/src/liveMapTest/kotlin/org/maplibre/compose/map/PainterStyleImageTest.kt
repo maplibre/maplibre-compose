@@ -25,6 +25,29 @@ import org.maplibre.compose.util.ImageStretch
 
 class PainterStyleImageTest {
   @Test
+  fun positive_subpixel_sizes_produce_nonempty_images() = runMapTest {
+    createMapFixture().use {
+      val painter =
+        object : Painter() {
+          override val intrinsicSize = Size(0.5f, 0.5f)
+
+          override fun DrawScope.onDraw() = drawRect(Color.Red)
+        }
+      for (size in listOf(null, DpSize(0.5.dp, 0.5.dp))) {
+        val resolved =
+          ResolvedStyleImage.fromPainter(
+            painter,
+            Density(1f),
+            LayoutDirection.Ltr,
+            size = size,
+          )
+        assertEquals(1, resolved.image.width)
+        assertEquals(1, resolved.image.height)
+      }
+    }
+  }
+
+  @Test
   fun painter_registration_returns_a_removable_image_and_rejects_duplicates() = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)

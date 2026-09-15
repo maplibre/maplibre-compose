@@ -43,10 +43,14 @@ internal suspend fun renderPainter(
     }
   val layer = graphicsContext.createGraphicsLayer()
   try {
-    layer.record(density, layoutDirection, IntSize(pixels.width.toInt(), pixels.height.toInt())) {
+    layer.record(
+      density,
+      layoutDirection,
+      IntSize(ceil(pixels.width).toInt(), ceil(pixels.height).toInt()),
+    ) {
       with(painter) { draw(pixels, alpha, colorFilter) }
     }
-    return layer.toImageBitmap().let { if (drawAsSdf) it.toSdf() else it }
+    return layer.captureImage(density, layoutDirection).let { if (drawAsSdf) it.toSdf() else it }
   } finally {
     graphicsContext.releaseGraphicsLayer(layer)
   }
