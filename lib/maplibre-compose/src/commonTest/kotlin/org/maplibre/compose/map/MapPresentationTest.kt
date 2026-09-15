@@ -1078,6 +1078,28 @@ class MapPresentationTest {
   }
 
   @Test
+  fun an_image_prepared_for_a_previous_style_cannot_enter_the_ready_replacement() {
+    val fixture = presentationFixture()
+    try {
+      val old = RecordingStyleBinding()
+      val replacement = RecordingStyleBinding()
+      val callbacks = fixture.state.durableStyleCallbacks()
+      callbacks.onStyleChanged(fixture.adapter, old)
+      callbacks.onStyleReady(fixture.adapter)
+      callbacks.onStyleChanged(fixture.adapter, replacement)
+      callbacks.onStyleReady(fixture.adapter)
+
+      assertFailsWith<IllegalStateException> {
+        fixture.state.addStyleImage("stale", FakeImageBitmap(1, 1), false, null, old)
+      }
+      assertTrue(replacement.imageIds.isEmpty())
+      assertTrue(fixture.state.style.images.add("stale", FakeImageBitmap(1, 1)).remove())
+    } finally {
+      fixture.close()
+    }
+  }
+
+  @Test
   fun imperative_image_commands_add_remove_and_reject_duplicates() {
     val fixture = presentationFixture()
     val binding = RecordingStyleBinding()
