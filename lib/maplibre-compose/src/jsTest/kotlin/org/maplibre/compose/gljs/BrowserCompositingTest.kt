@@ -1,6 +1,8 @@
 package org.maplibre.compose.gljs
 
+import kotlin.js.Date
 import kotlin.js.Promise
+import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -8,6 +10,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlinx.browser.document
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.promise
 import org.jetbrains.skia.Bitmap
@@ -22,6 +25,7 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.util.toDpOffset
 import org.maplibre.spatialk.geojson.Position
 
 private const val FULL = GPU_CANVAS_SIZE
@@ -270,6 +274,64 @@ class BrowserCompositingTest {
   }
 
   @Test
+  fun a_different_webgl_context_recreates_the_engine_and_replays_the_style() = gpuTest { gpu ->
+    ComposeGlJsCompositor(logger = null).use { compositor ->
+      CompositedMap(SPLIT_STYLE).use { map ->
+        val extent = MapExtent.fromPhysical(FULL, FULL, 1.0)
+        val first = assertIs<GlJsFrameTarget.Composited>(compositor.acquire(extent)).target
+        map.drawTheWholeStyle(first)
+        val firstEngine = assertNotNull(map.session.engineMapForTest())
+        withNewWebGlContext { next ->
+          assertTrue(gpu.gl !== next.gl)
+          val second = assertIs<GlJsFrameTarget.Composited>(compositor.acquire(extent)).target
+          assertFalse(map.drawOnce(second), "replacement must precede rendering in a new context")
+          map.drawTheWholeStyle(second)
+          assertTrue(firstEngine !== map.session.engineMapForTest())
+          assertEquals(
+            mapOf(RED to FULL * FULL / 2, BLUE to FULL * FULL / 2),
+            histogram(readFramebuffer(next.gl.asDynamic(), second.framebuffer, FULL, FULL)),
+          )
+          compositor.close()
+        }
+      }
+    }
+  }
+
+  @Test
+  fun an_unsupported_extent_does_not_allocate_and_a_valid_extent_can_render_again() =
+    gpuTest { gpu ->
+      val gl = gpu.gl.asDynamic()
+      ComposeGlJsCompositor(logger = null).use { compositor ->
+        CompositedMap(SPLIT_STYLE).use { map ->
+          val extent = MapExtent.fromPhysical(FULL, FULL, 1.0)
+          val first = assertIs<GlJsFrameTarget.Composited>(compositor.acquire(extent)).target
+          map.drawTheWholeStyle(first)
+          val limit =
+            minOf(
+              gl.getParameter(gl.MAX_TEXTURE_SIZE).unsafeCast<Int>(),
+              gl.getParameter(gl.MAX_RENDERBUFFER_SIZE).unsafeCast<Int>(),
+            )
+          assertEquals(0, gl.getError().unsafeCast<Int>(), "the initial frame must leave GL valid")
+          assertIs<GlJsFrameTarget.UnsupportedSize>(
+            compositor.acquire(MapExtent.fromPhysical(limit + 1, FULL, 1.0))
+          )
+          assertEquals(
+            0,
+            gl.getError().unsafeCast<Int>(),
+            "oversize must not issue invalid GL calls",
+          )
+          val recovered = assertIs<GlJsFrameTarget.Composited>(compositor.acquire(extent)).target
+          assertTrue(first === recovered, "the usable target should survive a rejected extent")
+          assertTrue(map.drawOnce(recovered))
+          assertEquals(
+            mapOf(RED to FULL * FULL / 2, BLUE to FULL * FULL / 2),
+            histogram(readFramebuffer(gl, recovered.framebuffer, FULL, FULL)),
+          )
+        }
+      }
+    }
+
+  @Test
   fun map_frames_clear_sampler_objects_left_by_the_shared_renderer() = gpuTest { gpu ->
     val gl = gpu.gl.asDynamic()
     browserRenderTarget(FULL, FULL, generation = 1).use { target ->
@@ -373,6 +435,83 @@ class BrowserCompositingTest {
   }
 
   @Test
+  fun terrain_data_changes_keep_cached_locations_and_defer_new_locations_until_render() =
+    gpuTest { gpu ->
+      val firstDem = constantDem(1000)
+      val nextDem = constantDem(2000)
+      val style =
+        BaseStyle.Json(
+          SPLIT_STYLE.json
+            .replace(
+              "\"shape\": {",
+              "\"dem\": {\"type\": \"raster-dem\", \"tiles\": [\"$firstDem\"], \"tileSize\": 256, \"maxzoom\": 0}, \"shape\": {",
+            )
+            .replace("\"layers\": [", "\"terrain\": {\"source\": \"dem\"}, \"layers\": [")
+        )
+      browserRenderTarget(FULL, FULL, generation = 1).use { target ->
+        CompositedMap(style).use { map ->
+          map.drawOnce(target)
+          val engine = assertNotNull(map.session.engineMapForTest())
+          val errors = mutableListOf<String>()
+          engine.subscribe("error") { errors += it.error?.message ?: "unknown terrain error" }
+          map.drawTheWholeStyle(target)
+          val position = Position(2.0, 2.0)
+          fun elevation(): Double =
+            engine.terrain
+              .asDynamic()
+              .getElevationForLngLat(LngLat(2.0, 2.0), engine._camera.transform)
+              .unsafeCast<Double>()
+          val loadDeadline = Date.now() + 10_000
+          while (abs(elevation() - 1000.0) >= 0.001) {
+            check(Date.now() < loadDeadline) { "initial elevation=${elevation()}, errors=$errors" }
+            map.drawOnce(target)
+            yieldToBrowser()
+          }
+          map.session.setCameraPosition(
+            CameraPosition(target = Position(0.0, 0.0), zoom = 4.0, tilt = 60.0)
+          )
+          assertTrue(map.drawOnce(target))
+          val original = assertNotNull(map.session.overlayScreenLocationFromPosition(position))
+          val previousTransform = engine._camera.transform.clone()
+          val pixels = readFramebuffer(gpu.gl.asDynamic(), target.framebuffer, FULL, FULL)
+          map.session.setRenderSettings(RenderOptions { maximumFps = 1 })
+          engine.asDynamic().getSource("dem").setTiles(arrayOf(nextDem))
+          val deadline = Date.now() + 10_000
+          while (abs(elevation() - 2000.0) >= 0.001) {
+            check(Date.now() < deadline) {
+              "terrain did not update between map frames: ${elevation()}"
+            }
+            yieldToBrowser()
+          }
+          assertEquals(2000.0, elevation(), 0.001)
+          assertNotEquals(
+            original,
+            previousTransform.locationToScreenPoint(LngLat(2.0, 2.0), engine.terrain).toDpOffset(),
+            "a retained transform with live terrain would move the overlay",
+          )
+          assertEquals(original, map.session.overlayScreenLocationFromPosition(position))
+          val newlyPlaced = Position(3.0, 3.0)
+          assertEquals(null, map.session.overlayScreenLocationFromPosition(newlyPlaced))
+          assertTrue(
+            pixels.contentEquals(
+              readFramebuffer(gpu.gl.asDynamic(), target.framebuffer, FULL, FULL)
+            )
+          )
+          map.session.setRenderSettings(RenderOptions {})
+          assertTrue(map.drawOnce(target))
+          assertEquals(
+            map.session.screenLocationFromPosition(position),
+            map.session.overlayScreenLocationFromPosition(position),
+          )
+          assertEquals(
+            map.session.screenLocationFromPosition(newlyPlaced),
+            map.session.overlayScreenLocationFromPosition(newlyPlaced),
+          )
+        }
+      }
+    }
+
+  @Test
   fun closing_a_composited_map_leaves_the_shared_context_alive() = gpuTest { gpu ->
     val gl = gpu.gl.asDynamic()
     browserRenderTarget(FULL, FULL, generation = 1).use { target ->
@@ -429,4 +568,15 @@ private fun drawTargetWithSkia(
     bitmap.close()
     surface.close()
   }
+}
+
+private fun constantDem(elevation: Int): String {
+  val canvas = document.createElement("canvas").asDynamic()
+  canvas.width = 256
+  canvas.height = 256
+  val context = canvas.getContext("2d")
+  val encoded = (elevation + 10_000) * 10
+  context.fillStyle = "rgb(${encoded shr 16}, ${(encoded shr 8) and 255}, ${encoded and 255})"
+  context.fillRect(0, 0, 256, 256)
+  return canvas.toDataURL().unsafeCast<String>()
 }

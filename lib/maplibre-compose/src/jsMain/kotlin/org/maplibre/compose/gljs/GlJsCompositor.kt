@@ -11,6 +11,9 @@ internal sealed interface GlJsFrameTarget {
   /** Compose has not finished building the renderer whose context the map shares. */
   data object NotReady : GlJsFrameTarget
 
+  /** The measured extent exceeds the GPU limits; wait for a different extent. */
+  data object UnsupportedSize : GlJsFrameTarget
+
   /** A Compose surface with no GPU behind it: the map runs on a canvas nothing samples. */
   data object Detached : GlJsFrameTarget
 }
@@ -57,6 +60,16 @@ internal class ComposeGlJsCompositor(private val logger: MapLog?) : GlJsComposit
         current.heightPx == extent.physicalHeight
     ) {
       return GlJsFrameTarget.Composited(current)
+    }
+
+    val gl = hostContext.webGlContext.asDynamic()
+    val limit =
+      minOf(
+        gl.getParameter(gl.MAX_TEXTURE_SIZE).unsafeCast<Int>(),
+        gl.getParameter(gl.MAX_RENDERBUFFER_SIZE).unsafeCast<Int>(),
+      )
+    if (extent.physicalWidth > limit || extent.physicalHeight > limit) {
+      return GlJsFrameTarget.UnsupportedSize
     }
 
     val next =

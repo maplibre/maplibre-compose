@@ -93,10 +93,12 @@ internal fun GlJsMapSurface(
             if (!failed && !extent.isEmpty && preparation.needsFrame(request, extent)) {
               try {
                 val acquired = compositor.acquire(extent)
-                val rendered = renderer.render(acquired, extent)
+                val rendered =
+                  acquired != GlJsFrameTarget.UnsupportedSize && renderer.render(acquired, extent)
                 when (acquired) {
                   GlJsFrameTarget.NotReady -> surface.requestFrame()
-                  GlJsFrameTarget.Detached -> prepared = null
+                  GlJsFrameTarget.Detached,
+                  GlJsFrameTarget.UnsupportedSize -> prepared = null
                   is GlJsFrameTarget.Composited -> {
                     if (rendered) prepared = acquired.target
                     else if (prepared !== acquired.target) prepared = null

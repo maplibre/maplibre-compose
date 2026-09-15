@@ -2,6 +2,7 @@ package org.maplibre.compose.gljs
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
@@ -24,6 +25,7 @@ class BrowserMapSurfaceTest {
     val color = mutableStateOf(Color.Red)
     var placedRevision = -1
     var renderedExtent = MapExtent.Empty
+    var closed = false
     lateinit var host: GlJsSurfaceSession
     val renderer =
       object : GlJsMapRenderer {
@@ -39,11 +41,26 @@ class BrowserMapSurfaceTest {
           return true
         }
 
-        override fun close() = Unit
+        override fun close() {
+          closed = true
+        }
       }
     setBrowserMapContent {
       Box {
-        GlJsMapSurface(renderer, Modifier.size(size.value), logger = null, presentFrames = true)
+        CompositionLocalProvider(
+          LocalGlJsCompositor provides
+            {
+              object : GlJsCompositor {
+                override fun acquire(extent: MapExtent): GlJsFrameTarget =
+                  if (extent.width == 96) GlJsFrameTarget.UnsupportedSize
+                  else GlJsFrameTarget.Detached
+
+                override fun close() = Unit
+              }
+            }
+        ) {
+          GlJsMapSurface(renderer, Modifier.size(size.value), logger = null, presentFrames = true)
+        }
         Box(
           Modifier.size(16.dp)
             .layout { measurable, constraints ->
@@ -68,6 +85,15 @@ class BrowserMapSurfaceTest {
     waitForIdle()
     assertEquals(initial + 1, revision.intValue, "requests before one frame should coalesce")
     assertEquals(revision.intValue, placedRevision)
+    val beforeUnsupportedSize = revision.intValue
+    runOnIdle { size.value = 96.dp }
+    waitForIdle()
+    assertEquals(
+      beforeUnsupportedSize,
+      revision.intValue,
+      "unsupported sizes must not render or retry",
+    )
+    assertEquals(false, closed, "unsupported sizes must not close the renderer")
     runOnIdle { size.value = 64.dp }
     waitForIdle()
     assertEquals(64, renderedExtent.width)

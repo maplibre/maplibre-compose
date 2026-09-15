@@ -195,7 +195,10 @@ internal class GlJsMapSession(
     val target: GlJsRenderTarget?,
     val transform: GlJsTransform,
     val terrain: GlJsTerrain?,
-  )
+  ) {
+    val locations = mutableMapOf<Position, DpOffset>()
+    var terrainChanged = false
+  }
 
   // region surface lifecycle
 
@@ -226,6 +229,15 @@ internal class GlJsMapSession(
 
   override fun render(target: GlJsFrameTarget, extent: MapExtent): Boolean {
     if (!lifecycle.acceptsWork || extent.isEmpty) return false
+    if (target is GlJsFrameTarget.UnsupportedSize) return false
+    if (target is GlJsFrameTarget.Composited && map != null && lentContext !== target.target.gl) {
+      // A new Skia handle can still share our WebGL context. Only a different WebGL context
+      // requires replacing the engine and replaying the presentation's state.
+      val host = surface ?: return false
+      onSurfaceLost()
+      onSurfaceAvailable(host)
+      return false
+    }
     if (styleLoadTracker.presentation == StylePresentation.Retained) return false
     // A detached map cannot later adopt a context: everything it uploaded belongs to the one it
     // has.
@@ -536,6 +548,13 @@ internal class GlJsMapSession(
   // region events
 
   private fun wireEvents(map: MaplibreMap, engine: EngineMapIdentity, lease: RenderLease) {
+    // Terrain's samplers retain mutable DEM data. Once data or terrain changes, only locations
+    // already sampled for the retained image are safe to use until another frame is rendered.
+    for (event in listOf("data", "terrain")) {
+      map.subscribe(event) {
+        renderedProjection?.takeIf { it.terrain != null }?.terrainChanged = true
+      }
+    }
     map.subscribe("error") { event ->
       val reason = event.error?.message ?: "MapLibre failed to load the map"
       if (!styleLoadPending) {
@@ -1104,11 +1123,19 @@ internal class GlJsMapSession(
 
   override fun overlayScreenLocationFromPosition(position: Position): DpOffset? {
     val projection = renderedProjection ?: return null
+    projection.locations[position]?.let {
+      return it
+    }
+    if (projection.terrainChanged) {
+      surface?.requestFrame()
+      return null
+    }
     val center = projection.transform.center
     val nearestCopy = with(AngleMath) { center.lng + position.longitude.diff(center.lng) }
     return projection.transform
       .locationToScreenPoint(LngLat(lng = nearestCopy, lat = position.latitude), projection.terrain)
       .toDpOffset()
+      .also { if (projection.terrain != null) projection.locations[position] = it }
   }
 
   override suspend fun queryRenderedFeatures(

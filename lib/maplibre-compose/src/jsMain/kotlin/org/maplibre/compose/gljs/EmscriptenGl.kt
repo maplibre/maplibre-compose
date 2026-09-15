@@ -58,6 +58,22 @@ internal object EmscriptenGl {
     )
   }
 
+  /** Releases Skia resources against their owning context when its registry entry still exists. */
+  fun withContext(context: EmscriptenGlContext, block: () -> Unit) {
+    val previous = currentHandle()
+    val entry = registry.contexts[context.handle]
+    if (previous == context.handle || entry == null || entry == undefined) {
+      block()
+      return
+    }
+    registry.makeContextCurrent(context.handle)
+    try {
+      block()
+    } finally {
+      registry.makeContextCurrent(previous ?: 0)
+    }
+  }
+
   /** A texture created from JavaScript has no name, and Skia's wasm build addresses it by one. */
   fun registerTexture(texture: Any): Int {
     check(isAvailable) { "emscripten's GL registry is not on the page" }
