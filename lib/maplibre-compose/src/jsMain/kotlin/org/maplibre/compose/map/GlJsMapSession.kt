@@ -44,6 +44,8 @@ import org.maplibre.compose.gljs.GlJsRenderTarget
 import org.maplibre.compose.gljs.GlJsRuntime
 import org.maplibre.compose.gljs.GlJsSubscription
 import org.maplibre.compose.gljs.GlJsSurfaceSession
+import org.maplibre.compose.gljs.GlJsTerrain
+import org.maplibre.compose.gljs.GlJsTransform
 import org.maplibre.compose.gljs.JumpToOptions
 import org.maplibre.compose.gljs.LngLat
 import org.maplibre.compose.gljs.MapOptions
@@ -187,7 +189,13 @@ internal class GlJsMapSession(
   private var cameraConstraints: CameraConstraints? = null
   private var tileLodOptions: TileLodOptions = TileLodOptions.Standard
   private var lastRenderTime = TimeSource.Monotonic.markNow()
-  private var hasRenderedAFrame = false
+  private var renderedProjection by mutableStateOf<RenderedProjection?>(null)
+
+  private class RenderedProjection(
+    val target: GlJsRenderTarget?,
+    val transform: GlJsTransform,
+    val terrain: GlJsTerrain?,
+  )
 
   // region surface lifecycle
 
@@ -236,7 +244,8 @@ internal class GlJsMapSession(
     if (target is GlJsFrameTarget.NotReady) return false
 
     val now = TimeSource.Monotonic.markNow()
-    if (!allowRenderNow(now)) {
+    val previous = renderedProjection
+    if (previous != null && previous.target === composited?.target && !allowRenderNow(now)) {
       // Throttled, not dropped.
       surface?.requestFrame()
       return false
@@ -246,20 +255,25 @@ internal class GlJsMapSession(
       // Skia drives this context between MapLibre's frames, so each renderer is told the other
       // moved the state.
       val mapTarget = composited.target
-      mapTarget.prepareMapRender()
-      map.painter.context.setDirty()
-      GlJsRuntime.withDrawingBufferSize(mapTarget.gl, mapTarget.widthPx, mapTarget.heightPx) {
-        map.redraw()
+      try {
+        mapTarget.prepareMapRender()
+        map.painter.context.setDirty()
+        GlJsRuntime.withDrawingBufferSize(mapTarget.gl, mapTarget.widthPx, mapTarget.heightPx) {
+          map.redraw()
+        }
+      } finally {
+        mapTarget.resetSkiaState()
       }
-      mapTarget.resetSkiaState()
     } else {
       // GL JS runs style updates, tile loading and every camera ease from inside its own render, so
       // even a map nothing samples has to be asked to draw.
       map.redraw()
     }
 
-    if (!hasRenderedAFrame) {
-      hasRenderedAFrame = true
+    renderedProjection =
+      RenderedProjection(composited?.target, map._camera.transform.clone(), map.terrain)
+
+    if (previous == null) {
       logger?.i {
         "Rendered the first map frame at ${extent.physicalWidth}x${extent.physicalHeight}"
       }
@@ -398,7 +412,7 @@ internal class GlJsMapSession(
     appliedStyleRequest = null
     styleLoadPending = false
     styleLoadTracker.engineBecameUnavailable()
-    hasRenderedAFrame = false
+    renderedProjection = null
     val borrowed = lentContext
     lentContext = null
     runCatching {
@@ -1087,6 +1101,15 @@ internal class GlJsMapSession(
       val nearestCopy = with(AngleMath) { center.lng + position.longitude.diff(center.lng) }
       map.project(LngLat(lng = nearestCopy, lat = position.latitude)).toDpOffset()
     }
+
+  override fun overlayScreenLocationFromPosition(position: Position): DpOffset? {
+    val projection = renderedProjection ?: return null
+    val center = projection.transform.center
+    val nearestCopy = with(AngleMath) { center.lng + position.longitude.diff(center.lng) }
+    return projection.transform
+      .locationToScreenPoint(LngLat(lng = nearestCopy, lat = position.latitude), projection.terrain)
+      .toDpOffset()
+  }
 
   override suspend fun queryRenderedFeatures(
     offset: DpOffset,

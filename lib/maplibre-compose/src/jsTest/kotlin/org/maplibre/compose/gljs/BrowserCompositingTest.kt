@@ -6,6 +6,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.promise
@@ -17,8 +18,11 @@ import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
 import org.jetbrains.skia.Surface
 import org.jetbrains.skia.SurfaceOrigin
+import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.map.MapExtent
+import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.spatialk.geojson.Position
 
 private const val FULL = GPU_CANVAS_SIZE
 private const val SMALL = FULL / 2
@@ -317,12 +321,53 @@ class BrowserCompositingTest {
         assertNotEquals(first.generation, second.generation, "a resize should mint a new target")
         assertEquals(SMALL, second.widthPx)
 
+        map.session.setRenderSettings(RenderOptions { maximumFps = 1 })
+        assertTrue(map.drawOnce(second), "a replacement target must render despite the FPS cap")
+        map.session.setRenderSettings(RenderOptions {})
         map.drawTheWholeStyle(second)
         assertEquals(
           mapOf(RED to SMALL * SMALL / 2, BLUE to SMALL * SMALL / 2),
           histogram(readFramebuffer(gl, second.framebuffer, SMALL, SMALL)),
           "the map should have gone on drawing, into the new target",
         )
+      }
+    }
+  }
+
+  @Test
+  fun a_throttled_frame_retains_its_overlay_projection_until_the_image_changes() = gpuTest { gpu ->
+    val gl = gpu.gl.asDynamic()
+    val globeStyle =
+      BaseStyle.Json(
+        SPLIT_STYLE.json.replace(
+          "\"version\": 8,",
+          "\"version\": 8, \"projection\": {\"type\": \"globe\"},",
+        )
+      )
+    for (style in listOf(SPLIT_STYLE, globeStyle)) {
+      browserRenderTarget(FULL, FULL, generation = 1).use { target ->
+        CompositedMap(style).use { map ->
+          map.drawTheWholeStyle(target)
+          val position = Position(0.0, 0.0)
+          val original = assertNotNull(map.session.overlayScreenLocationFromPosition(position))
+          val pixels = readFramebuffer(gl, target.framebuffer, FULL, FULL)
+          map.session.setRenderSettings(RenderOptions { maximumFps = 1 })
+          map.session.setCameraPosition(
+            CameraPosition(target = Position(20.0, 10.0), zoom = 1.0, bearing = 30.0, tilt = 45.0)
+          )
+          assertNotEquals(original, map.session.screenLocationFromPosition(position))
+          assertFalse(map.drawOnce(target))
+          assertEquals(original, map.session.overlayScreenLocationFromPosition(position))
+          assertTrue(pixels.contentEquals(readFramebuffer(gl, target.framebuffer, FULL, FULL)))
+
+          map.session.setRenderSettings(RenderOptions {})
+          assertTrue(map.drawOnce(target))
+          assertEquals(
+            map.session.screenLocationFromPosition(position),
+            map.session.overlayScreenLocationFromPosition(position),
+          )
+          assertNotEquals(original, map.session.overlayScreenLocationFromPosition(position))
+        }
       }
     }
   }

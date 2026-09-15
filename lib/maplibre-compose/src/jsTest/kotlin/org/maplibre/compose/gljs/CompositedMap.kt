@@ -33,8 +33,7 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
   var frameRequests: Int = 0
     private set
 
-  private val session =
-    GlJsMapSession(state.lifecycle, Callbacks(), logger = null, LayoutDirection.Ltr)
+  val session = GlJsMapSession(state.lifecycle, Callbacks(), logger = null, LayoutDirection.Ltr)
   private val token = state.reservePresentation()
 
   init {

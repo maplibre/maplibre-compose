@@ -278,3 +278,19 @@ internal fun queryBox(first: Point, second: Point): QueryGeometry =
   arrayOf(first, second).unsafeCast<QueryGeometry>()
 
 internal fun JsRecord<*>.keys(): Array<String> = js("Object").keys(this).unsafeCast<Array<String>>()
+
+/** GL JS 6 camera state, including the projection used by its renderer. */
+internal external interface GlJsCamera {
+  val transform: GlJsTransform
+}
+
+/** The clone retains camera matrices and the globe/mercator transition for one rendered frame. */
+internal external interface GlJsTransform {
+  val center: LngLat
+
+  fun clone(): GlJsTransform
+
+  fun locationToScreenPoint(position: LngLat, terrain: GlJsTerrain? = definedExternally): Point
+}
+
+internal external interface GlJsTerrain

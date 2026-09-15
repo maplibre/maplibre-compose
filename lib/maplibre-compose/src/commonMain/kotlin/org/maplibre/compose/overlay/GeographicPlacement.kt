@@ -183,7 +183,7 @@ public fun GeographicLayout(
               height == 0
           )
             return false
-          val screen = mapState.screenLocationFromPosition(data.position) ?: return false
+          val screen = mapState.overlayScreenLocationFromPosition(data.position) ?: return false
           val target = local.localPositionOf(map, Offset(screen.x.toPx(), screen.y.toPx()))
           val topLeft =
             if (data.alignment == null) {

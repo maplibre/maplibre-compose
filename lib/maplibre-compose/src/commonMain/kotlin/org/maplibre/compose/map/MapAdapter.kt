@@ -137,6 +137,10 @@ internal interface MapAdapter {
   /** Null while the map has no viewport to convert with. */
   fun screenLocationFromPosition(position: Position): DpOffset?
 
+  /** Projects overlay content using the camera of the displayed frame when available. */
+  fun overlayScreenLocationFromPosition(position: Position): DpOffset? =
+    screenLocationFromPosition(position)
+
   suspend fun queryRenderedFeatures(
     offset: DpOffset,
     layerIds: Set<String>? = null,

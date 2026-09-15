@@ -19,6 +19,10 @@ internal external fun removeProtocol(customProtocol: String)
 @JsName("Map")
 internal external class MaplibreMap(options: MapOptions) {
 
+  val _camera: GlJsCamera
+
+  val terrain: GlJsTerrain?
+
   val painter: Painter
 
   val style: Style
