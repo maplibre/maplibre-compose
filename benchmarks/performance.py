@@ -23,13 +23,16 @@ def window_metrics(logs, start, end):
         ]
         if len(metrics) != window["frames"]:
             raise ValueError("Window frame metric log is incomplete")
-        if any(len(frame) != 4 or frame[0] <= 0 or frame[1] < 0 for frame in metrics):
+        if any(
+            len(frame) != 4 or (frame[0] <= 0 and frame[0] != -1) or frame[1] < 0
+            for frame in metrics
+        ):
             raise ValueError("Invalid Window FrameMetrics record")
         # Include only complete frames within the same interval as scheduled CPU work.
         frames = [
             frame
             for frame in metrics
-            if start <= frame[0] and frame[0] + frame[1] <= end
+            if frame[0] > 0 and start <= frame[0] and frame[0] + frame[1] <= end
         ]
         deadlines = [frame for frame in frames if frame[3] >= 0]
         window.update(
@@ -45,6 +48,8 @@ def window_metrics(logs, start, end):
             total_ms=distribution([total / 1e6 for _, total, _, _ in frames]),
             gpu_ms=distribution([gpu / 1e6 for _, _, gpu, _ in frames if gpu >= 0]),
         )
+        if metrics and all(frame[0] == -1 for frame in metrics):
+            window["reason"] = "Window frame timestamps are unavailable"
     return window
 
 
