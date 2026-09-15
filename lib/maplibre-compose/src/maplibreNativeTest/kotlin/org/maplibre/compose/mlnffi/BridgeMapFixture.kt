@@ -169,6 +169,11 @@ private constructor(
     }
   }
 
+  fun captureFrameProjection(extent: MapExtent = initialExtent): MlnFfiMapFrameProjection =
+    driver.withRendererAccess {
+      session.captureFrameProjection(extent)
+    }
+
   /** Reads one rendered RGBA pixel back from the platform/backend target. */
   fun readPixel(x: Int, y: Int): RgbaPixel =
     checkNotNull(tryReadPixel(x, y)) { "No production bridge frame has been presented" }

@@ -3,6 +3,7 @@
 package org.maplibre.compose.map
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.DpSize
@@ -46,7 +47,9 @@ import org.maplibre.compose.mlnffi.MetalSurfaceTarget
 import org.maplibre.compose.mlnffi.MetalTextureTarget
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
 import org.maplibre.compose.mlnffi.MlnFfiLock
+import org.maplibre.compose.mlnffi.MlnFfiMapDestination
 import org.maplibre.compose.mlnffi.MlnFfiMapFrame
+import org.maplibre.compose.mlnffi.MlnFfiMapFrameProjection
 import org.maplibre.compose.mlnffi.MlnFfiMapHostSession
 import org.maplibre.compose.mlnffi.MlnFfiMapPresentationAnchor
 import org.maplibre.compose.mlnffi.MlnFfiMapRenderer
@@ -435,6 +438,80 @@ internal class MlnFfiMapSession(
     }
     lastRenderTime = renderStart
     return MlnFfiFrameResult.RENDERED
+  }
+
+  // Keep native handles outside Compose snapshots: an older snapshot must not read a closed handle.
+  private var presentedProjection: PresentedProjection? = null
+  private val presentationRevision = mutableLongStateOf(0L)
+
+  private fun publishProjection(next: PresentedProjection?) {
+    if (presentedProjection == next) return
+    presentedProjection = next
+    presentationRevision.longValue += 1
+  }
+
+  private data class PresentedProjection(
+    val frame: FrameProjection,
+    val destination: MlnFfiMapDestination,
+    val scaleFactor: Double,
+  ) {
+    fun toScreen(point: DpOffset): DpOffset =
+      DpOffset(
+        ((point.x.value * frame.extent.scaleFactor + destination.left) / scaleFactor).dp,
+        ((point.y.value * frame.extent.scaleFactor + destination.top) / scaleFactor).dp,
+      )
+
+    fun fromScreen(point: DpOffset): DpOffset =
+      DpOffset(
+        ((point.x.value * scaleFactor - destination.left) / frame.extent.scaleFactor).dp,
+        ((point.y.value * scaleFactor - destination.top) / frame.extent.scaleFactor).dp,
+      )
+  }
+
+  private inner class FrameProjection(
+    val extent: MapExtent,
+    val projection: MapProjectionHandle,
+    val wrappedProjection: MapProjectionHandle?,
+  ) : MlnFfiMapFrameProjection {
+    override val anchor: MlnFfiMapPresentationAnchor
+      get() {
+        val padding = checkNotNull(projection.camera.padding)
+        return MlnFfiMapPresentationAnchor(
+          ((extent.physicalWidth + (padding.left - padding.right) * extent.scaleFactor) / 2)
+            .toInt(),
+          ((extent.physicalHeight + (padding.top - padding.bottom) * extent.scaleFactor) / 2)
+            .toInt(),
+        )
+      }
+
+    override fun present(destination: MlnFfiMapDestination, scaleFactor: Double) {
+      projectionLock.withLock {
+        publishProjection(PresentedProjection(this, destination, scaleFactor))
+      }
+    }
+
+    override fun close() {
+      projectionLock.withLock {
+        if (presentedProjection?.frame === this) publishProjection(null)
+        projection.close()
+        wrappedProjection?.close()
+      }
+    }
+  }
+
+  override fun captureFrameProjection(extent: MapExtent): MlnFfiMapFrameProjection {
+    val session = checkNotNull(renderSession)
+    val projection = session.createProjection()
+    try {
+      val wrapped =
+        if (checkNotNull(projection.camera.center).longitude !in -180.0..<180.0) {
+          session.createProjection().normalizeWrappedCenter()
+        } else null
+      return FrameProjection(extent, projection, wrapped)
+    } catch (error: Throwable) {
+      projection.close()
+      throw error
+    }
   }
 
   override fun presentationAnchor(extent: MapExtent): MlnFfiMapPresentationAnchor {
@@ -1813,13 +1890,23 @@ internal class MlnFfiMapSession(
     }
   }
 
-  override fun positionFromScreenLocation(offset: DpOffset): Position? = withSnapshotProjection {
-    it.latLngForPixelUnwrapped(offset.toScreenPoint()).toPosition()
+  override fun positionFromScreenLocation(offset: DpOffset): Position? = projectionLock.withLock {
+    presentationRevision.longValue
+    val presented = presentedProjection
+    val projection =
+      presented?.frame?.projection ?: mirroredViewport.projection ?: return@withLock null
+    projection
+      .latLngForPixelUnwrapped((presented?.fromScreen(offset) ?: offset).toScreenPoint())
+      .toPosition()
   }
 
-  override fun boxZoomFit(rect: DpRect): BoxZoomFit? = withSnapshotProjection { projection ->
-    boxZoomFit(rect, mirroredViewport.camera) {
-      projection.latLngForPixel(it.toScreenPoint()).toPosition()
+  override fun boxZoomFit(rect: DpRect): BoxZoomFit? = projectionLock.withLock {
+    presentationRevision.longValue
+    val presented = presentedProjection
+    val projection =
+      presented?.frame?.projection ?: mirroredViewport.projection ?: return@withLock null
+    boxZoomFit(rect, projection.camera.toCameraPosition()) {
+      projection.latLngForPixel((presented?.fromScreen(it) ?: it).toScreenPoint()).toPosition()
     }
   }
 
@@ -1838,9 +1925,16 @@ internal class MlnFfiMapSession(
   }
 
   override fun screenLocationFromPosition(position: Position): DpOffset? = projectionLock.withLock {
+    presentationRevision.longValue
+    val presented = presentedProjection
     val snapshot = mirroredViewport
-    val projection = snapshot.wrappedProjection ?: snapshot.projection ?: return@withLock null
-    projection.pixelForLatLng(position.toLatLng()).toDpOffset()
+    val projection =
+      presented?.frame?.let { it.wrappedProjection ?: it.projection }
+        ?: snapshot.wrappedProjection
+        ?: snapshot.projection
+        ?: return@withLock null
+    val point = projection.pixelForLatLng(position.toLatLng()).toDpOffset()
+    presented?.toScreen(point) ?: point
   }
 
   /**
@@ -1849,7 +1943,11 @@ internal class MlnFfiMapSession(
    * snapshot separately so screen-to-geographic conversion still preserves the actual world copy.
    */
   private fun MapHandle.createWrappedProjection(): MapProjectionHandle {
-    val projection = createProjection()
+    return createProjection().normalizeWrappedCenter()
+  }
+
+  private fun MapProjectionHandle.normalizeWrappedCenter(): MapProjectionHandle {
+    val projection = this
     try {
       val center = camera.center
       if (center != null && center.longitude !in -180.0..<180.0) {
@@ -1866,16 +1964,6 @@ internal class MlnFfiMapSession(
       throw error
     }
   }
-
-  /**
-   * Runs [block] on the snapshot's frozen projection. Holds [projectionLock] for the call so the
-   * owner thread retires this handle only after [block] returns.
-   */
-  private inline fun <T> withSnapshotProjection(block: (MapProjectionHandle) -> T): T? =
-    projectionLock.withLock {
-      val handle = mirroredViewport.projection ?: return@withLock null
-      block(handle)
-    }
 
   override suspend fun queryRenderedFeatures(
     offset: DpOffset,
