@@ -1,9 +1,11 @@
 package org.maplibre.compose.map
 
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
@@ -13,6 +15,7 @@ import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.mlnffi.BridgeMapFixture
+import org.maplibre.compose.mlnffi.MlnFfiMapDestination
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.Position
 
@@ -21,6 +24,51 @@ import org.maplibre.spatialk.geojson.Position
  * under tilt and bearing, so overlays land where the map draws them.
  */
 class MlnFfiProjectionTest {
+
+  @Test
+  fun presented_projection_keeps_the_rendered_camera_and_tracks_texture_geometry() {
+    BridgeMapFixture.create(initialExtent = MapExtent.fromLogical(200, 200, 1.0)).use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      fixture.session.setCameraPosition(ROTATED_CAMERA)
+      fixture.pumpUntil("the rotated camera to apply") {
+        abs(fixture.session.getCameraPosition().bearing - ROTATED_CAMERA.bearing) < 0.01
+      }
+      fixture.hasRendered = false
+      fixture.pumpUntil("the rotated camera to render") { fixture.hasRendered }
+      val oldSnapshot =
+        fixture.captureFrameProjection().use { projection ->
+          projection.present(MlnFfiMapDestination(0, 0, 200, 200), 1.0)
+          val initial =
+            assertNotNull(fixture.session.screenLocationFromPosition(ROTATED_CAMERA.target))
+          assertTrue(initial.isNear(DpOffset(100.dp, 100.dp)))
+
+          fixture.session.setCameraPosition(START_CAMERA)
+          fixture.pumpUntil("the live camera to advance") {
+            abs(fixture.session.getCameraPosition().bearing - START_CAMERA.bearing) < 0.01
+          }
+          assertEquals(initial, fixture.session.screenLocationFromPosition(ROTATED_CAMERA.target))
+
+          // A retained 200px texture centered in a 300px surface at density 2.
+          projection.present(MlnFfiMapDestination(50, 50, 200, 200), 2.0)
+          val expected = DpOffset(75.dp, 75.dp)
+          assertTrue(
+            fixture.session.screenLocationFromPosition(ROTATED_CAMERA.target).isNear(expected)
+          )
+          val roundTrip = fixture.session.positionFromScreenLocation(expected)
+          assertNotNull(roundTrip)
+          assertTrue(fixture.session.screenLocationFromPosition(roundTrip).isNear(expected))
+          Snapshot.takeSnapshot()
+        }
+      try {
+        // A Compose snapshot can outlive the frame whose handle has just been closed.
+        oldSnapshot.enter {
+          assertNotNull(fixture.session.screenLocationFromPosition(START_CAMERA.target))
+        }
+      } finally {
+        oldSnapshot.dispose()
+      }
+    }
+  }
 
   @Test
   fun an_off_thread_projection_round_trips_under_tilt_and_bearing() {

@@ -37,6 +37,8 @@ class DesktopPresentationHostLifetimeTest {
   @Test
   fun replacing_a_compatible_presentation_host_keeps_the_runtime_logical_map_and_engine() =
     runFfiComposeUiTest {
+      // This host never gets a GPU context, so its frame-clock retries never become idle.
+      mainClock.autoAdvance = false
       val runtime = createNativeMapRuntime(runtimeOptions)
       val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
       var host by
@@ -50,12 +52,16 @@ class DesktopPresentationHostLifetimeTest {
           MaplibreMap(state = state)
         }
       }
-      waitUntil(timeoutMillis = 10_000) { state.currentMapAttachment != null }
+      waitUntil(timeoutMillis = 10_000) {
+        mainClock.advanceTimeByFrame()
+        state.currentMapAttachment != null
+      }
       val firstPresentation = requireNotNull(state.currentMapAttachment)
       val engine = firstPresentation.adapter
 
       runOnIdle { host = ContextlessPresentationHost("second", equalityKey = "same") }
       waitUntil(timeoutMillis = 10_000) {
+        mainClock.advanceTimeByFrame()
         state.currentMapAttachment != null && state.currentMapAttachment !== firstPresentation
       }
 

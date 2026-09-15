@@ -65,3 +65,15 @@ include(
   ":lib:maplibre-compose-runtime-opengl-windows-x64",
   ":lib:maplibre-compose-runtime-opengl-windows-arm64",
 )
+
+// Remove this substitution once the rendered-projection API is released.
+providers.gradleProperty("maplibreNativeFfiDir").orNull?.let { directory ->
+  includeBuild(directory) {
+    dependencySubstitution {
+      substitute(module("org.maplibre.nativeffi:maplibre-native-ffi"))
+        .using(project(":bindings:kotlin"))
+      substitute(module("org.maplibre.nativeffi:maplibre-native-ffi-jvm"))
+        .using(project(":bindings:kotlin"))
+    }
+  }
+}

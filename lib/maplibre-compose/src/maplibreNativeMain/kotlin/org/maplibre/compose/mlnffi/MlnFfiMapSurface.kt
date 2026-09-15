@@ -3,16 +3,19 @@ package org.maplibre.compose.mlnffi
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.Snapshot
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import kotlin.math.roundToInt
+import androidx.compose.ui.layout.layout
 import kotlin.time.TimeSource
+import kotlinx.coroutines.channels.Channel
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.util.rethrowIfFatal
@@ -30,10 +33,20 @@ internal fun MlnFfiMapSurface(
   presentFrames: Boolean = true,
 ) {
   var frameRequest by remember { mutableLongStateOf(0L) }
+  val requests = remember(renderer, hostResult) { Channel<Unit>(Channel.CONFLATED) }
   var failed by remember(renderer, hostResult) { mutableStateOf(false) }
   val drawState = remember(renderer, hostResult) { MlnFfiMapDrawState() }
   val host = (hostResult as? MlnFfiMapHostResult.Created)?.host
-  val session = remember(host) { host?.let { MlnFfiMapHostSessionImpl(it) { frameRequest += 1 } } }
+  val session =
+    remember(host, requests) {
+      host?.let { MlnFfiMapHostSessionImpl(it) { requests.trySend(Unit) } }
+    }
+
+  LaunchedEffect(requests) {
+    for (request in requests) {
+      withFrameNanos { frameRequest += 1 }
+    }
+  }
 
   DisposableEffect(hostResult, renderer, session) {
     when (hostResult) {
@@ -67,83 +80,118 @@ internal fun MlnFfiMapSurface(
     }
   }
 
-  Canvas(modifier = modifier) {
-    // Load-bearing read: it is what makes requestFrame() reschedule this Canvas.
-    frameRequest
-    // The draw scope supplies the current physical size and density. Use one extent for surface
-    // configuration, rendering, and presentation.
-    val frameExtent =
-      MapExtent.fromPhysical(
-        physicalWidth = size.width.roundToInt(),
-        physicalHeight = size.height.roundToInt(),
-        scaleFactor = this.density.toDouble(),
-      )
+  var preparedFrame by
+    remember(renderer, hostResult) {
+      mutableStateOf<MlnFfiPreparedPresentation?>(null)
+    }
 
-    var drew = false
-    if (presentFrames && host != null && session != null && !frameExtent.isEmpty && !failed) {
-      val frameId = drawState.nextFrameId()
-      val nowNanos = frameClockOrigin.elapsedNow().inWholeNanoseconds
-      try {
-        if (drawState.configuredExtent != frameExtent) {
-          host.resize(frameExtent)
-          renderer.onSurfaceChanged(frameExtent)
-          drawState.configuredExtent = frameExtent
-          session.requestFrame()
+  fun prepare(frameExtent: MapExtent) {
+    if (!presentFrames || host == null || session == null || frameExtent.isEmpty || failed) {
+      preparedFrame = null
+      return
+    }
+    val frameId = drawState.nextFrameId()
+    var rendered = false
+    try {
+      if (drawState.configuredExtent != frameExtent) {
+        host.resize(frameExtent)
+        renderer.onSurfaceChanged(frameExtent)
+        drawState.configuredExtent = frameExtent
+        session.requestFrame()
+      }
+      when (
+        val acquisition =
+          host.acquireFrame(
+            frameId,
+            frameExtent,
+            frameClockOrigin.elapsedNow().inWholeNanoseconds,
+          )
+      ) {
+        MlnFfiMapFrameAcquisition.NotReady -> session.requestFrame()
+        is MlnFfiMapFrameAcquisition.Acquired -> {
+          val frame = acquisition.frame
+          try {
+            val completed =
+              host.withProducerAccess(frame) {
+                val result = renderer.render(frame)
+                val anchor = renderer.presentationAnchor(frame.extent)
+                if (result == MlnFfiFrameResult.RENDERED) {
+                  val projection = renderer.captureFrameProjection(frame.extent)
+                  val renderedAnchor = projection?.anchor ?: anchor
+                  drawState.recordPresentationAnchor(frame.extent, renderedAnchor)
+                  MlnFfiMapCompletedPresentation(frame.target, renderedAnchor, projection)
+                } else {
+                  drawState.recordResizedPresentationAnchor(frame.extent, anchor)
+                  null
+                }
+              }
+            if (completed != null) {
+              try {
+                host.completeProducerAccess(frame)
+              } catch (error: Throwable) {
+                completed.projection?.close()
+                throw error
+              }
+              drawState.lastCompletedPresentation?.projection?.close()
+              drawState.lastCompletedPresentation = completed
+              rendered = true
+            }
+          } finally {
+            runCatching { host.releaseFrame(frame) }
+              .onFailure { logger?.e(it) { "Map host failed to release frame $frameId" } }
+          }
         }
-
-        fun presentLastCompletedTarget() {
-          val completed = drawState.lastCompletedPresentation ?: return
-          val destinationAnchor = drawState.presentationAnchor(frameExtent)
+      }
+      preparedFrame =
+        drawState.lastCompletedPresentation?.let { completed ->
           val destination =
             presentationDestination(
               extent = completed.target.extent,
               sourceAnchor = completed.anchor,
-              destinationAnchor = destinationAnchor,
+              destinationAnchor = drawState.presentationAnchor(frameExtent),
             )
-          drew = host.draw(this, completed.target, destination)
+          completed.projection?.present(destination, frameExtent.scaleFactor)
+          MlnFfiPreparedPresentation(completed.target, destination, frameId, rendered)
         }
+    } catch (error: Throwable) {
+      rethrowIfFatal(error)
+      preparedFrame = null
+      if (!recoverFromFrameFailure(renderer, session, drawState, frameId, error, logger)) {
+        failed = true
+        drawState.closeRenderer(renderer, logger)
+      }
+    }
+  }
 
-        when (val acquisition = host.acquireFrame(frameId, frameExtent, nowNanos)) {
-          MlnFfiMapFrameAcquisition.NotReady -> {
-            session.requestFrame()
-            presentLastCompletedTarget()
-          }
-          is MlnFfiMapFrameAcquisition.Acquired -> {
-            val frame = acquisition.frame
-            var rendered = false
-            try {
-              val (result, anchor) =
-                host.withProducerAccess(frame) {
-                  renderer.render(frame) to renderer.presentationAnchor(frame.extent)
-                }
-              drawState.recordPresentationAnchor(frame.extent, anchor)
-              when (result) {
-                MlnFfiFrameResult.RENDERED -> {
-                  host.completeProducerAccess(frame)
-                  drawState.lastCompletedPresentation =
-                    MlnFfiMapCompletedPresentation(frame.target, anchor)
-                  rendered = true
-                }
-                MlnFfiFrameResult.SKIPPED -> Unit
-              }
-              presentLastCompletedTarget()
-            } finally {
-              runCatching { host.releaseFrame(frame) }
-                .onFailure { logger?.e(it) { "Map host failed to release frame $frameId" } }
-            }
-            if (rendered) drawState.onFrameSucceeded()
-          }
-        }
+  Canvas(
+    modifier =
+      modifier.layout { measurable, constraints ->
+        val placeable = measurable.measure(constraints)
+        val extent = MapExtent.fromPhysical(placeable.width, placeable.height, density.toDouble())
+        // Prepare during measurement, before Compose starts placing overlay children.
+        frameRequest
+        Snapshot.withoutReadObservation { prepare(extent) }
+        layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+      }
+  ) {
+    val prepared = preparedFrame
+    var drew = false
+    if (prepared != null && host != null && session != null && !failed) {
+      try {
+        drew = host.draw(this, prepared.target, prepared.destination)
+        if (prepared.rendered) drawState.onFrameSucceeded()
       } catch (error: Throwable) {
         rethrowIfFatal(error)
-        if (!recoverFromFrameFailure(renderer, session, drawState, frameId, error, logger)) {
+        preparedFrame = null
+        if (
+          !recoverFromFrameFailure(renderer, session, drawState, prepared.frameId, error, logger)
+        ) {
           failed = true
           drawState.closeRenderer(renderer, logger)
         }
       }
     }
-
-    if (!drew) drawRect(Color.Transparent, size = Size(size.width, size.height))
+    if (!drew) drawRect(Color.Transparent)
   }
 }
 
@@ -175,6 +223,7 @@ private fun recoverFromFrameFailure(
     "Map frame $frameId failed; rebuilding the render session " +
       "(attempt $attempt of $MAX_FRAME_RECOVERY_ATTEMPTS)"
   }
+  drawState.lastCompletedPresentation?.projection?.close()
   drawState.lastCompletedPresentation = null
   try {
     renderer.onSurfaceLost()
@@ -222,12 +271,17 @@ private class MlnFfiMapDrawState {
   }
 
   fun reset() {
+    lastCompletedPresentation?.projection?.close()
     lastCompletedPresentation = null
     configuredExtent = MapExtent.Empty
     presentationExtent = MapExtent.Empty
     currentPresentationAnchor = null
     frameFailures = 0
     rendererClosed = false
+  }
+
+  fun recordResizedPresentationAnchor(extent: MapExtent, anchor: MlnFfiMapPresentationAnchor) {
+    if (presentationExtent != extent) recordPresentationAnchor(extent, anchor)
   }
 
   fun recordPresentationAnchor(extent: MapExtent, anchor: MlnFfiMapPresentationAnchor) {
@@ -243,6 +297,14 @@ private class MlnFfiMapDrawState {
 private data class MlnFfiMapCompletedPresentation(
   val target: MlnFfiRenderTarget,
   val anchor: MlnFfiMapPresentationAnchor,
+  val projection: MlnFfiMapFrameProjection?,
+)
+
+private data class MlnFfiPreparedPresentation(
+  val target: MlnFfiRenderTarget,
+  val destination: MlnFfiMapDestination,
+  val frameId: Long,
+  val rendered: Boolean,
 )
 
 private class MlnFfiMapHostSessionImpl(

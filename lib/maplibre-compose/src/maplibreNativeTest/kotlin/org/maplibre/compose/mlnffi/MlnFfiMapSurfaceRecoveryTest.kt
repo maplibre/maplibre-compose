@@ -1,8 +1,11 @@
 package org.maplibre.compose.mlnffi
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.unit.dp
@@ -16,6 +19,90 @@ import org.maplibre.compose.map.MapExtent
 
 @OptIn(ExperimentalTestApi::class)
 class MlnFfiMapSurfaceRecoveryTest {
+
+  @Test
+  fun preparation_publishes_before_overlay_placement_and_retains_skipped_projections() =
+    runFfiComposeUiTest {
+      val renderer = RecordingRenderer()
+      val factory = FakeMlnFfiMapHostFactory()
+      val host = (factory.create(factory.bridges.single()) as MlnFfiMapHostResult.Created).host
+      var placedProjection = 0
+      val drawnProjections = mutableListOf<Int>()
+      val placementsAtDraw = mutableListOf<Pair<Int, Int>>()
+      val projectionCloses = mutableListOf<Int>()
+      val published = mutableStateOf(0)
+      var nextProjection = 0
+      val projectingRenderer =
+        object : MlnFfiMapRenderer by renderer {
+          override fun captureFrameProjection(extent: MapExtent): MlnFfiMapFrameProjection {
+            val id = ++nextProjection
+            return object : MlnFfiMapFrameProjection {
+              override val anchor = extent.centerPresentationAnchor()
+
+              override fun present(destination: MlnFfiMapDestination, scaleFactor: Double) {
+                published.value = id
+              }
+
+              override fun close() {
+                projectionCloses += id
+              }
+            }
+          }
+        }
+      val recordingHost =
+        object : MlnFfiMapHost by host {
+          override fun draw(
+            scope: DrawScope,
+            target: MlnFfiRenderTarget,
+            destination: MlnFfiMapDestination,
+          ): Boolean {
+            placementsAtDraw += published.value to placedProjection
+            drawnProjections += placedProjection
+            return host.draw(scope, target, destination)
+          }
+        }
+      val show = mutableStateOf(true)
+      setContent {
+        if (show.value)
+          Box(Modifier.size(64.dp)) {
+            MlnFfiMapSurface(
+              projectingRenderer,
+              MlnFfiMapHostResult.Created(recordingHost),
+              Modifier.size(64.dp),
+            )
+            Box(
+              Modifier.size(64.dp).layout { measurable, constraints ->
+                val child = measurable.measure(constraints)
+                layout(child.width, child.height) {
+                  placedProjection = published.value
+                  child.place(0, 0)
+                }
+              }
+            )
+          }
+      }
+      waitUntil(timeoutMillis = TIMEOUT_MILLIS) { drawnProjections.isNotEmpty() }
+      waitForIdle()
+      val retained = published.value
+      renderer.skipAllRenders = true
+      renderer.requestFrame()
+      waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.skippedFrames > 0 }
+      waitForIdle()
+      assertEquals(retained, published.value)
+      assertFalse(retained in projectionCloses)
+      renderer.skipAllRenders = false
+      renderer.requestFrame()
+      waitUntil(timeoutMillis = TIMEOUT_MILLIS) { published.value > retained }
+      waitForIdle()
+      assertTrue(retained in projectionCloses)
+      show.value = false
+      waitForIdle()
+      assertEquals((1..nextProjection).toList(), projectionCloses)
+      assertTrue(
+        placementsAtDraw.all { it.first == it.second },
+        "published versus placed: $placementsAtDraw",
+      )
+    }
 
   @Test
   fun a_host_creation_failure_closes_the_renderer_once() = runFfiComposeUiTest {
@@ -58,23 +145,24 @@ class MlnFfiMapSurfaceRecoveryTest {
 
   @Test
   fun a_skipped_frame_keeps_drawing_the_last_rendered_target() = runFfiComposeUiTest {
-    val renderer =
-      RecordingRenderer(
-        renderResults = ArrayDeque(listOf(MlnFfiFrameResult.RENDERED, MlnFfiFrameResult.SKIPPED)),
-        additionalFrameRequests = 1,
-      )
+    val renderer = RecordingRenderer()
     val factory = FakeMlnFfiMapHostFactory(configureHost = { it.rotateTargetsOnAcquire = true })
-
     setSurfaceContent(renderer, factory)
     val host = factory.created.single()
-    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.renderedFrames >= 2 }
+    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { host.drawnTargets.isNotEmpty() }
+    waitForIdle()
+    val renderedTarget = host.drawnTargets.last()
+    val drawsBeforeSkip = host.drawnTargets.size
+
+    renderer.skipAllRenders = true
+    renderer.requestFrame()
+    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { host.drawnTargets.size > drawsBeforeSkip }
     waitForIdle()
 
-    val renderedTarget = renderer.renderTargets[0]
-    val skippedTarget = renderer.renderTargets[1]
+    val skippedTarget = renderer.renderTargets.last()
     assertNotEquals(renderedTarget, skippedTarget)
-    assertEquals(renderer.renderedFrames - 1, host.completedFrames)
-    assertTrue(host.drawnTargets.count { it == renderedTarget } >= 2)
+    assertEquals(renderer.renderedFrames - renderer.skippedFrames, host.completedFrames)
+    assertTrue(host.drawnTargets.drop(drawsBeforeSkip).all { it == renderedTarget })
     assertFalse(skippedTarget in host.drawnTargets)
     assertTrue(host.leakedFrames.isEmpty())
   }
@@ -363,6 +451,10 @@ class MlnFfiMapSurfaceRecoveryTest {
       private set
 
     private var hostSession: MlnFfiMapHostSession? = null
+
+    fun requestFrame() {
+      hostSession?.requestFrame()
+    }
 
     override fun onSurfaceChanged(extent: MapExtent) {
       if (failingSurfaceChanges > 0) {

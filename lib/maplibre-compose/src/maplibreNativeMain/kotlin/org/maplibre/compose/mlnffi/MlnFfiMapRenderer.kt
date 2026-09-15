@@ -38,6 +38,9 @@ internal interface MlnFfiMapRenderer : AutoCloseable {
   /** Renders one frame into [frame]'s target. */
   fun render(frame: MlnFfiMapFrame): MlnFfiFrameResult
 
+  /** Copies the last rendered projection while renderer access is held. The surface owns it. */
+  fun captureFrameProjection(extent: MapExtent): MlnFfiMapFrameProjection? = null
+
   /**
    * Returns the camera anchor for the most recent [render] attempt at [extent]. The surface stores
    * this value with a completed target so that a later resize can preserve its screen position.
@@ -57,3 +60,10 @@ internal interface MlnFfiMapRenderer : AutoCloseable {
 /** A graphics failure for which rebuilding the render session can produce a usable later frame. */
 internal open class MlnFfiRecoverableFrameException(message: String, cause: Throwable?) :
   IllegalStateException(message, cause)
+
+/** A projection owned by a completed frame, published before overlay placement. */
+internal interface MlnFfiMapFrameProjection : AutoCloseable {
+  val anchor: MlnFfiMapPresentationAnchor
+
+  fun present(destination: MlnFfiMapDestination, scaleFactor: Double)
+}
