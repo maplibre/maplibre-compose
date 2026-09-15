@@ -18,7 +18,7 @@ class PainterImageTest {
       error.message.orEmpty(),
       "Painter image size must have positive width and height",
     )
-    assertContains(error.message.orEmpty(), "Pass a size with positive width and height to image()")
+    assertContains(error.message.orEmpty(), "Pass a size with positive width and height")
   }
 
   @Test

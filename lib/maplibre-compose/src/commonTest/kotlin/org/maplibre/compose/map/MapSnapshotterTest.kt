@@ -184,6 +184,37 @@ class MapSnapshotterTest {
   }
 
   @Test
+  fun an_image_prepared_for_a_previous_snapshot_style_is_rejected() = runTest {
+    var binding = RecordingStyleBinding()
+    val runtime =
+      mapRuntimeForTest(
+        createSnapshotterAdapter = { FakeSnapshotterAdapter(prepare = { _, _ -> binding }) },
+        styleEvaluator =
+          StyleCompositionEvaluator { _, _, _, _, _, _ -> DesiredStyleRevision.Empty },
+      )
+    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
+    try {
+      withContext(Dispatchers.Unconfined) {
+        snapshotter.capture(MapSnapshotRequest(1, 1))
+        val old = binding
+        binding = RecordingStyleBinding()
+        snapshotter.style.asMutable!!.baseStyle =
+          BaseStyle.Json("""{"version":8,"name":"replacement","sources":{},"layers":[]}""")
+        snapshotter.capture(MapSnapshotRequest(1, 1))
+        assertFailsWith<IllegalStateException> {
+          snapshotter.style
+            .requireOwner()
+            .addStyleImage("stale", FakeImageBitmap(1, 1), false, null, old)
+        }
+        assertTrue(binding.imageIds.isEmpty())
+        assertTrue(snapshotter.style.images.add("stale", FakeImageBitmap(1, 1)).remove())
+      }
+    } finally {
+      close(snapshotter, runtime)
+    }
+  }
+
+  @Test
   fun adding_an_image_after_engine_eviction_retires_the_snapshot_image_handle() = runTest {
     val image = FakeImageBitmap(1, 1)
     val binding = RecordingStyleBinding(images = listOf("marker" to image))

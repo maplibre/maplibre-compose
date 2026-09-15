@@ -6,9 +6,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.mlnffi.AndroidMlnFfiPlatform
 
-internal actual suspend fun <T> withSnapshotGraphicsContext(
-  block: suspend (GraphicsContext) -> T
-): T =
+internal actual suspend fun <T> withImageGraphicsContext(block: suspend (GraphicsContext) -> T): T =
   withContext(Dispatchers.Main.immediate) {
     val container = FrameLayout(AndroidMlnFfiPlatform.applicationContext)
     block(GraphicsContext(container))

@@ -141,7 +141,7 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
     ownership: SnapshotStyleOwnership,
   ): DesiredStyleRevision {
     val frameClock = BroadcastFrameClock()
-    return withSnapshotGraphicsContext { graphicsContext ->
+    return withImageGraphicsContext { graphicsContext ->
       withContext(frameClock) {
         coroutineScope {
           val revision = CompletableDeferred<DesiredStyleRevision>()
@@ -287,7 +287,9 @@ internal class MapSnapshotterImplementation(
             image: ImageBitmap,
             sdf: Boolean,
             stretch: ImageStretch?,
-          ) = this@MapSnapshotterImplementation.addStyleImage(id, image, sdf, stretch)
+            expectedStyle: StyleBinding?,
+          ) =
+            this@MapSnapshotterImplementation.addStyleImage(id, image, sdf, stretch, expectedStyle)
 
           override fun removeStyleImage(id: String, expectedStyle: StyleBinding, identity: Any) =
             this@MapSnapshotterImplementation.removeStyleImage(id, expectedStyle, identity)
@@ -596,11 +598,13 @@ internal class MapSnapshotterImplementation(
     image: ImageBitmap,
     sdf: Boolean,
     stretch: ImageStretch?,
+    expectedStyle: StyleBinding? = null,
   ): StyleImageHandle {
     val record = ImperativeImageRecord()
     val reservation = StyleMutationReservation()
     val binding = lock.withLock {
       requireOpenLocked()
+      expectedStyle?.let(::requireStyleHandleLocked)
       requireNoDesiredImage(id)
       requireNoActiveStyleOperation()
       if (id in imperativeImages) {
