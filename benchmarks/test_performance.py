@@ -19,6 +19,30 @@ class WindowMetricsTest(unittest.TestCase):
         self.assertEqual(result["total_ms"]["p50"], 2)
         self.assertAlmostEqual(result["gpu_ms"]["p50"], (1.0 + 0.00015) / 2)
 
+    def test_unavailable_timestamps_do_not_contribute_to_interval_metrics(self):
+        logs = self.log().replace("1000000,1000000,150", "-1,1000000,150")
+        result = window_metrics(logs, 1000000, 7000000)
+        self.assertEqual(result["reported_frames"], 3)
+        self.assertEqual(result["frames"], 2)
+        self.assertEqual(result["total_ms"]["p50"], 2.5)
+
+        logs = logs.replace("2000000,2000000,-1", "-1,2000000,-1").replace(
+            "4000000,3000000,1000000", "-1,3000000,1000000"
+        )
+        result = window_metrics(logs, 1000000, 7000000)
+        self.assertFalse(result["available"])
+        self.assertEqual(result["reason"], "Window frame timestamps are unavailable")
+        self.assertEqual(result["reported_frames"], 3)
+        self.assertEqual(result["frames"], 0)
+        self.assertIsNone(result["total_ms"])
+        self.assertIsNone(result["gpu_ms"])
+
+    def test_invalid_timestamps_are_rejected(self):
+        for timestamp in (0, -2):
+            logs = self.log().replace("1000000,1000000,150", f"{timestamp},1000000,150")
+            with self.assertRaisesRegex(ValueError, "Invalid Window FrameMetrics"):
+                window_metrics(logs, 1000000, 7000000)
+
     def test_incomplete_or_dropped_reports_are_rejected(self):
         for log in (self.log(frames=4), self.log(lost=1)):
             with self.assertRaises(ValueError):

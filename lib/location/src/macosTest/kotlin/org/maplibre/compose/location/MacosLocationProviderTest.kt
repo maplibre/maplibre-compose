@@ -6,6 +6,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
@@ -22,8 +23,8 @@ class MacosLocationProviderTest {
   @Test
   fun exposesPermissionFromItsRequester() {
     MacosLocationPermissionRequester().use { requester ->
-      MacosLocationProvider().use { provider ->
-        assertEquals(requester.status.value, provider.permission.value)
+      MacosLocationProvider(requester).use { provider ->
+        assertSame(requester.status, provider.permission)
       }
     }
   }
