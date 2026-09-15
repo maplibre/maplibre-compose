@@ -11,6 +11,7 @@ import android.location.LocationListener
 import android.location.LocationManager
 import android.location.LocationRequest as AndroidLocationRequest
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
 import androidx.annotation.MainThread
@@ -101,6 +102,9 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
         }
 
         override fun onProviderEnabled(provider: String) = Unit
+
+        @Deprecated("Called on API 28 and below")
+        override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) = Unit
       }
     var registered = false
 
