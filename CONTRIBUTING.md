@@ -125,6 +125,23 @@ DMG on macOS, and an MSI on Windows. Linux packaging uses the mise-pinned
 `appimagetool` and does not need fakeroot or dpkg. The Linux task also writes a
 `.tar` next to the AppImage so the CI artifact keeps the execute bit.
 
+### Testing the unreleased frame projection API
+
+This draft uses `RenderSessionHandle.createProjection()` from
+[native-ffi #716](https://github.com/maplibre/maplibre-native-ffi/pull/716).
+Until it is published and the dependency version is updated, set
+`ORG_GRADLE_PROJECT_maplibreNativeFfiDir` to that checkout to substitute its
+Kotlin bindings. For desktop, also set `MAPLIBRE_NATIVE_FFI_LIBRARY_PATH` to the
+matching built native library. A released runtime does not contain the new API.
+
+The included FFI build also needs its normal build settings:
+`ORG_GRADLE_PROJECT_maplibreNativeCInstallDir`, `MLN_FFI_ANDROID_NDK_VERSION`,
+and `MLN_FFI_ANDROID_CMAKE_VERSION`. Use the install directory and tool versions
+from that checkout. These can go in the ignored `mise.local.toml` under `[env]`;
+then run the usual mise tasks. The local composite build can report Android
+variant resolution diagnostics; desktop validation does not establish Android or
+Apple Native compatibility. Remove this temporary setup after the release.
+
 ### Building for native macOS
 
 On an Apple Silicon Mac, run `mise run test:macos` for the native tests and
