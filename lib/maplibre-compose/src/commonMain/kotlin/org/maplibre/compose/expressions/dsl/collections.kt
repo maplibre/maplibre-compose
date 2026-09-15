@@ -3,12 +3,27 @@ package org.maplibre.compose.expressions.dsl
 import kotlin.jvm.JvmName
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.FunctionCall
+import org.maplibre.compose.expressions.ast.Semiliteral
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.expressions.value.ExpressionValue
 import org.maplibre.compose.expressions.value.IntValue
 import org.maplibre.compose.expressions.value.ListValue
 import org.maplibre.compose.expressions.value.MapValue
 import org.maplibre.compose.expressions.value.StringValue
+
+/**
+ * Builds a list by evaluating each element. Unlike [const], elements may read feature data or
+ * contain other expressions. Nested literal arrays remain literal; use another [list] for a nested
+ * array of expressions.
+ *
+ * Copies [elements] so later changes to the list do not change the expression.
+ */
+public fun <T : ExpressionValue?> list(elements: List<Expression<T>>): Expression<ListValue<T>> =
+  Semiliteral(elements.toList())
+
+/** Builds a list by evaluating each element. See the list overload of [list]. */
+public fun <T : ExpressionValue?> list(vararg elements: Expression<T>): Expression<ListValue<T>> =
+  list(elements.asList())
 
 /** Returns the item at [index]. */
 @JvmName("getAt")

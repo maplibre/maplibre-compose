@@ -3,7 +3,6 @@ package org.maplibre.compose.layers
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -61,8 +60,8 @@ class SymbolLayerCompositionTest {
         source = source,
         textVariableAnchorOffset =
           textVariableAnchorOffset(
-            SymbolAnchor.Top to Offset(0f, 1f),
-            SymbolAnchor.Bottom to Offset(0f, -2f),
+            SymbolAnchor.Top to textOffset(0.em, 1.em),
+            SymbolAnchor.Bottom to textOffset(0.em, (-2).em),
           ),
       )
     }
@@ -70,7 +69,10 @@ class SymbolLayerCompositionTest {
     val layer = assertNotNull(style.getLayer("labels"))
     val layout = assertNotNull(layer.toJson()["layout"] as? JsonObject)
     assertEquals(
-      Json.parseToJsonElement("""["literal",["top",[0,1],"bottom",[0,-2]]]""").normalizeNumbers(),
+      Json.parseToJsonElement(
+          """["let","semiliteral_value",["semiliteral",["top",["let","semiliteral_value",["semiliteral",[["*",0,1],["*",1,1]]],["var","semiliteral_value"]],"bottom",["let","semiliteral_value",["semiliteral",[["*",0,1],["*",-2,1]]],["var","semiliteral_value"]]]],["var","semiliteral_value"]]"""
+        )
+        .normalizeNumbers(),
       assertNotNull(layout["text-variable-anchor-offset"]).normalizeNumbers(),
     )
   }
@@ -96,8 +98,11 @@ class SymbolLayerCompositionTest {
         val renderedSize = layout.getValue("text-size").numberValue()
         assertEquals(textSize.value.value * fontScale.value.toDouble(), renderedSize, 0.0001)
         val offset = layout.getValue("text-offset").jsonArray
-        val scale = offset[2].numberValue()
-        val components = offset[6].jsonArray[1].jsonArray
+        val components = offset[2].jsonArray[1].jsonArray
+        val variableOffsets =
+          layout.getValue("text-variable-anchor-offset").jsonArray[2].jsonArray[1].jsonArray
+        assertEquals("top", variableOffsets[0].jsonPrimitive.contentOrNull)
+        assertEquals(offset, variableOffsets[1])
         val expectedScale =
           when (unit) {
             "dp" -> 1.0
@@ -107,7 +112,7 @@ class SymbolLayerCompositionTest {
         for ((index, distance) in listOf(-4.0, 12.0).withIndex()) {
           assertEquals(
             distance * expectedScale,
-            components[index].numberValue() * scale * renderedSize,
+            components[index].numberValue() * renderedSize,
             0.0001,
             unit,
           )
@@ -135,6 +140,7 @@ class SymbolLayerCompositionTest {
             source = source,
             textSize = const(textSize.value),
             textOffset = value,
+            textVariableAnchorOffset = textVariableAnchorOffset(SymbolAnchor.Top to value),
             iconOffset = offset((-4).dp, 12.dp),
           )
         }

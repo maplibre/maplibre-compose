@@ -12,6 +12,7 @@ import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.CompiledFunctionCall
 import org.maplibre.compose.expressions.ast.CompiledListLiteral
 import org.maplibre.compose.expressions.ast.CompiledOptions
+import org.maplibre.compose.expressions.ast.CompiledSemiliteral
 import org.maplibre.compose.expressions.ast.DpPaddingLiteral
 import org.maplibre.compose.expressions.ast.FloatLiteral
 import org.maplibre.compose.expressions.ast.NullLiteral
@@ -75,6 +76,28 @@ private fun CompiledExpression<*>.normalizeJsonLike(inLiteral: Boolean): JsonEle
           }
         }
       )
+
+    is CompiledSemiliteral<*> -> {
+      val array =
+        JsonArray(
+          listOf(
+            JsonPrimitive("semiliteral"),
+            JsonArray(elements.map { it.normalizeJsonLike(inLiteral = false) }),
+          )
+        )
+      // style-spec 26.4.2 parses semiliteral children in the parent's expected array type and
+      // crashes. A let binding gives the array an unconstrained context while preserving its
+      // inferred type. Remove the binding when the pinned GL JS parser handles children itself.
+      // https://github.com/maplibre/maplibre-style-spec/blob/v26.4.2/src/expression/definitions/semiliteral.ts
+      JsonArray(
+        listOf(
+          JsonPrimitive("let"),
+          JsonPrimitive("semiliteral_value"),
+          array,
+          JsonArray(listOf(JsonPrimitive("var"), JsonPrimitive("semiliteral_value"))),
+        )
+      )
+    }
 
     is CompiledListLiteral<*> ->
       literalArray(inLiteral, value.map { it.normalizeJsonLike(inLiteral = true) })

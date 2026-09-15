@@ -4,6 +4,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -27,6 +29,7 @@ import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.expressions.dsl.interpolate
 import org.maplibre.compose.expressions.dsl.linear
 import org.maplibre.compose.expressions.dsl.span
+import org.maplibre.compose.expressions.dsl.textOffset
 import org.maplibre.compose.expressions.dsl.textVariableAnchorOffset
 import org.maplibre.compose.expressions.dsl.zoom
 import org.maplibre.compose.expressions.value.CirclePitchAlignment
@@ -717,14 +720,19 @@ class LayerPropertyRoundTripTest {
         Case(
           "text-variable-anchor-offset",
           """["top",[0.0,1.0],"bottom",[0.0,-2.0]]""",
-          """["literal",["top",[0.0,1.0],"bottom",[0.0,-2.0]]]""",
+          """["let","semiliteral_value",["semiliteral",["top",["let","semiliteral_value",["semiliteral",[["*",0,0.0625],["*",16,0.0625]]],["var","semiliteral_value"]],"bottom",["let","semiliteral_value",["semiliteral",[["*",0,1],["*",-2,1]]],["var","semiliteral_value"]]]],["var","semiliteral_value"]]""",
         ) {
           it.setTextVariableAnchorOffset(
             textVariableAnchorOffset(
-                SymbolAnchor.Top to Offset(0f, 1f),
-                SymbolAnchor.Bottom to Offset(0f, -2f),
+                SymbolAnchor.Top to textOffset(0.sp, 16.sp),
+                SymbolAnchor.Bottom to textOffset(0.em, (-2).em),
               )
-              .c()
+              .compile(
+                object : ExpressionContext by ExpressionContext.None {
+                  override val spScale = const(0.0625f)
+                  override val emScale = const(1f)
+                }
+              )
           )
         },
         Case("text-anchor", "\"top-left\"") { it.setTextAnchor(const(SymbolAnchor.TopLeft).c()) },

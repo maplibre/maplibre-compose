@@ -1,6 +1,5 @@
 package org.maplibre.compose.expressions.dsl
 
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -15,7 +14,6 @@ import org.maplibre.compose.expressions.value.FormattedValue
 import org.maplibre.compose.expressions.value.LineCap
 import org.maplibre.compose.expressions.value.ListValue
 import org.maplibre.compose.expressions.value.StringValue
-import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.expressions.value.VectorValue
 
 /** Lists, maps, strings, and formatted text keep their item and result types through each step. */
@@ -161,15 +159,6 @@ class CollectionsAndStringsTest {
     assertEquals(
       """["literal",[[1,2],[3,4]]]""",
       styleJson(const(listOf(const(listOf(1f, 2f)), const(listOf(3f, 4f))))),
-    )
-    assertEquals(
-      """["literal",["top",[0,1.5],"left",[-1,0]]]""",
-      styleJson(
-        textVariableAnchorOffset(
-          SymbolAnchor.Top to Offset(0f, 1.5f),
-          SymbolAnchor.Left to Offset(-1f, 0f),
-        )
-      ),
     )
   }
 

@@ -388,7 +388,7 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *   the next location+offset. Use [textJustify] = [TextJustify.Auto] to choose justification based
  *   on anchor position. The expression may use feature properties.
  *
- * Each anchor location has an [androidx.compose.ui.geometry.Offset] in ems. Positive offset values
+ * Each anchor location has a [textOffset] expression in SP, EM, or DP. Positive offset values
  * indicate right and down, while negative values indicate left and up. Anchor locations may repeat,
  * which lets the renderer try multiple offsets for the same anchor.
  *
@@ -398,9 +398,9 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  * Example:
  * ```kt
  * textVariableAnchorOffset(
- *   SymbolAnchor.Top to Offset(0f, 4f),
- *   SymbolAnchor.Left to Offset(3f, 0f),
- *   SymbolAnchor.Bottom to Offset(1f, 1f),
+ *   SymbolAnchor.Top to textOffset(0.em, 4.em),
+ *   SymbolAnchor.Left to textOffset(3.em, 0.em),
+ *   SymbolAnchor.Bottom to textOffset(1.em, 1.em),
  * )
  * ```
  *
@@ -630,7 +630,7 @@ public fun SymbolLayer(
   val compiledTextOffset = compileWithEmTextSize(textOffset)
   val compiledTextVariableAnchor = compile(textVariableAnchor)
   val compiledTextRadialOffset = compileWithEmTextSize(textRadialOffset)
-  val compiledTextVariableAnchorOffset = compile(textVariableAnchorOffset)
+  val compiledTextVariableAnchorOffset = compileWithEmTextSize(textVariableAnchorOffset)
   val compiledTextPadding = compile(textPadding)
   val compiledTextAllowOverlap = compile(textAllowOverlap)
   val compiledTextOverlap = compile(textOverlap)
