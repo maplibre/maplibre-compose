@@ -78,7 +78,7 @@ internal data class TransformTiltBinding(
   val pointerTypes: Set<PointerType>? = null,
   val modifiers: ModifierMatch? = null,
   val startSlop: Dp = 16.dp,
-  val pitchDegreesPerDp: Double = -0.1,
+  val pitchDegreesPerDp: Double = -0.3,
 )
 
 internal data class TapDragBinding(
