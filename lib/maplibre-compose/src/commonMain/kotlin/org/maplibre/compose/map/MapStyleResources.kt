@@ -1,7 +1,15 @@
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.Stable
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.DefaultAlpha
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.LayoutDirection
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.serialization.json.JsonElement
 import org.maplibre.compose.layers.LayerHandle
 import org.maplibre.compose.sources.CustomGeometrySource
@@ -109,6 +117,46 @@ public class StyleImages internal constructor(private val style: MapStyleState) 
     stretch: ImageStretch? = null,
   ): MutableStyleImageHandle {
     return checkNotNull(style.requireOwner().addStyleImage(id, image, sdf, stretch).asMutable)
+  }
+
+  /**
+   * Renders [painter] once and adds it to the current ready style. Returns after registration.
+   *
+   * Pass the drawing environment's [density] and [layoutDirection] explicitly. See
+   * [ResolvedStyleImage.fromPainter] for sizing and drawing options. The image keeps [id] until
+   * removed or the style is replaced; later painter changes do not update it.
+   *
+   * The command fails if [id] already exists, or if the style is replaced or becomes unavailable
+   * while rendering. Cancellation before registration leaves the style unchanged.
+   */
+  public suspend fun add(
+    id: String,
+    painter: Painter,
+    density: Density,
+    layoutDirection: LayoutDirection,
+    size: DpSize? = null,
+    drawAsSdf: Boolean = false,
+    stretch: ImageStretch? = null,
+    alpha: Float = DefaultAlpha,
+    colorFilter: ColorFilter? = null,
+  ): MutableStyleImageHandle {
+    val owner = style.requireOwner()
+    val binding = checkNotNull(style.readyLoadedStyle()) { "No ready loaded style" }
+    val resolved =
+      ResolvedStyleImage.fromPainter(
+        painter,
+        density,
+        layoutDirection,
+        size,
+        drawAsSdf,
+        stretch,
+        alpha,
+        colorFilter,
+      )
+    currentCoroutineContext().ensureActive()
+    return checkNotNull(
+      owner.addStyleImage(id, resolved.image, resolved.sdf, resolved.stretch, binding).asMutable
+    )
   }
 
   /** Returns the image in the current loaded style, or null when absent or unavailable. */

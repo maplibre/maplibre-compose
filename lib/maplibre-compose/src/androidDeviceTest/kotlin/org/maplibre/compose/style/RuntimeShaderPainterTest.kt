@@ -6,6 +6,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.test.runTest
@@ -17,6 +19,7 @@ import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.layers.SymbolLayer
 import org.maplibre.compose.map.FakeSnapshotterAdapter
 import org.maplibre.compose.map.MapSnapshotRequest
+import org.maplibre.compose.map.ResolvedStyleImage
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
@@ -80,6 +83,17 @@ class RuntimeShaderPainterTest {
         runtime.close()
         runtime.awaitClosed()
       }
+    }
+  }
+
+  @Test
+  fun shader_painter_works_in_the_imperative_image_factory() {
+    assumeTrue("RuntimeShader requires API 33", Build.VERSION.SDK_INT >= 33)
+    runTest {
+      val image = ResolvedStyleImage.fromPainter(shaderPainter(), Density(1f), LayoutDirection.Ltr)
+      val pixels = IntArray(16)
+      image.image.readPixels(pixels)
+      assertEquals(List(16) { 0xffff0000.toInt() }, pixels.toList())
     }
   }
 

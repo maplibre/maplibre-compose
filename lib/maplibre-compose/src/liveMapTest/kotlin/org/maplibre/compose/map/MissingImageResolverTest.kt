@@ -1,6 +1,10 @@
 package org.maplibre.compose.map
 
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.painter.ColorPainter
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -29,7 +33,7 @@ class MissingImageResolverTest {
       fixture.state.missingImageResolver = { id ->
         requests += id
         firstRequest.complete(id)
-        ResolvedStyleImage(ImageBitmap(1, 1))
+        ResolvedStyleImage.fromPainter(ColorPainter(Color.Red), Density(1f), LayoutDirection.Ltr)
       }
 
       fixture.loadStyle(BaseStyle.Json(missingIconStyle()))

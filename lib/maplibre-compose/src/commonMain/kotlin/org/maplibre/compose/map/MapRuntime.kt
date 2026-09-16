@@ -202,6 +202,7 @@ internal interface MapStyleStateOwner {
     image: ImageBitmap,
     sdf: Boolean,
     stretch: ImageStretch?,
+    expectedStyle: StyleBinding? = null,
   ): StyleImageHandle
 
   fun removeStyleImage(id: String, expectedStyle: StyleBinding, identity: Any): Boolean
@@ -806,7 +807,8 @@ internal constructor(
             image: ImageBitmap,
             sdf: Boolean,
             stretch: ImageStretch?,
-          ) = this@MapState.addStyleImage(id, image, sdf, stretch)
+            expectedStyle: StyleBinding?,
+          ) = this@MapState.addStyleImage(id, image, sdf, stretch, expectedStyle)
 
           override fun removeStyleImage(id: String, expectedStyle: StyleBinding, identity: Any) =
             this@MapState.removeStyleImage(id, expectedStyle, identity)
@@ -1480,11 +1482,13 @@ internal constructor(
     image: ImageBitmap,
     sdf: Boolean,
     stretch: ImageStretch?,
+    expectedStyle: StyleBinding? = null,
   ): StyleImageHandle {
     val record = ImperativeImageRecord(fromResolver = false)
     val reservation = StyleMutationReservation()
     val binding = lifecycle.serialized {
       requireOpenLocked()
+      expectedStyle?.let(::requireStyleHandleLocked)
       requireNoDesiredImage(id)
       requireNoActiveStyleMutation()
       if (id in imperativeImages) {

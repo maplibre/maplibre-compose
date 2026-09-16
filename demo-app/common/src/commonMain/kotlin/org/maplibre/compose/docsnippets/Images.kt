@@ -4,7 +4,9 @@ package org.maplibre.compose.docsnippets
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.ExperimentalResourceApi
@@ -62,11 +64,15 @@ fun Images() {
 }
 
 @Composable
-fun MissingImages(fallback: ImageBitmap) {
+fun MissingImages(fallback: Painter) {
   // #region missing-image
   val mapState = rememberMapState()
-  DisposableEffect(mapState, fallback) {
-    mapState.missingImageResolver = { ResolvedStyleImage(fallback) }
+  val density = LocalDensity.current
+  val layoutDirection = LocalLayoutDirection.current
+  DisposableEffect(mapState, fallback, density, layoutDirection) {
+    mapState.missingImageResolver = {
+      ResolvedStyleImage.fromPainter(fallback, density, layoutDirection)
+    }
     onDispose { mapState.missingImageResolver = null }
   }
   MaplibreMap(state = mapState)
