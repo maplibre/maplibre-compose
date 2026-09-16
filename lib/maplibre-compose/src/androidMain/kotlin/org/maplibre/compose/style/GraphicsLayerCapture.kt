@@ -30,8 +30,8 @@ internal actual suspend fun GraphicsLayer.captureImage(
   else captureWithImageReader(density, layoutDirection)
 
 // Compose's API 22-27 capture feeds premultiplied Surface pixels to Bitmap.createBitmap(IntArray),
-// which premultiplies them again. Copy the raw bytes instead, respecting the ImageReader row
-// stride.
+// which premultiplies them again. Copy the raw bytes instead.
+// Upstream issue: https://issuetracker.google.com/issues/562108906
 internal suspend fun GraphicsLayer.captureWithImageReader(
   density: Density,
   layoutDirection: LayoutDirection,
