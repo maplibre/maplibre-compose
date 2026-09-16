@@ -55,7 +55,9 @@ internal actual fun BenchmarkPlatformMetrics(active: Boolean) {
         val bootOffset = SystemClock.elapsedRealtimeNanos() - System.nanoTime()
         frames +=
           longArrayOf(
-            metrics.getMetric(FrameMetrics.INTENDED_VSYNC_TIMESTAMP) + bootOffset,
+            if (Build.VERSION.SDK_INT >= 26)
+              metrics.getMetric(FrameMetrics.INTENDED_VSYNC_TIMESTAMP) + bootOffset
+            else -1L,
             metrics.getMetric(FrameMetrics.TOTAL_DURATION),
             if (Build.VERSION.SDK_INT >= 31) metrics.getMetric(FrameMetrics.GPU_DURATION) else -1L,
             if (Build.VERSION.SDK_INT >= 31) metrics.getMetric(FrameMetrics.DEADLINE) else -1L,

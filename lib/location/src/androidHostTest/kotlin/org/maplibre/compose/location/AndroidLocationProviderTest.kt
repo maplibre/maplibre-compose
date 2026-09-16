@@ -5,6 +5,8 @@ import android.Manifest.permission.ACCESS_FINE_LOCATION
 import android.app.Application
 import android.location.Location
 import android.location.LocationManager
+import android.location.LocationProvider as PlatformLocationProvider
+import android.os.Bundle
 import androidx.activity.ComponentActivity
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -190,6 +192,38 @@ class AndroidLocationProviderTest {
       assertEquals(1, shadowOf(manager).locationUpdateListeners.size)
       third.cancelAndJoin()
       provider.close()
+    }
+
+  @Test
+  @Config(sdk = [24, 25, 28])
+  fun legacyProviderStatusChangesDoNotInterruptLocationUpdates() =
+    runTest(dispatcher) {
+      grant()
+      val provider = createDefaultLocationProvider(application)
+      try {
+        val events = mutableListOf<LocationEvent>()
+        val collection = backgroundScope.launch { provider.updates().collect(events::add) }
+        runCurrent()
+        val listener = shadowOf(manager).locationUpdateListeners.single()
+        for (status in
+          listOf(
+            PlatformLocationProvider.OUT_OF_SERVICE,
+            PlatformLocationProvider.TEMPORARILY_UNAVAILABLE,
+            PlatformLocationProvider.AVAILABLE,
+          )) {
+          listener.onStatusChanged(LocationManager.GPS_PROVIDER, status, Bundle())
+        }
+        runCurrent()
+        assertTrue(events.isEmpty())
+        sendLocation()
+        runCurrent()
+        assertIs<LocationEvent.Update>(events.single())
+        assertTrue(collection.isActive)
+        collection.cancelAndJoin()
+        assertTrue(shadowOf(manager).locationUpdateListeners.isEmpty())
+      } finally {
+        provider.close()
+      }
     }
 
   private fun grant() {
