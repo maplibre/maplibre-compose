@@ -9,8 +9,9 @@ bearing sectors, and rendered projections are outside this work.
 
 FFI #724 supplies independent native tracks, but the current backends do not yet
 provide the same ownership and cancellation primitives. Keep the public API
-change blocked until those requirements are met. This branch can cover the
-native viewport-inset concurrency that the pinned runtime already supports.
+change blocked until those requirements are met. This branch covers native
+viewport-inset concurrency and fixes premature idle reporting when the inset
+command ends.
 
 ## Source findings
 
@@ -144,6 +145,9 @@ real Chromium/Firefox maps:
    unanchored camera track, supersede padding, and cancel anchors. Detach
    prevents queued work from affecting a replacement presentation.
 
-The native inset regression in this branch is only a baseline for behavior
-already supported by FFI #724. It does not establish that the proposed public
-API, scoped cancellation, or browser concurrency has been implemented.
+The native inset regression checks continuing motion, camera padding, and
+aggregate movement reporting. The original boolean movement state failed after
+the inset command ended; counting outstanding camera changes fixes that failure.
+Abandonment and detach clear the count. This does not establish that the
+proposed public API, scoped cancellation, or browser concurrency has been
+implemented.

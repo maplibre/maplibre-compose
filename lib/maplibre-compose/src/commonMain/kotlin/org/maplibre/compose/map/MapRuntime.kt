@@ -8,6 +8,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.referentialEqualityPolicy
 import androidx.compose.runtime.remember
@@ -495,7 +496,7 @@ internal constructor(
   private var viewportState: Viewport? by mutableStateOf(null)
   private val firstViewport = CompletableDeferred<Viewport>()
   private var gestureActiveState: Boolean by mutableStateOf(false)
-  private var cameraChangingState: Boolean by mutableStateOf(false)
+  private var activeCameraChanges: Int by mutableIntStateOf(0)
   private var moveReasonState: CameraMoveReason by mutableStateOf(CameraMoveReason.NONE)
   private var engagedState: Boolean by mutableStateOf(false)
   val isValid: Boolean
@@ -508,7 +509,7 @@ internal constructor(
     get() = viewportState
 
   val isCameraMoving: Boolean
-    get() = gestureActiveState || cameraChangingState
+    get() = gestureActiveState || activeCameraChanges > 0
 
   val cameraMoveReason: CameraMoveReason
     get() = moveReasonState
@@ -674,13 +675,18 @@ internal constructor(
 
   internal fun cameraChangeStarted() {
     owner.lifecycle.serialized {
-      cameraChangingState = true
+      activeCameraChanges++
       if (!gestureActiveState) moveReasonState = CameraMoveReason.PROGRAMMATIC
     }
   }
 
   internal fun cameraChangeEnded() {
-    owner.lifecycle.serialized { cameraChangingState = false }
+    // Native ends each command separately. An inset update can end while a zoom is still moving.
+    owner.lifecycle.serialized { activeCameraChanges = (activeCameraChanges - 1).coerceAtLeast(0) }
+  }
+
+  internal fun abandonCameraChanges() {
+    owner.lifecycle.serialized { activeCameraChanges = 0 }
   }
 
   internal fun invalidate() {
@@ -689,7 +695,7 @@ internal constructor(
       validState = false
       viewportState = null
       gestureActiveState = false
-      cameraChangingState = false
+      activeCameraChanges = 0
       engagedState = false
       invalidated.complete(Unit)
     }
@@ -1850,9 +1856,9 @@ internal constructor(
     presentedAttachment(adapter)?.setEngaged(engaged)
   }
 
-  /** Ends a camera change that the engine behind [adapter] will never finish. */
+  /** Ends camera changes that the engine behind [adapter] will never finish. */
   internal fun endCameraChange(adapter: MapAdapter) {
-    presentedAttachment(adapter)?.cameraChangeEnded()
+    presentedAttachment(adapter)?.abandonCameraChanges()
   }
 
   private fun presentedAttachment(adapter: MapAdapter): MapAttachment? = lifecycle.serialized {
