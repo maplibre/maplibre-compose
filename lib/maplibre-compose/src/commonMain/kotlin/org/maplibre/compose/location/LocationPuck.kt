@@ -38,9 +38,7 @@ import org.maplibre.compose.expressions.dsl.div
 import org.maplibre.compose.expressions.dsl.dp
 import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.expressions.dsl.image
-import org.maplibre.compose.expressions.dsl.minus
 import org.maplibre.compose.expressions.dsl.offset
-import org.maplibre.compose.expressions.dsl.plus
 import org.maplibre.compose.expressions.dsl.switch
 import org.maplibre.compose.expressions.value.CirclePitchAlignment
 import org.maplibre.compose.expressions.value.IconRotationAlignment
@@ -76,6 +74,8 @@ import org.maplibre.spatialk.units.extensions.meters
  * @param accuracyThreshold A circle showing the accuracy range will be drawn when
  *   [LocationMeasurement.horizontalAccuracy] is larger than this value. Use
  *   [Length.PositiveInfinity] to hide the accuracy range.
+ * @param animation Motion of the rendered puck. Set to `null` to render caller-controlled values
+ *   directly.
  * @param colors The colors to use for the location puck.
  * @param sizes The sizes to use for the location puck.
  * @param onClick A [LocationClickHandler] to invoke when the main location indicator dot is
@@ -89,6 +89,7 @@ public fun LocationPuck(
   locationState: LocationState,
   oldLocationThreshold: Duration = 30.seconds,
   accuracyThreshold: Length = 50.meters,
+  animation: LocationPuckAnimation? = LocationPuckAnimation(),
   colors: LocationPuckColors = LocationPuckColors(),
   sizes: LocationPuckSizes = LocationPuckSizes(),
   onClick: LocationClickHandler? = null,
@@ -105,6 +106,7 @@ public fun LocationPuck(
       ),
     oldLocationThreshold = oldLocationThreshold,
     accuracyThreshold = accuracyThreshold,
+    animation = animation,
     colors = colors,
     sizes = sizes,
     onClick = onClick,
@@ -131,6 +133,8 @@ public fun LocationPuck(
  * @param accuracyThreshold A circle showing the accuracy range will be drawn when
  *   [LocationMeasurement.horizontalAccuracy] is larger than this value. Use
  *   [Length.PositiveInfinity] to hide the accuracy range.
+ * @param animation Motion of the rendered puck. Set to `null` to render caller-controlled values
+ *   directly.
  * @param colors The colors to use for the location puck.
  * @param sizes The sizes to use for the location puck.
  * @param onClick A [LocationClickHandler] to invoke when the main location indicator dot is
@@ -147,6 +151,7 @@ public fun LocationPuck(
   bearingAccuracy: Rotation? = defaultBearingAccuracy(location, bearing),
   oldLocationThreshold: Duration = 30.seconds,
   accuracyThreshold: Length = 50.meters,
+  animation: LocationPuckAnimation? = LocationPuckAnimation(),
   colors: LocationPuckColors = LocationPuckColors(),
   sizes: LocationPuckSizes = LocationPuckSizes(),
   onClick: LocationClickHandler? = null,
@@ -157,6 +162,7 @@ public fun LocationPuck(
     measurement = locationPuckMeasurement(location, measurementMark, bearing, bearingAccuracy),
     oldLocationThreshold = oldLocationThreshold,
     accuracyThreshold = accuracyThreshold,
+    animation = animation,
     colors = colors,
     sizes = sizes,
     onClick = onClick,
@@ -170,6 +176,7 @@ private fun LocationPuckContent(
   measurement: LocationPuckMeasurement?,
   oldLocationThreshold: Duration,
   accuracyThreshold: Length,
+  animation: LocationPuckAnimation?,
   colors: LocationPuckColors,
   sizes: LocationPuckSizes,
   onClick: LocationClickHandler?,
@@ -178,6 +185,7 @@ private fun LocationPuckContent(
   val location = measurement?.location
   val bearing = measurement?.bearing
   val bearingAccuracy = measurement?.bearingAccuracy
+  val renderedBearing = animatePuckBearing(bearing, animation?.bearing)
   val bearingPainter = rememberBearingPainter(sizes, colors)
   val positionAccuracy = location?.horizontalAccuracy
   val accuracyVisible = positionAccuracy != null && positionAccuracy > accuracyThreshold
@@ -240,7 +248,7 @@ private fun LocationPuckContent(
     visible = bearing != null,
     iconImage = image(bearingPainter),
     iconAnchor = const(SymbolAnchor.Center),
-    iconRotate = feature["bearing"].asNumber(const(0f)) + const(45f),
+    iconRotate = const((renderedBearing ?: 0f) + 45f),
     iconOffset =
       offset(
         -(sizes.dotRadius + sizes.dotStrokeWidth) * sqrt(2f) / 2f,
@@ -263,10 +271,7 @@ private fun LocationPuckContent(
       source = locationSource,
       iconImage = image(bearingAccuracyPainter),
       iconAnchor = const(SymbolAnchor.Center),
-      iconRotate =
-        feature["bearing"].asNumber(const(0f)) -
-          const(90f) -
-          feature["bearingAccuracy"].asNumber(const(0f)),
+      iconRotate = const((renderedBearing ?: 0f) - 90f - bearingAccuracy.inDegrees.toFloat()),
       iconRotationAlignment = const(IconRotationAlignment.Map),
       iconAllowOverlap = const(true),
     )
@@ -377,8 +382,6 @@ internal fun locationFeatures(
         properties =
           buildJsonObject {
             put("accuracy", location.horizontalAccuracy?.inMeters)
-            put("bearing", measurement.bearing?.let { (it - Bearing.North).inDegrees })
-            put("bearingAccuracy", measurement.bearingAccuracy?.inDegrees)
             put("isOldLocation", isOldLocation)
           },
       )

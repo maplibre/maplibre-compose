@@ -63,6 +63,7 @@ kotlin {
 
     commonMain.dependencies {
       api(project(":lib:location"))
+      api(libs.jetbrains.compose.animation.core)
       implementation(libs.jetbrains.compose.foundation)
       implementation(libs.jetbrains.compose.components.resources)
       implementation(libs.htmlConverterCompose)

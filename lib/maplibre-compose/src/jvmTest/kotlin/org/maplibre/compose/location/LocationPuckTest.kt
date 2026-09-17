@@ -1,5 +1,9 @@
 package org.maplibre.compose.location
 
+import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -9,6 +13,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.Density
+import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -18,6 +23,7 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TestTimeSource
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.float
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.map.LocalViewport
@@ -33,6 +39,197 @@ import org.maplibre.spatialk.units.extensions.meters
 
 @OptIn(ExperimentalTestApi::class)
 class LocationPuckTest {
+  @Test
+  fun bearingLayersRotateTogetherWithoutSubmittingGeometryEachFrame() = runComposeUiTest {
+    val style = RecordingStyleBinding()
+    val reconciler = StyleReconciler()
+    val location =
+      LocationMeasurement(position = Position(13.0, 52.0), measuredAt = Clock.System.now())
+    var bearing by mutableStateOf<Bearing?>(Bearing.North + 10.degrees)
+    var animation by
+      mutableStateOf<LocationPuckAnimation?>(
+        LocationPuckAnimation(bearing = tween(1000, easing = LinearEasing))
+      )
+    setContent {
+      val revision by
+        rememberStyleComposition(
+          maybeStyle = style,
+          content = {
+            CompositionLocalProvider(LocalDensity provides Density(1f)) {
+              LocationPuck(
+                idPrefix = "user",
+                location = location,
+                bearing = bearing,
+                bearingAccuracy = 5.degrees,
+                animation = animation,
+              )
+            }
+          },
+        )
+      LaunchedEffect(revision) { revision?.let { reconciler.apply(style, it) } }
+    }
+    fun rotation(layer: String): Float =
+      style.layers
+        .getValue(layer)
+        .getValue("layout")
+        .jsonObject
+        .getValue("icon-rotate")
+        .jsonPrimitive
+        .float
+    waitForIdle()
+    assertEquals(55f, rotation("user-bearing"))
+    mainClock.autoAdvance = false
+    bearing = Bearing.North + 100.degrees
+    mainClock.advanceTimeBy(160)
+    waitForIdle()
+    val firstRotation = rotation("user-bearing")
+    assertTrue(firstRotation in 60f..90f)
+    val submissions = style.installedGeoJson.values.sumOf { it.size }
+    mainClock.advanceTimeBy(160)
+    waitForIdle()
+    val secondRotation = rotation("user-bearing")
+    assertTrue(secondRotation > firstRotation)
+    assertEquals(secondRotation - 140f, rotation("user-bearingAccuracy"), 0.01f)
+    assertEquals(submissions, style.installedGeoJson.values.sumOf { it.size })
+    animation = null
+    bearing = Bearing.North + 120.degrees
+    mainClock.advanceTimeBy(64)
+    waitForIdle()
+    assertEquals(165f, rotation("user-bearing"))
+    animation = LocationPuckAnimation(bearing = null)
+    bearing = Bearing.North + 30.degrees
+    mainClock.advanceTimeBy(64)
+    waitForIdle()
+    assertEquals(75f, rotation("user-bearing"))
+    bearing = null
+    mainClock.advanceTimeBy(64)
+    waitForIdle()
+    assertEquals(
+      "none",
+      style.layers
+        .getValue("user-bearing")
+        .getValue("layout")
+        .jsonObject
+        .getValue("visibility")
+        .jsonPrimitive
+        .content,
+    )
+    assertFalse("user-bearingAccuracy" in style.layers)
+  }
+
+  @Test
+  fun continuousRotationRebasesWithoutChangingOrientation() = runComposeUiTest {
+    mainClock.autoAdvance = false
+    var bearing by mutableStateOf(Bearing.North)
+    var rendered = 0f
+    setContent { rendered = animatePuckBearing(bearing, tween(64, easing = LinearEasing))!! }
+    waitForIdle()
+    repeat(30) { turn ->
+      val target = (turn + 1) * 150
+      bearing = Bearing.North + target.degrees
+      mainClock.advanceTimeBy(128)
+      waitForIdle()
+      assertEquals((target % 360).toFloat(), (rendered % 360f + 360f) % 360f, 0.01f)
+      assertTrue(abs(rendered) < 3800f, "The animation must bound its Float magnitude")
+    }
+  }
+
+  @Test
+  fun bearingCrossesNorthAlongTheShortArcInBothDirections() = runComposeUiTest {
+    mainClock.autoAdvance = false
+    var bearing by mutableStateOf(Bearing.North + 350.degrees)
+    var forward = 0f
+    var reverse = 0f
+    setContent {
+      forward = animatePuckBearing(bearing, tween(320, easing = LinearEasing))!!
+      reverse =
+        animatePuckBearing(
+          Bearing.North - (bearing - Bearing.North),
+          tween(320, easing = LinearEasing),
+        )!!
+    }
+    waitForIdle()
+    val initialForward = forward
+    val initialReverse = reverse
+    bearing = Bearing.North + 10.degrees
+    mainClock.advanceTimeBy(160)
+    waitForIdle()
+    assertTrue(forward - initialForward in 5f..15f)
+    assertTrue(reverse - initialReverse in -15f..-5f)
+    mainClock.advanceTimeBy(400)
+    waitForIdle()
+    assertEquals(20f, forward - initialForward, 0.01f)
+    assertEquals(-20f, reverse - initialReverse, 0.01f)
+  }
+
+  @Test
+  fun bearingRetargetPreservesMotionInsteadOfRestartingAtRest() = runComposeUiTest {
+    mainClock.autoAdvance = false
+    var referenceTarget by mutableStateOf(Bearing.North)
+    var interruptedTarget by mutableStateOf(Bearing.North)
+    var reference = 0f
+    var interrupted = 0f
+    val spec = spring<Float>(stiffness = 100f)
+    setContent {
+      reference = animatePuckBearing(referenceTarget, spec)!!
+      interrupted = animatePuckBearing(interruptedTarget, spec)!!
+    }
+    waitForIdle()
+    referenceTarget = Bearing.North + 100.degrees
+    interruptedTarget = referenceTarget
+    mainClock.advanceTimeBy(160)
+    waitForIdle()
+    assertTrue(reference in 20f..80f)
+    assertEquals(reference, interrupted, 0.01f)
+    interruptedTarget = Bearing.North + 101.degrees
+    mainClock.advanceTimeBy(64)
+    waitForIdle()
+    assertTrue(
+      abs(reference - interrupted) < 1f,
+      "Retargeting lost velocity: $reference vs $interrupted",
+    )
+  }
+
+  @Test
+  fun bearingAbsenceAndBypassResetAnimationHistory() = runComposeUiTest {
+    mainClock.autoAdvance = false
+    var bearing by mutableStateOf<Bearing?>(null)
+    var spec by mutableStateOf<FiniteAnimationSpec<Float>?>(tween(1000))
+    var rendered: Float? = null
+    setContent { rendered = animatePuckBearing(bearing, spec) }
+    waitForIdle()
+    assertEquals(null, rendered)
+    bearing = Bearing.North + 30.degrees
+    mainClock.advanceTimeByFrame()
+    waitForIdle()
+    assertEquals(30f, rendered)
+    bearing = Bearing.North + 90.degrees
+    mainClock.advanceTimeBy(160)
+    waitForIdle()
+    assertTrue(rendered!! in 30f..60f)
+    bearing = null
+    mainClock.advanceTimeByFrame()
+    waitForIdle()
+    assertEquals(null, rendered)
+    bearing = Bearing.North + 120.degrees
+    mainClock.advanceTimeByFrame()
+    waitForIdle()
+    assertEquals(120f, rendered)
+    spec = null
+    bearing = Bearing.North + 60.degrees
+    mainClock.advanceTimeByFrame()
+    waitForIdle()
+    assertEquals(60f, rendered)
+    bearing = Bearing.North + 80.degrees
+    mainClock.advanceTimeByFrame()
+    waitForIdle()
+    assertEquals(80f, rendered)
+    spec = tween(1000)
+    mainClock.advanceTimeByFrame()
+    waitForIdle()
+    assertEquals(80f, rendered)
+  }
+
   @Test
   fun onlyVisibleAccuracyCircleObservesViewport() = runComposeUiTest {
     val style = RecordingStyleBinding()
