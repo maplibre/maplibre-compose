@@ -6,10 +6,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.expressions.ast.Expression
+import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.value.ColorValue
+import org.maplibre.compose.expressions.value.DpValue
 import org.maplibre.compose.expressions.value.ImageValue
 import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.location.LocationState
-import org.maplibre.compose.location.mostAccurateBearing
+import org.maplibre.compose.location.mostAccurateBearingMeasurement
 import org.maplibre.compose.location.rememberDefaultHeadingProvider
 import org.maplibre.compose.location.rememberLocationState
 import org.maplibre.compose.style.TransitionOptions
@@ -17,6 +20,8 @@ import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.Length
+import org.maplibre.spatialk.units.Rotation
+import org.maplibre.spatialk.units.extensions.inDegrees
 import org.maplibre.spatialk.units.extensions.inMeters
 
 /**
@@ -39,6 +44,8 @@ public fun LocationIndicatorLayer(
   minZoom: Float = 0f,
   maxZoom: Float = 24f,
   visible: Boolean = true,
+  bearingAccuracyRadius: Expression<DpValue> = const(48.dp),
+  bearingAccuracyColor: Expression<ColorValue> = const(Color.Blue.copy(alpha = 0.35f)),
   accuracyRadiusColor: Color = Color.Blue.copy(alpha = 0.15f),
   accuracyRadiusBorderColor: Color = Color.Blue,
   topImage: Expression<ImageValue?>? = LocationIndicatorDefaults.topImage(),
@@ -52,19 +59,24 @@ public fun LocationIndicatorLayer(
   locationTransition: TransitionOptions = TransitionOptions(),
   bearingTransition: TransitionOptions = locationTransition,
   accuracyRadiusTransition: TransitionOptions = locationTransition,
+  bearingAccuracyTransition: TransitionOptions = bearingTransition,
   onClick: (() -> ClickResult)? = null,
   onLongClick: (() -> ClickResult)? = null,
   onDoubleClick: (() -> ClickResult)? = null,
   hitPadding: Dp = 0.dp,
 ) {
+  val measurement = locationState.mostAccurateBearingMeasurement()
   LocationIndicatorLayer(
     id = id,
     location = locationState.lastLocation?.position,
-    bearing = locationState.mostAccurateBearing(),
+    bearing = measurement?.bearing,
+    bearingAccuracy = measurement?.accuracy,
     accuracyRadius = locationState.lastLocation?.horizontalAccuracy,
     minZoom = minZoom,
     maxZoom = maxZoom,
     visible = visible,
+    bearingAccuracyRadius = bearingAccuracyRadius,
+    bearingAccuracyColor = bearingAccuracyColor,
     accuracyRadiusColor = accuracyRadiusColor,
     accuracyRadiusBorderColor = accuracyRadiusBorderColor,
     topImage = topImage,
@@ -78,6 +90,7 @@ public fun LocationIndicatorLayer(
     locationTransition = locationTransition,
     bearingTransition = bearingTransition,
     accuracyRadiusTransition = accuracyRadiusTransition,
+    bearingAccuracyTransition = bearingAccuracyTransition,
     onClick = onClick,
     onLongClick = onLongClick,
     onDoubleClick = onDoubleClick,
@@ -86,22 +99,34 @@ public fun LocationIndicatorLayer(
 }
 
 /**
- * Draws a location dot, an optional bearing image, and a horizontal accuracy circle.
+ * Draws a location dot, an optional bearing image, a horizontal accuracy circle, and a bearing
+ * accuracy sector.
  *
  * The first location appears immediately; later measurements animate with the supplied transition
  * options. Bearing and longitude changes take the shortest path across north and the antimeridian.
  * A null [location] removes the indicator and resets its animation history.
  *
  * Click handlers target the top and bearing image bounds, including transparent margins, but not
- * the shadow or accuracy circle. Each gesture invokes its handler at most once, even when the
- * images overlap. Return [ClickResult.Pass] to continue to layers below or [ClickResult.Consume] to
- * stop dispatch.
+ * the shadow, accuracy circle, or bearing accuracy sector. Each gesture invokes its handler at most
+ * once, even when the images overlap. Return [ClickResult.Pass] to continue to layers below or
+ * [ClickResult.Consume] to stop dispatch.
  *
  * @param id Unique layer ID.
  * @param location Position of the indicator, or null to hide it. Altitude is not rendered.
  * @param bearing Rotation of all three images clockwise from north. Null hides [bearingImage] and
  *   resets the other images to zero rotation. Its first available value appears immediately.
  * @param accuracyRadius Horizontal error radius in meters, or null to hide the circle.
+ * @param bearingAccuracy Angular error on either side of [bearing]. For example, 15 degrees draws a
+ *   30-degree sector. Values at least 180 degrees draw a full circle; zero hides it. Must be finite
+ *   and nonnegative. Null accuracy or bearing hides the sector immediately; its first complete
+ *   measurement appears immediately.
+ * @param bearingAccuracyRadius Visual sector radius in dp before perspective compensation,
+ *   independent of [accuracyRadius]. Zero hides it. Supports constant and zoom expressions.
+ * @param bearingAccuracyColor Sector color at the center, fading smoothly to transparent at the
+ *   outer edge. Supports constant and zoom expressions. Drawn below all images, without their tilt
+ *   displacement. The sector does not affect hit testing.
+ * @param bearingAccuracyTransition Timing for changes to sector angle, radius, and color. Defaults
+ *   to [bearingTransition]. Zoom expression evaluation follows the camera without a transition.
  * @param minZoom Minimum visible zoom, inclusive.
  * @param maxZoom Maximum visible zoom, exclusive.
  * @param visible Whether to draw the indicator.
@@ -132,9 +157,12 @@ public fun LocationIndicatorLayer(
   location: Position?,
   bearing: Bearing? = null,
   accuracyRadius: Length? = null,
+  bearingAccuracy: Rotation? = null,
   minZoom: Float = 0f,
   maxZoom: Float = 24f,
   visible: Boolean = true,
+  bearingAccuracyRadius: Expression<DpValue> = const(48.dp),
+  bearingAccuracyColor: Expression<ColorValue> = const(Color.Blue.copy(alpha = 0.35f)),
   accuracyRadiusColor: Color = Color.Blue.copy(alpha = 0.15f),
   accuracyRadiusBorderColor: Color = Color.Blue,
   topImage: Expression<ImageValue?>? = LocationIndicatorDefaults.topImage(),
@@ -148,6 +176,7 @@ public fun LocationIndicatorLayer(
   locationTransition: TransitionOptions = TransitionOptions(),
   bearingTransition: TransitionOptions = locationTransition,
   accuracyRadiusTransition: TransitionOptions = locationTransition,
+  bearingAccuracyTransition: TransitionOptions = bearingTransition,
   onClick: (() -> ClickResult)? = null,
   onLongClick: (() -> ClickResult)? = null,
   onDoubleClick: (() -> ClickResult)? = null,
@@ -157,6 +186,12 @@ public fun LocationIndicatorLayer(
     accuracyRadius == null || (accuracyRadius.inMeters.isFinite() && accuracyRadius.inMeters >= 0)
   ) {
     "accuracyRadius must be finite and nonnegative"
+  }
+  require(
+    bearingAccuracy == null ||
+      (bearingAccuracy.inDegrees.isFinite() && bearingAccuracy.inDegrees >= 0)
+  ) {
+    "bearingAccuracy must be finite and nonnegative"
   }
   require(hitPadding.value.isFinite() && hitPadding.value >= 0f) {
     "hitPadding must be finite and nonnegative"
@@ -168,10 +203,13 @@ public fun LocationIndicatorLayer(
         id = id,
         location = location,
         bearing = bearing,
+        bearingAccuracy = bearingAccuracy,
         accuracyRadius = accuracyRadius,
         minZoom = minZoom,
         maxZoom = maxZoom,
         visible = visible,
+        bearingAccuracyRadius = bearingAccuracyRadius,
+        bearingAccuracyColor = bearingAccuracyColor,
         accuracyRadiusColor = accuracyRadiusColor,
         accuracyRadiusBorderColor = accuracyRadiusBorderColor,
         topImage = topImage,
@@ -185,6 +223,7 @@ public fun LocationIndicatorLayer(
         locationTransition = locationTransition,
         bearingTransition = bearingTransition,
         accuracyRadiusTransition = accuracyRadiusTransition,
+        bearingAccuracyTransition = bearingAccuracyTransition,
         onClick = onClick,
         onLongClick = onLongClick,
         onDoubleClick = onDoubleClick,
@@ -199,6 +238,10 @@ internal data class LocationIndicatorProperties(
   val location: Position,
   val bearing: Bearing?,
   val accuracyRadius: Length?,
+  val bearingAccuracy: Rotation?,
+  val bearingAccuracyRadius: Expression<DpValue>,
+  val bearingAccuracyColor: Expression<ColorValue>,
+  val bearingAccuracyTransition: TransitionOptions,
   val minZoom: Float,
   val maxZoom: Float,
   val visible: Boolean,

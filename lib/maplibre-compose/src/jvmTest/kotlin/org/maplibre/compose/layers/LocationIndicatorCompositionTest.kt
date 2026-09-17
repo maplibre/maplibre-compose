@@ -31,6 +31,7 @@ import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.rememberStyleComposition
 import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.units.Bearing
+import org.maplibre.spatialk.units.Rotation
 import org.maplibre.spatialk.units.extensions.degrees
 import org.maplibre.spatialk.units.extensions.meters
 
@@ -42,6 +43,7 @@ class LocationIndicatorCompositionTest {
     val reconciler = StyleReconciler()
     var location by mutableStateOf<Position?>(Position(179.0, 52.0))
     var bearing by mutableStateOf<Bearing?>(null)
+    var accuracy by mutableStateOf<Rotation?>(15.degrees)
     var viewportReads = 0
     setContent {
       val revision by
@@ -59,6 +61,7 @@ class LocationIndicatorCompositionTest {
                 id = "user",
                 location = location,
                 bearing = bearing,
+                bearingAccuracy = accuracy,
                 accuracyRadius = 20.meters,
                 locationTransition = TransitionOptions(2.seconds),
               )
@@ -73,6 +76,7 @@ class LocationIndicatorCompositionTest {
     assertEquals(setOf("user"), style.layers.keys)
     assertTrue(style.sources.isEmpty())
     assertEquals(0, viewportReads)
+    assertEquals(0.0, paint("bearing-accuracy").jsonPrimitive.double)
     assertEquals(20.0, paint("accuracy-radius").jsonPrimitive.double)
     assertEquals(
       2000.0,
@@ -94,6 +98,28 @@ class LocationIndicatorCompositionTest {
     assertEquals(
       2000.0,
       paint("bearing-transition").jsonObject.getValue("duration").jsonPrimitive.double,
+    )
+    assertEquals(15.0, paint("bearing-accuracy").jsonPrimitive.double)
+    runOnIdle { accuracy = 25.degrees }
+    waitForIdle()
+    assertEquals(25.0, paint("bearing-accuracy").jsonPrimitive.double)
+    assertEquals(
+      2000.0,
+      paint("bearing-accuracy-transition").jsonObject.getValue("duration").jsonPrimitive.double,
+    )
+    runOnIdle { accuracy = null }
+    waitForIdle()
+    assertEquals(0.0, paint("bearing-accuracy").jsonPrimitive.double)
+    assertEquals(
+      0.0,
+      paint("bearing-accuracy-transition").jsonObject.getValue("duration").jsonPrimitive.double,
+    )
+    runOnIdle { accuracy = 250.degrees }
+    waitForIdle()
+    assertEquals(180.0, paint("bearing-accuracy").jsonPrimitive.double)
+    assertEquals(
+      0.0,
+      paint("bearing-accuracy-transition").jsonObject.getValue("duration").jsonPrimitive.double,
     )
     runOnIdle { location = null }
     waitForIdle()
@@ -143,6 +169,20 @@ class LocationIndicatorCompositionTest {
     val paint = style.layers.getValue("user").getValue("paint").jsonObject
     assertEquals(90.0, paint.getValue("bearing").jsonPrimitive.double)
     assertEquals(12.0, paint.getValue("accuracy-radius").jsonPrimitive.double)
+    assertEquals(5.0, paint.getValue("bearing-accuracy").jsonPrimitive.double)
+    runOnIdle { state.lastHeading = state.lastHeading!!.copy(accuracy = 40.degrees) }
+    waitForIdle()
+    val course = style.layers.getValue("user").getValue("paint").jsonObject
+    assertEquals(60.0, course.getValue("bearing").jsonPrimitive.double)
+    assertEquals(30.0, course.getValue("bearing-accuracy").jsonPrimitive.double)
+    runOnIdle {
+      state.lastHeading = null
+      state.lastLocation = state.lastLocation!!.copy(courseAccuracy = null)
+    }
+    waitForIdle()
+    val unknown = style.layers.getValue("user").getValue("paint").jsonObject
+    assertEquals(60.0, unknown.getValue("bearing").jsonPrimitive.double)
+    assertEquals(0.0, unknown.getValue("bearing-accuracy").jsonPrimitive.double)
   }
 
   @Test

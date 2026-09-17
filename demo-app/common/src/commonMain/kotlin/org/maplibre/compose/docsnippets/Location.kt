@@ -5,7 +5,13 @@ package org.maplibre.compose.docsnippets
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.dsl.interpolate
+import org.maplibre.compose.expressions.dsl.linear
+import org.maplibre.compose.expressions.dsl.zoom
 import org.maplibre.compose.layers.LocationIndicatorLayer
 import org.maplibre.compose.location.LocationPermission
 import org.maplibre.compose.location.LocationState
@@ -17,6 +23,7 @@ import org.maplibre.compose.location.rememberSystemSettingsLauncher
 import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
+import org.maplibre.compose.util.MaplibreComposable
 
 @Composable
 // The application requests location permission separately.
@@ -76,4 +83,17 @@ private fun LocationPermissionSettings(locationState: LocationState) {
     }
   }
   // #endregion permission-settings
+}
+
+@Composable
+@MaplibreComposable
+private fun BearingAccuracy(locationState: LocationState) {
+  // #region bearing-accuracy
+  LocationIndicatorLayer(
+    id = "user",
+    locationState = locationState,
+    bearingAccuracyRadius = interpolate(linear(), zoom(), 0 to const(32.dp), 16 to const(64.dp)),
+    bearingAccuracyColor = const(Color.Blue.copy(alpha = 0.35f)),
+  )
+  // #endregion bearing-accuracy
 }

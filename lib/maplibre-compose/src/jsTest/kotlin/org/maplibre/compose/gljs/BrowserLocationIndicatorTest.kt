@@ -21,12 +21,15 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.maplibre.compose.layers.IndicatorAnimation
+import org.maplibre.compose.layers.IndicatorPaint
 import org.maplibre.compose.layers.IndicatorPoint
 import org.maplibre.compose.layers.indicatorIntersects
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.GlJsStyleBinding
 import org.maplibre.compose.style.LayerPropertyKind
 import org.maplibre.compose.testing.declare
+import org.maplibre.spatialk.units.Bearing
+import org.maplibre.spatialk.units.extensions.degrees
 import org.maplibre.spatialk.units.extensions.meters
 
 class BrowserLocationIndicatorTest {
@@ -59,6 +62,37 @@ class BrowserLocationIndicatorTest {
   }
 
   @Test
+  fun sector_paint_evaluates_zoom_at_both_transition_ends_and_interrupts_continuously() {
+    val radius = IndicatorPaint("bearing-accuracy-radius", JsonPrimitive(20))
+    radius.retarget(
+      Json.parseToJsonElement("""["interpolate",["linear"],["zoom"],0,40,10,80]"""),
+      0.0,
+      100.0,
+      200.0,
+    )
+    assertEquals(20.0, radius.value(10.0, 100.0)[0])
+    val easedHalf = 0.8230854637602085
+    assertEquals(20 + 60 * easedHalf, radius.value(10.0, 200.0)[0], 0.0001)
+    assertEquals(20 + 20 * easedHalf, radius.value(0.0, 200.0)[0], 0.0001)
+    val interrupted = radius.value(10.0, 200.0)[0]
+    radius.retarget(JsonPrimitive(100), 200.0, 0.0, 200.0)
+    assertEquals(interrupted, radius.value(10.0, 200.0)[0], 0.0001)
+    assertEquals(80 + 20 * easedHalf, radius.value(10.0, 300.0)[0], 0.0001)
+    assertEquals(100.0, radius.value(10.0, 400.0)[0])
+    assertFalse(radius.active(400.0))
+    val color =
+      IndicatorPaint("bearing-accuracy-color", JsonPrimitive("rgba(255,0,0,0.5)"), color = true)
+    color.retarget(JsonPrimitive("rgba(0,0,255,0.5)"), 0.0, 0.0, 100.0)
+    val rgba = color.value(0.0, 50.0)
+    assertEquals(0.5 * (1 - easedHalf), rgba[0], 0.0001)
+    assertEquals(0.5 * easedHalf, rgba[2], 0.0001)
+    assertEquals(0.5, rgba[3])
+    color.finish()
+    assertEquals(0.5, color.value(0.0, 50.0)[2])
+    assertFalse(color.active(50.0))
+  }
+
+  @Test
   fun rotated_quads_reject_bounding_box_corners_and_accept_padding() {
     val diamond =
       listOf(
@@ -86,6 +120,8 @@ class BrowserLocationIndicatorTest {
               id = "indicator",
               location = org.maplibre.spatialk.geojson.Position(0.0, 0.0),
               accuracyRadius = 60.meters,
+              bearing = Bearing.North,
+              bearingAccuracy = 15.degrees,
             )
           }
           fixture.pumpUntil("indicator images") {
@@ -118,6 +154,42 @@ class BrowserLocationIndicatorTest {
             "location",
             JsonArray(listOf(JsonPrimitive(0), JsonPrimitive(1), JsonPrimitive(0))),
             LayerPropertyKind.PAINT,
+          )
+          for (name in
+            listOf("bearing-accuracy", "bearing-accuracy-radius", "bearing-accuracy-color")) {
+            style.setLayerProperty(
+              "indicator",
+              "$name-transition",
+              buildJsonObject {
+                put("duration", 100)
+                put("delay", 20)
+              },
+              LayerPropertyKind.PAINT,
+            )
+          }
+          style.setLayerProperty(
+            "indicator",
+            "bearing-accuracy",
+            JsonPrimitive(60),
+            LayerPropertyKind.PAINT,
+          )
+          style.setLayerProperty(
+            "indicator",
+            "bearing-accuracy-radius",
+            JsonPrimitive(72),
+            LayerPropertyKind.PAINT,
+          )
+          style.setLayerProperty(
+            "indicator",
+            "bearing-accuracy-color",
+            JsonPrimitive("lime"),
+            LayerPropertyKind.PAINT,
+          )
+          fixture.settle()
+          val sectorPixel = fixture.readPixel(128, 98)
+          assertTrue(
+            sectorPixel.green > 100 && sectorPixel.blue < 5,
+            "sector color transition reaches the framebuffer: $sectorPixel",
           )
           fixture.settle()
           assertEquals(1.0, renderer.renderedPosition!!.longitude)
@@ -174,7 +246,8 @@ class BrowserLocationIndicatorTest {
           "layout":{"top-image":"dot"},
           "paint":{"location":[0,0,0],"bearing":0,"top-image-size":1,
           "perspective-compensation":0.85,"accuracy-radius":1000000,
-          "accuracy-radius-color":"rgba(0,0,255,0.15)","accuracy-radius-border-color":"blue"}
+          "accuracy-radius-color":"rgba(0,0,255,0.15)","accuracy-radius-border-color":"blue",
+          "bearing-accuracy":30,"bearing-accuracy-radius":70,"bearing-accuracy-color":"rgba(0,0,255,0.4)"}
         }"""
               )
               .jsonObject,

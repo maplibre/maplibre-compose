@@ -1,5 +1,7 @@
 package org.maplibre.compose.layers
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -37,6 +39,12 @@ class LocationIndicatorLayerTest {
       layer.setLocationTransition(TransitionOptions(500.milliseconds))
       layer.setBearingTransition(TransitionOptions(500.milliseconds))
       layer.setAccuracyRadiusTransition(TransitionOptions(500.milliseconds))
+      layer.setBearingAccuracyTransition(TransitionOptions(500.milliseconds))
+      layer.setBearingAccuracyRadiusTransition(TransitionOptions(500.milliseconds))
+      layer.setBearingAccuracyColorTransition(TransitionOptions(500.milliseconds))
+      layer.setBearingAccuracy(const(15f).compile(ExpressionContext.None))
+      layer.setBearingAccuracyRadius(const(48.dp).compile(ExpressionContext.None))
+      layer.setBearingAccuracyColor(const(Color.Blue).compile(ExpressionContext.None))
       layer.setLocation(Position(longitude = 11.0, latitude = 48.0))
       layer.setBearing(const(45f).compile(ExpressionContext.None))
       layer.setAccuracyRadius(const(20f).compile(ExpressionContext.None))
@@ -54,11 +62,31 @@ class LocationIndicatorLayerTest {
 
       style.onMap { map ->
         assertTrue(map.styleLayerExists("indicator"), "the layer should have been added")
-        for (property in listOf("location", "bearing", "accuracy-radius")) {
+        for (property in
+          listOf(
+            "location",
+            "bearing",
+            "accuracy-radius",
+            "bearing-accuracy",
+            "bearing-accuracy-radius",
+            "bearing-accuracy-color",
+          )) {
           val transition =
             map.layerProperty("indicator", "$property-transition")?.toJsonElement() as? JsonObject
           assertEquals(500.0, (transition?.get("duration") as? JsonPrimitive)?.doubleOrNull)
         }
+        assertEquals(
+          15.0,
+          (map.layerProperty("indicator", "bearing-accuracy")?.toJsonElement() as? JsonPrimitive)
+            ?.doubleOrNull,
+        )
+        assertEquals(
+          48.0,
+          (map.layerProperty("indicator", "bearing-accuracy-radius")?.toJsonElement()
+              as? JsonPrimitive)
+            ?.doubleOrNull,
+        )
+        assertNotNull(map.layerProperty("indicator", "bearing-accuracy-color"))
         // A constant image reads back as an object naming it; an expression would read back as an
         // ["image", ...] array, which the renderer cannot take.
         assertEquals(

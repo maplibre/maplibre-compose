@@ -86,6 +86,25 @@ internal class GlJsLocationIndicator(
   private val longitude = IndicatorAnimation(initialLocation[1].jsonPrimitive.double)
   private val bearing = IndicatorAnimation(number("bearing"))
   private val accuracy = IndicatorAnimation(number("accuracy-radius"))
+  private val sectorAngle =
+    IndicatorPaint("bearing-accuracy", property("bearing-accuracy") ?: JsonPrimitive(0))
+  private val sectorRadius =
+    IndicatorPaint(
+      "bearing-accuracy-radius",
+      property("bearing-accuracy-radius") ?: JsonPrimitive(0),
+    )
+  private val sectorColor =
+    IndicatorPaint(
+      "bearing-accuracy-color",
+      property("bearing-accuracy-color") ?: JsonPrimitive("white"),
+      color = true,
+    )
+  private val sectorPaint =
+    mapOf(
+      "bearing-accuracy" to sectorAngle,
+      "bearing-accuracy-radius" to sectorRadius,
+      "bearing-accuracy-color" to sectorColor,
+    )
   private var gl: dynamic = null
   private var vao: dynamic = null
   private var buffer: dynamic = null
@@ -157,6 +176,12 @@ internal class GlJsLocationIndicator(
 
   fun update(name: String, value: JsonElement, kind: LayerPropertyKind) {
     val old = property(name)
+    val timing = property("$name-transition") as? JsonObject
+    val delay = timing?.get("delay")?.jsonPrimitive?.doubleOrNull ?: 0.0
+    val duration = timing?.get("duration")?.jsonPrimitive?.doubleOrNull ?: 300.0
+    val now = now()
+    // Compile before publishing the definition so a rejected expression preserves the old value.
+    if (value != old) sectorPaint[name]?.retarget(value, now, delay, duration)
     val section =
       when (kind) {
         LayerPropertyKind.ROOT -> null
@@ -171,15 +196,13 @@ internal class GlJsLocationIndicator(
       }
     if (value != old) {
       appearance = Appearance()
-      val timing = property("$name-transition") as? JsonObject
-      val delay = timing?.get("delay")?.jsonPrimitive?.doubleOrNull ?: 0.0
-      val duration = timing?.get("duration")?.jsonPrimitive?.doubleOrNull ?: 300.0
       if (
         name.endsWith("-transition") &&
           value is JsonObject &&
           value["duration"]?.jsonPrimitive?.doubleOrNull == 0.0 &&
           (value["delay"]?.jsonPrimitive?.doubleOrNull ?: 0.0) == 0.0
       ) {
+        sectorPaint[name.removeSuffix("-transition")]?.finish()
         when (name) {
           "location-transition" -> {
             latitude.finish()
@@ -189,7 +212,6 @@ internal class GlJsLocationIndicator(
           "accuracy-radius-transition" -> accuracy.finish()
         }
       }
-      val now = now()
       when (name) {
         "location" -> {
           val location = value.jsonArray
@@ -288,6 +310,10 @@ internal class GlJsLocationIndicator(
     val lng = longitude.value(now)
     renderedPosition = Position(lng, lat)
     if (listOf(latitude, longitude, bearing, accuracy).any { it.active(now) }) map.triggerRepaint()
+    if (sectorPaint.values.any { it.active(now) }) map.triggerRepaint()
+    val sectorHalfAngle = sectorAngle.value(map.getZoom(), now)[0].coerceIn(0.0, 180.0)
+    val sectorSize = sectorRadius.value(map.getZoom(), now)[0].coerceAtLeast(0.0)
+    val sectorRgba = sectorColor.value(map.getZoom(), now)
     if (vao == null) {
       vao = gl.createVertexArray()
       buffer = gl.createBuffer()
@@ -404,6 +430,38 @@ internal class GlJsLocationIndicator(
           hypot(longitudeDelta / 360, mercatorY(left.lat) - centerY) * worldSize
         val compensation = appearance.compensation
         val scale = (1 - compensation) + mapPixelsPerScreenPixel.coerceIn(0.8, 10.1) * compensation
+        if (sectorHalfAngle > 0 && sectorSize > 0 && sectorRgba[3] > 0) {
+          val radius = sectorSize * scale / worldSize
+          val angle = bearing.value(now) * PI / 180
+          val sine = sin(angle)
+          val cosine = cos(angle)
+          for (i in 0 until 6) {
+            val ox = imageUvs[i * 2] * 2 - 1
+            val oy = imageUvs[i * 2 + 1] * 2 - 1
+            val point =
+              local(
+                x + radius * (ox * cosine - oy * sine),
+                centerY + radius * (ox * sine + oy * cosine),
+              )
+            imageVertices[i * 4] = point.first
+            imageVertices[i * 4 + 1] = point.second
+            imageVertices[i * 4 + 2] = ox
+            imageVertices[i * 4 + 3] = oy
+          }
+          bindVertices(buffer)
+          gl.uniform3f(program.uniform("u_geometry"), 0, 0, 1)
+          gl.uniform1i(program.uniform("u_mode"), 2)
+          gl.uniform1f(program.uniform("u_sector_angle"), sectorHalfAngle * PI / 180)
+          gl.uniform4f(
+            program.uniform("u_fill"),
+            sectorRgba[0],
+            sectorRgba[1],
+            sectorRgba[2],
+            sectorRgba[3],
+          )
+          gl.bufferData(gl.ARRAY_BUFFER, imageVertices, gl.DYNAMIC_DRAW)
+          gl.drawArrays(gl.TRIANGLES, 0, 6)
+        }
         // Native chooses the shift direction at the bottom of the viewport to avoid exaggerated
         // perspective convergence near the horizon.
         val bottom =
@@ -665,11 +723,19 @@ internal class GlJsLocationIndicator(
         uniform vec4 u_fill;
         uniform vec4 u_border;
         uniform float u_pixel_ratio;
+        uniform float u_sector_angle;
         out vec4 fragColor;
         void main() {
           if (u_mode == 0) {
             vec4 c = texture(u_image, v_uv);
             fragColor = vec4(c.rgb * c.a, c.a);
+          } else if (u_mode == 2) {
+            float radius = length(v_uv);
+            float angle = atan(max(abs(v_uv.x), 0.000001), -v_uv.y);
+            float feather = length(fwidth(v_uv)) / max(radius, 0.0001);
+            float angular = u_sector_angle >= 3.14159265 ? 1.0 :
+                1.0 - smoothstep(u_sector_angle - feather, u_sector_angle + feather, angle);
+            fragColor = u_fill * angular * (1.0 - smoothstep(0.0, 1.0, radius));
           } else {
             float r = length(v_uv);
             float aa = max(fwidth(r), 0.000001);

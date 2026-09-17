@@ -25,6 +25,29 @@ unsupported or misconfigured provider before the application requests permission
 initially draws nothing. Afterward, the state retains the last measurement when
 tracking stops or permission changes.
 
+## Show bearing uncertainty
+
+<Api of="LocationIndicatorLayer" /> uses the more accurate of travel course and
+device heading. When that measurement includes angular accuracy, it also draws a
+sector centered on the bearing. An accuracy of 15 degrees means 15 degrees on
+either side, for a 30-degree sector. Unknown accuracy or a missing bearing hides
+it; errors of at least 180 degrees draw a full circle.
+
+The sector defaults to a 48 dp radius and translucent blue, fading to transparent
+at its outer edge. Its radius is a visual size before perspective compensation,
+independent of the horizontal accuracy circle in meters. Radius and color support
+zoom expressions on both Native and the browser:
+
+<Code code={region(location, "bearing-accuracy")} lang="kotlin" title="App.kt" />
+
+Set `bearingAccuracyRadius = const(0.dp)` to disable the sector. The value overload
+takes `bearingAccuracy` as a nullable `Rotation`, alongside `bearing`. The first
+complete measurement appears immediately; later angle, radius, and color changes
+use `bearingAccuracyTransition`, which defaults to `bearingTransition`. Losing
+bearing or accuracy hides the sector immediately. Zoom expressions follow the
+camera directly. Only the top and bearing images are click targets; the sector
+and horizontal accuracy circle are not.
+
 ## Request permission
 
 The library never requests location permission automatically. Call
