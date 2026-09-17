@@ -1024,6 +1024,15 @@ internal open class MlnFfiStyleBinding(
     }
   }
 
+  override suspend fun globalState(): JsonObject? = awaitMap { map ->
+    Json.parseToJsonElement(map.getGlobalState().decodeToString()).jsonObject
+  }
+
+  override fun setGlobalStateProperty(name: String, value: JsonElement) {
+    val bytes = value.toJsonBytes()
+    postWrite("Global state '$name'", value) { map -> map.setGlobalStateProperty(name, bytes) }
+  }
+
   override suspend fun lightProperty(name: String): JsonElement? = awaitMap { map ->
     map.styleLightProperty(name)?.toJsonElement()
   }

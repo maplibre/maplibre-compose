@@ -19,7 +19,9 @@ import org.maplibre.compose.expressions.ast.FunctionCall
 import org.maplibre.compose.expressions.ast.NullLiteral
 import org.maplibre.compose.expressions.ast.OffsetLiteral
 import org.maplibre.compose.expressions.ast.StringLiteral
+import org.maplibre.compose.expressions.dsl.asBoolean
 import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.dsl.globalState
 import org.maplibre.compose.expressions.dsl.padding
 
 /**
@@ -38,6 +40,15 @@ class ExpressionJsonTest {
       .map { it.toDouble() }
 
   private fun compiled(literal: Expression<*>) = literal.compile(ExpressionContext.None)
+
+  @Test
+  fun global_state_uses_a_literal_key_and_runtime_type_assertion() {
+    assertEquals(
+      """["boolean",["global-state","selected"],false]""",
+      json(compiled(globalState("selected").asBoolean(const(false)))),
+    )
+    assertEquals("""["global-state",""]""", json(compiled(globalState(""))))
+  }
 
   @Test
   fun encodes_scalars_as_bare_json_values() {

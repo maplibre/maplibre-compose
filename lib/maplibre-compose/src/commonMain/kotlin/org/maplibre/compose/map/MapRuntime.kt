@@ -251,6 +251,9 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
   /** Global transition of the current loaded-style generation. */
   public val transition: StyleTransition = StyleTransition(this)
 
+  /** Global expression values of the current loaded-style generation. */
+  public val globalState: StyleGlobalState = StyleGlobalState(this)
+
   /** Light of the current loaded-style generation. */
   public val light: StyleLight = StyleLight(this)
 
@@ -259,6 +262,12 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
 
   /** Projection of the current loaded-style generation. */
   public val projection: StyleProjection = StyleProjection(this)
+
+  internal suspend fun globalStateValues(): JsonObject? = readStyle { it.globalState() }
+
+  internal fun setGlobalStateProperty(name: String, value: JsonElement) {
+    mutateStyle { it.setGlobalStateProperty(name, value) }
+  }
 
   internal suspend fun transitionOptions(): TransitionOptions? = readStyle { it.transition() }
 

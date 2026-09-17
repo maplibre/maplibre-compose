@@ -203,6 +203,12 @@ internal interface StyleBinding {
    */
   fun setPlacementTransitions(enabled: Boolean)
 
+  /** Reads effective global values, or null when the style has unloaded. */
+  suspend fun globalState(): JsonObject?
+
+  /** Posts a global-state write. JSON null restores the root default, or null if absent. */
+  fun setGlobalStateProperty(name: String, value: JsonElement)
+
   /** @return null if the style has unloaded or the style light sets no value for [name]. */
   suspend fun lightProperty(name: String): JsonElement?
 

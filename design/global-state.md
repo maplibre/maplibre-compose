@@ -7,8 +7,8 @@ layer. This design targets GL JS 6.9.1 and Native FFI 0.202609.3.
 
 - `globalState(key: String): Expression<AnyValue?>` emits `global-state` with a
   literal key. Existing assertions and conversions (`asBoolean`, `asNumber`,
-  `asString`, `toColor`) give the result a type and optional fallback. A missing
-  key evaluates to null. The key cannot itself be an expression.
+  `asString`, `convertToColor`) give the result a type and optional fallback. A
+  missing key evaluates to null. The key cannot itself be an expression.
 - `mapState.style.globalState` exposes `setProperty(name, JsonElement)`,
   `resetProperty(name)`, and suspending `get(): JsonObject?`. Values are JSON
   data, including arrays and objects, never expression syntax.
@@ -34,6 +34,12 @@ new typed style-document builder is unnecessary: `BaseStyle.Json` already
 accepts the complete style specification. A whole-state replace operation would
 need extra reset and merge rules that neither backend's public setter provides.
 
+A suspending setter could acknowledge engine completion, but would require a
+coroutine for UI event callbacks and introduce cancellation after dispatch.
+These per-property changes are commands: dispatch them without suspension and
+use readback when completion matters. They are not transactions; engine
+rejections use the map logger.
+
 The chosen API keeps runtime data on the loaded style and uses the expression
 DSL's existing runtime assertions. This choice is based on ownership and
 usability, not backwards compatibility. No aliases or compatibility overloads
@@ -58,7 +64,8 @@ are needed.
 
 Use common expression serialization coverage and shared live-map tests for root
 defaults, JSON values, resets, readiness, reload isolation, and rendered changes
-to paint and a filter/layout property. Run desktop and JS tests serially through
-mise, style parity, static checks, and compile the documentation snippet. Keep
-Android/iOS and other desktop architectures to normal draft/ready CI tiers: this
-change uses existing FFI methods and changes no ABI or artifact selection.
+to paint, filters, layout, and a line-gradient color ramp. Run desktop and JS
+tests serially through mise, style parity, static checks, and compile the
+documentation snippet. Keep Android/iOS and other desktop architectures to
+normal draft/ready CI tiers: this change uses existing FFI methods and changes
+no ABI or artifact selection.
