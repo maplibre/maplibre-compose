@@ -30,6 +30,9 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
   private val runtime = mapRuntimeForTest()
   private val state = runtime.createMapState(BaseStyle.Demo)
 
+  var loadedBinding: StyleBinding? = null
+    private set
+
   var frameRequests: Int = 0
     private set
 
@@ -90,6 +93,7 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
 
   private inner class Callbacks : MapAdapter.Callbacks {
     override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
+      loadedBinding = style
       styleLoaded = false
       if (style != null) {
         scope.launch { session.reconcileStyleRevision(DesiredStyleRevision.Empty) }

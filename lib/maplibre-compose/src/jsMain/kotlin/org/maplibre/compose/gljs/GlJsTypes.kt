@@ -178,6 +178,7 @@ internal external interface GeoJsonFeature {
 }
 
 internal external interface MapGeoJsonFeature : GeoJsonFeature {
+  val layer: LayerSpecification
   val source: String
   val sourceLayer: String?
 }
