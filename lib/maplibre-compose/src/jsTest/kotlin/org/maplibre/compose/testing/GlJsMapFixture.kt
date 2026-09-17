@@ -80,7 +80,7 @@ internal class GlJsMapFixture(private var extent: MapExtent) : MapFixture {
 
   private fun frame(): Boolean {
     frameRequested = false
-    val rendered = glJsSession.render(GlJsFrameTarget.Detached, extent)
+    val rendered = glJsSession.render(GlJsFrameTarget.OwnCanvas, extent)
     glJsSession.markPresentationStateReplayed()
     return rendered.also { if (it) hasRendered = true }
   }

@@ -106,8 +106,9 @@ import web.html.HTMLElement
 private const val FRAME_INTERVAL_SLACK = 0.1
 
 /**
- * The map can only be built once Compose has a WebGL context to lend it and a size to take, so
- * calls before then are queued and reads answer from what was last asked for.
+ * Creates the engine when a host supplies its first render target and extent. Calls before then are
+ * queued and reads answer from what was last asked for. A DOM host supplies [mapContainer]; Compose
+ * hosts use an offscreen container and borrow Compose's WebGL context.
  */
 internal class GlJsMapSession(
   private val lifecycleAuthority: MapLifecycleAuthority,
@@ -115,6 +116,7 @@ internal class GlJsMapSession(
   internal var logger: MapLog?,
   internal var layoutDirection: LayoutDirection,
   private val requests: GlJsRequestController? = null,
+  private val mapContainer: HTMLElement? = null,
 ) : MapLifecycleSession, GlJsMapRenderer, CameraInputTarget {
 
   init {
@@ -147,7 +149,7 @@ internal class GlJsMapSession(
     val abandon: () -> Unit,
   )
 
-  /** Actions accepted before Compose supplies the context used to construct the map. */
+  /** Actions accepted before the host supplies the first render target. */
   private val pendingMapActions = mutableListOf<PendingMapAction>()
 
   /** Platform-access callbacks waiting for this render lease's engine map. */
@@ -165,7 +167,7 @@ internal class GlJsMapSession(
 
   private var hasReplayedPresentationState by mutableStateOf(false)
 
-  /** Whether the current engine map may be copied onto the visible Compose surface. */
+  /** Whether the current engine map may be shown by its host. */
   internal val canPresentFrames: Boolean
     get() =
       styleLoadTracker.presentation != StylePresentation.Hidden && hasReplayedPresentationState
@@ -239,8 +241,8 @@ internal class GlJsMapSession(
       return false
     }
     if (styleLoadTracker.presentation == StylePresentation.Retained) return false
-    // A detached map cannot later adopt a context: everything it uploaded belongs to the one it
-    // has.
+    // A map with its own canvas cannot later adopt a borrowed context: everything it uploaded
+    // belongs to the context it already has.
     val composited = target as? GlJsFrameTarget.Composited
     if (target is GlJsFrameTarget.NotReady && map == null) return false
     framebuffer = composited?.target?.framebuffer
@@ -343,7 +345,7 @@ internal class GlJsMapSession(
   /**
    * MapLibre takes its WebGL context and its size at construction, so the map cannot exist before
    * the first frame that has somewhere to draw. A null [target] builds a detached map, which takes
-   * a context from its own canvas and is never drawn.
+   * a context from its own canvas.
    */
   private fun ensureMap(target: GlJsRenderTarget?, extent: MapExtent): MaplibreMap? {
     map?.let {
@@ -352,11 +354,14 @@ internal class GlJsMapSession(
     if (!lifecycle.acceptsWork) return null
     if (!lifecycleAuthority.selectAdapterForPresentation(this)) return null
 
-    val host = document.createElement("div").unsafeCast<HTMLElement>()
-    host.style.cssText = OFFSCREEN_CONTAINER_STYLE
+    val host =
+      mapContainer
+        ?: document.createElement("div").unsafeCast<HTMLElement>().also {
+          it.style.cssText = OFFSCREEN_CONTAINER_STYLE
+          document.body.appendChild(it)
+        }
     host.style.width = "${extent.width}px"
     host.style.height = "${extent.height}px"
-    document.body.appendChild(host)
     container = host
 
     val options =
@@ -364,6 +369,9 @@ internal class GlJsMapSession(
         this.container = host
         // Gestures arrive through CameraInputTarget below.
         interactive = false
+        // Both hosts apply extents and schedule frames themselves. GL JS's ResizeObserver also
+        // calls redraw(), bypassing activation, frame limits, and retained-style presentation.
+        trackResize = false
         attributionControl = false
         maplibreLogo = false
         pixelRatio = extent.scaleFactor
@@ -432,7 +440,7 @@ internal class GlJsMapSession(
       else GlJsRuntime.removingWithoutLosingContext(borrowed) { current.remove() }
     }
       .onFailure { logger?.e(it) { "MapLibre failed to close" } }
-    container?.let { runCatching { it.remove() } }
+    if (mapContainer == null) container?.let { runCatching { it.remove() } }
     container = null
     // No moveend follows a map that is going away.
     resumeTransitions()

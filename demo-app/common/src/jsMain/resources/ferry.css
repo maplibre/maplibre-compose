@@ -1,0 +1,183 @@
+:root {
+  --ink: #142e38;
+  --muted: #526974;
+  --sea: #174f63;
+  --pale: #eaf1f3;
+  --line: #cedce1;
+  --paper: #ffffff;
+}
+html, body {
+  width: 100%;
+  height: auto;
+  min-height: 100%;
+  overflow: auto;
+}
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font: 16px/1.5 system-ui, sans-serif;
+}
+* {
+  box-sizing: border-box;
+}
+a {
+  color: var(--sea);
+  text-underline-offset: 3px;
+}
+button, select {
+  font: inherit;
+  color: inherit;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--paper);
+}
+button {
+  min-height: 44px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+button:hover {
+  background: var(--pale);
+}
+:focus-visible {
+  outline: 3px solid var(--sea);
+  outline-offset: 3px;
+}
+h1, h2, h3, p {
+  margin: 0;
+}
+h1 {
+  font: bold 28px/1.2 "Trebuchet MS", sans-serif;
+}
+h2 {
+  font-size: 18px;
+}
+h3 {
+  font-size: 17px;
+  font-weight: 600;
+}
+.ferry-app {
+  max-width: 1600px;
+  margin: auto;
+}
+.ferry-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px 32px;
+  border-top: 6px solid var(--sea);
+}
+.ferry-header p {
+  color: var(--muted);
+  margin-top: 4px;
+  font-size: 14px;
+}
+.demo-link {
+  font-size: 14px;
+  white-space: nowrap;
+}
+.ferry-layout {
+  display: grid;
+  grid-template-columns: 370px minmax(0, 1fr);
+  min-height: 640px;
+  border-block: 1px solid var(--line);
+}
+.ferry-board {
+  padding: 28px 24px 32px 32px;
+}
+.ferry-board label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.ferry-board select {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px;
+}
+.board-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 28px 0 12px;
+}
+.board-heading button {
+  font-size: 14px;
+}
+.terminal {
+  padding: 20px 0;
+  border-top: 1px solid var(--line);
+}
+.departure-time {
+  font: 500 36px/1.3 ui-monospace, "SFMono-Regular", Consolas, monospace;
+  letter-spacing: -1px;
+  color: var(--sea);
+  font-variant-numeric: tabular-nums;
+}
+.destination, .schedule-note {
+  color: var(--muted);
+  font-size: 14px;
+}
+.schedule-note {
+  margin-top: 24px;
+}
+.ferry-map-panel {
+  position: relative;
+  min-height: 640px;
+  background: var(--pale);
+}
+.ferry-map {
+  position: absolute;
+  inset: 0;
+}
+.map-attribution {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  background: var(--paper);
+  padding: 2px 8px;
+  font-size: 11px;
+}
+.without-map {
+  grid-template-columns: minmax(0, 600px);
+}
+footer {
+  padding: 16px 32px;
+  color: var(--muted);
+  font-size: 12px;
+}
+@media (max-width: 760px) {
+  .ferry-header {
+    padding: 20px;
+    align-items: flex-start;
+  }
+  h1 {
+    font-size: 24px;
+  }
+  .ferry-layout {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: auto;
+  }
+  .ferry-board {
+    padding: 20px;
+  }
+  .ferry-map-panel {
+    min-height: 420px;
+  }
+  footer {
+    padding: 16px 20px;
+  }
+}
+
+.sailing {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-top: 16px;
+}
+.sailing-day {
+  color: var(--muted);
+  font-size: 12px;
+}

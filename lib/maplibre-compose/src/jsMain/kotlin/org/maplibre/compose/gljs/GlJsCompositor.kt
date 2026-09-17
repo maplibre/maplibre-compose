@@ -14,8 +14,8 @@ internal sealed interface GlJsFrameTarget {
   /** The measured extent exceeds the GPU limits; wait for a different extent. */
   data object UnsupportedSize : GlJsFrameTarget
 
-  /** A Compose surface with no GPU behind it: the map runs on a canvas nothing samples. */
-  data object Detached : GlJsFrameTarget
+  /** The map renders into its own canvas, for a DOM host or without Compose compositing. */
+  data object OwnCanvas : GlJsFrameTarget
 }
 
 /** Supplies the render target for one map, frame by frame. */
@@ -90,9 +90,11 @@ internal class ComposeGlJsCompositor(private val logger: MapLog?) : GlJsComposit
   }
 }
 
-/** A compositor for a Compose surface that has no GPU behind it. See [GlJsFrameTarget.Detached]. */
+/**
+ * A compositor for a Compose surface that has no GPU behind it. See [GlJsFrameTarget.OwnCanvas].
+ */
 internal class DetachedGlJsCompositor : GlJsCompositor {
-  override fun acquire(extent: MapExtent): GlJsFrameTarget = GlJsFrameTarget.Detached
+  override fun acquire(extent: MapExtent): GlJsFrameTarget = GlJsFrameTarget.OwnCanvas
 
   override fun close() = Unit
 }

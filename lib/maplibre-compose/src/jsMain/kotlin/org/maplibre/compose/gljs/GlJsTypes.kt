@@ -27,6 +27,7 @@ internal external interface JsError {
 internal external interface MapOptions {
   var container: HTMLElement
   var interactive: Boolean?
+  var trackResize: Boolean?
   var attributionControl: Boolean?
   var maplibreLogo: Boolean?
   var pixelRatio: Double?
