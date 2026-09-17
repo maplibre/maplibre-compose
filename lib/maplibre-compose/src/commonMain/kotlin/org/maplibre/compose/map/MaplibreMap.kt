@@ -27,8 +27,16 @@ import org.maplibre.compose.overlay.include
  * [MapOverlay.Default]. A supplied block replaces the default.
  *
  * The overlay fills the map and positions direct children through [MapOverlayScope]. It provides
- * [LocalMapState], [LocalViewport], and [org.maplibre.compose.overlay.LocalCameraPadding] to nested
- * composables. Use ordinary Compose layouts and padding to arrange controls.
+ * [LocalMapState], [LocalViewport], and [org.maplibre.compose.overlay.LocalViewportInsets] to
+ * nested composables. Use ordinary Compose layouts and padding to arrange controls.
+ *
+ * [viewportInsets] adds baseline padding to every camera position and fit calculation, edge by
+ * edge, in addition to [org.maplibre.compose.camera.CameraPosition.padding]. Camera reads exclude
+ * these insets. The camera target appears at the center of the area inside the combined padding.
+ * Built-in overlay controls respect [viewportInsets]; custom overlay content can read them through
+ * [org.maplibre.compose.overlay.LocalViewportInsets] and apply its own layout padding. The map and
+ * overlay retain their full size, and the map still renders underneath the inset areas. Updating
+ * these insets interrupts an active camera animation.
  *
  * The map is a focus target, and the overlay is a focus group. Focus modifiers on [modifier] apply
  * to the map, and a control in the overlay keeps its own focus properties.
@@ -42,7 +50,7 @@ import org.maplibre.compose.overlay.include
 public fun MaplibreMap(
   modifier: Modifier = Modifier,
   state: MapState = rememberMapState(),
-  cameraPadding: PaddingValues = PaddingValues(0.dp),
+  viewportInsets: PaddingValues = PaddingValues(0.dp),
   cameraConstraints: CameraConstraints = CameraConstraints(),
   renderOptions: RenderOptions = RenderOptions.Standard,
   interactions: MapInteractions = MapInteractions.Standard,
@@ -60,7 +68,7 @@ public fun MaplibreMap(
   val presentationOwner = remember(state) { MapPresentationOwnerToken() }
   val mapViewOptions =
     MapViewOptions(
-      cameraPadding = cameraPadding,
+      viewportInsets = viewportInsets,
       cameraConstraints = cameraConstraints,
       renderOptions = renderOptions,
       interactions = interactions,
@@ -77,7 +85,7 @@ public fun MaplibreMap(
       MapOverlayHost(
         overlay = overlay,
         mapState = state,
-        cameraPadding = cameraPadding,
+        viewportInsets = viewportInsets,
         modifier = Modifier.matchParentSize().focusGroup(),
       )
     }

@@ -33,6 +33,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.map.LocalViewport
 import org.maplibre.compose.map.MapPresentationOwnerToken
@@ -42,6 +43,7 @@ import org.maplibre.compose.map.PresentationTestAdapter
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.map.viewportFor
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.util.DpPadding
 import org.maplibre.spatialk.geojson.Position
 
 @OptIn(ExperimentalTestApi::class)
@@ -67,11 +69,11 @@ class MapOverlayTest {
     fun Probe(tag: String, expected: MapState, padding: PaddingValues) {
       val map = LocalMapState.current
       val viewport = LocalViewport.current
-      val cameraPadding = LocalCameraPadding.current
+      val viewportInsets = LocalViewportInsets.current
       SideEffect {
         assertSame(expected, map)
         assertEquals(expected.viewport, viewport)
-        assertEquals(padding, cameraPadding)
+        assertEquals(padding, viewportInsets)
       }
       Column {
         DefaultControls(contentWindowInsets = WindowInsets(0)) {
@@ -85,13 +87,13 @@ class MapOverlayTest {
       assertNull(LocalViewport.current)
       MapOverlayHost(
         mapState = outer,
-        cameraPadding = PaddingValues(20.dp),
+        viewportInsets = PaddingValues(20.dp),
         modifier = Modifier.size(300.dp).testTag("outer"),
         overlay = {
           Probe("first", outer, PaddingValues(20.dp))
           MapOverlayHost(
             mapState = second,
-            cameraPadding = PaddingValues(40.dp),
+            viewportInsets = PaddingValues(40.dp),
             modifier = Modifier.absoluteOffset(x = 30.dp).size(250.dp).testTag("inner"),
             overlay = { Probe("second", second, PaddingValues(40.dp)) },
           )
@@ -118,7 +120,11 @@ class MapOverlayTest {
   fun full_map_layout_and_control_insets_are_independent_before_a_viewport_exists() =
     runComposeUiTest {
       val runtime = mapRuntimeForTest()
-      val map = runtime.createMapState(BaseStyle.Empty)
+      val map =
+        runtime.createMapState(
+          BaseStyle.Empty,
+          cameraPosition = CameraPosition(padding = DpPadding(left = 90.dp, top = 60.dp)),
+        )
       var padding by
         mutableStateOf(PaddingValues(start = 40.dp, top = 20.dp, end = 60.dp, bottom = 30.dp))
       var rtl by mutableStateOf(false)
@@ -128,7 +134,7 @@ class MapOverlayTest {
         ) {
           MapOverlayHost(
             mapState = map,
-            cameraPadding = padding,
+            viewportInsets = padding,
             modifier = Modifier.size(300.dp).testTag("map"),
             overlay = {
               Box(Modifier.matchParentSize().testTag("full"))
@@ -164,14 +170,14 @@ class MapOverlayTest {
     }
 
   @Test
-  fun camera_padding_is_map_relative_when_a_parent_consumes_system_insets() = runComposeUiTest {
+  fun viewport_insets_are_map_relative_when_a_parent_consumes_system_insets() = runComposeUiTest {
     val runtime = mapRuntimeForTest()
     val map = runtime.createMapState(BaseStyle.Empty)
     setContent {
       Box(Modifier.padding(20.dp).consumeWindowInsets(PaddingValues(20.dp))) {
         MapOverlayHost(
           mapState = map,
-          cameraPadding = PaddingValues(80.dp),
+          viewportInsets = PaddingValues(80.dp),
           modifier = Modifier.size(300.dp).testTag("map"),
           overlay = {
             DefaultControls(

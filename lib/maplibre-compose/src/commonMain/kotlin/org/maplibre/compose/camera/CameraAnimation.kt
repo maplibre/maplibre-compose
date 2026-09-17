@@ -12,7 +12,7 @@ import org.maplibre.compose.util.mercatorPixelDistance
  * [Ease] travels directly. [Fly] zooms out, travels, and zooms back in. MapLibre Native and
  * MapLibre GL JS each implement both transitions with the same controls. Their paths and timing are
  * close but not identical: the engines interpolate the center differently and GL JS measures the
- * viewport without camera padding.
+ * full viewport, including areas covered by viewport insets and camera padding.
  */
 @Immutable
 public sealed interface CameraAnimation {
@@ -36,9 +36,9 @@ public sealed interface CameraAnimation {
    * remains legible over any distance.
    *
    * The flight takes [duration] when one is given. Otherwise its duration follows from the length
-   * of the path and [speed]. Set at most one of the two. A flight that changes only bearing or
-   * tilt, or nothing, has no path to pace: without a duration it becomes an [Ease] with the default
-   * duration and the same [easing].
+   * of the path and [speed]. Set at most one of the two. A flight with no target or zoom change has
+   * no path to pace: without a duration it becomes an [Ease] with the default duration and the same
+   * [easing].
    *
    * @param duration The total time of the flight. Null derives it from [speed].
    * @param speed The average speed in screenfuls per second, where a screenful is the visible span

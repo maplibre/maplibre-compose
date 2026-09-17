@@ -164,7 +164,7 @@ internal class CarMapSurface(
     if (closed || surface == null || presentation.failure != null) return
     // Use the stable area to keep camera framing steady when transient car controls appear.
     val area = Rect(if (!stableArea.isEmpty) stableArea else visibleArea)
-    presentation.cameraPadding =
+    presentation.viewportInsets =
       if (area.isEmpty || !area.intersect(0, 0, width, height)) PaddingValues(0.dp)
       else
         PaddingValues.Absolute(

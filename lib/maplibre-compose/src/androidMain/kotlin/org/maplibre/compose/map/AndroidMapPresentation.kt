@@ -61,7 +61,7 @@ public class AndroidMapPresentation(
   public val state: MapState,
   private val lifecycle: Lifecycle,
   configuration: Configuration = context.resources.configuration,
-  cameraPadding: PaddingValues = PaddingValues(0.dp),
+  viewportInsets: PaddingValues = PaddingValues(0.dp),
   cameraConstraints: CameraConstraints = CameraConstraints(),
   renderOptions: RenderOptions = RenderOptions.Standard,
   interactions: MapInteractions = MapInteractions.Standard,
@@ -79,7 +79,7 @@ public class AndroidMapPresentation(
   private var options by
     mutableStateOf(
       MapViewOptions(
-        cameraPadding = cameraPadding,
+        viewportInsets = viewportInsets,
         cameraConstraints = cameraConstraints,
         renderOptions = renderOptions,
         interactions = interactions,
@@ -100,9 +100,13 @@ public class AndroidMapPresentation(
   public var failure: Throwable? by mutableStateOf(null)
     private set
 
-  public var cameraPadding: PaddingValues
-    get() = options.cameraPadding
-    set(value) = update { copy(cameraPadding = value) }
+  /**
+   * Baseline padding added to every camera position and fit calculation. Camera reads exclude these
+   * insets, and the map continues to render across the full surface. See [MaplibreMap].
+   */
+  public var viewportInsets: PaddingValues
+    get() = options.viewportInsets
+    set(value) = update { copy(viewportInsets = value) }
 
   public var cameraConstraints: CameraConstraints
     get() = options.cameraConstraints

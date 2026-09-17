@@ -48,7 +48,7 @@ public data class MapSnapshotRequest(
   public val width: Int,
   /** Viewport height in logical pixels. */
   public val height: Int,
-  /** Camera position used for this capture. */
+  /** Camera position used for this capture, including its padding. */
   public val cameraPosition: CameraPosition = CameraPosition(),
   /** Density used for rendering and style evaluation. */
   public val density: Float = 1f,

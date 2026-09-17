@@ -49,7 +49,7 @@ fun Controls() {
 
   // #region insets
   val mapInsets = WindowInsets.safeDrawing.union(WindowInsets(bottom = 128.dp)) // (1)!
-  MaplibreMap(cameraPadding = mapInsets.asPaddingValues())
+  MaplibreMap(viewportInsets = mapInsets.asPaddingValues())
   // #endregion insets
 }
 

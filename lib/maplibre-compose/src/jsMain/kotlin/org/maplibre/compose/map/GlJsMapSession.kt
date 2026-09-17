@@ -33,7 +33,6 @@ import org.maplibre.compose.camera.internal.runCameraCommand
 import org.maplibre.compose.camera.resolveScreenPoint
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
-import org.maplibre.compose.gljs.CameraForBoundsOptions
 import org.maplibre.compose.gljs.DEFAULT_WORKER_URL
 import org.maplibre.compose.gljs.EaseToOptions
 import org.maplibre.compose.gljs.FilterSpecification
@@ -78,6 +77,7 @@ import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleRequestId
 import org.maplibre.compose.style.StyleResourceChanges
 import org.maplibre.compose.util.AngleMath
+import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.metersPerDpAtLatitude
@@ -845,7 +845,7 @@ internal class GlJsMapSession(
 
   /** Answers camera reads made before the map exists. */
   private var requestedCamera: CameraPosition? = null
-  private var cameraPadding: PaddingOptions = PaddingValues(0.dp).toPaddingOptions(layoutDirection)
+  private var viewportInsets: PaddingOptions = PaddingValues(0.dp).toPaddingOptions(layoutDirection)
 
   override fun getCameraPosition(): CameraPosition =
     withMap(requestedCamera ?: CameraPosition()) { map -> map.cameraPosition() }
@@ -855,6 +855,15 @@ internal class GlJsMapSession(
       bearing = getBearing(),
       target = getCenter().toPosition(),
       tilt = getPitch(),
+      padding =
+        getPadding().let {
+          DpPadding(
+            left = (it.left - viewportInsets.left).dp,
+            top = (it.top - viewportInsets.top).dp,
+            right = (it.right - viewportInsets.right).dp,
+            bottom = (it.bottom - viewportInsets.bottom).dp,
+          )
+        },
       zoom = getZoom(),
     )
 
@@ -865,21 +874,27 @@ internal class GlJsMapSession(
     onMap { map -> if (guard?.isValid() != false) map.jumpTo(cameraPosition.toJumpToOptions()) }
   }
 
-  override fun setCameraPadding(padding: PaddingValues) {
-    val resolved = padding.toPaddingOptions(layoutDirection)
-    if (cameraPadding.sameAs(resolved)) return
+  override fun setViewportInsets(insets: PaddingValues) {
+    val resolved = insets.toPaddingOptions(layoutDirection)
+    if (viewportInsets.sameAs(resolved)) return
     cancelAnchoredTransition()
-    cameraPadding = resolved
-    onMap { map -> map.jumpTo(unsafeJso<JumpToOptions> { this.padding = resolved }) }
+    val camera = getCameraPosition()
+    viewportInsets = resolved
+    onMap { map ->
+      map.jumpTo(unsafeJso<JumpToOptions> { this.padding = camera.effectivePadding() })
+    }
   }
 
   override fun cameraForBounds(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,
-    padding: PaddingValues,
+    cameraPadding: DpPadding?,
+    fitPadding: PaddingValues,
   ): CameraPosition =
-    checkNotNull(map?.cameraPositionForBounds(boundingBox, bearing, tilt, padding)) {
+    checkNotNull(
+      map?.cameraPositionForBounds(boundingBox, bearing, tilt, cameraPadding, fitPadding)
+    ) {
       "The map could not calculate a camera for the bounds"
     }
 
@@ -887,39 +902,26 @@ internal class GlJsMapSession(
     geometry: Geometry,
     bearing: Double,
     tilt: Double,
-    padding: PaddingValues,
+    cameraPadding: DpPadding?,
+    fitPadding: PaddingValues,
   ): CameraPosition =
     withMap(null as CameraPosition?) { map ->
-      val extent = appliedExtent
-      val fit =
-        fitPositions(
-          positions = geometry.positions(),
-          bearing = bearing,
-          zoom = map.getZoom(),
-          width = extent.width.toDouble(),
-          height = extent.height.toDouble(),
-          edgePadding = cameraPadding,
-          fitPadding = padding.toPaddingOptions(layoutDirection),
-          minZoom = map.getMinZoom(),
-          maxZoom = map.getMaxZoom(),
-        )
-      fit?.let {
-        CameraPosition(bearing = bearing, target = it.target, tilt = tilt, zoom = it.zoom)
-      }
+      map.cameraPositionForPositions(geometry.positions(), bearing, tilt, cameraPadding, fitPadding)
     } ?: throw IllegalStateException("The map could not calculate a camera for the geometry")
 
   override fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,
-    padding: PaddingValues,
+    cameraPadding: DpPadding?,
+    fitPadding: PaddingValues,
     guard: CameraCommandGuard?,
   ) {
     if (guard?.isValid() == false) return
     releasePendingCameraTransition()
     onMap { map ->
       if (guard?.isValid() == false) return@onMap
-      map.cameraPositionForBounds(boundingBox, bearing, tilt, padding)?.let {
+      map.cameraPositionForBounds(boundingBox, bearing, tilt, cameraPadding, fitPadding)?.let {
         map.jumpTo(it.toJumpToOptions())
       }
     }
@@ -974,12 +976,13 @@ internal class GlJsMapSession(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,
-    padding: PaddingValues,
+    cameraPadding: DpPadding?,
+    fitPadding: PaddingValues,
     animation: CameraAnimation,
     guard: CameraCommandGuard?,
   ) {
     awaitCameraRelease(guard = guard) { map ->
-      map.cameraPositionForBounds(boundingBox, bearing, tilt, padding)?.let {
+      map.cameraPositionForBounds(boundingBox, bearing, tilt, cameraPadding, fitPadding)?.let {
         map.animateTo(it, animation)
       }
     }
@@ -1018,26 +1021,53 @@ internal class GlJsMapSession(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,
-    padding: PaddingValues,
+    cameraPadding: DpPadding?,
+    fitPadding: PaddingValues,
   ): CameraPosition? {
-    val previous = cameraPosition()
-    val result =
-      cameraForBounds(boundingBox.toLngLatBounds(), cameraForBoundsOptions(bearing, padding))
-        ?: return null
-    return CameraPosition(
-      bearing = result.bearing ?: bearing,
-      target = result.center?.toPosition() ?: previous.target,
-      tilt = tilt,
-      zoom = result.zoom ?: previous.zoom,
+    // GL JS cameraForBounds reads persistent padding from the live transform and cannot query
+    // destination padding. Fit all four corners through the same geometry fitter so every query
+    // uses explicit padding inputs without mutating the map or accessing private GL JS APIs.
+    // TODO: Replace this with the planned upstream GL JS destination-padding fit API
+    // once that PR lands (PR not filed yet).
+    val east =
+      if (boundingBox.east < boundingBox.west) boundingBox.east + 360.0 else boundingBox.east
+    return cameraPositionForPositions(
+      sequenceOf(
+        Position(boundingBox.west, boundingBox.south),
+        Position(boundingBox.west, boundingBox.north),
+        Position(east, boundingBox.south),
+        Position(east, boundingBox.north),
+      ),
+      bearing,
+      tilt,
+      cameraPadding,
+      fitPadding,
     )
   }
 
-  private fun cameraForBoundsOptions(
+  private fun MaplibreMap.cameraPositionForPositions(
+    positions: Sequence<Position>,
     bearing: Double,
-    padding: PaddingValues,
-  ): CameraForBoundsOptions = unsafeJso {
-    this.bearing = bearing
-    this.padding = padding.toPaddingOptions(layoutDirection)
+    tilt: Double,
+    cameraPadding: DpPadding?,
+    fitPadding: PaddingValues,
+  ): CameraPosition? {
+    val current = cameraPosition()
+    val destination = current.copy(padding = cameraPadding ?: current.padding)
+    val extent = appliedExtent
+    val fit =
+      fitPositions(
+        positions = positions,
+        bearing = bearing,
+        zoom = getZoom(),
+        width = extent.width.toDouble(),
+        height = extent.height.toDouble(),
+        edgePadding = destination.effectivePadding(),
+        fitPadding = fitPadding.toPaddingOptions(layoutDirection),
+        minZoom = getMinZoom(),
+        maxZoom = getMaxZoom(),
+      ) ?: return null
+    return destination.copy(bearing = bearing, target = fit.target, tilt = tilt, zoom = fit.zoom)
   }
 
   override fun setCameraConstraints(value: CameraConstraints) {
@@ -1409,7 +1439,7 @@ internal class GlJsMapSession(
     gestureToken: CameraInputToken,
   ) {
     awaitCameraRelease(gestureToken = gestureToken) { map ->
-      map.cameraPositionForBounds(fit.bounds, fit.bearing, fit.tilt, PaddingValues())?.let {
+      map.cameraPositionForBounds(fit.bounds, fit.bearing, fit.tilt, null, PaddingValues())?.let {
         map.easeTo(it.toEaseToOptions(duration))
       }
     }
@@ -1520,7 +1550,14 @@ internal class GlJsMapSession(
     zoom = position.zoom
     bearing = position.bearing
     pitch = position.tilt
-    padding = cameraPadding
+    padding = position.effectivePadding()
+  }
+
+  private fun CameraPosition.effectivePadding(): PaddingOptions = unsafeJso {
+    top = viewportInsets.top + padding.top.value
+    left = viewportInsets.left + padding.left.value
+    bottom = viewportInsets.bottom + padding.bottom.value
+    right = viewportInsets.right + padding.right.value
   }
 
   private fun PaddingOptions.sameAs(other: PaddingOptions): Boolean =

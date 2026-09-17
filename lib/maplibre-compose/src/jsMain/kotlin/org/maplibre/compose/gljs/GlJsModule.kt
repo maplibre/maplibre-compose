@@ -66,6 +66,8 @@ internal external class MaplibreMap(options: MapOptions) {
 
   fun isSourceLoaded(id: String): Boolean
 
+  fun getPadding(): PaddingOptions
+
   fun getCenter(): LngLat
 
   fun getZoom(): Double
@@ -91,8 +93,6 @@ internal external class MaplibreMap(options: MapOptions) {
   fun easeTo(options: EaseToOptions)
 
   fun flyTo(options: FlyToOptions)
-
-  fun cameraForBounds(bounds: LngLatBounds, options: CameraForBoundsOptions): CenterZoomBearing?
 
   fun panBy(offset: Point, options: EaseToOptions)
 

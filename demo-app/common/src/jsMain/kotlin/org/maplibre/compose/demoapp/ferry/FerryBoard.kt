@@ -102,8 +102,8 @@ internal fun FerryBoard() {
   LaunchedEffect(selectedId) {
     selected?.let {
       map.animateCameraToBounds(
-        it.bounds,
-        padding = PaddingValues(horizontal = 80.dp, vertical = 48.dp),
+        boundingBox = it.bounds,
+        fitPadding = PaddingValues(horizontal = 80.dp, vertical = 48.dp),
         animation = animation(),
       )
     }

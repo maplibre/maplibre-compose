@@ -263,7 +263,9 @@ private class NativeSnapshotterAdapter(
     val currentEngine = checkNotNull(engine)
     val extent = request.extent()
     val applied =
-      checkNotNull(currentEngine.loop.call(action = { map -> map.readViewportGeometry() })) {
+      checkNotNull(
+        currentEngine.loop.call(action = { map -> map.readViewportGeometry(EdgeInsets.ZERO) })
+      ) {
         "The snapshotter engine map stopped before its viewport could be read"
       }
     check(

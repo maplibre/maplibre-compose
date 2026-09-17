@@ -7,6 +7,7 @@ import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.toCameraPosition
 import org.maplibre.compose.util.toPosition
+import org.maplibre.nativeffi.camera.EdgeInsets
 import org.maplibre.nativeffi.geo.ScreenPoint
 import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.spatialk.geojson.Position
@@ -20,11 +21,11 @@ internal data class MapViewportGeometry(
 )
 
 /** Owner thread only. Reads the camera and extents the map would render right now. */
-internal fun MapHandle.readViewportGeometry(): MapViewportGeometry {
+internal fun MapHandle.readViewportGeometry(viewportInsets: EdgeInsets): MapViewportGeometry {
   val size = size
   val corners = unprojectedCorners()
   return MapViewportGeometry(
-    camera = camera.toCameraPosition(),
+    camera = camera.toCameraPosition(viewportInsets),
     size = DpSize(size.width.dp, size.height.dp),
     visibleRegion =
       VisibleRegion(

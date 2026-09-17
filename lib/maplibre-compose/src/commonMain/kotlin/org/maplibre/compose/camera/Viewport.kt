@@ -6,7 +6,8 @@ import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
 
 /**
- * The map composable's size and visible area.
+ * The map composable's full size and visible area, including areas under viewport insets and camera
+ * padding.
  *
  * Read a current instance from [org.maplibre.compose.map.MapState.viewport]. A new immutable
  * instance replaces it when the map has adopted a new camera or size. A composition that reads any

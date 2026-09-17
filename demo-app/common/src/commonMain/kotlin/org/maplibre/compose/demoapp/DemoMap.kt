@@ -106,7 +106,7 @@ internal suspend fun MapState.flyTo(destination: DemoDestination) {
     is DemoDestination.FitBounds ->
       animateCameraToBounds(
         boundingBox = destination.bounds,
-        padding = DemoBoundsPadding,
+        fitPadding = DemoBoundsPadding,
         animation = DemoFlight,
       )
     DemoDestination.None -> Unit
@@ -365,7 +365,7 @@ fun DemoMap(
     MaplibreMap(
       state = state.mapState,
       modifier = modifier.then(selectedDemo?.mapModifier(state.mapState) ?: Modifier),
-      cameraPadding = viewportInsets.asPaddingValues(),
+      viewportInsets = viewportInsets.asPaddingValues(),
       renderOptions = state.settings.renderOptions,
       interactions = selectedDemo?.interactions(state.mapState) ?: MapInteractions.Standard,
       uiOptions = selectedDemo?.uiOptions(state.settings.uiOptions) ?: state.settings.uiOptions,

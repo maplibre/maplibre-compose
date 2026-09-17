@@ -16,6 +16,7 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleResourceChanges
+import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -64,9 +65,10 @@ internal interface MapAdapter {
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,
-    padding: PaddingValues,
+    cameraPadding: DpPadding?,
+    fitPadding: PaddingValues,
     animation: CameraAnimation,
-    guard: CameraCommandGuard? = null,
+    guard: CameraCommandGuard?,
   )
 
   fun setBaseStyle(style: BaseStyle)
@@ -86,13 +88,14 @@ internal interface MapAdapter {
 
   fun stopCameraMovement(guard: CameraCommandGuard)
 
-  fun setCameraPadding(padding: PaddingValues)
+  fun setViewportInsets(insets: PaddingValues)
 
   fun cameraForBounds(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,
-    padding: PaddingValues,
+    cameraPadding: DpPadding?,
+    fitPadding: PaddingValues,
   ): CameraPosition
 
   /** [geometry] has at least one position; [MapState] rejects empty input before calling. */
@@ -100,15 +103,17 @@ internal interface MapAdapter {
     geometry: Geometry,
     bearing: Double,
     tilt: Double,
-    padding: PaddingValues,
+    cameraPadding: DpPadding?,
+    fitPadding: PaddingValues,
   ): CameraPosition
 
   fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,
-    padding: PaddingValues,
-    guard: CameraCommandGuard? = null,
+    cameraPadding: DpPadding?,
+    fitPadding: PaddingValues,
+    guard: CameraCommandGuard?,
   )
 
   fun setCameraConstraints(value: CameraConstraints)
