@@ -95,8 +95,7 @@ public fun LocationIndicatorLayer(
  * Click handlers target the top and bearing image bounds, including transparent margins, but not
  * the shadow or accuracy circle. Each gesture invokes its handler at most once, even when the
  * images overlap. Return [ClickResult.Pass] to continue to layers below or [ClickResult.Consume] to
- * stop dispatch. On JS, use these callbacks to detect indicator clicks; the indicator is not
- * included in [org.maplibre.compose.map.MapState.queryRenderedFeatures] results.
+ * stop dispatch.
  *
  * @param id Unique layer ID.
  * @param location Position of the indicator, or null to hide it. Altitude is not rendered.
