@@ -93,8 +93,10 @@ internal actual fun PlatformLocationIndicator(properties: LocationIndicatorPrope
       set(compiledImageTiltDisplacement) { layer.setImageTiltDisplacement(it) }
       set(compiledPerspectiveCompensation) { layer.setPerspectiveCompensation(it) }
     },
-    onClick = null,
-    onLongClick = null,
+    onClick = properties.onClick?.asFeaturesClickHandler(),
+    onLongClick = properties.onLongClick?.asFeaturesClickHandler(),
+    onDoubleClick = properties.onDoubleClick?.asFeaturesClickHandler(),
+    hitPadding = properties.hitPadding,
   )
 }
 

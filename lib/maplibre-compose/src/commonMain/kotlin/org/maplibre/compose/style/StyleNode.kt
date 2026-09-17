@@ -48,6 +48,7 @@ internal class StyleNode(
             onDoubleClick = node.onDoubleClick,
             hitPadding = node.hitPadding,
             registration = node,
+            clickGroup = node.clickGroup,
           )
         },
       images = imageManager.desiredImages,

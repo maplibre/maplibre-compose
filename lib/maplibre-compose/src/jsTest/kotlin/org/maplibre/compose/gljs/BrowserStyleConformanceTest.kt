@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -15,6 +16,7 @@ import kotlinx.serialization.json.double
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.layers.LocationIndicatorLayer
@@ -25,8 +27,11 @@ import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.sources.rememberVectorTileSource
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.LocalStyleNode
+import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.rememberStyleComposition
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.units.Bearing
@@ -190,6 +195,50 @@ class BrowserStyleConformanceTest {
     }
     assertTrue(failures.isEmpty(), "the map reported load failures: $failures")
   }
+
+  @Test
+  fun indicator_images_share_interaction_group_but_shadow_and_accuracy_do_not_handle_clicks() =
+    runBrowserMapTest {
+      val style = RecordingStyleBinding()
+      var latest: DesiredStyleRevision? = null
+      setBrowserMapContent {
+        val revision by
+          rememberStyleComposition(
+            maybeStyle = style,
+            content = {
+              LocationIndicatorLayer(
+                id = "user",
+                location = Position(0.0, 0.0),
+                bearing = Bearing.North,
+                accuracyRadius = 20.meters,
+                hitPadding = 8.dp,
+                onClick = { ClickResult.Pass },
+                onLongClick = { ClickResult.Consume },
+                onDoubleClick = { ClickResult.Consume },
+              )
+            },
+          )
+        LaunchedEffect(revision) { latest = revision }
+      }
+      waitUntilMap("indicator interaction registrations") { latest?.layers?.size == 4 }
+      val layers = checkNotNull(latest).layers.associateBy { it.definition.id }
+      val top = layers.getValue("user-top")
+      val bearing = layers.getValue("user-bearing")
+      assertTrue(top.clickGroup != null)
+      assertEquals(top.clickGroup, bearing.clickGroup)
+      for (image in listOf(top, bearing)) {
+        assertEquals(8.dp, image.hitPadding)
+        assertEquals(ClickResult.Pass, image.onClick!!(emptyList()))
+        assertEquals(ClickResult.Consume, image.onLongClick!!(emptyList()))
+        assertEquals(ClickResult.Consume, image.onDoubleClick!!(emptyList()))
+      }
+      for (id in listOf("user-shadow", "user-accuracy")) {
+        val decoration = layers.getValue(id)
+        assertEquals(null, decoration.onClick)
+        assertEquals(null, decoration.onLongClick)
+        assertEquals(null, decoration.onDoubleClick)
+      }
+    }
 
   @Composable
   @MaplibreComposable

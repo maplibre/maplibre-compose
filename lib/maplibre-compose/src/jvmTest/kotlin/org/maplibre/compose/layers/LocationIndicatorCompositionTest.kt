@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runComposeUiTest
+import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -17,11 +18,13 @@ import kotlinx.serialization.json.double
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.location.HeadingMeasurement
 import org.maplibre.compose.location.HeadingReference
 import org.maplibre.compose.location.LocationMeasurement
 import org.maplibre.compose.location.LocationState
 import org.maplibre.compose.map.LocalViewport
+import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.TransitionOptions
@@ -140,6 +143,58 @@ class LocationIndicatorCompositionTest {
     val paint = style.layers.getValue("user").getValue("paint").jsonObject
     assertEquals(90.0, paint.getValue("bearing").jsonPrimitive.double)
     assertEquals(12.0, paint.getValue("accuracy-radius").jsonPrimitive.double)
+  }
+
+  @Test
+  fun stateOverloadForwardsInteractionHandlersAndUpdatesThem() = runComposeUiTest {
+    val style = RecordingStyleBinding()
+    val locationState =
+      LocationState().apply {
+        lastLocation =
+          LocationMeasurement(position = Position(0.0, 0.0), measuredAt = Clock.System.now())
+      }
+    var enabled by mutableStateOf(true)
+    val calls = mutableListOf<String>()
+    var latest: DesiredStyleRevision? = null
+    setContent {
+      val revision by
+        rememberStyleComposition(
+          maybeStyle = style,
+          content = {
+            LocationIndicatorLayer(
+              id = "user",
+              locationState = locationState,
+              onClick =
+                if (enabled)
+                  ({
+                    calls += "click"
+                    ClickResult.Pass
+                  })
+                else null,
+              onLongClick = {
+                calls += "long"
+                ClickResult.Consume
+              },
+              onDoubleClick = {
+                calls += "double"
+                ClickResult.Consume
+              },
+              hitPadding = 12.dp,
+            )
+          },
+        )
+      LaunchedEffect(revision) { latest = revision }
+    }
+    waitForIdle()
+    val node = checkNotNull(latest).layers.single()
+    assertEquals(12.dp, node.hitPadding)
+    assertEquals(ClickResult.Pass, node.onClick!!(emptyList()))
+    assertEquals(ClickResult.Consume, node.onLongClick!!(emptyList()))
+    assertEquals(ClickResult.Consume, node.onDoubleClick!!(emptyList()))
+    assertEquals(listOf("click", "long", "double"), calls)
+    runOnIdle { enabled = false }
+    waitForIdle()
+    assertEquals(null, checkNotNull(latest).layers.single().onClick)
   }
 
   @Test

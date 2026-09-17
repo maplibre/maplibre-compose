@@ -5,6 +5,7 @@ import androidx.compose.runtime.ComposeNode
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Updater
 import androidx.compose.runtime.key
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.style.LayerNode
@@ -27,6 +28,7 @@ internal fun <T : Layer> LayerNode(
   require(hitPadding.value.isFinite() && hitPadding.value >= 0f) {
     "hitPadding must be finite and nonnegative"
   }
+  val clickGroup = LocalLayerClickGroup.current
   val anchor = LocalAnchor.current
   val node = LocalStyleNode.current
 
@@ -42,8 +44,12 @@ internal fun <T : Layer> LayerNode(
         set(onLongClick) { this.onLongClick = it }
         set(onDoubleClick) { this.onDoubleClick = it }
         set(hitPadding) { this.hitPadding = it }
+        set(clickGroup) { this.clickGroup = it }
       },
     )
     SideEffect { node.scheduleApplyChanges() }
   }
 }
+
+// Multiple rendering layers can represent one logical click target.
+internal val LocalLayerClickGroup = staticCompositionLocalOf<Any?> { null }

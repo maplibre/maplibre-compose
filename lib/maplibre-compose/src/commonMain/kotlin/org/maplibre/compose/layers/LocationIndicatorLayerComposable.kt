@@ -3,8 +3,11 @@ package org.maplibre.compose.layers
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.value.ImageValue
+import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.location.LocationState
 import org.maplibre.compose.location.mostAccurateBearing
 import org.maplibre.compose.location.rememberDefaultHeadingProvider
@@ -49,6 +52,10 @@ public fun LocationIndicatorLayer(
   locationTransition: TransitionOptions = TransitionOptions(),
   bearingTransition: TransitionOptions = locationTransition,
   accuracyRadiusTransition: TransitionOptions = locationTransition,
+  onClick: (() -> ClickResult)? = null,
+  onLongClick: (() -> ClickResult)? = null,
+  onDoubleClick: (() -> ClickResult)? = null,
+  hitPadding: Dp = 0.dp,
 ) {
   LocationIndicatorLayer(
     id = id,
@@ -71,6 +78,10 @@ public fun LocationIndicatorLayer(
     locationTransition = locationTransition,
     bearingTransition = bearingTransition,
     accuracyRadiusTransition = accuracyRadiusTransition,
+    onClick = onClick,
+    onLongClick = onLongClick,
+    onDoubleClick = onDoubleClick,
+    hitPadding = hitPadding,
   )
 }
 
@@ -88,8 +99,12 @@ public fun LocationIndicatorLayer(
  * align with the map plane. The JS circle approximates meters using Mercator scale at the location
  * latitude; globe rendering is not supported.
  *
- * There is no bearing-accuracy sector or click handling. This component does not request
- * permissions, select a provider, follow the camera, or change measurement state.
+ * Click handlers target the top and bearing images, excluding the shadow and accuracy circle. Each
+ * gesture invokes its handler at most once, even when the images overlap. Return [ClickResult.Pass]
+ * to continue to layers below or [ClickResult.Consume] to stop dispatch.
+ *
+ * There is no bearing-accuracy sector. This component does not request permissions, select a
+ * provider, follow the camera, or change measurement state.
  *
  * @param id Unique indicator name. JS reserves the derived layer IDs `id-accuracy`, `id-shadow`,
  *   `id-bearing`, and `id-top`.
@@ -116,6 +131,10 @@ public fun LocationIndicatorLayer(
  * @param bearingTransition Native bearing transition timing, defaulting to [locationTransition].
  * @param accuracyRadiusTransition Native accuracy transition timing, defaulting to
  *   [locationTransition].
+ * @param onClick Called when an indicator image is clicked.
+ * @param onLongClick Called for a touch long press or secondary mouse click.
+ * @param onDoubleClick Called for a double tap or double click.
+ * @param hitPadding Expands tap queries to a square of this radius in dp; zero uses a point.
  */
 @Composable
 @MaplibreComposable
@@ -140,11 +159,18 @@ public fun LocationIndicatorLayer(
   locationTransition: TransitionOptions = TransitionOptions(),
   bearingTransition: TransitionOptions = locationTransition,
   accuracyRadiusTransition: TransitionOptions = locationTransition,
+  onClick: (() -> ClickResult)? = null,
+  onLongClick: (() -> ClickResult)? = null,
+  onDoubleClick: (() -> ClickResult)? = null,
+  hitPadding: Dp = 0.dp,
 ) {
   require(
     accuracyRadius == null || (accuracyRadius.inMeters.isFinite() && accuracyRadius.inMeters >= 0)
   ) {
     "accuracyRadius must be finite and nonnegative"
+  }
+  require(hitPadding.value.isFinite() && hitPadding.value >= 0f) {
+    "hitPadding must be finite and nonnegative"
   }
   if (location == null) return
   key(id) {
@@ -170,6 +196,10 @@ public fun LocationIndicatorLayer(
         locationTransition = locationTransition,
         bearingTransition = bearingTransition,
         accuracyRadiusTransition = accuracyRadiusTransition,
+        onClick = onClick,
+        onLongClick = onLongClick,
+        onDoubleClick = onDoubleClick,
+        hitPadding = hitPadding,
       )
     )
   }
@@ -196,8 +226,14 @@ internal data class LocationIndicatorProperties(
   val locationTransition: TransitionOptions,
   val bearingTransition: TransitionOptions,
   val accuracyRadiusTransition: TransitionOptions,
+  val onClick: (() -> ClickResult)?,
+  val onLongClick: (() -> ClickResult)?,
+  val onDoubleClick: (() -> ClickResult)?,
+  val hitPadding: Dp,
 )
 
 @Composable
 @MaplibreComposable
 internal expect fun PlatformLocationIndicator(properties: LocationIndicatorProperties)
+
+internal fun (() -> ClickResult).asFeaturesClickHandler(): FeaturesClickHandler = { this() }

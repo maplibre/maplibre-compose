@@ -1,6 +1,7 @@
 package org.maplibre.compose.layers
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
@@ -85,28 +86,37 @@ internal actual fun PlatformLocationIndicator(properties: LocationIndicatorPrope
       ),
       Triple("top", properties.topImage, properties.topImageSize),
     )
-  for ((suffix, image, size) in images) {
-    key(suffix) {
-      if (image != null)
-        SymbolLayer(
-          id = "${properties.id}-$suffix",
-          source = source,
-          minZoom = properties.minZoom,
-          maxZoom = properties.maxZoom,
-          visible = properties.visible,
-          iconImage = image,
-          iconSize = const(size),
-          iconRotate =
-            const(
-              if (suffix == "bearing")
-                properties.bearing?.let { (it - Bearing.North).inDegrees.toFloat() } ?: 0f
-              else 0f
-            ),
-          iconRotationAlignment = const(IconRotationAlignment.Map),
-          iconPitchAlignment = const(IconPitchAlignment.Map),
-          iconAllowOverlap = const(true),
-          iconIgnorePlacement = const(true),
-        )
+  val clickGroup = remember { Any() }
+  CompositionLocalProvider(LocalLayerClickGroup provides clickGroup) {
+    for ((suffix, image, size) in images) {
+      key(suffix) {
+        if (image != null)
+          SymbolLayer(
+            id = "${properties.id}-$suffix",
+            source = source,
+            minZoom = properties.minZoom,
+            maxZoom = properties.maxZoom,
+            visible = properties.visible,
+            iconImage = image,
+            iconSize = const(size),
+            iconRotate =
+              const(
+                if (suffix == "bearing")
+                  properties.bearing?.let { (it - Bearing.North).inDegrees.toFloat() } ?: 0f
+                else 0f
+              ),
+            iconRotationAlignment = const(IconRotationAlignment.Map),
+            iconPitchAlignment = const(IconPitchAlignment.Map),
+            iconAllowOverlap = const(true),
+            iconIgnorePlacement = const(true),
+            onClick = properties.onClick?.takeIf { suffix != "shadow" }?.asFeaturesClickHandler(),
+            onLongClick =
+              properties.onLongClick?.takeIf { suffix != "shadow" }?.asFeaturesClickHandler(),
+            onDoubleClick =
+              properties.onDoubleClick?.takeIf { suffix != "shadow" }?.asFeaturesClickHandler(),
+            hitPadding = properties.hitPadding,
+          )
+      }
     }
   }
 }
