@@ -31,7 +31,6 @@ import kotlinx.coroutines.delay
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.maplibre.compose.expressions.dsl.asBoolean
-import org.maplibre.compose.expressions.dsl.asNumber
 import org.maplibre.compose.expressions.dsl.condition
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.div
@@ -56,6 +55,7 @@ import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.Length
 import org.maplibre.spatialk.units.Rotation
+import org.maplibre.spatialk.units.extensions.degrees
 import org.maplibre.spatialk.units.extensions.inDegrees
 import org.maplibre.spatialk.units.extensions.inMeters
 import org.maplibre.spatialk.units.extensions.meters
@@ -189,6 +189,11 @@ private fun LocationPuckContent(
   val bearingPainter = rememberBearingPainter(sizes, colors)
   val positionAccuracy = location?.horizontalAccuracy
   val accuracyVisible = positionAccuracy != null && positionAccuracy > accuracyThreshold
+  val renderedAccuracy =
+    animatePuckAccuracy(
+      positionAccuracy?.inMeters?.toFloat().takeIf { accuracyVisible },
+      animation?.horizontalAccuracy,
+    )
   val metersPerDp = if (accuracyVisible) LocalViewport.current?.metersPerDpAtTarget ?: 0.0 else 0.0
   val locationSource = rememberLocationSource(measurement, oldLocationThreshold)
   val isOldLocation = feature["isOldLocation"].asBoolean(const(false))
@@ -200,7 +205,7 @@ private fun LocationPuckContent(
     radius =
       switch(
         condition(test = isOldLocation, output = const(0.dp)),
-        fallback = (feature["accuracy"].asNumber() / const(metersPerDp.toFloat())).dp,
+        fallback = (const(renderedAccuracy ?: 0f) / const(metersPerDp.toFloat())).dp,
       ),
     color = const(colors.accuracyFillColor),
     strokeColor = const(colors.accuracyStrokeColor),
@@ -259,11 +264,16 @@ private fun LocationPuckContent(
   )
 
   if (bearing != null && bearingAccuracy != null) {
+    val renderedBearingAccuracy =
+      animatePuckAccuracy(
+        bearingAccuracy.inDegrees.toFloat(),
+        animation?.bearingAccuracy,
+      )!!
     val bearingAccuracyPainter =
       rememberBearingAccuracyPainter(
         sizes = sizes,
         colors = colors,
-        bearingAccuracy = bearingAccuracy,
+        bearingAccuracy = renderedBearingAccuracy.toDouble().degrees,
       )
 
     SymbolLayer(
@@ -271,7 +281,7 @@ private fun LocationPuckContent(
       source = locationSource,
       iconImage = image(bearingAccuracyPainter),
       iconAnchor = const(SymbolAnchor.Center),
-      iconRotate = const((renderedBearing ?: 0f) - 90f - bearingAccuracy.inDegrees.toFloat()),
+      iconRotate = const((renderedBearing ?: 0f) - 90f - renderedBearingAccuracy),
       iconRotationAlignment = const(IconRotationAlignment.Map),
       iconAllowOverlap = const(true),
     )
@@ -381,7 +391,6 @@ internal fun locationFeatures(
         geometry = Point(location.position),
         properties =
           buildJsonObject {
-            put("accuracy", location.horizontalAccuracy?.inMeters)
             put("isOldLocation", isOldLocation)
           },
       )

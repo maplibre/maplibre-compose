@@ -24,6 +24,7 @@ import kotlin.time.TestTimeSource
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.float
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.map.LocalViewport
@@ -39,6 +40,137 @@ import org.maplibre.spatialk.units.extensions.meters
 
 @OptIn(ExperimentalTestApi::class)
 class LocationPuckTest {
+  @Test
+  fun accuracySizesAnimateTogetherWithoutChangingMeasurementOrGeometry() = runComposeUiTest {
+    val style = RecordingStyleBinding()
+    val reconciler = StyleReconciler()
+    var location by
+      mutableStateOf(
+        LocationMeasurement(
+          position = Position(13.0, 52.0),
+          measuredAt = Clock.System.now(),
+          horizontalAccuracy = 100.meters,
+          course = Bearing.North,
+          courseAccuracy = 10.degrees,
+        )
+      )
+    var animation by
+      mutableStateOf<LocationPuckAnimation?>(
+        LocationPuckAnimation(
+          horizontalAccuracy = tween(1000, easing = LinearEasing),
+          bearingAccuracy = tween(1000, easing = LinearEasing),
+        )
+      )
+    setContent {
+      val revision by
+        rememberStyleComposition(
+          maybeStyle = style,
+          content = {
+            CompositionLocalProvider(
+              LocalDensity provides Density(1f),
+              LocalViewport provides
+                viewportFor(MapSnapshotRequest(100, 100)).copy(metersPerDpAtTarget = 2.0),
+            ) {
+              LocationPuck(idPrefix = "user", location = location, animation = animation)
+            }
+          },
+        )
+      LaunchedEffect(revision) { revision?.let { reconciler.apply(style, it) } }
+    }
+    fun meters(): Float =
+      style.layers
+        .getValue("user-accuracy")
+        .getValue("paint")
+        .jsonObject
+        .getValue("circle-radius")
+        .jsonArray
+        .last()
+        .jsonArray[1]
+        .jsonPrimitive
+        .float
+    fun sector(): Float =
+      style.layers
+        .getValue("user-bearingAccuracy")
+        .getValue("layout")
+        .jsonObject
+        .getValue("icon-rotate")
+        .jsonPrimitive
+        .float
+    fun sectorImage(): JsonElement =
+      style.layers
+        .getValue("user-bearingAccuracy")
+        .getValue("layout")
+        .jsonObject
+        .getValue("icon-image")
+    waitForIdle()
+    assertEquals(100f, meters())
+    assertEquals(-100f, sector())
+    val firstImage = sectorImage()
+    mainClock.autoAdvance = false
+    location = location.copy(horizontalAccuracy = 300.meters, courseAccuracy = 50.degrees)
+    mainClock.advanceTimeBy(320)
+    waitForIdle()
+    assertEquals(300.meters, location.horizontalAccuracy)
+    assertTrue(meters() in 130f..190f)
+    assertTrue(sector() in -118f..-106f)
+    assertTrue(firstImage != sectorImage(), "The sector image must follow its animated width")
+    val firstMeters = meters()
+    val submissions = style.installedGeoJson.values.sumOf { it.size }
+    mainClock.advanceTimeBy(160)
+    waitForIdle()
+    assertTrue(meters() > firstMeters)
+    assertEquals(submissions, style.installedGeoJson.values.sumOf { it.size })
+    animation = LocationPuckAnimation(horizontalAccuracy = null, bearingAccuracy = null)
+    mainClock.advanceTimeBy(64)
+    waitForIdle()
+    assertEquals(300f, meters())
+    assertEquals(-140f, sector())
+    animation = null
+    location = location.copy(horizontalAccuracy = 200.meters, courseAccuracy = 30.degrees)
+    mainClock.advanceTimeBy(64)
+    waitForIdle()
+    assertEquals(200f, meters())
+    assertEquals(-120f, sector())
+    animation = LocationPuckAnimation()
+    location = location.copy(horizontalAccuracy = 10.meters, courseAccuracy = null)
+    mainClock.advanceTimeBy(64)
+    waitForIdle()
+    assertEquals(
+      "none",
+      style.layers
+        .getValue("user-accuracy")
+        .getValue("layout")
+        .jsonObject
+        .getValue("visibility")
+        .jsonPrimitive
+        .content,
+    )
+    assertFalse("user-bearingAccuracy" in style.layers)
+    location = location.copy(horizontalAccuracy = 150.meters, courseAccuracy = 25.degrees)
+    mainClock.advanceTimeBy(64)
+    waitForIdle()
+    assertEquals(150f, meters())
+    assertEquals(-115f, sector())
+  }
+
+  @Test
+  fun accuracyInterpolatesScalarSizesAndClampsNegativeOvershoot() = runComposeUiTest {
+    mainClock.autoAdvance = false
+    var target by mutableStateOf(350f)
+    var value = 0f
+    val spec = spring<Float>(dampingRatio = 0.2f, stiffness = 100f)
+    setContent { value = animatePuckAccuracy(target, spec)!! }
+    waitForIdle()
+    assertEquals(350f, value)
+    target = 0f
+    mainClock.advanceTimeBy(80)
+    waitForIdle()
+    assertTrue(value in 200f..349f, "Accuracy must shrink, not wrap through 360")
+    mainClock.advanceTimeBy(320)
+    waitForIdle()
+    assertEquals(0f, value, "Spring overshoot must not render a negative size")
+  }
+
   @Test
   fun bearingLayersRotateTogetherWithoutSubmittingGeometryEachFrame() = runComposeUiTest {
     val style = RecordingStyleBinding()

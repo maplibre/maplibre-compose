@@ -10,10 +10,14 @@ import org.maplibre.compose.location.LocationPuckColors
 
 /** Material 3 themed defaults for [LocationPuck] parameters */
 public object LocationPuckDefaults {
-  /** A fast spatial animation from the current Material motion scheme for the puck bearing. */
+  /** Fast spatial animations from the current Material motion scheme for the puck. */
   @Composable
   public fun animation(): LocationPuckAnimation =
-    LocationPuckAnimation(bearing = MaterialTheme.motionScheme.fastSpatialSpec())
+    LocationPuckAnimation(
+      horizontalAccuracy = MaterialTheme.motionScheme.fastSpatialSpec(),
+      bearingAccuracy = MaterialTheme.motionScheme.fastSpatialSpec(),
+      bearing = MaterialTheme.motionScheme.fastSpatialSpec(),
+    )
 
   @Composable
   public fun colors(
