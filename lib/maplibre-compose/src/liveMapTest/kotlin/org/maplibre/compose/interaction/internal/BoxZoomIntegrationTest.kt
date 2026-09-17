@@ -28,7 +28,7 @@ class BoxZoomIntegrationTest {
       coroutineScope {
         createMapFixture().use { fixture ->
           fixture.loadStyle(BaseStyle.Empty)
-          fixture.session.setCameraPadding(
+          fixture.session.setViewportInsets(
             PaddingValues(start = 50.dp, top = 20.dp, end = 10.dp, bottom = 30.dp)
           )
           val initial =

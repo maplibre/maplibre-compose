@@ -113,7 +113,7 @@ class CameraInputIntegrationTest {
       createMapFixture().use { fixture ->
         fixture.loadStyle(BaseStyle.Empty)
         fixture.awaitMapReady()
-        fixture.session.setCameraPadding(PaddingValues(start = 65.dp, top = 25.dp, end = 10.dp))
+        fixture.session.setViewportInsets(PaddingValues(start = 65.dp, top = 25.dp, end = 10.dp))
         fixture.state.gestureAuthority.updateConfiguration(
           CameraBuilder(CameraConfiguration())
             .apply {
@@ -285,7 +285,7 @@ class CameraInputIntegrationTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       fixture.awaitMapReady()
-      fixture.session.setCameraPadding(PaddingValues(start = 65.dp, top = 25.dp, end = 10.dp))
+      fixture.session.setViewportInsets(PaddingValues(start = 65.dp, top = 25.dp, end = 10.dp))
       fixture.state.setCameraPosition(
         CameraPosition(target = Position(3.0, 45.0), zoom = 5.0, bearing = 20.0, tilt = 30.0)
       )
@@ -317,7 +317,7 @@ class CameraInputIntegrationTest {
         createMapFixture().use { fixture ->
           fixture.loadStyle(BaseStyle.Empty)
           fixture.awaitMapReady()
-          fixture.session.setCameraPadding(PaddingValues(start = 65.dp, top = 25.dp, end = 10.dp))
+          fixture.session.setViewportInsets(PaddingValues(start = 65.dp, top = 25.dp, end = 10.dp))
           fixture.state.setCameraPosition(
             CameraPosition(target = Position(3.0, 45.0), zoom = 5.0, bearing = 20.0, tilt = 30.0)
           )

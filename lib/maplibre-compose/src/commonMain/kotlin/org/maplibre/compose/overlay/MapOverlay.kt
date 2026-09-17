@@ -30,10 +30,10 @@ import org.maplibre.compose.map.LocalViewport
 import org.maplibre.compose.map.MapState
 
 /**
- * Camera padding of the enclosing map presentation, available to its overlay content without
+ * Viewport insets of the enclosing map presentation, available to its overlay content without
  * waiting for a rendered frame. Zero outside an overlay.
  */
-public val LocalCameraPadding: ProvidableCompositionLocal<PaddingValues> = compositionLocalOf {
+public val LocalViewportInsets: ProvidableCompositionLocal<PaddingValues> = compositionLocalOf {
   PaddingValues(0.dp)
 }
 
@@ -42,11 +42,11 @@ internal val LocalMapCoordinates =
     error("Geographic placement requires a MaplibreMap overlay")
   }
 
-/** Default controls use camera padding or remaining safe-area insets, plus a small margin. */
+/** Default controls use viewport insets or remaining safe-area insets, plus a small margin. */
 @Composable
 internal fun DefaultControls(
   modifier: Modifier = Modifier,
-  contentPadding: PaddingValues = LocalCameraPadding.current,
+  contentPadding: PaddingValues = LocalViewportInsets.current,
   contentWindowInsets: WindowInsets = WindowInsets.safeDrawing,
   content: @Composable BoxScope.() -> Unit,
 ) {
@@ -133,14 +133,14 @@ public class MapOverlay(
 internal fun MapOverlayHost(
   overlay: @Composable @UiComposable MapOverlayScope.() -> Unit,
   mapState: MapState,
-  cameraPadding: PaddingValues = PaddingValues(0.dp),
+  viewportInsets: PaddingValues = PaddingValues(0.dp),
   modifier: Modifier = Modifier,
 ) {
   val coordinates = remember { mutableStateOf<LayoutCoordinates?>(null) }
   CompositionLocalProvider(
     LocalMapState provides mapState,
     LocalViewport provides mapState.viewport,
-    LocalCameraPadding provides cameraPadding,
+    LocalViewportInsets provides viewportInsets,
     LocalMapCoordinates provides coordinates,
   ) {
     GeographicLayout(modifier.onPlaced { coordinates.value = it }, content = overlay)

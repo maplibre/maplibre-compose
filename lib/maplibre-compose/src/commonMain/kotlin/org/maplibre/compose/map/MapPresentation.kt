@@ -176,7 +176,7 @@ internal fun MapPresentationContent(
     MapPresentationBinding(
       update = update@{ map ->
           if (state.isClosed) return@update
-          map.setCameraPadding(options.cameraPadding)
+          map.setViewportInsets(options.viewportInsets)
           map.setCameraConstraints(options.cameraConstraints)
           map.setRenderSettings(options.renderOptions)
           map.setTileLodSettings(options.renderOptions.tileLod)

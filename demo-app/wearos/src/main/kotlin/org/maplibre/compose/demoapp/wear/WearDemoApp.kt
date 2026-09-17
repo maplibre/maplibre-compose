@@ -50,7 +50,7 @@ fun WearDemoApp() {
           MaplibreMap(
             state = state,
             modifier = Modifier.focusRequester(focusRequester),
-            cameraPadding = PaddingValues(bottom = 56.dp),
+            viewportInsets = PaddingValues(bottom = 56.dp),
             overlay = {},
           )
           EdgeButton(

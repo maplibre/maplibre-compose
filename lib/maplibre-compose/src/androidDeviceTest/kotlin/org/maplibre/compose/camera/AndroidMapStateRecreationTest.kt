@@ -8,6 +8,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runAndroidComposeUiTest
+import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertNotSame
@@ -23,6 +24,7 @@ import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.map.resetForTest
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.util.DpPadding
 import org.maplibre.spatialk.geojson.Position
 
 @OptIn(ExperimentalTestApi::class)
@@ -86,6 +88,7 @@ class AndroidMapStateRecreationTest {
         target = Position(longitude = 11.5761, latitude = 48.1371),
         tilt = 42.0,
         zoom = 8.5,
+        padding = DpPadding(left = 12.dp, top = 24.dp, right = 36.dp, bottom = 48.dp),
       )
 
     fun MapAdapter.hasCamera(expected: CameraPosition): Boolean =
@@ -103,7 +106,8 @@ class AndroidMapStateRecreationTest {
         near(expected.target.longitude, actual.target.longitude) &&
         near(expected.target.latitude, actual.target.latitude) &&
         near(expected.tilt, actual.tilt) &&
-        near(expected.zoom, actual.zoom)
+        near(expected.zoom, actual.zoom) &&
+        expected.padding == actual.padding
 
     fun near(expected: Number, actual: Number): Boolean =
       abs(expected.toDouble() - actual.toDouble()) < TOLERANCE

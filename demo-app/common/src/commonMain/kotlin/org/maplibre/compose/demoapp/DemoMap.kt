@@ -88,13 +88,14 @@ import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MaplibreLogo
 import org.maplibre.compose.overlay.ZoomButtons
 import org.maplibre.compose.overlay.ZoomButtonsDefaults
+import org.maplibre.compose.util.DpPadding
 import org.maplibre.spatialk.geojson.Position
 
 /** The camera flight to a newly selected demo. */
 val DemoFlight = CameraAnimation.Fly(2.seconds)
 
 /** Padding between fitted bounds and the edge of the map viewport. */
-val DemoBoundsPadding = PaddingValues(48.dp)
+val DemoBoundsPadding = DpPadding(left = 48.dp, top = 48.dp, right = 48.dp, bottom = 48.dp)
 
 internal suspend fun MapState.flyTo(destination: DemoDestination) {
   when (destination) {
@@ -106,7 +107,7 @@ internal suspend fun MapState.flyTo(destination: DemoDestination) {
     is DemoDestination.FitBounds ->
       animateCameraToBounds(
         boundingBox = destination.bounds,
-        padding = DemoBoundsPadding,
+        fitPadding = DemoBoundsPadding,
         animation = DemoFlight,
       )
     DemoDestination.None -> Unit
@@ -365,7 +366,7 @@ fun DemoMap(
     MaplibreMap(
       state = state.mapState,
       modifier = modifier.then(selectedDemo?.mapModifier(state.mapState) ?: Modifier),
-      cameraPadding = viewportInsets.asPaddingValues(),
+      viewportInsets = viewportInsets.asPaddingValues(),
       renderOptions = state.settings.renderOptions,
       interactions = selectedDemo?.interactions(state.mapState) ?: MapInteractions.Standard,
       uiOptions = selectedDemo?.uiOptions(state.settings.uiOptions) ?: state.settings.uiOptions,

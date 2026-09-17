@@ -7,12 +7,12 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import org.maplibre.compose.overlay.LocalCameraPadding
+import org.maplibre.compose.overlay.LocalViewportInsets
 import org.maplibre.compose.overlay.MapOverlay
 
 @Composable
 internal fun Modifier.controlPadding(): Modifier {
-  val padding = LocalCameraPadding.current
+  val padding = LocalViewportInsets.current
   return padding(padding)
     .consumeWindowInsets(padding)
     .windowInsetsPadding(WindowInsets.safeDrawing)

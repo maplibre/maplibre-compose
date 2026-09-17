@@ -27,6 +27,7 @@ import org.maplibre.compose.style.GlJsStyleBinding
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.util.toImageBitmap
 import org.maplibre.compose.util.toLngLat
+import org.maplibre.compose.util.toPaddingOptions
 import web.dom.document
 import web.html.HTMLCanvasElement
 import web.html.HTMLElement
@@ -231,6 +232,7 @@ internal class GlJsSnapshotterAdapter(
         zoom = camera.zoom
         bearing = camera.bearing
         pitch = camera.tilt
+        padding = camera.padding.toPaddingOptions()
       }
     )
   }

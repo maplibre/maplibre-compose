@@ -6,7 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -51,6 +50,7 @@ import org.maplibre.compose.demoapp.demos.FerrySchedule.routeDepartures
 import org.maplibre.compose.demoapp.design.SectionHeader
 import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.overlay.MapOverlayScope
+import org.maplibre.compose.util.DpPadding
 import org.maplibre.spatialk.geojson.BoundingBox
 
 object TransitNetworkDemo : Demo {
@@ -63,7 +63,7 @@ object TransitNetworkDemo : Demo {
   override val preferredLightStyle = Protomaps.Light
   override val preferredDarkStyle = Protomaps.Dark
 
-  private val RouteFitPadding = PaddingValues(horizontal = 96.dp, vertical = 72.dp)
+  private val RouteFitPadding = DpPadding(left = 96.dp, top = 72.dp, right = 96.dp, bottom = 72.dp)
 
   private sealed interface FeedState {
     data object Loading : FeedState
@@ -102,7 +102,7 @@ object TransitNetworkDemo : Demo {
       val route = network.routes.find { it.id == selected } ?: return@LaunchedEffect
       mapState.animateCameraToBounds(
         boundingBox = route.bounds,
-        padding = RouteFitPadding,
+        fitPadding = RouteFitPadding,
         animation = CameraAnimation.Fly(1.seconds),
       )
     }

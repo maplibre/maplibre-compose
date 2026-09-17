@@ -61,7 +61,7 @@ import org.jetbrains.compose.resources.painterResource
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.check_24px
 import org.maplibre.compose.map.LocalMapState
-import org.maplibre.compose.overlay.LocalCameraPadding
+import org.maplibre.compose.overlay.LocalViewportInsets
 import org.maplibre.compose.overlay.MapOverlayScope
 
 @Composable
@@ -70,7 +70,7 @@ internal fun MapOverlayScope.MarkerEditors(state: EditableMarkersState, mapSize:
     val mapState = checkNotNull(LocalMapState.current)
     // Keep the editor inside the usable map, flipping below pins near the top edge.
     val density = LocalDensity.current
-    val padding = LocalCameraPadding.current
+    val padding = LocalViewportInsets.current
     val layoutDirection = LocalLayoutDirection.current
     val left = with(density) { padding.calculateLeftPadding(layoutDirection).value } + 8f
     val right =

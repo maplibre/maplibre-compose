@@ -33,6 +33,7 @@ import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.RgbaPixel
+import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.compose.util.toImageBitmap
 import org.maplibre.spatialk.geojson.Geometry
@@ -59,13 +60,17 @@ class BrowserMapSnapshotterTest {
               width = SIZE,
               height = SIZE,
               cameraPosition =
-                CameraPosition(target = Position(longitude = 0.0, latitude = 0.0), zoom = 2.0),
+                CameraPosition(
+                  target = Position(longitude = 0.0, latitude = 0.0),
+                  zoom = 2.0,
+                  padding = DpPadding(left = 24.dp, bottom = 16.dp),
+                ),
             )
           )
 
         assertEquals(SIZE, image.width)
         assertEquals(SIZE, image.height)
-        assertEquals(GREEN, image.readPixel(SIZE / 2, SIZE / 2))
+        assertEquals(GREEN, image.readPixel(SIZE - 6, SIZE / 2 - 8))
         assertEquals(BACKGROUND, image.readPixel(0, 0))
         val target = assertNotNull(snapshotTargets().singleOrNull())
         assertTrue(target.style.visibility == "hidden")

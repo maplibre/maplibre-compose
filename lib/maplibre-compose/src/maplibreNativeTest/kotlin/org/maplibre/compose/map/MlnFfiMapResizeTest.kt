@@ -43,7 +43,7 @@ class MlnFfiMapResizeTest {
       fixture.loadStyle(BaseStyle.Json(EMPTY_STYLE), extent = BridgeMapFixture.RETINA_EXTENT)
       fixture.pumpUntilRendered(BridgeMapFixture.RETINA_EXTENT)
 
-      fixture.session.setCameraPadding(
+      fixture.session.setViewportInsets(
         PaddingValues(start = 120.dp, top = 40.dp, end = 20.dp, bottom = 8.dp)
       )
 

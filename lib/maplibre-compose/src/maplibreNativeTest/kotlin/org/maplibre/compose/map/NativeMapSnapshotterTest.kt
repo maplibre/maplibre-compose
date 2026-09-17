@@ -28,6 +28,7 @@ import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.compose.testing.runMapTest
+import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Point
@@ -65,7 +66,11 @@ class NativeMapSnapshotterTest {
               width = SIZE,
               height = SIZE,
               cameraPosition =
-                CameraPosition(target = Position(longitude = 0.0, latitude = 0.0), zoom = 2.0),
+                CameraPosition(
+                  target = Position(longitude = 0.0, latitude = 0.0),
+                  zoom = 2.0,
+                  padding = DpPadding(left = 24.dp, bottom = 16.dp),
+                ),
             )
           )
         val densityTwo =
@@ -75,7 +80,11 @@ class NativeMapSnapshotterTest {
               height = SIZE,
               density = 2f,
               cameraPosition =
-                CameraPosition(target = Position(longitude = 0.0, latitude = 0.0), zoom = 2.0),
+                CameraPosition(
+                  target = Position(longitude = 0.0, latitude = 0.0),
+                  zoom = 2.0,
+                  padding = DpPadding(left = 24.dp, bottom = 16.dp),
+                ),
             )
           )
 
@@ -83,10 +92,10 @@ class NativeMapSnapshotterTest {
         assertEquals(SIZE, densityOne.height)
         assertEquals(SIZE * 2, densityTwo.width)
         assertEquals(SIZE * 2, densityTwo.height)
-        assertEquals(BACKGROUND, densityOne.readPixel(SIZE - 6, SIZE / 2))
-        assertEquals(BACKGROUND, densityTwo.readPixel(SIZE * 2 - 12, SIZE))
-        assertEquals(GREEN, densityOne.readPixel(SIZE / 2, SIZE / 2))
-        assertEquals(GREEN, densityTwo.readPixel(SIZE, SIZE))
+        assertEquals(BACKGROUND, densityOne.readPixel(6, SIZE / 2))
+        assertEquals(BACKGROUND, densityTwo.readPixel(12, SIZE))
+        assertEquals(GREEN, densityOne.readPixel(SIZE - 6, SIZE / 2 - 8))
+        assertEquals(GREEN, densityTwo.readPixel(SIZE * 2 - 12, SIZE - 16))
       } finally {
         snapshotter.close()
         snapshotter.awaitClosed()

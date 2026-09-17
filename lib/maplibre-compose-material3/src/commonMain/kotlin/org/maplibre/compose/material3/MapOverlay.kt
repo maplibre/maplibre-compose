@@ -12,7 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import org.maplibre.compose.map.LocalMapState
-import org.maplibre.compose.overlay.LocalCameraPadding
+import org.maplibre.compose.overlay.LocalViewportInsets
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MaplibreLogo
 import org.maplibre.compose.overlay.include
@@ -70,7 +70,7 @@ public val MapOverlay.Companion.Material3Full: MapOverlay
 
 @Composable
 private fun DefaultControls(content: @Composable BoxScope.() -> Unit) {
-  val padding = LocalCameraPadding.current
+  val padding = LocalViewportInsets.current
   Box(
     Modifier.fillMaxSize()
       .padding(padding)

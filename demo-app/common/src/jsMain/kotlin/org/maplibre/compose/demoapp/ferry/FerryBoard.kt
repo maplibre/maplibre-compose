@@ -2,7 +2,6 @@
 
 package org.maplibre.compose.demoapp.ferry
 
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -43,6 +42,7 @@ import org.maplibre.compose.demoapp.demos.FerrySchedule
 import org.maplibre.compose.map.MapRuntimeOptions
 import org.maplibre.compose.map.WebMapPresentation
 import org.maplibre.compose.map.createMapRuntime
+import org.maplibre.compose.util.DpPadding
 import org.maplibre.spatialk.geojson.Position
 import web.html.HTMLElement
 
@@ -102,8 +102,8 @@ internal fun FerryBoard() {
   LaunchedEffect(selectedId) {
     selected?.let {
       map.animateCameraToBounds(
-        it.bounds,
-        padding = PaddingValues(horizontal = 80.dp, vertical = 48.dp),
+        boundingBox = it.bounds,
+        fitPadding = DpPadding(left = 80.dp, top = 48.dp, right = 80.dp, bottom = 48.dp),
         animation = animation(),
       )
     }

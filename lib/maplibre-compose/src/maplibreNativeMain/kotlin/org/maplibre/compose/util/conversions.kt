@@ -50,19 +50,42 @@ internal fun PaddingValues.toEdgeInsets(layoutDirection: LayoutDirection): EdgeI
  * Snapshots a camera into an immutable value. [CameraOptions] is a mutable builder for native
  * calls, so a later call could mutate one held in Compose state underneath it.
  */
-internal fun CameraOptions.toCameraPosition(): CameraPosition =
+internal fun CameraOptions.toCameraPosition(viewportInsets: EdgeInsets): CameraPosition =
   CameraPosition(
     target = center?.toPosition() ?: Position(0.0, 0.0),
     zoom = zoom ?: 0.0,
     bearing = bearing ?: 0.0,
     tilt = pitch ?: 0.0,
+    padding = (padding ?: EdgeInsets.ZERO).relativeTo(viewportInsets),
   )
 
-internal fun CameraPosition.toCameraOptions(padding: EdgeInsets): CameraOptions =
+internal fun CameraPosition.toCameraOptions(viewportInsets: EdgeInsets): CameraOptions =
   CameraOptions().also {
     it.center = target.toLatLng()
     it.zoom = zoom
     it.bearing = bearing
     it.pitch = tilt
-    it.padding = padding
+    it.padding =
+      EdgeInsets(
+        viewportInsets.top + padding.top.value,
+        viewportInsets.left + padding.left.value,
+        viewportInsets.bottom + padding.bottom.value,
+        viewportInsets.right + padding.right.value,
+      )
   }
+
+internal fun EdgeInsets.relativeTo(insets: EdgeInsets): DpPadding =
+  DpPadding(
+    left = (left - insets.left).dp,
+    top = (top - insets.top).dp,
+    right = (right - insets.right).dp,
+    bottom = (bottom - insets.bottom).dp,
+  )
+
+internal fun DpPadding.toEdgeInsets(): EdgeInsets =
+  EdgeInsets(
+    top = top.value.toDouble(),
+    left = left.value.toDouble(),
+    bottom = bottom.value.toDouble(),
+    right = right.value.toDouble(),
+  )

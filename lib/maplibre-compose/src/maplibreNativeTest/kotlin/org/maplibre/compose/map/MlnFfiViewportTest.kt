@@ -13,6 +13,7 @@ import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.util.DpPadding
 import org.maplibre.nativeffi.camera.EdgeInsets
 import org.maplibre.spatialk.geojson.Position
 
@@ -34,7 +35,7 @@ class MlnFfiViewportTest {
       state.publishPresentation(state.reservePresentation(), fixture.session)
       fixture.bindState(state)
       fixture.loadStyleBeforeRendering(BaseStyle.Empty)
-      fixture.session.setCameraPadding(PaddingValues(top = 24.dp))
+      fixture.session.setViewportInsets(PaddingValues(top = 24.dp))
       val target = CameraPosition(target = Position(-74.006, 40.7128), zoom = 5.0)
       val animation =
         async(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
@@ -51,19 +52,26 @@ class MlnFfiViewportTest {
   private fun checkInitialPadding(tilt: Double, cameraAfterPadding: Boolean) {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyleBeforeRendering(BaseStyle.Empty)
-      val camera = CameraPosition(target = Position(-74.006, 40.7128), zoom = 9.5, tilt = tilt)
+      val camera =
+        CameraPosition(
+          target = Position(-74.006, 40.7128),
+          zoom = 9.5,
+          tilt = tilt,
+          padding = DpPadding(top = 20.dp),
+        )
       if (!cameraAfterPadding) fixture.session.setCameraPosition(camera, null)
-      fixture.session.setCameraPadding(PaddingValues(start = 392.dp, top = 28.dp))
+      fixture.session.setViewportInsets(PaddingValues(start = 392.dp, top = 28.dp))
       fixture.session.setCameraConstraints(CameraConstraints())
-      fixture.session.setCameraPadding(PaddingValues(start = 392.dp, top = 24.dp))
+      fixture.session.setViewportInsets(PaddingValues(start = 392.dp, top = 24.dp))
       if (cameraAfterPadding) fixture.session.setCameraPosition(camera, null)
       // Drain configuration while the map still has its bootstrap size, without drawing.
       fixture.session.readMap {}
-      val padding = EdgeInsets(top = 24.0, left = 392.0, bottom = 0.0, right = 0.0)
+      val padding = EdgeInsets(top = 44.0, left = 392.0, bottom = 0.0, right = 0.0)
       fixture.pumpUntil("the initial padding to reach the real viewport") {
         fixture.hasRendered && fixture.session.readMap { it.camera.padding } == padding
       }
       assertEquals(tilt, fixture.session.getCameraPosition().tilt, 0.0001)
+      assertEquals(camera.padding, fixture.session.getCameraPosition().padding)
     }
   }
 }

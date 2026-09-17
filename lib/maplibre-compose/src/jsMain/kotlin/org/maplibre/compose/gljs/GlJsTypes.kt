@@ -204,12 +204,6 @@ internal external interface CameraOptions {
   var pitch: Double?
 }
 
-internal external interface CenterZoomBearing {
-  var center: LngLat?
-  var zoom: Double?
-  var bearing: Double?
-}
-
 internal external interface AnimationOptions {
   var duration: Double?
   var easing: ((Double) -> Double)?
@@ -229,8 +223,6 @@ internal external interface FlyToOptions : PaddedCameraOptions, AnimationOptions
   var screenSpeed: Double?
   var minZoom: Double?
 }
-
-internal external interface CameraForBoundsOptions : PaddedCameraOptions
 
 internal external interface Painter {
   val context: Context

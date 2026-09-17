@@ -78,8 +78,8 @@ block:
 Overlay content uses <Api of="MapOverlayScope" /> to position direct children.
 Controls are ordinary composables that read the enclosing map through
 <Api of="LocalMapState" />. <Api of="LocalViewport" /> exposes its current viewport,
-and <Api of="LocalCameraPadding" /> exposes its camera padding. These values remain
-available inside nested composables and layouts. A nested map provides its own context.
+and <Api of="LocalViewportInsets" /> exposes its viewport insets. These values
+remain available inside nested composables and layouts. A nested map provides its own context.
 
 ## Inset overlays and the camera
 
@@ -87,19 +87,20 @@ The overlay fills the map without implicit padding. Arrange custom controls with
 Compose layouts such as `Box`, `Row`, and `Column`, and apply padding and system
 insets to those layouts.
 
-The built-in presets use the larger of `cameraPadding` and safe-drawing insets on
+The built-in presets use the larger of `viewportInsets` and safe-drawing insets on
 each edge, then add <Api of="MapOverlay.Spacing" />. They consume padding and insets
 using Compose layout rules, accounting for safe areas handled by an outer layout.
 The padding takes effect without waiting for a map frame.
 
-`cameraPadding` also shifts the camera center. For custom controls that follow this
-padding, read <Api of="LocalCameraPadding" /> and apply it to their container.
+`viewportInsets` also shifts the camera center. For custom controls that follow this
+padding, read <Api of="LocalViewportInsets" /> and apply it to their container.
 
 <Code code={region(controls, "insets")} lang="kotlin" title="App.kt" />
 
 1. `union` takes the larger inset on each edge.
 
-Padding on a bounding-box camera move adds to `cameraPadding` for that fit.
+Camera padding frames the target inside these insets without moving controls.
+Padding on a bounding-box camera move adds a margin inside both for that fit.
 
 ## Pin Compose UI to a location
 

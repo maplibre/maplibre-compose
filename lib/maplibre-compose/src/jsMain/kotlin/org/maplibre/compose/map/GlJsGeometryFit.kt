@@ -4,14 +4,13 @@ import kotlin.math.PI
 import kotlin.math.atan
 import kotlin.math.cos
 import kotlin.math.exp
-import kotlin.math.ln
 import kotlin.math.log2
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.sin
-import kotlin.math.tan
 import org.maplibre.compose.gljs.PaddingOptions
+import org.maplibre.compose.util.mercatorY
 import org.maplibre.spatialk.geojson.Position
 
 /** A fitted center and zoom; bearing and tilt come from the request. */
@@ -90,7 +89,7 @@ private data class WorldPoint(val x: Double, val y: Double) {
 
 private fun project(position: Position, worldSize: Double): WorldPoint {
   val x = (180.0 + position.longitude) / 360.0
-  val y = (180.0 - (180.0 / PI) * ln(tan(PI / 4.0 + position.latitude * PI / 360.0))) / 360.0
+  val y = mercatorY(position.latitude)
   return WorldPoint(x * worldSize, y * worldSize)
 }
 

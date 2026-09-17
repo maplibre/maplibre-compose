@@ -69,6 +69,7 @@ import org.maplibre.compose.style.StyleImageDefinition
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.StyleResourceChanges
 import org.maplibre.compose.style.TransitionOptions
+import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -1749,7 +1750,8 @@ class MapPresentationTest {
             boundingBox: BoundingBox,
             bearing: Double,
             tilt: Double,
-            padding: PaddingValues,
+            cameraPadding: DpPadding?,
+            fitPadding: DpPadding,
           ): CameraPosition {
             state.releasePresentation(token, this)
             return CameraPosition(zoom = 5.0)
@@ -1759,7 +1761,8 @@ class MapPresentationTest {
             geometry: Geometry,
             bearing: Double,
             tilt: Double,
-            padding: PaddingValues,
+            cameraPadding: DpPadding?,
+            fitPadding: DpPadding,
           ): CameraPosition {
             state.releasePresentation(token, this)
             return CameraPosition(zoom = 5.0)
@@ -2301,7 +2304,8 @@ internal open class PresentationTestAdapter(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,
-    padding: PaddingValues,
+    cameraPadding: DpPadding?,
+    fitPadding: DpPadding,
     animation: CameraAnimation,
     guard: CameraCommandGuard?,
   ) = awaitCancellation()
@@ -2328,27 +2332,30 @@ internal open class PresentationTestAdapter(
 
   override fun stopCameraMovement(guard: CameraCommandGuard) = Unit
 
-  override fun setCameraPadding(padding: PaddingValues) = Unit
+  override fun setViewportInsets(insets: PaddingValues) = Unit
 
   override fun cameraForBounds(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,
-    padding: PaddingValues,
+    cameraPadding: DpPadding?,
+    fitPadding: DpPadding,
   ): CameraPosition = lastCameraPosition
 
   override fun cameraForGeometry(
     geometry: Geometry,
     bearing: Double,
     tilt: Double,
-    padding: PaddingValues,
+    cameraPadding: DpPadding?,
+    fitPadding: DpPadding,
   ): CameraPosition = lastCameraPosition
 
   override fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,
-    padding: PaddingValues,
+    cameraPadding: DpPadding?,
+    fitPadding: DpPadding,
     guard: CameraCommandGuard?,
   ) {
     boundsFit.complete(Unit)

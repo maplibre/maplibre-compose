@@ -2,7 +2,6 @@
 
 package org.maplibre.compose.docsnippets
 
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -15,6 +14,7 @@ import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
+import org.maplibre.compose.util.DpPadding
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
@@ -72,7 +72,7 @@ fun Camera() {
   LaunchedEffect(mapState) {
     mapState.animateCameraToBounds(
       boundingBox = BoundingBox(west = -123.0, south = 47.0, east = -122.0, north = 48.0),
-      padding = PaddingValues(32.dp),
+      fitPadding = DpPadding(left = 32.dp, top = 32.dp, right = 32.dp, bottom = 32.dp),
     )
   }
   // #endregion fit-bounds
@@ -82,7 +82,7 @@ fun Camera() {
     val camera =
       mapState.cameraForBounds(
         boundingBox = BoundingBox(west = -123.0, south = 47.0, east = -122.0, north = 48.0),
-        padding = PaddingValues(32.dp),
+        fitPadding = DpPadding(left = 32.dp, top = 32.dp, right = 32.dp, bottom = 32.dp),
       )
     mapState.animateCameraPosition(camera.copy(zoom = minOf(camera.zoom, 12.0)))
   }

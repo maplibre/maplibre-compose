@@ -66,7 +66,7 @@ class CarPlayMapHost(initialDark: Boolean) : AutoCloseable {
 
   fun updateInsets(top: Double, left: Double, bottom: Double, right: Double) {
     if (closed || presentation.failure != null) return
-    presentation.cameraPadding =
+    presentation.viewportInsets =
       PaddingValues.Absolute(
         left = left.toFloat().dp,
         top = top.toFloat().dp,

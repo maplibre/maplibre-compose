@@ -2,7 +2,6 @@
 
 package org.maplibre.compose.map
 
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -90,6 +89,7 @@ import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.scaledBy
 import org.maplibre.compose.style.systemAnimatorDurationScale
 import org.maplibre.compose.style.withScaledTransitions
+import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.compose.util.VisibleBounds
@@ -517,31 +517,41 @@ internal constructor(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,
-    padding: PaddingValues,
+    cameraPadding: DpPadding?,
+    fitPadding: DpPadding,
   ): CameraPosition = runLeaseBound {
     awaitViewportState()
-    adapter.cameraForBounds(boundingBox, bearing, tilt, padding)
+    adapter.cameraForBounds(boundingBox, bearing, tilt, cameraPadding, fitPadding)
   }
 
   suspend fun cameraForGeometry(
     geometry: Geometry,
     bearing: Double,
     tilt: Double,
-    padding: PaddingValues,
+    cameraPadding: DpPadding?,
+    fitPadding: DpPadding,
   ): CameraPosition = runLeaseBound {
     awaitViewportState()
-    adapter.cameraForGeometry(geometry, bearing, tilt, padding)
+    adapter.cameraForGeometry(geometry, bearing, tilt, cameraPadding, fitPadding)
   }
 
   suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
-    bearing: Double = 0.0,
-    tilt: Double = 0.0,
-    padding: PaddingValues = PaddingValues(0.dp),
-    guard: CameraCommandGuard? = null,
+    bearing: Double,
+    tilt: Double,
+    cameraPadding: DpPadding?,
+    fitPadding: DpPadding,
+    guard: CameraCommandGuard?,
   ): Unit = runLeaseBound {
     awaitViewportState()
-    adapter.fitCameraToBounds(boundingBox, bearing, tilt, padding, boundGuard(guard))
+    adapter.fitCameraToBounds(
+      boundingBox,
+      bearing,
+      tilt,
+      cameraPadding,
+      fitPadding,
+      boundGuard(guard),
+    )
   }
 
   suspend fun animateCameraPosition(
@@ -567,19 +577,21 @@ internal constructor(
 
   suspend fun animateCameraToBounds(
     boundingBox: BoundingBox,
-    bearing: Double = 0.0,
-    tilt: Double = 0.0,
-    padding: PaddingValues = PaddingValues(0.dp),
-    animation: CameraAnimation = CameraAnimation.Fly(),
-    guard: CameraCommandGuard? = null,
+    bearing: Double,
+    tilt: Double,
+    cameraPadding: DpPadding?,
+    fitPadding: DpPadding,
+    animation: CameraAnimation,
+    guard: CameraCommandGuard?,
   ): Unit = runLeaseBound {
     awaitViewportState()
-    val target = adapter.cameraForBounds(boundingBox, bearing, tilt, padding)
+    val target = adapter.cameraForBounds(boundingBox, bearing, tilt, cameraPadding, fitPadding)
     adapter.animateCameraToBounds(
       boundingBox,
       bearing,
       tilt,
-      padding,
+      cameraPadding,
+      fitPadding,
       animation.forPathTo(target),
       boundGuard(guard),
     )
@@ -823,6 +835,7 @@ internal constructor(
       )
     }
 
+  /** Current camera state. Padding excludes the presentation's viewport insets. */
   public val cameraPosition: CameraPosition
     get() = cameraPositionState
 
@@ -956,9 +969,11 @@ internal constructor(
    * Waits for a viewport, then calculates a camera for [boundingBox] without moving the map or
    * interrupting camera input or animations. Detaching the surface during the query cancels it.
    *
-   * [padding] adds space around the bounds in addition to the map's camera padding. It does not
-   * change the map's padding. The result uses the current viewport size and camera constraints;
-   * recalculate it if those or the map's padding change before applying it.
+   * [cameraPadding] sets the returned camera's padding; null retains the current padding.
+   * [fitPadding] adds a temporary margin inside the viewport insets and camera padding.
+   *
+   * The result uses the current viewport size, insets, and camera constraints. Recalculate it if
+   * those change before applying it.
    *
    * On the browser, fitting calculates the target and zoom without [tilt], then assigns [tilt] to
    * the result. A nonzero tilt may therefore leave part of the bounds outside the viewport.
@@ -969,8 +984,10 @@ internal constructor(
     boundingBox: BoundingBox,
     bearing: Double = 0.0,
     tilt: Double = 0.0,
-    padding: PaddingValues = PaddingValues(0.dp),
-  ): CameraPosition = awaitAttachment().cameraForBounds(boundingBox, bearing, tilt, padding)
+    cameraPadding: DpPadding? = null,
+    fitPadding: DpPadding = DpPadding.Zero,
+  ): CameraPosition =
+    awaitAttachment().cameraForBounds(boundingBox, bearing, tilt, cameraPadding, fitPadding)
 
   /**
    * Waits for a viewport, then calculates a camera that fits every position of [geometry] without
@@ -984,9 +1001,7 @@ internal constructor(
    * Positions are used as given. Express a route that crosses the antimeridian with continuous
    * longitudes, such as 179 followed by 181; the query does not unwrap longitudes itself.
    *
-   * [padding] adds space around the positions in addition to the map's camera padding. It does not
-   * change the map's padding. The result uses the current viewport size and camera constraints;
-   * recalculate it if those or the map's padding change before applying it.
+   * See [cameraForBounds] for padding and viewport semantics.
    *
    * On the browser, fitting calculates the target and zoom without [tilt], then assigns [tilt] to
    * the result. A nonzero tilt may therefore leave part of the geometry outside the viewport.
@@ -998,10 +1013,11 @@ internal constructor(
     geometry: Geometry,
     bearing: Double = 0.0,
     tilt: Double = 0.0,
-    padding: PaddingValues = PaddingValues(0.dp),
+    cameraPadding: DpPadding? = null,
+    fitPadding: DpPadding = DpPadding.Zero,
   ): CameraPosition {
     require(geometry.positions().any()) { "The geometry contains no positions" }
-    return awaitAttachment().cameraForGeometry(geometry, bearing, tilt, padding)
+    return awaitAttachment().cameraForGeometry(geometry, bearing, tilt, cameraPadding, fitPadding)
   }
 
   /**
@@ -1015,24 +1031,34 @@ internal constructor(
     coordinates: Collection<Position>,
     bearing: Double = 0.0,
     tilt: Double = 0.0,
-    padding: PaddingValues = PaddingValues(0.dp),
+    cameraPadding: DpPadding? = null,
+    fitPadding: DpPadding = DpPadding.Zero,
   ): CameraPosition {
     require(coordinates.isNotEmpty()) { "The coordinates are empty" }
-    return cameraForGeometry(MultiPoint(coordinates.toList()), bearing, tilt, padding)
+    return cameraForGeometry(
+      MultiPoint(coordinates.toList()),
+      bearing,
+      tilt,
+      cameraPadding,
+      fitPadding,
+    )
   }
 
   /**
    * Waits for a viewport, then fits [boundingBox] without animation. A newer camera command or
-   * accepted input cancels this call.
+   * accepted input cancels this call. See [cameraForBounds] for [fitPadding] and [cameraPadding].
    */
   public suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
     bearing: Double = 0.0,
     tilt: Double = 0.0,
-    padding: PaddingValues = PaddingValues(0.dp),
+    cameraPadding: DpPadding? = null,
+    fitPadding: DpPadding = DpPadding.Zero,
   ): Unit = coroutineScope {
     val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])
-    retryAcrossAttachments { it.fitCameraToBounds(boundingBox, bearing, tilt, padding, guard) }
+    retryAcrossAttachments {
+      it.fitCameraToBounds(boundingBox, bearing, tilt, cameraPadding, fitPadding, guard)
+    }
   }
 
   /**
@@ -1058,11 +1084,12 @@ internal constructor(
    * the anchor; this operation does not accept a destination target or a flight animation.
    *
    * Waits for an attached viewport. The anchor must resolve to a visible point on the map, or this
-   * call throws [IllegalArgumentException]. Persistent camera padding participates in projection
-   * and is not changed. Screen coordinates are relative to the full map, not its padded area.
+   * call throws [IllegalArgumentException]. Camera padding and viewport insets both affect the
+   * anchor's screen location and are retained during this move. Screen coordinates are relative to
+   * the full map, not its padded area.
    *
    * A newer camera command, accepted input, coroutine cancellation, a logical viewport resize,
-   * changed camera padding, or attachment loss cancels this call. It does not restart on another
+   * changed viewport insets, or attachment loss cancels this call. It does not restart on another
    * attachment. The camera remains where it was interrupted, subject to the new geometry.
    *
    * Anchor preservation applies to flat Mercator maps, including tilted cameras. Camera constraints
@@ -1097,7 +1124,8 @@ internal constructor(
 
   /**
    * Waits for a viewport, then moves the camera to fit [boundingBox] with [animation]. A newer
-   * camera command or accepted input cancels this call.
+   * camera command or accepted input cancels this call. See [cameraForBounds] for [fitPadding] and
+   * [cameraPadding].
    *
    * On Android, the system animator duration scale multiplies the duration of [animation]. A scale
    * of zero jumps to fit [boundingBox].
@@ -1106,7 +1134,8 @@ internal constructor(
     boundingBox: BoundingBox,
     bearing: Double = 0.0,
     tilt: Double = 0.0,
-    padding: PaddingValues = PaddingValues(0.dp),
+    cameraPadding: DpPadding? = null,
+    fitPadding: DpPadding = DpPadding.Zero,
     animation: CameraAnimation = CameraAnimation.Fly(),
   ): Unit = coroutineScope {
     val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])
@@ -1115,7 +1144,8 @@ internal constructor(
         boundingBox,
         bearing,
         tilt,
-        padding,
+        cameraPadding,
+        fitPadding,
         animation.scaledBy(systemAnimatorDurationScale()),
         guard,
       )
@@ -2081,11 +2111,21 @@ private fun mapStateSaver(
   Saver(
     save = { state ->
       with(state.cameraPosition) {
-        listOf(bearing, target.longitude, target.latitude, tilt, zoom)
+        listOf(
+          bearing,
+          target.longitude,
+          target.latitude,
+          tilt,
+          zoom,
+          padding.left.value.toDouble(),
+          padding.top.value.toDouble(),
+          padding.right.value.toDouble(),
+          padding.bottom.value.toDouble(),
+        )
       }
     },
     restore = { values ->
-      require(values.size == 5) { "A saved camera position must contain five values" }
+      require(values.size == 9) { "Invalid saved camera position" }
       runtime
         .createMapState(
           baseStyle = baseStyle,
@@ -2095,6 +2135,13 @@ private fun mapStateSaver(
               target = Position(longitude = values[1], latitude = values[2]),
               tilt = values[3],
               zoom = values[4],
+              padding =
+                DpPadding(
+                  values[5].dp,
+                  values[6].dp,
+                  values[7].dp,
+                  values[8].dp,
+                ),
             ),
           content = content,
         )
