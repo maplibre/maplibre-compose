@@ -99,8 +99,8 @@ public fun LocationIndicatorLayer(
  *
  * @param id Unique layer ID.
  * @param location Position of the indicator, or null to hide it. Altitude is not rendered.
- * @param bearing Direction clockwise from north, or null to hide the bearing image. Its first
- *   available value appears immediately.
+ * @param bearing Rotation of all three images clockwise from north. Null hides [bearingImage] and
+ *   resets the other images to zero rotation. Its first available value appears immediately.
  * @param accuracyRadius Horizontal error radius in meters, or null to hide the circle.
  * @param minZoom Minimum visible zoom, inclusive.
  * @param maxZoom Maximum visible zoom, exclusive.
@@ -109,7 +109,7 @@ public fun LocationIndicatorLayer(
  * @param accuracyRadiusBorderColor Border color of the horizontal accuracy circle.
  * @param topImage Top image, normally the dot. Null omits it. Images must resolve to constant
  *   names.
- * @param bearingImage Image below [topImage], rotated by [bearing]. Null omits it.
+ * @param bearingImage Image below [topImage]. Null omits it.
  * @param shadowImage Image below the other images. Null omits it.
  * @param topImageSize Scale of [topImage].
  * @param bearingImageSize Scale of [bearingImage].
