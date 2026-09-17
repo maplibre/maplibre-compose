@@ -48,8 +48,10 @@ internal class FeatureClickDispatcher(
       if (!valid()) return@ClickPath ClickResult.Consume
       val layerIds = style?.takeIf { nodes.isNotEmpty() && it.isLoaded }?.layerIds().orEmpty()
 
+      val dispatchedGroups = mutableSetOf<Any>()
       for (id in layerIds.asReversed()) {
         val node = nodes[id] ?: continue
+        if (node.clickGroup != null && node.clickGroup in dispatchedGroups) continue
         if (current(node)?.handler(family) == null) continue
 
         val offset = event.screenOffset
@@ -70,8 +72,10 @@ internal class FeatureClickDispatcher(
         // A query suspends: resolve the current handler again before entering app code.
         if (!valid()) return@ClickPath ClickResult.Consume
         val handler = current(node)?.handler(family) ?: continue
-        if (features.isNotEmpty() && handler(features).consumed)
-          return@ClickPath ClickResult.Consume
+        if (features.isNotEmpty()) {
+          node.clickGroup?.let { dispatchedGroups.add(it) }
+          if (handler(features).consumed) return@ClickPath ClickResult.Consume
+        }
         if (!valid()) return@ClickPath ClickResult.Consume
       }
 

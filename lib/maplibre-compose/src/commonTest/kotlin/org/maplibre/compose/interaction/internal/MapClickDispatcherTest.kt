@@ -238,6 +238,61 @@ class MapClickDispatcherTest {
     }
   }
 
+  @Test
+  fun grouped_layers_deliver_once_per_gesture_and_allow_fallthrough() = runTest {
+    for (family in
+      listOf(TapFamily.Tap, TapFamily.DoubleTap, TapFamily.LongPress, TapFamily.SecondaryClick)) {
+      Fixture().use { fixture ->
+        val calls = mutableListOf<String>()
+        val group = Any()
+        val nodes =
+          listOf("back", "front").map { id ->
+            val handler: FeaturesClickHandler = {
+              calls += id
+              ClickResult.Pass
+            }
+            fixture
+              .node(id, handler)
+              .copy(
+                onLongClick = handler,
+                onDoubleClick = handler,
+                clickGroup = group,
+              )
+          }
+        fixture.revision.value = DesiredStyleRevision(emptyList(), nodes, emptyList())
+        fixture.configure(
+          MapInteractions {
+            callbacks {
+              click {
+                onUnhandled {
+                  calls += "unhandled"
+                  ClickResult.Pass
+                }
+              }
+            }
+          }
+        )
+        repeat(2) {
+          assertEquals(
+            ClickResult.Pass,
+            fixture.dispatcher.capture(family)!!.deliver(fixture.event),
+          )
+        }
+        val expected =
+          if (family == TapFamily.Tap) listOf("front", "unhandled", "front", "unhandled")
+          else listOf("front", "front")
+        assertEquals(expected, calls)
+        calls.clear()
+        fixture.adapter.featureOffsets["front"] = DpOffset(100.dp, 100.dp)
+        fixture.dispatcher.capture(family)!!.deliver(fixture.event)
+        assertEquals(
+          if (family == TapFamily.Tap) listOf("back", "unhandled") else listOf("back"),
+          calls,
+        )
+      }
+    }
+  }
+
   private class Fixture : AutoCloseable {
     val runtime = mapRuntimeForTest()
     val state = runtime.createMapState(BaseStyle.Empty)

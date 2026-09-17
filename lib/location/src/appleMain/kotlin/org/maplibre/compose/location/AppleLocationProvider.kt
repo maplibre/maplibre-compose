@@ -113,6 +113,8 @@ internal constructor(
     }
 
     fun sendLocation(location: CLLocation) {
+      // Core Location marks the coordinates invalid with negative horizontal accuracy.
+      if (location.horizontalAccuracy < 0.0) return
       channel.trySend(
         AppleLocationCallback.Update(
           LocationEvent.Update(

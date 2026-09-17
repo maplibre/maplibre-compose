@@ -18,10 +18,10 @@ import org.maplibre.compose.demoapp.demos.demoLocationEngines
 import org.maplibre.compose.demoapp.design.ButtonRow
 import org.maplibre.compose.demoapp.design.SectionHeader
 import org.maplibre.compose.demoapp.design.SegmentedRow
+import org.maplibre.compose.layers.LocationIndicatorLayer
 import org.maplibre.compose.location.BearingUpdate
 import org.maplibre.compose.location.LocationBackendAvailability
 import org.maplibre.compose.location.LocationPermission
-import org.maplibre.compose.location.LocationPuck
 import org.maplibre.compose.location.LocationState
 import org.maplibre.compose.location.LocationTrackingEffect
 import org.maplibre.compose.location.LocationTrackingStatus
@@ -29,7 +29,7 @@ import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.compose.location.rememberSystemSettingsLauncher
 import org.maplibre.compose.location.updateCamera
 import org.maplibre.compose.map.LocalMapState
-import org.maplibre.compose.material3.LocationPuckDefaults
+import org.maplibre.compose.material3.LocationIndicatorDefaults
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.inDegrees
@@ -118,10 +118,14 @@ internal fun DemoLocationMapContent(location: DemoLocationUi, locationState: Loc
     }
   }
 
-  LocationPuck(
-    idPrefix = "user",
+  LocationIndicatorLayer(
+    id = "user",
     locationState = locationState,
-    colors = LocationPuckDefaults.colors(),
+    accuracyRadiusColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+    accuracyRadiusBorderColor = MaterialTheme.colorScheme.primary,
+    topImage = LocationIndicatorDefaults.topImage(),
+    bearingImage = LocationIndicatorDefaults.bearingImage(),
+    shadowImage = LocationIndicatorDefaults.shadowImage(),
   )
 }
 

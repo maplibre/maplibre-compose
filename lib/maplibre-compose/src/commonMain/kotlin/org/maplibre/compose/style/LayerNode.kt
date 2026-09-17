@@ -13,6 +13,8 @@ internal class LayerNode<T : Layer>(val layer: T, var anchor: Anchor) : MapNode 
 
   internal var onDoubleClick: FeaturesClickHandler? = null
 
+  internal var clickGroup: Any? = null
+
   internal var hitPadding: Dp = 0.dp
 
   override fun toString(): String {

@@ -7,12 +7,20 @@ import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.ImageValue
+import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.toStyleJson
 import org.maplibre.spatialk.geojson.Position
 
-internal class LocationIndicatorLayer(id: String) : Layer(id) {
+internal class NativeLocationIndicatorLayer(id: String) : Layer(id) {
 
   override val type: String = "location-indicator"
+
+  fun setLocationTransition(options: TransitionOptions) = setPaintTransition("location", options)
+
+  fun setBearingTransition(options: TransitionOptions) = setPaintTransition("bearing", options)
+
+  fun setAccuracyRadiusTransition(options: TransitionOptions) =
+    setPaintTransition("accuracy-radius", options)
 
   fun setTopImage(topImage: CompiledExpression<ImageValue?>) {
     setImageProperty("top-image", topImage)

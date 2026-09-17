@@ -6,8 +6,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.layers.LocationIndicatorLayer
 import org.maplibre.compose.location.LocationPermission
-import org.maplibre.compose.location.LocationPuck
 import org.maplibre.compose.location.LocationState
 import org.maplibre.compose.location.LocationTrackingEffect
 import org.maplibre.compose.location.rememberDefaultHeadingProvider
@@ -34,8 +34,8 @@ fun Location() {
   val mapState = rememberMapState {
     val mapState = checkNotNull(LocalMapState.current)
 
-    LocationPuck(
-      idPrefix = "user",
+    LocationIndicatorLayer(
+      id = "user",
       locationState = locationState,
     )
 
