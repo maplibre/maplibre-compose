@@ -30,7 +30,7 @@ class LocationIndicatorLayerTest {
       it.loadStyle(BaseStyle.Empty)
       val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
 
-      val layer = NativeLocationIndicatorLayer("indicator")
+      val layer = LocationIndicatorLayer("indicator")
       layer.setTopImage(image("top-icon").compile(ExpressionContext.None))
       layer.setBearingImage(image("bearing-icon").compile(ExpressionContext.None))
       layer.setShadowImage(image("shadow-icon").compile(ExpressionContext.None))

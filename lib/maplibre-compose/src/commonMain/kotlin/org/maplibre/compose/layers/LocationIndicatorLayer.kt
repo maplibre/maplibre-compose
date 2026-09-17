@@ -11,7 +11,7 @@ import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.toStyleJson
 import org.maplibre.spatialk.geojson.Position
 
-internal class NativeLocationIndicatorLayer(id: String) : Layer(id) {
+internal class LocationIndicatorLayer(id: String) : Layer(id) {
 
   override val type: String = "location-indicator"
 

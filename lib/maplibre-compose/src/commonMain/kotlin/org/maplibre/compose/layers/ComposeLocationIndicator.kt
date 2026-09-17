@@ -14,24 +14,11 @@ import org.maplibre.spatialk.units.extensions.inMeters
 
 @Composable
 @MaplibreComposable
-internal actual fun PlatformLocationIndicator(properties: LocationIndicatorProperties) {
+internal fun ComposeLocationIndicator(properties: LocationIndicatorProperties) {
   val id = properties.id
   val location = properties.location
   val bearing = properties.bearing
   val accuracyRadius = properties.accuracyRadius
-  val minZoom = properties.minZoom
-  val maxZoom = properties.maxZoom
-  val visible = properties.visible
-  val accuracyRadiusColor = properties.accuracyRadiusColor
-  val accuracyRadiusBorderColor = properties.accuracyRadiusBorderColor
-  val topImage = properties.topImage
-  val bearingImage = properties.bearingImage
-  val shadowImage = properties.shadowImage
-  val topImageSize = properties.topImageSize
-  val bearingImageSize = properties.bearingImageSize
-  val shadowImageSize = properties.shadowImageSize
-  val imageTiltDisplacement = properties.imageTiltDisplacement
-  val perspectiveCompensation = properties.perspectiveCompensation
   val locationTransition = properties.locationTransition
   val bearingTransition = properties.bearingTransition
   val accuracyRadiusTransition = properties.accuracyRadiusTransition
@@ -59,26 +46,26 @@ internal actual fun PlatformLocationIndicator(properties: LocationIndicatorPrope
   val compiledBearing =
     compile(const(bearing?.let { (it - Bearing.North).inDegrees.toFloat() } ?: 0f))
   val compiledAccuracyRadius = compile(const(accuracyRadius?.inMeters?.toFloat() ?: 0f))
-  val compiledAccuracyRadiusColor = compile(const(accuracyRadiusColor))
-  val compiledAccuracyRadiusBorderColor = compile(const(accuracyRadiusBorderColor))
-  val compiledTopImage = compile(topImage)
-  val compiledBearingImage = compile(bearingImage.takeIf { bearing != null })
-  val compiledShadowImage = compile(shadowImage)
-  val compiledTopImageSize = compile(const(topImageSize))
-  val compiledBearingImageSize = compile(const(bearingImageSize))
-  val compiledShadowImageSize = compile(const(shadowImageSize))
-  val compiledImageTiltDisplacement = compile(const(imageTiltDisplacement))
-  val compiledPerspectiveCompensation = compile(const(perspectiveCompensation))
+  val compiledAccuracyRadiusColor = compile(const(properties.accuracyRadiusColor))
+  val compiledAccuracyRadiusBorderColor = compile(const(properties.accuracyRadiusBorderColor))
+  val compiledTopImage = compile(properties.topImage)
+  val compiledBearingImage = compile(properties.bearingImage.takeIf { bearing != null })
+  val compiledShadowImage = compile(properties.shadowImage)
+  val compiledTopImageSize = compile(const(properties.topImageSize))
+  val compiledBearingImageSize = compile(const(properties.bearingImageSize))
+  val compiledShadowImageSize = compile(const(properties.shadowImageSize))
+  val compiledImageTiltDisplacement = compile(const(properties.imageTiltDisplacement))
+  val compiledPerspectiveCompensation = compile(const(properties.perspectiveCompensation))
 
   LayerNode(
-    factory = { NativeLocationIndicatorLayer(id = id) },
+    factory = { LocationIndicatorLayer(id = id) },
     update = {
       set(locationTransition) { layer.setLocationTransition(it) }
       set(bearingTiming) { layer.setBearingTransition(it) }
       set(accuracyTiming) { layer.setAccuracyRadiusTransition(it) }
-      set(minZoom) { layer.minZoom = it }
-      set(maxZoom) { layer.maxZoom = it }
-      set(visible) { layer.visible = it }
+      set(properties.minZoom) { layer.minZoom = it }
+      set(properties.maxZoom) { layer.maxZoom = it }
+      set(properties.visible) { layer.visible = it }
       set(compiledTopImage) { layer.setTopImage(it) }
       set(compiledBearingImage) { layer.setBearingImage(it) }
       set(compiledShadowImage) { layer.setShadowImage(it) }

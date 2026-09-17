@@ -42,6 +42,8 @@ internal external class MaplibreMap(options: MapOptions) {
 
   fun resize()
 
+  fun triggerRepaint()
+
   fun redraw()
 
   fun remove()
@@ -65,6 +67,10 @@ internal external class MaplibreMap(options: MapOptions) {
   fun isStyleLoaded(): Boolean
 
   fun isSourceLoaded(id: String): Boolean
+
+  fun getRenderWorldCopies(): Boolean
+
+  fun getImage(id: String): GlJsStyleImage?
 
   fun getCenter(): LngLat
 

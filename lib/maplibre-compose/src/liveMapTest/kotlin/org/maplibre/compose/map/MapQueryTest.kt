@@ -24,14 +24,19 @@ import org.maplibre.compose.expressions.dsl.Feature
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.eq
 import org.maplibre.compose.expressions.value.StringValue
+import org.maplibre.compose.layers.LocationIndicatorLayer
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.LayerPropertyKind
 import org.maplibre.compose.testing.MapFixture
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
+import org.maplibre.compose.testing.declare
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.spatialk.geojson.Feature as GeoJsonFeature
 import org.maplibre.spatialk.geojson.Geometry
+import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Position
+import org.maplibre.spatialk.units.Bearing
 
 class MapQueryTest {
 
@@ -218,6 +223,67 @@ class MapQueryTest {
       assertEquals("42", id.content)
     }
   }
+
+  @Test
+  fun location_indicator_queries_return_one_point_and_follow_visibility(): MapTestResult =
+    runMapTest {
+      createMapFixture().use { fixture ->
+        fixture.loadStyle(BaseStyle.Json(OVERLAPPING_FILL_STYLE))
+        fixture.awaitMapReady()
+        fixture.declare {
+          LocationIndicatorLayer(
+            id = "indicator",
+            location = Position(0.0, 0.0),
+            bearing = Bearing.North,
+          )
+        }
+        val style = assertNotNull(fixture.style)
+        suspend fun indicatorHits() =
+          fixture.state.queryRenderedFeatures(CENTER, setOf("indicator"))
+        fixture.pumpUntil("indicator and source features") {
+          fixture.state.queryRenderedFeatures(CENTER).size == 3
+        }
+        val hit = indicatorHits().single()
+        assertEquals(Position(0.0, 0.0), assertIs<Point>(hit.geometry).coordinates)
+        assertTrue(hit.properties.orEmpty().isEmpty())
+        assertEquals(
+          1,
+          fixture.state
+            .queryRenderedFeatures(DpRect(250.dp, 250.dp, 262.dp, 262.dp), setOf("indicator"))
+            .size,
+        )
+        assertTrue(
+          fixture.state.queryRenderedFeatures(DpOffset(20.dp, 20.dp), setOf("indicator")).isEmpty()
+        )
+        assertTrue(fixture.state.queryRenderedFeatures(CENTER, emptySet()).isEmpty())
+        // Native's dynamic feature index does not apply source-feature predicates to indicators.
+        assertIs<Point>(
+          fixture.state
+            .queryRenderedFeatures(
+              CENTER,
+              predicate = Feature["name"].cast<StringValue>() eq const("missing"),
+            )
+            .single()
+            .geometry
+        )
+        style.setLayerProperty(
+          "indicator",
+          "visibility",
+          JsonPrimitive("none"),
+          LayerPropertyKind.LAYOUT,
+        )
+        fixture.pumpUntil("hidden indicator") { indicatorHits().isEmpty() }
+        style.setLayerProperty(
+          "indicator",
+          "visibility",
+          JsonPrimitive("visible"),
+          LayerPropertyKind.LAYOUT,
+        )
+        fixture.pumpUntil("visible indicator") { indicatorHits().size == 1 }
+        style.removeLayer("indicator")
+        fixture.pumpUntil("removed indicator") { indicatorHits().isEmpty() }
+      }
+    }
 
   private companion object {
     /** The center of [MapFixture.DEFAULT_EXTENT], in the logical pixels a query takes. */
