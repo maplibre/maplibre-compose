@@ -27,8 +27,8 @@ import org.maplibre.spatialk.units.extensions.inMeters
  * provider status, share measurements with camera tracking, or supply a custom provider.
  *
  * Retained measurements remain visible when tracking stops. The layer does not apply stale styling
- * or an accuracy threshold. Use the value overload for other display policies. Rendering parameters
- * and platform limitations are the same as the [Position] overload.
+ * or an accuracy threshold. Use the value overload for other display policies. Other parameters
+ * behave as in the [Position] overload.
  */
 @Composable
 @MaplibreComposable
@@ -88,22 +88,15 @@ public fun LocationIndicatorLayer(
 /**
  * Draws a location dot, an optional bearing image, and a horizontal accuracy circle.
  *
- * Native platforms use MapLibre's source-free location-indicator renderer. Its paint transitions
- * animate position, bearing, and accuracy inside the engine. Bearings cross north by the short
- * path; longitude targets are unwrapped across the antimeridian. The first location appears
- * immediately. A null [location] removes the indicator and resets its history.
+ * The first location appears immediately; later measurements animate with the supplied transition
+ * options. Bearing and longitude changes take the shortest path across north and the antimeridian.
+ * A null [location] removes the indicator and resets its animation history.
  *
- * JS uses one source-free custom layer with retained image textures. It animates measurements
- * inside the renderer and projects images and the accuracy circle with GL JS's Mercator and globe
- * projection helpers. Its click handlers test the last rendered image quads. The indicator does not
- * produce GeoJSON features for [org.maplibre.compose.map.MapState.queryRenderedFeatures].
- *
- * Click handlers target the top and bearing images, excluding the shadow and accuracy circle. Each
- * gesture invokes its handler at most once, even when the images overlap. Return [ClickResult.Pass]
- * to continue to layers below or [ClickResult.Consume] to stop dispatch.
- *
- * There is no bearing-accuracy sector. This component does not request permissions, select a
- * provider, follow the camera, or change measurement state.
+ * Click handlers target the top and bearing image bounds, including transparent margins, but not
+ * the shadow or accuracy circle. Each gesture invokes its handler at most once, even when the
+ * images overlap. Return [ClickResult.Pass] to continue to layers below or [ClickResult.Consume] to
+ * stop dispatch. On JS, use these callbacks to detect indicator clicks; the indicator is not
+ * included in [org.maplibre.compose.map.MapState.queryRenderedFeatures] results.
  *
  * @param id Unique layer ID.
  * @param location Position of the indicator, or null to hide it. Altitude is not rendered.
@@ -125,7 +118,7 @@ public fun LocationIndicatorLayer(
  * @param imageTiltDisplacement Image displacement when pitched, in pixels.
  * @param perspectiveCompensation Perspective compensation: zero follows map perspective; one
  *   preserves screen size.
- * @param locationTransition Position transition timing. Zero duration applies immediately.
+ * @param locationTransition Duration and delay for position changes.
  * @param bearingTransition Bearing transition timing, defaulting to [locationTransition].
  * @param accuracyRadiusTransition Accuracy transition timing, defaulting to [locationTransition].
  * @param onClick Called when an indicator image is clicked.
