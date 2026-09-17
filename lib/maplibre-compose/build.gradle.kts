@@ -126,7 +126,7 @@ kotlin {
 
     jsMain.dependencies {
       implementation(libs.kotlin.wrappers.js)
-      implementation(libs.kotlin.wrappers.browser)
+      api(libs.kotlin.wrappers.browser)
       implementation(npm("maplibre-gl", libs.versions.maplibre.js.get()))
     }
 

@@ -97,7 +97,7 @@ internal fun GlJsMapSurface(
                   acquired != GlJsFrameTarget.UnsupportedSize && renderer.render(acquired, extent)
                 when (acquired) {
                   GlJsFrameTarget.NotReady -> surface.requestFrame()
-                  GlJsFrameTarget.Detached,
+                  GlJsFrameTarget.OwnCanvas,
                   GlJsFrameTarget.UnsupportedSize -> prepared = null
                   is GlJsFrameTarget.Composited -> {
                     if (rendered) prepared = acquired.target

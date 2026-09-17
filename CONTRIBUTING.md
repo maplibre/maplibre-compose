@@ -145,7 +145,8 @@ launch on iOS. Every other host has a task:
   `mise run android-emulator:boot --wear 36.1` starts
 - Desktop: `mise run demo:desktop`
 - Native macOS (Apple Silicon): `mise run demo:macos`
-- Web: `mise run demo:js`
+- Web: `mise run demo:js`; open `/?ferries` for the Compose HTML ferry departure
+  board
 - Desktop on the Nucleus Tao host instead of the AWT one:
   `mise run demo:desktop-nucleus`
 

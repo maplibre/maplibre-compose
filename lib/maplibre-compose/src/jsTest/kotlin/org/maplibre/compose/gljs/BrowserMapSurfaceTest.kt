@@ -53,7 +53,7 @@ class BrowserMapSurfaceTest {
               object : GlJsCompositor {
                 override fun acquire(extent: MapExtent): GlJsFrameTarget =
                   if (extent.width == 96) GlJsFrameTarget.UnsupportedSize
-                  else GlJsFrameTarget.Detached
+                  else GlJsFrameTarget.OwnCanvas
 
                 override fun close() = Unit
               }
