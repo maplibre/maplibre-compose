@@ -93,11 +93,10 @@ public fun LocationIndicatorLayer(
  * path; longitude targets are unwrapped across the antimeridian. The first location appears
  * immediately. A null [location] removes the indicator and resets its history.
  *
- * JS uses a GeoJSON point, circle, and symbol layers. Measurement updates apply immediately:
- * [locationTransition], [bearingTransition], and [accuracyRadiusTransition] are unsupported on JS.
- * [imageTiltDisplacement] and [perspectiveCompensation] are also unsupported on JS; its images
- * align with the map plane. The JS circle approximates meters using Mercator scale at the location
- * latitude; globe rendering is not supported.
+ * JS uses one source-free custom layer with retained image textures. It animates measurements
+ * inside the renderer and projects images and the accuracy circle with GL JS's Mercator and globe
+ * projection helpers. Its click handlers test the last rendered image quads. The indicator does not
+ * produce GeoJSON features for [org.maplibre.compose.map.MapState.queryRenderedFeatures].
  *
  * Click handlers target the top and bearing images, excluding the shadow and accuracy circle. Each
  * gesture invokes its handler at most once, even when the images overlap. Return [ClickResult.Pass]
@@ -106,8 +105,7 @@ public fun LocationIndicatorLayer(
  * There is no bearing-accuracy sector. This component does not request permissions, select a
  * provider, follow the camera, or change measurement state.
  *
- * @param id Unique indicator name. JS reserves the derived layer IDs `id-accuracy`, `id-shadow`,
- *   `id-bearing`, and `id-top`.
+ * @param id Unique layer ID.
  * @param location Position of the indicator, or null to hide it. Altitude is not rendered.
  * @param bearing Direction clockwise from north, or null to hide the bearing image. Its first
  *   available value appears immediately.
@@ -124,13 +122,12 @@ public fun LocationIndicatorLayer(
  * @param topImageSize Scale of [topImage].
  * @param bearingImageSize Scale of [bearingImage].
  * @param shadowImageSize Scale of [shadowImage].
- * @param imageTiltDisplacement Native image displacement when pitched, in pixels.
- * @param perspectiveCompensation Native perspective compensation: zero follows map perspective; one
+ * @param imageTiltDisplacement Image displacement when pitched, in pixels.
+ * @param perspectiveCompensation Perspective compensation: zero follows map perspective; one
  *   preserves screen size.
- * @param locationTransition Native position transition timing. Zero duration applies immediately.
- * @param bearingTransition Native bearing transition timing, defaulting to [locationTransition].
- * @param accuracyRadiusTransition Native accuracy transition timing, defaulting to
- *   [locationTransition].
+ * @param locationTransition Position transition timing. Zero duration applies immediately.
+ * @param bearingTransition Bearing transition timing, defaulting to [locationTransition].
+ * @param accuracyRadiusTransition Accuracy transition timing, defaulting to [locationTransition].
  * @param onClick Called when an indicator image is clicked.
  * @param onLongClick Called for a touch long press or secondary mouse click.
  * @param onDoubleClick Called for a double tap or double click.
@@ -174,7 +171,7 @@ public fun LocationIndicatorLayer(
   }
   if (location == null) return
   key(id) {
-    PlatformLocationIndicator(
+    ComposeLocationIndicator(
       LocationIndicatorProperties(
         id = id,
         location = location,
@@ -231,9 +228,5 @@ internal data class LocationIndicatorProperties(
   val onDoubleClick: (() -> ClickResult)?,
   val hitPadding: Dp,
 )
-
-@Composable
-@MaplibreComposable
-internal expect fun PlatformLocationIndicator(properties: LocationIndicatorProperties)
 
 internal fun (() -> ClickResult).asFeaturesClickHandler(): FeaturesClickHandler = { this() }

@@ -1174,7 +1174,9 @@ internal class GlJsMapSession(
   ): List<Feature<Geometry, JsonObject?>> =
     withMap(emptyList()) { map ->
       // GL JS errors on a layer id its style lacks, where Native ignores it.
-      val known = layerIds?.filter { map.getLayer(it) != null }
+      val known = layerIds?.filter {
+        map.getLayer(it)?.type?.let { type -> type != "custom" } == true
+      }
       if (known != null && known.isEmpty()) return@withMap emptyList()
       val options =
         unsafeJso<QueryRenderedFeaturesOptions> {

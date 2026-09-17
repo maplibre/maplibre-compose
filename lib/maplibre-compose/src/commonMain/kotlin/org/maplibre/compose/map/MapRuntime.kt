@@ -1201,7 +1201,8 @@ internal constructor(
    *
    * A geometry that crosses the antimeridian may come back split into pieces, with longitudes past
    * ±180° in either direction. When several world copies are visible, the same source feature can
-   * appear once per copy it occupies in the query area.
+   * appear once per copy it occupies in the query area. Source-free JS custom renderers, including
+   * location indicators, do not contribute features; use their layer click callbacks.
    */
   public suspend fun queryRenderedFeatures(
     offset: DpOffset,
@@ -1216,7 +1217,8 @@ internal constructor(
    *
    * A geometry that crosses the antimeridian may come back split into pieces, with longitudes past
    * ±180° in either direction. When several world copies are visible, the same source feature can
-   * appear once per copy it occupies in the query area.
+   * appear once per copy it occupies in the query area. Source-free JS custom renderers, including
+   * location indicators, do not contribute features; use their layer click callbacks.
    */
   public suspend fun queryRenderedFeatures(
     rect: DpRect,

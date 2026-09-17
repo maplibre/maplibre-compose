@@ -82,6 +82,9 @@ internal interface StyleBinding {
 
   fun layerIds(): List<String>
 
+  /** Null delegates to the engine feature query; custom renderers can test their drawn geometry. */
+  fun customLayerHitTest(id: String, rect: androidx.compose.ui.unit.DpRect): Boolean? = null
+
   /**
    * Every layer's [LayerSummary] keyed by ID, in stack order from bottom to top. A layer the engine
    * adds for its own use is omitted, as [getLayer] omits it. The default reads each layer

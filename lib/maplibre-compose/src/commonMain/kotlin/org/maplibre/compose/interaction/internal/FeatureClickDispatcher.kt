@@ -56,8 +56,15 @@ internal class FeatureClickDispatcher(
 
         val offset = event.screenOffset
         val padding = node.hitPadding
+        val customHit =
+          style?.customLayerHitTest(
+            node.definition.id,
+            DpRect(offset.x - padding, offset.y - padding, offset.x + padding, offset.y + padding),
+          )
         val features =
-          if (padding == 0.dp) attachment.queryRenderedFeatures(offset, setOf(node.definition.id))
+          if (customHit != null) emptyList()
+          else if (padding == 0.dp)
+            attachment.queryRenderedFeatures(offset, setOf(node.definition.id))
           else
             attachment.queryRenderedFeatures(
               DpRect(
@@ -72,7 +79,7 @@ internal class FeatureClickDispatcher(
         // A query suspends: resolve the current handler again before entering app code.
         if (!valid()) return@ClickPath ClickResult.Consume
         val handler = current(node)?.handler(family) ?: continue
-        if (features.isNotEmpty()) {
+        if (customHit == true || features.isNotEmpty()) {
           node.clickGroup?.let { dispatchedGroups.add(it) }
           if (handler(features).consumed) return@ClickPath ClickResult.Consume
         }

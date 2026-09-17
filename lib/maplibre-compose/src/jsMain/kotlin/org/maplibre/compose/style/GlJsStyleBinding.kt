@@ -14,6 +14,7 @@ import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import org.maplibre.compose.gljs.FilterSpecification
@@ -37,6 +38,8 @@ import org.maplibre.compose.gljs.TransitionSpecification
 import org.maplibre.compose.gljs.UpdateImageOptions
 import org.maplibre.compose.gljs.keys
 import org.maplibre.compose.gljs.subscribe
+import org.maplibre.compose.layers.GlJsLocationIndicator
+import org.maplibre.compose.layers.IndicatorImage
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.UnknownLayer
 import org.maplibre.compose.logging.MapLog
@@ -77,6 +80,11 @@ internal class GlJsStyleBinding(
   override val animatorDurationScale: Float
     get() = systemAnimatorDurationScale()
 
+  private val indicators = mutableMapOf<String, GlJsLocationIndicator>()
+  private val indicatorImages = mutableMapOf<String, IndicatorImage>()
+
+  internal fun indicator(id: String): GlJsLocationIndicator? = indicators[id]
+
   private var loaded = true
   private val customVectorAttachments = mutableMapOf<String, GlJsCustomVectorAttachment>()
 
@@ -108,12 +116,47 @@ internal class GlJsStyleBinding(
       lastError = event.error?.message
     }
 
+  // GL JS serializes only JSON layers when recovering a lost context. Retain custom layer
+  // positions before it destroys the style, then reattach them after the restored style loads.
+  private var layerOrder = map.getLayersOrder().toList()
+  private var restoringContext = false
+  private val orderChanges =
+    map.subscribe("styledata") {
+      if (!restoringContext && map.asDynamic().style != null)
+        layerOrder = map.getLayersOrder().toList()
+    }
+  private val contextLost = map.subscribe("webglcontextlost") { restoringContext = true }
+  private val contextStyleLoaded =
+    map.subscribe("style.load") {
+      if (restoringContext && loaded) {
+        restoringContext = false
+        val order = layerOrder
+        var before: String? = null
+        for (id in order.asReversed()) {
+          val renderer = indicators[id]
+          if (renderer != null && map.getLayer(id) == null) {
+            if (before == null) map.addLayer(renderer.layer)
+            else map.addLayer(renderer.layer, before)
+          }
+          if (map.getLayer(id) != null) before = id
+        }
+        layerOrder = map.getLayersOrder().toList()
+        map.triggerRepaint()
+      }
+    }
+
   override val isLoaded: Boolean
     get() = loaded
 
   override fun invalidate() {
     if (!loaded) return
     loaded = false
+    indicators.values.forEach { it.close() }
+    indicators.clear()
+    indicatorImages.clear()
+    orderChanges.cancel()
+    contextLost.cancel()
+    contextStyleLoaded.cancel()
     errors.cancel()
     lightErrors.cancel()
     skyErrors.cancel()
@@ -159,11 +202,15 @@ internal class GlJsStyleBinding(
     mutate("add image '$id'") {
       if (map.hasImage(id)) map.removeImage(id)
       map.addImage(id, pixels, metadata)
+      indicatorImages[id] = IndicatorImage(pixels, scale.toDouble())
+      indicators.values.forEach { it.resourceChanged() }
     }
   }
 
   override fun removeImage(id: String) {
     requireLoaded()
+    indicatorImages.remove(id)
+    indicators.values.forEach { it.resourceChanged() }
     mutate("remove image '$id'") {
       if (map.hasImage(id)) map.removeImage(id)
     }
@@ -191,12 +238,23 @@ internal class GlJsStyleBinding(
 
   override fun getLayer(id: String): Layer? {
     requireLoaded()
+    indicators[id]?.let {
+      return UnknownLayer(id, it.definition)
+    }
     return map.getLayer(id)?.let(::reconstructLayer)
   }
 
+  override fun customLayerHitTest(id: String, rect: androidx.compose.ui.unit.DpRect): Boolean? =
+    indicators[id]?.hitTest(
+      rect.left.value.toDouble(),
+      rect.top.value.toDouble(),
+      rect.right.value.toDouble(),
+      rect.bottom.value.toDouble(),
+    )
+
   override fun layerIds(): List<String> {
     requireLoaded()
-    return map.getLayersOrder().toList()
+    return if (restoringContext) layerOrder else map.getLayersOrder().toList()
   }
 
   override fun layerSummaries(): Map<String, LayerSummary> {
@@ -204,7 +262,14 @@ internal class GlJsStyleBinding(
     return map
       .getLayersOrder()
       .mapNotNull { id ->
-        map.getLayer(id)?.let { id to LayerSummary(it.type, it.source, it.sourceLayer) }
+        map.getLayer(id)?.let {
+          id to
+            LayerSummary(
+              if (id in indicators) "location-indicator" else it.type,
+              it.source,
+              it.sourceLayer,
+            )
+        }
       }
       .toMap()
   }
@@ -494,10 +559,24 @@ internal class GlJsStyleBinding(
   override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean {
     requireLoaded()
     mutate("add layer") {
-      val spec = layer.toJsValue<LayerSpecification>()
+      val id = layer.getValue("id").jsonPrimitive.content
+      val renderer =
+        if (layer["type"]?.jsonPrimitive?.content == "location-indicator")
+          GlJsLocationIndicator(layer, map) { imageId ->
+            indicatorImages[imageId]
+              ?: map.getImage(imageId)?.let { sprite ->
+                IndicatorImage(sprite.data, sprite.pixelRatio).also {
+                  indicatorImages[imageId] = it
+                }
+              }
+          }
+        else null
+      val spec = renderer?.layer ?: layer.toJsValue<LayerSpecification>()
       // MapLibre reads an absent `beforeId` as "on top"; an empty string is a layer id it will not
       // find.
       if (beforeLayerId.isEmpty()) map.addLayer(spec) else map.addLayer(spec, beforeLayerId)
+      if (renderer != null) indicators[id] = renderer
+      layerOrder = map.getLayersOrder().toList()
     }
     return true
   }
@@ -505,11 +584,14 @@ internal class GlJsStyleBinding(
   override fun removeLayer(layerId: String) {
     requireLoaded()
     map.removeLayer(layerId)
+    indicators.remove(layerId)?.close()
+    layerOrder = map.getLayersOrder().toList()
   }
 
   override fun moveLayer(layerId: String, beforeLayerId: String) {
     requireLoaded()
     if (beforeLayerId.isEmpty()) map.moveLayer(layerId) else map.moveLayer(layerId, beforeLayerId)
+    layerOrder = map.getLayersOrder().toList()
   }
 
   override fun setLayerProperty(
@@ -519,6 +601,10 @@ internal class GlJsStyleBinding(
     kind: LayerPropertyKind,
   ) {
     requireLoaded()
+    indicators[layerId]?.let {
+      it.update(name, value, kind)
+      return
+    }
     val js = value.toJsValue<Any?>()
     mutate("set '$name' on layer '$layerId'") {
       when (kind) {
@@ -557,6 +643,9 @@ internal class GlJsStyleBinding(
    */
   override suspend fun layerProperty(layerId: String, name: String): JsonElement? {
     requireLoaded()
+    indicators[layerId]?.let {
+      return it.propertyValue(name)
+    }
     val layer = map.getLayer(layerId) ?: return null
     val root =
       when (name) {
