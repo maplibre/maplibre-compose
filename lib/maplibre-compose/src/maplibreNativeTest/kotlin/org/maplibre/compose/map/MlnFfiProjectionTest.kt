@@ -39,30 +39,37 @@ class MlnFfiProjectionTest {
         fixture.captureFrameProjection().use { projection ->
           projection.present(MlnFfiMapDestination(0, 0, 200, 200), 1.0)
           val initial =
-            assertNotNull(fixture.session.screenLocationFromPosition(ROTATED_CAMERA.target))
+            assertNotNull(fixture.session.overlayScreenLocationFromPosition(ROTATED_CAMERA.target))
           assertTrue(initial.isNear(DpOffset(100.dp, 100.dp)))
 
-          fixture.session.setCameraPosition(START_CAMERA)
+          val movedCamera = START_CAMERA.copy(target = Position(25.0, 40.0))
+          fixture.session.setCameraPosition(movedCamera)
           fixture.pumpUntil("the live camera to advance") {
             abs(fixture.session.getCameraPosition().bearing - START_CAMERA.bearing) < 0.01
           }
-          assertEquals(initial, fixture.session.screenLocationFromPosition(ROTATED_CAMERA.target))
+          assertEquals(
+            initial,
+            fixture.session.overlayScreenLocationFromPosition(ROTATED_CAMERA.target),
+          )
+          assertTrue(
+            !fixture.session.screenLocationFromPosition(ROTATED_CAMERA.target).isNear(initial)
+          )
 
           // A retained 200px texture centered in a 300px surface at density 2.
           projection.present(MlnFfiMapDestination(50, 50, 200, 200), 2.0)
           val expected = DpOffset(75.dp, 75.dp)
           assertTrue(
-            fixture.session.screenLocationFromPosition(ROTATED_CAMERA.target).isNear(expected)
+            fixture.session
+              .overlayScreenLocationFromPosition(ROTATED_CAMERA.target)
+              .isNear(expected)
           )
-          val roundTrip = fixture.session.positionFromScreenLocation(expected)
-          assertNotNull(roundTrip)
-          assertTrue(fixture.session.screenLocationFromPosition(roundTrip).isNear(expected))
+          assertTrue(fixture.session.screenLocationFromPosition(movedCamera.target).isNear(initial))
           Snapshot.takeSnapshot()
         }
       try {
         // A Compose snapshot can outlive the frame whose handle has just been closed.
         oldSnapshot.enter {
-          assertNotNull(fixture.session.screenLocationFromPosition(START_CAMERA.target))
+          assertNotNull(fixture.session.overlayScreenLocationFromPosition(START_CAMERA.target))
         }
       } finally {
         oldSnapshot.dispose()

@@ -70,6 +70,7 @@ internal fun MlnFfiMapSurface(
     }
 
     onDispose {
+      drawState.clearPresentation()
       if (host != null) {
         // Drop render-session references before the host frees its targets.
         runCatching { renderer.onSurfaceLost() }
@@ -117,9 +118,14 @@ internal fun MlnFfiMapSurface(
                 val anchor = renderer.presentationAnchor(frame.extent)
                 if (result == MlnFfiFrameResult.RENDERED) {
                   val projection = renderer.captureFrameProjection(frame.extent)
-                  val renderedAnchor = projection?.anchor ?: anchor
-                  drawState.recordPresentationAnchor(frame.extent, renderedAnchor)
-                  MlnFfiMapCompletedPresentation(frame.target, renderedAnchor, projection)
+                  try {
+                    val renderedAnchor = projection?.anchor ?: anchor
+                    drawState.recordPresentationAnchor(frame.extent, renderedAnchor)
+                    MlnFfiMapCompletedPresentation(frame.target, renderedAnchor, projection)
+                  } catch (error: Throwable) {
+                    projection?.close()
+                    throw error
+                  }
                 } else {
                   drawState.recordResizedPresentationAnchor(frame.extent, anchor)
                   null
@@ -206,6 +212,7 @@ private fun recoverFromFrameFailure(
   error: Throwable,
   logger: MapLog?,
 ): Boolean {
+  drawState.clearPresentation()
   if (error !is MlnFfiRecoverableFrameException) {
     logger?.e(error) { "Map frame $frameId failed with an unrecoverable error" }
     return false
@@ -223,8 +230,6 @@ private fun recoverFromFrameFailure(
     "Map frame $frameId failed; rebuilding the render session " +
       "(attempt $attempt of $MAX_FRAME_RECOVERY_ATTEMPTS)"
   }
-  drawState.lastCompletedPresentation?.projection?.close()
-  drawState.lastCompletedPresentation = null
   try {
     renderer.onSurfaceLost()
   } catch (releaseError: Throwable) {
@@ -270,9 +275,14 @@ private class MlnFfiMapDrawState {
     runCatching { renderer.close() }.onFailure { logger?.e(it) { "Map renderer failed to close" } }
   }
 
-  fun reset() {
-    lastCompletedPresentation?.projection?.close()
+  fun clearPresentation() {
+    val previous = lastCompletedPresentation
     lastCompletedPresentation = null
+    previous?.projection?.close()
+  }
+
+  fun reset() {
+    clearPresentation()
     configuredExtent = MapExtent.Empty
     presentationExtent = MapExtent.Empty
     currentPresentationAnchor = null

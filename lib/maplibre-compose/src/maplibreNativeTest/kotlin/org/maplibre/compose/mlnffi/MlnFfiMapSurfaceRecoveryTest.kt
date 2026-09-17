@@ -21,6 +21,56 @@ import org.maplibre.compose.map.MapExtent
 class MlnFfiMapSurfaceRecoveryTest {
 
   @Test
+  fun failed_completion_closes_both_the_candidate_and_the_retained_projection() =
+    runFfiComposeUiTest {
+      val renderer = RecordingRenderer()
+      val factory = FakeMlnFfiMapHostFactory()
+      val host = (factory.create(factory.bridges.single()) as MlnFfiMapHostResult.Created).host
+      var failCompletion = false
+      var created = 0
+      val closed = mutableListOf<Int>()
+      val projectingRenderer =
+        object : MlnFfiMapRenderer by renderer {
+          override fun captureFrameProjection(extent: MapExtent): MlnFfiMapFrameProjection {
+            val id = ++created
+            return object : MlnFfiMapFrameProjection {
+              override val anchor = extent.centerPresentationAnchor()
+
+              override fun present(destination: MlnFfiMapDestination, scaleFactor: Double) {}
+
+              override fun close() {
+                closed += id
+              }
+            }
+          }
+        }
+      val failingHost =
+        object : MlnFfiMapHost by host {
+          override fun completeProducerAccess(frame: MlnFfiMapFrame) {
+            check(!failCompletion) { "deliberate completion failure" }
+            host.completeProducerAccess(frame)
+          }
+        }
+      val show = mutableStateOf(true)
+      val result = MlnFfiMapHostResult.Created(failingHost)
+      setContent {
+        if (show.value) MlnFfiMapSurface(projectingRenderer, result, Modifier.size(64.dp))
+      }
+      waitUntil(timeoutMillis = TIMEOUT_MILLIS) { created > 0 }
+      waitForIdle()
+      assertEquals(created - 1, closed.size)
+      failCompletion = true
+      renderer.requestFrame()
+      waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.closeCount == 1 }
+      waitForIdle()
+      assertEquals((1..created).toSet(), closed.toSet())
+      assertEquals(created, closed.size)
+      show.value = false
+      waitForIdle()
+      assertEquals(created, closed.size)
+    }
+
+  @Test
   fun preparation_publishes_before_overlay_placement_and_retains_skipped_projections() =
     runFfiComposeUiTest {
       val renderer = RecordingRenderer()

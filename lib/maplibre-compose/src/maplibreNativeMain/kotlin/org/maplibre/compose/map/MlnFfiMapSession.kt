@@ -460,18 +460,11 @@ internal class MlnFfiMapSession(
         ((point.x.value * frame.extent.scaleFactor + destination.left) / scaleFactor).dp,
         ((point.y.value * frame.extent.scaleFactor + destination.top) / scaleFactor).dp,
       )
-
-    fun fromScreen(point: DpOffset): DpOffset =
-      DpOffset(
-        ((point.x.value * scaleFactor - destination.left) / frame.extent.scaleFactor).dp,
-        ((point.y.value * scaleFactor - destination.top) / frame.extent.scaleFactor).dp,
-      )
   }
 
   private inner class FrameProjection(
     val extent: MapExtent,
     val projection: MapProjectionHandle,
-    val wrappedProjection: MapProjectionHandle?,
   ) : MlnFfiMapFrameProjection {
     override val anchor: MlnFfiMapPresentationAnchor
       get() {
@@ -494,24 +487,14 @@ internal class MlnFfiMapSession(
       projectionLock.withLock {
         if (presentedProjection?.frame === this) publishProjection(null)
         projection.close()
-        wrappedProjection?.close()
       }
     }
   }
 
   override fun captureFrameProjection(extent: MapExtent): MlnFfiMapFrameProjection {
     val session = checkNotNull(renderSession)
-    val projection = session.createProjection()
-    try {
-      val wrapped =
-        if (checkNotNull(projection.camera.center).longitude !in -180.0..<180.0) {
-          session.createProjection().normalizeWrappedCenter()
-        } else null
-      return FrameProjection(extent, projection, wrapped)
-    } catch (error: Throwable) {
-      projection.close()
-      throw error
-    }
+    val projection = session.createProjection().normalizeWrappedCenter()
+    return FrameProjection(extent, projection)
   }
 
   override fun presentationAnchor(extent: MapExtent): MlnFfiMapPresentationAnchor {
@@ -1891,22 +1874,13 @@ internal class MlnFfiMapSession(
   }
 
   override fun positionFromScreenLocation(offset: DpOffset): Position? = projectionLock.withLock {
-    presentationRevision.longValue
-    val presented = presentedProjection
-    val projection =
-      presented?.frame?.projection ?: mirroredViewport.projection ?: return@withLock null
-    projection
-      .latLngForPixelUnwrapped((presented?.fromScreen(offset) ?: offset).toScreenPoint())
-      .toPosition()
+    mirroredViewport.projection?.latLngForPixelUnwrapped(offset.toScreenPoint())?.toPosition()
   }
 
   override fun boxZoomFit(rect: DpRect): BoxZoomFit? = projectionLock.withLock {
-    presentationRevision.longValue
-    val presented = presentedProjection
-    val projection =
-      presented?.frame?.projection ?: mirroredViewport.projection ?: return@withLock null
-    boxZoomFit(rect, projection.camera.toCameraPosition()) {
-      projection.latLngForPixel((presented?.fromScreen(it) ?: it).toScreenPoint()).toPosition()
+    val projection = mirroredViewport.projection ?: return@withLock null
+    boxZoomFit(rect, mirroredViewport.camera) {
+      projection.latLngForPixel(it.toScreenPoint()).toPosition()
     }
   }
 
@@ -1925,17 +1899,24 @@ internal class MlnFfiMapSession(
   }
 
   override fun screenLocationFromPosition(position: Position): DpOffset? = projectionLock.withLock {
-    presentationRevision.longValue
-    val presented = presentedProjection
     val snapshot = mirroredViewport
-    val projection =
-      presented?.frame?.let { it.wrappedProjection ?: it.projection }
-        ?: snapshot.wrappedProjection
-        ?: snapshot.projection
-        ?: return@withLock null
-    val point = projection.pixelForLatLng(position.toLatLng()).toDpOffset()
-    presented?.toScreen(point) ?: point
+    val projection = snapshot.wrappedProjection ?: snapshot.projection ?: return@withLock null
+    projection.pixelForLatLng(position.toLatLng()).toDpOffset()
   }
+
+  override fun overlayScreenLocationFromPosition(position: Position): DpOffset? =
+    projectionLock.withLock {
+      presentationRevision.longValue
+      val presented = presentedProjection
+      val snapshot = mirroredViewport
+      val projection =
+        presented?.frame?.projection
+          ?: snapshot.wrappedProjection
+          ?: snapshot.projection
+          ?: return@withLock null
+      val point = projection.pixelForLatLng(position.toLatLng()).toDpOffset()
+      presented?.toScreen(point) ?: point
+    }
 
   /**
    * Native projects against a wrapped center, but anchored moves can leave the transform in another

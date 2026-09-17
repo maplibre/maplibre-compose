@@ -26,15 +26,18 @@ on success, failure, recovery, or disposal, closing its projection exactly once.
 A failure while completing GPU access must also close the unpublished candidate.
 
 Live viewport observations, camera commands, and map queries keep the live-map
-projection where appropriate. Desktop screen conversion follows the presented
-image while one is available. No public snapshot or compatibility API is added.
+projection where appropriate. Only internal overlay conversion follows the
+presented image while one is available. Public coordinate conversions remain
+live, matching the browser implementation. No public snapshot or compatibility
+API is added.
 
 Android uses a dedicated renderer and an independently presented surface buffer
-queue. iOS uses a Metal surface driven by its display controller. Merely copying
-a projection after those render calls would not synchronize their presentation
-with Compose overlays. Preserve those paths; this change establishes desktop
-texture/overlay synchronization, including the native macOS desktop host, not
-atomic mobile surface presentation.
+queue. iOS and Kotlin/Native macOS use a Metal surface driven by the Apple
+controller. Merely copying a projection after those render calls would not
+synchronize their presentation with Compose overlays. Preserve those paths; this
+change establishes desktop texture/overlay synchronization, on JVM desktop
+hosts, not atomic presentation with independently composited Android or Apple
+surfaces.
 
 ## Integration and validation
 
