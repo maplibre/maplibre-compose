@@ -39,6 +39,33 @@ import org.maplibre.spatialk.geojson.Position
 class MapCameraTransitionTest {
 
   @Test
+  fun polar_bounds_fit_like_their_mercator_clamped_bounds(): MapTestResult = runMapTest {
+    createMapFixture().use { fixture ->
+      fixture.startAt(START)
+      val latitudeLimit = 85.0511287798066
+      for (bounds in
+        listOf(
+          BoundingBox(west = -180.0, south = -90.0, east = 180.0, north = 90.0),
+          BoundingBox(west = -20.0, south = 70.0, east = 20.0, north = 90.0),
+          BoundingBox(west = -20.0, south = -90.0, east = 20.0, north = -70.0),
+        )) {
+        val clamped =
+          BoundingBox(
+            west = bounds.west,
+            south = bounds.south.coerceIn(-latitudeLimit, latitudeLimit),
+            east = bounds.east,
+            north = bounds.north.coerceIn(-latitudeLimit, latitudeLimit),
+          )
+        val padding = DpPadding(left = 20.dp, bottom = 30.dp)
+        val expected = fixture.state.cameraForBounds(clamped, cameraPadding = padding)
+        val actual = fixture.state.cameraForBounds(bounds, cameraPadding = padding)
+        assertSameFit(expected, actual, "polar bounds $bounds")
+        assertEquals(padding, actual.padding)
+      }
+    }
+  }
+
+  @Test
   fun camera_padding_and_viewport_insets_have_independent_ownership(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       val padding = DpPadding(left = 20.dp, bottom = 80.dp)

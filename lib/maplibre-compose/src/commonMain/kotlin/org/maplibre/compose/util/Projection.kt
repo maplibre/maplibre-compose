@@ -50,7 +50,7 @@ internal fun mercatorPixelDistance(zoom: Double, from: Position, to: Position): 
 }
 
 /** The Web Mercator y of [latitude] as a fraction of the world, from 0 at the north edge. */
-private fun mercatorY(latitude: Double): Double {
+internal fun mercatorY(latitude: Double): Double {
   val clamped = latitude.coerceIn(-MERCATOR_MAX_LATITUDE, MERCATOR_MAX_LATITUDE)
   return 0.5 - ln(tan(PI / 4.0 + clamped * PI / 360.0)) / (2.0 * PI)
 }
