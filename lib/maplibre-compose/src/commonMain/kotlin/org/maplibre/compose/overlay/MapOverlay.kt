@@ -30,9 +30,8 @@ import org.maplibre.compose.map.LocalViewport
 import org.maplibre.compose.map.MapState
 
 /**
- * Layout-owned viewport insets of the enclosing map presentation, available to its overlay content
- * without waiting for a rendered frame. Excludes app-controlled camera padding. Zero outside an
- * overlay.
+ * Viewport insets of the enclosing map presentation, available to its overlay content without
+ * waiting for a rendered frame. Zero outside an overlay.
  */
 public val LocalViewportInsets: ProvidableCompositionLocal<PaddingValues> = compositionLocalOf {
   PaddingValues(0.dp)

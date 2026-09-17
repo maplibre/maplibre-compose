@@ -2,7 +2,6 @@
 
 package org.maplibre.compose.map
 
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -519,7 +518,7 @@ internal constructor(
     bearing: Double,
     tilt: Double,
     cameraPadding: DpPadding?,
-    fitPadding: PaddingValues,
+    fitPadding: DpPadding,
   ): CameraPosition = runLeaseBound {
     awaitViewportState()
     adapter.cameraForBounds(boundingBox, bearing, tilt, cameraPadding, fitPadding)
@@ -530,7 +529,7 @@ internal constructor(
     bearing: Double,
     tilt: Double,
     cameraPadding: DpPadding?,
-    fitPadding: PaddingValues,
+    fitPadding: DpPadding,
   ): CameraPosition = runLeaseBound {
     awaitViewportState()
     adapter.cameraForGeometry(geometry, bearing, tilt, cameraPadding, fitPadding)
@@ -541,7 +540,7 @@ internal constructor(
     bearing: Double,
     tilt: Double,
     cameraPadding: DpPadding?,
-    fitPadding: PaddingValues,
+    fitPadding: DpPadding,
     guard: CameraCommandGuard?,
   ): Unit = runLeaseBound {
     awaitViewportState()
@@ -581,7 +580,7 @@ internal constructor(
     bearing: Double,
     tilt: Double,
     cameraPadding: DpPadding?,
-    fitPadding: PaddingValues,
+    fitPadding: DpPadding,
     animation: CameraAnimation,
     guard: CameraCommandGuard?,
   ): Unit = runLeaseBound {
@@ -836,10 +835,7 @@ internal constructor(
       )
     }
 
-  /**
-   * The retained camera position, updated as the backend reports camera changes. Its padding
-   * excludes the attached presentation's viewport insets.
-   */
+  /** Current camera state. Padding excludes the presentation's viewport insets. */
   public val cameraPosition: CameraPosition
     get() = cameraPositionState
 
@@ -928,8 +924,6 @@ internal constructor(
 
   /**
    * Sets the durable camera position and applies it to the current surface when one is attached.
-   * Replaces every camera field, including padding. The presentation's viewport insets are added
-   * when applying the position and remain separate from [cameraPosition].
    */
   public fun setCameraPosition(position: CameraPosition) {
     val guard = gestureAuthority.beginProgrammatic()
@@ -975,11 +969,8 @@ internal constructor(
    * Waits for a viewport, then calculates a camera for [boundingBox] without moving the map or
    * interrupting camera input or animations. Detaching the surface during the query cancels it.
    *
-   * [cameraPadding] specifies the destination camera padding, or uses the current padding when
-   * null. The result includes that padding, excluding viewport insets; the live camera is
-   * unchanged. Pass [DpPadding.Zero] to clear camera padding. [fitPadding] adds a temporary margin
-   * inside the viewport insets and destination camera padding; it is not stored in the result.
-   * [bearing] and [tilt] specify the destination orientation and default to north-up and untilted.
+   * [cameraPadding] sets the returned camera's padding; null retains the current padding.
+   * [fitPadding] adds a temporary margin inside the viewport insets and camera padding.
    *
    * The result uses the current viewport size, insets, and camera constraints. Recalculate it if
    * those change before applying it.
@@ -994,7 +985,7 @@ internal constructor(
     bearing: Double = 0.0,
     tilt: Double = 0.0,
     cameraPadding: DpPadding? = null,
-    fitPadding: PaddingValues = PaddingValues(0.dp),
+    fitPadding: DpPadding = DpPadding.Zero,
   ): CameraPosition =
     awaitAttachment().cameraForBounds(boundingBox, bearing, tilt, cameraPadding, fitPadding)
 
@@ -1010,14 +1001,7 @@ internal constructor(
    * Positions are used as given. Express a route that crosses the antimeridian with continuous
    * longitudes, such as 179 followed by 181; the query does not unwrap longitudes itself.
    *
-   * [cameraPadding] specifies the destination camera padding, or uses the current padding when
-   * null. The result includes that padding, excluding viewport insets; the live camera is
-   * unchanged. Pass [DpPadding.Zero] to clear camera padding. [fitPadding] adds a temporary margin
-   * inside the viewport insets and destination camera padding; it is not stored in the result.
-   * [bearing] and [tilt] specify the destination orientation and default to north-up and untilted.
-   *
-   * The result uses the current viewport size, insets, and camera constraints. Recalculate it if
-   * those change before applying it.
+   * See [cameraForBounds] for padding and viewport semantics.
    *
    * On the browser, fitting calculates the target and zoom without [tilt], then assigns [tilt] to
    * the result. A nonzero tilt may therefore leave part of the geometry outside the viewport.
@@ -1030,7 +1014,7 @@ internal constructor(
     bearing: Double = 0.0,
     tilt: Double = 0.0,
     cameraPadding: DpPadding? = null,
-    fitPadding: PaddingValues = PaddingValues(0.dp),
+    fitPadding: DpPadding = DpPadding.Zero,
   ): CameraPosition {
     require(geometry.positions().any()) { "The geometry contains no positions" }
     return awaitAttachment().cameraForGeometry(geometry, bearing, tilt, cameraPadding, fitPadding)
@@ -1048,7 +1032,7 @@ internal constructor(
     bearing: Double = 0.0,
     tilt: Double = 0.0,
     cameraPadding: DpPadding? = null,
-    fitPadding: PaddingValues = PaddingValues(0.dp),
+    fitPadding: DpPadding = DpPadding.Zero,
   ): CameraPosition {
     require(coordinates.isNotEmpty()) { "The coordinates are empty" }
     return cameraForGeometry(
@@ -1069,7 +1053,7 @@ internal constructor(
     bearing: Double = 0.0,
     tilt: Double = 0.0,
     cameraPadding: DpPadding? = null,
-    fitPadding: PaddingValues = PaddingValues(0.dp),
+    fitPadding: DpPadding = DpPadding.Zero,
   ): Unit = coroutineScope {
     val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])
     retryAcrossAttachments {
@@ -1141,7 +1125,7 @@ internal constructor(
   /**
    * Waits for a viewport, then moves the camera to fit [boundingBox] with [animation]. A newer
    * camera command or accepted input cancels this call. See [cameraForBounds] for [fitPadding] and
-   * [cameraPadding]. Destination camera padding animates with the fitted camera.
+   * [cameraPadding].
    *
    * On Android, the system animator duration scale multiplies the duration of [animation]. A scale
    * of zero jumps to fit [boundingBox].
@@ -1151,7 +1135,7 @@ internal constructor(
     bearing: Double = 0.0,
     tilt: Double = 0.0,
     cameraPadding: DpPadding? = null,
-    fitPadding: PaddingValues = PaddingValues(0.dp),
+    fitPadding: DpPadding = DpPadding.Zero,
     animation: CameraAnimation = CameraAnimation.Fly(),
   ): Unit = coroutineScope {
     val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])

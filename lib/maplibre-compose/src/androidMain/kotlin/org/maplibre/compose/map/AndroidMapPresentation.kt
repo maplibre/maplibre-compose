@@ -100,10 +100,7 @@ public class AndroidMapPresentation(
   public var failure: Throwable? by mutableStateOf(null)
     private set
 
-  /**
-   * Baseline padding added to every camera position and fit calculation. Camera reads exclude these
-   * insets, and the map continues to render across the full surface. See [MaplibreMap].
-   */
+  /** Insets added to camera padding for camera moves and fitting. See [MaplibreMap]. */
   public var viewportInsets: PaddingValues
     get() = options.viewportInsets
     set(value) = update { copy(viewportInsets = value) }

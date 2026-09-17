@@ -275,7 +275,7 @@ class MapCameraTransitionTest {
         it.pumpUntil("the calculated camera to be applied") {
           abs(it.session.getCameraPosition().zoom - camera.zoom) < 0.01
         }
-        it.assertPositionsInside(DIAMOND_ROUTE, FIT_PADDING)
+        it.assertPositionsInside(DIAMOND_ROUTE, FIT_PADDING.asPaddingValues())
       }
     }
 
@@ -344,7 +344,7 @@ class MapCameraTransitionTest {
         bearing = 0.0,
         tilt = 0.0,
         cameraPadding = DpPadding(left = 20.dp, right = 20.dp),
-        fitPadding = PaddingValues(0.dp),
+        fitPadding = DpPadding.Zero,
       )
       it.pumpUntil("the antimeridian bounds fit to be applied") {
         val camera = it.session.getCameraPosition()
@@ -1087,10 +1087,15 @@ class MapCameraTransitionTest {
       )
     val VIEWPORT_INSETS =
       PaddingValues.Absolute(left = 120.dp, top = 10.dp, right = 5.dp, bottom = 30.dp)
-    val FIT_PADDING =
-      PaddingValues.Absolute(left = 40.dp, top = 20.dp, right = 70.dp, bottom = 60.dp)
+    val FIT_PADDING = DpPadding(left = 40.dp, top = 20.dp, right = 70.dp, bottom = 60.dp)
     val REPLACEMENT_VIEWPORT_INSETS =
       PaddingValues.Absolute(left = 15.dp, top = 35.dp, right = 80.dp, bottom = 5.dp)
+
+    fun DpPadding.asPaddingValues(): PaddingValues =
+      PaddingValues.Absolute(left = left, top = top, right = right, bottom = bottom)
+
+    operator fun PaddingValues.plus(other: DpPadding): PaddingValues =
+      this + other.asPaddingValues()
 
     operator fun PaddingValues.plus(other: PaddingValues): PaddingValues =
       PaddingValues.Absolute(

@@ -43,3 +43,10 @@ internal fun PaddingValues.toPaddingOptions(layoutDirection: LayoutDirection): P
     bottom = calculateBottomPadding().value.toDouble()
     right = calculateRightPadding(layoutDirection).value.toDouble()
   }
+
+internal fun DpPadding.toPaddingOptions(): PaddingOptions = unsafeJso {
+  left = this@toPaddingOptions.left.value.toDouble()
+  top = this@toPaddingOptions.top.value.toDouble()
+  right = this@toPaddingOptions.right.value.toDouble()
+  bottom = this@toPaddingOptions.bottom.value.toDouble()
+}

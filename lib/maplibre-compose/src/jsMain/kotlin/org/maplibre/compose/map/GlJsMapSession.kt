@@ -890,7 +890,7 @@ internal class GlJsMapSession(
     bearing: Double,
     tilt: Double,
     cameraPadding: DpPadding?,
-    fitPadding: PaddingValues,
+    fitPadding: DpPadding,
   ): CameraPosition =
     checkNotNull(
       map?.cameraPositionForBounds(boundingBox, bearing, tilt, cameraPadding, fitPadding)
@@ -903,7 +903,7 @@ internal class GlJsMapSession(
     bearing: Double,
     tilt: Double,
     cameraPadding: DpPadding?,
-    fitPadding: PaddingValues,
+    fitPadding: DpPadding,
   ): CameraPosition =
     withMap(null as CameraPosition?) { map ->
       map.cameraPositionForPositions(geometry.positions(), bearing, tilt, cameraPadding, fitPadding)
@@ -914,7 +914,7 @@ internal class GlJsMapSession(
     bearing: Double,
     tilt: Double,
     cameraPadding: DpPadding?,
-    fitPadding: PaddingValues,
+    fitPadding: DpPadding,
     guard: CameraCommandGuard?,
   ) {
     if (guard?.isValid() == false) return
@@ -977,7 +977,7 @@ internal class GlJsMapSession(
     bearing: Double,
     tilt: Double,
     cameraPadding: DpPadding?,
-    fitPadding: PaddingValues,
+    fitPadding: DpPadding,
     animation: CameraAnimation,
     guard: CameraCommandGuard?,
   ) {
@@ -1022,7 +1022,7 @@ internal class GlJsMapSession(
     bearing: Double,
     tilt: Double,
     cameraPadding: DpPadding?,
-    fitPadding: PaddingValues,
+    fitPadding: DpPadding,
   ): CameraPosition? {
     // GL JS cameraForBounds reads persistent padding from the live transform and cannot query
     // destination padding. Fit all four corners through the same geometry fitter so every query
@@ -1050,7 +1050,7 @@ internal class GlJsMapSession(
     bearing: Double,
     tilt: Double,
     cameraPadding: DpPadding?,
-    fitPadding: PaddingValues,
+    fitPadding: DpPadding,
   ): CameraPosition? {
     val current = cameraPosition()
     val destination = current.copy(padding = cameraPadding ?: current.padding)
@@ -1063,7 +1063,7 @@ internal class GlJsMapSession(
         width = extent.width.toDouble(),
         height = extent.height.toDouble(),
         edgePadding = destination.effectivePadding(),
-        fitPadding = fitPadding.toPaddingOptions(layoutDirection),
+        fitPadding = fitPadding.toPaddingOptions(),
         minZoom = getMinZoom(),
         maxZoom = getMaxZoom(),
       ) ?: return null
@@ -1439,7 +1439,7 @@ internal class GlJsMapSession(
     gestureToken: CameraInputToken,
   ) {
     awaitCameraRelease(gestureToken = gestureToken) { map ->
-      map.cameraPositionForBounds(fit.bounds, fit.bearing, fit.tilt, null, PaddingValues())?.let {
+      map.cameraPositionForBounds(fit.bounds, fit.bearing, fit.tilt, null, DpPadding.Zero)?.let {
         map.easeTo(it.toEaseToOptions(duration))
       }
     }

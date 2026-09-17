@@ -13,9 +13,7 @@ import org.maplibre.spatialk.geojson.Position
  */
 @Immutable
 public sealed interface CameraAnchor {
-  /**
-   * A point in dp from the full map's top-left corner. Insets and padding do not move this origin.
-   */
+  /** A point in dp from the full map's top-left corner. */
   @Immutable
   public data class Screen(public val point: DpOffset) : CameraAnchor {
     init {

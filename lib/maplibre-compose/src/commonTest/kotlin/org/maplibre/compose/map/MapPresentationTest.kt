@@ -1751,7 +1751,7 @@ class MapPresentationTest {
             bearing: Double,
             tilt: Double,
             cameraPadding: DpPadding?,
-            fitPadding: PaddingValues,
+            fitPadding: DpPadding,
           ): CameraPosition {
             state.releasePresentation(token, this)
             return CameraPosition(zoom = 5.0)
@@ -1762,7 +1762,7 @@ class MapPresentationTest {
             bearing: Double,
             tilt: Double,
             cameraPadding: DpPadding?,
-            fitPadding: PaddingValues,
+            fitPadding: DpPadding,
           ): CameraPosition {
             state.releasePresentation(token, this)
             return CameraPosition(zoom = 5.0)
@@ -2305,7 +2305,7 @@ internal open class PresentationTestAdapter(
     bearing: Double,
     tilt: Double,
     cameraPadding: DpPadding?,
-    fitPadding: PaddingValues,
+    fitPadding: DpPadding,
     animation: CameraAnimation,
     guard: CameraCommandGuard?,
   ) = awaitCancellation()
@@ -2339,7 +2339,7 @@ internal open class PresentationTestAdapter(
     bearing: Double,
     tilt: Double,
     cameraPadding: DpPadding?,
-    fitPadding: PaddingValues,
+    fitPadding: DpPadding,
   ): CameraPosition = lastCameraPosition
 
   override fun cameraForGeometry(
@@ -2347,7 +2347,7 @@ internal open class PresentationTestAdapter(
     bearing: Double,
     tilt: Double,
     cameraPadding: DpPadding?,
-    fitPadding: PaddingValues,
+    fitPadding: DpPadding,
   ): CameraPosition = lastCameraPosition
 
   override fun fitCameraToBounds(
@@ -2355,7 +2355,7 @@ internal open class PresentationTestAdapter(
     bearing: Double,
     tilt: Double,
     cameraPadding: DpPadding?,
-    fitPadding: PaddingValues,
+    fitPadding: DpPadding,
     guard: CameraCommandGuard?,
   ) {
     boundsFit.complete(Unit)

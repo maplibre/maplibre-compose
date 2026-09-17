@@ -9,7 +9,7 @@ import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 
-/** Four-sided padding in device-independent pixels. */
+/** Physical left, top, right, and bottom padding in dp. */
 @Serializable(with = DpPaddingSerializer::class)
 @Immutable
 public data class DpPadding(

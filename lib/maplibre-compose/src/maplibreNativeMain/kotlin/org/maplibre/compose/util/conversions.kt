@@ -81,3 +81,11 @@ internal fun EdgeInsets.relativeTo(insets: EdgeInsets): DpPadding =
     right = (right - insets.right).dp,
     bottom = (bottom - insets.bottom).dp,
   )
+
+internal fun DpPadding.toEdgeInsets(): EdgeInsets =
+  EdgeInsets(
+    top = top.value.toDouble(),
+    left = left.value.toDouble(),
+    bottom = bottom.value.toDouble(),
+    right = right.value.toDouble(),
+  )

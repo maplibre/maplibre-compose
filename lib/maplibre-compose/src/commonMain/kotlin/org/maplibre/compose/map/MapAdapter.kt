@@ -66,7 +66,7 @@ internal interface MapAdapter {
     bearing: Double,
     tilt: Double,
     cameraPadding: DpPadding?,
-    fitPadding: PaddingValues,
+    fitPadding: DpPadding,
     animation: CameraAnimation,
     guard: CameraCommandGuard?,
   )
@@ -95,7 +95,7 @@ internal interface MapAdapter {
     bearing: Double,
     tilt: Double,
     cameraPadding: DpPadding?,
-    fitPadding: PaddingValues,
+    fitPadding: DpPadding,
   ): CameraPosition
 
   /** [geometry] has at least one position; [MapState] rejects empty input before calling. */
@@ -104,7 +104,7 @@ internal interface MapAdapter {
     bearing: Double,
     tilt: Double,
     cameraPadding: DpPadding?,
-    fitPadding: PaddingValues,
+    fitPadding: DpPadding,
   ): CameraPosition
 
   fun fitCameraToBounds(
@@ -112,7 +112,7 @@ internal interface MapAdapter {
     bearing: Double,
     tilt: Double,
     cameraPadding: DpPadding?,
-    fitPadding: PaddingValues,
+    fitPadding: DpPadding,
     guard: CameraCommandGuard?,
   )
 

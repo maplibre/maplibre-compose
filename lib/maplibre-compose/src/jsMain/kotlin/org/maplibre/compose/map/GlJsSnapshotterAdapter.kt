@@ -14,7 +14,6 @@ import org.maplibre.compose.gljs.GlJsSubscription
 import org.maplibre.compose.gljs.JumpToOptions
 import org.maplibre.compose.gljs.MapOptions
 import org.maplibre.compose.gljs.MaplibreMap
-import org.maplibre.compose.gljs.PaddingOptions
 import org.maplibre.compose.gljs.SetStyleOptions
 import org.maplibre.compose.gljs.isTerminalStyleLoadFailure
 import org.maplibre.compose.gljs.styleJson
@@ -28,6 +27,7 @@ import org.maplibre.compose.style.GlJsStyleBinding
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.util.toImageBitmap
 import org.maplibre.compose.util.toLngLat
+import org.maplibre.compose.util.toPaddingOptions
 import web.dom.document
 import web.html.HTMLCanvasElement
 import web.html.HTMLElement
@@ -232,13 +232,7 @@ internal class GlJsSnapshotterAdapter(
         zoom = camera.zoom
         bearing = camera.bearing
         pitch = camera.tilt
-        padding =
-          unsafeJso<PaddingOptions> {
-            left = camera.padding.left.value.toDouble()
-            top = camera.padding.top.value.toDouble()
-            right = camera.padding.right.value.toDouble()
-            bottom = camera.padding.bottom.value.toDouble()
-          }
+        padding = camera.padding.toPaddingOptions()
       }
     )
   }

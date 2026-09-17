@@ -1342,7 +1342,7 @@ internal class MlnFfiMapSession(
     bearing: Double,
     tilt: Double,
     cameraPadding: DpPadding?,
-    fitPadding: PaddingValues,
+    fitPadding: DpPadding,
   ): CameraPosition =
     checkNotNull(
       runOnMap { map ->
@@ -1358,7 +1358,7 @@ internal class MlnFfiMapSession(
     bearing: Double,
     tilt: Double,
     cameraPadding: DpPadding?,
-    fitPadding: PaddingValues,
+    fitPadding: DpPadding,
   ): CameraPosition {
     val geoJson = geometry.toJson().encodeToByteArray()
     return checkNotNull(
@@ -1378,7 +1378,7 @@ internal class MlnFfiMapSession(
     bearing: Double,
     tilt: Double,
     cameraPadding: DpPadding?,
-    fitPadding: PaddingValues,
+    fitPadding: DpPadding,
     guard: CameraCommandGuard?,
   ) {
     if (guard?.isValid() == false) return
@@ -1400,7 +1400,7 @@ internal class MlnFfiMapSession(
     bearing: Double,
     tilt: Double,
     cameraPadding: DpPadding?,
-    fitPadding: PaddingValues,
+    fitPadding: DpPadding,
   ): CameraOptions =
     fitCamera(map, bearing, tilt, cameraPadding, fitPadding) {
       map.cameraForLatLngBounds(bounds = boundingBox.toLatLngBounds(), fitOptions = it)
@@ -1411,13 +1411,13 @@ internal class MlnFfiMapSession(
     bearing: Double,
     tilt: Double,
     cameraPadding: DpPadding?,
-    fitPadding: PaddingValues,
+    fitPadding: DpPadding,
     fit: (CameraFitOptions) -> CameraOptions,
   ): CameraOptions {
     val current = map.camera.toCameraPosition(appliedViewportInsets)
     val destination = current.copy(padding = cameraPadding ?: current.padding)
     val persistent = checkNotNull(destination.toCameraOptions(appliedViewportInsets).padding)
-    val total = persistent + fitPadding.toEdgeInsets(layoutDirection)
+    val total = persistent + fitPadding.toEdgeInsets()
     val fitted =
       fit(
         CameraFitOptions().also {
@@ -1504,7 +1504,7 @@ internal class MlnFfiMapSession(
     bearing: Double,
     tilt: Double,
     cameraPadding: DpPadding?,
-    fitPadding: PaddingValues,
+    fitPadding: DpPadding,
     animation: CameraAnimation,
     guard: CameraCommandGuard?,
   ) {
@@ -1832,7 +1832,7 @@ internal class MlnFfiMapSession(
     startTransitionAwaitingRelease(duration.toAnimationOptions(), gestureToken = gestureToken) {
       map,
       animation ->
-      val camera = cameraForBounds(map, fit.bounds, fit.bearing, fit.tilt, null, PaddingValues())
+      val camera = cameraForBounds(map, fit.bounds, fit.bearing, fit.tilt, null, DpPadding.Zero)
       map.easeTo(camera, animation)
     }
   }

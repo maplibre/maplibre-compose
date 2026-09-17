@@ -12,7 +12,7 @@ import org.maplibre.compose.util.mercatorPixelDistance
  * [Ease] travels directly. [Fly] zooms out, travels, and zooms back in. MapLibre Native and
  * MapLibre GL JS each implement both transitions with the same controls. Their paths and timing are
  * close but not identical: the engines interpolate the center differently and GL JS measures the
- * full viewport, including areas covered by viewport insets and camera padding.
+ * full viewport.
  */
 @Immutable
 public sealed interface CameraAnimation {
