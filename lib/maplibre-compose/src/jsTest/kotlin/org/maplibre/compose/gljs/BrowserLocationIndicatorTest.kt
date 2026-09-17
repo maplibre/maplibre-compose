@@ -18,6 +18,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.maplibre.compose.layers.IndicatorAnimation
 import org.maplibre.compose.layers.IndicatorPoint
@@ -194,6 +195,34 @@ class BrowserLocationIndicatorTest {
           repeat(3) { host.drawOnce(target) }
           assertEquals(accuracyUploads, indicator.accuracyUploadCount)
           assertEquals(1, indicator.uploadCount, "unchanged images do not upload every frame")
+          style.addSource(
+            "query-point",
+            Json.parseToJsonElement(
+                """{"type":"geojson","data":{"type":"Feature","properties":{"name":"source"},"geometry":{"type":"Point","coordinates":[0,0]}}}"""
+              )
+              .jsonObject,
+          )
+          for (id in listOf("lower", "upper")) {
+            style.addLayer(
+              Json.parseToJsonElement(
+                  """{"id":"$id","type":"circle","source":"query-point","paint":{"circle-radius":1}}"""
+                )
+                .jsonObject,
+              "indicator",
+            )
+          }
+          suspend fun names() =
+            host.session
+              .queryRenderedFeatures(androidx.compose.ui.unit.DpOffset(128.dp, 128.dp), null)
+              .map { it.properties?.get("name")?.jsonPrimitive?.content }
+          host.drawUntil(target, "source and indicator hits") { names().size == 3 }
+          assertEquals(listOf(null, "source", "source"), names())
+          style.moveLayer("indicator", "upper")
+          host.drawOnce(target)
+          assertEquals(listOf("source", null, "source"), names())
+          style.removeLayer("upper")
+          style.removeLayer("lower")
+          style.removeSource("query-point")
           style.withMap { map ->
             map.jumpTo(
               js.objects.unsafeJso {
@@ -232,13 +261,14 @@ class BrowserLocationIndicatorTest {
             }
           }
           assertTrue(redPixels > 100, "tilted image remains visible")
-          assertTrue(
+          assertEquals(
+            1,
             host.session
               .queryRenderedFeatures(
-                androidx.compose.ui.unit.DpOffset(128.dp, 128.dp),
+                androidx.compose.ui.unit.DpRect(90.dp, 90.dp, 160.dp, 160.dp),
                 setOf("indicator"),
               )
-              .isEmpty()
+              .size,
           )
           style.withMap { map ->
             map.jumpTo(

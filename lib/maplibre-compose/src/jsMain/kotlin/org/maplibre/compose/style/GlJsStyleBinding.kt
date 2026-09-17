@@ -1,6 +1,7 @@
 package org.maplibre.compose.style
 
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.unit.DpRect
 import js.objects.unsafeJso
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -66,6 +67,7 @@ import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
+import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Position
 
 /** [StyleBinding] for one loaded style in a MapLibre GL JS map. */
@@ -244,13 +246,25 @@ internal class GlJsStyleBinding(
     return map.getLayer(id)?.let(::reconstructLayer)
   }
 
-  override fun customLayerHitTest(id: String, rect: androidx.compose.ui.unit.DpRect): Boolean? =
-    indicators[id]?.hitTest(
-      rect.left.value.toDouble(),
-      rect.top.value.toDouble(),
-      rect.right.value.toDouble(),
-      rect.bottom.value.toDouble(),
-    )
+  internal fun indicatorFeatures(rect: DpRect, layerIds: Set<String>?) =
+    indicators.mapNotNull { (id, renderer) ->
+      if (layerIds != null && id !in layerIds) return@mapNotNull null
+      if (
+        !renderer.hitTest(
+          rect.left.value.toDouble(),
+          rect.top.value.toDouble(),
+          rect.right.value.toDouble(),
+          rect.bottom.value.toDouble(),
+        )
+      )
+        return@mapNotNull null
+      val position = renderer.renderedPosition ?: return@mapNotNull null
+      id to
+        Feature(
+          Point(position),
+          JsonObject(emptyMap()),
+        )
+    }
 
   override fun layerIds(): List<String> {
     requireLoaded()

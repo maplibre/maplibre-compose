@@ -293,58 +293,6 @@ class MapClickDispatcherTest {
     }
   }
 
-  @Test
-  fun custom_geometry_obeys_order_padding_and_consumption_without_a_feature_proxy() = runTest {
-    Fixture().use { fixture ->
-      var hit = true
-      var consume = false
-      val calls = mutableListOf<String>()
-      val original = checkNotNull(fixture.style.value)
-      fixture.style.value =
-        object : StyleBinding by original {
-          override fun customLayerHitTest(id: String, rect: DpRect): Boolean? {
-            if (id != "front") return null
-            assertEquals(DpRect(7.dp, 17.dp, 13.dp, 23.dp), rect)
-            return hit
-          }
-        }
-      fixture.revision.value =
-        DesiredStyleRevision(
-          emptyList(),
-          listOf(
-            fixture.node("back") {
-              calls += "back"
-              ClickResult.Pass
-            },
-            fixture
-              .node("front") { features ->
-                assertTrue(features.isEmpty())
-                calls += "front"
-                if (consume) ClickResult.Consume else ClickResult.Pass
-              }
-              .copy(hitPadding = 3.dp),
-          ),
-          emptyList(),
-        )
-      assertEquals(
-        ClickResult.Pass,
-        fixture.dispatcher.capture(TapFamily.Tap)!!.deliver(fixture.event),
-      )
-      assertEquals(listOf("front", "back"), calls)
-      calls.clear()
-      consume = true
-      assertEquals(
-        ClickResult.Consume,
-        fixture.dispatcher.capture(TapFamily.Tap)!!.deliver(fixture.event),
-      )
-      assertEquals(listOf("front"), calls)
-      calls.clear()
-      hit = false
-      fixture.dispatcher.capture(TapFamily.Tap)!!.deliver(fixture.event)
-      assertEquals(listOf("back"), calls)
-    }
-  }
-
   private class Fixture : AutoCloseable {
     val runtime = mapRuntimeForTest()
     val state = runtime.createMapState(BaseStyle.Empty)

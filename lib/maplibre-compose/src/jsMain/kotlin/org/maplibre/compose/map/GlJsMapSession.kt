@@ -53,7 +53,6 @@ import org.maplibre.compose.gljs.MaplibreMap
 import org.maplibre.compose.gljs.PaddedCameraOptions
 import org.maplibre.compose.gljs.PaddingOptions
 import org.maplibre.compose.gljs.Point
-import org.maplibre.compose.gljs.QueryGeometry
 import org.maplibre.compose.gljs.QueryRenderedFeaturesOptions
 import org.maplibre.compose.gljs.SetStyleOptions
 import org.maplibre.compose.gljs.isCameraEasing
@@ -1151,24 +1150,16 @@ internal class GlJsMapSession(
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
   ): List<Feature<Geometry, JsonObject?>> =
-    query(queryPoint(offset.x.value.toDouble(), offset.y.value.toDouble()), layerIds, predicate)
+    query(DpRect(offset.x, offset.y, offset.x, offset.y), layerIds, predicate)
 
   override suspend fun queryRenderedFeatures(
     rect: DpRect,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
-  ): List<Feature<Geometry, JsonObject?>> =
-    query(
-      queryBox(
-        DpOffset(rect.left, rect.top).toPoint(),
-        DpOffset(rect.right, rect.bottom).toPoint(),
-      ),
-      layerIds,
-      predicate,
-    )
+  ): List<Feature<Geometry, JsonObject?>> = query(rect, layerIds, predicate)
 
   private fun query(
-    geometry: QueryGeometry,
+    rect: DpRect,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
   ): List<Feature<Geometry, JsonObject?>> =
@@ -1177,13 +1168,35 @@ internal class GlJsMapSession(
       val known = layerIds?.filter {
         map.getLayer(it)?.type?.let { type -> type != "custom" } == true
       }
-      if (known != null && known.isEmpty()) return@withMap emptyList()
       val options =
         unsafeJso<QueryRenderedFeaturesOptions> {
           known?.let { layers = it.toTypedArray() }
           filter = predicate?.toStyleJson()?.toJsValue<FilterSpecification>()
         }
-      map.queryRenderedFeatures(geometry, options).map { it.toGeoJsonFeature() }
+      val geometry =
+        if (rect.left == rect.right && rect.top == rect.bottom)
+          queryPoint(rect.left.value.toDouble(), rect.top.value.toDouble())
+        else
+          queryBox(
+            DpOffset(rect.left, rect.top).toPoint(),
+            DpOffset(rect.right, rect.bottom).toPoint(),
+          )
+      val features =
+        if (known != null && known.isEmpty()) mutableListOf()
+        else
+          map
+            .queryRenderedFeatures(geometry, options)
+            .map { it.layer.id to it.toGeoJsonFeature() }
+            .toMutableList()
+      // Native's dynamic indicator index also bypasses source-feature predicates.
+      val indicators = styleBinding?.indicatorFeatures(rect, layerIds).orEmpty()
+      if (indicators.isEmpty()) return@withMap features.map { it.second }
+      val order = map.getLayersOrder().withIndex().associate { it.value to it.index }
+      for (hit in indicators) {
+        val index = features.indexOfFirst { order.getValue(it.first) < order.getValue(hit.first) }
+        features.add(if (index < 0) features.size else index, hit)
+      }
+      features.map { it.second }
     }
 
   override fun metersPerDpAtLatitude(latitude: Double): Double =
