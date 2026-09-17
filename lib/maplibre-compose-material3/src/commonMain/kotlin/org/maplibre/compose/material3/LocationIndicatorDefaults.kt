@@ -17,4 +17,9 @@ public object LocationIndicatorDefaults {
   @Composable
   public fun bearingImage(): Expression<ImageValue?> =
     CoreDefaults.bearingImage(MaterialTheme.colorScheme.primary)
+
+  /** A soft shadow using the theme's scrim color. */
+  @Composable
+  public fun shadowImage(): Expression<ImageValue?> =
+    CoreDefaults.shadowImage(MaterialTheme.colorScheme.scrim)
 }

@@ -125,6 +125,7 @@ internal fun DemoLocationMapContent(location: DemoLocationUi, locationState: Loc
     accuracyRadiusBorderColor = MaterialTheme.colorScheme.primary,
     topImage = LocationIndicatorDefaults.topImage(),
     bearingImage = LocationIndicatorDefaults.bearingImage(),
+    shadowImage = LocationIndicatorDefaults.shadowImage(),
   )
 }
 

@@ -1,6 +1,8 @@
 package org.maplibre.compose.layers
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.Path
@@ -62,6 +64,37 @@ public object LocationIndicatorDefaults {
               close()
             },
           fill = SolidColor(color),
+        )
+      }
+    )
+
+  /** A soft 28 dp shadow, offset one dp below the location dot. */
+  @Composable
+  public fun shadowImage(color: Color = Color.Black): Expression<ImageValue?> =
+    image(
+      rememberVectorPainter(
+        defaultWidth = 28.dp,
+        defaultHeight = 28.dp,
+        viewportWidth = 28f,
+        viewportHeight = 28f,
+        autoMirror = false,
+      ) { _, _ ->
+        Path(
+          pathData =
+            PathData {
+              moveTo(14f, 2f)
+              arcTo(13f, 13f, 0f, true, true, 14f, 28f)
+              arcTo(13f, 13f, 0f, true, true, 14f, 2f)
+              close()
+            },
+          fill =
+            Brush.radialGradient(
+              0f to color.copy(alpha = color.alpha * 0.4f),
+              0.55f to color.copy(alpha = color.alpha * 0.25f),
+              1f to color.copy(alpha = 0f),
+              center = Offset(14f, 15f),
+              radius = 13f,
+            ),
         )
       }
     )

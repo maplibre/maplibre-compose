@@ -141,7 +141,7 @@ class BrowserStyleConformanceTest {
       }
     }
     waitUntilMap("the dot and accuracy circle") {
-      style?.layerIds() == listOf("user-accuracy", "user-top")
+      style?.layerIds() == listOf("user-accuracy", "user-shadow", "user-top")
     }
     assertEquals(1, style!!.sourceIds().size)
     val radius = style!!.layerProperty("user-accuracy", "circle-radius")!!.jsonArray
@@ -152,7 +152,7 @@ class BrowserStyleConformanceTest {
     accuracy = 40.meters
     bearing = Bearing.North
     waitUntilMap("the bearing image") {
-      style?.layerIds() == listOf("user-accuracy", "user-bearing", "user-top")
+      style?.layerIds() == listOf("user-accuracy", "user-shadow", "user-bearing", "user-top")
     }
     assertEquals(
       40.0,
@@ -174,7 +174,7 @@ class BrowserStyleConformanceTest {
     baseStyle = BaseStyle.Json("""{"version":8,"name":"reloaded","sources":{},"layers":[]}""")
     waitUntilMap("the indicator to return after a style reload") {
       style !== previousStyle &&
-        style?.layerIds() == listOf("user-accuracy", "user-bearing", "user-top")
+        style?.layerIds() == listOf("user-accuracy", "user-shadow", "user-bearing", "user-top")
     }
     assertEquals(
       40.0,
