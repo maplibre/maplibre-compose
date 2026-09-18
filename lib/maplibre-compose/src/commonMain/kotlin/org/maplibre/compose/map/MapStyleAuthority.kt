@@ -10,6 +10,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.sources.Source
@@ -147,12 +148,17 @@ internal class MapStyleAuthority(
       if (binding.identity !== changes.identity) return
       StyleResourceRead(binding, styleHandleEpoch, styleSourceChangeRevision)
     }
-    changes.sources.forEach { refreshStyleSources(adapter, it) }
-    val layers =
-      readWhileCurrent(adapter, read) { style.readLayers(read.binding, changes.layers) } ?: return
-    lifecycle.serialized {
-      if (!isCurrentStyleResourceRead(adapter, read)) return
-      changes.layerOrder?.let { style.updateLayers(layers, it) }
+    // The engine already holds these changes. A newer revision cancelling the caller must not
+    // leave them unpublished: it would report no structural change and never repair the handles.
+    withContext(NonCancellable) {
+      changes.sources.forEach { refreshStyleSources(adapter, it) }
+      val layers =
+        readWhileCurrent(adapter, read) { style.readLayers(read.binding, changes.layers) }
+          ?: return@withContext
+      lifecycle.serialized {
+        if (!isCurrentStyleResourceRead(adapter, read)) return@withContext
+        changes.layerOrder?.let { style.updateLayers(layers, it) }
+      }
     }
   }
 

@@ -50,6 +50,7 @@ private class MapStateAttachment(
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
+      state.runtime.logger?.w(error) { "Could not read the loaded style" }
       state.styleAuthority.markStyleFailed(map, error.message)
     }
   }
