@@ -37,11 +37,10 @@ object EditableMarkersDemo : Demo {
   private val markersState = EditableMarkersState()
   private var mapSize by mutableStateOf(IntSize.Zero)
 
-  override fun interactions(mapState: MapState) =
+  override fun interactions(mapState: MapState, settings: MapInteractions) =
     with(markersState) {
       MapInteractions(
-        if (pressedId != null || draggingId != null) MapInteractions.None
-        else MapInteractions.Standard
+        if (pressedId != null || draggingId != null) MapInteractions.None else settings
       ) {
         callbacks {
           click {
@@ -123,7 +122,8 @@ object EditableMarkersDemo : Demo {
             state.mapState.flyTo(
               DemoDestination.ExactCamera(
                 state.mapState.cameraPosition.copy(target = marker.position)
-              )
+              ),
+              state.settings.flightAnimation,
             )
           }
         },

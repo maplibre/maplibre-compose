@@ -52,7 +52,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
-import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -95,23 +94,19 @@ import org.maplibre.compose.util.DpPadding
 import org.maplibre.spatialk.geojson.Position
 
 /** The camera flight to a newly selected demo. */
-val DemoFlight = CameraAnimation.Fly(2.seconds)
 
 /** Padding between fitted bounds and the edge of the map viewport. */
 val DemoBoundsPadding = DpPadding(left = 48.dp, top = 48.dp, right = 48.dp, bottom = 48.dp)
 
-internal suspend fun MapState.flyTo(destination: DemoDestination) {
+internal suspend fun MapState.flyTo(destination: DemoDestination, animation: CameraAnimation) {
   when (destination) {
     is DemoDestination.ExactCamera ->
-      animateCamera(
-        update = destination.position.toCameraUpdate(),
-        animation = DemoFlight,
-      )
+      animateCamera(update = destination.position.toCameraUpdate(), animation = animation)
     is DemoDestination.FitBounds ->
       animateCameraToBounds(
         boundingBox = destination.bounds,
         fitPadding = DemoBoundsPadding,
-        animation = DemoFlight,
+        animation = animation,
       )
     DemoDestination.None -> Unit
   }
@@ -358,6 +353,8 @@ fun DemoMap(
     }
   }
   val pointerPin = selectedDemo?.pointerPin
+  val baseInteractions = state.settings.interactions
+  val baseUiOptions = state.settings.boundUiOptions
   val placementPadding =
     PaddingValues.Absolute(
       left = viewportInsets.left + MapOverlay.Spacing,
@@ -383,8 +380,8 @@ fun DemoMap(
               }
             }
           }
-        } else selectedDemo?.interactions(state.mapState) ?: MapInteractions.Standard,
-      uiOptions = selectedDemo?.uiOptions(state.settings.uiOptions) ?: state.settings.uiOptions,
+        } else selectedDemo?.interactions(state.mapState, baseInteractions) ?: baseInteractions,
+      uiOptions = selectedDemo?.uiOptions(baseUiOptions) ?: baseUiOptions,
     ) {
       if (selectedDemo == null) DefaultMapControls(controls)
       selectedDemo?.let { demo ->
@@ -394,7 +391,11 @@ fun DemoMap(
             pointerPin?.let {
               PointerPinButton(
                 targetPosition = it.target,
-                onClick = { scope.launch { state.mapState.flyTo(it.destination) } },
+                onClick = {
+                  scope.launch {
+                    state.mapState.flyTo(it.destination, state.settings.flightAnimation)
+                  }
+                },
               ) {
                 Icon(
                   vectorResource(Res.drawable.filter_center_focus_24px),

@@ -41,17 +41,22 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.vectorResource
+import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.demoapp.design.ButtonRow
 import org.maplibre.compose.demoapp.design.DropdownRow
 import org.maplibre.compose.demoapp.design.SectionHeader
 import org.maplibre.compose.demoapp.design.SegmentedRow
+import org.maplibre.compose.demoapp.design.SliderRow
 import org.maplibre.compose.demoapp.design.SwitchRow
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.arrow_back_24px
 import org.maplibre.compose.demoapp.generated.settings_24px
 import org.maplibre.compose.demoapp.generated.speed_24px
+import org.maplibre.spatialk.geojson.Position
 
 /** The panel's navigation routes. The shell reads the current one to size its surface. */
 internal object DemoRoute {
@@ -61,8 +66,9 @@ internal object DemoRoute {
   const val Benchmark = "benchmark"
   const val Settings = "settings"
   const val LocationSettings = "settings/location"
+  const val InputSettings = "settings/input"
+  const val CameraSettings = "settings/camera"
   const val RenderingSettings = "settings/rendering"
-  const val ControlSettings = "settings/controls"
 }
 
 /** The height of a panel screen's top app bar, which is the peek content on every other route. */
@@ -194,15 +200,21 @@ fun DemoPanel(
         }
       }
     }
+    composable(DemoRoute.InputSettings) {
+      SettingsSubScreen("Input", onBack = { navController.popBackStack() }) {
+        InputSettingsItems(state.settings)
+      }
+    }
+    composable(DemoRoute.CameraSettings) {
+      SettingsSubScreen("Camera", onBack = { navController.popBackStack() }) {
+        CameraSettingsItems(state)
+      }
+    }
     composable(DemoRoute.RenderingSettings) {
       SettingsSubScreen("Rendering", onBack = { navController.popBackStack() }) {
         TileLodSettingsItems(state.settings)
         RenderSettingsItems(state.settings)
-      }
-    }
-    composable(DemoRoute.ControlSettings) {
-      SettingsSubScreen("Controls", onBack = { navController.popBackStack() }) {
-        ControlSettingsItems(state.settings)
+        OverlaySettingsItems(state.settings)
       }
     }
   }
@@ -297,11 +309,14 @@ private fun SettingsScreen(
     SubmenuRow("Location", "Provider, mock position, heading, and accuracy") {
       onOpen(DemoRoute.LocationSettings)
     }
-    SubmenuRow("Rendering", "Frame rate cap, tile detail, and debug views") {
-      onOpen(DemoRoute.RenderingSettings)
+    SubmenuRow("Input", "Gestures, scroll wheel, and map controls") {
+      onOpen(DemoRoute.InputSettings)
     }
-    SubmenuRow("Controls", "Map controls and diagnostic overlays") {
-      onOpen(DemoRoute.ControlSettings)
+    SubmenuRow("Camera", "How the camera flies to demos, pins, and your location") {
+      onOpen(DemoRoute.CameraSettings)
+    }
+    SubmenuRow("Rendering", "Tile detail, frame rate cap, debug views, and overlays") {
+      onOpen(DemoRoute.RenderingSettings)
     }
   }
 }
@@ -317,13 +332,110 @@ internal fun SubmenuRow(label: String, description: String, onClick: () -> Unit)
 }
 
 @Composable
-private fun ControlSettingsItems(settings: DemoSettings) {
+private fun InputSettingsItems(settings: DemoSettings) {
+  SectionHeader("Gestures")
+  SwitchRow("Pan", settings.panEnabled) { settings.panEnabled = it }
+  SwitchRow("Rotate", settings.rotateEnabled) { settings.rotateEnabled = it }
+  SwitchRow("Tilt", settings.tiltEnabled) { settings.tiltEnabled = it }
+  Text(
+    "Off, the map keeps its heading or tilt across every input method. Demos that need a " +
+      "movement keep it on.",
+    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+    style = MaterialTheme.typography.bodyMedium,
+    color = MaterialTheme.colorScheme.onSurfaceVariant,
+  )
+
+  SectionHeader("Scroll wheel")
+  SegmentedRow(
+    options = listOf(false, true),
+    selected = settings.scrollPans,
+    optionLabel = { if (it) "Pan" else "Zoom" },
+    onSelect = { settings.scrollPans = it },
+  )
+  Text(
+    "Pan moves the map with a wheel or trackpad; hold Ctrl to zoom. Touch is unaffected.",
+    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+    style = MaterialTheme.typography.bodyMedium,
+    color = MaterialTheme.colorScheme.onSurfaceVariant,
+  )
+
   SectionHeader("Map controls")
   SwitchRow("Material 3 controls", settings.useMaterial3Controls) {
     settings.useMaterial3Controls = it
   }
   SwitchRow("Zoom buttons", settings.showZoomButtons) { settings.showZoomButtons = it }
+}
 
+/** Places far enough apart that a flight between them shows the pacing and minimum zoom. */
+private enum class FlightDestination(val title: String, val camera: CameraPosition) {
+  Seattle("Seattle", CameraPosition(target = Position(-122.3352, 47.6205), zoom = 14.0)),
+  NewYork("New York", CameraPosition(target = Position(-74.006, 40.7128), zoom = 13.0)),
+  London("London", CameraPosition(target = Position(-0.1276, 51.5072), zoom = 12.0)),
+}
+
+@Composable
+private fun CameraSettingsItems(state: DemoAppState) {
+  val settings = state.settings
+  SectionHeader("Flight")
+  SegmentedRow(
+    options = FlightStyle.entries,
+    selected = settings.flightStyle,
+    optionLabel = { it.title },
+    onSelect = { settings.flightStyle = it },
+  )
+  val fly = settings.flightStyle == FlightStyle.Fly
+  if (fly) {
+    SwitchRow("Pace by speed", settings.paceFlightBySpeed) { settings.paceFlightBySpeed = it }
+  }
+  if (fly && settings.paceFlightBySpeed) {
+    SliderRow(
+      label = "Speed",
+      value = settings.flightSpeed,
+      range = 0.5f..10f,
+      valueLabel = { "${(it * 10).roundToInt() / 10f} screens/s" },
+      onChange = { settings.flightSpeed = it },
+    )
+  } else {
+    SliderRow(
+      label = "Duration",
+      value = settings.flightDurationMillis,
+      range = 200f..5000f,
+      valueLabel = { "${it.roundToInt()} ms" },
+      onChange = { settings.flightDurationMillis = it },
+    )
+  }
+  if (fly) {
+    SliderRow(
+      label = "Minimum zoom",
+      value = settings.flightMinZoom,
+      range = 0f..12f,
+      valueLabel = { if (it > 0f) it.roundToInt().toString() else "None" },
+      onChange = { settings.flightMinZoom = it.roundToInt().toFloat() },
+    )
+  }
+  Text(
+    "Applies when a demo opens, a pointer pin is pressed, and when following your location.",
+    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+    style = MaterialTheme.typography.bodyMedium,
+    color = MaterialTheme.colorScheme.onSurfaceVariant,
+  )
+
+  SectionHeader("Try it")
+  val scope = rememberCoroutineScope()
+  for (destination in FlightDestination.entries) {
+    ButtonRow("Fly to ${destination.title}") {
+      scope.launch {
+        state.mapState.flyTo(
+          DemoDestination.ExactCamera(destination.camera),
+          settings.flightAnimation,
+        )
+      }
+    }
+  }
+}
+
+@Composable
+private fun OverlaySettingsItems(settings: DemoSettings) {
   SectionHeader("Overlays")
   SwitchRow("Frame rate", settings.showFpsOverlay) { settings.showFpsOverlay = it }
   SwitchRow("Camera state", settings.showCameraOverlay) { settings.showCameraOverlay = it }
