@@ -307,7 +307,8 @@ internal class RecordingStyleBinding(
     placementTransitionsEnabled = enabled
   }
 
-  private val globalStateValues = mutableMapOf<String, JsonElement>()
+  val globalStateValues = mutableMapOf<String, JsonElement>()
+  val globalStateWrites = mutableListOf<Pair<String, JsonElement>>()
 
   override suspend fun globalState(): JsonObject? =
     JsonObject(globalStateValues.toMap()).takeIf { isLoaded }
@@ -315,6 +316,7 @@ internal class RecordingStyleBinding(
   override fun setGlobalStateProperty(name: String, value: JsonElement) {
     requireCurrent()
     globalStateValues[name] = value
+    globalStateWrites += name to value
   }
 
   override suspend fun lightProperty(name: String): JsonElement? =

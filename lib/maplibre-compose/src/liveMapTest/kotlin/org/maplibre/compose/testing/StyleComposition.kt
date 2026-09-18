@@ -31,6 +31,7 @@ internal suspend fun composeStyle(
   style: RecordingStyleBinding = RecordingStyleBinding(),
   thenChange: (() -> Unit)? = null,
   graphicsContext: GraphicsContext? = null,
+  density: () -> Density = { Density(1f) },
   onRevision: (DesiredStyleRevision) -> Unit = {},
   awaitRevision: (DesiredStyleRevision) -> Boolean = { true },
   content: @Composable @MaplibreComposable () -> Unit,
@@ -46,7 +47,7 @@ internal suspend fun composeStyle(
           CompositionLocalProvider(
             *if (graphicsContext != null) arrayOf(LocalGraphicsContext provides graphicsContext)
             else emptyArray(),
-            LocalDensity provides Density(1f),
+            LocalDensity provides density(),
             LocalLayoutDirection provides LayoutDirection.Ltr,
           ) {
             StyleContent(

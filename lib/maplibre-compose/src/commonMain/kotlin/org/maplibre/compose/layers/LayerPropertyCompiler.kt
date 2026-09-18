@@ -19,11 +19,13 @@ import org.maplibre.compose.expressions.value.ExpressionValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.StyleNode
+import org.maplibre.compose.style.styleFontScale
 
 internal class LayerPropertyCompiler(
   private val styleNode: StyleNode,
   private val density: Density,
   private val layoutDirection: LayoutDirection,
+  private val fontScale: Expression<FloatValue>,
   private val emScale: Expression<FloatValue>? = null,
   private val spScale: Expression<FloatValue>? = null,
 ) {
@@ -76,7 +78,7 @@ internal class LayerPropertyCompiler(
       override val dpScale: Expression<FloatValue>
         get() =
           (this@LayerPropertyCompiler.spScale
-            ?: error("DP text offsets require a text-unit compiler")) / const(density.fontScale)
+            ?: error("DP text offsets require a text-unit compiler")) / fontScale
 
       override fun resolveBitmap(bitmap: BitmapLiteral): String = images.resolve(bitmap)
 
@@ -92,7 +94,8 @@ internal fun rememberPropertyCompiler(
   val styleNode = LocalStyleNode.current
   val density = LocalDensity.current
   val layoutDirection = LocalLayoutDirection.current
-  return remember(styleNode, density, layoutDirection, emScale, spScale) {
-    LayerPropertyCompiler(styleNode, density, layoutDirection, emScale, spScale)
+  val fontScale = styleFontScale()
+  return remember(styleNode, density, layoutDirection, fontScale, emScale, spScale) {
+    LayerPropertyCompiler(styleNode, density, layoutDirection, fontScale, emScale, spScale)
   }
 }

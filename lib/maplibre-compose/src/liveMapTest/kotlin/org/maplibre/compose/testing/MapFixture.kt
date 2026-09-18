@@ -129,16 +129,20 @@ internal suspend fun MapFixture.pumpUntilPixel(
 internal expect fun createMapFixture(extent: MapExtent = MapFixture.DEFAULT_EXTENT): MapFixture
 
 /** Evaluates real composables, then publishes and reconciles through the map's production paths. */
-internal suspend fun MapFixture.declare(content: @Composable @MaplibreComposable () -> Unit) {
+internal suspend fun MapFixture.declare(
+  density: Density = Density(1f),
+  ownership: SnapshotStyleOwnership = SnapshotStyleOwnership.Empty,
+  content: @Composable @MaplibreComposable () -> Unit,
+) {
   awaitMapReady()
   val revision =
     DefaultStyleCompositionEvaluator.evaluate(
       content,
       checkNotNull(style),
       checkNotNull(session.getViewport()),
-      Density(1f),
+      density,
       LayoutDirection.Ltr,
-      SnapshotStyleOwnership.Empty,
+      ownership,
     )
   state.beginStyleRevision(session, revision)
   state.updateStyleResources(session, session.reconcileStyleRevision(revision))

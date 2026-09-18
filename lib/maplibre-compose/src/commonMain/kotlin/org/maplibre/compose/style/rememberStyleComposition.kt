@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCompositionContext
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.awaitCancellation
 import org.maplibre.compose.util.MaplibreComposable
 
@@ -76,12 +77,18 @@ internal fun StyleContent(
   publish: (DesiredStyleRevision) -> Unit = {},
   content: @Composable @MaplibreComposable () -> Unit,
 ) {
-  CompositionLocalProvider(LocalStyleNode provides rootNode) { content() }
+  val fontScale = LocalDensity.current.fontScale
+  CompositionLocalProvider(
+    LocalStyleNode provides rootNode,
+    LocalStyleFontScale provides fontScale,
+  ) {
+    content()
+  }
   // Read in composition, not in the side effect, so a scale change republishes the revision.
   val animatorDurationScale = rootNode.style.animatorDurationScale
   key(rootNode.currentApplyGeneration) {
     // Side effects run after remember observers, so the evaluator publishes a complete revision.
-    SideEffect { publish(rootNode.snapshotRevision(animatorDurationScale)) }
+    SideEffect { publish(rootNode.snapshotRevision(animatorDurationScale, fontScale)) }
   }
 }
 
