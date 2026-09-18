@@ -98,16 +98,14 @@ fun DemoPanel(
       state.benchmark.abandonRun()
     }
   }
-  // Material 3 shared axis X: siblings slide 30dp while fading through.
-  val slideDistance = with(LocalDensity.current) { 30.dp.roundToPx() }
   NavHost(
     navController = navController,
     startDestination = DemoRoute.Demos,
     modifier = modifier,
-    enterTransition = { sharedAxisEnter(slideDistance) },
-    exitTransition = { sharedAxisExit(-slideDistance) },
-    popEnterTransition = { sharedAxisEnter(-slideDistance) },
-    popExitTransition = { sharedAxisExit(slideDistance) },
+    enterTransition = { forwardEnter() },
+    exitTransition = { forwardExit() },
+    popEnterTransition = { backwardEnter() },
+    popExitTransition = { backwardExit() },
   ) {
     composable(DemoRoute.Demos) {
       DemosScreen(
@@ -208,18 +206,29 @@ fun DemoPanel(
   }
 }
 
-private const val AxisDurationMillis = 300
-private val StandardEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
-private val AccelerateEasing = CubicBezierEasing(0.3f, 0f, 1f, 1f)
-private val DecelerateEasing = CubicBezierEasing(0f, 0f, 0f, 1f)
+// Material 3 forward and backward: the child screen slides across the full panel width while the
+// parent slides a quarter of the way and fades. One screen always covers the panel, so it never
+// shows empty mid-transition, unlike the shared axis fade through.
+private const val PageDurationMillis = 400
+private val EmphasizedDecelerate = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
+private val EmphasizedAccelerate = CubicBezierEasing(0.3f, 0f, 0.8f, 0.15f)
+private const val ParentSlideFraction = 4
 
-private fun sharedAxisEnter(slideDistance: Int): EnterTransition =
-  slideInHorizontally(tween(AxisDurationMillis, easing = StandardEasing)) { slideDistance } +
-    fadeIn(tween(AxisDurationMillis * 7 / 10, AxisDurationMillis * 3 / 10, DecelerateEasing))
+private fun forwardEnter(): EnterTransition =
+  slideInHorizontally(tween(PageDurationMillis, easing = EmphasizedDecelerate)) { it }
 
-private fun sharedAxisExit(slideDistance: Int): ExitTransition =
-  slideOutHorizontally(tween(AxisDurationMillis, easing = StandardEasing)) { slideDistance } +
-    fadeOut(tween(AxisDurationMillis * 3 / 10, easing = AccelerateEasing))
+private fun forwardExit(): ExitTransition =
+  slideOutHorizontally(tween(PageDurationMillis, easing = EmphasizedDecelerate)) {
+    -it / ParentSlideFraction
+  } + fadeOut(tween(PageDurationMillis, easing = EmphasizedDecelerate))
+
+private fun backwardEnter(): EnterTransition =
+  slideInHorizontally(tween(PageDurationMillis, easing = EmphasizedDecelerate)) {
+    -it / ParentSlideFraction
+  } + fadeIn(tween(PageDurationMillis, easing = EmphasizedDecelerate))
+
+private fun backwardExit(): ExitTransition =
+  slideOutHorizontally(tween(PageDurationMillis, easing = EmphasizedAccelerate)) { it }
 
 @Composable
 private fun DemosScreen(
