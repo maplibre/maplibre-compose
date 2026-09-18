@@ -402,40 +402,29 @@ private class Direct3D12TestGpuEnvironment private constructor(private val windo
 
   override fun discardPresentedFrame() {}
 
-  override fun close() = shared.release(this)
+  // Drivers own their render bridges; the test worker owns this shared consumer environment.
+  override fun close() {}
+
+  private fun dispose() {
+    try {
+      closeDestination()
+    } finally {
+      EventQueue.invokeAndWait { window.dispose() }
+    }
+  }
 
   companion object {
-    /**
-     * Skiko tears a window's Direct3D device down asynchronously after [ComposeWindow.dispose], so
-     * replacing the window between test methods can race the next device's startup and crash the
-     * test VM in the native graphics driver. Keep it reusable briefly after the last owner releases
-     * it; density tests prepare several drivers that share the same window.
-     */
-    private const val DISPOSAL_DELAY_MILLIS = 1_000L
-    private val shared =
-      SharedTestResource(
-        create = ::createShared,
-        dispose = { environment ->
-          try {
-            environment.closeDestination()
-          } finally {
-            EventQueue.invokeAndWait { environment.window.dispose() }
-          }
-        },
-        scheduleDisposal = { dispose ->
-          Thread(
-              {
-                Thread.sleep(DISPOSAL_DELAY_MILLIS)
-                dispose()
-              },
-              "maplibre-direct3d-test-disposal",
-            )
-            .apply { isDaemon = true }
-            .start()
-        },
-      )
+    // Skiko destroys the Direct3D device asynchronously. Keep one window for the worker so a
+    // replacement never starts during teardown. Gradle exits its test worker explicitly, running
+    // this hook even though the displayable window keeps AWT alive.
+    private val shared by lazy {
+      createShared().also { environment ->
+        Runtime.getRuntime()
+          .addShutdownHook(Thread({ environment.dispose() }, "maplibre-direct3d-test-disposal"))
+      }
+    }
 
-    fun create(): Direct3D12TestGpuEnvironment = shared.acquire()
+    fun create(): Direct3D12TestGpuEnvironment = shared
 
     private fun createShared(): Direct3D12TestGpuEnvironment {
       lateinit var window: ComposeWindow

@@ -323,8 +323,7 @@ demo_page="$(curl --fail --silent http://127.0.0.1:4321/maplibre-compose/demo/)"
 printf '%s\n' "$demo_page" | grep --fixed-strings --quiet 'src="/maplibre-compose/demo/app/"'
 node ci/test-pages.mjs \
   "$(mise where npm:playwright)/node_modules/playwright/index.mjs" \
-  http://127.0.0.1:4321/maplibre-compose/demo/app/ \
-  "$pages_test_dir/demo.png"
+  http://127.0.0.1:4321/maplibre-compose/demo/app/
 '''
 
 [tasks."build:android-app"]
