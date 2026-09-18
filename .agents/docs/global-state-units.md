@@ -25,3 +25,15 @@ symbol composition coverage for scoped font scales and global-state text size.
 Use a real map to check that changing global text size updates symbol layout
 without rewriting the layer expressions. Run relevant desktop and JS suites
 serially, plus formatting checks. No additive guide or signature-restating KDoc.
+
+## Revised direction
+
+The user asked to implement shared font-scale synchronization. Keep scalar
+conversion math intact. Publish root composition font scale with the desired
+style revision and apply it before layers, once per value/style generation.
+Root-scoped text expressions read one reserved global key; an explicit nested
+font scale stays a literal so independent density scopes retain their behavior.
+Initialize the scale for both live compositions and snapshot evaluation. Reserve
+`maplibre-compose:` keys from public writes and omit them from public readback.
+Verify unchanged layer JSON across root font-scale changes, DP/SP/EM behavior,
+scoped overrides, initialization/reload, and the Native/JS binding path.
