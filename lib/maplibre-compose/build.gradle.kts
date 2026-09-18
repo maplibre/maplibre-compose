@@ -128,6 +128,9 @@ kotlin {
       implementation(libs.kotlin.wrappers.js)
       api(libs.kotlin.wrappers.browser)
       implementation(npm("maplibre-gl", libs.versions.maplibre.js.get()))
+      implementation(
+        npm("@maplibre/maplibre-gl-style-spec", libs.versions.maplibre.styleSpec.get())
+      )
     }
 
     commonTest.dependencies {

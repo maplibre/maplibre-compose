@@ -287,7 +287,7 @@ public fun LocationState.mostAccurateBearingAccuracy(): Rotation? =
 
 internal data class BearingMeasurement(val bearing: Bearing, val accuracy: Rotation?)
 
-private fun LocationState.mostAccurateBearingMeasurement(): BearingMeasurement? =
+internal fun LocationState.mostAccurateBearingMeasurement(): BearingMeasurement? =
   selectMostAccurateBearing(
     lastLocation?.course?.let { BearingMeasurement(it, lastLocation?.courseAccuracy) },
     lastHeading?.let { BearingMeasurement(it.bearing, it.accuracy) },

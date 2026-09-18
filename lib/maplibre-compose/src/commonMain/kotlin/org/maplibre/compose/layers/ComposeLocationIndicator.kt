@@ -36,7 +36,20 @@ internal fun ComposeLocationIndicator(properties: LocationIndicatorProperties) {
       if (history.accuracyAvailable && accuracyRadius != null) accuracyRadiusTransition
       else TransitionOptions(Duration.ZERO)
     }
+  val sectorAvailable = bearing != null && properties.bearingAccuracy != null
+  val sectorTiming =
+    remember(
+      sectorAvailable,
+      properties.bearingAccuracy,
+      properties.bearingAccuracyRadius,
+      properties.bearingAccuracyColor,
+      properties.bearingAccuracyTransition,
+    ) {
+      if (history.sectorAvailable && sectorAvailable) properties.bearingAccuracyTransition
+      else TransitionOptions(Duration.ZERO)
+    }
   SideEffect {
+    history.sectorAvailable = sectorAvailable
     history.longitude = longitude
     history.bearingAvailable = bearing != null
     history.accuracyAvailable = accuracyRadius != null
@@ -48,6 +61,15 @@ internal fun ComposeLocationIndicator(properties: LocationIndicatorProperties) {
   val compiledAccuracyRadius = compile(const(accuracyRadius?.inMeters?.toFloat() ?: 0f))
   val compiledAccuracyRadiusColor = compile(const(properties.accuracyRadiusColor))
   val compiledAccuracyRadiusBorderColor = compile(const(properties.accuracyRadiusBorderColor))
+  val compiledBearingAccuracy =
+    compile(
+      const(
+        if (sectorAvailable) properties.bearingAccuracy.inDegrees.coerceAtMost(180.0).toFloat()
+        else 0f
+      )
+    )
+  val compiledBearingAccuracyRadius = compile(properties.bearingAccuracyRadius)
+  val compiledBearingAccuracyColor = compile(properties.bearingAccuracyColor)
   val compiledTopImage = compile(properties.topImage)
   val compiledBearingImage = compile(properties.bearingImage.takeIf { bearing != null })
   val compiledShadowImage = compile(properties.shadowImage)
@@ -63,6 +85,14 @@ internal fun ComposeLocationIndicator(properties: LocationIndicatorProperties) {
       set(locationTransition) { layer.setLocationTransition(it) }
       set(bearingTiming) { layer.setBearingTransition(it) }
       set(accuracyTiming) { layer.setAccuracyRadiusTransition(it) }
+      set(sectorTiming) {
+        layer.setBearingAccuracyTransition(it)
+        layer.setBearingAccuracyRadiusTransition(it)
+        layer.setBearingAccuracyColorTransition(it)
+      }
+      set(compiledBearingAccuracy) { layer.setBearingAccuracy(it) }
+      set(compiledBearingAccuracyRadius) { layer.setBearingAccuracyRadius(it) }
+      set(compiledBearingAccuracyColor) { layer.setBearingAccuracyColor(it) }
       set(properties.minZoom) { layer.minZoom = it }
       set(properties.maxZoom) { layer.maxZoom = it }
       set(properties.visible) { layer.visible = it }
@@ -91,6 +121,7 @@ private class IndicatorHistory {
   var longitude: Double? = null
   var bearingAvailable: Boolean = false
   var accuracyAvailable: Boolean = false
+  var sectorAvailable: Boolean = false
 }
 
 internal fun unwrapLongitude(longitude: Double, previous: Double?): Double {
