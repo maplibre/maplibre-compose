@@ -7,18 +7,39 @@ const browser = await chromium.launch({ channel: "chromium" });
 try {
   const page = await browser.newPage();
   page.setDefaultTimeout(30_000);
+  const isComposeResource = (request) =>
+    new URL(request.url()).pathname.includes("/composeResources/");
   const resources = [];
+  let inFlight = 0;
+  let lastActivity = Date.now();
+  const settle = () => {
+    inFlight -= 1;
+    lastActivity = Date.now();
+  };
   page.on("request", (request) => {
-    if (new URL(request.url()).pathname.includes("/composeResources/")) {
+    inFlight += 1;
+    lastActivity = Date.now();
+    if (isComposeResource(request)) {
       resources.push(request);
     }
   });
+  page.on("requestfinished", settle);
+  page.on("requestfailed", settle);
   await page.goto(url);
   await page.locator('canvas[role="generic"]').waitFor();
-  // Resource loading can start another font or image request. Wait for network quiescence,
-  // including complete response bodies, before checking the packaged resource paths.
-  await page.waitForLoadState("networkidle");
-  assert.ok(resources.length > 0, "The demo requested no Compose resources.");
+  // The canvas exists before the first composition requests any resource, and the page already
+  // reached network idle while Compose initialized, so Playwright's load state cannot be reused.
+  // Wait for the first resource request, then for a fresh quiet period with complete bodies.
+  if (resources.length === 0) {
+    await page.waitForRequest(isComposeResource).catch(() => {
+      assert.fail("The demo requested no Compose resources.");
+    });
+  }
+  const deadline = Date.now() + 30_000;
+  while (inFlight > 0 || Date.now() - lastActivity < 500) {
+    assert.ok(Date.now() < deadline, `The network did not settle; ${inFlight} requests in flight.`);
+    await page.waitForTimeout(100);
+  }
   for (const request of resources) {
     assert.ok(
       request.url().startsWith(new URL("composeResources/", url).href),
