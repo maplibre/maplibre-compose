@@ -54,7 +54,7 @@ maplibre-styleSpec = "26.4.2"
 mobilityData = "0.5.0"
 playServices-location = "21.4.0"
 spatialk = "0.8.0"
-robolectric = "4.16.1"
+robolectric = "4.17"
 
 # Regular tools: keep as up to date as possible
 gradle-dokka = "2.2.0"
