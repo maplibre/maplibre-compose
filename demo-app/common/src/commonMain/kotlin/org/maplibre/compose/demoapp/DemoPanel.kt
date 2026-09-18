@@ -45,6 +45,8 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.vectorResource
+import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.demoapp.design.ButtonRow
 import org.maplibre.compose.demoapp.design.DropdownRow
 import org.maplibre.compose.demoapp.design.SectionHeader
 import org.maplibre.compose.demoapp.design.SegmentedRow
@@ -54,6 +56,7 @@ import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.arrow_back_24px
 import org.maplibre.compose.demoapp.generated.settings_24px
 import org.maplibre.compose.demoapp.generated.speed_24px
+import org.maplibre.spatialk.geojson.Position
 
 /** The panel's navigation routes. The shell reads the current one to size its surface. */
 internal object DemoRoute {
@@ -204,7 +207,7 @@ fun DemoPanel(
     }
     composable(DemoRoute.CameraSettings) {
       SettingsSubScreen("Camera", onBack = { navController.popBackStack() }) {
-        CameraSettingsItems(state.settings)
+        CameraSettingsItems(state)
       }
     }
     composable(DemoRoute.RenderingSettings) {
@@ -363,8 +366,16 @@ private fun InputSettingsItems(settings: DemoSettings) {
   SwitchRow("Zoom buttons", settings.showZoomButtons) { settings.showZoomButtons = it }
 }
 
+/** Places far enough apart that a flight between them shows the pacing and minimum zoom. */
+private enum class FlightDestination(val title: String, val camera: CameraPosition) {
+  Seattle("Seattle", CameraPosition(target = Position(-122.3352, 47.6205), zoom = 14.0)),
+  NewYork("New York", CameraPosition(target = Position(-74.006, 40.7128), zoom = 13.0)),
+  London("London", CameraPosition(target = Position(-0.1276, 51.5072), zoom = 12.0)),
+}
+
 @Composable
-private fun CameraSettingsItems(settings: DemoSettings) {
+private fun CameraSettingsItems(state: DemoAppState) {
+  val settings = state.settings
   SectionHeader("Flight")
   SegmentedRow(
     options = FlightStyle.entries,
@@ -408,6 +419,19 @@ private fun CameraSettingsItems(settings: DemoSettings) {
     style = MaterialTheme.typography.bodyMedium,
     color = MaterialTheme.colorScheme.onSurfaceVariant,
   )
+
+  SectionHeader("Try it")
+  val scope = rememberCoroutineScope()
+  for (destination in FlightDestination.entries) {
+    ButtonRow("Fly to ${destination.title}") {
+      scope.launch {
+        state.mapState.flyTo(
+          DemoDestination.ExactCamera(destination.camera),
+          settings.flightAnimation,
+        )
+      }
+    }
+  }
 }
 
 @Composable
