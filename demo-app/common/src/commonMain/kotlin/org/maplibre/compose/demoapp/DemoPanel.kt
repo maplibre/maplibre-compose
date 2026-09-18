@@ -46,6 +46,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.vectorResource
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.demoapp.benchmark.BenchmarkScenario
 import org.maplibre.compose.demoapp.design.ButtonRow
 import org.maplibre.compose.demoapp.design.DropdownRow
 import org.maplibre.compose.demoapp.design.SectionHeader
@@ -78,7 +79,9 @@ internal val PanelHeaderHeight = 64.dp
  * The menu, settings, and the selected demo's controls. [revealMap] uncovers the map when a control
  * needs it visible; a shell whose panel never covers the map passes a no-op. [onPeekHeightChange]
  * reports the height of the selected demo's title bar, peek row, and [peekSpacing] below them,
- * which a sheet keeps visible above the window's bottom inset.
+ * which a sheet keeps visible above the window's bottom inset. [launchRoute] is opened once, as if
+ * tapped from the menu; [launchHasCamera] keeps a launched demo from flying away from the
+ * launcher's camera.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -89,6 +92,8 @@ fun DemoPanel(
   revealMap: suspend () -> Unit = {},
   peekSpacing: Dp = 0.dp,
   onPeekHeightChange: (Dp) -> Unit = {},
+  launchRoute: DemoLaunchRoute? = null,
+  launchHasCamera: Boolean = false,
 ) {
   val scope = rememberCoroutineScope()
   val dark = state.settings.mapStyleMode.isDark
@@ -105,6 +110,43 @@ fun DemoPanel(
       state.benchmark.abandonRun()
     }
   }
+  val openDemo = { demo: Demo, fly: Boolean ->
+    flightJob?.cancel()
+    flightJob = scope.launch {
+      state.openDemo(demo, dark, fly) {
+        navController.navigate(DemoRoute.Demo)
+        revealMap()
+        // One frame so the settled viewport insets reach the camera before the flight.
+        withFrameNanos {}
+      }
+    }
+  }
+  val openBenchmarks = {
+    state.selectedDemo = null
+    state.shell = DemoShell.Benchmarks
+    navController.navigate(DemoRoute.Benchmarks)
+  }
+  val openScenario = { scenario: BenchmarkScenario ->
+    state.benchmark.abandonRun()
+    state.selectedScenario = scenario
+    navController.navigate(DemoRoute.Benchmark)
+  }
+  // After the route effect above, so the menu route's reset does not clear the launched demo.
+  LaunchedEffect(Unit) {
+    when (launchRoute) {
+      null -> {}
+      is DemoLaunchRoute.Demo -> openDemo(launchRoute.demo, !launchHasCamera)
+      DemoLaunchRoute.Benchmarks -> openBenchmarks()
+      is DemoLaunchRoute.Benchmark -> {
+        openBenchmarks()
+        openScenario(launchRoute.scenario)
+      }
+      is DemoLaunchRoute.Settings -> {
+        navController.navigate(DemoRoute.Settings)
+        launchRoute.page?.let { navController.navigate("${DemoRoute.Settings}/$it") }
+      }
+    }
+  }
   val motion = MaterialTheme.motionScheme
   NavHost(
     navController = navController,
@@ -118,22 +160,8 @@ fun DemoPanel(
     composable(DemoRoute.Demos) {
       DemosScreen(
         onOpenSettings = { navController.navigate(DemoRoute.Settings) },
-        onOpenDemo = { demo ->
-          flightJob?.cancel()
-          flightJob = scope.launch {
-            state.openDemo(demo, dark) {
-              navController.navigate(DemoRoute.Demo)
-              revealMap()
-              // One frame so the settled viewport insets reach the camera before the flight.
-              withFrameNanos {}
-            }
-          }
-        },
-        onOpenBenchmarks = {
-          state.selectedDemo = null
-          state.shell = DemoShell.Benchmarks
-          navController.navigate(DemoRoute.Benchmarks)
-        },
+        onOpenDemo = { demo -> openDemo(demo, true) },
+        onOpenBenchmarks = openBenchmarks,
       )
     }
     composable(DemoRoute.Demo) {
@@ -159,14 +187,7 @@ fun DemoPanel(
       }
     }
     composable(DemoRoute.Benchmarks) {
-      BenchmarksScreen(
-        onBack = { navController.popBackStack() },
-        onOpenScenario = { scenario ->
-          state.benchmark.abandonRun()
-          state.selectedScenario = scenario
-          navController.navigate(DemoRoute.Benchmark)
-        },
-      )
+      BenchmarksScreen(onBack = { navController.popBackStack() }, onOpenScenario = openScenario)
     }
     composable(DemoRoute.Benchmark) {
       val scenario = state.selectedScenario

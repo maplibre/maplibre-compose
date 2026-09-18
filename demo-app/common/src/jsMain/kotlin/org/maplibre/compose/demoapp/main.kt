@@ -8,6 +8,7 @@ import org.jetbrains.compose.web.renderComposable
 import org.jetbrains.skiko.wasm.onWasmReady
 import org.maplibre.compose.browser.installMapLibreCompose
 import org.maplibre.compose.demoapp.ferry.FerryBoard
+import org.w3c.dom.url.URLSearchParams
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
@@ -26,6 +27,7 @@ fun main() {
     // Must run before Compose builds its renderer, which creates the GPU context maps composite
     // into.
     installMapLibreCompose()
-    ComposeViewport(document.body!!) { DemoApp() }
+    val launch = DemoLaunch.parse { URLSearchParams(window.location.search).get(it) }
+    ComposeViewport(document.body!!) { DemoApp(launch) }
   }
 }

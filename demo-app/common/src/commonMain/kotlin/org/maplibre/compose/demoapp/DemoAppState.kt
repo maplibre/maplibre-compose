@@ -55,15 +55,21 @@ internal constructor(
    * Selects [demo] and flies the camera to its destination. [dark] is the resolved map style mode,
    * so the flight can wait for the demo's matching base style to load. [reveal] runs after the
    * selection and before the flight, so a shell can uncover the map and let the settled viewport
-   * insets reach the camera first.
+   * insets reach the camera first. [fly] false keeps the current camera.
    */
-  suspend fun openDemo(demo: Demo, dark: Boolean, reveal: suspend () -> Unit = {}) {
+  suspend fun openDemo(
+    demo: Demo,
+    dark: Boolean,
+    fly: Boolean = true,
+    reveal: suspend () -> Unit = {},
+  ) {
     val newBase =
       mapConfiguration.appliedStyle(dark, demo).base.takeIf { it != mapState.style.baseStyle }
     val styleLoadsSeen = lastStyleLoad.count
     selectedDemo = demo
     shell = DemoShell.Demos
     reveal()
+    if (!fly) return
     if (newBase != null) awaitStyleLoad(seen = styleLoadsSeen, base = newBase)
     mapState.flyTo(demo.destination, settings.flightAnimation)
   }
@@ -128,7 +134,8 @@ internal data class StyleLoad(val count: Int, val base: BaseStyle?)
 // The Nucleus window host needs a UI target.
 @UiComposable
 @Composable
-fun rememberDemoAppState(): DemoAppState {
+/** [initialCameraPosition] null starts over New York City. */
+fun rememberDemoAppState(initialCameraPosition: CameraPosition? = null): DemoAppState {
   val mapRuntime = DefaultMapRuntime.instance
   val settings = rememberDemoSettings()
   val location = remember { DemoLocationUi() }
@@ -156,7 +163,7 @@ fun rememberDemoAppState(): DemoAppState {
     rememberMapState(
       runtime = mapRuntime,
       baseStyle = appliedStyle.base,
-      initialCameraPosition = StartPosition,
+      initialCameraPosition = initialCameraPosition ?: StartPosition,
     ) {
       mapConfiguration.selectedDemo?.let { demo -> key(demo) { demo.MapContent(appliedStyle) } }
       DemoLocationMapContent(

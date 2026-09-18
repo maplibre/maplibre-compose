@@ -19,6 +19,7 @@ import dev.nucleusframework.window.material.MaterialTitleBar
 import dev.nucleusframework.window.material.rememberMaterialTitleBarStyle
 import org.maplibre.compose.demoapp.DemoApp
 import org.maplibre.compose.demoapp.DemoAppTheme
+import org.maplibre.compose.demoapp.DemoLaunch
 import org.maplibre.compose.demoapp.rememberDemoAppState
 import org.maplibre.compose.desktop.ProvideMapPresentationHost
 
@@ -26,7 +27,8 @@ import org.maplibre.compose.desktop.ProvideMapPresentationHost
  * The same `DemoApp` the Compose Desktop demo runs, in a Nucleus Tao window instead of an AWT one;
  * the only difference is which `ComposeMapPresentationHost` is in scope.
  */
-fun main() {
+fun main(args: Array<String>) {
+  val launch = DemoLaunch.parse(args.toList())
   nucleusApplication(
     backend = NucleusBackend.Tao,
     // A fixture, not a shipped app: allow parallel launches next to other demos.
@@ -35,9 +37,9 @@ fun main() {
     MaterialDecoratedWindow(
       onCloseRequest = ::exitApplication,
       title = "MapLibre Compose on Nucleus Tao",
-      state = rememberWindowState(size = DpSize(960.dp, 640.dp)),
+      state = rememberWindowState(size = launch.windowSize ?: DpSize(960.dp, 640.dp)),
     ) {
-      val state = rememberDemoAppState()
+      val state = rememberDemoAppState(launch.camera)
       DemoAppTheme(state) {
         WindowBackground(MaterialTheme.colorScheme.background)
         WindowAppearance(
@@ -74,7 +76,7 @@ fun main() {
           titleBarPlacement = TitleBarPlacement.Overlay(),
         ) { chromePadding ->
           val host = rememberTaoComposeMapPresentationHost() ?: return@WindowScaffold
-          ProvideMapPresentationHost(host = host) { DemoApp(state, contentPadding = chromePadding) }
+          ProvideMapPresentationHost(host = host) { DemoApp(state, launch, chromePadding) }
         }
       }
     }

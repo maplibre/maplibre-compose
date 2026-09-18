@@ -30,6 +30,10 @@ interface Demo {
   val description: String
   val destination: DemoDestination
 
+  /** The launch route segment that opens this demo: [name] in lowercase with hyphens. */
+  val id: String
+    get() = name.lowercase().replace(' ', '-')
+
   /**
    * Replaces the user's chosen light style while this demo is selected. See [DemoStyle].
    *

@@ -9,6 +9,7 @@ class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
-    setContent { DemoApp() }
+    val launch = DemoLaunch.parse { intent.getStringExtra(it) }
+    setContent { DemoApp(launch) }
   }
 }
