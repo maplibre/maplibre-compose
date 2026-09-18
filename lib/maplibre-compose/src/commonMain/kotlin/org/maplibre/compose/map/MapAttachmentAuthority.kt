@@ -6,11 +6,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.runtime.structuralEqualityPolicy
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.camera.internal.CameraCommandGuard
@@ -48,8 +50,8 @@ internal class MapAttachmentAuthority(
   var current: MapAttachment? by mutableStateOf(null)
     private set
 
-  private var nextMapAttachment = CompletableDeferred<MapAttachment>()
-  private var nextViewport = CompletableDeferred<Viewport>()
+  /** What callers waiting for an attachment or viewport observe. Updated after [current]. */
+  private val presence = MutableStateFlow(Presence())
 
   fun setCameraPosition(position: CameraPosition) {
     val guard = gestureAuthority.beginProgrammatic()
@@ -68,15 +70,23 @@ internal class MapAttachmentAuthority(
   }
 
   suspend fun awaitViewport(): Viewport {
-    val pending = lifecycle.serialized {
-      requireOpenLocked()
-      current?.viewport?.let {
-        return it
+    lifecycle.serialized { requireOpenLocked() }
+    return presence
+      .first {
+        if (it.closed) throw CancellationException("The map closed while waiting for a viewport")
+        it.viewport != null
       }
-      nextViewport
-    }
-    return pending.await()
+      .viewport!!
   }
+
+  /** Waits for the first viewport of [attachment], or fails once it is no longer current. */
+  suspend fun awaitViewport(attachment: MapAttachment): Viewport =
+    presence
+      .first {
+        if (it.attachment !== attachment) throw MapAttachmentChangedException()
+        it.viewport != null
+      }
+      .viewport!!
 
   /**
    * Publishes the camera and viewport of [adapter] and returns the presentation that holds them. A
@@ -164,13 +174,8 @@ internal class MapAttachmentAuthority(
       closedState = true
       current = null
       outgoing?.invalidate()
-      nextMapAttachment.completeExceptionally(
-        CancellationException("The map closed while waiting for an attachment")
-      )
-      nextViewport.completeExceptionally(
-        CancellationException("The map closed while waiting for a viewport")
-      )
     }
+    presence.value = Presence(closed = true)
     outgoing?.cancelLeaseBoundOperations()
   }
 
@@ -179,11 +184,11 @@ internal class MapAttachmentAuthority(
     Snapshot.withMutableSnapshot {
       current = null
       outgoing?.invalidate()
-      prepareForNextAttachment()
       if (adapter?.retainsEngineBetweenPresentations != true) {
         styleAuthority.style.loadState = StyleLoadState.Pending
       }
     }
+    presence.value = Presence()
     outgoing?.cancelLeaseBoundOperations()
   }
 
@@ -194,9 +199,9 @@ internal class MapAttachmentAuthority(
       if (outgoing != null) {
         current = null
         outgoing.invalidate()
-        prepareForNextAttachment()
       }
     }
+    if (outgoing != null) presence.value = Presence()
     outgoing?.cancelLeaseBoundOperations()
   }
 
@@ -256,30 +261,30 @@ internal class MapAttachmentAuthority(
   ) {
     val attachment = MapAttachment(this, token, adapter)
     current = attachment
-    nextMapAttachment.complete(attachment)
+    presence.value = Presence(attachment)
   }
 
   suspend fun awaitAttachment(): MapAttachment {
-    val pending = lifecycle.serialized {
-      requireOpenLocked()
-      current?.let {
-        return it
+    lifecycle.serialized { requireOpenLocked() }
+    return presence
+      .first {
+        if (it.closed) throw CancellationException("The map closed while waiting for an attachment")
+        it.attachment != null
       }
-      nextMapAttachment
-    }
-    return pending.await()
+      .attachment!!
   }
 
-  private fun prepareForNextAttachment() {
-    if (nextMapAttachment.isCompleted) nextMapAttachment = CompletableDeferred()
-    if (nextViewport.isCompleted) nextViewport = CompletableDeferred()
-  }
-
-  internal fun viewportPublished(attachment: MapAttachment, viewport: Viewport) {
+  internal fun viewportPublished(attachment: MapAttachment, viewport: Viewport?) {
     lifecycle.serialized {
-      if (current === attachment) nextViewport.complete(viewport)
+      presence.update { if (it.attachment === attachment) it.copy(viewport = viewport) else it }
     }
   }
+
+  private data class Presence(
+    val attachment: MapAttachment? = null,
+    val viewport: Viewport? = null,
+    val closed: Boolean = false,
+  )
 
   private data class CameraCommand(
     val adapter: MapAdapter,
