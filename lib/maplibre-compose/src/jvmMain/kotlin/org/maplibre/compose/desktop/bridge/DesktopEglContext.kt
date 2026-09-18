@@ -3,6 +3,7 @@ package org.maplibre.compose.desktop.bridge
 import java.lang.foreign.Arena
 import java.lang.foreign.SymbolLookup
 import java.nio.file.Files
+import org.lwjgl.PointerBuffer
 import org.lwjgl.egl.EGL
 import org.lwjgl.egl.EGL10
 import org.lwjgl.egl.EGL10.EGL_ALPHA_SIZE
@@ -36,6 +37,7 @@ import org.lwjgl.egl.EGL12.eglBindAPI
 import org.lwjgl.egl.EGL13.EGL_CONTEXT_CLIENT_VERSION
 import org.lwjgl.egl.EGL13.EGL_RENDERABLE_TYPE
 import org.lwjgl.egl.EGL14
+import org.lwjgl.egl.EGL15
 import org.lwjgl.egl.EGL15.EGL_OPENGL_ES3_BIT
 import org.lwjgl.egl.EGLCapabilities
 import org.lwjgl.opengl.GL
@@ -183,9 +185,7 @@ internal class DesktopEglContext private constructor(private val metalDevice: Lo
   private fun create() {
     if (metalDevice != null) MacAngleLibraries.load()
     else if (runCatching { EGL.getCapabilities() }.isFailure) EGL.create()
-    display =
-      if (metalDevice != null) createMetalDisplay()
-      else EGL10.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY)
+    display = if (metalDevice != null) createMetalDisplay() else createLinuxDisplay()
     check(display != EGL_NO_DISPLAY) { "EGL returned no display" }
     val displayCapabilities = EglDisplays.initialize(display)
     eglCreateImage = displayCapabilities.eglCreateImageKHR
@@ -209,6 +209,26 @@ internal class DesktopEglContext private constructor(private val metalDevice: Lo
     createShareContext()
     createPbuffer()
     makeCurrent()
+  }
+
+  private fun createLinuxDisplay(): Long {
+    val surfaceless = runCatching {
+      EGL15.eglGetPlatformDisplay(
+        EGL_PLATFORM_SURFACELESS_MESA,
+        EGL14.EGL_DEFAULT_DISPLAY,
+        null as PointerBuffer?,
+      )
+    }
+      .getOrDefault(EGL_NO_DISPLAY)
+    if (
+      surfaceless != EGL_NO_DISPLAY &&
+        runCatching {
+          EglDisplays.initialize(surfaceless)
+        }
+          .isSuccess
+    )
+      return surfaceless
+    return EGL10.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY)
   }
 
   private fun createMetalDisplay(): Long =
@@ -300,6 +320,7 @@ internal class DesktopEglContext private constructor(private val metalDevice: Lo
   }
 
   companion object {
+    private const val EGL_PLATFORM_SURFACELESS_MESA = 0x31DD
     private const val EGL_PLATFORM_ANGLE_DEVICE_ID_HIGH_ANGLE = 0x34D6
     private const val EGL_PLATFORM_ANGLE_DEVICE_ID_LOW_ANGLE = 0x34D7
     private const val EGL_PLATFORM_ANGLE_ANGLE = 0x3202
