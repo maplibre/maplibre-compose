@@ -26,7 +26,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -67,6 +69,7 @@ import org.maplibre.compose.demoapp.generated.location_searching_24px
 import org.maplibre.compose.demoapp.generated.my_location_24px
 import org.maplibre.compose.demoapp.generated.my_location_fill_24px
 import org.maplibre.compose.demoapp.generated.navigation_24px
+import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.map.MapEvent
@@ -368,7 +371,19 @@ fun DemoMap(
       modifier = modifier.then(selectedDemo?.mapModifier(state.mapState) ?: Modifier),
       viewportInsets = viewportInsets.asPaddingValues(),
       renderOptions = state.settings.renderOptions,
-      interactions = selectedDemo?.interactions(state.mapState) ?: MapInteractions.Standard,
+      interactions =
+        if (state.location.placingMockLocation) {
+          MapInteractions {
+            callbacks {
+              click {
+                onEvent { event ->
+                  state.location.placeMockLocation(event.position)
+                  ClickResult.Consume
+                }
+              }
+            }
+          }
+        } else selectedDemo?.interactions(state.mapState) ?: MapInteractions.Standard,
       uiOptions = selectedDemo?.uiOptions(state.settings.uiOptions) ?: state.settings.uiOptions,
     ) {
       if (selectedDemo == null) DefaultMapControls(controls)
@@ -407,7 +422,23 @@ fun DemoMap(
     }
 
     Box(Modifier.fillMaxSize().padding(placementPadding)) {
-      DiagnosticOverlays(state = state, modifier = Modifier.align(Alignment.TopCenter))
+      if (state.location.placingMockLocation) {
+        Surface(
+          modifier = Modifier.align(Alignment.TopCenter),
+          shape = MaterialTheme.shapes.medium,
+          tonalElevation = 6.dp,
+        ) {
+          Row(
+            Modifier.padding(start = 16.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            Text("Tap map to set mock position", modifier = Modifier.weight(1f))
+            TextButton(onClick = state.location::cancelMockPlacement) { Text("Cancel") }
+          }
+        }
+      } else {
+        DiagnosticOverlays(state = state, modifier = Modifier.align(Alignment.TopCenter))
+      }
     }
   }
 }

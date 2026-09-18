@@ -64,6 +64,7 @@ fun DemoPanel(
   // selectedDemo drives the map overlay. Keep it aligned with this destination so
   // system and predictive back clear the overlay too.
   LaunchedEffect(route) {
+    if (route != "settings/location") state.location.cancelMockPlacement()
     if (route == "demos") {
       flightJob?.cancel()
       state.selectedDemo = null
@@ -148,6 +149,17 @@ fun DemoPanel(
         onBack = { navController.popBackStack() },
         onOpen = { navController.navigate("settings/$it") },
       )
+    }
+    composable("settings/location") {
+      SettingsSubScreen("Location", onBack = { navController.popBackStack() }) {
+        LocationSettingsItems(state.location) { state.mapState.cameraPosition.target }
+        if (state.location.isMock) {
+          MockLocationSettings(state) {
+            state.location.beginMockPlacement()
+            if (collapseOnSelection) scope.launch { collapsePanel() }
+          }
+        }
+      }
     }
     composable("settings/rendering") {
       SettingsSubScreen("Rendering", onBack = { navController.popBackStack() }) {
@@ -241,9 +253,8 @@ private fun SettingsScreen(
       onSelect = { state.settings.paletteMode = it },
     )
 
-    LocationSettingsItems(state.location)
-
     SectionHeader("Options")
+    SubmenuRow("Location", "Provider, mock position, heading, and accuracy") { onOpen("location") }
     SubmenuRow("Rendering", "Frame rate cap, tile detail, and debug views") { onOpen("rendering") }
     SubmenuRow("Controls", "Map controls and diagnostic overlays") { onOpen("controls") }
   }

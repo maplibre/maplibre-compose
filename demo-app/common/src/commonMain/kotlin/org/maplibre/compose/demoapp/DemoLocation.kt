@@ -14,10 +14,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.demoapp.demos.DefaultLocationEngine
+import org.maplibre.compose.demoapp.demos.DemoLocationEngine
 import org.maplibre.compose.demoapp.demos.demoLocationEngines
 import org.maplibre.compose.demoapp.design.ButtonRow
+import org.maplibre.compose.demoapp.design.DropdownRow
 import org.maplibre.compose.demoapp.design.SectionHeader
-import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.layers.LocationIndicatorLayer
 import org.maplibre.compose.location.BearingUpdate
 import org.maplibre.compose.location.LocationBackendAvailability
@@ -29,8 +30,9 @@ import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.compose.location.rememberSystemSettingsLauncher
 import org.maplibre.compose.location.updateCamera
 import org.maplibre.compose.map.LocalMapState
-import org.maplibre.compose.material3.LocationIndicatorDefaults
+import org.maplibre.compose.material3.LocationIndicatorLayer as Material3LocationIndicatorLayer
 import org.maplibre.compose.util.MaplibreComposable
+import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.inDegrees
 
@@ -45,7 +47,50 @@ internal enum class DemoFollowMode {
 @Stable
 internal class DemoLocationUi {
   var followMode by mutableStateOf(DemoFollowMode.Off)
+  val mockEngine = MockLocationEngine()
+  val engines = demoLocationEngines + mockEngine
   var engine by mutableStateOf(demoLocationEngines.first())
+    private set
+
+  var placingMockLocation by mutableStateOf(false)
+    private set
+
+  val isMock: Boolean
+    get() = engine === mockEngine
+
+  val isTracking: Boolean
+    get() = isMock || isFollowing
+
+  fun selectEngine(engine: DemoLocationEngine, mapCenter: Position) {
+    if (engine === this.engine) return
+    cancelMockPlacement()
+    if (engine === mockEngine) mockEngine.sample = mockEngine.sample.copy(position = mapCenter)
+    this.engine = engine
+  }
+
+  fun beginMockPlacement() {
+    if (!isMock) return
+    followMode = DemoFollowMode.Off
+    placingMockLocation = true
+  }
+
+  fun cancelMockPlacement() {
+    placingMockLocation = false
+  }
+
+  fun placeMockLocation(position: Position?): Boolean {
+    if (!isMock || !placingMockLocation || position == null) return false
+    mockEngine.sample = mockEngine.sample.copy(position = position)
+    placingMockLocation = false
+    return true
+  }
+
+  fun useMapCenter(position: Position) {
+    followMode = DemoFollowMode.Off
+    mockEngine.sample = mockEngine.sample.copy(position = position)
+    cancelMockPlacement()
+  }
+
   var locationState by mutableStateOf<LocationState?>(null)
     internal set
 
@@ -73,7 +118,11 @@ internal class DemoLocationUi {
  */
 @MaplibreComposable
 @Composable
-internal fun DemoLocationMapContent(location: DemoLocationUi, locationState: LocationState) {
+internal fun DemoLocationMapContent(
+  location: DemoLocationUi,
+  locationState: LocationState,
+  useMaterial3: Boolean,
+) {
   val mapState = checkNotNull(LocalMapState.current)
 
   LaunchedEffect(mapState) {
@@ -118,23 +167,19 @@ internal fun DemoLocationMapContent(location: DemoLocationUi, locationState: Loc
     }
   }
 
-  LocationIndicatorLayer(
-    id = "user",
-    locationState = locationState,
-    accuracyRadiusColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-    accuracyRadiusBorderColor = MaterialTheme.colorScheme.primary,
-    topImage = LocationIndicatorDefaults.topImage(),
-    bearingImage = LocationIndicatorDefaults.bearingImage(),
-    shadowImage = LocationIndicatorDefaults.shadowImage(),
-  )
+  if (useMaterial3) {
+    Material3LocationIndicatorLayer(id = "user", locationState = locationState)
+  } else {
+    LocationIndicatorLayer(id = "user", locationState = locationState)
+  }
 }
 
 @Composable
-internal fun LocationSettingsItems(location: DemoLocationUi) {
+internal fun LocationSettingsItems(location: DemoLocationUi, mapCenter: () -> Position) {
   SectionHeader("Location")
   Text(
     text =
-      if (location.isFollowing) location.locationState?.statusMessage() ?: "Location is off"
+      if (location.isTracking) location.locationState?.statusMessage() ?: "Location is off"
       else "Location is off",
     style = MaterialTheme.typography.bodyMedium,
     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -159,13 +204,13 @@ internal fun LocationSettingsItems(location: DemoLocationUi) {
     }
     ButtonRow("Retry") { location.locationState?.retry() }
   }
-  if (demoLocationEngines.size > 1) {
-    SegmentedRow(
+  if (location.engines.size > 1) {
+    DropdownRow(
       label = "Location engine",
-      options = demoLocationEngines,
+      options = location.engines,
       selected = location.engine,
       optionLabel = { it.label },
-      onSelect = { location.engine = it },
+      onSelect = { location.selectEngine(it, mapCenter()) },
     )
     if (location.engine === DefaultLocationEngine) {
       location.backendId?.let { backendId ->

@@ -84,6 +84,11 @@ kotlin {
       implementation(project(":lib:maplibre-compose-material3"))
     }
 
+    commonTest.dependencies {
+      implementation(kotlin("test"))
+      implementation(libs.kotlinx.coroutines.test)
+    }
+
     androidMain {
       dependencies {
         implementation(libs.jetbrains.compose.ui.tooling)
