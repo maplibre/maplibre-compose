@@ -33,9 +33,13 @@ internal class StyleNode(
     children.add(index, node)
   }
 
-  internal fun snapshotRevision(animatorDurationScale: Float): DesiredStyleRevision =
+  internal fun snapshotRevision(
+    animatorDurationScale: Float,
+    fontScale: Float? = null,
+  ): DesiredStyleRevision =
     DesiredStyleRevision(
       animatorDurationScale = animatorDurationScale,
+      fontScale = fontScale,
       sources = sourceManager.desiredSources.map { it.definition() },
       layers =
         children.map { node ->

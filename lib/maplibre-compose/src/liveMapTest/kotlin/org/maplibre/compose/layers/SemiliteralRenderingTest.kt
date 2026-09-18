@@ -55,7 +55,13 @@ class SemiliteralRenderingTest {
           )
         fixture.state.style.sources.add(source)
         // Render the first offset component as a radius so pixel readback observes its value.
-        val offset = scaledTextOffset(0.016f, -0.008f, feature.state("scale").asNumber(const(500f)))
+        val offset =
+          scaledTextOffset(
+            0.016f,
+            -0.008f,
+            feature.state("scale").asNumber(const(500f)),
+            ExpressionContext.None,
+          )
         val layer = CircleLayer("circle", source)
         layer.setCircleRadius(offset[0].dp.compile(ExpressionContext.None))
         layer.setCircleColor(const(Color.Red).compile(ExpressionContext.None))

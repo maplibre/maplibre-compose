@@ -2,7 +2,6 @@ package org.maplibre.compose.expressions.ast
 
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.TextUnitType
-import org.maplibre.compose.expressions.dsl.times
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.TextUnitValue
 
@@ -20,7 +19,7 @@ private constructor(val value: Expression<FloatValue>, val type: TextUnitType) :
         TextUnitType.Em -> context.emScale
         else -> error("Unrecognized TextUnitType: $type")
       }
-    return (value * scale).compile(context).cast()
+    return UnitConversion(value, scale).compile(context).cast()
   }
 
   override fun visit(block: (Expression<*>) -> Unit) {

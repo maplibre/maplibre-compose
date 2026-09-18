@@ -720,7 +720,7 @@ class LayerPropertyRoundTripTest {
         Case(
           "text-variable-anchor-offset",
           """["top",[0.0,1.0],"bottom",[0.0,-2.0]]""",
-          """["let","semiliteral_value",["semiliteral",["top",["let","semiliteral_value",["semiliteral",[["*",0,0.0625],["*",16,0.0625]]],["var","semiliteral_value"]],"bottom",["let","semiliteral_value",["semiliteral",[["*",0,1],["*",-2,1]]],["var","semiliteral_value"]]]],["var","semiliteral_value"]]""",
+          """["let","semiliteral_value",["semiliteral",["top",["literal",[0,1]],"bottom",["literal",[0,-2]]]],["var","semiliteral_value"]]""",
         ) {
           it.setTextVariableAnchorOffset(
             textVariableAnchorOffset(

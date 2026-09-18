@@ -4,9 +4,12 @@ import androidx.compose.runtime.Stable
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import org.maplibre.compose.style.INTERNAL_GLOBAL_STATE_PREFIX
 
 /**
- * Values shared by expressions in the current loaded style.
+ * Application values shared by expressions in the current loaded style.
+ *
+ * Names beginning with `maplibre-compose:` are reserved for the library and omitted from [get].
  *
  * The base style's root `state` object supplies defaults. A base-style reload discards runtime
  * values and loads the new defaults. This object follows the current style.
@@ -17,10 +20,13 @@ import kotlinx.serialization.json.JsonObject
 @Stable
 public class StyleGlobalState internal constructor(private val style: MapStyleState) {
   /**
-   * Returns a snapshot of effective values, including defaults, or null if no style is ready or the
-   * style changes during the read. An empty object means the loaded style has no state.
+   * Returns a snapshot of application values, including style defaults, or null if no style is
+   * ready or the style changes during the read.
    */
-  public suspend fun get(): JsonObject? = style.globalStateValues()
+  public suspend fun get(): JsonObject? =
+    style.globalStateValues()?.let { state ->
+      JsonObject(state.filterKeys { !it.startsWith(INTERNAL_GLOBAL_STATE_PREFIX) })
+    }
 
   /**
    * Arrays and objects are stored as data, not evaluated as style expressions. [JsonNull] restores
@@ -29,6 +35,9 @@ public class StyleGlobalState internal constructor(private val style: MapStyleSt
    * @throws IllegalStateException if no style is ready.
    */
   public fun setProperty(name: String, value: JsonElement) {
+    require(!name.startsWith(INTERNAL_GLOBAL_STATE_PREFIX)) {
+      "Global-state names beginning with '$INTERNAL_GLOBAL_STATE_PREFIX' are reserved"
+    }
     style.setGlobalStateProperty(name, value)
   }
 

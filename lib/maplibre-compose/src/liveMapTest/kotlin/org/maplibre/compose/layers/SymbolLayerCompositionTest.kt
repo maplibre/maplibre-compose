@@ -31,17 +31,23 @@ import kotlinx.serialization.json.double
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
+import org.maplibre.compose.expressions.dsl.asNumber
 import org.maplibre.compose.expressions.dsl.coalesce
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.image
+import org.maplibre.compose.expressions.dsl.interpolate
+import org.maplibre.compose.expressions.dsl.linear
 import org.maplibre.compose.expressions.dsl.offset
+import org.maplibre.compose.expressions.dsl.sp
 import org.maplibre.compose.expressions.dsl.textOffset
 import org.maplibre.compose.expressions.dsl.textVariableAnchorOffset
+import org.maplibre.compose.expressions.dsl.zoom
 import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.DesiredStyleRevision
+import org.maplibre.compose.style.FONT_SCALE_GLOBAL_STATE
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.testing.composeStyle
 import org.maplibre.compose.testing.runGraphicsTest
@@ -70,7 +76,7 @@ class SymbolLayerCompositionTest {
     val layout = assertNotNull(layer.toJson()["layout"] as? JsonObject)
     assertEquals(
       Json.parseToJsonElement(
-          """["let","semiliteral_value",["semiliteral",["top",["let","semiliteral_value",["semiliteral",[["*",0,1],["*",1,1]]],["var","semiliteral_value"]],"bottom",["let","semiliteral_value",["semiliteral",[["*",0,1],["*",-2,1]]],["var","semiliteral_value"]]]],["var","semiliteral_value"]]"""
+          """["let","semiliteral_value",["semiliteral",["top",["literal",[0,1]],"bottom",["literal",[0,-2]]]],["var","semiliteral_value"]]"""
         )
         .normalizeNumbers(),
       assertNotNull(layout["text-variable-anchor-offset"]).normalizeNumbers(),
@@ -95,10 +101,12 @@ class SymbolLayerCompositionTest {
     fun checkOffsets() {
       for (unit in offsets.keys) {
         val layout = binding.getLayer(unit)!!.toJson()["layout"] as JsonObject
-        val renderedSize = layout.getValue("text-size").numberValue()
+        val renderedSize = layout.getValue("text-size").numberValue(binding.globalStateValues)
         assertEquals(textSize.value.value * fontScale.value.toDouble(), renderedSize, 0.0001)
         val offset = layout.getValue("text-offset").jsonArray
-        val components = offset[2].jsonArray[1].jsonArray
+        val components =
+          if (offset[0].jsonPrimitive.content == "literal") offset[1].jsonArray
+          else offset[2].jsonArray[1].jsonArray
         val variableOffsets =
           layout.getValue("text-variable-anchor-offset").jsonArray[2].jsonArray[1].jsonArray
         assertEquals("top", variableOffsets[0].jsonPrimitive.contentOrNull)
@@ -112,7 +120,7 @@ class SymbolLayerCompositionTest {
         for ((index, distance) in listOf(-4.0, 12.0).withIndex()) {
           assertEquals(
             distance * expectedScale,
-            components[index].numberValue() * renderedSize,
+            components[index].numberValue(binding.globalStateValues) * renderedSize,
             0.0001,
             unit,
           )
@@ -149,12 +157,94 @@ class SymbolLayerCompositionTest {
     checkOffsets()
   }
 
-  private fun JsonElement.numberValue(): Double {
+  @Test
+  fun root_font_scale_changes_one_global_without_rewriting_layer_expressions() = runTest {
+    val source =
+      GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+    val binding = RecordingStyleBinding()
+    val fontScale = mutableStateOf(1f)
+    var originalLayers = emptyMap<String, JsonObject>()
+    var originalWrites = emptyList<Pair<String, String>>()
+    composeStyle(
+      binding,
+      density = { Density(3f, fontScale.value) },
+      thenChange = {
+        originalLayers = binding.layers.toMap()
+        originalWrites = binding.layerPropertyWrites.toList()
+        fontScale.value = 2f
+      },
+    ) {
+      SymbolLayer("normal", source, textSize = const(16.sp), textOffset = textOffset(0.dp, 12.dp))
+      CompositionLocalProvider(LocalDensity provides Density(3f, 1.25f)) {
+        SymbolLayer(
+          "override",
+          source,
+          textSize = const(16.sp),
+          textOffset = textOffset(0.dp, 12.dp),
+        )
+      }
+    }
+    assertEquals(originalLayers, binding.layers)
+    assertEquals(originalWrites, binding.layerPropertyWrites)
+    assertEquals(listOf(1.0, 2.0), binding.globalStateWrites.map { it.second.jsonPrimitive.double })
+    assertTrue(binding.globalStateWrites.all { it.first == FONT_SCALE_GLOBAL_STATE })
+    val normal = binding.layers.getValue("normal").getValue("layout") as JsonObject
+    val override = binding.layers.getValue("override").getValue("layout") as JsonObject
+    assertEquals(32.0, normal.getValue("text-size").numberValue(binding.globalStateValues))
+    assertEquals(20.0, override.getValue("text-size").numberValue(binding.globalStateValues))
+  }
+
+  @Test
+  fun global_text_size_and_font_scale_keep_dp_offsets_fixed() = runTest {
+    val source =
+      GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+    val binding = RecordingStyleBinding()
+    val size = org.maplibre.compose.expressions.dsl.globalState("label-size").asNumber().sp
+    composeStyle(binding, density = { Density(2f, 1.5f) }) {
+      SymbolLayer("labels", source, textSize = size, textOffset = textOffset(0.dp, 12.dp))
+    }
+    val layout = binding.layers.getValue("labels").getValue("layout") as JsonObject
+    val offsetY = layout.getValue("text-offset").jsonArray[2].jsonArray[1].jsonArray[1]
+    for (textSize in listOf(16f, 24f)) {
+      val globals = binding.globalStateValues + ("label-size" to JsonPrimitive(textSize))
+      val renderedSize = layout.getValue("text-size").numberValue(globals)
+      assertEquals(textSize * 1.5, renderedSize, 0.0001)
+      assertEquals(12.0, offsetY.numberValue(globals) * renderedSize, 0.0001)
+    }
+  }
+
+  @Test
+  fun zoom_text_size_keeps_interpolation_at_the_root_and_em_offsets_literal() = runTest {
+    val source =
+      GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
+    val binding = RecordingStyleBinding()
+    composeStyle(binding) {
+      SymbolLayer(
+        "labels",
+        source,
+        textSize = interpolate(linear(), zoom(), 0 to const(16.sp), 10 to const(32.sp)),
+        textOffset = textOffset(1.em, 2.em),
+      )
+    }
+    val layout = binding.layers.getValue("labels").getValue("layout") as JsonObject
+    val size = layout.getValue("text-size").jsonArray
+    assertEquals("interpolate", size[0].jsonPrimitive.content)
+    assertEquals(16.0, size[4].numberValue(binding.globalStateValues))
+    assertEquals(32.0, size[6].numberValue(binding.globalStateValues))
+    assertEquals(
+      Json.parseToJsonElement("""["literal",[1,2]]""").normalizeNumbers(),
+      layout.getValue("text-offset").normalizeNumbers(),
+    )
+  }
+
+  private fun JsonElement.numberValue(globals: Map<String, JsonElement> = emptyMap()): Double {
     if (this is JsonPrimitive) return double
     val args = jsonArray
     return when (args[0].jsonPrimitive.contentOrNull) {
-      "*" -> args[1].numberValue() * args[2].numberValue()
-      "/" -> args[1].numberValue() / args[2].numberValue()
+      "*" -> args[1].numberValue(globals) * args[2].numberValue(globals)
+      "/" -> args[1].numberValue(globals) / args[2].numberValue(globals)
+      "number" -> args[1].numberValue(globals)
+      "global-state" -> globals.getValue(args[1].jsonPrimitive.content).numberValue(globals)
       else -> error("Unexpected numeric expression: $this")
     }
   }

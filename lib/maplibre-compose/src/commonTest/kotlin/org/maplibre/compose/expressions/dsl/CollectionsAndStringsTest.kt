@@ -115,7 +115,7 @@ class CollectionsAndStringsTest {
         span(feature["rank"].asNumber().formatToString(locale = "en", maxFractionDigits = 0)),
       )
     assertEquals(
-      """["format",$nameJson,{"text-color":"rgba(255, 0, 0, 1)","font-scale":["*",1.25,16]},""" +
+      """["format",$nameJson,{"text-color":"rgba(255, 0, 0, 1)","font-scale":20},""" +
         """" ",{"text-font":["literal",["Noto Sans Bold"]]},["image","star"],{},""" +
         """["number-format",["number",["get","rank"]],{"locale":"en","max-fraction-digits":0}],{}]""",
       styleJson(label, TextContext),

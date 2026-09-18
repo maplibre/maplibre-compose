@@ -1,11 +1,14 @@
 package org.maplibre.compose.style
 
+import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.LayerHandle
 import org.maplibre.compose.layers.LayerHandleImpl
 
 /** Reconciles complete desired revisions into one loaded base-style generation. */
 internal class StyleReconciler {
+  private var fontScale: Float? = null
+
   private var binding: StyleBinding? = null
   private val sources = linkedMapOf<String, AppliedSource>()
   private val layers = linkedMapOf<String, AppliedLayer>()
@@ -40,6 +43,12 @@ internal class StyleReconciler {
     style: StyleBinding,
     revision: DesiredStyleRevision,
   ): StyleResourceChanges {
+    revision.fontScale?.let { next ->
+      if (fontScale != next) {
+        style.setGlobalStateProperty(FONT_SCALE_GLOBAL_STATE, JsonPrimitive(next))
+        fontScale = next
+      }
+    }
     val changes = StyleResourceChanges(style.identity)
     var layerOrderChanged = false
     val desiredSources = revision.sources.associateBy(SourceDefinition::id)
@@ -141,6 +150,7 @@ internal class StyleReconciler {
 
   private fun reset(style: StyleBinding) {
     binding = style
+    fontScale = null
     sources.clear()
     layers.clear()
     images.clear()
