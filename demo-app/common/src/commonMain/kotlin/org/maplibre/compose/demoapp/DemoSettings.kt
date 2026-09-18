@@ -7,8 +7,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlin.math.roundToInt
+import kotlin.time.Duration.Companion.milliseconds
+import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.demoapp.design.DropdownRow
 import org.maplibre.compose.demoapp.design.SectionHeader
+import org.maplibre.compose.interaction.KeyModifier
+import org.maplibre.compose.interaction.MapInteractions
+import org.maplibre.compose.interaction.ModifierMatch.Containing
+import org.maplibre.compose.interaction.ScrollResponse
 import org.maplibre.compose.map.MapUiOptions
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.map.TileLodOptions
@@ -56,6 +63,12 @@ expect val paletteModeOptions: List<PaletteMode>
 val defaultPaletteMode: PaletteMode
   get() = paletteModeOptions.first()
 
+/** How the camera travels to a demo, a pointer pin, or a followed location. */
+enum class FlightStyle(val title: String) {
+  Fly("Fly"),
+  Ease("Ease"),
+}
+
 /** App-wide diagnostics and toggles, available regardless of which demo is open. */
 @Stable
 class DemoSettings {
@@ -68,6 +81,60 @@ class DemoSettings {
   var showPointerPinDiagnostics by mutableStateOf(false)
   var useMaterial3Controls by mutableStateOf(true)
   var showZoomButtons by mutableStateOf(true)
+
+  var panEnabled by mutableStateOf(true)
+  var rotateEnabled by mutableStateOf(true)
+  var tiltEnabled by mutableStateOf(true)
+
+  /** A wheel or trackpad pans instead of zooming; Ctrl while scrolling zooms. */
+  var scrollPans by mutableStateOf(false)
+
+  var flightStyle by mutableStateOf(FlightStyle.Fly)
+  var paceFlightBySpeed by mutableStateOf(false)
+  var flightDurationMillis by mutableStateOf(2000f)
+  var flightSpeed by mutableStateOf(CameraAnimation.Fly.DefaultSpeed.toFloat())
+
+  /** Zero means no limit. */
+  var flightMinZoom by mutableStateOf(0f)
+
+  /** The camera movements the gesture settings allow. A demo edits these for its own needs. */
+  val interactions: MapInteractions
+    get() = MapInteractions {
+      camera {
+        pan { enabled = panEnabled }
+        rotate { enabled = rotateEnabled }
+        tilt { enabled = tiltEnabled }
+      }
+    }
+
+  /** [uiOptions] with the scroll binding the settings ask for. */
+  val boundUiOptions: MapUiOptions
+    get() =
+      if (!scrollPans) uiOptions
+      else
+        MapUiOptions(uiOptions) {
+          bindings {
+            scroll {
+              mappings {
+                on(modifiers = Containing(KeyModifier.Ctrl), response = ScrollResponse.Zoom)
+                otherwise(ScrollResponse.Pan)
+              }
+            }
+          }
+        }
+
+  val flightAnimation: CameraAnimation
+    get() =
+      when (flightStyle) {
+        FlightStyle.Ease -> CameraAnimation.Ease(flightDurationMillis.roundToInt().milliseconds)
+        FlightStyle.Fly ->
+          CameraAnimation.Fly(
+            duration =
+              if (paceFlightBySpeed) null else flightDurationMillis.roundToInt().milliseconds,
+            speed = if (paceFlightBySpeed) flightSpeed.toDouble() else null,
+            minZoom = flightMinZoom.toDouble().takeIf { it > 0.0 },
+          )
+      }
 }
 
 @Composable fun rememberDemoSettings() = remember { DemoSettings() }

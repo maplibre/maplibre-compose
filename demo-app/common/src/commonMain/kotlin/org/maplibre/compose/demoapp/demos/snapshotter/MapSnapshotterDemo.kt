@@ -66,9 +66,8 @@ object MapSnapshotterDemo : Demo {
     DemoDestination.ExactCamera(CameraPosition(target = SnapshotTarget, zoom = 13.5))
   override val pointerPin = DemoPointerPin(SnapshotTarget, destination)
 
-  private val topDownInteractions = MapInteractions { camera { tilt { enabled = false } } }
-
-  override fun interactions(mapState: MapState): MapInteractions = topDownInteractions
+  override fun interactions(mapState: MapState, settings: MapInteractions): MapInteractions =
+    MapInteractions(settings) { camera { tilt { enabled = false } } }
 
   @Composable
   override fun MapContent(style: DemoStyle) {

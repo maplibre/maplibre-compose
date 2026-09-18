@@ -9,7 +9,6 @@ import org.maplibre.compose.demoapp.demos.DataVizDemo
 import org.maplibre.compose.demoapp.demos.LiveTrackingDemo
 import org.maplibre.compose.demoapp.demos.MagnifyingLensDemo
 import org.maplibre.compose.demoapp.demos.Manhattan3dDemo
-import org.maplibre.compose.demoapp.demos.MapControlsDemo
 import org.maplibre.compose.demoapp.demos.MaterialStyleDemo
 import org.maplibre.compose.demoapp.demos.TransitNetworkDemo
 import org.maplibre.compose.demoapp.demos.editablemarkers.EditableMarkersDemo
@@ -48,8 +47,8 @@ interface Demo {
   val pointerPin: DemoPointerPin?
     get() = null
 
-  /** Camera controls and app interactions while this demo is selected. */
-  fun interactions(mapState: MapState): MapInteractions = MapInteractions.Standard
+  /** Camera controls and app interactions while this demo is selected, edited from [settings]. */
+  fun interactions(mapState: MapState, settings: MapInteractions): MapInteractions = settings
 
   /** Input and presentation modifiers applied to the shared map while this demo is selected. */
   @UiComposable @Composable fun mapModifier(mapState: MapState): Modifier = Modifier
@@ -116,7 +115,6 @@ val allDemos: List<Demo> =
     Manhattan3dDemo,
     CastelloPlanDemo,
     DataVizDemo,
-    MapControlsDemo,
     LiveTrackingDemo,
     EditableMarkersDemo,
     MagnifyingLensDemo,

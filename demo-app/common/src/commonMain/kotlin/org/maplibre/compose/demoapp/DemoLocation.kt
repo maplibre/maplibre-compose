@@ -12,6 +12,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.demoapp.demos.DefaultLocationEngine
@@ -123,6 +124,7 @@ internal fun DemoLocationMapContent(
   location: DemoLocationUi,
   locationState: LocationState,
   useMaterial3: Boolean,
+  flight: CameraAnimation,
 ) {
   val mapState = checkNotNull(LocalMapState.current)
 
@@ -160,7 +162,7 @@ internal fun DemoLocationMapContent(
           zoom = 16.0,
           bearing = followBearing,
         ),
-        animation = DemoFlight,
+        animation = flight,
       )
     } else {
       updateCamera(mapState, updateBearing = bearingUpdate)

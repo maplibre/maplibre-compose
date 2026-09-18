@@ -65,7 +65,7 @@ internal constructor(
     shell = DemoShell.Demos
     reveal()
     if (newBase != null) awaitStyleLoad(seen = styleLoadsSeen, base = newBase)
-    mapState.flyTo(demo.destination)
+    mapState.flyTo(demo.destination, settings.flightAnimation)
   }
 
   /** The style applied when [MapStyleMode] resolves to light. */
@@ -159,7 +159,12 @@ fun rememberDemoAppState(): DemoAppState {
       initialCameraPosition = StartPosition,
     ) {
       mapConfiguration.selectedDemo?.let { demo -> key(demo) { demo.MapContent(appliedStyle) } }
-      DemoLocationMapContent(location, locationState, settings.useMaterial3Controls)
+      DemoLocationMapContent(
+        location,
+        locationState,
+        settings.useMaterial3Controls,
+        settings.flightAnimation,
+      )
     }
   val frameRateState = remember { FrameRateState() }
   return remember {
