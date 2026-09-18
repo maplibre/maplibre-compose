@@ -1005,9 +1005,6 @@ internal constructor(
    * The result uses the current viewport size, insets, and camera constraints. Recalculate it if
    * those change before applying it.
    *
-   * On the browser, fitting calculates the target and zoom without [tilt], then assigns [tilt] to
-   * the result. A nonzero tilt may therefore leave part of the bounds outside the viewport.
-   *
    * @throws IllegalStateException if the backend cannot calculate a camera for the bounds.
    */
   public suspend fun cameraForBounds(
@@ -1032,9 +1029,6 @@ internal constructor(
    * longitudes, such as 179 followed by 181; the query does not unwrap longitudes itself.
    *
    * See [cameraForBounds] for padding and viewport semantics.
-   *
-   * On the browser, fitting calculates the target and zoom without [tilt], then assigns [tilt] to
-   * the result. A nonzero tilt may therefore leave part of the geometry outside the viewport.
    *
    * @throws IllegalArgumentException if [geometry] contains no positions.
    * @throws IllegalStateException if the backend cannot calculate a camera for the geometry.
