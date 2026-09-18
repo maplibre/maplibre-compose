@@ -1,9 +1,6 @@
 package org.maplibre.compose.desktop.bridge
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import org.lwjgl.opengl.EXTMemoryObject
-import org.lwjgl.opengl.EXTMemoryObjectWin32
-import org.lwjgl.system.MemoryStack
 import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
@@ -172,20 +169,7 @@ internal class WindowsAngleMapHost(
         val imported =
           if (producer == MapRenderBackend.OPENGL) {
             val context = wgl ?: WindowsWglContext.create().also { wgl = it }
-            context.makeCurrent()
-            MemoryStack.stackPush().use { stack ->
-              val luid = stack.malloc(8)
-              check(ensureCapabilities().GL_EXT_memory_object_win32) {
-                "WGL requires GL_EXT_memory_object_win32 to import ANGLE textures"
-              }
-              EXTMemoryObject.glGetUnsignedBytevEXT(
-                EXTMemoryObjectWin32.GL_DEVICE_LUID_EXT,
-                luid,
-              )
-              check(luid.getLong(0) == adapterLuid) {
-                "WGL and ANGLE use different graphics adapters"
-              }
-            }
+            context.requireAdapter(adapterLuid, "ANGLE")
             WindowsWglImportedTexture.create(context, d3d11.sharedHandle, extent, d3d11 = true)
           } else {
             val context =

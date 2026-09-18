@@ -237,6 +237,10 @@ internal class Direct3D12MapHost(
       importedTexture =
         if (producer == MapRenderBackend.OPENGL) {
           val context = wgl ?: WindowsWglContext.create().also { wgl = it }
+          context.requireAdapter(
+            WindowsDirect3DInterop.adapterLuidOf(direct3DDevice),
+            "Direct3D 12",
+          )
           WindowsWglImportedTexture.create(context, sharedHandle, extent)
         } else {
           val context = vulkan ?: WindowsVulkanContext.create(sharedHandle).also { vulkan = it }
@@ -536,6 +540,7 @@ private object WindowsDirect3DInterop {
   private const val ID3D12_DEVICE_CHILD_GET_DEVICE_INDEX = 7
   private const val ID3D12_DEVICE_CREATE_COMMITTED_RESOURCE_INDEX = 27
   private const val ID3D12_DEVICE_CREATE_SHARED_HANDLE_INDEX = 31
+  private const val ID3D12_DEVICE_GET_ADAPTER_LUID_INDEX = 43
   private const val IUNKNOWN_RELEASE_INDEX = 2
 
   private val linker = Linker.nativeLinker()
@@ -545,6 +550,19 @@ private object WindowsDirect3DInterop {
       kernel32.findOrThrow("CloseHandle"),
       FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS),
     )
+
+  fun adapterLuidOf(device: NativeHandle): Long =
+    Arena.ofConfined().use { arena ->
+      val luid = arena.allocate(ValueLayout.JAVA_LONG)
+      // The Windows C ABI returns LUID through an explicit output pointer (d3d12.h).
+      linker
+        .downcallHandle(
+          comMethod(device.address, ID3D12_DEVICE_GET_ADAPTER_LUID_INDEX),
+          FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS),
+        )
+        .invokeWithArguments(address(device.address), luid)
+      luid.get(ValueLayout.JAVA_LONG, 0)
+    }
 
   /**
    * Allocates an `ID3D12Resource` texture on Compose's device, shareable via [createSharedHandle].

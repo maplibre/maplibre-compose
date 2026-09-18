@@ -1,11 +1,15 @@
 package org.maplibre.compose.desktop.bridge
 
+import org.lwjgl.opengl.EXTMemoryObject.glGetUnsignedBytevEXT
+import org.lwjgl.opengl.EXTMemoryObjectWin32.GL_DEVICE_LUID_EXT
+import org.lwjgl.opengl.EXTMemoryObjectWin32.GL_LUID_SIZE_EXT
 import org.lwjgl.opengl.GL
 import org.lwjgl.opengl.GL11.glFinish
 import org.lwjgl.opengl.GLCapabilities
 import org.lwjgl.opengl.WGL
 import org.lwjgl.opengl.WGLARBCreateContext
 import org.lwjgl.system.MemoryStack
+import org.maplibre.compose.mlnffi.MlnFfiHostException
 import org.maplibre.compose.mlnffi.NativeHandle
 import org.maplibre.compose.mlnffi.WglContextHandles
 
@@ -23,6 +27,27 @@ internal class WindowsWglContext private constructor() : AutoCloseable {
   fun makeCurrent() {
     check(WGL.nwglMakeCurrent(0L, dc, context) != 0) { "wglMakeCurrent failed" }
     capabilities?.let(GL::setCapabilities) ?: run { capabilities = GL.createCapabilities() }
+  }
+
+  fun requireAdapter(expectedLuid: Long, consumer: String) {
+    makeCurrent()
+    if (!ensureCapabilities().GL_EXT_memory_object_win32) {
+      throw MlnFfiHostException(
+        "WGL requires GL_EXT_memory_object_win32 to import $consumer textures"
+      )
+    }
+    MemoryStack.stackPush().use { stack ->
+      val luid = stack.calloc(GL_LUID_SIZE_EXT)
+      glGetUnsignedBytevEXT(GL_DEVICE_LUID_EXT, luid)
+      val actualLuid = luid.getLong(0)
+      if (expectedLuid == 0L || actualLuid == 0L || actualLuid != expectedLuid) {
+        throw MlnFfiHostException(
+          "WGL and $consumer must use the same graphics adapter " +
+            "(WGL LUID=0x${actualLuid.toULong().toString(16)}, " +
+            "$consumer LUID=0x${expectedLuid.toULong().toString(16)})"
+        )
+      }
+    }
   }
 
   fun waitIdle() {
