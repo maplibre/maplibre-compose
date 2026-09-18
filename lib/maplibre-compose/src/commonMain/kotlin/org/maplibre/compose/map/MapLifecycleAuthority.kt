@@ -80,6 +80,15 @@ internal class MapLifecycleAuthority(
   internal val gestureCamera: CameraInputAuthority
     get() = owner.gestureAuthority
 
+  /** Runs [block] on the main dispatcher, inline when the caller is already there. */
+  fun postToMain(block: () -> Unit) {
+    if (mainDispatcher.isDispatchNeeded(EmptyCoroutineContext)) {
+      mainDispatcher.dispatch(EmptyCoroutineContext, Runnable(block))
+    } else {
+      block()
+    }
+  }
+
   private val lock = reentrantLock()
   private val platforms = mutableMapOf<MapLifecycleSession, MapLifecycleBinding>()
   private val closure = CompletableDeferred<Result<Unit>>()
@@ -116,7 +125,7 @@ internal class MapLifecycleAuthority(
         retainedAdapter = null
         retiringAdapters.clear()
         pendingCleanupFailures.clear()
-        owner.attachmentAuthority.commitClosed()
+        postToMain { owner.attachmentAuthority.commitClosed() }
         Triple(maps, releases, recordedFailures)
       }
     if (maps.isEmpty() && releases.isEmpty()) {
@@ -152,7 +161,8 @@ internal class MapLifecycleAuthority(
         "The map state already has a presentation"
       }
       replaced = current?.adapter?.takeUnless { current.releasing }
-      if (replaced != null) owner.attachmentAuthority.invalidatePresentation(replaced)
+      if (replaced != null)
+        postToMain { owner.attachmentAuthority.invalidatePresentation(replaced) }
       val token = MapPresentationToken(nextPresentationToken.incrementAndFetch())
       attachment = Attachment(ownerToken, token)
       token
@@ -184,7 +194,7 @@ internal class MapLifecycleAuthority(
     }
     val configurationFailure =
       try {
-        owner.attachmentAuthority.configurePresentationAdapter(adapter)
+        postToMain { owner.attachmentAuthority.configurePresentationAdapter(adapter) }
         null
       } catch (error: CancellationException) {
         throw error
@@ -198,14 +208,13 @@ internal class MapLifecycleAuthority(
       }
       if (adapter.retainsEngineBetweenPresentations) retainedAdapter = adapter
       retainedToReplace?.let(retiringAdapters::add)
-      owner.attachmentAuthority.commitPresentation(
-        token = token,
-        adapter = adapter,
-      )
+      postToMain { owner.attachmentAuthority.commitPresentation(token = token, adapter = adapter) }
       retainedToReplace
     }
-    owner.attachmentAuthority.seedPresentationViewport(token, adapter)
-    configurationFailure?.let { owner.styleAuthority.markStyleFailed(adapter, it.message) }
+    postToMain { owner.attachmentAuthority.seedPresentationViewport(token, adapter) }
+    configurationFailure?.let {
+      postToMain { owner.styleAuthority.markStyleFailed(adapter, it.message) }
+    }
     if (replaced != null) {
       replaced.close()
       physicalScope.launch {
@@ -225,7 +234,7 @@ internal class MapLifecycleAuthority(
       if (adapter != null && current.adapter !== adapter) return
       if (current.releasing) return
       current.releasing = true
-      owner.attachmentAuthority.invalidatePresentation(current.adapter)
+      postToMain { owner.attachmentAuthority.invalidatePresentation(current.adapter) }
       current.adapter?.let { closingAdapter ->
         ReleaseCleanup(
           closingAdapter,
@@ -265,7 +274,7 @@ internal class MapLifecycleAuthority(
   fun seedCurrentPresentationViewport(adapter: MapAdapter) {
     val token =
       serialized { attachment?.takeIf { it.adapter === adapter && !it.releasing }?.token } ?: return
-    owner.attachmentAuthority.seedPresentationViewport(token, adapter)
+    postToMain { owner.attachmentAuthority.seedPresentationViewport(token, adapter) }
   }
 
   /**
@@ -273,7 +282,7 @@ internal class MapLifecycleAuthority(
    * one interrupted by the loss of the rendering context.
    */
   fun endCurrentPresentationCameraChange(adapter: MapAdapter) {
-    owner.attachmentAuthority.endCameraChange(adapter)
+    postToMain { owner.attachmentAuthority.endCameraChange(adapter) }
   }
 
   fun selectAdapterForPresentation(adapter: MapAdapter): Boolean = serialized {
@@ -306,7 +315,7 @@ internal class MapLifecycleAuthority(
         "A detached platform map requires an engine-retaining adapter"
       }
       retainedAdapter = adapter
-      owner.styleAuthority.beginStyleLoadForNewAdapter()
+      postToMain { owner.styleAuthority.beginStyleLoadForNewAdapter() }
     }
   }
 
@@ -368,7 +377,9 @@ internal class MapLifecycleAuthority(
       if (platforms[session] === binding) platforms.remove(session)
       val wasAttached = attachment?.adapter === session
       val wasRetained = retainedAdapter === session
-      if (wasAttached || wasRetained) owner.attachmentAuthority.invalidateClosedAdapter(session)
+      if (wasAttached || wasRetained) {
+        postToMain { owner.attachmentAuthority.invalidateClosedAdapter(session) }
+      }
       if (wasAttached) attachment = null
       if (wasRetained) retainedAdapter = null
       retiringAdapters += session
@@ -385,7 +396,8 @@ internal class MapLifecycleAuthority(
     if (current.adapter === adapter) return
     check(current.adapter == null) { "The map state already has a presentation adapter" }
     current.adapter = adapter
-    if (retainedAdapter !== adapter) owner.styleAuthority.beginStyleLoadForNewAdapter()
+    if (retainedAdapter !== adapter)
+      postToMain { owner.styleAuthority.beginStyleLoadForNewAdapter() }
   }
 
   private fun acceptsAdapterLocked(adapter: MapAdapter): Boolean {

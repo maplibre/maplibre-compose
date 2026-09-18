@@ -55,7 +55,7 @@ internal class MapAttachmentAuthority(
 
   fun setCameraPosition(position: CameraPosition) {
     val guard = gestureAuthority.beginProgrammatic()
-    val command = lifecycle.serialized {
+    val command = run {
       requireOpenLocked()
       if (!guard.isValid()) return
       cameraPositionState = position
@@ -70,7 +70,7 @@ internal class MapAttachmentAuthority(
   }
 
   suspend fun awaitViewport(): Viewport {
-    lifecycle.serialized { requireOpenLocked() }
+    requireOpenLocked()
     return presence
       .first {
         if (it.closed) throw CancellationException("The map closed while waiting for a viewport")
@@ -97,9 +97,9 @@ internal class MapAttachmentAuthority(
     if (!lifecycle.acceptsPresentation(adapter)) return null
     val cameraPosition = adapter.getCameraPosition()
     val viewport = adapter.getViewport()
-    return lifecycle.serialized {
-      if (!lifecycle.acceptsPresentation(adapter)) return@serialized null
-      val current = current ?: return@serialized null
+    return run {
+      if (!lifecycle.acceptsPresentation(adapter)) return@run null
+      val current = current ?: return@run null
       if (viewport != null) {
         cameraPositionState = cameraPosition
         current.updateViewport(viewport)
@@ -145,12 +145,12 @@ internal class MapAttachmentAuthority(
     presentedAttachment(adapter)?.abandonCameraChanges()
   }
 
-  private fun presentedAttachment(adapter: MapAdapter): MapAttachment? = lifecycle.serialized {
-    if (!lifecycle.acceptsPresentation(adapter)) return@serialized null
+  private fun presentedAttachment(adapter: MapAdapter): MapAttachment? = run {
+    if (!lifecycle.acceptsPresentation(adapter)) return@run null
     current
   }
 
-  internal fun isCurrent(candidate: MapAttachment): Boolean = lifecycle.serialized {
+  internal fun isCurrent(candidate: MapAttachment): Boolean = run {
     isCurrentLocked(candidate)
   }
 
@@ -192,10 +192,15 @@ internal class MapAttachmentAuthority(
     outgoing?.cancelLeaseBoundOperations()
   }
 
+  /**
+   * Posted from the thread that closed [adapter], so it can run after a replacement was published.
+   * The style then belongs to the replacement and stays.
+   */
   internal fun invalidateClosedAdapter(adapter: MapAdapter) {
     val outgoing = current?.takeIf { it.adapter === adapter }
+    val replaced = lifecycle.currentAdapter().let { it != null && it !== adapter }
     Snapshot.withMutableSnapshot {
-      styleAuthority.invalidateClosedAdapter()
+      if (!replaced) styleAuthority.invalidateClosedAdapter()
       if (outgoing != null) {
         current = null
         outgoing.invalidate()
@@ -206,7 +211,7 @@ internal class MapAttachmentAuthority(
   }
 
   internal fun configurePresentationAdapter(adapter: MapAdapter) {
-    val camera = lifecycle.serialized {
+    val camera = run {
       if (!lifecycle.isPendingPublication(adapter)) return
       CameraCommand(adapter, cameraPositionState, cameraCommandRevision)
     }
@@ -216,8 +221,8 @@ internal class MapAttachmentAuthority(
 
   internal fun seedPresentationViewport(token: MapPresentationToken, adapter: MapAdapter) {
     val viewport = adapter.getViewport() ?: return
-    lifecycle.serialized {
-      val current = current ?: return@serialized
+    run {
+      val current = current ?: return@run
       if (current.token != token || current.adapter !== adapter || current.viewport != null) return
       current.updateViewport(viewport)
     }
@@ -228,7 +233,7 @@ internal class MapAttachmentAuthority(
     while (true) {
       if (lifecycle.currentAdapter() !== command.adapter) return
       command.adapter.setCameraPosition(command.value, command.guard)
-      command = lifecycle.serialized {
+      command = run {
         if (lifecycle.currentAdapter() !== command.adapter) return
         if (cameraCommandRevision == command.revision) return
         CameraCommand(command.adapter, cameraPositionState, cameraCommandRevision, command.guard)
@@ -247,7 +252,7 @@ internal class MapAttachmentAuthority(
     while (true) {
       if (!lifecycle.isCurrent(attachment.token, command.adapter)) return
       command.adapter.setCameraPosition(command.value, guard)
-      command = lifecycle.serialized {
+      command = run {
         if (!lifecycle.isCurrent(attachment.token, command.adapter)) return
         if (cameraCommandRevision == command.revision) return
         CameraCommand(command.adapter, cameraPositionState, cameraCommandRevision, command.guard)
@@ -265,7 +270,7 @@ internal class MapAttachmentAuthority(
   }
 
   suspend fun awaitAttachment(): MapAttachment {
-    lifecycle.serialized { requireOpenLocked() }
+    requireOpenLocked()
     return presence
       .first {
         if (it.closed) throw CancellationException("The map closed while waiting for an attachment")
@@ -275,7 +280,7 @@ internal class MapAttachmentAuthority(
   }
 
   internal fun viewportPublished(attachment: MapAttachment, viewport: Viewport?) {
-    lifecycle.serialized {
+    run {
       presence.update { if (it.attachment === attachment) it.copy(viewport = viewport) else it }
     }
   }

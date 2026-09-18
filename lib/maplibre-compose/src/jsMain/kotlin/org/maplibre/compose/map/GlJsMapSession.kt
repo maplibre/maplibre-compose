@@ -446,7 +446,7 @@ internal class GlJsMapSession(
   }
 
   private fun invalidateStyleBinding() {
-    callbacks.onStyleChanged(this, null)
+    lifecycle.postToMain { callbacks.onStyleChanged(this, null) }
     styleBinding?.invalidate()
     styleBinding = null
   }

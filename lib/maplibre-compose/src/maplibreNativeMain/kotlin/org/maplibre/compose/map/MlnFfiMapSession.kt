@@ -534,7 +534,7 @@ internal class MlnFfiMapSession(
   }
 
   internal fun publishRetainedStyle() {
-    styleBinding?.let { callbacks.onStyleChanged(this, it) }
+    styleBinding?.let { lifecycle.postToMain { callbacks.onStyleChanged(this, it) } }
   }
 
   override suspend fun detachPresentation() {
@@ -644,7 +644,7 @@ internal class MlnFfiMapSession(
       current
     }
     abandoned.forEach { it.abandon() }
-    if (styleBinding != null) callbacks.onStyleChanged(this, null)
+    if (styleBinding != null) lifecycle.postToMain { callbacks.onStyleChanged(this, null) }
     styleBinding?.invalidate()
     styleBinding = null
     appliedStyleRequest = null

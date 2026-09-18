@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.coroutines.ContinuationInterceptor
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.jvm.JvmInline
 import kotlin.time.Duration
@@ -674,7 +675,7 @@ internal constructor(
   }
 
   internal fun updateViewport(value: Viewport?) {
-    owner.lifecycle.serialized {
+    run {
       viewportState = value
       owner.viewportPublished(this, value)
     }
@@ -685,18 +686,18 @@ internal constructor(
    * token decides whether a change belongs to the user.
    */
   internal fun setGestureActive(active: Boolean) {
-    owner.lifecycle.serialized {
+    run {
       gestureActiveState = active
       if (active) moveReasonState = CameraMoveReason.GESTURE
     }
   }
 
   internal fun setEngaged(engaged: Boolean) {
-    owner.lifecycle.serialized { engagedState = engaged }
+    engagedState = engaged
   }
 
   internal fun cameraChangeStarted() {
-    owner.lifecycle.serialized {
+    run {
       activeCameraChanges++
       if (!gestureActiveState) moveReasonState = CameraMoveReason.PROGRAMMATIC
     }
@@ -704,16 +705,16 @@ internal constructor(
 
   internal fun cameraChangeEnded() {
     // Native ends each command separately. An inset update can end while a zoom is still moving.
-    owner.lifecycle.serialized { activeCameraChanges = (activeCameraChanges - 1).coerceAtLeast(0) }
+    activeCameraChanges = (activeCameraChanges - 1).coerceAtLeast(0)
   }
 
   internal fun abandonCameraChanges() {
-    owner.lifecycle.serialized { activeCameraChanges = 0 }
+    activeCameraChanges = 0
   }
 
   internal fun invalidate() {
     owner.gestureAuthority.detach(this)
-    owner.lifecycle.serialized {
+    run {
       validState = false
       viewportState = null
       gestureActiveState = false
@@ -775,7 +776,12 @@ internal constructor(
 internal class MapAttachmentChangedException :
   CancellationException("The map attachment changed during the operation")
 
-/** Holds the observable style, camera, and map operations for one logical map. */
+/**
+ * Holds the observable style, camera, and map operations for one logical map.
+ *
+ * Use it from the main thread. Engine callbacks reach it there too, through the runtime's main
+ * dispatcher.
+ */
 @Stable
 public class MapState
 internal constructor(
@@ -857,7 +863,8 @@ internal constructor(
    * Return null for IDs you cannot supply. Null results and exceptions are not retried until the
    * base style reloads or the resolver is replaced.
    *
-   * Replacing or clearing this property does not cancel calls already running.
+   * The resolver is called on the main thread. Replacing or clearing this property does not cancel
+   * calls already running.
    */
   public var missingImageResolver: MissingImageResolver?
     get() = styleAuthority.missingImageResolver
@@ -898,7 +905,7 @@ internal constructor(
    */
   public fun stopCameraMovement() {
     val guard = gestureAuthority.beginProgrammatic()
-    val attachment = lifecycle.serialized {
+    val attachment = run {
       requireOpenLocked()
       if (!guard.isValid()) return
       currentMapAttachment ?: return
@@ -1339,11 +1346,12 @@ internal class RuntimeImplementation(
     CoroutineScope(SupervisorJob() + Dispatchers.Default),
   /** Delivers engine callbacks to map states. Runs them inline when no dispatch is needed. */
   internal val mainDispatcher: CoroutineDispatcher = platformMainDispatcher(),
-  /**
-   * Runs work that a posted callback starts. Its dispatcher is the main dispatcher, so an engine
-   * read inside that work moves to its own dispatcher instead of blocking the main thread.
-   */
+  /** Runs map-state work that resumes after an engine read. */
   internal val mainScope: CoroutineScope = CoroutineScope(SupervisorJob() + mainDispatcher),
+  /** Runs engine reads that block until the map owner thread answers. */
+  internal val readDispatcher: CoroutineDispatcher =
+    physicalScope.coroutineContext[ContinuationInterceptor] as? CoroutineDispatcher
+      ?: Dispatchers.Default,
   internal val createSnapshotterAdapter: () -> SnapshotterAdapter = ::unsupportedSnapshots,
   internal val styleEvaluator: StyleCompositionEvaluator = DefaultStyleCompositionEvaluator,
   internal val resourceConfig: MapResourceConfig = MapResourceConfig(),

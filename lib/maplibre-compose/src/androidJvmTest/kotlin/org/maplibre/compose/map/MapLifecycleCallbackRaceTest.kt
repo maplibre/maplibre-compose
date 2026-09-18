@@ -18,54 +18,6 @@ import org.maplibre.compose.style.StyleBinding
 
 class MapLifecycleCallbackRaceTest {
   @Test
-  fun an_accepted_owner_callback_completes_while_style_sources_are_read() = runBlocking {
-    val runtime = mapRuntimeForTest()
-    val state = runtime.createMapState(BaseStyle.Demo)
-    val adapter = PresentationTestAdapter()
-    val token = state.reservePresentation()
-    state.publishPresentation(token, adapter)
-    val style = OwnerThreadSourceReadStyleBinding()
-    assertTrue(state.styleAuthority.updateLoadedStyle(adapter, style))
-    val binding = state.lifecycle.bind(CallbackRacePlatformAdapter())
-    val lease = binding.attach()
-    val engine = requireNotNull(binding.engineIdentity)
-    val styleReadyFailure = AtomicReference<Throwable?>()
-    val callbackFailure = AtomicReference<Throwable?>()
-
-    val styleReadyThread = thread {
-      styleReadyFailure.set(
-        runCatching { runBlocking { state.styleAuthority.markStyleReady(adapter) } }
-          .exceptionOrNull()
-      )
-    }
-    assertTrue(style.sourceReadStarted.await(5, TimeUnit.SECONDS))
-    val callbackThread = thread {
-      callbackFailure.set(
-        runCatching {
-          assertTrue(
-            binding.acceptPresentationEvent(engine, lease) {
-              state.attachmentAuthority.synchronizeCamera(adapter)
-            }
-          )
-        }
-          .onSuccess { style.ownerReadCompleted.countDown() }
-          .exceptionOrNull()
-      )
-    }
-
-    styleReadyThread.join()
-    callbackThread.join()
-
-    binding.close()
-    binding.awaitClosed()
-    state.close()
-    state.awaitClosed()
-    runtime.close()
-    assertEquals(null, styleReadyFailure.get())
-    assertEquals(null, callbackFailure.get())
-  }
-
-  @Test
   fun accepted_callback_delivery_completes_before_closure_commits() = runBlocking {
     val runtime = mapRuntimeForTest()
     val state = runtime.createMapState(BaseStyle.Demo)
@@ -101,39 +53,6 @@ class MapLifecycleCallbackRaceTest {
     binding.awaitClosed()
     state.close()
     state.awaitClosed()
-    runtime.close()
-  }
-
-  @Test
-  fun a_late_platform_style_write_replays_the_latest_durable_style() {
-    val runtime = mapRuntimeForTest()
-    val state = runtime.createMapState(BaseStyle.Demo)
-    val firstStyle = BaseStyle.Json("first")
-    val secondStyle = BaseStyle.Json("second")
-    val adapter = BlockingStyleAdapter(firstStyle)
-    val token = state.reservePresentation()
-    state.publishPresentation(token, adapter)
-
-    val firstThread = thread { state.styleAuthority.setBaseStyle(firstStyle) }
-    assertTrue(adapter.firstWriteEntered.await(5, TimeUnit.SECONDS))
-    val secondStarted = CountDownLatch(1)
-    val secondFinished = CountDownLatch(1)
-    val secondThread = thread {
-      secondStarted.countDown()
-      state.styleAuthority.setBaseStyle(secondStyle)
-      secondFinished.countDown()
-    }
-
-    assertTrue(secondStarted.await(5, TimeUnit.SECONDS))
-    assertTrue(secondFinished.await(5, TimeUnit.SECONDS))
-    assertEquals(secondStyle, state.style.baseStyle)
-    adapter.releaseFirstWrite.countDown()
-    firstThread.join()
-    secondThread.join()
-
-    assertEquals(secondStyle, state.style.baseStyle)
-    assertEquals(secondStyle, adapter.lastStyle)
-    state.close()
     runtime.close()
   }
 

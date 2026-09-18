@@ -14,6 +14,8 @@ import org.maplibre.spatialk.geojson.Position
 internal fun mapRuntimeForTest(
   physicalScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
   mainDispatcher: CoroutineDispatcher = Dispatchers.Unconfined,
+  // Inline, like the main dispatcher above: unit tests observe reads synchronously.
+  readDispatcher: CoroutineDispatcher = Dispatchers.Unconfined,
   createSnapshotterAdapter: () -> SnapshotterAdapter = ::unsupportedSnapshots,
   styleEvaluator: StyleCompositionEvaluator = DefaultStyleCompositionEvaluator,
   closeResources: suspend () -> Unit = {},
@@ -24,6 +26,7 @@ internal fun mapRuntimeForTest(
     logger = null,
     physicalScope = physicalScope,
     mainDispatcher = mainDispatcher,
+    readDispatcher = readDispatcher,
     createSnapshotterAdapter = createSnapshotterAdapter,
     styleEvaluator = styleEvaluator,
   )

@@ -56,20 +56,19 @@ internal class CameraInputAuthority(private val owner: MapState) {
 
   /** Callback replacements do not revoke input. Resolved policy and momentum changes do. */
   fun updateConfiguration(value: CameraConfiguration) {
-    val previous =
-      owner.lifecycle.serialized {
-        val changed = configuration.settings != value.settings
-        configuration = value
-        if (changed) {
-          inputGeneration++
-          revokeLocked()
-        } else null
-      }
+    val previous = run {
+      val changed = configuration.settings != value.settings
+      configuration = value
+      if (changed) {
+        inputGeneration++
+        revokeLocked()
+      } else null
+    }
     previous?.cancelWork()
   }
 
   val generation: Long
-    get() = owner.lifecycle.serialized { inputGeneration }
+    get() = inputGeneration
 
   fun acquire(
     adapter: MapAdapter,
@@ -77,30 +76,29 @@ internal class CameraInputAuthority(private val owner: MapState) {
   ): CameraInputToken {
     var previous: CameraInputToken? = null
     var previousJobs: List<Job> = emptyList()
-    val token =
-      owner.lifecycle.serialized {
-        val attachment = owner.currentMapAttachment
-        val target = attachment?.adapter as? CameraInputTarget
-        val ready =
-          attachment != null &&
-            owner.attachmentAuthority.isCurrent(attachment) &&
-            attachment.viewport != null &&
-            target?.isGestureReady == true &&
-            adapter === attachment.adapter &&
-            (expectedInputGeneration == null || expectedInputGeneration == inputGeneration)
-        val token = Token(attachment, target, ready)
-        if (!ready) {
-          return@serialized token
-        }
-        previous = revokeLocked()
-        previousJobs = programmaticJobs.toList()
-        programmaticJobs.clear()
-        dispatchTail = null
-        cameraGeneration++
-        inputGeneration++
-        active = token
-        token
+    val token = run {
+      val attachment = owner.currentMapAttachment
+      val target = attachment?.adapter as? CameraInputTarget
+      val ready =
+        attachment != null &&
+          owner.attachmentAuthority.isCurrent(attachment) &&
+          attachment.viewport != null &&
+          target?.isGestureReady == true &&
+          adapter === attachment.adapter &&
+          (expectedInputGeneration == null || expectedInputGeneration == inputGeneration)
+      val token = Token(attachment, target, ready)
+      if (!ready) {
+        return@run token
       }
+      previous = revokeLocked()
+      previousJobs = programmaticJobs.toList()
+      programmaticJobs.clear()
+      dispatchTail = null
+      cameraGeneration++
+      inputGeneration++
+      active = token
+      token
+    }
     previousJobs.forEach { it.cancel(CancellationException("A newer input owns the camera")) }
     previous?.cancelWork()
     return token
@@ -111,53 +109,51 @@ internal class CameraInputAuthority(private val owner: MapState) {
     acquire(adapter, expectedInputGeneration = generation).takeIf { it.acceptsCommands }
 
   /** Even input with no camera response invalidates an older click's camera fallthrough. */
-  fun observeInput(): Long = owner.lifecycle.serialized { ++inputGeneration }
+  fun observeInput(): Long = ++inputGeneration
 
   fun beginProgrammatic(job: Job? = null, concurrent: Boolean = false): CameraCommandGuard {
     var previous: CameraInputToken? = null
     var previousJobs: List<Job> = emptyList()
     var revision = 0L
     var turn: DispatchTurn? = null
-    val generation =
-      owner.lifecycle.serialized {
-        job?.ensureActive()
-        check(!owner.isClosed) { "The map state is closed" }
-        previous = revokeLocked()
-        revision = ++commandRevision
-        if (!concurrent) {
-          previousJobs = programmaticJobs.toList()
-          programmaticJobs.clear()
-          cameraGeneration++
-          dispatchTail = null
-        }
-        if (job != null) {
-          turn = DispatchTurn(dispatchTail).also { dispatchTail = it }
-        }
-        job?.let(programmaticJobs::add)
-        inputGeneration++
-        cameraGeneration
+    val generation = run {
+      job?.ensureActive()
+      check(!owner.isClosed) { "The map state is closed" }
+      previous = revokeLocked()
+      revision = ++commandRevision
+      if (!concurrent) {
+        previousJobs = programmaticJobs.toList()
+        programmaticJobs.clear()
+        cameraGeneration++
+        dispatchTail = null
       }
+      if (job != null) {
+        turn = DispatchTurn(dispatchTail).also { dispatchTail = it }
+      }
+      job?.let(programmaticJobs::add)
+      inputGeneration++
+      cameraGeneration
+    }
     turn?.onCompletion {
-      owner.lifecycle.serialized {
+      run {
         if (dispatchTail === turn) dispatchTail = null
       }
     }
     previousJobs.forEach { it.cancel(CancellationException("A newer command owns the camera")) }
     job?.invokeOnCompletion {
       turn?.release()
-      owner.lifecycle.serialized {
+      run {
         programmaticJobs.remove(job)
       }
     }
     previous?.cancelWork()
     return object : CameraCommandGuard {
-      override fun isValid(): Boolean =
-        owner.lifecycle.serialized {
-          !owner.isClosed &&
-            cameraGeneration == generation &&
-            job?.isCancelled != true &&
-            (job != null || commandRevision == revision)
-        }
+      override fun isValid(): Boolean = run {
+        !owner.isClosed &&
+          cameraGeneration == generation &&
+          job?.isCancelled != true &&
+          (job != null || commandRevision == revision)
+      }
 
       override suspend fun awaitDispatchTurn() {
         turn?.await()
@@ -193,7 +189,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
    */
   fun detach(attachment: MapAttachment) {
     val token =
-      owner.lifecycle.serialized {
+      run {
         inputGeneration++
         active?.takeIf { it.attachment === attachment }?.also { revokeLocked() }
       } ?: return
@@ -227,106 +223,96 @@ internal class CameraInputAuthority(private val owner: MapState) {
     private val hapticClock = TimeSource.Monotonic.markNow()
 
     fun setHapticFeedback(callback: (HapticEmphasis) -> Unit) {
-      owner.lifecycle.serialized { onHaptic = callback }
+      onHaptic = callback
     }
 
     /** Called after a direct rotation executes; callbacks leave the lifecycle lock. */
     fun reportRotation(from: Double, to: Double) {
-      val event =
-        owner.lifecycle.serialized {
-          if (!acceptsLocked(enqueue = false)) return@serialized null
-          val callback = onHaptic ?: return@serialized null
-          val detector =
-            hapticDetector
-              ?: BearingHapticDetector(configuration.settings.rotate.haptics).also {
-                hapticDetector = it
-              }
-          detector.update(from, to, hapticClock.elapsedNow())?.let { callback to it }
-        }
+      val event = run {
+        if (!acceptsLocked(enqueue = false)) return@run null
+        val callback = onHaptic ?: return@run null
+        val detector =
+          hapticDetector
+            ?: BearingHapticDetector(configuration.settings.rotate.haptics).also {
+              hapticDetector = it
+            }
+        detector.update(from, to, hapticClock.elapsedNow())?.let { callback to it }
+      }
       event?.let { (callback, emphasis) -> callback(emphasis) }
     }
 
     val bearingSnapping: BearingSnapping?
-      get() =
-        owner.lifecycle.serialized {
-          configuration.settings.rotate.snapping.takeIf {
-            acceptsLocked(enqueue = true) && rotated && it.enabled
-          }
+      get() = run {
+        configuration.settings.rotate.snapping.takeIf {
+          acceptsLocked(enqueue = true) && rotated && it.enabled
         }
+      }
 
     val acceptsCommands: Boolean
-      get() = owner.lifecycle.serialized { acceptsLocked(enqueue = true) }
+      get() = acceptsLocked(enqueue = true)
 
     val canExecute: Boolean
-      get() = owner.lifecycle.serialized { acceptsLocked(enqueue = false) }
+      get() = acceptsLocked(enqueue = false)
 
     val isCancelled: Boolean
-      get() = owner.lifecycle.serialized { status == Status.Cancelled }
+      get() = status == Status.Cancelled
 
-    fun permitted(component: CameraComponent): Boolean =
-      owner.lifecycle.serialized {
-        acceptsLocked(enqueue = true) && configuration.settings.enabled(component)
-      }
+    fun permitted(component: CameraComponent): Boolean = run {
+      acceptsLocked(enqueue = true) && configuration.settings.enabled(component)
+    }
 
     /** Application callbacks run outside the lock and may replace this camera operation. */
     fun prepare(component: CameraComponent): Boolean {
-      val start =
-        owner.lifecycle.serialized {
-          if (!acceptsLocked(enqueue = true) || !configuration.settings.enabled(component))
-            return false
-          if (component == CameraComponent.Rotate) rotated = true
-          if (startedComponents.add(component)) configuration.onStart[component] else null
-        }
+      val start = run {
+        if (!acceptsLocked(enqueue = true) || !configuration.settings.enabled(component))
+          return false
+        if (component == CameraComponent.Rotate) rotated = true
+        if (startedComponents.add(component)) configuration.onStart[component] else null
+      }
       start?.invoke()
       return permitted(component)
     }
 
-    fun rearm(component: CameraComponent) =
-      owner.lifecycle.serialized {
-        startedComponents.remove(component)
-        if (component == CameraComponent.Rotate) hapticDetector = null
-      }
+    fun rearm(component: CameraComponent) = run {
+      startedComponents.remove(component)
+      if (component == CameraComponent.Rotate) hapticDetector = null
+    }
 
     fun registerJob(value: Job) {
-      val cancelled =
-        owner.lifecycle.serialized {
-          job = value
-          status == Status.Cancelled
-        }
+      val cancelled = run {
+        job = value
+        status == Status.Cancelled
+      }
       if (cancelled) value.cancel(CancellationException("A newer input owns the camera"))
     }
 
-    fun enqueue(action: () -> Unit): Boolean =
-      owner.lifecycle.serialized {
-        if (!acceptsLocked(enqueue = true)) return false
-        action()
-        true
-      }
+    fun enqueue(action: () -> Unit): Boolean = run {
+      if (!acceptsLocked(enqueue = true)) return false
+      action()
+      true
+    }
 
-    fun finish(cancelled: Boolean, enqueue: () -> Unit): Unit =
-      owner.lifecycle.serialized {
-        if (status == Status.Completed) return
-        if (cancelled) revoke() else if (status == Status.Open) status = Status.Sealed
-        if (!finishQueued) {
-          finishQueued = true
-          enqueue()
-        }
+    fun finish(cancelled: Boolean, enqueue: () -> Unit): Unit = run {
+      if (status == Status.Completed) return
+      if (cancelled) revoke() else if (status == Status.Open) status = Status.Sealed
+      if (!finishQueued) {
+        finishQueued = true
+        enqueue()
       }
+    }
 
-    fun complete() =
-      owner.lifecycle.serialized {
-        if (status != Status.Cancelled) status = Status.Completed
-        if (active === this) active = null
-        completion.complete(Unit)
-      }
+    fun complete() = run {
+      if (status != Status.Cancelled) status = Status.Completed
+      if (active === this) active = null
+      completion.complete(Unit)
+    }
 
     suspend fun awaitCompletion() = completion.await()
 
-    fun revoke() =
-      owner.lifecycle.serialized {
-        status = Status.Cancelled
-        if (active === this) active = null
-      }
+    fun revoke() = run {
+      status = Status.Cancelled
+      if (active === this) active = null
+    }
 
     fun cancelWork() {
       owner.lifecycle
