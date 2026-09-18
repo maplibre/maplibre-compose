@@ -114,6 +114,10 @@ runs:
         # java.exe makes both resolve the same WGL driver, including child-JVM shutdown tests.
         # setup-ci-deps saves the toolchain cache before this job-local modification.
         Copy-Item $openGl (Join-Path $javaBin "opengl32.dll")
+        # LIBGL_ALWAYS_SOFTWARE makes the d3d12 driver use WARP, but Mesa's WGL front end also
+        # drops d3d12 from its driver list under that variable, and this build has no llvmpipe.
+        # Naming the driver keeps it selected.
+        "GALLIUM_DRIVER=d3d12" >> $env:GITHUB_ENV
         "LIBGL_ALWAYS_SOFTWARE=true" >> $env:GITHUB_ENV
 
     - name: Expose the Vulkan loader (Windows)
