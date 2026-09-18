@@ -173,7 +173,7 @@ class CustomGeometrySourceTest {
       }
     val handle = state.style.sources.add(source)
     binding.install(FillLayer(id = "custom-fill", source = source))
-    state.desiredStyleRevision =
+    state.styleAuthority.desiredStyleRevision =
       DesiredStyleRevision(listOf(source.definition()), emptyList(), emptyList())
     return assertIs<CustomGeometrySourceHandle>(handle)
   }

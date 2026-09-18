@@ -25,7 +25,7 @@ class MapLifecycleCallbackRaceTest {
     val token = state.reservePresentation()
     state.publishPresentation(token, adapter)
     val style = OwnerThreadSourceReadStyleBinding()
-    assertTrue(state.updateLoadedStyle(adapter, style))
+    assertTrue(state.styleAuthority.updateLoadedStyle(adapter, style))
     val binding = state.lifecycle.bind(CallbackRacePlatformAdapter())
     val lease = binding.attach()
     val engine = requireNotNull(binding.engineIdentity)
@@ -33,7 +33,9 @@ class MapLifecycleCallbackRaceTest {
     val callbackFailure = AtomicReference<Throwable?>()
 
     val styleReadyThread = thread {
-      styleReadyFailure.set(runCatching { state.markStyleReady(adapter) }.exceptionOrNull())
+      styleReadyFailure.set(
+        runCatching { state.styleAuthority.markStyleReady(adapter) }.exceptionOrNull()
+      )
     }
     assertTrue(style.sourceReadStarted.await(5, TimeUnit.SECONDS))
     val callbackThread = thread {
@@ -111,13 +113,13 @@ class MapLifecycleCallbackRaceTest {
     val token = state.reservePresentation()
     state.publishPresentation(token, adapter)
 
-    val firstThread = thread { state.setBaseStyle(firstStyle) }
+    val firstThread = thread { state.styleAuthority.setBaseStyle(firstStyle) }
     assertTrue(adapter.firstWriteEntered.await(5, TimeUnit.SECONDS))
     val secondStarted = CountDownLatch(1)
     val secondFinished = CountDownLatch(1)
     val secondThread = thread {
       secondStarted.countDown()
-      state.setBaseStyle(secondStyle)
+      state.styleAuthority.setBaseStyle(secondStyle)
       secondFinished.countDown()
     }
 
@@ -174,7 +176,7 @@ class MapLifecycleCallbackRaceTest {
     assertTrue(adapter.firstWriteEntered.await(5, TimeUnit.SECONDS))
     val latest = BaseStyle.Json("latest")
 
-    state.setBaseStyle(latest)
+    state.styleAuthority.setBaseStyle(latest)
     adapter.releaseFirstWrite.countDown()
     assertTrue(publicationFinished.await(5, TimeUnit.SECONDS))
     publicationThread.join()
@@ -220,15 +222,15 @@ class MapLifecycleCallbackRaceTest {
     val token = state.reservePresentation()
     state.publishPresentation(token, adapter)
     val firstStyle = RecordingStyleBinding()
-    assertTrue(state.updateLoadedStyle(adapter, firstStyle))
-    assertTrue(state.markStyleReady(adapter))
+    assertTrue(state.styleAuthority.updateLoadedStyle(adapter, firstStyle))
+    assertTrue(state.styleAuthority.markStyleReady(adapter))
     val actionEntered = CountDownLatch(1)
     val releaseAction = CountDownLatch(1)
     val actionFailure = AtomicReference<Throwable?>()
     val actionThread = thread {
       actionFailure.set(
         runCatching {
-          state.runStyleHandleOperation(firstStyle) {
+          state.styleAuthority.runStyleHandleOperation(firstStyle) {
             actionEntered.countDown()
             assertTrue(releaseAction.await(5, TimeUnit.SECONDS))
             firstStyle.addSource("old-only", JsonObject(emptyMap()))
@@ -240,9 +242,9 @@ class MapLifecycleCallbackRaceTest {
     assertTrue(actionEntered.await(5, TimeUnit.SECONDS))
     val replacement = RecordingStyleBinding()
 
-    state.setBaseStyle(BaseStyle.Json("replacement"))
-    assertTrue(state.updateLoadedStyle(adapter, replacement))
-    assertTrue(state.markStyleReady(adapter))
+    state.styleAuthority.setBaseStyle(BaseStyle.Json("replacement"))
+    assertTrue(state.styleAuthority.updateLoadedStyle(adapter, replacement))
+    assertTrue(state.styleAuthority.markStyleReady(adapter))
     releaseAction.countDown()
     actionThread.join()
 
