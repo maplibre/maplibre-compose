@@ -355,6 +355,8 @@ description = "Run the demo app on a connected Android device or emulator."
 usage = '''
 arg "[serial]" help="adb serial. Prompts when several devices are connected."
 flag "--backend <backend>" help="Render backend to package: opengl (default) or vulkan."
+flag "--route <route>" help="Panel screen to open: demo/<id>, benchmarks, benchmark/<id>, settings, or settings/<page>. See CONTRIBUTING.md."
+flag "--camera <camera>" help="Initial camera as zoom/latitude/longitude[/bearing[/pitch]]."
 '''
 # The device prompt needs the real terminal; mise otherwise pipes stdio.
 raw = true
@@ -395,17 +397,27 @@ run = ".mise/bin/run-android-demo"
 description = "Run the demo app on this host."
 usage = '''
 flag "--backend <name>" help="Map render backend to run, e.g. opengl or vulkan. Defaults to the platform's preferred backend."
+flag "--route <route>" help="Panel screen to open: demo/<id>, benchmarks, benchmark/<id>, settings, or settings/<page>. See CONTRIBUTING.md."
+flag "--camera <camera>" help="Initial camera as zoom/latitude/longitude[/bearing[/pitch]]."
+flag "--extent <size>" help="Window size in dp as WIDTHxHEIGHT, e.g. 400x800 for the compact layout."
 '''
 run = '''
 args=""
 if [ -n "$usage_backend" ]; then
   args="-Pmaplibre.desktop.backend=$usage_backend"
 fi
+launch=()
+[ -n "$usage_route" ] && launch+=("--route=$usage_route")
+[ -n "$usage_camera" ] && launch+=("--camera=$usage_camera")
+[ -n "$usage_extent" ] && launch+=("--extent=$usage_extent")
 if [ "$(uname -s)" = Darwin ]; then
-  # Core Location reads the usage description from a packaged app Info.plist.
-  ./gradlew :demo-app:desktop:runDistributable $args
+  # Core Location reads the usage description from a packaged app Info.plist. The packaged
+  # launcher forwards arguments; Gradle's runDistributable does not.
+  ./gradlew :demo-app:desktop:createDistributable $args
+  app=demo-app/desktop/build/compose/binaries/main/app/org.maplibre.compose.demoapp.app
+  "$app/Contents/MacOS/org.maplibre.compose.demoapp" "${launch[@]}"
 else
-  ./gradlew :demo-app:desktop:run $args
+  ./gradlew :demo-app:desktop:run $args --args="${launch[*]}"
 fi
 '''
 
@@ -428,13 +440,20 @@ run = '.mise/bin/run-ios-demo'
 description = "Run the demo app on the Nucleus Tao desktop host instead of the AWT one."
 usage = '''
 flag "--backend <name>" help="Map render backend to run, e.g. opengl or vulkan. Defaults to the platform's preferred backend."
+flag "--route <route>" help="Panel screen to open: demo/<id>, benchmarks, benchmark/<id>, settings, or settings/<page>. See CONTRIBUTING.md."
+flag "--camera <camera>" help="Initial camera as zoom/latitude/longitude[/bearing[/pitch]]."
+flag "--extent <size>" help="Window size in dp as WIDTHxHEIGHT, e.g. 400x800 for the compact layout."
 '''
 run = '''
 args=""
 if [ -n "$usage_backend" ]; then
   args="-Pmaplibre.desktop.backend=$usage_backend"
 fi
-./gradlew :demo-app:desktop-nucleus:run $args
+launch=()
+[ -n "$usage_route" ] && launch+=("--route=$usage_route")
+[ -n "$usage_camera" ] && launch+=("--camera=$usage_camera")
+[ -n "$usage_extent" ] && launch+=("--extent=$usage_extent")
+./gradlew :demo-app:desktop-nucleus:run $args --args="${launch[*]}"
 '''
 
 [tasks."publish:snapshot"]

@@ -164,6 +164,39 @@ macOS supports `metal`, `vulkan`, and `opengl`; Linux and Windows support
 
 CI tests the AWT host. Verify Nucleus separately with `demo:desktop-nucleus`.
 
+### Launch arguments
+
+The demo opens directly in a screen, so a script, an agent, or a bug report can
+reach a state without tapping through the menu. Every launcher reads the same
+three values:
+
+- `route`: `demo/<id>`, `benchmarks`, `benchmark/<id>`, `settings`, or
+  `settings/<page>` where the page is `location`, `input`, `camera`, or
+  `rendering`. A demo id is its name in lowercase with hyphens, such as
+  `demo/live-tracking` or `demo/3d-manhattan`. A benchmark id is the scenario's
+  id, such as `benchmark/animation`.
+- `camera`: the initial camera as `zoom/latitude/longitude[/bearing[/pitch]]`,
+  the MapLibre GL JS map hash format. A demo route with a camera keeps that
+  camera instead of flying to the demo's destination.
+- `extent`: the window size in dp as `WIDTHxHEIGHT`, on desktop and native macOS
+  only. `400x800` gives the compact bottom-sheet layout; `900x700` and
+  `1200x800` give the medium and expanded sidebars.
+
+The tasks take them as flags:
+
+```sh
+mise run demo:desktop -- --route demo/live-tracking --extent 400x800
+mise run demo:android -- --route settings/camera --camera 12/47.6/-122.33
+```
+
+Outside the tasks, desktop and native macOS binaries take `--route=<route>`,
+`--camera=<camera>`, and `--extent=<size>` as command-line arguments. The
+Android app reads string intent extras of the same names, so
+`adb shell am start -n org.maplibre.compose.demoapp/.MainActivity --es route demo/castello-plan`
+opens a demo on an installed app. iOS reads the same command-line arguments,
+which `xcrun simctl launch <udid> <bundle id> --route=benchmarks` passes. The
+browser reads them from the query string, as in `/?route=settings/input`.
+
 ### Android Auto
 
 The `demo-app/android-auto` app uses the Car App Library to display a Protomaps

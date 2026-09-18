@@ -55,18 +55,26 @@ import org.maplibre.compose.demoapp.benchmark.BenchmarkRun
 import org.maplibre.compose.demoapp.benchmark.benchmarkLaunchConfig
 
 @Composable
-fun DemoApp(contentPadding: PaddingValues = PaddingValues(0.dp)) {
+fun DemoApp(
+  launch: DemoLaunch = DemoLaunch.None,
+  contentPadding: PaddingValues = PaddingValues(0.dp),
+) {
   val benchmark = benchmarkLaunchConfig()
   if (benchmark != null) {
     BenchmarkRun(benchmark)
   } else {
-    DemoApp(rememberDemoAppState(), contentPadding)
+    DemoApp(rememberDemoAppState(launch.camera), launch, contentPadding)
   }
 }
 
+/** [launch] is applied once, when the shell first composes. [state] holds its camera already. */
 @Composable
-fun DemoApp(state: DemoAppState, contentPadding: PaddingValues = PaddingValues(0.dp)) {
-  DemoAppTheme(state) { DemoShell(state, contentPadding) }
+fun DemoApp(
+  state: DemoAppState,
+  launch: DemoLaunch = DemoLaunch.None,
+  contentPadding: PaddingValues = PaddingValues(0.dp),
+) {
+  DemoAppTheme(state) { DemoShell(state, launch, contentPadding) }
 }
 
 @Composable
@@ -87,7 +95,7 @@ private val SheetHandleHeight = 48.dp
 private val MinimumUsefulSheetHeight = 320.dp
 
 @Composable
-private fun DemoShell(state: DemoAppState, contentPadding: PaddingValues) {
+private fun DemoShell(state: DemoAppState, launch: DemoLaunch, contentPadding: PaddingValues) {
   val navController = rememberNavController()
   // One composition each for the map and the panel, so crossing the sidebar / bottom-sheet
   // breakpoint moves them: the map keeps its presentation and the NavHost keeps its back stack.
@@ -100,7 +108,16 @@ private fun DemoShell(state: DemoAppState, contentPadding: PaddingValues) {
       revealMap: suspend () -> Unit,
       peekSpacing: Dp,
       onPeekHeightChange: (Dp) -> Unit ->
-      DemoPanel(state, navController, modifier, revealMap, peekSpacing, onPeekHeightChange)
+      DemoPanel(
+        state,
+        navController,
+        modifier,
+        revealMap,
+        peekSpacing,
+        onPeekHeightChange,
+        launchRoute = launch.route,
+        launchHasCamera = launch.camera != null,
+      )
     }
   }
   BoxWithConstraints(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {

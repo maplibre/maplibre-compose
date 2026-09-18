@@ -25,7 +25,11 @@ esac
 
 "$repository_root/gradlew" ":demo-app:$module:installDebug" \
   -Pmaplibre.android.backend="${usage_backend:-opengl}"
+# The phone demo reads these extras; see CONTRIBUTING.md, "Launch arguments".
+extras=()
+[ -n "${usage_route:-}" ] && extras+=(--es route "$usage_route")
+[ -n "${usage_camera:-}" ] && extras+=(--es camera "$usage_camera")
 "$adb" -s "$ANDROID_SERIAL" shell am start \
   -a android.intent.action.MAIN \
   -c android.intent.category.LAUNCHER \
-  -n "$application_id/.MainActivity"
+  -n "$application_id/.MainActivity" "${extras[@]}"
