@@ -21,6 +21,8 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.systemAnimatorDurationScale
+import org.maplibre.compose.testing.skipMapTest
 import org.maplibre.spatialk.geojson.Position
 
 class MlnFfiIndependentCameraTest {
@@ -168,12 +170,14 @@ class MlnFfiIndependentCameraTest {
     }
   }
 
-  private fun fixture(): BridgeMapFixture =
-    BridgeMapFixture.create().also {
+  private fun fixture(): BridgeMapFixture {
+    if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
+    return BridgeMapFixture.create().also {
       it.state.publishPresentation(it.state.reservePresentation(), it.session)
       it.bindState(it.state)
       it.loadStyle(BaseStyle.Empty)
       it.state.setCameraPosition(CameraPosition(zoom = 3.0))
       it.pumpUntil("the initial camera") { it.state.cameraPosition.zoom == 3.0 }
     }
+  }
 }

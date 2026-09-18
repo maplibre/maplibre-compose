@@ -16,6 +16,8 @@ import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.systemAnimatorDurationScale
+import org.maplibre.compose.testing.skipMapTest
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.nativeffi.camera.EdgeInsets
 import org.maplibre.spatialk.geojson.Position
@@ -23,6 +25,7 @@ import org.maplibre.spatialk.geojson.Position
 class MlnFfiViewportTest {
   @Test
   fun viewport_insets_do_not_stop_an_unanchored_camera_animation() = runBlocking {
+    if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
     BridgeMapFixture.create().use { fixture ->
       val state = fixture.state
       state.publishPresentation(state.reservePresentation(), fixture.session)

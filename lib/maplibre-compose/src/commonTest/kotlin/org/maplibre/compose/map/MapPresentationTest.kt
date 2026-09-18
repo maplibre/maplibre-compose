@@ -1875,6 +1875,27 @@ class MapPresentationTest {
   }
 
   @Test
+  fun a_bounds_fit_retries_when_its_presentation_is_replaced_before_the_first_viewport() = runTest {
+    val fixture = presentationFixture()
+    val fit = async {
+      fixture.state.fitCameraToBounds(BoundingBox(Position(-1.0, -1.0), Position(1.0, 1.0)))
+    }
+    testScheduler.runCurrent()
+    assertFalse(fit.isCompleted)
+
+    fixture.state.releasePresentation(fixture.token, fixture.adapter)
+    testScheduler.runCurrent()
+    assertFalse(fit.isCompleted)
+    val replacement = PresentationTestAdapter()
+    fixture.state.publishPresentation(fixture.state.reservePresentation(), replacement)
+    requireNotNull(fixture.state.currentMapAttachment).updateViewport(testViewport())
+    fit.await()
+    assertFalse(fixture.adapter.boundsFit.isCompleted)
+    assertTrue(replacement.boundsFit.isCompleted)
+    fixture.close()
+  }
+
+  @Test
   fun a_rendered_query_issued_while_detached_waits_for_the_next_attachment() = runTest {
     val fixture = presentationFixture()
     fixture.state.releasePresentation(fixture.token, fixture.adapter)

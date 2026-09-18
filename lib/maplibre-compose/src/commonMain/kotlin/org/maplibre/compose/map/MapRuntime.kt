@@ -1067,8 +1067,9 @@ internal constructor(
     fitPadding: DpPadding = DpPadding.Zero,
   ): Unit = coroutineScope {
     val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])
-    awaitAttachment()
-      .fitCameraToBounds(boundingBox, bearing, tilt, cameraPadding, fitPadding, guard)
+    retryAcrossAttachments {
+      it.fitCameraToBounds(boundingBox, bearing, tilt, cameraPadding, fitPadding, guard)
+    }
   }
 
   /**
