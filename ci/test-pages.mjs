@@ -7,16 +7,22 @@ const browser = await chromium.launch({ channel: "chromium" });
 try {
   const page = await browser.newPage();
   page.setDefaultTimeout(30_000);
+  const isComposeResource = (request) =>
+    new URL(request.url()).pathname.includes("/composeResources/");
   const resources = [];
   page.on("request", (request) => {
-    if (new URL(request.url()).pathname.includes("/composeResources/")) {
+    if (isComposeResource(request)) {
       resources.push(request);
     }
   });
   await page.goto(url);
   await page.locator('canvas[role="generic"]').waitFor();
-  // Resource loading can start another font or image request. Wait for network quiescence,
-  // including complete response bodies, before checking the packaged resource paths.
+  // The canvas exists before the first composition requests any resource, and the network is
+  // already idle while Compose initializes, so wait for the first resource request before
+  // waiting for quiescence, including complete response bodies.
+  if (resources.length === 0) {
+    await page.waitForRequest(isComposeResource);
+  }
   await page.waitForLoadState("networkidle");
   assert.ok(resources.length > 0, "The demo requested no Compose resources.");
   for (const request of resources) {
