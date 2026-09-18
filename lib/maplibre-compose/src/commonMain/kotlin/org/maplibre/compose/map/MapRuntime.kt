@@ -1079,9 +1079,9 @@ internal constructor(
   }
 
   /**
-   * Waits for a viewport, then fits [boundingBox] without animation. A newer camera command or
-   * accepted input cancels this call. Detaching cancels the call; it does not restart on another
-   * attachment. See [cameraForBounds] for [fitPadding] and [cameraPadding].
+   * Waits for a viewport, then fits [boundingBox] without animation. A newer camera command,
+   * accepted input, or detaching cancels this call. See [cameraForBounds] for [fitPadding] and
+   * [cameraPadding].
    */
   public suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
@@ -1106,7 +1106,7 @@ internal constructor(
    * Returns when this command finishes or all its properties have been superseded. Other commands
    * may still be moving. Cancelling the coroutine stops waiting, but an already-started animation
    * continues. Use [stopCameraMovement] to stop all motion. Accepted input, full camera assignment,
-   * or attachment loss cancels the call. It never restarts on a replacement attachment.
+   * or attachment loss cancels the call.
    *
    * Android's animator duration scale multiplies the duration; zero applies the update immediately.
    */
@@ -1132,10 +1132,9 @@ internal constructor(
    * can continue. Screen coordinates are relative to the full map, not its padded area.
    *
    * An overlapping native command or any browser command supersedes this move. Accepted input, a
-   * logical viewport resize, changed viewport insets, or attachment loss cancels this call. It does
-   * not restart on another attachment. Coroutine cancellation stops waiting; use
-   * [stopCameraMovement] to stop motion. Until selective cancellation is available, anchor geometry
-   * changes stop all camera animations.
+   * logical viewport resize, changed viewport insets, or attachment loss cancels this call.
+   * Coroutine cancellation stops waiting; use [stopCameraMovement] to stop motion. Until selective
+   * cancellation is available, anchor geometry changes stop all camera animations.
    *
    * Anchor preservation applies to flat Mercator maps, including tilted cameras. Camera constraints
    * take precedence and can move the anchor. Globe and terrain do not have this guarantee. On
@@ -1172,8 +1171,7 @@ internal constructor(
    * Waits for a viewport, then moves the camera to fit [boundingBox] with [animation]. A newer
    * full-camera assignment or accepted input cancels this call. Further partial updates follow
    * [animateCamera]'s replacement and coroutine-cancellation behavior. See [cameraForBounds] for
-   * [fitPadding] and [cameraPadding]. Detaching cancels the call; it does not restart on another
-   * attachment.
+   * [fitPadding] and [cameraPadding]. Detaching cancels the call.
    *
    * On Android, the system animator duration scale multiplies the duration of [animation]. A scale
    * of zero jumps to fit [boundingBox].
