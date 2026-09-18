@@ -169,8 +169,7 @@ internal class WindowsAngleMapHost(
         val imported =
           if (producer == MapRenderBackend.OPENGL) {
             val context = wgl ?: WindowsWglContext.create().also { wgl = it }
-            context.requireAdapter(adapterLuid, "ANGLE")
-            WindowsWglImportedTexture.create(context, d3d11.sharedHandle, extent, d3d11 = true)
+            context.importTexture(d3d11.sharedHandle, extent, "ANGLE", adapterLuid, d3d11 = true)
           } else {
             val context =
               vulkan ?: WindowsOpenGlVulkanContext.create(adapterLuid).also { vulkan = it }

@@ -9,6 +9,7 @@ import org.lwjgl.opengl.GLCapabilities
 import org.lwjgl.opengl.WGL
 import org.lwjgl.opengl.WGLARBCreateContext
 import org.lwjgl.system.MemoryStack
+import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.MlnFfiHostException
 import org.maplibre.compose.mlnffi.NativeHandle
 import org.maplibre.compose.mlnffi.WglContextHandles
@@ -29,24 +30,36 @@ internal class WindowsWglContext private constructor() : AutoCloseable {
     capabilities?.let(GL::setCapabilities) ?: run { capabilities = GL.createCapabilities() }
   }
 
-  fun requireAdapter(expectedLuid: Long, consumer: String) {
-    makeCurrent()
-    if (!ensureCapabilities().GL_EXT_memory_object_win32) {
+  /**
+   * Imports [sharedHandle] as a texture. Software adapters report a LUID per DXGI factory, so a
+   * LUID mismatch alone does not prove the import will fail; both are reported once it has.
+   */
+  fun importTexture(
+    sharedHandle: Long,
+    extent: MapExtent,
+    consumer: String,
+    consumerLuid: Long,
+    d3d11: Boolean = false,
+  ): WindowsWglImportedTexture =
+    try {
+      WindowsWglImportedTexture.create(this, sharedHandle, extent, d3d11)
+    } catch (error: RuntimeException) {
       throw MlnFfiHostException(
-        "WGL requires GL_EXT_memory_object_win32 to import $consumer textures"
+        "WGL could not import the $consumer texture " +
+          "(WGL adapter LUID=0x${adapterLuid().toULong().toString(16)}, " +
+          "$consumer adapter LUID=0x${consumerLuid.toULong().toString(16)})",
+        error,
       )
     }
+
+  /** The adapter LUID the driver reports, or 0 when it cannot import Win32 memory. */
+  private fun adapterLuid(): Long {
+    makeCurrent()
+    if (!ensureCapabilities().GL_EXT_memory_object_win32) return 0L
     MemoryStack.stackPush().use { stack ->
       val luid = stack.calloc(GL_LUID_SIZE_EXT)
       glGetUnsignedBytevEXT(GL_DEVICE_LUID_EXT, luid)
-      val actualLuid = luid.getLong(0)
-      if (expectedLuid == 0L || actualLuid == 0L || actualLuid != expectedLuid) {
-        throw MlnFfiHostException(
-          "WGL and $consumer must use the same graphics adapter " +
-            "(WGL LUID=0x${actualLuid.toULong().toString(16)}, " +
-            "$consumer LUID=0x${expectedLuid.toULong().toString(16)})"
-        )
-      }
+      return luid.getLong(0)
     }
   }
 

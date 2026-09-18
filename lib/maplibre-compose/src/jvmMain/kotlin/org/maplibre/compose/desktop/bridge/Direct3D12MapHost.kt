@@ -237,11 +237,12 @@ internal class Direct3D12MapHost(
       importedTexture =
         if (producer == MapRenderBackend.OPENGL) {
           val context = wgl ?: WindowsWglContext.create().also { wgl = it }
-          context.requireAdapter(
-            WindowsDirect3DInterop.adapterLuidOf(direct3DDevice),
+          context.importTexture(
+            sharedHandle,
+            extent,
             "Direct3D 12",
+            WindowsDirect3DInterop.adapterLuidOf(direct3DDevice),
           )
-          WindowsWglImportedTexture.create(context, sharedHandle, extent)
         } else {
           val context = vulkan ?: WindowsVulkanContext.create(sharedHandle).also { vulkan = it }
           context.importDirect3DTexture(sharedHandle, storageExtent, extent)
