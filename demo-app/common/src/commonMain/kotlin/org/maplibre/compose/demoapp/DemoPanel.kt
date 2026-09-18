@@ -2,8 +2,6 @@ package org.maplibre.compose.demoapp
 
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -15,11 +13,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -74,6 +74,7 @@ internal val PanelHeaderHeight = 64.dp
  * reports the height of the selected demo's title bar, peek row, and [peekSpacing] below them,
  * which a sheet keeps visible above the window's bottom inset.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun DemoPanel(
   state: DemoAppState,
@@ -98,14 +99,15 @@ fun DemoPanel(
       state.benchmark.abandonRun()
     }
   }
+  val motion = MaterialTheme.motionScheme
   NavHost(
     navController = navController,
     startDestination = DemoRoute.Demos,
     modifier = modifier,
-    enterTransition = { forwardEnter() },
-    exitTransition = { forwardExit() },
-    popEnterTransition = { backwardEnter() },
-    popExitTransition = { backwardExit() },
+    enterTransition = { motion.forwardEnter() },
+    exitTransition = { motion.forwardExit() },
+    popEnterTransition = { motion.backwardEnter() },
+    popExitTransition = { motion.backwardExit() },
   ) {
     composable(DemoRoute.Demos) {
       DemosScreen(
@@ -208,27 +210,23 @@ fun DemoPanel(
 
 // Material 3 forward and backward: the child screen slides across the full panel width while the
 // parent slides a quarter of the way and fades. One screen always covers the panel, so it never
-// shows empty mid-transition, unlike the shared axis fade through.
-private const val PageDurationMillis = 400
-private val EmphasizedDecelerate = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
-private val EmphasizedAccelerate = CubicBezierEasing(0.3f, 0f, 0.8f, 0.15f)
+// shows empty mid-transition, unlike the shared axis fade through. The theme's motion scheme
+// supplies the specs: spatial for the slides, effects for the fades.
 private const val ParentSlideFraction = 4
 
-private fun forwardEnter(): EnterTransition =
-  slideInHorizontally(tween(PageDurationMillis, easing = EmphasizedDecelerate)) { it }
+private fun MotionScheme.forwardEnter(): EnterTransition =
+  slideInHorizontally(defaultSpatialSpec()) { it }
 
-private fun forwardExit(): ExitTransition =
-  slideOutHorizontally(tween(PageDurationMillis, easing = EmphasizedDecelerate)) {
-    -it / ParentSlideFraction
-  } + fadeOut(tween(PageDurationMillis, easing = EmphasizedDecelerate))
+private fun MotionScheme.forwardExit(): ExitTransition =
+  slideOutHorizontally(defaultSpatialSpec()) { -it / ParentSlideFraction } +
+    fadeOut(defaultEffectsSpec())
 
-private fun backwardEnter(): EnterTransition =
-  slideInHorizontally(tween(PageDurationMillis, easing = EmphasizedDecelerate)) {
-    -it / ParentSlideFraction
-  } + fadeIn(tween(PageDurationMillis, easing = EmphasizedDecelerate))
+private fun MotionScheme.backwardEnter(): EnterTransition =
+  slideInHorizontally(defaultSpatialSpec()) { -it / ParentSlideFraction } +
+    fadeIn(defaultEffectsSpec())
 
-private fun backwardExit(): ExitTransition =
-  slideOutHorizontally(tween(PageDurationMillis, easing = EmphasizedAccelerate)) { it }
+private fun MotionScheme.backwardExit(): ExitTransition =
+  slideOutHorizontally(defaultSpatialSpec()) { it }
 
 @Composable
 private fun DemosScreen(
