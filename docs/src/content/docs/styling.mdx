@@ -39,32 +39,6 @@ To ship a style with your app, load it with
 
 <Code code={region(styling, "local")} lang="kotlin" title="App.kt" />
 
-## Share values across style expressions
-
-Global state lets several layers use one runtime value, such as a theme color
-or a filter switch. `globalState("name")` reads it in the expression DSL.
-The result is nullable and its type is known at runtime: use an assertion such
-as `asBoolean(const(false))`, or a conversion such as `convertToColor`, with a
-fallback for a missing or invalid value.
-
-Set defaults in the base style's root `state` object. Once the style is ready,
-use `state.style.globalState.setProperty` to change one value. JSON arrays and
-objects are data, not expression syntax. `resetProperty`, or a write of
-`JsonNull`, restores the base style's default; an undeclared key resets to null.
-
-<Code code={region(styling, "global-state")} lang="kotlin" title="App.kt" />
-
-The suspending `state.style.globalState.get()` returns a snapshot of effective
-values, including defaults. It returns null if no style is ready or the style
-changes during the read. Writes require `StyleLoadState.Ready`. Native applies
-writes on its owner thread, and a following read waits for those writes.
-
-Global state belongs to the loaded style on both Native and the browser. A
-base-style reload discards runtime values and uses the new style's defaults.
-Applications that retain a preference must apply it again after loading the new
-style. Global state can drive supported paint, layout, and filter expressions;
-use the properties supported by each engine.
-
 [maputnik]: https://maputnik.github.io/
 
 [awesome-maplibre]: https://github.com/maplibre/awesome-maplibre#maptile-providers
