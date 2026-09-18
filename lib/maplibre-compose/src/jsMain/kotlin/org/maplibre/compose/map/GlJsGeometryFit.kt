@@ -122,10 +122,12 @@ internal fun refineFitForTilt(
   candidate.setBearing(bearing)
   candidate.setPitch(tilt)
 
-  var result = fit
+  // The flat fit shows every position at tilt zero; it stands in until a tilted candidate does.
+  var shown = fit
+  var next = fit
   repeat(MAX_TILT_PASSES) {
-    candidate.setCenter(result.target.toLngLat())
-    candidate.setZoom(result.zoom)
+    candidate.setCenter(next.target.toLngLat())
+    candidate.setZoom(next.zoom)
     // The map's constraints may have moved the candidate.
     val target = candidate.center.toPosition()
     val zoom = candidate.zoom
@@ -136,12 +138,13 @@ internal fun refineFitForTilt(
     var maxY = Double.NEGATIVE_INFINITY
     for (position in positions) {
       val point = candidate.locationToScreenPoint(position.toLngLat())
-      if (!candidate.isPointOnMapSurface(point)) return result
+      if (!candidate.isPointOnMapSurface(point)) return shown
       minX = min(minX, point.x)
       minY = min(minY, point.y)
       maxX = max(maxX, point.x)
       maxY = max(maxY, point.y)
     }
+    shown = GeometryFit(target = target, zoom = zoom)
     val scale = min(availableWidth / (maxX - minX), availableHeight / (maxY - minY))
     val fittedZoom = (zoom + log2(scale)).coerceIn(minZoom, maxZoom)
 
@@ -157,10 +160,10 @@ internal fun refineFitForTilt(
       abs(fittedZoom - zoom) < ZOOM_TOLERANCE &&
         abs(midpoint.x - roomCenter.x) < PIXEL_TOLERANCE &&
         abs(midpoint.y - roomCenter.y) < PIXEL_TOLERANCE
-    result = GeometryFit(target = moved, zoom = fittedZoom)
-    if (settled) return result
+    next = GeometryFit(target = moved, zoom = fittedZoom)
+    if (settled) return next
   }
-  return result
+  return shown
 }
 
 private const val TILE_SIZE = 512.0
