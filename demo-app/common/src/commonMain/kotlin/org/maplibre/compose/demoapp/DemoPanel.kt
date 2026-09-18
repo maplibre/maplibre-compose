@@ -246,24 +246,23 @@ private fun DemosScreen(
   onOpenDemo: (Demo) -> Unit,
   onOpenBenchmarks: () -> Unit,
 ) {
-  Column {
-    TopAppBar(
-      title = { Text("Demos") },
-      actions = {
-        IconButton(onClick = onOpenBenchmarks) {
-          Icon(vectorResource(Res.drawable.speed_24px), contentDescription = "Benchmarks")
-        }
-        IconButton(onClick = onOpenSettings) {
-          Icon(vectorResource(Res.drawable.settings_24px), contentDescription = "Settings")
-        }
-      },
-      colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-    )
-    Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
-      allDemos.forEach { demo ->
-        SubmenuRow(demo.name, demo.description) { onOpenDemo(demo) }
-      }
+  PanelScreen(
+    header = {
+      TopAppBar(
+        title = { Text("Demos") },
+        actions = {
+          IconButton(onClick = onOpenBenchmarks) {
+            Icon(vectorResource(Res.drawable.speed_24px), contentDescription = "Benchmarks")
+          }
+          IconButton(onClick = onOpenSettings) {
+            Icon(vectorResource(Res.drawable.settings_24px), contentDescription = "Settings")
+          }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+      )
     }
+  ) {
+    allDemos.forEach { demo -> SubmenuRow(demo.name, demo.description) { onOpenDemo(demo) } }
   }
 }
 
@@ -445,8 +444,8 @@ private fun OverlaySettingsItems(settings: DemoSettings) {
 }
 
 /**
- * A titled screen with a back button. [header] sits under the title, outside the scrolling
- * [content], and [headerModifier] wraps the title bar and header together.
+ * A titled screen with a back button. [header] sits under the title, ahead of [content], and
+ * [headerModifier] wraps the title bar and header together.
  */
 @Composable
 internal fun SettingsSubScreen(
@@ -456,8 +455,8 @@ internal fun SettingsSubScreen(
   headerModifier: Modifier = Modifier,
   content: @Composable () -> Unit,
 ) {
-  Column {
-    Column(headerModifier) {
+  PanelScreen(
+    header = {
       TopAppBar(
         title = { Text(title) },
         navigationIcon = {
@@ -468,7 +467,27 @@ internal fun SettingsSubScreen(
         colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
       )
       header()
-    }
-    Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) { content() }
+    },
+    headerModifier = headerModifier,
+    content = content,
+  )
+}
+
+/**
+ * A panel screen whose [header] scrolls with its [content], as a sheet's title does. The sheet peek
+ * shows the header, so the screen scrolls back to it whenever the sheet returns to its peek.
+ */
+@Composable
+private fun PanelScreen(
+  header: @Composable () -> Unit,
+  headerModifier: Modifier = Modifier,
+  content: @Composable () -> Unit,
+) {
+  val scrollState = rememberScrollState()
+  val peeking = LocalSheetPeeking.current
+  LaunchedEffect(peeking) { if (peeking) scrollState.animateScrollTo(0) }
+  Column(Modifier.verticalScroll(scrollState).padding(bottom = 16.dp)) {
+    Column(headerModifier) { header() }
+    content()
   }
 }

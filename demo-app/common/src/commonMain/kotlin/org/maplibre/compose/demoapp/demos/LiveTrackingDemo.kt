@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sqrt
 import org.maplibre.compose.demoapp.Demo
@@ -24,8 +25,8 @@ import org.maplibre.compose.demoapp.center
 import org.maplibre.compose.demoapp.design.SwitchRow
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.interaction.MapInteractions
-import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.LineLayer
+import org.maplibre.compose.layers.LocationIndicatorLayer
 import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.sources.GeoJsonData
@@ -33,8 +34,9 @@ import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.LineString
-import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Position
+import org.maplibre.spatialk.units.Bearing
+import org.maplibre.spatialk.units.extensions.degrees
 
 object LiveTrackingDemo : Demo {
   override val name = "Live tracking"
@@ -78,6 +80,7 @@ object LiveTrackingDemo : Demo {
   // Off by default so the initial flight runs uninterrupted.
   private var followVehicle by mutableStateOf(false)
   private var vehiclePosition by mutableStateOf(route.first())
+  private var vehicleBearing by mutableStateOf(Bearing.North)
 
   override fun interactions(mapState: MapState, settings: MapInteractions): MapInteractions =
     MapInteractions(settings) { camera { pan { onStart { followVehicle = false } } } }
@@ -100,21 +103,36 @@ object LiveTrackingDemo : Demo {
     return sqrt(dLat * dLat + dLon * dLon)
   }
 
-  private fun positionAt(distance: Double): Position {
+  /** The route segment holding [distance] from the start, and the fraction along it. */
+  private fun segmentAt(distance: Double): Pair<Int, Double> {
     var remaining = distance
     for ((index, length) in segmentLengths.withIndex()) {
       if (remaining <= length) {
-        val fraction = if (length == 0.0) 0.0 else remaining / length
-        val a = route[index]
-        val b = route[index + 1]
-        return Position(
-          longitude = a.longitude + (b.longitude - a.longitude) * fraction,
-          latitude = a.latitude + (b.latitude - a.latitude) * fraction,
-        )
+        return index to if (length == 0.0) 0.0 else remaining / length
       }
       remaining -= length
     }
-    return route.last()
+    return segmentLengths.lastIndex to 1.0
+  }
+
+  private fun positionAt(distance: Double): Position {
+    val (index, fraction) = segmentAt(distance)
+    val a = route[index]
+    val b = route[index + 1]
+    return Position(
+      longitude = a.longitude + (b.longitude - a.longitude) * fraction,
+      latitude = a.latitude + (b.latitude - a.latitude) * fraction,
+    )
+  }
+
+  /** The heading along the segment holding [distance], reversed on the return crossing. */
+  private fun bearingAt(distance: Double, outbound: Boolean): Bearing {
+    val (index, _) = segmentAt(distance)
+    val (a, b) =
+      if (outbound) route[index] to route[index + 1] else route[index + 1] to route[index]
+    val dLat = b.latitude - a.latitude
+    val dLon = (b.longitude - a.longitude) * cos((a.latitude + b.latitude) / 2 * (PI / 180))
+    return Bearing.North + (atan2(dLon, dLat) * 180 / PI).degrees
   }
 
   @Composable
@@ -127,7 +145,10 @@ object LiveTrackingDemo : Demo {
           val traveled = (frameMillis - startMillis) / 1000.0 * SPEED_METERS_PER_SECOND
           // Reverse direction at each terminal.
           val phase = traveled % (2 * routeLength)
-          vehiclePosition = positionAt(routeLength - abs(phase - routeLength))
+          val outbound = phase < routeLength
+          val distance = routeLength - abs(phase - routeLength)
+          vehiclePosition = positionAt(distance)
+          vehicleBearing = bearingAt(distance, outbound)
         }
         if (followVehicle && !mapState.isCameraMoving) {
           mapState.setCameraPosition(mapState.cameraPosition.copy(target = vehiclePosition))
@@ -148,17 +169,11 @@ object LiveTrackingDemo : Demo {
       dasharray = const(listOf(1, 2)),
     )
 
-    val vehicleSource =
-      rememberGeoJsonSource(
-        GeoJsonData.Features(Feature(geometry = Point(vehiclePosition), properties = null))
-      )
-    CircleLayer(
+    // The indicator's default transition eases the position and heading between frames.
+    LocationIndicatorLayer(
       id = "ferry-vehicle",
-      source = vehicleSource,
-      radius = const(7.dp),
-      color = const(Color(0xFF00695C)),
-      strokeWidth = const(2.dp),
-      strokeColor = const(Color.White),
+      location = vehiclePosition,
+      bearing = vehicleBearing,
     )
   }
 

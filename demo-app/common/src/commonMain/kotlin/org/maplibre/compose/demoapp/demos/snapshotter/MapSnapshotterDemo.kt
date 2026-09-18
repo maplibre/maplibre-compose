@@ -21,7 +21,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalDensity
@@ -29,50 +28,30 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpOffset
-import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
 import org.maplibre.compose.demoapp.DemoMapControls
-import org.maplibre.compose.demoapp.DemoPointerPin
-import org.maplibre.compose.demoapp.DemoStyle
 import org.maplibre.compose.demoapp.controlPadding
-import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.interaction.MapInteractions
-import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.map.MapSnapshotRequest
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.overlay.attributions
-import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.rememberGeoJsonSource
-import org.maplibre.spatialk.geojson.Feature
-import org.maplibre.spatialk.geojson.Point
-import org.maplibre.spatialk.geojson.Position
 
-private val SnapshotTarget = Position(longitude = -122.3358, latitude = 47.6086)
-private val SnapshotMarkerColor = Color(0xFF00897B)
 private const val MaxSnapshotCanvasPx = 4096f
 
 object MapSnapshotterDemo : Demo {
   override val name = "Map snapshotter"
   override val description =
     "Frame a top-down shot with the on-map viewfinder, capture it, and share or save the photo."
-  override val destination =
-    DemoDestination.ExactCamera(CameraPosition(target = SnapshotTarget, zoom = 13.5))
-  override val pointerPin = DemoPointerPin(SnapshotTarget, destination)
+  override val destination = DemoDestination.None
 
   override fun interactions(mapState: MapState, settings: MapInteractions): MapInteractions =
     MapInteractions(settings) { camera { tilt { enabled = false } } }
-
-  @Composable
-  override fun MapContent(style: DemoStyle) {
-    SnapshotMarker()
-  }
 
   @Composable
   override fun MapOverlayScope.Overlay(state: DemoAppState, controls: DemoMapControls) {
@@ -88,7 +67,7 @@ object MapSnapshotterDemo : Demo {
     val mapState = app.mapState
     val state = remember { SnapshotterDemoState() }
     val baseStyle = app.appliedStyle.base
-    val snapshotter = remember { app.mapRuntime.createSnapshotter(baseStyle) { SnapshotMarker() } }
+    val snapshotter = remember { app.mapRuntime.createSnapshotter(baseStyle) {} }
     DisposableEffect(snapshotter) {
       // close() starts physical cleanup in the runtime and abandons any active capture.
       onDispose { snapshotter.close() }
@@ -191,21 +170,5 @@ object MapSnapshotterDemo : Demo {
       }
     }
     SnapshotSheet(state)
-  }
-
-  @Composable
-  private fun SnapshotMarker() {
-    val source =
-      rememberGeoJsonSource(
-        GeoJsonData.Features(Feature(geometry = Point(SnapshotTarget), properties = null))
-      )
-    CircleLayer(
-      id = "snapshot-demo-marker",
-      source = source,
-      radius = const(9.dp),
-      color = const(SnapshotMarkerColor),
-      strokeWidth = const(3.dp),
-      strokeColor = const(Color.White),
-    )
   }
 }

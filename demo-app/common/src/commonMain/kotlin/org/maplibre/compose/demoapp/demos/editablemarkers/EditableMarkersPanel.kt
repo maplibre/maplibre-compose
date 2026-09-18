@@ -29,9 +29,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import kotlin.math.roundToInt
 import org.jetbrains.compose.resources.painterResource
-import org.maplibre.compose.demoapp.design.SliderRow
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.delete_24px
 
@@ -40,8 +38,6 @@ import org.maplibre.compose.demoapp.generated.delete_24px
 internal fun EditableMarkersPanel(
   markers: List<EditableMarker>,
   selectedId: Int?,
-  textScale: Float,
-  onTextScaleChange: (Float) -> Unit,
   onSelect: (EditableMarker) -> Unit,
   onRemove: (EditableMarker) -> Unit,
 ) {
@@ -61,15 +57,8 @@ internal fun EditableMarkersPanel(
       }
     }
   }
-  SliderRow(
-    "Marker text size",
-    textScale,
-    1f..2f,
-    { "${(it * 100).roundToInt()}%" },
-    onTextScaleChange,
-  )
   Text(
-    "Labels grow; the space below each icon stays the same.",
+    "Text size grows the labels; the space below each icon stays the same.",
     Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
     style = MaterialTheme.typography.bodyMedium,
   )
