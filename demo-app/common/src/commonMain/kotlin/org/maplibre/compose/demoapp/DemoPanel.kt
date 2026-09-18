@@ -33,10 +33,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.vectorResource
@@ -49,14 +49,29 @@ import org.maplibre.compose.demoapp.generated.arrow_back_24px
 import org.maplibre.compose.demoapp.generated.settings_24px
 import org.maplibre.compose.demoapp.generated.speed_24px
 
+/** The panel's navigation routes. The shell reads the current one to size its surface. */
+internal object DemoRoute {
+  const val Demos = "demos"
+  const val Demo = "demo"
+  const val Benchmarks = "benchmarks"
+  const val Benchmark = "benchmark"
+  const val Settings = "settings"
+  const val LocationSettings = "settings/location"
+  const val RenderingSettings = "settings/rendering"
+  const val ControlSettings = "settings/controls"
+}
+
+/**
+ * The menu, settings, and the selected demo's controls. [revealMap] uncovers the map when a control
+ * needs it visible; a shell whose panel never covers the map passes a no-op.
+ */
 @Composable
 fun DemoPanel(
   state: DemoAppState,
+  navController: NavHostController,
   modifier: Modifier = Modifier,
-  collapsePanel: suspend () -> Unit = {},
-  collapseOnSelection: Boolean = true,
+  revealMap: suspend () -> Unit = {},
 ) {
-  val navController = rememberNavController()
   val scope = rememberCoroutineScope()
   val dark = state.settings.mapStyleMode.isDark
   var flightJob by remember { mutableStateOf<Job?>(null) }
@@ -64,8 +79,8 @@ fun DemoPanel(
   // selectedDemo drives the map overlay. Keep it aligned with this destination so
   // system and predictive back clear the overlay too.
   LaunchedEffect(route) {
-    if (route != "settings/location") state.location.cancelMockPlacement()
-    if (route == "demos") {
+    if (route != DemoRoute.LocationSettings) state.location.cancelMockPlacement()
+    if (route == DemoRoute.Demos) {
       flightJob?.cancel()
       state.selectedDemo = null
       state.shell = DemoShell.Demos
@@ -76,37 +91,35 @@ fun DemoPanel(
   val slideDistance = with(LocalDensity.current) { 30.dp.roundToPx() }
   NavHost(
     navController = navController,
-    startDestination = "demos",
+    startDestination = DemoRoute.Demos,
     modifier = modifier,
     enterTransition = { sharedAxisEnter(slideDistance) },
     exitTransition = { sharedAxisExit(-slideDistance) },
     popEnterTransition = { sharedAxisEnter(-slideDistance) },
     popExitTransition = { sharedAxisExit(slideDistance) },
   ) {
-    composable("demos") {
+    composable(DemoRoute.Demos) {
       DemosScreen(
-        onOpenSettings = { navController.navigate("settings") },
+        onOpenSettings = { navController.navigate(DemoRoute.Settings) },
         onOpenDemo = { demo ->
           flightJob?.cancel()
           flightJob = scope.launch {
             state.openDemo(demo, dark) {
-              navController.navigate("demo")
-              if (collapseOnSelection) {
-                collapsePanel()
-                // One frame so the settled viewport insets reach the camera before the flight.
-                withFrameNanos {}
-              }
+              navController.navigate(DemoRoute.Demo)
+              revealMap()
+              // One frame so the settled viewport insets reach the camera before the flight.
+              withFrameNanos {}
             }
           }
         },
         onOpenBenchmarks = {
           state.selectedDemo = null
           state.shell = DemoShell.Benchmarks
-          navController.navigate("benchmarks")
+          navController.navigate(DemoRoute.Benchmarks)
         },
       )
     }
-    composable("demo") {
+    composable(DemoRoute.Demo) {
       val demo = state.selectedDemo ?: return@composable
       SettingsSubScreen(demo.name, onBack = { navController.popBackStack() }) {
         Text(
@@ -118,56 +131,55 @@ fun DemoPanel(
         demo.Panel(state)
       }
     }
-    composable("benchmarks") {
+    composable(DemoRoute.Benchmarks) {
       BenchmarksScreen(
         onBack = { navController.popBackStack() },
         onOpenScenario = { scenario ->
           state.benchmark.abandonRun()
           state.selectedScenario = scenario
-          navController.navigate("benchmark")
+          navController.navigate(DemoRoute.Benchmark)
         },
       )
     }
-    composable("benchmark") {
+    composable(DemoRoute.Benchmark) {
       val scenario = state.selectedScenario
       SettingsSubScreen(scenario.title, onBack = { navController.popBackStack() }) {
         BenchmarkScenarioPanel(
           state,
           onRun = {
             scope.launch {
-              // On compact windows the panel covers the map, so reveal the run.
-              if (collapseOnSelection) collapsePanel()
+              revealMap()
               state.benchmark.requestRun()
             }
           },
         )
       }
     }
-    composable("settings") {
+    composable(DemoRoute.Settings) {
       SettingsScreen(
         state,
         onBack = { navController.popBackStack() },
-        onOpen = { navController.navigate("settings/$it") },
+        onOpen = { navController.navigate(it) },
       )
     }
-    composable("settings/location") {
+    composable(DemoRoute.LocationSettings) {
       SettingsSubScreen("Location", onBack = { navController.popBackStack() }) {
         LocationSettingsItems(state.location) { state.mapState.cameraPosition.target }
         if (state.location.isMock) {
           MockLocationSettings(state) {
             state.location.beginMockPlacement()
-            if (collapseOnSelection) scope.launch { collapsePanel() }
+            scope.launch { revealMap() }
           }
         }
       }
     }
-    composable("settings/rendering") {
+    composable(DemoRoute.RenderingSettings) {
       SettingsSubScreen("Rendering", onBack = { navController.popBackStack() }) {
         TileLodSettingsItems(state.settings)
         RenderSettingsItems(state.settings)
       }
     }
-    composable("settings/controls") {
+    composable(DemoRoute.ControlSettings) {
       SettingsSubScreen("Controls", onBack = { navController.popBackStack() }) {
         ControlSettingsItems(state.settings)
       }
@@ -254,9 +266,15 @@ private fun SettingsScreen(
     )
 
     SectionHeader("Options")
-    SubmenuRow("Location", "Provider, mock position, heading, and accuracy") { onOpen("location") }
-    SubmenuRow("Rendering", "Frame rate cap, tile detail, and debug views") { onOpen("rendering") }
-    SubmenuRow("Controls", "Map controls and diagnostic overlays") { onOpen("controls") }
+    SubmenuRow("Location", "Provider, mock position, heading, and accuracy") {
+      onOpen(DemoRoute.LocationSettings)
+    }
+    SubmenuRow("Rendering", "Frame rate cap, tile detail, and debug views") {
+      onOpen(DemoRoute.RenderingSettings)
+    }
+    SubmenuRow("Controls", "Map controls and diagnostic overlays") {
+      onOpen(DemoRoute.ControlSettings)
+    }
   }
 }
 
