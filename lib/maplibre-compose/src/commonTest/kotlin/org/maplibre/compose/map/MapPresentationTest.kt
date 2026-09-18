@@ -23,6 +23,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.async
@@ -1879,23 +1880,41 @@ class MapPresentationTest {
   }
 
   @Test
-  fun a_bounds_fit_retries_when_its_presentation_is_replaced_before_the_first_viewport() = runTest {
-    val fixture = presentationFixture()
-    val fit = async {
-      fixture.state.fitCameraToBounds(BoundingBox(Position(-1.0, -1.0), Position(1.0, 1.0)))
+  fun a_bounds_fit_is_cancelled_when_its_presentation_is_released_before_the_first_viewport() =
+    runTest {
+      val fixture = presentationFixture()
+      val fit = async {
+        fixture.state.fitCameraToBounds(BoundingBox(Position(-1.0, -1.0), Position(1.0, 1.0)))
+      }
+      testScheduler.runCurrent()
+      assertFalse(fit.isCompleted)
+
+      fixture.state.releasePresentation(fixture.token, fixture.adapter)
+      assertFailsWith<CancellationException> { fit.await() }
+      val replacement = PresentationTestAdapter()
+      fixture.state.publishPresentation(fixture.state.reservePresentation(), replacement)
+      requireNotNull(fixture.state.currentMapAttachment).updateViewport(testViewport())
+      testScheduler.runCurrent()
+      assertFalse(fixture.adapter.boundsFit.isCompleted)
+      assertFalse(replacement.boundsFit.isCompleted)
+      fixture.close()
     }
-    testScheduler.runCurrent()
-    assertFalse(fit.isCompleted)
+
+  @Test
+  fun await_viewport_survives_a_replacement_while_parked_on_an_immediate_dispatcher() = runTest {
+    val fixture = presentationFixture()
+    // Main.immediate resumes parked callers inline on the disposing frame; Unconfined models that.
+    val waiting = async(Dispatchers.Unconfined) { fixture.state.awaitViewport() }
+    assertFalse(waiting.isCompleted)
 
     fixture.state.releasePresentation(fixture.token, fixture.adapter)
-    testScheduler.runCurrent()
-    assertFalse(fit.isCompleted)
-    val replacement = PresentationTestAdapter()
-    fixture.state.publishPresentation(fixture.state.reservePresentation(), replacement)
-    requireNotNull(fixture.state.currentMapAttachment).updateViewport(testViewport())
-    fit.await()
-    assertFalse(fixture.adapter.boundsFit.isCompleted)
-    assertTrue(replacement.boundsFit.isCompleted)
+    assertFalse(waiting.isCompleted)
+    val viewport = testViewport()
+    fixture.state.publishPresentation(
+      fixture.state.reservePresentation(),
+      PresentationTestAdapter().apply { currentViewport = viewport },
+    )
+    assertEquals(viewport, waiting.await())
     fixture.close()
   }
 
