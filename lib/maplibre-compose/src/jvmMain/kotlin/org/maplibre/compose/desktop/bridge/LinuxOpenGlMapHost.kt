@@ -185,6 +185,10 @@ internal class LinuxOpenGlMapHost(
           presenter.close()
         }
       }
+        .onFailure {
+          abandonContext()
+          disposeAllTextures()
+        }
     } finally {
       val closing = vulkan
       vulkan = null
@@ -599,6 +603,7 @@ private constructor(
   }
 
   override fun close() {
+    if (textureName == 0 && memoryObject == 0) return
     runCatching {
       ensureCapabilities()
       glFinish()
