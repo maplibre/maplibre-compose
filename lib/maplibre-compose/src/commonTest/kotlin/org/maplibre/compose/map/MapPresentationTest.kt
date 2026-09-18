@@ -256,7 +256,7 @@ class MapPresentationTest {
   }
 
   @Test
-  fun a_named_source_event_refreshes_only_that_source() {
+  fun a_named_source_event_refreshes_only_that_source() = runTest {
     val fixture = presentationFixture()
     try {
       val backing =
@@ -990,7 +990,7 @@ class MapPresentationTest {
   }
 
   @Test
-  fun publishing_a_replacement_style_makes_handles_unavailable_until_it_is_ready() {
+  fun publishing_a_replacement_style_makes_handles_unavailable_until_it_is_ready() = runTest {
     val fixture = presentationFixture()
     val first = RecordingStyleBinding()
     assertTrue(fixture.state.styleAuthority.updateLoadedStyle(fixture.adapter, first))

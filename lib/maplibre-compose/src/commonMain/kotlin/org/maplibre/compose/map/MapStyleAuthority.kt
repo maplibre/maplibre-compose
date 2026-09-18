@@ -4,10 +4,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
+import kotlin.coroutines.ContinuationInterceptor
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.withContext
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceHandle
 import org.maplibre.compose.style.BaseStyle
@@ -30,6 +34,10 @@ internal class MapStyleAuthority(
   baseStyle: BaseStyle,
 ) : MapStyleStateOwner {
   val style: MapStyleState = MapStyleState(baseStyle).also { it.attach(this) }
+  /** Engine reads block until the owner thread answers, so they run off the calling dispatcher. */
+  private val readDispatcher: CoroutineDispatcher =
+    runtime.physicalScope.coroutineContext[ContinuationInterceptor] as? CoroutineDispatcher
+      ?: Dispatchers.Default
 
   private var baseStyleCommandRevision = 0L
   private var styleHandleEpoch = 0L
@@ -83,7 +91,7 @@ internal class MapStyleAuthority(
     }
   }
 
-  internal fun markStyleReady(adapter: MapAdapter): Boolean {
+  internal suspend fun markStyleReady(adapter: MapAdapter): Boolean {
     while (true) {
       val read = lifecycle.serialized {
         if (!lifecycle.acceptsAdapter(adapter)) return false
@@ -91,17 +99,13 @@ internal class MapStyleAuthority(
         val binding = style.currentLoadedStyle() ?: return false
         StyleResourceRead(binding, styleHandleEpoch, styleSourceChangeRevision)
       }
-      val resources = runCatching { style.readResources(read.binding) }
-      if (resources.isFailure) {
-        val stillCurrent = lifecycle.serialized { isCurrentStyleResourceRead(adapter, read) }
-        if (!stillCurrent) return false
-        throw requireNotNull(resources.exceptionOrNull())
-      }
+      val resources =
+        readWhileCurrent(adapter, read) { style.readResources(read.binding) } ?: return false
       val committed = lifecycle.serialized {
         if (!isCurrentStyleResourceRead(adapter, read)) return false
         if (style.loadState is StyleLoadState.Failed) return false
         if (styleSourceChangeRevision != read.sourceChangeRevision) return@serialized false
-        style.updateResources(resources.getOrThrow())
+        style.updateResources(resources)
         style.loadState = StyleLoadState.Ready
         true
       }
@@ -109,7 +113,7 @@ internal class MapStyleAuthority(
     }
   }
 
-  internal fun refreshStyleSources(adapter: MapAdapter, sourceId: String? = null): Boolean {
+  internal suspend fun refreshStyleSources(adapter: MapAdapter, sourceId: String? = null): Boolean {
     lifecycle.serialized {
       if (!lifecycle.acceptsAdapter(adapter)) return false
       styleSourceChangeRevision++
@@ -121,24 +125,21 @@ internal class MapStyleAuthority(
         val binding = style.currentLoadedStyle() ?: return true
         StyleResourceRead(binding, styleHandleEpoch, styleSourceChangeRevision)
       }
-      val sources = runCatching { style.readSources(read.binding, sourceId) }
-      if (sources.isFailure) {
-        val stillCurrent = lifecycle.serialized { isCurrentStyleResourceRead(adapter, read) }
-        if (!stillCurrent) return false
-        throw requireNotNull(sources.exceptionOrNull())
-      }
+      val sources =
+        readWhileCurrent(adapter, read) { style.readSources(read.binding, sourceId) }
+          ?: return false
       val committed = lifecycle.serialized {
         if (!isCurrentStyleResourceRead(adapter, read)) return false
         if (style.loadState != StyleLoadState.Ready) return false
         if (styleSourceChangeRevision != read.sourceChangeRevision) return@serialized false
-        style.updateSources(sources.getOrThrow())
+        style.updateSources(sources)
         true
       }
       if (committed) return true
     }
   }
 
-  internal fun updateStyleResources(adapter: MapAdapter, changes: StyleResourceChanges) {
+  internal suspend fun updateStyleResources(adapter: MapAdapter, changes: StyleResourceChanges) {
     if (changes.sources.isEmpty() && changes.layerOrder == null) return
     val read = lifecycle.serialized {
       if (!lifecycle.acceptsAdapter(adapter) || style.loadState != StyleLoadState.Ready) return
@@ -147,12 +148,31 @@ internal class MapStyleAuthority(
       StyleResourceRead(binding, styleHandleEpoch, styleSourceChangeRevision)
     }
     changes.sources.forEach { refreshStyleSources(adapter, it) }
-    val layers = runCatching { style.readLayers(read.binding, changes.layers) }
+    val layers =
+      readWhileCurrent(adapter, read) { style.readLayers(read.binding, changes.layers) } ?: return
     lifecycle.serialized {
       if (!isCurrentStyleResourceRead(adapter, read)) return
-      changes.layerOrder?.let { style.updateLayers(layers.getOrThrow(), it) }
+      changes.layerOrder?.let { style.updateLayers(layers, it) }
     }
   }
+
+  /**
+   * Runs an engine read on [readDispatcher]. A failure is rethrown while [read] is still current
+   * and yields null once it is not, because nothing waits on a generation that is gone.
+   */
+  private suspend fun <T> readWhileCurrent(
+    adapter: MapAdapter,
+    read: StyleResourceRead,
+    block: () -> T,
+  ): T? =
+    try {
+      withContext(readDispatcher) { block() }
+    } catch (error: CancellationException) {
+      throw error
+    } catch (error: Throwable) {
+      if (lifecycle.serialized { isCurrentStyleResourceRead(adapter, read) }) throw error
+      null
+    }
 
   private fun isCurrentStyleResourceRead(adapter: MapAdapter, read: StyleResourceRead): Boolean =
     lifecycle.acceptsAdapter(adapter) &&

@@ -3,7 +3,10 @@ package org.maplibre.compose.map
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraAnchor
 import org.maplibre.compose.camera.CameraAnimation
@@ -231,7 +234,7 @@ internal class DurableStyleCallbacks(private val owner: MapState) : MapAdapter.C
   }
 
   override fun onStyleReady(map: MapAdapter) {
-    owner.styleAuthority.markStyleReady(map)
+    launchStyleRead(map) { owner.styleAuthority.markStyleReady(map) }
   }
 
   override fun onStyleFailed(map: MapAdapter, reason: String?) {
@@ -239,7 +242,24 @@ internal class DurableStyleCallbacks(private val owner: MapState) : MapAdapter.C
   }
 
   override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) {
-    owner.styleAuthority.refreshStyleSources(map, sourceId)
+    launchStyleRead(map) { owner.styleAuthority.refreshStyleSources(map, sourceId) }
+  }
+
+  /**
+   * Starts undispatched so the read claims its revision inside the engine callback, then finishes
+   * on the runtime scope. A read that fails while its style is current marks the style failed.
+   */
+  private fun launchStyleRead(map: MapAdapter, read: suspend () -> Unit) {
+    owner.runtime.physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
+      try {
+        read()
+      } catch (error: CancellationException) {
+        throw error
+      } catch (error: Throwable) {
+        owner.runtime.logger?.w(error) { "Could not read the loaded style" }
+        owner.styleAuthority.markStyleFailed(map, error.message)
+      }
+    }
   }
 
   override fun onEvent(map: MapAdapter, event: MapEvent) {
