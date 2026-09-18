@@ -102,7 +102,7 @@ class TransformInputTest {
       map.performTouchInput { down(0, center - Offset(30f, 0f)) }
       val animation =
         CoroutineScope(Dispatchers.Unconfined).launch {
-          fixture.state.animateCameraPosition(CameraPosition(zoom = 8.0))
+          fixture.state.animateCamera(CameraPosition(zoom = 8.0).toCameraUpdate())
         }
       try {
         assertFalse(animation.isCompleted)

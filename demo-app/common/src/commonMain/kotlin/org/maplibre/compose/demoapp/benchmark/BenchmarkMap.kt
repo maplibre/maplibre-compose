@@ -108,8 +108,8 @@ internal fun BenchmarkRun(
       onStatus("Warming up", true)
       delay(3000)
       // Run the same animation once before measurement to warm the map and Compose paths.
-      state.animateCameraPosition(camera(1.0), CameraAnimation.Fly(500.milliseconds))
-      state.animateCameraPosition(camera(-1.0), CameraAnimation.Fly(500.milliseconds))
+      state.animateCamera(camera(1.0).toCameraUpdate(), CameraAnimation.Fly(500.milliseconds))
+      state.animateCamera(camera(-1.0).toCameraUpdate(), CameraAnimation.Fly(500.milliseconds))
       delay(500)
       benchmarkTrace(true)
       traced = true
@@ -119,8 +119,8 @@ internal fun BenchmarkRun(
       when (config.scenario) {
         BenchmarkScenario.Animation ->
           repeat(8) {
-            state.animateCameraPosition(
-              camera(if (it % 2 == 0) 1.0 else -1.0),
+            state.animateCamera(
+              camera(if (it % 2 == 0) 1.0 else -1.0).toCameraUpdate(),
               CameraAnimation.Fly(1500.milliseconds),
             )
           }

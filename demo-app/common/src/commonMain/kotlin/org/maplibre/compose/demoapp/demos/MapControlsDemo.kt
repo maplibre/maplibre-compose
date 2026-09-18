@@ -15,6 +15,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
@@ -186,13 +187,16 @@ object MapControlsDemo : Demo {
     val mapState = state.mapState
     for (city in City.entries) {
       ButtonRow("Go to ${city.title}") {
-        scope.launch { mapState.animateCameraPosition(city.camera, animation) }
+        scope.launch { mapState.animateCamera(city.camera.toCameraUpdate(), animation) }
       }
     }
     ButtonRow("Turn 90°") {
       scope.launch {
         val camera = mapState.cameraPosition
-        mapState.animateCameraPosition(camera.copy(bearing = camera.bearing + 90.0), animation)
+        mapState.animateCamera(
+          CameraUpdate(bearing = camera.bearing + 90.0),
+          animation,
+        )
       }
     }
   }

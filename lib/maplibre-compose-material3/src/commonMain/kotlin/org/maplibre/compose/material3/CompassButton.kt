@@ -18,13 +18,14 @@ import androidx.compose.ui.unit.dp
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.overlay.CompassButton as BaseCompassButton
 import org.maplibre.compose.overlay.CompassButtonStyle
 import org.maplibre.compose.overlay.CompassDefaults
 import org.maplibre.compose.overlay.DisappearingCompassButton as BaseDisappearingCompassButton
 
 /**
- * A compass that points north and returns the camera to [getHomePosition] when it is clicked.
+ * A compass that points north and returns the camera to [getHomeUpdate] when it is clicked.
  *
  * This is [org.maplibre.compose.overlay.CompassButton] with the colors, shape, and elevation of an
  * [ElevatedButton].
@@ -36,7 +37,7 @@ import org.maplibre.compose.overlay.DisappearingCompassButton as BaseDisappearin
  * @param contentPadding Gap between the button edge and the needle.
  * @param shape Shape of the button.
  * @param needlePainter The needle artwork, drawn without a tint.
- * @param getHomePosition The camera position that a click returns to.
+ * @param getHomeUpdate The properties that a click animates.
  */
 @Composable
 public fun CompassButton(
@@ -48,7 +49,7 @@ public fun CompassButton(
   contentPadding: PaddingValues = PaddingValues(size / 6),
   shape: Shape = CircleShape,
   needlePainter: Painter = CompassDefaults.needlePainter(),
-  getHomePosition: (CameraPosition) -> CameraPosition = { it.copy(bearing = 0.0, tilt = 0.0) },
+  getHomeUpdate: (CameraPosition) -> CameraUpdate = { CameraUpdate(bearing = 0.0, tilt = 0.0) },
 ) {
   BaseCompassButton(
     modifier = modifier,
@@ -58,13 +59,13 @@ public fun CompassButton(
     size = size,
     contentPadding = contentPadding,
     needlePainter = needlePainter,
-    getHomePosition = getHomePosition,
+    getHomeUpdate = getHomeUpdate,
   )
 }
 
 /**
- * A [CompassButton] that appears when the camera turns away from [getHomePosition] and fades out
- * once the camera returns to it.
+ * A [CompassButton] that appears when the camera turns away from [getHomeUpdate] and fades out once
+ * the camera returns to it.
  *
  * This is [org.maplibre.compose.overlay.DisappearingCompassButton] with the colors, shape, and
  * elevation of an [ElevatedButton].
@@ -72,7 +73,7 @@ public fun CompassButton(
  * @param contentModifier Applied to the button inside the visibility animation. Padding here
  *   expands and shrinks with the button, unlike [modifier], which sits on the visibility wrapper.
  * @param visibilityDuration How long the button stays visible after the camera returns home.
- * @param slop How far the camera may turn from [getHomePosition] before the button appears, in
+ * @param slop How far the camera may turn from [getHomeUpdate] before the button appears, in
  *   degrees.
  */
 @Composable
@@ -88,7 +89,7 @@ public fun DisappearingCompassButton(
   visibilityDuration: Duration = 1.seconds,
   enterTransition: EnterTransition = fadeIn(),
   exitTransition: ExitTransition = fadeOut(),
-  getHomePosition: (CameraPosition) -> CameraPosition = { it.copy(bearing = 0.0, tilt = 0.0) },
+  getHomeUpdate: (CameraPosition) -> CameraUpdate = { CameraUpdate(bearing = 0.0, tilt = 0.0) },
   slop: Double = 0.5,
   contentModifier: Modifier = Modifier,
 ) {
@@ -104,7 +105,7 @@ public fun DisappearingCompassButton(
     visibilityDuration = visibilityDuration,
     enterTransition = enterTransition,
     exitTransition = exitTransition,
-    getHomePosition = getHomePosition,
+    getHomeUpdate = getHomeUpdate,
     slop = slop,
   )
 }

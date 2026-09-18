@@ -48,6 +48,7 @@ import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.generated.Res
 import org.maplibre.compose.generated.compass
 import org.maplibre.compose.generated.compass_needle
@@ -55,7 +56,7 @@ import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.util.AngleMath
 
 /**
- * A compass that points north and returns the camera to [getHomePosition] when it is clicked.
+ * A compass that points north and returns the camera to [getHomeUpdate] when it is clicked.
  *
  * This component draws with Compose Foundation alone. The Material 3 module provides a themed
  * version of it.
@@ -66,7 +67,7 @@ import org.maplibre.compose.util.AngleMath
  * @param size Width and height of the button.
  * @param contentPadding Gap between the button edge and the needle.
  * @param needlePainter The needle artwork, drawn without a tint.
- * @param getHomePosition The camera position that a click returns to.
+ * @param getHomeUpdate The properties that a click animates.
  */
 @Composable
 public fun CompassButton(
@@ -77,7 +78,7 @@ public fun CompassButton(
   size: Dp = 48.dp,
   contentPadding: PaddingValues = PaddingValues(size / 6),
   needlePainter: Painter = CompassDefaults.needlePainter(),
-  getHomePosition: (CameraPosition) -> CameraPosition = { it.copy(bearing = 0.0, tilt = 0.0) },
+  getHomeUpdate: (CameraPosition) -> CameraUpdate = { CameraUpdate(bearing = 0.0, tilt = 0.0) },
 ) {
   val currentMapState = checkNotNull(LocalMapState.current)
   val coroutineScope = rememberCoroutineScope()
@@ -99,8 +100,8 @@ public fun CompassButton(
         role = Role.Button,
       ) {
         coroutineScope.launch {
-          currentMapState.animateCameraPosition(
-            getHomePosition(currentMapState.cameraPosition),
+          currentMapState.animateCamera(
+            getHomeUpdate(currentMapState.cameraPosition),
             CameraAnimation.Ease(),
           )
         }
@@ -123,8 +124,8 @@ public fun CompassButton(
 }
 
 /**
- * A [CompassButton] that appears when the camera turns away from [getHomePosition] and fades out
- * once the camera returns to it.
+ * A [CompassButton] that appears when the camera turns away from [getHomeUpdate] and fades out once
+ * the camera returns to it.
  *
  * This component draws with Compose Foundation alone. The Material 3 module provides a themed
  * version of it.
@@ -132,7 +133,7 @@ public fun CompassButton(
  * @param contentModifier Applied to the button inside the visibility animation. Padding here
  *   expands and shrinks with the button, unlike [modifier], which sits on the visibility wrapper.
  * @param visibilityDuration How long the button stays visible after the camera returns home.
- * @param slop How far the camera may turn from [getHomePosition] before the button appears, in
+ * @param slop How far the camera may turn from [getHomeUpdate] before the button appears, in
  *   degrees.
  */
 @Composable
@@ -147,23 +148,29 @@ public fun DisappearingCompassButton(
   visibilityDuration: Duration = 1.seconds,
   enterTransition: EnterTransition = fadeIn(),
   exitTransition: ExitTransition = fadeOut(),
-  getHomePosition: (CameraPosition) -> CameraPosition = { it.copy(bearing = 0.0, tilt = 0.0) },
+  getHomeUpdate: (CameraPosition) -> CameraUpdate = { CameraUpdate(bearing = 0.0, tilt = 0.0) },
   slop: Double = 0.5,
   contentModifier: Modifier = Modifier,
 ) {
   val mapState = checkNotNull(LocalMapState.current)
   val visible = remember { MutableTransitionState(false) }
 
-  val currentGetHomePosition by rememberUpdatedState(getHomePosition)
+  val currentGetHomeUpdate by rememberUpdatedState(getHomeUpdate)
   val currentSlop by rememberUpdatedState(slop)
 
   val shouldBeVisible by
     remember(mapState) {
       derivedStateOf {
-        val home = currentGetHomePosition(mapState.cameraPosition)
+        val home = currentGetHomeUpdate(mapState.cameraPosition)
         with(AngleMath) {
-          val tiltDiff = mapState.cameraPosition.tilt.diff(home.tilt).absoluteValue
-          val bearingDiff = mapState.cameraPosition.bearing.diff(home.bearing).absoluteValue
+          val tiltDiff =
+            mapState.cameraPosition.tilt
+              .diff(home.tilt ?: mapState.cameraPosition.tilt)
+              .absoluteValue
+          val bearingDiff =
+            mapState.cameraPosition.bearing
+              .diff(home.bearing ?: mapState.cameraPosition.bearing)
+              .absoluteValue
           tiltDiff > currentSlop || bearingDiff > currentSlop
         }
       }
@@ -192,7 +199,7 @@ public fun DisappearingCompassButton(
       size = size,
       contentPadding = contentPadding,
       needlePainter = needlePainter,
-      getHomePosition = getHomePosition,
+      getHomeUpdate = getHomeUpdate,
     )
   }
 }

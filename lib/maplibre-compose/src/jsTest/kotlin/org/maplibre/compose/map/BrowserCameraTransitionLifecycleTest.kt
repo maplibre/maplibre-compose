@@ -8,6 +8,7 @@ import js.objects.unsafeJso
 import kotlin.js.Promise
 import kotlin.math.abs
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -19,6 +20,7 @@ import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.camera.CameraAnchor
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.gljs.GlJsMapEvent
 import org.maplibre.compose.gljs.isNear
 import org.maplibre.compose.gljs.isPointOnMapSurface
@@ -34,6 +36,34 @@ import org.maplibre.spatialk.geojson.Position
 
 @OptIn(ExperimentalTestApi::class)
 class BrowserCameraTransitionLifecycleTest {
+
+  @Test
+  fun a_partial_browser_update_stops_the_previous_animation_and_keeps_omitted_values():
+    MapTestResult = runMapTest {
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      fixture.awaitMapReady()
+      fixture.state.setCameraPosition(CameraPosition(zoom = 3.0))
+      fixture.pump(frames = 2)
+      val zoom = launch {
+        fixture.state.animateCamera(CameraUpdate(zoom = 8.0), CameraAnimation.Ease(4.seconds))
+      }
+      fixture.pumpUntil("zoom to start") { fixture.state.cameraPosition.zoom > 3.1 }
+      val bearing = launch {
+        fixture.state.animateCamera(CameraUpdate(bearing = 90.0), CameraAnimation.Ease(1.seconds))
+      }
+      fixture.pumpUntil("the browser to supersede zoom") { zoom.isCompleted }
+      assertFalse(zoom.isCancelled)
+      assertFalse(bearing.isCompleted)
+      val stoppedZoom = fixture.state.cameraPosition.zoom
+      assertTrue(stoppedZoom < 8.0)
+      fixture.pumpUntil("bearing to finish") { bearing.isCompleted }
+      assertFalse(bearing.isCancelled)
+      assertEquals(stoppedZoom, fixture.state.cameraPosition.zoom, 0.001)
+      assertEquals(90.0, fixture.state.cameraPosition.bearing, 0.001)
+      assertFalse(fixture.state.isCameraMoving)
+    }
+  }
 
   @Test
   fun a_screen_anchor_above_the_horizon_is_rejected_in_a_distant_world_copy(): MapTestResult =
@@ -75,7 +105,7 @@ class BrowserCameraTransitionLifecycleTest {
         it.session.setBaseStyle(BaseStyle.Empty)
         val animation =
           launch(start = CoroutineStart.UNDISPATCHED) {
-            it.session.animateCameraPosition(STALE_CAMERA, CameraAnimation.Fly(60.seconds))
+            it.session.animateCamera(STALE_CAMERA.toCameraUpdate(), CameraAnimation.Fly(60.seconds))
           }
 
         assertFalse(animation.isCompleted, "the animation should be queued before cancellation")
@@ -101,7 +131,10 @@ class BrowserCameraTransitionLifecycleTest {
           fixture.session.setBaseStyle(BaseStyle.Empty)
           val animation =
             launch(start = CoroutineStart.UNDISPATCHED) {
-              fixture.state.animateCameraPosition(STALE_CAMERA, CameraAnimation.Fly(60.seconds))
+              fixture.state.animateCamera(
+                STALE_CAMERA.toCameraUpdate(),
+                CameraAnimation.Fly(60.seconds),
+              )
             }
           assertFalse(animation.isCompleted)
           fixture.state.setCameraPosition(CURRENT_CAMERA)
@@ -120,7 +153,7 @@ class BrowserCameraTransitionLifecycleTest {
       it.session.setBaseStyle(BaseStyle.Json("{ this is not json"))
       val animation =
         launch(start = CoroutineStart.UNDISPATCHED) {
-          it.session.animateCameraPosition(STALE_CAMERA, CameraAnimation.Fly(60.seconds))
+          it.session.animateCamera(STALE_CAMERA.toCameraUpdate(), CameraAnimation.Fly(60.seconds))
         }
 
       assertFalse(animation.isCompleted, "the animation should wait for the initial style result")

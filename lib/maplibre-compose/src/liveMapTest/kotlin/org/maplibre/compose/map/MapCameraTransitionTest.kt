@@ -105,7 +105,7 @@ class MapCameraTransitionTest {
         val target = TARGET.copy(padding = DpPadding(bottom = 100.dp))
         val animation =
           launch(Dispatchers.Default) {
-            fixture.state.animateCameraPosition(target, CameraAnimation.Ease(1.seconds))
+            fixture.state.animateCamera(target.toCameraUpdate(), CameraAnimation.Ease(1.seconds))
           }
         var intermediate = false
         fixture.pumpUntil("camera padding animation") {
@@ -241,7 +241,7 @@ class MapCameraTransitionTest {
       it.startAtOrigin()
       val animation =
         launch(Dispatchers.Default) {
-          it.state.animateCameraPosition(TARGET, CameraAnimation.Fly(2.seconds))
+          it.state.animateCamera(TARGET.toCameraUpdate(), CameraAnimation.Fly(2.seconds))
         }
       it.awaitCameraMoving()
       it.state
@@ -432,7 +432,7 @@ class MapCameraTransitionTest {
       it.startAtOrigin()
 
       it.awaitWhileRendering("the animation to complete") {
-        it.state.animateCameraPosition(TARGET, CameraAnimation.Fly(200.milliseconds))
+        it.state.animateCamera(TARGET.toCameraUpdate(), CameraAnimation.Fly(200.milliseconds))
       }
 
       assertNear(
@@ -473,7 +473,10 @@ class MapCameraTransitionTest {
 
         val flight =
           launch(Dispatchers.Default) {
-            it.state.animateCameraPosition(FLIGHT_TARGET, CameraAnimation.Fly(speed = 20.0))
+            it.state.animateCamera(
+              FLIGHT_TARGET.toCameraUpdate(),
+              CameraAnimation.Fly(speed = 20.0),
+            )
           }
         it.pumpUntil("the flight to move the camera") {
           flight.isCompleted ||
@@ -643,7 +646,7 @@ class MapCameraTransitionTest {
 
         val animation =
           launch(Dispatchers.Default) {
-            it.state.animateCameraPosition(TARGET, CameraAnimation.Fly(2.seconds))
+            it.state.animateCamera(TARGET.toCameraUpdate(), CameraAnimation.Fly(2.seconds))
           }
         it.awaitCameraMoving()
         it.session.applyTestConstraints()
@@ -681,7 +684,7 @@ class MapCameraTransitionTest {
       it.startAtOrigin()
 
       it.awaitWhileRendering("the instant animation to complete") {
-        it.state.animateCameraPosition(TARGET, CameraAnimation.Fly(0.milliseconds))
+        it.state.animateCamera(TARGET.toCameraUpdate(), CameraAnimation.Fly(0.milliseconds))
       }
       assertNear(
         TARGET.zoom,
@@ -704,17 +707,17 @@ class MapCameraTransitionTest {
 
       val superseded =
         launch(Dispatchers.Default) {
-          it.state.animateCameraPosition(TARGET, CameraAnimation.Fly(10.seconds))
+          it.state.animateCamera(TARGET.toCameraUpdate(), CameraAnimation.Fly(10.seconds))
         }
       it.awaitCameraMoving()
 
       val replacement =
         launch(Dispatchers.Default) {
-          it.state.animateCameraPosition(MIDPOINT, CameraAnimation.Fly(2.seconds))
+          it.state.animateCamera(MIDPOINT.toCameraUpdate(), CameraAnimation.Fly(2.seconds))
         }
       it.pumpUntil("the superseded animation to cancel") { superseded.isCompleted }
 
-      assertTrue(superseded.isCancelled, "the replacement should cancel the prior mutation")
+      assertFalse(superseded.isCancelled, "supersession completes the prior command normally")
 
       assertFalse(
         replacement.isCompleted,
@@ -731,7 +734,7 @@ class MapCameraTransitionTest {
   }
 
   @Test
-  fun cancelling_an_animation_stops_the_camera_and_leaves_nothing_registered(): MapTestResult =
+  fun cancelling_an_animation_withdraws_its_waiter_without_stopping_motion(): MapTestResult =
     runMapTest {
       // A zero animator duration scale lands the camera on its target before a cancel can arrive.
       if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
@@ -741,20 +744,19 @@ class MapCameraTransitionTest {
 
         val animation =
           launch(Dispatchers.Default) {
-            it.state.animateCameraPosition(TARGET, CameraAnimation.Fly(30.seconds))
+            it.state.animateCamera(TARGET.toCameraUpdate(), CameraAnimation.Ease(1.seconds))
           }
         it.awaitCameraMoving()
         animation.cancel()
         it.pumpUntil("the cancelled animation to unwind") { animation.isCompleted }
 
-        val stopped = it.session.getCameraPosition()
-        assertTrue(
-          stopped.zoom < TARGET.zoom - 0.1,
-          "the camera should have stopped short of the target, but was $stopped",
-        )
+        it.pumpUntil("the abandoned animation to reach its target") {
+          abs(it.session.getCameraPosition().zoom - TARGET.zoom) < 0.01
+        }
+        assertTrue(animation.isCancelled)
 
         it.awaitWhileRendering("a later animation to complete") {
-          it.state.animateCameraPosition(TARGET, CameraAnimation.Fly(200.milliseconds))
+          it.state.animateCamera(TARGET.toCameraUpdate(), CameraAnimation.Fly(200.milliseconds))
         }
         assertNear(
           TARGET.zoom,
@@ -772,7 +774,7 @@ class MapCameraTransitionTest {
         it.startAtOrigin()
         val animation =
           launch(Dispatchers.Default) {
-            it.state.animateCameraPosition(TARGET, CameraAnimation.Ease(30.seconds))
+            it.state.animateCamera(TARGET.toCameraUpdate(), CameraAnimation.Ease(30.seconds))
           }
         it.awaitCameraMoving()
         it.state.stopCameraMovement()
@@ -789,7 +791,7 @@ class MapCameraTransitionTest {
         // Queue a stop and a replacement without rendering between them.
         it.state.stopCameraMovement()
         it.awaitWhileRendering("the command racing the stop to complete") {
-          it.state.animateCameraPosition(TARGET, CameraAnimation.Ease(200.milliseconds))
+          it.state.animateCamera(TARGET.toCameraUpdate(), CameraAnimation.Ease(200.milliseconds))
         }
         it.assertLanded(TARGET, "the newer command")
       }
@@ -1045,7 +1047,8 @@ class MapCameraTransitionTest {
     target: CameraPosition,
     animation: CameraAnimation,
   ): List<CameraPosition> = coroutineScope {
-    val job = launch(Dispatchers.Default) { state.animateCameraPosition(target, animation) }
+    val job =
+      launch(Dispatchers.Default) { state.animateCamera(target.toCameraUpdate(), animation) }
     val trace = mutableListOf(session.getCameraPosition())
     pumpUntil("the animation to complete") {
       trace += session.getCameraPosition()

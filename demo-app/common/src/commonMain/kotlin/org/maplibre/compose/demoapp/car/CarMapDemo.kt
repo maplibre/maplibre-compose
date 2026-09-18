@@ -7,6 +7,7 @@ import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.demoapp.Protomaps
 import org.maplibre.compose.map.MapRuntime
 import org.maplibre.spatialk.geojson.Position
@@ -43,24 +44,24 @@ class CarMapDemo(runtime: MapRuntime, private val scope: CoroutineScope, initial
 
   fun recenter() {
     stop()
-    cameraAnimation = scope.launch { state.animateCameraPosition(initialCamera) }
+    cameraAnimation = scope.launch { state.animateCamera(initialCamera.toCameraUpdate()) }
   }
 
   fun zoom(levels: Int) {
-    val from = inFlightZoom?.takeIf { it.levels == levels }?.target ?: state.cameraPosition
-    val request = PendingZoom(levels, from.copy(zoom = from.zoom + levels))
+    val from = inFlightZoom?.takeIf { it.levels == levels }?.zoom ?: state.cameraPosition.zoom
+    val request = PendingZoom(levels, from + levels)
     cameraAnimation?.cancel()
     inFlightZoom = request
     cameraAnimation = scope.launch {
       try {
-        state.animateCameraPosition(request.target, CameraAnimation.Ease())
+        state.animateCamera(CameraUpdate(zoom = request.zoom), CameraAnimation.Ease())
       } finally {
         if (inFlightZoom === request) inFlightZoom = null
       }
     }
   }
 
-  private data class PendingZoom(val levels: Int, val target: CameraPosition)
+  private data class PendingZoom(val levels: Int, val zoom: Double)
 
   private fun mapStyle(dark: Boolean): Protomaps = if (dark) Protomaps.Dark else Protomaps.Light
 }

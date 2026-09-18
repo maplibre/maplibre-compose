@@ -12,6 +12,7 @@ import kotlin.time.Duration.Companion.seconds
 import org.maplibre.compose.camera.CameraAnchor
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.util.DpPadding
@@ -31,18 +32,16 @@ fun Camera() {
 
   // #region animate
   LaunchedEffect(mapState) {
-    mapState.animateCameraPosition(
-      position =
-        mapState.cameraPosition.copy(target = Position(latitude = 47.607, longitude = -122.342))
+    mapState.animateCamera(
+      update = CameraUpdate(target = Position(latitude = 47.607, longitude = -122.342))
     )
   }
   // #endregion animate
 
   // #region animate-fly
   LaunchedEffect(mapState) {
-    mapState.animateCameraPosition(
-      position =
-        CameraPosition(target = Position(latitude = 40.713, longitude = -74.006), zoom = 12.0),
+    mapState.animateCamera(
+      update = CameraUpdate(target = Position(latitude = 40.713, longitude = -74.006), zoom = 12.0),
       animation = CameraAnimation.Fly(duration = 3.seconds, minZoom = 4.0),
     )
   }
@@ -50,8 +49,8 @@ fun Camera() {
 
   // #region animate-ease
   LaunchedEffect(mapState) {
-    mapState.animateCameraPosition(
-      position = mapState.cameraPosition.copy(zoom = mapState.cameraPosition.zoom + 1.0),
+    mapState.animateCamera(
+      update = CameraUpdate(zoom = mapState.cameraPosition.zoom + 1.0),
       animation = CameraAnimation.Ease(duration = 500.milliseconds),
     )
   }
@@ -84,7 +83,7 @@ fun Camera() {
         boundingBox = BoundingBox(west = -123.0, south = 47.0, east = -122.0, north = 48.0),
         fitPadding = DpPadding(left = 32.dp, top = 32.dp, right = 32.dp, bottom = 32.dp),
       )
-    mapState.animateCameraPosition(camera.copy(zoom = minOf(camera.zoom, 12.0)))
+    mapState.animateCamera(camera.copy(zoom = minOf(camera.zoom, 12.0)).toCameraUpdate())
   }
   // #endregion camera-for-bounds
 

@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.overlay.ZoomButtons as BaseZoomButtons
 import org.maplibre.compose.overlay.ZoomButtonsDefaults
 import org.maplibre.compose.overlay.ZoomButtonsStyle
@@ -35,8 +36,8 @@ import org.maplibre.compose.overlay.ZoomButtonsStyle
  * @param shape Shape of the container.
  * @param zoomInPainter The plus artwork, tinted with the content color.
  * @param zoomOutPainter The minus artwork, tinted with the content color.
- * @param getZoomInPosition The camera position that the zoom-in button animates to.
- * @param getZoomOutPosition The camera position that the zoom-out button animates to.
+ * @param getZoomInUpdate The properties that the zoom-in button animates.
+ * @param getZoomOutUpdate The properties that the zoom-out button animates.
  */
 @Composable
 public fun ZoomButtons(
@@ -52,8 +53,8 @@ public fun ZoomButtons(
   shape: Shape = RoundedCornerShape(percent = 50),
   zoomInPainter: Painter = ZoomButtonsDefaults.zoomInPainter(),
   zoomOutPainter: Painter = ZoomButtonsDefaults.zoomOutPainter(),
-  getZoomInPosition: (CameraPosition) -> CameraPosition = { it.copy(zoom = it.zoom + 1) },
-  getZoomOutPosition: (CameraPosition) -> CameraPosition = { it.copy(zoom = it.zoom - 1) },
+  getZoomInUpdate: (CameraPosition) -> CameraUpdate = { CameraUpdate(zoom = it.zoom + 1) },
+  getZoomOutUpdate: (CameraPosition) -> CameraUpdate = { CameraUpdate(zoom = it.zoom - 1) },
 ) {
   BaseZoomButtons(
     modifier = modifier,
@@ -66,8 +67,8 @@ public fun ZoomButtons(
     contentPadding = contentPadding,
     zoomInPainter = zoomInPainter,
     zoomOutPainter = zoomOutPainter,
-    getZoomInPosition = getZoomInPosition,
-    getZoomOutPosition = getZoomOutPosition,
+    getZoomInUpdate = getZoomInUpdate,
+    getZoomOutUpdate = getZoomOutUpdate,
   )
 }
 

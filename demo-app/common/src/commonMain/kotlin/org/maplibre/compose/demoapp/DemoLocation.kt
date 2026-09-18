@@ -13,6 +13,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.camera.CameraMoveReason
+import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.demoapp.demos.DefaultLocationEngine
 import org.maplibre.compose.demoapp.demos.demoLocationEngines
 import org.maplibre.compose.demoapp.design.ButtonRow
@@ -100,13 +101,12 @@ internal fun DemoLocationMapContent(location: DemoLocationUi, locationState: Loc
       }
     if (previousLocation == null) {
       val followBearing =
-        if (bearingUpdate == BearingUpdate.IGNORE) mapState.cameraPosition.bearing
+        if (bearingUpdate == BearingUpdate.IGNORE) null
         else
           currentHeading?.bearing?.let { (it - Bearing.North).inDegrees }
             ?: currentLocation.course?.let { (it - Bearing.North).inDegrees }
-            ?: mapState.cameraPosition.bearing
-      mapState.animateCameraPosition(
-        mapState.cameraPosition.copy(
+      mapState.animateCamera(
+        CameraUpdate(
           target = currentLocation.position,
           zoom = 16.0,
           bearing = followBearing,

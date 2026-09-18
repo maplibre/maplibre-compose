@@ -1,6 +1,7 @@
 package org.maplibre.compose.location
 
 import org.maplibre.compose.camera.CameraAnimation
+import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.map.MapState
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.inDegrees
@@ -40,7 +41,14 @@ public suspend fun LocationChangeScope.updateCamera(
     )
 
   if (animation == null) mapState.setCameraPosition(newPosition)
-  else mapState.animateCameraPosition(newPosition, animation)
+  else
+    mapState.animateCamera(
+      CameraUpdate(
+        target = currentLocation.position,
+        bearing = selectedBearing?.let { (it - Bearing.North).inDegrees },
+      ),
+      animation,
+    )
 }
 
 /** How [updateCamera] updates camera bearing. */

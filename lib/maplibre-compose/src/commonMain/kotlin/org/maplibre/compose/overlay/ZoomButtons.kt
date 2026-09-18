@@ -42,6 +42,7 @@ import org.jetbrains.compose.resources.stringResource
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.generated.Res
 import org.maplibre.compose.generated.add
 import org.maplibre.compose.generated.remove
@@ -64,8 +65,8 @@ import org.maplibre.compose.map.LocalMapState
  * @param contentPadding Gap between a button edge and its icon.
  * @param zoomInPainter The plus artwork, tinted with [ZoomButtonsStyle.contentColor].
  * @param zoomOutPainter The minus artwork, tinted with [ZoomButtonsStyle.contentColor].
- * @param getZoomInPosition The camera position that the zoom-in button animates to.
- * @param getZoomOutPosition The camera position that the zoom-out button animates to.
+ * @param getZoomInUpdate The properties that the zoom-in button animates.
+ * @param getZoomOutUpdate The properties that the zoom-out button animates.
  */
 @Composable
 public fun ZoomButtons(
@@ -79,8 +80,8 @@ public fun ZoomButtons(
   contentPadding: PaddingValues = PaddingValues(12.dp),
   zoomInPainter: Painter = ZoomButtonsDefaults.zoomInPainter(),
   zoomOutPainter: Painter = ZoomButtonsDefaults.zoomOutPainter(),
-  getZoomInPosition: (CameraPosition) -> CameraPosition = { it.copy(zoom = it.zoom + 1) },
-  getZoomOutPosition: (CameraPosition) -> CameraPosition = { it.copy(zoom = it.zoom - 1) },
+  getZoomInUpdate: (CameraPosition) -> CameraUpdate = { CameraUpdate(zoom = it.zoom + 1) },
+  getZoomOutUpdate: (CameraPosition) -> CameraUpdate = { CameraUpdate(zoom = it.zoom - 1) },
 ) {
   val currentMapState = checkNotNull(LocalMapState.current)
   val coroutineScope = rememberCoroutineScope()
@@ -105,13 +106,14 @@ public fun ZoomButtons(
       inFlight = null
     }
   }
-  fun animateZoom(zoomIn: Boolean, getPosition: (CameraPosition) -> CameraPosition) {
+  fun animateZoom(zoomIn: Boolean, getUpdate: (CameraPosition) -> CameraUpdate) {
     val from = inFlight?.takeIf { it.zoomIn == zoomIn }?.target ?: currentMapState.cameraPosition
-    val request = InFlightZoom(zoomIn, getPosition(from))
+    val update = getUpdate(from)
+    val request = InFlightZoom(zoomIn, update.applyTo(from))
     inFlight = request
     coroutineScope.launch {
       try {
-        currentMapState.animateCameraPosition(request.target, CameraAnimation.Ease())
+        currentMapState.animateCamera(update, CameraAnimation.Ease())
       } finally {
         if (inFlight === request) inFlight = null
       }
@@ -127,7 +129,7 @@ public fun ZoomButtons(
   ) {
     ZoomButton(
       onClick = {
-        animateZoom(zoomIn = true, getZoomInPosition)
+        animateZoom(zoomIn = true, getZoomInUpdate)
         onZoomIn()
       },
       interactionSource = zoomInInteractionSource,
@@ -140,7 +142,7 @@ public fun ZoomButtons(
     Box(Modifier.fillMaxWidth().height(style.dividerThickness).background(style.dividerColor))
     ZoomButton(
       onClick = {
-        animateZoom(zoomIn = false, getZoomOutPosition)
+        animateZoom(zoomIn = false, getZoomOutUpdate)
         onZoomOut()
       },
       interactionSource = zoomOutInteractionSource,
