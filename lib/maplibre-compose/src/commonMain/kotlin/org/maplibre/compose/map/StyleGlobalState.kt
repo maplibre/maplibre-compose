@@ -9,8 +9,7 @@ import kotlinx.serialization.json.JsonObject
  * Values shared by expressions in the current loaded style.
  *
  * The base style's root `state` object supplies defaults. A base-style reload discards runtime
- * values and loads the new defaults. This object follows the current style; it does not retain or
- * replay writes across reloads.
+ * values and loads the new defaults. This object follows the current style.
  *
  * Writes require a ready loaded style and do not wait for the engine. Native applies them on its
  * owner thread; reads await earlier writes. Engine rejections are logged.
@@ -24,8 +23,8 @@ public class StyleGlobalState internal constructor(private val style: MapStyleSt
   public suspend fun get(): JsonObject? = style.globalStateValues()
 
   /**
-   * Sets one property to JSON data. Arrays and objects are data, not style expressions. [JsonNull]
-   * restores the style's default for [name], or null when no default exists.
+   * Arrays and objects are stored as data, not evaluated as style expressions. [JsonNull] restores
+   * the style's default for [name], or null when no default exists.
    *
    * @throws IllegalStateException if no style is ready.
    */
