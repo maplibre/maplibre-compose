@@ -138,7 +138,7 @@ fun rememberDemoAppState(): DemoAppState {
     rememberLocationState(
       provider = locationProvider,
       headingProvider = engine.rememberHeadingProvider(),
-      enabled = location.isFollowing,
+      enabled = location.isTracking,
     )
   DisposableEffect(locationState, locationProvider) {
     location.locationState = locationState
@@ -159,7 +159,7 @@ fun rememberDemoAppState(): DemoAppState {
       initialCameraPosition = StartPosition,
     ) {
       mapConfiguration.selectedDemo?.let { demo -> key(demo) { demo.MapContent(appliedStyle) } }
-      DemoLocationMapContent(location, locationState)
+      DemoLocationMapContent(location, locationState, settings.useMaterial3Controls)
     }
   val frameRateState = remember { FrameRateState() }
   return remember {
