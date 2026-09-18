@@ -243,17 +243,17 @@ internal class DurableStyleCallbacks(private val owner: MapState) : MapAdapter.C
   }
 
   override fun onEvent(map: MapAdapter, event: MapEvent) {
-    owner.onEvent(map, event)
+    owner.attachmentAuthority.onEvent(map, event)
   }
 
   override fun resolveMissingImage(map: MapAdapter, imageId: String): Deferred<Unit>? =
     owner.styleAuthority.resolveMissingImage(map, imageId)
 
   override fun onGestureActive(map: MapAdapter, active: Boolean) {
-    owner.setGestureActive(map, active)
+    owner.attachmentAuthority.setGestureActive(map, active)
   }
 
   override fun onViewportChanged(map: MapAdapter) {
-    owner.synchronizeCamera(map)
+    owner.attachmentAuthority.synchronizeCamera(map)
   }
 }

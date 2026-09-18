@@ -43,7 +43,7 @@ class MapLifecycleCallbackRaceTest {
         runCatching {
           assertTrue(
             binding.acceptPresentationEvent(engine, lease) {
-              state.synchronizeCamera(adapter)
+              state.attachmentAuthority.synchronizeCamera(adapter)
             }
           )
         }

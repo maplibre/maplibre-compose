@@ -652,7 +652,7 @@ class MapPresentationTest {
     assertNull(fixture.state.positionFromScreenLocation(DpOffset.Zero))
     val viewportReads = fixture.adapter.viewportReads
     fixture.adapter.lastCameraPosition = CameraPosition(zoom = 7.0)
-    assertNull(fixture.state.synchronizeCamera(fixture.adapter))
+    assertNull(fixture.state.attachmentAuthority.synchronizeCamera(fixture.adapter))
     assertEquals(viewportReads, fixture.adapter.viewportReads)
     assertEquals(position, fixture.state.cameraPosition)
     fixture.close()

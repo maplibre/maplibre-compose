@@ -206,7 +206,7 @@ internal class RecordingMapCallbacks(
 
   override fun onEvent(map: MapAdapter, event: MapEvent) {
     engineEvents += event
-    state?.onEvent(map, event)
+    state?.attachmentAuthority?.onEvent(map, event)
   }
 
   override fun resolveMissingImage(map: MapAdapter, imageId: String): Deferred<Unit>? =
@@ -214,11 +214,11 @@ internal class RecordingMapCallbacks(
 
   override fun onGestureActive(map: MapAdapter, active: Boolean) {
     events += "gesture($active)"
-    state?.setGestureActive(map, active)
+    state?.attachmentAuthority?.setGestureActive(map, active)
   }
 
   override fun onViewportChanged(map: MapAdapter) {
     events += "viewportChanged"
-    state?.synchronizeCamera(map)
+    state?.attachmentAuthority?.synchronizeCamera(map)
   }
 }
