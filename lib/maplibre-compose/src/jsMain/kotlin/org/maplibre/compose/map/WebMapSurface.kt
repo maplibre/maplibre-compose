@@ -1,5 +1,7 @@
 package org.maplibre.compose.map
 
+import kotlin.time.Duration
+import kotlin.time.TimeSource
 import kotlinx.browser.window
 import org.maplibre.compose.gljs.GlJsFrameTarget
 import org.maplibre.compose.gljs.GlJsSurfaceSession
@@ -16,6 +18,8 @@ internal class WebMapSurface(
   val element = document.createElement("div").unsafeCast<HTMLElement>()
   private var renderer: GlJsMapSession? = null
   private var frame: Int? = null
+  private var timer: Int? = null
+  private val pacer = MapFramePacer(followsFrameClock = true)
   private var closed = false
   private var host: HTMLElement? = null
   private var extent = MapExtent.fromLogical(1, 1, window.devicePixelRatio)
@@ -109,13 +113,37 @@ internal class WebMapSurface(
 
   override fun requestFrame() {
     if (closed || !isActive || frame != null || renderer == null) return
+    timer?.let(window::clearTimeout)
+    timer = null
+    val remaining = pacer.remaining(renderer?.maximumFps)
+    if (remaining > Duration.ZERO) {
+      timer =
+        window.setTimeout(
+          {
+            timer = null
+            requestFrame()
+          },
+          ((remaining.inWholeNanoseconds + 999_999) / 1_000_000)
+            .coerceAtMost(Int.MAX_VALUE.toLong())
+            .toInt(),
+        )
+      return
+    }
     frame = window.requestAnimationFrame {
       frame = null
       if (!closed && isActive) {
         try {
-          if (renderer?.render(GlJsFrameTarget.OwnCanvas, extent) == true && presentFrames) {
-            hasPresentedFrame = true
-            updateVisibility()
+          if (pacer.remaining(renderer?.maximumFps) > Duration.ZERO) {
+            requestFrame()
+            return@requestAnimationFrame
+          }
+          val start = TimeSource.Monotonic.markNow()
+          if (renderer?.render(GlJsFrameTarget.OwnCanvas, extent) == true) {
+            pacer.rendered(start)
+            if (presentFrames) {
+              hasPresentedFrame = true
+              updateVisibility()
+            }
           }
         } catch (error: Throwable) {
           onFailure(error)
@@ -125,6 +153,8 @@ internal class WebMapSurface(
   }
 
   private fun cancelFrame() {
+    timer?.let(window::clearTimeout)
+    timer = null
     frame?.let(window::cancelAnimationFrame)
     frame = null
   }

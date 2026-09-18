@@ -34,8 +34,9 @@ internal fun presentationDestination(
 /**
  * One renderable frame produced by a [MlnFfiMapHost].
  *
- * A frame is valid only between [MlnFfiMapHost.acquireFrame] and [MlnFfiMapHost.releaseFrame]. Its
- * [target] handles must not be retained past that window.
+ * Producer access is valid between [MlnFfiMapHost.acquireFrame] and [MlnFfiMapHost.releaseFrame].
+ * After successful completion, the host keeps [target] presentable until a newer completed target
+ * is drawn or the host closes, including across resize.
  */
 internal data class MlnFfiMapFrame(
   /** Monotonically increasing identifier, for logging and frame pacing. */
@@ -101,8 +102,8 @@ internal interface MlnFfiMapHost : AutoCloseable {
    * Acquires the next frame to render into. Returns [MlnFfiMapFrameAcquisition.NotReady] when the
    * consumer graphics context does not exist yet; the caller skips that frame and asks for another
    * without entering failure recovery. Throws when a context exists but no target can be produced.
-   * Called from the consumer's draw callback, so the host may use the consumer graphics context
-   * that is current there.
+   * Called before Compose overlay placement. The host must obtain exclusive access to the consumer
+   * graphics context when needed; it cannot assume a draw callback made it current.
    */
   fun acquireFrame(
     frameId: Long,
@@ -116,7 +117,7 @@ internal interface MlnFfiMapHost : AutoCloseable {
   /**
    * Signals that the producer finished rendering into [frame]. The implementation must ensure the
    * consumer can safely read the result. Called only when the renderer reported
-   * [MlnFfiFrameResult.RENDERED].
+   * [MlnFfiFrameResult.Rendered].
    */
   fun completeProducerAccess(frame: MlnFfiMapFrame) {}
 

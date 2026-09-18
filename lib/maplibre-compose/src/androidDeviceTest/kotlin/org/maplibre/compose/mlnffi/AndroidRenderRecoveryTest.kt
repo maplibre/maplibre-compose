@@ -15,12 +15,12 @@ import org.maplibre.compose.map.MapExtent
 class AndroidRenderRecoveryTest {
   @Test
   fun successful_frames_do_not_replenish_recovery_attempts() {
-    assertRecoveryLimit(MlnFfiFrameResult.RENDERED)
+    assertRecoveryLimit(MlnFfiFrameResult.Rendered())
   }
 
   @Test
   fun skipped_frames_do_not_replenish_recovery_attempts() {
-    assertRecoveryLimit(MlnFfiFrameResult.SKIPPED)
+    assertRecoveryLimit(MlnFfiFrameResult.AwaitUpdate)
   }
 
   @Test
@@ -41,7 +41,7 @@ class AndroidRenderRecoveryTest {
 
   @Test
   fun surface_recreation_does_not_replenish_recovery_attempts() {
-    assertRecoveryLimit(MlnFfiFrameResult.RENDERED, recreateSurface = true)
+    assertRecoveryLimit(MlnFfiFrameResult.Rendered(), recreateSurface = true)
   }
 
   @Test
@@ -143,7 +143,7 @@ class AndroidRenderRecoveryTest {
     override val backend = MapRenderBackend.OPENGL
     var nextError: Throwable? = null
     var alwaysFail = false
-    var result = MlnFfiFrameResult.RENDERED
+    var result: MlnFfiFrameResult = MlnFfiFrameResult.Rendered()
     var frames = 0
     var attachments = 0
     var resizes = 0
@@ -167,7 +167,7 @@ class AndroidRenderRecoveryTest {
       resizes++
     }
 
-    override fun render(frame: MlnFfiMapFrame): MlnFfiFrameResult {
+    override fun render(frame: MlnFfiMapFrame, captureProjection: Boolean): MlnFfiFrameResult {
       frames++
       val error = nextError
       nextError = null

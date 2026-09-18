@@ -143,8 +143,11 @@ private constructor(
   var hasRendered: Boolean = false
     internal set
 
-  /** Renders one frame, exactly as [MlnFfiMapSurface] does inside its draw pass. */
-  fun frame(extent: MapExtent = initialExtent): MlnFfiFrameResult {
+  /** Renders one frame, with the same producer-access contract as [MlnFfiMapSurface]. */
+  fun frame(
+    extent: MapExtent = initialExtent,
+    captureProjection: Boolean = false,
+  ): MlnFfiFrameResult {
     frameRequested = false
     val frame =
       when (val acquisition = driver.acquireFrame(frameId++, extent, null)) {
@@ -154,9 +157,9 @@ private constructor(
       }
     return try {
       driver
-        .withProducerAccess(frame) { session.render(frame) }
+        .withProducerAccess(frame) { session.render(frame, captureProjection) }
         .also {
-          if (it == MlnFfiFrameResult.RENDERED) {
+          if (it is MlnFfiFrameResult.Rendered) {
             driver.completeProducerAccess(frame)
             check(driver.present(frame.target)) {
               "The production ${driver.backends} bridge did not present frame ${frame.frameId}"
@@ -167,6 +170,13 @@ private constructor(
     } finally {
       driver.releaseFrame(frame)
     }
+  }
+
+  fun renderFrameProjection(extent: MapExtent = initialExtent): MlnFfiMapFrameProjection {
+    session.onSurfaceChanged(extent)
+    return checkNotNull(
+      (frame(extent, captureProjection = true) as MlnFfiFrameResult.Rendered).projection
+    )
   }
 
   /** Reads one rendered RGBA pixel back from the platform/backend target. */
@@ -219,7 +229,7 @@ private constructor(
     val deadline = TimeSource.Monotonic.markNow() + duration
     var rendered = 0
     while (deadline.hasNotPassedNow()) {
-      if (frameRequested && frame() == MlnFfiFrameResult.RENDERED) rendered++
+      if (frameRequested && frame() is MlnFfiFrameResult.Rendered) rendered++
       parkForTest(POLL_INTERVAL_MILLIS)
     }
     return rendered

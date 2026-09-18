@@ -49,7 +49,8 @@ class AppleMlnFfiSurfaceControllerTest {
 
         override fun onSurfaceLost() = Unit
 
-        override fun render(frame: MlnFfiMapFrame) = MlnFfiFrameResult.SKIPPED
+        override fun render(frame: MlnFfiMapFrame, captureProjection: Boolean) =
+          MlnFfiFrameResult.AwaitUpdate
 
         override fun close() {
           error("The presentation owner must retain control of the map")
@@ -79,7 +80,8 @@ class AppleMlnFfiSurfaceControllerTest {
       events += "lost"
     }
 
-    override fun render(frame: MlnFfiMapFrame) = MlnFfiFrameResult.SKIPPED
+    override fun render(frame: MlnFfiMapFrame, captureProjection: Boolean) =
+      MlnFfiFrameResult.AwaitUpdate
 
     override fun close() = Unit
   }

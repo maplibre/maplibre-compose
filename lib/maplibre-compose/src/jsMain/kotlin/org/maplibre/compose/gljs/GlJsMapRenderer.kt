@@ -4,6 +4,12 @@ import org.maplibre.compose.map.MapExtent
 
 /** The surface's view of the map session. */
 internal interface GlJsMapRenderer : AutoCloseable {
+  val maximumFps: Int?
+    get() = null
+
+  /** Geometry used to display a retained composited image before overlay placement. */
+  fun presentFrame(target: GlJsRenderTarget?, extent: MapExtent) {}
+
   /** Called again after a recoverable failure, so an implementation must take a second surface. */
   fun onSurfaceAvailable(surface: GlJsSurfaceSession)
 

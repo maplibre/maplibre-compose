@@ -121,7 +121,7 @@ class MlnFfiStylePresentationTest {
       assertTrue("replacement" in fixture.session.currentStyleLayerIds())
       assertTrue("application" !in fixture.session.currentStyleLayerIds())
 
-      assertEquals(MlnFfiFrameResult.SKIPPED, fixture.frame())
+      assertEquals(MlnFfiFrameResult.AwaitUpdate, fixture.frame())
       assertTrue(
         fixture.readPixel(centerX, centerY).isNear(APPLICATION_COLOR),
         "the last complete frame must remain presented while application content is absent",
