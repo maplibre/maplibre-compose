@@ -16,14 +16,21 @@ import org.maplibre.nativeffi.render.RenderBackend
 @OptIn(ExperimentalTestApi::class)
 internal actual fun runFfiComposeUiTest(block: suspend ComposeUiTest.() -> Unit) {
   val watchdog = startHangWatchdog()
+  var failure: Throwable? = null
   try {
     runComposeUiTest { block() }
+  } catch (error: Throwable) {
+    failure = error
+    throw error
   } finally {
-    watchdog.interrupt()
-    // Tests share a JVM; a dump left printing here would interleave into the next test's output.
-    // Bounded, so a wedged stderr could never hold up teardown for the daemon thread's sake.
-    watchdog.join(1_000)
-    DefaultMapRuntime.resetForTest()
+    try {
+      DefaultMapRuntime.resetForTest(failure)
+    } finally {
+      watchdog.interrupt()
+      // Tests share a JVM; a dump left printing here would interleave into the next test's output.
+      // Bounded, so a wedged stderr could never hold up teardown for the daemon thread's sake.
+      watchdog.join(1_000)
+    }
   }
 }
 

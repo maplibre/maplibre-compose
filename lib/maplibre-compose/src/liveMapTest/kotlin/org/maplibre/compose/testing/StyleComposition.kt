@@ -12,8 +12,10 @@ import androidx.compose.ui.platform.LocalGraphicsContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.MapNodeApplier
 import org.maplibre.compose.style.RecordingStyleBinding
@@ -63,11 +65,13 @@ internal suspend fun composeStyle(
         val reconciler = StyleReconciler()
         var frame = 0L
         suspend fun pumpFrames() {
-          do {
-            if (frameClock.hasAwaiters) frameClock.sendFrame(frame++)
-            delay(1)
-          } while (recomposer.hasPendingWork || revision?.let(awaitRevision) != true)
-          recomposer.awaitIdle()
+          withTimeout(30.seconds) {
+            do {
+              if (frameClock.hasAwaiters) frameClock.sendFrame(frame++)
+              delay(1)
+            } while (recomposer.hasPendingWork || revision?.let(awaitRevision) != true)
+            recomposer.awaitIdle()
+          }
         }
         pumpFrames()
         reconciler.apply(style, requireNotNull(revision))

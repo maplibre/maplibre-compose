@@ -64,7 +64,7 @@ private constructor(
     get() = recorder.style
 
   private var frameId = 0L
-  private var frameRequested = true
+  private val frameRequested = AtomicBoolean(true)
   private val runtime = mapRuntimeForTest()
   val state = runtime.createMapState(BaseStyle.Demo)
 
@@ -93,7 +93,7 @@ private constructor(
       override val backends: RenderBackendPair = driver.backends
 
       override fun requestFrame() {
-        frameRequested = true
+        frameRequested.store(true)
       }
 
       override fun <T> withRendererAccess(action: () -> T): T {
@@ -148,7 +148,7 @@ private constructor(
     extent: MapExtent = initialExtent,
     captureProjection: Boolean = false,
   ): MlnFfiFrameResult {
-    frameRequested = false
+    frameRequested.store(false)
     val frame =
       when (val acquisition = driver.acquireFrame(frameId++, extent, null)) {
         is MlnFfiMapFrameAcquisition.Acquired -> acquisition.frame
@@ -229,7 +229,7 @@ private constructor(
     val deadline = TimeSource.Monotonic.markNow() + duration
     var rendered = 0
     while (deadline.hasNotPassedNow()) {
-      if (frameRequested && frame() is MlnFfiFrameResult.Rendered) rendered++
+      if (frameRequested.load() && frame() is MlnFfiFrameResult.Rendered) rendered++
       parkForTest(POLL_INTERVAL_MILLIS)
     }
     return rendered
@@ -324,14 +324,26 @@ private constructor(
   }
 
   override fun close() {
-    runCatching {
+    var failure: Throwable? = null
+    fun cleanup(action: () -> Unit) {
+      try {
+        action()
+      } catch (error: Throwable) {
+        val first = failure
+        if (first == null) failure = error else if (first !== error) first.addSuppressed(error)
+      }
+    }
+    cleanup {
       state.close()
       runBlocking { state.awaitClosed() }
+    }
+    cleanup {
       runtime.close()
       runBlocking { runtime.awaitClosed() }
     }
-    runCatching { driver.close() }
-    FfiTestPlatform.deleteCacheFile(cacheFile)
+    cleanup { driver.close() }
+    cleanup { FfiTestPlatform.deleteCacheFile(cacheFile) }
+    failure?.let { throw it }
   }
 
   /** Drives frames until stopped, running queued renderer access between them. */

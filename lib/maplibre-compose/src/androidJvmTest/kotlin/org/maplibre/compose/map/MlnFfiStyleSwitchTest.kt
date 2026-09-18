@@ -64,168 +64,166 @@ class MlnFfiStyleSwitchTest {
     rotateStyles { Anchor.Below { layer -> layer.type == "symbol" } }
 
   private fun rotateStyles(anchorFor: (DemoStyle) -> Anchor) = runFfiComposeUiTest {
-    val runtime = createMapRuntime(runtimeOptions)
-    var style by mutableStateOf(STYLES[0])
-    var extraLayer by mutableStateOf(false)
-    val state =
-      runtime.createMapState(baseStyle = STYLES[0].base) {
-        val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
-        // Two layers on one source at different anchors, so the re-add order matters.
-        CircleLayer(id = "user-circles", source = points, color = const(Color.Red))
-        Anchor.At(anchorFor(style)) {
-          FillLayer(id = "user-fill", source = points, color = const(Color.Blue))
-          // Comes and goes across the rotation, covering removal of a layer that was added against
-          // a different base style.
-          if (extraLayer) {
-            FillLayer(id = "user-extra", source = points, color = const(Color.Green))
+    withTestRuntime(runtimeOptions) { runtime ->
+      var style by mutableStateOf(STYLES[0])
+      var extraLayer by mutableStateOf(false)
+      val state =
+        runtime.createMapState(baseStyle = STYLES[0].base) {
+          val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
+          // Two layers on one source at different anchors, so the re-add order matters.
+          CircleLayer(id = "user-circles", source = points, color = const(Color.Red))
+          Anchor.At(anchorFor(style)) {
+            FillLayer(id = "user-fill", source = points, color = const(Color.Blue))
+            // Comes and goes across the rotation, covering removal of a layer that was added
+            // against
+            // a different base style.
+            if (extraLayer) {
+              FillLayer(id = "user-extra", source = points, color = const(Color.Green))
+            }
           }
         }
+
+      setFfiTestMapContent(runtimeOptions) {
+        MaplibreMap(modifier = Modifier, state = state)
       }
 
-    setFfiTestMapContent(runtimeOptions) {
-      MaplibreMap(modifier = Modifier, state = state)
-    }
-
-    // Each style finishes loading before the next is chosen; switching mid-load is a separate race
-    // this test deliberately does not cover.
-    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-      state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
-    }
-    val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
-    var identity = assertNotNull(session.loadedStyleIdentity)
-    assertStyleLayers(session, style, extraLayer)
-
-    repeat(ROTATIONS) { round ->
-      runOnUiThread {
-        style = STYLES[(round + 1) % STYLES.size]
-        extraLayer = !extraLayer
-        state.style.asMutable!!.baseStyle = style.base
-      }
+      // Each style finishes loading before the next is chosen; switching mid-load is a separate
+      // race
+      // this test deliberately does not cover.
       waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-        state.style.loadState == StyleLoadState.Ready && session.loadedStyleIdentity != identity
+        state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
       }
-      val replacementIdentity = assertNotNull(session.loadedStyleIdentity)
-      assertNotSame(identity, replacementIdentity)
-      identity = replacementIdentity
+      val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
+      var identity = assertNotNull(session.loadedStyleIdentity)
       assertStyleLayers(session, style, extraLayer)
-    }
 
-    runtime.close()
-    runtime.awaitClosed()
+      repeat(ROTATIONS) { round ->
+        runOnUiThread {
+          style = STYLES[(round + 1) % STYLES.size]
+          extraLayer = !extraLayer
+          state.style.asMutable!!.baseStyle = style.base
+        }
+        waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+          state.style.loadState == StyleLoadState.Ready && session.loadedStyleIdentity != identity
+        }
+        val replacementIdentity = assertNotNull(session.loadedStyleIdentity)
+        assertNotSame(identity, replacementIdentity)
+        identity = replacementIdentity
+        assertStyleLayers(session, style, extraLayer)
+      }
+    }
   }
 
   @Test
   fun recreating_an_anchored_layer_while_switching_the_base_style() = runFfiComposeUiTest {
-    val runtime = createMapRuntime(runtimeOptions)
-    var style by mutableStateOf(SLOT_STYLES[0])
-    var sourceLayer by mutableStateOf("places")
-    val state =
-      runtime.createMapState(baseStyle = SLOT_STYLES[0]) {
-        val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
-        Anchor.Below("base-slot") {
-          FillLayer(
-            id = "user-anchored",
-            source = points,
-            sourceLayer = sourceLayer,
-            color = const(Color.Blue),
-          )
+    withTestRuntime(runtimeOptions) { runtime ->
+      var style by mutableStateOf(SLOT_STYLES[0])
+      var sourceLayer by mutableStateOf("places")
+      val state =
+        runtime.createMapState(baseStyle = SLOT_STYLES[0]) {
+          val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
+          Anchor.Below("base-slot") {
+            FillLayer(
+              id = "user-anchored",
+              source = points,
+              sourceLayer = sourceLayer,
+              color = const(Color.Blue),
+            )
+          }
         }
+
+      setFfiTestMapContent(runtimeOptions) {
+        MaplibreMap(modifier = Modifier, state = state)
       }
 
-    setFfiTestMapContent(runtimeOptions) {
-      MaplibreMap(modifier = Modifier, state = state)
-    }
+      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+        state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
+      }
+      val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
+      fun slotLayers(): List<String> =
+        session.currentStyleLayerIds().filter { it in SLOT_LAYER_IDS }
+      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+        slotLayers() == listOf("bg-a", "user-anchored", "base-slot")
+      }
 
-    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-      state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
+      runOnUiThread {
+        style = SLOT_STYLES[1]
+        sourceLayer = "roads"
+        state.style.asMutable!!.baseStyle = style
+      }
+      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+        state.style.loadState == StyleLoadState.Ready
+      }
+      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+        slotLayers() == listOf("bg-b", "user-anchored", "base-slot")
+      }
     }
-    val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
-    fun slotLayers(): List<String> = session.currentStyleLayerIds().filter { it in SLOT_LAYER_IDS }
-    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-      slotLayers() == listOf("bg-a", "user-anchored", "base-slot")
-    }
-
-    runOnUiThread {
-      style = SLOT_STYLES[1]
-      sourceLayer = "roads"
-      state.style.asMutable!!.baseStyle = style
-    }
-    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-      state.style.loadState == StyleLoadState.Ready
-    }
-    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-      slotLayers() == listOf("bg-b", "user-anchored", "base-slot")
-    }
-    runtime.close()
-    runtime.awaitClosed()
   }
 
   @Test
   fun a_stalled_style_is_superseded_before_composing_the_latest_content() = runFfiComposeUiTest {
     val styleBStarted = TestLatch(1)
     val styleBCancelled = TestLatch(1)
-    val runtime =
-      createMapRuntime(
-        runtimeOptions.copy(
-          resourceProvider =
-            MapResourceProvider("held") { request ->
-              when (request.url) {
-                B_STYLE_URL -> {
-                  styleBStarted.countDown()
-                  try {
-                    awaitCancellation()
-                  } finally {
-                    styleBCancelled.countDown()
-                  }
+    withTestRuntime(
+      runtimeOptions.copy(
+        resourceProvider =
+          MapResourceProvider("held") { request ->
+            when (request.url) {
+              B_STYLE_URL -> {
+                styleBStarted.countDown()
+                try {
+                  awaitCancellation()
+                } finally {
+                  styleBCancelled.countDown()
                 }
-                C_STYLE_URL -> STYLE_C_JSON.encodeToByteArray()
-                else -> error("Unexpected resource request for ${request.url}")
               }
+              C_STYLE_URL -> STYLE_C_JSON.encodeToByteArray()
+              else -> error("Unexpected resource request for ${request.url}")
             }
-        )
+          }
       )
-    var showLatestLayer by mutableStateOf(false)
-    val state =
-      runtime.createMapState(baseStyle = INITIAL_STYLE) {
-        if (showLatestLayer) {
-          Anchor.Below("base-c") {
-            BackgroundLayer(id = "user-latest", color = const(Color.Blue))
+    ) { runtime ->
+      var showLatestLayer by mutableStateOf(false)
+      val state =
+        runtime.createMapState(baseStyle = INITIAL_STYLE) {
+          if (showLatestLayer) {
+            Anchor.Below("base-c") {
+              BackgroundLayer(id = "user-latest", color = const(Color.Blue))
+            }
           }
         }
+
+      setFfiTestMapContent(runtimeOptions) {
+        MaplibreMap(modifier = Modifier, state = state)
       }
 
-    setFfiTestMapContent(runtimeOptions) {
-      MaplibreMap(modifier = Modifier, state = state)
-    }
+      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+        state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
+      }
+      val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
 
-    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-      state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
-    }
-    val session = requireNotNull(state.currentMapAttachment).adapter as MlnFfiMapSession
+      runOnUiThread {
+        state.style.asMutable!!.baseStyle = BaseStyle.Uri(B_STYLE_URL)
+      }
+      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+        styleBStarted.count == 0L
+      }
 
-    runOnUiThread {
-      state.style.asMutable!!.baseStyle = BaseStyle.Uri(B_STYLE_URL)
-    }
-    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-      styleBStarted.count == 0L
-    }
+      runOnUiThread {
+        showLatestLayer = true
+        state.style.asMutable!!.baseStyle = BaseStyle.Uri(C_STYLE_URL)
+      }
 
-    runOnUiThread {
-      showLatestLayer = true
-      state.style.asMutable!!.baseStyle = BaseStyle.Uri(C_STYLE_URL)
-    }
+      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+        styleBCancelled.count == 0L &&
+          state.style.loadState == StyleLoadState.Ready &&
+          "user-latest" in session.currentStyleLayerIds()
+      }
 
-    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-      styleBCancelled.count == 0L &&
-        state.style.loadState == StyleLoadState.Ready &&
-        "user-latest" in session.currentStyleLayerIds()
+      val layers =
+        session.currentStyleLayerIds().filter { it == "user-latest" || it.startsWith("base-") }
+      assertEquals(listOf("user-latest", "base-c"), layers)
     }
-
-    val layers =
-      session.currentStyleLayerIds().filter { it == "user-latest" || it.startsWith("base-") }
-    assertEquals(listOf("user-latest", "base-c"), layers)
-    runtime.close()
-    runtime.awaitClosed()
   }
 
   private fun androidx.compose.ui.test.ComposeUiTest.assertStyleLayers(

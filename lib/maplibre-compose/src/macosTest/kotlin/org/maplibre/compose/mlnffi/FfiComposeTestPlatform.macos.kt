@@ -11,10 +11,14 @@ import org.maplibre.compose.map.resetForTest
 @OptIn(ExperimentalTestApi::class)
 internal actual fun runFfiComposeUiTest(block: suspend ComposeUiTest.() -> Unit) {
   FfiTestPlatform.initialize()
+  var failure: Throwable? = null
   try {
     runComposeUiTest { block() }
+  } catch (error: Throwable) {
+    failure = error
+    throw error
   } finally {
-    DefaultMapRuntime.resetForTest()
+    DefaultMapRuntime.resetForTest(failure)
   }
 }
 
