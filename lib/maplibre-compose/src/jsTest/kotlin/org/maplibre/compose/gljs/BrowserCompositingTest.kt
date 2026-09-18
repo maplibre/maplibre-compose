@@ -1,5 +1,6 @@
 package org.maplibre.compose.gljs
 
+import androidx.compose.ui.unit.DpOffset
 import kotlin.js.Date
 import kotlin.js.Promise
 import kotlin.math.abs
@@ -383,9 +384,7 @@ class BrowserCompositingTest {
         assertNotEquals(first.generation, second.generation, "a resize should mint a new target")
         assertEquals(SMALL, second.widthPx)
 
-        map.session.setRenderSettings(RenderOptions { maximumFps = 1 })
-        assertTrue(map.drawOnce(second), "a replacement target must render despite the FPS cap")
-        map.session.setRenderSettings(RenderOptions {})
+        assertTrue(map.drawOnce(second), "a replacement target must render when scheduled")
         map.drawTheWholeStyle(second)
         assertEquals(
           mapOf(RED to SMALL * SMALL / 2, BLUE to SMALL * SMALL / 2),
@@ -421,6 +420,11 @@ class BrowserCompositingTest {
           assertFalse(map.drawOnce(target))
           assertEquals(original, map.session.overlayScreenLocationFromPosition(position))
           assertTrue(pixels.contentEquals(readFramebuffer(gl, target.framebuffer, FULL, FULL)))
+          map.session.presentFrame(target, MapExtent.fromPhysical(FULL * 2, FULL * 2, 1.0))
+          assertEquals(
+            DpOffset(original.x * 2, original.y * 2),
+            map.session.overlayScreenLocationFromPosition(position),
+          )
 
           map.session.setRenderSettings(RenderOptions {})
           assertTrue(map.drawOnce(target))

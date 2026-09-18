@@ -1,10 +1,14 @@
 package org.maplibre.compose.mlnffi
 
 import kotlin.concurrent.Volatile
+import kotlin.time.Duration
+import kotlin.time.DurationUnit
+import kotlin.time.TimeSource
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.autoreleasepool
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.map.MapExtent
+import org.maplibre.compose.map.MapFramePacer
 import org.maplibre.compose.util.rethrowIfFatal
 import platform.Foundation.NSCondition
 import platform.Foundation.NSDate
@@ -46,7 +50,7 @@ internal class AppleMlnFfiSurfaceController(
   private var nextFrameId = 1L
   private var framePosted = false
   private var frameToken = 0L
-  private var lastFrameStartUptimeSeconds = 0.0
+  private val pacer = MapFramePacer()
   private var active = true
   private var closed = false
   private var terminalFailure = false
@@ -61,7 +65,15 @@ internal class AppleMlnFfiSurfaceController(
 
   /** Records [maximumFps] for the post delay. */
   fun setMaximumFps(maximumFps: Int?) {
-    post { if (!closed) this.maximumFps = maximumFps }
+    post {
+      if (!closed && this.maximumFps != maximumFps) {
+        this.maximumFps = maximumFps
+        if (framePosted) {
+          cancelFrame()
+          requestFrameOnRenderThread()
+        }
+      }
+    }
   }
 
   /**
@@ -160,16 +172,10 @@ internal class AppleMlnFfiSurfaceController(
     }
     framePosted = true
     val token = ++frameToken
-    val intervalSeconds = minFrameIntervalSeconds()
-    if (intervalSeconds > 0.0) {
-      val at = lastFrameStartUptimeSeconds + intervalSeconds
-      val now = uptimeSeconds()
-      if (at > now) {
-        post(at - now) { renderFrame(token) }
-        return
-      }
-    }
-    post { renderFrame(token) }
+    val remaining = pacer.remaining(maximumFps)
+    if (remaining > Duration.ZERO) {
+      post(remaining.toDouble(DurationUnit.SECONDS)) { renderFrame(token) }
+    } else post { renderFrame(token) }
   }
 
   private fun renderFrame(token: Long) {
@@ -179,6 +185,11 @@ internal class AppleMlnFfiSurfaceController(
     val currentLayer = layerAddress
     val currentExtent = extent
     if (closed || !active || currentLayer == 0L || currentExtent.isEmpty) return
+
+    if (pacer.remaining(maximumFps) > Duration.ZERO) {
+      requestFrame()
+      return
+    }
 
     val frameId = nextFrameId++
     val target =
@@ -196,11 +207,15 @@ internal class AppleMlnFfiSurfaceController(
         presentationTimeNanos = (uptimeSeconds() * NANOS_PER_SECOND).toLong(),
       )
 
-    val frameStartUptimeSeconds = uptimeSeconds()
+    val start = TimeSource.Monotonic.markNow()
     try {
-      if (renderer.render(frame) == MlnFfiFrameResult.RENDERED) {
-        consecutiveFailures = 0
-        lastFrameStartUptimeSeconds = frameStartUptimeSeconds
+      when (renderer.render(frame)) {
+        is MlnFfiFrameResult.Rendered -> {
+          consecutiveFailures = 0
+          pacer.rendered(start)
+        }
+        MlnFfiFrameResult.RetryNextFrame -> requestFrameOnRenderThread()
+        MlnFfiFrameResult.AwaitUpdate -> Unit
       }
     } catch (error: Throwable) {
       rethrowIfFatal(error)
@@ -257,12 +272,6 @@ internal class AppleMlnFfiSurfaceController(
     if (!framePosted) return
     framePosted = false
     frameToken++
-  }
-
-  private fun minFrameIntervalSeconds(): Double {
-    val fps = maximumFps ?: return 0.0
-    if (fps <= 0) return 0.0
-    return 1.0 / fps
   }
 
   private fun checkRenderThread() {

@@ -18,8 +18,6 @@ import kotlin.math.PI
 import kotlin.math.pow
 import kotlin.math.sqrt
 import kotlin.time.Duration
-import kotlin.time.DurationUnit
-import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -158,9 +156,6 @@ private val HANDLED_MAP_EVENTS: RuntimeEventMask =
     RuntimeEventMask.MAP_RENDER_ERROR +
     RuntimeEventMask.MAP_RENDER_FRAME_FINISHED +
     RuntimeEventMask.MAP_STYLE_IMAGE_MISSING
-
-/** The fraction of a capped frame interval a frame may arrive early and still be drawn. */
-private const val FRAME_INTERVAL_SLACK = 0.1
 
 internal data class NativeEngineCompatibility(
   val renderBackend: MapRenderBackend,
@@ -345,11 +340,13 @@ internal class MlnFfiMapSession(
       getScale = ::imageScale,
     )
 
-  @Volatile private var maximumFps: Int? = null
+  @Volatile
+  override var maximumFps: Int? = null
+    private set
+
   private var cameraConstraints: CameraConstraints? = null
   private var cameraProjection: CameraProjection = CameraProjection.Perspective
   private var tileLodOptions: TileLodOptions = TileLodOptions.Standard
-  private var lastRenderTime = TimeSource.Monotonic.markNow()
 
   // region host surface lifecycle
 
@@ -377,10 +374,10 @@ internal class MlnFfiMapSession(
     hostSession = null
   }
 
-  override fun render(frame: MlnFfiMapFrame): MlnFfiFrameResult {
-    if (!lifecycle.acceptsWork || frame.extent.isEmpty) return MlnFfiFrameResult.SKIPPED
+  override fun render(frame: MlnFfiMapFrame, captureProjection: Boolean): MlnFfiFrameResult {
+    if (!lifecycle.acceptsWork || frame.extent.isEmpty) return MlnFfiFrameResult.AwaitUpdate
 
-    val loop = loop ?: return MlnFfiFrameResult.SKIPPED
+    val loop = loop ?: return MlnFfiFrameResult.AwaitUpdate
     loop.failure?.let { error ->
       if (!failureReported) {
         failureReported = true
@@ -388,27 +385,18 @@ internal class MlnFfiMapSession(
         close()
         throw IllegalStateException("The MapLibre map runtime failed", error)
       }
-      return MlnFfiFrameResult.SKIPPED
+      return MlnFfiFrameResult.AwaitUpdate
     }
 
-    val map = loop.map ?: return MlnFfiFrameResult.SKIPPED
+    val map = loop.map ?: return MlnFfiFrameResult.AwaitUpdate
     if (styleLoadTracker.presentation == StylePresentation.Retained)
-      return MlnFfiFrameResult.SKIPPED
+      return MlnFfiFrameResult.AwaitUpdate
     renderedCameraPadding = mirroredViewport.effectivePadding
 
-    if (!ensureAttached(loop, map, frame)) return MlnFfiFrameResult.SKIPPED
+    if (!ensureAttached(loop, map, frame)) return MlnFfiFrameResult.AwaitUpdate
     // Consumed before rendering, so an update published during the render below is not discarded.
-    if (!renderRequested.exchange(false)) return MlnFfiFrameResult.SKIPPED
-    // The cap measures start-to-start; measuring from the end of the last render rejects every
-    // second frame near the display's rate.
-    val renderStart = TimeSource.Monotonic.markNow()
-    if (!allowRenderNow(renderStart)) {
-      // Throttled, not dropped.
-      requestRender()
-      return MlnFfiFrameResult.SKIPPED
-    }
-
-    val session = renderSession ?: return MlnFfiFrameResult.SKIPPED
+    if (!renderRequested.exchange(false)) return MlnFfiFrameResult.AwaitUpdate
+    val session = renderSession ?: return MlnFfiFrameResult.AwaitUpdate
     val update =
       try {
         session.renderUpdate()
@@ -420,10 +408,10 @@ internal class MlnFfiMapSession(
     }
     when (update.result) {
       RenderResult.NO_UPDATE,
-      RenderResult.SIZE_PENDING -> return MlnFfiFrameResult.SKIPPED
+      RenderResult.SIZE_PENDING -> return MlnFfiFrameResult.AwaitUpdate
       RenderResult.TARGET_NOT_READY -> {
-        requestRender()
-        return MlnFfiFrameResult.SKIPPED
+        renderRequested.store(true)
+        return MlnFfiFrameResult.RetryNextFrame
       }
       else -> Unit
     }
@@ -436,8 +424,9 @@ internal class MlnFfiMapSession(
           "extent ${frame.extent}"
       }
     }
-    lastRenderTime = renderStart
-    return MlnFfiFrameResult.RENDERED
+    return MlnFfiFrameResult.Rendered(
+      if (captureProjection) captureFrameProjection(frame.extent) else null
+    )
   }
 
   // Keep native handles outside Compose snapshots: an older snapshot must not read a closed handle.
@@ -451,7 +440,7 @@ internal class MlnFfiMapSession(
   }
 
   private data class PresentedProjection(
-    val frame: FrameProjection,
+    val frame: MlnFfiMapFrameProjection,
     val destination: MlnFfiMapDestination,
     val scaleFactor: Double,
   ) {
@@ -462,8 +451,8 @@ internal class MlnFfiMapSession(
       )
   }
 
-  private inner class FrameProjection(
-    val extent: MapExtent,
+  private class FrameProjection(
+    override val extent: MapExtent,
     val projection: MapProjectionHandle,
   ) : MlnFfiMapFrameProjection {
     override val anchor: MlnFfiMapPresentationAnchor
@@ -477,21 +466,25 @@ internal class MlnFfiMapSession(
         )
       }
 
-    override fun present(destination: MlnFfiMapDestination, scaleFactor: Double) {
-      projectionLock.withLock {
-        publishProjection(PresentedProjection(this, destination, scaleFactor))
-      }
-    }
+    override fun screenLocation(position: Position): DpOffset =
+      projection.pixelForLatLng(position.toLatLng()).toDpOffset()
 
     override fun close() {
-      projectionLock.withLock {
-        if (presentedProjection?.frame === this) publishProjection(null)
-        projection.close()
-      }
+      projection.close()
     }
   }
 
-  override fun captureFrameProjection(extent: MapExtent): MlnFfiMapFrameProjection {
+  override fun presentFrame(
+    projection: MlnFfiMapFrameProjection?,
+    destination: MlnFfiMapDestination,
+    scaleFactor: Double,
+  ) {
+    projectionLock.withLock {
+      publishProjection(projection?.let { PresentedProjection(it, destination, scaleFactor) })
+    }
+  }
+
+  private fun captureFrameProjection(extent: MapExtent): MlnFfiMapFrameProjection {
     val session = checkNotNull(renderSession)
     val projection = session.createProjection().normalizeWrappedCenter()
     return FrameProjection(extent, projection)
@@ -1024,18 +1017,6 @@ internal class MlnFfiMapSession(
   private fun requestRender() {
     renderRequested.store(true)
     hostSession?.requestFrame()
-  }
-
-  /**
-   * The cap filters an arriving cadence rather than driving one, hence [FRAME_INTERVAL_SLACK]: a
-   * cap at the display's own rate would otherwise halve the frame rate.
-   */
-  private fun allowRenderNow(now: TimeSource.Monotonic.ValueTimeMark): Boolean {
-    val fps = maximumFps ?: return true
-    if (fps <= 0) return true
-    val minimumInterval = 1.0 / fps
-    val elapsed = (now - lastRenderTime).toDouble(DurationUnit.SECONDS)
-    return elapsed >= minimumInterval * (1.0 - FRAME_INTERVAL_SLACK)
   }
 
   // endregion
@@ -1804,7 +1785,10 @@ internal class MlnFfiMapSession(
   }
 
   override fun setRenderSettings(value: RenderOptions) {
-    maximumFps = value.maximumFps
+    if (maximumFps != value.maximumFps) {
+      maximumFps = value.maximumFps
+      requestRender()
+    }
     val cameraProjectionChanged = cameraProjection != value.cameraProjection
     cameraProjection = value.cameraProjection
     configureMap { map ->
@@ -1908,14 +1892,11 @@ internal class MlnFfiMapSession(
     projectionLock.withLock {
       presentationRevision.longValue
       val presented = presentedProjection
+      if (presented != null)
+        return@withLock presented.toScreen(presented.frame.screenLocation(position))
       val snapshot = mirroredViewport
-      val projection =
-        presented?.frame?.projection
-          ?: snapshot.wrappedProjection
-          ?: snapshot.projection
-          ?: return@withLock null
-      val point = projection.pixelForLatLng(position.toLatLng()).toDpOffset()
-      presented?.toScreen(point) ?: point
+      val projection = snapshot.wrappedProjection ?: snapshot.projection ?: return@withLock null
+      projection.pixelForLatLng(position.toLatLng()).toDpOffset()
     }
 
   /**

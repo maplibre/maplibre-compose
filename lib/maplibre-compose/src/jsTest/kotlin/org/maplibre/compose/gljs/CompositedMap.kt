@@ -4,6 +4,8 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.js.Date
+import kotlin.time.Duration
+import kotlin.time.TimeSource
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
@@ -12,6 +14,7 @@ import org.maplibre.compose.map.GlJsMapSession
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
+import org.maplibre.compose.map.MapFramePacer
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.map.overdrawInspector
@@ -23,6 +26,8 @@ private const val RENDER_TIMEOUT_MS = 30_000
 
 internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double = 1.0) :
   AutoCloseable {
+
+  private val pacer = MapFramePacer(followsFrameClock = true)
 
   private var loadFailure: String? = null
   private var styleLoaded = false
@@ -55,7 +60,11 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
 
   /** Synchronous, so a caller can bracket it with GL of its own. */
   fun drawOnce(target: GlJsRenderTarget): Boolean {
+    if (pacer.remaining(session.maximumFps) > Duration.ZERO) return false
+    val start = TimeSource.Monotonic.markNow()
     val rendered = session.render(GlJsFrameTarget.Composited(target), extentOf(target))
+    if (rendered) pacer.rendered(start)
+    session.presentFrame(target, extentOf(target))
     if (session.hasUsableViewport) session.markPresentationStateReplayed()
     return rendered
   }

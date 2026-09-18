@@ -13,8 +13,6 @@ import js.objects.unsafeJso
 import kotlin.coroutines.resume
 import kotlin.math.log2
 import kotlin.time.Duration
-import kotlin.time.DurationUnit
-import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.asPromise
@@ -101,9 +99,6 @@ import web.gl.WebGL2RenderingContext
 import web.html.HTMLCanvasElement
 import web.html.HTMLElement
 
-/** The fraction of a capped frame interval a frame may arrive early and still be drawn. */
-private const val FRAME_INTERVAL_SLACK = 0.1
-
 /**
  * Creates the engine when a host supplies its first render target and extent. Calls before then are
  * queued and reads answer from what was last asked for. A DOM host supplies [mapContainer]; Compose
@@ -186,14 +181,24 @@ internal class GlJsMapSession(
 
   private var lentContext: WebGL2RenderingContext? = null
 
-  private var maximumFps: Int? = null
+  override var maximumFps: Int? = null
+    private set
+
   private var cameraConstraints: CameraConstraints? = null
   private var tileLodOptions: TileLodOptions = TileLodOptions.Standard
-  private var lastRenderTime = TimeSource.Monotonic.markNow()
   private var renderedProjection by mutableStateOf<RenderedProjection?>(null)
+
+  private data class PresentedGeometry(val target: GlJsRenderTarget?, val extent: MapExtent)
+
+  private var presentedGeometry by mutableStateOf<PresentedGeometry?>(null)
+
+  override fun presentFrame(target: GlJsRenderTarget?, extent: MapExtent) {
+    presentedGeometry = PresentedGeometry(target, extent)
+  }
 
   private class RenderedProjection(
     val target: GlJsRenderTarget?,
+    val extent: MapExtent,
     val transform: GlJsTransform,
     val terrain: GlJsTerrain?,
   ) {
@@ -256,14 +261,7 @@ internal class GlJsMapSession(
     }
     if (target is GlJsFrameTarget.NotReady) return false
 
-    val now = TimeSource.Monotonic.markNow()
     val previous = renderedProjection
-    if (previous != null && previous.target === composited?.target && !allowRenderNow(now)) {
-      // Throttled, not dropped.
-      surface?.requestFrame()
-      return false
-    }
-
     if (composited != null) {
       // Skia drives this context between MapLibre's frames, so each renderer is told the other
       // moved the state.
@@ -284,14 +282,13 @@ internal class GlJsMapSession(
     }
 
     renderedProjection =
-      RenderedProjection(composited?.target, map._camera.transform.clone(), map.terrain)
+      RenderedProjection(composited?.target, extent, map._camera.transform.clone(), map.terrain)
 
     if (previous == null) {
       logger?.i {
         "Rendered the first map frame at ${extent.physicalWidth}x${extent.physicalHeight}"
       }
     }
-    lastRenderTime = now
     return true
   }
 
@@ -317,6 +314,7 @@ internal class GlJsMapSession(
 
   override suspend fun attach(identity: EngineMapIdentity, lease: RenderLease) {
     lifecycleRenderLease = lease
+    surface?.requestFrame()
   }
 
   override suspend fun detach(identity: EngineMapIdentity, lease: RenderLease) {
@@ -352,6 +350,8 @@ internal class GlJsMapSession(
     }
     if (!lifecycle.acceptsWork) return null
     if (!lifecycleAuthority.selectAdapterForPresentation(this)) return null
+    val engine = lifecycleEngineIdentity ?: return null
+    val lease = lifecycleRenderLease ?: return null
 
     val host =
       mapContainer
@@ -399,8 +399,6 @@ internal class GlJsMapSession(
       GlJsRuntime.redirectDefaultFramebuffer(created.painter.context) { framebuffer }
     }
     GlJsRuntime.interceptRepaintRequests(created) { surface?.requestFrame() }
-    val engine = lifecycleEngineIdentity ?: return null
-    val lease = lifecycleRenderLease ?: return null
     wireEvents(created, engine, lease)
 
     map = created
@@ -432,6 +430,7 @@ internal class GlJsMapSession(
     styleLoadPending = false
     styleLoadTracker.engineBecameUnavailable()
     renderedProjection = null
+    presentedGeometry = null
     val borrowed = lentContext
     lentContext = null
     runCatching {
@@ -537,17 +536,6 @@ internal class GlJsMapSession(
   private fun maxTextureSize(gl: dynamic): Array<Double> {
     val size = (gl.getParameter(gl.MAX_TEXTURE_SIZE) as? Int)?.toDouble() ?: 4096.0
     return arrayOf(size, size)
-  }
-
-  /**
-   * A cap at the display's own rate would reject any interval measured a microsecond short, halving
-   * the frame rate; hence [FRAME_INTERVAL_SLACK].
-   */
-  private fun allowRenderNow(now: TimeSource.Monotonic.ValueTimeMark): Boolean {
-    val fps = maximumFps ?: return true
-    if (fps <= 0) return true
-    val elapsed = (now - lastRenderTime).toDouble(DurationUnit.SECONDS)
-    return elapsed >= (1.0 / fps) * (1.0 - FRAME_INTERVAL_SLACK)
   }
 
   // endregion
@@ -1119,7 +1107,10 @@ internal class GlJsMapSession(
     }
 
   override fun setRenderSettings(value: RenderOptions) {
-    maximumFps = value.maximumFps
+    if (maximumFps != value.maximumFps) {
+      maximumFps = value.maximumFps
+      surface?.requestFrame()
+    }
     onMap { map ->
       map.showTileBoundaries = value.debug.tileBorders
       map.showCollisionBoxes = value.debug.collisionBoxes
@@ -1160,8 +1151,26 @@ internal class GlJsMapSession(
 
   override fun overlayScreenLocationFromPosition(position: Position): DpOffset? {
     val projection = renderedProjection ?: return null
+    val geometry = presentedGeometry
+    if (projection.target != null && geometry?.target !== projection.target) return null
+    fun toScreen(point: DpOffset): DpOffset {
+      if (projection.target == null || geometry == null) return point
+      val source = projection.extent
+      val destination = geometry.extent
+      if (source.isEmpty || destination.isEmpty) return point
+      return DpOffset(
+        (point.x.value * source.scaleFactor * destination.physicalWidth /
+            source.physicalWidth /
+            destination.scaleFactor)
+          .dp,
+        (point.y.value * source.scaleFactor * destination.physicalHeight /
+            source.physicalHeight /
+            destination.scaleFactor)
+          .dp,
+      )
+    }
     projection.locations[position]?.let {
-      return it
+      return toScreen(it)
     }
     if (projection.terrainChanged) {
       surface?.requestFrame()
@@ -1169,10 +1178,15 @@ internal class GlJsMapSession(
     }
     val center = projection.transform.center
     val nearestCopy = with(AngleMath) { center.lng + position.longitude.diff(center.lng) }
-    return projection.transform
-      .locationToScreenPoint(LngLat(lng = nearestCopy, lat = position.latitude), projection.terrain)
-      .toDpOffset()
-      .also { if (projection.terrain != null) projection.locations[position] = it }
+    val point =
+      projection.transform
+        .locationToScreenPoint(
+          LngLat(lng = nearestCopy, lat = position.latitude),
+          projection.terrain,
+        )
+        .toDpOffset()
+        .also { if (projection.terrain != null) projection.locations[position] = it }
+    return toScreen(point)
   }
 
   override suspend fun queryRenderedFeatures(

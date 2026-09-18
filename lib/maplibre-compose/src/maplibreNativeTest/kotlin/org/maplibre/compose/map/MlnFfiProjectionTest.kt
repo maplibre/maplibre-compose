@@ -36,8 +36,8 @@ class MlnFfiProjectionTest {
       fixture.hasRendered = false
       fixture.pumpUntil("the rotated camera to render") { fixture.hasRendered }
       val oldSnapshot =
-        fixture.captureFrameProjection().use { projection ->
-          projection.present(MlnFfiMapDestination(0, 0, 200, 200), 1.0)
+        fixture.renderFrameProjection().use { projection ->
+          fixture.session.presentFrame(projection, MlnFfiMapDestination(0, 0, 200, 200), 1.0)
           val initial =
             assertNotNull(fixture.session.overlayScreenLocationFromPosition(ROTATED_CAMERA.target))
           assertTrue(initial.isNear(DpOffset(100.dp, 100.dp)))
@@ -56,7 +56,7 @@ class MlnFfiProjectionTest {
           )
 
           // A retained 200px texture centered in a 300px surface at density 2.
-          projection.present(MlnFfiMapDestination(50, 50, 200, 200), 2.0)
+          fixture.session.presentFrame(projection, MlnFfiMapDestination(50, 50, 200, 200), 2.0)
           val expected = DpOffset(75.dp, 75.dp)
           assertTrue(
             fixture.session
@@ -64,7 +64,9 @@ class MlnFfiProjectionTest {
               .isNear(expected)
           )
           assertTrue(fixture.session.screenLocationFromPosition(movedCamera.target).isNear(initial))
-          Snapshot.takeSnapshot()
+          Snapshot.takeSnapshot().also {
+            fixture.session.presentFrame(null, MlnFfiMapDestination(0, 0, 0, 0), 1.0)
+          }
         }
       try {
         // A Compose snapshot can outlive the frame whose handle has just been closed.

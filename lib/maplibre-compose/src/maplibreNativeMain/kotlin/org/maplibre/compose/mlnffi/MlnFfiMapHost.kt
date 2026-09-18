@@ -117,7 +117,7 @@ internal interface MlnFfiMapHost : AutoCloseable {
   /**
    * Signals that the producer finished rendering into [frame]. The implementation must ensure the
    * consumer can safely read the result. Called only when the renderer reported
-   * [MlnFfiFrameResult.RENDERED].
+   * [MlnFfiFrameResult.Rendered].
    */
   fun completeProducerAccess(frame: MlnFfiMapFrame) {}
 

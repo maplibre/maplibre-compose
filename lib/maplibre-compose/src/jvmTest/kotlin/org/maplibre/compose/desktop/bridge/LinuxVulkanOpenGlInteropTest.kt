@@ -344,7 +344,7 @@ class LinuxVulkanOpenGlInteropTest {
           .frame
       try {
         val result = host.withProducerAccess(frame) { renderer.render(frame) }
-        if (result == MlnFfiFrameResult.RENDERED) {
+        if (result is MlnFfiFrameResult.Rendered) {
           host.completeProducerAccess(frame)
           return PumpedFrame(result, frame.target)
         }
@@ -362,7 +362,7 @@ class LinuxVulkanOpenGlInteropTest {
 
     private class PumpedFrame(val result: MlnFfiFrameResult, val target: MlnFfiRenderTarget?) {
       val rendered: Boolean
-        get() = result == MlnFfiFrameResult.RENDERED && target != null
+        get() = result is MlnFfiFrameResult.Rendered && target != null
     }
   }
 

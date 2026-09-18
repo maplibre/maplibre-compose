@@ -3,11 +3,13 @@ package org.maplibre.compose.mlnffi
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
-import android.os.SystemClock
 import android.view.Surface
 import java.util.concurrent.FutureTask
+import kotlin.time.Duration
+import kotlin.time.TimeSource
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.map.MapExtent
+import org.maplibre.compose.map.MapFramePacer
 
 /**
  * Drives the shared FFI renderer from a dedicated Android render thread.
@@ -40,7 +42,7 @@ internal class AndroidMlnFfiSurfaceController(
   private var generation = 0L
   private var nextFrameId = 1L
   private var framePosted = false
-  private var lastFrameStartUptimeMs = 0L
+  private val pacer = MapFramePacer()
   private var active = true
   @Volatile private var closed = false
   private var terminalFailure = false
@@ -54,7 +56,12 @@ internal class AndroidMlnFfiSurfaceController(
   private fun setMaximumFpsOnRenderThread(maximumFps: Int?) {
     checkRenderThread()
     if (closed) return
+    if (this.maximumFps == maximumFps) return
     this.maximumFps = maximumFps
+    if (framePosted) {
+      cancelFrame()
+      requestFrame()
+    }
   }
 
   fun surfaceCreated(surface: Surface, width: Int, height: Int, scaleFactor: Double) {
@@ -140,16 +147,10 @@ internal class AndroidMlnFfiSurfaceController(
       return
     }
     framePosted = true
-    val delayMs = minFrameIntervalMs()
-    if (delayMs > 0L) {
-      val at = lastFrameStartUptimeMs + delayMs
-      val now = SystemClock.uptimeMillis()
-      if (at > now) {
-        renderHandler.postAtTime(renderFrame, at)
-        return
-      }
-    }
-    renderHandler.post(renderFrame)
+    val remaining = pacer.remaining(maximumFps)
+    if (remaining > Duration.ZERO) {
+      renderHandler.postDelayed(renderFrame, (remaining.inWholeNanoseconds + 999_999) / 1_000_000)
+    } else renderHandler.post(renderFrame)
   }
 
   private fun renderFrame(frameTimeNanos: Long) {
@@ -159,14 +160,23 @@ internal class AndroidMlnFfiSurfaceController(
     if (closed || terminalFailure || !active || currentGraphics == null || currentExtent.isEmpty)
       return
 
+    if (pacer.remaining(maximumFps) > Duration.ZERO) {
+      requestFrame()
+      return
+    }
+
     val frameId = nextFrameId++
     val target = currentGraphics.target(currentExtent, generation)
     val frame = MlnFfiMapFrame(frameId, currentExtent, target, frameTimeNanos)
 
-    val frameStartUptimeMs = SystemClock.uptimeMillis()
+    val start = TimeSource.Monotonic.markNow()
     try {
-      if (renderer.render(frame) == MlnFfiFrameResult.RENDERED) {
-        lastFrameStartUptimeMs = frameStartUptimeMs
+      when (renderer.render(frame)) {
+        is MlnFfiFrameResult.Rendered -> {
+          pacer.rendered(start)
+        }
+        MlnFfiFrameResult.RetryNextFrame -> requestFrame()
+        MlnFfiFrameResult.AwaitUpdate -> Unit
       }
     } catch (error: Throwable) {
       if (error is VirtualMachineError) throw error
@@ -215,12 +225,6 @@ internal class AndroidMlnFfiSurfaceController(
     if (!framePosted) return
     renderHandler.removeCallbacks(renderFrame)
     framePosted = false
-  }
-
-  private fun minFrameIntervalMs(): Long {
-    val fps = maximumFps ?: return 0L
-    if (fps <= 0) return 0L
-    return (1000.0 / fps).toLong().coerceAtLeast(1L)
   }
 
   private fun checkRenderThread() {

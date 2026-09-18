@@ -62,9 +62,9 @@ class AndroidSurfaceDetachmentTest {
           )
         }
 
-        override fun render(frame: MlnFfiMapFrame): MlnFfiFrameResult =
+        override fun render(frame: MlnFfiMapFrame, captureProjection: Boolean): MlnFfiFrameResult =
           nativeSession.render(frame).also {
-            if (it == MlnFfiFrameResult.RENDERED) rendered.countDown()
+            if (it is MlnFfiFrameResult.Rendered) rendered.countDown()
           }
       }
     try {
