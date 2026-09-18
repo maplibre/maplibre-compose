@@ -846,10 +846,11 @@ internal class GlJsMapSession(
       padding =
         getPadding().let {
           DpPadding(
-            left = (it.left - viewportInsets.left).dp,
-            top = (it.top - viewportInsets.top).dp,
-            right = (it.right - viewportInsets.right).dp,
-            bottom = (it.bottom - viewportInsets.bottom).dp,
+            // Fractional insets leave floating-point residue, and GL JS rejects negative padding.
+            left = (it.left - viewportInsets.left).coerceAtLeast(0.0).dp,
+            top = (it.top - viewportInsets.top).coerceAtLeast(0.0).dp,
+            right = (it.right - viewportInsets.right).coerceAtLeast(0.0).dp,
+            bottom = (it.bottom - viewportInsets.bottom).coerceAtLeast(0.0).dp,
           )
         },
       zoom = getZoom(),

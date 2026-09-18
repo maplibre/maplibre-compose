@@ -91,12 +91,16 @@ internal fun CameraUpdate.toCameraOptions(viewportInsets: EdgeInsets): CameraOpt
     }
   }
 
+/**
+ * The camera padding inside [insets]. Fractional insets round-trip through the engine with
+ * floating-point residue, and the engine rejects any negative padding, so each side clamps at zero.
+ */
 internal fun EdgeInsets.relativeTo(insets: EdgeInsets): DpPadding =
   DpPadding(
-    left = (left - insets.left).dp,
-    top = (top - insets.top).dp,
-    right = (right - insets.right).dp,
-    bottom = (bottom - insets.bottom).dp,
+    left = (left - insets.left).coerceAtLeast(0.0).dp,
+    top = (top - insets.top).coerceAtLeast(0.0).dp,
+    right = (right - insets.right).coerceAtLeast(0.0).dp,
+    bottom = (bottom - insets.bottom).coerceAtLeast(0.0).dp,
   )
 
 internal fun DpPadding.toEdgeInsets(): EdgeInsets =

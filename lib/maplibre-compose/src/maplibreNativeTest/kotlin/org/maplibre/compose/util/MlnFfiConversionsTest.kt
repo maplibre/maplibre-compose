@@ -1,5 +1,6 @@
 package org.maplibre.compose.util
 
+import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -8,6 +9,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import org.maplibre.nativeffi.camera.EdgeInsets
 import org.maplibre.nativeffi.query.QueriedFeature
 import org.maplibre.spatialk.geojson.Feature as GeoJsonFeature
 import org.maplibre.spatialk.geojson.GeometryCollection
@@ -15,6 +17,20 @@ import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Position
 
 class MlnFfiConversionsTest {
+
+  @Test
+  fun relative_padding_clamps_floating_point_residue_at_zero() {
+    // A sheet inset of 188.66666666666666 dp round-trips through the engine as a slightly smaller
+    // double; the difference must not become a negative padding that the engine rejects.
+    val engine = EdgeInsets(top = 0.0, left = 0.0, bottom = 188.66666666666663, right = 0.0)
+    val insets = EdgeInsets(top = 0.0, left = 0.0, bottom = 188.66666666666666, right = 0.0)
+    assertEquals(DpPadding.Zero, engine.relativeTo(insets))
+    assertEquals(
+      DpPadding(bottom = 20.dp),
+      EdgeInsets(top = 0.0, left = 0.0, bottom = 40.0, right = 0.0)
+        .relativeTo(EdgeInsets(top = 0.0, left = 0.0, bottom = 20.0, right = 0.0)),
+    )
+  }
 
   @Test
   fun unsigned_feature_id_remains_a_json_number() {
