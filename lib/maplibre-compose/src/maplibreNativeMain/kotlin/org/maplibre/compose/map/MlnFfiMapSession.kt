@@ -28,6 +28,7 @@ import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraAnchor
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.camera.internal.BoxZoomFit
 import org.maplibre.compose.camera.internal.CameraCommandGuard
@@ -216,7 +217,14 @@ internal class MlnFfiMapSession(
   private var pendingCameraPadding: DpPadding? = null
 
   /** One-shot map actions accepted before this session starts. Guarded by [stateLock]. */
-  private class PendingMapAction(val run: (MapHandle) -> Unit, val abandon: () -> Unit)
+  private class PendingMapAction(
+    val run: (MapHandle) -> Unit,
+    val abandon: () -> Unit,
+    val drainAfter: Boolean,
+  ) {
+    fun post(loop: MlnFfiMapRuntimeLoop): Boolean =
+      if (drainAfter) loop.postAndDrainEvents(run, abandon) else loop.post(run, abandon)
+  }
 
   private val pendingMapActions = mutableListOf<PendingMapAction>()
 
@@ -492,6 +500,7 @@ internal class MlnFfiMapSession(
   }
 
   override suspend fun detach(identity: EngineMapIdentity, lease: RenderLease) {
+    onMap { it.cancelTransitions() }
     stateLock.withLock {
       viewportRequest = null
       appliedViewportRequest = null
@@ -560,7 +569,7 @@ internal class MlnFfiMapSession(
           mapEventMask = HANDLED_MAP_EVENTS,
         )
       pendingMapActions.forEach { action ->
-        if (!created.post(action.run, action.abandon)) action.abandon()
+        if (!action.post(created)) action.abandon()
       }
       pendingMapActions.clear()
       loop = created
@@ -885,10 +894,9 @@ internal class MlnFfiMapSession(
           logger?.w { "A camera transition finished without a payload naming it" }
         } else {
           val id = payload.transitionId
-          if (currentTransitionId == id) currentTransitionId = null
           val waiter = transitionWaiters.remove(id)
-          if (anchoredTransition === waiter) {
-            anchoredTransition = null
+          if (anchoredTransitionId == id) {
+            anchoredTransitionId = null
             anchoredSize = null
           }
           if (waiter == null) {
@@ -1041,12 +1049,17 @@ internal class MlnFfiMapSession(
   }
 
   /** Queues [action] until a map exists, including before the session starts. */
-  private fun postWhenMapExists(action: (MapHandle) -> Unit, abandon: () -> Unit): Boolean {
+  private fun postWhenMapExists(
+    action: (MapHandle) -> Unit,
+    abandon: () -> Unit,
+    drainAfter: Boolean = false,
+  ): Boolean {
+    val pending = PendingMapAction(action, abandon, drainAfter)
     val current = stateLock.withLock {
       if (!lifecycle.acceptsWork) return false
-      loop.also { if (it == null) pendingMapActions += PendingMapAction(action, abandon) }
+      loop.also { if (it == null) pendingMapActions += pending }
     }
-    return current?.post(action, abandon) ?: true
+    return current?.let(pending::post) ?: true
   }
 
   private fun configureMap(action: (MapHandle) -> Unit) {
@@ -1070,7 +1083,7 @@ internal class MlnFfiMapSession(
     val size = map.size
     if (size.width != request.extent.width || size.height != request.extent.height) return
     if (anchoredSize?.let { it.width != size.width.dp || it.height != size.height.dp } == true)
-      cancelAnchoredTransition()
+      cancelAnchoredTransition(map)
     applyViewportInsets(map)
     snapshotViewport(map)
     // Keep the last usable viewport during resize and surface loss. A detached presentation
@@ -1328,7 +1341,7 @@ internal class MlnFfiMapSession(
     val padding = viewportInsets
     val pending = pendingCameraPadding
     if (padding == appliedViewportInsets && pending == null) return
-    cancelAnchoredTransition()
+    cancelAnchoredTransition(map)
     val current = map.camera.toCameraPosition(appliedViewportInsets)
     val effective =
       current.copy(padding = pending ?: current.padding).toCameraOptions(padding).padding
@@ -1452,13 +1465,13 @@ internal class MlnFfiMapSession(
       right = right + other.right,
     )
 
-  override suspend fun animateCameraPosition(
-    finalPosition: CameraPosition,
+  override suspend fun animateCamera(
+    update: CameraUpdate,
     animation: CameraAnimation,
     guard: CameraCommandGuard?,
   ) {
     startTransitionAwaitingRelease(animation.toAnimationOptions(), guard = guard) { map, options ->
-      map.animateTo(finalPosition.toCameraOptions(appliedViewportInsets), animation, options)
+      map.animateTo(update.toCameraOptions(appliedViewportInsets), animation, options)
     }
   }
 
@@ -1491,8 +1504,6 @@ internal class MlnFfiMapSession(
           it.zoom = zoom
           it.bearing = bearing
           it.pitch = tilt
-          // Keep the current effective padding for an anchored move.
-          it.padding = map.camera.padding
         },
         options,
       )
@@ -1600,9 +1611,9 @@ internal class MlnFfiMapSession(
                   activate = { gestureToken?.let { activateGesture(map, it) } },
                 ) {
                   if (shouldStart(map)) {
-                    startTransitionOnMap(map, animation, start, continuation)
-                    if (anchored && continuation.isActive) {
-                      anchoredTransition = continuation
+                    val id = startTransitionOnMap(map, animation, start, continuation)
+                    if (anchored && id != null) {
+                      anchoredTransitionId = id
                       anchoredSize = DpSize(map.size.width.dp, map.size.height.dp)
                     }
                   } else if (continuation.isActive) continuation.resume(Unit)
@@ -1610,6 +1621,8 @@ internal class MlnFfiMapSession(
             if (!started && continuation.isActive) continuation.resume(Unit)
           },
           { if (continuation.isActive) continuation.resume(Unit) },
+          // Retire superseded anchor IDs before a later geometry command can cancel them.
+          drainAfter = true,
         )
       if (!queued && continuation.isActive) continuation.resume(Unit)
     }
@@ -1624,42 +1637,39 @@ internal class MlnFfiMapSession(
     animation: AnimationOptions,
     start: (MapHandle, AnimationOptions) -> Unit,
     continuation: CancellableContinuation<Unit>,
-  ) {
+  ): Long? {
     // Cancellation while this waits for the first loop must not start a native transition.
-    if (!continuation.isActive) return
+    if (!continuation.isActive) return null
     val id = ++lastTransitionId
     transitionWaiters[id] = continuation
-    currentTransitionId = id
     try {
       start(map, animation.copy { transitionId = id })
     } catch (error: Throwable) {
       // A rejected command emits no event, so nothing else would resume the continuation.
       forgetTransition(id)
       if (continuation.isActive) continuation.resumeWithException(error)
-      return
+      return null
     }
     continuation.invokeOnCancellation { abandonTransition(id) }
+    return id
   }
 
-  private var anchoredTransition: CancellableContinuation<Unit>? = null
+  private var anchoredTransitionId: Long? = null
   private var anchoredSize: DpSize? = null
 
-  /** Owner thread only. Cancellation stops only the transition registered to this continuation. */
-  private fun cancelAnchoredTransition() {
-    val continuation = anchoredTransition
-    anchoredTransition = null
+  /** Geometry invalidates the anchor. Until scoped cancellation exists this stops every track. */
+  private fun cancelAnchoredTransition(map: MapHandle) {
+    val id = anchoredTransitionId ?: return
+    anchoredTransitionId = null
     anchoredSize = null
-    continuation?.cancel(kotlinx.coroutines.CancellationException("The anchor viewport changed"))
+    transitionWaiters[id]?.cancel(
+      kotlinx.coroutines.CancellationException("The anchor viewport changed")
+    )
+    map.cancelTransitions()
   }
 
-  /** Owner-thread state, like the two maps below. */
+  /** Owner-thread state. */
   private var lastTransitionId = 0L
-
-  /**
-   * MAP_CAMERA_TRANSITION_FINISHED says a transition released the camera but not why; this tells
-   * "still driving the camera" from "a later command took it over".
-   */
-  private var currentTransitionId: Long? = null
 
   private val transitionWaiters = mutableMapOf<Long, CancellableContinuation<Unit>>()
 
@@ -1674,30 +1684,24 @@ internal class MlnFfiMapSession(
   }
 
   private fun forgetTransition(id: Long) {
-    val waiter = transitionWaiters.remove(id)
-    if (anchoredTransition === waiter) {
-      anchoredTransition = null
+    transitionWaiters.remove(id)
+    if (anchoredTransitionId == id) {
+      anchoredTransitionId = null
       anchoredSize = null
     }
-    if (currentTransitionId == id) currentTransitionId = null
   }
 
   private fun abandonTransition(id: Long) {
-    onMap { map ->
-      val wasCurrent = currentTransitionId == id
-      forgetTransition(id)
-      // Guarded on being current so a late cancellation cannot stop a newer animation.
-      if (wasCurrent) map.cancelTransitions()
-    }
+    // Withdrawing a waiter cannot safely stop its tracks until FFI supports scoped cancellation.
+    onMap { transitionWaiters.remove(id) }
   }
 
   /** Closing a map discards its queued events, so no finish event will follow. */
   private fun resumeStrandedTransitions() {
-    anchoredTransition = null
+    anchoredTransitionId = null
     anchoredSize = null
     val waiters = transitionWaiters.values.toList()
     transitionWaiters.clear()
-    currentTransitionId = null
     waiters.forEach { waiter -> runCatching { waiter.resume(Unit) } }
     flushTransitionResumes()
   }
@@ -2211,8 +2215,6 @@ internal class MlnFfiMapSession(
     if (!guard.isValid()) return
     onMap { map ->
       if (!guard.isValid()) return@onMap
-      // Cleared first, so a later cancellation cannot stop a newer transition.
-      currentTransitionId = null
       map.cancelTransitions()
     }
   }

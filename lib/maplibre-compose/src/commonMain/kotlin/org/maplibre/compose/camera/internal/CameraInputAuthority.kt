@@ -40,10 +40,11 @@ internal inline fun runCameraCommand(
 
 /** The lifecycle lock serializes admission with takeover and completion fences. */
 internal class CameraInputAuthority(private val owner: MapState) {
+  private var commandRevision = 0L
   private var cameraGeneration = 0L
   private var inputGeneration = 0L
   private var active: CameraInputToken? = null
-  private var programmaticJob: Job? = null
+  private val programmaticJobs = mutableSetOf<Job>()
   private var configuration = CameraConfiguration()
 
   /** Callback replacements do not revoke input. Resolved policy and momentum changes do. */
@@ -68,7 +69,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
     expectedInputGeneration: Long? = null,
   ): CameraInputToken {
     var previous: CameraInputToken? = null
-    var previousJob: Job? = null
+    var previousJobs: List<Job> = emptyList()
     val token =
       owner.lifecycle.serialized {
         val attachment = owner.currentMapAttachment
@@ -85,14 +86,14 @@ internal class CameraInputAuthority(private val owner: MapState) {
           return@serialized token
         }
         previous = revokeLocked()
-        previousJob = programmaticJob
-        programmaticJob = null
+        previousJobs = programmaticJobs.toList()
+        programmaticJobs.clear()
         cameraGeneration++
         inputGeneration++
         active = token
         token
       }
-    previousJob?.cancel(CancellationException("A newer input owns the camera"))
+    previousJobs.forEach { it.cancel(CancellationException("A newer input owns the camera")) }
     previous?.cancelWork()
     return token
   }
@@ -104,29 +105,38 @@ internal class CameraInputAuthority(private val owner: MapState) {
   /** Even input with no camera response invalidates an older click's camera fallthrough. */
   fun observeInput(): Long = owner.lifecycle.serialized { ++inputGeneration }
 
-  fun beginProgrammatic(job: Job? = null): CameraCommandGuard {
+  fun beginProgrammatic(job: Job? = null, concurrent: Boolean = false): CameraCommandGuard {
     var previous: CameraInputToken? = null
-    var previousJob: Job? = null
+    var previousJobs: List<Job> = emptyList()
+    var revision = 0L
     val generation =
       owner.lifecycle.serialized {
         job?.ensureActive()
         check(!owner.isClosed) { "The map state is closed" }
         previous = revokeLocked()
-        previousJob = programmaticJob
-        programmaticJob = job
+        revision = ++commandRevision
+        if (!concurrent) {
+          previousJobs = programmaticJobs.toList()
+          programmaticJobs.clear()
+          cameraGeneration++
+        }
+        job?.let(programmaticJobs::add)
         inputGeneration++
-        ++cameraGeneration
+        cameraGeneration
       }
-    previousJob?.cancel(CancellationException("A newer command owns the camera"))
+    previousJobs.forEach { it.cancel(CancellationException("A newer command owns the camera")) }
     job?.invokeOnCompletion {
       owner.lifecycle.serialized {
-        if (programmaticJob === job) programmaticJob = null
+        programmaticJobs.remove(job)
       }
     }
     previous?.cancelWork()
     return CameraCommandGuard {
       owner.lifecycle.serialized {
-        !owner.isClosed && cameraGeneration == generation && job?.isCancelled != true
+        !owner.isClosed &&
+          cameraGeneration == generation &&
+          job?.isCancelled != true &&
+          (job != null || commandRevision == revision)
       }
     }
   }

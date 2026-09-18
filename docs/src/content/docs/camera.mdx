@@ -18,11 +18,27 @@ initial <Api of="CameraPosition" /> to set the camera at startup:
 
 ## Animate the camera
 
-<Api of="MapState.animateCameraPosition" /> is a suspend function that moves
-the map to a new position. Call it from a coroutine. The function waits until
-the map is attached, and returns when the transition ends:
+<Api of="MapState.animateCamera" /> is a suspend function that moves
+only the properties specified in a <Api of="CameraUpdate" />. Call it from a
+coroutine. The function waits for an attached viewport and returns when its
+properties finish or are superseded:
 
 <Code code={region(camera, "animate")} lang="kotlin" title="App.kt" />
+
+On native platforms, launch separate updates to animate properties with different
+timing. Omitted properties keep their existing animations. A new update replaces
+only overlapping properties; flight target and zoom form a coupled path, and an
+anchored move couples its target to its specified properties.
+
+<Code code={region(camera, "animate-independent")} lang="kotlin" title="App.kt" />
+
+On the browser, a new update stops the previous animation. Omitted properties
+retain their current values. Changing viewport insets can also stop animation.
+
+Cancelling a coroutine stops waiting, but an animation that has already started
+continues. Use <Api of="MapState.stopCameraMovement" /> to stop all motion.
+Use <Api of="CameraPosition.toCameraUpdate" /> to target every property of a
+complete camera position. Animation calls cancel when their attachment is lost.
 
 Use <Api of="MapState.setCameraPosition" /> to move without an animation. The
 position is retained when the map is detached and restored when it is displayed
@@ -33,7 +49,7 @@ again.
 The `animation` parameter selects one of two transitions. Each platform
 implements both with the same controls.
 
-<Api of="CameraAnimation.Fly" /> is the default. The camera zooms out, crosses
+<Api of="CameraAnimation.Fly" /> follows a flight path. The camera zooms out, crosses
 the ground, and zooms back in, so the map stays legible over any distance.
 Without a duration, the flight takes as long as its path length and speed
 require. Set `duration` for a fixed time, `speed` in screenfuls per second for a
@@ -42,7 +58,7 @@ zoom. The path peaks near `minZoom` rather than stopping exactly at it:
 
 <Code code={region(camera, "animate-fly")} lang="kotlin" title="App.kt" />
 
-<Api of="CameraAnimation.Ease" /> moves the camera directly to its target over a
+<Api of="CameraAnimation.Ease" /> is the default. It moves the camera directly to its target over a
 fixed duration, without zooming out on the way. Use it for short moves, such as
 changing zoom in place or following a location:
 
@@ -62,12 +78,14 @@ coordinates in dp from the full map's top-left corner:
 
 Use <Api of="CameraAnchor.Geographic" /> to keep a selected geographic location
 at its current screen point. The anchor is resolved when the animation starts
-and must be visible on the map. Omitted camera components keep their starting
-values. This operation supports easing; it does not accept a flight or a target
+and must be visible on the map. Omitted components can keep animating on native
+platforms; the browser retains their current values. This operation supports easing; it does not accept a flight or a target
 center because the center moves to keep the anchor fixed.
 
 Persistent camera padding participates in projection. Changing viewport insets,
 resizing the logical viewport, or losing the attachment cancels the animation.
+Until selective native cancellation is available, invalidating an anchor also
+stops unrelated camera animations.
 The operation does not restart on a replacement attachment. Camera constraints
 take precedence over anchor preservation. The preservation guarantee applies to
 flat Mercator maps, including tilted cameras; it does not extend to globe or

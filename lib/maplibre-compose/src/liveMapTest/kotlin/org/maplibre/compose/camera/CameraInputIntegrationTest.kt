@@ -199,8 +199,8 @@ class CameraInputIntegrationTest {
           // Exercise backend interruption even when Android system animations are disabled.
           val animation =
             launch(start = CoroutineStart.UNDISPATCHED) {
-              fixture.session.animateCameraPosition(
-                CameraPosition(zoom = 8.0),
+              fixture.session.animateCamera(
+                CameraPosition(zoom = 8.0).toCameraUpdate(),
                 CameraAnimation.Fly(30.seconds),
               )
             }

@@ -100,8 +100,8 @@ val DemoBoundsPadding = DpPadding(left = 48.dp, top = 48.dp, right = 48.dp, bott
 internal suspend fun MapState.flyTo(destination: DemoDestination) {
   when (destination) {
     is DemoDestination.ExactCamera ->
-      animateCameraPosition(
-        position = destination.position,
+      animateCamera(
+        update = destination.position.toCameraUpdate(),
         animation = DemoFlight,
       )
     is DemoDestination.FitBounds ->

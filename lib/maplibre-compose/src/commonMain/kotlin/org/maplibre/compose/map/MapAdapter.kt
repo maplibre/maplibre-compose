@@ -8,6 +8,7 @@ import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraAnchor
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.camera.internal.CameraCommandGuard
 import org.maplibre.compose.expressions.ast.CompiledExpression
@@ -46,8 +47,8 @@ internal interface MapAdapter {
 
   suspend fun awaitClosed()
 
-  suspend fun animateCameraPosition(
-    finalPosition: CameraPosition,
+  suspend fun animateCamera(
+    update: CameraUpdate,
     animation: CameraAnimation,
     guard: CameraCommandGuard? = null,
   )

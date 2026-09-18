@@ -237,7 +237,7 @@ class CameraInputTest {
       val commands: List<suspend () -> Unit> =
         listOf(
           { state.fitCameraToBounds(bounds) },
-          { state.animateCameraPosition(CameraPosition(zoom = 5.0)) },
+          { state.animateCamera(CameraPosition(zoom = 5.0).toCameraUpdate()) },
           { state.animateCameraToBounds(bounds) },
         )
       for (command in commands) {

@@ -68,7 +68,10 @@ class EngineEventTest {
       fixture.engineEvents.clear()
 
       fixture.awaitWhileRendering("the camera animation to finish") {
-        fixture.session.animateCameraPosition(DESTINATION, CameraAnimation.Fly(ANIMATION_DURATION))
+        fixture.session.animateCamera(
+          DESTINATION.toCameraUpdate(),
+          CameraAnimation.Fly(ANIMATION_DURATION),
+        )
       }
 
       val started = fixture.engineEvents.indexOfFirst { it is MapEvent.CameraMoveStarted }

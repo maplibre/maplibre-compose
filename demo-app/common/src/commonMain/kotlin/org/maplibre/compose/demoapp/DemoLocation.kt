@@ -105,12 +105,14 @@ internal fun DemoLocationMapContent(location: DemoLocationUi, locationState: Loc
           currentHeading?.bearing?.let { (it - Bearing.North).inDegrees }
             ?: currentLocation.course?.let { (it - Bearing.North).inDegrees }
             ?: mapState.cameraPosition.bearing
-      mapState.animateCameraPosition(
-        mapState.cameraPosition.copy(
-          target = currentLocation.position,
-          zoom = 16.0,
-          bearing = followBearing,
-        ),
+      mapState.animateCamera(
+        mapState.cameraPosition
+          .copy(
+            target = currentLocation.position,
+            zoom = 16.0,
+            bearing = followBearing,
+          )
+          .toCameraUpdate(),
         animation = DemoFlight,
       )
     } else {

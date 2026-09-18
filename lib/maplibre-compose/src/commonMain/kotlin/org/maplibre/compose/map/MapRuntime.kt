@@ -52,6 +52,7 @@ import org.maplibre.compose.camera.CameraAnchor
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.camera.forPath
 import org.maplibre.compose.camera.internal.CameraCommandGuard
@@ -555,13 +556,17 @@ internal constructor(
     )
   }
 
-  suspend fun animateCameraPosition(
-    position: CameraPosition,
-    animation: CameraAnimation = CameraAnimation.Fly(),
+  suspend fun animateCamera(
+    update: CameraUpdate,
+    animation: CameraAnimation = CameraAnimation.Ease(),
     guard: CameraCommandGuard? = null,
   ): Unit = runLeaseBound {
     awaitViewportState()
-    adapter.animateCameraPosition(position, animation.forPathTo(position), boundGuard(guard))
+    adapter.animateCamera(
+      update,
+      animation.forPathTo(update.applyTo(adapter.getCameraPosition())),
+      boundGuard(guard),
+    )
   }
 
   suspend fun animateCameraAround(
@@ -1062,41 +1067,51 @@ internal constructor(
     fitPadding: DpPadding = DpPadding.Zero,
   ): Unit = coroutineScope {
     val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])
-    retryAcrossAttachments {
-      it.fitCameraToBounds(boundingBox, bearing, tilt, cameraPadding, fitPadding, guard)
-    }
+    awaitAttachment()
+      .fitCameraToBounds(boundingBox, bearing, tilt, cameraPadding, fitPadding, guard)
   }
 
   /**
-   * Waits for a viewport, then moves the camera to [position] with [animation]. A newer camera
-   * command or accepted input cancels this call.
+   * Animates the specified camera properties after a viewport becomes available.
    *
-   * On Android, the system animator duration scale multiplies the duration of [animation]. A scale
-   * of zero jumps to [position].
+   * On native platforms, omitted properties keep their current animation and timing. A newer
+   * command replaces only its specified properties. Flight paths also own target and zoom together.
+   * On the browser, a new command stops the previous animation; omitted properties retain their
+   * current values. Viewport-inset changes can also stop browser animations.
+   *
+   * Returns when this command finishes or all its properties have been superseded. Other commands
+   * may still be moving. Cancelling the coroutine stops waiting, but an already-started animation
+   * continues. Use [stopCameraMovement] to stop all motion. Accepted input, full camera assignment,
+   * or attachment loss cancels the call. It never restarts on a replacement attachment.
+   *
+   * Android's animator duration scale multiplies the duration; zero applies the update immediately.
    */
-  public suspend fun animateCameraPosition(
-    position: CameraPosition,
-    animation: CameraAnimation = CameraAnimation.Fly(),
+  public suspend fun animateCamera(
+    update: CameraUpdate,
+    animation: CameraAnimation = CameraAnimation.Ease(),
   ): Unit = coroutineScope {
-    val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])
-    retryAcrossAttachments {
-      it.animateCameraPosition(position, animation.scaledBy(systemAnimatorDurationScale()), guard)
-    }
+    val guard =
+      gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job], concurrent = true)
+    awaitAttachment()
+      .animateCamera(update, animation.scaledBy(systemAnimatorDurationScale()), guard)
   }
 
   /**
    * Changes zoom, bearing, or tilt while keeping [anchor] at its screen location at animation
-   * start. Null camera components retain their starting values. The camera target moves to preserve
-   * the anchor; this operation does not accept a destination target or a flight animation.
+   * start. Null camera components are omitted and can animate independently on native platforms.
+   * The camera target moves to preserve the anchor; this operation does not accept a destination
+   * target or a flight animation.
    *
    * Waits for an attached viewport. The anchor must resolve to a visible point on the map, or this
    * call throws [IllegalArgumentException]. Camera padding and viewport insets both affect the
-   * anchor's screen location and are retained during this move. Screen coordinates are relative to
-   * the full map, not its padded area.
+   * anchor's screen location. This command leaves padding unspecified, so native padding animations
+   * can continue. Screen coordinates are relative to the full map, not its padded area.
    *
-   * A newer camera command, accepted input, coroutine cancellation, a logical viewport resize,
-   * changed viewport insets, or attachment loss cancels this call. It does not restart on another
-   * attachment. The camera remains where it was interrupted, subject to the new geometry.
+   * An overlapping native command or any browser command supersedes this move. Accepted input, a
+   * logical viewport resize, changed viewport insets, or attachment loss cancels this call. It does
+   * not restart on another attachment. Coroutine cancellation stops waiting; use
+   * [stopCameraMovement] to stop motion. Until selective cancellation is available, anchor geometry
+   * changes stop all camera animations.
    *
    * Anchor preservation applies to flat Mercator maps, including tilted cameras. Camera constraints
    * take precedence and can move the anchor. Globe and terrain do not have this guarantee. On
@@ -1116,7 +1131,8 @@ internal constructor(
     require(animation.duration.isFinite() && animation.duration >= Duration.ZERO) {
       "Duration must be finite and nonnegative"
     }
-    val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])
+    val guard =
+      gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job], concurrent = true)
     awaitAttachment()
       .animateCameraAround(
         anchor,
@@ -1130,8 +1146,10 @@ internal constructor(
 
   /**
    * Waits for a viewport, then moves the camera to fit [boundingBox] with [animation]. A newer
-   * camera command or accepted input cancels this call. See [cameraForBounds] for [fitPadding] and
-   * [cameraPadding].
+   * full-camera assignment or accepted input cancels this call. Further partial updates follow
+   * [animateCamera]'s replacement and coroutine-cancellation behavior. See [cameraForBounds] for
+   * [fitPadding] and [cameraPadding]. Detaching cancels the call; it does not restart on another
+   * attachment.
    *
    * On Android, the system animator duration scale multiplies the duration of [animation]. A scale
    * of zero jumps to fit [boundingBox].
@@ -1145,8 +1163,8 @@ internal constructor(
     animation: CameraAnimation = CameraAnimation.Fly(),
   ): Unit = coroutineScope {
     val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])
-    retryAcrossAttachments {
-      it.animateCameraToBounds(
+    awaitAttachment()
+      .animateCameraToBounds(
         boundingBox,
         bearing,
         tilt,
@@ -1155,7 +1173,6 @@ internal constructor(
         animation.scaledBy(systemAnimatorDurationScale()),
         guard,
       )
-    }
   }
 
   /**

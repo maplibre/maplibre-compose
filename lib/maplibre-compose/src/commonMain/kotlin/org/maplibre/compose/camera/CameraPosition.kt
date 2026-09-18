@@ -24,4 +24,7 @@ public data class CameraPosition(
   public val tilt: Double = 0.0,
   public val zoom: Double = 1.0,
   public val padding: DpPadding = DpPadding.Zero,
-)
+) {
+  /** Targets every property, including properties equal to the current camera value. */
+  public fun toCameraUpdate(): CameraUpdate = CameraUpdate(target, zoom, bearing, tilt, padding)
+}

@@ -2,10 +2,11 @@
 
 ## Status and scope
 
-This is the proposed contract, not an implemented public API. The branch is
-stacked on #1429 (`sargunv/bindings-kotlin-v0.202609.3`). Breaking API changes
-are welcome; compatibility is not a design constraint. Global style state,
-bearing sectors, and rendered projections are outside this work.
+This records the implemented API and the remaining cancellation follow-up. The
+branch started on #1429 (`sargunv/bindings-kotlin-v0.202609.3`), which has since
+merged. GitHub retargeted draft #1430 to main. Breaking API changes are welcome;
+compatibility is not a design constraint. Global style state, bearing sectors,
+and rendered projections are outside this work.
 
 Proceed with independent native animations now. GL JS keeps its current
 latest-animation-wins behavior. Selective cancellation is a follow-up tracked in
@@ -14,7 +15,7 @@ release blocker. Cancelling a coroutine withdraws its waiter; an already-started
 engine animation continues. `stopCameraMovement()` explicitly stops all motion.
 Input takeover, detach, and anchor geometry invalidation still stop engine work.
 
-## Source findings
+## Starting point
 
 - `CameraInputAuthority.beginProgrammatic` owns one job and generation. Each
   command cancels its predecessor, including commands waiting for a viewport.
@@ -40,7 +41,7 @@ Input takeover, detach, and anchor geometry invalidation still stop engine work.
   does not create independent tracks. Compose also has one pending initial style
   action and resolves transition waiters from aggregate `moveend`.
 
-## Proposed public API
+## Public API
 
 Use a `CameraUpdate` value with nullable `target`, `zoom`, `bearing`, `tilt`,
 and `padding: DpPadding?`. Null means no ownership and no mutation. Reject an
@@ -52,7 +53,9 @@ properties should be targeted. Retain `setCameraPosition` for durable
 full-camera assignment and `animateCameraAround` for the separate, ease-only
 anchored operation. Fits remain useful complete-camera operations. This avoids
 an anchor parameter whose legality would depend on the chosen animation and
-update fields.
+update fields. Zoom and compass callbacks also return updates, so their defaults
+change only zoom or orientation. Location following omits zoom, tilt, and
+padding.
 
 One command has one duration/easing. Launch separate commands for separate
 timing. Easing owns exactly its specified properties. A flight additionally owns
@@ -62,9 +65,17 @@ even when a target equals the current value.
 
 ## Ownership and completion
 
-Give each command an ID, presentation lease, job, live property set, and coupled
-set. Register ownership before queueing, then recheck it on the owner thread.
-Snapshot starting values only when execution begins with a usable viewport.
+The input authority retains a set of waiting jobs and a generation that input or
+exclusive camera operations revoke. Immediate commands also carry an admission
+revision, so a queued global stop cannot stop a newer animation. Guards are
+checked when queued and on the engine thread. A call waits for a usable viewport
+on one attachment and cancels if that attachment is lost.
+
+Native owns property sets and coupling; Compose keeps waiters by transition ID.
+This avoids duplicating the native track scheduler in Kotlin. Replacement order
+is the order in which commands execute on the engine thread. Drain completion
+events after starting a command, before later geometry work can inspect a stale
+anchor ID.
 
 A newer command removes overlapping properties from older commands. If it
 overlaps a coupled set, remove the entire coupled set. Unrelated properties of

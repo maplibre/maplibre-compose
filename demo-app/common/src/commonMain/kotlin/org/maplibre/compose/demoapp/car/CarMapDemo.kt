@@ -43,7 +43,7 @@ class CarMapDemo(runtime: MapRuntime, private val scope: CoroutineScope, initial
 
   fun recenter() {
     stop()
-    cameraAnimation = scope.launch { state.animateCameraPosition(initialCamera) }
+    cameraAnimation = scope.launch { state.animateCamera(initialCamera.toCameraUpdate()) }
   }
 
   fun zoom(levels: Int) {
@@ -53,7 +53,7 @@ class CarMapDemo(runtime: MapRuntime, private val scope: CoroutineScope, initial
     inFlightZoom = request
     cameraAnimation = scope.launch {
       try {
-        state.animateCameraPosition(request.target, CameraAnimation.Ease())
+        state.animateCamera(request.target.toCameraUpdate(), CameraAnimation.Ease())
       } finally {
         if (inFlightZoom === request) inFlightZoom = null
       }
