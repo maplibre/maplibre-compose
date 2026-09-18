@@ -2,22 +2,24 @@ package org.maplibre.compose.demoapp
 
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -31,7 +33,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -61,16 +65,24 @@ internal object DemoRoute {
   const val ControlSettings = "settings/controls"
 }
 
+/** The height of a panel screen's top app bar, which is the peek content on every other route. */
+internal val PanelHeaderHeight = 64.dp
+
 /**
  * The menu, settings, and the selected demo's controls. [revealMap] uncovers the map when a control
- * needs it visible; a shell whose panel never covers the map passes a no-op.
+ * needs it visible; a shell whose panel never covers the map passes a no-op. [onPeekHeightChange]
+ * reports the height of the selected demo's title bar, peek row, and [peekSpacing] below them,
+ * which a sheet keeps visible above the window's bottom inset.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun DemoPanel(
   state: DemoAppState,
   navController: NavHostController,
   modifier: Modifier = Modifier,
   revealMap: suspend () -> Unit = {},
+  peekSpacing: Dp = 0.dp,
+  onPeekHeightChange: (Dp) -> Unit = {},
 ) {
   val scope = rememberCoroutineScope()
   val dark = state.settings.mapStyleMode.isDark
@@ -87,16 +99,15 @@ fun DemoPanel(
       state.benchmark.abandonRun()
     }
   }
-  // Material 3 shared axis X: siblings slide 30dp while fading through.
-  val slideDistance = with(LocalDensity.current) { 30.dp.roundToPx() }
+  val motion = MaterialTheme.motionScheme
   NavHost(
     navController = navController,
     startDestination = DemoRoute.Demos,
     modifier = modifier,
-    enterTransition = { sharedAxisEnter(slideDistance) },
-    exitTransition = { sharedAxisExit(-slideDistance) },
-    popEnterTransition = { sharedAxisEnter(-slideDistance) },
-    popExitTransition = { sharedAxisExit(slideDistance) },
+    enterTransition = { motion.forwardEnter() },
+    exitTransition = { motion.forwardExit() },
+    popEnterTransition = { motion.backwardEnter() },
+    popExitTransition = { motion.backwardExit() },
   ) {
     composable(DemoRoute.Demos) {
       DemosScreen(
@@ -121,7 +132,17 @@ fun DemoPanel(
     }
     composable(DemoRoute.Demo) {
       val demo = state.selectedDemo ?: return@composable
-      SettingsSubScreen(demo.name, onBack = { navController.popBackStack() }) {
+      val density = LocalDensity.current
+      SettingsSubScreen(
+        demo.name,
+        onBack = { navController.popBackStack() },
+        header = {
+          demo.PeekPanel(state)
+          Spacer(Modifier.height(peekSpacing))
+        },
+        headerModifier =
+          Modifier.onSizeChanged { onPeekHeightChange(with(density) { it.height.toDp() }) },
+      ) {
         Text(
           text = demo.description,
           style = MaterialTheme.typography.bodyMedium,
@@ -187,18 +208,25 @@ fun DemoPanel(
   }
 }
 
-private const val AxisDurationMillis = 300
-private val StandardEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
-private val AccelerateEasing = CubicBezierEasing(0.3f, 0f, 1f, 1f)
-private val DecelerateEasing = CubicBezierEasing(0f, 0f, 0f, 1f)
+// Material 3 forward and backward: the child screen slides across the full panel width while the
+// parent slides a quarter of the way and fades. One screen always covers the panel, so it never
+// shows empty mid-transition, unlike the shared axis fade through. The theme's motion scheme
+// supplies the specs: spatial for the slides, effects for the fades.
+private const val ParentSlideFraction = 4
 
-private fun sharedAxisEnter(slideDistance: Int): EnterTransition =
-  slideInHorizontally(tween(AxisDurationMillis, easing = StandardEasing)) { slideDistance } +
-    fadeIn(tween(AxisDurationMillis * 7 / 10, AxisDurationMillis * 3 / 10, DecelerateEasing))
+private fun MotionScheme.forwardEnter(): EnterTransition =
+  slideInHorizontally(defaultSpatialSpec()) { it }
 
-private fun sharedAxisExit(slideDistance: Int): ExitTransition =
-  slideOutHorizontally(tween(AxisDurationMillis, easing = StandardEasing)) { slideDistance } +
-    fadeOut(tween(AxisDurationMillis * 3 / 10, easing = AccelerateEasing))
+private fun MotionScheme.forwardExit(): ExitTransition =
+  slideOutHorizontally(defaultSpatialSpec()) { -it / ParentSlideFraction } +
+    fadeOut(defaultEffectsSpec())
+
+private fun MotionScheme.backwardEnter(): EnterTransition =
+  slideInHorizontally(defaultSpatialSpec()) { -it / ParentSlideFraction } +
+    fadeIn(defaultEffectsSpec())
+
+private fun MotionScheme.backwardExit(): ExitTransition =
+  slideOutHorizontally(defaultSpatialSpec()) { it }
 
 @Composable
 private fun DemosScreen(
@@ -304,18 +332,31 @@ private fun ControlSettingsItems(settings: DemoSettings) {
   }
 }
 
+/**
+ * A titled screen with a back button. [header] sits under the title, outside the scrolling
+ * [content], and [headerModifier] wraps the title bar and header together.
+ */
 @Composable
-internal fun SettingsSubScreen(title: String, onBack: () -> Unit, content: @Composable () -> Unit) {
+internal fun SettingsSubScreen(
+  title: String,
+  onBack: () -> Unit,
+  header: @Composable () -> Unit = {},
+  headerModifier: Modifier = Modifier,
+  content: @Composable () -> Unit,
+) {
   Column {
-    TopAppBar(
-      title = { Text(title) },
-      navigationIcon = {
-        IconButton(onClick = onBack) {
-          Icon(vectorResource(Res.drawable.arrow_back_24px), contentDescription = "Back")
-        }
-      },
-      colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-    )
+    Column(headerModifier) {
+      TopAppBar(
+        title = { Text(title) },
+        navigationIcon = {
+          IconButton(onClick = onBack) {
+            Icon(vectorResource(Res.drawable.arrow_back_24px), contentDescription = "Back")
+          }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+      )
+      header()
+    }
     Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) { content() }
   }
 }

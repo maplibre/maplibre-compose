@@ -164,12 +164,16 @@ object LiveTrackingDemo : Demo {
   }
 
   @Composable
-  override fun Panel(state: DemoAppState) {
+  override fun PeekPanel(state: DemoAppState) {
     SwitchRow(
       label = "Follow the ferry",
       checked = followVehicle,
       onCheckedChange = { followVehicle = it },
     )
+  }
+
+  @Composable
+  override fun Panel(state: DemoAppState) {
     Text(
       "Panning stops follow. Zooming and rotating keep it enabled.",
       modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),

@@ -142,9 +142,8 @@ object DataVizDemo : Demo {
   }
 
   @Composable
-  override fun Panel(state: DemoAppState) {
+  override fun PeekPanel(state: DemoAppState) {
     SegmentedRow(
-      label = "Render as",
       options = Mode.entries,
       selected = mode,
       optionLabel = { it.name },

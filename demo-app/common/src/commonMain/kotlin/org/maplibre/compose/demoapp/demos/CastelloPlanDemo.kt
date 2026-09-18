@@ -1,23 +1,17 @@
 package org.maplibre.compose.demoapp.demos
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
 import org.maplibre.compose.demoapp.DemoPointerPin
 import org.maplibre.compose.demoapp.DemoStyle
 import org.maplibre.compose.demoapp.center
+import org.maplibre.compose.demoapp.design.SliderRow
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.RasterLayer
@@ -58,10 +52,13 @@ object CastelloPlanDemo : Demo {
   }
 
   @Composable
-  override fun Panel(state: DemoAppState) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-      Text("Overlay opacity", style = MaterialTheme.typography.bodyLarge)
-      Slider(value = opacity, onValueChange = { opacity = it })
-    }
+  override fun PeekPanel(state: DemoAppState) {
+    SliderRow(
+      label = "Overlay opacity",
+      value = opacity,
+      range = 0f..1f,
+      valueLabel = { "${(it * 100).roundToInt()}%" },
+      onChange = { opacity = it },
+    )
   }
 }
