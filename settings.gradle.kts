@@ -60,6 +60,8 @@ include(
   ":lib:maplibre-compose-runtime-opengl-linux-x64",
   ":lib:maplibre-compose-runtime-opengl-linux-arm64",
   ":lib:maplibre-compose-runtime-metal-macos-arm64",
+  ":lib:maplibre-compose-runtime-vulkan-macos-arm64",
+  ":lib:maplibre-compose-runtime-opengl-macos-arm64",
   ":lib:maplibre-compose-runtime-vulkan-windows-x64",
   ":lib:maplibre-compose-runtime-vulkan-windows-arm64",
   ":lib:maplibre-compose-runtime-opengl-windows-x64",

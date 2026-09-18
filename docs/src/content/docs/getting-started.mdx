@@ -143,15 +143,18 @@ Alongside the library, add a runtime for your platform and one render backend.
   </TabItem>
 </Tabs>
 
-Available runtimes:
+Available runtimes (package one backend for each target platform):
 
-| Platform      | Runtime                                         |
-| ------------- | ----------------------------------------------- |
-| Linux x64     | `maplibre-compose-runtime-vulkan-linux-x64`     |
-| Linux arm64   | `maplibre-compose-runtime-vulkan-linux-arm64`   |
-| macOS arm64   | `maplibre-compose-runtime-metal-macos-arm64`    |
-| Windows x64   | `maplibre-compose-runtime-vulkan-windows-x64`   |
-| Windows arm64 | `maplibre-compose-runtime-vulkan-windows-arm64` |
+| Platform      | Metal                                        | Vulkan                                          | OpenGL                                          |
+| ------------- | -------------------------------------------- | ----------------------------------------------- | ----------------------------------------------- |
+| Linux x64     | —                                            | `maplibre-compose-runtime-vulkan-linux-x64`     | `maplibre-compose-runtime-opengl-linux-x64`     |
+| Linux arm64   | —                                            | `maplibre-compose-runtime-vulkan-linux-arm64`   | `maplibre-compose-runtime-opengl-linux-arm64`   |
+| macOS arm64   | `maplibre-compose-runtime-metal-macos-arm64` | `maplibre-compose-runtime-vulkan-macos-arm64`   | `maplibre-compose-runtime-opengl-macos-arm64`   |
+| Windows x64   | —                                            | `maplibre-compose-runtime-vulkan-windows-x64`   | `maplibre-compose-runtime-opengl-windows-x64`   |
+| Windows arm64 | —                                            | `maplibre-compose-runtime-vulkan-windows-arm64` | `maplibre-compose-runtime-opengl-windows-arm64` |
+
+Linux OpenGL also requires a Vulkan driver. Linux and Windows OpenGL require
+drivers with external-memory support.
 
 On desktop, a <Api of="ComposeMapPresentationHost" /> supplies the window's
 graphics context. For Java AWT windows, use

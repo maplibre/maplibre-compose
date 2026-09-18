@@ -32,12 +32,8 @@ import org.lwjgl.opengl.GL12.GL_CLAMP_TO_EDGE
 import org.lwjgl.system.MemoryStack
 import org.lwjgl.system.MemoryUtil.NULL
 import org.lwjgl.system.linux.UNISTD
-import org.lwjgl.vulkan.EXTDebugUtils.VK_EXT_DEBUG_UTILS_EXTENSION_NAME
 import org.lwjgl.vulkan.KHRExternalMemoryFd.VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME
 import org.lwjgl.vulkan.KHRExternalMemoryFd.vkGetMemoryFdKHR
-import org.lwjgl.vulkan.KHRPortabilityEnumeration.VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR
-import org.lwjgl.vulkan.KHRPortabilityEnumeration.VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME
-import org.lwjgl.vulkan.KHRPortabilitySubset.VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME
 import org.lwjgl.vulkan.VK10.VK_FORMAT_R8G8B8A8_UNORM
 import org.lwjgl.vulkan.VK10.VK_IMAGE_ASPECT_COLOR_BIT
 import org.lwjgl.vulkan.VK10.VK_IMAGE_LAYOUT_GENERAL
@@ -49,62 +45,36 @@ import org.lwjgl.vulkan.VK10.VK_IMAGE_USAGE_SAMPLED_BIT
 import org.lwjgl.vulkan.VK10.VK_IMAGE_VIEW_TYPE_2D
 import org.lwjgl.vulkan.VK10.VK_SAMPLE_COUNT_1_BIT
 import org.lwjgl.vulkan.VK10.VK_SHARING_MODE_EXCLUSIVE
-import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_APPLICATION_INFO
-import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO
-import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO
 import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO
 import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO
-import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO
 import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO
 import org.lwjgl.vulkan.VK10.vkAllocateMemory
 import org.lwjgl.vulkan.VK10.vkBindImageMemory
-import org.lwjgl.vulkan.VK10.vkCreateDevice
 import org.lwjgl.vulkan.VK10.vkCreateImage
 import org.lwjgl.vulkan.VK10.vkCreateImageView
-import org.lwjgl.vulkan.VK10.vkCreateInstance
-import org.lwjgl.vulkan.VK10.vkDestroyDevice
 import org.lwjgl.vulkan.VK10.vkDestroyImage
 import org.lwjgl.vulkan.VK10.vkDestroyImageView
-import org.lwjgl.vulkan.VK10.vkDestroyInstance
-import org.lwjgl.vulkan.VK10.vkDeviceWaitIdle
-import org.lwjgl.vulkan.VK10.vkEnumeratePhysicalDevices
 import org.lwjgl.vulkan.VK10.vkFreeMemory
-import org.lwjgl.vulkan.VK10.vkGetDeviceQueue
 import org.lwjgl.vulkan.VK10.vkGetImageMemoryRequirements
-import org.lwjgl.vulkan.VK11.VK_API_VERSION_1_1
 import org.lwjgl.vulkan.VK11.VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT
 import org.lwjgl.vulkan.VK11.VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO
 import org.lwjgl.vulkan.VK11.VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO
 import org.lwjgl.vulkan.VK11.VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO
-import org.lwjgl.vulkan.VK11.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES
-import org.lwjgl.vulkan.VK11.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2
-import org.lwjgl.vulkan.VK11.vkGetPhysicalDeviceProperties2
-import org.lwjgl.vulkan.VkApplicationInfo
-import org.lwjgl.vulkan.VkDevice
-import org.lwjgl.vulkan.VkDeviceCreateInfo
-import org.lwjgl.vulkan.VkDeviceQueueCreateInfo
 import org.lwjgl.vulkan.VkExportMemoryAllocateInfo
 import org.lwjgl.vulkan.VkExtent3D
 import org.lwjgl.vulkan.VkExternalMemoryImageCreateInfo
 import org.lwjgl.vulkan.VkImageCreateInfo
 import org.lwjgl.vulkan.VkImageSubresourceRange
 import org.lwjgl.vulkan.VkImageViewCreateInfo
-import org.lwjgl.vulkan.VkInstance
-import org.lwjgl.vulkan.VkInstanceCreateInfo
 import org.lwjgl.vulkan.VkMemoryAllocateInfo
 import org.lwjgl.vulkan.VkMemoryDedicatedAllocateInfo
 import org.lwjgl.vulkan.VkMemoryGetFdInfoKHR
 import org.lwjgl.vulkan.VkMemoryRequirements
-import org.lwjgl.vulkan.VkPhysicalDevice
-import org.lwjgl.vulkan.VkPhysicalDeviceIDProperties
-import org.lwjgl.vulkan.VkPhysicalDeviceProperties2
-import org.lwjgl.vulkan.VkQueue
 import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.EglContextHandles
 import org.maplibre.compose.mlnffi.MapRenderBackend
-import org.maplibre.compose.mlnffi.MlnFfiHostException
 import org.maplibre.compose.mlnffi.MlnFfiMapDestination
 import org.maplibre.compose.mlnffi.MlnFfiMapFrame
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
@@ -114,18 +84,20 @@ import org.maplibre.compose.mlnffi.NativeHandle
 import org.maplibre.compose.mlnffi.OpenGlTextureTarget
 import org.maplibre.compose.mlnffi.RenderBackendPair
 import org.maplibre.compose.mlnffi.TextureOrigin
-import org.maplibre.compose.mlnffi.VulkanContextHandles
 import org.maplibre.compose.mlnffi.VulkanImageTarget
 
 private const val VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR = 1000074002
 
-/** Bridges MapLibre's Vulkan rendering into Compose's OpenGL context on Linux. */
-internal class VulkanOpenGlMapHost(private val presentationHost: ComposeMapPresentationHost) :
-  MlnFfiMapHost {
-  private val rendererThread = MapRendererThread("maplibre-linux-vulkan-renderer")
+/** Shares Linux external memory between a Vulkan or EGL map producer and Compose OpenGL. */
+internal class LinuxOpenGlMapHost(
+  private val presentationHost: ComposeMapPresentationHost,
+  private val producer: MapRenderBackend = MapRenderBackend.VULKAN,
+) : MlnFfiMapHost {
+  private val rendererThread = MapRendererThread("maplibre-linux-map-renderer")
   private val presenter = OpenGlPresenter.native()
   private val frameCompletion = ComposeFrameCompletion()
   private var vulkan: DesktopVulkanContext? = null
+  private var egl: DesktopEglContext? = null
   private var texture: LinuxSharedTexture? = null
   private val retiredTextures = mutableMapOf<Long, LinuxSharedTexture>()
   private var generation = 0L
@@ -134,7 +106,7 @@ internal class VulkanOpenGlMapHost(private val presentationHost: ComposeMapPrese
   @Volatile private var acquireProducerWrites = false
 
   override val backends: RenderBackendPair =
-    RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL)
+    RenderBackendPair(producer, ComposeRenderBackend.OPENGL)
 
   // Importing into GL needs Compose's context current, so reallocation happens in acquireFrame.
   // resize() can run on the renderer thread while the GPU thread waits for it and cannot provide
@@ -152,17 +124,16 @@ internal class VulkanOpenGlMapHost(private val presentationHost: ComposeMapPrese
         MlnFfiMapFrame(
           frameId = frameId,
           extent = extent,
-          target =
-            requireNotNull(texture) { "Vulkan texture is not initialized" }
-              .exported
-              .target(generation),
+          target = requireNotNull(texture) { "Map texture is not initialized" }.target(generation),
           presentationTimeNanos = presentationTimeNanos,
         )
       )
     } ?: MlnFfiMapFrameAcquisition.NotReady
 
   override fun completeProducerAccess(frame: MlnFfiMapFrame) {
-    rendererThread.run { vulkan?.waitIdle() }
+    rendererThread.run {
+      if (producer == MapRenderBackend.OPENGL) egl?.waitIdle() else vulkan?.waitIdle()
+    }
     acquireProducerWrites = true
   }
 
@@ -178,11 +149,11 @@ internal class VulkanOpenGlMapHost(private val presentationHost: ComposeMapPrese
     target: MlnFfiRenderTarget,
     destination: MlnFfiMapDestination,
   ): Boolean {
-    if (target !is VulkanImageTarget) return false
+    if (target.backend != producer) return false
     return presentationHost.withOpenGlContextOrNull { context ->
       frameCompletion.prepare(context.skiaContext, ::abandonContext)
       if (acquireProducerWrites) {
-        // EXT_memory_object does not make Vulkan's waitIdle visible to this context. glFinish
+        // EXT_memory_object does not make producer completion visible to this context. glFinish
         // acquires those writes.
         glFinish()
         acquireProducerWrites = false
@@ -214,11 +185,18 @@ internal class VulkanOpenGlMapHost(private val presentationHost: ComposeMapPrese
           presenter.close()
         }
       }
+        .onFailure {
+          abandonContext()
+          disposeAllTextures()
+        }
     } finally {
       val closing = vulkan
       vulkan = null
       try {
-        closing?.close()
+        rendererThread.run {
+          egl?.close()
+          closing?.close()
+        }
       } finally {
         rendererThread.close()
       }
@@ -238,15 +216,47 @@ internal class VulkanOpenGlMapHost(private val presentationHost: ComposeMapPrese
         ?: DesktopVulkanContext.createForLinuxInterop(currentOpenGlDeviceUuids()).also {
           vulkan = it
         }
+    val producerContext =
+      if (producer == MapRenderBackend.OPENGL) {
+        egl
+          ?: run {
+            val deviceUuid = vulkanDeviceUuid(context.physicalDevice())
+            rendererThread.run {
+              DesktopEglContext.create(requiredDeviceUuids = setOf(deviceUuid))
+            }
+          }
+            .also { egl = it }
+      } else null
     val newExported = context.createExportedTexture(extent)
+    var producerImport: LinuxOpenGlImportedTexture? = null
     try {
+      if (producerContext != null) {
+        producerImport = rendererThread.run {
+          producerContext.makeCurrent()
+          LinuxOpenGlImportedTexture.create(
+            newExported.exportFd(),
+            newExported.memorySize(),
+            extent,
+            TextureOrigin.BOTTOM_LEFT,
+          )
+        }
+      }
       val newImported =
-        LinuxOpenGlImportedTexture.create(newExported.exportFd(), newExported.memorySize(), extent)
+        LinuxOpenGlImportedTexture.create(
+          newExported.exportFd(),
+          newExported.memorySize(),
+          extent,
+          if (producerContext != null) TextureOrigin.BOTTOM_LEFT else TextureOrigin.TOP_LEFT,
+        )
       texture?.let { retiredTextures[generation] = it }
-      texture = LinuxSharedTexture(newExported, newImported)
+      texture = LinuxSharedTexture(newExported, newImported, producerImport)
       currentExtent = extent
       generation += 1
     } catch (error: RuntimeException) {
+      rendererThread.run {
+        producerContext?.makeCurrent()
+        producerImport?.close()
+      }
       newExported.close()
       throw error
     }
@@ -288,8 +298,23 @@ internal class VulkanOpenGlMapHost(private val presentationHost: ComposeMapPrese
   private inner class LinuxSharedTexture(
     val exported: LinuxExportedVulkanTexture,
     val imported: LinuxOpenGlImportedTexture,
+    val producerImport: LinuxOpenGlImportedTexture?,
   ) : AutoCloseable {
+    fun target(generation: Long): MlnFfiRenderTarget =
+      producerImport
+        ?.target(generation)
+        ?.copy(
+          context = checkNotNull(egl).handles,
+          makeContextCurrent = { checkNotNull(egl).makeCurrent() },
+        ) ?: exported.target(generation)
+
     override fun close() {
+      rendererThread.run {
+        if (producerImport != null) {
+          egl?.makeCurrent()
+          producerImport.close()
+        }
+      }
       // Skia holds a surface wrapping this texture; it must be dropped before the texture is.
       presenter.forget(imported.textureName)
       imported.close()
@@ -321,196 +346,30 @@ internal fun currentOpenGlDeviceUuids(): Set<String> {
 }
 
 /** A Vulkan instance, device, and queue for desktop interop or an owned offscreen target. */
-internal class DesktopVulkanContext
-private constructor(
-  private val requiredDeviceUuids: Set<String>,
-  private val requireExternalMemoryFd: Boolean,
-) : AutoCloseable {
-  private var instance: VkInstance? = null
-  private var physicalDevice: VkPhysicalDevice? = null
-  private var device: VkDevice? = null
-  private var graphicsQueue: VkQueue? = null
-  private var graphicsQueueFamilyIndex = 0
+internal class DesktopVulkanContext private constructor(private val context: VulkanDevice) :
+  AutoCloseable {
+  val handles
+    get() = context.handles
 
-  val handles: VulkanContextHandles
-    get() =
-      VulkanContextHandles(
-        instance = NativeHandle(instance().address()),
-        physicalDevice = NativeHandle(physicalDevice().address()),
-        device = NativeHandle(device().address()),
-        graphicsQueue = NativeHandle(graphicsQueue().address()),
-        graphicsQueueFamilyIndex = graphicsQueueFamilyIndex,
-        getInstanceProcAddr = NativeHandle(vulkanFunctionAddress("vkGetInstanceProcAddr")),
-        getDeviceProcAddr = NativeHandle(vulkanFunctionAddress("vkGetDeviceProcAddr")),
-      )
+  fun device() = context.device
 
-  fun createExportedTexture(extent: MapExtent): LinuxExportedVulkanTexture =
-    LinuxExportedVulkanTexture.create(this, extent)
+  fun physicalDevice() = context.physicalDevice
 
-  fun waitIdle() {
-    device?.let { checkVulkan(vkDeviceWaitIdle(it), "vkDeviceWaitIdle") }
-  }
+  fun waitIdle() = context.waitIdle()
 
-  internal fun physicalDevice(): VkPhysicalDevice =
-    checkNotNull(physicalDevice) { "Vulkan physical device is not initialized" }
+  override fun close() = context.close()
 
-  internal fun device(): VkDevice = checkNotNull(device) { "Vulkan device is not initialized" }
-
-  private fun instance(): VkInstance =
-    checkNotNull(instance) { "Vulkan instance is not initialized" }
-
-  private fun graphicsQueue(): VkQueue =
-    checkNotNull(graphicsQueue) { "Vulkan graphics queue is not initialized" }
-
-  private fun createInstance() {
-    ensureVulkanFunctionProvider()
-    MemoryStack.stackPush().use { stack ->
-      val available = stack.vulkanInstanceExtensions()
-      val extensions = LinkedHashSet<String>()
-      val enablePortability = VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME in available
-      if (enablePortability) extensions.add(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)
-      if (VK_EXT_DEBUG_UTILS_EXTENSION_NAME in available) {
-        extensions.add(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)
-      }
-      val app =
-        VkApplicationInfo.calloc(stack)
-          .sType(VK_STRUCTURE_TYPE_APPLICATION_INFO)
-          .pApplicationName(stack.UTF8("maplibre-compose"))
-          .pEngineName(stack.UTF8("maplibre-native-ffi"))
-          .apiVersion(VK_API_VERSION_1_1)
-      val createInfo =
-        VkInstanceCreateInfo.calloc(stack)
-          .sType(VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO)
-          .pApplicationInfo(app)
-          .ppEnabledExtensionNames(stack.vulkanStringBuffer(extensions))
-      if (enablePortability) createInfo.flags(VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR)
-      val out = stack.mallocPointer(1)
-      checkVulkan(vkCreateInstance(createInfo, null, out), "vkCreateInstance")
-      instance = VkInstance(out[0], createInfo)
-    }
-  }
-
-  private fun pickPhysicalDeviceAndQueue() {
-    MemoryStack.stackPush().use { stack ->
-      val count = stack.mallocInt(1)
-      checkVulkan(
-        vkEnumeratePhysicalDevices(instance(), count, null),
-        "vkEnumeratePhysicalDevices(count)",
-      )
-      check(count[0] != 0) { "No Vulkan physical devices found" }
-      val devices = stack.mallocPointer(count[0])
-      checkVulkan(
-        vkEnumeratePhysicalDevices(instance(), count, devices),
-        "vkEnumeratePhysicalDevices",
-      )
-      for (index in 0..<devices.capacity()) {
-        val candidate = VkPhysicalDevice(devices[index], instance())
-        if (
-          requireExternalMemoryFd &&
-            VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME !in stack.vulkanDeviceExtensions(candidate)
-        ) {
-          continue
-        }
-        if (requiredDeviceUuids.isNotEmpty() && deviceUuid(candidate) !in requiredDeviceUuids) {
-          continue
-        }
-        val queueFamily = stack.findVulkanGraphicsQueueFamily(candidate)
-        if (queueFamily >= 0) {
-          physicalDevice = candidate
-          graphicsQueueFamilyIndex = queueFamily
-          return
-        }
-      }
-      val extensionRequirement =
-        if (requireExternalMemoryFd) ", $VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME" else ""
-      val uuidRequirement = if (requiredDeviceUuids.isEmpty()) "" else ", and the OpenGL device"
-      throw MlnFfiHostException(
-        "No Vulkan device supports graphics$extensionRequirement$uuidRequirement"
-      )
-    }
-  }
-
-  private fun deviceUuid(candidate: VkPhysicalDevice): String {
-    MemoryStack.stackPush().use { stack ->
-      val id =
-        VkPhysicalDeviceIDProperties.calloc(stack)
-          .sType(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES)
-      val properties =
-        VkPhysicalDeviceProperties2.calloc(stack)
-          .sType(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2)
-          .pNext(id.address())
-      vkGetPhysicalDeviceProperties2(candidate, properties)
-      return id.deviceUUID().toUuidHex(GL_UUID_SIZE_EXT)
-    }
-  }
-
-  private fun createDevice() {
-    MemoryStack.stackPush().use { stack ->
-      val deviceExtensions = stack.vulkanDeviceExtensions(physicalDevice())
-      if (requireExternalMemoryFd) {
-        check(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME in deviceExtensions) {
-          "Selected Vulkan device does not support $VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME"
-        }
-      }
-      val extensions = LinkedHashSet<String>()
-      if (requireExternalMemoryFd) extensions.add(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME)
-      if (VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME in deviceExtensions) {
-        extensions.add(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME)
-      }
-      val priorities = stack.floats(1.0f)
-      val queueInfo =
-        VkDeviceQueueCreateInfo.calloc(1, stack)
-          .sType(VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO)
-          .queueFamilyIndex(graphicsQueueFamilyIndex)
-          .pQueuePriorities(priorities)
-      val createInfo =
-        VkDeviceCreateInfo.calloc(stack)
-          .sType(VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO)
-          .pQueueCreateInfos(queueInfo)
-          .ppEnabledExtensionNames(stack.vulkanStringBuffer(extensions))
-      val out = stack.mallocPointer(1)
-      checkVulkan(vkCreateDevice(physicalDevice(), createInfo, null, out), "vkCreateDevice")
-      device = VkDevice(out[0], physicalDevice(), createInfo)
-      val queueOut = stack.mallocPointer(1)
-      vkGetDeviceQueue(device(), graphicsQueueFamilyIndex, 0, queueOut)
-      graphicsQueue = VkQueue(queueOut[0], device())
-    }
-  }
-
-  override fun close() {
-    device?.let {
-      vkDeviceWaitIdle(it)
-      vkDestroyDevice(it, null)
-      device = null
-    }
-    instance?.let {
-      vkDestroyInstance(it, null)
-      instance = null
-    }
-  }
+  fun createExportedTexture(extent: MapExtent) = LinuxExportedVulkanTexture.create(this, extent)
 
   companion object {
-    fun createForLinuxInterop(requiredDeviceUuids: Set<String> = emptySet()): DesktopVulkanContext =
-      create(requiredDeviceUuids, requireExternalMemoryFd = true)
+    fun createForLinuxInterop(requiredDeviceUuids: Set<String> = emptySet()) =
+      DesktopVulkanContext(
+        VulkanDevice.create(setOf(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME)) { physical, _ ->
+          requiredDeviceUuids.isEmpty() || vulkanDeviceUuid(physical) in requiredDeviceUuids
+        }
+      )
 
-    fun createOffscreen(): DesktopVulkanContext =
-      create(emptySet(), requireExternalMemoryFd = false)
-
-    private fun create(
-      requiredDeviceUuids: Set<String>,
-      requireExternalMemoryFd: Boolean,
-    ): DesktopVulkanContext {
-      val context = DesktopVulkanContext(requiredDeviceUuids, requireExternalMemoryFd)
-      try {
-        context.createInstance()
-        context.pickPhysicalDeviceAndQueue()
-        context.createDevice()
-        return context
-      } catch (error: RuntimeException) {
-        context.close()
-        throw error
-      }
-    }
+    fun createOffscreen() = DesktopVulkanContext(VulkanDevice.create())
   }
 }
 
@@ -745,6 +604,7 @@ private constructor(
   }
 
   override fun close() {
+    if (textureName == 0 && memoryObject == 0) return
     runCatching {
       ensureCapabilities()
       glFinish()

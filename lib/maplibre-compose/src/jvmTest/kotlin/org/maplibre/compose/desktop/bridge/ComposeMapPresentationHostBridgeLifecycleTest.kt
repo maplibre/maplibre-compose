@@ -8,7 +8,9 @@ import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.desktop.OpenGlInterop
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
+import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiHostException
+import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
 
 class ComposeMapPresentationHostBridgeLifecycleTest {
 
@@ -43,24 +45,31 @@ class ComposeMapPresentationHostBridgeLifecycleTest {
   }
 
   @Test
-  fun metal_resize_waits_for_the_first_gpu_context() {
-    MetalMapHost(ContextlessPresentationHost(ComposeRenderBackend.METAL)).use { host ->
-      host.resize(EXTENT)
-    }
-  }
-
-  @Test
-  fun direct3d_resize_waits_for_the_first_gpu_context() {
-    VulkanDirect3D12MapHost(ContextlessPresentationHost(ComposeRenderBackend.DIRECT3D12)).use { host
-      ->
-      host.resize(EXTENT)
-    }
-  }
-
-  @Test
-  fun windows_opengl_resize_waits_for_the_first_gpu_context() {
-    VulkanOpenGlWin32MapHost(ContextlessPresentationHost(ComposeRenderBackend.OPENGL)).use { host ->
-      host.resize(EXTENT)
+  fun acquiring_a_frame_waits_for_the_consumer_context_without_loading_native_libraries() {
+    val metal = ContextlessPresentationHost(ComposeRenderBackend.METAL)
+    val gl = ContextlessPresentationHost(ComposeRenderBackend.OPENGL)
+    val d3d = ContextlessPresentationHost(ComposeRenderBackend.DIRECT3D12)
+    for (producer in MapRenderBackend.entries) {
+      MetalMapHost(metal, producer).use { host ->
+        assertEquals(
+          MlnFfiMapFrameAcquisition.NotReady,
+          host.acquireFrame(1, EXTENT, null),
+        )
+      }
+      if (producer == MapRenderBackend.METAL) continue
+      for (host in
+        listOf(
+          LinuxOpenGlMapHost(gl, producer),
+          WindowsAngleMapHost(gl, producer),
+          Direct3D12MapHost(d3d, producer),
+        )) {
+        host.use {
+          assertEquals(
+            MlnFfiMapFrameAcquisition.NotReady,
+            it.acquireFrame(1, EXTENT, null),
+          )
+        }
+      }
     }
   }
 

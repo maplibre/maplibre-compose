@@ -6,19 +6,19 @@ plugins {
 
 mavenPublishing {
   pom {
-    name = "MapLibre Compose Runtime (OpenGL, Linux arm64)"
+    name = "MapLibre Compose Runtime (Vulkan, macOS arm64)"
     description =
       "MapLibre Native and LWJGL native libraries for running MapLibre Compose " +
-        "on Linux arm64 with the OpenGL backend."
+        "on macOS arm64 with the Vulkan backend."
     url = "https://github.com/maplibre/maplibre-compose"
   }
 }
 
 dependencies {
-  runtimeOnly(project(":lib:location-runtime-linux"))
+  runtimeOnly(project(":lib:location-runtime-macos"))
 
-  DesktopHostPlatform.LinuxArm64.runtimeDependencies(
-      backend = DesktopHostPlatform.RenderBackend.OPENGL,
+  DesktopHostPlatform.MacosArm64.runtimeDependencies(
+      backend = DesktopHostPlatform.RenderBackend.VULKAN,
       ffiVersion = libs.versions.maplibre.nativeFfi.get(),
       lwjglVersion = libs.versions.lwjgl.get(),
     )

@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.asComposeCanvas
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
+import java.lang.FunctionalInterface
 import java.lang.invoke.MethodHandles
 import java.nio.file.Files
 import kotlin.math.abs
@@ -46,7 +47,6 @@ import org.lwjgl.egl.EGL10.eglGetDisplay
 import org.lwjgl.egl.EGL10.eglGetError
 import org.lwjgl.egl.EGL10.eglInitialize
 import org.lwjgl.egl.EGL10.eglMakeCurrent
-import org.lwjgl.egl.EGL10.eglTerminate
 import org.lwjgl.egl.EGL10.neglGetProcAddress
 import org.lwjgl.egl.EGL12.EGL_RENDERABLE_TYPE
 import org.lwjgl.egl.EGL12.eglBindAPI
@@ -55,6 +55,7 @@ import org.lwjgl.egl.EGL14.EGL_OPENGL_API
 import org.lwjgl.egl.EGL14.EGL_OPENGL_BIT
 import org.lwjgl.opengl.GL
 import org.lwjgl.opengl.GL11.glEnable
+import org.lwjgl.opengl.GLCapabilities
 import org.lwjgl.system.APIUtil.apiCreateCIF
 import org.lwjgl.system.Callback
 import org.lwjgl.system.CallbackI
@@ -72,6 +73,7 @@ import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MlnFfiMapSession
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
+import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
 import org.maplibre.compose.mlnffi.MlnFfiMapDestination
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
@@ -83,13 +85,13 @@ import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.render.RenderBackend
 
-class LinuxVulkanOpenGlInteropTest {
+class LinuxOpenGlInteropTest {
 
   @Test
   fun `an inherited GL error does not poison the first memory import`() =
     onLinux("importing a Vulkan memory fd into OpenGL is a Linux-only path") {
       EglTestContext.create().use { egl ->
-        val host = VulkanOpenGlMapHost(EglPresentationHost(egl))
+        val host = LinuxOpenGlMapHost(EglPresentationHost(egl), packagedProducer())
         try {
           egl.withCurrent {
             clearGlErrors()
@@ -108,9 +110,9 @@ class LinuxVulkanOpenGlInteropTest {
 
   @Test
   fun `a resize can still present the last completed generation`() =
-    onLinux("the Vulkan to OpenGL bridge this resizes exists only on Linux") {
+    onLinux("the Linux OpenGL bridge this resizes exists only on Linux") {
       EglTestContext.create().use { egl ->
-        val host = VulkanOpenGlMapHost(EglPresentationHost(egl))
+        val host = LinuxOpenGlMapHost(EglPresentationHost(egl), packagedProducer())
         try {
           val first =
             InteropMap(host).use { map ->
@@ -133,11 +135,11 @@ class LinuxVulkanOpenGlInteropTest {
 
   @Test
   fun `a replacement Compose context gets a new shared target`() =
-    onLinux("the Vulkan to OpenGL bridge this replaces exists only on Linux") {
+    onLinux("the Linux OpenGL bridge this replaces exists only on Linux") {
       EglTestContext.create().use { firstEgl ->
         EglTestContext.create().use { secondEgl ->
           val presentationHost = EglPresentationHost(firstEgl)
-          val host = VulkanOpenGlMapHost(presentationHost)
+          val host = LinuxOpenGlMapHost(presentationHost, packagedProducer())
           try {
             InteropMap(host).use { map ->
               val first = firstEgl.withCurrent { map.renderStyle(FIRST_STYLE, FIRST_EXTENT) }
@@ -169,9 +171,9 @@ class LinuxVulkanOpenGlInteropTest {
 
   @Test
   fun `reusing the shared target presents the new pixels`() =
-    onLinux("the Vulkan to OpenGL bridge this reuses exists only on Linux") {
+    onLinux("the Linux OpenGL bridge this reuses exists only on Linux") {
       EglTestContext.create().use { egl ->
-        val host = VulkanOpenGlMapHost(EglPresentationHost(egl))
+        val host = LinuxOpenGlMapHost(EglPresentationHost(egl), packagedProducer())
         try {
           InteropMap(host).use { map ->
             egl.withCurrent {
@@ -193,18 +195,15 @@ class LinuxVulkanOpenGlInteropTest {
 
   private inline fun onLinux(reason: String, block: () -> Unit) {
     assumeTrue(reason, System.getProperty("os.name").orEmpty().lowercase().contains("linux"))
-    assumeTrue(
-      "the Vulkan to OpenGL bridge needs the Vulkan runtime packaged",
-      packagedRuntime() == RenderBackend.VULKAN,
-    )
     block()
   }
 
-  private fun packagedRuntime(): RenderBackend? = runCatching {
-    Maplibre.loadNativeLibrary()
-    Maplibre.supportedRenderBackends().singleOrNull()
-  }
-    .getOrNull()
+  private fun packagedProducer(): MapRenderBackend =
+    when (val backend = Maplibre.supportedRenderBackends().single()) {
+      RenderBackend.OPENGL -> MapRenderBackend.OPENGL
+      RenderBackend.VULKAN -> MapRenderBackend.VULKAN
+      else -> error("No Linux OpenGL bridge for $backend")
+    }
 
   private fun assertNear(expected: RgbaPixel, actual: RgbaPixel, label: String) {
     assertTrue(
@@ -237,7 +236,7 @@ class LinuxVulkanOpenGlInteropTest {
       OpenGlComposeGpuContext(directContext) { action -> withCurrent { action.run() } }
   }
 
-  private class InteropMap(private val host: VulkanOpenGlMapHost) : AutoCloseable {
+  private class InteropMap(private val host: LinuxOpenGlMapHost) : AutoCloseable {
     private val cacheDirectory = Files.createTempDirectory("maplibre-egl-interop-test")
     private var nextFrameId = 1L
 
@@ -371,7 +370,7 @@ class LinuxVulkanOpenGlInteropTest {
     private var display = EGL_NO_DISPLAY
     private var surface = EGL_NO_SURFACE
     private var context = EGL_NO_CONTEXT
-    private lateinit var capabilities: org.lwjgl.opengl.GLCapabilities
+    private lateinit var capabilities: GLCapabilities
     private lateinit var procAddressCallback: GlProcAddressCallback
     private lateinit var glInterface: GLAssembledInterface
 
@@ -413,7 +412,7 @@ class LinuxVulkanOpenGlInteropTest {
       return action()
     }
 
-    fun drawAndRead(host: VulkanOpenGlMapHost, target: MlnFfiRenderTarget): RgbaPixel {
+    fun drawAndRead(host: LinuxOpenGlMapHost, target: MlnFfiRenderTarget): RgbaPixel {
       destination.canvas.clear(0xff00ff00.toInt())
       var drew = false
       CanvasDrawScope().draw(
@@ -512,7 +511,7 @@ class LinuxVulkanOpenGlInteropTest {
       eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT)
       if (context != EGL_NO_CONTEXT) eglDestroyContext(display, context)
       if (surface != EGL_NO_SURFACE) eglDestroySurface(display, surface)
-      eglTerminate(display)
+      // The display is shared with other fixtures and map producers; only our resources are owned.
       context = EGL_NO_CONTEXT
       surface = EGL_NO_SURFACE
       display = EGL_NO_DISPLAY
@@ -532,7 +531,7 @@ class LinuxVulkanOpenGlInteropTest {
     }
   }
 
-  @java.lang.FunctionalInterface
+  @FunctionalInterface
   private fun interface GlProcAddressCallbackI : CallbackI {
     fun invoke(context: Long, name: Long): Long
 

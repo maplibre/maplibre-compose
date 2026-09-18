@@ -237,7 +237,7 @@ fi
 '''
 
 [tasks."test:desktop"]
-description = "Run the desktop (JVM) test suite against a real Vulkan or Metal device."
+description = "Run the desktop (JVM) test suite against the selected map backend."
 usage = '''
 flag "--backend <name>" help="Map render backend to test, e.g. opengl or vulkan. Defaults to the platform's preferred backend."
 '''
@@ -248,6 +248,10 @@ else
   ./gradlew jvmTest
 fi
 '''
+
+[tasks."test:desktop:all"]
+description = "Run desktop tests in separate processes for every map backend on this OS."
+run = ".mise/bin/test-desktop-backends"
 
 [tasks."build:docs"]
 description = "Build the documentation site and the Dokka API reference into docs/dist."

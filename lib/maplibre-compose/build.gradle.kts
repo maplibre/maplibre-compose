@@ -120,6 +120,7 @@ kotlin {
         implementation(libs.lwjgl.core)
         implementation(libs.lwjgl.egl)
         implementation(libs.lwjgl.opengl)
+        implementation(libs.lwjgl.opengles)
         implementation(libs.lwjgl.vulkan)
       }
     }
@@ -203,13 +204,14 @@ configurations.named("jvmTestRuntimeOnly") {
   dependencies.addAllLater(
     providers.provider {
       val platform = DesktopHostPlatform.current()
-      platform
-        .runtimeDependencies(
-          backend = platform.selectedRenderBackend(requestedDesktopBackend.orNull),
-          ffiVersion = libs.versions.maplibre.nativeFfi.get(),
-          lwjglVersion = libs.versions.lwjgl.get(),
+      listOf(
+        project.dependencies.project(
+          mapOf(
+            "path" to
+              ":lib:${platform.runtimeArtifactId(platform.selectedRenderBackend(requestedDesktopBackend.orNull))}"
+          )
         )
-        .map(project.dependencies::create)
+      )
     }
   )
 }

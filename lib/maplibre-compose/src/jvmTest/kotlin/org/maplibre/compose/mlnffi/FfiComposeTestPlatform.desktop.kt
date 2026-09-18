@@ -6,6 +6,7 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runComposeUiTest
 import java.awt.EventQueue
+import org.maplibre.compose.desktop.skiko.HostOperatingSystem
 import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.map.LocalMlnFfiMapHostFactory
 import org.maplibre.compose.map.MapRuntimeOptions
@@ -99,6 +100,7 @@ private constructor(private val preparedDrivers: ArrayDeque<FfiTestRenderDriver>
       when (val packaged = Maplibre.supportedRenderBackends().singleOrNull()) {
         RenderBackend.METAL -> RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL)
         RenderBackend.VULKAN -> RenderBackendPair(MapRenderBackend.VULKAN, composeBackend())
+        RenderBackend.OPENGL -> RenderBackendPair(MapRenderBackend.OPENGL, composeBackend())
         else -> error("No Desktop test map host for ${packaged ?: "no packaged runtime"}")
       }
     )
@@ -126,11 +128,7 @@ private constructor(private val preparedDrivers: ArrayDeque<FfiTestRenderDriver>
   }
 
   private fun composeBackend(): ComposeRenderBackend =
-    if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) {
-      ComposeRenderBackend.DIRECT3D12
-    } else {
-      ComposeRenderBackend.OPENGL
-    }
+    checkNotNull(HostOperatingSystem.current().composeBackend)
 
   companion object {
     fun prepare(presentationCount: Int): CurrentRuntimeTestMapHostFactory {

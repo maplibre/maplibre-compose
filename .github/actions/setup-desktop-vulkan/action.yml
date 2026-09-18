@@ -1,9 +1,10 @@
-name: Setup desktop Vulkan
+name: Setup desktop graphics
 description: >-
-  Give Linux and Windows runners Vulkan implementations compatible with their production bridge.
+  Give Linux and Windows runners software Vulkan and OpenGL drivers for the production bridges.
 
 # Linux presents Lavapipe output through Mesa OpenGL. Windows uses dzn so Vulkan can import the
-# D3D12 resource created by Skiko. macOS tests the Metal runtime and needs no Vulkan setup.
+# D3D12 resource created by Skiko. Windows OpenGL uses Mesa D3D12 over WARP.
+# macOS bundles MoltenVK and ANGLE in its runtime artifacts and needs no driver setup.
 
 runs:
   using: composite
@@ -35,7 +36,7 @@ runs:
         # dzn is an ICD, not the vulkan-1.dll loader that LWJGL opens.
         install_runtime: true
 
-    - name: Install a dzn ICD (Windows)
+    - name: Install Mesa Vulkan and OpenGL drivers (Windows)
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
@@ -59,10 +60,12 @@ runs:
         $mesaVersion = "26.1.3"
         if ($env:RUNNER_ARCH -eq "ARM64") {
           $architecture = "arm64"
+          $openGlHash = "C7B65C2CDF8774E19CEAB45FA7BBE18D2C7E735D9CE879BC071A25DFFAD46ECF"
           $expectedHash = "9F235A7A1195B91DC4140133D614FC7BA26A804DB16C43AE51F840FED5E84AD7"
           $manifestName = "dzn_icd.aarch64.json"
         } else {
           $architecture = "x64"
+          $openGlHash = "195EA10AE0E682E6B2A265C4C7E96D229F09A8A24C92D5A9BE2D210214D7B14E"
           $expectedHash = "58222C2972549FA617DE6485ADD07A5CE57B728AE005744D2FD14E419A7D670D"
           $manifestName = "dzn_icd.x86_64.json"
         }
@@ -89,6 +92,33 @@ runs:
         Register-VulkanDriver $driverManifest.FullName
         "VK_DRIVER_FILES=$($driverManifest.FullName)" >> $env:GITHUB_ENV
         "Path=$($driver.Directory.FullName);$env:Path" >> $env:GITHUB_ENV
+
+        $openGlArchiveName = "mesa-d3d12-$architecture-$mesaVersion.7z"
+        $openGlArchive = Join-Path $env:RUNNER_TEMP $openGlArchiveName
+        $openGlRoot = Join-Path $env:RUNNER_TEMP "mesa-opengl-$mesaVersion-$architecture"
+        Save-CheckedArchive `
+          "https://github.com/mmozeiko/build-mesa/releases/download/$mesaVersion/$openGlArchiveName" `
+          $openGlArchive $openGlHash
+        7z x $openGlArchive "-o$openGlRoot" -y | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "Could not extract $openGlArchiveName" }
+
+        $openGl = Join-Path $openGlRoot "opengl32.dll"
+        if (-not (Test-Path $openGl)) { throw "Missing Mesa WGL driver in $openGlArchiveName" }
+        $testJavaHome = (& mise where java).Trim()
+        if ($LASTEXITCODE -ne 0) { throw "Could not locate the pinned test JVM" }
+        $javaBin = Join-Path $testJavaHome "bin"
+        if (-not (Test-Path (Join-Path $javaBin "java.exe"))) {
+          throw "No java.exe in $javaBin"
+        }
+        # The FFI imports opengl32.dll, while LWJGL loads it dynamically. Placing Mesa beside
+        # java.exe makes both resolve the same WGL driver, including child-JVM shutdown tests.
+        # setup-ci-deps saves the toolchain cache before this job-local modification.
+        Copy-Item $openGl (Join-Path $javaBin "opengl32.dll")
+        # LIBGL_ALWAYS_SOFTWARE makes the d3d12 driver use WARP, but Mesa's WGL front end also
+        # drops d3d12 from its driver list under that variable, and this build has no llvmpipe.
+        # Naming the driver keeps it selected.
+        "GALLIUM_DRIVER=d3d12" >> $env:GITHUB_ENV
+        "LIBGL_ALWAYS_SOFTWARE=true" >> $env:GITHUB_ENV
 
     - name: Expose the Vulkan loader (Windows)
       if: runner.os == 'Windows'

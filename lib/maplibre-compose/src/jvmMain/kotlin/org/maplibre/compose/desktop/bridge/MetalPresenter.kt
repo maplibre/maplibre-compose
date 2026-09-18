@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.skiaCanvas
 import java.util.concurrent.ConcurrentLinkedQueue
 import org.jetbrains.skia.BackendRenderTarget
+import org.jetbrains.skia.Canvas
 import org.jetbrains.skia.ContentChangeMode
 import org.jetbrains.skia.DirectContext
 import org.jetbrains.skia.Rect
@@ -59,9 +60,9 @@ internal class MetalPresenter(private val presentationHost: ComposeMapPresentati
     if (!texture.isNull) retired.add(texture.address)
   }
 
-  /** Releases wrappers created by a Skia context that the host replaced. */
+  /** Releases old wrappers while the caller holds the host's exclusive GPU access. */
   fun resetContext() {
-    presentationHost.runOnGpuThread { closePresenters() }
+    closePresenters()
   }
 
   override fun close() {
@@ -105,7 +106,7 @@ internal class MetalPresenter(private val presentationHost: ComposeMapPresentati
     private var surface: Surface? = null
 
     fun draw(
-      canvas: org.jetbrains.skia.Canvas,
+      canvas: Canvas,
       context: DirectContext,
       target: MetalTextureTarget,
       destination: MlnFfiMapDestination,

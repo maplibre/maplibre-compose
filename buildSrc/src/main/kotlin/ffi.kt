@@ -11,7 +11,11 @@ enum class DesktopHostPlatform(
 ) {
   LinuxX64("linux", "x64", listOf(RenderBackend.VULKAN, RenderBackend.OPENGL)),
   LinuxArm64("linux", "arm64", listOf(RenderBackend.VULKAN, RenderBackend.OPENGL)),
-  MacosArm64("macos", "arm64", listOf(RenderBackend.METAL)),
+  MacosArm64(
+    "macos",
+    "arm64",
+    listOf(RenderBackend.METAL, RenderBackend.VULKAN, RenderBackend.OPENGL),
+  ),
   WindowsX64("windows", "x64", listOf(RenderBackend.VULKAN, RenderBackend.OPENGL)),
   WindowsArm64("windows", "arm64", listOf(RenderBackend.VULKAN, RenderBackend.OPENGL));
 
@@ -67,7 +71,11 @@ enum class DesktopHostPlatform(
   ): List<String> = buildList {
     add(runtimeDependency(backend, ffiVersion))
     add("org.lwjgl:lwjgl:$lwjglVersion:$lwjglNativesClassifier")
-    if (presentsThroughOpenGl) add("org.lwjgl:lwjgl-opengl:$lwjglVersion:$lwjglNativesClassifier")
+    if (presentsThroughOpenGl || (os == "windows" && backend == RenderBackend.OPENGL))
+      add("org.lwjgl:lwjgl-opengl:$lwjglVersion:$lwjglNativesClassifier")
+    if (backend == RenderBackend.OPENGL && os == "macos") {
+      add("org.lwjgl:lwjgl-opengles:$lwjglVersion:$lwjglNativesClassifier")
+    }
     if (backend == RenderBackend.VULKAN && os == "macos") {
       add("org.lwjgl:lwjgl-vulkan:$lwjglVersion:$lwjglNativesClassifier")
     }
