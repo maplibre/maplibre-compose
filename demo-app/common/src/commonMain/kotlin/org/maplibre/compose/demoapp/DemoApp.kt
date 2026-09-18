@@ -313,7 +313,7 @@ private fun MapViewportInsets.withLeadingPanel(
 @Composable
 private fun ShellMap(state: DemoAppState, viewportInsets: () -> MapViewportInsets) {
   if (state.shell == DemoShell.Benchmarks) {
-    BenchmarkMap(state)
+    BenchmarkMap(state, viewportInsets())
   } else {
     DemoMap(state, viewportInsets(), controls = demoMapControls(state.settings, state.location))
   }

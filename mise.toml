@@ -355,7 +355,7 @@ description = "Run the demo app on a connected Android device or emulator."
 usage = '''
 arg "[serial]" help="adb serial. Prompts when several devices are connected."
 flag "--backend <backend>" help="Render backend to package: opengl (default) or vulkan."
-flag "--route <route>" help="Panel screen to open: demo/<id>, benchmarks, benchmark/<id>, settings, or settings/<page>. See CONTRIBUTING.md."
+flag "--route <route>" help="Panel screen to open: demo/<id>, benchmarks, benchmark/<id>, settings, or settings/<page>. See AGENTS.md."
 flag "--camera <camera>" help="Initial camera as zoom/latitude/longitude[/bearing[/pitch]]."
 '''
 # The device prompt needs the real terminal; mise otherwise pipes stdio.
@@ -397,7 +397,7 @@ run = ".mise/bin/run-android-demo"
 description = "Run the demo app on this host."
 usage = '''
 flag "--backend <name>" help="Map render backend to run, e.g. opengl or vulkan. Defaults to the platform's preferred backend."
-flag "--route <route>" help="Panel screen to open: demo/<id>, benchmarks, benchmark/<id>, settings, or settings/<page>. See CONTRIBUTING.md."
+flag "--route <route>" help="Panel screen to open: demo/<id>, benchmarks, benchmark/<id>, settings, or settings/<page>. See AGENTS.md."
 flag "--camera <camera>" help="Initial camera as zoom/latitude/longitude[/bearing[/pitch]]."
 flag "--extent <size>" help="Window size in dp as WIDTHxHEIGHT, e.g. 400x800 for the compact layout."
 '''
@@ -440,7 +440,7 @@ run = '.mise/bin/run-ios-demo'
 description = "Run the demo app on the Nucleus Tao desktop host instead of the AWT one."
 usage = '''
 flag "--backend <name>" help="Map render backend to run, e.g. opengl or vulkan. Defaults to the platform's preferred backend."
-flag "--route <route>" help="Panel screen to open: demo/<id>, benchmarks, benchmark/<id>, settings, or settings/<page>. See CONTRIBUTING.md."
+flag "--route <route>" help="Panel screen to open: demo/<id>, benchmarks, benchmark/<id>, settings, or settings/<page>. See AGENTS.md."
 flag "--camera <camera>" help="Initial camera as zoom/latitude/longitude[/bearing[/pitch]]."
 flag "--extent <size>" help="Window size in dp as WIDTHxHEIGHT, e.g. 400x800 for the compact layout."
 '''

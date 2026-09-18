@@ -68,6 +68,33 @@ macOS ARM64, and iOS modules launch it. Android Auto and CarPlay share a small
 map demo with native controls; `demo-app/wearos` presents a simple map with Wear
 Compose controls. The browser entry point is in `common/src/jsMain`.
 
+### Driving the demo app
+
+Launch the demo directly in a screen instead of tapping through the menu. Every
+launcher reads `route`, `camera`, and `extent`:
+
+- `route`: `demo/<id>`, `benchmarks`, `benchmark/<id>`, `settings`, or
+  `settings/<location|input|camera|rendering>`. A demo id is its name in
+  lowercase with hyphens (`demo/live-tracking`); a benchmark id is the
+  scenario's id (`benchmark/animation`).
+- `camera`: `zoom/latitude/longitude[/bearing[/pitch]]`, the MapLibre GL JS hash
+  format. A demo route with a camera keeps it instead of flying.
+- `extent`: `WIDTHxHEIGHT` in dp, desktop and native macOS only. `400x800` is
+  the compact bottom-sheet layout; `900x700` and `1200x800` are the medium and
+  expanded sidebars.
+
+`mise run demo:desktop`, `demo:desktop-nucleus`, and `demo:android` take them as
+`--route`, `--camera`, and `--extent` flags. Without the tasks: desktop and
+macOS binaries take `--route=<route>` and friends on the command line, Android
+reads string extras
+(`adb shell am start -n
+org.maplibre.compose.demoapp/.MainActivity --es route demo/castello-plan`),
+iOS takes the same command-line form through `xcrun simctl launch`, and the
+browser reads the query string (`/?route=settings/input`).
+
+On Android, record animations with `adb shell screenrecord` and split the frames
+with ffmpeg; single screencaps miss a 300ms transition.
+
 - For repository prose and KDoc, use
   [docs-writing](.agents/skills/docs-writing/SKILL.md).
 - For a MapLibre GL JS upgrade, use

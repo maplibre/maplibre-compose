@@ -40,6 +40,7 @@ import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.demoapp.DemoAppState
+import org.maplibre.compose.demoapp.MapViewportInsets
 import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.RenderOptions
@@ -51,15 +52,16 @@ private val Origin = Position(0.0, 0.0)
 
 private fun camera(x: Double) = CameraPosition(target = Position(x * 0.002, 0.0), zoom = 15.0)
 
+/** [viewportInsets] keeps the placeholder text out from under the panel. */
 @Composable
-internal fun BenchmarkMap(state: DemoAppState) {
+internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
   val ui = state.benchmark
   val runId = ui.runId
   Box(Modifier.fillMaxSize().background(Color(0xff202020))) {
     if (ui.runId == 0)
       Text(
         "Choose settings and run the benchmark.",
-        Modifier.align(Alignment.Center).padding(24.dp),
+        Modifier.padding(viewportInsets.asPaddingValues()).align(Alignment.Center).padding(24.dp),
         color = Color.LightGray,
       )
     else

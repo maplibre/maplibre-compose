@@ -9,8 +9,7 @@ import org.maplibre.spatialk.geojson.Position
 
 /**
  * The state a launcher opens the demo in, so a script or a bug report can reach a screen without
- * tapping through the menu. Each launcher reads its own argument source; CONTRIBUTING.md lists
- * them.
+ * tapping through the menu. Each launcher reads its own argument source; AGENTS.md lists them.
  */
 data class DemoLaunch(
   /** The panel screen to open. Null opens the demo list. */
