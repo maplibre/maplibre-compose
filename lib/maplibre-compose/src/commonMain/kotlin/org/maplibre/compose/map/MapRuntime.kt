@@ -667,12 +667,13 @@ internal constructor(
     adapter.queryRenderedFeatures(rect, layerIds, predicate.compileOrNull())
   }
 
-  suspend fun awaitViewport(): Viewport = runLeaseBound { awaitViewportState() }
-
   internal fun updateViewport(value: Viewport?) {
     owner.lifecycle.serialized {
       viewportState = value
-      value?.let(firstViewport::complete)
+      if (value != null) {
+        firstViewport.complete(value)
+        owner.viewportPublished(this, value)
+      }
     }
   }
 
@@ -715,8 +716,16 @@ internal constructor(
       gestureActiveState = false
       activeCameraChanges = 0
       engagedState = false
-      invalidated.complete(Unit)
     }
+  }
+
+  /**
+   * Fails lease-bound operations parked on this attachment. Callers on an immediate dispatcher
+   * resume inline, so this runs after the owner has replaced the attachment and closed its
+   * snapshot.
+   */
+  internal fun cancelLeaseBoundOperations() {
+    invalidated.complete(Unit)
   }
 
   private fun Expression<BooleanValue>.compileOrNull(): CompiledExpression<BooleanValue>? {
@@ -873,6 +882,7 @@ internal constructor(
     internal set
 
   private var nextMapAttachment = CompletableDeferred<MapAttachment>()
+  private var nextViewport = CompletableDeferred<Viewport>()
 
   /** Contains the current rendered viewport, or null while no viewport is available. */
   public val viewport: Viewport?
@@ -1070,7 +1080,8 @@ internal constructor(
 
   /**
    * Waits for a viewport, then fits [boundingBox] without animation. A newer camera command or
-   * accepted input cancels this call. See [cameraForBounds] for [fitPadding] and [cameraPadding].
+   * accepted input cancels this call. Detaching cancels the call; it does not restart on another
+   * attachment. See [cameraForBounds] for [fitPadding] and [cameraPadding].
    */
   public suspend fun fitCameraToBounds(
     boundingBox: BoundingBox,
@@ -1080,9 +1091,8 @@ internal constructor(
     fitPadding: DpPadding = DpPadding.Zero,
   ): Unit = coroutineScope {
     val guard = gestureAuthority.beginProgrammatic(currentCoroutineContext()[Job])
-    retryAcrossAttachments {
-      it.fitCameraToBounds(boundingBox, bearing, tilt, cameraPadding, fitPadding, guard)
-    }
+    awaitAttachment()
+      .fitCameraToBounds(boundingBox, bearing, tilt, cameraPadding, fitPadding, guard)
   }
 
   /**
@@ -1293,18 +1303,15 @@ internal constructor(
     awaitAttachment().queryRenderedFeatures(rect, layerIds, predicate)
 
   /** Waits for the first viewport from the current or a future map attachment. */
-  public suspend fun awaitViewport(): Viewport =
-    retryAcrossAttachments(MapAttachment::awaitViewport)
-
-  private suspend fun <T> retryAcrossAttachments(operation: suspend (MapAttachment) -> T): T {
-    var attachment = awaitAttachment()
-    while (true) {
-      try {
-        return operation(attachment)
-      } catch (_: MapAttachmentChangedException) {
-        attachment = awaitReplacementAttachment()
+  public suspend fun awaitViewport(): Viewport {
+    val pending = lifecycle.serialized {
+      requireOpenLocked()
+      currentMapAttachment?.viewport?.let {
+        return it
       }
+      nextViewport
     }
+    return pending.await()
   }
 
   internal fun reservePresentation(
@@ -1918,38 +1925,47 @@ internal constructor(
     styleHandleEpoch++
     cancelMissingImageResolutions()
     style.invalidateLoadedStyle()
+    val outgoing = currentMapAttachment
     Snapshot.withMutableSnapshot {
       closedState = true
-      currentMapAttachment?.invalidate()
       currentMapAttachment = null
+      outgoing?.invalidate()
       nextMapAttachment.completeExceptionally(
         CancellationException("The map closed while waiting for an attachment")
       )
+      nextViewport.completeExceptionally(
+        CancellationException("The map closed while waiting for a viewport")
+      )
     }
+    outgoing?.cancelLeaseBoundOperations()
   }
 
   internal fun invalidatePresentation(adapter: MapAdapter?) {
+    val outgoing = currentMapAttachment
     Snapshot.withMutableSnapshot {
-      currentMapAttachment?.invalidate()
       currentMapAttachment = null
+      outgoing?.invalidate()
       prepareForNextAttachment()
       if (adapter?.retainsEngineBetweenPresentations != true) {
         style.loadState = StyleLoadState.Pending
       }
     }
+    outgoing?.cancelLeaseBoundOperations()
   }
 
   internal fun invalidateClosedAdapter(adapter: MapAdapter) {
+    val outgoing = currentMapAttachment?.takeIf { it.adapter === adapter }
     Snapshot.withMutableSnapshot {
       styleHandleEpoch++
       style.invalidateLoadedStyle()
       style.loadState = StyleLoadState.Pending
-      if (currentMapAttachment?.adapter === adapter) {
-        currentMapAttachment?.invalidate()
+      if (outgoing != null) {
         currentMapAttachment = null
+        outgoing.invalidate()
         prepareForNextAttachment()
       }
     }
+    outgoing?.cancelLeaseBoundOperations()
   }
 
   internal fun configurePresentationAdapter(adapter: MapAdapter) {
@@ -2045,21 +2061,15 @@ internal constructor(
     return pending.await()
   }
 
-  private suspend fun awaitReplacementAttachment(): MapAttachment {
-    val pending = lifecycle.serialized {
-      if (lifecycle.isClosed) {
-        throw CancellationException("The map closed during the operation")
-      }
-      currentMapAttachment?.let {
-        return it
-      }
-      nextMapAttachment
-    }
-    return pending.await()
-  }
-
   private fun prepareForNextAttachment() {
     if (nextMapAttachment.isCompleted) nextMapAttachment = CompletableDeferred()
+    if (nextViewport.isCompleted) nextViewport = CompletableDeferred()
+  }
+
+  internal fun viewportPublished(attachment: MapAttachment, viewport: Viewport) {
+    lifecycle.serialized {
+      if (currentMapAttachment === attachment) nextViewport.complete(viewport)
+    }
   }
 
   private inline fun <T> withAttachmentRead(block: (MapAttachment) -> T?): T? {
