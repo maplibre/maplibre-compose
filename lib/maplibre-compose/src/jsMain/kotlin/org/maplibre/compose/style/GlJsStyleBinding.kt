@@ -15,6 +15,7 @@ import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
@@ -708,6 +709,19 @@ internal class GlJsStyleBinding(
     requireLoaded()
     if (!enabled) {
       logger?.w { "MapLibre GL JS cannot switch the symbol placement cross-fade at runtime" }
+    }
+  }
+
+  override suspend fun globalState(): JsonObject {
+    requireLoaded()
+    return map.getGlobalState().toJsonElement().jsonObject
+  }
+
+  override fun setGlobalStateProperty(name: String, value: JsonElement) {
+    requireLoaded()
+    val js = value.toJsValue<Any?>()
+    posted("Global state '$name'", value) {
+      mutate("set global state") { map.setGlobalStateProperty(name, js) }
     }
   }
 

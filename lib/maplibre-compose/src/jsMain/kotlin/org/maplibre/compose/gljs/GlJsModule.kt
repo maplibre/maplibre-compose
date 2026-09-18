@@ -130,6 +130,10 @@ internal external class MaplibreMap(options: MapOptions) {
     options: QuerySourceFeatureOptions,
   ): Array<GeoJsonFeature>
 
+  fun setGlobalStateProperty(propertyName: String, value: Any?)
+
+  fun getGlobalState(): Any
+
   fun setFeatureState(feature: FeatureIdentifier, state: Any)
 
   fun getFeatureState(feature: FeatureIdentifier): Any?

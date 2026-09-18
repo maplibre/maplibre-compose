@@ -2,6 +2,7 @@ package org.maplibre.compose.expressions.dsl
 
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.FunctionCall
+import org.maplibre.compose.expressions.value.AnyValue
 import org.maplibre.compose.expressions.value.FloatValue
 
 /**
@@ -24,3 +25,14 @@ public fun heatmapDensity(): Expression<FloatValue> = FunctionCall.of("heatmap-d
  * parameter in a [ColorReliefLayer][org.maplibre.compose.layers.ColorReliefLayer].
  */
 public fun elevation(): Expression<FloatValue> = FunctionCall.of("elevation").cast()
+
+/**
+ * Evaluates to null when [key] has no value.
+ *
+ * Use assertions such as [asBoolean], [asNumber], or [asString], or a conversion such as
+ * [convertToColor], to give the runtime value a type and fallback. Set values through
+ * [org.maplibre.compose.map.MapStyleState.globalState]. The base style's root `state` object
+ * supplies defaults; replacing the base style resets all runtime values.
+ */
+public fun globalState(key: String): Expression<AnyValue?> =
+  FunctionCall.of("global-state", const(key)).cast()
