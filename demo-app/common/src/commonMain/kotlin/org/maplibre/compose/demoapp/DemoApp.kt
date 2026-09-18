@@ -26,8 +26,10 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableStateOf
@@ -73,6 +75,9 @@ fun DemoAppTheme(state: DemoAppState, content: @Composable () -> Unit) {
   val colorScheme = rememberDemoColorScheme(dark, state.settings.paletteMode)
   MaterialTheme(colorScheme = colorScheme, content = content)
 }
+
+/** True while the sheet is at or heading to its peek, where only a screen's header shows. */
+internal val LocalSheetPeeking = compositionLocalOf { false }
 
 private val MediumPanelWidth = 280.dp
 private val ExpandedPanelWidth = 360.dp
@@ -207,16 +212,20 @@ private fun SheetLayout(
         }
       },
       sheetContent = {
-        panel(
-          Modifier.fillMaxWidth()
-            .height(sheetHeight - SheetHandleHeight)
-            // The shell keeps the sheet below the top safe area and pads the bottom one here.
-            .consumeWindowInsets(WindowInsets.safeDrawing)
-            .padding(bottom = safeInsets.bottom),
-          { sheetState.partialExpand() },
-          safeInsets.bottom,
-          { demoPeekHeight = it },
-        )
+        CompositionLocalProvider(
+          LocalSheetPeeking provides (sheetState.targetValue == SheetValue.PartiallyExpanded)
+        ) {
+          panel(
+            Modifier.fillMaxWidth()
+              .height(sheetHeight - SheetHandleHeight)
+              // The shell keeps the sheet below the top safe area and pads the bottom one here.
+              .consumeWindowInsets(WindowInsets.safeDrawing)
+              .padding(bottom = safeInsets.bottom),
+            { sheetState.partialExpand() },
+            safeInsets.bottom,
+            { demoPeekHeight = it },
+          )
+        }
       },
     ) {
       map(viewportInsets)
