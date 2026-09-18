@@ -177,11 +177,7 @@ object MagnifyingLensDemo : Demo {
   }
 
   @Composable
-  override fun Panel(state: DemoAppState) {
-    LensRenderSection(lensUiOptions) { lensUiOptions = it }
-
-    SectionHeader("Lens")
-    SwitchRow("Lens distortion", lensDistortionEnabled) { lensDistortionEnabled = it }
+  override fun PeekPanel(state: DemoAppState) {
     SegmentedRow(
       label = "Magnification",
       options = listOf(1.0, 2.0, 3.0),
@@ -189,6 +185,14 @@ object MagnifyingLensDemo : Demo {
       optionLabel = { "${1 shl it.toInt()}×" },
       onSelect = { magnification = it },
     )
+  }
+
+  @Composable
+  override fun Panel(state: DemoAppState) {
+    LensRenderSection(lensUiOptions) { lensUiOptions = it }
+
+    SectionHeader("Lens")
+    SwitchRow("Lens distortion", lensDistortionEnabled) { lensDistortionEnabled = it }
     SegmentedRow(
       label = "Shape",
       options = LensShape.entries,

@@ -685,14 +685,17 @@ object MaterialStyleDemo : Demo {
   private data class TokenUse(val token: String, val role: String, val color: Color)
 
   @Composable
-  override fun Panel(state: DemoAppState) {
-    val dark = state.appliedStyle.isDark
+  override fun PeekPanel(state: DemoAppState) {
     SwitchRow(
       label = "3D buildings",
       checked = extrudeBuildings,
       onCheckedChange = { extrudeBuildings = it },
     )
+  }
 
+  @Composable
+  override fun Panel(state: DemoAppState) {
+    val dark = state.appliedStyle.isDark
     SectionHeader("Drawn from these tokens")
     val colors = MaterialTheme.colorScheme
     listOf(

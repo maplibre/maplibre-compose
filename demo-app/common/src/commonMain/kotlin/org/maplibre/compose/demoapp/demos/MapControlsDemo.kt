@@ -126,7 +126,7 @@ object MapControlsDemo : Demo {
   override fun uiOptions(settings: MapUiOptions): MapUiOptions = recipe.bindings(settings)
 
   @Composable
-  override fun Panel(state: DemoAppState) {
+  override fun PeekPanel(state: DemoAppState) {
     DropdownRow(
       label = "Recipe",
       options = Recipe.entries,
@@ -141,6 +141,10 @@ object MapControlsDemo : Demo {
         }
       },
     )
+  }
+
+  @Composable
+  override fun Panel(state: DemoAppState) {
     Text(
       recipe.explanation,
       modifier = Modifier.padding(16.dp),

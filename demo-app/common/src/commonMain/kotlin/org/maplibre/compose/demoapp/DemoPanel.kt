@@ -10,6 +10,8 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -31,7 +33,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -61,9 +65,14 @@ internal object DemoRoute {
   const val ControlSettings = "settings/controls"
 }
 
+/** The height of a panel screen's top app bar, which is the peek content on every other route. */
+internal val PanelHeaderHeight = 64.dp
+
 /**
  * The menu, settings, and the selected demo's controls. [revealMap] uncovers the map when a control
- * needs it visible; a shell whose panel never covers the map passes a no-op.
+ * needs it visible; a shell whose panel never covers the map passes a no-op. [onPeekHeightChange]
+ * reports the height of the selected demo's title bar, peek row, and [peekSpacing] below them,
+ * which a sheet keeps visible above the window's bottom inset.
  */
 @Composable
 fun DemoPanel(
@@ -71,6 +80,8 @@ fun DemoPanel(
   navController: NavHostController,
   modifier: Modifier = Modifier,
   revealMap: suspend () -> Unit = {},
+  peekSpacing: Dp = 0.dp,
+  onPeekHeightChange: (Dp) -> Unit = {},
 ) {
   val scope = rememberCoroutineScope()
   val dark = state.settings.mapStyleMode.isDark
@@ -106,6 +117,10 @@ fun DemoPanel(
           flightJob = scope.launch {
             state.openDemo(demo, dark) {
               navController.navigate(DemoRoute.Demo)
+              // The demo route reports its peek height once laid out, and the sheet then knows
+              // where to settle.
+              withFrameNanos {}
+              withFrameNanos {}
               revealMap()
               // One frame so the settled viewport insets reach the camera before the flight.
               withFrameNanos {}
@@ -121,7 +136,17 @@ fun DemoPanel(
     }
     composable(DemoRoute.Demo) {
       val demo = state.selectedDemo ?: return@composable
-      SettingsSubScreen(demo.name, onBack = { navController.popBackStack() }) {
+      val density = LocalDensity.current
+      SettingsSubScreen(
+        demo.name,
+        onBack = { navController.popBackStack() },
+        header = {
+          demo.PeekPanel(state)
+          Spacer(Modifier.height(peekSpacing))
+        },
+        headerModifier =
+          Modifier.onSizeChanged { onPeekHeightChange(with(density) { it.height.toDp() }) },
+      ) {
         Text(
           text = demo.description,
           style = MaterialTheme.typography.bodyMedium,
@@ -304,18 +329,31 @@ private fun ControlSettingsItems(settings: DemoSettings) {
   }
 }
 
+/**
+ * A titled screen with a back button. [header] sits under the title, outside the scrolling
+ * [content], and [headerModifier] wraps the title bar and header together.
+ */
 @Composable
-internal fun SettingsSubScreen(title: String, onBack: () -> Unit, content: @Composable () -> Unit) {
+internal fun SettingsSubScreen(
+  title: String,
+  onBack: () -> Unit,
+  header: @Composable () -> Unit = {},
+  headerModifier: Modifier = Modifier,
+  content: @Composable () -> Unit,
+) {
   Column {
-    TopAppBar(
-      title = { Text(title) },
-      navigationIcon = {
-        IconButton(onClick = onBack) {
-          Icon(vectorResource(Res.drawable.arrow_back_24px), contentDescription = "Back")
-        }
-      },
-      colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-    )
+    Column(headerModifier) {
+      TopAppBar(
+        title = { Text(title) },
+        navigationIcon = {
+          IconButton(onClick = onBack) {
+            Icon(vectorResource(Res.drawable.arrow_back_24px), contentDescription = "Back")
+          }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+      )
+      header()
+    }
     Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) { content() }
   }
 }

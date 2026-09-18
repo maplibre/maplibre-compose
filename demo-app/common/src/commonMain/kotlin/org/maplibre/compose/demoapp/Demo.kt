@@ -73,8 +73,15 @@ interface Demo {
   }
 
   /**
-   * Controls shown in the sheet or side panel while this demo is selected. [state] exposes the
-   * shell's settings, style, and camera.
+   * The demo's primary control, one row directly under the panel's title. On compact windows the
+   * sheet peek shows this row beside the map. [state] exposes the shell's settings, style, and
+   * camera.
+   */
+  @UiComposable @Composable fun PeekPanel(state: DemoAppState) {}
+
+  /**
+   * The rest of the demo's controls, below [PeekPanel] in the scrolling part of the panel. [state]
+   * exposes the shell's settings, style, and camera.
    */
   @UiComposable @Composable fun Panel(state: DemoAppState) {}
 }

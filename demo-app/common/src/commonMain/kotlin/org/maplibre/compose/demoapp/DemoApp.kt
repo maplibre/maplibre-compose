@@ -30,8 +30,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.movableContentOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -77,8 +79,6 @@ private val ExpandedPanelWidth = 360.dp
 private val ShellSpacing = 16.dp
 private val SheetHandleHeight = 48.dp
 
-/** The handle plus one top app bar, so the peek shows the current route's title and back button. */
-private val SheetPeekHeight = SheetHandleHeight + 64.dp
 private val MinimumUsefulSheetHeight = 320.dp
 
 @Composable
@@ -90,8 +90,12 @@ private fun DemoShell(state: DemoAppState, contentPadding: PaddingValues) {
     movableContentOf { viewportInsets: () -> MapViewportInsets -> ShellMap(state, viewportInsets) }
   }
   val panel = remember {
-    movableContentOf { modifier: Modifier, revealMap: suspend () -> Unit ->
-      DemoPanel(state, navController, modifier, revealMap)
+    movableContentOf {
+      modifier: Modifier,
+      revealMap: suspend () -> Unit,
+      peekSpacing: Dp,
+      onPeekHeightChange: (Dp) -> Unit ->
+      DemoPanel(state, navController, modifier, revealMap, peekSpacing, onPeekHeightChange)
     }
   }
   BoxWithConstraints(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -116,7 +120,7 @@ private fun SidebarLayout(
   safeInsets: MapViewportInsets,
   targetPanelWidth: Dp,
   map: @Composable (() -> MapViewportInsets) -> Unit,
-  panel: @Composable (Modifier, suspend () -> Unit) -> Unit,
+  panel: @Composable (Modifier, suspend () -> Unit, Dp, (Dp) -> Unit) -> Unit,
 ) {
   val layoutDirection = LocalLayoutDirection.current
   val panelWidth by
@@ -145,7 +149,7 @@ private fun SidebarLayout(
         tonalElevation = 2.dp,
         shadowElevation = 8.dp,
       ) {
-        panel(Modifier.fillMaxSize().padding(vertical = 8.dp), {})
+        panel(Modifier.fillMaxSize().padding(vertical = 8.dp), {}, 0.dp, {})
       }
     }
   }
@@ -153,14 +157,15 @@ private fun SidebarLayout(
 
 /**
  * Compact windows: the panel is a bottom sheet. The sheet is expanded on the menu routes and peeks
- * while a demo is selected, so the map is uncovered and back returns to the expanded menu.
+ * while a demo is selected, showing the demo's title and primary control beside the map, so the map
+ * is uncovered and back returns to the expanded menu.
  */
 @Composable
 private fun SheetLayout(
   navController: NavHostController,
   safeInsets: MapViewportInsets,
   map: @Composable (() -> MapViewportInsets) -> Unit,
-  panel: @Composable (Modifier, suspend () -> Unit) -> Unit,
+  panel: @Composable (Modifier, suspend () -> Unit, Dp, (Dp) -> Unit) -> Unit,
 ) {
   BoxWithConstraints(Modifier.fillMaxSize()) {
     val density = LocalDensity.current
@@ -174,10 +179,15 @@ private fun SheetLayout(
     LaunchedEffect(route) { if (route != DemoRoute.Demo) sheetState.expand() }
 
     val sheetHeight = sheetHeight(maxHeight, safeInsets.top)
-    val peekHeight = SheetPeekHeight + safeInsets.bottom
+    // The demo route's report includes the bottom inset as spacing; other routes peek a title bar.
+    var demoPeekHeight by remember { mutableStateOf(PanelHeaderHeight + safeInsets.bottom) }
+    val peekContentHeight =
+      if (route == DemoRoute.Demo) demoPeekHeight else PanelHeaderHeight + safeInsets.bottom
+    val peekHeight = (SheetHandleHeight + peekContentHeight).coerceAtMost(sheetHeight)
     val visibleSheetHeight by
       rememberVisibleSheetHeight(
         scaffoldState = scaffoldState,
+        initialHeight = peekHeight,
         viewportHeightPx = constraints.maxHeight,
         maximumHeightPx = with(density) { sheetHeight.roundToPx() },
         density = density,
@@ -204,6 +214,8 @@ private fun SheetLayout(
             .consumeWindowInsets(WindowInsets.safeDrawing)
             .padding(bottom = safeInsets.bottom),
           { sheetState.partialExpand() },
+          safeInsets.bottom,
+          { demoPeekHeight = it },
         )
       },
     ) {
@@ -215,12 +227,13 @@ private fun SheetLayout(
 @Composable
 private fun rememberVisibleSheetHeight(
   scaffoldState: BottomSheetScaffoldState,
+  initialHeight: Dp,
   viewportHeightPx: Int,
   maximumHeightPx: Int,
   density: Density,
 ): State<Dp> =
   produceState(
-    initialValue = SheetPeekHeight,
+    initialValue = initialHeight,
     scaffoldState,
     viewportHeightPx,
     maximumHeightPx,
