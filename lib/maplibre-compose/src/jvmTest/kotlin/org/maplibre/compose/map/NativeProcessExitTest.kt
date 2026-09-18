@@ -13,6 +13,7 @@ import org.maplibre.compose.logging.MapLogLevel
 import org.maplibre.compose.logging.MapLogSource
 import org.maplibre.compose.logging.MapLogger
 import org.maplibre.compose.logging.MapLogging
+import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.style.BaseStyle
@@ -88,6 +89,14 @@ internal object NativeProcessExitProbe {
         runtime.close()
         runtime.awaitClosed()
         FfiTestPlatform.deleteCacheFile(cache)
+      }
+    }
+    if (System.getProperty("os.name").startsWith("Windows")) {
+      // Exercise the worker-scoped Direct3D window as well as native runtime shutdown. The
+      // fixture closes the map and render bridge; the shared consumer window stays alive.
+      BridgeMapFixture.create().use { fixture ->
+        fixture.loadStyle(BaseStyle.Empty)
+        fixture.pumpUntilRendered()
       }
     }
     println(READY_TO_EXIT)

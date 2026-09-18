@@ -405,24 +405,11 @@ private class Direct3D12TestGpuEnvironment private constructor(private val windo
   // Drivers own their render bridges; the test worker owns this shared consumer environment.
   override fun close() {}
 
-  private fun dispose() {
-    try {
-      closeDestination()
-    } finally {
-      EventQueue.invokeAndWait { window.dispose() }
-    }
-  }
-
   companion object {
     // Skiko destroys the Direct3D device asynchronously. Keep one window for the worker so a
-    // replacement never starts during teardown. Gradle exits its test worker explicitly, running
-    // this hook even though the displayable window keeps AWT alive.
-    private val shared by lazy {
-      createShared().also { environment ->
-        Runtime.getRuntime()
-          .addShutdownHook(Thread({ environment.dispose() }, "maplibre-direct3d-test-disposal"))
-      }
-    }
+    // replacement never starts during teardown. Gradle exits its test worker explicitly; let the
+    // process reclaim this fixture instead of waiting for AWT or GPU work in a shutdown hook.
+    private val shared by lazy { createShared() }
 
     fun create(): Direct3D12TestGpuEnvironment = shared
 
