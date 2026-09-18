@@ -15,6 +15,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
@@ -193,7 +194,7 @@ object MapControlsDemo : Demo {
       scope.launch {
         val camera = mapState.cameraPosition
         mapState.animateCamera(
-          camera.copy(bearing = camera.bearing + 90.0).toCameraUpdate(),
+          CameraUpdate(bearing = camera.bearing + 90.0),
           animation,
         )
       }

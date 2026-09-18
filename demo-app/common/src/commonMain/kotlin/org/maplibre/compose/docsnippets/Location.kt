@@ -5,7 +5,7 @@ package org.maplibre.compose.docsnippets
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.layers.LocationIndicatorLayer
 import org.maplibre.compose.location.LocationPermission
 import org.maplibre.compose.location.LocationState
@@ -40,9 +40,7 @@ fun Location() {
     )
 
     LocationTrackingEffect(locationState = locationState) {
-      mapState.animateCamera(
-        CameraPosition(target = currentLocation.position, zoom = 15.0).toCameraUpdate()
-      )
+      mapState.animateCamera(CameraUpdate(target = currentLocation.position, zoom = 15.0))
     }
   }
   MaplibreMap(state = mapState)
