@@ -41,7 +41,6 @@ import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
 import org.maplibre.compose.demoapp.DemoMapControls
-import org.maplibre.compose.demoapp.DemoPointerPin
 import org.maplibre.compose.demoapp.center
 import org.maplibre.compose.demoapp.controlPadding
 import org.maplibre.compose.demoapp.design.SectionHeader
@@ -73,7 +72,6 @@ object MagnifyingLensDemo : Demo {
     BoundingBox(west = -74.002, south = 40.748, east = -73.968, north = 40.768)
 
   override val destination = DemoDestination.FitBounds(lensRegion)
-  override val pointerPin = DemoPointerPin(lensRegion.center, destination)
 
   private enum class LensShape(val label: String, val shape: Shape) {
     Circle("Circle", CircleShape),
@@ -86,7 +84,7 @@ object MagnifyingLensDemo : Demo {
     )
 
   /** Each zoom level added doubles the scale, hence the 2×/4×/8× labels. */
-  private var magnification by mutableDoubleStateOf(2.0)
+  private var magnification by mutableDoubleStateOf(1.0)
   private var lensSize by mutableFloatStateOf(220f)
   private var lensShape by mutableStateOf(LensShape.Circle)
   private var dragOffset by mutableStateOf(Offset.Zero)

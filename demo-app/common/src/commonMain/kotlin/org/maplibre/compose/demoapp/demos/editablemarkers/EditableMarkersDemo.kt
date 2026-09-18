@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import org.maplibre.compose.demoapp.DefaultMapControls
 import org.maplibre.compose.demoapp.Demo
@@ -22,6 +23,7 @@ import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
 import org.maplibre.compose.demoapp.DemoMapControls
 import org.maplibre.compose.demoapp.DemoStyle
+import org.maplibre.compose.demoapp.design.SliderRow
 import org.maplibre.compose.demoapp.flyTo
 import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.MapInteractions
@@ -108,14 +110,23 @@ object EditableMarkersDemo : Demo {
   }
 
   @Composable
+  override fun PeekPanel(state: DemoAppState) {
+    SliderRow(
+      "Marker text size",
+      markersState.textScale,
+      1f..2f,
+      { "${(it * 100).roundToInt()}%" },
+      { markersState.textScale = it },
+    )
+  }
+
+  @Composable
   override fun Panel(state: DemoAppState) =
     with(markersState) {
       val scope = rememberCoroutineScope()
       EditableMarkersPanel(
         markers = markers,
         selectedId = editingId,
-        textScale = textScale,
-        onTextScaleChange = { textScale = it },
         onSelect = { marker ->
           select(marker)
           scope.launch {

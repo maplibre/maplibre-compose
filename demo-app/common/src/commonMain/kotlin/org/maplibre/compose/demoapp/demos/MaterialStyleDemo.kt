@@ -11,9 +11,6 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -30,7 +27,6 @@ import org.maplibre.compose.demoapp.DemoDestination
 import org.maplibre.compose.demoapp.DemoStyle
 import org.maplibre.compose.demoapp.PROTOMAPS_API_KEY
 import org.maplibre.compose.demoapp.design.SectionHeader
-import org.maplibre.compose.demoapp.design.SwitchRow
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.all
 import org.maplibre.compose.expressions.dsl.any
@@ -56,7 +52,6 @@ import org.maplibre.compose.expressions.value.LineJoin
 import org.maplibre.compose.expressions.value.SymbolPlacement
 import org.maplibre.compose.expressions.value.TextTransform
 import org.maplibre.compose.layers.BackgroundLayer
-import org.maplibre.compose.layers.FillExtrusionLayer
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.layers.SymbolLayer
@@ -96,8 +91,6 @@ object MaterialStyleDemo : Demo {
   override val name = "Material 3 style"
   override val description =
     "An entire basemap drawn from MaterialTheme colors. Toggle dark theme to re-tint it live."
-
-  private var extrudeBuildings by mutableStateOf(false)
 
   override val preferredLightStyle: DemoStyle = Material.Light
   override val preferredDarkStyle: DemoStyle = Material.Dark
@@ -432,29 +425,13 @@ object MaterialStyleDemo : Demo {
         colors.surfaceDim
       else colors.surfaceContainerLowest
 
-    // With 3D buildings enabled, the flat layer covers the zooms below the extrusion's minimum.
     FillLayer(
       id = "material-buildings",
       source = tiles,
       sourceLayer = "buildings",
-      maxZoom = if (extrudeBuildings) 14f else 24f,
       filter = isKind("building", "building_part"),
       opacity = const(0.5f),
       color = const(buildingsColor),
-    )
-
-    // Protomaps carries OSM heights; buildings without one stay flat under the extruded neighbors.
-    FillExtrusionLayer(
-      id = "material-buildings-3d",
-      source = tiles,
-      sourceLayer = "buildings",
-      minZoom = 14f,
-      filter = isKind("building", "building_part"),
-      visible = extrudeBuildings,
-      opacity = const(0.8f),
-      color = const(buildingsColor),
-      base = feature["min_height"].asNumber(const(0f)),
-      height = feature["height"].asNumber(const(0f)),
     )
 
     LineLayer(
@@ -683,15 +660,6 @@ object MaterialStyleDemo : Demo {
   }
 
   private data class TokenUse(val token: String, val role: String, val color: Color)
-
-  @Composable
-  override fun PeekPanel(state: DemoAppState) {
-    SwitchRow(
-      label = "3D buildings",
-      checked = extrudeBuildings,
-      onCheckedChange = { extrudeBuildings = it },
-    )
-  }
 
   @Composable
   override fun Panel(state: DemoAppState) {
