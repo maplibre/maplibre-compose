@@ -40,6 +40,8 @@ import org.lwjgl.egl.EGL14
 import org.lwjgl.egl.EGL15
 import org.lwjgl.egl.EGL15.EGL_OPENGL_ES3_BIT
 import org.lwjgl.egl.EGLCapabilities
+import org.lwjgl.egl.EXTDeviceEnumeration
+import org.lwjgl.egl.EXTPlatformDevice
 import org.lwjgl.opengl.GL
 import org.lwjgl.opengl.GL11
 import org.lwjgl.opengl.GLCapabilities
@@ -81,7 +83,8 @@ import org.maplibre.nativeffi.Maplibre
 /**
  * Owns an EGL pbuffer and share context. Displays are shared with other maps and host libraries.
  */
-internal class DesktopEglContext private constructor(private val metalDevice: Long?) :
+internal class DesktopEglContext
+private constructor(private val metalDevice: Long?, private val requiredDeviceUuids: Set<String>) :
   AutoCloseable {
   private var display = EGL_NO_DISPLAY
   private var config = NULL
@@ -179,14 +182,44 @@ internal class DesktopEglContext private constructor(private val metalDevice: Lo
       // one here would invalidate other maps and host contexts. Only our context/surface are owned.
       display = EGL_NO_DISPLAY
     }
+    glCapabilities = null
     glesCapabilities = null
   }
 
   private fun create() {
-    if (metalDevice != null) MacAngleLibraries.load()
-    else if (runCatching { EGL.getCapabilities() }.isFailure) EGL.create()
-    display = if (metalDevice != null) createMetalDisplay() else createLinuxDisplay()
+    if (metalDevice != null) {
+      MacAngleLibraries.load()
+      initialize(createMetalDisplay())
+      return
+    }
+    if (runCatching { EGL.getCapabilities() }.isFailure) EGL.create()
+    // Mesa's surfaceless platform picks the first render node, which on hybrid-graphics machines
+    // may not be the device Compose renders on. Try each display until one is on that device.
+    var failure: Throwable? = null
+    val tried = mutableSetOf<Long>()
+    for (candidate in linuxDisplayCandidates()) {
+      val display = runCatching(candidate).getOrDefault(EGL_NO_DISPLAY)
+      if (display == EGL_NO_DISPLAY || !tried.add(display)) continue
+      try {
+        initialize(display)
+        if (rendersOnRequiredDevice()) return
+      } catch (error: RuntimeException) {
+        failure = error
+      }
+      close()
+    }
+    throw MlnFfiHostException("No EGL display renders on the map's graphics device", failure)
+  }
+
+  private fun rendersOnRequiredDevice(): Boolean {
+    if (requiredDeviceUuids.isEmpty()) return true
+    val uuids = currentOpenGlDeviceUuids()
+    return uuids.isEmpty() || uuids.any { it in requiredDeviceUuids }
+  }
+
+  private fun initialize(display: Long) {
     check(display != EGL_NO_DISPLAY) { "EGL returned no display" }
+    this.display = display
     val displayCapabilities = EglDisplays.initialize(display)
     eglCreateImage = displayCapabilities.eglCreateImageKHR
     eglDestroyImage = displayCapabilities.eglDestroyImageKHR
@@ -211,25 +244,40 @@ internal class DesktopEglContext private constructor(private val metalDevice: Lo
     makeCurrent()
   }
 
-  private fun createLinuxDisplay(): Long {
-    val surfaceless = runCatching {
+  /** Display factories in preference order; each may throw or return [EGL_NO_DISPLAY]. */
+  private fun linuxDisplayCandidates(): Sequence<() -> Long> = sequence {
+    yield {
       EGL15.eglGetPlatformDisplay(
         EGL_PLATFORM_SURFACELESS_MESA,
         EGL14.EGL_DEFAULT_DISPLAY,
         null as PointerBuffer?,
       )
     }
-      .getOrDefault(EGL_NO_DISPLAY)
-    if (
-      surfaceless != EGL_NO_DISPLAY &&
-        runCatching {
-          EglDisplays.initialize(surfaceless)
+    yield { EGL10.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY) }
+    val client = EGL.getCapabilities()
+    if (client.EGL_EXT_device_enumeration && client.EGL_EXT_platform_device) {
+      for (device in enumerateDevices()) {
+        yield {
+          EGL15.eglGetPlatformDisplay(
+            EXTPlatformDevice.EGL_PLATFORM_DEVICE_EXT,
+            device,
+            null as PointerBuffer?,
+          )
         }
-          .isSuccess
-    )
-      return surfaceless
-    return EGL10.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY)
+      }
+    }
   }
+
+  private fun enumerateDevices(): List<Long> =
+    MemoryStack.stackPush().use { stack ->
+      val count = stack.mallocInt(1)
+      if (!EXTDeviceEnumeration.eglQueryDevicesEXT(null, count) || count[0] <= 0) {
+        return emptyList()
+      }
+      val devices = stack.mallocPointer(count[0])
+      if (!EXTDeviceEnumeration.eglQueryDevicesEXT(devices, count)) return emptyList()
+      List(count[0]) { devices[it] }
+    }
 
   private fun createMetalDisplay(): Long =
     MemoryStack.stackPush().use { stack ->
@@ -330,8 +378,15 @@ internal class DesktopEglContext private constructor(private val metalDevice: Lo
     private const val EGL_PLATFORM_ANGLE_TYPE_METAL_ANGLE = 0x3489
     private const val EGL_METAL_TEXTURE_ANGLE = 0x34A7
 
-    fun create(metalDevice: Long? = null): DesktopEglContext {
-      val context = DesktopEglContext(metalDevice)
+    /**
+     * On Linux, [requiredDeviceUuids] restricts the display to one whose OpenGL device UUID is in
+     * the set, so exported Vulkan memory can be imported into the producer context.
+     */
+    fun create(
+      metalDevice: Long? = null,
+      requiredDeviceUuids: Set<String> = emptySet(),
+    ): DesktopEglContext {
+      val context = DesktopEglContext(metalDevice, requiredDeviceUuids)
       try {
         context.create()
         return context

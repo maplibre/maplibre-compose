@@ -218,7 +218,14 @@ internal class LinuxOpenGlMapHost(
         }
     val producerContext =
       if (producer == MapRenderBackend.OPENGL) {
-        egl ?: rendererThread.run { DesktopEglContext.create() }.also { egl = it }
+        egl
+          ?: run {
+            val deviceUuid = vulkanDeviceUuid(context.physicalDevice())
+            rendererThread.run {
+              DesktopEglContext.create(requiredDeviceUuids = setOf(deviceUuid))
+            }
+          }
+            .also { egl = it }
       } else null
     val newExported = context.createExportedTexture(extent)
     var producerImport: LinuxOpenGlImportedTexture? = null
@@ -226,12 +233,6 @@ internal class LinuxOpenGlMapHost(
       if (producerContext != null) {
         producerImport = rendererThread.run {
           producerContext.makeCurrent()
-          val producerUuids = currentOpenGlDeviceUuids()
-          check(
-            producerUuids.isEmpty() || vulkanDeviceUuid(context.physicalDevice()) in producerUuids
-          ) {
-            "The EGL producer and Compose must use the same graphics device"
-          }
           LinuxOpenGlImportedTexture.create(
             newExported.exportFd(),
             newExported.memorySize(),

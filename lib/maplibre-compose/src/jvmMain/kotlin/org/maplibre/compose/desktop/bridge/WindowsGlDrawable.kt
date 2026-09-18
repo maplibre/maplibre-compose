@@ -1,6 +1,8 @@
 package org.maplibre.compose.desktop.bridge
 
 import java.nio.ByteBuffer
+import org.lwjgl.opengl.GL
+import org.lwjgl.system.JNI.callPPI
 import org.lwjgl.system.MemoryStack
 import org.lwjgl.system.windows.GDI32
 import org.lwjgl.system.windows.PIXELFORMATDESCRIPTOR
@@ -80,9 +82,17 @@ private constructor(
               .cDepthBits(24)
               .cStencilBits(8)
               .iLayerType(GDI32.PFD_MAIN_PLANE)
-          val format = GDI32.ChoosePixelFormat(null, deviceContext, pixel)
+          // Mesa can be loaded beside the application without being registered as a system ICD.
+          // Use the same OpenGL library for pixel formats and WGL context creation.
+          val functions = checkNotNull(GL.getFunctionProvider()) { "OpenGL is not loaded" }
+          val choosePixelFormat = functions.getFunctionAddress("wglChoosePixelFormat")
+          val setPixelFormat = functions.getFunctionAddress("wglSetPixelFormat")
+          check(choosePixelFormat != 0L && setPixelFormat != 0L) {
+            "The OpenGL library does not expose WGL pixel-format functions"
+          }
+          val format = callPPI(deviceContext, pixel.address(), choosePixelFormat)
           check(format != 0) { "Could not choose an offscreen OpenGL pixel format" }
-          check(GDI32.SetPixelFormat(null, deviceContext, format, pixel)) {
+          check(callPPI(deviceContext, format, pixel.address(), setPixelFormat) != 0) {
             "Could not set the offscreen OpenGL pixel format"
           }
         }
