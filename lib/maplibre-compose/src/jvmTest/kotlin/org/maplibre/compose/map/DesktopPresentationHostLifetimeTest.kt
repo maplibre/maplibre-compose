@@ -15,6 +15,7 @@ import kotlin.test.assertTrue
 import org.maplibre.compose.desktop.ComposeGpuContext
 import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.desktop.ProvideMapPresentationHost
+import org.maplibre.compose.desktop.skiko.HostOperatingSystem
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
@@ -110,6 +111,6 @@ class DesktopPresentationHostLifetimeTest {
 
   private companion object {
     fun packagedComposeBackend(): ComposeRenderBackend =
-      checkNotNull(org.maplibre.compose.desktop.skiko.HostOperatingSystem.current().composeBackend)
+      checkNotNull(HostOperatingSystem.current().composeBackend)
   }
 }

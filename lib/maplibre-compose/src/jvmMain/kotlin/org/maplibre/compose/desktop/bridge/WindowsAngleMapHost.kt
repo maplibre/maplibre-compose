@@ -1,6 +1,9 @@
 package org.maplibre.compose.desktop.bridge
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import org.lwjgl.opengl.EXTMemoryObject
+import org.lwjgl.opengl.EXTMemoryObjectWin32
+import org.lwjgl.system.MemoryStack
 import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
@@ -12,6 +15,7 @@ import org.maplibre.compose.mlnffi.MlnFfiMapHost
 import org.maplibre.compose.mlnffi.MlnFfiRecoverableFrameException
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
 import org.maplibre.compose.mlnffi.RenderBackendPair
+import org.maplibre.compose.mlnffi.TextureOrigin
 
 /**
  * Bridges MapLibre's Vulkan or OpenGL rendering into Compose's ANGLE/GLES context on Windows.
@@ -95,9 +99,8 @@ internal class WindowsAngleMapHost(
             .target(target.generation)
             .copy(
               origin =
-                if (producer == MapRenderBackend.OPENGL)
-                  org.maplibre.compose.mlnffi.TextureOrigin.BOTTOM_LEFT
-                else org.maplibre.compose.mlnffi.TextureOrigin.TOP_LEFT
+                if (producer == MapRenderBackend.OPENGL) TextureOrigin.BOTTOM_LEFT
+                else TextureOrigin.TOP_LEFT
             ),
           destination,
           frameCompletion,
@@ -170,13 +173,13 @@ internal class WindowsAngleMapHost(
           if (producer == MapRenderBackend.OPENGL) {
             val context = wgl ?: WindowsWglContext.create().also { wgl = it }
             context.makeCurrent()
-            org.lwjgl.system.MemoryStack.stackPush().use { stack ->
+            MemoryStack.stackPush().use { stack ->
               val luid = stack.malloc(8)
               check(ensureCapabilities().GL_EXT_memory_object_win32) {
                 "WGL requires GL_EXT_memory_object_win32 to import ANGLE textures"
               }
-              org.lwjgl.opengl.EXTMemoryObject.glGetUnsignedBytevEXT(
-                org.lwjgl.opengl.EXTMemoryObjectWin32.GL_DEVICE_LUID_EXT,
+              EXTMemoryObject.glGetUnsignedBytevEXT(
+                EXTMemoryObjectWin32.GL_DEVICE_LUID_EXT,
                 luid,
               )
               check(luid.getLong(0) == adapterLuid) {

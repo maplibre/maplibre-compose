@@ -7,6 +7,7 @@ import java.lang.foreign.Linker
 import java.lang.foreign.MemorySegment
 import java.lang.foreign.SymbolLookup
 import java.lang.foreign.ValueLayout
+import org.jetbrains.skia.SurfaceColorFormat
 import org.lwjgl.system.MemoryStack
 import org.lwjgl.system.MemoryUtil.NULL
 import org.lwjgl.vulkan.KHRExternalMemoryWin32.VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME
@@ -60,9 +61,11 @@ import org.maplibre.compose.mlnffi.MlnFfiMapDestination
 import org.maplibre.compose.mlnffi.MlnFfiMapFrame
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
 import org.maplibre.compose.mlnffi.MlnFfiMapHost
+import org.maplibre.compose.mlnffi.MlnFfiRecoverableFrameException
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
 import org.maplibre.compose.mlnffi.NativeHandle
 import org.maplibre.compose.mlnffi.RenderBackendPair
+import org.maplibre.compose.mlnffi.TextureOrigin
 import org.maplibre.compose.mlnffi.VulkanImageTarget
 
 /**
@@ -137,7 +140,7 @@ internal class Direct3D12MapHost(
     val device = context.device
     if (!currentDevice.isNull && currentDevice != device && pendingDevice != device) {
       pendingDevice = device
-      throw org.maplibre.compose.mlnffi.MlnFfiRecoverableFrameException(
+      throw MlnFfiRecoverableFrameException(
         "Compose changed Direct3D devices; recreating the map renderer",
         null,
       )
@@ -277,12 +280,11 @@ internal class Direct3D12MapHost(
       texture = direct3DTexture,
       format = if (producer == MapRenderBackend.OPENGL) 28 else DXGI_FORMAT_B8G8R8A8_UNORM,
       colorFormat =
-        if (producer == MapRenderBackend.OPENGL) org.jetbrains.skia.SurfaceColorFormat.RGBA_8888
-        else org.jetbrains.skia.SurfaceColorFormat.BGRA_8888,
+        if (producer == MapRenderBackend.OPENGL) SurfaceColorFormat.RGBA_8888
+        else SurfaceColorFormat.BGRA_8888,
       origin =
-        if (producer == MapRenderBackend.OPENGL)
-          org.maplibre.compose.mlnffi.TextureOrigin.BOTTOM_LEFT
-        else org.maplibre.compose.mlnffi.TextureOrigin.TOP_LEFT,
+        if (producer == MapRenderBackend.OPENGL) TextureOrigin.BOTTOM_LEFT
+        else TextureOrigin.TOP_LEFT,
       // Skia wraps the D3D12 resource, so it needs the allocated size, not the render size.
       extent = importedTexture?.storageExtent ?: currentExtent,
       generation = generation,

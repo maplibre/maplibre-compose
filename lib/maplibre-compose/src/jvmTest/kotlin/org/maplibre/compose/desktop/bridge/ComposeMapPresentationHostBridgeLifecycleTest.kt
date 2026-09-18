@@ -8,7 +8,9 @@ import org.maplibre.compose.desktop.ComposeMapPresentationHost
 import org.maplibre.compose.desktop.OpenGlInterop
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
+import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiHostException
+import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
 
 class ComposeMapPresentationHostBridgeLifecycleTest {
 
@@ -47,14 +49,14 @@ class ComposeMapPresentationHostBridgeLifecycleTest {
     val metal = ContextlessPresentationHost(ComposeRenderBackend.METAL)
     val gl = ContextlessPresentationHost(ComposeRenderBackend.OPENGL)
     val d3d = ContextlessPresentationHost(ComposeRenderBackend.DIRECT3D12)
-    for (producer in org.maplibre.compose.mlnffi.MapRenderBackend.entries) {
+    for (producer in MapRenderBackend.entries) {
       MetalMapHost(metal, producer).use { host ->
         assertEquals(
-          org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition.NotReady,
+          MlnFfiMapFrameAcquisition.NotReady,
           host.acquireFrame(1, EXTENT, null),
         )
       }
-      if (producer == org.maplibre.compose.mlnffi.MapRenderBackend.METAL) continue
+      if (producer == MapRenderBackend.METAL) continue
       for (host in
         listOf(
           LinuxOpenGlMapHost(gl, producer),
@@ -63,7 +65,7 @@ class ComposeMapPresentationHostBridgeLifecycleTest {
         )) {
         host.use {
           assertEquals(
-            org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition.NotReady,
+            MlnFfiMapFrameAcquisition.NotReady,
             it.acquireFrame(1, EXTENT, null),
           )
         }

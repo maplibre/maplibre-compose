@@ -153,16 +153,8 @@ Available runtimes (package one backend for each target platform):
 | Windows x64   | —                                            | `maplibre-compose-runtime-vulkan-windows-x64`   | `maplibre-compose-runtime-opengl-windows-x64`   |
 | Windows arm64 | —                                            | `maplibre-compose-runtime-vulkan-windows-arm64` | `maplibre-compose-runtime-opengl-windows-arm64` |
 
-The map backend is independent of Compose's backend. AWT uses Metal on macOS,
-OpenGL on Linux, and Direct3D 12 on Windows. Nucleus uses Metal on macOS,
-native OpenGL on Linux, and ANGLE over Direct3D 11 on Windows.
-
-On macOS, the OpenGL runtime includes ANGLE and the Vulkan runtime includes
-MoltenVK. Linux OpenGL presentation uses Vulkan to allocate memory shared by the
-two OpenGL contexts, so it also requires a Vulkan driver. Linux and Windows
-OpenGL bridges require the driver's external-memory extensions and compatible
-producer and consumer graphics devices. Missing capabilities produce a host
-error; they do not select another map backend automatically.
+Linux OpenGL also requires a Vulkan driver. Linux and Windows OpenGL require
+drivers with external-memory support.
 
 On desktop, a <Api of="ComposeMapPresentationHost" /> supplies the window's
 graphics context. For Java AWT windows, use

@@ -2,6 +2,7 @@ package org.maplibre.compose.desktop.bridge
 
 import org.lwjgl.opengl.GL
 import org.lwjgl.opengl.GL11.glFinish
+import org.lwjgl.opengl.GLCapabilities
 import org.lwjgl.opengl.WGL
 import org.lwjgl.opengl.WGLARBCreateContext
 import org.lwjgl.system.MemoryStack
@@ -15,7 +16,7 @@ internal class WindowsWglContext private constructor() : AutoCloseable {
     get() = checkNotNull(drawable).deviceContext
 
   private var context = 0L
-  private var capabilities: org.lwjgl.opengl.GLCapabilities? = null
+  private var capabilities: GLCapabilities? = null
   val handles
     get() = WglContextHandles(NativeHandle(dc), NativeHandle(context), NativeHandle(0))
 

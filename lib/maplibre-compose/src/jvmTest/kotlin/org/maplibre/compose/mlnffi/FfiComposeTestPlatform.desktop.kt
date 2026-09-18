@@ -6,6 +6,7 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runComposeUiTest
 import java.awt.EventQueue
+import org.maplibre.compose.desktop.skiko.HostOperatingSystem
 import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.map.LocalMlnFfiMapHostFactory
 import org.maplibre.compose.map.MapRuntimeOptions
@@ -127,7 +128,7 @@ private constructor(private val preparedDrivers: ArrayDeque<FfiTestRenderDriver>
   }
 
   private fun composeBackend(): ComposeRenderBackend =
-    checkNotNull(org.maplibre.compose.desktop.skiko.HostOperatingSystem.current().composeBackend)
+    checkNotNull(HostOperatingSystem.current().composeBackend)
 
   companion object {
     fun prepare(presentationCount: Int): CurrentRuntimeTestMapHostFactory {

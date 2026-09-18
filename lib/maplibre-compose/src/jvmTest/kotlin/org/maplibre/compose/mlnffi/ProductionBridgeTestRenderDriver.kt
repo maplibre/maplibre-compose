@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import java.awt.EventQueue
+import java.lang.FunctionalInterface
 import java.lang.invoke.MethodHandles
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
@@ -43,7 +44,6 @@ import org.lwjgl.egl.EGL10.eglGetDisplay
 import org.lwjgl.egl.EGL10.eglGetError
 import org.lwjgl.egl.EGL10.eglInitialize
 import org.lwjgl.egl.EGL10.eglMakeCurrent
-import org.lwjgl.egl.EGL10.eglTerminate
 import org.lwjgl.egl.EGL10.neglGetProcAddress
 import org.lwjgl.egl.EGL12.EGL_RENDERABLE_TYPE
 import org.lwjgl.egl.EGL12.eglBindAPI
@@ -51,6 +51,7 @@ import org.lwjgl.egl.EGL14.EGL_DEFAULT_DISPLAY
 import org.lwjgl.egl.EGL14.EGL_OPENGL_API
 import org.lwjgl.egl.EGL14.EGL_OPENGL_BIT
 import org.lwjgl.opengl.GL
+import org.lwjgl.opengl.GLCapabilities
 import org.lwjgl.system.APIUtil.apiCreateCIF
 import org.lwjgl.system.Callback
 import org.lwjgl.system.CallbackI
@@ -451,7 +452,7 @@ private class EglTestContext private constructor() : AutoCloseable {
   private var display = EGL_NO_DISPLAY
   private var surface = EGL_NO_SURFACE
   private var context = EGL_NO_CONTEXT
-  private lateinit var capabilities: org.lwjgl.opengl.GLCapabilities
+  private lateinit var capabilities: GLCapabilities
   private lateinit var procAddressCallback: GlProcAddressCallback
   private lateinit var glInterface: GLAssembledInterface
 
@@ -536,7 +537,7 @@ private class EglTestContext private constructor() : AutoCloseable {
     eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT)
     if (context != EGL_NO_CONTEXT) eglDestroyContext(display, context)
     if (surface != EGL_NO_SURFACE) eglDestroySurface(display, surface)
-    eglTerminate(display)
+    // The display is shared with other fixtures and map producers; only our resources are owned.
     context = EGL_NO_CONTEXT
     surface = EGL_NO_SURFACE
     display = EGL_NO_DISPLAY
@@ -556,7 +557,7 @@ private class EglTestContext private constructor() : AutoCloseable {
   }
 }
 
-@java.lang.FunctionalInterface
+@FunctionalInterface
 private fun interface GlProcAddressCallbackI : CallbackI {
   fun invoke(context: Long, name: Long): Long
 

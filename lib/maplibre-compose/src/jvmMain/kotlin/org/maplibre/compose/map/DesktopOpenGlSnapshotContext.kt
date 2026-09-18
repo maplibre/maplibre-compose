@@ -5,6 +5,8 @@ import org.lwjgl.egl.EGL
 import org.lwjgl.egl.EGL14
 import org.lwjgl.egl.EGL15
 import org.lwjgl.system.MemoryStack
+import org.maplibre.compose.desktop.bridge.DesktopEglContext
+import org.maplibre.compose.desktop.bridge.WindowsGlDrawable
 import org.maplibre.nativeffi.render.EglContextDescriptor
 import org.maplibre.nativeffi.render.NativePointer
 import org.maplibre.nativeffi.render.OpenGLClientApi
@@ -126,9 +128,8 @@ private class EglSnapshotContext private constructor(display: Long, config: Long
   }
 }
 
-private class WglSnapshotContext(
-  private val drawable: org.maplibre.compose.desktop.bridge.WindowsGlDrawable
-) : DesktopOpenGlSnapshotContext {
+private class WglSnapshotContext(private val drawable: WindowsGlDrawable) :
+  DesktopOpenGlSnapshotContext {
   override val descriptor =
     WglContextDescriptor(
       deviceContext = NativePointer.ofAddress(drawable.deviceContext),
@@ -140,14 +141,12 @@ private class WglSnapshotContext(
   override fun close() = drawable.close()
 
   companion object {
-    fun create() =
-      WglSnapshotContext(org.maplibre.compose.desktop.bridge.WindowsGlDrawable.create())
+    fun create() = WglSnapshotContext(WindowsGlDrawable.create())
   }
 }
 
 private class AngleSnapshotContext : DesktopOpenGlSnapshotContext {
-  private val context =
-    org.maplibre.compose.desktop.bridge.DesktopEglContext.create(metalDevice = 0L)
+  private val context = DesktopEglContext.create(metalDevice = 0L)
   override val descriptor: OpenGLContextDescriptor
     get() =
       context.handles.let {

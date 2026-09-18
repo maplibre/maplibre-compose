@@ -156,15 +156,13 @@ Map render backend than the platform default, as in
 `maplibre.desktop.backend` Gradle property, which swaps the packaged
 `maplibre-compose-runtime-*` artifact.
 
-`mise run test:desktop:all` runs each supported backend in a separate process
-and saves its reports under `build/desktop-backends/<backend>/`. For bridge
-changes, also run both desktop demos with each backend and check resize, zoom,
-pan, and window closure. macOS supports `metal`, `vulkan`, and `opengl`; Linux
-and Windows support `vulkan` and `opengl`.
+`mise run test:desktop:all` runs every supported backend and saves its reports
+under `build/desktop-backends/<backend>/`. For bridge changes, also run both
+desktop demos with each backend and check resize, zoom, pan, and window closure.
+macOS supports `metal`, `vulkan`, and `opengl`; Linux and Windows support
+`vulkan` and `opengl`.
 
-CI runs the same backend matrix through the AWT test host. Windows uses Mesa's
-Vulkan and OpenGL drivers over Direct3D 12 software rendering (WARP). Nucleus
-presentation still needs separate verification with `demo:desktop-nucleus`.
+CI tests the AWT host. Verify Nucleus separately with `demo:desktop-nucleus`.
 
 ### Android Auto
 

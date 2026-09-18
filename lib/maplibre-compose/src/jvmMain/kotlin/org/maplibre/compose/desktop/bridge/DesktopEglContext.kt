@@ -1,7 +1,10 @@
 package org.maplibre.compose.desktop.bridge
 
+import java.lang.foreign.Arena
+import java.lang.foreign.SymbolLookup
 import java.nio.file.Files
 import org.lwjgl.egl.EGL
+import org.lwjgl.egl.EGL10
 import org.lwjgl.egl.EGL10.EGL_ALPHA_SIZE
 import org.lwjgl.egl.EGL10.EGL_BLUE_SIZE
 import org.lwjgl.egl.EGL10.EGL_DEPTH_SIZE
@@ -32,7 +35,12 @@ import org.lwjgl.egl.EGL12.EGL_OPENGL_ES_API
 import org.lwjgl.egl.EGL12.eglBindAPI
 import org.lwjgl.egl.EGL13.EGL_CONTEXT_CLIENT_VERSION
 import org.lwjgl.egl.EGL13.EGL_RENDERABLE_TYPE
+import org.lwjgl.egl.EGL14
 import org.lwjgl.egl.EGL15.EGL_OPENGL_ES3_BIT
+import org.lwjgl.egl.EGLCapabilities
+import org.lwjgl.opengl.GL
+import org.lwjgl.opengl.GL11
+import org.lwjgl.opengl.GLCapabilities
 import org.lwjgl.opengles.APPLETextureFormatBGRA8888.GL_BGRA8_EXT
 import org.lwjgl.opengles.GLES
 import org.lwjgl.opengles.GLES20.GL_CLAMP_TO_EDGE
@@ -52,10 +60,12 @@ import org.lwjgl.opengles.GLES20.glTexParameteri
 import org.lwjgl.opengles.GLESCapabilities
 import org.lwjgl.opengles.OESEGLImage.glEGLImageTargetTexture2DOES
 import org.lwjgl.system.Configuration
+import org.lwjgl.system.FunctionProvider
 import org.lwjgl.system.JNI.callPPI
 import org.lwjgl.system.JNI.callPPP
 import org.lwjgl.system.JNI.callPPPPP
 import org.lwjgl.system.MemoryStack
+import org.lwjgl.system.MemoryUtil
 import org.lwjgl.system.MemoryUtil.NULL
 import org.lwjgl.system.MemoryUtil.memAddress
 import org.maplibre.compose.map.MapExtent
@@ -64,6 +74,7 @@ import org.maplibre.compose.mlnffi.MlnFfiHostException
 import org.maplibre.compose.mlnffi.NativeHandle
 import org.maplibre.compose.mlnffi.OpenGlTextureTarget
 import org.maplibre.compose.mlnffi.TextureOrigin
+import org.maplibre.nativeffi.Maplibre
 
 /**
  * Owns an EGL pbuffer and share context. Displays are shared with other maps and host libraries.
@@ -74,7 +85,7 @@ internal class DesktopEglContext private constructor(private val metalDevice: Lo
   private var config = NULL
   private var surface = EGL_NO_SURFACE
   private var shareContext = EGL_NO_CONTEXT
-  private var glCapabilities: org.lwjgl.opengl.GLCapabilities? = null
+  private var glCapabilities: GLCapabilities? = null
   private var glesCapabilities: GLESCapabilities? = null
   private var eglCreateImage = NULL
   private var eglDestroyImage = NULL
@@ -105,8 +116,8 @@ internal class DesktopEglContext private constructor(private val metalDevice: Lo
       glesCapabilities?.let { GLES.setCapabilities(it) }
         ?: run { glesCapabilities = GLES.createCapabilities() }
     } else {
-      glCapabilities?.let { org.lwjgl.opengl.GL.setCapabilities(it) }
-        ?: run { glCapabilities = org.lwjgl.opengl.GL.createCapabilities() }
+      glCapabilities?.let { GL.setCapabilities(it) }
+        ?: run { glCapabilities = GL.createCapabilities() }
     }
   }
 
@@ -115,7 +126,7 @@ internal class DesktopEglContext private constructor(private val metalDevice: Lo
       return
     }
     makeCurrent()
-    if (metalDevice != null) glFinish() else org.lwjgl.opengl.GL11.glFinish()
+    if (metalDevice != null) glFinish() else GL11.glFinish()
   }
 
   internal fun createMetalImage(metalTexture: NativeHandle): Long {
@@ -149,7 +160,7 @@ internal class DesktopEglContext private constructor(private val metalDevice: Lo
   override fun close() {
     runCatching { waitIdle() }
     if (glesCapabilities != null) GLES.setCapabilities(null)
-    if (glCapabilities != null) org.lwjgl.opengl.GL.setCapabilities(null)
+    if (glCapabilities != null) GL.setCapabilities(null)
     if (display != EGL_NO_DISPLAY) {
       eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT)
     }
@@ -174,7 +185,7 @@ internal class DesktopEglContext private constructor(private val metalDevice: Lo
     else if (runCatching { EGL.getCapabilities() }.isFailure) EGL.create()
     display =
       if (metalDevice != null) createMetalDisplay()
-      else org.lwjgl.egl.EGL10.eglGetDisplay(org.lwjgl.egl.EGL14.EGL_DEFAULT_DISPLAY)
+      else EGL10.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY)
     check(display != EGL_NO_DISPLAY) { "EGL returned no display" }
     val displayCapabilities = EglDisplays.initialize(display)
     eglCreateImage = displayCapabilities.eglCreateImageKHR
@@ -191,9 +202,7 @@ internal class DesktopEglContext private constructor(private val metalDevice: Lo
         "ANGLE EGL display does not expose EGL_KHR_image_base"
       }
     check(
-      eglBindAPI(
-        if (metalDevice != null) EGL_OPENGL_ES_API else org.lwjgl.egl.EGL14.EGL_OPENGL_API
-      ),
+      eglBindAPI(if (metalDevice != null) EGL_OPENGL_ES_API else EGL14.EGL_OPENGL_API),
       "eglBindAPI",
     )
     chooseConfig()
@@ -238,7 +247,7 @@ internal class DesktopEglContext private constructor(private val metalDevice: Lo
           EGL_SURFACE_TYPE,
           EGL_PBUFFER_BIT,
           EGL_RENDERABLE_TYPE,
-          if (metalDevice != null) EGL_OPENGL_ES3_BIT else org.lwjgl.egl.EGL14.EGL_OPENGL_BIT,
+          if (metalDevice != null) EGL_OPENGL_ES3_BIT else EGL14.EGL_OPENGL_BIT,
           EGL_RED_SIZE,
           8,
           EGL_GREEN_SIZE,
@@ -392,7 +401,7 @@ private object MacAngleLibraries {
   @Synchronized
   fun load() {
     if (loaded) return
-    org.maplibre.nativeffi.Maplibre.loadNativeLibrary()
+    Maplibre.loadNativeLibrary()
     val root = Files.createTempDirectory("maplibre-compose-angle-")
     root.toFile().deleteOnExit()
     for (name in listOf("libGLESv2.dylib", "libEGL.dylib")) {
@@ -408,15 +417,15 @@ private object MacAngleLibraries {
     for (name in listOf("libGLESv2.dylib", "libEGL.dylib")) System.load(
       root.resolve(name).toString()
     )
-    fun provider(name: String): org.lwjgl.system.FunctionProvider {
+    fun provider(name: String): FunctionProvider {
       val lookup =
-        java.lang.foreign.SymbolLookup.libraryLookup(
+        SymbolLookup.libraryLookup(
           root.resolve(name),
-          java.lang.foreign.Arena.global(),
+          Arena.global(),
         )
-      return org.lwjgl.system.FunctionProvider { symbol ->
+      return FunctionProvider { symbol ->
         lookup
-          .find(org.lwjgl.system.MemoryUtil.memUTF8(org.lwjgl.system.MemoryUtil.memAddress(symbol)))
+          .find(MemoryUtil.memUTF8(MemoryUtil.memAddress(symbol)))
           .map { it.address() }
           .orElse(0L)
       }
@@ -431,10 +440,10 @@ private object MacAngleLibraries {
 
 /** Initializes each process-wide EGL display once without taking ownership from the host. */
 private object EglDisplays {
-  private val displays = mutableMapOf<Long, org.lwjgl.egl.EGLCapabilities>()
+  private val displays = mutableMapOf<Long, EGLCapabilities>()
 
   @Synchronized
-  fun initialize(display: Long): org.lwjgl.egl.EGLCapabilities =
+  fun initialize(display: Long): EGLCapabilities =
     displays.getOrPut(display) {
       val major = IntArray(1)
       val minor = IntArray(1)
