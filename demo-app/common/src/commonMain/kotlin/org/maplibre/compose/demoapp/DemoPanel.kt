@@ -117,10 +117,6 @@ fun DemoPanel(
           flightJob = scope.launch {
             state.openDemo(demo, dark) {
               navController.navigate(DemoRoute.Demo)
-              // The demo route reports its peek height once laid out, and the sheet then knows
-              // where to settle.
-              withFrameNanos {}
-              withFrameNanos {}
               revealMap()
               // One frame so the settled viewport insets reach the camera before the flight.
               withFrameNanos {}
