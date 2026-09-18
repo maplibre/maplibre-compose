@@ -7,11 +7,12 @@ stacked on #1429 (`sargunv/bindings-kotlin-v0.202609.3`). Breaking API changes
 are welcome; compatibility is not a design constraint. Global style state,
 bearing sectors, and rendered projections are outside this work.
 
-FFI #724 supplies independent native tracks, but the current backends do not yet
-provide the same ownership and cancellation primitives. Keep the public API
-change blocked until those requirements are met. This branch covers native
-viewport-inset concurrency and fixes premature idle reporting when the inset
-command ends.
+Proceed with independent native animations now. GL JS keeps its current
+latest-animation-wins behavior. Selective cancellation is a follow-up tracked in
+[FFI #726](https://github.com/maplibre/maplibre-native-ffi/issues/726), not a
+release blocker. Cancelling a coroutine withdraws its waiter; an already-started
+engine animation continues. `stopCameraMovement()` explicitly stops all motion.
+Input takeover, detach, and anchor geometry invalidation still stop engine work.
 
 ## Source findings
 
@@ -45,14 +46,13 @@ Use a `CameraUpdate` value with nullable `target`, `zoom`, `bearing`, `tilt`,
 and `padding: DpPadding?`. Null means no ownership and no mutation. Reject an
 empty update. Keep `CameraPosition` as the complete observed/saved value.
 
-Expose `setCamera(update)` and suspending
-`animateCamera(update, animation = CameraAnimation.Ease(), anchor = null)`.
-Allow an anchor only for easing, without an explicit target. Reject invalid
-combinations before acquiring ownership. Fits remain queries returning a
-position; convert that position explicitly to a complete update when moving.
-Remove redundant mutation entry points when implementing this API, rather than
-adding aliases or per-property convenience overloads. Keep `stopCamera()` as an
-explicit global stop.
+Expose suspending `animateCamera(update, animation = CameraAnimation.Ease())`.
+Replace `animateCameraPosition`; use `CameraPosition.toCameraUpdate()` when all
+properties should be targeted. Retain `setCameraPosition` for durable
+full-camera assignment and `animateCameraAround` for the separate, ease-only
+anchored operation. Fits remain useful complete-camera operations. This avoids
+an anchor parameter whose legality would depend on the chosen animation and
+update fields.
 
 One command has one duration/easing. Launch separate commands for separate
 timing. Easing owns exactly its specified properties. A flight additionally owns
@@ -74,10 +74,11 @@ when all its properties have ended or been superseded. This matches the native
 transition-ID completion event; completion does not promise every requested
 target was reached.
 
-Coroutine cancellation stops only the still-owned properties of that command. It
-must not stop replacements, even if cleanup runs after a newer command was
-queued. Cancellation before execution removes the pending command. Track
-completion and late cancellation must be idempotent and reentrancy-safe.
+Coroutine cancellation removes queued work or withdraws the completion waiter.
+An already-started engine command continues. This temporary limitation applies
+to both backends, so late cancellation cannot stop a replacement or an unrelated
+animation. Explicit global stop cancels waiting jobs and stops engine motion.
+Scoped engine cancellation will replace this behavior after FFI #726 ships.
 
 Recognized camera input takes exclusive ownership and cancels all programmatic
 commands, including pending ones. Below-slop input retains its current behavior.
@@ -102,52 +103,40 @@ Do not restart surviving tracks toward their targets: that resets timing and
 easing. A future requirement to preserve an animated padding track through inset
 changes needs separate engine viewport insets or an endpoint-rebasing primitive.
 
-## Backend prerequisites and rejected shortcuts
+## Backend follow-ups
 
-The native prerequisite is an owner-thread cancellation operation addressed by
-transition ID, exposed through C and Kotlin. It must stop only that command's
-remaining tracks, respect coupling, leave replacements alone, emit completion
-once, and do nothing for an already-finished ID. Retain cancel-all for input and
-global stop. IDs must be scoped to the map; Compose must not reuse them while a
-late cancellation can still arrive. No FFI files are changed by this branch.
+FFI #726 requests owner-thread cancellation by transition ID: stop only the
+remaining tracks, respect coupling, preserve replacements, emit completion once,
+and make cancellation of a finished ID a no-op. Keep cancel-all for input,
+geometry invalidation, detach, and explicit global stop.
 
-A padding/zoom/etc. `jumpTo` at the sampled current values could supersede
-selected native tracks, but is a new camera mutation with constraint evaluation
-and movement events. It also requires Compose to duplicate the engine's live
-ownership and coupling bookkeeping. Prefer a real cancellation primitive over
-presenting that workaround as cancellation.
+GL JS currently stops all animation when starting another command or applying
+viewport insets. Document that limitation on the public API. Independent JS
+tracks can be implemented later without changing the update type. Avoid private
+transform mutation and avoid reimplementing projection, flight, or anchor math.
 
-The browser prerequisite is larger: independent engine tracks with command
-completion and scoped cancellation, including flight/anchor coupling. Either add
-that capability upstream or deliberately undertake a common camera animator for
-both backends. The latter must implement projection-aware interpolation, flight
-paths, anchors, constraints, reduced motion, and aggregate event reporting; it
-is not a small adapter change. Do not access private JS transforms to simulate
-partial animation or silently make the same API cancel unrelated browser motion.
-
-After the primitives exist, replace the single job/generation and transition
-slot with command ownership in one change across both backends. Retain lifecycle
-and input guards. Browser startup must queue disjoint commands, and completion
-must use command IDs rather than aggregate `moveend`.
+Command admission keeps a set of waiting jobs and a generation revoked by
+exclusive operations/input. Native transition IDs own completion; the browser
+continues to use its single easing and `moveend`. Completion after replacement
+is normal, and does not promise that every target was reached.
 
 ## Verification gates
 
-The implementation must demonstrate these representative behaviors on native and
-real Chromium/Firefox maps:
+Verify native independent behavior and the documented browser fallback on real
+maps:
 
 1. Two disjoint commands reach their targets on different clocks; completion of
    the short command neither resumes the long waiter nor clears movement state.
 2. Replacing one property leaves an older command's other property moving;
-   cancelling that older coroutine stops only its remaining property.
+   cancelling that older coroutine withdraws its waiter without stopping either
+   animation.
 3. Late cancellation cannot stop a replacement; input and explicit global stop
    cancel all commands, including ones waiting for the first viewport/style.
 4. Overlapping flight/anchor ownership stops the coupled set. Insets preserve an
    unanchored camera track, supersede padding, and cancel anchors. Detach
    prevents queued work from affecting a replacement presentation.
 
-The native inset regression checks continuing motion, camera padding, and
-aggregate movement reporting. The original boolean movement state failed after
-the inset command ended; counting outstanding camera changes fixes that failure.
-Abandonment and detach clear the count. This does not establish that the
-proposed public API, scoped cancellation, or browser concurrency has been
-implemented.
+The existing native inset regression checks continuing motion, camera padding,
+and aggregate movement reporting. The original boolean movement state failed
+after the inset command ended; counting outstanding camera changes fixes that
+failure. Abandonment and detach clear the count.
