@@ -25,21 +25,6 @@ properties finish or are superseded:
 
 <Code code={region(camera, "animate")} lang="kotlin" title="App.kt" />
 
-On native platforms, launch separate updates to animate properties with different
-timing. Omitted properties keep their existing animations. A new update replaces
-only overlapping properties; flight target and zoom form a coupled path, and an
-anchored move couples its target to its specified properties.
-
-<Code code={region(camera, "animate-independent")} lang="kotlin" title="App.kt" />
-
-On the browser, a new update stops the previous animation. Omitted properties
-retain their current values. Changing viewport insets can also stop animation.
-
-Cancelling a coroutine stops waiting, but an animation that has already started
-continues. Use <Api of="MapState.stopCameraMovement" /> to stop all motion.
-Use <Api of="CameraPosition.toCameraUpdate" /> to target every property of a
-complete camera position. Animation calls cancel when their attachment is lost.
-
 Use <Api of="MapState.setCameraPosition" /> to move without an animation. The
 position is retained when the map is detached and restored when it is displayed
 again.
@@ -78,14 +63,12 @@ coordinates in dp from the full map's top-left corner:
 
 Use <Api of="CameraAnchor.Geographic" /> to keep a selected geographic location
 at its current screen point. The anchor is resolved when the animation starts
-and must be visible on the map. Omitted components can keep animating on native
-platforms; the browser retains their current values. This operation supports easing; it does not accept a flight or a target
-center because the center moves to keep the anchor fixed.
+and must be visible on the map. This operation supports easing; it does not
+accept a flight or a target center because the center moves to keep the anchor
+fixed.
 
 Persistent camera padding participates in projection. Changing viewport insets,
 resizing the logical viewport, or losing the attachment cancels the animation.
-Until selective native cancellation is available, invalidating an anchor also
-stops unrelated camera animations.
 The operation does not restart on a replacement attachment. Camera constraints
 take precedence over anchor preservation. The preservation guarantee applies to
 flat Mercator maps, including tilted cameras; it does not extend to globe or
