@@ -1,5 +1,6 @@
 package org.maplibre.compose.map
 
+import kotlinx.coroutines.CoroutineDispatcher
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.offline.UnsupportedOfflineManager
 import org.maplibre.compose.resource.GlJsRequestController
@@ -13,6 +14,8 @@ public actual data class MapRuntimeOptions(
   public val requestInterceptor: MapRequestInterceptor? = null,
   /** Serves bytes for resource URLs this provider accepts. Fixed at construction. */
   public val resourceProvider: MapResourceProvider? = null,
+  /** Delivers engine callbacks to map state. Null uses `Dispatchers.Main.immediate`. */
+  public val mainDispatcher: CoroutineDispatcher? = null,
 )
 
 internal actual fun defaultMapRuntimeOptions(): MapRuntimeOptions = MapRuntimeOptions()
@@ -27,6 +30,7 @@ public actual fun createMapRuntime(options: MapRuntimeOptions): MapRuntime {
     closeResources = { requests.close() },
     logger = logger,
     offlineManagerBackend = UnsupportedOfflineManager,
+    mainDispatcher = options.mainDispatcher ?: platformMainDispatcher(),
     createSnapshotterAdapter = { GlJsSnapshotterAdapter(logger, requests) },
     resourceConfig = resourceConfig,
   )

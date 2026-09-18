@@ -182,6 +182,8 @@ kotlin {
     val jvmTest by getting
     jvmTest.dependencies {
       implementation(compose.desktop.currentOs)
+      // Real-runtime tests deliver engine callbacks on Dispatchers.Main, which Swing supplies.
+      implementation(libs.kotlinx.coroutines.swing)
       // Only the EGL interop tests bind EGL directly; nothing in the library does.
       implementation(libs.lwjgl.egl)
     }

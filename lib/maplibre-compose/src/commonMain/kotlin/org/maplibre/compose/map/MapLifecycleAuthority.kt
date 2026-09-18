@@ -7,14 +7,17 @@ import kotlin.concurrent.atomics.AtomicLong
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
+import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.jvm.JvmInline
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.internal.CameraInputAuthority
@@ -72,6 +75,7 @@ internal data class PendingAttachment(
 internal class MapLifecycleAuthority(
   private val owner: MapState,
   private val physicalScope: CoroutineScope,
+  private val mainDispatcher: CoroutineDispatcher = Dispatchers.Unconfined,
 ) {
   internal val gestureCamera: CameraInputAuthority
     get() = owner.gestureAuthority
@@ -336,7 +340,7 @@ internal class MapLifecycleAuthority(
       session?.let(platforms::get)?.let {
         return it
       }
-      MapLifecycleBinding(adapter, physicalScope) { binding ->
+      MapLifecycleBinding(adapter, physicalScope, mainDispatcher) { binding ->
           if (session != null) retireClosingSession(session, binding)
         }
         .also { binding ->
@@ -444,8 +448,21 @@ internal class MapLifecycleAuthority(
 internal class MapLifecycleBinding(
   private val adapter: MapLifecyclePlatformAdapter,
   private val physicalScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+  private val mainDispatcher: CoroutineDispatcher = Dispatchers.Unconfined,
   private val onClosing: (MapLifecycleBinding) -> Unit = {},
 ) {
+  /**
+   * Runs [block] on the main dispatcher, inline when the caller is already there. Posts from one
+   * engine thread keep their order, so a callback never overtakes the event it follows.
+   */
+  fun postToMain(block: () -> Unit) {
+    if (mainDispatcher.isDispatchNeeded(EmptyCoroutineContext)) {
+      mainDispatcher.dispatch(EmptyCoroutineContext, Runnable(block))
+    } else {
+      block()
+    }
+  }
+
   private val nextIdentity = AtomicLong(0L)
   private val current = AtomicReference<InternalState>(InternalState.OpenDetached(null))
   private val currentStyle = AtomicReference<StyleClaim?>(null)

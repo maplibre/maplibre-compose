@@ -24,12 +24,14 @@ import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.jvm.JvmInline
 import kotlin.time.Duration
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
@@ -110,6 +112,17 @@ internal expect fun defaultMapRuntimeOptions(): MapRuntimeOptions
 
 /** Creates a runtime from [options]. The caller must close the result. */
 public expect fun createMapRuntime(options: MapRuntimeOptions): MapRuntime
+
+/**
+ * The main dispatcher when one is installed, so engine callbacks reach map state on the thread that
+ * reads it. Without one, callbacks run inline on the engine thread as before.
+ */
+internal fun platformMainDispatcher(): CoroutineDispatcher =
+  try {
+    Dispatchers.Main.immediate.also { it.isDispatchNeeded(EmptyCoroutineContext) }
+  } catch (_: IllegalStateException) {
+    Dispatchers.Unconfined
+  }
 
 /** Creates logical maps that share one application-level configuration. */
 public interface MapRuntime {
@@ -775,7 +788,8 @@ internal constructor(
       content()
     }
   }
-  internal val lifecycle = MapLifecycleAuthority(this, runtime.physicalScope)
+  internal val lifecycle =
+    MapLifecycleAuthority(this, runtime.physicalScope, runtime.mainDispatcher)
   internal val styleAuthority = MapStyleAuthority(lifecycle, runtime, baseStyle)
   public val style: MapStyleState = styleAuthority.style
   internal val gestureAuthority = CameraInputAuthority(this)
@@ -1322,6 +1336,8 @@ internal class RuntimeImplementation(
   offlineManagerBackend: OfflineManagerBackend = UnsupportedOfflineManager,
   internal val physicalScope: CoroutineScope =
     CoroutineScope(SupervisorJob() + Dispatchers.Default),
+  /** Delivers engine callbacks to map states. Runs them inline when no dispatch is needed. */
+  internal val mainDispatcher: CoroutineDispatcher = platformMainDispatcher(),
   internal val createSnapshotterAdapter: () -> SnapshotterAdapter = ::unsupportedSnapshots,
   internal val styleEvaluator: StyleCompositionEvaluator = DefaultStyleCompositionEvaluator,
   internal val resourceConfig: MapResourceConfig = MapResourceConfig(),

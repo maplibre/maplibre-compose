@@ -2,6 +2,7 @@ package org.maplibre.compose.map
 
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -12,6 +13,7 @@ import org.maplibre.spatialk.geojson.Position
 
 internal fun mapRuntimeForTest(
   physicalScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+  mainDispatcher: CoroutineDispatcher = Dispatchers.Unconfined,
   createSnapshotterAdapter: () -> SnapshotterAdapter = ::unsupportedSnapshots,
   styleEvaluator: StyleCompositionEvaluator = DefaultStyleCompositionEvaluator,
   closeResources: suspend () -> Unit = {},
@@ -21,6 +23,7 @@ internal fun mapRuntimeForTest(
     closeResources = closeResources,
     logger = null,
     physicalScope = physicalScope,
+    mainDispatcher = mainDispatcher,
     createSnapshotterAdapter = createSnapshotterAdapter,
     styleEvaluator = styleEvaluator,
   )

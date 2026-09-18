@@ -21,6 +21,7 @@ internal fun createNativeMapRuntime(options: MlnFfiRuntimeOptions): MapRuntime {
     },
     logger = normalizedOptions.logger,
     offlineManagerBackend = offlineManager,
+    mainDispatcher = normalizedOptions.mainDispatcher ?: platformMainDispatcher(),
     createSnapshotterAdapter = {
       createNativeSnapshotterAdapter(normalizedOptions, resourceConfig)
     },

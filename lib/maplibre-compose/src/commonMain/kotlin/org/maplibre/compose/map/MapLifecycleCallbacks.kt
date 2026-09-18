@@ -3,7 +3,11 @@ package org.maplibre.compose.map
 import kotlinx.coroutines.Deferred
 import org.maplibre.compose.style.StyleBinding
 
-/** Filters platform callbacks through identities captured by their platform producer. */
+/**
+ * Filters platform callbacks through identities captured by their platform producer, then posts
+ * each delegate call to the main dispatcher. A `beforeDelegate` still runs inside the acceptance on
+ * the calling thread. [resolveMissingImage] answers the engine synchronously.
+ */
 internal class MapLifecycleCallbacks(
   private val lifecycle: MapLifecycleBinding,
   private val delegate: () -> MapAdapter.Callbacks,
@@ -11,7 +15,9 @@ internal class MapLifecycleCallbacks(
 
   fun beginStyleRequest(engine: EngineMapIdentity, map: MapAdapter): StyleRequestIdentity? {
     val request = lifecycle.claimStyleRequestIdentity(engine) ?: return null
-    lifecycle.acceptStyleRequestEvent(engine, request) { delegate().onStyleChanged(map, null) }
+    lifecycle.acceptStyleRequestEvent(engine, request) {
+      lifecycle.postToMain { delegate().onStyleChanged(map, null) }
+    }
     return request
   }
 
@@ -24,13 +30,13 @@ internal class MapLifecycleCallbacks(
   ): StyleIdentity? {
     return lifecycle.claimStyleIdentity(engine, request) { identity ->
       beforeDelegate(identity)
-      delegate().onStyleChanged(map, style)
+      lifecycle.postToMain { delegate().onStyleChanged(map, style) }
     }
   }
 
   fun onStyleReady(engine: EngineMapIdentity, style: StyleIdentity, map: MapAdapter) =
     lifecycle.acceptStyleEvent(engine, style) {
-      delegate().onStyleReady(map)
+      lifecycle.postToMain { delegate().onStyleReady(map) }
     }
 
   fun onStyleFailed(
@@ -42,7 +48,7 @@ internal class MapLifecycleCallbacks(
   ) =
     lifecycle.acceptStyleRequestEvent(engine, request) {
       beforeDelegate()
-      delegate().onStyleFailed(map, reason)
+      lifecycle.postToMain { delegate().onStyleFailed(map, reason) }
     }
 
   fun onStyleSourcesChanged(
@@ -52,7 +58,7 @@ internal class MapLifecycleCallbacks(
     sourceId: String?,
   ) =
     lifecycle.acceptStyleEvent(engine, style) {
-      delegate().onStyleSourcesChanged(map, sourceId)
+      lifecycle.postToMain { delegate().onStyleSourcesChanged(map, sourceId) }
     }
 
   fun onGestureActive(
@@ -62,16 +68,16 @@ internal class MapLifecycleCallbacks(
     active: Boolean,
   ) =
     lifecycle.acceptPresentationEvent(engine, lease) {
-      delegate().onGestureActive(map, active)
+      lifecycle.postToMain { delegate().onGestureActive(map, active) }
     }
 
   fun onViewportChanged(engine: EngineMapIdentity, lease: RenderLease, map: MapAdapter) =
     lifecycle.acceptPresentationEvent(engine, lease) {
-      delegate().onViewportChanged(map)
+      lifecycle.postToMain { delegate().onViewportChanged(map) }
     }
 
   fun onEvent(engine: EngineMapIdentity, map: MapAdapter, event: MapEvent) =
-    lifecycle.acceptEngineEvent(engine) { delegate().onEvent(map, event) }
+    lifecycle.acceptEngineEvent(engine) { lifecycle.postToMain { delegate().onEvent(map, event) } }
 
   /**
    * [beforeDelegate] runs inside the same acceptance, so a session can publish the viewport the
@@ -86,18 +92,23 @@ internal class MapLifecycleCallbacks(
   ) =
     lifecycle.acceptPresentationEvent(engine, lease) {
       beforeDelegate()
-      delegate().onEvent(map, event)
+      lifecycle.postToMain { delegate().onEvent(map, event) }
     }
 
   fun onEvent(engine: EngineMapIdentity, style: StyleIdentity, map: MapAdapter, event: MapEvent) =
-    lifecycle.acceptStyleEvent(engine, style) { delegate().onEvent(map, event) }
+    lifecycle.acceptStyleEvent(engine, style) {
+      lifecycle.postToMain { delegate().onEvent(map, event) }
+    }
 
   fun onEvent(
     engine: EngineMapIdentity,
     request: StyleRequestIdentity,
     map: MapAdapter,
     event: MapEvent,
-  ) = lifecycle.acceptStyleRequestEvent(engine, request) { delegate().onEvent(map, event) }
+  ) =
+    lifecycle.acceptStyleRequestEvent(engine, request) {
+      lifecycle.postToMain { delegate().onEvent(map, event) }
+    }
 
   /** Asks the loaded style's owner to supply a missing image. */
   fun resolveMissingImage(
