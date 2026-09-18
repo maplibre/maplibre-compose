@@ -9,10 +9,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
+import org.maplibre.compose.expressions.ast.UnitConversion
 import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.dsl.div
 import org.maplibre.compose.expressions.dsl.textOffset
-import org.maplibre.compose.expressions.dsl.times
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.DpOffsetValue
@@ -53,7 +52,7 @@ private const val ASSUMED_SP = 16f // MapLibre's default text size
 @Composable
 private fun rememberDpCompiler() =
   rememberPropertyCompiler(
-    emScale = const(ASSUMED_SP) * styleFontScale(),
+    emScale = UnitConversion(const(ASSUMED_SP), styleFontScale()),
     spScale = styleFontScale(),
   )
 
@@ -62,7 +61,7 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
   val compileWithSpTextSize =
     rememberPropertyCompiler(emScale = const(ASSUMED_SP), spScale = const(1f))
   val textSizeSp = compileWithSpTextSize(textSize)
-  val spScale = remember(textSizeSp) { const(1f) / textSizeSp.cast() }
+  val spScale = remember(textSizeSp) { UnitConversion(const(1f), textSizeSp.cast(), divide = true) }
   return rememberPropertyCompiler(emScale = const(1f), spScale = spScale)
 }
 

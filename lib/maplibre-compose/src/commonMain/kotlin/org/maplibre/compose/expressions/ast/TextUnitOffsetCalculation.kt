@@ -4,8 +4,6 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.isSpecified
 import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.dsl.list
-import org.maplibre.compose.expressions.dsl.times
 import org.maplibre.compose.expressions.value.FloatOffsetValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.TextUnitOffsetValue
@@ -24,7 +22,7 @@ public data class TextUnitOffsetCalculation private constructor(val x: TextUnit,
         else -> error("Unrecognized TextUnitType: ${x.type}")
       }
 
-    return scaledTextOffset(x.value, y.value, scale).compile(context).cast()
+    return scaledTextOffset(x.value, y.value, scale, context).cast()
   }
 
   override fun visit(block: (Expression<*>) -> Unit): Unit = block(this)
@@ -42,4 +40,13 @@ internal fun scaledTextOffset(
   x: Float,
   y: Float,
   scale: Expression<FloatValue>,
-): Expression<FloatOffsetValue> = list(const(x) * scale, const(y) * scale).cast()
+  context: ExpressionContext,
+): CompiledExpression<FloatOffsetValue> {
+  val compiledScale = scale.compile(context)
+  val components = listOf(x, y).map { UnitConversion(const(it), compiledScale).compile(context) }
+  return if (components.all { it is FloatLiteral }) {
+    CompiledListLiteral.of(components.map { it as FloatLiteral }).cast()
+  } else {
+    CompiledSemiliteral(components).cast()
+  }
+}

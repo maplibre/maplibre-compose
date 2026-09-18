@@ -11,7 +11,7 @@ internal data class DpTextOffsetCalculation(val x: Dp, val y: Dp) :
   }
 
   override fun compile(context: ExpressionContext): CompiledExpression<TextUnitOffsetValue> =
-    scaledTextOffset(x.value, y.value, context.dpScale).compile(context).cast()
+    scaledTextOffset(x.value, y.value, context.dpScale, context).cast()
 
   override fun visit(block: (Expression<*>) -> Unit): Unit = block(this)
 }

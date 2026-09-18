@@ -56,7 +56,7 @@ class SemiliteralTest {
         override val dpScale = const(0.25f)
       }
     assertEquals(
-      """["let","semiliteral_value",["semiliteral",["top",["let","semiliteral_value",["semiliteral",[["*",2,0.5],["*",-4,0.5]]],["var","semiliteral_value"]],"top",["let","semiliteral_value",["semiliteral",[["*",3,1],["*",-6,1]]],["var","semiliteral_value"]],"left",["let","semiliteral_value",["semiliteral",[["*",4,0.25],["*",-8,0.25]]],["var","semiliteral_value"]]]],["var","semiliteral_value"]]""",
+      """["let","semiliteral_value",["semiliteral",["top",["literal",[1,-2]],"top",["literal",[3,-6]],"left",["literal",[1,-2]]]],["var","semiliteral_value"]]""",
       styleJson(
         textVariableAnchorOffset(
           SymbolAnchor.Top to textOffset(2.sp, (-4).sp),

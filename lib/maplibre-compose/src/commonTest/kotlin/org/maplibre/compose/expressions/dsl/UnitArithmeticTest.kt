@@ -101,10 +101,10 @@ class UnitArithmeticTest {
     val sum: Expression<TextUnitValue> = const(1.em) + const(2.em)
     val scaled: Expression<TextUnitValue> = const(2.em) * const(3f)
     val fromZoom: Expression<TextUnitValue> = (zoom() / const(4f)).em
-    assertEquals("""["*",1.5,16]""", styleJson(em, TextContext))
-    assertEquals("""["*",12,1.5]""", styleJson(sp, TextContext))
-    assertEquals("""["+",["*",1,16],["*",2,16]]""", styleJson(sum, TextContext))
-    assertEquals("""["*",["*",2,16],3]""", styleJson(scaled, TextContext))
+    assertEquals("""24""", styleJson(em, TextContext))
+    assertEquals("""18""", styleJson(sp, TextContext))
+    assertEquals("""["+",16,32]""", styleJson(sum, TextContext))
+    assertEquals("""["*",32,3]""", styleJson(scaled, TextContext))
     assertEquals("""["*",["/",["zoom"],4],16]""", styleJson(fromZoom, TextContext))
   }
 
@@ -122,7 +122,7 @@ class UnitArithmeticTest {
     val size: Expression<TextUnitValue> =
       interpolate(linear(), zoom(), 10 to const(1.em), 14 to const(1.5.em))
     assertEquals(
-      """["interpolate",["linear"],["zoom"],10,["*",1,16],14,["*",1.5,16]]""",
+      """["interpolate",["linear"],["zoom"],10,16,14,24]""",
       styleJson(size, TextContext),
     )
 

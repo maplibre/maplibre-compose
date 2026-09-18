@@ -13,8 +13,8 @@ import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.ast.NullLiteral
 import org.maplibre.compose.expressions.ast.PainterLiteral
+import org.maplibre.compose.expressions.ast.UnitConversion
 import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.dsl.div
 import org.maplibre.compose.expressions.value.ExpressionValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.style.LocalStyleNode
@@ -46,39 +46,29 @@ internal class LayerPropertyCompiler(
     object : ExpressionContext {
       private var seenTextUnitType: TextUnitType? = null
 
-      override val emScale: Expression<FloatValue>
-        get() {
-          return this@LayerPropertyCompiler.emScale
-            ?: when (seenTextUnitType) {
-              null -> {
-                seenTextUnitType = TextUnitType.Em
-                const(1f)
-              }
-
-              TextUnitType.Em -> const(1f)
-              else -> error("mixing EM and SP units is not supported in most expressions")
-            }
+      private fun unscaledUnit(type: TextUnitType): Expression<FloatValue> {
+        check(seenTextUnitType == null || seenTextUnitType == type) {
+          "mixing EM and SP units is not supported in most expressions"
         }
+        seenTextUnitType = type
+        return const(1f)
+      }
+
+      override val emScale: Expression<FloatValue>
+        get() = this@LayerPropertyCompiler.emScale ?: unscaledUnit(TextUnitType.Em)
 
       override val spScale: Expression<FloatValue>
-        get() {
-          return this@LayerPropertyCompiler.spScale
-            ?: when (seenTextUnitType) {
-              null -> {
-                seenTextUnitType = TextUnitType.Sp
-                const(1f)
-              }
-
-              TextUnitType.Sp -> const(1f)
-              else -> error("mixing SP and EM units is not supported in most expressions")
-            }
-        }
+        get() = this@LayerPropertyCompiler.spScale ?: unscaledUnit(TextUnitType.Sp)
 
       // Use the same linear font scale as SymbolLayer's rendered text size.
       override val dpScale: Expression<FloatValue>
         get() =
-          (this@LayerPropertyCompiler.spScale
-            ?: error("DP text offsets require a text-unit compiler")) / fontScale
+          UnitConversion(
+            this@LayerPropertyCompiler.spScale
+              ?: error("DP text offsets require a text-unit compiler"),
+            fontScale,
+            divide = true,
+          )
 
       override fun resolveBitmap(bitmap: BitmapLiteral): String = images.resolve(bitmap)
 
