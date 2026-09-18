@@ -31,7 +31,6 @@ import androidx.compose.ui.unit.DpOffset
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
@@ -42,18 +41,14 @@ import org.maplibre.compose.map.MapSnapshotRequest
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.overlay.attributions
-import org.maplibre.spatialk.geojson.Position
 
-/** Downtown Seattle, a dense area to frame; any place works. */
-private val StartPosition = Position(longitude = -122.3358, latitude = 47.6086)
 private const val MaxSnapshotCanvasPx = 4096f
 
 object MapSnapshotterDemo : Demo {
   override val name = "Map snapshotter"
   override val description =
     "Frame a top-down shot with the on-map viewfinder, capture it, and share or save the photo."
-  override val destination =
-    DemoDestination.ExactCamera(CameraPosition(target = StartPosition, zoom = 13.5))
+  override val destination = DemoDestination.None
 
   override fun interactions(mapState: MapState, settings: MapInteractions): MapInteractions =
     MapInteractions(settings) { camera { tilt { enabled = false } } }

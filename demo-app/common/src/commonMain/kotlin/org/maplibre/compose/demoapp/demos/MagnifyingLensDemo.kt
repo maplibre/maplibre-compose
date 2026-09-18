@@ -52,7 +52,6 @@ import org.maplibre.compose.map.MapUiOptions
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.overlay.MapOverlayScope
-import org.maplibre.spatialk.geojson.BoundingBox
 
 /**
  * A second map floats over the shared one as a magnifying lens.
@@ -68,10 +67,7 @@ object MagnifyingLensDemo : Demo {
   override val description =
     "Drag a magnifying lens over the map. Change its size, shape, and magnification."
 
-  private val lensRegion =
-    BoundingBox(west = -74.002, south = 40.748, east = -73.968, north = 40.768)
-
-  override val destination = DemoDestination.FitBounds(lensRegion)
+  override val destination = DemoDestination.None
 
   private enum class LensShape(val label: String, val shape: Shape) {
     Circle("Circle", CircleShape),
