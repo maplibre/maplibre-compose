@@ -278,13 +278,32 @@ internal external interface GlJsCamera {
   val transform: GlJsTransform
 }
 
-/** The clone retains camera matrices and the globe/mercator transition for one rendered frame. */
+/**
+ * The clone retains camera matrices and the globe/mercator transition for one rendered frame. The
+ * setters apply the map's zoom, pitch, and bounds constraints and recompute the matrices.
+ */
 internal external interface GlJsTransform {
   val center: LngLat
 
+  val zoom: Double
+
   fun clone(): GlJsTransform
 
+  fun setCenter(center: LngLat)
+
+  fun setZoom(zoom: Double)
+
+  fun setBearing(bearing: Double)
+
+  fun setPitch(pitch: Double)
+
+  fun setPadding(padding: PaddingOptions)
+
   fun locationToScreenPoint(position: LngLat, terrain: GlJsTerrain? = definedExternally): Point
+
+  fun screenPointToLocation(point: Point, terrain: GlJsTerrain? = definedExternally): LngLat
+
+  fun isPointOnMapSurface(point: Point, terrain: GlJsTerrain? = definedExternally): Boolean
 }
 
 internal external interface GlJsTerrain

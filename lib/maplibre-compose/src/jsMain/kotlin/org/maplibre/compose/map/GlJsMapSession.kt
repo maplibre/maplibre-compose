@@ -1012,11 +1012,12 @@ internal class GlJsMapSession(
     cameraPadding: DpPadding?,
     fitPadding: DpPadding,
   ): CameraPosition? {
-    // GL JS cameraForBounds reads persistent padding from the live transform and cannot query
-    // destination padding. Fit all four corners through the same geometry fitter so every query
-    // uses explicit padding inputs without mutating the map or accessing private GL JS APIs.
-    // TODO: Replace this with the planned upstream GL JS destination-padding fit API
-    // once that PR lands (PR not filed yet).
+    // GL JS cameraForBounds reads persistent padding from the live transform, cannot query
+    // destination padding, and ignores pitch. Fit all four corners through the same geometry fitter
+    // so every query uses explicit padding inputs without mutating the map.
+    // TODO: Delegate to GL JS cameraForBounds once it accepts destination padding
+    // (https://github.com/maplibre/maplibre-gl-js/issues/8480) and honors pitch
+    // (https://github.com/maplibre/maplibre-gl-js/issues/8479).
     val east =
       if (boundingBox.east < boundingBox.west) boundingBox.east + 360.0 else boundingBox.east
     return cameraPositionForPositions(
@@ -1043,18 +1044,38 @@ internal class GlJsMapSession(
     val current = cameraPosition()
     val destination = current.copy(padding = cameraPadding ?: current.padding)
     val extent = appliedExtent
-    val fit =
+    val width = extent.width.toDouble()
+    val height = extent.height.toDouble()
+    val edgePadding = destination.effectivePadding()
+    val fitPaddingOptions = fitPadding.toPaddingOptions()
+    val minZoom = getMinZoom()
+    val maxZoom = getMaxZoom()
+    val flat =
       fitPositions(
         positions = positions,
         bearing = bearing,
         zoom = getZoom(),
-        width = extent.width.toDouble(),
-        height = extent.height.toDouble(),
-        edgePadding = destination.effectivePadding(),
-        fitPadding = fitPadding.toPaddingOptions(),
-        minZoom = getMinZoom(),
-        maxZoom = getMaxZoom(),
+        width = width,
+        height = height,
+        edgePadding = edgePadding,
+        fitPadding = fitPaddingOptions,
+        minZoom = minZoom,
+        maxZoom = maxZoom,
       ) ?: return null
+    val fit =
+      refineFitForTilt(
+        transform = _camera.transform,
+        fit = flat,
+        positions = positions,
+        bearing = bearing,
+        tilt = tilt,
+        width = width,
+        height = height,
+        edgePadding = edgePadding,
+        fitPadding = fitPaddingOptions,
+        minZoom = minZoom,
+        maxZoom = maxZoom,
+      )
     return destination.copy(bearing = bearing, target = fit.target, tilt = tilt, zoom = fit.zoom)
   }
 
