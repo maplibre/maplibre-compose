@@ -546,6 +546,7 @@ internal constructor(
     guard: CameraCommandGuard?,
   ): Unit = runLeaseBound {
     awaitViewportState()
+    guard?.awaitDispatchTurn()
     adapter.fitCameraToBounds(
       boundingBox,
       bearing,
@@ -562,6 +563,7 @@ internal constructor(
     guard: CameraCommandGuard? = null,
   ): Unit = runLeaseBound {
     awaitViewportState()
+    guard?.awaitDispatchTurn()
     adapter.animateCamera(
       update,
       animation.forPathTo(update.applyTo(adapter.getCameraPosition())),
@@ -578,6 +580,7 @@ internal constructor(
     guard: CameraCommandGuard? = null,
   ): Unit = runLeaseBound {
     awaitViewportState()
+    guard?.awaitDispatchTurn()
     adapter.animateCameraAround(anchor, zoom, bearing, tilt, animation, boundGuard(guard))
   }
 
@@ -591,6 +594,7 @@ internal constructor(
     guard: CameraCommandGuard?,
   ): Unit = runLeaseBound {
     awaitViewportState()
+    guard?.awaitDispatchTurn()
     val target = adapter.cameraForBounds(boundingBox, bearing, tilt, cameraPadding, fitPadding)
     adapter.animateCameraToBounds(
       boundingBox,
@@ -714,9 +718,15 @@ internal constructor(
   private fun <T> withViewport(block: (MapAdapter) -> T): T? =
     owner.withCurrentOrNull(this) { if (viewportState == null) null else block(adapter) }
 
-  private fun boundGuard(guard: CameraCommandGuard?): CameraCommandGuard = CameraCommandGuard {
-    owner.isCurrent(this) && guard?.isValid() != false
-  }
+  private fun boundGuard(guard: CameraCommandGuard?): CameraCommandGuard =
+    object : CameraCommandGuard {
+      override fun isValid(): Boolean =
+        owner.isCurrent(this@MapAttachment) && guard?.isValid() != false
+
+      override fun dispatched() {
+        guard?.dispatched()
+      }
+    }
 
   private suspend fun awaitViewportState(): Viewport = firstViewport.await()
 

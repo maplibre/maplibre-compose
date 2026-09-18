@@ -7,6 +7,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import kotlin.coroutines.CoroutineContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -20,7 +21,10 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.supervisorScope
@@ -2039,6 +2043,80 @@ class MapPresentationTest {
   }
 
   @Test
+  fun concurrent_camera_commands_dispatch_in_admission_order_even_when_resumed_backwards() =
+    runTest {
+      class QueuedDispatcher : CoroutineDispatcher() {
+        val pending = ArrayDeque<Runnable>()
+
+        override fun dispatch(context: CoroutineContext, block: Runnable) {
+          pending.addLast(block)
+        }
+
+        fun drain() {
+          while (pending.isNotEmpty()) pending.removeFirst().run()
+        }
+      }
+
+      for (cancelMiddle in listOf(false, true)) {
+        val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
+        val state = runtime.createMapState(BaseStyle.Empty)
+        val dispatched = mutableListOf<CameraUpdate>()
+        val adapter =
+          object : PresentationTestAdapter() {
+            override suspend fun animateCamera(
+              update: CameraUpdate,
+              animation: CameraAnimation,
+              guard: CameraCommandGuard?,
+            ) {
+              dispatched += update
+              guard?.dispatched()
+              finishAnimation.await()
+            }
+          }
+        if (cancelMiddle) state.publishPresentation(state.reservePresentation(), adapter)
+        val olderDispatcher = QueuedDispatcher()
+        val newerDispatcher = QueuedDispatcher()
+        val olderUpdate = CameraUpdate(zoom = 5.0, bearing = 90.0)
+        val newerUpdate = CameraUpdate(zoom = 10.0)
+        val older =
+          async(olderDispatcher, start = CoroutineStart.UNDISPATCHED) {
+            state.animateCamera(olderUpdate)
+          }
+        val middle =
+          if (cancelMiddle)
+            async(newerDispatcher, start = CoroutineStart.UNDISPATCHED) {
+              state.animateCamera(CameraUpdate(tilt = 30.0))
+            }
+          else null
+        val newer =
+          async(newerDispatcher, start = CoroutineStart.UNDISPATCHED) {
+            state.animateCamera(newerUpdate)
+          }
+        middle?.cancel()
+        newerDispatcher.drain()
+        if (!cancelMiddle) state.publishPresentation(state.reservePresentation(), adapter)
+        requireNotNull(state.currentMapAttachment).updateViewport(testViewport())
+        try {
+          newerDispatcher.drain()
+          assertTrue(dispatched.isEmpty(), "newer work must wait for the older dispatch")
+          olderDispatcher.drain()
+          newerDispatcher.drain()
+          assertEquals(listOf(olderUpdate, newerUpdate), dispatched)
+          assertFalse(older.isCompleted, "ordering must not wait for animation completion")
+          assertFalse(newer.isCompleted)
+        } finally {
+          older.cancel()
+          newer.cancel()
+          olderDispatcher.drain()
+          newerDispatcher.drain()
+          state.close()
+          state.awaitClosed()
+          runtime.close()
+        }
+      }
+    }
+
+  @Test
   fun camera_takeover_cancels_calls_waiting_for_attachment_or_viewport() = runTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
     val state = runtime.createMapState(BaseStyle.Empty)
@@ -2320,6 +2398,7 @@ internal open class PresentationTestAdapter(
     guard: CameraCommandGuard?,
   ) {
     animationStarted.complete(Unit)
+    guard?.dispatched()
     finishAnimation.await()
   }
 
@@ -2332,6 +2411,7 @@ internal open class PresentationTestAdapter(
     guard: CameraCommandGuard?,
   ) {
     animationStarted.complete(Unit)
+    guard?.dispatched()
     finishAnimation.await()
   }
 
@@ -2343,7 +2423,10 @@ internal open class PresentationTestAdapter(
     fitPadding: DpPadding,
     animation: CameraAnimation,
     guard: CameraCommandGuard?,
-  ) = awaitCancellation()
+  ) {
+    guard?.dispatched()
+    awaitCancellation()
+  }
 
   override fun setBaseStyle(style: BaseStyle) {
     presentationWasVisibleWhileConfiguring =

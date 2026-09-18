@@ -20,6 +20,12 @@ internal typealias CameraInputToken = CameraInputAuthority.Token
 
 internal fun interface CameraCommandGuard {
   fun isValid(): Boolean
+
+  /** Waits for older commands to be dispatched, without waiting for their animations. */
+  suspend fun awaitDispatchTurn() = Unit
+
+  /** Called once the command has entered the backend queue (or has been rejected). */
+  fun dispatched() = Unit
 }
 
 /**
@@ -40,6 +46,7 @@ internal inline fun runCameraCommand(
 
 /** The lifecycle lock serializes admission with takeover and completion fences. */
 internal class CameraInputAuthority(private val owner: MapState) {
+  private var dispatchTail: DispatchTurn? = null
   private var commandRevision = 0L
   private var cameraGeneration = 0L
   private var inputGeneration = 0L
@@ -88,6 +95,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
         previous = revokeLocked()
         previousJobs = programmaticJobs.toList()
         programmaticJobs.clear()
+        dispatchTail = null
         cameraGeneration++
         inputGeneration++
         active = token
@@ -109,6 +117,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
     var previous: CameraInputToken? = null
     var previousJobs: List<Job> = emptyList()
     var revision = 0L
+    var turn: DispatchTurn? = null
     val generation =
       owner.lifecycle.serialized {
         job?.ensureActive()
@@ -119,25 +128,63 @@ internal class CameraInputAuthority(private val owner: MapState) {
           previousJobs = programmaticJobs.toList()
           programmaticJobs.clear()
           cameraGeneration++
+          dispatchTail = null
+        }
+        if (job != null) {
+          turn = DispatchTurn(dispatchTail).also { dispatchTail = it }
         }
         job?.let(programmaticJobs::add)
         inputGeneration++
         cameraGeneration
       }
+    turn?.onCompletion {
+      owner.lifecycle.serialized {
+        if (dispatchTail === turn) dispatchTail = null
+      }
+    }
     previousJobs.forEach { it.cancel(CancellationException("A newer command owns the camera")) }
     job?.invokeOnCompletion {
+      turn?.release()
       owner.lifecycle.serialized {
         programmaticJobs.remove(job)
       }
     }
     previous?.cancelWork()
-    return CameraCommandGuard {
-      owner.lifecycle.serialized {
-        !owner.isClosed &&
-          cameraGeneration == generation &&
-          job?.isCancelled != true &&
-          (job != null || commandRevision == revision)
+    return object : CameraCommandGuard {
+      override fun isValid(): Boolean =
+        owner.lifecycle.serialized {
+          !owner.isClosed &&
+            cameraGeneration == generation &&
+            job?.isCancelled != true &&
+            (job != null || commandRevision == revision)
+        }
+
+      override suspend fun awaitDispatchTurn() {
+        turn?.await()
       }
+
+      override fun dispatched() {
+        turn?.release()
+      }
+    }
+  }
+
+  /** Orders dispatch, not animation completion. Cancelled entries cannot bypass a predecessor. */
+  private class DispatchTurn(private val previous: DispatchTurn?) {
+    private val completion = CompletableDeferred<Unit>()
+
+    suspend fun await() {
+      previous?.completion?.await()
+    }
+
+    fun onCompletion(block: () -> Unit) {
+      completion.invokeOnCompletion { block() }
+    }
+
+    fun release() {
+      val predecessor = previous?.completion
+      if (predecessor == null) completion.complete(Unit)
+      else predecessor.invokeOnCompletion { completion.complete(Unit) }
     }
   }
 

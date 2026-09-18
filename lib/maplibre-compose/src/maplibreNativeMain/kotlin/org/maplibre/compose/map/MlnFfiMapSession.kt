@@ -1629,6 +1629,7 @@ internal class MlnFfiMapSession(
     if (guard?.isValid() == false || gestureToken != null && !gestureToken.enqueue(enqueue)) {
       if (continuation.isActive) continuation.resume(Unit)
     } else if (gestureToken == null) enqueue()
+    guard?.dispatched()
   }
 
   /** Owner thread only. */
