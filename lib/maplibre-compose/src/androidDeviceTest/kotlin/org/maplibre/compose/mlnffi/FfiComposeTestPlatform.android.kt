@@ -14,13 +14,20 @@ import org.maplibre.compose.map.resetForTest
 internal actual fun runFfiComposeUiTest(block: suspend ComposeUiTest.() -> Unit) {
   FfiTestPlatform.initialize()
   val watchdog = startHangWatchdog()
+  var failure: Throwable? = null
   try {
     runAndroidComposeUiTest<ComponentActivity> { block(this) }
+  } catch (error: Throwable) {
+    failure = error
+    throw error
   } finally {
-    watchdog.interrupt()
-    // Bounded, so a stuck stderr dump cannot hold teardown for the watchdog's sake.
-    watchdog.join(1_000)
-    DefaultMapRuntime.resetForTest()
+    try {
+      DefaultMapRuntime.resetForTest(failure)
+    } finally {
+      watchdog.interrupt()
+      // Bounded, so a stuck stderr dump cannot hold teardown for the watchdog's sake.
+      watchdog.join(1_000)
+    }
   }
 }
 

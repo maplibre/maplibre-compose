@@ -34,6 +34,30 @@ import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
 
 class DeclaredStyleOwnershipTest {
   @Test
+  fun removed_resources_can_be_declared_again_with_the_same_ids(): MapTestResult = runMapTest {
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      val source = GeoJsonSource("points", DATA, GeoJsonOptions())
+      fixture.declare { CircleLayer("points", source, visible = true) }
+      val original = assertNotNull(fixture.state.style.sources[source])
+      assertNotNull(fixture.state.style.layers["points"])
+
+      fixture.declare {}
+      assertNull(fixture.state.style.sources["points"])
+      assertNull(fixture.state.style.layers["points"])
+      assertTrue("points" !in assertNotNull(fixture.style).layerIds())
+
+      fixture.declare { CircleLayer("points", source, visible = true) }
+      assertNotNull(fixture.state.style.sources["points"])
+      assertEquals(
+        JsonPrimitive("circle"),
+        assertNotNull(fixture.state.style.layers["points"]).getProperty("type"),
+      )
+      assertFailsWith<IllegalStateException> { original.getFeatureState("0") }
+    }
+  }
+
+  @Test
   fun declared_sources_allow_runtime_operations_without_mutation_capabilities(): MapTestResult =
     runMapTest {
       createMapFixture().use { fixture ->

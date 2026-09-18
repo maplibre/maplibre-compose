@@ -195,10 +195,8 @@ class MapCameraTransitionTest {
   @Test
   fun a_bounds_query_can_be_applied_with_transient_padding(): MapTestResult = runMapTest {
     createMapFixture().use {
-      it.loadStyle(BaseStyle.Empty)
       it.session.setViewportInsets(VIEWPORT_INSETS)
-      it.state.setCameraPosition(START)
-      it.awaitMapReady()
+      it.startAt(START)
       it.pumpUntil("the viewport insets to be applied") {
         it.cameraTargetMatches(START, VIEWPORT_INSETS)
       }
@@ -323,10 +321,8 @@ class MapCameraTransitionTest {
   @Test
   fun a_bounds_jump_keeps_fit_padding_transient(): MapTestResult = runMapTest {
     createMapFixture().use {
-      it.loadStyle(BaseStyle.Empty)
       it.session.setViewportInsets(VIEWPORT_INSETS)
-      it.state.setCameraPosition(START)
-      it.awaitMapReady()
+      it.startAt(START)
       it.pumpUntil("the viewport insets to be applied") {
         it.cameraTargetMatches(START, VIEWPORT_INSETS)
       }
@@ -383,10 +379,8 @@ class MapCameraTransitionTest {
   @Test
   fun a_bounds_animation_keeps_fit_padding_transient(): MapTestResult = runMapTest {
     createMapFixture().use {
-      it.loadStyle(BaseStyle.Empty)
       it.session.setViewportInsets(VIEWPORT_INSETS)
-      it.state.setCameraPosition(START)
-      it.awaitMapReady()
+      it.startAt(START)
       it.pumpUntil("the viewport insets to be applied") {
         it.cameraTargetMatches(START, VIEWPORT_INSETS)
       }
@@ -1032,7 +1026,11 @@ class MapCameraTransitionTest {
     pumpUntil("the map to reach its starting camera") {
       val camera = session.getCameraPosition()
       abs(camera.zoom - position.zoom) < 0.001 &&
-        abs(camera.target.latitude - position.target.latitude) < 0.001
+        abs(camera.target.latitude - position.target.latitude) < 0.001 &&
+        abs(camera.target.longitude - position.target.longitude) < 0.001 &&
+        abs(camera.bearing - position.bearing) < 0.001 &&
+        abs(camera.tilt - position.tilt) < 0.001 &&
+        camera.padding == position.padding
     }
   }
 

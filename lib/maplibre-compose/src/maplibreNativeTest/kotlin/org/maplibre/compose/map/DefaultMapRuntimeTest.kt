@@ -10,6 +10,31 @@ import org.maplibre.compose.style.BaseStyle
 
 class DefaultMapRuntimeTest {
   @Test
+  fun a_failed_test_closes_its_explicit_runtime_and_maps() = runTest {
+    val cacheFile = FfiTestPlatform.createCacheFile()
+    val failure = AssertionError("test body failed")
+    lateinit var runtime: MapRuntime
+    lateinit var state: MapState
+    try {
+      val reported =
+        assertFailsWith<AssertionError> {
+          withTestRuntime(MapRuntimeOptions(cacheFile = cacheFile)) {
+            runtime = it
+            state = it.createMapState(BaseStyle.Empty)
+            throw failure
+          }
+        }
+      assertSame(failure, reported)
+      assertTrue(runtime.isClosed)
+      assertTrue(state.isClosed)
+      runtime.awaitClosed()
+      state.awaitClosed()
+    } finally {
+      FfiTestPlatform.deleteCacheFile(cacheFile)
+    }
+  }
+
+  @Test
   fun closing_the_default_runtime_is_permanent() = runTest {
     val cacheFile = FfiTestPlatform.createCacheFile()
     try {

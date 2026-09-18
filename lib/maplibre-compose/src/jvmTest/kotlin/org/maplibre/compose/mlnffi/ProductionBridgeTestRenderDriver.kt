@@ -402,52 +402,16 @@ private class Direct3D12TestGpuEnvironment private constructor(private val windo
 
   override fun discardPresentedFrame() {}
 
-  override fun close() {
-    closeDestination()
-    scheduleDisposal(this)
-  }
+  // Drivers own their render bridges; the test worker owns this shared consumer environment.
+  override fun close() {}
 
   companion object {
-    /**
-     * Skiko tears a window's Direct3D device down asynchronously after [ComposeWindow.dispose], so
-     * replacing the window between test methods can race the next device's startup and crash the
-     * test VM in the native graphics driver.
-     */
-    private const val DISPOSAL_DELAY_MILLIS = 1_000L
-    private val sharedLock = Any()
-    private var shared: Direct3D12TestGpuEnvironment? = null
-    private var disposalGeneration = 0L
+    // Skiko destroys the Direct3D device asynchronously. Keep one window for the worker so a
+    // replacement never starts during teardown. Gradle exits its test worker explicitly; let the
+    // process reclaim this fixture instead of waiting for AWT or GPU work in a shutdown hook.
+    private val shared by lazy { createShared() }
 
-    fun create(): Direct3D12TestGpuEnvironment =
-      synchronized(sharedLock) {
-        disposalGeneration += 1
-        shared ?: createShared().also { shared = it }
-      }
-
-    /** Disposes the last window after a reuse window, so AWT does not keep the worker alive. */
-    private fun scheduleDisposal(environment: Direct3D12TestGpuEnvironment) {
-      val scheduledGeneration = synchronized(sharedLock) { ++disposalGeneration }
-      Thread(
-          {
-            Thread.sleep(DISPOSAL_DELAY_MILLIS)
-            val shouldDispose =
-              synchronized(sharedLock) {
-                if (shared === environment && disposalGeneration == scheduledGeneration) {
-                  shared = null
-                  true
-                } else {
-                  false
-                }
-              }
-            if (shouldDispose) {
-              runCatching { EventQueue.invokeAndWait { environment.window.dispose() } }
-            }
-          },
-          "maplibre-direct3d-test-disposal",
-        )
-        .apply { isDaemon = true }
-        .start()
-    }
+    fun create(): Direct3D12TestGpuEnvironment = shared
 
     private fun createShared(): Direct3D12TestGpuEnvironment {
       lateinit var window: ComposeWindow
