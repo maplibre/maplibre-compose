@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Native runtime selection is process-wide, so each backend gets its own test process.
+set -euo pipefail
+case "$(uname -s)" in
+  Darwin) backends=(metal vulkan opengl) ;;
+  *) backends=(vulkan opengl) ;;
+esac
+result=0
+for backend in "${backends[@]}"; do
+  echo "Testing desktop map backend: $backend"
+  # Do not label results from a previous backend if compilation fails before tests run.
+  while IFS= read -r -d '' results; do
+    rm -rf "$results" "${results%/test-results/jvmTest}/reports/tests/jvmTest"
+  done < <(find lib demo-app -type d -path '*/build/test-results/jvmTest' -prune -print0)
+  if ! ./gradlew jvmTest "-Pmaplibre.desktop.backend=$backend"; then
+    result=1
+  fi
+  destination="build/desktop-backends/$backend"
+  rm -rf "$destination"
+  mkdir -p "$destination"
+  while IFS= read -r -d '' results; do
+    module="${results%/build/test-results/jvmTest}"
+    mkdir -p "$destination/$module"
+    cp -R "$results" "$destination/$module/test-results"
+    report="$module/build/reports/tests/jvmTest"
+    if [[ -d "$report" ]]; then
+      cp -R "$report" "$destination/$module/report"
+    fi
+  done < <(find lib demo-app -type d -path '*/build/test-results/jvmTest' -prune -print0)
+done
+exit "$result"

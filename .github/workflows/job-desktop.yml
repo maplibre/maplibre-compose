@@ -30,18 +30,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-desktop-vulkan
       - uses: ./.github/actions/setup-ci-deps
         with:
           save-toolchains: ${{ matrix.save_toolchains }}
+      - uses: ./.github/actions/setup-desktop-vulkan
       - id: desktop-tests
-        run: mise run test:desktop
+        run: mise run test:desktop:all
       - name: Upload desktop test results to Trunk
         if: ${{ !cancelled() && inputs.secrets-available }}
         continue-on-error: true
         uses: trunk-io/analytics-uploader@385f1ccdf345b4532dc4b6c665dd432b702b8e28 # v2.1.2
         with:
-          junit-paths: "**/build/test-results/jvmTest/TEST-*.xml,**/build/test-results/test/TEST-*.xml"
+          junit-paths: "build/desktop-backends/**/test-results/TEST-*.xml,**/build/test-results/test/TEST-*.xml"
           org-slug: sargunv
           token: ${{ secrets.TRUNK_API_TOKEN }}
           variant: ${{ matrix.test_variant }}
@@ -59,6 +59,7 @@ jobs:
           path: |
             **/build/reports/tests
             **/build/test-results
+            build/desktop-backends
       - run: mise run build:desktop-app
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

@@ -29,7 +29,7 @@ actual fun RenderSettingsItems(settings: DemoSettings) {
   )
 
   SectionHeader("Renderer")
-  RenderModeItem(settings)
+  PlatformRenderSettingsItems(settings)
   FpsCapRow(options.maximumFps) { fps ->
     settings.renderOptions = RenderOptions(options) { maximumFps = fps }
   }

@@ -12,21 +12,23 @@ import org.maplibre.compose.mlnffi.MlnFfiMapHost
 import org.maplibre.compose.mlnffi.MlnFfiRecoverableFrameException
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
 import org.maplibre.compose.mlnffi.RenderBackendPair
-import org.maplibre.compose.mlnffi.VulkanImageTarget
 
 /**
- * Bridges MapLibre's Vulkan rendering into Compose's ANGLE/GLES context on Windows.
+ * Bridges MapLibre's Vulkan or OpenGL rendering into Compose's ANGLE/GLES context on Windows.
  *
- * MapLibre draws into a D3D11 texture created on ANGLE's device. Vulkan imports the NT handle;
- * Compose samples the same texture via `EGL_ANGLE_d3d_texture_client_buffer`.
+ * MapLibre draws into a D3D11 texture created on ANGLE's device. The producer imports the NT
+ * handle; Compose samples the same texture via `EGL_ANGLE_d3d_texture_client_buffer`.
  */
-internal class VulkanOpenGlWin32MapHost(private val presentationHost: ComposeMapPresentationHost) :
-  MlnFfiMapHost {
+internal class WindowsAngleMapHost(
+  private val presentationHost: ComposeMapPresentationHost,
+  private val producer: MapRenderBackend = MapRenderBackend.VULKAN,
+) : MlnFfiMapHost {
   private val rendererThread = MapRendererThread("maplibre-windows-vulkan-gl-renderer")
   private val presenter = OpenGlPresenter.angle()
   private val frameCompletion = ComposeFrameCompletion()
   private var vulkan: WindowsOpenGlVulkanContext? = null
-  private var vulkanAdapterLuid = 0L
+  private var wgl: WindowsWglContext? = null
+  private var producerAdapterLuid = 0L
   private var pendingAdapterLuid: Long? = null
   private var texture: WindowsOpenGlSharedTexture? = null
   private val retiredTextures = mutableMapOf<Long, WindowsOpenGlSharedTexture>()
@@ -34,7 +36,7 @@ internal class VulkanOpenGlWin32MapHost(private val presentationHost: ComposeMap
   private var currentExtent = MapExtent.Empty
 
   override val backends: RenderBackendPair =
-    RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL)
+    RenderBackendPair(producer, ComposeRenderBackend.OPENGL)
 
   override fun acquireFrame(
     frameId: Long,
@@ -58,7 +60,10 @@ internal class VulkanOpenGlWin32MapHost(private val presentationHost: ComposeMap
     } ?: MlnFfiMapFrameAcquisition.NotReady
 
   override fun completeProducerAccess(frame: MlnFfiMapFrame) {
-    rendererThread.run { vulkan?.waitIdle() }
+    rendererThread.run {
+      vulkan?.waitIdle()
+      wgl?.waitIdle()
+    }
   }
 
   override fun <T> withProducerAccess(frame: MlnFfiMapFrame, action: () -> T): T =
@@ -73,7 +78,7 @@ internal class VulkanOpenGlWin32MapHost(private val presentationHost: ComposeMap
     target: MlnFfiRenderTarget,
     destination: MlnFfiMapDestination,
   ): Boolean {
-    if (target !is VulkanImageTarget) return false
+    if (target.backend != producer) return false
     return presentationHost.withOpenGlContextOrNull { context ->
       frameCompletion.prepare(context.skiaContext, ::abandonContext)
       val sharedTexture =
@@ -86,7 +91,14 @@ internal class VulkanOpenGlWin32MapHost(private val presentationHost: ComposeMap
         presenter.draw(
           scope,
           context.skiaContext,
-          imported.target(target.generation),
+          imported
+            .target(target.generation)
+            .copy(
+              origin =
+                if (producer == MapRenderBackend.OPENGL)
+                  org.maplibre.compose.mlnffi.TextureOrigin.BOTTOM_LEFT
+                else org.maplibre.compose.mlnffi.TextureOrigin.TOP_LEFT
+            ),
           destination,
           frameCompletion,
         )
@@ -102,10 +114,13 @@ internal class VulkanOpenGlWin32MapHost(private val presentationHost: ComposeMap
     } finally {
       val closing = vulkan
       vulkan = null
-      vulkanAdapterLuid = 0L
+      producerAdapterLuid = 0L
       pendingAdapterLuid = null
       try {
-        closing?.close()
+        rendererThread.run {
+          closing?.close()
+          wgl?.close()
+        }
       } finally {
         rendererThread.close()
       }
@@ -123,38 +138,60 @@ internal class VulkanOpenGlWin32MapHost(private val presentationHost: ComposeMap
     val angleDevice = AngleEgl.angleD3d11Device()
     val adapterLuid = WindowsD3D11Interop.adapterLuidOf(angleDevice)
     check(adapterLuid != 0L) {
-      "ANGLE's ID3D11Device has no DXGI adapter LUID; cannot pick a matching Vulkan device"
+      "ANGLE's ID3D11Device has no DXGI adapter LUID; cannot pick a matching producer device"
     }
-    if (vulkan != null && adapterLuid != vulkanAdapterLuid) {
+    if ((vulkan != null || wgl != null) && adapterLuid != producerAdapterLuid) {
       if (pendingAdapterLuid != adapterLuid) {
-        // MapLibre still owns the old Vulkan handles. Recovery closes that render session before
+        // MapLibre still owns the old producer handles. Recovery closes that render session before
         // retrying, at which point its allocations and device are safe to replace.
         pendingAdapterLuid = adapterLuid
         throw MlnFfiRecoverableFrameException(
-          "ANGLE moved to another graphics adapter; rebuilding the Vulkan bridge",
+          "ANGLE moved to another graphics adapter; rebuilding the map bridge",
           null,
         )
       }
       disposeAllTextures()
       val closing = vulkan
       vulkan = null
-      vulkanAdapterLuid = 0L
+      producerAdapterLuid = 0L
       pendingAdapterLuid = null
-      rendererThread.run { closing?.close() }
+      rendererThread.run {
+        closing?.close()
+        wgl?.close()
+        wgl = null
+      }
     } else {
       pendingAdapterLuid = null
     }
-    val context =
-      vulkan
-        ?: rendererThread
-          .run { WindowsOpenGlVulkanContext.create(adapterLuid) }
-          .also {
-            vulkan = it
-            vulkanAdapterLuid = adapterLuid
-          }
     val d3d11 = WindowsD3D11Interop.createSharedTextureOnDevice(angleDevice, extent)
     try {
-      val exported = rendererThread.run { context.importD3D11Texture(d3d11.sharedHandle, extent) }
+      val exported = rendererThread.run {
+        val imported =
+          if (producer == MapRenderBackend.OPENGL) {
+            val context = wgl ?: WindowsWglContext.create().also { wgl = it }
+            context.makeCurrent()
+            org.lwjgl.system.MemoryStack.stackPush().use { stack ->
+              val luid = stack.malloc(8)
+              check(ensureCapabilities().GL_EXT_memory_object_win32) {
+                "WGL requires GL_EXT_memory_object_win32 to import ANGLE textures"
+              }
+              org.lwjgl.opengl.EXTMemoryObject.glGetUnsignedBytevEXT(
+                org.lwjgl.opengl.EXTMemoryObjectWin32.GL_DEVICE_LUID_EXT,
+                luid,
+              )
+              check(luid.getLong(0) == adapterLuid) {
+                "WGL and ANGLE use different graphics adapters"
+              }
+            }
+            WindowsWglImportedTexture.create(context, d3d11.sharedHandle, extent, d3d11 = true)
+          } else {
+            val context =
+              vulkan ?: WindowsOpenGlVulkanContext.create(adapterLuid).also { vulkan = it }
+            context.importD3D11Texture(d3d11.sharedHandle, extent)
+          }
+        producerAdapterLuid = adapterLuid
+        imported
+      }
       try {
         val imported = WindowsOpenGlImportedTexture.bindAngle(d3d11.texture, extent)
         texture?.let { retiredTextures[generation] = it }
@@ -162,7 +199,7 @@ internal class VulkanOpenGlWin32MapHost(private val presentationHost: ComposeMap
         currentExtent = extent
         generation += 1
       } catch (error: RuntimeException) {
-        exported.close()
+        rendererThread.run { exported.close() }
         throw error
       }
     } catch (error: RuntimeException) {
@@ -220,7 +257,7 @@ internal class VulkanOpenGlWin32MapHost(private val presentationHost: ComposeMap
 
   private inner class WindowsOpenGlSharedTexture(
     val d3d11: WindowsD3D11SharedTexture,
-    val exported: WindowsOpenGlExportedVulkanTexture,
+    val exported: ImportedMapTexture,
     val imported: WindowsOpenGlImportedTexture,
   ) : AutoCloseable {
     private var interopClosed = false
@@ -246,7 +283,7 @@ internal class VulkanOpenGlWin32MapHost(private val presentationHost: ComposeMap
       if (interopClosed) return
       interopClosed = true
       try {
-        exported.close()
+        rendererThread.run { exported.close() }
       } finally {
         d3d11.close()
       }

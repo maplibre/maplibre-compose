@@ -4,14 +4,10 @@ import org.lwjgl.opengl.GL11.GL_RGBA8
 import org.lwjgl.opengl.GL11.GL_TEXTURE_2D
 import org.lwjgl.system.MemoryStack
 import org.lwjgl.system.MemoryUtil.NULL
-import org.lwjgl.vulkan.EXTDebugUtils.VK_EXT_DEBUG_UTILS_EXTENSION_NAME
 import org.lwjgl.vulkan.KHRExternalMemoryWin32.VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME
 import org.lwjgl.vulkan.KHRExternalMemoryWin32.VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR
 import org.lwjgl.vulkan.KHRExternalMemoryWin32.VK_STRUCTURE_TYPE_MEMORY_WIN32_HANDLE_PROPERTIES_KHR
 import org.lwjgl.vulkan.KHRExternalMemoryWin32.vkGetMemoryWin32HandlePropertiesKHR
-import org.lwjgl.vulkan.KHRPortabilityEnumeration.VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR
-import org.lwjgl.vulkan.KHRPortabilityEnumeration.VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME
-import org.lwjgl.vulkan.KHRPortabilitySubset.VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME
 import org.lwjgl.vulkan.VK10.VK_FORMAT_R8G8B8A8_UNORM
 import org.lwjgl.vulkan.VK10.VK_IMAGE_ASPECT_COLOR_BIT
 import org.lwjgl.vulkan.VK10.VK_IMAGE_LAYOUT_GENERAL
@@ -23,259 +19,80 @@ import org.lwjgl.vulkan.VK10.VK_IMAGE_USAGE_SAMPLED_BIT
 import org.lwjgl.vulkan.VK10.VK_IMAGE_VIEW_TYPE_2D
 import org.lwjgl.vulkan.VK10.VK_SAMPLE_COUNT_1_BIT
 import org.lwjgl.vulkan.VK10.VK_SHARING_MODE_EXCLUSIVE
-import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_APPLICATION_INFO
-import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO
-import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO
 import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO
 import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO
-import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO
 import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO
 import org.lwjgl.vulkan.VK10.vkAllocateMemory
 import org.lwjgl.vulkan.VK10.vkBindImageMemory
-import org.lwjgl.vulkan.VK10.vkCreateDevice
 import org.lwjgl.vulkan.VK10.vkCreateImage
 import org.lwjgl.vulkan.VK10.vkCreateImageView
-import org.lwjgl.vulkan.VK10.vkCreateInstance
-import org.lwjgl.vulkan.VK10.vkDestroyDevice
 import org.lwjgl.vulkan.VK10.vkDestroyImage
 import org.lwjgl.vulkan.VK10.vkDestroyImageView
-import org.lwjgl.vulkan.VK10.vkDestroyInstance
-import org.lwjgl.vulkan.VK10.vkDeviceWaitIdle
-import org.lwjgl.vulkan.VK10.vkEnumeratePhysicalDevices
 import org.lwjgl.vulkan.VK10.vkFreeMemory
-import org.lwjgl.vulkan.VK10.vkGetDeviceQueue
 import org.lwjgl.vulkan.VK10.vkGetImageMemoryRequirements
-import org.lwjgl.vulkan.VK10.vkQueueWaitIdle
-import org.lwjgl.vulkan.VK11.VK_API_VERSION_1_1
 import org.lwjgl.vulkan.VK11.VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_BIT
 import org.lwjgl.vulkan.VK11.VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO
 import org.lwjgl.vulkan.VK11.VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO
-import org.lwjgl.vulkan.VK11.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES
-import org.lwjgl.vulkan.VK11.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2
-import org.lwjgl.vulkan.VK11.vkGetPhysicalDeviceProperties2
-import org.lwjgl.vulkan.VkApplicationInfo
-import org.lwjgl.vulkan.VkDevice
-import org.lwjgl.vulkan.VkDeviceCreateInfo
-import org.lwjgl.vulkan.VkDeviceQueueCreateInfo
 import org.lwjgl.vulkan.VkExtent3D
 import org.lwjgl.vulkan.VkExternalMemoryImageCreateInfo
 import org.lwjgl.vulkan.VkImageCreateInfo
 import org.lwjgl.vulkan.VkImageSubresourceRange
 import org.lwjgl.vulkan.VkImageViewCreateInfo
 import org.lwjgl.vulkan.VkImportMemoryWin32HandleInfoKHR
-import org.lwjgl.vulkan.VkInstance
-import org.lwjgl.vulkan.VkInstanceCreateInfo
 import org.lwjgl.vulkan.VkMemoryAllocateInfo
 import org.lwjgl.vulkan.VkMemoryDedicatedAllocateInfo
 import org.lwjgl.vulkan.VkMemoryRequirements
 import org.lwjgl.vulkan.VkMemoryWin32HandlePropertiesKHR
-import org.lwjgl.vulkan.VkPhysicalDevice
-import org.lwjgl.vulkan.VkPhysicalDeviceIDProperties
-import org.lwjgl.vulkan.VkPhysicalDeviceProperties2
-import org.lwjgl.vulkan.VkQueue
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.EglContextHandles
-import org.maplibre.compose.mlnffi.MlnFfiHostException
 import org.maplibre.compose.mlnffi.NativeHandle
 import org.maplibre.compose.mlnffi.OpenGlTextureTarget
 import org.maplibre.compose.mlnffi.TextureOrigin
-import org.maplibre.compose.mlnffi.VulkanContextHandles
 import org.maplibre.compose.mlnffi.VulkanImageTarget
 
 /** The Vulkan instance, device, and queue MapLibre renders with on the Windows OpenGL path. */
-internal class WindowsOpenGlVulkanContext
-private constructor(private val preferredAdapterLuid: Long) : AutoCloseable {
-  private var instance: VkInstance? = null
-  private var physicalDevice: VkPhysicalDevice? = null
-  private var device: VkDevice? = null
-  private var graphicsQueue: VkQueue? = null
-  private var graphicsQueueFamilyIndex = 0
+internal class WindowsOpenGlVulkanContext private constructor(private val context: VulkanDevice) :
+  AutoCloseable {
+  val handles
+    get() = context.handles
 
-  val handles: VulkanContextHandles
-    get() =
-      VulkanContextHandles(
-        instance = NativeHandle(instance().address()),
-        physicalDevice = NativeHandle(physicalDevice().address()),
-        device = NativeHandle(device().address()),
-        graphicsQueue = NativeHandle(graphicsQueue().address()),
-        graphicsQueueFamilyIndex = graphicsQueueFamilyIndex,
-        getInstanceProcAddr = NativeHandle(vulkanFunctionAddress("vkGetInstanceProcAddr")),
-        getDeviceProcAddr = NativeHandle(vulkanFunctionAddress("vkGetDeviceProcAddr")),
-      )
+  fun device() = context.device
 
-  fun importD3D11Texture(
-    sharedHandle: Long,
-    extent: MapExtent,
-  ): WindowsOpenGlExportedVulkanTexture =
+  fun physicalDevice() = context.physicalDevice
+
+  fun waitIdle() = context.waitIdle()
+
+  override fun close() = context.close()
+
+  fun importD3D11Texture(sharedHandle: Long, extent: MapExtent) =
     WindowsOpenGlExportedVulkanTexture.create(this, sharedHandle, extent)
-
-  fun waitIdle() {
-    graphicsQueue?.let { checkVulkan(vkQueueWaitIdle(it), "vkQueueWaitIdle") }
-      ?: device?.let { checkVulkan(vkDeviceWaitIdle(it), "vkDeviceWaitIdle") }
-  }
-
-  internal fun physicalDevice(): VkPhysicalDevice =
-    checkNotNull(physicalDevice) { "Vulkan physical device is not initialized" }
-
-  internal fun device(): VkDevice = checkNotNull(device) { "Vulkan device is not initialized" }
-
-  private fun instance(): VkInstance =
-    checkNotNull(instance) { "Vulkan instance is not initialized" }
-
-  private fun graphicsQueue(): VkQueue =
-    checkNotNull(graphicsQueue) { "Vulkan graphics queue is not initialized" }
-
-  private fun createInstance() {
-    ensureVulkanFunctionProvider()
-    MemoryStack.stackPush().use { stack ->
-      val available = stack.vulkanInstanceExtensions()
-      val extensions = LinkedHashSet<String>()
-      val enablePortability = VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME in available
-      if (enablePortability) extensions.add(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)
-      if (VK_EXT_DEBUG_UTILS_EXTENSION_NAME in available) {
-        extensions.add(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)
-      }
-      val app =
-        VkApplicationInfo.calloc(stack)
-          .sType(VK_STRUCTURE_TYPE_APPLICATION_INFO)
-          .pApplicationName(stack.UTF8("maplibre-compose"))
-          .pEngineName(stack.UTF8("maplibre-native-ffi"))
-          .apiVersion(VK_API_VERSION_1_1)
-      val createInfo =
-        VkInstanceCreateInfo.calloc(stack)
-          .sType(VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO)
-          .pApplicationInfo(app)
-          .ppEnabledExtensionNames(stack.vulkanStringBuffer(extensions))
-      if (enablePortability) createInfo.flags(VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR)
-      val out = stack.mallocPointer(1)
-      checkVulkan(vkCreateInstance(createInfo, null, out), "vkCreateInstance")
-      instance = VkInstance(out[0], createInfo)
-    }
-  }
-
-  private fun pickPhysicalDeviceAndQueue() {
-    MemoryStack.stackPush().use { stack ->
-      val count = stack.mallocInt(1)
-      checkVulkan(
-        vkEnumeratePhysicalDevices(instance(), count, null),
-        "vkEnumeratePhysicalDevices(count)",
-      )
-      check(count[0] != 0) { "No Vulkan physical devices found" }
-      val devices = stack.mallocPointer(count[0])
-      checkVulkan(
-        vkEnumeratePhysicalDevices(instance(), count, devices),
-        "vkEnumeratePhysicalDevices",
-      )
-      check(preferredAdapterLuid != 0L) {
-        "Cannot select a Vulkan device without ANGLE's adapter LUID"
-      }
-      for (index in 0..<devices.capacity()) {
-        val candidate = VkPhysicalDevice(devices[index], instance())
-        if (
-          VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME !in stack.vulkanDeviceExtensions(candidate)
-        ) {
-          continue
-        }
-        val queueFamily = stack.findVulkanGraphicsQueueFamily(candidate)
-        if (queueFamily < 0) continue
-        if (deviceLuid(candidate) != preferredAdapterLuid) continue
-        physicalDevice = candidate
-        graphicsQueueFamilyIndex = queueFamily
-        return
-      }
-      throw MlnFfiHostException(
-        "No Vulkan device matches ANGLE's adapter and supports " +
-          "$VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME"
-      )
-    }
-  }
-
-  private fun deviceLuid(candidate: VkPhysicalDevice): Long {
-    MemoryStack.stackPush().use { stack ->
-      val id =
-        VkPhysicalDeviceIDProperties.calloc(stack)
-          .sType(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES)
-      val properties =
-        VkPhysicalDeviceProperties2.calloc(stack)
-          .sType(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2)
-          .pNext(id.address())
-      vkGetPhysicalDeviceProperties2(candidate, properties)
-      return id.deviceLUID().getLong(0)
-    }
-  }
-
-  private fun createDevice() {
-    MemoryStack.stackPush().use { stack ->
-      val deviceExtensions = stack.vulkanDeviceExtensions(physicalDevice())
-      check(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME in deviceExtensions) {
-        "Selected Vulkan device does not support $VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME"
-      }
-      val extensions = LinkedHashSet<String>()
-      extensions.add(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME)
-      if (VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME in deviceExtensions) {
-        extensions.add(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME)
-      }
-      val priorities = stack.floats(1.0f)
-      val queueInfo =
-        VkDeviceQueueCreateInfo.calloc(1, stack)
-          .sType(VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO)
-          .queueFamilyIndex(graphicsQueueFamilyIndex)
-          .pQueuePriorities(priorities)
-      val createInfo =
-        VkDeviceCreateInfo.calloc(stack)
-          .sType(VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO)
-          .pQueueCreateInfos(queueInfo)
-          .ppEnabledExtensionNames(stack.vulkanStringBuffer(extensions))
-      val out = stack.mallocPointer(1)
-      checkVulkan(vkCreateDevice(physicalDevice(), createInfo, null, out), "vkCreateDevice")
-      device = VkDevice(out[0], physicalDevice(), createInfo)
-      val queueOut = stack.mallocPointer(1)
-      vkGetDeviceQueue(device(), graphicsQueueFamilyIndex, 0, queueOut)
-      graphicsQueue = VkQueue(queueOut[0], device())
-    }
-  }
-
-  override fun close() {
-    device?.let {
-      vkDeviceWaitIdle(it)
-      vkDestroyDevice(it, null)
-      device = null
-    }
-    instance?.let {
-      vkDestroyInstance(it, null)
-      instance = null
-    }
-  }
 
   companion object {
     fun create(preferredAdapterLuid: Long): WindowsOpenGlVulkanContext {
       require(preferredAdapterLuid != 0L) { "ANGLE adapter LUID is required" }
-      val context = WindowsOpenGlVulkanContext(preferredAdapterLuid)
-      try {
-        context.createInstance()
-        context.pickPhysicalDeviceAndQueue()
-        context.createDevice()
-        return context
-      } catch (error: RuntimeException) {
-        context.close()
-        throw error
-      }
+      return WindowsOpenGlVulkanContext(
+        VulkanDevice.create(setOf(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME)) { physical, _ ->
+          vulkanDeviceLuid(physical) == preferredAdapterLuid
+        }
+      )
     }
   }
 }
 
-/** A `VkImage` whose memory is the imported D3D11 texture MapLibre renders into. */
 internal class WindowsOpenGlExportedVulkanTexture
 private constructor(
   private val context: WindowsOpenGlVulkanContext,
   private val sharedHandle: Long,
   private val extent: MapExtent,
-) : AutoCloseable {
+) : ImportedMapTexture {
+  override val storageExtent
+    get() = extent
+
   private var image = NULL
   private var memory = NULL
   private var view = NULL
 
-  fun target(generation: Long): VulkanImageTarget =
+  override fun target(generation: Long): VulkanImageTarget =
     VulkanImageTarget(
       context = context.handles,
       image = NativeHandle(image),

@@ -23,26 +23,36 @@ internal class ComposeMapPresentationHostFactory(
   override val bridges: List<RenderBackendPair> =
     when (presentationHost.backend) {
       ComposeRenderBackend.METAL ->
-        listOf(RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL))
+        listOf(MapRenderBackend.METAL, MapRenderBackend.VULKAN, MapRenderBackend.OPENGL).map {
+          RenderBackendPair(it, ComposeRenderBackend.METAL)
+        }
       ComposeRenderBackend.OPENGL ->
-        listOf(RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL))
+        listOf(MapRenderBackend.VULKAN, MapRenderBackend.OPENGL).map {
+          RenderBackendPair(it, ComposeRenderBackend.OPENGL)
+        }
       ComposeRenderBackend.DIRECT3D12 ->
-        listOf(RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.DIRECT3D12))
+        listOf(MapRenderBackend.VULKAN, MapRenderBackend.OPENGL).map {
+          RenderBackendPair(it, ComposeRenderBackend.DIRECT3D12)
+        }
     }
 
   override fun create(backends: RenderBackendPair): MlnFfiMapHostResult =
     try {
       val host =
         when (backends) {
-          RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL) ->
-            MetalMapHost(presentationHost)
+          RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL),
+          RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.METAL),
+          RenderBackendPair(MapRenderBackend.OPENGL, ComposeRenderBackend.METAL) ->
+            MetalMapHost(presentationHost, backends.producer)
+          RenderBackendPair(MapRenderBackend.OPENGL, ComposeRenderBackend.OPENGL),
           RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL) ->
             when (selectOpenGlBridge(presentationHost.openGlInterop)) {
-              OpenGlBridge.NATIVE -> VulkanOpenGlMapHost(presentationHost)
-              OpenGlBridge.ANGLE_D3D11 -> VulkanOpenGlWin32MapHost(presentationHost)
+              OpenGlBridge.NATIVE -> LinuxOpenGlMapHost(presentationHost, backends.producer)
+              OpenGlBridge.ANGLE_D3D11 -> WindowsAngleMapHost(presentationHost, backends.producer)
             }
+          RenderBackendPair(MapRenderBackend.OPENGL, ComposeRenderBackend.DIRECT3D12),
           RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.DIRECT3D12) ->
-            VulkanDirect3D12MapHost(presentationHost)
+            Direct3D12MapHost(presentationHost, backends.producer)
           else -> return MlnFfiMapHostResult.Failed("$description cannot bridge $backends")
         }
       MlnFfiMapHostResult.Created(host)

@@ -59,9 +59,9 @@ internal class MetalPresenter(private val presentationHost: ComposeMapPresentati
     if (!texture.isNull) retired.add(texture.address)
   }
 
-  /** Releases wrappers created by a Skia context that the host replaced. */
+  /** Releases old wrappers while the caller holds the host's exclusive GPU access. */
   fun resetContext() {
-    presentationHost.runOnGpuThread { closePresenters() }
+    closePresenters()
   }
 
   override fun close() {

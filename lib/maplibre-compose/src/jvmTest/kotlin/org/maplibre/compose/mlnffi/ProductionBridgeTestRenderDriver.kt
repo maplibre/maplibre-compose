@@ -130,6 +130,7 @@ private constructor(
         when (runtimeBackend) {
           RenderBackend.METAL -> MapRenderBackend.METAL
           RenderBackend.VULKAN -> MapRenderBackend.VULKAN
+          RenderBackend.OPENGL -> MapRenderBackend.OPENGL
           else -> error("No production Desktop bridge for packaged runtime $runtimeBackend")
         }
       val environment = DesktopTestGpuEnvironment.create()

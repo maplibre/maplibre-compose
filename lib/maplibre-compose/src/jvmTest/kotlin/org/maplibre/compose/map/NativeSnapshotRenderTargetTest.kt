@@ -13,7 +13,7 @@ class NativeSnapshotRenderTargetTest {
 
     assertNotNull(NativeSnapshotRenderTarget.select("linux", openGl))
     assertNotNull(NativeSnapshotRenderTarget.select("windows", openGl))
-    assertNull(NativeSnapshotRenderTarget.select("mac os x", openGl))
+    assertNotNull(NativeSnapshotRenderTarget.select("mac os x", openGl))
     assertNull(NativeSnapshotRenderTarget.select("plan 9", openGl))
   }
 }

@@ -20,8 +20,6 @@ import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.nativeffi.Maplibre
-import org.maplibre.nativeffi.render.RenderBackend
 
 @OptIn(ExperimentalTestApi::class)
 class DesktopPresentationHostLifetimeTest {
@@ -112,16 +110,6 @@ class DesktopPresentationHostLifetimeTest {
 
   private companion object {
     fun packagedComposeBackend(): ComposeRenderBackend =
-      when (Maplibre.supportedRenderBackends().single()) {
-        RenderBackend.METAL -> ComposeRenderBackend.METAL
-        RenderBackend.VULKAN -> {
-          if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) {
-            ComposeRenderBackend.DIRECT3D12
-          } else {
-            ComposeRenderBackend.OPENGL
-          }
-        }
-        else -> error("No Desktop presentation host for the packaged runtime")
-      }
+      checkNotNull(org.maplibre.compose.desktop.skiko.HostOperatingSystem.current().composeBackend)
   }
 }

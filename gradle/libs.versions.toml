@@ -1,4 +1,6 @@
 [versions]
+angle = "chromium-7151_rev1"
+angle-macosArm64Sha256 = "fea89ee72ebb3426ef8fd5ec90db463f9b06beb74ea858a1091bcef5a2e99b73"
 # Platform floors and toolchain levels.
 # Compile against API 37; targetSdk retains Android 16 behavior.
 android-compileSdk = "37"
@@ -135,6 +137,7 @@ maplibre-nativeFfi-runtimeVulkan = { module = "org.maplibre.nativeffi:maplibre-n
 maplibre-nativeFfi-runtimeVulkanKmp = { module = "org.maplibre.nativeffi:maplibre-native-ffi-runtime-vulkan", version.ref = "maplibre-nativeFfi" }
 lwjgl-core = { module = "org.lwjgl:lwjgl", version.ref = "lwjgl" }
 lwjgl-egl = { module = "org.lwjgl:lwjgl-egl", version.ref = "lwjgl" }
+lwjgl-opengles = { module = "org.lwjgl:lwjgl-opengles", version.ref = "lwjgl" }
 lwjgl-opengl = { module = "org.lwjgl:lwjgl-opengl", version.ref = "lwjgl" }
 lwjgl-vulkan = { module = "org.lwjgl:lwjgl-vulkan", version.ref = "lwjgl" }
 materialKolor = { module = "com.materialkolor:material-kolor", version.ref = "materialKolor" }

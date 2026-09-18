@@ -1,17 +1,10 @@
 package org.maplibre.compose.map
 
-import java.nio.ByteBuffer
 import org.lwjgl.PointerBuffer
 import org.lwjgl.egl.EGL
 import org.lwjgl.egl.EGL14
 import org.lwjgl.egl.EGL15
 import org.lwjgl.system.MemoryStack
-import org.lwjgl.system.windows.GDI32
-import org.lwjgl.system.windows.PIXELFORMATDESCRIPTOR
-import org.lwjgl.system.windows.User32
-import org.lwjgl.system.windows.WNDCLASSEX
-import org.lwjgl.system.windows.WinBase
-import org.lwjgl.system.windows.WindowProc
 import org.maplibre.nativeffi.render.EglContextDescriptor
 import org.maplibre.nativeffi.render.NativePointer
 import org.maplibre.nativeffi.render.OpenGLClientApi
@@ -28,6 +21,7 @@ internal sealed interface DesktopOpenGlSnapshotContext : AutoCloseable {
       when {
         os.contains("linux") -> EglSnapshotContext.create()
         os.contains("windows") -> WglSnapshotContext.create()
+        os.contains("mac") -> AngleSnapshotContext()
         else -> throw UnsupportedOperationException("No offscreen OpenGL context provider for $os")
       }
   }
@@ -132,99 +126,39 @@ private class EglSnapshotContext private constructor(display: Long, config: Long
   }
 }
 
-private class WglSnapshotContext
-private constructor(
-  private val module: Long,
-  private val className: String,
-  private val windowProc: WindowProc,
-  private var window: Long,
-  private var deviceContext: Long,
+private class WglSnapshotContext(
+  private val drawable: org.maplibre.compose.desktop.bridge.WindowsGlDrawable
 ) : DesktopOpenGlSnapshotContext {
-  override val descriptor: OpenGLContextDescriptor =
+  override val descriptor =
     WglContextDescriptor(
-      deviceContext = NativePointer.ofAddress(deviceContext),
+      deviceContext = NativePointer.ofAddress(drawable.deviceContext),
       shareContext = NativePointer.NULL_POINTER,
       getProcAddress = NativePointer.NULL_POINTER,
       ownership = OpenGLContextOwnership.DEDICATED,
     )
 
-  override fun close() {
-    if (deviceContext != 0L) User32.ReleaseDC(window, deviceContext)
-    if (window != 0L) User32.DestroyWindow(null, window)
-    User32.UnregisterClass(null, className, module)
-    windowProc.free()
-    deviceContext = 0L
-    window = 0L
-  }
+  override fun close() = drawable.close()
 
   companion object {
-    fun create(): WglSnapshotContext {
-      val module = WinBase.GetModuleHandle(null, null as ByteBuffer?)
-      check(module != 0L) { "Could not find the current Windows module" }
-      val className = "MapLibreComposeSnapshot-${System.nanoTime()}"
-      val windowProc = WindowProc.create { window, message, word, long ->
-        User32.DefWindowProc(window, message, word, long)
-      }
-      var registered = false
-      var window = 0L
-      var deviceContext = 0L
-      try {
-        MemoryStack.stackPush().use { stack ->
-          val windowClass =
-            WNDCLASSEX.calloc(stack)
-              .cbSize(WNDCLASSEX.SIZEOF)
-              .style(User32.CS_OWNDC)
-              .lpfnWndProc(windowProc)
-              .hInstance(module)
-              .lpszClassName(stack.UTF16(className, true))
-          check(User32.RegisterClassEx(null, windowClass).toInt() != 0) {
-            "Could not register the offscreen OpenGL window class"
-          }
-          registered = true
-          window =
-            User32.CreateWindowEx(
-              null,
-              0,
-              className,
-              "",
-              0,
-              0,
-              0,
-              1,
-              1,
-              0L,
-              0L,
-              module,
-              0L,
-            )
-          check(window != 0L) { "Could not create the offscreen OpenGL window" }
-          deviceContext = User32.GetDC(window)
-          check(deviceContext != 0L) { "Could not acquire the offscreen OpenGL device context" }
-          val pixel =
-            PIXELFORMATDESCRIPTOR.calloc(stack)
-              .nSize(PIXELFORMATDESCRIPTOR.SIZEOF.toShort())
-              .nVersion(1)
-              .dwFlags(GDI32.PFD_DRAW_TO_WINDOW or GDI32.PFD_SUPPORT_OPENGL)
-              .iPixelType(GDI32.PFD_TYPE_RGBA)
-              .cColorBits(32)
-              .cAlphaBits(8)
-              .cDepthBits(24)
-              .cStencilBits(8)
-              .iLayerType(GDI32.PFD_MAIN_PLANE)
-          val format = GDI32.ChoosePixelFormat(null, deviceContext, pixel)
-          check(format != 0) { "Could not choose an offscreen OpenGL pixel format" }
-          check(GDI32.SetPixelFormat(null, deviceContext, format, pixel)) {
-            "Could not set the offscreen OpenGL pixel format"
-          }
-        }
-        return WglSnapshotContext(module, className, windowProc, window, deviceContext)
-      } catch (error: Throwable) {
-        if (deviceContext != 0L) User32.ReleaseDC(window, deviceContext)
-        if (window != 0L) User32.DestroyWindow(null, window)
-        if (registered) User32.UnregisterClass(null, className, module)
-        windowProc.free()
-        throw error
-      }
-    }
+    fun create() =
+      WglSnapshotContext(org.maplibre.compose.desktop.bridge.WindowsGlDrawable.create())
   }
+}
+
+private class AngleSnapshotContext : DesktopOpenGlSnapshotContext {
+  private val context =
+    org.maplibre.compose.desktop.bridge.DesktopEglContext.create(metalDevice = 0L)
+  override val descriptor: OpenGLContextDescriptor
+    get() =
+      context.handles.let {
+        EglContextDescriptor(
+          display = NativePointer.ofAddress(it.display.address),
+          config = NativePointer.ofAddress(it.config.address),
+          shareContext = NativePointer.ofAddress(it.shareContext.address),
+          getProcAddress = NativePointer.ofAddress(it.getProcAddress.address),
+          ownership = OpenGLContextOwnership.SHARED,
+        )
+      }
+
+  override fun close() = context.close()
 }
