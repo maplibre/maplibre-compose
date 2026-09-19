@@ -82,7 +82,7 @@ internal class DemoTool(private val demo: FeatureEditingState, private val inner
         else -> null
       }
     if (pointer == null) {
-      if (event is EditorEvent.Hover) demo.snapTarget = null
+      if (event is EditorEvent.Hover || event is EditorEvent.HoverEnd) demo.snapTarget = null
       return event
     }
     if (!demo.snapping || KeyModifier.Alt in pointer.modifierKeys || demo.frameGesture != null) {

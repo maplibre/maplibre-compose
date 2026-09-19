@@ -161,8 +161,7 @@ internal fun EditorHintBar(state: FeatureEditingState) {
         Hint("Choose Polygon, Line or Circle to start")
       else -> null
     }
-  // The last hint stays for the exit animation. Written after composition, so the scope is not
-  // invalidated on every change.
+  // The last hint stays for the exit animation. SideEffect keeps the write out of composition.
   var shown by remember { mutableStateOf(hint) }
   if (hint != null) SideEffect { shown = hint }
   val current = hint ?: shown ?: return
@@ -206,7 +205,7 @@ private fun HintPill(state: FeatureEditingState, hint: Hint, mouse: Boolean) {
           current.text,
           Modifier.weight(1f, fill = false).padding(vertical = 8.dp),
           style = MaterialTheme.typography.labelLarge,
-          maxLines = 2,
+          maxLines = 3,
           overflow = TextOverflow.Ellipsis,
           textAlign = TextAlign.Center,
         )

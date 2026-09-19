@@ -99,6 +99,7 @@ public class DrawTool(
         else -> current.positions.plusElement(position)
       }
     state.draft = EditorDraft(shape, positions, cursor = current?.cursor)
+    state.validationError = null
     if (shape == DrawShape.Rectangle && positions.size == 2) state.finishDraft()
     return true
   }

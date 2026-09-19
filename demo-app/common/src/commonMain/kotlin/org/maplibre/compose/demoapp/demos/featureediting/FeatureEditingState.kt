@@ -19,6 +19,7 @@ import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.FeatureId
 import org.maplibre.spatialk.geojson.LineString
 import org.maplibre.spatialk.geojson.MultiLineString
+import org.maplibre.spatialk.geojson.Polygon
 import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.turf.measurement.computeBbox
 
@@ -135,9 +136,16 @@ internal class FeatureEditingState {
   val selected: List<EditorFeature>
     get() = editor.features.filter { it.id in editor.selection }
 
-  /** Switches to [tool]. A draw tool starts with nothing selected, so no frame competes with it. */
+  /**
+   * Switches to [tool]. A frame gesture in progress is taken back, a simplify scrub ends, and a
+   * draw tool starts with nothing selected, so no frame competes with it.
+   */
   fun use(tool: EditorTool) {
     if (editor.tool !== tool) {
+      frameGesture?.let { editor.revert(it.step) }
+      frameGesture = null
+      simplifyScrub = null
+      snapTarget = null
       editor.cancelDraft()
       editor.tool = tool
       if (tool !== selectTool) editor.selection = emptySet()
@@ -145,10 +153,48 @@ internal class FeatureEditingState {
     mapFocus.requestFocus()
   }
 
+  /** Selects [id] alone with the select tool, whatever tool was active. */
   fun select(id: FeatureId) {
+    use(selectTool)
     editor.selection = setOf(id)
-    mapFocus.requestFocus()
   }
+
+  /**
+   * Applies simplify slider [value] to the single selected shape, starting a scrub on the first
+   * sample. A frame the editor rejects keeps the last accepted one.
+   */
+  fun scrubSimplify(value: Float) {
+    val id = simplifiable?.id ?: return
+    // Read live: several samples can arrive before the composition that captured the scrub.
+    val current =
+      simplifyScrub?.takeIf { it.id == id }
+        ?: run {
+          val feature = editor.feature(id) ?: return
+          SimplifyScrub(EditStep(), id, feature, value, feature).also { simplifyScrub = it }
+        }
+    current.value = value
+    val tolerance = simplifyTolerance(current.original.geometry, value)
+    val result = simplified(current.original, tolerance, fallback = current.last)
+    if (editor.update(listOf(result), undoStep = current.step) != null) current.last = result
+  }
+
+  /** Ends the scrub. A scrub back to zero or one that changed nothing is taken back. */
+  fun finishSimplify() {
+    val current = simplifyScrub ?: return
+    simplifyScrub = null
+    val unchanged = editor.feature(current.id)?.geometry == current.original.geometry
+    if (current.value == 0f || unchanged) editor.revert(current.step)
+    // A rejected last frame leaves its message. A scrub is no claimed gesture and has no draft, so
+    // cancelDraft is the one call that clears it without changing anything else.
+    if (editor.validationError != null) editor.cancelDraft()
+  }
+
+  /** The selected shape the simplify slider applies to: a single polygon or line. */
+  val simplifiable: EditorFeature?
+    get() =
+      selected.singleOrNull()?.takeIf {
+        !it.isCircle && (it.geometry is Polygon || it.geometry is LineString)
+      }
 
   fun removeSelection() = remove(editor.selection)
 

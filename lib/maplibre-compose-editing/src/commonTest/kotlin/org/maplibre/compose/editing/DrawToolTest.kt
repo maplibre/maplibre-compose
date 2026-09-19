@@ -360,6 +360,27 @@ class DrawToolTest {
   }
 
   @Test
+  fun editing_the_draft_clears_the_error_of_a_rejected_finish() {
+    val tool = DrawTool(DrawShape.LineString)
+    val state = FeatureEditorState(initialTool = tool, validate = { "too short" })
+    state.tapAt(0.0, 0.0)
+    state.tapAt(1.0, 0.0)
+    assertNull(state.finishDraft())
+    assertEquals("too short", state.validationError)
+    state.undo()
+    assertNull(state.validationError)
+    assertEquals(listOf(pos(0.0, 0.0)), state.positions())
+    assertNull(state.finishDraft())
+    assertNull(state.validationError)
+    state.tapAt(2.0, 0.0)
+    assertNull(state.finishDraft())
+    assertEquals("too short", state.validationError)
+    state.tapAt(3.0, 0.0)
+    assertNull(state.validationError)
+    assertEquals(3, state.positions()?.size)
+  }
+
+  @Test
   fun keys_edit_the_draft_and_consume_only_with_a_draft() {
     val state = FeatureEditorState(initialTool = DrawTool(DrawShape.Polygon))
     val tool = state.tool

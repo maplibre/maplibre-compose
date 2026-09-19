@@ -37,7 +37,7 @@ import org.maplibre.spatialk.units.International
 import org.maplibre.spatialk.units.extensions.degrees
 import org.maplibre.spatialk.units.extensions.meters
 
-/** Handles the frame around a selected shape adds to the editor's vertex handles. */
+/** Handle kinds that the frame around a selected shape adds to the editor's vertex handles. */
 internal sealed interface FrameHandle : HandleKind {
   /** The source property value the handle layers match on. */
   val key: String
@@ -70,6 +70,9 @@ internal class Frame(val padded: BoundingBox) {
 }
 
 internal val FramePadding = 28.dp
+
+/** How close to the station dot a midpoint handle is dropped. */
+internal val StationClearance = 12.dp
 
 internal fun frameOf(geometry: Geometry, padMeters: Double): Frame {
   val bbox = geometry.computeBbox()
@@ -107,7 +110,15 @@ internal class FrameTool(private val demo: FeatureEditingState, private val inne
     if (state.draft != null) return base
     val id = state.selection.singleOrNull() ?: return base
     val feature = state.feature(id) ?: return base
-    return base + frameHandles(feature, state.visibleBounds)
+    val frame = frameHandles(feature, state.visibleBounds)
+    // The station dot sits on the line, over the midpoint handle of a two-point line: a press there
+    // must slide the station, not insert a vertex.
+    val station = frame.firstOrNull { it.kind == FrameHandle.Station }
+    if (station == null) return base + frame
+    val clearance = (StationClearance.value * demo.metersPerDp).meters
+    return base.filterNot {
+      it.kind == HandleKind.Midpoint && distance(it.position, station.position) < clearance
+    } + frame
   }
 
   private fun frameHandles(feature: EditorFeature, bounds: BoundingBox?): List<EditorHandle> {
@@ -166,11 +177,11 @@ internal class FrameTool(private val demo: FeatureEditingState, private val inne
         onDrag(gesture, event, state)
         false
       }
-      is EditorEvent.Release,
-      is EditorEvent.LongPress -> {
+      is EditorEvent.Release -> {
         demo.frameGesture = null
         false
       }
+      is EditorEvent.LongPress -> false
       is EditorEvent.Tap -> {
         demo.frameGesture = null
         true

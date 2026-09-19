@@ -148,10 +148,11 @@ public class FeatureEditorState(
 
   /**
    * Message of the latest rejected mutation. Cleared when a mutation stores something, when a
-   * claimed gesture ends, by [undo], [redo], [revert] and [load], and by [cancelDraft].
+   * claimed gesture ends, when a draft position is placed or removed, by [undo], [redo], [revert]
+   * and [load], and by [cancelDraft].
    */
   public var validationError: String? by mutableStateOf(null)
-    private set
+    internal set
 
   private val handlesState = derivedStateOf { tool.handles(this) }
 
@@ -405,8 +406,8 @@ public class FeatureEditorState(
 
   /**
    * Removes the last draft position when the draft has one, else restores [features] from before
-   * the latest step and clears [validationError]. [selection] drops ids that no longer exist. Draft
-   * removals are not redoable.
+   * the latest step. Both clear [validationError]. [selection] drops ids that no longer exist.
+   * Draft removals are not redoable.
    */
   public fun undo() {
     if (draft?.positions?.isNotEmpty() == true) {
@@ -445,12 +446,13 @@ public class FeatureEditorState(
   public fun placeDraftPosition(position: Position): Boolean =
     tool.placeDraftPosition(this, position)
 
-  /** Removes the last draft position. An empty draft becomes null. */
+  /** Removes the last draft position and clears [validationError]. An empty draft becomes null. */
   public fun removeLastDraftPosition() {
     val current = draft ?: return
     draft =
       if (current.positions.size <= 1) null
       else current.copy(positions = current.positions.dropLast(1))
+    validationError = null
     normalizeHandles()
   }
 

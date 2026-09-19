@@ -69,13 +69,10 @@ import org.maplibre.compose.demoapp.generated.delete_24px
 import org.maplibre.compose.demoapp.generated.pentagon_24px
 import org.maplibre.compose.demoapp.generated.polyline_24px
 import org.maplibre.compose.demoapp.generated.undo_24px
-import org.maplibre.compose.editing.EditStep
 import org.maplibre.compose.editing.EditorFeature
 import org.maplibre.compose.editing.EditorTool
 import org.maplibre.compose.editing.contains
 import org.maplibre.spatialk.geojson.BoundingBox
-import org.maplibre.spatialk.geojson.LineString
-import org.maplibre.spatialk.geojson.Polygon
 import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.turf.measurement.area
 import org.maplibre.spatialk.turf.measurement.computeBbox
@@ -249,10 +246,6 @@ internal fun ShapeSection(state: FeatureEditingState, appState: DemoAppState) {
   val editor = state.editor
   val scope = rememberCoroutineScope()
   val selected = state.selected
-  val simplifiable =
-    selected.singleOrNull()?.takeIf {
-      !it.isCircle && (it.geometry is Polygon || it.geometry is LineString)
-    }
   val scrub = state.simplifyScrub
   // The slider follows the finger while scrubbing and eases back to zero after the commit.
   val settled by
@@ -267,30 +260,10 @@ internal fun ShapeSection(state: FeatureEditingState, appState: DemoAppState) {
     value = sliderValue,
     range = 0f..1f,
     valueLabel = { simplifyLabel(state, scrub) },
-    onChange = { value ->
-      val id = checkNotNull(simplifiable?.id ?: return@SliderRow)
-      // Read live: several samples can arrive before the composition that captured the scrub.
-      val current =
-        state.simplifyScrub?.takeIf { it.id == id }
-          ?: run {
-            val feature = editor.feature(id) ?: return@SliderRow
-            SimplifyScrub(EditStep(), id, feature, value, feature).also {
-              state.simplifyScrub = it
-            }
-          }
-      current.value = value
-      val tolerance = simplifyTolerance(current.original.geometry, value)
-      val result = simplified(current.original, tolerance, fallback = current.last)
-      if (editor.update(listOf(result), undoStep = current.step) != null) current.last = result
-    },
-    enabled = simplifiable != null,
+    onChange = state::scrubSimplify,
+    enabled = state.simplifiable != null,
     onChangeFinished = {
-      val current = state.simplifyScrub
-      if (current != null) {
-        val unchanged = editor.feature(current.id)?.geometry == current.original.geometry
-        if (current.value == 0f || unchanged) editor.revert(current.step)
-        state.simplifyScrub = null
-      }
+      state.finishSimplify()
       state.mapFocus.requestFocus()
     },
   )
