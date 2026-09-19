@@ -26,7 +26,6 @@ internal class BenchmarkFixture(
   val config: BenchmarkConfig,
   val data: List<GeoJsonData.JsonString>,
   val baseStyles: List<BaseStyle>,
-  val report: JsonObject,
 ) {
   val images =
     if (config.scenario == BenchmarkScenario.Images)
@@ -42,9 +41,6 @@ internal class BenchmarkFixture(
 
 internal suspend fun loadBenchmarkFixture(config: BenchmarkConfig): BenchmarkFixture {
   val root = "files/benchmarks/"
-  val manifest =
-    BenchmarkJson.parseToJsonElement(Res.readBytes(root + "manifest.json").decodeToString())
-      .jsonObject
   val hasData = config.scene !in setOf(BenchmarkScene.Minimal, BenchmarkScene.Basemap)
   val data =
     if (hasData)
@@ -99,17 +95,6 @@ internal suspend fun loadBenchmarkFixture(config: BenchmarkConfig): BenchmarkFix
                 }
                 put("attribution", "© OpenStreetMap contributors")
               }
-            if (config.overlays > 0 && !composeContent)
-              putJsonObject("reference") {
-                put("type", "geojson")
-                putJsonObject("data") {
-                  put("type", "Point")
-                  putJsonArray("coordinates") {
-                    add(BenchmarkOrigin.longitude)
-                    add(BenchmarkOrigin.latitude)
-                  }
-                }
-              }
           }
           putJsonArray("layers") {
             add(
@@ -132,54 +117,12 @@ internal suspend fun loadBenchmarkFixture(config: BenchmarkConfig): BenchmarkFix
                   )
                 )
               }
-            if (config.overlays > 0 && !composeContent)
-              add(
-                buildJsonObject {
-                  put("id", "reference")
-                  put("type", "circle")
-                  put("source", "reference")
-                  putJsonObject("paint") {
-                    put("circle-color", "#ff0000")
-                    put("circle-radius", 10)
-                  }
-                }
-              )
           }
         }
           .toString()
       )
     }
-  val report = buildJsonObject {
-    put("fixtureVersion", 1)
-    put("fixtureSha256", manifest.getValue("sha256"))
-    put("scene", config.scene.id)
-    put("overlays", config.overlays)
-    put("dataLayers", if (hasData) config.layers else 0)
-    put("hiddenSourceAnchor", config.scenario == BenchmarkScenario.Layers)
-    if (config.scenario == BenchmarkScenario.Images) {
-      put("imageCount", 1)
-      put("imageWidthPx", 32)
-      put("imageHeightPx", 32)
-    }
-    if (hasData) {
-      put("geometry", manifest.getValue("fixtures").jsonObject.getValue(config.scene.id))
-      put("data", manifest.getValue("assets").jsonObject.getValue("${config.scene.id}-0.geojson"))
-    }
-    if (config.scene == BenchmarkScene.Basemap) {
-      put("tiles", 25)
-      put("styleLayers", basemapLayers().size + 1)
-      put(
-        "assetBytes",
-        manifest
-          .getValue("assets")
-          .jsonObject
-          .filterKeys { it.startsWith("basemap/") }
-          .values
-          .sumOf { it.jsonObject.getValue("bytes").jsonPrimitive.long },
-      )
-    }
-  }
-  return BenchmarkFixture(config, data, styles, report)
+  return BenchmarkFixture(config, data, styles)
 }
 
 private fun dataLayer(id: String, line: Boolean, image: Boolean) = buildJsonObject {

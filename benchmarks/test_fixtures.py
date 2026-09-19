@@ -1,42 +1,50 @@
-import hashlib
-import json
+import io
+import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
-from prepare_fixtures import ROOT, points, route
+from prepare_fixtures import points, prepare, route
 
 
 class FixtureTest(unittest.TestCase):
-    def test_snapshot_bytes_and_manifest_identity(self):
-        manifest = json.loads((ROOT / "manifest.json").read_text())
-        for filename, asset in manifest["assets"].items():
-            data = (ROOT / filename).read_bytes()
-            self.assertEqual(len(data), asset["bytes"], filename)
-            self.assertEqual(
-                hashlib.sha256(data).hexdigest(), asset["sha256"], filename
-            )
-        digest = hashlib.sha256(
-            json.dumps(
-                manifest["assets"], sort_keys=True, separators=(",", ":")
-            ).encode()
-        ).hexdigest()
-        self.assertEqual(digest, manifest["sha256"])
-
-    def test_prepared_revisions_keep_geometry_counts_and_probe_identity(self):
-        for count in (100, 1000, 10000):
-            for revision in (0, 1):
-                data = json.loads(
-                    (ROOT / f"points-{count}-{revision}.geojson").read_text()
-                )
-                self.assertEqual(data, points(count, revision))
-                features = data["features"]
-                self.assertEqual(len(features), count)
-                self.assertEqual(len({f["id"] for f in features}), count)
-                self.assertEqual(features[0]["properties"]["revision"], revision)
-                self.assertEqual(
-                    features[0]["geometry"]["coordinates"], [-122.4194, 37.7749]
-                )
+    def test_geometry_volume_and_revision_probe(self):
         for revision in (0, 1):
-            data = json.loads((ROOT / f"route-2000-{revision}.geojson").read_text())
-            self.assertEqual(data, route(revision))
-            self.assertEqual(len(data["features"]), 1)
-            self.assertEqual(len(data["features"][0]["geometry"]["coordinates"]), 2000)
+            features = points(1000, revision)["features"]
+            self.assertEqual(len(features), 1000)
+            self.assertEqual(len({feature["id"] for feature in features}), 1000)
+            self.assertEqual(features[0]["properties"]["revision"], revision)
+            self.assertEqual(
+                features[0]["geometry"]["coordinates"], [-122.4194, 37.7749]
+            )
+            self.assertEqual(
+                len(route(revision)["features"][0]["geometry"]["coordinates"]), 2000
+            )
+
+    def test_refresh_accepts_current_downloads_and_failure_stays_stale(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for data in (b"first", b"updated"):
+                with (
+                    patch(
+                        "prepare_fixtures.urllib.request.urlopen",
+                        side_effect=lambda *_args, data=data, **_kwargs: io.BytesIO(
+                            data
+                        ),
+                    ),
+                    patch("builtins.print"),
+                ):
+                    prepare(root)
+                self.assertEqual(
+                    (root / "basemap/tiles/14/2618/6330.pbf").read_bytes(), data
+                )
+                self.assertTrue((root / ".prepared").exists())
+            with (
+                patch(
+                    "prepare_fixtures.urllib.request.urlopen",
+                    side_effect=OSError("offline"),
+                ),
+                self.assertRaises(OSError),
+            ):
+                prepare(root)
+            self.assertFalse((root / ".prepared").exists())

@@ -98,38 +98,27 @@ enum class BenchmarkScenario(
     "Replace a prepared bitmap used by symbol layers.",
     setOf(BenchmarkImplementation.Imperative),
   ),
-  @SerialName("input")
-  Input(
-    "input",
-    "Tap response",
-    "Platform-injected taps alternate camera positions.",
-    setOf(BenchmarkImplementation.Imperative),
-  ),
 }
 
 val allBenchmarkScenarios = BenchmarkScenario.entries
 internal val BenchmarkJson = Json
 internal val BenchmarkJsonWithDefaults = Json { encodeDefaults = true }
 
-/** Versioned protocol shared by launchers, capture, analysis, and future native SDK runners. */
+/** Run configuration shared by the demo and command-line runner. */
 @Serializable
 data class BenchmarkConfig(
-  val version: Int = 2,
   @SerialName("workload") val scenario: BenchmarkScenario = BenchmarkScenario.Camera,
   val scene: BenchmarkScene = BenchmarkScene.Points1000,
   val implementation: BenchmarkImplementation = BenchmarkImplementation.Imperative,
   val surface: String = "surface",
   val maximumFps: Int? = null,
-  val overlays: Int = 0,
   val layers: Int = 1,
   val rateHz: Double = 4.0,
   val durationMs: Long = 12000,
 ) {
   init {
-    require(version == 2) { "Unsupported benchmark protocol" }
     require(surface in setOf("surface", "texture"))
     require(maximumFps == null || maximumFps in 1..240)
-    require(overlays in 0..100)
     require(layers in 1..32)
     require(rateHz in 0.1..120.0)
     require(durationMs in 3000..30000)
@@ -168,10 +157,6 @@ data class BenchmarkConfig(
       require(scene != BenchmarkScene.Route) {
         "Source completion requires a point fixture with a center probe"
       }
-    if (scenario == BenchmarkScenario.Input)
-      require(overlays == 1) { "Tap response requires one reference overlay" }
-    if (scene == BenchmarkScene.Basemap)
-      require(overlays == 0) { "Basemap colors cannot be used for marker analysis" }
   }
 
   fun encode(): String = BenchmarkJsonWithDefaults.encodeToString(this)
@@ -181,7 +166,6 @@ data class BenchmarkConfig(
       BenchmarkConfig(
         scenario = scenario,
         implementation = scenario.implementations.first(),
-        overlays = if (scenario == BenchmarkScenario.Input) 1 else 0,
       )
 
     fun parse(value: String?): BenchmarkConfig? {
@@ -227,10 +211,5 @@ class BenchmarkUiState {
 
 internal expect fun benchmarkMapOptions(config: BenchmarkConfig): MapUiOptions
 
-/** Platform tracing uses the same measurement interval as the visible green gate. */
-internal expect fun benchmarkTrace(active: Boolean)
-
-/** Records input event time in the platform clock used by its capture adapter, when available. */
-internal expect fun benchmarkInput(sequence: Int, uptimeMillis: Long)
-
-@Composable internal expect fun BenchmarkPlatformMetrics(active: Boolean)
+/** Starts/stops the platform process CPU counter for the measured workload. */
+internal expect fun benchmarkCpu(active: Boolean)

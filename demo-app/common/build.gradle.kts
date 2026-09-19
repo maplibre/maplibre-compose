@@ -116,7 +116,20 @@ kotlin {
   }
 }
 
-compose.resources { packageOfResClass = "org.maplibre.compose.demoapp.generated" }
+val benchmarkResources =
+  tasks.register<Sync>("benchmarkResources") {
+    from("src/commonMain/composeResources")
+    from(layout.buildDirectory.dir("generated/benchmarkResources"))
+    into(layout.buildDirectory.dir("generated/combinedComposeResources"))
+  }
+
+compose.resources {
+  packageOfResClass = "org.maplibre.compose.demoapp.generated"
+  customDirectory(
+    sourceSetName = "commonMain",
+    directoryProvider = layout.dir(benchmarkResources.map { it.destinationDir }),
+  )
+}
 
 if (providers.gradleProperty("composeCompilerReports").orNull == "true") {
   composeCompiler { reportsDestination = layout.buildDirectory.dir("compose/reports") }

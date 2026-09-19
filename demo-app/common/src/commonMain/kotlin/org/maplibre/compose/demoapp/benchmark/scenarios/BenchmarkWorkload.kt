@@ -10,7 +10,6 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 internal data class WorkloadReport(
-  val version: Int = 2,
   val operations: Int,
   @SerialName("submission_count") val submissionCount: Int = 0,
   @SerialName("completion_count") val completionCount: Int = 0,

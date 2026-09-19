@@ -15,13 +15,9 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import org.maplibre.compose.map.MapEvent
 
-/** Sentinel for "the first frame has not been seen"; elapsed time can legitimately be zero. */
-private const val NoPreviousFrame = -1L
-
-/** One map render frame, timed from the previous frame. */
+/** Engine statistics from one render event. */
 @Serializable
 internal data class FrameSample(
-  @SerialName("interval_ms") val intervalMs: Double?,
   @SerialName("encoding_ms") val encodingMs: Double? = null,
   @SerialName("rendering_ms") val renderingMs: Double? = null,
   @SerialName("draw_calls") val drawCalls: Long? = null,
@@ -36,18 +32,14 @@ internal data class FrameStats(
 )
 
 /**
- * Times [MapEvent.FrameRendered] events between [start] and [stop].
- *
- * These are event-delivery intervals, not presentation times. Unconfined collection avoids an extra
- * dispatcher hop, but the public event stream is buffered and may drop events. Native timing fields
- * describe the engine's reported work; interval gaps also include intentional idle time. Do not
- * interpret these intervals as dropped frames or display jank.
+ * Collects engine statistics from [MapEvent.FrameRendered] between [start] and [stop]. The public
+ * event stream may drop events. These samples describe engine work, not display jank. Engine timing
+ * fields are unavailable on the browser.
  */
 internal class BenchmarkFrameRecorder {
   private var job: Job? = null
   private var samples: Channel<FrameSample>? = null
   private var start = TimeSource.Monotonic.markNow()
-  private var previousNanos = NoPreviousFrame
 
   /** Starts collecting from [events]. Must be paired with exactly one [stop]. */
   fun start(scope: CoroutineScope, events: Flow<MapEvent>) {
@@ -55,19 +47,12 @@ internal class BenchmarkFrameRecorder {
     val samples = Channel<FrameSample>(Channel.UNLIMITED)
     this.samples = samples
     start = TimeSource.Monotonic.markNow()
-    previousNanos = NoPreviousFrame
     job =
       scope.launch(Dispatchers.Unconfined) {
         events.filterIsInstance<MapEvent.FrameRendered>().collect { event ->
-          val now = start.elapsedNow().inWholeNanoseconds
-          val previous = previousNanos
-          previousNanos = now
-          // The first event has no previous frame; it only anchors the interval clock.
-          val intervalMs = if (previous == NoPreviousFrame) null else (now - previous) / 1e6
           val stats = event.stats
           samples.trySend(
             FrameSample(
-              intervalMs = intervalMs,
               encodingMs = stats?.encodingTime?.inWholeMicroseconds?.div(1e3),
               renderingMs = stats?.renderingTime?.inWholeMicroseconds?.div(1e3),
               drawCalls = stats?.drawCallCount,

@@ -44,17 +44,6 @@
     "layers": 8,
     "implementation": "compose-declarative"
   },
-  "overlay-sync": {
-    "workload": "camera",
-    "scene": "points-1000",
-    "overlays": 1
-  },
-  "overlay-many": {
-    "workload": "camera",
-    "scene": "points-1000",
-    "overlays": 100
-  },
-  "tap-response": { "workload": "input", "scene": "minimal", "overlays": 1 },
   "image-registration": {
     "workload": "images",
     "scene": "points-100",

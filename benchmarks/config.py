@@ -1,4 +1,4 @@
-"""Versioned run configuration and named cases shared by capture and analysis."""
+"""Run configuration and named cases shared by the runner and comparison."""
 
 import json
 import math
@@ -19,7 +19,6 @@ WORKLOADS = {
     "padding": {"compose-declarative"},
     "recompose": {"compose-declarative"},
     "images": {"compose-imperative"},
-    "input": {"compose-imperative"},
 }
 SCENES = {
     "minimal",
@@ -30,13 +29,11 @@ SCENES = {
     "basemap-sf",
 }
 DEFAULTS = {
-    "version": 2,
     "workload": "camera",
     "scene": "points-1000",
     "implementation": "compose-imperative",
     "surface": "surface",
     "maximumFps": None,
-    "overlays": 0,
     "layers": 1,
     "rateHz": 4.0,
     "durationMs": 12000,
@@ -49,18 +46,13 @@ def parse_config(value):
     if not isinstance(value, dict) or set(value) - set(DEFAULTS):
         raise ValueError("Expected a benchmark configuration object with known fields")
     config = DEFAULTS | value
-    if (
-        config["version"] != 2
-        or config["workload"] not in WORKLOADS
-        or config["scene"] not in SCENES
-    ):
-        raise ValueError("Unknown protocol, workload, or scene")
+    if config["workload"] not in WORKLOADS or config["scene"] not in SCENES:
+        raise ValueError("Unknown workload or scene")
     if config["implementation"] not in WORKLOADS[config["workload"]]:
         raise ValueError("This workload does not support that implementation")
     if config["surface"] not in {"surface", "texture"}:
         raise ValueError("Unknown surface")
     for key, low, high in (
-        ("overlays", 0, 100),
         ("layers", 1, 32),
         ("durationMs", 3000, 30000),
     ):
@@ -89,10 +81,6 @@ def parse_config(value):
         raise ValueError("Source completion requires point probes")
     if config["workload"] == "images" and not config["scene"].startswith("points-"):
         raise ValueError("Image registration requires point symbols")
-    if config["workload"] == "input" and config["overlays"] != 1:
-        raise ValueError("Tap response requires one reference overlay")
-    if config["scene"] == "basemap-sf" and config["overlays"] != 0:
-        raise ValueError("Basemap colors cannot be used for marker analysis")
     return config
 
 
@@ -100,11 +88,3 @@ def canonical_config(value):
     return json.dumps(
         parse_config(value), separators=(",", ":"), sort_keys=True, allow_nan=False
     )
-
-
-def configs_equal(first, second):
-    return parse_config(first) == parse_config(second)
-
-
-def workload(value):
-    return parse_config(value)["workload"]

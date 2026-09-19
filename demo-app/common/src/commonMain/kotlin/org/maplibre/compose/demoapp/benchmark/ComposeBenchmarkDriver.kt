@@ -18,7 +18,6 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.map.*
-import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonSourceHandle
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.util.MaplibreComposable
@@ -86,26 +85,11 @@ internal class ComposeBenchmarkDriver(val fixture: BenchmarkFixture) {
           visible = visible,
         )
     }
-    if (config.overlays > 0) {
-      val marker =
-        rememberGeoJsonSource(
-          GeoJsonData.JsonString(
-            """{"type":"Point","coordinates":[${BenchmarkOrigin.longitude},${BenchmarkOrigin.latitude}]}"""
-          )
-        )
-      CircleLayer(
-        "reference-top",
-        marker,
-        color = const(androidx.compose.ui.graphics.Color.Red),
-        radius = const(10.dp),
-      )
-    }
   }
 
   suspend fun run(state: MapState, clock: BenchmarkWorkload) {
     when (config.scenario) {
-      BenchmarkScenario.Idle,
-      BenchmarkScenario.Input -> clock.idle()
+      BenchmarkScenario.Idle -> clock.idle()
       BenchmarkScenario.Camera ->
         clock.frames { progress -> state.setCameraPosition(tourCamera(progress)) }
       BenchmarkScenario.Animation -> {

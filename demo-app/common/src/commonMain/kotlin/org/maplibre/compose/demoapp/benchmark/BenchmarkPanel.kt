@@ -53,7 +53,7 @@ internal fun BenchmarkScenarioPanel(state: DemoAppState, onRun: (BenchmarkConfig
   }
   if (ui.running) Button(onClick = ui::abandonRun) { Text("Cancel") }
   Text(
-    "Use the benchmark capture runner for visual alignment, input response, and platform performance measurements.",
+    "Use the benchmark runner to save results and compare repeated runs.",
     Modifier.padding(16.dp),
   )
 }

@@ -1,18 +1,14 @@
-"""Recreate synthetic fixtures and verify the committed basemap snapshot.
+"""Generate benchmark geometry and download current basemap assets for packaging."""
 
-Pass --download only when deliberately replacing the basemap snapshot and its hashes.
-"""
-
-import argparse
-import hashlib
 import json
 import math
+import shutil
 import urllib.request
 from pathlib import Path
 
 ROOT = (
     Path(__file__).resolve().parents[1]
-    / "demo-app/common/src/commonMain/composeResources/files/benchmarks"
+    / "demo-app/common/build/generated/benchmarkResources/files/benchmarks"
 )
 ORIGIN = [-122.4194, 37.7749]
 
@@ -78,28 +74,16 @@ def route(variant):
     }
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--download", action="store_true")
-    args = parser.parse_args()
-    ROOT.mkdir(parents=True, exist_ok=True)
-    manifest = {"version": 1, "origin": ORIGIN, "fixtures": {}}
+def prepare(root=ROOT):
+    root.mkdir(parents=True, exist_ok=True)
+    ready = root / ".prepared"
+    ready.unlink(missing_ok=True)
     for count in (100, 1000, 10000):
         name = f"points-{count}"
         for variant in (0, 1):
-            write(ROOT / f"{name}-{variant}.geojson", points(count, variant))
-        manifest["fixtures"][name] = {
-            "features": count,
-            "vertices": count,
-            "geometry": "Point",
-        }
+            write(root / f"{name}-{variant}.geojson", points(count, variant))
     for variant in (0, 1):
-        write(ROOT / f"route-2000-{variant}.geojson", route(variant))
-    manifest["fixtures"]["route-2000"] = {
-        "features": 1,
-        "vertices": 2000,
-        "geometry": "LineString",
-    }
+        write(root / f"route-2000-{variant}.geojson", route(variant))
     assets = {}
     for x in range(2618, 2623):
         for y in range(6330, 6335):
@@ -110,39 +94,17 @@ def main():
         assets[f"basemap/glyphs/noto_sans_regular/{span}.pbf"] = (
             f"https://tiles.versatiles.org/assets/glyphs/noto_sans_regular/{span}.pbf"
         )
-    if args.download:
-        for filename, url in assets.items():
-            path = ROOT / filename
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(urllib.request.urlopen(url, timeout=60).read())
-            print(filename, path.stat().st_size)
-    old = (
-        json.loads((ROOT / "manifest.json").read_text())
-        if (ROOT / "manifest.json").exists()
-        else None
-    )
-    manifest["assets"] = {}
     for filename, url in assets.items():
-        data = (ROOT / filename).read_bytes()
-        digest = hashlib.sha256(data).hexdigest()
-        if not args.download and old and old["assets"][filename]["sha256"] != digest:
-            raise ValueError(f"Changed snapshot asset: {filename}")
-        manifest["assets"][filename] = {
-            "url": url,
-            "sha256": digest,
-            "bytes": len(data),
-        }
-    for path in sorted(ROOT.glob("*.geojson")):
-        data = path.read_bytes()
-        manifest["assets"][path.name] = {
-            "sha256": hashlib.sha256(data).hexdigest(),
-            "bytes": len(data),
-        }
-    manifest["sha256"] = hashlib.sha256(
-        json.dumps(manifest["assets"], sort_keys=True, separators=(",", ":")).encode()
-    ).hexdigest()
-    write(ROOT / "manifest.json", manifest)
+        path = root / filename
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with urllib.request.urlopen(url, timeout=60) as response:
+            data = response.read()
+        path.write_bytes(data)
+        print(filename, len(data))
+    for name in ("LICENSE.md", "OFL.txt"):
+        shutil.copyfile(Path(__file__).with_name("fixtures") / name, root / name)
+    ready.touch()
 
 
 if __name__ == "__main__":
-    main()
+    prepare()

@@ -1,202 +1,98 @@
 import json
+import tempfile
 import unittest
+from pathlib import Path
 
-from performance import frames_metrics, process_cpu_metrics, window_metrics
+from config import canonical_config
+from performance import read_run
 
 
-class FramesMetricsTest(unittest.TestCase):
-    def log(self, records, config="animation,surface,default,0,{}", frames=None):
-        summary = {
-            "frames": len(records) if frames is None else frames,
-            "duration_ms": 12000.0,
-        }
-        return (
-            f"MAP_BENCHMARK START {config} 1.0\n"
-            "MAP_BENCHMARK FRAMESTATS "
-            + json.dumps(summary)
-            + "\nMAP_BENCHMARK FRAMETIMES "
-            + json.dumps(records)
-            + "\n"
-        )
-
-    def test_event_intervals_and_native_statistics(self):
-        records = [
+def write_run(
+    root,
+    cpu=100,
+    implementation="compose-imperative",
+    workload="paint",
+    artifact="build",
+):
+    root.mkdir(parents=True)
+    config = canonical_config({"workload": workload, "implementation": implementation})
+    (root / "metadata.json").write_text(
+        json.dumps(
             {
-                "interval_ms": 16.0,
-                "encoding_ms": 1.0,
-                "rendering_ms": 4.0,
-                "draw_calls": 10,
-                "mode": "full",
-            },
-            {
-                "interval_ms": 30.0,
-                "encoding_ms": 2.0,
-                "rendering_ms": 5.0,
-                "draw_calls": 20,
-                "mode": "full",
-            },
-            {
-                "interval_ms": 40.0,
-                "encoding_ms": 3.0,
-                "rendering_ms": 6.0,
-                "draw_calls": 30,
-                "mode": "partial",
-            },
-        ]
-        result = frames_metrics(self.log(records))
-        self.assertTrue(result["available"])
-        self.assertEqual(result["frames"], 3)
-        self.assertEqual(result["interval_ms"]["p50"], 30.0)
-        self.assertNotIn("jank_over_1_5x", result)
-        self.assertEqual(result["encoding_ms"]["p50"], 2.0)
-        self.assertEqual(result["rendering_ms"]["p50"], 5.0)
-        self.assertEqual(result["draw_calls"]["p50"], 20.0)
-        self.assertEqual(result["modes"], {"full": 2, "partial": 1})
-        self.assertTrue(result["native_render_stats"])
-
-    def test_log_batches_concatenate_in_order(self):
-        summary = {"frames": 2, "duration_ms": 33.0}
-        logs = (
-            "MAP_BENCHMARK START animation,surface,default,0,{} 1.0\n"
-            "MAP_BENCHMARK FRAMESTATS "
-            + json.dumps(summary)
-            + "\nMAP_BENCHMARK FRAMETIMES "
-            + json.dumps([{"interval_ms": 16.0}])
-            + "\nMAP_BENCHMARK FRAMETIMES "
-            + json.dumps([{"interval_ms": 17.0}])
-            + "\n"
+                "platform": "android",
+                "device": "phone",
+                "artifact": artifact,
+                "config": config,
+            }
         )
-        result = frames_metrics(logs)
-        self.assertEqual(result["frames"], 2)
-        self.assertEqual(result["interval_ms"]["max"], 17.0)
+    )
+    operations = 0 if workload == "idle" else 2
+    work = {
+        "operations": operations,
+        "duration_ms": 12001,
+        "submission_count": operations,
+        "completion_count": 0,
+        "completion_signal": None,
+    }
+    logs = (
+        f"MAP_BENCHMARK START {config}\n"
+        "MAP_BENCHMARK VIEWPORT [400,800,2]\n"
+        f"MAP_BENCHMARK CPU {cpu}\n"
+        'MAP_BENCHMARK FRAMESTATS {"frames":0,"duration_ms":12002}\n'
+        + ("MAP_BENCHMARK SUBMISSIONS [0.1,0.2]\n" if operations else "")
+        + "MAP_BENCHMARK WORKLOAD "
+        + json.dumps(work)
+        + "\nMAP_BENCHMARK DONE\n"
+    )
+    (root / "app.log").write_text(logs)
+    return logs
 
-    def test_idle_intervals_are_not_display_jank(self):
-        result = frames_metrics(
-            self.log([{"interval_ms": 500.0}], config="style-mutate,surface,30,0,{}")
-        )
-        self.assertEqual(result["interval_ms"]["p50"], 500)
-        self.assertNotIn("assumed_vsync_ms", result)
-        self.assertNotIn("jank_over_2x", result)
 
-    def test_idle_and_first_event_do_not_invent_an_interval(self):
-        empty = frames_metrics(self.log([]))
-        self.assertTrue(empty["available"])
-        self.assertEqual(empty["frames"], 0)
-        self.assertIsNone(empty["interval_ms"])
-        first = frames_metrics(self.log([{"interval_ms": None, "rendering_ms": 2}]))
-        self.assertIsNone(first["interval_ms"])
-        self.assertEqual(first["rendering_ms"]["p50"], 2)
-
-    def test_truncated_and_invalid_reports_are_rejected(self):
-        logs = self.log([{"interval_ms": 16.0}])
-        with self.assertRaisesRegex(ValueError, "incomplete"):
-            frames_metrics(self.log([{"interval_ms": 16.0}], frames=2))
-        with self.assertRaisesRegex(ValueError, "interval"):
-            frames_metrics(self.log([{"interval_ms": -1.0}]))
-        with self.assertRaisesRegex(ValueError, "interval"):
-            frames_metrics(self.log([{"interval_ms": "16"}]))
-        with self.assertRaisesRegex(ValueError, "interval"):
-            frames_metrics(self.log([{"encoding_ms": 1.0}]))
-        with self.assertRaisesRegex(ValueError, "Malformed"):
-            frames_metrics(
-                logs.replace('[{"interval_ms": 16.0}]', '[{"interval_ms": 16.0},]')
+class PerformanceTest(unittest.TestCase):
+    def test_idle_and_native_statistics(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "run"
+            log = write_run(root, workload="idle")
+            _, report = read_run(root)
+            self.assertEqual(report["cpu_ms"], 100)
+            self.assertEqual(report["frames"]["frames"], 0)
+            self.assertIsNone(report["frames"]["rendering_ms"])
+            log = (
+                log.replace('"frames":0', '"frames":2')
+                + 'MAP_BENCHMARK FRAMETIMES [{"rendering_ms":1},{"rendering_ms":3}]\n'
             )
-        with self.assertRaisesRegex(ValueError, "summary"):
-            frames_metrics(logs.replace("12000.0", "NaN", 1))
-        with self.assertRaisesRegex(ValueError, "one in-app"):
-            frames_metrics(logs + logs)
-        self.assertFalse(frames_metrics("unsupported")["available"])
+            (root / "app.log").write_text(log)
+            self.assertEqual(read_run(root)[1]["frames"]["rendering_ms"]["p50"], 2)
 
+    def test_failed_mismatched_and_truncated_runs_are_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "run"
+            log = write_run(root)
+            for invalid in (
+                log.replace("MAP_BENCHMARK DONE", "unfinished"),
+                log + "MAP_BENCHMARK ERROR failed\n",
+                log.replace("[0.1,0.2]", "[0.1]"),
+                log.replace("[0.1,0.2]", "[0.1,NaN]"),
+                log.replace('"frames":0', '"frames":1'),
+                log.replace('"duration_ms": 12001', '"duration_ms": 100'),
+                log.replace('"workload":"paint"', '"workload":"source"'),
+            ):
+                (root / "app.log").write_text(invalid)
+                with self.assertRaises(ValueError):
+                    read_run(root)
 
-class WindowMetricsTest(unittest.TestCase):
-    def log(self, frames=3, lost=0):
-        report = {"frames": frames, "lost_reports": lost}
-        return (
-            "MAP_BENCHMARK WINDOW "
-            + json.dumps(report)
-            + "\nMAP_BENCHMARK FRAMES 1000000,1000000,150,1000000;2000000,2000000,-1,1000000\nMAP_BENCHMARK FRAMES 4000000,3000000,1000000,4000000\n"
-        )
-
-    def test_batches_preserve_small_gpu_durations_and_unavailable_samples(self):
-        result = window_metrics(self.log(), 1000000, 7000000)
-        self.assertEqual(result["frames"], 3)
-        self.assertEqual(result["total_ms"]["p50"], 2)
-        self.assertAlmostEqual(result["gpu_ms"]["p50"], (1.0 + 0.00015) / 2)
-
-    def test_unavailable_timestamps_do_not_contribute_to_interval_metrics(self):
-        logs = self.log().replace("1000000,1000000,150", "-1,1000000,150")
-        result = window_metrics(logs, 1000000, 7000000)
-        self.assertEqual(result["reported_frames"], 3)
-        self.assertEqual(result["frames"], 2)
-        self.assertEqual(result["total_ms"]["p50"], 2.5)
-
-        logs = logs.replace("2000000,2000000,-1", "-1,2000000,-1").replace(
-            "4000000,3000000,1000000", "-1,3000000,1000000"
-        )
-        result = window_metrics(logs, 1000000, 7000000)
-        self.assertFalse(result["available"])
-        self.assertEqual(result["reason"], "Window frame timestamps are unavailable")
-        self.assertEqual(result["reported_frames"], 3)
-        self.assertEqual(result["frames"], 0)
-        self.assertIsNone(result["total_ms"])
-        self.assertIsNone(result["gpu_ms"])
-
-    def test_invalid_timestamps_are_rejected(self):
-        for timestamp in (0, -2):
-            logs = self.log().replace("1000000,1000000,150", f"{timestamp},1000000,150")
-            with self.assertRaisesRegex(ValueError, "Invalid Window FrameMetrics"):
-                window_metrics(logs, 1000000, 7000000)
-
-    def test_incomplete_or_dropped_reports_are_rejected(self):
-        for log in (self.log(frames=4), self.log(lost=1)):
-            with self.assertRaises(ValueError):
-                window_metrics(log, 1000000, 7000000)
-
-    def test_only_complete_frames_inside_trace_contribute(self):
-        result = window_metrics(self.log(), 4000000, 7000000)
-        self.assertEqual(result["reported_frames"], 3)
-        self.assertEqual(result["frames"], 1)
-        self.assertEqual(result["missed_deadlines"], 0)
-        self.assertEqual(result["total_ms"]["p95"], 3)
-        self.assertEqual(result["gpu_ms"]["p95"], 1)
-        for start, end in ((1000001, 1999999), (4000000, 6999999)):
-            result = window_metrics(self.log(), start, end)
-            self.assertFalse(result["available"])
-            self.assertIsNone(result["total_ms"])
-
-
-class ProcessCpuTest(unittest.TestCase):
-    def test_counter_delta_and_unavailable_measurements(self):
-        self.assertEqual(
-            process_cpu_metrics("MAP_BENCHMARK CPU 1.25e3")["cpu_ms"], 1250
-        )
-        self.assertIsNone(process_cpu_metrics("unsupported"))
-        for value in ("-1", "nan", "inf", "1\nMAP_BENCHMARK CPU 2"):
-            with self.assertRaises(ValueError):
-                process_cpu_metrics("MAP_BENCHMARK CPU " + value)
-
-    def test_android_cpu_and_window_metrics_without_perfetto(self):
-        logs = (
-            "MAP_BENCHMARK CPU 1500\n"
-            "MAP_BENCHMARK INTERVAL 1000000 12001000000\n" + WindowMetricsTest().log()
-        )
-        result = process_cpu_metrics(logs)
-        self.assertEqual(result["cpu_ms"], 1500)
-        self.assertEqual(result["window"]["frames"], 3)
-        with self.assertRaisesRegex(ValueError, "interval"):
-            process_cpu_metrics(logs.replace("12001000000", "0"))
-
-    def test_frames_without_a_cpu_counter_still_report(self):
-        logs = (
-            "MAP_BENCHMARK START animation,surface,default,0,{} 1.0\n"
-            'MAP_BENCHMARK FRAMESTATS {"frames": 1, "duration_ms": 16.0}\n'
-            'MAP_BENCHMARK FRAMETIMES [{"interval_ms": 16.0}]\n'
-        )
-        result = process_cpu_metrics(logs)
-        self.assertIsNone(result["cpu_ms"])
-        self.assertTrue(result["frames"]["available"])
-        self.assertEqual(result["frames"]["frames"], 1)
-
-
-if __name__ == "__main__":
-    unittest.main()
+    def test_completion_requires_the_expected_signal_and_all_operations(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "run"
+            log = write_run(root, workload="source-latency")
+            with self.assertRaisesRegex(ValueError, "completion"):
+                read_run(root)
+            log = (
+                log.replace('"completion_count": 0', '"completion_count": 2').replace(
+                    '"completion_signal": null',
+                    '"completion_signal": "rendered-feature-revision"',
+                )
+                + "MAP_BENCHMARK COMPLETIONS [16,32]\n"
+            )
+            (root / "app.log").write_text(log)
+            self.assertEqual(read_run(root)[1]["workload"]["completion_ms"]["p50"], 24)
