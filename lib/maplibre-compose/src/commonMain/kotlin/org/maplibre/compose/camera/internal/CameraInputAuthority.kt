@@ -267,8 +267,9 @@ internal class CameraInputAuthority(private val owner: MapState) {
     val isCancelled: Boolean
       get() = fence.withLock { status == Status.Cancelled }
 
-    fun permitted(component: CameraComponent): Boolean =
+    fun permitted(component: CameraComponent): Boolean = fence.withLock {
       accepts(enqueue = true) && configuration.settings.enabled(component)
+    }
 
     /** Application callbacks run outside the fence and may replace this camera operation. */
     fun prepare(component: CameraComponent): Boolean {
