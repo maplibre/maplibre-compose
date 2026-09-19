@@ -20,7 +20,8 @@ public interface EditorTool {
 
   /**
    * Handles one event. The result claims the pointer for [EditorEvent.Press], consumes
-   * [EditorEvent.Tap] and [EditorEvent.Key], and is ignored for other events.
+   * [EditorEvent.Tap] and [EditorEvent.Key], ends the gesture for [EditorEvent.LongPress], and is
+   * ignored for other events.
    */
   public fun onEvent(event: EditorEvent, state: FeatureEditorState): Boolean
 

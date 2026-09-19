@@ -67,6 +67,10 @@ public class DrawTool(
         state.draft?.let { state.draft = it.copy(cursor = event.pointer.position) }
         false
       }
+      is EditorEvent.HoverEnd -> {
+        state.draft?.let { if (it.cursor != null) state.draft = it.copy(cursor = null) }
+        false
+      }
       is EditorEvent.Cancel -> onCancel(state)
       is EditorEvent.Key -> onKey(event, state)
       else -> false

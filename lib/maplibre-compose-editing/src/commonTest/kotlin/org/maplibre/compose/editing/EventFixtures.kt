@@ -47,10 +47,15 @@ internal class Events(
   fun tap(pointer: EditorPointer, hit: EditorHit?, count: Int = 1, step: EditStep = EditStep()) =
     EditorEvent.Tap(pointer, hit, count, step, project, unproject)
 
+  fun longPress(pointer: EditorPointer, hit: EditorHit?, step: EditStep) =
+    EditorEvent.LongPress(pointer, hit, step, project, unproject)
+
   fun cancel(step: EditStep) = EditorEvent.Cancel(step, project, unproject)
 
   fun hover(pointer: EditorPointer, hit: EditorHit?) =
     EditorEvent.Hover(pointer, hit, project, unproject)
+
+  fun hoverEnd() = EditorEvent.HoverEnd(project, unproject)
 
   fun key(
     key: Key,

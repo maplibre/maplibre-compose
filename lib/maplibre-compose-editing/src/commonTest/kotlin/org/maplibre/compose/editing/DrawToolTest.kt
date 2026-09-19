@@ -56,6 +56,9 @@ class DrawToolTest {
     )
     assertFalse(tool.onEvent(e.hover(e.pointer(pos(2.0, 2.0)), null), state))
     assertEquals(pos(2.0, 2.0), state.draft?.cursor)
+    assertFalse(tool.onEvent(e.hoverEnd(), state))
+    assertNull(state.draft?.cursor)
+    assertEquals(2, state.positions()?.size)
     assertTrue(tool.onEvent(e.key(Key.Enter), state))
     val created = state.features.single()
     assertEquals(LineString(listOf(pos(0.0, 0.0), pos(1.0, 0.0))), created.geometry)
@@ -199,6 +202,7 @@ class DrawToolTest {
     val step = EditStep()
     assertTrue(tool.onEvent(e.press(origin, hit, step), state))
     assertEquals(hit.handle, state.activeHandle)
+    assertFalse(tool.onEvent(e.longPress(origin, hit, step), state))
     tool.onEvent(e.drag(e.pointer(pos(1.0, 1.0)), origin, hit, step), state)
     assertEquals(listOf(pos(0.0, 0.0), pos(1.0, 1.0)), state.positions())
     assertEquals(pos(1.0, 1.0), state.activeHandle?.position)
@@ -277,7 +281,13 @@ class DrawToolTest {
   @Test
   fun rejected_finish_keeps_the_draft_and_the_error() {
     val tool = DrawTool(DrawShape.LineString)
-    val state = FeatureEditorState(initialTool = tool, validate = { "too short" })
+    var generated = 0
+    val state =
+      FeatureEditorState(
+        initialTool = tool,
+        validate = { "too short" },
+        newId = { id("n${generated++}") },
+      )
     state.tapAt(0.0, 0.0)
     state.tapAt(1.0, 0.0)
     assertTrue(tool.onEvent(e.key(Key.Enter), state))
@@ -285,6 +295,7 @@ class DrawToolTest {
     assertEquals(listOf(pos(0.0, 0.0), pos(1.0, 0.0)), state.positions())
     assertEquals("too short", state.validationError)
     assertEquals(emptyList(), state.features)
+    assertEquals(0, generated)
     assertSame(tool, state.tool)
     assertTrue(state.canUndo)
   }

@@ -30,6 +30,34 @@ class FeatureEditorStateTest {
   }
 
   @Test
+  fun negative_history_limit_is_rejected() {
+    assertFailsWith<IllegalArgumentException> { stateOf(historyLimit = -1) }
+  }
+
+  @Test
+  fun ids_are_assigned_only_to_accepted_features() {
+    var generated = 0
+    var rejecting = true
+    val validated = mutableListOf<JsonPrimitive?>()
+    val state =
+      FeatureEditorState(
+        validate = {
+          validated += it.id
+          if (rejecting) "no" else null
+        },
+        newId = { id("n${generated++}") },
+      )
+    assertNull(state.add(point()))
+    assertNull(state.update(listOf(point(), point("x"))))
+    assertEquals(0, generated)
+    assertEquals(listOf<JsonPrimitive?>(null, null), validated)
+    rejecting = false
+    assertEquals(id("n0"), state.add(point()))
+    assertEquals(listOf(id("n1")), state.update(listOf(point())))
+    assertEquals(listOf<JsonPrimitive?>(null, null, null, null), validated)
+  }
+
+  @Test
   fun ids_compare_as_json_primitives() {
     val state =
       FeatureEditorState(
@@ -130,19 +158,41 @@ class FeatureEditorStateTest {
   }
 
   @Test
-  fun update_with_duplicate_ids_keeps_the_last() {
-    val state = stateOf(point("a"))
-    state.update(
-      listOf(
-        point("a", lon = 1.0),
-        point("a", lon = 2.0),
-        point("b", lon = 3.0),
-        point("b", lon = 4.0),
+  fun update_with_duplicate_ids_keeps_and_validates_the_last() {
+    val state =
+      FeatureEditorState(
+        listOf(point("a")),
+        validate = { if ((it.geometry as Point).longitude == 1.0) "no" else null },
+      )
+    assertNotNull(
+      state.update(
+        listOf(
+          point("a", lon = 1.0),
+          point("a", lon = 2.0),
+          point("b", lon = 1.0),
+          point("b", lon = 4.0),
+        )
       )
     )
+    assertNull(state.validationError)
     assertEquals(2.0, (state.feature(id("a"))!!.geometry as Point).longitude)
     assertEquals(4.0, (state.feature(id("b"))!!.geometry as Point).longitude)
     assertEquals(2, state.features.size)
+    assertNull(state.update(listOf(point("a", lon = 2.0), point("a", lon = 1.0))))
+    assertEquals("no", state.validationError)
+  }
+
+  @Test
+  fun unchanged_replace_and_update_record_no_step() {
+    val state = stateOf(point("a"))
+    assertTrue(state.replace(point("a", lon = 1.0)))
+    state.undo()
+    assertTrue(state.canRedo)
+    assertTrue(state.replace(point("a")))
+    assertEquals(listOf(id("a")), state.update(listOf(point("a")), removeIds = listOf(id("ghost"))))
+    assertFalse(state.canUndo)
+    assertTrue(state.canRedo)
+    assertEquals(listOf(point("a")), state.features)
   }
 
   @Test
@@ -255,6 +305,54 @@ class FeatureEditorStateTest {
   }
 
   @Test
+  fun active_handle_and_hover_follow_the_vertex_through_history_update_and_load() {
+    val state = stateOf(square("s"))
+    state.selection = setOf(id("s"))
+    val ref = VertexRef(id("s"), listOf(0, 1))
+    val handle = EditorHandle(HandleKind.Vertex, ref, pos(10.0, 0.0))
+    state.activeHandle = handle
+    state.hover = HandleHit(handle)
+    val step = EditStep()
+    assertTrue(state.moveVertex(ref, pos(12.0, 1.0), step))
+    assertEquals(pos(12.0, 1.0), state.activeHandle?.position)
+    assertEquals(pos(12.0, 1.0), (state.hover as HandleHit).handle.position)
+    state.undo()
+    assertEquals(handle, state.activeHandle)
+    assertEquals(HandleHit(handle), state.hover)
+    assertTrue(handle in state.handles)
+    state.redo()
+    assertEquals(pos(12.0, 1.0), state.activeHandle?.position)
+    assertTrue(state.activeHandle in state.handles)
+    assertNotNull(state.update(listOf(square("s", origin = 5.0))))
+    assertEquals(pos(15.0, 5.0), state.activeHandle?.position)
+    state.load(listOf(square("s", origin = 1.0)))
+    assertEquals(pos(11.0, 1.0), state.activeHandle?.position)
+    assertEquals(pos(11.0, 1.0), (state.hover as HandleHit).handle.position)
+  }
+
+  @Test
+  fun stale_midpoint_and_retargeted_vertex_handles_are_dropped() {
+    val state = stateOf(square("s"))
+    val midpoint =
+      EditorHandle(HandleKind.Midpoint, VertexRef(id("s"), listOf(0, 1)), pos(5.0, 0.0))
+    state.activeHandle = midpoint
+    state.hover = HandleHit(midpoint)
+    assertTrue(state.replace(square("s", origin = 1.0)))
+    assertNull(state.activeHandle)
+    assertNull(state.hover)
+    val step = EditStep()
+    assertTrue(state.insertVertex(VertexRef(id("s"), listOf(0, 1)), pos(6.0, -2.0), step))
+    state.activeHandle =
+      EditorHandle(HandleKind.Vertex, VertexRef(id("s"), listOf(0, 1)), pos(6.0, -2.0))
+    assertTrue(state.revert(step))
+    assertNull(state.activeHandle)
+    state.activeHandle =
+      EditorHandle(HandleKind.Vertex, VertexRef(id("s"), listOf(0, 1)), pos(11.0, 1.0))
+    state.undo()
+    assertEquals(pos(10.0, 0.0), state.activeHandle?.position)
+  }
+
+  @Test
   fun hover_is_cleared_when_its_feature_disappears_or_tool_changes() {
     val state = stateOf(point("a"))
     state.hover =
@@ -302,6 +400,43 @@ class FeatureEditorStateTest {
     assertTrue(state.replace(point("a", lon = 2.0), step))
     assertTrue(state.replace(point("a", lon = 3.0)))
     assertFalse(state.revert(step))
+  }
+
+  @Test
+  fun revert_clears_the_redo_history() {
+    val state = stateOf(point("a"))
+    val step = EditStep()
+    assertTrue(state.replace(point("a", lon = 1.0), step))
+    assertTrue(state.replace(point("a", lon = 2.0)))
+    state.undo()
+    assertTrue(state.canRedo)
+    assertTrue(state.revert(step))
+    assertFalse(state.canRedo)
+    state.redo()
+    assertEquals(0.0, (state.feature(id("a"))!!.geometry as Point).longitude)
+  }
+
+  @Test
+  fun history_moves_clear_the_validation_error() {
+    val state =
+      FeatureEditorState(
+        listOf(point("a")),
+        validate = { if ((it.geometry as Point).longitude > 5) "too far" else null },
+      )
+    val step = EditStep()
+    assertTrue(state.replace(point("a", lon = 1.0), step))
+    assertFalse(state.replace(point("a", lon = 6.0), step))
+    assertEquals("too far", state.validationError)
+    assertTrue(state.revert(step))
+    assertNull(state.validationError)
+    assertTrue(state.replace(point("a", lon = 1.0)))
+    assertFalse(state.replace(point("a", lon = 6.0)))
+    state.undo()
+    assertNull(state.validationError)
+    assertFalse(state.replace(point("a", lon = 6.0)))
+    state.redo()
+    assertNull(state.validationError)
+    assertEquals(1.0, (state.feature(id("a"))!!.geometry as Point).longitude)
   }
 
   @Test

@@ -20,6 +20,7 @@ import org.maplibre.compose.editing.internal.FeatureBoundsCache
 import org.maplibre.compose.editing.internal.computeHits
 import org.maplibre.compose.editing.internal.mergedPosition
 import org.maplibre.compose.editing.internal.positionAt
+import org.maplibre.compose.editing.internal.vertexCountAround
 import org.maplibre.compose.editing.internal.withVertexInserted
 import org.maplibre.compose.editing.internal.withVertexMoved
 import org.maplibre.compose.editing.internal.withVertexRemoved
@@ -41,15 +42,16 @@ public class EditStep
  * round-trips through JSON unchanged. Features are immutable values; every edit replaces the entry.
  *
  * [validate] runs on each feature a mutation would store when the feature is new or its geometry
- * differs from the stored geometry. A returned message rejects the whole mutation: nothing changes,
- * [validationError] holds the message, and the call returns false or null. [load] does not
- * validate.
+ * differs from the stored geometry. It receives the feature as submitted: a new feature submitted
+ * without an id has a null id and receives one from [newId] only once it is accepted. A returned
+ * message rejects the whole mutation: nothing changes, [validationError] holds the message, and the
+ * call returns false or null. [load] does not validate.
  *
  * @param initialFeatures Features present at creation. A feature without an id receives one from
  *   [newId].
  * @param initialTool The initial [tool].
- * @param historyLimit Number of undo steps kept. At 0 nothing is undoable; the latest step stays
- *   available to [revert] until the next step begins.
+ * @param historyLimit Number of undo steps kept, at least 0. At 0 nothing is undoable; the latest
+ *   step stays available to [revert] until the next step begins.
  * @param validate Returns a message that rejects the feature, or null to accept it.
  * @param newId Produces the id of a feature stored without one. Ids must be unique in [features].
  */
@@ -61,6 +63,10 @@ public class FeatureEditorState(
   public val validate: (EditorFeature) -> String? = { null },
   public val newId: () -> FeatureId = { JsonPrimitive(randomHexId()) },
 ) {
+  init {
+    require(historyLimit >= 0) { "historyLimit must be at least 0" }
+  }
+
   private var featureList by mutableStateOf(withIds(initialFeatures))
 
   private var undoStack by mutableStateOf<List<HistoryEntry>>(emptyList())
@@ -116,9 +122,12 @@ public class FeatureEditorState(
   /**
    * Handle that keyboard actions target and that a drag moves.
    *
-   * Set by tools on press or tap. Its position follows [moveVertex]. Cleared by [insertVertex],
-   * [removeVertex], when its vertex no longer exists, when [selection] or [tool] changes, and by
-   * [cancelDraft] for a draft vertex. A handle without a vertex is cleared only by those setters.
+   * Set by tools on press or tap. Its position follows every change to its vertex, including
+   * [update], [load], [undo], [redo] and [revert]. Cleared by [insertVertex], [removeVertex], when
+   * its vertex no longer exists, when [undo], [redo] or [revert] change the number of vertices in
+   * its line or ring, when [selection] or [tool] changes, and by [cancelDraft] for a draft vertex.
+   * A [HandleKind.Midpoint] handle is cleared by every change to [features] or [draft]. A handle
+   * without a vertex is cleared only by the [selection] and [tool] setters.
    */
   public var activeHandle: EditorHandle? by mutableStateOf(null)
 
@@ -138,8 +147,8 @@ public class FeatureEditorState(
     internal set
 
   /**
-   * Message of the latest rejected mutation. Cleared when a mutation stores something and by
-   * [cancelDraft].
+   * Message of the latest rejected mutation. Cleared when a mutation stores something, when a
+   * claimed gesture ends, by [undo], [redo] and [revert], and by [cancelDraft].
    */
   public var validationError: String? by mutableStateOf(null)
     private set
@@ -190,12 +199,13 @@ public class FeatureEditorState(
    * without an id gets one from [newId]. Throws [IllegalArgumentException] when the id is present.
    */
   public fun add(feature: EditorFeature, undoStep: EditStep? = null): FeatureId? {
+    feature.id?.let { id ->
+      require(id !in currentIndex.of(featureList)) { "Feature id $id is already present" }
+    }
+    if (!accept(listOf(feature to null))) return null
     val stored = if (feature.id == null) feature.copy(id = newId()) else feature
-    val id = checkNotNull(stored.id)
-    require(id !in currentIndex.of(featureList)) { "Feature id $id is already present" }
-    if (!accept(listOf(stored to null))) return null
     commit(featureList + stored, undoStep)
-    return id
+    return checkNotNull(stored.id)
   }
 
   /**
@@ -203,8 +213,9 @@ public class FeatureEditorState(
    *
    * [validate] runs when the geometry differs from the stored one; a properties-only change is
    * stored without validation. When the geometry differs and [feature].bbox equals the stored bbox,
-   * the stored copy gets a null bbox. Returns false and changes nothing when [validate] rejects
-   * [feature]. Throws [IllegalArgumentException] when the id is null or unknown.
+   * the stored copy gets a null bbox. A feature equal to the stored one records no step. Returns
+   * false and changes nothing when [validate] rejects [feature]. Throws [IllegalArgumentException]
+   * when the id is null or unknown.
    */
   public fun replace(feature: EditorFeature, undoStep: EditStep? = null): Boolean {
     val id = requireNotNull(feature.id) { "Feature has no id" }
@@ -213,6 +224,7 @@ public class FeatureEditorState(
     val existing = featureList[position]
     if (!accept(listOf(feature to existing))) return false
     val stored = withBboxRule(feature, existing)
+    if (stored === existing || stored == existing) return true
     commit(featureList.toMutableList().also { it[position] = stored }, undoStep)
     return true
   }
@@ -230,39 +242,52 @@ public class FeatureEditorState(
    *
    * A feature whose id is stored replaces that entry in place; a feature without an id or with an
    * unknown id is appended, and one without an id gets one from [newId]. Among duplicate ids in
-   * [features] the last wins. [validate] runs on each new feature and each feature whose geometry
-   * differs from the stored one; when it rejects one, nothing changes and null is returned. Undo
-   * restores whole lists: undoing a step recorded before this call also reverts it. Returns the ids
-   * of [features] in order.
+   * [features] the last wins and is the one validated. [validate] runs on each new feature and each
+   * feature whose geometry differs from the stored one; when it rejects one, nothing changes and
+   * null is returned. A call that leaves [features][FeatureEditorState.features] equal records no
+   * step. Undo restores whole lists: undoing a step recorded before this call also reverts it.
+   * Returns the ids of [features] in order.
    */
   public fun update(
     features: List<EditorFeature> = emptyList(),
     removeIds: Collection<FeatureId> = emptyList(),
     undoStep: EditStep? = null,
   ): List<FeatureId>? {
-    val list = featureList.toMutableList()
-    val index = HashMap(currentIndex.of(featureList))
-    val ids = ArrayList<FeatureId>(features.size)
+    val current = featureList
+    val currentIds = currentIndex.of(current)
     val checks = ArrayList<Pair<EditorFeature, EditorFeature?>>(features.size)
+    val checkSlots = HashMap<FeatureId, Int>()
+    for (feature in features) {
+      val id = feature.id
+      val check = feature to id?.let { currentIds[it] }?.let { current[it] }
+      val slot = id?.let { checkSlots[it] }
+      if (slot != null) {
+        checks[slot] = check
+      } else {
+        if (id != null) checkSlots[id] = checks.size
+        checks += check
+      }
+    }
+    if (!accept(checks)) return null
+    val list = current.toMutableList()
+    val index = HashMap(currentIds)
+    val ids = ArrayList<FeatureId>(features.size)
     for (feature in features) {
       val withId = if (feature.id == null) feature.copy(id = newId()) else feature
       val id = checkNotNull(withId.id)
       ids += id
       val position = index[id]
       if (position == null) {
-        checks += withId to null
         index[id] = list.size
         list += withId
       } else {
-        val existing = featureList.getOrNull(position)?.takeIf { it.id == id }
-        checks += withId to existing
+        val existing = current.getOrNull(position)?.takeIf { it.id == id }
         list[position] = if (existing == null) withId else withBboxRule(withId, existing)
       }
     }
-    if (!accept(checks)) return null
     val removed = removeIds.toSet()
     val result = if (removed.isEmpty()) list else list.filter { it.id !in removed }
-    if (features.isEmpty() && result.size == featureList.size) return ids
+    if (sameFeatures(result, current)) return ids
     commit(result, undoStep)
     return ids
   }
@@ -285,8 +310,7 @@ public class FeatureEditorState(
   /**
    * Moves the vertex at [ref] to [position]. Ring closure follows. Altitude and further coordinate
    * values of the existing position are kept when [position] has only longitude and latitude. The
-   * feature and geometry bbox become null. Updates [activeHandle] when it addresses the same
-   * vertex. Returns false when [validate] rejects the result.
+   * feature and geometry bbox become null. Returns false when [validate] rejects the result.
    */
   public fun moveVertex(ref: VertexRef, position: Position, undoStep: EditStep? = null): Boolean {
     val id = ref.featureId
@@ -297,7 +321,6 @@ public class FeatureEditorState(
       val merged = mergedPosition(existing, position)
       draft =
         current.copy(positions = current.positions.toMutableList().also { it[index] = merged })
-      followActiveHandle(ref, merged)
       return true
     }
     val slot = currentIndex.of(featureList)[id] ?: return false
@@ -308,7 +331,6 @@ public class FeatureEditorState(
     val stored = feature.copy(geometry = geometry, bbox = null)
     if (!accept(listOf(stored to feature))) return false
     commit(featureList.toMutableList().also { it[slot] = stored }, undoStep)
-    followActiveHandle(ref, merged)
     return true
   }
 
@@ -370,40 +392,39 @@ public class FeatureEditorState(
 
   /**
    * Removes the last draft position when the draft has one, else restores [features] from before
-   * the latest step. [selection] drops ids that no longer exist. Draft removals are not redoable.
+   * the latest step and clears [validationError]. [selection] drops ids that no longer exist. Draft
+   * removals are not redoable.
    */
   public fun undo() {
     if (draft?.positions?.isNotEmpty() == true) {
       removeLastDraftPosition()
       return
     }
-    if (undoableCount == 0) return
+    if (undoableCount <= 0) return
     val entry = undoStack.last()
     undoStack = undoStack.dropLast(1)
     redoStack = redoStack + entry
-    featureList = entry.before
-    normalize()
+    restore(entry.before)
   }
 
-  /** Reapplies the step [undo] took back, when one exists. */
+  /** Reapplies the step [undo] took back, when one exists, and clears [validationError]. */
   public fun redo() {
     val entry = redoStack.lastOrNull() ?: return
     redoStack = redoStack.dropLast(1)
     pushUndo(entry)
-    featureList = entry.after
-    normalize()
+    restore(entry.after)
   }
 
   /**
-   * Reverts the latest step when it was recorded under [step] and drops it from history. Returns
-   * whether it did.
+   * Reverts the latest step when it was recorded under [step], drops it from history, clears the
+   * redo history and [validationError]. Returns whether it did.
    */
   public fun revert(step: EditStep): Boolean {
     val entry = undoStack.lastOrNull() ?: return false
     if (entry.step !== step) return false
     undoStack = undoStack.dropLast(1)
-    featureList = entry.before
-    normalize()
+    redoStack = emptyList()
+    restore(entry.before)
     return true
   }
 
@@ -437,7 +458,7 @@ public class FeatureEditorState(
    * Hits at [screen], nearest handle first, then features from the selection and the top of
    * [features] down. The tolerance is [radius] unprojected at [screen]. With [fill] false, polygons
    * hit only on their outline. Returns an empty list without a viewport. [Modifier.featureEditor]
-   * uses the first element. From a map click callback: `editor.hitTest(click.offset, 12.dp,
+   * uses the first element. From a map click callback: `editor.hitTest(click.screenOffset, 12.dp,
    * map::positionFromScreenLocation).firstOrNull()`.
    */
   public fun hitTest(
@@ -529,34 +550,72 @@ public class FeatureEditorState(
   }
 
   private fun normalizeHandles() {
-    activeHandle?.vertex?.let { if (!vertexExists(it)) activeHandle = null }
+    activeHandle?.let { handle ->
+      val refreshed = refreshed(handle)
+      if (refreshed !== handle) activeHandle = refreshed
+    }
     when (val hit = hover) {
-      is HandleHit -> hit.handle.vertex?.let { if (!vertexExists(it)) hover = null }
+      is HandleHit -> {
+        val refreshed = refreshed(hit.handle)
+        if (refreshed == null) hover = null
+        else if (refreshed !== hit.handle) hover = HandleHit(refreshed)
+      }
       is FeatureHit -> if (hit.featureId !in currentIndex.of(featureList)) hover = null
       null -> Unit
     }
   }
 
-  private fun vertexExists(ref: VertexRef): Boolean {
-    val id = ref.featureId
-    if (id == null) {
-      val index = ref.path.singleOrNull() ?: return false
-      return draft?.positions?.indices?.contains(index) == true
-    }
-    return feature(id)?.geometry?.positionAt(ref.path) != null
+  // A midpoint sits on a segment that any change can move, so it cannot be refreshed.
+  private fun refreshed(handle: EditorHandle): EditorHandle? {
+    val ref = handle.vertex ?: return handle
+    if (handle.kind == HandleKind.Midpoint) return null
+    val position = vertexPosition(ref) ?: return null
+    return if (position == handle.position) handle else handle.copy(position = position)
   }
 
-  private fun followActiveHandle(ref: VertexRef, position: Position) {
-    val handle = activeHandle ?: return
-    if (handle.vertex == ref) activeHandle = handle.copy(position = position)
+  /** The current position of the vertex at [ref], or null when [ref] addresses none. */
+  internal fun vertexPosition(ref: VertexRef): Position? {
+    val id = ref.featureId
+    if (id == null) {
+      val index = ref.path.singleOrNull() ?: return null
+      return draft?.positions?.getOrNull(index)
+    }
+    return feature(id)?.geometry?.positionAt(ref.path)
+  }
+
+  /** Puts [list] in place of [features] as a history move. */
+  private fun restore(list: List<EditorFeature>) {
+    // A path keeps addressing the same vertex only while its line or ring keeps its vertex count;
+    // a handle set after an insertion would otherwise retarget a neighbour when the insertion is
+    // taken back.
+    activeHandle?.vertex?.let { ref ->
+      val id = ref.featureId ?: return@let
+      val before = feature(id)?.geometry?.vertexCountAround(ref.path)
+      val after = list.firstOrNull { it.id == id }?.geometry?.vertexCountAround(ref.path)
+      if (before != after) activeHandle = null
+    }
+    featureList = list
+    validationError = null
+    normalize()
+  }
+
+  private fun sameFeatures(a: List<EditorFeature>, b: List<EditorFeature>): Boolean =
+    a.size == b.size && a.indices.all { a[it] === b[it] || a[it] == b[it] }
+
+  /** Ends a claimed gesture and clears the message a rejected frame left. */
+  internal fun endGesture() {
+    if (!gestureInProgress) return
+    gestureInProgress = false
+    validationError = null
   }
 
   public companion object {
     /**
      * Saves [features], [selection], [draft] and, when [tool] is a [DrawTool], its options as JSON.
-     * Other tools and the history are not saved. A restored state receives the saved [DrawTool]
-     * with `nextTool = initialTool` (null when it was null), else [initialTool], passed through
-     * [restoreTool] with the restored draft.
+     * Other tools and the history are not saved. When a [DrawTool] was saved, the restored tool is
+     * that tool with `nextTool` set to [initialTool], or null when the saved tool had no next tool.
+     * Otherwise the restored tool is [initialTool]. [restoreTool] receives the restored tool and
+     * the restored draft and returns the tool the state starts with.
      *
      * Android saved state above about 500 KB in total fails with TransactionTooLargeException. Hold
      * large collections outside saved state, for example in a ViewModel, and call [load] after

@@ -37,6 +37,23 @@ internal fun Geometry.positionAt(path: List<Int>): Position? =
     is GeometryCollection<*> -> null
   }
 
+/**
+ * Returns the number of addressable positions in the list that holds the vertex at [path], or null
+ * when [path] has the wrong depth or names a missing part or ring.
+ */
+internal fun Geometry.vertexCountAround(path: List<Int>): Int? =
+  when (this) {
+    is Point -> if (path.isEmpty()) 1 else null
+    is MultiPoint -> if (path.size == 1) coordinates.size else null
+    is LineString -> if (path.size == 1) coordinates.size else null
+    is MultiLineString -> if (path.size == 2) coordinates.getOrNull(path[0])?.size else null
+    is Polygon -> if (path.size == 2) coordinates.getOrNull(path[0])?.ringVertices()?.size else null
+    is MultiPolygon ->
+      if (path.size == 3) coordinates.getOrNull(path[0])?.getOrNull(path[1])?.ringVertices()?.size
+      else null
+    is GeometryCollection<*> -> null
+  }
+
 /** Returns this geometry with the vertex at [path] replaced, or null when [path] is invalid. */
 internal fun Geometry.withVertexMoved(path: List<Int>, position: Position): Geometry? =
   when (this) {

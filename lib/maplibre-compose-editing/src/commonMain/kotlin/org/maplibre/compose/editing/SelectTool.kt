@@ -27,16 +27,16 @@ import org.maplibre.spatialk.geojson.Position
  * Tap on a feature selects it; Shift toggles it in the selection. Tap on empty map clears the
  * selection when [clearSelectionOnEmptyTap]; an empty tap is never consumed, so the map's click
  * callbacks and layer click handlers run. Press on a vertex or midpoint handle claims the pointer;
- * a drag moves the vertex, or inserts one at the midpoint and moves it. A tap on a handle sets
- * [FeatureEditorState.activeHandle]. When [moveSelected] returns true for the pointer type, a drag
- * on an already selected feature moves every selected feature in Web Mercator space as one
- * validated step; otherwise a press on a feature pans the map. Delete or Backspace removes the
- * active vertex, else the selected features when [removeSelectionOnDelete]. Arrow keys move the
- * active vertex by [nudgeStep], or by ten times that with Shift, once per key event including
- * repeats. Escape clears the active handle, else the selection. Secondary-button taps on features
- * and, with [removeVertexOnSecondaryClick] false, on vertices are not consumed, so the map's click
- * callbacks see them. A second pointer ends a drag at its last position. Cancel reverts the
- * gesture's changes.
+ * a drag moves the vertex, or inserts one at the midpoint and moves it. A tap on a vertex handle
+ * sets [FeatureEditorState.activeHandle]; a tap on a midpoint does nothing. When [moveSelected]
+ * returns true for the pointer type, a drag on an already selected feature moves every selected
+ * feature in Web Mercator space as one validated step; otherwise a press on a feature pans the map.
+ * Delete or Backspace removes the active vertex, else the selected features when
+ * [removeSelectionOnDelete]. Arrow keys move the active vertex by [nudgeStep], or by ten times that
+ * with Shift, once per key event including repeats. Escape clears the active handle, else the
+ * selection. Secondary-button taps on features and, with [removeVertexOnSecondaryClick] false, on
+ * vertices are not consumed, so the map's click callbacks see them. A second pointer ends a drag at
+ * its last position. Cancel reverts the gesture's changes and clears the active handle.
  *
  * @param canSelect Features for which taps select and handles appear.
  * @param moveSelected Pointer types for which dragging a selected feature moves the selection.
@@ -101,7 +101,11 @@ public class SelectTool(
       is EditorEvent.Press -> onPress(event, state)
       is EditorEvent.Drag -> onDrag(event, state)
       is EditorEvent.Tap -> onTap(event, state)
-      is EditorEvent.Cancel -> state.revert(event.step)
+      is EditorEvent.Cancel -> {
+        state.revert(event.step)
+        state.activeHandle = null
+        false
+      }
       is EditorEvent.Key -> onKey(event, state)
       else -> false
     }
@@ -176,7 +180,7 @@ public class SelectTool(
           return true
         }
         if (!pointer.isPrimary) return false
-        state.activeHandle = handle
+        state.activeHandle = if (handle.kind == HandleKind.Midpoint) null else handle
         true
       }
       is FeatureHit -> {
@@ -208,7 +212,7 @@ public class SelectTool(
     return when (event.key) {
       Key.Delete,
       Key.Backspace -> {
-        val ref = state.activeHandle?.vertex
+        val ref = state.activeHandle?.takeIf { it.kind != HandleKind.Midpoint }?.vertex
         when {
           ref != null -> state.removeVertex(ref)
           removeSelectionOnDelete && state.selection.isNotEmpty() -> {
@@ -246,9 +250,11 @@ public class SelectTool(
   ): Boolean {
     val step = nudgeStep ?: return false
     val handle = state.activeHandle ?: return false
+    if (handle.kind == HandleKind.Midpoint) return false
     val ref = handle.vertex ?: return false
+    val current = state.vertexPosition(ref) ?: return false
     val distance = if (KeyModifier.Shift in event.modifierKeys) step * 10 else step
-    val screen = event.project(handle.position) ?: return false
+    val screen = event.project(current) ?: return false
     val target =
       event.unproject(DpOffset(screen.x + distance * dx, screen.y + distance * dy)) ?: return false
     return state.moveVertex(ref, target)

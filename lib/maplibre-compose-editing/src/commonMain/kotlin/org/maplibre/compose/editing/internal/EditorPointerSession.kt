@@ -9,7 +9,10 @@ import org.maplibre.compose.editing.EditStep
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.PointerButton
 
-/** One pointer change in dp, as [EditorPointerSession] reads it. */
+/**
+ * One pointer change in dp, as [EditorPointerSession] reads it. [consumed] is whether an earlier
+ * node already consumed the change.
+ */
 internal data class PointerSample(
   val id: Long,
   val pressed: Boolean,
@@ -19,6 +22,7 @@ internal data class PointerSample(
   val pointerType: PointerType,
   val buttons: Set<PointerButton>,
   val modifierKeys: Set<KeyModifier>,
+  val consumed: Boolean = false,
 )
 
 /** Receives the gestures [EditorPointerSession] recognizes. */
@@ -34,7 +38,8 @@ internal interface EditorPointerHandler {
   /** Returns true to consume the tap. */
   fun onTap(sample: PointerSample, count: Int, step: EditStep): Boolean
 
-  fun onLongPress(sample: PointerSample, step: EditStep)
+  /** Returns true to end the gesture; the pointer is then ignored until it lifts. */
+  fun onLongPress(sample: PointerSample, step: EditStep): Boolean
 
   fun onCancel(step: EditStep)
 }
@@ -42,15 +47,18 @@ internal interface EditorPointerHandler {
 /**
  * Recognizes editor gestures from pointer samples.
  *
- * The first pointer of a contact group is tracked. A claimed pointer's changes are all consumed; a
- * cancelled or committed group is swallowed until every contact lifts. [onEvent] returns the ids of
- * the changes to consume.
+ * The first pointer of a contact group is tracked; a press an earlier node consumed is not. A
+ * claimed pointer's changes are all consumed; a cancelled or committed group is swallowed until
+ * every contact lifts. An unclaimed pointer is no tap once it moves past slop, once another node
+ * consumes it, or, for touch and stylus, once it is held past the long press timeout. [onEvent]
+ * returns the ids of the changes to consume.
  */
 internal class EditorPointerSession(
   private val handler: EditorPointerHandler,
   private val touchSlop: () -> Dp,
   private val doubleTapTimeoutMillis: () -> Long,
   private val doubleTapRadius: (PointerType) -> Dp,
+  private val longPressTimeoutMillis: () -> Long,
 ) {
   private class Tracked(
     val id: Long,
@@ -60,6 +68,7 @@ internal class EditorPointerSession(
   ) {
     var dragged = false
     var tapEligible = true
+    var longPressed = false
     var last = origin
   }
 
@@ -74,14 +83,11 @@ internal class EditorPointerSession(
   val isClaimed: Boolean
     get() = !swallowed && tracked?.claimed == true
 
-  /** Whether a claimed touch or stylus pointer is held within slop. */
+  /** Whether a claimed touch or stylus pointer is held within slop with no long press delivered. */
   val longPressPending: Boolean
     get() {
       val t = tracked ?: return false
-      return !swallowed &&
-        t.claimed &&
-        !t.dragged &&
-        (t.origin.pointerType == PointerType.Touch || t.origin.pointerType == PointerType.Stylus)
+      return !swallowed && t.claimed && !t.dragged && !t.longPressed && canLongPress(t.origin)
     }
 
   fun onEvent(samples: List<PointerSample>): Set<Long> {
@@ -100,8 +106,8 @@ internal class EditorPointerSession(
   fun longPress(): Boolean {
     if (!longPressPending) return false
     val t = checkNotNull(tracked)
-    handler.onLongPress(t.last, t.step)
-    swallow()
+    t.longPressed = true
+    if (handler.onLongPress(t.last, t.step)) swallow()
     return true
   }
 
@@ -114,12 +120,13 @@ internal class EditorPointerSession(
     return true
   }
 
-  /** Cancels a claimed gesture and forgets every contact. */
+  /** Cancels a claimed gesture and forgets every contact and the last tap. */
   fun reset() {
     cancel()
     contacts.clear()
     tracked = null
     swallowed = false
+    lastTap = null
   }
 
   private fun onPress(sample: PointerSample, consume: MutableSet<Long>) {
@@ -131,7 +138,7 @@ internal class EditorPointerSession(
     }
     val t = tracked
     if (t == null) {
-      if (!wasEmpty) return
+      if (!wasEmpty || sample.consumed) return
       val step = EditStep()
       val claimed = handler.onPress(sample, step)
       tracked = Tracked(sample.id, sample, step, claimed)
@@ -161,7 +168,7 @@ internal class EditorPointerSession(
         handler.onCancel(t.step)
         swallow()
       }
-    } else if (pastSlop) {
+    } else if (pastSlop || sample.consumed) {
       t.tapEligible = false
     }
   }
@@ -176,7 +183,10 @@ internal class EditorPointerSession(
       if (t.claimed) consume += sample.id
       if (t.claimed && t.dragged) {
         handler.onRelease(sample, t.step)
-      } else if (t.tapEligible) {
+        lastTap = null
+      } else if (
+        t.tapEligible && (t.claimed || !sample.consumed && !heldPastLongPress(t, sample))
+      ) {
         val count = if (isSecondTap(t.origin)) 2 else 1
         val consumed = handler.onTap(sample, count, t.step)
         if (consumed) consume += sample.id
@@ -184,6 +194,8 @@ internal class EditorPointerSession(
           if (consumed && count == 1)
             TapRecord(sample.timeMillis, sample.screen, sample.pointerType)
           else null
+      } else {
+        lastTap = null
       }
     }
     if (contacts.isEmpty()) {
@@ -199,7 +211,15 @@ internal class EditorPointerSession(
       distance(press.screen, previous.screen) <= doubleTapRadius(press.pointerType)
   }
 
+  // An unclaimed long press belongs to the map's long click, which suppresses its own click.
+  private fun heldPastLongPress(t: Tracked, sample: PointerSample): Boolean =
+    canLongPress(t.origin) && sample.timeMillis - t.origin.timeMillis >= longPressTimeoutMillis()
+
+  private fun canLongPress(press: PointerSample): Boolean =
+    press.pointerType == PointerType.Touch || press.pointerType == PointerType.Stylus
+
   private fun swallow() {
+    lastTap = null
     if (contacts.isEmpty()) {
       tracked = null
       swallowed = false

@@ -185,6 +185,66 @@ class SelectToolTest {
     tool.onEvent(e.cancel(step), state)
     assertEquals(squareGeometry(), state.feature(id("a"))!!.geometry)
     assertFalse(state.canUndo)
+    assertNull(state.activeHandle)
+  }
+
+  @Test
+  fun cancel_after_a_midpoint_drag_leaves_no_vertex_for_delete() {
+    val state = selected(square("a"), tool = SelectTool(removeSelectionOnDelete = false))
+    val tool = state.tool
+    val hit = handleAt(state, 5.0, 0.0)
+    val origin = e.pointer(pos(5.0, 0.0), PointerType.Touch)
+    val step = EditStep()
+    assertTrue(tool.onEvent(e.press(origin, hit, step), state))
+    assertFalse(tool.onEvent(e.longPress(origin, hit, step), state))
+    tool.onEvent(e.drag(e.pointer(pos(5.0, -2.0), PointerType.Touch), origin, hit, step), state)
+    assertEquals(6, state.ring("a").size)
+    tool.onEvent(e.cancel(step), state)
+    assertEquals(squareGeometry(), state.feature(id("a"))!!.geometry)
+    assertNull(state.activeHandle)
+    assertFalse(tool.onEvent(e.key(Key.Delete), state))
+    assertEquals(squareGeometry(), state.feature(id("a"))!!.geometry)
+  }
+
+  @Test
+  fun midpoint_tap_leaves_no_active_handle_and_keys_ignore_a_midpoint() {
+    val state = selected(square("a"), tool = SelectTool(removeSelectionOnDelete = false))
+    val tool = state.tool
+    val midpoint = handleAt(state, 5.0, 0.0)
+    val pointer = e.pointer(pos(5.0, 0.0))
+    val step = EditStep()
+    assertTrue(tool.onEvent(e.press(pointer, midpoint, step), state))
+    assertEquals(midpoint.handle, state.activeHandle)
+    assertTrue(tool.onEvent(e.tap(pointer, midpoint, step = step), state))
+    assertNull(state.activeHandle)
+    state.activeHandle = midpoint.handle
+    assertFalse(tool.onEvent(e.key(Key.Delete), state))
+    assertFalse(tool.onEvent(e.key(Key.DirectionLeft), state))
+    assertEquals(squareGeometry(), state.feature(id("a"))!!.geometry)
+  }
+
+  @Test
+  fun nudge_starts_from_the_vertex_after_a_body_move() {
+    val state = selected(square("a"))
+    val tool = state.tool
+    val vertex = handleAt(state, 10.0, 0.0)
+    assertTrue(tool.onEvent(e.tap(e.pointer(pos(10.0, 0.0)), vertex), state))
+    val body = assertIs<FeatureHit>(e.hitAt(state, pos(5.0, 5.0)))
+    val origin = e.pointer(pos(5.0, 5.0))
+    val step = EditStep()
+    assertTrue(tool.onEvent(e.press(origin, body, step), state))
+    tool.onEvent(e.drag(e.pointer(pos(7.0, 5.0)), origin, body, step), state)
+    tool.onEvent(e.release(e.pointer(pos(7.0, 5.0)), step), state)
+    assertEquals(12.0, state.ring("a")[1].longitude, 1e-9)
+    assertEquals(12.0, state.activeHandle!!.position.longitude, 1e-9)
+    assertTrue(tool.onEvent(e.key(Key.DirectionRight), state))
+    assertEquals(12.1, state.ring("a")[1].longitude, 1e-9)
+    assertEquals(0.0, state.ring("a")[1].latitude, 1e-9)
+    state.undo()
+    state.undo()
+    assertEquals(squareGeometry(), state.feature(id("a"))!!.geometry)
+    assertTrue(tool.onEvent(e.key(Key.DirectionRight), state))
+    assertEquals(10.1, state.ring("a")[1].longitude, 1e-9)
   }
 
   @Test

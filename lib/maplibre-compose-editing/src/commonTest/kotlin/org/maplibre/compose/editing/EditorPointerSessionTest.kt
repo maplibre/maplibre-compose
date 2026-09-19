@@ -13,8 +13,11 @@ import org.maplibre.compose.editing.internal.EditorPointerSession
 import org.maplibre.compose.editing.internal.PointerSample
 
 class EditorPointerSessionTest {
-  private class Handler(var claim: Boolean = false, var consumeTap: Boolean = false) :
-    EditorPointerHandler {
+  private class Handler(
+    var claim: Boolean = false,
+    var consumeTap: Boolean = false,
+    var endOnLongPress: Boolean = false,
+  ) : EditorPointerHandler {
     val calls = mutableListOf<String>()
     val steps = mutableListOf<EditStep>()
     var dragResult = true
@@ -45,10 +48,11 @@ class EditorPointerSessionTest {
       return consumeTap
     }
 
-    override fun onLongPress(sample: PointerSample, step: EditStep) {
+    override fun onLongPress(sample: PointerSample, step: EditStep): Boolean {
       calls += "longPress"
       steps += step
       lastSample = sample
+      return endOnLongPress
     }
 
     override fun onCancel(step: EditStep) {
@@ -63,6 +67,7 @@ class EditorPointerSessionTest {
       touchSlop = { 18.dp },
       doubleTapTimeoutMillis = { 300 },
       doubleTapRadius = { 24.dp },
+      longPressTimeoutMillis = { 400 },
     )
 
   private fun sample(
@@ -73,6 +78,7 @@ class EditorPointerSessionTest {
     y: Float = 0f,
     time: Long = 0,
     type: PointerType = PointerType.Touch,
+    consumed: Boolean = false,
   ) =
     PointerSample(
       id,
@@ -83,6 +89,7 @@ class EditorPointerSessionTest {
       type,
       emptySet(),
       emptySet(),
+      consumed,
     )
 
   private fun down(
@@ -90,17 +97,24 @@ class EditorPointerSessionTest {
     x: Float = 0f,
     time: Long = 0,
     type: PointerType = PointerType.Touch,
-  ) = sample(id, pressed = true, previousPressed = false, x = x, time = time, type = type)
+    consumed: Boolean = false,
+  ) = sample(id, true, false, x = x, time = time, type = type, consumed = consumed)
 
-  private fun move(id: Long = 1, x: Float, time: Long = 0, type: PointerType = PointerType.Touch) =
-    sample(id, pressed = true, previousPressed = true, x = x, time = time, type = type)
+  private fun move(
+    id: Long = 1,
+    x: Float,
+    time: Long = 0,
+    type: PointerType = PointerType.Touch,
+    consumed: Boolean = false,
+  ) = sample(id, true, true, x = x, time = time, type = type, consumed = consumed)
 
   private fun up(
     id: Long = 1,
     x: Float = 0f,
     time: Long = 0,
     type: PointerType = PointerType.Touch,
-  ) = sample(id, pressed = false, previousPressed = true, x = x, time = time, type = type)
+    consumed: Boolean = false,
+  ) = sample(id, false, true, x = x, time = time, type = type, consumed = consumed)
 
   @Test
   fun claimedPointerIsConsumedAndDraggedPastSlop() {
@@ -208,7 +222,7 @@ class EditorPointerSessionTest {
 
   @Test
   fun longPressSwallowsTheClaimedPointer() {
-    val handler = Handler(claim = true)
+    val handler = Handler(claim = true, endOnLongPress = true)
     val session = session(handler)
     session.onEvent(listOf(down()))
     assertTrue(session.longPressPending)
@@ -222,6 +236,108 @@ class EditorPointerSessionTest {
     assertEquals(listOf("press", "longPress"), handler.calls)
     session.onEvent(listOf(down()))
     assertEquals(listOf("press", "longPress", "press"), handler.calls)
+  }
+
+  @Test
+  fun unendedLongPressKeepsTheGestureAlive() {
+    val handler = Handler(claim = true)
+    val session = session(handler)
+    session.onEvent(listOf(down()))
+    assertTrue(session.longPress())
+    assertFalse(session.longPressPending)
+    assertFalse(session.longPress())
+    assertTrue(session.isClaimed)
+    assertEquals(setOf(1L), session.onEvent(listOf(move(x = 50f))))
+    assertEquals(setOf(1L), session.onEvent(listOf(up(x = 50f))))
+    assertEquals(listOf("press", "longPress", "drag", "release"), handler.calls)
+
+    handler.calls.clear()
+    session.onEvent(listOf(down()))
+    assertTrue(session.longPress())
+    assertEquals(setOf(1L), session.onEvent(listOf(up())))
+    assertEquals(listOf("press", "longPress", "tap1"), handler.calls)
+  }
+
+  @Test
+  fun unclaimedTouchHeldPastTheLongPressTimeoutIsNoTap() {
+    val handler = Handler(consumeTap = true)
+    val session = session(handler)
+    session.onEvent(listOf(down(time = 0)))
+    assertEquals(emptySet(), session.onEvent(listOf(up(time = 400))))
+    assertEquals(listOf("press"), handler.calls)
+    session.onEvent(listOf(down(time = 1000)))
+    assertEquals(setOf(1L), session.onEvent(listOf(up(time = 1399))))
+    assertEquals(listOf("press", "press", "tap1"), handler.calls)
+    session.onEvent(listOf(down(time = 2000, type = PointerType.Mouse)))
+    assertEquals(setOf(1L), session.onEvent(listOf(up(time = 3000, type = PointerType.Mouse))))
+    assertEquals(listOf("press", "press", "tap1", "press", "tap1"), handler.calls)
+  }
+
+  @Test
+  fun aPressAnotherNodeConsumedIsNotTracked() {
+    val handler = Handler(claim = true)
+    val session = session(handler)
+    assertEquals(emptySet(), session.onEvent(listOf(down(consumed = true))))
+    assertFalse(session.isClaimed)
+    assertEquals(emptySet(), session.onEvent(listOf(move(x = 50f, consumed = true))))
+    assertEquals(emptySet(), session.onEvent(listOf(down(id = 2, x = 100f))))
+    assertEquals(emptySet(), session.onEvent(listOf(up(x = 50f, consumed = true), up(id = 2))))
+    assertEquals(emptyList(), handler.calls)
+    session.onEvent(listOf(down()))
+    assertEquals(listOf("press"), handler.calls)
+  }
+
+  @Test
+  fun aConsumedChangeOfAnUnclaimedPointerDropsTheTap() {
+    val handler = Handler(consumeTap = true)
+    val session = session(handler)
+    session.onEvent(listOf(down()))
+    assertEquals(emptySet(), session.onEvent(listOf(up(consumed = true))))
+    session.onEvent(listOf(down(time = 1000)))
+    session.onEvent(listOf(move(x = 2f, time = 1010, consumed = true)))
+    assertEquals(emptySet(), session.onEvent(listOf(up(x = 2f, time = 1020))))
+    assertEquals(listOf("press", "press"), handler.calls)
+  }
+
+  @Test
+  fun aDragOrMovedPointerBetweenTwoTapsEndsTheDoubleTap() {
+    val handler = Handler(consumeTap = true)
+    val session = session(handler)
+    session.onEvent(listOf(down(time = 0)))
+    session.onEvent(listOf(up(time = 50)))
+    handler.claim = true
+    session.onEvent(listOf(down(time = 100)))
+    session.onEvent(listOf(move(x = 40f, time = 150)))
+    session.onEvent(listOf(up(x = 40f, time = 200)))
+    handler.claim = false
+    session.onEvent(listOf(down(time = 250)))
+    session.onEvent(listOf(up(time = 300)))
+    assertEquals(
+      listOf("press", "tap1", "press", "drag", "release", "press", "tap1"),
+      handler.calls,
+    )
+
+    handler.calls.clear()
+    session.onEvent(listOf(down(time = 1000)))
+    session.onEvent(listOf(up(time = 1050)))
+    session.onEvent(listOf(down(time = 1100)))
+    session.onEvent(listOf(move(x = 40f, time = 1120)))
+    session.onEvent(listOf(up(x = 40f, time = 1150)))
+    session.onEvent(listOf(down(time = 1200)))
+    session.onEvent(listOf(up(time = 1250)))
+    assertEquals(listOf("press", "tap1", "press", "press", "tap1"), handler.calls)
+  }
+
+  @Test
+  fun resetForgetsTheLastTap() {
+    val handler = Handler(consumeTap = true)
+    val session = session(handler)
+    session.onEvent(listOf(down(time = 0)))
+    session.onEvent(listOf(up(time = 50)))
+    session.reset()
+    session.onEvent(listOf(down(time = 100)))
+    session.onEvent(listOf(up(time = 150)))
+    assertEquals(listOf("press", "tap1", "press", "tap1"), handler.calls)
   }
 
   @Test

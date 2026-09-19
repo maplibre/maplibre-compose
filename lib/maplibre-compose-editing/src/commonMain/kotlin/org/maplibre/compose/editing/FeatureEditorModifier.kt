@@ -63,12 +63,13 @@ import org.maplibre.spatialk.geojson.Position
  * Pass it as [MaplibreMap][org.maplibre.compose.map.MaplibreMap]'s `surfaceModifier`. Events are
  * read in the Initial pass. The map receives a pointer until the tool claims it or consumes its
  * tap; other pointers keep their map gestures. Overlay controls under the pointer block it; map
- * layers and their click handlers do not. Keys reach the tool while the map has focus; a claimed
- * press focuses the map. With [undoShortcuts], Ctrl or Meta with Z undoes and with Shift+Z or Y
- * redoes before the tool sees the key. Hit testing uses [hitRadius] for the pointer type and
- * [hitFill] for polygon interiors. Writes [FeatureEditorState.visibleBounds] as the camera moves.
- * With [enabled] false nothing is hit-tested, consumed or hovered, and a gesture in progress is
- * cancelled.
+ * layers and their click handlers do not. A press an earlier modifier consumed in the Initial pass
+ * is not delivered. Keys reach the tool while the map has focus; a claimed press focuses the map.
+ * With [undoShortcuts], Ctrl or Meta with Z undoes and with Shift+Z or Y redoes before the tool
+ * sees the key, except while a pointer is claimed. Hit testing uses [hitRadius] for the pointer
+ * type and [hitFill] for polygon interiors. Writes [FeatureEditorState.visibleBounds] as the camera
+ * moves. With [enabled] false nothing is hit-tested, consumed or hovered, and a gesture in progress
+ * is cancelled.
  */
 public fun Modifier.featureEditor(
   state: FeatureEditorState,
@@ -118,7 +119,7 @@ private fun Modifier.editorCursor(state: FeatureEditorState, enabled: Boolean): 
       remember(state, enabled) {
         derivedStateOf { if (enabled) state.tool.cursor(state) else PointerIcon.Default }
       }
-    pointerHoverIcon(icon, overrideDescendants = true)
+    pointerHoverIcon(icon, overrideDescendants = enabled)
   }
 
 /** Projection and camera reads of one map. [unproject] wraps longitudes into [-180, 180]. */
@@ -252,11 +253,13 @@ internal class FeatureEditorNode(
       },
       doubleTapTimeoutMillis = { currentValueOf(LocalViewConfiguration).doubleTapTimeoutMillis },
       doubleTapRadius = { hitRadius(it) },
+      longPressTimeoutMillis = { currentValueOf(LocalViewConfiguration).longPressTimeoutMillis },
     )
   private var longPressJob: Job? = null
   private var pressHit: EditorHit? = null
   private var origin: EditorPointer? = null
   private var previous: EditorPointer? = null
+  private var hovering = false
 
   fun update(
     state: FeatureEditorState,
@@ -267,14 +270,14 @@ internal class FeatureEditorNode(
     undoShortcuts: Boolean,
   ) {
     if (state !== this.state || !enabled) endInput()
-    val rebind = binding !== this.binding
+    val reseed = state !== this.state || binding !== this.binding
     this.state = state
     this.binding = binding
     this.enabled = enabled
     this.hitRadius = hitRadius
     this.hitFill = hitFill
     this.undoShortcuts = undoShortcuts
-    if (rebind && isAttached) observeCamera()
+    if (reseed && isAttached) observeCamera()
   }
 
   override fun onAttach() {
@@ -296,11 +299,18 @@ internal class FeatureEditorNode(
     }
   }
 
-  /** Cancels a claimed gesture and clears the hover. */
+  /** Cancels a claimed gesture and ends the hover. */
   private fun endInput() {
     session.reset()
     cancelLongPress()
+    endHover()
+  }
+
+  private fun endHover() {
     if (state.hover != null) state.hover = null
+    if (!hovering) return
+    hovering = false
+    state.tool.onEvent(EditorEvent.HoverEnd(binding.project, binding.unproject), state)
   }
 
   override fun onPointerEvent(pointerEvent: PointerEvent, pass: PointerEventPass, bounds: IntSize) {
@@ -309,7 +319,7 @@ internal class FeatureEditorNode(
       PointerEventType.Scroll -> return
       PointerEventType.Exit -> {
         if (pointerEvent.changes.none { it.pressed || it.previousPressed }) {
-          if (state.hover != null) state.hover = null
+          endHover()
           return
         }
       }
@@ -332,6 +342,7 @@ internal class FeatureEditorNode(
           pointerType = change.type,
           buttons = buttons,
           modifierKeys = modifierKeys,
+          consumed = change.isConsumed,
         )
       }
     val consume = session.onEvent(samples)
@@ -342,8 +353,7 @@ internal class FeatureEditorNode(
   }
 
   override fun onCancelPointerInput() {
-    session.reset()
-    cancelLongPress()
+    endInput()
   }
 
   private fun hover(
@@ -360,6 +370,7 @@ internal class FeatureEditorNode(
     val hit = hitAt(screen, change.type)
     if (state.hover != hit) state.hover = hit
     val pointer = EditorPointer(screen, position, change.type, buttons, modifierKeys)
+    hovering = true
     state.tool.onEvent(
       EditorEvent.Hover(pointer, hit, binding.project, binding.unproject),
       state,
@@ -394,6 +405,9 @@ internal class FeatureEditorNode(
     )
 
   override fun onPress(sample: PointerSample, step: EditStep): Boolean {
+    pressHit = null
+    origin = null
+    previous = null
     val position = binding.unproject(sample.screen) ?: return false
     val pointer =
       EditorPointer(
@@ -438,7 +452,7 @@ internal class FeatureEditorNode(
   override fun onRelease(sample: PointerSample, step: EditStep) {
     val last = checkNotNull(previous)
     val pointer = binding.unproject(sample.screen)?.let { pointer(sample, it) } ?: last
-    state.gestureInProgress = false
+    state.endGesture()
     state.tool.onEvent(
       EditorEvent.Release(pointer, step, binding.project, binding.unproject),
       state,
@@ -446,7 +460,7 @@ internal class FeatureEditorNode(
   }
 
   override fun onTap(sample: PointerSample, count: Int, step: EditStep): Boolean {
-    state.gestureInProgress = false
+    state.endGesture()
     val position = binding.unproject(sample.screen) ?: return false
     return state.tool.onEvent(
       EditorEvent.Tap(
@@ -461,18 +475,20 @@ internal class FeatureEditorNode(
     )
   }
 
-  override fun onLongPress(sample: PointerSample, step: EditStep) {
-    state.gestureInProgress = false
+  override fun onLongPress(sample: PointerSample, step: EditStep): Boolean {
     val pointer =
       binding.unproject(sample.screen)?.let { pointer(sample, it) } ?: checkNotNull(origin)
-    state.tool.onEvent(
-      EditorEvent.LongPress(pointer, pressHit, step, binding.project, binding.unproject),
-      state,
-    )
+    val ended =
+      state.tool.onEvent(
+        EditorEvent.LongPress(pointer, pressHit, step, binding.project, binding.unproject),
+        state,
+      )
+    if (ended) state.endGesture()
+    return ended
   }
 
   override fun onCancel(step: EditStep) {
-    state.gestureInProgress = false
+    state.endGesture()
     state.tool.onEvent(EditorEvent.Cancel(step, binding.project, binding.unproject), state)
   }
 
@@ -483,7 +499,9 @@ internal class FeatureEditorNode(
       cancelLongPress()
       return true
     }
-    if (down && undoShortcuts && (event.isCtrlPressed || event.isMetaPressed)) {
+    if (
+      down && undoShortcuts && !session.isClaimed && (event.isCtrlPressed || event.isMetaPressed)
+    ) {
       val redo = (event.key == Key.Z && event.isShiftPressed) || event.key == Key.Y
       if (redo && state.canRedo) {
         state.redo()

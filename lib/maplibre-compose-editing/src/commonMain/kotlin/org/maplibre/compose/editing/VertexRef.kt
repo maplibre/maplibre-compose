@@ -29,9 +29,9 @@ public interface HandleKind {
 /**
  * A control point placed on the map.
  *
- * For [HandleKind.Midpoint], [vertex] is the insertion path. [vertex] is null for a handle that
- * addresses no vertex, such as a rotation handle; [FeatureEditorState.moveVertex] does not apply to
- * it.
+ * For [HandleKind.Midpoint], [vertex] is the insertion path for [FeatureEditorState.insertVertex],
+ * not a vertex to move or remove. [vertex] is null for a handle that addresses no vertex, such as a
+ * rotation handle; [FeatureEditorState.moveVertex] does not apply to it.
  */
 public data class EditorHandle(val kind: HandleKind, val vertex: VertexRef?, val position: Position)
 

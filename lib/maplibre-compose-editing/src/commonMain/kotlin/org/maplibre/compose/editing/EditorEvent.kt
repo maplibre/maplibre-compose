@@ -23,10 +23,11 @@ public data class EditorPointer(
 /**
  * Input delivered to an [EditorTool].
  *
- * Every event carries the projection of the map that delivered it. [project] returns null for a
- * position off the visible map; [unproject] returns null for a screen location off the globe.
- * Subtypes may be added; handle unknown events with an `else` branch. Equality of events includes
- * the projection functions and is not meaningful.
+ * Every event carries the projection of the map that delivered it. [project] and [unproject] return
+ * null while the map has no viewport; [unproject] also returns null for a screen location off the
+ * globe. Positions off screen still project; cull with [FeatureEditorState.visibleBounds] before
+ * projecting many. Subtypes may be added; handle unknown events with an `else` branch. Equality of
+ * events includes the projection functions and is not meaningful.
  */
 public interface EditorEvent {
   public val project: (Position) -> DpOffset?
@@ -80,8 +81,10 @@ public interface EditorEvent {
   ) : EditorEvent
 
   /**
-   * A claimed touch or stylus pointer was held past the long press timeout without moving. No
-   * [Release] follows.
+   * A claimed touch or stylus pointer was held past the long press timeout without moving.
+   * Returning true ends the gesture: the pointer is ignored until it lifts and no [Drag], [Release]
+   * or [Tap] follows. Returning false keeps the pointer claimed, so a later move emits [Drag] and a
+   * lift emits [Release] or [Tap].
    */
   public data class LongPress(
     val pointer: EditorPointer,
@@ -105,6 +108,12 @@ public interface EditorEvent {
   public data class Hover(
     val pointer: EditorPointer,
     val hit: EditorHit?,
+    override val project: (Position) -> DpOffset?,
+    override val unproject: (DpOffset) -> Position?,
+  ) : EditorEvent
+
+  /** The mouse pointer left the map after a [Hover], or the editor was disabled. */
+  public data class HoverEnd(
     override val project: (Position) -> DpOffset?,
     override val unproject: (DpOffset) -> Position?,
   ) : EditorEvent
