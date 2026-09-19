@@ -10,8 +10,10 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.files.Path
 import org.maplibre.compose.logging.MapLog
@@ -194,6 +196,13 @@ private constructor(
    */
   fun tryReadPixel(x: Int, y: Int): RgbaPixel? = if (hasRendered) driver.readPixel(x, y) else null
 
+  /** Waits one poll interval, then runs what engine threads posted to the map's main thread. */
+  private fun pause() {
+    // A tight loop would starve the network and worker threads.
+    parkForTest(POLL_INTERVAL_MILLIS)
+    testMain.drain()
+  }
+
   /** Renders frames until MapLibre has drawn once, so the map is known to exist. */
   fun pumpUntilRendered(extent: MapExtent = initialExtent, timeout: Duration = 30.seconds) {
     pumpUntil("the map to render its first frame", timeout, extent) { hasRendered }
@@ -219,9 +228,7 @@ private constructor(
       }
       frame(extent)
       frames++
-      // A tight loop would starve the network and worker threads.
-      parkForTest(POLL_INTERVAL_MILLIS)
-      testMain.drain()
+      pause()
     }
   }
 
@@ -235,7 +242,7 @@ private constructor(
     var rendered = 0
     while (deadline.hasNotPassedNow()) {
       if (frameRequested.load() && frame() is MlnFfiFrameResult.Rendered) rendered++
-      parkForTest(POLL_INTERVAL_MILLIS)
+      pause()
     }
     return rendered
   }
@@ -254,7 +261,7 @@ private constructor(
   fun pump(frames: Int = 30) {
     repeat(frames) {
       frame()
-      parkForTest(POLL_INTERVAL_MILLIS)
+      pause()
     }
   }
 
@@ -276,14 +283,95 @@ private constructor(
     return result.getOrThrow()
   }
 
-  /** Runs [block] on another thread while this one renders frames, and returns its result. */
-  fun <T> awaitWhileRendering(
+  /**
+   * [pumpUntil] for a coroutine. It suspends between frames instead of blocking, so coroutines on
+   * this thread, which is the map's main thread, run between frames as they would in production.
+   */
+  suspend fun awaitUntil(
+    description: String,
+    timeout: Duration = 30.seconds,
+    extent: MapExtent = initialExtent,
+    condition: suspend () -> Boolean,
+  ) {
+    val deadline = TimeSource.Monotonic.markNow() + timeout
+    var frames = 0
+    testMain.drain()
+    while (!condition()) {
+      check(deadline.hasNotPassedNow()) {
+        "Timed out after $frames frames waiting for $description. Errors: $errors"
+      }
+      frame(extent)
+      frames++
+      delay(POLL_INTERVAL_MILLIS)
+      testMain.drain()
+    }
+  }
+
+  /** [pumpUntilRendered] for a coroutine. */
+  suspend fun awaitRendered(extent: MapExtent = initialExtent, timeout: Duration = 30.seconds) {
+    awaitUntil("the map to render its first frame", timeout, extent) { hasRendered }
+  }
+
+  /** [pump] for a coroutine. */
+  suspend fun awaitFrames(frames: Int = 30) {
+    repeat(frames) {
+      frame()
+      delay(POLL_INTERVAL_MILLIS)
+      testMain.drain()
+    }
+  }
+
+  /** [renderOnDemand] for a coroutine. */
+  suspend fun awaitRenderOnDemand(duration: Duration): Int {
+    val deadline = TimeSource.Monotonic.markNow() + duration
+    var rendered = 0
+    while (deadline.hasNotPassedNow()) {
+      if (frameRequested.load() && frame() is MlnFfiFrameResult.Rendered) rendered++
+      delay(POLL_INTERVAL_MILLIS)
+      testMain.drain()
+    }
+    return rendered
+  }
+
+  /** [settle] for a coroutine. */
+  suspend fun awaitSettled(quiet: Duration = 500.milliseconds, timeout: Duration = 30.seconds) {
+    val deadline = TimeSource.Monotonic.markNow() + timeout
+    while (awaitRenderOnDemand(quiet) > 0) {
+      check(deadline.hasNotPassedNow()) {
+        "Timed out waiting for the map to stop asking for frames. Errors: $errors"
+      }
+    }
+  }
+
+  /** [loadStyle] for a coroutine. */
+  suspend fun awaitStyle(
+    style: BaseStyle,
+    timeout: Duration = 60.seconds,
+    extent: MapExtent = DEFAULT_EXTENT,
+  ) {
+    val styleLoadsBefore = events.count { it == STYLE_LOADED }
+    session.setBaseStyle(style)
+    if (this.style?.isLoaded != true) {
+      awaitUntil("style $style to load", timeout, extent) {
+        events.count { it == STYLE_LOADED } > styleLoadsBefore && this.style != null
+      }
+    }
+    check(!stylePublishedBeforeSessionReady.load()) {
+      "The loaded style callback ran before the native session stored its binding"
+    }
+  }
+
+  /**
+   * Runs [block] on this thread between frames and returns its result. Map state is main-only, and
+   * this thread is the map's main thread; a suspension inside [block] lets the next frame run.
+   */
+  suspend fun <T> awaitWhileRendering(
     description: String,
     timeout: Duration = 30.seconds,
     block: suspend () -> T,
-  ): T = runBlocking {
-    val work = async(Dispatchers.Default) { block() }
-    pumpUntil(description, timeout) { work.isCompleted }
+  ): T = coroutineScope {
+    val work = async(start = CoroutineStart.UNDISPATCHED) { block() }
+    awaitUntil(description, timeout) { work.isCompleted }
     work.await()
   }
 
@@ -321,7 +409,7 @@ private constructor(
       check(deadline.hasNotPassedNow()) {
         "Timed out waiting for style $style to load before rendering. Errors: $errors"
       }
-      parkForTest(POLL_INTERVAL_MILLIS)
+      pause()
     }
     check(!stylePublishedBeforeSessionReady.load()) {
       "The loaded style callback ran before the native session stored its binding"

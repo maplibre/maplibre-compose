@@ -117,7 +117,8 @@ public expect fun createMapRuntime(options: MapRuntimeOptions): MapRuntime
 
 /**
  * The main dispatcher, so engine callbacks reach map state on the thread that reads it. A platform
- * without one is a configuration error: set the main dispatcher in [MapRuntimeOptions] instead.
+ * without one is a configuration error: the caller sets a single-threaded dispatcher in
+ * [MapRuntimeOptions] instead.
  */
 internal fun platformMainDispatcher(): CoroutineDispatcher =
   try {
@@ -877,9 +878,9 @@ internal constructor(
       styleAuthority.missingImageResolver = value
     }
 
-  /** True as soon as [close] commits. Snapshot observers see it once map state commits. */
+  /** True as soon as [close] is called. Snapshot observers see it once map state commits. */
   public val isClosed: Boolean
-    get() = attachmentAuthority.isClosed || lifecycle.isCloseCommitted
+    get() = attachmentAuthority.isClosed || lifecycle.isClosed
 
   /** Marks this state as closed and starts cleanup of the current map surface. */
   public fun close(): Unit = lifecycle.close()
@@ -1350,12 +1351,12 @@ internal class RuntimeImplementation(
   offlineManagerBackend: OfflineManagerBackend = UnsupportedOfflineManager,
   internal val physicalScope: CoroutineScope =
     CoroutineScope(SupervisorJob() + Dispatchers.Default),
-  /** Delivers engine callbacks to map states. Runs them inline when no dispatch is needed. */
+  /** The one thread that uses map states. Engine callbacks are posted to it. */
   internal val mainDispatcher: CoroutineDispatcher = platformMainDispatcher(),
   /** Runs map-state work that resumes after an engine read. */
   internal val mainScope: CoroutineScope = CoroutineScope(SupervisorJob() + mainDispatcher),
   /** Pins map state to the main dispatcher's thread. */
-  internal val mainThread: MainThreadGuard = MainThreadGuard(),
+  internal val mainThread: MainThreadGuard = MainThreadGuard(mainDispatcher),
   /** Runs engine reads that block until the map owner thread answers. */
   internal val readDispatcher: CoroutineDispatcher =
     physicalScope.coroutineContext[ContinuationInterceptor] as? CoroutineDispatcher

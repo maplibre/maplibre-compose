@@ -71,6 +71,7 @@ import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MlnFfiMapSession
+import org.maplibre.compose.map.UnconfinedTestMain
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.MapRenderBackend
@@ -266,7 +267,8 @@ class LinuxOpenGlInteropTest {
         override fun onViewportChanged(map: MapAdapter) {}
       }
 
-    private val runtime = mapRuntimeForTest()
+    // The pump loop on the test thread never drains a queued main dispatcher; run inline instead.
+    private val runtime = mapRuntimeForTest(mainDispatcher = UnconfinedTestMain)
     private val state = runtime.createMapState(BaseStyle.Demo)
     private val renderer =
       MlnFfiMapSession(

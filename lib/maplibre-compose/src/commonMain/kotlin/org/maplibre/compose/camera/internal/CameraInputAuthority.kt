@@ -2,6 +2,8 @@ package org.maplibre.compose.camera.internal
 
 import kotlin.concurrent.Volatile
 import kotlin.time.TimeSource
+import kotlinx.atomicfu.locks.reentrantLock
+import kotlinx.atomicfu.locks.withLock
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
@@ -45,8 +47,12 @@ internal inline fun runCameraCommand(
   return true
 }
 
-/** Admission, takeover, and completion fences all run on the main thread. */
+/**
+ * Admission and takeover run on the main thread. Execution validity is read, and completion is
+ * reported, on the thread that runs a camera command, so that state sits behind [fence].
+ */
 internal class CameraInputAuthority(private val owner: MapState) {
+  private val fence = reentrantLock()
   private var dispatchTail: DispatchTurn? = null
   private var commandRevision = 0L
   private var cameraGeneration = 0L
@@ -58,7 +64,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
   /** Callback replacements do not revoke input. Resolved policy and momentum changes do. */
   fun updateConfiguration(value: CameraConfiguration) {
     owner.lifecycle.requireMain()
-    val previous = run {
+    val previous = fence.withLock {
       val changed = configuration.settings != value.settings
       configuration = value
       if (changed) {
@@ -70,7 +76,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
   }
 
   val generation: Long
-    get() = inputGeneration
+    get() = fence.withLock { inputGeneration }
 
   fun acquire(
     adapter: MapAdapter,
@@ -79,7 +85,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
     owner.lifecycle.requireMain()
     var previous: CameraInputToken? = null
     var previousJobs: List<Job> = emptyList()
-    val token = run {
+    val token = fence.withLock {
       val attachment = owner.currentMapAttachment
       val target = attachment?.adapter as? CameraInputTarget
       val ready =
@@ -91,7 +97,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
           (expectedInputGeneration == null || expectedInputGeneration == inputGeneration)
       val token = Token(attachment, target, ready)
       if (!ready) {
-        return@run token
+        return@withLock token
       }
       previous = revokeActive()
       previousJobs = programmaticJobs.toList()
@@ -112,7 +118,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
     acquire(adapter, expectedInputGeneration = generation).takeIf { it.acceptsCommands }
 
   /** Even input with no camera response invalidates an older click's camera fallthrough. */
-  fun observeInput(): Long = ++inputGeneration
+  fun observeInput(): Long = fence.withLock { ++inputGeneration }
 
   fun beginProgrammatic(job: Job? = null, concurrent: Boolean = false): CameraCommandGuard {
     owner.lifecycle.requireMain()
@@ -120,7 +126,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
     var previousJobs: List<Job> = emptyList()
     var revision = 0L
     var turn: DispatchTurn? = null
-    val generation = run {
+    val generation = fence.withLock {
       job?.ensureActive()
       check(!owner.isClosed) { "The map state is closed" }
       previous = revokeActive()
@@ -138,17 +144,22 @@ internal class CameraInputAuthority(private val owner: MapState) {
       inputGeneration++
       cameraGeneration
     }
+    // Turns complete and jobs finish on whichever thread completes them; bookkeeping is main's.
     turn?.onCompletion {
-      if (dispatchTail === turn) dispatchTail = null
+      owner.lifecycle.postToMain {
+        fence.withLock { if (dispatchTail === turn) dispatchTail = null }
+      }
     }
     previousJobs.forEach { it.cancel(CancellationException("A newer command owns the camera")) }
     job?.invokeOnCompletion {
-      turn?.release()
-      programmaticJobs.remove(job)
+      owner.lifecycle.postToMain {
+        turn?.release()
+        fence.withLock { programmaticJobs.remove(job) }
+      }
     }
     previous?.cancelWork()
     return object : CameraCommandGuard {
-      override fun isValid(): Boolean = run {
+      override fun isValid(): Boolean = fence.withLock {
         !owner.isClosed &&
           cameraGeneration == generation &&
           job?.isCancelled != true &&
@@ -184,20 +195,18 @@ internal class CameraInputAuthority(private val owner: MapState) {
     }
   }
 
-  /**
-   * Called while invalidating the attachment; cancellation callbacks run outside the owner loop.
-   */
+  /** Called while invalidating the attachment; cancellation callbacks run outside the fence. */
   fun detach(attachment: MapAttachment) {
     owner.lifecycle.requireMain()
     val token =
-      run {
+      fence.withLock {
         inputGeneration++
         active?.takeIf { it.attachment === attachment }?.also { revokeActive() }
       } ?: return
     owner.runtime.physicalScope.launch { token.cancelWork() }
   }
 
-  private fun revokeActive(): Token? = active?.also { it.revoke() }
+  private fun revokeActive(): Token? = fence.withLock { active?.also { it.revoke() } }
 
   private enum class Status {
     Open,
@@ -206,7 +215,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
     Completed,
   }
 
-  /** State and its synchronization stay together; backends only queue, execute, and finish. */
+  /** State and its fence stay together; backends only queue, execute, and finish. */
   inner class Token
   internal constructor(
     val attachment: MapAttachment?,
@@ -224,14 +233,14 @@ internal class CameraInputAuthority(private val owner: MapState) {
     private val hapticClock = TimeSource.Monotonic.markNow()
 
     fun setHapticFeedback(callback: (HapticEmphasis) -> Unit) {
-      onHaptic = callback
+      fence.withLock { onHaptic = callback }
     }
 
-    /** Called after a direct rotation executes; callbacks leave the lifecycle lock. */
+    /** Called after a direct rotation executes; callbacks run outside the fence. */
     fun reportRotation(from: Double, to: Double) {
-      val event = run {
-        if (!accepts(enqueue = false)) return@run null
-        val callback = onHaptic ?: return@run null
+      val event = fence.withLock {
+        if (!accepts(enqueue = false)) return@withLock null
+        val callback = onHaptic ?: return@withLock null
         val detector =
           hapticDetector
             ?: BearingHapticDetector(configuration.settings.rotate.haptics).also {
@@ -243,7 +252,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
     }
 
     val bearingSnapping: BearingSnapping?
-      get() = run {
+      get() = fence.withLock {
         configuration.settings.rotate.snapping.takeIf {
           accepts(enqueue = true) && rotated && it.enabled
         }
@@ -256,14 +265,14 @@ internal class CameraInputAuthority(private val owner: MapState) {
       get() = accepts(enqueue = false)
 
     val isCancelled: Boolean
-      get() = status == Status.Cancelled
+      get() = fence.withLock { status == Status.Cancelled }
 
     fun permitted(component: CameraComponent): Boolean =
       accepts(enqueue = true) && configuration.settings.enabled(component)
 
-    /** Application callbacks run outside the lock and may replace this camera operation. */
+    /** Application callbacks run outside the fence and may replace this camera operation. */
     fun prepare(component: CameraComponent): Boolean {
-      val start = run {
+      val start = fence.withLock {
         if (!accepts(enqueue = true) || !configuration.settings.enabled(component)) return false
         if (component == CameraComponent.Rotate) rotated = true
         if (startedComponents.add(component)) configuration.onStart[component] else null
@@ -272,26 +281,26 @@ internal class CameraInputAuthority(private val owner: MapState) {
       return permitted(component)
     }
 
-    fun rearm(component: CameraComponent) = run {
+    fun rearm(component: CameraComponent) = fence.withLock {
       startedComponents.remove(component)
       if (component == CameraComponent.Rotate) hapticDetector = null
     }
 
     fun registerJob(value: Job) {
-      val cancelled = run {
+      val cancelled = fence.withLock {
         job = value
         status == Status.Cancelled
       }
       if (cancelled) value.cancel(CancellationException("A newer input owns the camera"))
     }
 
-    fun enqueue(action: () -> Unit): Boolean = run {
+    fun enqueue(action: () -> Unit): Boolean = fence.withLock {
       if (!accepts(enqueue = true)) return false
       action()
       true
     }
 
-    fun finish(cancelled: Boolean, enqueue: () -> Unit): Unit = run {
+    fun finish(cancelled: Boolean, enqueue: () -> Unit): Unit = fence.withLock {
       if (status == Status.Completed) return
       if (cancelled) revoke() else if (status == Status.Open) status = Status.Sealed
       if (!finishQueued) {
@@ -300,7 +309,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
       }
     }
 
-    fun complete() = run {
+    fun complete() = fence.withLock {
       if (status != Status.Cancelled) status = Status.Completed
       if (active === this) active = null
       completion.complete(Unit)
@@ -308,7 +317,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
 
     suspend fun awaitCompletion() = completion.await()
 
-    fun revoke() = run {
+    fun revoke() = fence.withLock {
       status = Status.Cancelled
       if (active === this) active = null
     }
@@ -318,11 +327,12 @@ internal class CameraInputAuthority(private val owner: MapState) {
       target?.cancelGesture(this)
     }
 
-    private fun accepts(enqueue: Boolean): Boolean =
+    private fun accepts(enqueue: Boolean): Boolean = fence.withLock {
       active === this &&
         attachment?.let(owner.attachmentAuthority::isCurrent) == true &&
         target?.isGestureReady == true &&
         job?.isActive != false &&
         (if (enqueue) status == Status.Open else status == Status.Open || status == Status.Sealed)
+    }
   }
 }

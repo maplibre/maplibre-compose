@@ -23,10 +23,12 @@ class MlnFfiRenderOptionsTest {
       assertTrue(assertNotNull(defaultAxonometric.axonometric))
       assertEquals(0.0, defaultAxonometric.xSkew)
       assertEquals(1.0, defaultAxonometric.ySkew)
-      assertTrue(
-        fixture.events.count { it == "viewportChanged" } > movedBefore,
-        "a projection change should report viewportChanged so overlays re-read the projection",
-      )
+      // viewportChanged is delivered on the map's main thread, which the pump drains.
+      fixture.pumpUntil(
+        "a projection change to report viewportChanged so overlays re-read the projection"
+      ) {
+        fixture.events.count { it == "viewportChanged" } > movedBefore
+      }
 
       fixture.session.setRenderSettings(
         RenderOptions { cameraProjection = CameraProjection.Axonometric(xSkew = 0.25, ySkew = 0.5) }

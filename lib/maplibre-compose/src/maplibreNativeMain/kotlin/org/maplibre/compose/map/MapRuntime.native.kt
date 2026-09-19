@@ -22,8 +22,10 @@ public actual data class MapRuntimeOptions(
   /** Serves bytes for resource URLs this provider accepts. Fixed at construction. */
   public val resourceProvider: MapResourceProvider? = null,
   /**
-   * Delivers engine callbacks to map state. Null uses `Dispatchers.Main.immediate` when a main
-   * dispatcher is installed and otherwise runs callbacks on the engine thread.
+   * The dispatcher whose thread owns every map state of this runtime. Engine callbacks are posted
+   * to it, and map state rejects use from any other thread. Null uses `Dispatchers.Main.immediate`;
+   * creating the runtime fails when no main dispatcher is installed, so a desktop application
+   * without one passes its own single-threaded dispatcher. `Dispatchers.Unconfined` is rejected.
    */
   public val mainDispatcher: CoroutineDispatcher? = null,
 )

@@ -32,7 +32,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.maplibre.compose.camera.internal.CameraInputToken
-import org.maplibre.compose.map.GestureTestFixture
 import org.maplibre.compose.map.RecordingGestureTarget
 import org.maplibre.compose.style.scaledBy
 import org.maplibre.compose.style.systemAnimatorDurationScale
@@ -40,7 +39,7 @@ import org.maplibre.spatialk.geojson.Position
 
 @OptIn(ExperimentalAtomicApi::class, ExperimentalTestApi::class)
 class PointerInputTest {
-  private val fixture = GestureTestFixture()
+  private val fixture = composeGestureFixture()
 
   @AfterTest fun closeMap() = fixture.close()
 
