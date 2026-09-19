@@ -51,6 +51,11 @@ tasks.withType<AbstractTestTask>().configureEach {
 }
 
 // Desktop tests may load the MapLibre Native FFI runtime, which needs native access.
+// Robolectric 4.17+ host tests need JDK internals opened for SDK 36+.
 tasks.withType<Test>().configureEach {
   if (name.startsWith("jvm")) jvmArgs(NATIVE_ACCESS_JVM_ARGS)
+  if (name.contains("AndroidHostTest")) {
+    jvmArgs(NATIVE_ACCESS_JVM_ARGS)
+    jvmArgs(ROBOLECTRIC_JVM_ARGS)
+  }
 }
