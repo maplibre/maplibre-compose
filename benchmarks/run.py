@@ -9,7 +9,6 @@ import functools
 import hashlib
 import http.server
 import json
-import math
 import os
 import platform
 import re
@@ -24,83 +23,14 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 
-from analyze import analyze, configs_equal, logged_config, read_run
+from analyze import analyze, configs_equal, logged_config, read_run, workload_metrics
+from config import CASES, canonical_config, parse_config, workload
 from performance import analyze_performance, process_cpu_metrics
 
 ROOT = Path(__file__).resolve().parent
 PACKAGE = "org.maplibre.compose.demoapp"
-# 15 s readiness + 4.5 s warm-up + 12 s workload + 10 s shutdown, plus launch margin.
-RUN_TIMEOUT = 60
-
-# Keep in sync with BenchmarkScenario in BenchmarkModels.kt.
-SCENARIOS = (
-    "animation",
-    "setters",
-    "input",
-    "style-complex",
-    "style-swap",
-    "style-mutate",
-    "geojson-update",
-    "padding",
-    "images",
-    "resize",
-)
-
-CONFIG_PATTERN = re.compile(
-    r"(?P<scenario>[a-z][a-z0-9-]*),(?P<surface>surface|texture),"
-    r"(?P<fps>default|[1-9][0-9]{0,2}),(?P<load>0|[1-9][0-9]{0,4})(?:,(?P<params>.+))?"
-)
-
-
-def reject_constant(value):
-    """json.loads callback that rejects NaN and Infinity, which strict JSON forbids."""
-    raise ValueError(f"Params must not contain {value}")
-
-
-def parse_finite(value):
-    """json.loads float hook that also rejects overflow such as 1e999, which parses as inf."""
-    parsed = float(value)
-    if not math.isfinite(parsed):
-        raise ValueError(f"Params must not contain {value}")
-    return parsed
-
-
-def parse_config(value):
-    """Returns (scenario, surface, fps, load, params). Params is a dict or None."""
-    match = CONFIG_PATTERN.fullmatch(value)
-    if not match or match.group("scenario") not in SCENARIOS:
-        raise ValueError("Expected scenario,surface,maximumFps,load[,params]")
-    scenario, surface, fps, load = (
-        match.group("scenario"),
-        match.group("surface"),
-        match.group("fps"),
-        match.group("load"),
-    )
-    if (fps != "default" and int(fps) > 240) or int(load) > 10000:
-        raise ValueError("Maximum FPS is 240 and maximum load is 10000")
-    params = None
-    if match.group("params") is not None:
-        try:
-            params = json.loads(
-                match.group("params"),
-                parse_constant=reject_constant,
-                parse_float=parse_finite,
-            )
-        except json.JSONDecodeError as error:
-            raise ValueError(f"Params must be a JSON object: {error}") from error
-        if not isinstance(params, dict):
-            raise ValueError("Params must be a JSON object")
-    return scenario, surface, fps, load, params
-
-
-def canonical_config(value):
-    """Rebuilds a configuration with compact, sorted params so equivalent runs compare equal."""
-    scenario, surface, fps, load, params = parse_config(value)
-    if params is None:
-        return value
-    return f"{scenario},{surface},{fps},{load}," + json.dumps(
-        params, separators=(",", ":"), sort_keys=True, allow_nan=False
-    )
+# Bounded readiness, full warm-up, measurement, and shutdown, including launch margin.
+RUN_TIMEOUT = 120
 
 
 def android_launch_args(adb, config):
@@ -111,6 +41,7 @@ def android_launch_args(adb, config):
         "am",
         "start",
         "-W",
+        "--activity-clear-task",
         "-n",
         PACKAGE + "/.MainActivity",
         "--es",
@@ -172,10 +103,7 @@ def desktop_artifact_hash(executable):
 def android(args, output, metadata):
     sdk = call(".mise/bin/android-sdk-root")
     adb = [str(Path(sdk) / "platform-tools/adb"), "-s", args.device]
-    if (
-        args.mode != "visual"
-        and int(call(*adb, "shell", "getprop", "ro.build.version.sdk")) < 29
-    ):
+    if args.trace and int(call(*adb, "shell", "getprop", "ro.build.version.sdk")) < 29:
         raise ValueError("Performance tracing requires Android API 29 or newer")
     scale = call(*adb, "shell", "settings", "get", "global", "animator_duration_scale")
     metadata["animator_duration_scale"] = float(scale) if scale != "null" else 1.0
@@ -208,6 +136,9 @@ def android(args, output, metadata):
         display=call(*adb, "shell", "wm", "size"),
         density=call(*adb, "shell", "wm", "density"),
     )
+    (output / "thermal-before.txt").write_text(
+        call(*adb, "shell", "dumpsys", "thermalservice")
+    )
     dimensions = re.findall(r"(\d+)x(\d+)", metadata["display"])[-1]
     metadata["uid"] = int(
         re.search(
@@ -221,7 +152,7 @@ def android(args, output, metadata):
     processes = []
     try:
         with (output / "capture.log").open("w") as log:
-            if args.mode != "visual":
+            if args.trace:
                 trace = subprocess.Popen(
                     [*adb, "shell", "perfetto", "--txt", "-c", "-", "-o", remote_trace],
                     stdin=subprocess.PIPE,
@@ -232,17 +163,12 @@ def android(args, output, metadata):
                 trace.stdin.write((ROOT / "android.pbtxt").read_bytes())
                 trace.stdin.close()
             if args.mode != "performance":
+                recording_command = (
+                    f"echo $$ > {remote}.pid; exec screenrecord --size {'x'.join(dimensions)} "
+                    f"--time-limit {RUN_TIMEOUT} {remote}.mp4"
+                )
                 recorder = subprocess.Popen(
-                    [
-                        *adb,
-                        "shell",
-                        "screenrecord",
-                        "--size",
-                        "x".join(dimensions),
-                        "--time-limit",
-                        str(RUN_TIMEOUT),
-                        remote + ".mp4",
-                    ],
+                    [*adb, "shell", "sh", "-c", shlex.quote(recording_command)],
                     stdout=log,
                     stderr=log,
                 )
@@ -258,13 +184,13 @@ def android(args, output, metadata):
                 )
                 processes.append(logger)
                 wait_for(output / "app.log", "MAP_BENCHMARK MEASURE")
-                if args.config.startswith("input,"):
+                if workload(args.config) == "input":
                     x, y = (str(int(v) // 2) for v in dimensions)
                     for _ in range(8):
-                        time.sleep(1)
+                        time.sleep(parse_config(args.config)["durationMs"] / 9000)
                         call(*adb, "shell", "input", "tap", x, y)
-                wait_for(output / "app.log", "MAP_BENCHMARK DONE", timeout=30)
-                if args.mode != "visual":
+                wait_for(output / "app.log", "MAP_BENCHMARK DONE", timeout=60)
+                if args.trace:
                     trace.wait(timeout=RUN_TIMEOUT)
                     if trace.returncode:
                         raise RuntimeError("Perfetto failed; inspect capture.log")
@@ -272,6 +198,11 @@ def android(args, output, metadata):
                         *adb, "pull", remote_trace, str(output / "trace.perfetto-trace")
                     )
                 if args.mode != "performance":
+                    time.sleep(0.5)
+                    recording_pid = call(*adb, "shell", "cat", remote + ".pid")
+                    if not recording_pid.isdigit():
+                        raise ValueError("Invalid recorder PID")
+                    call(*adb, "shell", "kill", "-2", recording_pid)
                     recorder.wait(timeout=RUN_TIMEOUT)
                     if recorder.returncode:
                         raise RuntimeError("Screenrecord failed; inspect capture.log")
@@ -280,12 +211,15 @@ def android(args, output, metadata):
     finally:
         for process in processes:
             stop(process)
+        (output / "thermal-after.txt").write_text(
+            call(*adb, "shell", "dumpsys", "thermalservice")
+        )
         call(*adb, "shell", "am", "force-stop", PACKAGE)
-        call(*adb, "shell", "rm", "-f", remote_trace, remote + ".mp4")
+        call(*adb, "shell", "rm", "-f", remote_trace, remote + ".mp4", remote + ".pid")
 
 
 def ios(args, output, metadata):
-    if args.config.startswith("input,"):
+    if workload(args.config) == "input":
         raise ValueError(
             "Automated iOS input injection and capture-clock calibration are not implemented"
         )
@@ -344,7 +278,7 @@ def ios(args, output, metadata):
 
 
 def desktop(args, output, metadata):
-    if args.config.startswith("input,"):
+    if workload(args.config) == "input":
         raise ValueError("Desktop adapter does not support the input scenario")
     executable = (
         args.app
@@ -379,7 +313,7 @@ def desktop(args, output, metadata):
                     str(recorder_path),
                     str(app.pid),
                     str(output / "screen.mp4"),
-                    timeout=90,
+                    timeout=150,
                 )
         finally:
             stop(app)
@@ -415,7 +349,7 @@ def web_url(url, metadata):
 
 
 def web(args, output, metadata):
-    if args.mode != "visual" or args.config.startswith("input,"):
+    if args.mode != "visual" or workload(args.config) == "input":
         raise ValueError("Web adapter supports non-input visual capture only")
     playwright = args.playwright or str(
         Path(call("mise", "where", "npm:playwright")) / "node_modules/playwright"
@@ -428,7 +362,7 @@ def web(args, output, metadata):
             str(output),
             args.config,
             url,
-            timeout=90,
+            timeout=150,
         )
     metadata["video"] = "screen.webm"
 
@@ -454,9 +388,7 @@ def validate_workload(output, reference=None):
         )
     # The app logs the fully decoded parameters, so equivalent spellings compare equal there.
     logged, other_logged = logged_config(logs), logged_config(other_logs)
-    if metadata["config"].split(",", 4)[:4] != other["config"].split(",", 4)[
-        :4
-    ] or not configs_equal(logged, other_logged):
+    if not configs_equal(logged, other_logged):
         raise ValueError(
             "Visual reference must match artifact, configuration, and device"
         )
@@ -469,9 +401,18 @@ def validate_workload(output, reference=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "platform", choices=("android", "ios", "desktop", "web", "analyze")
+        "platform", choices=("android", "ios", "desktop", "web", "analyze", "list")
     )
-    parser.add_argument("--config", default="animation,surface,default,0")
+    parser.add_argument("--config", default="{}", help="JSON configuration overrides")
+    parser.add_argument("--case", choices=sorted(CASES))
+    parser.add_argument(
+        "--implementation", choices=("compose-imperative", "compose-declarative")
+    )
+    parser.add_argument(
+        "--trace",
+        action="store_true",
+        help="Collect Android Perfetto in addition to process counters",
+    )
     parser.add_argument("--device", default="emulator-5554")
     parser.add_argument(
         "--app", help="Android APK or desktop executable; iOS uses the installed demo"
@@ -479,7 +420,13 @@ def main():
     parser.add_argument(
         "--mode", choices=("visual", "performance", "both"), default="visual"
     )
-    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--output", type=Path)
+    parser.add_argument(
+        "--repeat",
+        type=int,
+        default=1,
+        help="Run serial captures in numbered child directories",
+    )
     parser.add_argument(
         "--visual-reference",
         type=Path,
@@ -490,9 +437,19 @@ def main():
     )
     parser.add_argument("--playwright", help="Path to the installed Playwright module")
     args = parser.parse_args()
+    if args.platform == "list":
+        print(json.dumps(CASES, indent=2))
+        return
+    if args.output is None:
+        parser.error("--output is required")
+    args.trace = args.trace or args.mode == "both"
+    if args.trace and args.platform not in {"android", "analyze"}:
+        parser.error("Perfetto capture is Android-only")
     try:
-        args.config = canonical_config(args.config)
-        _, _, _, _, params = parse_config(args.config)
+        config = CASES.get(args.case, {}) | json.loads(args.config)
+        if args.implementation:
+            config["implementation"] = args.implementation
+        args.config = canonical_config(config)
     except ValueError as error:
         parser.error(str(error))
     if (
@@ -501,14 +458,41 @@ def main():
         and args.visual_reference is None
     ):
         parser.error("--mode performance requires --visual-reference")
+    if args.repeat < 1 or (args.platform == "analyze" and args.repeat != 1):
+        parser.error("--repeat must be positive and is only supported for new captures")
     output = args.output.resolve()
+    if args.repeat > 1:
+        output.mkdir(parents=True, exist_ok=False)
+        for index in range(args.repeat):
+            command = [
+                sys.executable,
+                str(Path(__file__).resolve()),
+                args.platform,
+                "--config",
+                args.config,
+                "--device",
+                args.device,
+                "--mode",
+                args.mode,
+                "--output",
+                str(output / f"{index + 1:03d}"),
+            ]
+            if args.trace:
+                command.append("--trace")
+            for option in ("app", "visual_reference", "url", "playwright"):
+                value = getattr(args, option)
+                if value is not None:
+                    command.extend(["--" + option.replace("_", "-"), str(value)])
+            subprocess.run(command, check=True)
+        return
     if args.platform != "analyze":
         output.mkdir(parents=True, exist_ok=False)
         metadata = {
-            "schema": 2,
+            "schema": 4,
             "platform": args.platform,
             "config": args.config,
-            "params": params,
+            "case": args.case,
+            "trace": args.trace,
             "mode": args.mode,
             "device": args.device,
             "host": platform.node(),
@@ -535,6 +519,11 @@ def main():
         _, logs, _ = read_run(output)
         cpu = process_cpu_metrics(logs)
     if cpu is not None:
+        _, logs, _ = read_run(output)
+        cpu["workload"] = workload_metrics(logs)
+        cpu["scene"] = json.loads(
+            re.search(r"MAP_BENCHMARK SCENE (\{[^\n]+\})", logs)[1]
+        )
         cpu["visual_reference"] = validated
         # allow_nan=False turns any future unvalidated non-finite metric into a loud failure.
         (output / "performance.json").write_text(

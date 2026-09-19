@@ -1,206 +1,226 @@
-# Demo benchmarks
+# Map performance benchmarks
 
-Open **Benchmarks** in the demo to run a camera animation, Compose-clock camera
-setters, input response, or one of the generated style, data, padding, image,
-and resize workloads. Each run creates an isolated map, warms it up, measures
-for twelve seconds, and closes it. Cancel or leave the benchmark to release its
-map. The scene uses local GeoJSON and a production `placedAt` overlay; it
-requires no network or offline tile pack. An optional deterministic circle load
-increases map work without changing the reference markers. Every run also
-records per-frame timing inside the app, so jank is measurable on platforms
-without a trace adapter.
+Run repeatable map workloads in the demo app, then compare repeated captures on
+one device. Configuration separates **scene**, **workload**, and
+**implementation**. Compose handle writes and declarative updates use the same
+prepared geometry and schedule. Classic Android and iOS SDK adapters are not yet
+implemented.
 
-The capture runner uses that same scenario. Run from the repository root, with a
-fresh output directory each time. Build before comparing changes, and run
-captures serially without builds or other benchmarks competing for resources.
+Each run loads local fixtures, waits for a fully rendered map, executes a full
+warm-up pass, restores the starting state, measures one pass, and closes the
+map. The default pass lasts twelve seconds. Warm-up retains resource and
+renderer caches: these are warm workloads, not cold-cache or startup
+measurements.
 
-## Android
+## Run and compare
 
 ```sh
 mise run benchmark:build:android
-mise run benchmark:run -- android --device emulator-5554 \
-  --config animation,surface,default,0 --mode both \
-  --output build/benchmarks/surface-animation-1
-mise run benchmark:run -- android --device emulator-5554 \
-  --config input,texture,default,5000 --mode both \
-  --output build/benchmarks/texture-input-1
+mise run benchmark:run -- list
+mise run benchmark:run -- android --device DEVICE_SERIAL \
+  --case paint-points --mode visual --repeat 5 \
+  --output build/benchmarks/imperative
+mise run benchmark:run -- android --device DEVICE_SERIAL \
+  --case paint-points --implementation compose-declarative --mode visual --repeat 5 \
+  --output build/benchmarks/declarative
+mise run benchmark:compare -- build/benchmarks/imperative \
+  build/benchmarks/declarative --across-implementations
 ```
 
-Configuration is `scenario,surface,maximumFps,load[,params]`. Scenarios are
-`animation`, `setters`, `input`, `style-complex`, `style-swap`, `style-mutate`,
-`geojson-update`, `padding`, `images`, and `resize`; Android surfaces are
-`surface` and `texture`. Use `default` for the library's unset FPS cap, or a
-number from 1 to 240. Load is the number of additional circles, from 0 to 10000.
-The optional `params` field is a JSON object of the scenario's knobs; omitting
-it or passing `{}` runs the scenario's documented defaults. The demo panel edits
-the same object in a text field. A bad key or value fails decoding with
-`MAP_BENCHMARK ERROR` instead of silently running defaults.
+For a before/after code comparison, omit `--across-implementations`. Comparisons
+require at least three runs per group. They reject differences in configuration,
+fixture identity, viewport, device, display, or capture mode. Build artifacts
+may differ between groups, but must remain identical within each group. Results
+are medians and ranges across runs, not a significance test. Compare operation
+counts alongside CPU; fewer updates can reduce CPU without improving
+performance.
 
-| Scenario         | Knobs (defaults)                                          |
-| ---------------- | --------------------------------------------------------- |
-| `animation`      | none                                                      |
-| `setters`        | none                                                      |
-| `input`          | none                                                      |
-| `style-complex`  | `layers` 8, `features` 2000, `sources` 2                  |
-| `style-swap`     | `intervalMs` 1500, `count` 8, `layers` 6, `features` 1500 |
-| `style-mutate`   | `rateHz` 8, `pairs` 4                                     |
-| `geojson-update` | `rateHz` 4, `features` 5000                               |
-| `padding`        | `amplitudeDp` 120, `periodMs` 2000                        |
-| `images`         | `count` 8, `intervalMs` 500, `sizePx` 32                  |
-| `resize`         | `periodMs` 2000, `minPercent` 50                          |
+Use a physical device for performance conclusions. Run captures serially without
+builds or other benchmarks in the background. Inspect thermal state, reverse
+baseline/candidate order, and repeat before attributing differences to code.
+Android captures save thermal-service snapshots before and after the run.
 
-Every scenario measures the same twelve-second interval; a knob that finishes
-early (such as a small `style-swap` `count`) idles until the interval ends.
-
-The input runner injects eight taps through Android's input pipeline; each tap
-alternates the camera between two positions.
-
-The runner installs and verifies the release APK, starts the app with the
-configuration, and stops it after capture. `--app` selects another APK.
-`--mode visual` records pixels, `--mode performance` records Perfetto without
-video, and `--mode both` records both. Performance-only runs require
-`--visual-reference <capture-directory>` from the same artifact, configuration,
-device, and host. The runner revalidates its raw pixels before publishing
-performance results. Use these paired runs to check how much recording affects
-results; they cannot prove that every unrecorded run displayed the same motion.
-Android performance tracing requires API 29 or newer; the demo and visual
-scenario retain the library's minimum API. Release builds are profileable by the
-shell. Android captures require a system animator duration scale of 1×; the
-runner checks and records this setting.
+Output directories must be new. The runner retains configuration, artifact
+hashes, app logs, video, optional trace, and JSON reports. A failed capture
+stops `--repeat`; keep its evidence for diagnosis. Reanalyze or test the tooling
+with:
 
 ```sh
-mise run benchmark:run -- android --device emulator-5554 \
-  --config animation,surface,default,0 --mode performance \
-  --visual-reference build/benchmarks/surface-animation-1 \
-  --output build/benchmarks/surface-animation-no-video-1
-```
-
-Capture and lifecycle waits allow sixty seconds, covering the fifteen-second
-readiness limit, warm-up, twelve-second workload, shutdown, and launch margin.
-Android, desktop, and web recordings retain this full interval; measurements use
-only the marked workload.
-
-## What the measurements mean
-
-| Measurement                       | Source and scope                                                                                                                                                                                                                                                                               |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Map/overlay separation            | Centers of the red native marker and cyan Compose ring in composed recordings; distributions in pixels and density-independent pixels.                                                                                                                                                         |
-| CPU time                          | Android: Perfetto scheduled execution summed across app threads. Desktop/iOS: process CPU counter deltas. Includes native renderer threads; excludes time waiting and other processes.                                                                                                         |
-| In-app frame intervals            | `MapEvent.FrameRendered` timestamps taken by the benchmark app on every platform. Distributions, plus jank counts above 1.5× and 2× the budget implied by the FPS cap (60 Hz assumed with `default`). Native builds also report engine encoding, rendering, draw-call, and mode distributions. |
-| Window GPU time                   | Android `FrameMetrics.GPU_DURATION`, API 31+. Measures the app window's GPU work, including TextureView composition; excludes the map's separately submitted GPU commands.                                                                                                                     |
-| App GPU active time               | Perfetto `power/gpu_work_period`, attributed to the app UID, on devices whose driver exposes it. Uses reported active duration; boundary periods are excluded and reported period coverage is retained. Missing data is unavailable, never zero.                                               |
-| Missed window deadlines           | Android `FrameMetrics.TOTAL_DURATION > DEADLINE`, API 31+. Lost metric reports invalidate the performance result.                                                                                                                                                                              |
-| Presentation events               | Android FrameTimeline, grouped by layer and reason. Transaction entries and prediction errors are retained separately; they are not counts of dropped map buffers. Coverage depends on Android and the presentation path.                                                                      |
-| Input-to-captured-display latency | Input event timestamp to the first recording frame showing its alternating camera step, independently for map and overlay. Requires Android screenrecord Winscope v2 boot-clock metadata; reports bounds between adjacent capture frames.                                                      |
-
-Android window metrics include only frames whose intended start and completion
-fall within the Perfetto measurement interval. Collection starts before warm-up
-so registration and callback delays do not determine the measured boundaries.
-
-`FRAMETIMES` intervals measure the engine's render loop, not display
-presentation: a rendered frame may never reach the panel, and independently
-rendered map surfaces can miss a window deadline. Video capture stays the ground
-truth for display timing where it exists. On the browser the intervals follow
-MapLibre GL JS's render callback cadence, which is throttled in background tabs;
-the browser adapter launches a headed browser with background throttling
-disabled. Frame intervals are unavailable when a platform emits no render events
-at all, and the performance report says so instead of reporting zero. The
-browser also records its canvas at a variable rate, so capture sample counts can
-be lower than native captures; the in-app frame metrics still cover the full
-interval.
-
-For low FPS caps, visual analysis scales the required sample count and uses the
-visible end marker to verify the full interval. Sparse samples limit the
-precision of separation percentiles. FrameTimeline results include only fully
-contained events.
-
-Frame intervals in a video describe the **capture**, not the map FPS. A recorder
-may emit only changed frames during the input scenario; latency bounds become
-wider across idle gaps. Separation percentiles count captured frames and can
-therefore change with capture cadence. For input comparisons, also report how
-many events showed map and overlay responses in different capture frames and the
-spacing between those response frames. Latency bounds include recording-frame
-uncertainty and a one-millisecond margin for the Android input clock conversion.
-Screenrecord captures a virtual display; these measurements exclude the physical
-touchscreen, panel scanout, and pixel response. Physical touch-to-photon latency
-requires external measurement.
-
-The scene's simple pan is a synchronization reference, not a representative
-production style. Repeat comparisons in alternating order with both motions,
-default and explicit FPS caps, and a larger circle load. Report device, backend,
-resolution, build type, and capture mode alongside numbers. Emulator GPU and
-presentation behavior cannot establish physical-phone overhead.
-
-## Other platforms
-
-The shared scenarios and pixel analysis run on iOS simulator, macOS desktop, and
-Chromium. Their current adapters support `animation`, `setters`, and every
-generated scenario as visual runs; automated input remains Android-only. Desktop
-and iOS also record process CPU time across all app threads using the JVM
-process CPU counter and Darwin `getrusage`, respectively. They do not yet
-measure GPU time, presentation deadlines, or calibrated input latency. Web
-reports the visual measurements and the in-app frame intervals, without a CPU,
-GPU, or trace adapter. Use `--mode performance` on desktop or iOS with a
-matching `--visual-reference` to measure CPU without video recording; the map
-still runs on screen. Android's surface setting is ignored on these platforms.
-
-```sh
-mise run benchmark:build:ios
-mise run demo:ios "$SIMULATOR_UDID"
-mise run benchmark:run -- ios --device "$SIMULATOR_UDID" \
-  --config animation,surface,60,0 --output build/benchmarks/ios-animation
-
-mise run benchmark:build:desktop
-mise run benchmark:run -- desktop --config setters,surface,60,0 \
-  --output build/benchmarks/desktop-setters
-```
-
-For iOS, select an Xcode compatible with the simulator via `DEVELOPER_DIR`. For
-desktop, `--app` selects an executable. Artifact matching hashes its enclosing
-`.app` bundle when present, otherwise the executable itself. macOS captures only
-the new benchmark process's window and needs Screen Recording access. Its
-recorder requests 60 FPS, but the actual capture cadence is recorded and can be
-lower.
-
-For web, the runner serves the local build on an ephemeral localhost port and
-closes the server afterward:
-
-```sh
-mise run benchmark:build:js
-mise run benchmark:run -- web \
-  --config animation,surface,60,0 --output build/benchmarks/web-animation
-```
-
-## Results and validation
-
-Each directory contains metadata, app logs, a recording and/or Perfetto trace,
-and JSON measurements. Visual runs also keep per-frame coordinates and a first
-frame image. Retain the raw artifacts when sharing a comparison. Reanalyze
-without launching the app:
-
-```sh
-mise run benchmark:run -- analyze --output build/benchmarks/surface-animation-1
+mise run benchmark:run -- analyze --output build/benchmarks/imperative/001
 mise run benchmark:test
 ```
 
-Analysis rejects incomplete runs, insufficient marker coverage, stationary map
-markers, mismatched configurations, truncated recordings, invalid clocks, and
-missing input responses. Validation is per scenario: camera workloads
-(`animation`, `setters`, `input`, `style-complex`, `padding`) must move the map
-marker at least 40 dp, while style, data, image, and resize workloads verify the
-marker coverage, measurement span, and sample counts without requiring motion.
-`style-swap` allows more frames without both markers because replacing the style
-legitimately blanks the map for a moment. Performance-only results retain their
-visual reference in metadata and require it again on reanalysis. Synthetic tests
-check known pixel offsets and latency bounds. Adding a scenario requires a
-deterministic workload, an explicit measurement interval, a typed params class
-with defaults, a validation profile, and validation that detects a broken
-workload; projection callback timing is not a substitute for presentation
-evidence.
+## Scenes and workload boundaries
 
-Reference contracts:
-[Android frame metrics](https://developer.android.com/reference/android/view/FrameMetrics),
-[Perfetto FrameTimeline](https://perfetto.dev/docs/data-sources/frametimeline),
-[screenrecord clock metadata](https://android.googlesource.com/platform/frameworks/av/+/refs/heads/main/cmds/screenrecord/screenrecord.cpp),
-and
-[GPU work-period interpretation](https://github.com/google/perfetto/blob/main/src/trace_processor/importers/ftrace/gpu_work_period_tracker.cc).
+[Named cases](cases.json) select useful combinations without running every
+possible combination. `--config` accepts JSON overrides; the resolved
+protocol-v2 object is recorded in metadata and checked against the app log. The
+demo panel accepts that same object. For example:
+
+```sh
+mise run benchmark:run -- android --device DEVICE_SERIAL \
+  --case update-points --implementation compose-declarative \
+  --config '{"scene":"points-10000","rateHz":10,"durationMs":12000}' \
+  --output build/benchmarks/large-update
+```
+
+| Scene                                       | Contents and purpose                                                                                        |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `minimal`                                   | Background only; idle and platform/input overhead                                                           |
+| `points-100`, `points-1000`, `points-10000` | Prepared point features; small, ordinary, and stress volumes                                                |
+| `route-2000`                                | One line with 2,000 vertices; route geometry replacement                                                    |
+| `basemap-sf`                                | Pinned San Francisco vector tiles, buildings, roads, and street labels; tiled rendering and camera movement |
+
+Synthetic fixtures report both feature and vertex counts. Point fixtures are
+spread across a fixed geographic extent, so submitted count is not the same as
+visible count. `layers` duplicates the data layer (default one, presets use
+eight for style work); these are deliberately controlled overdraw and mutation
+tests, not a claim that real styles contain identical layers. The compact
+basemap style is a real tiled workload, but does not represent every production
+style.
+
+| Workload         | Operation                                                           | Compose implementations        |
+| ---------------- | ------------------------------------------------------------------- | ------------------------------ |
+| `idle`           | Settled map with no commands                                        | Imperative, declarative        |
+| `camera`         | Frame-driven pan, zoom, bearing, and pitch tour                     | Imperative                     |
+| `animation`      | Four awaited engine camera animations                               | Imperative                     |
+| `paint`          | Toggle existing layer colors                                        | Imperative, declarative        |
+| `layout`         | Toggle layer visibility; no source replacement                      | Imperative, declarative        |
+| `layers`         | Remove/add declared layers over a stable source                     | Declarative                    |
+| `source`         | Replace prepared GeoJSON at a fixed rate                            | Imperative, declarative        |
+| `source-latency` | Replace GeoJSON, then query until the rendered revision is observed | Imperative, declarative        |
+| `style`          | Replace the complete base style and await style-ready               | Imperative, declarative        |
+| `resize`         | Animate map height between 50% and 100%                             | Declarative                    |
+| `padding`        | Animate bottom padding between 0 and 200 dp                         | Declarative                    |
+| `recompose`      | Invalidate declared content with unchanged map inputs               | Declarative                    |
+| `images`         | Remove/register a prepared 32 × 32 bitmap used by point symbols     | Imperative                     |
+| `input`          | Runner-injected taps alternate camera positions                     | Imperative; Android automation |
+
+Paint, layout, structure, and data replacement are separate to identify which
+path regressed. The structural case keeps one hidden anchor layer so removing
+the tested layers does not also remove and reparse their reference-counted
+source. `layout` currently tests visibility, not symbol relayout. Source
+throughput and completion latency are separate because rendered-feature queries
+add work. A completion query observes a rendered feature revision, not physical
+display presentation. Likewise, style-ready includes style loading but does not
+prove tile rendering has finished.
+
+The current API has no declarative camera-position setter or imperative layer
+construction API. Unsupported implementation/workload pairs are rejected rather
+than labeled as equivalent. Resize and padding use the Compose map view in both
+styles of map ownership, so there is only one case for each.
+
+Scheduled updates use absolute time slots and skip missed slots without catch-up
+bursts. Frame-driven workloads submit fewer steps if the UI thread slows.
+Submission timings measure synchronous API/state-write cost; declarative work
+usually happens later and must also be assessed through process CPU and frame
+statistics. Operation counts count workload steps, not rendered updates. Fixture
+construction is outside measurement; engine GeoJSON parsing and updates are
+inside it.
+
+Protocol fields are `version: 2`, `workload`, `scene`, `implementation`,
+`surface: "surface"|"texture"`, `maximumFps: null|1..240`, `overlays: 0..100`,
+`layers: 1..32`, `rateHz: 0.1..120`, and `durationMs: 3000..30000`. `rateHz`
+applies to scheduled mutations; camera/resize/padding/recomposition use the
+frame clock. The surface selection applies only to Android. Input requires one
+overlay. Basemap cases disallow marker analysis. Unknown fields and invalid
+combinations fail before capture.
+
+## Measurements and limits
+
+- **Process CPU:** counter deltas on Android, desktop, and iOS. Optional Android
+  Perfetto analysis uses scheduled app-thread execution instead. Includes
+  renderer threads, excludes waiting and other processes.
+- **Native render statistics:** engine encoding/rendering times and draw calls.
+  These are engine diagnostics, not portable GPU execution or display latency.
+- **Render-event intervals:** callback delivery intervals, including intentional
+  idle time and scheduling. The event stream may drop reports. These are neither
+  FPS nor jank measurements; an idle map can correctly report zero frames.
+- **Android window metrics:** FrameMetrics deadlines and GPU duration where
+  supported. Window GPU duration excludes independently submitted map GPU work.
+  Lost reports invalidate analysis; only complete frames inside the measured
+  interval contribute.
+- **Optional Perfetto:** app GPU work periods and FrameTimeline by layer, when
+  exposed by the device. Missing data is unavailable, never zero. Presentation
+  events do not count dropped map buffers.
+- **Operation timing:** synchronous submission and, for the two completion
+  workloads, a separately named completion signal. Batched logs include counts
+  so truncated timings fail validation.
+
+Maps have no Compose overlays by default. `overlay-sync` adds one cyan Compose
+ring around a red map marker; `overlay-many` adds 100 overlays. Their captured
+separation diagnoses overlay synchronization, not general map performance.
+`tap-response` reports input-to-captured-response bounds using Android capture
+clock metadata; it excludes physical touch hardware and panel response.
+
+Video validation checks the measurement gate and duration. Overlay cases also
+check markers, coverage, and camera movement. It does not prove every paint or
+data mutation reached the display. Missing handles, resource errors, workload
+timeouts, incomplete timing batches, and failed shutdown reject a capture.
+
+Recording changes the workload. `--mode visual` records video plus available
+CPU/window/render statistics. `--trace` adds Android Perfetto; `--mode both` is
+shorthand for video plus tracing. Some OS builds do not expose the required
+ftrace data and trace analysis fails explicitly. For unrecorded runs, first
+capture a visual reference of the same configuration, artifact, device, and
+host:
+
+```sh
+mise run benchmark:run -- android --device DEVICE_SERIAL \
+  --case paint-points --mode performance \
+  --visual-reference build/benchmarks/imperative/001 --repeat 5 \
+  --output build/benchmarks/without-video
+```
+
+That reference proves its own run was visible, not every subsequent run.
+Performance-only runs use process counters unless `--trace` is also supplied.
+
+## Fixtures and other platforms
+
+[Fixture assets](../demo-app/common/src/commonMain/composeResources/files/benchmarks/)
+contain synthetic GeoJSON, 25 vector tiles, glyphs, licenses, and a SHA-256
+manifest. Captures need no network. `python benchmarks/prepare_fixtures.py`
+regenerates synthetic data and checks existing basemap hashes. Use `--download`
+only to deliberately refresh the snapshot; review the resulting manifest and
+attribution. Fixture integrity is also checked by `benchmark:test`.
+
+Desktop, iOS simulator, and Chromium use the same shared workloads. Desktop
+capture requires macOS Screen Recording access. Android requires animator scale
+1×; Perfetto requires API 29+. Browser capture supports visual mode only.
+
+```sh
+mise run benchmark:build:desktop
+mise run benchmark:run -- desktop --case resize-basemap --output build/benchmarks/desktop
+mise run benchmark:build:ios
+mise run demo:ios SIMULATOR_UDID
+mise run benchmark:run -- ios --device SIMULATOR_UDID --case animation-basemap \
+  --output build/benchmarks/ios
+mise run benchmark:build:js
+mise run benchmark:run -- web --case camera-basemap --output build/benchmarks/web
+```
+
+The iOS and browser tasks produce development builds. Do not compare them with
+Android release numbers. `--app` selects an Android APK or desktop executable;
+iOS uses the installed simulator app, and web serves local assets unless `--url`
+is supplied.
+
+## Extending coverage
+
+Classic Android and iOS SDK implementations should consume these same prepared
+fixtures, camera path, schedule, warm-up, and report protocol, using their
+actual map views. Match engine version, backend, surface, viewport, density, and
+build optimization before comparing costs. Keep each adapter's API commands
+separate; only advertise workload pairs with equivalent operations and
+completion signals.
+
+Upstream's
+[Android BenchmarkActivity](https://github.com/maplibre/maplibre-native/blob/de51949f665160db9c04bc441b7b83ea39425ed3/platform/android/MapLibreAndroidTestApp/src/main/java/org/maplibre/android/testapp/activity/benchmark/BenchmarkActivity.kt)
+informed full workload warm-up, real tiled scenes, repeated runs, and thermal
+capture. Its timing boundaries and rendering synchronization flags must be
+matched explicitly before reusing its results. The upstream iOS headless
+benchmark is not an MLNMapView baseline.
+
+Additional suites should cover controlled cold resource loading, map creation
+and destruction, symbol relayout, and feature-state updates. They are not
+represented by the current warm mutation cases. Cold-cache claims require an
+isolated resource cache; creating a fresh map alone is insufficient.

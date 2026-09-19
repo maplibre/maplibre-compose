@@ -21,7 +21,7 @@ private const val NoPreviousFrame = -1L
 /** One map render frame, timed from the previous frame. */
 @Serializable
 internal data class FrameSample(
-  @SerialName("interval_ms") val intervalMs: Double,
+  @SerialName("interval_ms") val intervalMs: Double?,
   @SerialName("encoding_ms") val encodingMs: Double? = null,
   @SerialName("rendering_ms") val renderingMs: Double? = null,
   @SerialName("draw_calls") val drawCalls: Long? = null,
@@ -38,12 +38,10 @@ internal data class FrameStats(
 /**
  * Times [MapEvent.FrameRendered] events between [start] and [stop].
  *
- * [MapState.events][org.maplibre.compose.map.MapState.events] buffers with `DROP_OLDEST`, so a
- * collector that runs on another dispatcher would time its own scheduling and could lose events.
- * The collector is unconfined instead: it runs inline in the engine callback that emits the event,
- * so each sample is stamped when the frame is reported. It only records and hands samples to a
- * channel, so no map command runs on the engine thread; [stop] drains the channel after the
- * collector joins.
+ * These are event-delivery intervals, not presentation times. Unconfined collection avoids an extra
+ * dispatcher hop, but the public event stream is buffered and may drop events. Native timing fields
+ * describe the engine's reported work; interval gaps also include intentional idle time. Do not
+ * interpret these intervals as dropped frames or display jank.
  */
 internal class BenchmarkFrameRecorder {
   private var job: Job? = null
@@ -65,8 +63,7 @@ internal class BenchmarkFrameRecorder {
           val previous = previousNanos
           previousNanos = now
           // The first event has no previous frame; it only anchors the interval clock.
-          if (previous == NoPreviousFrame) return@collect
-          val intervalMs = (now - previous) / 1e6
+          val intervalMs = if (previous == NoPreviousFrame) null else (now - previous) / 1e6
           val stats = event.stats
           samples.trySend(
             FrameSample(
@@ -90,14 +87,13 @@ internal class BenchmarkFrameRecorder {
     val frames = buildList {
       while (true) add(samples.tryReceive().getOrNull() ?: break)
     }
-    if (frames.isEmpty()) return
     val durationMs = start.elapsedNow().inWholeNanoseconds / 1e6
     println(
       "MAP_BENCHMARK FRAMESTATS " +
         BenchmarkJson.encodeToString(FrameStats(frames.size, durationMs))
     )
     // Batches stay below logcat's per-entry limit without overflowing its message queue.
-    frames.chunked(32).forEach { batch ->
+    frames.chunked(16).forEach { batch ->
       println("MAP_BENCHMARK FRAMETIMES " + BenchmarkJson.encodeToString(batch))
     }
   }

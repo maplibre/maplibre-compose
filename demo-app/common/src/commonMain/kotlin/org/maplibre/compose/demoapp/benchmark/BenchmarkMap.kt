@@ -5,7 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -27,24 +29,24 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
-import org.maplibre.compose.camera.CameraAnimation
+import kotlinx.serialization.encodeToString
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.MapViewportInsets
-import org.maplibre.compose.demoapp.benchmark.scenarios.BenchmarkSceneState
-import org.maplibre.compose.demoapp.benchmark.scenarios.benchmarkScenarioSpec
+import org.maplibre.compose.demoapp.benchmark.scenarios.BenchmarkWorkload
+import org.maplibre.compose.demoapp.benchmark.scenarios.WorkloadReport
 import org.maplibre.compose.map.DefaultMapRuntime
-import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.map.StyleLoadState
+import org.maplibre.compose.map.rememberMapState
 
 /** [viewportInsets] keeps the placeholder text out from under the panel. */
 @Composable
@@ -81,17 +83,39 @@ internal fun BenchmarkRun(
   config: BenchmarkConfig,
   onStatus: (String, Boolean) -> Unit = { _, _ -> },
 ) {
-  val spec = remember(config) { benchmarkScenarioSpec(config.scenario) }
-  val scene = remember(config) { BenchmarkSceneState() }
-  val state =
-    remember(config) {
-      DefaultMapRuntime.instance.createMapState(
-        baseStyle = spec.style(config),
-        cameraPosition = benchmarkCamera(-1.0),
-      ) {
-        spec.Content(LocalMapState.current!!, config, scene)
-      }
+  var fixture by remember(config) { mutableStateOf<BenchmarkFixture?>(null) }
+  LaunchedEffect(config) {
+    try {
+      fixture = loadBenchmarkFixture(config)
+    } catch (e: CancellationException) {
+      throw e
+    } catch (e: Exception) {
+      println("MAP_BENCHMARK ERROR ${e.message}")
+      onStatus(e.message ?: "Fixture load failed", false)
     }
+  }
+  fixture?.let { BenchmarkPresentation(it, onStatus) }
+}
+
+@Composable
+private fun BenchmarkPresentation(fixture: BenchmarkFixture, onStatus: (String, Boolean) -> Unit) {
+  val config = fixture.config
+  val driver = remember(fixture) { ComposeBenchmarkDriver(fixture) }
+  val state =
+    if (config.implementation == BenchmarkImplementation.Declarative) {
+      rememberMapState(
+        baseStyle = driver.baseStyle,
+        initialCameraPosition = benchmarkCamera(-1.0),
+      ) {
+        driver.Content()
+      }
+    } else
+      remember(fixture) {
+        DefaultMapRuntime.instance.createMapState(
+          baseStyle = driver.baseStyle,
+          cameraPosition = benchmarkCamera(-1.0),
+        )
+      }
   val recorder = remember(config) { BenchmarkFrameRecorder() }
   DisposableEffect(state) { onDispose { state.close() } }
   val density = LocalDensity.current.density
@@ -103,6 +127,23 @@ internal fun BenchmarkRun(
     var traced = false
     var recorded = false
     var complete = false
+    var workloadReport: WorkloadReport? = null
+    val failures =
+      launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
+        state.events.collect { event ->
+          val failure =
+            when (event) {
+              is org.maplibre.compose.map.MapEvent.StyleLoadFailed -> event.reason
+              is org.maplibre.compose.map.MapEvent.SourceDataFailed ->
+                event.cause.message ?: "Source load failed"
+              else -> null
+            }
+          if (failure != null) {
+            println("MAP_BENCHMARK ERROR $failure")
+            error(failure)
+          }
+        }
+      }
     try {
       onStatus("Loading", true)
       try {
@@ -118,19 +159,31 @@ internal fun BenchmarkRun(
         // A timeout is a workload failure, not caller cancellation; report it as an error.
         error("Timed out waiting for the style and viewport")
       }
+      driver.prepare(state)
+      awaitSettled(state)
       println("MAP_BENCHMARK START ${config.encode()} $density")
+      println(
+        "MAP_BENCHMARK SCENE " +
+          kotlinx.serialization.json.buildJsonObject {
+            fixture.report.forEach { (key, value) -> put(key, value) }
+            put(
+              "viewportWidthDp",
+              kotlinx.serialization.json.JsonPrimitive(
+                checkNotNull(state.viewport).size.width.value
+              ),
+            )
+            put(
+              "viewportHeightDp",
+              kotlinx.serialization.json.JsonPrimitive(
+                checkNotNull(state.viewport).size.height.value
+              ),
+            )
+            put("density", kotlinx.serialization.json.JsonPrimitive(density))
+          }
+      )
       onStatus("Warming up", true)
-      delay(3000)
-      // Run the same camera path once before measurement to warm the map and Compose paths.
-      state.animateCamera(
-        benchmarkCamera(1.0).toCameraUpdate(),
-        CameraAnimation.Fly(500.milliseconds),
-      )
-      state.animateCamera(
-        benchmarkCamera(-1.0).toCameraUpdate(),
-        CameraAnimation.Fly(500.milliseconds),
-      )
-      delay(500)
+      driver.run(state, BenchmarkWorkload(config.durationMs))
+      driver.reset(state)
       benchmarkTrace(true)
       traced = true
       recorder.start(this, state.events)
@@ -138,14 +191,20 @@ internal fun BenchmarkRun(
       measuring = true
       println("MAP_BENCHMARK MEASURE")
       onStatus(if (config.scenario == BenchmarkScenario.Input) "Tap the map" else "Measuring", true)
-      spec.workload(state, config, scene)
+      val workload = BenchmarkWorkload(config.durationMs)
+      driver.run(state, workload)
+      workloadReport = workload.report()
       complete = true
+    } catch (e: TimeoutCancellationException) {
+      println("MAP_BENCHMARK ERROR Timed out waiting for workload completion")
+      onStatus("Workload timed out", false)
     } catch (e: CancellationException) {
       throw e
     } catch (e: Exception) {
       println("MAP_BENCHMARK ERROR ${e.message}")
       onStatus(e.message ?: "Failed", false)
     } finally {
+      failures.cancel()
       measuring = false
       if (traced) benchmarkTrace(false)
       collectingMetrics = false
@@ -153,6 +212,25 @@ internal fun BenchmarkRun(
       withContext(NonCancellable) {
         // Stopping suspends, so it must run even when cancellation reaches this block.
         if (recorded) recorder.stop()
+        workloadReport?.let {
+          it.submissionMs.chunked(32).forEach { batch ->
+            println("MAP_BENCHMARK SUBMISSIONS " + BenchmarkJsonWithDefaults.encodeToString(batch))
+          }
+          it.completionMs.chunked(32).forEach { batch ->
+            println("MAP_BENCHMARK COMPLETIONS " + BenchmarkJsonWithDefaults.encodeToString(batch))
+          }
+          println(
+            "MAP_BENCHMARK WORKLOAD " +
+              BenchmarkJsonWithDefaults.encodeToString(
+                it.copy(
+                  submissionMs = emptyList(),
+                  completionMs = emptyList(),
+                  submissionCount = it.submissionMs.size,
+                  completionCount = it.completionMs.size,
+                )
+              )
+          )
+        }
         if (complete)
           delay(200) // Let the inactive gate reach the compositor before removing the map.
         state.close()
@@ -166,15 +244,28 @@ internal fun BenchmarkRun(
     }
   }
   Box(Modifier.fillMaxSize().background(Color(0xff202020))) {
-    Box(Modifier.fillMaxSize(scene.sizeFraction).align(Alignment.Center)) {
+    Box(Modifier.fillMaxWidth().fillMaxHeight(driver.heightFraction).align(Alignment.Center)) {
       MaplibreMap(
         state = state,
-        viewportInsets = scene.viewportInsets,
+        viewportInsets = driver.viewportInsets,
         uiOptions = benchmarkMapOptions(config),
         renderOptions = RenderOptions { maximumFps = config.maximumFps },
         overlay = {
-          Canvas(Modifier.placedAt(BenchmarkOrigin).size(44.dp)) {
-            drawCircle(Color.Cyan, 20.dp.toPx(), style = Stroke(3.dp.toPx()))
+          repeat(config.overlays) { index ->
+            val position =
+              if (index == 0) BenchmarkOrigin
+              else
+                org.maplibre.spatialk.geojson.Position(
+                  BenchmarkOrigin.longitude + (index % 10 - 5) * 0.0003,
+                  BenchmarkOrigin.latitude + (index / 10 - 5) * 0.0003,
+                )
+            Canvas(Modifier.placedAt(position).size(44.dp)) {
+              drawCircle(
+                if (index == 0) Color.Cyan else Color.White,
+                20.dp.toPx(),
+                style = Stroke(3.dp.toPx()),
+              )
+            }
           }
         },
       )

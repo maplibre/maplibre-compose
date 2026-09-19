@@ -12,7 +12,6 @@ import androidx.compose.ui.unit.dp
 import org.maplibre.compose.demoapp.benchmark.BenchmarkConfig
 import org.maplibre.compose.demoapp.benchmark.BenchmarkScenario
 import org.maplibre.compose.demoapp.benchmark.allBenchmarkScenarios
-import org.maplibre.compose.demoapp.benchmark.defaultParamsJson
 
 @Composable
 internal fun BenchmarksScreen(onBack: () -> Unit, onOpenScenario: (BenchmarkScenario) -> Unit) {
@@ -27,35 +26,12 @@ internal fun BenchmarksScreen(onBack: () -> Unit, onOpenScenario: (BenchmarkScen
 internal fun BenchmarkScenarioPanel(state: DemoAppState, onRun: (BenchmarkConfig) -> Unit) {
   val ui = state.benchmark
   val scenario = state.selectedScenario
-  LaunchedEffect(scenario) { ui.paramsJson = scenario.defaultParamsJson }
+  LaunchedEffect(scenario) { ui.configJson = BenchmarkConfig.forScenario(scenario).encode() }
   Text(scenario.description, Modifier.padding(16.dp))
-  Button(
-    onClick = {
-      ui.maximumFps =
-        when (ui.maximumFps) {
-          null -> 30
-          30 -> 60
-          60 -> 120
-          else -> null
-        }
-    },
-    enabled = !ui.running,
-  ) {
-    Text("Map FPS: ${ui.maximumFps ?: "default"}")
-  }
-  Button(
-    onClick = { ui.surface = if (ui.surface == "surface") "texture" else "surface" },
-    enabled = !ui.running,
-  ) {
-    Text("Android presentation: ${ui.surface}")
-  }
-  Button(onClick = { ui.load = if (ui.load == 0) 5000 else 0 }, enabled = !ui.running) {
-    Text("Additional circles: ${ui.load}")
-  }
   OutlinedTextField(
-    value = ui.paramsJson,
-    onValueChange = { ui.paramsJson = it },
-    label = { Text("Params (JSON)") },
+    value = ui.configJson,
+    onValueChange = { ui.configJson = it },
+    label = { Text("Benchmark configuration") },
     enabled = !ui.running,
     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
   )
@@ -64,7 +40,7 @@ internal fun BenchmarkScenarioPanel(state: DemoAppState, onRun: (BenchmarkConfig
     onClick = {
       val config =
         try {
-          BenchmarkConfig.of(scenario, ui.surface, ui.maximumFps, ui.load, ui.paramsJson)
+          BenchmarkConfig.parse(ui.configJson)
         } catch (e: Exception) {
           ui.status = "Invalid params: ${e.message}"
           null

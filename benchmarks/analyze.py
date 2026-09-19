@@ -2,77 +2,27 @@
 
 import csv
 import json
+import math
 import re
 import struct
 from pathlib import Path
 
 import cv2
 import numpy as np
-
-# Per-scenario validation. camera_motion requires the map marker to move at least 40 dp; scenarios
-# whose workload does not move the camera verify markers, span, and samples only. min_coverage
-# loosens the both-markers-present check where the workload legitimately blanks the map.
-SCENARIO_PROFILES = {
-    "animation": {"camera_motion": True},
-    "setters": {"camera_motion": True},
-    "input": {"camera_motion": True},
-    "style-complex": {"camera_motion": True},
-    "style-swap": {"camera_motion": False, "min_coverage": 0.90},
-    "style-mutate": {"camera_motion": False},
-    "geojson-update": {"camera_motion": False},
-    "padding": {"camera_motion": True},
-    "images": {"camera_motion": False},
-    "resize": {"camera_motion": False},
-}
-DEFAULT_PROFILE = {"camera_motion": False}
-
-# Defaults of each scenario's params object. Keep in sync with the @Serializable params classes in
-# demo-app/common/src/commonMain/kotlin/org/maplibre/compose/demoapp/benchmark/BenchmarkModels.kt.
-SCENARIO_DEFAULT_PARAMS = {
-    "animation": {},
-    "setters": {},
-    "input": {},
-    "style-complex": {"layers": 8, "features": 2000, "sources": 2},
-    "style-swap": {"intervalMs": 1500, "count": 8, "layers": 6, "features": 1500},
-    "style-mutate": {"rateHz": 8.0, "pairs": 4},
-    "geojson-update": {"rateHz": 4.0, "features": 5000},
-    "padding": {"amplitudeDp": 120.0, "periodMs": 2000},
-    "images": {"count": 8, "intervalMs": 500, "sizePx": 32},
-    "resize": {"periodMs": 2000, "minPercent": 50},
-}
+from config import configs_equal, parse_config, workload
 
 
 def profile_for(config):
-    return SCENARIO_PROFILES.get(config.split(",")[0], DEFAULT_PROFILE)
-
-
-def expanded_params(config):
-    """A configuration's params object with its scenario's defaults filled in."""
-    fields = config.split(",", 4)
-    defaults = SCENARIO_DEFAULT_PARAMS.get(fields[0], {})
-    text = fields[4] if len(fields) > 4 else ""
-    if text in ("", "{}"):
-        return dict(defaults)
-    return {**defaults, **json.loads(text)}
+    config = parse_config(config)
+    return {
+        "camera_motion": config["overlays"] > 0
+        and config["workload"] in {"camera", "animation", "input"},
+        "min_coverage": 0.90 if config["workload"] == "style" else 0.98,
+    }
 
 
 def config_matches(requested, logged):
-    """
-    Compares a requested configuration with the one a START line logged.
-
-    Missing and default parameters are expanded, so equivalent spellings compare equal while a
-    default request is still rejected against different logged parameters.
-    """
-    requested_fields = requested.split(",", 4)
-    logged_fields = logged.split(",", 4)
-    if requested_fields[:4] != logged_fields[:4]:
-        return False
-    return expanded_params(requested) == expanded_params(logged)
-
-
-def configs_equal(first, second):
-    """True when two requested configurations describe the same scenario and parameters."""
-    return config_matches(first, second) and config_matches(second, first)
+    return configs_equal(requested, logged)
 
 
 def logged_config(logs):
@@ -200,6 +150,55 @@ def measurement_gate(hsv, density):
     )
 
 
+def workload_metrics(logs, required=False):
+    reports = re.findall(r"MAP_BENCHMARK WORKLOAD (\{[^\n]+\})", logs)
+    if not reports and not required:
+        return None
+    if len(reports) != 1:
+        raise ValueError("Expected one workload report; rebuild the benchmark app")
+    report = json.loads(reports[0])
+    for label, key in (("SUBMISSIONS", "submission"), ("COMPLETIONS", "completion")):
+        batches = re.findall(r"MAP_BENCHMARK " + label + r" (\[[^\n]+\])", logs)
+        if key + "_count" in report:
+            values = [value for batch in batches for value in json.loads(batch)]
+            if len(values) != report[key + "_count"]:
+                raise ValueError("Incomplete operation timing batches")
+            report[key + "_ms"] = values
+    duration = report.get("duration_ms")
+    operations = report.get("operations")
+    if (
+        report.get("version") != 2
+        or not isinstance(duration, (float, int))
+        or not math.isfinite(duration)
+        or not parse_config(logged_config(logs))["durationMs"]
+        <= duration
+        <= parse_config(logged_config(logs))["durationMs"] + 10000
+        or type(operations) is not int
+        or operations < 0
+    ):
+        raise ValueError("Invalid or overrun workload report")
+    if workload(logged_config(logs)) not in {"idle", "input"} and operations == 0:
+        raise ValueError("Workload submitted no operations")
+    for key in ("submission_ms", "completion_ms"):
+        values = report.get(key, [])
+        if not isinstance(values, list) or any(
+            type(v) not in (int, float) or not math.isfinite(v) or v < 0 for v in values
+        ):
+            raise ValueError("Invalid operation timings")
+        if len(values) > operations:
+            raise ValueError("More operation timings than submissions")
+    signal = report.get("completion_signal")
+    if workload(logged_config(logs)) in {"style", "source-latency"}:
+        expected = (
+            "style-ready"
+            if workload(logged_config(logs)) == "style"
+            else "rendered-feature-revision"
+        )
+        if signal != expected or len(report.get("completion_ms", [])) != operations:
+            raise ValueError("Missing operation completion measurements")
+    return report
+
+
 def read_run(directory):
     directory = Path(directory)
     metadata = json.loads((directory / "metadata.json").read_text())
@@ -214,13 +213,14 @@ def read_run(directory):
         or "FATAL EXCEPTION" in logs
     ):
         raise ValueError("Benchmark failed or did not complete shutdown")
-    if metadata["config"].startswith("input,"):
+    if workload(metadata["config"]) == "input":
         sequences = [int(i) for i in re.findall(r"MAP_BENCHMARK INPUT (\d+) ", logs)]
         done = int(re.search(r"MAP_BENCHMARK DONE (\d+)", logs)[1])
         if len(sequences) < 5 or sequences != list(range(1, done + 1)):
             raise ValueError(
                 "Missing input events; at least five complete steps required"
             )
+    workload_metrics(logs, required=metadata.get("schema", 0) >= 3)
     density = float(start[0][1])
     if density <= 0:
         raise ValueError("Invalid density")
@@ -237,9 +237,16 @@ def analyze(directory):
     capture = cv2.VideoCapture(str(video))
     rows, active, frame_index = [], 0, 0
     gate_end = None
-    is_input = metadata["config"].startswith("input,")
-    cap = metadata["config"].split(",")[2]
-    minimum_samples = 100 if cap == "default" else max(10, min(100, int(cap) * 10))
+    is_input = workload(metadata["config"]) == "input"
+    profile = profile_for(metadata["config"])
+    config = parse_config(metadata["config"])
+    markers = config["overlays"] > 0
+    cap = config["maximumFps"]
+    minimum_samples = max(
+        10, min(100, (cap if cap is not None else 10) * config["durationMs"] / 1200)
+    )
+    if not profile["camera_motion"]:
+        minimum_samples = 1  # An idle map may produce only the gate transition.
     try:
         while True:
             ok, frame = capture.read()
@@ -266,7 +273,7 @@ def analyze(directory):
                 cv2.inRange(hsv, (80, 90, 150), (100, 255, 255)),
             )
             points = []
-            for mask in masks:
+            for mask in masks if markers else ():
                 component = largest_component(mask)
                 if component is None:
                     break
@@ -278,27 +285,26 @@ def analyze(directory):
                 ):
                     break
                 points += list(component["center"])
-            if len(points) == 4:
-                rows.append([timestamp, *points])
+            if not markers or len(points) == 4:
+                rows.append([timestamp, *(points if markers else [0, 0, 0, 0])])
                 if len(rows) == 1:
                     cv2.imwrite(str(directory / "first-frame.png"), frame)
     finally:
         capture.release()
     if boot_times is not None and len(boot_times) != frame_index:
         raise ValueError("Video and clock metadata have different frame counts")
-    profile = profile_for(metadata["config"])
     if len(rows) < (10 if is_input else minimum_samples) or len(
         rows
     ) < active * profile.get("min_coverage", 0.98):
         raise ValueError(f"Insufficient marker coverage: {len(rows)}/{active}")
     data = np.asarray(rows)
     intervals = np.diff(data[:, 0]) / 1e6
-    measurement_end = gate_end if is_input or minimum_samples < 100 else data[-1, 0]
+    measurement_end = gate_end
     if (
         not np.isfinite(data).all()
         or (intervals < 0).any()
         or measurement_end is None
-        or measurement_end - data[0, 0] < 11e9
+        or measurement_end - data[0, 0] < (config["durationMs"] - 1000) * 1e6
     ):
         raise ValueError("Invalid timestamps or truncated measurement")
     if profile["camera_motion"] and np.ptp(data[:, 1]) / density < 40:
@@ -308,8 +314,8 @@ def analyze(directory):
         "schema": 1,
         "samples": len(rows),
         "coverage": len(rows) / active,
-        "separation_px": distribution(separation),
-        "separation_dp": distribution(separation / density),
+        "separation_px": distribution(separation) if markers else None,
+        "separation_dp": distribution(separation / density) if markers else None,
         "capture_interval_ms": distribution(intervals[intervals > 0]),
         "capture_duplicate_timestamps": int(sum(intervals == 0)),
         "input_to_captured_display": {
@@ -329,7 +335,11 @@ def analyze(directory):
         }
     with (directory / "frames.csv").open("w") as output:
         writer = csv.writer(output)
-        writer.writerow(("capture_ns", "map_x", "map_y", "overlay_x", "overlay_y"))
-        writer.writerows(rows)
+        writer.writerow(
+            ("capture_ns", "map_x", "map_y", "overlay_x", "overlay_y")
+            if markers
+            else ("capture_ns",)
+        )
+        writer.writerows(rows if markers else [[row[0]] for row in rows])
     (directory / "visual.json").write_text(json.dumps(result, indent=2) + "\n")
     return result

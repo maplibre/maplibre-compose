@@ -19,7 +19,7 @@ class FramesMetricsTest(unittest.TestCase):
             + "\n"
         )
 
-    def test_interval_distribution_and_jank_counts(self):
+    def test_event_intervals_and_native_statistics(self):
         records = [
             {
                 "interval_ms": 16.0,
@@ -47,9 +47,7 @@ class FramesMetricsTest(unittest.TestCase):
         self.assertTrue(result["available"])
         self.assertEqual(result["frames"], 3)
         self.assertEqual(result["interval_ms"]["p50"], 30.0)
-        self.assertAlmostEqual(result["assumed_vsync_ms"], 1000 / 60)
-        self.assertEqual(result["jank_over_1_5x"], 2)
-        self.assertEqual(result["jank_over_2x"], 1)
+        self.assertNotIn("jank_over_1_5x", result)
         self.assertEqual(result["encoding_ms"]["p50"], 2.0)
         self.assertEqual(result["rendering_ms"]["p50"], 5.0)
         self.assertEqual(result["draw_calls"]["p50"], 20.0)
@@ -72,19 +70,22 @@ class FramesMetricsTest(unittest.TestCase):
         self.assertEqual(result["frames"], 2)
         self.assertEqual(result["interval_ms"]["max"], 17.0)
 
-    def test_budget_follows_the_logged_fps_cap(self):
+    def test_idle_intervals_are_not_display_jank(self):
         result = frames_metrics(
-            self.log([{"interval_ms": 10.0}], config="animation,surface,30,0,{}")
+            self.log([{"interval_ms": 500.0}], config="style-mutate,surface,30,0,{}")
         )
-        self.assertAlmostEqual(result["assumed_vsync_ms"], 1000 / 30)
-        self.assertEqual(result["jank_over_1_5x"], 0)
-        self.assertIsNone(result["encoding_ms"])
-        # A START line stays parseable when params contain spaces.
-        spaced = self.log(
-            [{"interval_ms": 10.0}],
-            config='style-complex,surface,60,0,{"label":"a b"}',
-        )
-        self.assertAlmostEqual(frames_metrics(spaced)["assumed_vsync_ms"], 1000 / 60)
+        self.assertEqual(result["interval_ms"]["p50"], 500)
+        self.assertNotIn("assumed_vsync_ms", result)
+        self.assertNotIn("jank_over_2x", result)
+
+    def test_idle_and_first_event_do_not_invent_an_interval(self):
+        empty = frames_metrics(self.log([]))
+        self.assertTrue(empty["available"])
+        self.assertEqual(empty["frames"], 0)
+        self.assertIsNone(empty["interval_ms"])
+        first = frames_metrics(self.log([{"interval_ms": None, "rendering_ms": 2}]))
+        self.assertIsNone(first["interval_ms"])
+        self.assertEqual(first["rendering_ms"]["p50"], 2)
 
     def test_truncated_and_invalid_reports_are_rejected(self):
         logs = self.log([{"interval_ms": 16.0}])
@@ -102,10 +103,6 @@ class FramesMetricsTest(unittest.TestCase):
             )
         with self.assertRaisesRegex(ValueError, "summary"):
             frames_metrics(logs.replace("12000.0", "NaN", 1))
-        with self.assertRaisesRegex(ValueError, "FPS cap"):
-            frames_metrics(
-                self.log([{"interval_ms": 10.0}], config="animation,surface,abc,0,{}")
-            )
         with self.assertRaisesRegex(ValueError, "one in-app"):
             frames_metrics(logs + logs)
         self.assertFalse(frames_metrics("unsupported")["available"])
@@ -177,6 +174,17 @@ class ProcessCpuTest(unittest.TestCase):
         for value in ("-1", "nan", "inf", "1\nMAP_BENCHMARK CPU 2"):
             with self.assertRaises(ValueError):
                 process_cpu_metrics("MAP_BENCHMARK CPU " + value)
+
+    def test_android_cpu_and_window_metrics_without_perfetto(self):
+        logs = (
+            "MAP_BENCHMARK CPU 1500\n"
+            "MAP_BENCHMARK INTERVAL 1000000 12001000000\n" + WindowMetricsTest().log()
+        )
+        result = process_cpu_metrics(logs)
+        self.assertEqual(result["cpu_ms"], 1500)
+        self.assertEqual(result["window"]["frames"], 3)
+        with self.assertRaisesRegex(ValueError, "interval"):
+            process_cpu_metrics(logs.replace("12001000000", "0"))
 
     def test_frames_without_a_cpu_counter_still_report(self):
         logs = (

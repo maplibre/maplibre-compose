@@ -3,6 +3,7 @@ package org.maplibre.compose.demoapp.benchmark
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.Process
 import android.os.SystemClock
 import android.os.Trace
 import android.view.FrameMetrics
@@ -23,7 +24,19 @@ internal actual fun benchmarkMapOptions(config: BenchmarkConfig): MapUiOptions =
     if (config.surface == "texture") AndroidRenderMode.Texture else AndroidRenderMode.Surface
 }
 
+private var cpuStartMillis = 0L
+private var intervalStartNanos = 0L
+
 internal actual fun benchmarkTrace(active: Boolean) {
+  if (active) {
+    cpuStartMillis = Process.getElapsedCpuTime()
+    intervalStartNanos = SystemClock.elapsedRealtimeNanos()
+  } else {
+    val end = SystemClock.elapsedRealtimeNanos()
+    val cpu = Process.getElapsedCpuTime() - cpuStartMillis
+    println("MAP_BENCHMARK CPU $cpu")
+    println("MAP_BENCHMARK INTERVAL $intervalStartNanos $end")
+  }
   if (Build.VERSION.SDK_INT >= 29) {
     if (active) Trace.beginAsyncSection("MapBenchmark", 1)
     else Trace.endAsyncSection("MapBenchmark", 1)

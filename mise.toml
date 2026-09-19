@@ -491,5 +491,7 @@ run = "./gradlew :demo-app:common:jsBrowserDevelopmentWebpack"
 run = "./gradlew :demo-app:desktop:createDistributable"
 [tasks."benchmark:run"]
 run = "uv run benchmarks/run.py"
+[tasks."benchmark:compare"]
+run = "uv run --with opencv-python-headless==4.13.0.92 --with numpy==2.4.3 python benchmarks/compare.py"
 [tasks."benchmark:test"]
 run = "uv run --with opencv-python-headless==4.13.0.92 --with numpy==2.4.3 --with perfetto==0.58.2 python -m unittest discover -s benchmarks"

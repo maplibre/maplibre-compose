@@ -5,24 +5,8 @@ import math
 import re
 from pathlib import Path
 
-from analyze import distribution, logged_config, read_run
+from analyze import distribution, read_run
 from perfetto.trace_processor import TraceProcessor
-
-
-def frame_budget_ms(logs):
-    """The vsync budget implied by the logged configuration, defaulting to 60 Hz."""
-    config = logged_config(logs)
-    if config:
-        parts = config.split(",")
-        if len(parts) > 2 and parts[2] != "default":
-            try:
-                cap = int(parts[2])
-            except ValueError as error:
-                raise ValueError(f"Invalid logged FPS cap: {parts[2]}") from error
-            if cap <= 0:
-                raise ValueError(f"Invalid logged FPS cap: {parts[2]}")
-            return 1000 / cap
-    return 1000 / 60
 
 
 def parse_frame_json(text, description):
@@ -64,12 +48,18 @@ def frames_metrics(logs):
     duration = summary.get("duration_ms")
     if duration is not None and (not finite_number(duration) or duration < 0):
         raise ValueError("Invalid in-app frame timing summary")
-    intervals = [record.get("interval_ms") for record in records]
-    if not intervals or any(
-        not finite_number(value) or value < 0 for value in intervals
+    if any(
+        "interval_ms" not in record or (index > 0 and record["interval_ms"] is None)
+        for index, record in enumerate(records)
     ):
         raise ValueError("Invalid in-app frame interval")
-    budget = frame_budget_ms(logs)
+    intervals = [
+        record["interval_ms"]
+        for record in records
+        if record.get("interval_ms") is not None
+    ]
+    if any(not finite_number(value) or value < 0 for value in intervals):
+        raise ValueError("Invalid in-app frame interval")
     encoding = [
         record["encoding_ms"]
         for record in records
@@ -92,13 +82,10 @@ def frames_metrics(logs):
     native = bool(encoding) or bool(rendering)
     return {
         "available": True,
-        "scope": "In-app map render loop; excludes display presentation, which video capture covers where available",
+        "scope": "Observed render-event delivery; includes idle time and callback scheduling, excludes display presentation",
         "frames": len(records),
         "duration_ms": summary.get("duration_ms"),
-        "assumed_vsync_ms": budget,
         "interval_ms": distribution(intervals),
-        "jank_over_1_5x": sum(value > 1.5 * budget for value in intervals),
-        "jank_over_2x": sum(value > 2.0 * budget for value in intervals),
         "native_render_stats": native,
         "encoding_ms": distribution(encoding),
         "rendering_ms": distribution(rendering),
@@ -162,6 +149,18 @@ def process_cpu_metrics(logs):
         raise ValueError("Invalid process CPU measurement")
     if cpu is None and not frames.get("available"):
         return None
+    intervals = re.findall(r"MAP_BENCHMARK INTERVAL (\d+) (\d+)", logs)
+    window = {
+        "available": False,
+        "reason": "No presentation timing adapter for this platform",
+    }
+    if intervals:
+        if len(intervals) != 1:
+            raise ValueError("Expected one measurement interval")
+        start, end = map(int, intervals[0])
+        if not 1e9 <= end - start <= 45e9:
+            raise ValueError("Invalid measurement interval")
+        window = window_metrics(logs, start, end)
     return {
         "schema": 1,
         "cpu_ms": cpu,
@@ -170,10 +169,7 @@ def process_cpu_metrics(logs):
         else "No process CPU adapter for this platform",
         "frames": frames,
         "gpu": {"available": False, "reason": "No GPU adapter for this platform"},
-        "window": {
-            "available": False,
-            "reason": "No presentation timing adapter for this platform",
-        },
+        "window": window,
     }
 
 
@@ -188,9 +184,10 @@ def analyze_performance(directory):
         runs = query(
             "SELECT s.ts, s.dur, p.upid, p.uid FROM slice s JOIN process_track pt ON s.track_id=pt.id JOIN process p USING(upid) WHERE s.name='MapBenchmark' AND s.dur>0"
         )
-        if len(runs) != 1 or not 11e9 <= runs[0]["dur"] <= 15e9:
+        if len(runs) != 1 or not 1e9 <= runs[0]["dur"] <= 45e9:
             raise ValueError(
-                "Trace must contain exactly one complete measurement interval"
+                "Trace must contain exactly one complete measurement interval. "
+                "The device may not expose ftrace/atrace; use --mode visual for process CPU and render statistics."
             )
         start, end = runs[0]["ts"], runs[0]["ts"] + runs[0]["dur"]
         upid = runs[0]["upid"]

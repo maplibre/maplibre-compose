@@ -1,0 +1,63 @@
+{
+  "idle-minimal": { "workload": "idle", "scene": "minimal" },
+  "idle-basemap": { "workload": "idle", "scene": "basemap-sf" },
+  "camera-basemap": { "workload": "camera", "scene": "basemap-sf" },
+  "camera-points": { "workload": "camera", "scene": "points-1000" },
+  "animation-basemap": { "workload": "animation", "scene": "basemap-sf" },
+  "paint-points": { "workload": "paint", "scene": "points-1000", "layers": 8 },
+  "visibility-points": {
+    "workload": "layout",
+    "scene": "points-1000",
+    "layers": 8
+  },
+  "layers-points": {
+    "workload": "layers",
+    "scene": "points-1000",
+    "layers": 8,
+    "implementation": "compose-declarative"
+  },
+  "update-points": { "workload": "source", "scene": "points-1000" },
+  "update-route": { "workload": "source", "scene": "route-2000", "rateHz": 1 },
+  "source-completion": {
+    "workload": "source-latency",
+    "scene": "points-1000",
+    "rateHz": 1
+  },
+  "style-basemap": {
+    "workload": "style",
+    "scene": "basemap-sf",
+    "rateHz": 0.5
+  },
+  "resize-basemap": {
+    "workload": "resize",
+    "scene": "basemap-sf",
+    "implementation": "compose-declarative"
+  },
+  "padding-basemap": {
+    "workload": "padding",
+    "scene": "basemap-sf",
+    "implementation": "compose-declarative"
+  },
+  "recompose-points": {
+    "workload": "recompose",
+    "scene": "points-1000",
+    "layers": 8,
+    "implementation": "compose-declarative"
+  },
+  "overlay-sync": {
+    "workload": "camera",
+    "scene": "points-1000",
+    "overlays": 1
+  },
+  "overlay-many": {
+    "workload": "camera",
+    "scene": "points-1000",
+    "overlays": 100
+  },
+  "tap-response": { "workload": "input", "scene": "minimal", "overlays": 1 },
+  "image-registration": {
+    "workload": "images",
+    "scene": "points-100",
+    "rateHz": 2
+  }
+}
