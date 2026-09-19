@@ -34,7 +34,8 @@ class MapLifecycleCallbackRaceTest {
 
     val styleReadyThread = thread {
       styleReadyFailure.set(
-        runCatching { state.styleAuthority.markStyleReady(adapter) }.exceptionOrNull()
+        runCatching { runBlocking { state.styleAuthority.markStyleReady(adapter) } }
+          .exceptionOrNull()
       )
     }
     assertTrue(style.sourceReadStarted.await(5, TimeUnit.SECONDS))
@@ -223,7 +224,7 @@ class MapLifecycleCallbackRaceTest {
     state.publishPresentation(token, adapter)
     val firstStyle = RecordingStyleBinding()
     assertTrue(state.styleAuthority.updateLoadedStyle(adapter, firstStyle))
-    assertTrue(state.styleAuthority.markStyleReady(adapter))
+    assertTrue(runBlocking { state.styleAuthority.markStyleReady(adapter) })
     val actionEntered = CountDownLatch(1)
     val releaseAction = CountDownLatch(1)
     val actionFailure = AtomicReference<Throwable?>()
@@ -244,7 +245,7 @@ class MapLifecycleCallbackRaceTest {
 
     state.styleAuthority.setBaseStyle(BaseStyle.Json("replacement"))
     assertTrue(state.styleAuthority.updateLoadedStyle(adapter, replacement))
-    assertTrue(state.styleAuthority.markStyleReady(adapter))
+    assertTrue(runBlocking { state.styleAuthority.markStyleReady(adapter) })
     releaseAction.countDown()
     actionThread.join()
 
