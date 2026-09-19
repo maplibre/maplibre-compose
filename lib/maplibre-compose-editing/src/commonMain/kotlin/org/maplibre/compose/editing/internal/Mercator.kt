@@ -82,7 +82,7 @@ internal fun mergedPosition(position: Position, target: Position): Position =
   if (target.size > 2 || position.size <= 2) target
   else position.withLonLat(target.longitude, target.latitude)
 
-/** World-unit distance from [p] to the segment [a]-[b], with the segment on its nearest copy. */
+/** World-unit distance from ([px], [py]) to the segment [a]-[b], on its nearest world copy. */
 internal fun mercatorSegmentDistance(
   px: Double,
   py: Double,
