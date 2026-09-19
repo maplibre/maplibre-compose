@@ -30,12 +30,12 @@ class MapStateEventReactionTest {
     val state = runtime.createMapState(BaseStyle.Demo)
     val adapter = presentedAdapter(state, viewport = null)
 
-    state.onEvent(adapter, MapEvent.CameraMoveStarted(animated = false))
+    state.attachmentAuthority.onEvent(adapter, MapEvent.CameraMoveStarted(animated = false))
 
     assertTrue(state.isCameraMoving)
     assertEquals(CameraMoveReason.PROGRAMMATIC, state.cameraMoveReason)
 
-    state.onEvent(adapter, MapEvent.CameraMoveEnded(animated = false))
+    state.attachmentAuthority.onEvent(adapter, MapEvent.CameraMoveEnded(animated = false))
 
     assertFalse(state.isCameraMoving)
 
@@ -51,8 +51,8 @@ class MapStateEventReactionTest {
     presentedAdapter(state)
     val other = PresentationTestAdapter()
 
-    state.onEvent(other, MapEvent.CameraMoveStarted(animated = false))
-    state.setGestureActive(other, true)
+    state.attachmentAuthority.onEvent(other, MapEvent.CameraMoveStarted(animated = false))
+    state.attachmentAuthority.setGestureActive(other, true)
 
     assertFalse(state.isCameraMoving)
     assertEquals(CameraMoveReason.NONE, state.cameraMoveReason)
@@ -69,13 +69,13 @@ class MapStateEventReactionTest {
     val adapter = presentedAdapter(state)
     val other = PresentationTestAdapter()
 
-    state.setEngaged(other, engaged = true)
+    state.attachmentAuthority.setEngaged(other, engaged = true)
     assertFalse(state.isEngaged)
 
-    state.setEngaged(adapter, engaged = true)
+    state.attachmentAuthority.setEngaged(adapter, engaged = true)
     assertTrue(state.isEngaged)
 
-    state.invalidatePresentation(adapter)
+    state.attachmentAuthority.invalidatePresentation(adapter)
     assertFalse(state.isEngaged)
 
     state.close()
@@ -88,11 +88,11 @@ class MapStateEventReactionTest {
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope)
     val state = runtime.createMapState(BaseStyle.Demo)
     val adapter = presentedAdapter(state)
-    state.setGestureActive(adapter, true)
-    state.onEvent(adapter, MapEvent.CameraMoveStarted(animated = false))
+    state.attachmentAuthority.setGestureActive(adapter, true)
+    state.attachmentAuthority.onEvent(adapter, MapEvent.CameraMoveStarted(animated = false))
     assertTrue(state.isCameraMoving)
 
-    state.invalidatePresentation(adapter)
+    state.attachmentAuthority.invalidatePresentation(adapter)
 
     assertFalse(state.isCameraMoving)
 
@@ -114,9 +114,9 @@ class MapStateEventReactionTest {
       state.events.collect { published += it to state.isCameraMoving }
     }
 
-    state.onEvent(adapter, MapEvent.StyleLoaded)
-    state.onEvent(other, MapEvent.StyleLoaded)
-    state.onEvent(adapter, MapEvent.CameraMoveStarted(animated = false))
+    state.attachmentAuthority.onEvent(adapter, MapEvent.StyleLoaded)
+    state.attachmentAuthority.onEvent(other, MapEvent.StyleLoaded)
+    state.attachmentAuthority.onEvent(adapter, MapEvent.CameraMoveStarted(animated = false))
 
     assertEquals(
       listOf(

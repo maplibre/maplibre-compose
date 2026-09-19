@@ -83,7 +83,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
         val target = attachment?.adapter as? CameraInputTarget
         val ready =
           attachment != null &&
-            owner.isCurrent(attachment) &&
+            owner.attachmentAuthority.isCurrent(attachment) &&
             attachment.viewport != null &&
             target?.isGestureReady == true &&
             adapter === attachment.adapter &&
@@ -337,7 +337,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
 
     private fun acceptsLocked(enqueue: Boolean): Boolean =
       active === this &&
-        attachment?.let(owner::isCurrent) == true &&
+        attachment?.let(owner.attachmentAuthority::isCurrent) == true &&
         target?.isGestureReady == true &&
         job?.isActive != false &&
         (if (enqueue) status == Status.Open else status == Status.Open || status == Status.Sealed)

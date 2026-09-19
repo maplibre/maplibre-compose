@@ -100,7 +100,7 @@ internal fun MlnFfiMapInputSurface(
   val focusRequester = remember { FocusRequester() }
   val inputFocus =
     remember(session, state) {
-      InputFocus { engaged -> state.setEngaged(session, engaged) }
+      InputFocus { engaged -> state.attachmentAuthority.setEngaged(session, engaged) }
     }
   // A press can engage the map before the attachment publishes, and a write before that is
   // dropped.

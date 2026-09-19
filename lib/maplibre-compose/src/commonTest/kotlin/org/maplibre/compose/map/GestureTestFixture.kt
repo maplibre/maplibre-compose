@@ -49,7 +49,7 @@ internal class RecordingGestureTarget(
   init {
     currentViewport = viewportFor(MapSnapshotRequest(100, 100))
     state.publishPresentation(state.reservePresentation(), this)
-    state.synchronizeCamera(this)
+    state.attachmentAuthority.synchronizeCamera(this)
   }
 
   fun updateConfiguration(options: MapInteractions) {

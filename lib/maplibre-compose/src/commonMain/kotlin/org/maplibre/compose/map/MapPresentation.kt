@@ -138,7 +138,7 @@ internal fun MapPresentationContent(
     remember(attachment, mapAttachment) {
       object : MapAdapter.Callbacks {
         private fun synchronizeCamera(map: MapAdapter): MapAttachment? {
-          return state.synchronizeCamera(map)
+          return state.attachmentAuthority.synchronizeCamera(map)
         }
 
         override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
@@ -160,14 +160,14 @@ internal fun MapPresentationContent(
         }
 
         override fun onEvent(map: MapAdapter, event: MapEvent) {
-          state.onEvent(map, event)
+          state.attachmentAuthority.onEvent(map, event)
         }
 
         override fun resolveMissingImage(map: MapAdapter, imageId: String) =
           state.styleAuthority.resolveMissingImage(map, imageId)
 
         override fun onGestureActive(map: MapAdapter, active: Boolean) {
-          state.setGestureActive(map, active)
+          state.attachmentAuthority.setGestureActive(map, active)
         }
 
         override fun onViewportChanged(map: MapAdapter) {
