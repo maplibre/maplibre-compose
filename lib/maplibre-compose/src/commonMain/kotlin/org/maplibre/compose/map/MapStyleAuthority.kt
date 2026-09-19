@@ -103,8 +103,11 @@ internal class MapStyleAuthority(
       val resources =
         readWhileCurrent(adapter, read) { style.readResources(read.binding) } ?: return false
       val committed = lifecycle.serialized {
-        if (!isCurrentStyleResourceRead(adapter, read)) return false
+        if (!lifecycle.acceptsAdapter(adapter)) return false
+        if (style.currentLoadedStyle() !== read.binding) return false
         if (style.loadState is StyleLoadState.Failed) return false
+        // A revision claimed while the read ran only reclaims the same style; retry against it.
+        if (styleHandleEpoch != read.styleHandleEpoch) return@serialized false
         if (styleSourceChangeRevision != read.sourceChangeRevision) return@serialized false
         style.updateResources(resources)
         style.loadState = StyleLoadState.Ready
@@ -130,8 +133,11 @@ internal class MapStyleAuthority(
         readWhileCurrent(adapter, read) { style.readSources(read.binding, sourceId) }
           ?: return false
       val committed = lifecycle.serialized {
-        if (!isCurrentStyleResourceRead(adapter, read)) return false
+        if (!lifecycle.acceptsAdapter(adapter)) return false
+        if (style.currentLoadedStyle() !== read.binding) return false
         if (style.loadState != StyleLoadState.Ready) return false
+        // A revision claimed while the read ran only reclaims the same style; retry against it.
+        if (styleHandleEpoch != read.styleHandleEpoch) return@serialized false
         if (styleSourceChangeRevision != read.sourceChangeRevision) return@serialized false
         style.updateSources(sources)
         true
