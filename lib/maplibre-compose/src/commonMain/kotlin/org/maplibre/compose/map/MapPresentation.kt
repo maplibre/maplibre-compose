@@ -30,20 +30,20 @@ private class MapStateAttachment(
     state.releasePresentation(token, map)
   }
 
-  fun markStyleReady(map: MapAdapter): Boolean = state.markStyleReady(map)
+  fun markStyleReady(map: MapAdapter): Boolean = state.styleAuthority.markStyleReady(map)
 
   fun markStyleFailed(map: MapAdapter, reason: String?) {
-    state.markStyleFailed(map, reason)
+    state.styleAuthority.markStyleFailed(map, reason)
   }
 
   suspend fun reconcileStyleRevision(map: MapAdapter, revision: DesiredStyleRevision) {
-    state.beginStyleRevision(map, revision)
+    state.styleAuthority.beginStyleRevision(map, revision)
     try {
-      state.updateStyleResources(map, map.reconcileStyleRevision(revision))
+      state.styleAuthority.updateStyleResources(map, map.reconcileStyleRevision(revision))
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
-      state.markStyleFailed(map, error.message)
+      state.styleAuthority.markStyleFailed(map, error.message)
     }
   }
 }
@@ -67,9 +67,10 @@ internal fun MapPresentationContent(
     rememberStyleComposition(
       content = state.styleContent,
       maybeStyle = rememberedStyle,
-      replaceableSourceIds = state.desiredStyleRevision.sources.mapTo(mutableSetOf()) { it.id },
+      replaceableSourceIds =
+        state.styleAuthority.desiredStyleRevision.sources.mapTo(mutableSetOf()) { it.id },
       replaceableLayerIds =
-        state.desiredStyleRevision.layers.mapTo(mutableSetOf()) {
+        state.styleAuthority.desiredStyleRevision.layers.mapTo(mutableSetOf()) {
           it.definition.id
         },
     )
@@ -113,7 +114,10 @@ internal fun MapPresentationContent(
     val map = mapAttachment?.adapter ?: return@LaunchedEffect
     if (rememberedStyle == null) return@LaunchedEffect
     try {
-      state.updateStyleResources(map, map.replayStyleRevision(state.desiredStyleRevision))
+      state.styleAuthority.updateStyleResources(
+        map,
+        map.replayStyleRevision(state.styleAuthority.desiredStyleRevision),
+      )
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
@@ -138,7 +142,7 @@ internal fun MapPresentationContent(
         }
 
         override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
-          if (!state.updateLoadedStyle(map, style)) return
+          if (!state.styleAuthority.updateLoadedStyle(map, style)) return
           rememberedStyle = style
           synchronizeCamera(map)
         }
@@ -152,7 +156,7 @@ internal fun MapPresentationContent(
         }
 
         override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) {
-          state.refreshStyleSources(map, sourceId)
+          state.styleAuthority.refreshStyleSources(map, sourceId)
         }
 
         override fun onEvent(map: MapAdapter, event: MapEvent) {
@@ -160,7 +164,7 @@ internal fun MapPresentationContent(
         }
 
         override fun resolveMissingImage(map: MapAdapter, imageId: String) =
-          state.resolveMissingImage(map, imageId)
+          state.styleAuthority.resolveMissingImage(map, imageId)
 
         override fun onGestureActive(map: MapAdapter, active: Boolean) {
           state.setGestureActive(map, active)

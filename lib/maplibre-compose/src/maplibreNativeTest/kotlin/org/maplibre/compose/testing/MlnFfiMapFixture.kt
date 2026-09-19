@@ -21,7 +21,7 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private var extent
   private val token = state.reservePresentation()
 
   init {
-    state.setBaseStyle(BaseStyle.Empty)
+    state.styleAuthority.setBaseStyle(BaseStyle.Empty)
     state.setCameraPosition(CameraPosition(zoom = 0.0))
     state.publishPresentation(token, bridge.session)
     bridge.bindState(state)
@@ -50,11 +50,11 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private var extent
 
   override suspend fun loadStyle(style: BaseStyle, timeout: Duration) {
     state.style.loadState = org.maplibre.compose.map.StyleLoadState.Loading
-    state.updateLoadedStyle(bridge.session, null)
+    state.styleAuthority.updateLoadedStyle(bridge.session, null)
     bridge.loadStyle(style, timeout, extent)
     bridge.session.reconcileStyleRevision(DesiredStyleRevision.Empty)
-    state.updateLoadedStyle(bridge.session, checkNotNull(bridge.style))
-    check(state.markStyleReady(bridge.session))
+    state.styleAuthority.updateLoadedStyle(bridge.session, checkNotNull(bridge.style))
+    check(state.styleAuthority.markStyleReady(bridge.session))
   }
 
   override suspend fun awaitMapReady(timeout: Duration) {

@@ -87,7 +87,7 @@ internal class GlJsMapFixture(private var extent: MapExtent) : MapFixture {
 
   override suspend fun loadStyle(style: BaseStyle, timeout: Duration) {
     state.style.loadState = org.maplibre.compose.map.StyleLoadState.Loading
-    state.updateLoadedStyle(glJsSession, null)
+    state.styleAuthority.updateLoadedStyle(glJsSession, null)
     val styleLoadsBefore = events.count { it == MapFixture.STYLE_LOADED }
     glJsSession.setBaseStyle(style)
     if (recorder.style?.isLoaded != true) {
@@ -96,8 +96,8 @@ internal class GlJsMapFixture(private var extent: MapExtent) : MapFixture {
       }
     }
     glJsSession.reconcileStyleRevision(DesiredStyleRevision.Empty)
-    state.updateLoadedStyle(glJsSession, checkNotNull(recorder.style))
-    state.markStyleReady(glJsSession)
+    state.styleAuthority.updateLoadedStyle(glJsSession, checkNotNull(recorder.style))
+    state.styleAuthority.markStyleReady(glJsSession)
   }
 
   internal fun fireStyleError(message: String) {

@@ -46,7 +46,7 @@ class CustomVectorTileSourceNativeTest {
       release.complete(Unit)
       fixture.pumpUntil("the empty custom MVT tile to finish loading") { isMapFullyLoaded() }
 
-      fixture.state.desiredStyleRevision =
+      fixture.state.styleAuthority.desiredStyleRevision =
         DesiredStyleRevision(listOf(source.definition()), emptyList(), emptyList())
       val handle = assertIs<CustomVectorTileSourceHandle>(fixture.state.style.sources["empty"])
       assertTrue(handle.querySourceFeatures(setOf("points")).isEmpty())

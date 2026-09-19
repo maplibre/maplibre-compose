@@ -201,7 +201,7 @@ internal class MapLifecycleAuthority(
       retainedToReplace
     }
     owner.seedPresentationViewport(token, adapter)
-    configurationFailure?.let { owner.markStyleFailed(adapter, it.message) }
+    configurationFailure?.let { owner.styleAuthority.markStyleFailed(adapter, it.message) }
     if (replaced != null) {
       replaced.close()
       physicalScope.launch {
@@ -302,7 +302,7 @@ internal class MapLifecycleAuthority(
         "A detached platform map requires an engine-retaining adapter"
       }
       retainedAdapter = adapter
-      owner.beginStyleLoadForNewAdapter()
+      owner.styleAuthority.beginStyleLoadForNewAdapter()
     }
   }
 
@@ -381,7 +381,7 @@ internal class MapLifecycleAuthority(
     if (current.adapter === adapter) return
     check(current.adapter == null) { "The map state already has a presentation adapter" }
     current.adapter = adapter
-    if (retainedAdapter !== adapter) owner.beginStyleLoadForNewAdapter()
+    if (retainedAdapter !== adapter) owner.styleAuthority.beginStyleLoadForNewAdapter()
   }
 
   private fun acceptsAdapterLocked(adapter: MapAdapter): Boolean {

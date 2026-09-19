@@ -227,19 +227,19 @@ internal object EmptyMapAdapterCallbacks : MapAdapter.Callbacks {
 
 internal class DurableStyleCallbacks(private val owner: MapState) : MapAdapter.Callbacks {
   override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
-    owner.updateLoadedStyle(map, style)
+    owner.styleAuthority.updateLoadedStyle(map, style)
   }
 
   override fun onStyleReady(map: MapAdapter) {
-    owner.markStyleReady(map)
+    owner.styleAuthority.markStyleReady(map)
   }
 
   override fun onStyleFailed(map: MapAdapter, reason: String?) {
-    owner.markStyleFailed(map, reason)
+    owner.styleAuthority.markStyleFailed(map, reason)
   }
 
   override fun onStyleSourcesChanged(map: MapAdapter, sourceId: String?) {
-    owner.refreshStyleSources(map, sourceId)
+    owner.styleAuthority.refreshStyleSources(map, sourceId)
   }
 
   override fun onEvent(map: MapAdapter, event: MapEvent) {
@@ -247,7 +247,7 @@ internal class DurableStyleCallbacks(private val owner: MapState) : MapAdapter.C
   }
 
   override fun resolveMissingImage(map: MapAdapter, imageId: String): Deferred<Unit>? =
-    owner.resolveMissingImage(map, imageId)
+    owner.styleAuthority.resolveMissingImage(map, imageId)
 
   override fun onGestureActive(map: MapAdapter, active: Boolean) {
     owner.setGestureActive(map, active)

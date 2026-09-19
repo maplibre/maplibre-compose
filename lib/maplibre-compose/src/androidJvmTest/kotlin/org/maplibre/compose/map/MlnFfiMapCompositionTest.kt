@@ -282,7 +282,9 @@ class MlnFfiMapCompositionTest {
       waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
         first.currentMapAttachment != null &&
           evaluatorIdentities.size == 1 &&
-          first.desiredStyleRevision.layers.any { it.definition.id == "shared-layer" }
+          first.styleAuthority.desiredStyleRevision.layers.any {
+            it.definition.id == "shared-layer"
+          }
       }
       val firstSession = first.currentMapAttachment?.adapter as MlnFfiMapSession
       waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
@@ -379,7 +381,7 @@ class MlnFfiMapCompositionTest {
         presented = true
         waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
           state.currentMapAttachment != null &&
-            state.desiredStyleRevision.layers.any {
+            state.styleAuthority.desiredStyleRevision.layers.any {
               it.definition.id == "latest-background"
             }
         }
