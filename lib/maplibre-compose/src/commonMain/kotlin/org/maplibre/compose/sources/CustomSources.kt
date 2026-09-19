@@ -73,10 +73,10 @@ public fun interface VectorTileProvider {
 /**
  * A source whose tiles contain geographic features that the application supplies.
  *
- * MapLibre clips and simplifies the returned features using [CustomGeometrySourceOptions]. The
- * browser encodes them as MVT, so geometry can differ slightly from native. Use integer feature IDs
- * and scalar properties for consistent behavior: MVT coerces IDs to integers, serializes array and
- * object properties as JSON strings, and omits null properties.
+ * MapLibre clips and simplifies the returned features using [CustomGeometrySourceOptions].
+ *
+ * On the browser, feature IDs are converted to integers, array and object property values become
+ * JSON strings, and null-valued properties are omitted. Native preserves these values.
  *
  * Layers read the source's single feature layer regardless of their `source-layer` setting. On the
  * browser, a layer handle reads back the source id as its `source-layer`.
