@@ -268,12 +268,15 @@ internal fun ShapeSection(state: FeatureEditingState, appState: DemoAppState) {
     range = 0f..1f,
     valueLabel = { simplifyLabel(state, scrub) },
     onChange = { value ->
-      val feature = simplifiable ?: return@SliderRow
-      val id = checkNotNull(feature.id)
+      val id = checkNotNull(simplifiable?.id ?: return@SliderRow)
+      // Read live: several samples can arrive before the composition that captured the scrub.
       val current =
-        scrub?.takeIf { it.id == id }
-          ?: SimplifyScrub(EditStep(), id, feature, value, feature).also {
-            state.simplifyScrub = it
+        state.simplifyScrub?.takeIf { it.id == id }
+          ?: run {
+            val feature = editor.feature(id) ?: return@SliderRow
+            SimplifyScrub(EditStep(), id, feature, value, feature).also {
+              state.simplifyScrub = it
+            }
           }
       current.value = value
       val tolerance = simplifyTolerance(current.original.geometry, value)
@@ -310,7 +313,7 @@ internal fun ShapeSection(state: FeatureEditingState, appState: DemoAppState) {
       ?.let { bbox ->
         scope.launch {
           appState.mapState.flyTo(
-            DemoDestination.FitBounds(bbox),
+            DemoDestination.FitBounds(bbox, EditingFitPadding),
             appState.settings.flightAnimation,
           )
         }
@@ -331,8 +334,8 @@ internal fun ShapeSection(state: FeatureEditingState, appState: DemoAppState) {
 
 private fun simplifyLabel(state: FeatureEditingState, scrub: SimplifyScrub?): String {
   if (scrub == null) return "Drag to drop corners"
-  val original = ShapeMeasure.of(scrub.original).corners
-  val current = state.editor.feature(scrub.id)?.let { ShapeMeasure.of(it).corners } ?: original
+  val original = distinctPositions(scrub.original.geometry)
+  val current = state.editor.feature(scrub.id)?.let { distinctPositions(it.geometry) } ?: original
   val word = if (scrub.original.kind == ShapeKind.Line) "points" else "corners"
   val tolerance = simplifyTolerance(scrub.original.geometry, scrub.value)
   val center = scrub.original.geometry.computeBbox()
@@ -346,7 +349,7 @@ private fun simplifyLabel(state: FeatureEditingState, scrub: SimplifyScrub?): St
 internal fun ShapesList(state: FeatureEditingState, appState: DemoAppState) {
   val editor = state.editor
   val scope = rememberCoroutineScope()
-  val entries = rememberLaggingEntries(editor.features)
+  val entries = rememberLaggingEntries(editor.features, editor.selection)
   Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
     for (entry in entries) {
       key(entry.id) {
@@ -358,20 +361,20 @@ internal fun ShapesList(state: FeatureEditingState, appState: DemoAppState) {
           ShapeRow(
             feature = editor.feature(entry.id) ?: entry.feature,
             units = state.units,
-            selected = entry.id in editor.selection,
+            selected = entry.selected,
             onSelect = {
               state.select(entry.id)
               val bbox = entry.feature.geometry.computeBbox()
               if (!bbox.isOnScreen(appState)) {
                 scope.launch {
                   appState.mapState.flyTo(
-                    DemoDestination.FitBounds(bbox),
+                    DemoDestination.FitBounds(bbox, EditingFitPadding),
                     appState.settings.flightAnimation,
                   )
                 }
               }
             },
-            onRemove = { editor.remove(listOf(entry.id)) },
+            onRemove = { state.remove(entry.id) },
           )
         }
       }
@@ -500,7 +503,7 @@ private fun EmptyShapes(state: FeatureEditingState, appState: DemoAppState) {
         val bbox = state.loadAllPresets()
         scope.launch {
           appState.mapState.flyTo(
-            DemoDestination.FitBounds(bbox),
+            DemoDestination.FitBounds(bbox, EditingFitPadding),
             appState.settings.flightAnimation,
           )
         }
@@ -519,7 +522,10 @@ internal fun PresetsSection(state: FeatureEditingState, appState: DemoAppState) 
     ButtonRow(preset.displayName) {
       val bbox = state.loadPreset(preset)
       scope.launch {
-        appState.mapState.flyTo(DemoDestination.FitBounds(bbox), appState.settings.flightAnimation)
+        appState.mapState.flyTo(
+          DemoDestination.FitBounds(bbox, EditingFitPadding),
+          appState.settings.flightAnimation,
+        )
       }
     }
   }

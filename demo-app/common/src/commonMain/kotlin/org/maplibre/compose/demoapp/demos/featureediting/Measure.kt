@@ -50,7 +50,6 @@ internal class ShapeMeasure(
   val bearing: Bearing?,
   val extentWidth: Length,
   val extentHeight: Length,
-  val bbox: BoundingBox,
   val center: Position,
   val radius: Length?,
   /** Distinct vertices. */
@@ -100,7 +99,6 @@ internal class ShapeMeasure(
         bearing = if (first != null && last != null) first.bearingTo(last) else null,
         extentWidth = extentWidth,
         extentHeight = extentHeight,
-        bbox = bbox,
         center = center,
         radius = if (kind == ShapeKind.Circle) circleRadius(geometry, center) else null,
         corners = distinct,
@@ -157,7 +155,8 @@ private fun outlineLines(geometry: Geometry): List<List<Position>> =
     else -> emptyList()
   }
 
-private fun distinctPositions(geometry: Geometry): Int =
+/** The number of distinct vertices, skipping ring closures. */
+internal fun distinctPositions(geometry: Geometry): Int =
   when (geometry) {
     is Polygon -> geometry.coordinates.sumOf { it.size - 1 }
     is MultiPolygon -> geometry.coordinates.sumOf { rings -> rings.sumOf { it.size - 1 } }

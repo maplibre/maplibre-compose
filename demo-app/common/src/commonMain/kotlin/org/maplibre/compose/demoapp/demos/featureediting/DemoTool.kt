@@ -12,7 +12,6 @@ import org.maplibre.compose.editing.EditorPointer
 import org.maplibre.compose.editing.EditorTool
 import org.maplibre.compose.editing.FeatureEditorState
 import org.maplibre.compose.editing.FeatureHit
-import org.maplibre.compose.editing.VertexRef
 import org.maplibre.compose.editing.contains
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -56,7 +55,8 @@ internal class DemoTool(private val demo: FeatureEditingState, private val inner
     when (event) {
       is EditorEvent.Press,
       is EditorEvent.Release,
-      is EditorEvent.Cancel -> demo.snapTarget = null
+      is EditorEvent.Cancel,
+      is EditorEvent.Tap -> demo.snapTarget = null
       else -> Unit
     }
     return inner.onEvent(snapped, state)
@@ -89,10 +89,15 @@ internal class DemoTool(private val demo: FeatureEditingState, private val inner
       demo.snapTarget = null
       return event
     }
+    // A dragged vertex never snaps to its own shape: onto a neighbour it would collapse an edge.
+    val activeFeature = state.activeHandle?.vertex?.featureId
     val excludedFeatures =
-      if (event is EditorEvent.Drag && event.hit is FeatureHit && state.activeHandle == null) {
-        state.selection
-      } else emptySet()
+      when {
+        event is EditorEvent.Drag && event.hit is FeatureHit && state.activeHandle == null ->
+          state.selection
+        activeFeature != null -> setOf(activeFeature)
+        else -> emptySet()
+      }
     val target =
       nearestVertex(
         state = state,
@@ -100,7 +105,6 @@ internal class DemoTool(private val demo: FeatureEditingState, private val inner
         radius = if (pointer.pointerType == PointerType.Mouse) MouseSnapRadius else TouchSnapRadius,
         project = event.project,
         unproject = event.unproject,
-        excludedVertex = state.activeHandle?.vertex,
         excludedFeatures = excludedFeatures,
       )
     demo.snapTarget = target
@@ -121,7 +125,6 @@ internal class DemoTool(private val demo: FeatureEditingState, private val inner
     radius: Dp,
     project: (Position) -> DpOffset?,
     unproject: (DpOffset) -> Position?,
-    excludedVertex: VertexRef?,
     excludedFeatures: Set<FeatureId>,
   ): Position? {
     val corners =
@@ -145,12 +148,7 @@ internal class DemoTool(private val demo: FeatureEditingState, private val inner
     for (feature in state.features) {
       val id = feature.id ?: continue
       if (id in excludedFeatures) continue
-      feature.geometry.forEachVertex { path, position ->
-        if (
-          excludedVertex != null && excludedVertex.featureId == id && excludedVertex.path == path
-        ) {
-          return@forEachVertex
-        }
+      feature.geometry.forEachVertex { position ->
         if (position !in box) return@forEachVertex
         if (visible != null && position !in visible) return@forEachVertex
         val projected = project(position) ?: return@forEachVertex
@@ -170,25 +168,17 @@ internal class DemoTool(private val demo: FeatureEditingState, private val inner
 private val MouseSnapRadius = 12.dp
 private val TouchSnapRadius = 16.dp
 
-/** Visits every distinct vertex with its path, skipping ring closures. */
-private inline fun Geometry.forEachVertex(visit: (path: List<Int>, position: Position) -> Unit) {
+/** Visits every distinct vertex, skipping ring closures. */
+private inline fun Geometry.forEachVertex(visit: (Position) -> Unit) {
   when (this) {
-    is Point -> visit(emptyList(), coordinates)
-    is MultiPoint -> coordinates.forEachIndexed { i, p -> visit(listOf(i), p) }
-    is LineString -> coordinates.forEachIndexed { i, p -> visit(listOf(i), p) }
-    is MultiLineString ->
-      coordinates.forEachIndexed { part, line ->
-        line.forEachIndexed { i, p -> visit(listOf(part, i), p) }
-      }
-    is Polygon ->
-      coordinates.forEachIndexed { ring, positions ->
-        for (i in 0 until positions.size - 1) visit(listOf(ring, i), positions[i])
-      }
+    is Point -> visit(coordinates)
+    is MultiPoint -> coordinates.forEach(visit)
+    is LineString -> coordinates.forEach(visit)
+    is MultiLineString -> coordinates.forEach { line -> line.forEach(visit) }
+    is Polygon -> coordinates.forEach { ring -> for (i in 0 until ring.size - 1) visit(ring[i]) }
     is MultiPolygon ->
-      coordinates.forEachIndexed { part, rings ->
-        rings.forEachIndexed { ring, positions ->
-          for (i in 0 until positions.size - 1) visit(listOf(part, ring, i), positions[i])
-        }
+      coordinates.forEach { rings ->
+        rings.forEach { ring -> for (i in 0 until ring.size - 1) visit(ring[i]) }
       }
     is GeometryCollection<*> -> Unit
   }

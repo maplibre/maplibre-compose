@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import org.maplibre.compose.demoapp.DefaultMapControls
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
+import org.maplibre.compose.demoapp.DemoBoundsPadding
+import org.maplibre.compose.demoapp.DemoControlSize
 import org.maplibre.compose.demoapp.DemoDestination
 import org.maplibre.compose.demoapp.DemoMapControls
 import org.maplibre.compose.demoapp.DemoPointerPin
@@ -30,6 +32,7 @@ import org.maplibre.compose.editing.EditorHandleLayers
 import org.maplibre.compose.editing.featureEditor
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.map.MapState
+import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.spatialk.turf.measurement.computeBbox
 
@@ -38,7 +41,7 @@ object FeatureEditingDemo : Demo {
   override val name = "Feature editing"
   override val description = "Draw shapes, then measure and reshape them live with spatial-k turf."
   override val destination =
-    DemoDestination.FitBounds(Presets.goldenGatePark.geometry.computeBbox())
+    DemoDestination.FitBounds(Presets.goldenGatePark.geometry.computeBbox(), EditingFitPadding)
   override val pointerPin =
     DemoPointerPin(Presets.goldenGatePark.geometry.computeBbox().center, destination)
 
@@ -90,8 +93,9 @@ object FeatureEditingDemo : Demo {
         }
     }
     EditorHintBar(demo)
-    ShapeLabels(demo)
-    EdgeLabels(demo)
+    val labels = rememberShapeLabelEntries(demo)
+    EdgeLabels(demo, labels)
+    ShapeLabels(demo, labels)
     DraftLabel(demo)
     TransformReadout(demo)
     ValidationTooltip(demo)
@@ -117,6 +121,14 @@ object FeatureEditingDemo : Demo {
 }
 
 private const val LAYER_PREFIX = "shape"
+
+/**
+ * The fit padding for every camera flight in this demo. The right inset clears the shell's button
+ * column, the frame around the fitted shape and half a handle disc, so the Rotate and Scale handles
+ * on the frame's right corners stay reachable on phones.
+ */
+internal val EditingFitPadding =
+  DemoBoundsPadding.copy(right = MapOverlay.Spacing + DemoControlSize + FramePadding + 16.dp)
 
 private fun roundToSignificant(value: Double, digits: Int): Double {
   if (value == 0.0) return 0.0

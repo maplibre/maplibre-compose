@@ -13,23 +13,29 @@ import org.maplibre.compose.editing.EditorFeature
 import org.maplibre.spatialk.geojson.FeatureId
 
 /** A feature kept in a list until its exit animation has finished. */
-internal class LaggingEntry(val id: FeatureId, feature: EditorFeature) {
+internal class LaggingEntry(val id: FeatureId, feature: EditorFeature, selected: Boolean) {
   /** The current feature, or the last known copy while the entry exits. */
   var feature by mutableStateOf(feature)
+
+  /** Whether the feature is selected, or was when the entry started to exit. */
+  var selected by mutableStateOf(selected)
 
   val visible = MutableTransitionState(false).apply { targetState = true }
 }
 
 /**
  * Mirrors [features] with one entry per id, in the same order. An entry is added with its
- * transition targeting visible, keeps the last copy of a removed feature in place while its
- * transition runs out, and is dropped once that transition ends, so every removal path animates
- * out.
+ * transition targeting visible, keeps the last copy of a removed feature and its membership of
+ * [selection] in place while its transition runs out, and is dropped once that transition ends, so
+ * every removal path animates out.
  */
 @Composable
-internal fun rememberLaggingEntries(features: List<EditorFeature>): List<LaggingEntry> {
+internal fun rememberLaggingEntries(
+  features: List<EditorFeature>,
+  selection: Set<FeatureId>,
+): List<LaggingEntry> {
   val entries = remember { mutableStateListOf<LaggingEntry>() }
-  LaunchedEffect(features) {
+  LaunchedEffect(features, selection) {
     val order = HashMap<FeatureId, Int>(features.size)
     features.forEachIndexed { index, feature -> feature.id?.let { order[it] = index } }
     val byId = entries.associateBy { it.id }
@@ -39,6 +45,7 @@ internal fun rememberLaggingEntries(features: List<EditorFeature>): List<Lagging
       val index = order[entry.id]
       if (index != null) {
         entry.feature = features[index]
+        entry.selected = entry.id in selection
         entry.visible.targetState = true
         previous = index.toDouble()
         merged += index.toDouble() to entry
@@ -49,7 +56,9 @@ internal fun rememberLaggingEntries(features: List<EditorFeature>): List<Lagging
     }
     for (feature in features) {
       val id = feature.id ?: continue
-      if (id !in byId) merged += checkNotNull(order[id]).toDouble() to LaggingEntry(id, feature)
+      if (id !in byId) {
+        merged += checkNotNull(order[id]).toDouble() to LaggingEntry(id, feature, id in selection)
+      }
     }
     merged.sortBy { it.first }
     val sorted = merged.map { it.second }

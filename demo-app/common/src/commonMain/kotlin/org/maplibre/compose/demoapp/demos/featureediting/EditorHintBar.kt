@@ -29,6 +29,7 @@ import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.DrawableResource
@@ -47,6 +49,7 @@ import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.check_24px
 import org.maplibre.compose.demoapp.generated.close_24px
 import org.maplibre.compose.demoapp.generated.delete_24px
+import org.maplibre.compose.editing.HandleKind
 import org.maplibre.compose.editing.VertexRef
 import org.maplibre.spatialk.geojson.LineString
 import org.maplibre.spatialk.geojson.Polygon
@@ -99,6 +102,8 @@ internal fun EditorHintBar(state: FeatureEditingState) {
   val draft = editor.draft
   val hasDraft = draft != null
   val placed = draft?.positions?.size ?: 0
+  // A pressed midpoint is active until its drag inserts a vertex; it has no corner to name.
+  val activeVertex = editor.activeHandle?.takeIf { it.kind == HandleKind.Vertex }?.vertex
   val hint: Hint? =
     when {
       lingeringError != null ->
@@ -134,10 +139,10 @@ internal fun EditorHintBar(state: FeatureEditingState) {
         } else if (mouse) {
           Hint("Click to set the radius", cancel = true)
         } else {
-          Hint("Drag the edge, or tap to set the radius", done = true, cancel = true)
+          Hint("Drag or tap to set the radius", done = true, cancel = true)
         }
-      editor.tool === state.selectTool && editor.activeHandle?.vertex?.featureId != null -> {
-        val ref = checkNotNull(editor.activeHandle?.vertex)
+      editor.tool === state.selectTool && activeVertex?.featureId != null -> {
+        val ref = activeVertex
         val feature = editor.feature(checkNotNull(ref.featureId))
         val geometry = feature?.geometry
         val (word, total) =
@@ -156,8 +161,11 @@ internal fun EditorHintBar(state: FeatureEditingState) {
         Hint("Choose Polygon, Line or Circle to start")
       else -> null
     }
+  // The last hint stays for the exit animation. Written after composition, so the scope is not
+  // invalidated on every change.
   var shown by remember { mutableStateOf(hint) }
-  if (hint != null) shown = hint
+  if (hint != null) SideEffect { shown = hint }
+  val current = hint ?: shown ?: return
   Box(Modifier.fillMaxSize().controlPadding().padding(horizontal = 56.dp)) {
     AnimatedVisibility(
       visible = hint != null,
@@ -167,7 +175,6 @@ internal fun EditorHintBar(state: FeatureEditingState) {
           scaleIn(initialScale = 0.8f, animationSpec = spring(dampingRatio = 0.6f)),
       exit = fadeOut(tween(150)) + scaleOut(targetScale = 0.8f),
     ) {
-      val current = shown ?: return@AnimatedVisibility
       HintPill(state, current, mouse)
     }
   }
@@ -200,6 +207,7 @@ private fun HintPill(state: FeatureEditingState, hint: Hint, mouse: Boolean) {
           Modifier.weight(1f, fill = false).padding(vertical = 8.dp),
           style = MaterialTheme.typography.labelLarge,
           maxLines = 2,
+          overflow = TextOverflow.Ellipsis,
           textAlign = TextAlign.Center,
         )
         if (current.done) {

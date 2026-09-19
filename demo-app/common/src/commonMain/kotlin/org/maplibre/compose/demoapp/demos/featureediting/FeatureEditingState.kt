@@ -150,24 +150,35 @@ internal class FeatureEditingState {
     mapFocus.requestFocus()
   }
 
-  fun removeSelection() {
-    editor.remove(editor.selection)
+  fun removeSelection() = remove(editor.selection)
+
+  fun remove(id: FeatureId) = remove(setOf(id))
+
+  private fun remove(ids: Set<FeatureId>) {
+    editor.remove(ids)
     mapFocus.requestFocus()
   }
 
-  /** Adds [preset] when its id is absent, selects it, and returns the bounds to fly to. */
+  /**
+   * Adds [preset] when its id is absent, selects it, and returns the bounds of the stored feature
+   * to fly to.
+   */
   fun loadPreset(preset: EditorFeature): BoundingBox {
     val id = checkNotNull(preset.id)
     if (editor.feature(id) == null) editor.update(listOf(preset), undoStep = EditStep())
     select(id)
-    return preset.geometry.computeBbox()
+    return checkNotNull(editor.feature(id)).geometry.computeBbox()
   }
 
-  /** Adds every absent preset as one step, selects the park, and returns their union bounds. */
+  /**
+   * Adds every absent preset as one step, selects the park, and returns the union bounds of the
+   * stored features.
+   */
   fun loadAllPresets(): BoundingBox {
     val absent = Presets.all.filter { editor.feature(checkNotNull(it.id)) == null }
     if (absent.isNotEmpty()) editor.update(absent, undoStep = EditStep())
     select(checkNotNull(Presets.goldenGatePark.id))
-    return checkNotNull(Presets.all.map { it.geometry }.unionBbox())
+    val stored = Presets.all.map { checkNotNull(editor.feature(checkNotNull(it.id))).geometry }
+    return checkNotNull(stored.unionBbox())
   }
 }

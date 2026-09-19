@@ -8,6 +8,7 @@ import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,6 +27,7 @@ import kotlin.time.Duration
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.open_in_full_24px
@@ -301,8 +303,12 @@ internal fun FrameHandleLayers(state: FeatureEditingState) {
       spring(dampingRatio = 0.6f, stiffness = 600f),
       label = "frame handle scale",
     )
+  // The last highlighted handle keeps growing or shrinking after the highlight moves off it.
+  var shown by remember { mutableStateOf(highlighted) }
+  if (highlighted != null) SideEffect { shown = highlighted }
   val source = rememberGeoJsonSource(data, synchronous)
   val size = DpSize(FrameHandleSize, FrameHandleSize)
+  val move = image(rememberFrameHandlePainter(Res.drawable.open_with_24px, colors), size)
   SymbolLayer(
     id = "shape-frame-handles",
     source = source,
@@ -310,27 +316,24 @@ internal fun FrameHandleLayers(state: FeatureEditingState) {
     iconImage =
       switch(
         feature[KIND],
-        case(
-          FrameHandle.Move.key,
-          image(rememberFrameHandlePainter(FrameHandle.Move, colors), size),
-        ),
+        case(FrameHandle.Move.key, move),
         case(
           FrameHandle.Rotate.key,
-          image(rememberFrameHandlePainter(FrameHandle.Rotate, colors), size),
+          image(rememberFrameHandlePainter(Res.drawable.rotate_right_24px, colors), size),
         ),
         case(
           FrameHandle.Scale.key,
-          image(rememberFrameHandlePainter(FrameHandle.Scale, colors), size),
+          image(rememberFrameHandlePainter(Res.drawable.open_in_full_24px, colors), size),
         ),
         case(
           FrameHandle.Radius.key,
-          image(rememberFrameHandlePainter(FrameHandle.Radius, colors), size),
+          image(rememberFrameHandlePainter(Res.drawable.straighten_24px, colors), size),
         ),
-        fallback = image(rememberFrameHandlePainter(FrameHandle.Move, colors), size),
+        fallback = move,
       ),
     iconSize =
       switch(
-        condition(feature[KIND] eq const(highlighted?.key ?: ""), const(grow)),
+        condition(feature[KIND] eq const(shown?.key ?: ""), const(grow)),
         fallback = const(1f),
       ),
     iconAllowOverlap = const(true),
@@ -342,7 +345,7 @@ internal fun FrameHandleLayers(state: FeatureEditingState) {
     id = "shape-station-dot",
     source = source,
     filter = feature[KIND] eq const(FrameHandle.Station.key),
-    radius = const(10.dp * (if (highlighted == FrameHandle.Station) grow else 1f)),
+    radius = const(10.dp * (if (shown == FrameHandle.Station) grow else 1f)),
     radiusTransition = instant,
     color = const(colors.tertiary),
     strokeColor = const(colors.surface),
@@ -353,20 +356,11 @@ internal fun FrameHandleLayers(state: FeatureEditingState) {
 
 private val FrameHandleSize = 30.dp
 
-/** A disc with a soft shadow, a stroke, and the handle's Material Symbols glyph. */
+/** A disc with a soft shadow, a stroke, and a Material Symbols glyph. */
 @Composable
-internal fun rememberFrameHandlePainter(kind: FrameHandle, colors: ColorScheme): Painter {
-  val glyph =
-    painterResource(
-      when (kind) {
-        FrameHandle.Move,
-        FrameHandle.Station -> Res.drawable.open_with_24px
-        FrameHandle.Rotate -> Res.drawable.rotate_right_24px
-        FrameHandle.Scale -> Res.drawable.open_in_full_24px
-        FrameHandle.Radius -> Res.drawable.straighten_24px
-      }
-    )
-  return remember(glyph, colors.surface, colors.primary, colors.scrim) {
+internal fun rememberFrameHandlePainter(glyph: DrawableResource, colors: ColorScheme): Painter {
+  val painter = painterResource(glyph)
+  return remember(painter, colors.surface, colors.primary, colors.scrim) {
     object : Painter() {
       override val intrinsicSize = Size(30f, 30f)
 
@@ -379,7 +373,7 @@ internal fun rememberFrameHandlePainter(kind: FrameHandle, colors: ColorScheme):
         drawCircle(colors.primary, 12f * unit, center, style = Stroke(2f * unit))
         val glyphSize = 16f * unit
         translate(center.x - glyphSize / 2f, center.y - glyphSize / 2f) {
-          with(glyph) {
+          with(painter) {
             draw(Size(glyphSize, glyphSize), colorFilter = ColorFilter.tint(colors.primary))
           }
         }

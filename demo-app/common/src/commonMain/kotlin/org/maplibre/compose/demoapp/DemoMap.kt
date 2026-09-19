@@ -105,14 +105,15 @@ internal suspend fun MapState.flyTo(destination: DemoDestination, animation: Cam
     is DemoDestination.FitBounds ->
       animateCameraToBounds(
         boundingBox = destination.bounds,
-        fitPadding = DemoBoundsPadding,
+        fitPadding = destination.padding,
         animation = animation,
       )
     DemoDestination.None -> Unit
   }
 }
 
-private val DemoControlSize = 48.dp
+/** The side of the shell's square map control buttons. */
+internal val DemoControlSize = 48.dp
 
 /** Compass enter/exit: fade plus a height change so zoom and theme slide instead of popping. */
 private val DemoCompassEnter = fadeIn() + expandVertically()

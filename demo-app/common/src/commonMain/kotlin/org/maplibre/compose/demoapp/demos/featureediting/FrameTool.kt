@@ -64,7 +64,7 @@ internal sealed interface FrameHandle : HandleKind {
 }
 
 /** The bounding box of a shape padded in screen space, and its outline. */
-internal class Frame(val bbox: BoundingBox, val padded: BoundingBox) {
+internal class Frame(val padded: BoundingBox) {
   val outline: Polygon
     get() = padded.toPolygon()
 }
@@ -83,7 +83,7 @@ internal fun frameOf(geometry: Geometry, padMeters: Double): Frame {
       bbox.east + padLon,
       (bbox.north + padLat).coerceAtMost(90.0),
     )
-  return Frame(bbox, padded)
+  return Frame(padded)
 }
 
 /**

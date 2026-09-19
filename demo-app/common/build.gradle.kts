@@ -107,6 +107,8 @@ kotlin {
       implementation(libs.ktor.client.okhttp)
     }
 
+    jvmTest.dependencies { implementation(kotlin("test")) }
+
     appleMain.dependencies { implementation(libs.ktor.client.darwin) }
 
     jsMain.dependencies {

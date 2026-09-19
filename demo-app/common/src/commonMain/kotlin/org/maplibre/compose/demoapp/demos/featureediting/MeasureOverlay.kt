@@ -13,28 +13,40 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.input.pointer.PointerType
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.DpRect
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.sqrt
@@ -42,7 +54,9 @@ import kotlinx.coroutines.delay
 import org.maplibre.compose.editing.EditorFeature
 import org.maplibre.compose.editing.HandleKind
 import org.maplibre.compose.map.LocalMapState
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.overlay.MapOverlayScope
+import org.maplibre.spatialk.geojson.FeatureId
 import org.maplibre.spatialk.geojson.LineString
 import org.maplibre.spatialk.geojson.Polygon
 import org.maplibre.spatialk.geojson.Position
@@ -72,31 +86,126 @@ internal fun animatedMeasure(value: Double, live: Boolean): Double {
   return animatable.value.toDouble()
 }
 
-/** A name, number and caption for every shape, following its label anchor. */
+/** Where a line label sits above its anchor. */
+private val LINE_LABEL_GAP = 14.dp
+
+/** How far an edge label sits from its edge, clear of the midpoint handle. */
+private val EDGE_LABEL_OFFSET = 12.dp
+
+/** The shapes that get a label, one lagging entry each, with the measured size of every label. */
+internal class ShapeLabelEntries(val entries: List<LaggingEntry>) {
+  val sizes = mutableStateMapOf<FeatureId, DpSize>()
+}
+
 @Composable
-internal fun MapOverlayScope.ShapeLabels(state: FeatureEditingState) {
+internal fun rememberShapeLabelEntries(state: FeatureEditingState): ShapeLabelEntries {
   val editor = state.editor
   val features = editor.features
   val labeled =
     if (features.size <= LABEL_LIMIT) features else features.filter { it.id in editor.selection }
-  val entries = rememberLaggingEntries(labeled)
+  val entries = rememberLaggingEntries(labeled, editor.selection)
+  return remember { ShapeLabelEntries(entries) }
+}
+
+/** A shape label's anchor and, for a line, its station. Remembered, so labels can skip. */
+private class LabelPlacement(
+  val feature: EditorFeature,
+  val measure: ShapeMeasure,
+  val station: Station?,
+  val selected: Boolean,
+) {
+  val anchor: Position
+    get() = station?.position ?: measure.labelAnchor
+
+  val line: Boolean
+    get() = station != null
+}
+
+@Composable
+private fun rememberLabelPlacement(
+  state: FeatureEditingState,
+  entry: LaggingEntry,
+): LabelPlacement {
+  // The entry copy lags a frame; the live feature keeps the label on a dragged shape.
+  val feature = state.editor.feature(entry.id) ?: entry.feature
+  val selected = entry.selected
+  val measure = remember(feature.geometry) { ShapeMeasure.of(feature) }
+  val line = feature.geometry as? LineString
+  val fraction = if (selected) state.stationFraction else 0.5
+  val station = remember(line, fraction) { line?.let { stationOf(it, fraction) } }
+  return remember(feature, measure, station, selected) {
+    LabelPlacement(feature, measure, station, selected)
+  }
+}
+
+/** The rect a label of [size] covers in map dp, or null while its anchor is off the map. */
+private fun labelRect(
+  mapState: MapState,
+  anchor: Position,
+  line: Boolean,
+  size: DpSize,
+): DpRect? {
+  val screen = mapState.screenLocationFromPosition(anchor) ?: return null
+  val left = screen.x - size.width / 2
+  val top = if (line) screen.y - LINE_LABEL_GAP - size.height else screen.y - size.height / 2
+  return DpRect(left, top, left + size.width, top + size.height)
+}
+
+private fun DpRect.overlaps(other: DpRect, margin: Dp): Boolean =
+  left < other.right + margin &&
+    other.left < right + margin &&
+    top < other.bottom + margin &&
+    other.top < bottom + margin
+
+private fun DpRect.contains(point: DpOffset, margin: Dp): Boolean =
+  point.x > left - margin &&
+    point.x < right + margin &&
+    point.y > top - margin &&
+    point.y < bottom + margin
+
+/**
+ * A name, number and caption for every shape, following its label anchor. The selected label draws
+ * over the others, which hide while they overlap it.
+ */
+@Composable
+internal fun MapOverlayScope.ShapeLabels(state: FeatureEditingState, labels: ShapeLabelEntries) {
+  val editor = state.editor
   val live = editor.gestureInProgress || state.simplifyScrub != null
-  for (entry in entries) {
+  val mapState = checkNotNull(LocalMapState.current)
+  val density = LocalDensity.current
+  val placements =
+    labels.entries.map { entry -> key(entry.id) { entry to rememberLabelPlacement(state, entry) } }
+  val camera = mapState.cameraPosition
+  val selected = placements.singleOrNull { it.second.selected }?.second
+  val selectedSize = selected?.let { labels.sizes[it.feature.id] }
+  val selectedRect =
+    remember(camera, selected, selectedSize) {
+      if (selected == null || selectedSize == null) null
+      else labelRect(mapState, selected.anchor, selected.line, selectedSize)
+    }
+  for ((entry, placement) in placements) {
     key(entry.id) {
-      // The entry copy lags a frame; the live feature keeps the label on a dragged shape.
-      val feature = editor.feature(entry.id) ?: entry.feature
-      val selected = entry.id in editor.selection
-      val measure = remember(feature.geometry) { ShapeMeasure.of(feature) }
-      val line = feature.geometry as? LineString
-      val fraction = if (selected) state.stationFraction else 0.5
-      val station = remember(line, fraction) { line?.let { stationOf(it, fraction) } }
-      val anchor = station?.position ?: measure.labelAnchor
+      val id = entry.id
+      DisposableEffect(id) { onDispose { labels.sizes.remove(id) } }
+      val size = labels.sizes[id]
+      val hidden =
+        remember(camera, placement, selectedRect, size) {
+          !placement.selected &&
+            selectedRect != null &&
+            size != null &&
+            labelRect(mapState, placement.anchor, placement.line, size)
+              ?.overlaps(selectedRect, LABEL_CLEARANCE) == true
+        }
       AnimatedVisibility(
         visibleState = entry.visible,
         modifier =
-          if (line != null) {
-            Modifier.placedAt(anchor, Alignment.BottomCenter).padding(bottom = 14.dp)
-          } else Modifier.placedAt(anchor, Alignment.Center),
+          Modifier.zIndex(if (placement.selected) 1f else 0f)
+            .then(
+              if (placement.line) {
+                Modifier.placedAt(placement.anchor, Alignment.BottomCenter)
+                  .padding(bottom = LINE_LABEL_GAP)
+              } else Modifier.placedAt(placement.anchor, Alignment.Center)
+            ),
         enter =
           fadeIn(tween(120)) +
             scaleIn(
@@ -105,30 +214,52 @@ internal fun MapOverlayScope.ShapeLabels(state: FeatureEditingState) {
             ),
         exit = fadeOut(tween(120)),
       ) {
-        ShapeLabel(state, feature, measure, station, selected, live)
+        AnimatedVisibility(
+          visible = !hidden,
+          enter = fadeIn(tween(120)),
+          exit = fadeOut(tween(120)),
+        ) {
+          ShapeLabel(
+            state,
+            placement,
+            live,
+            Modifier.onSizeChanged {
+              labels.sizes[id] = with(density) { DpSize(it.width.toDp(), it.height.toDp()) }
+            },
+          )
+        }
       }
     }
   }
 }
 
+/** The gap a label keeps from the selected label before it hides or is skipped. */
+private val LABEL_CLEARANCE = 8.dp
+
+// The label chrome is a Box rather than a Surface: a Surface blocks pointer input, and presses on
+// a label must reach the handles and the map under it.
 @Composable
 private fun ShapeLabel(
   state: FeatureEditingState,
-  feature: EditorFeature,
-  measure: ShapeMeasure,
-  station: Station?,
-  selected: Boolean,
+  placement: LabelPlacement,
   live: Boolean,
+  modifier: Modifier = Modifier,
 ) {
+  val feature = placement.feature
+  val measure = placement.measure
+  val station = placement.station
+  val selected = placement.selected
   val colors = MaterialTheme.colorScheme
   val primary = animatedMeasure(measure.primaryMeters, live)
-  Surface(
-    color =
-      if (selected) colors.surfaceContainerHighest.copy(alpha = 0.92f)
-      else colors.surfaceContainer.copy(alpha = 0.8f),
-    contentColor = colors.onSurface,
-    shape = RoundedCornerShape(12.dp),
-    shadowElevation = if (selected) 2.dp else 0.dp,
+  val shape = RoundedCornerShape(12.dp)
+  Box(
+    modifier
+      .shadow(if (selected) 2.dp else 0.dp, shape)
+      .background(
+        if (selected) colors.surfaceContainerHighest.copy(alpha = 0.92f)
+        else colors.surfaceContainer.copy(alpha = 0.8f),
+        shape,
+      )
   ) {
     AnimatedContent(
       targetState = state.units,
@@ -177,9 +308,15 @@ private fun ShapeLabel(
   }
 }
 
-/** The length of each edge of the selected polygon or line, rotated along the edge. */
+/** One edge label: its edge, the offset that clears the midpoint handle, and its rotation. */
+private class PlacedEdge(val index: Int, val edge: Edge, val offset: DpOffset, val angle: Float)
+
+/**
+ * The length of each edge of the selected polygon or line, rotated along the edge and offset to its
+ * outer side. An edge label that would sit on the shape label is skipped.
+ */
 @Composable
-internal fun MapOverlayScope.EdgeLabels(state: FeatureEditingState) {
+internal fun MapOverlayScope.EdgeLabels(state: FeatureEditingState, labels: ShapeLabelEntries) {
   val editor = state.editor
   val feature = state.selected.singleOrNull() ?: return
   if (feature.isCircle) return
@@ -193,37 +330,76 @@ internal fun MapOverlayScope.EdgeLabels(state: FeatureEditingState) {
       val ref = active?.vertex?.takeIf { active.kind == HandleKind.Vertex } ?: return
       touchingEdges(feature, ref.path)
     }
+  // The shape label's entry lags a frame; the edge labels wait for it so they do not appear first.
+  val entry = labels.entries.firstOrNull { it.id == feature.id }
+  val shown = entry != null && entry.visible.targetState
+  val line = feature.geometry as? LineString
+  val fraction = state.stationFraction
+  val labelAnchor = remember(line, fraction) { line?.let { stationPoint(it, fraction) } }
   val mapState = checkNotNull(LocalMapState.current)
   val camera = mapState.cameraPosition
+  val labelSize = labels.sizes[feature.id]
   val placed =
-    remember(measure, camera, kept) {
+    remember(measure, camera, kept, labelAnchor, labelSize) {
+      val labelRect = labelSize?.let {
+        labelRect(mapState, labelAnchor ?: measure.labelAnchor, line != null, it)
+      }
+      val center = mapState.screenLocationFromPosition(measure.labelAnchor)
       measure.edges.mapIndexedNotNull { index, edge ->
         if (kept != null && index !in kept) return@mapIndexedNotNull null
         val a = mapState.screenLocationFromPosition(edge.a) ?: return@mapIndexedNotNull null
         val b = mapState.screenLocationFromPosition(edge.b) ?: return@mapIndexedNotNull null
         val dx = (b.x - a.x).value
         val dy = (b.y - a.y).value
-        if (sqrt(dx * dx + dy * dy) < MIN_EDGE_LABEL_LENGTH) return@mapIndexedNotNull null
+        val length = sqrt(dx * dx + dy * dy)
+        if (length < MIN_EDGE_LABEL_LENGTH) return@mapIndexedNotNull null
         var angle = atan2(dy, dx) * 180f / PI.toFloat()
         if (angle > 90f) angle -= 180f
         if (angle <= -90f) angle += 180f
-        Triple(index, edge, angle)
+        // The unit normal, pointing away from a polygon's label anchor or below a line.
+        var nx = -dy / length
+        var ny = dx / length
+        val mid = DpOffset((a.x + b.x) / 2, (a.y + b.y) / 2)
+        val inward =
+          if (line == null && center != null) {
+            nx * (center.x - mid.x).value + ny * (center.y - mid.y).value > 0
+          } else ny < 0
+        if (inward) {
+          nx = -nx
+          ny = -ny
+        }
+        val offset = DpOffset(EDGE_LABEL_OFFSET * nx, EDGE_LABEL_OFFSET * ny)
+        if (labelRect?.contains(mid + offset, LABEL_CLEARANCE) == true) {
+          return@mapIndexedNotNull null
+        }
+        PlacedEdge(index, edge, offset, angle)
       }
     }
   val colors = MaterialTheme.colorScheme
-  for ((index, edge, angle) in placed) {
-    key(index) {
-      Text(
-        state.units.length(edge.length),
+  for (item in placed) {
+    key(item.index) {
+      AnimatedVisibility(
+        visible = shown,
         modifier =
-          Modifier.placedAt(edge.midpoint, Alignment.Center)
-            .rotate(angle)
-            .background(colors.surfaceContainer.copy(alpha = 0.85f), RoundedCornerShape(4.dp))
-            .padding(horizontal = 4.dp, vertical = 1.dp),
-        style = MaterialTheme.typography.labelSmall.tabular.copy(fontSize = 11.sp),
-        color = colors.onSurfaceVariant,
-        maxLines = 1,
-      )
+          Modifier.placedAt(item.edge.midpoint, Alignment.Center)
+            .offset(item.offset.x, item.offset.y)
+            .rotate(item.angle),
+        enter = fadeIn(tween(120)),
+        exit = fadeOut(tween(120)),
+      ) {
+        Text(
+          state.units.length(item.edge.length),
+          modifier =
+            Modifier.background(
+                colors.surfaceContainer.copy(alpha = 0.85f),
+                RoundedCornerShape(4.dp),
+              )
+              .padding(horizontal = 4.dp, vertical = 1.dp),
+          style = MaterialTheme.typography.labelSmall.tabular.copy(fontSize = 11.sp),
+          color = colors.onSurfaceVariant,
+          maxLines = 1,
+        )
+      }
     }
   }
 }
@@ -290,13 +466,10 @@ internal fun MapOverlayScope.DraftLabel(state: FeatureEditingState) {
   if (primary == null && secondary == null) return
   val anchor = if (mouse) cursor ?: return else positions.lastOrNull() ?: return
   val colors = MaterialTheme.colorScheme
-  Surface(
-    color = colors.surfaceContainerHighest.copy(alpha = 0.92f),
-    contentColor = colors.onSurface,
-    shape = RoundedCornerShape(12.dp),
-    modifier =
-      if (mouse) Modifier.placedAt(anchor, Alignment.TopStart).padding(start = 14.dp, top = 14.dp)
-      else Modifier.placedAt(anchor, Alignment.BottomCenter).padding(bottom = 14.dp),
+  Box(
+    (if (mouse) Modifier.placedAt(anchor, Alignment.TopStart).padding(start = 14.dp, top = 14.dp)
+      else Modifier.placedAt(anchor, Alignment.BottomCenter).padding(bottom = 14.dp))
+      .background(colors.surfaceContainerHighest.copy(alpha = 0.92f), RoundedCornerShape(12.dp))
   ) {
     Column(
       Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -338,34 +511,51 @@ private fun segmentText(
   return "${units.length(distance(a, b))} · ${units.bearing(a.bearingTo(b))}"
 }
 
-/** The rotation, scale factor, offset or radius of the frame gesture in progress. */
+/**
+ * The rotation, scale factor, offset or radius of the frame gesture in progress, beside the pointer
+ * on the side with more room.
+ */
 @Composable
 internal fun MapOverlayScope.TransformReadout(state: FeatureEditingState) {
-  val gesture = state.frameGesture
+  val gesture = state.frameGesture?.takeIf { it.readout.isNotEmpty() }
+  // The last readout stays for the exit animation. Written after composition, so the scope is not
+  // invalidated on every drag frame.
   var shown by remember { mutableStateOf(gesture) }
-  if (gesture != null && gesture.readout.isNotEmpty()) shown = gesture
-  val current = shown ?: return
+  if (gesture != null) SideEffect { shown = gesture }
+  val current = gesture ?: shown ?: return
+  val size = LocalMapState.current?.viewport?.size
+  val right = size != null && current.pointer.screen.x > size.width / 2
+  val top = size != null && current.pointer.screen.y < size.height / 2
+  val alignment =
+    when {
+      right && top -> Alignment.TopEnd
+      right -> Alignment.BottomEnd
+      top -> Alignment.TopStart
+      else -> Alignment.BottomStart
+    }
   val colors = MaterialTheme.colorScheme
   AnimatedVisibility(
-    visible = gesture != null && gesture.readout.isNotEmpty(),
+    visible = gesture != null,
     modifier =
-      Modifier.placedAt(current.pointer.position, Alignment.BottomStart)
-        .padding(start = 16.dp, bottom = 16.dp),
+      Modifier.zIndex(2f)
+        .placedAt(current.pointer.position, alignment)
+        .padding(
+          start = if (right) 0.dp else 16.dp,
+          end = if (right) 16.dp else 0.dp,
+          top = if (top) 16.dp else 0.dp,
+          bottom = if (top) 0.dp else 16.dp,
+        ),
     enter = fadeIn(tween(80)),
     exit = fadeOut(tween(120)),
   ) {
-    Surface(
-      color = colors.inverseSurface,
-      contentColor = colors.inverseOnSurface,
-      shape = RoundedCornerShape(8.dp),
-    ) {
-      Text(
-        current.readout,
-        Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-        style = MaterialTheme.typography.labelLarge.tabular,
-        maxLines = 1,
-      )
-    }
+    Text(
+      current.readout,
+      Modifier.background(colors.inverseSurface, RoundedCornerShape(8.dp))
+        .padding(horizontal = 10.dp, vertical = 6.dp),
+      style = MaterialTheme.typography.labelLarge.tabular,
+      color = colors.inverseOnSurface,
+      maxLines = 1,
+    )
   }
 }
 
@@ -377,7 +567,9 @@ internal fun MapOverlayScope.ValidationTooltip(state: FeatureEditingState) {
   val handle = editor.activeHandle
   var message by remember { mutableStateOf<String?>(null) }
   var visible by remember { mutableStateOf(false) }
+  // The last handle position keeps the tooltip in place while it lingers after the handle clears.
   var position by remember { mutableStateOf<Position?>(null) }
+  if (handle != null) SideEffect { position = handle.position }
   LaunchedEffect(error, handle?.vertex) {
     if (error != null && handle != null) {
       message = error
@@ -387,29 +579,43 @@ internal fun MapOverlayScope.ValidationTooltip(state: FeatureEditingState) {
       visible = false
     }
   }
-  val anchor = handle?.position?.also { position = it } ?: position ?: return
+  val anchor = handle?.position ?: position ?: return
   val text = message ?: return
   val colors = MaterialTheme.colorScheme
+  // A vertex near a side edge gets the tooltip on its inner side, so the text is not clipped.
+  val mapState = LocalMapState.current
+  val camera = mapState?.cameraPosition
+  val size = mapState?.viewport?.size
+  val alignment =
+    remember(camera, size, anchor) {
+      val screen = mapState?.screenLocationFromPosition(anchor)
+      when {
+        size == null || screen == null -> Alignment.BottomCenter
+        screen.x < EDGE_TOOLTIP_INSET -> Alignment.BottomStart
+        screen.x > size.width - EDGE_TOOLTIP_INSET -> Alignment.BottomEnd
+        else -> Alignment.BottomCenter
+      }
+    }
   AnimatedVisibility(
     visible = visible,
-    modifier = Modifier.placedAt(anchor, Alignment.BottomCenter).padding(bottom = 18.dp),
+    // Above the selected shape label, which draws over the other overlay children.
+    modifier = Modifier.zIndex(2f).placedAt(anchor, alignment).padding(bottom = 18.dp),
     enter = fadeIn(tween(100)),
     exit = fadeOut(tween(200)),
   ) {
-    Surface(
-      color = colors.errorContainer,
-      contentColor = colors.onErrorContainer,
-      shape = RoundedCornerShape(8.dp),
-    ) {
-      Text(
-        text,
-        Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-        style = MaterialTheme.typography.labelMedium,
-        maxLines = 1,
-      )
-    }
+    Text(
+      text,
+      Modifier.background(colors.errorContainer, RoundedCornerShape(8.dp))
+        .padding(horizontal = 10.dp, vertical = 6.dp),
+      style = MaterialTheme.typography.labelMedium,
+      color = colors.onErrorContainer,
+      maxLines = 1,
+    )
   }
 }
+
+/** How close to a side of the map a vertex must be for its tooltip to move to its inner side. */
+private val EDGE_TOOLTIP_INSET = 100.dp
 
 /** How long an error stays on screen after the editor accepts the next change. */
 internal const val ERROR_LINGER_MILLIS = 1_200L
