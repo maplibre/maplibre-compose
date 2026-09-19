@@ -497,7 +497,6 @@ internal constructor(
   private val invalidated = CompletableDeferred<Unit>()
   private var validState: Boolean by mutableStateOf(true)
   private var viewportState: Viewport? by mutableStateOf(null)
-  private val firstViewport = CompletableDeferred<Viewport>()
   private var gestureActiveState: Boolean by mutableStateOf(false)
   private var activeCameraChanges: Int by mutableIntStateOf(0)
   private var moveReasonState: CameraMoveReason by mutableStateOf(CameraMoveReason.NONE)
@@ -663,10 +662,7 @@ internal constructor(
   internal fun updateViewport(value: Viewport?) {
     owner.lifecycle.serialized {
       viewportState = value
-      if (value != null) {
-        firstViewport.complete(value)
-        owner.viewportPublished(this, value)
-      }
+      owner.viewportPublished(this, value)
     }
   }
 
@@ -739,7 +735,7 @@ internal constructor(
       }
     }
 
-  private suspend fun awaitViewportState(): Viewport = firstViewport.await()
+  private suspend fun awaitViewportState(): Viewport = owner.awaitViewport(this)
 
   private suspend fun <T> runLeaseBound(block: suspend () -> T): T = coroutineScope {
     if (!owner.isCurrent(this@MapAttachment)) throw MapAttachmentChangedException()
@@ -762,7 +758,7 @@ internal constructor(
   }
 }
 
-private class MapAttachmentChangedException :
+internal class MapAttachmentChangedException :
   CancellationException("The map attachment changed during the operation")
 
 /** Holds the observable style, camera, and map operations for one logical map. */
