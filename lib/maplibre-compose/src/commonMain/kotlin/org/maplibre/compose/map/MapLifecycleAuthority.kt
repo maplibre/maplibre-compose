@@ -147,6 +147,8 @@ internal class MapLifecycleAuthority(
         true
       } else {
         closed = true
+        // Published under the lock: no callback is admitted against the open state after this.
+        publishSnapshot()
         false
       }
     }
