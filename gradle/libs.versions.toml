@@ -161,6 +161,7 @@ mobilityData-gtfsSchedule = { module = "dev.sargunv.mobility-data:gtfs-schedule"
 playServices-location = { module = "com.google.android.gms:play-services-location", version.ref = "playServices-location" }
 spatialk-geojson = { group = "org.maplibre.spatialk", name = "geojson", version.ref = "spatialk" }
 spatialk-units = { group = "org.maplibre.spatialk", name = "units", version.ref = "spatialk" }
+spatialk-turf = { group = "org.maplibre.spatialk", name = "turf", version.ref = "spatialk" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "gradle-android" }
