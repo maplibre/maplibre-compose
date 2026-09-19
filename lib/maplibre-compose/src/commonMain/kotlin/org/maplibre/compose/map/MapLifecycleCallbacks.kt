@@ -1,14 +1,17 @@
 package org.maplibre.compose.map
 
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
 import org.maplibre.compose.style.StyleBinding
 
 /**
- * Filters platform callbacks through identities captured by their platform producer, then posts
- * each delegate call to the main dispatcher. The identity is checked again when the posted call
- * runs, so a style or presentation replaced in between drops the stale delivery. A `beforeDelegate`
- * still runs inside the first acceptance on the calling thread. [resolveMissingImage] answers the
- * engine synchronously.
+ * Delivers platform callbacks to the map state on the main dispatcher.
+ *
+ * Each callback carries the identity its platform producer captured. The binding accepts it once on
+ * the calling thread, where work such as publishing a viewport belongs, then posts the delegate
+ * call to the main dispatcher and accepts it again when it runs. The second check exists because a
+ * post made from the main thread runs inline and can overtake a post that an engine thread queued
+ * earlier, so a queued delivery may find its style or presentation replaced.
  */
 internal class MapLifecycleCallbacks(
   private val lifecycle: MapLifecycleBinding,
@@ -17,7 +20,7 @@ internal class MapLifecycleCallbacks(
 
   fun beginStyleRequest(engine: EngineMapIdentity, map: MapAdapter): StyleRequestIdentity? {
     val request = lifecycle.claimStyleRequestIdentity(engine) ?: return null
-    postStyleRequestEvent(engine, request) { delegate().onStyleChanged(map, null) }
+    deliver(styleRequest(engine, request)) { delegate().onStyleChanged(map, null) }
     return request
   }
 
@@ -27,17 +30,16 @@ internal class MapLifecycleCallbacks(
     map: MapAdapter,
     style: StyleBinding,
     beforeDelegate: (StyleIdentity) -> Unit = {},
-  ): StyleIdentity? {
-    return lifecycle.claimStyleIdentity(engine, request) { identity ->
+  ): StyleIdentity? =
+    lifecycle.claimStyleIdentity(engine, request) { identity ->
       beforeDelegate(identity)
       lifecycle.postToMain {
         lifecycle.acceptStyleEvent(engine, identity) { delegate().onStyleChanged(map, style) }
       }
     }
-  }
 
   fun onStyleReady(engine: EngineMapIdentity, style: StyleIdentity, map: MapAdapter) =
-    postStyleEvent(engine, style) { delegate().onStyleReady(map) }
+    deliver(styleEvent(engine, style)) { delegate().onStyleReady(map) }
 
   fun onStyleFailed(
     engine: EngineMapIdentity,
@@ -46,102 +48,99 @@ internal class MapLifecycleCallbacks(
     reason: String?,
     beforeDelegate: () -> Unit = {},
   ) =
-    lifecycle.acceptStyleRequestEvent(engine, request) {
-      beforeDelegate()
-      lifecycle.postToMain {
-        lifecycle.acceptStyleRequestEvent(engine, request) { delegate().onStyleFailed(map, reason) }
-      }
-    }
+    deliver(styleRequest(engine, request), beforeDelegate) { delegate().onStyleFailed(map, reason) }
 
   fun onStyleSourcesChanged(
     engine: EngineMapIdentity,
     style: StyleIdentity,
     map: MapAdapter,
     sourceId: String?,
-  ) = postStyleEvent(engine, style) { delegate().onStyleSourcesChanged(map, sourceId) }
+  ) = deliver(styleEvent(engine, style)) { delegate().onStyleSourcesChanged(map, sourceId) }
 
   fun onGestureActive(
     engine: EngineMapIdentity,
     lease: RenderLease,
     map: MapAdapter,
     active: Boolean,
-  ) = postPresentationEvent(engine, lease) { delegate().onGestureActive(map, active) }
+  ) = deliver(presentation(engine, lease)) { delegate().onGestureActive(map, active) }
 
   fun onViewportChanged(engine: EngineMapIdentity, lease: RenderLease, map: MapAdapter) =
-    postPresentationEvent(engine, lease) { delegate().onViewportChanged(map) }
+    deliver(presentation(engine, lease)) { delegate().onViewportChanged(map) }
 
   fun onEvent(engine: EngineMapIdentity, map: MapAdapter, event: MapEvent) =
-    lifecycle.acceptEngineEvent(engine) {
-      lifecycle.postToMain {
-        lifecycle.acceptEngineEvent(engine) { delegate().onEvent(map, event) }
-      }
-    }
+    deliver(engineEvent(engine)) { delegate().onEvent(map, event) }
 
-  /**
-   * [beforeDelegate] runs inside the same acceptance, so a session can publish the viewport the
-   * event describes before the delegate reads it.
-   */
+  /** [beforeDelegate] runs inside the first acceptance, before the event is posted. */
   fun onEvent(
     engine: EngineMapIdentity,
     lease: RenderLease,
     map: MapAdapter,
     event: MapEvent,
     beforeDelegate: () -> Unit = {},
-  ) =
-    lifecycle.acceptPresentationEvent(engine, lease) {
-      beforeDelegate()
-      lifecycle.postToMain {
-        lifecycle.acceptPresentationEvent(engine, lease) { delegate().onEvent(map, event) }
-      }
-    }
+  ) = deliver(presentation(engine, lease), beforeDelegate) { delegate().onEvent(map, event) }
 
   fun onEvent(engine: EngineMapIdentity, style: StyleIdentity, map: MapAdapter, event: MapEvent) =
-    postStyleEvent(engine, style) { delegate().onEvent(map, event) }
+    deliver(styleEvent(engine, style)) { delegate().onEvent(map, event) }
 
   fun onEvent(
     engine: EngineMapIdentity,
     request: StyleRequestIdentity,
     map: MapAdapter,
     event: MapEvent,
-  ) = postStyleRequestEvent(engine, request) { delegate().onEvent(map, event) }
+  ) = deliver(styleRequest(engine, request)) { delegate().onEvent(map, event) }
 
-  /** Asks the loaded style's owner to supply a missing image. */
+  /**
+   * Asks the loaded style's owner to supply a missing image. The answer completes once the owner,
+   * on the main dispatcher, has either supplied the image or declined to. Null means the style is
+   * no longer current.
+   */
   fun resolveMissingImage(
     engine: EngineMapIdentity,
     style: StyleIdentity,
     map: MapAdapter,
     imageId: String,
   ): Deferred<Unit>? {
-    var resolution: Deferred<Unit>? = null
-    lifecycle.acceptStyleEvent(engine, style) {
-      resolution = delegate().resolveMissingImage(map, imageId)
-    }
-    return resolution
+    val answer = CompletableDeferred<Unit>()
+    val accepted =
+      deliver(styleEvent(engine, style)) {
+        val resolution = delegate().resolveMissingImage(map, imageId)
+        if (resolution == null) answer.complete(Unit)
+        else resolution.invokeOnCompletion { answer.complete(Unit) }
+      }
+    return if (accepted) answer else null
   }
 
   fun onPresentationEvent(engine: EngineMapIdentity, lease: RenderLease, event: () -> Unit) =
     lifecycle.acceptPresentationEvent(engine, lease, event)
 
-  private fun postStyleEvent(engine: EngineMapIdentity, style: StyleIdentity, event: () -> Unit) =
-    lifecycle.acceptStyleEvent(engine, style) {
-      lifecycle.postToMain { lifecycle.acceptStyleEvent(engine, style, event) }
-    }
+  /** An acceptance: runs its block only while the captured identity is still current. */
+  private fun interface Acceptance {
+    fun accept(block: () -> Unit): Boolean
+  }
 
-  private fun postStyleRequestEvent(
-    engine: EngineMapIdentity,
-    request: StyleRequestIdentity,
-    event: () -> Unit,
-  ) =
-    lifecycle.acceptStyleRequestEvent(engine, request) {
-      lifecycle.postToMain { lifecycle.acceptStyleRequestEvent(engine, request, event) }
-    }
+  private fun styleEvent(engine: EngineMapIdentity, style: StyleIdentity) = Acceptance {
+    lifecycle.acceptStyleEvent(engine, style, it)
+  }
 
-  private fun postPresentationEvent(
-    engine: EngineMapIdentity,
-    lease: RenderLease,
+  private fun styleRequest(engine: EngineMapIdentity, request: StyleRequestIdentity) = Acceptance {
+    lifecycle.acceptStyleRequestEvent(engine, request, it)
+  }
+
+  private fun presentation(engine: EngineMapIdentity, lease: RenderLease) = Acceptance {
+    lifecycle.acceptPresentationEvent(engine, lease, it)
+  }
+
+  private fun engineEvent(engine: EngineMapIdentity) = Acceptance {
+    lifecycle.acceptEngineEvent(engine, it)
+  }
+
+  /** Accepts now, posts, and accepts again when the post runs. Returns the first acceptance. */
+  private fun deliver(
+    acceptance: Acceptance,
+    beforeDelegate: () -> Unit = {},
     event: () -> Unit,
-  ) =
-    lifecycle.acceptPresentationEvent(engine, lease) {
-      lifecycle.postToMain { lifecycle.acceptPresentationEvent(engine, lease, event) }
-    }
+  ): Boolean = acceptance.accept {
+    beforeDelegate()
+    lifecycle.postToMain { acceptance.accept(event) }
+  }
 }

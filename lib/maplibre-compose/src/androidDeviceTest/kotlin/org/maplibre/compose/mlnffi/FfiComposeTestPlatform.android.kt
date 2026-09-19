@@ -8,6 +8,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runAndroidComposeUiTest
 import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.map.MapRuntimeOptions
+import org.maplibre.compose.map.UnconfinedTestMain
 import org.maplibre.compose.map.resetForTest
 
 @OptIn(ExperimentalTestApi::class)
@@ -78,6 +79,7 @@ internal actual fun ComposeUiTest.setFfiTestMapContent(
   content: @Composable () -> Unit,
 ) {
   require(presentationCount > 0) { "A map test must prepare at least one presentation" }
-  DefaultMapRuntime.configure(runtimeOptions)
+  // The instrumentation thread builds fixtures that Compose then drives on the main thread.
+  DefaultMapRuntime.configure(runtimeOptions.copy(mainDispatcher = UnconfinedTestMain))
   setContent(content)
 }

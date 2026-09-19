@@ -14,7 +14,10 @@ public actual data class MapRuntimeOptions(
   public val requestInterceptor: MapRequestInterceptor? = null,
   /** Serves bytes for resource URLs this provider accepts. Fixed at construction. */
   public val resourceProvider: MapResourceProvider? = null,
-  /** Delivers engine callbacks to map state. Null uses `Dispatchers.Main.immediate`. */
+  /**
+   * The dispatcher that engine callbacks are posted to. Null uses `Dispatchers.Main.immediate`.
+   * `Dispatchers.Unconfined` is rejected.
+   */
   public val mainDispatcher: CoroutineDispatcher? = null,
 )
 

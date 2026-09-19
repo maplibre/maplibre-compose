@@ -247,10 +247,11 @@ internal class DurableStyleCallbacks(private val owner: MapState) : MapAdapter.C
 
   /**
    * Starts undispatched so the read claims its revision inside the engine callback, then finishes
-   * on the runtime scope. A read that fails while its style is current marks the style failed.
+   * on the runtime's main scope. A read that fails while its style is current marks the style
+   * failed.
    */
   private fun launchStyleRead(map: MapAdapter, read: suspend () -> Unit) {
-    owner.runtime.physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
+    owner.runtime.mainScope.launch(start = CoroutineStart.UNDISPATCHED) {
       try {
         read()
       } catch (error: CancellationException) {

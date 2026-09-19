@@ -78,7 +78,10 @@ class MlnFfiMapCompositionTest {
 
   private val cacheFile = FfiTestPlatform.createCacheFile()
 
-  private val runtimeOptions = MapRuntimeOptions(cacheFile = cacheFile)
+  // Compose and the test drive this map from different threads in the desktop and device
+  // harnesses, so the runtime opts out of main-thread confinement here.
+  private val runtimeOptions =
+    MapRuntimeOptions(cacheFile = cacheFile, mainDispatcher = UnconfinedTestMain)
 
   /** Camera round trips lose a little precision through the projection. */
   private val POSITION_TOLERANCE = 1e-4

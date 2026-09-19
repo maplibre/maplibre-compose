@@ -13,7 +13,6 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -103,10 +102,9 @@ class MapCameraTransitionTest {
         fixture.session.setViewportInsets(VIEWPORT_INSETS)
         fixture.startAt(START)
         val target = TARGET.copy(padding = DpPadding(bottom = 100.dp))
-        val animation =
-          launch(Dispatchers.Default) {
-            fixture.state.animateCamera(target.toCameraUpdate(), CameraAnimation.Ease(1.seconds))
-          }
+        val animation = launch {
+          fixture.state.animateCamera(target.toCameraUpdate(), CameraAnimation.Ease(1.seconds))
+        }
         var intermediate = false
         fixture.pumpUntil("camera padding animation") {
           val camera = fixture.session.getCameraPosition()
@@ -267,10 +265,9 @@ class MapCameraTransitionTest {
   fun a_bounds_query_does_not_interrupt_an_animation(): MapTestResult = runMapTest {
     createMapFixture().use {
       it.startAtOrigin()
-      val animation =
-        launch(Dispatchers.Default) {
-          it.state.animateCamera(TARGET.toCameraUpdate(), CameraAnimation.Fly(2.seconds))
-        }
+      val animation = launch {
+        it.state.animateCamera(TARGET.toCameraUpdate(), CameraAnimation.Fly(2.seconds))
+      }
       it.awaitCameraMoving()
       it.state
         .cameraForBounds(
@@ -495,13 +492,12 @@ class MapCameraTransitionTest {
       createMapFixture().use {
         it.startAt(FLIGHT_START)
 
-        val flight =
-          launch(Dispatchers.Default) {
-            it.state.animateCamera(
-              FLIGHT_TARGET.toCameraUpdate(),
-              CameraAnimation.Fly(speed = 20.0),
-            )
-          }
+        val flight = launch {
+          it.state.animateCamera(
+            FLIGHT_TARGET.toCameraUpdate(),
+            CameraAnimation.Fly(speed = 20.0),
+          )
+        }
         it.pumpUntil("the flight to move the camera") {
           flight.isCompleted ||
             abs(it.session.getCameraPosition().target.latitude - FLIGHT_START.target.latitude) > 1.0
@@ -668,10 +664,9 @@ class MapCameraTransitionTest {
         it.session.applyTestConstraints()
         it.pump(frames = 2)
 
-        val animation =
-          launch(Dispatchers.Default) {
-            it.state.animateCamera(TARGET.toCameraUpdate(), CameraAnimation.Fly(2.seconds))
-          }
+        val animation = launch {
+          it.state.animateCamera(TARGET.toCameraUpdate(), CameraAnimation.Fly(2.seconds))
+        }
         it.awaitCameraMoving()
         it.session.applyTestConstraints()
         it.pumpUntil("the animation to complete after the constraints repeat") {
@@ -729,16 +724,14 @@ class MapCameraTransitionTest {
     createMapFixture().use {
       it.startAtOrigin()
 
-      val superseded =
-        launch(Dispatchers.Default) {
-          it.state.animateCamera(TARGET.toCameraUpdate(), CameraAnimation.Fly(10.seconds))
-        }
+      val superseded = launch {
+        it.state.animateCamera(TARGET.toCameraUpdate(), CameraAnimation.Fly(10.seconds))
+      }
       it.awaitCameraMoving()
 
-      val replacement =
-        launch(Dispatchers.Default) {
-          it.state.animateCamera(MIDPOINT.toCameraUpdate(), CameraAnimation.Fly(2.seconds))
-        }
+      val replacement = launch {
+        it.state.animateCamera(MIDPOINT.toCameraUpdate(), CameraAnimation.Fly(2.seconds))
+      }
       it.pumpUntil("the superseded animation to cancel") { superseded.isCompleted }
 
       assertFalse(superseded.isCancelled, "supersession completes the prior command normally")
@@ -766,10 +759,9 @@ class MapCameraTransitionTest {
         it.startAtOrigin()
         it.events.clear()
 
-        val animation =
-          launch(Dispatchers.Default) {
-            it.state.animateCamera(TARGET.toCameraUpdate(), CameraAnimation.Ease(1.seconds))
-          }
+        val animation = launch {
+          it.state.animateCamera(TARGET.toCameraUpdate(), CameraAnimation.Ease(1.seconds))
+        }
         it.awaitCameraMoving()
         animation.cancel()
         it.pumpUntil("the cancelled animation to unwind") { animation.isCompleted }
@@ -796,10 +788,9 @@ class MapCameraTransitionTest {
       if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
       createMapFixture().use {
         it.startAtOrigin()
-        val animation =
-          launch(Dispatchers.Default) {
-            it.state.animateCamera(TARGET.toCameraUpdate(), CameraAnimation.Ease(30.seconds))
-          }
+        val animation = launch {
+          it.state.animateCamera(TARGET.toCameraUpdate(), CameraAnimation.Ease(30.seconds))
+        }
         it.awaitCameraMoving()
         it.state.stopCameraMovement()
         it.pumpUntil("the stopped animation to cancel") {
@@ -831,16 +822,15 @@ class MapCameraTransitionTest {
         fixture.pump(frames = 3)
         val point = DpOffset(190.dp, 300.dp)
         val location = requireNotNull(fixture.session.positionFromScreenLocation(point))
-        val animation =
-          launch(Dispatchers.Default) {
-            fixture.state.animateCameraAround(
-              CameraAnchor.Screen(point),
-              zoom = 10.0,
-              bearing = 110.0,
-              tilt = 55.0,
-              animation = CameraAnimation.Ease(1.seconds),
-            )
-          }
+        val animation = launch {
+          fixture.state.animateCameraAround(
+            CameraAnchor.Screen(point),
+            zoom = 10.0,
+            bearing = 110.0,
+            tilt = 55.0,
+            animation = CameraAnimation.Ease(1.seconds),
+          )
+        }
         var intermediate = false
         fixture.pumpUntil("the anchored ease to finish") {
           fixture.assertAnchor(location, point)
@@ -906,14 +896,13 @@ class MapCameraTransitionTest {
       val point = DpOffset(50.dp, 256.dp)
       val location = requireNotNull(fixture.session.positionFromScreenLocation(point))
       assertTrue(abs(location.longitude) > 180.0, "the anchor must select another world copy")
-      val animation =
-        launch(Dispatchers.Default) {
-          fixture.state.animateCameraAround(
-            CameraAnchor.Screen(point),
-            zoom = 2.0,
-            animation = CameraAnimation.Ease(500.milliseconds),
-          )
-        }
+      val animation = launch {
+        fixture.state.animateCameraAround(
+          CameraAnchor.Screen(point),
+          zoom = 2.0,
+          animation = CameraAnimation.Ease(500.milliseconds),
+        )
+      }
       fixture.pumpUntil("the anchored zoom in a repeated world") {
         val actual = requireNotNull(fixture.session.positionFromScreenLocation(point))
         val delta =
@@ -950,14 +939,13 @@ class MapCameraTransitionTest {
       fixture.startAtOrigin()
       val point = DpOffset(190.dp, 300.dp)
       val location = requireNotNull(fixture.session.positionFromScreenLocation(point))
-      val animation =
-        launch(Dispatchers.Default) {
-          fixture.state.animateCameraAround(
-            CameraAnchor.Screen(point),
-            zoom = 5.0,
-            animation = CameraAnimation.Ease(1.seconds),
-          )
-        }
+      val animation = launch {
+        fixture.state.animateCameraAround(
+          CameraAnchor.Screen(point),
+          zoom = 5.0,
+          animation = CameraAnimation.Ease(1.seconds),
+        )
+      }
       fixture.awaitCameraMoving()
       fixture.resize(MapFixture.RETINA_EXTENT)
       fixture.pumpUntil("the animation to complete after changing density") {
@@ -1018,14 +1006,13 @@ class MapCameraTransitionTest {
   private suspend fun MapFixture.assertAnchoredCancellation(change: () -> Unit) = coroutineScope {
     if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
     startAtOrigin()
-    val animation =
-      launch(Dispatchers.Default) {
-        state.animateCameraAround(
-          CameraAnchor.Screen(DpOffset(190.dp, 300.dp)),
-          zoom = 10.0,
-          animation = CameraAnimation.Ease(30.seconds),
-        )
-      }
+    val animation = launch {
+      state.animateCameraAround(
+        CameraAnchor.Screen(DpOffset(190.dp, 300.dp)),
+        zoom = 10.0,
+        animation = CameraAnimation.Ease(30.seconds),
+      )
+    }
     awaitCameraMoving()
     change()
     pumpUntil("the anchored animation to cancel") { animation.isCompleted }
@@ -1075,8 +1062,7 @@ class MapCameraTransitionTest {
     target: CameraPosition,
     animation: CameraAnimation,
   ): List<CameraPosition> = coroutineScope {
-    val job =
-      launch(Dispatchers.Default) { state.animateCamera(target.toCameraUpdate(), animation) }
+    val job = launch { state.animateCamera(target.toCameraUpdate(), animation) }
     val trace = mutableListOf(session.getCameraPosition())
     pumpUntil("the animation to complete") {
       trace += session.getCameraPosition()

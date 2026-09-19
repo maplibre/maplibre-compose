@@ -207,6 +207,24 @@ class MapLifecycleBindingTest {
   }
 
   @Test
+  fun a_style_claim_for_a_superseded_request_is_rejected_and_claims_nothing() = runTest {
+    val lifecycle = bindLifecycle(FakeMapLifecycleAdapter())
+    lifecycle.attach()
+    val engine = checkNotNull(lifecycle.engineIdentity)
+    val superseded = checkNotNull(lifecycle.claimStyleRequestIdentity(engine))
+    // The engine loads the first request while main has already requested another style.
+    val current = checkNotNull(lifecycle.claimStyleRequestIdentity(engine))
+
+    var delivered = false
+    assertNull(lifecycle.claimStyleIdentity(engine, superseded) { delivered = true })
+    assertTrue(!delivered)
+
+    val style = checkNotNull(lifecycle.claimStyleIdentity(engine, current) {})
+    assertTrue(lifecycle.acceptStyleEvent(engine, style) {})
+    assertTrue(lifecycle.acceptStyleRequestEvent(engine, current) {})
+  }
+
+  @Test
   fun superseded_style_request_events_are_rejected() = runTest {
     val adapter = FakeMapLifecycleAdapter()
     val lifecycle = bindLifecycle(adapter)
