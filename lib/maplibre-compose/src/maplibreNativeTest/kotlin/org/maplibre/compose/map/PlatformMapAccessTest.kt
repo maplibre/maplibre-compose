@@ -202,6 +202,8 @@ class PlatformMapAccessTest {
         platformContext = MlnFfiRuntimeOptions(cacheFile),
         closeResources = {},
         logger = null,
+        // The test blocks the main thread, so posted map-state work runs inline.
+        mainDispatcher = Dispatchers.Unconfined,
       )
     val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
     try {

@@ -872,8 +872,9 @@ internal constructor(
       styleAuthority.missingImageResolver = value
     }
 
+  /** True as soon as [close] commits. Snapshot observers see it once map state commits. */
   public val isClosed: Boolean
-    get() = attachmentAuthority.isClosed
+    get() = attachmentAuthority.isClosed || lifecycle.isCloseCommitted
 
   /** Marks this state as closed and starts cleanup of the current map surface. */
   public fun close(): Unit = lifecycle.close()

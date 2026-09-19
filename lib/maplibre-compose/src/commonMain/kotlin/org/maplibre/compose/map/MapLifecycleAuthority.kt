@@ -90,6 +90,7 @@ internal class MapLifecycleAuthority(
   }
 
   private val lock = reentrantLock()
+  private val closeCommitted = AtomicBoolean(false)
   private val platforms = mutableMapOf<MapLifecycleSession, MapLifecycleBinding>()
   private val closure = CompletableDeferred<Result<Unit>>()
   private var attachment: Attachment? = null
@@ -104,7 +105,12 @@ internal class MapLifecycleAuthority(
   val isClosed: Boolean
     get() = serialized { closed }
 
+  /** True once [close] has committed, readable without the lock. */
+  val isCloseCommitted: Boolean
+    get() = closeCommitted.load()
+
   fun close() {
+    val stateCommitted = CompletableDeferred<Unit>()
     val (maps, releases, recordedFailures) =
       serialized {
         if (closed) return
@@ -113,6 +119,7 @@ internal class MapLifecycleAuthority(
           return
         }
         closed = true
+        closeCommitted.store(true)
         val maps = buildSet {
           retainedAdapter?.let(::add)
           attachment?.adapter?.let(::add)
@@ -125,19 +132,21 @@ internal class MapLifecycleAuthority(
         retainedAdapter = null
         retiringAdapters.clear()
         pendingCleanupFailures.clear()
-        postToMain { owner.attachmentAuthority.commitClosed() }
+        // Closure completes only after this commit, so awaitClosed remains the cleanup barrier.
+        postToMain {
+          try {
+            owner.attachmentAuthority.commitClosed()
+          } finally {
+            stateCommitted.complete(Unit)
+          }
+        }
         Triple(maps, releases, recordedFailures)
       }
-    if (maps.isEmpty() && releases.isEmpty()) {
-      val failures = mutableListOf<Throwable>()
-      recordedFailures.forEach { addCleanupFailure(failures, it) }
-      completeClosure(failures.cleanupResult("Map state"))
-      return
-    }
     maps.forEach(MapAdapter::close)
     physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
       val failures = mutableListOf<Throwable>()
       recordedFailures.forEach { addCleanupFailure(failures, it) }
+      stateCommitted.await()
       releases.forEach { release ->
         release.await().exceptionOrNull()?.let { addCleanupFailure(failures, it) }
       }

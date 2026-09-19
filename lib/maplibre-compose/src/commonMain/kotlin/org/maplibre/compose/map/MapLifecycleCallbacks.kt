@@ -1,5 +1,6 @@
 package org.maplibre.compose.map
 
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
 import org.maplibre.compose.style.StyleBinding
 
@@ -7,8 +8,7 @@ import org.maplibre.compose.style.StyleBinding
  * Filters platform callbacks through identities captured by their platform producer, then posts
  * each delegate call to the main dispatcher. The identity is checked again when the posted call
  * runs, so a style or presentation replaced in between drops the stale delivery. A `beforeDelegate`
- * still runs inside the first acceptance on the calling thread. [resolveMissingImage] answers the
- * engine synchronously.
+ * still runs inside the first acceptance on the calling thread.
  */
 internal class MapLifecycleCallbacks(
   private val lifecycle: MapLifecycleBinding,
@@ -105,18 +105,31 @@ internal class MapLifecycleCallbacks(
     event: MapEvent,
   ) = postStyleRequestEvent(engine, request) { delegate().onEvent(map, event) }
 
-  /** Asks the loaded style's owner to supply a missing image. */
+  /**
+   * Asks the loaded style's owner to supply a missing image. The answer completes once the owner,
+   * on the main dispatcher, has either supplied the image or declined to. Null means the style is
+   * no longer current.
+   */
   fun resolveMissingImage(
     engine: EngineMapIdentity,
     style: StyleIdentity,
     map: MapAdapter,
     imageId: String,
   ): Deferred<Unit>? {
-    var resolution: Deferred<Unit>? = null
-    lifecycle.acceptStyleEvent(engine, style) {
-      resolution = delegate().resolveMissingImage(map, imageId)
-    }
-    return resolution
+    val answer = CompletableDeferred<Unit>()
+    val accepted =
+      lifecycle.acceptStyleEvent(engine, style) {
+        lifecycle.postToMain {
+          var resolution: Deferred<Unit>? = null
+          lifecycle.acceptStyleEvent(engine, style) {
+            resolution = delegate().resolveMissingImage(map, imageId)
+          }
+          val pending = resolution
+          if (pending == null) answer.complete(Unit)
+          else pending.invokeOnCompletion { answer.complete(Unit) }
+        }
+      }
+    return if (accepted) answer else null
   }
 
   fun onPresentationEvent(engine: EngineMapIdentity, lease: RenderLease, event: () -> Unit) =

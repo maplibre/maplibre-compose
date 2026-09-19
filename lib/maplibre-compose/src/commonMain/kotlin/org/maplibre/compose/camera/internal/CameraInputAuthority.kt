@@ -1,5 +1,6 @@
 package org.maplibre.compose.camera.internal
 
+import kotlin.concurrent.Volatile
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -213,7 +214,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
     ready: Boolean,
   ) {
     private var status = if (ready) Status.Open else Status.Cancelled
-    private var job: Job? = null
+    @Volatile private var job: Job? = null
     private var finishQueued = false
     private val completion = CompletableDeferred<Unit>().also { if (!ready) it.complete(Unit) }
     private val startedComponents = mutableSetOf<CameraComponent>()
@@ -315,9 +316,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
     }
 
     fun cancelWork() {
-      owner.lifecycle
-        .serialized { job }
-        ?.cancel(CancellationException("A newer input owns the camera"))
+      job?.cancel(CancellationException("A newer input owns the camera"))
       target?.cancelGesture(this)
     }
 
