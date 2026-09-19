@@ -47,6 +47,9 @@ ktor = "3.5.2"
 lifecycleRuntimeCompose = "2.11.0"
 lwjgl = "3.4.2"
 materialKolor = "5.0.1"
+# Custom geometry tiling and MVT encoding: keep geojsonVt and vtPbf within
+# the pinned maplibre-gl release's dependency ranges and review both on upgrades.
+# They exchange standard MVT with GL JS, so exact version lockstep is not required.
 maplibre-geojsonVt = "6.1.1"
 maplibre-js = "6.9.1"
 maplibre-nativeFfi = "0.202609.3"
