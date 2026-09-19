@@ -95,10 +95,10 @@ import org.maplibre.spatialk.units.extensions.kilometers
 // #region basic
 @Composable
 fun DeliveryAreaEditor() {
-  val editor =
-    rememberFeatureEditorState(
-      initialTool = SelectTool(moveSelected = { false }, clearSelectionOnEmptyTap = false) // (1)!
-    )
+  val select = remember {
+    SelectTool(moveSelected = { false }, clearSelectionOnEmptyTap = false) // (1)!
+  }
+  val editor = rememberFeatureEditorState(initialTool = select)
   val map = rememberMapState {
     Anchor.Below({ it.type == "symbol" }) { FeatureEditorLayers(editor) } // (2)!
   }
@@ -115,13 +115,27 @@ fun DeliveryAreaEditor() {
             Text("Done")
           }
         editor.features.isEmpty() ->
-          Button(onClick = { editor.tool = DrawTool(DrawShape.Polygon) }) {
+          Button(onClick = { editor.tool = DrawTool(DrawShape.Polygon, nextTool = select) }) {
             Text("Outline your delivery area")
           }
         else ->
-          Button(onClick = { editor.tool = DrawTool(DrawShape.Polygon, replaceExisting = true) }) {
+          Button(
+            onClick = {
+              editor.tool = DrawTool(DrawShape.Polygon, replaceExisting = true, nextTool = select)
+            }
+          ) {
             Text("Redraw")
           }
+      }
+      if (editor.tool is DrawTool) {
+        Button(
+          onClick = {
+            editor.cancelDraft()
+            editor.tool = select // (4)!
+          }
+        ) {
+          Text("Cancel")
+        }
       }
       Button(enabled = editor.canUndo, onClick = editor::undo) { Text("Undo") }
     }
@@ -300,7 +314,8 @@ interface ParcelStore {
 fun ParcelEditor(store: ParcelStore) {
   val editor = rememberFeatureEditorState()
   val map = rememberMapState {
-    val editing = editor.features.mapTo(HashSet()) { it.id }
+    val editing by
+      remember(editor) { derivedStateOf { editor.features.mapTo(HashSet()) { it.id } } }
     val parcels = store.parcels.filter { it.id !in editing } // (1)!
     FillLayer(
       id = "parcels",
@@ -321,7 +336,8 @@ fun ParcelEditor(store: ParcelStore) {
               onUnhandled { event -> // (2)!
                 val parcel = event.position?.let(store::parcelAt)
                 if (parcel == null) return@onUnhandled ClickResult.Pass
-                editor.update(listOf(parcel))
+                val ids = editor.update(listOf(parcel)) ?: return@onUnhandled ClickResult.Pass
+                editor.selection = ids.toSet()
                 ClickResult.Consume
               }
             }
@@ -424,11 +440,14 @@ class GeodesicMoveTool(private val inner: SelectTool = SelectTool()) : EditorToo
 // #endregion geodesic-move
 
 // #region hole
-fun FeatureEditorState.addHole(id: FeatureId, ring: List<Position>): Boolean {
+fun FeatureEditorState.addHole(id: FeatureId, positions: List<Position>): Boolean {
   val feature = feature(id) ?: return false
   val polygon = feature.geometry as? Polygon ?: return false
-  val closed = ring.plusElement(ring.first())
-  return update(listOf(feature.copy(geometry = Polygon(polygon.coordinates + listOf(closed))))) !=
+  if (positions.size < 3) return false
+  val ring =
+    if (positions.first() == positions.last()) positions
+    else positions.plusElement(positions.first())
+  return update(listOf(feature.copy(geometry = Polygon(polygon.coordinates + listOf(ring))))) !=
     null
 }
 
@@ -480,19 +499,22 @@ fun EditorWithToolbar(editor: FeatureEditorState, select: SelectTool) {
   val mapFocus = remember { FocusRequester() }
   val map = rememberMapState { FeatureEditorLayers(editor) }
   fun useTool(tool: EditorTool) {
-    editor.tool = tool
-    mapFocus.requestFocus() // (1)!
+    if (editor.tool !== tool) {
+      editor.cancelDraft() // (1)!
+      editor.tool = tool
+    }
+    mapFocus.requestFocus() // (2)!
   }
   Column {
     MaplibreMap(
       modifier = Modifier.weight(1f),
       state = map,
       surfaceModifier = Modifier.focusRequester(mapFocus).featureEditor(editor, map),
-      uiOptions = MapUiOptions { bindings { keys { enabled = false } } }, // (2)!
+      uiOptions = MapUiOptions { bindings { keys { enabled = false } } }, // (3)!
     )
     Row {
       FilterChip(
-        selected = editor.tool === select, // (3)!
+        selected = editor.tool === select, // (4)!
         onClick = { useTool(select) },
         label = { Text("Select") },
       )
