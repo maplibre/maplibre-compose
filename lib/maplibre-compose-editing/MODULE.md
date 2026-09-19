@@ -1,8 +1,12 @@
 # Module maplibre-compose-editing
 
-Feature editing for MapLibre Compose: a map-free editor state, input routing on
-the map surface, built-in select and draw tools, and layers that render the
-edited features.
+Feature editing for MapLibre Compose. `FeatureEditorState` holds the features,
+tool, selection, draft and undo history without a map reference;
+`Modifier.featureEditor` routes input on the map surface to the tool;
+`FeatureEditorLayers` draws the state as map layers; `SelectTool` and `DrawTool`
+are the built-in tools, and `EditorTool` is the extension point. The
+[Edit features](https://maplibre.org/maplibre-compose/editing/) guide shows the
+integration patterns.
 
 Value types (`VertexRef`, `EditorHandle`, `EditorDraft`, `EditorPointer`,
 `HandleHit`, `FeatureHit` and every `EditorEvent`) are data classes; wrappers

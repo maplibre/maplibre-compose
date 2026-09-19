@@ -58,6 +58,7 @@ export default defineConfig({
             { label: "Add images and icons", slug: "images" },
             { label: "Handle gestures and clicks", slug: "interaction" },
             { label: "Overlay Compose UI", slug: "controls" },
+            { label: "Edit features", slug: "editing" },
             { label: "Show the user's location", slug: "location" },
             { label: "Capture a map image", slug: "snapshotter" },
             { label: "Download maps for offline use", slug: "offline" },

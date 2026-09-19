@@ -1,0 +1,259 @@
+---
+title: Edit features
+description: Draw, select, move, and reshape GeoJSON features on the map.
+---
+
+import { Aside, Code } from "@astrojs/starlight/components";
+import Api from "../../components/Api.astro";
+import { region } from "../../snippets";
+
+import editing from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Editing.kt?raw";
+
+The `maplibre-compose-editing` module lets users draw and edit GeoJSON
+features on the map. It has three parts: <Api of="FeatureEditorState" /> holds
+the features, the active tool, the selection, the draft and the undo history;
+<Api of="featureEditor" display="Modifier.featureEditor" /> routes pointer and
+key input on the map surface to the tool; and <Api of="FeatureEditorLayers" />
+draws the features, the draft and the handles as map layers. Add the
+dependency:
+
+```toml title="libs.versions.toml"
+[libraries]
+maplibre-composeEditing = { module = "org.maplibre.compose:maplibre-compose-editing", version = "{{release}}" }
+```
+
+```kotlin title="build.gradle.kts"
+commonMain.dependencies {
+  implementation(libs.maplibre.composeEditing)
+}
+```
+
+## Add an editor to a map
+
+This screen lets a user outline one area. The state is remembered across
+recomposition and configuration changes, the layers sit under the base map's
+labels, and the map's `surfaceModifier` carries the input modifier:
+
+<Code code={region(editing, "basic")} lang="kotlin" title="App.kt" />
+
+1. <Api of="SelectTool" /> is the initial tool. `moveSelected = { false }` keeps
+   one-finger drags inside the area as map pans, and
+   `clearSelectionOnEmptyTap = false` keeps the area selected so its vertex
+   handles stay visible.
+2. Layers under labels. See
+   [How the map composes](/maplibre-compose/composition/) for anchors.
+3. The modifier goes in `surfaceModifier`, not `modifier`, so it sees pointer
+   events before the map's gestures and only where no overlay control is under
+   the pointer.
+
+<Api of="DrawTool" /> places a vertex per tap. Enter, a double tap, or a tap on
+the first vertex finishes a polygon; Escape discards the draft.
+`replaceExisting = true` removes the previous area in the same undo step as the
+new one. When a draw finishes, the tool set as `nextTool` becomes active with the
+new feature selected. `SelectTool` selects on tap, drags vertices and
+midpoints, nudges the active vertex with arrow keys, and deletes with Delete or
+Backspace. Ctrl+Z and Ctrl+Shift+Z undo and redo while the map has focus.
+
+Taps the tool does not consume, such as a tap on empty map, reach the map's
+click callbacks and layer click handlers as usual. Pinch, scroll and camera key
+bindings are unchanged.
+
+Features are spatial-k values. Read them from `editor.features`, or export them
+with <Api of="FeatureEditorState.toFeatureCollection" />. A `snapshotFlow`
+observes every change, including undo, redo and `load`:
+
+<Code code={region(editing, "save")} lang="kotlin" title="App.kt" />
+
+## Style the layers
+
+<Api of="EditorColors" /> derives every color from `accent`. Style content
+receives composition locals, so a Material color scheme works inside
+`rememberMapState`. Larger handles help on touch screens:
+
+<Code code={region(editing, "colors")} lang="kotlin" title="App.kt" />
+
+`hitRadius` on the modifier is independent of the drawn radius: 24 dp for
+touch, 16 dp for a stylus and 12 dp for a mouse by default.
+
+## Hoist the state
+
+<Api of="FeatureEditorState" /> has no map reference, so a ViewModel can own
+it. This one autosaves features with a debounce and keeps the draft in the
+saved-state handle, so an outline in progress survives process death:
+
+<Code code={region(editing, "viewmodel")} lang="kotlin" title="GeofenceViewModel.kt" />
+
+1. The ViewModel creates the state fresh, so it also recreates the `DrawTool`
+   that the saved draft belongs to.
+2. `cursor` is the mouse position after the placed vertices. Dropping it keeps
+   mouse moves from resetting the debounce.
+
+<Api of="rememberFeatureEditorState" /> does this for you when the state
+belongs to a screen: it saves the features, selection, draft and the active
+`DrawTool`'s options. Android saved state fails above about 500 KB, so large
+documents belong in a ViewModel.
+
+## Load and merge features
+
+Features that arrive after the first composition go in with
+<Api of="FeatureEditorState.load" />, once. `load` replaces every feature and
+clears the history; the flag keeps a restored state from being overwritten:
+
+<Code code={region(editing, "network")} lang="kotlin" title="App.kt" />
+
+1. `load` keeps the draft, the tool, and the selected ids that still exist.
+
+<Api of="FeatureEditorState.update" /> merges changes while keeping the history.
+Features whose id is present are replaced, others are appended, and `removeIds`
+are removed, all as one undo step:
+
+<Code code={region(editing, "sync")} lang="kotlin" title="App.kt" />
+
+Undo restores whole feature lists, so undoing a step recorded before a merge
+also reverts the merge. Pause the merge while `canUndo` is true, or keep synced
+features out of the editor with the [scratch document](#edit-a-scratch-copy)
+pattern.
+
+## Validate edits
+
+`validate` runs on each new feature and each feature whose geometry changed. A
+message rejects the whole mutation: nothing changes, the mutation returns false
+or null, and `validationError` holds the message until the next accepted
+change. A drag that would break the rule sticks at the last valid position, and
+a finish that would break it keeps the draft:
+
+<Code code={region(editing, "validate")} lang="kotlin" title="App.kt" />
+
+1. Show the message in a snackbar or a label; `cancelDraft` also clears it.
+
+Properties-only changes are not validated.
+
+## Place positions from GPS
+
+A field app adds vertices from location fixes instead of taps.
+<Api of="FeatureEditorState.placeDraftPosition" /> adds a position through the
+active `DrawTool`; `placeOnTap = false` keeps map taps from adding stray
+vertices, and `draftHandles = false` keeps walked positions from being dragged:
+
+<Code code={region(editing, "gps")} lang="kotlin" title="App.kt" />
+
+1. `placeDraftPosition` returns false while the tool does not draw, so fixes
+   before "Start walking" are ignored.
+2. The remembered state saves these options with the draft, so a process death
+   mid-walk restores the same tool.
+
+## Delete a vertex on touch
+
+A mouse removes a vertex with a secondary click or with Delete after a tap.
+Touch has neither, so give it a button. A tap on a handle sets
+<Api of="FeatureEditorState.activeHandle" />:
+
+<Code code={region(editing, "delete-vertex")} lang="kotlin" title="App.kt" />
+
+1. `vertex` is null for a handle that addresses no vertex, and the state clears
+   the handle when its vertex disappears.
+
+## Edit a scratch copy
+
+With thousands of features, keep the document in your own source and load
+only the features being edited into the state. The app source hides the
+features that the editor draws, and a new feature is swapped for its stored
+version in one step once the store assigns its id:
+
+<Code code={region(editing, "scratch")} lang="kotlin" title="App.kt" />
+
+1. `editor.features` is snapshot state, so the source updates when a feature
+   enters or leaves the editor.
+2. An unhandled map click picks a feature. Taps the editor consumes, such as a
+   tap on an editor feature, never reach this callback.
+3. `update` appends the created feature and removes the scratch one as one undo
+   step.
+
+To write edits back once per finished drag rather than per frame, observe
+<Api of="FeatureEditorState.gestureInProgress" />:
+
+<Code code={region(editing, "commit-points")} lang="kotlin" title="App.kt" />
+
+## Write a tool
+
+<Api of="EditorTool" /> is the behavior extension point. A tool receives
+<Api of="EditorEvent" />s and mutates the state through its public functions,
+so undo works without extra code. Every event carries `project` and
+`unproject` for the map that delivered it, and each press carries an
+<Api of="EditStep" />; passing it as `undoStep` merges a whole drag into one
+step. Delegating to an `inner` tool with `by` keeps every behavior you do not
+override.
+
+This wrapper snaps taps and drags to nearby vertices by rewriting the event's
+pointer before the inner tool sees it:
+
+<Code code={region(editing, "snapping")} lang="kotlin" title="SnappingTool.kt" />
+
+`SelectTool` moves a selection in Web Mercator space, so a shape dragged toward
+a pole grows on the ground. This wrapper moves it along a great circle instead
+and leaves every other event to `SelectTool`:
+
+<Code code={region(editing, "geodesic-move")} lang="kotlin" title="GeodesicMoveTool.kt" />
+
+1. <Api of="FeatureEditorState.featureBefore" /> returns the feature as it was
+   when the drag started, so each frame applies the whole offset from the press
+   rather than accumulating rounding.
+2. <Api of="mapPositions" /> transforms every position and keeps rings closed.
+
+A toolbar that highlights the active tool compares instances the app holds:
+`editor.tool === select`. `is SelectTool` is false for a wrapper.
+
+## Add holes and parts
+
+The built-in tools edit existing rings and parts but do not add them. Build the
+new geometry and store it with `update`; the state addresses the new ring or
+part with the paths described on <Api of="VertexRef" />:
+
+<Code code={region(editing, "hole")} lang="kotlin" title="App.kt" />
+
+## Show a context menu
+
+`SelectTool` does not consume a secondary click on a feature, and a touch long
+press on a feature it did not claim belongs to the map, so the map's `longClick`
+callback sees both. <Api of="FeatureEditorState.hitTest" /> reports what is
+under a screen location, nearest handle first, then features:
+
+<Code code={region(editing, "context-menu")} lang="kotlin" title="App.kt" />
+
+1. `longClick` fires for a secondary mouse click and a touch long press.
+
+## Keep keyboard focus
+
+On desktop a toolbar button takes focus, and Delete, Escape and Ctrl+Z then
+stop reaching the editor. A map with a surface modifier is a focus target, so
+request focus for it after each toolbar action:
+
+<Code code={region(editing, "focus")} lang="kotlin" title="App.kt" />
+
+1. `focusRequester` goes in `surfaceModifier` before `featureEditor`.
+2. Optional. The map binds arrows, plus, minus, Enter and Escape when the tool
+   does not consume them. Turning the bindings off leaves those keys unused
+   instead of moving the camera.
+3. Compare tool instances; a wrapper is not `SelectTool`.
+
+## Draw your own feature layers
+
+<Api of="FeatureEditorLayers" /> composes <Api of="EditorFeatureLayers" />,
+<Api of="EditorDraftLayers" /> and <Api of="EditorHandleLayers" />. Call the
+parts yourself to render features with your own layers, or to place the handles
+above every base layer while the features stay under labels:
+
+<Code code={region(editing, "app-layers")} lang="kotlin" title="App.kt" />
+
+1. A synchronous source applies each drag frame without a delay.
+2. Draft vertices are handles, so the two editor parts together draw the whole
+   draft.
+
+Everything the layers read is public: `features`, `selection`, `draft`,
+`handles`, `activeHandle` and `hover`. Content in the map overlay, such as the
+area label here, blocks editor input under it; a map layer does not.
+
+<Aside type="tip">
+  Two editors on one map need distinct `idPrefix` values and two `featureEditor`
+  modifiers in the chain. The first in the chain claims a pointer first.
+</Aside>
