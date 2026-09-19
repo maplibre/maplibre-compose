@@ -29,8 +29,8 @@ import org.maplibre.compose.util.ImageStretch
 
 /**
  * Owns the imperative style commands, style reconciliation, and missing-image resolution of one
- * [MapState]. Every mutation runs under [lifecycle]'s lock; engine reads run outside it and commit
- * only while their generation is still current.
+ * [MapState]. Every mutation runs on the main thread, which [lifecycle] checks; engine reads run on
+ * the runtime's read dispatcher and commit only while their generation is still current.
  */
 internal class MapStyleAuthority(
   private val lifecycle: MapLifecycleAuthority,
@@ -68,6 +68,7 @@ internal class MapStyleAuthority(
   internal var missingImageResolver: MissingImageResolver?
     get() = missingImageResolverState
     set(value) {
+      lifecycle.requireMain()
       run {
         if (missingImageResolverState === value) return
         missingImageResolverState = value
@@ -77,21 +78,16 @@ internal class MapStyleAuthority(
       }
     }
 
-  override fun isSourceWritable(id: String): Boolean = run {
+  override fun isSourceWritable(id: String): Boolean =
     desiredStyleRevision.sources.none { it.id == id }
-  }
 
-  override fun isLayerWritable(id: String): Boolean = run {
+  override fun isLayerWritable(id: String): Boolean =
     desiredStyleRevision.layers.none { it.definition.id == id }
-  }
 
-  override fun isImageWritable(id: String): Boolean = run {
+  override fun isImageWritable(id: String): Boolean =
     desiredStyleRevision.images.none { it.id == id }
-  }
 
-  override fun requireSourceWritable(id: String) = run {
-    requireNoDesiredSource(id)
-  }
+  override fun requireSourceWritable(id: String) = requireNoDesiredSource(id)
 
   override fun requireLayerWritable(id: String) = run {
     if (desiredStyleRevision.layers.any { it.definition.id == id }) {
@@ -100,65 +96,51 @@ internal class MapStyleAuthority(
   }
 
   internal suspend fun markStyleReady(adapter: MapAdapter): Boolean {
+    lifecycle.requireMain()
     while (true) {
-      val read = run {
-        if (!lifecycle.acceptsAdapter(adapter)) return false
-        if (style.loadState == StyleLoadState.Ready) return true
-        val binding = style.currentLoadedStyle() ?: return false
-        StyleResourceRead(binding, styleHandleEpoch, styleSourceChangeRevision)
-      }
+      if (!lifecycle.acceptsAdapter(adapter)) return false
+      if (style.loadState == StyleLoadState.Ready) return true
+      val binding = style.currentLoadedStyle() ?: return false
+      val read = StyleResourceRead(binding, styleHandleEpoch, styleSourceChangeRevision)
       val resources =
         readWhileCurrent(adapter, read) { style.readResources(read.binding) } ?: return false
-      val committed = run {
-        if (!acceptsStyleResourceRead(adapter, read)) return false
-        if (style.loadState is StyleLoadState.Failed) return false
-        // A revision or source change during the read leaves the style loaded; read again.
-        if (!isCurrentStyleResourceRead(adapter, read)) return@run false
-        if (styleSourceChangeRevision != read.sourceChangeRevision) return@run false
-        style.updateResources(resources)
-        style.loadState = StyleLoadState.Ready
-        true
-      }
-      if (committed) return true
+      if (!acceptsStyleResourceRead(adapter, read)) return false
+      if (style.loadState is StyleLoadState.Failed) return false
+      // A revision or source change during the read leaves the style loaded: read again.
+      if (readMoved(read)) continue
+      style.updateResources(resources)
+      style.loadState = StyleLoadState.Ready
+      return true
     }
   }
 
   internal suspend fun refreshStyleSources(adapter: MapAdapter, sourceId: String? = null): Boolean {
-    run {
-      if (!lifecycle.acceptsAdapter(adapter)) return false
-      styleSourceChangeRevision++
-    }
+    lifecycle.requireMain()
+    if (!lifecycle.acceptsAdapter(adapter)) return false
+    styleSourceChangeRevision++
     while (true) {
-      val read = run {
-        if (!lifecycle.acceptsAdapter(adapter)) return false
-        if (style.loadState != StyleLoadState.Ready) return true
-        val binding = style.currentLoadedStyle() ?: return true
-        StyleResourceRead(binding, styleHandleEpoch, styleSourceChangeRevision)
-      }
+      if (!lifecycle.acceptsAdapter(adapter)) return false
+      if (style.loadState != StyleLoadState.Ready) return true
+      val binding = style.currentLoadedStyle() ?: return true
+      val read = StyleResourceRead(binding, styleHandleEpoch, styleSourceChangeRevision)
       val sources =
         readWhileCurrent(adapter, read) { style.readSources(read.binding, sourceId) }
           ?: return false
-      val committed = run {
-        if (!acceptsStyleResourceRead(adapter, read)) return false
-        if (style.loadState != StyleLoadState.Ready) return false
-        // A revision or source change during the read leaves the style loaded; read again.
-        if (!isCurrentStyleResourceRead(adapter, read)) return@run false
-        if (styleSourceChangeRevision != read.sourceChangeRevision) return@run false
-        style.updateSources(sources)
-        true
-      }
-      if (committed) return true
+      if (!acceptsStyleResourceRead(adapter, read)) return false
+      if (style.loadState != StyleLoadState.Ready) return false
+      if (readMoved(read)) continue
+      style.updateSources(sources)
+      return true
     }
   }
 
   internal suspend fun updateStyleResources(adapter: MapAdapter, changes: StyleResourceChanges) {
+    lifecycle.requireMain()
     if (changes.sources.isEmpty() && changes.layerOrder == null) return
-    val read = run {
-      if (!lifecycle.acceptsAdapter(adapter) || style.loadState != StyleLoadState.Ready) return
-      val binding = style.currentLoadedStyle() ?: return
-      if (binding.identity !== changes.identity) return
-      StyleResourceRead(binding, styleHandleEpoch, styleSourceChangeRevision)
-    }
+    if (!lifecycle.acceptsAdapter(adapter) || style.loadState != StyleLoadState.Ready) return
+    val binding = style.currentLoadedStyle() ?: return
+    if (binding.identity !== changes.identity) return
+    val read = StyleResourceRead(binding, styleHandleEpoch, styleSourceChangeRevision)
     // The engine already holds these changes. A newer revision cancelling the caller must not
     // leave them unpublished: it would report no structural change and never repair the handles.
     withContext(NonCancellable) {
@@ -166,10 +148,8 @@ internal class MapStyleAuthority(
       val layers =
         readWhileCurrent(adapter, read) { style.readLayers(read.binding, changes.layers) }
           ?: return@withContext
-      run {
-        if (!isCurrentStyleResourceRead(adapter, read)) return@withContext
-        changes.layerOrder?.let { style.updateLayers(layers, it) }
-      }
+      if (!isCurrentStyleResourceRead(adapter, read)) return@withContext
+      changes.layerOrder?.let { style.updateLayers(layers, it) }
     }
   }
 
@@ -194,11 +174,17 @@ internal class MapStyleAuthority(
   private fun isCurrentStyleResourceRead(adapter: MapAdapter, read: StyleResourceRead): Boolean =
     acceptsStyleResourceRead(adapter, read) && styleHandleEpoch == read.styleHandleEpoch
 
+  /** Whether a revision or source change landed while [read] was in flight. */
+  private fun readMoved(read: StyleResourceRead): Boolean =
+    styleHandleEpoch != read.styleHandleEpoch ||
+      styleSourceChangeRevision != read.sourceChangeRevision
+
   /** Whether [read] still targets the loaded style of an accepted adapter. */
   private fun acceptsStyleResourceRead(adapter: MapAdapter, read: StyleResourceRead): Boolean =
     lifecycle.acceptsAdapter(adapter) && style.currentLoadedStyle() === read.binding
 
-  internal fun updateLoadedStyle(adapter: MapAdapter, loadedStyle: StyleBinding?): Boolean = run {
+  internal fun updateLoadedStyle(adapter: MapAdapter, loadedStyle: StyleBinding?): Boolean {
+    lifecycle.requireMain()
     if (!lifecycle.acceptsAdapter(adapter)) return false
     if (style.currentLoadedStyle() === loadedStyle) return true
     styleHandleEpoch++
@@ -207,14 +193,14 @@ internal class MapStyleAuthority(
     cancelMissingImageResolutions()
     style.loadState = StyleLoadState.Loading
     style.updateLoadedStyle(loadedStyle)
-    true
+    return true
   }
 
-  override fun readyLoadedStyle(): StyleBinding? = run {
+  override fun readyLoadedStyle(): StyleBinding? =
     style.currentLoadedStyle()?.takeIf { style.loadState == StyleLoadState.Ready }
-  }
 
   internal fun markStyleFailed(adapter: MapAdapter, reason: String?) {
+    lifecycle.requireMain()
     run {
       if (lifecycle.acceptsAdapter(adapter)) {
         style.loadState = StyleLoadState.Failed(reason)
@@ -223,6 +209,7 @@ internal class MapStyleAuthority(
   }
 
   internal suspend fun beginStyleRevision(adapter: MapAdapter, revision: DesiredStyleRevision) {
+    lifecycle.requireMain()
     while (true) {
       val mutation = run {
         if (!lifecycle.acceptsAdapter(adapter)) return
@@ -243,8 +230,9 @@ internal class MapStyleAuthority(
   }
 
   override fun setBaseStyle(value: BaseStyle) {
+    lifecycle.requireMain()
     val command = run {
-      requireOpenLocked()
+      requireOpen()
       if (style.baseStyle == value) return
       requireNoActiveStyleMutation()
       styleHandleEpoch++
@@ -272,17 +260,18 @@ internal class MapStyleAuthority(
       ?: imperativeSources.load()[id]?.definition
 
   override fun addStyleSource(source: Source): SourceHandle {
+    lifecycle.requireMain()
     val definition = source.definition()
     val record = ImperativeSourceRecord(definition)
     val reservation = StyleMutationReservation()
     val binding = run {
-      requireOpenLocked()
+      requireOpen()
       requireNoDesiredSource(source.id)
       requireNoActiveStyleMutation()
       if (source.id in imperativeSources.load()) {
         throw StyleHandleException("Source ID '${source.id}' already exists in style")
       }
-      checkNotNull(style.currentLoadedStyle()).also(::requireStyleHandleLocked).also {
+      checkNotNull(style.currentLoadedStyle()).also(::requireStyleHandle).also {
         imperativeSources.update { it + (source.id to record) }
         activeStyleMutation = reservation
       }
@@ -294,7 +283,7 @@ internal class MapStyleAuthority(
       }
       val added = binding.addSource(definition)
       if (!added) throw IllegalStateException("The loaded-style generation changed during add")
-      requireStyleHandleLocked(binding)
+      requireStyleHandle(binding)
       val handle = checkNotNull(refreshSourcesAfterCommand(binding)[source.id])
       committed = true
       return handle
@@ -311,16 +300,17 @@ internal class MapStyleAuthority(
   }
 
   override fun removeStyleSource(id: String, expectedStyle: StyleBinding, identity: Any): Boolean {
+    lifecycle.requireMain()
     val reservation = StyleMutationReservation()
     val binding = run {
-      requireOpenLocked()
-      requireStyleHandleLocked(expectedStyle)
+      requireOpen()
+      requireStyleHandle(expectedStyle)
       check(expectedStyle.identity.sources.isCurrent(id, identity)) {
         "Source '$id' has been removed or replaced"
       }
       requireNoDesiredSource(id)
       requireNoActiveStyleMutation()
-      checkNotNull(style.currentLoadedStyle()).also(::requireStyleHandleLocked).also {
+      checkNotNull(style.currentLoadedStyle()).also(::requireStyleHandle).also {
         activeStyleMutation = reservation
       }
     }
@@ -328,7 +318,7 @@ internal class MapStyleAuthority(
       if (binding.sourceExists(id) == false) return false
       binding.removeSource(id)
       run {
-        requireStyleHandleLocked(binding)
+        requireStyleHandle(binding)
         imperativeSources.update { it - id }
         binding.identity.sources.remove(id)
       }
@@ -348,17 +338,18 @@ internal class MapStyleAuthority(
     stretch: ImageStretch?,
     expectedStyle: StyleBinding?,
   ): StyleImageHandle {
+    lifecycle.requireMain()
     val record = ImperativeImageRecord(fromResolver = false)
     val reservation = StyleMutationReservation()
     val binding = run {
-      requireOpenLocked()
-      expectedStyle?.let(::requireStyleHandleLocked)
+      requireOpen()
+      expectedStyle?.let(::requireStyleHandle)
       requireNoDesiredImage(id)
       requireNoActiveStyleMutation()
       if (id in imperativeImages) {
         throw StyleHandleException("Image ID '$id' already exists in style")
       }
-      checkNotNull(style.currentLoadedStyle()).also(::requireStyleHandleLocked).also {
+      checkNotNull(style.currentLoadedStyle()).also(::requireStyleHandle).also {
         imperativeImages[id] = record
         activeStyleMutation = reservation
       }
@@ -371,7 +362,7 @@ internal class MapStyleAuthority(
       binding.identity.images.remove(id)
       binding.addImage(id, image, sdf, stretch)
       val handle = run {
-        requireStyleHandleLocked(binding)
+        requireStyleHandle(binding)
         StyleImageHandleImpl(id, style, binding)
       }
       committed = true
@@ -395,17 +386,17 @@ internal class MapStyleAuthority(
    *
    * The resolution runs on the runtime's main scope and consults the engine off it.
    */
-  internal fun resolveMissingImage(adapter: MapAdapter, imageId: String): Deferred<Unit>? = run {
-    if (lifecycle.isClosed || !lifecycle.acceptsAdapter(adapter)) return@run null
-    val resolver = missingImageResolverState ?: return@run null
-    val binding = style.currentLoadedStyle() ?: return@run null
-    if (hasDesiredImage(imageId) || imperativeImages[imageId]?.fromResolver == false)
-      return@run null
+  internal fun resolveMissingImage(adapter: MapAdapter, imageId: String): Deferred<Unit>? {
+    lifecycle.requireMain()
+    if (lifecycle.isClosed || !lifecycle.acceptsAdapter(adapter)) return null
+    val resolver = missingImageResolverState ?: return null
+    val binding = style.currentLoadedStyle() ?: return null
+    if (hasDesiredImage(imageId) || imperativeImages[imageId]?.fromResolver == false) return null
     missingImageResolutions[imageId]?.let {
-      return@run it.work
+      return it.work
     }
     val token = Any()
-    runtime.mainScope
+    return runtime.mainScope
       .async(start = CoroutineStart.LAZY) {
         supplyMissingImage(resolver, binding, imageId, token)
       }
@@ -499,9 +490,7 @@ internal class MapStyleAuthority(
       withContext(readDispatcher) {
         binding.addImage(imageId, resolved.image, resolved.sdf, resolved.stretch)
       }
-      committed = run {
-        !lifecycle.isClosed && style.isCurrentLoadedStyle(binding)
-      }
+      committed = !lifecycle.isClosed && style.isCurrentLoadedStyle(binding)
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
@@ -529,16 +518,17 @@ internal class MapStyleAuthority(
   }
 
   override fun removeStyleImage(id: String, expectedStyle: StyleBinding, identity: Any): Boolean {
+    lifecycle.requireMain()
     val reservation = StyleMutationReservation()
     val binding = run {
-      requireOpenLocked()
-      requireStyleHandleLocked(expectedStyle)
+      requireOpen()
+      requireStyleHandle(expectedStyle)
       check(expectedStyle.identity.images.isCurrent(id, identity)) {
         "Image '$id' has been removed or replaced"
       }
       requireNoDesiredImage(id)
       requireNoActiveStyleMutation()
-      checkNotNull(style.currentLoadedStyle()).also(::requireStyleHandleLocked).also {
+      checkNotNull(style.currentLoadedStyle()).also(::requireStyleHandle).also {
         activeStyleMutation = reservation
       }
     }
@@ -546,7 +536,7 @@ internal class MapStyleAuthority(
       if (binding.imageExists(id) == false) return false
       binding.removeImage(id)
       run {
-        requireStyleHandleLocked(binding)
+        requireStyleHandle(binding)
         imperativeImages.remove(id)
         binding.identity.images.remove(id)
       }
@@ -561,12 +551,12 @@ internal class MapStyleAuthority(
   private fun refreshSourcesAfterCommand(binding: StyleBinding): Map<String, SourceHandle> {
     while (true) {
       val read = run {
-        requireStyleHandleLocked(binding)
+        requireStyleHandle(binding)
         StyleResourceRead(binding, styleHandleEpoch, ++styleSourceChangeRevision)
       }
       val sources = style.readSources(binding)
       val committed = run {
-        requireStyleHandleLocked(binding)
+        requireStyleHandle(binding)
         if (styleSourceChangeRevision != read.sourceChangeRevision) return@run false
         style.updateSources(sources)
         true
@@ -618,14 +608,15 @@ internal class MapStyleAuthority(
     binding: StyleBinding,
     action: () -> T,
   ): T {
-    requireStyleHandleLocked(binding)
+    lifecycle.requireMain()
+    requireStyleHandle(binding)
     val result = action()
-    requireStyleHandleLocked(binding)
+    requireStyleHandle(binding)
     return result
   }
 
-  private fun requireStyleHandleLocked(binding: StyleBinding) {
-    requireOpenLocked()
+  private fun requireStyleHandle(binding: StyleBinding) {
+    requireOpen()
     check(style.loadState == StyleLoadState.Ready && style.isCurrentLoadedStyle(binding)) {
       "Style operation belongs to a stale or unready loaded-style identity"
     }
@@ -633,6 +624,7 @@ internal class MapStyleAuthority(
 
   /** Invalidates the loaded style when the map closes. */
   internal fun invalidateForClose() {
+    lifecycle.requireMain()
     styleHandleEpoch++
     cancelMissingImageResolutions()
     style.invalidateLoadedStyle()
@@ -640,12 +632,14 @@ internal class MapStyleAuthority(
 
   /** Invalidates the loaded style of an adapter that closed under the current presentation. */
   internal fun invalidateClosedAdapter() {
+    lifecycle.requireMain()
     styleHandleEpoch++
     style.invalidateLoadedStyle()
     style.loadState = StyleLoadState.Pending
   }
 
   internal fun beginStyleLoadForNewAdapter() {
+    lifecycle.requireMain()
     styleHandleEpoch++
     style.invalidateLoadedStyle()
     style.loadState = StyleLoadState.Loading
@@ -653,6 +647,7 @@ internal class MapStyleAuthority(
 
   /** Sends the durable base style to [adapter] while it awaits publication. */
   internal fun configurePendingAdapter(adapter: MapAdapter) {
+    lifecycle.requireMain()
     val command = run {
       if (!lifecycle.isPendingPublication(adapter)) return
       BaseStyleCommand(adapter, style.baseStyle, baseStyleCommandRevision)
@@ -665,15 +660,15 @@ internal class MapStyleAuthority(
     while (true) {
       if (lifecycle.currentAdapter() !== command.adapter) return
       command.adapter.setBaseStyle(command.value)
-      command = run {
-        if (lifecycle.currentAdapter() !== command.adapter) return
-        if (baseStyleCommandRevision == command.revision) return
-        BaseStyleCommand(command.adapter, style.baseStyle, baseStyleCommandRevision)
-      }
+      // The adapter can re-enter setBaseStyle synchronously; replay the newest value once it
+      // returns.
+      if (lifecycle.currentAdapter() !== command.adapter) return
+      if (baseStyleCommandRevision == command.revision) return
+      command = BaseStyleCommand(command.adapter, style.baseStyle, baseStyleCommandRevision)
     }
   }
 
-  private fun requireOpenLocked() {
+  private fun requireOpen() {
     check(!lifecycle.isClosed) { "The map state is closed" }
   }
 

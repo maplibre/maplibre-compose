@@ -1,6 +1,8 @@
 package org.maplibre.compose.testing
 
+import kotlin.coroutines.ContinuationInterceptor
 import kotlin.time.Duration
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.camera.CameraPosition
@@ -8,6 +10,7 @@ import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
+import org.maplibre.compose.map.TestMain
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
@@ -51,14 +54,14 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private var extent
   override suspend fun loadStyle(style: BaseStyle, timeout: Duration) {
     state.style.loadState = org.maplibre.compose.map.StyleLoadState.Loading
     state.styleAuthority.updateLoadedStyle(bridge.session, null)
-    bridge.loadStyle(style, timeout, extent)
+    bridge.awaitStyle(style, timeout, extent)
     bridge.session.reconcileStyleRevision(DesiredStyleRevision.Empty)
     state.styleAuthority.updateLoadedStyle(bridge.session, checkNotNull(bridge.style))
     check(state.styleAuthority.markStyleReady(bridge.session))
   }
 
   override suspend fun awaitMapReady(timeout: Duration) {
-    bridge.pumpUntilRendered(extent, timeout)
+    bridge.awaitRendered(extent, timeout)
   }
 
   override fun resize(extent: MapExtent) {
@@ -66,7 +69,7 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private var extent
   }
 
   override suspend fun pump(frames: Int) {
-    bridge.pump(frames)
+    bridge.awaitFrames(frames)
   }
 
   override suspend fun pumpUntil(
@@ -74,7 +77,7 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private var extent
     timeout: Duration,
     condition: suspend () -> Boolean,
   ) {
-    bridge.pumpUntil(description, timeout, extent) { runBlocking { condition() } }
+    bridge.awaitUntil(description, timeout, extent, condition)
   }
 
   /**
@@ -82,13 +85,13 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private var extent
    * throttled, or that has nothing new to draw.
    */
   override suspend fun readPixel(x: Int, y: Int): RgbaPixel {
-    bridge.pumpUntilRendered(extent)
+    bridge.awaitRendered(extent)
     bridge.frame(extent)
     return bridge.readPixel(x, y)
   }
 
   override suspend fun settle(quiet: Duration, timeout: Duration) {
-    bridge.settle(quiet, timeout)
+    bridge.awaitSettled(quiet, timeout)
   }
 
   override suspend fun <T> awaitWhileRendering(
@@ -115,7 +118,13 @@ actual typealias MapTestResult = Unit
 
 internal actual fun runMapTest(block: suspend CoroutineScope.() -> Unit): MapTestResult =
   runBlocking {
-    block()
+    // Posts from engine threads drain into this loop while the test body suspends.
+    TestMain.loop = coroutineContext[ContinuationInterceptor] as CoroutineDispatcher
+    try {
+      block()
+    } finally {
+      TestMain.loop = null
+    }
   }
 
 internal actual fun skipMapTest(reason: String): Nothing =

@@ -9,7 +9,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.camera.CameraAnimation
@@ -182,14 +181,13 @@ class MlnFfiProjectionTest {
         abs(fixture.session.getCameraPosition().zoom - START_CAMERA.zoom) < 0.01
       }
 
-      val flight =
-        launch(Dispatchers.Default) {
-          fixture.session.animateCamera(
-            ROTATED_CAMERA.toCameraUpdate(),
-            CameraAnimation.Fly(2.seconds),
-          )
-        }
-      fixture.pumpUntil("the camera to start moving") {
+      val flight = launch {
+        fixture.session.animateCamera(
+          ROTATED_CAMERA.toCameraUpdate(),
+          CameraAnimation.Fly(2.seconds),
+        )
+      }
+      fixture.awaitUntil("the camera to start moving") {
         abs(fixture.session.getCameraPosition().zoom - START_CAMERA.zoom) > 0.01
       }
 
@@ -203,7 +201,7 @@ class MlnFfiProjectionTest {
         fixture.frame()
       }
 
-      fixture.pumpUntil("the flight to finish") { flight.isCompleted }
+      fixture.awaitUntil("the flight to finish") { flight.isCompleted }
     }
   }
 

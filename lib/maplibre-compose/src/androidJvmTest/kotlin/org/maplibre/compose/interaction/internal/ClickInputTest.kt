@@ -30,15 +30,15 @@ import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.DragResponse
 import org.maplibre.compose.interaction.PointerButton
 import org.maplibre.compose.interaction.TapResponse
-import org.maplibre.compose.map.GestureTestFixture
 import org.maplibre.compose.map.RecordingGestureTarget
+import org.maplibre.compose.map.UnconfinedTestMain
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.mlnffi.runPlainComposeUiTest
 import org.maplibre.compose.style.BaseStyle
 
 @OptIn(ExperimentalAtomicApi::class, ExperimentalTestApi::class)
 class ClickInputTest {
-  private val fixture = GestureTestFixture()
+  private val fixture = composeGestureFixture()
 
   @AfterTest fun closeMap() = fixture.close()
 
@@ -138,7 +138,9 @@ class ClickInputTest {
 
   @Test
   fun releasing_a_long_press_does_not_cancel_its_accepted_zoom() = runPlainComposeUiTest {
-    val runtime = mapRuntimeForTest()
+    // The harness composes on one thread and drives the test from another, so this map, like
+    // the shared fixture's, runs unconfined.
+    val runtime = mapRuntimeForTest(mainDispatcher = UnconfinedTestMain)
     val state = runtime.createMapState(BaseStyle.Empty)
     val target = RecordingGestureTarget(state, deferred = true)
     try {

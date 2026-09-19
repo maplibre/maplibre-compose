@@ -5,16 +5,31 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.util.VisibleBounds
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.Position
 
+/**
+ * A main dispatcher pinned to the `runTest` thread. Work posted from another thread drains on the
+ * test scheduler, so a test that awaits it need not drain by hand.
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+internal fun TestScope.testMainDispatcher(): TestMainDispatcher =
+  TestMainDispatcher(loop = StandardTestDispatcher(testScheduler))
+
+/**
+ * A runtime whose main thread is the calling thread. Work posted from another thread waits for a
+ * drain; [testMainDispatcher] drains it on the test scheduler.
+ */
 internal fun mapRuntimeForTest(
   physicalScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
-  mainDispatcher: CoroutineDispatcher = Dispatchers.Unconfined,
-  // Inline, like the main dispatcher above: unit tests observe reads synchronously.
+  mainDispatcher: CoroutineDispatcher = TestMainDispatcher(),
+  // Inline: unit tests observe reads synchronously.
   readDispatcher: CoroutineDispatcher = Dispatchers.Unconfined,
   createSnapshotterAdapter: () -> SnapshotterAdapter = ::unsupportedSnapshots,
   styleEvaluator: StyleCompositionEvaluator = DefaultStyleCompositionEvaluator,

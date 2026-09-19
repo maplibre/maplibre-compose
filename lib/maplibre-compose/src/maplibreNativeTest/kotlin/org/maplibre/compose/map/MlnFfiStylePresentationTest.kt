@@ -4,7 +4,6 @@ import androidx.compose.ui.graphics.Color
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertFalse
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
@@ -36,6 +35,8 @@ class MlnFfiStylePresentationTest {
           }
         }
       session.reconcileStyleRevision(APPLICATION_REVISION)
+      // Readiness publishes on the map's main thread, which the pump drains.
+      fixture.pumpUntil("the style readiness to publish") { readyCount == 1 }
       assertEquals(1, readyCount)
       val updated =
         DesiredStyleRevision(
@@ -66,43 +67,37 @@ class MlnFfiStylePresentationTest {
   }
 
   @Test
-  fun a_failed_readiness_callback_hides_the_presentation_until_reconciliation_recovers() =
-    runBlocking {
-      BridgeMapFixture.create().use { fixture ->
-        fixture.loadStyle(INITIAL_STYLE)
-        val session = fixture.session
-        val callbacks = session.callbacks
-        val failure = IllegalStateException("readiness publication failed")
-        session.callbacks =
-          object : MapAdapter.Callbacks by callbacks {
-            override fun onStyleReady(map: MapAdapter) {
-              throw failure
-            }
+  fun a_failed_readiness_callback_fails_loudly_on_the_main_thread() = runBlocking {
+    BridgeMapFixture.create().use { fixture ->
+      fixture.loadStyle(INITIAL_STYLE)
+      val session = fixture.session
+      val callbacks = session.callbacks
+      val failure = IllegalStateException("readiness publication failed")
+      session.callbacks =
+        object : MapAdapter.Callbacks by callbacks {
+          override fun onStyleReady(map: MapAdapter) {
+            throw failure
           }
-        try {
-          assertSame(
-            failure,
-            assertFailsWith<IllegalStateException> {
-              session.reconcileStyleRevision(APPLICATION_REVISION)
-            },
-          )
-          assertFalse(session.canPresentFrames)
-          val hidden = session.getCameraPosition()
-          session.moveBy(deltaX = 100.0, deltaY = 0.0)
-          fixture.pump()
-          assertEquals(hidden, session.getCameraPosition(), "a hidden map accepted a gesture")
-        } finally {
-          session.callbacks = callbacks
         }
+      try {
+        // Readiness is delivered on the map's main thread, so a failing callback surfaces at
+        // the delivery, not at the reconcile call site.
         session.reconcileStyleRevision(APPLICATION_REVISION)
-        assertTrue(session.canPresentFrames)
-        val shown = session.getCameraPosition()
-        session.moveBy(deltaX = 100.0, deltaY = 0.0)
-        fixture.pumpUntil("the shown map to accept a gesture") {
-          session.getCameraPosition() != shown
-        }
+        assertSame(failure, assertFailsWith<IllegalStateException> { fixture.pump() })
+      } finally {
+        session.callbacks = callbacks
+      }
+
+      // The engine marked its content ready before the delivery, so the map still presents
+      // and answers gestures once the callback is restored.
+      assertTrue(session.canPresentFrames)
+      val shown = session.getCameraPosition()
+      session.moveBy(deltaX = 100.0, deltaY = 0.0)
+      fixture.pumpUntil("the map to keep answering gestures") {
+        session.getCameraPosition() != shown
       }
     }
+  }
 
   @Test
   fun a_replacement_base_style_waits_for_application_content_before_presentation() = runBlocking {

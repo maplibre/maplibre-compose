@@ -1,6 +1,8 @@
 package org.maplibre.compose.map
 
 import androidx.compose.ui.unit.LayoutDirection
+import kotlin.coroutines.ContinuationInterceptor
+import kotlin.coroutines.coroutineContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -9,6 +11,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -60,49 +63,50 @@ class PlatformMapAccessTest {
           }
         }
       callbackStarted.await()
+      val closed = async { state.awaitClosed() }
+      try {
+        // A close request returns promptly and is visible at once, so admission refuses new
+        // work while the admitted callback is still running.
+        state.close()
+        assertTrue(state.isClosed)
+        assertFalse(closed.isCompleted)
 
-      val closeStarted = CompletableDeferred<Unit>()
-      val closeReturned = CompletableDeferred<Unit>()
-      val close =
-        async(Dispatchers.Default) {
-          closeStarted.complete(Unit)
-          state.close()
-          closeReturned.complete(Unit)
+        var callbackRan = false
+        assertFailsWith<IllegalStateException> {
+          state.withPlatformMap {
+            callbackRan = true
+            map
+          }
         }
-      closeStarted.await()
-
-      assertFalse(closeReturned.isCompleted)
-      assertFalse(state.isClosed)
-      releaseCallback.open()
-      assertTrue(access.await())
-      close.await()
-      assertTrue(state.isClosed)
-      state.awaitClosed()
-
-      var callbackRan = false
-      assertFailsWith<IllegalStateException> {
-        state.withPlatformMap {
-          callbackRan = true
-          map
-        }
+        assertFalse(callbackRan)
+        assertFalse(closed.isCompleted)
+      } finally {
+        releaseCallback.open()
       }
-      assertFalse(callbackRan)
+
+      // The admitted callback finishes, and only then does the closure commit and tear down.
+      assertTrue(access.await())
+      closed.await()
+      assertTrue(state.isClosed)
     }
   }
 
   @Test
   fun closure_requested_inside_a_native_callback_commits_after_it_returns() = runBlocking {
     withNativeMapState { state, _ ->
+      val closed = async { state.awaitClosed() }
       val result = state.withPlatformMap {
         state.close()
-        assertFalse(state.isClosed)
+        // The request is visible at once, but the commit waits for this callback to return.
+        assertTrue(state.isClosed)
+        assertFalse(closed.isCompleted)
         map.hashCode()
         true
       }
 
-      assertTrue(state.isClosed)
-      state.awaitClosed()
       assertTrue(result)
+      assertTrue(state.isClosed)
+      closed.await()
     }
   }
 
@@ -196,14 +200,15 @@ class PlatformMapAccessTest {
 
   private suspend fun withNativeMapState(block: suspend (MapState, RuntimeImplementation) -> Unit) {
     FfiTestPlatform.initialize()
+    TestMain.loop = coroutineContext[ContinuationInterceptor] as CoroutineDispatcher
     val cacheFile = FfiTestPlatform.createCacheFile()
     val runtime =
       RuntimeImplementation(
         platformContext = MlnFfiRuntimeOptions(cacheFile),
         closeResources = {},
         logger = null,
-        // The test blocks the main thread, so posted map-state work runs inline.
-        mainDispatcher = Dispatchers.Unconfined,
+        // The test thread is the main thread; posts from other threads drain into runBlocking.
+        mainDispatcher = TestMainDispatcher(),
       )
     val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
     try {
@@ -211,6 +216,7 @@ class PlatformMapAccessTest {
     } finally {
       runtime.close()
       runtime.awaitClosed()
+      TestMain.loop = null
       FfiTestPlatform.deleteCacheFile(cacheFile)
     }
   }
