@@ -10,7 +10,8 @@ import org.maplibre.compose.style.BaseStyle
 class MainThreadGuardTest {
   @Test
   fun map_state_rejects_a_mutation_from_another_thread() {
-    val runtime = mapRuntimeForTest()
+    // The test thread is the main thread here; the default helper opts out of confinement.
+    val runtime = mapRuntimeForTest(mainDispatcher = TestMainDispatcher())
     val state = runtime.createMapState(BaseStyle.Demo)
     state.setCameraPosition(CameraPosition(zoom = 2.0))
 

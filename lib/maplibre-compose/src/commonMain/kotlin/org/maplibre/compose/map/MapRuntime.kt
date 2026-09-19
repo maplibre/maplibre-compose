@@ -877,9 +877,9 @@ internal constructor(
       styleAuthority.missingImageResolver = value
     }
 
-  /** True as soon as [close] commits. Snapshot observers see it once map state commits. */
+  /** True as soon as [close] is called. Snapshot observers see it once map state commits. */
   public val isClosed: Boolean
-    get() = attachmentAuthority.isClosed || lifecycle.isCloseCommitted
+    get() = attachmentAuthority.isClosed || lifecycle.isClosed
 
   /** Marks this state as closed and starts cleanup of the current map surface. */
   public fun close(): Unit = lifecycle.close()
@@ -1355,7 +1355,7 @@ internal class RuntimeImplementation(
   /** Runs map-state work that resumes after an engine read. */
   internal val mainScope: CoroutineScope = CoroutineScope(SupervisorJob() + mainDispatcher),
   /** Pins map state to the main dispatcher's thread. */
-  internal val mainThread: MainThreadGuard = MainThreadGuard(),
+  internal val mainThread: MainThreadGuard = MainThreadGuard(mainDispatcher),
   /** Runs engine reads that block until the map owner thread answers. */
   internal val readDispatcher: CoroutineDispatcher =
     physicalScope.coroutineContext[ContinuationInterceptor] as? CoroutineDispatcher

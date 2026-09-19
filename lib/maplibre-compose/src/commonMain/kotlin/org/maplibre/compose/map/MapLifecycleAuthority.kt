@@ -2,6 +2,7 @@
 
 package org.maplibre.compose.map
 
+import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicLong
 import kotlin.concurrent.atomics.AtomicReference
@@ -20,6 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.maplibre.compose.camera.internal.CameraInputAuthority
 
 /** Identifies one platform engine-map instance until its destruction. */
@@ -71,12 +73,19 @@ internal data class PendingAttachment(
   val completion: CompletableDeferred<Result<RenderLease>>,
 )
 
-/** Owns every logical and physical lifecycle transition for one [MapState]. */
+/**
+ * Owns every logical and physical lifecycle transition for one [MapState].
+ *
+ * Decisions run on the main thread: presentation reservation, publication, release, closure, and
+ * platform bindings. Physical work runs on [physicalScope] and returns to main to commit. Engine
+ * threads read a [snapshot] instead of taking a lock, and [close] may be called from any thread
+ * because it only posts.
+ */
 internal class MapLifecycleAuthority(
   private val owner: MapState,
   private val physicalScope: CoroutineScope,
   private val mainDispatcher: CoroutineDispatcher = Dispatchers.Unconfined,
-  private val mainThread: MainThreadGuard = MainThreadGuard(),
+  private val mainThread: MainThreadGuard = MainThreadGuard(mainDispatcher),
 ) {
   internal val gestureCamera: CameraInputAuthority
     get() = owner.gestureAuthority
@@ -91,8 +100,6 @@ internal class MapLifecycleAuthority(
    */
   fun postToMain(block: () -> Unit) = postToMain(mainDispatcher, mainThread, block)
 
-  private val lock = reentrantLock()
-  private val closeCommitted = AtomicBoolean(false)
   private val platforms = mutableMapOf<MapLifecycleSession, MapLifecycleBinding>()
   private val closure = CompletableDeferred<Result<Unit>>()
   private var attachment: Attachment? = null
@@ -101,54 +108,67 @@ internal class MapLifecycleAuthority(
   private val releaseCleanups = linkedSetOf<CompletableDeferred<Result<Unit>>>()
   private val pendingCleanupFailures = mutableListOf<Throwable>()
   private var closed = false
+
+  /** Set by [close] on any thread before the closure commits on main. */
+  private val closeRequested = AtomicBoolean(false)
+
+  /**
+   * What engine threads may read: the current presentation and closure. Rebuilt on main after every
+   * change, so a reader sees one consistent state.
+   */
+  @Volatile private var snapshot = Snapshot()
+
+  /**
+   * Platform callbacks run on engine threads and closure runs on main. The one thing they must
+   * agree on is that closure waits for a callback in progress, which this lock provides.
+   */
+  private val platformAccessLock = reentrantLock()
   private var platformAccessDepth = 0
   private var closeAfterPlatformAccess = false
 
+  /** True once [close] has been requested, readable from any thread. */
   val isClosed: Boolean
-    get() = serialized { closed }
+    get() = closeRequested.load()
 
-  /** True once [close] has committed, readable without the lock. */
-  val isCloseCommitted: Boolean
-    get() = closeCommitted.load()
-
+  /**
+   * Closes from any thread. The closure commits on main, and [awaitClosed] waits for that commit
+   * and every cleanup it starts.
+   */
   fun close() {
-    val stateCommitted = CompletableDeferred<Unit>()
-    val (maps, releases, recordedFailures) =
-      serialized {
-        if (closed) return
-        if (platformAccessDepth > 0) {
-          closeAfterPlatformAccess = true
-          return
-        }
+    if (!closeRequested.compareAndSet(expectedValue = false, newValue = true)) return
+    postToMain { closeOnMain() }
+  }
+
+  private fun closeOnMain() {
+    requireMain()
+    val deferred = platformAccessLock.withLock {
+      if (platformAccessDepth > 0) {
+        closeAfterPlatformAccess = true
+        true
+      } else {
         closed = true
-        closeCommitted.store(true)
-        val maps = buildSet {
-          retainedAdapter?.let(::add)
-          attachment?.adapter?.let(::add)
-          addAll(retiringAdapters)
-          addAll(platforms.keys)
-        }
-        val recordedFailures = pendingCleanupFailures.toList()
-        val releases = releaseCleanups.toList()
-        attachment = null
-        retainedAdapter = null
-        retiringAdapters.clear()
-        pendingCleanupFailures.clear()
-        // Closure completes only after this commit, so awaitClosed remains the cleanup barrier.
-        postToMain {
-          try {
-            owner.attachmentAuthority.commitClosed()
-          } finally {
-            stateCommitted.complete(Unit)
-          }
-        }
-        Triple(maps, releases, recordedFailures)
+        false
       }
+    }
+    if (deferred) return
+    val maps = buildSet {
+      retainedAdapter?.let(::add)
+      attachment?.adapter?.let(::add)
+      addAll(retiringAdapters)
+      addAll(platforms.keys)
+    }
+    val recordedFailures = pendingCleanupFailures.toList()
+    val releases = releaseCleanups.toList()
+    attachment = null
+    retainedAdapter = null
+    retiringAdapters.clear()
+    pendingCleanupFailures.clear()
+    publishSnapshot()
+    owner.attachmentAuthority.commitClosed()
     maps.forEach(MapAdapter::close)
     physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
       val failures = mutableListOf<Throwable>()
       recordedFailures.forEach { addCleanupFailure(failures, it) }
-      stateCommitted.await()
       releases.forEach { release ->
         release.await().exceptionOrNull()?.let { addCleanupFailure(failures, it) }
       }
@@ -164,20 +184,17 @@ internal class MapLifecycleAuthority(
   }
 
   fun reservePresentation(ownerToken: MapPresentationOwnerToken): MapPresentationToken {
-    var replaced: MapAdapter? = null
-    val token = serialized {
-      requireOpen()
-      val current = attachment
-      check(current == null || current.releasing || current.owner === ownerToken) {
-        "The map state already has a presentation"
-      }
-      replaced = current?.adapter?.takeUnless { current.releasing }
-      if (replaced != null)
-        postToMain { owner.attachmentAuthority.invalidatePresentation(replaced) }
-      val token = MapPresentationToken(nextPresentationToken.incrementAndFetch())
-      attachment = Attachment(ownerToken, token)
-      token
+    requireMain()
+    requireOpen()
+    val current = attachment
+    check(current == null || current.releasing || current.owner === ownerToken) {
+      "The map state already has a presentation"
     }
+    val replaced = current?.adapter?.takeUnless { current.releasing }
+    if (replaced != null) owner.attachmentAuthority.invalidatePresentation(replaced)
+    val token = MapPresentationToken(nextPresentationToken.incrementAndFetch())
+    attachment = Attachment(ownerToken, token)
+    publishSnapshot()
     replaced?.let { adapter ->
       physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
         runCatching { adapter.detachPresentation() }
@@ -186,49 +203,38 @@ internal class MapLifecycleAuthority(
     return token
   }
 
-  fun publishPresentation(
-    token: MapPresentationToken,
-    adapter: MapAdapter,
-  ) {
-    val retainedToReplace = serialized {
-      if (closed) return
-      requireOpen()
-      val current = attachment
-      check(current?.token == token && !current.releasing) {
-        "The map presentation reservation is no longer current"
-      }
-      if (current.adapter === adapter && owner.currentMapAttachment?.adapter === adapter) return
-      selectAdapterLocked(current, adapter)
-      retainedAdapter?.takeUnless { retained ->
-        retained === adapter || !adapter.retainsEngineBetweenPresentations
-      }
+  fun publishPresentation(token: MapPresentationToken, adapter: MapAdapter) {
+    requireMain()
+    if (closed) return
+    val current = attachment
+    check(current?.token == token && !current.releasing) {
+      "The map presentation reservation is no longer current"
     }
-    postToMain {
-      try {
-        owner.attachmentAuthority.configurePresentationAdapter(adapter)
-      } catch (error: CancellationException) {
-        throw error
-      } catch (error: Exception) {
-        owner.styleAuthority.markStyleFailed(adapter, error.message)
-      }
+    if (current.adapter === adapter && owner.currentMapAttachment?.adapter === adapter) return
+    selectAdapter(current, adapter)
+    val retainedToReplace = retainedAdapter?.takeUnless { retained ->
+      retained === adapter || !adapter.retainsEngineBetweenPresentations
     }
-    val replaced = serialized {
-      val current = attachment
-      if (closed || current?.token != token || current.releasing || current.adapter !== adapter) {
-        return
-      }
-      if (adapter.retainsEngineBetweenPresentations) retainedAdapter = adapter
-      retainedToReplace?.let(retiringAdapters::add)
-      postToMain { owner.attachmentAuthority.commitPresentation(token = token, adapter = adapter) }
-      retainedToReplace
+    try {
+      owner.attachmentAuthority.configurePresentationAdapter(adapter)
+    } catch (error: CancellationException) {
+      throw error
+    } catch (error: Exception) {
+      owner.styleAuthority.markStyleFailed(adapter, error.message)
     }
-    postToMain { owner.attachmentAuthority.seedPresentationViewport(token, adapter) }
-    if (replaced != null) {
-      replaced.close()
+    // Configuration can re-enter and replace this reservation.
+    if (closed || attachment !== current || current.releasing || current.adapter !== adapter) return
+    if (adapter.retainsEngineBetweenPresentations) retainedAdapter = adapter
+    retainedToReplace?.let(retiringAdapters::add)
+    owner.attachmentAuthority.commitPresentation(token = token, adapter = adapter)
+    publishSnapshot()
+    owner.attachmentAuthority.seedPresentationViewport(token, adapter)
+    if (retainedToReplace != null) {
+      retainedToReplace.close()
       physicalScope.launch {
-        val failure = runCatching { replaced.awaitClosed() }.exceptionOrNull()
-        serialized {
-          retiringAdapters.remove(replaced)
+        val failure = runCatching { retainedToReplace.awaitClosed() }.exceptionOrNull()
+        withContext(mainDispatcher) {
+          retiringAdapters.remove(retainedToReplace)
           if (failure != null && !closed) pendingCleanupFailures += failure
         }
       }
@@ -236,138 +242,146 @@ internal class MapLifecycleAuthority(
   }
 
   fun releasePresentation(token: MapPresentationToken, adapter: MapAdapter?) {
-    val release = serialized {
-      val current = attachment ?: return
-      if (current.token != token) return
-      if (adapter != null && current.adapter !== adapter) return
-      if (current.releasing) return
-      current.releasing = true
-      postToMain { owner.attachmentAuthority.invalidatePresentation(current.adapter) }
-      current.adapter?.let { closingAdapter ->
-        ReleaseCleanup(
-          closingAdapter,
-          CompletableDeferred<Result<Unit>>().also(releaseCleanups::add),
-        )
-      }
-    }
-    if (release == null) {
-      serialized { if (attachment?.token == token) attachment = null }
+    requireMain()
+    val current = attachment ?: return
+    if (current.token != token) return
+    if (adapter != null && current.adapter !== adapter) return
+    if (current.releasing) return
+    current.releasing = true
+    publishSnapshot()
+    owner.attachmentAuthority.invalidatePresentation(current.adapter)
+    val closingAdapter = current.adapter
+    if (closingAdapter == null) {
+      if (attachment === current) attachment = null
+      publishSnapshot()
       return
     }
+    val completion = CompletableDeferred<Result<Unit>>().also(releaseCleanups::add)
     physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
-      val result = runCatching { release.adapter.detachPresentation() }
-      serialized {
-        releaseCleanups.remove(release.completion)
+      val result = runCatching { closingAdapter.detachPresentation() }
+      withContext(mainDispatcher) {
+        releaseCleanups.remove(completion)
         if (!closed) result.exceptionOrNull()?.let(pendingCleanupFailures::add)
-        if (attachment?.token == token) attachment = null
+        if (attachment === current) attachment = null
+        publishSnapshot()
       }
-      release.completion.complete(result)
+      completion.complete(result)
     }
   }
 
-  fun retainedAdapter(compatibilityKey: Any): MapAdapter? = serialized {
-    retainedAdapter?.takeIf { adapter ->
+  fun retainedAdapter(compatibilityKey: Any): MapAdapter? {
+    requireMain()
+    return retainedAdapter?.takeIf { adapter ->
       adapter.retainsEngineBetweenPresentations &&
         adapter.presentationCompatibilityKey == compatibilityKey
     }
   }
 
   /**
-   * Seeds the published presentation from [adapter] after that adapter first has a viewport.
+   * Seeds the published presentation from [adapter] after that adapter first has a viewport. Called
+   * from the engine thread.
    *
    * Publication also seeds, but the first frame snapshot can arrive while the lease is still
    * attaching. The attach-gated camera callback is then rejected, and an idle empty style may never
    * emit another one.
    */
-  fun seedCurrentPresentationViewport(adapter: MapAdapter) {
+  fun seedCurrentPresentationViewport(adapter: MapAdapter) = postToMain {
     val token =
-      serialized { attachment?.takeIf { it.adapter === adapter && !it.releasing }?.token } ?: return
-    postToMain { owner.attachmentAuthority.seedPresentationViewport(token, adapter) }
+      attachment?.takeIf { it.adapter === adapter && !it.releasing }?.token ?: return@postToMain
+    owner.attachmentAuthority.seedPresentationViewport(token, adapter)
   }
 
   /**
    * Ends a camera change that the engine behind [adapter] started and will never finish, such as
-   * one interrupted by the loss of the rendering context.
+   * one interrupted by the loss of the rendering context. Called from the engine thread.
    */
-  fun endCurrentPresentationCameraChange(adapter: MapAdapter) {
-    postToMain { owner.attachmentAuthority.endCameraChange(adapter) }
+  fun endCurrentPresentationCameraChange(adapter: MapAdapter) = postToMain {
+    owner.attachmentAuthority.endCameraChange(adapter)
   }
 
-  fun selectAdapterForPresentation(adapter: MapAdapter): Boolean = serialized {
-    if (closed) return@serialized false
-    val current = attachment ?: return@serialized false
-    if (current.releasing) return@serialized false
-    selectAdapterLocked(current, adapter)
-    true
+  fun selectAdapterForPresentation(adapter: MapAdapter): Boolean {
+    requireMain()
+    if (closed) return false
+    val current = attachment ?: return false
+    if (current.releasing) return false
+    selectAdapter(current, adapter)
+    return true
   }
 
-  fun acceptsAdapter(adapter: MapAdapter): Boolean = serialized { acceptsAdapterLocked(adapter) }
+  /** Whether [adapter] is the presentation or retained engine. Readable from any thread. */
+  fun acceptsAdapter(adapter: MapAdapter): Boolean = snapshot.acceptsAdapter(adapter)
 
-  fun isPendingPublication(adapter: MapAdapter): Boolean = serialized {
-    !closed && attachment?.adapter === adapter && attachment?.releasing == false
+  fun isPendingPublication(adapter: MapAdapter): Boolean {
+    requireMain()
+    return !closed && attachment?.adapter === adapter && attachment?.releasing == false
   }
 
-  fun acceptsPresentation(adapter: MapAdapter): Boolean = serialized {
-    acceptsPresentationLocked(adapter)
+  /** Whether [adapter] is the published presentation. Readable from any thread. */
+  fun acceptsPresentation(adapter: MapAdapter): Boolean =
+    snapshot.acceptsPresentation(adapter) && owner.currentMapAttachment?.adapter === adapter
+
+  fun currentAdapter(): MapAdapter? {
+    requireMain()
+    return attachment?.adapter ?: retainedAdapter
   }
 
-  fun currentAdapter(): MapAdapter? = serialized { attachment?.adapter ?: retainedAdapter }
-
-  fun retainAdapterForPlatformAccess(create: () -> MapAdapter): MapAdapter = serialized {
+  fun retainAdapterForPlatformAccess(create: () -> MapAdapter): MapAdapter {
+    requireMain()
     requireOpen()
     (attachment?.adapter ?: retainedAdapter)?.let {
       return it
     }
-    create().also { adapter ->
+    return create().also { adapter ->
       check(adapter.retainsEngineBetweenPresentations) {
         "A detached platform map requires an engine-retaining adapter"
       }
       retainedAdapter = adapter
-      postToMain { owner.styleAuthority.beginStyleLoadForNewAdapter() }
+      publishSnapshot()
+      owner.styleAuthority.beginStyleLoadForNewAdapter()
     }
   }
 
-  fun presentationAdapterForPlatformAccess(): MapAdapter = serialized {
+  fun presentationAdapterForPlatformAccess(): MapAdapter {
+    requireMain()
     requireOpen()
     val adapter = attachment?.adapter
-    check(adapter != null && acceptsPresentationLocked(adapter)) {
+    check(adapter != null && acceptsPresentation(adapter)) {
       "Platform map access requires an attached Web map surface"
     }
-    adapter
+    return adapter
   }
 
+  /** Runs a platform callback on the calling engine thread; closure waits for it. */
   fun acceptEnginePlatformAccess(adapter: MapAdapter, event: () -> Unit): Boolean =
-    acceptPlatformAccess(accepts = { acceptsAdapterLocked(adapter) }, event)
+    acceptPlatformAccess(accepts = { snapshot.acceptsAdapter(adapter) }, event)
 
-  fun acceptPresentationPlatformAccess(
-    adapter: MapAdapter,
-    event: () -> Unit,
-  ): Boolean = acceptPlatformAccess(accepts = { acceptsPresentationLocked(adapter) }, event)
+  fun acceptPresentationPlatformAccess(adapter: MapAdapter, event: () -> Unit): Boolean =
+    acceptPlatformAccess(accepts = { acceptsPresentation(adapter) }, event)
 
-  fun isCurrent(token: MapPresentationToken, adapter: MapAdapter): Boolean = serialized {
-    !closed &&
-      attachment?.token == token &&
-      attachment?.adapter === adapter &&
+  /** Whether [token] and [adapter] are the published presentation. Readable from any thread. */
+  fun isCurrent(token: MapPresentationToken, adapter: MapAdapter): Boolean {
+    val seen = snapshot
+    return !seen.closed &&
+      seen.token == token &&
+      seen.adapter === adapter &&
       owner.currentMapAttachment?.let { it.token == token && it.adapter === adapter } == true
   }
 
   fun bind(adapter: MapLifecyclePlatformAdapter): MapLifecycleBinding {
+    requireMain()
     val session = adapter as? MapLifecycleSession
-    val lifecycle = lock.withLock {
-      session?.let(platforms::get)?.let {
-        return it
-      }
-      MapLifecycleBinding(adapter, physicalScope, mainDispatcher, mainThread) { binding ->
-          if (session != null) retireClosingSession(session, binding)
-        }
-        .also { binding ->
-          if (closed) binding.close() else if (session != null) platforms[session] = binding
-        }
+    session?.let(platforms::get)?.let {
+      return it
     }
+    val lifecycle =
+      MapLifecycleBinding(adapter, physicalScope, mainDispatcher, mainThread) { binding ->
+        if (session != null) postToMain { retireClosingSession(session, binding) }
+      }
+    if (closed) lifecycle.close() else if (session != null) platforms[session] = lifecycle
     if (session != null) {
       physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
         val failure = runCatching { lifecycle.awaitClosed() }.exceptionOrNull()
-        serialized {
+        withContext(mainDispatcher) {
           if (platforms[session] === lifecycle) platforms.remove(session)
           retiringAdapters.remove(session)
           if (failure != null && !closed) pendingCleanupFailures += failure
@@ -377,65 +391,62 @@ internal class MapLifecycleAuthority(
     return lifecycle
   }
 
-  private fun retireClosingSession(
-    session: MapLifecycleSession,
-    binding: MapLifecycleBinding,
-  ) {
-    serialized {
-      if (platforms[session] === binding) platforms.remove(session)
-      val wasAttached = attachment?.adapter === session
-      val wasRetained = retainedAdapter === session
-      if (wasAttached || wasRetained) {
-        postToMain { owner.attachmentAuthority.invalidateClosedAdapter(session) }
-      }
-      if (wasAttached) attachment = null
-      if (wasRetained) retainedAdapter = null
-      retiringAdapters += session
-    }
+  private fun retireClosingSession(session: MapLifecycleSession, binding: MapLifecycleBinding) {
+    if (platforms[session] === binding) platforms.remove(session)
+    val wasAttached = attachment?.adapter === session
+    val wasRetained = retainedAdapter === session
+    if (wasAttached) attachment = null
+    if (wasRetained) retainedAdapter = null
+    retiringAdapters += session
+    publishSnapshot()
+    if (wasAttached || wasRetained) owner.attachmentAuthority.invalidateClosedAdapter(session)
   }
-
-  inline fun <T> serialized(action: () -> T): T = lock.withLock(action)
 
   private fun requireOpen() {
     check(!closed) { "The map state is closed" }
   }
 
-  private fun selectAdapterLocked(current: Attachment, adapter: MapAdapter) {
+  private fun selectAdapter(current: Attachment, adapter: MapAdapter) {
     if (current.adapter === adapter) return
     check(current.adapter == null) { "The map state already has a presentation adapter" }
     current.adapter = adapter
-    if (retainedAdapter !== adapter)
-      postToMain { owner.styleAuthority.beginStyleLoadForNewAdapter() }
+    publishSnapshot()
+    if (retainedAdapter !== adapter) owner.styleAuthority.beginStyleLoadForNewAdapter()
   }
 
-  private fun acceptsAdapterLocked(adapter: MapAdapter): Boolean {
+  private fun publishSnapshot() {
     val current = attachment
-    return !closed &&
-      ((current?.adapter === adapter && !current.releasing) || retainedAdapter === adapter)
+    snapshot =
+      Snapshot(
+        closed = closed,
+        token = current?.token,
+        adapter = current?.adapter,
+        releasing = current?.releasing == true,
+        retainedAdapter = retainedAdapter,
+      )
   }
-
-  private fun acceptsPresentationLocked(adapter: MapAdapter): Boolean =
-    !closed && attachment?.adapter === adapter && owner.currentMapAttachment?.adapter === adapter
 
   private fun acceptPlatformAccess(accepts: () -> Boolean, event: () -> Unit): Boolean {
     var commitDeferredClose = false
     try {
-      return serialized {
-        if (!accepts()) return@serialized false
+      platformAccessLock.withLock {
+        if (!accepts()) return false
         platformAccessDepth++
-        try {
-          event()
-        } finally {
+      }
+      try {
+        event()
+      } finally {
+        platformAccessLock.withLock {
           platformAccessDepth--
           if (platformAccessDepth == 0 && closeAfterPlatformAccess) {
             closeAfterPlatformAccess = false
             commitDeferredClose = true
           }
         }
-        true
       }
+      return true
     } finally {
-      if (commitDeferredClose) close()
+      if (commitDeferredClose) postToMain { closeOnMain() }
     }
   }
 
@@ -454,10 +465,19 @@ internal class MapLifecycleAuthority(
     var releasing: Boolean = false,
   )
 
-  private data class ReleaseCleanup(
-    val adapter: MapAdapter,
-    val completion: CompletableDeferred<Result<Unit>>,
-  )
+  /** An immutable view for engine threads. */
+  private class Snapshot(
+    val closed: Boolean = false,
+    val token: MapPresentationToken? = null,
+    val adapter: MapAdapter? = null,
+    val releasing: Boolean = false,
+    val retainedAdapter: MapAdapter? = null,
+  ) {
+    fun acceptsAdapter(candidate: MapAdapter): Boolean =
+      !closed && ((adapter === candidate && !releasing) || retainedAdapter === candidate)
+
+    fun acceptsPresentation(candidate: MapAdapter): Boolean = !closed && adapter === candidate
+  }
 
   private companion object {
     val nextPresentationToken = AtomicLong(0L)
@@ -469,7 +489,7 @@ internal class MapLifecycleBinding(
   private val adapter: MapLifecyclePlatformAdapter,
   private val physicalScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
   private val mainDispatcher: CoroutineDispatcher = Dispatchers.Unconfined,
-  private val mainThread: MainThreadGuard = MainThreadGuard(),
+  private val mainThread: MainThreadGuard = MainThreadGuard(mainDispatcher),
   private val onClosing: (MapLifecycleBinding) -> Unit = {},
 ) {
   /** See [MapLifecycleAuthority.postToMain]. */
@@ -479,7 +499,6 @@ internal class MapLifecycleBinding(
   private val current = AtomicReference<InternalState>(InternalState.OpenDetached(null))
   private val currentStyle = AtomicReference<StyleClaim?>(null)
   private val currentStyleRequest = AtomicReference<StyleRequestClaim?>(null)
-  private val lifecycleLock = reentrantLock()
   private val closure = CompletableDeferred<Result<Unit>>()
 
   val engineIdentity: EngineMapIdentity?
@@ -488,23 +507,23 @@ internal class MapLifecycleBinding(
   val renderLease: RenderLease?
     get() = (current.load() as? InternalState.Attached)?.lease
 
-  fun claimStyleRequestIdentity(engine: EngineMapIdentity): StyleRequestIdentity? = serialized {
-    if (!acceptEngineIdentity(engine)) return@serialized null
+  fun claimStyleRequestIdentity(engine: EngineMapIdentity): StyleRequestIdentity? {
+    if (!acceptEngineIdentity(engine)) return null
     val identity = StyleRequestIdentity(nextIdentity.incrementAndFetch())
     currentStyle.store(null)
     currentStyleRequest.store(StyleRequestClaim(engine, identity))
-    identity
+    return identity
   }
 
   fun acceptStyleRequestEvent(
     engine: EngineMapIdentity,
     request: StyleRequestIdentity,
     event: () -> Unit,
-  ): Boolean = serialized {
-    if (!acceptEngineIdentity(engine)) return@serialized false
-    if (currentStyleRequest.load() != StyleRequestClaim(engine, request)) return@serialized false
+  ): Boolean {
+    if (!acceptEngineIdentity(engine)) return false
+    if (currentStyleRequest.load() != StyleRequestClaim(engine, request)) return false
     event()
-    true
+    return true
   }
 
   val acceptsWork: Boolean
@@ -513,37 +532,33 @@ internal class MapLifecycleBinding(
       return observed !is InternalState.Closing && observed !== InternalState.Closed
     }
 
-  /** Claims and delivers a loaded style as one serialized operation. */
+  /** Claims a loaded style and delivers it; the claim is visible before [event] runs. */
   fun claimStyleIdentity(
     engine: EngineMapIdentity,
     request: StyleRequestIdentity,
     event: (StyleIdentity) -> Unit,
-  ): StyleIdentity? = serialized {
-    if (!acceptEngineIdentity(engine)) return@serialized null
-    if (currentStyleRequest.load() != StyleRequestClaim(engine, request)) return@serialized null
+  ): StyleIdentity? {
+    if (!acceptEngineIdentity(engine)) return null
+    if (currentStyleRequest.load() != StyleRequestClaim(engine, request)) return null
     val identity = StyleIdentity(nextIdentity.incrementAndFetch())
     currentStyle.store(StyleClaim(engine, identity))
     event(identity)
-    identity
+    return identity
   }
 
   fun invalidateStyleIdentity(engine: EngineMapIdentity): Boolean {
-    return serialized {
-      if (!acceptEngineIdentity(engine)) return@serialized false
-      val claimed = currentStyle.load() ?: return@serialized true
-      if (claimed.engine != engine) return@serialized false
-      currentStyle.store(null)
-      true
-    }
+    if (!acceptEngineIdentity(engine)) return false
+    val claimed = currentStyle.load() ?: return true
+    if (claimed.engine != engine) return false
+    currentStyle.store(null)
+    return true
   }
 
   /** Accepts an engine-durable event, including while a retained native engine is detached. */
   fun acceptEngineEvent(engine: EngineMapIdentity, event: () -> Unit): Boolean {
-    return serialized {
-      if (!acceptEngineIdentity(engine)) return@serialized false
-      event()
-      true
-    }
+    if (!acceptEngineIdentity(engine)) return false
+    event()
+    return true
   }
 
   /** Accepts an event only from the current loaded style on the current engine map. */
@@ -552,12 +567,10 @@ internal class MapLifecycleBinding(
     style: StyleIdentity,
     event: () -> Unit,
   ): Boolean {
-    return serialized {
-      if (!acceptEngineIdentity(engine)) return@serialized false
-      if (currentStyle.load() != StyleClaim(engine, style)) return@serialized false
-      event()
-      true
-    }
+    if (!acceptEngineIdentity(engine)) return false
+    if (currentStyle.load() != StyleClaim(engine, style)) return false
+    event()
+    return true
   }
 
   private fun acceptEngineIdentity(engine: EngineMapIdentity): Boolean {
@@ -593,44 +606,42 @@ internal class MapLifecycleBinding(
 
   /** Commits attachment before starting its physical commands. */
   fun beginAttach(): PendingAttachment {
-    val start = serialized {
+    while (true) {
       val observed = current.load()
-      when (observed) {
-        is InternalState.OpenDetached -> createAttachmentStart(observed)
-        is InternalState.CreatingEngine,
-        is InternalState.Attaching,
-        is InternalState.Attached,
-        is InternalState.Detaching -> throw MapAlreadyAttachedException()
-        is InternalState.Closing,
-        InternalState.Closed -> throw MapClosedException()
-      }
+      val start =
+        when (observed) {
+          is InternalState.OpenDetached -> createAttachmentStart(observed)
+          is InternalState.CreatingEngine,
+          is InternalState.Attaching,
+          is InternalState.Attached,
+          is InternalState.Detaching -> throw MapAlreadyAttachedException()
+          is InternalState.Closing,
+          InternalState.Closed -> throw MapClosedException()
+        }
+      if (!current.compareAndSet(observed, start.state)) continue
+      launchAttachment(start)
+      return start.pending
     }
-    launchAttachment(start)
-    return start.pending
   }
 
   /** Starts attachment atomically, or returns false after detachment or closure starts. */
   fun beginAttachIfOpen(): Boolean {
-    var alreadyAttached = false
-    val start = serialized {
-      when (val observed = current.load()) {
-        is InternalState.OpenDetached -> createAttachmentStart(observed)
-        is InternalState.Attaching,
-        is InternalState.Attached -> {
-          alreadyAttached = true
-          null
+    while (true) {
+      val observed = current.load()
+      val start =
+        when (observed) {
+          is InternalState.OpenDetached -> createAttachmentStart(observed)
+          is InternalState.Attaching,
+          is InternalState.Attached,
+          is InternalState.CreatingEngine -> return true
+          is InternalState.Detaching,
+          is InternalState.Closing,
+          InternalState.Closed -> return false
         }
-        is InternalState.CreatingEngine -> {
-          alreadyAttached = true
-          null
-        }
-        is InternalState.Detaching,
-        is InternalState.Closing,
-        InternalState.Closed -> null
-      }
+      if (!current.compareAndSet(observed, start.state)) continue
+      launchAttachment(start)
+      return true
     }
-    start?.let(::launchAttachment)
-    return alreadyAttached || start != null
   }
 
   /** Creates a retained engine without requiring a presentation and returns its identity. */
@@ -640,25 +651,25 @@ internal class MapLifecycleBinding(
     }
     while (true) {
       var launchCreation = false
-      val observed = serialized {
-        when (val state = current.load()) {
+      val state = current.load()
+      val observed =
+        when (state) {
           is InternalState.OpenDetached -> {
             state.engine?.let {
               return it
             }
-            InternalState.CreatingEngine(
+            val creating =
+              InternalState.CreatingEngine(
                 engine = EngineMapIdentity(nextIdentity.incrementAndFetch()),
                 result = CompletableDeferred(),
                 engineCreated = AtomicBoolean(false),
               )
-              .also {
-                current.store(it)
-                launchCreation = true
-              }
+            if (!current.compareAndSet(state, creating)) continue
+            launchCreation = true
+            creating
           }
           else -> state
         }
-      }
       when (observed) {
         is InternalState.CreatingEngine -> {
           if (launchCreation) {
@@ -726,11 +737,7 @@ internal class MapLifecycleBinding(
       currentStyle.store(null)
       currentStyleRequest.store(null)
     }
-    serialized {
-      if (current.load() === creating) {
-        current.store(InternalState.OpenDetached(outcome.getOrNull()))
-      }
-    }
+    current.compareAndSet(creating, InternalState.OpenDetached(outcome.getOrNull()))
     creating.result.complete(outcome)
   }
 
@@ -745,7 +752,6 @@ internal class MapLifecycleBinding(
         result = result,
         engineCreated = AtomicBoolean(observed.engine != null),
       )
-    current.store(selected)
     return AttachmentStart(
       state = selected,
       createEngine = observed.engine == null,
@@ -766,19 +772,17 @@ internal class MapLifecycleBinding(
     }
     val result = CompletableDeferred<Result<RenderLease>>()
     val replacement = EngineMapIdentity(nextIdentity.incrementAndFetch())
+    val observed = current.load()
+    if (observed !is InternalState.Attached) return false
+    if (observed.engine != engine || observed.lease != lease) return false
     val replacing =
-      serialized {
-        val observed = current.load()
-        if (observed !is InternalState.Attached) return@serialized null
-        if (observed.engine != engine || observed.lease != lease) return@serialized null
-        InternalState.Attaching(
-            engine = replacement,
-            lease = lease,
-            result = result,
-            engineCreated = AtomicBoolean(false),
-          )
-          .also { current.store(it) }
-      } ?: return false
+      InternalState.Attaching(
+        engine = replacement,
+        lease = lease,
+        result = result,
+        engineCreated = AtomicBoolean(false),
+      )
+    if (!current.compareAndSet(observed, replacing)) return false
     currentStyle.store(null)
     currentStyleRequest.store(null)
     physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
@@ -789,16 +793,16 @@ internal class MapLifecycleBinding(
 
   /** Commits logical closure synchronously and starts one cancellation-independent cleanup. */
   fun close() {
-    val closing =
-      serialized {
-        val observed = current.load()
-        if (observed is InternalState.Closing || observed === InternalState.Closed) {
-          return@serialized null
-        }
-        val closing = InternalState.Closing(observed)
-        current.store(closing)
-        closing
-      } ?: return
+    val closing: InternalState.Closing
+    while (true) {
+      val observed = current.load()
+      if (observed is InternalState.Closing || observed === InternalState.Closed) return
+      val next = InternalState.Closing(observed)
+      if (current.compareAndSet(observed, next)) {
+        closing = next
+        break
+      }
+    }
     onClosing(this)
     physicalScope.launch(start = CoroutineStart.UNDISPATCHED) { performClose(closing) }
   }
@@ -833,43 +837,36 @@ internal class MapLifecycleBinding(
   }
 
   private fun beginDetach(lease: RenderLease): CompletableDeferred<Result<Unit>>? {
-    val detaching =
-      serialized {
-        val observed = current.load()
+    while (true) {
+      val observed = current.load()
+      val detaching =
         when (observed) {
           is InternalState.Attaching -> {
             if (observed.lease != lease) return null
-            val result = CompletableDeferred<Result<Unit>>()
-            val detaching =
-              InternalState.Detaching(
-                engine = observed.engine,
-                lease = lease,
-                result = result,
-                attachResult = observed.result,
-                engineCreated = observed.engineCreated,
-              )
-            current.store(detaching)
-            detaching
+            InternalState.Detaching(
+              engine = observed.engine,
+              lease = lease,
+              result = CompletableDeferred(),
+              attachResult = observed.result,
+              engineCreated = observed.engineCreated,
+            )
           }
           is InternalState.Attached -> {
             if (observed.lease != lease) return null
-            val result = CompletableDeferred<Result<Unit>>()
-            val detaching =
-              InternalState.Detaching(
-                engine = observed.engine,
-                lease = lease,
-                result = result,
-                attachResult = null,
-                engineCreated = null,
-              )
-            current.store(detaching)
-            detaching
+            InternalState.Detaching(
+              engine = observed.engine,
+              lease = lease,
+              result = CompletableDeferred(),
+              attachResult = null,
+              engineCreated = null,
+            )
           }
-          else -> null
+          else -> return null
         }
-      } ?: return null
-    physicalScope.launch(start = CoroutineStart.UNDISPATCHED) { performDetach(detaching) }
-    return detaching.result
+      if (!current.compareAndSet(observed, detaching)) continue
+      physicalScope.launch(start = CoroutineStart.UNDISPATCHED) { performDetach(detaching) }
+      return detaching.result
+    }
   }
 
   /** Accepts a viewport-bound event only for the currently attached engine and lease. */
@@ -878,13 +875,11 @@ internal class MapLifecycleBinding(
     lease: RenderLease,
     event: () -> Unit,
   ): Boolean {
-    return serialized {
-      val observed = current.load()
-      if (observed !is InternalState.Attached) return@serialized false
-      if (observed.engine != engine || observed.lease != lease) return@serialized false
-      event()
-      true
-    }
+    val observed = current.load()
+    if (observed !is InternalState.Attached) return false
+    if (observed.engine != engine || observed.lease != lease) return false
+    event()
+    return true
   }
 
   private suspend fun performAttach(attaching: InternalState.Attaching, createEngine: Boolean) {
@@ -901,16 +896,10 @@ internal class MapLifecycleBinding(
       } catch (error: Throwable) {
         Result.failure(error)
       }
-    val stillAttaching = serialized { current.load() === attaching }
+    val stillAttaching = current.load() === attaching
     if (outcome.isSuccess && stillAttaching) {
-      val committed = serialized {
-        if (current.load() === attaching) {
-          current.store(InternalState.Attached(attaching.engine, attaching.lease))
-          true
-        } else {
-          false
-        }
-      }
+      val committed =
+        current.compareAndSet(attaching, InternalState.Attached(attaching.engine, attaching.lease))
       if (committed) {
         attaching.result.complete(outcome)
       } else {
@@ -918,7 +907,7 @@ internal class MapLifecycleBinding(
       }
     } else if (outcome.isFailure && stillAttaching) {
       val error = checkNotNull(outcome.exceptionOrNull())
-      if (serialized { current.load() !== attaching }) {
+      if (current.load() !== attaching) {
         attaching.result.complete(
           Result.failure(MapLeaseInvalidatedException().also { error.let(it::addSuppressed) })
         )
@@ -929,7 +918,7 @@ internal class MapLifecycleBinding(
           .exceptionOrNull()
           ?.let(error::addSuppressed)
       }
-      if (serialized { current.load() !== attaching }) {
+      if (current.load() !== attaching) {
         attaching.result.complete(
           Result.failure(MapLeaseInvalidatedException().also { error.let(it::addSuppressed) })
         )
@@ -944,11 +933,10 @@ internal class MapLifecycleBinding(
         currentStyle.store(null)
         currentStyleRequest.store(null)
       }
-      serialized {
-        if (current.load() === attaching) {
-          current.store(InternalState.OpenDetached(attaching.engine.takeIf { !destroyEngine }))
-        }
-      }
+      current.compareAndSet(
+        attaching,
+        InternalState.OpenDetached(attaching.engine.takeIf { !destroyEngine }),
+      )
       attaching.result.complete(Result.failure(error))
     } else {
       val invalidated = MapLeaseInvalidatedException()
@@ -969,11 +957,8 @@ internal class MapLifecycleBinding(
     }
       .exceptionOrNull()
     if (failure == null) {
-      val committed = serialized {
-        if (current.load() !== attaching) return@serialized false
-        current.store(InternalState.Attached(attaching.engine, attaching.lease))
-        true
-      }
+      val committed =
+        current.compareAndSet(attaching, InternalState.Attached(attaching.engine, attaching.lease))
       attaching.result.complete(
         if (committed) Result.success(attaching.lease)
         else Result.failure(MapLeaseInvalidatedException())
@@ -989,9 +974,7 @@ internal class MapLifecycleBinding(
         .exceptionOrNull()
         ?.let(failure::addSuppressed)
     }
-    serialized {
-      if (current.load() === attaching) current.store(InternalState.OpenDetached(null))
-    }
+    current.compareAndSet(attaching, InternalState.OpenDetached(null))
     attaching.result.complete(Result.failure(failure))
   }
 
@@ -1009,9 +992,7 @@ internal class MapLifecycleBinding(
     val outcome = failures.cleanupResult("Map")
     val nextEngine =
       detaching.engine.takeIf { adapter.engineRetention == EngineRetention.RETAIN && engineCreated }
-    serialized {
-      if (current.load() === detaching) current.store(InternalState.OpenDetached(nextEngine))
-    }
+    current.compareAndSet(detaching, InternalState.OpenDetached(nextEngine))
     detaching.result.complete(outcome)
   }
 
@@ -1046,7 +1027,7 @@ internal class MapLifecycleBinding(
     currentStyleRequest.store(null)
     collectFailure(failures) { adapter.closeResources() }
 
-    serialized { if (current.load() === closing) current.store(InternalState.Closed) }
+    current.compareAndSet(closing, InternalState.Closed)
     closure.complete(failures.cleanupResult("Map"))
   }
 
@@ -1060,9 +1041,6 @@ internal class MapLifecycleBinding(
   private fun addCleanupFailure(failures: MutableList<Throwable>, failure: Throwable) {
     failures.addCleanupFailure(failure)
   }
-
-  /** Serializes non-suspending lifecycle commits with callback validation and delivery. */
-  private inline fun <T> serialized(action: () -> T): T = lifecycleLock.withLock(action)
 
   private data class StyleClaim(val engine: EngineMapIdentity, val style: StyleIdentity)
 
@@ -1127,7 +1105,7 @@ private fun postToMain(dispatcher: CoroutineDispatcher, guard: MainThreadGuard, 
     dispatcher.dispatch(
       EmptyCoroutineContext,
       Runnable {
-        guard.requireMain()
+        guard.pin()
         block()
       },
     )

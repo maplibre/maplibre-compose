@@ -22,28 +22,28 @@ import org.maplibre.compose.style.StyleBinding
 class MainConfinementTest {
 
   @Test
-  fun a_configuration_failure_at_publication_marks_the_style_failed_on_the_dispatching_path() =
-    runTest {
-      val main = StandardTestDispatcher(testScheduler)
-      val runtime = mapRuntimeForTest(physicalScope = backgroundScope, mainDispatcher = main)
-      val state = runtime.createMapState(BaseStyle.Demo)
-      val adapter = RejectingStyleAdapter()
-      state.publishPresentation(state.reservePresentation(), adapter)
-      assertEquals(StyleLoadState.Pending, state.style.loadState)
+  fun a_configuration_failure_at_publication_marks_the_style_failed() = runTest {
+    val main = StandardTestDispatcher(testScheduler)
+    val runtime = mapRuntimeForTest(physicalScope = backgroundScope, mainDispatcher = main)
+    testScheduler.runCurrent() // The dispatcher pins the main thread.
+    val state = runtime.createMapState(BaseStyle.Demo)
+    val adapter = RejectingStyleAdapter()
 
-      testScheduler.runCurrent()
+    // Publication runs on main, so its configuration failure is handled before it returns.
+    state.publishPresentation(state.reservePresentation(), adapter)
 
-      assertEquals(StyleLoadState.Failed("style rejected"), state.style.loadState)
-      state.close()
-      testScheduler.runCurrent()
-      state.awaitClosed()
-      runtime.close()
-    }
+    assertEquals(StyleLoadState.Failed("style rejected"), state.style.loadState)
+    state.close()
+    testScheduler.runCurrent()
+    state.awaitClosed()
+    runtime.close()
+  }
 
   @Test
   fun closure_reports_closed_at_once_and_await_closed_waits_for_the_posted_commit() = runTest {
     val main = StandardTestDispatcher(testScheduler)
     val runtime = mapRuntimeForTest(physicalScope = backgroundScope, mainDispatcher = main)
+    testScheduler.runCurrent() // The dispatcher pins the main thread.
     val state = runtime.createMapState(BaseStyle.Demo)
     state.publishPresentation(state.reservePresentation(), PresentationTestAdapter())
     testScheduler.runCurrent()
@@ -96,7 +96,8 @@ class MainConfinementTest {
   fun a_queued_style_callback_is_dropped_once_its_style_is_replaced() = runTest {
     val main = StandardTestDispatcher(testScheduler)
     val binding =
-      MapLifecycleBinding(NoOpLifecycleAdapter(), backgroundScope, main, MainThreadGuard())
+      MapLifecycleBinding(NoOpLifecycleAdapter(), backgroundScope, main, MainThreadGuard(main))
+    testScheduler.runCurrent() // The dispatcher pins the main thread.
     binding.attach()
     val engine = checkNotNull(binding.engineIdentity)
     val recorder = CountingCallbacks()

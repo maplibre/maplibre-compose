@@ -138,13 +138,16 @@ internal class CameraInputAuthority(private val owner: MapState) {
       inputGeneration++
       cameraGeneration
     }
+    // Turns complete and jobs finish on whichever thread completes them; bookkeeping is main's.
     turn?.onCompletion {
-      if (dispatchTail === turn) dispatchTail = null
+      owner.lifecycle.postToMain { if (dispatchTail === turn) dispatchTail = null }
     }
     previousJobs.forEach { it.cancel(CancellationException("A newer command owns the camera")) }
     job?.invokeOnCompletion {
-      turn?.release()
-      programmaticJobs.remove(job)
+      owner.lifecycle.postToMain {
+        turn?.release()
+        programmaticJobs.remove(job)
+      }
     }
     previous?.cancelWork()
     return object : CameraCommandGuard {
