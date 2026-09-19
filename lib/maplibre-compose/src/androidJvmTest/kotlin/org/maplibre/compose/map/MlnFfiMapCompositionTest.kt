@@ -49,7 +49,6 @@ import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
-import kotlinx.coroutines.Dispatchers
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.const
@@ -82,7 +81,7 @@ class MlnFfiMapCompositionTest {
   // Compose and the test drive this map from different threads in the desktop and device
   // harnesses, so the runtime opts out of main-thread confinement here.
   private val runtimeOptions =
-    MapRuntimeOptions(cacheFile = cacheFile, mainDispatcher = Dispatchers.Unconfined)
+    MapRuntimeOptions(cacheFile = cacheFile, mainDispatcher = UnconfinedTestMain)
 
   /** Camera round trips lose a little precision through the projection. */
   private val POSITION_TOLERANCE = 1e-4

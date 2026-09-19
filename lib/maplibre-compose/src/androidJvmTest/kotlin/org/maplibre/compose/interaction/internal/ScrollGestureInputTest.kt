@@ -26,11 +26,10 @@ import kotlin.time.Duration.Companion.milliseconds
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.ModifierMatch
 import org.maplibre.compose.interaction.ScrollResponse
-import org.maplibre.compose.map.GestureTestFixture
 
 @OptIn(ExperimentalAtomicApi::class, ExperimentalTestApi::class)
 class ScrollGestureInputTest {
-  private val fixture = GestureTestFixture()
+  private val fixture = composeGestureFixture()
 
   @AfterTest fun closeMap() = fixture.close()
 

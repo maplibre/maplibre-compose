@@ -14,7 +14,9 @@ import org.maplibre.compose.style.BaseStyle
 class RememberMapStyleTest {
   @Test
   fun recomposition_updates_the_owned_base_style_without_replacing_the_map() = runComposeUiTest {
-    val runtime = mapRuntimeForTest()
+    // This harness composes on one thread and drives the test from another, so the map has no
+    // single main thread here.
+    val runtime = mapRuntimeForTest(mainDispatcher = UnconfinedTestMain)
     val seed = mutableStateOf<BaseStyle>(BaseStyle.Empty)
     lateinit var state: MapState
     setContent {

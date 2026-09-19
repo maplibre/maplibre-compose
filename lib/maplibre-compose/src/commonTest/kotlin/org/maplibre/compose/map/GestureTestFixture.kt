@@ -3,6 +3,7 @@ package org.maplibre.compose.map
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.DpOffset
 import kotlin.time.Duration
+import kotlinx.coroutines.CoroutineDispatcher
 import org.maplibre.compose.camera.internal.BoxZoomFit
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.camera.internal.CameraInputToken
@@ -15,9 +16,13 @@ import org.maplibre.compose.interaction.internal.TapFamily
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.Position
 
-/** Records input responses while using the production attachment and camera authority. */
-internal class GestureTestFixture : AutoCloseable {
-  private val runtime = mapRuntimeForTest()
+/**
+ * Records input responses while using the production attachment and camera authority. The calling
+ * thread is the map's main thread unless [mainDispatcher] says otherwise.
+ */
+internal class GestureTestFixture(mainDispatcher: CoroutineDispatcher = TestMainDispatcher()) :
+  AutoCloseable {
+  private val runtime = mapRuntimeForTest(mainDispatcher = mainDispatcher)
   val state = runtime.createMapState(BaseStyle.Empty)
   val target = RecordingGestureTarget(state)
 

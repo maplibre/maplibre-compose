@@ -608,6 +608,7 @@ internal class MapStyleAuthority(
     binding: StyleBinding,
     action: () -> T,
   ): T {
+    lifecycle.requireMain()
     requireStyleHandle(binding)
     val result = action()
     requireStyleHandle(binding)

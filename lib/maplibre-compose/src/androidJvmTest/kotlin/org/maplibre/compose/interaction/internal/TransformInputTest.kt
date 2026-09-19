@@ -25,13 +25,12 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.internal.CameraInputToken
 import org.maplibre.compose.interaction.DragResponse
 import org.maplibre.compose.interaction.PointerButton
-import org.maplibre.compose.map.GestureTestFixture
 import org.maplibre.compose.map.RecordingGestureTarget
 import org.maplibre.compose.mlnffi.runPlainComposeUiTest
 
 @OptIn(ExperimentalAtomicApi::class, ExperimentalTestApi::class)
 class TransformInputTest {
-  private val fixture = GestureTestFixture()
+  private val fixture = composeGestureFixture()
 
   @AfterTest fun closeMap() = fixture.close()
 

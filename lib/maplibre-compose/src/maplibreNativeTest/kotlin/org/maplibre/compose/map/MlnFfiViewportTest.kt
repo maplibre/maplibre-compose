@@ -9,7 +9,6 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.camera.CameraAnimation
@@ -37,20 +36,19 @@ class MlnFfiViewportTest {
         fixture.session.getCameraPosition().zoom == start.zoom
       }
       val target = start.copy(zoom = 8.0, bearing = 90.0)
-      val animation =
-        async(Dispatchers.Default) {
-          state.animateCamera(target.toCameraUpdate(), CameraAnimation.Ease(2.seconds))
-        }
-      fixture.pumpUntil("the camera animation to advance") {
+      val animation = async {
+        state.animateCamera(target.toCameraUpdate(), CameraAnimation.Ease(2.seconds))
+      }
+      fixture.awaitUntil("the camera animation to advance") {
         fixture.session.getCameraPosition().zoom > start.zoom + 0.1
       }
       assertFalse(animation.isCompleted, "the inset update must happen during the animation")
       val before = fixture.session.getCameraPosition()
       fixture.session.setViewportInsets(PaddingValues(top = 24.dp))
-      fixture.pump(frames = 2)
+      fixture.awaitFrames(frames = 2)
       assertFalse(animation.isCompleted, "changing insets must not finish unrelated tracks")
       assertTrue(state.isCameraMoving, "ending the inset command must not report the camera idle")
-      fixture.pumpUntil("the camera animation to finish after changing insets") {
+      fixture.awaitUntil("the camera animation to finish after changing insets") {
         animation.isCompleted
       }
       animation.await()
@@ -85,12 +83,12 @@ class MlnFfiViewportTest {
       fixture.session.setViewportInsets(PaddingValues(top = 24.dp))
       val target = CameraPosition(target = Position(-74.006, 40.7128), zoom = 5.0)
       val animation =
-        async(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
+        async(start = CoroutineStart.UNDISPATCHED) {
           state.animateCamera(target.toCameraUpdate(), CameraAnimation.Fly(200.milliseconds))
         }
       // Let the owner accept the animation before any render target has attached.
       fixture.session.readMap {}
-      fixture.pumpUntil("the startup animation to finish") { animation.isCompleted }
+      fixture.awaitUntil("the startup animation to finish") { animation.isCompleted }
       animation.await()
       assertEquals(target.zoom, fixture.session.getCameraPosition().zoom, 0.0001)
     }

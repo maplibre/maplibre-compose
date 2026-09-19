@@ -84,8 +84,8 @@ internal data class PendingAttachment(
 internal class MapLifecycleAuthority(
   private val owner: MapState,
   private val physicalScope: CoroutineScope,
-  private val mainDispatcher: CoroutineDispatcher = Dispatchers.Unconfined,
-  private val mainThread: MainThreadGuard = MainThreadGuard(mainDispatcher),
+  private val mainDispatcher: CoroutineDispatcher,
+  private val mainThread: MainThreadGuard,
 ) {
   internal val gestureCamera: CameraInputAuthority
     get() = owner.gestureAuthority
@@ -119,12 +119,13 @@ internal class MapLifecycleAuthority(
   @Volatile private var snapshot = Snapshot()
 
   /**
-   * Platform callbacks run on engine threads and closure runs on main. The one thing they must
-   * agree on is that closure waits for a callback in progress, which this lock provides.
+   * Platform callbacks run on engine threads; closure and adapter retirement run on main. They
+   * agree under this lock that a callback in progress finishes before its adapter is torn down.
    */
   private val platformAccessLock = reentrantLock()
-  private var platformAccessDepth = 0
+  private val platformAccessDepth = mutableMapOf<MapAdapter, Int>()
   private var closeAfterPlatformAccess = false
+  private val retireAfterPlatformAccess = mutableSetOf<MapAdapter>()
 
   /** True once [close] has been requested, readable from any thread. */
   val isClosed: Boolean
@@ -142,7 +143,7 @@ internal class MapLifecycleAuthority(
   private fun closeOnMain() {
     requireMain()
     val deferred = platformAccessLock.withLock {
-      if (platformAccessDepth > 0) {
+      if (platformAccessDepth.isNotEmpty()) {
         closeAfterPlatformAccess = true
         true
       } else {
@@ -232,7 +233,7 @@ internal class MapLifecycleAuthority(
     publishSnapshot()
     owner.attachmentAuthority.seedPresentationViewport(token, adapter)
     if (retainedToReplace != null) {
-      retainedToReplace.close()
+      retireAdapter(retainedToReplace)
       physicalScope.launch {
         val failure = runCatching { retainedToReplace.awaitClosed() }.exceptionOrNull()
         withContext(mainDispatcher) {
@@ -311,7 +312,8 @@ internal class MapLifecycleAuthority(
   }
 
   /** Whether [adapter] is the presentation or retained engine. Readable from any thread. */
-  fun acceptsAdapter(adapter: MapAdapter): Boolean = snapshot.acceptsAdapter(adapter)
+  fun acceptsAdapter(adapter: MapAdapter): Boolean =
+    !closeRequested.load() && snapshot.acceptsAdapter(adapter)
 
   fun isPendingPublication(adapter: MapAdapter): Boolean {
     requireMain()
@@ -320,7 +322,9 @@ internal class MapLifecycleAuthority(
 
   /** Whether [adapter] is the published presentation. Readable from any thread. */
   fun acceptsPresentation(adapter: MapAdapter): Boolean =
-    snapshot.acceptsPresentation(adapter) && owner.currentMapAttachment?.adapter === adapter
+    !closeRequested.load() &&
+      snapshot.acceptsPresentation(adapter) &&
+      owner.currentMapAttachment?.adapter === adapter
 
   fun currentAdapter(): MapAdapter? {
     requireMain()
@@ -353,17 +357,21 @@ internal class MapLifecycleAuthority(
     return adapter
   }
 
-  /** Runs a platform callback on the calling engine thread; closure waits for it. */
+  /**
+   * Runs a platform callback on the calling engine thread. Closure and the retirement of [adapter]
+   * wait for it; a close request made before it starts rejects it.
+   */
   fun acceptEnginePlatformAccess(adapter: MapAdapter, event: () -> Unit): Boolean =
-    acceptPlatformAccess(accepts = { snapshot.acceptsAdapter(adapter) }, event)
+    acceptPlatformAccess(adapter, accepts = { acceptsAdapter(adapter) }, event)
 
   fun acceptPresentationPlatformAccess(adapter: MapAdapter, event: () -> Unit): Boolean =
-    acceptPlatformAccess(accepts = { acceptsPresentation(adapter) }, event)
+    acceptPlatformAccess(adapter, accepts = { acceptsPresentation(adapter) }, event)
 
   /** Whether [token] and [adapter] are the published presentation. Readable from any thread. */
   fun isCurrent(token: MapPresentationToken, adapter: MapAdapter): Boolean {
     val seen = snapshot
-    return !seen.closed &&
+    return !closeRequested.load() &&
+      !seen.closed &&
       seen.token == token &&
       seen.adapter === adapter &&
       owner.currentMapAttachment?.let { it.token == token && it.adapter === adapter } == true
@@ -404,8 +412,9 @@ internal class MapLifecycleAuthority(
     if (wasAttached || wasRetained) owner.attachmentAuthority.invalidateClosedAdapter(session)
   }
 
+  /** A close request rejects new work at once; it does not wait for the closure to commit. */
   private fun requireOpen() {
-    check(!closed) { "The map state is closed" }
+    check(!isClosed) { "The map state is closed" }
   }
 
   private fun selectAdapter(current: Attachment, adapter: MapAdapter) {
@@ -428,28 +437,50 @@ internal class MapLifecycleAuthority(
       )
   }
 
-  private fun acceptPlatformAccess(accepts: () -> Boolean, event: () -> Unit): Boolean {
+  private fun acceptPlatformAccess(
+    adapter: MapAdapter,
+    accepts: () -> Boolean,
+    event: () -> Unit,
+  ): Boolean {
     var commitDeferredClose = false
+    var retire = false
     try {
       platformAccessLock.withLock {
         if (!accepts()) return false
-        platformAccessDepth++
+        platformAccessDepth[adapter] = (platformAccessDepth[adapter] ?: 0) + 1
       }
       try {
         event()
       } finally {
         platformAccessLock.withLock {
-          platformAccessDepth--
-          if (platformAccessDepth == 0 && closeAfterPlatformAccess) {
-            closeAfterPlatformAccess = false
-            commitDeferredClose = true
+          val depth = checkNotNull(platformAccessDepth[adapter]) - 1
+          if (depth > 0) {
+            platformAccessDepth[adapter] = depth
+          } else {
+            platformAccessDepth.remove(adapter)
+            retire = retireAfterPlatformAccess.remove(adapter)
+            if (platformAccessDepth.isEmpty() && closeAfterPlatformAccess) {
+              closeAfterPlatformAccess = false
+              commitDeferredClose = true
+            }
           }
         }
       }
       return true
     } finally {
+      if (retire) postToMain { adapter.close() }
       if (commitDeferredClose) postToMain { closeOnMain() }
     }
+  }
+
+  /** Closes a replaced adapter, after any platform callback that is running on it. */
+  private fun retireAdapter(adapter: MapAdapter) {
+    val deferred = platformAccessLock.withLock {
+      val running = (platformAccessDepth[adapter] ?: 0) > 0
+      if (running) retireAfterPlatformAccess += adapter
+      running
+    }
+    if (!deferred) adapter.close()
   }
 
   private fun completeClosure(result: Result<Unit>) {
@@ -490,8 +521,8 @@ internal class MapLifecycleAuthority(
 internal class MapLifecycleBinding(
   private val adapter: MapLifecyclePlatformAdapter,
   private val physicalScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
-  private val mainDispatcher: CoroutineDispatcher = Dispatchers.Unconfined,
-  private val mainThread: MainThreadGuard = MainThreadGuard(mainDispatcher),
+  private val mainDispatcher: CoroutineDispatcher,
+  private val mainThread: MainThreadGuard,
   private val onClosing: (MapLifecycleBinding) -> Unit = {},
 ) {
   /** See [MapLifecycleAuthority.postToMain]. */
@@ -499,8 +530,8 @@ internal class MapLifecycleBinding(
 
   private val nextIdentity = AtomicLong(0L)
   private val current = AtomicReference<InternalState>(InternalState.OpenDetached(null))
-  private val currentStyle = AtomicReference<StyleClaim?>(null)
-  private val currentStyleRequest = AtomicReference<StyleRequestClaim?>(null)
+  /** The requested and loaded style together, so a claim cannot outlive its request. */
+  private val styleState = AtomicReference(StyleState())
   private val closure = CompletableDeferred<Result<Unit>>()
 
   val engineIdentity: EngineMapIdentity?
@@ -512,8 +543,7 @@ internal class MapLifecycleBinding(
   fun claimStyleRequestIdentity(engine: EngineMapIdentity): StyleRequestIdentity? {
     if (!acceptEngineIdentity(engine)) return null
     val identity = StyleRequestIdentity(nextIdentity.incrementAndFetch())
-    currentStyle.store(null)
-    currentStyleRequest.store(StyleRequestClaim(engine, identity))
+    styleState.store(StyleState(request = StyleRequestClaim(engine, identity)))
     return identity
   }
 
@@ -523,7 +553,7 @@ internal class MapLifecycleBinding(
     event: () -> Unit,
   ): Boolean {
     if (!acceptEngineIdentity(engine)) return false
-    if (currentStyleRequest.load() != StyleRequestClaim(engine, request)) return false
+    if (styleState.load().request != StyleRequestClaim(engine, request)) return false
     event()
     return true
   }
@@ -534,26 +564,36 @@ internal class MapLifecycleBinding(
       return observed !is InternalState.Closing && observed !== InternalState.Closed
     }
 
-  /** Claims a loaded style and delivers it; the claim is visible before [event] runs. */
+  /**
+   * Claims a loaded style for [request] and delivers it; the claim is visible before [event] runs.
+   * The check against the current request and the claim are one compare-and-set, so a request that
+   * replaces [request] meanwhile rejects the claim instead of leaving a stale style claimed.
+   */
   fun claimStyleIdentity(
     engine: EngineMapIdentity,
     request: StyleRequestIdentity,
     event: (StyleIdentity) -> Unit,
   ): StyleIdentity? {
     if (!acceptEngineIdentity(engine)) return null
-    if (currentStyleRequest.load() != StyleRequestClaim(engine, request)) return null
     val identity = StyleIdentity(nextIdentity.incrementAndFetch())
-    currentStyle.store(StyleClaim(engine, identity))
+    while (true) {
+      val observed = styleState.load()
+      if (observed.request != StyleRequestClaim(engine, request)) return null
+      val claimed = StyleState(observed.request, StyleClaim(engine, identity))
+      if (styleState.compareAndSet(observed, claimed)) break
+    }
     event(identity)
     return identity
   }
 
   fun invalidateStyleIdentity(engine: EngineMapIdentity): Boolean {
     if (!acceptEngineIdentity(engine)) return false
-    val claimed = currentStyle.load() ?: return true
-    if (claimed.engine != engine) return false
-    currentStyle.store(null)
-    return true
+    while (true) {
+      val observed = styleState.load()
+      val claimed = observed.style ?: return true
+      if (claimed.engine != engine) return false
+      if (styleState.compareAndSet(observed, StyleState(observed.request))) return true
+    }
   }
 
   /** Accepts an engine-durable event, including while a retained native engine is detached. */
@@ -570,7 +610,7 @@ internal class MapLifecycleBinding(
     event: () -> Unit,
   ): Boolean {
     if (!acceptEngineIdentity(engine)) return false
-    if (currentStyle.load() != StyleClaim(engine, style)) return false
+    if (styleState.load().style != StyleClaim(engine, style)) return false
     event()
     return true
   }
@@ -736,8 +776,7 @@ internal class MapLifecycleBinding(
       runCatching { adapter.destroyEngine(creating.engine) }
         .exceptionOrNull()
         ?.let(failure::addSuppressed)
-      currentStyle.store(null)
-      currentStyleRequest.store(null)
+      styleState.store(StyleState())
     }
     current.compareAndSet(creating, InternalState.OpenDetached(outcome.getOrNull()))
     creating.result.complete(outcome)
@@ -785,8 +824,7 @@ internal class MapLifecycleBinding(
         engineCreated = AtomicBoolean(false),
       )
     if (!current.compareAndSet(observed, replacing)) return false
-    currentStyle.store(null)
-    currentStyleRequest.store(null)
+    styleState.store(StyleState())
     physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
       performEngineReplacement(engine, replacing)
     }
@@ -932,8 +970,7 @@ internal class MapLifecycleBinding(
         runCatching { adapter.destroyEngine(attaching.engine) }
           .exceptionOrNull()
           ?.let(error::addSuppressed)
-        currentStyle.store(null)
-        currentStyleRequest.store(null)
+        styleState.store(StyleState())
       }
       current.compareAndSet(
         attaching,
@@ -988,8 +1025,7 @@ internal class MapLifecycleBinding(
     val destroyEngine = adapter.engineRetention == EngineRetention.DESTROY || !engineCreated
     if (destroyEngine) {
       collectFailure(failures) { adapter.destroyEngine(detaching.engine) }
-      currentStyle.store(null)
-      currentStyleRequest.store(null)
+      styleState.store(StyleState())
     }
     val outcome = failures.cleanupResult("Map")
     val nextEngine =
@@ -1025,8 +1061,7 @@ internal class MapLifecycleBinding(
     if (engine != null && !detachAlreadyDestroyedEngine) {
       collectFailure(failures) { adapter.destroyEngine(engine) }
     }
-    currentStyle.store(null)
-    currentStyleRequest.store(null)
+    styleState.store(StyleState())
     collectFailure(failures) { adapter.closeResources() }
 
     current.compareAndSet(closing, InternalState.Closed)
@@ -1045,6 +1080,11 @@ internal class MapLifecycleBinding(
   }
 
   private data class StyleClaim(val engine: EngineMapIdentity, val style: StyleIdentity)
+
+  private data class StyleState(
+    val request: StyleRequestClaim? = null,
+    val style: StyleClaim? = null,
+  )
 
   private data class StyleRequestClaim(
     val engine: EngineMapIdentity,
