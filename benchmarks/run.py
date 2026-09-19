@@ -93,15 +93,26 @@ def android(args, output, metadata):
     if metadata["animator_duration_scale"] != 1.0:
         raise ValueError("Android capture requires animator duration scale 1×")
     apk = args.app or "demo-app/android/build/outputs/apk/release/android-release.apk"
-    call(*adb, "install", "-r", apk)
-    installed = (
-        call(*adb, "shell", "pm", "path", PACKAGE)
-        .splitlines()[0]
-        .removeprefix("package:")
-    )
     digest = hashlib.sha256(Path(apk).read_bytes()).hexdigest()
-    if call(*adb, "shell", "sha256sum", installed).split()[0] != digest:
-        raise ValueError("Installed APK does not match the requested artifact")
+
+    def installed_digest():
+        paths = subprocess.run(
+            [*adb, "shell", "pm", "path", PACKAGE],
+            text=True,
+            capture_output=True,
+            check=False,
+        ).stdout.splitlines()
+        if not paths:
+            return None
+        installed = paths[0].removeprefix("package:")
+        return call(*adb, "shell", "sha256sum", installed).split()[0]
+
+    # Installing triggers an install-time compile that competes with the app for its whole
+    # first minute; skip it when this artifact is already installed.
+    if installed_digest() != digest:
+        call(*adb, "install", "-r", apk)
+        if installed_digest() != digest:
+            raise ValueError("Installed APK does not match the requested artifact")
     metadata.update(
         apk_sha256=digest,
         fingerprint=call(*adb, "shell", "getprop", "ro.build.fingerprint"),
