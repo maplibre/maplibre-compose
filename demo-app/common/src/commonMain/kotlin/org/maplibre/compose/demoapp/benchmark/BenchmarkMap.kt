@@ -19,7 +19,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,49 +27,42 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import kotlin.math.PI
-import kotlin.math.sin
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.camera.CameraAnimation
-import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.MapViewportInsets
+import org.maplibre.compose.demoapp.benchmark.scenarios.BenchmarkSceneState
+import org.maplibre.compose.demoapp.benchmark.scenarios.benchmarkScenarioSpec
 import org.maplibre.compose.map.DefaultMapRuntime
+import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.map.StyleLoadState
-import org.maplibre.compose.style.BaseStyle
-import org.maplibre.spatialk.geojson.Position
-
-private val Origin = Position(0.0, 0.0)
-
-private fun camera(x: Double) = CameraPosition(target = Position(x * 0.002, 0.0), zoom = 15.0)
 
 /** [viewportInsets] keeps the placeholder text out from under the panel. */
 @Composable
 internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
   val ui = state.benchmark
   val runId = ui.runId
+  val config = ui.config
   Box(Modifier.fillMaxSize().background(Color(0xff202020))) {
-    if (ui.runId == 0)
+    if (config == null || runId == 0)
       Text(
         "Choose settings and run the benchmark.",
         Modifier.padding(viewportInsets.asPaddingValues()).align(Alignment.Center).padding(24.dp),
         color = Color.LightGray,
       )
     else
-      key(ui.runId, state.selectedScenario) {
-        val config = remember {
-          BenchmarkConfig(state.selectedScenario, ui.surface, ui.maximumFps, ui.load)
-        }
+      key(runId) {
         BenchmarkRun(config) { status, running ->
-          if (ui.runId == runId && state.selectedScenario == config.scenario) {
+          if (ui.runId == runId) {
             ui.status = status
             ui.running = running
           }
@@ -79,16 +71,28 @@ internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets
   }
 }
 
-/** The same isolated scene is used by the demo panel and the command-line capture adapters. */
+/**
+ * The shared measurement protocol: wait for the style and viewport, warm up, mark the interval, run
+ * the scenario workload, then close the map. Scenario content and workloads live in
+ * `benchmark/scenarios`.
+ */
 @Composable
 internal fun BenchmarkRun(
   config: BenchmarkConfig,
   onStatus: (String, Boolean) -> Unit = { _, _ -> },
 ) {
-  val style = remember(config.load) { benchmarkStyle(config.load) }
-  val state = remember {
-    DefaultMapRuntime.instance.createMapState(baseStyle = style, cameraPosition = camera(-1.0))
-  }
+  val spec = remember(config) { benchmarkScenarioSpec(config.scenario) }
+  val scene = remember(config) { BenchmarkSceneState() }
+  val state =
+    remember(config) {
+      DefaultMapRuntime.instance.createMapState(
+        baseStyle = spec.style(config),
+        cameraPosition = benchmarkCamera(-1.0),
+      ) {
+        spec.Content(LocalMapState.current!!, config, scene)
+      }
+    }
+  val recorder = remember(config) { BenchmarkFrameRecorder() }
   DisposableEffect(state) { onDispose { state.close() } }
   val density = LocalDensity.current.density
   var measuring by remember { mutableStateOf(false) }
@@ -97,45 +101,44 @@ internal fun BenchmarkRun(
   BenchmarkPlatformMetrics(collectingMetrics)
   LaunchedEffect(state, config) {
     var traced = false
+    var recorded = false
     var complete = false
     try {
       onStatus("Loading", true)
-      withTimeout(15000) {
-        snapshotFlow { state.style.loadState }
-          .first { it is StyleLoadState.Ready || it is StyleLoadState.Failed }
-        check(state.style.loadState is StyleLoadState.Ready) { "Benchmark style failed to load" }
-        snapshotFlow { state.viewport }.first { it != null }
+      try {
+        withTimeout(15000) {
+          snapshotFlow { state.style.loadState }
+            .first { it is StyleLoadState.Ready || it is StyleLoadState.Failed }
+          check(state.style.loadState is StyleLoadState.Ready) {
+            "Benchmark style failed to load"
+          }
+          snapshotFlow { state.viewport }.first { it != null }
+        }
+      } catch (e: TimeoutCancellationException) {
+        // A timeout is a workload failure, not caller cancellation; report it as an error.
+        error("Timed out waiting for the style and viewport")
       }
       println("MAP_BENCHMARK START ${config.encode()} $density")
       onStatus("Warming up", true)
       delay(3000)
-      // Run the same animation once before measurement to warm the map and Compose paths.
-      state.animateCamera(camera(1.0).toCameraUpdate(), CameraAnimation.Fly(500.milliseconds))
-      state.animateCamera(camera(-1.0).toCameraUpdate(), CameraAnimation.Fly(500.milliseconds))
+      // Run the same camera path once before measurement to warm the map and Compose paths.
+      state.animateCamera(
+        benchmarkCamera(1.0).toCameraUpdate(),
+        CameraAnimation.Fly(500.milliseconds),
+      )
+      state.animateCamera(
+        benchmarkCamera(-1.0).toCameraUpdate(),
+        CameraAnimation.Fly(500.milliseconds),
+      )
       delay(500)
       benchmarkTrace(true)
       traced = true
+      recorder.start(this, state.events)
+      recorded = true
       measuring = true
       println("MAP_BENCHMARK MEASURE")
       onStatus(if (config.scenario == BenchmarkScenario.Input) "Tap the map" else "Measuring", true)
-      when (config.scenario) {
-        BenchmarkScenario.Animation ->
-          repeat(8) {
-            state.animateCamera(
-              camera(if (it % 2 == 0) 1.0 else -1.0).toCameraUpdate(),
-              CameraAnimation.Fly(1500.milliseconds),
-            )
-          }
-        BenchmarkScenario.Setters -> {
-          val start = withFrameNanos { it }
-          while (true) {
-            val seconds = (withFrameNanos { it } - start) / 1e9
-            if (seconds >= 12.0) break
-            state.setCameraPosition(camera(-sin(seconds * 2 * PI / 3 + PI / 2)))
-          }
-        }
-        BenchmarkScenario.Input -> delay(12000)
-      }
+      spec.workload(state, config, scene)
       complete = true
     } catch (e: CancellationException) {
       throw e
@@ -148,6 +151,8 @@ internal fun BenchmarkRun(
       collectingMetrics = false
       // Closing is part of a completed run; cancellation must also release its map runtime.
       withContext(NonCancellable) {
+        // Stopping suspends, so it must run even when cancellation reaches this block.
+        if (recorded) recorder.stop()
         if (complete)
           delay(200) // Let the inactive gate reach the compositor before removing the map.
         state.close()
@@ -161,16 +166,19 @@ internal fun BenchmarkRun(
     }
   }
   Box(Modifier.fillMaxSize().background(Color(0xff202020))) {
-    MaplibreMap(
-      state = state,
-      uiOptions = benchmarkMapOptions(config),
-      renderOptions = RenderOptions { maximumFps = config.maximumFps },
-      overlay = {
-        Canvas(Modifier.placedAt(Origin).size(44.dp)) {
-          drawCircle(Color.Cyan, 20.dp.toPx(), style = Stroke(3.dp.toPx()))
-        }
-      },
-    )
+    Box(Modifier.fillMaxSize(scene.sizeFraction).align(Alignment.Center)) {
+      MaplibreMap(
+        state = state,
+        viewportInsets = scene.viewportInsets,
+        uiOptions = benchmarkMapOptions(config),
+        renderOptions = RenderOptions { maximumFps = config.maximumFps },
+        overlay = {
+          Canvas(Modifier.placedAt(BenchmarkOrigin).size(44.dp)) {
+            drawCircle(Color.Cyan, 20.dp.toPx(), style = Stroke(3.dp.toPx()))
+          }
+        },
+      )
+    }
     // Input goes through the platform event pipeline. Each press causes a discrete, visible step.
     if (config.scenario == BenchmarkScenario.Input) {
       Box(
@@ -181,7 +189,7 @@ internal fun BenchmarkRun(
               if (measuring && event.type == PointerEventType.Press) {
                 inputSequence++
                 benchmarkInput(inputSequence, event.changes.first().uptimeMillis)
-                state.setCameraPosition(camera(if (inputSequence % 2 == 1) 1.0 else -1.0))
+                state.setCameraPosition(benchmarkCamera(if (inputSequence % 2 == 1) 1.0 else -1.0))
               }
               event.changes.forEach { it.consume() }
             }
@@ -195,17 +203,4 @@ internal fun BenchmarkRun(
       Box(Modifier.size(16.dp).background(Color.Magenta))
     }
   }
-}
-
-/** A network-free reference marker with optional deterministic gray geometry to increase work. */
-internal fun benchmarkStyle(load: Int): BaseStyle {
-  val points =
-    (0 until load).joinToString(",") { i ->
-      val x = ((i * 73 % 997) / 997.0 - 0.5) * 0.02
-      val y = ((i * 137 % 991) / 991.0 - 0.5) * 0.01
-      "[$x,$y]"
-    }
-  return BaseStyle.Json(
-    """{"version":8,"sources":{"point":{"type":"geojson","data":{"type":"Point","coordinates":[0,0]}},"load":{"type":"geojson","data":{"type":"MultiPoint","coordinates":[$points]}}},"layers":[{"id":"background","type":"background","paint":{"background-color":"#202020"}},{"id":"load","type":"circle","source":"load","paint":{"circle-radius":8,"circle-color":"#505050"}},{"id":"point","type":"circle","source":"point","paint":{"circle-radius":10,"circle-color":"#ff0000","circle-pitch-alignment":"map"}}]}"""
-  )
 }

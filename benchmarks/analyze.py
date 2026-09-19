@@ -9,6 +9,64 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+# Per-scenario validation. camera_motion requires the map marker to move at least 40 dp; scenarios
+# whose workload does not move the camera verify markers, span, and samples only. min_coverage
+# loosens the both-markers-present check where the workload legitimately blanks the map.
+SCENARIO_PROFILES = {
+    "animation": {"camera_motion": True},
+    "setters": {"camera_motion": True},
+    "input": {"camera_motion": True},
+    "style-complex": {"camera_motion": True},
+    "style-swap": {"camera_motion": False, "min_coverage": 0.90},
+    "style-mutate": {"camera_motion": False},
+    "geojson-update": {"camera_motion": False},
+    "padding": {"camera_motion": True},
+    "images": {"camera_motion": False},
+    "resize": {"camera_motion": False},
+}
+DEFAULT_PROFILE = {"camera_motion": False}
+
+
+def profile_for(config):
+    return SCENARIO_PROFILES.get(config.split(",")[0], DEFAULT_PROFILE)
+
+
+def config_matches(requested, logged):
+    """
+    Compares a requested configuration with the one a START line logged.
+
+    The app logs every parameter it decoded, while an invocation may state only some of them, so
+    every requested parameter must equal the logged one. A missing or empty requested object means
+    the scenario defaults; an empty logged object cannot verify a non-empty request.
+    """
+    requested_fields = requested.split(",", 4)
+    logged_fields = logged.split(",", 4)
+    if requested_fields[:4] != logged_fields[:4]:
+        return False
+    requested_params = requested_fields[4] if len(requested_fields) > 4 else ""
+    logged_params = logged_fields[4] if len(logged_fields) > 4 else ""
+    if requested_params in ("", "{}"):
+        return True
+    if logged_params in ("", "{}"):
+        return False
+    requested_object = json.loads(requested_params)
+    logged_object = json.loads(logged_params)
+    return all(
+        key in logged_object and logged_object[key] == value
+        for key, value in requested_object.items()
+    )
+
+
+def configs_equal(first, second):
+    """True when two requested configurations describe the same scenario and parameters."""
+    return config_matches(first, second) and config_matches(second, first)
+
+
+def logged_config(logs):
+    """The configuration a START line logged, or None when the log has no complete line."""
+    match = re.search(r"MAP_BENCHMARK START (.+?) ([\d.]+)[ \t]*$", logs, re.MULTILINE)
+    return match[1] if match else None
+
 
 def distribution(values):
     values = np.asarray(values, dtype=float)
@@ -95,11 +153,26 @@ def input_response(rows, events):
     return output
 
 
+def largest_component(mask):
+    """The largest connected blob in a binary mask, or None. Ignore anti-aliased stray pixels."""
+    count, _, stats, centers = cv2.connectedComponentsWithStats(mask, connectivity=8)
+    if count <= 1:
+        return None
+    index = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
+    return {
+        "area": int(stats[index, cv2.CC_STAT_AREA]),
+        "bbox": tuple(int(v) for v in stats[index, :4]),
+        "center": tuple(float(v) for v in centers[index]),
+    }
+
+
 def measurement_gate(hsv, density):
     """A green square followed by a magenta square identifies the scenario, not the launcher."""
     corner = hsv[: hsv.shape[0] // 4, : hsv.shape[1] // 4]
-    tag = cv2.inRange(corner, (140, 90, 150), (169, 255, 255))
-    x, y, width, height = cv2.boundingRect(tag)
+    tag = largest_component(cv2.inRange(corner, (140, 90, 150), (169, 255, 255)))
+    if tag is None:
+        return False
+    x, y, width, height = tag["bbox"]
     if not (
         10 * density <= width <= 20 * density and 10 * density <= height <= 20 * density
     ):
@@ -118,8 +191,8 @@ def read_run(directory):
     directory = Path(directory)
     metadata = json.loads((directory / "metadata.json").read_text())
     logs = (directory / "app.log").read_text()
-    start = re.findall(r"MAP_BENCHMARK START (\S+) ([\d.]+)", logs)
-    if len(start) != 1 or start[0][0] != metadata["config"]:
+    start = re.findall(r"MAP_BENCHMARK START (.+?) ([\d.]+)[ \t]*$", logs, re.MULTILINE)
+    if len(start) != 1 or not config_matches(metadata["config"], start[0][0]):
         raise ValueError("Capture does not match exactly one requested benchmark")
     if (
         "MAP_BENCHMARK CLOSED" not in logs
@@ -181,18 +254,17 @@ def analyze(directory):
             )
             points = []
             for mask in masks:
-                moments = cv2.moments(mask, binaryImage=True)
-                _, _, width, height = cv2.boundingRect(mask)
+                component = largest_component(mask)
+                if component is None:
+                    break
+                _, _, width, height = component["bbox"]
                 if (
-                    moments["m00"] < 30
+                    component["area"] < 30
                     or width > frame.shape[1] * 0.4
                     or height > frame.shape[0] * 0.4
                 ):
                     break
-                points += [
-                    moments["m10"] / moments["m00"],
-                    moments["m01"] / moments["m00"],
-                ]
+                points += list(component["center"])
             if len(points) == 4:
                 rows.append([timestamp, *points])
                 if len(rows) == 1:
@@ -201,7 +273,10 @@ def analyze(directory):
         capture.release()
     if boot_times is not None and len(boot_times) != frame_index:
         raise ValueError("Video and clock metadata have different frame counts")
-    if len(rows) < (10 if is_input else minimum_samples) or len(rows) < active * 0.98:
+    profile = profile_for(metadata["config"])
+    if len(rows) < (10 if is_input else minimum_samples) or len(
+        rows
+    ) < active * profile.get("min_coverage", 0.98):
         raise ValueError(f"Insufficient marker coverage: {len(rows)}/{active}")
     data = np.asarray(rows)
     intervals = np.diff(data[:, 0]) / 1e6
@@ -213,7 +288,7 @@ def analyze(directory):
         or measurement_end - data[0, 0] < 11e9
     ):
         raise ValueError("Invalid timestamps or truncated measurement")
-    if np.ptp(data[:, 1]) / density < 40:
+    if profile["camera_motion"] and np.ptp(data[:, 1]) / density < 40:
         raise ValueError("Map marker did not move")
     separation = np.linalg.norm(data[:, 1:3] - data[:, 3:5], axis=1)
     result = {

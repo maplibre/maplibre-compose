@@ -5,8 +5,106 @@ import math
 import re
 from pathlib import Path
 
-from analyze import distribution, read_run
+from analyze import distribution, logged_config, read_run
 from perfetto.trace_processor import TraceProcessor
+
+
+def frame_budget_ms(logs):
+    """The vsync budget implied by the logged configuration, defaulting to 60 Hz."""
+    config = logged_config(logs)
+    if config:
+        parts = config.split(",")
+        if len(parts) > 2 and parts[2] != "default":
+            try:
+                cap = int(parts[2])
+            except ValueError as error:
+                raise ValueError(f"Invalid logged FPS cap: {parts[2]}") from error
+            if cap <= 0:
+                raise ValueError(f"Invalid logged FPS cap: {parts[2]}")
+            return 1000 / cap
+    return 1000 / 60
+
+
+def parse_frame_json(text, description):
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as error:
+        raise ValueError(f"Malformed {description}: {error}") from error
+
+
+def finite_number(value):
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+    )
+
+
+def frames_metrics(logs):
+    """In-app frame intervals and native render timings from the frame recorder logs."""
+    reports = re.findall(r"MAP_BENCHMARK FRAMESTATS (\{[^\n]+\})", logs)
+    batches = re.findall(r"MAP_BENCHMARK FRAMETIMES (\[[^\n]+\])", logs)
+    if not reports and not batches:
+        return {"available": False, "reason": "No in-app frame timing report"}
+    if len(reports) != 1:
+        raise ValueError("Expected one in-app frame timing report")
+    summary = parse_frame_json(reports[0], "in-app frame timing summary")
+    if not isinstance(summary, dict):
+        # Corrupt log data, so a ValueError matches this module's other integrity errors.
+        raise ValueError("Invalid in-app frame timing summary")  # noqa: TRY004
+    records = [
+        sample
+        for index, batch in enumerate(batches)
+        for sample in parse_frame_json(batch, f"in-app frame timing batch {index}")
+    ]
+    if any(not isinstance(record, dict) for record in records):
+        raise ValueError("Invalid in-app frame timing record")
+    if summary.get("frames") != len(records):
+        raise ValueError("In-app frame timing log is incomplete")
+    duration = summary.get("duration_ms")
+    if duration is not None and (not finite_number(duration) or duration < 0):
+        raise ValueError("Invalid in-app frame timing summary")
+    intervals = [record.get("interval_ms") for record in records]
+    if not intervals or any(
+        not finite_number(value) or value < 0 for value in intervals
+    ):
+        raise ValueError("Invalid in-app frame interval")
+    budget = frame_budget_ms(logs)
+    encoding = [
+        record["encoding_ms"]
+        for record in records
+        if record.get("encoding_ms") is not None
+    ]
+    rendering = [
+        record["rendering_ms"]
+        for record in records
+        if record.get("rendering_ms") is not None
+    ]
+    draw_calls = [
+        record["draw_calls"]
+        for record in records
+        if record.get("draw_calls") is not None
+    ]
+    modes = {}
+    for record in records:
+        if record.get("mode") is not None:
+            modes[record["mode"]] = modes.get(record["mode"], 0) + 1
+    native = bool(encoding) or bool(rendering)
+    return {
+        "available": True,
+        "scope": "In-app map render loop; excludes display presentation, which video capture covers where available",
+        "frames": len(records),
+        "duration_ms": summary.get("duration_ms"),
+        "assumed_vsync_ms": budget,
+        "interval_ms": distribution(intervals),
+        "jank_over_1_5x": sum(value > 1.5 * budget for value in intervals),
+        "jank_over_2x": sum(value > 2.0 * budget for value in intervals),
+        "native_render_stats": native,
+        "encoding_ms": distribution(encoding),
+        "rendering_ms": distribution(rendering),
+        "draw_calls": distribution(draw_calls),
+        "modes": modes,
+    }
 
 
 def window_metrics(logs, start, end):
@@ -54,18 +152,23 @@ def window_metrics(logs, start, end):
 
 
 def process_cpu_metrics(logs):
+    """A performance report from logs alone; CPU is unavailable on platforms without a counter."""
     records = re.findall(r"MAP_BENCHMARK CPU (\S+)", logs)
-    if not records:
-        return None
-    if len(records) != 1:
+    frames = frames_metrics(logs)
+    if len(records) > 1:
         raise ValueError("Expected one process CPU measurement")
-    cpu = float(records[0])
-    if not math.isfinite(cpu) or cpu < 0:
+    cpu = float(records[0]) if records else None
+    if cpu is not None and (not math.isfinite(cpu) or cpu < 0):
         raise ValueError("Invalid process CPU measurement")
+    if cpu is None and not frames.get("available"):
+        return None
     return {
         "schema": 1,
         "cpu_ms": cpu,
-        "cpu_scope": "Process CPU counter delta across all app threads during the measurement interval",
+        "cpu_scope": "Process CPU counter delta across all app threads during the measurement interval"
+        if cpu is not None
+        else "No process CPU adapter for this platform",
+        "frames": frames,
         "gpu": {"available": False, "reason": "No GPU adapter for this platform"},
         "window": {
             "available": False,
@@ -150,6 +253,7 @@ def analyze_performance(directory):
             "duration_ms": (end - start) / 1e6,
             "cpu_ms": sum(t["cpu_ms"] for t in cpu),
             "cpu_threads": cpu,
+            "frames": frames_metrics(logs),
             "frame_timeline": {
                 "available": bool(frames),
                 "scope": "Only layers represented by Android FrameTimeline; TX entries are transactions, not a count of displayed map buffers",

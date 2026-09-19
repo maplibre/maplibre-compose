@@ -9,25 +9,114 @@ import functools
 import hashlib
 import http.server
 import json
+import math
 import os
 import platform
 import re
+import shlex
 import shutil
 import signal
 import subprocess
+import sys
 import tempfile
 import threading
 import time
 from contextlib import contextmanager
 from pathlib import Path
 
-from analyze import analyze, read_run
+from analyze import analyze, configs_equal, logged_config, read_run
 from performance import analyze_performance, process_cpu_metrics
 
 ROOT = Path(__file__).resolve().parent
 PACKAGE = "org.maplibre.compose.demoapp"
 # 15 s readiness + 4.5 s warm-up + 12 s workload + 10 s shutdown, plus launch margin.
 RUN_TIMEOUT = 60
+
+# Keep in sync with BenchmarkScenario in BenchmarkModels.kt.
+SCENARIOS = (
+    "animation",
+    "setters",
+    "input",
+    "style-complex",
+    "style-swap",
+    "style-mutate",
+    "geojson-update",
+    "padding",
+    "images",
+    "resize",
+)
+
+CONFIG_PATTERN = re.compile(
+    r"(?P<scenario>[a-z][a-z0-9-]*),(?P<surface>surface|texture),"
+    r"(?P<fps>default|[1-9][0-9]{0,2}),(?P<load>0|[1-9][0-9]{0,4})(?:,(?P<params>.+))?"
+)
+
+
+def reject_constant(value):
+    """json.loads callback that rejects NaN and Infinity, which strict JSON forbids."""
+    raise ValueError(f"Params must not contain {value}")
+
+
+def parse_finite(value):
+    """json.loads float hook that also rejects overflow such as 1e999, which parses as inf."""
+    parsed = float(value)
+    if not math.isfinite(parsed):
+        raise ValueError(f"Params must not contain {value}")
+    return parsed
+
+
+def parse_config(value):
+    """Returns (scenario, surface, fps, load, params). Params is a dict or None."""
+    match = CONFIG_PATTERN.fullmatch(value)
+    if not match or match.group("scenario") not in SCENARIOS:
+        raise ValueError("Expected scenario,surface,maximumFps,load[,params]")
+    scenario, surface, fps, load = (
+        match.group("scenario"),
+        match.group("surface"),
+        match.group("fps"),
+        match.group("load"),
+    )
+    if (fps != "default" and int(fps) > 240) or int(load) > 10000:
+        raise ValueError("Maximum FPS is 240 and maximum load is 10000")
+    params = None
+    if match.group("params") is not None:
+        try:
+            params = json.loads(
+                match.group("params"),
+                parse_constant=reject_constant,
+                parse_float=parse_finite,
+            )
+        except json.JSONDecodeError as error:
+            raise ValueError(f"Params must be a JSON object: {error}") from error
+        if not isinstance(params, dict):
+            raise ValueError("Params must be a JSON object")
+    return scenario, surface, fps, load, params
+
+
+def canonical_config(value):
+    """Rebuilds a configuration with compact, sorted params so equivalent runs compare equal."""
+    scenario, surface, fps, load, params = parse_config(value)
+    if params is None:
+        return value
+    return f"{scenario},{surface},{fps},{load}," + json.dumps(
+        params, separators=(",", ":"), sort_keys=True, allow_nan=False
+    )
+
+
+def android_launch_args(adb, config):
+    """The am start argv; config is shell-quoted because adb joins argv into a shell command."""
+    return [
+        *adb,
+        "shell",
+        "am",
+        "start",
+        "-W",
+        "-n",
+        PACKAGE + "/.MainActivity",
+        "--es",
+        "benchmark",
+        shlex.quote(config),
+    ]
 
 
 def call(*command, **kwargs):
@@ -159,18 +248,7 @@ def android(args, output, metadata):
                 )
                 processes.append(recorder)
             time.sleep(0.7)
-            call(
-                *adb,
-                "shell",
-                "am",
-                "start",
-                "-W",
-                "-n",
-                PACKAGE + "/.MainActivity",
-                "--es",
-                "benchmark",
-                args.config,
-            )
+            call(*android_launch_args(adb, args.config))
             pid = call(*adb, "shell", "pidof", PACKAGE)
             with (output / "app.log").open("w") as app_log:
                 logger = subprocess.Popen(
@@ -267,7 +345,7 @@ def ios(args, output, metadata):
 
 def desktop(args, output, metadata):
     if args.config.startswith("input,"):
-        raise ValueError("Desktop adapter supports animation/setter workloads only")
+        raise ValueError("Desktop adapter does not support the input scenario")
     executable = (
         args.app
         or "demo-app/desktop/build/compose/binaries/main/app/org.maplibre.compose.demoapp.app/Contents/MacOS/org.maplibre.compose.demoapp"
@@ -338,7 +416,7 @@ def web_url(url, metadata):
 
 def web(args, output, metadata):
     if args.mode != "visual" or args.config.startswith("input,"):
-        raise ValueError("Web adapter supports animation/setter visual capture only")
+        raise ValueError("Web adapter supports non-input visual capture only")
     playwright = args.playwright or str(
         Path(call("mise", "where", "npm:playwright")) / "node_modules/playwright"
     )
@@ -356,19 +434,29 @@ def web(args, output, metadata):
 
 
 def validate_workload(output, reference=None):
-    metadata, _, density = read_run(output)
+    metadata, logs, density = read_run(output)
     if metadata["mode"] != "performance":
         analyze(output)
         return str(output)
     if reference is None:
         raise ValueError("Performance-only runs require --visual-reference")
     reference = Path(reference).resolve()
-    other, _, other_density = read_run(reference)
+    other, other_logs, other_density = read_run(reference)
+    if not other.get("video"):
+        raise ValueError("Visual reference must be a capture with a recording")
     artifact = "apk_sha256" if metadata["platform"] == "android" else "app_sha256"
-    keys = ("platform", "config", "device", "host", artifact)
+    keys = ("platform", "device", "host", artifact)
     if metadata["platform"] == "android":
         keys += ("fingerprint", "display", "density", "animator_duration_scale")
     if any(not metadata.get(k) or metadata[k] != other.get(k) for k in keys):
+        raise ValueError(
+            "Visual reference must match artifact, configuration, and device"
+        )
+    # The app logs the fully decoded parameters, so equivalent spellings compare equal there.
+    logged, other_logged = logged_config(logs), logged_config(other_logs)
+    if metadata["config"].split(",", 4)[:4] != other["config"].split(",", 4)[
+        :4
+    ] or not configs_equal(logged, other_logged):
         raise ValueError(
             "Visual reference must match artifact, configuration, and device"
         )
@@ -402,14 +490,11 @@ def main():
     )
     parser.add_argument("--playwright", help="Path to the installed Playwright module")
     args = parser.parse_args()
-    if not re.fullmatch(
-        r"(animation|setters|input),(surface|texture),(default|[1-9][0-9]{0,2}),(0|[1-9][0-9]{0,4})",
-        args.config,
-    ):
-        parser.error("Expected scenario,surface,maximumFps,load")
-    _, _, fps, load = args.config.split(",")
-    if (fps != "default" and int(fps) > 240) or int(load) > 10000:
-        parser.error("Maximum FPS is 240 and maximum load is 10000")
+    try:
+        args.config = canonical_config(args.config)
+        _, _, _, _, params = parse_config(args.config)
+    except ValueError as error:
+        parser.error(str(error))
     if (
         args.platform != "analyze"
         and args.mode == "performance"
@@ -420,9 +505,10 @@ def main():
     if args.platform != "analyze":
         output.mkdir(parents=True, exist_ok=False)
         metadata = {
-            "schema": 1,
+            "schema": 2,
             "platform": args.platform,
             "config": args.config,
+            "params": params,
             "mode": args.mode,
             "device": args.device,
             "host": platform.node(),
@@ -450,8 +536,16 @@ def main():
         cpu = process_cpu_metrics(logs)
     if cpu is not None:
         cpu["visual_reference"] = validated
-        (output / "performance.json").write_text(json.dumps(cpu, indent=2) + "\n")
+        # allow_nan=False turns any future unvalidated non-finite metric into a loud failure.
+        (output / "performance.json").write_text(
+            json.dumps(cpu, indent=2, allow_nan=False) + "\n"
+        )
         print(json.dumps(cpu, indent=2))
+    else:
+        print(
+            "warning: no CPU counter or frame timing was collected; no performance.json written",
+            file=sys.stderr,
+        )
     if metadata["mode"] != "performance":
         print((output / "visual.json").read_text())
 
