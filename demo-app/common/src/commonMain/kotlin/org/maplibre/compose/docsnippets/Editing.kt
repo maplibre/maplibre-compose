@@ -497,6 +497,7 @@ fun EditorWithContextMenu(editor: FeatureEditorState, showMenu: (Position, Edito
 @Composable
 fun EditorWithToolbar(editor: FeatureEditorState, select: SelectTool) {
   val mapFocus = remember { FocusRequester() }
+  val draw = remember(select) { DrawTool(DrawShape.Polygon, nextTool = select) }
   val map = rememberMapState { FeatureEditorLayers(editor) }
   fun useTool(tool: EditorTool) {
     if (editor.tool !== tool) {
@@ -519,8 +520,8 @@ fun EditorWithToolbar(editor: FeatureEditorState, select: SelectTool) {
         label = { Text("Select") },
       )
       FilterChip(
-        selected = editor.tool is DrawTool,
-        onClick = { useTool(DrawTool(DrawShape.Polygon, nextTool = select)) },
+        selected = editor.tool === draw,
+        onClick = { useTool(draw) },
         label = { Text("Draw") },
       )
       Button(

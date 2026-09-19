@@ -97,7 +97,8 @@ public interface EditorEvent {
   /**
    * A claimed pointer was lost, Escape was pressed, a second pointer landed before any drag,
    * [unproject] returned null during a drag, or the modifier was disabled, detached or given
-   * another state.
+   * another state. A tool that recorded mutations under [step] reverts them with
+   * [FeatureEditorState.revert].
    */
   public data class Cancel(
     val step: EditStep,

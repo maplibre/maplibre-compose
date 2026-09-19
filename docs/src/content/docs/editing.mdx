@@ -65,8 +65,11 @@ vertex with arrow keys, and deletes with Delete or Backspace. Ctrl or Cmd with Z
 undoes, and with Shift+Z or Y redoes, while the map has focus.
 
 Taps the tool does not consume, such as a tap on empty map, reach the map's
-click callbacks and layer click handlers as usual. Pinch, scroll and camera key
-bindings are unchanged.
+click callbacks and layer click handlers as usual. Pinch and scroll are
+unchanged. The map's arrow, Enter and Escape bindings still apply except while
+the tool uses them: `SelectTool` takes the arrows while a vertex is active and
+Escape while a handle or selection exists; `DrawTool` takes Enter, Escape and
+Backspace while a draft exists.
 
 Features are spatial-k values. Read them from `editor.features`, or export them
 with <Api of="FeatureEditorState.toFeatureCollection" />. A `snapshotFlow`
@@ -76,10 +79,10 @@ observes every change, including undo, redo and `load`:
 
 ## Style the layers
 
-<Api of="EditorColors" /> derives every color from `accent`. Style content
-reads the composition locals of the `MaplibreMap` that shows the state, so a
-Material color scheme around the map applies inside the content lambda. Larger
-handles help on touch screens:
+<Api of="EditorColors" /> derives every color except the white `handleFill`
+from `accent`. Style content reads the composition locals of the `MaplibreMap`
+that shows the state, so a Material color scheme around the map applies inside
+the content lambda. Larger handles help on touch screens:
 
 <Code code={region(editing, "colors")} lang="kotlin" title="App.kt" />
 
@@ -129,13 +132,17 @@ pattern.
 
 `validate` runs on each new feature and each feature whose geometry changed. A
 message rejects the whole mutation: nothing changes, the mutation returns false
-or null, and `validationError` holds the message until the next accepted
-change. A drag that would break the rule sticks at the last valid position, and
-a finish that would break it keeps the draft:
+or null, and `validationError` holds the message. The message is cleared when a
+mutation stores something, when the claimed gesture ends, by `undo`, `redo` and
+`revert`, and by `cancelDraft`. A drag that would break the rule sticks at the
+last valid position, and a finish that would break it keeps the draft:
 
 <Code code={region(editing, "validate")} lang="kotlin" title="App.kt" />
 
-1. Show the message in a snackbar or a label; `cancelDraft` also clears it.
+1. A label like this shows the message only while it is set. The message for a
+   rejected drag frame is cleared on release, so an app that wants it to outlive
+   the drag, for a snackbar or a lingering label, copies it into its own state,
+   for example with a `LaunchedEffect` keyed on `editor.validationError`.
 
 Properties-only changes are not validated.
 
@@ -194,7 +201,10 @@ To write edits back once per finished drag rather than per frame, observe
 so undo works without extra code. Every event carries `project` and
 `unproject` for the map that delivered it, and each press carries an
 <Api of="EditStep" />; passing it as `undoStep` merges a whole drag into one
-step. Delegating to an `inner` tool with `by` keeps every behavior you do not
+step. A tool that recorded mutations under the step reverts them on
+`EditorEvent.Cancel` with `state.revert(event.step)`; the runtime ends the
+gesture but does not revert. The wrappers below inherit this from `SelectTool`.
+Delegating to an `inner` tool with `by` keeps every behavior you do not
 override.
 
 This wrapper snaps taps and drags to nearby vertices by rewriting the event's
@@ -275,5 +285,6 @@ area label here, blocks editor input under it; a map layer does not.
 
 <Aside type="tip">
   Two editors on one map need distinct `idPrefix` values and two `featureEditor`
-  modifiers in the chain. The first in the chain claims a pointer first.
+  modifiers in the chain. The first in the chain claims a pointer first, and its
+  cursor wins while its tool asks for one.
 </Aside>

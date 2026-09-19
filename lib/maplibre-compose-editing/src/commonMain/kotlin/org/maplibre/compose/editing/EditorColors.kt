@@ -3,18 +3,27 @@ package org.maplibre.compose.editing
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 
-/** Colors used by the editing layers. Defaults derive from [accent]. */
+/** Colors used by the editing layers. Every default except [handleFill] derives from [accent]. */
 @Immutable
 public class EditorColors(
   accent: Color = Color(0xFF285DAA),
+  /** Fill of unselected polygons. */
   public val fill: Color = accent.copy(alpha = 0.15f),
+  /** Outline of unselected features and fill of their points. */
   public val stroke: Color = accent,
+  /** Fill of selected polygons. */
   public val selectedFill: Color = accent.copy(alpha = 0.25f),
+  /** Outline of selected features and fill of their points. */
   public val selectedStroke: Color = accent,
+  /** Draft fill at reduced alpha, draft line, and stroke of draft handles. */
   public val draft: Color = accent,
+  /** Fill of vertex handles and outline of Point and MultiPoint features. */
   public val handleFill: Color = Color.White,
+  /** Stroke of vertex and midpoint handles that are not part of a draft. */
   public val handleStroke: Color = accent,
+  /** Fill of midpoint handles. */
   public val midpointFill: Color = accent.copy(alpha = 0.6f),
+  /** Fill of the active or hovered handle. */
   public val activeHandleFill: Color = accent,
 ) {
   /** Returns a copy with the given colors replaced. */
