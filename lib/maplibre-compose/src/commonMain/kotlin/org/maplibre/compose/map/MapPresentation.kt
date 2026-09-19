@@ -169,10 +169,12 @@ internal fun MapPresentationContent(
 
         /**
          * Starts undispatched so the read claims its revision inside the engine callback, then
-         * finishes on the runtime scope rather than the composition's.
+         * finishes on the runtime's main scope rather than the composition's. The engine read
+         * inside moves to the read dispatcher; from a physical scope it would run inline on the
+         * main thread and block it.
          */
         private fun launchStyleRead(map: MapAdapter, read: suspend () -> Unit) {
-          state.runtime.physicalScope.launch(start = CoroutineStart.UNDISPATCHED) {
+          state.runtime.mainScope.launch(start = CoroutineStart.UNDISPATCHED) {
             attachment.readStyle(map) { read() }
           }
         }

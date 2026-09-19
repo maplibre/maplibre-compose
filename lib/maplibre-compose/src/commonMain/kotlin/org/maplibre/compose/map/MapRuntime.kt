@@ -39,6 +39,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
@@ -1338,6 +1339,11 @@ internal class RuntimeImplementation(
     CoroutineScope(SupervisorJob() + Dispatchers.Default),
   /** Delivers engine callbacks to map states. Runs them inline when no dispatch is needed. */
   internal val mainDispatcher: CoroutineDispatcher = platformMainDispatcher(),
+  /**
+   * Runs work that a posted callback starts. Its dispatcher is the main dispatcher, so an engine
+   * read inside that work moves to its own dispatcher instead of blocking the main thread.
+   */
+  internal val mainScope: CoroutineScope = CoroutineScope(SupervisorJob() + mainDispatcher),
   internal val createSnapshotterAdapter: () -> SnapshotterAdapter = ::unsupportedSnapshots,
   internal val styleEvaluator: StyleCompositionEvaluator = DefaultStyleCompositionEvaluator,
   internal val resourceConfig: MapResourceConfig = MapResourceConfig(),
@@ -1398,6 +1404,7 @@ internal class RuntimeImplementation(
         runCatching { child.awaitClosed() }.exceptionOrNull()?.let(failures::addCleanupFailure)
       }
       runCatching { closeResources() }.exceptionOrNull()?.let(failures::addCleanupFailure)
+      mainScope.cancel()
       closure.complete(failures.cleanupResult("Map runtime"))
     }
   }
