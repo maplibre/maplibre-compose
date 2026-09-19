@@ -17,17 +17,20 @@ import org.maplibre.spatialk.geojson.Position
 /**
  * Draws a feature of [shape].
  *
- * With [placeOnTap], a tap places a vertex; without it taps are consumed and do nothing, and
- * positions arrive through [FeatureEditorState.placeDraftPosition]. Point creates a feature on the
- * first placed position. LineString finishes on Enter with at least two positions, on a double tap
- * when [finishOnDoubleTap], and on a tap on its last vertex when [finishOnVertexTap]. Polygon
- * finishes the same way with at least three distinct positions, with the first vertex as the tap
- * target; the ring is closed on finish. Rectangle finishes on the second tap, or on release of a
- * mouse drag, as a Polygon aligned to longitude and latitude. A finishing double tap removes the
- * vertex its first tap placed. Backspace removes the last position. Escape discards the draft. With
- * [draftHandles], draft vertices are handles that a drag moves and that [finishOnVertexTap]
- * targets. A draft of another shape is discarded when the first position is placed. Every finish
- * goes through [FeatureEditorState.finishDraft].
+ * With [placeOnTap], a primary-button or touch tap places a vertex; without it taps are consumed
+ * and do nothing, and positions arrive through [FeatureEditorState.placeDraftPosition]. Taps and
+ * presses with another button are not consumed, so the map's click callbacks see them. Point
+ * creates a feature on the first placed position. LineString finishes on Enter with at least two
+ * positions, on a double tap when [finishOnDoubleTap], and on a tap on its last vertex when
+ * [finishOnVertexTap]. Polygon finishes the same way with at least three distinct positions, with
+ * the first vertex as the tap target; the ring is closed on finish. Rectangle finishes on the
+ * second tap, or with [placeOnTap] on release of a primary-button mouse drag, as a Polygon aligned
+ * to longitude and latitude. A finishing double tap removes the vertex its first tap placed; a
+ * double tap on an existing vertex removes none. Backspace removes the last position. Escape
+ * discards the draft. With [draftHandles], draft vertices are handles that a drag moves and that
+ * [finishOnVertexTap] targets. A draft of another shape is discarded when the first position is
+ * placed. LineString, Polygon and Rectangle finish through [FeatureEditorState.finishDraft]; Point
+ * is created inside [placeDraftPosition], and [finishDraft] returns null for it.
  *
  * @param properties Properties of created features.
  * @param nextTool Tool activated after a feature is created, with the feature selected, or null to
@@ -48,6 +51,8 @@ public class DrawTool(
   public val placeOnTap: Boolean = true,
   public val draftHandles: Boolean = true,
 ) : EditorTool {
+  // Whether the latest tap placed a position, so a finishing double tap removes only that one.
+  private var lastTapPlaced = false
 
   override fun handles(state: FeatureEditorState): List<EditorHandle> {
     if (!draftHandles) return emptyList()
@@ -79,6 +84,7 @@ public class DrawTool(
   override fun cursor(state: FeatureEditorState): PointerIcon = PointerIcon.Crosshair
 
   override fun placeDraftPosition(state: FeatureEditorState, position: Position): Boolean {
+    lastTapPlaced = false
     val current = state.draft?.takeIf { it.shape == shape }
     if (current == null && state.draft != null) state.draft = null
     if (shape == DrawShape.Point) {
@@ -116,16 +122,17 @@ public class DrawTool(
   }
 
   private fun onPress(event: EditorEvent.Press, state: FeatureEditorState): Boolean {
+    val pointer = event.pointer
+    if (!pointer.isPrimary) return false
     val hit = event.hit
     if (hit is HandleHit && hit.handle.isDraft) {
       state.activeHandle = hit.handle
       return true
     }
-    val pointer = event.pointer
     return hit == null &&
       shape == DrawShape.Rectangle &&
+      placeOnTap &&
       pointer.pointerType == PointerType.Mouse &&
-      pointer.isPrimary &&
       state.draft?.takeIf { it.shape == shape }?.positions.isNullOrEmpty()
   }
 
@@ -150,11 +157,17 @@ public class DrawTool(
   }
 
   private fun onTap(event: EditorEvent.Tap, state: FeatureEditorState): Boolean {
+    if (!event.pointer.isPrimary) return false
+    val placed = lastTapPlaced
+    lastTapPlaced = false
     if (event.count == 2 && finishOnDoubleTap && placeOnTap) {
       val draft = state.draft?.takeIf { it.shape == shape }
-      if (draft != null && canFinish(draft.positions.dropLast(1))) {
-        state.removeLastDraftPosition()
-        state.finishDraft()
+      if (draft != null) {
+        val positions = if (placed) draft.positions.dropLast(1) else draft.positions
+        if (canFinish(positions)) {
+          if (placed) state.removeLastDraftPosition()
+          state.finishDraft()
+        }
       }
       return true
     }
@@ -167,7 +180,10 @@ public class DrawTool(
       }
       return true
     }
-    if (placeOnTap) state.placeDraftPosition(event.pointer.position)
+    if (placeOnTap) {
+      state.placeDraftPosition(event.pointer.position)
+      lastTapPlaced = state.draft?.shape == shape
+    }
     return true
   }
 
@@ -185,6 +201,7 @@ public class DrawTool(
       Key.Backspace -> state.removeLastDraftPosition()
       else -> return false
     }
+    lastTapPlaced = false
     return hasDraft
   }
 

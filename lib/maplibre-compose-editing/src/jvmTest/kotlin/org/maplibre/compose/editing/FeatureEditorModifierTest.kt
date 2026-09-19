@@ -429,6 +429,92 @@ class FeatureEditorModifierTest {
   }
 
   @Test
+  fun toolKeysWaitForTheClaimedGestureToEnd() = runComposeUiTest {
+    val original = square("a", originLat = -20.0)
+    val state = FeatureEditorState(listOf(original))
+    state.selection = setOf(id("a"))
+    val focusRequester = FocusRequester()
+    editor(state, focusRequester = focusRequester)
+    runOnIdle { focusRequester.requestFocus() }
+
+    onNodeWithTag("editor").performTouchInput { down(Offset(100.dp.toPx(), 100.dp.toPx())) }
+    onNodeWithTag("editor").performTouchInput { moveBy(Offset(30.dp.toPx(), 0f)) }
+    onNodeWithTag("editor").performTouchInput { moveBy(Offset(30.dp.toPx(), 0f)) }
+    runOnIdle {
+      assertTrue(state.gestureInProgress)
+      assertEquals(HandleKind.Vertex, state.activeHandle?.kind)
+      assertEquals(16.0, state.activeHandle!!.position.longitude, 1e-9)
+    }
+
+    onRoot().performKeyInput { pressKey(Key.DirectionRight) }
+    onRoot().performKeyInput { pressKey(Key.Delete) }
+    onNodeWithTag("editor").performTouchInput { moveBy(Offset(10.dp.toPx(), 0f)) }
+    runOnIdle {
+      assertEquals(1, state.features.size)
+      assertEquals(17.0, state.activeHandle!!.position.longitude, 1e-9)
+    }
+
+    onRoot().performKeyInput { pressKey(Key.Escape) }
+    runOnIdle {
+      assertEquals(listOf(original), state.features)
+      assertFalse(state.canUndo)
+      assertFalse(state.gestureInProgress)
+    }
+
+    onNodeWithTag("editor").performTouchInput { up() }
+    onRoot().performKeyInput { pressKey(Key.Delete) }
+    runOnIdle { assertEquals(emptyList(), state.features) }
+  }
+
+  @Test
+  fun aMoveALaterNodeConsumesDropsTheTap() = runComposeUiTest {
+    val tool = RecordingTool(consumeTap = true)
+    val state = FeatureEditorState(initialTool = tool)
+    val seen = mutableListOf<Seen>()
+    setContent {
+      Box(
+        Modifier.size(200.dp)
+          .testTag("editor")
+          .featureEditor(state, ::project, ::unproject, { null }, { null })
+      ) {
+        Box(
+          Modifier.fillMaxSize().pointerInput(Unit) {
+            awaitPointerEventScope {
+              var origin = Offset.Zero
+              while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Main)
+                event.changes.forEach {
+                  if (!it.previousPressed) origin = it.position
+                  val moved = it.pressed && it.previousPressed
+                  if (moved && (it.position - origin).getDistance() > 4.dp.toPx()) it.consume()
+                  seen += Seen(it.pressed, it.previousPressed, it.isConsumed)
+                }
+              }
+            }
+          }
+        )
+      }
+    }
+
+    onNodeWithTag("editor").performTouchInput { down(Offset(50.dp.toPx(), 50.dp.toPx())) }
+    onNodeWithTag("editor").performTouchInput { moveBy(Offset(6.dp.toPx(), 0f)) }
+    onNodeWithTag("editor").performTouchInput { up() }
+    runOnIdle {
+      assertEquals(listOf("Press"), tool.events.map { it::class.simpleName })
+      assertEquals(Seen(true, true, true), seen[1])
+      assertEquals(Seen(false, true, false), seen.last())
+    }
+
+    onNodeWithTag("editor").performTouchInput { down(Offset(50.dp.toPx(), 50.dp.toPx())) }
+    onNodeWithTag("editor").performTouchInput { moveBy(Offset(2.dp.toPx(), 0f)) }
+    onNodeWithTag("editor").performTouchInput { up() }
+    runOnIdle {
+      assertIs<EditorEvent.Tap>(tool.events.last())
+      assertEquals(Seen(false, true, true), seen.last())
+    }
+  }
+
+  @Test
   fun endingAClaimedGestureClearsTheErrorOfARejectedFrame() = runComposeUiTest {
     val state =
       FeatureEditorState(
@@ -500,6 +586,46 @@ class FeatureEditorModifierTest {
     runOnIdle {
       assertIs<EditorEvent.HoverEnd>(tool.events.last())
       assertEquals(2, tool.events.count { it is EditorEvent.HoverEnd })
+    }
+  }
+
+  @Test
+  fun hoverOffTheGlobeEndsTheHover() = runComposeUiTest {
+    val tool = RecordingTool()
+    val state = FeatureEditorState(listOf(point("a", 10.0, -10.0)), initialTool = tool)
+    var unprojectable = true
+    setContent {
+      Box(
+        Modifier.size(200.dp)
+          .testTag("editor")
+          .featureEditor(
+            state,
+            ::project,
+            { if (unprojectable) unproject(it) else null },
+            { null },
+            { null },
+          )
+      )
+    }
+
+    onNodeWithTag("editor").performMouseInput { moveTo(Offset(100.dp.toPx(), 100.dp.toPx())) }
+    runOnIdle { assertIs<FeatureHit>(state.hover) }
+
+    unprojectable = false
+    onNodeWithTag("editor").performMouseInput { moveTo(Offset(110.dp.toPx(), 110.dp.toPx())) }
+    runOnIdle {
+      assertNull(state.hover)
+      assertIs<EditorEvent.HoverEnd>(tool.events.last())
+    }
+
+    onNodeWithTag("editor").performMouseInput { moveTo(Offset(120.dp.toPx(), 120.dp.toPx())) }
+    runOnIdle { assertEquals(1, tool.events.count { it is EditorEvent.HoverEnd }) }
+
+    unprojectable = true
+    onNodeWithTag("editor").performMouseInput { moveTo(Offset(100.dp.toPx(), 100.dp.toPx())) }
+    runOnIdle {
+      assertIs<EditorEvent.Hover>(tool.events.last())
+      assertIs<FeatureHit>(state.hover)
     }
   }
 

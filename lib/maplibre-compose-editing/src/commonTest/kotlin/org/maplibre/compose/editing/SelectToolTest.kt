@@ -145,6 +145,25 @@ class SelectToolTest {
   }
 
   @Test
+  fun body_drag_nulls_the_bbox_on_every_frame() {
+    val bbox = BoundingBox(0.0, 0.0, 10.0, 10.0)
+    val state = selected(square("a").copy(bbox = bbox))
+    val tool = state.tool
+    val hit = assertIs<FeatureHit>(e.hitAt(state, pos(5.0, 5.0)))
+    val origin = e.pointer(pos(5.0, 5.0))
+    val step = EditStep()
+    assertTrue(tool.onEvent(e.press(origin, hit, step), state))
+    tool.onEvent(e.drag(e.pointer(pos(6.0, 5.0)), origin, hit, step), state)
+    tool.onEvent(e.drag(e.pointer(pos(7.0, 5.0)), origin, hit, step), state)
+    val feature = state.feature(id("a"))!!
+    assertNull(feature.bbox)
+    assertNull(feature.geometry.bbox)
+    assertEquals(2.0, state.ring("a")[0].longitude, 1e-9)
+    state.undo()
+    assertEquals(bbox, state.feature(id("a"))?.bbox)
+  }
+
+  @Test
   fun body_drag_is_one_validated_step_and_rejects_atomically() {
     val state =
       FeatureEditorState(
@@ -221,6 +240,26 @@ class SelectToolTest {
     assertFalse(tool.onEvent(e.key(Key.Delete), state))
     assertFalse(tool.onEvent(e.key(Key.DirectionLeft), state))
     assertEquals(squareGeometry(), state.feature(id("a"))!!.geometry)
+  }
+
+  @Test
+  fun rejected_midpoint_drag_leaves_no_active_handle_and_delete_ignores_a_held_midpoint() {
+    val state = FeatureEditorState(listOf(square("a")), validate = { "no" })
+    state.selection = setOf(id("a"))
+    val tool = state.tool
+    val midpoint = handleAt(state, 5.0, 0.0)
+    val origin = e.pointer(pos(5.0, 0.0))
+    val step = EditStep()
+    assertTrue(tool.onEvent(e.press(origin, midpoint, step), state))
+    assertFalse(tool.onEvent(e.key(Key.Delete), state))
+    assertFalse(tool.onEvent(e.drag(e.pointer(pos(5.0, -2.0)), origin, midpoint, step), state))
+    assertEquals(squareGeometry(), state.feature(id("a"))!!.geometry)
+    assertEquals(midpoint.handle, state.activeHandle)
+    assertFalse(tool.onEvent(e.release(e.pointer(pos(5.0, -2.0)), step), state))
+    assertNull(state.activeHandle)
+    assertEquals(1, state.features.size)
+    assertTrue(tool.onEvent(e.key(Key.Delete), state))
+    assertEquals(emptyList(), state.features)
   }
 
   @Test

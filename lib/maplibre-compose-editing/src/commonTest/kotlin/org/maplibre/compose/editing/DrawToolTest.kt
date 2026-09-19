@@ -14,6 +14,7 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import org.maplibre.compose.interaction.PointerButton
 import org.maplibre.spatialk.geojson.LineString
 import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Polygon
@@ -164,6 +165,64 @@ class DrawToolTest {
     assertTrue(short.tapAt(10.0, 0.0, count = 2))
     assertEquals(listOf(pos(0.0, 0.0), pos(10.0, 0.0)), short.positions())
     assertEquals(emptyList(), short.features)
+  }
+
+  @Test
+  fun double_tap_on_an_existing_vertex_removes_none() {
+    val state = FeatureEditorState(initialTool = DrawTool(DrawShape.Polygon))
+    state.tapAt(0.0, 0.0)
+    state.tapAt(10.0, 0.0)
+    state.tapAt(10.0, 10.0)
+    state.tapAt(0.0, 10.0)
+    val last = state.draftHandleAt(0.0, 10.0)
+    assertTrue(state.tapAt(0.0, 10.0))
+    assertEquals(last.handle, state.activeHandle)
+    assertEquals(emptyList(), state.features)
+    assertTrue(state.tapAt(0.0, 10.0, count = 2))
+    assertEquals(
+      listOf(pos(0.0, 0.0), pos(10.0, 0.0), pos(10.0, 10.0), pos(0.0, 10.0), pos(0.0, 0.0)),
+      assertIs<Polygon>(state.features.single().geometry).coordinates[0],
+    )
+
+    val walked =
+      FeatureEditorState(initialTool = DrawTool(DrawShape.LineString, finishOnVertexTap = false))
+    walked.tapAt(0.0, 0.0)
+    walked.tapAt(10.0, 0.0)
+    walked.tapAt(20.0, 0.0)
+    walked.draftHandleAt(10.0, 0.0)
+    assertTrue(walked.tapAt(10.0, 0.0))
+    assertTrue(walked.tapAt(10.0, 0.0, count = 2))
+    assertEquals(
+      LineString(listOf(pos(0.0, 0.0), pos(10.0, 0.0), pos(20.0, 0.0))),
+      walked.features.single().geometry,
+    )
+  }
+
+  @Test
+  fun secondary_button_input_is_not_consumed() {
+    val state = FeatureEditorState(initialTool = DrawTool(DrawShape.Polygon))
+    val tool = state.tool
+    val secondary = setOf(PointerButton.Secondary)
+    assertFalse(tool.onEvent(e.tap(e.pointer(pos(0.0, 0.0), buttons = secondary), null), state))
+    assertNull(state.draft)
+    state.tapAt(0.0, 0.0)
+    state.tapAt(10.0, 0.0)
+    state.tapAt(10.0, 10.0)
+    val first = state.draftHandleAt(0.0, 0.0)
+    assertFalse(tool.onEvent(e.press(e.pointer(pos(0.0, 0.0), buttons = secondary), first), state))
+    assertNull(state.activeHandle)
+    assertTrue(state.canFinishDraft)
+    assertFalse(tool.onEvent(e.tap(e.pointer(pos(0.0, 0.0), buttons = secondary), first), state))
+    assertEquals(emptyList(), state.features)
+    assertEquals(3, state.positions()?.size)
+  }
+
+  @Test
+  fun rectangle_drag_needs_place_on_tap() {
+    val tool = DrawTool(DrawShape.Rectangle, placeOnTap = false)
+    val state = FeatureEditorState(initialTool = tool)
+    assertFalse(tool.onEvent(e.press(e.pointer(pos(0.0, 0.0)), null), state))
+    assertNull(state.draft)
   }
 
   @Test

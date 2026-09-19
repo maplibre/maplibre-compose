@@ -148,7 +148,7 @@ public class FeatureEditorState(
 
   /**
    * Message of the latest rejected mutation. Cleared when a mutation stores something, when a
-   * claimed gesture ends, by [undo], [redo] and [revert], and by [cancelDraft].
+   * claimed gesture ends, by [undo], [redo], [revert] and [load], and by [cancelDraft].
    */
   public var validationError: String? by mutableStateOf(null)
     private set
@@ -188,15 +188,13 @@ public class FeatureEditorState(
    * Returns the feature with [id] as it was before the latest step when that step was recorded
    * under [step], else the current feature. Null when [id] is unknown in both.
    */
-  public fun featureBefore(step: EditStep, id: FeatureId): EditorFeature? {
-    val latest = undoStack.lastOrNull()
-    if (latest == null || latest.step !== step) return feature(id)
-    return beforeIndex.of(latest.before)[id]?.let { latest.before[it] } ?: feature(id)
-  }
+  public fun featureBefore(step: EditStep, id: FeatureId): EditorFeature? =
+    stepBefore(step, id) ?: feature(id)
 
   /**
    * Adds [feature] at the end and returns its id, or null when [validate] rejects it. A feature
-   * without an id gets one from [newId]. Throws [IllegalArgumentException] when the id is present.
+   * without an id gets one from [newId]. Throws [IllegalArgumentException] when the id, given or
+   * generated, is present.
    */
   public fun add(feature: EditorFeature, undoStep: EditStep? = null): FeatureId? {
     feature.id?.let { id ->
@@ -204,8 +202,10 @@ public class FeatureEditorState(
     }
     if (!accept(listOf(feature to null))) return null
     val stored = if (feature.id == null) feature.copy(id = newId()) else feature
+    val id = checkNotNull(stored.id)
+    require(id !in currentIndex.of(featureList)) { "Feature id $id is already present" }
     commit(featureList + stored, undoStep)
-    return checkNotNull(stored.id)
+    return id
   }
 
   /**
@@ -213,9 +213,9 @@ public class FeatureEditorState(
    *
    * [validate] runs when the geometry differs from the stored one; a properties-only change is
    * stored without validation. When the geometry differs and [feature].bbox equals the stored bbox,
-   * the stored copy gets a null bbox. A feature equal to the stored one records no step. Returns
-   * false and changes nothing when [validate] rejects [feature]. Throws [IllegalArgumentException]
-   * when the id is null or unknown.
+   * or the bbox from before a step [undoStep] continues, the stored copy gets a null bbox. A
+   * feature equal to the stored one records no step. Returns false and changes nothing when
+   * [validate] rejects [feature]. Throws [IllegalArgumentException] when the id is null or unknown.
    */
   public fun replace(feature: EditorFeature, undoStep: EditStep? = null): Boolean {
     val id = requireNotNull(feature.id) { "Feature has no id" }
@@ -223,7 +223,7 @@ public class FeatureEditorState(
       requireNotNull(currentIndex.of(featureList)[id]) { "Feature id $id is not present" }
     val existing = featureList[position]
     if (!accept(listOf(feature to existing))) return false
-    val stored = withBboxRule(feature, existing)
+    val stored = withBboxRule(feature, existing, stepBefore(undoStep, id))
     if (stored === existing || stored == existing) return true
     commit(featureList.toMutableList().also { it[position] = stored }, undoStep)
     return true
@@ -241,12 +241,14 @@ public class FeatureEditorState(
    * Applies [features] and [removeIds] as one step.
    *
    * A feature whose id is stored replaces that entry in place; a feature without an id or with an
-   * unknown id is appended, and one without an id gets one from [newId]. Among duplicate ids in
-   * [features] the last wins and is the one validated. [validate] runs on each new feature and each
-   * feature whose geometry differs from the stored one; when it rejects one, nothing changes and
-   * null is returned. A call that leaves [features][FeatureEditorState.features] equal records no
-   * step. Undo restores whole lists: undoing a step recorded before this call also reverts it.
-   * Returns the ids of [features] in order.
+   * unknown id is appended, and one without an id gets one from [newId], which throws
+   * [IllegalArgumentException] when that id is present. Among duplicate ids in [features] the last
+   * wins and is the one validated. [validate] runs on each new feature and each feature whose
+   * geometry differs from the stored one; when it rejects one, nothing changes and null is
+   * returned. A replaced feature follows the bbox rule of [replace]. A call that leaves
+   * [features][FeatureEditorState.features] equal records no step. Undo restores whole lists:
+   * undoing a step recorded before this call also reverts it. Returns the ids of [features] in
+   * order.
    */
   public fun update(
     features: List<EditorFeature> = emptyList(),
@@ -281,8 +283,10 @@ public class FeatureEditorState(
         index[id] = list.size
         list += withId
       } else {
+        require(feature.id != null) { "Feature id $id is already present" }
         val existing = current.getOrNull(position)?.takeIf { it.id == id }
-        list[position] = if (existing == null) withId else withBboxRule(withId, existing)
+        list[position] =
+          if (existing == null) withId else withBboxRule(withId, existing, stepBefore(undoStep, id))
       }
     }
     val removed = removeIds.toSet()
@@ -293,7 +297,8 @@ public class FeatureEditorState(
   }
 
   /**
-   * Replaces the whole feature list without recording a step and clears the undo history.
+   * Replaces the whole feature list without recording a step and clears the undo history and
+   * [validationError].
    *
    * [draft] and [tool] are unchanged. [selection] drops ids that no longer exist. [activeHandle]
    * and [hover] are cleared when their feature or vertex no longer exists. Features are not
@@ -304,13 +309,16 @@ public class FeatureEditorState(
     featureList = withIds(features)
     undoStack = emptyList()
     redoStack = emptyList()
+    validationError = null
     normalize()
   }
 
   /**
    * Moves the vertex at [ref] to [position]. Ring closure follows. Altitude and further coordinate
    * values of the existing position are kept when [position] has only longitude and latitude. The
-   * feature and geometry bbox become null. Returns false when [validate] rejects the result.
+   * feature and geometry bbox become null. A move to the current position changes nothing and
+   * returns true. Returns false and changes nothing when [ref] addresses no vertex or [validate]
+   * rejects the result. A draft vertex is moved without validation and without an undo step.
    */
   public fun moveVertex(ref: VertexRef, position: Position, undoStep: EditStep? = null): Boolean {
     val id = ref.featureId
@@ -319,6 +327,7 @@ public class FeatureEditorState(
       val index = ref.path.singleOrNull() ?: return false
       val existing = current.positions.getOrNull(index) ?: return false
       val merged = mergedPosition(existing, position)
+      if (merged == existing) return true
       draft =
         current.copy(positions = current.positions.toMutableList().also { it[index] = merged })
       return true
@@ -327,6 +336,7 @@ public class FeatureEditorState(
     val feature = featureList[slot]
     val existing = feature.geometry.positionAt(ref.path) ?: return false
     val merged = mergedPosition(existing, position)
+    if (merged == existing) return true
     val geometry = feature.geometry.withVertexMoved(ref.path, merged) ?: return false
     val stored = feature.copy(geometry = geometry, bbox = null)
     if (!accept(listOf(stored to feature))) return false
@@ -336,7 +346,9 @@ public class FeatureEditorState(
 
   /**
    * Inserts [position] before the vertex at [ref]. An index equal to the ring or line length
-   * appends. Clears [activeHandle]. Returns false when [validate] rejects the result.
+   * appends. Clears [activeHandle]. Returns false and changes nothing when [ref] addresses no
+   * feature, its path is not a valid insertion index, or [validate] rejects the result. A draft
+   * insertion is not validated and records no undo step.
    */
   public fun insertVertex(
     ref: VertexRef,
@@ -366,8 +378,9 @@ public class FeatureEditorState(
   /**
    * Removes the vertex at [ref] and clears [activeHandle].
    *
-   * Returns false and changes nothing when a line would keep fewer than 2 positions, a ring fewer
-   * than 3 distinct positions, a point would lose its position, or [validate] rejects the result.
+   * Returns false and changes nothing when [ref] addresses no vertex, a line would keep fewer than
+   * 2 positions, a ring fewer than 3 distinct positions, a point would lose its position, or
+   * [validate] rejects the result. A draft removal is not validated and records no undo step.
    */
   public fun removeVertex(ref: VertexRef, undoStep: EditStep? = null): Boolean {
     val id = ref.featureId
@@ -514,14 +527,28 @@ public class FeatureEditorState(
   private fun geometryDiffers(a: EditorFeature, b: EditorFeature): Boolean =
     a.geometry !== b.geometry && a.geometry != b.geometry
 
-  private fun withBboxRule(candidate: EditorFeature, existing: EditorFeature): EditorFeature =
-    if (
-      geometryDiffers(candidate, existing) &&
-        candidate.bbox == existing.bbox &&
-        candidate.bbox != null
-    )
+  // A tool that builds every frame from featureBefore carries the pre-step bbox past the first
+  // frame, so the rule also compares against the feature the continued step started from.
+  private fun withBboxRule(
+    candidate: EditorFeature,
+    existing: EditorFeature,
+    base: EditorFeature?,
+  ): EditorFeature =
+    if (hasStaleBbox(candidate, existing) || base != null && hasStaleBbox(candidate, base))
       candidate.copy(bbox = null)
     else candidate
+
+  private fun hasStaleBbox(candidate: EditorFeature, reference: EditorFeature): Boolean =
+    candidate.bbox != null &&
+      candidate.bbox == reference.bbox &&
+      geometryDiffers(candidate, reference)
+
+  /** The feature [id] had before the latest step when [undoStep] continues that step, else null. */
+  private fun stepBefore(undoStep: EditStep?, id: FeatureId): EditorFeature? {
+    val latest = undoStack.lastOrNull() ?: return null
+    if (undoStep == null || latest.step !== undoStep) return null
+    return beforeIndex.of(latest.before)[id]?.let { latest.before[it] }
+  }
 
   private fun commit(list: List<EditorFeature>, undoStep: EditStep?) {
     val latest = undoStack.lastOrNull()

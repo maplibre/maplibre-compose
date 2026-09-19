@@ -64,12 +64,12 @@ import org.maplibre.spatialk.geojson.Position
  * read in the Initial pass. The map receives a pointer until the tool claims it or consumes its
  * tap; other pointers keep their map gestures. Overlay controls under the pointer block it; map
  * layers and their click handlers do not. A press an earlier modifier consumed in the Initial pass
- * is not delivered. Keys reach the tool while the map has focus; a claimed press focuses the map.
- * With [undoShortcuts], Ctrl or Meta with Z undoes and with Shift+Z or Y redoes before the tool
- * sees the key, except while a pointer is claimed. Hit testing uses [hitRadius] for the pointer
- * type and [hitFill] for polygon interiors. Writes [FeatureEditorState.visibleBounds] as the camera
- * moves. With [enabled] false nothing is hit-tested, consumed or hovered, and a gesture in progress
- * is cancelled.
+ * is not delivered. Keys reach the tool while the map has focus and no pointer is claimed; a
+ * claimed press focuses the map, and Escape cancels its gesture. With [undoShortcuts], Ctrl or Meta
+ * with Z undoes and with Shift+Z or Y redoes before the tool sees the key, except while a pointer
+ * is claimed. Hit testing uses [hitRadius] for the pointer type and [hitFill] for polygon
+ * interiors. Writes [FeatureEditorState.visibleBounds] as the camera moves. With [enabled] false
+ * nothing is hit-tested, consumed or hovered, and a gesture in progress is cancelled.
  */
 public fun Modifier.featureEditor(
   state: FeatureEditorState,
@@ -314,7 +314,15 @@ internal class FeatureEditorNode(
   }
 
   override fun onPointerEvent(pointerEvent: PointerEvent, pass: PointerEventPass, bounds: IntSize) {
-    if (pass != PointerEventPass.Initial || !enabled) return
+    if (!enabled) return
+    if (pass == PointerEventPass.Final) {
+      // The map's node consumes moves in Main once its own drag starts.
+      pointerEvent.changes.forEach {
+        if (it.pressed && it.previousPressed && it.isConsumed) session.onMoveConsumed(it.id.value)
+      }
+      return
+    }
+    if (pass != PointerEventPass.Initial) return
     when (pointerEvent.type) {
       PointerEventType.Scroll -> return
       PointerEventType.Exit -> {
@@ -366,7 +374,12 @@ internal class FeatureEditorNode(
     val change = event.changes.firstOrNull { it.type == PointerType.Mouse } ?: return
     if (buttons.isNotEmpty()) return
     val screen = change.position.toDp(density)
-    val position = binding.unproject(screen) ?: return
+    val position =
+      binding.unproject(screen)
+        ?: run {
+          endHover()
+          return
+        }
     val hit = hitAt(screen, change.type)
     if (state.hover != hit) state.hover = hit
     val pointer = EditorPointer(screen, position, change.type, buttons, modifierKeys)
@@ -512,6 +525,7 @@ internal class FeatureEditorNode(
         return true
       }
     }
+    if (session.isClaimed) return false
     return state.tool.onEvent(
       EditorEvent.Key(
         event.key,

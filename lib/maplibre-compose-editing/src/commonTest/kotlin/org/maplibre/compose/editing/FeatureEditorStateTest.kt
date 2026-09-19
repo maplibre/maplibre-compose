@@ -30,6 +30,15 @@ class FeatureEditorStateTest {
   }
 
   @Test
+  fun generated_id_that_is_present_is_rejected() {
+    val state = FeatureEditorState(listOf(point("a")), newId = { id("a") })
+    assertFailsWith<IllegalArgumentException> { state.add(point(lon = 1.0)) }
+    assertFailsWith<IllegalArgumentException> { state.update(listOf(point(lon = 1.0))) }
+    assertEquals(listOf(point("a")), state.features)
+    assertFalse(state.canUndo)
+  }
+
+  @Test
   fun negative_history_limit_is_rejected() {
     assertFailsWith<IllegalArgumentException> { stateOf(historyLimit = -1) }
   }
@@ -106,6 +115,27 @@ class FeatureEditorStateTest {
     val other = BoundingBox(0.0, 0.0, 2.0, 2.0)
     assertTrue(state.replace(point("a", lon = 2.0).copy(bbox = other)))
     assertEquals(other, state.feature(id("a"))?.bbox)
+  }
+
+  @Test
+  fun continued_step_nulls_the_bbox_carried_from_feature_before() {
+    val bbox = BoundingBox(0.0, 0.0, 10.0, 10.0)
+    val state = stateOf(square("s").copy(bbox = bbox))
+    val step = EditStep()
+    fun moved(by: Double) =
+      state.featureBefore(step, id("s"))!!.let { before ->
+        before.copy(geometry = squareGeometry(origin = by))
+      }
+    assertNotNull(state.update(listOf(moved(1.0)), undoStep = step))
+    assertNull(state.feature(id("s"))?.bbox)
+    assertNotNull(state.update(listOf(moved(2.0)), undoStep = step))
+    assertNull(state.feature(id("s"))?.bbox)
+    assertTrue(state.replace(moved(3.0), step))
+    assertNull(state.feature(id("s"))?.bbox)
+    assertEquals(squareGeometry(origin = 3.0), state.feature(id("s"))?.geometry)
+    state.undo()
+    assertEquals(bbox, state.feature(id("s"))?.bbox)
+    assertFalse(state.canUndo)
   }
 
   @Test
@@ -190,6 +220,7 @@ class FeatureEditorStateTest {
     assertTrue(state.canRedo)
     assertTrue(state.replace(point("a")))
     assertEquals(listOf(id("a")), state.update(listOf(point("a")), removeIds = listOf(id("ghost"))))
+    assertTrue(state.moveVertex(VertexRef(id("a"), emptyList()), pos(0.0, 0.0)))
     assertFalse(state.canUndo)
     assertTrue(state.canRedo)
     assertEquals(listOf(point("a")), state.features)
@@ -228,10 +259,28 @@ class FeatureEditorStateTest {
   }
 
   @Test
+  fun load_clears_the_validation_error() {
+    val state =
+      FeatureEditorState(
+        listOf(line("l", pos(0.0, 0.0), pos(1.0, 0.0), pos(2.0, 0.0))),
+        validate = { "no" },
+      )
+    state.draft = EditorDraft(DrawShape.LineString, listOf(pos(5.0, 5.0)))
+    assertFalse(state.removeVertex(VertexRef(id("l"), listOf(0))))
+    assertEquals("no", state.validationError)
+    state.load(listOf(point("p")))
+    assertNull(state.validationError)
+    assertNotNull(state.draft)
+  }
+
+  @Test
   fun move_vertex_keeps_ring_closed_and_nulls_bbox() {
     val bbox = BoundingBox(0.0, 0.0, 10.0, 10.0)
     val state =
       stateOf(square("s").copy(bbox = bbox, geometry = squareGeometry().copy(bbox = bbox)))
+    assertTrue(state.moveVertex(VertexRef(id("s"), listOf(0, 0)), pos(0.0, 0.0)))
+    assertEquals(bbox, state.feature(id("s"))?.bbox)
+    assertFalse(state.canUndo)
     assertTrue(state.moveVertex(VertexRef(id("s"), listOf(0, 0)), pos(-1.0, -1.0)))
     val ring = (state.feature(id("s"))!!.geometry as Polygon).coordinates[0]
     assertEquals(pos(-1.0, -1.0), ring.first())
@@ -476,6 +525,9 @@ class FeatureEditorStateTest {
     assertTrue(state.moveVertex(ref, pos(2.0, 0.0)))
     assertEquals(pos(2.0, 0.0), state.draft?.positions?.get(1))
     assertEquals(pos(2.0, 0.0), state.activeHandle?.position)
+    val draft = state.draft
+    assertTrue(state.moveVertex(ref, pos(2.0, 0.0)))
+    assertSame(draft, state.draft)
     assertTrue(state.insertVertex(VertexRef(null, listOf(2)), pos(3.0, 0.0)))
     assertEquals(3, state.draft?.positions?.size)
     assertTrue(state.removeVertex(VertexRef(null, listOf(0))))

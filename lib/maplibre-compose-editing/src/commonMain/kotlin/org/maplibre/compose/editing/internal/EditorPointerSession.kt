@@ -49,9 +49,10 @@ internal interface EditorPointerHandler {
  *
  * The first pointer of a contact group is tracked; a press an earlier node consumed is not. A
  * claimed pointer's changes are all consumed; a cancelled or committed group is swallowed until
- * every contact lifts. An unclaimed pointer is no tap once it moves past slop, once another node
- * consumes it, or, for touch and stylus, once it is held past the long press timeout. [onEvent]
- * returns the ids of the changes to consume.
+ * every contact lifts. An unclaimed pointer is no tap once it moves past slop, once an earlier node
+ * consumes it, once a later node consumes one of its moves ([onMoveConsumed]), or, for touch and
+ * stylus, once it is held past the long press timeout. [onEvent] returns the ids of the changes to
+ * consume.
  */
 internal class EditorPointerSession(
   private val handler: EditorPointerHandler,
@@ -100,6 +101,12 @@ internal class EditorPointerSession(
       }
     }
     return consume
+  }
+
+  /** Drops the tap of the unclaimed pointer [id] after a later node consumed one of its moves. */
+  fun onMoveConsumed(id: Long) {
+    val t = tracked ?: return
+    if (!swallowed && t.id == id && !t.claimed) t.tapEligible = false
   }
 
   /** Delivers a long press when one is pending. Returns whether it did. */

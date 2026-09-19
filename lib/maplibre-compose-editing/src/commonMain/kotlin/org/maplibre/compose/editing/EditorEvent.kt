@@ -95,8 +95,9 @@ public interface EditorEvent {
   ) : EditorEvent
 
   /**
-   * A claimed pointer was lost, Escape was pressed, a second pointer landed before any drag, or the
-   * modifier was disabled.
+   * A claimed pointer was lost, Escape was pressed, a second pointer landed before any drag,
+   * [unproject] returned null during a drag, or the modifier was disabled, detached or given
+   * another state.
    */
   public data class Cancel(
     val step: EditStep,

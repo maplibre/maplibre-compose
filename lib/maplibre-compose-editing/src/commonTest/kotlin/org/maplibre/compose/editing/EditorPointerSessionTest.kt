@@ -300,6 +300,23 @@ class EditorPointerSessionTest {
   }
 
   @Test
+  fun aMoveALaterNodeConsumedDropsTheTapOfAnUnclaimedPointer() {
+    val handler = Handler(consumeTap = true)
+    val session = session(handler)
+    session.onEvent(listOf(down()))
+    session.onEvent(listOf(move(x = 5f)))
+    session.onMoveConsumed(1)
+    assertEquals(emptySet(), session.onEvent(listOf(up(x = 5f))))
+    assertEquals(listOf("press"), handler.calls)
+
+    handler.claim = true
+    session.onEvent(listOf(down(time = 1000)))
+    session.onMoveConsumed(1)
+    assertEquals(setOf(1L), session.onEvent(listOf(up(time = 1010))))
+    assertEquals(listOf("press", "press", "tap1"), handler.calls)
+  }
+
+  @Test
   fun aDragOrMovedPointerBetweenTwoTapsEndsTheDoubleTap() {
     val handler = Handler(consumeTap = true)
     val session = session(handler)
