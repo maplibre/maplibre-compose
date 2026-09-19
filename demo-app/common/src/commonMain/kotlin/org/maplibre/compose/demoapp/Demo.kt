@@ -12,6 +12,7 @@ import org.maplibre.compose.demoapp.demos.Manhattan3dDemo
 import org.maplibre.compose.demoapp.demos.MaterialStyleDemo
 import org.maplibre.compose.demoapp.demos.TransitNetworkDemo
 import org.maplibre.compose.demoapp.demos.editablemarkers.EditableMarkersDemo
+import org.maplibre.compose.demoapp.demos.featureediting.FeatureEditingDemo
 import org.maplibre.compose.demoapp.demos.snapshotter.MapSnapshotterDemo
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.map.MapState
@@ -127,6 +128,7 @@ val allDemos: List<Demo> =
     DataVizDemo,
     LiveTrackingDemo,
     EditableMarkersDemo,
+    FeatureEditingDemo,
     MagnifyingLensDemo,
     MapSnapshotterDemo,
     TransitNetworkDemo,
