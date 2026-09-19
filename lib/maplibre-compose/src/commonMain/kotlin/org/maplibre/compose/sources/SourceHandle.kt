@@ -132,7 +132,13 @@ public sealed interface CustomVectorTileSourceHandle : VectorTileSourceHandle {
   public fun invalidateTile(tile: TileCoordinate): Unit
 }
 
-/** Access to a custom geometry source in one loaded style generation. */
+/**
+ * Access to a custom geometry source in one loaded style generation.
+ *
+ * MapLibre GL JS has no per-tile invalidation: an invalidation there reloads every tile of the
+ * source, so the requested tile or bounds is advisory. An invalidation requested while provider
+ * calls are still in flight is applied once those tiles settle, not synchronously.
+ */
 public sealed interface CustomGeometrySourceHandle : SourceHandle {
   /** Requests new features for tiles that intersect [bounds]. */
   public fun invalidateBounds(bounds: BoundingBox): Unit

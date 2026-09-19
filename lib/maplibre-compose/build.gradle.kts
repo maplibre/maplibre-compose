@@ -132,6 +132,8 @@ kotlin {
       implementation(
         npm("@maplibre/maplibre-gl-style-spec", libs.versions.maplibre.styleSpec.get())
       )
+      implementation(npm("@maplibre/geojson-vt", libs.versions.maplibre.geojsonVt.get()))
+      implementation(npm("@maplibre/vt-pbf", libs.versions.maplibre.vtPbf.get()))
     }
 
     commonTest.dependencies {

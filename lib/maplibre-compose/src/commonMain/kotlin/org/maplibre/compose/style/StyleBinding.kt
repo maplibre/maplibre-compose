@@ -379,8 +379,6 @@ internal interface StyleBinding {
    * unload stops the source and releases its resources.
    *
    * @return false if the style has unloaded, in which case nothing was added.
-   * @throws UnsupportedOperationException on an engine with no custom geometry source (MapLibre GL
-   *   JS).
    * @throws StyleMutationException if the engine returns an error.
    */
   fun addCustomGeometrySource(
@@ -389,10 +387,10 @@ internal interface StyleBinding {
     provider: GeometryTileProvider,
   ): Boolean
 
-  /** Requests new features for a custom geometry source's tiles that intersect [bounds]. */
+  /** Requests new features for intersecting tiles. GL JS reloads the whole source. */
   fun invalidateCustomGeometrySourceBounds(sourceId: String, bounds: BoundingBox)
 
-  /** Requests new features for one tile of a custom geometry source when MapLibre needs it. */
+  /** Requests new features for one tile. GL JS reloads the whole source. */
   fun invalidateCustomGeometrySourceTile(sourceId: String, tile: TileCoordinate)
 
   /**

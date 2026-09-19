@@ -14,6 +14,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -24,6 +25,7 @@ import org.maplibre.compose.gljs.GeoJsonSourceData
 import org.maplibre.compose.gljs.GlJsGeoJsonSource
 import org.maplibre.compose.gljs.GlJsImageSource
 import org.maplibre.compose.gljs.GlJsSubscription
+import org.maplibre.compose.gljs.GlJsVectorSource
 import org.maplibre.compose.gljs.JsRecord
 import org.maplibre.compose.gljs.LayerSpecification
 import org.maplibre.compose.gljs.LightSpecification
@@ -89,7 +91,8 @@ internal class GlJsStyleBinding(
   internal fun indicator(id: String): GlJsLocationIndicator? = indicators[id]
 
   private var loaded = true
-  private val customVectorAttachments = mutableMapOf<String, GlJsCustomVectorAttachment>()
+  private val customVectorAttachments = mutableMapOf<String, GlJsProtocolTileAttachment>()
+  private val customGeometryAttachments = mutableMapOf<String, GlJsCustomGeometryAttachment>()
 
   /**
    * GL JS reports a style change it will not make by firing an `error` event rather than throwing,
@@ -117,6 +120,21 @@ internal class GlJsStyleBinding(
     map.style.sky.subscribe("error") { event ->
       errorCount++
       lastError = event.error?.message
+    }
+
+  private val pendingCustomGeometryReloads = mutableSetOf<String>()
+
+  // Reload only after outstanding tiles settle. GL JS otherwise re-parses their old responses.
+  private val customGeometryReloads: GlJsSubscription =
+    map.subscribe("sourcedata") { event ->
+      val sourceId = event.sourceId ?: return@subscribe
+      if (!loaded || sourceId !in pendingCustomGeometryReloads) return@subscribe
+      if (map.getSource<GlJsVectorSource>(sourceId) == null || map.isSourceLoaded(sourceId) != true)
+        return@subscribe
+      pendingCustomGeometryReloads.remove(sourceId)
+      posted("Custom geometry source '$sourceId'", null) {
+        invalidateCustomGeometrySource(sourceId)
+      }
     }
 
   // GL JS serializes only JSON layers when recovering a lost context. Retain custom layer
@@ -163,9 +181,14 @@ internal class GlJsStyleBinding(
     errors.cancel()
     lightErrors.cancel()
     skyErrors.cancel()
-    val attachments = customVectorAttachments.values.toList()
+    customGeometryReloads.cancel()
+    pendingCustomGeometryReloads.clear()
+    val vectorAttachments = customVectorAttachments.values.toList()
+    val geometryAttachments = customGeometryAttachments.values.toList()
     customVectorAttachments.clear()
-    attachments.forEach { it.close() }
+    customGeometryAttachments.clear()
+    vectorAttachments.forEach { it.close() }
+    geometryAttachments.forEach { it.close() }
   }
 
   private fun requireLoaded() {
@@ -321,29 +344,57 @@ internal class GlJsStyleBinding(
   override fun removeSource(sourceId: String) {
     requireLoaded()
     mutate("remove source '$sourceId'") { map.removeSource(sourceId) }
+    pendingCustomGeometryReloads.remove(sourceId)
     customVectorAttachments.remove(sourceId)?.close()
+    customGeometryAttachments.remove(sourceId)?.close()
   }
 
   override fun addCustomGeometrySource(
     sourceId: String,
     options: CustomGeometrySourceOptions,
     provider: GeometryTileProvider,
-  ): Boolean =
-    throw UnsupportedOperationException(
-      "Custom geometry source '$sourceId' is not available in the browser. Use " +
-        "CustomVectorTileSource when the provider can return MVT data, or use GeoJsonSource for " +
-        "geographic features."
-    )
+  ): Boolean {
+    requireLoaded()
+    val attachment = GlJsCustomGeometryAttachment(sourceId, options, provider)
+    val added =
+      try {
+        addSource(
+          sourceId,
+          buildJsonObject {
+            put("type", "vector")
+            putJsonArray("tiles") { add(attachment.tileUrlTemplate) }
+            put("minzoom", options.minZoom)
+            put("maxzoom", options.maxZoom)
+          },
+        )
+      } catch (error: Throwable) {
+        attachment.close()
+        throw error
+      }
+    if (added) customGeometryAttachments[sourceId] = attachment else attachment.close()
+    return added
+  }
 
-  override fun invalidateCustomGeometrySourceBounds(sourceId: String, bounds: BoundingBox): Unit =
-    throw UnsupportedOperationException(
-      "Custom geometry source '$sourceId' is not available in the browser."
-    )
+  override fun invalidateCustomGeometrySourceBounds(sourceId: String, bounds: BoundingBox) {
+    invalidateCustomGeometrySource(sourceId)
+  }
 
-  override fun invalidateCustomGeometrySourceTile(sourceId: String, tile: TileCoordinate): Unit =
-    throw UnsupportedOperationException(
-      "Custom geometry source '$sourceId' is not available in the browser."
-    )
+  override fun invalidateCustomGeometrySourceTile(sourceId: String, tile: TileCoordinate) {
+    invalidateCustomGeometrySource(sourceId)
+  }
+
+  private fun invalidateCustomGeometrySource(sourceId: String) {
+    requireLoaded()
+    val attachment = customGeometryAttachments[sourceId] ?: return
+    val source = map.getSource<GlJsVectorSource>(sourceId) ?: return
+    if (map.isSourceLoaded(sourceId) != true) {
+      pendingCustomGeometryReloads += sourceId
+      return
+    }
+    mutate("invalidate custom geometry source '$sourceId'") {
+      source.setTiles(arrayOf(attachment.invalidate()))
+    }
+  }
 
   override fun addCustomVectorSource(
     sourceId: String,
@@ -352,7 +403,11 @@ internal class GlJsStyleBinding(
   ): Boolean {
     requireLoaded()
     customVectorAttachments.remove(sourceId)?.close()
-    val attachment = GlJsCustomVectorAttachment(sourceId, provider)
+    val attachment =
+      GlJsProtocolTileAttachment(
+        name = "custom-vector-$sourceId",
+        loadTile = provider::loadTile,
+      )
     customVectorAttachments[sourceId] = attachment
     val added =
       try {
@@ -586,7 +641,7 @@ internal class GlJsStyleBinding(
               }
           }
         else null
-      val spec = renderer?.layer ?: layer.toJsValue<LayerSpecification>()
+      val spec = renderer?.layer ?: normalizeSourceLayer(layer).toJsValue<LayerSpecification>()
       // MapLibre reads an absent `beforeId` as "on top"; an empty string is a layer id it will not
       // find.
       if (beforeLayerId.isEmpty()) map.addLayer(spec) else map.addLayer(spec, beforeLayerId)
@@ -594,6 +649,18 @@ internal class GlJsStyleBinding(
       layerOrder = map.getLayersOrder().toList()
     }
     return true
+  }
+
+  /**
+   * MapLibre Native ignores `source-layer` on a custom geometry source because its tiles hold one
+   * unnamed layer. GL JS validates that `source-layer` is a non-empty string and matches a layer
+   * name in the tile, so a layer on such a source is pointed at the source's canonical name.
+   */
+  private fun normalizeSourceLayer(layer: JsonObject): JsonObject {
+    val sourceId = (layer["source"] as? JsonPrimitive)?.contentOrNull ?: return layer
+    val attachment = customGeometryAttachments[sourceId] ?: return layer
+    if (layer["source-layer"] == JsonPrimitive(attachment.sourceLayerName)) return layer
+    return JsonObject(layer + ("source-layer" to JsonPrimitive(attachment.sourceLayerName)))
   }
 
   override fun removeLayer(layerId: String) {

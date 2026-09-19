@@ -73,9 +73,16 @@ public fun interface VectorTileProvider {
 /**
  * A source whose tiles contain geographic features that the application supplies.
  *
- * MapLibre clips, simplifies, and encodes the returned features for rendering. This source is not
- * available on the browser platform: adding it to a style there throws
- * [UnsupportedOperationException].
+ * MapLibre clips and simplifies the returned features using [CustomGeometrySourceOptions].
+ *
+ * On the browser, feature IDs are converted to integers, array and object property values become
+ * JSON strings, and null-valued properties are omitted. Native preserves these values.
+ *
+ * Layers read the source's single feature layer regardless of their `source-layer` setting. On the
+ * browser, a layer handle reads back the source id as its `source-layer`.
+ *
+ * Browser invalidation reloads the whole source after outstanding tile requests finish. Provider
+ * failures are logged and produce an empty tile.
  */
 public class CustomGeometrySource(
   id: String,

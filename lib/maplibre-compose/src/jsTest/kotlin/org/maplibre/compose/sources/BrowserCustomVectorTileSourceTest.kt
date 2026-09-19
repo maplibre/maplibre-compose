@@ -1,6 +1,7 @@
 package org.maplibre.compose.sources
 
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
@@ -39,6 +40,7 @@ class BrowserCustomVectorTileSourceTest {
       style.install(layer)
 
       fixture.pumpUntil("the empty custom MVT tile to be requested") { requests.isNotEmpty() }
+      assertEquals("points", style.withMap { map -> map.getLayer("empty-points")?.sourceLayer })
       fun isSourceLoaded(): Boolean = style.withMap { map -> map.isSourceLoaded(source.id) } == true
 
       assertFalse(isSourceLoaded())
@@ -93,7 +95,11 @@ class BrowserCustomVectorTileSourceTest {
       }
 
       assertTrue(requested)
-      assertNotNull(style.lastReportedError)
+      val reported = assertNotNull(style.lastReportedError)
+      assertTrue(
+        reported.contains("fixture protocol failure"),
+        "the reported error should carry the provider failure, was: $reported",
+      )
     }
   }
 }

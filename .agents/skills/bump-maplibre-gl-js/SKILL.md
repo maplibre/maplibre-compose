@@ -23,7 +23,17 @@ retrieve the version pinned before the upgrade.
 ## 2. Bump and reinstall
 
 Edit `maplibre-js` and set `maplibre-styleSpec` to the spec version bundled by
-the new release in `gradle/libs.versions.toml`, then:
+the new release in `gradle/libs.versions.toml`.
+
+Also review `maplibre-geojsonVt` and `maplibre-vtPbf` against the new release's
+`@maplibre/geojson-vt` and `@maplibre/vt-pbf` dependency ranges in
+`package.json`. These independent libraries encode custom geometry as standard
+MVT; they do not require an exact GL JS version match. Keep our pins within GL
+JS's ranges as an upgrade convention, retaining them when the ranges have not
+changed. Check the resolved versions in `kotlin-js-store/yarn.lock` after
+installation.
+
+Then:
 
 ```sh
 ./gradlew kotlinNpmInstall
@@ -39,6 +49,10 @@ diff -u "$upgrade_dir/maplibre-gl.d.ts" build/js/node_modules/maplibre-gl/dist/m
 Read the diff only for names that appear in `GlJsModule.kt` or `GlJsTypes.kt`:
 renamed or removed `Map` methods, changed option fields, changed return shapes.
 Update the declarations to match.
+
+When either tile library changes, compare `geoJSONToTile` and `fromGeojsonVt`
+with `GlJsVectorTiles.kt` and `GlJsVectorTilePbf.kt`. Check their option fields
+and the tile shape passed between them by `GlJsCustomGeometryAttachment`.
 
 Kotlin compilation does not validate `external` declarations against upstream
 TypeScript. Compare the declared members with the new `.d.ts`; runtime tests
@@ -99,6 +113,11 @@ diff -u "$upgrade_dir/src/gl/value.ts" build/js/node_modules/maplibre-gl/src/gl/
 diff -u "$upgrade_dir/src/ui/map.ts" build/js/node_modules/maplibre-gl/src/ui/map.ts
 diff -u "$upgrade_dir/src/style/style.ts" build/js/node_modules/maplibre-gl/src/style/style.ts
 ```
+
+Custom geometry also relies on public `addProtocol` and
+`VectorTileSource.setTiles` behavior. Check request cancellation and source
+reload semantics when these APIs change; the browser geometry tests cover
+deferred invalidation and provider failure recovery.
 
 ## 6. Verify
 

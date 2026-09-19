@@ -123,6 +123,11 @@ internal external interface GlJsGeoJsonSource : SourceHandle {
   ): Promise<Array<GeoJsonFeature>>
 }
 
+internal external interface GlJsVectorSource : SourceHandle {
+  /** Replaces the source's tile URL templates and reloads its tiles. */
+  fun setTiles(tiles: Array<String>)
+}
+
 /** GeoJSON data or its URL, as defined by the style spec's `data` property. */
 internal external interface GeoJsonSourceData
 
