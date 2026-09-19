@@ -19,6 +19,7 @@ import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MlnFfiMapSession
+import org.maplibre.compose.map.TestMainDispatcher
 import org.maplibre.compose.map.mapRuntimeForTest
 import org.maplibre.compose.resource.MapResourceConfig
 import org.maplibre.compose.style.BaseStyle
@@ -65,7 +66,9 @@ private constructor(
 
   private var frameId = 0L
   private val frameRequested = AtomicBoolean(true)
-  private val runtime = mapRuntimeForTest()
+  /** Engine callbacks land here; [pumpUntil] and the test's `runBlocking` loop drain it. */
+  private val testMain = TestMainDispatcher()
+  private val runtime = mapRuntimeForTest(mainDispatcher = testMain)
   val state = runtime.createMapState(BaseStyle.Demo)
 
   val session: MlnFfiMapSession =
@@ -209,6 +212,7 @@ private constructor(
   ) {
     val deadline = TimeSource.Monotonic.markNow() + timeout
     var frames = 0
+    testMain.drain()
     while (!runBlocking { condition() }) {
       check(deadline.hasNotPassedNow()) {
         "Timed out after $frames frames waiting for $description. Errors: $errors"
@@ -217,6 +221,7 @@ private constructor(
       frames++
       // A tight loop would starve the network and worker threads.
       parkForTest(POLL_INTERVAL_MILLIS)
+      testMain.drain()
     }
   }
 
@@ -334,6 +339,7 @@ private constructor(
       }
     }
     cleanup {
+      testMain.drain()
       state.close()
       runBlocking { state.awaitClosed() }
     }

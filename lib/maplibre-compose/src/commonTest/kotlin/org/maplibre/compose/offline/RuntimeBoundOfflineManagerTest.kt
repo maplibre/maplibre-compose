@@ -6,6 +6,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.runTest
@@ -118,6 +119,7 @@ class RuntimeBoundOfflineManagerTest {
       closeResources = closeResources,
       logger = null,
       offlineManagerBackend = backend,
+      mainDispatcher = Dispatchers.Unconfined,
     )
 
   private class RecordingOfflineManager : OfflineManagerBackend, OfflinePackOwner {

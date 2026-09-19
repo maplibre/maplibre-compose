@@ -76,18 +76,20 @@ internal class MapLifecycleAuthority(
   private val owner: MapState,
   private val physicalScope: CoroutineScope,
   private val mainDispatcher: CoroutineDispatcher = Dispatchers.Unconfined,
+  private val mainThread: MainThreadGuard = MainThreadGuard(),
 ) {
   internal val gestureCamera: CameraInputAuthority
     get() = owner.gestureAuthority
 
-  /** Runs [block] on the main dispatcher, inline when the caller is already there. */
-  fun postToMain(block: () -> Unit) {
-    if (mainDispatcher.isDispatchNeeded(EmptyCoroutineContext)) {
-      mainDispatcher.dispatch(EmptyCoroutineContext, Runnable(block))
-    } else {
-      block()
-    }
-  }
+  /** Fails unless the caller is on the main thread. Map-state mutators call this first. */
+  fun requireMain() = mainThread.requireMain()
+
+  /**
+   * Runs [block] on the main dispatcher, inline when the caller is already there. Inline posts can
+   * run ahead of posts that other threads queued earlier, so a posted block must not assume the
+   * state it saw when it was queued.
+   */
+  fun postToMain(block: () -> Unit) = postToMain(mainDispatcher, mainThread, block)
 
   private val lock = reentrantLock()
   private val closeCommitted = AtomicBoolean(false)
@@ -201,15 +203,15 @@ internal class MapLifecycleAuthority(
         retained === adapter || !adapter.retainsEngineBetweenPresentations
       }
     }
-    val configurationFailure =
+    postToMain {
       try {
-        postToMain { owner.attachmentAuthority.configurePresentationAdapter(adapter) }
-        null
+        owner.attachmentAuthority.configurePresentationAdapter(adapter)
       } catch (error: CancellationException) {
         throw error
       } catch (error: Exception) {
-        error
+        owner.styleAuthority.markStyleFailed(adapter, error.message)
       }
+    }
     val replaced = serialized {
       val current = attachment
       if (closed || current?.token != token || current.releasing || current.adapter !== adapter) {
@@ -221,9 +223,6 @@ internal class MapLifecycleAuthority(
       retainedToReplace
     }
     postToMain { owner.attachmentAuthority.seedPresentationViewport(token, adapter) }
-    configurationFailure?.let {
-      postToMain { owner.styleAuthority.markStyleFailed(adapter, it.message) }
-    }
     if (replaced != null) {
       replaced.close()
       physicalScope.launch {
@@ -358,7 +357,7 @@ internal class MapLifecycleAuthority(
       session?.let(platforms::get)?.let {
         return it
       }
-      MapLifecycleBinding(adapter, physicalScope, mainDispatcher) { binding ->
+      MapLifecycleBinding(adapter, physicalScope, mainDispatcher, mainThread) { binding ->
           if (session != null) retireClosingSession(session, binding)
         }
         .also { binding ->
@@ -470,19 +469,11 @@ internal class MapLifecycleBinding(
   private val adapter: MapLifecyclePlatformAdapter,
   private val physicalScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
   private val mainDispatcher: CoroutineDispatcher = Dispatchers.Unconfined,
+  private val mainThread: MainThreadGuard = MainThreadGuard(),
   private val onClosing: (MapLifecycleBinding) -> Unit = {},
 ) {
-  /**
-   * Runs [block] on the main dispatcher, inline when the caller is already there. Posts from one
-   * engine thread keep their order, so a callback never overtakes the event it follows.
-   */
-  fun postToMain(block: () -> Unit) {
-    if (mainDispatcher.isDispatchNeeded(EmptyCoroutineContext)) {
-      mainDispatcher.dispatch(EmptyCoroutineContext, Runnable(block))
-    } else {
-      block()
-    }
-  }
+  /** See [MapLifecycleAuthority.postToMain]. */
+  fun postToMain(block: () -> Unit) = postToMain(mainDispatcher, mainThread, block)
 
   private val nextIdentity = AtomicLong(0L)
   private val current = AtomicReference<InternalState>(InternalState.OpenDetached(null))
@@ -1124,5 +1115,24 @@ internal class MapLifecycleBinding(
     data object Closed : InternalState {
       override val engine: EngineMapIdentity? = null
     }
+  }
+}
+
+/**
+ * Runs [block] on [dispatcher], inline when no dispatch is needed. Either way the block runs on the
+ * main thread that [guard] pins, and the guard learns that thread from the first block it runs.
+ */
+private fun postToMain(dispatcher: CoroutineDispatcher, guard: MainThreadGuard, block: () -> Unit) {
+  if (dispatcher.isDispatchNeeded(EmptyCoroutineContext)) {
+    dispatcher.dispatch(
+      EmptyCoroutineContext,
+      Runnable {
+        guard.requireMain()
+        block()
+      },
+    )
+  } else {
+    guard.requireMain()
+    block()
   }
 }

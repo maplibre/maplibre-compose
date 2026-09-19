@@ -1,6 +1,8 @@
 package org.maplibre.compose.map
 
 import androidx.compose.ui.unit.LayoutDirection
+import kotlin.coroutines.ContinuationInterceptor
+import kotlin.coroutines.coroutineContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -9,6 +11,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -196,14 +199,15 @@ class PlatformMapAccessTest {
 
   private suspend fun withNativeMapState(block: suspend (MapState, RuntimeImplementation) -> Unit) {
     FfiTestPlatform.initialize()
+    TestMain.loop = coroutineContext[ContinuationInterceptor] as CoroutineDispatcher
     val cacheFile = FfiTestPlatform.createCacheFile()
     val runtime =
       RuntimeImplementation(
         platformContext = MlnFfiRuntimeOptions(cacheFile),
         closeResources = {},
         logger = null,
-        // The test blocks the main thread, so posted map-state work runs inline.
-        mainDispatcher = Dispatchers.Unconfined,
+        // The test thread is the main thread; posts from other threads drain into runBlocking.
+        mainDispatcher = TestMainDispatcher(),
       )
     val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
     try {
@@ -211,6 +215,7 @@ class PlatformMapAccessTest {
     } finally {
       runtime.close()
       runtime.awaitClosed()
+      TestMain.loop = null
       FfiTestPlatform.deleteCacheFile(cacheFile)
     }
   }

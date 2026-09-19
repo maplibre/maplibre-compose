@@ -116,14 +116,19 @@ internal expect fun defaultMapRuntimeOptions(): MapRuntimeOptions
 public expect fun createMapRuntime(options: MapRuntimeOptions): MapRuntime
 
 /**
- * The main dispatcher when one is installed, so engine callbacks reach map state on the thread that
- * reads it. Without one, callbacks run inline on the engine thread as before.
+ * The main dispatcher, so engine callbacks reach map state on the thread that reads it. A platform
+ * without one is a configuration error: set the main dispatcher in [MapRuntimeOptions] instead.
  */
 internal fun platformMainDispatcher(): CoroutineDispatcher =
   try {
     Dispatchers.Main.immediate.also { it.isDispatchNeeded(EmptyCoroutineContext) }
-  } catch (_: IllegalStateException) {
-    Dispatchers.Unconfined
+  } catch (error: IllegalStateException) {
+    throw IllegalStateException(
+      "MapLibre Compose needs a main dispatcher to deliver engine callbacks. None is installed. " +
+        "Add the platform's kotlinx-coroutines main dispatcher, or pass mainDispatcher in " +
+        "MapRuntimeOptions.",
+      error,
+    )
   }
 
 /** Creates logical maps that share one application-level configuration. */
@@ -796,7 +801,7 @@ internal constructor(
     }
   }
   internal val lifecycle =
-    MapLifecycleAuthority(this, runtime.physicalScope, runtime.mainDispatcher)
+    MapLifecycleAuthority(this, runtime.physicalScope, runtime.mainDispatcher, runtime.mainThread)
   internal val styleAuthority = MapStyleAuthority(lifecycle, runtime, baseStyle)
   public val style: MapStyleState = styleAuthority.style
   internal val gestureAuthority = CameraInputAuthority(this)
@@ -848,8 +853,8 @@ internal constructor(
    * Style and idle events can continue while a native map has no attached surface. Camera and frame
    * events require an attached surface.
    *
-   * Unconfined collectors may run inside engine callbacks. Use a dispatcher that queues execution
-   * for collectors that call map commands such as [StyleImages.add].
+   * Events are emitted on the main thread after the state they describe has been updated, so a
+   * collector may call map commands such as [StyleImages.add].
    */
   public val events: Flow<MapEvent> = attachmentAuthority.events
 
@@ -907,7 +912,7 @@ internal constructor(
   public fun stopCameraMovement() {
     val guard = gestureAuthority.beginProgrammatic()
     val attachment = run {
-      requireOpenLocked()
+      requireOpen()
       if (!guard.isValid()) return
       currentMapAttachment ?: return
     }
@@ -1239,7 +1244,7 @@ internal constructor(
 
   internal fun durableStyleCallbacks(): MapAdapter.Callbacks = DurableStyleCallbacks(this)
 
-  private fun requireOpenLocked() {
+  private fun requireOpen() {
     check(!lifecycle.isClosed) { "The map state is closed" }
   }
 
@@ -1349,6 +1354,8 @@ internal class RuntimeImplementation(
   internal val mainDispatcher: CoroutineDispatcher = platformMainDispatcher(),
   /** Runs map-state work that resumes after an engine read. */
   internal val mainScope: CoroutineScope = CoroutineScope(SupervisorJob() + mainDispatcher),
+  /** Pins map state to the main dispatcher's thread. */
+  internal val mainThread: MainThreadGuard = MainThreadGuard(),
   /** Runs engine reads that block until the map owner thread answers. */
   internal val readDispatcher: CoroutineDispatcher =
     physicalScope.coroutineContext[ContinuationInterceptor] as? CoroutineDispatcher

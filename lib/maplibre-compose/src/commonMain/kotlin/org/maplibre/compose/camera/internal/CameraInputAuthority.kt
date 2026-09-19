@@ -45,7 +45,7 @@ internal inline fun runCameraCommand(
   return true
 }
 
-/** The lifecycle lock serializes admission with takeover and completion fences. */
+/** Admission, takeover, and completion fences all run on the main thread. */
 internal class CameraInputAuthority(private val owner: MapState) {
   private var dispatchTail: DispatchTurn? = null
   private var commandRevision = 0L
@@ -57,12 +57,13 @@ internal class CameraInputAuthority(private val owner: MapState) {
 
   /** Callback replacements do not revoke input. Resolved policy and momentum changes do. */
   fun updateConfiguration(value: CameraConfiguration) {
+    owner.lifecycle.requireMain()
     val previous = run {
       val changed = configuration.settings != value.settings
       configuration = value
       if (changed) {
         inputGeneration++
-        revokeLocked()
+        revokeActive()
       } else null
     }
     previous?.cancelWork()
@@ -75,6 +76,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
     adapter: MapAdapter,
     expectedInputGeneration: Long? = null,
   ): CameraInputToken {
+    owner.lifecycle.requireMain()
     var previous: CameraInputToken? = null
     var previousJobs: List<Job> = emptyList()
     val token = run {
@@ -91,7 +93,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
       if (!ready) {
         return@run token
       }
-      previous = revokeLocked()
+      previous = revokeActive()
       previousJobs = programmaticJobs.toList()
       programmaticJobs.clear()
       dispatchTail = null
@@ -113,6 +115,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
   fun observeInput(): Long = ++inputGeneration
 
   fun beginProgrammatic(job: Job? = null, concurrent: Boolean = false): CameraCommandGuard {
+    owner.lifecycle.requireMain()
     var previous: CameraInputToken? = null
     var previousJobs: List<Job> = emptyList()
     var revision = 0L
@@ -120,7 +123,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
     val generation = run {
       job?.ensureActive()
       check(!owner.isClosed) { "The map state is closed" }
-      previous = revokeLocked()
+      previous = revokeActive()
       revision = ++commandRevision
       if (!concurrent) {
         previousJobs = programmaticJobs.toList()
@@ -136,16 +139,12 @@ internal class CameraInputAuthority(private val owner: MapState) {
       cameraGeneration
     }
     turn?.onCompletion {
-      run {
-        if (dispatchTail === turn) dispatchTail = null
-      }
+      if (dispatchTail === turn) dispatchTail = null
     }
     previousJobs.forEach { it.cancel(CancellationException("A newer command owns the camera")) }
     job?.invokeOnCompletion {
       turn?.release()
-      run {
-        programmaticJobs.remove(job)
-      }
+      programmaticJobs.remove(job)
     }
     previous?.cancelWork()
     return object : CameraCommandGuard {
@@ -189,15 +188,16 @@ internal class CameraInputAuthority(private val owner: MapState) {
    * Called while invalidating the attachment; cancellation callbacks run outside the owner loop.
    */
   fun detach(attachment: MapAttachment) {
+    owner.lifecycle.requireMain()
     val token =
       run {
         inputGeneration++
-        active?.takeIf { it.attachment === attachment }?.also { revokeLocked() }
+        active?.takeIf { it.attachment === attachment }?.also { revokeActive() }
       } ?: return
     owner.runtime.physicalScope.launch { token.cancelWork() }
   }
 
-  private fun revokeLocked(): Token? = active?.also { it.revoke() }
+  private fun revokeActive(): Token? = active?.also { it.revoke() }
 
   private enum class Status {
     Open,
@@ -230,7 +230,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
     /** Called after a direct rotation executes; callbacks leave the lifecycle lock. */
     fun reportRotation(from: Double, to: Double) {
       val event = run {
-        if (!acceptsLocked(enqueue = false)) return@run null
+        if (!accepts(enqueue = false)) return@run null
         val callback = onHaptic ?: return@run null
         val detector =
           hapticDetector
@@ -245,28 +245,26 @@ internal class CameraInputAuthority(private val owner: MapState) {
     val bearingSnapping: BearingSnapping?
       get() = run {
         configuration.settings.rotate.snapping.takeIf {
-          acceptsLocked(enqueue = true) && rotated && it.enabled
+          accepts(enqueue = true) && rotated && it.enabled
         }
       }
 
     val acceptsCommands: Boolean
-      get() = acceptsLocked(enqueue = true)
+      get() = accepts(enqueue = true)
 
     val canExecute: Boolean
-      get() = acceptsLocked(enqueue = false)
+      get() = accepts(enqueue = false)
 
     val isCancelled: Boolean
       get() = status == Status.Cancelled
 
-    fun permitted(component: CameraComponent): Boolean = run {
-      acceptsLocked(enqueue = true) && configuration.settings.enabled(component)
-    }
+    fun permitted(component: CameraComponent): Boolean =
+      accepts(enqueue = true) && configuration.settings.enabled(component)
 
     /** Application callbacks run outside the lock and may replace this camera operation. */
     fun prepare(component: CameraComponent): Boolean {
       val start = run {
-        if (!acceptsLocked(enqueue = true) || !configuration.settings.enabled(component))
-          return false
+        if (!accepts(enqueue = true) || !configuration.settings.enabled(component)) return false
         if (component == CameraComponent.Rotate) rotated = true
         if (startedComponents.add(component)) configuration.onStart[component] else null
       }
@@ -288,7 +286,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
     }
 
     fun enqueue(action: () -> Unit): Boolean = run {
-      if (!acceptsLocked(enqueue = true)) return false
+      if (!accepts(enqueue = true)) return false
       action()
       true
     }
@@ -320,7 +318,7 @@ internal class CameraInputAuthority(private val owner: MapState) {
       target?.cancelGesture(this)
     }
 
-    private fun acceptsLocked(enqueue: Boolean): Boolean =
+    private fun accepts(enqueue: Boolean): Boolean =
       active === this &&
         attachment?.let(owner.attachmentAuthority::isCurrent) == true &&
         target?.isGestureReady == true &&

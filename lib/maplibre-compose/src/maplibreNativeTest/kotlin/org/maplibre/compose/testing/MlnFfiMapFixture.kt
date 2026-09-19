@@ -1,6 +1,8 @@
 package org.maplibre.compose.testing
 
+import kotlin.coroutines.ContinuationInterceptor
 import kotlin.time.Duration
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.camera.CameraPosition
@@ -8,6 +10,7 @@ import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapEvent
 import org.maplibre.compose.map.MapExtent
+import org.maplibre.compose.map.TestMain
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
@@ -115,7 +118,13 @@ actual typealias MapTestResult = Unit
 
 internal actual fun runMapTest(block: suspend CoroutineScope.() -> Unit): MapTestResult =
   runBlocking {
-    block()
+    // Posts from engine threads drain into this loop while the test body suspends.
+    TestMain.loop = coroutineContext[ContinuationInterceptor] as CoroutineDispatcher
+    try {
+      block()
+    } finally {
+      TestMain.loop = null
+    }
   }
 
 internal actual fun skipMapTest(reason: String): Nothing =
