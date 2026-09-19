@@ -1,4 +1,5 @@
 import json
+import shlex
 import struct
 import tempfile
 import unittest
@@ -8,11 +9,143 @@ from unittest.mock import patch
 
 import cv2
 import numpy as np
-from analyze import analyze, input_response, screenrecord_timestamps
-from run import android, desktop_artifact_hash, validate_workload, web
+from analyze import (
+    SCENARIO_DEFAULT_PARAMS,
+    SCENARIO_PROFILES,
+    analyze,
+    config_matches,
+    configs_equal,
+    input_response,
+    measurement_gate,
+    screenrecord_timestamps,
+)
+from run import (
+    SCENARIOS,
+    android,
+    android_launch_args,
+    canonical_config,
+    desktop_artifact_hash,
+    parse_config,
+    validate_workload,
+    web,
+)
 
 
 class RunnerConfigurationTest(unittest.TestCase):
+    def test_four_and_five_field_config_forms(self):
+        self.assertEqual(
+            parse_config("animation,surface,default,0"),
+            ("animation", "surface", "default", "0", None),
+        )
+        scenario, surface, fps, load, params = parse_config(
+            'style-complex,texture,60,5000,{"layers": 12, "features": 3000}'
+        )
+        self.assertEqual(scenario, "style-complex")
+        self.assertEqual(surface, "texture")
+        self.assertEqual(fps, "60")
+        self.assertEqual(load, "5000")
+        self.assertEqual(params, {"layers": 12, "features": 3000})
+        self.assertEqual(set(SCENARIO_PROFILES), set(SCENARIOS))
+        self.assertEqual(set(SCENARIO_DEFAULT_PARAMS), set(SCENARIOS))
+        self.assertEqual(
+            set(SCENARIO_DEFAULT_PARAMS["style-swap"]),
+            {"intervalMs", "count", "layers", "features"},
+        )
+
+    def test_rejects_unknown_scenarios_and_bad_params(self):
+        for value in (
+            "unknown,surface,default,0",
+            "animation,surface,default,0,not-json",
+            "animation,surface,default,0,[1,2]",
+            "animation,surface,300,0",
+            "animation,surface,default,10001",
+            "animation,surface,default,0,{}extra",
+            'geojson-update,surface,default,0,{"rateHz":NaN}',
+            'geojson-update,surface,default,0,{"features":Infinity}',
+            'geojson-update,surface,default,0,{"rateHz":1e999}',
+        ):
+            with self.assertRaises(ValueError, msg=value):
+                parse_config(value)
+
+    def test_canonical_config_is_compact_and_sorted(self):
+        self.assertEqual(
+            canonical_config("animation,surface,default,0"),
+            "animation,surface,default,0",
+        )
+        self.assertEqual(
+            canonical_config('style-swap,surface,60,0,{"count": 8, "intervalMs": 900}'),
+            'style-swap,surface,60,0,{"count":8,"intervalMs":900}',
+        )
+
+    def test_start_log_params_match_semantically(self):
+        self.assertTrue(
+            config_matches(
+                "animation,surface,default,0", "animation,surface,default,0,{}"
+            )
+        )
+        self.assertTrue(
+            config_matches(
+                'style-swap,surface,60,0,{"intervalMs":1500}',
+                'style-swap,surface,60,0,{"intervalMs":1500}',
+            )
+        )
+        self.assertTrue(
+            config_matches(
+                'style-complex,surface,default,0,{"sources":2}',
+                'style-complex,surface,default,0,{"features":2000,"layers":8,"sources":2}',
+            )
+        )
+        self.assertFalse(
+            config_matches(
+                'style-complex,surface,default,0,{"sources":3}',
+                'style-complex,surface,default,0,{"features":2000,"layers":8,"sources":2}',
+            )
+        )
+        self.assertFalse(
+            config_matches(
+                'style-swap,surface,60,0,{"intervalMs":900}',
+                'style-swap,surface,60,0,{"intervalMs":1500}',
+            )
+        )
+        self.assertFalse(
+            config_matches("setters,surface,60,0", "animation,surface,60,0,{}")
+        )
+        # A default request must still verify the logged effective parameters.
+        self.assertFalse(
+            config_matches(
+                "style-swap,surface,60,0",
+                'style-swap,surface,60,0,{"count":8,"features":1500,"intervalMs":900,"layers":6}',
+            )
+        )
+        self.assertTrue(
+            config_matches(
+                'style-swap,surface,60,0,{"intervalMs":1500}',
+                "style-swap,surface,60,0,{}",
+            )
+        )
+
+    def test_requested_configs_compare_semantically(self):
+        self.assertTrue(
+            configs_equal(
+                "animation,surface,default,0", "animation,surface,default,0,{}"
+            )
+        )
+        self.assertTrue(
+            configs_equal(
+                'style-swap,surface,60,0,{"intervalMs":1500}',
+                'style-swap,surface,60,0,{"intervalMs":1500.0}',
+            )
+        )
+        self.assertFalse(
+            configs_equal("animation,surface,default,0", "animation,surface,60,0,{}")
+        )
+        self.assertFalse(
+            configs_equal(
+                'style-swap,surface,60,0,{"intervalMs":900}',
+                "style-swap,surface,60,0,{}",
+            )
+        )
+
     def test_external_url_does_not_need_local_assets(self):
         args = SimpleNamespace(
             mode="visual",
@@ -36,6 +169,13 @@ class RunnerConfigurationTest(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "animator duration scale"):
                     android(args, Path("capture"), {})
                 self.assertEqual(call.call_count, 2)
+
+    def test_android_launch_quotes_params_for_the_device_shell(self):
+        config = 'style-complex,surface,default,0,{"label":"a b"}'
+        args = android_launch_args(["adb"], config)
+        self.assertEqual(args[args.index("--es") + 2], shlex.quote(config))
+        # An unquoted space would split into two remote-shell words.
+        self.assertEqual(shlex.split(args[-1]), [config])
 
 
 class ArtifactHashTest(unittest.TestCase):
@@ -93,6 +233,21 @@ class CaptureClockTest(unittest.TestCase):
             path = Path(directory) / "capture.mp4"
             path.write_bytes(b"old recording")
             self.assertIsNone(screenrecord_timestamps(path))
+
+
+class MeasurementGateTest(unittest.TestCase):
+    def test_stray_matched_pixels_do_not_break_the_gate(self):
+        hsv = np.zeros((160, 240, 3), dtype=np.uint8)
+        hsv[12:28, 12:28] = (60, 255, 255)
+        hsv[12:28, 32:48] = (150, 255, 255)
+        # Anti-aliased layers can put isolated same-hue pixels elsewhere in the corner.
+        hsv[35, 110] = (150, 255, 255)
+        hsv[35, 111] = (0, 255, 255)
+        self.assertTrue(measurement_gate(hsv, 1.0))
+        # Stray pixels alone must not fake a measurement gate.
+        hsv[12:28, 12:28] = 0
+        hsv[12:28, 32:48] = 0
+        self.assertFalse(measurement_gate(hsv, 1.0))
 
 
 class VisibleResponseTest(unittest.TestCase):
@@ -154,8 +309,10 @@ class PixelMeasurementTest(unittest.TestCase):
         fps=60,
         cap="default",
         end_gate=False,
+        scenario="setters",
+        marker_gap=0,
     ):
-        config = f"setters,surface,{cap},0"
+        config = f"{scenario},surface,{cap},0"
         (path / "metadata.json").write_text(
             json.dumps(
                 {
@@ -183,8 +340,10 @@ class PixelMeasurementTest(unittest.TestCase):
             # Startup can contain green UI. Only the two-color measurement pattern qualifies.
             if frame / fps >= 1 / 3:
                 cv2.rectangle(image, (32, 12), (48, 28), (255, 0, 255), -1)
-            cv2.circle(image, (x, 80), 6, (0, 0, 255), -1)
-            cv2.circle(image, (x + offset, 80), 20, (255, 255, 0), 3)
+            # Occasional frames with the gate but no markers simulate a workload blanking the map.
+            if not (marker_gap and frame % marker_gap == 0):
+                cv2.circle(image, (x, 80), 6, (0, 0, 255), -1)
+                cv2.circle(image, (x + offset, 80), 20, (255, 255, 0), 3)
             if end_gate and frame == frames - 1:
                 cv2.rectangle(image, (12, 12), (28, 28), (32, 32, 32), -1)
             writer.write(image)
@@ -208,6 +367,28 @@ class PixelMeasurementTest(unittest.TestCase):
                 self.recording(path, **options)
                 with self.assertRaises(ValueError):
                     analyze(path)
+
+    def test_stationary_map_is_valid_for_non_camera_scenarios(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)
+            self.recording(path, moving=False, scenario="style-swap")
+            result = analyze(path)
+            self.assertEqual(result["samples"], 710)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)
+            self.recording(path, moving=False, scenario="style-mutate")
+            self.assertEqual(analyze(path)["samples"], 710)
+
+    def test_coverage_profiles_distinguish_scenarios(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)
+            self.recording(path, scenario="style-swap", marker_gap=14)
+            self.assertGreaterEqual(analyze(path)["coverage"], 0.90)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)
+            self.recording(path, scenario="style-mutate", marker_gap=14)
+            with self.assertRaisesRegex(ValueError, "marker coverage"):
+                analyze(path)
 
     def test_low_fps_captures_require_motion_and_a_complete_interval(self):
         for fps in (1, 2, 5):
@@ -250,7 +431,24 @@ class PixelMeasurementTest(unittest.TestCase):
                 (output / "metadata.json").write_text(json.dumps(changed))
                 with self.assertRaises(ValueError):
                     validate_workload(output, reference)
+            # Equivalent parameter spellings still describe the same configuration.
+            equivalent = dict(metadata, config="setters,surface,default,0,{}")
+            (output / "metadata.json").write_text(json.dumps(equivalent))
+            self.assertEqual(
+                validate_workload(output, reference), str(reference.resolve())
+            )
             (output / "metadata.json").write_text(json.dumps(metadata))
+            # The app's logged parameters are ground truth even when metadata is edited.
+            original_log = (reference / "app.log").read_text()
+            (output / "app.log").write_text(
+                original_log.replace(
+                    "MAP_BENCHMARK START setters,surface,default,0 ",
+                    'MAP_BENCHMARK START setters,surface,default,0,{"unexpected":1} ',
+                )
+            )
+            with self.assertRaises(ValueError):
+                validate_workload(output, reference)
+            (output / "app.log").write_text(original_log)
             # A passing cached report cannot conceal a broken workload in the raw capture.
             self.recording(reference, moving=False)
             with self.assertRaises(ValueError):

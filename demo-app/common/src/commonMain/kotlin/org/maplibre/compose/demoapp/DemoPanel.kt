@@ -194,10 +194,10 @@ fun DemoPanel(
       SettingsSubScreen(scenario.title, onBack = { navController.popBackStack() }) {
         BenchmarkScenarioPanel(
           state,
-          onRun = {
+          onRun = { config ->
             scope.launch {
               revealMap()
-              state.benchmark.requestRun()
+              state.benchmark.requestRun(config)
             }
           },
         )
