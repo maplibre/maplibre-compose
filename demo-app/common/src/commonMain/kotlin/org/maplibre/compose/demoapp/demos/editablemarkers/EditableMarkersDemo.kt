@@ -116,7 +116,7 @@ object EditableMarkersDemo : Demo {
       markersState.textScale,
       1f..2f,
       { "${(it * 100).roundToInt()}%" },
-      { markersState.textScale = it },
+      onChange = { markersState.textScale = it },
     )
   }
 

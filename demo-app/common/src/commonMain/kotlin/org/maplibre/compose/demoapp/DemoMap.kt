@@ -376,6 +376,7 @@ fun DemoMap(
           }
         } else selectedDemo?.interactions(state.mapState, baseInteractions) ?: baseInteractions,
       uiOptions = selectedDemo?.uiOptions(baseUiOptions) ?: baseUiOptions,
+      surfaceModifier = selectedDemo?.surfaceModifier(state.mapState) ?: Modifier,
     ) {
       if (selectedDemo == null) DefaultMapControls(controls)
       selectedDemo?.let { demo ->

@@ -57,9 +57,9 @@ internal fun MockLocationSettings(state: DemoAppState, onPickPosition: () -> Uni
     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
   )
   if (location.placingMockLocation) {
-    ButtonRow("Cancel position selection", location::cancelMockPlacement)
+    ButtonRow("Cancel position selection", onClick = location::cancelMockPlacement)
   } else {
-    ButtonRow("Set position on map", onPickPosition)
+    ButtonRow("Set position on map", onClick = onPickPosition)
   }
   ButtonRow("Use map center") { location.useMapCenter(state.mapState.cameraPosition.target) }
   SwitchRow("Position accuracy known", sample.positionAccuracyKnown) {
