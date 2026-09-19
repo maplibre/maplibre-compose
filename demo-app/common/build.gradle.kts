@@ -86,6 +86,7 @@ kotlin {
 
       api(project(":lib:maplibre-compose"))
       implementation(project(":lib:maplibre-compose-material3"))
+      implementation(project(":lib:maplibre-compose-editing"))
     }
 
     androidMain {

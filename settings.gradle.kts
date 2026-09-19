@@ -50,6 +50,7 @@ include(
   ":lib",
   ":lib:maplibre-compose",
   ":lib:maplibre-compose-material3",
+  ":lib:maplibre-compose-editing",
   ":lib:maplibre-compose-runtime-opengl-android",
   ":lib:maplibre-compose-runtime-vulkan-android",
   ":lib:location",
