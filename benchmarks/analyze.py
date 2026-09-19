@@ -26,35 +26,48 @@ SCENARIO_PROFILES = {
 }
 DEFAULT_PROFILE = {"camera_motion": False}
 
+# Defaults of each scenario's params object. Keep in sync with the @Serializable params classes in
+# demo-app/common/src/commonMain/kotlin/org/maplibre/compose/demoapp/benchmark/BenchmarkModels.kt.
+SCENARIO_DEFAULT_PARAMS = {
+    "animation": {},
+    "setters": {},
+    "input": {},
+    "style-complex": {"layers": 8, "features": 2000, "sources": 2},
+    "style-swap": {"intervalMs": 1500, "count": 8, "layers": 6, "features": 1500},
+    "style-mutate": {"rateHz": 8.0, "pairs": 4},
+    "geojson-update": {"rateHz": 4.0, "features": 5000},
+    "padding": {"amplitudeDp": 120.0, "periodMs": 2000},
+    "images": {"count": 8, "intervalMs": 500, "sizePx": 32},
+    "resize": {"periodMs": 2000, "minPercent": 50},
+}
+
 
 def profile_for(config):
     return SCENARIO_PROFILES.get(config.split(",")[0], DEFAULT_PROFILE)
+
+
+def expanded_params(config):
+    """A configuration's params object with its scenario's defaults filled in."""
+    fields = config.split(",", 4)
+    defaults = SCENARIO_DEFAULT_PARAMS.get(fields[0], {})
+    text = fields[4] if len(fields) > 4 else ""
+    if text in ("", "{}"):
+        return dict(defaults)
+    return {**defaults, **json.loads(text)}
 
 
 def config_matches(requested, logged):
     """
     Compares a requested configuration with the one a START line logged.
 
-    The app logs every parameter it decoded, while an invocation may state only some of them, so
-    every requested parameter must equal the logged one. A missing or empty requested object means
-    the scenario defaults; an empty logged object cannot verify a non-empty request.
+    Missing and default parameters are expanded, so equivalent spellings compare equal while a
+    default request is still rejected against different logged parameters.
     """
     requested_fields = requested.split(",", 4)
     logged_fields = logged.split(",", 4)
     if requested_fields[:4] != logged_fields[:4]:
         return False
-    requested_params = requested_fields[4] if len(requested_fields) > 4 else ""
-    logged_params = logged_fields[4] if len(logged_fields) > 4 else ""
-    if requested_params in ("", "{}"):
-        return True
-    if logged_params in ("", "{}"):
-        return False
-    requested_object = json.loads(requested_params)
-    logged_object = json.loads(logged_params)
-    return all(
-        key in logged_object and logged_object[key] == value
-        for key, value in requested_object.items()
-    )
+    return expanded_params(requested) == expanded_params(logged)
 
 
 def configs_equal(first, second):

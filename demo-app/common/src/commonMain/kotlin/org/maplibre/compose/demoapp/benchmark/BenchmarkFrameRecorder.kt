@@ -38,10 +38,12 @@ internal data class FrameStats(
 /**
  * Times [MapEvent.FrameRendered] events between [start] and [stop].
  *
- * The engine emits frames on its render threads, so the collector runs on [Dispatchers.Default] and
- * hands samples to a channel; [stop] drains it after the collector joins. That keeps the measured
- * timestamps off the busy composition thread and keeps its records behind a single-producer
- * channel.
+ * [MapState.events][org.maplibre.compose.map.MapState.events] buffers with `DROP_OLDEST`, so a
+ * collector that runs on another dispatcher would time its own scheduling and could lose events.
+ * The collector is unconfined instead: it runs inline in the engine callback that emits the event,
+ * so each sample is stamped when the frame is reported. It only records and hands samples to a
+ * channel, so no map command runs on the engine thread; [stop] drains the channel after the
+ * collector joins.
  */
 internal class BenchmarkFrameRecorder {
   private var job: Job? = null
@@ -57,7 +59,7 @@ internal class BenchmarkFrameRecorder {
     start = TimeSource.Monotonic.markNow()
     previousNanos = NoPreviousFrame
     job =
-      scope.launch(Dispatchers.Default) {
+      scope.launch(Dispatchers.Unconfined) {
         events.filterIsInstance<MapEvent.FrameRendered>().collect { event ->
           val now = start.elapsedNow().inWholeNanoseconds
           val previous = previousNanos

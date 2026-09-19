@@ -10,6 +10,7 @@ from unittest.mock import patch
 import cv2
 import numpy as np
 from analyze import (
+    SCENARIO_DEFAULT_PARAMS,
     SCENARIO_PROFILES,
     analyze,
     config_matches,
@@ -45,6 +46,11 @@ class RunnerConfigurationTest(unittest.TestCase):
         self.assertEqual(load, "5000")
         self.assertEqual(params, {"layers": 12, "features": 3000})
         self.assertEqual(set(SCENARIO_PROFILES), set(SCENARIOS))
+        self.assertEqual(set(SCENARIO_DEFAULT_PARAMS), set(SCENARIOS))
+        self.assertEqual(
+            set(SCENARIO_DEFAULT_PARAMS["style-swap"]),
+            {"intervalMs", "count", "layers", "features"},
+        )
 
     def test_rejects_unknown_scenarios_and_bad_params(self):
         for value in (
@@ -104,8 +110,14 @@ class RunnerConfigurationTest(unittest.TestCase):
         self.assertFalse(
             config_matches("setters,surface,60,0", "animation,surface,60,0,{}")
         )
-        # A logged empty object cannot verify a non-default request.
+        # A default request must still verify the logged effective parameters.
         self.assertFalse(
+            config_matches(
+                "style-swap,surface,60,0",
+                'style-swap,surface,60,0,{"count":8,"features":1500,"intervalMs":900,"layers":6}',
+            )
+        )
+        self.assertTrue(
             config_matches(
                 'style-swap,surface,60,0,{"intervalMs":1500}',
                 "style-swap,surface,60,0,{}",
