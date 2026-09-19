@@ -103,8 +103,6 @@ kotlin {
 
     appleMain.dependencies { implementation(libs.ktor.client.darwin) }
 
-    commonTest.dependencies { implementation(kotlin("test")) }
-
     jsMain.dependencies {
       implementation(libs.jetbrains.compose.html.core)
       implementation(libs.kotlin.wrappers.browser)
