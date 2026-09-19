@@ -10,6 +10,7 @@ import org.maplibre.compose.desktop.skiko.HostOperatingSystem
 import org.maplibre.compose.map.DefaultMapRuntime
 import org.maplibre.compose.map.LocalMlnFfiMapHostFactory
 import org.maplibre.compose.map.MapRuntimeOptions
+import org.maplibre.compose.map.UnconfinedTestMain
 import org.maplibre.compose.map.resetForTest
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.render.RenderBackend
@@ -74,7 +75,9 @@ internal actual fun ComposeUiTest.setFfiTestMapContent(
   presentationCount: Int,
   content: @Composable () -> Unit,
 ) {
-  DefaultMapRuntime.configure(runtimeOptions)
+  // This harness composes on the Swing thread and drives the test from another, so the map has no
+  // single main thread here. Confinement is covered by the queued-dispatcher and native tests.
+  DefaultMapRuntime.configure(runtimeOptions.copy(mainDispatcher = UnconfinedTestMain))
   val preparedFactory = CurrentRuntimeTestMapHostFactory.prepare(presentationCount)
   try {
     setContent {

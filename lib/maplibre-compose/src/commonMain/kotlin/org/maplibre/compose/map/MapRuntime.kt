@@ -24,12 +24,15 @@ import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.coroutines.ContinuationInterceptor
+import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.jvm.JvmInline
 import kotlin.time.Duration
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
@@ -37,6 +40,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
@@ -110,6 +114,23 @@ internal expect fun defaultMapRuntimeOptions(): MapRuntimeOptions
 
 /** Creates a runtime from [options]. The caller must close the result. */
 public expect fun createMapRuntime(options: MapRuntimeOptions): MapRuntime
+
+/**
+ * The main dispatcher, so engine callbacks reach map state on the thread that reads it. A platform
+ * without one is a configuration error: the caller sets a single-threaded dispatcher in
+ * [MapRuntimeOptions] instead.
+ */
+internal fun platformMainDispatcher(): CoroutineDispatcher =
+  try {
+    Dispatchers.Main.immediate.also { it.isDispatchNeeded(EmptyCoroutineContext) }
+  } catch (error: IllegalStateException) {
+    throw IllegalStateException(
+      "MapLibre Compose needs a main dispatcher to deliver engine callbacks. None is installed. " +
+        "Add the platform's kotlinx-coroutines main dispatcher, or pass mainDispatcher in " +
+        "MapRuntimeOptions.",
+      error,
+    )
+  }
 
 /** Creates logical maps that share one application-level configuration. */
 public interface MapRuntime {
@@ -660,7 +681,7 @@ internal constructor(
   }
 
   internal fun updateViewport(value: Viewport?) {
-    owner.lifecycle.serialized {
+    run {
       viewportState = value
       owner.viewportPublished(this, value)
     }
@@ -671,18 +692,18 @@ internal constructor(
    * token decides whether a change belongs to the user.
    */
   internal fun setGestureActive(active: Boolean) {
-    owner.lifecycle.serialized {
+    run {
       gestureActiveState = active
       if (active) moveReasonState = CameraMoveReason.GESTURE
     }
   }
 
   internal fun setEngaged(engaged: Boolean) {
-    owner.lifecycle.serialized { engagedState = engaged }
+    engagedState = engaged
   }
 
   internal fun cameraChangeStarted() {
-    owner.lifecycle.serialized {
+    run {
       activeCameraChanges++
       if (!gestureActiveState) moveReasonState = CameraMoveReason.PROGRAMMATIC
     }
@@ -690,16 +711,16 @@ internal constructor(
 
   internal fun cameraChangeEnded() {
     // Native ends each command separately. An inset update can end while a zoom is still moving.
-    owner.lifecycle.serialized { activeCameraChanges = (activeCameraChanges - 1).coerceAtLeast(0) }
+    activeCameraChanges = (activeCameraChanges - 1).coerceAtLeast(0)
   }
 
   internal fun abandonCameraChanges() {
-    owner.lifecycle.serialized { activeCameraChanges = 0 }
+    activeCameraChanges = 0
   }
 
   internal fun invalidate() {
     owner.gestureAuthority.detach(this)
-    owner.lifecycle.serialized {
+    run {
       validState = false
       viewportState = null
       gestureActiveState = false
@@ -761,7 +782,12 @@ internal constructor(
 internal class MapAttachmentChangedException :
   CancellationException("The map attachment changed during the operation")
 
-/** Holds the observable style, camera, and map operations for one logical map. */
+/**
+ * Holds the observable style, camera, and map operations for one logical map.
+ *
+ * Use it from the main thread. Engine callbacks reach it there too, through the runtime's main
+ * dispatcher.
+ */
 @Stable
 public class MapState
 internal constructor(
@@ -775,7 +801,8 @@ internal constructor(
       content()
     }
   }
-  internal val lifecycle = MapLifecycleAuthority(this, runtime.physicalScope)
+  internal val lifecycle =
+    MapLifecycleAuthority(this, runtime.physicalScope, runtime.mainDispatcher, runtime.mainThread)
   internal val styleAuthority = MapStyleAuthority(lifecycle, runtime, baseStyle)
   public val style: MapStyleState = styleAuthority.style
   internal val gestureAuthority = CameraInputAuthority(this)
@@ -827,8 +854,8 @@ internal constructor(
    * Style and idle events can continue while a native map has no attached surface. Camera and frame
    * events require an attached surface.
    *
-   * Unconfined collectors may run inside engine callbacks. Use a dispatcher that queues execution
-   * for collectors that call map commands such as [StyleImages.add].
+   * Events are emitted on the main thread after the state they describe has been updated, so a
+   * collector may call map commands such as [StyleImages.add].
    */
   public val events: Flow<MapEvent> = attachmentAuthority.events
 
@@ -842,7 +869,8 @@ internal constructor(
    * Return null for IDs you cannot supply. Null results and exceptions are not retried until the
    * base style reloads or the resolver is replaced.
    *
-   * Replacing or clearing this property does not cancel calls already running.
+   * The resolver is called on the main thread. Replacing or clearing this property does not cancel
+   * calls already running.
    */
   public var missingImageResolver: MissingImageResolver?
     get() = styleAuthority.missingImageResolver
@@ -850,8 +878,9 @@ internal constructor(
       styleAuthority.missingImageResolver = value
     }
 
+  /** True as soon as [close] is called. Snapshot observers see it once map state commits. */
   public val isClosed: Boolean
-    get() = attachmentAuthority.isClosed
+    get() = attachmentAuthority.isClosed || lifecycle.isClosed
 
   /** Marks this state as closed and starts cleanup of the current map surface. */
   public fun close(): Unit = lifecycle.close()
@@ -883,8 +912,8 @@ internal constructor(
    */
   public fun stopCameraMovement() {
     val guard = gestureAuthority.beginProgrammatic()
-    val attachment = lifecycle.serialized {
-      requireOpenLocked()
+    val attachment = run {
+      requireOpen()
       if (!guard.isValid()) return
       currentMapAttachment ?: return
     }
@@ -1216,7 +1245,7 @@ internal constructor(
 
   internal fun durableStyleCallbacks(): MapAdapter.Callbacks = DurableStyleCallbacks(this)
 
-  private fun requireOpenLocked() {
+  private fun requireOpen() {
     check(!lifecycle.isClosed) { "The map state is closed" }
   }
 
@@ -1322,6 +1351,16 @@ internal class RuntimeImplementation(
   offlineManagerBackend: OfflineManagerBackend = UnsupportedOfflineManager,
   internal val physicalScope: CoroutineScope =
     CoroutineScope(SupervisorJob() + Dispatchers.Default),
+  /** The one thread that uses map states. Engine callbacks are posted to it. */
+  internal val mainDispatcher: CoroutineDispatcher = platformMainDispatcher(),
+  /** Runs map-state work that resumes after an engine read. */
+  internal val mainScope: CoroutineScope = CoroutineScope(SupervisorJob() + mainDispatcher),
+  /** Pins map state to the main dispatcher's thread. */
+  internal val mainThread: MainThreadGuard = MainThreadGuard(mainDispatcher),
+  /** Runs engine reads that block until the map owner thread answers. */
+  internal val readDispatcher: CoroutineDispatcher =
+    physicalScope.coroutineContext[ContinuationInterceptor] as? CoroutineDispatcher
+      ?: Dispatchers.Default,
   internal val createSnapshotterAdapter: () -> SnapshotterAdapter = ::unsupportedSnapshots,
   internal val styleEvaluator: StyleCompositionEvaluator = DefaultStyleCompositionEvaluator,
   internal val resourceConfig: MapResourceConfig = MapResourceConfig(),
@@ -1382,6 +1421,7 @@ internal class RuntimeImplementation(
         runCatching { child.awaitClosed() }.exceptionOrNull()?.let(failures::addCleanupFailure)
       }
       runCatching { closeResources() }.exceptionOrNull()?.let(failures::addCleanupFailure)
+      mainScope.cancel()
       closure.complete(failures.cleanupResult("Map runtime"))
     }
   }

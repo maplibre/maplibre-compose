@@ -1,6 +1,7 @@
 package org.maplibre.compose.mlnffi
 
 import androidx.compose.runtime.Immutable
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.io.files.Path
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.resource.MapRequestInterceptor
@@ -16,6 +17,7 @@ internal data class MlnFfiRuntimeOptions(
   val requestInterceptor: MapRequestInterceptor? = null,
   val resourceProvider: MapResourceProvider? = null,
   val logger: MapLog? = MapLog,
+  val mainDispatcher: CoroutineDispatcher? = null,
   internal val resourceProviderFactory: MlnFfiResourceProviderFactory = ::MlnFfiResourceProvider,
 )
 

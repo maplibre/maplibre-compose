@@ -1,6 +1,7 @@
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.Immutable
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.io.files.Path
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.resource.MapRequestInterceptor
@@ -20,6 +21,13 @@ public actual data class MapRuntimeOptions(
   public val requestInterceptor: MapRequestInterceptor? = null,
   /** Serves bytes for resource URLs this provider accepts. Fixed at construction. */
   public val resourceProvider: MapResourceProvider? = null,
+  /**
+   * The dispatcher whose thread owns every map state of this runtime. Engine callbacks are posted
+   * to it, and map state rejects use from any other thread. Null uses `Dispatchers.Main.immediate`;
+   * creating the runtime fails when no main dispatcher is installed, so a desktop application
+   * without one passes its own single-threaded dispatcher. `Dispatchers.Unconfined` is rejected.
+   */
+  public val mainDispatcher: CoroutineDispatcher? = null,
 )
 
 internal actual fun defaultMapRuntimeOptions(): MapRuntimeOptions = MapRuntimeOptions()
@@ -36,6 +44,7 @@ internal fun MapRuntimeOptions.toMlnFfiRuntimeOptions(): MlnFfiRuntimeOptions =
     maximumCacheSizeBytes = maximumCacheSizeBytes,
     requestInterceptor = requestInterceptor,
     resourceProvider = resourceProvider,
+    mainDispatcher = mainDispatcher,
   )
 
 public actual fun createMapRuntime(options: MapRuntimeOptions): MapRuntime {

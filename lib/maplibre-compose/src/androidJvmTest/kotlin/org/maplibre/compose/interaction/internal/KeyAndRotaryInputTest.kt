@@ -34,12 +34,11 @@ import org.maplibre.compose.interaction.DragResponse
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.KeyResponse
 import org.maplibre.compose.interaction.ModifierMatch
-import org.maplibre.compose.map.GestureTestFixture
 import org.maplibre.compose.map.RecordingGestureTarget
 
 @OptIn(ExperimentalAtomicApi::class, ExperimentalTestApi::class)
 class KeyAndRotaryInputTest {
-  private val fixture = GestureTestFixture()
+  private val fixture = composeGestureFixture()
 
   @AfterTest fun closeMap() = fixture.close()
 
