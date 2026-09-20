@@ -423,7 +423,9 @@ internal class MlnFfiMapSession(
       }
       else -> Unit
     }
-    if (update.needsRepaint) requestRender()
+    // Native advances transitions after frame completion on the map owner, then publishes a
+    // MAP_RENDER_UPDATE_AVAILABLE event. Wait for that update instead of drawing the same
+    // snapshot again with its old transition time.
 
     if (!hasRenderedAFrame) {
       hasRenderedAFrame = true
