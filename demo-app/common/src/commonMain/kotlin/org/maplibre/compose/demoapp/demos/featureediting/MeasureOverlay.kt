@@ -66,6 +66,7 @@ import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.turf.measurement.area
 import org.maplibre.spatialk.turf.measurement.bearingTo
 import org.maplibre.spatialk.turf.measurement.distance
+import org.maplibre.spatialk.units.International
 import org.maplibre.spatialk.units.extensions.meters
 
 /** Digits of equal width, so live numbers do not jitter. */
@@ -164,10 +165,14 @@ private fun DpRect.overlaps(other: DpRect, margin: Dp): Boolean =
     top < other.bottom + margin &&
     other.top < bottom + margin
 
+/** The longer side of the shape's extent on screen. */
+private fun ShapeMeasure.extentDp(metersPerDp: Double): Dp =
+  (maxOf(extentWidth, extentHeight).toDouble(International.Meters) / metersPerDp).dp
+
 /**
  * A name, number and caption for every shape, following its label anchor. The selected label draws
  * over the others; an unselected label hides while it overlaps the selected label or an earlier
- * unselected one.
+ * unselected one, or while the shape on screen is narrower than the label.
  */
 @Composable
 internal fun MapOverlayScope.ShapeLabels(state: FeatureEditingState, labels: ShapeLabelEntries) {
@@ -180,8 +185,9 @@ internal fun MapOverlayScope.ShapeLabels(state: FeatureEditingState, labels: Sha
   val camera = mapState.cameraPosition
   val selected = placements.singleOrNull { it.second.selected }?.second
   val sizes = labels.sizes.toMap()
+  val metersPerDp = state.metersPerDp
   val hiddenIds =
-    remember(camera, placements, selected, sizes) {
+    remember(camera, placements, selected, sizes, metersPerDp) {
       val kept = ArrayList<DpRect>()
       val selectedSize = selected?.let { sizes[it.feature.id] }
       if (selected != null && selectedSize != null) {
@@ -191,6 +197,10 @@ internal fun MapOverlayScope.ShapeLabels(state: FeatureEditingState, labels: Sha
         for ((entry, placement) in placements) {
           if (placement.selected) continue
           val size = sizes[entry.id] ?: continue
+          if (placement.measure.extentDp(metersPerDp) < size.width) {
+            add(entry.id)
+            continue
+          }
           val rect = labelRect(mapState, placement.anchor, placement.line, size) ?: continue
           if (kept.any { rect.overlaps(it, LabelClearance) }) add(entry.id) else kept += rect
         }
@@ -628,11 +638,11 @@ internal fun MapOverlayScope.TransformReadout(state: FeatureEditingState) {
   }
 }
 
-/** The validation message at the vertex whose drag frame was rejected. */
+/** The validation message at the vertex being dragged into a crossing outline. */
 @Composable
 internal fun MapOverlayScope.ValidationTooltip(state: FeatureEditingState) {
   val editor = state.editor
-  val error = editor.validationError
+  val error = state.problem
   val handle = editor.activeHandle
   var message by remember { mutableStateOf<String?>(null) }
   var visible by remember { mutableStateOf(false) }
@@ -644,7 +654,8 @@ internal fun MapOverlayScope.ValidationTooltip(state: FeatureEditingState) {
       message = error
       visible = true
     } else if (visible) {
-      delay(ERROR_LINGER_MILLIS)
+      // A vertex dragged back to a valid outline clears at once; one taken back on release lingers.
+      if (!state.dragging) delay(ERROR_LINGER_MILLIS)
       visible = false
     }
   }

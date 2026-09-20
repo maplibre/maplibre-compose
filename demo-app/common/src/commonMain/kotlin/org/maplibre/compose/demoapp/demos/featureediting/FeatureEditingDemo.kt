@@ -55,13 +55,17 @@ object FeatureEditingDemo : Demo {
   override fun MapContent(style: DemoStyle) {
     val scheme = MaterialTheme.colorScheme
     val editor = state.editor
-    val rejected = editor.validationError != null
+    val problem = state.problem != null
     val colors =
-      remember(scheme, rejected) {
-        EditorColors(
-          accent = scheme.primary,
-          activeHandleFill = if (rejected) scheme.error else scheme.primary,
-        )
+      remember(scheme, problem) {
+        if (problem) {
+          EditorColors(
+            accent = scheme.primary,
+            selectedFill = scheme.error.copy(alpha = 0.15f),
+            selectedStroke = scheme.error,
+            activeHandleFill = scheme.error,
+          )
+        } else EditorColors(accent = scheme.primary)
       }
     Anchor.Below({ it.type == "symbol" }) {
       EditorFeatureLayers(editor, colors, idPrefix = LAYER_PREFIX)

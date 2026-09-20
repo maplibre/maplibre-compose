@@ -148,12 +148,13 @@ public class SelectTool(
         if (pointer.isSecondary) return false
         val handle = state.activeHandle ?: return false
         val ref = handle.vertex ?: return false
+        val target = event.handleTarget ?: return false
         if (handle.kind == HandleKind.Midpoint) {
-          if (!state.insertVertex(ref, pointer.position, event.step)) return false
-          state.activeHandle = EditorHandle(HandleKind.Vertex, ref, pointer.position)
+          if (!state.insertVertex(ref, target, event.step)) return false
+          state.activeHandle = EditorHandle(HandleKind.Vertex, ref, target)
           true
         } else {
-          state.moveVertex(ref, pointer.position, event.step)
+          state.moveVertex(ref, target, event.step)
         }
       }
       is FeatureHit -> {

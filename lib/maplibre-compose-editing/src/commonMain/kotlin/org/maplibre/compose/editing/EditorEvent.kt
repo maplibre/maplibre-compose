@@ -3,6 +3,10 @@ package org.maplibre.compose.editing
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.unit.DpOffset
+import org.maplibre.compose.editing.internal.mercatorX
+import org.maplibre.compose.editing.internal.mercatorY
+import org.maplibre.compose.editing.internal.translatedInMercator
+import org.maplibre.compose.editing.internal.wrapMercatorDx
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.PointerButton
 import org.maplibre.spatialk.geojson.Position
@@ -131,4 +135,32 @@ public interface EditorEvent {
     override val project: (Position) -> DpOffset?,
     override val unproject: (DpOffset) -> Position?,
   ) : EditorEvent
+}
+
+/**
+ * The pressed handle moved by the pointer's travel since the press, in Web Mercator space, or null
+ * when the press hit no handle. The built-in tools move a dragged handle here rather than to
+ * [EditorEvent.Drag.pointer], so a press off the handle's centre does not jump the handle.
+ */
+public val EditorEvent.Drag.handleTarget: Position?
+  get() {
+    val handle = (hit as? HandleHit)?.handle ?: return null
+    val dx =
+      wrapMercatorDx(mercatorX(pointer.position.longitude) - mercatorX(origin.position.longitude))
+    val dy = mercatorY(pointer.position.latitude) - mercatorY(origin.position.latitude)
+    return handle.position.translatedInMercator(dx, dy)
+  }
+
+/**
+ * Returns a copy whose [pointer] puts [handleTarget] at [target]. Returns this event unchanged when
+ * the press hit no handle.
+ */
+public fun EditorEvent.Drag.withHandleTarget(target: Position): EditorEvent.Drag {
+  val handle = (hit as? HandleHit)?.handle ?: return this
+  val dx = wrapMercatorDx(mercatorX(target.longitude) - mercatorX(handle.position.longitude))
+  val dy = mercatorY(target.latitude) - mercatorY(handle.position.latitude)
+  val position = origin.position.translatedInMercator(dx, dy)
+  return copy(
+    pointer = pointer.copy(position = position, screen = project(position) ?: pointer.screen)
+  )
 }

@@ -1,5 +1,6 @@
 package org.maplibre.compose.demoapp.demos.featureediting
 
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -34,7 +35,11 @@ internal enum class MeasureUnits(val label: String) {
   Imperial("Imperial"),
 }
 
-/** A drag on a frame handle, from press to release. */
+/**
+ * A drag on a frame handle, from press to release. [handleOrigin] is where the handle was pressed
+ * and [handle] where the pointer's travel has taken it; the transforms compare the two, so a press
+ * off the handle's centre does not jump it.
+ */
 internal data class FrameGesture(
   val kind: FrameHandle,
   val step: EditStep,
@@ -42,6 +47,8 @@ internal data class FrameGesture(
   val center: Position,
   val origin: EditorPointer,
   val pointer: EditorPointer,
+  val handleOrigin: Position,
+  val handle: Position,
   val readout: String,
 )
 
@@ -98,14 +105,56 @@ internal class FeatureEditingState {
 
   val circleTool: EditorTool = DemoTool(this, DrawCircleTool(this, nextTool = selectTool))
 
-  val editor =
+  /**
+   * A shape may cross itself while a pointer drags it, so the drag follows the pointer and the
+   * shape shows the problem; [settleGesture] takes the shape back to its last valid frame on
+   * release. Every other change is rejected outright.
+   */
+  val editor: FeatureEditorState =
     FeatureEditorState(
         initialFeatures = listOf(Presets.goldenGatePark),
         initialTool = selectTool,
-        validate = ::validateShape,
+        validate = { if (dragging) null else validateShape(it) },
         newId = { JsonPrimitive(nextId++) },
       )
       .apply { selection = setOf(checkNotNull(Presets.goldenGatePark.id)) }
+
+  /** True from a press a tool claimed until that pointer is released or cancelled. */
+  var dragging by mutableStateOf(false)
+    private set
+
+  /** The selected shapes as of the latest drag frame that left all of them valid. */
+  private var validFrame: Pair<EditStep, List<EditorFeature>>? = null
+
+  fun startGesture() {
+    dragging = true
+  }
+
+  private val liveProblem by derivedStateOf { selected.firstNotNullOfOrNull(::validateShape) }
+
+  /** Why the current shape or draft is not acceptable, or null. */
+  val problem: String?
+    get() = editor.validationError ?: liveProblem
+
+  /** Remembers the selected shapes after a drag frame when none of them crosses itself. */
+  fun recordDragFrame(step: EditStep) {
+    val shapes = selected
+    if (shapes.all { validateShape(it) == null }) validFrame = step to shapes
+  }
+
+  /** Ends a drag: a shape left crossing itself goes back to the last valid frame of [step]. */
+  fun settleGesture(step: EditStep) {
+    dragging = false
+    val frame = validFrame?.takeIf { it.first === step }
+    validFrame = null
+    if (selected.all { validateShape(it) == null }) return
+    if (frame != null) editor.update(frame.second, undoStep = step) else editor.revert(step)
+  }
+
+  fun cancelGesture() {
+    dragging = false
+    validFrame = null
+  }
 
   var units by mutableStateOf(MeasureUnits.Metric)
 
@@ -142,6 +191,7 @@ internal class FeatureEditingState {
    */
   fun use(tool: EditorTool) {
     if (editor.tool !== tool) {
+      cancelGesture()
       frameGesture?.let { editor.revert(it.step) }
       frameGesture = null
       simplifyScrub = null

@@ -11,8 +11,10 @@ import org.maplibre.compose.editing.EditorEvent
 import org.maplibre.compose.editing.EditorPointer
 import org.maplibre.compose.editing.EditorTool
 import org.maplibre.compose.editing.FeatureEditorState
-import org.maplibre.compose.editing.FeatureHit
+import org.maplibre.compose.editing.HandleHit
 import org.maplibre.compose.editing.contains
+import org.maplibre.compose.editing.handleTarget
+import org.maplibre.compose.editing.withHandleTarget
 import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.FeatureId
@@ -59,7 +61,17 @@ internal class DemoTool(private val demo: FeatureEditingState, private val inner
       is EditorEvent.Tap -> demo.snapTarget = null
       else -> Unit
     }
-    return inner.onEvent(snapped, state)
+    val handled = inner.onEvent(snapped, state)
+    when (event) {
+      is EditorEvent.Press -> if (handled) demo.startGesture()
+      is EditorEvent.Drag -> demo.recordDragFrame(event.step)
+      is EditorEvent.Release -> demo.settleGesture(event.step)
+      is EditorEvent.Tap,
+      is EditorEvent.LongPress,
+      is EditorEvent.Cancel -> demo.cancelGesture()
+      else -> Unit
+    }
+    return handled
   }
 
   private fun pointerOf(event: EditorEvent): EditorPointer? =
@@ -77,7 +89,8 @@ internal class DemoTool(private val demo: FeatureEditingState, private val inner
     val pointer =
       when (event) {
         is EditorEvent.Tap -> event.pointer
-        is EditorEvent.Drag -> event.pointer
+        // A body drag moves the shape by the pointer's travel; there is nothing to snap.
+        is EditorEvent.Drag -> if (event.hit is HandleHit) event.pointer else null
         is EditorEvent.Hover -> if (state.draft != null) event.pointer else null
         else -> null
       }
@@ -91,17 +104,13 @@ internal class DemoTool(private val demo: FeatureEditingState, private val inner
     }
     // A dragged vertex never snaps to its own shape: onto a neighbour it would collapse an edge.
     val activeFeature = state.activeHandle?.vertex?.featureId
-    val excludedFeatures =
-      when {
-        event is EditorEvent.Drag && event.hit is FeatureHit && state.activeHandle == null ->
-          state.selection
-        activeFeature != null -> setOf(activeFeature)
-        else -> emptySet()
-      }
+    val excludedFeatures = if (activeFeature != null) setOf(activeFeature) else emptySet()
+    // A dragged handle sits where the pointer's travel took it, not under the pointer.
+    val handleTarget = (event as? EditorEvent.Drag)?.handleTarget
     val target =
       nearestVertex(
         state = state,
-        screen = pointer.screen,
+        screen = handleTarget?.let(event.project) ?: pointer.screen,
         radius = if (pointer.pointerType == PointerType.Mouse) MouseSnapRadius else TouchSnapRadius,
         project = event.project,
         unproject = event.unproject,
@@ -113,7 +122,7 @@ internal class DemoTool(private val demo: FeatureEditingState, private val inner
       pointer.copy(position = target, screen = event.project(target) ?: pointer.screen)
     return when (event) {
       is EditorEvent.Tap -> event.copy(pointer = snappedPointer)
-      is EditorEvent.Drag -> event.copy(pointer = snappedPointer)
+      is EditorEvent.Drag -> event.withHandleTarget(target)
       is EditorEvent.Hover -> event.copy(pointer = snappedPointer)
       else -> event
     }

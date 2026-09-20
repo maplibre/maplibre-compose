@@ -47,6 +47,14 @@ private fun square(id: String, origin: Double = 0.0, size: Double = 10.0): Edito
     id = JsonPrimitive(id),
   )
 
+/**
+ * Snapped vertices go through a Mercator round trip, so they land within a billionth of a degree.
+ */
+private fun assertNear(expected: Position, actual: Position) {
+  assertEquals(expected.longitude, actual.longitude, 1e-9)
+  assertEquals(expected.latitude, actual.latitude, 1e-9)
+}
+
 private fun touch(position: Position) =
   EditorPointer(project(position), position, PointerType.Touch, emptySet(), emptySet())
 
@@ -62,6 +70,38 @@ class DemoToolTest {
 
   private fun FeatureEditingState.ring(id: String): List<Position> =
     (editor.feature(JsonPrimitive(id))!!.geometry as Polygon).coordinates[0]
+
+  @Test
+  fun a_corner_dragged_across_the_shape_follows_the_pointer_and_settles_on_release() {
+    val demo = stateWith(square("a"))
+    val editor = demo.editor
+    val corner = Position(10.0, 10.0)
+    val hit = assertIs<HandleHit>(editor.hitTest(project(corner), 2.dp, ::unproject).first())
+    val origin = touch(corner)
+    val step = EditStep()
+    assertTrue(
+      editor.tool.onEvent(EditorEvent.Press(origin, hit, step, ::project, ::unproject), editor)
+    )
+    fun drag(to: Position) =
+      editor.tool.onEvent(
+        EditorEvent.Drag(touch(to), origin, origin, hit, step, ::project, ::unproject),
+        editor,
+      )
+    drag(Position(12.0, 12.0))
+    assertNull(demo.problem)
+    // Across the opposite edge: the outline crosses itself, and the corner still follows.
+    drag(Position(-5.0, 5.0))
+    assertNear(Position(-5.0, 5.0), demo.ring("a")[2])
+    assertEquals(SELF_CROSSING_MESSAGE, demo.problem)
+    editor.tool.onEvent(
+      EditorEvent.Release(touch(Position(-5.0, 5.0)), step, ::project, ::unproject),
+      editor,
+    )
+    assertNull(demo.problem)
+    assertNear(Position(12.0, 12.0), demo.ring("a")[2])
+    editor.undo()
+    assertEquals(corner, demo.ring("a")[2])
+  }
 
   @Test
   fun a_dragged_corner_does_not_snap_to_its_own_shape() {
@@ -84,7 +124,7 @@ class DemoToolTest {
     assertNull(editor.validationError)
     assertNull(demo.snapTarget)
     val ring = demo.ring("a")
-    assertEquals(target, ring[1])
+    assertNear(target, ring[1])
     assertTrue(ring.zipWithNext().none { (a, b) -> a == b })
   }
 
@@ -110,7 +150,7 @@ class DemoToolTest {
       editor,
     )
     assertEquals(Position(20.0, 20.0), demo.snapTarget)
-    assertEquals(Position(20.0, 20.0), demo.ring("a")[2])
+    assertNear(Position(20.0, 20.0), demo.ring("a")[2])
   }
 
   @Test

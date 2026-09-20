@@ -14,8 +14,10 @@ import org.maplibre.compose.editing.HandleHit
 import org.maplibre.compose.editing.HandleKind
 import org.maplibre.compose.editing.SelectTool
 import org.maplibre.compose.editing.contains
+import org.maplibre.compose.editing.handleTarget
 import org.maplibre.compose.editing.mapPositions
 import org.maplibre.compose.interaction.KeyModifier
+import org.maplibre.compose.interaction.PointerButton
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.LineString
@@ -103,8 +105,8 @@ internal class FrameTool(private val demo: FeatureEditingState, private val inne
       val position =
         if (gesture.kind == FrameHandle.Station) {
           val line = state.feature(gesture.id)?.geometry as? LineString
-          line?.let { stationPoint(it, demo.stationFraction) } ?: gesture.pointer.position
-        } else gesture.pointer.position
+          line?.let { stationPoint(it, demo.stationFraction) } ?: gesture.handle
+        } else gesture.handle
       return base + EditorHandle(gesture.kind, null, position)
     }
     if (state.draft != null) return base
@@ -153,8 +155,11 @@ internal class FrameTool(private val demo: FeatureEditingState, private val inne
     val gesture = demo.frameGesture
     if (gesture == null) {
       if (event is EditorEvent.Press) {
-        val kind = (event.hit as? HandleHit)?.handle?.kind
+        val handle = (event.hit as? HandleHit)?.handle
+        val kind = handle?.kind
         if (kind is FrameHandle) {
+          // Secondary and middle buttons keep their map gestures.
+          if (event.pointer.buttons.any { it != PointerButton.Primary }) return false
           val id = state.selection.singleOrNull() ?: return false
           val before = state.featureBefore(event.step, id) ?: return false
           demo.frameGesture =
@@ -165,6 +170,8 @@ internal class FrameTool(private val demo: FeatureEditingState, private val inne
               center = before.geometry.computeBbox().center().coordinates,
               origin = event.pointer,
               pointer = event.pointer,
+              handleOrigin = handle.position,
+              handle = handle.position,
               readout = "",
             )
           return true
@@ -198,8 +205,8 @@ internal class FrameTool(private val demo: FeatureEditingState, private val inne
   private fun onDrag(gesture: FrameGesture, event: EditorEvent.Drag, state: FeatureEditorState) {
     val before = state.featureBefore(event.step, gesture.id) ?: return
     val center = gesture.center
-    val origin = gesture.origin.position
-    val p = event.pointer.position
+    val origin = gesture.handleOrigin
+    val p = event.handleTarget ?: return
     val shift = KeyModifier.Shift in event.pointer.modifierKeys
     val units = demo.units
     val geometry: Geometry
@@ -255,7 +262,7 @@ internal class FrameTool(private val demo: FeatureEditingState, private val inne
         if (length.isPositive) {
           demo.stationFraction = (nearest.properties.location / length).coerceIn(0.0, 1.0)
         }
-        demo.frameGesture = gesture.copy(pointer = event.pointer)
+        demo.frameGesture = gesture.copy(pointer = event.pointer, handle = p)
         return
       }
     }
@@ -263,9 +270,9 @@ internal class FrameTool(private val demo: FeatureEditingState, private val inne
       state.update(listOf(before.copy(geometry = geometry, bbox = null)), undoStep = event.step) !=
         null
     ) {
-      demo.frameGesture = gesture.copy(pointer = event.pointer, readout = readout)
+      demo.frameGesture = gesture.copy(pointer = event.pointer, handle = p, readout = readout)
     } else {
-      demo.frameGesture = gesture.copy(pointer = event.pointer)
+      demo.frameGesture = gesture.copy(pointer = event.pointer, handle = p)
     }
   }
 

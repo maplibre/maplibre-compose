@@ -140,7 +140,8 @@ public class DrawTool(
   private fun onDrag(event: EditorEvent.Drag, state: FeatureEditorState): Boolean {
     val hit = event.hit
     if (hit is HandleHit && hit.handle.isDraft) {
-      hit.handle.vertex?.let { state.moveVertex(it, event.pointer.position) }
+      val target = event.handleTarget
+      if (target != null) hit.handle.vertex?.let { state.moveVertex(it, target) }
     } else if (hit == null && shape == DrawShape.Rectangle) {
       state.draft =
         EditorDraft(

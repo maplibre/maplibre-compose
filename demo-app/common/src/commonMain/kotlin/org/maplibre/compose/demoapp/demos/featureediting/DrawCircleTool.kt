@@ -17,6 +17,7 @@ import org.maplibre.compose.editing.FeatureEditorState
 import org.maplibre.compose.editing.HandleHit
 import org.maplibre.compose.editing.HandleKind
 import org.maplibre.compose.editing.VertexRef
+import org.maplibre.compose.editing.handleTarget
 import org.maplibre.compose.interaction.PointerButton
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureId
@@ -112,6 +113,7 @@ internal class DrawCircleTool(
     dragOut = false
     val hit = event.hit
     if (hit is HandleHit && (hit.handle.kind == FrameHandle.Radius || hit.handle.isCenter)) {
+      if (event.pointer.buttons.any { it != PointerButton.Primary }) return false
       state.activeHandle = hit.handle
       return true
     }
@@ -134,7 +136,8 @@ internal class DrawCircleTool(
     val draft = state.draft ?: return false
     val active = state.activeHandle ?: return false
     val center = draft.positions.firstOrNull() ?: return false
-    val p = event.pointer.position
+    // A drag out of nothing has no handle under the pointer; the radius is the pointer itself.
+    val p = event.handleTarget ?: event.pointer.position
     if (active.kind == FrameHandle.Radius) {
       state.draft = draft.copy(cursor = p)
     } else {

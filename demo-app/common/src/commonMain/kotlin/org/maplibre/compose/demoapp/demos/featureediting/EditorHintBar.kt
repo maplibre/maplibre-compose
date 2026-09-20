@@ -76,13 +76,14 @@ private const val COACH_MILLIS = 5_000L
 internal fun EditorHintBar(state: FeatureEditingState) {
   val editor = state.editor
   val mouse = state.lastPointerType == PointerType.Mouse
-  val error = editor.validationError
+  val error = state.problem
   var lingeringError by remember { mutableStateOf<String?>(null) }
-  // Keyed on the message alone: an error a vertex tooltip is already showing stays there.
+  // Keyed on the message alone: an error a vertex tooltip is already showing stays there. A shape
+  // dragged back into a valid outline clears at once; one taken back on release lingers.
   LaunchedEffect(error) {
     if (error != null && editor.activeHandle == null) lingeringError = error
     else if (lingeringError != null) {
-      delay(ERROR_LINGER_MILLIS)
+      if (!state.dragging) delay(ERROR_LINGER_MILLIS)
       lingeringError = null
     }
   }

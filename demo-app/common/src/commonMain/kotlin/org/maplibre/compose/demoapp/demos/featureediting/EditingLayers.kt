@@ -101,8 +101,8 @@ internal fun FrameLayers(state: FeatureEditingState) {
             role(frameOf(feature.geometry, FramePadding.value * state.metersPerDp).outline, "frame")
         if (gesture == null) return@derivedStateOf features(frame)
         val center = gesture.center
-        val pointer = gesture.pointer.position
-        val origin = gesture.origin.position
+        val pointer = gesture.handle
+        val origin = gesture.handleOrigin
         when (gesture.kind) {
           FrameHandle.Rotate,
           FrameHandle.Scale ->

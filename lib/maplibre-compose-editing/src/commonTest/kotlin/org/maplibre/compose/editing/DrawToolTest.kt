@@ -263,10 +263,11 @@ class DrawToolTest {
     assertEquals(hit.handle, state.activeHandle)
     assertFalse(tool.onEvent(e.longPress(origin, hit, step), state))
     tool.onEvent(e.drag(e.pointer(pos(1.0, 1.0)), origin, hit, step), state)
-    assertEquals(listOf(pos(0.0, 0.0), pos(1.0, 1.0)), state.positions())
-    assertEquals(pos(1.0, 1.0), state.activeHandle?.position)
+    assertEquals(pos(0.0, 0.0), state.positions()!![0])
+    assertPositionEquals(pos(1.0, 1.0), state.positions()!![1])
+    assertPositionEquals(pos(1.0, 1.0), state.activeHandle?.position)
     tool.onEvent(e.cancel(step), state)
-    assertEquals(listOf(pos(0.0, 0.0), pos(1.0, 1.0)), state.positions())
+    assertPositionEquals(pos(1.0, 1.0), state.positions()!![1])
     assertFalse(tool.onEvent(e.press(e.pointer(pos(5.0, 5.0)), null), state))
   }
 

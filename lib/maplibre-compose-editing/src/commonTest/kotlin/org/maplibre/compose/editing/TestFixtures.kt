@@ -2,6 +2,8 @@ package org.maplibre.compose.editing
 
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.spatialk.geojson.Feature
@@ -63,3 +65,10 @@ internal fun FeatureEditorState.hitsAt(
   radius: Double = 2.0,
   fill: Boolean = true,
 ): List<EditorHit> = hitTest(screenOf(lon, lat), radius.dp, ::unproject, fill)
+
+/** Compares positions to a billionth of a degree: Mercator round trips are not exact. */
+internal fun assertPositionEquals(expected: Position, actual: Position?, message: String? = null) {
+  assertNotNull(actual, message)
+  assertEquals(expected.longitude, actual.longitude, 1e-9, message)
+  assertEquals(expected.latitude, actual.latitude, 1e-9, message)
+}
