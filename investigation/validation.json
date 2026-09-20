@@ -1,0 +1,58 @@
+{
+  "library_test_results": {
+    "jvmTest": { "tests": 1034, "failures": 0, "errors": 0, "skipped": 7 },
+    "testAndroidHostTest": {
+      "tests": 470,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "jsBrowserTest": {
+      "tests": 1466,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "macosArm64Test": {
+      "tests": 842,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "checks": "mise run check passed",
+  "mutation": "Adding withFrameNanos before submission caused the one-frame regression test to fail; production source restored and final suites passed.",
+  "not_run": [
+    "Android device tests",
+    "iOS simulator tests",
+    "Pixel benchmarks"
+  ],
+  "image_sharing_followup": {
+    "full_suites": {
+      "jvmTest": { "tests": 1036, "failures": 0, "errors": 0, "skipped": 7 },
+      "testAndroidHostTest": {
+        "tests": 472,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "jsBrowserTest": {
+        "tests": 1474,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "checks": "mise run check passed",
+    "final_verification": {
+      "desktop_focused": { "tests": 16, "failures": 0, "errors": 0 },
+      "browser": "mise run test:js passed on final source in Chromium and Firefox"
+    },
+    "not_rerun": [
+      "macOS Native suite",
+      "Android device tests",
+      "iOS simulator tests",
+      "Pixel benchmarks"
+    ]
+  }
+}
