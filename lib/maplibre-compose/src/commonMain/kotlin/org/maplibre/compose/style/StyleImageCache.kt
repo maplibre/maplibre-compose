@@ -1,5 +1,6 @@
 package org.maplibre.compose.style
 
+import androidx.compose.runtime.RememberObserver
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.maplibre.compose.util.ImageStretch
@@ -7,14 +8,17 @@ import org.maplibre.compose.util.ImageStretch
 /** Preparation is shared; only committed image nodes determine resource ownership. */
 internal class StyleImageCache {
   private val ids = IncrementingId("image")
+  private var committed = emptySet<Request>()
   private val requests = mutableMapOf<Any, Request>()
   private val images = mutableMapOf<Content, StyleImageDefinition>()
 
   fun bitmap(key: Any, prepare: () -> Content): Request =
-    requests.getOrPut(key) { Request(intern(prepare())) { error("Bitmap already prepared") } }
+    requests.getOrPut(key) {
+      Request(intern(prepare()), ::abandon) { error("Bitmap already prepared") }
+    }
 
   fun painter(key: Any, prepare: suspend () -> Content): Request =
-    requests.getOrPut(key) { Request(null) { intern(prepare()) } }
+    requests.getOrPut(key) { Request(null, ::abandon) { intern(prepare()) } }
 
   private fun intern(content: Content): StyleImageDefinition =
     images.getOrPut(content) {
@@ -22,13 +26,24 @@ internal class StyleImageCache {
     }
 
   fun retain(nodes: List<StyleImageNode>) {
-    val active = nodes.mapNotNull { it.request }.toSet()
-    requests.values.retainAll(active)
-    val ids = active.mapNotNull { it.definition?.id }.toSet()
+    committed = nodes.mapNotNull { it.request }.toSet()
+    requests.values.retainAll(committed)
+    pruneImages()
+  }
+
+  private fun abandon(request: Request) {
+    if (request in committed) return
+    requests.values.removeAll { it === request }
+    pruneImages()
+  }
+
+  private fun pruneImages() {
+    val ids = requests.values.mapNotNull { it.definition?.id }.toSet()
     images.values.removeAll { it.id !in ids }
   }
 
   fun clear() {
+    committed = emptySet()
     requests.clear()
     images.clear()
   }
@@ -37,8 +52,16 @@ internal class StyleImageCache {
 
   class Request(
     definition: StyleImageDefinition?,
+    private val abandon: (Request) -> Unit,
     private val prepare: suspend () -> StyleImageDefinition,
-  ) {
+  ) : RememberObserver {
+    // Successful applies prune from the committed tree. Abandoned remembers have no apply.
+    override fun onAbandoned() = abandon(this)
+
+    override fun onRemembered() = Unit
+
+    override fun onForgotten() = Unit
+
     var definition: StyleImageDefinition? = definition
       private set
 

@@ -25,6 +25,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.layers.BackgroundLayer
+import org.maplibre.compose.layers.BitmapKey
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.map.FakeImageBitmap
 import org.maplibre.compose.sources.GeoJsonData
@@ -76,15 +77,22 @@ class StyleCommitTest {
     Fixture(this).use { fixture ->
       fixture.setContent { CircleLayer("points", rememberGeoJsonSource(data(1)), visible = true) }
       val first = fixture.revisions.single()
+      val bitmap = FakeImageBitmap(2, 2)
       assertFailsWith<IllegalStateException> {
         fixture.setContent {
           CircleLayer("points", rememberGeoJsonSource(data(2)), visible = true)
-          BackgroundLayer("bitmap", pattern = image(FakeImageBitmap(2, 2)))
+          BackgroundLayer("bitmap", pattern = image(bitmap))
           error("abandon these declarations")
         }
       }
       assertEquals(listOf(first), fixture.revisions)
       assertEquals(first, fixture.root.snapshotRevision())
+      var recaptured = false
+      fixture.root.images.bitmap(BitmapKey(bitmap, false, null)) {
+        recaptured = true
+        StyleImageCache.Content(ImageSnapshot.capture(bitmap), false, null)
+      }
+      assertTrue(recaptured, "an abandoned evaluation must not leave a cached bitmap request")
     }
   }
 
