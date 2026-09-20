@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Composition
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Recomposer
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalGraphicsContext
@@ -155,6 +156,7 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
               style,
               replaceableSourceIds = ownership.sourceIds,
               replaceableLayerIds = ownership.layerIds,
+              publish = { if (!it.imagesPending) revision.complete(it) },
             )
           val evaluator = Composition(MapNodeApplier(root), recomposer)
           try {
@@ -167,16 +169,18 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
               ) {
                 StyleContent(
                   rootNode = root,
-                  publish = { if (!root.imageManager.hasPendingImages) revision.complete(it) },
                   content = content,
                 )
               }
             }
             while (!revision.isCompleted) {
+              // This evaluator has no UI host to deliver writes from painter preparation.
+              Snapshot.sendApplyNotifications()
               if (frameClock.hasAwaiters) frameClock.sendFrame(0L) else yield()
             }
             revision.await()
           } finally {
+            root.close()
             evaluator.dispose()
             recomposer.close()
             recomposerJob.join()

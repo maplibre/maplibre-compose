@@ -16,7 +16,6 @@ import org.maplibre.compose.expressions.value.DpOffsetValue
 import org.maplibre.compose.expressions.value.DpValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.TranslateAnchor
-import org.maplibre.compose.sources.SourceReferenceEffect
 import org.maplibre.compose.sources.VectorSource
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.MaplibreComposable
@@ -130,8 +129,9 @@ public fun CircleLayer(
   val compiledPitchScale = compile(pitchScale)
   val compiledPitchAlignment = compile(pitchAlignment)
 
-  SourceReferenceEffect(source)
   LayerNode(
+    id = id,
+    source = source,
     factory = { CircleLayer(id = id, source = source) },
     recreateKey = sourceLayer,
     update = {

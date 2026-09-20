@@ -18,7 +18,6 @@ import org.maplibre.compose.expressions.value.LineCap
 import org.maplibre.compose.expressions.value.LineJoin
 import org.maplibre.compose.expressions.value.TranslateAnchor
 import org.maplibre.compose.expressions.value.VectorValue
-import org.maplibre.compose.sources.SourceReferenceEffect
 import org.maplibre.compose.sources.VectorSource
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.MaplibreComposable
@@ -182,8 +181,9 @@ public fun LineLayer(
   val compiledMiterLimit = compile(miterLimit)
   val compiledRoundLimit = compile(roundLimit)
 
-  SourceReferenceEffect(source)
   LayerNode(
+    id = id,
+    source = source,
     factory = { LineLayer(id = id, source = source) },
     recreateKey = sourceLayer,
     update = {

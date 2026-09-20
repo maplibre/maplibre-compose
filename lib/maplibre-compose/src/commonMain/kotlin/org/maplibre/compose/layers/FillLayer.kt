@@ -14,7 +14,6 @@ import org.maplibre.compose.expressions.value.DpOffsetValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.ImageValue
 import org.maplibre.compose.expressions.value.TranslateAnchor
-import org.maplibre.compose.sources.SourceReferenceEffect
 import org.maplibre.compose.sources.VectorSource
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.MaplibreComposable
@@ -131,8 +130,9 @@ public fun FillLayer(
   val compiledTranslateAnchor = compile(translateAnchor)
   val compiledOutlineColor = compile(outlineColor)
 
-  SourceReferenceEffect(source)
   LayerNode(
+    id = id,
+    source = source,
     factory = { FillLayer(id = id, source = source) },
     recreateKey = sourceLayer,
     update = {

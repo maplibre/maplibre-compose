@@ -41,8 +41,15 @@ internal suspend fun composeStyle(
   val frameClock = BroadcastFrameClock()
   withContext(frameClock) {
     withRunningRecomposer { recomposer ->
-      val rootNode = StyleNode(style)
       var revision: DesiredStyleRevision? = null
+      val rootNode =
+        StyleNode(
+          style,
+          publish = {
+            revision = it
+            onRevision(it)
+          },
+        )
       val composition = Composition(MapNodeApplier(rootNode), recomposer)
       try {
         composition.setContent {
@@ -54,10 +61,6 @@ internal suspend fun composeStyle(
           ) {
             StyleContent(
               rootNode,
-              publish = {
-                revision = it
-                onRevision(it)
-              },
               content = content,
             )
           }
@@ -82,6 +85,7 @@ internal suspend fun composeStyle(
           reconciler.apply(style, requireNotNull(revision))
         }
       } finally {
+        rootNode.close()
         composition.dispose()
       }
     }

@@ -55,6 +55,7 @@ public fun BackgroundLayer(
   val compiledPattern = compile(pattern)
 
   LayerNode(
+    id = id,
     factory = { BackgroundLayer(id = id) },
     update = {
       set(minZoom) { layer.minZoom = it }

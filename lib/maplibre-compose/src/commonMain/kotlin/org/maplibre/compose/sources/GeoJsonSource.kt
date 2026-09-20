@@ -2,14 +2,12 @@ package org.maplibre.compose.sources
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.value.ExpressionValue
-import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.GeoJsonObject
@@ -178,17 +176,8 @@ public fun rememberGeoJsonSource(
   options: GeoJsonOptions = GeoJsonOptions(),
 ): GeoJsonSource =
   key(options) {
-    val node = LocalStyleNode.current
-    val source =
-      rememberUserSource(
-        factory = { GeoJsonSource(id = it, data = data, options = options) },
-        update = {},
-      )
-    LaunchedEffect(source, data, !node.style.isLoaded) {
-      if (node.style.isLoaded) {
-        source.setDesiredData(data)
-        node.sourceManager.updateReference(source)
-      }
-    }
-    source
+    rememberUserSource(
+      factory = { GeoJsonSource(id = it, data = data, options = options) },
+      update = {},
+    )
   }

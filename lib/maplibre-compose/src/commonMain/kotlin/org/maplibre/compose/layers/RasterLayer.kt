@@ -9,7 +9,6 @@ import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.MillisecondsValue
 import org.maplibre.compose.expressions.value.RasterResampling
 import org.maplibre.compose.sources.RasterSource
-import org.maplibre.compose.sources.SourceReferenceEffect
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.MaplibreComposable
 
@@ -85,8 +84,9 @@ public fun RasterLayer(
   val compiledResampling = compile(resampling)
   val compiledFadeDuration = compile(fadeDuration)
 
-  SourceReferenceEffect(source)
   LayerNode(
+    id = id,
+    source = source,
     factory = { RasterLayer(id = id, source = source) },
     update = {
       set(minZoom) { layer.minZoom = it }

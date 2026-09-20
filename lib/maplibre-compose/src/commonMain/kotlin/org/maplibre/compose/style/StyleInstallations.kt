@@ -43,7 +43,7 @@ internal class SourceInstallation(
     check(added) { "Source '$id' was not added because its style is no longer loaded" }
   }
 
-  suspend fun update(definition: SourceDefinition) {
+  fun update(definition: SourceDefinition) {
     style.requireCurrent()
     require(definition.id == id) { "A source handle cannot change resource identity" }
     val previousDefinition = current.load()

@@ -12,7 +12,6 @@ import org.maplibre.compose.expressions.value.HillshadeMethod
 import org.maplibre.compose.expressions.value.IlluminationAnchor
 import org.maplibre.compose.expressions.value.RasterResampling
 import org.maplibre.compose.sources.RasterDemTileSource
-import org.maplibre.compose.sources.SourceReferenceEffect
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.MaplibreComposable
 
@@ -90,8 +89,9 @@ public fun HillshadeLayer(
   val compiledExaggeration = compile(exaggeration)
   val compiledResampling = compile(resampling)
 
-  SourceReferenceEffect(source)
   LayerNode(
+    id = id,
+    source = source,
     factory = { HillshadeLayer(id = id, source = source) },
     update = {
       set(minZoom) { layer.minZoom = it }

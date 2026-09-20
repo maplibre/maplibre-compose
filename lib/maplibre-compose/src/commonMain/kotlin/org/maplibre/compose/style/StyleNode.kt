@@ -1,49 +1,67 @@
 package org.maplibre.compose.style
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.setValue
+import org.maplibre.compose.sources.Source
 
+/** The committed declarations of one style composition. Engine objects live in the reconciler. */
 internal class StyleNode(
   val style: StyleBinding,
-  internal val replaceableSourceIds: Set<String> = emptySet(),
+  replaceableSourceIds: Set<String> = emptySet(),
   replaceableLayerIds: Set<String> = emptySet(),
+  private val publish: (DesiredStyleRevision) -> Unit = {},
 ) : MapNode {
   val children = mutableListOf<MapNode>()
-
   private val baseLayerIds = style.layerIds().toSet() - replaceableLayerIds
-  internal val sourceManager = SourceManager(this)
-  internal val imageManager = ImageManager(this)
+  private val baseSources =
+    style.getSources().filterNot { it.id in replaceableSourceIds }.associateBy { it.id }
+  private val sourceIds = IncrementingId("source")
+  val images = StyleImageCache()
+  private var previous: DesiredStyleRevision? = null
+  private var closed = false
 
-  // A nested content scope can recompose without its StyleContent parent. This state invalidates
-  // that parent after a structural change so it records the post-observer layer-application effect.
-  private var applyGeneration by mutableIntStateOf(0)
+  fun nextSourceId(): String = sourceIds.next()
 
-  internal val currentApplyGeneration: Int
-    get() = applyGeneration
+  fun getBaseSource(id: String): Source? = baseSources[id]
 
-  internal fun scheduleApplyChanges() {
-    applyGeneration++
-  }
-
-  fun insertLayer(index: Int, node: LayerNode<*>) {
-    require(node.layer.id !in baseLayerIds) {
-      "Layer ID '${node.layer.id}' already exists in base style"
+  fun commit() {
+    if (closed || !style.isLoaded) return
+    val revision = snapshotRevision()
+    images.retain(children.filterIsInstance<StyleImageNode>())
+    if (revision != previous) {
+      previous = revision
+      publish(revision)
     }
-    children.add(index, node)
   }
 
-  internal fun snapshotRevision(
-    animatorDurationScale: Float,
-    fontScale: Float? = null,
-  ): DesiredStyleRevision =
-    DesiredStyleRevision(
-      animatorDurationScale = animatorDurationScale,
-      fontScale = fontScale,
-      sources = sourceManager.desiredSources.map { it.definition() },
+  fun close() {
+    closed = true
+    images.clear()
+  }
+
+  internal fun snapshotRevision(): DesiredStyleRevision {
+    val environment = children.filterIsInstance<StyleEnvironmentNode>().singleOrNull()
+    val layerNodes = children.filterIsInstance<LayerNode<*>>()
+    val sources =
+      layerNodes
+        .mapNotNull { it.source }
+        .distinct()
+        .filter { source ->
+          val base = baseSources[source.id]
+          require(base == null || base === source) {
+            "Source ID '${source.id}' conflicts with a base source"
+          }
+          base == null
+        }
+    layerNodes.forEach {
+      require(it.layer.id !in baseLayerIds) {
+        "Layer ID '${it.layer.id}' already exists in base style"
+      }
+    }
+    return DesiredStyleRevision(
+      animatorDurationScale = environment?.animatorDurationScale ?: 1f,
+      fontScale = environment?.fontScale,
+      sources = sources.map { it.definition() },
       layers =
-        children.map { node ->
-          node as LayerNode<*>
+        layerNodes.map { node ->
           DesiredStyleLayer(
             definition = node.layer.definition(),
             anchor = node.anchor,
@@ -55,6 +73,23 @@ internal class StyleNode(
             clickGroup = node.clickGroup,
           )
         },
-      images = imageManager.desiredImages,
+      images =
+        children
+          .filterIsInstance<StyleImageNode>()
+          .mapNotNull { it.definition }
+          .distinctBy { it.id },
+      imagesPending = children.filterIsInstance<StyleImageNode>().any { it.definition == null },
     )
+  }
+}
+
+internal class StyleEnvironmentNode : MapNode {
+  var animatorDurationScale: Float = 1f
+  var fontScale: Float? = null
+}
+
+/** A null definition denotes painter work that has not yet reached a committed property. */
+internal class StyleImageNode : MapNode {
+  var request: StyleImageCache.Request? = null
+  var definition: StyleImageDefinition? = null
 }

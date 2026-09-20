@@ -2,14 +2,13 @@ package org.maplibre.compose.layers
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ComposeNode
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Updater
 import androidx.compose.runtime.key
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import org.maplibre.compose.sources.Source
 import org.maplibre.compose.style.LayerNode
-import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.MapNodeApplier
 import org.maplibre.compose.util.MaplibreComposable
 
@@ -17,7 +16,9 @@ import org.maplibre.compose.util.MaplibreComposable
 @Composable
 @MaplibreComposable
 internal fun <T : Layer> LayerNode(
+  id: String,
   factory: () -> T,
+  source: Source? = null,
   update: Updater<LayerNode<T>>.() -> Unit,
   onClick: FeaturesClickHandler?,
   onLongClick: FeaturesClickHandler?,
@@ -30,15 +31,15 @@ internal fun <T : Layer> LayerNode(
   }
   val clickGroup = LocalLayerClickGroup.current
   val anchor = LocalAnchor.current
-  val node = LocalStyleNode.current
 
   // The anchor is not part of the node's identity: a predicate anchor built from a fresh lambda on
   // each recomposition must update the node in place, not recreate it and its click registration.
-  key(factory, recreateKey) {
+  key(id, source?.id, recreateKey) {
     ComposeNode<LayerNode<T>, MapNodeApplier>(
       factory = { LayerNode(layer = factory(), anchor = anchor) },
       update = {
         update()
+        set(source) { this.source = it }
         set(anchor) { this.anchor = it }
         set(onClick) { this.onClick = it }
         set(onLongClick) { this.onLongClick = it }
@@ -47,7 +48,6 @@ internal fun <T : Layer> LayerNode(
         set(clickGroup) { this.clickGroup = it }
       },
     )
-    SideEffect { node.scheduleApplyChanges() }
   }
 }
 

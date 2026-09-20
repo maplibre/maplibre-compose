@@ -10,7 +10,6 @@ import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.DpValue
 import org.maplibre.compose.expressions.value.FloatValue
-import org.maplibre.compose.sources.SourceReferenceEffect
 import org.maplibre.compose.sources.VectorSource
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.MaplibreComposable
@@ -85,8 +84,9 @@ public fun HeatmapLayer(
   val compiledWeight = compile(weight)
   val compiledIntensity = compile(intensity)
 
-  SourceReferenceEffect(source)
   LayerNode(
+    id = id,
+    source = source,
     factory = { HeatmapLayer(id = id, source = source) },
     recreateKey = sourceLayer,
     update = {

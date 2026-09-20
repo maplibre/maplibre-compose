@@ -8,7 +8,6 @@ import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.RasterResampling
 import org.maplibre.compose.sources.RasterDemTileSource
-import org.maplibre.compose.sources.SourceReferenceEffect
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.MaplibreComposable
 
@@ -53,8 +52,9 @@ public fun ColorReliefLayer(
   val compiledOpacity = compile(opacity)
   val compiledResampling = compile(resampling)
 
-  SourceReferenceEffect(source)
   LayerNode(
+    id = id,
+    source = source,
     factory = { ColorReliefLayer(id = id, source = source) },
     update = {
       set(minZoom) { layer.minZoom = it }

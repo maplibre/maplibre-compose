@@ -80,6 +80,7 @@ internal fun ComposeLocationIndicator(properties: LocationIndicatorProperties) {
   val compiledPerspectiveCompensation = compile(const(properties.perspectiveCompensation))
 
   LayerNode(
+    id = id,
     factory = { LocationIndicatorLayer(id = id) },
     update = {
       set(locationTransition) { layer.setLocationTransition(it) }

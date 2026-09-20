@@ -37,7 +37,7 @@ internal class LayerPropertyCompiler(
   operator fun <T : ExpressionValue?> invoke(expression: Expression<T>?): CompiledExpression<T> {
     val expression = expression ?: NullLiteral.cast()
     val images =
-      rememberLayerPropertyImages(expression, styleNode.imageManager, density, layoutDirection)
+      rememberLayerPropertyImages(expression, styleNode, density, layoutDirection)
         ?: return NullLiteral.cast()
     return remember(this, expression, images) { expression.compile(context(images)) }
   }

@@ -1,7 +1,6 @@
 package org.maplibre.compose.sources
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -53,19 +52,15 @@ public inline fun <reified T : Source> getBaseSource(id: String): T? {
 @Composable
 internal fun baseSourceOrNull(id: String): Source? {
   val node = LocalStyleNode.current
-  return remember(node, id) { node.sourceManager.getBaseSource(id) }
+  return remember(node, id) { node.getBaseSource(id) }
 }
 
 @Composable
 internal fun <T : Source> rememberUserSource(factory: (String) -> T, update: T.() -> Unit): T {
   val node = LocalStyleNode.current
-  val source = remember(node) { factory(node.sourceManager.nextId()) }
-  LaunchedEffect(source, update, !node.style.isLoaded) {
-    if (node.style.isLoaded) {
-      source.update()
-      node.sourceManager.updateReference(source)
-    }
-  }
+  val id = remember(node) { node.nextSourceId() }
+  // Build a fresh description. No committed object is mutated by speculative composition.
+  val source = remember(node, factory, update) { factory(id).apply(update) }
   return source
 }
 

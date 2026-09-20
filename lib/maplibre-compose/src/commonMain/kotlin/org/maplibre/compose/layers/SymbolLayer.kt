@@ -40,7 +40,6 @@ import org.maplibre.compose.expressions.value.TextUnitValue
 import org.maplibre.compose.expressions.value.TextVariableAnchorOffsetValue
 import org.maplibre.compose.expressions.value.TextWritingMode
 import org.maplibre.compose.expressions.value.TranslateAnchor
-import org.maplibre.compose.sources.SourceReferenceEffect
 import org.maplibre.compose.sources.VectorSource
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.styleFontScale
@@ -639,8 +638,9 @@ public fun SymbolLayer(
   val compiledTextTranslate = compile(textTranslate)
   val compiledTextTranslateAnchor = compile(textTranslateAnchor)
 
-  SourceReferenceEffect(source)
   LayerNode(
+    id = id,
+    source = source,
     factory = { SymbolLayer(id = id, source = source) },
     recreateKey = sourceLayer,
     update = {
