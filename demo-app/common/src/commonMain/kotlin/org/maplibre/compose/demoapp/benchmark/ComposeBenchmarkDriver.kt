@@ -220,6 +220,11 @@ internal class ComposeBenchmarkDriver(val fixture: BenchmarkFixture) {
         }
       }
     }
+    if (declared) {
+      // Frame callbacks run before recomposition. Cross a second frame boundary so the reset's
+      // declarations and layout have been applied before requesting camera/render settlement.
+      repeat(2) { withFrameNanos {} }
+    }
     state.setCameraPosition(benchmarkCamera(-1.0))
     // Allow pending declarations and asynchronous source preparation to settle before measurement.
     awaitSettled(state)

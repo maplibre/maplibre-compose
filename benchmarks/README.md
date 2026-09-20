@@ -33,10 +33,14 @@ thermal conditions; keep the prepared data unchanged between compared builds.
 Canonical numbers should come from physical hardware.
 
 Other targets use `benchmark:build:ios`, `benchmark:build:desktop`, or
-`benchmark:build:js`, then `benchmark:run -- ios|desktop|web`. iOS requires an
-installed app on a simulator and `--device UDID`. Desktop accepts `--app PATH`
-for the packaged executable. Browser runs use local build output and Chromium.
-All runs require `--output`; existing output directories are not overwritten.
+`benchmark:build:js`, then `benchmark:run -- ios|desktop|web`. The iOS build
+task only compiles the framework: after every code change, run
+`mise run demo:ios UDID` to build and install the app before
+`mise run benchmark:run -- ios --device UDID --output PATH`. Desktop requires
+`--app PATH` to the packaged executable on Linux and Windows; on macOS it
+defaults to the packaged `.app` launcher. Browser runs use local build output
+and Chromium. All runs require `--output`; existing output directories are not
+overwritten.
 
 ## Workloads and scenes
 

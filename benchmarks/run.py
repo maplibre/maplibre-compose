@@ -131,6 +131,14 @@ def android(args, output, metadata):
 
 def ios(args, output, metadata):
     command = ["xcrun", "simctl"]
+    devices = json.loads(call(*command, "list", "--json"))
+    runtime_id = next(
+        runtime
+        for runtime, entries in devices["devices"].items()
+        if any(device["udid"] == args.device for device in entries)
+    )
+    runtime = next(r for r in devices["runtimes"] if r["identifier"] == runtime_id)
+    metadata["os"] += f" / {runtime_id} ({runtime['buildversion']})"
     metadata["artifact"] = artifact_hash(
         call(*command, "get_app_container", args.device, PACKAGE, "app")
     )
@@ -156,6 +164,10 @@ def ios(args, output, metadata):
 
 
 def desktop(args, output, metadata):
+    if not args.app and platform.system() != "Darwin":
+        raise ValueError(
+            "Desktop runs outside macOS require --app PATH to the packaged launcher"
+        )
     executable = Path(
         args.app
         or "demo-app/desktop/build/compose/binaries/main/app/org.maplibre.compose.demoapp.app/Contents/MacOS/org.maplibre.compose.demoapp"
@@ -194,7 +206,7 @@ def web(args, output, metadata):
         worker = threading.Thread(target=server.serve_forever, daemon=True)
         worker.start()
         try:
-            subprocess.run(
+            result = subprocess.run(
                 [
                     "node",
                     str(ROOT / "browser.cjs"),
@@ -205,7 +217,10 @@ def web(args, output, metadata):
                 ],
                 check=True,
                 timeout=150,
+                stdout=subprocess.PIPE,
+                text=True,
             )
+            metadata["browser"] = result.stdout.strip()
         finally:
             server.shutdown()
             server.server_close()
@@ -253,6 +268,7 @@ def main():
         metadata = {
             "platform": args.platform,
             "device": args.device or platform.node(),
+            "os": platform.platform(),
             "config": config,
             "commit": call("git", "rev-parse", "HEAD"),
         }

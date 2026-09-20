@@ -21,6 +21,7 @@ def write_run(
             {
                 "platform": "android",
                 "device": "phone",
+                "os": "Android test build",
                 "artifact": artifact,
                 "config": config,
             }
@@ -34,11 +35,13 @@ def write_run(
         "completion_count": 0,
         "completion_signal": None,
     }
+    frames = 0 if workload in {"idle", "recompose"} else 1
     logs = (
         f"MAP_BENCHMARK START {config}\n"
         "MAP_BENCHMARK VIEWPORT [400,800,2]\n"
         f"MAP_BENCHMARK CPU {cpu}\n"
-        'MAP_BENCHMARK FRAMESTATS {"frames":0,"duration_ms":12002}\n'
+        f'MAP_BENCHMARK FRAMESTATS {{"frames":{frames},"duration_ms":12002}}\n'
+        + ('MAP_BENCHMARK FRAMETIMES [{"rendering_ms":1}]\n' if frames else "")
         + ("MAP_BENCHMARK SUBMISSIONS [0.1,0.2]\n" if operations else "")
         + "MAP_BENCHMARK WORKLOAD "
         + json.dumps(work)
@@ -73,7 +76,7 @@ class PerformanceTest(unittest.TestCase):
                 log + "MAP_BENCHMARK ERROR failed\n",
                 log.replace("[0.1,0.2]", "[0.1]"),
                 log.replace("[0.1,0.2]", "[0.1,NaN]"),
-                log.replace('"frames":0', '"frames":1'),
+                log.replace('"frames":1', '"frames":2'),
                 log.replace('"duration_ms": 12001', '"duration_ms": 100'),
                 log.replace('"workload":"paint"', '"workload":"source"'),
             ):
@@ -96,3 +99,20 @@ class PerformanceTest(unittest.TestCase):
             )
             (root / "app.log").write_text(log)
             self.assertEqual(read_run(root)[1]["workload"]["completion_ms"]["p50"], 24)
+
+    def test_redraw_requires_events_but_recomposition_can_remain_idle(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_run(
+                root / "recompose",
+                workload="recompose",
+                implementation="compose-declarative",
+            )
+            read_run(root / "recompose")
+            log = write_run(root / "paint")
+            log = log.replace('"frames":1', '"frames":0').replace(
+                'MAP_BENCHMARK FRAMETIMES [{"rendering_ms":1}]\n', ""
+            )
+            (root / "paint/app.log").write_text(log)
+            with self.assertRaisesRegex(ValueError, "no render events"):
+                read_run(root / "paint")

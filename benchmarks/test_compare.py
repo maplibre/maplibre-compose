@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -27,3 +28,34 @@ class ComparisonTest(unittest.TestCase):
             path.write_text(path.read_text().replace("[400,800,2]", "[500,800,2]"))
             with self.assertRaisesRegex(ValueError, "viewport"):
                 compare(root / "before", root / "after")
+
+    def test_missing_or_changed_environment_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in ("before", "after"):
+                write_run(root / name)
+                path = root / name / "metadata.json"
+                metadata = json.loads(path.read_text()) | {
+                    "platform": "web",
+                    "browser": "123",
+                }
+                path.write_text(json.dumps(metadata))
+            compare(root / "before", root / "after")
+            path = root / "after/metadata.json"
+            for key, value in (
+                ("os", "updated OS"),
+                ("os", None),
+                ("browser", "124"),
+                ("browser", None),
+            ):
+                changed = metadata | {key: value}
+                path.write_text(json.dumps(changed))
+                with self.assertRaisesRegex(ValueError, key):
+                    compare(root / "before", root / "after")
+            for key in ("os", "browser"):
+                for name in ("before", "after"):
+                    (root / name / "metadata.json").write_text(
+                        json.dumps(metadata | {key: None})
+                    )
+                with self.assertRaisesRegex(ValueError, key):
+                    compare(root / "before", root / "after")

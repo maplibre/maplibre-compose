@@ -82,6 +82,8 @@ def read_run(directory):
         raise ValueError("Missing workload completion measurements")
     summary = record(logs, "FRAMESTATS")
     frames = samples(logs, "FRAMETIMES")
+    if not frames and config["workload"] not in {"idle", "recompose"}:
+        raise ValueError("Redraw workload emitted no render events")
     if len(frames) != summary["frames"]:
         raise ValueError("Incomplete render statistics")
     for key in ("encoding_ms", "rendering_ms", "draw_calls"):

@@ -25,8 +25,13 @@ METRICS = {
 
 def compatible(first, second, implementations=False):
     a, b = first[0], second[0]
-    for key in ("platform", "device", "os"):
-        if a.get(key) != b.get(key):
+    keys = ["platform", "device", "os"]
+    if a["platform"] == "web":
+        keys.append("browser")
+    for key in keys:
+        if not a.get(key) or not b.get(key):
+            raise ValueError(f"Missing {key} metadata; capture the run again")
+        if a[key] != b[key]:
             raise ValueError(f"Cannot compare different {key}")
     if first[1]["viewport"] != second[1]["viewport"]:
         raise ValueError("Cannot compare different viewports")
