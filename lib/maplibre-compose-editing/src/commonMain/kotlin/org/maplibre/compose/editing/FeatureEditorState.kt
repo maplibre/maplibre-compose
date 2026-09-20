@@ -38,8 +38,10 @@ public class EditStep
  * Features being edited, with the active tool, selection, draft and undo history.
  *
  * All members are snapshot state. Use it from the main thread. Every feature in [features] has a
- * non-null id. Ids compare as [JsonPrimitive] values: `1`, `1.0` and `"1"` are three ids, and an id
- * round-trips through JSON unchanged. Features are immutable values; every edit replaces the entry.
+ * non-null id. Ids compare as [JsonPrimitive] values: `1` and `"1"` are two ids, and an id
+ * round-trips through JSON unchanged. Whether `1` and `1.0` differ depends on how the platform
+ * prints numbers; JavaScript prints both as `1`. Features are immutable values; every edit replaces
+ * the entry.
  *
  * [validate] runs on each feature a mutation would store when the feature is new or its geometry
  * differs from the stored geometry. It receives the feature as submitted: a new feature submitted

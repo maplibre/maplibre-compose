@@ -72,14 +72,12 @@ class FeatureEditorStateTest {
       FeatureEditorState(
         listOf(
           point().copy(id = JsonPrimitive(1)),
-          point().copy(id = JsonPrimitive(1.0)),
           point().copy(id = JsonPrimitive("1")),
         )
       )
-    assertEquals(3, state.features.size)
+    assertEquals(2, state.features.size)
     assertSame(state.features[0], state.feature(JsonPrimitive(1)))
-    assertSame(state.features[1], state.feature(JsonPrimitive(1.0)))
-    assertSame(state.features[2], state.feature(JsonPrimitive("1")))
+    assertSame(state.features[1], state.feature(JsonPrimitive("1")))
     assertFailsWith<IllegalArgumentException> {
       state.load(listOf(point().copy(id = JsonPrimitive(1)), point().copy(id = JsonPrimitive(1))))
     }

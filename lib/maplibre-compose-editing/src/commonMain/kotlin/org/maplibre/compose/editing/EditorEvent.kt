@@ -152,7 +152,7 @@ public val EditorEvent.Drag.handleTarget: Position?
   }
 
 /**
- * Returns a copy whose [pointer] puts [handleTarget] at [target]. Returns this event unchanged when
+ * Returns a copy whose pointer puts [handleTarget] at [target]. Returns this event unchanged when
  * the press hit no handle.
  */
 public fun EditorEvent.Drag.withHandleTarget(target: Position): EditorEvent.Drag {

@@ -32,7 +32,15 @@ kotlin {
     // Compose UI browser tests need an executable binary so webpack can load the Skiko runtime
     // (CMP-4906).
     binaries.executable()
-    browser()
+    // The tests need no map, so the launchers in karma.config.d only drop Chromium's sandbox.
+    browser {
+      testTask {
+        useKarma {
+          useChromeHeadless()
+          useFirefoxHeadless()
+        }
+      }
+    }
   }
 
   applyDefaultHierarchyTemplate()
