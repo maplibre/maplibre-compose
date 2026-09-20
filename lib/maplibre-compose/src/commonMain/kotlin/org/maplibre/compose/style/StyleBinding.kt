@@ -85,7 +85,7 @@ internal interface StyleBinding {
   /**
    * Every layer's [LayerSummary] keyed by ID, in stack order from bottom to top. A layer the engine
    * adds for its own use is omitted, as [getLayer] omits it. The default reads each layer
-   * separately; an engine with per-call overhead overrides this to read them in one pass.
+   * separately; engines can override this to read metadata without reconstructing full layers.
    */
   fun layerSummaries(): Map<String, LayerSummary> =
     layerIds().mapNotNull { id -> getLayer(id)?.definition()?.summary()?.let { id to it } }.toMap()
