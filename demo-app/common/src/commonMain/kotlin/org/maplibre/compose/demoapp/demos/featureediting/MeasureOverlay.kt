@@ -654,8 +654,11 @@ internal fun MapOverlayScope.ValidationTooltip(state: FeatureEditingState) {
       message = error
       visible = true
     } else if (visible) {
-      // A vertex dragged back to a valid outline clears at once; one taken back on release lingers.
-      if (!state.dragging) delay(ERROR_LINGER_MILLIS)
+      // Clears as soon as the outline is valid, except after a release took the vertex back.
+      if (state.snappedBack) {
+        delay(ERROR_LINGER_MILLIS)
+        state.snappedBack = false
+      }
       visible = false
     }
   }

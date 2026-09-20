@@ -126,11 +126,16 @@ internal class FeatureEditingState {
   /** The selected shapes as of the latest drag frame that left all of them valid. */
   private var validFrame: Pair<EditStep, List<EditorFeature>>? = null
 
+  /** True after a release took a shape back to a valid frame, until the message has lingered. */
+  var snappedBack by mutableStateOf(false)
+
   fun startGesture() {
     dragging = true
   }
 
-  private val liveProblem by derivedStateOf { selected.firstNotNullOfOrNull(::validateShape) }
+  private val liveProblem by derivedStateOf {
+    selected.firstNotNullOfOrNull(::validateShape) ?: editor.draft?.let(::validateDraft)
+  }
 
   /** Why the current shape or draft is not acceptable, or null. */
   val problem: String?
@@ -149,6 +154,7 @@ internal class FeatureEditingState {
     validFrame = null
     if (selected.all { validateShape(it) == null }) return
     if (frame != null) editor.update(frame.second, undoStep = step) else editor.revert(step)
+    snappedBack = true
   }
 
   fun cancelGesture() {

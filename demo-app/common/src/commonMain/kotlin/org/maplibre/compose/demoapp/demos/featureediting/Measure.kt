@@ -6,6 +6,8 @@ import kotlin.math.cos
 import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
+import org.maplibre.compose.editing.DrawShape
+import org.maplibre.compose.editing.EditorDraft
 import org.maplibre.compose.editing.EditorFeature
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Geometry
@@ -195,6 +197,13 @@ internal fun validateShape(feature: EditorFeature): String? {
     if (ringCrossesItself(ring)) return SELF_CROSSING_MESSAGE
   }
   return null
+}
+
+/** The message for a polygon draft whose outline, closed through the cursor, crosses itself. */
+internal fun validateDraft(draft: EditorDraft): String? {
+  if (draft.shape != DrawShape.Polygon) return null
+  val ring = draft.positions + listOfNotNull(draft.cursor)
+  return if (ringCrossesItself(ring)) SELF_CROSSING_MESSAGE else null
 }
 
 private fun ringCrossesItself(ring: List<Position>): Boolean {

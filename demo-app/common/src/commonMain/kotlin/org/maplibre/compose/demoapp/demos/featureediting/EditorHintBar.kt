@@ -78,12 +78,15 @@ internal fun EditorHintBar(state: FeatureEditingState) {
   val mouse = state.lastPointerType == PointerType.Mouse
   val error = state.problem
   var lingeringError by remember { mutableStateOf<String?>(null) }
-  // Keyed on the message alone: an error a vertex tooltip is already showing stays there. A shape
-  // dragged back into a valid outline clears at once; one taken back on release lingers.
+  // Keyed on the message alone: an error a vertex tooltip is already showing stays there. The
+  // message clears as soon as the outline is valid, except after a release took the shape back.
   LaunchedEffect(error) {
     if (error != null && editor.activeHandle == null) lingeringError = error
     else if (lingeringError != null) {
-      if (!state.dragging) delay(ERROR_LINGER_MILLIS)
+      if (state.snappedBack) {
+        delay(ERROR_LINGER_MILLIS)
+        state.snappedBack = false
+      }
       lingeringError = null
     }
   }
@@ -215,7 +218,7 @@ private fun HintPill(state: FeatureEditingState, hint: Hint, mouse: Boolean) {
             "Done",
             Res.drawable.check_24px,
             mouse,
-            enabled = editor.canFinishDraft,
+            enabled = editor.canFinishDraft && state.problem == null,
             tonal = true,
           ) {
             editor.finishDraft()

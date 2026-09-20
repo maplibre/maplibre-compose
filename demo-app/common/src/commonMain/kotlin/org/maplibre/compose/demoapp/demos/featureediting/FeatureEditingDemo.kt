@@ -63,6 +63,7 @@ object FeatureEditingDemo : Demo {
             accent = scheme.primary,
             selectedFill = scheme.error.copy(alpha = 0.15f),
             selectedStroke = scheme.error,
+            draft = scheme.error,
             activeHandleFill = scheme.error,
           )
         } else EditorColors(accent = scheme.primary)
