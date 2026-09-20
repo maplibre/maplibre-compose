@@ -46,7 +46,6 @@ ruff_version = "0.16.2"
 shellcheck_version = "0.11.0"
 swiftformat_version = "0.62.1"
 xcodes_version = "2.0.3"
-uv_version = "0.12.10"
 appimagetool_version = "1.9.1"
 
 [tools]
@@ -67,7 +66,6 @@ appimagetool_version = "1.9.1"
 
 # Runs the Python file tasks under .mise/tasks/.
 "core:python" = "{{vars.python_version}}"
-"github:astral-sh/uv" = "{{vars.uv_version}}" # Isolated video benchmark dependencies
 
 # Upstream ships Windows as an MSI only, which this backend cannot unpack, and
 # nothing formats Swift on Windows anyway.
@@ -480,16 +478,34 @@ run = '.mise/bin/version-args "$usage_mode"'
 description = "Update and pin GitHub Actions steps."
 run = "npx -y actions-up"
 
-# Benchmark capture uses release Android builds and platform-specific visual adapters.
+# Benchmark data is prepared only when explicitly requested by these tasks.
+[deps.benchmarks]
+auto = false
+sources = ["benchmarks/prepare_fixtures.py", "benchmarks/fixtures/*"]
+outputs = [
+  "demo-app/common/build/generated/benchmarkResources/files/benchmarks/.prepared",
+]
+run = "python benchmarks/prepare_fixtures.py"
+
+[tasks."deps:benchmarks"]
+run = "mise deps install benchmarks"
+
 [tasks."benchmark:build:android"]
+depends = ["deps:benchmarks"]
 run = "./gradlew :demo-app:android:assembleRelease"
 [tasks."benchmark:build:ios"]
+depends = ["deps:benchmarks"]
 run = "./gradlew :demo-app:common:linkDebugFrameworkIosSimulatorArm64"
 [tasks."benchmark:build:js"]
+depends = ["deps:benchmarks"]
 run = "./gradlew :demo-app:common:jsBrowserDevelopmentWebpack"
 [tasks."benchmark:build:desktop"]
+depends = ["deps:benchmarks"]
 run = "./gradlew :demo-app:desktop:createDistributable"
 [tasks."benchmark:run"]
-run = "uv run benchmarks/run.py"
+depends = ["deps:benchmarks"]
+run = "python benchmarks/run.py"
+[tasks."benchmark:compare"]
+run = "python benchmarks/compare.py"
 [tasks."benchmark:test"]
-run = "uv run --with opencv-python-headless==4.13.0.92 --with numpy==2.4.3 --with perfetto==0.58.2 python -m unittest discover -s benchmarks"
+run = "python -m unittest discover -s benchmarks"

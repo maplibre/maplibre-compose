@@ -1,11 +1,15 @@
 package org.maplibre.compose.demoapp
 
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import org.maplibre.compose.demoapp.benchmark.BenchmarkConfig
 import org.maplibre.compose.demoapp.benchmark.BenchmarkScenario
 import org.maplibre.compose.demoapp.benchmark.allBenchmarkScenarios
 
@@ -19,37 +23,37 @@ internal fun BenchmarksScreen(onBack: () -> Unit, onOpenScenario: (BenchmarkScen
 }
 
 @Composable
-internal fun BenchmarkScenarioPanel(state: DemoAppState, onRun: () -> Unit) {
+internal fun BenchmarkScenarioPanel(state: DemoAppState, onRun: (BenchmarkConfig) -> Unit) {
   val ui = state.benchmark
-  Text(state.selectedScenario.description, Modifier.padding(16.dp))
+  val scenario = state.selectedScenario
+  LaunchedEffect(scenario) { ui.configJson = BenchmarkConfig.forScenario(scenario).encode() }
+  Text(scenario.description, Modifier.padding(16.dp))
+  OutlinedTextField(
+    value = ui.configJson,
+    onValueChange = { ui.configJson = it },
+    label = { Text("Benchmark configuration") },
+    enabled = !ui.running,
+    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+  )
+  Text(ui.status, Modifier.padding(16.dp))
   Button(
     onClick = {
-      ui.maximumFps =
-        when (ui.maximumFps) {
-          null -> 30
-          30 -> 60
-          60 -> 120
-          else -> null
+      val config =
+        try {
+          BenchmarkConfig.parse(ui.configJson)
+        } catch (e: Exception) {
+          ui.status = "Invalid params: ${e.message}"
+          null
         }
+      if (config != null) onRun(config)
     },
     enabled = !ui.running,
   ) {
-    Text("Map FPS: ${ui.maximumFps ?: "default"}")
+    Text("Run")
   }
-  Button(
-    onClick = { ui.surface = if (ui.surface == "surface") "texture" else "surface" },
-    enabled = !ui.running,
-  ) {
-    Text("Android presentation: ${ui.surface}")
-  }
-  Button(onClick = { ui.load = if (ui.load == 0) 5000 else 0 }, enabled = !ui.running) {
-    Text("Additional circles: ${ui.load}")
-  }
-  Text(ui.status, Modifier.padding(16.dp))
-  Button(onClick = onRun, enabled = !ui.running) { Text("Run") }
   if (ui.running) Button(onClick = ui::abandonRun) { Text("Cancel") }
   Text(
-    "Use the benchmark capture runner for visual alignment, input response, and platform performance measurements.",
+    "Use the benchmark runner to save results and compare repeated runs.",
     Modifier.padding(16.dp),
   )
 }

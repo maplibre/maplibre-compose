@@ -1,76 +1,102 @@
 import json
+import tempfile
 import unittest
+from pathlib import Path
 
-from performance import process_cpu_metrics, window_metrics
-
-
-class WindowMetricsTest(unittest.TestCase):
-    def log(self, frames=3, lost=0):
-        report = {"frames": frames, "lost_reports": lost}
-        return (
-            "MAP_BENCHMARK WINDOW "
-            + json.dumps(report)
-            + "\nMAP_BENCHMARK FRAMES 1000000,1000000,150,1000000;2000000,2000000,-1,1000000\nMAP_BENCHMARK FRAMES 4000000,3000000,1000000,4000000\n"
-        )
-
-    def test_batches_preserve_small_gpu_durations_and_unavailable_samples(self):
-        result = window_metrics(self.log(), 1000000, 7000000)
-        self.assertEqual(result["frames"], 3)
-        self.assertEqual(result["total_ms"]["p50"], 2)
-        self.assertAlmostEqual(result["gpu_ms"]["p50"], (1.0 + 0.00015) / 2)
-
-    def test_unavailable_timestamps_do_not_contribute_to_interval_metrics(self):
-        logs = self.log().replace("1000000,1000000,150", "-1,1000000,150")
-        result = window_metrics(logs, 1000000, 7000000)
-        self.assertEqual(result["reported_frames"], 3)
-        self.assertEqual(result["frames"], 2)
-        self.assertEqual(result["total_ms"]["p50"], 2.5)
-
-        logs = logs.replace("2000000,2000000,-1", "-1,2000000,-1").replace(
-            "4000000,3000000,1000000", "-1,3000000,1000000"
-        )
-        result = window_metrics(logs, 1000000, 7000000)
-        self.assertFalse(result["available"])
-        self.assertEqual(result["reason"], "Window frame timestamps are unavailable")
-        self.assertEqual(result["reported_frames"], 3)
-        self.assertEqual(result["frames"], 0)
-        self.assertIsNone(result["total_ms"])
-        self.assertIsNone(result["gpu_ms"])
-
-    def test_invalid_timestamps_are_rejected(self):
-        for timestamp in (0, -2):
-            logs = self.log().replace("1000000,1000000,150", f"{timestamp},1000000,150")
-            with self.assertRaisesRegex(ValueError, "Invalid Window FrameMetrics"):
-                window_metrics(logs, 1000000, 7000000)
-
-    def test_incomplete_or_dropped_reports_are_rejected(self):
-        for log in (self.log(frames=4), self.log(lost=1)):
-            with self.assertRaises(ValueError):
-                window_metrics(log, 1000000, 7000000)
-
-    def test_only_complete_frames_inside_trace_contribute(self):
-        result = window_metrics(self.log(), 4000000, 7000000)
-        self.assertEqual(result["reported_frames"], 3)
-        self.assertEqual(result["frames"], 1)
-        self.assertEqual(result["missed_deadlines"], 0)
-        self.assertEqual(result["total_ms"]["p95"], 3)
-        self.assertEqual(result["gpu_ms"]["p95"], 1)
-        for start, end in ((1000001, 1999999), (4000000, 6999999)):
-            result = window_metrics(self.log(), start, end)
-            self.assertFalse(result["available"])
-            self.assertIsNone(result["total_ms"])
+from config import canonical_config
+from performance import read_run
 
 
-class ProcessCpuTest(unittest.TestCase):
-    def test_counter_delta_and_unavailable_measurements(self):
-        self.assertEqual(
-            process_cpu_metrics("MAP_BENCHMARK CPU 1.25e3")["cpu_ms"], 1250
-        )
-        self.assertIsNone(process_cpu_metrics("unsupported"))
-        for value in ("-1", "nan", "inf", "1\nMAP_BENCHMARK CPU 2"):
-            with self.assertRaises(ValueError):
-                process_cpu_metrics("MAP_BENCHMARK CPU " + value)
+def write_run(
+    root,
+    cpu=100,
+    implementation="compose-imperative",
+    workload="paint",
+):
+    root.mkdir(parents=True)
+    config = canonical_config({"workload": workload, "implementation": implementation})
+    operations = 0 if workload == "idle" else 2
+    work = {
+        "operations": operations,
+        "duration_ms": 12001,
+        "submission_count": operations,
+        "completion_count": 0,
+        "completion_signal": None,
+    }
+    frames = 0 if workload in {"idle", "recompose"} else 1
+    logs = (
+        f"MAP_BENCHMARK START {config}\n"
+        "MAP_BENCHMARK VIEWPORT [400,800,2]\n"
+        f"MAP_BENCHMARK CPU {cpu}\n"
+        f'MAP_BENCHMARK FRAMESTATS {{"frames":{frames},"duration_ms":12002}}\n'
+        + ('MAP_BENCHMARK FRAMETIMES [{"rendering_ms":1}]\n' if frames else "")
+        + ("MAP_BENCHMARK SUBMISSIONS [0.1,0.2]\n" if operations else "")
+        + "MAP_BENCHMARK WORKLOAD "
+        + json.dumps(work)
+        + "\nMAP_BENCHMARK DONE\n"
+    )
+    (root / "app.log").write_text(logs)
+    return logs
 
 
-if __name__ == "__main__":
-    unittest.main()
+class PerformanceTest(unittest.TestCase):
+    def test_idle_and_native_statistics(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "run"
+            log = write_run(root, workload="idle")
+            report = read_run(root)
+            self.assertEqual(report["cpu_ms"], 100)
+            self.assertEqual(report["frames"]["frames"], 0)
+            self.assertIsNone(report["frames"]["rendering_ms"])
+            log = (
+                log.replace('"frames":0', '"frames":2')
+                + 'MAP_BENCHMARK FRAMETIMES [{"rendering_ms":1},{"rendering_ms":3}]\n'
+            )
+            (root / "app.log").write_text(log)
+            self.assertEqual(read_run(root)["frames"]["rendering_ms"]["p50"], 2)
+
+    def test_failed_and_truncated_runs_are_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "run"
+            log = write_run(root)
+            for invalid in (
+                log.replace("MAP_BENCHMARK DONE", "unfinished"),
+                log + "MAP_BENCHMARK ERROR failed\n",
+                log.replace("[0.1,0.2]", "[0.1]"),
+                log.replace("[0.1,0.2]", "[0.1,NaN]"),
+                log.replace('"frames":1', '"frames":2'),
+            ):
+                (root / "app.log").write_text(invalid)
+                with self.assertRaises(ValueError):
+                    read_run(root)
+
+    def test_completion_timings(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "run"
+            log = write_run(root, workload="source-latency")
+            log = (
+                log.replace('"completion_count": 0', '"completion_count": 2').replace(
+                    '"completion_signal": null',
+                    '"completion_signal": "rendered-feature-revision"',
+                )
+                + "MAP_BENCHMARK COMPLETIONS [16,32]\n"
+            )
+            (root / "app.log").write_text(log)
+            self.assertEqual(read_run(root)["workload"]["completion_ms"]["p50"], 24)
+
+    def test_redraw_requires_events_but_recomposition_can_remain_idle(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_run(
+                root / "recompose",
+                workload="recompose",
+                implementation="compose-declarative",
+            )
+            read_run(root / "recompose")
+            log = write_run(root / "paint")
+            log = log.replace('"frames":1', '"frames":0').replace(
+                'MAP_BENCHMARK FRAMETIMES [{"rendering_ms":1}]\n', ""
+            )
+            (root / "paint/app.log").write_text(log)
+            with self.assertRaisesRegex(ValueError, "no render events"):
+                read_run(root / "paint")

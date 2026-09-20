@@ -13,10 +13,4 @@ private fun benchmarkQuery(): String? =
 internal actual fun benchmarkMapOptions(config: BenchmarkConfig): MapUiOptions =
   MapUiOptions.Standard
 
-internal actual fun benchmarkTrace(active: Boolean) {}
-
-@Composable internal actual fun BenchmarkPlatformMetrics(active: Boolean) {}
-
-internal actual fun benchmarkInput(sequence: Int, uptimeMillis: Long) {
-  println("MAP_BENCHMARK INPUT_UNCALIBRATED $sequence $uptimeMillis")
-}
+internal actual fun benchmarkCpu(active: Boolean) {}
