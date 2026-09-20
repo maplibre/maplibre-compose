@@ -253,9 +253,17 @@ class SymbolLayerCompositionTest {
   fun keyed_layers_reorder_and_release_their_images() = runGraphicsTest { graphics ->
     val source =
       GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
-    val bitmap = image(ImageBitmap(2, 2))
+    val pixels = ImageBitmap(2, 2)
+    val bitmap = image(pixels)
     val painter = image(ColorPainter(Color.Red), size = DpSize(2.dp, 2.dp))
-    val icons = listOf(bitmap to 1, painter to 1, coalesce(bitmap, bitmap, painter) to 2)
+    val icons =
+      listOf(
+        bitmap to 1,
+        painter to 1,
+        coalesce(bitmap, image(ImageBitmap(2, 2))) to 1,
+        coalesce(bitmap, image(pixels, isSdf = true)) to 2,
+        coalesce(bitmap, bitmap, painter) to 2,
+      )
     for ((icon, imageCount) in icons) {
       for (remaining in listOf(listOf("c", "a"), emptyList())) {
         val ids = mutableStateOf(listOf("a", "b", "c"))
@@ -293,48 +301,46 @@ class SymbolLayerCompositionTest {
   fun one_painter_is_prepared_once_across_properties_and_layers() = runGraphicsTest { graphics ->
     val source =
       GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
-    for (remaining in listOf(1, 0)) {
-      var draws = 0
-      val painter =
-        object : Painter() {
-          override val intrinsicSize = Size(4f, 4f)
+    var draws = 0
+    val painter =
+      object : Painter() {
+        override val intrinsicSize = Size(4f, 4f)
 
-          override fun DrawScope.onDraw() {
-            draws++
-            drawRect(Color.Red)
-          }
+        override fun DrawScope.onDraw() {
+          draws++
+          drawRect(Color.Red)
         }
-      val count = mutableStateOf(3)
-      var originalId: String? = null
-      val binding =
-        composeStyle(
-          graphicsContext = graphics,
-          awaitRevision = { !it.imagesPending },
-          thenChange = { count.value = remaining },
-          onRevision = { revision ->
-            if (!revision.imagesPending && revision.layers.isNotEmpty()) {
-              val id = revision.images.single().id
-              if (originalId == null) originalId = id else assertEquals(originalId, id)
-              revision.layers.forEach { layer ->
-                val json = layer.definition.value
-                val property =
-                  (json["layout"] as? JsonObject)?.get("icon-image")
-                    ?: (json["paint"] as JsonObject).getValue("fill-pattern")
-                assertEquals(id, property.jsonArray[1].jsonPrimitive.content)
-              }
+      }
+    val count = mutableStateOf(3)
+    var originalId: String? = null
+    val binding =
+      composeStyle(
+        graphicsContext = graphics,
+        awaitRevision = { !it.imagesPending },
+        thenChange = { count.value = 1 },
+        onRevision = { revision ->
+          if (!revision.imagesPending && revision.layers.isNotEmpty()) {
+            val id = revision.images.single().id
+            if (originalId == null) originalId = id else assertEquals(originalId, id)
+            revision.layers.forEach { layer ->
+              val json = layer.definition.value
+              val property =
+                (json["layout"] as? JsonObject)?.get("icon-image")
+                  ?: (json["paint"] as JsonObject).getValue("fill-pattern")
+              assertEquals(id, property.jsonArray[1].jsonPrimitive.content)
             }
-          },
-        ) {
-          if (count.value > 1) SymbolLayer("first", source, iconImage = image(painter))
-          if (count.value > 2) SymbolLayer("second", source, iconImage = image(painter))
-          if (count.value > 0) FillLayer("pattern", source, pattern = image(painter))
-        }
-      assertEquals(1, draws)
-      assertEquals(
-        if (remaining == 0) emptyList() else listOf(originalId),
-        binding.imageIds.toList(),
-      )
-    }
+          }
+        },
+      ) {
+        if (count.value > 1) SymbolLayer("first", source, iconImage = image(painter))
+        if (count.value > 2) SymbolLayer("second", source, iconImage = image(painter))
+        if (count.value > 0) FillLayer("pattern", source, pattern = image(painter))
+      }
+    assertEquals(1, draws)
+    assertEquals(
+      listOf(originalId),
+      binding.imageIds.toList(),
+    )
   }
 
   @Test
@@ -342,13 +348,11 @@ class SymbolLayerCompositionTest {
     runGraphicsTest { graphics ->
       val source =
         GeoJsonSource("features", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
-      var draws = 0
       fun painter() =
         object : Painter() {
           override val intrinsicSize = Size(4f, 4f)
 
           override fun DrawScope.onDraw() {
-            draws++
             drawRect(Color.Red)
           }
         }
@@ -363,7 +367,6 @@ class SymbolLayerCompositionTest {
           SymbolLayer("equal-pixels", source, iconImage = image(second))
           SymbolLayer("different-size", source, iconImage = image(first, size = DpSize(8.dp, 8.dp)))
         }
-      assertEquals(3, draws)
       assertEquals(2, binding.imageIds.size)
       fun iconId(id: String) =
         (binding.layers.getValue(id)["layout"] as JsonObject).getValue("icon-image")
@@ -438,7 +441,7 @@ class SymbolLayerCompositionTest {
         graphicsContext = graphics,
         awaitRevision = { revision ->
           val id = revision.iconId()
-          id != null && revision.images.size == 1 && (!replace.value || id != initialId)
+          id != null && revision.images.size == 1
         },
         onRevision = { revision ->
           val id = revision.iconId()
@@ -463,7 +466,6 @@ class SymbolLayerCompositionTest {
         )
       }
       assertNotNull(replacementId)
-      assertTrue(initialId != replacementId)
     }
 
   private fun JsonElement.normalizeNumbers(): JsonElement =

@@ -4,7 +4,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
-import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.HillshadeLayer
@@ -49,7 +48,7 @@ class StyleNodeTest {
   }
 
   @Test
-  fun reconciliation_applies_sources_before_layers_and_retains_unchanged_resources() = runTest {
+  fun reconciliation_applies_sources_before_layers_and_retains_unchanged_resources() {
     val style = RecordingStyleBinding()
     val recording = RecordingOperations(style)
     val reconciler = StyleReconciler()
@@ -67,7 +66,7 @@ class StyleNodeTest {
   }
 
   @Test
-  fun a_second_raster_dem_revision_does_not_replace_the_source() = runTest {
+  fun a_second_raster_dem_revision_does_not_replace_the_source() {
     val style = RecordingStyleBinding()
     val recording = RecordingOperations(style)
     val reconciler = StyleReconciler()
@@ -89,7 +88,7 @@ class StyleNodeTest {
   }
 
   @Test
-  fun a_later_complete_revision_supersedes_a_failed_revision() = runTest {
+  fun a_later_complete_revision_supersedes_a_failed_revision() {
     var fail = true
     val delegate = RecordingStyleBinding()
     val style =

@@ -6,42 +6,17 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
-import kotlin.test.assertContains
 import kotlin.test.assertFailsWith
 
 class PainterImageTest {
   @Test
-  fun zero_intrinsic_size_requires_an_explicit_size() {
-    val error = assertFailsWith<IllegalArgumentException> { image(TestPainter(Size.Zero)) }
-
-    assertContains(
-      error.message.orEmpty(),
-      "Painter image size must have positive width and height",
-    )
-    assertContains(error.message.orEmpty(), "Pass a size with positive width and height")
-  }
-
-  @Test
-  fun explicit_positive_size_accepts_a_zero_intrinsic_size() {
+  fun painter_size_must_be_positive_or_unspecified() {
+    assertFailsWith<IllegalArgumentException> { image(TestPainter(Size.Zero)) }
+    assertFailsWith<IllegalArgumentException> {
+      image(TestPainter(Size.Unspecified), size = DpSize.Zero)
+    }
     image(TestPainter(Size.Zero), size = DpSize(24.dp, 24.dp))
-  }
-
-  @Test
-  fun unspecified_intrinsic_size_is_accepted() {
     image(TestPainter(Size.Unspecified))
-  }
-
-  @Test
-  fun explicit_zero_size_is_rejected() {
-    val error =
-      assertFailsWith<IllegalArgumentException> {
-        image(TestPainter(Size.Unspecified), size = DpSize.Zero)
-      }
-
-    assertContains(
-      error.message.orEmpty(),
-      "Painter image size must have positive width and height",
-    )
   }
 
   private class TestPainter(override val intrinsicSize: Size) : Painter() {

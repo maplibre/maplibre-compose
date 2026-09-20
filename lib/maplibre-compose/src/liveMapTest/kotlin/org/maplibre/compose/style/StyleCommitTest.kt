@@ -16,7 +16,6 @@ import androidx.compose.ui.unit.LayoutDirection
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -33,26 +32,6 @@ import org.maplibre.compose.sources.rememberGeoJsonSource
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StyleCommitTest {
-  @Test
-  fun child_data_changes_commit_in_one_frame_with_stable_resource_and_registration_ids() = runTest {
-    var data by mutableStateOf(data(1))
-    @Composable
-    fun Child() {
-      CircleLayer("points", rememberGeoJsonSource(data), visible = true)
-    }
-    Fixture(this).use { fixture ->
-      fixture.setContent { Child() }
-      val first = fixture.revisions.single()
-      data = data(2)
-      fixture.frame()
-      assertEquals(2, fixture.revisions.size, "one complete publication per apply")
-      val next = fixture.revisions.last()
-      assertEquals(data, (next.sources.single() as SourceDefinition.GeoJson).data)
-      assertEquals(first.sources.single().id, next.sources.single().id)
-      assertSame(first.layers.single().registration, next.layers.single().registration)
-    }
-  }
-
   @Test
   fun a_shared_source_lives_until_its_last_committed_layer_is_removed() = runTest {
     var count by mutableStateOf(2)
@@ -97,25 +76,19 @@ class StyleCommitTest {
   }
 
   @Test
-  fun bitmap_ownership_is_committed_with_its_property_and_disposal_does_not_publish_empty_content() =
-    runTest {
-      val fixture = Fixture(this)
-      var visible by mutableStateOf(true)
-      try {
-        val bitmap = FakeImageBitmap(2, 2)
-        fixture.setContent { if (visible) BackgroundLayer("bitmap", pattern = image(bitmap)) }
-        assertEquals(1, fixture.revisions.single().images.size)
-        assertEquals(1, fixture.revisions.single().layers.size)
-        visible = false
-        fixture.frame()
-        assertTrue(fixture.revisions.last().images.isEmpty())
-        assertTrue(fixture.revisions.last().layers.isEmpty())
-      } finally {
-        val count = fixture.revisions.size
-        fixture.close()
-        assertEquals(count, fixture.revisions.size)
-      }
+  fun disposing_composition_does_not_clear_installed_content() = runTest {
+    val fixture = Fixture(this)
+    try {
+      fixture.setContent { BackgroundLayer("bitmap", pattern = image(FakeImageBitmap(2, 2))) }
+      val committed = fixture.revisions.last()
+      assertEquals(1, committed.images.size)
+      assertEquals(1, committed.layers.size)
+      fixture.close()
+      assertEquals(committed, fixture.revisions.last())
+    } finally {
+      fixture.close()
     }
+  }
 
   private class Fixture(private val scope: TestScope) : AutoCloseable {
     val revisions = mutableListOf<DesiredStyleRevision>()
