@@ -43,15 +43,12 @@ internal class BenchmarkFrameRecorder {
 
   /** Starts collecting from [events]. Must be paired with exactly one [stop]. */
   fun start(scope: CoroutineScope, events: Flow<MapEvent>) {
-    check(job == null) { "Frame recorder is already running" }
-    val samples = Channel<FrameSample>(Channel.UNLIMITED)
-    this.samples = samples
-    start = TimeSource.Monotonic.markNow()
+    start()
     job =
       scope.launch(Dispatchers.Unconfined) {
         events.filterIsInstance<MapEvent.FrameRendered>().collect { event ->
           val stats = event.stats
-          samples.trySend(
+          record(
             FrameSample(
               encodingMs = stats?.encodingTime?.inWholeMicroseconds?.div(1e3),
               renderingMs = stats?.renderingTime?.inWholeMicroseconds?.div(1e3),
@@ -61,6 +58,16 @@ internal class BenchmarkFrameRecorder {
           )
         }
       }
+  }
+
+  fun start() {
+    check(samples == null) { "Frame recorder is already running" }
+    samples = Channel(Channel.UNLIMITED)
+    start = TimeSource.Monotonic.markNow()
+  }
+
+  fun record(sample: FrameSample) {
+    samples?.trySend(sample)
   }
 
   /** Stops collection and prints the frame statistics. Does nothing when never started. */

@@ -34,3 +34,11 @@ internal actual fun benchmarkCpu(active: Boolean) {
   else if (startCpuNanos >= 0 && now >= startCpuNanos)
     println("MAP_BENCHMARK CPU ${(now - startCpuNanos) / 1e6}")
 }
+
+@Composable
+internal actual fun ClassicAndroidBenchmark(
+  fixture: BenchmarkFixture,
+  onStatus: (String, Boolean) -> Unit,
+) {
+  UnsupportedClassicBenchmark(onStatus)
+}

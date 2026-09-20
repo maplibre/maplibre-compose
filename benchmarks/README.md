@@ -1,8 +1,8 @@
 # Map benchmarks
 
 Measure the same map workload before and after a code change, or compare its
-imperative and declarative implementations. Traditional Android and iOS SDK
-implementations are not included yet.
+Compose imperative, Compose declarative, and classic Android SDK
+implementations. The classic iOS SDK implementation is not included yet.
 
 ## Run and compare
 
@@ -21,12 +21,21 @@ mise run benchmark:compare -- build/benchmarks/before build/benchmarks/after
 ```
 
 To compare Compose implementations, capture another group with
-`--implementation compose-declarative`. Single runs can also be compared. The
-comparison reads saved `performance.json` files and reports medians, ranges, and
-percentage changes, alongside each run's configuration and viewport. Choose
-comparable runs yourself: use the same device, viewport, prepared data, and
-workload when measuring a code change. There are no artifact hashes or
-compatibility gates.
+`--implementation compose-declarative`. On Android, use
+`--implementation classic-android` for the traditional SDK’s `MapView`. For
+example:
+
+```sh
+mise run benchmark:run -- android --device SERIAL --case paint-points \
+  --implementation classic-android --repeat 3 --output build/benchmarks/classic
+mise run benchmark:compare -- build/benchmarks/before build/benchmarks/classic
+```
+
+Single runs can also be compared. The comparison reads saved `performance.json`
+files and reports medians, ranges, and percentage changes, alongside each run's
+configuration and viewport. Choose comparable runs yourself: use the same
+device, viewport, prepared data, and workload when measuring a code change.
+There are no artifact hashes or compatibility gates.
 
 Each run saves `app.log` and `performance.json`. Name output directories for the
 change or implementation you are measuring. Use an otherwise idle device with
@@ -65,6 +74,14 @@ with `--config '{"durationMs":3000,"rateHz":2}'`.
 | `padding`        | Change camera padding                                          | Declarative             |
 | `recompose`      | Recompose unchanged map content                                | Declarative             |
 | `images`         | Register and remove bitmap images                              | Imperative              |
+
+The classic Android adapter supports every workload above except `recompose`,
+which measures Compose-specific work. It shares the fixtures, camera path,
+workload clock, warm-up/reset sequence, and result format. Resize changes the
+`MapView` layout; padding updates the SDK camera padding. The SDK dependency
+uses the same `maplibre.android.backend` build choice as Compose (OpenGL by
+default, or Vulkan). Versions remain pinned in the version catalog; the two
+products may embed different MapLibre Native revisions.
 
 Scenes are `minimal`, `points-100`, `points-1000`, `points-10000`, `route-2000`,
 and `basemap-sf`. Point counts and route vertices provide controlled scaling;

@@ -14,6 +14,7 @@ import org.maplibre.compose.map.MapUiOptions
 enum class BenchmarkImplementation(val id: String) {
   @SerialName("compose-imperative") Imperative("compose-imperative"),
   @SerialName("compose-declarative") Declarative("compose-declarative"),
+  @SerialName("classic-android") ClassicAndroid("classic-android"),
 }
 
 @Serializable
@@ -40,14 +41,14 @@ enum class BenchmarkScenario(
     "camera",
     "Camera tour",
     "A repeatable pan, zoom, bearing, and pitch path.",
-    setOf(BenchmarkImplementation.Imperative),
+    setOf(BenchmarkImplementation.Imperative, BenchmarkImplementation.ClassicAndroid),
   ),
   @SerialName("animation")
   Animation(
     "animation",
     "Camera animation",
     "Engine-driven camera animation.",
-    setOf(BenchmarkImplementation.Imperative),
+    setOf(BenchmarkImplementation.Imperative, BenchmarkImplementation.ClassicAndroid),
   ),
   @SerialName("paint")
   Paint("paint", "Paint mutation", "Change layer colors without changing layout or data."),
@@ -58,7 +59,7 @@ enum class BenchmarkScenario(
     "layers",
     "Layer structure",
     "Add and remove declared layers over one stable source.",
-    setOf(BenchmarkImplementation.Declarative),
+    setOf(BenchmarkImplementation.Declarative, BenchmarkImplementation.ClassicAndroid),
   ),
   @SerialName("source")
   Source("source", "Source replacement", "Replace prepared GeoJSON data at a fixed rate."),
@@ -75,14 +76,14 @@ enum class BenchmarkScenario(
     "resize",
     "Map resize",
     "Resize map height like an expanding panel.",
-    setOf(BenchmarkImplementation.Declarative),
+    setOf(BenchmarkImplementation.Declarative, BenchmarkImplementation.ClassicAndroid),
   ),
   @SerialName("padding")
   Padding(
     "padding",
     "Viewport padding",
     "Animate bottom padding without resizing the surface.",
-    setOf(BenchmarkImplementation.Declarative),
+    setOf(BenchmarkImplementation.Declarative, BenchmarkImplementation.ClassicAndroid),
   ),
   @SerialName("recompose")
   Recompose(
@@ -96,7 +97,7 @@ enum class BenchmarkScenario(
     "images",
     "Image registration",
     "Replace a prepared bitmap used by symbol layers.",
-    setOf(BenchmarkImplementation.Imperative),
+    setOf(BenchmarkImplementation.Imperative, BenchmarkImplementation.ClassicAndroid),
   ),
 }
 
@@ -213,3 +214,17 @@ internal expect fun benchmarkMapOptions(config: BenchmarkConfig): MapUiOptions
 
 /** Starts/stops the platform process CPU counter for the measured workload. */
 internal expect fun benchmarkCpu(active: Boolean)
+
+@Composable
+internal expect fun ClassicAndroidBenchmark(
+  fixture: BenchmarkFixture,
+  onStatus: (String, Boolean) -> Unit,
+)
+
+@Composable
+internal fun UnsupportedClassicBenchmark(onStatus: (String, Boolean) -> Unit) {
+  androidx.compose.runtime.LaunchedEffect(Unit) {
+    println("MAP_BENCHMARK ERROR classic-android requires Android")
+    onStatus("Classic Android benchmarks require Android.", false)
+  }
+}

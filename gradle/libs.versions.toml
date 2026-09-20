@@ -51,6 +51,7 @@ materialKolor = "5.0.1"
 # the pinned maplibre-gl release's dependency ranges and review both on upgrades.
 # They exchange standard MVT with GL JS, so exact version lockstep is not required.
 maplibre-geojsonVt = "6.1.1"
+maplibre-android = "13.6.1"
 maplibre-js = "6.9.1"
 maplibre-nativeFfi = "0.202609.3"
 # The style-spec release the parity catalog reads; ci/style_spec_parity.py
@@ -134,6 +135,8 @@ jetbrains-compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "
 jetbrains-compose-ui-test = { module = "org.jetbrains.compose.ui:ui-test", version.ref = "gradle-compose" }
 jetbrains-compose-ui-testJunit4 = { module = "org.jetbrains.compose.ui:ui-test-junit4", version.ref = "gradle-compose" }
 jetbrains-compose-ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.ref = "gradle-compose" }
+maplibre-androidOpenGl = { module = "org.maplibre.gl:android-sdk-opengl", version.ref = "maplibre-android" }
+maplibre-androidVulkan = { module = "org.maplibre.gl:android-sdk", version.ref = "maplibre-android" }
 maplibre-nativeFfi = { module = "org.maplibre.nativeffi:maplibre-native-ffi", version.ref = "maplibre-nativeFfi" }
 maplibre-nativeFfi-runtimeMetal = { module = "org.maplibre.nativeffi:maplibre-native-ffi-runtime-metal-jvm", version.ref = "maplibre-nativeFfi" }
 maplibre-nativeFfi-runtimeMetalKmp = { module = "org.maplibre.nativeffi:maplibre-native-ffi-runtime-metal", version.ref = "maplibre-nativeFfi" }

@@ -87,6 +87,11 @@ kotlin {
 
     androidMain {
       dependencies {
+        implementation(
+          if (providers.gradleProperty("maplibre.android.backend").getOrElse("opengl") == "vulkan")
+            libs.maplibre.androidVulkan
+          else libs.maplibre.androidOpenGl
+        )
         implementation(libs.jetbrains.compose.ui.tooling)
         implementation(libs.androidx.activity.compose)
         implementation(libs.kotlinx.coroutines.android)

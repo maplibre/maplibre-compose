@@ -163,7 +163,8 @@ def main():
     parser.add_argument("--case", choices=sorted(CASES))
     parser.add_argument("--config", default="{}", help="JSON configuration overrides")
     parser.add_argument(
-        "--implementation", choices=("compose-imperative", "compose-declarative")
+        "--implementation",
+        choices=("compose-imperative", "compose-declarative", "classic-android"),
     )
     parser.add_argument("--device", help="Android serial or iOS simulator UDID")
     parser.add_argument(
@@ -191,6 +192,11 @@ def main():
         if args.implementation:
             config["implementation"] = args.implementation
         args.config = canonical_config(config)
+        if (
+            config.get("implementation") == "classic-android"
+            and args.platform != "android"
+        ):
+            parser.error("classic-android requires the android runner")
     except (ValueError, TypeError) as error:
         parser.error(str(error))
     args.output.mkdir(parents=True, exist_ok=False)

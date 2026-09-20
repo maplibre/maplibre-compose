@@ -10,7 +10,11 @@ class ConfigurationTest(unittest.TestCase):
         for case in CASES.values():
             self.assertEqual(parse_config(case), parse_config(canonical_config(case)))
         for workload, implementations in WORKLOADS.items():
-            for implementation in ("compose-imperative", "compose-declarative"):
+            for implementation in (
+                "compose-imperative",
+                "compose-declarative",
+                "classic-android",
+            ):
                 config = {"workload": workload, "implementation": implementation}
                 if implementation in implementations:
                     parse_config(config)

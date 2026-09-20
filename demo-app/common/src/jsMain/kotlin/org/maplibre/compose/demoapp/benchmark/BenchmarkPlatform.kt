@@ -14,3 +14,11 @@ internal actual fun benchmarkMapOptions(config: BenchmarkConfig): MapUiOptions =
   MapUiOptions.Standard
 
 internal actual fun benchmarkCpu(active: Boolean) {}
+
+@Composable
+internal actual fun ClassicAndroidBenchmark(
+  fixture: BenchmarkFixture,
+  onStatus: (String, Boolean) -> Unit,
+) {
+  UnsupportedClassicBenchmark(onStatus)
+}
