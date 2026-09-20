@@ -2,11 +2,9 @@
 
 import argparse
 import functools
-import hashlib
 import http.server
 import json
 import os
-import platform
 import shlex
 import shutil
 import subprocess
@@ -48,19 +46,6 @@ def stop(process):
             process.wait()
 
 
-def artifact_hash(path):
-    path = Path(path)
-    digest = hashlib.sha256()
-    for file in sorted(path.rglob("*")) if path.is_dir() else [path]:
-        if file.is_file():
-            digest.update(
-                str(file.relative_to(path) if path.is_dir() else file.name).encode()
-            )
-            with file.open("rb") as stream:
-                digest.update(hashlib.file_digest(stream, "sha256").digest())
-    return digest.hexdigest()
-
-
 def android_launch_args(adb, config):
     # adb joins argv into a remote shell command, so JSON needs shell quoting.
     return [
@@ -78,38 +63,8 @@ def android_launch_args(adb, config):
     ]
 
 
-def android(args, output, metadata):
-    adb = [
-        str(Path(call(".mise/bin/android-sdk-root")) / "platform-tools/adb"),
-        "-s",
-        args.device,
-    ]
-    scale = call(*adb, "shell", "settings", "get", "global", "animator_duration_scale")
-    if scale != "null" and float(scale) != 1:
-        raise ValueError("Camera benchmarks require animator duration scale 1×")
-    apk = Path(
-        args.app or "demo-app/android/build/outputs/apk/release/android-release.apk"
-    )
-    digest = hashlib.sha256(apk.read_bytes()).hexdigest()
-    paths = subprocess.run(
-        [*adb, "shell", "pm", "path", PACKAGE],
-        text=True,
-        capture_output=True,
-        check=False,
-    ).stdout.splitlines()
-    installed = (
-        call(*adb, "shell", "sha256sum", paths[0].removeprefix("package:")).split()[0]
-        if paths
-        else None
-    )
-    # Avoid repeating install-time compilation between runs of the same build.
-    if installed != digest:
-        call(*adb, "install", "-r", str(apk))
-    metadata["artifact"] = digest
-    metadata["os"] = call(*adb, "shell", "getprop", "ro.build.fingerprint")
-    (output / "thermal-before.txt").write_text(
-        call(*adb, "shell", "dumpsys", "thermalservice")
-    )
+def android(args, output):
+    adb = args.adb
     call(*adb, "shell", "am", "force-stop", PACKAGE)
     logger = None
     try:
@@ -124,24 +79,10 @@ def android(args, output, metadata):
         if logger:
             stop(logger)
         call(*adb, "shell", "am", "force-stop", PACKAGE)
-        (output / "thermal-after.txt").write_text(
-            call(*adb, "shell", "dumpsys", "thermalservice")
-        )
 
 
-def ios(args, output, metadata):
+def ios(args, output):
     command = ["xcrun", "simctl"]
-    devices = json.loads(call(*command, "list", "--json"))
-    runtime_id = next(
-        runtime
-        for runtime, entries in devices["devices"].items()
-        if any(device["udid"] == args.device for device in entries)
-    )
-    runtime = next(r for r in devices["runtimes"] if r["identifier"] == runtime_id)
-    metadata["os"] += f" / {runtime_id} ({runtime['buildversion']})"
-    metadata["artifact"] = artifact_hash(
-        call(*command, "get_app_container", args.device, PACKAGE, "app")
-    )
     subprocess.run(
         [*command, "terminate", args.device, PACKAGE], capture_output=True, check=False
     )
@@ -163,17 +104,8 @@ def ios(args, output, metadata):
             stop(app)
 
 
-def desktop(args, output, metadata):
-    if not args.app and platform.system() != "Darwin":
-        raise ValueError(
-            "Desktop runs outside macOS require --app PATH to the packaged launcher"
-        )
-    executable = Path(
-        args.app
-        or "demo-app/desktop/build/compose/binaries/main/app/org.maplibre.compose.demoapp.app/Contents/MacOS/org.maplibre.compose.demoapp"
-    ).resolve()
-    bundle = next((p for p in executable.parents if p.suffix == ".app"), executable)
-    metadata["artifact"] = artifact_hash(bundle)
+def desktop(args, output):
+    executable = Path(args.app).resolve()
     with (output / "app.log").open("w") as log:
         app = subprocess.Popen(
             [str(executable)],
@@ -187,7 +119,7 @@ def desktop(args, output, metadata):
             stop(app)
 
 
-def web(args, output, metadata):
+def web(args, output):
     call("mise", "run", "deps:chromium")
     playwright = str(
         Path(call("mise", "where", "npm:playwright")) / "node_modules/playwright"
@@ -198,7 +130,6 @@ def web(args, output, metadata):
             "demo-app/common/build/kotlin-webpack/js/developmentExecutable",
         ):
             shutil.copytree(source, directory, dirs_exist_ok=True)
-        metadata["artifact"] = artifact_hash(directory)
         handler = functools.partial(
             http.server.SimpleHTTPRequestHandler, directory=directory
         )
@@ -206,7 +137,7 @@ def web(args, output, metadata):
         worker = threading.Thread(target=server.serve_forever, daemon=True)
         worker.start()
         try:
-            result = subprocess.run(
+            subprocess.run(
                 [
                     "node",
                     str(ROOT / "browser.cjs"),
@@ -217,10 +148,7 @@ def web(args, output, metadata):
                 ],
                 check=True,
                 timeout=150,
-                stdout=subprocess.PIPE,
-                text=True,
             )
-            metadata["browser"] = result.stdout.strip()
         finally:
             server.shutdown()
             server.server_close()
@@ -238,7 +166,9 @@ def main():
         "--implementation", choices=("compose-imperative", "compose-declarative")
     )
     parser.add_argument("--device", help="Android serial or iOS simulator UDID")
-    parser.add_argument("--app", help="Android APK or desktop executable")
+    parser.add_argument(
+        "--app", help="Packaged desktop executable (required for desktop)"
+    )
     parser.add_argument("--output", type=Path)
     parser.add_argument("--repeat", type=int, default=1)
     args = parser.parse_args()
@@ -252,6 +182,8 @@ def main():
         return
     if args.platform in ("android", "ios") and not args.device:
         parser.error("--device is required")
+    if args.platform == "desktop" and not args.app:
+        parser.error("desktop requires --app PATH")
     if args.repeat < 1:
         parser.error("--repeat must be positive")
     try:
@@ -262,22 +194,24 @@ def main():
     except (ValueError, TypeError) as error:
         parser.error(str(error))
     args.output.mkdir(parents=True, exist_ok=False)
+    if args.platform == "android":
+        args.adb = [
+            str(Path(call(".mise/bin/android-sdk-root")) / "platform-tools/adb"),
+            "-s",
+            args.device,
+        ]
+        call(
+            *args.adb,
+            "install",
+            "-r",
+            "demo-app/android/build/outputs/apk/release/android-release.apk",
+        )
     for index in range(args.repeat):
         output = args.output if args.repeat == 1 else args.output / f"{index + 1:03d}"
         output.mkdir(exist_ok=True)
-        metadata = {
-            "platform": args.platform,
-            "device": args.device or platform.node(),
-            "os": platform.platform(),
-            "config": config,
-            "commit": call("git", "rev-parse", "HEAD"),
-        }
-        try:
-            {"android": android, "ios": ios, "desktop": desktop, "web": web}[
-                args.platform
-            ](args, output, metadata)
-        finally:
-            (output / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
+        {"android": android, "ios": ios, "desktop": desktop, "web": web}[args.platform](
+            args, output
+        )
         print(json.dumps(analyze(output), indent=2))
 
 

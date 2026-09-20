@@ -21,26 +21,29 @@ mise run benchmark:compare -- build/benchmarks/before build/benchmarks/after
 ```
 
 To compare Compose implementations, capture another group with
-`--implementation compose-declarative`. Comparison allows different builds and
-implementations between groups, but requires the same device, viewport, and
-workload configuration. Each group must use one build. Single runs can also be
-compared. Results show the median, minimum, and maximum across runs and the
-percentage change in medians.
+`--implementation compose-declarative`. Single runs can also be compared. The
+comparison reads saved `performance.json` files and reports medians, ranges, and
+percentage changes, alongside each run's configuration and viewport. Choose
+comparable runs yourself: use the same device, viewport, prepared data, and
+workload when measuring a code change. There are no artifact hashes or
+compatibility gates.
 
-Each run saves `app.log`, `metadata.json`, and `performance.json`. Android also
-saves thermal status before and after. Use an otherwise idle device with stable
-thermal conditions; keep the prepared data unchanged between compared builds.
-Canonical numbers should come from physical hardware.
+Each run saves `app.log` and `performance.json`. Name output directories for the
+change or implementation you are measuring. Use an otherwise idle device with
+stable thermal conditions and Android animation scale at 1×. Canonical numbers
+should come from physical hardware.
 
-Other targets use `benchmark:build:ios`, `benchmark:build:desktop`, or
-`benchmark:build:js`, then `benchmark:run -- ios|desktop|web`. The iOS build
-task only compiles the framework: after every code change, run
-`mise run demo:ios UDID` to build and install the app before
-`mise run benchmark:run -- ios --device UDID --output PATH`. Desktop requires
-`--app PATH` to the packaged executable on Linux and Windows; on macOS it
-defaults to the packaged `.app` launcher. Browser runs use local build output
-and Chromium. All runs require `--output`; existing output directories are not
-overwritten.
+Android installs the project's release APK once before running the repetitions.
+Rebuild with `benchmark:build:android` after code changes. Other targets:
+
+- Browser: `benchmark:build:js`, then `benchmark:run -- web --output PATH`.
+- Desktop: `benchmark:build:desktop`, then
+  `benchmark:run -- desktop --app PATH_TO_PACKAGED_EXECUTABLE --output PATH`.
+- iOS simulator: `benchmark:build:ios` compiles the framework. Run
+  `mise run demo:ios UDID` after every code change to build and install the app,
+  then `benchmark:run -- ios --device UDID --output PATH`.
+
+All runs require `--output`; existing output directories are not overwritten.
 
 ## Workloads and scenes
 

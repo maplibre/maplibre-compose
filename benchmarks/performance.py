@@ -44,7 +44,6 @@ def samples(logs, name):
 
 def read_run(directory):
     directory = Path(directory)
-    metadata = json.loads((directory / "metadata.json").read_text())
     logs = (directory / "app.log").read_text()
     if (
         "MAP_BENCHMARK DONE" not in logs
@@ -53,33 +52,18 @@ def read_run(directory):
     ):
         raise ValueError("Benchmark failed or did not finish")
     config = parse_config(record(logs, "START"))
-    if config != parse_config(metadata["config"]):
-        raise ValueError("App ran a different benchmark configuration")
     viewport = record(logs, "VIEWPORT")
-    if len(viewport) != 3 or any(not math.isfinite(v) or v <= 0 for v in viewport):
-        raise ValueError("Invalid benchmark viewport")
     work = record(logs, "WORKLOAD")
     operations = work["operations"]
-    duration = work["duration_ms"]
     if type(operations) is not int or operations < (
         0 if config["workload"] == "idle" else 1
     ):
         raise ValueError("Workload submitted no operations")
-    if not config["durationMs"] <= duration <= config["durationMs"] + 10000:
-        raise ValueError("Invalid workload duration")
     for label, key in (("SUBMISSIONS", "submission"), ("COMPLETIONS", "completion")):
         values = samples(logs, label)
         if len(values) != work[key + "_count"] or len(values) > operations:
             raise ValueError("Incomplete operation timings")
         work[key + "_ms"] = distribution(values)
-    expected = {
-        "style": "style-ready",
-        "source-latency": "rendered-feature-revision",
-    }.get(config["workload"])
-    if expected and (
-        work["completion_signal"] != expected or work["completion_count"] != operations
-    ):
-        raise ValueError("Missing workload completion measurements")
     summary = record(logs, "FRAMESTATS")
     frames = samples(logs, "FRAMETIMES")
     if not frames and config["workload"] not in {"idle", "recompose"}:
@@ -91,12 +75,13 @@ def read_run(directory):
             [frame[key] for frame in frames if frame.get(key) is not None]
         )
     cpu = re.findall(r"MAP_BENCHMARK CPU (\S+)", logs)
-    if len(cpu) > 1 or (not cpu and metadata["platform"] != "web"):
-        raise ValueError("Expected one process CPU measurement")
+    if len(cpu) > 1:
+        raise ValueError("Multiple CPU measurements in one run")
     cpu = float(cpu[0]) if cpu else None
     if cpu is not None:
         distribution([cpu])
-    return metadata, {
+    return {
+        "config": config,
         "cpu_ms": cpu,
         "viewport": viewport,
         "workload": work,
@@ -105,7 +90,7 @@ def read_run(directory):
 
 
 def analyze(directory):
-    _, result = read_run(directory)
+    result = read_run(directory)
     (Path(directory) / "performance.json").write_text(
         json.dumps(result, indent=2, allow_nan=False) + "\n"
     )

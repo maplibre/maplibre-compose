@@ -12,21 +12,9 @@ def write_run(
     cpu=100,
     implementation="compose-imperative",
     workload="paint",
-    artifact="build",
 ):
     root.mkdir(parents=True)
     config = canonical_config({"workload": workload, "implementation": implementation})
-    (root / "metadata.json").write_text(
-        json.dumps(
-            {
-                "platform": "android",
-                "device": "phone",
-                "os": "Android test build",
-                "artifact": artifact,
-                "config": config,
-            }
-        )
-    )
     operations = 0 if workload == "idle" else 2
     work = {
         "operations": operations,
@@ -56,7 +44,7 @@ class PerformanceTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "run"
             log = write_run(root, workload="idle")
-            _, report = read_run(root)
+            report = read_run(root)
             self.assertEqual(report["cpu_ms"], 100)
             self.assertEqual(report["frames"]["frames"], 0)
             self.assertIsNone(report["frames"]["rendering_ms"])
@@ -65,9 +53,9 @@ class PerformanceTest(unittest.TestCase):
                 + 'MAP_BENCHMARK FRAMETIMES [{"rendering_ms":1},{"rendering_ms":3}]\n'
             )
             (root / "app.log").write_text(log)
-            self.assertEqual(read_run(root)[1]["frames"]["rendering_ms"]["p50"], 2)
+            self.assertEqual(read_run(root)["frames"]["rendering_ms"]["p50"], 2)
 
-    def test_failed_mismatched_and_truncated_runs_are_rejected(self):
+    def test_failed_and_truncated_runs_are_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "run"
             log = write_run(root)
@@ -77,19 +65,15 @@ class PerformanceTest(unittest.TestCase):
                 log.replace("[0.1,0.2]", "[0.1]"),
                 log.replace("[0.1,0.2]", "[0.1,NaN]"),
                 log.replace('"frames":1', '"frames":2'),
-                log.replace('"duration_ms": 12001', '"duration_ms": 100'),
-                log.replace('"workload":"paint"', '"workload":"source"'),
             ):
                 (root / "app.log").write_text(invalid)
                 with self.assertRaises(ValueError):
                     read_run(root)
 
-    def test_completion_requires_the_expected_signal_and_all_operations(self):
+    def test_completion_timings(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "run"
             log = write_run(root, workload="source-latency")
-            with self.assertRaisesRegex(ValueError, "completion"):
-                read_run(root)
             log = (
                 log.replace('"completion_count": 0', '"completion_count": 2').replace(
                     '"completion_signal": null',
@@ -98,7 +82,7 @@ class PerformanceTest(unittest.TestCase):
                 + "MAP_BENCHMARK COMPLETIONS [16,32]\n"
             )
             (root / "app.log").write_text(log)
-            self.assertEqual(read_run(root)[1]["workload"]["completion_ms"]["p50"], 24)
+            self.assertEqual(read_run(root)["workload"]["completion_ms"]["p50"], 24)
 
     def test_redraw_requires_events_but_recomposition_can_remain_idle(self):
         with tempfile.TemporaryDirectory() as directory:

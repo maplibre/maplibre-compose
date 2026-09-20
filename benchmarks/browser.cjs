@@ -4,7 +4,6 @@ const path = require('node:path');
 const { chromium } = require(process.argv[2]);
 (async () => {
   const browser = await chromium.launch({ headless: false, args: ['--disable-background-timer-throttling', '--disable-renderer-backgrounding'] });
-  console.log(browser.version());
   const logs = [];
   let timeout;
   try {

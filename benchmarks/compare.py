@@ -5,9 +5,6 @@ import json
 import statistics
 from pathlib import Path
 
-from config import parse_config
-from performance import read_run
-
 METRICS = {
     "cpu_ms": ("cpu_ms",),
     "operations": ("workload", "operations"),
@@ -23,41 +20,16 @@ METRICS = {
 }
 
 
-def compatible(first, second, implementations=False):
-    a, b = first[0], second[0]
-    keys = ["platform", "device", "os"]
-    if a["platform"] == "web":
-        keys.append("browser")
-    for key in keys:
-        if not a.get(key) or not b.get(key):
-            raise ValueError(f"Missing {key} metadata; capture the run again")
-        if a[key] != b[key]:
-            raise ValueError(f"Cannot compare different {key}")
-    if first[1]["viewport"] != second[1]["viewport"]:
-        raise ValueError("Cannot compare different viewports")
-    left, right = parse_config(a["config"]), parse_config(b["config"])
-    if implementations:
-        left.pop("implementation")
-        right.pop("implementation")
-    if left != right:
-        raise ValueError("Cannot compare different workloads")
-
-
 def load_group(directory):
     directory = Path(directory)
     paths = (
-        [directory / "metadata.json"]
-        if (directory / "metadata.json").exists()
-        else sorted(directory.glob("*/metadata.json"))
+        [directory / "performance.json"]
+        if (directory / "performance.json").exists()
+        else sorted(directory.glob("*/performance.json"))
     )
     if not paths:
-        raise ValueError(f"No benchmark runs in {directory}")
-    runs = [read_run(path.parent) for path in paths]
-    for run in runs[1:]:
-        compatible(runs[0], run)
-        if runs[0][0]["artifact"] != run[0]["artifact"]:
-            raise ValueError("Build artifacts differ within a group")
-    return runs
+        raise ValueError(f"No benchmark results in {directory}")
+    return [json.loads(path.read_text()) for path in paths]
 
 
 def metric(report, path):
@@ -72,11 +44,10 @@ def summarize(values):
 
 def compare(baseline, candidate):
     before, after = load_group(baseline), load_group(candidate)
-    compatible(before[0], after[0], implementations=True)
     metrics = {}
     for name, path in METRICS.items():
-        left = [metric(report, path) for _, report in before]
-        right = [metric(report, path) for _, report in after]
+        left = [metric(report, path) for report in before]
+        right = [metric(report, path) for report in after]
         if any(value is None for value in left + right):
             continue
         a, b = summarize(left), summarize(right)
@@ -90,8 +61,12 @@ def compare(baseline, candidate):
     return {
         "baseline": str(baseline),
         "candidate": str(candidate),
-        "baseline_config": before[0][0]["config"],
-        "candidate_config": after[0][0]["config"],
+        "baseline_settings": [
+            {"config": run["config"], "viewport": run["viewport"]} for run in before
+        ],
+        "candidate_settings": [
+            {"config": run["config"], "viewport": run["viewport"]} for run in after
+        ],
         "baseline_runs": len(before),
         "candidate_runs": len(after),
         "metrics": metrics,
