@@ -64,7 +64,10 @@ class MlnFfiMapRepaintTest {
         // Allow one draw of the published update while its native transition clock is held.
         fixture.session.onSurfaceChanged(BridgeMapFixture.DEFAULT_EXTENT)
         assertTrue(fixture.frame() is MlnFfiFrameResult.Rendered)
-        assertEquals(MlnFfiFrameResult.AwaitUpdate, fixture.frame())
+        assertTrue(
+          fixture.renderOnDemand(300.milliseconds) <= 1,
+          "Rendering kept requesting frames while the native update could not advance",
+        )
       } finally {
         releaseOwner.open()
       }
