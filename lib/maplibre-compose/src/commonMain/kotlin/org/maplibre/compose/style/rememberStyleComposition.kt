@@ -39,9 +39,14 @@ internal fun rememberStyleComposition(
     if (!style.isLoaded) return@LaunchedEffect
     val revisions = Channel<DesiredStyleRevision>(Channel.CONFLATED)
     val rootNode =
-      StyleNode(style, replaceableSourceIds, replaceableLayerIds) {
-        revisionState.value = it
-        revisions.trySend(it).getOrThrow()
+      try {
+        StyleNode(style, replaceableSourceIds, replaceableLayerIds) {
+          revisionState.value = it
+          revisions.trySend(it).getOrThrow()
+        }
+      } catch (error: IllegalStateException) {
+        if (!style.isLoaded) return@LaunchedEffect
+        throw error
       }
     val evaluator = Composition(MapNodeApplier(rootNode), compositionContext)
     try {
