@@ -81,7 +81,11 @@ internal fun BenchmarkRun(
       onStatus(e.message ?: "Fixture load failed", false)
     }
   }
-  fixture?.let { BenchmarkPresentation(it, onStatus) }
+  fixture?.let {
+    if (config.implementation == BenchmarkImplementation.ClassicAndroid)
+      ClassicAndroidBenchmark(it, onStatus)
+    else BenchmarkPresentation(it, onStatus)
+  }
 }
 
 @Composable
@@ -175,25 +179,7 @@ private fun BenchmarkPresentation(fixture: BenchmarkFixture, onStatus: (String, 
       withContext(NonCancellable) {
         // Stopping suspends, so it must run even when cancellation reaches this block.
         if (recorded) recorder.stop()
-        workloadReport?.let {
-          it.submissionMs.chunked(32).forEach { batch ->
-            println("MAP_BENCHMARK SUBMISSIONS " + BenchmarkJsonWithDefaults.encodeToString(batch))
-          }
-          it.completionMs.chunked(32).forEach { batch ->
-            println("MAP_BENCHMARK COMPLETIONS " + BenchmarkJsonWithDefaults.encodeToString(batch))
-          }
-          println(
-            "MAP_BENCHMARK WORKLOAD " +
-              BenchmarkJsonWithDefaults.encodeToString(
-                it.copy(
-                  submissionMs = emptyList(),
-                  completionMs = emptyList(),
-                  submissionCount = it.submissionMs.size,
-                  completionCount = it.completionMs.size,
-                )
-              )
-          )
-        }
+        workloadReport?.printResult()
         state.close()
         withTimeout(10000) { state.awaitClosed() }
       }
@@ -214,4 +200,24 @@ private fun BenchmarkPresentation(fixture: BenchmarkFixture, onStatus: (String, 
       )
     }
   }
+}
+
+internal fun WorkloadReport.printResult() {
+  submissionMs.chunked(32).forEach { batch ->
+    println("MAP_BENCHMARK SUBMISSIONS " + BenchmarkJsonWithDefaults.encodeToString(batch))
+  }
+  completionMs.chunked(32).forEach { batch ->
+    println("MAP_BENCHMARK COMPLETIONS " + BenchmarkJsonWithDefaults.encodeToString(batch))
+  }
+  println(
+    "MAP_BENCHMARK WORKLOAD " +
+      BenchmarkJsonWithDefaults.encodeToString(
+        copy(
+          submissionMs = emptyList(),
+          completionMs = emptyList(),
+          submissionCount = submissionMs.size,
+          completionCount = completionMs.size,
+        )
+      )
+  )
 }
