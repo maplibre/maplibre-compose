@@ -33,7 +33,11 @@ class BrowserStyleFailureTest {
             fixture.loadStyle(BaseStyle.Json(STYLE_B))
             map.asDynamic().isStyleLoaded = originalIsStyleLoaded
           } else {
-            session.replayStyleRevision(DesiredStyleRevision.Empty)
+            session.setBaseStyle(BaseStyle.Json(STYLE_B))
+            fixture.pumpUntil("the replacement binding") {
+              fixture.state.style.loadState == StyleLoadState.Loading &&
+                fixture.style?.isLoaded == true
+            }
           }
           session.callbacks =
             object : MapAdapter.Callbacks by callbacks {

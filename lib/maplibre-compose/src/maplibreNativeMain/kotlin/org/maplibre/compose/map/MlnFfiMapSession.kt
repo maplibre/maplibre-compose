@@ -1218,23 +1218,6 @@ internal class MlnFfiMapSession(
     }
   }
 
-  override suspend fun replayStyleRevision(revision: DesiredStyleRevision): StyleResourceChanges {
-    val binding = checkNotNull(styleBinding)
-    check(styleLoadTracker.beginReplay(binding.identity))
-    val changes =
-      try {
-        styleReconciler.apply(binding, revision)
-      } catch (error: CancellationException) {
-        throw error
-      } catch (error: Throwable) {
-        styleLoadTracker.failed(binding.identity)
-        throw error
-      }
-    onMap { it.requestRepaint() }
-    requestRender()
-    return changes
-  }
-
   /** Owner thread only. */
   private fun applyRequestedStyle(map: MapHandle) {
     val load = requestedStyleLoad ?: return

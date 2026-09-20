@@ -187,6 +187,9 @@ internal class MapStyleAuthority(
     lifecycle.requireMain()
     if (!lifecycle.acceptsAdapter(adapter)) return false
     if (style.currentLoadedStyle() === loadedStyle) return true
+    // Declarations belong to the evaluated generation. A new style is evaluated afresh, and
+    // may legitimately contain a base resource with an ID used by the previous composition.
+    desiredStyleRevision = DesiredStyleRevision.Empty
     styleHandleEpoch++
     imperativeSources.store(emptyMap())
     imperativeImages.clear()
@@ -208,24 +211,49 @@ internal class MapStyleAuthority(
     }
   }
 
-  internal suspend fun beginStyleRevision(adapter: MapAdapter, revision: DesiredStyleRevision) {
+  /** Accepts a committed snapshot only for the loaded style that evaluated it. */
+  internal suspend fun applyStyleRevision(
+    adapter: MapAdapter,
+    binding: StyleBinding,
+    revision: DesiredStyleRevision,
+  ) {
+    if (!beginStyleRevision(adapter, revision, binding)) return
+    try {
+      updateStyleResources(adapter, adapter.reconcileStyleRevision(revision))
+    } catch (error: CancellationException) {
+      throw error
+    } catch (error: Throwable) {
+      if (lifecycle.acceptsAdapter(adapter) && style.currentLoadedStyle() === binding) {
+        runtime.logger?.w(error) { "Could not apply style content" }
+        markStyleFailed(adapter, error.message)
+      }
+    }
+  }
+
+  internal suspend fun beginStyleRevision(
+    adapter: MapAdapter,
+    revision: DesiredStyleRevision,
+    binding: StyleBinding? = style.currentLoadedStyle(),
+  ): Boolean {
     lifecycle.requireMain()
     while (true) {
-      val mutation = run {
-        if (!lifecycle.acceptsAdapter(adapter)) return
-        activeStyleMutation
-          ?: backgroundStyleMutation
-          ?: run {
-            requireNoImperativeResourceConflicts(revision)
-            styleHandleEpoch++
-            if (style.loadState is StyleLoadState.Failed) {
-              style.loadState = StyleLoadState.Loading
-            }
-            desiredStyleRevision = revision
-            return
-          }
+      if (
+        !lifecycle.acceptsAdapter(adapter) ||
+          binding == null ||
+          style.currentLoadedStyle() !== binding ||
+          !binding.isLoaded
+      )
+        return false
+      val mutation = activeStyleMutation ?: backgroundStyleMutation
+      if (mutation != null) {
+        mutation.completion.await()
+        continue
       }
-      mutation.completion.await()
+      requireNoImperativeResourceConflicts(revision)
+      styleHandleEpoch++
+      if (style.loadState is StyleLoadState.Failed) style.loadState = StyleLoadState.Loading
+      desiredStyleRevision = revision
+      return true
     }
   }
 

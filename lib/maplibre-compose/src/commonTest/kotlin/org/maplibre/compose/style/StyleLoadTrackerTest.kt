@@ -13,7 +13,6 @@ class StyleLoadTrackerTest {
       val tracker = StyleLoadTracker()
       val identity = StyleIdentity.create()
       assertTrue(tracker.loaded(tracker.requestId, identity, baseStyleReady = false))
-      assertTrue(tracker.beginReplay(identity))
       assertFalse(
         if (contentFirst) tracker.reconciled(identity) else tracker.baseStyleReady(identity)
       )
@@ -44,7 +43,6 @@ class StyleLoadTrackerTest {
     assertEquals(StylePresentation.Retained, tracker.presentation)
     val second = StyleIdentity.create()
     assertTrue(tracker.loaded(replacement, second, baseStyleReady = false))
-    assertTrue(tracker.beginReplay(second))
     assertEquals(StylePresentation.Retained, tracker.presentation)
     assertFalse(tracker.reconciled(second))
     assertEquals(StylePresentation.Live, tracker.presentation, "source loading may need frames")
@@ -89,17 +87,15 @@ class StyleLoadTrackerTest {
     val identity = StyleIdentity.create()
     assertTrue(tracker.loaded(tracker.requestId, identity))
     assertTrue(tracker.reconciled(identity))
-    assertTrue(tracker.beginReplay(identity))
     tracker.failed(identity)
     assertEquals(StylePresentation.Hidden, tracker.presentation)
     assertFalse(tracker.isReady)
-    assertTrue(tracker.beginReplay(identity))
     assertTrue(tracker.reconciled(identity))
     assertEquals(StylePresentation.Live, tracker.presentation)
   }
 
   @Test
-  fun new_presentations_replay_content_and_destroyed_engines_reject_old_results() {
+  fun new_presentations_wait_for_current_content_and_destroyed_engines_reject_old_results() {
     val tracker = StyleLoadTracker()
     val request = tracker.requestId
     val identity = StyleIdentity.create()
@@ -107,11 +103,10 @@ class StyleLoadTrackerTest {
     assertTrue(tracker.reconciled(identity))
     tracker.resetPresentation()
     assertEquals(StylePresentation.Hidden, tracker.presentation)
-    assertTrue(tracker.beginReplay(identity))
     assertEquals(
       StylePresentation.Hidden,
       tracker.presentation,
-      "replay alone cannot reveal a new surface",
+      "a new surface waits for current content",
     )
     assertTrue(tracker.reconciled(identity))
     assertEquals(StylePresentation.Live, tracker.presentation)
@@ -119,7 +114,6 @@ class StyleLoadTrackerTest {
     tracker.engineBecameUnavailable()
     assertNotSame(request, tracker.requestId)
     assertEquals(StylePresentation.Hidden, tracker.presentation)
-    assertFalse(tracker.beginReplay(identity))
     assertFalse(tracker.loaded(request, identity))
     assertFalse(tracker.reconciled(identity))
     assertFalse(tracker.failed(request))

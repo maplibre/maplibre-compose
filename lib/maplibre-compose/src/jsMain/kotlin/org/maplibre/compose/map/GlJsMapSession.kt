@@ -688,22 +688,6 @@ internal class GlJsMapSession(
     }
   }
 
-  override suspend fun replayStyleRevision(revision: DesiredStyleRevision): StyleResourceChanges {
-    val binding = checkNotNull(styleBinding)
-    check(styleLoadTracker.beginReplay(binding.identity))
-    val changes =
-      try {
-        styleReconciler.apply(binding, revision)
-      } catch (error: CancellationException) {
-        throw error
-      } catch (error: Throwable) {
-        styleLoadTracker.failed(binding.identity)
-        throw error
-      }
-    surface?.requestFrame()
-    return changes
-  }
-
   private fun applyRequestedStyle(map: MaplibreMap) {
     val style = requestedStyle ?: return
     if (styleLoadPending) return

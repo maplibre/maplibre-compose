@@ -83,9 +83,6 @@ internal interface MapAdapter {
    */
   suspend fun reconcileStyleRevision(revision: DesiredStyleRevision): StyleResourceChanges
 
-  /** Restores a retained revision before the current composition is evaluated. */
-  suspend fun replayStyleRevision(revision: DesiredStyleRevision): StyleResourceChanges
-
   fun getCameraPosition(): CameraPosition
 
   fun setCameraPosition(cameraPosition: CameraPosition, guard: CameraCommandGuard? = null)

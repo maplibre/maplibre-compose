@@ -45,8 +45,10 @@ internal class StyleLoadTracker {
     currentRequest
   }
 
+  /** A new surface waits for its current composition, even when the engine was retained. */
   fun resetPresentation() = lock.withLock {
     presentation = StylePresentation.Hidden
+    (load as? Load.Loaded)?.let { load = it.copy(contentReady = false) }
   }
 
   fun engineBecameUnavailable() = lock.withLock {
@@ -61,15 +63,6 @@ internal class StyleLoadTracker {
   ): Boolean = lock.withLock {
     if (request !== currentRequest || load != Load.Loading) return false
     load = Load.Loaded(identity, baseReady = baseStyleReady)
-    true
-  }
-
-  /** A new presentation waits for the current composition after replaying retained content. */
-  fun beginReplay(identity: StyleIdentity): Boolean = lock.withLock {
-    val current = load as? Load.Loaded ?: return false
-    if (current.identity !== identity) return false
-    load = current.copy(contentReady = false)
-    retainPresentation()
     true
   }
 
