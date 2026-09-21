@@ -5,11 +5,13 @@ package org.maplibre.compose.map
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.test.Test
+import kotlin.test.assertNotNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.TestLatch
+import org.maplibre.nativeffi.runtime.RuntimeEventType
 
 class MlnFfiMapRuntimeLoopTest {
 
@@ -52,6 +54,56 @@ class MlnFfiMapRuntimeLoopTest {
       assertSame(expectedFailure, loop.failure)
     } finally {
       runCatching { loop.close() }
+      FfiTestPlatform.deleteCacheFile(cacheFile)
+    }
+  }
+
+  @Test
+  fun a_queued_read_cannot_overtake_a_synchronous_calls_native_render_update() {
+    FfiTestPlatform.initialize()
+    val cacheFile = FfiTestPlatform.createCacheFile()
+    val published = TestLatch(1)
+    val readFinished = TestLatch(1)
+    val renderUpdateSeen = AtomicBoolean(false)
+    val readSawRenderUpdate = AtomicBoolean(false)
+    val loop =
+      MlnFfiMapRuntimeLoop(
+        extent = MapExtent.fromLogical(1, 1, 1.0),
+        cacheFile = cacheFile,
+        getLogger = { MapLog },
+        onMapCreated = {},
+        onMapPublished = { published.countDown() },
+        onEvent = {
+          if (it.type == RuntimeEventType.MAP_RENDER_UPDATE_AVAILABLE) renderUpdateSeen.store(true)
+        },
+        onEventsDrained = {},
+        requestFrame = {},
+      )
+    try {
+      loop.start()
+      assertTrue(published.await(TIMEOUT_MILLIS))
+      assertNotNull(
+        loop.call(
+          action = { map ->
+            renderUpdateSeen.store(false)
+            map.requestRepaint()
+            // Already queued when this call ends: no thread-scheduling gap can rescue the drain.
+            check(
+              loop.post(
+                action = { nextMap ->
+                  nextMap.styleLayerIds()
+                  readSawRenderUpdate.store(renderUpdateSeen.load())
+                  readFinished.countDown()
+                }
+              )
+            )
+          }
+        )
+      )
+      assertTrue(readFinished.await(TIMEOUT_MILLIS), "the queued read did not run")
+      assertTrue(readSawRenderUpdate.load(), "the queued read ran before native render feedback")
+    } finally {
+      loop.close()
       FfiTestPlatform.deleteCacheFile(cacheFile)
     }
   }

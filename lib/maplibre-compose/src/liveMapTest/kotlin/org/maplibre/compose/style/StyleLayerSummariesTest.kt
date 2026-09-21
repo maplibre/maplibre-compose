@@ -21,10 +21,12 @@ class StyleLayerSummariesTest {
         mapOf(
           "backdrop" to LayerSummary("background", source = null, sourceLayer = null),
           "lakes" to LayerSummary("fill", source = "water", sourceLayer = "lake"),
+          "rivers" to LayerSummary("line", source = "water", sourceLayer = "river"),
+          "pins" to LayerSummary("circle", source = "points", sourceLayer = null),
         ),
         summaries,
       )
-      assertEquals(listOf("backdrop", "lakes"), summaries.keys.toList())
+      assertEquals(listOf("backdrop", "lakes", "rivers", "pins"), summaries.keys.toList())
     }
   }
 
@@ -35,6 +37,10 @@ class StyleLayerSummariesTest {
         {
           "version": 8,
           "sources": {
+            "points": {
+              "type": "geojson",
+              "data": { "type": "FeatureCollection", "features": [] }
+            },
             "water": {
               "type": "vector",
               "tiles": ["https://example.invalid/{z}/{x}/{y}.pbf"]
@@ -42,7 +48,9 @@ class StyleLayerSummariesTest {
           },
           "layers": [
             { "id": "backdrop", "type": "background" },
-            { "id": "lakes", "type": "fill", "source": "water", "source-layer": "lake" }
+            { "id": "lakes", "type": "fill", "source": "water", "source-layer": "lake" },
+            { "id": "rivers", "type": "line", "source": "water", "source-layer": "river" },
+            { "id": "pins", "type": "circle", "source": "points" }
           ]
         }
         """

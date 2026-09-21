@@ -131,7 +131,8 @@ internal class MlnFfiMapRuntimeLoop(
   /**
    * Runs [action] on the owner thread and waits until it has run or been dropped. Returns null when
    * there is no map, or when the loop stopped before the work could run. Runs inline when the
-   * caller is already the owner thread.
+   * caller is already the owner thread. A queued call ends its task batch so native events are
+   * processed before later queued work.
    *
    * [abandon] runs when [action] will not run: the loop has already stopped, or a queued task is
    * dropped. An interrupt on the waiting thread does not drop the work. The wait continues, and the
@@ -166,6 +167,7 @@ internal class MlnFfiMapRuntimeLoop(
             done.open()
           }
         },
+        drainAfter = true,
       )
     if (!posted) {
       abandon()

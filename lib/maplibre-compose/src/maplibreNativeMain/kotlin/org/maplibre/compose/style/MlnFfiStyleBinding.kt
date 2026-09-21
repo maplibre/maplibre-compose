@@ -191,23 +191,24 @@ internal open class MlnFfiStyleBinding(
   /** The full engine order, annotation layer included: insertions and moves are relative to it. */
   override fun layerIds(): List<String> = readMap { it.styleLayerIds() }.orEmpty()
 
-  override fun layerSummaries(): Map<String, LayerSummary> = readMap { map ->
-    map
-      .styleLayerIds()
-      .filter { isStyleLayer(map, it) }
+  // Read each layer separately so render feedback can advance transitions between owner calls.
+  override fun layerSummaries(): Map<String, LayerSummary> =
+    layerIds()
       .mapNotNull { id ->
-        map.styleLayerType(id)?.let { type ->
+        readMap { map ->
+          val type = map.styleLayerType(id) ?: return@readMap null
+          val source = map.layerSourceId(id).takeIf(String::isNotEmpty)
+          if (source != null && map.styleSourceType(source) == SourceType.ANNOTATIONS)
+            return@readMap null
           id to
             LayerSummary(
               type = type,
-              source = map.layerSourceId(id).takeIf(String::isNotEmpty),
+              source = source,
               sourceLayer = map.layerSourceLayer(id).takeIf(String::isNotEmpty),
             )
         }
       }
       .toMap()
-  }
-    .orEmpty()
 
   private fun isStyleSource(map: MapHandle, id: String): Boolean =
     map.styleSourceExists(id) && map.styleSourceType(id) != SourceType.ANNOTATIONS

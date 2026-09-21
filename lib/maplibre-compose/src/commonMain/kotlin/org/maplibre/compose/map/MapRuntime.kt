@@ -432,7 +432,7 @@ public class MapStyleState internal constructor(baseStyle: BaseStyle) {
     return summaries.mapValues { (id, summary) -> layerHandle(current, id, summary) }
   }
 
-  /** Rereads the handles of [ids] in one engine round trip; a removed layer maps to null. */
+  /** Rereads the handles of [ids]; a removed layer maps to null. */
   internal fun readLayers(current: StyleBinding, ids: Set<String>): Map<String, LayerHandle?> {
     if (ids.isEmpty()) return emptyMap()
     val summaries = current.layerSummaries()
