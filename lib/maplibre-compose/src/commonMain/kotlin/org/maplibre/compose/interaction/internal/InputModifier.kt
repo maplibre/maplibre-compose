@@ -48,7 +48,7 @@ import org.maplibre.compose.interaction.HapticEmphasis
  */
 @Composable
 internal fun Modifier.mapInput(
-  target: CameraInputTarget?,
+  target: CameraInputTarget,
   captureClickPath: (TapFamily) -> ClickPath?,
   hasClickHandlers: (TapFamily) -> Boolean,
   options: InputConfiguration,
@@ -66,34 +66,30 @@ internal fun Modifier.mapInput(
   val inputScope = rememberCoroutineScope()
   val rotaryInput =
     remember(target, options.settings, rotaryNotchPixels) {
-      if (target == null) null
-      else
-        RotaryGesture(
-          target,
-          options.bindings.rotary.copy(
-            enabled = options.bindings.rotary.enabled && options.camera.settings.zoom.enabled
-          ),
-          rotaryNotchPixels,
-          inputScope,
-        )
+      RotaryGesture(
+        target,
+        options.bindings.rotary.copy(
+          enabled = options.bindings.rotary.enabled && options.camera.settings.zoom.enabled
+        ),
+        rotaryNotchPixels,
+        inputScope,
+      )
     }
-  DisposableEffect(rotaryInput) { onDispose { rotaryInput?.cancel() } }
+  DisposableEffect(rotaryInput) { onDispose { rotaryInput.cancel() } }
 
   val keyInput =
     remember(target, focus) {
-      if (target == null) null
-      else
-        KeyInput(
-          target,
-          { currentOptions.value },
-          focus,
-          inputScope,
-        )
+      KeyInput(
+        target,
+        { currentOptions.value },
+        focus,
+        inputScope,
+      )
     }
-  DisposableEffect(keyInput) { onDispose { keyInput?.cancel() } }
+  DisposableEffect(keyInput) { onDispose { keyInput.cancel() } }
 
   SideEffect {
-    keyInput?.configure(options.settings)
+    keyInput.configure(options.settings)
   }
 
   val keys = options.hasCameraKeys
@@ -111,38 +107,32 @@ internal fun Modifier.mapInput(
     // Key and rotary events reach the focused node, so these precede the focus target in the chain.
     .onKeyEvent {
       focus.isFocused &&
-        (target?.isGestureReady == true || it.type == KeyEventType.KeyUp) &&
-        keyInput?.onEvent(it) == true
+        (target.isGestureReady || it.type == KeyEventType.KeyUp) &&
+        keyInput.onEvent(it)
     }
-    .onRotaryScrollEvent {
-      focus.isFocused && target?.isGestureReady == true && rotaryInput?.onEvent(it) == true
-    }
+    .onRotaryScrollEvent { focus.isFocused && target.isGestureReady && rotaryInput.onEvent(it) }
     .onFocusChanged {
       focus.onFocusChanged(it.isFocused)
       if (!it.isFocused) {
-        rotaryInput?.cancel()
-        keyInput?.cancel()
+        rotaryInput.cancel()
+        keyInput.cancel()
       }
     }
     .focusRequester(focusRequester)
     .focusable(enabled = keys || rotary || focus.claimedKeys.isNotEmpty())
-    .then(
-      if (target == null) Modifier
-      else
-        Modifier.pointerGestures(
-          target,
-          captureClickPath,
-          hasClickHandlers,
-          options,
-          { currentOptions.value },
-          density,
-          focusRequester,
-          focus,
-          boxZoom,
-          platformRouting,
-          rememberScrollConverter(),
-          rememberBearingHapticFeedback(),
-        )
+    .pointerGestures(
+      target,
+      captureClickPath,
+      hasClickHandlers,
+      options,
+      { currentOptions.value },
+      density,
+      focusRequester,
+      focus,
+      boxZoom,
+      platformRouting,
+      rememberScrollConverter(),
+      rememberBearingHapticFeedback(),
     )
 }
 

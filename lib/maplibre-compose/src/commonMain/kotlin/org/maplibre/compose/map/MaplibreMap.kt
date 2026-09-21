@@ -72,13 +72,8 @@ public fun MaplibreMap(
       uiOptions = uiOptions,
     )
   key(state, presentationHostIdentity) {
-    MapInputHost(modifier.fillMaxSize(), state, mapViewOptions) { surfaceDecoration ->
-      ComposableMapView(
-        modifier = Modifier.fillMaxSize().then(surfaceDecoration),
-        state = state,
-        presentationOwner = presentationOwner,
-        options = mapViewOptions,
-      )
+    val presentation = rememberComposeMapPresentation(state, presentationOwner, mapViewOptions)
+    MapInputHost(modifier.fillMaxSize(), state, mapViewOptions, presentation) {
       MapOverlayHost(
         overlay = overlay,
         mapState = state,

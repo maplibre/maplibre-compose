@@ -2,7 +2,12 @@
 
 package org.maplibre.compose.map
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -21,17 +26,21 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.moveBy
+import androidx.compose.ui.test.moveTo
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
@@ -52,6 +61,7 @@ import kotlin.test.assertTrue
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.DragResponse
 import org.maplibre.compose.interaction.MapInteractions
 import org.maplibre.compose.interaction.PointerButton
@@ -92,6 +102,155 @@ class MlnFfiMapCompositionTest {
   }
 
   @Test
+  fun child_claims_geometry_contacts_and_declines_background_to_ancestor_map() =
+    runFfiComposeUiTest {
+      fun point(x: Float, y: Float) = Offset(x * density.density, y * density.density)
+      withTestRuntime(runtimeOptions) { runtime ->
+        val state =
+          runtime.createMapState(BaseStyle.Empty, cameraPosition = CameraPosition(zoom = 12.0))
+        var claims = 0
+        var buttonClicks = 0
+        var placements = 0
+        setFfiTestMapContent(runtimeOptions) {
+          MaplibreMap(
+            modifier = Modifier.size(300.dp).testTag("map"),
+            state = state,
+            interactions =
+              MapInteractions {
+                callbacks {
+                  click {
+                    onUnhandled {
+                      placements++
+                      ClickResult.Consume
+                    }
+                  }
+                }
+              },
+            overlay = {
+              Box(
+                Modifier.fillMaxSize().pointerInput(Unit) {
+                  awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    if (
+                      !down.isConsumed &&
+                        down.position.x < 80.dp.toPx() &&
+                        down.position.y < 80.dp.toPx()
+                    ) {
+                      claims++
+                      down.consume()
+                      do {
+                        val event = awaitPointerEvent()
+                        event.changes.forEach { it.consume() }
+                      } while (event.changes.any { it.pressed })
+                    }
+                  }
+                }
+              )
+              Box(Modifier.size(30.dp).testTag("button").clickable { buttonClicks++ })
+            },
+          )
+        }
+        waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+          state.style.loadState == StyleLoadState.Ready &&
+            state.currentMapAttachment?.viewport != null &&
+            onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty()
+        }
+        val before = state.cameraPosition
+        onNodeWithTag("map").performMouseInput {
+          moveTo(point(60f, 60f))
+          press()
+          moveBy(point(40f, 0f))
+          release()
+        }
+        waitForIdle()
+        assertEquals(1, claims)
+        assertEquals(before, state.cameraPosition)
+        onNodeWithTag("button").performMouseInput { click(center) }
+        waitForIdle()
+        assertEquals(1, buttonClicks)
+        assertEquals(1, claims)
+        assertEquals(0, placements)
+        onNodeWithTag("map").performMouseInput { exit() }
+        onNodeWithTag("map").performTouchInput {
+          down(0, point(60f, 60f))
+          down(1, point(100f, 100f))
+          moveTo(0, point(40f, 40f))
+          moveTo(1, point(160f, 120f))
+          up(0)
+          up(1)
+        }
+        waitForIdle()
+        assertEquals(2, claims)
+        assertEquals(before, state.cameraPosition)
+        onNodeWithTag("map").performMouseInput { click(point(200f, 200f)) }
+        waitUntil(timeoutMillis = 5_000L) { placements == 1 }
+        onNodeWithTag("map").performMouseInput {
+          moveTo(point(200f, 200f))
+          press()
+          moveBy(point(40f, 0f))
+          release()
+        }
+        waitUntil(timeoutMillis = 5_000L) { state.cameraPosition.target != before.target }
+        assertEquals(1, placements)
+        val zoomBefore = state.cameraPosition.zoom
+        onNodeWithTag("map").performMouseInput { exit() }
+        onNodeWithTag("map").performTouchInput {
+          down(0, point(120f, 160f))
+          down(1, point(180f, 160f))
+          moveTo(0, point(100f, 160f))
+          moveTo(1, point(200f, 160f))
+          moveTo(0, point(80f, 160f))
+          moveTo(1, point(220f, 160f))
+          up(0)
+          up(1)
+        }
+        waitUntil(timeoutMillis = 5_000L) { state.cameraPosition.zoom > zoomBefore }
+      }
+    }
+
+  @Test
+  fun gradual_compose_drag_claims_before_map_navigation() = runFfiComposeUiTest {
+    fun point(x: Float, y: Float) = Offset(x * density.density, y * density.density)
+    withTestRuntime(runtimeOptions) { runtime ->
+      val state =
+        runtime.createMapState(BaseStyle.Empty, cameraPosition = CameraPosition(zoom = 12.0))
+      var drags = 0
+      setFfiTestMapContent(runtimeOptions) {
+        MaplibreMap(
+          Modifier.size(300.dp).testTag("map"),
+          state = state,
+          interactions =
+            MapInteractions { callbacks { click { onUnhandled { ClickResult.Consume } } } },
+          overlay = {
+            Box(
+              Modifier.fillMaxSize().pointerInput(Unit) {
+                detectDragGestures { change, _ ->
+                  change.consume()
+                  drags++
+                }
+              }
+            )
+          },
+        )
+      }
+      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        state.style.loadState == StyleLoadState.Ready &&
+          state.currentMapAttachment?.viewport != null &&
+          onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty()
+      }
+      val before = state.cameraPosition
+      onNodeWithTag("map").performTouchInput {
+        down(point(150f, 150f))
+        repeat(20) { moveBy(point(2f, 0f)) }
+        up()
+      }
+      waitForIdle()
+      assertTrue(drags > 0)
+      assertEquals(before, state.cameraPosition)
+    }
+  }
+
+  @Test
   fun replacing_renderer_density_preserves_overlay_composition() = runFfiComposeUiTest {
     withTestRuntime(runtimeOptions) { runtime ->
       val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
@@ -107,7 +266,6 @@ class MlnFfiMapCompositionTest {
               val identity = remember { Any() }
               overlayIdentity = identity
               DisposableEffect(Unit) { onDispose { disposed.incrementAndFetch() } }
-              Box(Modifier.size(20.dp).testTag("stable-overlay"))
             },
           )
         }

@@ -103,10 +103,6 @@ class MapInteractionsTest {
       }
     assertEquals(Dp.Unspecified, InputConfiguration.Standard.bindings.drag.pan.startSlop)
     assertEquals(Dp.Unspecified, restored.bindings.drag.pan.startSlop)
-    assertEquals(
-      explicit.bindings.drag.pan.mouseStartSlop,
-      restored.bindings.drag.pan.mouseStartSlop,
-    )
     for (invalid in listOf((-1).dp, Dp.Infinity)) {
       assertFailsWith<IllegalArgumentException> {
         InputConfiguration { bindings { drag { pan { startSlop = invalid } } } }

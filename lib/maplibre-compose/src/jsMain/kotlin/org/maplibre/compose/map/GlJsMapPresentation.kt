@@ -12,14 +12,14 @@ import web.html.HTMLElement
 
 /** Shares session ownership and style replay between Compose and DOM hosts. */
 @Composable
-internal fun GlJsMapPresentation(
+internal fun <T> GlJsMapPresentation(
   state: MapState,
   owner: MapPresentationOwnerToken,
   options: MapViewOptions,
   container: HTMLElement? = null,
-  content: @Composable (GlJsMapSession, FeatureClickDispatcher) -> Unit,
-) {
-  MapPresentationContent(state, owner, options) { binding ->
+  content: @Composable (GlJsMapSession, FeatureClickDispatcher) -> T,
+): T {
+  return MapPresentationContent(state, owner, options) { binding ->
     val layoutDirection = LocalLayoutDirection.current
     val callbacks = binding.callbacks
     val logger = state.runtime.logger

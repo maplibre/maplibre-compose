@@ -49,12 +49,12 @@ private class MapStateAttachment(
 
 /** Style composition, callbacks, and recognized input for one presentation of [state]. */
 @Composable
-internal fun MapPresentationContent(
+internal fun <T> MapPresentationContent(
   state: MapState,
   presentationOwner: MapPresentationOwnerToken,
   options: MapViewOptions,
-  content: @Composable (MapPresentationBinding) -> Unit,
-) {
+  content: @Composable (MapPresentationBinding) -> T,
+): T {
   val token = remember(state, presentationOwner) { state.reservePresentation(presentationOwner) }
   val attachment = remember(state, token) { MapStateAttachment(state, token) }
   DisposableEffect(attachment) { onDispose { attachment.release() } }
@@ -167,7 +167,7 @@ internal fun MapPresentationContent(
       }
     }
 
-  content(
+  return content(
     MapPresentationBinding(
       update = update@{ map ->
           if (state.isClosed) return@update

@@ -6,10 +6,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import org.maplibre.compose.interaction.internal.FeatureClickDispatcher
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiMapHostFactory
@@ -28,13 +26,12 @@ internal const val MAP_LOAD_PLACEHOLDER_TAG = "maplibre-map-load-placeholder"
 
 /** A map backed by MapLibre Native FFI, rendered through [hostFactory]. */
 @Composable
-internal fun MlnFfiMapView(
+internal fun rememberMlnFfiComposeMapPresentation(
   hostFactory: MlnFfiMapHostFactory,
-  modifier: Modifier,
   state: MapState,
   presentationOwner: MapPresentationOwnerToken,
   options: MapViewOptions,
-) {
+): ComposeMapPresentation {
   val density = LocalDensity.current
   val logger = state.runtime.logger
   // Safe to call off the owner thread: it only inspects what the loaded library was built with.
@@ -43,7 +40,7 @@ internal fun MlnFfiMapView(
   val hostSelection =
     remember(hostFactory, runtimeBackends, scaleFactor) { selectHost(runtimeBackends, hostFactory) }
 
-  MlnFfiMapView(
+  return rememberMlnFfiComposeMapPresentation(
     renderBackend = hostSelection.backends.producer,
     surface = { renderer, surfaceModifier, surfaceLogger, presentFrames ->
       MlnFfiMapSurface(
@@ -54,7 +51,6 @@ internal fun MlnFfiMapView(
         presentFrames = presentFrames,
       )
     },
-    modifier = modifier,
     state = state,
     presentationOwner = presentationOwner,
     options = options,
@@ -63,47 +59,42 @@ internal fun MlnFfiMapView(
 
 /** A map rendered by a platform surface that owns its presentation loop. */
 @Composable
-internal fun MlnFfiMapView(
+internal fun rememberMlnFfiComposeMapPresentation(
   renderBackend: MapRenderBackend,
   surface: @Composable (MlnFfiMapRenderer, Modifier, MapLog?, Boolean) -> Unit,
-  modifier: Modifier,
   state: MapState,
   presentationOwner: MapPresentationOwnerToken,
   options: MapViewOptions,
-) {
-  MlnFfiMapPresentation(renderBackend, state, presentationOwner, options) { session, clicks ->
-    MlnFfiMapSurfaceContent(session, clicks, options, modifier, state) {
-      inputModifier,
-      revealSurface ->
-      surface(session, inputModifier, state.runtime.logger, revealSurface)
+): ComposeMapPresentation {
+  return MlnFfiMapPresentation(renderBackend, state, presentationOwner, options) { session, clicks
+    ->
+    ComposeMapPresentation(
+      session,
+      clicks,
+      { state.attachmentAuthority.setEngaged(session, it) },
+    ) { modifier ->
+      MlnFfiMapSurfaceContent(session, options, modifier) { surfaceModifier, revealSurface ->
+        surface(session, surfaceModifier, state.runtime.logger, revealSurface)
+      }
     }
   }
 }
 
-/** Draws the loading presentation around a platform surface. */
+/** Draws the surface and its loading placeholder. Input belongs to their common parent. */
 @Composable
 internal fun MlnFfiMapSurfaceContent(
   session: MlnFfiMapSession,
-  clicks: FeatureClickDispatcher,
   options: MapViewOptions,
   modifier: Modifier,
-  state: MapState,
   surface: @Composable (Modifier, Boolean) -> Unit,
 ) {
-  BindMapInput(session, clicks) { engaged ->
-    state.attachmentAuthority.setEngaged(session, engaged)
-  }
-  // MapLibre renders black until a style loads.
   val revealSurface = session.canPresentFrames
   Box(modifier) {
     surface(Modifier.fillMaxSize(), revealSurface)
     if (!revealSurface) {
-      // The input ancestor rejects contacts until the session is ready. The placeholder
-      // consumes nothing, so a parent scroller can still scroll.
       Box(
         Modifier.matchParentSize()
           .background(options.uiOptions.loadColor)
-          .pointerInput(Unit) {}
           .testTag(MAP_LOAD_PLACEHOLDER_TAG)
       )
     }
