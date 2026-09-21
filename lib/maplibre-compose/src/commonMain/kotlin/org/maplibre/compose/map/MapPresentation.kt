@@ -73,7 +73,8 @@ internal fun MapPresentationContent(
           it.definition.id
         },
       applyRevision = { style, revision ->
-        val map = state.currentMapAttachment?.adapter
+        // A loaded engine can receive content before its physical presentation is published.
+        val map = state.lifecycle.currentAdapter()
         if (map != null && state.styleAuthority.style.currentLoadedStyle() === style) {
           state.styleAuthority.applyStyleRevision(map, style, revision)
         }
