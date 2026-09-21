@@ -87,7 +87,7 @@ public fun interface VectorTileProvider {
 public class CustomGeometrySource(
   id: String,
   private val options: CustomGeometrySourceOptions = CustomGeometrySourceOptions(),
-  private var provider: GeometryTileProvider,
+  private val provider: GeometryTileProvider,
 ) : VectorSource(id) {
 
   override fun definition(): SourceDefinition =
@@ -102,10 +102,6 @@ public class CustomGeometrySource(
     put("clip", options.clip)
     put("wrap", options.wrap)
   }
-
-  internal fun setDesiredProvider(provider: GeometryTileProvider) {
-    this.provider = provider
-  }
 }
 
 /**
@@ -116,7 +112,7 @@ public class CustomGeometrySource(
 public class CustomVectorTileSource(
   id: String,
   private val options: CustomVectorTileSourceOptions = CustomVectorTileSourceOptions(),
-  private var provider: VectorTileProvider,
+  private val provider: VectorTileProvider,
 ) : VectorSource(id) {
 
   override fun definition(): SourceDefinition = SourceDefinition.CustomVector(id, options, provider)
@@ -126,10 +122,6 @@ public class CustomVectorTileSource(
     putJsonArray("tiles") {}
     put("minzoom", options.minZoom)
     put("maxzoom", options.maxZoom)
-  }
-
-  internal fun setDesiredProvider(provider: VectorTileProvider) {
-    this.provider = provider
   }
 }
 
@@ -178,10 +170,7 @@ public fun rememberCustomGeometrySource(
   provider: GeometryTileProvider,
 ): CustomGeometrySource {
   return key(options) {
-    rememberUserSource(
-      factory = { CustomGeometrySource(id = it, options = options, provider = provider) },
-      update = { setDesiredProvider(provider) },
-    )
+    rememberUserSource { CustomGeometrySource(id = it, options = options, provider = provider) }
   }
 }
 
@@ -192,10 +181,7 @@ public fun rememberCustomVectorTileSource(
   provider: VectorTileProvider,
 ): CustomVectorTileSource {
   return key(options) {
-    rememberUserSource(
-      factory = { CustomVectorTileSource(id = it, options = options, provider = provider) },
-      update = { setDesiredProvider(provider) },
-    )
+    rememberUserSource { CustomVectorTileSource(id = it, options = options, provider = provider) }
   }
 }
 

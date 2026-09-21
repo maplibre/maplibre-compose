@@ -25,7 +25,7 @@ internal class StyleCompositionOwner(
     val entries = mutableMapOf<StyleImageRequest, Entry>()
     val ids = IncrementingId("image")
     var desired: StyleDeclaration? = null
-    var previous: DesiredStyleRevision? = null
+    var previous = DesiredStyleRevision.Empty
     var properties = emptyMap<Pair<Any, StyleProperty>, ResolvedProperty>()
     try {
       while (true) {
@@ -72,9 +72,7 @@ internal class StyleCompositionOwner(
         val declaration = desired ?: continue
         // Rebuild sharing from still-live values. There is no independent cache to prune.
         val images =
-          previous
-            ?.images
-            .orEmpty()
+          previous.images
             .associateBy {
               StyleImageContent(it.image, it.sdf, it.stretch)
             }
@@ -90,8 +88,9 @@ internal class StyleCompositionOwner(
               }
             }
             .toMap()
+        val resolvedIds = resolved.mapValues { it.value.id }
         val previousLayers =
-          previous?.layers.orEmpty().associateBy {
+          previous.layers.associateBy {
             it.registration ?: it.definition.id
           }
         val nextProperties = mutableMapOf<Pair<Any, StyleProperty>, ResolvedProperty>()
@@ -105,7 +104,7 @@ internal class StyleCompositionOwner(
               val result =
                 if (ready) {
                   ResolvedProperty(
-                    property.resolve(resolved.mapValues { it.value.id }),
+                    property.resolve(resolvedIds),
                     property.images.map { resolved.getValue(it) },
                   )
                 } else {

@@ -6,20 +6,16 @@ import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.FeaturesClickHandler
 
 /** One complete immutable evaluation of a map's style content. */
-internal class DesiredStyleRevision(
-  sources: List<SourceDefinition>,
-  layers: List<DesiredStyleLayer>,
-  images: List<StyleImageDefinition>,
+internal data class DesiredStyleRevision(
+  val sources: List<SourceDefinition>,
+  val layers: List<DesiredStyleLayer>,
+  val images: List<StyleImageDefinition>,
   /** The animator duration scale the composition read; layer transitions are scaled by it. */
   val animatorDurationScale: Float = 1f,
   val fontScale: Float? = null,
   /** At least one committed property is waiting for painter preparation. */
   val imagesPending: Boolean = false,
 ) {
-  val sources: List<SourceDefinition> = sources.toList()
-  val layers: List<DesiredStyleLayer> = layers.toList()
-  val images: List<StyleImageDefinition> = images.toList()
-
   init {
     requireUniqueIds("Source", sources.map(SourceDefinition::id))
     requireUniqueIds("Layer", layers.map { it.definition.id })
@@ -30,24 +26,6 @@ internal class DesiredStyleRevision(
     val duplicate = ids.groupingBy { it }.eachCount().entries.firstOrNull { it.value > 1 }?.key
     require(duplicate == null) { "$kind ID '$duplicate' is declared more than once" }
   }
-
-  override fun equals(other: Any?): Boolean =
-    other is DesiredStyleRevision &&
-      sources == other.sources &&
-      layers == other.layers &&
-      images == other.images &&
-      animatorDurationScale == other.animatorDurationScale &&
-      fontScale == other.fontScale &&
-      imagesPending == other.imagesPending
-
-  override fun hashCode(): Int =
-    31 *
-      (31 * (31 * (31 * sources.hashCode() + layers.hashCode()) + images.hashCode()) +
-        animatorDurationScale.hashCode()) + fontScale.hashCode() + 31 * imagesPending.hashCode()
-
-  override fun toString(): String =
-    "DesiredStyleRevision(sources=$sources, layers=$layers, images=$images, " +
-      "animatorDurationScale=$animatorDurationScale, fontScale=$fontScale, imagesPending=$imagesPending)"
 
   companion object {
     val Empty = DesiredStyleRevision(emptyList(), emptyList(), emptyList())

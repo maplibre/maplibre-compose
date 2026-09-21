@@ -56,12 +56,11 @@ internal fun baseSourceOrNull(id: String): Source? {
 }
 
 @Composable
-internal fun <T : Source> rememberUserSource(factory: (String) -> T, update: T.() -> Unit): T {
+internal fun <T : Source> rememberUserSource(factory: (String) -> T): T {
   val node = LocalStyleNode.current
   val id = remember(node) { node.nextSourceId() }
   // Build a fresh description. No committed object is mutated by speculative composition.
-  val source = remember(node, factory, update) { factory(id).apply(update) }
-  return source
+  return remember(node, factory) { factory(id) }
 }
 
 public object SourceDefaults {

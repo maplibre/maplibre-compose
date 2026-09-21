@@ -34,7 +34,7 @@ internal class StyleNode(
     closed = true
   }
 
-  internal fun snapshotDeclaration(): StyleDeclaration {
+  private fun snapshotDeclaration(): StyleDeclaration {
     val environment = children.filterIsInstance<StyleEnvironmentNode>().singleOrNull()
     val layerNodes = children.filterIsInstance<LayerNode<*>>()
     val sources =
@@ -70,7 +70,7 @@ internal class StyleNode(
               registration = node.registration,
               clickGroup = node.clickGroup,
             ),
-            node.layer.declaredImageProperties(),
+            node.layer.declaredImageProperties,
           )
         },
     )

@@ -68,10 +68,7 @@ public fun rememberRasterTileSource(
   tileSize: Int = SourceDefaults.RASTER_TILE_SIZE,
 ): RasterTileSource =
   key(uri, tileSize) {
-    rememberUserSource(
-      factory = { RasterTileSource(id = it, uri = uri, tileSize = tileSize) },
-      update = {},
-    )
+    rememberUserSource { RasterTileSource(id = it, uri = uri, tileSize = tileSize) }
   }
 
 @Composable
@@ -81,10 +78,7 @@ public fun rememberRasterTileSource(
   tileSize: Int = SourceDefaults.RASTER_TILE_SIZE,
 ): RasterTileSource =
   key(tiles, options, tileSize) {
-    rememberUserSource(
-      factory = {
-        RasterTileSource(id = it, tiles = tiles, options = options, tileSize = tileSize)
-      },
-      update = {},
-    )
+    rememberUserSource {
+      RasterTileSource(id = it, tiles = tiles, options = options, tileSize = tileSize)
+    }
   }

@@ -158,11 +158,14 @@ class MapPresentationTest {
       val initialReads = resourceReads
 
       for (opacity in listOf(0.25, 0.5, 0.75)) {
-        source.setDesiredData(
-          GeoJsonData.JsonString(
-            """{"type":"Feature","geometry":{"type":"Point","coordinates":[0,0]},"properties":{"opacity":$opacity}}"""
+        val updatedSource =
+          GeoJsonSource(
+            source.id,
+            GeoJsonData.JsonString(
+              """{"type":"Feature","geometry":{"type":"Point","coordinates":[0,0]},"properties":{"opacity":$opacity}}"""
+            ),
+            GeoJsonOptions(),
           )
-        )
         val definition =
           layer.definition().let {
             it.copy(
@@ -178,7 +181,7 @@ class MapPresentationTest {
           }
         val revision =
           DesiredStyleRevision(
-            listOf(source.definition()),
+            listOf(updatedSource.definition()),
             listOf(DesiredStyleLayer(definition, Anchor.Top, null, null)),
             emptyList(),
           )

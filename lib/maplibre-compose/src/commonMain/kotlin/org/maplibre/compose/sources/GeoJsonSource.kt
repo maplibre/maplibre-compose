@@ -63,14 +63,9 @@ public class GeoJsonSource : VectorSource {
       is FromStyle -> super.definition()
     }
 
-  internal fun setDesiredData(data: GeoJsonData) {
-    check(content is Declared) { "Source '$id' came from the style, not the composition" }
-    content.data = data
-  }
-
   private sealed interface Content
 
-  private class Declared(var data: GeoJsonData, val options: GeoJsonOptions) : Content
+  private class Declared(val data: GeoJsonData, val options: GeoJsonOptions) : Content
 
   /** What MapLibre reports about a base-style source; the composition never rebuilds it. */
   private class FromStyle(val json: JsonObject) : Content
@@ -176,8 +171,5 @@ public fun rememberGeoJsonSource(
   options: GeoJsonOptions = GeoJsonOptions(),
 ): GeoJsonSource =
   key(options) {
-    rememberUserSource(
-      factory = { GeoJsonSource(id = it, data = data, options = options) },
-      update = {},
-    )
+    rememberUserSource { GeoJsonSource(id = it, data = data, options = options) }
   }

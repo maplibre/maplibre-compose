@@ -48,7 +48,7 @@ public class VectorTileSource : VectorSource {
 /** Remember a new [VectorTileSource] from the given [uri]. */
 @Composable
 public fun rememberVectorTileSource(uri: String): VectorTileSource =
-  key(uri) { rememberUserSource(factory = { VectorTileSource(id = it, uri = uri) }, update = {}) }
+  key(uri) { rememberUserSource { VectorTileSource(id = it, uri = uri) } }
 
 @Composable
 public fun rememberVectorTileSource(
@@ -56,8 +56,5 @@ public fun rememberVectorTileSource(
   options: TileSetOptions = TileSetOptions(),
 ): VectorTileSource =
   key(tiles, options) {
-    rememberUserSource(
-      factory = { VectorTileSource(id = it, tiles = tiles, options = options) },
-      update = {},
-    )
+    rememberUserSource { VectorTileSource(id = it, tiles = tiles, options = options) }
   }

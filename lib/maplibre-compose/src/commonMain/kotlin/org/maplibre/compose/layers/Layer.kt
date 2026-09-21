@@ -26,7 +26,8 @@ internal sealed class Layer(val id: String) {
 
   private val imageProperties = mutableMapOf<StyleProperty, LayerProperty<*>>()
 
-  internal fun declaredImageProperties() = imageProperties.toMap()
+  internal val declaredImageProperties: Map<StyleProperty, LayerProperty<*>>
+    get() = imageProperties.toMap()
 
   private val layout = mutableMapOf<String, JsonElement>()
   private val paint = mutableMapOf<String, JsonElement>()
