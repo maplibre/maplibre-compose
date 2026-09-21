@@ -21,6 +21,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
@@ -36,7 +37,9 @@ import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.MapNodeApplier
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.StyleCompositionOwner
 import org.maplibre.compose.style.StyleContent
+import org.maplibre.compose.style.StyleDeclaration
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.StyleNode
@@ -151,12 +154,18 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
             launch(start = CoroutineStart.UNDISPATCHED) {
               recomposer.runRecomposeAndApplyChanges()
             }
+          val declarations = Channel<StyleDeclaration>(Channel.CONFLATED)
+          val ownerJob = launch {
+            StyleCompositionOwner().run(declarations) {
+              if (!it.imagesPending) revision.complete(it)
+            }
+          }
           val root =
             StyleNode(
               style,
               replaceableSourceIds = ownership.sourceIds,
               replaceableLayerIds = ownership.layerIds,
-              publish = { if (!it.imagesPending) revision.complete(it) },
+              publish = { declarations.trySend(it).getOrThrow() },
             )
           val evaluator = Composition(MapNodeApplier(root), recomposer)
           try {
@@ -181,6 +190,8 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
             revision.await()
           } finally {
             root.close()
+            ownerJob.cancel()
+            declarations.cancel()
             evaluator.dispose()
             recomposer.close()
             recomposerJob.join()

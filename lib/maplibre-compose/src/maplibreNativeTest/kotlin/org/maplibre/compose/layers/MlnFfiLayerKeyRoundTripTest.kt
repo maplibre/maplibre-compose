@@ -46,7 +46,8 @@ class MlnFfiLayerKeyRoundTripTest {
       beforeAttach.maxZoom = 15f
       beforeAttach.visible = false
       beforeAttach.setFilter(
-        (Feature["class"].cast<StringValue>() eq const("park")).compile(ExpressionContext.None)
+        ((Feature["class"].cast<StringValue>() eq const("park")).compile(ExpressionContext.None))
+          .asLayerProperty()
       )
       style.install(beforeAttach)
 
@@ -57,7 +58,8 @@ class MlnFfiLayerKeyRoundTripTest {
       afterAttach.maxZoom = 16f
       afterAttach.visible = false
       afterAttach.setFilter(
-        (Feature["class"].cast<StringValue>() eq const("wood")).compile(ExpressionContext.None)
+        ((Feature["class"].cast<StringValue>() eq const("wood")).compile(ExpressionContext.None))
+          .asLayerProperty()
       )
       afterHandle.update(afterAttach.definition())
 

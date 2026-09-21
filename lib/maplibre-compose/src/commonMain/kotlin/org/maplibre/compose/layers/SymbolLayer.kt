@@ -7,8 +7,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
-import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
+import org.maplibre.compose.expressions.ast.TextUnitContextExpression
 import org.maplibre.compose.expressions.ast.UnitConversion
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.textOffset
@@ -57,9 +57,10 @@ private fun rememberDpCompiler() =
 
 @Composable
 private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerPropertyCompiler {
-  val compileWithSpTextSize =
-    rememberPropertyCompiler(emScale = const(ASSUMED_SP), spScale = const(1f))
-  val textSizeSp = compileWithSpTextSize(textSize)
+  val textSizeSp =
+    remember(textSize) {
+      TextUnitContextExpression(textSize, emScale = const(ASSUMED_SP), spScale = const(1f))
+    }
   val spScale = remember(textSizeSp) { UnitConversion(const(1f), textSizeSp.cast(), divide = true) }
   return rememberPropertyCompiler(emScale = const(1f), spScale = spScale)
 }
@@ -743,99 +744,99 @@ internal class SymbolLayer(id: String, source: VectorSource) : FeatureLayer(id, 
       setSourceLayerProperty(value)
     }
 
-  override fun setFilter(filter: CompiledExpression<BooleanValue>) {
+  override fun setFilter(filter: LayerProperty<BooleanValue>) {
     setFilterExpression(filter)
   }
 
-  fun setSymbolPlacement(placement: CompiledExpression<SymbolPlacement>) {
+  fun setSymbolPlacement(placement: LayerProperty<SymbolPlacement>) {
     setLayoutProperty("symbol-placement", placement)
   }
 
-  fun setSymbolSpacing(spacing: CompiledExpression<DpValue>) {
+  fun setSymbolSpacing(spacing: LayerProperty<DpValue>) {
     setLayoutProperty("symbol-spacing", spacing)
   }
 
-  fun setSymbolAvoidEdges(avoidEdges: CompiledExpression<BooleanValue>) {
+  fun setSymbolAvoidEdges(avoidEdges: LayerProperty<BooleanValue>) {
     setLayoutProperty("symbol-avoid-edges", avoidEdges)
   }
 
-  fun setSymbolSortKey(sortKey: CompiledExpression<FloatValue>) {
+  fun setSymbolSortKey(sortKey: LayerProperty<FloatValue>) {
     setLayoutProperty("symbol-sort-key", sortKey)
   }
 
-  fun setSymbolZOrder(zOrder: CompiledExpression<SymbolZOrder>) {
+  fun setSymbolZOrder(zOrder: LayerProperty<SymbolZOrder>) {
     setLayoutProperty("symbol-z-order", zOrder)
   }
 
-  fun setSymbolHeightOffset(offset: CompiledExpression<FloatValue>) {
+  fun setSymbolHeightOffset(offset: LayerProperty<FloatValue>) {
     setLayoutProperty("symbol-height-offset", offset)
   }
 
-  fun setSymbolHeightAnchor(anchor: CompiledExpression<SymbolHeightAnchor>) {
+  fun setSymbolHeightAnchor(anchor: LayerProperty<SymbolHeightAnchor>) {
     setLayoutProperty("symbol-height-anchor", anchor)
   }
 
-  fun setIconAllowOverlap(allowOverlap: CompiledExpression<BooleanValue>) {
+  fun setIconAllowOverlap(allowOverlap: LayerProperty<BooleanValue>) {
     setLayoutProperty("icon-allow-overlap", allowOverlap)
   }
 
-  fun setIconOverlap(overlap: CompiledExpression<StringValue>) {
+  fun setIconOverlap(overlap: LayerProperty<StringValue>) {
     setLayoutProperty("icon-overlap", overlap)
   }
 
-  fun setIconIgnorePlacement(ignorePlacement: CompiledExpression<BooleanValue>) {
+  fun setIconIgnorePlacement(ignorePlacement: LayerProperty<BooleanValue>) {
     setLayoutProperty("icon-ignore-placement", ignorePlacement)
   }
 
-  fun setIconOptional(optional: CompiledExpression<BooleanValue>) {
+  fun setIconOptional(optional: LayerProperty<BooleanValue>) {
     setLayoutProperty("icon-optional", optional)
   }
 
-  fun setIconRotationAlignment(rotationAlignment: CompiledExpression<IconRotationAlignment>) {
+  fun setIconRotationAlignment(rotationAlignment: LayerProperty<IconRotationAlignment>) {
     setLayoutProperty("icon-rotation-alignment", rotationAlignment)
   }
 
-  fun setIconSize(size: CompiledExpression<FloatValue>) {
+  fun setIconSize(size: LayerProperty<FloatValue>) {
     setLayoutProperty("icon-size", size)
   }
 
-  fun setIconTextFit(textFit: CompiledExpression<IconTextFit>) {
+  fun setIconTextFit(textFit: LayerProperty<IconTextFit>) {
     setLayoutProperty("icon-text-fit", textFit)
   }
 
-  fun setIconTextFitPadding(textFitPadding: CompiledExpression<DpPaddingValue>) {
+  fun setIconTextFitPadding(textFitPadding: LayerProperty<DpPaddingValue>) {
     setLayoutProperty("icon-text-fit-padding", textFitPadding)
   }
 
-  fun setIconImage(image: CompiledExpression<ImageValue?>) {
+  fun setIconImage(image: LayerProperty<ImageValue?>) {
     setLayoutProperty("icon-image", image)
   }
 
-  fun setIconRotate(rotate: CompiledExpression<FloatValue>) {
+  fun setIconRotate(rotate: LayerProperty<FloatValue>) {
     setLayoutProperty("icon-rotate", rotate)
   }
 
-  fun setIconPadding(padding: CompiledExpression<DpPaddingValue>) {
+  fun setIconPadding(padding: LayerProperty<DpPaddingValue>) {
     setLayoutProperty("icon-padding", padding)
   }
 
-  fun setIconKeepUpright(keepUpright: CompiledExpression<BooleanValue>) {
+  fun setIconKeepUpright(keepUpright: LayerProperty<BooleanValue>) {
     setLayoutProperty("icon-keep-upright", keepUpright)
   }
 
-  fun setIconOffset(offset: CompiledExpression<DpOffsetValue>) {
+  fun setIconOffset(offset: LayerProperty<DpOffsetValue>) {
     setLayoutProperty("icon-offset", offset)
   }
 
-  fun setIconAnchor(anchor: CompiledExpression<SymbolAnchor>) {
+  fun setIconAnchor(anchor: LayerProperty<SymbolAnchor>) {
     setLayoutProperty("icon-anchor", anchor)
   }
 
-  fun setIconPitchAlignment(pitchAlignment: CompiledExpression<IconPitchAlignment>) {
+  fun setIconPitchAlignment(pitchAlignment: LayerProperty<IconPitchAlignment>) {
     setLayoutProperty("icon-pitch-alignment", pitchAlignment)
   }
 
-  fun setIconOpacity(opacity: CompiledExpression<FloatValue>) {
+  fun setIconOpacity(opacity: LayerProperty<FloatValue>) {
     setPaintProperty("icon-opacity", opacity)
   }
 
@@ -843,7 +844,7 @@ internal class SymbolLayer(id: String, source: VectorSource) : FeatureLayer(id, 
     setPaintTransition("icon-opacity", options)
   }
 
-  fun setIconColor(color: CompiledExpression<ColorValue>) {
+  fun setIconColor(color: LayerProperty<ColorValue>) {
     setPaintProperty("icon-color", color)
   }
 
@@ -851,7 +852,7 @@ internal class SymbolLayer(id: String, source: VectorSource) : FeatureLayer(id, 
     setPaintTransition("icon-color", options)
   }
 
-  fun setIconHaloColor(haloColor: CompiledExpression<ColorValue>) {
+  fun setIconHaloColor(haloColor: LayerProperty<ColorValue>) {
     setPaintProperty("icon-halo-color", haloColor)
   }
 
@@ -859,7 +860,7 @@ internal class SymbolLayer(id: String, source: VectorSource) : FeatureLayer(id, 
     setPaintTransition("icon-halo-color", options)
   }
 
-  fun setIconHaloWidth(haloWidth: CompiledExpression<DpValue>) {
+  fun setIconHaloWidth(haloWidth: LayerProperty<DpValue>) {
     setPaintProperty("icon-halo-width", haloWidth)
   }
 
@@ -867,7 +868,7 @@ internal class SymbolLayer(id: String, source: VectorSource) : FeatureLayer(id, 
     setPaintTransition("icon-halo-width", options)
   }
 
-  fun setIconHaloBlur(haloBlur: CompiledExpression<DpValue>) {
+  fun setIconHaloBlur(haloBlur: LayerProperty<DpValue>) {
     setPaintProperty("icon-halo-blur", haloBlur)
   }
 
@@ -875,7 +876,7 @@ internal class SymbolLayer(id: String, source: VectorSource) : FeatureLayer(id, 
     setPaintTransition("icon-halo-blur", options)
   }
 
-  fun setIconTranslate(translate: CompiledExpression<DpOffsetValue>) {
+  fun setIconTranslate(translate: LayerProperty<DpOffsetValue>) {
     setPaintProperty("icon-translate", translate)
   }
 
@@ -883,109 +884,109 @@ internal class SymbolLayer(id: String, source: VectorSource) : FeatureLayer(id, 
     setPaintTransition("icon-translate", options)
   }
 
-  fun setIconTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>) {
+  fun setIconTranslateAnchor(translateAnchor: LayerProperty<TranslateAnchor>) {
     setPaintProperty("icon-translate-anchor", translateAnchor)
   }
 
-  fun setTextPitchAlignment(pitchAlignment: CompiledExpression<TextPitchAlignment>) {
+  fun setTextPitchAlignment(pitchAlignment: LayerProperty<TextPitchAlignment>) {
     setLayoutProperty("text-pitch-alignment", pitchAlignment)
   }
 
-  fun setTextRotationAlignment(rotationAlignment: CompiledExpression<TextRotationAlignment>) {
+  fun setTextRotationAlignment(rotationAlignment: LayerProperty<TextRotationAlignment>) {
     setLayoutProperty("text-rotation-alignment", rotationAlignment)
   }
 
-  fun setTextField(field: CompiledExpression<FormattedValue?>) {
+  fun setTextField(field: LayerProperty<FormattedValue?>) {
     setLayoutProperty("text-field", field)
   }
 
-  fun setTextFont(font: CompiledExpression<ListValue<StringValue>>) {
+  fun setTextFont(font: LayerProperty<ListValue<StringValue>>) {
     setLayoutProperty("text-font", font)
   }
 
-  fun setTextSize(size: CompiledExpression<DpValue>) {
+  fun setTextSize(size: LayerProperty<DpValue>) {
     setLayoutProperty("text-size", size)
   }
 
-  fun setTextMaxWidth(maxWidth: CompiledExpression<FloatValue>) {
+  fun setTextMaxWidth(maxWidth: LayerProperty<FloatValue>) {
     setLayoutProperty("text-max-width", maxWidth)
   }
 
-  fun setTextLineHeight(lineHeight: CompiledExpression<FloatValue>) {
+  fun setTextLineHeight(lineHeight: LayerProperty<FloatValue>) {
     setLayoutProperty("text-line-height", lineHeight)
   }
 
-  fun setTextLetterSpacing(letterSpacing: CompiledExpression<FloatValue>) {
+  fun setTextLetterSpacing(letterSpacing: LayerProperty<FloatValue>) {
     setLayoutProperty("text-letter-spacing", letterSpacing)
   }
 
-  fun setTextJustify(justify: CompiledExpression<TextJustify>) {
+  fun setTextJustify(justify: LayerProperty<TextJustify>) {
     setLayoutProperty("text-justify", justify)
   }
 
-  fun setTextRadialOffset(radialOffset: CompiledExpression<FloatValue>) {
+  fun setTextRadialOffset(radialOffset: LayerProperty<FloatValue>) {
     setLayoutProperty("text-radial-offset", radialOffset)
   }
 
-  fun setTextVariableAnchor(variableAnchor: CompiledExpression<ListValue<SymbolAnchor>>) {
+  fun setTextVariableAnchor(variableAnchor: LayerProperty<ListValue<SymbolAnchor>>) {
     setLayoutProperty("text-variable-anchor", variableAnchor)
   }
 
   fun setTextVariableAnchorOffset(
-    variableAnchorOffset: CompiledExpression<TextVariableAnchorOffsetValue>
+    variableAnchorOffset: LayerProperty<TextVariableAnchorOffsetValue>
   ) {
     setLayoutProperty("text-variable-anchor-offset", variableAnchorOffset)
   }
 
-  fun setTextAnchor(anchor: CompiledExpression<SymbolAnchor>) {
+  fun setTextAnchor(anchor: LayerProperty<SymbolAnchor>) {
     setLayoutProperty("text-anchor", anchor)
   }
 
-  fun setTextMaxAngle(maxAngle: CompiledExpression<FloatValue>) {
+  fun setTextMaxAngle(maxAngle: LayerProperty<FloatValue>) {
     setLayoutProperty("text-max-angle", maxAngle)
   }
 
-  fun setTextWritingMode(writingMode: CompiledExpression<ListValue<TextWritingMode>>) {
+  fun setTextWritingMode(writingMode: LayerProperty<ListValue<TextWritingMode>>) {
     setLayoutProperty("text-writing-mode", writingMode)
   }
 
-  fun setTextRotate(rotate: CompiledExpression<FloatValue>) {
+  fun setTextRotate(rotate: LayerProperty<FloatValue>) {
     setLayoutProperty("text-rotate", rotate)
   }
 
-  fun setTextPadding(padding: CompiledExpression<DpValue>) {
+  fun setTextPadding(padding: LayerProperty<DpValue>) {
     setLayoutProperty("text-padding", padding)
   }
 
-  fun setTextKeepUpright(keepUpright: CompiledExpression<BooleanValue>) {
+  fun setTextKeepUpright(keepUpright: LayerProperty<BooleanValue>) {
     setLayoutProperty("text-keep-upright", keepUpright)
   }
 
-  fun setTextTransform(transform: CompiledExpression<TextTransform>) {
+  fun setTextTransform(transform: LayerProperty<TextTransform>) {
     setLayoutProperty("text-transform", transform)
   }
 
-  fun setTextOffset(offset: CompiledExpression<FloatOffsetValue>) {
+  fun setTextOffset(offset: LayerProperty<FloatOffsetValue>) {
     setLayoutProperty("text-offset", offset)
   }
 
-  fun setTextAllowOverlap(allowOverlap: CompiledExpression<BooleanValue>) {
+  fun setTextAllowOverlap(allowOverlap: LayerProperty<BooleanValue>) {
     setLayoutProperty("text-allow-overlap", allowOverlap)
   }
 
-  fun setTextOverlap(overlap: CompiledExpression<SymbolOverlap>) {
+  fun setTextOverlap(overlap: LayerProperty<SymbolOverlap>) {
     setLayoutProperty("text-overlap", overlap)
   }
 
-  fun setTextIgnorePlacement(ignorePlacement: CompiledExpression<BooleanValue>) {
+  fun setTextIgnorePlacement(ignorePlacement: LayerProperty<BooleanValue>) {
     setLayoutProperty("text-ignore-placement", ignorePlacement)
   }
 
-  fun setTextOptional(optional: CompiledExpression<BooleanValue>) {
+  fun setTextOptional(optional: LayerProperty<BooleanValue>) {
     setLayoutProperty("text-optional", optional)
   }
 
-  fun setTextOpacity(opacity: CompiledExpression<FloatValue>) {
+  fun setTextOpacity(opacity: LayerProperty<FloatValue>) {
     setPaintProperty("text-opacity", opacity)
   }
 
@@ -993,7 +994,7 @@ internal class SymbolLayer(id: String, source: VectorSource) : FeatureLayer(id, 
     setPaintTransition("text-opacity", options)
   }
 
-  fun setTextColor(color: CompiledExpression<ColorValue>) {
+  fun setTextColor(color: LayerProperty<ColorValue>) {
     setPaintProperty("text-color", color)
   }
 
@@ -1001,7 +1002,7 @@ internal class SymbolLayer(id: String, source: VectorSource) : FeatureLayer(id, 
     setPaintTransition("text-color", options)
   }
 
-  fun setTextHaloColor(haloColor: CompiledExpression<ColorValue>) {
+  fun setTextHaloColor(haloColor: LayerProperty<ColorValue>) {
     setPaintProperty("text-halo-color", haloColor)
   }
 
@@ -1009,7 +1010,7 @@ internal class SymbolLayer(id: String, source: VectorSource) : FeatureLayer(id, 
     setPaintTransition("text-halo-color", options)
   }
 
-  fun setTextHaloWidth(haloWidth: CompiledExpression<DpValue>) {
+  fun setTextHaloWidth(haloWidth: LayerProperty<DpValue>) {
     setPaintProperty("text-halo-width", haloWidth)
   }
 
@@ -1017,7 +1018,7 @@ internal class SymbolLayer(id: String, source: VectorSource) : FeatureLayer(id, 
     setPaintTransition("text-halo-width", options)
   }
 
-  fun setTextHaloBlur(haloBlur: CompiledExpression<DpValue>) {
+  fun setTextHaloBlur(haloBlur: LayerProperty<DpValue>) {
     setPaintProperty("text-halo-blur", haloBlur)
   }
 
@@ -1025,7 +1026,7 @@ internal class SymbolLayer(id: String, source: VectorSource) : FeatureLayer(id, 
     setPaintTransition("text-halo-blur", options)
   }
 
-  fun setTextTranslate(translate: CompiledExpression<DpOffsetValue>) {
+  fun setTextTranslate(translate: LayerProperty<DpOffsetValue>) {
     setPaintProperty("text-translate", translate)
   }
 
@@ -1033,7 +1034,7 @@ internal class SymbolLayer(id: String, source: VectorSource) : FeatureLayer(id, 
     setPaintTransition("text-translate", options)
   }
 
-  fun setTextTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>) {
+  fun setTextTranslateAnchor(translateAnchor: LayerProperty<TranslateAnchor>) {
     setPaintProperty("text-translate-anchor", translateAnchor)
   }
 }

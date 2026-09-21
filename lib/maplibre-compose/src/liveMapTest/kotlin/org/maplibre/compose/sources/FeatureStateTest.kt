@@ -18,6 +18,7 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.expressions.dsl.switch
 import org.maplibre.compose.layers.CircleLayer
+import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MapTestResult
@@ -51,16 +52,17 @@ class FeatureStateTest {
         )
       fixture.state.style.sources.add(source)
       val layer = CircleLayer("circles", source)
-      layer.setCircleRadius(const(48.dp).compile(ExpressionContext.None))
+      layer.setCircleRadius((const(48.dp).compile(ExpressionContext.None)).asLayerProperty())
       layer.setCircleColor(
-        switch(
-            condition(
-              feature.state("selected").asBoolean(const(false)),
-              const(Color.Red),
-            ),
-            fallback = const(Color.Blue),
-          )
-          .compile(ExpressionContext.None)
+        (switch(
+              condition(
+                feature.state("selected").asBoolean(const(false)),
+                const(Color.Red),
+              ),
+              fallback = const(Color.Blue),
+            )
+            .compile(ExpressionContext.None))
+          .asLayerProperty()
       )
       binding.install(layer)
       val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources["points"])

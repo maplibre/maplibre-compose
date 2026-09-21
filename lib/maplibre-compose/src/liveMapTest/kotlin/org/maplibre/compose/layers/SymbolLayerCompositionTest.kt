@@ -445,13 +445,16 @@ class SymbolLayerCompositionTest {
         },
         onRevision = { revision ->
           val id = revision.iconId()
+          if (replace.value && revision.imagesPending) assertEquals(initialId, id)
           if (id != null) {
             val image = assertNotNull(revision.images.singleOrNull { it.id == id })
             val pixels = IntArray(16)
             image.image.toImageBitmap().readPixels(pixels)
-            val expected = if (replace.value) 0xff0000ff.toInt() else 0xffff0000.toInt()
+            val expected =
+              if (replace.value && !revision.imagesPending) 0xff0000ff.toInt()
+              else 0xffff0000.toInt()
             assertEquals(List(16) { expected }, pixels.toList())
-            if (replace.value) replacementId = id else initialId = id
+            if (replace.value && !revision.imagesPending) replacementId = id else initialId = id
           }
         },
         thenChange = {

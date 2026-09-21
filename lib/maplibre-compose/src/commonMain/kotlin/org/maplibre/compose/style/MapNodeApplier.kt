@@ -21,7 +21,6 @@ internal class MapNodeApplier(private val styleRoot: StyleNode) :
     styleRoot.children.remove(index, count)
   }
 
-  // All style inputs are nodes. There are no ownership changes left in remember observers or
-  // SideEffects, so this is the complete committed description, including child-only updates.
+  // Resource preparation starts from this committed description, including child-only updates.
   override fun onEndChanges() = styleRoot.commit()
 }

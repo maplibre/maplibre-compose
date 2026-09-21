@@ -18,7 +18,7 @@ import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.channels.Channel
 import org.maplibre.compose.util.MaplibreComposable
 
-/** Evaluates committed declarations and serially submits the latest complete snapshot. */
+/** Resolves committed declarations and serially submits revisions for one loaded style. */
 @Composable
 internal fun rememberStyleComposition(
   content: @Composable @MaplibreComposable () -> Unit,
@@ -37,12 +37,11 @@ internal fun rememberStyleComposition(
   LaunchedEffect(content, maybeStyle) {
     val style = maybeStyle ?: return@LaunchedEffect
     if (!style.isLoaded) return@LaunchedEffect
-    val revisions = Channel<DesiredStyleRevision>(Channel.CONFLATED)
+    val declarations = Channel<StyleDeclaration>(Channel.CONFLATED)
     val rootNode =
       try {
         StyleNode(style, replaceableSourceIds, replaceableLayerIds) {
-          revisionState.value = it
-          revisions.trySend(it).getOrThrow()
+          declarations.trySend(it).getOrThrow()
         }
       } catch (error: IllegalStateException) {
         if (!style.isLoaded) return@LaunchedEffect
@@ -53,14 +52,15 @@ internal fun rememberStyleComposition(
       evaluator.setContent {
         CompositionLocalProvider(currentLocals) { StyleContent(rootNode, content) }
       }
-      // A newer commit replaces pending work; it does not cancel an already submitted mutation.
-      for (revision in revisions) {
-        if (!style.isLoaded) break
-        apply(style, revision)
+      StyleCompositionOwner().run(declarations) { revision ->
+        if (style.isLoaded) {
+          revisionState.value = revision
+          apply(style, revision)
+        }
       }
     } finally {
       rootNode.close()
-      revisions.cancel()
+      declarations.cancel()
       evaluator.dispose()
     }
   }

@@ -3,7 +3,6 @@ package org.maplibre.compose.layers
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
@@ -121,11 +120,11 @@ internal class HeatmapLayer(id: String, source: VectorSource) : FeatureLayer(id,
       setSourceLayerProperty(value)
     }
 
-  override fun setFilter(filter: CompiledExpression<BooleanValue>) {
+  override fun setFilter(filter: LayerProperty<BooleanValue>) {
     setFilterExpression(filter)
   }
 
-  fun setHeatmapRadius(radius: CompiledExpression<DpValue>) {
+  fun setHeatmapRadius(radius: LayerProperty<DpValue>) {
     setPaintProperty("heatmap-radius", radius)
   }
 
@@ -133,11 +132,11 @@ internal class HeatmapLayer(id: String, source: VectorSource) : FeatureLayer(id,
     setPaintTransition("heatmap-radius", options)
   }
 
-  fun setHeatmapWeight(weight: CompiledExpression<FloatValue>) {
+  fun setHeatmapWeight(weight: LayerProperty<FloatValue>) {
     setPaintProperty("heatmap-weight", weight)
   }
 
-  fun setHeatmapIntensity(intensity: CompiledExpression<FloatValue>) {
+  fun setHeatmapIntensity(intensity: LayerProperty<FloatValue>) {
     setPaintProperty("heatmap-intensity", intensity)
   }
 
@@ -145,11 +144,11 @@ internal class HeatmapLayer(id: String, source: VectorSource) : FeatureLayer(id,
     setPaintTransition("heatmap-intensity", options)
   }
 
-  fun setHeatmapColor(color: CompiledExpression<ColorValue>) {
+  fun setHeatmapColor(color: LayerProperty<ColorValue>) {
     setPaintProperty("heatmap-color", color)
   }
 
-  fun setHeatmapOpacity(opacity: CompiledExpression<FloatValue>) {
+  fun setHeatmapOpacity(opacity: LayerProperty<FloatValue>) {
     setPaintProperty("heatmap-opacity", opacity)
   }
 

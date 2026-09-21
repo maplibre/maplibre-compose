@@ -66,10 +66,12 @@ class UnsupportedLayerPropertyTest {
       val source = addSource(style)
 
       val layer = SymbolLayer("labels", source)
-      layer.setIconAllowOverlap(const(true).compile(ExpressionContext.None))
-      layer.setTextAllowOverlap(const(true).compile(ExpressionContext.None))
-      layer.setIconOverlap(const("cooperative").compile(ExpressionContext.None))
-      layer.setTextOverlap(const(SymbolOverlap.Always).compile(ExpressionContext.None))
+      layer.setIconAllowOverlap((const(true).compile(ExpressionContext.None)).asLayerProperty())
+      layer.setTextAllowOverlap((const(true).compile(ExpressionContext.None)).asLayerProperty())
+      layer.setIconOverlap((const("cooperative").compile(ExpressionContext.None)).asLayerProperty())
+      layer.setTextOverlap(
+        (const(SymbolOverlap.Always).compile(ExpressionContext.None)).asLayerProperty()
+      )
       // The assertion is that this returns at all: a layer object carrying `icon-overlap` is
       // refused wholesale, and installation turns that into a throw.
       val handle = style.install(layer)
@@ -99,7 +101,7 @@ class UnsupportedLayerPropertyTest {
         assertTrue(warnings().any { "labels" in it && property in it }, "No warning for $property")
       }
 
-      layer.setIconOverlap(const("never").compile(ExpressionContext.None))
+      layer.setIconOverlap((const("never").compile(ExpressionContext.None)).asLayerProperty())
       handle.update(layer.definition())
       style.onMap { map ->
         // The read stays inside the block: onMap rejects a null *result* as an unbound layer.
@@ -123,8 +125,12 @@ class UnsupportedLayerPropertyTest {
       // What every SymbolLayer composable does: an optional property nobody set compiles to a null
       // literal and is handed to the setter anyway.
       val layer = SymbolLayer("labels", source)
-      layer.setIconOverlap(nil().cast<StringValue>().compile(ExpressionContext.None))
-      layer.setTextOverlap(nil().cast<SymbolOverlap>().compile(ExpressionContext.None))
+      layer.setIconOverlap(
+        (nil().cast<StringValue>().compile(ExpressionContext.None)).asLayerProperty()
+      )
+      layer.setTextOverlap(
+        (nil().cast<SymbolOverlap>().compile(ExpressionContext.None)).asLayerProperty()
+      )
       style.install(layer)
 
       assertEquals(emptyList(), warnings(), "an unset property should not be reported")
@@ -141,14 +147,15 @@ class UnsupportedLayerPropertyTest {
 
       val layer = SymbolLayer("labels", source)
       layer.setTextRotationAlignment(
-        const(TextRotationAlignment.Map).compile(ExpressionContext.None)
+        (const(TextRotationAlignment.Map).compile(ExpressionContext.None)).asLayerProperty()
       )
       val handle = style.install(layer)
 
       // `viewport-glyph` is in the style spec but not in MapLibre Native, which knows only map,
       // viewport, and auto, yet it arrives through the public API as an ordinary enum member.
       layer.setTextRotationAlignment(
-        const(TextRotationAlignment.ViewportGlyph).compile(ExpressionContext.None)
+        (const(TextRotationAlignment.ViewportGlyph).compile(ExpressionContext.None))
+          .asLayerProperty()
       )
       handle.update(layer.definition())
 
@@ -173,7 +180,7 @@ class UnsupportedLayerPropertyTest {
       val source = addSource(style)
 
       val layer = FillLayer("fills", source)
-      layer.setFillLayerOpacity(const(0.5f).compile(ExpressionContext.None))
+      layer.setFillLayerOpacity((const(0.5f).compile(ExpressionContext.None)).asLayerProperty())
       layer.setFillLayerOpacityTransition(TransitionOptions(500.milliseconds))
       // The assertion is that this returns at all: a layer object carrying either key is refused
       // wholesale, and installation turns that into a throw.

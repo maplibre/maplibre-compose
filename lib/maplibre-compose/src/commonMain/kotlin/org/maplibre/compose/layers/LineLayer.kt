@@ -5,7 +5,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
@@ -237,31 +236,31 @@ internal class LineLayer(id: String, source: VectorSource) : FeatureLayer(id, so
       setSourceLayerProperty(value)
     }
 
-  override fun setFilter(filter: CompiledExpression<BooleanValue>) {
+  override fun setFilter(filter: LayerProperty<BooleanValue>) {
     setFilterExpression(filter)
   }
 
-  fun setLineCap(cap: CompiledExpression<LineCap>) {
+  fun setLineCap(cap: LayerProperty<LineCap>) {
     setLayoutProperty("line-cap", cap)
   }
 
-  fun setLineJoin(join: CompiledExpression<LineJoin>) {
+  fun setLineJoin(join: LayerProperty<LineJoin>) {
     setLayoutProperty("line-join", join)
   }
 
-  fun setLineMiterLimit(miterLimit: CompiledExpression<FloatValue>) {
+  fun setLineMiterLimit(miterLimit: LayerProperty<FloatValue>) {
     setLayoutProperty("line-miter-limit", miterLimit)
   }
 
-  fun setLineRoundLimit(roundLimit: CompiledExpression<FloatValue>) {
+  fun setLineRoundLimit(roundLimit: LayerProperty<FloatValue>) {
     setLayoutProperty("line-round-limit", roundLimit)
   }
 
-  fun setLineSortKey(sortKey: CompiledExpression<FloatValue>) {
+  fun setLineSortKey(sortKey: LayerProperty<FloatValue>) {
     setLayoutProperty("line-sort-key", sortKey)
   }
 
-  fun setLineOpacity(opacity: CompiledExpression<FloatValue>) {
+  fun setLineOpacity(opacity: LayerProperty<FloatValue>) {
     setPaintProperty("line-opacity", opacity)
   }
 
@@ -269,7 +268,7 @@ internal class LineLayer(id: String, source: VectorSource) : FeatureLayer(id, so
     setPaintTransition("line-opacity", options)
   }
 
-  fun setLineLayerOpacity(layerOpacity: CompiledExpression<FloatValue>) {
+  fun setLineLayerOpacity(layerOpacity: LayerProperty<FloatValue>) {
     setPaintProperty("line-layer-opacity", layerOpacity)
   }
 
@@ -277,7 +276,7 @@ internal class LineLayer(id: String, source: VectorSource) : FeatureLayer(id, so
     setPaintTransition("line-layer-opacity", options)
   }
 
-  fun setLineColor(color: CompiledExpression<ColorValue>) {
+  fun setLineColor(color: LayerProperty<ColorValue>) {
     setPaintProperty("line-color", color)
   }
 
@@ -285,7 +284,7 @@ internal class LineLayer(id: String, source: VectorSource) : FeatureLayer(id, so
     setPaintTransition("line-color", options)
   }
 
-  fun setLineTranslate(translate: CompiledExpression<DpOffsetValue>) {
+  fun setLineTranslate(translate: LayerProperty<DpOffsetValue>) {
     setPaintProperty("line-translate", translate)
   }
 
@@ -293,11 +292,11 @@ internal class LineLayer(id: String, source: VectorSource) : FeatureLayer(id, so
     setPaintTransition("line-translate", options)
   }
 
-  fun setLineTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>) {
+  fun setLineTranslateAnchor(translateAnchor: LayerProperty<TranslateAnchor>) {
     setPaintProperty("line-translate-anchor", translateAnchor)
   }
 
-  fun setLineWidth(width: CompiledExpression<DpValue>) {
+  fun setLineWidth(width: LayerProperty<DpValue>) {
     setPaintProperty("line-width", width)
   }
 
@@ -305,7 +304,7 @@ internal class LineLayer(id: String, source: VectorSource) : FeatureLayer(id, so
     setPaintTransition("line-width", options)
   }
 
-  fun setLineGapWidth(gapWidth: CompiledExpression<DpValue>) {
+  fun setLineGapWidth(gapWidth: LayerProperty<DpValue>) {
     setPaintProperty("line-gap-width", gapWidth)
   }
 
@@ -313,7 +312,7 @@ internal class LineLayer(id: String, source: VectorSource) : FeatureLayer(id, so
     setPaintTransition("line-gap-width", options)
   }
 
-  fun setLineOffset(offset: CompiledExpression<DpValue>) {
+  fun setLineOffset(offset: LayerProperty<DpValue>) {
     setPaintProperty("line-offset", offset)
   }
 
@@ -321,7 +320,7 @@ internal class LineLayer(id: String, source: VectorSource) : FeatureLayer(id, so
     setPaintTransition("line-offset", options)
   }
 
-  fun setLineBlur(blur: CompiledExpression<DpValue>) {
+  fun setLineBlur(blur: LayerProperty<DpValue>) {
     setPaintProperty("line-blur", blur)
   }
 
@@ -329,7 +328,7 @@ internal class LineLayer(id: String, source: VectorSource) : FeatureLayer(id, so
     setPaintTransition("line-blur", options)
   }
 
-  fun setLineDasharray(dasharray: CompiledExpression<VectorValue<Number>>) {
+  fun setLineDasharray(dasharray: LayerProperty<VectorValue<Number>>) {
     setPaintProperty("line-dasharray", dasharray)
   }
 
@@ -337,7 +336,7 @@ internal class LineLayer(id: String, source: VectorSource) : FeatureLayer(id, so
     setPaintTransition("line-dasharray", options)
   }
 
-  fun setLinePattern(pattern: CompiledExpression<ImageValue?>) {
+  fun setLinePattern(pattern: LayerProperty<ImageValue?>) {
     setPaintProperty("line-pattern", pattern)
   }
 
@@ -345,7 +344,7 @@ internal class LineLayer(id: String, source: VectorSource) : FeatureLayer(id, so
     setPaintTransition("line-pattern", options)
   }
 
-  fun setLineGradient(gradient: CompiledExpression<ColorValue>) {
+  fun setLineGradient(gradient: LayerProperty<ColorValue>) {
     setPaintProperty("line-gradient", gradient)
   }
 }

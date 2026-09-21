@@ -2,7 +2,6 @@ package org.maplibre.compose.layers
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.ColorValue
@@ -122,23 +121,23 @@ internal class HillshadeLayer(id: String, val source: RasterDemTileSource) : Lay
 
   override val sourceId: String = source.id
 
-  fun setHillshadeMethod(method: CompiledExpression<HillshadeMethod>) {
+  fun setHillshadeMethod(method: LayerProperty<HillshadeMethod>) {
     setPaintProperty("hillshade-method", method)
   }
 
-  fun setHillshadeIlluminationDirection(direction: CompiledExpression<FloatOrVectorValue<Number>>) {
+  fun setHillshadeIlluminationDirection(direction: LayerProperty<FloatOrVectorValue<Number>>) {
     setPaintProperty("hillshade-illumination-direction", direction)
   }
 
-  fun setHillshadeIlluminationAltitude(altitude: CompiledExpression<FloatOrVectorValue<Number>>) {
+  fun setHillshadeIlluminationAltitude(altitude: LayerProperty<FloatOrVectorValue<Number>>) {
     setPaintProperty("hillshade-illumination-altitude", altitude)
   }
 
-  fun setHillshadeIlluminationAnchor(anchor: CompiledExpression<IlluminationAnchor>) {
+  fun setHillshadeIlluminationAnchor(anchor: LayerProperty<IlluminationAnchor>) {
     setPaintProperty("hillshade-illumination-anchor", anchor)
   }
 
-  fun setHillshadeExaggeration(exaggeration: CompiledExpression<FloatValue>) {
+  fun setHillshadeExaggeration(exaggeration: LayerProperty<FloatValue>) {
     setPaintProperty("hillshade-exaggeration", exaggeration)
   }
 
@@ -146,7 +145,7 @@ internal class HillshadeLayer(id: String, val source: RasterDemTileSource) : Lay
     setPaintTransition("hillshade-exaggeration", options)
   }
 
-  fun setHillshadeShadowColor(shadowColor: CompiledExpression<ColorValue>) {
+  fun setHillshadeShadowColor(shadowColor: LayerProperty<ColorValue>) {
     setPaintProperty("hillshade-shadow-color", shadowColor)
   }
 
@@ -154,7 +153,7 @@ internal class HillshadeLayer(id: String, val source: RasterDemTileSource) : Lay
     setPaintTransition("hillshade-shadow-color", options)
   }
 
-  fun setHillshadeHighlightColor(highlightColor: CompiledExpression<ColorValue>) {
+  fun setHillshadeHighlightColor(highlightColor: LayerProperty<ColorValue>) {
     setPaintProperty("hillshade-highlight-color", highlightColor)
   }
 
@@ -162,7 +161,7 @@ internal class HillshadeLayer(id: String, val source: RasterDemTileSource) : Lay
     setPaintTransition("hillshade-highlight-color", options)
   }
 
-  fun setHillshadeAccentColor(accentColor: CompiledExpression<ColorValue>) {
+  fun setHillshadeAccentColor(accentColor: LayerProperty<ColorValue>) {
     setPaintProperty("hillshade-accent-color", accentColor)
   }
 
@@ -170,7 +169,7 @@ internal class HillshadeLayer(id: String, val source: RasterDemTileSource) : Lay
     setPaintTransition("hillshade-accent-color", options)
   }
 
-  fun setResampling(resampling: CompiledExpression<RasterResampling>) {
+  fun setResampling(resampling: LayerProperty<RasterResampling>) {
     setPaintProperty("resampling", resampling)
   }
 }

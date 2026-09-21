@@ -51,6 +51,7 @@ import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.LayerHandle
+import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.overlay.attributions
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
@@ -248,7 +249,7 @@ class MapPresentationTest {
         val feature = Feature(Point(Position(0.0, 0.0)), buildJsonObject { put("cluster_id", 1) })
         val query = async { runCatching { handle.getClusterExpansionZoom(feature) } }
         started.await()
-        layer.setBackgroundOpacity(const(0.5f).compile(ExpressionContext.None))
+        layer.setBackgroundOpacity((const(0.5f).compile(ExpressionContext.None)).asLayerProperty())
         val next =
           DesiredStyleRevision(
             if (replaceSource)

@@ -17,6 +17,7 @@ import org.maplibre.compose.expressions.dsl.eq
 import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.expressions.dsl.switch
 import org.maplibre.compose.layers.FillLayer
+import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.install
 import org.maplibre.compose.style.uninstall
@@ -52,7 +53,7 @@ class CustomGeometrySourceRenderingTest {
           }
         fixture.state.style.sources.add(source)
         val layer = FillLayer("custom-geometry-fill", source)
-        layer.setFillColor(const(Color.Blue).compile(ExpressionContext.None))
+        layer.setFillColor((const(Color.Blue).compile(ExpressionContext.None)).asLayerProperty())
         style.install(layer)
 
         fixture.pumpUntilPixel("the custom geometry polygon to render", CENTER, CENTER, BLUE)
@@ -74,7 +75,7 @@ class CustomGeometrySourceRenderingTest {
       fixture.state.style.sources.add(source)
       val layer = FillLayer("custom-geometry-fill", source)
       layer.sourceLayer = "ignored"
-      layer.setFillColor(const(Color.Blue).compile(ExpressionContext.None))
+      layer.setFillColor((const(Color.Blue).compile(ExpressionContext.None)).asLayerProperty())
       style.install(layer)
 
       fixture.pumpUntilPixel(
@@ -142,11 +143,12 @@ class CustomGeometrySourceRenderingTest {
     val handle = assertIs<CustomGeometrySourceHandle>(state.style.sources.add(source))
     val layer = FillLayer("custom-geometry-fill", source)
     layer.setFillColor(
-      switch(
-          condition(test = feature["name"] eq const(SECOND_NAME), output = const(Color.Red)),
-          fallback = const(Color.Blue),
-        )
-        .compile(ExpressionContext.None)
+      (switch(
+            condition(test = feature["name"] eq const(SECOND_NAME), output = const(Color.Red)),
+            fallback = const(Color.Blue),
+          )
+          .compile(ExpressionContext.None))
+        .asLayerProperty()
     )
     assertNotNull(style).install(layer)
     pumpUntilPixel("the provider's first features to render", CENTER, CENTER, BLUE)

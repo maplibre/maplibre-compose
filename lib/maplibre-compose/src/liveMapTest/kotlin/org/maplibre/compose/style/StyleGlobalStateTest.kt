@@ -21,6 +21,7 @@ import org.maplibre.compose.expressions.dsl.globalState
 import org.maplibre.compose.expressions.value.LineCap
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.LineLayer
+import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.sources.VectorSource
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RgbaPixel
@@ -75,11 +76,15 @@ class StyleGlobalStateTest {
       val binding = assertNotNull(fixture.style)
       val source = assertIs<VectorSource>(binding.getSource("points"))
       val layer = CircleLayer("circle", source)
-      layer.setCircleRadius(const(48.dp).compile(ExpressionContext.None))
+      layer.setCircleRadius((const(48.dp).compile(ExpressionContext.None)).asLayerProperty())
       layer.setCircleColor(
-        globalState("color").convertToColor(const(Color.Red)).compile(ExpressionContext.None)
+        (globalState("color").convertToColor(const(Color.Red)).compile(ExpressionContext.None))
+          .asLayerProperty()
       )
-      layer.setFilter(globalState("show").asBoolean(const(true)).compile(ExpressionContext.None))
+      layer.setFilter(
+        (globalState("show").asBoolean(const(true)).compile(ExpressionContext.None))
+          .asLayerProperty()
+      )
       binding.install(layer)
       val state = fixture.state.style.globalState
       fixture.pumpUntilPixel("default color", 256, 256, RED)
@@ -102,9 +107,13 @@ class StyleGlobalStateTest {
       val binding = assertNotNull(fixture.style)
       val source = assertIs<VectorSource>(binding.getSource("line"))
       val layer = LineLayer("line", source)
-      layer.setLineWidth(const(40.dp).compile(ExpressionContext.None))
-      layer.setLineCap(globalState("cap").asEnum<LineCap>().compile(ExpressionContext.None))
-      layer.setLineGradient(globalState("color").convertToColor().compile(ExpressionContext.None))
+      layer.setLineWidth((const(40.dp).compile(ExpressionContext.None)).asLayerProperty())
+      layer.setLineCap(
+        (globalState("cap").asEnum<LineCap>().compile(ExpressionContext.None)).asLayerProperty()
+      )
+      layer.setLineGradient(
+        (globalState("color").convertToColor().compile(ExpressionContext.None)).asLayerProperty()
+      )
       binding.install(layer)
       val state = fixture.state.style.globalState
       fixture.pumpUntilPixel("default line gradient", 256, 256, RED)

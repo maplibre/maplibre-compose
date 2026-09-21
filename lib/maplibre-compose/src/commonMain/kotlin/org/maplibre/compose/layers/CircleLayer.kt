@@ -5,7 +5,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
@@ -178,15 +177,15 @@ internal class CircleLayer(id: String, source: VectorSource) : FeatureLayer(id, 
       setSourceLayerProperty(value)
     }
 
-  override fun setFilter(filter: CompiledExpression<BooleanValue>) {
+  override fun setFilter(filter: LayerProperty<BooleanValue>) {
     setFilterExpression(filter)
   }
 
-  fun setCircleSortKey(sortKey: CompiledExpression<FloatValue>) {
+  fun setCircleSortKey(sortKey: LayerProperty<FloatValue>) {
     setLayoutProperty("circle-sort-key", sortKey)
   }
 
-  fun setCircleRadius(radius: CompiledExpression<DpValue>) {
+  fun setCircleRadius(radius: LayerProperty<DpValue>) {
     setPaintProperty("circle-radius", radius)
   }
 
@@ -194,7 +193,7 @@ internal class CircleLayer(id: String, source: VectorSource) : FeatureLayer(id, 
     setPaintTransition("circle-radius", options)
   }
 
-  fun setCircleColor(color: CompiledExpression<ColorValue>) {
+  fun setCircleColor(color: LayerProperty<ColorValue>) {
     setPaintProperty("circle-color", color)
   }
 
@@ -202,7 +201,7 @@ internal class CircleLayer(id: String, source: VectorSource) : FeatureLayer(id, 
     setPaintTransition("circle-color", options)
   }
 
-  fun setCircleBlur(blur: CompiledExpression<FloatValue>) {
+  fun setCircleBlur(blur: LayerProperty<FloatValue>) {
     setPaintProperty("circle-blur", blur)
   }
 
@@ -210,7 +209,7 @@ internal class CircleLayer(id: String, source: VectorSource) : FeatureLayer(id, 
     setPaintTransition("circle-blur", options)
   }
 
-  fun setCircleOpacity(opacity: CompiledExpression<FloatValue>) {
+  fun setCircleOpacity(opacity: LayerProperty<FloatValue>) {
     setPaintProperty("circle-opacity", opacity)
   }
 
@@ -218,7 +217,7 @@ internal class CircleLayer(id: String, source: VectorSource) : FeatureLayer(id, 
     setPaintTransition("circle-opacity", options)
   }
 
-  fun setCircleTranslate(translate: CompiledExpression<DpOffsetValue>) {
+  fun setCircleTranslate(translate: LayerProperty<DpOffsetValue>) {
     setPaintProperty("circle-translate", translate)
   }
 
@@ -226,19 +225,19 @@ internal class CircleLayer(id: String, source: VectorSource) : FeatureLayer(id, 
     setPaintTransition("circle-translate", options)
   }
 
-  fun setCircleTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>) {
+  fun setCircleTranslateAnchor(translateAnchor: LayerProperty<TranslateAnchor>) {
     setPaintProperty("circle-translate-anchor", translateAnchor)
   }
 
-  fun setCirclePitchScale(pitchScale: CompiledExpression<CirclePitchScale>) {
+  fun setCirclePitchScale(pitchScale: LayerProperty<CirclePitchScale>) {
     setPaintProperty("circle-pitch-scale", pitchScale)
   }
 
-  fun setCirclePitchAlignment(pitchAlignment: CompiledExpression<CirclePitchAlignment>) {
+  fun setCirclePitchAlignment(pitchAlignment: LayerProperty<CirclePitchAlignment>) {
     setPaintProperty("circle-pitch-alignment", pitchAlignment)
   }
 
-  fun setCircleStrokeWidth(strokeWidth: CompiledExpression<DpValue>) {
+  fun setCircleStrokeWidth(strokeWidth: LayerProperty<DpValue>) {
     setPaintProperty("circle-stroke-width", strokeWidth)
   }
 
@@ -246,7 +245,7 @@ internal class CircleLayer(id: String, source: VectorSource) : FeatureLayer(id, 
     setPaintTransition("circle-stroke-width", options)
   }
 
-  fun setCircleStrokeColor(strokeColor: CompiledExpression<ColorValue>) {
+  fun setCircleStrokeColor(strokeColor: LayerProperty<ColorValue>) {
     setPaintProperty("circle-stroke-color", strokeColor)
   }
 
@@ -254,7 +253,7 @@ internal class CircleLayer(id: String, source: VectorSource) : FeatureLayer(id, 
     setPaintTransition("circle-stroke-color", options)
   }
 
-  fun setCircleStrokeOpacity(strokeOpacity: CompiledExpression<FloatValue>) {
+  fun setCircleStrokeOpacity(strokeOpacity: LayerProperty<FloatValue>) {
     setPaintProperty("circle-stroke-opacity", strokeOpacity)
   }
 

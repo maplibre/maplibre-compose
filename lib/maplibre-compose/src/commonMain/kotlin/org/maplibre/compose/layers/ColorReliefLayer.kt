@@ -1,7 +1,6 @@
 package org.maplibre.compose.layers
 
 import androidx.compose.runtime.Composable
-import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.ColorValue
@@ -76,11 +75,11 @@ internal class ColorReliefLayer(id: String, val source: RasterDemTileSource) : L
 
   override val sourceId: String = source.id
 
-  fun setColorReliefColor(color: CompiledExpression<ColorValue>) {
+  fun setColorReliefColor(color: LayerProperty<ColorValue>) {
     setPaintProperty("color-relief-color", color)
   }
 
-  fun setColorReliefOpacity(opacity: CompiledExpression<FloatValue>) {
+  fun setColorReliefOpacity(opacity: LayerProperty<FloatValue>) {
     setPaintProperty("color-relief-opacity", opacity)
   }
 
@@ -88,7 +87,7 @@ internal class ColorReliefLayer(id: String, val source: RasterDemTileSource) : L
     setPaintTransition("color-relief-opacity", options)
   }
 
-  fun setResampling(resampling: CompiledExpression<RasterResampling>) {
+  fun setResampling(resampling: LayerProperty<RasterResampling>) {
     setPaintProperty("resampling", resampling)
   }
 }

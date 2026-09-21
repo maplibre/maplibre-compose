@@ -18,13 +18,13 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.layers.BackgroundLayer
-import org.maplibre.compose.layers.BitmapKey
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.map.FakeImageBitmap
 import org.maplibre.compose.sources.GeoJsonData
@@ -56,7 +56,21 @@ class StyleCommitTest {
     Fixture(this).use { fixture ->
       fixture.setContent { CircleLayer("points", rememberGeoJsonSource(data(1)), visible = true) }
       val first = fixture.revisions.single()
-      val bitmap = FakeImageBitmap(2, 2)
+      var pixelReads = 0
+      val bitmap =
+        object : androidx.compose.ui.graphics.ImageBitmap by FakeImageBitmap(2, 2) {
+          override fun readPixels(
+            buffer: IntArray,
+            startX: Int,
+            startY: Int,
+            width: Int,
+            height: Int,
+            bufferOffset: Int,
+            stride: Int,
+          ) {
+            pixelReads++
+          }
+        }
       assertFailsWith<IllegalStateException> {
         fixture.setContent {
           CircleLayer("points", rememberGeoJsonSource(data(2)), visible = true)
@@ -65,13 +79,7 @@ class StyleCommitTest {
         }
       }
       assertEquals(listOf(first), fixture.revisions)
-      assertEquals(first, fixture.root.snapshotRevision())
-      var recaptured = false
-      fixture.root.images.bitmap(BitmapKey(bitmap, false, null)) {
-        recaptured = true
-        StyleImageCache.Content(ImageSnapshot.capture(bitmap), false, null)
-      }
-      assertTrue(recaptured, "an abandoned evaluation must not leave a cached bitmap request")
+      assertEquals(0, pixelReads, "abandoned declarations must not capture pixels")
     }
   }
 
@@ -92,7 +100,13 @@ class StyleCommitTest {
 
   private class Fixture(private val scope: TestScope) : AutoCloseable {
     val revisions = mutableListOf<DesiredStyleRevision>()
-    val root = StyleNode(RecordingStyleBinding(), publish = { revisions += it })
+    private val declarations = Channel<StyleDeclaration>(Channel.CONFLATED)
+    private val owner =
+      scope.backgroundScope.launch {
+        StyleCompositionOwner().run(declarations) { revisions += it }
+      }
+    val root =
+      StyleNode(RecordingStyleBinding(), publish = { declarations.trySend(it).getOrThrow() })
     private val clock = BroadcastFrameClock()
     private val recomposer = Recomposer(scope.backgroundScope.coroutineContext + clock)
     private val composition = Composition(MapNodeApplier(root), recomposer)
@@ -110,6 +124,7 @@ class StyleCommitTest {
           StyleContent(root, content)
         }
       }
+      scope.runCurrent()
     }
 
     fun frame() {
@@ -120,6 +135,8 @@ class StyleCommitTest {
     }
 
     override fun close() {
+      owner.cancel()
+      declarations.cancel()
       root.close()
       composition.dispose()
       recomposer.cancel()

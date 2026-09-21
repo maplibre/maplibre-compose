@@ -7,15 +7,14 @@ internal class StyleNode(
   val style: StyleBinding,
   replaceableSourceIds: Set<String> = emptySet(),
   replaceableLayerIds: Set<String> = emptySet(),
-  private val publish: (DesiredStyleRevision) -> Unit = {},
+  private val publish: (StyleDeclaration) -> Unit = {},
 ) : MapNode {
   val children = mutableListOf<MapNode>()
   private val baseLayerIds = style.layerIds().toSet() - replaceableLayerIds
   private val baseSources =
     style.getSources().filterNot { it.id in replaceableSourceIds }.associateBy { it.id }
   private val sourceIds = IncrementingId("source")
-  val images = StyleImageCache()
-  private var previous: DesiredStyleRevision? = null
+  private var previous: StyleDeclaration? = null
   private var closed = false
 
   fun nextSourceId(): String = sourceIds.next()
@@ -24,20 +23,18 @@ internal class StyleNode(
 
   fun commit() {
     if (closed || !style.isLoaded) return
-    val revision = snapshotRevision()
-    images.retain(children.filterIsInstance<StyleImageNode>())
-    if (revision != previous) {
-      previous = revision
-      publish(revision)
+    val declaration = snapshotDeclaration()
+    if (declaration != previous) {
+      previous = declaration
+      publish(declaration)
     }
   }
 
   fun close() {
     closed = true
-    images.clear()
   }
 
-  internal fun snapshotRevision(): DesiredStyleRevision {
+  internal fun snapshotDeclaration(): StyleDeclaration {
     val environment = children.filterIsInstance<StyleEnvironmentNode>().singleOrNull()
     val layerNodes = children.filterIsInstance<LayerNode<*>>()
     val sources =
@@ -56,29 +53,26 @@ internal class StyleNode(
         "Layer ID '${it.layer.id}' already exists in base style"
       }
     }
-    return DesiredStyleRevision(
+    return StyleDeclaration(
       animatorDurationScale = environment?.animatorDurationScale ?: 1f,
       fontScale = environment?.fontScale,
       sources = sources.map { it.definition() },
       layers =
         layerNodes.map { node ->
-          DesiredStyleLayer(
-            definition = node.layer.definition(),
-            anchor = node.anchor,
-            onClick = node.onClick,
-            onLongClick = node.onLongClick,
-            onDoubleClick = node.onDoubleClick,
-            hitPadding = node.hitPadding,
-            registration = node,
-            clickGroup = node.clickGroup,
+          DeclaredStyleLayer(
+            DesiredStyleLayer(
+              definition = node.layer.definition(),
+              anchor = node.anchor,
+              onClick = node.onClick,
+              onLongClick = node.onLongClick,
+              onDoubleClick = node.onDoubleClick,
+              hitPadding = node.hitPadding,
+              registration = node.registration,
+              clickGroup = node.clickGroup,
+            ),
+            node.layer.declaredImageProperties(),
           )
         },
-      images =
-        children
-          .filterIsInstance<StyleImageNode>()
-          .mapNotNull { it.definition }
-          .distinctBy { it.id },
-      imagesPending = children.filterIsInstance<StyleImageNode>().any { it.definition == null },
     )
   }
 }
@@ -86,10 +80,4 @@ internal class StyleNode(
 internal class StyleEnvironmentNode : MapNode {
   var animatorDurationScale: Float = 1f
   var fontScale: Float? = null
-}
-
-/** A null definition denotes painter work that has not yet reached a committed property. */
-internal class StyleImageNode : MapNode {
-  var request: StyleImageCache.Request? = null
-  var definition: StyleImageDefinition? = null
 }

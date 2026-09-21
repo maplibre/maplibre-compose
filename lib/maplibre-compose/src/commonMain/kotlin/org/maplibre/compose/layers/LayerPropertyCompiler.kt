@@ -8,7 +8,6 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.TextUnitType
 import org.maplibre.compose.expressions.ast.BitmapLiteral
-import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.ast.NullLiteral
@@ -17,12 +16,11 @@ import org.maplibre.compose.expressions.ast.UnitConversion
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.ExpressionValue
 import org.maplibre.compose.expressions.value.FloatValue
-import org.maplibre.compose.style.LocalStyleNode
-import org.maplibre.compose.style.StyleNode
+import org.maplibre.compose.style.StyleImageRequest
 import org.maplibre.compose.style.styleFontScale
+import org.maplibre.compose.util.toStyleJson
 
 internal class LayerPropertyCompiler(
-  private val styleNode: StyleNode,
   private val density: Density,
   private val layoutDirection: LayoutDirection,
   private val fontScale: Expression<FloatValue>,
@@ -34,15 +32,27 @@ internal class LayerPropertyCompiler(
    * property unset.
    */
   @Composable
-  operator fun <T : ExpressionValue?> invoke(expression: Expression<T>?): CompiledExpression<T> {
+  operator fun <T : ExpressionValue?> invoke(expression: Expression<T>?): LayerProperty<T> {
     val expression = expression ?: NullLiteral.cast()
     val images =
-      rememberLayerPropertyImages(expression, styleNode, density, layoutDirection)
-        ?: return NullLiteral.cast()
-    return remember(this, expression, images) { expression.compile(context(images)) }
+      rememberLayerPropertyImages(
+        listOfNotNull(expression, emScale, spScale, fontScale),
+        density,
+        layoutDirection,
+      )
+    return remember(this, expression, images) {
+      if (images.requests.isEmpty()) {
+        val value = expression.compile(context(images, emptyMap())).toStyleJson()
+        LayerProperty { value }
+      } else {
+        LayerProperty(images.requests) { resolved ->
+          expression.compile(context(images, resolved)).toStyleJson()
+        }
+      }
+    }
   }
 
-  private fun context(images: LayerPropertyImages) =
+  private fun context(images: LayerPropertyImages, resolved: Map<StyleImageRequest, String>) =
     object : ExpressionContext {
       private var seenTextUnitType: TextUnitType? = null
 
@@ -70,9 +80,11 @@ internal class LayerPropertyCompiler(
             divide = true,
           )
 
-      override fun resolveBitmap(bitmap: BitmapLiteral): String = images.resolve(bitmap)
+      override fun resolveBitmap(bitmap: BitmapLiteral): String =
+        resolved.getValue(images.bitmaps.getValue(bitmap))
 
-      override fun resolvePainter(painter: PainterLiteral): String = images.resolve(painter)
+      override fun resolvePainter(painter: PainterLiteral): String =
+        resolved.getValue(images.painters.getValue(painter))
     }
 }
 
@@ -81,11 +93,10 @@ internal fun rememberPropertyCompiler(
   emScale: Expression<FloatValue>? = null,
   spScale: Expression<FloatValue>? = null,
 ): LayerPropertyCompiler {
-  val styleNode = LocalStyleNode.current
   val density = LocalDensity.current
   val layoutDirection = LocalLayoutDirection.current
   val fontScale = styleFontScale()
-  return remember(styleNode, density, layoutDirection, fontScale, emScale, spScale) {
-    LayerPropertyCompiler(styleNode, density, layoutDirection, fontScale, emScale, spScale)
+  return remember(density, layoutDirection, fontScale, emScale, spScale) {
+    LayerPropertyCompiler(density, layoutDirection, fontScale, emScale, spScale)
   }
 }

@@ -3,13 +3,11 @@ package org.maplibre.compose.layers
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
-import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.DpValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.ImageValue
 import org.maplibre.compose.style.TransitionOptions
-import org.maplibre.compose.util.toStyleJson
 import org.maplibre.spatialk.geojson.Position
 
 internal class LocationIndicatorLayer(id: String) : Layer(id) {
@@ -32,24 +30,24 @@ internal class LocationIndicatorLayer(id: String) : Layer(id) {
   fun setBearingAccuracyColorTransition(options: TransitionOptions) =
     setPaintTransition("bearing-accuracy-color", options)
 
-  fun setBearingAccuracy(value: CompiledExpression<FloatValue>) =
+  fun setBearingAccuracy(value: LayerProperty<FloatValue>) =
     setPaintProperty("bearing-accuracy", value)
 
-  fun setBearingAccuracyRadius(value: CompiledExpression<DpValue>) =
+  fun setBearingAccuracyRadius(value: LayerProperty<DpValue>) =
     setPaintProperty("bearing-accuracy-radius", value)
 
-  fun setBearingAccuracyColor(value: CompiledExpression<ColorValue>) =
+  fun setBearingAccuracyColor(value: LayerProperty<ColorValue>) =
     setPaintProperty("bearing-accuracy-color", value)
 
-  fun setTopImage(topImage: CompiledExpression<ImageValue?>) {
+  fun setTopImage(topImage: LayerProperty<ImageValue?>) {
     setImageProperty("top-image", topImage)
   }
 
-  fun setBearingImage(bearingImage: CompiledExpression<ImageValue?>) {
+  fun setBearingImage(bearingImage: LayerProperty<ImageValue?>) {
     setImageProperty("bearing-image", bearingImage)
   }
 
-  fun setShadowImage(shadowImage: CompiledExpression<ImageValue?>) {
+  fun setShadowImage(shadowImage: LayerProperty<ImageValue?>) {
     setImageProperty("shadow-image", shadowImage)
   }
 
@@ -58,23 +56,28 @@ internal class LocationIndicatorLayer(id: String) : Layer(id) {
    * even the constant `["image", name]` wrapper the DSL compiles to — aborts the renderer with
    * `bad_variant_access` on the first frame. Only a plain image name is safe to write.
    */
-  private fun setImageProperty(name: String, image: CompiledExpression<ImageValue?>) {
-    when (val json = image.toStyleJson()) {
-      is JsonNull,
-      is JsonPrimitive -> setLayoutProperty(name, json)
-      is JsonArray ->
-        if (
-          json.size == 2 &&
-            (json[0] as? JsonPrimitive)?.content == "image" &&
-            json[1] is JsonPrimitive
-        ) {
-          setLayoutProperty(name, json[1])
-        } else {
-          skipUnsupportedProperty(name, image, "MapLibre Native reads only a constant image here")
-        }
-      else ->
-        skipUnsupportedProperty(name, image, "MapLibre Native reads only a constant image here")
+  private fun setImageProperty(name: String, image: LayerProperty<ImageValue?>) {
+    val sample = image.resolve(image.images.associateWith { "" })
+    val supported =
+      sample is JsonNull ||
+        sample is JsonPrimitive ||
+        sample is JsonArray &&
+          sample.size == 2 &&
+          (sample[0] as? JsonPrimitive)?.content == "image" &&
+          sample[1] is JsonPrimitive
+    if (!supported) {
+      skipUnsupportedProperty(name, image, "MapLibre Native reads only a constant image here")
+      return
     }
+    setLayoutProperty(
+      name,
+      LayerProperty<ImageValue?>(image.images) { resolved ->
+        when (val json = image.resolve(resolved)) {
+          is JsonArray -> json[1]
+          else -> json
+        }
+      },
+    )
   }
 
   fun setLocation(location: Position) {
@@ -91,39 +94,39 @@ internal class LocationIndicatorLayer(id: String) : Layer(id) {
     )
   }
 
-  fun setBearing(bearing: CompiledExpression<FloatValue>) {
+  fun setBearing(bearing: LayerProperty<FloatValue>) {
     setPaintProperty("bearing", bearing)
   }
 
-  fun setAccuracyRadius(accuracyRadius: CompiledExpression<FloatValue>) {
+  fun setAccuracyRadius(accuracyRadius: LayerProperty<FloatValue>) {
     setPaintProperty("accuracy-radius", accuracyRadius)
   }
 
-  fun setAccuracyRadiusColor(accuracyRadiusColor: CompiledExpression<ColorValue>) {
+  fun setAccuracyRadiusColor(accuracyRadiusColor: LayerProperty<ColorValue>) {
     setPaintProperty("accuracy-radius-color", accuracyRadiusColor)
   }
 
-  fun setAccuracyRadiusBorderColor(accuracyRadiusBorderColor: CompiledExpression<ColorValue>) {
+  fun setAccuracyRadiusBorderColor(accuracyRadiusBorderColor: LayerProperty<ColorValue>) {
     setPaintProperty("accuracy-radius-border-color", accuracyRadiusBorderColor)
   }
 
-  fun setTopImageSize(topImageSize: CompiledExpression<FloatValue>) {
+  fun setTopImageSize(topImageSize: LayerProperty<FloatValue>) {
     setPaintProperty("top-image-size", topImageSize)
   }
 
-  fun setBearingImageSize(bearingImageSize: CompiledExpression<FloatValue>) {
+  fun setBearingImageSize(bearingImageSize: LayerProperty<FloatValue>) {
     setPaintProperty("bearing-image-size", bearingImageSize)
   }
 
-  fun setShadowImageSize(shadowImageSize: CompiledExpression<FloatValue>) {
+  fun setShadowImageSize(shadowImageSize: LayerProperty<FloatValue>) {
     setPaintProperty("shadow-image-size", shadowImageSize)
   }
 
-  fun setImageTiltDisplacement(imageTiltDisplacement: CompiledExpression<FloatValue>) {
+  fun setImageTiltDisplacement(imageTiltDisplacement: LayerProperty<FloatValue>) {
     setPaintProperty("image-tilt-displacement", imageTiltDisplacement)
   }
 
-  fun setPerspectiveCompensation(perspectiveCompensation: CompiledExpression<FloatValue>) {
+  fun setPerspectiveCompensation(perspectiveCompensation: LayerProperty<FloatValue>) {
     setPaintProperty("perspective-compensation", perspectiveCompensation)
   }
 }
