@@ -17,17 +17,11 @@ internal class SourceInstallation(
   definition: SourceDefinition,
 ) {
   private val current = AtomicReference(definition)
-  private val geometryProvider =
-    AtomicReference((definition as? SourceDefinition.CustomGeometry)?.provider)
-  private val vectorProvider =
-    AtomicReference((definition as? SourceDefinition.CustomVector)?.provider)
   private val forwardingGeometryProvider = GeometryTileProvider { tile ->
-    checkNotNull(geometryProvider.load()) { "Custom geometry source '$id' has no provider" }
-      .loadTile(tile)
+    (current.load() as SourceDefinition.CustomGeometry).provider.loadTile(tile)
   }
   private val forwardingVectorProvider = VectorTileProvider { tile ->
-    checkNotNull(vectorProvider.load()) { "Custom vector source '$id' has no provider" }
-      .loadTile(tile)
+    (current.load() as SourceDefinition.CustomVector).provider.loadTile(tile)
   }
 
   val id: String = definition.id
@@ -43,7 +37,7 @@ internal class SourceInstallation(
     check(added) { "Source '$id' was not added because its style is no longer loaded" }
   }
 
-  suspend fun update(definition: SourceDefinition) {
+  fun update(definition: SourceDefinition) {
     style.requireCurrent()
     require(definition.id == id) { "A source handle cannot change resource identity" }
     val previousDefinition = current.load()
@@ -54,7 +48,6 @@ internal class SourceInstallation(
           "GeoJSON source options cannot change without replacing source '$id'"
         }
         style.submitGeoJsonData(id, definition.data, definition.options)
-        current.store(definition)
       }
       previousDefinition is SourceDefinition.Image && definition is SourceDefinition.Image -> {
         val previous = previousDefinition
@@ -70,26 +63,22 @@ internal class SourceInstallation(
               (definition.value["url"] as? JsonPrimitive)?.content.orEmpty(),
             )
         }
-        current.store(definition)
       }
       previousDefinition is SourceDefinition.CustomGeometry &&
         definition is SourceDefinition.CustomGeometry -> {
         require(previousDefinition.options == definition.options) {
           "Custom geometry source options cannot change without replacing source '$id'"
         }
-        geometryProvider.store(definition.provider)
-        current.store(definition)
       }
       previousDefinition is SourceDefinition.CustomVector &&
         definition is SourceDefinition.CustomVector -> {
         require(previousDefinition.options == definition.options) {
           "Custom vector source options cannot change without replacing source '$id'"
         }
-        vectorProvider.store(definition.provider)
-        current.store(definition)
       }
       else -> error("Source '$id' changed type or immutable options while it was installed")
     }
+    current.store(definition)
   }
 
   fun remove() {

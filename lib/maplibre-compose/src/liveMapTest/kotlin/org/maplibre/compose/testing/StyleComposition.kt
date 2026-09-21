@@ -13,13 +13,17 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.MapNodeApplier
 import org.maplibre.compose.style.RecordingStyleBinding
+import org.maplibre.compose.style.StyleCompositionOwner
 import org.maplibre.compose.style.StyleContent
+import org.maplibre.compose.style.StyleDeclaration
 import org.maplibre.compose.style.StyleNode
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.util.MaplibreComposable
@@ -41,8 +45,22 @@ internal suspend fun composeStyle(
   val frameClock = BroadcastFrameClock()
   withContext(frameClock) {
     withRunningRecomposer { recomposer ->
-      val rootNode = StyleNode(style)
       var revision: DesiredStyleRevision? = null
+      val declarations = Channel<StyleDeclaration>(Channel.CONFLATED)
+      val owner = launch {
+        StyleCompositionOwner().run(declarations) {
+          revision = it
+          onRevision(it)
+        }
+      }
+      val rootNode =
+        StyleNode(
+          style,
+          publish = {
+            revision = null
+            declarations.trySend(it).getOrThrow()
+          },
+        )
       val composition = Composition(MapNodeApplier(rootNode), recomposer)
       try {
         composition.setContent {
@@ -54,10 +72,6 @@ internal suspend fun composeStyle(
           ) {
             StyleContent(
               rootNode,
-              publish = {
-                revision = it
-                onRevision(it)
-              },
               content = content,
             )
           }
@@ -69,7 +83,10 @@ internal suspend fun composeStyle(
             do {
               if (frameClock.hasAwaiters) frameClock.sendFrame(frame++)
               delay(1)
-            } while (recomposer.hasPendingWork || revision?.let(awaitRevision) != true)
+            } while (
+              recomposer.hasPendingWork ||
+                revision?.let { !it.imagesPending && awaitRevision(it) } != true
+            )
             recomposer.awaitIdle()
           }
         }
@@ -82,6 +99,9 @@ internal suspend fun composeStyle(
           reconciler.apply(style, requireNotNull(revision))
         }
       } finally {
+        owner.cancel()
+        declarations.cancel()
+        rootNode.close()
         composition.dispose()
       }
     }

@@ -16,6 +16,7 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.eq
 import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.layers.CircleLayer
+import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.install
 import org.maplibre.compose.style.uninstall
@@ -45,8 +46,8 @@ class CustomVectorTileSourceTest {
       fixture.state.style.sources.add(source)
       val layer = CircleLayer("custom-vector-points", source)
       layer.sourceLayer = SOURCE_LAYER
-      layer.setCircleRadius(const(48.dp).compile(ExpressionContext.None))
-      layer.setCircleColor(const(Color.Blue).compile(ExpressionContext.None))
+      layer.setCircleRadius((const(48.dp).compile(ExpressionContext.None)).asLayerProperty())
+      layer.setCircleColor((const(Color.Blue).compile(ExpressionContext.None)).asLayerProperty())
       style.install(layer)
 
       fixture.pumpUntilPixel("the custom MVT point to render", CENTER, CENTER, BLUE)

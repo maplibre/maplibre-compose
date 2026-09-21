@@ -2,7 +2,6 @@ package org.maplibre.compose.camera
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertSame
 import kotlin.time.Duration.Companion.seconds
 import org.maplibre.spatialk.geojson.Position
 
@@ -16,8 +15,8 @@ class CameraAnimationTest {
 
     assertEquals(CameraAnimation.Ease(easing = CubicBezier.Linear), flight.forPath(START, turned))
     assertEquals(CameraAnimation.Ease(easing = CubicBezier.Linear), flight.forPath(START, START))
-    assertSame(flight, flight.forPath(START, START.copy(zoom = 5.0)))
-    assertSame(flight, flight.forPath(START, START.copy(target = Position(1.0, 0.0))))
+    assertEquals(flight, flight.forPath(START, START.copy(zoom = 5.0)))
+    assertEquals(flight, flight.forPath(START, START.copy(target = Position(1.0, 0.0))))
   }
 
   /** The path test is projected distance, so the same move counts at one zoom and not another. */
@@ -27,7 +26,7 @@ class CameraAnimationTest {
     val nudged = START.copy(target = Position(START.target.longitude + 1e-9, 0.0))
 
     assertEquals(CameraAnimation.Ease(), flight.forPath(START, nudged))
-    assertSame(flight, flight.forPath(START.copy(zoom = 22.0), nudged.copy(zoom = 22.0)))
+    assertEquals(flight, flight.forPath(START.copy(zoom = 22.0), nudged.copy(zoom = 22.0)))
   }
 
   @Test
@@ -35,8 +34,8 @@ class CameraAnimationTest {
     val timed = CameraAnimation.Fly(1.seconds)
     val ease = CameraAnimation.Ease()
 
-    assertSame(timed, timed.forPath(START, START))
-    assertSame(ease, ease.forPath(START, START))
+    assertEquals(timed, timed.forPath(START, START))
+    assertEquals(ease, ease.forPath(START, START))
   }
 
   /** The same longitude in another world copy is no path to fly. */

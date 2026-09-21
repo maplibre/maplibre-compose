@@ -15,6 +15,7 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.CircleLayer
+import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.resource.MapResourceConfig
@@ -230,8 +231,8 @@ class NativeMapSnapshotterTest {
         val source = GeoJsonSource("points", POINT_DATA, GeoJsonOptions(synchronousUpdate = true))
         val handle = assertIs<GeoJsonSourceHandle>(snapshotter.style.sources.add(source))
         val layer = CircleLayer("imperative-circle", source)
-        layer.setCircleColor(const(Color.Green))
-        layer.setCircleRadius(const(20.dp).compile(ExpressionContext.None))
+        layer.setCircleColor((const(Color.Green)).asLayerProperty())
+        layer.setCircleRadius((const(20.dp).compile(ExpressionContext.None)).asLayerProperty())
         checkNotNull(snapshotter.style.currentLoadedStyle()).install(layer)
         assertEquals(GREEN, snapshotter.capture(request).readPixel(SIZE / 2, SIZE / 2))
 

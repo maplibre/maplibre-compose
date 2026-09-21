@@ -5,7 +5,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
@@ -14,7 +13,6 @@ import org.maplibre.compose.expressions.value.DpOffsetValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.ImageValue
 import org.maplibre.compose.expressions.value.TranslateAnchor
-import org.maplibre.compose.sources.SourceReferenceEffect
 import org.maplibre.compose.sources.VectorSource
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.MaplibreComposable
@@ -131,8 +129,9 @@ public fun FillLayer(
   val compiledTranslateAnchor = compile(translateAnchor)
   val compiledOutlineColor = compile(outlineColor)
 
-  SourceReferenceEffect(source)
   LayerNode(
+    id = id,
+    source = source,
     factory = { FillLayer(id = id, source = source) },
     recreateKey = sourceLayer,
     update = {
@@ -174,19 +173,19 @@ internal class FillLayer(id: String, source: VectorSource) : FeatureLayer(id, so
       setSourceLayerProperty(value)
     }
 
-  override fun setFilter(filter: CompiledExpression<BooleanValue>) {
+  override fun setFilter(filter: LayerProperty<BooleanValue>) {
     setFilterExpression(filter)
   }
 
-  fun setFillSortKey(sortKey: CompiledExpression<FloatValue>) {
+  fun setFillSortKey(sortKey: LayerProperty<FloatValue>) {
     setLayoutProperty("fill-sort-key", sortKey)
   }
 
-  fun setFillAntialias(antialias: CompiledExpression<BooleanValue>) {
+  fun setFillAntialias(antialias: LayerProperty<BooleanValue>) {
     setPaintProperty("fill-antialias", antialias)
   }
 
-  fun setFillOpacity(opacity: CompiledExpression<FloatValue>) {
+  fun setFillOpacity(opacity: LayerProperty<FloatValue>) {
     setPaintProperty("fill-opacity", opacity)
   }
 
@@ -194,7 +193,7 @@ internal class FillLayer(id: String, source: VectorSource) : FeatureLayer(id, so
     setPaintTransition("fill-opacity", options)
   }
 
-  fun setFillLayerOpacity(layerOpacity: CompiledExpression<FloatValue>) {
+  fun setFillLayerOpacity(layerOpacity: LayerProperty<FloatValue>) {
     setPaintProperty("fill-layer-opacity", layerOpacity)
   }
 
@@ -202,7 +201,7 @@ internal class FillLayer(id: String, source: VectorSource) : FeatureLayer(id, so
     setPaintTransition("fill-layer-opacity", options)
   }
 
-  fun setFillColor(color: CompiledExpression<ColorValue>) {
+  fun setFillColor(color: LayerProperty<ColorValue>) {
     setPaintProperty("fill-color", color)
   }
 
@@ -210,7 +209,7 @@ internal class FillLayer(id: String, source: VectorSource) : FeatureLayer(id, so
     setPaintTransition("fill-color", options)
   }
 
-  fun setFillOutlineColor(outlineColor: CompiledExpression<ColorValue>) {
+  fun setFillOutlineColor(outlineColor: LayerProperty<ColorValue>) {
     setPaintProperty("fill-outline-color", outlineColor)
   }
 
@@ -218,7 +217,7 @@ internal class FillLayer(id: String, source: VectorSource) : FeatureLayer(id, so
     setPaintTransition("fill-outline-color", options)
   }
 
-  fun setFillTranslate(translate: CompiledExpression<DpOffsetValue>) {
+  fun setFillTranslate(translate: LayerProperty<DpOffsetValue>) {
     setPaintProperty("fill-translate", translate)
   }
 
@@ -226,11 +225,11 @@ internal class FillLayer(id: String, source: VectorSource) : FeatureLayer(id, so
     setPaintTransition("fill-translate", options)
   }
 
-  fun setFillTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>) {
+  fun setFillTranslateAnchor(translateAnchor: LayerProperty<TranslateAnchor>) {
     setPaintProperty("fill-translate-anchor", translateAnchor)
   }
 
-  fun setFillPattern(pattern: CompiledExpression<ImageValue?>) {
+  fun setFillPattern(pattern: LayerProperty<ImageValue?>) {
     setPaintProperty("fill-pattern", pattern)
   }
 

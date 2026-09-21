@@ -192,7 +192,7 @@ class LayerPropertyRoundTripTest {
       val style = assertNotNull(it.style, "Errors: ${it.errors}")
 
       val layer = BackgroundLayer("timed")
-      layer.setBackgroundColor(const(Color.Blue).c())
+      layer.setBackgroundColor((const(Color.Blue).c()).asLayerProperty())
       layer.setBackgroundColorTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
       val installation = LayerInstallation(style, layer.definition(), beforeLayerId = "", scale)
 
@@ -316,74 +316,84 @@ class LayerPropertyRoundTripTest {
     val BACKGROUND_CASES =
       listOf<Case<BackgroundLayer>>(
         Case("background-color", """["rgba",0.0,0.0,255.0,1.0]""", "\"rgba(0, 0, 255, 1)\"") {
-          it.setBackgroundColor(const(Color.Blue).c())
+          it.setBackgroundColor((const(Color.Blue).c()).asLayerProperty())
         },
         Case("background-pattern", """["image","tile"]""") {
-          it.setBackgroundPattern(image("tile").c())
+          it.setBackgroundPattern((image("tile").c()).asLayerProperty())
         },
-        Case("background-opacity", "0.5") { it.setBackgroundOpacity(const(0.5f).c()) },
+        Case("background-opacity", "0.5") {
+          it.setBackgroundOpacity((const(0.5f).c()).asLayerProperty())
+        },
         Case("background-color-transition", scaledTransitionJson(700.0, 50.0)) {
-          it.setBackgroundColor(const(Color.Blue).c())
+          it.setBackgroundColor((const(Color.Blue).c()).asLayerProperty())
           it.setBackgroundColorTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
         },
       )
 
     val CIRCLE_CASES =
       listOf<Case<CircleLayer>>(
-        Case("circle-sort-key", "2.0") { it.setCircleSortKey(const(2f).c()) },
-        Case("circle-radius", "8.0") { it.setCircleRadius(const(8.dp).c()) },
+        Case("circle-sort-key", "2.0") { it.setCircleSortKey((const(2f).c()).asLayerProperty()) },
+        Case("circle-radius", "8.0") { it.setCircleRadius((const(8.dp).c()).asLayerProperty()) },
         Case("circle-color", """["rgba",255.0,0.0,0.0,1.0]""", "\"rgba(255, 0, 0, 1)\"") {
-          it.setCircleColor(const(Color.Red).c())
+          it.setCircleColor((const(Color.Red).c()).asLayerProperty())
         },
-        Case("circle-blur", "0.25") { it.setCircleBlur(const(0.25f).c()) },
-        Case("circle-opacity", "0.5") { it.setCircleOpacity(const(0.5f).c()) },
+        Case("circle-blur", "0.25") { it.setCircleBlur((const(0.25f).c()).asLayerProperty()) },
+        Case("circle-opacity", "0.5") { it.setCircleOpacity((const(0.5f).c()).asLayerProperty()) },
         Case("circle-translate", "[1.0,2.0]", """["literal",[1.0,2.0]]""") {
-          it.setCircleTranslate(const(DpOffset(1.dp, 2.dp)).c())
+          it.setCircleTranslate((const(DpOffset(1.dp, 2.dp)).c()).asLayerProperty())
         },
         Case("circle-translate-anchor", "\"viewport\"") {
-          it.setCircleTranslateAnchor(const(TranslateAnchor.Viewport).c())
+          it.setCircleTranslateAnchor((const(TranslateAnchor.Viewport).c()).asLayerProperty())
         },
         Case("circle-pitch-scale", "\"viewport\"") {
-          it.setCirclePitchScale(const(CirclePitchScale.Viewport).c())
+          it.setCirclePitchScale((const(CirclePitchScale.Viewport).c()).asLayerProperty())
         },
         Case("circle-pitch-alignment", "\"map\"") {
-          it.setCirclePitchAlignment(const(CirclePitchAlignment.Map).c())
+          it.setCirclePitchAlignment((const(CirclePitchAlignment.Map).c()).asLayerProperty())
         },
-        Case("circle-stroke-width", "3.0") { it.setCircleStrokeWidth(const(3.dp).c()) },
+        Case("circle-stroke-width", "3.0") {
+          it.setCircleStrokeWidth((const(3.dp).c()).asLayerProperty())
+        },
         Case("circle-stroke-color", """["rgba",0.0,0.0,0.0,1.0]""", "\"rgba(0, 0, 0, 1)\"") {
-          it.setCircleStrokeColor(const(Color.Black).c())
+          it.setCircleStrokeColor((const(Color.Black).c()).asLayerProperty())
         },
-        Case("circle-stroke-opacity", "0.75") { it.setCircleStrokeOpacity(const(0.75f).c()) },
+        Case("circle-stroke-opacity", "0.75") {
+          it.setCircleStrokeOpacity((const(0.75f).c()).asLayerProperty())
+        },
         Case("circle-color-transition", scaledTransitionJson(700.0, 50.0)) {
-          it.setCircleColor(const(Color.Red).c())
+          it.setCircleColor((const(Color.Red).c()).asLayerProperty())
           it.setCircleColorTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
         },
       )
 
     val FILL_CASES =
       listOf<Case<FillLayer>>(
-        Case("fill-sort-key", "2.0") { it.setFillSortKey(const(2f).c()) },
-        Case("fill-antialias", "false") { it.setFillAntialias(const(false).c()) },
-        Case("fill-opacity", "0.5") { it.setFillOpacity(const(0.5f).c()) },
+        Case("fill-sort-key", "2.0") { it.setFillSortKey((const(2f).c()).asLayerProperty()) },
+        Case("fill-antialias", "false") {
+          it.setFillAntialias((const(false).c()).asLayerProperty())
+        },
+        Case("fill-opacity", "0.5") { it.setFillOpacity((const(0.5f).c()).asLayerProperty()) },
         Case("fill-color", """["rgba",0.0,255.0,0.0,1.0]""", "\"rgba(0, 255, 0, 1)\"") {
-          it.setFillColor(const(Color.Green).c())
+          it.setFillColor((const(Color.Green).c()).asLayerProperty())
         },
         Case("fill-outline-color", """["rgba",0.0,0.0,0.0,1.0]""", "\"rgba(0, 0, 0, 1)\"") {
-          it.setFillOutlineColor(const(Color.Black).c())
+          it.setFillOutlineColor((const(Color.Black).c()).asLayerProperty())
         },
         Case("fill-translate", "[1.0,2.0]", """["literal",[1.0,2.0]]""") {
-          it.setFillTranslate(const(DpOffset(1.dp, 2.dp)).c())
+          it.setFillTranslate((const(DpOffset(1.dp, 2.dp)).c()).asLayerProperty())
         },
         Case("fill-translate-anchor", "\"viewport\"") {
-          it.setFillTranslateAnchor(const(TranslateAnchor.Viewport).c())
+          it.setFillTranslateAnchor((const(TranslateAnchor.Viewport).c()).asLayerProperty())
         },
-        Case("fill-pattern", """["image","brick"]""") { it.setFillPattern(image("brick").c()) },
+        Case("fill-pattern", """["image","brick"]""") {
+          it.setFillPattern((image("brick").c()).asLayerProperty())
+        },
         Case("fill-color-transition", scaledTransitionJson(700.0, 50.0)) {
-          it.setFillColor(const(Color.Red).c())
+          it.setFillColor((const(Color.Red).c()).asLayerProperty())
           it.setFillColorTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
         },
         Case("fill-pattern-transition", scaledTransitionJson(700.0, 50.0)) {
-          it.setFillPattern(image("brick").c())
+          it.setFillPattern((image("brick").c()).asLayerProperty())
           it.setFillPatternTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
         },
       ) + glJsOnlyFillCases()
@@ -391,46 +401,63 @@ class LayerPropertyRoundTripTest {
     /** Properties MapLibre GL JS implements and MapLibre Native does not, yet. */
     fun glJsOnlyFillCases(): List<Case<FillLayer>> =
       if (mapLibreFlavor != MapLibreFlavor.GL_JS) emptyList()
-      else listOf(Case("fill-layer-opacity", "0.4") { it.setFillLayerOpacity(const(0.4f).c()) })
+      else
+        listOf(
+          Case("fill-layer-opacity", "0.4") {
+            it.setFillLayerOpacity((const(0.4f).c()).asLayerProperty())
+          }
+        )
 
     val FILL_EXTRUSION_CASES =
       listOf<Case<FillExtrusionLayer>>(
         Case("fill-extrusion-rounded-corner-distance", "10.0") {
-          it.setFillExtrusionRoundedCornerDistance(const(10f).c())
+          it.setFillExtrusionRoundedCornerDistance((const(10f).c()).asLayerProperty())
         },
-        Case("fill-extrusion-opacity", "0.5") { it.setFillExtrusionOpacity(const(0.5f).c()) },
+        Case("fill-extrusion-opacity", "0.5") {
+          it.setFillExtrusionOpacity((const(0.5f).c()).asLayerProperty())
+        },
         Case(
           "fill-extrusion-color",
           """["rgba",255.0,0.0,255.0,1.0]""",
           "\"rgba(255, 0, 255, 1)\"",
         ) {
-          it.setFillExtrusionColor(const(Color.Magenta).c())
+          it.setFillExtrusionColor((const(Color.Magenta).c()).asLayerProperty())
         },
         Case("fill-extrusion-translate", "[7.0,8.0]", """["literal",[7.0,8.0]]""") {
-          it.setFillExtrusionTranslate(const(DpOffset(7.dp, 8.dp)).c())
+          it.setFillExtrusionTranslate((const(DpOffset(7.dp, 8.dp)).c()).asLayerProperty())
         },
         Case("fill-extrusion-translate-anchor", "\"viewport\"") {
-          it.setFillExtrusionTranslateAnchor(const(TranslateAnchor.Viewport).c())
+          it.setFillExtrusionTranslateAnchor(
+            (const(TranslateAnchor.Viewport).c()).asLayerProperty()
+          )
         },
         Case("fill-extrusion-pattern", """["image","brick"]""") {
-          it.setFillExtrusionPattern(image("brick").c())
+          it.setFillExtrusionPattern((image("brick").c()).asLayerProperty())
         },
-        Case("fill-extrusion-height", "30.0") { it.setFillExtrusionHeight(const(30f).c()) },
-        Case("fill-extrusion-base", "5.0") { it.setFillExtrusionBase(const(5f).c()) },
+        Case("fill-extrusion-height", "30.0") {
+          it.setFillExtrusionHeight((const(30f).c()).asLayerProperty())
+        },
+        Case("fill-extrusion-base", "5.0") {
+          it.setFillExtrusionBase((const(5f).c()).asLayerProperty())
+        },
         Case("fill-extrusion-vertical-gradient", "false") {
-          it.setFillExtrusionVerticalGradient(const(false).c())
+          it.setFillExtrusionVerticalGradient((const(false).c()).asLayerProperty())
         },
         Case("fill-extrusion-height-transition", scaledTransitionJson(700.0, 50.0)) {
-          it.setFillExtrusionHeight(const(30f).c())
+          it.setFillExtrusionHeight((const(30f).c()).asLayerProperty())
           it.setFillExtrusionHeightTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
         },
       )
 
     val HEATMAP_CASES =
       listOf<Case<HeatmapLayer>>(
-        Case("heatmap-radius", "12.0") { it.setHeatmapRadius(const(12.dp).c()) },
-        Case("heatmap-weight", "0.5") { it.setHeatmapWeight(const(0.5f).c()) },
-        Case("heatmap-intensity", "2.0") { it.setHeatmapIntensity(const(2f).c()) },
+        Case("heatmap-radius", "12.0") {
+          it.setHeatmapRadius((const(12.dp).c()).asLayerProperty())
+        },
+        Case("heatmap-weight", "0.5") { it.setHeatmapWeight((const(0.5f).c()).asLayerProperty()) },
+        Case("heatmap-intensity", "2.0") {
+          it.setHeatmapIntensity((const(2f).c()).asLayerProperty())
+        },
         // MapLibre rejects a constant here ("color ramp must be an expression") and accepts only
         // heatmap-density as the interpolation input.
         Case(
@@ -440,42 +467,60 @@ class LayerPropertyRoundTripTest {
           """["interpolate",["linear"],["heatmap-density"],0.0,"rgba(0, 0, 255, 1)",1.0,"rgba(255, 0, 0, 1)"]""",
         ) {
           it.setHeatmapColor(
-            interpolate(linear(), heatmapDensity(), 0f to const(Color.Blue), 1f to const(Color.Red))
-              .c()
+            (interpolate(
+                  linear(),
+                  heatmapDensity(),
+                  0f to const(Color.Blue),
+                  1f to const(Color.Red),
+                )
+                .c())
+              .asLayerProperty()
           )
         },
-        Case("heatmap-opacity", "0.75") { it.setHeatmapOpacity(const(0.75f).c()) },
+        Case("heatmap-opacity", "0.75") {
+          it.setHeatmapOpacity((const(0.75f).c()).asLayerProperty())
+        },
         Case("heatmap-radius-transition", scaledTransitionJson(700.0, 50.0)) {
-          it.setHeatmapRadius(const(12.dp).c())
+          it.setHeatmapRadius((const(12.dp).c()).asLayerProperty())
           it.setHeatmapRadiusTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
         },
       )
 
     val LINE_CASES =
       listOf<Case<LineLayer>>(
-        Case("line-cap", "\"round\"") { it.setLineCap(const(LineCap.Round).c()) },
-        Case("line-join", "\"bevel\"") { it.setLineJoin(const(LineJoin.Bevel).c()) },
-        Case("line-miter-limit", "1.5") { it.setLineMiterLimit(const(1.5f).c()) },
-        Case("line-round-limit", "1.25") { it.setLineRoundLimit(const(1.25f).c()) },
-        Case("line-sort-key", "2.0") { it.setLineSortKey(const(2f).c()) },
-        Case("line-opacity", "0.5") { it.setLineOpacity(const(0.5f).c()) },
+        Case("line-cap", "\"round\"") {
+          it.setLineCap((const(LineCap.Round).c()).asLayerProperty())
+        },
+        Case("line-join", "\"bevel\"") {
+          it.setLineJoin((const(LineJoin.Bevel).c()).asLayerProperty())
+        },
+        Case("line-miter-limit", "1.5") {
+          it.setLineMiterLimit((const(1.5f).c()).asLayerProperty())
+        },
+        Case("line-round-limit", "1.25") {
+          it.setLineRoundLimit((const(1.25f).c()).asLayerProperty())
+        },
+        Case("line-sort-key", "2.0") { it.setLineSortKey((const(2f).c()).asLayerProperty()) },
+        Case("line-opacity", "0.5") { it.setLineOpacity((const(0.5f).c()).asLayerProperty()) },
         Case("line-color", """["rgba",0.0,0.0,255.0,1.0]""", "\"rgba(0, 0, 255, 1)\"") {
-          it.setLineColor(const(Color.Blue).c())
+          it.setLineColor((const(Color.Blue).c()).asLayerProperty())
         },
         Case("line-translate", "[1.0,2.0]", """["literal",[1.0,2.0]]""") {
-          it.setLineTranslate(const(DpOffset(1.dp, 2.dp)).c())
+          it.setLineTranslate((const(DpOffset(1.dp, 2.dp)).c()).asLayerProperty())
         },
         Case("line-translate-anchor", "\"viewport\"") {
-          it.setLineTranslateAnchor(const(TranslateAnchor.Viewport).c())
+          it.setLineTranslateAnchor((const(TranslateAnchor.Viewport).c()).asLayerProperty())
         },
-        Case("line-width", "3.0") { it.setLineWidth(const(3.dp).c()) },
-        Case("line-gap-width", "1.0") { it.setLineGapWidth(const(1.dp).c()) },
-        Case("line-offset", "2.0") { it.setLineOffset(const(2.dp).c()) },
-        Case("line-blur", "1.0") { it.setLineBlur(const(1.dp).c()) },
+        Case("line-width", "3.0") { it.setLineWidth((const(3.dp).c()).asLayerProperty()) },
+        Case("line-gap-width", "1.0") { it.setLineGapWidth((const(1.dp).c()).asLayerProperty()) },
+        Case("line-offset", "2.0") { it.setLineOffset((const(2.dp).c()).asLayerProperty()) },
+        Case("line-blur", "1.0") { it.setLineBlur((const(1.dp).c()).asLayerProperty()) },
         Case("line-dasharray", "[2.0,4.0]", """["literal",[2.0,4.0]]""") {
-          it.setLineDasharray(const(listOf(2, 4)).c())
+          it.setLineDasharray((const(listOf(2, 4)).c()).asLayerProperty())
         },
-        Case("line-pattern", """["image","dash"]""") { it.setLinePattern(image("dash").c()) },
+        Case("line-pattern", """["image","dash"]""") {
+          it.setLinePattern((image("dash").c()).asLayerProperty())
+        },
         // Like heatmap-color, a ramp rather than a constant, and only over line-progress.
         Case(
           "line-gradient",
@@ -484,17 +529,18 @@ class LayerPropertyRoundTripTest {
           """["interpolate",["linear"],["line-progress"],0.0,"rgba(0, 0, 255, 1)",1.0,"rgba(255, 0, 0, 1)"]""",
         ) {
           it.setLineGradient(
-            interpolate(
-                linear(),
-                Feature.lineProgress(),
-                0f to const(Color.Blue),
-                1f to const(Color.Red),
-              )
-              .c()
+            (interpolate(
+                  linear(),
+                  Feature.lineProgress(),
+                  0f to const(Color.Blue),
+                  1f to const(Color.Red),
+                )
+                .c())
+              .asLayerProperty()
           )
         },
         Case("line-width-transition", scaledTransitionJson(700.0, 50.0)) {
-          it.setLineWidth(const(3.dp).c())
+          it.setLineWidth((const(3.dp).c()).asLayerProperty())
           it.setLineWidthTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
         },
         Case("line-dasharray-transition", scaledTransitionJson(700.0, 50.0)) {
@@ -505,25 +551,40 @@ class LayerPropertyRoundTripTest {
     /** Properties MapLibre GL JS implements and MapLibre Native does not, yet. */
     fun glJsOnlyLineCases(): List<Case<LineLayer>> =
       if (mapLibreFlavor != MapLibreFlavor.GL_JS) emptyList()
-      else listOf(Case("line-layer-opacity", "0.4") { it.setLineLayerOpacity(const(0.4f).c()) })
+      else
+        listOf(
+          Case("line-layer-opacity", "0.4") {
+            it.setLineLayerOpacity((const(0.4f).c()).asLayerProperty())
+          }
+        )
 
     val RASTER_CASES =
       listOf<Case<RasterLayer>>(
-        Case("raster-opacity", "0.5") { it.setRasterOpacity(const(0.5f).c()) },
-        Case("raster-hue-rotate", "45.0") { it.setRasterHueRotate(const(45f).c()) },
-        Case("raster-brightness-min", "0.25") { it.setRasterBrightnessMin(const(0.25f).c()) },
-        Case("raster-brightness-max", "0.75") { it.setRasterBrightnessMax(const(0.75f).c()) },
-        Case("raster-saturation", "0.5") { it.setRasterSaturation(const(0.5f).c()) },
-        Case("raster-contrast", "0.25") { it.setRasterContrast(const(0.25f).c()) },
+        Case("raster-opacity", "0.5") { it.setRasterOpacity((const(0.5f).c()).asLayerProperty()) },
+        Case("raster-hue-rotate", "45.0") {
+          it.setRasterHueRotate((const(45f).c()).asLayerProperty())
+        },
+        Case("raster-brightness-min", "0.25") {
+          it.setRasterBrightnessMin((const(0.25f).c()).asLayerProperty())
+        },
+        Case("raster-brightness-max", "0.75") {
+          it.setRasterBrightnessMax((const(0.75f).c()).asLayerProperty())
+        },
+        Case("raster-saturation", "0.5") {
+          it.setRasterSaturation((const(0.5f).c()).asLayerProperty())
+        },
+        Case("raster-contrast", "0.25") {
+          it.setRasterContrast((const(0.25f).c()).asLayerProperty())
+        },
         Case("raster-resampling", "\"nearest\"") {
-          it.setRasterResampling(const(RasterResampling.Nearest).c())
+          it.setRasterResampling((const(RasterResampling.Nearest).c()).asLayerProperty())
         },
         // Milliseconds.
         Case("raster-fade-duration", "250.0") {
-          it.setRasterFadeDuration(const(250.milliseconds).c())
+          it.setRasterFadeDuration((const(250.milliseconds).c()).asLayerProperty())
         },
         Case("raster-opacity-transition", scaledTransitionJson(700.0, 50.0)) {
-          it.setRasterOpacity(const(0.5f).c())
+          it.setRasterOpacity((const(0.5f).c()).asLayerProperty())
           it.setRasterOpacityTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
         },
       )
@@ -531,37 +592,39 @@ class LayerPropertyRoundTripTest {
     val HILLSHADE_CASES =
       listOf<Case<HillshadeLayer>>(
         Case("hillshade-method", "\"igor\"") {
-          it.setHillshadeMethod(const(HillshadeMethod.Igor).c())
+          it.setHillshadeMethod((const(HillshadeMethod.Igor).c()).asLayerProperty())
         },
         // Reported inside an array: MapLibre Native's hillshade takes a list of light sources.
         Case("hillshade-illumination-direction", "[200.0]", "200.0") {
-          it.setHillshadeIlluminationDirection(const(200f).c())
+          it.setHillshadeIlluminationDirection((const(200f).c()).asLayerProperty())
         },
         Case("hillshade-illumination-altitude", "[30.0]", "30.0") {
-          it.setHillshadeIlluminationAltitude(const(30f).c())
+          it.setHillshadeIlluminationAltitude((const(30f).c()).asLayerProperty())
         },
         // The multidirectional method takes one direction and altitude per light source.
         Case("hillshade-illumination-direction", "[210.0,300.0]", """["literal",[210.0,300.0]]""") {
-          it.setHillshadeMethod(const(HillshadeMethod.Multidirectional).c())
-          it.setHillshadeIlluminationDirection(const(listOf(210, 300)).c())
+          it.setHillshadeMethod((const(HillshadeMethod.Multidirectional).c()).asLayerProperty())
+          it.setHillshadeIlluminationDirection((const(listOf(210, 300)).c()).asLayerProperty())
         },
         Case("hillshade-illumination-altitude", "[30.0,60.0]", """["literal",[30.0,60.0]]""") {
-          it.setHillshadeMethod(const(HillshadeMethod.Multidirectional).c())
-          it.setHillshadeIlluminationAltitude(const(listOf(30, 60)).c())
+          it.setHillshadeMethod((const(HillshadeMethod.Multidirectional).c()).asLayerProperty())
+          it.setHillshadeIlluminationAltitude((const(listOf(30, 60)).c()).asLayerProperty())
         },
         Case("hillshade-illumination-anchor", "\"map\"") {
-          it.setHillshadeIlluminationAnchor(const(IlluminationAnchor.Map).c())
+          it.setHillshadeIlluminationAnchor((const(IlluminationAnchor.Map).c()).asLayerProperty())
         },
-        Case("hillshade-exaggeration", "0.5") { it.setHillshadeExaggeration(const(0.5f).c()) },
+        Case("hillshade-exaggeration", "0.5") {
+          it.setHillshadeExaggeration((const(0.5f).c()).asLayerProperty())
+        },
         Case("hillshade-shadow-color", """[["rgba",0.0,0.0,0.0,1.0]]""", "\"rgba(0, 0, 0, 1)\"") {
-          it.setHillshadeShadowColor(const(Color.Black).c())
+          it.setHillshadeShadowColor((const(Color.Black).c()).asLayerProperty())
         },
         Case(
           "hillshade-highlight-color",
           """[["rgba",255.0,255.0,255.0,1.0]]""",
           "\"rgba(255, 255, 255, 1)\"",
         ) {
-          it.setHillshadeHighlightColor(const(Color.White).c())
+          it.setHillshadeHighlightColor((const(Color.White).c()).asLayerProperty())
         },
         // Not a list: the accent colour is one colour however many lights there are.
         Case(
@@ -569,10 +632,10 @@ class LayerPropertyRoundTripTest {
           """["rgba",0.0,255.0,255.0,1.0]""",
           "\"rgba(0, 255, 255, 1)\"",
         ) {
-          it.setHillshadeAccentColor(const(Color.Cyan).c())
+          it.setHillshadeAccentColor((const(Color.Cyan).c()).asLayerProperty())
         },
         Case("hillshade-exaggeration-transition", scaledTransitionJson(700.0, 50.0)) {
-          it.setHillshadeExaggeration(const(0.5f).c())
+          it.setHillshadeExaggeration((const(0.5f).c()).asLayerProperty())
           it.setHillshadeExaggerationTransition(
             TransitionOptions(700.milliseconds, 50.milliseconds)
           )
@@ -585,7 +648,7 @@ class LayerPropertyRoundTripTest {
       else
         listOf(
           Case("resampling", "\"nearest\"") {
-            it.setResampling(const(RasterResampling.Nearest).c())
+            it.setResampling((const(RasterResampling.Nearest).c()).asLayerProperty())
           }
         )
 
@@ -599,13 +662,16 @@ class LayerPropertyRoundTripTest {
           """["interpolate",["linear"],["elevation"],0.0,"rgba(0, 0, 255, 1)",3000.0,"rgba(255, 0, 0, 1)"]""",
         ) {
           it.setColorReliefColor(
-            interpolate(linear(), elevation(), 0f to const(Color.Blue), 3000f to const(Color.Red))
-              .c()
+            (interpolate(linear(), elevation(), 0f to const(Color.Blue), 3000f to const(Color.Red))
+                .c())
+              .asLayerProperty()
           )
         },
-        Case("color-relief-opacity", "0.75") { it.setColorReliefOpacity(const(0.75f).c()) },
+        Case("color-relief-opacity", "0.75") {
+          it.setColorReliefOpacity((const(0.75f).c()).asLayerProperty())
+        },
         Case("color-relief-opacity-transition", scaledTransitionJson(700.0, 50.0)) {
-          it.setColorReliefOpacity(const(0.75f).c())
+          it.setColorReliefOpacity((const(0.75f).c()).asLayerProperty())
           it.setColorReliefOpacityTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
         },
       ) + glJsOnlyColorReliefCases()
@@ -616,83 +682,101 @@ class LayerPropertyRoundTripTest {
       else
         listOf(
           Case("resampling", "\"nearest\"") {
-            it.setResampling(const(RasterResampling.Nearest).c())
+            it.setResampling((const(RasterResampling.Nearest).c()).asLayerProperty())
           }
         )
 
     val SYMBOL_CASES =
       listOf<Case<SymbolLayer>>(
         Case("symbol-placement", "\"line\"") {
-          it.setSymbolPlacement(const(SymbolPlacement.Line).c())
+          it.setSymbolPlacement((const(SymbolPlacement.Line).c()).asLayerProperty())
         },
-        Case("symbol-spacing", "30.0") { it.setSymbolSpacing(const(30.dp).c()) },
-        Case("symbol-avoid-edges", "true") { it.setSymbolAvoidEdges(const(true).c()) },
+        Case("symbol-spacing", "30.0") {
+          it.setSymbolSpacing((const(30.dp).c()).asLayerProperty())
+        },
+        Case("symbol-avoid-edges", "true") {
+          it.setSymbolAvoidEdges((const(true).c()).asLayerProperty())
+        },
         // Data-driven: MapLibre wraps it in the coercion the property's type implies.
         Case("symbol-sort-key", """["number",["get","rank"]]""", """["get","rank"]""") {
-          it.setSymbolSortKey(Feature["rank"].cast<FloatValue>().c())
+          it.setSymbolSortKey((Feature["rank"].cast<FloatValue>().c()).asLayerProperty())
         },
         Case("symbol-z-order", "\"viewport-y\"") {
-          it.setSymbolZOrder(const(SymbolZOrder.ViewportY).c())
+          it.setSymbolZOrder((const(SymbolZOrder.ViewportY).c()).asLayerProperty())
         },
-        Case("icon-allow-overlap", "true") { it.setIconAllowOverlap(const(true).c()) },
-        Case("icon-ignore-placement", "true") { it.setIconIgnorePlacement(const(true).c()) },
-        Case("icon-optional", "true") { it.setIconOptional(const(true).c()) },
+        Case("icon-allow-overlap", "true") {
+          it.setIconAllowOverlap((const(true).c()).asLayerProperty())
+        },
+        Case("icon-ignore-placement", "true") {
+          it.setIconIgnorePlacement((const(true).c()).asLayerProperty())
+        },
+        Case("icon-optional", "true") { it.setIconOptional((const(true).c()).asLayerProperty()) },
         Case("icon-rotation-alignment", "\"map\"") {
-          it.setIconRotationAlignment(const(IconRotationAlignment.Map).c())
+          it.setIconRotationAlignment((const(IconRotationAlignment.Map).c()).asLayerProperty())
         },
-        Case("icon-size", "1.5") { it.setIconSize(const(1.5f).c()) },
-        Case("icon-text-fit", "\"both\"") { it.setIconTextFit(const(IconTextFit.Both).c()) },
+        Case("icon-size", "1.5") { it.setIconSize((const(1.5f).c()).asLayerProperty()) },
+        Case("icon-text-fit", "\"both\"") {
+          it.setIconTextFit((const(IconTextFit.Both).c()).asLayerProperty())
+        },
         // Style-spec order is top, right, bottom, left, which is not the order DpPadding stores.
         Case("icon-text-fit-padding", "[2.0,3.0,4.0,1.0]", """["literal",[2.0,3.0,4.0,1.0]]""") {
-          it.setIconTextFitPadding(const(DpPadding(1.dp, 2.dp, 3.dp, 4.dp)).c())
+          it.setIconTextFitPadding((const(DpPadding(1.dp, 2.dp, 3.dp, 4.dp)).c()).asLayerProperty())
         },
         Case(
           "icon-text-fit-padding",
           "[-2.5,0.1,-7.1,2.5]",
           """["literal",[-2.5,0.1,-7.1,2.5]]""",
         ) {
-          it.setIconTextFitPadding(const(DpPadding(2.5.dp, (-2.5).dp, 0.1.dp, (-7.1).dp)).c())
+          it.setIconTextFitPadding(
+            (const(DpPadding(2.5.dp, (-2.5).dp, 0.1.dp, (-7.1).dp)).c()).asLayerProperty()
+          )
         },
-        Case("icon-image", """["image","marker"]""") { it.setIconImage(image("marker").c()) },
-        Case("icon-rotate", "45.0") { it.setIconRotate(const(45f).c()) },
+        Case("icon-image", """["image","marker"]""") {
+          it.setIconImage((image("marker").c()).asLayerProperty())
+        },
+        Case("icon-rotate", "45.0") { it.setIconRotate((const(45f).c()).asLayerProperty()) },
         Case("icon-padding", "[2.0,3.0,4.0,1.0]", """["literal",[2.0,3.0,4.0,1.0]]""") {
-          it.setIconPadding(const(DpPadding(1.dp, 2.dp, 3.dp, 4.dp)).c())
+          it.setIconPadding((const(DpPadding(1.dp, 2.dp, 3.dp, 4.dp)).c()).asLayerProperty())
         },
         Case("icon-padding", "[-2.5,0.1,-7.1,2.5]", """["literal",[-2.5,0.1,-7.1,2.5]]""") {
-          it.setIconPadding(const(DpPadding(2.5.dp, (-2.5).dp, 0.1.dp, (-7.1).dp)).c())
+          it.setIconPadding(
+            (const(DpPadding(2.5.dp, (-2.5).dp, 0.1.dp, (-7.1).dp)).c()).asLayerProperty()
+          )
         },
-        Case("icon-keep-upright", "true") { it.setIconKeepUpright(const(true).c()) },
+        Case("icon-keep-upright", "true") {
+          it.setIconKeepUpright((const(true).c()).asLayerProperty())
+        },
         Case("icon-offset", "[3.0,4.0]", """["literal",[3.0,4.0]]""") {
-          it.setIconOffset(const(DpOffset(3.dp, 4.dp)).c())
+          it.setIconOffset((const(DpOffset(3.dp, 4.dp)).c()).asLayerProperty())
         },
         Case("icon-anchor", "\"bottom-left\"") {
-          it.setIconAnchor(const(SymbolAnchor.BottomLeft).c())
+          it.setIconAnchor((const(SymbolAnchor.BottomLeft).c()).asLayerProperty())
         },
         Case("icon-pitch-alignment", "\"viewport\"") {
-          it.setIconPitchAlignment(const(IconPitchAlignment.Viewport).c())
+          it.setIconPitchAlignment((const(IconPitchAlignment.Viewport).c()).asLayerProperty())
         },
-        Case("icon-opacity", "0.25") { it.setIconOpacity(const(0.25f).c()) },
+        Case("icon-opacity", "0.25") { it.setIconOpacity((const(0.25f).c()).asLayerProperty()) },
         Case("icon-color", """["rgba",255.0,0.0,0.0,1.0]""", "\"rgba(255, 0, 0, 1)\"") {
-          it.setIconColor(const(Color.Red).c())
+          it.setIconColor((const(Color.Red).c()).asLayerProperty())
         },
         Case("icon-halo-color", """["rgba",0.0,0.0,255.0,1.0]""", "\"rgba(0, 0, 255, 1)\"") {
-          it.setIconHaloColor(const(Color.Blue).c())
+          it.setIconHaloColor((const(Color.Blue).c()).asLayerProperty())
         },
-        Case("icon-halo-width", "2.0") { it.setIconHaloWidth(const(2.dp).c()) },
-        Case("icon-halo-blur", "1.0") { it.setIconHaloBlur(const(1.dp).c()) },
+        Case("icon-halo-width", "2.0") { it.setIconHaloWidth((const(2.dp).c()).asLayerProperty()) },
+        Case("icon-halo-blur", "1.0") { it.setIconHaloBlur((const(1.dp).c()).asLayerProperty()) },
         Case("icon-translate", "[5.0,6.0]", """["literal",[5.0,6.0]]""") {
-          it.setIconTranslate(const(DpOffset(5.dp, 6.dp)).c())
+          it.setIconTranslate((const(DpOffset(5.dp, 6.dp)).c()).asLayerProperty())
         },
         Case("icon-translate-anchor", "\"viewport\"") {
-          it.setIconTranslateAnchor(const(TranslateAnchor.Viewport).c())
+          it.setIconTranslateAnchor((const(TranslateAnchor.Viewport).c()).asLayerProperty())
         },
         Case("text-pitch-alignment", "\"map\"") {
-          it.setTextPitchAlignment(const(TextPitchAlignment.Map).c())
+          it.setTextPitchAlignment((const(TextPitchAlignment.Map).c()).asLayerProperty())
         },
         // Not `viewport-glyph`, which the style spec has and MapLibre Native does not implement.
         // See UnsupportedLayerPropertyTest for what happens to a caller who asks for it.
         Case("text-rotation-alignment", "\"viewport\"") {
-          it.setTextRotationAlignment(const(TextRotationAlignment.Viewport).c())
+          it.setTextRotationAlignment((const(TextRotationAlignment.Viewport).c()).asLayerProperty())
         },
         // A `format` expression comes back as the sections object MapLibre parsed it into.
         Case(
@@ -701,20 +785,31 @@ class LayerPropertyRoundTripTest {
              "image":null}]}""",
           """["format","Hello",{}]""",
         ) {
-          it.setTextField(format(span("Hello")).c())
+          it.setTextField((format(span("Hello")).c()).asLayerProperty())
         },
         Case("text-font", """["Noto Sans Regular"]""", """["literal",["Noto Sans Regular"]]""") {
-          it.setTextFont(const(listOf("Noto Sans Regular")).c())
+          it.setTextFont((const(listOf("Noto Sans Regular")).c()).asLayerProperty())
         },
-        Case("text-size", "14.0") { it.setTextSize(const(14.dp).c()) },
-        Case("text-max-width", "9.0") { it.setTextMaxWidth(const(9f).c()) },
-        Case("text-line-height", "1.25") { it.setTextLineHeight(const(1.25f).c()) },
-        Case("text-letter-spacing", "0.5") { it.setTextLetterSpacing(const(0.5f).c()) },
-        Case("text-justify", "\"right\"") { it.setTextJustify(const(TextJustify.Right).c()) },
-        Case("text-radial-offset", "1.5") { it.setTextRadialOffset(const(1.5f).c()) },
+        Case("text-size", "14.0") { it.setTextSize((const(14.dp).c()).asLayerProperty()) },
+        Case("text-max-width", "9.0") { it.setTextMaxWidth((const(9f).c()).asLayerProperty()) },
+        Case("text-line-height", "1.25") {
+          it.setTextLineHeight((const(1.25f).c()).asLayerProperty())
+        },
+        Case("text-letter-spacing", "0.5") {
+          it.setTextLetterSpacing((const(0.5f).c()).asLayerProperty())
+        },
+        Case("text-justify", "\"right\"") {
+          it.setTextJustify((const(TextJustify.Right).c()).asLayerProperty())
+        },
+        Case("text-radial-offset", "1.5") {
+          it.setTextRadialOffset((const(1.5f).c()).asLayerProperty())
+        },
         Case("text-variable-anchor", """["top","bottom"]""", """["literal",["top","bottom"]]""") {
           it.setTextVariableAnchor(
-            const(listOf(SymbolAnchor.Top, SymbolAnchor.Bottom)).cast<ListValue<SymbolAnchor>>().c()
+            (const(listOf(SymbolAnchor.Top, SymbolAnchor.Bottom))
+                .cast<ListValue<SymbolAnchor>>()
+                .c())
+              .asLayerProperty()
           )
         },
         Case(
@@ -723,40 +818,53 @@ class LayerPropertyRoundTripTest {
           """["let","semiliteral_value",["semiliteral",["top",["literal",[0,1]],"bottom",["literal",[0,-2]]]],["var","semiliteral_value"]]""",
         ) {
           it.setTextVariableAnchorOffset(
-            textVariableAnchorOffset(
-                SymbolAnchor.Top to textOffset(0.sp, 16.sp),
-                SymbolAnchor.Bottom to textOffset(0.em, (-2).em),
-              )
-              .compile(
-                object : ExpressionContext by ExpressionContext.None {
-                  override val spScale = const(0.0625f)
-                  override val emScale = const(1f)
-                }
-              )
+            (textVariableAnchorOffset(
+                  SymbolAnchor.Top to textOffset(0.sp, 16.sp),
+                  SymbolAnchor.Bottom to textOffset(0.em, (-2).em),
+                )
+                .compile(
+                  object : ExpressionContext by ExpressionContext.None {
+                    override val spScale = const(0.0625f)
+                    override val emScale = const(1f)
+                  }
+                ))
+              .asLayerProperty()
           )
         },
-        Case("text-anchor", "\"top-left\"") { it.setTextAnchor(const(SymbolAnchor.TopLeft).c()) },
-        Case("text-max-angle", "30.0") { it.setTextMaxAngle(const(30f).c()) },
+        Case("text-anchor", "\"top-left\"") {
+          it.setTextAnchor((const(SymbolAnchor.TopLeft).c()).asLayerProperty())
+        },
+        Case("text-max-angle", "30.0") { it.setTextMaxAngle((const(30f).c()).asLayerProperty()) },
         Case("text-writing-mode", """["horizontal"]""", """["literal",["horizontal"]]""") {
           it.setTextWritingMode(
-            const(listOf(TextWritingMode.Horizontal)).cast<ListValue<TextWritingMode>>().c()
+            (const(listOf(TextWritingMode.Horizontal)).cast<ListValue<TextWritingMode>>().c())
+              .asLayerProperty()
           )
         },
-        Case("text-rotate", "90.0") { it.setTextRotate(const(90f).c()) },
-        Case("text-padding", "4.0") { it.setTextPadding(const(4.dp).c()) },
-        Case("text-keep-upright", "false") { it.setTextKeepUpright(const(false).c()) },
+        Case("text-rotate", "90.0") { it.setTextRotate((const(90f).c()).asLayerProperty()) },
+        Case("text-padding", "4.0") { it.setTextPadding((const(4.dp).c()).asLayerProperty()) },
+        Case("text-keep-upright", "false") {
+          it.setTextKeepUpright((const(false).c()).asLayerProperty())
+        },
         Case("text-transform", "\"uppercase\"") {
-          it.setTextTransform(const(TextTransform.Uppercase).c())
+          it.setTextTransform((const(TextTransform.Uppercase).c()).asLayerProperty())
         },
         Case("text-offset", "[1.0,2.0]", """["literal",[1.0,2.0]]""") {
-          it.setTextOffset(const(Offset(1f, 2f)).c())
+          it.setTextOffset((const(Offset(1f, 2f)).c()).asLayerProperty())
         },
-        Case("text-allow-overlap", "true") { it.setTextAllowOverlap(const(true).c()) },
-        Case("text-ignore-placement", "true") { it.setTextIgnorePlacement(const(true).c()) },
-        Case("text-optional", "true") { it.setTextOptional(const(true).c()) },
+        Case("text-allow-overlap", "true") {
+          it.setTextAllowOverlap((const(true).c()).asLayerProperty())
+        },
+        Case("text-ignore-placement", "true") {
+          it.setTextIgnorePlacement((const(true).c()).asLayerProperty())
+        },
+        Case("text-optional", "true") { it.setTextOptional((const(true).c()).asLayerProperty()) },
         Case("text-opacity", """["interpolate",["linear"],["zoom"],0.0,0.0,10.0,1.0]""") {
           it.setTextOpacity(
-            interpolate(linear(), zoom(), 0f to const(0f), 10f to const(1f)).cast<FloatValue>().c()
+            (interpolate(linear(), zoom(), 0f to const(0f), 10f to const(1f))
+                .cast<FloatValue>()
+                .c())
+              .asLayerProperty()
           )
         },
         // MapLibre stores colours premultiplied as floats, so a fractional alpha comes back a
@@ -766,25 +874,25 @@ class LayerPropertyRoundTripTest {
           """["rgba",17.0,34.0,51.0,0.5]""",
           "\"rgba(17, 34, 51, 0.5019607843137255)\"",
         ) {
-          it.setTextColor(const(Color(0x80112233)).c())
+          it.setTextColor((const(Color(0x80112233)).c()).asLayerProperty())
         },
         Case(
           "text-halo-color",
           """["rgba",255.0,255.0,255.0,1.0]""",
           "\"rgba(255, 255, 255, 1)\"",
         ) {
-          it.setTextHaloColor(const(Color.White).c())
+          it.setTextHaloColor((const(Color.White).c()).asLayerProperty())
         },
-        Case("text-halo-width", "2.0") { it.setTextHaloWidth(const(2.dp).c()) },
-        Case("text-halo-blur", "1.0") { it.setTextHaloBlur(const(1.dp).c()) },
+        Case("text-halo-width", "2.0") { it.setTextHaloWidth((const(2.dp).c()).asLayerProperty()) },
+        Case("text-halo-blur", "1.0") { it.setTextHaloBlur((const(1.dp).c()).asLayerProperty()) },
         Case("text-translate", "[5.0,6.0]", """["literal",[5.0,6.0]]""") {
-          it.setTextTranslate(const(DpOffset(5.dp, 6.dp)).c())
+          it.setTextTranslate((const(DpOffset(5.dp, 6.dp)).c()).asLayerProperty())
         },
         Case("text-translate-anchor", "\"viewport\"") {
-          it.setTextTranslateAnchor(const(TranslateAnchor.Viewport).c())
+          it.setTextTranslateAnchor((const(TranslateAnchor.Viewport).c()).asLayerProperty())
         },
         Case("text-opacity-transition", scaledTransitionJson(700.0, 50.0)) {
-          it.setTextOpacity(const(1f).c())
+          it.setTextOpacity((const(1f).c()).asLayerProperty())
           it.setTextOpacityTransition(TransitionOptions(700.milliseconds, 50.milliseconds))
         },
       ) + glJsOnlySymbolCases()
@@ -794,13 +902,17 @@ class LayerPropertyRoundTripTest {
       if (mapLibreFlavor != MapLibreFlavor.GL_JS) emptyList()
       else
         listOf(
-          Case("icon-overlap", "\"cooperative\"") { it.setIconOverlap(const("cooperative").c()) },
-          Case("text-overlap", "\"cooperative\"") {
-            it.setTextOverlap(const(SymbolOverlap.Cooperative).c())
+          Case("icon-overlap", "\"cooperative\"") {
+            it.setIconOverlap((const("cooperative").c()).asLayerProperty())
           },
-          Case("symbol-height-offset", "15.0") { it.setSymbolHeightOffset(const(15f).c()) },
+          Case("text-overlap", "\"cooperative\"") {
+            it.setTextOverlap((const(SymbolOverlap.Cooperative).c()).asLayerProperty())
+          },
+          Case("symbol-height-offset", "15.0") {
+            it.setSymbolHeightOffset((const(15f).c()).asLayerProperty())
+          },
           Case("symbol-height-anchor", "\"absolute\"") {
-            it.setSymbolHeightAnchor(const(SymbolHeightAnchor.Absolute).c())
+            it.setSymbolHeightAnchor((const(SymbolHeightAnchor.Absolute).c()).asLayerProperty())
           },
         )
   }

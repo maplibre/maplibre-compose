@@ -2,14 +2,12 @@ package org.maplibre.compose.layers
 
 import androidx.compose.runtime.Composable
 import kotlin.time.Duration.Companion.milliseconds
-import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.MillisecondsValue
 import org.maplibre.compose.expressions.value.RasterResampling
 import org.maplibre.compose.sources.RasterSource
-import org.maplibre.compose.sources.SourceReferenceEffect
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.MaplibreComposable
 
@@ -85,8 +83,9 @@ public fun RasterLayer(
   val compiledResampling = compile(resampling)
   val compiledFadeDuration = compile(fadeDuration)
 
-  SourceReferenceEffect(source)
   LayerNode(
+    id = id,
+    source = source,
     factory = { RasterLayer(id = id, source = source) },
     update = {
       set(minZoom) { layer.minZoom = it }
@@ -118,7 +117,7 @@ internal class RasterLayer(id: String, val source: RasterSource) : Layer(id) {
 
   override val sourceId: String = source.id
 
-  fun setRasterOpacity(opacity: CompiledExpression<FloatValue>) {
+  fun setRasterOpacity(opacity: LayerProperty<FloatValue>) {
     setPaintProperty("raster-opacity", opacity)
   }
 
@@ -126,7 +125,7 @@ internal class RasterLayer(id: String, val source: RasterSource) : Layer(id) {
     setPaintTransition("raster-opacity", options)
   }
 
-  fun setRasterHueRotate(hueRotate: CompiledExpression<FloatValue>) {
+  fun setRasterHueRotate(hueRotate: LayerProperty<FloatValue>) {
     setPaintProperty("raster-hue-rotate", hueRotate)
   }
 
@@ -134,7 +133,7 @@ internal class RasterLayer(id: String, val source: RasterSource) : Layer(id) {
     setPaintTransition("raster-hue-rotate", options)
   }
 
-  fun setRasterBrightnessMin(brightnessMin: CompiledExpression<FloatValue>) {
+  fun setRasterBrightnessMin(brightnessMin: LayerProperty<FloatValue>) {
     setPaintProperty("raster-brightness-min", brightnessMin)
   }
 
@@ -142,7 +141,7 @@ internal class RasterLayer(id: String, val source: RasterSource) : Layer(id) {
     setPaintTransition("raster-brightness-min", options)
   }
 
-  fun setRasterBrightnessMax(brightnessMax: CompiledExpression<FloatValue>) {
+  fun setRasterBrightnessMax(brightnessMax: LayerProperty<FloatValue>) {
     setPaintProperty("raster-brightness-max", brightnessMax)
   }
 
@@ -150,7 +149,7 @@ internal class RasterLayer(id: String, val source: RasterSource) : Layer(id) {
     setPaintTransition("raster-brightness-max", options)
   }
 
-  fun setRasterSaturation(saturation: CompiledExpression<FloatValue>) {
+  fun setRasterSaturation(saturation: LayerProperty<FloatValue>) {
     setPaintProperty("raster-saturation", saturation)
   }
 
@@ -158,7 +157,7 @@ internal class RasterLayer(id: String, val source: RasterSource) : Layer(id) {
     setPaintTransition("raster-saturation", options)
   }
 
-  fun setRasterContrast(contrast: CompiledExpression<FloatValue>) {
+  fun setRasterContrast(contrast: LayerProperty<FloatValue>) {
     setPaintProperty("raster-contrast", contrast)
   }
 
@@ -166,11 +165,11 @@ internal class RasterLayer(id: String, val source: RasterSource) : Layer(id) {
     setPaintTransition("raster-contrast", options)
   }
 
-  fun setRasterResampling(resampling: CompiledExpression<RasterResampling>) {
+  fun setRasterResampling(resampling: LayerProperty<RasterResampling>) {
     setPaintProperty("raster-resampling", resampling)
   }
 
-  fun setRasterFadeDuration(fadeDuration: CompiledExpression<MillisecondsValue>) {
+  fun setRasterFadeDuration(fadeDuration: LayerProperty<MillisecondsValue>) {
     setPaintProperty("raster-fade-duration", fadeDuration)
   }
 }

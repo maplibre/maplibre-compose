@@ -27,7 +27,7 @@ internal class StyleReconciler {
    */
   private var baseLayers: List<LayerHandle>? = null
 
-  suspend fun apply(style: StyleBinding, revision: DesiredStyleRevision): StyleResourceChanges {
+  fun apply(style: StyleBinding, revision: DesiredStyleRevision): StyleResourceChanges {
     style.requireCurrent()
     if (binding !== style) reset(style)
     try {
@@ -39,7 +39,7 @@ internal class StyleReconciler {
     }
   }
 
-  private suspend fun applyRevision(
+  private fun applyRevision(
     style: StyleBinding,
     revision: DesiredStyleRevision,
   ): StyleResourceChanges {

@@ -32,14 +32,16 @@ class BearingAccuracyRenderingTest {
       val layer = LocationIndicatorLayer("sector")
       val context = ExpressionContext.None
       layer.setLocation(Position(0.0, 0.0))
-      layer.setBearing(const(0f).compile(context))
-      layer.setBearingAccuracy(const(15f).compile(context))
+      layer.setBearing((const(0f).compile(context)).asLayerProperty())
+      layer.setBearingAccuracy((const(15f).compile(context)).asLayerProperty())
       layer.setBearingAccuracyRadius(
-        interpolate(linear(), zoom(), 0 to const(80.dp), 2 to const(120.dp)).compile(context)
+        (interpolate(linear(), zoom(), 0 to const(80.dp), 2 to const(120.dp)).compile(context))
+          .asLayerProperty()
       )
       layer.setBearingAccuracyColor(
-        interpolate(linear(), zoom(), 0 to const(Color.Red), 2 to const(Color.Blue))
-          .compile(context)
+        (interpolate(linear(), zoom(), 0 to const(Color.Red), 2 to const(Color.Blue))
+            .compile(context))
+          .asLayerProperty()
       )
       layer.setBearingTransition(TransitionOptions(Duration.ZERO))
       layer.setBearingAccuracyTransition(TransitionOptions(Duration.ZERO))
@@ -58,7 +60,7 @@ class BearingAccuracyRenderingTest {
         fixture.state.queryRenderedFeatures(DpOffset(256.dp, 236.dp), setOf("sector")).isEmpty(),
         "sector pixels are not hit targets",
       )
-      layer.setBearing(const(90f).compile(context))
+      layer.setBearing((const(90f).compile(context)).asLayerProperty())
       handle.update(layer.definition())
       fixture.pumpUntil("east-pointing sector") { fixture.readPixel(276, 256).red > 180 }
       assertTrue(fixture.readPixel(256, 236).red < 5)
@@ -66,14 +68,14 @@ class BearingAccuracyRenderingTest {
       fixture.pumpUntil("zoom expression changes radius and color") {
         fixture.readPixel(346, 256).blue > 20
       }
-      layer.setBearingAccuracy(const(180f).compile(context))
+      layer.setBearingAccuracy((const(180f).compile(context)).asLayerProperty())
       handle.update(layer.definition())
       fixture.pumpUntil("full circle") { fixture.readPixel(236, 256).blue > 180 }
-      layer.setBearingAccuracy(const(0f).compile(context))
+      layer.setBearingAccuracy((const(0f).compile(context)).asLayerProperty())
       handle.update(layer.definition())
       fixture.pumpUntil("zero error hides sector") { fixture.readPixel(276, 256).blue < 5 }
-      layer.setBearingAccuracy(const(15f).compile(context))
-      layer.setBearingAccuracyRadius(const(0.dp).compile(context))
+      layer.setBearingAccuracy((const(15f).compile(context)).asLayerProperty())
+      layer.setBearingAccuracyRadius((const(0.dp).compile(context)).asLayerProperty())
       handle.update(layer.definition())
       fixture.pump(2)
       assertTrue(fixture.readPixel(276, 256).blue < 5, "zero radius hides sector")

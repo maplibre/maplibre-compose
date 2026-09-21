@@ -2,14 +2,12 @@ package org.maplibre.compose.sources
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.value.ExpressionValue
-import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.GeoJsonObject
@@ -65,14 +63,9 @@ public class GeoJsonSource : VectorSource {
       is FromStyle -> super.definition()
     }
 
-  internal fun setDesiredData(data: GeoJsonData) {
-    check(content is Declared) { "Source '$id' came from the style, not the composition" }
-    content.data = data
-  }
-
   private sealed interface Content
 
-  private class Declared(var data: GeoJsonData, val options: GeoJsonOptions) : Content
+  private class Declared(val data: GeoJsonData, val options: GeoJsonOptions) : Content
 
   /** What MapLibre reports about a base-style source; the composition never rebuilds it. */
   private class FromStyle(val json: JsonObject) : Content
@@ -178,17 +171,5 @@ public fun rememberGeoJsonSource(
   options: GeoJsonOptions = GeoJsonOptions(),
 ): GeoJsonSource =
   key(options) {
-    val node = LocalStyleNode.current
-    val source =
-      rememberUserSource(
-        factory = { GeoJsonSource(id = it, data = data, options = options) },
-        update = {},
-      )
-    LaunchedEffect(source, data, !node.style.isLoaded) {
-      if (node.style.isLoaded) {
-        source.setDesiredData(data)
-        node.sourceManager.updateReference(source)
-      }
-    }
-    source
+    rememberUserSource { GeoJsonSource(id = it, data = data, options = options) }
   }

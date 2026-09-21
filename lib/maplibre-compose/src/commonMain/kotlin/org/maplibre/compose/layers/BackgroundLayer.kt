@@ -2,7 +2,6 @@ package org.maplibre.compose.layers
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.ColorValue
@@ -55,6 +54,7 @@ public fun BackgroundLayer(
   val compiledPattern = compile(pattern)
 
   LayerNode(
+    id = id,
     factory = { BackgroundLayer(id = id) },
     update = {
       set(minZoom) { layer.minZoom = it }
@@ -76,7 +76,7 @@ internal class BackgroundLayer(id: String) : Layer(id) {
 
   override val type: String = "background"
 
-  fun setBackgroundColor(color: CompiledExpression<ColorValue>) {
+  fun setBackgroundColor(color: LayerProperty<ColorValue>) {
     setPaintProperty("background-color", color)
   }
 
@@ -84,7 +84,7 @@ internal class BackgroundLayer(id: String) : Layer(id) {
     setPaintTransition("background-color", options)
   }
 
-  fun setBackgroundPattern(pattern: CompiledExpression<ImageValue?>) {
+  fun setBackgroundPattern(pattern: LayerProperty<ImageValue?>) {
     setPaintProperty("background-pattern", pattern)
   }
 
@@ -92,7 +92,7 @@ internal class BackgroundLayer(id: String) : Layer(id) {
     setPaintTransition("background-pattern", options)
   }
 
-  fun setBackgroundOpacity(opacity: CompiledExpression<FloatValue>) {
+  fun setBackgroundOpacity(opacity: LayerProperty<FloatValue>) {
     setPaintProperty("background-opacity", opacity)
   }
 

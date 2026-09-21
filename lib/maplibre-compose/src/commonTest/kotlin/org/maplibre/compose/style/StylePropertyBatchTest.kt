@@ -2,6 +2,7 @@ package org.maplibre.compose.style
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
@@ -15,26 +16,38 @@ class StylePropertyBatchTest {
     val style = RecordingStyleBinding()
     val reconciler = StyleReconciler()
 
-    reconciler.apply(style, revision(background("a", "red"), background("b", "blue")))
-    reconciler.apply(style, revision(background("a", "green"), background("b", "yellow")))
-
-    // One batch per changed layer, nothing for unchanged definitions.
-    assertEquals(
-      listOf(
-        listOf("a" to "background-color"),
-        listOf("b" to "background-color"),
-      ),
-      style.layerPropertyBatches.map { batch -> batch.map { it.layerId to it.name } },
+    reconciler.apply(
+      style,
+      revision(background("a", "red", opacity = 0.5), background("b", "blue")),
     )
+    reconciler.apply(
+      style,
+      revision(background("a", "green", opacity = 0.75), background("b", "yellow")),
+    )
+
+    assertEquals(
+      setOf("a" to "background-color", "a" to "background-opacity", "b" to "background-color"),
+      style.layerPropertyBatches.flatten().map { it.layerId to it.name }.toSet(),
+    )
+    assertTrue(style.layerPropertyBatches.any { it.size > 1 }, "changed properties are batched")
+    assertEquals(JsonPrimitive(0.75), style.layerProperty("a", "background-opacity"))
     assertEquals(JsonPrimitive("green"), style.layerProperty("a", "background-color"))
     assertEquals(JsonPrimitive("yellow"), style.layerProperty("b", "background-color"))
 
-    reconciler.apply(style, revision(background("a", "green"), background("b", "yellow")))
-    assertEquals(2, style.layerPropertyBatches.size, "an unchanged revision writes nothing")
+    val batchCount = style.layerPropertyBatches.size
+    reconciler.apply(
+      style,
+      revision(background("a", "green", opacity = 0.75), background("b", "yellow")),
+    )
+    assertEquals(
+      batchCount,
+      style.layerPropertyBatches.size,
+      "an unchanged revision writes nothing",
+    )
   }
 
   @Test
-  fun a_transition_writes_before_the_value_it_times() = runTest {
+  fun a_transition_writes_before_the_value_it_times() {
     val style = RecordingStyleBinding()
     val reconciler = StyleReconciler()
 
@@ -71,7 +84,12 @@ class StylePropertyBatchTest {
       images = emptyList(),
     )
 
-  private fun background(id: String, color: String, transition: String? = null): LayerDefinition =
+  private fun background(
+    id: String,
+    color: String,
+    transition: String? = null,
+    opacity: Double = 1.0,
+  ): LayerDefinition =
     LayerDefinition(
       id = id,
       type = "background",
@@ -84,6 +102,7 @@ class StylePropertyBatchTest {
             "paint",
             buildJsonObject {
               put("background-color", JsonPrimitive(color))
+              put("background-opacity", JsonPrimitive(opacity))
               if (transition != null) {
                 put("background-color-transition", Json.parseToJsonElement(transition))
               }

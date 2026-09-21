@@ -63,8 +63,8 @@ class SemiliteralRenderingTest {
             ExpressionContext.None,
           )
         val layer = CircleLayer("circle", source)
-        layer.setCircleRadius(offset[0].dp.compile(ExpressionContext.None))
-        layer.setCircleColor(const(Color.Red).compile(ExpressionContext.None))
+        layer.setCircleRadius((offset[0].dp.compile(ExpressionContext.None)).asLayerProperty())
+        layer.setCircleColor((const(Color.Red).compile(ExpressionContext.None)).asLayerProperty())
         checkNotNull(fixture.style).install(layer)
         val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources["points"])
         val red = RgbaPixel(255, 0, 0, 255)

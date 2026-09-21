@@ -11,6 +11,7 @@ import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.BackgroundLayer
+import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
 import org.maplibre.compose.style.BaseStyle
@@ -45,7 +46,9 @@ class MlnFfiStylePresentationTest {
             DesiredStyleLayer(
               BackgroundLayer("application")
                 .apply {
-                  setBackgroundColor(const(Color.Green).compile(ExpressionContext.None))
+                  setBackgroundColor(
+                    (const(Color.Green).compile(ExpressionContext.None)).asLayerProperty()
+                  )
                 }
                 .definition(),
               Anchor.Top,
@@ -143,7 +146,8 @@ class MlnFfiStylePresentationTest {
                 BackgroundLayer("application")
                   .apply {
                     setBackgroundColor(
-                      const(Color(APPLICATION_COLOR_ARGB)).compile(ExpressionContext.None)
+                      (const(Color(APPLICATION_COLOR_ARGB)).compile(ExpressionContext.None))
+                        .asLayerProperty()
                     )
                   }
                   .definition(),

@@ -126,83 +126,81 @@ class BrowserMapStyleStateTest {
     js("new Response(body, { status: 200, headers: { 'content-type': 'application/json' } })")
 
   @Test
-  fun a_detached_web_map_keeps_its_desired_style_pending_and_replays_it(): Promise<*> =
-    runBrowserMapTest {
-      val runtime = createMapRuntime(MapRuntimeOptions())
-      val presented = mutableStateOf(true)
-      val useLatestRevision = mutableStateOf(false)
-      val state =
-        runtime.createMapState(baseStyle = STYLE_A) {
-          val suffix = if (useLatestRevision.value) "latest" else "initial"
-          RasterLayer(
-            id = "$suffix-overlay",
-            source = RasterTileSource("$suffix-source", "https://example.invalid/$suffix.json"),
-            visible = true,
-          )
-        }
-
-      setBrowserMapContent {
-        if (presented.value) MaplibreMap(state = state)
-      }
-      waitUntilMap("style A to become ready") {
-        state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
-      }
-      val initialSession = requireNotNull(state.currentMapAttachment).adapter as GlJsMapSession
-      assertTrue(
-        initialSession.engineMapForTest()?.getStyle()?.layers?.any { it.id == "initial-overlay" } ==
-          true
-      )
-
-      runOnIdle { presented.value = false }
-      waitUntilMap("the Web map to detach") { state.currentMapAttachment == null }
-      runOnIdle {
-        useLatestRevision.value = true
-        state.style.asMutable!!.baseStyle = STYLE_B
+  fun a_detached_web_map_loads_current_content_without_replaying_obsolete_declarations():
+    Promise<*> = runBrowserMapTest {
+    val runtime = createMapRuntime(MapRuntimeOptions())
+    val presented = mutableStateOf(true)
+    val useLatestRevision = mutableStateOf(false)
+    val state =
+      runtime.createMapState(baseStyle = STYLE_A) {
+        val suffix = if (useLatestRevision.value) "latest" else "initial"
+        RasterLayer(
+          id = "$suffix-overlay",
+          source = RasterTileSource("$suffix-source", "https://example.invalid/$suffix.json"),
+          visible = true,
+        )
       }
 
-      assertEquals(STYLE_B, state.style.baseStyle)
-      assertEquals(StyleLoadState.Pending, state.style.loadState)
+    setBrowserMapContent {
+      if (presented.value) MaplibreMap(state = state)
+    }
+    waitUntilMap("style A to become ready") {
+      state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
+    }
+    val initialSession = requireNotNull(state.currentMapAttachment).adapter as GlJsMapSession
+    assertTrue(
+      initialSession.engineMapForTest()?.getStyle()?.layers?.any { it.id == "initial-overlay" } ==
+        true
+    )
 
-      val layerAdditions = mutableListOf<String>()
-      val mapPrototype = org.maplibre.compose.gljs.MaplibreMap::class.js.asDynamic().prototype
-      val originalAddLayer = mapPrototype.addLayer
-      val wrapAddLayer =
-        js(
-          """(function(original, record) {
+    runOnIdle { presented.value = false }
+    waitUntilMap("the Web map to detach") { state.currentMapAttachment == null }
+    runOnIdle {
+      useLatestRevision.value = true
+      state.style.asMutable!!.baseStyle = STYLE_B
+    }
+
+    assertEquals(STYLE_B, state.style.baseStyle)
+    assertEquals(StyleLoadState.Pending, state.style.loadState)
+
+    val layerAdditions = mutableListOf<String>()
+    val mapPrototype = org.maplibre.compose.gljs.MaplibreMap::class.js.asDynamic().prototype
+    val originalAddLayer = mapPrototype.addLayer
+    val wrapAddLayer =
+      js(
+        """(function(original, record) {
             return function(layer, before) {
               record(layer.id);
               return original.call(this, layer, before);
             };
           })"""
-        )
-      mapPrototype.addLayer = wrapAddLayer(originalAddLayer) { id: String -> layerAdditions += id }
-      try {
-        runOnIdle { presented.value = true }
-        waitUntilMap("style B to load on the replacement map") {
-          state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
-        }
-        val session = requireNotNull(state.currentMapAttachment).adapter as GlJsMapSession
-
-        assertTrue(layerAdditions.indexOf("initial-overlay") >= 0)
-        assertTrue(
-          layerAdditions.indexOf("latest-overlay") > layerAdditions.indexOf("initial-overlay")
-        )
-        assertEquals(
-          listOf("b", "latest-overlay"),
-          requireNotNull(session.engineMapForTest()).getStyle().layers.map { it.id },
-        )
-        assertFalse(
-          requireNotNull(session.engineMapForTest()).getStyle().layers.any {
-            it.id == "initial-overlay"
-          }
-        )
-      } finally {
-        mapPrototype.addLayer = originalAddLayer
+      )
+    mapPrototype.addLayer = wrapAddLayer(originalAddLayer) { id: String -> layerAdditions += id }
+    try {
+      runOnIdle { presented.value = true }
+      waitUntilMap("style B to load on the replacement map") {
+        state.currentMapAttachment != null && state.style.loadState == StyleLoadState.Ready
       }
+      val session = requireNotNull(state.currentMapAttachment).adapter as GlJsMapSession
 
-      runtime.close()
-      runtime.awaitClosed()
+      assertFalse("initial-overlay" in layerAdditions)
+      assertEquals(1, layerAdditions.count { it == "latest-overlay" })
+      assertEquals(
+        listOf("b", "latest-overlay"),
+        requireNotNull(session.engineMapForTest()).getStyle().layers.map { it.id },
+      )
+      assertFalse(
+        requireNotNull(session.engineMapForTest()).getStyle().layers.any {
+          it.id == "initial-overlay"
+        }
+      )
+    } finally {
+      mapPrototype.addLayer = originalAddLayer
     }
+
+    runtime.close()
+    runtime.awaitClosed()
+  }
 
   @Test
   fun a_web_presentation_waits_for_a_viewport_and_survives_style_failure(): Promise<*> =

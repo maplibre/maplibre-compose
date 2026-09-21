@@ -1,14 +1,12 @@
 package org.maplibre.compose.layers
 
 import androidx.compose.runtime.Composable
-import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.RasterResampling
 import org.maplibre.compose.sources.RasterDemTileSource
-import org.maplibre.compose.sources.SourceReferenceEffect
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.MaplibreComposable
 
@@ -53,8 +51,9 @@ public fun ColorReliefLayer(
   val compiledOpacity = compile(opacity)
   val compiledResampling = compile(resampling)
 
-  SourceReferenceEffect(source)
   LayerNode(
+    id = id,
+    source = source,
     factory = { ColorReliefLayer(id = id, source = source) },
     update = {
       set(minZoom) { layer.minZoom = it }
@@ -76,11 +75,11 @@ internal class ColorReliefLayer(id: String, val source: RasterDemTileSource) : L
 
   override val sourceId: String = source.id
 
-  fun setColorReliefColor(color: CompiledExpression<ColorValue>) {
+  fun setColorReliefColor(color: LayerProperty<ColorValue>) {
     setPaintProperty("color-relief-color", color)
   }
 
-  fun setColorReliefOpacity(opacity: CompiledExpression<FloatValue>) {
+  fun setColorReliefOpacity(opacity: LayerProperty<FloatValue>) {
     setPaintProperty("color-relief-opacity", opacity)
   }
 
@@ -88,7 +87,7 @@ internal class ColorReliefLayer(id: String, val source: RasterDemTileSource) : L
     setPaintTransition("color-relief-opacity", options)
   }
 
-  fun setResampling(resampling: CompiledExpression<RasterResampling>) {
+  fun setResampling(resampling: LayerProperty<RasterResampling>) {
     setPaintProperty("resampling", resampling)
   }
 }

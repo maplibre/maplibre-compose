@@ -3,7 +3,6 @@ package org.maplibre.compose.style
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
-import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -17,30 +16,7 @@ import org.maplibre.compose.sources.RasterTileSource
 class StyleCompositionOrderTest {
 
   @Test
-  fun a_complete_revision_preserves_explicit_layer_order() = runTest {
-    val source =
-      RasterTileSource("composed-source", listOf("https://example.invalid/{z}/{x}/{y}.png"))
-    val first = RasterLayer("first-layer", source)
-    val second = RasterLayer("second-layer", source)
-    val revision =
-      DesiredStyleRevision(
-        sources = listOf(source.definition()),
-        layers =
-          listOf(
-            DesiredStyleLayer(first.definition(), Anchor.Top, null, null),
-            DesiredStyleLayer(second.definition(), Anchor.Top, null, null),
-          ),
-        images = emptyList(),
-      )
-    val style = RecordingStyleBinding()
-
-    StyleReconciler().apply(style, revision)
-
-    assertEquals(listOf("first-layer", "second-layer"), style.layerIds())
-  }
-
-  @Test
-  fun a_second_apply_does_not_move_already_placed_layers() = runTest {
+  fun a_second_apply_does_not_move_already_placed_layers() {
     val anchors =
       listOf(
         Anchor.Top,
@@ -82,6 +58,11 @@ class StyleCompositionOrderTest {
 
       reconciler.apply(style, revision)
       val afterFirst = style.layerIds()
+      assertEquals(
+        listOf("first-layer", "second-layer"),
+        afterFirst.filter { it == "first-layer" || it == "second-layer" },
+        "anchor $anchor",
+      )
       reconciler.apply(style, revision)
 
       assertEquals(afterFirst, style.layerIds(), "anchor $anchor")
@@ -89,7 +70,7 @@ class StyleCompositionOrderTest {
   }
 
   @Test
-  fun a_single_above_layer_does_not_move_onto_itself() = runTest {
+  fun a_single_above_layer_does_not_move_onto_itself() {
     val source =
       RasterTileSource("composed-source", listOf("https://example.invalid/{z}/{x}/{y}.png"))
     val layer = RasterLayer("hillshade", source)
@@ -109,7 +90,7 @@ class StyleCompositionOrderTest {
   }
 
   @Test
-  fun a_predicate_lands_below_its_lowest_match_and_above_its_highest_match() = runTest {
+  fun a_predicate_lands_below_its_lowest_match_and_above_its_highest_match() {
     val style = RecordingStyleBinding(layers = labelledBase())
     val below = Anchor.Below { it.type == "symbol" }
     val above = Anchor.Above { it.type == "symbol" }
@@ -125,7 +106,7 @@ class StyleCompositionOrderTest {
 
   /** A predicate reaches the handle's plain values: its type, source, and source layer. */
   @Test
-  fun a_predicate_can_read_a_layers_source_and_source_layer() = runTest {
+  fun a_predicate_can_read_a_layers_source_and_source_layer() {
     val base =
       listOf(
         BackgroundLayer("bg"),
@@ -144,7 +125,7 @@ class StyleCompositionOrderTest {
   }
 
   @Test
-  fun a_predicate_with_no_match_lands_at_the_end_of_its_scan() = runTest {
+  fun a_predicate_with_no_match_lands_at_the_end_of_its_scan() {
     val style = RecordingStyleBinding(layers = labelledBase())
     val below = Anchor.Below { it.type == "hillshade" }
     val above = Anchor.Above { it.type == "hillshade" }
@@ -159,7 +140,7 @@ class StyleCompositionOrderTest {
   }
 
   @Test
-  fun a_missing_layer_id_lands_at_the_end_of_its_scan() = runTest {
+  fun a_missing_layer_id_lands_at_the_end_of_its_scan() {
     val style = RecordingStyleBinding(layers = labelledBase())
 
     StyleReconciler()
@@ -182,7 +163,7 @@ class StyleCompositionOrderTest {
    * the bottom of the stack. The two must stay apart, and a scan with no match must reach its end.
    */
   @Test
-  fun top_and_bottom_stay_distinct_on_an_empty_base() = runTest {
+  fun top_and_bottom_stay_distinct_on_an_empty_base() {
     val style = RecordingStyleBinding()
     val reconciler = StyleReconciler()
     fun revision() =
@@ -203,7 +184,7 @@ class StyleCompositionOrderTest {
 
   /** The engine's own layers, such as MapLibre Native's annotation layer, sit above the base. */
   @Test
-  fun bottom_lands_under_a_layer_that_is_not_a_base_layer() = runTest {
+  fun bottom_lands_under_a_layer_that_is_not_a_base_layer() {
     val style = RecordingStyleBinding(layers = listOf(BackgroundLayer("engine-owned")))
     val base =
       object : StyleBinding by style {
@@ -221,7 +202,7 @@ class StyleCompositionOrderTest {
   }
 
   @Test
-  fun composition_owned_layers_are_never_matched() = runTest {
+  fun composition_owned_layers_are_never_matched() {
     val style = RecordingStyleBinding(layers = listOf(BackgroundLayer("bg"), symbolLayer("labels")))
     val reconciler = StyleReconciler()
     reconciler.apply(style, revision(symbolLayer("composed-labels") to Anchor.Top))
@@ -243,7 +224,7 @@ class StyleCompositionOrderTest {
   }
 
   @Test
-  fun a_second_apply_with_fresh_predicates_changes_nothing() = runTest {
+  fun a_second_apply_with_fresh_predicates_changes_nothing() {
     val backing = RecordingStyleBinding(layers = labelledBase())
     val mutations = mutableListOf<String>()
     val style =

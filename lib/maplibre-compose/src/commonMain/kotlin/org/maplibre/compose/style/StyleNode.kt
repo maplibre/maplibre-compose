@@ -1,60 +1,83 @@
 package org.maplibre.compose.style
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.setValue
+import org.maplibre.compose.sources.Source
 
+/** The committed declarations of one style composition. Engine objects live in the reconciler. */
 internal class StyleNode(
   val style: StyleBinding,
-  internal val replaceableSourceIds: Set<String> = emptySet(),
+  replaceableSourceIds: Set<String> = emptySet(),
   replaceableLayerIds: Set<String> = emptySet(),
+  private val publish: (StyleDeclaration) -> Unit = {},
 ) : MapNode {
   val children = mutableListOf<MapNode>()
-
   private val baseLayerIds = style.layerIds().toSet() - replaceableLayerIds
-  internal val sourceManager = SourceManager(this)
-  internal val imageManager = ImageManager(this)
+  private val baseSources =
+    style.getSources().filterNot { it.id in replaceableSourceIds }.associateBy { it.id }
+  private val sourceIds = IncrementingId("source")
+  private var previous: StyleDeclaration? = null
+  private var closed = false
 
-  // A nested content scope can recompose without its StyleContent parent. This state invalidates
-  // that parent after a structural change so it records the post-observer layer-application effect.
-  private var applyGeneration by mutableIntStateOf(0)
+  fun nextSourceId(): String = sourceIds.next()
 
-  internal val currentApplyGeneration: Int
-    get() = applyGeneration
+  fun getBaseSource(id: String): Source? = baseSources[id]
 
-  internal fun scheduleApplyChanges() {
-    applyGeneration++
-  }
-
-  fun insertLayer(index: Int, node: LayerNode<*>) {
-    require(node.layer.id !in baseLayerIds) {
-      "Layer ID '${node.layer.id}' already exists in base style"
+  fun commit() {
+    if (closed || !style.isLoaded) return
+    val declaration = snapshotDeclaration()
+    if (declaration != previous) {
+      previous = declaration
+      publish(declaration)
     }
-    children.add(index, node)
   }
 
-  internal fun snapshotRevision(
-    animatorDurationScale: Float,
-    fontScale: Float? = null,
-  ): DesiredStyleRevision =
-    DesiredStyleRevision(
-      animatorDurationScale = animatorDurationScale,
-      fontScale = fontScale,
-      sources = sourceManager.desiredSources.map { it.definition() },
+  fun close() {
+    closed = true
+  }
+
+  private fun snapshotDeclaration(): StyleDeclaration {
+    val environment = children.filterIsInstance<StyleEnvironmentNode>().singleOrNull()
+    val layerNodes = children.filterIsInstance<LayerNode<*>>()
+    val sources =
+      layerNodes
+        .mapNotNull { it.source }
+        .distinct()
+        .filter { source ->
+          val base = baseSources[source.id]
+          require(base == null || base === source) {
+            "Source ID '${source.id}' conflicts with a base source"
+          }
+          base == null
+        }
+    layerNodes.forEach {
+      require(it.layer.id !in baseLayerIds) {
+        "Layer ID '${it.layer.id}' already exists in base style"
+      }
+    }
+    return StyleDeclaration(
+      animatorDurationScale = environment?.animatorDurationScale ?: 1f,
+      fontScale = environment?.fontScale,
+      sources = sources.map { it.definition() },
       layers =
-        children.map { node ->
-          node as LayerNode<*>
-          DesiredStyleLayer(
-            definition = node.layer.definition(),
-            anchor = node.anchor,
-            onClick = node.onClick,
-            onLongClick = node.onLongClick,
-            onDoubleClick = node.onDoubleClick,
-            hitPadding = node.hitPadding,
-            registration = node,
-            clickGroup = node.clickGroup,
+        layerNodes.map { node ->
+          DeclaredStyleLayer(
+            DesiredStyleLayer(
+              definition = node.layer.definition(),
+              anchor = node.anchor,
+              onClick = node.onClick,
+              onLongClick = node.onLongClick,
+              onDoubleClick = node.onDoubleClick,
+              hitPadding = node.hitPadding,
+              registration = node.registration,
+              clickGroup = node.clickGroup,
+            ),
+            node.layer.declaredImageProperties,
           )
         },
-      images = imageManager.desiredImages,
     )
+  }
+}
+
+internal class StyleEnvironmentNode : MapNode {
+  var animatorDurationScale: Float = 1f
+  var fontScale: Float? = null
 }

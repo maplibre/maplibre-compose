@@ -177,10 +177,7 @@ public fun rememberRasterDemTileSource(
   tileSize: Int = SourceDefaults.RASTER_TILE_SIZE,
 ): RasterDemTileSource =
   key(uri, tileSize) {
-    rememberUserSource(
-      factory = { RasterDemTileSource(id = it, uri = uri, tileSize = tileSize) },
-      update = {},
-    )
+    rememberUserSource { RasterDemTileSource(id = it, uri = uri, tileSize = tileSize) }
   }
 
 @Composable
@@ -191,16 +188,13 @@ public fun rememberRasterDemTileSource(
   encoding: RasterDemEncoding = RasterDemEncoding.Mapbox,
 ): RasterDemTileSource =
   key(tiles, options, tileSize, encoding) {
-    rememberUserSource(
-      factory = {
-        RasterDemTileSource(
-          id = it,
-          tiles = tiles,
-          options = options,
-          tileSize = tileSize,
-          demEncoding = encoding,
-        )
-      },
-      update = {},
-    )
+    rememberUserSource {
+      RasterDemTileSource(
+        id = it,
+        tiles = tiles,
+        options = options,
+        tileSize = tileSize,
+        demEncoding = encoding,
+      )
+    }
   }

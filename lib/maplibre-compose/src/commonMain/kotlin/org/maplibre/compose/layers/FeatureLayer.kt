@@ -1,7 +1,6 @@
 package org.maplibre.compose.layers
 
 import kotlinx.serialization.json.JsonPrimitive
-import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.sources.VectorSource
 
@@ -12,7 +11,7 @@ internal sealed class FeatureLayer(id: String, val source: VectorSource) : Layer
 
   abstract var sourceLayer: String
 
-  abstract fun setFilter(filter: CompiledExpression<BooleanValue>)
+  abstract fun setFilter(filter: LayerProperty<BooleanValue>)
 
   /**
    * `source-layer` is a root key, not paint or layout, so it must be in the layer-creation JSON;

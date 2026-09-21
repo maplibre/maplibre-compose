@@ -4,16 +4,11 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
-import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.layers.Anchor
-import org.maplibre.compose.layers.BackgroundLayer
-import org.maplibre.compose.layers.HillshadeLayer
 import org.maplibre.compose.layers.RasterLayer
-import org.maplibre.compose.map.FakeImageBitmap
-import org.maplibre.compose.sources.RasterDemTileSource
 import org.maplibre.compose.sources.RasterTileSource
 
-class StyleNodeTest {
+class StyleReconcilerTest {
 
   @Test
   fun duplicate_resource_ids_fail_a_complete_revision() {
@@ -32,24 +27,7 @@ class StyleNodeTest {
   }
 
   @Test
-  fun a_revision_defensively_snapshots_its_resource_lists() {
-    val sources = mutableListOf(source("first").definition())
-    val layers = mutableListOf<DesiredStyleLayer>()
-    val images = mutableListOf<StyleImageDefinition>()
-    val revision = DesiredStyleRevision(sources, layers, images)
-
-    sources += source("later").definition()
-    layers += DesiredStyleLayer(BackgroundLayer("later").definition(), Anchor.Top, null, null)
-    images +=
-      StyleImageDefinition("later", ImageSnapshot.capture(FakeImageBitmap(1, 1)), false, null)
-
-    assertEquals(listOf("first"), revision.sources.map { it.id })
-    assertTrue(revision.layers.isEmpty())
-    assertTrue(revision.images.isEmpty())
-  }
-
-  @Test
-  fun reconciliation_applies_sources_before_layers_and_retains_unchanged_resources() = runTest {
+  fun reconciliation_applies_sources_before_layers_and_retains_unchanged_resources() {
     val style = RecordingStyleBinding()
     val recording = RecordingOperations(style)
     val reconciler = StyleReconciler()
@@ -67,29 +45,7 @@ class StyleNodeTest {
   }
 
   @Test
-  fun a_second_raster_dem_revision_does_not_replace_the_source() = runTest {
-    val style = RecordingStyleBinding()
-    val recording = RecordingOperations(style)
-    val reconciler = StyleReconciler()
-    val source = RasterDemTileSource("dem", listOf("https://example.invalid/{z}/{x}/{y}.png"))
-    val layer = HillshadeLayer("hillshade", source)
-    val revision =
-      DesiredStyleRevision(
-        sources = listOf(source.definition()),
-        layers = listOf(DesiredStyleLayer(layer.definition(), Anchor.Top, null, null)),
-        images = emptyList(),
-      )
-
-    reconciler.apply(recording, revision)
-    recording.additions.clear()
-    reconciler.apply(recording, revision)
-
-    assertTrue(recording.additions.isEmpty())
-    assertEquals(listOf("hillshade"), style.layerIds())
-  }
-
-  @Test
-  fun a_later_complete_revision_supersedes_a_failed_revision() = runTest {
+  fun a_later_complete_revision_supersedes_a_failed_revision() {
     var fail = true
     val delegate = RecordingStyleBinding()
     val style =

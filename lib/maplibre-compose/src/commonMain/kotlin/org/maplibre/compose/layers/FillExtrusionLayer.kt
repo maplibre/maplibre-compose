@@ -5,7 +5,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
@@ -14,7 +13,6 @@ import org.maplibre.compose.expressions.value.DpOffsetValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.ImageValue
 import org.maplibre.compose.expressions.value.TranslateAnchor
-import org.maplibre.compose.sources.SourceReferenceEffect
 import org.maplibre.compose.sources.VectorSource
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.util.MaplibreComposable
@@ -122,8 +120,9 @@ public fun FillExtrusionLayer(
   val compiledRoundedCornerDistance = compile(roundedCornerDistance)
   val compiledVerticalGradient = compile(verticalGradient)
 
-  SourceReferenceEffect(source)
   LayerNode(
+    id = id,
+    source = source,
     factory = { FillExtrusionLayer(id = id, source = source) },
     recreateKey = sourceLayer,
     update = {
@@ -165,11 +164,11 @@ internal class FillExtrusionLayer(id: String, source: VectorSource) : FeatureLay
       setSourceLayerProperty(value)
     }
 
-  override fun setFilter(filter: CompiledExpression<BooleanValue>) {
+  override fun setFilter(filter: LayerProperty<BooleanValue>) {
     setFilterExpression(filter)
   }
 
-  fun setFillExtrusionOpacity(opacity: CompiledExpression<FloatValue>) {
+  fun setFillExtrusionOpacity(opacity: LayerProperty<FloatValue>) {
     setPaintProperty("fill-extrusion-opacity", opacity)
   }
 
@@ -177,7 +176,7 @@ internal class FillExtrusionLayer(id: String, source: VectorSource) : FeatureLay
     setPaintTransition("fill-extrusion-opacity", options)
   }
 
-  fun setFillExtrusionColor(color: CompiledExpression<ColorValue>) {
+  fun setFillExtrusionColor(color: LayerProperty<ColorValue>) {
     setPaintProperty("fill-extrusion-color", color)
   }
 
@@ -185,7 +184,7 @@ internal class FillExtrusionLayer(id: String, source: VectorSource) : FeatureLay
     setPaintTransition("fill-extrusion-color", options)
   }
 
-  fun setFillExtrusionTranslate(translate: CompiledExpression<DpOffsetValue>) {
+  fun setFillExtrusionTranslate(translate: LayerProperty<DpOffsetValue>) {
     setPaintProperty("fill-extrusion-translate", translate)
   }
 
@@ -193,11 +192,11 @@ internal class FillExtrusionLayer(id: String, source: VectorSource) : FeatureLay
     setPaintTransition("fill-extrusion-translate", options)
   }
 
-  fun setFillExtrusionTranslateAnchor(anchor: CompiledExpression<TranslateAnchor>) {
+  fun setFillExtrusionTranslateAnchor(anchor: LayerProperty<TranslateAnchor>) {
     setPaintProperty("fill-extrusion-translate-anchor", anchor)
   }
 
-  fun setFillExtrusionPattern(pattern: CompiledExpression<ImageValue?>) {
+  fun setFillExtrusionPattern(pattern: LayerProperty<ImageValue?>) {
     setPaintProperty("fill-extrusion-pattern", pattern)
   }
 
@@ -205,7 +204,7 @@ internal class FillExtrusionLayer(id: String, source: VectorSource) : FeatureLay
     setPaintTransition("fill-extrusion-pattern", options)
   }
 
-  fun setFillExtrusionHeight(height: CompiledExpression<FloatValue>) {
+  fun setFillExtrusionHeight(height: LayerProperty<FloatValue>) {
     setPaintProperty("fill-extrusion-height", height)
   }
 
@@ -213,7 +212,7 @@ internal class FillExtrusionLayer(id: String, source: VectorSource) : FeatureLay
     setPaintTransition("fill-extrusion-height", options)
   }
 
-  fun setFillExtrusionBase(base: CompiledExpression<FloatValue>) {
+  fun setFillExtrusionBase(base: LayerProperty<FloatValue>) {
     setPaintProperty("fill-extrusion-base", base)
   }
 
@@ -221,11 +220,11 @@ internal class FillExtrusionLayer(id: String, source: VectorSource) : FeatureLay
     setPaintTransition("fill-extrusion-base", options)
   }
 
-  fun setFillExtrusionRoundedCornerDistance(distance: CompiledExpression<FloatValue>) {
+  fun setFillExtrusionRoundedCornerDistance(distance: LayerProperty<FloatValue>) {
     setLayoutProperty("fill-extrusion-rounded-corner-distance", distance)
   }
 
-  fun setFillExtrusionVerticalGradient(verticalGradient: CompiledExpression<BooleanValue>) {
+  fun setFillExtrusionVerticalGradient(verticalGradient: LayerProperty<BooleanValue>) {
     setPaintProperty("fill-extrusion-vertical-gradient", verticalGradient)
   }
 }

@@ -2,7 +2,6 @@ package org.maplibre.compose.map
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -16,7 +15,6 @@ import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.internal.CameraInputTarget
 import org.maplibre.compose.interaction.internal.FeatureClickDispatcher
 import org.maplibre.compose.interaction.internal.RecognizedMapInput
-import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.rememberStyleComposition
 
@@ -34,13 +32,6 @@ private class MapStateAttachment(
 
   fun markStyleFailed(map: MapAdapter, reason: String?) {
     state.styleAuthority.markStyleFailed(map, reason)
-  }
-
-  suspend fun reconcileStyleRevision(map: MapAdapter, revision: DesiredStyleRevision) {
-    state.styleAuthority.beginStyleRevision(map, revision)
-    readStyle(map) {
-      state.styleAuthority.updateStyleResources(map, map.reconcileStyleRevision(revision))
-    }
   }
 
   /** Runs a style read and marks the style failed instead of throwing when the read fails. */
@@ -81,8 +72,14 @@ internal fun MapPresentationContent(
         state.styleAuthority.desiredStyleRevision.layers.mapTo(mutableSetOf()) {
           it.definition.id
         },
+      applyRevision = { style, revision ->
+        // A loaded engine can receive content before its physical presentation is published.
+        val map = state.lifecycle.currentAdapter()
+        if (map != null && state.styleAuthority.style.currentLoadedStyle() === style) {
+          state.styleAuthority.applyStyleRevision(map, style, revision)
+        }
+      },
     )
-  val desiredRevision by desiredRevisionState
   val mapAttachment = state.currentMapAttachment
   val currentInteractions = rememberUpdatedState(options.interactions)
   SideEffect { state.gestureAuthority.updateConfiguration(options.interactions.camera) }
@@ -116,32 +113,6 @@ internal fun MapPresentationContent(
       if (state.recognizedInput === input) state.recognizedInput = null
     }
   }
-  var retainedRevisionReplayed by remember(rememberedStyle, mapAttachment) { mutableStateOf(false) }
-
-  LaunchedEffect(rememberedStyle, mapAttachment, attachment) {
-    val map = mapAttachment?.adapter ?: return@LaunchedEffect
-    if (rememberedStyle == null) return@LaunchedEffect
-    try {
-      state.styleAuthority.updateStyleResources(
-        map,
-        map.replayStyleRevision(state.styleAuthority.desiredStyleRevision),
-      )
-    } catch (error: CancellationException) {
-      throw error
-    } catch (error: Throwable) {
-      state.runtime.logger?.w(error) { "Could not replay the retained style revision" }
-    } finally {
-      retainedRevisionReplayed = true
-    }
-  }
-
-  LaunchedEffect(rememberedStyle, desiredRevision, mapAttachment, retainedRevisionReplayed) {
-    if (!retainedRevisionReplayed) return@LaunchedEffect
-    val map = mapAttachment?.adapter ?: return@LaunchedEffect
-    val revision = desiredRevision ?: return@LaunchedEffect
-    attachment.reconcileStyleRevision(map, revision)
-  }
-
   val adapterCallbacks =
     remember(attachment, mapAttachment) {
       object : MapAdapter.Callbacks {

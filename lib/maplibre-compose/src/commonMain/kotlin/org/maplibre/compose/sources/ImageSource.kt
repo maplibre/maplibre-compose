@@ -63,31 +63,10 @@ public class ImageSource : RasterSource {
       is FromStyle -> content.json
     }
 
-  internal fun setDesiredBounds(bounds: PositionQuad) {
-    declared().bounds = bounds
-  }
-
-  internal fun setDesiredImage(image: ImageBitmap) {
-    val content = declared()
-    content.url = ""
-    content.image = image
-  }
-
-  internal fun setDesiredUri(uri: String) {
-    val content = declared()
-    content.url = uri
-    content.image = null
-  }
-
-  private fun declared(): Declared {
-    check(content is Declared) { "Source '$id' came from the style, not the composition" }
-    return content
-  }
-
   private sealed interface Content
 
   /** @param image The pixels this source draws, or null when [url] names them. */
-  private class Declared(var bounds: PositionQuad, var url: String, var image: ImageBitmap?) :
+  private class Declared(val bounds: PositionQuad, val url: String, val image: ImageBitmap?) :
     Content
 
   /** What MapLibre reports about a base-style source; the composition never rebuilds it. */
@@ -110,13 +89,9 @@ private fun Position.toCoordinateJson(): JsonArray = buildJsonArray {
  */
 @Composable
 public fun rememberImageSource(position: PositionQuad, uri: String): ImageSource =
-  rememberUserSource(
-    factory = { ImageSource(id = it, position = position, uri = uri) },
-    update = {
-      setDesiredBounds(position)
-      setDesiredUri(uri)
-    },
-  )
+  rememberUserSource {
+    ImageSource(id = it, position = position, uri = uri)
+  }
 
 /**
  * Remember a new [ImageSource] from the given [bitmap].
@@ -125,10 +100,6 @@ public fun rememberImageSource(position: PositionQuad, uri: String): ImageSource
  */
 @Composable
 public fun rememberImageSource(position: PositionQuad, bitmap: ImageBitmap): ImageSource =
-  rememberUserSource(
-    factory = { ImageSource(id = it, position = position, image = bitmap) },
-    update = {
-      setDesiredBounds(position)
-      setDesiredImage(bitmap)
-    },
-  )
+  rememberUserSource {
+    ImageSource(id = it, position = position, image = bitmap)
+  }

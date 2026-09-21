@@ -5,8 +5,13 @@ import androidx.compose.ui.unit.dp
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.FeaturesClickHandler
 import org.maplibre.compose.layers.Layer
+import org.maplibre.compose.sources.Source
 
 internal class LayerNode<T : Layer>(val layer: T, var anchor: Anchor) : MapNode {
+  val registration = Any()
+
+  internal var source: Source? = null
+
   internal var onClick: FeaturesClickHandler? = null
 
   internal var onLongClick: FeaturesClickHandler? = null

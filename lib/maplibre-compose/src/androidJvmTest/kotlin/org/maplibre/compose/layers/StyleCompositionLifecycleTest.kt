@@ -1,6 +1,5 @@
 package org.maplibre.compose.layers
 
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -13,36 +12,95 @@ import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.mlnffi.runPlainComposeUiTest
 import org.maplibre.compose.sources.GeoJsonData
+import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.RecordingStyleBinding
+import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleReconciler
 import org.maplibre.compose.style.rememberStyleComposition
 
 @OptIn(ExperimentalTestApi::class)
 class StyleCompositionLifecycleTest {
   @Test
+  fun invalidation_during_initial_resource_reads_allows_the_next_style_to_compose() =
+    runPlainComposeUiTest {
+      val previous = RecordingStyleBinding()
+      val replacement = RecordingStyleBinding()
+      val reconciler = StyleReconciler()
+      var current by
+        mutableStateOf<StyleBinding>(
+          object : StyleBinding by previous {
+            override fun getSources(): List<Source> {
+              previous.invalidate()
+              previous.requireCurrent()
+              error("the invalidated read must fail")
+            }
+          }
+        )
+      setContent {
+        rememberStyleComposition(
+          maybeStyle = current,
+          content = { BackgroundLayer("content", visible = true) },
+          applyRevision = { binding, revision -> reconciler.apply(binding, revision) },
+        )
+      }
+      waitForIdle()
+      assertTrue(!previous.isLoaded)
+      assertTrue(previous.layerIds().isEmpty())
+      runOnIdle { current = replacement }
+      waitForIdle()
+      assertEquals(listOf("content"), replacement.layerIds())
+    }
+
+  @Test
+  fun source_submission_needs_no_frame_after_the_committing_frame() = runPlainComposeUiTest {
+    val style = RecordingStyleBinding()
+    val reconciler = StyleReconciler()
+    val initial = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}""")
+    val updated =
+      GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[],"updated":true}""")
+    var data by mutableStateOf(initial)
+    setContent {
+      rememberStyleComposition(
+        maybeStyle = style,
+        content = { FillLayer("points", rememberGeoJsonSource(data), visible = true) },
+        applyRevision = { binding, revision -> reconciler.apply(binding, revision) },
+      )
+    }
+    waitForIdle()
+    mainClock.autoAdvance = false
+    try {
+      runOnIdle { data = updated }
+      mainClock.advanceTimeByFrame()
+      waitUntil(timeoutMillis = 5_000) { style.installedGeoJson.values.any { updated in it } }
+      assertEquals<List<GeoJsonData>>(listOf(updated), style.installedGeoJson.values.single())
+    } finally {
+      mainClock.autoAdvance = true
+    }
+  }
+
+  @Test
   fun removed_content_releases_its_resources_and_can_be_composed_again() = runPlainComposeUiTest {
     val style = RecordingStyleBinding()
     val reconciler = StyleReconciler()
     var visible by mutableStateOf(true)
     setContent {
-      val revision by
-        rememberStyleComposition(
-          maybeStyle = style,
-          content = {
-            if (visible) {
-              FillLayer(
-                id = "toggled",
-                source =
-                  rememberGeoJsonSource(
-                    data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}""")
-                  ),
-                color = const(Color.Red),
-              )
-            }
-          },
-        )
-      LaunchedEffect(revision) { revision?.let { reconciler.apply(style, it) } }
+      rememberStyleComposition(
+        maybeStyle = style,
+        applyRevision = { binding, revision -> reconciler.apply(binding, revision) },
+        content = {
+          if (visible) {
+            FillLayer(
+              id = "toggled",
+              source =
+                rememberGeoJsonSource(
+                  data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}""")
+                ),
+              color = const(Color.Red),
+            )
+          }
+        },
+      )
     }
     waitForIdle()
     assertEquals(listOf("toggled"), style.layerIds())

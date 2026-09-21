@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Composition
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Recomposer
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalGraphicsContext
@@ -20,6 +21,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
@@ -35,7 +37,9 @@ import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.MapNodeApplier
 import org.maplibre.compose.style.SourceDefinition
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.StyleCompositionOwner
 import org.maplibre.compose.style.StyleContent
+import org.maplibre.compose.style.StyleDeclaration
 import org.maplibre.compose.style.StyleHandleException
 import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.StyleNode
@@ -150,11 +154,18 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
             launch(start = CoroutineStart.UNDISPATCHED) {
               recomposer.runRecomposeAndApplyChanges()
             }
+          val declarations = Channel<StyleDeclaration>(Channel.CONFLATED)
+          val ownerJob = launch {
+            StyleCompositionOwner().run(declarations) {
+              if (!it.imagesPending) revision.complete(it)
+            }
+          }
           val root =
             StyleNode(
               style,
               replaceableSourceIds = ownership.sourceIds,
               replaceableLayerIds = ownership.layerIds,
+              publish = { declarations.trySend(it).getOrThrow() },
             )
           val evaluator = Composition(MapNodeApplier(root), recomposer)
           try {
@@ -167,16 +178,20 @@ internal object DefaultStyleCompositionEvaluator : StyleCompositionEvaluator {
               ) {
                 StyleContent(
                   rootNode = root,
-                  publish = { if (!root.imageManager.hasPendingImages) revision.complete(it) },
                   content = content,
                 )
               }
             }
             while (!revision.isCompleted) {
+              // This evaluator has no UI host to deliver writes from painter preparation.
+              Snapshot.sendApplyNotifications()
               if (frameClock.hasAwaiters) frameClock.sendFrame(0L) else yield()
             }
             revision.await()
           } finally {
+            root.close()
+            ownerJob.cancel()
+            declarations.cancel()
             evaluator.dispose()
             recomposer.close()
             recomposerJob.join()

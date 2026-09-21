@@ -6,13 +6,11 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import org.maplibre.compose.expressions.ast.CompiledExpression
-import org.maplibre.compose.expressions.ast.NullLiteral
 import org.maplibre.compose.style.LayerDefinition
+import org.maplibre.compose.style.StyleProperty
 import org.maplibre.compose.style.TRANSITION_SUFFIX
 import org.maplibre.compose.style.TransitionOptions
 import org.maplibre.compose.style.toTransitionJson
-import org.maplibre.compose.util.toStyleJson
 
 /** Style JSON keys that live at the top level of a layer rather than in layout or paint. */
 private val ROOT_KEYS =
@@ -25,6 +23,11 @@ internal sealed class Layer(val id: String) {
 
   /** The source this layer draws from, or null for layers that have none, such as background. */
   protected open val sourceId: String? = null
+
+  private val imageProperties = mutableMapOf<StyleProperty, LayerProperty<*>>()
+
+  internal val declaredImageProperties: Map<StyleProperty, LayerProperty<*>>
+    get() = imageProperties.toMap()
 
   private val layout = mutableMapOf<String, JsonElement>()
   private val paint = mutableMapOf<String, JsonElement>()
@@ -57,12 +60,28 @@ internal sealed class Layer(val id: String) {
     paint[name] = value
   }
 
-  protected fun setLayoutProperty(name: String, value: CompiledExpression<*>) {
-    setLayoutProperty(name, value.toStyleJson())
+  protected fun setLayoutProperty(name: String, value: LayerProperty<*>) {
+    setProperty("layout", layout, name, value)
   }
 
-  protected fun setPaintProperty(name: String, value: CompiledExpression<*>) {
-    setPaintProperty(name, value.toStyleJson())
+  protected fun setPaintProperty(name: String, value: LayerProperty<*>) {
+    setProperty("paint", paint, name, value)
+  }
+
+  private fun setProperty(
+    section: String?,
+    target: MutableMap<String, JsonElement>,
+    name: String,
+    value: LayerProperty<*>,
+  ) {
+    val path = StyleProperty(section, name)
+    if (value.images.isEmpty()) {
+      imageProperties.remove(path)
+      target[name] = value.resolve(emptyMap())
+    } else {
+      target.remove(name)
+      imageProperties[path] = value
+    }
   }
 
   /**
@@ -87,8 +106,8 @@ internal sealed class Layer(val id: String) {
    * "match every feature", and anything else has to be a non-empty array — a scalar `true` fails
    * the whole layer.
    */
-  protected fun setFilterExpression(filter: CompiledExpression<*>) {
-    setFilterJson(filter.toStyleJson())
+  protected fun setFilterExpression(filter: LayerProperty<*>) {
+    setProperty(null, root, "filter", filter)
   }
 
   /** Sets this layer's filter from style JSON, for [UnknownLayer]. Same null contract. */
@@ -107,16 +126,16 @@ internal sealed class Layer(val id: String) {
    */
   protected fun skipUnsupportedProperty(
     name: String,
-    value: CompiledExpression<*>,
+    value: LayerProperty<*>,
     reason: String,
   ) {
-    if (value == NullLiteral) return
+    if (value.images.isEmpty() && value.resolve(emptyMap()) == JsonNull) return
     unsupportedProperties[name] = reason
   }
 
   /**
-   * Returns the complete layer object defined by the style spec. This omits null-valued properties
-   * because the style spec does not permit null property values.
+   * Returns the properties already representable as style JSON, omitting null values. Image
+   * properties remain in [declaredImageProperties] until the composition owner resolves them.
    */
   internal fun toJson(): JsonObject = buildJsonObject {
     // `id` and `type` first: MapLibre reads the type before the properties that depend on it.
