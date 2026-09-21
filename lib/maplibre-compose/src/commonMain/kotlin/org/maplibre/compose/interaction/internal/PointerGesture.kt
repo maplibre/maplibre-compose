@@ -10,6 +10,7 @@ import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.isSpecified
 import kotlin.math.min
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -38,7 +39,6 @@ internal class PointerGesture(
   private val focus: InputFocus,
   private val viewportSize: () -> IntSize,
   private val clickSlopPx: Float,
-  private val panSlopPx: Float,
   private val touchSlopPx: Float,
   private val maximumFlingVelocity: Float,
   private val twoFingerTapSlopPx: Float,
@@ -298,7 +298,7 @@ internal class PointerGesture(
         SelectedDrag.FitBounds ->
           options.bindings.drag.fitBounds.let { if (mouse) it.mouseStartSlop else it.startSlop }
       }
-    return slop.value * density.density
+    return if (slop.isSpecified) slop.value * density.density else touchSlopPx
   }
 
   private fun dragRecognizer(change: PointerInputChange, binding: SelectedDrag): PointerDrag {
@@ -705,7 +705,7 @@ internal class PointerGesture(
         } == true)
 
   private fun clickMovementSlopPx(): Float =
-    if (pressedType == PointerType.Mouse) clickSlopPx else panSlopPx
+    if (pressedType == PointerType.Mouse) clickSlopPx else touchSlopPx
 
   private fun singleContinuation(binding: SelectedDrag?): PointerContinuation? {
     if (binding == null || !gestureInProgress) return null

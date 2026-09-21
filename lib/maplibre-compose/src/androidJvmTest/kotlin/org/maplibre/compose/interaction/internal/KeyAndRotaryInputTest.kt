@@ -1,11 +1,15 @@
 package org.maplibre.compose.interaction.internal
 
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher.Companion.expectValue
@@ -21,6 +25,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.test.withKeyDown
+import androidx.compose.ui.unit.dp
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.math.log2
 import kotlin.test.AfterTest
@@ -35,12 +40,52 @@ import org.maplibre.compose.interaction.KeyModifier
 import org.maplibre.compose.interaction.KeyResponse
 import org.maplibre.compose.interaction.ModifierMatch
 import org.maplibre.compose.map.RecordingGestureTarget
+import org.maplibre.compose.mlnffi.runPlainComposeUiTest
 
 @OptIn(ExperimentalAtomicApi::class, ExperimentalTestApi::class)
 class KeyAndRotaryInputTest {
   private val fixture = composeGestureFixture()
 
   @AfterTest fun closeMap() = fixture.close()
+
+  @Test
+  fun focused_overlay_child_does_not_send_unhandled_keys_to_map() = runPlainComposeUiTest {
+    setContent {
+      GestureHost(fixture.target, InputConfiguration.Standard) {
+        Box(Modifier.size(40.dp).testTag("overlay-control").focusable())
+      }
+    }
+    mapNode().requestFocus()
+    mapNode().performKeyInput { pressKey(Key.Enter) }
+    onNodeWithTag("overlay-control").requestFocus()
+    onNodeWithTag("overlay-control").performKeyInput {
+      pressKey(Key.Enter)
+      pressKey(Key.DirectionRight)
+    }
+    waitForIdle()
+    assertTrue(fixture.target.moveCalls.isEmpty())
+  }
+
+  @Test
+  fun focused_overlay_child_does_not_send_unhandled_rotary_to_map() {
+    assumeRotaryInjectionSupported()
+    runPlainComposeUiTest {
+      setContent {
+        GestureHost(fixture.target, InputConfiguration.Standard, rotaryNotchPixels = 100f) {
+          Box(Modifier.size(40.dp).testTag("overlay-control").focusable())
+        }
+      }
+      mapNode().requestFocus()
+      mapNode().performRotaryScrollInput { rotateToScrollVertically(100f) }
+      waitForIdle()
+      assertTrue(fixture.target.scaleCalls.isNotEmpty())
+      val scales = fixture.target.scaleCalls.size
+      onNodeWithTag("overlay-control").requestFocus()
+      onNodeWithTag("overlay-control").performRotaryScrollInput { rotateToScrollVertically(100f) }
+      waitForIdle()
+      assertEquals(scales, fixture.target.scaleCalls.size)
+    }
+  }
 
   @Test
   fun key_takeover_cancels_a_held_drag_without_waiting_for_another_pointer_event() {

@@ -59,7 +59,9 @@ internal class InputFocus(private val onChanged: (engaged: Boolean) -> Unit) {
       if (!value) disengage()
     }
 
-  private var isFocused = false
+  var isFocused = false
+    private set
+
   private var engagedByKey = false
   private var shownFocus: FocusInteraction.Focus? = null
 

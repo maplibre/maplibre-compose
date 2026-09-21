@@ -37,8 +37,9 @@ internal actual fun ComposableMapView(
     onDispose { lifecycle.removeObserver(observer) }
   }
   presentation.Content(options) { session, clicks ->
-    MlnFfiMapInputSurface(session, clicks, options, modifier, state) { inputModifier, revealSurface
-      ->
+    MlnFfiMapSurfaceContent(session, clicks, options, modifier, state) {
+      inputModifier,
+      revealSurface ->
       if (revealSurface) {
         UIKitView(
           modifier = inputModifier,

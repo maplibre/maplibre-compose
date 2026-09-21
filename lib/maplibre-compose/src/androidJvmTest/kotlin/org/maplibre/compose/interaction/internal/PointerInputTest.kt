@@ -1,6 +1,7 @@
 package org.maplibre.compose.interaction.internal
 
 import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -11,6 +12,9 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.platform.ViewConfiguration
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.MouseButton
@@ -25,6 +29,7 @@ import androidx.compose.ui.test.performRotaryScrollInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.requestFocus
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.test.AfterTest
@@ -33,6 +38,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.maplibre.compose.camera.internal.CameraInputToken
 import org.maplibre.compose.map.RecordingGestureTarget
+import org.maplibre.compose.mlnffi.runPlainComposeUiTest
 import org.maplibre.compose.style.scaledBy
 import org.maplibre.compose.style.systemAnimatorDurationScale
 import org.maplibre.spatialk.geojson.Position
@@ -42,6 +48,58 @@ class PointerInputTest {
   private val fixture = composeGestureFixture()
 
   @AfterTest fun closeMap() = fixture.close()
+
+  @Test
+  fun default_pan_uses_local_touch_slop_and_explicit_slop_stays_in_dp() = runPlainComposeUiTest {
+    val target = fixture.target
+    var options by
+      mutableStateOf(
+        InputConfiguration {
+          camera { pan { momentum { enabled = false } } }
+        }
+      )
+    setContent {
+      val platform = LocalViewConfiguration.current
+      val configuration =
+        object : ViewConfiguration by platform {
+          override val touchSlop = 64f
+        }
+      CompositionLocalProvider(
+        LocalDensity provides Density(2f),
+        LocalViewConfiguration provides configuration,
+      ) {
+        GestureHost(target, options)
+      }
+    }
+    waitForIdle()
+    val map = mapNode()
+    map.performTouchInput {
+      down(center)
+      moveBy(Offset(32f, 0f))
+    }
+    waitForIdle()
+    assertTrue(target.moveCalls.isEmpty())
+    map.performTouchInput {
+      moveBy(Offset(48f, 0f))
+      up()
+    }
+    waitForIdle()
+    // 80 physical pixels minus 64 pixels of host slop, converted once to 8 dp.
+    assertEquals(listOf(Offset(8f, 0f)), target.moveCalls)
+
+    runOnIdle {
+      options = InputConfiguration(options) { bindings { drag { pan { startSlop = 8.dp } } } }
+    }
+    waitForIdle()
+    map.performTouchInput {
+      down(center)
+      moveBy(Offset(32f, 0f))
+      up()
+    }
+    waitForIdle()
+    // An explicit 8 dp threshold is 16 physical pixels, independent of host slop.
+    assertEquals(listOf(Offset(8f, 0f), Offset(8f, 0f)), target.moveCalls)
+  }
 
   @Test
   fun contacts_rejected_before_a_viewport_wait_for_release() =

@@ -92,6 +92,45 @@ class MlnFfiMapCompositionTest {
   }
 
   @Test
+  fun replacing_renderer_density_preserves_overlay_composition() = runFfiComposeUiTest {
+    withTestRuntime(runtimeOptions) { runtime ->
+      val state = runtime.createMapState(baseStyle = BaseStyle.Empty)
+      var scale by mutableStateOf(1f)
+      var overlayIdentity: Any? = null
+      val disposed = AtomicInt(0)
+      setFfiTestMapContent(runtimeOptions, presentationCount = 2) {
+        CompositionLocalProvider(LocalDensity provides Density(scale)) {
+          MaplibreMap(
+            state = state,
+            modifier = Modifier.size(200.dp),
+            overlay = {
+              val identity = remember { Any() }
+              overlayIdentity = identity
+              DisposableEffect(Unit) { onDispose { disposed.incrementAndFetch() } }
+              Box(Modifier.size(20.dp).testTag("stable-overlay"))
+            },
+          )
+        }
+      }
+      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        state.style.loadState == StyleLoadState.Ready &&
+          onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty()
+      }
+      val originalOverlay = overlayIdentity
+      val originalSession = state.currentMapAttachment?.adapter
+      runOnUiThread { scale = 2f }
+      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        state.currentMapAttachment?.adapter != null &&
+          state.currentMapAttachment?.adapter !== originalSession &&
+          state.style.loadState == StyleLoadState.Ready &&
+          onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty()
+      }
+      assertSame(originalOverlay, overlayIdentity)
+      assertEquals(0, disposed.load())
+    }
+  }
+
+  @Test
   fun a_pitched_pan_continues_in_its_release_direction_without_changing_the_camera_pose() =
     runFfiComposeUiTest {
       withTestRuntime(runtimeOptions) { runtime ->
@@ -204,10 +243,12 @@ class MlnFfiMapCompositionTest {
       val hasFocus = AtomicBoolean(false)
 
       setFfiTestMapContent(runtimeOptions) {
+        LaunchedEffect(Unit) { focusRequester.requestFocus() }
         MaplibreMap(
           modifier =
             Modifier.focusRequester(focusRequester).onFocusChanged { hasFocus.store(it.hasFocus) },
           state = state,
+          overlay = {},
         )
       }
       waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
@@ -215,8 +256,6 @@ class MlnFfiMapCompositionTest {
           state.style.loadState == StyleLoadState.Ready &&
           onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty()
       }
-
-      runOnUiThread { focusRequester.requestFocus() }
 
       waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { hasFocus.load() }
       onNodeWithContentDescription("Map").assertIsFocused()
@@ -598,11 +637,12 @@ class MlnFfiMapCompositionTest {
   fun an_unloaded_style_keeps_the_transparent_load_placeholder() = runFfiComposeUiTest {
     val errors = RecordingList<String>()
     lateinit var mapState: MapState
+    var baseStyle: BaseStyle by mutableStateOf(BaseStyle.Uri("https://example.invalid/style.json"))
     setFfiTestMapContent(runtimeOptions) {
       mapState =
         TestMap(
           modifier = Modifier,
-          baseStyle = BaseStyle.Uri("https://example.invalid/style.json"),
+          baseStyle = baseStyle,
           onMapLoadFailed = { errors += "mapLoadFailed: $it" },
         )
     }
@@ -615,6 +655,26 @@ class MlnFfiMapCompositionTest {
       "A frame was rendered before the style loaded: $errors",
     )
     assertTrue(errors.any { it.startsWith("mapLoadFailed") }, "The load was not reported: $errors")
+
+    val before = mapState.cameraPosition.target
+    onNodeWithTag(MAP_LOAD_PLACEHOLDER_TAG).performTouchInput { down(center) }
+    runOnUiThread { baseStyle = BaseStyle.Empty }
+    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+      mapState.style.loadState == StyleLoadState.Ready &&
+        onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty()
+    }
+    onNodeWithContentDescription("Map").performTouchInput {
+      moveBy(Offset(60f, 0f))
+      up()
+    }
+    waitForIdle()
+    assertEquals(before, mapState.cameraPosition.target, "a loading contact became a map drag")
+    onNodeWithContentDescription("Map").performTouchInput {
+      down(center)
+      moveBy(Offset(60f, 0f))
+      up()
+    }
+    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { mapState.cameraPosition.target != before }
   }
 
   @Test

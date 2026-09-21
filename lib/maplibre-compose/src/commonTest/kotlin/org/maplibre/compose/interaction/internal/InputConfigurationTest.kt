@@ -2,6 +2,7 @@ package org.maplibre.compose.interaction.internal
 
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.pointer.PointerType
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
@@ -90,6 +91,26 @@ class MapInteractionsTest {
         bindings { drag { mappings { otherwise(DragResponse.FitBounds) } } }
       }
       assertNull(locked.bindings.drag.select(sample(), locked.camera.settings))
+    }
+  }
+
+  @Test
+  fun pan_slop_can_restore_host_default_but_rejects_invalid_distances() {
+    val explicit = InputConfiguration { bindings { drag { pan { startSlop = 8.dp } } } }
+    val restored =
+      InputConfiguration(explicit) {
+        bindings { drag { pan { startSlop = Dp.Unspecified } } }
+      }
+    assertEquals(Dp.Unspecified, InputConfiguration.Standard.bindings.drag.pan.startSlop)
+    assertEquals(Dp.Unspecified, restored.bindings.drag.pan.startSlop)
+    assertEquals(
+      explicit.bindings.drag.pan.mouseStartSlop,
+      restored.bindings.drag.pan.mouseStartSlop,
+    )
+    for (invalid in listOf((-1).dp, Dp.Infinity)) {
+      assertFailsWith<IllegalArgumentException> {
+        InputConfiguration { bindings { drag { pan { startSlop = invalid } } } }
+      }
     }
   }
 

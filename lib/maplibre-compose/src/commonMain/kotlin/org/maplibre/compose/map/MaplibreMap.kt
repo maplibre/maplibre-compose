@@ -28,7 +28,9 @@ import org.maplibre.compose.overlay.include
  *
  * The overlay fills the map and positions direct children through [MapOverlayScope]. It provides
  * [LocalMapState], [LocalViewport], and [org.maplibre.compose.overlay.LocalViewportInsets] to
- * nested composables. Use ordinary Compose layouts and padding to arrange controls.
+ * nested composables. Use ordinary Compose layouts and padding to arrange controls. Overlay pointer
+ * handlers run before the map in the Main pass: consume an event to handle it, or leave it
+ * unconsumed for the map's gestures.
  *
  * [viewportInsets] adds to [org.maplibre.compose.camera.CameraPosition.padding] for camera moves
  * and fitting. Built-in controls also use these insets.
@@ -70,9 +72,9 @@ public fun MaplibreMap(
       uiOptions = uiOptions,
     )
   key(state, presentationHostIdentity) {
-    Box(modifier.fillMaxSize()) {
+    MapInputHost(modifier.fillMaxSize(), state, mapViewOptions) { surfaceDecoration ->
       ComposableMapView(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().then(surfaceDecoration),
         state = state,
         presentationOwner = presentationOwner,
         options = mapViewOptions,
