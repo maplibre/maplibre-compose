@@ -1,5 +1,7 @@
 package org.maplibre.compose.demoapp.demos.featureediting
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,7 +33,6 @@ import org.maplibre.compose.editing.EditorFeatureLayers
 import org.maplibre.compose.editing.EditorHandleLayers
 import org.maplibre.compose.editing.featureEditor
 import org.maplibre.compose.layers.Anchor
-import org.maplibre.compose.map.MapState
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.spatialk.turf.measurement.computeBbox
@@ -46,10 +47,6 @@ object FeatureEditingDemo : Demo {
     DemoPointerPin(Presets.goldenGatePark.geometry.computeBbox().center, destination)
 
   private val state = FeatureEditingState()
-
-  @Composable
-  override fun surfaceModifier(mapState: MapState): Modifier =
-    Modifier.focusRequester(state.mapFocus).featureEditor(state.editor, mapState)
 
   @Composable
   override fun MapContent(style: DemoStyle) {
@@ -86,6 +83,11 @@ object FeatureEditingDemo : Demo {
   @Composable
   override fun MapOverlayScope.Overlay(state: DemoAppState, controls: DemoMapControls) {
     val demo = this@FeatureEditingDemo.state
+    Box(
+      Modifier.fillMaxSize()
+        .focusRequester(demo.mapFocus)
+        .featureEditor(demo.editor, state.mapState)
+    )
     DefaultMapControls(controls)
     LaunchedEffect(demo) {
       snapshotFlow { demo.editor.selection }.collect { demo.stationFraction = 0.5 }

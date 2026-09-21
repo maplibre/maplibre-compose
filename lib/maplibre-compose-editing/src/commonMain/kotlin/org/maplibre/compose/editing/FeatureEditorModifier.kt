@@ -1,10 +1,13 @@
 package org.maplibre.compose.editing
 
+import androidx.compose.foundation.focusable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.focus.FocusRequesterModifierNode
+import androidx.compose.ui.focus.requestFocus
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
@@ -58,18 +61,21 @@ import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
 /**
- * Routes pointer and key input on the map surface to [state].tool.
+ * Routes pointer and key input to [state].tool on a full-size map overlay child.
  *
- * Pass it as [MaplibreMap][org.maplibre.compose.map.MaplibreMap]'s `surfaceModifier`. Events are
- * read in the Initial pass. The map receives a pointer until the tool claims it or consumes its
- * tap; other pointers keep their map gestures. Overlay controls under the pointer block it; map
- * layers and their click handlers do not. A press an earlier modifier consumed in the Initial pass
- * is not delivered. Keys reach the tool while the map has focus and no pointer is claimed; a
- * claimed press focuses the map, and Escape cancels its gesture. With [undoShortcuts], Ctrl or Meta
- * with Z undoes and with Shift+Z or Y redoes before the tool sees the key, except while a pointer
- * is claimed. Hit testing uses [hitRadius] for the pointer type and [hitFill] for polygon
- * interiors. Writes [FeatureEditorState.visibleBounds] as the camera moves. With [enabled] false
- * nothing is hit-tested, consumed or hovered, and a gesture in progress is cancelled.
+ * Place the child before overlay controls so those controls keep pointer priority. Events are read
+ * in the Initial pass. The map receives a pointer until the tool claims it or consumes its tap;
+ * other pointers keep their map gestures. Map layers and their click handlers do not block the
+ * editor. A press an earlier modifier consumed in Initial is not delivered.
+ *
+ * The modifier supplies its own focus target and requests focus when the tool claims a press or
+ * handles a tap or long press. Keys reach the tool while the editor has focus; Escape cancels its
+ * gesture. Put a focusRequester before this modifier to restore editor focus from a toolbar. Camera
+ * key bindings are independent of editor shortcuts. With [undoShortcuts], Ctrl or Meta with Z
+ * undoes and with Shift+Z or Y redoes before the tool sees the key, except while a pointer is
+ * claimed. Hit testing uses [hitRadius] for the pointer type and [hitFill] for polygon interiors.
+ * Writes [FeatureEditorState.visibleBounds] as the camera moves. With [enabled] false nothing is
+ * hit-tested, consumed or hovered, and a gesture in progress is cancelled.
  */
 public fun Modifier.featureEditor(
   state: FeatureEditorState,
@@ -81,6 +87,7 @@ public fun Modifier.featureEditor(
 ): Modifier =
   this.then(MapFeatureEditorElement(state, mapState, enabled, hitRadius, hitFill, undoShortcuts))
     .editorCursor(state, enabled)
+    .focusable(enabled)
 
 /** 24 dp for touch, 16 dp for stylus, 12 dp otherwise. */
 public fun defaultHitRadius(pointerType: PointerType): Dp =
@@ -112,6 +119,7 @@ internal fun Modifier.featureEditor(
       )
     )
     .editorCursor(state, enabled)
+    .focusable(enabled)
 
 private fun Modifier.editorCursor(state: FeatureEditorState, enabled: Boolean): Modifier =
   composed {
@@ -232,6 +240,7 @@ internal class FeatureEditorNode(
 ) :
   Modifier.Node(),
   PointerInputModifierNode,
+  FocusRequesterModifierNode,
   KeyInputModifierNode,
   ObserverModifierNode,
   CompositionLocalConsumerModifierNode,
@@ -439,7 +448,10 @@ internal class FeatureEditorNode(
         EditorEvent.Press(pointer, hit, step, binding.project, binding.unproject),
         state,
       )
-    if (claimed) state.gestureInProgress = true
+    if (claimed) {
+      state.gestureInProgress = true
+      requestFocus()
+    }
     return claimed
   }
 
@@ -475,17 +487,19 @@ internal class FeatureEditorNode(
   override fun onTap(sample: PointerSample, count: Int, step: EditStep): Boolean {
     state.endGesture()
     val position = binding.unproject(sample.screen) ?: return false
-    return state.tool.onEvent(
-      EditorEvent.Tap(
-        pointer(sample, position),
-        pressHit,
-        count,
-        step,
-        binding.project,
-        binding.unproject,
-      ),
-      state,
-    )
+    return state.tool
+      .onEvent(
+        EditorEvent.Tap(
+          pointer(sample, position),
+          pressHit,
+          count,
+          step,
+          binding.project,
+          binding.unproject,
+        ),
+        state,
+      )
+      .also { handled -> if (handled) requestFocus() }
   }
 
   override fun onLongPress(sample: PointerSample, step: EditStep): Boolean {
@@ -496,7 +510,10 @@ internal class FeatureEditorNode(
         EditorEvent.LongPress(pointer, pressHit, step, binding.project, binding.unproject),
         state,
       )
-    if (ended) state.endGesture()
+    if (ended) {
+      state.endGesture()
+      requestFocus()
+    }
     return ended
   }
 

@@ -3,8 +3,10 @@
 
 package org.maplibre.compose.docsnippets
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -106,7 +108,10 @@ fun DeliveryAreaEditor() {
     MaplibreMap(
       modifier = Modifier.weight(1f),
       state = map,
-      surfaceModifier = Modifier.featureEditor(editor, map), // (3)!
+      overlay = {
+        Box(Modifier.fillMaxSize().featureEditor(editor, map)) // (3)!
+        include(MapOverlay.Default)
+      },
     )
     Row {
       when {
@@ -169,7 +174,10 @@ fun ThemedEditor(editor: FeatureEditorState) {
       )
     }
   }
-  MaplibreMap(state = map, surfaceModifier = Modifier.featureEditor(editor, map))
+  MaplibreMap(state = map) {
+    Box(Modifier.fillMaxSize().featureEditor(editor, map))
+    include(MapOverlay.Default)
+  }
   // #endregion colors
 }
 
@@ -217,7 +225,10 @@ fun RemoteFeatureEditor(remote: FeatureCollection<Geometry, JsonObject?>?) {
     }
   }
   val map = rememberMapState { FeatureEditorLayers(editor) }
-  MaplibreMap(state = map, surfaceModifier = Modifier.featureEditor(editor, map))
+  MaplibreMap(state = map) {
+    Box(Modifier.fillMaxSize().featureEditor(editor, map))
+    include(MapOverlay.Default)
+  }
 }
 
 // #endregion network
@@ -253,7 +264,10 @@ fun ValidatedEditor() {
     MaplibreMap(
       modifier = Modifier.weight(1f),
       state = map,
-      surfaceModifier = Modifier.featureEditor(editor, map),
+      overlay = {
+        Box(Modifier.fillMaxSize().featureEditor(editor, map))
+        include(MapOverlay.Default)
+      },
     )
     editor.validationError?.let { Text(it) } // (1)!
   }
@@ -328,7 +342,10 @@ fun ParcelEditor(store: ParcelStore) {
     MaplibreMap(
       modifier = Modifier.weight(1f),
       state = map,
-      surfaceModifier = Modifier.featureEditor(editor, map),
+      overlay = {
+        Box(Modifier.fillMaxSize().featureEditor(editor, map))
+        include(MapOverlay.Default)
+      },
       interactions =
         MapInteractions {
           callbacks {
@@ -471,7 +488,10 @@ fun EditorWithContextMenu(editor: FeatureEditorState, showMenu: (Position, Edito
   val map = rememberMapState { FeatureEditorLayers(editor) }
   MaplibreMap(
     state = map,
-    surfaceModifier = Modifier.featureEditor(editor, map),
+    overlay = {
+      Box(Modifier.fillMaxSize().featureEditor(editor, map))
+      include(MapOverlay.Default)
+    },
     interactions =
       MapInteractions {
         callbacks {
@@ -510,7 +530,10 @@ fun EditorWithToolbar(editor: FeatureEditorState, select: SelectTool) {
     MaplibreMap(
       modifier = Modifier.weight(1f),
       state = map,
-      surfaceModifier = Modifier.focusRequester(mapFocus).featureEditor(editor, map),
+      overlay = {
+        Box(Modifier.fillMaxSize().focusRequester(mapFocus).featureEditor(editor, map))
+        include(MapOverlay.Default)
+      },
       uiOptions = MapUiOptions { bindings { keys { enabled = false } } }, // (3)!
     )
     Row {
@@ -557,7 +580,8 @@ fun EditorWithOwnLayers(editor: FeatureEditorState) {
       EditorHandleLayers(editor, handleRadius = 8.dp)
     }
   }
-  MaplibreMap(state = map, surfaceModifier = Modifier.featureEditor(editor, map)) {
+  MaplibreMap(state = map) {
+    Box(Modifier.fillMaxSize().featureEditor(editor, map))
     include(MapOverlay.Default)
     editor.selection.singleOrNull()?.let(editor::feature)?.let { zone ->
       Text(

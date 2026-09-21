@@ -59,12 +59,6 @@ interface Demo {
   /** Input and presentation modifiers applied to the shared map while this demo is selected. */
   @UiComposable @Composable fun mapModifier(mapState: MapState): Modifier = Modifier
 
-  /**
-   * Modifiers applied to the map surface under the overlay while this demo is selected. See
-   * [org.maplibre.compose.map.MaplibreMap]'s `surfaceModifier`.
-   */
-  @UiComposable @Composable fun surfaceModifier(mapState: MapState): Modifier = Modifier
-
   /** Compose UI input bindings while this demo is selected, edited from the app [settings]. */
   fun uiOptions(settings: MapUiOptions): MapUiOptions = settings
 

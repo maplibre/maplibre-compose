@@ -1,6 +1,5 @@
 package org.maplibre.compose.editing
 
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
@@ -18,6 +17,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
@@ -94,6 +94,7 @@ class FeatureEditorModifierTest {
       Box(
         Modifier.size(200.dp)
           .testTag("editor")
+          .then(focusRequester?.let { Modifier.focusRequester(it) } ?: Modifier)
           .featureEditor(
             state,
             ::project,
@@ -105,18 +106,16 @@ class FeatureEditorModifierTest {
           )
       ) {
         Box(
-          Modifier.fillMaxSize()
-            .then(focusRequester?.let { Modifier.focusRequester(it).focusable() } ?: Modifier)
-            .pointerInput(Unit) {
-              awaitPointerEventScope {
-                while (true) {
-                  val event = awaitPointerEvent(PointerEventPass.Main)
-                  event.changes.forEach {
-                    seen += Seen(it.pressed, it.previousPressed, it.isConsumed)
-                  }
+          Modifier.fillMaxSize().pointerInput(Unit) {
+            awaitPointerEventScope {
+              while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Main)
+                event.changes.forEach {
+                  seen += Seen(it.pressed, it.previousPressed, it.isConsumed)
                 }
               }
             }
+          }
         )
       }
     }
@@ -199,7 +198,7 @@ class FeatureEditorModifierTest {
   }
 
   @Test
-  fun keysReachTheToolThroughTheFocusedChild() = runComposeUiTest {
+  fun keysReachTheFocusedEditor() = runComposeUiTest {
     val tool = RecordingTool()
     val state = FeatureEditorState(initialTool = tool)
     val focusRequester = FocusRequester()
@@ -216,12 +215,12 @@ class FeatureEditorModifierTest {
 
   @Test
   fun undoShortcutsActOnTheStateBeforeTheTool() = runComposeUiTest {
-    val tool = RecordingTool()
+    val tool = RecordingTool(consumeTap = true)
     val state = FeatureEditorState(initialTool = tool)
     state.add(point("a"))
-    val focusRequester = FocusRequester()
-    editor(state, focusRequester = focusRequester)
-    runOnIdle { focusRequester.requestFocus() }
+    editor(state)
+    onNodeWithTag("editor").performTouchInput { click(Offset(50.dp.toPx(), 50.dp.toPx())) }
+    onNodeWithTag("editor").assertIsFocused()
 
     onRoot().performKeyInput { withKeyDown(Key.CtrlLeft) { pressKey(Key.Z) } }
     runOnIdle {
@@ -275,11 +274,10 @@ class FeatureEditorModifierTest {
   fun escapeCancelsAClaimedGesture() = runComposeUiTest {
     val tool = RecordingTool(claim = true)
     val state = FeatureEditorState(initialTool = tool)
-    val focusRequester = FocusRequester()
-    editor(state, focusRequester = focusRequester)
-    runOnIdle { focusRequester.requestFocus() }
+    editor(state)
 
     onNodeWithTag("editor").performTouchInput { down(Offset(50.dp.toPx(), 50.dp.toPx())) }
+    onNodeWithTag("editor").assertIsFocused()
     onRoot().performKeyInput { pressKey(Key.Escape) }
     runOnIdle {
       assertIs<EditorEvent.Cancel>(tool.events[1])
@@ -405,14 +403,13 @@ class FeatureEditorModifierTest {
   @Test
   fun undoShortcutsWaitForTheClaimedGestureToEnd() = runComposeUiTest {
     val state = FeatureEditorState(listOf(point("a", 10.0, -10.0)), initialTool = PointDragTool())
-    val focusRequester = FocusRequester()
-    editor(state, focusRequester = focusRequester)
-    runOnIdle { focusRequester.requestFocus() }
+    editor(state)
 
     onNodeWithTag("editor").performTouchInput { down(Offset(100.dp.toPx(), 100.dp.toPx())) }
     onNodeWithTag("editor").performTouchInput { moveBy(Offset(60.dp.toPx(), 0f)) }
     runOnIdle { assertEquals(16.0, state.pointA().longitude, 1e-9) }
 
+    onNodeWithTag("editor").assertIsFocused()
     onRoot().performKeyInput { withKeyDown(Key.CtrlLeft) { pressKey(Key.Z) } }
     runOnIdle {
       assertEquals(16.0, state.pointA().longitude, 1e-9)

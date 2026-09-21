@@ -125,7 +125,7 @@ public interface EditorEvent {
   ) : EditorEvent
 
   /**
-   * A key event while the map has focus. A held key repeats as KeyDown events. Returning true
+   * A key event while the editor has focus. A held key repeats as KeyDown events. Returning true
    * consumes it before the map's bindings.
    */
   public data class Key(

@@ -37,7 +37,7 @@ for area, length, bearing and bounding boxes.
 
 This screen lets a user outline one area. The state is remembered across
 recomposition and configuration changes, the layers sit under the base map's
-labels, and the map's `surfaceModifier` carries the input modifier:
+labels, and a full-size overlay child carries the input modifier:
 
 <Code code={region(editing, "basic")} lang="kotlin" title="App.kt" />
 
@@ -48,9 +48,9 @@ labels, and the map's `surfaceModifier` carries the input modifier:
    `DrawTool`, so it is active again after every draw.
 2. Layers under labels. See
    [How the map composes](/maplibre-compose/composition/) for anchors.
-3. The modifier goes in `surfaceModifier`, not `modifier`, so it sees pointer
-   events before the map's gestures and only where no overlay control is under
-   the pointer.
+3. Put the modifier on a full-size overlay child before the controls. It sees
+   pointer events before the map gestures, while controls above it keep their
+   own input. Include `MapOverlay.Default` to retain the standard controls.
 4. `DrawTool` stays active until the app sets another tool, so a screen needs a
    way to leave draw mode. Cancel discards the draft and returns to selection.
 
@@ -62,7 +62,7 @@ new feature selected. `nextTool` defaults to a new `SelectTool()` with default
 options, so pass a configured `SelectTool` explicitly to keep it after a draw.
 `SelectTool` selects on tap, drags vertices and midpoints, nudges the active
 vertex with arrow keys, and deletes with Delete or Backspace. Ctrl or Cmd with Z
-undoes, and with Shift+Z or Y redoes, while the map has focus.
+undoes, and with Shift+Z or Y redoes, while the editor has focus.
 
 Taps the tool does not consume, such as a tap on empty map, reach the map's
 click callbacks and layer click handlers as usual. Pinch and scroll are
@@ -251,8 +251,8 @@ under a screen location, nearest handle first, then features:
 ## Keep keyboard focus
 
 On desktop a toolbar button takes focus, and Delete, Escape and the undo keys
-then stop reaching the editor. A map with a surface modifier is a focus target,
-so request focus for it after each toolbar action:
+then stop reaching the editor. The editor modifier supplies a focus target,
+so request editor focus after each toolbar action:
 
 <Code code={region(editing, "focus")} lang="kotlin" title="App.kt" />
 
@@ -260,10 +260,11 @@ so request focus for it after each toolbar action:
    tool. A toolbar that switches tools mid-draw calls `cancelDraft` first;
    otherwise the draft stays drawn with no handles and Undo removes its
    positions.
-2. `focusRequester` goes in `surfaceModifier` before `featureEditor`.
-3. Optional. The map binds arrows, plus, minus, Enter and Escape when the tool
-   does not consume them. Turning the bindings off leaves those keys unused
-   instead of moving the camera.
+2. Put `focusRequester` before `featureEditor` on the overlay child. The editor
+   supplies its own focus target, including when camera keys are disabled.
+3. Optional. This disables camera keys when the map has focus. Editor shortcuts
+   still work while the editor has focus; unhandled editor keys do not engage
+   the camera.
 4. Compare tool instances; a wrapper is not `SelectTool`.
 
 ## Draw your own feature layers
