@@ -26,6 +26,7 @@ internal class PointerPairGesture(
   private val onRecognized: (CameraComponent) -> Unit,
   private val retainAuthority: () -> Boolean,
   maximumFlingVelocity: Float = Float.MAX_VALUE,
+  touchSlopPx: Float,
 ) {
   private val initialInput =
     event.gestureSample(
@@ -56,6 +57,7 @@ internal class PointerPairGesture(
       ::start,
       ::delta,
       maximumFlingVelocity,
+      touchSlopPx,
     )
   val firstId
     get() = recognition.firstId

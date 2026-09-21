@@ -112,8 +112,8 @@ class ClickInputTest {
       mainClock.autoAdvance = false
       try {
         mapNode().performTouchInput { click(center) }
-        waitForIdle()
-        assertEquals(1, target.clicks)
+        // Delivery is queued; keep virtual time frozen while its coroutine runs.
+        waitUntil(timeoutMillis = TIMEOUT) { target.clicks == 1 }
       } finally {
         mainClock.autoAdvance = true
       }

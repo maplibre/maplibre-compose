@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -50,6 +51,8 @@ import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -215,9 +218,10 @@ class MlnFfiMapCompositionTest {
       val state =
         runtime.createMapState(BaseStyle.Empty, cameraPosition = CameraPosition(zoom = 12.0))
       var drags = 0
+      val mapFocused = AtomicBoolean(false)
       setFfiTestMapContent(runtimeOptions) {
         MaplibreMap(
-          Modifier.size(300.dp).testTag("map"),
+          Modifier.size(300.dp).testTag("map").onFocusChanged { mapFocused.store(it.isFocused) },
           state = state,
           interactions =
             MapInteractions { callbacks { click { onUnhandled { ClickResult.Consume } } } },
@@ -239,6 +243,8 @@ class MlnFfiMapCompositionTest {
           onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty()
       }
       val before = state.cameraPosition
+      assertFalse(mapFocused.load())
+      assertFalse(state.isEngaged)
       onNodeWithTag("map").performTouchInput {
         down(point(150f, 150f))
         repeat(20) { moveBy(point(2f, 0f)) }
@@ -247,6 +253,74 @@ class MlnFfiMapCompositionTest {
       waitForIdle()
       assertTrue(drags > 0)
       assertEquals(before, state.cameraPosition)
+      assertFalse(mapFocused.load(), "a descendant drag focused the map")
+      assertFalse(state.isEngaged, "a descendant drag engaged the map")
+    }
+  }
+
+  @Test
+  fun gradual_compose_transforms_claim_before_map_navigation() = runFfiComposeUiTest {
+    fun point(x: Float, y: Float) = Offset(x * density.density, y * density.density)
+    withTestRuntime(runtimeOptions) { runtime ->
+      val state =
+        runtime.createMapState(BaseStyle.Empty, cameraPosition = CameraPosition(zoom = 12.0))
+      var pans = 0
+      var pinches = 0
+      var twists = 0
+      setFfiTestMapContent(runtimeOptions) {
+        MaplibreMap(
+          Modifier.size(300.dp).testTag("map"),
+          state = state,
+          overlay = {
+            Box(
+              Modifier.fillMaxSize().pointerInput(Unit) {
+                detectTransformGestures { _, pan, zoom, rotation ->
+                  if (pan != Offset.Zero) pans++
+                  if (zoom != 1f) pinches++
+                  if (rotation != 0f) twists++
+                }
+              }
+            )
+          },
+        )
+      }
+      waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+        state.style.loadState == StyleLoadState.Ready &&
+          state.currentMapAttachment?.viewport != null &&
+          onAllNodesWithTag(MAP_LOAD_PLACEHOLDER_TAG).fetchSemanticsNodes().isEmpty()
+      }
+      val before = state.cameraPosition
+      // Small steps cross the map's former component thresholds before host touch slop.
+      // Move both contacts in one event so pair motion does not include artificial pan/twist.
+      for (kind in 0..2) {
+        pans = 0
+        pinches = 0
+        twists = 0
+        onNodeWithTag("map").performTouchInput {
+          down(0, point(90f, 150f))
+          down(1, point(210f, 150f))
+          repeat(40) { index ->
+            val step = index + 1f
+            val centerX = 150f + if (kind == 0) step else 0f
+            val radius = 60f + if (kind == 1) step else 0f
+            val angle = if (kind == 2) step * 0.75f * kotlin.math.PI / 180.0 else 0.0
+            val dx = (radius * cos(angle)).toFloat()
+            val dy = (radius * sin(angle)).toFloat()
+            updatePointerTo(0, point(centerX - dx, 150f - dy))
+            updatePointerTo(1, point(centerX + dx, 150f + dy))
+            move()
+          }
+          up(0)
+          up(1)
+        }
+        waitForIdle()
+        assertEquals(before, state.cameraPosition, "camera changed during transform $kind")
+        when (kind) {
+          0 -> assertTrue(pans > 0, "child received no pan")
+          1 -> assertTrue(pinches > 0, "child received no pinch")
+          2 -> assertTrue(twists > 0, "child received no twist")
+        }
+      }
     }
   }
 

@@ -90,7 +90,7 @@ class TransformInputTest {
   }
 
   @Test
-  fun a_second_touch_interrupts_camera_motion_before_the_pair_crosses_slop() =
+  fun a_touch_pair_interrupts_camera_motion_only_after_recognition() =
     fixture.runRecognitionTest(
       options =
         InputConfiguration(InputConfiguration.NoBindings) {
@@ -98,16 +98,24 @@ class TransformInputTest {
         }
     ) { target ->
       val map = mapNode()
-      map.performTouchInput { down(0, center - Offset(30f, 0f)) }
       val animation =
         CoroutineScope(Dispatchers.Unconfined).launch {
           fixture.state.animateCamera(CameraPosition(zoom = 8.0).toCameraUpdate())
         }
       try {
         assertFalse(animation.isCompleted)
+        map.performTouchInput { down(0, center - Offset(30f, 0f)) }
+        assertFalse(animation.isCompleted)
         map.performTouchInput { down(1, center + Offset(30f, 0f)) }
-        assertTrue(animation.isCancelled)
+        assertFalse(animation.isCompleted)
         assertTrue(target.moveCalls.isEmpty())
+        map.performTouchInput {
+          updatePointerBy(0, Offset(80f, 0f))
+          updatePointerBy(1, Offset(80f, 0f))
+          move()
+        }
+        assertTrue(animation.isCancelled)
+        assertTrue(target.moveCalls.isNotEmpty())
         map.performTouchInput {
           up(0)
           up(1)

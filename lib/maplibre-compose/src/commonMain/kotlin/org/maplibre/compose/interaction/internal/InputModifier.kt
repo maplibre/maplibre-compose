@@ -201,7 +201,7 @@ private fun Modifier.pointerGestures(
         longClickTimeoutMillis = viewConfiguration.longPressTimeoutMillis,
         scope = scope,
         onHaptic = onHaptic.takeIf { options.camera.settings.rotate.haptics.isNotEmpty() },
-        onAcceptedPress = {
+        onRecognizedGesture = {
           scroll.cancel()
           platform.cancel()
           platformRouteActive = false

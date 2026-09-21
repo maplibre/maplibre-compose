@@ -68,7 +68,7 @@ internal class InputFocus(private val onChanged: (engaged: Boolean) -> Unit) {
   var isEngaged: Boolean by mutableStateOf(false)
     private set
 
-  /** Whether Back releases the map. A pointer press engages without claiming Back. */
+  /** Whether Back releases the map. A recognized pointer gesture engages without claiming Back. */
   val consumesBack: Boolean
     get() = isEngaged && engagedByKey
 

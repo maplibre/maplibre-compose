@@ -238,6 +238,11 @@ public class TapDragBuilder internal constructor(from: TapDragBinding) {
   }
 }
 
+/**
+ * Two-pointer transforms first cross the Compose host's touch slop. Component thresholds below
+ * apply in addition to that initial recognition distance. Host-recognized trackpad gestures have
+ * already passed host recognition.
+ */
 @MapInteractionDsl
 public class TransformBuilder internal constructor(from: TransformBinding) {
   private val panBuilder = TransformPanBuilder(from.pan)
