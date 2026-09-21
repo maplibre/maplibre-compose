@@ -64,3 +64,43 @@ after the property. The default, null, uses the global transition that
 <Api of="StyleTransition" /> reads and sets.
 
 [spec-layers]: https://maplibre.org/maplibre-style-spec/layers/
+
+## Define a layer type
+
+Plugin libraries can provide typed composables using <Api of="Layer" /> and
+<Api of="layerDefinition" />. Built-in layers use the same declaration and
+lifecycle machinery:
+
+<Code code={region(layers, "plugin-layer")} lang="kotlin" title="PluginMeshLayer.kt" />
+
+The builder accepts named root, layout, and paint properties as expressions or
+JSON values. Expressions can contain managed painters and bitmaps, just as they
+can in built-in layers. Use `paintTransition` for transition timing and
+<Api of="LayerExpressionContext" /> when a property needs text-unit conversion.
+
+A declaration is a complete value. Properties omitted on recomposition are
+removed. Paint, layout, filter, and zoom changes update the layer; changes to
+its type, source, source-layer, or other root fields replace it. The surrounding
+`Anchor` and the layer's interaction parameters work as they do for built-in
+layers.
+
+The generic API passes property names to the engine without Compose's
+style-spec filtering. The engine must support the layer type and properties.
+Register Native plugins through the FFI before declaring their layers; this API
+does not load plugins or provide equivalent implementations in the browser.
+
+## Declare a JSON layer
+
+Use <Api of="RawLayer" /> when you already have a layer's style JSON:
+
+<Code code={region(layers, "raw-layer")} lang="kotlin" title="App.kt" />
+
+Raw JSON preserves unknown fields, explicit nulls, and transition timing. It does
+not perform expression conversion or apply the system animation-duration scale.
+Image names in JSON must already exist in the style. Use the builder above for
+managed images and Compose-aware transition timing.
+
+Both APIs accept a managed `Source`. Without one, a JSON `source` property
+references an existing style source. The explicit layer ID and managed source
+must agree with any IDs in the JSON. Composition retains managed sources while
+layers use them and removes the declared layers when they leave composition.

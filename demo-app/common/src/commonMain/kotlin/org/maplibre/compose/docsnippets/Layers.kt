@@ -7,21 +7,29 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.maplibre.compose.demoapp.generated.Res
+import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.exponential
 import org.maplibre.compose.expressions.dsl.interpolate
 import org.maplibre.compose.expressions.dsl.zoom
+import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.LineCap
 import org.maplibre.compose.expressions.value.LineJoin
 import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.CircleLayer
+import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.LineLayer
+import org.maplibre.compose.layers.RawLayer
+import org.maplibre.compose.layers.layerDefinition
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.sources.GeoJsonData
+import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.VectorTileSource
 import org.maplibre.compose.sources.getBaseSource
 import org.maplibre.compose.sources.rememberGeoJsonSource
@@ -123,4 +131,42 @@ fun Layers() {
     // #endregion interaction
   }
   MaplibreMap(state = amtrakState)
+}
+
+// #region plugin-layer
+@Composable
+fun PluginMeshLayer(
+  id: String,
+  source: Source,
+  opacity: Expression<FloatValue> = const(1f),
+) {
+  Layer(
+    id = id,
+    source = source,
+    definition =
+      layerDefinition("plugin-mesh") {
+        paint("mesh-opacity", opacity)
+      },
+  )
+}
+
+// #endregion plugin-layer
+
+@Composable
+fun RawLayerExample() {
+  // #region raw-layer
+  RawLayer(
+    id = "custom-background",
+    definition =
+      buildJsonObject {
+        put("type", JsonPrimitive("background"))
+        put(
+          "paint",
+          buildJsonObject {
+            put("background-color", JsonPrimitive("#204060"))
+          },
+        )
+      },
+  )
+  // #endregion raw-layer
 }

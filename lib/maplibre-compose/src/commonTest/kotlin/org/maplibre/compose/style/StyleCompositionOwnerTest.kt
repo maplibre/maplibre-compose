@@ -30,8 +30,8 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.expressions.value.ImageValue
 import org.maplibre.compose.layers.Anchor
-import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.LayerProperty
+import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.map.FakeImageBitmap
 import org.maplibre.compose.sources.GeoJsonData
@@ -59,8 +59,11 @@ class StyleCompositionOwnerTest {
     runCurrent()
     assertTrue(starts.isEmpty())
     val sprite =
-      BackgroundLayer("layer-0").apply {
-        setBackgroundPattern(image("sprite").compile(ExpressionContext.None).asLayerProperty())
+      TestLayer("layer-0", "background").apply {
+        paint(
+          "background-pattern",
+          image("sprite").compile(ExpressionContext.None).asLayerProperty(),
+        )
       }
     declarations.send(
       StyleDeclaration(
@@ -159,8 +162,8 @@ class StyleCompositionOwnerTest {
       ),
       requests.mapIndexed { index, request ->
         val layer =
-          BackgroundLayer("layer-$index").apply {
-            setBackgroundOpacity(const(opacity).asLayerProperty())
+          TestLayer("layer-$index", "background").apply {
+            paint("background-opacity", const(opacity).asLayerProperty())
           }
         DeclaredStyleLayer(
           DesiredStyleLayer(layer.definition(), Anchor.Top, null, null),

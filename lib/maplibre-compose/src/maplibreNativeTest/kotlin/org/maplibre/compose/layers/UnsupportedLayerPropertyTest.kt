@@ -65,12 +65,22 @@ class UnsupportedLayerPropertyTest {
       val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
       val source = addSource(style)
 
-      val layer = SymbolLayer("labels", source)
-      layer.setIconAllowOverlap((const(true).compile(ExpressionContext.None)).asLayerProperty())
-      layer.setTextAllowOverlap((const(true).compile(ExpressionContext.None)).asLayerProperty())
-      layer.setIconOverlap((const("cooperative").compile(ExpressionContext.None)).asLayerProperty())
-      layer.setTextOverlap(
-        (const(SymbolOverlap.Always).compile(ExpressionContext.None)).asLayerProperty()
+      val layer = TestLayer("labels", "symbol", source).apply { filterUnsupportedProperties = true }
+      layer.layout(
+        "icon-allow-overlap",
+        (const(true).compile(ExpressionContext.None)).asLayerProperty(),
+      )
+      layer.layout(
+        "text-allow-overlap",
+        (const(true).compile(ExpressionContext.None)).asLayerProperty(),
+      )
+      layer.layout(
+        "icon-overlap",
+        (const("cooperative").compile(ExpressionContext.None)).asLayerProperty(),
+      )
+      layer.layout(
+        "text-overlap",
+        (const(SymbolOverlap.Always).compile(ExpressionContext.None)).asLayerProperty(),
       )
       // The assertion is that this returns at all: a layer object carrying `icon-overlap` is
       // refused wholesale, and installation turns that into a throw.
@@ -101,7 +111,10 @@ class UnsupportedLayerPropertyTest {
         assertTrue(warnings().any { "labels" in it && property in it }, "No warning for $property")
       }
 
-      layer.setIconOverlap((const("never").compile(ExpressionContext.None)).asLayerProperty())
+      layer.layout(
+        "icon-overlap",
+        (const("never").compile(ExpressionContext.None)).asLayerProperty(),
+      )
       handle.update(layer.definition())
       style.onMap { map ->
         // The read stays inside the block: onMap rejects a null *result* as an unbound layer.
@@ -124,12 +137,14 @@ class UnsupportedLayerPropertyTest {
 
       // What every SymbolLayer composable does: an optional property nobody set compiles to a null
       // literal and is handed to the setter anyway.
-      val layer = SymbolLayer("labels", source)
-      layer.setIconOverlap(
-        (nil().cast<StringValue>().compile(ExpressionContext.None)).asLayerProperty()
+      val layer = TestLayer("labels", "symbol", source).apply { filterUnsupportedProperties = true }
+      layer.layout(
+        "icon-overlap",
+        (nil().cast<StringValue>().compile(ExpressionContext.None)).asLayerProperty(),
       )
-      layer.setTextOverlap(
-        (nil().cast<SymbolOverlap>().compile(ExpressionContext.None)).asLayerProperty()
+      layer.layout(
+        "text-overlap",
+        (nil().cast<SymbolOverlap>().compile(ExpressionContext.None)).asLayerProperty(),
       )
       style.install(layer)
 
@@ -145,17 +160,19 @@ class UnsupportedLayerPropertyTest {
       val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
       val source = addSource(style)
 
-      val layer = SymbolLayer("labels", source)
-      layer.setTextRotationAlignment(
-        (const(TextRotationAlignment.Map).compile(ExpressionContext.None)).asLayerProperty()
+      val layer = TestLayer("labels", "symbol", source).apply { filterUnsupportedProperties = true }
+      layer.layout(
+        "text-rotation-alignment",
+        (const(TextRotationAlignment.Map).compile(ExpressionContext.None)).asLayerProperty(),
       )
       val handle = style.install(layer)
 
       // `viewport-glyph` is in the style spec but not in MapLibre Native, which knows only map,
       // viewport, and auto, yet it arrives through the public API as an ordinary enum member.
-      layer.setTextRotationAlignment(
+      layer.layout(
+        "text-rotation-alignment",
         (const(TextRotationAlignment.ViewportGlyph).compile(ExpressionContext.None))
-          .asLayerProperty()
+          .asLayerProperty(),
       )
       handle.update(layer.definition())
 
@@ -179,9 +196,12 @@ class UnsupportedLayerPropertyTest {
       val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
       val source = addSource(style)
 
-      val layer = FillLayer("fills", source)
-      layer.setFillLayerOpacity((const(0.5f).compile(ExpressionContext.None)).asLayerProperty())
-      layer.setFillLayerOpacityTransition(TransitionOptions(500.milliseconds))
+      val layer = TestLayer("fills", "fill", source).apply { filterUnsupportedProperties = true }
+      layer.paint(
+        "fill-layer-opacity",
+        (const(0.5f).compile(ExpressionContext.None)).asLayerProperty(),
+      )
+      layer.paintTransition("fill-layer-opacity", TransitionOptions(500.milliseconds))
       // The assertion is that this returns at all: a layer object carrying either key is refused
       // wholesale, and installation turns that into a throw.
       style.install(layer)

@@ -6,7 +6,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
-import org.maplibre.compose.layers.CircleLayer
+import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesiredStyleRevision
 import org.maplibre.compose.style.install
@@ -33,7 +33,7 @@ class CustomVectorTileSourceNativeTest {
           release.await()
           byteArrayOf()
         }
-      val layer = CircleLayer("empty-points", source)
+      val layer = TestLayer("empty-points", "circle", source)
       layer.sourceLayer = "points"
       fixture.state.style.sources.add(source)
       style.install(layer)

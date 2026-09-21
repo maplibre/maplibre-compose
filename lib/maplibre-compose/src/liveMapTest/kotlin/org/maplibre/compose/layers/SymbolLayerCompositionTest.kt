@@ -73,7 +73,7 @@ class SymbolLayerCompositionTest {
     }
 
     val layer = assertNotNull(style.getLayer("labels"))
-    val layout = assertNotNull(layer.toJson()["layout"] as? JsonObject)
+    val layout = assertNotNull(layer.value["layout"] as? JsonObject)
     assertEquals(
       Json.parseToJsonElement(
           """["let","semiliteral_value",["semiliteral",["top",["literal",[0,1]],"bottom",["literal",[0,-2]]]],["var","semiliteral_value"]]"""
@@ -100,7 +100,7 @@ class SymbolLayerCompositionTest {
 
     fun checkOffsets() {
       for (unit in offsets.keys) {
-        val layout = binding.getLayer(unit)!!.toJson()["layout"] as JsonObject
+        val layout = binding.getLayer(unit)!!.value["layout"] as JsonObject
         val renderedSize = layout.getValue("text-size").numberValue(binding.globalStateValues)
         assertEquals(textSize.value.value * fontScale.value.toDouble(), renderedSize, 0.0001)
         val offset = layout.getValue("text-offset").jsonArray

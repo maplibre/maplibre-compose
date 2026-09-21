@@ -8,7 +8,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.layers.CircleLayer
+import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MapTestResult
@@ -37,7 +37,7 @@ class GeoJsonClusterTest {
           options = GeoJsonOptions(cluster = true, clusterRadius = 200, clusterMaxZoom = 14),
         )
       fixture.state.style.sources.add(source)
-      binding.install(CircleLayer("clusters", source))
+      binding.install(TestLayer("clusters", "circle", source))
       val handle = assertIs<GeoJsonSourceHandle>(fixture.state.style.sources["points"])
 
       suspend fun rendered(): List<Feature<Geometry, JsonObject?>> =

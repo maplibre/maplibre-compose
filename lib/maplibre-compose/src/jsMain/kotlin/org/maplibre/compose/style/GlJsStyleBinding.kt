@@ -44,8 +44,6 @@ import org.maplibre.compose.gljs.keys
 import org.maplibre.compose.gljs.subscribe
 import org.maplibre.compose.layers.GlJsLocationIndicator
 import org.maplibre.compose.layers.IndicatorImage
-import org.maplibre.compose.layers.Layer
-import org.maplibre.compose.layers.UnknownLayer
 import org.maplibre.compose.logging.MapLog
 import org.maplibre.compose.sources.CLUSTER_ID_PROPERTY
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
@@ -262,10 +260,10 @@ internal class GlJsStyleBinding(
     return map.getStyle().sources.keys().toList()
   }
 
-  override fun getLayer(id: String): Layer? {
+  override fun getLayer(id: String): ResolvedLayerDefinition? {
     requireLoaded()
     indicators[id]?.let {
-      return UnknownLayer(id, it.definition)
+      return resolvedLayerDefinition(id, it.definition)
     }
     return map.getLayer(id)?.let(::reconstructLayer)
   }
@@ -323,14 +321,14 @@ internal class GlJsStyleBinding(
     )
   }
 
-  private fun reconstructLayer(layer: StyleLayer): Layer {
+  private fun reconstructLayer(layer: StyleLayer): ResolvedLayerDefinition {
     val definition =
       layer.serialize().toJsonElement() as? JsonObject
         ?: buildJsonObject {
           put("id", layer.id)
           put("type", layer.type)
         }
-    return UnknownLayer(layer.id, definition)
+    return resolvedLayerDefinition(layer.id, definition)
   }
 
   override fun addSource(sourceId: String, source: JsonObject): Boolean {

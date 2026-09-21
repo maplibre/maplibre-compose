@@ -101,7 +101,7 @@ internal class SourceInstallation(
  */
 internal class LayerInstallation(
   private val style: StyleBinding,
-  definition: LayerDefinition,
+  definition: ResolvedLayerDefinition,
   beforeLayerId: String,
   animatorDurationScale: Float = 1f,
 ) {
@@ -120,7 +120,7 @@ internal class LayerInstallation(
    * [definition], as one batch. A rejected write is the engine keeping the previous value, so
    * [current] advances regardless.
    */
-  fun update(definition: LayerDefinition, animatorDurationScale: Float = 1f) {
+  fun update(definition: ResolvedLayerDefinition, animatorDurationScale: Float = 1f) {
     style.requireCurrent()
     require(definition.id == id) { "A layer handle cannot change resource identity" }
     val next = definition.resolveFor(style, animatorDurationScale)
@@ -142,7 +142,15 @@ internal class LayerInstallation(
         val previous = previousValue[name]
         val value = nextValue[name]
         if (previous == value) return@forEach
-        add(LayerPropertyWrite(id, current.type, name, value ?: JsonNull, LayerPropertyKind.ROOT))
+        add(
+          LayerPropertyWrite(
+            id,
+            current.type,
+            name,
+            value ?: clearingValue(LayerPropertyKind.ROOT, name),
+            LayerPropertyKind.ROOT,
+          )
+        )
       }
     }
     style.setLayerProperties(writes)
@@ -161,7 +169,7 @@ internal class LayerInstallation(
     style.moveLayer(id, beforeLayerId)
   }
 
-  private fun add(definition: LayerDefinition, beforeLayerId: String) {
+  private fun add(definition: ResolvedLayerDefinition, beforeLayerId: String) {
     val added =
       try {
         style.addLayer(definition, beforeLayerId)
@@ -194,12 +202,13 @@ internal class LayerInstallation(
       }
   }
 
-  private fun reportUnsupported(definition: LayerDefinition) {
+  private fun reportUnsupported(definition: ResolvedLayerDefinition) {
     definition.unsupportedProperties.forEach { (name, reason) ->
       if (reportedUnsupported.add(name)) {
         style.logger?.w { "Layer '$id' of type '${definition.type}' cannot set '$name': $reason" }
       }
     }
+    if (!definition.filterUnsupportedProperties) return
     listOf("layout", "paint").forEach { section ->
       (definition.value[section] as? JsonObject)?.forEach { (name, value) ->
         val reason = style.unsupportedLayerPropertyReason(definition.type, name)
@@ -222,27 +231,37 @@ internal class LayerInstallation(
  * one, so a transition that goes away is cleared with an empty object.
  */
 private fun clearingValue(kind: LayerPropertyKind, name: String): JsonElement =
-  if (kind == LayerPropertyKind.PAINT && name.endsWith(TRANSITION_SUFFIX)) CLEARED_TRANSITION
-  else JsonNull
+  when {
+    kind == LayerPropertyKind.PAINT && name.endsWith(TRANSITION_SUFFIX) -> CLEARED_TRANSITION
+    kind == LayerPropertyKind.ROOT && name == "minzoom" -> JsonPrimitive(0)
+    kind == LayerPropertyKind.ROOT && name == "maxzoom" -> JsonPrimitive(24)
+    else -> JsonNull
+  }
 
 /**
- * The layer JSON that [style] receives: without the properties its engine does not support, and
- * with every paint transition scaled by [animatorDurationScale].
+ * Resolves the declaration's compatibility filtering and animation timing policies for [style]. Raw
+ * declarations preserve both their properties and their timing.
  */
-private fun LayerDefinition.resolveFor(
+private fun ResolvedLayerDefinition.resolveFor(
   style: StyleBinding,
   animatorDurationScale: Float,
-): LayerDefinition {
+): ResolvedLayerDefinition {
   fun JsonObject.withoutUnsupported(): JsonObject =
-    JsonObject(filterKeys { style.unsupportedLayerPropertyReason(type, it) == null })
+    if (filterUnsupportedProperties)
+      JsonObject(filterKeys { style.unsupportedLayerPropertyReason(type, it) == null })
+    else this
 
   val resolved = value.toMutableMap()
   (resolved["layout"] as? JsonObject)?.withoutUnsupported()?.let {
-    if (it.isEmpty()) resolved.remove("layout") else resolved["layout"] = it
+    if (it.isEmpty() && filterUnsupportedProperties) resolved.remove("layout")
+    else resolved["layout"] = it
   }
   (resolved["paint"] as? JsonObject)
     ?.withoutUnsupported()
-    ?.withScaledTransitions(animatorDurationScale)
-    ?.let { if (it.isEmpty()) resolved.remove("paint") else resolved["paint"] = it }
+    ?.let { if (scaleTransitions) it.withScaledTransitions(animatorDurationScale) else it }
+    ?.let {
+      if (it.isEmpty() && filterUnsupportedProperties) resolved.remove("paint")
+      else resolved["paint"] = it
+    }
   return copy(value = JsonObject(resolved))
 }

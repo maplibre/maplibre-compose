@@ -73,7 +73,8 @@ internal class StyleReconciler {
           desired.placement != applied.placement ||
           desired.definition.type != applied.definition.type ||
           desired.definition.sourceId != applied.definition.sourceId ||
-          desired.definition.value["source-layer"] != applied.definition.value["source-layer"] ||
+          desired.definition.constructionProperties() !=
+            applied.definition.constructionProperties() ||
           desired.definition.sourceId in replacedSourceIds
       ) {
         removeLayer(applied, changes)
@@ -278,13 +279,13 @@ internal class StyleReconciler {
   )
 
   private class AppliedLayer(
-    var definition: LayerDefinition,
+    var definition: ResolvedLayerDefinition,
     val placement: Placement,
     val installation: LayerInstallation,
   )
 
   private class PlacedLayer(desired: DesiredStyleLayer, val placement: Placement) {
-    val definition: LayerDefinition = desired.definition
+    val definition: ResolvedLayerDefinition = desired.definition
   }
 
   /**

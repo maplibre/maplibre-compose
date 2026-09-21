@@ -318,7 +318,7 @@ class LayerTransitionWiringTest {
   /** The durations of every `-transition` key the layer [id] holds. */
   private fun RecordingStyleBinding.transitionDurations(id: String): Map<String, Double> {
     val paint =
-      assertNotNull(getLayer(id), "the composition should have installed '$id'").toJson()["paint"]
+      assertNotNull(getLayer(id), "the composition should have installed '$id'").value["paint"]
         as? JsonObject
     return paint
       .orEmpty()

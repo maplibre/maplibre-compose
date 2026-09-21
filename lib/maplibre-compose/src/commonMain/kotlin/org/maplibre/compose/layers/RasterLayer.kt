@@ -2,6 +2,7 @@ package org.maplibre.compose.layers
 
 import androidx.compose.runtime.Composable
 import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.FloatValue
@@ -72,104 +73,31 @@ public fun RasterLayer(
   resampling: Expression<RasterResampling> = const(RasterResampling.Linear),
   fadeDuration: Expression<MillisecondsValue> = const(300.milliseconds),
 ) {
-  val compile = rememberPropertyCompiler()
 
-  val compiledOpacity = compile(opacity)
-  val compiledHueRotate = compile(hueRotate)
-  val compiledBrightnessMin = compile(brightnessMin)
-  val compiledBrightnessMax = compile(brightnessMax)
-  val compiledSaturation = compile(saturation)
-  val compiledContrast = compile(contrast)
-  val compiledResampling = compile(resampling)
-  val compiledFadeDuration = compile(fadeDuration)
-
-  LayerNode(
+  Layer(
     id = id,
     source = source,
-    factory = { RasterLayer(id = id, source = source) },
-    update = {
-      set(minZoom) { layer.minZoom = it }
-      set(maxZoom) { layer.maxZoom = it }
-      set(visible) { layer.visible = it }
-      set(compiledOpacity) { layer.setRasterOpacity(it) }
-      set(opacityTransition) { layer.setRasterOpacityTransition(it) }
-      set(compiledHueRotate) { layer.setRasterHueRotate(it) }
-      set(hueRotateTransition) { layer.setRasterHueRotateTransition(it) }
-      set(compiledBrightnessMin) { layer.setRasterBrightnessMin(it) }
-      set(brightnessMinTransition) { layer.setRasterBrightnessMinTransition(it) }
-      set(compiledBrightnessMax) { layer.setRasterBrightnessMax(it) }
-      set(brightnessMaxTransition) { layer.setRasterBrightnessMaxTransition(it) }
-      set(compiledSaturation) { layer.setRasterSaturation(it) }
-      set(saturationTransition) { layer.setRasterSaturationTransition(it) }
-      set(compiledContrast) { layer.setRasterContrast(it) }
-      set(contrastTransition) { layer.setRasterContrastTransition(it) }
-      set(compiledResampling) { layer.setRasterResampling(it) }
-      set(compiledFadeDuration) { layer.setRasterFadeDuration(it) }
-    },
+    definition =
+      builtInLayerDefinition("raster") {
+        root("minzoom", JsonPrimitive(minZoom))
+        root("maxzoom", JsonPrimitive(maxZoom))
+        layout("visibility", JsonPrimitive(if (visible) "visible" else "none"))
+        paint("raster-opacity", opacity)
+        paintTransition("raster-opacity", opacityTransition)
+        paint("raster-hue-rotate", hueRotate)
+        paintTransition("raster-hue-rotate", hueRotateTransition)
+        paint("raster-brightness-min", brightnessMin)
+        paintTransition("raster-brightness-min", brightnessMinTransition)
+        paint("raster-brightness-max", brightnessMax)
+        paintTransition("raster-brightness-max", brightnessMaxTransition)
+        paint("raster-saturation", saturation)
+        paintTransition("raster-saturation", saturationTransition)
+        paint("raster-contrast", contrast)
+        paintTransition("raster-contrast", contrastTransition)
+        paint("raster-resampling", resampling)
+        paint("raster-fade-duration", fadeDuration)
+      },
     onClick = null,
     onLongClick = null,
   )
-}
-
-internal class RasterLayer(id: String, val source: RasterSource) : Layer(id) {
-
-  override val type: String = "raster"
-
-  override val sourceId: String = source.id
-
-  fun setRasterOpacity(opacity: LayerProperty<FloatValue>) {
-    setPaintProperty("raster-opacity", opacity)
-  }
-
-  fun setRasterOpacityTransition(options: TransitionOptions?) {
-    setPaintTransition("raster-opacity", options)
-  }
-
-  fun setRasterHueRotate(hueRotate: LayerProperty<FloatValue>) {
-    setPaintProperty("raster-hue-rotate", hueRotate)
-  }
-
-  fun setRasterHueRotateTransition(options: TransitionOptions?) {
-    setPaintTransition("raster-hue-rotate", options)
-  }
-
-  fun setRasterBrightnessMin(brightnessMin: LayerProperty<FloatValue>) {
-    setPaintProperty("raster-brightness-min", brightnessMin)
-  }
-
-  fun setRasterBrightnessMinTransition(options: TransitionOptions?) {
-    setPaintTransition("raster-brightness-min", options)
-  }
-
-  fun setRasterBrightnessMax(brightnessMax: LayerProperty<FloatValue>) {
-    setPaintProperty("raster-brightness-max", brightnessMax)
-  }
-
-  fun setRasterBrightnessMaxTransition(options: TransitionOptions?) {
-    setPaintTransition("raster-brightness-max", options)
-  }
-
-  fun setRasterSaturation(saturation: LayerProperty<FloatValue>) {
-    setPaintProperty("raster-saturation", saturation)
-  }
-
-  fun setRasterSaturationTransition(options: TransitionOptions?) {
-    setPaintTransition("raster-saturation", options)
-  }
-
-  fun setRasterContrast(contrast: LayerProperty<FloatValue>) {
-    setPaintProperty("raster-contrast", contrast)
-  }
-
-  fun setRasterContrastTransition(options: TransitionOptions?) {
-    setPaintTransition("raster-contrast", options)
-  }
-
-  fun setRasterResampling(resampling: LayerProperty<RasterResampling>) {
-    setPaintProperty("raster-resampling", resampling)
-  }
-
-  fun setRasterFadeDuration(fadeDuration: LayerProperty<MillisecondsValue>) {
-    setPaintProperty("raster-fade-duration", fadeDuration)
-  }
 }

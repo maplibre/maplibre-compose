@@ -5,7 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import org.maplibre.compose.layers.Anchor
-import org.maplibre.compose.layers.RasterLayer
+import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.sources.RasterTileSource
 
 class StyleReconcilerTest {
@@ -32,7 +32,7 @@ class StyleReconcilerTest {
     val recording = RecordingOperations(style)
     val reconciler = StyleReconciler()
     val source = source("tiles")
-    val layer = RasterLayer("raster", source)
+    val layer = TestLayer("raster", "raster", source)
     val revision = revision(source, layer)
 
     reconciler.apply(recording, revision)
@@ -59,12 +59,12 @@ class StyleReconcilerTest {
     val first = source("first")
 
     assertFailsWith<IllegalStateException> {
-      reconciler.apply(style, revision(first, RasterLayer("first-layer", first)))
+      reconciler.apply(style, revision(first, TestLayer("first-layer", "raster", first)))
     }
 
     fail = false
     val second = source("second")
-    reconciler.apply(style, revision(second, RasterLayer("second-layer", second)))
+    reconciler.apply(style, revision(second, TestLayer("second-layer", "raster", second)))
 
     assertEquals(setOf("second"), delegate.installedSourceIds)
     assertEquals(setOf("second-layer"), delegate.installedLayerIds)
@@ -73,7 +73,7 @@ class StyleReconcilerTest {
   private fun source(id: String) =
     RasterTileSource(id, listOf("https://example.invalid/{z}/{x}/{y}.png"))
 
-  private fun revision(source: RasterTileSource, layer: RasterLayer) =
+  private fun revision(source: RasterTileSource, layer: TestLayer) =
     DesiredStyleRevision(
       sources = listOf(source.definition()),
       layers = listOf(DesiredStyleLayer(layer.definition(), Anchor.Top, null, null)),
@@ -87,7 +87,7 @@ class StyleReconcilerTest {
     override fun addSource(definition: SourceDefinition): Boolean =
       delegate.addSource(definition).also { additions += "source:${definition.id}" }
 
-    override fun addLayer(definition: LayerDefinition, beforeLayerId: String): Boolean =
+    override fun addLayer(definition: ResolvedLayerDefinition, beforeLayerId: String): Boolean =
       delegate.addLayer(definition, beforeLayerId).also {
         additions += "layer:${definition.id}"
       }

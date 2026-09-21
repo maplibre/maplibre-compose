@@ -7,10 +7,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.maplibre.compose.layers.Anchor
-import org.maplibre.compose.layers.BackgroundLayer
-import org.maplibre.compose.layers.Layer
-import org.maplibre.compose.layers.RasterLayer
-import org.maplibre.compose.layers.UnknownLayer
+import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.sources.RasterTileSource
 
 class StyleCompositionOrderTest {
@@ -31,8 +28,8 @@ class StyleCompositionOrderTest {
     for (anchor in anchors) {
       val source =
         RasterTileSource("composed-source", listOf("https://example.invalid/{z}/{x}/{y}.png"))
-      val first = RasterLayer("first-layer", source)
-      val second = RasterLayer("second-layer", source)
+      val first = TestLayer("first-layer", "raster", source)
+      val second = TestLayer("second-layer", "raster", source)
       val revision =
         DesiredStyleRevision(
           sources = listOf(source.definition()),
@@ -47,10 +44,10 @@ class StyleCompositionOrderTest {
         RecordingStyleBinding(
           layers =
             listOf(
-              BackgroundLayer("water"),
+              TestLayer("water", "background"),
               symbolLayer("water-labels"),
-              BackgroundLayer("park"),
-              BackgroundLayer("roads"),
+              TestLayer("park", "background"),
+              TestLayer("roads", "background"),
               symbolLayer("road-labels"),
             )
         )
@@ -73,14 +70,14 @@ class StyleCompositionOrderTest {
   fun a_single_above_layer_does_not_move_onto_itself() {
     val source =
       RasterTileSource("composed-source", listOf("https://example.invalid/{z}/{x}/{y}.png"))
-    val layer = RasterLayer("hillshade", source)
+    val layer = TestLayer("hillshade", "raster", source)
     val revision =
       DesiredStyleRevision(
         sources = listOf(source.definition()),
         layers = listOf(DesiredStyleLayer(layer.definition(), Anchor.Above("water"), null, null)),
         images = emptyList(),
       )
-    val style = RecordingStyleBinding(layers = listOf(BackgroundLayer("water")))
+    val style = RecordingStyleBinding(layers = listOf(TestLayer("water", "background")))
     val reconciler = StyleReconciler()
 
     reconciler.apply(style, revision)
@@ -109,9 +106,9 @@ class StyleCompositionOrderTest {
   fun a_predicate_can_read_a_layers_source_and_source_layer() {
     val base =
       listOf(
-        BackgroundLayer("bg"),
-        UnknownLayer("pois", layerJson("pois", "symbol", source = "base", sourceLayer = "poi")),
-        UnknownLayer("roads", layerJson("roads", "symbol", source = "base", sourceLayer = "road")),
+        TestLayer("bg", "background"),
+        TestLayer("pois", layerJson("pois", "symbol", source = "base", sourceLayer = "poi")),
+        TestLayer("roads", layerJson("roads", "symbol", source = "base", sourceLayer = "road")),
       )
     val style = RecordingStyleBinding(layers = base)
     val belowRoads = Anchor.Below {
@@ -185,7 +182,7 @@ class StyleCompositionOrderTest {
   /** The engine's own layers, such as MapLibre Native's annotation layer, sit above the base. */
   @Test
   fun bottom_lands_under_a_layer_that_is_not_a_base_layer() {
-    val style = RecordingStyleBinding(layers = listOf(BackgroundLayer("engine-owned")))
+    val style = RecordingStyleBinding(layers = listOf(TestLayer("engine-owned", "background")))
     val base =
       object : StyleBinding by style {
         override fun layerSummaries(): Map<String, LayerSummary> = emptyMap()
@@ -203,7 +200,8 @@ class StyleCompositionOrderTest {
 
   @Test
   fun composition_owned_layers_are_never_matched() {
-    val style = RecordingStyleBinding(layers = listOf(BackgroundLayer("bg"), symbolLayer("labels")))
+    val style =
+      RecordingStyleBinding(layers = listOf(TestLayer("bg", "background"), symbolLayer("labels")))
     val reconciler = StyleReconciler()
     reconciler.apply(style, revision(symbolLayer("composed-labels") to Anchor.Top))
 
@@ -263,16 +261,16 @@ class StyleCompositionOrderTest {
     assertNull(changes.layerOrder)
   }
 
-  private fun labelledBase(): List<Layer> =
+  private fun labelledBase(): List<TestLayer> =
     listOf(
-      BackgroundLayer("bg"),
+      TestLayer("bg", "background"),
       symbolLayer("water-labels"),
-      BackgroundLayer("water"),
+      TestLayer("water", "background"),
       symbolLayer("road-labels"),
-      BackgroundLayer("top"),
+      TestLayer("top", "background"),
     )
 
-  private fun revision(vararg layers: Pair<Layer, Anchor>) =
+  private fun revision(vararg layers: Pair<TestLayer, Anchor>) =
     DesiredStyleRevision(
       sources = emptyList(),
       layers =
@@ -280,9 +278,9 @@ class StyleCompositionOrderTest {
       images = emptyList(),
     )
 
-  private fun background(id: String): Layer = BackgroundLayer(id)
+  private fun background(id: String): TestLayer = TestLayer(id, "background")
 
-  private fun symbolLayer(id: String): Layer = UnknownLayer(id, layerJson(id, "symbol"))
+  private fun symbolLayer(id: String): TestLayer = TestLayer(id, layerJson(id, "symbol"))
 
   private fun layerJson(
     id: String,

@@ -34,7 +34,7 @@ internal data class DesiredStyleRevision(
 
 /** One layer definition at its explicit position in a desired revision. */
 internal data class DesiredStyleLayer(
-  val definition: LayerDefinition,
+  val definition: ResolvedLayerDefinition,
   val anchor: Anchor,
   val onClick: FeaturesClickHandler?,
   val onLongClick: FeaturesClickHandler?,

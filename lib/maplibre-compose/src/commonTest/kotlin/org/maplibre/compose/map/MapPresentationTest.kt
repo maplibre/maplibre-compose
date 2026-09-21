@@ -49,8 +49,8 @@ import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.layers.Anchor
-import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.LayerHandle
+import org.maplibre.compose.layers.TestLayer
 import org.maplibre.compose.layers.asLayerProperty
 import org.maplibre.compose.overlay.attributions
 import org.maplibre.compose.sources.GeoJsonData
@@ -126,7 +126,7 @@ class MapPresentationTest {
           GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
           GeoJsonOptions(),
         )
-      val layer = BackgroundLayer("animated")
+      val layer = TestLayer("animated", "background")
       val original =
         DesiredStyleRevision(
           listOf(source.definition()),
@@ -236,7 +236,7 @@ class MapPresentationTest {
             GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
             GeoJsonOptions(),
           )
-        val layer = BackgroundLayer("background")
+        val layer = TestLayer("background", "background")
         val original =
           DesiredStyleRevision(
             listOf(source.definition()),
@@ -252,7 +252,10 @@ class MapPresentationTest {
         val feature = Feature(Point(Position(0.0, 0.0)), buildJsonObject { put("cluster_id", 1) })
         val query = async { runCatching { handle.getClusterExpansionZoom(feature) } }
         started.await()
-        layer.setBackgroundOpacity((const(0.5f).compile(ExpressionContext.None)).asLayerProperty())
+        layer.paint(
+          "background-opacity",
+          (const(0.5f).compile(ExpressionContext.None)).asLayerProperty(),
+        )
         val next =
           DesiredStyleRevision(
             if (replaceSource)
@@ -327,7 +330,7 @@ class MapPresentationTest {
   fun resource_edits_update_the_catalog_without_restarting_loading() = runTest {
     val fixture = presentationFixture()
     try {
-      val backing = RecordingStyleBinding(layers = listOf(BackgroundLayer("base")))
+      val backing = RecordingStyleBinding(layers = listOf(TestLayer("base", "background")))
       val binding = backing
       val reconciler = StyleReconciler()
       fixture.state.styleAuthority.updateLoadedStyle(fixture.adapter, binding)
@@ -339,7 +342,7 @@ class MapPresentationTest {
             if (ids.isEmpty()) emptyList()
             else listOf(attributedVectorSource("added", "attribution").definition()),
             ids.map { id ->
-              DesiredStyleLayer(BackgroundLayer(id).definition(), Anchor.Top, null, null)
+              DesiredStyleLayer(TestLayer(id, "background").definition(), Anchor.Top, null, null)
             },
             emptyList(),
           )
@@ -977,7 +980,7 @@ class MapPresentationTest {
   @Test
   fun a_live_layer_handle_reads_and_writes_only_its_loaded_style() = runTest {
     val fixture = presentationFixture()
-    val loadedStyle = RecordingStyleBinding(layers = listOf(BackgroundLayer("background")))
+    val loadedStyle = RecordingStyleBinding(layers = listOf(TestLayer("background", "background")))
     fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, loadedStyle)
     fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
 
@@ -994,7 +997,7 @@ class MapPresentationTest {
   @Test
   fun a_layer_handle_does_not_revive_after_structural_replacement() = runTest {
     val fixture = presentationFixture()
-    val layer = BackgroundLayer("background")
+    val layer = TestLayer("background", "background")
     val original = DesiredStyleLayer(layer.definition(), Anchor.Top, null, null)
     val declaredRevision = DesiredStyleRevision(emptyList(), listOf(original), emptyList())
     val binding = RecordingStyleBinding()
@@ -1045,7 +1048,7 @@ class MapPresentationTest {
         attributedVectorSource("bottom", "first"),
         attributedVectorSource("top", "second"),
       )
-    val layers = listOf(BackgroundLayer("bottom"), BackgroundLayer("top"))
+    val layers = listOf(TestLayer("bottom", "background"), TestLayer("top", "background"))
     val binding = RecordingStyleBinding(sources = sources, layers = layers)
     val styleSources = fixture.state.style.sources
     val styleLayers = fixture.state.style.layers
@@ -1179,7 +1182,7 @@ class MapPresentationTest {
     val fixture = presentationFixture()
     val binding =
       RecordingStyleBinding(
-        layers = listOf(BackgroundLayer("background")),
+        layers = listOf(TestLayer("background", "background")),
         animatorDurationScaleState = mutableStateOf(0.5f),
       )
     val transition = fixture.state.style.transition
@@ -1518,7 +1521,7 @@ class MapPresentationTest {
   fun retained_mutation_capabilities_cannot_write_a_new_declaration() = runTest {
     val fixture = presentationFixture()
     val source = attributedVectorSource("owned", "attribution")
-    val layer = BackgroundLayer("owned")
+    val layer = TestLayer("owned", "background")
     val image = FakeImageBitmap(1, 1)
     val binding =
       RecordingStyleBinding(

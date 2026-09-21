@@ -11,7 +11,6 @@ from ci.style_spec_parity import (
     SpecProperty,
     Version,
     audit,
-    dead_setters,
     scan_layers,
     scan_root_objects,
     scan_sources,
@@ -66,10 +65,9 @@ def _layer_file(
     _write(
         root,
         f"lib/maplibre-compose/src/{source_set}/kotlin/org/maplibre/compose/layers/{filename}",
-        f'internal class Demo : Layer("x") {{\n'
-        f'  override val type: String = "{layer_type}"\n'
+        f'@Composable fun Demo() {{ Layer(definition = layerDefinition("{layer_type}") {{\n'
         f"  {writes}\n"
-        f"}}\n",
+        f"}}) }}\n",
     )
 
 
@@ -196,7 +194,7 @@ class AuditTest(unittest.TestCase):
                 "commonMain",
                 "FillLayer.kt",
                 "fill",
-                'setLayoutProperty("fill-opacity", value)',
+                'layout("fill-opacity", value)',
             )
             report = audit(
                 _spec(js="1.0.0", android="1.0.0"),
@@ -215,7 +213,7 @@ class AuditTest(unittest.TestCase):
                 "jsMain",
                 "FillLayer.kt",
                 "fill",
-                'setPaintProperty("fill-opacity", value)',
+                'paint("fill-opacity", value)',
             )
             report = audit(
                 _spec(js="1.0.0", android=None, ios=None),
@@ -232,7 +230,7 @@ class AuditTest(unittest.TestCase):
                 "maplibreNativeMain",
                 "FillLayer.kt",
                 "fill",
-                'setPaintProperty("fill-opacity", value)',
+                'paint("fill-opacity", value)',
             )
             report = audit(
                 _spec(js=None, android="1.0.0", ios="1.0.0"),
@@ -249,7 +247,7 @@ class AuditTest(unittest.TestCase):
                 "commonMain",
                 "FillLayer.kt",
                 "fill",
-                'setPaintProperty("fill-opacity", value)',
+                'paint("fill-opacity", value)',
             )
             report = audit(
                 _spec(js="1.0.0", android=None, ios=None),
@@ -271,7 +269,7 @@ class AuditTest(unittest.TestCase):
                 "commonMain",
                 "FillLayer.kt",
                 "fill",
-                'setPaintProperty("fill-opacity", value)',
+                'paint("fill-opacity", value)',
             )
             report = audit(
                 _spec(js=None, android="1.0.0", ios="1.0.0"),
@@ -315,98 +313,36 @@ class AuditTest(unittest.TestCase):
             found = scan_sources(root)
         self.assertEqual(found, {"geojson": {"js", "native"}})
 
-    def test_an_uncalled_setter_is_dead(self) -> None:
+    def test_named_type_and_shared_declarations(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
-            _layer_file(
-                root,
-                "commonMain",
-                "FillLayer.kt",
-                "fill",
-                'fun setFillOpacity(value: Any) { setPaintProperty("fill-opacity", value) }',
-            )
-            self.assertEqual(dead_setters(root), ["FillLayer.kt:setFillOpacity"])
-
-    def test_a_called_setter_is_reachable(self) -> None:
-        writes = (
-            'fun setFillOpacity(value: Any) { setPaintProperty("fill-opacity", value) }\n'
-            "  fun update(value: Any) { setFillOpacity(value) }"
-        )
-        with tempfile.TemporaryDirectory() as tmp:
-            root = pathlib.Path(tmp)
-            _layer_file(root, "commonMain", "FillLayer.kt", "fill", writes)
-            self.assertEqual(dead_setters(root), [])
-
-    def test_a_call_to_another_class_is_not_reachability(self) -> None:
-        setter = (
-            'fun setResampling(value: Any) { setPaintProperty("resampling", value) }'
-        )
-        with tempfile.TemporaryDirectory() as tmp:
-            root = pathlib.Path(tmp)
-            _write(
-                root,
-                _LAYERS_DIR + "HillshadeLayer.kt",
-                f"internal class HillshadeLayer : Layer() {{\n  {setter}\n}}\n",
-            )
-            _write(
-                root,
-                _LAYERS_DIR + "ColorReliefLayer.kt",
-                f"internal class ColorReliefLayer : Layer() {{\n  {setter}\n}}\n"
-                "fun update(layer: ColorReliefLayer) { layer.setResampling(1) }\n",
-            )
-            self.assertEqual(dead_setters(root), ["HillshadeLayer.kt:setResampling"])
-
-    def test_a_subclass_call_reaches_an_inherited_setter(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = pathlib.Path(tmp)
-            _write(
-                root,
-                _LAYERS_DIR + "FeatureLayer.kt",
-                "internal abstract class FeatureLayer : Layer() {\n"
-                "  fun setSourceLayerProperty(value: Any) "
-                '{ setRootProperty("source-layer", value) }\n'
-                "}\n",
-            )
             _write(
                 root,
                 _LAYERS_DIR + "FillLayer.kt",
-                "internal class FillLayer : FeatureLayer() {\n"
-                "  fun update(value: Any) { setSourceLayerProperty(value) }\n"
-                "}\n",
-            )
-            self.assertEqual(dead_setters(root), [])
-
-    def test_a_composable_in_another_file_reaches_the_setter(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = pathlib.Path(tmp)
-            _write(
-                root,
-                _LAYERS_DIR + "LocationLayer.kt",
-                "internal class LocationLayer : Layer() {\n"
-                '  fun setBearing(value: Any) { setPaintProperty("bearing", value) }\n'
-                "}\n",
+                "@Composable fun FillLayer() { Layer(definition = builtInLayerDefinition(\n"
+                '  type = "fill",\n'
+                ') { paint("fill-opacity", opacity) }) }\n',
             )
             _write(
                 root,
-                "lib/maplibre-compose/src/maplibreNativeMain/kotlin/org/maplibre/"
-                "compose/layers/LocationLayerComposable.kt",
-                "fun Composable() { val layer = LocationLayer()\n"
-                "  layer.setBearing(1) }\n",
+                _LAYERS_DIR + "Layer.kt",
+                'fun commonProperties() { layout("visibility", visibility) }\n',
             )
-            self.assertEqual(dead_setters(root), [])
+            api = scan_layers(root)
+        self.assertEqual(api.types, {"fill": {"js", "native"}})
+        self.assertEqual(api.writers("fill", "paint", "fill-opacity"), {"js", "native"})
+        self.assertEqual(api.writers("fill", "layout", "visibility"), {"js", "native"})
 
     def test_scan_reads_platform_source_sets(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
-            _layer_file(
-                root, "jsMain", "JsLayer.kt", "fill", 'setPaintProperty("a", v)'
-            )
+            _layer_file(root, "jsMain", "JsLayer.kt", "fill", 'paint("a", v)')
             _layer_file(
                 root,
                 "maplibreNativeMain",
                 "NativeLayer.kt",
                 "location-indicator",
-                'setPaintProperty("bearing", v)',
+                'paint("bearing", v)',
             )
             api = scan_layers(root)
         self.assertEqual(api.types["fill"], {"js"})
@@ -426,7 +362,7 @@ class TransitionTest(unittest.TestCase):
                 "commonMain",
                 "FillLayer.kt",
                 "fill",
-                'setPaintProperty("fill-opacity", value)',
+                'paint("fill-opacity", value)',
             )
             report = audit(
                 _spec(transition=True),
@@ -448,8 +384,8 @@ class TransitionTest(unittest.TestCase):
                 "commonMain",
                 "FillLayer.kt",
                 "fill",
-                'setPaintProperty("fill-opacity", value)\n'
-                '  setPaintTransition("fill-opacity", options)',
+                'paint("fill-opacity", value)\n'
+                '  paintTransition("fill-opacity", options)',
             )
             report = audit(
                 _spec(transition=True),
@@ -466,8 +402,8 @@ class TransitionTest(unittest.TestCase):
                 "commonMain",
                 "FillLayer.kt",
                 "fill",
-                'setPaintProperty("fill-opacity", value)\n'
-                '  setPaintTransition("fill-opacity", options)',
+                'paint("fill-opacity", value)\n'
+                '  paintTransition("fill-opacity", options)',
             )
             report = audit(
                 _spec(),
@@ -486,8 +422,8 @@ class TransitionTest(unittest.TestCase):
                 "jsMain",
                 "FillLayer.kt",
                 "fill",
-                'setPaintProperty("fill-opacity", value)\n'
-                '  setPaintTransition("fill-opacity", options)',
+                'paint("fill-opacity", value)\n'
+                '  paintTransition("fill-opacity", options)',
             )
             report = audit(
                 _spec(js="1.0.0", android=None, ios=None, transition=True),
@@ -504,8 +440,8 @@ class TransitionTest(unittest.TestCase):
                 "commonMain",
                 "RasterLayer.kt",
                 "raster",
-                'setPaintProperty("raster-resampling", value)\n'
-                '  setPaintTransition("raster-resampling", options)',
+                'paint("raster-resampling", value)\n'
+                '  paintTransition("raster-resampling", options)',
             )
             report = audit(
                 _spec(layer="raster", name="resampling", transition=True),
@@ -522,7 +458,7 @@ class TransitionTest(unittest.TestCase):
                 "commonMain",
                 "FillLayer.kt",
                 "fill",
-                'setPaintTransition("fill-opacity", options)',
+                'paintTransition("fill-opacity", options)',
             )
             report = audit(
                 _spec(transition=True),

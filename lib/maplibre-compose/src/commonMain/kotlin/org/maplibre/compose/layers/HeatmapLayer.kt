@@ -3,6 +3,7 @@ package org.maplibre.compose.layers
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
@@ -74,85 +75,29 @@ public fun HeatmapLayer(
   onDoubleClick: FeaturesClickHandler? = null,
   hitPadding: Dp = 0.dp,
 ) {
-  val compile = rememberPropertyCompiler()
 
-  val compiledFilter = compile(filter)
-  val compiledColor = compile(color)
-  val compiledOpacity = compile(opacity)
-  val compiledRadius = compile(radius)
-  val compiledWeight = compile(weight)
-  val compiledIntensity = compile(intensity)
-
-  LayerNode(
+  Layer(
     id = id,
     source = source,
-    factory = { HeatmapLayer(id = id, source = source) },
-    recreateKey = sourceLayer,
-    update = {
-      set(sourceLayer) { layer.sourceLayer = it }
-      set(minZoom) { layer.minZoom = it }
-      set(maxZoom) { layer.maxZoom = it }
-      set(compiledFilter) { layer.setFilter(it) }
-      set(visible) { layer.visible = it }
-      set(compiledRadius) { layer.setHeatmapRadius(it) }
-      set(radiusTransition) { layer.setHeatmapRadiusTransition(it) }
-      set(compiledWeight) { layer.setHeatmapWeight(it) }
-      set(compiledIntensity) { layer.setHeatmapIntensity(it) }
-      set(intensityTransition) { layer.setHeatmapIntensityTransition(it) }
-      set(compiledColor) { layer.setHeatmapColor(it) }
-      set(compiledOpacity) { layer.setHeatmapOpacity(it) }
-      set(opacityTransition) { layer.setHeatmapOpacityTransition(it) }
-    },
+    definition =
+      builtInLayerDefinition("heatmap") {
+        root("source-layer", JsonPrimitive(sourceLayer))
+        root("minzoom", JsonPrimitive(minZoom))
+        root("maxzoom", JsonPrimitive(maxZoom))
+        root("filter", filter)
+        layout("visibility", JsonPrimitive(if (visible) "visible" else "none"))
+        paint("heatmap-radius", radius)
+        paintTransition("heatmap-radius", radiusTransition)
+        paint("heatmap-weight", weight)
+        paint("heatmap-intensity", intensity)
+        paintTransition("heatmap-intensity", intensityTransition)
+        paint("heatmap-color", color)
+        paint("heatmap-opacity", opacity)
+        paintTransition("heatmap-opacity", opacityTransition)
+      },
     onClick = onClick,
     onLongClick = onLongClick,
     onDoubleClick = onDoubleClick,
     hitPadding = hitPadding,
   )
-}
-
-internal class HeatmapLayer(id: String, source: VectorSource) : FeatureLayer(id, source) {
-
-  override val type: String = "heatmap"
-
-  override var sourceLayer: String = ""
-    set(value) {
-      field = value
-      setSourceLayerProperty(value)
-    }
-
-  override fun setFilter(filter: LayerProperty<BooleanValue>) {
-    setFilterExpression(filter)
-  }
-
-  fun setHeatmapRadius(radius: LayerProperty<DpValue>) {
-    setPaintProperty("heatmap-radius", radius)
-  }
-
-  fun setHeatmapRadiusTransition(options: TransitionOptions?) {
-    setPaintTransition("heatmap-radius", options)
-  }
-
-  fun setHeatmapWeight(weight: LayerProperty<FloatValue>) {
-    setPaintProperty("heatmap-weight", weight)
-  }
-
-  fun setHeatmapIntensity(intensity: LayerProperty<FloatValue>) {
-    setPaintProperty("heatmap-intensity", intensity)
-  }
-
-  fun setHeatmapIntensityTransition(options: TransitionOptions?) {
-    setPaintTransition("heatmap-intensity", options)
-  }
-
-  fun setHeatmapColor(color: LayerProperty<ColorValue>) {
-    setPaintProperty("heatmap-color", color)
-  }
-
-  fun setHeatmapOpacity(opacity: LayerProperty<FloatValue>) {
-    setPaintProperty("heatmap-opacity", opacity)
-  }
-
-  fun setHeatmapOpacityTransition(options: TransitionOptions?) {
-    setPaintTransition("heatmap-opacity", options)
-  }
 }

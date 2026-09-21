@@ -1,6 +1,6 @@
 """Compare this repository's style API with the pinned style spec release.
 
-Check layer types, source types, properties, transitions, and setter calls
+Check layer types, source types, properties, and transitions
 against the repository's engine versions.
 """
 
@@ -27,19 +27,14 @@ NATIVE_BINDING = pathlib.Path(
     "org/maplibre/compose/style/MlnFfiStyleBinding.kt"
 )
 
-LAYER_TYPE = re.compile(r'override val type: String = "([^"]+)"')
-PROPERTY_WRITE = re.compile(
-    r'set(?P<kind>Layout|Paint|Root)Property\(\s*"(?P<name>[^"]+)"'
+LAYER_TYPE = re.compile(
+    r'\b(?:layerDefinition|builtInLayerDefinition)\(\s*(?:type\s*=\s*)?"([^"]+)"'
 )
-TRANSITION_WRITE = re.compile(r'setPaintTransition\(\s*"(?P<name>[^"]+)"')
-ANY_WRITE = re.compile(
-    r'set(?:Layout|Paint|Root)Property\(\s*"[^"]+"|setPaintTransition\(\s*"[^"]+"'
-)
+PROPERTY_WRITE = re.compile(r'\b(?P<kind>layout|paint|root)\(\s*"(?P<name>[^"]+)"')
+TRANSITION_WRITE = re.compile(r'\bpaintTransition\(\s*"(?P<name>[^"]+)"')
 UNSUPPORTED_PAIR = re.compile(r'\("([^"]+)"\s+to\s+"([^"]+)"\)')
 TRANSITION_SUFFIX = "-transition"
 SOURCE_TYPE_WRITE = re.compile(r'put\("type",\s*"([^"]+)"\)')
-FUN_DECLARATION = re.compile(r"\bfun\s+(\w+)\s*\(")
-CLASS_DECLARATION = re.compile(r"\bclass\s+(\w+)")
 TOML_STRING = re.compile(r'^([A-Za-z0-9_-]+)\s*=\s*"([^"]+)"')
 VERSION_STRING = re.compile(r"^(\d+)\.(\d+)(?:\.(\d+))?(?:[-+][0-9A-Za-z.-]+)?$")
 
@@ -414,50 +409,6 @@ def scan_root_objects(root: pathlib.Path) -> dict[str, set[str]]:
     return found
 
 
-def dead_setters(root: pathlib.Path) -> list[str]:
-    """Property-writing functions that no other layers code calls.
-
-    A property write proves nothing when the function around it is never
-    called. Setter names repeat across layer classes, so a call in another
-    file counts only when that file also names the declaring class: a
-    subclass names the superclass whose setter it calls, and a
-    platform-specific composable names the internal class it constructs.
-    Writes outside a named function, such as the root-property accessors on
-    the base `Layer` class, are out of scope.
-    """
-    files = [(path, path.read_text()) for _, path in _kotlin_files(root, "layers")]
-    dead: set[str] = set()
-    for path, text in files:
-        declarations = [
-            (match.start(), match[1]) for match in FUN_DECLARATION.finditer(text)
-        ]
-        for write in ANY_WRITE.finditer(text):
-            enclosing = None
-            for start, name in declarations:
-                if start >= write.start():
-                    break
-                enclosing = name
-            if enclosing is None:
-                continue
-            owner = None
-            for declaration in CLASS_DECLARATION.finditer(text):
-                if declaration.start() >= write.start():
-                    break
-                owner = declaration[1]
-            call = re.compile(rf"(?<!fun )\b{enclosing}\s*\(")
-            reachable = any(
-                call.search(other_text)
-                and (
-                    other_path == path
-                    or (owner and re.search(rf"\b{owner}\b", other_text))
-                )
-                for other_path, other_text in files
-            )
-            if not reachable:
-                dead.add(f"{path.name}:{enclosing}")
-    return sorted(dead)
-
-
 def native_unsupported(root: pathlib.Path) -> set[tuple[str, str]]:
     """Layer properties the native binding refuses to write."""
     path = root / NATIVE_BINDING
@@ -506,7 +457,6 @@ def audit(
     _audit_native_table(report, properties, api, unsupported, pins)
     _audit_sources(report, spec, api)
     _audit_root_objects(report, spec, scan_root_objects(root), pins)
-    _audit_setters(report, root)
     return report
 
 
@@ -771,15 +721,6 @@ def _audit_root_objects(
             report.error(f"{name}: unexpected extra " + ", ".join(extra))
         if not missing and not extra:
             report.note(f"  {name}: all present")
-
-
-def _audit_setters(report: Audit, root: pathlib.Path) -> None:
-    report.note("Setter reachability")
-    dead = dead_setters(root)
-    if dead:
-        report.error("property setters nothing calls: " + ", ".join(dead))
-    else:
-        report.note("  every property setter is called")
 
 
 def _audit_sources(report: Audit, spec: dict[str, Any], api: KotlinApi) -> None:
