@@ -47,6 +47,8 @@ public data class LayerExpressionContext(
   public val spScale: Expression<FloatValue>? = null,
 )
 
+internal val DefaultLayerExpressionContext = LayerExpressionContext()
+
 /**
  * Builds a layer of any engine-supported [type]. Property names and raw JSON are passed to the
  * engine without Compose's style-spec filtering. The engine still validates the layer.
@@ -94,7 +96,7 @@ public class LayerDefinitionBuilder internal constructor() {
   public fun root(
     name: String,
     value: Expression<*>?,
-    units: LayerExpressionContext = LayerExpressionContext(),
+    units: LayerExpressionContext = DefaultLayerExpressionContext,
   ) {
     put(null, name, LayerValue.Expression(value, units))
   }
@@ -103,7 +105,7 @@ public class LayerDefinitionBuilder internal constructor() {
   public fun layout(
     name: String,
     value: Expression<*>?,
-    units: LayerExpressionContext = LayerExpressionContext(),
+    units: LayerExpressionContext = DefaultLayerExpressionContext,
   ) {
     put("layout", name, LayerValue.Expression(value, units))
   }
@@ -112,7 +114,7 @@ public class LayerDefinitionBuilder internal constructor() {
   public fun paint(
     name: String,
     value: Expression<*>?,
-    units: LayerExpressionContext = LayerExpressionContext(),
+    units: LayerExpressionContext = DefaultLayerExpressionContext,
   ) {
     put("paint", name, LayerValue.Expression(value, units))
   }
@@ -127,14 +129,21 @@ public class LayerDefinitionBuilder internal constructor() {
 
   private fun put(section: String?, name: String, value: LayerValue) {
     require(name.isNotBlank()) { "Property name must not be blank" }
-    require(section != null || name !in setOf("id", "type", "layout", "paint")) {
+    require(
+      section != null || name != "id" && name != "type" && name != "layout" && name != "paint"
+    ) {
       "'$name' is not a root property; use the layer identity or property section API"
     }
     properties[StyleProperty(section, name)] = value
   }
 
-  internal fun build(type: String): LayerDefinition =
-    LayerDefinition(type, properties.toMap(), unsupportedProperties = unsupportedProperties.toMap())
+  internal fun build(type: String, filterUnsupportedProperties: Boolean = false): LayerDefinition =
+    LayerDefinition(
+      type,
+      properties.toMap(),
+      filterUnsupportedProperties = filterUnsupportedProperties,
+      unsupportedProperties = unsupportedProperties.toMap(),
+    )
 }
 
 internal sealed interface LayerValue {
@@ -152,13 +161,8 @@ internal fun builtInLayerDefinition(
   type: String,
   builder: LayerDefinitionBuilder.() -> Unit = {},
 ): LayerDefinition {
-  val definition = layerDefinition(type, builder)
-  return LayerDefinition(
-    type,
-    definition.properties,
-    filterUnsupportedProperties = true,
-    unsupportedProperties = definition.unsupportedProperties,
-  )
+  require(type.isNotBlank()) { "Layer type must not be blank" }
+  return LayerDefinitionBuilder().apply(builder).build(type, filterUnsupportedProperties = true)
 }
 
 // JsonObject/JsonArray may wrap caller-owned mutable collections. Declarations must not change

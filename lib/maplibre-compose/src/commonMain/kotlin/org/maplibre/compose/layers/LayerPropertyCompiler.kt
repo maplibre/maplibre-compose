@@ -27,6 +27,14 @@ internal class LayerPropertyCompiler(
   private val emScale: Expression<FloatValue>? = null,
   private val spScale: Expression<FloatValue>? = null,
 ) {
+  @Composable
+  fun withUnits(units: LayerExpressionContext): LayerPropertyCompiler =
+    if (units == DefaultLayerExpressionContext) this
+    else
+      remember(this, units) {
+        LayerPropertyCompiler(density, layoutDirection, fontScale, units.emScale, units.spScale)
+      }
+
   /**
    * Compiles [expression]. A null [expression] compiles to a null literal, which leaves the
    * property unset.
@@ -89,14 +97,11 @@ internal class LayerPropertyCompiler(
 }
 
 @Composable
-internal fun rememberPropertyCompiler(
-  emScale: Expression<FloatValue>? = null,
-  spScale: Expression<FloatValue>? = null,
-): LayerPropertyCompiler {
+internal fun rememberPropertyCompiler(): LayerPropertyCompiler {
   val density = LocalDensity.current
   val layoutDirection = LocalLayoutDirection.current
   val fontScale = styleFontScale()
-  return remember(density, layoutDirection, fontScale, emScale, spScale) {
-    LayerPropertyCompiler(density, layoutDirection, fontScale, emScale, spScale)
+  return remember(density, layoutDirection, fontScale) {
+    LayerPropertyCompiler(density, layoutDirection, fontScale)
   }
 }

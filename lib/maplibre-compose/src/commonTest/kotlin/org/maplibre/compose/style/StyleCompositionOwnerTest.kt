@@ -15,6 +15,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -65,13 +66,10 @@ class StyleCompositionOwnerTest {
           image("sprite").compile(ExpressionContext.None).asLayerProperty(),
         )
       }
-    declarations.send(
-      StyleDeclaration(
-        emptyList(),
-        listOf(DeclaredStyleLayer(DesiredStyleLayer(sprite.definition(), Anchor.Top, null, null))),
-      )
-    )
+    val spriteLayer = DesiredStyleLayer(sprite.definition(), Anchor.Top, null, null)
+    declarations.send(StyleDeclaration(emptyList(), listOf(DeclaredStyleLayer(spriteLayer))))
     runCurrent()
+    assertSame(spriteLayer, revisions.last().layers.single())
     val spriteValue = paint(revisions.last())["background-pattern"]
     declarations.send(declaration(listOf(first, first, equalPixels)))
     runCurrent()

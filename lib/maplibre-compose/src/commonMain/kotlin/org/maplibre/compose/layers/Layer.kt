@@ -12,7 +12,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.style.LayerNode
 import org.maplibre.compose.style.MapNodeApplier
-import org.maplibre.compose.style.ResolvedLayerDefinition
+import org.maplibre.compose.style.PreparedLayerDefinition
 import org.maplibre.compose.style.StyleProperty
 import org.maplibre.compose.util.MaplibreComposable
 
@@ -42,65 +42,55 @@ public fun Layer(
   require(hitPadding.value.isFinite() && hitPadding.value >= 0f) {
     "hitPadding must be finite and nonnegative"
   }
-  val root =
-    definition.json.orEmpty().toMutableMap().apply {
-      put("id", JsonPrimitive(id))
-      put("type", JsonPrimitive(definition.type))
-    }
-  val layout = linkedMapOf<String, JsonElement>()
-  val paint = linkedMapOf<String, JsonElement>()
+  val compiler = rememberPropertyCompiler()
+  val properties = linkedMapOf<StyleProperty, JsonElement>()
   val images = linkedMapOf<StyleProperty, LayerProperty<*>>()
   definition.properties.forEach { (path, value) ->
-    val target =
-      when (path.section) {
-        "layout" -> layout
-        "paint" -> paint
-        else -> root
-      }
     when (value) {
-      is LayerValue.Json -> target[path.name] = value.value
+      is LayerValue.Json -> properties[path] = value.value
       is LayerValue.Expression ->
         key(path) {
-          val compile = rememberPropertyCompiler(value.units.emScale, value.units.spScale)
-          val property = compile(value.value)
+          val property = compiler.withUnits(value.units)(value.value)
           if (property.images.isNotEmpty()) images[path] = property
           else
             property
               .resolve(emptyMap())
               .takeUnless { it == JsonNull }
-              ?.let { target[path.name] = it }
+              ?.let { properties[path] = it }
         }
     }
   }
   val declaredSource =
-    root["source"]?.let {
+    (properties[SourceProperty] ?: definition.json?.get("source"))?.let {
       require(it is JsonPrimitive && it.isString) { "Layer source must be a string" }
       it.content
     }
   require(source == null || declaredSource == null || source.id == declaredSource) {
     "Layer source conflicts with its managed source"
   }
-  source?.let { root["source"] = JsonPrimitive(it.id) }
-  if (layout.isNotEmpty()) root["layout"] = JsonObject(layout)
-  if (paint.isNotEmpty()) root["paint"] = JsonObject(paint)
-  val resolved =
-    ResolvedLayerDefinition(
-      id,
-      definition.type,
-      source?.id ?: declaredSource,
-      JsonObject(root),
+  val prepared =
+    PreparedLayerDefinition(
+      id = id,
+      type = definition.type,
+      sourceId = source?.id ?: declaredSource,
+      properties = properties,
+      imageProperties = images,
+      json = definition.json,
       unsupportedProperties = definition.unsupportedProperties,
       filterUnsupportedProperties = definition.filterUnsupportedProperties,
-      scaleTransitions = definition.json == null,
     )
   val anchor = LocalAnchor.current
   val clickGroup = LocalLayerClickGroup.current
-  key(id, definition.type, resolved.sourceId, root["source-layer"]) {
+  key(
+    id,
+    definition.type,
+    prepared.sourceId,
+    properties[SourceLayerProperty] ?: definition.json?.get("source-layer"),
+  ) {
     ComposeNode<LayerNode, MapNodeApplier>(
-      factory = { LayerNode(resolved, anchor) },
+      factory = { LayerNode(prepared, anchor) },
       update = {
-        set(resolved) { this.definition = it }
-        set(images.toMap()) { this.imageProperties = it }
+        set(prepared) { updateDefinition(it) }
         set(source) { this.source = it }
         set(anchor) { this.anchor = it }
         set(onClick) { this.onClick = it }
@@ -149,3 +139,6 @@ public fun RawLayer(
     LayerDefinition(type.content, emptyMap(), json = definition.snapshot() as JsonObject)
   Layer(id, declaration, source, onClick, onLongClick, onDoubleClick, hitPadding)
 }
+
+private val SourceProperty = StyleProperty(null, "source")
+private val SourceLayerProperty = StyleProperty(null, "source-layer")
