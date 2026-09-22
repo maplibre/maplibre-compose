@@ -2,7 +2,6 @@ package org.maplibre.compose.map
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
 import org.maplibre.compose.desktop.LocalComposeMapPresentationHost
 import org.maplibre.compose.desktop.bridge.ComposeMapPresentationHostFactory
 
@@ -18,12 +17,11 @@ internal actual fun mapPresentationHostIdentity(): Any =
   ReferenceIdentityKey(LocalMlnFfiMapHostFactory.current ?: LocalComposeMapPresentationHost.current)
 
 @Composable
-internal actual fun ComposableMapView(
-  modifier: Modifier,
+internal actual fun rememberComposeMapPresentation(
   state: MapState,
   presentationOwner: MapPresentationOwnerToken,
   options: MapViewOptions,
-) {
+): ComposeMapPresentation? {
   val hostFactory =
     LocalMlnFfiMapHostFactory.current
       ?: LocalComposeMapPresentationHost.current.let { presentationHost ->
@@ -31,9 +29,8 @@ internal actual fun ComposableMapView(
           ComposeMapPresentationHostFactory(presentationHost)
         }
       }
-  MlnFfiMapView(
+  return rememberMlnFfiComposeMapPresentation(
     hostFactory = hostFactory,
-    modifier = modifier,
     state = state,
     presentationOwner = presentationOwner,
     options = options,

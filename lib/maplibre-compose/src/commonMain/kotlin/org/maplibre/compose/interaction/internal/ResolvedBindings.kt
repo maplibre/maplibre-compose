@@ -21,7 +21,7 @@ import org.maplibre.compose.interaction.TapMappingsBuilder
 import org.maplibre.compose.interaction.TapResponse
 
 internal data class DragPanSettings(
-  val startSlop: Dp = 4.dp,
+  val startSlop: Dp = Dp.Unspecified,
   val mouseStartSlop: Dp = 3.dp,
 )
 

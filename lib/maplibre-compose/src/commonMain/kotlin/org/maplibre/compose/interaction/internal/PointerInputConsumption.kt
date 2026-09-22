@@ -4,7 +4,10 @@ import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerId
 
 /** Main/Final cooperation for the contact group owned by one input handler. */
-internal class PointerInputConsumption(private val cancel: () -> Unit) {
+internal class PointerInputConsumption(
+  private val cancel: () -> Unit,
+  private val onConsumed: () -> Unit,
+) {
   private val contacts = mutableSetOf<PointerId>()
   private var suppressed = false
   private var relevant = emptySet<PointerId>()
@@ -22,7 +25,9 @@ internal class PointerInputConsumption(private val cancel: () -> Unit) {
     contacts.clear()
     contacts.addAll(pressed)
     if (!enabled || suppressed || orphaned || intercepted) {
-      if (!suppressed && hadContacts) cancel()
+      if (!suppressed && hadContacts) {
+        if (enabled && !orphaned && intercepted) onConsumed() else cancel()
+      }
       suppressed = pressed.isNotEmpty()
       relevant = emptySet()
       return false
@@ -36,7 +41,7 @@ internal class PointerInputConsumption(private val cancel: () -> Unit) {
 
   fun final(event: PointerEvent) {
     if (event.changes.any { it.id in relevant && it.id !in consumedHere && it.isConsumed }) {
-      cancel()
+      onConsumed()
       suppressed = contacts.isNotEmpty()
     }
     relevant = emptySet()

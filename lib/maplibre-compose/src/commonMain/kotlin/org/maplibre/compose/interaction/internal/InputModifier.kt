@@ -57,11 +57,11 @@ internal fun Modifier.mapInput(
   focus: InputFocus,
   environment: InputEnvironment,
   rotaryNotchPixels: Float,
+  boxZoom: BoxZoomPreview,
 ): Modifier {
   // The semantics block observes no snapshot state, so engagement is read here.
   val engaged = focus.isEngaged
   val currentOptions = rememberUpdatedState(options)
-  val boxZoom = remember(target) { BoxZoomPreview() }
   val platformRouting = remember(target) { PlatformTransformRouting() }
   val inputScope = rememberCoroutineScope()
   val rotaryInput =
@@ -106,9 +106,11 @@ internal fun Modifier.mapInput(
     }
     // Key and rotary events reach the focused node, so these precede the focus target in the chain.
     .onKeyEvent {
-      (target.isGestureReady || it.type == KeyEventType.KeyUp) && keyInput.onEvent(it)
+      focus.isFocused &&
+        (target.isGestureReady || it.type == KeyEventType.KeyUp) &&
+        keyInput.onEvent(it)
     }
-    .onRotaryScrollEvent { target.isGestureReady && rotaryInput.onEvent(it) }
+    .onRotaryScrollEvent { focus.isFocused && target.isGestureReady && rotaryInput.onEvent(it) }
     .onFocusChanged {
       focus.onFocusChanged(it.isFocused)
       if (!it.isFocused) {
@@ -118,7 +120,6 @@ internal fun Modifier.mapInput(
     }
     .focusRequester(focusRequester)
     .focusable(enabled = keys || rotary || focus.claimedKeys.isNotEmpty())
-    .drawBoxZoom(boxZoom)
     .pointerGestures(
       target,
       captureClickPath,
@@ -191,7 +192,6 @@ private fun Modifier.pointerGestures(
         focus = focus,
         viewportSize = { size },
         clickSlopPx = 3.dp.toPx(),
-        panSlopPx = GestureMath.PAN_START_DP.dp.toPx(),
         touchSlopPx = viewConfiguration.touchSlop,
         maximumFlingVelocity = viewConfiguration.maximumFlingVelocity,
         twoFingerTapSlopPx = GestureMath.TWO_FINGER_TAP_SLOP_DP.dp.toPx(),
@@ -201,16 +201,14 @@ private fun Modifier.pointerGestures(
         longClickTimeoutMillis = viewConfiguration.longPressTimeoutMillis,
         scope = scope,
         onHaptic = onHaptic.takeIf { options.camera.settings.rotate.haptics.isNotEmpty() },
-        onAcceptedPress = {
+        onRecognizedGesture = {
           scroll.cancel()
           platform.cancel()
           platformRouteActive = false
         },
       )
 
-    val consumption = PointerInputConsumption {
-      gesture.cancel()
-    }
+    val consumption = PointerInputConsumption(gesture::cancel, gesture::yieldToOtherHandler)
     platform =
       PlatformTransformSession(
         target,

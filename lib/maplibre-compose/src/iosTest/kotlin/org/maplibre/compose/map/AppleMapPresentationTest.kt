@@ -178,7 +178,7 @@ class AppleMapPresentationTest {
                   AppleMapPresentation(state, MapPresentationOwnerToken(), MapViewOptions())
                 }
               DisposableEffect(presentation) { onDispose { presentation.close() } }
-              presentation.Content()
+              presentation.Content { _, _ -> }
             }
           }
         }

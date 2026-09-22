@@ -446,6 +446,7 @@ class PointerPairGestureTest {
           { token },
           {},
           { token.acceptsCommands },
+          touchSlopPx = 0f, // These tests isolate camera-component recognition after host slop.
         )
     }
 

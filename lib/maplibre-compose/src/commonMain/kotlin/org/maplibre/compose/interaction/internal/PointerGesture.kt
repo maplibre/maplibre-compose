@@ -10,6 +10,7 @@ import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.isSpecified
 import kotlin.math.min
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -38,7 +39,6 @@ internal class PointerGesture(
   private val focus: InputFocus,
   private val viewportSize: () -> IntSize,
   private val clickSlopPx: Float,
-  private val panSlopPx: Float,
   private val touchSlopPx: Float,
   private val maximumFlingVelocity: Float,
   private val twoFingerTapSlopPx: Float,
@@ -47,7 +47,7 @@ internal class PointerGesture(
   doubleClickTimeoutMillis: Long,
   private val longClickTimeoutMillis: Long,
   private val scope: CoroutineScope,
-  private val onAcceptedPress: () -> Unit,
+  private val onRecognizedGesture: () -> Unit,
   private val onHaptic: ((HapticEmphasis) -> Unit)? = null,
 ) {
   private val gestureToken: CameraInputToken?
@@ -159,7 +159,6 @@ internal class PointerGesture(
       singleDragOrigin = change.position
       dragSample = event.gestureSample(null, density, change.position, setOf(change.type))
       selectedDrag = selectCameraDrag(checkNotNull(dragSample))
-      if (selectedDrag != null) acceptPress()
       // Lifting one contact often shifts the other. Require the host's normal touch slop
       // before treating that remaining contact as a new drag.
       dragRecognition = selectedDrag?.let {
@@ -220,9 +219,6 @@ internal class PointerGesture(
     singleVelocity.begin(change)
     pendingContinuation = null
 
-    cancelCameraSession()
-    acceptPress()
-
     // Click candidates claim their press, including mouse clicks competing with a parent click.
     if (clickDemand || TapFamily.TwoFingerTap in tapDemand) change.consume()
     if (longPress && change.type != PointerType.Mouse && !quickZoomCandidate) {
@@ -230,9 +226,9 @@ internal class PointerGesture(
     }
   }
 
-  private fun acceptPress() {
+  private fun acceptGesture() {
     if (!target.isGestureReady) return
-    onAcceptedPress()
+    onRecognizedGesture()
     runCatching { focusRequester.requestFocus() }
     focus.engage(byKey = false)
     if (gestureToken == null) target.interruptCamera() else target.observeInput()
@@ -242,6 +238,7 @@ internal class PointerGesture(
     longClickJob = scope.launch {
       delay(longClickTimeoutMillis)
       if (clickOrigin == origin && !gestureInProgress && lastSingle != null) {
+        acceptGesture()
         longClickHandled = true
         clickOrigin = null
         // This press is a long click, including a paired second tap that was held.
@@ -298,7 +295,7 @@ internal class PointerGesture(
         SelectedDrag.FitBounds ->
           options.bindings.drag.fitBounds.let { if (mouse) it.mouseStartSlop else it.startSlop }
       }
-    return slop.value * density.density
+    return if (slop.isSpecified) slop.value * density.density else touchSlopPx
   }
 
   private fun dragRecognizer(change: PointerInputChange, binding: SelectedDrag): PointerDrag {
@@ -332,7 +329,6 @@ internal class PointerGesture(
       if (next != selectedDrag) {
         cancelDrag()
         cancelCameraSession()
-        if (next != null) acceptPress()
         selectedDrag = next
         dragRecognition = next?.let { dragRecognizer(change, it) }
         dragSample = sample
@@ -482,9 +478,6 @@ internal class PointerGesture(
     val previous = pair
     if (previous != null && previous.matches(first, second)) {
       if (contactsChanged) {
-        if (previous.hasDemand && event.changes.any { it.pressed && !it.previousPressed }) {
-          acceptPress()
-        }
         // Do not interpret a contact-set change as movement of the already selected pair.
         previous.rebase(first, second)
       } else previous.move(event, first, second)
@@ -548,14 +541,9 @@ internal class PointerGesture(
         },
         retainAuthority = ::retainCameraAuthority,
         maximumFlingVelocity = maximumFlingVelocity,
+        touchSlopPx = touchSlopPx,
       )
     pair = candidate
-    if (
-      (candidate.hasDemand || twoFingerTap != null) &&
-        event.changes.any { it.pressed && !it.previousPressed }
-    ) {
-      acceptPress()
-    }
   }
 
   private fun onRelease(event: PointerEvent) {
@@ -626,6 +614,7 @@ internal class PointerGesture(
     }
 
     if (completedTwoFingerTap != null) {
+      acceptGesture()
       emitTap(
         TapFamily.TwoFingerTap,
         event.gestureSample(
@@ -636,6 +625,7 @@ internal class PointerGesture(
         ),
       )
     } else if (origin != null && !ignoreReleaseAsTap) {
+      acceptGesture()
       onClick(event, origin, pairedSecondTap)
     } else if (handledLongClick) {
       pairing.discard(emitClick = false)
@@ -705,7 +695,7 @@ internal class PointerGesture(
         } == true)
 
   private fun clickMovementSlopPx(): Float =
-    if (pressedType == PointerType.Mouse) clickSlopPx else panSlopPx
+    if (pressedType == PointerType.Mouse) clickSlopPx else touchSlopPx
 
   private fun singleContinuation(binding: SelectedDrag?): PointerContinuation? {
     if (binding == null || !gestureInProgress) return null
@@ -827,6 +817,7 @@ internal class PointerGesture(
       return gestureToken
     }
 
+    acceptGesture()
     val token = target.onGestureStarted()
     lateinit var session: GestureInputSession
     session =
@@ -847,13 +838,24 @@ internal class PointerGesture(
     return token
   }
 
+  /** Losing this contact does not invalidate a completed tap awaiting disambiguation. */
+  fun yieldToOtherHandler() {
+    pairing.discard(emitClick = true)
+    cancelContact()
+  }
+
+  /** Disposal or input invalidation discards pending callbacks as well as the current contact. */
   fun cancel() {
+    pairing.discard(emitClick = false)
+    cancelContact()
+  }
+
+  private fun cancelContact() {
     cancelDrag()
     pair?.cancel()
     cancelLongClick()
     longClickHandled = false
     pendingContinuation = null
-    pairing.discard(emitClick = false)
     pressRole = TapPairing.Press.First
     lastSingle = null
     singleDragOrigin = null

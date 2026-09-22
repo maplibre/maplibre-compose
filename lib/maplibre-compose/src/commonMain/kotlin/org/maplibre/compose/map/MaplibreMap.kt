@@ -20,26 +20,12 @@ import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.overlay.include
 
 /**
- * Displays [state] on a map surface.
+ * Displays [state] on a map surface. The caller controls the lifetime of a supplied [state].
  *
- * The caller controls the lifetime of [state]. This composable attaches the map surface while the
- * call remains in composition. [overlay] draws Compose UI over the map. The default draws
- * [MapOverlay.Default]. A supplied block replaces the default.
- *
- * The overlay fills the map and positions direct children through [MapOverlayScope]. It provides
- * [LocalMapState], [LocalViewport], and [org.maplibre.compose.overlay.LocalViewportInsets] to
- * nested composables. Use ordinary Compose layouts and padding to arrange controls.
+ * [overlay] draws Compose UI over the map. A supplied block replaces [MapOverlay.Default].
  *
  * [viewportInsets] adds to [org.maplibre.compose.camera.CameraPosition.padding] for camera moves
  * and fitting. Built-in controls also use these insets.
- *
- * The map is a focus target, and the overlay is a focus group. Focus modifiers on [modifier] apply
- * to the map, and a control in the overlay keeps its own focus properties.
- *
- * [interactions] sets which camera movements are allowed and how the app responds to clicks.
- * [uiOptions] sets what gestures, scrolling, and keys do, and what shows before the first frame.
- * Tap handlers run before interactive layers; unhandled tap callbacks run after layers pass the
- * event.
  */
 @Composable
 public fun MaplibreMap(
@@ -70,13 +56,8 @@ public fun MaplibreMap(
       uiOptions = uiOptions,
     )
   key(state, presentationHostIdentity) {
-    Box(modifier.fillMaxSize()) {
-      ComposableMapView(
-        modifier = Modifier.fillMaxSize(),
-        state = state,
-        presentationOwner = presentationOwner,
-        options = mapViewOptions,
-      )
+    val presentation = rememberComposeMapPresentation(state, presentationOwner, mapViewOptions)
+    MapInputHost(modifier.fillMaxSize(), state, mapViewOptions, presentation) {
       MapOverlayHost(
         overlay = overlay,
         mapState = state,

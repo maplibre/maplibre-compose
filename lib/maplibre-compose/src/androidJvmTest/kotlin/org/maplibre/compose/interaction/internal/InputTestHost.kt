@@ -124,11 +124,13 @@ internal fun GestureHost(
   target: RecordingGestureTarget,
   options: InputConfiguration,
   rotaryNotchPixels: Float = 0f,
+  content: @Composable () -> Unit = {},
 ) {
   SideEffect { target.updateConfiguration(options) }
   val density = LocalDensity.current
   val focusRequester = remember { FocusRequester() }
   val focus = remember { InputFocus {} }
+  val boxZoom = remember { BoxZoomPreview() }
   val environment = remember {
     InputEnvironment(
       contentDescription = "map",
@@ -140,6 +142,7 @@ internal fun GestureHost(
   Box(
     Modifier.fillMaxSize()
       .testTag(RECOGNITION_MAP_TAG)
+      .drawBoxZoom(boxZoom)
       .mapInput(
         target,
         target::capture,
@@ -150,8 +153,11 @@ internal fun GestureHost(
         focus,
         environment,
         rotaryNotchPixels,
+        boxZoom,
       )
-  )
+  ) {
+    content()
+  }
 }
 
 internal fun Modifier.consumePointerEvents(
