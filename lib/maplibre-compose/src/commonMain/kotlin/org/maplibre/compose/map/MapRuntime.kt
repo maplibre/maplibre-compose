@@ -856,7 +856,7 @@ internal constructor(
    * events require an attached surface.
    *
    * Events are emitted on the main thread after the state they describe has been updated, so a
-   * collector may call map commands such as [StyleImages.add].
+   * collector may call map commands such as [StyleImages.set].
    */
   public val events: Flow<MapEvent> = attachmentAuthority.events
 
