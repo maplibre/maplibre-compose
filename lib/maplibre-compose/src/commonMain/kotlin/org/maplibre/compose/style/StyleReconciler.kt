@@ -224,18 +224,19 @@ internal class StyleReconciler {
   private fun syncImages(style: StyleBinding, desired: List<StyleImageDefinition>) {
     val desiredById = desired.associateBy(StyleImageDefinition::id)
     images.values.toList().forEach { applied ->
-      val next = desiredById[applied.id]
-      if (next == null || next != applied) {
+      if (applied.id !in desiredById) {
         style.removeImage(applied.id)
         style.identity.images.remove(applied.id)
         images.remove(applied.id)
       }
     }
     desired.forEach { definition ->
-      if (definition.id !in images) {
-        style.addImage(definition)
-        images[definition.id] = definition
-      }
+      val applied = images[definition.id]
+      if (applied == definition) return@forEach
+      // A changed image is replaced in place so no frame renders without it.
+      if (applied == null) style.addImage(definition) else style.setImage(definition)
+      if (applied != null) style.identity.images.remove(definition.id)
+      images[definition.id] = definition
     }
   }
 

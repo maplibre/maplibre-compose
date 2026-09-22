@@ -42,15 +42,12 @@ internal class ComposeBenchmarkDriver(val fixture: BenchmarkFixture) {
   private var recomposeTick by mutableStateOf(0)
   private var styleIndex = 0
 
-  private var imageHandle: MutableStyleImageHandle? = null
-
   fun prepare(state: MapState) {
     if (fixture.images.isNotEmpty()) replaceImage(state, 0)
   }
 
   private fun replaceImage(state: MapState, index: Int) {
-    imageHandle?.remove()
-    imageHandle = state.style.images.add("workload-image", fixture.images[index])
+    state.style.images.set("workload-image", fixture.images[index])
   }
 
   @Composable

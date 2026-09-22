@@ -74,6 +74,9 @@ internal class RecordingStyleBinding(
   val imageIds: Set<String>
     get() = images.keys
 
+  /** Every [setImage] ID, for in-place replacement assertions. */
+  val replacedImages: MutableList<String> = mutableListOf()
+
   var customVectorProvider: VectorTileProvider? = null
     private set
 
@@ -95,13 +98,18 @@ internal class RecordingStyleBinding(
       addImageHookInvoked = true
       beforeAddImage?.invoke(definition.id)
     }
-    check(definition.id !in images) { "Image ID '${definition.id}' already exists in style" }
+    if (definition.id in images) {
+      throw StyleMutationException("Image ID '${definition.id}' already exists in style", null)
+    }
     images[definition.id] = definition.image
   }
 
-  override fun removeImage(id: String) {
-    check(images.remove(id) != null) { "Image ID '$id' not found in style" }
+  override fun setImage(definition: StyleImageDefinition) {
+    if (definition.id in images) replacedImages += definition.id
+    images[definition.id] = definition.image
   }
+
+  override fun removeImage(id: String): Boolean = images.remove(id) != null
 
   override fun imageExists(id: String): Boolean = id in images
 

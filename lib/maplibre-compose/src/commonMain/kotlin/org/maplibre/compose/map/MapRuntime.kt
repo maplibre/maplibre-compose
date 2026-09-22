@@ -213,12 +213,14 @@ internal interface MapStyleStateOwner {
 
   fun removeStyleSource(id: String, expectedStyle: StyleBinding, identity: Any): Boolean
 
+  /** With [replace], an image under [id] is replaced in place instead of rejected. */
   fun addStyleImage(
     id: String,
     image: ImageBitmap,
     sdf: Boolean,
     stretch: ImageStretch?,
     expectedStyle: StyleBinding? = null,
+    replace: Boolean = false,
   ): StyleImageHandle
 
   fun removeStyleImage(id: String, expectedStyle: StyleBinding, identity: Any): Boolean

@@ -73,7 +73,7 @@ with `--config '{"durationMs":3000,"rateHz":2}'`.
 | `resize`         | Change map dimensions                                          | Declarative             |
 | `padding`        | Change camera padding                                          | Declarative             |
 | `recompose`      | Recompose unchanged map content                                | Declarative             |
-| `images`         | Register and remove bitmap images                              | Imperative              |
+| `images`         | Replace a bitmap image in place                                | Imperative              |
 
 The classic Android adapter supports every workload above except `recompose`,
 which measures Compose-specific work. It shares the fixtures, camera path,

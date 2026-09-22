@@ -120,6 +120,25 @@ public class StyleImages internal constructor(private val style: MapStyleState) 
   }
 
   /**
+   * Adds a style image, or replaces the image with [id] in place.
+   *
+   * A replacement keeps the map drawing the previous image until the new one is in place. Removing
+   * and re-adding an image instead can draw a frame without it, and on MapLibre Native that frame
+   * re-lays out every symbol tile. Handles for the previous image expire. The command fails when
+   * [id] belongs to an image that the style content declares.
+   */
+  public fun set(
+    id: String,
+    image: ImageBitmap,
+    sdf: Boolean = false,
+    stretch: ImageStretch? = null,
+  ): MutableStyleImageHandle {
+    return checkNotNull(
+      style.requireOwner().addStyleImage(id, image, sdf, stretch, replace = true).asMutable
+    )
+  }
+
+  /**
    * Renders [painter] once and adds it to the current ready style. Returns after registration.
    *
    * Pass the drawing environment's [density] and [layoutDirection] explicitly. See

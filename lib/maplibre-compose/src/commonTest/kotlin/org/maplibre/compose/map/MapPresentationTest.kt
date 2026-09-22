@@ -1170,6 +1170,27 @@ class MapPresentationTest {
     fixture.close()
   }
 
+  @Test
+  fun setting_an_image_replaces_it_in_place_and_expires_the_previous_handle() {
+    val fixture = presentationFixture()
+    val binding = RecordingStyleBinding()
+    val image = FakeImageBitmap(1, 1)
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+
+    val added = fixture.state.style.images.set("marker", image)
+    assertEquals(setOf("marker"), binding.imageIds)
+    assertTrue(binding.replacedImages.isEmpty())
+    val replaced = fixture.state.style.images.set("marker", image)
+    assertEquals(listOf("marker"), binding.replacedImages)
+    assertEquals(setOf("marker"), binding.imageIds)
+    assertFailsWith<IllegalStateException> { added.remove() }
+    assertFailsWith<StyleHandleException> { fixture.state.style.images.add("marker", image) }
+    assertTrue(replaced.remove())
+    assertTrue(binding.imageIds.isEmpty())
+    fixture.close()
+  }
+
   /**
    * A set transition reaches the engine under the animator duration scale, the getter reports what
    * the engine holds, and a transition the style JSON holds is left alone.
@@ -1550,6 +1571,7 @@ class MapPresentationTest {
       mutableLayer.setPaintProperty("background-opacity", JsonPrimitive(0.5))
     }
     assertFailsWith<StyleHandleException> { mutableImage.remove() }
+    assertFailsWith<StyleHandleException> { fixture.state.style.images.set("owned", image) }
     assertTrue(binding.sourceExists("owned") == true)
     assertTrue(binding.imageExists("owned") == true)
     fixture.close()

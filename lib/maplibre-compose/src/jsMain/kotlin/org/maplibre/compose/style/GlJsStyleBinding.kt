@@ -202,6 +202,15 @@ internal class GlJsStyleBinding(
 
   override fun addImage(definition: StyleImageDefinition) {
     requireLoaded()
+    if (map.hasImage(definition.id)) {
+      throw StyleMutationException("Image ID '${definition.id}' already exists in style", null)
+    }
+    setImage(definition)
+  }
+
+  // GL JS runs the remove and add in one task, so no frame renders between them.
+  override fun setImage(definition: StyleImageDefinition) {
+    requireLoaded()
     val (id, snapshot, sdf, stretch) = definition
     val image = snapshot.toImageBitmap()
     val scale = getScale()
@@ -233,13 +242,13 @@ internal class GlJsStyleBinding(
     }
   }
 
-  override fun removeImage(id: String) {
+  override fun removeImage(id: String): Boolean {
     requireLoaded()
     indicatorImages.remove(id)
     indicators.values.forEach { it.resourceChanged() }
-    mutate("remove image '$id'") {
-      if (map.hasImage(id)) map.removeImage(id)
-    }
+    if (!map.hasImage(id)) return false
+    mutate("remove image '$id'") { map.removeImage(id) }
+    return true
   }
 
   override fun imageExists(id: String): Boolean {

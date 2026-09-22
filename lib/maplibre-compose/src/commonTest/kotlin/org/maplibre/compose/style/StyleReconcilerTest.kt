@@ -6,6 +6,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.RasterLayer
+import org.maplibre.compose.map.FakeImageBitmap
 import org.maplibre.compose.sources.RasterTileSource
 
 class StyleReconcilerTest {
@@ -68,6 +69,29 @@ class StyleReconcilerTest {
 
     assertEquals(setOf("second"), delegate.installedSourceIds)
     assertEquals(setOf("second-layer"), delegate.installedLayerIds)
+  }
+
+  @Test
+  fun a_changed_image_is_replaced_in_place_and_a_dropped_image_is_removed() {
+    val style = RecordingStyleBinding()
+    val reconciler = StyleReconciler()
+    val source = source("tiles")
+    val layer = RasterLayer("raster", source)
+    fun revisionWith(vararg images: StyleImageDefinition) =
+      revision(source, layer).copy(images = images.toList())
+    val icon =
+      StyleImageDefinition("icon", ImageSnapshot.capture(FakeImageBitmap(1, 1)), false, null)
+
+    reconciler.apply(style, revisionWith(icon))
+    assertEquals(setOf("icon"), style.imageIds)
+    assertTrue(style.replacedImages.isEmpty())
+
+    reconciler.apply(style, revisionWith(icon.copy(sdf = true)))
+    assertEquals(listOf("icon"), style.replacedImages)
+    assertEquals(setOf("icon"), style.imageIds)
+
+    reconciler.apply(style, revisionWith())
+    assertTrue(style.imageIds.isEmpty())
   }
 
   private fun source(id: String) =
