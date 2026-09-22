@@ -1299,7 +1299,10 @@ internal class MlnFfiMapSession(
      */
     @Volatile private var derivedExtents: MapViewportExtents? = extents
 
-    /** Call under the projection lock, which keeps [projection] open. */
+    /**
+     * Call under the projection lock, having read the mirror under that same lock: the owner thread
+     * closes a replaced publish's handles as soon as the lock is free.
+     */
     fun extents(): MapViewportExtents {
       derivedExtents?.let {
         return it
@@ -1802,17 +1805,20 @@ internal class MlnFfiMapSession(
     // The map bootstraps at a 1x1 extent, so the mirror describes a real viewport only once the
     // map owner has acknowledged the render target's dimensions and applied padding.
     if (!hasViewport) return null
-    // One read so every property comes from the same publish.
-    val mirror = mirroredViewport
-    if (mirror.size == DpSize.Zero) return null
-    val extents = projectionLock.withLock { mirror.extents() }
-    return Viewport(
-      size = mirror.size,
-      visibleBounds = extents.bounds,
-      visibleRegion = extents.region,
-      metersPerDpAtTarget =
-        metersPerDpAtLatitude(mirror.camera.zoom, mirror.camera.target.latitude),
-    )
+    // One read under the lock that keeps its projection open: every property comes from the same
+    // publish, and the owner thread cannot close that publish's handles while they are read.
+    return projectionLock.withLock {
+      val mirror = mirroredViewport
+      if (mirror.size == DpSize.Zero) return@withLock null
+      val extents = mirror.extents()
+      Viewport(
+        size = mirror.size,
+        visibleBounds = extents.bounds,
+        visibleRegion = extents.region,
+        metersPerDpAtTarget =
+          metersPerDpAtLatitude(mirror.camera.zoom, mirror.camera.target.latitude),
+      )
+    }
   }
 
   override fun setRenderSettings(value: RenderOptions) {
