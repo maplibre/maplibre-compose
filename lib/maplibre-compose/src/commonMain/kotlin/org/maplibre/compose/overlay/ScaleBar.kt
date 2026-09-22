@@ -97,6 +97,8 @@ public fun ScaleBar(
   textStyle: TextStyle = ScaleBarDefaults.ContentTextStyle,
   alignment: Alignment.Horizontal = Alignment.Start,
 ) {
+  // The derived stop and the draw block outlive a recomposition that passes a new lambda.
+  val currentMetersPerDp by rememberUpdatedState(metersPerDp)
   val textMeasurer = rememberTextMeasurer()
 
   // longest possible text
@@ -129,7 +131,7 @@ public fun ScaleBar(
       remember(measures, maxBarLength) {
         derivedStateOf {
           // A zero scale means the map is not initialized yet.
-          val scale = metersPerDp().takeIf { it > 0.0 } ?: return@derivedStateOf null
+          val scale = currentMetersPerDp().takeIf { it > 0.0 } ?: return@derivedStateOf null
           val max = scale.meters * maxBarLength.value.toDouble()
           Pair(
             findStop(max, measures.primary.stops),
@@ -142,7 +144,7 @@ public fun ScaleBar(
     val secondaryText = secondaryStop?.let { checkNotNull(measures.secondary).getText(it) }
 
     Canvas(Modifier.fillMaxSize()) {
-      val scale = metersPerDp()
+      val scale = currentMetersPerDp()
       if (scale <= 0.0) return@Canvas
       val fullStrokeWidthPx = fullStrokeWidth.toPx()
       val textHeightPx = maxTextSizePx.height

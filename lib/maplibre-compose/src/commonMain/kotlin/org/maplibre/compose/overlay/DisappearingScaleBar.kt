@@ -103,9 +103,11 @@ public fun DisappearingScaleBar(
 ) {
   val visible = remember { MutableTransitionState(true) }
   val currentVisibilityDuration by rememberUpdatedState(visibilityDuration)
+  // Keyed on nothing: a new zoom lambda must not restart the timer and show the bar.
+  val currentZoom by rememberUpdatedState(zoom)
 
-  LaunchedEffect(zoom) {
-    snapshotFlow { zoom() }
+  LaunchedEffect(Unit) {
+    snapshotFlow { currentZoom() }
       .collectLatest {
         visible.targetState = true
         delay(currentVisibilityDuration)
