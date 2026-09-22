@@ -118,6 +118,27 @@ class StyleReconcilerTest {
     assertEquals(setOf("icon"), style.imageIds)
   }
 
+  @Test
+  fun a_failed_replacement_is_removed_when_the_next_revision_drops_it() {
+    val style = RecordingStyleBinding(refusedImageReplacements = setOf("icon"))
+    val reconciler = StyleReconciler()
+    val source = source("tiles")
+    val layer = TestLayer("raster", "raster", source)
+    fun revisionWith(vararg images: StyleImageDefinition) =
+      revision(source, layer).copy(images = images.toList())
+    val icon =
+      StyleImageDefinition("icon", ImageSnapshot.capture(FakeImageBitmap(1, 1)), false, null)
+
+    reconciler.apply(style, revisionWith(icon))
+    assertFailsWith<StyleMutationException> {
+      reconciler.apply(style, revisionWith(icon.copy(sdf = true)))
+    }
+
+    // The engine still holds the previous image, so dropping the ID removes it.
+    reconciler.apply(style, revisionWith())
+    assertTrue(style.imageIds.isEmpty())
+  }
+
   private fun source(id: String) =
     RasterTileSource(id, listOf("https://example.invalid/{z}/{x}/{y}.png"))
 

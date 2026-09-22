@@ -12,7 +12,12 @@ internal class StyleReconciler {
   private var binding: StyleBinding? = null
   private val sources = linkedMapOf<String, AppliedSource>()
   private val layers = linkedMapOf<String, AppliedLayer>()
-  private val images = linkedMapOf<String, StyleImageDefinition>()
+
+  /**
+   * The image this reconciler wrote for each ID it may have installed, or null while a write has
+   * not been accepted and the engine may hold either image.
+   */
+  private val images = linkedMapOf<String, StyleImageDefinition?>()
 
   /**
    * The engine's layer order, bottom to top, as this reconciler's mutations leave it. Reading the
@@ -235,8 +240,9 @@ internal class StyleReconciler {
       val id = definition.id
       if (images[id] == definition) return@forEach
       // Replaced in place, so no frame renders without the image. Recorded as applied only once
-      // the engine has accepted it, so a failed write is replaced again on the next revision.
-      images.remove(id)
+      // the engine has accepted it, so a failed write is replaced again on the next revision, and
+      // removed if the next revision drops the ID instead.
+      images[id] = null
       style.setImage(definition)
       style.identity.images.remove(id)
       images[id] = definition
