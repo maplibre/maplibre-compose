@@ -1194,6 +1194,25 @@ class MapPresentationTest {
     fixture.close()
   }
 
+  @Test
+  fun a_failed_replacement_keeps_the_previous_image_and_its_handle() {
+    val fixture = presentationFixture()
+    val binding = RecordingStyleBinding(refusedImageReplacements = setOf("marker"))
+    val image = FakeImageBitmap(1, 1)
+    fixture.state.missingImageResolver = { ResolvedStyleImage(image) }
+    fixture.state.durableStyleCallbacks().onStyleChanged(fixture.adapter, binding)
+    fixture.state.durableStyleCallbacks().onStyleReady(fixture.adapter)
+
+    val added = fixture.state.style.images.set("marker", image)
+    assertFailsWith<StyleHandleException> { fixture.state.style.images.set("marker", image) }
+    assertEquals(setOf("marker"), binding.imageIds)
+    // The image stays imperatively owned: the resolver does not treat it as missing.
+    assertNull(fixture.state.styleAuthority.resolveMissingImage(fixture.adapter, "marker"))
+    assertTrue(added.remove())
+    assertTrue(binding.imageIds.isEmpty())
+    fixture.close()
+  }
+
   /**
    * A set transition reaches the engine under the animator duration scale, the getter reports what
    * the engine holds, and a transition the style JSON holds is left alone.

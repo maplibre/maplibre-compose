@@ -239,6 +239,28 @@ class MapSnapshotterTest {
   }
 
   @Test
+  fun a_failed_snapshot_image_replacement_keeps_the_previous_handle() = runTest {
+    val image = FakeImageBitmap(1, 1)
+    val binding = RecordingStyleBinding(refusedImageReplacements = setOf("marker"))
+    val runtime =
+      mapRuntimeForTest(
+        createSnapshotterAdapter = { FakeSnapshotterAdapter(prepare = { _, _ -> binding }) },
+        styleEvaluator =
+          StyleCompositionEvaluator { _, _, _, _, _, _ -> DesiredStyleRevision.Empty },
+      )
+    val snapshotter = runtime.createSnapshotter(BaseStyle.Empty)
+    withContext(Dispatchers.Unconfined) {
+      snapshotter.capture(MapSnapshotRequest(1, 1))
+      val added = snapshotter.style.images.set("marker", image)
+      assertFailsWith<StyleHandleException> { snapshotter.style.images.set("marker", image) }
+      assertTrue(binding.imageExists("marker"))
+      assertTrue(added.remove())
+      assertFalse(binding.imageExists("marker"))
+    }
+    close(snapshotter, runtime)
+  }
+
+  @Test
   fun reused_snapshot_style_preserves_existing_resource_handles() = runTest {
     val source =
       GeoJsonSource(

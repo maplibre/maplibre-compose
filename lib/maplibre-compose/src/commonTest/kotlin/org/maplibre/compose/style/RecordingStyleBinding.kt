@@ -31,6 +31,7 @@ internal class RecordingStyleBinding(
   override val supportsCustomDemEncoding: Boolean = false,
   override val supportsRasterDemScheme: Boolean = true,
   private val refusedSourceRemovals: Set<String> = emptySet(),
+  private val refusedImageReplacements: Set<String> = emptySet(),
   private val refusedLayerProperties: Set<String> = emptySet(),
   override val supportsSky: Boolean = true,
   override val supportsProjection: Boolean = true,
@@ -104,7 +105,12 @@ internal class RecordingStyleBinding(
   }
 
   override fun setImage(definition: StyleImageDefinition) {
-    if (definition.id in images) replacedImages += definition.id
+    if (definition.id in images) {
+      if (definition.id in refusedImageReplacements) {
+        throw StyleMutationException("Image '${definition.id}' was refused", null)
+      }
+      replacedImages += definition.id
+    }
     images[definition.id] = definition.image
   }
 

@@ -370,6 +370,7 @@ internal class MapStyleAuthority(
     lifecycle.requireMain()
     val record = ImperativeImageRecord(fromResolver = false)
     val reservation = StyleMutationReservation()
+    var previous: ImperativeImageRecord? = null
     val binding = run {
       requireOpen()
       expectedStyle?.let(::requireStyleHandle)
@@ -379,15 +380,15 @@ internal class MapStyleAuthority(
         throw StyleHandleException("Image ID '$id' already exists in style")
       }
       checkNotNull(style.currentLoadedStyle()).also(::requireStyleHandle).also {
-        imperativeImages[id] = record
+        previous = imperativeImages.put(id, record)
         activeStyleMutation = reservation
       }
     }
     var committed = false
     try {
+      binding.addImage(id, image, sdf, stretch, replace)
       // A replaced image ends the previous handle's identity, even though the ID stays.
       binding.identity.images.remove(id)
-      binding.addImage(id, image, sdf, stretch, replace)
       val handle = run {
         requireStyleHandle(binding)
         StyleImageHandleImpl(id, style, binding)
@@ -398,7 +399,11 @@ internal class MapStyleAuthority(
       throw StyleHandleException("Could not add image '$id': ${error.message}", error)
     } finally {
       run {
-        if (!committed && imperativeImages[id] === record) imperativeImages.remove(id)
+        if (!committed && imperativeImages[id] === record) {
+          // A failed replacement leaves the previous image in the engine under its record.
+          val restored = previous
+          if (restored == null) imperativeImages.remove(id) else imperativeImages[id] = restored
+        }
         completeStyleMutation(reservation)
       }
     }
