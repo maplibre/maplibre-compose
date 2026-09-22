@@ -191,22 +191,27 @@ internal open class MlnFfiStyleBinding(
   /** The full engine order, annotation layer included: insertions and moves are relative to it. */
   override fun layerIds(): List<String> = readMap { it.styleLayerIds() }.orEmpty()
 
-  // Read each layer separately so render feedback can advance transitions between owner calls.
+  // Read layers in bounded batches: each owner call is short enough for render feedback to
+  // advance transitions between calls, and a large style does not pay a round trip per layer.
   override fun layerSummaries(): Map<String, LayerSummary> =
     layerIds()
-      .mapNotNull { id ->
+      .chunked(LAYER_SUMMARY_BATCH)
+      .flatMap { ids ->
         readMap { map ->
-          val type = map.styleLayerType(id) ?: return@readMap null
-          val source = map.layerSourceId(id).takeIf(String::isNotEmpty)
-          if (source != null && map.styleSourceType(source) == SourceType.ANNOTATIONS)
-            return@readMap null
-          id to
-            LayerSummary(
-              type = type,
-              source = source,
-              sourceLayer = map.layerSourceLayer(id).takeIf(String::isNotEmpty),
-            )
+          ids.mapNotNull { id ->
+            val type = map.styleLayerType(id) ?: return@mapNotNull null
+            val source = map.layerSourceId(id).takeIf(String::isNotEmpty)
+            if (source != null && map.styleSourceType(source) == SourceType.ANNOTATIONS)
+              return@mapNotNull null
+            id to
+              LayerSummary(
+                type = type,
+                source = source,
+                sourceLayer = map.layerSourceLayer(id).takeIf(String::isNotEmpty),
+              )
+          }
         }
+          .orEmpty()
       }
       .toMap()
 
@@ -1141,3 +1146,5 @@ private fun GeoJsonOptions.clusterPropertiesBytes(): ByteArray? {
   if (clusterProperties.isEmpty()) return null
   return buildJsonObject { putClusterProperties(clusterProperties) }.toJsonBytes()
 }
+
+private const val LAYER_SUMMARY_BATCH = 32
