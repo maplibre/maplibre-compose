@@ -403,6 +403,10 @@ public class InteractionBindingsBuilder internal constructor(from: InteractionBi
     secondaryClickBuilder.apply(block)
   }
 
+  /**
+   * Recognizes a held contact after the host's long-press timeout. Independently timed overlay
+   * handlers can also recognize the hold before either handler consumes another pointer event.
+   */
   public fun longPress(block: TapBindingBuilder.() -> Unit) {
     longPressBuilder.apply(block)
   }
