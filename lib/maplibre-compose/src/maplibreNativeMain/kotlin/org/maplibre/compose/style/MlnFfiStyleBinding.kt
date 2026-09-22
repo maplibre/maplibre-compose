@@ -6,6 +6,7 @@ import kotlin.coroutines.resume
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.DurationUnit
+import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
@@ -191,29 +192,42 @@ internal open class MlnFfiStyleBinding(
   /** The full engine order, annotation layer included: insertions and moves are relative to it. */
   override fun layerIds(): List<String> = readMap { it.styleLayerIds() }.orEmpty()
 
-  // Read layers in bounded batches: each owner call is short enough for render feedback to
-  // advance transitions between calls, and a large style does not pay a round trip per layer.
-  override fun layerSummaries(): Map<String, LayerSummary> =
-    layerIds()
-      .chunked(LAYER_SUMMARY_BATCH)
-      .flatMap { ids ->
+  /**
+   * Reads as many layers per owner-thread call as fit in [LAYER_READ_SLICE], so a large style does
+   * not pay a round trip per layer while each call still ends soon enough for the render feedback
+   * between calls to advance a transition.
+   */
+  override fun layerSummaries(): Map<String, LayerSummary> {
+    val ids = layerIds()
+    val summaries = LinkedHashMap<String, LayerSummary>(ids.size)
+    var next = 0
+    while (next < ids.size) {
+      val read =
         readMap { map ->
-          ids.mapNotNull { id ->
-            val type = map.styleLayerType(id) ?: return@mapNotNull null
-            val source = map.layerSourceId(id).takeIf(String::isNotEmpty)
-            if (source != null && map.styleSourceType(source) == SourceType.ANNOTATIONS)
-              return@mapNotNull null
-            id to
-              LayerSummary(
-                type = type,
-                source = source,
-                sourceLayer = map.layerSourceLayer(id).takeIf(String::isNotEmpty),
-              )
-          }
-        }
-          .orEmpty()
-      }
-      .toMap()
+          val deadline = TimeSource.Monotonic.markNow() + LAYER_READ_SLICE
+          var index = next
+          do {
+            val id = ids[index++]
+            layerSummary(map, id)?.let { summaries[id] = it }
+          } while (index < ids.size && deadline.hasNotPassedNow())
+          index
+        } ?: return summaries
+      next = read
+    }
+    return summaries
+  }
+
+  /** Owner thread only. Null for a layer the engine added for itself. */
+  private fun layerSummary(map: MapHandle, id: String): LayerSummary? {
+    val type = map.styleLayerType(id) ?: return null
+    val source = map.layerSourceId(id).takeIf(String::isNotEmpty)
+    if (source != null && map.styleSourceType(source) == SourceType.ANNOTATIONS) return null
+    return LayerSummary(
+      type = type,
+      source = source,
+      sourceLayer = map.layerSourceLayer(id).takeIf(String::isNotEmpty),
+    )
+  }
 
   private fun isStyleSource(map: MapHandle, id: String): Boolean =
     map.styleSourceExists(id) && map.styleSourceType(id) != SourceType.ANNOTATIONS
@@ -1147,4 +1161,8 @@ private fun GeoJsonOptions.clusterPropertiesBytes(): ByteArray? {
   return buildJsonObject { putClusterProperties(clusterProperties) }.toJsonBytes()
 }
 
-private const val LAYER_SUMMARY_BATCH = 32
+/**
+ * How long one owner-thread call may spend reading layer metadata. A frame at 120 Hz is 8 ms, so a
+ * slice well under that leaves the render feedback between calls able to advance a transition.
+ */
+private val LAYER_READ_SLICE = 2.milliseconds
