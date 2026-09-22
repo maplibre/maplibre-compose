@@ -51,59 +51,74 @@ class GenericLayerCompositionTest {
   }
 
   @Test
-  fun raw_layers_preserve_json_patch_properties_and_replace_unknown_root_changes() =
-    runPlainComposeUiTest {
-      val recording = RecordingStyleBinding(animatorDurationScaleState = mutableStateOf(0.5f))
-      var additions = 0
-      val binding =
-        object : StyleBinding by recording {
-          override fun addLayer(
-            definition: ResolvedLayerDefinition,
-            beforeLayerId: String,
-          ): Boolean {
-            additions++
-            return recording.addLayer(definition, beforeLayerId)
-          }
-
-          override fun unsupportedLayerPropertyReason(layerType: String, name: String): String? =
-            "unknown to Compose"
+  fun json_properties_bypass_filtering_and_replace_unknown_root_changes() = runPlainComposeUiTest {
+    val recording = RecordingStyleBinding(animatorDurationScaleState = mutableStateOf(0.5f))
+    var additions = 0
+    val binding =
+      object : StyleBinding by recording {
+        override fun addLayer(
+          definition: ResolvedLayerDefinition,
+          beforeLayerId: String,
+        ): Boolean {
+          additions++
+          return recording.addLayer(definition, beforeLayerId)
         }
-      val reconciler = StyleReconciler()
-      val original =
-        Json.parseToJsonElement(
-            """{"type":"plugin-mesh","metadata":{"custom":true},"custom":null,"layout":{},"paint":{"mesh-opacity":0.5,"mesh-opacity-transition":{"duration":400,"delay":20}},"minzoom":4}"""
-          )
-          .jsonObject
-      var json by mutableStateOf(original)
-      var visible by mutableStateOf(true)
-      setContent {
-        rememberStyleComposition(
-          maybeStyle = binding,
-          applyRevision = { style, revision -> reconciler.apply(style, revision) },
-          content = {
-            if (visible) RawLayer("mesh", json)
-          },
-        )
+
+        override fun unsupportedLayerPropertyReason(layerType: String, name: String): String? =
+          "unknown to Compose"
       }
-      waitForIdle()
-      assertEquals(
-        JsonObject(original + ("id" to JsonPrimitive("mesh"))),
-        recording.layers.getValue("mesh"),
+    val reconciler = StyleReconciler()
+    val original =
+      Json.parseToJsonElement(
+          """{"type":"plugin-mesh","metadata":{"custom":true},"custom":null,"paint":{"mesh-opacity":0.5,"mesh-opacity-transition":{"duration":400,"delay":20}},"minzoom":4}"""
+        )
+        .jsonObject
+    var json by mutableStateOf(original)
+    var visible by mutableStateOf(true)
+    setContent {
+      rememberStyleComposition(
+        maybeStyle = binding,
+        applyRevision = { style, revision -> reconciler.apply(style, revision) },
+        content = {
+          if (visible) {
+            Layer("mesh", "plugin-mesh") {
+              root("metadata", json.getValue("metadata"))
+              root("custom", json.getValue("custom"))
+              json["minzoom"]?.let { root("minzoom", it) }
+              (json["paint"] as? JsonObject)?.forEach { (name, value) -> paint(name, value) }
+            }
+          }
+        },
       )
-      assertEquals(1, additions)
-      runOnIdle { json = JsonObject(original - "paint" - "minzoom") }
-      waitForIdle()
-      assertEquals(1, additions)
-      assertTrue(recording.layerPropertyWrites.contains("mesh" to "mesh-opacity"))
-      assertEquals(JsonPrimitive(0), recording.layers.getValue("mesh")["minzoom"])
-      runOnIdle { json = JsonObject(json + ("metadata" to JsonObject(emptyMap()))) }
-      waitForIdle()
-      assertEquals(2, additions)
-      assertEquals(JsonObject(emptyMap()), recording.layers.getValue("mesh")["metadata"])
-      runOnIdle { visible = false }
-      waitForIdle()
-      assertTrue(recording.layers.isEmpty())
     }
+    waitForIdle()
+    assertEquals(
+      JsonObject(
+        original +
+          ("id" to JsonPrimitive("mesh")) +
+          ("paint" to
+            JsonObject(
+              original.getValue("paint").jsonObject +
+                ("mesh-opacity-transition" to
+                  Json.parseToJsonElement("""{"duration":200.0,"delay":10.0}"""))
+            ))
+      ),
+      recording.layers.getValue("mesh"),
+    )
+    assertEquals(1, additions)
+    runOnIdle { json = JsonObject(original - "paint" - "minzoom") }
+    waitForIdle()
+    assertEquals(1, additions)
+    assertTrue(recording.layerPropertyWrites.contains("mesh" to "mesh-opacity"))
+    assertEquals(JsonPrimitive(0), recording.layers.getValue("mesh")["minzoom"])
+    runOnIdle { json = JsonObject(json + ("metadata" to JsonObject(emptyMap()))) }
+    waitForIdle()
+    assertEquals(2, additions)
+    assertEquals(JsonObject(emptyMap()), recording.layers.getValue("mesh")["metadata"])
+    runOnIdle { visible = false }
+    waitForIdle()
+    assertTrue(recording.layers.isEmpty())
+  }
 
   @Test
   fun a_typed_plugin_wrapper_owns_sources_and_removes_conditional_properties() =

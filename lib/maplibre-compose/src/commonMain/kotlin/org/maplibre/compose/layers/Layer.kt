@@ -11,7 +11,6 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.style.LayerNode
@@ -22,19 +21,19 @@ import org.maplibre.compose.style.styleFontScale
 import org.maplibre.compose.util.MaplibreComposable
 
 /**
- * Declares a layer of any engine-supported [type]. The surrounding [Anchor] determines placement.
- * The layer is removed when it leaves composition and restored after a style reload.
+ * Declares an engine-supported layer [type] using named properties. Use this to wrap layer types
+ * that do not have a built-in composable. The renderer must support the type and its properties.
  *
- * [properties] describes the complete layer on each invocation; omitted properties are removed. It
- * is a regular Kotlin builder, so call composable helpers before this block. Named properties and
- * JSON pass to the engine without Compose's style-spec filtering. Expressions support managed
- * images and text units. Paint transitions follow the system animation-duration scale.
+ * [properties] describes the complete layer; omitted properties are removed on recomposition. Call
+ * composable helpers before this regular Kotlin builder. Expressions support painters, bitmaps, and
+ * text units. Paint transitions follow the system animation-duration scale.
  *
- * [source] installs and retains a managed source. Without it, a root `source` property may name an
- * existing source. Conflicting source IDs are an error. Paint, layout, filter, and zoom changes
- * update the installed layer; changes to its type, source, source-layer, or other root fields
- * replace it. Engine support for properties and feature queries depends on the layer type.
- * Composition owns the layer; its handle is read-only.
+ * [source] supplies a managed source. Alternatively, a root `source` property can name a source
+ * already in the style. If both are provided, their IDs must match.
+ *
+ * The surrounding [Anchor] determines placement. The layer is removed when it leaves composition
+ * and restored after a style reload. Its handle is read-only. Support for feature queries depends
+ * on the layer type.
  */
 @Composable
 @MaplibreComposable
@@ -96,47 +95,6 @@ internal fun Layer(
     onDoubleClick,
     hitPadding,
   )
-}
-
-/**
- * Declares a complete JSON layer without Compose's style-spec filtering or expression conversion.
- * [id] supplies the identity; an `id` in [definition] must match. Raw image names must already
- * exist in the style. Use [Layer] for expressions containing painters or bitmaps.
- *
- * Raw transition timing is passed unchanged, without the system animation-duration scale. Other
- * lifecycle, source ownership, and update rules are the same as [Layer].
- */
-@Composable
-@MaplibreComposable
-public fun RawLayer(
-  id: String,
-  definition: JsonObject,
-  source: Source? = null,
-  onClick: FeaturesClickHandler? = null,
-  onLongClick: FeaturesClickHandler? = null,
-  onDoubleClick: FeaturesClickHandler? = null,
-  hitPadding: Dp = 0.dp,
-) {
-  val type = definition["type"]
-  require(type is JsonPrimitive && type.isString && type.content.isNotBlank()) {
-    "Layer type must be a nonblank string"
-  }
-  validateLayer(id, type.content, hitPadding)
-  require(definition["id"] == null || definition["id"] == JsonPrimitive(id)) {
-    "Layer ID conflicts with its definition"
-  }
-  listOf("layout", "paint").forEach { section ->
-    require(definition[section] == null || definition[section] is JsonObject) {
-      "Layer $section must be an object"
-    }
-  }
-  val sourceId = layerSourceId(definition, source?.id)
-  val json = definition.mapValuesTo(mutableMapOf()) { (_, value) -> value.snapshot() }
-  json["id"] = JsonPrimitive(id)
-  if (sourceId != null) json["source"] = JsonPrimitive(sourceId)
-  val resolved =
-    ResolvedLayerDefinition(id, type.content, sourceId, JsonObject(json), scaleTransitions = false)
-  LayerNode(resolved, emptyMap(), source, onClick, onLongClick, onDoubleClick, hitPadding)
 }
 
 @Composable

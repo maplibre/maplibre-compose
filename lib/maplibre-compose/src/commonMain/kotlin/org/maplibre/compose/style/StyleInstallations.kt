@@ -238,10 +238,7 @@ private fun clearingValue(kind: LayerPropertyKind, name: String): JsonElement =
     else -> JsonNull
   }
 
-/**
- * Resolves the declaration's compatibility filtering and animation timing policies for [style]. Raw
- * declarations preserve both their properties and their timing.
- */
+/** Applies compatibility filtering and the system animation-duration scale. */
 private fun ResolvedLayerDefinition.resolveFor(
   style: StyleBinding,
   animatorDurationScale: Float,
@@ -258,7 +255,7 @@ private fun ResolvedLayerDefinition.resolveFor(
   }
   (resolved["paint"] as? JsonObject)
     ?.withoutUnsupported()
-    ?.let { if (scaleTransitions) it.withScaledTransitions(animatorDurationScale) else it }
+    ?.withScaledTransitions(animatorDurationScale)
     ?.let {
       if (it.isEmpty() && filterUnsupportedProperties) resolved.remove("paint")
       else resolved["paint"] = it

@@ -7,8 +7,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import kotlin.time.Duration.Companion.milliseconds
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.expressions.ast.Expression
@@ -24,7 +22,6 @@ import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.LineLayer
-import org.maplibre.compose.layers.RawLayer
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.sources.GeoJsonData
@@ -149,22 +146,3 @@ fun PluginMeshLayer(
 }
 
 // #endregion plugin-layer
-
-@Composable
-fun RawLayerExample() {
-  // #region raw-layer
-  RawLayer(
-    id = "custom-background",
-    definition =
-      buildJsonObject {
-        put("type", JsonPrimitive("background"))
-        put(
-          "paint",
-          buildJsonObject {
-            put("background-color", JsonPrimitive("#204060"))
-          },
-        )
-      },
-  )
-  // #endregion raw-layer
-}
