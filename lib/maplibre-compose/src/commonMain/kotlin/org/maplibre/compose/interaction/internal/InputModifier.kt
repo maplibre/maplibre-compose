@@ -208,9 +208,7 @@ private fun Modifier.pointerGestures(
         },
       )
 
-    val consumption = PointerInputConsumption {
-      gesture.cancel()
-    }
+    val consumption = PointerInputConsumption(gesture::cancel, gesture::yieldToOtherHandler)
     platform =
       PlatformTransformSession(
         target,

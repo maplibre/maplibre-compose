@@ -838,13 +838,24 @@ internal class PointerGesture(
     return token
   }
 
+  /** Losing this contact does not invalidate a completed tap awaiting disambiguation. */
+  fun yieldToOtherHandler() {
+    pairing.discard(emitClick = true)
+    cancelContact()
+  }
+
+  /** Disposal or input invalidation discards pending callbacks as well as the current contact. */
   fun cancel() {
+    pairing.discard(emitClick = false)
+    cancelContact()
+  }
+
+  private fun cancelContact() {
     cancelDrag()
     pair?.cancel()
     cancelLongClick()
     longClickHandled = false
     pendingContinuation = null
-    pairing.discard(emitClick = false)
     pressRole = TapPairing.Press.First
     lastSingle = null
     singleDragOrigin = null

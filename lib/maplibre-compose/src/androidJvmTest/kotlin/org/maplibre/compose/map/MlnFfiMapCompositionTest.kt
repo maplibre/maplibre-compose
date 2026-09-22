@@ -218,13 +218,23 @@ class MlnFfiMapCompositionTest {
       val state =
         runtime.createMapState(BaseStyle.Empty, cameraPosition = CameraPosition(zoom = 12.0))
       var drags = 0
+      var taps = 0
       val mapFocused = AtomicBoolean(false)
       setFfiTestMapContent(runtimeOptions) {
         MaplibreMap(
           Modifier.size(300.dp).testTag("map").onFocusChanged { mapFocused.store(it.isFocused) },
           state = state,
           interactions =
-            MapInteractions { callbacks { click { onUnhandled { ClickResult.Consume } } } },
+            MapInteractions {
+              callbacks {
+                click {
+                  onUnhandled {
+                    taps++
+                    ClickResult.Consume
+                  }
+                }
+              }
+            },
           overlay = {
             Box(
               Modifier.fillMaxSize().pointerInput(Unit) {
@@ -255,6 +265,26 @@ class MlnFfiMapCompositionTest {
       assertEquals(before, state.cameraPosition)
       assertFalse(mapFocused.load(), "a descendant drag focused the map")
       assertFalse(state.isEngaged, "a descendant drag engaged the map")
+      assertEquals(0, taps)
+
+      // A completed map tap remains valid when the child claims a nearby second contact.
+      mainClock.autoAdvance = false
+      try {
+        onNodeWithTag("map").performTouchInput {
+          advanceEventTime(1_000)
+          down(point(150f, 150f))
+          up()
+          advanceEventTime(80)
+          down(point(150f, 150f))
+          repeat(10) { moveBy(point(4f, 0f)) }
+          up()
+        }
+        mainClock.advanceTimeBy(1_000)
+        waitUntil(timeoutMillis = 5_000) { taps == 1 }
+        assertEquals(before, state.cameraPosition)
+      } finally {
+        mainClock.autoAdvance = true
+      }
     }
   }
 

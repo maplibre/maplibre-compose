@@ -30,7 +30,13 @@ import org.maplibre.compose.overlay.include
  * [LocalMapState], [LocalViewport], and [org.maplibre.compose.overlay.LocalViewportInsets] to
  * nested composables. Use ordinary Compose layouts and padding to arrange controls. Overlay pointer
  * handlers run before the map in the Main pass: consume an event to handle it, or leave it
- * unconsumed for the map's gestures.
+ * unconsumed for the map's gestures. Consumption cancels the map's current contact, but does not
+ * retract an earlier completed tap or a callback that has already fired.
+ *
+ * Timeout-based handlers, such as a long-press drag, can recognize before consuming another event.
+ * If an overlay handler competes with a map long click, claim the relevant contact on down or
+ * disable the map's long-press binding through [uiOptions]. Two independent timeout handlers are
+ * not ordered by pointer-event consumption.
  *
  * [viewportInsets] adds to [org.maplibre.compose.camera.CameraPosition.padding] for camera moves
  * and fitting. Built-in controls also use these insets.
