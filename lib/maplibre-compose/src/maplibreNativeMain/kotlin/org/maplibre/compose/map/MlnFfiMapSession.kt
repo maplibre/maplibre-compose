@@ -940,8 +940,12 @@ internal class MlnFfiMapSession(
       // read is refreshed before the event is delivered.
       RuntimeEventType.MAP_CAMERA_WILL_CHANGE,
       RuntimeEventType.MAP_CAMERA_IS_CHANGING,
-      RuntimeEventType.MAP_CAMERA_DID_CHANGE ->
-        postPresentationEvent(engine, lease, mapEvent) { loop?.map?.let(::snapshotViewport) }
+      RuntimeEventType.MAP_CAMERA_DID_CHANGE -> {
+        viewportSnapshotStale = true
+        postPresentationEvent(engine, lease, mapEvent) {
+          if (viewportSnapshotStale) loop?.map?.let(::snapshotViewport)
+        }
+      }
 
       RuntimeEventType.MAP_CAMERA_TRANSITION_FINISHED -> {
         val payload = event.payload
@@ -1304,13 +1308,21 @@ internal class MlnFfiMapSession(
     }
   }
 
+  /**
+   * Owner thread only. True from a camera event until the next snapshot. The engine reports every
+   * transform change as camera events, so the mirror is read again only after one of them, once per
+   * drain, rather than after every drain.
+   */
+  private var viewportSnapshotStale = false
+
   /** Owner thread only. Publishes the applied camera and viewport for any-thread getters. */
   private fun snapshotViewport(map: MapHandle) {
+    viewportSnapshotStale = false
     val geometry = map.readViewportGeometry(appliedViewportInsets)
     publishViewport(
       MirroredViewport(
         camera = geometry.camera,
-        effectivePadding = map.camera.padding ?: EdgeInsets.ZERO,
+        effectivePadding = geometry.padding,
         size = geometry.size,
         visibleRegion = geometry.visibleRegion,
         visibleBounds = geometry.visibleBounds,
@@ -2064,8 +2076,10 @@ internal class MlnFfiMapSession(
 
   private fun onEventsDrained(engine: EngineMapIdentity, map: MapHandle) {
     applyPendingViewport(map)
-    ownerThreadRenderLease?.let { lease ->
-      lifecycleCallbacks.onPresentationEvent(engine, lease) { snapshotViewport(map) }
+    if (viewportSnapshotStale) {
+      ownerThreadRenderLease?.let { lease ->
+        lifecycleCallbacks.onPresentationEvent(engine, lease) { snapshotViewport(map) }
+      }
     }
     // A detached presentation cannot publish events, but accepted command fences still finish.
     finishPendingGesture(map)

@@ -15,17 +15,23 @@ import org.maplibre.spatialk.geojson.Position
 /** The applied camera and the extents it renders, all read from one map transform. */
 internal data class MapViewportGeometry(
   val camera: CameraPosition,
+  val padding: EdgeInsets,
   val size: DpSize,
   val visibleRegion: VisibleRegion,
   val visibleBounds: VisibleBounds,
 )
 
-/** Owner thread only. Reads the camera and extents the map would render right now. */
+/**
+ * Owner thread only. Reads the camera and extents the map would render right now. Each engine read
+ * is one native call, so every field is read once.
+ */
 internal fun MapHandle.readViewportGeometry(viewportInsets: EdgeInsets): MapViewportGeometry {
   val size = size
-  val corners = unprojectedCorners()
+  val camera = camera
+  val corners = unprojectedCorners(size.width.toDouble(), size.height.toDouble())
   return MapViewportGeometry(
     camera = camera.toCameraPosition(viewportInsets),
+    padding = camera.padding ?: EdgeInsets.ZERO,
     size = DpSize(size.width.dp, size.height.dp),
     visibleRegion =
       VisibleRegion(
@@ -56,9 +62,7 @@ internal fun MapHandle.readViewportGeometry(viewportInsets: EdgeInsets): MapView
  * `latLngBoundsForCamera` hulls only the top-left and bottom-right corners, so it misses parts of
  * the viewport whenever the camera is rotated or pitched. Unproject all four corners instead.
  */
-private fun MapHandle.unprojectedCorners(): List<Position> {
-  val width = size.width.toDouble()
-  val height = size.height.toDouble()
+private fun MapHandle.unprojectedCorners(width: Double, height: Double): List<Position> {
   return latLngsForPixelsUnwrapped(
       listOf(
         ScreenPoint(0.0, 0.0),
