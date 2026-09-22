@@ -17,9 +17,9 @@ import org.maplibre.compose.style.toTransitionJson
  * removed, and repeating a property replaces its earlier value. Use ordinary receiver extensions to
  * share groups of properties between layers.
  *
- * Expressions support managed images and text-unit conversion. JSON is copied and passed to the
- * engine unchanged, including explicit null values. The engine validates property names and values.
- * This receiver is valid only during the [Layer] properties block.
+ * Expressions support painters, bitmaps, and text units. JSON values may include explicit nulls.
+ * The engine validates property names and values. This receiver is valid only during the [Layer]
+ * properties block.
  */
 public class LayerProperties internal constructor(private val cache: LayerPropertyCache) {
   private val root = linkedMapOf<String, JsonElement>()
@@ -29,7 +29,10 @@ public class LayerProperties internal constructor(private val cache: LayerProper
   private var unsupported: MutableMap<String, String>? = null
   private var open = true
 
-  /** Adds a root JSON value. Identity and property sections have dedicated APIs. */
+  /**
+   * Adds a root JSON value. Use [Layer] for `id` and `type`, and [layout] or [paint] for
+   * properties.
+   */
   public fun root(name: String, value: JsonElement) {
     putJson(null, name, value)
   }

@@ -63,7 +63,6 @@ internal data class ResolvedLayerDefinition(
   val value: JsonObject,
   val unsupportedProperties: Map<String, String> = emptyMap(),
   val filterUnsupportedProperties: Boolean = false,
-  val scaleTransitions: Boolean = true,
 )
 
 /** Defines a resolved image without a painter, composition, or loaded-style reference. */
