@@ -11,6 +11,7 @@ on:
 
 permissions:
   actions: write
+  checks: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.workflow_run.id }}
@@ -18,16 +19,19 @@ concurrency:
 
 jobs:
   retry:
-    name: Retry one failed job
+    name: Retry one failed or timed-out job
     runs-on: ubuntu-slim
     timeout-minutes: 5
     if: >-
-      github.event.workflow_run.conclusion == 'failure'
+      (github.event.workflow_run.conclusion == 'failure'
+       || github.event.workflow_run.conclusion == 'cancelled'
+       || github.event.workflow_run.conclusion == 'timed_out')
       && github.event.workflow_run.run_attempt == 1
     steps:
-      - name: Retry the failed job
+      - name: Retry the failed or timed-out job
         env:
           CI_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          CI_RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           CI_RUN_ID: ${{ github.event.workflow_run.id }}
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -59,14 +63,18 @@ jobs:
             retry gh api \
               "${run}/attempts/${CI_RUN_ATTEMPT}/jobs?per_page=100"
           )"
-          # A primary failure also fails all-good and can skip dependent jobs.
+          # A primary failure or job timeout also fails all-good and can skip dependent jobs.
           # Each tier's required check is named 'all-good (<tier>)'.
-          primary_failure_count="$(
+          primary_failures="$(
             jq '[
               .jobs[]
-              | select(.conclusion == "failure" and (.name | startswith("all-good") | not))
-            ] | length' <<<"$jobs"
+              | select(
+                  (.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out")
+                  and (.name | startswith("all-good") | not)
+                )
+            ]' <<<"$jobs"
           )"
+          primary_failure_count="$(jq 'length' <<<"$primary_failures")"
           aggregate_failure_count="$(
             jq '[
               .jobs[]
@@ -80,6 +88,8 @@ jobs:
                   .conclusion != "success"
                   and .conclusion != "failure"
                   and .conclusion != "skipped"
+                  and .conclusion != "cancelled"
+                  and .conclusion != "timed_out"
                 )
             ] | length' <<<"$jobs"
           )"
@@ -98,20 +108,25 @@ jobs:
             exit 0
           fi
 
-          job_id="$(
-            jq -r '
-              .jobs[]
-              | select(.conclusion == "failure" and (.name | startswith("all-good") | not))
-              | .id
-            ' <<<"$jobs"
-          )"
-          job_name="$(
-            jq -r '
-              .jobs[]
-              | select(.conclusion == "failure" and (.name | startswith("all-good") | not))
-              | .name
-            ' <<<"$jobs"
-          )"
+          job_id="$(jq -r '.[0].id' <<<"$primary_failures")"
+          job_name="$(jq -r '.[0].name' <<<"$primary_failures")"
+          job_conclusion="$(jq -r '.[0].conclusion' <<<"$primary_failures")"
+          if [[ "$job_conclusion" != "failure" ]]; then
+            # GitHub reports job timeouts as cancelled. Require the runner's timeout
+            # annotation so manual and concurrency cancellations remain cancelled.
+            check_url="$(jq -r '.[0].check_run_url' <<<"$primary_failures")"
+            annotations="$(retry gh api "${check_url}/annotations?per_page=100")"
+            if ! jq -e 'any(.[];
+              .annotation_level == "failure"
+              and (.message | startswith("The job has exceeded the maximum execution time of "))
+            )' <<<"$annotations" >/dev/null; then
+              echo "Job $job_id was cancelled without a timeout annotation."
+              exit 0
+            fi
+          elif [[ "$CI_RUN_CONCLUSION" != "failure" ]]; then
+            echo "CI run $CI_RUN_ID was cancelled independently of its failed job."
+            exit 0
+          fi
           printf 'Retrying %s (job %s).\n' "$job_name" "$job_id"
           retry gh api \
             --method POST \

@@ -23,8 +23,10 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.systemAnimatorDurationScale
 import org.maplibre.compose.testing.MapFixture
+import org.maplibre.compose.testing.MapLibreFlavor
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
+import org.maplibre.compose.testing.mapLibreFlavor
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.compose.testing.skipMapTest
 import org.maplibre.compose.util.DpPadding
@@ -481,38 +483,32 @@ class MapCameraTransitionTest {
     }
   }
 
-  /**
-   * A flight without a duration paces itself by speed. The camera must be seen part way, since a
-   * flight that jumps also lands on its target.
-   */
+  /** A flight without a duration must use the engine's animated path and reach its target. */
   @Test
-  fun a_flight_paced_by_speed_moves_over_time_and_lands_on_its_target(): MapTestResult =
-    runMapTest {
-      if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
-      createMapFixture().use {
-        it.startAt(FLIGHT_START)
+  fun a_flight_paced_by_speed_animates_and_lands_on_its_target(): MapTestResult = runMapTest {
+    if (systemAnimatorDurationScale() == 0f) skipMapTest("System animations are disabled")
+    createMapFixture().use {
+      it.startAt(FLIGHT_START)
+      it.engineEvents.clear()
 
-        val flight = launch {
-          it.state.animateCamera(
-            FLIGHT_TARGET.toCameraUpdate(),
-            CameraAnimation.Fly(speed = 20.0),
-          )
-        }
-        it.pumpUntil("the flight to move the camera") {
-          flight.isCompleted ||
-            abs(it.session.getCameraPosition().target.latitude - FLIGHT_START.target.latitude) > 1.0
-        }
-        assertFalse(flight.isCompleted, "the flight jumped to its target")
-        val partWay = it.session.getCameraPosition()
-        assertTrue(
-          abs(partWay.target.latitude - FLIGHT_TARGET.target.latitude) > 1.0,
-          "the flight had already arrived at $partWay",
+      it.awaitWhileRendering("the flight to complete") {
+        it.state.animateCamera(
+          FLIGHT_TARGET.toCameraUpdate(),
+          CameraAnimation.Fly(speed = 20.0),
         )
-
-        it.pumpUntil("the flight to complete") { flight.isCompleted }
-        it.assertLanded(FLIGHT_TARGET, "the flight")
       }
+
+      // The engine uses wall time: a slow renderer can miss any intermediate camera position.
+      // Native reports whether the move was animated; GL JS does not expose this distinction.
+      if (mapLibreFlavor == MapLibreFlavor.NATIVE) {
+        assertTrue(
+          it.engineEvents.any { event -> event == MapEvent.CameraMoveStarted(animated = true) },
+          "the speed-paced flight was not animated: ${it.engineEvents}",
+        )
+      }
+      it.assertLanded(FLIGHT_TARGET, "the flight")
     }
+  }
 
   /**
    * A minimum zoom at the start zoom keeps a flight that would zoom out from doing so. Both engines

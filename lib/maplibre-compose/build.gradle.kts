@@ -236,6 +236,10 @@ class ShutdownTestClasspathArguments(@get:Classpath val classpath: FileCollectio
 
 tasks.named<Test>("jvmTest") {
   jvmArgumentProviders.add(ShutdownTestClasspathArguments(classpath))
+  if (providers.environmentVariable("CI").orNull == "true") {
+    // A hung process never writes its reports. Keep the active test and watchdog stacks in CI logs.
+    testLogging { events("started", "failed", "skipped", "standardError") }
+  }
 }
 
 stageIosSimulatorTestResources()

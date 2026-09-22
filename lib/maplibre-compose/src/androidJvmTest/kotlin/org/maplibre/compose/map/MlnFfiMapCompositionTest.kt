@@ -188,7 +188,8 @@ class MlnFfiMapCompositionTest {
         onNodeWithTag("map").performMouseInput { click(point(200f, 200f)) }
         waitUntil(timeoutMillis = 5_000L) { placements == 1 }
         onNodeWithTag("map").performMouseInput {
-          moveTo(point(200f, 200f))
+          // Keep this drag outside the preceding click's double-click slop.
+          moveTo(point(200f, 120f))
           press()
           moveBy(point(40f, 0f))
           release()
