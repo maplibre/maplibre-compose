@@ -99,6 +99,12 @@ public fun ScaleBar(
 ) {
   // The derived stop and the draw block outlive a recomposition that passes a new lambda.
   val currentMetersPerDp by rememberUpdatedState(metersPerDp)
+
+  // A zero scale means the map is not initialized yet: emit no layout node, as the value-based
+  // overload did. Derived, so composition observes only the transition.
+  val initialized by remember { derivedStateOf { currentMetersPerDp() > 0.0 } }
+  if (!initialized) return
+
   val textMeasurer = rememberTextMeasurer()
 
   // longest possible text
@@ -130,7 +136,6 @@ public fun ScaleBar(
     val stops by
       remember(measures, maxBarLength) {
         derivedStateOf {
-          // A zero scale means the map is not initialized yet.
           val scale = currentMetersPerDp().takeIf { it > 0.0 } ?: return@derivedStateOf null
           val max = scale.meters * maxBarLength.value.toDouble()
           Pair(
